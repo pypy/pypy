@@ -97,8 +97,8 @@ class AppTestFcntl:
         if "linux" in sys.platform:
             # test managing signals
             assert fcntl.fcntl(f, fcntl.F_GETOWN) == 0
-            fcntl.fcntl(f, fcntl.F_SETOWN, 20)
-            assert fcntl.fcntl(f, fcntl.F_GETOWN) == 20
+            fcntl.fcntl(f, fcntl.F_SETOWN, os.getpid())
+            assert fcntl.fcntl(f, fcntl.F_GETOWN) == os.getpid()
             assert fcntl.fcntl(f, fcntl.F_GETSIG) == 0
             fcntl.fcntl(f, fcntl.F_SETSIG, 20)
             assert fcntl.fcntl(f, fcntl.F_GETSIG) == 20
