@@ -61,7 +61,8 @@ for i in type_names:
 class cConfig:
     pass
 
-cConfig.__dict__.update(rffi_platform.configure(CConfig))
+for k, v in rffi_platform.configure(CConfig).items():
+    setattr(cConfig, k, v)
 
 FFI_TYPE_P.TO.become(cConfig.ffi_type)
 size_t = cConfig.size_t
