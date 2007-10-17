@@ -1,10 +1,11 @@
 from pypy.objspace.std.test.test_dictmultiobject import FakeSpace
 from pypy.objspace.std.test.test_listmultiobject import \
      BaseAppTest_ListMultiObject
-from pypy.objspace.std.blistimplementation import BListImplementation
 
 import py.test
 py.test.skip('Not implemented yet')
+
+from pypy.objspace.std.blistimplementation import BListImplementation
 
 ## Most of these tests are from the reference implementation
 
@@ -36,6 +37,12 @@ class AppTest_BListObject(BaseAppTest_ListMultiObject):
         little_list = [0]
 #        big_list = little_list * 2**512 #XXX App-level OverflowError
         big_list = little_list * 2**30
+
+    def test_very_very_long_list(self):
+        big_list = [0] * 2**30
+        for i in range(20):
+            big_list = big_list * 2**30
+        assert len(big_list) > 2**512
     
     def test_very_long_list_insert(self):
         little_list = [0]
