@@ -4,6 +4,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.objectmodel import keepalive_until_here
 
 from pypy.rlib import rzlib
 
@@ -95,19 +96,39 @@ def decompress(space, string, wbits=rzlib.MAX_WBITS, bufsize=0):
 decompress.unwrap_spec = [ObjSpace, str, int, int]
 
 
-class Compress(Wrappable):
+class ZLibObject(Wrappable):
+    """
+    Common base class for Compress and Decompress.
+    """
+    stream = rzlib.null_stream
+
+    def __init__(self, space):
+        self.space = space
+        self._lock = space.allocate_lock()
+
+    def lock(self):
+        """To call before using self.stream."""
+        self._lock.acquire(True)
+
+    def unlock(self):
+        """To call after using self.stream."""
+        self._lock.release()
+        keepalive_until_here(self)
+        # subtle: we have to make sure that 'self' is not garbage-collected
+        # while we are still using 'self.stream' - hence the keepalive.
+
+
+class Compress(ZLibObject):
     """
     Wrapper around zlib's z_stream structure which provides convenient
     compression functionality.
     """
-    stream = rzlib.null_stream
-
     def __init__(self, space, level=rzlib.Z_DEFAULT_COMPRESSION,
                  method=rzlib.Z_DEFLATED,             # \
                  wbits=rzlib.MAX_WBITS,               #  \   undocumented
                  memLevel=rzlib.DEF_MEM_LEVEL,        #  /    parameters
                  strategy=rzlib.Z_DEFAULT_STRATEGY):  # /
-        self.space = space
+        ZLibObject.__init__(self, space)
         try:
             self.stream = rzlib.deflateInit(level, method, wbits,
                                             memLevel, strategy)
@@ -116,7 +137,6 @@ class Compress(Wrappable):
         except ValueError:
             raise OperationError(space.w_ValueError,
                                  space.wrap("Invalid initialization option"))
-        self.lock = space.allocate_lock()
 
     def __del__(self):
         """Automatically free the resources used by the stream."""
@@ -135,15 +155,14 @@ class Compress(Wrappable):
         Call the flush() method to clear these buffers.
         """
         try:
-            lock = self.lock
-            lock.acquire(True)
+            self.lock()
             try:
                 if not self.stream:
                     raise zlib_error(self.space,
                                      "compressor object already flushed")
                 result = rzlib.compress(self.stream, data)
             finally:
-                lock.release()
+                self.unlock()
         except rzlib.RZlibError, e:
             raise zlib_error(self.space, e.msg)
         return self.space.wrap(result)
@@ -163,20 +182,19 @@ class Compress(Wrappable):
         compressed.
         """
         try:
-            lock = self.lock
-            lock.acquire(True)
+            self.lock()
             try:
                 if not self.stream:
                     raise zlib_error(self.space,
                                      "compressor object already flushed")
                 result = rzlib.compress(self.stream, '', mode)
+                if mode == rzlib.Z_FINISH:    # release the data structures now
+                    rzlib.deflateEnd(self.stream)
+                    self.stream = rzlib.null_stream
             finally:
-                lock.release()
+                self.unlock()
         except rzlib.RZlibError, e:
             raise zlib_error(self.space, e.msg)
-        if mode == rzlib.Z_FINISH:       # release the data structures now
-            rzlib.deflateEnd(self.stream)
-            self.stream = rzlib.null_stream
         return self.space.wrap(result)
     flush.unwrap_spec = ['self', int]
 
@@ -208,13 +226,11 @@ Optional arg level is the compression level, in 1-9.
 """)
 
 
-class Decompress(Wrappable):
+class Decompress(ZLibObject):
     """
     Wrapper around zlib's z_stream structure which provides convenient
     decompression functionality.
     """
-    stream = rzlib.null_stream
-
     def __init__(self, space, wbits=rzlib.MAX_WBITS):
         """
         Initialize a new decompression object.
@@ -224,7 +240,7 @@ class Decompress(Wrappable):
         and decompression.  See the documentation for deflateInit2 and
         inflateInit2.
         """
-        self.space = space
+        ZLibObject.__init__(self, space)
         self.unused_data = ''
         self.unconsumed_tail = ''
         try:
@@ -234,7 +250,6 @@ class Decompress(Wrappable):
         except ValueError:
             raise OperationError(space.w_ValueError,
                                  space.wrap("Invalid initialization option"))
-        self.lock = space.allocate_lock()
 
     def __del__(self):
         """Automatically free the resources used by the stream."""
@@ -259,13 +274,12 @@ class Decompress(Wrappable):
                                  self.space.wrap("max_length must be "
                                                  "greater than zero"))
         try:
-            lock = self.lock
-            lock.acquire(True)
+            self.lock()
             try:
                 result = rzlib.decompress(self.stream, data,
                                           max_length = max_length)
             finally:
-                lock.release()
+                self.unlock()
         except rzlib.RZlibError, e:
             raise zlib_error(self.space, e.msg)
 
