@@ -309,6 +309,24 @@ class BaseTestRint(BaseRtypingTest):
                     res2 = self.interpret(func, [x, y])
                     assert res1 == res2
 
+    def test_int_add_nonneg_ovf(self):
+        def f(x):
+            try:
+                a = ovfcheck(x + 50)
+            except OverflowError:
+                return 0
+            try:
+                a += ovfcheck(100 + x)
+            except OverflowError:
+                return 1
+            return a
+        res = self.interpret(f, [-3])
+        assert res == 144
+        res = self.interpret(f, [sys.maxint-50])
+        assert res == 1
+        res = self.interpret(f, [sys.maxint])
+        assert res == 0
+
 class TestLLtype(BaseTestRint, LLRtypeMixin):
     pass
 

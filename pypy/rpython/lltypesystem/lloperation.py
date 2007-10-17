@@ -186,6 +186,8 @@ LL_OPERATIONS = {
     'int_xor':              LLOp(canfold=True),
 
     'int_add_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
+    'int_add_nonneg_ovf':   LLOp(canraise=(OverflowError,), tryfold=True),
+              # ^^^ more efficient version when 2nd arg is nonneg
     'int_sub_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
     'int_mul_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
     'int_floordiv_ovf':     LLOp(canraise=(OverflowError,), tryfold=True),

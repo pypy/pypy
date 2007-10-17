@@ -56,6 +56,11 @@
 	if ((r^(x)) >= 0 || (r^(y)) >= 0); \
 	else FAIL_OVF("integer addition")
 
+#define OP_INT_ADD_NONNEG_OVF(x,y,r)  /* y can be assumed >= 0 */ \
+    OP_INT_ADD(x,y,r); \
+    if (r >= (x)); \
+    else FAIL_OVF("integer addition")
+
 #define OP_INT_SUB(x,y,r)     r = (x) - (y)
 
 #define OP_INT_SUB_OVF(x,y,r) \

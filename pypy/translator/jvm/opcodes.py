@@ -111,6 +111,7 @@ _opcodes = {
     'int_rshift':               jvmgen.ISHR,
     'int_xor':                  jvmgen.IXOR,
     'int_add_ovf':              jvmgen.IADDOVF,
+    'int_add_nonneg_ovf':       jvmgen.IADDOVF,
     'int_sub_ovf':              jvmgen.ISUBOVF,
     'int_mul_ovf':              jvmgen.IMULOVF,
     'int_floordiv_ovf':         jvmgen.IDIV, # these can't overflow!

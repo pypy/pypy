@@ -16,6 +16,14 @@ class BaseTestOverflow:
                 return 42
         self.check(fn, [sys.maxint, 1])
 
+    def test_add2(self):
+        def fn(x):
+            try:
+                return ovfcheck(x+1)   # special 'int_add_nonneg_ovf' operation
+            except OverflowError:
+                return 42
+        self.check(fn, [sys.maxint])
+
     def test_sub(self):
         def fn(x, y):
             try:

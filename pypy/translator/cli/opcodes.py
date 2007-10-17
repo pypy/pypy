@@ -104,6 +104,7 @@ opcodes = {
     'int_rshift':               'shr',
     'int_xor':                  'xor',
     'int_add_ovf':              _check_ovf('add.ovf'),
+    'int_add_nonneg_ovf':       _check_ovf('add.ovf'),
     'int_sub_ovf':              _check_ovf('sub.ovf'),
     'int_mul_ovf':              _check_ovf('mul.ovf'),
     'int_floordiv_ovf':         'div', # these can't overflow!

@@ -969,6 +969,11 @@ class LLFrame(object):
     _makefunc2('op_ullong_lshift_val',    '<<', 'r_ulonglong')
     _makefunc2('op_ullong_rshift_val',    '>>', 'r_ulonglong')
 
+    def op_int_add_nonneg_ovf(self, x, y):
+        if isinstance(y, int):
+            assert y >= 0
+        return self.op_int_add_ovf(x, y)
+
     def op_cast_float_to_int(self, f):
         assert type(f) is float
         try:

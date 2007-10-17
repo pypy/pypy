@@ -57,7 +57,15 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
     rtype_inplace_add = rtype_add
 
     def rtype_add_ovf(_, hop):
-        return _rtype_template(hop, 'add_ovf')
+        func = 'add_ovf'
+        if hop.r_result.opprefix == 'int_':
+            if hop.args_s[1].nonneg:
+                func = 'add_nonneg_ovf'
+            elif hop.args_s[0].nonneg:
+                hop = hop.copy()
+                hop.swap_fst_snd_args()
+                func = 'add_nonneg_ovf'
+        return _rtype_template(hop, func)
 
     def rtype_sub(_, hop):
         return _rtype_template(hop, 'sub')
@@ -183,7 +191,7 @@ def _rtype_template(hop, func, implicit_excs=[]):
             appendix = op_appendices[implicit_exc]
             func += '_' + appendix
 
-    r_result = hop.rtyper.makerepr(hop.s_result)
+    r_result = hop.r_result
     if r_result.lowleveltype == Bool:
         repr = signed_repr
     else:
