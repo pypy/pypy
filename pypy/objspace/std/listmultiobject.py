@@ -10,9 +10,9 @@ from pypy.rlib.listsort import TimSort
 
 # ListImplementations
 
-# An empty list always is an EmptyListImplementation.
+# An empty list is always an EmptyListImplementation.
 #
-# RDictImplementation -- standard implementation
+# RListImplementation -- standard implementation
 # StrListImplementation -- lists consisting only of strings
 # ChunkedListImplementation -- when having set the withchunklist option
 # SmartResizableListImplementation -- when having set the
@@ -87,7 +87,7 @@ class ListImplementation(object):
         for i in range(slicelength):
             res_w[i] = self.getitem(start)
             start += step
-        return RListImplementation(self.space, res_w)
+        return make_implementation(self.space, res_w)
 
     def delitem_slice_step(self, start, stop, step, slicelength):
         n = self.length()
@@ -368,8 +368,8 @@ class ChunkedListImplementation(ListImplementation):
         length = self._length
 
         self._grow()
-        for j in range(length - 1, 0, -1):
-            self.setitem(j + 1, self.getitem(j))
+        for j in range(length, i, -1):
+            self.setitem(j, self.getitem(j-1))
         self.setitem(i, w_item)
 
         return self
@@ -399,13 +399,7 @@ class ChunkedListImplementation(ListImplementation):
 class EmptyListImplementation(ListImplementation):
     def make_list_with_one_item(self, w_item):
         space = self.space
-        if space.config.objspace.std.withfastslice:
-            return SliceTrackingListImplementation(space, [w_item])
-        w_type = space.type(w_item)
-        if space.is_w(w_type, space.w_str):
-            strlist = [space.str_w(w_item)]
-            return StrListImplementation(space, strlist)
-        return RListImplementation(space, [w_item])
+        return make_implementation_with_one_item(space, w_item)
 
     def length(self):
         return 0
@@ -834,6 +828,23 @@ def make_implementation(space, list_w):
         else:
             return RListImplementation(space, list_w)
 
+def make_implementation_with_one_item(space, w_item):
+        if space.config.objspace.std.withfastslice:
+            return SliceTrackingListImplementation(space, [w_item])
+        if space.config.objspace.std.withsmartresizablelist:
+            from pypy.objspace.std.smartresizablelist import \
+                SmartResizableListImplementation
+            impl = SmartResizableListImplementation(space)
+            impl.append(w_item)
+            return impl
+        if space.config.objspace.std.withchunklist:
+            return ChunkedListImplementation(space, [w_item])
+        w_type = space.type(w_item)
+        if space.is_w(w_type, space.w_str):
+            strlist = [space.str_w(w_item)]
+            return StrListImplementation(space, strlist)
+        return RListImplementation(space, [w_item])
+
 def convert_list_w(space, list_w):
     if not list_w:
         impl = space.fromcache(State).empty_impl
@@ -884,7 +895,7 @@ def init__ListMulti(space, w_list, __args__):
     if w_iterable is not EMPTY_LIST:
         list_w = space.unpackiterable(w_iterable)
         if list_w:
-            w_list.implementation = RListImplementation(space, list_w)
+            w_list.implementation = make_implementation(space, list_w)
             return
     w_list.implementation = space.fromcache(State).empty_impl
 
@@ -1304,9 +1315,8 @@ def list_sort__ListMulti_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse)
             sorterclass = CustomKeySort
         else: 
             sorterclass = SimpleSort
-    impl = w_list.implementation.to_rlist()
-    w_list.implementation = impl
-    items = impl.list_w
+    impl=w_list.implementation
+    items = impl.get_list_w()
     sorter = sorterclass(items, impl.length())
     sorter.space = space
     sorter.w_cmp = w_cmp
@@ -1349,8 +1359,7 @@ def list_sort__ListMulti_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse)
         mucked = w_list.implementation.length() > 0
 
         # put the items back into the list
-        impl.list_w = sorter.list
-        w_list.implementation = impl
+        w_list.implementation = make_implementation(space, sorter.list)
 
     if mucked:
         raise OperationError(space.w_ValueError,
