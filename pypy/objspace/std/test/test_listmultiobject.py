@@ -7,12 +7,8 @@ from pypy.objspace.std.test.test_dictmultiobject import FakeSpace
 from pypy.objspace.std.test.test_rangeobject import AppTestRangeListObject
 
 class BaseAppTest_ListMultiObject(AppTestW_ListObject):
-
-    def setup_class(cls):
-        self._setup_class(cls)
-
     @staticmethod
-    def _setup_class(cls, conf_switch='withmultilist', impl_tag=''):
+    def setup_class(cls, conf_switch='withmultilist', impl_tag=''):
         cls.space = gettestobjspace(**{"objspace.std."+conf_switch: True})
         cls.w_impl_used = cls.space.appexec([cls.space.wrap(impl_tag)],
                                             """(impl_tag):
@@ -22,10 +18,7 @@ class BaseAppTest_ListMultiObject(AppTestW_ListObject):
                     if impl_tag:
                         tag=impl_tag
                     else:
-                        #import py.test
-                        #py.test.skip('test not enabled (impl_tag not set)')
-                        return True #XXX This hack because the above
-                                    #    doesn't work...
+                        skip('test not enabled (impl_tag not set)')
                 return tag in __pypy__.internal_repr(obj)
             return impl_used
         """)
@@ -41,12 +34,14 @@ class BaseAppTest_ListMultiObject(AppTestW_ListObject):
         l = ["6", "8", "3", "1", "5"]
         l.sort()
         assert self.impl_used(l)
-        # These few here ^ would fail before, but for good coverage,
+        assert self.impl_used([0])
+        assert self.impl_used(list([0]))
+        # These few here ^ would have failed before, but for good coverage,
         # all the list methods etc. should be tested also...
 
 class AppTest_ListMultiObject(BaseAppTest_ListMultiObject):
     def setup_class(cls):
-        BaseAppTest_ListMultiObject._setup_class(cls)
+        BaseAppTest_ListMultiObject.setup_class(cls)
 
     def test_slice_with_step(self):
         l = range(20)
@@ -90,7 +85,7 @@ class AppTestRangeImplementation(AppTestRangeListObject):
 
 class AppTest_FastSlice(BaseAppTest_ListMultiObject):
     def setup_class(cls):
-        BaseAppTest_ListMultiObject._setup_class(cls, 'withfastslice')
+        BaseAppTest_ListMultiObject.setup_class(cls, 'withfastslice')
 
     def test_lazy_slice(self):
         l = [i for i in range(100)] # force it to not be a range impl
@@ -154,7 +149,7 @@ class TestSliceListImplementation(object):
 
 class AppTest_SmartListObject(BaseAppTest_ListMultiObject):
     def setup_class(cls):
-        BaseAppTest_ListMultiObject._setup_class(cls, 'withsmartresizablelist',
+        BaseAppTest_ListMultiObject.setup_class(cls, 'withsmartresizablelist',
                                                  'SmartResizableList')
 
 
@@ -171,7 +166,7 @@ def _set_chunk_size_bits(bits):
 class AppTest_ChunkListObject(BaseAppTest_ListMultiObject):
 
     def setup_class(cls):
-        BaseAppTest_ListMultiObject._setup_class(cls, 'withchunklist',
+        BaseAppTest_ListMultiObject.setup_class(cls, 'withchunklist',
                                                  'ChunkedList')
         cls.chunk_size_bits = _set_chunk_size_bits(2)
 

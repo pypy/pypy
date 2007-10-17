@@ -816,6 +816,9 @@ def make_implementation(space, list_w):
         return impl
     if space.config.objspace.std.withchunklist:
         return ChunkedListImplementation(space, list_w)
+    if space.config.objspace.std.withblist:
+        from pypy.objspace.std.blistimplementation import BListImplementation
+        return BListImplementation(space, list_w)
     elif space.config.objspace.std.withfastslice:
         return SliceTrackingListImplementation(space, list_w)
     else:
@@ -829,21 +832,24 @@ def make_implementation(space, list_w):
             return RListImplementation(space, list_w)
 
 def make_implementation_with_one_item(space, w_item):
-        if space.config.objspace.std.withfastslice:
-            return SliceTrackingListImplementation(space, [w_item])
-        if space.config.objspace.std.withsmartresizablelist:
-            from pypy.objspace.std.smartresizablelist import \
-                SmartResizableListImplementation
-            impl = SmartResizableListImplementation(space)
-            impl.append(w_item)
-            return impl
-        if space.config.objspace.std.withchunklist:
-            return ChunkedListImplementation(space, [w_item])
-        w_type = space.type(w_item)
-        if space.is_w(w_type, space.w_str):
-            strlist = [space.str_w(w_item)]
-            return StrListImplementation(space, strlist)
-        return RListImplementation(space, [w_item])
+    if space.config.objspace.std.withfastslice:
+        return SliceTrackingListImplementation(space, [w_item])
+    if space.config.objspace.std.withsmartresizablelist:
+        from pypy.objspace.std.smartresizablelist import \
+            SmartResizableListImplementation
+        impl = SmartResizableListImplementation(space)
+        impl.append(w_item)
+        return impl
+    if space.config.objspace.std.withchunklist:
+        return ChunkedListImplementation(space, [w_item])
+    if space.config.objspace.std.withblist:
+        from pypy.objspace.std.blistimplementation import BListImplementation
+        return BListImplementation(space, [w_item])
+    w_type = space.type(w_item)
+    if space.is_w(w_type, space.w_str):
+        strlist = [space.str_w(w_item)]
+        return StrListImplementation(space, strlist)
+    return RListImplementation(space, [w_item])
 
 def convert_list_w(space, list_w):
     if not list_w:
