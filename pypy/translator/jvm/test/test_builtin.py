@@ -29,6 +29,8 @@ class TestJavaBuiltin(JvmTest, BaseTestBuiltin):
     def test_os_read_binary_crlf(self):
         py.test.skip('fixme!')
 
+    def test_debug_llinterpcall(self):
+        py.test.skip("so far, debug_llinterpcall is only used on lltypesystem")
     
 
 class TestJvmTime(JvmTest, BaseTestTime):

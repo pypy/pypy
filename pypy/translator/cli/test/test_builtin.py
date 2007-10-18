@@ -20,6 +20,9 @@ class TestCliBuiltin(CliTest, BaseTestBuiltin):
         self._skip_powerpc("Mono math floating point problem")
         BaseTestBuiltin.test_builtin_math_frexp(self)
 
+    def test_debug_llinterpcall(self):
+        py.test.skip("so far, debug_llinterpcall is only used on lltypesystem")
+
 
 class TestCliTime(CliTest, BaseTestTime):
     pass
