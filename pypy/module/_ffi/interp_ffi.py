@@ -216,10 +216,8 @@ def unwrap_value(space, push_func, add_arg, argdesc, tp, w_arg, to_free):
                     val = space.r_longlong_w(w_arg)
                 elif tp == "Q":
                     val = space.r_ulonglong_w(w_arg)
-                elif tp == "I":
+                elif tp == "I" or tp == "L":
                     val = space.uint_w(w_arg)
-                elif tp == "L":
-                    val = space.ulong_w(w_arg)
                 else:
                     val = space.int_w(w_arg)
                 try:
