@@ -236,6 +236,9 @@ class AppTestCTypes:
         nothing = lib.ptr('nothing', [], None)
         assert nothing() is None
         raises(AttributeError, "lib.ptr('get_charx', [], None)")
+        raises(ValueError, "lib.ptr('get_char', ['xx'], None)")
+        raises(ValueError, "lib.ptr('get_char', ['x'], None)")
+        raises(ValueError, "lib.ptr('get_char', [], 'x')")
 
     def test_implicit_structure(self):
         skip("Does not work yet")
