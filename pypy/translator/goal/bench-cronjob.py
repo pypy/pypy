@@ -176,15 +176,15 @@ def benchmark():
 def main(backends=[]):
     if backends == []:  #_ prefix means target specific option, # prefix to outcomment
         backends = [backend.strip() for backend in """
-            #llvm--_faassen
+            llvm--_faassen
             c
             c--stackless--_faassen
             c--_faassen
             c--thread
             c--_objspace=taint
             c--_allworkingmodules
-            c--gcframework=marksweep--_faassen
-            c--gcframework=semispace--_faassen
+            c--gc=marksweep--_faassen
+            c--gc=semispace--_faassen
             c--_objspace-std-withrope
             cli
             """.split('\n') if backend.strip() and not backend.strip().startswith('#')]
