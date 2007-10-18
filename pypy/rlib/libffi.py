@@ -7,9 +7,11 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.tool.autopath import pypydir
+import py
 
-includes = ['dlfcn.h', 'ffi.h']
-include_dirs = ['/usr/include/libffi']
+includes = ['dlfcn.h', 'src/ffi.h']
+include_dirs = [str(py.path.local(pypydir).join('translator', 'c'))]
 
 FFI_TYPE_P = lltype.Ptr(lltype.ForwardReference())
 FFI_TYPE_PP = rffi.CArrayPtr(FFI_TYPE_P)
