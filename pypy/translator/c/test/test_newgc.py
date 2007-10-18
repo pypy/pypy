@@ -780,6 +780,7 @@ class TestUsingFramework(AbstractGCTestClass):
     def test_object_alignment(self):
         # all objects returned by the GC should be aligned on a 8-bytes
         # boundary, or whatever sizeof(double) is on this platform
+        from pypy.rpython.lltypesystem import rffi
         mylist = ['a', 'bc', '84139871', 'ajkdh', '876']
         def f():
             result = 0
@@ -787,7 +788,8 @@ class TestUsingFramework(AbstractGCTestClass):
             for j in range(100):
                 for s in mylist:
                     buffer += s
-                    result |= id(buffer)
+                    addr = rffi.cast(lltype.Signed, buffer)
+                    result |= addr
             return result
 
         fn = self.getcompiled(f)
