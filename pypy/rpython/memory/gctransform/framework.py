@@ -618,6 +618,7 @@ class FrameworkGCTransformer(GCTransformer):
             v_fieldaddr = hop.genop("adr_add", [v_structaddr, v_currentofs],
                                     resulttype = llmemory.Address)
             hop.genop("direct_call", [self.write_barrier_ptr,
+                                      self.c_const_gc,
                                       v_newvalue,
                                       v_fieldaddr,
                                       v_structaddr])
