@@ -286,3 +286,36 @@ class TestGrowingSemiSpaceGC(TestSemiSpaceGC):
 
 class TestGenerationalGC(GCTest):
     from pypy.rpython.memory.gc.generation import GenerationGC as GCClass
+
+    def test_finalizer_calls_malloc_during_minor_collect(self):
+        py.test.skip("fails")
+        class B(object):
+            pass
+        b = B()
+        b.nextid = 0
+        b.num_deleted = 0
+        b.all = []
+        class A(object):
+            def __init__(self):
+                self.id = b.nextid
+                b.nextid += 1
+            def __del__(self):
+                b.num_deleted += 1
+                b.all.append(D(b.num_deleted))
+        class D(object):
+            # make a big object that does not use malloc_varsize
+            def __init__(self, x):
+                self.x00 = self.x01 = self.x02 = self.x03 = self.x04 = x
+                self.x10 = self.x11 = self.x12 = self.x13 = self.x14 = x
+                self.x20 = self.x21 = self.x22 = self.x23 = self.x24 = x
+        def f(x):
+            i = 0
+            all = [None] * x
+            a = A()
+            while i < x:
+                d = D(i)
+                all[i] = d
+                i += 1
+            return b.num_deleted + len(all)
+        res = self.interpret(f, [500])
+        assert res == 1 + 5
