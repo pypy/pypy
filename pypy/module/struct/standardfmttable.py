@@ -65,17 +65,7 @@ def make_float_packer(size):
 
 native_int_size = struct.calcsize("l")
 
-def make_int_packer(size, signed, cpython_checks_range, _memo={}):
-    if cpython_checks_range:
-        check_range = True
-    else:
-        check_range = not PACK_ACCEPTS_BROKEN_INPUT
-    key = (size, signed, check_range)
-    try:
-        return _memo[key]
-    except KeyError:
-        pass
-
+def min_max_acc_method(size, signed):
     if signed:
         min = -(2 ** (8*size-1))
         max = (2 ** (8*size-1)) - 1
@@ -100,6 +90,19 @@ def make_int_packer(size, signed, cpython_checks_range, _memo={}):
             accept_method = 'accept_ulonglong_arg'
             min = r_ulonglong(min)
             max = r_ulonglong(max)
+    return min, max, accept_method
+
+def make_int_packer(size, signed, cpython_checks_range, _memo={}):
+    if cpython_checks_range:
+        check_range = True
+    else:
+        check_range = not PACK_ACCEPTS_BROKEN_INPUT
+    key = (size, signed, check_range)
+    try:
+        return _memo[key]
+    except KeyError:
+        pass
+    min, max, accept_method = min_max_acc_method(size, signed)
     if size > 1:
         plural = "s"
     else:
