@@ -114,8 +114,10 @@ class _CWriter(object):
         self.close()
         include_dirs = getattr(self.config, '_include_dirs_', [])
         libraries = getattr(self.config, '_libraries_', [])
+        library_dirs = getattr(self.config, '_library_dirs_', [])
         return try_compile_cache([self.path], include_dirs=include_dirs,
-                                 libraries=libraries)
+                                 libraries=libraries,
+                                 library_dirs=library_dirs)
         
 def configure(CConfig):
     """Examine the local system by running the C compiler.
@@ -143,8 +145,9 @@ def configure(CConfig):
 
         include_dirs = getattr(CConfig, '_include_dirs_', [])
         libraries = getattr(CConfig, '_libraries_', [])
+        library_dirs = getattr(CConfig, '_library_dirs_', [])
         infolist = list(run_example_code(writer.path, include_dirs,
-                                         libraries))
+                                         libraries, library_dirs))
         assert len(infolist) == len(entries)
 
         resultinfo = {}
@@ -477,9 +480,10 @@ void dump(char* key, int value) {
 }
 """
 
-def run_example_code(filepath, include_dirs=[], libraries=[]):
+def run_example_code(filepath, include_dirs=[], libraries=[], library_dirs=[]):
     output = build_executable_cache([filepath], include_dirs=include_dirs,
-                                        libraries=libraries)
+                                    libraries=libraries,
+                                    library_dirs=library_dirs)
     section = None
     for line in output.splitlines():
         line = line.strip()
