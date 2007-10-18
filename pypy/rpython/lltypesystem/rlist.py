@@ -17,6 +17,7 @@ from pypy.rpython.lltypesystem.lltype import \
 from pypy.rpython.lltypesystem import rstr
 from pypy.rpython import robject
 from pypy.rlib.objectmodel import debug_assert
+from pypy.rlib.rarithmetic import ovfcheck
 
 # ____________________________________________________________
 #
@@ -268,18 +269,9 @@ class FixedSizeListRepr(AbstractFixedSizeListRepr, BaseListRepr):
 
 def _ll_list_resize_really(l, newsize):
     """
-    Ensure ob_item has room for at least newsize elements, and set
-    ob_size to newsize.  If newsize > ob_size on entry, the content
-    of the new slots at exit is undefined heap trash; it's the caller's
-    responsiblity to overwrite them with sane values.
-    The number of allocated elements may grow, shrink, or stay the same.
-    Failure is impossible if newsize <= self.allocated on entry, although
-    that partly relies on an assumption that the system realloc() never
-    fails when passed a number of bytes <= the number of bytes last
-    allocated (the C standard doesn't guarantee this, but it's hard to
-    imagine a realloc implementation where it wouldn't be true).
-    Note that self->ob_item may change, and even if newsize is less
-    than ob_size on entry.
+    Ensure l.items has room for at least newsize elements, and set
+    l.length to newsize.  Note that l.items may change, and even if
+    newsize is less than l.length on entry.
     """
     allocated = len(l.items)
 
@@ -287,16 +279,21 @@ def _ll_list_resize_really(l, newsize):
     # for additional growth.  The over-allocation is mild, but is
     # enough to give linear-time amortized behavior over a long
     # sequence of appends() in the presence of a poorly-performing
-    # system realloc().
+    # system malloc().
     # The growth pattern is:  0, 4, 8, 16, 25, 35, 46, 58, 72, 88, ...
-    ## (newsize < 9 ? 3 : 6)
-    if newsize < 9:
-        some = 3
-    else:
-        some = 6
-    new_allocated = (newsize >> 3) + some + newsize
-    if newsize == 0:
+    if newsize <= 0:
+        debug_assert(newsize == 0, "negative list length")
         new_allocated = 0
+    else:
+        if newsize < 9:
+            some = 3
+        else:
+            some = 6
+        some += newsize >> 3
+        try:
+            new_allocated = ovfcheck(newsize + some)
+        except OverflowError:
+            raise MemoryError
     # XXX consider to have a real realloc
     items = l.items
     newitems = malloc(typeOf(l).TO.items.TO, new_allocated)
@@ -457,5 +454,5 @@ def ll_listnext(iter):
     index = iter.index
     if index >= l.ll_length():
         raise StopIteration
-    iter.index = index + 1
+    iter.index = index + 1      # cannot overflow because index < l.length
     return l.ll_getitem_fast(index)

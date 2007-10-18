@@ -9,6 +9,7 @@ from pypy.rpython.lltypesystem.lltype import typeOf, Ptr, Void, Signed, Bool
 from pypy.rpython.lltypesystem.lltype import nullptr, Char, UniChar
 from pypy.rpython import robject
 from pypy.rlib.objectmodel import malloc_zero_filled, debug_assert
+from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.annlowlevel import ADTInterface
 
 ADTIFixedList = ADTInterface(None, {
@@ -469,6 +470,19 @@ class AbstractListIteratorRepr(IteratorRepr):
 #  Low-level methods.  These can be run for testing, but are meant to
 #  be direct_call'ed from rtyped flow graphs, which means that they will
 #  get flowed and annotated, mostly with SomePtr.
+#
+#  === a note about overflows ===
+#
+#  The maximal length of RPython lists is bounded by the assumption that
+#  we can never allocate arrays more than sys.maxint bytes in size.
+#  Our arrays have a length and some GC headers, so a list of characters
+#  could come near sys.maxint in length (but not reach it).  A list of
+#  pointers could only come near sys.maxint/sizeof(void*) elements.  There
+#  is the list of Voids that could reach exactly sys.maxint elements,
+#  but for now let's ignore this case -- the reasoning is that even if
+#  the length of a Void list overflows, nothing bad memory-wise can be
+#  done with it.  So in the sequel we don't bother checking for overflow
+#  when we compute "ll_length() + 1".
 
 def ll_alloc_and_set(LIST, count, item):
     if count < 0:
@@ -530,14 +544,14 @@ ll_list_is_true.oopargcheck = lambda l: True
 
 def ll_append(l, newitem):
     length = l.ll_length()
-    l._ll_resize_ge(length+1)
+    l._ll_resize_ge(length+1)           # see "a note about overflows" above
     l.ll_setitem_fast(length, newitem)
 ll_append.oopspec = 'list.append(l, newitem)'
 
 # this one is for the special case of insert(0, x)
 def ll_prepend(l, newitem):
     length = l.ll_length()
-    l._ll_resize_ge(length+1)
+    l._ll_resize_ge(length+1)           # see "a note about overflows" above
     dst = length
     while dst > 0:
         src = dst - 1
@@ -549,7 +563,10 @@ ll_prepend.oopspec = 'list.insert(l, 0, newitem)'
 def ll_concat(RESLIST, l1, l2):
     len1 = l1.ll_length()
     len2 = l2.ll_length()
-    newlength = len1 + len2
+    try:
+        newlength = ovfcheck(len1 + len2)
+    except OverflowError:
+        raise MemoryError
     l = RESLIST.ll_newlist(newlength)
     j = 0
     while j < len1:
@@ -567,7 +584,7 @@ def ll_insert_nonneg(l, index, newitem):
     length = l.ll_length()
     debug_assert(0 <= index, "negative list insertion index")
     debug_assert(index <= length, "list insertion index out of bound")
-    l._ll_resize_ge(length+1)
+    l._ll_resize_ge(length+1)           # see "a note about overflows" above
     dst = length
     while dst > index:
         src = dst - 1
@@ -739,7 +756,10 @@ ll_delitem.oopspec = 'list.delitem(l, i)'
 def ll_extend(l1, l2):
     len1 = l1.ll_length()
     len2 = l2.ll_length()
-    newlength = len1 + len2
+    try:
+        newlength = ovfcheck(len1 + len2)
+    except OverflowError:
+        raise MemoryError
     l1._ll_resize_ge(newlength)
     i = 0
     j = len1
@@ -754,9 +774,13 @@ def ll_extend_with_str(lst, s, getstrlen, getstritem):
 def ll_extend_with_str_slice_startonly(lst, s, getstrlen, getstritem, start):
     len1 = lst.ll_length()
     len2 = getstrlen(s)
+    count2 = len2 - start
     debug_assert(start >= 0, "unexpectedly negative str slice start")
-    debug_assert(start <= len2, "str slice start larger than str length")
-    newlength = len1 + len2 - start
+    assert count2 >= 0, "str slice start larger than str length"
+    try:
+        newlength = ovfcheck(len1 + count2)
+    except OverflowError:
+        raise MemoryError
     lst._ll_resize_ge(newlength)
     i = start
     j = len1
@@ -775,10 +799,14 @@ def ll_extend_with_str_slice(lst, s, getstrlen, getstritem, slice):
     len2 = getstrlen(s)
     debug_assert(start >= 0, "unexpectedly negative str slice start")
     debug_assert(start <= len2, "str slice start larger than str length")
-    debug_assert(stop >= start, "str slice stop smaller than start")
     if stop > len2:
         stop = len2
-    newlength = len1 + stop - start
+    count2 = stop - start
+    assert count2 >= 0, "str slice stop smaller than start"
+    try:
+        newlength = ovfcheck(len1 + count2)
+    except OverflowError:
+        raise MemoryError
     lst._ll_resize_ge(newlength)
     i = start
     j = len1
@@ -793,8 +821,11 @@ def ll_extend_with_str_slice(lst, s, getstrlen, getstritem, slice):
 def ll_extend_with_str_slice_minusone(lst, s, getstrlen, getstritem):
     len1 = lst.ll_length()
     len2m1 = getstrlen(s) - 1
-    debug_assert(len2m1 >= 0, "empty string is sliced with [:-1]")
-    newlength = len1 + len2m1
+    assert len2m1 >= 0, "empty string is sliced with [:-1]"
+    try:
+        newlength = ovfcheck(len1 + len2m1)
+    except OverflowError:
+        raise MemoryError
     lst._ll_resize_ge(newlength)
     i = 0
     j = len1
@@ -810,7 +841,10 @@ def ll_extend_with_char_count(lst, char, count):
     if count <= 0:
         return
     len1 = lst.ll_length()
-    newlength = len1 + count
+    try:
+        newlength = ovfcheck(len1 + count)
+    except OverflowError:
+        raise MemoryError
     lst._ll_resize_ge(newlength)
     j = len1
     if listItemType(lst) is UniChar:
@@ -972,7 +1006,10 @@ def ll_inplace_mul(l, factor):
     length = l.ll_length()
     if factor < 0:
         factor = 0
-    resultlen = length * factor
+    try:
+        resultlen = ovfcheck(length * factor)
+    except OverflowError:
+        raise MemoryError
     res = l
     res._ll_resize(resultlen)
     #res._ll_resize_ge(resultlen)
@@ -991,7 +1028,10 @@ def ll_mul(RESLIST, l, factor):
     length = l.ll_length()
     if factor < 0:
         factor = 0
-    resultlen = length * factor
+    try:
+        resultlen = ovfcheck(length * factor)
+    except OverflowError:
+        raise MemoryError
     res = RESLIST.ll_newlist(resultlen)
     j = 0
     while j < resultlen:
