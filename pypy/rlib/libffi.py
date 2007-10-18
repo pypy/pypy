@@ -160,6 +160,12 @@ def check_pointer_type(TP):
 
 class FuncPtr(object):
     def __init__(self, name, argtypes, restype, funcsym):
+        # initialize each one of pointers with null
+        TP = rffi.CArray(rffi.VOIDP)
+        self.ll_args = lltype.nullptr(TP)
+        self.ll_cif = lltype.nullptr(FFI_CIFP.TO)
+        self.ll_argtypes = lltype.nullptr(FFI_TYPE_PP.TO)
+        self.ll_result = lltype.nullptr(rffi.VOIDP.TO)
         self.name = name
         self.argtypes = argtypes
         self.restype = restype
@@ -167,7 +173,6 @@ class FuncPtr(object):
         argnum = len(argtypes)
         self.argnum = argnum
         self.pushed_args = 0
-        TP = rffi.CArray(rffi.VOIDP)
         self.ll_args = lltype.malloc(TP, argnum, flavor='raw')
         self.ll_cif = lltype.malloc(FFI_CIFP.TO, flavor='raw')
         self.ll_argtypes = lltype.malloc(FFI_TYPE_PP.TO, argnum, flavor='raw')
@@ -232,23 +237,31 @@ class FuncPtr(object):
     call._annspecialcase_ = 'specialize:arg(1)'
 
     def __del__(self):
-        argnum = len(self.argtypes)
-        for i in range(argnum):
-            lltype.free(self.ll_args[i], flavor='raw')
-        lltype.free(self.ll_args, flavor='raw')
-        if self.restype != ffi_type_void:
+        if self.ll_args:
+            argnum = len(self.argtypes)
+            for i in range(argnum):
+                if self.ll_args[i]:
+                    lltype.free(self.ll_args[i], flavor='raw')
+            lltype.free(self.ll_args, flavor='raw')
+        if self.ll_result:
             lltype.free(self.ll_result, flavor='raw')
-        lltype.free(self.ll_cif, flavor='raw')
-        lltype.free(self.ll_argtypes, flavor='raw')
+        if self.ll_cif:
+            lltype.free(self.ll_cif, flavor='raw')
+        if self.ll_argtypes:
+            lltype.free(self.ll_argtypes, flavor='raw')
 
 class CDLL:
     def __init__(self, libname):
+        self.ll_libname = lltype.nullptr(rffi.CCHARP.TO)
+        self.lib = lltype.nullptr(rffi.CCHARP.TO)
         self.ll_libname = rffi.str2charp(libname)
         self.lib = dlopen(self.ll_libname)
 
     def __del__(self):
-        c_dlclose(self.lib)
-        lltype.free(self.ll_libname, flavor='raw')
+        if self.lib:
+            c_dlclose(self.lib)
+        if self.ll_libname:
+            lltype.free(self.ll_libname, flavor='raw')
 
     def getpointer(self, name, argtypes, restype):
         # these arguments are already casted to proper ffi
