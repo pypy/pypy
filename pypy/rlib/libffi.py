@@ -10,8 +10,15 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.tool.autopath import pypydir
 import py
 
-includes = ['dlfcn.h', 'src/ffi.h']
-include_dirs = [str(py.path.local(pypydir).join('translator', 'c'))]
+includes = ['dlfcn.h', 'ffi.h']
+include_dirs = []
+pot_incl = py.path.local('/usr/include/libffi')
+if pot_incl.check():
+    include_dirs.append(str(pot_incl))
+lib_dirs = []
+pot_lib = py.path.local('/usr/lib/libffi')
+if pot_lib.check():
+    include_dirs.append(str(pot_lib))
 
 FFI_TYPE_P = lltype.Ptr(lltype.ForwardReference())
 FFI_TYPE_PP = rffi.CArrayPtr(FFI_TYPE_P)
@@ -20,6 +27,7 @@ class CConfig:
     _includes_ = includes
     _libraries_ = ['ffi']
     _include_dirs_ = include_dirs
+    _lib_dirs_ = lib_dirs
 
     RTLD_LOCAL = rffi_platform.DefinedConstantInteger('RTLD_LOCAL')
     RTLD_GLOBAL = rffi_platform.DefinedConstantInteger('RTLD_GLOBAL')
