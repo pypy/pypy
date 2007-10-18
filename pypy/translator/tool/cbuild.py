@@ -39,17 +39,16 @@ def ensure_correct_math():
         opt += '/Op'
     gcv['OPT'] = opt
 
-def compile_c_module(cfiles, modname, include_dirs=None, libraries=[]):
+def compile_c_module(cfiles, modname, include_dirs=[], libraries=[],
+                     library_dirs=[]):
     #try:
     #    from distutils.log import set_threshold
     #    set_threshold(10000)
     #except ImportError:
     #    print "ERROR IMPORTING"
     #    pass
-    if include_dirs is None:
-        include_dirs = []
-
-    library_dirs = []
+    include_dirs = list(include_dirs)
+    library_dirs = list(library_dirs)
     if sys.platform == 'darwin':    # support Fink & Darwinports
         for s in ('/sw/', '/opt/local/'):
             if s + 'include' not in include_dirs and \
@@ -75,6 +74,8 @@ def compile_c_module(cfiles, modname, include_dirs=None, libraries=[]):
                                                      str(dirpath.join(modname)))
                     for dir in [gcv['INCLUDEPY']] + list(include_dirs):
                         cmd += ' -I%s' % dir
+                    for dir in library_dirs:
+                        cmd += ' -L%s' % dir
                     os.system(cmd)
                 else:
                     from distutils.dist import Distribution

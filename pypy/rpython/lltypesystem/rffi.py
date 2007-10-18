@@ -27,9 +27,9 @@ class CConstant(Symbolic):
         return self.TP
 
 def llexternal(name, args, result, _callable=None, sources=[], includes=[],
-               libraries=[], include_dirs=[], sandboxsafe=False,
-               canraise=False, _nowrapper=False, calling_conv='c',
-               threadsafe='auto'):
+               libraries=[], include_dirs=[], library_dirs=[],
+               sandboxsafe=False, threadsafe='auto',
+               canraise=False, _nowrapper=False, calling_conv='c'):
     """Build an external function that will invoke the C function 'name'
     with the given 'args' types and 'result' type.
 
@@ -53,6 +53,7 @@ def llexternal(name, args, result, _callable=None, sources=[], includes=[],
                                  includes=tuple(includes),
                                  libraries=tuple(libraries),
                                  include_dirs=tuple(include_dirs),
+                                 library_dirs=tuple(library_dirs),
                                  _callable=_callable,
                                  _safe_not_sandboxed=sandboxsafe,
                                  _debugexc=True, # on top of llinterp

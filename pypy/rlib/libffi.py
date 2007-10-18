@@ -18,7 +18,7 @@ if pot_incl.check():
 lib_dirs = []
 pot_lib = py.path.local('/usr/lib/libffi')
 if pot_lib.check():
-    include_dirs.append(str(pot_lib))
+    lib_dirs.append(str(pot_lib))
 
 FFI_TYPE_P = lltype.Ptr(lltype.ForwardReference())
 FFI_TYPE_PP = rffi.CArrayPtr(FFI_TYPE_P)
@@ -27,7 +27,7 @@ class CConfig:
     _includes_ = includes
     _libraries_ = ['ffi']
     _include_dirs_ = include_dirs
-    _lib_dirs_ = lib_dirs
+    _library_dirs_ = lib_dirs
 
     RTLD_LOCAL = rffi_platform.DefinedConstantInteger('RTLD_LOCAL')
     RTLD_GLOBAL = rffi_platform.DefinedConstantInteger('RTLD_GLOBAL')
@@ -96,7 +96,7 @@ TYPE_MAP = {
 
 def external(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, includes=includes,
-                           include_dirs=include_dirs,
+                           include_dirs=include_dirs, library_dirs=lib_dirs,
                            libraries=['dl', 'ffi'], **kwds)
 
 c_dlopen = external('dlopen', [rffi.CCHARP, rffi.INT], rffi.VOIDP,

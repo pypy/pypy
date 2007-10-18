@@ -705,6 +705,8 @@ class FuncNode(ContainerNode):
             self.libraries = obj.libraries
         if hasattr(obj, 'include_dirs'):
             self.include_dirs = obj.include_dirs
+        if hasattr(obj, 'library_dirs'):
+            self.library_dirs = obj.library_dirs
         self.make_funcgens()
         #self.dependencies = {}
         self.typename = db.gettype(T)  #, who_asks=self)
