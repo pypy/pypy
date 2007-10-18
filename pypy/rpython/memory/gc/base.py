@@ -4,6 +4,7 @@ from pypy.rlib.objectmodel import debug_assert
 class GCBase(object):
     _alloc_flavor_ = "raw"
     moving_gc = False
+    needs_write_barrier = False
 
     def set_query_functions(self, is_varsize, getfinalizer,
                             offsets_to_gc_pointers,
@@ -175,7 +176,8 @@ class MovingGCBase(GCBase):
 def choose_gc_from_config(config):
     """Return a (GCClass, GC_PARAMS) from the given config object.
     """
-    assert config.translation.gctransformer == "framework"
+    if config.translation.gctransformer != "framework":   # for tests
+        config.translation.gc = "marksweep"     # crash if inconsistent
     if config.translation.gc == "marksweep":
         GC_PARAMS = {'start_heap_size': 8*1024*1024} # XXX adjust
         from pypy.rpython.memory.gc.marksweep import MarkSweepGC
@@ -194,5 +196,5 @@ def choose_gc_from_config(config):
         from pypy.rpython.memory.gc.generation import GenerationGC
         return GenerationGC, GC_PARAMS
     else:
-        raise ValueError("unknown value for frameworkgc: %r" % (
-            config.translation.frameworkgc,))
+        raise ValueError("unknown value for translation.gc: %r" % (
+            config.translation.gc,))

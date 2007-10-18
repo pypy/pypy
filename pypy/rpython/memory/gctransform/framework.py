@@ -9,6 +9,7 @@ from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.objectmodel import debug_assert
 from pypy.translator.backendopt import graphanalyze
+from pypy.translator.backendopt.support import var_needsgc
 from pypy.annotation import model as annmodel
 from pypy.rpython import annlowlevel
 from pypy.rpython.rbuiltin import gen_cast
@@ -248,6 +249,15 @@ class FrameworkGCTransformer(GCTransformer):
         else:
             self.id_ptr = None
 
+        if GCClass.needs_write_barrier:
+            self.write_barrier_ptr = getfn(GCClass.write_barrier.im_func,
+                                           [s_gc, annmodel.SomeAddress(),
+                                            annmodel.SomeAddress(),
+                                            annmodel.SomeAddress()],
+                                           annmodel.s_None,
+                                           inline=True)
+        else:
+            self.write_barrier_ptr = None
         self.statistics_ptr = getfn(GCClass.statistics.im_func,
                                     [s_gc, annmodel.SomeInteger()],
                                     annmodel.SomeInteger())
@@ -561,6 +571,60 @@ class FrameworkGCTransformer(GCTransformer):
         else:
             hop.rename('cast_ptr_to_int')     # works nicely for non-moving GCs
 
+    def transform_generic_set(self, hop):
+        if self.write_barrier_ptr is None:
+            super(FrameworkGCTransformer, self).transform_generic_set(hop)
+        else:
+            v_struct = hop.spaceop.args[0]
+            v_newvalue = hop.spaceop.args[-1]
+            assert isinstance(v_newvalue.concretetype, lltype.Ptr)
+            opname = hop.spaceop.opname
+            assert opname in ('setfield', 'setarrayitem', 'setinteriorfield')
+            offsets = hop.spaceop.args[1:-1]
+            CURTYPE = v_struct.concretetype.TO
+            v_currentofs = None
+            for ofs in offsets:
+                if ofs.concretetype is lltype.Void:
+                    # a field in a structure
+                    fieldname = ofs.value
+                    fieldofs = llmemory.offsetof(CURTYPE, fieldname)
+                    v_offset = rmodel.inputconst(lltype.Signed, fieldofs)
+                    CURTYPE = getattr(CURTYPE, fieldname)
+                else:
+                    # an index in an array
+                    assert ofs.concretetype is lltype.Signed
+                    firstitem = llmemory.ArrayItemsOffset(CURTYPE)
+                    itemsize  = llmemory.sizeof(CURTYPE.OF)
+                    c_firstitem = rmodel.inputconst(lltype.Signed, firstitem)
+                    c_itemsize  = rmodel.inputconst(lltype.Signed, itemsize)
+                    v_index = hop.spaceop.args[1]
+                    v_offset = hop.genop("int_mul", [c_itemsize, v_index],
+                                         resulttype = lltype.Signed)
+                    v_offset = hop.genop("int_add", [c_firstitem, v_offset],
+                                         resulttype = lltype.Signed)
+                    CURTYPE = CURTYPE.OF
+                if v_currentofs is None:
+                    v_currentofs = v_offset
+                else:
+                    v_currentofs = hop.genop("int_add",
+                                             [v_currentofs, v_offset],
+                                             resulttype = lltype.Signed)
+            # XXX for some GCs we could skip the write_barrier if v_newvalue
+            # is a constant
+            v_newvalue = hop.genop("cast_ptr_to_adr", [v_newvalue],
+                                   resulttype = llmemory.Address)
+            v_structaddr = hop.genop("cast_ptr_to_adr", [v_struct],
+                                     resulttype = llmemory.Address)
+            v_fieldaddr = hop.genop("adr_add", [v_structaddr, v_currentofs],
+                                    resulttype = llmemory.Address)
+            hop.genop("direct_call", [self.write_barrier_ptr,
+                                      v_newvalue,
+                                      v_fieldaddr,
+                                      v_structaddr])
+
+    def var_needs_set_transform(self, var):
+        return var_needsgc(var)
+
     def push_alive_nopyobj(self, var, llops):
         pass
 
@@ -573,10 +637,10 @@ class FrameworkGCTransformer(GCTransformer):
         if self.gcdata.gc.moving_gc:
             # moving GCs don't borrow, so the caller does not need to keep
             # the arguments alive
-            livevars = [var for var in self.livevars_after_op
+            livevars = [var for var in hop.livevars_after_op()
                             if not var_ispyobj(var)]
         else:
-            livevars = self.livevars_after_op + self.current_op_keeps_alive
+            livevars = hop.livevars_after_op() + hop.current_op_keeps_alive()
             livevars = [var for var in livevars if not var_ispyobj(var)]
         self.num_pushs += len(livevars)
         if not livevars:

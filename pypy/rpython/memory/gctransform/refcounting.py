@@ -154,11 +154,11 @@ class RefcountingGCTransformer(GCTransformer):
 
     def gct_gc_protect(self, hop):
         """ protect this object from gc (make it immortal) """
-        self.push_alive(hop.spaceop.args[0])
+        self.push_alive(hop.spaceop.args[0], hop.llops)
 
     def gct_gc_unprotect(self, hop):
         """ get this object back into gc control """
-        self.pop_alive(hop.spaceop.args[0])
+        self.pop_alive(hop.spaceop.args[0], hop.llops)
 
     def gct_fv_gc_malloc(self, hop, flags, TYPE, c_size):
         v_raw = hop.genop("direct_call", [self.malloc_fixedsize_ptr, c_size],

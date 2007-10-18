@@ -38,10 +38,16 @@ class GcHighLevelOp(object):
         self.spaceop = op
         self.index = index
         self.llops = llops
-        gct.livevars_after_op = [
+
+    def livevars_after_op(self):
+        gct = self.gctransformer
+        return [
             var for var in gct.livevars
                 if gct.var_last_needed_in[var] > self.index]
-        gct.current_op_keeps_alive = [
+
+    def current_op_keeps_alive(self):
+        gct = self.gctransformer
+        return [
             var for var in self.spaceop.args
                 if gct.var_last_needed_in.get(var) == self.index]
 
@@ -60,9 +66,9 @@ class GcHighLevelOp(object):
                                  'cast_pointer', 'getsubstruct',
                                  'getinteriorfield'):
                     # XXX more operations?
-                    gct.push_alive(v_result)
+                    gct.push_alive(v_result, self.llops)
             elif opname not in ('direct_call', 'indirect_call'):
-                gct.push_alive(v_result)
+                gct.push_alive(v_result, self.llops)
         
 
 
@@ -157,7 +163,7 @@ class BaseGCTransformer(object):
         return is_borrowed
 
     def transform_block(self, block, is_borrowed):
-        self.llops = LowLevelOpList()
+        llops = LowLevelOpList()
         #self.curr_block = block
         self.livevars = [var for var in block.inputargs
                     if var_needsgc(var) and not is_borrowed(var)]
@@ -175,7 +181,7 @@ class BaseGCTransformer(object):
                 self.var_last_needed_in[var] = len(block.operations) + 1
         
         for i, op in enumerate(block.operations):
-            hop = GcHighLevelOp(self, op, i, self.llops)
+            hop = GcHighLevelOp(self, op, i, llops)
             hop.dispatch()
 
         if len(block.exits) != 0: # i.e not the return block
@@ -186,7 +192,7 @@ class BaseGCTransformer(object):
                 deadinallexits.difference_update(sets.Set(link.args))
 
             for var in deadinallexits:
-                self.pop_alive(var)
+                self.pop_alive(var, llops)
 
             for link in block.exits:
                 livecounts = dict.fromkeys(sets.Set(self.livevars) - deadinallexits, 1)
@@ -201,8 +207,7 @@ class BaseGCTransformer(object):
                         livecounts[v] = -1
                 self.links_to_split[link] = livecounts
 
-            block.operations[:] = self.llops
-        self.llops = None
+            block.operations[:] = llops
         self.livevars = None
         self.var_last_needed_in = None
 
@@ -294,22 +299,18 @@ class BaseGCTransformer(object):
         v_old = hop.genop('g' + opname[1:],
                           hop.inputargs()[:-1],
                           resulttype=v_new.concretetype)
-        self.push_alive(v_new)
+        self.push_alive(v_new, hop.llops)
         hop.rename('bare_' + opname)
-        self.pop_alive(v_old)
+        self.pop_alive(v_old, hop.llops)
 
 
-    def push_alive(self, var, llops=None):
-        if llops is None:
-            llops = self.llops
+    def push_alive(self, var, llops):
         if var_ispyobj(var):
             self.push_alive_pyobj(var, llops)
         else:
             self.push_alive_nopyobj(var, llops)
 
-    def pop_alive(self, var, llops=None):
-        if llops is None:
-            llops = self.llops
+    def pop_alive(self, var, llops):
         if var_ispyobj(var):
             self.pop_alive_pyobj(var, llops)
         else:
@@ -358,10 +359,10 @@ class MinimalGCTransformer(BaseGCTransformer):
         BaseGCTransformer.__init__(self, parenttransformer.translator)
         self.parenttransformer = parenttransformer
 
-    def push_alive(self, var, llops=None):
+    def push_alive(self, var, llops):
         pass
 
-    def pop_alive(self, var, llops=None):
+    def pop_alive(self, var, llops):
         pass
 
     def gct_malloc(self, hop):

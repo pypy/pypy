@@ -15,6 +15,7 @@ class GenerationGC(SemiSpaceGC):
     list, chained to each other via their 'forw' header field.
     """
     inline_simple_malloc = True
+    needs_write_barrier = True
 
     def __init__(self, AddressLinkedList,
                  nursery_size=128,
