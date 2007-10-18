@@ -59,8 +59,13 @@ def _get_type(space, key):
         return TYPEMAP[key]
     except KeyError:
         raise OperationError(space.w_ValueError, space.wrap(
-            "Uknown type letter %s" % key))
-_get_type.unwrap_spec = [ObjSpace, str]
+            "Uknown type letter %s" % (key,)))
+    return lltype.nullptr(FFI_TYPE_P.TO)
+
+def _w_get_type(space, key):
+    _get_type(space, key)
+    return space.w_None
+_w_get_type.unwrap_spec = [ObjSpace, str]
 
 class W_CDLL(Wrappable):
     def __init__(self, space, name):
@@ -198,12 +203,20 @@ def unwrap_value(space, push_func, add_arg, argdesc, tp, w_arg, to_free):
                 raise OperationError(space.w_TypeError, w(
                     "Expected structure, array or simple type"))
     else:
+        # XXX not sure how this will look like at the end regarding
+        #     val annotation
         if tp == "c" or tp == "b" or tp == "B":
             s = space.str_w(w_arg)
             if len(s) != 1:
                 raise OperationError(space.w_ValueError, w(
                     "Expected string of length one as character"))
             val = ord(s[0])
+        elif tp == 'I':
+            val = space.uint_w(w_arg)
+        elif tp == 'q':
+            val = space.r_longlong_w(w_arg)
+        elif tp == 'Q':
+            val = space.r_ulonglong_w(w_arg)
         else:
             val = space.int_w(w_arg)
         for c, checker in unroll_size_checkers:

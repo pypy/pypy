@@ -83,6 +83,11 @@ class AppTestCTypes:
         {
            return 1LL<<42;
         }
+
+        long long pass_ll(long long x)
+        {
+           return x;
+        }
         '''))
         compile_c_module([c_file], 'x')
         return str(udir.join('x.so'))
@@ -281,3 +286,6 @@ class AppTestCTypes:
         assert some_huge_uvalue() == 1<<42
         x = lib.ptr('some_huge_value', ['Q'], None)
         raises(ValueError, "x(-1)")
+        pass_ll = lib.ptr('pass_ll', ['q'], 'q')
+        assert pass_ll(1<<42) == 1<<42
+    
