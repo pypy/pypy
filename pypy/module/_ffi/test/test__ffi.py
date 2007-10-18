@@ -25,6 +25,10 @@ class AppTestCTypes:
            struct x* next;
         };
 
+        void nothing()
+        {
+        }
+
         char inner_struct_elem(struct x *x1)
         {
            return x1->next->x3;
@@ -225,6 +229,13 @@ class AppTestCTypes:
         ptr1 = get_array_elem_s(a, 0)
         assert ptr1 is None
         assert X(get_array_elem_s(a, 1)).x2 == 3
+
+    def test_bad_parameters(self):
+        import _ffi
+        lib = _ffi.CDLL(self.lib_name)
+        nothing = lib.ptr('nothing', [], None)
+        assert nothing() is None
+        raises(AttributeError, "lib.ptr('get_charx', [], None)")
 
     def test_implicit_structure(self):
         skip("Does not work yet")

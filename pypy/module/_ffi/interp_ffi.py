@@ -62,10 +62,16 @@ class W_CDLL(Wrappable):
             raise OperationError(space.w_ValueError, space.wrap(
                 "Uknown type letter %s" % key))
 
-    def ptr(self, space, name, w_argtypes, restype):
+    def ptr(self, space, name, w_argtypes, w_restype):
         """ Get a pointer for function name with provided argtypes
         and restype
         """
+        if space.is_w(w_restype, space.w_None):
+            restype = 'v'
+            ffi_restype = ffi_type_void
+        else:
+            restype = space.str_w(w_restype)
+            ffi_restype = self.get_type(restype)
         w = space.wrap
         w_argtypes = space.newtuple(space.unpackiterable(w_argtypes))
         w_key = space.newtuple([w(name), w_argtypes, w(restype)])
@@ -79,7 +85,6 @@ class W_CDLL(Wrappable):
         argtypes_w = space.unpackiterable(w_argtypes)
         argtypes = [space.str_w(w_arg) for w_arg in argtypes_w]
         ffi_argtypes = [self.get_type(arg) for arg in argtypes]
-        ffi_restype = self.get_type(restype)
         try:
             ptr = self.cdll.getpointer(name, ffi_argtypes, ffi_restype)
             w_funcptr = W_FuncPtr(ptr, argtypes, restype)
@@ -88,7 +93,7 @@ class W_CDLL(Wrappable):
         except KeyError:
             raise OperationError(space.w_AttributeError, space.wrap(
                 "No symbol %s found in library %s" % (name, self.name)))
-    ptr.unwrap_spec = ['self', ObjSpace, str, W_Root, str]
+    ptr.unwrap_spec = ['self', ObjSpace, str, W_Root, W_Root]
 
 def descr_new_cdll(space, w_type, name):
     try:
@@ -219,7 +224,9 @@ class W_FuncPtr(Wrappable):
             unwrap_value(space, push, self.ptr, i, argtype, w_arg, to_free)
             i += 1
         try:
-            return wrap_value(space, ptr_call, self.ptr, None, self.restype)
+            if self.restype != 'v':
+                return wrap_value(space, ptr_call, self.ptr, None, self.restype)
+            return space.w_None
         finally:
             for elem in to_free:
                 lltype.free(elem, flavor='raw')
