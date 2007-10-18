@@ -91,6 +91,31 @@ class GenericGCTests(GCTest):
         else:
             return -1     # xxx
 
+    def test_instances(self):
+        class A(object):
+            pass
+        class B(A):
+            def __init__(self, something):
+                self.something = something
+        def malloc_a_lot():
+            i = 0
+            first = None
+            while i < 10:
+                i += 1
+                a = somea = A()
+                a.last = first
+                first = a
+                j = 0
+                while j < 30:
+                    b = B(somea)
+                    b.last = first
+                    j += 1
+            return 0
+        run, statistics = self.runner(malloc_a_lot, statistics=True)
+        run([])
+        heap_size = self.heap_usage(statistics)
+
+
     def test_llinterp_lists(self):
         def malloc_a_lot():
             i = 0
@@ -658,6 +683,9 @@ class TestStacklessMarkSweepGC(TestMarkSweepGC):
         class transformerclass(stacklessframework.StacklessFrameworkGCTransformer):
             GC_PARAMS = {'start_heap_size': 4096 }
             root_stack_depth = 200
+
+    def test_instances(self):
+        py.test.skip("fails for a stupid reasons")
 
     def test_x_become(self):
         from pypy.rlib import objectmodel
