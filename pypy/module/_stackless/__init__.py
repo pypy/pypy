@@ -27,7 +27,7 @@ class Module(MixedModule):
         from pypy.module._stackless.interp_greenlet import post_install as post_install_greenlet
         post_install_greenlet(self)
 
-        if self.space.config.translation.gc == 'framework':
+        if self.space.config.translation.gc == 'marksweep':
             from pypy.module._stackless.interp_clonable import post_install as post_install_clonable
             self.extra_interpdef('clonable', 'interp_clonable.AppClonableCoroutine')
             self.extra_interpdef('fork',     'interp_clonable.fork')

@@ -48,7 +48,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                                ("objspace.usemodules._stackless", True),
                                ("objspace.usemodules._cslib", True),
                                ("objspace.usemodules.cclp", True),
-                               ("translation.gc", 'framework'),
+                               ("translation.gc", 'marksweep'),
                                ],
                  },
                  cmdline='--objspace -o'),

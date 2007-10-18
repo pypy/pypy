@@ -278,8 +278,7 @@ def test_gc_x_operations():
 from pypy.translator.c.test.test_boehm import AbstractGCTestClass
 
 class TestUsingFramework(AbstractGCTestClass):
-    gcpolicy = "framework"
-    frameworkgc = "marksweep"
+    gcpolicy = "marksweep"
     should_be_moving = False
 
     def test_empty_collect(self):
@@ -827,7 +826,7 @@ class TestUsingStacklessFramework(TestUsingFramework):
         py.test.skip("fails for some reason I couldn't figure out yet :-(")
 
 class TestSemiSpaceGC(TestUsingFramework):
-    frameworkgc = "semispace"
+    gcpolicy = "semispace"
     should_be_moving = True
 
     def test_many_ids(self):

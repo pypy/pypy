@@ -21,14 +21,19 @@ def test_stacklessgc_required():
     conf.translation.stacklessgc = True
     assert conf.translation.stackless
     assert conf.translation.type_system == "lltype"
-    assert conf.translation.gc == "framework"
+    assert conf.translation.gctransformer == "framework"
+    assert conf.translation.gc == "marksweep"
+    conf = get_pypy_config()
+    conf.translation.gc = "boehm"
+    py.test.raises(ValueError, "conf.translation.stacklessgc = True")
+
 
 def test_frameworkgc():
     for name in ["marksweep", "semispace"]:
         conf = get_pypy_config()
-        assert conf.translation.gc != "framework"
-        conf.translation.frameworkgc = name
-        assert conf.translation.gc == "framework"
+        assert conf.translation.gctransformer != "framework"
+        conf.translation.gc = name
+        assert conf.translation.gctransformer == "framework"
 
 def test_check_documentation():
     from pypy.doc.config.confrest import all_optiondescrs

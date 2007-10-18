@@ -107,7 +107,7 @@ class CBuilder(object):
 
     def get_gcpolicyclass(self):
         if self.gcpolicy is None:
-            name = self.config.translation.gc
+            name = self.config.translation.gctransformer
             if self.config.translation.stacklessgc:
                 name = "%s+stacklessgc" % (name,)
             return gc.name_to_gcpolicy[name]

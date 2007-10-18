@@ -41,22 +41,27 @@ translation_optiondescription = OptionDescription(
                default=False, cmdline="--llvm-via-c",
                requires=[("translation.backend", "llvm")]),
     ChoiceOption("gc", "Garbage Collection Strategy",
-                 ["boehm", "ref", "framework", "none"],
+                 ["boehm", "ref", "marksweep", "semispace", "statistics", "none"],
                   "ref", requires={
-                     "ref": [("translation.rweakref", False)], # XXX
-                     "none": [("translation.rweakref", False)], # XXX
+                     "ref": [("translation.rweakref", False), # XXX
+                             ("translation.gctransformer", "ref")],
+                     "none": [("translation.rweakref", False), # XXX
+                             ("translation.gctransformer", "none")],
+                     "semispace": [("translation.gctransformer", "framework")],
+                     "marksweep": [("translation.gctransformer", "framework")],
+                     "statistics": [("translation.gctransformer", "framework")],
+                     "boehm": [("translation.gctransformer", "boehm")],
                      },
                   cmdline="--gc"),
+    ChoiceOption("gctransformer", "GC transformer that is used - internal",
+                 ["boehm", "ref", "framework", "none"],
+                  cmdline=None),
+
     BoolOption("stacklessgc", "Use stackless to find roots in a framework GC",
                default=False, cmdline="--stacklessgc",
-               requires=[("translation.gc", "framework"),
-                         ("translation.stackless", True)]),
-    ChoiceOption("frameworkgc", "Select one of our custom GCs",
-                 ["marksweep", "semispace", "statistics"],
-                 "marksweep", cmdline="--frameworkgc", requires={
-                    "marksweep": [("translation.gc", "framework")],
-                    "semispace": [("translation.gc", "framework")],
-                 }),
+               requires=[("translation.gctransformer", "framework"),
+                         ("translation.stackless", True)],
+               suggests=[("translation.gc", "marksweep")]),
     BoolOption("thread", "enable use of threading primitives",
                default=False, cmdline="--thread",
                requires=[("translation.gc", "boehm")]),

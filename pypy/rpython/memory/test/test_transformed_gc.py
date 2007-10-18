@@ -80,7 +80,6 @@ class GCTest(object):
             return run
         
 class GenericGCTests(GCTest):
-    gcname = "framework"
 
     def heap_usage(self, statistics):
         try:
@@ -397,6 +396,7 @@ class GenericGCTests(GCTest):
         assert res == 0
 
 class TestMarkSweepGC(GenericGCTests):
+    gcname = "marksweep"
     class gcpolicy(gc.FrameworkGcPolicy):
         class transformerclass(framework.FrameworkGCTransformer):
             GC_PARAMS = {'start_heap_size': 4096 }
@@ -620,6 +620,7 @@ class TestMarkSweepGC(GenericGCTests):
 
 
 class TestStacklessMarkSweepGC(TestMarkSweepGC):
+    gcname = "marksweep"
 
     stacklessgc = True
     class gcpolicy(gc.StacklessFrameworkGcPolicy):
@@ -649,6 +650,7 @@ class TestStacklessMarkSweepGC(TestMarkSweepGC):
 
 
 class TestPrintingGC(GenericGCTests):
+    gcname = "statistics"
 
     class gcpolicy(gc.FrameworkGcPolicy):
         class transformerclass(framework.FrameworkGCTransformer):
@@ -657,6 +659,7 @@ class TestPrintingGC(GenericGCTests):
             root_stack_depth = 200
 
 class TestSemiSpaceGC(GenericGCTests):
+    gcname = "semispace"
 
     class gcpolicy(gc.FrameworkGcPolicy):
         class transformerclass(framework.FrameworkGCTransformer):

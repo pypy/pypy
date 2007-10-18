@@ -175,16 +175,16 @@ class MovingGCBase(GCBase):
 def choose_gc_from_config(config):
     """Return a (GCClass, GC_PARAMS) from the given config object.
     """
-    config.translation.gc = "framework"
-    if config.translation.frameworkgc == "marksweep":
+    assert config.translation.gctransformer == "framework"
+    if config.translation.gc == "marksweep":
         GC_PARAMS = {'start_heap_size': 8*1024*1024} # XXX adjust
         from pypy.rpython.memory.gc.marksweep import MarkSweepGC
         return MarkSweepGC, GC_PARAMS
-    if config.translation.frameworkgc == "statistics":
+    if config.translation.gc == "statistics":
         GC_PARAMS = {'start_heap_size': 8*1024*1024} # XXX adjust
         from pypy.rpython.memory.gc.marksweep import PrintingMarkSweepGC
         return PrintingMarkSweepGC, GC_PARAMS
-    elif config.translation.frameworkgc == "semispace":
+    elif config.translation.gc == "semispace":
         GC_PARAMS = {'space_size': 8*1024*1024} # XXX adjust
         from pypy.rpython.memory.gc.semispace import SemiSpaceGC
         return SemiSpaceGC, GC_PARAMS
