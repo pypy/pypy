@@ -152,12 +152,10 @@ def make_size_checker(format, size, signed):
     return checker
 
 _SIZE_CHECKERS = {
-    'h' : True,
-    'H' : False,
-    'I' : False,
-    'c' : False,
     'b' : True,
     'B' : False,
+    'h' : True,
+    'H' : False,
     'i' : True,
     'I' : False,
     'l' : True,
@@ -170,7 +168,6 @@ _SIZE_CHECKERS = {
 SIZE_CHECKERS = {}
 for c, signed in _SIZE_CHECKERS.items():
     SIZE_CHECKERS[c] = make_size_checker(c, native_fmttable[c]['size'], signed)
-del _SIZE_CHECKERS
 unroll_size_checkers = unrolling_iterable(SIZE_CHECKERS.items())
 
 def unwrap_value(space, push_func, add_arg, argdesc, tp, w_arg, to_free):
@@ -202,7 +199,7 @@ def unwrap_value(space, push_func, add_arg, argdesc, tp, w_arg, to_free):
             else:
                 raise OperationError(space.w_TypeError, w(
                     "Expected structure, array or simple type"))
-    if tp == "c" or tp == "b" or tp == "B":
+    if tp == "c":
         s = space.str_w(w_arg)
         if len(s) != 1:
             raise OperationError(space.w_ValueError, w(
@@ -212,11 +209,11 @@ def unwrap_value(space, push_func, add_arg, argdesc, tp, w_arg, to_free):
     else:
         for c, checker in unroll_size_checkers:
             if tp == c:
-                if tp == "q":
+                if c == "q":
                     val = space.r_longlong_w(w_arg)
-                elif tp == "Q":
+                elif c == "Q":
                     val = space.r_ulonglong_w(w_arg)
-                elif tp == "I" or tp == "L":
+                elif c == "I" or c == "L" or c =="B":
                     val = space.uint_w(w_arg)
                 else:
                     val = space.int_w(w_arg)
