@@ -202,30 +202,32 @@ def unwrap_value(space, push_func, add_arg, argdesc, tp, w_arg, to_free):
             else:
                 raise OperationError(space.w_TypeError, w(
                     "Expected structure, array or simple type"))
+    if tp == "c" or tp == "b" or tp == "B":
+        s = space.str_w(w_arg)
+        if len(s) != 1:
+            raise OperationError(space.w_ValueError, w(
+                "Expected string of length one as character"))
+        val = ord(s[0])
+        push_func(add_arg, argdesc, val)
     else:
-        # XXX not sure how this will look like at the end regarding
-        #     val annotation
-        if tp == "c" or tp == "b" or tp == "B":
-            s = space.str_w(w_arg)
-            if len(s) != 1:
-                raise OperationError(space.w_ValueError, w(
-                    "Expected string of length one as character"))
-            val = ord(s[0])
-        elif tp == 'I':
-            val = space.uint_w(w_arg)
-        elif tp == 'q':
-            val = space.r_longlong_w(w_arg)
-        elif tp == 'Q':
-            val = space.r_ulonglong_w(w_arg)
-        else:
-            val = space.int_w(w_arg)
         for c, checker in unroll_size_checkers:
             if tp == c:
+                if tp == "q":
+                    val = space.r_longlong_w(w_arg)
+                elif tp == "Q":
+                    val = space.r_ulonglong_w(w_arg)
+                elif tp == "I":
+                    val = space.uint_w(w_arg)
+                elif tp == "L":
+                    val = space.ulong_w(w_arg)
+                else:
+                    val = space.int_w(w_arg)
                 try:
                     checker(val)
                 except FfiValueError, e:
                     raise OperationError(space.w_ValueError, w(e.msg))
-        push_func(add_arg, argdesc, val)
+                push_func(add_arg, argdesc, val)
+    
 unwrap_value._annspecialcase_ = 'specialize:arg(1)'
 
 ll_typemap_iter = unrolling_iterable(LL_TYPEMAP.items())
