@@ -2,6 +2,8 @@ from pypy.conftest import gettestobjspace
 from pypy.module.bz2.test.support import CheckAllocation
 import os
 
+HUGE_OK = False
+
 if os.name == "nt":
     from py.test import skip
     skip("bz2 module is not available on Windows")
@@ -35,6 +37,7 @@ class AppTestBZ2Compressor(CheckAllocation):
         cls.space = space
         cls.w_TEXT = space.wrap(TEXT)
         cls.w_decompress = space.wrap(decompress)
+        cls.w_HUGE_OK = space.wrap(HUGE_OK)
         
     def test_creation(self):
         from bz2 import BZ2Compressor
@@ -55,6 +58,8 @@ class AppTestBZ2Compressor(CheckAllocation):
         assert self.decompress(data) == self.TEXT
         
     def test_compress_huge_data(self):
+        if not self.HUGE_OK:
+            skip("skipping test requiring lots of memory")
         from bz2 import BZ2Compressor            
         
         HUGE_DATA = self.TEXT * 10000
@@ -146,6 +151,7 @@ class AppTestBZ2ModuleFunctions(CheckAllocation):
         cls.w_TEXT = space.wrap(TEXT)
         cls.w_DATA = space.wrap(DATA)
         cls.w_decompress = space.wrap(decompress)
+        cls.w_HUGE_OK = space.wrap(HUGE_OK)
 
     def test_compress_function(self):
         from bz2 import compress
@@ -158,6 +164,8 @@ class AppTestBZ2ModuleFunctions(CheckAllocation):
         assert self.decompress(data) == self.TEXT
 
     def test_compress_function_huge_data(self):
+        if not self.HUGE_OK:
+            skip("skipping test requiring lots of memory")
         from bz2 import compress
     
         HUGE_DATA = self.TEXT * 10000
