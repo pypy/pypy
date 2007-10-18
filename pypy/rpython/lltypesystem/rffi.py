@@ -221,6 +221,7 @@ CArray._annspecialcase_ = 'specialize:memo'
 
 def CArrayPtr(tp):
     return lltype.Ptr(CArray(tp))
+CArray._annspecialcase_ = 'specialize:memo'
 
 def COpaque(name, hints=None, **kwds):
     if hints is None:

@@ -286,6 +286,7 @@ class _parentable_mixin(object):
         if addr in ALLOCATED:
             raise Exception("internal ll2ctypes error - "
                             "double conversion from lltype to ctypes?")
+        # XXX don't store here immortal structures
         ALLOCATED[addr] = self
 
     def _free(self):
