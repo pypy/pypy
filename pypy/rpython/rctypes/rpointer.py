@@ -57,8 +57,10 @@ class PointerRepr(CTypesValueRepr):
         assert s_attr.const == 'contents'
         v_ptr = hop.inputarg(self, 0)
         v_c_ptr = self.getvalue(hop.llops, v_ptr)
+        v_owner = self.getkeepalive(hop.llops, v_ptr)
         hop.exception_cannot_occur()
-        return self.r_contents.allocate_instance_ref(hop.llops, v_c_ptr)
+        return self.r_contents.allocate_instance_ref(hop.llops, v_c_ptr,
+                                                     v_owner)
 
     def rtype_setattr(self, hop):
         s_attr = hop.args_s[1]

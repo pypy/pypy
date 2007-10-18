@@ -16,6 +16,7 @@ from ctypes import create_string_buffer, cast, POINTER, c_void_p, c_char
 from ctypes import c_char_p, c_long, pointer, sizeof, c_int
 from pypy.rpython.rctypes.astringbuf import StringBufferType
 from pypy.rlib.rarithmetic import r_uint
+from pypy.rlib.objectmodel import keepalive_until_here
 
 
 class Test_annotation:
@@ -221,7 +222,9 @@ class Test_compilation:
             for i in range(sizeof(c_long)):
                 buf[i] = c_n_ptr[i]
             c_long_ptr = cast(buf, POINTER(c_long))
-            return c_long_ptr.contents.value
+            res = c_long_ptr.contents.value
+            keepalive_until_here(buf)
+            return res
         fn = compile(func, [int])
         res = fn(0x12345678)
         assert res == 0x12345678
