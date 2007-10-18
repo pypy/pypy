@@ -9,6 +9,13 @@ from pypy.rlib.libffi import *
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.unroll import unrolling_iterable
 
+from pypy.module.struct.standardfmttable import min_max_acc_method
+from pypy.module.struct.nativefmttable import native_fmttable
+
+class FfiValueError(Exception):
+    def __init__(self, msg):
+        self.msg = msg
+
 TYPEMAP = {
     # XXX A mess with unsigned/signed/normal chars :-/
     'c' : ffi_type_uchar,
@@ -129,6 +136,38 @@ def pack_pointer(space, add_arg, argdesc, w_arg, push_func):
     push_func(add_arg, argdesc, ll_str)
     return ll_str
 
+def make_size_checker(format, size, signed):
+    min, max, _ = min_max_acc_method(size, signed)
+
+    def checker(value):
+        if value < min:
+            raise FfiValueError("%d too small for format %s" % (value, format))
+        elif value > max:
+            raise FfiValueError("%d too large for format %s" % (value, format))
+    return checker
+
+_SIZE_CHECKERS = {
+    'h' : True,
+    'H' : False,
+    'I' : False,
+    'c' : False,
+    'b' : True,
+    'B' : False,
+    'i' : True,
+    'I' : False,
+    'l' : True,
+    'L' : False,
+    'q' : True,
+    'Q' : False,
+}
+
+# XXX check for single float as well
+SIZE_CHECKERS = {}
+for c, signed in _SIZE_CHECKERS.items():
+    SIZE_CHECKERS[c] = make_size_checker(c, native_fmttable[c]['size'], signed)
+del _SIZE_CHECKERS
+unroll_size_checkers = unrolling_iterable(SIZE_CHECKERS.items())
+
 def unwrap_value(space, push_func, add_arg, argdesc, tp, w_arg, to_free):
     w = space.wrap
     # XXX how to handle LONGLONG here?
@@ -158,16 +197,22 @@ def unwrap_value(space, push_func, add_arg, argdesc, tp, w_arg, to_free):
             else:
                 raise OperationError(space.w_TypeError, w(
                     "Expected structure, array or simple type"))
-    elif tp == "c" or tp == "b" or tp == "B":
-        s = space.str_w(w_arg)
-        if len(s) != 1:
-            raise OperationError(space.w_ValueError, w(
-                "Expected string of length one as character"))
-        s = s[0]
-        push_func(add_arg, argdesc, s)
     else:
-        #assert tp  "iIhHlLqQ"
-        push_func(add_arg, argdesc, space.int_w(w_arg))
+        if tp == "c" or tp == "b" or tp == "B":
+            s = space.str_w(w_arg)
+            if len(s) != 1:
+                raise OperationError(space.w_ValueError, w(
+                    "Expected string of length one as character"))
+            val = ord(s[0])
+        else:
+            val = space.int_w(w_arg)
+        for c, checker in unroll_size_checkers:
+            if tp == c:
+                try:
+                    checker(val)
+                except FfiValueError, e:
+                    raise OperationError(space.w_ValueError, w(e.msg))
+        push_func(add_arg, argdesc, val)
 unwrap_value._annspecialcase_ = 'specialize:arg(1)'
 
 ll_typemap_iter = unrolling_iterable(LL_TYPEMAP.items())
@@ -185,8 +230,8 @@ def wrap_value(space, func, add_arg, argdesc, tp):
                 if not res:
                     return space.w_None
                 return space.wrap(rffi.cast(rffi.INT, res))
-            #elif c == 'q' or c == 'Q' or c == 'L':
-            #    return space.newlong(func(arg, ll_type))
+            elif c == 'q' or c == 'Q' or c == 'L':
+                return space.wrap(func(add_arg, argdesc, ll_type))
             elif c == 'f' or c == 'd':
                 return space.wrap(float(func(add_arg, argdesc, ll_type)))
             elif c == 'c' or c == 'b' or c == 'B':

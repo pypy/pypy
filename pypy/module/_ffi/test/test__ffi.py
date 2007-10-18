@@ -73,6 +73,16 @@ class AppTestCTypes:
         {
            return array[num];
         }
+
+        long long some_huge_value()
+        {
+           return 1LL<<42;
+        }
+
+        unsigned long long some_huge_uvalue()
+        {
+           return 1LL<<42;
+        }
         '''))
         compile_c_module([c_file], 'x')
         return str(udir.join('x.so'))
@@ -102,8 +112,8 @@ class AppTestCTypes:
         get_char = lib.ptr('get_char', ['s', 'H'], 'c')
         assert get_char('dupa', 2) == 'p'
         assert get_char('dupa', 1) == 'u'
-        skip("this module does not do overflow checking by now")
-        raises(OverflowError, "get_char('xxx', 2 ** 17)")
+        raises(ValueError, "get_char('xxx', 2 ** 17)")
+        raises(ValueError, "get_char('xxx', -1)")
 
     def test_returning_str(self):
         import _ffi
@@ -263,5 +273,11 @@ class AppTestCTypes:
         
 
     def test_longs_ulongs(self):
-        skip("Not implemented yet")
-
+        import _ffi
+        lib = _ffi.CDLL(self.lib_name)
+        some_huge_value = lib.ptr('some_huge_value', [], 'q')
+        assert some_huge_value() == 1<<42
+        some_huge_uvalue = lib.ptr('some_huge_uvalue', [], 'Q')
+        assert some_huge_uvalue() == 1<<42
+        x = lib.ptr('some_huge_value', ['Q'], None)
+        raises(ValueError, "x(-1)")
