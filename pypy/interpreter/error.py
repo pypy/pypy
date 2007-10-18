@@ -222,18 +222,19 @@ def debug_print(text, file=None, newline=True):
     # 31: ANSI color code "red"
     ansi_print(text, esc="31", file=file, newline=newline)
 
-def wrap_oserror(space, e): 
+def wrap_oserror(space, e, exception_name='w_OSError'): 
     assert isinstance(e, OSError) 
     errno = e.errno
     try:
         msg = os.strerror(errno)
     except ValueError:
         msg = 'error %d' % errno
-    w_error = space.call_function(space.w_OSError,
+    exc = getattr(space, exception_name)
+    w_error = space.call_function(exc,
                                   space.wrap(errno),
                                   space.wrap(msg))
-    return OperationError(space.w_OSError, w_error)
-
+    return OperationError(exc, w_error)
+wrap_oserror._annspecialcase_ = 'specialize:arg(2)'
 
 ### installing the excepthook for OperationErrors
 ##def operr_excepthook(exctype, value, traceback):
