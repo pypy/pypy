@@ -283,3 +283,6 @@ class TestSemiSpaceGC(GCTest):
 
 class TestGrowingSemiSpaceGC(TestSemiSpaceGC):
     GC_PARAMS = {'space_size': 64}
+
+class TestGenerationalGC(GCTest):
+    from pypy.rpython.memory.gc.generation import GenerationGC as GCClass

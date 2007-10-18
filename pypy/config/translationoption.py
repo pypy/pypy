@@ -41,7 +41,8 @@ translation_optiondescription = OptionDescription(
                default=False, cmdline="--llvm-via-c",
                requires=[("translation.backend", "llvm")]),
     ChoiceOption("gc", "Garbage Collection Strategy",
-                 ["boehm", "ref", "marksweep", "semispace", "statistics", "none"],
+                 ["boehm", "ref", "marksweep", "semispace", "statistics",
+                  "generation", "none"],
                   "ref", requires={
                      "ref": [("translation.rweakref", False), # XXX
                              ("translation.gctransformer", "ref")],
@@ -50,6 +51,7 @@ translation_optiondescription = OptionDescription(
                      "semispace": [("translation.gctransformer", "framework")],
                      "marksweep": [("translation.gctransformer", "framework")],
                      "statistics": [("translation.gctransformer", "framework")],
+                     "generation": [("translation.gctransformer", "framework")],
                      "boehm": [("translation.gctransformer", "boehm")],
                      },
                   cmdline="--gc"),

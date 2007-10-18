@@ -188,6 +188,11 @@ def choose_gc_from_config(config):
         GC_PARAMS = {'space_size': 8*1024*1024} # XXX adjust
         from pypy.rpython.memory.gc.semispace import SemiSpaceGC
         return SemiSpaceGC, GC_PARAMS
+    elif config.translation.gc == "generation":
+        GC_PARAMS = {'space_size': 8*1024*1024, # XXX adjust
+                     'nursery_size': 12*1024}
+        from pypy.rpython.memory.gc.generation import GenerationGC
+        return GenerationGC, GC_PARAMS
     else:
         raise ValueError("unknown value for frameworkgc: %r" % (
             config.translation.frameworkgc,))
