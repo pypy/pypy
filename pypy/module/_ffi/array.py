@@ -10,7 +10,7 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.module._ffi.structure import native_fmttable
-from pypy.module._ffi.interp_ffi import unwrap_value, wrap_value
+from pypy.module._ffi.interp_ffi import unwrap_value, wrap_value, _get_type
 
 def push_elem(ll_array, pos, value):
     TP = lltype.typeOf(value)
@@ -27,6 +27,7 @@ class W_ArrayInstance(Wrappable):
     def __init__(self, space, of, length):
         self.alloced = False
         self.of = of
+        _get_type(space, of)
         self.length = length
         size = native_fmttable[of]['size'] * length
         self.ll_array = lltype.malloc(rffi.VOIDP.TO, size, flavor='raw',

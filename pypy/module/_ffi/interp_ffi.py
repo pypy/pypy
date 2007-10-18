@@ -47,6 +47,14 @@ LL_TYPEMAP = {
     'P' : rffi.VOIDP,    
 }
 
+def _get_type(space, key):
+    try:
+        return TYPEMAP[key]
+    except KeyError:
+        raise OperationError(space.w_ValueError, space.wrap(
+            "Uknown type letter %s" % key))
+_get_type.unwrap_spec = [ObjSpace, str]
+
 class W_CDLL(Wrappable):
     def __init__(self, space, name):
         self.cdll = CDLL(name)
@@ -56,11 +64,7 @@ class W_CDLL(Wrappable):
 
     def get_type(self, key):
         space = self.space
-        try:
-            return TYPEMAP[key]
-        except KeyError:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "Uknown type letter %s" % key))
+        return _get_type(space, key)
 
     def ptr(self, space, name, w_argtypes, w_restype):
         """ Get a pointer for function name with provided argtypes

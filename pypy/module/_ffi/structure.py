@@ -13,7 +13,7 @@ from pypy.interpreter.error import OperationError, wrap_oserror
 # the other one is in rlib/libffi, we should refactor it to reuse the same
 # logic, I'll not touch it by now, and refactor it later
 from pypy.module.struct.nativefmttable import native_fmttable as struct_native_fmttable
-from pypy.module._ffi.interp_ffi import wrap_value, unwrap_value
+from pypy.module._ffi.interp_ffi import wrap_value, unwrap_value, _get_type
 
 native_fmttable = {}
 for key, value in struct_native_fmttable.items():
@@ -28,7 +28,9 @@ def unpack_fields(space, w_fields):
         if not len(l_w) == 2:
             raise OperationError(space.w_ValueError, space.wrap(
                 "Expected list of 2-size tuples"))
-        fields.append((space.str_w(l_w[0]), space.str_w(l_w[1])))
+        name, code = space.str_w(l_w[0]), space.str_w(l_w[1])
+        _get_type(space, code) # be paranoid about types
+        fields.append((name, code))
     return fields
 
 def size_and_pos(fields):

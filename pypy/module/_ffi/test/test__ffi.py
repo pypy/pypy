@@ -239,6 +239,14 @@ class AppTestCTypes:
         raises(ValueError, "lib.ptr('get_char', ['xx'], None)")
         raises(ValueError, "lib.ptr('get_char', ['x'], None)")
         raises(ValueError, "lib.ptr('get_char', [], 'x')")
+        raises(ValueError, "_ffi.Structure(['x1', 'xx'])")
+        S = _ffi.Structure([('x1', 'i')])
+        S.fields[0] = ('x1', 'xx')
+        raises(ValueError, "S()")
+        raises(ValueError, "_ffi.Array('xx')")
+        A = _ffi.Array('i')
+        A.of = 'xx'
+        raises(ValueError, 'A(1)')
 
     def test_implicit_structure(self):
         skip("Does not work yet")
