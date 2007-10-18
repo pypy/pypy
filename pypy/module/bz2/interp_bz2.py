@@ -80,16 +80,19 @@ if rffi.sizeof(rffi.INT) > 4:
 else:
     BIGCHUNK = 512 * 1024
 
-MAXINT = sys.maxint
-
 if BZ_CONFIG_ERROR:
-    if rffi.sizeof(rffi.LONG) >= 8 or rffi.sizeof(rffi.LONGLONG) >= 8:
+    if rffi.sizeof(rffi.LONG) >= 8:
         def _bzs_total_out(bzs):
             return (bzs.c_total_out_hi32 << 32) + bzs.c_total_out_lo32
     else:
+        # we can't return a long long value from here, because most
+        # callers wouldn't be able to handle it anyway
         def _bzs_total_out(bzs):
+            if bzs.c_total_out_hi32 != 0 or bzs.c_total_out_lo32 > sys.maxint:
+                raise MemoryError
             return bzs.c_total_out_lo32
 else:
+    XXX    # this case needs fixing (old bz2 library?)
     def _bzs_total_out(bzs):
         return bzs.total_out
 
