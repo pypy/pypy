@@ -652,12 +652,6 @@ class FrameworkGCTransformer(GCTransformer):
         c_type = rmodel.inputconst(lltype.Void, llmemory.Address)
         for k,var in enumerate(livevars):
             c_k = rmodel.inputconst(lltype.Signed, k)
-            # this cast doesn't actually do anything after translation to C
-            # however, on top of the llinterp it is needed
-            # see comment in llmemory before cast_ptr_to_weakrefptr
-            if var.concretetype == llmemory.WeakRefPtr:
-                var = hop.llops.genop("cast_weakrefptr_to_ptr", [var],
-                                      resulttype=WEAKREFPTR)
             v_adr = gen_cast(hop.llops, llmemory.Address, var)
             hop.genop("raw_store", [base_addr, c_type, c_k, v_adr])
         return livevars
@@ -677,18 +671,6 @@ class FrameworkGCTransformer(GCTransformer):
                 c_k = rmodel.inputconst(lltype.Signed, k)
                 v_newaddr = hop.genop("raw_load", [base_addr, c_type, c_k],
                                       resulttype=llmemory.Address)
-                if var.concretetype == llmemory.WeakRefPtr:
-                    # these casts doesn't actually do anything after
-                    # translation to C however, on top of the llinterp it is
-                    # needed see comment in llmemory before
-                    # cast_ptr_to_weakrefptr
-                    # XXX not nice
-                    nvar = hop.llops.genop("cast_adr_to_ptr", [v_newaddr],
-                                           resulttype=WEAKREFPTR)
-                    nvar = hop.llops.genop("cast_ptr_to_weakrefptr", [nvar],
-                                           resulttype=llmemory.WeakRefPtr)
-                    v_newaddr = hop.llops.genop("cast_ptr_to_adr", [nvar],
-                                                resulttype=llmemory.Address)
                 hop.genop("gc_reload_possibly_moved", [v_newaddr, var])
 
     def compute_borrowed_vars(self, graph):
