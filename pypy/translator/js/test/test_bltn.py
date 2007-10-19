@@ -57,7 +57,7 @@ def test_callback():
         SomeNodeInstance.some_callback = callback
     
     fn = compile_function(callback_stuff, [])
-    assert check_source_contains(fn, "\.some_callback = callback")
+    assert not check_source_contains(fn, "\.some_callback = callback")
 
 def test_get_elements():
     from pypy.translator.js.modules import dom
