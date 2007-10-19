@@ -11,7 +11,7 @@ from pypy.module._stackless.rclonable import AbstractThunk, fork
 
 class TestClonableCoroutine(test_transformed_gc.GCTest):
 
-    gcname = "framework"
+    gcname = "marksweep"
     stacklessgc = True
     class gcpolicy(gc.StacklessFrameworkGcPolicy):
         class transformerclass(stacklessframework.StacklessFrameworkGCTransformer):
