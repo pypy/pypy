@@ -274,21 +274,9 @@ class GCTest(object):
         res = self.interpret(f, [])
         assert res == 0
 
-
-class TestMarkSweepGC(GCTest):
-    from pypy.rpython.memory.gc.marksweep import MarkSweepGC as GCClass
-
-class TestSemiSpaceGC(GCTest):
-    from pypy.rpython.memory.gc.semispace import SemiSpaceGC as GCClass
-
-class TestGrowingSemiSpaceGC(TestSemiSpaceGC):
-    GC_PARAMS = {'space_size': 64}
-
-class TestGenerationalGC(GCTest):
-    from pypy.rpython.memory.gc.generation import GenerationGC as GCClass
-
     def test_finalizer_calls_malloc_during_minor_collect(self):
-        py.test.skip("fails")
+        # originally a GenerationGC test, this has also found bugs in other GCs
+        py.test.skip("in-progress")
         class B(object):
             pass
         b = B()
@@ -318,4 +306,17 @@ class TestGenerationalGC(GCTest):
                 i += 1
             return b.num_deleted + len(all)
         res = self.interpret(f, [500])
-        assert res == 1 + 5
+        assert res == 1 + 500
+
+
+class TestMarkSweepGC(GCTest):
+    from pypy.rpython.memory.gc.marksweep import MarkSweepGC as GCClass
+
+class TestSemiSpaceGC(GCTest):
+    from pypy.rpython.memory.gc.semispace import SemiSpaceGC as GCClass
+
+class TestGrowingSemiSpaceGC(TestSemiSpaceGC):
+    GC_PARAMS = {'space_size': 64}
+
+class TestGenerationalGC(GCTest):
+    from pypy.rpython.memory.gc.generation import GenerationGC as GCClass
