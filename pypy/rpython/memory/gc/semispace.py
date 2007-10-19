@@ -227,8 +227,7 @@ class SemiSpaceGC(MovingGCBase):
             return newobj
 
     def trace_and_copy(self, obj):
-        gc_info = self.header(obj)
-        typeid = gc_info.typeid
+        typeid = self.get_type_id(obj)
         offsets = self.offsets_to_gc_pointers(typeid)
         i = 0
         while i < len(offsets):
@@ -264,7 +263,7 @@ class SemiSpaceGC(MovingGCBase):
         gc_info.forw = newobj
 
     def get_size(self, obj):
-        typeid = self.header(obj).typeid
+        typeid = self.get_type_id(obj)
         size = self.fixed_size(typeid)
         if self.is_varsize(typeid):
             lenaddr = obj + self.varsize_offset_to_length(typeid)
@@ -276,6 +275,9 @@ class SemiSpaceGC(MovingGCBase):
     def header(self, addr):
         addr -= self.gcheaderbuilder.size_gc_header
         return llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
+
+    def get_type_id(self, addr):
+        return self.header(addr).typeid
 
     def init_gc_object(self, addr, typeid):
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
@@ -340,6 +342,7 @@ class SemiSpaceGC(MovingGCBase):
         self.finalizer_lock_count = 1
         try:
             while self.run_finalizers.non_empty():
+                #print "finalizer"
                 obj = self.run_finalizers.pop()
                 hdr = self.header(obj)
                 finalizer = self.getfinalizer(hdr.typeid)

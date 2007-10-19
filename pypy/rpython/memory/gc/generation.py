@@ -171,8 +171,7 @@ class GenerationGC(SemiSpaceGC):
         """obj must not be in the nursery.  This copies all the
         young objects it references out of the nursery.
         """
-        gc_info = self.header(obj)
-        typeid = gc_info.typeid
+        typeid = self.get_type_id(obj)
         offsets = self.offsets_to_gc_pointers(typeid)
         i = 0
         while i < len(offsets):
