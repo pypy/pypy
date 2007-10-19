@@ -901,23 +901,23 @@ clean:
 \trm -f $(OBJECTS) $(TARGET)
 
 debug:
-\tmake CFLAGS="-g -DRPY_ASSERT"
+\t$(MAKE) CFLAGS="-g -DRPY_ASSERT"
 
 debug_exc:
-\tmake CFLAGS="-g -DRPY_ASSERT -DDO_LOG_EXC"
+\t$(MAKE) CFLAGS="-g -DRPY_ASSERT -DDO_LOG_EXC"
 
 debug_mem:
-\tmake CFLAGS="-g -DRPY_ASSERT -DNO_OBMALLOC"
+\t$(MAKE) CFLAGS="-g -DRPY_ASSERT -DNO_OBMALLOC"
 
 llsafer:
-\tmake CFLAGS="-O2 -DRPY_LL_ASSERT"
+\t$(MAKE) CFLAGS="-O2 -DRPY_LL_ASSERT"
 
 profile:
-\tmake CFLAGS="-g -pg $(CFLAGS)" LDFLAGS="-pg $(LDFLAGS)"
+\t$(MAKE) CFLAGS="-g -pg $(CFLAGS)" LDFLAGS="-pg $(LDFLAGS)"
 
 profopt:
-\tmake CFLAGS="-fprofile-generate $(CFLAGS)" LDFLAGS="-fprofile-generate $(LDFLAGS)"
+\t$(MAKE) CFLAGS="-fprofile-generate $(CFLAGS)" LDFLAGS="-fprofile-generate $(LDFLAGS)"
 \t./$(TARGET) $(PROFOPT)
 \trm -f $(OBJECTS) $(TARGET)
-\tmake CFLAGS="-fprofile-use $(CFLAGS)" LDFLAGS="-fprofile-use $(LDFLAGS)"
+\t$(MAKE) CFLAGS="-fprofile-use $(CFLAGS)" LDFLAGS="-fprofile-use $(LDFLAGS)"
 '''
