@@ -14,13 +14,18 @@ from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation import model as annmodel
 from pypy.rpython import rclass
 from pypy.rlib import rtermios
-from pypy.rpython.lltypesystem.rffi import platform
+from pypy.rpython.tool import rffi_platform
 
 includes = ['termios.h', 'unistd.h']
 
+class CConfig:
+    _includes_ = includes
+    NCCS = rffi_platform.DefinedConstantInteger('NCCS')
+
+NCCS = rffi_platform.configure(CConfig)['NCCS']
+
 TCFLAG_T = rffi.UINT
 CC_T = rffi.UCHAR
-NCCS = platform.intdefined('NCCS', includes=includes)
 SPEED_T = rffi.UINT
 INT = rffi.INT
 
