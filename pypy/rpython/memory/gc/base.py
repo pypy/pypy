@@ -192,7 +192,7 @@ def choose_gc_from_config(config):
         return SemiSpaceGC, GC_PARAMS
     elif config.translation.gc == "generation":
         GC_PARAMS = {'space_size': 8*1024*1024, # XXX adjust
-                     'nursery_size': 12*1024}
+                     'nursery_size': 896*1024}
         from pypy.rpython.memory.gc.generation import GenerationGC
         return GenerationGC, GC_PARAMS
     else:
