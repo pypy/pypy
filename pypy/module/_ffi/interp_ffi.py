@@ -172,10 +172,12 @@ unroll_size_checkers = unrolling_iterable(SIZE_CHECKERS.items())
 
 def unwrap_value(space, push_func, add_arg, argdesc, tp, w_arg, to_free):
     w = space.wrap
-    # XXX how to handle LONGLONG here?
-    # they're probably long, so we'll not get them through int_w
     if tp == "d" or tp == "f":
-        push_func(add_arg, argdesc, space.float_w(w_arg))
+        if tp == "d":
+            push_func(add_arg, argdesc, space.float_w(w_arg))
+        else:
+            push_func(add_arg, argdesc, rffi.cast(rffi.FLOAT,
+                                                  space.float_w(w_arg)))
     elif tp == "s":
         ll_str = rffi.str2charp(space.str_w(w_arg))
         if to_free is not None:
@@ -204,7 +206,7 @@ def unwrap_value(space, push_func, add_arg, argdesc, tp, w_arg, to_free):
         if len(s) != 1:
             raise OperationError(space.w_ValueError, w(
                 "Expected string of length one as character"))
-        val = ord(s[0])
+        val = s[0]
         push_func(add_arg, argdesc, val)
     else:
         for c, checker in unroll_size_checkers:
@@ -221,7 +223,8 @@ def unwrap_value(space, push_func, add_arg, argdesc, tp, w_arg, to_free):
                     checker(val)
                 except FfiValueError, e:
                     raise OperationError(space.w_ValueError, w(e.msg))
-                push_func(add_arg, argdesc, val)
+                TP = LL_TYPEMAP[c]
+                push_func(add_arg, argdesc, rffi.cast(TP, val))
     
 unwrap_value._annspecialcase_ = 'specialize:arg(1)'
 
