@@ -122,6 +122,7 @@ class FrameworkGCTransformer(GCTransformer):
         StackRootIterator = self.build_stack_root_iterator()
         gcdata.gc = GCClass(AddressLinkedList, get_roots=StackRootIterator, **GC_PARAMS)
         self.num_pushs = 0
+        self.write_barrier_calls = 0
 
         def frameworkgc_setup():
             # run-time initialization code
@@ -379,6 +380,8 @@ class FrameworkGCTransformer(GCTransformer):
         log.info("assigned %s typeids" % (len(table), ))
         log.info("added %s push/pop stack root instructions" % (
                      self.num_pushs, ))
+        log.info("inserted %s write barrier calls" % (
+                     self.write_barrier_calls, ))
 
         # replace the type_info_table pointer in gcdata -- at this point,
         # the database is in principle complete, so it has already seen
@@ -580,6 +583,7 @@ class FrameworkGCTransformer(GCTransformer):
         if self.write_barrier_ptr is None or isinstance(v_newvalue, Constant):
             super(FrameworkGCTransformer, self).transform_generic_set(hop)
         else:
+            self.write_barrier_calls += 1
             assert isinstance(v_newvalue.concretetype, lltype.Ptr)
             opname = hop.spaceop.opname
             assert opname in ('setfield', 'setarrayitem', 'setinteriorfield')
