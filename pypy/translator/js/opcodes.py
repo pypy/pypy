@@ -33,9 +33,10 @@ class_map = { 'Call' : Call,
 }
 
 opcodes = {'int_mul': '*',
+    'int_mul_ovf' : '*', # XXX overflow
     'int_add': '+',
     'int_add_ovf': '+', # XXX overflow
-    'int_add_ovf_nonneg': 'x', # XXX overflow
+    'int_add_nonneg_ovf': '+', # XXX overflow
     'int_sub': '-',
     'int_sub_ovf': '-', # XXX overflow
     'int_floordiv': '/',
