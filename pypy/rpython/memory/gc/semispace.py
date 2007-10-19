@@ -14,6 +14,8 @@ import sys, os
 
 memoryError = MemoryError()
 
+GCFLAG_IMMORTAL = 1
+
 class SemiSpaceGC(MovingGCBase):
     _alloc_flavor_ = "raw"
     inline_simple_malloc = True
@@ -277,7 +279,7 @@ class SemiSpaceGC(MovingGCBase):
         return llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
 
     def get_type_id(self, addr):
-        return self.header(addr).typeid
+        return self.header(addr).typeid & 0xff
 
     def init_gc_object(self, addr, typeid):
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
@@ -288,7 +290,7 @@ class SemiSpaceGC(MovingGCBase):
         # immortal objects always have forward to themselves
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
         hdr.forw = addr + self.gcheaderbuilder.size_gc_header
-        hdr.typeid = typeid
+        hdr.typeid = typeid | (GCFLAG_IMMORTAL << 16)
 
     def deal_with_objects_with_finalizers(self):
         # walk over list of objects with finalizers
