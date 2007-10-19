@@ -122,16 +122,12 @@ class DirectRunLayoutBuilder(gctypelayout.TypeLayoutBuilder):
 
         assert not type_contains_pyobjs(TYPE), "not implemented"
         def ll_finalizer(addr):
-            old_active_frame = self.llinterp.active_frame
             try:
-                try:
-                    v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
-                    self.llinterp.eval_graph(destrgraph, [v])
-                except llinterp.LLException:
-                    raise RuntimeError(
-                        "a finalizer raised an exception, shouldn't happen")
-            finally:
-                self.llinterp.active_frame = old_active_frame
+                v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
+                self.llinterp.eval_graph(destrgraph, [v], recursive=True)
+            except llinterp.LLException:
+                raise RuntimeError(
+                    "a finalizer raised an exception, shouldn't happen")
         return ll_finalizer
 
 

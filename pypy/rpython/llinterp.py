@@ -57,11 +57,12 @@ class LLInterpreter(object):
         if tracing:
             self.tracer = Tracer()
 
-    def eval_graph(self, graph, args=()):
+    def eval_graph(self, graph, args=(), recursive=False):
         llframe = self.frame_class(graph, args, self)
-        if self.tracer:
+        if self.tracer and not recursive:
             self.tracer.start()
         retval = None
+        old_active_frame = self.active_frame
         try:
             try:
                 retval = llframe.eval()
@@ -82,10 +83,12 @@ class LLInterpreter(object):
                     self.tracer.dump(line + '\n')
                 raise
         finally:
+            self.active_frame = old_active_frame
             if self.tracer:
                 if retval is not None:
                     self.tracer.dump('   ---> %r\n' % (retval,))
-                self.tracer.stop()
+                if not recursive:
+                    self.tracer.stop()
         return retval
 
     def print_traceback(self):
