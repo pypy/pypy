@@ -353,7 +353,16 @@ class fakeaddress(object):
             return NotImplemented
 
     def __lt__(self, other):
-        raise TypeError("cannot compare fakeaddresses with '<'")
+        # for the convenience of debugging the GCs, NULL compares as the
+        # smallest address even when compared with a non-fakearenaaddress
+        if not isinstance(other, fakeaddress):
+            raise TypeError("cannot compare fakeaddress and %r" % (
+                other.__class__.__name__,))
+        if not other:
+            return False     # self < NULL              => False
+        if not self:
+            return True      # NULL < non-null-other    => True
+        raise TypeError("cannot compare non-NULL fakeaddresses with '<'")
     def __le__(self, other):
         return self == other or self < other
     def __gt__(self, other):
