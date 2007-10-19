@@ -42,6 +42,14 @@ def has(name, c_header_source):
         HAS = Has(name)
     return configure(CConfig)['HAS']
 
+def sizeof(name, c_header_source, **kwds):
+    class CConfig:
+        _header_ = c_header_source
+        SIZE = SizeOf(name)
+    for k, v in kwds.items():
+        setattr(CConfig, k, v)
+    return configure(CConfig)['SIZE']
+
 # ____________________________________________________________
 #
 # General interface
@@ -269,6 +277,19 @@ class Struct(CConfigEntry):
             hints['typedef'] = True
         kwds = {'hints': hints}
         return rffi.CStruct(name, *fields, **kwds)
+
+class SizeOf(CConfigEntry):
+    """An entry in a CConfig class that stands for sizeof
+    of some external opaque type
+    """
+    def __init__(self, name):
+        self.name = name
+
+    def prepare_code(self):
+        yield 'dump("size",  sizeof(%s));' % self.name
+
+    def build_result(self, info, config_result):
+        return info['size']
 
 class SimpleType(CConfigEntry):
     """An entry in a CConfig class that stands for an externally

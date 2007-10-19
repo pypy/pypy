@@ -191,3 +191,6 @@ def test_has():
     assert not rffi_platform.has("x", "")
     # has() should also not crash if it is given an invalid #include
     assert not rffi_platform.has("x", "#include <some/path/which/cannot/exist>")
+
+def test_sizeof():
+    assert rffi_platform.sizeof("char", "") == 1
