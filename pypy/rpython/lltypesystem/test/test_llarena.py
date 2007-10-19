@@ -118,6 +118,7 @@ SPTR = lltype.Ptr(SX)
 precomputed_size = round_up_for_allocation(llmemory.sizeof(SX))
 
 def test_look_inside_object():
+    # this code is also used in translation tests below
     myarenasize = 50
     a = arena_malloc(myarenasize, False)
     b = a + round_up_for_allocation(llmemory.sizeof(lltype.Char))
@@ -131,6 +132,47 @@ def test_look_inside_object():
     assert llmemory.cast_adr_to_ptr(b, SPTR).x == 0
     arena_free(a)
     return 42
+
+def test_partial_arena_reset():
+    a = arena_malloc(50, False)
+    def reserve(i):
+        b = a + i * llmemory.raw_malloc_usage(precomputed_size)
+        arena_reserve(b, precomputed_size)
+        return b
+    blist = []
+    plist = []
+    for i in range(4):
+        b = reserve(i)
+        (b + llmemory.offsetof(SX, 'x')).signed[0] = 100 + i
+        blist.append(b)
+        plist.append(llmemory.cast_adr_to_ptr(b, SPTR))
+    # clear blist[1] and blist[2] but not blist[0] nor blist[3]
+    arena_reset(blist[1], llmemory.raw_malloc_usage(precomputed_size)*2, False)
+    # re-reserve object at index 1 and 2
+    blist[1] = reserve(1)
+    blist[2] = reserve(2)
+    # check via object pointers
+    assert plist[0].x == 100
+    assert plist[3].x == 103
+    py.test.raises(RuntimeError, "plist[1].x")     # marked as freed
+    py.test.raises(RuntimeError, "plist[2].x")     # marked as freed
+    # check via addresses
+    assert (blist[0] + llmemory.offsetof(SX, 'x')).signed[0] == 100
+    assert (blist[3] + llmemory.offsetof(SX, 'x')).signed[0] == 103
+    py.test.raises(lltype.UninitializedMemoryAccess,
+          "(blist[1] + llmemory.offsetof(SX, 'x')).signed[0]")
+    py.test.raises(lltype.UninitializedMemoryAccess,
+          "(blist[2] + llmemory.offsetof(SX, 'x')).signed[0]")
+    # clear and zero-fill the area over blist[0] and blist[1]
+    arena_reset(blist[0], llmemory.raw_malloc_usage(precomputed_size)*2, True)
+    # re-reserve and check it's zero
+    blist[0] = reserve(0)
+    blist[1] = reserve(1)
+    assert (blist[0] + llmemory.offsetof(SX, 'x')).signed[0] == 0
+    assert (blist[1] + llmemory.offsetof(SX, 'x')).signed[0] == 0
+    assert (blist[3] + llmemory.offsetof(SX, 'x')).signed[0] == 103
+    py.test.raises(lltype.UninitializedMemoryAccess,
+          "(blist[2] + llmemory.offsetof(SX, 'x')).signed[0]")
 
 def test_address_eq_as_int():
     a = arena_malloc(50, False)

@@ -24,19 +24,30 @@ class Arena(object):
         self.freed = False
         self.reset(zero)
 
-    def reset(self, zero):
+    def reset(self, zero, start=0, size=None):
         self.check()
-        for ptr in self.objectptrs.itervalues():
-            obj = ptr._obj
-            obj._free()
-            del Arena.object_arena_location[obj]
-        self.objectptrs.clear()
-        self.objectsizes.clear()
+        if size is None:
+            stop = self.nbytes
+        else:
+            stop = start + size
+        assert 0 <= start <= stop <= self.nbytes
+        for offset, ptr in self.objectptrs.items():
+            size = self.objectsizes[offset]
+            if offset < start:   # object is before the cleared area
+                assert offset + size <= start, "object overlaps cleared area"
+            elif offset + size > stop:  # object is after the cleared area
+                assert offset >= stop, "object overlaps cleared area"
+            else:
+                obj = ptr._obj
+                obj._free()
+                del Arena.object_arena_location[obj]
+                del self.objectptrs[offset]
+                del self.objectsizes[offset]
         if zero:
             initialbyte = "0"
         else:
             initialbyte = "#"
-        self.usagemap[:] = array.array('c', initialbyte * self.nbytes)
+        self.usagemap[start:stop] = array.array('c', initialbyte*(stop-start))
 
     def check(self):
         if self.freed:
@@ -208,13 +219,12 @@ def arena_free(arena_addr):
     arena_addr.arena.reset(False)
     arena_addr.arena.freed = True
 
-def arena_reset(arena_addr, myarenasize, zero):
+def arena_reset(arena_addr, size, zero):
     """Free all objects in the arena, which can then be reused.
-    The arena is filled with zeroes if 'zero' is True."""
+    The arena is filled with zeroes if 'zero' is True.  This can also
+    be used on a subrange of the arena."""
     assert isinstance(arena_addr, fakearenaaddress)
-    assert arena_addr.offset == 0
-    assert myarenasize == arena_addr.arena.nbytes
-    arena_addr.arena.reset(zero)
+    arena_addr.arena.reset(zero, arena_addr.offset, size)
 
 def arena_reserve(addr, size, check_alignment=True):
     """Mark some bytes in an arena as reserved, and returns addr.
@@ -295,9 +305,9 @@ register_external(arena_free, [llmemory.Address], None, 'll_arena.arena_free',
                   llfakeimpl=arena_free,
                   sandboxsafe=True)
 
-def llimpl_arena_reset(arena_addr, myarenasize, zero):
+def llimpl_arena_reset(arena_addr, size, zero):
     if zero:
-        clear_large_memory_chunk(arena_addr, myarenasize)
+        clear_large_memory_chunk(arena_addr, size)
 register_external(arena_reset, [llmemory.Address, int, bool], None,
                   'll_arena.arena_reset',
                   llimpl=llimpl_arena_reset,
