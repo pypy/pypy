@@ -282,6 +282,9 @@ class PyPyTestFunction(py.test.collect.Function):
 _pygame_imported = False
 
 class IntTestFunction(PyPyTestFunction):
+    def _haskeyword(self, keyword):
+        return keyword == 'interplevel' or \
+               super(IntTestFunction, self)._haskeyword(keyword)
     def _keywords(self):
         return super(IntTestFunction, self)._keywords + ['interplevel']
 
@@ -312,7 +315,11 @@ class IntTestFunction(PyPyTestFunction):
                 assert option.view, ("should not invoke Pygame "
                                      "if conftest.option.view is False")
 
-class AppTestFunction(PyPyTestFunction): 
+class AppTestFunction(PyPyTestFunction):
+    def _haskeyword(self, keyword):
+        return keyword == 'applevel' or \
+               super(AppTestFunction, self)._haskeyword(keyword)
+
     def _keywords(self):
         return ['applevel'] + super(AppTestFunction, self)._keywords()
 
@@ -361,6 +368,10 @@ class PyPyClassCollector(py.test.collect.Class):
 class IntClassCollector(PyPyClassCollector): 
     Function = IntTestFunction 
 
+    def _haskeyword(self, keyword):
+        return keyword == 'interplevel' or \
+               super(IntClassCollector, self)._haskeyword(keyword)
+
     def _keywords(self):
         return super(IntClassCollector, self)._keywords() + ['interplevel']
 
@@ -379,6 +390,10 @@ class AppClassInstance(py.test.collect.Instance):
 
 class AppClassCollector(PyPyClassCollector): 
     Instance = AppClassInstance 
+
+    def _haskeyword(self, keyword):
+        return keyword == 'applevel' or \
+               super(AppClassCollector, self)._haskeyword(keyword)
 
     def _keywords(self):
         return super(AppClassCollector, self)._keywords() + ['applevel']
