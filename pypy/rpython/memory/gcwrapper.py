@@ -27,13 +27,12 @@ class GCManagedHeap(object):
 
         self.constantroots = layoutbuilder.addresses_of_static_ptrs
 
-    def get_roots_from_llinterp(self, with_static=True):
+    def get_roots_from_llinterp(self):
         sizeofaddr = llmemory.sizeof(llmemory.Address)
         ll = [llmemory.NULL]     # end marker
-        if with_static:
-            for addrofaddr in self.constantroots:
-                if addrofaddr.address[0]:
-                    ll.append(addrofaddr)
+        for addrofaddr in self.constantroots:
+            if addrofaddr.address[0]:
+                ll.append(addrofaddr)
         for addrofaddr in self.llinterp.find_roots():
             if addrofaddr.address[0]:
                 ll.append(addrofaddr)

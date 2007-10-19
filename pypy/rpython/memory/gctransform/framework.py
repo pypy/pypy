@@ -339,12 +339,9 @@ class FrameworkGCTransformer(GCTransformer):
                 return top.address[0]
             pop_root = staticmethod(pop_root)
 
-            def __init__(self, with_static=True):
+            def __init__(self):
                 self.stack_current = gcdata.root_stack_top
-                if with_static:
-                    self.static_current = gcdata.static_root_start
-                else:
-                    self.static_current = gcdata.static_root_end
+                self.static_current = gcdata.static_root_start
 
             def pop(self):
                 while self.static_current != gcdata.static_root_end:
