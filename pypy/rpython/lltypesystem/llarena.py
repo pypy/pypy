@@ -160,7 +160,7 @@ class fakearenaaddress(llmemory.fakeaddress):
         # common case: top is a FixedSizeArray of size 1 with just obj in it
         T = lltype.typeOf(top)
         if (top is obj or (isinstance(T, lltype.FixedSizeArray) and
-                           T.OF == lltype.typeOf(obj))):
+                           top.getitem(0) is obj)):
             # in this case, addr(obj) == addr(top)
             pass
         else:
