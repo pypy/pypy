@@ -66,7 +66,7 @@ class WriteBarrierTransformer(FrameworkGCTransformer):
     class GCClass(MarkSweepGC):
         needs_write_barrier = True
 
-def write_barrier_check(spaceop):
+def write_barrier_check(spaceop, needs_write_barrier=True):
     t = TranslationContext()
     t.buildannotator().build_types(lambda x:x, [SomeInteger()])
     t.buildrtyper().specialize()
@@ -80,7 +80,7 @@ def write_barrier_check(spaceop):
         print '\t', op
         if op.opname == 'direct_call':
             found = True
-    assert found
+    assert found == needs_write_barrier
 
 def test_write_barrier_support_setfield():
     PTR_TYPE2 = lltype.Ptr(lltype.GcStruct('T', ('y', lltype.Signed)))
@@ -90,6 +90,16 @@ def test_write_barrier_support_setfield():
         [varoftype(PTR_TYPE), Constant('x', lltype.Void),
          varoftype(PTR_TYPE2)],
         varoftype(lltype.Void)))
+
+
+def test_dont_add_write_barrier_for_constant_new_value():
+    PTR_TYPE2 = lltype.Ptr(lltype.GcStruct('T', ('y', lltype.Signed)))
+    PTR_TYPE = lltype.Ptr(lltype.GcStruct('S', ('x', PTR_TYPE2)))
+    write_barrier_check(SpaceOperation(
+        "setfield",
+        [varoftype(PTR_TYPE), Constant('x', lltype.Void),
+         Constant('foo', varoftype(PTR_TYPE2))],
+        varoftype(lltype.Void)), needs_write_barrier=False)
 
 def test_write_barrier_support_setarrayitem():
     PTR_TYPE2 = lltype.Ptr(lltype.GcStruct('T', ('y', lltype.Signed)))

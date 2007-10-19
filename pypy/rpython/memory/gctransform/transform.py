@@ -179,7 +179,7 @@ class BaseGCTransformer(object):
                 if not var_needsgc(var):
                     continue
                 self.var_last_needed_in[var] = len(block.operations) + 1
-        
+
         for i, op in enumerate(block.operations):
             hop = GcHighLevelOp(self, op, i, llops)
             hop.dispatch()

@@ -572,11 +572,14 @@ class FrameworkGCTransformer(GCTransformer):
             hop.rename('cast_ptr_to_int')     # works nicely for non-moving GCs
 
     def transform_generic_set(self, hop):
-        if self.write_barrier_ptr is None:
+        from pypy.objspace.flow.model import Constant
+        v_struct = hop.spaceop.args[0]
+        v_newvalue = hop.spaceop.args[-1]
+        # XXX for some GCs the skipping if the newvalue is a constant won't be
+        # ok
+        if self.write_barrier_ptr is None or isinstance(v_newvalue, Constant):
             super(FrameworkGCTransformer, self).transform_generic_set(hop)
         else:
-            v_struct = hop.spaceop.args[0]
-            v_newvalue = hop.spaceop.args[-1]
             assert isinstance(v_newvalue.concretetype, lltype.Ptr)
             opname = hop.spaceop.opname
             assert opname in ('setfield', 'setarrayitem', 'setinteriorfield')
@@ -609,8 +612,6 @@ class FrameworkGCTransformer(GCTransformer):
                     v_currentofs = hop.genop("int_add",
                                              [v_currentofs, v_offset],
                                              resulttype = lltype.Signed)
-            # XXX for some GCs we could skip the write_barrier if v_newvalue
-            # is a constant
             v_newvalue = hop.genop("cast_ptr_to_adr", [v_newvalue],
                                    resulttype = llmemory.Address)
             v_structaddr = hop.genop("cast_ptr_to_adr", [v_struct],
