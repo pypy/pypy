@@ -57,7 +57,7 @@ translation_optiondescription = OptionDescription(
                   cmdline="--gc"),
     ChoiceOption("gctransformer", "GC transformer that is used - internal",
                  ["boehm", "ref", "framework", "none"],
-                  cmdline=None),
+                 default="ref", cmdline=None),
 
     BoolOption("stacklessgc", "Use stackless to find roots in a framework GC",
                default=False, cmdline="--stacklessgc",
