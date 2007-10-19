@@ -49,7 +49,7 @@ class LLInterpreter(object):
         # 'heap' is module or object that provides malloc, etc for lltype ops
         self.heap = llheap
         self.exc_data_ptr = exc_data_ptr
-        self.active_frame = None
+        self.frame_stack = []
         self.tracer = None
         self.malloc_check = malloc_check
         self.frame_class = LLFrame
@@ -60,9 +60,12 @@ class LLInterpreter(object):
     def eval_graph(self, graph, args=(), recursive=False):
         llframe = self.frame_class(graph, args, self)
         if self.tracer and not recursive:
+            global tracer1
+            tracer1 = self.tracer
             self.tracer.start()
         retval = None
-        old_active_frame = self.active_frame
+        self.traceback_frames = []
+        old_frame_stack = self.frame_stack[:]
         try:
             try:
                 retval = llframe.eval()
@@ -83,7 +86,7 @@ class LLInterpreter(object):
                     self.tracer.dump(line + '\n')
                 raise
         finally:
-            self.active_frame = old_active_frame
+            assert old_frame_stack == self.frame_stack
             if self.tracer:
                 if retval is not None:
                     self.tracer.dump('   ---> %r\n' % (retval,))
@@ -92,12 +95,9 @@ class LLInterpreter(object):
         return retval
 
     def print_traceback(self):
-        frame = self.active_frame
-        frames = []
-        while frame is not None:
-            frames.append(frame)
-            frame = frame.f_back
+        frames = self.traceback_frames
         frames.reverse()
+        self.traceback_frames = []
         lines = []
         for frame in frames:
             logline = frame.graph.name
@@ -128,12 +128,10 @@ class LLInterpreter(object):
     def find_roots(self):
         """Return a list of the addresses of the roots."""
         #log.findroots("starting")
-        frame = self.active_frame
         roots = []
-        while frame is not None:
+        for frame in self.frame_stack:
             #log.findroots("graph", frame.graph.name)
             frame.find_roots(roots)
-            frame = frame.f_back
         return roots
 
     def find_exception(self, exc):
@@ -141,16 +139,12 @@ class LLInterpreter(object):
         klass, inst = exc.args[0], exc.args[1]
         exdata = self.typer.getexceptiondata()
         frame = self.frame_class(None, [], self)
-        old_active_frame = self.active_frame
-        try:
-            for cls in enumerate_exceptions_top_down():
-                evalue = frame.op_direct_call(exdata.fn_pyexcclass2exc,
-                        lltype.pyobjectptr(cls))
-                etype = frame.op_direct_call(exdata.fn_type_of_exc_inst, evalue)
-                if etype == klass:
-                    return cls
-        finally:
-            self.active_frame = old_active_frame
+        for cls in enumerate_exceptions_top_down():
+            evalue = frame.op_direct_call(exdata.fn_pyexcclass2exc,
+                    lltype.pyobjectptr(cls))
+            etype = frame.op_direct_call(exdata.fn_type_of_exc_inst, evalue)
+            if etype == klass:
+                return cls
         raise ValueError, "couldn't match exception"
 
     def get_transformed_exc_data(self, graph):
@@ -181,14 +175,13 @@ def checkinst(inst):
 
 
 class LLFrame(object):
-    def __init__(self, graph, args, llinterpreter, f_back=None):
+    def __init__(self, graph, args, llinterpreter):
         assert not graph or isinstance(graph, FunctionGraph)
         self.graph = graph
         self.args = args
         self.llinterpreter = llinterpreter
         self.heap = llinterpreter.heap
         self.bindings = {}
-        self.f_back = f_back
         self.curr_block = None
         self.curr_operation_index = 0
         self.alloca_objects = []
@@ -257,24 +250,29 @@ class LLFrame(object):
     # evaling functions
 
     def eval(self):
-        self.llinterpreter.active_frame = self
         graph = self.graph
         tracer = self.llinterpreter.tracer
         if tracer:
             tracer.enter(graph)
+        self.llinterpreter.frame_stack.append(self)
         try:
-            nextblock = graph.startblock
-            args = self.args
-            while 1:
-                self.clear()
-                self.fillvars(nextblock, args)
-                nextblock, args = self.eval_block(nextblock)
-                if nextblock is None:
-                    self.llinterpreter.active_frame = self.f_back
-                    for obj in self.alloca_objects:
-                        obj._obj._free()
-                    return args
+            try:
+                nextblock = graph.startblock
+                args = self.args
+                while 1:
+                    self.clear()
+                    self.fillvars(nextblock, args)
+                    nextblock, args = self.eval_block(nextblock)
+                    if nextblock is None:
+                        for obj in self.alloca_objects:
+                            obj._obj._free()
+                        return args
+            except Exception:
+                self.llinterpreter.traceback_frames.append(self)
+                raise
         finally:
+            leavingframe = self.llinterpreter.frame_stack.pop()
+            assert leavingframe is self
             if tracer:
                 tracer.leave()
 
@@ -629,7 +627,7 @@ class LLFrame(object):
             if not lltype.isCompatibleType(T, v.concretetype):
                 raise TypeError("graph with %r args called with wrong func ptr type: %r" %
                                 (tuple([v.concretetype for v in args_v]), ARGS)) 
-        frame = self.__class__(graph, args, self.llinterpreter, self)
+        frame = self.__class__(graph, args, self.llinterpreter)
         return frame.eval()        
 
     def op_direct_call(self, f, *args):
@@ -656,7 +654,7 @@ class LLFrame(object):
         args = []
         for inarg, arg in zip(inargs, obj.graph.startblock.inputargs):
             args.append(lltype._cast_whatever(arg.concretetype, inarg))
-        frame = self.__class__(graph, args, self.llinterpreter, self)
+        frame = self.__class__(graph, args, self.llinterpreter)
         result = frame.eval()
         from pypy.translator.stackless.frame import storage_type
         assert storage_type(lltype.typeOf(result)) == TGT
