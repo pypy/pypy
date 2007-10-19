@@ -24,7 +24,14 @@ def get_elem(ll_array, pos, ll_t):
 get_elem._annspecialcase_ = 'specialize:arg(2)'
 
 class W_ArrayInstance(Wrappable):
-    def __init__(self, space, of, length):
+    def __init__(self, space, of, w_length_or_iterable):
+        self.ll_array = lltype.nullptr(rffi.VOIDP.TO)
+        if space.is_true(space.isinstance(w_length_or_iterable, space.w_int)):
+            length = space.int_w(w_length_or_iterable)
+            items_w = None
+        else:
+            items_w = space.unpackiterable(w_length_or_iterable)
+            length = len(items_w)
         self.alloced = False
         self.of = of
         _get_type(space, of)
@@ -32,7 +39,11 @@ class W_ArrayInstance(Wrappable):
         size = native_fmttable[of]['size'] * length
         self.ll_array = lltype.malloc(rffi.VOIDP.TO, size, flavor='raw',
                                       zero=True)
-        self.alloced = True
+        if items_w:
+            for num in range(len(items_w)):
+                w_item = items_w[num]
+                unwrap_value(space, push_elem, self.ll_array, num, self.of,
+                             w_item, None)
 
     # XXX don't allow negative indexes, nor slices
 
@@ -55,12 +66,12 @@ class W_ArrayInstance(Wrappable):
         return space.wrap(rffi.cast(rffi.INT, self.ll_array))
 
     def __del__(self):
-        if self.alloced:
+        if self.ll_array:
             lltype.free(self.ll_array, flavor='raw')
 
-def descr_new_array_instance(space, w_type, of, size):
-    return space.wrap(W_ArrayInstance(space, of, size))
-descr_new_array_instance.unwrap_spec = [ObjSpace, W_Root, str, int]
+def descr_new_array_instance(space, w_type, of, w_size_or_iterable):
+    return space.wrap(W_ArrayInstance(space, of, w_size_or_iterable))
+descr_new_array_instance.unwrap_spec = [ObjSpace, W_Root, str, W_Root]
 
 W_ArrayInstance.typedef = TypeDef(
     'ArrayInstance',

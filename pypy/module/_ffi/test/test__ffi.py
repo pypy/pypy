@@ -231,6 +231,9 @@ class AppTestCTypes:
         assert get_array_elem(a, 7) == 1
         assert get_array_elem(a, 6) == 2
         assert a[3] == 0
+        a = A([1, 2, 3, 4])
+        assert get_array_elem(a, 0) == 1
+        assert a[3] == 4
 
     def test_array_of_structure(self):
         import _ffi
@@ -289,3 +292,15 @@ class AppTestCTypes:
         pass_ll = lib.ptr('pass_ll', ['q'], 'q')
         assert pass_ll(1<<42) == 1<<42
     
+    def test_callback(self):
+        skip("Segfaults")
+        import _ffi
+        libc = _ffi.CDLL('libc.so.6')
+        to_sort = "kljhgfa"
+        ll_to_sort = _ffi.Array('c')(to_sort)
+        qsort = libc.ptr('qsort', ['P', 'i', 'i', 'P'], None)
+        def compare(a, b):
+            return a < b
+        qsort(ll_to_sort, len(to_sort), 1,
+              CallbackPtr(compare, ['i', 'i'], 'i'))
+        
