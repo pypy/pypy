@@ -14,7 +14,7 @@ class ArenaError(Exception):
     pass
 
 class Arena(object):
-    object_arena_location = {}     # {topcontainer: (arena, offset)}
+    object_arena_location = {}     # {container: (arena, offset)}
 
     def __init__(self, nbytes, zero):
         self.nbytes = nbytes
@@ -39,7 +39,7 @@ class Arena(object):
                 assert offset >= stop, "object overlaps cleared area"
             else:
                 obj = ptr._obj
-                del Arena.object_arena_location[lltype.top_container(obj)]
+                del Arena.object_arena_location[obj]
                 del self.objectptrs[offset]
                 del self.objectsizes[offset]
                 obj._free()
@@ -81,8 +81,7 @@ class Arena(object):
         self.usagemap[offset:offset+bytes] = array.array('c', pattern)
         self.objectptrs[offset] = addr2.ptr
         self.objectsizes[offset] = bytes
-        top = lltype.top_container(addr2.ptr._obj)
-        Arena.object_arena_location[top] = self, offset
+        Arena.object_arena_location[addr2.ptr._obj] = self, offset
         # common case: 'size' starts with a GCHeaderOffset.  In this case
         # we can also remember that the real object starts after the header.
         while isinstance(size, RoundedUpForAllocation):
@@ -95,8 +94,7 @@ class Arena(object):
             assert objoffset not in self.objectptrs
             self.objectptrs[objoffset] = objaddr.ptr
             self.objectsizes[objoffset] = bytes - hdrbytes
-            top = lltype.top_container(objaddr.ptr._obj)
-            Arena.object_arena_location[top] = self, objoffset
+            Arena.object_arena_location[objaddr.ptr._obj] = self, objoffset
         return addr2
 
 class fakearenaaddress(llmemory.fakeaddress):
@@ -153,18 +151,17 @@ class fakearenaaddress(llmemory.fakeaddress):
         if not other:
             return None, None
         obj = other.ptr._obj
-        top = lltype.top_container(obj)
-        if top not in Arena.object_arena_location:
-            return None, None   
-        arena, offset = Arena.object_arena_location[top]
-        # common case: top is a FixedSizeArray of size 1 with just obj in it
-        T = lltype.typeOf(top)
-        if (top is obj or (isinstance(T, lltype.FixedSizeArray) and
-                           top.getitem(0) is obj)):
-            # in this case, addr(obj) == addr(top)
-            pass
-        else:
-            # here, it's likely that addr(obj) is a bit larger than addr(top).
+        innerobject = False
+        while obj not in Arena.object_arena_location:
+            obj = obj._parentstructure()
+            if obj is None:
+                return None, None     # not found in the arena
+            innerobject = True
+        arena, offset = Arena.object_arena_location[obj]
+        if innerobject:
+            # 'obj' is really inside the object allocated from the arena,
+            # so it's likely that its address "should be" a bit larger than
+            # what 'offset' says.
             # We could estimate the correct offset but it's a bit messy;
             # instead, let's check the answer doesn't depend on it
             if self.arena is arena:
