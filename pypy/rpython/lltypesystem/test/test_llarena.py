@@ -112,8 +112,25 @@ def test_address_order():
     assert lt(a+19, b)
     assert lt(a, b+19)
 
+    c = b + round_up_for_allocation(llmemory.sizeof(lltype.Char))
+    arena_reserve(c, precomputed_size)
+    assert lt(b, c)
+    assert lt(a, c)
+    assert lt(llmemory.NULL, c)
+    d = c + llmemory.offsetof(SX, 'x')
+    assert lt(c, d)
+    assert lt(b, d)
+    assert lt(a, d)
+    assert lt(llmemory.NULL, d)
+    e = c + precomputed_size
+    assert lt(d, e)
+    assert lt(c, e)
+    assert lt(b, e)
+    assert lt(a, e)
+    assert lt(llmemory.NULL, e)
 
-SX = lltype.Struct('S', ('x',lltype.Signed))
+
+SX = lltype.Struct('S', ('foo',lltype.Signed), ('x',lltype.Signed))
 SPTR = lltype.Ptr(SX)
 precomputed_size = round_up_for_allocation(llmemory.sizeof(SX))
 

@@ -14,7 +14,7 @@ class ArenaError(Exception):
     pass
 
 class Arena(object):
-    object_arena_location = {}     # {container: (arena, offset)}
+    object_arena_location = {}     # {topcontainer: (arena, offset)}
 
     def __init__(self, nbytes, zero):
         self.nbytes = nbytes
@@ -39,10 +39,10 @@ class Arena(object):
                 assert offset >= stop, "object overlaps cleared area"
             else:
                 obj = ptr._obj
-                obj._free()
-                del Arena.object_arena_location[obj]
+                del Arena.object_arena_location[lltype.top_container(obj)]
                 del self.objectptrs[offset]
                 del self.objectsizes[offset]
+                obj._free()
         if zero:
             initialbyte = "0"
         else:
@@ -81,7 +81,8 @@ class Arena(object):
         self.usagemap[offset:offset+bytes] = array.array('c', pattern)
         self.objectptrs[offset] = addr2.ptr
         self.objectsizes[offset] = bytes
-        Arena.object_arena_location[addr2.ptr._obj] = self, offset
+        top = lltype.top_container(addr2.ptr._obj)
+        Arena.object_arena_location[top] = self, offset
         # common case: 'size' starts with a GCHeaderOffset.  In this case
         # we can also remember that the real object starts after the header.
         while isinstance(size, RoundedUpForAllocation):
@@ -94,7 +95,8 @@ class Arena(object):
             assert objoffset not in self.objectptrs
             self.objectptrs[objoffset] = objaddr.ptr
             self.objectsizes[objoffset] = bytes - hdrbytes
-            Arena.object_arena_location[objaddr.ptr._obj] = self, objoffset
+            top = lltype.top_container(objaddr.ptr._obj)
+            Arena.object_arena_location[top] = self, objoffset
         return addr2
 
 class fakearenaaddress(llmemory.fakeaddress):
@@ -147,28 +149,53 @@ class fakearenaaddress(llmemory.fakeaddress):
     def __nonzero__(self):
         return True
 
+    def compare_with_fakeaddr(self, other):
+        if not other:
+            return None, None
+        obj = other.ptr._obj
+        top = lltype.top_container(obj)
+        if top not in Arena.object_arena_location:
+            return None, None   
+        arena, offset = Arena.object_arena_location[top]
+        # common case: top is a FixedSizeArray of size 1 with just obj in it
+        T = lltype.typeOf(top)
+        if (top is obj or (isinstance(T, lltype.FixedSizeArray) and
+                           T.OF == lltype.typeOf(obj))):
+            # in this case, addr(obj) == addr(top)
+            pass
+        else:
+            # here, it's likely that addr(obj) is a bit larger than addr(top).
+            # We could estimate the correct offset but it's a bit messy;
+            # instead, let's check the answer doesn't depend on it
+            if self.arena is arena:
+                objectsize = arena.objectsizes[offset]
+                if offset < self.offset < offset+objectsize:
+                    raise AssertionError(
+                        "comparing an inner address with a "
+                        "fakearenaaddress that points in the "
+                        "middle of the same object")
+                offset += objectsize // 2      # arbitrary
+        return arena, offset
+
     def __eq__(self, other):
         if isinstance(other, fakearenaaddress):
-            return self.arena is other.arena and self.offset == other.offset
+            arena = other.arena
+            offset = other.offset
         elif isinstance(other, llmemory.fakeaddress):
-            if other.ptr and other.ptr._obj in Arena.object_arena_location:
-                arena, offset = Arena.object_arena_location[other.ptr._obj]
-                return self.arena is arena and self.offset == offset
-            else:
-                return False
+            arena, offset = self.compare_with_fakeaddr(other)
         else:
             return llmemory.fakeaddress.__eq__(self, other)
+        return self.arena is arena and self.offset == offset
 
     def __lt__(self, other):
         if isinstance(other, fakearenaaddress):
             arena = other.arena
             offset = other.offset
         elif isinstance(other, llmemory.fakeaddress):
-            if other.ptr and other.ptr._obj in Arena.object_arena_location:
-                arena, offset = Arena.object_arena_location[other.ptr._obj]
-            else:
-                # arbitrarily, 'self' > any address not in any arena
-                return False
+            arena, offset = self.compare_with_fakeaddr(other)
+            if arena is None:
+                return False       # self < other-not-in-any-arena  => False
+                                   # (arbitrarily)
         else:
             raise TypeError("comparing a %s and a %s" % (
                 self.__class__.__name__, other.__class__.__name__))
