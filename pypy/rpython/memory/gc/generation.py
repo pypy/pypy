@@ -61,6 +61,29 @@ class GenerationGC(SemiSpaceGC):
         self.nursery_free = result + totalsize
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
 
+    def malloc_varsize(self, typeid, length, size, itemsize, offset_to_length,
+                       can_collect, has_finalizer=False):
+        # only use the nursery if there are not too many items
+        if (has_finalizer or not can_collect or
+            length > self.nursery_size // 4 // raw_malloc_usage(itemsize) or
+            raw_malloc_usage(size) > self.nursery_size // 4):
+            return SemiSpaceGC.malloc_varsize(self, typeid, length, size,
+                                              itemsize, offset_to_length,
+                                              can_collect, has_finalizer)
+        # with the above checks we know now that totalsize cannot be more
+        # than about half of the nursery size; in particular, the + and *
+        # cannot overflow
+        size_gc_header = self.gcheaderbuilder.size_gc_header
+        totalsize = size_gc_header + size + itemsize * length
+        result = self.nursery_free
+        if raw_malloc_usage(totalsize) > self.nursery_top - result:
+            result = self.collect_nursery()
+        llarena.arena_reserve(result, totalsize)
+        self.init_gc_object(result, typeid)
+        (result + size_gc_header + offset_to_length).signed[0] = length
+        self.nursery_free = result + llarena.round_up_for_allocation(totalsize)
+        return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
+
     def semispace_collect(self, size_changing=False):
         self.reset_forwarding() # we are doing a full collection anyway
         self.reset_nursery()
