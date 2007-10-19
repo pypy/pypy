@@ -11,6 +11,7 @@ from pypy.rpython.rbuiltin import parse_kwds
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.tool.sourcetools import func_with_new_name
+from pypy.rpython.tool.rfficache import platform
 import os
 
 class CConstant(Symbolic):
@@ -136,8 +137,6 @@ aroundstate._freeze_()
 
 # ____________________________________________________________
 
-from pypy.rpython.tool.rfficache import platform
-
 TYPES = []
 for _name in 'short int long'.split():
     for name in (_name, 'unsigned ' + _name):
@@ -232,7 +231,8 @@ def COpaque(name, hints=None, **kwds):
     hints['c_name'] = name
     def lazy_getsize(result=[]):
         if not result:
-            size = platform.sizeof(name, **kwds)
+            from pypy.rpython.tool import rffi_platform
+            size = rffi_platform.sizeof(name, "", **kwds)
             result.append(size)
         return result[0]
     hints['getsize'] = lazy_getsize
