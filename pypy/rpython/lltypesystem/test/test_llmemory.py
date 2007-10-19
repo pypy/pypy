@@ -191,6 +191,13 @@ def test_fakeadr_eq():
     adr2 += ItemOffset(lltype.Char, -1)
     assert adr1 == adr2
 
+def test_adr_sub():
+    # only (a - a) is supported
+    assert NULL - NULL == 0
+    A = lltype.GcArray(lltype.Char)
+    a = raw_malloc(sizeof(A, 5))
+    assert a - a == 0
+
 def test_cast_subarray_pointer():
     for a in [lltype.malloc(lltype.GcArray(lltype.Signed), 5),
               lltype.malloc(lltype.FixedSizeArray(lltype.Signed, 5),

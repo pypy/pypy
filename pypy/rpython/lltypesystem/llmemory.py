@@ -329,6 +329,11 @@ class fakeaddress(object):
     def __sub__(self, other):
         if isinstance(other, AddressOffset):
             return self + (-other)
+        if isinstance(other, fakeaddress):
+            if self == other:
+                return 0
+            else:
+                raise TypeError("cannot subtract fakeaddresses in general")
         if other == 0:
             return self
         return NotImplemented
