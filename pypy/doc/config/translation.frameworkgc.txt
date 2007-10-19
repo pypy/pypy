@@ -1,5 +1,0 @@
-Select one of our custom Garbage Collectors for the translated program:
-
-  - "marksweep": naive mark & sweep.  Default.
-
-  - "semispace": a copying semi-space GC.
