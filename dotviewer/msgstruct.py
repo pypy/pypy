@@ -93,6 +93,7 @@ class FileIO(IO):
 
     def sendall(self, data):
         self.f_out.write(data)
+        self.f_out.flush()
 
     def recv(self):
         fd = self.f_in.fileno()
