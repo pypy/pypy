@@ -1266,7 +1266,7 @@ class _address_of_local_var_accessor(object):
         self.frame.setvar(self.v, p)
     def unwrap_possible_weakref(self, addr):
         # fish fish fish
-        if isinstance(addr.ptr._obj, llmemory._gctransformed_wref):
+        if addr and isinstance(addr.ptr._obj, llmemory._gctransformed_wref):
             return llmemory.fakeaddress(addr.ptr._obj._ptr)
         return addr
 
