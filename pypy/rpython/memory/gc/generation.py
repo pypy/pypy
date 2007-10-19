@@ -27,15 +27,18 @@ class GenerationGC(SemiSpaceGC):
                              max_space_size = max_space_size,
                              get_roots = get_roots)
         self.nursery_size = nursery_size
+        assert nursery_size <= space_size // 2
 
     def setup(self):
         SemiSpaceGC.setup(self)
-        self.nursery = llarena.arena_malloc(self.nursery_size, True)
-        debug_assert(bool(self.nursery), "couldn't allocate nursery")
-        self.nursery_free = self.nursery
-        self.nursery_top = self.nursery + self.nursery_size
+        self.reset_nursery()
         self.old_objects_pointing_to_young = nonnull_endmarker
         # ^^^ the head of a linked list inside the old objects space
+
+    def reset_nursery(self):
+        self.nursery      = llmemory.NULL
+        self.nursery_top  = llmemory.NULL
+        self.nursery_free = llmemory.NULL
 
     def is_in_nursery(self, addr):
         return self.nursery <= addr < self.nursery_top
@@ -60,6 +63,7 @@ class GenerationGC(SemiSpaceGC):
 
     def semispace_collect(self, size_changing=False):
         self.reset_forwarding() # we are doing a full collection anyway
+        self.reset_nursery()
         SemiSpaceGC.semispace_collect(self, size_changing)
 
     def reset_forwarding(self):
@@ -74,23 +78,26 @@ class GenerationGC(SemiSpaceGC):
         if self.nursery_size > self.top_of_space - self.free:
             # the semispace is running out, do a full collect
             self.obtain_free_space(self.nursery_size)
-            debug_assert(self.nursery_free == self.nursery,
-                         "nursery not collected")
-        else:
+            debug_assert(self.nursery_size <= self.top_of_space - self.free,
+                         "obtain_free_space failed to do its job")
+        if self.nursery:
+            # a nursery-only collection
             scan = self.free
             self.collect_oldrefs_to_nursery()
             self.collect_roots_in_nursery()
             self.scan_objects_just_copied_out_of_nursery(scan)
             self.notify_objects_just_moved()
-        return self.nursery_free
-
-    def reset_nursery(self):
-        llarena.arena_reset(self.nursery, self.nursery_size, True)
+            # mark the nursery as free and fill it with zeroes again
+            llarena.arena_reset(self.nursery, self.nursery_size, True)
+        else:
+            # no nursery - this occurs after a full collect, triggered either
+            # just above or by some previous non-nursery-based allocation.
+            # Grab a piece of the current space for the nursery.
+            self.nursery = self.free
+            self.nursery_top = self.nursery + self.nursery_size
+            self.free = self.nursery_top
         self.nursery_free = self.nursery
-
-    def notify_objects_just_moved(self):
-        self.reset_nursery()
-        SemiSpaceGC.notify_objects_just_moved(self)
+        return self.nursery_free
 
     # NB. we can use self.copy() to move objects out of the nursery,
     # but only if the object was really in the nursery.

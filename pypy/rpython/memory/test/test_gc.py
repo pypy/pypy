@@ -276,7 +276,6 @@ class GCTest(object):
 
     def test_finalizer_calls_malloc_during_minor_collect(self):
         # originally a GenerationGC test, this has also found bugs in other GCs
-        py.test.skip("in-progress")
         class B(object):
             pass
         b = B()
