@@ -736,3 +736,25 @@ class TestGenerationGC(GenericMovingGCTests):
             GC_PARAMS = {'space_size': 2048,
                          'nursery_size': 128}
             root_stack_depth = 200
+
+    def test_weakref_across_minor_collection(self):
+        import weakref
+        class A:
+            pass
+        def f():
+            x = 20    # for GenerationGC, enough for a minor collection
+            a = A()
+            a.foo = x
+            ref = weakref.ref(a)
+            all = [None] * x
+            i = 0
+            while i < x:
+                all[i] = [i] * i
+                i += 1
+            assert ref() is a
+            llop.gc__collect(lltype.Void)
+            assert ref() is a
+            return a.foo + len(all)
+        run = self.runner(f)
+        res = run([])
+        assert res == 20 + 20

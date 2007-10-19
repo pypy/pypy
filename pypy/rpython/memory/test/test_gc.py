@@ -307,6 +307,25 @@ class GCTest(object):
         res = self.interpret(f, [500])
         assert res == 1 + 500
 
+    def test_weakref_across_minor_collection(self):
+        import weakref
+        class A:
+            pass
+        def f(x):
+            a = A()
+            a.foo = x
+            ref = weakref.ref(a)
+            all = [None] * x
+            i = 0
+            while i < x:
+                all[i] = [i] * i
+                i += 1
+            assert ref() is a
+            llop.gc__collect(lltype.Void)
+            assert ref() is a
+            return a.foo + len(all)
+        res = self.interpret(f, [20])  # for GenerationGC, enough for a minor collection
+        assert res == 20 + 20
 
 class TestMarkSweepGC(GCTest):
     from pypy.rpython.memory.gc.marksweep import MarkSweepGC as GCClass

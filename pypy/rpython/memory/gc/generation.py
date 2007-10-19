@@ -34,6 +34,7 @@ class GenerationGC(SemiSpaceGC):
         self.reset_nursery()
         self.old_objects_pointing_to_young = nonnull_endmarker
         # ^^^ the head of a linked list inside the old objects space
+        self.young_objects_with_weakrefs = self.AddressLinkedList()
 
     def reset_nursery(self):
         self.nursery      = llmemory.NULL
@@ -45,8 +46,9 @@ class GenerationGC(SemiSpaceGC):
 
     def malloc_fixedsize(self, typeid, size, can_collect, has_finalizer=False,
                          contains_weakptr=False):
-        if (has_finalizer or contains_weakptr or not can_collect or
+        if (has_finalizer or not can_collect or
             raw_malloc_usage(size) >= self.nursery_size // 2):
+            debug_assert(not contains_weakptr, "wrong case for mallocing weakref")
             # "non-simple" case or object too big: don't use the nursery
             return SemiSpaceGC.malloc_fixedsize(self, typeid, size,
                                                 can_collect, has_finalizer,
@@ -59,6 +61,8 @@ class GenerationGC(SemiSpaceGC):
         llarena.arena_reserve(result, totalsize)
         self.init_gc_object(result, typeid)
         self.nursery_free = result + totalsize
+        if contains_weakptr:
+            self.young_objects_with_weakrefs.append(result + size_gc_header)
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
 
     def malloc_varsize(self, typeid, length, size, itemsize, offset_to_length,
@@ -86,6 +90,7 @@ class GenerationGC(SemiSpaceGC):
 
     def semispace_collect(self, size_changing=False):
         self.reset_forwarding() # we are doing a full collection anyway
+        self.weakrefs_grow_older()
         self.reset_nursery()
         SemiSpaceGC.semispace_collect(self, size_changing)
 
@@ -96,6 +101,11 @@ class GenerationGC(SemiSpaceGC):
             obj = hdr.forw
             hdr.forw = llmemory.NULL
         self.old_objects_pointing_to_young = nonnull_endmarker
+
+    def weakrefs_grow_older(self):
+        while self.young_objects_with_weakrefs.non_empty():
+            obj = self.young_objects_with_weakrefs.pop()
+            self.objects_with_weakrefs.append(obj)
 
     def collect_nursery(self):
         if self.nursery_size > self.top_of_space - self.free:
@@ -109,6 +119,8 @@ class GenerationGC(SemiSpaceGC):
             self.collect_oldrefs_to_nursery()
             self.collect_roots_in_nursery()
             self.scan_objects_just_copied_out_of_nursery(scan)
+            if self.young_objects_with_weakrefs.non_empty():
+                self.invalidate_young_weakrefs()
             self.notify_objects_just_moved()
             # mark the nursery as free and fill it with zeroes again
             llarena.arena_reset(self.nursery, self.nursery_size, True)
@@ -184,6 +196,25 @@ class GenerationGC(SemiSpaceGC):
                         pointer.address[0] = self.copy(pointer.address[0])
                     j += 1
                 i += 1
+
+    def invalidate_young_weakrefs(self):
+        # walk over the list of objects that contain weakrefs and are in the
+        # nursery.  if the object it references survives then update the
+        # weakref; otherwise invalidate the weakref
+        while self.young_objects_with_weakrefs.non_empty():
+            obj = self.young_objects_with_weakrefs.pop()
+            if not self.is_forwarded(obj):
+                continue # weakref itself dies
+            obj = self.get_forwarding_address(obj)
+            offset = self.weakpointer_offset(self.header(obj).typeid)
+            pointing_to = (obj + offset).address[0]
+            if self.is_in_nursery(pointing_to):
+                if self.is_forwarded(pointing_to):
+                    (obj + offset).address[0] = self.get_forwarding_address(
+                        pointing_to)
+                    self.objects_with_weakrefs.append(obj)
+                else:
+                    (obj + offset).address[0] = NULL
 
     def write_barrier(self, addr, addr_to, addr_struct):
         if not self.is_in_nursery(addr_struct) and self.is_in_nursery(addr):
