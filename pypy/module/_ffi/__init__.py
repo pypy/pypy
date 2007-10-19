@@ -15,6 +15,7 @@ class Module(MixedModule):
         'StructureInstance'  : 'structure.W_StructureInstance',
         'ArrayInstance'      : 'array.W_ArrayInstance',
         '_get_type'          : 'interp_ffi._w_get_type',
+        #'CallbackPtr'        : 'callback.W_CallbackPtr',
     }
 
     appleveldefs = {

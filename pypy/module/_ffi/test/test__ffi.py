@@ -88,6 +88,7 @@ class AppTestCTypes:
         {
            return x;
         }
+
         '''))
         compile_c_module([c_file], 'x')
         return str(udir.join('x.so'))
@@ -293,7 +294,7 @@ class AppTestCTypes:
         assert pass_ll(1<<42) == 1<<42
     
     def test_callback(self):
-        skip("Segfaults")
+        skip("Not working")
         import _ffi
         libc = _ffi.CDLL('libc.so.6')
         to_sort = "kljhgfa"
@@ -302,5 +303,6 @@ class AppTestCTypes:
         def compare(a, b):
             return a < b
         qsort(ll_to_sort, len(to_sort), 1,
-              CallbackPtr(compare, ['i', 'i'], 'i'))
-        
+              _ffi.CallbackPtr(compare, ['i', 'i'], 'i'))
+        res = [ll_to_sort[i] for i in range(len(to_sort))]
+        assert res == sorted(to_sort)

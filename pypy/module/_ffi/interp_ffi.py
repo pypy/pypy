@@ -51,7 +51,8 @@ LL_TYPEMAP = {
     'f' : rffi.FLOAT,
     'd' : rffi.DOUBLE,
     's' : rffi.CCHARP,
-    'P' : rffi.VOIDP,    
+    'P' : rffi.VOIDP,
+    'v' : lltype.Void,
 }
 
 def _get_type(space, key):
@@ -194,10 +195,16 @@ def unwrap_value(space, push_func, add_arg, argdesc, tp, w_arg, to_free):
             mod = space.getbuiltinmodule('_ffi')
             w_StructureInstance = space.getattr(mod, w('StructureInstance'))
             w_ArrayInstance = space.getattr(mod, w('ArrayInstance'))
+            #w_CallbackPtr = space.getattr(mod, w('CallbackPtr'))
             if space.is_true(space.isinstance(w_arg, w_StructureInstance)) or\
                    space.is_true(space.isinstance(w_arg, w_ArrayInstance)):
                 ptr = rffi.cast(rffi.VOIDP, space.int_w(space.getattr(w_arg, w('buffer'))))
                 push_func(add_arg, argdesc, ptr)
+            #elif space.is_true(space.isinstance(w_arg, w_CallbackPtr)):
+            #    TP = lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed)
+            #    ptr = rffi.cast(TP, space.int_w(space.getattr(w_arg, w('buffer'))))
+            #    push_func(add_arg, argdesc, ptr)
+
             else:
                 raise OperationError(space.w_TypeError, w(
                     "Expected structure, array or simple type"))
@@ -243,6 +250,9 @@ def wrap_value(space, func, add_arg, argdesc, tp):
                 if not res:
                     return space.w_None
                 return space.wrap(rffi.cast(rffi.INT, res))
+            elif c == 'v':
+                func(add_arg, argdesc, ll_type)
+                return space.w_None
             elif c == 'q' or c == 'Q' or c == 'L':
                 return space.wrap(func(add_arg, argdesc, ll_type))
             elif c == 'f' or c == 'd':
@@ -286,9 +296,7 @@ class W_FuncPtr(Wrappable):
             unwrap_value(space, push, self.ptr, i, argtype, w_arg, to_free)
             i += 1
         try:
-            if self.restype != 'v':
-                return wrap_value(space, ptr_call, self.ptr, None, self.restype)
-            return space.w_None
+            return wrap_value(space, ptr_call, self.ptr, None, self.restype)
         finally:
             for elem in to_free:
                 lltype.free(elem, flavor='raw')
