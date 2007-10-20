@@ -2,8 +2,10 @@
 /**************************************************************/
 /***  this is included before any code produced by genc.py  ***/
 
+#ifndef
 #define _GNU_SOURCE  /* this must be defined before including other headers
                         in order to get a few extra functions like mremap() */
+#endif
 
 /* XXX for now we always include Python.h even to produce stand-alone
  * executables (which are *not* linked against CPython then),
