@@ -289,7 +289,12 @@ class COpaquePtr(CConfigEntry):
         yield 'dump("size",  sizeof(%s));' % self.name
 
     def build_result(self, info, config_result):
-        return rffi.COpaquePtr(self.name, info['size'])
+        # XXX this is strange mapping, but well, I've got no
+        #     better idea
+        kwds = {}
+        for item in ['includes', 'include_dirs', 'libraries']:
+            kwds[item] = getattr(config_result, '_%s_' % item, [])
+        return rffi.COpaquePtr(self.name, info['size'], **kwds)
 
 class SimpleType(CConfigEntry):
     """An entry in a CConfig class that stands for an externally
