@@ -2,7 +2,7 @@
 /**************************************************************/
 /***  this is included before any code produced by genc.py  ***/
 
-#ifndef
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE  /* this must be defined before including other headers
                         in order to get a few extra functions like mremap() */
 #endif
