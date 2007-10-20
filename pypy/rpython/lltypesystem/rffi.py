@@ -222,20 +222,14 @@ def CArrayPtr(tp):
     return lltype.Ptr(CArray(tp))
 CArray._annspecialcase_ = 'specialize:memo'
 
-def COpaque(name, hints=None, **kwds):
+def COpaque(name, size, hints=None, **kwds):
     if hints is None:
         hints = {}
     else:
         hints = hints.copy()
     hints['external'] = 'C'
     hints['c_name'] = name
-    def lazy_getsize(result=[]):
-        if not result:
-            from pypy.rpython.tool import rffi_platform
-            size = rffi_platform.sizeof(name, "", **kwds)
-            result.append(size)
-        return result[0]
-    hints['getsize'] = lazy_getsize
+    hints['size'] = size
     return lltype.OpaqueType(name, hints)
 
 def COpaquePtr(*args, **kwds):

@@ -2,6 +2,7 @@ import py
 import sys, struct
 import ctypes
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory
+from pypy.rpython.tool import rffi_platform
 from pypy.rpython.lltypesystem.ll2ctypes import lltype2ctypes, ctypes2lltype
 from pypy.rpython.lltypesystem.ll2ctypes import standard_c_lib
 from pypy.rpython.lltypesystem.ll2ctypes import uninitialized2ctypes
@@ -274,8 +275,8 @@ class TestLL2Ctypes(object):
 
     def test_opaque_obj(self):
         includes = ['sys/time.h', 'time.h']
-        TIMEVALP = rffi.COpaquePtr('struct timeval', includes=includes)
-        TIMEZONEP = rffi.COpaquePtr('struct timezone', includes=includes)
+        TIMEVALP = rffi_platform.copaque('struct timeval', '', _includes_=includes)
+        TIMEZONEP = rffi_platform.copaque('struct timezone', '', _includes_=includes)
         gettimeofday = rffi.llexternal('gettimeofday', [TIMEVALP, TIMEZONEP],
                                        rffi.INT, includes=includes)
         ll_timevalp = lltype.malloc(TIMEVALP.TO, flavor='raw')
