@@ -621,11 +621,12 @@ class RegisterOs(BaseLazyRegistering):
                 _includes_ = ['sys/types.h', 'dirent.h']
                 DIRENT = platform.Struct('struct dirent',
                     [('d_name', lltype.FixedSizeArray(rffi.CHAR, 1))])
+                DIRP = platform.COpaquePtr('DIR')
 
             config = platform.configure(CConfig)
             DIRENT = config['DIRENT']
             DIRENTP = lltype.Ptr(DIRENT)
-            DIRP = rffi.COpaquePtr('DIR')
+            DIRP = config['DIRP']
             os_opendir = self.llexternal('opendir', [rffi.CCHARP], DIRP,
                                          includes=CConfig._includes_)
             os_readdir = self.llexternal('readdir', [DIRP], DIRENTP,
