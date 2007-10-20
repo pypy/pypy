@@ -42,13 +42,13 @@ def has(name, c_header_source):
         HAS = Has(name)
     return configure(CConfig)['HAS']
 
-def sizeof(name, c_header_source, **kwds):
+def copaque(name, c_header_source, **kwds):
     class CConfig:
         _header_ = c_header_source
-        SIZE = SizeOf(name)
+        C = COpaquePtr(name)
     for k, v in kwds.items():
         setattr(CConfig, k, v)
-    return configure(CConfig)['SIZE']
+    return configure(CConfig)['C']
 
 # ____________________________________________________________
 #
@@ -278,9 +278,9 @@ class Struct(CConfigEntry):
         kwds = {'hints': hints}
         return rffi.CStruct(name, *fields, **kwds)
 
-class SizeOf(CConfigEntry):
-    """An entry in a CConfig class that stands for sizeof
-    of some external opaque type
+class COpaquePtr(CConfigEntry):
+    """An entry in a CConfig class that stands for
+    some external opaque type
     """
     def __init__(self, name):
         self.name = name
@@ -289,7 +289,7 @@ class SizeOf(CConfigEntry):
         yield 'dump("size",  sizeof(%s));' % self.name
 
     def build_result(self, info, config_result):
-        return info['size']
+        return rffi.COpaquePtr(self.name, info['size'])
 
 class SimpleType(CConfigEntry):
     """An entry in a CConfig class that stands for an externally
