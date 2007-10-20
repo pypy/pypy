@@ -387,8 +387,9 @@ class FrameworkGCTransformer(GCTransformer):
         log.info("assigned %s typeids" % (len(table), ))
         log.info("added %s push/pop stack root instructions" % (
                      self.num_pushs, ))
-        log.info("inserted %s write barrier calls" % (
-                     self.write_barrier_calls, ))
+        if self.write_barrier_ptr:
+            log.info("inserted %s write barrier calls" % (
+                         self.write_barrier_calls, ))
 
         # replace the type_info_table pointer in gcdata -- at this point,
         # the database is in principle complete, so it has already seen
