@@ -280,28 +280,40 @@ from pypy.rlib.objectmodel import debug_assert, CDefinedIntSymbolic
 
 if os.name == 'posix':
     READ_MAX = (sys.maxint//4) + 1    # upper bound on reads to avoid surprises
-    os_read = rffi.llexternal('read',
-                              [rffi.INT, llmemory.Address, rffi.SIZE_T],
-                              rffi.SIZE_T,
-                              sandboxsafe=True)
+    raw_os_open = rffi.llexternal('open',
+                                  [rffi.CCHARP, rffi.INT, rffi.MODE_T],
+                                  rffi.INT,
+                                  sandboxsafe=True, _nowrapper=True)
+    raw_os_read = rffi.llexternal('read',
+                                  [rffi.INT, llmemory.Address, rffi.SIZE_T],
+                                  rffi.SIZE_T,
+                                  sandboxsafe=True, _nowrapper=True)
+    raw_os_close = rffi.llexternal('close',
+                                   [rffi.INT],
+                                   rffi.INT,
+                                   sandboxsafe=True, _nowrapper=True)
+    _dev_zero = rffi.str2charp('/dev/zero')   # prebuilt
 
     def clear_large_memory_chunk(baseaddr, size):
         # on Linux at least, reading from /dev/zero is the fastest way
         # to clear arenas, because the kernel knows that it doesn't
-        # need to even allocate the pages before they are used
-        try:
-            fd = os.open('/dev/zero', os.O_RDONLY, 0644)
-        except OSError:
-            pass
-        else:
+        # need to even allocate the pages before they are used.
+
+        # NB.: careful, don't do anything that could malloc here!
+        # this code is called during GC initialization.
+        fd = raw_os_open(_dev_zero,
+                         rffi.cast(rffi.INT, os.O_RDONLY),
+                         rffi.cast(rffi.MODE_T, 0644))
+        if rffi.cast(lltype.Signed, fd) != -1:
             while size > 0:
-                count = os_read(fd, baseaddr, min(READ_MAX, size))
+                size1 = rffi.cast(rffi.SIZE_T, min(READ_MAX, size))
+                count = raw_os_read(fd, baseaddr, size1)
                 count = rffi.cast(lltype.Signed, count)
-                if count < 0:
+                if count <= 0:
                     break
                 size -= count
                 baseaddr += count
-            os.close(fd)
+            raw_os_close(fd)
 
         if size > 0:     # reading from /dev/zero failed, fallback
             llmemory.raw_memclear(baseaddr, size)
