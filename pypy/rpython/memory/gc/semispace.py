@@ -19,7 +19,7 @@ class SemiSpaceGC(MovingGCBase):
     inline_simple_malloc = True
 
     HDR = lltype.Struct('header', ('forw', llmemory.Address),
-                                  ('typeid', lltype.Signed))
+                                  ('tid', lltype.Signed))
 
     def __init__(self, AddressLinkedList, space_size=4096,
                  max_space_size=sys.maxint//2+1,
@@ -277,18 +277,18 @@ class SemiSpaceGC(MovingGCBase):
         return llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
 
     def get_type_id(self, addr):
-        return self.header(addr).typeid
+        return self.header(addr).tid
 
     def init_gc_object(self, addr, typeid):
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
         #hdr.forw = NULL   -- unneeded, the space is initially filled with zero
-        hdr.typeid = typeid
+        hdr.tid = typeid
 
     def init_gc_object_immortal(self, addr, typeid):
         # immortal objects always have forward to themselves
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
         hdr.forw = addr + self.gcheaderbuilder.size_gc_header
-        hdr.typeid = typeid
+        hdr.tid = typeid
 
     def deal_with_objects_with_finalizers(self):
         # walk over list of objects with finalizers
@@ -314,7 +314,7 @@ class SemiSpaceGC(MovingGCBase):
             if not self.is_forwarded(obj):
                 continue # weakref itself dies
             obj = self.get_forwarding_address(obj)
-            offset = self.weakpointer_offset(self.header(obj).typeid)
+            offset = self.weakpointer_offset(self.get_type_id(obj))
             pointing_to = (obj + offset).address[0]
             if pointing_to:
                 if self.is_forwarded(pointing_to):
@@ -344,8 +344,7 @@ class SemiSpaceGC(MovingGCBase):
             while self.run_finalizers.non_empty():
                 #print "finalizer"
                 obj = self.run_finalizers.pop()
-                hdr = self.header(obj)
-                finalizer = self.getfinalizer(hdr.typeid)
+                finalizer = self.getfinalizer(self.get_type_id(obj))
                 finalizer(obj)
         finally:
             self.finalizer_lock_count = 0
