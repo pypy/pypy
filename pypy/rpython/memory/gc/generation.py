@@ -20,7 +20,6 @@ class GenerationGC(SemiSpaceGC):
     """
     inline_simple_malloc = True
     needs_write_barrier = True
-    default_gcflags = GCFLAG_NO_YOUNG_PTRS       # for old and static objects
 
     def __init__(self, AddressLinkedList,
                  nursery_size=128,
@@ -70,7 +69,8 @@ class GenerationGC(SemiSpaceGC):
         if raw_malloc_usage(totalsize) > self.nursery_top - result:
             result = self.collect_nursery()
         llarena.arena_reserve(result, totalsize)
-        self.init_young_gc_object(result, typeid)
+        # GCFLAG_NO_YOUNG_PTRS is never set on young objs
+        self.init_gc_object(result, typeid, flags=0)
         self.nursery_free = result + totalsize
         if contains_weakptr:
             self.young_objects_with_weakrefs.append(result + size_gc_header)
@@ -94,15 +94,20 @@ class GenerationGC(SemiSpaceGC):
         if raw_malloc_usage(totalsize) > self.nursery_top - result:
             result = self.collect_nursery()
         llarena.arena_reserve(result, totalsize)
-        self.init_young_gc_object(result, typeid)
+        # GCFLAG_NO_YOUNG_PTRS is never set on young objs
+        self.init_gc_object(result, typeid, flags=0)
         (result + size_gc_header + offset_to_length).signed[0] = length
         self.nursery_free = result + llarena.round_up_for_allocation(totalsize)
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
 
-    def init_young_gc_object(self, addr, typeid):
-        hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
-        #hdr.forw = NULL   -- unneeded, the space is initially filled with zero
-        hdr.tid = typeid     # GCFLAG_NO_YOUNG_PTRS is never set on young objs
+    # override the init_gc_object methods to change the default value of 'flags',
+    # used by objects that are directly created outside the nursery by the SemiSpaceGC.
+    # These objects must have the GCFLAG_NO_YOUNG_PTRS flag set immediately.
+    def init_gc_object(self, addr, typeid, flags=GCFLAG_NO_YOUNG_PTRS):
+        SemiSpaceGC.init_gc_object(self, addr, typeid, flags)
+
+    def init_gc_object_immortal(self, addr, typeid, flags=GCFLAG_NO_YOUNG_PTRS):
+        SemiSpaceGC.init_gc_object_immortal(self, addr, typeid, flags)
 
     def semispace_collect(self, size_changing=False):
         self.reset_young_gcflags() # we are doing a full collection anyway

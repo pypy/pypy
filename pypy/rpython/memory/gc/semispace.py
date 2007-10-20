@@ -20,7 +20,6 @@ memoryError = MemoryError()
 class SemiSpaceGC(MovingGCBase):
     _alloc_flavor_ = "raw"
     inline_simple_malloc = True
-    default_gcflags = 0
 
     HDR = lltype.Struct('header', ('forw', llmemory.Address),
                                   ('tid', lltype.Signed))
@@ -215,9 +214,8 @@ class SemiSpaceGC(MovingGCBase):
         # Objects not living the GC heap have all been initialized by
         # setting their 'forw' address so that it points to themselves.
         # The logic below will thus simply return 'obj' if 'obj' is prebuilt.
-##         print "copying regularly", obj,
         if self.is_forwarded(obj):
-##             print "already copied to", self.get_forwarding_address(obj)
+            #llop.debug_print(lltype.Void, obj, "already copied to", self.get_forwarding_address(obj))
             return self.get_forwarding_address(obj)
         else:
             newaddr = self.free
@@ -226,7 +224,9 @@ class SemiSpaceGC(MovingGCBase):
             raw_memcopy(obj - self.size_gc_header(), newaddr, totalsize)
             self.free += totalsize
             newobj = newaddr + self.size_gc_header()
-##             print "to", newobj
+            #llop.debug_print(lltype.Void, obj, "copied to", newobj,
+            #                 "tid", self.header(obj).tid,
+            #                 "size", totalsize)
             self.set_forwarding_address(obj, newobj)
             return newobj
 
@@ -283,15 +283,15 @@ class SemiSpaceGC(MovingGCBase):
     def get_type_id(self, addr):
         return self.header(addr).tid & TYPEID_MASK
 
-    def init_gc_object(self, addr, typeid):
+    def init_gc_object(self, addr, typeid, flags=0):
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
         #hdr.forw = NULL   -- unneeded, the space is initially filled with zero
-        hdr.tid = typeid | self.default_gcflags
+        hdr.tid = typeid | flags
 
-    def init_gc_object_immortal(self, addr, typeid):
+    def init_gc_object_immortal(self, addr, typeid, flags=0):
         # immortal objects always have forward to themselves
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
-        hdr.tid = typeid | self.default_gcflags | GCFLAG_IMMORTAL
+        hdr.tid = typeid | flags | GCFLAG_IMMORTAL
         self.init_forwarding(addr + self.gcheaderbuilder.size_gc_header)
 
     def init_forwarding(self, obj):
