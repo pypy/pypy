@@ -275,8 +275,8 @@ class TestLL2Ctypes(object):
 
     def test_opaque_obj(self):
         includes = ['sys/time.h', 'time.h']
-        TIMEVALP = rffi_platform.copaque('struct timeval', '', _includes_=includes)
-        TIMEZONEP = rffi_platform.copaque('struct timezone', '', _includes_=includes)
+        TIMEVALP = rffi.COpaquePtr('struct timeval', includes=includes)
+        TIMEZONEP = rffi.COpaquePtr('struct timezone', includes=includes)
         gettimeofday = rffi.llexternal('gettimeofday', [TIMEVALP, TIMEZONEP],
                                        rffi.INT, includes=includes)
         ll_timevalp = lltype.malloc(TIMEVALP.TO, flavor='raw')

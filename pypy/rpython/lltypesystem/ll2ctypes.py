@@ -172,7 +172,7 @@ def build_new_ctypes_type(T, delayed_builders):
     elif isinstance(T, lltype.OpaqueType):
         if T.hints.get('external', None) != 'C':
             raise TypeError("%s is not external" % T)
-        return ctypes.c_char * T.hints['size']
+        return ctypes.c_char * T.hints['getsize']()
     else:
         _setup_ctypes_cache()
         if T in _ctypes_cache:
@@ -410,7 +410,7 @@ def lltype2ctypes(llobj, normalize=True):
             elif isinstance(T.TO, lltype.Array):
                 convert_array(container)
             elif isinstance(T.TO, lltype.OpaqueType):
-                cbuf = ctypes.create_string_buffer(T.TO.hints['size'])
+                cbuf = ctypes.create_string_buffer(T.TO.hints['getsize']())
                 add_storage(container, _parentable_mixin, cbuf)
             else:
                 raise NotImplementedError(T)

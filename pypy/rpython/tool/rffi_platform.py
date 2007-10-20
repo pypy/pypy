@@ -42,13 +42,13 @@ def has(name, c_header_source):
         HAS = Has(name)
     return configure(CConfig)['HAS']
 
-def copaque(name, c_header_source, **kwds):
+def sizeof(name, c_header_source, **kwds):
     class CConfig:
         _header_ = c_header_source
-        C = COpaquePtr(name)
+        SIZE = SizeOf(name)
     for k, v in kwds.items():
         setattr(CConfig, k, v)
-    return configure(CConfig)['C']
+    return configure(CConfig)['SIZE']
 
 # ____________________________________________________________
 #
@@ -278,24 +278,6 @@ class Struct(CConfigEntry):
         kwds = {'hints': hints}
         return rffi.CStruct(name, *fields, **kwds)
 
-class COpaquePtr(CConfigEntry):
-    """An entry in a CConfig class that stands for
-    some external opaque type
-    """
-    def __init__(self, name):
-        self.name = name
-
-    def prepare_code(self):
-        yield 'dump("size",  sizeof(%s));' % self.name
-
-    def build_result(self, info, config_result):
-        # XXX this is strange mapping, but well, I've got no
-        #     better idea
-        kwds = {}
-        for item in ['includes', 'include_dirs', 'libraries']:
-            kwds[item] = getattr(config_result, '_%s_' % item, [])
-        return rffi.COpaquePtr(self.name, info['size'], **kwds)
-
 class SimpleType(CConfigEntry):
     """An entry in a CConfig class that stands for an externally
     defined simple numeric type.
@@ -439,6 +421,19 @@ class Has(CConfigSingleEntry):
     
     def question(self, ask_gcc):
         return ask_gcc(self.name + ';')
+
+class SizeOf(CConfigEntry):
+    """An entry in a CConfig class that stands for
+    some external opaque type
+    """
+    def __init__(self, name):
+        self.name = name
+
+    def prepare_code(self):
+        yield 'dump("size",  sizeof(%s));' % self.name
+
+    def build_result(self, info, config_result):
+        return info['size']
 
 # ____________________________________________________________
 #

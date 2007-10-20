@@ -224,8 +224,8 @@ def test_opaque_type():
     h_file.write(h_source)
 
     from pypy.rpython.tool import rffi_platform
-    STUFFP = rffi_platform.copaque('struct stuff', '', _includes_=['opaque.h'],
-                     _include_dirs_=[str(udir)])
+    STUFFP = COpaquePtr('struct stuff', includes=['opaque.h'],
+                     include_dirs=[str(udir)])
 
     ll_get = llexternal('get', [STUFFP], lltype.Char, includes=['opaque.h'],
                         include_dirs=[str(udir)])

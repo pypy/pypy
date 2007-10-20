@@ -193,4 +193,4 @@ def test_has():
     assert not rffi_platform.has("x", "#include <some/path/which/cannot/exist>")
 
 def test_sizeof():
-    assert rffi_platform.copaque("char", "").TO.hints['size'] == 1
+    assert rffi_platform.sizeof("char", "") == 1
