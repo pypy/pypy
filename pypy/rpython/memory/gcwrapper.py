@@ -72,7 +72,8 @@ class GCManagedHeap(object):
         self.setinterior(array, addr, ARRAY.OF, newitem)
 
     def setinterior(self, toplevelcontainer, inneraddr, INNERTYPE, newvalue):
-        if isinstance(INNERTYPE, lltype.Ptr) and INNERTYPE.TO._gckind == 'gc':
+        if (lltype.typeOf(toplevelcontainer).TO._gckind == 'gc' and
+            isinstance(INNERTYPE, lltype.Ptr) and INNERTYPE.TO._gckind == 'gc'):
             self.gc.write_barrier(llmemory.cast_ptr_to_adr(newvalue),
                                   inneraddr,
                                   llmemory.cast_ptr_to_adr(toplevelcontainer))

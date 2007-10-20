@@ -327,6 +327,21 @@ class GCTest(object):
         res = self.interpret(f, [20])  # for GenerationGC, enough for a minor collection
         assert res == 20 + 20
 
+    def test_nongc_static_root(self):
+        from pypy.rpython.lltypesystem import lltype
+        T1 = lltype.GcStruct("C", ('x', lltype.Signed))
+        T2 = lltype.Struct("C", ('p', lltype.Ptr(T1)))
+        static = lltype.malloc(T2, immortal=True)
+        def f():
+            t1 = lltype.malloc(T1)
+            t1.x = 42
+            static.p = t1
+            llop.gc__collect(lltype.Void)
+            return static.p.x
+        res = self.interpret(f, [])
+        assert res == 42
+
+
 class TestMarkSweepGC(GCTest):
     from pypy.rpython.memory.gc.marksweep import MarkSweepGC as GCClass
 
