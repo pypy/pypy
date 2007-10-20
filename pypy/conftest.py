@@ -286,7 +286,7 @@ class IntTestFunction(PyPyTestFunction):
         return keyword == 'interplevel' or \
                super(IntTestFunction, self)._haskeyword(keyword)
     def _keywords(self):
-        return super(IntTestFunction, self)._keywords + ['interplevel']
+        return super(IntTestFunction, self)._keywords() + ['interplevel']
 
     def execute(self, target, *args):
         co = target.func_code
