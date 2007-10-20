@@ -590,7 +590,8 @@ class FrameworkGCTransformer(GCTransformer):
         v_newvalue = hop.spaceop.args[-1]
         # XXX for some GCs the skipping if the newvalue is a constant won't be
         # ok
-        if self.write_barrier_ptr is None or isinstance(v_newvalue, Constant):
+        if (self.write_barrier_ptr is None or isinstance(v_newvalue, Constant)
+            or v_struct.concretetype.TO._gckind != "gc"):
             super(FrameworkGCTransformer, self).transform_generic_set(hop)
         else:
             self.write_barrier_calls += 1

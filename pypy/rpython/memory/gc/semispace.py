@@ -280,7 +280,7 @@ class SemiSpaceGC(MovingGCBase):
         return llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
 
     def get_type_id(self, addr):
-        return self.header(addr).tid
+        return self.header(addr).tid & TYPEID_MASK
 
     def init_gc_object(self, addr, typeid):
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
