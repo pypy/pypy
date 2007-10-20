@@ -773,3 +773,51 @@ class TestGenerationGC(GenericMovingGCTests):
         run = self.runner(f)
         res = run([])
         assert res == 20 + 20
+
+    def test_nongc_static_root_minor_collect(self):
+        from pypy.rpython.lltypesystem import lltype
+        T1 = lltype.GcStruct("C", ('x', lltype.Signed))
+        T2 = lltype.Struct("C", ('p', lltype.Ptr(T1)))
+        static = lltype.malloc(T2, immortal=True)
+        def f():
+            t1 = lltype.malloc(T1)
+            t1.x = 42
+            static.p = t1
+            x = 20
+            all = [None] * x
+            i = 0
+            while i < x: # enough to cause a minor collect
+                all[i] = [i] * i
+                i += 1
+            i = static.p.x
+            llop.gc__collect(lltype.Void)
+            return static.p.x + i
+        run = self.runner(f, nbargs=0)
+        res = run([])
+        assert res == 84
+
+
+    def test_static_root_minor_collect(self):
+        from pypy.rpython.lltypesystem import lltype
+        class A:
+            pass
+        class B:
+            pass
+        static = A()
+        static.p = None
+        def f():
+            t1 = B()
+            t1.x = 42
+            static.p = t1
+            x = 20
+            all = [None] * x
+            i = 0
+            while i < x: # enough to cause a minor collect
+                all[i] = [i] * i
+                i += 1
+            i = static.p.x
+            llop.gc__collect(lltype.Void)
+            return static.p.x + i
+        run = self.runner(f, nbargs=0)
+        res = run([])
+        assert res == 84
