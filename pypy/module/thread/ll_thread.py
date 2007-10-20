@@ -37,9 +37,9 @@ CALLBACK = lltype.Ptr(lltype.FuncType([rffi.VOIDP], rffi.VOIDP))
 c_thread_start = llexternal('RPyThreadStart', [CALLBACK, rffi.VOIDP], rffi.INT)
 c_thread_get_ident = llexternal('RPyThreadGetIdent', [], rffi.INT)
 
-TLOCKP = platform.copaque('struct RPyOpaque_ThreadLock', '',
-                          _includes_=includes,
-                          _include_dirs_=include_dirs)
+TLOCKP = rffi.COpaquePtr('struct RPyOpaque_ThreadLock',
+                          includes=includes,
+                          include_dirs=include_dirs)
 
 c_thread_lock_init = llexternal('RPyThreadLockInit', [TLOCKP], lltype.Void)
 c_thread_acquirelock = llexternal('RPyThreadAcquireLock', [TLOCKP, rffi.INT],

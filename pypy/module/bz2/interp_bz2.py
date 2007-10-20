@@ -34,8 +34,9 @@ class CConfig:
                                  ('bzfree', lltype.Ptr(_free_type)),
                                  ('opaque', rffi.VOIDP),
                                  ])
-    FILE = platform.COpaquePtr('FILE')
-    BZFILE = platform.COpaquePtr('BZFILE')
+
+FILE = rffi.COpaquePtr('FILE')
+BZFILE = rffi.COpaquePtr('BZFILE')
 
 
 constants = {}
@@ -72,8 +73,6 @@ BZ_IO_ERROR = cConfig.BZ_IO_ERROR
 BZ_MEM_ERROR = cConfig.BZ_MEM_ERROR
 BZ_UNEXPECTED_EOF = cConfig.BZ_UNEXPECTED_EOF
 BZ_SEQUENCE_ERROR = cConfig.BZ_SEQUENCE_ERROR
-BZFILE = cConfig.BZFILE
-FILE = cConfig.FILE
 
 if BUFSIZ < 8192:
     SMALLCHUNK = 8192
