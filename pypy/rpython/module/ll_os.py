@@ -621,7 +621,7 @@ class RegisterOs(BaseLazyRegistering):
                 _includes_ = ['sys/types.h', 'dirent.h']
                 DIRENT = platform.Struct('struct dirent',
                     [('d_name', lltype.FixedSizeArray(rffi.CHAR, 1))])
-                DIRP = platform.COpaquePtr('DIRP')
+                DIRP = platform.COpaquePtr('DIR')
 
             config = platform.configure(CConfig)
             DIRENT = config['DIRENT']
