@@ -20,6 +20,7 @@ memoryError = MemoryError()
 class SemiSpaceGC(MovingGCBase):
     _alloc_flavor_ = "raw"
     inline_simple_malloc = True
+    default_gcflags = 0
 
     HDR = lltype.Struct('header', ('forw', llmemory.Address),
                                   ('tid', lltype.Signed))
@@ -285,13 +286,21 @@ class SemiSpaceGC(MovingGCBase):
     def init_gc_object(self, addr, typeid):
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
         #hdr.forw = NULL   -- unneeded, the space is initially filled with zero
-        hdr.tid = typeid
+        hdr.tid = typeid | self.default_gcflags
 
     def init_gc_object_immortal(self, addr, typeid):
         # immortal objects always have forward to themselves
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
-        hdr.forw = addr + self.gcheaderbuilder.size_gc_header
-        hdr.tid = typeid | GCFLAG_IMMORTAL
+        hdr.tid = typeid | self.default_gcflags | GCFLAG_IMMORTAL
+        self.init_forwarding(addr + self.gcheaderbuilder.size_gc_header)
+
+    def init_forwarding(self, obj):
+        hdr = self.header(obj)
+        if hdr.tid & GCFLAG_IMMORTAL:
+            hdr.forw = obj      # prebuilt objects point to themselves,
+                                # so that a collection does not move them
+        else:
+            hdr.forw = NULL
 
     def deal_with_objects_with_finalizers(self):
         # walk over list of objects with finalizers

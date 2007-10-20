@@ -5,10 +5,12 @@ from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena
 from pypy.rlib.objectmodel import free_non_gc_object, debug_assert
 
-nonnull_endmarker = llmemory.raw_malloc(llmemory.sizeof(lltype.Char))
-llmemory.raw_memclear(nonnull_endmarker, llmemory.sizeof(lltype.Char))
+# The following flag is never set on young objects, i.e. the ones living
+# in the nursery.  It is initially set on all prebuilt and old objects,
+# and gets cleared by the write_barrier() when we write in them a
+# pointer to a young object.
+GCFLAG_NO_YOUNG_PTRS = 2 << GCFLAGSHIFT
 
-GCFLAG_REMEMBERED = 2 << GCFLAGSHIFT
 
 class GenerationGC(SemiSpaceGC):
     """A basic generational GC: it's a SemiSpaceGC with an additional
@@ -18,6 +20,7 @@ class GenerationGC(SemiSpaceGC):
     """
     inline_simple_malloc = True
     needs_write_barrier = True
+    default_gcflags = GCFLAG_NO_YOUNG_PTRS       # for old and static objects
 
     def __init__(self, AddressLinkedList,
                  nursery_size=128,
@@ -34,15 +37,20 @@ class GenerationGC(SemiSpaceGC):
     def setup(self):
         SemiSpaceGC.setup(self)
         self.reset_nursery()
-        self.old_objects_pointing_to_young = nonnull_endmarker
-        # ^^^ the head of a linked list inside the old objects space
+        self.old_objects_pointing_to_young = NULL
+        # ^^^ the head of a linked list inside the old objects space; it
+        # may contain static prebuilt objects as well.  More precisely,
+        # it lists exactly the old and static objects whose
+        # GCFLAG_NO_YOUNG_PTRS bit is not set.  The 'forw' header field
+        # of such objects is abused for this linked list; it needs to be
+        # reset to its correct value when GCFLAG_NO_YOUNG_PTRS is set
+        # again at the start of a collection.
         self.young_objects_with_weakrefs = self.AddressLinkedList()
-        self.static_to_young_pointer = self.AddressLinkedList()
 
     def reset_nursery(self):
-        self.nursery      = llmemory.NULL
-        self.nursery_top  = llmemory.NULL
-        self.nursery_free = llmemory.NULL
+        self.nursery      = NULL
+        self.nursery_top  = NULL
+        self.nursery_free = NULL
 
     def is_in_nursery(self, addr):
         return self.nursery <= addr < self.nursery_top
@@ -62,7 +70,7 @@ class GenerationGC(SemiSpaceGC):
         if raw_malloc_usage(totalsize) > self.nursery_top - result:
             result = self.collect_nursery()
         llarena.arena_reserve(result, totalsize)
-        self.init_gc_object(result, typeid)
+        self.init_young_gc_object(result, typeid)
         self.nursery_free = result + totalsize
         if contains_weakptr:
             self.young_objects_with_weakrefs.append(result + size_gc_header)
@@ -86,31 +94,31 @@ class GenerationGC(SemiSpaceGC):
         if raw_malloc_usage(totalsize) > self.nursery_top - result:
             result = self.collect_nursery()
         llarena.arena_reserve(result, totalsize)
-        self.init_gc_object(result, typeid)
+        self.init_young_gc_object(result, typeid)
         (result + size_gc_header + offset_to_length).signed[0] = length
         self.nursery_free = result + llarena.round_up_for_allocation(totalsize)
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
 
+    def init_young_gc_object(self, addr, typeid):
+        hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
+        #hdr.forw = NULL   -- unneeded, the space is initially filled with zero
+        hdr.tid = typeid     # GCFLAG_NO_YOUNG_PTRS is never set on young objs
+
     def semispace_collect(self, size_changing=False):
-        self.reset_forwarding() # we are doing a full collection anyway
-        self.reset_static()
+        self.reset_young_gcflags() # we are doing a full collection anyway
         self.weakrefs_grow_older()
         self.reset_nursery()
         SemiSpaceGC.semispace_collect(self, size_changing)
 
-    def reset_forwarding(self):
+    def reset_young_gcflags(self):
         obj = self.old_objects_pointing_to_young
-        while obj != nonnull_endmarker:
+        while obj:
             hdr = self.header(obj)
-            obj = hdr.forw
-            hdr.forw = llmemory.NULL
-        self.old_objects_pointing_to_young = nonnull_endmarker
-
-    def reset_static(self):
-        while self.static_to_young_pointer.non_empty():
-            obj = self.static_to_young_pointer.pop()
-            hdr = self.header(obj)
-            hdr.tid &= ~GCFLAG_REMEMBERED
+            hdr.tid |= GCFLAG_NO_YOUNG_PTRS
+            nextobj = hdr.forw
+            self.init_forwarding(obj)
+            obj = nextobj
+        self.old_objects_pointing_to_young = NULL
 
     def weakrefs_grow_older(self):
         while self.young_objects_with_weakrefs.non_empty():
@@ -127,9 +135,10 @@ class GenerationGC(SemiSpaceGC):
             # a nursery-only collection
             scan = self.free
             self.collect_oldrefs_to_nursery()
-            self.collect_static_to_nursery()
             self.collect_roots_in_nursery()
             self.scan_objects_just_copied_out_of_nursery(scan)
+            # at this point, all static and old objects have got their
+            # GCFLAG_NO_YOUNG_PTRS set again by trace_and_drag_out_of_nursery
             if self.young_objects_with_weakrefs.non_empty():
                 self.invalidate_young_weakrefs()
             self.notify_objects_just_moved()
@@ -151,21 +160,14 @@ class GenerationGC(SemiSpaceGC):
     def collect_oldrefs_to_nursery(self):
         # Follow the old_objects_pointing_to_young list and move the
         # young objects they point to out of the nursery.  The 'forw'
-        # fields are reset to NULL along the way.
+        # fields are reset to their correct value along the way.
         obj = self.old_objects_pointing_to_young
-        while obj != nonnull_endmarker:
+        while obj:
+            nextobj = self.header(obj).forw
+            self.init_forwarding(obj)
             self.trace_and_drag_out_of_nursery(obj)
-            hdr = self.header(obj)
-            obj = hdr.forw
-            hdr.forw = llmemory.NULL
-        self.old_objects_pointing_to_young = nonnull_endmarker
-
-    def collect_static_to_nursery(self):
-        while self.static_to_young_pointer.non_empty():
-            obj = self.static_to_young_pointer.pop()
-            hdr = self.header(obj)
-            hdr.tid &= ~GCFLAG_REMEMBERED
-            self.trace_and_drag_out_of_nursery(obj)
+            obj = nextobj
+        self.old_objects_pointing_to_young = NULL
 
     def collect_roots_in_nursery(self):
         roots = self.get_roots(with_static=False)
@@ -189,6 +191,7 @@ class GenerationGC(SemiSpaceGC):
         """obj must not be in the nursery.  This copies all the
         young objects it references out of the nursery.
         """
+        self.header(obj).tid |= GCFLAG_NO_YOUNG_PTRS
         typeid = self.get_type_id(obj)
         offsets = self.offsets_to_gc_pointers(typeid)
         i = 0
@@ -234,18 +237,16 @@ class GenerationGC(SemiSpaceGC):
                     (obj + offset).address[0] = NULL
 
     def write_barrier(self, addr, addr_to, addr_struct):
-        if not self.is_in_nursery(addr_struct) and self.is_in_nursery(addr):
+        if self.header(addr_struct).tid & GCFLAG_NO_YOUNG_PTRS:
             self.remember_young_pointer(addr_struct, addr)
         addr_to.address[0] = addr
 
     def remember_young_pointer(self, addr_struct, addr):
-        oldhdr = self.header(addr_struct)
-        if oldhdr.forw == NULL:
+        debug_assert(not self.is_in_nursery(addr_struct),
+                     "nursery object with GCFLAG_NO_YOUNG_PTRS")
+        if self.is_in_nursery(addr):
+            oldhdr = self.header(addr_struct)
             oldhdr.forw = self.old_objects_pointing_to_young
             self.old_objects_pointing_to_young = addr_struct
-        elif (oldhdr.tid & (GCFLAG_IMMORTAL | GCFLAG_REMEMBERED) ==
-                 GCFLAG_IMMORTAL):
-            self.static_to_young_pointer.append(addr_struct)
-            oldhdr.tid |= GCFLAG_REMEMBERED
+            oldhdr.tid &= ~GCFLAG_NO_YOUNG_PTRS
     remember_young_pointer.dont_inline = True
-
