@@ -111,9 +111,9 @@ RTLD_NOW = cConfig.RTLD_NOW
 FFI_OK = cConfig.FFI_OK
 FFI_BAD_TYPEDEF = cConfig.FFI_BAD_TYPEDEF
 FFI_DEFAULT_ABI = rffi.cast(rffi.USHORT, cConfig.FFI_DEFAULT_ABI)
-FFI_CIFP = rffi.COpaquePtr('ffi_cif', _includes_=includes,
-                           _include_dirs_=include_dirs,
-                           _library_dirs_=lib_dirs)
+FFI_CIFP = rffi.COpaquePtr('ffi_cif', includes=includes,
+                           include_dirs=include_dirs,
+                           library_dirs=lib_dirs)
 
 VOIDPP = rffi.CArrayPtr(rffi.VOIDP)
 

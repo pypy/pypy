@@ -233,7 +233,8 @@ def COpaque(name, hints=None, **kwds):
         from pypy.rpython.tool import rffi_platform
         k = {}
         for _name, value in kwds.items():
-            if _name in ['includes', 'include_dirs', 'libraries']:
+            if _name in ['includes', 'include_dirs', 'libraries',
+                         'library_dirs']:
                 k['_%s_' % _name] = value
         return rffi_platform.sizeof(name, '', **k)
     
