@@ -858,3 +858,8 @@ class TestSemiSpaceGC(TestUsingFramework):
         fn = self.getcompiled(f)
         res = fn()
         assert res == -2
+
+
+class TestGenerationalGC(TestUsingFramework):
+    gcpolicy = "generation"
+    should_be_moving = True
