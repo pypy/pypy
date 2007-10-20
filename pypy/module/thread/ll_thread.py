@@ -1,7 +1,7 @@
 
 from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.lltypesystem.rffi import platform
+from pypy.rpython.tool import rffi_platform as platform
 from pypy.rpython.extfunc import genericcallable
 from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
 from pypy.translator.tool.cbuild import cache_c_module
@@ -18,6 +18,7 @@ from pypy.tool.autopath import pypydir
 pypydir = py.path.local(pypydir)
 c_dir = pypydir.join('translator', 'c')
 includes = ['unistd.h', 'src/thread.h']
+include_dirs = [str(c_dir)]
 
 def setup_thread_so():
     # XXX this is quiiiiiiiite a hack!
@@ -36,7 +37,9 @@ CALLBACK = lltype.Ptr(lltype.FuncType([rffi.VOIDP], rffi.VOIDP))
 c_thread_start = llexternal('RPyThreadStart', [CALLBACK, rffi.VOIDP], rffi.INT)
 c_thread_get_ident = llexternal('RPyThreadGetIdent', [], rffi.INT)
 
-TLOCKP = rffi.COpaquePtr('struct RPyOpaque_ThreadLock', includes=includes)
+TLOCKP = platform.copaque('struct RPyOpaque_ThreadLock', '',
+                          _includes_=includes,
+                          _include_dirs_=include_dirs)
 
 c_thread_lock_init = llexternal('RPyThreadLockInit', [TLOCKP], lltype.Void)
 c_thread_acquirelock = llexternal('RPyThreadAcquireLock', [TLOCKP, rffi.INT],

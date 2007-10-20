@@ -34,6 +34,9 @@ class CConfig:
                                  ('bzfree', lltype.Ptr(_free_type)),
                                  ('opaque', rffi.VOIDP),
                                  ])
+    FILE = platform.COpaquePtr('FILE')
+    BZFILE = platform.COpaquePtr('BZFILE')
+
 
 constants = {}
 constant_names = ['BZ_RUN', 'BZ_FLUSH', 'BZ_FINISH', 'BZ_OK',
@@ -69,6 +72,8 @@ BZ_IO_ERROR = cConfig.BZ_IO_ERROR
 BZ_MEM_ERROR = cConfig.BZ_MEM_ERROR
 BZ_UNEXPECTED_EOF = cConfig.BZ_UNEXPECTED_EOF
 BZ_SEQUENCE_ERROR = cConfig.BZ_SEQUENCE_ERROR
+BZFILE = cConfig.BZFILE
+FILE = cConfig.FILE
 
 if BUFSIZ < 8192:
     SMALLCHUNK = 8192
@@ -99,9 +104,6 @@ else:
 def external(name, args, result):
     return rffi.llexternal(name, args, result, includes=CConfig._includes_,
                            libraries=['bz2'])
-
-FILE = rffi.COpaquePtr('FILE')
-BZFILE = rffi.COpaquePtr('BZFILE')
 
 # the least but one parameter should be rffi.VOIDP but it's not used
 # so I trick the compiler to not complain about constanst pointer passed
