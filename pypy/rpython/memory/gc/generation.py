@@ -110,6 +110,17 @@ class GenerationGC(SemiSpaceGC):
         self.reset_nursery()
         SemiSpaceGC.semispace_collect(self, size_changing)
 
+    def trace_and_copy(self, obj):
+        # during a full collect, all objects copied might come from the nursery and
+        # so must have this flag set:
+        self.header(obj).tid |= GCFLAG_NO_YOUNG_PTRS
+        SemiSpaceGC.trace_and_copy(self, obj)
+        # history: this was missing and caused an object to become old but without the
+        # flag set.  Such an object is bogus in the sense that the write_barrier doesn't
+        # work on it.  So it can eventually contain a ptr to a young object but we didn't
+        # know about it.  That ptr was not updated in the next minor collect... boom at
+        # the next usage.
+
     def reset_young_gcflags(self):
         obj = self.old_objects_pointing_to_young
         while obj:
