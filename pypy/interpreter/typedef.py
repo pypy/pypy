@@ -50,7 +50,7 @@ class TypeDef:
 #  Hash support
 
 def get_default_hash_function(cls):
-    # go to the first parent class of 'cls' that as a typedef
+    # go to the first parent class of 'cls' that has a typedef
     while 'typedef' not in cls.__dict__:
         cls = cls.__bases__[0]
         if cls is object:
