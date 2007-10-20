@@ -112,8 +112,9 @@ class FrameworkGCTransformer(GCTransformer):
         # to make the annotator happy.  The fields are patched in finish()
         # to point to a real array (not 'static_roots', another one).
         a_random_address = llmemory.cast_ptr_to_adr(gcdata.type_info_table)
-        gcdata.static_root_start = a_random_address   # patched in finish()
-        gcdata.static_root_end = a_random_address     # patched in finish()
+        gcdata.static_root_start = a_random_address      # patched in finish()
+        gcdata.static_root_nongcstart = a_random_address # patched in finish()
+        gcdata.static_root_end = a_random_address        # patched in finish()
         self.gcdata = gcdata
         self.malloc_fnptr_cache = {}
 
@@ -152,6 +153,9 @@ class FrameworkGCTransformer(GCTransformer):
             annmodel.SomePtr(lltype.Ptr(lltype.Array(llmemory.Address))))
         data_classdef.generalize_attr(
             'static_root_start',
+            annmodel.SomeAddress())
+        data_classdef.generalize_attr(
+            'static_root_nongcstart',
             annmodel.SomeAddress())
         data_classdef.generalize_attr(
             'static_root_end',
@@ -339,9 +343,12 @@ class FrameworkGCTransformer(GCTransformer):
                 return top.address[0]
             pop_root = staticmethod(pop_root)
 
-            def __init__(self):
+            def __init__(self, with_static=True):
                 self.stack_current = gcdata.root_stack_top
-                self.static_current = gcdata.static_root_start
+                if with_static:
+                    self.static_current = gcdata.static_root_start
+                else:
+                    self.static_current = gcdata.static_root_nongcstart
 
             def pop(self):
                 while self.static_current != gcdata.static_root_end:
@@ -400,7 +407,9 @@ class FrameworkGCTransformer(GCTransformer):
         ll_instance.inst_type_info_table = table
         #self.gcdata.type_info_table = table
 
-        addresses_of_static_ptrs = self.layoutbuilder.addresses_of_static_ptrs
+        addresses_of_static_ptrs = (
+            self.layoutbuilder.addresses_of_static_ptrs +
+            self.layoutbuilder.addresses_of_static_ptrs_in_nongc)
         log.info("found %s static roots" % (len(addresses_of_static_ptrs), ))
         ll_static_roots_inside = lltype.malloc(lltype.Array(llmemory.Address),
                                                len(addresses_of_static_ptrs),
@@ -408,6 +417,7 @@ class FrameworkGCTransformer(GCTransformer):
         for i in range(len(addresses_of_static_ptrs)):
             ll_static_roots_inside[i] = addresses_of_static_ptrs[i]
         ll_instance.inst_static_root_start = llmemory.cast_ptr_to_adr(ll_static_roots_inside) + llmemory.ArrayItemsOffset(lltype.Array(llmemory.Address))
+        ll_instance.inst_static_root_nongcstart = ll_instance.inst_static_root_start + llmemory.sizeof(llmemory.Address) * len(self.layoutbuilder.addresses_of_static_ptrs)
         ll_instance.inst_static_root_end = ll_instance.inst_static_root_start + llmemory.sizeof(llmemory.Address) * len(ll_static_roots_inside)
 
         newgcdependencies = []

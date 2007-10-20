@@ -9,8 +9,11 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.memory.gc.base import MovingGCBase
 
-
 import sys, os
+
+TYPEID_MASK = 0xffff
+GCFLAGSHIFT = 16
+GCFLAG_IMMORTAL = 1 << GCFLAGSHIFT
 
 memoryError = MemoryError()
 
@@ -288,7 +291,7 @@ class SemiSpaceGC(MovingGCBase):
         # immortal objects always have forward to themselves
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
         hdr.forw = addr + self.gcheaderbuilder.size_gc_header
-        hdr.tid = typeid
+        hdr.tid = typeid | GCFLAG_IMMORTAL
 
     def deal_with_objects_with_finalizers(self):
         # walk over list of objects with finalizers

@@ -10,12 +10,13 @@ class TypeLayoutBuilder(object):
         self.type_info_list = [dummy]   # don't use typeid 0, helps debugging
         self.id_of_type = {}      # {LLTYPE: type_id}
         self.seen_roots = {}
-        # the following is a list of addresses of gc pointers living inside
-        # the prebuilt structures (independently on whether the prebuilt
-        # structures are themselves GcStruct or plain Struct).  It should
-        # list all the locations that could possibly point to a GC heap
-        # object.
+        # the following are lists of addresses of gc pointers living inside the
+        # prebuilt structures.  It should list all the locations that could
+        # possibly point to a GC heap object.
+        # this lists contains pointers in GcStructs and GcArrays
         self.addresses_of_static_ptrs = []
+        # this lists contains pointers in raw Structs and Arrays
+        self.addresses_of_static_ptrs_in_nongc = []
         self.finalizer_funcptrs = {}
 
     def get_type_id(self, TYPE):
@@ -27,6 +28,7 @@ class TypeLayoutBuilder(object):
             # Record the new type_id description as a small dict for now.
             # It will be turned into a Struct("type_info") in finish()
             type_id = len(self.type_info_list)
+            assert type_id & 0xffff == type_id # make sure it fits into 2 bytes
             info = {}
             self.type_info_list.append(info)
             self.id_of_type[TYPE] = type_id
@@ -151,8 +153,12 @@ class TypeLayoutBuilder(object):
         # fields are potential roots: unless the structure is immutable,
         # they could be changed later to point to GC heap objects.
         adr = llmemory.cast_ptr_to_adr(value._as_ptr())
+        if TYPE._gckind == "gc":
+            appendto = self.addresses_of_static_ptrs
+        else:
+            appendto = self.addresses_of_static_ptrs_in_nongc
         for a in mutable_gc_pointers_inside(value, adr):
-            self.addresses_of_static_ptrs.append(a)
+            appendto.append(a)
 
 # ____________________________________________________________
 #
