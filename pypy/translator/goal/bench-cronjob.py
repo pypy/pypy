@@ -185,6 +185,7 @@ def main(backends=[]):
             c--_allworkingmodules
             c--gc=marksweep--_faassen
             c--gc=semispace--_faassen
+            c--gc=generation--_faassen
             c--_objspace-std-withrope
             cli
             """.split('\n') if backend.strip() and not backend.strip().startswith('#')]
