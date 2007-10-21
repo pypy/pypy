@@ -252,10 +252,9 @@ class GenerationGC(SemiSpaceGC):
                 else:
                     (obj + offset).address[0] = NULL
 
-    def write_barrier(self, addr, addr_to, addr_struct):
+    def write_barrier(self, oldvalue, newvalue, addr_struct):
         if self.header(addr_struct).tid & GCFLAG_NO_YOUNG_PTRS:
-            self.remember_young_pointer(addr_struct, addr)
-        addr_to.address[0] = addr
+            self.remember_young_pointer(addr_struct, newvalue)
 
     def remember_young_pointer(self, addr_struct, addr):
         debug_assert(not self.is_in_nursery(addr_struct),

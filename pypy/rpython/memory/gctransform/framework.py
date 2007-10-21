@@ -587,58 +587,32 @@ class FrameworkGCTransformer(GCTransformer):
 
     def transform_generic_set(self, hop):
         from pypy.objspace.flow.model import Constant
+        opname = hop.spaceop.opname
         v_struct = hop.spaceop.args[0]
         v_newvalue = hop.spaceop.args[-1]
+        assert opname in ('setfield', 'setarrayitem', 'setinteriorfield')
+        assert isinstance(v_newvalue.concretetype, lltype.Ptr)
         # XXX for some GCs the skipping if the newvalue is a constant won't be
         # ok
-        if (self.write_barrier_ptr is None or isinstance(v_newvalue, Constant)
-            or v_struct.concretetype.TO._gckind != "gc"):
-            super(FrameworkGCTransformer, self).transform_generic_set(hop)
-        else:
+        if (self.write_barrier_ptr is not None
+            and not isinstance(v_newvalue, Constant)
+            and v_struct.concretetype.TO._gckind == "gc"):
             self.write_barrier_calls += 1
-            assert isinstance(v_newvalue.concretetype, lltype.Ptr)
-            opname = hop.spaceop.opname
-            assert opname in ('setfield', 'setarrayitem', 'setinteriorfield')
-            offsets = hop.spaceop.args[1:-1]
-            CURTYPE = v_struct.concretetype.TO
-            v_currentofs = None
-            for ofs in offsets:
-                if ofs.concretetype is lltype.Void:
-                    # a field in a structure
-                    fieldname = ofs.value
-                    fieldofs = llmemory.offsetof(CURTYPE, fieldname)
-                    v_offset = rmodel.inputconst(lltype.Signed, fieldofs)
-                    CURTYPE = getattr(CURTYPE, fieldname)
-                else:
-                    # an index in an array
-                    assert ofs.concretetype is lltype.Signed
-                    firstitem = llmemory.ArrayItemsOffset(CURTYPE)
-                    itemsize  = llmemory.sizeof(CURTYPE.OF)
-                    c_firstitem = rmodel.inputconst(lltype.Signed, firstitem)
-                    c_itemsize  = rmodel.inputconst(lltype.Signed, itemsize)
-                    v_index = hop.spaceop.args[1]
-                    v_offset = hop.genop("int_mul", [c_itemsize, v_index],
-                                         resulttype = lltype.Signed)
-                    v_offset = hop.genop("int_add", [c_firstitem, v_offset],
-                                         resulttype = lltype.Signed)
-                    CURTYPE = CURTYPE.OF
-                if v_currentofs is None:
-                    v_currentofs = v_offset
-                else:
-                    v_currentofs = hop.genop("int_add",
-                                             [v_currentofs, v_offset],
-                                             resulttype = lltype.Signed)
+            v_oldvalue = hop.genop('g' + opname[1:],
+                                   hop.inputargs()[:-1],
+                                   resulttype=v_newvalue.concretetype)
+            v_oldvalue = hop.genop("cast_ptr_to_adr", [v_oldvalue],
+                                   resulttype = llmemory.Address)
             v_newvalue = hop.genop("cast_ptr_to_adr", [v_newvalue],
                                    resulttype = llmemory.Address)
             v_structaddr = hop.genop("cast_ptr_to_adr", [v_struct],
                                      resulttype = llmemory.Address)
-            v_fieldaddr = hop.genop("adr_add", [v_structaddr, v_currentofs],
-                                    resulttype = llmemory.Address)
             hop.genop("direct_call", [self.write_barrier_ptr,
                                       self.c_const_gc,
+                                      v_oldvalue,
                                       v_newvalue,
-                                      v_fieldaddr,
                                       v_structaddr])
+        hop.rename('bare_' + opname)
 
     def var_needs_set_transform(self, var):
         return var_needsgc(var)

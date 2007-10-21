@@ -23,8 +23,8 @@ class GCBase(object):
         self.varsize_offsets_to_gcpointers_in_var_part = varsize_offsets_to_gcpointers_in_var_part
         self.weakpointer_offset = weakpointer_offset
 
-    def write_barrier(self, addr, addr_to, addr_struct):
-        addr_to.address[0] = addr
+    def write_barrier(self, oldvalue, newvalue, addr_struct):
+        pass
 
     def setup(self):
         pass
