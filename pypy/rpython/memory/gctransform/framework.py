@@ -551,12 +551,17 @@ class FrameworkGCTransformer(GCTransformer):
         args = [self.c_const_gc, c_type_id, c_size, c_can_collect,
                 c_has_finalizer, c_has_weakptr]
 
+        # push and pop the current live variables *including* the argument
+        # to the weakref_create operation, which must be kept alive and
+        # moved if the GC needs to collect
         livevars = self.push_roots(hop, keep_current_args=True)
         v_result = hop.genop("direct_call", [malloc_ptr] + args,
                              resulttype=llmemory.GCREF)
         v_result = hop.genop("cast_opaque_ptr", [v_result],
                             resulttype=WEAKREFPTR)
         self.pop_roots(hop, livevars)
+        # cast_ptr_to_adr must be done after malloc, as the GC pointer
+        # might have moved just now.
         v_instance, = op.args
         v_addr = hop.genop("cast_ptr_to_adr", [v_instance],
                            resulttype=llmemory.Address)
