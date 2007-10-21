@@ -912,6 +912,9 @@ debug_mem:
 llsafer:
 \t$(MAKE) CFLAGS="-O2 -DRPY_LL_ASSERT"
 
+lldebug:
+\t$(MAKE) CFLAGS="-g -DRPY_ASSERT -DRPY_LL_ASSERT"
+
 profile:
 \t$(MAKE) CFLAGS="-g -pg $(CFLAGS)" LDFLAGS="-pg $(LDFLAGS)"
 
