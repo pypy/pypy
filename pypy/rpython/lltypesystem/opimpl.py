@@ -297,10 +297,6 @@ def op_cast_pointer(RESTYPE, obj):
     return lltype.cast_pointer(RESTYPE, obj)
 op_cast_pointer.need_result_type = True
 
-def op_cast_ptr_to_adr(ptr):
-    checkptr(ptr)
-    return llmemory.cast_ptr_to_adr(ptr)
-
 def op_cast_adr_to_ptr(TYPE, adr):
     checkadr(adr)
     return llmemory.cast_adr_to_ptr(adr, TYPE)

@@ -721,6 +721,10 @@ class LLFrame(object):
         return lltype.cast_opaque_ptr(RESTYPE, obj)
     op_cast_opaque_ptr.need_result_type = True
 
+    def op_cast_ptr_to_adr(self, ptr):
+        checkptr(ptr)
+        return llmemory.cast_ptr_to_adr(ptr)
+
     def op_weakref_create(self, v_obj):
         def objgetter():    # special support for gcwrapper.py
             return self.getval(v_obj)
