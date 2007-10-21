@@ -551,15 +551,15 @@ class FrameworkGCTransformer(GCTransformer):
         args = [self.c_const_gc, c_type_id, c_size, c_can_collect,
                 c_has_finalizer, c_has_weakptr]
 
-        v_instance, = op.args
-        v_addr = hop.genop("cast_ptr_to_adr", [v_instance],
-                           resulttype=llmemory.Address)
-        livevars = self.push_roots(hop)
+        livevars = self.push_roots(hop, keep_current_args=True)
         v_result = hop.genop("direct_call", [malloc_ptr] + args,
                              resulttype=llmemory.GCREF)
         v_result = hop.genop("cast_opaque_ptr", [v_result],
                             resulttype=WEAKREFPTR)
         self.pop_roots(hop, livevars)
+        v_instance, = op.args
+        v_addr = hop.genop("cast_ptr_to_adr", [v_instance],
+                           resulttype=llmemory.Address)
         hop.genop("bare_setfield",
                   [v_result, rmodel.inputconst(lltype.Void, "weakptr"), v_addr])
         v_weakref = hop.genop("cast_ptr_to_weakrefptr", [v_result],
@@ -623,10 +623,10 @@ class FrameworkGCTransformer(GCTransformer):
     def pop_alive_nopyobj(self, var, llops):
         pass
 
-    def push_roots(self, hop):
+    def push_roots(self, hop, keep_current_args=False):
         if self.incr_stack_ptr is None:
             return
-        if self.gcdata.gc.moving_gc:
+        if self.gcdata.gc.moving_gc and not keep_current_args:
             # moving GCs don't borrow, so the caller does not need to keep
             # the arguments alive
             livevars = [var for var in hop.livevars_after_op()

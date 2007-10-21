@@ -821,3 +821,20 @@ class TestGenerationGC(GenericMovingGCTests):
         run = self.runner(f, nbargs=0)
         res = run([])
         assert res == 84
+
+
+    def test_many_weakrefs(self):
+        # test for the case where allocating the weakref itself triggers
+        # a collection
+        import weakref
+        class A:
+            pass
+        def f():
+            a = A()
+            i = 0
+            while i < 17:
+                ref = weakref.ref(a)
+                assert ref() is a
+                i += 1
+        run = self.runner(f, nbargs=0)
+        run([])
