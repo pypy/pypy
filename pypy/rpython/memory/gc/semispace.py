@@ -328,6 +328,7 @@ class SemiSpaceGC(MovingGCBase):
             obj = self.get_forwarding_address(obj)
             offset = self.weakpointer_offset(self.get_type_id(obj))
             pointing_to = (obj + offset).address[0]
+            # XXX I think that pointing_to cannot be NULL here
             if pointing_to:
                 if self.is_forwarded(pointing_to):
                     (obj + offset).address[0] = self.get_forwarding_address(

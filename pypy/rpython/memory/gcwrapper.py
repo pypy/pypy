@@ -83,11 +83,14 @@ class GCManagedHeap(object):
     def collect(self):
         self.gc.collect()
 
-    def weakref_create(self, obj):
+    def weakref_create_getlazy(self, objgetter):
+        # we have to be lazy in reading the llinterp variable containing
+        # the 'obj' pointer, because the gc.malloc() call below could
+        # move it around
         type_id = self.get_type_id(gctypelayout.WEAKREF)
         addr = self.gc.malloc(type_id, None, zero=False)
         result = llmemory.cast_adr_to_ptr(addr, gctypelayout.WEAKREFPTR)
-        result.weakptr = llmemory.cast_ptr_to_adr(obj)
+        result.weakptr = llmemory.cast_ptr_to_adr(objgetter())
         return llmemory.cast_ptr_to_weakrefptr(result)
     
     def weakref_deref(self, PTRTYPE, obj):

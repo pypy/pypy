@@ -327,6 +327,21 @@ class GCTest(object):
         res = self.interpret(f, [20])  # for GenerationGC, enough for a minor collection
         assert res == 20 + 20
 
+    def test_many_weakrefs(self):
+        # test for the case where allocating the weakref itself triggers
+        # a collection
+        import weakref
+        class A:
+            pass
+        def f(x):
+            a = A()
+            i = 0
+            while i < x:
+                ref = weakref.ref(a)
+                assert ref() is a
+                i += 1
+        self.interpret(f, [1100])
+
     def test_nongc_static_root(self):
         from pypy.rpython.lltypesystem import lltype
         T1 = lltype.GcStruct("C", ('x', lltype.Signed))

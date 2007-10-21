@@ -16,3 +16,6 @@ def setinterior(toplevelcontainer, inneraddr, INNERTYPE, newvalue):
     inneraddr.ref()[0] = newvalue
 
 from pypy.rpython.lltypesystem.lltype import cast_ptr_to_int as gc_id
+
+def weakref_create_getlazy(objgetter):
+    return weakref_create(objgetter())
