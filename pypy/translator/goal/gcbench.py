@@ -107,7 +107,7 @@ def time_construction(depth):
     t_finish = time.time()
     println("\tBottom up constrution took %f ms" % ((t_finish-t_start)*1000.))
 
-def main():
+def main(depths=range(kMinTreeDepth, kMaxTreeDepth+1, 2)):
     println("Garbage Collector Test")
     println(" Stretching memory with a binary tree of depth %d" % kStretchTreeDepth)
     print_diagnostics()
@@ -129,7 +129,7 @@ def main():
         i += 1
     print_diagnostics()
 
-    for d in range(kMinTreeDepth, kMaxTreeDepth+1, 2):
+    for d in depths:
         time_construction(d)
 
     if long_lived_tree is None or array[1000] != 1.0/1000:
