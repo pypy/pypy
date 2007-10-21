@@ -166,3 +166,20 @@ class Module(MixedModule):
                 # xxx hide the installer
                 space.delitem(self.w_dict, space.wrap(name))
                 del self.loaders[name]
+
+    def startup(self, space):
+        # install zipimport hook
+        try:
+            w_import = space.builtin.get('__import__')
+            w_zipimport = space.call(w_import, space.newlist(
+                [space.wrap('zipimport')]))
+        except OperationError, e:
+            if not e.match(space, space.w_ImportError):
+                raise
+        else:
+            w_sys = space.getbuiltinmodule('sys')
+            w_path_hooks = space.getattr(w_sys, space.wrap('path_hooks'))
+            w_append = space.getattr(w_path_hooks, space.wrap('append'))
+            w_zipimporter = space.getattr(w_zipimport,
+                                          space.wrap('zipimporter'))
+            space.call(w_append, space.newlist([w_zipimporter]))
