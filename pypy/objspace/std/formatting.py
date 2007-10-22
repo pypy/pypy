@@ -4,6 +4,7 @@ String formatting routines.
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.rarithmetic import ovfcheck, formatd_overflow
 from pypy.interpreter.error import OperationError
+from pypy.tool.sourcetools import func_with_new_name
 
 
 class BaseStringFormatter(object):
@@ -480,8 +481,8 @@ def format_num_helper_generator(fmt, digits):
                 raise
             num = space.bigint_w(w_value)
             return num.format(digits)
-    format_num_helper.func_name = 'base%d_num_helper' % len(digits)
-    return format_num_helper
+    return func_with_new_name(format_num_helper,
+                              'base%d_num_helper' % len(digits))
 
 int_num_helper = format_num_helper_generator('%d', '0123456789')
 oct_num_helper = format_num_helper_generator('%o', '01234567')
