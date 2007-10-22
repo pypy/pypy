@@ -111,10 +111,7 @@ def break_cycles(vertices, edges):
             for cycle in all_cycles(random_vertex, component, edges):
                 #print '\tcycle:', [e.source+e.target for e in cycle]
                 for edge in cycle:
-                    try:
-                        edge_weights[edge] += 1
-                    except KeyError:
-                        edge_weights[edge] = 1
+                    edge_weights[edge] = edge_weights.get(edge, 0) + 1
             if edge_weights:
                 max_weight = max(edge_weights.values())
                 for edge, weight in edge_weights.iteritems():
