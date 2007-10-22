@@ -19,6 +19,7 @@ from pypy.rpython.rbuiltin import gen_cast
 from pypy.rlib.rarithmetic import ovfcheck
 import sets, os, sys
 from pypy.rpython.lltypesystem.lloperation import llop
+from pypy.translator.simplify import join_blocks, cleanup_graph
 
 def var_ispyobj(var):
     if hasattr(var, 'concretetype'):
@@ -141,11 +142,12 @@ class BaseGCTransformer(object):
                     # XXX quite inefficient: we go over the function lots of times
                     inline.inline_function(self.translator, inline_graph, graph,
                                            self.lltype_to_classdef,
-                                           raise_analyzer)
+                                           raise_analyzer,
+                                           cleanup=False)
                 except inline.CannotInline, e:
                     print 'CANNOT INLINE:', e
                     print '\t%s into %s' % (inline_graph, graph)
-            checkgraph(graph)
+            cleanup_graph(graph)
 
     def compute_borrowed_vars(self, graph):
         # the input args are borrowed, and stay borrowed for as long as they

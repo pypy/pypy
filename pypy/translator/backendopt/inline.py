@@ -100,10 +100,10 @@ def contains_call(graph, calling_what):
         return False
 
 def inline_function(translator, inline_func, graph, lltype_to_classdef,
-                    raise_analyzer, call_count_pred=None):
+                    raise_analyzer, call_count_pred=None, cleanup=True):
     inliner = Inliner(translator, graph, inline_func, lltype_to_classdef,
                       raise_analyzer = raise_analyzer,
-                      call_count_pred=call_count_pred)
+                      call_count_pred=call_count_pred, cleanup=cleanup)
     return inliner.inline_all()
 
 def simple_inline_function(translator, inline_func, graph):
@@ -178,9 +178,11 @@ class BaseInliner(object):
                  inline_guarded_calls=False,
                  inline_guarded_calls_no_matter_what=False,
                  raise_analyzer=None,
-                 call_count_pred=None):
+                 call_count_pred=None,
+                 cleanup=True):
         self.translator = translator
         self.graph = graph
+        self.do_cleanup = cleanup
         self.inline_guarded_calls = inline_guarded_calls
         # if this argument is set, the inliner will happily produce wrong code!
         # it is used by the exception transformation
@@ -213,7 +215,8 @@ class BaseInliner(object):
             operation = block.operations[index_operation]
             self.inline_once(block, index_operation)
             count += 1
-        self.cleanup()
+        if self.do_cleanup:
+            self.cleanup()
         return count
 
     def get_graph_from_op(self, op):
@@ -512,12 +515,14 @@ class Inliner(BaseInliner):
                  inline_guarded_calls=False,
                  inline_guarded_calls_no_matter_what=False,
                  raise_analyzer=None,
-                 call_count_pred=None):
+                 call_count_pred=None,
+                 cleanup=True):
         BaseInliner.__init__(self, translator, graph, lltype_to_classdef,
                              inline_guarded_calls,
                              inline_guarded_calls_no_matter_what,
                              raise_analyzer,
-                             call_count_pred)
+                             call_count_pred,
+                             cleanup)
         self.inline_func = inline_func
         # to simplify exception matching
         join_blocks(graph)
@@ -683,7 +688,9 @@ def auto_inlining(translator, threshold=None,
                   callgraph=None,
                   call_count_pred=None,
                   heuristic=inlining_heuristic):
+    
     assert threshold is not None and threshold != 1
+    to_cleanup = {}
     from heapq import heappush, heappop, heapreplace, heapify
     callers = {}     # {graph: {graphs-that-call-it}}
     callees = {}     # {graph: {graphs-that-it-calls}}
@@ -699,7 +706,6 @@ def auto_inlining(translator, threshold=None,
     lltype_to_classdef = translator.rtyper.lltype_to_classdef_mapping()
     raise_analyzer = RaiseAnalyzer(translator)
     count = 0
-
     while heap:
         weight, _, graph = heap[0]
         if not valid_weight.get(graph):
@@ -744,7 +750,8 @@ def auto_inlining(translator, threshold=None,
             try:
                 subcount = inline_function(translator, graph, parentgraph,
                                            lltype_to_classdef, raise_analyzer,
-                                           call_count_pred)
+                                           call_count_pred, cleanup=False)
+                to_cleanup[graph] = True
                 res = bool(subcount)
             except CannotInline:
                 try_again[graph] = True
@@ -763,6 +770,8 @@ def auto_inlining(translator, threshold=None,
                     del try_again[parentgraph]
                     heappush(heap, (0.0, -len(callers[parentgraph]), parentgraph))
                 valid_weight[parentgraph] = False
+    for graph in to_cleanup:
+        cleanup_graph(graph)
     return count
 
 def auto_inline_graphs(translator, graphs, threshold, call_count_pred=None,
