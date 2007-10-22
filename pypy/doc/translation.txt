@@ -803,7 +803,7 @@ The first version was written by Bert Freudenberg of Impara GmbH, mostly as a
 way of motivating the design of the ootypesystem.  More recently, it has been
 worked on by Niklaus Haldimann.
 
-GenSquek is considered dead now.
+GenSqueak is considered dead now.
 
 GenJS
 +++++
