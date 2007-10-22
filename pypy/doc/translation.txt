@@ -803,6 +803,8 @@ The first version was written by Bert Freudenberg of Impara GmbH, mostly as a
 way of motivating the design of the ootypesystem.  More recently, it has been
 worked on by Niklaus Haldimann.
 
+GenSquek is considered dead now.
+
 GenJS
 +++++
 
@@ -845,6 +847,7 @@ work on OOTyped graphs.
 GenCL has seen work from many people, but the driving force has mostly been
 Seo Sanghyeon.
 
+GenCL is considered dead now.
 
 .. _`Python again`:
 .. _`Python back-end`:
@@ -866,178 +869,9 @@ See `geninterp's documentation <geninterp.html>`__.
 External Function Calls
 =======================
 
-*Warning* This approach while is still used at the moment by PyPy to
-expose native operations (like ``os.read``, ``os.write``) is going to be
-phased out. It has shown to be too cumbersome in practice. An approach
-based on `rctypes`_ should replace it.
+External function call approach is described in `rffi`_ documentation.
 
-.. _rctypes: rctypes.html
-
-There are some functions that we don't want to implement in Python for various
-reasons (e.g. if they need to make calls into the OS). These can be
-implemented by writing backend code by hand that either implements the
-functionality itself or calls appropriate libraries.
-
-Of course the annotator does not know what types these functions return so we
-need a way to attach fixed annotations to such functions. Additionally for
-every such function we need a low level helper function that behaves like the
-hand-written backend code so that we can still test a call to such an external
-function. 
-
-
-Annotating external function calls
-----------------------------------
-
-All the information about external functions that are important for the
-annotation process are written into `pypy/rpython/extfunctable.py`_. There is a
-function called ``declare`` that allows to tell the annotator the return type
-of these functions and to attach a low level dummy implementation::
-
-    declare(funct, annotation_factory, lowlevel_dummy)
-
-Here ``funct`` is the function that is supposed to be implemented in the
-backend, ``annotation_factory`` is a function that returns an appropriate
-annotation of the return value (an instance of a primitive type is also ok, so
-you can do ``declare(func, int...)``), lowlevel_dummy is a string of the form
-``module/ll_function`` that specifies where the low level dummy function is
-defined. Here ``module`` means a Python file in `pypy/rpython/module/`_ and
-``ll_function`` is a low level function defined in that file.
-
-If the annotator discovers a call to ``func`` it does not try to follow that
-call further (even though that might be possible if the function is written in
-Python) but annotates it with the given type immediately. The `RPython Typer`_
-replaces calls to ``func`` with calls to the function
-``module.ll_function``. The backend is supposed to replace calls to functions
-to ``module.ll_function`` by whatever code it finds appropriate.
-
-Implementing low level replacement functions in Python
----------------------------------------------------------
-
-The dummy low level replacement functions are there to implement the external
-function on the low level. In contrast to the original function they should
-take arguments that are of `low-level type`_. Most of the times they are
-implemented by calling appropriate low level to high level conversion
-functions and then calling the original function again.
-
-.. _`low-level type`: rtyper.html#low-level-type
-
-If the function is supposed to really be implemented by the backend then the
-low level function should have an attribute ``.suggested_primitive = True``
-attached. If this is not the case the low level function itself will be
-translated and used.
-
-
-Implementing the external functions in the C backend
-----------------------------------------------------
-
-When the C-backend produces C code and finds a function call to one of the
-dummy functions it replaces the call to it by a call to a function written in
-C. This mapping is done in the file `pypy/translator/c/extfunc.py`_. In there
-is a dictionary called ``EXTERNALS`` which contains mappings from dummy
-functions to strings::
-
-    EXTERNALS = {
-        module.ll_function: "LL_c_name_of_function"
-        ...
-    }
-
-Here ``LL_c_name_of_function`` is the name of the C function that implements
-the functionality of the ``module.ll_function``. These C implementation are
-found in the directory `pypy/translator/c/src/`_.
-
-It sometimes necessary to access a certain function or type that is written
-in Python from the C code you write by hand (for example for constructing the
-return value in the correct low level type). This can be a problem because the
-C backend mangles names to prevent clashes. To get a certain low level type
-under a fixed name the function ``predeclare_common_types`` needs to be
-changed. This function is a generator that yields tuples of the form
-``('c_name', LLTYPE)``. This makes the genc assign the name ``c_name`` to the
-type ``LLTYPE``. Similarly all the function defined in
-``predeclare_utility_functions`` are automatically made accessible under their
-name in C.
-
-Testing
--------
-
-It's not always trivial to properly test that all the information that is
-needed for a given external function is correct. Usually for a given function
-you test at least two different things: Once the dummy low level function by
-calling it directly. This is usually done in `pypy/rpython/module/test`_ by
-just calling the low level function with appropriately constructed arguments
-directly. In addition there should be test that actually tries to translate
-a function calling the external function to backend code, compile and run
-it. This makes sure that the annotator gets the annotation right and that the
-backend code is correct. For the C backend this is done in
-`pypy/translator/c/test/test_extfunc.py`_. 
-
-Example
--------
-
-To make this clearer the following shows all the relevant pieces that are
-needed for implementing os.open. It is implemented in the following way at
-interp-level in the `mixed posix module`_::
-
-    def open(space, fname, flag, mode=0777):
-        try: 
-            fd = os.open(fname, flag, mode)
-        except OSError, e: 
-            raise wrap_oserror(space, e) 
-        return space.wrap(fd)
-    open.unwrap_spec = [ObjSpace, str, int, int]
-
-
-If the annotator tries to annotate this function it will use the declaration
-it finds in the file `pypy/rpython/extfunctable.py`_::
-
-    declare(os.open, int , 'll_os/open')
-
-This means that the function returns an int and that the dummy low level
-function can be found in `pypy/rpython/module/ll_os.py`_::
-
-    def ll_os_open(fname, flag, mode):
-        return os.open(from_rstr(fname), flag, mode)
-    ll_os_open.suggested_primitive = True
-
-The ``suggested_primitive`` attribute of the ``ll_os_open`` is set to True,
-because it is reasonable that this function is written directly in the backend.
-If the C backend encounters a call to ``ll_os_open`` somewhere in the code it
-checks the ``EXTERNALS`` table in `pypy/translator/c/extfunc.py`_. The
-relevant part for ``os.open`` is::
-
-    from pypy.rpython.module import ll_os
-    EXTERNALS = {
-        ...
-        ll_os.ll_os_open:    'LL_os_open',
-        ...
-    }
-
-The `LL_os_open` function is implemented in the file
-`pypy/translator/c/src/ll_os.h`_:: 
-
-    int LL_os_open(RPyString *filename, int flag, int mode)
-    {
-            int fd = open(RPyString_AsString(filename), flag, mode);
-            if (fd < 0)
-                    RPYTHON_RAISE_OSERROR(errno);
-            return fd;
-    }
-
-One test for all this can be found in
-`pypy/translator/c/test/test_extfunc.py`_::
-
-    def test_os_open():
-        tmpfile = str(udir.join('test_os_open.txt'))
-        def does_stuff():
-            fd = os.open(tmpfile, os.O_WRONLY | os.O_CREAT, 0777)
-            return fd
-        f1 = compile(does_stuff, [])
-        fd = f1()
-        os.close(fd)
-        assert os.path.exists(tmpfile)
-
-
-.. _`mixed posix module`: ../module/posix/
-
+.. _`rffi`: rffi.html
 
 How It Fits Together
 ====================
