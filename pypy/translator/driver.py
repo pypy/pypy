@@ -3,6 +3,7 @@ import sys, os
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.tool.taskengine import SimpleTaskEngine
 from pypy.translator.goal import query
+from pypy.translator.goal.timing import Timer
 from pypy.annotation import model as annmodel
 from pypy.annotation.listdef import s_list_of_strings
 from pypy.annotation import policy as annpolicy
@@ -13,7 +14,6 @@ import py
 from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer("translation")
 py.log.setconsumer("translation", ansi_log)
-
 
 DEFAULTS = {
   'translation.gc': 'ref',
@@ -82,6 +82,7 @@ class TranslationDriver(SimpleTaskEngine):
                  disable=[],
                  exe_name=None, extmod_name=None,
                  config=None, overrides=None):
+        self.timer = Timer()
         SimpleTaskEngine.__init__(self)
 
         self.log = log
@@ -260,16 +261,20 @@ class TranslationDriver(SimpleTaskEngine):
             return
         else:
             self.log.info("%s..." % title)
-        instrument = False
+        self.timer.start_event(goal)
         try:
-            res = func()
-        except Instrument:
-            instrument = True
-        if not func.task_idempotent:
-            self.done[goal] = True
-        if instrument:
-            self.proceed('compile')
-            assert False, 'we should not get here'
+            instrument = False
+            try:
+                res = func()
+            except Instrument:
+                instrument = True
+            if not func.task_idempotent:
+                self.done[goal] = True
+            if instrument:
+                self.proceed('compile')
+                assert False, 'we should not get here'
+        finally:
+            self.timer.end_event(goal)
         return res
 
     def task_annotate(self):
@@ -805,7 +810,6 @@ $MONO "$(dirname $0)/$(basename $0)-data/%s" "$@" # XXX doesn't work if it's pla
                         prereq()
                     from pypy.translator.goal import unixcheckpoint
                     unixcheckpoint.restartable_point(auto='run')
-
 
 def mkexename(name):
     if sys.platform == 'win32':

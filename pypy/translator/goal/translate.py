@@ -269,8 +269,10 @@ def main():
             drv.exe_name = targetspec_dic['__name__'] + '-%(backend)s'
 
         goals = translateconfig.goals
-        drv.proceed(goals)
-        
+        try:
+            drv.proceed(goals)
+        finally:
+            drv.timer.pprint()
     except SystemExit:
         raise
     except:
