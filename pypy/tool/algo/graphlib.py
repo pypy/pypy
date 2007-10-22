@@ -95,7 +95,7 @@ def all_cycles(root, vertices, edges):
             if stackpos[v] is not None:   # back-edge
                 result.append(edgestack[stackpos[v]:])
     visit(root)
-    return result
+    return result        
 
 def break_cycles(vertices, edges):
     """Enumerates a reasonably minimal set of edges that must be removed to
@@ -111,7 +111,10 @@ def break_cycles(vertices, edges):
             for cycle in all_cycles(random_vertex, component, edges):
                 #print '\tcycle:', [e.source+e.target for e in cycle]
                 for edge in cycle:
-                    edge_weights[edge] = edge_weights.get(edge, 0) + 1
+                    try:
+                        edge_weights[edge] += 1
+                    except KeyError:
+                        edge_weights[edge] = 1
             if edge_weights:
                 max_weight = max(edge_weights.values())
                 for edge, weight in edge_weights.iteritems():
