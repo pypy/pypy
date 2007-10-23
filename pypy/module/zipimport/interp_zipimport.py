@@ -5,7 +5,6 @@ from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import app2interp
-from pypy.module.zipimport.rzipfile import is_zipfile
 from pypy.interpreter.eval import Code
 from pypy.interpreter.module import Module
 import os
