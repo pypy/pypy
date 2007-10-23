@@ -1,7 +1,12 @@
 import py
 import struct
 
-class Reader(object):    
+# ____________________________________________________________
+#
+# Reads an image file and created all model objects
+
+class Stream(object):
+    """ Simple input stream """    
     def __init__(self, inputfile):
         try:
             self.data = inputfile.read()
@@ -41,29 +46,42 @@ def splitbits(integer, lengths):
     
 class CorruptImageError(Exception):
     pass            
+
+# ____________________________________________________________
     
 class ImageReader(object):
-    def __init__(self, reader):
-        self.reader = reader
+    def __init__(self, stream):
+        self.stream = stream
         
-    def readheader(self):
-        version = self.reader.next()
+    def initialize(self):
+        self.read_header()
+        self.read_body()
+        self.init_specialobjectdumps()
+        self.init_compactclassdumps()
+        self.init_genericobjects()
+        
+    def init_genericobjects(self):
+        for dump in self.pointer2dump.itervalues():
+            dump.as_g_object(self)        
+        
+    def read_header(self):
+        version = self.stream.next()
         if version != 0x1966: raise NotImplementedError
-        self.headersize = self.reader.next()
-        self.endofmemory = self.reader.next()   
-        self.oldbaseaddress = self.reader.next()   
-        self.specialobjectspointer = self.reader.next()   
-        lasthash = self.reader.next()
-        savedwindowssize = self.reader.next()
-        fullscreenflag = self.reader.next()
-        extravmmemory = self.reader.next()
-        self.reader.skipbytes(self.headersize - (9 * 4))
+        self.headersize = self.stream.next()
+        self.endofmemory = self.stream.next()   
+        self.oldbaseaddress = self.stream.next()   
+        self.specialobjectspointer = self.stream.next()   
+        lasthash = self.stream.next()
+        savedwindowssize = self.stream.next()
+        fullscreenflag = self.stream.next()
+        extravmmemory = self.stream.next()
+        self.stream.skipbytes(self.headersize - (9 * 4))
         
-    def readbody(self):
+    def read_body(self):
         dumps = []
         self.pointer2dump = {}
-        while self.reader.pos <= self.endofmemory:
-            dump = self.readobject()
+        while self.stream.pos <= self.endofmemory:
+            dump = self.read_object()
             dumps.append(dump)
             self.pointer2dump[dump.pos - self.headersize + self.oldbaseaddress] = dump
         return dumps
@@ -80,58 +98,84 @@ class ImageReader(object):
         assert dump.format == 2
         self.ccdumps = [self.pointer2dump[pointer] for pointer in dump.data]   
         
-    def mark_classdescription(self):
-        #XXX quite some assumptions here
-        for dump in self.pointer2dump.itervalues():
-            if dump.compact:
-                classdump = self.ccdumps[dump.classid]
-            else:
-                classdump = self.pointer2dump[dump.classid]
-            classdump.classdescription = True                       
-
     def init_actualobjects(self):
         for dump in self.pointer2dump.itervalues():
             dump.get_actual() # initialization            
 
-    def readobject(self):
-        kind, = splitbits(self.reader.peek(), [2])
-        if kind == 0: # 00r2 
-            dump = self.read3wordobjectheader()
-        elif kind == 1: # 01r2
-            dump = self.read2wordobjectheader()
-        elif kind == 3: # 11r2
-            dump = self.read1wordobjectheader()
-        else:
+    def read_object(self):
+        kind = self.stream.peek() & 3 # 2 bits
+        if kind == 0: # 00 bits 
+            dump = self.read_3wordobjectheader()
+        elif kind == 1: # 01 bits
+            dump = self.read_2wordobjectheader()
+        elif kind == 3: # 11 bits
+            dump = self.read_1wordobjectheader()
+        else: # 10 bits
             raise CorruptImageError("Unused block not allowed in image")
         size = dump.size
-        dump.data = [self.reader.next() 
+        dump.data = [self.stream.next() 
                      for _ in range(size - 1)] #size-1, excluding header   
         return dump     
         
-    def read1wordobjectheader(self):
+    def read_1wordobjectheader(self):
         kind, size, format, classid, idhash = (
-            splitbits(self.reader.next(), [2,6,4,5,12]))
+            splitbits(self.stream.next(), [2,6,4,5,12]))
         assert kind == 3
-        return ObjectDump(size, format, classid, idhash, self.reader.pos - 4,
+        return ObjectDump(size, format, classid, idhash, self.stream.pos - 4,
                           compact = True)
 
-    def read2wordobjectheader(self):
-        assert splitbits(self.reader.peek(), [2])[0] == 1 #kind
-        classid = self.reader.next() - 1 # remove headertype to get pointer
-        kind, size, format, _, idhash = splitbits(self.reader.next(), [2,6,4,5,12])
+    def read_2wordobjectheader(self):
+        assert splitbits(self.stream.peek(), [2])[0] == 1 #kind
+        classid = self.stream.next() - 1 # remove headertype to get pointer
+        kind, size, format, _, idhash = splitbits(self.stream.next(), [2,6,4,5,12])
         assert kind == 1
-        return ObjectDump(size, format, classid, idhash, self.reader.pos - 4)
+        return ObjectDump(size, format, classid, idhash, self.stream.pos - 4)
 
-    def read3wordobjectheader(self):
-        kind, size = splitbits(self.reader.next(), [2,30]) 
+    def read_3wordobjectheader(self):
+        kind, size = splitbits(self.stream.next(), [2,30]) 
         assert kind == 0
-        assert splitbits(self.reader.peek(), [2])[0] == 0 #kind
-        classid = self.reader.next() - 0 # remove headertype to get pointer
-        kind, _, format, _, idhash = splitbits(self.reader.next(), [2,6,4,5,12])
+        assert splitbits(self.stream.peek(), [2])[0] == 0 #kind
+        classid = self.stream.next() - 0 # remove headertype to get pointer
+        kind, _, format, _, idhash = splitbits(self.stream.next(), [2,6,4,5,12])
         assert kind == 0
-        return ObjectDump(size, format, classid, idhash, self.reader.pos - 4)
+        return ObjectDump(size, format, classid, idhash, self.stream.pos - 4)
 
 COMPACT_CLASSES_ARRAY = 28
+
+class GenericObject(object):
+    def __init__(self):
+        self.owner = None
+        
+    def isinitialized(self):
+        return self.owner is not None     
+    
+    def initialize(self, dump, reader):
+        self.owner = reader
+        self.size = dump.size
+        self.hash12 = dump.idhash 
+        self.format = dump.format
+        self.init_class(dump)
+        self.init_data(dump) 
+        
+    def init_class(self, dump):    
+        if dump.compact:
+            self.g_class = self.owner.ccdumps[dump.classid].as_g_object(self.owner)
+        else:
+            self.g_class = self.owner.pointer2dump[dump.classid].as_g_object(self.owner)
+            
+    def isbytes(self):
+        return 8 <= self.format <= 11
+        
+    def iswords(self):
+        return self.format == 6
+        
+    def ispointers(self):
+        return self.format < 8 #TODO, what about compiled methods?             
+            
+    def init_data(self, dump):        
+        if not self.ispointers(): return
+        self.data = [self.owner.pointer2dump[p].as_g_object(self.owner)
+                     for p in dump.data]
 
 class ObjectDump(object):
     def __init__(self, size, format, classid, idhash, pos, compact = False):
@@ -144,10 +188,16 @@ class ObjectDump(object):
         self.classdescription = False
         self.actual = None
         self.compact = compact
+        self.g_object = GenericObject()
     
     def __eq__(self, other):
         "(for testing)"
-        return self.__class__ is other.__class__ and self.__dict__ == other.__dict__  
+        return (self.__class__ is other.__class__ and 
+                self.pos == other.pos and
+                self.format == other.format and
+                self.classid == other.classid and
+                self.idhash == other.idhash and
+                self.compact == other.compact)
 
     def __ne__(self, other):
         "(for testing)"
@@ -157,6 +207,11 @@ class ObjectDump(object):
         if self.actual is None: 
             self.actual = self.create_actual()
         return self.actual    
+        
+    def as_g_object(self, reader):
+        if self.g_object.isinitialized():
+            self.g_object.initialize(self, reader)
+        return self.g_object        
         
     def create_actual(self):
         from pypy.lang.smalltalk import model
