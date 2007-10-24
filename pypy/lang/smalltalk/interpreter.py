@@ -213,7 +213,34 @@ class W_ContextFrame(model.W_Object):
         self._sendSelfSelector(selector, argcount, interp)
 
     def doubleExtendedDoAnythingBytecode(self, interp):
-        raise MissingBytecode
+        second = self.getByte()
+        third = self.getByte()
+        opType = second >> 5
+        if opType == 0:
+            # selfsend
+            self._sendSelfSelector(self.method.literals[third],
+                                   second & 31, interp)
+        elif opType == 1:
+            # supersend
+            self._sendSuperSelector(self.method.literals[third],
+                                    second & 31, interp)
+        elif opType == 2:
+            # pushReceiver
+            self.push(self.receiver.getnamedvar(third))
+        elif opType == 3:
+            # pushLiteralConstant
+            self.push(self.method.literals[third])
+        elif opType == 4:
+            # pushLiteralVariable
+            association = self.method.literals[third]
+            self.push(association.getnamedvar(1))
+        elif opType == 5:
+            self.receiver.setnamedvar(third, self.top())
+        elif opType == 6:
+            self.receiver.setnamedvar(third, self.pop())
+        elif opType == 7:
+            association = self.method.literals[third]
+            association.setnamedvar(1,self.top())
 
     def singleExtendedSuperBytecode(self, interp):
         selector, argcount = self.getExtendedSelectorArgcount()

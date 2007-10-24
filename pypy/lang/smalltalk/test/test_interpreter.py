@@ -70,69 +70,73 @@ def test_pushReceiverBytecode():
     interp.step()
     assert interp.activeContext.top() == interp.activeContext.receiver
 
-def test_pushReceiverVariableBytecode():
+def test_pushReceiverVariableBytecode(bytecode = (pushReceiverVariableBytecode(0) +
+                                                  pushReceiverVariableBytecode(1) +
+                                                  pushReceiverVariableBytecode(2))):
     w_democlass = model.W_Class(None, None, 3)
     w_demo = w_democlass.new()
     w_demo.setnamedvar(0, "egg")
     w_demo.setnamedvar(1, "bar")
     w_demo.setnamedvar(2, "baz")
-    interp = new_interpreter(pushReceiverVariableBytecode(0) +
-                             pushReceiverVariableBytecode(1) +
-                             pushReceiverVariableBytecode(2),
-                             receiver = w_demo)
+    interp = new_interpreter(bytecode, receiver = w_demo)
     interp.step()
     interp.step()
     interp.step()
     assert interp.activeContext.stack == ["egg", "bar", "baz"]
 
-def test_pushTemporaryVariableBytecode():
-    interp = new_interpreter(pushTemporaryVariableBytecode(0) +
-                             pushTemporaryVariableBytecode(1) +
-                             pushTemporaryVariableBytecode(2))
+def test_pushTemporaryVariableBytecode(bytecode=(pushTemporaryVariableBytecode(0) +
+                                                 pushTemporaryVariableBytecode(1) +
+                                                 pushTemporaryVariableBytecode(2))):
+    interp = new_interpreter(bytecode)
     interp.activeContext.settemp(2, "temp")
     interp.step()
     interp.step()
     interp.step()
     assert interp.activeContext.stack == ["foo", "bar", "temp"]
 
-def test_pushLiteralConstantBytecode():
-    interp = new_interpreter(pushLiteralConstantBytecode(0) +
-                             pushLiteralConstantBytecode(1) +
-                             pushLiteralConstantBytecode(2))
+def test_pushLiteralConstantBytecode(bytecode=pushLiteralConstantBytecode(0) +
+                                              pushLiteralConstantBytecode(1) +
+                                              pushLiteralConstantBytecode(2)):
+    interp = new_interpreter(bytecode)
     interp.activeContext.method.literals = ["a", "b", "c"]
     interp.step()
     interp.step()
     interp.step()
     assert interp.activeContext.stack == ["a", "b", "c"]
 
-def test_pushLiteralVariableBytecode():
+def test_pushLiteralVariableBytecode(bytecode=pushLiteralVariableBytecode(0)):
     w_associationclass = model.W_Class(None, None, 2)
     w_association = w_associationclass.new()
     w_association.setnamedvar(0, "mykey")
     w_association.setnamedvar(1, "myvalue")
-    interp = new_interpreter(pushLiteralVariableBytecode(0))
+    interp = new_interpreter(bytecode)
     interp.activeContext.method.literals = [w_association]
     interp.step()
     assert interp.activeContext.stack == ["myvalue"]
 
-def test_storeAndPopReceiverVariableBytecode():
+def test_storeAndPopReceiverVariableBytecode(bytecode=storeAndPopReceiverVariableBytecode,
+                                             popped=True):
     w_class = model.W_Class(None, None, 8)
     for index in range(8):
         w_object = w_class.new()
-        interp = new_interpreter(pushConstantTrueBytecode + storeAndPopReceiverVariableBytecode(index))
+        interp = new_interpreter(pushConstantTrueBytecode + bytecode(index))
         interp.activeContext.receiver = w_object
         interp.step()
         interp.step()
-        assert interp.activeContext.stack == []
+        if popped:
+            assert interp.activeContext.stack == []
+        else:
+            assert interp.activeContext.stack == [interp.TRUE]
+
         for test_index in range(8):
             if test_index == index:
                 assert w_object.getnamedvar(test_index) == interp.TRUE
             else:
                 assert w_object.getnamedvar(test_index) == None
-                
-def test_storeAndPopTemporaryVariableBytecode():
+
+def test_storeAndPopTemporaryVariableBytecode(bytecode=storeAndPopTemporaryVariableBytecode):
     for index in range(8):
-        interp = new_interpreter(pushConstantTrueBytecode + storeAndPopTemporaryVariableBytecode(index))
+        interp = new_interpreter(pushConstantTrueBytecode + bytecode(index))
         interp.activeContext.temps = [None] * 8
         interp.step()
         interp.step()
@@ -310,79 +314,42 @@ def test_popStackBytecode():
     interp.step()
     assert interp.activeContext.stack == []
 
-def test_extendedPushBytecode0():
-    w_democlass = model.W_Class(None, None, 3)
-    w_demo = w_democlass.new()
-    w_demo.setnamedvar(0, "egg")
-    w_demo.setnamedvar(1, "bar")
-    w_demo.setnamedvar(2, "baz")
-    interp = new_interpreter(extendedPushBytecode + chr((0<<6) + 0) +
-                             extendedPushBytecode + chr((0<<6) + 1) +
-                             extendedPushBytecode + chr((0<<6) + 2),
-                             receiver = w_demo)
-    interp.step()
-    interp.step()
-    interp.step()
-    assert interp.activeContext.stack == ["egg", "bar", "baz"]
+def test_extendedPushBytecode():
+    test_pushReceiverVariableBytecode(extendedPushBytecode + chr((0<<6) + 0) +
+                                      extendedPushBytecode + chr((0<<6) + 1) +
+                                      extendedPushBytecode + chr((0<<6) + 2))
 
-def test_extendedPushBytecode1():
-    interp = new_interpreter(extendedPushBytecode + chr((1<<6) + 0) +
-                             extendedPushBytecode + chr((1<<6) + 1) +
-                             extendedPushBytecode + chr((1<<6) + 2))
-    interp.activeContext.settemp(2, "temp")
-    interp.step()
-    interp.step()
-    interp.step()
-    assert interp.activeContext.stack == ["foo", "bar", "temp"]
+    test_pushTemporaryVariableBytecode(extendedPushBytecode + chr((1<<6) + 0) +
+                                       extendedPushBytecode + chr((1<<6) + 1) +
+                                       extendedPushBytecode + chr((1<<6) + 2))
 
-def test_extendedPushBytecode2():
-    interp = new_interpreter(extendedPushBytecode + chr((2<<6) + 0) +
-                             extendedPushBytecode + chr((2<<6) + 1) +
-                             extendedPushBytecode + chr((2<<6) + 2))
-    interp.activeContext.method.literals = ["a", "b", "c"]
-    interp.step()
-    interp.step()
-    interp.step()
-    assert interp.activeContext.stack == ["a", "b", "c"]
+    test_pushLiteralConstantBytecode(extendedPushBytecode + chr((2<<6) + 0) +
+                                     extendedPushBytecode + chr((2<<6) + 1) +
+                                     extendedPushBytecode + chr((2<<6) + 2))
 
+    test_pushLiteralVariableBytecode(extendedPushBytecode + chr((3<<6) + 0))
 
-def test_extendedPushBytecode3():
+def storeAssociation(bytecode):
     w_associationclass = model.W_Class(None, None, 2)
     w_association = w_associationclass.new()
     w_association.setnamedvar(0, "mykey")
     w_association.setnamedvar(1, "myvalue")
-    interp = new_interpreter(extendedPushBytecode + chr((3<<6) + 0))
+    interp = new_interpreter(pushConstantOneBytecode + bytecode)
     interp.activeContext.method.literals = [w_association]
     interp.step()
-    assert interp.activeContext.stack == ["myvalue"]
+    interp.step()
+    assert w_association.getnamedvar(1) == interp.ONE
 
-def test_extendedStoreAndPopBytecode0():
-    w_class = model.W_Class(None, None, 8)
-    for index in range(8):
-        w_object = w_class.new()
-        interp = new_interpreter(pushConstantTrueBytecode + extendedStoreAndPopBytecode + chr((0<<6) + index))
-        interp.activeContext.receiver = w_object
-        interp.step()
-        interp.step()
-        assert interp.activeContext.stack == []
-        for test_index in range(8):
-            if test_index == index:
-                assert w_object.getnamedvar(test_index) == interp.TRUE
-            else:
-                assert w_object.getnamedvar(test_index) == None
+def test_extendedStoreAndPopBytecode():
+    test_storeAndPopReceiverVariableBytecode(lambda index: extendedStoreAndPopBytecode + chr((0<<6) + index))
                 
-def test_extendedStoreAndPopBytecode1():
-    for index in range(8):
-        interp = new_interpreter(pushConstantTrueBytecode + extendedStoreAndPopBytecode + chr((1<<6) + index))
-        interp.activeContext.temps = [None] * 8
-        interp.step()
-        interp.step()
-        assert interp.activeContext.stack == []
-        for test_index in range(8):
-            if test_index == index:
-                assert interp.activeContext.temps[test_index] == interp.TRUE
-            else:
-                assert interp.activeContext.temps[test_index] == None
+    test_storeAndPopTemporaryVariableBytecode(lambda index: extendedStoreAndPopBytecode + chr((1<<6) + index))
+
+    py.test.raises(interpreter.IllegalStoreError,
+                   test_storeAndPopTemporaryVariableBytecode,
+                   lambda index: extendedStoreAndPopBytecode + chr((2<<6) + index))
+
+    storeAssociation(extendedStoreAndPopBytecode + chr((3<<6) + 0))
 
 def test_callPrimitiveAndPush_fallback():
     interp = new_interpreter(bytecodePrimAdd)
@@ -415,9 +382,9 @@ def test_bytecodePrimBool():
 def test_singleExtendedSendBytecode():
     w_class = model.W_Class(None, None)
     w_object = w_class.new()
-    sendBytecodesTest(w_class, w_object, singleExtendedSendBytecode + chr(0))
+    sendBytecodesTest(w_class, w_object, singleExtendedSendBytecode + chr((0<<5)+0))
 
-def test_singleExtendedSuperBytecode():
+def test_singleExtendedSuperBytecode(bytecode=singleExtendedSuperBytecode + chr((0<<5) + 0)):
     w_supersuper = model.W_Class(None, None)
     w_super = model.W_Class(None, w_supersuper)
     w_class = model.W_Class(None, w_super)
@@ -426,10 +393,10 @@ def test_singleExtendedSuperBytecode():
     bytecodes = singleExtendedSendBytecode + chr(0)
     # which does a call to its super
     w_class.installmethod("foo",
-                          model.W_CompiledMethod(None, 0, singleExtendedSuperBytecode + chr(0)))
+                          model.W_CompiledMethod(None, 0, bytecode))
     # and that one again to its super
     w_super.installmethod("foo",
-                          model.W_CompiledMethod(None, 0, singleExtendedSuperBytecode + chr(0)))
+                          model.W_CompiledMethod(None, 0, bytecode))
     w_supersuper.installmethod("foo",
                                model.W_CompiledMethod(None, 0, ""))
     w_class.methoddict["foo"].literals = ["foo"]
@@ -450,3 +417,27 @@ def test_secondExtendedSendBytecode():
     w_class = model.W_Class(None, None)
     w_object = w_class.new()
     sendBytecodesTest(w_class, w_object, secondExtendedSendBytecode + chr(0)) 
+
+def test_doubleExtendedDoAnythinBytecode():
+    w_class = model.W_Class(None, None)
+    w_object = w_class.new()
+
+    sendBytecodesTest(w_class, w_object, doubleExtendedDoAnythingBytecode + chr((0<<5) + 0) + chr(0))
+
+    test_singleExtendedSuperBytecode(doubleExtendedDoAnythingBytecode + (chr((1<<5) + 0) + chr(0)))
+
+    test_pushReceiverVariableBytecode(doubleExtendedDoAnythingBytecode + chr(2<<5) + chr(0) +
+                                      doubleExtendedDoAnythingBytecode + chr(2<<5) + chr(1) +
+                                      doubleExtendedDoAnythingBytecode + chr(2<<5) + chr(2))
+
+    test_pushLiteralConstantBytecode(doubleExtendedDoAnythingBytecode + chr(3<<5) + chr(0) +
+                                     doubleExtendedDoAnythingBytecode + chr(3<<5) + chr(1) +
+                                     doubleExtendedDoAnythingBytecode + chr(3<<5) + chr(2))
+
+    test_pushLiteralVariableBytecode(doubleExtendedDoAnythingBytecode + chr(4<<5) + chr(0))
+
+    test_storeAndPopReceiverVariableBytecode(lambda index: doubleExtendedDoAnythingBytecode + chr(5<<5) + chr(index), False)
+
+    test_storeAndPopReceiverVariableBytecode(lambda index: doubleExtendedDoAnythingBytecode + chr(6<<5) + chr(index))
+
+    storeAssociation(doubleExtendedDoAnythingBytecode + chr(7<<5) + chr(0))
