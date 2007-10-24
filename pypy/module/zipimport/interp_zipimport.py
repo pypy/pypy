@@ -162,6 +162,9 @@ class W_ZipImporter(Wrappable):
             "Cannot find module %s in %s" % (filename, self.name)))
     is_package.unwrap_spec = ['self', ObjSpace, str]
 
+    def getarchive(space, self):
+        return space.wrap(self.name)
+
 def descr_new_zipimporter(space, w_type, name):
     try:
         return zip_importer_cache[name]
@@ -200,4 +203,5 @@ W_ZipImporter.typedef = TypeDef(
     get_source  = interp2app(W_ZipImporter.get_source),
     is_package  = interp2app(W_ZipImporter.is_package),
     load_module = interp2app(W_ZipImporter.load_module),
+    archive     = GetSetProperty(W_ZipImporter.getarchive),
 )

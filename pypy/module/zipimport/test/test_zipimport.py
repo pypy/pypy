@@ -175,3 +175,4 @@ class AppTestZipimport:
         #assert z.get_code('uu') == self.co
         assert z.get_code('xx')
         assert z.get_source('xx') == "5"
+        assert z.archive == self.zipfile
