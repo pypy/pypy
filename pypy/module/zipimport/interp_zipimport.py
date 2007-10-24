@@ -7,6 +7,7 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import app2interp
 from pypy.interpreter.eval import Code
 from pypy.interpreter.module import Module
+from pypy.module.__builtin__ import importing
 import os
 import stat
 
@@ -24,22 +25,12 @@ class W_ZipImporter(Wrappable):
                        space.newlist([])))]
 
     def import_py_file(self, space, modname, filename, w_buf):
+        buf = space.str_w(w_buf)
         w = space.wrap
-        # XXX A bit of boilerplatish code stolen from importing.py,
-        #     some refactoring to use common code base?
-        #     all this error reporting and whatnot
         w_mod = w(Module(space, w(modname)))
-        space.sys.setmodule(w_mod)
-        space.setattr(w_mod, w('__file__'), w(filename))
-        space.setattr(w_mod, w('__doc__'), space.w_None)
-        w_mode = w("exec")
-        w_code = space.builtin.call('compile', w_buf, w(modname), w_mode)
-        pycode = space.interp_w(Code, w_code)
-        w_dict = space.getattr(w_mod, w('__dict__'))
-        space.call_method(w_dict, 'setdefault',
-                          w('__builtins__'),
-                          w(space.builtin))
-        pycode.exec_code(space, w_dict, w_dict)
+        importing._prepare_module(space, w_mod, filename, None)
+        return importing.load_source_module(space, w(modname), w_mod,
+                                            filename, buf, write_pyc=False)
         return w_mod
 
     def get_module(self, space, name):
@@ -67,13 +58,29 @@ class W_ZipImporter(Wrappable):
         return self.import_py_file(space, name, filename, w_buf)
     load_module.unwrap_spec = ['self', ObjSpace, str]
 
+    def get_data(self, space):
+        pass
+    get_data.unwrap_spec = ['self', ObjSpace]
+
+    def get_code(self, space):
+        pass
+    get_code.unwrap_spec = ['self', ObjSpace]
+
+    def get_source(self, space):
+        pass
+    get_source.unwrap_spec = ['self', ObjSpace]
+
+    def is_package(self, space):
+        pass
+    is_package.unwrap_spec = ['self', ObjSpace]
+
 def descr_new_zipimporter(space, w_type, name):
     try:
         s = os.stat(name)
     except OSError:
-        return
+        return space.w_None
     if stat.S_ISDIR(s.st_mode):
-        return
+        return space.w_None
     w_import = space.builtin.get('__import__')
     w_zipfile = space.call(w_import, space.newlist([
         space.wrap('zipfile'),
@@ -85,7 +92,7 @@ def descr_new_zipimporter(space, w_type, name):
         w_dir = space.call(w_ZipFile, space.newlist([space.wrap(name)]))
     except OperationError: # we catch everything as this function
         # should not raise
-        return None
+        return space.w_None
     return space.wrap(W_ZipImporter(space, name, w_dir, w_zipfile))
     
 descr_new_zipimporter.unwrap_spec = [ObjSpace, W_Root, str]
@@ -94,5 +101,9 @@ W_ZipImporter.typedef = TypeDef(
     'zipimporter',
     __new__     = interp2app(descr_new_zipimporter),
     find_module = interp2app(W_ZipImporter.find_module),
+    get_data    = interp2app(W_ZipImporter.get_data),
+    get_code    = interp2app(W_ZipImporter.get_code),
+    get_source  = interp2app(W_ZipImporter.get_source),
+    is_package  = interp2app(W_ZipImporter.is_package),
     load_module = interp2app(W_ZipImporter.load_module),
 )
