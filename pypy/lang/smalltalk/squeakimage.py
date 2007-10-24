@@ -332,9 +332,7 @@ class GenericObject(object):
         l = []
         for each in self.chunk.data[(literalsize+1):]:
             l.append(int2str(each))
-        if len(l) > 0:
-            l[-1] = l[-1][:-(self.format & 3)] # omit odd bytes
-        bytes = "".join(l) 
+        bytes = "".join(l)[:-(self.format & 3)] 
         w_compiledmethod.__init__(
             w_class = self.g_class.w_object,
             size = literalsize,
