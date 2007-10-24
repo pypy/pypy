@@ -3,6 +3,7 @@
 #       one big method to rule them all
 import py
 from pypy.lang.smalltalk import squeakimage as sq
+from pypy.lang.smalltalk import model as sqm
 
 
 mini_image = py.magic.autopath().dirpath().dirpath().join('mini.image')
@@ -62,5 +63,11 @@ def test_readimage_productline():
     
     w_float_class = image.special(sq.FLOAT_CLASS)
     
-    #assert w_float_class.size() == 10
+    assert w_float_class.size() == 9
+    
+    w_float_class_name = w_float_class.fetch(6)
+    
+    assert isinstance(w_float_class_name, sqm.W_BytesObject)
+    
+    assert w_float_class_name.bytes == list("Float")
           

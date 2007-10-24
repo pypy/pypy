@@ -179,7 +179,7 @@ class SqueakImage(object):
         return self.special_objects[index]  
         
 COMPACT_CLASSES_ARRAY = 28
-FLOAT_CLASS = 10
+FLOAT_CLASS = 9
           
 
 # ____________________________________________________________
@@ -305,10 +305,10 @@ class GenericObject(object):
     def fillin_bytesobject(self, w_bytesobject):
         bytes = []
         for each in self.chunk.data:
-            bytes.append((each >> 24) & 0xff)
-            bytes.append((each >> 16) & 0xff) 
-            bytes.append((each >> 8) & 0xff) 
-            bytes.append((each >> 0) & 0xff)
+            bytes.append(chr((each >> 24) & 0xff))
+            bytes.append(chr((each >> 16) & 0xff)) 
+            bytes.append(chr((each >> 8) & 0xff)) 
+            bytes.append(chr((each >> 0) & 0xff))
         w_bytesobject.w_class = self.g_class.w_object
         w_bytesobject.bytes = bytes[:-(self.format & 3)] # omit odd bytes
  
