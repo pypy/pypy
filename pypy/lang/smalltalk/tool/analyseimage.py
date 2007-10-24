@@ -35,7 +35,7 @@ def testCompiledMethods():
     amethod = w_smallint_class.lookup("abs")
                                   # First literal of the abs method is
                                   # a real smalltalk int
-    w_frame = amethod.createFrame(amethod.literals[0], [])
+    w_frame = amethod.createFrame(sqm.W_SmallInteger(3), [])
     interp.activeContext = w_frame
 
     print amethod

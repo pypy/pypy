@@ -196,9 +196,10 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
 
     The trailer has two variant formats.  In the first variant, the last byte is at least 252 and the last four bytes represent a source pointer into one of the sources files (see #sourcePointer).  In the second variant, the last byte is less than 252, and the last several bytes are a compressed version of the names of the method's temporary variables.  The number of bytes used for this purpose is the value of the last byte in the method.
     """
-    def __init__(self, size, bytes, argsize=0, 
+    def __init__(self, literalsize, bytes, argsize=0, 
                  tempsize=0, primitive=0, m_compiledin=None):
-        self.literals = [None] * size
+        # self.literals = [None] * size
+        self.literalsize = literalsize
         self.m_compiledin = m_compiledin
         self.bytes = bytes
         self.argsize = argsize
@@ -211,6 +212,9 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
 
     def gethash(self):
         return 43     # XXX
+
+    def getliteral(self, index):
+        return self.literals[index + 1] # header of compiledmethod at index 0
 
     def createFrame(self, receiver, arguments, sender = None):
         from pypy.lang.smalltalk.interpreter import W_MethodContext

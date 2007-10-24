@@ -68,14 +68,14 @@ class W_MethodContext(model.W_Object):
 
     def pushLiteralConstantBytecode(self, interp):
         index = self.currentBytecode & 31
-        self.push(self.method.literals[index])
+        self.push(self.method.getliteral(index))
 
     def pushLiteralVariableBytecode(self, interp):
         # this bytecode assumes that literals[index] is an Association
         # which is an object with two named vars, and fetches the second
         # named var (the value).
         index = self.currentBytecode & 31
-        association = self.method.literals[index]
+        association = self.method.getliteral(index)
         self.push(association.fetch(1))
 
     def storeAndPopReceiverVariableBytecode(self, interp):
@@ -119,7 +119,7 @@ class W_MethodContext(model.W_Object):
     
     # send, return bytecodes
     def sendLiteralSelectorBytecode(self, interp):
-        selector = self.method.literals[self.currentBytecode & 15]
+        selector = self.method.getliteral(self.currentBytecode & 15)
         argcount = ((self.currentBytecode >> 4) & 3) - 1
         self._sendSelfSelector(selector, argcount, interp)
         
@@ -189,9 +189,9 @@ class W_MethodContext(model.W_Object):
         elif variableType == 1:
             self.push(self.gettemp(variableIndex))
         elif variableType == 2:
-            self.push(self.method.literals[variableIndex])
+            self.push(self.method.getliteral(variableIndex))
         elif variableType == 3:
-            association = self.method.literals[variableIndex]
+            association = self.method.getliteral(variableIndex)
             self.push(association.fetch(1))
 
     def extendedStoreBytecode(self, interp):
@@ -203,7 +203,7 @@ class W_MethodContext(model.W_Object):
         elif variableType == 2:
             raise IllegalStoreError
         elif variableType == 3:
-            association = self.method.literals[variableIndex]
+            association = self.method.getliteral(variableIndex)
             association.store(1,self.top())
 
     def extendedStoreAndPopBytecode(self, interp):
@@ -212,7 +212,7 @@ class W_MethodContext(model.W_Object):
 
     def getExtendedSelectorArgcount(self):
         descriptor = self.getByte()
-        return (self.method.literals[descriptor & 31]), (descriptor >> 5)
+        return (self.method.getliteral(descriptor & 31)), (descriptor >> 5)
 
     def singleExtendedSendBytecode(self, interp):
         selector, argcount = self.getExtendedSelectorArgcount()
@@ -224,28 +224,28 @@ class W_MethodContext(model.W_Object):
         opType = second >> 5
         if opType == 0:
             # selfsend
-            self._sendSelfSelector(self.method.literals[third],
+            self._sendSelfSelector(self.method.getliteral(third),
                                    second & 31, interp)
         elif opType == 1:
             # supersend
-            self._sendSuperSelector(self.method.literals[third],
+            self._sendSuperSelector(self.method.getliteral(third),
                                     second & 31, interp)
         elif opType == 2:
             # pushReceiver
             self.push(self.receiver.fetch(third))
         elif opType == 3:
             # pushLiteralConstant
-            self.push(self.method.literals[third])
+            self.push(self.method.getliteral(third))
         elif opType == 4:
             # pushLiteralVariable
-            association = self.method.literals[third]
+            association = self.method.getliteral(third)
             self.push(association.fetch(1))
         elif opType == 5:
             self.receiver.store(third, self.top())
         elif opType == 6:
             self.receiver.store(third, self.pop())
         elif opType == 7:
-            association = self.method.literals[third]
+            association = self.method.getliteral(third)
             association.store(1,self.top())
 
     def singleExtendedSuperBytecode(self, interp):
@@ -254,7 +254,7 @@ class W_MethodContext(model.W_Object):
 
     def secondExtendedSendBytecode(self, interp):
         descriptor = self.getByte()
-        selector = self.method.literals[descriptor & 63]
+        selector = self.method.getliteral(descriptor & 63)
         argcount = descriptor >> 6
         self._sendSelfSelector(selector, argcount, interp)
 

@@ -25,6 +25,9 @@ def setup():
 setup()
 
 
+def fakeliterals(*literals):
+    return ["methodheader"] + list(literals)
+
 def new_interpreter(bytes, receiver="receiver"):
     assert isinstance(bytes, str)
     w_method = model.W_CompiledMethod(0, bytes=bytes,
@@ -100,7 +103,7 @@ def test_pushLiteralConstantBytecode(bytecode=pushLiteralConstantBytecode(0) +
                                               pushLiteralConstantBytecode(1) +
                                               pushLiteralConstantBytecode(2)):
     interp = new_interpreter(bytecode)
-    interp.activeContext.method.literals = ["a", "b", "c"]
+    interp.activeContext.method.literals = fakeliterals("a", "b", "c")
     interp.step()
     interp.step()
     interp.step()
@@ -111,7 +114,7 @@ def test_pushLiteralVariableBytecode(bytecode=pushLiteralVariableBytecode(0)):
     w_association.store(0, "mykey")
     w_association.store(1, "myvalue")
     interp = new_interpreter(bytecode)
-    interp.activeContext.method.literals = [w_association]
+    interp.activeContext.method.literals = fakeliterals(w_association)
     interp.step()
     assert interp.activeContext.stack == ["myvalue"]
 
@@ -208,7 +211,7 @@ def sendBytecodesTest(m_class, w_object, bytecodes):
         m_class.installmethod("foo",
                               model.W_CompiledMethod(0, pushConstantOneBytecode + bytecode))
         interp = new_interpreter(bytecodes)
-        interp.activeContext.method.literals = ["foo"]
+        interp.activeContext.method.literals = fakeliterals("foo")
         interp.activeContext.push(w_object)
         callerContext = interp.activeContext
         interp.step()
@@ -231,11 +234,11 @@ def test_fibWithArgument():
     bytecode = ''.join(map(chr, [ 16, 119, 178, 154, 118, 164, 11, 112, 16, 118, 177, 224, 112, 16, 119, 177, 224, 176, 124 ]))
     m_class = mockclassmirror(0)
     method = model.W_CompiledMethod(1, bytecode, 1)
-    method.literals[0] = "fib:"
+    method.literals = fakeliterals("fib:")
     m_class.installmethod("fib:", method)
     w_object = m_class.new()
     interp = new_interpreter(sendLiteralSelectorBytecode(16) + returnTopFromMethod)
-    interp.activeContext.method.literals = ["fib:"]
+    interp.activeContext.method.literals = fakeliterals("fib:")
     interp.activeContext.push(w_object)
     interp.activeContext.push(wrap_int(8))
     result = interp.interpret()
@@ -248,7 +251,7 @@ def test_send_to_primitive():
     m_smallintclass.installmethod("sub", prim_meth)
     try:
         interp = new_interpreter(sendLiteralSelectorBytecode(1 + 16))
-        interp.activeContext.method.literals = ["foo", "sub"]
+        interp.activeContext.method.literals = fakeliterals("foo", "sub")
         interp.activeContext.push(wrap_int(50))
         interp.activeContext.push(wrap_int(8))
         callerContext = interp.activeContext
@@ -335,7 +338,7 @@ def storeAssociation(bytecode):
     w_association.store(0, "mykey")
     w_association.store(1, "myvalue")
     interp = new_interpreter(pushConstantOneBytecode + bytecode)
-    interp.activeContext.method.literals = [w_association]
+    interp.activeContext.method.literals = fakeliterals(w_association)
     interp.step()
     interp.step()
     assert w_association.fetch(1) == interp.ONE
@@ -399,10 +402,10 @@ def test_singleExtendedSuperBytecode(bytecode=singleExtendedSuperBytecode + chr(
                           model.W_CompiledMethod(0, bytecode))
     m_supersuper.installmethod("foo",
                                model.W_CompiledMethod(0, ""))
-    m_class.methoddict["foo"].literals = ["foo"]
-    m_super.methoddict["foo"].literals = ["foo"]
+    m_class.methoddict["foo"].literals = fakeliterals("foo")
+    m_super.methoddict["foo"].literals = fakeliterals("foo")
     interp = new_interpreter(bytecodes)
-    interp.activeContext.method.literals = ["foo"]
+    interp.activeContext.method.literals = fakeliterals("foo")
     interp.activeContext.push(w_object)
     for m_specificclass in [m_class, m_super, m_supersuper]:
         callerContext = interp.activeContext

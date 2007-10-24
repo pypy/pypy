@@ -341,7 +341,7 @@ class GenericObject(object):
         # XXX assert mirrorcache.get_or_build(self.g_class.w_object) is
         #            ct.m_CompiledMethod
         w_compiledmethod.__init__(
-            size = literalsize,
+            literalsize = literalsize,
             bytes = bytes,
             argsize = numargs,
             tempsize = tempsize,
