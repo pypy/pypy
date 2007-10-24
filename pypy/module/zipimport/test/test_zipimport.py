@@ -152,17 +152,19 @@ class AppTestZipimport:
         assert mod(3) == 4
 
     def test_package(self):
-        self.writefile(self, "xx/__init__.py", "")
-        self.writefile(self, "xx/yy.py", "def f(x): return x")
+        import os
+        self.writefile(self, "xx"+os.sep+"__init__.py", "")
+        self.writefile(self, "xx"+os.sep+"yy.py", "def f(x): return x")
         mod = __import__("xx", globals(), locals(), ['yy'])
         assert mod.__path__
         assert mod.yy.f(3) == 3
 
     def test_functions(self):
+        import os
         import zipimport
         data = "saddsadsa"
         self.writefile(self, "xxx", data)
-        self.writefile(self, "xx/__init__.py", "5")
+        self.writefile(self, "xx"+os.sep+"__init__.py", "5")
         self.writefile(self, "yy.py", "3")
         self.writefile(self, 'uu.pyc', self.test_pyc)
         z = zipimport.zipimporter(self.zipfile)
