@@ -22,7 +22,7 @@ class W_SmallInteger(W_Object):
         return m_SmallInteger
 
     def gethash(self):
-        return self.value    # XXX check this
+        return self.value
 
     def invariant(self):
         return isinstance(self.value, int)

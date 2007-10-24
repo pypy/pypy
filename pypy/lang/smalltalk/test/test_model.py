@@ -62,3 +62,7 @@ def test_m_compiledin():
     m_class = mockclassmirror(0, m_superclass=m_super)
     m_super.installmethod("foo", model.W_CompiledMethod(0, ""))
     assert m_class.lookup("foo").m_compiledin is m_super
+
+def test_hashes():
+    w_five = W_SmallInteger(5)
+    assert w_five.gethash() == 5
