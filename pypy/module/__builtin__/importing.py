@@ -69,6 +69,14 @@ def find_modtype_cpython(space, filepart):
     else:
         return NOFILE
 
+def _prepare_module(space, w_mod, filename, pkgdir):
+    w = space.wrap
+    space.sys.setmodule(w_mod)
+    space.setattr(w_mod, w('__file__'), space.wrap(filename))
+    space.setattr(w_mod, w('__doc__'), space.w_None)
+    if pkgdir is not None:
+        space.setattr(w_mod, w('__path__'), space.newlist([w(pkgdir)]))    
+
 def try_import_mod(space, w_modulename, filepart, w_parent, w_name, pkgdir=None):
 
     # decide what type we want (pyc/py)
@@ -89,18 +97,16 @@ def try_import_mod(space, w_modulename, filepart, w_parent, w_name, pkgdir=None)
         filename = filepart + ".pyc"
         stream = streamio.open_file_as_stream(filename, "rb")
 
-    space.sys.setmodule(w_mod)
-    space.setattr(w_mod, w('__file__'), space.wrap(filename))
-    space.setattr(w_mod, w('__doc__'), space.w_None)
-    if pkgdir is not None:
-        space.setattr(w_mod, w('__path__'), space.newlist([w(pkgdir)]))
-
+    _prepare_module(space, w_mod, filename, pkgdir)
     try:
         try:
             if modtype == PYFILE:
-                load_source_module(space, w_modulename, w_mod, filename, stream)
+                load_source_module(space, w_modulename, w_mod, filename, stream.readall())
             else:
-                load_compiled_module(space, w_modulename, w_mod, filename, stream)
+                magic = _r_long(stream)
+                timestamp = _r_long(stream)
+                load_compiled_module(space, w_modulename, w_mod, filename,
+                                     magic, timestamp, stream.readall())
         finally:
             stream.close()
             
@@ -423,10 +429,9 @@ def get_pyc_magic(space):
     return result
 
 
-def parse_source_module(space, pathname, stream):
+def parse_source_module(space, pathname, source):
     """ Parse a source file and return the corresponding code object """
     w = space.wrap
-    source = stream.readall()
     w_source = w(source)
     w_mode = w("exec")
     w_pathname = w(pathname)
@@ -434,13 +439,14 @@ def parse_source_module(space, pathname, stream):
     pycode = space.interp_w(Code, w_code)
     return pycode
 
-def load_source_module(space, w_modulename, w_mod, pathname, stream):
+def load_source_module(space, w_modulename, w_mod, pathname, source,
+                       write_pyc=True):
     """
     Load a source module from a given file and return its module
     object.
     """
     w = space.wrap
-    pycode = parse_source_module(space, pathname, stream)
+    pycode = parse_source_module(space, pathname, source)
 
     w_dict = space.getattr(w_mod, w('__dict__'))
     space.call_method(w_dict, 'setdefault',
@@ -448,7 +454,7 @@ def load_source_module(space, w_modulename, w_mod, pathname, stream):
                       w(space.builtin))
     pycode.exec_code(space, w_dict, w_dict)
 
-    if space.config.objspace.usepycfiles:
+    if space.config.objspace.usepycfiles and write_pyc:
         mtime = os.stat(pathname)[stat.ST_MTIME]
         cpathname = pathname + 'c'
         write_compiled_module(space, pycode, cpathname, mtime)
@@ -508,11 +514,10 @@ def check_compiled_module(space, pathname, mtime, cpathname):
         stream.close()
     return 1
 
-def read_compiled_module(space, cpathname, stream):
+def read_compiled_module(space, cpathname, strbuf):
     """ Read a code object from a file and check it for validity """
     
     w_marshal = space.getbuiltinmodule('marshal')
-    strbuf = stream.readall()
     w_code = space.call_method(w_marshal, 'loads', space.wrap(strbuf))
     pycode = space.interpclass_w(w_code)
     if pycode is None or not isinstance(pycode, Code):
@@ -520,19 +525,18 @@ def read_compiled_module(space, cpathname, stream):
             "Non-code object in %s" % cpathname))
     return pycode
 
-def load_compiled_module(space, w_modulename, w_mod, cpathname, stream):
+def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
+                         timestamp, source):
     """
     Load a module from a compiled file, execute it, and return its
     module object.
     """
     w = space.wrap
-    magic = _r_long(stream)
     if magic != get_pyc_magic(space):
         raise OperationError(space.w_ImportError, w(
             "Bad magic number in %s" % cpathname))
-    _r_long(stream) # skip time stamp
     #print "loading pyc file:", cpathname
-    code_w = read_compiled_module(space, cpathname, stream)
+    code_w = read_compiled_module(space, cpathname, source)
     #if (Py_VerboseFlag)
     #    PySys_WriteStderr("import %s # precompiled from %s\n",
     #        name, cpathname);

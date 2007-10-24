@@ -71,7 +71,7 @@ def setup_directory_structure(space):
                                          w_modname,
                                          w(importing.Module(space, w_modname)),
                                          filename,
-                                         stream)
+                                         stream.readall())
         finally:
             stream.close()
 
@@ -328,7 +328,7 @@ class TestPycStuff:
         try:
             stream.seek(8, 0)
             w_code = importing.read_compiled_module(
-                    space, cpathname, stream)
+                    space, cpathname, stream.readall())
             pycode = space.interpclass_w(w_code)
         finally:
             stream.close()
@@ -349,11 +349,15 @@ class TestPycStuff:
         stream = streamio.open_file_as_stream(cpathname, "r")
         try:
             w_mod = space.wrap(Module(space, w_modulename))
+            magic = importing._r_long(stream)
+            timestamp = importing._r_long(stream)
             w_ret = importing.load_compiled_module(space,
                                                    w_modulename,
                                                    w_mod,
                                                    cpathname,
-                                                   stream)
+                                                   magic,
+                                                   timestamp,
+                                                   stream.readall())
         finally:
             stream.close()
         assert w_mod is w_ret
@@ -368,7 +372,7 @@ class TestPycStuff:
         try:
             w_ret = importing.parse_source_module(space,
                                                   pathname,
-                                                  stream)
+                                                  stream.readall())
         finally:
             stream.close()
         pycode = space.interpclass_w(w_ret)
@@ -410,7 +414,7 @@ class TestPycStuff:
                                                  w_modulename,
                                                  w_mod,
                                                  pathname,
-                                                 stream)
+                                                 stream.readall())
         finally:
             stream.close()
         assert w_mod is w_ret
@@ -427,7 +431,7 @@ class TestPycStuff:
         try:
             w_ret = importing.parse_source_module(space,
                                                   pathname,
-                                                  stream)
+                                                  stream.readall())
         finally:
             stream.close()
         pycode = space.interpclass_w(w_ret)
@@ -452,7 +456,8 @@ class TestPycStuff:
         stream = streamio.open_file_as_stream(cpathname, "r")
         try:
             stream.seek(8, 0)
-            w_code = importing.read_compiled_module(space, cpathname, stream)
+            w_code = importing.read_compiled_module(space, cpathname,
+                                                    stream.readall())
             pycode = space.interpclass_w(w_code)
         finally:
             stream.close()
@@ -485,13 +490,17 @@ class TestPycStuff:
                 stream = streamio.open_file_as_stream(cpathname, "r")
                 try:
                     w_mod = space2.wrap(Module(space2, w_modulename))
+                    magic = importing._r_long(stream)
+                    timestamp = importing._r_long(stream)
                     space2.raises_w(space2.w_ImportError,
                                     importing.load_compiled_module,
                                     space2,
                                     w_modulename,
                                     w_mod,
                                     cpathname,
-                                    stream)
+                                    magic,
+                                    timestamp,
+                                    stream.readall())
                 finally:
                     stream.close()
 
