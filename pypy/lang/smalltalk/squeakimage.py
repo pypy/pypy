@@ -255,11 +255,19 @@ class GenericObject(object):
         w_pointersobject.w_class = self.g_class.w_object
         
     def fillin_wordsobject(self, w_wordsobject):
+        w_wordsobject.words = self.chunk.data
         w_wordsobject.w_class = self.g_class.w_object
 
     def fillin_bytesobject(self, w_bytesobject):
+        bytes = []
+        for each in chunk.data:
+            bytes.append((integer & 0xff000000) >> 24)
+            bytes.append((integer & 0xff000000) >> 16)
+            bytes.append((integer & 0xff000000) >>  8)
+            bytes.append((integer & 0xff000000))
         w_bytesobject.w_class = self.g_class.w_object
-            
+        w_bytesobject.bytes = bytes[:-(self.format & 3)] # omit odd bytes
+ 
     def fillin_compiledmethod(self, w_compiledmethod):
         header = chunk.data[0]
         #(index 0)	9 bits:	main part of primitive number   (#primitive)
