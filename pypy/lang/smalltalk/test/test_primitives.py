@@ -113,6 +113,7 @@ def test_small_int_bit_shift_positive():
     assert prim(p.BIT_SHIFT, [4, 1]).value == 8
     assert prim(p.BIT_SHIFT, [4, 2]).value == 16
     assert prim(p.BIT_SHIFT, [4, 3]).value == 32
+    assert prim(p.BIT_SHIFT, [4, 27]).value == 536870912
     
 def test_small_int_bit_shift_negative():
     assert prim(p.BIT_SHIFT, [-4, -3]).value == -1
@@ -122,6 +123,7 @@ def test_small_int_bit_shift_negative():
     assert prim(p.BIT_SHIFT, [-4, 1]).value == -8
     assert prim(p.BIT_SHIFT, [-4, 2]).value == -16
     assert prim(p.BIT_SHIFT, [-4, 3]).value == -32
+    assert prim(p.BIT_SHIFT, [-4, 27]).value == -536870912
     
 def test_small_int_bit_shift_fail():
     prim_fails(p.BIT_SHIFT, [4, 32])
