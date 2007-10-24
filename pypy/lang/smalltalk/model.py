@@ -49,23 +49,9 @@ class W_PointersObject(W_Object):
         
     def store(self, index, w_value):    
         self.vars[index] = w_value
-        
-    def getnamedvar(self, index):
-        print "deprecated"
-        return self.fetch(index)
-
-    def setnamedvar(self, index, w_value):
-        print "deprecated"
-        return self.store(index, w_value)
 
     def size(self):
         return len(self.vars)
-        
-    def getindexedvar(self, index):
-        raise NotImplementedError
-
-    def setindexedvar(self, index, w_value):
-        raise NotImplementedError
 
     def invariant(self):
         return (W_Object.invariant(self) and

@@ -12,10 +12,10 @@ def test_new_namedvars():
     w_myinstance = w_mycls.new()
     assert isinstance(w_myinstance, model.W_PointersObject)
     assert w_myinstance.w_class is w_mycls
-    assert w_myinstance.getnamedvar(0) is None
-    py.test.raises(IndexError, lambda: w_myinstance.getnamedvar(3))
-    w_myinstance.setnamedvar(1, w_myinstance)
-    assert w_myinstance.getnamedvar(1) is w_myinstance
+    assert w_myinstance.fetch(0) is None
+    py.test.raises(IndexError, lambda: w_myinstance.fetch(3))
+    w_myinstance.store(1, w_myinstance)
+    assert w_myinstance.fetch(1) is w_myinstance
 
 def test_bytes_object():
     w_class = model.W_Class(None, None, format=model.BYTES)

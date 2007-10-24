@@ -241,7 +241,7 @@ def func(stack):
     [w_rcvr, w_idx] = stack
     idx = unwrap_int(w_idx)
     assert_bounds(idx, 0, w_rcvr.w_class.instvarsize)
-    return w_rcvr.getnamedvar(idx)
+    return w_rcvr.fetch(idx)
 
 @primitive(OBJECT_AT_PUT)
 @stack(3)
@@ -249,7 +249,7 @@ def func(stack):
     [w_rcvr, w_idx, w_val] = stack
     idx = unwrap_int(w_idx)
     assert_bounds(idx, 0, w_rcvr.w_class.instvarsize)
-    w_rcvr.setnamedvar(idx, w_val)
+    w_rcvr.store(idx, w_val)
     return w_val
 
 @primitive(NEW)
@@ -284,7 +284,7 @@ def func(stack):
     if idx < 0:
         raise PrimitiveFailedError()
     if idx < w_cls.instvarsize:
-        return w_rcvr.getnamedvar(idx)
+        return w_rcvr.fetch(idx)
     idx -= w_cls.instvarsize
     if idx < w_rcvr.size():
         return subscript(idx, w_rcvr)

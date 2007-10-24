@@ -54,7 +54,7 @@ class W_ContextFrame(model.W_Object):
     # push bytecodes
     def pushReceiverVariableBytecode(self, interp):
         index = self.currentBytecode & 15
-        self.push(self.receiver.getnamedvar(index))
+        self.push(self.receiver.fetch(index))
 
     def pushTemporaryVariableBytecode(self, interp):
         index = self.currentBytecode & 15
@@ -70,11 +70,11 @@ class W_ContextFrame(model.W_Object):
         # named var (the value).
         index = self.currentBytecode & 31
         association = self.method.literals[index]
-        self.push(association.getnamedvar(1))
+        self.push(association.fetch(1))
 
     def storeAndPopReceiverVariableBytecode(self, interp):
         index = self.currentBytecode & 7
-        self.receiver.setnamedvar(index, self.pop())
+        self.receiver.store(index, self.pop())
 
     def storeAndPopTemporaryVariableBytecode(self, interp):
         index = self.currentBytecode & 7
@@ -179,26 +179,26 @@ class W_ContextFrame(model.W_Object):
     def extendedPushBytecode(self, interp):
         variableType, variableIndex = self.extendedVariableTypeAndIndex()
         if variableType == 0:
-            self.push(self.receiver.getnamedvar(variableIndex))
+            self.push(self.receiver.fetch(variableIndex))
         elif variableType == 1:
             self.push(self.gettemp(variableIndex))
         elif variableType == 2:
             self.push(self.method.literals[variableIndex])
         elif variableType == 3:
             association = self.method.literals[variableIndex]
-            self.push(association.getnamedvar(1))
+            self.push(association.fetch(1))
 
     def extendedStoreBytecode(self, interp):
         variableType, variableIndex = self.extendedVariableTypeAndIndex()
         if variableType == 0:
-            self.receiver.setnamedvar(variableIndex, self.top())
+            self.receiver.store(variableIndex, self.top())
         elif variableType == 1:
             self.settemp(variableIndex, self.top())
         elif variableType == 2:
             raise IllegalStoreError
         elif variableType == 3:
             association = self.method.literals[variableIndex]
-            association.setnamedvar(1,self.top())
+            association.store(1,self.top())
 
     def extendedStoreAndPopBytecode(self, interp):
         self.extendedStoreBytecode(interp)
@@ -226,21 +226,21 @@ class W_ContextFrame(model.W_Object):
                                     second & 31, interp)
         elif opType == 2:
             # pushReceiver
-            self.push(self.receiver.getnamedvar(third))
+            self.push(self.receiver.fetch(third))
         elif opType == 3:
             # pushLiteralConstant
             self.push(self.method.literals[third])
         elif opType == 4:
             # pushLiteralVariable
             association = self.method.literals[third]
-            self.push(association.getnamedvar(1))
+            self.push(association.fetch(1))
         elif opType == 5:
-            self.receiver.setnamedvar(third, self.top())
+            self.receiver.store(third, self.top())
         elif opType == 6:
-            self.receiver.setnamedvar(third, self.pop())
+            self.receiver.store(third, self.pop())
         elif opType == 7:
             association = self.method.literals[third]
-            association.setnamedvar(1,self.top())
+            association.store(1,self.top())
 
     def singleExtendedSuperBytecode(self, interp):
         selector, argcount = self.getExtendedSelectorArgcount()

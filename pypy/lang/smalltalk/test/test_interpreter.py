@@ -75,9 +75,9 @@ def test_pushReceiverVariableBytecode(bytecode = (pushReceiverVariableBytecode(0
                                                   pushReceiverVariableBytecode(2))):
     w_democlass = model.W_Class(None, None, 3)
     w_demo = w_democlass.new()
-    w_demo.setnamedvar(0, "egg")
-    w_demo.setnamedvar(1, "bar")
-    w_demo.setnamedvar(2, "baz")
+    w_demo.store(0, "egg")
+    w_demo.store(1, "bar")
+    w_demo.store(2, "baz")
     interp = new_interpreter(bytecode, receiver = w_demo)
     interp.step()
     interp.step()
@@ -107,8 +107,8 @@ def test_pushLiteralConstantBytecode(bytecode=pushLiteralConstantBytecode(0) +
 def test_pushLiteralVariableBytecode(bytecode=pushLiteralVariableBytecode(0)):
     w_associationclass = model.W_Class(None, None, 2)
     w_association = w_associationclass.new()
-    w_association.setnamedvar(0, "mykey")
-    w_association.setnamedvar(1, "myvalue")
+    w_association.store(0, "mykey")
+    w_association.store(1, "myvalue")
     interp = new_interpreter(bytecode)
     interp.activeContext.method.literals = [w_association]
     interp.step()
@@ -130,9 +130,9 @@ def test_storeAndPopReceiverVariableBytecode(bytecode=storeAndPopReceiverVariabl
 
         for test_index in range(8):
             if test_index == index:
-                assert w_object.getnamedvar(test_index) == interp.TRUE
+                assert w_object.fetch(test_index) == interp.TRUE
             else:
-                assert w_object.getnamedvar(test_index) == None
+                assert w_object.fetch(test_index) == None
 
 def test_storeAndPopTemporaryVariableBytecode(bytecode=storeAndPopTemporaryVariableBytecode):
     for index in range(8):
@@ -332,13 +332,13 @@ def test_extendedPushBytecode():
 def storeAssociation(bytecode):
     w_associationclass = model.W_Class(None, None, 2)
     w_association = w_associationclass.new()
-    w_association.setnamedvar(0, "mykey")
-    w_association.setnamedvar(1, "myvalue")
+    w_association.store(0, "mykey")
+    w_association.store(1, "myvalue")
     interp = new_interpreter(pushConstantOneBytecode + bytecode)
     interp.activeContext.method.literals = [w_association]
     interp.step()
     interp.step()
-    assert w_association.getnamedvar(1) == interp.ONE
+    assert w_association.fetch(1) == interp.ONE
 
 def test_extendedStoreAndPopBytecode():
     test_storeAndPopReceiverVariableBytecode(lambda index: extendedStoreAndPopBytecode + chr((0<<6) + index))
