@@ -89,7 +89,7 @@ class AppTestZipimport:
         """)
 
     def test_py(self):
-        import sys
+        import sys, os
         self.writefile(self, "uuu.py", "def f(x): return x")
         mod = __import__('uuu', globals(), locals(), [])
         assert mod.f(3) == 3
@@ -99,11 +99,11 @@ class AppTestZipimport:
             'f': mod.f}
         for key, val in expected.items():
             assert mod.__dict__[key] == val
-        assert mod.__file__.endswith('.zip/uuu.py')
+        assert mod.__file__.endswith('.zip'+os.sep+'uuu.py')
         del sys.modules['uuu']
     
     def test_pyc(self):
-        import sys
+        import sys, os
         self.writefile(self, "uuu.pyc", self.test_pyc)
         mod = __import__('uuu', globals(), locals(), [])
         expected = {
@@ -114,7 +114,7 @@ class AppTestZipimport:
         }
         for key, val in expected.items():
             assert mod.__dict__[key] == val
-        assert mod.__file__.endswith('.zip/uuu.pyc')
+        assert mod.__file__.endswith('.zip'+os.sep+'uuu.pyc')
         assert mod.get_file() == mod.__file__
         assert mod.get_name() == mod.__name__
         del sys.modules['uuu']
