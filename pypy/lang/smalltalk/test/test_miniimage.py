@@ -80,6 +80,13 @@ def test_readimage_productline():
     assert isinstance(w_float_class_name, sqm.W_BytesObject)
     
     assert w_float_class_name.bytes == list("Float")
+    
+    assert str(w_float_class) == "Float class"
+    
+    assert str(w_float_class.getclass()) == "a Metaclass" # yes, with article here.
+
+    assert str(w_float_class.getclass().getclass()) == "Metaclass class"
+
 
 def test_lookup_abs_in_integer():
     image = create_squeakimage()
@@ -103,3 +110,4 @@ def test_lookup_abs_in_integer():
             print interp.activeContext.stack
         except sqi.ReturnFromTopLevel, e:
             return e.object
+

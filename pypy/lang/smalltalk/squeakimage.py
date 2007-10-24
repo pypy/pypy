@@ -333,16 +333,18 @@ class GenericObject(object):
         literals = [self.decode_pointer(pointer).w_object
                     for pointer in self.chunk.data[:literalsize+1]]
         # --------------------
-        l = []
-        for each in self.chunk.data[literalsize+1:]:
-            l.append(int2str(each))
-        bytes = "".join(l)
-        bytes = bytes[:-(self.format & 3)] 
+        bbytes = []
+        for each in self.chunk.data:
+            bbytes.append(chr((each >> 24) & 0xff))
+            bbytes.append(chr((each >> 16) & 0xff)) 
+            bbytes.append(chr((each >> 8) & 0xff)) 
+            bbytes.append(chr((each >> 0) & 0xff))
+        bbytes = bbytes[(literalsize + 1)*4:-(self.format & 3)] # omit literals & odd bytes
         # XXX assert mirrorcache.get_or_build(self.g_class.w_object) is
         #            ct.m_CompiledMethod
         w_compiledmethod.__init__(
             literalsize = literalsize,
-            bytes = bytes,
+            bytes = ''.join(bbytes),
             argsize = numargs,
             tempsize = tempsize,
             primitive = primitive)

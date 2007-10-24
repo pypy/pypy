@@ -25,7 +25,7 @@ class ClassMirror(object):
         self.methoddict = {}
         self.m_superclass = None
         self.m_metaclass = None
-        self.name = '?'
+        self.name = '?' # take care when initing this, metaclasses do not have a name!
         self.invalid = True
 
     def check(self):

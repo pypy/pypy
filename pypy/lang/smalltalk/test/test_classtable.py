@@ -20,3 +20,4 @@ def test_every_metaclass_inherits_from_class_and_behavior():
 
 def test_metaclass_of_metaclass_is_an_instance_of_metaclass():
     assert ct.m_Metaclass.m_metaclass.m_metaclass is ct.m_Metaclass
+

@@ -79,6 +79,17 @@ class W_AbstractObjectWithClassReference(W_AbstractObjectWithIdentityHash):
     def getclassmirror(self):
         return self.m_class
 
+    def __str__(self):
+        self.getclassmirror().check()
+        if self.size() >= 9:
+            return ''.join(self.fetch(sqc.CLASS_NAME_INDEX).bytes) + " class"
+        else:
+            return "a " + ''.join(self.getclass().fetch(sqc.CLASS_NAME_INDEX).bytes)
+ 
+    def getclass(self):
+        self.getclassmirror().check()
+        return self.getclassmirror().w_self
+ 
     def invariant(self):
         from pypy.lang.smalltalk.mirror import ClassMirror
         return (W_AbstractObjectWithIdentityHash.invariant(self) and
