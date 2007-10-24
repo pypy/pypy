@@ -88,7 +88,7 @@ def test_readimage_productline():
     assert str(w_float_class.getclass().getclass()) == "Metaclass class"
 
 
-def test_lookup_abs_in_integer():
+def test_lookup_abs_in_integer(int=10):
     image = create_squeakimage()
     amethod = None
 
@@ -99,7 +99,7 @@ def test_lookup_abs_in_integer():
     amethod = w_smallint_class.lookup("abs")
                                   # First literal of the abs method is
                                   # a real smalltalk int
-    w_frame = amethod.createFrame(sqm.W_SmallInteger(10), [])
+    w_frame = amethod.createFrame(sqm.W_SmallInteger(int), [])
     interp.activeContext = w_frame
 
     print amethod
@@ -111,3 +111,6 @@ def test_lookup_abs_in_integer():
         except sqi.ReturnFromTopLevel, e:
             return e.object
 
+def test_lookup_neg_abs_in_integer():
+    py.test.fail("TOFIX methodlookup 'negated' fails in mirror SmallInteger")
+    test_lookup_abs_in_integer(-3)
