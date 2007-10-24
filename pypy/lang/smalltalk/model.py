@@ -34,8 +34,8 @@ class W_SmallInteger(W_Object):
     def invariant(self):
         return isinstance(self.value, int)
 
-    def __str__(self):
-        return "SmallInt(%d)" % self.value
+    def __repr__(self):
+        return "W_SmallInteger(%d)" % self.value
 
 class W_Float(W_Object):
     def __init__(self, value):
@@ -51,8 +51,8 @@ class W_Float(W_Object):
     def invariant(self):
         return self.value is not None        # XXX but later:
         #return isinstance(self.value, float)
-    def __str__(self):
-        return "Float(%f)" % self.value
+    def __repr__(self):
+        return "W_Float(%f)" % self.value
 
 class W_AbstractObjectWithIdentityHash(W_Object):
     #XXX maybe this is too extreme, but it's very random
