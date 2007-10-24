@@ -220,6 +220,27 @@ def mutable_gc_pointers_inside(v, adr):
                                             adr + llmemory.itemoffsetof(t, i)):
                     yield a
 
+def zero_gc_pointers(p):
+    TYPE = lltype.typeOf(p).TO
+    zero_gc_pointers_inside(p, TYPE)
+
+def zero_gc_pointers_inside(p, TYPE):
+    if isinstance(TYPE, lltype.Struct):
+        for name, FIELD in TYPE._flds.items():
+            if isinstance(FIELD, lltype.Ptr) and FIELD.TO._gckind == 'gc':
+                setattr(p, name, lltype.nullptr(FIELD.TO))
+            elif isinstance(FIELD, lltype.ContainerType):
+                zero_gc_pointers_inside(getattr(p, name), FIELD)
+    elif isinstance(TYPE, lltype.Array):
+        ITEM = TYPE.OF
+        if isinstance(ITEM, lltype.Ptr) and ITEM.TO._gckind == 'gc':
+            null = lltype.nullptr(ITEM.TO)
+            for i in range(p._obj.getlength()):
+                p[i] = null
+        elif isinstance(ITEM, lltype.ContainerType):
+            for i in range(p._obj.getlength()):
+                zero_gc_pointers_inside(p[i], ITEM)
+
 ########## weakrefs ##########
 # framework: weakref objects are small structures containing only an address
 

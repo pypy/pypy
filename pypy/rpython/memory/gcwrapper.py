@@ -51,7 +51,10 @@ class GCManagedHeap(object):
         if flavor == 'gc':
             typeid = self.get_type_id(TYPE)
             addr = self.gc.malloc(typeid, n, zero=zero)
-            return llmemory.cast_adr_to_ptr(addr, lltype.Ptr(TYPE))
+            result = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(TYPE))
+            if self.gc.needs_zero_gc_pointers:
+                gctypelayout.zero_gc_pointers(result)
+            return result
         else:
             return lltype.malloc(TYPE, n, flavor=flavor, zero=zero)
 
