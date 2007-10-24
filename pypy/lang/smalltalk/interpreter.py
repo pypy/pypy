@@ -10,15 +10,21 @@ class IllegalStoreError(Exception):
     """Illegal Store."""
 
 
-class W_ContextFrame(model.W_Object):
-    def __init__(self, w_class, method, receiver, arguments, sender = None):
-        model.W_Object.__init__(self, w_class)
+class W_MethodContext(model.W_Object):
+    def __init__(self, method, receiver, arguments, sender = None):
         self.method = method
         self.receiver = receiver
         self.sender = sender
         self.stack = []
         self.temps = arguments + [None] * method.tempsize
         self.pc = 0
+
+    def getclassmirror(self):
+        from pypy.lang.smalltalk.classtable import m_MethodContext  # XXX do me
+        return m_MethodContext
+
+    def gethash(self):
+        return 44     # XXX
 
     def pop(self):
         return self.stack.pop()
@@ -120,15 +126,15 @@ class W_ContextFrame(model.W_Object):
     def _sendSelfSelector(self, selector, argcount, interp):
         receiver = self.peek(argcount)
         self._sendSelector(selector, argcount, interp,
-                           receiver, receiver.w_class)
+                           receiver, receiver.getclassmirror())
 
     def _sendSuperSelector(self, selector, argcount, interp):
         self._sendSelector(selector, argcount, interp, self.receiver,
-                           self.method.w_compiledin.w_superclass)
+                           self.method.m_compiledin.m_superclass)
 
     def _sendSelector(self, selector, argcount, interp,
-                      receiver, receiverclass):
-        method = receiverclass.lookup(selector)
+                      receiver, m_receiverclass):
+        method = m_receiverclass.lookup(selector)
         assert method
         if method.primitive:
             func = primitives.prim_table[method.primitive]
@@ -422,77 +428,77 @@ class ReturnFromTopLevel(Exception):
         self.object = object
 
 BYTECODE_RANGES = [
-            (  0,  15, W_ContextFrame.pushReceiverVariableBytecode),
-            ( 16,  31, W_ContextFrame.pushTemporaryVariableBytecode),
-            ( 32,  63, W_ContextFrame.pushLiteralConstantBytecode),
-            ( 64,  95, W_ContextFrame.pushLiteralVariableBytecode),
-            ( 96, 103, W_ContextFrame.storeAndPopReceiverVariableBytecode),
-            (104, 111, W_ContextFrame.storeAndPopTemporaryVariableBytecode),
-            (112, W_ContextFrame.pushReceiverBytecode),
-            (113, W_ContextFrame.pushConstantTrueBytecode),
-            (114, W_ContextFrame.pushConstantFalseBytecode),
-            (115, W_ContextFrame.pushConstantNilBytecode),
-            (116, W_ContextFrame.pushConstantMinusOneBytecode),
-            (117, W_ContextFrame.pushConstantZeroBytecode),
-            (118, W_ContextFrame.pushConstantOneBytecode),
-            (119, W_ContextFrame.pushConstantTwoBytecode),
-            (120, W_ContextFrame.returnReceiver),
-            (121, W_ContextFrame.returnTrue),
-            (122, W_ContextFrame.returnFalse),
-            (123, W_ContextFrame.returnNil),
-            (124, W_ContextFrame.returnTopFromMethod),
-            (125, W_ContextFrame.returnTopFromBlock),
-            (126, W_ContextFrame.unknownBytecode),
-            (127, W_ContextFrame.unknownBytecode),
-            (128, W_ContextFrame.extendedPushBytecode),
-            (129, W_ContextFrame.extendedStoreBytecode),
-            (130, W_ContextFrame.extendedStoreAndPopBytecode),
-            (131, W_ContextFrame.singleExtendedSendBytecode),
-            (132, W_ContextFrame.doubleExtendedDoAnythingBytecode),
-            (133, W_ContextFrame.singleExtendedSuperBytecode),
-            (134, W_ContextFrame.secondExtendedSendBytecode),
-            (135, W_ContextFrame.popStackBytecode),
-            (136, W_ContextFrame.duplicateTopBytecode),
-            (137, W_ContextFrame.pushActiveContextBytecode),
-            (138, 143, W_ContextFrame.experimentalBytecode),
-            (144, 151, W_ContextFrame.shortUnconditionalJump),
-            (152, 159, W_ContextFrame.shortConditionalJump),
-            (160, 167, W_ContextFrame.longUnconditionalJump),
-            (168, 171, W_ContextFrame.longJumpIfTrue),
-            (172, 175, W_ContextFrame.longJumpIfFalse),
-            (176, W_ContextFrame.bytecodePrimAdd),
-            (177, W_ContextFrame.bytecodePrimSubtract),
-            (178, W_ContextFrame.bytecodePrimLessThan),
-            (179, W_ContextFrame.bytecodePrimGreaterThan),
-            (180, W_ContextFrame.bytecodePrimLessOrEqual),
-            (181, W_ContextFrame.bytecodePrimGreaterOrEqual),
-            (182, W_ContextFrame.bytecodePrimEqual),
-            (183, W_ContextFrame.bytecodePrimNotEqual),
-            (184, W_ContextFrame.bytecodePrimMultiply),
-            (185, W_ContextFrame.bytecodePrimDivide),
-            (186, W_ContextFrame.bytecodePrimMod),
-            (187, W_ContextFrame.bytecodePrimMakePoint),
-            (188, W_ContextFrame.bytecodePrimBitShift),
-            (189, W_ContextFrame.bytecodePrimDiv),
-            (190, W_ContextFrame.bytecodePrimBitAnd),
-            (191, W_ContextFrame.bytecodePrimBitOr),
-            (192, W_ContextFrame.bytecodePrimAt),
-            (193, W_ContextFrame.bytecodePrimAtPut),
-            (194, W_ContextFrame.bytecodePrimSize),
-            (195, W_ContextFrame.bytecodePrimNext),
-            (196, W_ContextFrame.bytecodePrimNextPut),
-            (197, W_ContextFrame.bytecodePrimAtEnd),
-            (198, W_ContextFrame.bytecodePrimEquivalent),
-            (199, W_ContextFrame.bytecodePrimClass),
-            (200, W_ContextFrame.bytecodePrimBlockCopy),
-            (201, W_ContextFrame.bytecodePrimValue),
-            (202, W_ContextFrame.bytecodePrimValueWithArg),
-            (203, W_ContextFrame.bytecodePrimDo),
-            (204, W_ContextFrame.bytecodePrimNew),
-            (205, W_ContextFrame.bytecodePrimNewWithArg),
-            (206, W_ContextFrame.bytecodePrimPointX),
-            (207, W_ContextFrame.bytecodePrimPointY),
-            (208, 255, W_ContextFrame.sendLiteralSelectorBytecode),
+            (  0,  15, W_MethodContext.pushReceiverVariableBytecode),
+            ( 16,  31, W_MethodContext.pushTemporaryVariableBytecode),
+            ( 32,  63, W_MethodContext.pushLiteralConstantBytecode),
+            ( 64,  95, W_MethodContext.pushLiteralVariableBytecode),
+            ( 96, 103, W_MethodContext.storeAndPopReceiverVariableBytecode),
+            (104, 111, W_MethodContext.storeAndPopTemporaryVariableBytecode),
+            (112, W_MethodContext.pushReceiverBytecode),
+            (113, W_MethodContext.pushConstantTrueBytecode),
+            (114, W_MethodContext.pushConstantFalseBytecode),
+            (115, W_MethodContext.pushConstantNilBytecode),
+            (116, W_MethodContext.pushConstantMinusOneBytecode),
+            (117, W_MethodContext.pushConstantZeroBytecode),
+            (118, W_MethodContext.pushConstantOneBytecode),
+            (119, W_MethodContext.pushConstantTwoBytecode),
+            (120, W_MethodContext.returnReceiver),
+            (121, W_MethodContext.returnTrue),
+            (122, W_MethodContext.returnFalse),
+            (123, W_MethodContext.returnNil),
+            (124, W_MethodContext.returnTopFromMethod),
+            (125, W_MethodContext.returnTopFromBlock),
+            (126, W_MethodContext.unknownBytecode),
+            (127, W_MethodContext.unknownBytecode),
+            (128, W_MethodContext.extendedPushBytecode),
+            (129, W_MethodContext.extendedStoreBytecode),
+            (130, W_MethodContext.extendedStoreAndPopBytecode),
+            (131, W_MethodContext.singleExtendedSendBytecode),
+            (132, W_MethodContext.doubleExtendedDoAnythingBytecode),
+            (133, W_MethodContext.singleExtendedSuperBytecode),
+            (134, W_MethodContext.secondExtendedSendBytecode),
+            (135, W_MethodContext.popStackBytecode),
+            (136, W_MethodContext.duplicateTopBytecode),
+            (137, W_MethodContext.pushActiveContextBytecode),
+            (138, 143, W_MethodContext.experimentalBytecode),
+            (144, 151, W_MethodContext.shortUnconditionalJump),
+            (152, 159, W_MethodContext.shortConditionalJump),
+            (160, 167, W_MethodContext.longUnconditionalJump),
+            (168, 171, W_MethodContext.longJumpIfTrue),
+            (172, 175, W_MethodContext.longJumpIfFalse),
+            (176, W_MethodContext.bytecodePrimAdd),
+            (177, W_MethodContext.bytecodePrimSubtract),
+            (178, W_MethodContext.bytecodePrimLessThan),
+            (179, W_MethodContext.bytecodePrimGreaterThan),
+            (180, W_MethodContext.bytecodePrimLessOrEqual),
+            (181, W_MethodContext.bytecodePrimGreaterOrEqual),
+            (182, W_MethodContext.bytecodePrimEqual),
+            (183, W_MethodContext.bytecodePrimNotEqual),
+            (184, W_MethodContext.bytecodePrimMultiply),
+            (185, W_MethodContext.bytecodePrimDivide),
+            (186, W_MethodContext.bytecodePrimMod),
+            (187, W_MethodContext.bytecodePrimMakePoint),
+            (188, W_MethodContext.bytecodePrimBitShift),
+            (189, W_MethodContext.bytecodePrimDiv),
+            (190, W_MethodContext.bytecodePrimBitAnd),
+            (191, W_MethodContext.bytecodePrimBitOr),
+            (192, W_MethodContext.bytecodePrimAt),
+            (193, W_MethodContext.bytecodePrimAtPut),
+            (194, W_MethodContext.bytecodePrimSize),
+            (195, W_MethodContext.bytecodePrimNext),
+            (196, W_MethodContext.bytecodePrimNextPut),
+            (197, W_MethodContext.bytecodePrimAtEnd),
+            (198, W_MethodContext.bytecodePrimEquivalent),
+            (199, W_MethodContext.bytecodePrimClass),
+            (200, W_MethodContext.bytecodePrimBlockCopy),
+            (201, W_MethodContext.bytecodePrimValue),
+            (202, W_MethodContext.bytecodePrimValueWithArg),
+            (203, W_MethodContext.bytecodePrimDo),
+            (204, W_MethodContext.bytecodePrimNew),
+            (205, W_MethodContext.bytecodePrimNewWithArg),
+            (206, W_MethodContext.bytecodePrimPointX),
+            (207, W_MethodContext.bytecodePrimPointY),
+            (208, 255, W_MethodContext.sendLiteralSelectorBytecode),
             ]
 
 def initialize_bytecode_table():

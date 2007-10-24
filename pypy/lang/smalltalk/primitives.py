@@ -1,5 +1,5 @@
 import operator
-import pypy.lang.smalltalk.model as model
+from pypy.lang.smalltalk import model, mirror
 import pypy.lang.smalltalk.classtable as ct
 import pypy.lang.smalltalk.fakeimage as fimg
 from pypy.rlib import rarithmetic
@@ -205,12 +205,14 @@ STRING_AT_PUT = 64
 def common_at(stack):
     [w_obj, w_idx] = stack
     idx = unwrap_int(w_idx)
+    # XXX should be idx-1, probably
     assert_valid_index(idx, w_obj)
     return w_obj, idx
 
 def common_at_put(stack):
     [w_obj, w_idx, w_val] = stack
     idx = unwrap_int(w_idx)
+    # XXX should be idx-1, probably
     assert_valid_index(idx, w_obj)
     return w_obj, idx, w_val
 
@@ -231,7 +233,7 @@ def func(stack):
 @stack(1)
 def func(stack):
     [w_obj] = stack
-    if not w_obj.w_class.isvariable():
+    if not w_obj.getclassmirror().isvariable():
         raise PrimitiveFailedError()
     return w_obj.size()
 
@@ -246,7 +248,7 @@ def func(stack):
 @stack(3)
 def func(stack):
     w_obj, idx, w_val = common_at_put(stack)
-    if w_val.w_class is not ct.w_Character:
+    if w_val.getclassmirror() is not ct.m_Character:
         raise PrimitiveFailedError()
     w_obj.setbyte(idx, fimg.ord_w_char(w_val))
     return w_val
@@ -271,7 +273,8 @@ NEXT_INSTANCE = 78
 def func(stack):
     [w_rcvr, w_idx] = stack
     idx = unwrap_int(w_idx)
-    assert_bounds(idx, 0, w_rcvr.w_class.instvarsize)
+    # XXX should be idx-1, probably
+    assert_bounds(idx, 0, w_rcvr.getclassmirror().instance_size)
     return w_rcvr.fetch(idx)
 
 @primitive(OBJECT_AT_PUT)
@@ -279,7 +282,8 @@ def func(stack):
 def func(stack):
     [w_rcvr, w_idx, w_val] = stack
     idx = unwrap_int(w_idx)
-    assert_bounds(idx, 0, w_rcvr.w_class.instvarsize)
+    # XXX should be idx-1, probably
+    assert_bounds(idx, 0, w_rcvr.getclassmirror().instance_size)
     w_rcvr.store(idx, w_val)
     return w_val
 
@@ -287,18 +291,20 @@ def func(stack):
 @stack(1)
 def func(stack):
     [w_cls] = stack
-    if not isinstance(w_cls, model.W_Class) or w_cls.isvariable():
+    m_cls = mirror.mirrorcache.getmirror(w_cls)
+    if m_cls.isvariable():
         raise PrimitiveFailedError()
-    return w_cls.new()
+    return m_cls.new()
 
 @primitive(NEW_WITH_ARG)
 @stack(2)
 def func(stack):
     [w_cls, w_size] = stack
-    if not isinstance(w_cls, model.W_Class) or not w_cls.isvariable():
+    m_cls = mirror.mirrorcache.getmirror(w_cls)
+    if not m_cls.isvariable():
         raise PrimitiveFailedError()
     size = unwrap_int(w_size)
-    return w_cls.new(size)
+    return m_cls.new(size)
 
 @primitive(ARRAY_BECOME_ONE_WAY)
 def func(frame):
@@ -311,12 +317,12 @@ def func(stack):
     # Might be restricted to fixed length fields?
     [w_rcvr, w_idx] = stack
     idx = unwrap_int(w_idx)
-    w_cls = w_rcvr.w_class
+    m_cls = w_rcvr.getclassmirror()
     if idx < 0:
         raise PrimitiveFailedError()
-    if idx < w_cls.instvarsize:
+    if idx < m_cls.instsize():
         return w_rcvr.fetch(idx)
-    idx -= w_cls.instvarsize
+    idx -= m_cls.instsize()
     if idx < w_rcvr.size():
         return subscript(idx, w_rcvr)
     raise PrimitiveFailedError()

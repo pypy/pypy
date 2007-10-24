@@ -1,6 +1,7 @@
 import py
 from pypy.lang.smalltalk import model 
 from pypy.lang.smalltalk import fakeimage 
+from pypy.lang.smalltalk.mirror import mirrorcache
 from pypy.rlib import objectmodel
 
 def int2str(integer):
@@ -298,11 +299,11 @@ class GenericObject(object):
     def fillin_pointersobject(self, w_pointersobject):
         assert self.pointers is not None
         w_pointersobject.vars = [g_object.w_object for g_object in self.pointers]
-        w_pointersobject.w_class = self.g_class.w_object
+        w_pointersobject.m_class = mirrorcache.get_or_build(self.g_class.w_object)
         
     def fillin_wordsobject(self, w_wordsobject):
         w_wordsobject.words = self.chunk.data
-        w_wordsobject.w_class = self.g_class.w_object
+        w_wordsobject.m_class = mirrorcache.get_or_build(self.g_class.w_object)
 
     def fillin_bytesobject(self, w_bytesobject):
         bytes = []
@@ -311,7 +312,7 @@ class GenericObject(object):
             bytes.append(chr((each >> 16) & 0xff)) 
             bytes.append(chr((each >> 8) & 0xff)) 
             bytes.append(chr((each >> 0) & 0xff))
-        w_bytesobject.w_class = self.g_class.w_object
+        w_bytesobject.m_class = mirrorcache.get_or_build(self.g_class.w_object)
         w_bytesobject.bytes = bytes[:-(self.format & 3)] # omit odd bytes
  
     def fillin_compiledmethod(self, w_compiledmethod):
@@ -336,8 +337,9 @@ class GenericObject(object):
             l.append(int2str(each))
         bytes = "".join(l)
         bytes = bytes[:-(self.format & 3)] 
+        # XXX assert mirrorcache.get_or_build(self.g_class.w_object) is
+        #            ct.m_CompiledMethod
         w_compiledmethod.__init__(
-            w_class = self.g_class.w_object,
             size = literalsize,
             bytes = bytes,
             argsize = numargs,

@@ -1,6 +1,9 @@
 import py
-from pypy.lang.smalltalk import model, interpreter, primitives
+from pypy.lang.smalltalk import model, interpreter, primitives, mirror
+from pypy.lang.smalltalk.fakeimage import wrap_int
 import pypy.lang.smalltalk.classtable as ct
+
+mockclassmirror = ct.bootstrap_classmirror
 
 # expose the bytecode's values as global constants.
 # Bytecodes that have a whole range are exposed as global functions:
@@ -24,7 +27,7 @@ setup()
 
 def new_interpreter(bytes, receiver="receiver"):
     assert isinstance(bytes, str)
-    w_method = model.W_CompiledMethod(None, 0, bytes=bytes,
+    w_method = model.W_CompiledMethod(0, bytes=bytes,
                                       argsize=2, tempsize=1)
     w_frame = w_method.createFrame(receiver, ["foo", "bar"])
     interp = interpreter.Interpreter()
@@ -32,7 +35,7 @@ def new_interpreter(bytes, receiver="receiver"):
     return interp
 
 def test_create_frame():
-    w_method = model.W_CompiledMethod(None, 0, bytes="hello",
+    w_method = model.W_CompiledMethod(0, bytes="hello",
                                       argsize=2, tempsize=1)
     w_frame = w_method.createFrame("receiver", ["foo", "bar"])
     assert w_frame.receiver == "receiver"
@@ -73,8 +76,7 @@ def test_pushReceiverBytecode():
 def test_pushReceiverVariableBytecode(bytecode = (pushReceiverVariableBytecode(0) +
                                                   pushReceiverVariableBytecode(1) +
                                                   pushReceiverVariableBytecode(2))):
-    w_democlass = model.W_Class(None, None, 3)
-    w_demo = w_democlass.new()
+    w_demo = mockclassmirror(3).new()
     w_demo.store(0, "egg")
     w_demo.store(1, "bar")
     w_demo.store(2, "baz")
@@ -105,8 +107,7 @@ def test_pushLiteralConstantBytecode(bytecode=pushLiteralConstantBytecode(0) +
     assert interp.activeContext.stack == ["a", "b", "c"]
 
 def test_pushLiteralVariableBytecode(bytecode=pushLiteralVariableBytecode(0)):
-    w_associationclass = model.W_Class(None, None, 2)
-    w_association = w_associationclass.new()
+    w_association = mockclassmirror(2).new()
     w_association.store(0, "mykey")
     w_association.store(1, "myvalue")
     interp = new_interpreter(bytecode)
@@ -116,9 +117,9 @@ def test_pushLiteralVariableBytecode(bytecode=pushLiteralVariableBytecode(0)):
 
 def test_storeAndPopReceiverVariableBytecode(bytecode=storeAndPopReceiverVariableBytecode,
                                              popped=True):
-    w_class = model.W_Class(None, None, 8)
+    m_class = mockclassmirror(8)
     for index in range(8):
-        w_object = w_class.new()
+        w_object = m_class.new()
         interp = new_interpreter(pushConstantTrueBytecode + bytecode(index))
         interp.activeContext.receiver = w_object
         interp.step()
@@ -194,18 +195,18 @@ def test_duplicateTopBytecode():
     interp.step()
     assert interp.activeContext.stack == [interp.ZERO, interp.ZERO]
 
-# w_class - the class from which the method is going to be called
+# m_class - the class from which the method is going to be called
 # (and on which it is going to be installed)
 # w_object - the actual object we will be sending the method to
 # bytecodes - the bytecode to be executed
-def sendBytecodesTest(w_class, w_object, bytecodes):
+def sendBytecodesTest(m_class, w_object, bytecodes):
     for bytecode, result in [ (returnReceiver, w_object), 
           (returnTrue, interpreter.Interpreter.TRUE), 
           (returnFalse, interpreter.Interpreter.FALSE),
           (returnNil, interpreter.Interpreter.NIL),
           (returnTopFromMethod, interpreter.Interpreter.ONE) ]:
-        w_class.installmethod("foo",
-                              model.W_CompiledMethod(None, 0, pushConstantOneBytecode + bytecode))
+        m_class.installmethod("foo",
+                              model.W_CompiledMethod(0, pushConstantOneBytecode + bytecode))
         interp = new_interpreter(bytecodes)
         interp.activeContext.method.literals = ["foo"]
         interp.activeContext.push(w_object)
@@ -214,7 +215,7 @@ def sendBytecodesTest(w_class, w_object, bytecodes):
         assert interp.activeContext.sender == callerContext
         assert interp.activeContext.stack == []
         assert interp.activeContext.receiver == w_object
-        assert interp.activeContext.method == w_class.methoddict["foo"]
+        assert interp.activeContext.method == m_class.methoddict["foo"]
         assert callerContext.stack == []
         interp.step()
         interp.step()
@@ -222,42 +223,42 @@ def sendBytecodesTest(w_class, w_object, bytecodes):
         assert interp.activeContext.stack == [result]
 
 def test_sendLiteralSelectorBytecode():
-    w_class = model.W_Class(None, None)
-    w_object = w_class.new()
-    sendBytecodesTest(w_class, w_object, sendLiteralSelectorBytecode(0))
+    m_class = mockclassmirror(0)
+    w_object = m_class.new()
+    sendBytecodesTest(m_class, w_object, sendLiteralSelectorBytecode(0))
         
 def test_fibWithArgument():
     bytecode = ''.join(map(chr, [ 16, 119, 178, 154, 118, 164, 11, 112, 16, 118, 177, 224, 112, 16, 119, 177, 224, 176, 124 ]))
-    w_class = model.W_Class(None, None)
-    w_class.installmethod("fib:", model.W_CompiledMethod(None, 1, bytecode, 1))
-    w_class.methoddict["fib:"].literals[0] = "fib:"
-    w_object = w_class.new()
+    m_class = mockclassmirror(0)
+    method = model.W_CompiledMethod(1, bytecode, 1)
+    method.literals[0] = "fib:"
+    m_class.installmethod("fib:", method)
+    w_object = m_class.new()
     interp = new_interpreter(sendLiteralSelectorBytecode(16) + returnTopFromMethod)
     interp.activeContext.method.literals = ["fib:"]
     interp.activeContext.push(w_object)
-    interp.activeContext.push(model.W_SmallInteger(None, 8))
+    interp.activeContext.push(wrap_int(8))
     result = interp.interpret()
     assert primitives.unwrap_int(result) == 34
 
 def test_send_to_primitive():
-    w_smallintclass = model.W_Class(None, None)
-    prim_meth = model.W_CompiledMethod(None, 0, "", argsize=1,
+    m_smallintclass = ct.m_SmallInteger
+    prim_meth = model.W_CompiledMethod(0, "", argsize=1,
                                        primitive=primitives.SUBTRACT)
-    w_smallintclass.installmethod("sub", prim_meth)
-    w_50 = model.W_SmallInteger(w_smallintclass, 50)
-    w_50.w_class = w_smallintclass
-    w_8 = model.W_SmallInteger(w_smallintclass, 8)
-    w_8.w_class = w_smallintclass
-    interp = new_interpreter(sendLiteralSelectorBytecode(1 + 16))
-    interp.activeContext.method.literals = ["foo", "sub"]
-    interp.activeContext.push(w_50)
-    interp.activeContext.push(w_8)
-    callerContext = interp.activeContext
-    interp.step()
-    assert interp.activeContext is callerContext
-    assert len(interp.activeContext.stack) == 1
-    w_result = interp.activeContext.pop()
-    assert primitives.unwrap_int(w_result) == 42
+    m_smallintclass.installmethod("sub", prim_meth)
+    try:
+        interp = new_interpreter(sendLiteralSelectorBytecode(1 + 16))
+        interp.activeContext.method.literals = ["foo", "sub"]
+        interp.activeContext.push(wrap_int(50))
+        interp.activeContext.push(wrap_int(8))
+        callerContext = interp.activeContext
+        interp.step()
+        assert interp.activeContext is callerContext
+        assert len(interp.activeContext.stack) == 1
+        w_result = interp.activeContext.pop()
+        assert primitives.unwrap_int(w_result) == 42
+    finally:
+        del m_smallintclass.methoddict['sub']    # clean up after you
 
 def test_longJumpIfTrue():
     interp = new_interpreter(longJumpIfTrue(0) + chr(15) + longJumpIfTrue(0) + chr(15))
@@ -330,8 +331,7 @@ def test_extendedPushBytecode():
     test_pushLiteralVariableBytecode(extendedPushBytecode + chr((3<<6) + 0))
 
 def storeAssociation(bytecode):
-    w_associationclass = model.W_Class(None, None, 2)
-    w_association = w_associationclass.new()
+    w_association = mockclassmirror(2).new()
     w_association.store(0, "mykey")
     w_association.store(1, "myvalue")
     interp = new_interpreter(pushConstantOneBytecode + bytecode)
@@ -353,13 +353,13 @@ def test_extendedStoreAndPopBytecode():
 
 def test_callPrimitiveAndPush_fallback():
     interp = new_interpreter(bytecodePrimAdd)
-    w_class = model.W_Class(None, None)
-    w_class.installmethod("+", model.W_CompiledMethod(None, 1, "", 1))
-    w_object = w_class.new()
+    m_class = mockclassmirror(0)
+    m_class.installmethod("+", model.W_CompiledMethod(1, "", 1))
+    w_object = m_class.new()
     interp.activeContext.push(w_object)
     interp.activeContext.push(interp.ONE)
     interp.step()
-    assert interp.activeContext.method == w_class.methoddict["+"]
+    assert interp.activeContext.method == m_class.methoddict["+"]
     assert interp.activeContext.receiver is w_object
     assert interp.activeContext.gettemp(0) == interp.ONE
     assert interp.activeContext.stack == []
@@ -380,49 +380,49 @@ def test_bytecodePrimBool():
                                           interp.FALSE, interp.TRUE]
 
 def test_singleExtendedSendBytecode():
-    w_class = model.W_Class(None, None)
-    w_object = w_class.new()
-    sendBytecodesTest(w_class, w_object, singleExtendedSendBytecode + chr((0<<5)+0))
+    m_class = mockclassmirror(0)
+    w_object = m_class.new()
+    sendBytecodesTest(m_class, w_object, singleExtendedSendBytecode + chr((0<<5)+0))
 
 def test_singleExtendedSuperBytecode(bytecode=singleExtendedSuperBytecode + chr((0<<5) + 0)):
-    w_supersuper = model.W_Class(None, None)
-    w_super = model.W_Class(None, w_supersuper)
-    w_class = model.W_Class(None, w_super)
-    w_object = w_class.new()
-    # first call method installed in w_class
+    m_supersuper = mockclassmirror(0)
+    m_super = mockclassmirror(0, m_superclass=m_supersuper)
+    m_class = mockclassmirror(0, m_superclass=m_super)
+    w_object = m_class.new()
+    # first call method installed in m_class
     bytecodes = singleExtendedSendBytecode + chr(0)
     # which does a call to its super
-    w_class.installmethod("foo",
-                          model.W_CompiledMethod(None, 0, bytecode))
+    m_class.installmethod("foo",
+                          model.W_CompiledMethod(0, bytecode))
     # and that one again to its super
-    w_super.installmethod("foo",
-                          model.W_CompiledMethod(None, 0, bytecode))
-    w_supersuper.installmethod("foo",
-                               model.W_CompiledMethod(None, 0, ""))
-    w_class.methoddict["foo"].literals = ["foo"]
-    w_super.methoddict["foo"].literals = ["foo"]
+    m_super.installmethod("foo",
+                          model.W_CompiledMethod(0, bytecode))
+    m_supersuper.installmethod("foo",
+                               model.W_CompiledMethod(0, ""))
+    m_class.methoddict["foo"].literals = ["foo"]
+    m_super.methoddict["foo"].literals = ["foo"]
     interp = new_interpreter(bytecodes)
     interp.activeContext.method.literals = ["foo"]
     interp.activeContext.push(w_object)
-    for w_specificclass in [w_class, w_super, w_supersuper]:
+    for m_specificclass in [m_class, m_super, m_supersuper]:
         callerContext = interp.activeContext
         interp.step()
         assert interp.activeContext.sender == callerContext
         assert interp.activeContext.stack == []
         assert interp.activeContext.receiver == w_object
-        assert interp.activeContext.method == w_specificclass.methoddict["foo"]
+        assert interp.activeContext.method == m_specificclass.methoddict["foo"]
         assert callerContext.stack == []
 
 def test_secondExtendedSendBytecode():
-    w_class = model.W_Class(None, None)
-    w_object = w_class.new()
-    sendBytecodesTest(w_class, w_object, secondExtendedSendBytecode + chr(0)) 
+    m_class = mockclassmirror(0)
+    w_object = m_class.new()
+    sendBytecodesTest(m_class, w_object, secondExtendedSendBytecode + chr(0)) 
 
 def test_doubleExtendedDoAnythinBytecode():
-    w_class = model.W_Class(None, None)
-    w_object = w_class.new()
+    m_class = mockclassmirror(0)
+    w_object = m_class.new()
 
-    sendBytecodesTest(w_class, w_object, doubleExtendedDoAnythingBytecode + chr((0<<5) + 0) + chr(0))
+    sendBytecodesTest(m_class, w_object, doubleExtendedDoAnythingBytecode + chr((0<<5) + 0) + chr(0))
 
     test_singleExtendedSuperBytecode(doubleExtendedDoAnythingBytecode + (chr((1<<5) + 0) + chr(0)))
 
