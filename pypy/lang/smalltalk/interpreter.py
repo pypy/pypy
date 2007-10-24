@@ -337,19 +337,19 @@ class W_ContextFrame(model.W_Object):
         self.callPrimitiveAndPush(primitives.DIV, "//", 1, interp)
 
     def bytecodePrimBitAnd(self, interp):
-        self.callPrimitiveAndPush(primitives.BIT_AND, "&&", 1, interp)
+        self.callPrimitiveAndPush(primitives.BIT_AND, "&", 1, interp)
 
     def bytecodePrimBitOr(self, interp):
-        self.callPrimitiveAndPush(primitives.BIT_OR, "||", 1, interp)
+        self.callPrimitiveAndPush(primitives.BIT_OR, "|", 1, interp)
 
     def bytecodePrimAt(self, interp):
-        raise MissingBytecode
+        self.callPrimitiveAndPush(primitives.AT, "at:", 1, interp)
 
     def bytecodePrimAtPut(self, interp):
-        raise MissingBytecode
+        self.callPrimitiveAndPush(primitives.AT_PUT, "at:put:", 2, interp)
 
     def bytecodePrimSize(self, interp):
-        raise MissingBytecode
+        self.callPrimitiveAndPush(primitives.SIZE, "size", 0, interp)
 
     def bytecodePrimNext(self, interp):
         raise MissingBytecode
@@ -376,19 +376,19 @@ class W_ContextFrame(model.W_Object):
         raise MissingBytecode
 
     def bytecodePrimDo(self, interp):
-        raise MissingBytecode
+        self._sendSelfSelector("do:", 1, interp)
 
     def bytecodePrimNew(self, interp):
-        raise MissingBytecode
+        self.callPrimitiveAndPush(primitives.NEW, "new", 0, interp)
 
     def bytecodePrimNewWithArg(self, interp):
-        raise MissingBytecode
+        self.callPrimitiveAndPush(primitives.NEW_WITH_ARG, "new:", 1, interp)
 
     def bytecodePrimPointX(self, interp):
-        raise MissingBytecode
+        self._sendSelfSelector("x", 0, interp)
 
     def bytecodePrimPointY(self, interp):
-        raise MissingBytecode
+        self._sendSelfSelector("y", 0, interp)
 
 
 class Interpreter:
