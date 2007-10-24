@@ -37,10 +37,11 @@ def wrap_bool(bool):
 
 def make_char_table():
     global CharacterTable
-    def make_char(i):
+    def bld_char(i):
         w_cinst = ct.w_Character.new()
         w_cinst.setnamedvar(0, small_int(i))
-    CharacterTable = [make_char(i) for i in range(256)]
+        return w_cinst
+    CharacterTable = [bld_char(i) for i in range(256)]
 make_char_table()
 
 w_true  = ct.w_True.new()

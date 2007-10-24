@@ -14,6 +14,8 @@ def wrap(x):
     if isinstance(x, int): return fimg.small_int(x)
     if isinstance(x, float): return fimg.wrap_float(x)
     if isinstance(x, model.W_Object): return x
+    if isinstance(x, str) and len(x) == 1: return fimg.make_char(x)
+    if isinstance(x, str): return fimg.make_string(x)
     raise NotImplementedError
     
 def mock(stack):
@@ -68,9 +70,13 @@ def test_invalid_at_put():
     prim_fails(p.AT_PUT, [w_obj, 0, 22])
 
 def test_string_at():
-    w_str = fimg.make_string("foobar")
-    assert prim(p.STRING_AT, [w_str, 3]) == \
-           fimg.make_char("b")
+    assert prim(p.STRING_AT, ["foobar", 3]) == wrap("b")
+
+def test_string_at_put():
+    assert prim(p.STRING_AT_PUT, ["foobar", 3, "c"]) == wrap("c")
+    exp = "foocar"
+    for i in range(6):
+        assert prim(p.STRING_AT, [exp, i]) == wrap(exp[i])
 
 def test_boolean():
     assert prim(p.LESSTHAN, [1,2]) == fimg.w_true
