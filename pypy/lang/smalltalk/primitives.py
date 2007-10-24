@@ -30,25 +30,36 @@ def is_valid_index(idx, w_obj):
 prim_table = [None] * 127
 
 def primitive(code):
-    def f(func):
+    def decorator(func):
         prim_table[code] = func
         return func
-    return f
+    return decorator
+
+def stack(n):
+    def decorator(wrapped):
+        def result(frame):
+            items = [frame.peek(i) for i in range(n)]
+            res = wrapped(items)
+            frame.pop_n(n)   # only if no exception occurs!
+            return res
+        return result
+    return decorator
 
 # ___________________________________________________________________________
 # Small Integer Primitives
 
 ADD = 1
 SUBTRACT = 2
+MAKE_POINT = 18
 
 math_ops = {
     ADD: operator.add,
     SUBTRACT: operator.sub
     }
 for (code,op) in math_ops.items():
-    def func(frame, op=op): # n.b. capture op value
-        w_v1 = frame.peek(1)
-        w_v2 = frame.peek(0)
+    @stack(2)
+    def func(stack, op=op): # n.b. capture op value
+        [w_v2, w_v1] = stack
         v1 = unwrap_int(w_v1)
         v2 = unwrap_int(w_v2)
         res = op(v1, v2)
@@ -58,11 +69,9 @@ for (code,op) in math_ops.items():
         if res < -1073741824: raise PrimitiveFailedError()
         
         w_res = fimg.small_int(res)
-        frame.pop_n(2)
         return w_res
     prim_table[code] = func
 
-MAKE_POINT = 18
 @primitive(MAKE_POINT)
 def primitivemakepoint(frame):
     raise PrimitiveNotYetWrittenError(MAKE_POINT)
@@ -86,13 +95,12 @@ math_ops = {
     FLOAT_SUBTRACT: operator.sub
     }
 for (code,op) in math_ops.items():
-    def func(frame, op=op): # n.b. capture op value
-        w_v1 = frame.peek(0)
-        w_v2 = frame.peek(1)
+    @stack(2)
+    def func(res, op=op): # n.b. capture op value
+        [w_v2, w_v1] = res
         v1 = unwrap_float(w_v1)
         v2 = unwrap_float(w_v2)
         w_res = fimg.wrap_float(op(v1, v2))
-        frame.pop_n(2)
         return w_res
     prim_table[code] = func
 
@@ -105,59 +113,56 @@ SIZE = 62
 STRING_AT = 63
 STRING_AT_PUT = 64
 
-def common_at(frame):
-    w_idx = frame.peek(0)
-    w_obj = frame.peek(1)
+def common_at(stack):
+    [w_idx, w_obj] = stack
     idx = unwrap_int(w_idx)
     if not is_valid_index(idx, w_obj):
         raise PrimitiveFailedError()
-    frame.pop_n(2)
     return idx, w_obj
 
-def common_at_put(frame):
-    w_val = frame.peek(0)
-    w_idx = frame.peek(1)
-    w_obj = frame.peek(2)
+def common_at_put(stack):
+    [w_val, w_idx, w_obj] = stack
     idx = unwrap_int(w_idx)
     if not is_valid_index(idx, w_obj):
         raise PrimitiveFailedError()
-    frame.pop_n(2)
-    return idx, w_obj
+    return w_val, idx, w_obj
 
 @primitive(AT)
-def func(frame):
-    idx, w_obj = common_at(frame)
+@stack(2)
+def func(stack):
+    idx, w_obj = common_at(stack)
     return w_obj.getindexedvar(idx)
 
 @primitive(AT_PUT)
-def func(frame):
-    w_val = frame.peek(0)
-    w_idx = frame.peek(1)
-    w_obj = frame.peek(2)
-    idx = unwrap_int(w_idx)
-    if not is_valid_index(idx, w_obj):
-        raise PrimitiveFailedError()
+@stack(3)
+def func(stack):
+    w_val, idx, w_obj = common_at_put(stack)
     w_obj.setindexedvar(idx, w_val)
-    frame.pop_n(3)
     return w_val
 
 @primitive(SIZE)
-def func(frame):
-    w_obj = frame.peek(0)
+@stack(1)
+def func(stack):
+    [w_obj] = stack
     if not w_obj.w_class.isindexable():
         raise PrimitiveFailedError()
-    frame.pop_n(1)
     return w_obj.size()
 
 @primitive(STRING_AT)
-def func(frame):
-    idx, w_obj = common_at(frame)
+@stack(2)
+def func(stack):
+    idx, w_obj = common_at(stack)
     byte = w_obj.getbyte(idx)
     return fimg.CharacterTable[byte]
 
 @primitive(STRING_AT_PUT)
-def func(frame):
-    raise PrimitiveNotYetWrittenError()
+@stack(3)
+def func(stack):
+    w_val, idx, w_obj = common_at_put(stack)
+    if w_val.w_class is not ct.w_Character:
+        raise PrimitiveFailedError()
+    w_obj.setbyte(idx, fimg.ord_w_char(w_val))
+    return w_val
 
 # ___________________________________________________________________________
 # Boolean Primitives

@@ -19,50 +19,71 @@ def wrap(x):
 def mock(stack):
     mapped_stack = [wrap(x) for x in stack]
     return MockFrame(mapped_stack)
-        
+
+def prim(code, stack):
+    stack_w = mock(stack)
+    res = prim_table[code](stack_w)
+    assert not len(stack_w.stack)    # only pass as many arguments as it uses
+    return res
+
+def prim_fails(code, stack):
+    stack_w = mock(stack)
+    orig_stack = list(stack_w.stack)
+    try:
+        prim_table[code](stack_w)
+        py.test.fail("Expected PrimitiveFailedError")
+    except PrimitiveFailedError:
+        assert stack_w.stack == orig_stack
+
 def test_small_int_plus():
-    assert prim_table[p.ADD](mock([1,2])).value == 3
-    assert prim_table[p.ADD](mock([3,4])).value == 7
+    assert prim(p.ADD, [1,2]).value == 3
+    assert prim(p.ADD, [3,4]).value == 7
 
 def test_small_int_minus():
-    assert prim_table[p.SUBTRACT](mock([5,9])).value == -4
+    assert prim(p.SUBTRACT, [5,9]).value == -4
 
 def test_small_int_overflow():
-    def f():
-        prim_table[p.ADD](mock([1073741823,2]))
-    py.test.raises(PrimitiveFailedError, f)
+    prim_fails(p.ADD, [1073741823,2])
     
 def test_float():
-    assert prim_table[p.FLOAT_ADD](mock([1.0,2.0])).value == 3.0
-    assert prim_table[p.FLOAT_ADD](mock([3,4.5])).value == 7.5
+    assert prim(p.FLOAT_ADD, [1.0,2.0]).value == 3.0
+    assert prim(p.FLOAT_ADD, [3,4.5]).value == 7.5
 
 def test_at():
     w_obj = model.W_Class(None, None, 0, format=model.VAR_POINTERS).new(1)
     w_obj.setindexedvar(0, "foo")
-    assert prim_table[p.AT](mock([w_obj, 0])) == "foo"
+    assert prim(p.AT, [w_obj, 0]) == "foo"
+
+def test_invalid_at():
+    w_obj = model.W_Class(None, None, 0, format=model.POINTERS).new()
+    prim_fails(p.AT, [w_obj, 0])
 
 def test_at_put():
     w_obj = model.W_Class(None, None, 0, format=model.VAR_POINTERS).new(1)
-    assert prim_table[p.AT_PUT](mock([w_obj, 0, 22])).value == 22
-    assert prim_table[p.AT](mock([w_obj, 0])).value == 22
+    assert prim(p.AT_PUT, [w_obj, 0, 22]).value == 22
+    assert prim(p.AT, [w_obj, 0]).value == 22
     
+def test_invalid_at_put():
+    w_obj = model.W_Class(None, None, 0, format=model.POINTERS).new()
+    prim_fails(p.AT_PUT, [w_obj, 0, 22])
+
 def test_string_at():
     w_str = fimg.make_string("foobar")
-    assert prim_table[p.STRING_AT](mock([w_str, 3])) == \
+    assert prim(p.STRING_AT, [w_str, 3]) == \
            fimg.make_char("b")
 
 def test_boolean():
-    assert prim_table[p.LESSTHAN](mock([1,2])) == fimg.w_true
-    assert prim_table[p.GREATERTHAN](mock([3,4])) == fimg.w_false
-    assert prim_table[p.LESSOREQUAL](mock([1,2])) == fimg.w_true
-    assert prim_table[p.GREATEROREQUAL](mock([3,4])) == fimg.w_false
-    assert prim_table[p.EQUAL](mock([2,2])) == fimg.w_true
-    assert prim_table[p.NOTEQUAL](mock([2,2])) == fimg.w_false
+    assert prim(p.LESSTHAN, [1,2]) == fimg.w_true
+    assert prim(p.GREATERTHAN, [3,4]) == fimg.w_false
+    assert prim(p.LESSOREQUAL, [1,2]) == fimg.w_true
+    assert prim(p.GREATEROREQUAL, [3,4]) == fimg.w_false
+    assert prim(p.EQUAL, [2,2]) == fimg.w_true
+    assert prim(p.NOTEQUAL, [2,2]) == fimg.w_false
 
 def test_float_boolean():
-    assert prim_table[p.FLOAT_LESSTHAN](mock([1.0,2.0])) == fimg.w_true
-    assert prim_table[p.FLOAT_GREATERTHAN](mock([3.0,4.0])) == fimg.w_false
-    assert prim_table[p.FLOAT_LESSOREQUAL](mock([1.3,2.6])) == fimg.w_true
-    assert prim_table[p.FLOAT_GREATEROREQUAL](mock([3.5,4.9])) == fimg.w_false
-    assert prim_table[p.FLOAT_EQUAL](mock([2.2,2.2])) == fimg.w_true
-    assert prim_table[p.FLOAT_NOTEQUAL](mock([2.2,2.2])) == fimg.w_false
+    assert prim(p.FLOAT_LESSTHAN, [1.0,2.0]) == fimg.w_true
+    assert prim(p.FLOAT_GREATERTHAN, [3.0,4.0]) == fimg.w_false
+    assert prim(p.FLOAT_LESSOREQUAL, [1.3,2.6]) == fimg.w_true
+    assert prim(p.FLOAT_GREATEROREQUAL, [3.5,4.9]) == fimg.w_false
+    assert prim(p.FLOAT_EQUAL, [2.2,2.2]) == fimg.w_true
+    assert prim(p.FLOAT_NOTEQUAL, [2.2,2.2]) == fimg.w_false
