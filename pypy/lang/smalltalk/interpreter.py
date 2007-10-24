@@ -196,7 +196,10 @@ class W_ContextFrame(model.W_Object):
         self.pop()
 
     def singleExtendedSendBytecode(self, interp):
-        raise MissingBytecode
+        descriptor = self.getByte()
+        selector = self.method.literals[descriptor & 31]
+        argcount = descriptor >> 5
+        self._sendSelector(selector, argcount, interp)
 
     def doubleExtendedDoAnythingBytecode(self, interp):
         raise MissingBytecode
