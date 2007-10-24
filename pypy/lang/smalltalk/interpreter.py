@@ -120,15 +120,14 @@ class W_ContextFrame(model.W_Object):
     def _sendSelfSelector(self, selector, argcount, interp):
         receiver = self.peek(argcount)
         self._sendSelector(selector, argcount, interp,
-                           receiver.w_class)
+                           receiver, receiver.w_class)
 
     def _sendSuperSelector(self, selector, argcount, interp):
-        receiver = self.peek(argcount)
-        self._sendSelector(selector, argcount, interp,
-                           receiver.w_class.w_superclass)
+        self._sendSelector(selector, argcount, interp, self.receiver,
+                           self.method.w_compiledin.w_superclass)
 
-    def _sendSelector(self, selector, argcount, interp, receiverclass):
-        receiver = self.peek(argcount)
+    def _sendSelector(self, selector, argcount, interp,
+                      receiver, receiverclass):
         method = receiverclass.lookup(selector)
         assert method
         if method.primitive:
@@ -221,7 +220,10 @@ class W_ContextFrame(model.W_Object):
         self._sendSuperSelector(selector, argcount, interp)
 
     def secondExtendedSendBytecode(self, interp):
-        raise MissingBytecode
+        descriptor = self.getByte()
+        selector = self.method.literals[descriptor & 63]
+        argcount = descriptor >> 6
+        self._sendSelfSelector(selector, argcount, interp)
 
     def popStackBytecode(self, interp):
         self.pop()

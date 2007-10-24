@@ -93,10 +93,11 @@ class W_CompiledMethod(W_Object):
 
     The trailer has two variant formats.  In the first variant, the last byte is at least 252 and the last four bytes represent a source pointer into one of the sources files (see #sourcePointer).  In the second variant, the last byte is less than 252, and the last several bytes are a compressed version of the names of the method's temporary variables.  The number of bytes used for this purpose is the value of the last byte in the method.
     """
-    def __init__(self, w_class, size,
-                 bytes="", argsize=0, tempsize=0, primitive=0):
+    def __init__(self, w_class, size, bytes="", argsize=0, 
+                 tempsize=0, primitive=0, w_compiledin=None):
         W_Object.__init__(self, w_class)
         self.literals = [None] * size
+        self.w_compiledin = w_compiledin
         self.bytes = bytes
         self.argsize = argsize
         self.tempsize = tempsize
@@ -154,6 +155,10 @@ class W_Class(W_Object):
             return self.w_superclass.lookup(selector)
         else:
             return None
+
+    def installmethod(self, selector, method):
+        self.methoddict[selector] = method
+        method.w_compiledin = self
 
 class W_MetaClass(W_Class):
     def ismetaclass(self):

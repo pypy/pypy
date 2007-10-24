@@ -67,3 +67,10 @@ def test_method_lookup():
 	assert w_subclass.lookup("foo") == 3
 	assert w_subclass.lookup("bar") == 2
 	assert w_subclass.lookup("zork") == None
+
+def test_w_compiledin():
+        w_super = model.W_Class(None,None)
+        w_class = model.W_Class(None,w_super)
+        w_super.installmethod("foo",
+                              model.W_CompiledMethod(None, 0))
+        assert w_class.lookup("foo").w_compiledin == w_super

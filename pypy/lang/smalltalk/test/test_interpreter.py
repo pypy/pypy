@@ -200,7 +200,8 @@ def sendBytecodesTest(w_class, w_object, bytecodes):
           (returnFalse, interpreter.Interpreter.FALSE),
           (returnNil, interpreter.Interpreter.NIL),
           (returnTopFromMethod, interpreter.Interpreter.ONE) ]:
-        w_class.methoddict["foo"] = model.W_CompiledMethod(None, 0, pushConstantOneBytecode + bytecode)
+        w_class.installmethod("foo",
+                              model.W_CompiledMethod(None, 0, pushConstantOneBytecode + bytecode))
         interp = new_interpreter(bytecodes)
         interp.activeContext.method.literals = ["foo"]
         interp.activeContext.push(w_object)
@@ -224,7 +225,7 @@ def test_sendLiteralSelectorBytecode():
 def test_fibWithArgument():
     bytecode = ''.join(map(chr, [ 16, 119, 178, 154, 118, 164, 11, 112, 16, 118, 177, 224, 112, 16, 119, 177, 224, 176, 124 ]))
     w_class = model.W_Class(None, None)
-    w_class.methoddict["fib:"] = model.W_CompiledMethod(None, 1, bytecode, 1)
+    w_class.installmethod("fib:", model.W_CompiledMethod(None, 1, bytecode, 1))
     w_class.methoddict["fib:"].literals[0] = "fib:"
     w_object = w_class.new()
     interp = new_interpreter(sendLiteralSelectorBytecode(16) + returnTopFromMethod)
@@ -238,7 +239,7 @@ def test_send_to_primitive():
     w_smallintclass = model.W_Class(None, None)
     prim_meth = model.W_CompiledMethod(None, 0, "", argsize=1,
                                        primitive=primitives.SUBTRACT)
-    w_smallintclass.methoddict["sub"] = prim_meth
+    w_smallintclass.installmethod("sub", prim_meth)
     w_50 = model.W_SmallInteger(w_smallintclass, 50)
     w_50.w_class = w_smallintclass
     w_8 = model.W_SmallInteger(w_smallintclass, 8)
@@ -386,7 +387,7 @@ def test_extendedStoreAndPopBytecode1():
 def test_callPrimitiveAndPush_fallback():
     interp = new_interpreter(bytecodePrimAdd)
     w_class = model.W_Class(None, None)
-    w_class.methoddict["+"] = model.W_CompiledMethod(None, 1, "", 1)
+    w_class.installmethod("+", model.W_CompiledMethod(None, 1, "", 1))
     w_object = w_class.new()
     interp.activeContext.push(w_object)
     interp.activeContext.push(interp.ONE)
@@ -417,8 +418,35 @@ def test_singleExtendedSendBytecode():
     sendBytecodesTest(w_class, w_object, singleExtendedSendBytecode + chr(0))
 
 def test_singleExtendedSuperBytecode():
-    w_super = model.W_Class(None, None)
+    w_supersuper = model.W_Class(None, None)
+    w_super = model.W_Class(None, w_supersuper)
     w_class = model.W_Class(None, w_super)
     w_object = w_class.new()
-    sendBytecodesTest(w_super, w_object, singleExtendedSuperBytecode + chr(0))
- 
+    # first call method installed in w_class
+    bytecodes = singleExtendedSendBytecode + chr(0)
+    # which does a call to its super
+    w_class.installmethod("foo",
+                          model.W_CompiledMethod(None, 0, singleExtendedSuperBytecode + chr(0)))
+    # and that one again to its super
+    w_super.installmethod("foo",
+                          model.W_CompiledMethod(None, 0, singleExtendedSuperBytecode + chr(0)))
+    w_supersuper.installmethod("foo",
+                               model.W_CompiledMethod(None, 0, ""))
+    w_class.methoddict["foo"].literals = ["foo"]
+    w_super.methoddict["foo"].literals = ["foo"]
+    interp = new_interpreter(bytecodes)
+    interp.activeContext.method.literals = ["foo"]
+    interp.activeContext.push(w_object)
+    for w_specificclass in [w_class, w_super, w_supersuper]:
+        callerContext = interp.activeContext
+        interp.step()
+        assert interp.activeContext.sender == callerContext
+        assert interp.activeContext.stack == []
+        assert interp.activeContext.receiver == w_object
+        assert interp.activeContext.method == w_specificclass.methoddict["foo"]
+        assert callerContext.stack == []
+
+def test_secondExtendedSendBytecode():
+    w_class = model.W_Class(None, None)
+    w_object = w_class.new()
+    sendBytecodesTest(w_class, w_object, secondExtendedSendBytecode + chr(0)) 
