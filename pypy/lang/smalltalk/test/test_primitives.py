@@ -73,10 +73,11 @@ def test_string_at():
     assert prim(p.STRING_AT, ["foobar", 3]) == wrap("b")
 
 def test_string_at_put():
-    assert prim(p.STRING_AT_PUT, ["foobar", 3, "c"]) == wrap("c")
+    test_str = wrap("foobar")
+    assert prim(p.STRING_AT_PUT, [test_str, 3, "c"]) == wrap("c")
     exp = "foocar"
-    for i in range(6):
-        assert prim(p.STRING_AT, [exp, i]) == wrap(exp[i])
+    for i in range(len(exp)):
+        assert prim(p.STRING_AT, [test_str, i]) == wrap(exp[i])
 
 def test_boolean():
     assert prim(p.LESSTHAN, [1,2]) == fimg.w_true
