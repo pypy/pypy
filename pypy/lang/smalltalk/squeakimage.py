@@ -182,8 +182,6 @@ class SqueakImage(object):
         return self.special_objects[index]  
         
 COMPACT_CLASSES_ARRAY = 28
-FLOAT_CLASS = 9
-          
 
 # ____________________________________________________________
 
