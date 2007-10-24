@@ -66,3 +66,10 @@ def test_m_compiledin():
 def test_hashes():
     w_five = model.W_SmallInteger(5)
     assert w_five.gethash() == 5
+    m_class = mockclassmirror(0)
+    w_inst = m_class.new()
+    assert w_inst.hash == w_inst.UNASSIGNED_HASH
+    h1 = w_inst.gethash()
+    h2 = w_inst.gethash()
+    assert h1 == h2
+    assert h1 == w_inst.hash

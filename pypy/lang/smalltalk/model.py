@@ -1,3 +1,7 @@
+import sys
+from pypy.rlib import rrandom
+from pypy.rlib.rarithmetic import intmask
+
 
 class W_Object(object):
 
@@ -47,27 +51,41 @@ class W_Float(W_Object):
     def __str__(self):
         return "Float(%f)" % self.value
 
-class W_ObjectWithStoredClass(W_Object):
+class W_AbstractObjectWithIdentityHash(W_Object):
+    #XXX maybe this is too extreme, but it's very random
+    hash_generator = rrandom.Random()
+    UNASSIGNED_HASH = sys.maxint
+
+    hash = UNASSIGNED_HASH # default value
+
+    def gethash(self):
+        if self.hash == self.UNASSIGNED_HASH:
+            self.hash = hash = intmask(self.hash_generator.genrand32()) // 2
+            return hash
+        return self.hash
+
+    def invariant(self):
+        return isinstance(self.hash, int)
+
+class W_AbstractObjectWithClassReference(W_AbstractObjectWithIdentityHash):
     """ The base class of objects that store 'm_class' explicitly. """
+
     def __init__(self, m_class):
         self.m_class = m_class
-        self.hash = 42             # XXX
 
     def getclassmirror(self):
         return self.m_class
 
-    def gethash(self):
-        return self.hash
-
     def invariant(self):
         from pypy.lang.smalltalk.mirror import ClassMirror
-        return (isinstance(self.m_class, ClassMirror) and
-                1)#isinstance(self.hash, int)) XXX
+        return (W_AbstractObjectWithIdentityHash.invariant(self) and
+                isinstance(self.m_class, ClassMirror))
 
-class W_PointersObject(W_ObjectWithStoredClass):
+
+class W_PointersObject(W_AbstractObjectWithClassReference):
     """ The normal object """
     def __init__(self, m_class, size):
-        W_ObjectWithStoredClass.__init__(self, m_class)
+        W_AbstractObjectWithClassReference.__init__(self, m_class)
         self.vars = [None] * size
 
     def fetch(self, index):
@@ -80,12 +98,12 @@ class W_PointersObject(W_ObjectWithStoredClass):
         return len(self.vars)
 
     def invariant(self):
-        return (W_ObjectWithStoredClass.invariant(self) and
+        return (W_AbstractObjectWithClassReference.invariant(self) and
                 isinstance(self.vars, list))
 
-class W_BytesObject(W_ObjectWithStoredClass):
+class W_BytesObject(W_AbstractObjectWithClassReference):
     def __init__(self, m_class, size):
-        W_ObjectWithStoredClass.__init__(self, m_class)
+        W_AbstractObjectWithClassReference.__init__(self, m_class)
         self.bytes = ['\x00'] * size
         
     def getbyte(self, n):
@@ -101,16 +119,16 @@ class W_BytesObject(W_ObjectWithStoredClass):
         return repr("".join(self.bytes))
 
     def invariant(self):
-        if not W_ObjectWithStoredClass.invariant(self):
+        if not W_AbstractObjectWithClassReference.invariant(self):
             return False
         for c in self.bytes:
             if not isinstance(c, str) or len(c) != 1:
                 return False
         return True
 
-class W_WordsObject(W_ObjectWithStoredClass):
+class W_WordsObject(W_AbstractObjectWithClassReference):
     def __init__(self, m_class, size):
-        W_ObjectWithStoredClass.__init__(self, m_class)
+        W_AbstractObjectWithClassReference.__init__(self, m_class)
         self.words = [0] * size
         
     def getword(self, n):
@@ -123,10 +141,10 @@ class W_WordsObject(W_ObjectWithStoredClass):
         return len(self.words)   
 
     def invariant(self):
-        return (W_ObjectWithStoredClass.invariant(self) and
+        return (W_AbstractObjectWithClassReference.invariant(self) and
                 isinstance(self.words, list))
 
-class W_CompiledMethod(W_Object):
+class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
     """My instances are methods suitable for interpretation by the virtual machine.  This is the only class in the system whose instances intermix both indexable pointer fields and indexable integer fields.
 
     The current format of a CompiledMethod is as follows:
