@@ -92,7 +92,7 @@ def test_lookup_abs_in_integer():
     amethod = w_smallint_class.lookup("abs")
                                   # First literal of the abs method is
                                   # a real smalltalk int
-    w_frame = amethod.createFrame(amethod.literals[0], [])
+    w_frame = amethod.createFrame(sqm.W_SmallInteger(10), [])
     interp.activeContext = w_frame
 
     print amethod
