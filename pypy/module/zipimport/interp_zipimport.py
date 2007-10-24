@@ -20,7 +20,7 @@ ENUMERATE_EXTS = unrolling_iterable(
      (False, True, os.path.sep + '__init__.py'),
      (True, False, '.pyc'),
      (True, False, '.pyo'),
-     (False, False, '.py')]
+     (False, False, '.py')])
 
 class W_ZipImporter(Wrappable):
     def __init__(self, space, name, w_dir, w_zipfile):
