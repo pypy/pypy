@@ -77,11 +77,18 @@ DIVIDE      = 10
 MOD         = 11
 DIV         = 12
 QUO         = 13
+BIT_AND     = 14
+BIT_OR      = 15
+BIT_XOR     = 16
+BIT_SHIFT   = 17
 
 math_ops = {
     ADD: operator.add,
     SUBTRACT: operator.sub,
     MULTIPLY: operator.mul,
+    BIT_AND: operator.and_,
+    BIT_OR: operator.or_,
+    BIT_XOR: operator.xor
     }
 for (code,op) in math_ops.items():
     @primitive(code)
@@ -141,6 +148,30 @@ def func(stack):
     if argument == 0:
         raise PrimitiveFailedError()
     return wrap_int(receiver // argument)
+    
+# #bitShift: -- return the shifted value
+@primitive(BIT_SHIFT)
+@stack(2)
+def func(stack):
+    [w_receiver, w_argument] = stack
+    receiver = unwrap_int(w_receiver)
+    argument = unwrap_int(w_argument)
+    
+    # heh, no shifting at all
+    if argument == 0:
+        return w_receiver
+
+    # left shift, must fail if we loose bits beyond 32
+    if argument > 0:
+        shifted = receiver << argument
+        if (shifted >> argument) != receiver:
+            raise PrimitiveFailedError()
+        return wrap_int(shifted)
+            
+    # right shift, ok to lose bits
+    else:
+        return wrap_int(receiver >> -argument)
+   
 
 # ___________________________________________________________________________
 # Float Primitives

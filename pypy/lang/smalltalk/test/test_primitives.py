@@ -78,7 +78,57 @@ def test_small_int_quo():
 def test_small_int_quo_fail():
     prim_fails(p.QUO, [12, 0])
     
+def test_small_int_bit_and():
+    assert prim(p.BIT_AND, [2, 4]).value == 0
+    assert prim(p.BIT_AND, [2, 3]).value == 2
+    assert prim(p.BIT_AND, [3, 4]).value == 0
+    assert prim(p.BIT_AND, [4, 4]).value == 4
+    
+def test_small_int_bit_or():
+    assert prim(p.BIT_OR, [2, 4]).value == 6
+    assert prim(p.BIT_OR, [2, 3]).value == 3
+    assert prim(p.BIT_OR, [3, 4]).value == 7
+    assert prim(p.BIT_OR, [4, 4]).value == 4
 
+def test_small_int_bit_xor():
+    assert prim(p.BIT_XOR, [2, 4]).value == 6
+    assert prim(p.BIT_XOR, [2, 3]).value == 1
+    assert prim(p.BIT_XOR, [3, 4]).value == 7
+    assert prim(p.BIT_XOR, [4, 4]).value == 0
+
+def test_small_int_bit_shift():
+    assert prim(p.BIT_SHIFT, [0, -3]).value == 0
+    assert prim(p.BIT_SHIFT, [0, -2]).value == 0
+    assert prim(p.BIT_SHIFT, [0, -1]).value == 0
+    assert prim(p.BIT_SHIFT, [0, 0]).value == 0
+    assert prim(p.BIT_SHIFT, [0, 1]).value == 0
+    assert prim(p.BIT_SHIFT, [0, 2]).value == 0
+    assert prim(p.BIT_SHIFT, [0, 3]).value == 0
+    
+def test_small_int_bit_shift_positive():
+    assert prim(p.BIT_SHIFT, [4, -3]).value == 0
+    assert prim(p.BIT_SHIFT, [4, -2]).value == 1
+    assert prim(p.BIT_SHIFT, [4, -1]).value == 2
+    assert prim(p.BIT_SHIFT, [4, 0]).value == 4
+    assert prim(p.BIT_SHIFT, [4, 1]).value == 8
+    assert prim(p.BIT_SHIFT, [4, 2]).value == 16
+    assert prim(p.BIT_SHIFT, [4, 3]).value == 32
+    
+def test_small_int_bit_shift_negative():
+    assert prim(p.BIT_SHIFT, [-4, -3]).value == -1
+    assert prim(p.BIT_SHIFT, [-4, -2]).value == -1
+    assert prim(p.BIT_SHIFT, [-4, -1]).value == -2
+    assert prim(p.BIT_SHIFT, [-4, 0]).value == -4
+    assert prim(p.BIT_SHIFT, [-4, 1]).value == -8
+    assert prim(p.BIT_SHIFT, [-4, 2]).value == -16
+    assert prim(p.BIT_SHIFT, [-4, 3]).value == -32
+    
+def test_small_int_bit_shift_fail():
+    prim_fails(p.BIT_SHIFT, [4, 32])
+    prim_fails(p.BIT_SHIFT, [4, 31])
+    prim_fails(p.BIT_SHIFT, [4, 30])
+    prim_fails(p.BIT_SHIFT, [4, 29])
+    prim_fails(p.BIT_SHIFT, [4, 28])
 
 def test_float():
     assert prim(p.FLOAT_ADD, [1.0,2.0]).value == 3.0

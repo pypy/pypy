@@ -331,16 +331,16 @@ class W_ContextFrame(model.W_Object):
         raise MissingBytecode
 
     def bytecodePrimBitShift(self, interp):
-        raise MissingBytecode
+        self.callPrimitiveAndPush(primitives.BIT_SHIFT, "bitShift:", 1, interp)
 
     def bytecodePrimDiv(self, interp):
         self.callPrimitiveAndPush(primitives.DIV, "//", 1, interp)
 
     def bytecodePrimBitAnd(self, interp):
-        raise MissingBytecode
+        self.callPrimitiveAndPush(primitives.BIT_AND, "&&", 1, interp)
 
     def bytecodePrimBitOr(self, interp):
-        raise MissingBytecode
+        self.callPrimitiveAndPush(primitives.BIT_OR, "||", 1, interp)
 
     def bytecodePrimAt(self, interp):
         raise MissingBytecode
