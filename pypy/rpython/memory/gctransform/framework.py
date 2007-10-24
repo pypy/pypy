@@ -28,6 +28,64 @@ class CollectAnalyzer(graphanalyze.GraphAnalyzer):
             flags = op.args[1].value
             return flags['flavor'] == 'gc' and not flags.get('nocollect', False)
 
+def find_initializing_stores(collect_analyzer, graph):
+    from pypy.objspace.flow.model import mkentrymap
+    entrymap = mkentrymap(graph)
+    # a bit of a hackish analysis: if a block contains a malloc and check that
+    # the result is not zero, then the block following the True link will
+    # usually initialize the newly allocated object
+    result = {}
+    def find_in_block(block, mallocvars):
+        for i, op in enumerate(block.operations):
+            if op.opname in ("cast_pointer", "same_as"):
+                if op.args[0] in mallocvars:
+                    mallocvars[op.result] = True
+            elif op.opname in ("setfield", "setarrayitem", "setinteriorfield"):
+                if (op.args[0] in mallocvars and
+                    op.args[-1].concretetype.TO._gckind == "gc"):
+                    result[op] = True
+            else:
+                if collect_analyzer.analyze(op):
+                    return
+        for exit in block.exits:
+            if len(entrymap[exit.target]) != 1:
+                continue
+            newmallocvars = {}
+            for i, var in enumerate(exit.args):
+                if var in mallocvars:
+                    newmallocvars[exit.target.inputargs[i]] = True
+            if newmallocvars:
+                find_in_block(exit.target, newmallocvars)
+    mallocnum = 0
+    blockset = set(graph.iterblocks())
+    while blockset:
+        block = blockset.pop()
+        if len(block.operations) < 2:
+            continue
+        mallocop = block.operations[-2]
+        checkop = block.operations[-1]
+        if not (mallocop.opname == "malloc" and
+                checkop.opname == "ptr_nonzero" and
+                mallocop.result is checkop.args[0] and
+                block.exitswitch is checkop.result):
+            continue
+        exits = [exit for exit in block.exits if exit.llexitcase]
+        if len(exits) != 1:
+            continue
+        exit = exits[0]
+        if len(entrymap[exit.target]) != 1:
+            continue
+        try:
+            index = exit.args.index(mallocop.result)
+        except ValueError:
+            continue
+        target = exit.target
+        mallocvars = {target.inputargs[index]: True}
+        mallocnum += 1
+        find_in_block(target, mallocvars)
+    print graph.name, mallocnum, len(result)
+    return result
+
 ADDRESS_VOID_FUNC = lltype.FuncType([llmemory.Address], lltype.Void)
 
 class FrameworkGCTransformer(GCTransformer):
@@ -439,6 +497,14 @@ class FrameworkGCTransformer(GCTransformer):
         for typeid, TYPE in all:
             f.write("%s %s\n" % (typeid, TYPE))
 
+    def transform_graph(self, graph):
+        if self.write_barrier_ptr:
+            self.initializing_stores = find_initializing_stores(
+                self.collect_analyzer, graph)
+        super(FrameworkGCTransformer, self).transform_graph(graph)
+        if self.write_barrier_ptr:
+            self.initializing_stores = None
+
     def gct_direct_call(self, hop):
         if self.collect_analyzer.analyze(hop.spaceop):
             livevars = self.push_roots(hop)
@@ -603,7 +669,8 @@ class FrameworkGCTransformer(GCTransformer):
         # ok
         if (self.write_barrier_ptr is not None
             and not isinstance(v_newvalue, Constant)
-            and v_struct.concretetype.TO._gckind == "gc"):
+            and v_struct.concretetype.TO._gckind == "gc"
+            and hop.spaceop not in self.initializing_stores):
             self.write_barrier_calls += 1
             v_oldvalue = hop.genop('g' + opname[1:],
                                    hop.inputargs()[:-1],

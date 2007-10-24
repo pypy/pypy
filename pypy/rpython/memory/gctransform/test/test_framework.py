@@ -1,14 +1,17 @@
 from pypy.objspace.flow.model import Constant, SpaceOperation
 from pypy.annotation.model import SomeInteger
 from pypy.rpython.memory.gc.marksweep import MarkSweepGC
-from pypy.rpython.memory.gctransform.test.test_transform import rtype
+from pypy.rpython.memory.gctransform.test.test_transform import rtype, \
+    rtype_and_transform
 from pypy.rpython.memory.gctransform.transform import GcHighLevelOp
-from pypy.rpython.memory.gctransform.framework import FrameworkGCTransformer, CollectAnalyzer
+from pypy.rpython.memory.gctransform.framework import FrameworkGCTransformer, \
+    CollectAnalyzer, find_initializing_stores
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.rtyper import LowLevelOpList
 from pypy.translator.c.gc import FrameworkGcPolicy
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.unsimplify import varoftype
+from pypy.translator.exceptiontransform import ExceptionTransformer
 from pypy import conftest
 
 import py
@@ -119,3 +122,45 @@ def test_write_barrier_support_setinteriorfield():
         [varoftype(ARRAYPTR2), varoftype(lltype.Signed),
          Constant('b', lltype.Void), varoftype(PTR_TYPE2)],
         varoftype(lltype.Void)))
+
+def test_find_initializing_stores():
+
+    class A(object):
+        pass
+    class B(object):
+        pass
+    def f():
+        a = A()
+        b = B()
+        b.a = a
+    t = rtype(f, [])
+    etrafo = ExceptionTransformer(t)
+    graphs = etrafo.transform_completely()
+    collect_analyzer = CollectAnalyzer(t)
+    init_stores = find_initializing_stores(collect_analyzer, t.graphs[0])
+    assert len(init_stores) == 1
+
+def test_find_initializing_stores_across_blocks():
+
+    class A(object):
+        pass
+    class B(object):
+        pass
+    def f(x):
+        a1 = A()
+        a2 = A()
+        a = A()
+        b = B()
+        b.a = a
+        if x:
+            b.b = a1
+            b.c = a2
+        else:
+            b.c = a1
+            b.b = a2
+    t = rtype(f, [int])
+    etrafo = ExceptionTransformer(t)
+    graphs = etrafo.transform_completely()
+    collect_analyzer = CollectAnalyzer(t)
+    init_stores = find_initializing_stores(collect_analyzer, t.graphs[0])
+    assert len(init_stores) == 5

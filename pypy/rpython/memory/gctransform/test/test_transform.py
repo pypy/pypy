@@ -149,6 +149,8 @@ def rtype(func, inputtypes, specialize=True):
     t.buildannotator().build_types(func, inputtypes)
     if specialize:
         t.buildrtyper().specialize()
+    if conftest.option.view:
+        t.view()
     return t    
 
 def rtype_and_transform(func, inputtypes, transformcls, specialize=True, check=True):
