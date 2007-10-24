@@ -139,11 +139,14 @@ class W_MethodContext(model.W_Object):
         if method.primitive:
             func = primitives.prim_table[method.primitive]
             try:
+                print "Going to send primitive"
                 w_result = func(self)
             except primitives.PrimitiveFailedError:
+                print "Primitive failed"
                 pass # ignore this error and fall back to the Smalltalk version
             else:
                 # the primitive succeeded
+                print "Pushing primitive result on stack"
                 self.push(w_result)
                 return
         arguments = self.stack[len(self.stack)-argcount:]
@@ -296,9 +299,13 @@ class W_MethodContext(model.W_Object):
     def callPrimitiveAndPush(self, primitive, selector,
                              argcount, interp):
         try:
+            print "Pushing result"
             self.push(primitives.prim_table[primitive](self))
+            print "Pushed result"
         except primitives.PrimitiveFailedError:
+            print "Falling back to smalltalk version"
             self._sendSelfSelector(selector, argcount, interp)
+            print "Fallback succeeded"
 
     def bytecodePrimAdd(self, interp):
         self.callPrimitiveAndPush(primitives.ADD, "+", 1, interp)
@@ -514,17 +521,3 @@ def initialize_bytecode_table():
     return result
 
 BYTECODE_TABLE = initialize_bytecode_table()
-
-def initialize_readable_bytecode_table():
-    result = [None] * 256
-    for entry in BYTECODE_RANGES:
-        if len(entry) == 2:
-            positions = [entry[0]]
-        else:
-            positions = range(entry[0], entry[1]+1)
-        for pos in positions:
-            result[pos] = "%s(%d)" % (entry[-1],pos)
-    assert None not in result
-    return result
-
-READABLE_BYTECODE_TABLE = initialize_readable_bytecode_table()

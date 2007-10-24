@@ -1,6 +1,7 @@
 import autopath
 import py
 from pypy.lang.smalltalk import squeakimage as sq
+from pypy.lang.smalltalk import constants as sqc
 from pypy.lang.smalltalk import model as sqm
 from pypy.lang.smalltalk import interpreter as sqi
 
@@ -23,11 +24,6 @@ def printStringsInImage():
         if isinstance(each,sqm.W_BytesObject):
           print each.bytes
 
-def printReadableBytecode(bytecode):
-    print "\n\nBytecode:\n---------------------"
-    print "\n".join([sqi.BYTECODE_TABLE[ord(i)].__name__ for i in bytecode])
-    print "---------------------\n"
-
 def getMethodFromClass(w_class,methodname):
     w_methoddict = w_class.fetch(1)
     for var in w_methoddict.vars:
@@ -39,12 +35,12 @@ def testCompiledMethods():
     image = create_squeakimage()
     amethod = None
 
-    w_float_class = image.special(sq.FLOAT_CLASS)
+    w_smallint_class = image.special(sqc.SO_SMALLINTEGER_CLASS)
 
     interp = sqi.Interpreter()
-    anObject = sqm.W_Float(1.5)
-    amethod = getMethodFromClass(w_float_class,"abs")
-                                # receiver, arguments
+    anObject = sqm.W_PointersObject(w_smallint_class, 1)
+    anObject.vars[0] = 3
+    amethod = w_smallint_class.lookup("abs")
     w_frame = amethod.createFrame(anObject, [])
     interp.activeContext = w_frame
 

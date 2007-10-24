@@ -1,7 +1,10 @@
 import sys
 from pypy.rlib import rrandom
 from pypy.rlib.rarithmetic import intmask
+from pypy.lang.smalltalk import constants as sqc
 
+class MethodNotFound(Exception):
+    pass
 
 class W_Object(object):
 
@@ -100,6 +103,33 @@ class W_PointersObject(W_AbstractObjectWithClassReference):
     def invariant(self):
         return (W_AbstractObjectWithClassReference.invariant(self) and
                 isinstance(self.vars, list))
+
+    def compiledmethodnamed(self, methodname):
+        w_methoddict = self.fetch(sqc.CLASS_METHODDICT_INDEX).vars
+        names  = w_methoddict[sqc.METHODDICT_NAMES_INDEX:]
+        values = w_methoddict[sqc.METHODDICT_VALUES_INDEX].vars
+        for var in names:
+            if isinstance(var, W_BytesObject):
+                if str(var) == repr(methodname):
+                    return values[names.index(var)]
+        raise MethodNotFound
+
+    def lookup(self, methodname):
+        in_class = self
+        while in_class != None:
+            try:
+                return in_class.compiledmethodnamed(methodname)
+            except MethodNotFound:
+                # Current hack because we don't have a ref to the real
+                # nil yet... XXX XXX XXX
+                try:
+                    new_class = in_class.vars[sqc.CLASS_SUPERCLASS_INDEX]
+                    if in_class == new_class:
+                        raise Exception
+                    else:
+                        in_class = new_class
+                except:
+                    return self.lookup("doesNotUnderstand")
 
 class W_BytesObject(W_AbstractObjectWithClassReference):
     def __init__(self, m_class, size):

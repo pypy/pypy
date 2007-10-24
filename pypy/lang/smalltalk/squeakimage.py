@@ -332,7 +332,7 @@ class GenericObject(object):
             splitbits(header, [1,9,8,1,6,4,1]))
         primitive = primitive + (highbit << 10) ##XXX todo, check this
         # --------------------
-        literals = [self.decode_pointer(pointer)
+        literals = [self.decode_pointer(pointer).w_object
                     for pointer in self.chunk.data[:literalsize+1]]
         # --------------------
         l = []
@@ -348,6 +348,8 @@ class GenericObject(object):
             argsize = numargs,
             tempsize = tempsize,
             primitive = primitive)
+
+        w_compiledmethod.literals = literals
              
     
 
