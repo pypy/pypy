@@ -11,11 +11,11 @@ class MockFrame(interp.W_ContextFrame):
         self.stack = stack
 
 def wrap(x):
-    if isinstance(x, int): return fimg.small_int(x)
+    if isinstance(x, int): return fimg.wrap_int(x)
     if isinstance(x, float): return fimg.wrap_float(x)
     if isinstance(x, model.W_Object): return x
-    if isinstance(x, str) and len(x) == 1: return fimg.make_char(x)
-    if isinstance(x, str): return fimg.make_string(x)
+    if isinstance(x, str) and len(x) == 1: return fimg.wrap_char(x)
+    if isinstance(x, str): return fimg.wrap_string(x)
     raise NotImplementedError
     
 def mock(stack):
@@ -116,6 +116,22 @@ def test_new_with_arg():
 
 def test_invalid_new_with_arg():
     prim_fails(p.NEW_WITH_ARG, [ct.w_Object, 20])
+    
+def test_inst_var_at():
+    # I am not entirely sure if this is what this primitive is
+    # supposed to do, so the test may be bogus:
+    w_v = prim(p.INST_VAR_AT, ["q", fimg.CHARACTER_VALUE_INDEX])
+    assert w_v.value == ord("q")
+    w_v = prim(p.INST_VAR_AT, ["abc", 1])
+    assert w_v.value == ord("b")
+
+def test_as_oop():
+    w_obj = model.W_Class(None, None, 0, format=model.POINTERS).new()
+    w_obj.w_hash = wrap(22)
+    assert prim(p.AS_OOP, [w_obj]).value == 22
+
+def test_as_oop_not_applicable_to_int():
+    prim_fails(p.AS_OOP, [22])
 
 def test_boolean():
     assert prim(p.LESSTHAN, [1,2]) == fimg.w_true

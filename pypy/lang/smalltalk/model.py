@@ -2,10 +2,11 @@
 class W_Object:
     def __init__(self, w_class):
         self.w_class = w_class
-        
+        self.w_hash = None # XXX initial value?
+
     def size(self):
         return 0
-        
+
     def instvarsize(self):
         return self.w_class.instvarsize        
 
@@ -126,11 +127,37 @@ class W_Class(W_Object):
         self.instvarsize = instvarsize
         self.format = format
 
-    def isindexable(self):
+    # _______________________________________________________________
+    # Methods for querying the format word, taken from the blue book:
+    #
+    # included so that we can reproduce code from the reference impl
+    # more easily
+
+    def ispointers(self):
+        " True if instances of this class have data stored as pointers "
+        return self.format in (POINTERS, VAR_POINTERS)
+
+    def iswords(self):
+        " True if instances of this class have data stored as numerical words "
+        return self.format in (POINTERS, VAR_POINTERS, WORDS)
+
+    def isbytes(self):
+        " True if instances of this class have data stored as numerical bytes "
+        return self.format == BYTES
+
+    def isvariable(self):
+        " True if instances of this class have indexed inst variables "
         return self.format in (VAR_POINTERS, WORDS, BYTES)
+
+    def instsize(self):
+        " Number of named instance variables for each instance of this class "
+        return self.instvarsize
 
     def ismetaclass(self):
         return False
+
+    # _______________________________________________________________
+    # Methods for querying the format word, taken from the blue book:
 
     def new(self, size=0):
         if self.format == POINTERS:

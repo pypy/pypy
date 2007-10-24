@@ -21,6 +21,15 @@ def unwrap_float(w_v):
 def is_valid_index(idx, w_obj):
     return idx >= 0 and idx < w_obj.size()
 
+def subscript(idx, w_obj):
+    if isinstance(w_obj, model.W_PointersObject):
+        return w_obj.getindexedvar(idx)
+    elif isinstance(w_obj, model.W_WordsObject):
+        return fimg.wrap_int(w_obj.getword(idx))
+    elif isinstance(w_obj, model.W_BytesObject):
+        return fimg.wrap_int(w_obj.getbyte(idx))
+    raise PrimitiveFailedError()
+
 # ___________________________________________________________________________
 # Primitive table: it is filled in at initialization time with the
 # primitive functions.  Each primitive function takes a single argument,
@@ -68,7 +77,7 @@ for (code,op) in math_ops.items():
         if res > 1073741823: raise PrimitiveFailedError()
         if res < -1073741824: raise PrimitiveFailedError()
         
-        w_res = fimg.small_int(res)
+        w_res = fimg.wrap_int(res)
         return w_res
     prim_table[code] = func
 
@@ -116,6 +125,8 @@ OBJECT_AT = 68
 OBJECT_AT_PUT = 69
 NEW = 70
 NEW_WITH_ARG = 71
+INST_VAR_AT = 73
+AS_OOP = 75
 
 def common_at(stack):
     [w_idx, w_obj] = stack
@@ -148,7 +159,7 @@ def func(stack):
 @stack(1)
 def func(stack):
     [w_obj] = stack
-    if not w_obj.w_class.isindexable():
+    if not w_obj.w_class.isvariable():
         raise PrimitiveFailedError()
     return w_obj.size()
 
@@ -187,11 +198,12 @@ def func(stack):
     w_rcvr.setnamedvar(idx, w_val)
     return w_val
 
+
 @primitive(NEW)
 @stack(1)
 def func(stack):
     [w_cls] = stack
-    if not isinstance(w_cls, model.W_Class) or w_cls.isindexable():
+    if not isinstance(w_cls, model.W_Class) or w_cls.isvariable():
         raise PrimitiveFailedError()
     return w_cls.new()
 
@@ -199,10 +211,35 @@ def func(stack):
 @stack(2)
 def func(stack):
     [w_size, w_cls] = stack
-    if not isinstance(w_cls, model.W_Class) or not w_cls.isindexable():
+    if not isinstance(w_cls, model.W_Class) or not w_cls.isvariable():
         raise PrimitiveFailedError()
     size = unwrap_int(w_size)
     return w_cls.new(size)
+
+@primitive(INST_VAR_AT)
+@stack(2)
+def func(stack):
+    # I *think* this is the correct behavior, but I'm not quite sure.
+    # Might be restricted to fixed length fields?
+    [w_idx, w_rcvr] = stack
+    idx = unwrap_int(w_idx)
+    w_cls = w_rcvr.w_class
+    if idx < 0:
+        raise PrimitiveFailedError()
+    if idx < w_cls.instvarsize:
+        return w_rcvr.getnamedvar(idx)
+    idx -= w_cls.instvarsize
+    if idx < w_rcvr.size():
+        return subscript(idx, w_rcvr)
+    raise PrimitiveFailedError()
+
+@primitive(AS_OOP)
+@stack(1)
+def func(stack):
+    [w_rcvr] = stack
+    if isinstance(w_rcvr, model.W_SmallInteger):
+        raise PrimitiveFailedError()
+    return w_rcvr.w_hash
 
 # ___________________________________________________________________________
 # Boolean Primitives
