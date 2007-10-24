@@ -18,9 +18,6 @@ def unwrap_float(w_v):
     elif isinstance(w_v, model.W_SmallInteger): return float(w_v.value)
     raise PrimitiveFailedError()
 
-def is_valid_index(idx, w_obj):
-    return idx >= 0 and idx < w_obj.size()
-
 def subscript(idx, w_obj):
     if isinstance(w_obj, model.W_PointersObject):
         return w_obj.getindexedvar(idx)
@@ -30,13 +27,20 @@ def subscript(idx, w_obj):
         return fimg.wrap_int(w_obj.getbyte(idx))
     raise PrimitiveFailedError()
 
+def assert_bounds(idx, minb, maxb):
+    if idx < minb or idx >= maxb:
+        raise PrimitiveFailedError()
+
+def assert_valid_index(idx, w_obj):
+    assert_bounds(idx, 0, w_obj.size())
+
 # ___________________________________________________________________________
 # Primitive table: it is filled in at initialization time with the
 # primitive functions.  Each primitive function takes a single argument,
 # the frame (a W_ContextFrame object); the function either completes, and
 # returns a result, or throws a PrimitiveFailedError.
 
-prim_table = [None] * 127
+prim_table = [None] * 576 # Squeak has primitives all the way up to 575
 
 def primitive(code):
     def decorator(func):
@@ -121,25 +125,17 @@ AT_PUT = 61
 SIZE = 62
 STRING_AT = 63
 STRING_AT_PUT = 64
-OBJECT_AT = 68
-OBJECT_AT_PUT = 69
-NEW = 70
-NEW_WITH_ARG = 71
-INST_VAR_AT = 73
-AS_OOP = 75
 
 def common_at(stack):
     [w_idx, w_obj] = stack
     idx = unwrap_int(w_idx)
-    if not is_valid_index(idx, w_obj):
-        raise PrimitiveFailedError()
+    assert_valid_index(idx, w_obj)
     return idx, w_obj
 
 def common_at_put(stack):
     [w_val, w_idx, w_obj] = stack
     idx = unwrap_int(w_idx)
-    if not is_valid_index(idx, w_obj):
-        raise PrimitiveFailedError()
+    assert_valid_index(idx, w_obj)
     return w_val, idx, w_obj
 
 @primitive(AT)
@@ -179,13 +175,27 @@ def func(stack):
     w_obj.setbyte(idx, fimg.ord_w_char(w_val))
     return w_val
 
+# ___________________________________________________________________________
+# Storage Management Primitives
+
+OBJECT_AT = 68
+OBJECT_AT_PUT = 69
+NEW = 70
+NEW_WITH_ARG = 71
+ARRAY_BECOME_ONE_WAY = 72     # Blue Book: primitiveBecome
+INST_VAR_AT = 73
+INST_VAR_AT_PUT = 74
+AS_OOP = 75                  
+STORE_STACKP = 76             # Blue Book: primitiveAsObject
+SOME_INSTANCE = 77
+NEXT_INSTANCE = 78
+
 @primitive(OBJECT_AT)
 @stack(2)
 def func(stack):
     [w_idx, w_rcvr] = stack
     idx = unwrap_int(w_idx)
-    if idx < 0 or idx >= w_rcvr.w_class.instvarsize:
-        raise PrimitiveFailedError()
+    assert_bounds(idx, 0, w_rcvr.w_class.instvarsize)
     return w_rcvr.getnamedvar(idx)
 
 @primitive(OBJECT_AT_PUT)
@@ -193,11 +203,9 @@ def func(stack):
 def func(stack):
     [w_val, w_idx, w_rcvr] = stack
     idx = unwrap_int(w_idx)
-    if idx < 0 or idx >= w_rcvr.w_class.instvarsize:
-        raise PrimitiveFailedError()
+    assert_bounds(idx, 0, w_rcvr.w_class.instvarsize)
     w_rcvr.setnamedvar(idx, w_val)
     return w_val
-
 
 @primitive(NEW)
 @stack(1)
@@ -216,6 +224,10 @@ def func(stack):
     size = unwrap_int(w_size)
     return w_cls.new(size)
 
+@primitive(ARRAY_BECOME_ONE_WAY)
+def func(frame):
+    raise PrimitiveNotYetWrittenError
+
 @primitive(INST_VAR_AT)
 @stack(2)
 def func(stack):
@@ -233,6 +245,10 @@ def func(stack):
         return subscript(idx, w_rcvr)
     raise PrimitiveFailedError()
 
+@primitive(INST_VAR_AT_PUT)
+def func(frame):
+    raise PrimitiveNotYetWrittenError()
+
 @primitive(AS_OOP)
 @stack(1)
 def func(stack):
@@ -240,6 +256,30 @@ def func(stack):
     if isinstance(w_rcvr, model.W_SmallInteger):
         raise PrimitiveFailedError()
     return w_rcvr.w_hash
+
+@primitive(STORE_STACKP)
+@stack(2)
+def func(stack):
+    # This primitive seems to resize the stack.  I don't think this is
+    # really relevant in our implementation.
+    raise PrimitiveNotYetWrittenError()
+
+@primitive(SOME_INSTANCE)
+@stack(1)
+def func(stack):
+    # This primitive returns some instance of the class on the stack.
+    # Not sure quite how to do this; maintain a weak list of all
+    # existing instances or something?
+    [w_class] = stack
+    raise PrimitiveNotYetWrittenError()
+
+@primitive(NEXT_INSTANCE)
+@stack(1)
+def func(stack):
+    # This primitive is used to iterate through all instances of a class:
+    # it returns the "next" instance after w_obj.
+    [w_obj] = stack
+    raise PrimitiveNotYetWrittenError()
 
 # ___________________________________________________________________________
 # Boolean Primitives
@@ -287,3 +327,38 @@ for (code,op) in bool_ops.items():
         res = op(v1, v2)
         w_res = fimg.wrap_bool(res)
         return w_res
+    
+# ___________________________________________________________________________
+# Quick Push Const Primitives
+
+PUSH_SELF = 256
+PUSH_TRUE = 257
+PUSH_FALSE = 258
+PUSH_NIL = 259
+PUSH_MINUS_ONE = 260
+PUSH_ZERO = 261
+PUSH_ONE = 262
+PUSH_TWO = 263
+
+@primitive(PUSH_SELF)
+@stack(1)
+def func(stack):
+    [w_self] = stack
+    return w_self
+
+def define_const_primitives():
+    for (code, const) in [
+        (PUSH_TRUE, fimg.w_true),
+        (PUSH_FALSE, fimg.w_false),
+        (PUSH_NIL, fimg.w_nil),
+        (PUSH_MINUS_ONE, fimg.w_mone),
+        (PUSH_ZERO, fimg.w_zero),
+        (PUSH_ONE, fimg.w_one),
+        (PUSH_TWO, fimg.w_two),
+        ]:
+        @primitive(code)
+        @stack(1)
+        def func(stack, const=const):  # n.b.: capture const
+            return const
+define_const_primitives()
+        

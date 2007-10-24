@@ -133,6 +133,20 @@ def test_as_oop():
 def test_as_oop_not_applicable_to_int():
     prim_fails(p.AS_OOP, [22])
 
+def test_const_primitives():
+    for (code, const) in [
+        (p.PUSH_TRUE, fimg.w_true),
+        (p.PUSH_FALSE, fimg.w_false),
+        (p.PUSH_NIL, fimg.w_nil),
+        (p.PUSH_MINUS_ONE, fimg.w_mone),
+        (p.PUSH_ZERO, fimg.w_zero),
+        (p.PUSH_ONE, fimg.w_one),
+        (p.PUSH_TWO, fimg.w_two),
+        ]:
+        assert prim(code, [fimg.w_nil]) is const
+    assert prim(p.PUSH_SELF, [fimg.w_nil]) is fimg.w_nil
+    assert prim(p.PUSH_SELF, ["a"]) is wrap("a")
+
 def test_boolean():
     assert prim(p.LESSTHAN, [1,2]) == fimg.w_true
     assert prim(p.GREATERTHAN, [3,4]) == fimg.w_false
