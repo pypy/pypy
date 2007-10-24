@@ -513,6 +513,9 @@ if ctypes:
 # ____________________________________________
 
 def get_ctypes_callable(funcptr, calling_conv):
+    if not ctypes:
+        raise ImportError("ctypes is needed to use ll2ctypes")
+
     def get_on_lib(lib, elem):
         """ Wrapper to always use lib[func] instead of lib.func
         """
