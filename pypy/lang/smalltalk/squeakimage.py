@@ -300,10 +300,12 @@ class GenericObject(object):
         assert self.pointers is not None
         w_pointersobject.vars = [g_object.w_object for g_object in self.pointers]
         w_pointersobject.m_class = mirrorcache.get_or_build(self.g_class.w_object)
+        w_pointersobject.hash = self.chunk.hash12
         
     def fillin_wordsobject(self, w_wordsobject):
         w_wordsobject.words = self.chunk.data
         w_wordsobject.m_class = mirrorcache.get_or_build(self.g_class.w_object)
+        w_wordsobject.hash = self.chunk.hash12 # XXX check this
 
     def fillin_bytesobject(self, w_bytesobject):
         bytes = []
@@ -314,6 +316,7 @@ class GenericObject(object):
             bytes.append(chr((each >> 0) & 0xff))
         w_bytesobject.m_class = mirrorcache.get_or_build(self.g_class.w_object)
         w_bytesobject.bytes = bytes[:-(self.format & 3)] # omit odd bytes
+        w_bytesobject.hash = self.chunk.hash12 # XXX check this
  
     def fillin_compiledmethod(self, w_compiledmethod):
         header = self.chunk.data[0]
