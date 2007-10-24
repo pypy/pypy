@@ -33,17 +33,17 @@ def testCompiledMethods():
 
     for each in image.objects:
         if isinstance(each,sqm.W_CompiledMethod):
-            if (amethod == None and
-                each.argsize == 0 and
+            if (each.argsize == 0 and amethod == None and
                 each.tempsize == 0 and
-                each.primitive == 1 and skip >= 0):
-                amethod = each
-
-                if len(amethod.bytes) == 0:
-                    print "Found method with bodylenght 0"
-                    amethod = None
-            else:
-                skip += 1
+                each.primitive == 1):
+                
+                if len(each.bytes) == 0:
+                    pass
+                else:
+                    if skip >= SKIPMETHODS:
+                        amethod = each
+                    else:
+                        skip += 1
             #print "%d %d %d" % (each.argsize, each.tempsize, each.primitive)
     
                         # receiver, arguments
@@ -55,7 +55,9 @@ def testCompiledMethods():
 
     w_frame = amethod.createFrame(anObject, [])
     interp.activeContext = w_frame
-    w_frame.push(interp.TRUE)
+    #w_frame.push(interp.TRUE)
+    w_frame.push(interp.ONE)
+    w_frame.push(interp.TWO)
 
     while True:
         try:
@@ -63,6 +65,9 @@ def testCompiledMethods():
             print interp.activeContext.stack
         except sqi.ReturnFromTopLevel, e:
             return e.object
+
+# apply to Xth method
+SKIPMETHODS=3 #X
 
 def test_do():
     testCompiledMethods()
