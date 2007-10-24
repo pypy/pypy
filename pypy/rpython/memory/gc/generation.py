@@ -4,6 +4,7 @@ from pypy.rpython.memory.gc.semispace import SemiSpaceGC, GCFLAGSHIFT, \
 from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena
 from pypy.rlib.objectmodel import free_non_gc_object, debug_assert
+from pypy.rpython.lltypesystem.lloperation import llop
 
 # The following flag is never set on young objects, i.e. the ones living
 # in the nursery.  It is initially set on all prebuilt and old objects,
@@ -148,6 +149,7 @@ class GenerationGC(SemiSpaceGC):
             debug_assert(self.nursery_size <= self.top_of_space - self.free,
                          "obtain_free_space failed to do its job")
         if self.nursery:
+            #llop.debug_print(lltype.Void, "minor collect")
             # a nursery-only collection
             scan = self.free
             self.collect_oldrefs_to_nursery()

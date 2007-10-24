@@ -5,6 +5,7 @@ class GCBase(object):
     _alloc_flavor_ = "raw"
     moving_gc = False
     needs_write_barrier = False
+    needs_zero_gc_pointers = True
 
     def set_query_functions(self, is_varsize, getfinalizer,
                             offsets_to_gc_pointers,

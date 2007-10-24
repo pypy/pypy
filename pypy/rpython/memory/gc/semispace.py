@@ -20,6 +20,7 @@ memoryError = MemoryError()
 class SemiSpaceGC(MovingGCBase):
     _alloc_flavor_ = "raw"
     inline_simple_malloc = True
+    needs_zero_gc_pointers = False
 
     HDR = lltype.Struct('header', ('forw', llmemory.Address),
                                   ('tid', lltype.Signed))
@@ -45,6 +46,7 @@ class SemiSpaceGC(MovingGCBase):
         self.run_finalizers = self.AddressLinkedList()
         self.objects_with_weakrefs = self.AddressLinkedList()
         self.finalizer_lock_count = 0
+        self.red_zone = 0
 
     def disable_finalizers(self):
         self.finalizer_lock_count += 1
@@ -109,7 +111,11 @@ class SemiSpaceGC(MovingGCBase):
     def try_obtain_free_space(self, needed):
         # XXX for bonus points do big objects differently
         needed = raw_malloc_usage(needed)
-        self.semispace_collect()
+        if (self.red_zone >= 2 and self.space_size < self.max_space_size and
+            self.double_space_size()):
+            pass    # collect was done during double_space_size()
+        else:
+            self.semispace_collect()
         missing = needed - (self.top_of_space - self.free)
         if missing <= 0:
             return True      # success
@@ -133,6 +139,7 @@ class SemiSpaceGC(MovingGCBase):
             return True
 
     def double_space_size(self):
+        self.red_zone = 0
         old_fromspace = self.fromspace
         newsize = self.space_size * 2
         newspace = llarena.arena_malloc(newsize, True)
@@ -192,7 +199,24 @@ class SemiSpaceGC(MovingGCBase):
         self.notify_objects_just_moved()
         if not size_changing:
             llarena.arena_reset(fromspace, self.space_size, True)
+            self.record_red_zone()
             self.execute_finalizers()
+        #llop.debug_print(lltype.Void, 'collected', self.space_size, size_changing, self.top_of_space - self.free)
+
+    def record_red_zone(self):
+        # red zone: if the space is more than 80% full, the next collection
+        # should double its size.  If it is more than 66% full twice in a row,
+        # then it should double its size too.  (XXX adjust)
+        # The goal is to avoid many repeated collection that don't free a lot
+        # of memory each, if the size of the live object set is just below the
+        # size of the space.
+        free_after_collection = self.top_of_space - self.free
+        if free_after_collection > self.space_size // 3:
+            self.red_zone = 0
+        else:
+            self.red_zone += 1
+            if free_after_collection < self.space_size // 5:
+                self.red_zone += 1
 
     def scan_copied(self, scan):
         while scan < self.free:
