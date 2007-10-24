@@ -10,6 +10,6 @@ class Module(MixedModule):
     interpleveldefs = {'zipimporter':'interp_zipimport.W_ZipImporter'}
 
     appleveldefs = {
-        'ZipImporterError' : 'app_zipimport.ZipImporterError',
+        'ZipImportError' : 'app_zipimport.ZipImportError',
     }
     

@@ -1,3 +1,3 @@
 
-class ZipImporterError(Exception):
+class ZipImportError(Exception):
     pass
