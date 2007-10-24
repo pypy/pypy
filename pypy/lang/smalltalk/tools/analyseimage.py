@@ -38,15 +38,31 @@ def testCompiledMethods():
                 each.tempsize == 0 and
                 each.primitive == 1 and skip >= 0):
                 amethod = each
+
+                if len(amethod.bytes) == 0:
+                    print "Found method with bodylenght 0"
+                    amethod = None
             else:
                 skip += 1
             #print "%d %d %d" % (each.argsize, each.tempsize, each.primitive)
     
                         # receiver, arguments
-    w_frame = amethod.createFrame("receiver", [])
     interp = sqi.Interpreter()
+
+    anObject = sqm.W_PointersObject(sqm.W_Class(None,None,100),0)
+    for i in range(0,99):
+        anObject.store(i, interp.ONE)
+
+    w_frame = amethod.createFrame(anObject, [])
     interp.activeContext = w_frame
-    interp.interpret()
+    w_frame.push(interp.TRUE)
+
+    while True:
+        try:
+            interp.step()
+            print interp.activeContext.stack
+        except sqi.ReturnFromTopLevel, e:
+            return e.object
 
 def test_do():
     testCompiledMethods()
