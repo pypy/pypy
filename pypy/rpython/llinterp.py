@@ -699,7 +699,7 @@ class LLFrame(object):
         self.heap.free(obj, flavor=flavor)
 
     def op_zero_gc_pointers_inside(self, obj):
-        pass
+        raise NotImplementedError("zero_gc_pointers_inside")
 
     def op_getfield(self, obj, field):
         checkptr(obj)

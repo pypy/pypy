@@ -1077,8 +1077,11 @@ class _abstract_ptr(object):
     def __iter__(self):
         # this is a work-around for the 'isrpystring' hack in __getitem__,
         # which otherwise causes list(p) to include the extra \x00 character.
-        for i in range(len(self)):
-            yield self[i]
+        if isinstance(self._T, (Array, FixedSizeArray)):
+            for i in range(self._obj.getlength()):
+                yield self[i]
+        else:
+            raise TypeError("%r instance is not an array" % (self._T,))
 
     def __repr__(self):
         return '<%s>' % (self,)
