@@ -65,6 +65,7 @@ def test_cancollect():
 
 
 class WriteBarrierTransformer(FrameworkGCTransformer):
+    initializing_stores = {}
     GC_PARAMS = {}
     class GCClass(MarkSweepGC):
         needs_write_barrier = True
@@ -133,6 +134,7 @@ def test_find_initializing_stores():
         a = A()
         b = B()
         b.a = a
+        b.b = 1
     t = rtype(f, [])
     etrafo = ExceptionTransformer(t)
     graphs = etrafo.transform_completely()
