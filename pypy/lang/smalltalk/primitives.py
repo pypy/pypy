@@ -112,6 +112,8 @@ AT_PUT = 61
 SIZE = 62
 STRING_AT = 63
 STRING_AT_PUT = 64
+OBJECT_AT = 68
+OBJECT_AT_PUT = 69
 
 def common_at(stack):
     [w_idx, w_obj] = stack
@@ -164,6 +166,25 @@ def func(stack):
     w_obj.setbyte(idx, fimg.ord_w_char(w_val))
     return w_val
 
+@primitive(OBJECT_AT)
+@stack(2)
+def func(stack):
+    [w_idx, w_rcvr] = stack
+    idx = unwrap_int(w_idx)
+    if idx < 0 or idx >= w_rcvr.w_class.instvarsize:
+        raise PrimitiveFailedError()
+    return w_rcvr.getnamedvar(idx)
+
+@primitive(OBJECT_AT_PUT)
+@stack(3)
+def func(stack):
+    [w_val, w_idx, w_rcvr] = stack
+    idx = unwrap_int(w_idx)
+    if idx < 0 or idx >= w_rcvr.w_class.instvarsize:
+        raise PrimitiveFailedError()
+    w_rcvr.setnamedvar(idx, w_val)
+    return w_val
+
 # ___________________________________________________________________________
 # Boolean Primitives
 
@@ -190,27 +211,23 @@ bool_ops = {
     NOTEQUAL: operator.ne
     }
 for (code,op) in bool_ops.items():
-    def func(frame, op=op): # n.b. capture op value
-        w_v1 = frame.peek(1)
-        w_v2 = frame.peek(0)
+    @primitive(code)
+    @stack(2)
+    def func(stack, op=op): # n.b. capture op value
+        [w_v2, w_v1] = stack
         v1 = unwrap_int(w_v1)
         v2 = unwrap_int(w_v2)
         res = op(v1, v2)
-        
         w_res = fimg.wrap_bool(res)
-        frame.pop_n(2)
         return w_res
-    prim_table[code] = func
 
 for (code,op) in bool_ops.items():
-    def func(frame, op=op): # n.b. capture op value
-        w_v1 = frame.peek(1)
-        w_v2 = frame.peek(0)
+    @primitive(code+_FLOAT_OFFSET)
+    @stack(2)
+    def func(stack, op=op): # n.b. capture op value
+        [w_v2, w_v1] = stack
         v1 = unwrap_float(w_v1)
         v2 = unwrap_float(w_v2)
         res = op(v1, v2)
-        
         w_res = fimg.wrap_bool(res)
-        frame.pop_n(2)
         return w_res
-    prim_table[code+_FLOAT_OFFSET] = func

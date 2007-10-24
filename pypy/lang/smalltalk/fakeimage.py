@@ -21,7 +21,7 @@ def make_char(c):
 
 def ord_w_char(w_c):
     assert w_c.w_class is ct.w_Character
-    w_ord = w_c.getnamedvar(0)
+    w_ord = w_c.getnamedvar(CHARACTER_VALUE_INDEX)
     assert w_ord.w_class is ct.w_SmallInteger
     assert isinstance(w_ord, model.W_SmallInteger)
     return w_ord.value
@@ -33,13 +33,23 @@ def wrap_bool(bool):
         return w_false
 
 # ___________________________________________________________________________
+# Slot Names
+
+CHARACTER_VALUE_INDEX = 0        # Page 630 of the blue book
+
+STREAM_ARRAY_INDEX = 0           # Page 631 of the blue book
+STREAM_INDEX_INDEX = 1
+STREAM_READ_LIMIT_INDEX = 2
+STREAM_WRITE_LIMIT_INDEX = 3
+
+# ___________________________________________________________________________
 # Global Data
 
 def make_char_table():
     global CharacterTable
     def bld_char(i):
         w_cinst = ct.w_Character.new()
-        w_cinst.setnamedvar(0, small_int(i))
+        w_cinst.setnamedvar(CHARACTER_VALUE_INDEX, small_int(i))
         return w_cinst
     CharacterTable = [bld_char(i) for i in range(256)]
 make_char_table()

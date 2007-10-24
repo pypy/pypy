@@ -79,6 +79,29 @@ def test_string_at_put():
     for i in range(len(exp)):
         assert prim(p.STRING_AT, [test_str, i]) == wrap(exp[i])
 
+def test_object_at():
+    w_v = prim(p.OBJECT_AT, ["q", fimg.CHARACTER_VALUE_INDEX])
+    assert w_v.value == ord("q")
+
+def test_invalid_object_at():
+    prim_fails(p.OBJECT_AT, ["q", fimg.CHARACTER_VALUE_INDEX+1])
+    
+def test_object_at_put():
+    w_obj = model.W_Class(None, None, 1, format=model.POINTERS).new()
+    assert prim(p.OBJECT_AT_PUT, [w_obj, 0, "q"]) is wrap("q")
+    assert prim(p.OBJECT_AT, [w_obj, 0]) is wrap("q")
+
+def test_invalid_object_at_put():
+    w_obj = model.W_Class(None, None, 1, format=model.POINTERS).new()
+    prim_fails(p.OBJECT_AT, [w_obj, 1, 1])
+    
+def test_string_at_put():
+    test_str = wrap("foobar")
+    assert prim(p.STRING_AT_PUT, [test_str, 3, "c"]) == wrap("c")
+    exp = "foocar"
+    for i in range(len(exp)):
+        assert prim(p.STRING_AT, [test_str, i]) == wrap(exp[i])
+
 def test_boolean():
     assert prim(p.LESSTHAN, [1,2]) == fimg.w_true
     assert prim(p.GREATERTHAN, [3,4]) == fimg.w_false
