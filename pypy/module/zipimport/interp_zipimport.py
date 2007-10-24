@@ -95,7 +95,7 @@ class W_ZipImporter(Wrappable):
                 w_buf = space.call(space.getattr(self.w_dir, w('read')),
                                    space.newlist([w(filename + ext)]))
                 if is_package:
-                    pkgpath = filename + os.path.sep
+                    pkgpath = self.name
                 else:
                     pkgpath = None
                 if compiled:

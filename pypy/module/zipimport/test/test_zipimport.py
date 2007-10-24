@@ -152,7 +152,6 @@ class AppTestZipimport:
         assert mod(3) == 4
 
     def test_package(self):
-        skip("Does not work, no idea why...")
         self.writefile(self, "xx/__init__.py", "")
         self.writefile(self, "xx/yy.py", "def f(x): return x")
         mod = __import__("xx", globals(), locals(), ['yy'])
