@@ -461,11 +461,7 @@ def load_source_module(space, w_modulename, w_mod, pathname, source,
 
     return w_mod
 
-# helper, to avoid exposing internals of marshal and the
-# difficulties of using it though applevel.
-_r_correction = intmask(1L<<32)    # == 0 on 32-bit machines
-def _r_long(stream):
-    s = stream.read(4) # XXX XXX could return smaller string
+def _get_long(s):
     if len(s) < 4:
         return -1   # good enough for our purposes
     a = ord(s[0])
@@ -475,7 +471,14 @@ def _r_long(stream):
     x = a | (b<<8) | (c<<16) | (d<<24)
     if _r_correction and d & 0x80 and x > 0:
         x -= _r_correction
-    return int(x)
+    return int(x)    
+
+# helper, to avoid exposing internals of marshal and the
+# difficulties of using it though applevel.
+_r_correction = intmask(1L<<32)    # == 0 on 32-bit machines
+def _r_long(stream):
+    s = stream.read(4) # XXX XXX could return smaller string
+    return _get_long(s)
 
 def _w_long(stream, x):
     a = x & 0xff
