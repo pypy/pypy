@@ -115,11 +115,21 @@ class W_ContextFrame(model.W_Object):
     def sendLiteralSelectorBytecode(self, interp):
         selector = self.method.literals[self.currentBytecode & 15]
         argcount = ((self.currentBytecode >> 4) & 3) - 1
-        self._sendSelector(selector, argcount, interp)
+        self._sendSelfSelector(selector, argcount, interp)
         
-    def _sendSelector(self, selector, argcount, interp):
+    def _sendSelfSelector(self, selector, argcount, interp):
         receiver = self.peek(argcount)
-        method = receiver.w_class.lookup(selector)
+        self._sendSelector(selector, argcount, interp,
+                           receiver.w_class)
+
+    def _sendSuperSelector(self, selector, argcount, interp):
+        receiver = self.peek(argcount)
+        self._sendSelector(selector, argcount, interp,
+                           receiver.w_class.w_superclass)
+
+    def _sendSelector(self, selector, argcount, interp, receiverclass):
+        receiver = self.peek(argcount)
+        method = receiverclass.lookup(selector)
         assert method
         if method.primitive:
             func = primitives.prim_table[method.primitive]
@@ -195,17 +205,20 @@ class W_ContextFrame(model.W_Object):
         self.extendedStoreBytecode(interp)
         self.pop()
 
-    def singleExtendedSendBytecode(self, interp):
+    def getExtendedSelectorArgcount(self):
         descriptor = self.getByte()
-        selector = self.method.literals[descriptor & 31]
-        argcount = descriptor >> 5
-        self._sendSelector(selector, argcount, interp)
+        return (self.method.literals[descriptor & 31]), (descriptor >> 5)
+
+    def singleExtendedSendBytecode(self, interp):
+        selector, argcount = self.getExtendedSelectorArgcount()
+        self._sendSelfSelector(selector, argcount, interp)
 
     def doubleExtendedDoAnythingBytecode(self, interp):
         raise MissingBytecode
 
     def singleExtendedSuperBytecode(self, interp):
-        raise MissingBytecode
+        selector, argcount = self.getExtendedSelectorArgcount()
+        self._sendSuperSelector(selector, argcount, interp)
 
     def secondExtendedSendBytecode(self, interp):
         raise MissingBytecode
@@ -250,7 +263,7 @@ class W_ContextFrame(model.W_Object):
         try:
             self.push(primitives.prim_table[primitive](self))
         except primitives.PrimitiveFailedError:
-            self._sendSelector(selector, argcount, interp)
+            self._sendSelfSelector(selector, argcount, interp)
 
     def bytecodePrimAdd(self, interp):
         self.callPrimitiveAndPush(primitives.ADD, "+", 1, interp)

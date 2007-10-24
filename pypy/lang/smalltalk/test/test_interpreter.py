@@ -427,4 +427,29 @@ def test_singleExtendedSendBytecode():
         interp.step()
         assert interp.activeContext == callerContext
         assert interp.activeContext.stack == [result]
+
+def test_singleExtendedSuperBytecode():
+    w_super = model.W_Class(None, None)
+    w_class = model.W_Class(None, w_super)
+    w_object = w_class.new()
+    for bytecode, result in [ (returnReceiver, w_object), 
+          (returnTrue, interpreter.Interpreter.TRUE), 
+          (returnFalse, interpreter.Interpreter.FALSE),
+          (returnNil, interpreter.Interpreter.NIL),
+          (returnTopFromMethod, interpreter.Interpreter.ONE) ]:
+        w_super.methoddict["foo"] = model.W_CompiledMethod(None, 0, pushConstantOneBytecode + bytecode)
+        interp = new_interpreter(singleExtendedSuperBytecode + chr(0))
+        interp.activeContext.method.literals = ["foo"]
+        interp.activeContext.push(w_object)
+        callerContext = interp.activeContext
+        interp.step()
+        assert interp.activeContext.sender == callerContext
+        assert interp.activeContext.stack == []
+        assert interp.activeContext.receiver == w_object
+        assert interp.activeContext.method == w_super.methoddict["foo"]
+        assert callerContext.stack == []
+        interp.step()
+        interp.step()
+        assert interp.activeContext == callerContext
+        assert interp.activeContext.stack == [result]
  
