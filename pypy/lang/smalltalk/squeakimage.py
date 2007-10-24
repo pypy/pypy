@@ -73,7 +73,9 @@ class CorruptImageError(Exception):
 class ImageReader(object):
     def __init__(self, stream):
         self.stream = stream
-        
+        self.chunks = {}
+        self.chunklist = []
+                
     def initialize(self):
         self.read_header()
         self.read_body()
@@ -96,14 +98,14 @@ class ImageReader(object):
         self.stream.skipbytes(headersize - (9 * 4))
 
     def read_body(self):
-        self.chunks = {}
         self.stream.reset_count()
         while self.stream.count < self.endofmemory:
             chunk, pos = self.read_object()
+            self.chunklist.append(chunk)
             self.chunks[pos + self.oldbaseaddress] = chunk
         self.stream.close()    
         del self.stream
-        return self.chunks.values() # return for testing
+        return self.chunklist # return for testing
 
     def init_g_objects(self):
         for chunk in self.chunks.itervalues():
@@ -173,7 +175,7 @@ class SqueakImage(object):
         self.special_objects = [g_object.w_object for g_object in
                                 reader.chunks[reader.specialobjectspointer]
                                 .g_object.pointers]
-        self.objects = [chunk.g_object.w_object for chunk in reader.chunks.itervalues()]
+        self.objects = [chunk.g_object.w_object for chunk in reader.chunklist]
         
     def special(self, index):
         return self.special_objects[index]  
@@ -330,9 +332,10 @@ class GenericObject(object):
                     for pointer in self.chunk.data[:literalsize+1]]
         # --------------------
         l = []
-        for each in self.chunk.data[(literalsize+1):]:
+        for each in self.chunk.data[literalsize+1:]:
             l.append(int2str(each))
-        bytes = "".join(l)[:-(self.format & 3)] 
+        bytes = "".join(l)
+        bytes = bytes[:-(self.format & 3)] 
         w_compiledmethod.__init__(
             w_class = self.g_class.w_object,
             size = literalsize,
