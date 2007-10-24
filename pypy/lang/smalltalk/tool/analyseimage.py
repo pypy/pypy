@@ -6,9 +6,6 @@ from pypy.lang.smalltalk import interpreter as sqi
 
 mini_image = py.magic.autopath().dirpath().dirpath().join('mini.image')
 
-def test_miniimageexists():
-    assert mini_image.check(dir=False)
-
 def get_miniimage():
     return sq.ImageReader(sq.Stream(mini_image.open()))
 
@@ -26,6 +23,12 @@ def printStringsInImage():
         if isinstance(each,sqm.W_BytesObject):
           print repr(''.join(each.bytes))
 
+def printReadableBytecode(bytecode):
+    print "\n\nBytecode:\n---------------------"
+    print "\n".join([sqi.BYTECODE_TABLE[ord(i)].__name__ for i in bytecode])
+    print "---------------------\n"
+
+
 def testCompiledMethods():
     image = create_squeakimage()
     amethod = None
@@ -35,7 +38,7 @@ def testCompiledMethods():
         if isinstance(each,sqm.W_CompiledMethod):
             if (each.argsize == 0 and amethod == None and
                 each.tempsize == 0 and
-                each.primitive == 1):
+                each.primitive == 0):
                 
                 if len(each.bytes) == 0:
                     pass
@@ -56,11 +59,11 @@ def testCompiledMethods():
     w_frame = amethod.createFrame(anObject, [])
     interp.activeContext = w_frame
     #w_frame.push(interp.TRUE)
-    w_frame.push(interp.ONE)
-    w_frame.push(interp.TWO)
+    #w_frame.push(interp.ONE)
+    #w_frame.push(interp.TWO)
 
-    print "Going to execute code: "
-    print [ord(i) for i in amethod.bytes]
+    printReadableBytecode(amethod.bytes)
+
     while True:
         try:
             interp.step()
@@ -69,10 +72,11 @@ def testCompiledMethods():
             return e.object
 
 # apply to Xth method
-SKIPMETHODS=3 #X
+SKIPMETHODS=42 #X
 
 def test_do():
-    testCompiledMethods()
+    #testCompiledMethods()
+    printStringsInImage()
 
 if __name__ == '__main__':
     test_do()
