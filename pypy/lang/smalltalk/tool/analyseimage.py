@@ -59,6 +59,8 @@ def testCompiledMethods():
     w_frame.push(interp.ONE)
     w_frame.push(interp.TWO)
 
+    print "Going to execute code: "
+    print [ord(i) for i in amethod.bytes]
     while True:
         try:
             interp.step()
