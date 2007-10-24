@@ -24,13 +24,6 @@ def printStringsInImage():
         if isinstance(each,sqm.W_BytesObject):
           print each.bytes
 
-def getMethodFromClass(w_class,methodname):
-    w_methoddict = w_class.fetch(1)
-    for var in w_methoddict.vars:
-        if isinstance(var,sqm.W_BytesObject):
-            if str(var) == repr(methodname):
-                return w_methoddict.vars[1].vars[w_methoddict.vars.index(var)-2]
-
 def testCompiledMethods():
     image = create_squeakimage()
     amethod = None
@@ -52,9 +45,6 @@ def testCompiledMethods():
             print interp.activeContext.stack
         except sqi.ReturnFromTopLevel, e:
             return e.object
-
-# apply to Xth method
-SKIPMETHODS=42 #X
 
 def test_do():
     testCompiledMethods()
