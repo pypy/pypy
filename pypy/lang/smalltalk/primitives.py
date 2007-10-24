@@ -2,16 +2,13 @@ import operator
 import pypy.lang.smalltalk.model as model
 import pypy.lang.smalltalk.classtable as ct
 import pypy.lang.smalltalk.fakeimage as fimg
+from pypy.rlib import rarithmetic
 
 class PrimitiveFailedError(Exception):
     pass
 
 class PrimitiveNotYetWrittenError(PrimitiveFailedError):
     pass
-
-def unwrap_int(w_v):
-    if isinstance(w_v, model.W_SmallInteger): return w_v.value
-    raise PrimitiveFailedError()
 
 def unwrap_float(w_v):
     if isinstance(w_v, model.W_Float): return w_v.value
@@ -51,7 +48,7 @@ def primitive(code):
 def stack(n):
     def decorator(wrapped):
         def result(frame):
-            items = [frame.peek(i) for i in range(n)]
+            items = frame.stack[len(frame.stack)-n:]
             res = wrapped(items)
             frame.pop_n(n)   # only if no exception occurs!
             return res
@@ -59,43 +56,91 @@ def stack(n):
     return decorator
 
 # ___________________________________________________________________________
-# Small Integer Primitives
+# SmallInteger Primitives
 
-ADD = 1
-SUBTRACT = 2
-MAKE_POINT = 18
+def unwrap_int(w_value):
+    if isinstance(w_value, model.W_SmallInteger): 
+        return w_value.value
+    raise PrimitiveFailedError()
+
+def wrap_int(value):
+    if value > 1073741823:
+        raise PrimitiveFailedError()
+    if value < -1073741824:
+        raise PrimitiveFailedError()
+    return fimg.wrap_int(value)
+    
+ADD         = 1
+SUBTRACT    = 2
+MULTIPLY    = 9
+DIVIDE      = 10
+MOD         = 11
+DIV         = 12
+QUO         = 13
 
 math_ops = {
     ADD: operator.add,
-    SUBTRACT: operator.sub
+    SUBTRACT: operator.sub,
+    MULTIPLY: operator.mul,
     }
 for (code,op) in math_ops.items():
+    @primitive(code)
     @stack(2)
     def func(stack, op=op): # n.b. capture op value
-        [w_v2, w_v1] = stack
-        v1 = unwrap_int(w_v1)
-        v2 = unwrap_int(w_v2)
-        res = op(v1, v2)
-        
-        # Emulate the bounds of smalltalk tagged integers:
-        if res > 1073741823: raise PrimitiveFailedError()
-        if res < -1073741824: raise PrimitiveFailedError()
-        
-        w_res = fimg.wrap_int(res)
-        return w_res
-    prim_table[code] = func
+        [w_receiver, w_argument] = stack
+        receiver = unwrap_int(w_receiver)
+        argument = unwrap_int(w_argument)
+        try:
+            res = rarithmetic.ovfcheck(op(receiver, argument))
+        except OverflowError:
+            raise PrimitiveFailedError()
+        return wrap_int(res)
 
-@primitive(MAKE_POINT)
-def primitivemakepoint(frame):
-    raise PrimitiveNotYetWrittenError(MAKE_POINT)
+# #/ -- return the result of a division, only succeed if the division is exact
+@primitive(DIVIDE)
+@stack(2)
+def func(stack):
+    [w_receiver, w_argument] = stack
+    receiver = unwrap_int(w_receiver)
+    argument = unwrap_int(w_argument)
+    if argument == 0:
+        raise PrimitiveFailedError()
+    if receiver % argument != 0:
+        raise PrimitiveFailedError()
+    return wrap_int(receiver // argument)
 
-# ___________________________________________________________________________
-# Integer Primitives
-#
-# Primitives 21-37 are aliased to 1-17 for historical reasons.
+# #\\ -- return the remainder of a division
+@primitive(MOD)
+@stack(2)
+def func(stack):
+    [w_receiver, w_argument] = stack
+    receiver = unwrap_int(w_receiver)
+    argument = unwrap_int(w_argument)
+    if argument == 0:
+        raise PrimitiveFailedError()
+    return wrap_int(receiver % argument)
 
-for i in range(21,38):
-    prim_table[i] = prim_table[i-20]
+# #// -- return the result of a division, rounded towards negative zero
+@primitive(DIV)
+@stack(2)
+def func(stack):
+    [w_receiver, w_argument] = stack
+    receiver = unwrap_int(w_receiver)
+    argument = unwrap_int(w_argument)
+    if argument == 0:
+        raise PrimitiveFailedError()
+    return wrap_int(receiver // argument)
+    
+# #// -- return the result of a division, rounded towards negative infinity
+@primitive(QUO)
+@stack(2)
+def func(stack):
+    [w_receiver, w_argument] = stack
+    receiver = unwrap_int(w_receiver)
+    argument = unwrap_int(w_argument)
+    if argument == 0:
+        raise PrimitiveFailedError()
+    return wrap_int(receiver // argument)
 
 # ___________________________________________________________________________
 # Float Primitives
@@ -110,7 +155,7 @@ math_ops = {
 for (code,op) in math_ops.items():
     @stack(2)
     def func(res, op=op): # n.b. capture op value
-        [w_v2, w_v1] = res
+        [w_v1, w_v2] = res
         v1 = unwrap_float(w_v1)
         v2 = unwrap_float(w_v2)
         w_res = fimg.wrap_float(op(v1, v2))
@@ -127,27 +172,27 @@ STRING_AT = 63
 STRING_AT_PUT = 64
 
 def common_at(stack):
-    [w_idx, w_obj] = stack
+    [w_obj, w_idx] = stack
     idx = unwrap_int(w_idx)
     assert_valid_index(idx, w_obj)
-    return idx, w_obj
+    return w_obj, idx
 
 def common_at_put(stack):
-    [w_val, w_idx, w_obj] = stack
+    [w_obj, w_idx, w_val] = stack
     idx = unwrap_int(w_idx)
     assert_valid_index(idx, w_obj)
-    return w_val, idx, w_obj
+    return w_obj, idx, w_val
 
 @primitive(AT)
 @stack(2)
 def func(stack):
-    idx, w_obj = common_at(stack)
+    w_obj, idx = common_at(stack)
     return w_obj.fetch(idx)
 
 @primitive(AT_PUT)
 @stack(3)
 def func(stack):
-    w_val, idx, w_obj = common_at_put(stack)
+    w_obj, idx, w_val = common_at_put(stack)
     w_obj.store(idx, w_val)
     return w_val
 
@@ -162,14 +207,14 @@ def func(stack):
 @primitive(STRING_AT)
 @stack(2)
 def func(stack):
-    idx, w_obj = common_at(stack)
+    w_obj, idx = common_at(stack)
     byte = w_obj.getbyte(idx)
     return fimg.CharacterTable[byte]
 
 @primitive(STRING_AT_PUT)
 @stack(3)
 def func(stack):
-    w_val, idx, w_obj = common_at_put(stack)
+    w_obj, idx, w_val = common_at_put(stack)
     if w_val.w_class is not ct.w_Character:
         raise PrimitiveFailedError()
     w_obj.setbyte(idx, fimg.ord_w_char(w_val))
@@ -193,7 +238,7 @@ NEXT_INSTANCE = 78
 @primitive(OBJECT_AT)
 @stack(2)
 def func(stack):
-    [w_idx, w_rcvr] = stack
+    [w_rcvr, w_idx] = stack
     idx = unwrap_int(w_idx)
     assert_bounds(idx, 0, w_rcvr.w_class.instvarsize)
     return w_rcvr.getnamedvar(idx)
@@ -201,7 +246,7 @@ def func(stack):
 @primitive(OBJECT_AT_PUT)
 @stack(3)
 def func(stack):
-    [w_val, w_idx, w_rcvr] = stack
+    [w_rcvr, w_idx, w_val] = stack
     idx = unwrap_int(w_idx)
     assert_bounds(idx, 0, w_rcvr.w_class.instvarsize)
     w_rcvr.setnamedvar(idx, w_val)
@@ -218,7 +263,7 @@ def func(stack):
 @primitive(NEW_WITH_ARG)
 @stack(2)
 def func(stack):
-    [w_size, w_cls] = stack
+    [w_cls, w_size] = stack
     if not isinstance(w_cls, model.W_Class) or not w_cls.isvariable():
         raise PrimitiveFailedError()
     size = unwrap_int(w_size)
@@ -233,7 +278,7 @@ def func(frame):
 def func(stack):
     # I *think* this is the correct behavior, but I'm not quite sure.
     # Might be restricted to fixed length fields?
-    [w_idx, w_rcvr] = stack
+    [w_rcvr, w_idx] = stack
     idx = unwrap_int(w_idx)
     w_cls = w_rcvr.w_class
     if idx < 0:
@@ -310,7 +355,7 @@ for (code,op) in bool_ops.items():
     @primitive(code)
     @stack(2)
     def func(stack, op=op): # n.b. capture op value
-        [w_v2, w_v1] = stack
+        [w_v1, w_v2] = stack
         v1 = unwrap_int(w_v1)
         v2 = unwrap_int(w_v2)
         res = op(v1, v2)
@@ -321,7 +366,7 @@ for (code,op) in bool_ops.items():
     @primitive(code+_FLOAT_OFFSET)
     @stack(2)
     def func(stack, op=op): # n.b. capture op value
-        [w_v2, w_v1] = stack
+        [w_v1, w_v2] = stack
         v1 = unwrap_float(w_v1)
         v2 = unwrap_float(w_v2)
         res = op(v1, v2)

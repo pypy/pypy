@@ -36,17 +36,50 @@ def prim_fails(code, stack):
         py.test.fail("Expected PrimitiveFailedError")
     except PrimitiveFailedError:
         assert stack_w.stack == orig_stack
-
-def test_small_int_plus():
+        
+# smallinteger tests
+def test_small_int_add():
     assert prim(p.ADD, [1,2]).value == 3
     assert prim(p.ADD, [3,4]).value == 7
+
+def test_small_int_add_fail():
+    prim_fails(p.ADD, [1073741823,2])
 
 def test_small_int_minus():
     assert prim(p.SUBTRACT, [5,9]).value == -4
 
-def test_small_int_overflow():
-    prim_fails(p.ADD, [1073741823,2])
+def test_small_int_minus_fail():
+    prim_fails(p.SUBTRACT, [-1073741823,2])
     
+def test_small_int_divide():
+    assert prim(p.DIVIDE, [6,3]).value == 2
+    
+def test_small_int_divide_fail():
+    prim_fails(p.DIVIDE, [12, 0])
+    prim_fails(p.DIVIDE, [12, 7])
+    
+def test_small_int_mod():
+    assert prim(p.MOD, [12,7]).value == 5
+
+def test_small_int_mod_fail():
+    prim_fails(p.MOD, [12, 0])
+    
+def test_small_int_div():
+    assert prim(p.DIV, [12,3]).value == 4
+    assert prim(p.DIV, [12,7]).value == 1
+
+def test_small_int_div_fail():
+    prim_fails(p.DIV, [12, 0])
+    
+def test_small_int_quo():
+    assert prim(p.QUO, [12,3]).value == 4
+    assert prim(p.QUO, [12,7]).value == 1
+
+def test_small_int_quo_fail():
+    prim_fails(p.QUO, [12, 0])
+    
+
+
 def test_float():
     assert prim(p.FLOAT_ADD, [1.0,2.0]).value == 3.0
     assert prim(p.FLOAT_ADD, [3,4.5]).value == 7.5

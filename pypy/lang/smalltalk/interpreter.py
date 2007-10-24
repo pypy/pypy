@@ -319,13 +319,13 @@ class W_ContextFrame(model.W_Object):
         self.callPrimitiveAndPush(primitives.NOTEQUAL, "~=", 1, interp)
 
     def bytecodePrimMultiply(self, interp):
-        raise MissingBytecode
+        self.callPrimitiveAndPush(primitives.MUL, "*", 1, interp)
 
     def bytecodePrimDivide(self, interp):
-        raise MissingBytecode
+        self.callPrimitiveAndPush(primitives.DIVIDE, "/", 1, interp)
 
     def bytecodePrimMod(self, interp):
-        raise MissingBytecode
+        self.callPrimitiveAndPush(primitives.MOD, "\\", 1, interp)
 
     def bytecodePrimMakePoint(self, interp):
         raise MissingBytecode
@@ -334,7 +334,7 @@ class W_ContextFrame(model.W_Object):
         raise MissingBytecode
 
     def bytecodePrimDiv(self, interp):
-        raise MissingBytecode
+        self.callPrimitiveAndPush(primitives.DIV, "//", 1, interp)
 
     def bytecodePrimBitAnd(self, interp):
         raise MissingBytecode
