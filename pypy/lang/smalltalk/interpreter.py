@@ -296,13 +296,9 @@ class W_MethodContext(model.W_Object):
     def callPrimitiveAndPush(self, primitive, selector,
                              argcount, interp):
         try:
-            print "Pushing result"
             self.push(primitives.prim_table[primitive](self))
-            print "Pushed result"
         except primitives.PrimitiveFailedError:
-            print "Falling back to smalltalk version"
             self._sendSelfSelector(selector, argcount, interp)
-            print "Fallback succeeded"
 
     def bytecodePrimAdd(self, interp):
         self.callPrimitiveAndPush(primitives.ADD, "+", 1, interp)
