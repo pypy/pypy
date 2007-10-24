@@ -126,9 +126,9 @@ def test_storeAndPopReceiverVariableBytecode():
         assert interp.activeContext.stack == []
         for test_index in range(8):
             if test_index == index:
-                assert w_object.named_vars[test_index] == interp.TRUE
+                assert w_object.getnamedvar(test_index) == interp.TRUE
             else:
-                assert w_object.named_vars[test_index] == None
+                assert w_object.getnamedvar(test_index) == None
                 
 def test_storeAndPopTemporaryVariableBytecode():
     for index in range(8):
@@ -367,9 +367,9 @@ def test_extendedStoreAndPopBytecode0():
         assert interp.activeContext.stack == []
         for test_index in range(8):
             if test_index == index:
-                assert w_object.named_vars[test_index] == interp.TRUE
+                assert w_object.getnamedvar(test_index) == interp.TRUE
             else:
-                assert w_object.named_vars[test_index] == None
+                assert w_object.getnamedvar(test_index) == None
                 
 def test_extendedStoreAndPopBytecode1():
     for index in range(8):

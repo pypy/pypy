@@ -23,23 +23,25 @@ class W_PointersObject(W_Object):
     """ The normal object """
     def __init__(self, w_class, size=0):
         W_Object.__init__(self, w_class)
-        self.named_vars = [None] * w_class.instvarsize
-        self.indexed_vars = [None] * size
+        self.vars = [None] * (w_class.instvarsize + size)
 
     def getnamedvar(self, index):
-        return self.named_vars[index]
+        if not index < self.w_class.instvarsize: raise IndexError
+        return self.vars[index]
 
     def setnamedvar(self, index, w_value):
-        self.named_vars[index] = w_value
+        if not index < self.w_class.instvarsize: raise IndexError
+        self.vars[index] = w_value
 
     def size(self):
-        return len(self.indexed_vars)
+        return len(self.vars) - self.w_class.instvarsize
         
     def getindexedvar(self, index):
-        return self.indexed_vars[index]
+        return self.vars[index + self.w_class.instvarsize]
 
     def setindexedvar(self, index, w_value):
-        self.indexed_vars[index] = w_value
+        self.vars[index + self.w_class.instvarsize] = w_value
+        
 
 class W_BytesObject(W_Object):
     def __init__(self, w_class, size):
@@ -72,7 +74,6 @@ class W_WordsObject(W_Object):
 class W_CompiledMethod(W_Object):
     """My instances are methods suitable for interpretation by the virtual machine.  This is the only class in the system whose instances intermix both indexable pointer fields and indexable integer fields.
 
-
     The current format of a CompiledMethod is as follows:
 
     	header (4 bytes)
@@ -89,7 +90,6 @@ class W_CompiledMethod(W_Object):
     (index 24)	4 bits:	number of arguments to the method (#numArgs)
     (index 28)	1 bit:	high-bit of primitive number (#primitive)
     (index 29)	1 bit:	flag bit, ignored by the VM  (#flag)
-
 
     The trailer has two variant formats.  In the first variant, the last byte is at least 252 and the last four bytes represent a source pointer into one of the sources files (see #sourcePointer).  In the second variant, the last byte is less than 252, and the last several bytes are a compressed version of the names of the method's temporary variables.  The number of bytes used for this purpose is the value of the last byte in the method.
     """
