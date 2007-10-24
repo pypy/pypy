@@ -190,16 +190,18 @@ def test_duplicateTopBytecode():
     interp.step()
     assert interp.activeContext.stack == [interp.ZERO, interp.ZERO]
 
-def test_sendLiteralSelectorBytecode():
-    w_class = model.W_Class(None, None)
-    w_object = w_class.new()
+# w_class - the class from which the method is going to be called
+# (and on which it is going to be installed)
+# w_object - the actual object we will be sending the method to
+# bytecodes - the bytecode to be executed
+def sendBytecodesTest(w_class, w_object, bytecodes):
     for bytecode, result in [ (returnReceiver, w_object), 
           (returnTrue, interpreter.Interpreter.TRUE), 
           (returnFalse, interpreter.Interpreter.FALSE),
           (returnNil, interpreter.Interpreter.NIL),
           (returnTopFromMethod, interpreter.Interpreter.ONE) ]:
         w_class.methoddict["foo"] = model.W_CompiledMethod(None, 0, pushConstantOneBytecode + bytecode)
-        interp = new_interpreter(sendLiteralSelectorBytecode(0))
+        interp = new_interpreter(bytecodes)
         interp.activeContext.method.literals = ["foo"]
         interp.activeContext.push(w_object)
         callerContext = interp.activeContext
@@ -213,6 +215,11 @@ def test_sendLiteralSelectorBytecode():
         interp.step()
         assert interp.activeContext == callerContext
         assert interp.activeContext.stack == [result]
+
+def test_sendLiteralSelectorBytecode():
+    w_class = model.W_Class(None, None)
+    w_object = w_class.new()
+    sendBytecodesTest(w_class, w_object, sendLiteralSelectorBytecode(0))
         
 def test_fibWithArgument():
     bytecode = ''.join(map(chr, [ 16, 119, 178, 154, 118, 164, 11, 112, 16, 118, 177, 224, 112, 16, 119, 177, 224, 176, 124 ]))
@@ -407,49 +414,11 @@ def test_bytecodePrimBool():
 def test_singleExtendedSendBytecode():
     w_class = model.W_Class(None, None)
     w_object = w_class.new()
-    for bytecode, result in [ (returnReceiver, w_object), 
-          (returnTrue, interpreter.Interpreter.TRUE), 
-          (returnFalse, interpreter.Interpreter.FALSE),
-          (returnNil, interpreter.Interpreter.NIL),
-          (returnTopFromMethod, interpreter.Interpreter.ONE) ]:
-        w_class.methoddict["foo"] = model.W_CompiledMethod(None, 0, pushConstantOneBytecode + bytecode)
-        interp = new_interpreter(singleExtendedSendBytecode + chr(0))
-        interp.activeContext.method.literals = ["foo"]
-        interp.activeContext.push(w_object)
-        callerContext = interp.activeContext
-        interp.step()
-        assert interp.activeContext.sender == callerContext
-        assert interp.activeContext.stack == []
-        assert interp.activeContext.receiver == w_object
-        assert interp.activeContext.method == w_class.methoddict["foo"]
-        assert callerContext.stack == []
-        interp.step()
-        interp.step()
-        assert interp.activeContext == callerContext
-        assert interp.activeContext.stack == [result]
+    sendBytecodesTest(w_class, w_object, singleExtendedSendBytecode + chr(0))
 
 def test_singleExtendedSuperBytecode():
     w_super = model.W_Class(None, None)
     w_class = model.W_Class(None, w_super)
     w_object = w_class.new()
-    for bytecode, result in [ (returnReceiver, w_object), 
-          (returnTrue, interpreter.Interpreter.TRUE), 
-          (returnFalse, interpreter.Interpreter.FALSE),
-          (returnNil, interpreter.Interpreter.NIL),
-          (returnTopFromMethod, interpreter.Interpreter.ONE) ]:
-        w_super.methoddict["foo"] = model.W_CompiledMethod(None, 0, pushConstantOneBytecode + bytecode)
-        interp = new_interpreter(singleExtendedSuperBytecode + chr(0))
-        interp.activeContext.method.literals = ["foo"]
-        interp.activeContext.push(w_object)
-        callerContext = interp.activeContext
-        interp.step()
-        assert interp.activeContext.sender == callerContext
-        assert interp.activeContext.stack == []
-        assert interp.activeContext.receiver == w_object
-        assert interp.activeContext.method == w_super.methoddict["foo"]
-        assert callerContext.stack == []
-        interp.step()
-        interp.step()
-        assert interp.activeContext == callerContext
-        assert interp.activeContext.stack == [result]
+    sendBytecodesTest(w_super, w_object, singleExtendedSuperBytecode + chr(0))
  
