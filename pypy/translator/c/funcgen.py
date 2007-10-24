@@ -688,6 +688,10 @@ class FunctionCodeGenerator(object):
                     format.append(arg.value.replace('%', '%%'))
                     continue
                 format.append('%c')
+            elif T == Bool:
+                format.append('%s')
+                argv.append('(%s) ? "True" : "False"' % self.expr(arg))
+                continue
             else:
                 raise Exception("don't know how to debug_print %r" % (T,))
             argv.append(self.expr(arg))
