@@ -70,14 +70,16 @@ class W_ZipImporter(Wrappable):
             if not e.match(space, space.w_KeyError):
                 # should never happen
                 raise e
-            return space.w_None
 
     def find_module(self, space, import_name, w_path=None):
         import_name = import_name.replace('.', os.path.sep)
         for _, _, ext in ENUMERATE_EXTS:
-            if space.is_true(self.get_module(space, import_name + ext)):
+            if self.get_module(space, import_name + ext):
                 return space.wrap(self)
     find_module.unwrap_spec = ['self', ObjSpace, str, W_Root]
+
+    def mangle(self, name):
+        return name.replace('.', os.path.sep)
 
     def load_module(self, space, name):
         w = space.wrap
@@ -86,14 +88,13 @@ class W_ZipImporter(Wrappable):
             return space.getitem(w_modules, w(name))
         except OperationError, e:
             pass
-        filename = name.replace('.', os.path.sep)
+        filename = self.mangle(name)
         w_ZipImportError = space.getattr(space.getbuiltinmodule('zipimport'),
                                          w('ZipImportError'))
         last_exc = None
         for compiled, is_package, ext in ENUMERATE_EXTS:
             try:
-                w_buf = space.call(space.getattr(self.w_dir, w('read')),
-                                   space.newlist([w(filename + ext)]))
+                w_buf = self._get_data(space, w(filename + ext))
                 if is_package:
                     pkgpath = self.name
                 else:
@@ -114,21 +115,52 @@ class W_ZipImporter(Wrappable):
         return space.w_None
     load_module.unwrap_spec = ['self', ObjSpace, str]
 
-    def get_data(self, space):
-        pass
-    get_data.unwrap_spec = ['self', ObjSpace]
+    def _get_data(self, space, w_filename):
+        w = space.wrap
+        try:
+            return space.call(space.getattr(self.w_dir, w('read')),
+                              space.newlist([w_filename]))
+        except OperationError, e:
+            raise OperationError(space.w_IOError, e.w_value)
 
-    def get_code(self, space):
-        pass
-    get_code.unwrap_spec = ['self', ObjSpace]
+    def get_data(self, space, filename):
+        filename = self.mangle(filename)
+        return self._get_data(space, space.wrap(filename))
+    get_data.unwrap_spec = ['self', ObjSpace, str]
 
-    def get_source(self, space):
-        pass
-    get_source.unwrap_spec = ['self', ObjSpace]
+    def get_code(self, space, filename):
+        w = space.wrap
+        filename = self.mangle(filename)
+        for compiled, _, ext in ENUMERATE_EXTS:
+            if self.get_module(space, filename + ext):
+                if compiled:
+                    return self._get_data(space, space.wrap(filename + ext))
+                else:
+                    w_source = self._get_data(space, space.wrap(filename + ext))
+                    w_code = space.builtin.call('compile', w_source,
+                                                w(filename + ext), w('exec'))
+                    return w_code 
+        raise OperationError(space.w_ImportError, space.wrap(
+            "Cannot find source or code for %s in %s" % (filename, self.name)))
+    get_code.unwrap_spec = ['self', ObjSpace, str]
 
-    def is_package(self, space):
-        pass
-    is_package.unwrap_spec = ['self', ObjSpace]
+    def get_source(self, space, filename):
+        filename = self.mangle(filename)
+        for compiled, _, ext in ENUMERATE_EXTS:
+            if not compiled:
+                if self.get_module(space, filename + ext):
+                    return self._get_data(space, space.wrap(filename + ext))
+        raise OperationError(space.w_ImportError, space.wrap(
+            "Cannot find source for %s in %s" % (filename, self.name)))
+    get_source.unwrap_spec = ['self', ObjSpace, str]
+
+    def is_package(self, space, filename):
+        for _, is_package, ext in ENUMERATE_EXTS:
+            if self.get_module(space, filename + ext):
+                return space.wrap(is_package)
+        raise OperationError(space.w_ImportError, space.wrap(
+            "Cannot find module %s in %s" % (filename, self.name)))
+    is_package.unwrap_spec = ['self', ObjSpace, str]
 
 def descr_new_zipimporter(space, w_type, name):
     try:

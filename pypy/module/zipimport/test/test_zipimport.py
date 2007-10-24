@@ -31,7 +31,6 @@ class AppTestZipimport:
         pyc = s.getvalue() + struct.pack("<i", int(mtime)) + data
         return pyc
     make_pyc = classmethod(make_pyc)
-
     def setup_class(cls):
         co = py.code.Source("""
         def get_name():
@@ -50,6 +49,7 @@ class AppTestZipimport:
         #ziptestmodule = tmpdir.ensure('ziptestmodule.zip').write(
         ziptestmodule = tmpdir.join("somezip.zip")
         cls.w_tmpzip = space.wrap(str(ziptestmodule))
+        cls.w_co = space.wrap(co)
         cls.tmpdir = tmpdir
         cls.w_writefile = space.appexec([], """():
         def writefile (self, filename, data):
@@ -157,4 +157,21 @@ class AppTestZipimport:
         mod = __import__("xx", globals(), locals(), ['yy'])
         assert mod.__path__
         assert mod.yy.f(3) == 3
-    
+
+    def test_functions(self):
+        import zipimport
+        data = "saddsadsa"
+        self.writefile(self, "xxx", data)
+        self.writefile(self, "xx/__init__.py", "5")
+        self.writefile(self, "yy.py", "3")
+        self.writefile(self, 'uu.pyc', self.test_pyc)
+        z = zipimport.zipimporter(self.zipfile)
+        assert z.get_data("xxx") == data
+        assert z.is_package("xx")
+        assert not z.is_package("yy")
+        assert z.get_source("yy") == '3'
+        raises(ImportError, "z.get_source('zz')")
+        #assert z.get_code('yy') == py.code.Source('3').compile()
+        #assert z.get_code('uu') == self.co
+        assert z.get_code('xx')
+        assert z.get_source('xx') == "5"
