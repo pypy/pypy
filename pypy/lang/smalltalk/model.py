@@ -1,5 +1,5 @@
 
-class W_Object:
+class W_Object(object):
     def __init__(self, w_class):
         self.w_class = w_class
         self.w_hash = None # XXX initial value?
@@ -8,17 +8,35 @@ class W_Object:
         return 0
 
     def instvarsize(self):
-        return self.w_class.instvarsize        
+        return self.w_class.instvarsize    
+        
+    def invariant(self):
+        return (hasattr(self, 'w_class') and
+                self.w_class != None)
+                
+    def as_w_class_instvarsize(self):
+        return self.vars[3] # hardcoded position of instvar                 
 
 class W_SmallInteger(W_Object):
     def __init__(self, w_class, value):
         W_Object.__init__(self, w_class)
         self.value = value
+        
+    def invariant(self):
+        W_Object.invariant(self)
+        assert hasattr(self, 'value')
+        assert self.value != None
 
 class W_Float(W_Object):
     def __init__(self, w_class, value):
         W_Object.__init__(self, w_class)
         self.value = value
+        
+    def invariant(self):
+        return (W_Object.invariant(self) and
+                hasattr(self, 'value') and
+                self.value != None)
+        
 
 class W_PointersObject(W_Object):
     """ The normal object """
@@ -26,22 +44,33 @@ class W_PointersObject(W_Object):
         W_Object.__init__(self, w_class)
         self.vars = [None] * (w_class.instvarsize + size)
 
-    def getnamedvar(self, index):
-        if not index < self.w_class.instvarsize: raise IndexError
+    def fetch(self, index):
         return self.vars[index]
+        
+    def store(self, index, w_value):    
+        self.vars[index] = w_value
+        
+    def getnamedvar(self, index):
+        print "deprecated"
+        return self.fetch(index)
 
     def setnamedvar(self, index, w_value):
-        if not index < self.w_class.instvarsize: raise IndexError
-        self.vars[index] = w_value
+        print "deprecated"
+        return self.store(index, w_value)
 
     def size(self):
-        return len(self.vars) - self.w_class.instvarsize
+        return len(self.vars)
         
     def getindexedvar(self, index):
-        return self.vars[index + self.w_class.instvarsize]
+        raise NotImplementedError
 
     def setindexedvar(self, index, w_value):
-        self.vars[index + self.w_class.instvarsize] = w_value
+        raise NotImplementedError
+
+    def invariant(self):
+        return (W_Object.invariant(self) and
+                hasattr(self, 'vars') and
+                self.vars != None)
         
 
 class W_BytesObject(W_Object):
@@ -58,6 +87,12 @@ class W_BytesObject(W_Object):
     def size(self):
         return len(self.bytes)    
 
+    def invariant(self):
+        return (W_Object.invariant(self) and
+                hasattr(self, 'bytes') and
+                self.bytes != None)
+
+
 class W_WordsObject(W_Object):
     def __init__(self, w_class, size):
         W_Object.__init__(self, w_class)
@@ -70,7 +105,12 @@ class W_WordsObject(W_Object):
         self.words[n] = word        
 
     def size(self):
-        return len(self.words)    
+        return len(self.words)   
+
+    def invariant(self):
+        return (W_Object.invariant(self) and
+                hasattr(self, 'words') and
+                self.words != None)
 
 class W_CompiledMethod(W_Object):
     """My instances are methods suitable for interpretation by the virtual machine.  This is the only class in the system whose instances intermix both indexable pointer fields and indexable integer fields.
@@ -108,6 +148,19 @@ class W_CompiledMethod(W_Object):
         from pypy.lang.smalltalk.interpreter import W_ContextFrame
         assert len(arguments) == self.argsize
         return W_ContextFrame(None, self, receiver, arguments, sender)
+
+    def invariant(self):
+        return (W_Object.invariant(self) and
+                hasattr(self, 'literals') and
+                self.literals != None and 
+                hasattr(self, 'bytes') and
+                self.bytes != None and 
+                hasattr(self, 'argsize') and
+                self.argsize != None and 
+                hasattr(self, 'tempsize') and
+                self.tempsize != None and 
+                hasattr(self, 'primitive') and
+                self.primitive != None)       
 
 # ____________________________________________________________ 
 

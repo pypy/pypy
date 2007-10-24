@@ -142,13 +142,13 @@ def common_at_put(stack):
 @stack(2)
 def func(stack):
     idx, w_obj = common_at(stack)
-    return w_obj.getindexedvar(idx)
+    return w_obj.fetch(idx)
 
 @primitive(AT_PUT)
 @stack(3)
 def func(stack):
     w_val, idx, w_obj = common_at_put(stack)
-    w_obj.setindexedvar(idx, w_val)
+    w_obj.store(idx, w_val)
     return w_val
 
 @primitive(SIZE)

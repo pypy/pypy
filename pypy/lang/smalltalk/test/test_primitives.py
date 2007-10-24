@@ -53,7 +53,7 @@ def test_float():
 
 def test_at():
     w_obj = model.W_Class(None, None, 0, format=model.VAR_POINTERS).new(1)
-    w_obj.setindexedvar(0, "foo")
+    w_obj.store(0, "foo")
     assert prim(p.AT, [w_obj, 0]) == "foo"
 
 def test_invalid_at():

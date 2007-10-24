@@ -1,14 +1,23 @@
 import py
-import struct
 from pypy.lang.smalltalk import model 
 from pypy.lang.smalltalk import fakeimage 
 from pypy.rlib import objectmodel
 
 def int2str(integer):
-    return (chr((integer & 0xff000000) >> 24) + 
-            chr((integer & 0x00ff0000) >> 16) + 
-            chr((integer & 0x0000ff00) >>  8) + 
-            chr((integer & 0x000000ff)))
+    return (chr((integer >> 24) & 0xff) + 
+            chr((integer >> 16) & 0xff) + 
+            chr((integer >> 8) & 0xff) + 
+            chr((integer >> 0) & 0xff))
+
+def splitbits(integer, lengths):
+    assert sum(lengths) <= 32
+    result = []
+    for length in lengths:
+        result.append(integer & (2**length - 1))
+        integer = integer >> length
+    #XXX we can later mask and unroll this
+    return result
+
 
 # ____________________________________________________________
 #
@@ -26,6 +35,7 @@ class Stream(object):
         self.count = 0
 
     def peek(self):
+        import struct
         if self.pos >= len(self.data): 
             raise IndexError
         if self.swap:
@@ -49,15 +59,11 @@ class Stream(object):
         assert (self.pos + jump) <= len(self.data)
         self.pos += jump 
         self.count += jump   
+    
+    def close(self):
+        pass # already closed    
+        
      
-def splitbits(integer, lengths):
-    assert sum(lengths) <= 32
-    result = []
-    for length in lengths:
-        result.append(integer & (2**length - 1))
-        integer = integer >> length
-    #XXX we can later mask and unroll this
-    return result
     
 class CorruptImageError(Exception):
     pass            
@@ -73,24 +79,14 @@ class ImageReader(object):
         self.read_body()
         self.init_compactclassesarray()
         self.init_g_objects()
-        
-    def init_g_objects(self):
-        for chunk in self.chunks.itervalues():
-            chunk.as_g_object(self)        
+        self.init_w_objects()
+        self.fillin_w_objects()
 
-    def init_w_objects(self):
-        for chunk in self.chunks.itervalues():
-            chunk.g_object.init_w_object()
-
-    def fillin_w_objects(self):
-        for chunk in self.chunks.itervalues():
-            chunk.g_object.fillin_w_object()
-        
     def read_header(self):
         version = self.stream.next()
-        if version != 0x1966: raise NotImplementedError
+        if version != 0x1966: raise NotImplementedError #XXX swap here if 0x66190000
         headersize = self.stream.next()
-        self.endofmemory = self.stream.next()   
+        self.endofmemory = self.stream.next() # endofmemory = bodysize
         self.oldbaseaddress = self.stream.next()   
         self.specialobjectspointer = self.stream.next()   
         lasthash = self.stream.next()
@@ -98,16 +94,31 @@ class ImageReader(object):
         fullscreenflag = self.stream.next()
         extravmmemory = self.stream.next()
         self.stream.skipbytes(headersize - (9 * 4))
-        
+
     def read_body(self):
         self.chunks = {}
         self.stream.reset_count()
         while self.stream.count < self.endofmemory:
             chunk, pos = self.read_object()
             self.chunks[pos + self.oldbaseaddress] = chunk
-        return self.chunks.values()
+        self.stream.close()    
+        del self.stream
+        return self.chunks.values() # return for testing
+
+    def init_g_objects(self):
+        for chunk in self.chunks.itervalues():
+            chunk.as_g_object(self) # initialized g_object     
+
+    def init_w_objects(self):
+        for chunk in self.chunks.itervalues():
+            chunk.g_object.init_w_object() 
+
+    def fillin_w_objects(self):
+        for chunk in self.chunks.itervalues():
+            chunk.g_object.fillin_w_object()
         
     def init_compactclassesarray(self):
+        """ (CompiledMethod Symbol Array PseudoContext LargePositiveInteger nil MethodDictionary Association Point Rectangle nil TranslatedMethod BlockContext MethodContext nil nil nil nil nil nil nil nil nil nil nil nil nil nil nil nil nil ) """
         special = self.chunks[self.specialobjectspointer]   
         assert special.size > 24 #at least
         assert special.format == 2
@@ -116,10 +127,6 @@ class ImageReader(object):
         assert chunk.format == 2
         self.compactclasses = [self.chunks[pointer] for pointer in chunk.data]   
         
-    def init_actualobjects(self):
-        for chunk in self.chunks.itervalues():
-            chunk.get_actual() # initialization            
-
     def read_object(self):
         kind = self.stream.peek() & 3 # 2 bits
         if kind == 0: # 00 bits 
@@ -142,8 +149,8 @@ class ImageReader(object):
         return ImageChunk(size, format, classid, idhash), self.stream.count - 4
 
     def read_2wordobjectheader(self):
-        assert splitbits(self.stream.peek(), [2])[0] == 1 #kind
-        classid = self.stream.next() - 1 # remove headertype to get pointer
+        assert self.stream.peek() & 3 == 1 #kind
+        classid = self.stream.next() - 01 # remove headertype to get pointer
         kind, size, format, _, idhash = splitbits(self.stream.next(), [2,6,4,5,12])
         assert kind == 1
         return ImageChunk(size, format, classid, idhash), self.stream.count - 4
@@ -152,12 +159,28 @@ class ImageReader(object):
         kind, size = splitbits(self.stream.next(), [2,30]) 
         assert kind == 0
         assert splitbits(self.stream.peek(), [2])[0] == 0 #kind
-        classid = self.stream.next() - 0 # remove headertype to get pointer
+        classid = self.stream.next() - 00 # remove headertype to get pointer
         kind, _, format, _, idhash = splitbits(self.stream.next(), [2,6,4,5,12])
         assert kind == 0
         return ImageChunk(size, format, classid, idhash), self.stream.count - 4
 
+
+# ____________________________________________________________
+
+class SqueakImage(object):
+    
+    def from_reader(self, reader):
+        self.special_objects = [g_object.w_object for g_object in
+                                reader.chunks[reader.specialobjectspointer]
+                                .g_object.pointers]
+        self.objects = [chunk.g_object.w_object for chunk in reader.chunks.itervalues()]
+        
+    def special(self, index):
+        return self.special_objects[index]  
+        
 COMPACT_CLASSES_ARRAY = 28
+FLOAT_CLASS = 10
+          
 
 # ____________________________________________________________
 
@@ -177,7 +200,7 @@ class GenericObject(object):
         self.owner = reader
         self.value = value
         self.size = -1
-        self.w_object = fakeimage.small_int(value)
+        self.w_object = fakeimage.wrap_int(value)
     
     def initialize(self, chunk, reader):
         self.owner = reader
@@ -198,14 +221,15 @@ class GenericObject(object):
 
     def init_data(self, chunk):    
         if not self.ispointers(): return
-        self.pointers = []
-        for pointer in chunk.data:
-            g_object = self.decode_pointer(pointer)
-            self.pointers.append(g_object)
+        self.pointers = [self.decode_pointer(pointer) 
+                         for pointer in chunk.data]
+        assert len(filter(lambda x: x is None, self.pointers)) == 0                
             
     def decode_pointer(self, pointer):
         if (pointer & 1) == 1:
-            return GenericObject().initialize_int(pointer >> 1, self.owner)
+            small_int = GenericObject()
+            small_int.initialize_int(pointer >> 1, self.owner) 
+            return small_int
         else:
             return self.owner.chunks[pointer].g_object
             
@@ -219,8 +243,24 @@ class GenericObject(object):
         return self.format < 5 #TODO, what about compiled methods?             
 
     def init_w_object(self):
+        """ 0      no fields
+            1      fixed fields only (all containing pointers)
+            2      indexable fields only (all containing pointers)
+            3      both fixed and indexable fields (all containing pointers)
+            4      both fixed and indexable weak fields (all containing pointers).
+
+            5      unused
+            6      indexable word fields only (no pointers)
+            7      indexable long (64-bit) fields (only in 64-bit images)
+
+         8-11      indexable byte fields only (no pointers) (low 2 bits are low 2 bits of size)
+        12-15     compiled methods:
+                       # of literal oops specified in method header,
+                       followed by indexable bytes (same interpretation of low 2 bits as above)
+        """
         if self.w_object is None: 
             if self.format < 5: 
+                # XXX self.format == 4 is weak
                 self.w_object = objectmodel.instantiate(model.W_PointersObject)
             elif self.format == 5:
                 raise CorruptImageError("Unknown format 5")
@@ -240,17 +280,21 @@ class GenericObject(object):
         # below we are using an RPython idiom to 'cast' self.w_object
         # and pass the casted reference to the fillin_* methods
         casted = self.w_object 
-        case = type(casted)
+        case = casted.__class__
         if case == model.W_PointersObject:
-            self.fillin_poingersobject(casted)
+            self.fillin_pointersobject(casted)
         elif case == model.W_WordsObject:
             self.fillin_wordsobject(casted)
         elif case == model.W_BytesObject:
             self.fillin_bytesobject(casted)   
         elif case == model.W_CompiledMethod:
             self.fillin_compiledmethod(casted)
+        else:
+            assert 0
+        assert casted.invariant()
 
     def fillin_pointersobject(self, w_pointersobject):
+        assert self.pointers is not None
         w_pointersobject.vars = [g_object.w_object for g_object in self.pointers]
         w_pointersobject.w_class = self.g_class.w_object
         
@@ -260,16 +304,16 @@ class GenericObject(object):
 
     def fillin_bytesobject(self, w_bytesobject):
         bytes = []
-        for each in chunk.data:
-            bytes.append((integer & 0xff000000) >> 24)
-            bytes.append((integer & 0xff000000) >> 16)
-            bytes.append((integer & 0xff000000) >>  8)
-            bytes.append((integer & 0xff000000))
+        for each in self.chunk.data:
+            bytes.append((each >> 24) & 0xff)
+            bytes.append((each >> 16) & 0xff) 
+            bytes.append((each >> 8) & 0xff) 
+            bytes.append((each >> 0) & 0xff)
         w_bytesobject.w_class = self.g_class.w_object
         w_bytesobject.bytes = bytes[:-(self.format & 3)] # omit odd bytes
  
     def fillin_compiledmethod(self, w_compiledmethod):
-        header = chunk.data[0]
+        header = self.chunk.data[0]
         #(index 0)	9 bits:	main part of primitive number   (#primitive)
         #(index 9)	8 bits:	number of literals (#numLiterals)
         #(index 17)	1 bit:	whether a large frame size is needed (#frameSize)
@@ -277,18 +321,19 @@ class GenericObject(object):
         #(index 24)	4 bits:	number of arguments to the method (#numArgs)
         #(index 28)	1 bit:	high-bit of primitive number (#primitive)
         #(index 29)	1 bit:	flag bit, ignored by the VM  (#flag)
-        highbit, numargs, tempsize, islarge, literalsize, primitive = (
-            splitbits(header, [1,4,6,1,8,9]))
+        primitive, literalsize, islarge, tempsize, numargs, highbit = (
+            splitbits(header, [9,8,1,6,4,1]))
         primitive = primitive + (highbit << 10)
-        assert (1 + literalsize) < len(chunk.data)
+        #assert literalsize <= len(self.chunk.data)
         l = []
-        for each in chunk.data[(1 + literalsize):]:
+        for each in self.chunk.data[(1 + literalsize):]:
             l.append(int2str(each))
-        l[-1] = l[-1][:-(self.format & 3)] # omit odd bytes
+        if len(l) > 0:
+            l[-1] = l[-1][:-(self.format & 3)] # omit odd bytes
         bytes = "".join(l) 
         w_compiledmethod.__init__(
             w_class = self.g_class.w_object,
-            size = self.literalsize,
+            size = literalsize,
             bytes = bytes,
             argsize = numargs,
             tempsize = tempsize,
