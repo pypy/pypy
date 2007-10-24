@@ -31,10 +31,11 @@ def testCompiledMethods():
     w_smallint_class = image.special(sqc.SO_SMALLINTEGER_CLASS)
 
     interp = sqi.Interpreter()
-    anObject = sqm.W_PointersObject(w_smallint_class, 1)
-    anObject.vars[0] = 3
+
     amethod = w_smallint_class.lookup("abs")
-    w_frame = amethod.createFrame(anObject, [])
+                                  # First literal of the abs method is
+                                  # a real smalltalk int
+    w_frame = amethod.createFrame(amethod.literals[0], [])
     interp.activeContext = w_frame
 
     print amethod

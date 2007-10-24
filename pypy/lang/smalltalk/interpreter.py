@@ -139,14 +139,11 @@ class W_MethodContext(model.W_Object):
         if method.primitive:
             func = primitives.prim_table[method.primitive]
             try:
-                print "Going to send primitive"
                 w_result = func(self)
             except primitives.PrimitiveFailedError:
-                print "Primitive failed"
                 pass # ignore this error and fall back to the Smalltalk version
             else:
                 # the primitive succeeded
-                print "Pushing primitive result on stack"
                 self.push(w_result)
                 return
         arguments = self.stack[len(self.stack)-argcount:]
