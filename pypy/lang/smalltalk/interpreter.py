@@ -514,3 +514,17 @@ def initialize_bytecode_table():
     return result
 
 BYTECODE_TABLE = initialize_bytecode_table()
+
+def initialize_readable_bytecode_table():
+    result = [None] * 256
+    for entry in BYTECODE_RANGES:
+        if len(entry) == 2:
+            positions = [entry[0]]
+        else:
+            positions = range(entry[0], entry[1]+1)
+        for pos in positions:
+            result[pos] = "%s(%d)" % (entry[-1],pos)
+    assert None not in result
+    return result
+
+READABLE_BYTECODE_TABLE = initialize_readable_bytecode_table()

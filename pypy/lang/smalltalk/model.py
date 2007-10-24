@@ -27,6 +27,9 @@ class W_SmallInteger(W_Object):
     def invariant(self):
         return isinstance(self.value, int)
 
+    def __str__(self):
+        return "SmallInt(%d)" % self.value
+
 class W_Float(W_Object):
     def __init__(self, value):
         self.value = value
@@ -41,6 +44,8 @@ class W_Float(W_Object):
     def invariant(self):
         return self.value is not None        # XXX but later:
         #return isinstance(self.value, float)
+    def __str__(self):
+        return "Float(%f)" % self.value
 
 class W_ObjectWithStoredClass(W_Object):
     """ The base class of objects that store 'm_class' explicitly. """
@@ -91,6 +96,9 @@ class W_BytesObject(W_ObjectWithStoredClass):
 
     def size(self):
         return len(self.bytes)    
+
+    def __str__(self):
+        return repr("".join(self.bytes))
 
     def invariant(self):
         if not W_ObjectWithStoredClass.invariant(self):
@@ -160,6 +168,12 @@ class W_CompiledMethod(W_Object):
         from pypy.lang.smalltalk.interpreter import W_MethodContext
         assert len(arguments) == self.argsize
         return W_MethodContext(self, receiver, arguments, sender)
+
+    def __str__(self):
+        from pypy.lang.smalltalk.interpreter import BYTECODE_TABLE
+        return ("\n\nBytecode:\n---------------------\n" +
+                "\n".join([BYTECODE_TABLE[ord(i)].__name__ + " " + str(ord(i)) for i in self.bytes]) +
+                "\n---------------------\n")
 
     def invariant(self):
         return (W_Object.invariant(self) and

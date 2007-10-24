@@ -70,4 +70,3 @@ def test_readimage_productline():
     assert isinstance(w_float_class_name, sqm.W_BytesObject)
     
     assert w_float_class_name.bytes == list("Float")
-          

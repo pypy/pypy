@@ -21,48 +21,34 @@ def printStringsInImage():
     image = create_squeakimage()
     for each in image.objects:
         if isinstance(each,sqm.W_BytesObject):
-          print repr(''.join(each.bytes))
+          print each.bytes
 
 def printReadableBytecode(bytecode):
     print "\n\nBytecode:\n---------------------"
     print "\n".join([sqi.BYTECODE_TABLE[ord(i)].__name__ for i in bytecode])
     print "---------------------\n"
 
+def getMethodFromClass(w_class,methodname):
+    w_methoddict = w_class.fetch(1)
+    for var in w_methoddict.vars:
+        if isinstance(var,sqm.W_BytesObject):
+            if str(var) == repr(methodname):
+                return w_methoddict.vars[1].vars[w_methoddict.vars.index(var)-2]
 
 def testCompiledMethods():
     image = create_squeakimage()
     amethod = None
-    skip = 0
 
-    for each in image.objects:
-        if isinstance(each,sqm.W_CompiledMethod):
-            if (each.argsize == 0 and amethod == None and
-                each.tempsize == 0 and
-                each.primitive == 0):
-                
-                if len(each.bytes) == 0:
-                    pass
-                else:
-                    if skip >= SKIPMETHODS:
-                        amethod = each
-                    else:
-                        skip += 1
-            #print "%d %d %d" % (each.argsize, each.tempsize, each.primitive)
-    
-                        # receiver, arguments
+    w_float_class = image.special(sq.FLOAT_CLASS)
+
     interp = sqi.Interpreter()
-
-    anObject = sqm.W_PointersObject(sqm.W_Class(None,None,100),0)
-    for i in range(0,99):
-        anObject.store(i, interp.ONE)
-
+    anObject = sqm.W_Float(1.5)
+    amethod = getMethodFromClass(w_float_class,"abs")
+                                # receiver, arguments
     w_frame = amethod.createFrame(anObject, [])
     interp.activeContext = w_frame
-    #w_frame.push(interp.TRUE)
-    #w_frame.push(interp.ONE)
-    #w_frame.push(interp.TWO)
 
-    printReadableBytecode(amethod.bytes)
+    print amethod
 
     while True:
         try:
@@ -75,8 +61,8 @@ def testCompiledMethods():
 SKIPMETHODS=42 #X
 
 def test_do():
-    #testCompiledMethods()
-    printStringsInImage()
+    testCompiledMethods()
+    #printStringsInImage()
 
 if __name__ == '__main__':
     test_do()
