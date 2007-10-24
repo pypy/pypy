@@ -167,5 +167,11 @@ def test_init_compactclasses():
     
 def test_init_g_objects():
     example.init_g_objects()
+    
+def test_init_w_objects():
+    example.init_w_objects() 
+
+def test_fillin_w_objects():
+    example.fillin_w_objects() 
           
     

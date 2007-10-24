@@ -1,5 +1,14 @@
 import py
 import struct
+from pypy.lang.smalltalk import model 
+from pypy.lang.smalltalk import fakeimage 
+from pypy.rlib import objectmodel
+
+def int2str(integer):
+    return (chr((integer & 0xff000000) >> 24) + 
+            chr((integer & 0x00ff0000) >> 16) + 
+            chr((integer & 0x0000ff00) >>  8) + 
+            chr((integer & 0x000000ff)))
 
 # ____________________________________________________________
 #
@@ -68,6 +77,14 @@ class ImageReader(object):
     def init_g_objects(self):
         for chunk in self.chunks.itervalues():
             chunk.as_g_object(self)        
+
+    def init_w_objects(self):
+        for chunk in self.chunks.itervalues():
+            chunk.g_object.init_w_object()
+
+    def fillin_w_objects(self):
+        for chunk in self.chunks.itervalues():
+            chunk.g_object.fillin_w_object()
         
     def read_header(self):
         version = self.stream.next()
@@ -160,6 +177,7 @@ class GenericObject(object):
         self.owner = reader
         self.value = value
         self.size = -1
+        self.w_object = fakeimage.small_int(value)
     
     def initialize(self, chunk, reader):
         self.owner = reader
@@ -167,8 +185,10 @@ class GenericObject(object):
         self.hash12 = chunk.hash12 
         self.format = chunk.format
         self.init_class(chunk)
-        self.init_data(chunk) 
+        self.init_data(chunk) # for pointers
+        self.chunk = chunk # for bytes, words and compiledmethod
         self.w_object = None
+        self.init_w_object()
         
     def init_class(self, chunk):    
         if chunk.iscompact():
@@ -199,36 +219,73 @@ class GenericObject(object):
         return self.format < 5 #TODO, what about compiled methods?             
 
     def init_w_object(self):
-        from pypy.lang.smalltalk import model
-        #if self.classdescription:
-        #    print self.format
-        #    return None
-        if self.format == 0: # no instvars, non-indexed
-            assert self.size == 0
-            return model.W_PointersObject(size = 0)
-        elif self.format == 1: # instvars, non-indexed      
-            return model.W_PointersObject(size = self.size)
-        elif self.format == 2: # no instvars, indexed        
-            return model.W_PointersObject(size = self.size)
-        elif self.format == 3: # instvars, indexed        
-            return model.W_PointersObject(size = self.size)
-        elif self.format == 4: # XXX W_WeakPointersObject         
-            return model.W_PointersObject(size = self.size)
-        elif self.format == 5:          
-            raise CorruptImageError("Unknown format 5")
-        elif self.format == 6:         
-            return model.W_WordsObject(size = self.size)
-        elif self.format == 7:
-            raise CorruptImageError("Unknown format 7, no 64-bit support yet :-)")
-        elif 8 <= self.format <= 11:
-            byte_size = self.size * 4 + self.format & 3
-            return model.W_BytesObject(size = byte_size)
-        elif 12 <= self.format <= 15:
-            return model.W_CompiledMethod(size = 0) #XXX to be figured out how to get
-            #both the size of literals and the size of bytes in bytecode!!!
-        else:
-            assert 0, "not reachable"                
+        if self.w_object is None: 
+            if self.format < 5: 
+                self.w_object = objectmodel.instantiate(model.W_PointersObject)
+            elif self.format == 5:
+                raise CorruptImageError("Unknown format 5")
+            elif self.format == 6:         
+                self.w_object = objectmodel.instantiate(model.W_WordsObject)
+            elif self.format == 7:
+                raise CorruptImageError("Unknown format 7, no 64-bit support yet :-)")
+            elif 8 <= self.format <= 11:
+                self.w_object = objectmodel.instantiate(model.W_BytesObject)
+            elif 12 <= self.format <= 15:
+                self.w_object = objectmodel.instantiate(model.W_CompiledMethod)
+            else:
+                assert 0, "not reachable"                
+        return self.w_object
         
+    def fillin_w_object(self):
+        # below we are using an RPython idiom to 'cast' self.w_object
+        # and pass the casted reference to the fillin_* methods
+        casted = self.w_object 
+        case = type(casted)
+        if case == model.W_PointersObject:
+            self.fillin_poingersobject(casted)
+        elif case == model.W_WordsObject:
+            self.fillin_wordsobject(casted)
+        elif case == model.W_BytesObject:
+            self.fillin_bytesobject(casted)   
+        elif case == model.W_CompiledMethod:
+            self.fillin_compiledmethod(casted)
+
+    def fillin_pointersobject(self, w_pointersobject):
+        w_pointersobject.vars = [g_object.w_object for g_object in self.pointers]
+        w_pointersobject.w_class = self.g_class.w_object
+        
+    def fillin_wordsobject(self, w_wordsobject):
+        w_wordsobject.w_class = self.g_class.w_object
+
+    def fillin_bytesobject(self, w_bytesobject):
+        w_bytesobject.w_class = self.g_class.w_object
+            
+    def fillin_compiledmethod(self, w_compiledmethod):
+        header = chunk.data[0]
+        #(index 0)	9 bits:	main part of primitive number   (#primitive)
+        #(index 9)	8 bits:	number of literals (#numLiterals)
+        #(index 17)	1 bit:	whether a large frame size is needed (#frameSize)
+        #(index 18)	6 bits:	number of temporary variables (#numTemps)
+        #(index 24)	4 bits:	number of arguments to the method (#numArgs)
+        #(index 28)	1 bit:	high-bit of primitive number (#primitive)
+        #(index 29)	1 bit:	flag bit, ignored by the VM  (#flag)
+        highbit, numargs, tempsize, islarge, literalsize, primitive = (
+            splitbits(header, [1,4,6,1,8,9]))
+        primitive = primitive + (highbit << 10)
+        assert (1 + literalsize) < len(chunk.data)
+        l = []
+        for each in chunk.data[(1 + literalsize):]:
+            l.append(int2str(each))
+        l[-1] = l[-1][:-(self.format & 3)] # omit odd bytes
+        bytes = "".join(l) 
+        w_compiledmethod.__init__(
+            w_class = self.g_class.w_object,
+            size = self.literalsize,
+            bytes = bytes,
+            argsize = numargs,
+            tempsize = tempsize,
+            primitive = primitive)
+             
     
 
 class ImageChunk(object):
