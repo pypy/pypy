@@ -102,6 +102,21 @@ def test_string_at_put():
     for i in range(len(exp)):
         assert prim(p.STRING_AT, [test_str, i]) == wrap(exp[i])
 
+def test_new():
+    w_res = prim(p.NEW, [ct.w_Object])
+    assert w_res.w_class == ct.w_Object
+    
+def test_invalid_new():
+    prim_fails(p.NEW, [ct.w_ByteString])
+
+def test_new_with_arg():
+    w_res = prim(p.NEW_WITH_ARG, [ct.w_ByteString, 20])
+    assert w_res.w_class == ct.w_ByteString
+    assert w_res.size() == 20    
+
+def test_invalid_new_with_arg():
+    prim_fails(p.NEW_WITH_ARG, [ct.w_Object, 20])
+
 def test_boolean():
     assert prim(p.LESSTHAN, [1,2]) == fimg.w_true
     assert prim(p.GREATERTHAN, [3,4]) == fimg.w_false

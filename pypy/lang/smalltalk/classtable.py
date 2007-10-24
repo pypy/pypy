@@ -26,9 +26,9 @@ def create_classtable():
         meta_nm = cls_nm + "Class"
         meta_super_nm = super_cls_nm + "Class"
         metacls = define_core_cls(
-            meta_nm, W_MetaClass(None, classtable[meta_super_nm], meta_nm))
+            meta_nm, W_MetaClass(None, classtable[meta_super_nm], name=meta_nm))
         define_core_cls(
-            cls_nm, W_Class(metacls, classtable[super_cls_nm], cls_nm))
+            cls_nm, W_Class(metacls, classtable[super_cls_nm], name=cls_nm))
     w_ProtoObjectClass.w_superclass = w_Class
     for nm, w_cls_obj in classtable.items():
         if w_cls_obj.ismetaclass():

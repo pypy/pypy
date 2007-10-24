@@ -114,6 +114,8 @@ STRING_AT = 63
 STRING_AT_PUT = 64
 OBJECT_AT = 68
 OBJECT_AT_PUT = 69
+NEW = 70
+NEW_WITH_ARG = 71
 
 def common_at(stack):
     [w_idx, w_obj] = stack
@@ -184,6 +186,23 @@ def func(stack):
         raise PrimitiveFailedError()
     w_rcvr.setnamedvar(idx, w_val)
     return w_val
+
+@primitive(NEW)
+@stack(1)
+def func(stack):
+    [w_cls] = stack
+    if not isinstance(w_cls, model.W_Class) or w_cls.isindexable():
+        raise PrimitiveFailedError()
+    return w_cls.new()
+
+@primitive(NEW_WITH_ARG)
+@stack(2)
+def func(stack):
+    [w_size, w_cls] = stack
+    if not isinstance(w_cls, model.W_Class) or not w_cls.isindexable():
+        raise PrimitiveFailedError()
+    size = unwrap_int(w_size)
+    return w_cls.new(size)
 
 # ___________________________________________________________________________
 # Boolean Primitives
