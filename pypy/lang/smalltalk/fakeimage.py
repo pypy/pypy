@@ -1,4 +1,5 @@
 import pypy.lang.smalltalk.classtable as ct
+from pypy.lang.smalltalk.constants import CHARACTER_VALUE_INDEX
 from pypy.lang.smalltalk import model
 
 # ___________________________________________________________________________
@@ -33,16 +34,6 @@ def wrap_bool(bool):
         return w_true
     else:
         return w_false
-
-# ___________________________________________________________________________
-# Slot Names
-
-CHARACTER_VALUE_INDEX = 0        # Page 630 of the blue book
-
-STREAM_ARRAY_INDEX = 0           # Page 631 of the blue book
-STREAM_INDEX_INDEX = 1
-STREAM_READ_LIMIT_INDEX = 2
-STREAM_WRITE_LIMIT_INDEX = 3
 
 # ___________________________________________________________________________
 # Global Data
