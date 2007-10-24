@@ -314,6 +314,7 @@ class GenericObject(object):
  
     def fillin_compiledmethod(self, w_compiledmethod):
         header = self.chunk.data[0]
+        #---!!!---- 1 tagged pointer! 
         #(index 0)	9 bits:	main part of primitive number   (#primitive)
         #(index 9)	8 bits:	number of literals (#numLiterals)
         #(index 17)	1 bit:	whether a large frame size is needed (#frameSize)
@@ -321,12 +322,15 @@ class GenericObject(object):
         #(index 24)	4 bits:	number of arguments to the method (#numArgs)
         #(index 28)	1 bit:	high-bit of primitive number (#primitive)
         #(index 29)	1 bit:	flag bit, ignored by the VM  (#flag)
-        primitive, literalsize, islarge, tempsize, numargs, highbit = (
-            splitbits(header, [9,8,1,6,4,1]))
-        primitive = primitive + (highbit << 10)
-        #assert literalsize <= len(self.chunk.data)
+        _, primitive, literalsize, islarge, tempsize, numargs, highbit = (
+            splitbits(header, [1,9,8,1,6,4,1]))
+        primitive = primitive + (highbit << 10) ##XXX todo, check this
+        # --------------------
+        literals = [self.decode_pointer(pointer)
+                    for pointer in self.chunk.data[:literalsize+1]]
+        # --------------------
         l = []
-        for each in self.chunk.data[(1 + literalsize):]:
+        for each in self.chunk.data[(literalsize+1):]:
             l.append(int2str(each))
         if len(l) > 0:
             l[-1] = l[-1][:-(self.format & 3)] # omit odd bytes
