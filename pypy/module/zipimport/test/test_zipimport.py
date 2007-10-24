@@ -88,6 +88,21 @@ class AppTestZipimport:
             sys.path.pop(0)
         """)
 
+    def test_good_bad_arguments(self):
+        from zipimport import zipimporter
+        import os
+        self.writefile(self, "x.py", "y")
+        zipimporter(self.zipfile) # should work
+        raises(ImportError, "zipimporter(os.path.dirname(self.zipfile))")
+        raises(ImportError, 'zipimporter("fsafdetrssffdsagadfsafdssadasa")')
+        name = os.path.join(os.path.dirname(self.zipfile), "x.zip")
+        f = open(name, "w")
+        f.write("zzz")
+        f.close()
+        raises(ImportError, 'zipimporter(name)')
+        # this should work as well :-/
+        zipimporter(os.path.join(self.zipfile, 'x'))
+
     def test_py(self):
         import sys, os
         self.writefile(self, "uuu.py", "def f(x): return x")

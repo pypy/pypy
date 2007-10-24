@@ -170,12 +170,24 @@ def descr_new_zipimporter(space, w_type, name):
         return zip_importer_cache[name]
     except KeyError:
         pass
-    try:
-        s = os.stat(name)
-    except OSError:
-        return space.w_None
-    if stat.S_ISDIR(s.st_mode):
-        return space.w_None
+    ok = False
+    parts = name.split(os.path.sep)
+    filename = "" # make annotator happy
+    for i in range(1, len(parts) + 1):
+        filename = os.path.sep.join(parts[:i])
+        if not filename:
+            filename = os.path.sep
+        try:
+            s = os.stat(filename)
+        except OSError:
+            raise OperationError(space.w_ImportError, space.wrap(
+                "Cannot find name %s" % (filename,)))
+        if not stat.S_ISDIR(s.st_mode):
+            ok = True
+            break
+    if not ok:
+        raise OperationError(space.w_ImportError, space.wrap(
+            "Did not find %s to be a valid zippath" % (name,)))
     w_import = space.builtin.get('__import__')
     w_zipfile = space.call(w_import, space.newlist([
         space.wrap('zipfile'),
@@ -184,12 +196,12 @@ def descr_new_zipimporter(space, w_type, name):
         space.newlist([])]))
     w_ZipFile = space.getattr(w_zipfile, space.wrap('ZipFile'))
     try:
-        w_dir = space.call(w_ZipFile, space.newlist([space.wrap(name)]))
+        w_dir = space.call(w_ZipFile, space.newlist([space.wrap(filename)]))
     except OperationError: # we catch everything as this function
-        # should not raise
-        return space.w_None
+        raise OperationError(space.w_ImportError, space.wrap(
+            "%s seems not to be a zipfile" % (filename,)))
     result = space.wrap(W_ZipImporter(space, name, w_dir, w_zipfile))
-    zip_importer_cache[name] = result
+    zip_importer_cache[filename] = result
     return result
     
 descr_new_zipimporter.unwrap_spec = [ObjSpace, W_Root, str]
