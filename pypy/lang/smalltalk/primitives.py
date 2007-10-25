@@ -52,6 +52,7 @@ class Args:
 
 def primitive(code):
     def decorator(func):
+        assert code not in prim_table
         prim_table[code] = func
         return func
     return decorator
@@ -471,7 +472,7 @@ def func(args, (w_arg, w_rcvr)):
     # object to the other
     return objtable.wrap_bool(w_arg is w_rcvr)
 
-@primitive(EQUIVALENT)
+@primitive(CLASS)
 @stack(1)
 def func(args, (w_obj,)):
     return w_obj.w_class
