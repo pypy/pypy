@@ -221,6 +221,11 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
     def getliteral(self, index):
         return self.literals[index + 1] # header of compiledmethod at index 0
 
+    def getliteralsymbol(self, index):
+        w_literal = self.getliteral(index)
+        assert isinstance(w_literal, W_BytesObject)
+        return w_literal.as_string()    # XXX performance issue here
+
     def create_frame(self, receiver, arguments, sender = None):
         assert len(arguments) == self.argsize
         return W_MethodContext(self, receiver, arguments, sender)

@@ -34,29 +34,6 @@ def get_float_class():
     image = get_image()
     return image.special(constants.SO_FLOAT_CLASS)
 
-# ------ custom lookup implementations --------------------------------
-
-def compiledmethodnamed(w_class, methodname):
-    w_methoddict = w_class.fetch(constants.CLASS_METHODDICT_INDEX)._vars
-    names  = w_methoddict[constants.METHODDICT_NAMES_INDEX:]
-    values = w_methoddict[constants.METHODDICT_VALUES_INDEX]._vars
-    for var in names:
-        if isinstance(var, model.W_BytesObject):
-            if str(var) == str(methodname):
-                return values[names.index(var)]
-    raise shadow.MethodNotFound
-
-def lookup(w_class, methodname):
-    in_class = w_class
-    while in_class != None:
-        try:
-            return compiledmethodnamed(in_class, methodname)
-        except shadow.MethodNotFound:
-            pass
-        in_class = in_class._vars[constants.CLASS_SUPERCLASS_INDEX]
-        if in_class is objtable.w_nil:
-            raise shadow.MethodNotFound
-
 # ------ tests ------------------------------------------
         
 def test_miniimageexists():
@@ -218,15 +195,8 @@ def test_lookup_abs_in_integer(int=10):
 
     # Should get this from w_object
     w_smallint_class = image.special(constants.SO_SMALLINTEGER_CLASS)
-    w_method = lookup(w_smallint_class, "abs")
-
-    # XXX
-    # currently still using highlevel lookup directly pointing to
-    # class. Should work using classmirrors when the metaclass of
-    # SmallInt is correctly set
-
-    # s_class = w_object.shadow_of_my_class()
-    # w_method = s_class.lookup("abs")
+    s_class = w_object.shadow_of_my_class()
+    w_method = s_class.lookup("abs")
 
     assert w_method
     w_frame = w_method.create_frame(w_object, [])

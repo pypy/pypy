@@ -26,8 +26,19 @@ def setup():
 setup()
 
 
+def fakesymbol(s, _cache={}):
+    try:
+        return _cache[s]
+    except KeyError:
+        result = _cache[s] = objtable.wrap_string(s)
+        return result
+
 def fakeliterals(*literals):
-    return ["methodheader"] + list(literals)
+    lst = ["methodheader"] + list(literals)
+    for i in range(len(lst)):
+        if isinstance(lst[i], str):
+            lst[i] = fakesymbol(lst[i])
+    return lst
 
 def new_interpreter(bytes, receiver=objtable.w_nil):
     assert isinstance(bytes, str)
@@ -108,7 +119,9 @@ def test_pushLiteralConstantBytecode(bytecode=pushLiteralConstantBytecode(0) +
     interp.step()
     interp.step()
     interp.step()
-    assert interp.w_active_context.stack == ["a", "b", "c"]
+    assert interp.w_active_context.stack == [fakesymbol("a"),
+                                             fakesymbol("b"),
+                                             fakesymbol("c")]
 
 def test_pushLiteralVariableBytecode(bytecode=pushLiteralVariableBytecode(0)):
     w_association = mockclass(2).as_class_get_shadow().new()

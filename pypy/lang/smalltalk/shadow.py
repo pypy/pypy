@@ -94,8 +94,11 @@ class ClassShadow(AbstractShadow):
         for i in range(size):
             w_selector = w_methoddict.fetch(constants.METHODDICT_NAMES_INDEX+i)
             if w_selector is not objtable.w_nil:
+                if not isinstance(w_selector, model.W_BytesObject):
+                    raise ClassShadowError("bogus selector in method dict")
+                selector = w_selector.as_string()
                 w_compiledmethod = w_values.fetch(i)
-                self.methoddict[w_selector] = w_compiledmethod
+                self.methoddict[selector] = w_compiledmethod
         # for the rest, we need to reset invalid to False already so
         # that cycles in the superclass and/or metaclass chains don't
         # cause infinite recursion
@@ -169,12 +172,12 @@ class ClassShadow(AbstractShadow):
         return "<ClassShadow %s>" % (self.name or '?',)
 
     def lookup(self, selector):
-        if selector in self.methoddict:
-            return self.methoddict[selector]
-        elif self.s_superclass is not None:
-            return self.s_superclass.lookup(selector)
-        else:
-            raise MethodNotFound
+        look_in_shadow = self
+        while selector not in look_in_shadow.methoddict:
+            look_in_shadow = look_in_shadow.s_superclass
+            if look_in_shadow is None:
+                raise MethodNotFound
+        return look_in_shadow.methoddict[selector]
 
     def installmethod(self, selector, method):
         "NOT_RPYTHON"     # this is only for testing.

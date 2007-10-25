@@ -111,7 +111,7 @@ class __extend__(W_ContextPart):
 
     # send, return bytecodes
     def sendLiteralSelectorBytecode(self, interp):
-        selector = self.w_method().getliteral(self.currentBytecode & 15)
+        selector = self.w_method().getliteralsymbol(self.currentBytecode & 15)
         argcount = ((self.currentBytecode >> 4) & 3) - 1
         self._sendSelfSelector(selector, argcount, interp)
 
@@ -204,7 +204,8 @@ class __extend__(W_ContextPart):
 
     def getExtendedSelectorArgcount(self):
         descriptor = self.getByte()
-        return (self.w_method().getliteral(descriptor & 31)), (descriptor >> 5)
+        return ((self.w_method().getliteralsymbol(descriptor & 31)),
+                (descriptor >> 5))
 
     def singleExtendedSendBytecode(self, interp):
         selector, argcount = self.getExtendedSelectorArgcount()
@@ -216,11 +217,11 @@ class __extend__(W_ContextPart):
         opType = second >> 5
         if opType == 0:
             # selfsend
-            self._sendSelfSelector(self.w_method().getliteral(third),
+            self._sendSelfSelector(self.w_method().getliteralsymbol(third),
                                    second & 31, interp)
         elif opType == 1:
             # supersend
-            self._sendSuperSelector(self.w_method().getliteral(third),
+            self._sendSuperSelector(self.w_method().getliteralsymbol(third),
                                     second & 31, interp)
         elif opType == 2:
             # pushReceiver
@@ -246,7 +247,7 @@ class __extend__(W_ContextPart):
 
     def secondExtendedSendBytecode(self, interp):
         descriptor = self.getByte()
-        selector = self.w_method().getliteral(descriptor & 63)
+        selector = self.w_method().getliteralsymbol(descriptor & 63)
         argcount = descriptor >> 6
         self._sendSelfSelector(selector, argcount, interp)
 
