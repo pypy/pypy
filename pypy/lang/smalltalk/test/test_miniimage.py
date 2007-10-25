@@ -216,7 +216,8 @@ def test_lookup_abs_in_integer(int=10):
             interp.step()
             print interp.w_active_context.stack
         except interpreter.ReturnFromTopLevel, e:
-            return e.object
+            assert e.object.value == abs(int)
+            return
 
 def test_lookup_neg_abs_in_integer():
     test_lookup_abs_in_integer(-3)
