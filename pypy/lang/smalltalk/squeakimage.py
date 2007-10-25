@@ -386,8 +386,6 @@ class GenericObject(object):
             primitive = primitive)
         w_compiledmethod.literals = literals
 
-    
-
 class ImageChunk(object):
     def __init__(self, size, format, classid, hash12):
         self.size = size
