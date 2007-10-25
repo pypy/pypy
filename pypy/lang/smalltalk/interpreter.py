@@ -370,7 +370,8 @@ class __extend__(W_ContextPart):
         raise MissingBytecode
 
     def bytecodePrimClass(self, interp):
-        raise MissingBytecode
+        self.callPrimitiveAndPush(
+            primitives.CLASS, "class", 0, interp)
 
     def bytecodePrimBlockCopy(self, interp):
         self.callPrimitiveAndPush(
