@@ -6,7 +6,9 @@ from pypy.lang.smalltalk import squeakimage
 from pypy.lang.smalltalk import model
 from pypy.lang.smalltalk import constants
 from pypy.lang.smalltalk import interpreter
-
+from pypy.lang.smalltalk import objtable
+from pypy.lang.smalltalk import classtable
+from pypy.lang.smalltalk import shadow
 # lazy initialization of test data, ie ImageReader and Float class
 
 def setup_module(module):
@@ -140,6 +142,18 @@ def test_special_classes0():
     SO_SEMAPHORE_CLASS = 18
     SO_CHARACTER_CLASS = 19"""
     
+def test_name_of_shadow_of_specials():
+    image = get_image()
+    w_doesnot = image.special(constants.SO_DOES_NOT_UNDERSTAND)
+    assert repr(w_doesnot.shadow_of_my_class()) == "<ClassShadow Symbol>"
+    assert repr(objtable.w_nil.shadow_of_my_class()) == "<ClassShadow UndefinedObject>"
+    assert repr(objtable.w_mone.shadow_of_my_class()) == "<ClassShadow SmallInteger>"
+    assert repr(objtable.w_zero.shadow_of_my_class()) == "<ClassShadow SmallInteger>"
+    assert repr(objtable.w_one.shadow_of_my_class()) == "<ClassShadow SmallInteger>"
+    assert repr(objtable.w_two.shadow_of_my_class()) == "<ClassShadow SmallInteger>"
+    assert repr(objtable.w_true.shadow_of_my_class()) == "<ClassShadow True>"
+    assert repr(objtable.w_false.shadow_of_my_class()) == "<ClassShadow False>"
+
 def test_special_classes0():
     image = get_image()
     w = image.special(constants.SO_DOES_NOT_UNDERSTAND)
@@ -212,7 +226,6 @@ def test_lookup_neg_abs_in_integer():
     test_lookup_abs_in_integer(-3)
 
 def test_map_mirrors_to_classtable():
-    from pypy.lang.smalltalk import classtable, shadow, objtable
     w_compiledmethod_class = image.special(constants.SO_COMPILEDMETHOD_CLASS)
     assert w_compiledmethod_class is classtable.w_CompiledMethod
     w_nil = image.special(constants.SO_NIL)

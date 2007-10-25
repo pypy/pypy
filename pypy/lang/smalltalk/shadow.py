@@ -71,12 +71,12 @@ class ClassShadow(AbstractShadow):
             self.instance_kind = WEAK_POINTERS
         elif format == 6:
             self.instance_kind = WORDS
-            if self.instance_kind != 0:
+            if self.instance_size != 0:
                 raise ClassShadowError("can't have both words and a non-zero "
                                        "base instance size")
         elif 8 <= format <= 11:
             self.instance_kind = BYTES
-            if self.instance_kind != 0:
+            if self.instance_size != 0:
                 raise ClassShadowError("can't have both bytes and a non-zero "
                                        "base instance size")
         elif 12 <= format <= 15:

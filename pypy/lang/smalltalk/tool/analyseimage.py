@@ -50,7 +50,7 @@ def testCompiledMethods():
 def testSelector():
     image = create_squeakimage()
     w_doesnot = image.special(sqc.SO_DOES_NOT_UNDERSTAND)
-    print str(w_doesnot.shadow_of_my_class())
+    assert repr(w_doesnot.shadow_of_my_class()) == "<ClassShadow Symbol>"
 
 def test_do():
     testSelector()
