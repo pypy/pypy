@@ -17,17 +17,13 @@ WORDS = 2
 WEAK_POINTERS = 3
 COMPILED_METHOD = 4
 
+unwrap_int = model.unwrap_int
+
 class MethodNotFound(Exception):
     pass
 
 class ClassShadowError(Exception):
     pass
-
-def unwrap_int(w_value):
-    if isinstance(w_value, model.W_SmallInteger):
-        return w_value.value
-    raise ClassShadowError("expected a W_SmallInteger, got %s" % (w_value,))
-
 
 class ClassShadow(AbstractShadow):
     """A shadow for Smalltalk objects that are classes
@@ -112,7 +108,14 @@ class ClassShadow(AbstractShadow):
             self.s_superclass = w_superclass.as_class_get_shadow()
 
     def new(self, extrasize=0):
+        from pypy.lang.smalltalk import classtable
         w_cls = self.w_self
+        
+        if w_cls == classtable.w_BlockContext:
+            return model.W_BlockContext(None, None, 0, 0)
+        elif w_cls == classtable.w_MethodContext:
+            return model.W_MethodContext(None, None, [])
+        
         if self.instance_kind == POINTERS:
             return model.W_PointersObject(w_cls, self.instance_size+extrasize)
         elif self.instance_kind == WORDS:

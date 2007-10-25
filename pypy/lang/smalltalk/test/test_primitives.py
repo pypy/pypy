@@ -12,7 +12,7 @@ import pypy.lang.smalltalk.primitives as p
 
 mockclass = classtable.bootstrap_class
 
-class MockFrame(interpreter.W_MethodContext):
+class MockFrame(model.W_MethodContext):
     def __init__(self, stack):
         self.stack = stack
 

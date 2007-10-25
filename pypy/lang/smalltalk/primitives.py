@@ -5,15 +5,6 @@ from pypy.lang.smalltalk import classtable
 from pypy.lang.smalltalk import objtable
 from pypy.rlib import rarithmetic
 
-from pypy.lang.smalltalk.constants import \
-     BLKCTX_CALLER_INDEX, \
-     BLKCTX_INSTRUCTION_POINTER_INDEX, \
-     BLKCTX_STACK_POINTER_INDEX, \
-     BLKCTX_BLOCK_ARGUMENT_COUNT_INDEX, \
-     BLKCTX_INITIAL_IP_INDEX, \
-     BLKCTX_HOME_INDEX, \
-     BLKCTX_TEMP_FRAME_START
-
 class PrimitiveFailedError(Exception):
     pass
 
@@ -69,6 +60,8 @@ def stack(n):
     def decorator(wrapped):
         def result(args):
             frame = args.interp.w_active_context
+            if len(frame.stack) < n:
+                raise PrimitiveFailedError()
             items = frame.stack[len(frame.stack)-n:]
             res = wrapped(args, items)
             frame.pop_n(n)   # only if no exception occurs!
@@ -623,58 +616,51 @@ PRIMITIVE_FLUSH_CACHE = 89
 @primitive(PRIMITIVE_BLOCK_COPY)
 @stack(2)
 def func(args, (w_context, w_argcnt)):
-    raise PrimitiveNotYetWrittenError()
     frame = args.interp.w_active_context
+    argcnt = unwrap_int(w_argcnt)
 
     # From B.B.: If receiver is a MethodContext, then it becomes
     # the new BlockContext's home context.  Otherwise, the home
     # context of the receiver is used for the new BlockContext.
-    if w_context.getclass() == classtable.w_BlockContext:
-        w_method_context = w_context.fetch(BLKCTX_HOME_INDEX)
-    else:
-        w_method_context = w_context
+    # Note that in our impl, MethodContext.w_home == self
+    if not isinstance(w_context, model.W_ContextPart):
+        raise PrimitiveFailedError()
+    w_method_context = w_context.w_home
 
     # The block bytecodes are stored inline: so we skip past the
-    # byteodes to invoke this primitive to find them (hence +3)
-    w_new_context = classtable.w_BlockContext.as_class_get_shadow().new(
-        unwrap_int(w_argcnt))
-    initialip = frame.pc + 3
-
-    # Initialize various fields.
-    w_new_context.store(BLKCTX_INITIAL_IP_INDEX, initialip)
-    w_new_context.store(BLKCTX_INSTRUCTION_POINTER_INDEX, initialip)
-    w_new_context.store(BLKCTX_BLOCK_ARGUMENT_COUNT_INDEX, w_argcnt)
-    w_new_context.store(BLKCTX_HOME_INDEX, w_method_context)
+    # byteodes to invoke this primitive to find them (hence +2)
+    initialip = frame.pc + 2
+    w_new_context = model.W_BlockContext(
+        w_method_context, objtable.w_nil, argcnt, initialip)
     return w_new_context
     
 @primitive(PRIMITIVE_VALUE)
 def func(args):
-    raise PrimitiveNotYetWrittenError()
 
     # If nargs == 4, stack looks like:
     #  3      2       1      0
     #  Rcvr | Arg 0 | Arg1 | Arg 2
     #
     
-    w_block_ctx = args.interp.w_active_context.peek(args.argument_count-1)
-
-    w_exp_arg_cnt = w_block_ctx.fetch(BLKCTX_BLOCK_ARGUMENT_COUNT_INDEX)
-    exp_arg_cnt = unwrap_int(w_exp_arg_cnt)
+    frame = args.interp.w_active_context
+    
+    # Validate that we have a block on the stack and that it received
+    # the proper number of arguments:
+    w_block_ctx = frame.peek(args.argument_count-1)
+    if not isinstance(w_block_ctx, model.W_BlockContext):
+        raise PrimitiveFailedError()
+    exp_arg_cnt = w_block_ctx.expected_argument_count()
     if args.argument_count != exp_arg_cnt:
         raise PrimitiveFailedError()
 
-    # Copy the values from the stack such that the most recently pushed
-    # item (index 0) ends up in slot BLKCTX_TEMP_FRAME_START + nargs - 1
-    for idx in range(exp_arg_cnt - 1):
-        w_block_ctx.store(
-            BLKCTX_TEMP_FRAME_START+idx,     
-            w_block_ctx.fetch(exp_arg_cnt - idx - 1))
+    # Initialize the block stack from the contents of the stack:
+    #   Don't bother to copy the 'self' argument
+    block_args = frame.pop_n(exp_arg_cnt - 1)
+    w_block_ctx.push_all(block_args)
 
     # Set some fields
-    w_initial_ip = w_block_ctx.fetch(BLKCTX_INITIAL_IP_INDEX)
-    w_block_ctx.store(BLKCTX_INSTRUCTION_POINTER_INDEX, w_initial_ip)
-    w_block_ctx.store(BLKCTX_STACK_POINTER_INDEX, w_exp_arg_cnt)
-    w_block_ctx.store(BLKCTX_CALLER_INDEX, args.interp.w_active_context)
+    w_block_ctx.pc = w_block_ctx.initialip
+    w_block_ctx.w_sender = frame
     args.interp.w_active_context = w_block_ctx
     
 @primitive(PRIMITIVE_VALUE_WITH_ARGS)

@@ -2,6 +2,7 @@ import sys
 from pypy.rlib import rrandom
 from pypy.rlib.rarithmetic import intmask
 from pypy.lang.smalltalk import constants
+from pypy.tool.pairtype import extendabletype
 
 class W_Object(object):
 
@@ -36,6 +37,11 @@ class W_SmallInteger(W_Object):
 
     def __repr__(self):
         return "W_SmallInteger(%d)" % self.value
+    
+def unwrap_int(w_value):
+    if isinstance(w_value, W_SmallInteger):
+        return w_value.value
+    raise ClassShadowError("expected a W_SmallInteger, got %s" % (w_value,))
 
 class W_Float(W_Object):
     def __init__(self, value):
@@ -216,7 +222,6 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
         return self.literals[index + 1] # header of compiledmethod at index 0
 
     def createFrame(self, receiver, arguments, sender = None):
-        from pypy.lang.smalltalk.interpreter import W_MethodContext
         assert len(arguments) == self.argsize
         return W_MethodContext(self, receiver, arguments, sender)
 
@@ -238,3 +243,155 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
                 self.tempsize is not None and 
                 hasattr(self, 'primitive') and
                 self.primitive is not None)       
+
+class W_ContextPart(W_AbstractObjectWithIdentityHash):
+
+    __metaclass__ = extendabletype
+    
+    def __init__(self, w_home, w_sender):
+        self.stack = []
+        self.pc = 0
+        assert isinstance(w_home, W_MethodContext)
+        self.w_home = w_home
+        self.w_sender = w_sender
+        
+    def getclass(self):
+        from pypy.lang.smalltalk.classtable import w_ContextPart
+        return w_ContextPart
+
+    # ______________________________________________________________________
+    # Imitate the primitive accessors
+    
+    def fetch(self, index):
+        if index == CTXPART_SENDER_INDEX:
+            return self.w_sender
+        elif index == CTXPART_PC_INDEX:
+            return objtable.wrap_int(self.pc)
+        elif index == CTXPART_STACKP_INDEX:
+            return objtable.wrap_int(len(self.stack))
+        
+        # Invalid!
+        raise IllegalFetchError
+
+    # ______________________________________________________________________
+    # Method that contains the bytecode for this method/block context
+    
+    def w_method(self):
+        return self.w_home._w_method
+
+    def getByte(self):
+        bytecode = self.w_method().bytes[self.pc]
+        currentBytecode = ord(bytecode)
+        self.pc = self.pc + 1
+        return currentBytecode
+
+    def getNextBytecode(self):
+        self.currentBytecode = self.getByte()
+        return self.currentBytecode
+
+    # ______________________________________________________________________
+    # Temporary Variables
+    #
+    # Are always fetched relative to the home method context.
+    
+    def gettemp(self, index):
+        return self.w_home.temps[index]
+
+    def settemp(self, index, w_value):
+        self.w_home.temps[index] = w_value
+
+    # ______________________________________________________________________
+    # Stack Manipulation
+
+    def pop(self):
+        return self.stack.pop()
+
+    def push(self, w_v):
+        self.stack.append(w_v)
+
+    def push_all(self, lst):
+        " Equivalent to 'for x in lst: self.push(x)' where x is a lst "
+        self.stack += lst
+
+    def top(self):
+        return self.peek(0)
+        
+    def peek(self, idx):
+        return self.stack[-(idx+1)]
+
+    def pop_n(self, n):
+        res = self.stack[len(self.stack)-n:]
+        self.stack = self.stack[:len(self.stack)-n]
+        return res
+    
+class W_BlockContext(W_ContextPart):
+
+    def __init__(self, w_home, w_sender, argcnt, initialip):
+        W_ContextPart.__init__(self, w_home, w_sender)
+        self.argcnt = argcnt
+        self.initialip = initialip
+
+    def expected_argument_count(self):
+        return self.argcnt
+        
+    def getclass(self):
+        from pypy.lang.smalltalk.classtable import w_BlockContext
+        return w_BlockContext
+    
+    def fetch(self, index):
+        if index == BLKCTX_BLOCK_ARGUMENT_COUNT_INDEX:
+            return objtable.wrap_int(self.argcnt)
+        elif index == BLKCTX_INITIAL_IP_INDEX:
+            return objtable.wrap_int(self.initialip)
+        elif index == BLKCTX_HOME_INDEX:
+            return self.w_home
+        elif index >= BLKCTX_TEMP_FRAME_START:
+            stack_index = len(self.stack) - index - 1
+            return self.stack[stack_index]
+        else:
+            return W_ContextPart.fetch(index)
+
+    def store(self, index, value):
+        if index == BLKCTX_BLOCK_ARGUMENT_COUNT_INDEX:
+            self.argcnt = unwrap_int(self.argcnt)
+        elif index == BLKCTX_INITIAL_IP_INDEX:
+            self.pc = unwrap_int(self.argcnt)
+        elif index == BLKCTX_HOME_INDEX:
+            self.w_home = value
+        elif index >= BLKCTX_TEMP_FRAME_START:
+            stack_index = len(self.stack) - index - 1
+            self.stack[stack_index] = value
+        else:
+            return W_ContextPart.fetch(index)
+
+class W_MethodContext(W_ContextPart):
+    def __init__(self, w_method, w_receiver, arguments, w_sender = None):
+        W_ContextPart.__init__(self, self, w_sender)
+        self._w_method = w_method
+        self.w_receiver = w_receiver
+        self.temps = arguments + [None] * w_method.tempsize
+
+    def getclass(self):
+        from pypy.lang.smalltalk.classtable import w_MethodContext
+        return w_MethodContext
+
+    def fetch(self, index):
+        if index == MTHDCTX_METHOD:
+            return self.w_method()
+        elif index == MTHDCTX_RECEIVER_MAP: # what is this thing?
+            return objtable.w_nil
+        elif index == MTHDCTX_RECEIVER:
+            return self.w_receiver
+        elif index >= MTHDCTX_TEMP_FRAME_START:
+            # First set of indices are temporary variables:
+            offset = index - MTHDCTX_TEMP_FRAME_START
+            if offset < len(self.temps):
+                return self.temps[offset]
+
+            # After that comes the stack:
+            offset -= len(self.temps)
+            stack_index = len(self.stack) - offset - 1
+            return self.stack[stack_index]
+        else:
+            return W_ContextPart.fetch(index)
+
