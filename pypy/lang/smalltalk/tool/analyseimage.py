@@ -6,6 +6,7 @@ from pypy.lang.smalltalk import model
 from pypy.lang.smalltalk import objtable
 from pypy.lang.smalltalk import classtable
 from pypy.lang.smalltalk import interpreter 
+import sys
 
 mini_image = py.magic.autopath().dirpath().dirpath().join('mini.image')
 
@@ -49,15 +50,18 @@ def tinyBenchmarks():
     from pypy.lang.smalltalk.interpreter import BYTECODE_TABLE
     while True:
         try:
-            if interp.w_active_context == w_frame:
-                counter += 1
-                print "Executing toplevel bytecode nr: %d of %d" % (counter, len(w_method.bytes))
+            counter += 1
+            #if interp.w_active_context == w_frame:
+               # print "Executing toplevel bytecode nr: %d of %d" % (counter, len(w_method.bytes))
             interp.step()
-            if hasattr(interp.w_active_context,"currentBytecode"):
-                print "Executing bytecode: %s" % (BYTECODE_TABLE[interp.w_active_context.currentBytecode].__name__,)
-            else:
-                print "Jump to new stackframe"
-            print interp.w_active_context.stack
+            #if hasattr(interp.w_active_context,"currentBytecode"):
+            #    print "Executing bytecode: %s" % (BYTECODE_TABLE[interp.w_active_context.currentBytecode].__name__,)
+            #else:
+            #    print "Jump to new stackframe"
+            # print interp.w_active_context.stack
+            if counter == 100000:
+                counter = 0
+                sys.stderr.write("#")
         except interpreter.ReturnFromTopLevel, e:
             assert e.object.value == abs(int)
             return
