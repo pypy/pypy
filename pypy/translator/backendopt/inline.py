@@ -77,7 +77,8 @@ def iter_callsites(graph, calling_what):
 
             graph = getattr(funcobj, 'graph', None)
             # accept a function or a graph as 'inline_func'
-            if (graph is calling_what or
+            if (calling_what is None or
+                graph is calling_what or
                 getattr(funcobj, '_callable', None) is calling_what):
                 yield graph, block, i
 
