@@ -85,11 +85,10 @@ class W_AbstractObjectWithClassReference(W_AbstractObjectWithIdentityHash):
         return self.w_class
 
     def __str__(self):
-        # XXX use the shadow of my class
-        if self.size() >= 9:
-            return ''.join(self.fetch(constants.CLASS_NAME_INDEX).bytes) + " class"
+        if isinstance(self, W_PointersObject) and self._shadow is not None:
+            return "%s class" % (self.as_class_get_shadow().name or '?',)
         else:
-            return "a " + ''.join(self.getclass().fetch(constants.CLASS_NAME_INDEX).bytes)
+            return "a %s" % (self.shadow_of_my_class().name or '?',)
 
     def invariant(self):
         return (W_AbstractObjectWithIdentityHash.invariant(self) and
