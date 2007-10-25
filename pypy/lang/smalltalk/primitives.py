@@ -179,18 +179,32 @@ def func(args, (w_receiver, w_argument)):
 _FLOAT_OFFSET = 40
 FLOAT_ADD = 41
 FLOAT_SUBTRACT = 42
+FLOAT_MULTIPLY = 49
+FLOAT_DIVIDE = 50
+FLOAT_TRUNCATED = 51
+
 math_ops = {
     FLOAT_ADD: operator.add,
-    FLOAT_SUBTRACT: operator.sub
+    FLOAT_SUBTRACT: operator.sub,
+    FLOAT_MULTIPLY: operator.mul,
+    FLOAT_DIVIDE: operator.div,
     }
 for (code,op) in math_ops.items():
+    @primitive(code)
     @stack(2)
     def func(args, (w_v1, w_v2), op=op): # n.b. capture op value
         v1 = unwrap_float(w_v1)
         v2 = unwrap_float(w_v2)
         w_res = objtable.wrap_float(op(v1, v2))
         return w_res
-    prim_table[code] = func
+
+@primitive(FLOAT_TRUNCATED)
+@stack(1)
+def func(args, (w_float,)): 
+    f = unwrap_float(w_float)
+    w_res = objtable.wrap_int(int(f))
+    return w_res
+
 
 # ___________________________________________________________________________
 # Subscript and Stream Primitives
@@ -571,6 +585,7 @@ def func(args, (w_rcvr, w_args)):
 @primitive(PRIMITIVE_PERFORM)
 @stack(2)
 def func(args, (w_rcvr, w_sel)):
+    # XXX we can implement this when lookup on shadow class is done
     raise PrimitiveNotYetWrittenError()
 
 @primitive(PRIMITIVE_PERFORM_WITH_ARGS)

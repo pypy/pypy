@@ -139,9 +139,30 @@ def test_small_int_bit_shift_fail():
     prim_fails(p.BIT_SHIFT, [4, 29])
     prim_fails(p.BIT_SHIFT, [4, 28])
 
-def test_float():
+def test_float_add():
     assert prim(p.FLOAT_ADD, [1.0,2.0]).value == 3.0
-    assert prim(p.FLOAT_ADD, [3,4.5]).value == 7.5
+    assert prim(p.FLOAT_ADD, [3.0,4.5]).value == 7.5
+
+def test_float_subtract():
+    assert prim(p.FLOAT_SUBTRACT, [1.0,2.0]).value == -1.0
+    assert prim(p.FLOAT_SUBTRACT, [15.0,4.5]).value == 10.5
+
+def test_float_multiply():
+    assert prim(p.FLOAT_MULTIPLY, [10.0,2.0]).value == 20.0
+    assert prim(p.FLOAT_MULTIPLY, [3.0,4.5]).value == 13.5
+
+def test_float_divide():
+    assert prim(p.FLOAT_DIVIDE, [1.0,2.0]).value == 0.5
+    assert prim(p.FLOAT_DIVIDE, [3.5,4.0]).value == 0.875
+
+def test_float_truncate():
+    assert prim(p.FLOAT_TRUNCATED, [-4.6]).value == -4
+    assert prim(p.FLOAT_TRUNCATED, [-4.5]).value == -4
+    assert prim(p.FLOAT_TRUNCATED, [-4.4]).value == -4
+    assert prim(p.FLOAT_TRUNCATED, [4.4]).value == 4
+    assert prim(p.FLOAT_TRUNCATED, [4.5]).value == 4
+    assert prim(p.FLOAT_TRUNCATED, [4.6]).value == 4
+
 
 def test_at():
     w_obj = mockclass(0, varsized=True).as_class_get_shadow().new(1)

@@ -52,7 +52,9 @@ SO_SEMAPHORE_CLASS = 18
 SO_CHARACTER_CLASS = 19
 SO_DOES_NOT_UNDERSTAND = 20
 SO_CANNOT_RETURN = 21
-# no clue what 22 is doing
+
+# XXX no clue what 22 is doing, lookup in Squeak: ObjectMemory >> initializeSpecialObjectIndices
+
 SO_SPECIAL_SELECTORS_ARRAY = 23
 SO_CHARACTER_TABLE_ARRAY = 24
 SO_MUST_BE_BOOLEAN = 25
