@@ -1,7 +1,7 @@
 import operator
 from pypy.lang.smalltalk import model, mirror
-import pypy.lang.smalltalk.classtable as ct
-import pypy.lang.smalltalk.fakeimage as fimg
+from pypy.lang.smalltalk import classtable
+from pypy.lang.smalltalk import fakeimage
 from pypy.rlib import rarithmetic
 
 class PrimitiveFailedError(Exception):
@@ -19,9 +19,9 @@ def subscript(idx, w_obj):
     if isinstance(w_obj, model.W_PointersObject):
         return w_obj.getindexedvar(idx)
     elif isinstance(w_obj, model.W_WordsObject):
-        return fimg.wrap_int(w_obj.getword(idx))
+        return fakeimage.wrap_int(w_obj.getword(idx))
     elif isinstance(w_obj, model.W_BytesObject):
-        return fimg.wrap_int(w_obj.getbyte(idx))
+        return fakeimage.wrap_int(w_obj.getbyte(idx))
     raise PrimitiveFailedError()
 
 def assert_bounds(idx, minb, maxb):
@@ -68,7 +68,7 @@ def wrap_int(value):
         raise PrimitiveFailedError()
     if value < -1073741824:
         raise PrimitiveFailedError()
-    return fimg.wrap_int(value)
+    return fakeimage.wrap_int(value)
     
 ADD         = 1
 SUBTRACT    = 2
@@ -189,7 +189,7 @@ for (code,op) in math_ops.items():
         [w_v1, w_v2] = res
         v1 = unwrap_float(w_v1)
         v2 = unwrap_float(w_v2)
-        w_res = fimg.wrap_float(op(v1, v2))
+        w_res = fakeimage.wrap_float(op(v1, v2))
         return w_res
     prim_table[code] = func
 
@@ -242,15 +242,15 @@ def func(stack):
 def func(stack):
     w_obj, idx = common_at(stack)
     byte = w_obj.getbyte(idx)
-    return fimg.CharacterTable[byte]
+    return fakeimage.CharacterTable[byte]
 
 @primitive(STRING_AT_PUT)
 @stack(3)
 def func(stack):
     w_obj, idx, w_val = common_at_put(stack)
-    if w_val.getclassmirror() is not ct.m_Character:
+    if w_val.getclassmirror() is not classtable.m_Character:
         raise PrimitiveFailedError()
-    w_obj.setbyte(idx, fimg.ord_w_char(w_val))
+    w_obj.setbyte(idx, fakeimage.ord_w_char(w_val))
     return w_val
 
 # ___________________________________________________________________________
@@ -267,6 +267,7 @@ AS_OOP = 75
 STORE_STACKP = 76             # Blue Book: primitiveAsObject
 SOME_INSTANCE = 77
 NEXT_INSTANCE = 78
+NEW_METHOD = 79
 
 @primitive(OBJECT_AT)
 @stack(2)
@@ -363,6 +364,73 @@ def func(stack):
     [w_obj] = stack
     raise PrimitiveNotYetWrittenError()
 
+@primitive(NEW_METHOD)
+def func(frame):
+    raise PrimitiveNotYetWrittenError()
+
+# ___________________________________________________________________________
+# Control Primitives
+
+EQUIVALENT = 110
+CLASS = 111
+BYTES_LEFT = 112
+QUIT = 113
+EXIT_TO_DEBUGGER = 114
+CHANGE_CLASS = 115      # Blue Book: primitiveOopsLeft
+
+@primitive(EQUIVALENT)
+@stack(2)
+def func(stack):
+    [w_arg, w_rcvr] = stack
+    return w_arg == w_rcvr
+
+@primitive(EQUIVALENT)
+@stack(1)
+def func(stack):
+    [w_obj] = stack
+    return w_obj.w_class
+
+@primitive(BYTES_LEFT)
+def func(frame):
+    raise PrimitiveNotYetWrittenError()
+
+@primitive(QUIT)
+def func(frame):
+    raise PrimitiveNotYetWrittenError()
+
+@primitive(EXIT_TO_DEBUGGER)
+def func(frame):
+    raise PrimitiveNotYetWrittenError()
+
+@primitive(CHANGE_CLASS)
+@stack(2)
+def func(stack):
+    [w_arg, w_rcvr] = stack
+    w_arg_class = w_arg.w_class
+    w_rcvr_class = w_rcvr.w_class
+
+    # We should fail if:
+
+    # 1. Rcvr or arg are SmallIntegers
+    if (w_arg_class == classtable.w_SmallInteger or
+        w_rcvr_class == classtable.w_SmallInteger):
+        raise PrimitiveFailedError()
+
+    # 2. Rcvr is an instance of a compact class and argument isn't
+    # or vice versa (?)
+
+    # 3. Format of rcvr is different from format of argument
+    if w_arg_class.format != w_rcvr_class.format:
+        raise PrimitiveFailedError()
+
+    # Fail when argument class is fixed and rcvr's size differs from the
+    # size of an instance of the arg
+    if w_arg_class.instsize() != w_rcvr_class.instsize():
+        raise PrimitiveFailedError()
+
+    w_rcvr.w_class = w_arg.w_class
+    return 
+
 # ___________________________________________________________________________
 # Boolean Primitives
 
@@ -396,7 +464,7 @@ for (code,op) in bool_ops.items():
         v1 = unwrap_int(w_v1)
         v2 = unwrap_int(w_v2)
         res = op(v1, v2)
-        w_res = fimg.wrap_bool(res)
+        w_res = fakeimage.wrap_bool(res)
         return w_res
 
 for (code,op) in bool_ops.items():
@@ -407,7 +475,7 @@ for (code,op) in bool_ops.items():
         v1 = unwrap_float(w_v1)
         v2 = unwrap_float(w_v2)
         res = op(v1, v2)
-        w_res = fimg.wrap_bool(res)
+        w_res = fakeimage.wrap_bool(res)
         return w_res
     
 # ___________________________________________________________________________
@@ -430,13 +498,13 @@ def func(stack):
 
 def define_const_primitives():
     for (code, const) in [
-        (PUSH_TRUE, fimg.w_true),
-        (PUSH_FALSE, fimg.w_false),
-        (PUSH_NIL, fimg.w_nil),
-        (PUSH_MINUS_ONE, fimg.w_mone),
-        (PUSH_ZERO, fimg.w_zero),
-        (PUSH_ONE, fimg.w_one),
-        (PUSH_TWO, fimg.w_two),
+        (PUSH_TRUE, fakeimage.w_true),
+        (PUSH_FALSE, fakeimage.w_false),
+        (PUSH_NIL, fakeimage.w_nil),
+        (PUSH_MINUS_ONE, fakeimage.w_mone),
+        (PUSH_ZERO, fakeimage.w_zero),
+        (PUSH_ONE, fakeimage.w_one),
+        (PUSH_TWO, fakeimage.w_two),
         ]:
         @primitive(code)
         @stack(1)
