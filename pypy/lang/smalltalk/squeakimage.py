@@ -306,14 +306,16 @@ class GenericObject(object):
         w_wordsobject.hash = self.chunk.hash12 # XXX check this
 
     def fillin_bytesobject(self, w_bytesobject):
-        bytes = []
+        bbytes = []
         for each in self.chunk.data:
-            bytes.append(chr((each >> 24) & 0xff))
-            bytes.append(chr((each >> 16) & 0xff)) 
-            bytes.append(chr((each >> 8) & 0xff)) 
-            bytes.append(chr((each >> 0) & 0xff))
+            bbytes.append(chr((each >> 24) & 0xff))
+            bbytes.append(chr((each >> 16) & 0xff)) 
+            bbytes.append(chr((each >> 8) & 0xff)) 
+            bbytes.append(chr((each >> 0) & 0xff))
         w_bytesobject.m_class = mirrorcache.get_or_build(self.g_class.w_object)
-        w_bytesobject.bytes = bytes[:-(self.format & 3)] # omit odd bytes
+        #strange, for example range(4)[:0] returns [] instead of [0,1,2,3]!
+        #hence what we have to write list[:-odd] as list[:len(list)-odd] instead :(
+        w_bytesobject.bytes = bbytes[:len(bbytes)-(self.format & 3)] # omit odd bytes
         w_bytesobject.hash = self.chunk.hash12 # XXX check this
  
     def fillin_compiledmethod(self, w_compiledmethod):
@@ -339,7 +341,9 @@ class GenericObject(object):
             bbytes.append(chr((each >> 16) & 0xff)) 
             bbytes.append(chr((each >> 8) & 0xff)) 
             bbytes.append(chr((each >> 0) & 0xff))
-        bbytes = bbytes[(literalsize + 1)*4:-(self.format & 3)] # omit literals & odd bytes
+        #strange, for example range(4)[:0] returns [] instead of [0,1,2,3]!
+        #hence what we have to write list[:-odd] as list[:len(list)-odd] instead :(
+        bbytes = bbytes[(literalsize + 1)*4:len(bbytes)-(self.format & 3)] # omit literals & odd bytes
         # XXX assert mirrorcache.get_or_build(self.g_class.w_object) is
         #            ct.m_CompiledMethod
         w_compiledmethod.__init__(
