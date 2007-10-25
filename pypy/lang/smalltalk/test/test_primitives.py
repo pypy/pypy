@@ -295,3 +295,8 @@ def test_primitive_sin():
     assert prim(p.FLOAT_SIN, [0.0]).value == 0.0
     assert float_equals(prim(p.FLOAT_SIN, [math.pi]), 0.0)
     assert float_equals(prim(p.FLOAT_SIN, [math.pi/2]), 1.0)
+
+def test_primitive_arctan():
+    assert prim(p.FLOAT_ARCTAN, [0.0]).value == 0.0
+    assert float_equals(prim(p.FLOAT_ARCTAN, [1]), math.pi/4)
+    assert float_equals(prim(p.FLOAT_ARCTAN, [1e99]), math.pi/2)
