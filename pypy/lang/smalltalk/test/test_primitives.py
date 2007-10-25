@@ -3,7 +3,7 @@ from pypy.lang.smalltalk.primitives import prim_table, PrimitiveFailedError
 from pypy.lang.smalltalk import model, mirror
 from pypy.lang.smalltalk import interpreter
 from pypy.lang.smalltalk import classtable
-from pypy.lang.smalltalk import fakeimage
+from pypy.lang.smalltalk import objtable
 
 # Violates the guideline, but we use it A LOT to reference the primitive codes:
 import pypy.lang.smalltalk.primitives as p
@@ -15,11 +15,11 @@ class MockFrame(interpreter.W_MethodContext):
         self.stack = stack
 
 def wrap(x):
-    if isinstance(x, int): return fakeimage.wrap_int(x)
-    if isinstance(x, float): return fakeimage.wrap_float(x)
+    if isinstance(x, int): return objtable.wrap_int(x)
+    if isinstance(x, float): return objtable.wrap_float(x)
     if isinstance(x, model.W_Object): return x
-    if isinstance(x, str) and len(x) == 1: return fakeimage.wrap_char(x)
-    if isinstance(x, str): return fakeimage.wrap_string(x)
+    if isinstance(x, str) and len(x) == 1: return objtable.wrap_char(x)
+    if isinstance(x, str): return objtable.wrap_string(x)
     if isinstance(x, mirror.ClassMirror): return x.w_self
     raise NotImplementedError
     
@@ -170,11 +170,11 @@ def test_string_at_put():
         assert prim(p.STRING_AT, [test_str, i]) == wrap(exp[i])
 
 def test_object_at():
-    w_v = prim(p.OBJECT_AT, ["q", fakeimage.CHARACTER_VALUE_INDEX])
+    w_v = prim(p.OBJECT_AT, ["q", objtable.CHARACTER_VALUE_INDEX])
     assert w_v.value == ord("q")
 
 def test_invalid_object_at():
-    prim_fails(p.OBJECT_AT, ["q", fakeimage.CHARACTER_VALUE_INDEX+1])
+    prim_fails(p.OBJECT_AT, ["q", objtable.CHARACTER_VALUE_INDEX+1])
     
 def test_object_at_put():
     w_obj = mockclassmirror(1).new()
@@ -210,7 +210,7 @@ def test_invalid_new_with_arg():
 def test_inst_var_at():
     # I am not entirely sure if this is what this primitive is
     # supposed to do, so the test may be bogus:
-    w_v = prim(p.INST_VAR_AT, ["q", fakeimage.CHARACTER_VALUE_INDEX])
+    w_v = prim(p.INST_VAR_AT, ["q", objtable.CHARACTER_VALUE_INDEX])
     assert w_v.value == ord("q")
     w_v = prim(p.INST_VAR_AT, ["abc", 1])
     assert w_v.value == ord("b")
@@ -225,30 +225,30 @@ def test_as_oop_not_applicable_to_int():
 
 def test_const_primitives():
     for (code, const) in [
-        (p.PUSH_TRUE, fakeimage.w_true),
-        (p.PUSH_FALSE, fakeimage.w_false),
-        (p.PUSH_NIL, fakeimage.w_nil),
-        (p.PUSH_MINUS_ONE, fakeimage.w_mone),
-        (p.PUSH_ZERO, fakeimage.w_zero),
-        (p.PUSH_ONE, fakeimage.w_one),
-        (p.PUSH_TWO, fakeimage.w_two),
+        (p.PUSH_TRUE, objtable.w_true),
+        (p.PUSH_FALSE, objtable.w_false),
+        (p.PUSH_NIL, objtable.w_nil),
+        (p.PUSH_MINUS_ONE, objtable.w_mone),
+        (p.PUSH_ZERO, objtable.w_zero),
+        (p.PUSH_ONE, objtable.w_one),
+        (p.PUSH_TWO, objtable.w_two),
         ]:
-        assert prim(code, [fakeimage.w_nil]) is const
-    assert prim(p.PUSH_SELF, [fakeimage.w_nil]) is fakeimage.w_nil
+        assert prim(code, [objtable.w_nil]) is const
+    assert prim(p.PUSH_SELF, [objtable.w_nil]) is objtable.w_nil
     assert prim(p.PUSH_SELF, ["a"]) is wrap("a")
 
 def test_boolean():
-    assert prim(p.LESSTHAN, [1,2]) == fakeimage.w_true
-    assert prim(p.GREATERTHAN, [3,4]) == fakeimage.w_false
-    assert prim(p.LESSOREQUAL, [1,2]) == fakeimage.w_true
-    assert prim(p.GREATEROREQUAL, [3,4]) == fakeimage.w_false
-    assert prim(p.EQUAL, [2,2]) == fakeimage.w_true
-    assert prim(p.NOTEQUAL, [2,2]) == fakeimage.w_false
+    assert prim(p.LESSTHAN, [1,2]) == objtable.w_true
+    assert prim(p.GREATERTHAN, [3,4]) == objtable.w_false
+    assert prim(p.LESSOREQUAL, [1,2]) == objtable.w_true
+    assert prim(p.GREATEROREQUAL, [3,4]) == objtable.w_false
+    assert prim(p.EQUAL, [2,2]) == objtable.w_true
+    assert prim(p.NOTEQUAL, [2,2]) == objtable.w_false
 
 def test_float_boolean():
-    assert prim(p.FLOAT_LESSTHAN, [1.0,2.0]) == fakeimage.w_true
-    assert prim(p.FLOAT_GREATERTHAN, [3.0,4.0]) == fakeimage.w_false
-    assert prim(p.FLOAT_LESSOREQUAL, [1.3,2.6]) == fakeimage.w_true
-    assert prim(p.FLOAT_GREATEROREQUAL, [3.5,4.9]) == fakeimage.w_false
-    assert prim(p.FLOAT_EQUAL, [2.2,2.2]) == fakeimage.w_true
-    assert prim(p.FLOAT_NOTEQUAL, [2.2,2.2]) == fakeimage.w_false
+    assert prim(p.FLOAT_LESSTHAN, [1.0,2.0]) == objtable.w_true
+    assert prim(p.FLOAT_GREATERTHAN, [3.0,4.0]) == objtable.w_false
+    assert prim(p.FLOAT_LESSOREQUAL, [1.3,2.6]) == objtable.w_true
+    assert prim(p.FLOAT_GREATEROREQUAL, [3.5,4.9]) == objtable.w_false
+    assert prim(p.FLOAT_EQUAL, [2.2,2.2]) == objtable.w_true
+    assert prim(p.FLOAT_NOTEQUAL, [2.2,2.2]) == objtable.w_false

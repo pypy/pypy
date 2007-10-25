@@ -1,6 +1,6 @@
 import py
 from pypy.lang.smalltalk import model, constants, primitives
-from pypy.lang.smalltalk import fakeimage
+from pypy.lang.smalltalk import objtable
 
 
 class MissingBytecode(NotImplementedError):
@@ -399,13 +399,13 @@ class W_MethodContext(model.W_Object):
 
 class Interpreter:
 
-    TRUE = fakeimage.w_true
-    FALSE = fakeimage.w_false
-    NIL = fakeimage.w_nil
-    MONE = fakeimage.w_mone
-    ZERO = fakeimage.w_zero
-    ONE = fakeimage.w_one
-    TWO = fakeimage.w_two
+    TRUE = objtable.w_true
+    FALSE = objtable.w_false
+    NIL = objtable.w_nil
+    MONE = objtable.w_mone
+    ZERO = objtable.w_zero
+    ONE = objtable.w_one
+    TWO = objtable.w_two
     
     def __init__(self):
         self.activeContext = None

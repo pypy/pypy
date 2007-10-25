@@ -1,6 +1,6 @@
 import py
 from pypy.lang.smalltalk import model, interpreter, primitives, mirror
-from pypy.lang.smalltalk.fakeimage import wrap_int
+from pypy.lang.smalltalk.objtable import wrap_int
 import pypy.lang.smalltalk.classtable as ct
 
 mockclassmirror = ct.bootstrap_classmirror

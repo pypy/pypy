@@ -1,7 +1,7 @@
 import operator
 from pypy.lang.smalltalk import model, mirror
 from pypy.lang.smalltalk import classtable
-from pypy.lang.smalltalk import fakeimage
+from pypy.lang.smalltalk import objtable
 from pypy.rlib import rarithmetic
 
 class PrimitiveFailedError(Exception):
@@ -19,9 +19,9 @@ def subscript(idx, w_obj):
     if isinstance(w_obj, model.W_PointersObject):
         return w_obj.getindexedvar(idx)
     elif isinstance(w_obj, model.W_WordsObject):
-        return fakeimage.wrap_int(w_obj.getword(idx))
+        return objtable.wrap_int(w_obj.getword(idx))
     elif isinstance(w_obj, model.W_BytesObject):
-        return fakeimage.wrap_int(w_obj.getbyte(idx))
+        return objtable.wrap_int(w_obj.getbyte(idx))
     raise PrimitiveFailedError()
 
 def assert_bounds(idx, minb, maxb):
@@ -68,7 +68,7 @@ def wrap_int(value):
         raise PrimitiveFailedError()
     if value < -1073741824:
         raise PrimitiveFailedError()
-    return fakeimage.wrap_int(value)
+    return objtable.wrap_int(value)
     
 ADD         = 1
 SUBTRACT    = 2
@@ -189,7 +189,7 @@ for (code,op) in math_ops.items():
         [w_v1, w_v2] = res
         v1 = unwrap_float(w_v1)
         v2 = unwrap_float(w_v2)
-        w_res = fakeimage.wrap_float(op(v1, v2))
+        w_res = objtable.wrap_float(op(v1, v2))
         return w_res
     prim_table[code] = func
 
@@ -242,7 +242,7 @@ def func(stack):
 def func(stack):
     w_obj, idx = common_at(stack)
     byte = w_obj.getbyte(idx)
-    return fakeimage.CharacterTable[byte]
+    return objtable.CharacterTable[byte]
 
 @primitive(STRING_AT_PUT)
 @stack(3)
@@ -250,7 +250,7 @@ def func(stack):
     w_obj, idx, w_val = common_at_put(stack)
     if w_val.getclassmirror() is not classtable.m_Character:
         raise PrimitiveFailedError()
-    w_obj.setbyte(idx, fakeimage.ord_w_char(w_val))
+    w_obj.setbyte(idx, objtable.ord_w_char(w_val))
     return w_val
 
 # ___________________________________________________________________________
@@ -464,7 +464,7 @@ for (code,op) in bool_ops.items():
         v1 = unwrap_int(w_v1)
         v2 = unwrap_int(w_v2)
         res = op(v1, v2)
-        w_res = fakeimage.wrap_bool(res)
+        w_res = objtable.wrap_bool(res)
         return w_res
 
 for (code,op) in bool_ops.items():
@@ -475,7 +475,7 @@ for (code,op) in bool_ops.items():
         v1 = unwrap_float(w_v1)
         v2 = unwrap_float(w_v2)
         res = op(v1, v2)
-        w_res = fakeimage.wrap_bool(res)
+        w_res = objtable.wrap_bool(res)
         return w_res
     
 # ___________________________________________________________________________
@@ -498,13 +498,13 @@ def func(stack):
 
 def define_const_primitives():
     for (code, const) in [
-        (PUSH_TRUE, fakeimage.w_true),
-        (PUSH_FALSE, fakeimage.w_false),
-        (PUSH_NIL, fakeimage.w_nil),
-        (PUSH_MINUS_ONE, fakeimage.w_mone),
-        (PUSH_ZERO, fakeimage.w_zero),
-        (PUSH_ONE, fakeimage.w_one),
-        (PUSH_TWO, fakeimage.w_two),
+        (PUSH_TRUE, objtable.w_true),
+        (PUSH_FALSE, objtable.w_false),
+        (PUSH_NIL, objtable.w_nil),
+        (PUSH_MINUS_ONE, objtable.w_mone),
+        (PUSH_ZERO, objtable.w_zero),
+        (PUSH_ONE, objtable.w_one),
+        (PUSH_TWO, objtable.w_two),
         ]:
         @primitive(code)
         @stack(1)
