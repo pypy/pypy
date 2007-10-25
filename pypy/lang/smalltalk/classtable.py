@@ -58,17 +58,20 @@ create_classtable()
 # Other classes
 
 def define_cls(cls_nm, supercls_nm, instvarsize=0, format=mirror.POINTERS):
+    assert cls_nm.startswith("m_")
     meta_nm = cls_nm + "Class"
     meta_super_nm = supercls_nm + "Class"
     m_meta_cls = globals()[meta_nm] = classtable[meta_nm] = \
                  bootstrap_classmirror(0,   # XXX
                                        classtable[meta_super_nm],
-                                       m_Metaclass)
+                                       m_Metaclass,
+                                       name=meta_nm[2:])
     m_cls = globals()[cls_nm] = classtable[cls_nm] = \
                  bootstrap_classmirror(instvarsize,
                                        classtable[supercls_nm],
                                        m_meta_cls,
-                                       format=format)
+                                       format=format,
+                                       name=cls_nm[2:])
 
 define_cls("m_Magnitude", "m_Object")
 define_cls("m_Character", "m_Magnitude", instvarsize=1)

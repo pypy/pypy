@@ -202,3 +202,10 @@ def test_lookup_neg_abs_in_integer():
     # Fails due to same reason because of which
     # classmirror-methodlookup fails
     test_lookup_abs_in_integer(-3)
+
+def test_map_mirrors_to_classtable():
+    from pypy.lang.smalltalk import classtable, mirror
+    w_compiledmethod_class = image.special(sqc.SO_COMPILEDMETHOD_CLASS)
+    m_compiledmethod_class = mirror.mirrorcache.getmirror(
+        w_compiledmethod_class)
+    assert m_compiledmethod_class is classtable.m_CompiledMethod

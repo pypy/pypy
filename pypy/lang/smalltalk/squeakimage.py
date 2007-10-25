@@ -83,6 +83,7 @@ class ImageReader(object):
         self.init_compactclassesarray()
         self.init_g_objects()
         self.init_w_objects()
+        self.assign_mirrors()
         self.fillin_w_objects()
 
     def read_header(self):
@@ -115,6 +116,26 @@ class ImageReader(object):
     def init_w_objects(self):
         for chunk in self.chunks.itervalues():
             chunk.g_object.init_w_object() 
+
+    def assign_mirrors(self):
+        # assign the mirrors to the classes already in classtable
+        from pypy.lang.smalltalk import classtable, constants
+        for so_index, name in [
+            (constants.SO_SMALLINTEGER_CLASS, "m_SmallInteger"),
+            (constants.SO_STRING_CLASS, "m_String"),
+            (constants.SO_FLOAT_CLASS, "m_Float"),
+            #(constants.SO_METHODCONTEXT_CLASS, "m_MethodContext"),
+            (constants.SO_CHARACTER_CLASS, "m_Character"),
+            (constants.SO_BYTEARRAY_CLASS, "m_ByteArray"),
+            (constants.SO_COMPILEDMETHOD_CLASS, "m_CompiledMethod")]:
+            mirrorcache.assign_existing_mirror(
+                self.special_object(so_index),
+                getattr(classtable, name))
+            # XXX more missing
+
+    def special_object(self, index):
+        special = self.chunks[self.specialobjectspointer].g_object.pointers
+        return special[index].w_object
 
     def fillin_w_objects(self):
         for chunk in self.chunks.itervalues():
@@ -212,7 +233,6 @@ class GenericObject(object):
         self.init_data(chunk) # for pointers
         self.chunk = chunk # for bytes, words and compiledmethod
         self.w_object = None
-        self.init_w_object()
         
     def init_class(self, chunk):    
         if chunk.iscompact():
@@ -354,7 +374,7 @@ class GenericObject(object):
             primitive = primitive)
 
         w_compiledmethod.literals = literals
-             
+
     
 
 class ImageChunk(object):

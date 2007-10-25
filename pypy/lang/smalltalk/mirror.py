@@ -147,4 +147,8 @@ class MirrorCache:
         mirror.check()
         return mirror
 
+    def assign_existing_mirror(self, w_class, m_class):
+        assert w_class not in self.cache
+        self.cache[w_class] = m_class
+
 mirrorcache = MirrorCache()
