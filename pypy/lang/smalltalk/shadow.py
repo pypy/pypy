@@ -171,7 +171,7 @@ class ClassShadow(AbstractShadow):
     def lookup(self, selector):
         if selector in self.methoddict:
             return self.methoddict[selector]
-        elif self.s_superclass != None:
+        elif self.s_superclass is not None:
             return self.s_superclass.lookup(selector)
         else:
             raise MethodNotFound
