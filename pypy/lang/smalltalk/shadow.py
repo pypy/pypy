@@ -179,7 +179,8 @@ class ClassShadow(AbstractShadow):
         while selector not in look_in_shadow.methoddict:
             look_in_shadow = look_in_shadow.s_superclass
             if look_in_shadow is None:
-                raise MethodNotFound
+                # attach information on the exception, for debugging.
+                raise MethodNotFound(self, selector)
         return look_in_shadow.methoddict[selector]
 
     def installmethod(self, selector, method):
