@@ -69,7 +69,7 @@ def tinyBenchmarks():
             if hasattr(interp.w_active_context,"currentBytecode"):
                 cb = interp.w_active_context.currentBytecode
                 print "Failing bytecode: %s %d" % (BYTECODE_TABLE[cb].__name__,cb)
-                raise
+            raise
 
 
 
