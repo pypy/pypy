@@ -48,6 +48,7 @@ def raise_failing_default(interp, argument_count):
 prim_table = [raise_failing_default] * 576
 
 def expose_primitive(code, unwrap_spec=None):
+    # some serious magic, don't look
     from pypy.rlib.unroll import unrolling_iterable
     def decorator(func):
         assert code not in prim_table
@@ -225,9 +226,9 @@ def func(interp, f):
     w_res = objtable.wrap_int(int(f))
     return w_res
 
-@expose_primitive(FLOAT_TIMES_TWO_POWER, unwrap_spec=[float, float])
+@expose_primitive(FLOAT_TIMES_TWO_POWER, unwrap_spec=[float, int])
 def func(interp, rcvr, arg): 
-    w_res = objtable.wrap_float(math.ldexp(rcvr,arg))
+    w_res = objtable.wrap_float(math.ldexp(rcvr, arg))
     return w_res
 
 @expose_primitive(FLOAT_SQUARE_ROOT, unwrap_spec=[float])
