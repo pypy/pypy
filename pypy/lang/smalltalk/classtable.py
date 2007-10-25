@@ -32,9 +32,24 @@ def create_classtable():
         classtable[name] = shadow
         return shadow
     
+    #   A complete minimal setup (including Behavior) would look like this
+    #
+    #   class:              superclass:         metaclass:
+    #   ------------------- ------------------- -------------------
+    #   Object              *nil                 Object class
+    #   Behavior            Object              Behavior class
+    #   ClassDescription    Behavior            ClassDescription class
+    #   Class               ClassDescription    Class class
+    #   Metaclass           ClassDescription    Metaclass class
+    #   Object class        *Class              *Metaclass
+    #   Behavior class      Object class        *Metaclass
+    #   ClassDescription cl Behavior class      *Metaclass
+    #   Class class         ClassDescription cl *Metaclass
+    #   Metaclass class     ClassDescription cl *Metaclass
+    
     #    Class Name            Super class name
     cls_nm_tbl = [
-        ["w_Object",           "w_ProtoObject"],
+        ["w_Object",           "w_ProtoObject"], # there is not ProtoObject in mini.image
         ["w_Behavior",         "w_Object"],
         ["w_ClassDescription", "w_Behavior"],
         ["w_Class",            "w_ClassDescription"],
