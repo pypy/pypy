@@ -523,8 +523,8 @@ PRIMITIVE_PERFORM_WITH_ARGS = 84
 PRIMITIVE_SIGNAL = 85
 PRIMITIVE_WAIT = 86
 PRIMITIVE_RESUME = 87
-PRIMTIIVE_SUSPEND = 88
-PRIMTIIVE_FLUSH_CACHE = 89
+PRIMITIVE_SUSPEND = 88
+PRIMITIVE_FLUSH_CACHE = 89
 
 @primitive(PRIMITIVE_BLOCK_COPY)
 @stack(2)
@@ -566,12 +566,12 @@ def func(interpreter, receiver):
 def func(interpreter, receiver):
     raise PrimitiveNotYetWrittenError()
 
-@primitive(PRIMTIIVE_SUSPEND)
+@primitive(PRIMITIVE_SUSPEND)
 @stack(1)
 def func(interpreter, receiver):
     raise PrimitiveNotYetWrittenError()
 
-@primitive(PRIMTIIVE_FLUSH_CACHE)
+@primitive(PRIMITIVE_FLUSH_CACHE)
 @stack(1)
 def func(interpreter, receiver):
     raise PrimitiveNotYetWrittenError()
