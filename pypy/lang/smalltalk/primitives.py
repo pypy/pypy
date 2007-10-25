@@ -53,7 +53,7 @@ def primitive(code):
 def stack(n):
     def decorator(wrapped):
         def result(args):
-            frame = args.interp.activeContext
+            frame = args.interp.w_active_context
             items = frame.stack[len(frame.stack)-n:]
             res = wrapped(args, items)
             frame.pop_n(n)   # only if no exception occurs!
@@ -512,7 +512,7 @@ PRIMITIVE_FLUSH_CACHE = 89
 @primitive(PRIMITIVE_BLOCK_COPY)
 @stack(2)
 def func(args, (w_argcnt, w_context)):
-    frame = args.interp.activeContext
+    frame = args.interp.w_active_context
 
     # From B.B.: If receiver is a MethodContext, then it becomes
     # the new BlockContext's home context.  Otherwise, the home
@@ -524,7 +524,7 @@ def func(args, (w_argcnt, w_context)):
 
     # The block bytecodes are stored inline: so we skip past the
     # byteodes to invoke this primitive to find them (hence +3)
-    w_new_context = classtable.w_BlockContext.new()
+    w_new_context = classtable.w_BlockContext.new(unwrap_int(w_argcnt))
     initialip = frame.pc + 3
 
     # Initialize various fields.
@@ -536,9 +536,32 @@ def func(args, (w_argcnt, w_context)):
     
 @primitive(PRIMITIVE_VALUE)
 def func(args):
-    #w_rcvr = args.interp.activeContext.peek(0)
-    #w_argcnt = w_rcvr.fetch(BLOCK_CONTEXT_BLOCK_ARGUMENT_COUNT_INDEX)
-    raise PrimitiveNotYetWrittenError()
+
+    # If nargs == 4, stack looks like:
+    #  3      2       1      0
+    #  Rcvr | Arg 0 | Arg1 | Arg 2
+    #
+    
+    w_block_ctx = args.interp.w_active_context.peek(args.argument_count-1)
+
+    w_exp_arg_cnt = w_block_ctx.fetch(BLOCK_CONTEXT_BLOCK_ARGUMENT_COUNT_INDEX)
+    exp_arg_cnt = unwrap_int(w_exp_arg_cnt)
+    if args.argument_count != exp_arg_cnt:
+        raise PrimitiveFailedError()
+
+    # Copy the values from the stack such that the most recently pushed
+    # item (index 0) ends up in slot BLOCK_CONTEXT_TEMP_FRAME_START + nargs - 1
+    for idx in range(exp_arg_cnt - 1):
+        w_block_ctx.store(
+            BLOCK_CONTEXT_TEMP_FRAME_START+idx,     
+            w_block_ctx.fetch(exp_arg_cnt - idx - 1))
+
+    # Set some fields
+    w_initial_ip = w_block_ctx.fetch(BLOCK_CONTEXT_INITIAL_IP_INDEX)
+    w_block_ctx.store(BLOCK_CONTEXT_INSTRUCTION_POINTER_INDEX, w_initial_ip)
+    w_block_ctx.store(BLOCK_CONTEXT_STACK_POINTER_INDEX, w_exp_arg_cnt)
+    w_block_ctx.store(BLOCK_CONTEXT_CALLER_INDEX, args.interp.w_active_context)
+    args.interp.w_active_context = w_block_ctx
     
 @primitive(PRIMITIVE_VALUE_WITH_ARGS)
 @stack(2)

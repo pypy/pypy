@@ -148,14 +148,14 @@ class W_MethodContext(model.W_Object):
                 self.push(w_result)
                 return
         arguments = self.stack[len(self.stack)-argcount:]
-        interp.activeContext = method.createFrame(receiver, arguments, self)
+        interp.w_active_context = method.createFrame(receiver, arguments, self)
         self.pop_n(argcount + 1)
 
     def _return(self, object, interp):
         if self.sender is None:   # for tests, when returning from the top-level context
             raise ReturnFromTopLevel(object)
         self.sender.push(object)
-        interp.activeContext = self.sender
+        interp.w_active_context = self.sender
 
     def returnReceiver(self, interp):
         self._return(self.receiver, interp)
@@ -410,7 +410,7 @@ class Interpreter:
     TWO = objtable.w_two
     
     def __init__(self):
-        self.activeContext = None
+        self.w_active_context = None
 
    
     def interpret(self):
@@ -421,9 +421,9 @@ class Interpreter:
             return e.object
 
     def step(self):
-        next = self.activeContext.getNextBytecode()
+        next = self.w_active_context.getNextBytecode()
         bytecodeimpl = BYTECODE_TABLE[next]
-        bytecodeimpl(self.activeContext, self)
+        bytecodeimpl(self.w_active_context, self)
         
 class ReturnFromTopLevel(Exception):
     def __init__(self, object):

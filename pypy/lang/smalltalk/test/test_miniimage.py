@@ -186,14 +186,14 @@ def test_lookup_abs_in_integer(int=10):
 
     assert w_method
     w_frame = w_method.createFrame(w_object, [])
-    interp.activeContext = w_frame
+    interp.w_active_context = w_frame
 
     print w_method
 
     while True:
         try:
             interp.step()
-            print interp.activeContext.stack
+            print interp.w_active_context.stack
         except interpreter.ReturnFromTopLevel, e:
             return e.object
 
