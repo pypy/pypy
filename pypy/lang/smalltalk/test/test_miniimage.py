@@ -220,7 +220,7 @@ def test_lookup_abs_in_integer(int=10):
             return e.object
 
 def test_lookup_neg_abs_in_integer():
-    py.test.skip("TOFIX methodlookup 'negated' fails in shadow SmallInteger")
+    #py.test.skip("TOFIX methodlookup 'negated' fails in shadow SmallInteger")
     # Fails due to same reason because of which
     # classmirror-methodlookup fails
     test_lookup_abs_in_integer(-3)

@@ -51,7 +51,14 @@ def testSelector():
     image = create_squeakimage()
     w_doesnot = image.special(constants.SO_DOES_NOT_UNDERSTAND)
     assert repr(w_doesnot.shadow_of_my_class()) == "<ClassShadow Symbol>"
+    print w_doesnot.getclass().fetch(constants.CLASS_METHODDICT_INDEX).shadow_of_my_class().instance_kind
+    print w_doesnot.getclass().fetch(constants.CLASS_METHODDICT_INDEX).shadow_of_my_class().instance_size
+    print
     print w_doesnot.getclass().fetch(constants.CLASS_METHODDICT_INDEX)._vars
+    print
+    print w_doesnot.getclass().fetch(constants.CLASS_METHODDICT_INDEX)._vars[constants.METHODDICT_NAMES_INDEX:]
+    print
+    print w_doesnot.getclass().fetch(constants.CLASS_METHODDICT_INDEX)._vars[constants.METHODDICT_VALUES_INDEX]._vars
 
 def test_do():
     testSelector()
