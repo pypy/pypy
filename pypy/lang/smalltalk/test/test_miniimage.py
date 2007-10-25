@@ -105,7 +105,7 @@ def test_scheduler():
     image = get_image()
     w = image.special(constants.SO_SCHEDULERASSOCIATIONPOINTER)
     w0 = w.fetch(0)
-    assert str(w0) == "'Processor'" 
+    assert str(w0) == "Processor" 
     w0 = w.fetch(1)
     assert str(w0) == "a ProcessorScheduler" 
    
@@ -138,8 +138,16 @@ def test_special_classes0():
     SO_COMPILEDMETHOD_CLASS = 16
     SO_LOW_SPACE_SEMAPHORE = 17
     SO_SEMAPHORE_CLASS = 18
-    SO_CHARACTER_CLASS = 19
-    SO_DOES_NOT_UNDERSTAND = 20
+    SO_CHARACTER_CLASS = 19"""
+    
+def test_special_classes0():
+    image = get_image()
+    w = image.special(constants.SO_DOES_NOT_UNDERSTAND)
+    assert str(w) == "doesNotUnderstand:"
+    assert str(w.getclass()) == "Array class" # for some strange reason not a symbol
+    
+    
+    """SO_DOES_NOT_UNDERSTAND = 20
     SO_CANNOT_RETURN = 21
     # no clue what 22 is doing
     SO_SPECIAL_SELECTORS_ARRAY = 23

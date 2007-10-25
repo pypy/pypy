@@ -134,7 +134,7 @@ class W_PointersObject(W_AbstractObjectWithClassReference):
         values = w_methoddict[constants.METHODDICT_VALUES_INDEX]._vars
         for var in names:
             if isinstance(var, W_BytesObject):
-                if str(var) == repr(methodname):
+                if str(var) == str(methodname):
                     return values[names.index(var)]
         raise MethodNotFound
 
@@ -155,7 +155,7 @@ class W_PointersObject(W_AbstractObjectWithClassReference):
                     else:
                         in_class = new_class
                 except IndexError:
-                    return self.lookup("doesNotUnderstand")
+                    return self.lookup("doesNotUnderstand:")
 
 class W_BytesObject(W_AbstractObjectWithClassReference):
     def __init__(self, w_class, size):
@@ -172,7 +172,11 @@ class W_BytesObject(W_AbstractObjectWithClassReference):
         return len(self.bytes)    
 
     def __str__(self):
-        return repr("".join(self.bytes))
+        return "".join(self.bytes)
+
+    def __repr__(self):
+        return "<W_BytesObject %r>" % ("".join(self.bytes),)
+
 
     def invariant(self):
         if not W_AbstractObjectWithClassReference.invariant(self):
