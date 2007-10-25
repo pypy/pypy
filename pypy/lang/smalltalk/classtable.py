@@ -4,13 +4,12 @@ from pypy.lang.smalltalk import constants
 def bootstrap_class(instsize, w_superclass=None, w_metaclass=None,
                     name='?', format=shadow.POINTERS, varsized=False):
     from pypy.lang.smalltalk import model
-    w_class = model.W_PointersObject(None, 0) # a dummy placeholder for testing
+    w_class = model.W_PointersObject(w_metaclass, 0)
+                                             # a dummy placeholder for testing
     s = shadow.ClassShadow(w_class)
     s.methoddict = {}
     if w_superclass is not None:
         s.s_superclass = w_superclass.as_class_get_shadow()
-    if w_metaclass is not None:
-        s.s_metaclass = w_metaclass.as_class_get_shadow()
     s.name = name
     s.instance_size = instsize
     s.instance_kind = format
@@ -53,12 +52,11 @@ def create_classtable():
     w_Metaclass = classtable["w_Metaclass"]
     w_ProtoObjectClass.as_class_get_shadow().s_superclass = \
         w_Class.as_class_get_shadow()
-    # at this point, all classes that still lack a w_metaclass are themselves
+    # at this point, all classes that still lack a w_class are themselves
     # metaclasses
     for nm, w_cls_obj in classtable.items():
-        s = w_cls_obj.as_class_get_shadow()
-        if s.s_metaclass is None:
-            s.s_metaclass = w_Metaclass.as_class_get_shadow()
+        if w_cls_obj.w_class is None:
+            w_cls_obj.w_class = w_Metaclass
 create_classtable()
 
 def copy_in_globals_classes_known_to_the_vm():

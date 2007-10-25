@@ -174,11 +174,13 @@ class W_BytesObject(W_AbstractObjectWithClassReference):
         return len(self.bytes)    
 
     def __str__(self):
-        return "".join(self.bytes)
+        return self.as_string()
 
     def __repr__(self):
-        return "<W_BytesObject %r>" % ("".join(self.bytes),)
+        return "<W_BytesObject %r>" % (self.as_string(),)
 
+    def as_string(self):
+        return "".join(self.bytes)
 
     def invariant(self):
         if not W_AbstractObjectWithClassReference.invariant(self):

@@ -37,8 +37,7 @@ class ClassShadow(AbstractShadow):
     def invalidate(self):
         self.methoddict = {}
         self.s_superclass = None     # the ClassShadow of the super class
-        self.s_metaclass = None      # the ClassShadow of the meta class
-        self.name = '?' # take care when initing this, metaclasses do not have a name!
+        self.name = None
         self.invalid = True
 
     def check_for_updates(self):
@@ -62,7 +61,7 @@ class ClassShadow(AbstractShadow):
         # compute the instance size (really the size, not the number of bytes)
         instsize_lo = (classformat >> 1) & 0x3F
         instsize_hi = (classformat >> (9 + 1)) & 0xC0
-        self.instance_size = instsize_lo | instsize_hi
+        self.instance_size = (instsize_lo | instsize_hi) - 1  # subtract hdr
         # decode the instSpec
         format = (classformat >> 7) & 15
         self.instance_varsized = format >= 2
@@ -84,6 +83,11 @@ class ClassShadow(AbstractShadow):
             self.instance_kind = COMPILED_METHOD
         else:
             raise ClassShadowError("unknown format %d" % (format,))
+        # read the name
+        if w_self.size() > constants.CLASS_NAME_INDEX:
+            w_name = w_self.fetch(constants.CLASS_NAME_INDEX)
+            if isinstance(w_name, model.W_BytesObject):
+                self.name = w_name.as_string()
         # XXX read the methoddict
         # ...
 
@@ -97,8 +101,6 @@ class ClassShadow(AbstractShadow):
             self.s_superclass = None
         else:
             self.s_superclass = w_superclass.as_class_get_shadow()
-        # read s_metaclass
-        self.s_metaclass = w_self.shadow_of_my_class()
 
     def new(self, extrasize=0):
         w_cls = self.w_self
