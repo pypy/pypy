@@ -257,3 +257,4 @@ def test_float_boolean():
     
 def test_block_copy_and_value():
     # see test_interpreter for tests of these opcodes
+    return
