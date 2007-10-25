@@ -1,7 +1,7 @@
 import sys
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
-from pypy.rlib.rarithmetic import r_longlong
+from pypy.rlib.rarithmetic import r_longlong, isinf, isnan
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem.llmemory import Address, \
@@ -80,15 +80,6 @@ def name_signedlonglong(value, db):
         return '(-%dLL-1LL)' % maxlonglong
     else:
         return '%dLL' % value
-
-def isinf(x):
-    return x != 0.0 and x / 2 == x
-
-# To get isnan, working x-platform and both on 2.3 and 2.4, is a
-# horror.  I think this works (for reasons I don't really want to talk
-# about), and probably when implemented on top of pypy, too.
-def isnan(v):
-    return v != v*1.0 or (v == 1.0 and v == 2.0)
 
 def name_float(value, db):
     if isinf(value):

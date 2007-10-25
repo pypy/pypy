@@ -331,3 +331,8 @@ class TestLLtype(BaseTestRarithmetic, LLRtypeMixin):
 class TestOOtype(BaseTestRarithmetic, OORtypeMixin):
     pass
 
+def test_isinf():
+    assert isinf(INFINITY)
+
+def test_isnan():
+    assert isnan(NAN)
