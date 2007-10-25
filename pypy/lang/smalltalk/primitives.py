@@ -303,14 +303,14 @@ STRING_AT_PUT = 64
 def common_at((w_obj, w_idx)):
     idx = unwrap_int(w_idx)
     # XXX should be idx-1, probably
-    assert_valid_index(idx, w_obj)
-    return w_obj, idx
+    assert_valid_index(idx-1, w_obj)
+    return w_obj, idx-1
 
 def common_at_put((w_obj, w_idx, w_val)):
     idx = unwrap_int(w_idx)
     # XXX should be idx-1, probably
-    assert_valid_index(idx, w_obj)
-    return w_obj, idx, w_val
+    assert_valid_index(idx-1, w_obj)
+    return w_obj, idx-1, w_val
 
 @primitive(AT)
 @stack(2)
