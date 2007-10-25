@@ -9,6 +9,21 @@ def int2str(integer):
             chr((integer >> 8) & 0xff) + 
             chr((integer >> 0) & 0xff))
 
+def chrs2int(b):
+    assert len(b) == 4
+    first = ord(b[0]) # big endian
+    if first & 0x80 != 0:
+        first = first - 0x100
+    return first << 24 | ord(b[1]) << 16 | ord(b[2]) << 8 | ord(b[3])
+
+def swapped_chrs2int(b):
+    assert len(b) == 4
+    first = ord(b[3]) # little endian
+    if first & 0x80 != 0:
+        first = first - 0x100
+    return first << 24 | ord(b[2]) << 16 | ord(b[1]) << 8 | ord(b[0])
+            
+
 def splitbits(integer, lengths):
     assert sum(lengths) <= 32
     result = []
@@ -35,15 +50,12 @@ class Stream(object):
         self.count = 0
 
     def peek(self):
-        import struct
         if self.pos >= len(self.data): 
             raise IndexError
         if self.swap:
-            format = "<i"
-        else: 
-            format = ">i"                
-        integer, = struct.unpack(format, self.data[self.pos:self.pos+4])
-        return integer 
+            return swapped_chrs2int( self.data[self.pos:self.pos+4] )
+        else:                 
+            return chrs2int( self.data[self.pos:self.pos+4] )
         
     def next(self):
         integer = self.peek()

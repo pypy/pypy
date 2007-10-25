@@ -1,5 +1,6 @@
 import py
 from pypy.lang.smalltalk import squeakimage
+from pypy.lang.smalltalk.squeakimage import chrs2int
 
 # ----- helpers ----------------------------------------------
 
@@ -22,6 +23,10 @@ def imagereader_mock(string):
 
 
 # ----- tests ------------------------------------------------
+
+def test_chrs2int():
+    assert 1 == chrs2int('\x00\x00\x00\x01')
+    assert -1 == chrs2int('\xFF\xFF\xFF\xFF')
 
 def test_stream():
     stream = imagereader_mock('\x00\x00\x19\x66').stream
