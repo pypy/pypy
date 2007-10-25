@@ -37,11 +37,14 @@ class W_SmallInteger(W_Object):
 
     def __repr__(self):
         return "W_SmallInteger(%d)" % self.value
-    
+
+class UnwrappingError(Exception):
+    pass
+
 def unwrap_int(w_value):
     if isinstance(w_value, W_SmallInteger):
         return w_value.value
-    raise ClassShadowError("expected a W_SmallInteger, got %s" % (w_value,))
+    raise UnwrappingError("expected a W_SmallInteger, got %s" % (w_value,))
 
 class W_Float(W_Object):
     def __init__(self, value):
@@ -267,24 +270,24 @@ class W_ContextPart(W_AbstractObjectWithIdentityHash):
         assert isinstance(w_home, W_MethodContext)
         self.w_home = w_home
         self.w_sender = w_sender
-        
-    def getclass(self):
-        from pypy.lang.smalltalk.classtable import w_ContextPart
-        return w_ContextPart
 
     # ______________________________________________________________________
     # Imitate the primitive accessors
     
     def fetch(self, index):
-        if index == CTXPART_SENDER_INDEX:
+        from pypy.lang.smalltalk import objtable
+        if index == constants.CTXPART_SENDER_INDEX:
             return self.w_sender
-        elif index == CTXPART_PC_INDEX:
+        elif index == constants.CTXPART_PC_INDEX:
             return objtable.wrap_int(self.pc)
-        elif index == CTXPART_STACKP_INDEX:
+        elif index == constants.CTXPART_STACKP_INDEX:
             return objtable.wrap_int(len(self.stack))
         
         # Invalid!
-        raise IllegalFetchError
+        raise IndexError
+
+    def store(self, index, value):
+        raise NotImplementedError
 
     # ______________________________________________________________________
     # Method that contains the bytecode for this method/block context
@@ -352,30 +355,33 @@ class W_BlockContext(W_ContextPart):
         return w_BlockContext
     
     def fetch(self, index):
-        if index == BLKCTX_BLOCK_ARGUMENT_COUNT_INDEX:
+        from pypy.lang.smalltalk import objtable
+        if index == constants.BLKCTX_BLOCK_ARGUMENT_COUNT_INDEX:
             return objtable.wrap_int(self.argcnt)
-        elif index == BLKCTX_INITIAL_IP_INDEX:
+        elif index == constants.BLKCTX_INITIAL_IP_INDEX:
             return objtable.wrap_int(self.initialip)
-        elif index == BLKCTX_HOME_INDEX:
+        elif index == constants.BLKCTX_HOME_INDEX:
             return self.w_home
-        elif index >= BLKCTX_TEMP_FRAME_START:
+        elif index >= constants.BLKCTX_TEMP_FRAME_START:
             stack_index = len(self.stack) - index - 1
             return self.stack[stack_index]
         else:
             return W_ContextPart.fetch(index)
 
     def store(self, index, value):
-        if index == BLKCTX_BLOCK_ARGUMENT_COUNT_INDEX:
-            self.argcnt = unwrap_int(self.argcnt)
-        elif index == BLKCTX_INITIAL_IP_INDEX:
-            self.pc = unwrap_int(self.argcnt)
-        elif index == BLKCTX_HOME_INDEX:
+        # THIS IS ALL UNTESTED CODE and we're a bit unhappy about it
+        # because it crashd the translation N times :-(
+        if index == constants.BLKCTX_BLOCK_ARGUMENT_COUNT_INDEX:
+            self.argcnt = unwrap_int(value)
+        elif index == constants.BLKCTX_INITIAL_IP_INDEX:
+            self.pc = unwrap_int(value)
+        elif index == constants.BLKCTX_HOME_INDEX:
             self.w_home = value
-        elif index >= BLKCTX_TEMP_FRAME_START:
+        elif index >= constants.BLKCTX_TEMP_FRAME_START:
             stack_index = len(self.stack) - index - 1
             self.stack[stack_index] = value
         else:
-            return W_ContextPart.fetch(index)
+            W_ContextPart.store(index, value)
 
 class W_MethodContext(W_ContextPart):
     def __init__(self, w_method, w_receiver, arguments, w_sender = None):
@@ -389,15 +395,16 @@ class W_MethodContext(W_ContextPart):
         return w_MethodContext
 
     def fetch(self, index):
-        if index == MTHDCTX_METHOD:
+        from pypy.lang.smalltalk import objtable
+        if index == constants.MTHDCTX_METHOD:
             return self.w_method()
-        elif index == MTHDCTX_RECEIVER_MAP: # what is this thing?
+        elif index == constants.MTHDCTX_RECEIVER_MAP: # what is this thing?
             return objtable.w_nil
-        elif index == MTHDCTX_RECEIVER:
+        elif index == constants.MTHDCTX_RECEIVER:
             return self.w_receiver
-        elif index >= MTHDCTX_TEMP_FRAME_START:
+        elif index >= constants.MTHDCTX_TEMP_FRAME_START:
             # First set of indices are temporary variables:
-            offset = index - MTHDCTX_TEMP_FRAME_START
+            offset = index - constants.MTHDCTX_TEMP_FRAME_START
             if offset < len(self.temps):
                 return self.temps[offset]
 

@@ -100,9 +100,6 @@ math_ops = {
     ADD: operator.add,
     SUBTRACT: operator.sub,
     MULTIPLY: operator.mul,
-    BIT_AND: operator.and_,
-    BIT_OR: operator.or_,
-    BIT_XOR: operator.xor
     }
 for (code,op) in math_ops.items():
     def make_func(op):
@@ -115,6 +112,22 @@ for (code,op) in math_ops.items():
                 res = rarithmetic.ovfcheck(op(receiver, argument))
             except OverflowError:
                 raise PrimitiveFailedError()
+            return wrap_int(res)
+    make_func(op)
+
+bitwise_binary_ops = {
+    BIT_AND: operator.and_,
+    BIT_OR: operator.or_,
+    BIT_XOR: operator.xor,
+    }
+for (code,op) in bitwise_binary_ops.items():
+    def make_func(op):
+        @primitive(code)
+        @stack(2)
+        def func(args, (w_receiver, w_argument)):
+            receiver = unwrap_int(w_receiver)
+            argument = unwrap_int(w_argument)
+            res = op(receiver, argument)
             return wrap_int(res)
     make_func(op)
 
@@ -453,7 +466,10 @@ CHANGE_CLASS = 115      # Blue Book: primitiveOopsLeft
 @primitive(EQUIVALENT)
 @stack(2)
 def func(args, (w_arg, w_rcvr)):
-    return w_arg == w_rcvr
+    # XXX this is bogus in the presence of (our implementation of) become,
+    # as we might plan to implement become by copying all fields from one
+    # object to the other
+    return objtable.wrap_bool(w_arg is w_rcvr)
 
 @primitive(EQUIVALENT)
 @stack(1)
@@ -506,7 +522,7 @@ FULL_GC = 130
 INC_GC = 131
 
 def fake_bytes_left():
-    return 2**20 # XXX we don't know how to do this :-(
+    return wrap_int(2**20) # XXX we don't know how to do this :-(
 
 @primitive(INC_GC) # XXX the same for now
 @primitive(FULL_GC)
@@ -593,10 +609,12 @@ def define_const_primitives():
         (PUSH_ONE, objtable.w_one),
         (PUSH_TWO, objtable.w_two),
         ]:
-        @primitive(code)
-        @stack(1)
-        def func(args, stack, const=const):  # n.b.: capture const
-            return const
+        def make_func(const):
+            @primitive(code)
+            @stack(1)
+            def func(args, stack):
+                return const
+        make_func(const)
 define_const_primitives()
         
 # ___________________________________________________________________________

@@ -10,9 +10,6 @@ class MissingBytecode(NotImplementedError):
 class IllegalStoreError(Exception):
     """Illegal Store."""
 
-class IllegalFetchError(Exception):
-    """Illegal Fetch."""
-
 class Interpreter:
 
     TRUE = objtable.w_true
@@ -470,17 +467,18 @@ BYTECODE_RANGES = [
 def initialize_bytecode_table():
     result = [None] * 256
     for entry in BYTECODE_RANGES:
-        def dump_func(f):
-            def wrapped(*args):
-                print "Bytecode: %s" % (f.__name__)
-                return f(*args)
-            return wrapped
+        #def dump_func(f):
+        #    def wrapped(*args):
+        #        print "Bytecode: %s" % (f.__name__)
+        #        return f(*args)
+        #    return wrapped
         if len(entry) == 2:
             positions = [entry[0]]
         else:
             positions = range(entry[0], entry[1]+1)
         for pos in positions:
-            result[pos] = dump_func(entry[-1])
+            #result[pos] = dump_func(entry[-1])
+            result[pos] = entry[-1]
     assert None not in result
     return result
 
