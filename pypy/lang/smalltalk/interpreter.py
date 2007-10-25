@@ -65,6 +65,7 @@ class __extend__(W_ContextPart):
         # named var (the value).
         index = self.currentBytecode & 31
         association = self.w_method().getliteral(index)
+        assert isinstance(association, model.W_PointersObject)
         self.push(association.fetch(constants.ASSOCIATION_VALUE_INDEX))
 
     def storeAndPopReceiverVariableBytecode(self, interp):
@@ -181,6 +182,7 @@ class __extend__(W_ContextPart):
             self.push(self.w_method().getliteral(variableIndex))
         elif variableType == 3:
             association = self.w_method().getliteral(variableIndex)
+            assert isinstance(association, model.W_PointersObject)
             self.push(association.fetch(constants.ASSOCIATION_VALUE_INDEX))
 
     def extendedStoreBytecode(self, interp):
@@ -193,6 +195,7 @@ class __extend__(W_ContextPart):
             raise IllegalStoreError
         elif variableType == 3:
             association = self.w_method().getliteral(variableIndex)
+            assert isinstance(association, model.W_PointersObject)
             association.store(constants.ASSOCIATION_VALUE_INDEX, self.top())
 
     def extendedStoreAndPopBytecode(self, interp):
@@ -229,6 +232,7 @@ class __extend__(W_ContextPart):
         elif opType == 4:
             # pushLiteralVariable
             association = self.w_method().getliteral(third)
+            assert isinstance(association, model.W_PointersObject)
             self.push(association.fetch(constants.ASSOCIATION_VALUE_INDEX))
         elif opType == 5:
             self.w_receiver.store(third, self.top())
@@ -236,6 +240,7 @@ class __extend__(W_ContextPart):
             self.w_receiver.store(third, self.pop())
         elif opType == 7:
             association = self.w_method().getliteral(third)
+            assert isinstance(association, model.W_PointersObject)
             association.store(constants.ASSOCIATION_VALUE_INDEX, self.top())
 
     def singleExtendedSuperBytecode(self, interp):

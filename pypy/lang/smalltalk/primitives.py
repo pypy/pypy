@@ -18,7 +18,7 @@ def unwrap_float(w_v):
 
 def subscript(idx, w_obj):
     if isinstance(w_obj, model.W_PointersObject):
-        return w_obj.getindexedvar(idx)
+        return w_obj.fetch(idx)
     elif isinstance(w_obj, model.W_WordsObject):
         return objtable.wrap_int(w_obj.getword(idx))
     elif isinstance(w_obj, model.W_BytesObject):
@@ -406,6 +406,8 @@ def func(args):
 def func(args, (w_rcvr, w_idx)):
     # I *think* this is the correct behavior, but I'm not quite sure.
     # Might be restricted to fixed length fields?
+    # XXX this doesn't look correct.  Our guess is that INST_VAR_AT
+    # is used to access *only* the fixed length fields.
     idx = unwrap_int(w_idx)
     shadow = w_rcvr.shadow_of_my_class()
     if idx < 0:
@@ -426,7 +428,7 @@ def func(args):
 def func(args, (w_rcvr,)):
     if isinstance(w_rcvr, model.W_SmallInteger):
         raise PrimitiveFailedError()
-    return w_rcvr.w_hash
+    return wrap_int(w_rcvr.gethash())
 
 @primitive(STORE_STACKP)
 @stack(2)
@@ -506,6 +508,7 @@ def func(args, (w_arg, w_rcvr)):
     # or vice versa (?)
 
     # 3. Format of rcvr is different from format of argument
+    raise PrimitiveNotYetWrittenError()     # XXX needs to work in the shadows
     if w_arg_class.format != w_rcvr_class.format:
         raise PrimitiveFailedError()
 

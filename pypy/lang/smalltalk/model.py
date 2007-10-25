@@ -55,7 +55,7 @@ class W_Float(W_Object):
         return w_Float
 
     def gethash(self):
-        return XXX    # check this
+        return 41    # XXX check this
 
     def invariant(self):
         return self.value is not None        # XXX but later:
@@ -222,7 +222,9 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
         if self.w_compiledin == None:
             # Last of the literals is an association with compiledin
             # as a class
-            self.w_compiledin = self.literals[-1].fetch(constants.ASSOCIATION_VALUE_INDEX)
+            association = self.literals[-1]
+            assert isinstance(association, W_PointersObject)
+            self.w_compiledin = association.fetch(constants.ASSOCIATION_VALUE_INDEX)
         return self.w_compiledin
 
     def getclass(self):
@@ -366,11 +368,11 @@ class W_BlockContext(W_ContextPart):
             stack_index = len(self.stack) - index - 1
             return self.stack[stack_index]
         else:
-            return W_ContextPart.fetch(index)
+            return W_ContextPart.fetch(self, index)
 
     def store(self, index, value):
         # THIS IS ALL UNTESTED CODE and we're a bit unhappy about it
-        # because it crashd the translation N times :-(
+        # because it crashd the translation N+3 times :-(
         if index == constants.BLKCTX_BLOCK_ARGUMENT_COUNT_INDEX:
             self.argcnt = unwrap_int(value)
         elif index == constants.BLKCTX_INITIAL_IP_INDEX:
@@ -381,7 +383,7 @@ class W_BlockContext(W_ContextPart):
             stack_index = len(self.stack) - index - 1
             self.stack[stack_index] = value
         else:
-            W_ContextPart.store(index, value)
+            W_ContextPart.store(self, index, value)
 
 class W_MethodContext(W_ContextPart):
     def __init__(self, w_method, w_receiver, arguments, w_sender = None):
@@ -413,5 +415,5 @@ class W_MethodContext(W_ContextPart):
             stack_index = len(self.stack) - offset - 1
             return self.stack[stack_index]
         else:
-            return W_ContextPart.fetch(index)
+            return W_ContextPart.fetch(self, index)
 
