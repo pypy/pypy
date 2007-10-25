@@ -47,8 +47,13 @@ def testCompiledMethods():
         except sqi.ReturnFromTopLevel, e:
             return e.object
 
+def testSelector():
+    image = create_squeakimage()
+    w_doesnot = image.special(sqc.SO_DOES_NOT_UNDERSTAND)
+    print str(w_doesnot.shadow_of_my_class())
+
 def test_do():
-    testCompiledMethods()
+    testSelector()
     #printStringsInImage()
 
 if __name__ == '__main__':

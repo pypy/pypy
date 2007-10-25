@@ -98,10 +98,12 @@ class W_AbstractObjectWithClassReference(W_AbstractObjectWithIdentityHash):
 
 class W_PointersObject(W_AbstractObjectWithClassReference):
     """ The normal object """
+    
+    _shadow = None # Default value
+
     def __init__(self, w_class, size):
         W_AbstractObjectWithClassReference.__init__(self, w_class)
         self._vars = [None] * size
-        self._shadow = None
 
     def fetch(self, index):
         return self._vars[index]
