@@ -167,19 +167,28 @@ def test_special_classes0():
 
 def test_lookup_abs_in_integer(int=10):
     image = get_image()
-    amethod = None
-
-    w_smallint_class = image.special(sqc.SO_SMALLINTEGER_CLASS)
-
     interp = sqi.Interpreter()
 
-    amethod = w_smallint_class.lookup("abs")
-                                  # First literal of the abs method is
-                                  # a real smalltalk int
-    w_frame = amethod.createFrame(sqm.W_SmallInteger(int), [])
+    w_object = sqm.W_SmallInteger(int)
+
+    # XXX
+    # Should get this from w_object
+    w_smallint_class = image.special(sqc.SO_SMALLINTEGER_CLASS)
+    w_method = w_smallint_class.lookup("abs")
+
+    # XXX
+    # currently still using highlevel lookup directly pointing to
+    # class. Should work using classmirrors when the metaclass of
+    # SmallInt is correctly set
+
+    # w_classmirror = w_object.getclassmirror()
+    # w_method = w_classmirror.lookup("abs")
+
+    assert w_method
+    w_frame = w_method.createFrame(w_object, [])
     interp.activeContext = w_frame
 
-    print amethod
+    print w_method
 
     while True:
         try:
@@ -190,4 +199,6 @@ def test_lookup_abs_in_integer(int=10):
 
 def test_lookup_neg_abs_in_integer():
     py.test.skip("TOFIX methodlookup 'negated' fails in mirror SmallInteger")
+    # Fails due to same reason because of which
+    # classmirror-methodlookup fails
     test_lookup_abs_in_integer(-3)
