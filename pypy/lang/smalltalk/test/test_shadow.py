@@ -18,9 +18,8 @@ def build_methoddict(methods):
     w_methoddict.store(constants.METHODDICT_VALUES_INDEX, w_array)
     positions = range(size)
     random.shuffle(positions)
-    for selector, w_compiledmethod in methods.items():
+    for w_selector, w_compiledmethod in methods.items():
         pos = positions.pop()
-        w_selector = objtable.wrap_string(selector)
         w_methoddict.store(constants.METHODDICT_NAMES_INDEX+pos, w_selector)
         w_array.store(pos, w_compiledmethod)
     #print w_methoddict._vars
@@ -63,8 +62,8 @@ def test_basic_shape():
     yield basicshape, "CompiledMeth", 0xE02,   shadow.COMPILED_METHOD, True, 0
 
 def test_methoddict():
-    methods = {'foo': 'foo_method',
-               'bar': 'bar_method'}
+    methods = {objtable.wrap_string('foo'): 'foo_method',
+               objtable.wrap_string('bar'): 'bar_method'}
     w_class = build_smalltalk_class("Demo", 0x90, methods=methods)
     classshadow = w_class.as_class_get_shadow()
     assert classshadow.methoddict == methods

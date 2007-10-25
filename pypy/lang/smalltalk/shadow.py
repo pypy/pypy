@@ -95,11 +95,8 @@ class ClassShadow(AbstractShadow):
         for i in range(size):
             w_selector = w_methoddict.fetch(constants.METHODDICT_NAMES_INDEX+i)
             if w_selector is not objtable.w_nil:
-                if not isinstance(w_selector, model.W_BytesObject):
-                    raise ClassShadowError("bogus selector in method dict")
-                selector = w_selector.as_string()
                 w_compiledmethod = w_values.fetch(i)
-                self.methoddict[selector] = w_compiledmethod
+                self.methoddict[w_selector] = w_compiledmethod
         # for the rest, we need to reset invalid to False already so
         # that cycles in the superclass and/or metaclass chains don't
         # cause infinite recursion
