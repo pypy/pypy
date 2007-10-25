@@ -63,8 +63,8 @@ def test_basic_shape():
     yield basicshape, "CompiledMeth", 0xE02,   shadow.COMPILED_METHOD, True, 0
 
 def test_methoddict():
-    methods = {'foo': 'foo_method',
-               'bar': 'bar_method'}
+    methods = {'foo': model.W_CompiledMethod(0, ""),
+               'bar': model.W_CompiledMethod(1, "")}
     w_class = build_smalltalk_class("Demo", 0x90, methods=methods)
     classshadow = w_class.as_class_get_shadow()
     assert classshadow.methoddict == methods

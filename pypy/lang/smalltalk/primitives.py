@@ -478,7 +478,7 @@ def func(args, (w_arg, w_rcvr)):
 @primitive(CLASS)
 @stack(1)
 def func(args, (w_obj,)):
-    return w_obj.w_class
+    return w_obj.getclass()
 
 @primitive(BYTES_LEFT)
 def func(args):
@@ -495,8 +495,8 @@ def func(args):
 @primitive(CHANGE_CLASS)
 @stack(2)
 def func(args, (w_arg, w_rcvr)):
-    w_arg_class = w_arg.w_class
-    w_rcvr_class = w_rcvr.w_class
+    w_arg_class = w_arg.getclass()
+    w_rcvr_class = w_rcvr.getclass()
 
     # We should fail if:
 

@@ -98,6 +98,9 @@ class ClassShadow(AbstractShadow):
                     raise ClassShadowError("bogus selector in method dict")
                 selector = w_selector.as_string()
                 w_compiledmethod = w_values.fetch(i)
+                if not isinstance(w_compiledmethod, model.W_CompiledMethod):
+                    raise ClassShadowError("the methoddict must contain "
+                                           "CompiledMethods only for now")
                 self.methoddict[selector] = w_compiledmethod
         # for the rest, we need to reset invalid to False already so
         # that cycles in the superclass and/or metaclass chains don't

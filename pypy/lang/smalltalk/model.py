@@ -5,6 +5,7 @@ from pypy.lang.smalltalk import constants
 from pypy.tool.pairtype import extendabletype
 
 class W_Object(object):
+    __slots__ = ()    # no RPython-level instance variables allowed in W_Object
 
     def size(self):
         return 0
@@ -22,6 +23,8 @@ class W_Object(object):
         return self.getclass().as_class_get_shadow()
 
 class W_SmallInteger(W_Object):
+    __slots__ = ('value',)     # the only allowed slot here
+
     def __init__(self, value):
         self.value = value
 
@@ -374,12 +377,13 @@ class W_BlockContext(W_ContextPart):
 
     def store(self, index, value):
         # THIS IS ALL UNTESTED CODE and we're a bit unhappy about it
-        # because it crashd the translation N+3 times :-(
+        # because it crashd the translation N+4 times :-(
         if index == constants.BLKCTX_BLOCK_ARGUMENT_COUNT_INDEX:
             self.argcnt = unwrap_int(value)
         elif index == constants.BLKCTX_INITIAL_IP_INDEX:
             self.pc = unwrap_int(value)
         elif index == constants.BLKCTX_HOME_INDEX:
+            assert isinstance(value, W_MethodContext)
             self.w_home = value
         elif index >= constants.BLKCTX_TEMP_FRAME_START:
             stack_index = len(self.stack) - index - 1
