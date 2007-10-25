@@ -1,7 +1,7 @@
 import sys
 from pypy.rlib import rrandom
 from pypy.rlib.rarithmetic import intmask
-from pypy.lang.smalltalk import constants as sqc
+from pypy.lang.smalltalk import constants
 
 class MethodNotFound(Exception):
     pass
@@ -82,9 +82,9 @@ class W_AbstractObjectWithClassReference(W_AbstractObjectWithIdentityHash):
     def __str__(self):
         self.getclassmirror().check()
         if self.size() >= 9:
-            return ''.join(self.fetch(sqc.CLASS_NAME_INDEX).bytes) + " class"
+            return ''.join(self.fetch(constants.CLASS_NAME_INDEX).bytes) + " class"
         else:
-            return "a " + ''.join(self.getclass().fetch(sqc.CLASS_NAME_INDEX).bytes)
+            return "a " + ''.join(self.getclass().fetch(constants.CLASS_NAME_INDEX).bytes)
  
     def getclass(self):
         self.getclassmirror().check()
@@ -116,9 +116,9 @@ class W_PointersObject(W_AbstractObjectWithClassReference):
                 isinstance(self.vars, list))
 
     def compiledmethodnamed(self, methodname):
-        w_methoddict = self.fetch(sqc.CLASS_METHODDICT_INDEX).vars
-        names  = w_methoddict[sqc.METHODDICT_NAMES_INDEX:]
-        values = w_methoddict[sqc.METHODDICT_VALUES_INDEX].vars
+        w_methoddict = self.fetch(constants.CLASS_METHODDICT_INDEX).vars
+        names  = w_methoddict[constants.METHODDICT_NAMES_INDEX:]
+        values = w_methoddict[constants.METHODDICT_VALUES_INDEX].vars
         for var in names:
             if isinstance(var, W_BytesObject):
                 if str(var) == repr(methodname):
@@ -134,7 +134,7 @@ class W_PointersObject(W_AbstractObjectWithClassReference):
                 # Current hack because we don't have a ref to the real
                 # nil yet... XXX XXX XXX
                 try:
-                    new_class = in_class.vars[sqc.CLASS_SUPERCLASS_INDEX]
+                    new_class = in_class.vars[constants.CLASS_SUPERCLASS_INDEX]
                     if in_class == new_class:
                         raise Exception
                     else:

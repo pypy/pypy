@@ -2,10 +2,10 @@
 #       NOT relying on order of methods
 #       using setup_module(module) now
 import py
-from pypy.lang.smalltalk import squeakimage as sq
-from pypy.lang.smalltalk import model as sqm
-from pypy.lang.smalltalk import constants as sqc
-from pypy.lang.smalltalk import interpreter as sqi
+from pypy.lang.smalltalk import squeakimage
+from pypy.lang.smalltalk import model
+from pypy.lang.smalltalk import constants
+from pypy.lang.smalltalk import interpreter
 
 # lazy initialization of test data, ie ImageReader and Float class
 
@@ -16,11 +16,11 @@ def setup_module(module):
     mini_image = py.magic.autopath().dirpath().dirpath().join('mini.image')
     reader = open_miniimage()
     reader.initialize()
-    image = sq.SqueakImage()
+    image = squeakimage.SqueakImage()
     image.from_reader(get_reader())
     
 def open_miniimage():
-    return sq.ImageReader(sq.Stream(mini_image.open()))
+    return squeakimage.ImageReader(squeakimage.Stream(mini_image.open()))
 
 def get_reader():
     return reader
@@ -30,7 +30,7 @@ def get_image():
     
 def get_float_class():
     image = get_image()
-    return image.special(sqc.SO_FLOAT_CLASS)
+    return image.special(constants.SO_FLOAT_CLASS)
      
 # ------ tests ------------------------------------------
         
@@ -83,7 +83,7 @@ def test_float_class_size():
 def test_float_class_name():
     w_float_class = get_float_class()
     w_float_class_name = w_float_class.fetch(6)
-    assert isinstance(w_float_class_name, sqm.W_BytesObject)
+    assert isinstance(w_float_class_name, model.W_BytesObject)
     assert w_float_class_name.bytes == list("Float")
     
 def test_str_w_object():
@@ -94,16 +94,16 @@ def test_str_w_object():
 
 def test_nil_true_false():
     image = get_image()
-    w = image.special(sqc.SO_NIL)
+    w = image.special(constants.SO_NIL)
     assert str(w) == "a UndefinedObject" #yes, with article
-    w = image.special(sqc.SO_FALSE)
+    w = image.special(constants.SO_FALSE)
     assert str(w) == "a False" #yes, with article
-    w = image.special(sqc.SO_TRUE)
+    w = image.special(constants.SO_TRUE)
     assert str(w) == "a True" #yes, with article
     
 def test_scheduler():
     image = get_image()
-    w = image.special(sqc.SO_SCHEDULERASSOCIATIONPOINTER)
+    w = image.special(constants.SO_SCHEDULERASSOCIATIONPOINTER)
     w0 = w.fetch(0)
     assert str(w0) == "'Processor'" 
     w0 = w.fetch(1)
@@ -111,23 +111,23 @@ def test_scheduler():
    
 def test_special_classes0():
     image = get_image()
-    w = image.special(sqc.SO_BITMAP_CLASS)
+    w = image.special(constants.SO_BITMAP_CLASS)
     assert str(w) == "Bitmap class" 
-    w = image.special(sqc.SO_SMALLINTEGER_CLASS)
+    w = image.special(constants.SO_SMALLINTEGER_CLASS)
     assert str(w) == "SmallInteger class" 
-    w = image.special(sqc.SO_STRING_CLASS)
+    w = image.special(constants.SO_STRING_CLASS)
     assert str(w) == "String class" 
-    w = image.special(sqc.SO_ARRAY_CLASS)
+    w = image.special(constants.SO_ARRAY_CLASS)
     assert str(w) == "Array class" 
-    w = image.special(sqc.SO_FLOAT_CLASS)
+    w = image.special(constants.SO_FLOAT_CLASS)
     assert str(w) == "Float class" 
-    w = image.special(sqc.SO_METHODCONTEXT_CLASS)
+    w = image.special(constants.SO_METHODCONTEXT_CLASS)
     assert str(w) == "MethodContext class" 
-    w = image.special(sqc.SO_BLOCKCONTEXT_CLASS)
+    w = image.special(constants.SO_BLOCKCONTEXT_CLASS)
     assert str(w) == "BlockContext class" 
-    w = image.special(sqc.SO_POINT_CLASS)
+    w = image.special(constants.SO_POINT_CLASS)
     assert str(w) == "Point class" 
-    w = image.special(sqc.SO_LARGEPOSITIVEINTEGER_CLASS)
+    w = image.special(constants.SO_LARGEPOSITIVEINTEGER_CLASS)
     assert str(w) == "LargePositiveInteger class" 
 
     # to be continued
@@ -167,13 +167,13 @@ def test_special_classes0():
 
 def test_lookup_abs_in_integer(int=10):
     image = get_image()
-    interp = sqi.Interpreter()
+    interp = interpreter.Interpreter()
 
-    w_object = sqm.W_SmallInteger(int)
+    w_object = model.W_SmallInteger(int)
 
     # XXX
     # Should get this from w_object
-    w_smallint_class = image.special(sqc.SO_SMALLINTEGER_CLASS)
+    w_smallint_class = image.special(constants.SO_SMALLINTEGER_CLASS)
     w_method = w_smallint_class.lookup("abs")
 
     # XXX
@@ -194,7 +194,7 @@ def test_lookup_abs_in_integer(int=10):
         try:
             interp.step()
             print interp.activeContext.stack
-        except sqi.ReturnFromTopLevel, e:
+        except interpreter.ReturnFromTopLevel, e:
             return e.object
 
 def test_lookup_neg_abs_in_integer():
@@ -205,7 +205,7 @@ def test_lookup_neg_abs_in_integer():
 
 def test_map_mirrors_to_classtable():
     from pypy.lang.smalltalk import classtable, mirror
-    w_compiledmethod_class = image.special(sqc.SO_COMPILEDMETHOD_CLASS)
+    w_compiledmethod_class = image.special(constants.SO_COMPILEDMETHOD_CLASS)
     m_compiledmethod_class = mirror.mirrorcache.getmirror(
         w_compiledmethod_class)
     assert m_compiledmethod_class is classtable.m_CompiledMethod
