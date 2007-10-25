@@ -329,7 +329,7 @@ def func(args, stack):
 def func(args, (w_obj,)):
     if not w_obj.shadow_of_my_class().isvariable():
         raise PrimitiveFailedError()
-    return w_obj.size()
+    return wrap_int(w_obj.size())
 
 @primitive(STRING_AT)
 @stack(2)
