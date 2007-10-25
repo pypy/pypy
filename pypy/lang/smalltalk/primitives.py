@@ -202,6 +202,7 @@ FLOAT_TRUNCATED = 51
 FLOAT_SQUARE_ROOT = 55
 FLOAT_SIN = 56
 FLOAT_ARCTAN = 57
+FLOAT_LOG_N = 58
 
 math_ops = {
     FLOAT_ADD: operator.add,
@@ -249,6 +250,18 @@ def func(args, (w_float,)):
     f = unwrap_float(w_float)
     w_res = objtable.wrap_float(math.atan(f))
     return w_res
+
+@primitive(FLOAT_LOG_N)
+@stack(1)
+def func(args, (w_float,)): 
+    f = unwrap_float(w_float)
+    if f == 0:
+        res = -rarithmetic.INFINITY
+    elif f < 0:
+        res = rarithmetic.NAN
+    else:
+        res = math.log(f)
+    return objtable.wrap_float(res)
 
 # ___________________________________________________________________________
 # Subscript and Stream Primitives

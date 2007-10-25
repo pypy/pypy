@@ -5,6 +5,7 @@ from pypy.lang.smalltalk import model, shadow
 from pypy.lang.smalltalk import interpreter
 from pypy.lang.smalltalk import classtable
 from pypy.lang.smalltalk import objtable
+from pypy.rlib.rarithmetic import INFINITY, NAN, isinf, isnan
 
 # Violates the guideline, but we use it A LOT to reference the primitive codes:
 import pypy.lang.smalltalk.primitives as p
@@ -302,3 +303,10 @@ def test_primitive_arctan():
     assert prim(p.FLOAT_ARCTAN, [0.0]).value == 0.0
     assert float_equals(prim(p.FLOAT_ARCTAN, [1]), math.pi/4)
     assert float_equals(prim(p.FLOAT_ARCTAN, [1e99]), math.pi/2)
+
+def test_primitive_log_n():
+    assert prim(p.FLOAT_LOG_N, [1.0]).value == 0.0
+    assert prim(p.FLOAT_LOG_N, [math.e]).value == 1.0
+    assert float_equals(prim(p.FLOAT_LOG_N, [10.0]), 2.302585092994046)
+    assert isinf(prim(p.FLOAT_LOG_N, [0.0]).value) # works also for negative infinity
+    assert isnan(prim(p.FLOAT_LOG_N, [-1.0]).value)
