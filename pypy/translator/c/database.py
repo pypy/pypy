@@ -383,3 +383,12 @@ class LowLevelDatabase(object):
             return not fnobj._safe_not_sandboxed
         else:
             return "if_external"
+
+    def prepare_inline_helpers(self):
+        all_nodes = self.globalcontainers()
+        funcnodes = [node for node in all_nodes if node.nodekind == 'func']
+        graphs = []
+        for node in funcnodes:
+            for graph in node.graphs_to_patch():
+                graphs.append(graph)
+        self.gctransformer.prepare_inline_helpers(graphs)

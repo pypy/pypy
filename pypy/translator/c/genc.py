@@ -173,6 +173,12 @@ class CBuilder(object):
         # actually generating the source.
         if db is None:
             db = self.build_database()
+        graphs = []
+        for node in db.containerlist:
+            if isinstance(node, FuncNode):
+                for graph in node.graphs_to_patch():
+                    graphs.append(graph)
+        db.gctransformer.prepare_inline_helpers(graphs)
         for node in db.containerlist:
             if isinstance(node, FuncNode):
                 for funcgen in node.funcgens:
@@ -688,6 +694,7 @@ def gen_source_standalone(database, modulename, targetdir,
     #
     sg = SourceGenerator(database, preimplementationlines)
     sg.set_strategy(targetdir)
+    database.prepare_inline_helpers()
     sg.gen_readable_parts_of_source(f)
     sg.write_extra_sources(sources)
 

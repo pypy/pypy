@@ -127,6 +127,9 @@ class FunctionCodeGenerator(object):
             lltypes[id(v)] = T, typename
         self.lltypes = lltypes
 
+    def graphs_to_patch(self):
+        yield self.graph
+
     def implementation_end(self):
         self.lltypes = None
         self.vars = None

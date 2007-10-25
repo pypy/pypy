@@ -10,7 +10,8 @@ from pypy.translator.c.external import CExternalFunctionCodeGenerator
 from pypy.translator.c.support import USESLOTS # set to False if necessary while refactoring
 from pypy.translator.c.support import cdecl, forward_cdecl, somelettersfrom
 from pypy.translator.c.support import c_char_array_constant, barebonearray
-from pypy.translator.c.primitive import PrimitiveType, isinf, isnan
+from pypy.translator.c.primitive import PrimitiveType
+from pypy.rlib.rarithmetic import isinf, isnan
 from pypy.translator.c import extfunc
 
 
@@ -738,6 +739,11 @@ class FuncNode(ContainerNode):
         for funcgen in self.funcgens:
             for s in self.funcgen_implementation(funcgen):
                 yield s
+
+    def graphs_to_patch(self):
+        for funcgen in self.funcgens:
+            for i in funcgen.graphs_to_patch():
+                yield i
 
     def funcgen_implementation(self, funcgen):
         funcgen.implementation_begin()

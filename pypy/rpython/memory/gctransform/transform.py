@@ -109,6 +109,7 @@ class BaseGCTransformer(object):
     def __init__(self, translator, inline=False):
         self.translator = translator
         self.seen_graphs = {}
+        self.prepared = False
         self.minimal_transform = {}
         if translator:
             self.mixlevelannotator = MixLevelHelperAnnotator(translator.rtyper)
@@ -118,6 +119,7 @@ class BaseGCTransformer(object):
         if translator and inline:
             self.lltype_to_classdef = translator.rtyper.lltype_to_classdef_mapping()
         self.graphs_to_inline = {}
+        self.graph_dependencies = {}
         if self.MinimalGCTransformer:
             self.minimalgctransformer = self.MinimalGCTransformer(self)
         else:
@@ -134,12 +136,23 @@ class BaseGCTransformer(object):
         self.seen_graphs[graph] = True
         self.minimal_transform[graph] = True
 
+    def prepare_inline_helpers(self, graphs):
+        from pypy.translator.backendopt.inline import iter_callsites
+        for graph in graphs:
+            self.graph_dependencies[graph] = {}
+            for called, block, i in iter_callsites(graph, None):
+                if called in self.graphs_to_inline:
+                    self.graph_dependencies[graph][called] = True
+        self.prepared = True
+
     def inline_helpers(self, graph):
+        if not self.prepared:
+            raise Exception("Need to call prepare_inline_helpers first")
         if self.inline:
             raise_analyzer = RaiseAnalyzer(self.translator)
-            for inline_graph in self.graphs_to_inline:
+            to_enum = self.graph_dependencies.get(graph, self.graphs_to_inline)
+            for inline_graph in to_enum:
                 try:
-                    # XXX quite inefficient: we go over the function lots of times
                     inline.inline_function(self.translator, inline_graph, graph,
                                            self.lltype_to_classdef,
                                            raise_analyzer,
