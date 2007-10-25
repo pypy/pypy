@@ -235,9 +235,6 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
         from pypy.lang.smalltalk.classtable import w_CompiledMethod
         return w_CompiledMethod
 
-    def gethash(self):
-        return 43     # XXX
-
     def getliteral(self, index):
         return self.literals[index + 1] # header of compiledmethod at index 0
 
