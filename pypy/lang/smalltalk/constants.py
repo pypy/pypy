@@ -73,3 +73,20 @@ SO_PSEUDOCONTEXT_CLASS = 39
 SO_TRANSLATEDMETHOD_CLASS = 40
 SO_FINALIZATION_SEMPAHORE = 41
 SO_LARGENEGATIVEINTEGER_CLASS = 42
+
+# XXX more missing?
+classes_in_special_object_table = {
+    "SmallInteger": SO_SMALLINTEGER_CLASS,
+    "String": SO_STRING_CLASS,
+    "Float": SO_FLOAT_CLASS,
+    "MethodContext": SO_METHODCONTEXT_CLASS,
+    "Character": SO_CHARACTER_CLASS,
+    "ByteArray": SO_BYTEARRAY_CLASS,
+    "CompiledMethod": SO_COMPILEDMETHOD_CLASS,
+}
+
+objects_in_special_object_table = {
+    "nil": SO_NIL,
+    "true": SO_TRUE,
+    "false": SO_FALSE,
+}

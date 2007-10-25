@@ -181,8 +181,8 @@ def test_lookup_abs_in_integer(int=10):
     # class. Should work using classmirrors when the metaclass of
     # SmallInt is correctly set
 
-    # w_classmirror = w_object.getclassmirror()
-    # w_method = w_classmirror.lookup("abs")
+    # s_class = w_object.shadow_of_my_class()
+    # w_method = s_class.lookup("abs")
 
     assert w_method
     w_frame = w_method.createFrame(w_object, [])
@@ -198,14 +198,18 @@ def test_lookup_abs_in_integer(int=10):
             return e.object
 
 def test_lookup_neg_abs_in_integer():
-    py.test.skip("TOFIX methodlookup 'negated' fails in mirror SmallInteger")
+    py.test.skip("TOFIX methodlookup 'negated' fails in shadow SmallInteger")
     # Fails due to same reason because of which
     # classmirror-methodlookup fails
     test_lookup_abs_in_integer(-3)
 
 def test_map_mirrors_to_classtable():
-    from pypy.lang.smalltalk import classtable, mirror
+    from pypy.lang.smalltalk import classtable, shadow, objtable
     w_compiledmethod_class = image.special(constants.SO_COMPILEDMETHOD_CLASS)
-    m_compiledmethod_class = mirror.mirrorcache.getmirror(
-        w_compiledmethod_class)
-    assert m_compiledmethod_class is classtable.m_CompiledMethod
+    assert w_compiledmethod_class is classtable.w_CompiledMethod
+    w_nil = image.special(constants.SO_NIL)
+    assert w_nil is objtable.w_nil
+    w_true = image.special(constants.SO_TRUE)
+    assert w_true is objtable.w_true
+    w_false = image.special(constants.SO_FALSE)
+    assert w_false is objtable.w_false

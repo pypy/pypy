@@ -82,7 +82,6 @@ class ImageReader(object):
         self.init_compactclassesarray()
         self.init_g_objects()
         self.init_w_objects()
-        self.assign_mirrors()
         self.fillin_w_objects()
 
     def read_header(self):
@@ -113,29 +112,24 @@ class ImageReader(object):
             chunk.as_g_object(self) # initialized g_object     
 
     def init_w_objects(self):
+        self.assign_prebuilt_constants()
         for chunk in self.chunks.itervalues():
             chunk.g_object.init_w_object() 
 
-    def assign_mirrors(self):
-        # assign the mirrors to the classes already in classtable
-        from pypy.lang.smalltalk import classtable, constants
-        import py; py.test.skip("FIX ME")
-        for so_index, name in [
-            (constants.SO_SMALLINTEGER_CLASS, "m_SmallInteger"),
-            (constants.SO_STRING_CLASS, "m_String"),
-            (constants.SO_FLOAT_CLASS, "m_Float"),
-            #(constants.SO_METHODCONTEXT_CLASS, "m_MethodContext"),
-            (constants.SO_CHARACTER_CLASS, "m_Character"),
-            (constants.SO_BYTEARRAY_CLASS, "m_ByteArray"),
-            (constants.SO_COMPILEDMETHOD_CLASS, "m_CompiledMethod")]:
-            mirrorcache.assign_existing_mirror(
-                self.special_object(so_index),
-                getattr(classtable, name))
-            # XXX more missing
+    def assign_prebuilt_constants(self):
+        from pypy.lang.smalltalk import classtable, constants, objtable
+        # assign w_objects for objects that are already in classtable
+        for name, so_index in constants.classes_in_special_object_table.items():
+            w_object = getattr(classtable, "w_" + name)
+            self.special_object(so_index).w_object = w_object
+        # assign w_objects for objects that are already in objtable
+        for name, so_index in constants.objects_in_special_object_table.items():
+            w_object = getattr(objtable, "w_" + name)
+            self.special_object(so_index).w_object = w_object
 
     def special_object(self, index):
         special = self.chunks[self.specialobjectspointer].g_object.pointers
-        return special[index].w_object
+        return special[index]
 
     def fillin_w_objects(self):
         for chunk in self.chunks.itervalues():
@@ -316,13 +310,13 @@ class GenericObject(object):
 
     def fillin_pointersobject(self, w_pointersobject):
         assert self.pointers is not None
-        w_pointersobject.vars = [g_object.w_object for g_object in self.pointers]
-        w_pointersobject.m_class = mirrorcache.get_or_build(self.g_class.w_object)
+        w_pointersobject._vars = [g_object.w_object for g_object in self.pointers]
+        w_pointersobject.w_class = self.g_class.w_object
         w_pointersobject.hash = self.chunk.hash12
         
     def fillin_wordsobject(self, w_wordsobject):
         w_wordsobject.words = self.chunk.data
-        w_wordsobject.m_class = mirrorcache.get_or_build(self.g_class.w_object)
+        w_wordsobject.w_class = self.g_class.w_object
         w_wordsobject.hash = self.chunk.hash12 # XXX check this
 
     def fillin_bytesobject(self, w_bytesobject):
@@ -332,7 +326,7 @@ class GenericObject(object):
             bbytes.append(chr((each >> 16) & 0xff)) 
             bbytes.append(chr((each >> 8) & 0xff)) 
             bbytes.append(chr((each >> 0) & 0xff))
-        w_bytesobject.m_class = mirrorcache.get_or_build(self.g_class.w_object)
+        w_bytesobject.w_class = self.g_class.w_object
         #strange, for example range(4)[:0] returns [] instead of [0,1,2,3]!
         #hence what we have to write list[:-odd] as list[:len(list)-odd] instead :(
         w_bytesobject.bytes = bbytes[:len(bbytes)-(self.format & 3)] # omit odd bytes

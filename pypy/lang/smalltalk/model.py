@@ -140,6 +140,7 @@ class W_PointersObject(W_AbstractObjectWithClassReference):
 
     def lookup(self, methodname):
         # XXX kill me.  Temporary, for testing
+        from pypy.lang.smalltalk import objtable
         in_class = self
         while in_class != None:
             try:
@@ -148,12 +149,12 @@ class W_PointersObject(W_AbstractObjectWithClassReference):
                 # Current hack because we don't have a ref to the real
                 # nil yet... XXX XXX XXX
                 try:
-                    new_class = in_class.vars[constants.CLASS_SUPERCLASS_INDEX]
-                    if in_class == new_class:
-                        raise Exception
+                    new_class = in_class._vars[constants.CLASS_SUPERCLASS_INDEX]
+                    if new_class is objtable.w_nil:
+                        raise IndexError
                     else:
                         in_class = new_class
-                except:
+                except IndexError:
                     return self.lookup("doesNotUnderstand")
 
 class W_BytesObject(W_AbstractObjectWithClassReference):
