@@ -47,9 +47,10 @@ def primitive(code):
 
 def stack(n):
     def decorator(wrapped):
-        def result(frame):
+        def result(interp):
+            frame = interp.activeContext
             items = frame.stack[len(frame.stack)-n:]
-            res = wrapped(items)
+            res = wrapped(interp, items)
             frame.pop_n(n)   # only if no exception occurs!
             return res
         return result
@@ -93,7 +94,7 @@ math_ops = {
 for (code,op) in math_ops.items():
     @primitive(code)
     @stack(2)
-    def func((w_receiver, w_argument), op=op): # n.b. capture op value
+    def func(interp, (w_receiver, w_argument), op=op): # n.b. capture op value
         receiver = unwrap_int(w_receiver)
         argument = unwrap_int(w_argument)
         try:
@@ -105,7 +106,7 @@ for (code,op) in math_ops.items():
 # #/ -- return the result of a division, only succeed if the division is exact
 @primitive(DIVIDE)
 @stack(2)
-def func((w_receiver, w_argument)):
+def func(interp, (w_receiver, w_argument)):
     receiver = unwrap_int(w_receiver)
     argument = unwrap_int(w_argument)
     if argument == 0:
@@ -117,7 +118,7 @@ def func((w_receiver, w_argument)):
 # #\\ -- return the remainder of a division
 @primitive(MOD)
 @stack(2)
-def func((w_receiver, w_argument)):
+def func(interp, (w_receiver, w_argument)):
     receiver = unwrap_int(w_receiver)
     argument = unwrap_int(w_argument)
     if argument == 0:
@@ -127,7 +128,7 @@ def func((w_receiver, w_argument)):
 # #// -- return the result of a division, rounded towards negative zero
 @primitive(DIV)
 @stack(2)
-def func((w_receiver, w_argument)):
+def func(interp, (w_receiver, w_argument)):
     receiver = unwrap_int(w_receiver)
     argument = unwrap_int(w_argument)
     if argument == 0:
@@ -137,7 +138,7 @@ def func((w_receiver, w_argument)):
 # #// -- return the result of a division, rounded towards negative infinity
 @primitive(QUO)
 @stack(2)
-def func((w_receiver, w_argument)):
+def func(interp, (w_receiver, w_argument)):
     receiver = unwrap_int(w_receiver)
     argument = unwrap_int(w_argument)
     if argument == 0:
@@ -147,7 +148,7 @@ def func((w_receiver, w_argument)):
 # #bitShift: -- return the shifted value
 @primitive(BIT_SHIFT)
 @stack(2)
-def func((w_receiver, w_argument)):
+def func(interp, (w_receiver, w_argument)):
     receiver = unwrap_int(w_receiver)
     argument = unwrap_int(w_argument)
     
@@ -179,7 +180,7 @@ math_ops = {
     }
 for (code,op) in math_ops.items():
     @stack(2)
-    def func((w_v1, w_v2), op=op): # n.b. capture op value
+    def func(interp, (w_v1, w_v2), op=op): # n.b. capture op value
         v1 = unwrap_float(w_v1)
         v2 = unwrap_float(w_v2)
         w_res = objtable.wrap_float(op(v1, v2))
@@ -209,34 +210,34 @@ def common_at_put((w_obj, w_idx, w_val)):
 
 @primitive(AT)
 @stack(2)
-def func(stack):
+def func(interp, stack):
     [w_obj, idx] = common_at(stack)
     return w_obj.fetch(idx)
 
 @primitive(AT_PUT)
 @stack(3)
-def func(stack):
+def func(interp, stack):
     [w_obj, idx, w_val] = common_at_put(stack)
     w_obj.store(idx, w_val)
     return w_val
 
 @primitive(SIZE)
 @stack(1)
-def func((w_obj,)):
+def func(interp, (w_obj,)):
     if not w_obj.getclassmirror().isvariable():
         raise PrimitiveFailedError()
     return w_obj.size()
 
 @primitive(STRING_AT)
 @stack(2)
-def func(stack):
+def func(interp, stack):
     w_obj, idx = common_at(stack)
     byte = w_obj.getbyte(idx)
     return objtable.CharacterTable[byte]
 
 @primitive(STRING_AT_PUT)
 @stack(3)
-def func(stack):
+def func(interp, stack):
     w_obj, idx, w_val = common_at_put(stack)
     if w_val.getclassmirror() is not classtable.m_Character:
         raise PrimitiveFailedError()
@@ -261,7 +262,7 @@ NEW_METHOD = 79
 
 @primitive(OBJECT_AT)
 @stack(2)
-def func((w_rcvr, w_idx)):
+def func(interp, (w_rcvr, w_idx)):
     idx = unwrap_int(w_idx)
     # XXX should be idx-1, probably
     assert_bounds(idx, 0, w_rcvr.getclassmirror().instance_size)
@@ -269,7 +270,7 @@ def func((w_rcvr, w_idx)):
 
 @primitive(OBJECT_AT_PUT)
 @stack(3)
-def func((w_rcvr, w_idx, w_val)):
+def func(interp, (w_rcvr, w_idx, w_val)):
     idx = unwrap_int(w_idx)
     # XXX should be idx-1, probably
     assert_bounds(idx, 0, w_rcvr.getclassmirror().instance_size)
@@ -278,7 +279,7 @@ def func((w_rcvr, w_idx, w_val)):
 
 @primitive(NEW)
 @stack(1)
-def func((w_cls,)):
+def func(interp, (w_cls,)):
     m_cls = mirror.mirrorcache.getmirror(w_cls)
     if m_cls.isvariable():
         raise PrimitiveFailedError()
@@ -286,7 +287,7 @@ def func((w_cls,)):
 
 @primitive(NEW_WITH_ARG)
 @stack(2)
-def func((w_cls, w_size)):
+def func(interp, (w_cls, w_size)):
     m_cls = mirror.mirrorcache.getmirror(w_cls)
     if not m_cls.isvariable():
         raise PrimitiveFailedError()
@@ -294,12 +295,12 @@ def func((w_cls, w_size)):
     return m_cls.new(size)
 
 @primitive(ARRAY_BECOME_ONE_WAY)
-def func(frame):
+def func(interp):
     raise PrimitiveNotYetWrittenError
 
 @primitive(INST_VAR_AT)
 @stack(2)
-def func((w_rcvr, w_idx)):
+def func(interp, (w_rcvr, w_idx)):
     # I *think* this is the correct behavior, but I'm not quite sure.
     # Might be restricted to fixed length fields?
     idx = unwrap_int(w_idx)
@@ -314,26 +315,26 @@ def func((w_rcvr, w_idx)):
     raise PrimitiveFailedError()
 
 @primitive(INST_VAR_AT_PUT)
-def func(frame):
+def func(interp):
     raise PrimitiveNotYetWrittenError()
 
 @primitive(AS_OOP)
 @stack(1)
-def func((w_rcvr,)):
+def func(interp, (w_rcvr,)):
     if isinstance(w_rcvr, model.W_SmallInteger):
         raise PrimitiveFailedError()
     return w_rcvr.w_hash
 
 @primitive(STORE_STACKP)
 @stack(2)
-def func(stack):
+def func(interp, stack):
     # This primitive seems to resize the stack.  I don't think this is
     # really relevant in our implementation.
     raise PrimitiveNotYetWrittenError()
 
 @primitive(SOME_INSTANCE)
 @stack(1)
-def func((w_class,)):
+def func(interp, (w_class,)):
     # This primitive returns some instance of the class on the stack.
     # Not sure quite how to do this; maintain a weak list of all
     # existing instances or something?
@@ -341,13 +342,13 @@ def func((w_class,)):
 
 @primitive(NEXT_INSTANCE)
 @stack(1)
-def func((w_obj,)):
+def func(interp, (w_obj,)):
     # This primitive is used to iterate through all instances of a class:
     # it returns the "next" instance after w_obj.
     raise PrimitiveNotYetWrittenError()
 
 @primitive(NEW_METHOD)
-def func(frame):
+def func(interp):
     raise PrimitiveNotYetWrittenError()
 
 # ___________________________________________________________________________
@@ -362,29 +363,29 @@ CHANGE_CLASS = 115      # Blue Book: primitiveOopsLeft
 
 @primitive(EQUIVALENT)
 @stack(2)
-def func((w_arg, w_rcvr)):
+def func(interp, (w_arg, w_rcvr)):
     return w_arg == w_rcvr
 
 @primitive(EQUIVALENT)
 @stack(1)
-def func((w_obj,)):
+def func(interp, (w_obj,)):
     return w_obj.w_class
 
 @primitive(BYTES_LEFT)
-def func(frame):
+def func(interp):
     raise PrimitiveNotYetWrittenError()
 
 @primitive(QUIT)
-def func(frame):
+def func(interp):
     raise PrimitiveNotYetWrittenError()
 
 @primitive(EXIT_TO_DEBUGGER)
-def func(frame):
+def func(interp):
     raise PrimitiveNotYetWrittenError()
 
 @primitive(CHANGE_CLASS)
 @stack(2)
-def func((w_arg, w_rcvr)):
+def func(interp, (w_arg, w_rcvr)):
     w_arg_class = w_arg.w_class
     w_rcvr_class = w_rcvr.w_class
 
@@ -438,7 +439,7 @@ bool_ops = {
 for (code,op) in bool_ops.items():
     @primitive(code)
     @stack(2)
-    def func((w_v1, w_v2), op=op): # n.b. capture op value
+    def func(interp, (w_v1, w_v2), op=op): # n.b. capture op value
         v1 = unwrap_int(w_v1)
         v2 = unwrap_int(w_v2)
         res = op(v1, v2)
@@ -448,7 +449,7 @@ for (code,op) in bool_ops.items():
 for (code,op) in bool_ops.items():
     @primitive(code+_FLOAT_OFFSET)
     @stack(2)
-    def func((w_v1, w_v2), op=op): # n.b. capture op value
+    def func(interp, (w_v1, w_v2), op=op): # n.b. capture op value
         v1 = unwrap_float(w_v1)
         v2 = unwrap_float(w_v2)
         res = op(v1, v2)
@@ -469,7 +470,7 @@ PUSH_TWO = 263
 
 @primitive(PUSH_SELF)
 @stack(1)
-def func(stack):
+def func(interp, stack):
     [w_self] = stack
     return w_self
 
@@ -485,7 +486,7 @@ def define_const_primitives():
         ]:
         @primitive(code)
         @stack(1)
-        def func(stack, const=const):  # n.b.: capture const
+        def func(interp, stack, const=const):  # n.b.: capture const
             return const
 define_const_primitives()
         
@@ -505,50 +506,50 @@ PRIMITIVE_FLUSH_CACHE = 89
 
 @primitive(PRIMITIVE_BLOCK_COPY)
 @stack(2)
-def func(interpreter, receiver, argcount):
+def func(interp, (w_rcvr, w_argcnt)):
     raise PrimitiveNotYetWrittenError()
     
 @primitive(PRIMITIVE_VALUE)
 @stack(1)
-def func(interpreter, receiver):
+def func(interp, (w_rcvr,)):
     raise PrimitiveNotYetWrittenError()
     
 @primitive(PRIMITIVE_VALUE_WITH_ARGS)
 @stack(2)
-def func(interpreter, receiver):
+def func(interp, (w_rcvr, w_args)):
     raise PrimitiveNotYetWrittenError()
 
 @primitive(PRIMITIVE_PERFORM)
 @stack(2)
-def func(interpreter, receiver, selector):
+def func(interp, (w_rcvr, w_sel)):
     raise PrimitiveNotYetWrittenError()
 
 @primitive(PRIMITIVE_PERFORM_WITH_ARGS)
 @stack(3)
-def func(interpreter, receiver, selector, arguments):
+def func(interp, (w_rcvr, w_sel, w_args)):
     raise PrimitiveNotYetWrittenError()
 
 @primitive(PRIMITIVE_SIGNAL)
 @stack(1)
-def func(interpreter, receiver):
+def func(interp, (w_rcvr,)):
     raise PrimitiveNotYetWrittenError()
     
 @primitive(PRIMITIVE_WAIT)
 @stack(1)
-def func(interpreter, receiver):
+def func(interp, (w_rcvr,)):
     raise PrimitiveNotYetWrittenError()
     
 @primitive(PRIMITIVE_RESUME)
 @stack(1)
-def func(interpreter, receiver):
+def func(interp, (w_rcvr,)):
     raise PrimitiveNotYetWrittenError()
 
 @primitive(PRIMITIVE_SUSPEND)
 @stack(1)
-def func(interpreter, receiver):
+def func(interp, (w_rcvr,)):
     raise PrimitiveNotYetWrittenError()
 
 @primitive(PRIMITIVE_FLUSH_CACHE)
 @stack(1)
-def func(interpreter, receiver):
+def func(interp, (w_rcvr,)):
     raise PrimitiveNotYetWrittenError()

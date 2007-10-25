@@ -25,22 +25,25 @@ def wrap(x):
     
 def mock(stack):
     mapped_stack = [wrap(x) for x in stack]
-    return MockFrame(mapped_stack)
+    frame = MockFrame(mapped_stack)
+    interp = interpreter.Interpreter()
+    interp.activeContext = frame
+    return interp
 
 def prim(code, stack):
-    stack_w = mock(stack)
-    res = prim_table[code](stack_w)
-    assert not len(stack_w.stack)    # only pass as many arguments as it uses
+    interp = mock(stack)
+    res = prim_table[code](interp)
+    assert not len(interp.activeContext.stack) # check that args are consumed
     return res
 
 def prim_fails(code, stack):
-    stack_w = mock(stack)
-    orig_stack = list(stack_w.stack)
+    interp = mock(stack)
+    orig_stack = list(interp.activeContext.stack)
     try:
-        prim_table[code](stack_w)
+        prim_table[code](interp)
         py.test.fail("Expected PrimitiveFailedError")
     except PrimitiveFailedError:
-        assert stack_w.stack == orig_stack
+        assert interp.activeContext.stack == orig_stack
         
 # smallinteger tests
 def test_small_int_add():
