@@ -341,6 +341,7 @@ class W_ContextPart(W_AbstractObjectWithIdentityHash):
         return self.stack[-(idx+1)]
 
     def pop_n(self, n):
+        assert n >= 0
         start = len(self.stack) - n
         assert start >= 0          # XXX what if this fails?
         res = self.stack[start:]
