@@ -20,7 +20,7 @@ class W_MethodContext(model.W_Object):
         self.pc = 0
 
     def getclass(self):
-        from pypy.lang.smalltalk.classtable import w_MethodContext  # XXX do me
+        from pypy.lang.smalltalk.classtable import w_MethodContext
         return w_MethodContext
 
     def gethash(self):
