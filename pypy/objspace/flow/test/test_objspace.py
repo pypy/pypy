@@ -489,6 +489,7 @@ class TestFlowObjSpace(Base):
         operator.__ne__(x,3)
         operator.__gt__(x,3)
         operator.__ge__(x,3)
+        operator.xor(x,3)
         # the following ones are constant-folded
         operator.eq(2,3)
         operator.__gt__(2,3)
@@ -497,10 +498,10 @@ class TestFlowObjSpace(Base):
         x = self.codetest(self.specialcases)
         from pypy.translator.simplify import join_blocks
         join_blocks(x)
-        assert len(x.startblock.operations) == 13
+        assert len(x.startblock.operations) == 14
         for op in x.startblock.operations:
             assert op.opname in ['lt', 'le', 'eq', 'ne',
-                                       'gt', 'ge', 'is_']
+                                       'gt', 'ge', 'is_', 'xor']
             assert len(op.args) == 2
             assert op.args[1].value == 3
 
