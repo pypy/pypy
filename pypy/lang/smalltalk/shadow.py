@@ -47,6 +47,8 @@ class ClassShadow(AbstractShadow):
 
     def update_shadow(self):
         "Update the ClassShadow with data from the w_self class."
+        from pypy.lang.smalltalk import objtable
+
         w_self = self.w_self
         # read and painfully decode the format
         classformat = unwrap_int(w_self.fetch(constants.CLASS_FORMAT_INDEX))
@@ -82,14 +84,21 @@ class ClassShadow(AbstractShadow):
             self.instance_kind = COMPILED_METHOD
         else:
             raise ClassShadowError("unknown format %d" % (format,))
-        # XXX read s_superclass
-        # XXX read s_metaclass
         # XXX read the methoddict
+        # ...
+
+        # for the rest, we need to reset invalid to False already so
+        # that cycles in the superclass and/or metaclass chains don't
+        # cause infinite recursion
         self.invalid = False
-        if self.s_superclass is not None:
-            self.s_superclass.check_for_updates()
-        if self.s_metaclass is not None:
-            self.s_metaclass.check_for_updates()
+        # read s_superclass
+        w_superclass = w_self.fetch(constants.CLASS_SUPERCLASS_INDEX)
+        if w_superclass is objtable.w_nil:
+            self.s_superclass = None
+        else:
+            self.s_superclass = w_superclass.as_class_get_shadow()
+        # read s_metaclass
+        self.s_metaclass = w_self.shadow_of_my_class()
 
     def new(self, extrasize=0):
         w_cls = self.w_self
