@@ -116,15 +116,16 @@ class __extend__(W_ContextPart):
     def _sendSelfSelector(self, selector, argcount, interp):
         receiver = self.peek(argcount)
         self._sendSelector(selector, argcount, interp,
-                           receiver, receiver.shadow_of_my_class())
+                           receiver, receiver.shadow_of_my_class(), 1)             
 
     def _sendSuperSelector(self, selector, argcount, interp):
         s_compiledin = self.w_method().compiledin().as_class_get_shadow()
         self._sendSelector(selector, argcount, interp, self.w_receiver,
-                           s_compiledin.s_superclass)
+                           s_compiledin.s_superclass, 0)
 
     def _sendSelector(self, selector, argcount, interp,
-                      receiver, receiverclassshadow):
+                      receiver, receiverclassshadow, popreceiver):
+        assert argcount >= 0
         method = receiverclassshadow.lookup(selector)
         # XXX catch MethodNotFound here and send doesNotUnderstand:
         if method.primitive:
@@ -140,8 +141,8 @@ class __extend__(W_ContextPart):
         start = len(self.stack) - argcount
         assert start >= 0  # XXX check in the Blue Book what to do in this case
         arguments = self.stack[start:]
-        interp.w_active_context = method.create_frame(receiver, arguments, self)
-        self.pop_n(argcount + 1)
+        interp.w_active_context = method.create_frame(receiver, arguments, self) 
+        self.pop_n(argcount + popreceiver) 
 
     def _return(self, object, interp):
         if self.w_sender is None:   # for tests, when returning from the top-level context

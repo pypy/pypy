@@ -169,53 +169,53 @@ def test_float_truncate():
 def test_at():
     w_obj = mockclass(0, varsized=True).as_class_get_shadow().new(1)
     w_obj.store(0, "foo")
-    assert prim(p.AT, [w_obj, 0]) == "foo"
+    assert prim(p.AT, [w_obj, 1]) == "foo"
 
 def test_invalid_at():
     w_obj = mockclass(0).as_class_get_shadow().new()
-    prim_fails(p.AT, [w_obj, 0])
+    prim_fails(p.AT, [w_obj, 1])
 
 def test_at_put():
     w_obj = mockclass(0, varsized=1).as_class_get_shadow().new(1)
-    assert prim(p.AT_PUT, [w_obj, 0, 22]).value == 22
-    assert prim(p.AT, [w_obj, 0]).value == 22
+    assert prim(p.AT_PUT, [w_obj, 1, 22]).value == 22
+    assert prim(p.AT, [w_obj, 1]).value == 22
     
 def test_invalid_at_put():
     w_obj = mockclass(0).as_class_get_shadow().new()
-    prim_fails(p.AT_PUT, [w_obj, 0, 22])
+    prim_fails(p.AT_PUT, [w_obj, 1, 22])
 
 def test_string_at():
-    assert prim(p.STRING_AT, ["foobar", 3]) == wrap("b")
+    assert prim(p.STRING_AT, ["foobar", 4]) == wrap("b")
 
 def test_string_at_put():
     test_str = wrap("foobar")
-    assert prim(p.STRING_AT_PUT, [test_str, 3, "c"]) == wrap("c")
+    assert prim(p.STRING_AT_PUT, [test_str, 4, "c"]) == wrap("c")
     exp = "foocar"
     for i in range(len(exp)):
         assert prim(p.STRING_AT, [test_str, i]) == wrap(exp[i])
 
 def test_object_at():
-    w_v = prim(p.OBJECT_AT, ["q", objtable.CHARACTER_VALUE_INDEX])
+    w_v = prim(p.OBJECT_AT, ["q", objtable.CHARACTER_VALUE_INDEX+1])
     assert w_v.value == ord("q")
 
 def test_invalid_object_at():
-    prim_fails(p.OBJECT_AT, ["q", objtable.CHARACTER_VALUE_INDEX+1])
+    prim_fails(p.OBJECT_AT, ["q", objtable.CHARACTER_VALUE_INDEX+2])
     
 def test_object_at_put():
     w_obj = mockclass(1).as_class_get_shadow().new()
-    assert prim(p.OBJECT_AT_PUT, [w_obj, 0, "q"]) is wrap("q")
-    assert prim(p.OBJECT_AT, [w_obj, 0]) is wrap("q")
+    assert prim(p.OBJECT_AT_PUT, [w_obj, 1, "q"]) is wrap("q")
+    assert prim(p.OBJECT_AT, [w_obj, 1]) is wrap("q")
 
 def test_invalid_object_at_put():
     w_obj = mockclass(1).as_class_get_shadow().new()
-    prim_fails(p.OBJECT_AT, [w_obj, 1, 1])
+    prim_fails(p.OBJECT_AT, [w_obj, 2, 42])
     
 def test_string_at_put():
     test_str = wrap("foobar")
-    assert prim(p.STRING_AT_PUT, [test_str, 3, "c"]) == wrap("c")
+    assert prim(p.STRING_AT_PUT, [test_str, 4, "c"]) == wrap("c")
     exp = "foocar"
-    for i in range(len(exp)):
-        assert prim(p.STRING_AT, [test_str, i]) == wrap(exp[i])
+    for i in range(1,len(exp)+1):
+        assert prim(p.STRING_AT, [test_str, i]) == wrap(exp[i-1])
 
 def test_new():
     w_Object = classtable.classtable['w_Object']
@@ -243,6 +243,7 @@ def test_inst_var_at():
     assert w_v.value == ord("b")
 
 def test_as_oop():
+    py.test.skip("not yet clear what AS_OOP returns: hash or header?")
     w_obj = mockclass(0).as_class_get_shadow().new()
     w_obj.w_hash = wrap(22)
     assert prim(p.AS_OOP, [w_obj]).value == 22

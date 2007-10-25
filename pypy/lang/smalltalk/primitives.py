@@ -25,12 +25,12 @@ def subscript(idx, w_obj):
         return objtable.wrap_int(w_obj.getbyte(idx))
     raise PrimitiveFailedError()
 
-def assert_bounds(idx, minb, maxb):
-    if idx < minb or idx >= maxb:
+def assert_bounds(n0, minimum, maximum):
+    if not minimum <= n0 < maximum:
         raise PrimitiveFailedError()
 
-def assert_valid_index(idx, w_obj):
-    assert_bounds(idx, 0, w_obj.size())
+def assert_valid_index(n0, w_obj):
+    assert_bounds(n0, 0, w_obj.size())
 
 # ___________________________________________________________________________
 # Primitive table: it is filled in at initialization time with the
@@ -300,15 +300,13 @@ SIZE = 62
 STRING_AT = 63
 STRING_AT_PUT = 64
 
-def common_at((w_obj, w_idx)):
-    idx = unwrap_int(w_idx)
-    # XXX should be idx-1, probably
-    assert_valid_index(idx-1, w_obj)
-    return w_obj, idx-1
+def common_at((w_obj, w_index1)):
+    index1 = unwrap_int(w_index1)
+    assert_valid_index(index1-1, w_obj)
+    return w_obj, index1-1
 
 def common_at_put((w_obj, w_idx, w_val)):
     idx = unwrap_int(w_idx)
-    # XXX should be idx-1, probably
     assert_valid_index(idx-1, w_obj)
     return w_obj, idx-1, w_val
 
@@ -366,19 +364,17 @@ NEW_METHOD = 79
 
 @primitive(OBJECT_AT)
 @stack(2)
-def func(args, (w_rcvr, w_idx)):
-    idx = unwrap_int(w_idx)
-    # XXX should be idx-1, probably
-    assert_bounds(idx, 0, w_rcvr.shadow_of_my_class().instance_size)
-    return w_rcvr.fetch(idx)
+def func(args, (w_rcvr, w_n1)):
+    n0 = unwrap_int(w_n1) - 1
+    assert_bounds(n0, 0, w_rcvr.shadow_of_my_class().instance_size)
+    return w_rcvr.fetch(n0)
 
 @primitive(OBJECT_AT_PUT)
 @stack(3)
-def func(args, (w_rcvr, w_idx, w_val)):
-    idx = unwrap_int(w_idx)
-    # XXX should be idx-1, probably
-    assert_bounds(idx, 0, w_rcvr.shadow_of_my_class().instance_size)
-    w_rcvr.store(idx, w_val)
+def func(args, (w_rcvr, w_n1, w_val)):
+    n0 = unwrap_int(w_n1) - 1
+    assert_bounds(n0, 0, w_rcvr.shadow_of_my_class().instance_size)
+    w_rcvr.store(n0, w_val)
     return w_val
 
 @primitive(NEW)

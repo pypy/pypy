@@ -116,13 +116,13 @@ class W_PointersObject(W_AbstractObjectWithClassReference):
         W_AbstractObjectWithClassReference.__init__(self, w_class)
         self._vars = [None] * size
 
-    def fetch(self, index):
-        return self._vars[index]
+    def fetch(self, n0):
+        return self._vars[n0]
         
-    def store(self, index, w_value):    
+    def store(self, n0, w_value):    
         if self._shadow is not None:
             self._shadow.invalidate()
-        self._vars[index] = w_value
+        self._vars[n0] = w_value
 
     def size(self):
         return len(self._vars)
