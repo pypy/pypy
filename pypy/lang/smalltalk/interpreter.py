@@ -372,10 +372,12 @@ class W_MethodContext(model.W_AbstractObjectWithIdentityHash):
         raise MissingBytecode
 
     def bytecodePrimBlockCopy(self, interp):
-        raise MissingBytecode
+        self.callPrimitiveAndPush(
+            primitives.PRIMITIVE_BLOCK_COPY, "blockCopy:", 1, interp)
 
     def bytecodePrimValue(self, interp):
-        raise MissingBytecode
+        self.callPrimitiveAndPush(
+            primitives.PRIMITIVE_VALUE, "value", 0, interp)
 
     def bytecodePrimValueWithArg(self, interp):
         raise MissingBytecode

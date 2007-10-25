@@ -450,13 +450,14 @@ def test_doubleExtendedDoAnythinBytecode():
 
 def test_block_copy_and_value():
 
-    py.test.skip("waiting for bytecode")
-    
+    py.test.skip("block_copy_and_value not working yet")
+
     bc_3_plus_4 = [ 137, 117, 200, 164, 4, 32, 33, 176, 125, 201, 124]
     bc_x_plus_x_plus_1 = [ 137, 118, 200, 164, 7, 104, 16, 16, 176, 118, 176, 125, 32, 202, 124 ]
     bc_x_plus_y = [ 137, 119, 200, 164, 6, 105, 104, 16, 17, 176, 125, 33, 34, 240, 124 ]
-    
-    for bcode in [ bc_3_plus_4, bc_x_plus_x_plus_1, bc_x_plus_y ]:
+
+    for bcodes in [ bc_3_plus_4, bc_x_plus_x_plus_1, bc_x_plus_y ]:
+        bcode = "".join([chr(x) for x in bcodes])
         interp = new_interpreter(bcode)
         res = interp.interpret()
         assert res == wrap_int(7)

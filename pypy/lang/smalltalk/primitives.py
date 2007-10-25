@@ -4,6 +4,15 @@ from pypy.lang.smalltalk import classtable
 from pypy.lang.smalltalk import objtable
 from pypy.rlib import rarithmetic
 
+from pypy.lang.smalltalk.constants import \
+     BLKCTX_CALLER_INDEX, \
+     BLKCTX_INSTRUCTION_POINTER_INDEX, \
+     BLKCTX_STACK_POINTER_INDEX, \
+     BLKCTX_BLOCK_ARGUMENT_COUNT_INDEX, \
+     BLKCTX_INITIAL_IP_INDEX, \
+     BLKCTX_HOME_INDEX, \
+     BLKCTX_TEMP_FRAME_START
+
 class PrimitiveFailedError(Exception):
     pass
 
@@ -533,28 +542,29 @@ PRIMITIVE_FLUSH_CACHE = 89
 
 @primitive(PRIMITIVE_BLOCK_COPY)
 @stack(2)
-def func(args, (w_argcnt, w_context)):
+def func(args, (w_context, w_argcnt)):
     raise PrimitiveNotYetWrittenError()
     frame = args.interp.w_active_context
 
     # From B.B.: If receiver is a MethodContext, then it becomes
     # the new BlockContext's home context.  Otherwise, the home
     # context of the receiver is used for the new BlockContext.
-    if isinstance(w_context, classtable.w_BlockContext):
-        w_method_context = w_context.fetch(BLOCK_CONTEXT_HOME_INDEX)
+    if w_context.getclass() == classtable.w_BlockContext:
+        w_method_context = w_context.fetch(BLKCTX_HOME_INDEX)
     else:
         w_method_context = w_context
 
     # The block bytecodes are stored inline: so we skip past the
     # byteodes to invoke this primitive to find them (hence +3)
-    w_new_context = classtable.w_BlockContext.new(unwrap_int(w_argcnt))
+    w_new_context = classtable.w_BlockContext.as_class_get_shadow().new(
+        unwrap_int(w_argcnt))
     initialip = frame.pc + 3
 
     # Initialize various fields.
-    w_new_context.store(BLOCK_CONTEXT_INITIAL_IP_INDEX, initialip)
-    w_new_context.store(BLOCK_CONTEXT_INSTRUCTION_POINTER_INDEX, initialip)
-    w_new_context.store(BLOCK_CONTEXT_BLOCK_ARGUMENT_COUNT_INDEX, w_argcnt)
-    w_new_context.store(BLOCK_CONTEXT_HOME_INDEX, w_method_context)
+    w_new_context.store(BLKCTX_INITIAL_IP_INDEX, initialip)
+    w_new_context.store(BLKCTX_INSTRUCTION_POINTER_INDEX, initialip)
+    w_new_context.store(BLKCTX_BLOCK_ARGUMENT_COUNT_INDEX, w_argcnt)
+    w_new_context.store(BLKCTX_HOME_INDEX, w_method_context)
     return w_new_context
     
 @primitive(PRIMITIVE_VALUE)
@@ -568,23 +578,23 @@ def func(args):
     
     w_block_ctx = args.interp.w_active_context.peek(args.argument_count-1)
 
-    w_exp_arg_cnt = w_block_ctx.fetch(BLOCK_CONTEXT_BLOCK_ARGUMENT_COUNT_INDEX)
+    w_exp_arg_cnt = w_block_ctx.fetch(BLKCTX_BLOCK_ARGUMENT_COUNT_INDEX)
     exp_arg_cnt = unwrap_int(w_exp_arg_cnt)
     if args.argument_count != exp_arg_cnt:
         raise PrimitiveFailedError()
 
     # Copy the values from the stack such that the most recently pushed
-    # item (index 0) ends up in slot BLOCK_CONTEXT_TEMP_FRAME_START + nargs - 1
+    # item (index 0) ends up in slot BLKCTX_TEMP_FRAME_START + nargs - 1
     for idx in range(exp_arg_cnt - 1):
         w_block_ctx.store(
-            BLOCK_CONTEXT_TEMP_FRAME_START+idx,     
+            BLKCTX_TEMP_FRAME_START+idx,     
             w_block_ctx.fetch(exp_arg_cnt - idx - 1))
 
     # Set some fields
-    w_initial_ip = w_block_ctx.fetch(BLOCK_CONTEXT_INITIAL_IP_INDEX)
-    w_block_ctx.store(BLOCK_CONTEXT_INSTRUCTION_POINTER_INDEX, w_initial_ip)
-    w_block_ctx.store(BLOCK_CONTEXT_STACK_POINTER_INDEX, w_exp_arg_cnt)
-    w_block_ctx.store(BLOCK_CONTEXT_CALLER_INDEX, args.interp.w_active_context)
+    w_initial_ip = w_block_ctx.fetch(BLKCTX_INITIAL_IP_INDEX)
+    w_block_ctx.store(BLKCTX_INSTRUCTION_POINTER_INDEX, w_initial_ip)
+    w_block_ctx.store(BLKCTX_STACK_POINTER_INDEX, w_exp_arg_cnt)
+    w_block_ctx.store(BLKCTX_CALLER_INDEX, args.interp.w_active_context)
     args.interp.w_active_context = w_block_ctx
     
 @primitive(PRIMITIVE_VALUE_WITH_ARGS)

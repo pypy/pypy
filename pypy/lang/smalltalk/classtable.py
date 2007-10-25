@@ -1,4 +1,5 @@
 from pypy.lang.smalltalk import shadow
+from pypy.lang.smalltalk import constants
 
 def bootstrap_class(instsize, w_superclass=None, w_metaclass=None,
                     name='?', format=shadow.POINTERS, varsized=False):
@@ -94,4 +95,7 @@ define_cls("w_True", "w_Boolean")
 define_cls("w_False", "w_Boolean")
 define_cls("w_ByteArray", "w_ArrayedCollection", format=shadow.BYTES)
 define_cls("w_CompiledMethod", "w_ByteArray", format=shadow.COMPILED_METHOD)
-define_cls("w_MethodContext", "w_Object")
+define_cls("w_ContextPart", "w_Object")
+define_cls("w_MethodContext", "w_ContextPart")
+define_cls("w_BlockContext", "w_ContextPart",
+           instvarsize=constants.BLKCTX_TEMP_FRAME_START)
