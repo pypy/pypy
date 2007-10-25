@@ -167,9 +167,13 @@ class W_ZipImporter(Wrappable):
 
 def descr_new_zipimporter(space, w_type, name):
     try:
-        return zip_importer_cache[name]
+        result = zip_importer_cache[name]
+        if result is None:
+            raise OperationError(space.w_ImportError, space.wrap(
+                "Cannot import %s from zipfile, recursion detected or"
+                "already tried and failed" % (name,)))
     except KeyError:
-        pass
+        zip_importer_cache[name] = None
     ok = False
     parts = name.split(os.path.sep)
     filename = "" # make annotator happy
@@ -197,11 +201,11 @@ def descr_new_zipimporter(space, w_type, name):
     w_ZipFile = space.getattr(w_zipfile, space.wrap('ZipFile'))
     try:
         w_dir = space.call(w_ZipFile, space.newlist([space.wrap(filename)]))
-    except OperationError: # we catch everything as this function
+    except OperationError, e: # we catch everything as this function
         raise OperationError(space.w_ImportError, space.wrap(
             "%s seems not to be a zipfile" % (filename,)))
     result = space.wrap(W_ZipImporter(space, name, w_dir, w_zipfile))
-    zip_importer_cache[filename] = result
+    zip_importer_cache[name] = result
     return result
     
 descr_new_zipimporter.unwrap_spec = [ObjSpace, W_Root, str]
