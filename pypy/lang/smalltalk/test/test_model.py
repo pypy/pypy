@@ -1,5 +1,6 @@
 import py
 from pypy.lang.smalltalk import model, shadow
+from pypy.lang.smalltalk.shadow import MethodNotFound
 import pypy.lang.smalltalk.classtable as ct
 
 mockclass = ct.bootstrap_class
@@ -56,10 +57,10 @@ def test_method_lookup():
     subshadow.methoddict["foo"] = 3
     assert shadow.lookup("foo") == 1
     assert shadow.lookup("bar") == 2
-    assert shadow.lookup("zork") == None
+    py.test.raises(MethodNotFound, shadow.lookup, "zork")
     assert subshadow.lookup("foo") == 3
     assert subshadow.lookup("bar") == 2
-    assert subshadow.lookup("zork") == None
+    py.test.raises(MethodNotFound, subshadow.lookup, "zork")
 
 def test_w_compiledin():
     w_super = mockclass(0)

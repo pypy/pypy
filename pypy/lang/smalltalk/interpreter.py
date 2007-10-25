@@ -133,7 +133,7 @@ class W_MethodContext(model.W_AbstractObjectWithIdentityHash):
     def _sendSelector(self, selector, argcount, interp,
                       receiver, receiverclassshadow):
         method = receiverclassshadow.lookup(selector)
-        assert method
+        # XXX catch MethodNotFound here and send doesNotUnderstand:
         if method.primitive:
             func = primitives.prim_table[method.primitive]
             try:

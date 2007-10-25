@@ -3,9 +3,6 @@ from pypy.rlib import rrandom
 from pypy.rlib.rarithmetic import intmask
 from pypy.lang.smalltalk import constants
 
-class MethodNotFound(Exception):
-    pass
-
 class W_Object(object):
 
     def size(self):
@@ -130,36 +127,6 @@ class W_PointersObject(W_AbstractObjectWithClassReference):
         assert isinstance(shadow, ClassShadow)      # for now, the only kind
         shadow.check_for_updates()
         return shadow
-
-    def compiledmethodnamed(self, methodname):
-        # XXX kill me.  Temporary, for testing
-        w_methoddict = self.fetch(constants.CLASS_METHODDICT_INDEX)._vars
-        names  = w_methoddict[constants.METHODDICT_NAMES_INDEX:]
-        values = w_methoddict[constants.METHODDICT_VALUES_INDEX]._vars
-        for var in names:
-            if isinstance(var, W_BytesObject):
-                if str(var) == str(methodname):
-                    return values[names.index(var)]
-        raise MethodNotFound
-
-    def lookup(self, methodname):
-        # XXX kill me.  Temporary, for testing
-        from pypy.lang.smalltalk import objtable
-        in_class = self
-        while in_class != None:
-            try:
-                return in_class.compiledmethodnamed(methodname)
-            except MethodNotFound:
-                # Current hack because we don't have a ref to the real
-                # nil yet... XXX XXX XXX
-                try:
-                    new_class = in_class._vars[constants.CLASS_SUPERCLASS_INDEX]
-                    if new_class is objtable.w_nil:
-                        raise IndexError
-                    else:
-                        in_class = new_class
-                except IndexError:
-                    return self.lookup("doesNotUnderstand:")
 
 class W_BytesObject(W_AbstractObjectWithClassReference):
     def __init__(self, w_class, size):

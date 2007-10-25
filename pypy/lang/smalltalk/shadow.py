@@ -17,6 +17,9 @@ WORDS = 2
 WEAK_POINTERS = 3
 COMPILED_METHOD = 4
 
+class MethodNotFound(Exception):
+    pass
+
 class ClassShadowError(Exception):
     pass
 
@@ -168,7 +171,7 @@ class ClassShadow(AbstractShadow):
         elif self.s_superclass != None:
             return self.s_superclass.lookup(selector)
         else:
-            return None
+            raise MethodNotFound
 
     def installmethod(self, selector, method):
         "NOT_RPYTHON"     # this is only for testing.
