@@ -279,3 +279,9 @@ def test_float_boolean():
 def test_block_copy_and_value():
     # see test_interpreter for tests of these opcodes
     return
+
+ROUNDING_DIGITS = 8
+def test_primitive_square_root():
+	assert prim(p.FLOAT_SQUARE_ROOT, [4.0]).value == 2.0
+	assert round(prim(p.FLOAT_SQUARE_ROOT, [2.0]).value,ROUNDING_DIGITS) == round(1.414213562373095,ROUNDING_DIGITS)
+

@@ -1,4 +1,5 @@
 import operator
+import math
 from pypy.lang.smalltalk import model, shadow
 from pypy.lang.smalltalk import classtable
 from pypy.lang.smalltalk import objtable
@@ -46,7 +47,12 @@ def assert_valid_index(idx, w_obj):
 # argument, an instance of the Args class below; the function either
 # completes, and returns a result, or throws a PrimitiveFailedError.
 
-prim_table = [None] * 576 # Squeak has primitives all the way up to 575
+def raise_failing_default(args):
+	raise PrimitiveFailedError
+
+# Squeak has primitives all the way up to 575
+# So all optional primitives will default to the bytecode implementation
+prim_table = [raise_failing_default] * 576
 
 class Args:
     def __init__(self, interp, argument_count):
@@ -193,6 +199,7 @@ FLOAT_SUBTRACT = 42
 FLOAT_MULTIPLY = 49
 FLOAT_DIVIDE = 50
 FLOAT_TRUNCATED = 51
+FLOAT_SQUARE_ROOT = 55
 
 math_ops = {
     FLOAT_ADD: operator.add,
@@ -218,6 +225,12 @@ def func(args, (w_float,)):
     w_res = objtable.wrap_int(int(f))
     return w_res
 
+@primitive(FLOAT_SQUARE_ROOT)
+@stack(1)
+def func(args, (w_float,)): 
+    f = unwrap_float(w_float)
+    w_res = objtable.wrap_float(math.sqrt(f))
+    return w_res
 
 # ___________________________________________________________________________
 # Subscript and Stream Primitives
