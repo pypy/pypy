@@ -140,7 +140,7 @@ class __extend__(W_ContextPart):
                 self.push(w_result)
                 return
         arguments = self.stack[len(self.stack)-argcount:]
-        interp.w_active_context = method.createFrame(receiver, arguments, self)
+        interp.w_active_context = method.create_frame(receiver, arguments, self)
         self.pop_n(argcount + 1)
 
     def _return(self, object, interp):

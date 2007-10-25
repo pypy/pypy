@@ -38,7 +38,7 @@ def testCompiledMethods():
     amethod = w_smallint_class.lookup("abs")
                                   # First literal of the abs method is
                                   # a real smalltalk int
-    w_frame = amethod.createFrame(model.W_SmallInteger(3), [])
+    w_frame = amethod.create_frame(model.W_SmallInteger(3), [])
     interp.activeContext = w_frame
 
     print amethod
@@ -74,7 +74,7 @@ def testDoesNotUnderstand():
 
                                   # First literal of the abs method is
                                   # a real smalltalk int
-    w_frame = w_method.createFrame(w_object, [w_message])
+    w_frame = w_method.create_frame(w_object, [w_message])
     print "WFRAME: %r" % (w_frame,)
     interp.w_active_context = w_frame
 

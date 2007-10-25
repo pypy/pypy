@@ -33,7 +33,7 @@ def new_interpreter(bytes, receiver=objtable.w_nil):
     assert isinstance(bytes, str)
     w_method = model.W_CompiledMethod(0, bytes=bytes,
                                       argsize=2, tempsize=1)
-    w_frame = w_method.createFrame(receiver, ["foo", "bar"])
+    w_frame = w_method.create_frame(receiver, ["foo", "bar"])
     interp = interpreter.Interpreter()
     interp.w_active_context = w_frame
     return interp
@@ -41,7 +41,7 @@ def new_interpreter(bytes, receiver=objtable.w_nil):
 def test_create_frame():
     w_method = model.W_CompiledMethod(0, bytes="hello",
                                       argsize=2, tempsize=1)
-    w_frame = w_method.createFrame("receiver", ["foo", "bar"])
+    w_frame = w_method.create_frame("receiver", ["foo", "bar"])
     assert w_frame.w_receiver == "receiver"
     assert w_frame.gettemp(0) == "foo"
     assert w_frame.gettemp(1) == "bar"

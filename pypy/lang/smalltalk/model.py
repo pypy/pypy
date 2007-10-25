@@ -221,7 +221,7 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
     def getliteral(self, index):
         return self.literals[index + 1] # header of compiledmethod at index 0
 
-    def createFrame(self, receiver, arguments, sender = None):
+    def create_frame(self, receiver, arguments, sender = None):
         assert len(arguments) == self.argsize
         return W_MethodContext(self, receiver, arguments, sender)
 

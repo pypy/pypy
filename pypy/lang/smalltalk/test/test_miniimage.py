@@ -229,7 +229,7 @@ def test_lookup_abs_in_integer(int=10):
     # w_method = s_class.lookup("abs")
 
     assert w_method
-    w_frame = w_method.createFrame(w_object, [])
+    w_frame = w_method.create_frame(w_object, [])
     interp.w_active_context = w_frame
 
     print w_method
