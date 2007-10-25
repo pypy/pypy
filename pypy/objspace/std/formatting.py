@@ -2,7 +2,7 @@
 String formatting routines.
 """
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.rarithmetic import ovfcheck, formatd_overflow
+from pypy.rlib.rarithmetic import ovfcheck, formatd_overflow, isnan, isinf
 from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import func_with_new_name
 
@@ -489,12 +489,3 @@ oct_num_helper = format_num_helper_generator('%o', '01234567')
 hex_num_helper = format_num_helper_generator('%x', '0123456789abcdef')
 
 
-# isinf isn't too hard...
-def isinf(v):
-    return v != 0 and v*2.0 == v
-
-# To get isnan, working x-platform and both on 2.3 and 2.4, is a
-# horror.  I think this works (for reasons I don't really want to talk
-# about), and probably when implemented on top of pypy, too.
-def isnan(v):
-    return v != v*1.0 or (v == 1.0 and v == 2.0)

@@ -1,17 +1,13 @@
 from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Void, Bool, Float
 from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
+from pypy.rlib.rarithmetic import isnan, isinf
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.oosupport.metavm import Generator
 from pypy.translator.oosupport.constant import push_constant
 from pypy.objspace.flow import model as flowmodel
 from pypy.translator.cli.support import string_literal
 
-def isnan(v):
-    return v != v*1.0 or (v == 1.0 and v == 2.0)
-
-def isinf(v):
-    return v!=0 and (v == v*2)
 
 class CodeGenerator(object):
     def __init__(self, out, indentstep = 4, startblock = '{', endblock = '}'):

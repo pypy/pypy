@@ -4,6 +4,7 @@ from pypy.translator.oosupport.treebuilder import SubOperation
 from pypy.translator.oosupport.function import render_sub_op
 from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
+from pypy.rlib.rarithmetic import isnan, isinf
 from pypy.translator.oosupport.constant import push_constant
 import pypy.translator.jvm.typesystem as jvmtype
 from pypy.translator.jvm.typesystem import \
@@ -14,14 +15,6 @@ from pypy.translator.jvm.typesystem import \
      jObjectArray, jPyPyInterlink, jPyPyCustomDict, jPyPyEquals, \
      jPyPyHashCode, jMap, jPyPyWeakRef, jSystem, jll_os
 
-# ___________________________________________________________________________
-# Miscellaneous helper functions
-
-def _isnan(v):
-    return v != v*1.0 or (v == 1.0 and v == 2.0)
-
-def _isinf(v):
-    return v!=0 and (v == v*2)
 
 # ___________________________________________________________________________
 # JVM Opcodes:
@@ -1109,9 +1102,9 @@ class JVMGenerator(Generator):
             self.emit(LDC2, value)
 
     def _push_double_constant(self, value):
-        if _isnan(value):
+        if isnan(value):
             DOUBLENAN.load(self)
-        elif _isinf(value):
+        elif isinf(value):
             if value > 0: DOUBLEPOSINF.load(self)
             else: DOUBLENEGINF.load(self)
         elif value == 0.0:
