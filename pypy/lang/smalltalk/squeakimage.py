@@ -230,7 +230,8 @@ class GenericObject(object):
         
     def init_class(self, chunk):    
         if chunk.iscompact():
-            self.g_class = self.owner.compactclasses[chunk.classid].g_object
+            self.g_class = self.owner.compactclasses[chunk.classid
+                - 1].g_object # Smalltalk is 1-based indexed
         else:
             self.g_class = self.owner.chunks[chunk.classid].g_object
 
