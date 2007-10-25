@@ -279,7 +279,7 @@ class __extend__(W_ContextPart):
         self.jumpConditional(interp.FALSE,self.shortJumpPosition())
 
     def longUnconditionalJump(self, interp):
-        self.jump(self.longJumpPosition())
+        self.jump((((self.currentBytecode & 7) - 4) << 8) + self.getByte())
 
     def longJumpPosition(self):
         return ((self.currentBytecode & 3) << 8) + self.getByte()
