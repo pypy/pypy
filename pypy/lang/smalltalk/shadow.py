@@ -130,11 +130,6 @@ class ClassShadow(AbstractShadow):
         " Number of named instance variables for each instance of this class "
         return self.instance_size
 
-    def ismetaclass(self):
-        "Heuristic to detect if this is the shadow of a metaclass."
-        from pypy.lang.smalltalk import classtable
-        return self.s_metaclass.w_self is classtable.w_Metaclass
-
     def inherits_from(self, s_superclass):
         classshadow = self
         while classshadow is not None:

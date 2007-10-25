@@ -217,19 +217,21 @@ def test_string_at_put():
         assert prim(p.STRING_AT, [test_str, i]) == wrap(exp[i])
 
 def test_new():
-    w_res = prim(p.NEW, [classtable.w_Object])
-    assert w_res.getclass() == classtable.w_Object
+    w_Object = classtable.classtable['w_Object']
+    w_res = prim(p.NEW, [w_Object])
+    assert w_res.getclass() is w_Object
     
 def test_invalid_new():
-    prim_fails(p.NEW, [classtable.w_ByteString])
+    prim_fails(p.NEW, [classtable.w_String])
 
 def test_new_with_arg():
-    w_res = prim(p.NEW_WITH_ARG, [classtable.w_ByteString, 20])
-    assert w_res.getclass() == classtable.w_ByteString
+    w_res = prim(p.NEW_WITH_ARG, [classtable.w_String, 20])
+    assert w_res.getclass() == classtable.w_String
     assert w_res.size() == 20    
 
 def test_invalid_new_with_arg():
-    prim_fails(p.NEW_WITH_ARG, [classtable.w_Object, 20])
+    w_Object = classtable.classtable['w_Object']
+    prim_fails(p.NEW_WITH_ARG, [w_Object, 20])
     
 def test_inst_var_at():
     # I am not entirely sure if this is what this primitive is

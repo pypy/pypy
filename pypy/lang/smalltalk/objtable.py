@@ -14,7 +14,7 @@ def wrap_float(i):
     return model.W_Float(i)
 
 def wrap_string(str):
-    w_inst = ct.w_ByteString.as_class_get_shadow().new(len(str))
+    w_inst = ct.w_String.as_class_get_shadow().new(len(str))
     for i in range(len(str)):
         w_inst.setbyte(i, ord(str[i]))
     return w_inst
@@ -47,9 +47,9 @@ def wrap_char_table():
     CharacterTable = [bld_char(i) for i in range(256)]
 wrap_char_table()
 
-w_true  = ct.w_True.as_class_get_shadow().new()
-w_false = ct.w_False.as_class_get_shadow().new()
-w_nil = ct.w_UndefinedObject.as_class_get_shadow().new()
+w_true  = ct.classtable['w_True'].as_class_get_shadow().new()
+w_false = ct.classtable['w_False'].as_class_get_shadow().new()
+w_nil = ct.classtable['w_UndefinedObject'].as_class_get_shadow().new()
 w_mone = wrap_int(-1)
 w_zero = wrap_int(0)
 w_one = wrap_int(1)
