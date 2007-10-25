@@ -229,6 +229,8 @@ def func(args, (w_float,)):
 @stack(1)
 def func(args, (w_float,)): 
     f = unwrap_float(w_float)
+    if f < 0.0:
+        raise PrimitiveFailedError
     w_res = objtable.wrap_float(math.sqrt(f))
     return w_res
 

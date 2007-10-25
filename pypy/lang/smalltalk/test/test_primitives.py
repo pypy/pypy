@@ -284,4 +284,4 @@ ROUNDING_DIGITS = 8
 def test_primitive_square_root():
 	assert prim(p.FLOAT_SQUARE_ROOT, [4.0]).value == 2.0
 	assert round(prim(p.FLOAT_SQUARE_ROOT, [2.0]).value,ROUNDING_DIGITS) == round(1.414213562373095,ROUNDING_DIGITS)
-
+	prim_fails(p.FLOAT_SQUARE_ROOT, [-2.0])
