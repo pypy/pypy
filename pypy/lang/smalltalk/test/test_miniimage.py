@@ -193,7 +193,6 @@ def test_lookup_abs_in_integer(int=10):
 
     w_object = model.W_SmallInteger(int)
 
-    # XXX
     # Should get this from w_object
     w_smallint_class = image.special(constants.SO_SMALLINTEGER_CLASS)
     w_method = w_smallint_class.lookup("abs")
@@ -220,9 +219,6 @@ def test_lookup_abs_in_integer(int=10):
             return e.object
 
 def test_lookup_neg_abs_in_integer():
-    #py.test.skip("TOFIX methodlookup 'negated' fails in shadow SmallInteger")
-    # Fails due to same reason because of which
-    # classmirror-methodlookup fails
     test_lookup_abs_in_integer(-3)
 
 def test_map_mirrors_to_classtable():
