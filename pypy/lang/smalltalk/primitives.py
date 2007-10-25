@@ -93,8 +93,7 @@ math_ops = {
 for (code,op) in math_ops.items():
     @primitive(code)
     @stack(2)
-    def func(stack, op=op): # n.b. capture op value
-        [w_receiver, w_argument] = stack
+    def func((w_receiver, w_argument), op=op): # n.b. capture op value
         receiver = unwrap_int(w_receiver)
         argument = unwrap_int(w_argument)
         try:
@@ -106,8 +105,7 @@ for (code,op) in math_ops.items():
 # #/ -- return the result of a division, only succeed if the division is exact
 @primitive(DIVIDE)
 @stack(2)
-def func(stack):
-    [w_receiver, w_argument] = stack
+def func((w_receiver, w_argument)):
     receiver = unwrap_int(w_receiver)
     argument = unwrap_int(w_argument)
     if argument == 0:
@@ -119,8 +117,7 @@ def func(stack):
 # #\\ -- return the remainder of a division
 @primitive(MOD)
 @stack(2)
-def func(stack):
-    [w_receiver, w_argument] = stack
+def func((w_receiver, w_argument)):
     receiver = unwrap_int(w_receiver)
     argument = unwrap_int(w_argument)
     if argument == 0:
@@ -130,8 +127,7 @@ def func(stack):
 # #// -- return the result of a division, rounded towards negative zero
 @primitive(DIV)
 @stack(2)
-def func(stack):
-    [w_receiver, w_argument] = stack
+def func((w_receiver, w_argument)):
     receiver = unwrap_int(w_receiver)
     argument = unwrap_int(w_argument)
     if argument == 0:
@@ -141,8 +137,7 @@ def func(stack):
 # #// -- return the result of a division, rounded towards negative infinity
 @primitive(QUO)
 @stack(2)
-def func(stack):
-    [w_receiver, w_argument] = stack
+def func((w_receiver, w_argument)):
     receiver = unwrap_int(w_receiver)
     argument = unwrap_int(w_argument)
     if argument == 0:
@@ -152,8 +147,7 @@ def func(stack):
 # #bitShift: -- return the shifted value
 @primitive(BIT_SHIFT)
 @stack(2)
-def func(stack):
-    [w_receiver, w_argument] = stack
+def func((w_receiver, w_argument)):
     receiver = unwrap_int(w_receiver)
     argument = unwrap_int(w_argument)
     
@@ -185,8 +179,7 @@ math_ops = {
     }
 for (code,op) in math_ops.items():
     @stack(2)
-    def func(res, op=op): # n.b. capture op value
-        [w_v1, w_v2] = res
+    def func((w_v1, w_v2), op=op): # n.b. capture op value
         v1 = unwrap_float(w_v1)
         v2 = unwrap_float(w_v2)
         w_res = objtable.wrap_float(op(v1, v2))
@@ -202,15 +195,13 @@ SIZE = 62
 STRING_AT = 63
 STRING_AT_PUT = 64
 
-def common_at(stack):
-    [w_obj, w_idx] = stack
+def common_at((w_obj, w_idx)):
     idx = unwrap_int(w_idx)
     # XXX should be idx-1, probably
     assert_valid_index(idx, w_obj)
     return w_obj, idx
 
-def common_at_put(stack):
-    [w_obj, w_idx, w_val] = stack
+def common_at_put((w_obj, w_idx, w_val)):
     idx = unwrap_int(w_idx)
     # XXX should be idx-1, probably
     assert_valid_index(idx, w_obj)
@@ -219,20 +210,19 @@ def common_at_put(stack):
 @primitive(AT)
 @stack(2)
 def func(stack):
-    w_obj, idx = common_at(stack)
+    [w_obj, idx] = common_at(stack)
     return w_obj.fetch(idx)
 
 @primitive(AT_PUT)
 @stack(3)
 def func(stack):
-    w_obj, idx, w_val = common_at_put(stack)
+    [w_obj, idx, w_val] = common_at_put(stack)
     w_obj.store(idx, w_val)
     return w_val
 
 @primitive(SIZE)
 @stack(1)
-def func(stack):
-    [w_obj] = stack
+def func((w_obj,)):
     if not w_obj.getclassmirror().isvariable():
         raise PrimitiveFailedError()
     return w_obj.size()
@@ -271,8 +261,7 @@ NEW_METHOD = 79
 
 @primitive(OBJECT_AT)
 @stack(2)
-def func(stack):
-    [w_rcvr, w_idx] = stack
+def func((w_rcvr, w_idx)):
     idx = unwrap_int(w_idx)
     # XXX should be idx-1, probably
     assert_bounds(idx, 0, w_rcvr.getclassmirror().instance_size)
@@ -280,8 +269,7 @@ def func(stack):
 
 @primitive(OBJECT_AT_PUT)
 @stack(3)
-def func(stack):
-    [w_rcvr, w_idx, w_val] = stack
+def func((w_rcvr, w_idx, w_val)):
     idx = unwrap_int(w_idx)
     # XXX should be idx-1, probably
     assert_bounds(idx, 0, w_rcvr.getclassmirror().instance_size)
@@ -290,8 +278,7 @@ def func(stack):
 
 @primitive(NEW)
 @stack(1)
-def func(stack):
-    [w_cls] = stack
+def func((w_cls,)):
     m_cls = mirror.mirrorcache.getmirror(w_cls)
     if m_cls.isvariable():
         raise PrimitiveFailedError()
@@ -299,8 +286,7 @@ def func(stack):
 
 @primitive(NEW_WITH_ARG)
 @stack(2)
-def func(stack):
-    [w_cls, w_size] = stack
+def func((w_cls, w_size)):
     m_cls = mirror.mirrorcache.getmirror(w_cls)
     if not m_cls.isvariable():
         raise PrimitiveFailedError()
@@ -313,10 +299,9 @@ def func(frame):
 
 @primitive(INST_VAR_AT)
 @stack(2)
-def func(stack):
+def func((w_rcvr, w_idx)):
     # I *think* this is the correct behavior, but I'm not quite sure.
     # Might be restricted to fixed length fields?
-    [w_rcvr, w_idx] = stack
     idx = unwrap_int(w_idx)
     m_cls = w_rcvr.getclassmirror()
     if idx < 0:
@@ -334,8 +319,7 @@ def func(frame):
 
 @primitive(AS_OOP)
 @stack(1)
-def func(stack):
-    [w_rcvr] = stack
+def func((w_rcvr,)):
     if isinstance(w_rcvr, model.W_SmallInteger):
         raise PrimitiveFailedError()
     return w_rcvr.w_hash
@@ -349,19 +333,17 @@ def func(stack):
 
 @primitive(SOME_INSTANCE)
 @stack(1)
-def func(stack):
+def func((w_class,)):
     # This primitive returns some instance of the class on the stack.
     # Not sure quite how to do this; maintain a weak list of all
     # existing instances or something?
-    [w_class] = stack
     raise PrimitiveNotYetWrittenError()
 
 @primitive(NEXT_INSTANCE)
 @stack(1)
-def func(stack):
+def func((w_obj,)):
     # This primitive is used to iterate through all instances of a class:
     # it returns the "next" instance after w_obj.
-    [w_obj] = stack
     raise PrimitiveNotYetWrittenError()
 
 @primitive(NEW_METHOD)
@@ -380,14 +362,12 @@ CHANGE_CLASS = 115      # Blue Book: primitiveOopsLeft
 
 @primitive(EQUIVALENT)
 @stack(2)
-def func(stack):
-    [w_arg, w_rcvr] = stack
+def func((w_arg, w_rcvr)):
     return w_arg == w_rcvr
 
 @primitive(EQUIVALENT)
 @stack(1)
-def func(stack):
-    [w_obj] = stack
+def func((w_obj,)):
     return w_obj.w_class
 
 @primitive(BYTES_LEFT)
@@ -404,8 +384,7 @@ def func(frame):
 
 @primitive(CHANGE_CLASS)
 @stack(2)
-def func(stack):
-    [w_arg, w_rcvr] = stack
+def func((w_arg, w_rcvr)):
     w_arg_class = w_arg.w_class
     w_rcvr_class = w_rcvr.w_class
 
@@ -459,8 +438,7 @@ bool_ops = {
 for (code,op) in bool_ops.items():
     @primitive(code)
     @stack(2)
-    def func(stack, op=op): # n.b. capture op value
-        [w_v1, w_v2] = stack
+    def func((w_v1, w_v2), op=op): # n.b. capture op value
         v1 = unwrap_int(w_v1)
         v2 = unwrap_int(w_v2)
         res = op(v1, v2)
@@ -470,8 +448,7 @@ for (code,op) in bool_ops.items():
 for (code,op) in bool_ops.items():
     @primitive(code+_FLOAT_OFFSET)
     @stack(2)
-    def func(stack, op=op): # n.b. capture op value
-        [w_v1, w_v2] = stack
+    def func((w_v1, w_v2), op=op): # n.b. capture op value
         v1 = unwrap_float(w_v1)
         v2 = unwrap_float(w_v2)
         res = op(v1, v2)
