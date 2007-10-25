@@ -144,7 +144,7 @@ def test_special_classes0():
     image = get_image()
     w = image.special(constants.SO_DOES_NOT_UNDERSTAND)
     assert str(w) == "doesNotUnderstand:"
-    assert str(w.getclass()) == "Array class" # for some strange reason not a symbol
+    assert str(w.getclass()) == "Symbol class" # for some strange reason not a symbol
     
     
     """SO_DOES_NOT_UNDERSTAND = 20
