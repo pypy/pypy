@@ -1,6 +1,8 @@
 
 # ___________________________________________________________________________
 # Slot Names
+#
+# n.b. Off by one from SQUEAK!
 
 CHARACTER_VALUE_INDEX = 0        # Page 630 of the blue book
 
@@ -19,6 +21,11 @@ METHODDICT_NAMES_INDEX  = 2
 
 ASSOCIATION_KEY_INDEX = 0
 ASSOCIATION_VALUE_INDEX = 1
+
+BLOCK_CONTEXT_INSTRUCTION_POINTER_INDEX = 0
+BLOCK_CONTEXT_BLOCK_ARGUMENT_COUNT_INDEX = 2
+BLOCK_CONTEXT_INITIAL_IP_INDEX = 3
+BLOCK_CONTEXT_HOME_INDEX = 4
 
 # ----- special objects indices -------
 

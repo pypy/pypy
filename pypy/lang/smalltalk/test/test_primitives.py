@@ -28,22 +28,22 @@ def mock(stack):
     frame = MockFrame(mapped_stack)
     interp = interpreter.Interpreter()
     interp.activeContext = frame
-    return interp
+    return p.Args(interp, len(stack))
 
 def prim(code, stack):
-    interp = mock(stack)
-    res = prim_table[code](interp)
-    assert not len(interp.activeContext.stack) # check that args are consumed
+    args = mock(stack)
+    res = prim_table[code](args)
+    assert not len(args.interp.activeContext.stack) # check args are consumed
     return res
 
 def prim_fails(code, stack):
-    interp = mock(stack)
-    orig_stack = list(interp.activeContext.stack)
+    args = mock(stack)
+    orig_stack = list(args.interp.activeContext.stack)
     try:
-        prim_table[code](interp)
+        prim_table[code](args)
         py.test.fail("Expected PrimitiveFailedError")
     except PrimitiveFailedError:
-        assert interp.activeContext.stack == orig_stack
+        assert args.interp.activeContext.stack == orig_stack
         
 # smallinteger tests
 def test_small_int_add():
@@ -255,3 +255,4 @@ def test_float_boolean():
     assert prim(p.FLOAT_GREATEROREQUAL, [3.5,4.9]) == objtable.w_false
     assert prim(p.FLOAT_EQUAL, [2.2,2.2]) == objtable.w_true
     assert prim(p.FLOAT_NOTEQUAL, [2.2,2.2]) == objtable.w_false
+    

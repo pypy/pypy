@@ -139,7 +139,7 @@ class W_MethodContext(model.W_Object):
         if method.primitive:
             func = primitives.prim_table[method.primitive]
             try:
-                w_result = func(interp)
+                w_result = func(primitives.Args(interp, argcount))
             except primitives.PrimitiveFailedError:
                 pass # ignore this error and fall back to the Smalltalk version
             else:
@@ -296,7 +296,8 @@ class W_MethodContext(model.W_Object):
     def callPrimitiveAndPush(self, primitive, selector,
                              argcount, interp):
         try:
-            self.push(primitives.prim_table[primitive](interp))
+            args = primitives.Args(interp, argcount)
+            self.push(primitives.prim_table[primitive](args))
         except primitives.PrimitiveFailedError:
             self._sendSelfSelector(selector, argcount, interp)
 
