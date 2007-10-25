@@ -1,5 +1,5 @@
 import py
-from pypy.lang.smalltalk import model, primitives
+from pypy.lang.smalltalk import model, constants, primitives
 from pypy.lang.smalltalk import fakeimage
 
 
@@ -76,7 +76,7 @@ class W_MethodContext(model.W_Object):
         # named var (the value).
         index = self.currentBytecode & 31
         association = self.method.getliteral(index)
-        self.push(association.fetch(1))
+        self.push(association.fetch(constants.ASSOCIATION_VALUE_INDEX))
 
     def storeAndPopReceiverVariableBytecode(self, interp):
         index = self.currentBytecode & 7
@@ -192,7 +192,7 @@ class W_MethodContext(model.W_Object):
             self.push(self.method.getliteral(variableIndex))
         elif variableType == 3:
             association = self.method.getliteral(variableIndex)
-            self.push(association.fetch(1))
+            self.push(association.fetch(constants.ASSOCIATION_VALUE_INDEX))
 
     def extendedStoreBytecode(self, interp):
         variableType, variableIndex = self.extendedVariableTypeAndIndex()
@@ -204,7 +204,7 @@ class W_MethodContext(model.W_Object):
             raise IllegalStoreError
         elif variableType == 3:
             association = self.method.getliteral(variableIndex)
-            association.store(1,self.top())
+            association.store(constants.ASSOCIATION_VALUE_INDEX, self.top())
 
     def extendedStoreAndPopBytecode(self, interp):
         self.extendedStoreBytecode(interp)
@@ -239,14 +239,14 @@ class W_MethodContext(model.W_Object):
         elif opType == 4:
             # pushLiteralVariable
             association = self.method.getliteral(third)
-            self.push(association.fetch(1))
+            self.push(association.fetch(constants.ASSOCIATION_VALUE_INDEX))
         elif opType == 5:
             self.receiver.store(third, self.top())
         elif opType == 6:
             self.receiver.store(third, self.pop())
         elif opType == 7:
             association = self.method.getliteral(third)
-            association.store(1,self.top())
+            association.store(constants.ASSOCIATION_VALUE_INDEX, self.top())
 
     def singleExtendedSuperBytecode(self, interp):
         selector, argcount = self.getExtendedSelectorArgcount()
