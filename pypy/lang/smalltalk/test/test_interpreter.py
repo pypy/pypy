@@ -302,7 +302,7 @@ def test_longJumpIfFalse():
     assert interp.w_active_context.pc == pc + 15
 
 def test_longUnconditionalJump():
-    interp = new_interpreter(longUnconditionalJump(0) + chr(15))
+    interp = new_interpreter(longUnconditionalJump(4) + chr(15))
     pc = interp.w_active_context.pc + 2
     interp.step()
     assert interp.w_active_context.pc == pc + 15
