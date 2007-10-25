@@ -163,7 +163,7 @@ class ClassShadow(AbstractShadow):
     # Methods for querying the format word, taken from the blue book:
 
     def __repr__(self):
-        return "<ClassShadow %s>" % (self.name,)
+        return "<ClassShadow %s>" % (self.name or '?',)
 
     def lookup(self, selector):
         if selector in self.methoddict:
