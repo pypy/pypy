@@ -678,7 +678,7 @@ def func(args):
 
     # Initialize the block stack from the contents of the stack:
     #   Don't bother to copy the 'self' argument
-    block_args = frame.pop_n(exp_arg_cnt - 1)
+    block_args = frame.pop_n(exp_arg_cnt)
     w_block_ctx.push_all(block_args)
 
     # Set some fields
