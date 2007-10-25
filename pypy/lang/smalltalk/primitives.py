@@ -196,9 +196,11 @@ def func(args, (w_receiver, w_argument)):
 _FLOAT_OFFSET = 40
 FLOAT_ADD = 41
 FLOAT_SUBTRACT = 42
+# NB: 43 ... 48 are implemented above
 FLOAT_MULTIPLY = 49
 FLOAT_DIVIDE = 50
 FLOAT_TRUNCATED = 51
+# OPTIONAL: 52, 53
 FLOAT_TIMES_TWO_POWER = 54
 FLOAT_SQUARE_ROOT = 55
 FLOAT_SIN = 56
@@ -504,6 +506,16 @@ def func(args, (w_arg, w_rcvr)):
 
     w_rcvr.w_class = w_arg.w_class
     return 
+
+# ___________________________________________________________________________
+# Squeak Miscellaneous Primitives (128-149)
+FULL_GC = 130
+
+@primitive(FULL_GC)
+@stack(1) # Squeak pops the arg and ignores it ... go figure
+def func(args, (w_arg,)):
+    from pypy.rlib import rgc
+    rgc.collect()
 
 # ___________________________________________________________________________
 # Boolean Primitives

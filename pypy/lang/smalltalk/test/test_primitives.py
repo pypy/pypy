@@ -328,3 +328,8 @@ def test_times_two_power():
     assert equals_ttp(-1,2,-4)
     assert equals_ttp(1.5,0,1.5)
     assert equals_ttp(1.5,-1,0.75)
+
+def test_full_gc():
+    # Should not fail :-)
+    prim(p.FULL_GC, [42]) # Dummy arg
+
