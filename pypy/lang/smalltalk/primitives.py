@@ -17,6 +17,7 @@ def unwrap_float(w_v):
     raise PrimitiveFailedError()
 
 def subscript(idx, w_obj):
+    # XXX what does this do? explain
     if isinstance(w_obj, model.W_PointersObject):
         return w_obj.fetch(idx)
     elif isinstance(w_obj, model.W_WordsObject):
