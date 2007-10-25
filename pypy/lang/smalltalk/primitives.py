@@ -50,8 +50,19 @@ prim_table = [raise_failing_default] * 576
 def expose_primitive(code, unwrap_spec=None):
     # some serious magic, don't look
     from pypy.rlib.unroll import unrolling_iterable
+    # heuristics to give it a nice name
+    name = None
+    for key, value in globals().iteritems():
+        if isinstance(value, int) and value == code and key == key.upper():
+            if name is not None:
+                # refusing to guess
+                name = "unknown"
+            else:
+                name = key
+
     def decorator(func):
         assert code not in prim_table
+        func.func_name = "prim_" + name
         if unwrap_spec is None:
             prim_table[code] = func
             return func
@@ -82,7 +93,7 @@ def expose_primitive(code, unwrap_spec=None):
             frame.pop_n(len_unwrap_spec)   # only if no exception occurs!
             return res
 
-        wrapped.func_name = func.func_name
+        wrapped.func_name = "wrap_prim_" + name
         prim_table[code] = wrapped
         return func
     return decorator
