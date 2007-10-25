@@ -61,9 +61,10 @@ def stack(n):
     def decorator(wrapped):
         def result(args):
             frame = args.interp.w_active_context
-            if len(frame.stack) < n:
-                raise PrimitiveFailedError()
-            items = frame.stack[len(frame.stack)-n:]
+            start = len(frame.stack) - n
+            if start < 0:
+                raise PrimitiveFailedError()   # not enough arguments
+            items = frame.stack[start:]
             res = wrapped(args, items)
             frame.pop_n(n)   # only if no exception occurs!
             return res

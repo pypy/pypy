@@ -137,7 +137,9 @@ class __extend__(W_ContextPart):
                 # the primitive succeeded
                 self.push(w_result)
                 return
-        arguments = self.stack[len(self.stack)-argcount:]
+        start = len(self.stack) - argcount
+        assert start >= 0  # XXX check in the Blue Book what to do in this case
+        arguments = self.stack[start:]
         interp.w_active_context = method.create_frame(receiver, arguments, self)
         self.pop_n(argcount + 1)
 

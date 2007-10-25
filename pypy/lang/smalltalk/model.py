@@ -219,7 +219,7 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
         self.primitive = primitive
 
     def compiledin(self):
-        if self.w_compiledin == None:
+        if self.w_compiledin is None:
             # Last of the literals is an association with compiledin
             # as a class
             association = self.literals[-1]
@@ -338,8 +338,10 @@ class W_ContextPart(W_AbstractObjectWithIdentityHash):
         return self.stack[-(idx+1)]
 
     def pop_n(self, n):
-        res = self.stack[len(self.stack)-n:]
-        self.stack = self.stack[:len(self.stack)-n]
+        start = len(self.stack) - n
+        assert start >= 0          # XXX what if this fails?
+        res = self.stack[start:]
+        self.stack = self.stack[:start]
         return res
     
 class W_BlockContext(W_ContextPart):
