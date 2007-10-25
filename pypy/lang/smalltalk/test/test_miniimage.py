@@ -224,3 +224,45 @@ def test_map_mirrors_to_classtable():
     assert w_true is objtable.w_true
     w_false = image.special(constants.SO_FALSE)
     assert w_false is objtable.w_false
+    
+def test_compile_method():
+    py.test.skip("Todo, make compiling of methods in mini.image work.")
+    sourcecode = """fib 
+                        ^self < 2 
+		                    ifTrue: [ 1 ] 
+		                    ifFalse: [ (self - 1) fib + (self - 2) fib ]"""
+    perform(w(10).getclass(), "compile:classified:notifying:", w(sourcecode), w('pypy'), w(None))
+    assert perform(w(10), "fib") == w(89)
+        
+def w(any): 
+    if any is None:
+        return objtable.w_nil
+    if isinstance(any, str):
+        # assume never have strings of length 1
+        if len(any) == 1: 
+            return objtable.wrap_chr(any)
+        else:
+            return objtable.wrap_string(any)
+    if isinstance(any, int):    
+        return objtable.wrap_int(any)
+    if isinstance(any, bool):
+        return objtable.wrap_bool(any)
+    if isinstance(any, float):
+        return objtable.wrap_float(any)
+    else:
+        raise Exception    
+        
+def perform(w_receiver, selector, *arguments_w):
+    interp = interpreter.Interpreter()
+    s_class = w_receiver.shadow_of_my_class()
+    w_method = s_class.lookup(selector)
+    assert w_method
+    w_frame = w_method.create_frame(w_receiver, list(arguments_w))
+    interp.w_active_context = w_frame
+    while True:
+        try:
+            interp.step()
+            #print interp.w_active_context.stack
+        except interpreter.ReturnFromTopLevel, e:
+            return e.object.value
+        
