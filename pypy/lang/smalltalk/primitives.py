@@ -294,10 +294,11 @@ def common_at_put(w_obj, w_idx, w_val):
     assert_valid_index(idx-1, w_obj)
     return w_obj, idx-1, w_val
 
-@expose_primitive(AT, unwrap_spec=[object, object])
-def func(interp, w_obj, w_idx):
-    [w_obj, idx] = common_at(w_obj, w_idx)
-    return w_obj.fetch(idx)
+@expose_primitive(AT, unwrap_spec=[object, int])
+def func(interp, w_obj, n1):
+    n0 = n1 - 1
+    assert_valid_index(n0, w_obj)
+    return w_obj.fetch(n0)
 
 @expose_primitive(AT_PUT, unwrap_spec=[object, object, object])
 def func(interp, w_obj, w_idx, w_val):
