@@ -71,6 +71,18 @@ def int_add_ovf(x, y):
     else:
         raise OverflowError("integer addition")
 
+def int_add_nonneg_ovf(x, y):
+    '''
+    OP_INT_ADD(x,y,r); \
+    if (r >= (x)); \
+    else FAIL_OVF("integer addition")
+    '''
+    r = x + y
+    if r >= x:
+        return r
+    else:
+        raise OverflowError("integer addition")
+
 def int_sub_ovf(x, y):
     '''#define OP_INT_SUB_OVF(x,y,r,err) \
         OP_INT_SUB(x,y,r,err); \
