@@ -97,16 +97,18 @@ math_ops = {
     BIT_XOR: operator.xor
     }
 for (code,op) in math_ops.items():
-    @primitive(code)
-    @stack(2)
-    def func(args, (w_receiver, w_argument), op=op): # n.b. capture op value
-        receiver = unwrap_int(w_receiver)
-        argument = unwrap_int(w_argument)
-        try:
-            res = rarithmetic.ovfcheck(op(receiver, argument))
-        except OverflowError:
-            raise PrimitiveFailedError()
-        return wrap_int(res)
+    def make_func(op):
+        @primitive(code)
+        @stack(2)
+        def func(args, (w_receiver, w_argument)):
+            receiver = unwrap_int(w_receiver)
+            argument = unwrap_int(w_argument)
+            try:
+                res = rarithmetic.ovfcheck(op(receiver, argument))
+            except OverflowError:
+                raise PrimitiveFailedError()
+            return wrap_int(res)
+    make_func(op)
 
 # #/ -- return the result of a division, only succeed if the division is exact
 @primitive(DIVIDE)
@@ -190,13 +192,15 @@ math_ops = {
     FLOAT_DIVIDE: operator.div,
     }
 for (code,op) in math_ops.items():
-    @primitive(code)
-    @stack(2)
-    def func(args, (w_v1, w_v2), op=op): # n.b. capture op value
-        v1 = unwrap_float(w_v1)
-        v2 = unwrap_float(w_v2)
-        w_res = objtable.wrap_float(op(v1, v2))
-        return w_res
+    def make_func(op):
+        @primitive(code)
+        @stack(2)
+        def func(args, (w_v1, w_v2)):
+            v1 = unwrap_float(w_v1)
+            v2 = unwrap_float(w_v2)
+            w_res = objtable.wrap_float(op(v1, v2))
+            return w_res
+    make_func(op)
 
 @primitive(FLOAT_TRUNCATED)
 @stack(1)
@@ -456,24 +460,28 @@ bool_ops = {
     NOTEQUAL: operator.ne
     }
 for (code,op) in bool_ops.items():
-    @primitive(code)
-    @stack(2)
-    def func(args, (w_v1, w_v2), op=op): # n.b. capture op value
-        v1 = unwrap_int(w_v1)
-        v2 = unwrap_int(w_v2)
-        res = op(v1, v2)
-        w_res = objtable.wrap_bool(res)
-        return w_res
+    def make_func(op):
+        @primitive(code)
+        @stack(2)
+        def func(args, (w_v1, w_v2)):
+            v1 = unwrap_int(w_v1)
+            v2 = unwrap_int(w_v2)
+            res = op(v1, v2)
+            w_res = objtable.wrap_bool(res)
+            return w_res
+    make_func(op)
 
 for (code,op) in bool_ops.items():
-    @primitive(code+_FLOAT_OFFSET)
-    @stack(2)
-    def func(args, (w_v1, w_v2), op=op): # n.b. capture op value
-        v1 = unwrap_float(w_v1)
-        v2 = unwrap_float(w_v2)
-        res = op(v1, v2)
-        w_res = objtable.wrap_bool(res)
-        return w_res
+    def make_func(op):
+        @primitive(code+_FLOAT_OFFSET)
+        @stack(2)
+        def func(args, (w_v1, w_v2)):
+            v1 = unwrap_float(w_v1)
+            v2 = unwrap_float(w_v2)
+            res = op(v1, v2)
+            w_res = objtable.wrap_bool(res)
+            return w_res
+    make_func(op)
     
 # ___________________________________________________________________________
 # Quick Push Const Primitives
@@ -526,6 +534,7 @@ PRIMITIVE_FLUSH_CACHE = 89
 @primitive(PRIMITIVE_BLOCK_COPY)
 @stack(2)
 def func(args, (w_argcnt, w_context)):
+    raise PrimitiveNotYetWrittenError()
     frame = args.interp.w_active_context
 
     # From B.B.: If receiver is a MethodContext, then it becomes
@@ -550,6 +559,7 @@ def func(args, (w_argcnt, w_context)):
     
 @primitive(PRIMITIVE_VALUE)
 def func(args):
+    raise PrimitiveNotYetWrittenError()
 
     # If nargs == 4, stack looks like:
     #  3      2       1      0

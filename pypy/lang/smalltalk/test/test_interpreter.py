@@ -1,5 +1,6 @@
 import py
 from pypy.lang.smalltalk import model, interpreter, primitives, shadow
+from pypy.lang.smalltalk import objtable
 from pypy.lang.smalltalk.objtable import wrap_int
 import pypy.lang.smalltalk.classtable as ct
 
@@ -28,7 +29,7 @@ setup()
 def fakeliterals(*literals):
     return ["methodheader"] + list(literals)
 
-def new_interpreter(bytes, receiver="receiver"):
+def new_interpreter(bytes, receiver=objtable.w_nil):
     assert isinstance(bytes, str)
     w_method = model.W_CompiledMethod(0, bytes=bytes,
                                       argsize=2, tempsize=1)

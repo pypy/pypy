@@ -224,8 +224,7 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
     """
     def __init__(self, literalsize, bytes, argsize=0, 
                  tempsize=0, primitive=0, w_compiledin=None):
-        # self.literals = [None] * size
-        self.literalsize = literalsize
+        self.literals = [None] * literalsize
         self.w_compiledin = w_compiledin
         self.bytes = bytes
         self.argsize = argsize

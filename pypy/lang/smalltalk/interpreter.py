@@ -327,7 +327,7 @@ class W_MethodContext(model.W_Object):
         self.callPrimitiveAndPush(primitives.NOTEQUAL, "~=", 1, interp)
 
     def bytecodePrimMultiply(self, interp):
-        self.callPrimitiveAndPush(primitives.MUL, "*", 1, interp)
+        self.callPrimitiveAndPush(primitives.MULTIPLY, "*", 1, interp)
 
     def bytecodePrimDivide(self, interp):
         self.callPrimitiveAndPush(primitives.DIVIDE, "/", 1, interp)
