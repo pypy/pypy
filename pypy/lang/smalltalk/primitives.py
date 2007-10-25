@@ -510,12 +510,18 @@ def func(args, (w_arg, w_rcvr)):
 # ___________________________________________________________________________
 # Squeak Miscellaneous Primitives (128-149)
 FULL_GC = 130
+INC_GC = 131
 
+def fake_bytes_left():
+    return 2**20 # XXX we don't know how to do this :-(
+
+@primitive(INC_GC) # XXX the same for now
 @primitive(FULL_GC)
 @stack(1) # Squeak pops the arg and ignores it ... go figure
 def func(args, (w_arg,)):
     from pypy.rlib import rgc
     rgc.collect()
+    return fake_bytes_left()
 
 # ___________________________________________________________________________
 # Boolean Primitives
