@@ -512,3 +512,66 @@ def define_const_primitives():
             return const
 define_const_primitives()
         
+# ___________________________________________________________________________
+# Control Primitives
+
+PRIMITIVE_BLOCK_COPY = 80
+PRIMITIVE_VALUE = 81
+PRIMITIVE_VALUE_WITH_ARGS = 82
+PRIMITIVE_PERFORM = 83
+PRIMITIVE_PERFORM_WITH_ARGS = 84
+PRIMITIVE_SIGNAL = 85
+PRIMITIVE_WAIT = 86
+PRIMITIVE_RESUME = 87
+PRIMTIIVE_SUSPEND = 88
+PRIMTIIVE_FLUSH_CACHE = 89
+
+@primitive(PRIMITIVE_BLOCK_COPY)
+@stack(2)
+def func(interpreter, receiver, argcount):
+    raise PrimitiveNotYetWrittenError()
+    
+@primitive(PRIMITIVE_VALUE)
+@stack(1)
+def func(interpreter, receiver):
+    raise PrimitiveNotYetWrittenError()
+    
+@primitive(PRIMITIVE_VALUE_WITH_ARGS)
+@stack(2)
+def func(interpreter, receiver):
+    raise PrimitiveNotYetWrittenError()
+
+@primitive(PRIMITIVE_PERFORM)
+@stack(2)
+def func(interpreter, receiver, selector):
+    raise PrimitiveNotYetWrittenError()
+
+@primitive(PRIMITIVE_PERFORM_WITH_ARGS)
+@stack(3)
+def func(interpreter, receiver, selector, arguments):
+    raise PrimitiveNotYetWrittenError()
+
+@primitive(PRIMITIVE_SIGNAL)
+@stack(1)
+def func(interpreter, receiver):
+    raise PrimitiveNotYetWrittenError()
+    
+@primitive(PRIMITIVE_WAIT)
+@stack(1)
+def func(interpreter, receiver):
+    raise PrimitiveNotYetWrittenError()
+    
+@primitive(PRIMITIVE_RESUME)
+@stack(1)
+def func(interpreter, receiver):
+    raise PrimitiveNotYetWrittenError()
+
+@primitive(PRIMTIIVE_SUSPEND)
+@stack(1)
+def func(interpreter, receiver):
+    raise PrimitiveNotYetWrittenError()
+
+@primitive(PRIMTIIVE_FLUSH_CACHE)
+@stack(1)
+def func(interpreter, receiver):
+    raise PrimitiveNotYetWrittenError()
