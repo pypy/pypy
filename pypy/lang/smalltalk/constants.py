@@ -14,6 +14,7 @@ CLASS_METHODDICT_INDEX = 1
 CLASS_FORMAT_INDEX = 2
 CLASS_NAME_INDEX = 6             # in the mini.image, at least
 
+METHODDICT_TALLY_INDEX = 0
 METHODDICT_VALUES_INDEX = 1
 METHODDICT_NAMES_INDEX  = 2
 
@@ -79,6 +80,7 @@ SO_LARGENEGATIVEINTEGER_CLASS = 42
 # XXX more missing?
 classes_in_special_object_table = {
     "SmallInteger": SO_SMALLINTEGER_CLASS,
+    "Array": SO_ARRAY_CLASS,
     "String": SO_STRING_CLASS,
     "Float": SO_FLOAT_CLASS,
     "MethodContext": SO_METHODCONTEXT_CLASS,

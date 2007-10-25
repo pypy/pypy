@@ -82,7 +82,8 @@ def copy_in_globals_classes_known_to_the_vm():
 # ___________________________________________________________________________
 # Other classes
 
-def define_cls(cls_nm, supercls_nm, instvarsize=0, format=shadow.POINTERS):
+def define_cls(cls_nm, supercls_nm, instvarsize=0, format=shadow.POINTERS,
+               varsized=False):
     assert cls_nm.startswith("w_")
     meta_nm = cls_nm + "Class"
     meta_super_nm = supercls_nm + "Class"
@@ -97,6 +98,7 @@ def define_cls(cls_nm, supercls_nm, instvarsize=0, format=shadow.POINTERS):
                                  classtable[supercls_nm],
                                  w_meta_cls,
                                  format=format,
+                                 varsized=varsized,
                                  name=cls_nm[2:])
 
 define_cls("w_Magnitude", "w_Object")
@@ -108,12 +110,14 @@ define_cls("w_Float", "w_Number", format=shadow.BYTES)
 define_cls("w_Collection", "w_Object")
 define_cls("w_SequencableCollection", "w_Collection")
 define_cls("w_ArrayedCollection", "w_SequencableCollection")
+define_cls("w_Array", "w_ArrayedCollection", varsized=True)
 define_cls("w_String", "w_ArrayedCollection", format=shadow.BYTES)
 define_cls("w_UndefinedObject", "w_Object")
 define_cls("w_Boolean", "w_Object")
 define_cls("w_True", "w_Boolean")
 define_cls("w_False", "w_Boolean")
 define_cls("w_ByteArray", "w_ArrayedCollection", format=shadow.BYTES)
+define_cls("w_MethodDict", "w_Object", instvarsize=2, varsized=True)
 define_cls("w_CompiledMethod", "w_ByteArray", format=shadow.COMPILED_METHOD)
 define_cls("w_MethodContext", "w_Object")
 define_cls("w_ContextPart", "w_Object")
