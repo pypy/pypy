@@ -90,8 +90,14 @@ class ImageReader(object):
         self.fillin_w_objects()
 
     def read_header(self):
-        version = self.stream.next()
-        if version != 0x1966: raise NotImplementedError #XXX swap here if 0x66190000
+        version = self.stream.peek()
+        if version != 0x1966: 
+            self.stream.swap = True
+            version = self.stream.peek()
+            if version != 0x1966:
+                raise CorrupImageError
+        version = self.stream.next()        
+        #------        
         headersize = self.stream.next()
         self.endofmemory = self.stream.next() # endofmemory = bodysize
         self.oldbaseaddress = self.stream.next()   
@@ -103,12 +109,15 @@ class ImageReader(object):
         self.stream.skipbytes(headersize - (9 * 4))
 
     def read_body(self):
+        import sys
         self.stream.reset_count()
         while self.stream.count < self.endofmemory:
             chunk, pos = self.read_object()
+            if len(self.chunklist) % 1000 == 0: sys.stderr.write('#')
             self.chunklist.append(chunk)
             self.chunks[pos + self.oldbaseaddress] = chunk
         self.stream.close()    
+        self.swap = self.stream.swap #save for later
         del self.stream
         return self.chunklist # return for testing
 
@@ -328,17 +337,28 @@ class GenericObject(object):
         w_wordsobject.hash = self.chunk.hash12 # XXX check this
 
     def fillin_bytesobject(self, w_bytesobject):
-        bbytes = []
-        for each in self.chunk.data:
-            bbytes.append(chr((each >> 24) & 0xff))
-            bbytes.append(chr((each >> 16) & 0xff)) 
-            bbytes.append(chr((each >> 8) & 0xff)) 
-            bbytes.append(chr((each >> 0) & 0xff))
         w_bytesobject.w_class = self.g_class.w_object
+        w_bytesobject.bytes = self.get_bytes()
+        w_bytesobject.hash = self.chunk.hash12 # XXX check this
+ 
+    def get_bytes(self):
+        bytes = []
+        if self.owner.swap:
+            for each in self.chunk.data:
+                bytes.append(chr((each >> 0) & 0xff))
+                bytes.append(chr((each >> 8) & 0xff)) 
+                bytes.append(chr((each >> 16) & 0xff)) 
+                bytes.append(chr((each >> 24) & 0xff))
+        else:        
+            for each in self.chunk.data:
+                bytes.append(chr((each >> 24) & 0xff))
+                bytes.append(chr((each >> 16) & 0xff)) 
+                bytes.append(chr((each >> 8) & 0xff)) 
+                bytes.append(chr((each >> 0) & 0xff))
         #strange, for example range(4)[:0] returns [] instead of [0,1,2,3]!
         #hence what we have to write list[:-odd] as list[:len(list)-odd] instead :(
-        w_bytesobject.bytes = bbytes[:len(bbytes)-(self.format & 3)] # omit odd bytes
-        w_bytesobject.hash = self.chunk.hash12 # XXX check this
+        return bytes[:len(bytes)-(self.format & 3)] # omit odd bytes
+        
  
     def fillin_compiledmethod(self, w_compiledmethod):
         header = self.chunk.data[0]
@@ -353,19 +373,9 @@ class GenericObject(object):
         _, primitive, literalsize, islarge, tempsize, numargs, highbit = (
             splitbits(header, [1,9,8,1,6,4,1]))
         primitive = primitive + (highbit << 10) ##XXX todo, check this
-        # --------------------
         literals = [self.decode_pointer(pointer).w_object
                     for pointer in self.chunk.data[:literalsize+1]]
-        # --------------------
-        bbytes = []
-        for each in self.chunk.data:
-            bbytes.append(chr((each >> 24) & 0xff))
-            bbytes.append(chr((each >> 16) & 0xff)) 
-            bbytes.append(chr((each >> 8) & 0xff)) 
-            bbytes.append(chr((each >> 0) & 0xff))
-        #strange, for example range(4)[:0] returns [] instead of [0,1,2,3]!
-        #hence what we have to write list[:-odd] as list[:len(list)-odd] instead :(
-        bbytes = bbytes[(literalsize + 1)*4:len(bbytes)-(self.format & 3)] # omit literals & odd bytes
+        bbytes = self.get_bytes()[(literalsize + 1)*4:] 
         # XXX assert mirrorcache.get_or_build(self.g_class.w_object) is
         #            ct.m_CompiledMethod
         w_compiledmethod.__init__(
@@ -374,7 +384,6 @@ class GenericObject(object):
             argsize = numargs,
             tempsize = tempsize,
             primitive = primitive)
-
         w_compiledmethod.literals = literals
 
     
