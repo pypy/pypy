@@ -131,7 +131,8 @@ class __extend__(W_ContextPart):
         if method.primitive:
             func = primitives.prim_table[method.primitive]
             try:
-                w_result = func(primitives.Args(interp, argcount))
+                # add +1 to account for the receiver
+                w_result = func(interp, argcount + 1)
             except primitives.PrimitiveFailedError:
                 pass # ignore this error and fall back to the Smalltalk version
             else:
@@ -294,8 +295,8 @@ class __extend__(W_ContextPart):
     def callPrimitiveAndPush(self, primitive, selector,
                              argcount, interp):
         try:
-            args = primitives.Args(interp, argcount)
-            self.push(primitives.prim_table[primitive](args))
+            # add one to the argcount to account for the self
+            self.push(primitives.prim_table[primitive](interp, argcount + 1))
         except primitives.PrimitiveFailedError:
             self._sendSelfSelector(selector, argcount, interp)
 
