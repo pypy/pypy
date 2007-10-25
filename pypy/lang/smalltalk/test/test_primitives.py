@@ -310,3 +310,9 @@ def test_primitive_log_n():
     assert float_equals(prim(p.FLOAT_LOG_N, [10.0]), 2.302585092994046)
     assert isinf(prim(p.FLOAT_LOG_N, [0.0]).value) # works also for negative infinity
     assert isnan(prim(p.FLOAT_LOG_N, [-1.0]).value)
+
+def test_primitive_exp():
+    assert float_equals(prim(p.FLOAT_EXP, [-1.0]), 1/math.e)
+    assert prim(p.FLOAT_EXP, [0]).value == 1
+    assert float_equals(prim(p.FLOAT_EXP, [1]), math.e)
+    assert float_equals(prim(p.FLOAT_EXP, [math.log(10)]), 10)
