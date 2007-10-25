@@ -1,4 +1,5 @@
 import py
+import math
 from pypy.lang.smalltalk.primitives import prim_table, PrimitiveFailedError
 from pypy.lang.smalltalk import model, shadow
 from pypy.lang.smalltalk import interpreter
@@ -281,7 +282,16 @@ def test_block_copy_and_value():
     return
 
 ROUNDING_DIGITS = 8
+
+def float_equals(w_f,f):
+    return round(w_f.value,ROUNDING_DIGITS) == round(f,ROUNDING_DIGITS)
+
 def test_primitive_square_root():
-	assert prim(p.FLOAT_SQUARE_ROOT, [4.0]).value == 2.0
-	assert round(prim(p.FLOAT_SQUARE_ROOT, [2.0]).value,ROUNDING_DIGITS) == round(1.414213562373095,ROUNDING_DIGITS)
-	prim_fails(p.FLOAT_SQUARE_ROOT, [-2.0])
+    assert prim(p.FLOAT_SQUARE_ROOT, [4.0]).value == 2.0
+    assert float_equals(prim(p.FLOAT_SQUARE_ROOT, [2.0]), 1.414213562373095)
+    prim_fails(p.FLOAT_SQUARE_ROOT, [-2.0])
+
+def test_primitive_sin():
+    assert prim(p.FLOAT_SIN, [0.0]).value == 0.0
+    assert float_equals(prim(p.FLOAT_SIN, [math.pi]), 0.0)
+    assert float_equals(prim(p.FLOAT_SIN, [math.pi/2]), 1.0)

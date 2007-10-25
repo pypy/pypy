@@ -200,6 +200,7 @@ FLOAT_MULTIPLY = 49
 FLOAT_DIVIDE = 50
 FLOAT_TRUNCATED = 51
 FLOAT_SQUARE_ROOT = 55
+FLOAT_SIN = 56
 
 math_ops = {
     FLOAT_ADD: operator.add,
@@ -232,6 +233,13 @@ def func(args, (w_float,)):
     if f < 0.0:
         raise PrimitiveFailedError
     w_res = objtable.wrap_float(math.sqrt(f))
+    return w_res
+
+@primitive(FLOAT_SIN)
+@stack(1)
+def func(args, (w_float,)): 
+    f = unwrap_float(w_float)
+    w_res = objtable.wrap_float(math.sin(f))
     return w_res
 
 # ___________________________________________________________________________
