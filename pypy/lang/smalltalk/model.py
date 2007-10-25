@@ -84,6 +84,9 @@ class W_AbstractObjectWithClassReference(W_AbstractObjectWithIdentityHash):
     def getclass(self):
         return self.w_class
 
+    def __repr__(self):
+        return "<%s %s>" % (self.__class__.__name__, self)
+
     def __str__(self):
         if isinstance(self, W_PointersObject) and self._shadow is not None:
             return "%s class" % (self.as_class_get_shadow().name or '?',)
