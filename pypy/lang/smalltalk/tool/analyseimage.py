@@ -46,16 +46,26 @@ def tinyBenchmarks():
     print "Going to execute %d toplevel bytecodes" % (len(w_method.bytes),)
     counter = 0
 
+    from pypy.lang.smalltalk.interpreter import BYTECODE_TABLE
     while True:
         try:
-            interp.step()
-            print interp.w_active_context.stack
             if interp.w_active_context == w_frame:
                 counter += 1
                 print "Executing toplevel bytecode nr: %d of %d" % (counter, len(w_method.bytes))
+            interp.step()
+            if hasattr(interp.w_active_context,"currentBytecode"):
+                print "Executing bytecode: %s" % (BYTECODE_TABLE[interp.w_active_context.currentBytecode].__name__,)
+            else:
+                print "Jump to new stackframe"
+            print interp.w_active_context.stack
         except interpreter.ReturnFromTopLevel, e:
             assert e.object.value == abs(int)
             return
+        except:
+            if hasattr(interp.w_active_context,"currentBytecode"):
+                cb = interp.w_active_context.currentBytecode
+                print "Failing bytecode: %s %d" % (BYTECODE_TABLE[cb].__name__,cb)
+                raise
 
 
 

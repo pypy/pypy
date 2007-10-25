@@ -282,7 +282,7 @@ class __extend__(W_ContextPart):
         self.jump(self.longJumpPosition())
 
     def longJumpPosition(self):
-        return ((self.currentBytecode & 3) << 8) + self.getNextBytecode()
+        return ((self.currentBytecode & 3) << 8) + self.getByte()
 
     def longJumpIfTrue(self, interp):
         self.jumpConditional(interp.TRUE,self.longJumpPosition())
