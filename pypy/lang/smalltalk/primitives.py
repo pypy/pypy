@@ -199,6 +199,7 @@ FLOAT_SUBTRACT = 42
 FLOAT_MULTIPLY = 49
 FLOAT_DIVIDE = 50
 FLOAT_TRUNCATED = 51
+FLOAT_TIMES_TWO_POWER = 54
 FLOAT_SQUARE_ROOT = 55
 FLOAT_SIN = 56
 FLOAT_ARCTAN = 57
@@ -227,6 +228,14 @@ for (code,op) in math_ops.items():
 def func(args, (w_float,)): 
     f = unwrap_float(w_float)
     w_res = objtable.wrap_int(int(f))
+    return w_res
+
+@primitive(FLOAT_TIMES_TWO_POWER)
+@stack(2)
+def func(args, (w_rcvr,w_arg,)): 
+    rcvr = unwrap_float(w_rcvr)
+    arg = unwrap_int(w_arg)
+    w_res = objtable.wrap_float(math.ldexp(rcvr,arg))
     return w_res
 
 @primitive(FLOAT_SQUARE_ROOT)

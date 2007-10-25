@@ -316,3 +316,15 @@ def test_primitive_exp():
     assert prim(p.FLOAT_EXP, [0]).value == 1
     assert float_equals(prim(p.FLOAT_EXP, [1]), math.e)
     assert float_equals(prim(p.FLOAT_EXP, [math.log(10)]), 10)
+
+def equals_ttp(rcvr,arg,res):
+    return float_equals(prim(p.FLOAT_TIMES_TWO_POWER, [rcvr,arg]), res)
+
+def test_times_two_power():
+    assert equals_ttp(1,1,2)
+    assert equals_ttp(1.5,1,3)
+    assert equals_ttp(2,4,32)
+    assert equals_ttp(0,2,0)
+    assert equals_ttp(-1,2,-4)
+    assert equals_ttp(1.5,0,1.5)
+    assert equals_ttp(1.5,-1,0.75)
