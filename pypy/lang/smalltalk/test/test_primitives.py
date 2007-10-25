@@ -291,7 +291,7 @@ def float_equals(w_f,f):
 
 def test_primitive_square_root():
     assert prim(p.FLOAT_SQUARE_ROOT, [4.0]).value == 2.0
-    assert float_equals(prim(p.FLOAT_SQUARE_ROOT, [2.0]), 1.414213562373095)
+    assert float_equals(prim(p.FLOAT_SQUARE_ROOT, [2.0]), math.sqrt(2))
     prim_fails(p.FLOAT_SQUARE_ROOT, [-2.0])
 
 def test_primitive_sin():
@@ -307,7 +307,7 @@ def test_primitive_arctan():
 def test_primitive_log_n():
     assert prim(p.FLOAT_LOG_N, [1.0]).value == 0.0
     assert prim(p.FLOAT_LOG_N, [math.e]).value == 1.0
-    assert float_equals(prim(p.FLOAT_LOG_N, [10.0]), 2.302585092994046)
+    assert float_equals(prim(p.FLOAT_LOG_N, [10.0]), math.log(10))
     assert isinf(prim(p.FLOAT_LOG_N, [0.0]).value) # works also for negative infinity
     assert isnan(prim(p.FLOAT_LOG_N, [-1.0]).value)
 
