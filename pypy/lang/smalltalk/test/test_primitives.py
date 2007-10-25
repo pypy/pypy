@@ -1,6 +1,6 @@
 import py
 from pypy.lang.smalltalk.primitives import prim_table, PrimitiveFailedError
-from pypy.lang.smalltalk import model, mirror
+from pypy.lang.smalltalk import model, shadow
 from pypy.lang.smalltalk import interpreter
 from pypy.lang.smalltalk import classtable
 from pypy.lang.smalltalk import objtable
@@ -8,7 +8,7 @@ from pypy.lang.smalltalk import objtable
 # Violates the guideline, but we use it A LOT to reference the primitive codes:
 import pypy.lang.smalltalk.primitives as p
 
-mockclassmirror = classtable.bootstrap_classmirror
+mockclass = classtable.bootstrap_class
 
 class MockFrame(interpreter.W_MethodContext):
     def __init__(self, stack):
@@ -20,7 +20,6 @@ def wrap(x):
     if isinstance(x, model.W_Object): return x
     if isinstance(x, str) and len(x) == 1: return objtable.wrap_char(x)
     if isinstance(x, str): return objtable.wrap_string(x)
-    if isinstance(x, mirror.ClassMirror): return x.w_self
     raise NotImplementedError
     
 def mock(stack):
@@ -145,21 +144,21 @@ def test_float():
     assert prim(p.FLOAT_ADD, [3,4.5]).value == 7.5
 
 def test_at():
-    w_obj = mockclassmirror(0, varsized=True).new(1)
+    w_obj = mockclass(0, varsized=True).as_class_get_shadow().new(1)
     w_obj.store(0, "foo")
     assert prim(p.AT, [w_obj, 0]) == "foo"
 
 def test_invalid_at():
-    w_obj = mockclassmirror(0).new()
+    w_obj = mockclass(0).as_class_get_shadow().new()
     prim_fails(p.AT, [w_obj, 0])
 
 def test_at_put():
-    w_obj = mockclassmirror(0, varsized=1).new(1)
+    w_obj = mockclass(0, varsized=1).as_class_get_shadow().new(1)
     assert prim(p.AT_PUT, [w_obj, 0, 22]).value == 22
     assert prim(p.AT, [w_obj, 0]).value == 22
     
 def test_invalid_at_put():
-    w_obj = mockclassmirror(0).new()
+    w_obj = mockclass(0).as_class_get_shadow().new()
     prim_fails(p.AT_PUT, [w_obj, 0, 22])
 
 def test_string_at():
@@ -180,12 +179,12 @@ def test_invalid_object_at():
     prim_fails(p.OBJECT_AT, ["q", objtable.CHARACTER_VALUE_INDEX+1])
     
 def test_object_at_put():
-    w_obj = mockclassmirror(1).new()
+    w_obj = mockclass(1).as_class_get_shadow().new()
     assert prim(p.OBJECT_AT_PUT, [w_obj, 0, "q"]) is wrap("q")
     assert prim(p.OBJECT_AT, [w_obj, 0]) is wrap("q")
 
 def test_invalid_object_at_put():
-    w_obj = mockclassmirror(1).new()
+    w_obj = mockclass(1).as_class_get_shadow().new()
     prim_fails(p.OBJECT_AT, [w_obj, 1, 1])
     
 def test_string_at_put():
@@ -196,19 +195,19 @@ def test_string_at_put():
         assert prim(p.STRING_AT, [test_str, i]) == wrap(exp[i])
 
 def test_new():
-    w_res = prim(p.NEW, [classtable.m_Object])
-    assert w_res.getclassmirror() == classtable.m_Object
+    w_res = prim(p.NEW, [classtable.w_Object])
+    assert w_res.getclass() == classtable.w_Object
     
 def test_invalid_new():
-    prim_fails(p.NEW, [classtable.m_ByteString])
+    prim_fails(p.NEW, [classtable.w_ByteString])
 
 def test_new_with_arg():
-    w_res = prim(p.NEW_WITH_ARG, [classtable.m_ByteString, 20])
-    assert w_res.getclassmirror() == classtable.m_ByteString
+    w_res = prim(p.NEW_WITH_ARG, [classtable.w_ByteString, 20])
+    assert w_res.getclass() == classtable.w_ByteString
     assert w_res.size() == 20    
 
 def test_invalid_new_with_arg():
-    prim_fails(p.NEW_WITH_ARG, [classtable.m_Object, 20])
+    prim_fails(p.NEW_WITH_ARG, [classtable.w_Object, 20])
     
 def test_inst_var_at():
     # I am not entirely sure if this is what this primitive is
@@ -219,7 +218,7 @@ def test_inst_var_at():
     assert w_v.value == ord("b")
 
 def test_as_oop():
-    w_obj = mockclassmirror(0).new()
+    w_obj = mockclass(0).as_class_get_shadow().new()
     w_obj.w_hash = wrap(22)
     assert prim(p.AS_OOP, [w_obj]).value == 22
 

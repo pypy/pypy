@@ -19,9 +19,9 @@ class W_MethodContext(model.W_Object):
         self.temps = arguments + [None] * method.tempsize
         self.pc = 0
 
-    def getclassmirror(self):
-        from pypy.lang.smalltalk.classtable import m_MethodContext  # XXX do me
-        return m_MethodContext
+    def getclass(self):
+        from pypy.lang.smalltalk.classtable import w_MethodContext  # XXX do me
+        return w_MethodContext
 
     def gethash(self):
         return 44     # XXX
@@ -126,15 +126,16 @@ class W_MethodContext(model.W_Object):
     def _sendSelfSelector(self, selector, argcount, interp):
         receiver = self.peek(argcount)
         self._sendSelector(selector, argcount, interp,
-                           receiver, receiver.getclassmirror())
+                           receiver, receiver.shadow_of_my_class())
 
     def _sendSuperSelector(self, selector, argcount, interp):
+        s_compiledin = self.method.w_compiledin.as_class_get_shadow()
         self._sendSelector(selector, argcount, interp, self.receiver,
-                           self.method.m_compiledin.m_superclass)
+                           s_compiledin.s_superclass)
 
     def _sendSelector(self, selector, argcount, interp,
-                      receiver, m_receiverclass):
-        method = m_receiverclass.lookup(selector)
+                      receiver, receiverclassshadow):
+        method = receiverclassshadow.lookup(selector)
         assert method
         if method.primitive:
             func = primitives.prim_table[method.primitive]

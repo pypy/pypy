@@ -11,7 +11,7 @@ class W_Object(object):
     def size(self):
         return 0
 
-    def getclassmirror(self):
+    def getclass(self):
         raise NotImplementedError
 
     def gethash(self):
@@ -20,13 +20,16 @@ class W_Object(object):
     def invariant(self):
         return True
 
+    def shadow_of_my_class(self):
+        return self.getclass().as_class_get_shadow()
+
 class W_SmallInteger(W_Object):
     def __init__(self, value):
         self.value = value
 
-    def getclassmirror(self):
-        from pypy.lang.smalltalk.classtable import m_SmallInteger
-        return m_SmallInteger
+    def getclass(self):
+        from pypy.lang.smalltalk.classtable import w_SmallInteger
+        return w_SmallInteger
 
     def gethash(self):
         return self.value
@@ -41,9 +44,9 @@ class W_Float(W_Object):
     def __init__(self, value):
         self.value = value
 
-    def getclassmirror(self):
-        from pypy.lang.smalltalk.classtable import m_Float
-        return m_Float
+    def getclass(self):
+        from pypy.lang.smalltalk.classtable import w_Float
+        return w_Float
 
     def gethash(self):
         return XXX    # check this
@@ -71,54 +74,64 @@ class W_AbstractObjectWithIdentityHash(W_Object):
         return isinstance(self.hash, int)
 
 class W_AbstractObjectWithClassReference(W_AbstractObjectWithIdentityHash):
-    """ The base class of objects that store 'm_class' explicitly. """
+    """ The base class of objects that store 'w_class' explicitly. """
 
-    def __init__(self, m_class):
-        self.m_class = m_class
+    def __init__(self, w_class):
+        if w_class is not None:     # it's None only for testing
+            assert isinstance(w_class, W_PointersObject)
+        self.w_class = w_class
 
-    def getclassmirror(self):
-        return self.m_class
+    def getclass(self):
+        return self.w_class
 
     def __str__(self):
-        self.getclassmirror().check()
+        # XXX use the shadow of my class
         if self.size() >= 9:
             return ''.join(self.fetch(constants.CLASS_NAME_INDEX).bytes) + " class"
         else:
             return "a " + ''.join(self.getclass().fetch(constants.CLASS_NAME_INDEX).bytes)
- 
-    def getclass(self):
-        self.getclassmirror().check()
-        return self.getclassmirror().w_self
- 
+
     def invariant(self):
-        from pypy.lang.smalltalk.mirror import ClassMirror
         return (W_AbstractObjectWithIdentityHash.invariant(self) and
-                isinstance(self.m_class, ClassMirror))
+                isinstance(self.w_class, W_PointersObject))
 
 
 class W_PointersObject(W_AbstractObjectWithClassReference):
     """ The normal object """
-    def __init__(self, m_class, size):
-        W_AbstractObjectWithClassReference.__init__(self, m_class)
-        self.vars = [None] * size
+    def __init__(self, w_class, size):
+        W_AbstractObjectWithClassReference.__init__(self, w_class)
+        self._vars = [None] * size
+        self._shadow = None
 
     def fetch(self, index):
-        return self.vars[index]
+        return self._vars[index]
         
     def store(self, index, w_value):    
-        self.vars[index] = w_value
+        if self._shadow is not None:
+            self._shadow.invalidate()
+        self._vars[index] = w_value
 
     def size(self):
-        return len(self.vars)
+        return len(self._vars)
 
     def invariant(self):
         return (W_AbstractObjectWithClassReference.invariant(self) and
-                isinstance(self.vars, list))
+                isinstance(self._vars, list))
+
+    def as_class_get_shadow(self):
+        from pypy.lang.smalltalk.shadow import ClassShadow
+        shadow = self._shadow
+        if shadow is None:
+            self._shadow = shadow = ClassShadow(self)
+        assert isinstance(shadow, ClassShadow)      # for now, the only kind
+        shadow.check_for_updates()
+        return shadow
 
     def compiledmethodnamed(self, methodname):
-        w_methoddict = self.fetch(constants.CLASS_METHODDICT_INDEX).vars
+        # XXX kill me.  Temporary, for testing
+        w_methoddict = self.fetch(constants.CLASS_METHODDICT_INDEX)._vars
         names  = w_methoddict[constants.METHODDICT_NAMES_INDEX:]
-        values = w_methoddict[constants.METHODDICT_VALUES_INDEX].vars
+        values = w_methoddict[constants.METHODDICT_VALUES_INDEX]._vars
         for var in names:
             if isinstance(var, W_BytesObject):
                 if str(var) == repr(methodname):
@@ -126,6 +139,7 @@ class W_PointersObject(W_AbstractObjectWithClassReference):
         raise MethodNotFound
 
     def lookup(self, methodname):
+        # XXX kill me.  Temporary, for testing
         in_class = self
         while in_class != None:
             try:
@@ -143,8 +157,8 @@ class W_PointersObject(W_AbstractObjectWithClassReference):
                     return self.lookup("doesNotUnderstand")
 
 class W_BytesObject(W_AbstractObjectWithClassReference):
-    def __init__(self, m_class, size):
-        W_AbstractObjectWithClassReference.__init__(self, m_class)
+    def __init__(self, w_class, size):
+        W_AbstractObjectWithClassReference.__init__(self, w_class)
         self.bytes = ['\x00'] * size
         
     def getbyte(self, n):
@@ -168,8 +182,8 @@ class W_BytesObject(W_AbstractObjectWithClassReference):
         return True
 
 class W_WordsObject(W_AbstractObjectWithClassReference):
-    def __init__(self, m_class, size):
-        W_AbstractObjectWithClassReference.__init__(self, m_class)
+    def __init__(self, w_class, size):
+        W_AbstractObjectWithClassReference.__init__(self, w_class)
         self.words = [0] * size
         
     def getword(self, n):
@@ -208,18 +222,18 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
     The trailer has two variant formats.  In the first variant, the last byte is at least 252 and the last four bytes represent a source pointer into one of the sources files (see #sourcePointer).  In the second variant, the last byte is less than 252, and the last several bytes are a compressed version of the names of the method's temporary variables.  The number of bytes used for this purpose is the value of the last byte in the method.
     """
     def __init__(self, literalsize, bytes, argsize=0, 
-                 tempsize=0, primitive=0, m_compiledin=None):
+                 tempsize=0, primitive=0, w_compiledin=None):
         # self.literals = [None] * size
         self.literalsize = literalsize
-        self.m_compiledin = m_compiledin
+        self.w_compiledin = w_compiledin
         self.bytes = bytes
         self.argsize = argsize
         self.tempsize = tempsize
         self.primitive = primitive
 
-    def getclassmirror(self):
-        from pypy.lang.smalltalk.classtable import m_CompiledMethod
-        return m_CompiledMethod
+    def getclass(self):
+        from pypy.lang.smalltalk.classtable import w_CompiledMethod
+        return w_CompiledMethod
 
     def gethash(self):
         return 43     # XXX

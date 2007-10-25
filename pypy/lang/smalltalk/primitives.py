@@ -1,5 +1,5 @@
 import operator
-from pypy.lang.smalltalk import model, mirror
+from pypy.lang.smalltalk import model, shadow
 from pypy.lang.smalltalk import classtable
 from pypy.lang.smalltalk import objtable
 from pypy.rlib import rarithmetic
@@ -229,7 +229,7 @@ def func(args, stack):
 @primitive(SIZE)
 @stack(1)
 def func(args, (w_obj,)):
-    if not w_obj.getclassmirror().isvariable():
+    if not w_obj.shadow_of_my_class().isvariable():
         raise PrimitiveFailedError()
     return w_obj.size()
 
@@ -244,7 +244,7 @@ def func(args, stack):
 @stack(3)
 def func(args, stack):
     w_obj, idx, w_val = common_at_put(stack)
-    if w_val.getclassmirror() is not classtable.m_Character:
+    if w_val.getclass() is not classtable.w_Character:
         raise PrimitiveFailedError()
     w_obj.setbyte(idx, objtable.ord_w_char(w_val))
     return w_val
@@ -270,7 +270,7 @@ NEW_METHOD = 79
 def func(args, (w_rcvr, w_idx)):
     idx = unwrap_int(w_idx)
     # XXX should be idx-1, probably
-    assert_bounds(idx, 0, w_rcvr.getclassmirror().instance_size)
+    assert_bounds(idx, 0, w_rcvr.shadow_of_my_class().instance_size)
     return w_rcvr.fetch(idx)
 
 @primitive(OBJECT_AT_PUT)
@@ -278,26 +278,26 @@ def func(args, (w_rcvr, w_idx)):
 def func(args, (w_rcvr, w_idx, w_val)):
     idx = unwrap_int(w_idx)
     # XXX should be idx-1, probably
-    assert_bounds(idx, 0, w_rcvr.getclassmirror().instance_size)
+    assert_bounds(idx, 0, w_rcvr.shadow_of_my_class().instance_size)
     w_rcvr.store(idx, w_val)
     return w_val
 
 @primitive(NEW)
 @stack(1)
 def func(args, (w_cls,)):
-    m_cls = mirror.mirrorcache.getmirror(w_cls)
-    if m_cls.isvariable():
+    shadow = w_cls.as_class_get_shadow()
+    if shadow.isvariable():
         raise PrimitiveFailedError()
-    return m_cls.new()
+    return shadow.new()
 
 @primitive(NEW_WITH_ARG)
 @stack(2)
 def func(args, (w_cls, w_size)):
-    m_cls = mirror.mirrorcache.getmirror(w_cls)
-    if not m_cls.isvariable():
+    shadow = w_cls.as_class_get_shadow()
+    if not shadow.isvariable():
         raise PrimitiveFailedError()
     size = unwrap_int(w_size)
-    return m_cls.new(size)
+    return shadow.new(size)
 
 @primitive(ARRAY_BECOME_ONE_WAY)
 def func(args):
@@ -309,12 +309,12 @@ def func(args, (w_rcvr, w_idx)):
     # I *think* this is the correct behavior, but I'm not quite sure.
     # Might be restricted to fixed length fields?
     idx = unwrap_int(w_idx)
-    m_cls = w_rcvr.getclassmirror()
+    shadow = w_rcvr.shadow_of_my_class()
     if idx < 0:
         raise PrimitiveFailedError()
-    if idx < m_cls.instsize():
+    if idx < shadow.instsize():
         return w_rcvr.fetch(idx)
-    idx -= m_cls.instsize()
+    idx -= shadow.instsize()
     if idx < w_rcvr.size():
         return subscript(idx, w_rcvr)
     raise PrimitiveFailedError()

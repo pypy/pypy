@@ -1,39 +1,52 @@
 import weakref
 from pypy.lang.smalltalk import model, constants
 
+class AbstractShadow(object):
+    """A shadow is an optional extra bit of information that
+    can be attached at run-time to any Smalltalk object.
+    """
+    def invalidate(self):
+        """XXX This should get called whenever the base Smalltalk
+        object changes."""
+
+# ____________________________________________________________ 
+
 POINTERS = 0
 BYTES = 1
 WORDS = 2
 WEAK_POINTERS = 3
 COMPILED_METHOD = 4
 
-class ClassMirrorError(Exception):
+class ClassShadowError(Exception):
     pass
 
 def unwrap_int(w_value):
     if isinstance(w_value, model.W_SmallInteger):
         return w_value.value
-    raise ClassMirrorError("expected a W_SmallInteger, got %s" % (w_value,))
+    raise ClassShadowError("expected a W_SmallInteger, got %s" % (w_value,))
 
 
-class ClassMirror(object):
+class ClassShadow(AbstractShadow):
+    """A shadow for Smalltalk objects that are classes
+    (i.e. used as the class of another Smalltalk object).
+    """
     def __init__(self, w_self):
         self.w_self = w_self
         self.invalidate()
 
     def invalidate(self):
         self.methoddict = {}
-        self.m_superclass = None
-        self.m_metaclass = None
+        self.s_superclass = None     # the ClassShadow of the super class
+        self.s_metaclass = None      # the ClassShadow of the meta class
         self.name = '?' # take care when initing this, metaclasses do not have a name!
         self.invalid = True
 
-    def check(self):
+    def check_for_updates(self):
         if self.invalid:
-            self.update_mirror()
+            self.update_shadow()
 
-    def update_mirror(self):
-        "Update the ClassMirror with data from the w_self class."
+    def update_shadow(self):
+        "Update the ClassShadow with data from the w_self class."
         w_self = self.w_self
         # read and painfully decode the format
         classformat = unwrap_int(w_self.fetch(constants.CLASS_FORMAT_INDEX))
@@ -58,27 +71,34 @@ class ClassMirror(object):
         elif format == 6:
             self.instance_kind = WORDS
             if self.instance_kind != 0:
-                raise ClassMirrorError("can't have both words and a non-zero "
+                raise ClassShadowError("can't have both words and a non-zero "
                                        "base instance size")
         elif 8 <= format <= 11:
             self.instance_kind = BYTES
             if self.instance_kind != 0:
-                raise ClassMirrorError("can't have both bytes and a non-zero "
+                raise ClassShadowError("can't have both bytes and a non-zero "
                                        "base instance size")
         elif 12 <= format <= 15:
             self.instance_kind = COMPILED_METHOD
         else:
-            raise ClassMirrorError("unknown format %d" % (format,))
+            raise ClassShadowError("unknown format %d" % (format,))
+        # XXX read s_superclass
+        # XXX read s_metaclass
+        # XXX read the methoddict
         self.invalid = False
+        if self.s_superclass is not None:
+            self.s_superclass.check_for_updates()
+        if self.s_metaclass is not None:
+            self.s_metaclass.check_for_updates()
 
     def new(self, extrasize=0):
-        self.check()
+        w_cls = self.w_self
         if self.instance_kind == POINTERS:
-            return model.W_PointersObject(self, self.instance_size + extrasize)
+            return model.W_PointersObject(w_cls, self.instance_size+extrasize)
         elif self.instance_kind == WORDS:
-            return model.W_WordsObject(self, extrasize)
+            return model.W_WordsObject(w_cls, extrasize)
         elif self.instance_kind == BYTES:
-            return model.W_BytesObject(self, extrasize)
+            return model.W_BytesObject(w_cls, extrasize)
         else:
             raise NotImplementedError(self.instance_kind)
 
@@ -110,17 +130,31 @@ class ClassMirror(object):
         " Number of named instance variables for each instance of this class "
         return self.instance_size
 
+    def ismetaclass(self):
+        "Heuristic to detect if this is the shadow of a metaclass."
+        from pypy.lang.smalltalk import classtable
+        return self.s_metaclass.w_self is classtable.w_Metaclass
+
+    def inherits_from(self, s_superclass):
+        classshadow = self
+        while classshadow is not None:
+            if classshadow is s_superclass:
+                return True
+            classshadow = classshadow.s_superclass
+        else:
+            return False
+
     # _______________________________________________________________
     # Methods for querying the format word, taken from the blue book:
 
     def __repr__(self):
-        return "<ClassMirror %s>" % (self.name,)
+        return "<ClassShadow %s>" % (self.name,)
 
     def lookup(self, selector):
         if selector in self.methoddict:
             return self.methoddict[selector]
-        elif self.m_superclass != None:
-            return self.m_superclass.lookup(selector)
+        elif self.s_superclass != None:
+            return self.s_superclass.lookup(selector)
         else:
             return None
 
@@ -128,27 +162,4 @@ class ClassMirror(object):
         "NOT_RPYTHON"     # this is only for testing.
         assert isinstance(method, model.W_CompiledMethod)
         self.methoddict[selector] = method
-        method.m_compiledin = self
-
-
-class MirrorCache:
-    def __init__(self):
-        self.cache = weakref.WeakKeyDictionary()
-
-    def get_or_build(self, w_class):
-        try:
-            mirror = self.cache[w_class]
-        except KeyError:
-            mirror = self.cache[w_class] = ClassMirror(w_class)
-        return mirror
-
-    def getmirror(self, w_class):
-        mirror = self.get_or_build(w_class)
-        mirror.check()
-        return mirror
-
-    def assign_existing_mirror(self, w_class, m_class):
-        assert w_class not in self.cache
-        self.cache[w_class] = m_class
-
-mirrorcache = MirrorCache()
+        method.w_compiledin = self.w_self
