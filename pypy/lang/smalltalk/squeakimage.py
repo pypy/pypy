@@ -3,12 +3,6 @@ from pypy.lang.smalltalk import model
 from pypy.lang.smalltalk import objtable 
 from pypy.rlib import objectmodel
 
-def int2str(integer):
-    return (chr((integer >> 24) & 0xff) + 
-            chr((integer >> 16) & 0xff) + 
-            chr((integer >> 8) & 0xff) + 
-            chr((integer >> 0) & 0xff))
-
 def chrs2int(b):
     assert len(b) == 4
     first = ord(b[0]) # big endian
@@ -21,22 +15,21 @@ def swapped_chrs2int(b):
     first = ord(b[3]) # little endian
     if first & 0x80 != 0:
         first = first - 0x100
-    return first << 24 | ord(b[2]) << 16 | ord(b[1]) << 8 | ord(b[0])
-            
+    return first << 24 | ord(b[2]) << 16 | ord(b[1]) << 8 | ord(b[0])            
 
 def splitbits(integer, lengths):
+    #XXX we can later let the tool chain mask and unroll this
     assert sum(lengths) <= 32
     result = []
     for length in lengths:
         result.append(integer & (2**length - 1))
         integer = integer >> length
-    #XXX we can later mask and unroll this
     return result
 
 
 # ____________________________________________________________
 #
-# Reads an image file and created all model objects
+# Reads an image file and creates all model objects
 
 class Stream(object):
     """ Simple input stream """    
