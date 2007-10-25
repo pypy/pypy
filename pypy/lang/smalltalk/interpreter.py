@@ -10,7 +10,7 @@ class IllegalStoreError(Exception):
     """Illegal Store."""
 
 
-class W_MethodContext(model.W_Object):
+class W_MethodContext(model.W_AbstractObjectWithIdentityHash):
     def __init__(self, method, receiver, arguments, sender = None):
         self.method = method
         self.receiver = receiver
@@ -22,9 +22,6 @@ class W_MethodContext(model.W_Object):
     def getclass(self):
         from pypy.lang.smalltalk.classtable import w_MethodContext
         return w_MethodContext
-
-    def gethash(self):
-        return 44     # XXX
 
     def pop(self):
         return self.stack.pop()
