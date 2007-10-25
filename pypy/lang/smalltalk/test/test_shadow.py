@@ -18,11 +18,21 @@ def build_smalltalk_class(name, format, w_superclass=w_Object,
         w_class.store(constants.CLASS_NAME_INDEX, objtable.wrap_string(name))
     return w_class
 
-def test_empty_class():
-    w_class = build_smalltalk_class("Empty", 0x2)
+def basicshape(name, format, kind, varsized, instsize):
+    w_class = build_smalltalk_class(name, format)
     classshadow = w_class.as_class_get_shadow()
-    assert classshadow.instance_kind == shadow.POINTERS
-    assert not classshadow.isvariable()
-    assert classshadow.instsize() == 0
-    assert classshadow.name == "Empty"
+    assert classshadow.instance_kind == kind
+    assert classshadow.isvariable() == varsized
+    assert classshadow.instsize() == instsize
+    assert classshadow.name == name
     assert classshadow.s_superclass is w_Object.as_class_get_shadow()
+
+def test_basic_shape():
+    yield basicshape, "Empty",        0x02,    shadow.POINTERS, False, 0
+    yield basicshape, "Seven",        0x90,    shadow.POINTERS, False, 7
+    yield basicshape, "Seventyseven", 0x1009C, shadow.POINTERS, False, 77
+    yield basicshape, "EmptyVar",     0x102,   shadow.POINTERS, True,  0
+    yield basicshape, "VarSeven",     0x190,   shadow.POINTERS, True,  7
+    yield basicshape, "Bytes",        0x402,   shadow.BYTES,    True,  0
+    yield basicshape, "Words",        0x302,   shadow.WORDS,    True,  0
+    yield basicshape, "CompiledMeth", 0xE02,   shadow.COMPILED_METHOD, True, 0
