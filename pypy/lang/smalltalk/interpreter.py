@@ -6,8 +6,11 @@ from pypy.lang.smalltalk.conftest import option
 from pypy.rlib import objectmodel, unroll
 
 
-class MissingBytecode(NotImplementedError):
+class MissingBytecode(Exception):
     """Bytecode not implemented yet."""
+    def __init__(self, bytecodename):
+        self.bytecodename = bytecodename
+        print "MissingBytecode:", bytecodename     # hack for debugging
 
 class IllegalStoreError(Exception):
     """Illegal Store."""
@@ -184,7 +187,7 @@ class __extend__(W_ContextPart):
         self._return(self.top(), interp, self.w_sender)
 
     def unknownBytecode(self, interp):
-        raise MissingBytecode
+        raise MissingBytecode("unknownBytecode")
 
     def extendedVariableTypeAndIndex(self):
         descriptor = self.getByte()
@@ -275,7 +278,7 @@ class __extend__(W_ContextPart):
         self.pop()
 
     def experimentalBytecode(self, interp):
-        raise MissingBytecode
+        raise MissingBytecode("experimentalBytecode")
 
     def jump(self,offset):
         self.pc = self.pc + offset
@@ -348,7 +351,7 @@ class __extend__(W_ContextPart):
         self.callPrimitiveAndPush(primitives.MOD, "\\", 1, interp)
 
     def bytecodePrimMakePoint(self, interp):
-        raise MissingBytecode
+        raise MissingBytecode("bytecodePrimMakePoint")
 
     def bytecodePrimBitShift(self, interp):
         self.callPrimitiveAndPush(primitives.BIT_SHIFT, "bitShift:", 1, interp)
@@ -372,16 +375,16 @@ class __extend__(W_ContextPart):
         self.callPrimitiveAndPush(primitives.SIZE, "size", 0, interp)
 
     def bytecodePrimNext(self, interp):
-        raise MissingBytecode
+        raise MissingBytecode("bytecodePrimNext")
 
     def bytecodePrimNextPut(self, interp):
-        raise MissingBytecode
+        raise MissingBytecode("bytecodePrimNextPut")
 
     def bytecodePrimAtEnd(self, interp):
-        raise MissingBytecode
+        raise MissingBytecode("bytecodePrimAtEnd")
 
     def bytecodePrimEquivalent(self, interp):
-        raise MissingBytecode
+        raise MissingBytecode("bytecodePrimEquivalent")
 
     def bytecodePrimClass(self, interp):
         self.callPrimitiveAndPush(
