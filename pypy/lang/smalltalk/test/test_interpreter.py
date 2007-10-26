@@ -188,47 +188,54 @@ def test_storeAndPopTemporaryVariableBytecode(bytecode=storeAndPopTemporaryVaria
                 assert interp.w_active_context.temps[test_index] == interp.TRUE
             else:
                 assert interp.w_active_context.temps[test_index] == None
-    
 
 def test_pushConstantTrueBytecode():
     interp = new_interpreter(pushConstantTrueBytecode)
     interp.step()
-    assert interp.w_active_context.top() == interp.TRUE
+    assert interp.w_active_context.pop() == interp.TRUE
+    assert interp.w_active_context.stack == []
 
 def test_pushConstantFalseBytecode():
     interp = new_interpreter(pushConstantFalseBytecode)
     interp.step()
-    assert interp.w_active_context.top() == interp.FALSE
+    assert interp.w_active_context.pop() == interp.FALSE
+    assert interp.w_active_context.stack == []
 
 def test_pushConstantNilBytecode():
     interp = new_interpreter(pushConstantNilBytecode)
     interp.step()
-    assert interp.w_active_context.top() == interp.NIL
+    assert interp.w_active_context.pop() == interp.NIL
+    assert interp.w_active_context.stack == []
 
 def test_pushConstantMinusOneBytecode():
     interp = new_interpreter(pushConstantMinusOneBytecode)
     interp.step()
-    assert interp.w_active_context.top() == interp.MONE
+    assert interp.w_active_context.pop() == interp.MONE
+    assert interp.w_active_context.stack == []
 
 def test_pushConstantZeroBytecode():
     interp = new_interpreter(pushConstantZeroBytecode)
     interp.step()
-    assert interp.w_active_context.top() == interp.ZERO
+    assert interp.w_active_context.pop() == interp.ZERO
+    assert interp.w_active_context.stack == []
     
 def test_pushConstantOneBytecode():
     interp = new_interpreter(pushConstantOneBytecode)
     interp.step()
-    assert interp.w_active_context.top() == interp.ONE
+    assert interp.w_active_context.pop() == interp.ONE
+    assert interp.w_active_context.stack == []
 
 def test_pushConstantTwoBytecode():
     interp = new_interpreter(pushConstantTwoBytecode)
     interp.step()
-    assert interp.w_active_context.top()
+    assert interp.w_active_context.pop() == interp.TWO
+    assert interp.w_active_context.stack == []
 
 def test_pushActiveContextBytecode():
     interp = new_interpreter(pushActiveContextBytecode)
     interp.step()
-    assert interp.w_active_context.top() == interp.w_active_context
+    assert interp.w_active_context.pop() == interp.w_active_context
+    assert interp.w_active_context.stack == []
     
 def test_duplicateTopBytecode():
     interp = new_interpreter(pushConstantZeroBytecode + duplicateTopBytecode)
@@ -241,57 +248,86 @@ def test_bytecodePrimBitAnd():
     interp.step()
     interp.step()
     interp.step()
-    assert interp.w_active_context.stack[0].value == 0
+    assert interp.w_active_context.pop().value == 0
+    assert interp.w_active_context.stack == []
     
 def test_bytecodePrimBitOr():
     interp = new_interpreter(pushConstantOneBytecode + pushConstantTwoBytecode + bytecodePrimBitOr)
     interp.step()
     interp.step()
     interp.step()
-    assert interp.w_active_context.stack[0].value == 3
+    assert interp.w_active_context.pop().value == 3
+    assert interp.w_active_context.stack == []
 
 def test_bytecodePrimBitShift():
     interp = new_interpreter(pushConstantOneBytecode + pushConstantTwoBytecode + bytecodePrimBitShift)
     interp.step()
     interp.step()
     interp.step()
-    assert interp.w_active_context.stack[0].value == 4
- 
+    assert interp.w_active_context.pop().value == 4
+    assert interp.w_active_context.stack == []
+    
 def test_bytecodePrimClass():
     interp = new_interpreter(pushConstantOneBytecode + bytecodePrimClass)
     interp.step()
     interp.step()
-    assert interp.w_active_context.stack[0] == ct.w_SmallInteger
+    assert interp.w_active_context.pop() == ct.w_SmallInteger
+    assert interp.w_active_context.stack == []
     
 def test_bytecodePrimSubtract():
     interp = new_interpreter(pushConstantOneBytecode + pushConstantTwoBytecode + bytecodePrimSubtract)
     interp.step()
     interp.step()
     interp.step()
-    assert interp.w_active_context.stack[0].value == -1
+    assert interp.w_active_context.pop().value == -1
+    assert interp.w_active_context.stack == []
 
 def test_bytecodePrimMultiply():
     interp = new_interpreter(pushConstantMinusOneBytecode + pushConstantTwoBytecode + bytecodePrimMultiply)
     interp.step()
     interp.step()
     interp.step()
-    assert interp.w_active_context.stack[0].value == -2
+    assert interp.w_active_context.pop().value == -2
+    assert interp.w_active_context.stack == []
+    
+def test_bytecodePrimDivide():
+    interp = new_interpreter(pushConstantTwoBytecode + pushConstantMinusOneBytecode + bytecodePrimDivide)
+    interp.step()
+    interp.step()
+    interp.step()
+    assert interp.w_active_context.pop().value == -2    
+    assert interp.w_active_context.stack == []
     
 def test_bytecodePrimDiv():
     interp = new_interpreter(pushConstantTwoBytecode + pushConstantMinusOneBytecode + bytecodePrimDiv)
     interp.step()
     interp.step()
     interp.step()
-    assert interp.w_active_context.stack[0].value == -2
+    assert interp.w_active_context.pop().value == -2
+    assert interp.w_active_context.stack == []
 
 def test_bytecodePrimMod():
     interp = new_interpreter(pushConstantTwoBytecode + pushConstantMinusOneBytecode + bytecodePrimMod)
     interp.step()
     interp.step()
     interp.step()
-    assert interp.w_active_context.stack[0].value == 0
+    assert interp.w_active_context.pop().value == 0
+    assert interp.w_active_context.stack == []
 
-
+def test_bytecodePrimEquivalent():
+    interp = new_interpreter(pushConstantTwoBytecode + pushConstantMinusOneBytecode + bytecodePrimEquivalent)
+    interp.step()
+    interp.step()
+    interp.step()
+    assert interp.w_active_context.pop() == interpreter.Interpreter.FALSE
+    assert interp.w_active_context.stack == []
+    
+    interp = new_interpreter(pushConstantOneBytecode + pushConstantOneBytecode + bytecodePrimEquivalent)
+    interp.step()
+    interp.step()
+    interp.step()
+    assert interp.w_active_context.pop() == interpreter.Interpreter.TRUE
+    assert interp.w_active_context.stack == []
 
 # w_class - the class from which the method is going to be called
 # (and on which it is going to be installed)
