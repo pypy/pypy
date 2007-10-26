@@ -258,7 +258,8 @@ class GenericObject(object):
         if not self.ispointers(): return
         self.pointers = [self.decode_pointer(pointer) 
                          for pointer in chunk.data]
-        assert len(filter(lambda x: x is None, self.pointers)) == 0                
+        # assert len(filter(lambda x: x is None, self.pointers)) == 0                
+        assert None not in self.pointers
             
     def decode_pointer(self, pointer):
         if (pointer & 1) == 1:
