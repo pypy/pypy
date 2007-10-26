@@ -25,6 +25,22 @@ def setup():
             globals()[name] = make_getter(entry)
 setup()
 
+def run_with_faked_methods(methods, func):
+
+    # Install faked compiled methods that just invoke the primitive:
+    for (w_class, primnum, argsize, methname) in methods:
+        s_class = w_class.as_class_get_shadow()
+        prim_meth = model.W_CompiledMethod(
+            0, "", argsize=argsize, primitive=primnum)
+        s_class.installmethod(methname, prim_meth)
+        
+    try:
+        func()
+    finally:
+        # Uninstall those methods:
+        for (w_class, _, _, methname) in methods:
+            s_class = w_class.as_class_get_shadow()
+            del s_class.methoddict[methname]
 
 def fakesymbol(s, _cache={}):
     try:
@@ -260,11 +276,8 @@ def test_fibWithArgument():
     assert primitives.unwrap_int(result) == 34
 
 def test_send_to_primitive():
-    s_smallintclass = ct.w_SmallInteger.as_class_get_shadow()
-    prim_meth = model.W_CompiledMethod(0, "", argsize=1,
-                                       primitive=primitives.SUBTRACT)
-    s_smallintclass.installmethod("sub", prim_meth)
-    try:
+
+    def test():
         interp = new_interpreter(sendLiteralSelectorBytecode(1 + 16))
         interp.w_active_context.w_method().literals = fakeliterals("foo", "sub")
         interp.w_active_context.push(wrap_int(50))
@@ -275,8 +288,11 @@ def test_send_to_primitive():
         assert len(interp.w_active_context.stack) == 1
         w_result = interp.w_active_context.pop()
         assert primitives.unwrap_int(w_result) == 42
-    finally:
-        del s_smallintclass.methoddict['sub']    # clean up after you
+        
+    run_with_faked_methods(
+        [[ct.w_SmallInteger, primitives.SUBTRACT,
+          1, "sub"]],
+        test)
 
 def test_longJumpIfTrue():
     interp = new_interpreter(longJumpIfTrue(0) + chr(15) + longJumpIfTrue(0) + chr(15))
@@ -498,19 +514,15 @@ def test_bc_x_plus_y():
     # 
     # 	^ [ :x :y | x + y ] value: 3 value: 4
 
-    # Temporarily introduce a primitive method value:value: that would
-    # normally be in the loaded image:
-    s_BlockContext = ct.w_BlockContext.as_class_get_shadow()
-    prim_meth = model.W_CompiledMethod(
-        0, "", argsize=2, primitive=primitives.PRIMITIVE_VALUE)
-    s_BlockContext.installmethod("value:value:", prim_meth)
-    try:
+    def test():
         assert interpret_bc(
             [ 137, 119, 200, 164, 6, 105, 104, 16, 17,
               176, 125, 33, 34, 240, 124 ],
             fakeliterals("value:value:", wrap_int(3), wrap_int(4))).value == 7
-    finally:
-        del s_BlockContext.methoddict['value:value:']    # clean up after you
+    run_with_faked_methods(
+        [[ct.w_BlockContext, primitives.PRIMITIVE_VALUE,
+          2, "value:value:"]],
+        test)
 
 def test_bc_push_rcvr_in_block():
     # value1
@@ -531,4 +543,21 @@ def test_bc_value_return():
     assert interpret_bc(
         [ 137, 117, 200, 164, 2, 118, 124, 201, 135, 119, 124 ],
         fakeliterals()).value == 1
+
+def test_bc_value_with_args():
+    # valueWithArgs
+    # 	" (self >> #value1) byteCode "
+    # 	" (self >> #value1) literals "
+    # 
+    # 	[ :a :b | a - b ] valueWithArguments: #(3 2)
+    py.test.skip("in progress")
+    def test():
+        assert interpret_bc(
+            [ 137, 119, 200, 164, 6, 105, 104, 16, 17, 177, 125, 33, 224, 124 ],
+            fakeliterals("valueWithArguments:",
+                         [3, 2])).value == 1
+    run_with_faked_methods(
+        [[ct.w_BlockContext, primitives.PRIMITIVE_VALUE_WITH_ARGS,
+          1, "valueWithArguments:"]],
+        test)
 
