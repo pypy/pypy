@@ -35,6 +35,17 @@ def wrap_bool(bool):
     else:
         return w_false
 
+def wrap_list(lst_w_obj):
+    """
+    Converts a Python list of wrapper objects into
+    a wrapped smalltalk array
+    """
+    lstlen = len(lit)
+    res = ct.w_Array.as_class_get_shadow().new(lstlen)
+    for i in range(lstlen):
+        res.storevarpointer(i, fakeliteral(lit[i]))
+    return res    
+
 # ___________________________________________________________________________
 # Global Data
 

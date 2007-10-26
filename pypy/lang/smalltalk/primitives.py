@@ -53,6 +53,10 @@ def make_failing(code):
 # So all optional primitives will default to the bytecode implementation
 prim_table = [make_failing(i) for i in range(576)]
 
+# indicates that what is pushed is an index1, but it is unwrapped and
+# converted to an index0 
+index1_0 = object()
+
 def expose_primitive(code, unwrap_spec=None):
     # some serious magic, don't look
     from pypy.rlib.unroll import unrolling_iterable
@@ -76,7 +80,7 @@ def expose_primitive(code, unwrap_spec=None):
             prim_table[code] = func
             return func
         for spec in unwrap_spec:
-            assert spec in (int, float, object)
+            assert spec in (int, float, object, index1_0)
         len_unwrap_spec = len(unwrap_spec)
         assert (len_unwrap_spec == len(inspect.getargspec(func)[0]) + 1,
                 "wrong number of arguments")
@@ -93,6 +97,8 @@ def expose_primitive(code, unwrap_spec=None):
                 arg = frame.stack[index]
                 if spec is int:
                     args += (unwrap_int(arg), )
+                elif spec is index1_0:
+                    args += (unwrap_int(arg)-1, )
                 elif spec is float:
                     args += (unwrap_float(arg), )
                 elif spec is object:
@@ -294,15 +300,13 @@ SIZE = 62
 STRING_AT = 63
 STRING_AT_PUT = 64
 
-@expose_primitive(AT, unwrap_spec=[object, int])
-def func(interp, w_obj, n1):
-    n0 = n1 - 1
+@expose_primitive(AT, unwrap_spec=[object, index1_0])
+def func(interp, w_obj, n0):
     assert_valid_index(n0, w_obj)
     return w_obj.at0(n0)
 
-@expose_primitive(AT_PUT, unwrap_spec=[object, int, object])
-def func(interp, w_obj, n1, w_val):
-    n0 = n1 - 1
+@expose_primitive(AT_PUT, unwrap_spec=[object, index1_0, object])
+def func(interp, w_obj, n0, w_val):
     assert_valid_index(n0, w_obj)
     w_obj.atput0(n0, w_val)
     return w_val
@@ -313,16 +317,14 @@ def func(interp, w_obj):
         raise PrimitiveFailedError()
     return wrap_int(w_obj.size())
 
-@expose_primitive(STRING_AT, unwrap_spec=[object, int])
-def func(interp, w_obj, n1):
-    n0 = n1 - 1
+@expose_primitive(STRING_AT, unwrap_spec=[object, index1_0])
+def func(interp, w_obj, n0):
     assert_valid_index(n0, w_obj)
     byte = w_obj.getbyte(n0)
     return objtable.CharacterTable[byte]
 
-@expose_primitive(STRING_AT_PUT, unwrap_spec=[object, int, object])
-def func(interp, w_obj, n1, w_val):
-    n0 = n1 - 1
+@expose_primitive(STRING_AT_PUT, unwrap_spec=[object, index1_0, object])
+def func(interp, w_obj, n0, w_val):
     assert_valid_index(n0, w_obj)
     if w_val.getclass() is not classtable.w_Character:
         raise PrimitiveFailedError()
@@ -352,15 +354,13 @@ SOME_INSTANCE = 77
 NEXT_INSTANCE = 78
 NEW_METHOD = 79
 
-@expose_primitive(OBJECT_AT, unwrap_spec=[object, int])
-def func(interp, w_rcvr, n1):
-    n0 = n1 - 1
+@expose_primitive(OBJECT_AT, unwrap_spec=[object, index1_0])
+def func(interp, w_rcvr, n0):
     assert_bounds(n0, 0, w_rcvr.shadow_of_my_class().instance_size)
     return w_rcvr.fetch(n0)
 
-@expose_primitive(OBJECT_AT_PUT, unwrap_spec=[object, int, object])
-def func(interp, w_rcvr, n1, w_val):
-    n0 = n1 - 1
+@expose_primitive(OBJECT_AT_PUT, unwrap_spec=[object, index1_0, object])
+def func(interp, w_rcvr, n0, w_val):
     assert_bounds(n0, 0, w_rcvr.shadow_of_my_class().instance_size)
     w_rcvr.store(n0, w_val)
     return w_val
@@ -384,25 +384,23 @@ def func(interp, w_cls, w_size):
 def func(interp, w_obj1, w_obj2):
     raise PrimitiveNotYetWrittenError
 
-@expose_primitive(INST_VAR_AT, unwrap_spec=[object, int])
-def func(interp, w_rcvr, idx_1):
+@expose_primitive(INST_VAR_AT, unwrap_spec=[object, index1_0])
+def func(interp, w_rcvr, n0):
     "Fetches a fixed field from the object, and fails otherwise"
     shadow = w_rcvr.shadow_of_my_class()
-    idx_0 = idx_1 - 1
-    assert_bounds(idx_0, 0, shadow.instsize())
+    assert_bounds(n0, 0, shadow.instsize())
     # only pointers have non-0 size
     assert isinstance(w_rcvr, model.W_PointersObject)
-    return w_rcvr.fetch(idx_0)
+    return w_rcvr.fetch(n0)
 
-@expose_primitive(INST_VAR_AT_PUT, unwrap_spec=[object, int, object])
-def func(interp, w_rcvr, idx_1, w_value):
+@expose_primitive(INST_VAR_AT_PUT, unwrap_spec=[object, index1_0, object])
+def func(interp, w_rcvr, n0, w_value):
     "Stores a value into a fixed field from the object, and fails otherwise"
-    idx_0 = idx_1 - 1
     shadow = w_rcvr.shadow_of_my_class()
-    assert_bounds(idx_0, 0, shadow.instsize())
+    assert_bounds(n0, 0, shadow.instsize())
     # only pointers have non-0 size    
     assert isinstance(w_rcvr, model.W_PointersObject)
-    w_rcvr.store(idx_0, w_value)
+    w_rcvr.store(n0, w_value)
     return w_value
 
 @expose_primitive(AS_OOP, unwrap_spec=[object])
