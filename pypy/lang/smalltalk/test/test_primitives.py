@@ -59,6 +59,15 @@ def test_small_int_minus():
 def test_small_int_minus_fail():
     prim_fails(primitives.SUBTRACT, [-1073741823,2])
     
+def test_small_int_multiply():
+    assert prim(primitives.MULTIPLY, [6,3]).value == 18
+
+def test_small_int_multiply_overflow():
+    prim_fails(primitives.MULTIPLY, [1073741823, 2])
+    prim_fails(primitives.MULTIPLY, [1073741823, 1073741823])
+    prim_fails(primitives.MULTIPLY, [1073741823, -4])
+    prim_fails(primitives.MULTIPLY, [-1073741823, 2])
+    
 def test_small_int_divide():
     assert prim(primitives.DIVIDE, [6,3]).value == 2
     
@@ -164,7 +173,6 @@ def test_float_truncate():
     assert prim(primitives.FLOAT_TRUNCATED, [4.5]).value == 4
     assert prim(primitives.FLOAT_TRUNCATED, [4.6]).value == 4
 
-
 def test_at():
     w_obj = mockclass(0, varsized=True).as_class_get_shadow().new(1)
     w_obj.store(0, "foo")
@@ -240,6 +248,10 @@ def test_inst_var_at():
     assert w_v.value == ord("q")
     w_v = prim(primitives.INST_VAR_AT, ["abc", 1])
     assert w_v.value == ord("b")
+
+def test_class():
+    assert prim(primitives.CLASS, ["string"]) == classtable.w_String
+    assert prim(primitives.CLASS, [1]) == classtable.w_SmallInteger
 
 def test_as_oop():
     py.test.skip("not yet clear what AS_OOP returns: hash or header?")
@@ -359,3 +371,8 @@ def test_become():
 	
     	self should: [1 become: 2] raise: Error.
     """
+
+# Note:
+#   primitives.PRIMITIVE_BLOCK_COPY is tested in test_interpreter
+#   primitives.PRIMITIVE_VALUE is tested in test_interpreter
+#   primitives.PRIMITIVE_VALUE_WITH_ARGS is tested in test_interpreter
