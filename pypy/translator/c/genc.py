@@ -173,11 +173,7 @@ class CBuilder(object):
         # actually generating the source.
         if db is None:
             db = self.build_database()
-        graphs = []
-        for node in db.containerlist:
-            if isinstance(node, FuncNode):
-                for graph in node.graphs_to_patch():
-                    graphs.append(graph)
+        graphs = db.all_graphs()
         db.gctransformer.prepare_inline_helpers(graphs)
         for node in db.containerlist:
             if isinstance(node, FuncNode):
@@ -596,6 +592,8 @@ def gen_readable_parts_of_main_c_file(f, database, preimplementationlines=[]):
     print >> f, '#include "src/g_include.h"'
     print >> f
     blank = True
+    graphs = database.all_graphs()
+    database.gctransformer.prepare_inline_helpers(graphs)
     for node in database.globalcontainers():
         if blank:
             print >> f

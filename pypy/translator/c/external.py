@@ -15,6 +15,9 @@ class CExternalFunctionCodeGenerator(object):
         self.argtypenames = [db.gettype(T) for T in self.FUNCTYPE.ARGS]
         self.resulttypename = db.gettype(self.FUNCTYPE.RESULT)
 
+    def graphs_to_patch(self):
+        return []
+
     def name(self, cname):  #virtual
         return cname
 

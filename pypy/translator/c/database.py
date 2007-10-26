@@ -392,3 +392,11 @@ class LowLevelDatabase(object):
             for graph in node.graphs_to_patch():
                 graphs.append(graph)
         self.gctransformer.prepare_inline_helpers(graphs)
+
+    def all_graphs(self):
+        graphs = []
+        for node in self.containerlist:
+            if node.nodekind == 'func':
+                for graph in node.graphs_to_patch():
+                    graphs.append(graph)
+        return graphs
