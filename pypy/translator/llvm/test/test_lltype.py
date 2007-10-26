@@ -7,6 +7,25 @@ from pypy.rlib import rarithmetic
 
 from pypy.translator.llvm.test.runtest import *
 
+def test_simple():
+    S = GcStruct("s", ('v', Signed))
+    def llf():
+        s = malloc(S)
+        return s.v
+    fn = compile_function(llf, [])
+    assert fn() == 0
+
+def test_simple2():
+    S = Struct("s", ('v', Signed))
+    S2 = GcStruct("s2", ('a',S), ('b',S))
+    def llf():
+        s = malloc(S2)
+        s.a.v = 6
+        s.b.v = 12
+        return s.a.v + s.b.v
+    fn = compile_function(llf, [])
+    assert fn() == 18
+
 S = Struct("base", ('a', Signed), ('b', Signed))
 
 def test_struct_constant1():
@@ -83,21 +102,6 @@ def test_struct_constant5():
     s.sptr.b.b = 10
     def struct_constant():
         return s.sptr.a + s.sptr.b.a + s.sptr.b.b
-    f = compile_function(struct_constant, [])
-    assert f() == struct_constant()
-
-def test_struct_constant6():
-    U = Struct('inlined', ('z', Signed))
-    T = GcStruct('subtest', ('y', Signed))
-    S = GcStruct('test', ('x', Ptr(T)), ('u', U), ('p', Ptr(U)))
-
-    s = malloc(S)
-    s.x = malloc(T)
-    s.x.y = 42
-    s.u.z = -100
-    s.p = s.u
-    def struct_constant():
-        return s.x.y + s.p.z
     f = compile_function(struct_constant, [])
     assert f() == struct_constant()
 
@@ -239,6 +243,22 @@ def test_floats():  #note: this is known to fail with llvm1.6 and llvm1.7cvs whe
     f = compile_function(floats_fn, [])
     assert f() == floats_fn()
 
+def test_simple_fixedsizearray():
+    A2 = FixedSizeArray(Signed, 2)
+    S = GcStruct("s", ("a2", A2))
+    def llf():
+        s = malloc(S)
+        a2 = s.a2
+        a2[0] = -1
+        a2.item1 = -2
+        assert a2[0] == -1
+        assert a2[1] == -2
+        assert a2.item1 == -2
+        return s.a2.item0 - s.a2[1]
+    fn = compile_function(llf, [])
+    res = fn()
+    assert fn() == 1
+
 def test_fixedsizearray():
     S = Struct("s", ('v', Signed))
     A7 = FixedSizeArray(Signed, 7)
@@ -270,9 +290,9 @@ def test_fixedsizearray():
 def test_recursivearray():
     A = ForwardReference()
     A.become(FixedSizeArray(Struct("S", ('a', Ptr(A))), 5))
-    TREE = GcStruct("TREE", ("root", A), ("other", A))
+    TREE = Struct("TREE", ("root", A), ("other", A))
+    tree = malloc(TREE, immortal=True)
     def llf():
-        tree = malloc(TREE)
         tree.root[0].a = tree.root
         tree.root[1].a = tree.other
         assert tree.root[0].a[0].a[0].a[0].a[0].a[1].a == tree.other
@@ -292,7 +312,7 @@ def test_prebuilt_array():
         s = ''
         for i in range(5):
             s += chr(64+a[i])
-        assert s == "HELLO0"
+        assert s == "HELLO"
         return 0
     fn = compile_function(llf, [])
     fn()
@@ -314,8 +334,8 @@ def test_call_with_fixedsizearray():
 
 def test_more_prebuilt_arrays():
     A = FixedSizeArray(Struct('s1', ('x', Signed)), 5)
-    S = GcStruct('s', ('a1', Ptr(A)), ('a2', A))
-    s = malloc(S, zero=True)
+    S = Struct('s', ('a1', Ptr(A)), ('a2', A))
+    s = malloc(S, zero=True, immortal=True)
     s.a1 = malloc(A, immortal=True)
     s.a1[2].x = 50
     s.a2[2].x = 60
@@ -379,6 +399,28 @@ def test_direct_arrayitems():
         res = fn(4)
         assert res == 0 + 10 + 30 + 1000
 
+def test_structarray_add():
+    from pypy.rpython.lltypesystem import llmemory
+    S = Struct("S", ("x", Signed))
+    PS = Ptr(S)
+    size = llmemory.sizeof(S)
+    A = GcArray(S)
+    itemoffset = llmemory.itemoffsetof(A, 0)
+    def llf(n):
+        a = malloc(A, 5)
+        a[0].x = 1
+        a[1].x = 2
+        a[2].x = 3
+        a[3].x = 42
+        a[4].x = 4
+        adr_s = llmemory.cast_ptr_to_adr(a)
+        adr_s += itemoffset + size * n
+        s = llmemory.cast_adr_to_ptr(adr_s, PS)
+        return s.x
+    fn = compile_function(llf, [int])
+    res = fn(3)
+    assert res == 42
+
 def test_direct_fieldptr():
     S = GcStruct('S', ('x', Signed), ('y', Signed))
     def llf(n):
@@ -390,6 +432,20 @@ def test_direct_fieldptr():
     fn = compile_function(llf, [int])
     res = fn(34)
     assert res == 34
+
+def test_union():
+    py.test.skip("unions!!")
+    U = Struct('U', ('s', Signed), ('c', Char),
+               hints={'union': True})
+    u = malloc(U, immortal=True)
+    def llf(c):
+        u.s = 0x10203040
+        u.c = chr(c)
+        return u.s
+
+    fn = compile_function(llf, [int])
+    res = fn(0x33)
+    assert res in [0x10203033, 0x33203040]
 
 def test_prebuilt_simple_subarrays():
     a2 = malloc(FixedSizeArray(Signed, 5), immortal=True)
@@ -425,20 +481,3 @@ def test_prebuilt_subarrays():
     fn = compile_function(llf, [])
     res = fn()
     assert res == 8765
-
-def test_pointer2fixedsizearray():
-    A = FixedSizeArray(Signed, 1)
-    EmbedS = GcStruct('S', ('data', A))
-    S = GcStruct('S', ('c_data', Ptr(A)))
-                 
-    e = malloc(EmbedS, zero=True)
-    s = malloc(S, zero=True)
-    c_data = s.c_data = e.data
-    c_data[0] = 42
-
-    def llf():
-        return s.c_data[0]
-
-    fn = compile_function(llf, [])
-    res = fn()
-    assert res == 42
