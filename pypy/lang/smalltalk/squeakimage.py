@@ -325,7 +325,8 @@ class GenericObject(object):
             self.fillin_compiledmethod(casted)
         else:
             assert 0
-        assert casted.invariant()
+        if not objectmodel.we_are_translated():
+            assert casted.invariant()
 
     def fillin_pointersobject(self, w_pointersobject):
         assert self.pointers is not None
