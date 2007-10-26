@@ -150,6 +150,7 @@ class __extend__(W_ContextPart):
                 # note: argcount does not include rcvr
                 w_result = func(interp, argcount)
             except primitives.PrimitiveFailedError:
+                print "PRIMITIVE FAILED: %d %s" % (method.primitive, selector,)
                 pass # ignore this error and fall back to the Smalltalk version
             else:
                 # the primitive succeeded
@@ -315,6 +316,7 @@ class __extend__(W_ContextPart):
             # note that argcount does not include self
             self.push(primitives.prim_table[primitive](interp, argcount))
         except primitives.PrimitiveFailedError:
+            print "PRIMITIVE FAILED: %s" % (selector,)
             self._sendSelfSelector(selector, argcount, interp)
 
     def bytecodePrimAdd(self, interp):

@@ -377,6 +377,11 @@ def test_full_gc():
     # Should not fail :-)
     prim(primitives.FULL_GC, [42]) # Dummy arg
 
+def test_seconds_clock():
+    import time
+    now = int(time.time())
+    assert (prim(primitives.SECONDS_CLOCK, [42]).value - now) <= 2
+
 def test_become():
     py.test.skip("implement me!")
     """
@@ -399,6 +404,11 @@ def test_become():
 	
     	self should: [1 become: 2] raise: Error.
     """
+    
+def test_load_inst_var():
+    " try to test the LoadInstVar primitives a little "
+    w_v = prim(primitives.INST_VAR_AT_0, ["q"])
+    assert w_v.value == ord("q")
 
 # Note:
 #   primitives.NEXT is unimplemented as it is a performance optimization
@@ -409,3 +419,4 @@ def test_become():
 #   primitives.PRIMITIVE_VALUE_WITH_ARGS is tested in test_interpreter
 #   primitives.OBJECT_AT is tested in test_interpreter
 #   primitives.OBJECT_AT_PUT is tested in test_interpreter
+

@@ -519,12 +519,18 @@ def func(interp, w_arg): # Squeak pops the arg and ignores it ... go figure
 #____________________________________________________________________________
 # Time Primitives
 MILLISECOND_CLOCK = 135
+SECONDS_CLOCK = 137
 
 @expose_primitive(MILLISECOND_CLOCK, unwrap_spec=[object])
 def func(interp, w_arg):
     import time
     import math
     return wrap_int(int(math.fmod(time.time()*1000,1073741823/2)))
+
+@expose_primitive(SECONDS_CLOCK, unwrap_spec=[object])
+def func(interp, w_arg):
+    import time
+    return wrap_int(0) # wrap_int(int(time.time()))
 
 # ___________________________________________________________________________
 # Boolean Primitives
@@ -715,3 +721,22 @@ def func(interp, w_rcvr):
 @expose_primitive(PRIMITIVE_FLUSH_CACHE, unwrap_spec=[object])
 def func(interp, w_rcvr):
     raise PrimitiveNotYetWrittenError()
+
+# ___________________________________________________________________________
+# PrimitiveLoadInstVar
+#
+# These are some wacky bytecodes in squeak.  They are defined to do
+# the following:
+#   primitiveLoadInstVar
+#     | thisReceiver |
+#     thisReceiver := self popStack.
+#     self push: (self fetchPointer: primitiveIndex-264 ofObject: thisReceiver)
+
+for i in range(264, 520):
+    def make_prim(i):
+        @expose_primitive(i, unwrap_spec=[object])
+        def func(interp, w_object):
+            return w_object.fetch(i - 264)
+    globals()["INST_VAR_AT_%d" % (i-264)] = i
+    make_prim(i)
+    
