@@ -14,6 +14,8 @@ class AppTestZipimport:
     """ A bit structurized tests stolen and adapted from
     cpy's regression tests
     """
+    compression = ZIP_STORED
+    
     def make_pyc(cls, space, co, mtime):
         data = marshal.dumps(co)
         if type(mtime) is type(0.0):
@@ -45,7 +47,7 @@ class AppTestZipimport:
         cls.w_now = space.wrap(now)
         test_pyc = cls.make_pyc(space, co, now)
         cls.w_test_pyc = space.wrap(test_pyc)
-        cls.w_compression = space.wrap(ZIP_STORED)
+        cls.w_compression = space.wrap(cls.compression)
         #ziptestmodule = tmpdir.ensure('ziptestmodule.zip').write(
         ziptestmodule = tmpdir.join("somezip.zip")
         cls.w_tmpzip = space.wrap(str(ziptestmodule))
@@ -74,7 +76,7 @@ class AppTestZipimport:
 
     def setup_method(self, meth):
         space = self.space
-        name = "test_%s.zip" % meth.__name__
+        name = "test_%s_%s.zip" % (self.__class__.__name__, meth.__name__)
         self.w_zipfile = space.wrap(str(self.tmpdir.join(name)))
         space.appexec([space.wrap(self)], """(self):
         self.write_files = []
@@ -107,6 +109,7 @@ class AppTestZipimport:
         import sys, os
         self.writefile(self, "uuu.py", "def f(x): return x")
         mod = __import__('uuu', globals(), locals(), [])
+        print mod
         assert mod.f(3) == 3
         expected = {
             '__doc__' : None,
@@ -153,6 +156,7 @@ class AppTestZipimport:
         self.writefile(self, "uu.py", "def f(x): return x")
         mod = __import__("uu", globals(), locals(), [])
         assert mod.f(3) == 3
+        del sys.modules['uu']
 
     def test_sys_modules(self):
         m0 = ord(self.test_pyc[0])
@@ -165,6 +169,7 @@ class AppTestZipimport:
         sys.modules['uuu'] = lambda x : x + 1
         mod = z.load_module('uuu')
         assert mod(3) == 4
+        del sys.modules['uuu']
 
     def test_package(self):
         import os
@@ -173,6 +178,7 @@ class AppTestZipimport:
         mod = __import__("xx", globals(), locals(), ['yy'])
         assert mod.__path__
         assert mod.yy.f(3) == 3
+        del sys.modules['xx']
 
     def test_functions(self):
         import os
@@ -193,3 +199,6 @@ class AppTestZipimport:
         assert z.get_code('xx')
         assert z.get_source('xx') == "5"
         assert z.archive == self.zipfile
+
+class AppTestZipimportDeflated(AppTestZipimport):
+    compression = ZIP_DEFLATED
