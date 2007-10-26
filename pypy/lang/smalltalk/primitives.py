@@ -627,7 +627,6 @@ def func(interp, w_context, w_argcnt):
     
 @expose_primitive(PRIMITIVE_VALUE)
 def func(interp, argument_count):
-    # XXX XXX XXX XXX test me
     # argument_count does NOT include the receiver.
     # This means that for argument_count == 3 the stack looks like:
     #  3      2       1      Top

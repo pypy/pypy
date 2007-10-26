@@ -492,16 +492,21 @@ def test_bc_x_plus_x_plus_1():
           176, 118, 176, 125, 32, 202, 124 ],
         fakeliterals(wrap_int(3)))
 
-# we skip this test, because it requires to lookup the method #value:value: 
-# in the BlockContext class, which we don't have at the moment
-#
-# def test_bc_x_plus_y():
-#     # value2
-#     # 	" (self >> #value2) byteCode "
-#     # 	" (self >> #value2) literals "
-#     # 
-#     # 	^ [ :x :y | x + y ] value: 3 value: 4
-#     interp_bc_and_check_result_is_7(
-#         [ 137, 119, 200, 164, 6, 105, 104, 16, 17,
-#           176, 125, 33, 34, 240, 124 ],
-#         fakeliterals("value:value:", wrap_int(3), wrap_int(4)))
+def test_bc_x_plus_y():
+    # value2
+    # 	" (self >> #value2) byteCode "
+    # 	" (self >> #value2) literals "
+    # 
+    # 	^ [ :x :y | x + y ] value: 3 value: 4
+    s_BlockContext = ct.w_BlockContext.as_class_get_shadow()
+    prim_meth = model.W_CompiledMethod(
+        0, "", argsize=2, primitive=primitives.PRIMITIVE_VALUE)
+    s_BlockContext.installmethod("value:value:", prim_meth)
+    try:
+        interp_bc_and_check_result_is_7(
+            [ 137, 119, 200, 164, 6, 105, 104, 16, 17,
+              176, 125, 33, 34, 240, 124 ],
+            fakeliterals("value:value:", wrap_int(3), wrap_int(4)))
+    finally:
+        del s_BlockContext.methoddict['value:value:']    # clean up after you
+
