@@ -2,6 +2,7 @@ import py
 from pypy.lang.smalltalk import model, constants, primitives
 from pypy.lang.smalltalk import objtable
 from pypy.lang.smalltalk.model import W_ContextPart
+from pypy.lang.smalltalk.conftest import option
 
 
 class MissingBytecode(NotImplementedError):
@@ -34,6 +35,9 @@ class Interpreter:
     def step(self):
         next = self.w_active_context.getNextBytecode()
         bytecodeimpl = BYTECODE_TABLE[next]
+        if option.bc_trace:
+            print "About to execute bytecode %s:" % (bytecodeimpl.__name__,)
+            print "  Stack=%s" % (repr(self.w_active_context.stack),)
         bytecodeimpl(self.w_active_context, self)
         
 class ReturnFromTopLevel(Exception):
@@ -478,21 +482,12 @@ BYTECODE_RANGES = [
 def initialize_bytecode_table():
     result = [None] * 256
     for entry in BYTECODE_RANGES:
-        def dump_func(f):
-            def wrapped(self, interp):
-                print "Bytecode: %s" % (f.__name__,)
-                res = f(self, interp)
-                print "    stack after: %s" % (
-                    interp.w_active_context.stack)
-                return res
-            return wrapped
         if len(entry) == 2:
             positions = [entry[0]]
         else:
             positions = range(entry[0], entry[1]+1)
         for pos in positions:
-            result[pos] = dump_func(entry[-1])
-            #result[pos] = entry[-1]
+            result[pos] = entry[-1]
     assert None not in result
     return result
 
