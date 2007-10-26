@@ -7,8 +7,6 @@ from pypy.lang.smalltalk import classtable
 from pypy.lang.smalltalk import objtable
 from pypy.lang.smalltalk import constants
 from pypy.rlib.rarithmetic import INFINITY, NAN, isinf, isnan
-
-# Violates the guideline, but we use it A LOT to reference the primitive codes:
 from pypy.lang.smalltalk import primitives
 
 mockclass = classtable.bootstrap_class
