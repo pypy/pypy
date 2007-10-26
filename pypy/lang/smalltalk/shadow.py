@@ -176,12 +176,15 @@ class ClassShadow(AbstractShadow):
 
     def lookup(self, selector):
         look_in_shadow = self
-        while selector not in look_in_shadow.methoddict:
+        while True:
+            try:
+                return look_in_shadow.methoddict[selector]
+            except KeyError:
+                pass
             look_in_shadow = look_in_shadow.s_superclass
             if look_in_shadow is None:
                 # attach information on the exception, for debugging.
                 raise MethodNotFound(self, selector)
-        return look_in_shadow.methoddict[selector]
 
     def installmethod(self, selector, method):
         "NOT_RPYTHON"     # this is only for testing.
