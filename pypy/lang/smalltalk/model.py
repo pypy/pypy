@@ -124,6 +124,10 @@ class W_PointersObject(W_AbstractObjectWithClassReference):
             self._shadow.invalidate()
         self._vars[n0] = w_value
 
+    def fetchvarpointer(self, idx):
+        instsize = self.getclass().as_class_get_shadow().instsize()
+        return self._vars[idx+instsize]
+
     def size(self):
         return len(self._vars)
 
@@ -276,6 +280,10 @@ class W_ContextPart(W_AbstractObjectWithIdentityHash):
         self.w_home = w_home
         self.w_sender = w_sender
 
+    def receiver(self):
+        " Return self of the method, or the method that contains the block "
+        return self.w_home.w_receiver
+    
     # ______________________________________________________________________
     # Imitate the primitive accessors
     
@@ -296,7 +304,7 @@ class W_ContextPart(W_AbstractObjectWithIdentityHash):
 
     # ______________________________________________________________________
     # Method that contains the bytecode for this method/block context
-    
+
     def w_method(self):
         return self.w_home._w_method
 

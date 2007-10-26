@@ -53,7 +53,7 @@ class __extend__(W_ContextPart):
     # push bytecodes
     def pushReceiverVariableBytecode(self, interp):
         index = self.currentBytecode & 15
-        self.push(self.w_receiver.fetch(index))
+        self.push(self.receiver().fetch(index))
 
     def pushTemporaryVariableBytecode(self, interp):
         index = self.currentBytecode & 15
@@ -74,7 +74,7 @@ class __extend__(W_ContextPart):
 
     def storeAndPopReceiverVariableBytecode(self, interp):
         index = self.currentBytecode & 7
-        self.w_receiver.store(index, self.pop())
+        self.receiver().store(index, self.pop())
 
     def storeAndPopTemporaryVariableBytecode(self, interp):
         index = self.currentBytecode & 7
@@ -82,7 +82,7 @@ class __extend__(W_ContextPart):
 
     # push bytecodes
     def pushReceiverBytecode(self, interp):
-        self.push(self.w_receiver)
+        self.push(self.receiver())
 
     def pushConstantTrueBytecode(self, interp):
         self.push(interp.TRUE)
@@ -124,7 +124,7 @@ class __extend__(W_ContextPart):
 
     def _sendSuperSelector(self, selector, argcount, interp):
         s_compiledin = self.w_method().compiledin().as_class_get_shadow()
-        self._sendSelector(selector, argcount, interp, self.w_receiver,
+        self._sendSelector(selector, argcount, interp, self.receiver(),
                            s_compiledin.s_superclass)
 
     def _sendSelector(self, selector, argcount, interp,
@@ -149,29 +149,30 @@ class __extend__(W_ContextPart):
         interp.w_active_context = method.create_frame(receiver, arguments, self) 
         self.pop_n(argcount + 1) 
 
-    def _return(self, object, interp):
-        if self.w_sender is None:   # for tests, when returning from the top-level context
+    def _return(self, object, interp, w_return_to):
+        # for tests, when returning from the top-level context
+        if w_return_to is None:
             raise ReturnFromTopLevel(object)
-        self.w_sender.push(object)
-        interp.w_active_context = self.w_sender
+        w_return_to.push(object)
+        interp.w_active_context = w_return_to
 
     def returnReceiver(self, interp):
-        self._return(self.w_receiver, interp)
+        self._return(self.receiver(), interp, self.w_sender)
 
     def returnTrue(self, interp):
-        self._return(interp.TRUE, interp)
+        self._return(interp.TRUE, interp, self.w_sender)
 
     def returnFalse(self, interp):
-        self._return(interp.FALSE, interp)
+        self._return(interp.FALSE, interp, self.w_sender)
 
     def returnNil(self, interp):
-        self._return(interp.NIL, interp)
+        self._return(interp.NIL, interp, self.w_sender)
 
     def returnTopFromMethod(self, interp):
-        self._return(self.top(), interp)
+        self._return(self.top(), interp, self.w_home.w_sender)
 
     def returnTopFromBlock(self, interp):
-        self._return(self.top(), interp)
+        self._return(self.top(), interp, self.w_sender)
 
     def unknownBytecode(self, interp):
         raise MissingBytecode
@@ -183,7 +184,7 @@ class __extend__(W_ContextPart):
     def extendedPushBytecode(self, interp):
         variableType, variableIndex = self.extendedVariableTypeAndIndex()
         if variableType == 0:
-            self.push(self.w_receiver.fetch(variableIndex))
+            self.push(self.receiver().fetch(variableIndex))
         elif variableType == 1:
             self.push(self.gettemp(variableIndex))
         elif variableType == 2:
@@ -196,7 +197,7 @@ class __extend__(W_ContextPart):
     def extendedStoreBytecode(self, interp):
         variableType, variableIndex = self.extendedVariableTypeAndIndex()
         if variableType == 0:
-            self.w_receiver.store(variableIndex, self.top())
+            self.receiver().store(variableIndex, self.top())
         elif variableType == 1:
             self.settemp(variableIndex, self.top())
         elif variableType == 2:
@@ -233,7 +234,7 @@ class __extend__(W_ContextPart):
                                     second & 31, interp)
         elif opType == 2:
             # pushReceiver
-            self.push(self.w_receiver.fetch(third))
+            self.push(self.receiver().fetch(third))
         elif opType == 3:
             # pushLiteralConstant
             self.push(self.w_method().getliteral(third))
@@ -243,9 +244,9 @@ class __extend__(W_ContextPart):
             assert isinstance(association, model.W_PointersObject)
             self.push(association.fetch(constants.ASSOCIATION_VALUE_INDEX))
         elif opType == 5:
-            self.w_receiver.store(third, self.top())
+            self.receiver().store(third, self.top())
         elif opType == 6:
-            self.w_receiver.store(third, self.pop())
+            self.receiver().store(third, self.pop())
         elif opType == 7:
             association = self.w_method().getliteral(third)
             assert isinstance(association, model.W_PointersObject)

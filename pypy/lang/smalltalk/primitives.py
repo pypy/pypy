@@ -624,6 +624,12 @@ def func(interp, w_context, w_argcnt):
     w_new_context = model.W_BlockContext(
         w_method_context, objtable.w_nil, argcnt, initialip)
     return w_new_context
+
+def finalize_block_ctx(interp, w_block_ctx, frame):
+    # Set some fields
+    w_block_ctx.pc = w_block_ctx.initialip
+    w_block_ctx.w_sender = frame
+    interp.w_active_context = w_block_ctx
     
 @expose_primitive(PRIMITIVE_VALUE)
 def func(interp, argument_count):
@@ -650,14 +656,25 @@ def func(interp, argument_count):
     w_block_ctx.push_all(block_args)
     frame.pop()
 
-    # Set some fields
-    w_block_ctx.pc = w_block_ctx.initialip
-    w_block_ctx.w_sender = frame
-    interp.w_active_context = w_block_ctx
+    finalize_block_ctx(interp, w_block_ctx, frame)
     
 @expose_primitive(PRIMITIVE_VALUE_WITH_ARGS, unwrap_spec=[object, object])
-def func(interp, w_rcvr, w_args):
-    raise PrimitiveNotYetWrittenError()
+def func(interp, w_block_ctx, w_args):
+    if not isinstance(w_block_ctx, model.W_BlockContext):
+        raise PrimitiveFailedError()
+    exp_arg_cnt = w_block_ctx.expected_argument_count()
+
+    # Check that our arguments have pointers format and the right size:
+    if not isinstance(w_args, model.W_PointersObject):
+        raise PrimitiveFailedError()
+    if w_args.size() != exp_arg_cnt:
+        raise PrimitiveFailedError()
+    
+    # Push all the items from the array
+    for i in range(exp_arg_cnt):
+        w_block_ctx.push(w_args.fetchvarpointer(i))
+
+    finalize_block_ctx(interp, w_block_ctx, interp.w_active_context)
 
 @expose_primitive(PRIMITIVE_PERFORM)
 def func(interp, argument_count):

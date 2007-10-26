@@ -463,12 +463,11 @@ def test_doubleExtendedDoAnythinBytecode():
 
     storeAssociation(doubleExtendedDoAnythingBytecode + chr(7<<5) + chr(0))
 
-def interp_bc_and_check_result_is_7(bcodes, literals):
+def interpret_bc(bcodes, literals):
     bcode = "".join([chr(x) for x in bcodes])
     interp = new_interpreter(bcode)
     interp.w_active_context.w_method().literals = literals
-    res = interp.interpret()
-    assert res.value == 7
+    return interp.interpret()
 
 def test_bc_3_plus_4():
     # value0
@@ -476,9 +475,9 @@ def test_bc_3_plus_4():
     # 	" (self >> #value0) literals "
     # 
     # 	^ [ 3 + 4 ] value
-    interp_bc_and_check_result_is_7(
+    assert interpret_bc(
         [ 137, 117, 200, 164, 4, 32, 33, 176, 125, 201, 124],
-        fakeliterals(wrap_int(3), wrap_int(4)))
+        fakeliterals(wrap_int(3), wrap_int(4))).value == 7
 
 
 def test_bc_x_plus_x_plus_1():
@@ -487,10 +486,10 @@ def test_bc_x_plus_x_plus_1():
     # 	" (self >> #value1) literals "
     # 
     # 	^ [ :x | x + x + 1 ] value: 3
-    interp_bc_and_check_result_is_7(
+    assert interpret_bc(
         [ 137, 118, 200, 164, 7, 104, 16, 16,
           176, 118, 176, 125, 32, 202, 124 ],
-        fakeliterals(wrap_int(3)))
+        fakeliterals(wrap_int(3))).value == 7
 
 def test_bc_x_plus_y():
     # value2
@@ -498,15 +497,28 @@ def test_bc_x_plus_y():
     # 	" (self >> #value2) literals "
     # 
     # 	^ [ :x :y | x + y ] value: 3 value: 4
+
+    # Temporarily introduce a primitive method value:value: that would
+    # normally be in the loaded image:
     s_BlockContext = ct.w_BlockContext.as_class_get_shadow()
     prim_meth = model.W_CompiledMethod(
         0, "", argsize=2, primitive=primitives.PRIMITIVE_VALUE)
     s_BlockContext.installmethod("value:value:", prim_meth)
     try:
-        interp_bc_and_check_result_is_7(
+        assert interpret_bc(
             [ 137, 119, 200, 164, 6, 105, 104, 16, 17,
               176, 125, 33, 34, 240, 124 ],
-            fakeliterals("value:value:", wrap_int(3), wrap_int(4)))
+            fakeliterals("value:value:", wrap_int(3), wrap_int(4))).value == 7
     finally:
         del s_BlockContext.methoddict['value:value:']    # clean up after you
+
+def test_bc_push_rcvr_in_block():
+    # value1
+    # 	" (self >> #value1) byteCode "
+    # 	" (self >> #value1) literals "
+    # 
+    # 	^ [ self ] value
+    assert interpret_bc(
+        [ 137, 117, 200, 164, 2, 112, 125, 201, 124 ],
+        fakeliterals(wrap_int(3))) is objtable.w_nil
 
