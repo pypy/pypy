@@ -37,6 +37,7 @@ def tinyBenchmarks():
     # Should get this from w_object
     w_smallint_class = image.special(constants.SO_SMALLINTEGER_CLASS)
     s_class = w_object.shadow_of_my_class()
+    #w_method = s_class.lookup("benchFib")
     w_method = s_class.lookup("tinyBenchmarks")
 
     assert w_method
@@ -65,7 +66,7 @@ def tinyBenchmarks():
                 counter = 0
                 sys.stderr.write("#")
         except interpreter.ReturnFromTopLevel, e:
-            assert e.object.value == abs(int)
+            print e.object
             return
         except:
             if hasattr(interp.w_active_context,"currentBytecode"):
