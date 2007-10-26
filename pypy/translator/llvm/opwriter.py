@@ -319,6 +319,38 @@ class OpWriter(object):
         self.codewriter.call(opr.retref, 'sbyte*', '%pypy_malloc',
                              [word], [opr.argrefs[0]])
 
+    def _interiorhelper(self, TYPE, args):
+        indices = []
+        # XXX this mess is because an FixedSizeArray can sometimes be an Array and sometimes a Struct 
+        for arg in args:
+            name = None
+            if arg.concretetype is lltype.Void:
+                name = arg.value
+                assert name in list(TYPE._names)
+                fieldnames = TYPE._names_without_voids()
+                indexref = fieldnames.index(name)
+            else:
+                indexref = self.db.repr_arg(arg)
+
+            if isinstance(TYPE, lltype.FixedSizeArray):
+                indices.append(("int", indexref))
+                TYPE = TYPE.OF
+
+            elif isinstance(TYPE, lltype.Array):
+                indices.append(("uint", 1))
+                indices.append(("int", indexref))
+                TYPE = TYPE.OF
+
+            elif isinstance(TYPE, lltype.Struct):
+                assert name is not None
+                TYPE = getattr(TYPE, name)
+                indices.append(("uint", indexref))
+
+            else:
+                raise Exception("unsupported type: %s" % TYPE)
+
+        return TYPE, indices
+
     def getfield(self, opr):
         op = opr.op
         if opr.rettype != "void":
@@ -331,6 +363,42 @@ class OpWriter(object):
             self.codewriter.load(opr.retref, opr.rettype, tmpvar)
         else:
             self._skipped(opr)
+
+    def getinteriorfield(self, opr):
+        if opr.rettype != "void":
+            op = opr.op
+            _, indices = self._interiorhelper(op.args[0].concretetype.TO, op.args[1:])
+            tmpvar = self._tmp()
+            self.codewriter.getelementptr(tmpvar, opr.argtypes[0], opr.argrefs[0], indices)
+            self.codewriter.load(opr.retref, opr.rettype, tmpvar)
+        else:
+            self._skipped(opr)
+
+    def setinteriorfield(self, opr):
+        op = opr.op
+        if opr.argtypes[-1] != "void":
+            print op.args, op.args[1:-1]
+            _, indices = self._interiorhelper(op.args[0].concretetype.TO, op.args[1:-1])
+            tmpvar = self._tmp()
+            self.codewriter.getelementptr(tmpvar, opr.argtypes[0], opr.argrefs[0], indices)
+            self.codewriter.store(opr.argtypes[-1], opr.argrefs[-1], tmpvar)
+        else:
+            self._skipped(opr)            
+    bare_setinteriorfield = setinteriorfield
+
+    def getinteriorarraysize(self, opr):
+        op = opr.op
+        TYPE, indices = self._interiorhelper(op.args[0].concretetype.TO, op.args[1:])
+        if isinstance(TYPE, lltype.Array):
+            # gets the length
+            indices.append(("uint", 0))
+            lengthref = self._tmp()
+            self.codewriter.getelementptr(lengthref, opr.argtypes[0], opr.argrefs[0], indices)
+        else:
+            assert isinstance(TYPE, lltype.FixedSizeArray)
+            lengthref = TYPE.length
+            XXX # test
+        self.codewriter.load(opr.retref, opr.rettype, lengthref)
 
     def direct_fieldptr(self, opr):
         op = opr.op
