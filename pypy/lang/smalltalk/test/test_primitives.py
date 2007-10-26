@@ -187,6 +187,16 @@ def test_at_put():
     assert prim(primitives.AT_PUT, [w_obj, 1, 22]).value == 22
     assert prim(primitives.AT, [w_obj, 1]).value == 22
     
+def test_at_bytes():
+    assert prim(primitives.AT, ["abc", 1]) is wrap("a")
+
+def test_at_put_bytes():
+    w_str = wrap("abc")
+    assert prim(primitives.AT_PUT, [w_str, 1, "d"]) is wrap("d")
+    assert prim(primitives.AT, [w_str, 1]) is wrap("d")
+    assert prim(primitives.AT, [w_str, 2]) is wrap("b")
+    assert prim(primitives.AT, [w_str, 3]) is wrap("c")
+
 def test_invalid_at_put():
     w_obj = mockclass(0).as_class_get_shadow().new()
     prim_fails(primitives.AT_PUT, [w_obj, 1, 22])

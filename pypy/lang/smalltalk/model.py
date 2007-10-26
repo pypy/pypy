@@ -162,10 +162,11 @@ class W_BytesObject(W_AbstractObjectWithClassReference):
 
     def at0(self, index0):
         from pypy.lang.smalltalk import objtable
-        return objtable.wrap_int(self.getbyte(index0))
+        return objtable.CharacterTable[self.getbyte(index0)]
        
     def atput0(self, index0, w_value):
-        self.setbyte(index0, unwrap_int(w_value))
+        from pypy.lang.smalltalk import objtable
+        self.setbyte(index0, objtable.ord_w_char(w_value))
 
     def getbyte(self, n):
         return ord(self.bytes[n])
