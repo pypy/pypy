@@ -226,7 +226,7 @@ def test_map_mirrors_to_classtable():
     assert w_false is objtable.w_false
     
 def test_compile_method():
-    py.test.skip("Todo, make compiling of methods in mini.image work.")
+    py.test.skip("not quite yet")
     sourcecode = """fib 
                         ^self < 2 
 		                    ifTrue: [ 1 ] 

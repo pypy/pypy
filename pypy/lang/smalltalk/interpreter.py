@@ -24,6 +24,8 @@ class Interpreter:
     ZERO = objtable.w_zero
     ONE = objtable.w_one
     TWO = objtable.w_two
+
+    _w_last_active_context = None
     
     def __init__(self):
         self.w_active_context = None
@@ -35,15 +37,29 @@ class Interpreter:
         except ReturnFromTopLevel, e:
             return e.object
 
+    def should_trace(self):
+        return (not objectmodel.we_are_translated()) and option.bc_trace
+
     def step(self):
         next = self.w_active_context.getNextBytecode()
         if not objectmodel.we_are_translated():
             bytecodeimpl = BYTECODE_TABLE[next]
-            if option.bc_trace:
-                print "About to execute bytecode at %d (%d:%s):" % (
+            if self.should_trace():
+                if self._w_last_active_context != self.w_active_context:
+                    cnt = 0
+                    p = self.w_active_context
+                    while p is not None:
+                        cnt += 1
+                        p = p.w_sender
+                    self._last_indent = "  " * cnt
+                    self._w_last_active_context = self.w_active_context
+                print "%sStack=%s" % (
+                    self._last_indent,
+                    repr(self.w_active_context.stack),)
+                print "%sBytecode at %d (%d:%s):" % (
+                    self._last_indent,
                     self.w_active_context.pc,
                     next, bytecodeimpl.__name__,)
-                print "  Stack=%s" % (repr(self.w_active_context.stack),)
             bytecodeimpl(self.w_active_context, self)
         else:
             for code, bytecodeimpl in unrolling_bytecode_table:
@@ -141,6 +157,9 @@ class __extend__(W_ContextPart):
 
     def _sendSelector(self, selector, argcount, interp,
                       receiver, receiverclassshadow):
+        if interp.should_trace():
+            print "%sSending selector %s to %s" % (
+                interp._last_indent, selector, receiver)
         assert argcount >= 0
         method = receiverclassshadow.lookup(selector)
         # XXX catch MethodNotFound here and send doesNotUnderstand:
@@ -150,10 +169,12 @@ class __extend__(W_ContextPart):
                 # note: argcount does not include rcvr
                 w_result = func(interp, argcount)
             except primitives.PrimitiveFailedError:
-                #print "PRIMITIVE FAILED: %d %s" % (method.primitive, selector,)
+                if interp.should_trace():
+                    print "PRIMITIVE FAILED: %d %s" % (method.primitive, selector,)
                 pass # ignore this error and fall back to the Smalltalk version
             else:
                 # the primitive succeeded
+                assert w_result
                 self.push(w_result)
                 return
         start = len(self.stack) - argcount
@@ -312,12 +333,13 @@ class __extend__(W_ContextPart):
 
     def callPrimitiveAndPush(self, primitive, selector,
                              argcount, interp):
+        #XXX do something clever later
         try:
             # note that argcount does not include self
             self.push(primitives.prim_table[primitive](interp, argcount))
         except primitives.PrimitiveFailedError:
-            #print "PRIMITIVE FAILED: %s" % (selector,)
             self._sendSelfSelector(selector, argcount, interp)
+        #self._sendSelfSelector(selector, argcount, interp)
 
     def bytecodePrimAdd(self, interp):
         self.callPrimitiveAndPush(primitives.ADD, "+", 1, interp)
@@ -350,7 +372,7 @@ class __extend__(W_ContextPart):
         self.callPrimitiveAndPush(primitives.DIVIDE, "/", 1, interp)
 
     def bytecodePrimMod(self, interp):
-        self.callPrimitiveAndPush(primitives.MOD, "\\", 1, interp)
+        self.callPrimitiveAndPush(primitives.MOD, "\\\\", 1, interp)
 
     def bytecodePrimMakePoint(self, interp):
         raise MissingBytecode("bytecodePrimMakePoint")
@@ -362,10 +384,10 @@ class __extend__(W_ContextPart):
         self.callPrimitiveAndPush(primitives.DIV, "//", 1, interp)
 
     def bytecodePrimBitAnd(self, interp):
-        self.callPrimitiveAndPush(primitives.BIT_AND, "&", 1, interp)
+        self.callPrimitiveAndPush(primitives.BIT_AND, "bitAnd:", 1, interp)
 
     def bytecodePrimBitOr(self, interp):
-        self.callPrimitiveAndPush(primitives.BIT_OR, "|", 1, interp)
+        self.callPrimitiveAndPush(primitives.BIT_OR, "bitOr:", 1, interp)
 
     def bytecodePrimAt(self, interp):
         # n.b.: depending on the type of the receiver, this may invoke
@@ -408,7 +430,7 @@ class __extend__(W_ContextPart):
 
     def bytecodePrimValueWithArg(self, interp):
         self.callPrimitiveAndPush(
-            primitives.PRIMITIVE_VALUE, "value", 1, interp)
+            primitives.PRIMITIVE_VALUE, "value:", 1, interp)
 
     def bytecodePrimDo(self, interp):
         self._sendSelfSelector("do:", 1, interp)

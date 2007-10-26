@@ -530,7 +530,8 @@ def func(interp, w_arg):
 @expose_primitive(SECONDS_CLOCK, unwrap_spec=[object])
 def func(interp, w_arg):
     import time
-    return wrap_int(0) # wrap_int(int(time.time()))
+    return wrap_int(0x23910d6c)      # HACK: too big for a small int!
+    #return wrap_int(int(time.time()))
 
 # ___________________________________________________________________________
 # Boolean Primitives
@@ -673,6 +674,8 @@ def func(interp, argument_count):
     frame.pop()
 
     finalize_block_ctx(interp, w_block_ctx, frame)
+    return w_block_ctx
+    
     
 @expose_primitive(PRIMITIVE_VALUE_WITH_ARGS, unwrap_spec=[object, object])
 def func(interp, w_block_ctx, w_args):
@@ -691,6 +694,7 @@ def func(interp, w_block_ctx, w_args):
         w_block_ctx.push(w_args.fetchvarpointer(i))
 
     finalize_block_ctx(interp, w_block_ctx, interp.w_active_context)
+    return w_block_ctx
 
 @expose_primitive(PRIMITIVE_PERFORM)
 def func(interp, argument_count):

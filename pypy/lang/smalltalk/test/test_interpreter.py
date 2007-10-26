@@ -80,7 +80,7 @@ def test_create_frame():
     assert w_frame.w_receiver == "receiver"
     assert w_frame.gettemp(0) == "foo"
     assert w_frame.gettemp(1) == "bar"
-    assert w_frame.gettemp(2) == None
+    assert w_frame.gettemp(2) is objtable.w_nil
     w_frame.settemp(2, "spam")
     assert w_frame.gettemp(2) == "spam"
     assert w_frame.getNextBytecode() == ord("h")

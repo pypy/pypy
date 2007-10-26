@@ -155,6 +155,7 @@ class W_PointersObject(W_AbstractObjectWithClassReference):
         shadow.check_for_updates()
         return shadow
 
+
 class W_BytesObject(W_AbstractObjectWithClassReference):
     def __init__(self, w_class, size):
         W_AbstractObjectWithClassReference.__init__(self, w_class)
@@ -361,10 +362,12 @@ class W_ContextPart(W_AbstractObjectWithIdentityHash):
         return self.stack.pop()
 
     def push(self, w_v):
+        assert w_v
         self.stack.append(w_v)
 
     def push_all(self, lst):
         " Equivalent to 'for x in lst: self.push(x)' where x is a lst "
+        assert None not in lst
         self.stack += lst
 
     def top(self):
@@ -436,7 +439,7 @@ class W_MethodContext(W_ContextPart):
         W_ContextPart.__init__(self, self, w_sender)
         self._w_method = w_method
         self.w_receiver = w_receiver
-        self.temps = arguments + [None] * w_method.tempsize
+        self.temps = arguments + [w_nil] * w_method.tempsize
 
     def getclass(self):
         from pypy.lang.smalltalk.classtable import w_MethodContext
