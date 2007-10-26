@@ -39,13 +39,15 @@ def assert_valid_index(n0, w_obj):
 # primitive functions.  Each primitive function takes two
 # arguments, an interp and an argument_count
 # completes, and returns a result, or throws a PrimitiveFailedError.
-
-def raise_failing_default(interp, argument_count):
-    raise PrimitiveFailedError
+def make_failing(code):
+    def raise_failing_default(interp, argument_count):
+#        print "Primitive failed", code
+        raise PrimitiveFailedError
+    return raise_failing_default
 
 # Squeak has primitives all the way up to 575
 # So all optional primitives will default to the bytecode implementation
-prim_table = [raise_failing_default] * 576
+prim_table = [make_failing(i) for i in range(576)]
 
 def expose_primitive(code, unwrap_spec=None):
     # some serious magic, don't look
@@ -642,8 +644,8 @@ def func(interp, argument_count):
 def func(interp, w_rcvr, w_args):
     raise PrimitiveNotYetWrittenError()
 
-@expose_primitive(PRIMITIVE_PERFORM, unwrap_spec=[object, object])
-def func(interp, w_rcvr, w_sel):
+@expose_primitive(PRIMITIVE_PERFORM)
+def func(interp, argument_count):
     # XXX we can implement this when lookup on shadow class is done
     raise PrimitiveNotYetWrittenError()
 
