@@ -362,7 +362,9 @@ class GenericObject(object):
                 bytes.append(chr((each >> 0) & 0xff))
         #strange, for example range(4)[:0] returns [] instead of [0,1,2,3]!
         #hence what we have to write list[:-odd] as list[:len(list)-odd] instead :(
-        return bytes[:len(bytes)-(self.format & 3)] # omit odd bytes
+        stop = len(bytes)-(self.format & 3)
+        assert stop >= 0
+        return bytes[:stop] # omit odd bytes
         
  
     def fillin_compiledmethod(self, w_compiledmethod):
