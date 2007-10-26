@@ -361,6 +361,13 @@ def test_times_two_power():
     assert equals_ttp(-1,2,-4)
     assert equals_ttp(1.5,0,1.5)
     assert equals_ttp(1.5,-1,0.75)
+    
+def test_primtiive_milliseconds_clock():
+    import time
+    start = prim(primitives.MILLISECOND_CLOCK, [0]).value
+    time.sleep(0.010)
+    stop = prim(primitives.MILLISECOND_CLOCK, [0]).value
+    assert start + 10 <= stop
 
 def test_inc_gc():
     # Should not fail :-)
