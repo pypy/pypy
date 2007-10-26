@@ -580,9 +580,9 @@ def test_doubleExtendedDoAnythinBytecode():
 
     storeAssociation(doubleExtendedDoAnythingBytecode + chr(7<<5) + chr(0))
 
-def interpret_bc(bcodes, literals):
+def interpret_bc(bcodes, literals, receiver=objtable.w_nil):
     bcode = "".join([chr(x) for x in bcodes])
-    interp = new_interpreter(bcode)
+    interp = new_interpreter(bcode, receiver=receiver)
     interp.w_active_context.w_method().literals = literals
     return interp.interpret()
 
@@ -681,4 +681,36 @@ def test_bc_primBytecodeAtPut_string():
             fakeliterals("a", wrap_char("b"))) == wrap_char("b")
     run_with_faked_methods(
         [[ct.w_String, primitives.STRING_AT_PUT, 2, "at:put:"]],
+        test)
+
+def test_bc_primBytecodeAt_with_instvars():
+    # 	^ self at: 1
+    w_fakeclass = mockclass(1, name='fakeclass', varsized=True)
+    w_fakeinst = w_fakeclass.as_class_get_shadow().new(1)
+    w_fakeinst.store(0, wrap_char("a")) # static slot 0: instance variable
+    w_fakeinst.store(1, wrap_char("b")) # varying slot 1
+    def test():
+        assert objtable.ord_w_char(interpret_bc(
+            [112, 118, 192, 124],
+            fakeliterals(),
+            receiver=w_fakeinst)) == ord("b")
+    run_with_faked_methods(
+        [[w_fakeclass, primitives.AT, 1, "at:"]],
+        test)
+
+def test_bc_primBytecodeAtPut_with_instvars():
+    # 	^ self at: 1 put: #b
+    w_fakeclass = mockclass(1, name='fakeclass', varsized=True)
+    w_fakeinst = w_fakeclass.as_class_get_shadow().new(1)
+    w_fakeinst.store(0, wrap_char("a")) # static slot 0: instance variable
+    w_fakeinst.store(1, wrap_char("a")) # varying slot 1
+    def test():
+        assert objtable.ord_w_char(interpret_bc(
+            [0x70, 0x76, 0x20, 0xc1, 0x7c],
+            fakeliterals(wrap_char("b")),
+            receiver=w_fakeinst)) == ord("b")
+        assert objtable.ord_w_char(w_fakeinst.fetch(0)) == ord("a")
+        assert objtable.ord_w_char(w_fakeinst.fetch(1)) == ord("b")
+    run_with_faked_methods(
+        [[w_fakeclass, primitives.AT_PUT, 2, "at:put:"]],
         test)
