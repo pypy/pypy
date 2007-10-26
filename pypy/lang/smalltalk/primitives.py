@@ -62,6 +62,9 @@ def expose_primitive(code, unwrap_spec=None):
             else:
                 name = key
 
+    # Because methods always have a receiver, an unwrap_spec of [] is a bug
+    assert unwrap_spec is None or unwrap_spec
+
     def decorator(func):
         assert code not in prim_table
         func.func_name = "prim_" + name
@@ -373,8 +376,8 @@ def func(interp, w_cls, w_size):
     size = unwrap_int(w_size)
     return shadow.new(size)
 
-@expose_primitive(ARRAY_BECOME_ONE_WAY, unwrap_spec=[])
-def func(interp):
+@expose_primitive(ARRAY_BECOME_ONE_WAY, unwrap_spec=[object, object])
+def func(interp, w_obj1, w_obj2):
     raise PrimitiveNotYetWrittenError
 
 @expose_primitive(INST_VAR_AT, unwrap_spec=[object, int])
@@ -393,8 +396,8 @@ def func(interp, w_rcvr, idx):
         return subscript(idx, w_rcvr)
     raise PrimitiveFailedError()
 
-@expose_primitive(INST_VAR_AT_PUT, unwrap_spec=[])
-def func(interp):
+@expose_primitive(INST_VAR_AT_PUT, unwrap_spec=[object])
+def func(interp, w_rcvr):
     raise PrimitiveNotYetWrittenError()
 
 @expose_primitive(AS_OOP, unwrap_spec=[object])
@@ -422,8 +425,8 @@ def func(interp, w_obj):
     # it returns the "next" instance after w_obj.
     raise PrimitiveNotYetWrittenError()
 
-@expose_primitive(NEW_METHOD, unwrap_spec=[])
-def func(interp):
+@expose_primitive(NEW_METHOD, unwrap_spec=[object])
+def func(interp, w_mthd):
     raise PrimitiveNotYetWrittenError()
 
 # ___________________________________________________________________________
@@ -447,16 +450,16 @@ def func(interp, w_arg, w_rcvr):
 def func(interp, w_obj):
     return w_obj.getclass()
 
-@expose_primitive(BYTES_LEFT, unwrap_spec=[])
-def func(interp):
+@expose_primitive(BYTES_LEFT, unwrap_spec=[object])
+def func(interp, w_rcvr):
     raise PrimitiveNotYetWrittenError()
 
-@expose_primitive(QUIT, unwrap_spec=[])
-def func(interp):
+@expose_primitive(QUIT, unwrap_spec=[object])
+def func(interp, w_rcvr):
     raise PrimitiveNotYetWrittenError()
 
-@expose_primitive(EXIT_TO_DEBUGGER, unwrap_spec=[])
-def func(interp):
+@expose_primitive(EXIT_TO_DEBUGGER, unwrap_spec=[object])
+def func(interp, w_rcvr):
     raise PrimitiveNotYetWrittenError()
 
 @expose_primitive(CHANGE_CLASS, unwrap_spec=[object, object])
