@@ -24,7 +24,7 @@ def splitbits(integer, lengths):
     sum = 0
     for length in lengths:
         sum += length
-        n = integer & (2**length - 1)
+        n = integer & ((1<<length) - 1)
         assert n >= 0
         result.append(n)
         integer = integer >> length
