@@ -276,6 +276,22 @@ def test_bytecodePrimMultiply():
     interp.step()
     interp.step()
     assert interp.w_active_context.stack[0].value == -2
+    
+def test_bytecodePrimDiv():
+    interp = new_interpreter(pushConstantTwoBytecode + pushConstantMinusOneBytecode + bytecodePrimDiv)
+    interp.step()
+    interp.step()
+    interp.step()
+    assert interp.w_active_context.stack[0].value == -2
+
+def test_bytecodePrimMod():
+    interp = new_interpreter(pushConstantTwoBytecode + pushConstantMinusOneBytecode + bytecodePrimMod)
+    interp.step()
+    interp.step()
+    interp.step()
+    assert interp.w_active_context.stack[0].value == 0
+
+
 
 # w_class - the class from which the method is going to be called
 # (and on which it is going to be installed)
