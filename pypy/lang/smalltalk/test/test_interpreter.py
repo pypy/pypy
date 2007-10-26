@@ -62,7 +62,7 @@ def fakeliterals(*literals):
                 res.storevarpointer(i, fakeliteral(lit[i]))
             return res
         return lit
-    return ["methodheader"] + [fakeliteral(lit) for lit in literals]
+    return [fakesymbol("methodheader")]+[fakeliteral(lit) for lit in literals]
 
 def new_interpreter(bytes, receiver=objtable.w_nil):
     assert isinstance(bytes, str)
