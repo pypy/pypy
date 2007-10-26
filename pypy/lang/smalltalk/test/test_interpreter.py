@@ -328,6 +328,27 @@ def test_bytecodePrimEquivalent():
     interp.step()
     assert interp.w_active_context.pop() == interpreter.Interpreter.TRUE
     assert interp.w_active_context.stack == []
+    
+def test_bytecodePrimNew():
+    w_fakeclass = mockclass(1, name='fakeclass', varsized=False)
+    interp = new_interpreter(bytecodePrimNew)
+    interp.w_active_context.push(w_fakeclass)
+    interp.step()
+    w_fakeinst = interp.w_active_context.pop()
+    assert interp.w_active_context.stack == []
+    assert w_fakeinst.getclass() == w_fakeclass
+    assert w_fakeinst.size() == 1
+    
+def test_bytecodePrimNewWithArg():
+    w_fakeclass = mockclass(1, name='fakeclass', varsized=True)
+    interp = new_interpreter(bytecodePrimNewWithArg)
+    interp.w_active_context.push(w_fakeclass)
+    interp.w_active_context.push(interpreter.Interpreter.TWO)
+    interp.step()
+    w_fakeinst = interp.w_active_context.pop()
+    assert interp.w_active_context.stack == []
+    assert w_fakeinst.getclass() == w_fakeclass
+    assert w_fakeinst.size() == 3
 
 # w_class - the class from which the method is going to be called
 # (and on which it is going to be installed)
@@ -586,6 +607,7 @@ def interpret_bc(bcodes, literals, receiver=objtable.w_nil):
     interp.w_active_context.w_method().literals = literals
     return interp.interpret()
 
+# tests: bytecodePrimValue & bytecodePrimValueWithArg
 def test_bc_3_plus_4():
     # value0
     # 	" (self >> #value0) byteCode "
