@@ -338,3 +338,25 @@ def test_full_gc():
     # Should not fail :-)
     prim(primitives.FULL_GC, [42]) # Dummy arg
 
+def test_become():
+    py.test.skip("implement me!")
+    """
+    testBecome
+    	| p1 p2 a |
+    	p1 := 1@2.
+    	p2 := #(3 4 5).
+    	a := p1 -> p2.
+    	self assert: 1@2 = a key.
+    	self assert: #(3 4 5) = a value.
+    	self assert: p1 -> p2 = a.
+    	self assert: p1 == a key.
+    	self assert: p2 == a value.
+    	p1 become: p2.
+    	self assert: 1@2 = a value.
+    	self assert: #(3 4 5) = a key.
+    	self assert: p1 -> p2 = a.
+    	self assert: p1 == a key.
+    	self assert: p2 == a value.
+	
+    	self should: [1 become: 2] raise: Error.
+    """
