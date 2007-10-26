@@ -349,6 +349,15 @@ def test_bytecodePrimNewWithArg():
     assert interp.w_active_context.stack == []
     assert w_fakeinst.getclass() == w_fakeclass
     assert w_fakeinst.size() == 3
+ 
+def test_bytecodePrimSize():
+    w_fakeclass = mockclass(2, name='fakeclass', varsized=True)
+    w_fakeinst = w_fakeclass.as_class_get_shadow().new(5)
+    interp = new_interpreter(bytecodePrimSize)
+    interp.w_active_context.push(w_fakeinst)
+    interp.step()
+    assert interp.w_active_context.pop().value == 5
+    assert interp.w_active_context.stack == []
 
 # w_class - the class from which the method is going to be called
 # (and on which it is going to be installed)
