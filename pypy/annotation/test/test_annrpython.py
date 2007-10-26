@@ -2849,6 +2849,18 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         a.build_types(f, [int, int])
 
+    def test_compare_with_zero(self):
+        def g():
+            should_not_see_this
+        def f(n):
+            assert n >= 0
+            if n < 0:
+                g()
+            if not (n >= 0):
+                g()
+        a = self.RPythonAnnotator()
+        a.build_types(f, [int])
+
     def test_r_singlefloat(self):
         z = r_singlefloat(0.4)
         def g(n):

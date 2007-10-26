@@ -21,7 +21,7 @@ from pypy.annotation.model import lltype_to_annotation
 from pypy.annotation.model import SomeGenericCallable
 from pypy.annotation.model import SomeExternalInstance
 from pypy.annotation.bookkeeper import getbookkeeper
-from pypy.objspace.flow.model import Variable
+from pypy.objspace.flow.model import Variable, Constant
 from pypy.annotation.listdef import ListDef
 from pypy.rlib import rarithmetic
 from pypy.rpython import extregistry
@@ -334,6 +334,15 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
                               SomeInteger(nonneg=True, knowntype=tointtype(int1)))
         if knowntypedata:
             r.knowntypedata = knowntypedata
+        # a special case for 'x < 0' or 'x >= 0',
+        # where 0 is a flow graph Constant
+        # (in this case we are sure that it cannot become a r_uint later)
+        if isinstance(op.args[1], Constant) and op.args[1].value == 0:
+            if int1.nonneg:
+                if opname == 'lt':
+                    r.const = False
+                if opname == 'ge':
+                    r.const = True
         return r
 
     def lt(intint): return intint._compare_helper('lt', operator.lt)
