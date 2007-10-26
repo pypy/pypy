@@ -3,6 +3,7 @@ from pypy.lang.smalltalk import model, constants, primitives
 from pypy.lang.smalltalk import objtable
 from pypy.lang.smalltalk.model import W_ContextPart
 from pypy.lang.smalltalk.conftest import option
+from pypy.rlib import objectmodel, unroll
 
 
 class MissingBytecode(NotImplementedError):
@@ -24,7 +25,6 @@ class Interpreter:
     def __init__(self):
         self.w_active_context = None
 
-   
     def interpret(self):
         try:
             while True:
@@ -34,13 +34,20 @@ class Interpreter:
 
     def step(self):
         next = self.w_active_context.getNextBytecode()
-        bytecodeimpl = BYTECODE_TABLE[next]
-        if option.bc_trace:
-            print "About to execute bytecode at %d (%d:%s):" % (
-                self.w_active_context.pc,
-                next, bytecodeimpl.__name__,)
-            print "  Stack=%s" % (repr(self.w_active_context.stack),)
-        bytecodeimpl(self.w_active_context, self)
+        if not objectmodel.we_are_translated():
+            bytecodeimpl = BYTECODE_TABLE[next]
+            if option.bc_trace:
+                print "About to execute bytecode at %d (%d:%s):" % (
+                    self.w_active_context.pc,
+                    next, bytecodeimpl.__name__,)
+                print "  Stack=%s" % (repr(self.w_active_context.stack),)
+            bytecodeimpl(self.w_active_context, self)
+        else:
+            for code, bytecodeimpl in unrolling_bytecode_table:
+                if code == next:
+                    bytecodeimpl(self.w_active_context, self)
+                    break
+
         
 class ReturnFromTopLevel(Exception):
     def __init__(self, object):
@@ -482,6 +489,7 @@ BYTECODE_RANGES = [
             (208, 255, W_ContextPart.sendLiteralSelectorBytecode),
             ]
 
+
 def initialize_bytecode_table():
     result = [None] * 256
     for entry in BYTECODE_RANGES:
@@ -495,3 +503,4 @@ def initialize_bytecode_table():
     return result
 
 BYTECODE_TABLE = initialize_bytecode_table()
+unrolling_bytecode_table = unroll.unrolling_iterable(enumerate(BYTECODE_TABLE))
