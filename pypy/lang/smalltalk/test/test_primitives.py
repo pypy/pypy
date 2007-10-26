@@ -265,6 +265,10 @@ def test_inst_var_at():
                ["q", constants.CHARACTER_VALUE_INDEX+1])
     assert w_v.value == ord("q")
 
+def test_inst_var_at_invalid():
+    # n.b.: 1-based indexing! (and an invalid index)
+    prim_fails(primitives.INST_VAR_AT, ["q", constants.CHARACTER_VALUE_INDEX+2])
+
 def test_inst_var_at_put():
     # n.b.: 1-based indexing!
     w_q = classtable.w_Character.as_class_get_shadow().new()
@@ -274,6 +278,11 @@ def test_inst_var_at_put():
     assert prim(primitives.INST_VAR_AT_PUT, [w_q, vidx, ordq]).value == ordq
     assert prim(primitives.INST_VAR_AT, [w_q, vidx]).value == ordq
 
+def test_inst_var_at_put_invalid():
+    # n.b.: 1-based indexing! (and an invalid index)
+    prim_fails(primitives.INST_VAR_AT_PUT,
+               ["q", constants.CHARACTER_VALUE_INDEX+2, "t"])
+    
 def test_class():
     assert prim(primitives.CLASS, ["string"]) == classtable.w_String
     assert prim(primitives.CLASS, [1]) == classtable.w_SmallInteger
