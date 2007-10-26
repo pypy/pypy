@@ -157,16 +157,16 @@ class __extend__(W_ContextPart):
         interp.w_active_context = w_return_to
 
     def returnReceiver(self, interp):
-        self._return(self.receiver(), interp, self.w_sender)
+        self._return(self.receiver(), interp, self.w_home.w_sender)
 
     def returnTrue(self, interp):
-        self._return(interp.TRUE, interp, self.w_sender)
+        self._return(interp.TRUE, interp, self.w_home.w_sender)
 
     def returnFalse(self, interp):
-        self._return(interp.FALSE, interp, self.w_sender)
+        self._return(interp.FALSE, interp, self.w_home.w_sender)
 
     def returnNil(self, interp):
-        self._return(interp.NIL, interp, self.w_sender)
+        self._return(interp.NIL, interp, self.w_home.w_sender)
 
     def returnTopFromMethod(self, interp):
         self._return(self.top(), interp, self.w_home.w_sender)

@@ -522,3 +522,13 @@ def test_bc_push_rcvr_in_block():
         [ 137, 117, 200, 164, 2, 112, 125, 201, 124 ],
         fakeliterals(wrap_int(3))) is objtable.w_nil
 
+def test_bc_value_return():
+    # valueReturn
+    # 	" (self >> #value1) byteCode "
+    # 	" (self >> #value1) literals "
+    # 
+    # 	[ ^ 1 ] value. ^ 2
+    assert interpret_bc(
+        [ 137, 117, 200, 164, 2, 118, 124, 201, 135, 119, 124 ],
+        fakeliterals()).value == 1
+
