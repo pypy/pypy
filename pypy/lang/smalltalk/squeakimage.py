@@ -258,7 +258,6 @@ class GenericObject(object):
         if not self.ispointers(): return
         self.pointers = [self.decode_pointer(pointer) 
                          for pointer in chunk.data]
-        # assert len(filter(lambda x: x is None, self.pointers)) == 0                
         assert None not in self.pointers
             
     def decode_pointer(self, pointer):
@@ -316,14 +315,13 @@ class GenericObject(object):
         # below we are using an RPython idiom to 'cast' self.w_object
         # and pass the casted reference to the fillin_* methods
         casted = self.w_object 
-        case = casted.__class__
-        if case == model.W_PointersObject:
+        if isinstance(casted, model.W_PointersObject):
             self.fillin_pointersobject(casted)
-        elif case == model.W_WordsObject:
+        elif isinstance(casted, model.W_WordsObject):
             self.fillin_wordsobject(casted)
-        elif case == model.W_BytesObject:
+        elif isinstance(casted, model.W_BytesObject):
             self.fillin_bytesobject(casted)   
-        elif case == model.W_CompiledMethod:
+        elif isinstance(casted, model.W_CompiledMethod):
             self.fillin_compiledmethod(casted)
         else:
             assert 0
