@@ -235,6 +235,27 @@ def test_duplicateTopBytecode():
     interp.step()
     interp.step()
     assert interp.w_active_context.stack == [interp.ZERO, interp.ZERO]
+    
+def test_bytecodePrimBitAnd():
+    interp = new_interpreter(pushConstantOneBytecode + pushConstantTwoBytecode + bytecodePrimBitAnd)
+    interp.step()
+    interp.step()
+    interp.step()
+    assert interp.w_active_context.stack[0].value == 0
+    
+def test_bytecodePrimBitOr():
+    interp = new_interpreter(pushConstantOneBytecode + pushConstantTwoBytecode + bytecodePrimBitOr)
+    interp.step()
+    interp.step()
+    interp.step()
+    assert interp.w_active_context.stack[0].value == 3
+
+def test_bytecodePrimBitShift():
+    interp = new_interpreter(pushConstantOneBytecode + pushConstantTwoBytecode + bytecodePrimBitShift)
+    interp.step()
+    interp.step()
+    interp.step()
+    assert interp.w_active_context.stack[0].value == 4
 
 # w_class - the class from which the method is going to be called
 # (and on which it is going to be installed)
@@ -589,4 +610,3 @@ def test_bc_primBytecodeAtPut_string():
     run_with_faked_methods(
         [[ct.w_String, primitives.STRING_AT_PUT, 2, "at:put:"]],
         test)
-
