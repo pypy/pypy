@@ -18,22 +18,18 @@ def swapped_chrs2int(b):
         first = first - 0x100
     return first << 24 | ord(b[2]) << 16 | ord(b[1]) << 8 | ord(b[0])            
 
-def make_bit_splitter(lengths):
-    from pypy.rlib import unroll
-    iterator = unroll.unrolling_iterable(lengths)
-    def splitbits(integer):
-        result = []
-        sum = 0
-        for length in iterator:
-            sum += length
-            n = integer & ((1<<length) - 1)
-            assert n >= 0
-            result.append(n)
-            integer = integer >> length
-        assert sum <= 32
-        return result
-    splitbits.func_name = "split_bits_" + "_".join([str(i) for str in lengths])
-    return splitbits
+def splitbits(integer, lengths):
+    #XXX we can later let the tool chain mask and unroll this
+    result = []
+    sum = 0
+    for length in lengths:
+        sum += length
+        n = integer & ((1<<length) - 1)
+        assert n >= 0
+        result.append(n)
+        integer = integer >> length
+    assert sum <= 32
+    return result
 
 # ____________________________________________________________
 #
@@ -184,21 +180,19 @@ class ImageReader(object):
                      for _ in range(size - 1)] #size-1, excluding header   
         return chunk, pos     
         
-    split_header = make_bit_splitter([2,6,4,5,12])
     def read_1wordobjectheader(self):
         kind, size, format, classid, idhash = (
-            self.split_header(self.stream.next()))
+            splitbits(self.stream.next(), [2,6,4,5,12]))
         assert kind == 3
         return ImageChunk(size, format, classid, idhash), self.stream.count - 4
 
     def read_2wordobjectheader(self):
         assert self.stream.peek() & 3 == 1 #kind
         classid = self.stream.next() - 01 # remove headertype to get pointer
-        kind, size, format, _, idhash = self.split_header(f.stream.next(), [2,6,4,5,12])
+        kind, size, format, _, idhash = splitbits(self.stream.next(), [2,6,4,5,12])
         assert kind == 1
         return ImageChunk(size, format, classid, idhash), self.stream.count - 4
 
-    split_2_30 = make_bit_splitter([2, 30])
     def read_3wordobjectheader(self):
         kind, size = splitbits(self.stream.next(), [2,30]) 
         assert kind == 0
