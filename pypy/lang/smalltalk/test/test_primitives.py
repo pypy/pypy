@@ -242,12 +242,15 @@ def test_invalid_new_with_arg():
     prim_fails(primitives.NEW_WITH_ARG, [w_Object, 20])
     
 def test_inst_var_at():
-    w_v = prim(primitives.INST_VAR_AT, ["q", constants.CHARACTER_VALUE_INDEX])
+    # n.b.: 1-based indexing!
+    w_v = prim(primitives.INST_VAR_AT,
+               ["q", constants.CHARACTER_VALUE_INDEX+1])
     assert w_v.value == ord("q")
 
 def test_inst_var_at_put():
+    # n.b.: 1-based indexing!
     w_q = classtable.w_Character.as_class_get_shadow().new()
-    vidx = constants.CHARACTER_VALUE_INDEX
+    vidx = constants.CHARACTER_VALUE_INDEX+1
     ordq = ord("q")
     assert prim(primitives.INST_VAR_AT, [w_q, vidx]) == objtable.w_nil
     assert prim(primitives.INST_VAR_AT_PUT, [w_q, vidx, ordq]).value == ordq
@@ -377,6 +380,9 @@ def test_become():
     """
 
 # Note:
+#   primitives.NEXT is unimplemented as it is a performance optimization
+#   primitives.NEXT_PUT is unimplemented as it is a performance optimization
+#   primitives.AT_END is unimplemented as it is a performance optimization
 #   primitives.PRIMITIVE_BLOCK_COPY is tested in test_interpreter
 #   primitives.PRIMITIVE_VALUE is tested in test_interpreter
 #   primitives.PRIMITIVE_VALUE_WITH_ARGS is tested in test_interpreter

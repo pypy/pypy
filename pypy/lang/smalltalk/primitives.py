@@ -294,26 +294,17 @@ SIZE = 62
 STRING_AT = 63
 STRING_AT_PUT = 64
 
-def common_at(w_obj, w_index1):
-    index1 = unwrap_int(w_index1)
-    assert_valid_index(index1-1, w_obj)
-    return w_obj, index1-1
-
-def common_at_put(w_obj, w_idx, w_val):
-    idx = unwrap_int(w_idx)
-    assert_valid_index(idx-1, w_obj)
-    return w_obj, idx-1, w_val
-
 @expose_primitive(AT, unwrap_spec=[object, int])
 def func(interp, w_obj, n1):
     n0 = n1 - 1
     assert_valid_index(n0, w_obj)
-    return w_obj.fetch(n0)
+    return w_obj.at0(n0)
 
-@expose_primitive(AT_PUT, unwrap_spec=[object, object, object])
-def func(interp, w_obj, w_idx, w_val):
-    [w_obj, idx, w_val] = common_at_put(w_obj, w_idx, w_val)
-    w_obj.store(idx, w_val)
+@expose_primitive(AT_PUT, unwrap_spec=[object, int, object])
+def func(interp, w_obj, n1, w_val):
+    n0 = n1 - 1
+    assert_valid_index(n0, w_obj)
+    w_obj.atput0(n0, w_val)
     return w_val
 
 @expose_primitive(SIZE, unwrap_spec=[object])
@@ -322,18 +313,20 @@ def func(interp, w_obj):
         raise PrimitiveFailedError()
     return wrap_int(w_obj.size())
 
-@expose_primitive(STRING_AT, unwrap_spec=[object, object])
-def func(interp, w_obj, w_idx):
-    w_obj, idx = common_at(w_obj, w_idx)
-    byte = w_obj.getbyte(idx)
+@expose_primitive(STRING_AT, unwrap_spec=[object, int])
+def func(interp, w_obj, n1):
+    n0 = n1 - 1
+    assert_valid_index(n0, w_obj)
+    byte = w_obj.getbyte(n0)
     return objtable.CharacterTable[byte]
 
-@expose_primitive(STRING_AT_PUT, unwrap_spec=[object, object, object])
-def func(interp, w_obj, w_idx, w_val):
-    w_obj, idx, w_val = common_at_put(w_obj, w_idx, w_val)
+@expose_primitive(STRING_AT_PUT, unwrap_spec=[object, int, object])
+def func(interp, w_obj, n1, w_val):
+    n0 = n1 - 1
+    assert_valid_index(n0, w_obj)
     if w_val.getclass() is not classtable.w_Character:
         raise PrimitiveFailedError()
-    w_obj.setbyte(idx, objtable.ord_w_char(w_val))
+    w_obj.setbyte(n0, objtable.ord_w_char(w_val))
     return w_val
 
 # ___________________________________________________________________________
@@ -392,22 +385,24 @@ def func(interp, w_obj1, w_obj2):
     raise PrimitiveNotYetWrittenError
 
 @expose_primitive(INST_VAR_AT, unwrap_spec=[object, int])
-def func(interp, w_rcvr, idx):
+def func(interp, w_rcvr, idx_1):
     "Fetches a fixed field from the object, and fails otherwise"
     shadow = w_rcvr.shadow_of_my_class()
-    assert_bounds(idx, 0, shadow.instsize())
-    # only pointers have non-0 size    
+    idx_0 = idx_1 - 1
+    assert_bounds(idx_0, 0, shadow.instsize())
+    # only pointers have non-0 size
     assert isinstance(w_rcvr, model.W_PointersObject)
-    return w_rcvr.fetch(idx)
+    return w_rcvr.fetch(idx_0)
 
 @expose_primitive(INST_VAR_AT_PUT, unwrap_spec=[object, int, object])
-def func(interp, w_rcvr, idx, w_value):
+def func(interp, w_rcvr, idx_1, w_value):
     "Stores a value into a fixed field from the object, and fails otherwise"
+    idx_0 = idx_1 - 1
     shadow = w_rcvr.shadow_of_my_class()
-    assert_bounds(idx, 0, shadow.instsize())
+    assert_bounds(idx_0, 0, shadow.instsize())
     # only pointers have non-0 size    
     assert isinstance(w_rcvr, model.W_PointersObject)
-    w_rcvr.store(idx, w_value)
+    w_rcvr.store(idx_0, w_value)
     return w_value
 
 @expose_primitive(AS_OOP, unwrap_spec=[object])
