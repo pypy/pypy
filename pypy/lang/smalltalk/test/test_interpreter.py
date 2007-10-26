@@ -471,24 +471,37 @@ def interp_bc_and_check_result_is_7(bcodes, literals):
     assert res.value == 7
 
 def test_bc_3_plus_4():
-    # [ 3+4 ] value
+    # value0
+    # 	" (self >> #value0) byteCode "
+    # 	" (self >> #value0) literals "
+    # 
+    # 	^ [ 3 + 4 ] value
     interp_bc_and_check_result_is_7(
         [ 137, 117, 200, 164, 4, 32, 33, 176, 125, 201, 124],
         fakeliterals(wrap_int(3), wrap_int(4)))
 
 
 def test_bc_x_plus_x_plus_1():
-    # [ :x | x+x+1 ] value: 3
+    # value1
+    # 	" (self >> #value1) byteCode "
+    # 	" (self >> #value1) literals "
+    # 
+    # 	^ [ :x | x + x + 1 ] value: 3
     interp_bc_and_check_result_is_7(
         [ 137, 118, 200, 164, 7, 104, 16, 16,
           176, 118, 176, 125, 32, 202, 124 ],
         fakeliterals(wrap_int(3)))
 
-def test_bc_x_plus_y():
-    # [ :x x+y ] value: 3 value: 4
-    py.test.skip("FIX")
-    interp_bc_and_check_result_is_7(
-        [ 137, 119, 200, 164, 6, 105, 104, 16, 17,
-          176, 125, 33, 34, 240, 124 ],
-        fakeliterals(wrap_int(3), wrap_int(4)))
-        
+# we skip this test, because it requires to lookup the method #value:value: 
+# in the BlockContext class, which we don't have at the moment
+#
+# def test_bc_x_plus_y():
+#     # value2
+#     # 	" (self >> #value2) byteCode "
+#     # 	" (self >> #value2) literals "
+#     # 
+#     # 	^ [ :x :y | x + y ] value: 3 value: 4
+#     interp_bc_and_check_result_is_7(
+#         [ 137, 119, 200, 164, 6, 105, 104, 16, 17,
+#           176, 125, 33, 34, 240, 124 ],
+#         fakeliterals("value:value:", wrap_int(3), wrap_int(4)))
