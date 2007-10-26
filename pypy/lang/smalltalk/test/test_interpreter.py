@@ -1,7 +1,7 @@
 import py
 from pypy.lang.smalltalk import model, interpreter, primitives, shadow
 from pypy.lang.smalltalk import objtable
-from pypy.lang.smalltalk.objtable import wrap_int
+from pypy.lang.smalltalk.objtable import wrap_int, wrap_char
 import pypy.lang.smalltalk.classtable as ct
 
 mockclass = ct.bootstrap_class
@@ -568,5 +568,25 @@ def test_bc_value_with_args():
     run_with_faked_methods(
         [[ct.w_BlockContext, primitives.PRIMITIVE_VALUE_WITH_ARGS,
           1, "valueWithArguments:"]],
+        test)
+
+def test_bc_primBytecodeAt_string():
+    # 	^ 'a' at: 1
+    def test():
+        assert interpret_bc(
+            [ 32, 118, 192, 124],
+            fakeliterals("a")) == wrap_char("a")
+    run_with_faked_methods(
+        [[ct.w_String, primitives.STRING_AT, 1, "at:"]],
+        test)
+    
+def test_bc_primBytecodeAtPut_string():
+    # 	^ 'a' at: 1 put:'b'
+    def test():
+        assert interpret_bc(
+            [ 32, 118, 33, 193, 124 ],
+            fakeliterals("a", wrap_char("b"))) == wrap_char("b")
+    run_with_faked_methods(
+        [[ct.w_String, primitives.STRING_AT_PUT, 2, "at:put:"]],
         test)
 

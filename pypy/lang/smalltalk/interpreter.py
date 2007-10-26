@@ -366,10 +366,16 @@ class __extend__(W_ContextPart):
         self.callPrimitiveAndPush(primitives.BIT_OR, "|", 1, interp)
 
     def bytecodePrimAt(self, interp):
-        self.callPrimitiveAndPush(primitives.AT, "at:", 1, interp)
+        # n.b.: depending on the type of the receiver, this may invoke
+        # primitives.AT, primitives.STRING_AT, or something else for all
+        # I know.  
+        #self.callPrimitiveAndPush(primitives.AT, "at:", 1, interp)
+        self._sendSelfSelector("at:", 1, interp)
 
     def bytecodePrimAtPut(self, interp):
-        self.callPrimitiveAndPush(primitives.AT_PUT, "at:put:", 2, interp)
+        # n.b. as above
+        #self.callPrimitiveAndPush(primitives.AT_PUT, "at:put:", 2, interp)
+        self._sendSelfSelector("at:put:", 2, interp)
 
     def bytecodePrimSize(self, interp):
         self.callPrimitiveAndPush(primitives.SIZE, "size", 0, interp)
