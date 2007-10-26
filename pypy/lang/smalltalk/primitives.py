@@ -668,7 +668,7 @@ def func(interp, argument_count):
 
     # Initialize the block stack with the arguments that were
     # pushed.  Also pop the receiver.
-    block_args = frame.pop_n(exp_arg_cnt)
+    block_args = frame.pop_and_return_n(exp_arg_cnt)
     w_block_ctx.push_all(block_args)
     frame.pop()
 

@@ -377,8 +377,14 @@ class W_ContextPart(W_AbstractObjectWithIdentityHash):
         assert n >= 0
         start = len(self.stack) - n
         assert start >= 0          # XXX what if this fails?
+        del self.stack[start:]
+
+    def pop_and_return_n(self, n):
+        assert n >= 0
+        start = len(self.stack) - n
+        assert start >= 0          # XXX what if this fails?
         res = self.stack[start:]
-        self.stack = self.stack[:start]
+        del self.stack[start:]
         return res
     
 class W_BlockContext(W_ContextPart):
