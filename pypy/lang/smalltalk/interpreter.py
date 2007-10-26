@@ -131,8 +131,8 @@ class __extend__(W_ContextPart):
         if method.primitive:
             func = primitives.prim_table[method.primitive]
             try:
-                # add +1 to account for the receiver
-                w_result = func(interp, argcount + 1)
+                # note: argcount does not include rcvr
+                w_result = func(interp, argcount)
             except primitives.PrimitiveFailedError:
                 pass # ignore this error and fall back to the Smalltalk version
             else:
@@ -295,8 +295,8 @@ class __extend__(W_ContextPart):
     def callPrimitiveAndPush(self, primitive, selector,
                              argcount, interp):
         try:
-            # add one to the argcount to account for the self
-            self.push(primitives.prim_table[primitive](interp, argcount + 1))
+            # note that argcount does not include self
+            self.push(primitives.prim_table[primitive](interp, argcount))
         except primitives.PrimitiveFailedError:
             self._sendSelfSelector(selector, argcount, interp)
 
@@ -382,7 +382,8 @@ class __extend__(W_ContextPart):
             primitives.PRIMITIVE_VALUE, "value", 0, interp)
 
     def bytecodePrimValueWithArg(self, interp):
-        raise MissingBytecode
+        self.callPrimitiveAndPush(
+            primitives.PRIMITIVE_VALUE, "value", 1, interp)
 
     def bytecodePrimDo(self, interp):
         self._sendSelfSelector("do:", 1, interp)
@@ -477,18 +478,21 @@ BYTECODE_RANGES = [
 def initialize_bytecode_table():
     result = [None] * 256
     for entry in BYTECODE_RANGES:
-        #def dump_func(f):
-        #    def wrapped(*args):
-        #        print "Bytecode: %s" % (f.__name__)
-        #        return f(*args)
-        #    return wrapped
+        def dump_func(f):
+            def wrapped(self, interp):
+                print "Bytecode: %s" % (f.__name__,)
+                res = f(self, interp)
+                print "    stack after: %s" % (
+                    interp.w_active_context.stack)
+                return res
+            return wrapped
         if len(entry) == 2:
             positions = [entry[0]]
         else:
             positions = range(entry[0], entry[1]+1)
         for pos in positions:
-            #result[pos] = dump_func(entry[-1])
-            result[pos] = entry[-1]
+            result[pos] = dump_func(entry[-1])
+            #result[pos] = entry[-1]
     assert None not in result
     return result
 

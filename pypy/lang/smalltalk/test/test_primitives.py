@@ -33,7 +33,7 @@ def mock(stack):
 
 def prim(code, stack):
     interp, argument_count = mock(stack)
-    res = prim_table[code](interp, argument_count)
+    res = prim_table[code](interp, argument_count-1)
     assert not len(interp.w_active_context.stack) # check args are consumed
     return res
 
@@ -41,7 +41,7 @@ def prim_fails(code, stack):
     interp, argument_count = mock(stack)
     orig_stack = list(interp.w_active_context.stack)
     try:
-        prim_table[code](interp, argument_count)
+        prim_table[code](interp, argument_count-1)
         py.test.fail("Expected PrimitiveFailedError")
     except PrimitiveFailedError:
         assert interp.w_active_context.stack == orig_stack

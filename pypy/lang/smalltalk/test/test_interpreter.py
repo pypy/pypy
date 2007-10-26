@@ -463,18 +463,27 @@ def test_doubleExtendedDoAnythinBytecode():
 
     storeAssociation(doubleExtendedDoAnythingBytecode + chr(7<<5) + chr(0))
 
-def test_block_copy_and_value():
+def interp_bc_and_check_result_is_7(bcodes):
+    bcode = "".join([chr(x) for x in bcodes])
+    interp = new_interpreter(bcode)
+    interp.w_active_context.w_method().literals = \
+                                                fakeliterals(wrap_int(3),
+                                                             wrap_int(4))
+    res = interp.interpret()
+    assert res.value == 7
 
-    bc_3_plus_4 = [ 137, 117, 200, 164, 4, 32, 33, 176, 125, 201, 124]
-    #bc_x_plus_x_plus_1 = [ 137, 118, 200, 164, 7, 104, 16, 16, 176, 118, 176, 125, 32, 202, 124 ]
-    #bc_x_plus_y = [ 137, 119, 200, 164, 6, 105, 104, 16, 17, 176, 125, 33, 34, 240, 124 ]
+def test_bc_3_plus_4():
+    interp_bc_and_check_result_is_7(
+        [ 137, 117, 200, 164, 4, 32, 33, 176, 125, 201, 124])
 
-    for bcodes in [ bc_3_plus_4 ]: #, bc_x_plus_x_plus_1, bc_x_plus_y ]:
-        bcode = "".join([chr(x) for x in bcodes])
-        interp = new_interpreter(bcode)
-        interp.w_active_context.w_method().literals = \
-                                                    fakeliterals(wrap_int(3),
-                                                                 wrap_int(4))
-        res = interp.interpret()
-        assert res.value == 7
+def test_bc_x_plus_x_plus_1():
+    interp_bc_and_check_result_is_7(
+        [ 137, 118, 200, 164, 7, 104, 16, 16,
+          176, 118, 176, 125, 32, 202, 124 ])
+
+def test_bc_x_plus_y():
+    py.test.skip("not yet working")
+    interp_bc_and_check_result_is_7(
+        [ 137, 119, 200, 164, 6, 105, 104, 16, 17,
+          176, 125, 33, 34, 240, 124 ])
         

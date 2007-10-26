@@ -74,7 +74,8 @@ def expose_primitive(code, unwrap_spec=None):
         assert (len_unwrap_spec == len(inspect.getargspec(func)[0]) + 1,
                 "wrong number of arguments")
         unrolling_unwrap_spec = unrolling_iterable(enumerate(unwrap_spec))
-        def wrapped(interp, argument_count):
+        def wrapped(interp, argument_count_m1):
+            argument_count = argument_count_m1 + 1 # to account for the rcvr
             frame = interp.w_active_context
             assert argument_count == len_unwrap_spec
             if len(frame.stack) < len_unwrap_spec:
@@ -614,8 +615,9 @@ def func(interp, w_context, w_argcnt):
 @expose_primitive(PRIMITIVE_VALUE)
 def func(interp, argument_count):
     # XXX XXX XXX XXX test me
-    # If argument_count == 4, stack looks like:
-    #  3      2       1      0
+    # argument_count does NOT include the receiver.
+    # This means that for argument_count == 3 the stack looks like:
+    #  3      2       1      Top
     #  Rcvr | Arg 0 | Arg1 | Arg 2
     #
     
@@ -623,17 +625,18 @@ def func(interp, argument_count):
     
     # Validate that we have a block on the stack and that it received
     # the proper number of arguments:
-    w_block_ctx = frame.peek(argument_count-1)
+    w_block_ctx = frame.peek(argument_count)
     if not isinstance(w_block_ctx, model.W_BlockContext):
         raise PrimitiveFailedError()
     exp_arg_cnt = w_block_ctx.expected_argument_count()
-    if argument_count != exp_arg_cnt + 1: # exp_arg_cnt doesn't count self
+    if argument_count != exp_arg_cnt: # exp_arg_cnt doesn't count self
         raise PrimitiveFailedError()
 
-    # Initialize the block stack from the contents of the stack:
-    #   Don't bother to copy the 'self' argument
+    # Initialize the block stack with the arguments that were
+    # pushed.  Also pop the receiver.
     block_args = frame.pop_n(exp_arg_cnt)
     w_block_ctx.push_all(block_args)
+    frame.pop()
 
     # Set some fields
     w_block_ctx.pc = w_block_ctx.initialip
