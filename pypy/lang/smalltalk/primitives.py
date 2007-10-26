@@ -359,13 +359,17 @@ NEW_METHOD = 79
 
 @expose_primitive(OBJECT_AT, unwrap_spec=[object, index1_0])
 def func(interp, w_rcvr, n0):
-    assert_bounds(n0, 0, w_rcvr.shadow_of_my_class().instance_size)
-    return w_rcvr.fetch(n0)
+    if not isinstance(w_rcvr, model.W_CompiledMethod):
+        raise PrimitiveFailedError()
+    assert_bounds(n0, 0, len(w_rcvr.literals))
+    return w_rcvr.literals[n0]
 
 @expose_primitive(OBJECT_AT_PUT, unwrap_spec=[object, index1_0, object])
 def func(interp, w_rcvr, n0, w_val):
-    assert_bounds(n0, 0, w_rcvr.shadow_of_my_class().instance_size)
-    w_rcvr.store(n0, w_val)
+    if not isinstance(w_rcvr, model.W_CompiledMethod):
+        raise PrimitiveFailedError()
+    assert_bounds(n0, 0, len(w_rcvr.literals))
+    w_rcvr.literals[n0] = w_val
     return w_val
 
 @expose_primitive(NEW, unwrap_spec=[object])

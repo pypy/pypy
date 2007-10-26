@@ -264,7 +264,7 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
         return w_CompiledMethod
 
     def getliteral(self, index):
-        return self.literals[index + 1] # header of compiledmethod at index 0
+        return self.literals[index + constants.LITERAL_START]
 
     def getliteralsymbol(self, index):
         w_literal = self.getliteral(index)

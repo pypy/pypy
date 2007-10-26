@@ -215,18 +215,9 @@ def test_string_at_put():
     for i in range(len(exp)):
         assert prim(primitives.STRING_AT, [test_str, i]) == wrap(exp[i])
 
-def test_object_at():
-    w_v = prim(primitives.OBJECT_AT, ["q", constants.CHARACTER_VALUE_INDEX+1])
-    assert w_v.value == ord("q")
-
 def test_invalid_object_at():
     prim_fails(primitives.OBJECT_AT, ["q", constants.CHARACTER_VALUE_INDEX+2])
     
-def test_object_at_put():
-    w_obj = mockclass(1).as_class_get_shadow().new()
-    assert prim(primitives.OBJECT_AT_PUT, [w_obj, 1, "q"]) is wrap("q")
-    assert prim(primitives.OBJECT_AT, [w_obj, 1]) is wrap("q")
-
 def test_invalid_object_at_put():
     w_obj = mockclass(1).as_class_get_shadow().new()
     prim_fails(primitives.OBJECT_AT_PUT, [w_obj, 2, 42])
@@ -409,3 +400,5 @@ def test_become():
 #   primitives.PRIMITIVE_BLOCK_COPY is tested in test_interpreter
 #   primitives.PRIMITIVE_VALUE is tested in test_interpreter
 #   primitives.PRIMITIVE_VALUE_WITH_ARGS is tested in test_interpreter
+#   primitives.OBJECT_AT is tested in test_interpreter
+#   primitives.OBJECT_AT_PUT is tested in test_interpreter

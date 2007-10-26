@@ -745,3 +745,27 @@ def test_bc_primBytecodeAtPut_with_instvars():
     run_with_faked_methods(
         [[w_fakeclass, primitives.AT_PUT, 2, "at:put:"]],
         test)
+
+def test_bc_objectAtAndAtPut():
+    #   ^ self objectAt: 1.          yields the method header
+    #   ^ self objectAt: 2.          yields the first literal (22)
+    # 	^ self objectAt: 2 put: 3.   changes the first literal to 3
+    #   ^ self objectAt: 2.          yields the new first literal (3)
+    prim_meth = model.W_CompiledMethod(0, "")
+    prim_meth.literals = fakeliterals(22)
+    mhs = fakesymbol("methodheader")
+    oal = fakeliterals("objectAt:")
+    oalp = fakeliterals("objectAt:put:", 3)
+    def test():
+        assert interpret_bc(
+            [112, 118, 224, 124], oal, receiver=prim_meth) == mhs
+        assert interpret_bc(
+            [112, 119, 224, 124], oal, receiver=prim_meth).value == 22
+        assert interpret_bc(
+            [112, 119, 33, 240, 124], oalp, receiver=prim_meth).value == 3
+        assert interpret_bc(
+            [112, 119, 224, 124], oal, receiver=prim_meth).value == 3
+    run_with_faked_methods(
+        [[ct.w_CompiledMethod, primitives.OBJECT_AT, 1, "objectAt:"],
+         [ct.w_CompiledMethod, primitives.OBJECT_AT_PUT, 2, "objectAt:put:"]],
+        test)

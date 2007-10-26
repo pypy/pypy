@@ -40,7 +40,14 @@ MTHDCTX_METHOD = 3
 MTHDCTX_RECEIVER_MAP = 4
 MTHDCTX_RECEIVER = 5
 MTHDCTX_TEMP_FRAME_START = 6
-# ----- special objects indices -------
+
+# ___________________________________________________________________________
+# Miscellaneous constants
+
+LITERAL_START = 1 # index of the first literal after the method header
+
+# ___________________________________________________________________________
+# Special objects indices
 
 SO_NIL = 0
 SO_FALSE = 1
