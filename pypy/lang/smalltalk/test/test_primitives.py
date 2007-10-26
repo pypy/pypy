@@ -190,6 +190,16 @@ def test_at_put():
 def test_invalid_at_put():
     w_obj = mockclass(0).as_class_get_shadow().new()
     prim_fails(primitives.AT_PUT, [w_obj, 1, 22])
+    
+def test_size():
+    w_obj = mockclass(0, varsized=True).as_class_get_shadow().new(0)
+    assert prim(primitives.SIZE, [w_obj]).value == 0
+    w_obj = mockclass(3, varsized=True).as_class_get_shadow().new(5)
+    assert prim(primitives.SIZE, [w_obj]).value == 5
+    
+def test_size():
+    w_obj = mockclass(0).as_class_get_shadow().new(0)
+    prim_fails(primitives.SIZE, [w_obj])
 
 def test_string_at():
     assert prim(primitives.STRING_AT, ["foobar", 4]) == wrap("b")
