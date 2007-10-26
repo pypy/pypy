@@ -384,7 +384,7 @@ class __extend__(W_ContextPart):
         self.callPrimitiveAndPush(primitives.AT_END, "atEnd", 0, interp)
 
     def bytecodePrimEquivalent(self, interp):
-        raise MissingBytecode("bytecodePrimEquivalent")
+        self.callPrimitiveAndPush(primitives.EQUIVALENT, "==", 1, interp)
 
     def bytecodePrimClass(self, interp):
         self.callPrimitiveAndPush(
