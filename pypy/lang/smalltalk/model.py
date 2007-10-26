@@ -128,6 +128,10 @@ class W_PointersObject(W_AbstractObjectWithClassReference):
         instsize = self.getclass().as_class_get_shadow().instsize()
         return self._vars[idx+instsize]
 
+    def storevarpointer(self, idx, value):
+        instsize = self.getclass().as_class_get_shadow().instsize()
+        self._vars[idx+instsize] = value
+
     def size(self):
         return len(self._vars)
 

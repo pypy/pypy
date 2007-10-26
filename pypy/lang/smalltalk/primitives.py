@@ -665,7 +665,7 @@ def func(interp, w_block_ctx, w_args):
     exp_arg_cnt = w_block_ctx.expected_argument_count()
 
     # Check that our arguments have pointers format and the right size:
-    if not isinstance(w_args, model.W_PointersObject):
+    if w_args.getclass() != classtable.w_Array:
         raise PrimitiveFailedError()
     if w_args.size() != exp_arg_cnt:
         raise PrimitiveFailedError()

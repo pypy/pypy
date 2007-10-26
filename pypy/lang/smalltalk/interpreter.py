@@ -36,7 +36,9 @@ class Interpreter:
         next = self.w_active_context.getNextBytecode()
         bytecodeimpl = BYTECODE_TABLE[next]
         if option.bc_trace:
-            print "About to execute bytecode %s:" % (bytecodeimpl.__name__,)
+            print "About to execute bytecode at %d (%d:%s):" % (
+                self.w_active_context.pc,
+                next, bytecodeimpl.__name__,)
             print "  Stack=%s" % (repr(self.w_active_context.stack),)
         bytecodeimpl(self.w_active_context, self)
         

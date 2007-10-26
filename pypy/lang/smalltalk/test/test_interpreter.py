@@ -50,11 +50,20 @@ def fakesymbol(s, _cache={}):
         return result
 
 def fakeliterals(*literals):
-    lst = ["methodheader"] + list(literals)
-    for i in range(len(lst)):
-        if isinstance(lst[i], str):
-            lst[i] = fakesymbol(lst[i])
-    return lst
+    def fakeliteral(lit):
+        if isinstance(lit, str):
+            return fakesymbol(lit)
+        elif isinstance(lit, int):
+            return wrap_int(lit)
+        elif isinstance(lit, list):
+            lstlen = len(lit)
+            res = ct.w_Array.as_class_get_shadow().new(lstlen)
+            for i in range(lstlen):
+                res.storevarpointer(i, fakeliteral(lit[i]))
+            return res
+        return lit
+        
+    return ["methodheader"] + [fakeliteral(lit) for lit in literals]
 
 def new_interpreter(bytes, receiver=objtable.w_nil):
     assert isinstance(bytes, str)
@@ -550,10 +559,11 @@ def test_bc_value_with_args():
     # 	" (self >> #value1) literals "
     # 
     # 	[ :a :b | a - b ] valueWithArguments: #(3 2)
-    py.test.skip("in progress")
     def test():
         assert interpret_bc(
-            [ 137, 119, 200, 164, 6, 105, 104, 16, 17, 177, 125, 33, 224, 124 ],
+            [ 137, 119, 200, 164, 6,
+              105, 104, 16, 17, 177,
+              125, 33, 224, 124 ],
             fakeliterals("valueWithArguments:",
                          [3, 2])).value == 1
     run_with_faked_methods(
