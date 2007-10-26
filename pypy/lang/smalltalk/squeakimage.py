@@ -24,11 +24,12 @@ def splitbits(integer, lengths):
     sum = 0
     for length in lengths:
         sum += length
-        result.append(integer & (2**length - 1))
+        n = integer & (2**length - 1)
+        assert n >= 0
+        result.append(n)
         integer = integer >> length
     assert sum <= 32
     return result
-
 
 # ____________________________________________________________
 #
@@ -121,7 +122,7 @@ class ImageReader(object):
             self.chunks[pos + self.oldbaseaddress] = chunk
         self.stream.close()    
         self.swap = self.stream.swap #save for later
-        del self.stream
+        self.stream = None
         return self.chunklist # return for testing
 
     def init_g_objects(self):
