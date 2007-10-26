@@ -5,6 +5,7 @@ from pypy.lang.smalltalk import model, shadow
 from pypy.lang.smalltalk import interpreter
 from pypy.lang.smalltalk import classtable
 from pypy.lang.smalltalk import objtable
+from pypy.lang.smalltalk import constants
 from pypy.rlib.rarithmetic import INFINITY, NAN, isinf, isnan
 
 # Violates the guideline, but we use it A LOT to reference the primitive codes:
@@ -195,11 +196,11 @@ def test_string_at_put():
         assert prim(primitives.STRING_AT, [test_str, i]) == wrap(exp[i])
 
 def test_object_at():
-    w_v = prim(primitives.OBJECT_AT, ["q", objtable.CHARACTER_VALUE_INDEX+1])
+    w_v = prim(primitives.OBJECT_AT, ["q", constants.CHARACTER_VALUE_INDEX+1])
     assert w_v.value == ord("q")
 
 def test_invalid_object_at():
-    prim_fails(primitives.OBJECT_AT, ["q", objtable.CHARACTER_VALUE_INDEX+2])
+    prim_fails(primitives.OBJECT_AT, ["q", constants.CHARACTER_VALUE_INDEX+2])
     
 def test_object_at_put():
     w_obj = mockclass(1).as_class_get_shadow().new()
@@ -237,7 +238,7 @@ def test_invalid_new_with_arg():
 def test_inst_var_at():
     # I am not entirely sure if this is what this primitive is
     # supposed to do, so the test may be bogus:
-    w_v = prim(primitives.INST_VAR_AT, ["q", objtable.CHARACTER_VALUE_INDEX])
+    w_v = prim(primitives.INST_VAR_AT, ["q", constants.CHARACTER_VALUE_INDEX])
     assert w_v.value == ord("q")
     w_v = prim(primitives.INST_VAR_AT, ["abc", 1])
     assert w_v.value == ord("b")

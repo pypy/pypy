@@ -1,5 +1,5 @@
 import pypy.lang.smalltalk.classtable as ct
-from pypy.lang.smalltalk.constants import CHARACTER_VALUE_INDEX
+from pypy.lang.smalltalk import constants
 from pypy.lang.smalltalk import model
 
 # ___________________________________________________________________________
@@ -24,7 +24,7 @@ def wrap_char(c):
 
 def ord_w_char(w_c):
     assert w_c.getclass() is ct.w_Character
-    w_ord = w_c.fetch(CHARACTER_VALUE_INDEX)
+    w_ord = w_c.fetch(constants.CHARACTER_VALUE_INDEX)
     assert w_ord.getclass() is ct.w_SmallInteger
     assert isinstance(w_ord, model.W_SmallInteger)
     return w_ord.value
@@ -42,7 +42,7 @@ def wrap_char_table():
     global CharacterTable
     def bld_char(i):
         w_cinst = ct.w_Character.as_class_get_shadow().new()
-        w_cinst.store(CHARACTER_VALUE_INDEX, wrap_int(i))
+        w_cinst.store(constants.CHARACTER_VALUE_INDEX, wrap_int(i))
         return w_cinst
     CharacterTable = [bld_char(i) for i in range(256)]
 wrap_char_table()
@@ -54,3 +54,8 @@ w_mone = wrap_int(-1)
 w_zero = wrap_int(0)
 w_one = wrap_int(1)
 w_two = wrap_int(2)
+
+objtable = {}
+
+for name in constants.objects_in_special_object_table:
+    objtable["w_" + name] = globals()["w_" + name]

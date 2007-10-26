@@ -1,4 +1,5 @@
 import py
+import os
 from pypy.lang.smalltalk import model 
 from pypy.lang.smalltalk import objtable 
 from pypy.rlib import objectmodel
@@ -19,11 +20,13 @@ def swapped_chrs2int(b):
 
 def splitbits(integer, lengths):
     #XXX we can later let the tool chain mask and unroll this
-    assert sum(lengths) <= 32
     result = []
+    sum = 0
     for length in lengths:
+        sum += length
         result.append(integer & (2**length - 1))
         integer = integer >> length
+    assert sum <= 32
     return result
 
 
@@ -95,7 +98,7 @@ class ImageReader(object):
             self.stream.swap = True
             version = self.stream.peek()
             if version != 0x1966:
-                raise CorrupImageError
+                raise CorruptImageError
         version = self.stream.next()        
         #------        
         headersize = self.stream.next()
@@ -113,7 +116,7 @@ class ImageReader(object):
         self.stream.reset_count()
         while self.stream.count < self.endofmemory:
             chunk, pos = self.read_object()
-            if len(self.chunklist) % 1000 == 0: sys.stderr.write('#')
+            if len(self.chunklist) % 1000 == 0: os.write(2,'#')
             self.chunklist.append(chunk)
             self.chunks[pos + self.oldbaseaddress] = chunk
         self.stream.close()    
@@ -134,11 +137,13 @@ class ImageReader(object):
         from pypy.lang.smalltalk import classtable, constants, objtable
         # assign w_objects for objects that are already in classtable
         for name, so_index in constants.classes_in_special_object_table.items():
-            w_object = getattr(classtable, "w_" + name)
+            # w_object = getattr(classtable, "w_" + name)
+            w_object = classtable.classtable["w_" + name]
             self.special_object(so_index).w_object = w_object
         # assign w_objects for objects that are already in objtable
         for name, so_index in constants.objects_in_special_object_table.items():
-            w_object = getattr(objtable, "w_" + name)
+            # w_object = getattr(objtable, "w_" + name)
+            w_object = objtable.objtable["w_" + name]
             self.special_object(so_index).w_object = w_object
 
     def special_object(self, index):
