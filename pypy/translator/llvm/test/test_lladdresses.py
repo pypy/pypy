@@ -1,5 +1,5 @@
 import py
-from pypy.rpython.lltypesystem.llmemory import *
+from pypy.rpython.lltypesystem import llmemory, lltype
 from pypy.annotation.model import SomeAddress, SomeChar
 from pypy.rlib.objectmodel import free_non_gc_object
 
@@ -8,15 +8,15 @@ from pypy.translator.llvm.test.runtest import *
 
 def test_null():
     def f():
-        return NULL - NULL
+        return llmemory.NULL - llmemory.NULL
     fc = compile_function(f, [])
 
 def test_convert_to_bool():
     def convert_to_bool(x):
         if x:
-            return bool(NULL)
+            return bool(llmemory.NULL)
         else:
-            return bool(NULL + 1)
+            return bool(llmemory.NULL + 1)
     fc = compile_function(convert_to_bool, [int])
     res = fc(1)
     assert isinstance(res, int) and not res
@@ -25,10 +25,10 @@ def test_convert_to_bool():
 
 def test_memory_access():
     def f(value):
-        addr = raw_malloc(16)
+        addr = llmemory.raw_malloc(16)
         addr.signed[0] = value
         res = addr.signed[0]
-        raw_free(addr)
+        llmemory.raw_free(addr)
         return res
     fc = compile_function(f, [int])
     res = fc(42)
@@ -39,11 +39,11 @@ def test_memory_access():
 def test_pointer_arithmetic():
     def f(offset, char):
         char = chr(char)
-        addr = raw_malloc(10000)
+        addr = llmemory.raw_malloc(10000)
         same_offset = (addr + 2 * offset - offset) - addr 
         addr.char[offset] = char
         result = (addr + same_offset).char[0]
-        raw_free(addr)
+        llmemory.raw_free(addr)
         return ord(result)
     fc = compile_function(f, [int, int])
     res = fc(10, ord("c"))
@@ -54,7 +54,7 @@ def test_pointer_arithmetic():
 def test_pointer_arithmetic_inplace():
     def f(offset, char):
         char = chr(char)
-        addr = raw_malloc(10000)
+        addr = llmemory.raw_malloc(10000)
         addr += offset
         addr.char[-offset] = char
         addr -= offset
@@ -65,17 +65,17 @@ def test_pointer_arithmetic_inplace():
 
 def test_raw_memcopy():
     def f():
-        addr = raw_malloc(100)
+        addr = llmemory.raw_malloc(100)
         addr.signed[0] = 12
         (addr + 10).signed[0] = 42
         (addr + 20).char[0] = "a"
-        addr1 = raw_malloc(100)
-        raw_memcopy(addr, addr1, 100)
+        addr1 = llmemory.raw_malloc(100)
+        llmemory.raw_memcopy(addr, addr1, 100)
         result = addr1.signed[0] == 12
         result = result and (addr1 + 10).signed[0] == 42
         result = result and (addr1 + 20).char[0] == "a"
-        raw_free(addr)
-        raw_free(addr1)
+        llmemory.raw_free(addr)
+        llmemory.raw_free(addr1)
         return result
     fc = compile_function(f, [])
     res = fc()
@@ -84,7 +84,7 @@ def test_raw_memcopy():
 def test_pointer_comparison():
     def f():
         result = 0
-        for addr1 in [raw_malloc(1), NULL]:
+        for addr1 in [llmemory.raw_malloc(1), llmemory.NULL]:
             addr2 = addr1 + 1
             result = result * 2 + int(addr1 == addr2)
             result = result * 2 + int(addr1 != addr2)
