@@ -348,6 +348,10 @@ class RegisterOs(BaseLazyRegistering):
     def register_os_getpid(self):
         return self.extdef_for_os_function_returning_int('getpid')
 
+    @registering_if(os, 'getgid')
+    def register_os_getgid(self):
+        return self.extdef_for_os_function_returning_int('getgid')
+
     @registering(os.open)
     def register_os_open(self):
         os_open = self.llexternal(underscore_on_windows+'open',

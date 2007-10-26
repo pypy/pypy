@@ -116,6 +116,12 @@ class BaseTestPosix(BaseRtypingTest):
                 return os.getuid()
             assert self.interpret(f, []) == f()
 
+    if hasattr(os, 'getgid'):
+        def test_getgid(self):
+            def f():
+                return os.getgid()
+            assert self.interpret(f, []) == f()
+
     def test_os_wstar(self):
         from pypy.rpython.module.ll_os import RegisterOs
         for name in RegisterOs.w_star:
