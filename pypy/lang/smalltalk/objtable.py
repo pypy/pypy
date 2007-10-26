@@ -49,11 +49,16 @@ wrap_char_table()
 
 w_true  = ct.classtable['w_True'].as_class_get_shadow().new()
 w_false = ct.classtable['w_False'].as_class_get_shadow().new()
-w_nil = ct.classtable['w_UndefinedObject'].as_class_get_shadow().new()
 w_mone = wrap_int(-1)
 w_zero = wrap_int(0)
 w_one = wrap_int(1)
 w_two = wrap_int(2)
+
+# Very special nil hack: in order to allow W_PointersObject's to
+# initialize their fields to nil, we have to create it in the model
+# package, and then patch up its fields here:
+w_nil = model.w_nil
+w_nil.w_class = ct.classtable['w_UndefinedObject']
 
 objtable = {}
 

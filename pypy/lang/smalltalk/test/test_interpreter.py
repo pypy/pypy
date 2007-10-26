@@ -174,7 +174,7 @@ def test_storeAndPopReceiverVariableBytecode(bytecode=storeAndPopReceiverVariabl
             if test_index == index:
                 assert w_object.fetch(test_index) == interp.TRUE
             else:
-                assert w_object.fetch(test_index) == None
+                assert w_object.fetch(test_index) is objtable.w_nil
 
 def test_storeAndPopTemporaryVariableBytecode(bytecode=storeAndPopTemporaryVariableBytecode):
     for index in range(8):

@@ -393,23 +393,22 @@ def func(interp, w_obj1, w_obj2):
 
 @expose_primitive(INST_VAR_AT, unwrap_spec=[object, int])
 def func(interp, w_rcvr, idx):
-    # I *think* this is the correct behavior, but I'm not quite sure.
-    # Might be restricted to fixed length fields?
-    # XXX this doesn't look correct.  Our guess is that INST_VAR_AT
-    # is used to access *only* the fixed length fields.
+    "Fetches a fixed field from the object, and fails otherwise"
     shadow = w_rcvr.shadow_of_my_class()
-    if idx < 0:
-        raise PrimitiveFailedError()
-    if idx < shadow.instsize():
-        return w_rcvr.fetch(idx)
-    idx -= shadow.instsize()
-    if idx < w_rcvr.size():
-        return w_subscript(w_rcvr, idx)
-    raise PrimitiveFailedError()
+    assert_bounds(idx, 0, shadow.instsize())
+    # only pointers have non-0 size    
+    assert isinstance(w_rcvr, model.W_PointersObject)
+    return w_rcvr.fetch(idx)
 
-@expose_primitive(INST_VAR_AT_PUT, unwrap_spec=[object])
-def func(interp, w_rcvr):
-    raise PrimitiveNotYetWrittenError()
+@expose_primitive(INST_VAR_AT_PUT, unwrap_spec=[object, int, object])
+def func(interp, w_rcvr, idx, w_value):
+    "Stores a value into a fixed field from the object, and fails otherwise"
+    shadow = w_rcvr.shadow_of_my_class()
+    assert_bounds(idx, 0, shadow.instsize())
+    # only pointers have non-0 size    
+    assert isinstance(w_rcvr, model.W_PointersObject)
+    w_rcvr.store(idx, w_value)
+    return w_value
 
 @expose_primitive(AS_OOP, unwrap_spec=[object])
 def func(interp, w_rcvr):

@@ -1,5 +1,5 @@
 import py
-from pypy.lang.smalltalk import model, shadow
+from pypy.lang.smalltalk import model, shadow, objtable
 from pypy.lang.smalltalk.shadow import MethodNotFound
 import pypy.lang.smalltalk.classtable as ct
 
@@ -17,7 +17,7 @@ def test_new_namedvars():
     w_myinstance = w_mycls.as_class_get_shadow().new()
     assert isinstance(w_myinstance, model.W_PointersObject)
     assert w_myinstance.getclass() is w_mycls
-    assert w_myinstance.fetch(0) is None
+    assert w_myinstance.fetch(0) is objtable.w_nil
     py.test.raises(IndexError, lambda: w_myinstance.fetch(3))
     w_myinstance.store(1, w_myinstance)
     assert w_myinstance.fetch(1) is w_myinstance

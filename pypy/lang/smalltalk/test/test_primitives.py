@@ -242,12 +242,16 @@ def test_invalid_new_with_arg():
     prim_fails(primitives.NEW_WITH_ARG, [w_Object, 20])
     
 def test_inst_var_at():
-    # I am not entirely sure if this is what this primitive is
-    # supposed to do, so the test may be bogus:
     w_v = prim(primitives.INST_VAR_AT, ["q", constants.CHARACTER_VALUE_INDEX])
     assert w_v.value == ord("q")
-    w_v = prim(primitives.INST_VAR_AT, ["abc", 1])
-    assert w_v.value == ord("b")
+
+def test_inst_var_at_put():
+    w_q = classtable.w_Character.as_class_get_shadow().new()
+    vidx = constants.CHARACTER_VALUE_INDEX
+    ordq = ord("q")
+    assert prim(primitives.INST_VAR_AT, [w_q, vidx]) == objtable.w_nil
+    assert prim(primitives.INST_VAR_AT_PUT, [w_q, vidx, ordq]).value == ordq
+    assert prim(primitives.INST_VAR_AT, [w_q, vidx]).value == ordq
 
 def test_class():
     assert prim(primitives.CLASS, ["string"]) == classtable.w_String

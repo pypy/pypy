@@ -3,6 +3,7 @@ from pypy.rlib import rrandom
 from pypy.rlib.rarithmetic import intmask
 from pypy.lang.smalltalk import constants
 from pypy.tool.pairtype import extendabletype
+from pypy.rlib.objectmodel import instantiate
 
 class W_Object(object):
     __slots__ = ()    # no RPython-level instance variables allowed in W_Object
@@ -114,7 +115,7 @@ class W_PointersObject(W_AbstractObjectWithClassReference):
 
     def __init__(self, w_class, size):
         W_AbstractObjectWithClassReference.__init__(self, w_class)
-        self._vars = [None] * size
+        self._vars = [w_nil] * size
 
     def at(self, index0):
         return self.fetch(index0)
@@ -427,11 +428,10 @@ class W_MethodContext(W_ContextPart):
         return w_MethodContext
 
     def fetch(self, index):
-        from pypy.lang.smalltalk import objtable
         if index == constants.MTHDCTX_METHOD:
             return self.w_method()
         elif index == constants.MTHDCTX_RECEIVER_MAP: # what is this thing?
-            return objtable.w_nil
+            return w_nil
         elif index == constants.MTHDCTX_RECEIVER:
             return self.w_receiver
         elif index >= constants.MTHDCTX_TEMP_FRAME_START:
@@ -447,3 +447,8 @@ class W_MethodContext(W_ContextPart):
         else:
             return W_ContextPart.fetch(self, index)
 
+# Use black magic to create w_nil without running the constructor,
+# thus allowing it to be used even in the constructor of its own
+# class.  Note that we patch its class in objtable.
+w_nil = instantiate(W_PointersObject)
+w_nil._vars = []
