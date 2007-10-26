@@ -308,8 +308,11 @@ def func(interp, w_obj, n0):
 @expose_primitive(AT_PUT, unwrap_spec=[object, index1_0, object])
 def func(interp, w_obj, n0, w_val):
     assert_valid_index(n0, w_obj)
-    w_obj.atput0(n0, w_val)
-    return w_val
+    try:
+        w_obj.atput0(n0, w_val)
+        return w_val
+    except model.UnwrappingError:
+        raise PrimitiveFailedError()
 
 @expose_primitive(SIZE, unwrap_spec=[object])
 def func(interp, w_obj):
