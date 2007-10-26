@@ -256,6 +256,26 @@ def test_bytecodePrimBitShift():
     interp.step()
     interp.step()
     assert interp.w_active_context.stack[0].value == 4
+ 
+def test_bytecodePrimClass():
+    interp = new_interpreter(pushConstantOneBytecode + bytecodePrimClass)
+    interp.step()
+    interp.step()
+    assert interp.w_active_context.stack[0] == ct.w_SmallInteger
+    
+def test_bytecodePrimSubtract():
+    interp = new_interpreter(pushConstantOneBytecode + pushConstantTwoBytecode + bytecodePrimSubtract)
+    interp.step()
+    interp.step()
+    interp.step()
+    assert interp.w_active_context.stack[0].value == -1
+
+def test_bytecodePrimMultiply():
+    interp = new_interpreter(pushConstantMinusOneBytecode + pushConstantTwoBytecode + bytecodePrimMultiply)
+    interp.step()
+    interp.step()
+    interp.step()
+    assert interp.w_active_context.stack[0].value == -2
 
 # w_class - the class from which the method is going to be called
 # (and on which it is going to be installed)
