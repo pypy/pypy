@@ -1,11 +1,13 @@
 import autopath
 import sys
+import os
 from pypy.lang.smalltalk import model, interpreter, primitives, shadow
 from pypy.lang.smalltalk import objtable
 from pypy.lang.smalltalk.objtable import wrap_int
 from pypy.lang.smalltalk import classtable
 # from pypy.lang.smalltalk.test.test_interpreter import *
 from pypy.lang.smalltalk import squeakimage
+from pypy.lang.smalltalk import constants
 
 mockclass = classtable.bootstrap_class
 
@@ -17,6 +19,46 @@ def new_interpreter(bytes):
     interp.w_active_context = w_frame
     return interp
 
+
+
+def tinyBenchmarks(image):
+    interp = interpreter.Interpreter()
+
+    w_object = model.W_SmallInteger(0)
+
+    # Should get this from w_object
+    w_smallint_class = image.special(constants.SO_SMALLINTEGER_CLASS)
+    s_class = w_object.shadow_of_my_class()
+    w_method = s_class.lookup("tinyBenchmarks")
+
+    assert w_method
+    w_frame = w_method.create_frame(w_object, [])
+    interp.w_active_context = w_frame
+
+    print w_method
+    print "Going to execute %d toplevel bytecodes" % (len(w_method.bytes),)
+    counter = 0
+
+    from pypy.lang.smalltalk.interpreter import BYTECODE_TABLE
+    return interp
+
+
+def run_benchmarks(interp):
+    counter = 0
+    try:
+        while True:
+            counter += 1
+            interp.step()
+            if counter == 100000:
+                counter = 0
+                os.write(2, '#')
+    except interpreter.ReturnFromTopLevel, e:
+        w_result = e.object
+
+    assert isinstance(w_result, model.W_BytesObject)
+    print w_result.as_string()
+    return 0
+
 def entry_point(argv):
     if len(argv) > 1:
         filename = argv[1]
@@ -27,6 +69,8 @@ def entry_point(argv):
     reader.initialize()
     image = squeakimage.SqueakImage()
     image.from_reader(reader)
+    interp = tinyBenchmarks(image)
+    run_benchmarks(interp)
     return 0
 
 # _____ Define and setup target ___
