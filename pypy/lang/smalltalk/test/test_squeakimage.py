@@ -70,18 +70,7 @@ def test_stream_count():
     stream.next()        
     assert stream.count == 8
     
-def test_simple_splitbits():
-    assert ([1] * 4) == squeakimage.splitbits(0x01010101, [8,8,8,8])
-    assert ([255] * 4) == squeakimage.splitbits(0xFfFfFfFf, [8,8,8,8])
-
-def test_fancy_splitbits():
-    assert [4,3,2,1] == squeakimage.splitbits(0x01020304, [8,8,8,8])
-    assert [1,3,7,15] == squeakimage.splitbits(0xFfFfFfFf, [1,2,3,4])
-    
-def test_format_splitbits():
-    x = 0xAA
-    assert [x & 3] == squeakimage.splitbits(x, [2])  
-    
+   
 def test_simple_joinbits():
     assert 0x01010101 == joinbits(([1] * 4), [8,8,8,8])
     assert 0xFfFfFfFf == joinbits([255] * 4, [8,8,8,8])

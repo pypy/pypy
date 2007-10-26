@@ -3,6 +3,7 @@ import os
 from pypy.lang.smalltalk import model 
 from pypy.lang.smalltalk import objtable 
 from pypy.rlib import objectmodel
+from pypy.lang.smalltalk.tool.bitmanipulation import splitter
 
 def chrs2int(b):
     assert len(b) == 4
@@ -18,18 +19,6 @@ def swapped_chrs2int(b):
         first = first - 0x100
     return first << 24 | ord(b[2]) << 16 | ord(b[1]) << 8 | ord(b[0])            
 
-def splitbits(integer, lengths):
-    #XXX we can later let the tool chain mask and unroll this
-    result = []
-    sum = 0
-    for length in lengths:
-        sum += length
-        n = integer & ((1<<length) - 1)
-        assert n >= 0
-        result.append(n)
-        integer = integer >> length
-    assert sum <= 32
-    return result
 
 # ____________________________________________________________
 #
@@ -182,23 +171,23 @@ class ImageReader(object):
         
     def read_1wordobjectheader(self):
         kind, size, format, classid, idhash = (
-            splitbits(self.stream.next(), [2,6,4,5,12]))
+            splitter[2,6,4,5,12](self.stream.next()))
         assert kind == 3
         return ImageChunk(size, format, classid, idhash), self.stream.count - 4
 
     def read_2wordobjectheader(self):
         assert self.stream.peek() & 3 == 1 #kind
         classid = self.stream.next() - 01 # remove headertype to get pointer
-        kind, size, format, _, idhash = splitbits(self.stream.next(), [2,6,4,5,12])
+        kind, size, format, _, idhash = splitter[2,6,4,5,12](self.stream.next())
         assert kind == 1
         return ImageChunk(size, format, classid, idhash), self.stream.count - 4
 
     def read_3wordobjectheader(self):
-        kind, size = splitbits(self.stream.next(), [2,30]) 
+        kind, size = splitter[2,30](self.stream.next())
         assert kind == 0
-        assert splitbits(self.stream.peek(), [2])[0] == 0 #kind
+        assert splitter[2](self.stream.peek())[0] == 0 #kind
         classid = self.stream.next() - 00 # remove headertype to get pointer
-        kind, _, format, _, idhash = splitbits(self.stream.next(), [2,6,4,5,12])
+        kind, _, format, _, idhash = splitter[2,6,4,5,12](self.stream.next())
         assert kind == 0
         return ImageChunk(size, format, classid, idhash), self.stream.count - 4
 
@@ -379,7 +368,7 @@ class GenericObject(object):
         #(index 28)	1 bit:	high-bit of primitive number (#primitive)
         #(index 29)	1 bit:	flag bit, ignored by the VM  (#flag)
         _, primitive, literalsize, islarge, tempsize, numargs, highbit = (
-            splitbits(header, [1,9,8,1,6,4,1]))
+            splitter[1,9,8,1,6,4,1](header))
         primitive = primitive + (highbit << 10) ##XXX todo, check this
         literals = [self.decode_pointer(pointer).w_object
                     for pointer in self.chunk.data[:literalsize+1]]
