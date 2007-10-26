@@ -541,6 +541,14 @@ def getuid(space):
     return space.wrap(os.getuid())
 getuid.unwrap_spec = [ObjSpace]
 
+def getgid(space):
+    """ getgid() -> gid
+    
+    Return the current process's group id.
+    """
+    return space.wrap(os.getgid())
+getgid.unwrap_spec = [ObjSpace]
+
 def geteuid(space):
     """ geteuid() -> euid
 

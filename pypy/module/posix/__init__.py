@@ -86,6 +86,8 @@ corresponding Unix manual entries for more information on calls."""
     if hasattr(os, 'getuid'):
         interpleveldefs['getuid'] = 'interp_posix.getuid'
         interpleveldefs['geteuid'] = 'interp_posix.geteuid'
+    if hasattr(os, 'getgid'):
+        interpleveldefs['getgid'] = 'interp_posix.getgid'
     
     for name in RegisterOs.w_star:
         if hasattr(os, name):

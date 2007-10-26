@@ -29,6 +29,8 @@ class AppTestPosix:
         if hasattr(os, 'getuid'):
             cls.w_getuid = space.wrap(os.getuid())
             cls.w_geteuid = space.wrap(os.geteuid())
+        if hasattr(os, 'getgid'):
+            cls.w_getgid = space.wrap(os.getgid())
     
     def test_posix_is_pypy_s(self): 
         assert self.posix.__file__ 
@@ -275,6 +277,11 @@ class AppTestPosix:
             os = self.posix
             assert os.getuid() == self.getuid
             assert os.geteuid() == self.geteuid
+
+    if hasattr(os, 'getgid'):
+        def test_os_getgid(self):
+            os = self.posix
+            assert os.getgid() == self.getgid
 
     def test_largefile(self):
         os = self.posix
