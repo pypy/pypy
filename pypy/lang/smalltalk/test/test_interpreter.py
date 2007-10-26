@@ -410,10 +410,10 @@ def test_singleExtendedSuperBytecode(bytecode=singleExtendedSuperBytecode + chr(
     # first call method installed in w_class
     bytecodes = singleExtendedSendBytecode + chr(0)
     # which does a call to its super
-    meth1 = model.W_CompiledMethod(0, bytecode)
+    meth1 = model.W_CompiledMethod(0, pushReceiverBytecode + bytecode)
     w_class.as_class_get_shadow().installmethod("foo", meth1)
     # and that one again to its super
-    meth2 = model.W_CompiledMethod(0, bytecode)
+    meth2 = model.W_CompiledMethod(0, pushReceiverBytecode + bytecode)
     w_super.as_class_get_shadow().installmethod("foo", meth2)
     meth3 = model.W_CompiledMethod(0, "")
     w_supersuper.as_class_get_shadow().installmethod("foo", meth3)
@@ -422,8 +422,10 @@ def test_singleExtendedSuperBytecode(bytecode=singleExtendedSuperBytecode + chr(
     interp = new_interpreter(bytecodes)
     interp.w_active_context.w_method().literals = fakeliterals("foo")
     interp.w_active_context.push(w_object)
-    for w_specificclass in [w_class, w_super, w_supersuper]:
+    interp.step()
+    for w_specificclass in [w_super, w_supersuper]:
         callerContext = interp.w_active_context
+        interp.step()
         interp.step()
         assert interp.w_active_context.w_sender == callerContext
         assert interp.w_active_context.stack == []

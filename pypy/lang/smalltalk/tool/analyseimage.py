@@ -51,8 +51,10 @@ def tinyBenchmarks():
     while True:
         try:
             counter += 1
-            #if interp.w_active_context == w_frame:
-               # print "Executing toplevel bytecode nr: %d of %d" % (counter, len(w_method.bytes))
+            if interp.w_active_context == w_frame:
+                print "Executing toplevel bytecode nr: %d of %d" % (interp.w_active_context.pc+1, len(w_method.bytes))
+                cb = ord(interp.w_active_context.w_method().bytes[interp.w_active_context.pc])
+                print "= bytecode: %s %d" % (BYTECODE_TABLE[cb].__name__,cb)
             interp.step()
             #if hasattr(interp.w_active_context,"currentBytecode"):
             #    print "Executing bytecode: %s" % (BYTECODE_TABLE[interp.w_active_context.currentBytecode].__name__,)
