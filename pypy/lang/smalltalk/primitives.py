@@ -17,8 +17,12 @@ def unwrap_float(w_v):
     elif isinstance(w_v, model.W_SmallInteger): return float(w_v.value)
     raise PrimitiveFailedError()
 
-def subscript(idx, w_obj):
-    # XXX what does this do? explain
+def w_subscript(w_obj, idx):
+    """
+    Rather cryptically named function which retrieves an indexed field
+    from the object, wrapping as necessary depending on the format of
+    the object so that the result can be returned.
+    """
     if isinstance(w_obj, model.W_PointersObject):
         return w_obj.fetch(idx)
     elif isinstance(w_obj, model.W_WordsObject):
@@ -393,7 +397,7 @@ def func(interp, w_rcvr, idx):
         return w_rcvr.fetch(idx)
     idx -= shadow.instsize()
     if idx < w_rcvr.size():
-        return subscript(idx, w_rcvr)
+        return w_subscript(w_rcvr, idx)
     raise PrimitiveFailedError()
 
 @expose_primitive(INST_VAR_AT_PUT, unwrap_spec=[object])
