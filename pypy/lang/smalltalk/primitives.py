@@ -514,7 +514,7 @@ MILLISECOND_CLOCK = 135
 def func(interp, w_arg):
     import time
     import math
-    return wrap_int(math.fmod(time.time()*1000,1073741823/2))
+    return wrap_int(int(math.fmod(time.time()*1000,1073741823/2)))
 
 # ___________________________________________________________________________
 # Boolean Primitives
