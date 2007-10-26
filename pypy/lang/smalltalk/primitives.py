@@ -506,6 +506,16 @@ def func(interp, w_arg): # Squeak pops the arg and ignores it ... go figure
     rgc.collect()
     return fake_bytes_left()
 
+#____________________________________________________________________________
+# Time Primitives
+MILLISECOND_CLOCK = 135
+
+@expose_primitive(MILLISECOND_CLOCK, unwrap_spec=[object])
+def func(interp, w_arg):
+    import time
+    import math
+    return wrap_int(math.fmod(time.time()*1000,1073741823/2))
+
 # ___________________________________________________________________________
 # Boolean Primitives
 
