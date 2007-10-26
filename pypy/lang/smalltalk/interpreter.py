@@ -375,13 +375,13 @@ class __extend__(W_ContextPart):
         self.callPrimitiveAndPush(primitives.SIZE, "size", 0, interp)
 
     def bytecodePrimNext(self, interp):
-        raise MissingBytecode("bytecodePrimNext")
+        self.callPrimitiveAndPush(primitives.NEXT, "next", 0, interp)
 
     def bytecodePrimNextPut(self, interp):
-        raise MissingBytecode("bytecodePrimNextPut")
+        self.callPrimitiveAndPush(primitives.NEXT_PUT, "nextPut:", 1, interp)
 
     def bytecodePrimAtEnd(self, interp):
-        raise MissingBytecode("bytecodePrimAtEnd")
+        self.callPrimitiveAndPush(primitives.AT_END, "atEnd", 0, interp)
 
     def bytecodePrimEquivalent(self, interp):
         raise MissingBytecode("bytecodePrimEquivalent")

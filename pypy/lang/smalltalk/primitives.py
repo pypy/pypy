@@ -337,6 +337,13 @@ def func(interp, w_obj, w_idx, w_val):
     return w_val
 
 # ___________________________________________________________________________
+# Stream Primitives
+
+NEXT = 65
+NEXT_PUT = 66
+AT_END = 67
+
+# ___________________________________________________________________________
 # Storage Management Primitives
 
 OBJECT_AT = 68

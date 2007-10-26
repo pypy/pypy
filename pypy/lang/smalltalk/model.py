@@ -116,6 +116,9 @@ class W_PointersObject(W_AbstractObjectWithClassReference):
         W_AbstractObjectWithClassReference.__init__(self, w_class)
         self._vars = [None] * size
 
+    def at(self, index0):
+        return self.fetch(index0)
+       
     def fetch(self, n0):
         return self._vars[n0]
         
@@ -152,7 +155,11 @@ class W_BytesObject(W_AbstractObjectWithClassReference):
     def __init__(self, w_class, size):
         W_AbstractObjectWithClassReference.__init__(self, w_class)
         self.bytes = ['\x00'] * size
-        
+
+    def at(self, index0):
+        from pypy.lang.smalltalk import objtable
+        return objtable.wrap_chr(self.getbyte(index0))
+       
     def getbyte(self, n):
         return ord(self.bytes[n])
         
@@ -184,6 +191,10 @@ class W_WordsObject(W_AbstractObjectWithClassReference):
         W_AbstractObjectWithClassReference.__init__(self, w_class)
         self.words = [0] * size
         
+    def at(self, index0):
+        from pypy.lang.smalltalk import objtable
+        return objtable.wrap_int(self.getword(index0))
+
     def getword(self, n):
         return self.words[n]
         
