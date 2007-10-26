@@ -13,7 +13,6 @@ from pypy.translator.llvm.opaquenode import OpaqueNode, ExtOpaqueNode, \
      OpaqueTypeNode, ExtOpaqueTypeNode
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.objspace.flow.model import Constant, Variable
-from pypy.rpython.memory.lladdress import NULL
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
 from pypy.rlib import objectmodel
