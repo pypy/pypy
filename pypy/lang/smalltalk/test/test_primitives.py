@@ -51,22 +51,24 @@ def test_small_int_add():
     assert prim(primitives.ADD, [3,4]).value == 7
 
 def test_small_int_add_fail():
-    prim_fails(primitives.ADD, [1073741823,2])
+    prim_fails(primitives.ADD, [constants.TAGGED_MAXINT,2])
 
 def test_small_int_minus():
     assert prim(primitives.SUBTRACT, [5,9]).value == -4
 
 def test_small_int_minus_fail():
-    prim_fails(primitives.SUBTRACT, [-1073741823,2])
+    prim_fails(primitives.SUBTRACT, [constants.TAGGED_MININT,1])
+    prim_fails(primitives.SUBTRACT,
+               [constants.TAGGED_MININT, constants.TAGGED_MAXINT])
     
 def test_small_int_multiply():
     assert prim(primitives.MULTIPLY, [6,3]).value == 18
 
 def test_small_int_multiply_overflow():
-    prim_fails(primitives.MULTIPLY, [1073741823, 2])
-    prim_fails(primitives.MULTIPLY, [1073741823, 1073741823])
-    prim_fails(primitives.MULTIPLY, [1073741823, -4])
-    prim_fails(primitives.MULTIPLY, [-1073741823, 2])
+    prim_fails(primitives.MULTIPLY, [constants.TAGGED_MAXINT, 2])
+    prim_fails(primitives.MULTIPLY, [constants.TAGGED_MAXINT, constants.TAGGED_MAXINT])
+    prim_fails(primitives.MULTIPLY, [constants.TAGGED_MAXINT, -4])
+    prim_fails(primitives.MULTIPLY, [constants.TAGGED_MININT, 2])
     
 def test_small_int_divide():
     assert prim(primitives.DIVIDE, [6,3]).value == 2

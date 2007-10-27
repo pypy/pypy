@@ -126,9 +126,9 @@ def unwrap_int(w_value):
     raise PrimitiveFailedError()
 
 def wrap_int(value):
-    if value > 1073741823:
+    if value > constants.TAGGED_MAXINT:
         raise PrimitiveFailedError()
-    if value < -1073741824:
+    if value < constants.TAGGED_MININT:
         raise PrimitiveFailedError()
     return objtable.wrap_int(value)
     
@@ -532,7 +532,7 @@ SECONDS_CLOCK = 137
 def func(interp, w_arg):
     import time
     import math
-    return wrap_int(int(math.fmod(time.time()*1000,1073741823/2)))
+    return wrap_int(int(math.fmod(time.time()*1000, constants.TAGGED_MAXINT/2)))
 
 @expose_primitive(SECONDS_CLOCK, unwrap_spec=[object])
 def func(interp, w_arg):

@@ -1,3 +1,4 @@
+from pypy.rlib.rarithmetic import LONG_BIT
 
 # ___________________________________________________________________________
 # Slot Names
@@ -116,3 +117,6 @@ objects_in_special_object_table = {
     "true": SO_TRUE,
     "false": SO_FALSE,
 }
+
+TAGGED_MAXINT = 2 ** (LONG_BIT - 2) - 1
+TAGGED_MININT = -2 ** (LONG_BIT - 2)
