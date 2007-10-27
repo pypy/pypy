@@ -78,6 +78,9 @@ class CodeWriter(object):
     def arraydef(self, name, lentype, typerepr):
         self.typedef(name, "{ %s, [0 x %s] }" % (lentype, typerepr))
 
+    def arraynolendef(self, name, typerepr):
+        self.typedef(name, "[0 x %s]" % (typerepr))
+
     def fixedarraydef(self, name, arraylen, typerepr):
         self.typedef(name, "[%s x %s]" % (arraylen, typerepr))
 
