@@ -22,7 +22,6 @@ def test_offsetof():
     assert res == 12
 
 def test_sizeof_array_with_no_length():
-    py.test.skip("inprogress")
     A = lltype.GcArray(lltype.Signed, hints={'nolength': True})
     a = lltype.malloc(A, 5, zero=True)
     
@@ -166,7 +165,6 @@ def test_vararray():
     assert fn(21) == 42
 
 def test_itemoffset_void():
-    py.test.skip("inprogress")
     A = lltype.GcArray(lltype.Void)
     s = llmemory.sizeof(A, 1)
     s += llmemory.sizeof(lltype.Signed)
