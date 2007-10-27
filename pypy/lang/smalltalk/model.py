@@ -356,7 +356,7 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
         if index0 < 0:
             # XXX Do something useful with this.... we are not a block
             # of memory as smalltalk expects but wrapped in py-os
-            return objtable.wrap_int(0)
+            raise NotImplementedError()
         return objtable.wrap_int(ord(self.bytes[index0]))
         
     def atput0(self, index0, w_value):
