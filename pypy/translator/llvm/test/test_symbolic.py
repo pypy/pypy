@@ -2,7 +2,6 @@ import py
 from pypy.translator.interactive import Translation
 from pypy import conftest
 from pypy.rpython.lltypesystem import llmemory, lltype
-from pypy.rpython.memory import lladdress
 from pypy.rlib.objectmodel import ComputedIntSymbolic
 
 from pypy.translator.llvm.test.runtest import *
@@ -82,11 +81,11 @@ def test_sizeof_constsize_struct():
     sizeofs = llmemory.sizeof(STRUCT)
     offsety = llmemory.offsetof(STRUCT, 'y')
     def f():
-        adr = lladdress.raw_malloc(sizeofs)
+        adr = llmemory.raw_malloc(sizeofs)
         s = llmemory.cast_adr_to_ptr(adr, STRUCTPTR)
         s.y = 5 # does not crash
         result = (adr + offsety).signed[0] * 10 + int(offsety < sizeofs)
-        lladdress.raw_free(adr)
+        llmemory.raw_free(adr)
         return result
 
     fn = compile_function(f, [])
@@ -133,7 +132,7 @@ def test_complex_struct():
     sizeofsbase = llmemory.sizeof(SBASE)
     offset_toa = offsetofs(SBASE, 'b', 's2', 'a') 
     def complex_struct():
-        adr = lladdress.raw_malloc(sizeofsbase)
+        adr = llmemory.raw_malloc(sizeofsbase)
         s = llmemory.cast_adr_to_ptr(adr, SBASEPTR)
         s.b.s2.a = 42
         return (adr + offset_toa).signed[0]
@@ -167,11 +166,10 @@ def test_vararray():
     assert fn(21) == 42
 
 def test_itemoffset_void():
-    py.test.skip("not supported")
+    py.test.skip("inprogress")
     A = lltype.GcArray(lltype.Void)
     s = llmemory.sizeof(A, 1)
     s += llmemory.sizeof(lltype.Signed)
-    print s
     def f():
         return s
     fn = compile_function(f, [])

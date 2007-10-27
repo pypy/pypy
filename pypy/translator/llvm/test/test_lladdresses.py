@@ -110,22 +110,8 @@ def test_flavored_malloc_raw():
     fn = compile_function(f, [int])
     assert fn(1) == 2 
 
-# def test_flavored_varmalloc_raw():
-#     py.test.skip("test_flavored_varmalloc_raw not working - or maybe it will never to work?")
-#     A = lltype.Array(lltype.Signed)
-#     VARS = lltype.GcStruct('test', ('a', lltype.Signed), ('b', A))
-#     def f(x, y):
-#         #s = lltype.flavored_malloc('gc', VARS, x)
-#         s = lltype.malloc(VARS, n=x, flavor='gc')
-#         s.a = 42
-#         s.b[0] = y * 2
-#         return s.b[0] - s.a
-
-#     fn = compile_function(f, [int, int])
-#     assert fn(2, 24) == 6
-
 def test_flavored_malloc_stack():
-    py.test.skip("Broken and noone wants to fix it")
+    py.test.skip("operation stack_malloc not found")
     class A(object):
         _alloc_flavor_ = "stack"
         def __init__(self, val):

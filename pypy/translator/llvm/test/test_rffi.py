@@ -11,6 +11,8 @@ from pypy.rpython.lltypesystem import lltype
 
 from pypy.translator.llvm.test.runtest import *
 
+py.test.skip("rffi not there yet for llvm")
+
 def test_basic():
     c_source = py.code.Source("""
     int z(int x)
