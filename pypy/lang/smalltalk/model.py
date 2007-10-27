@@ -364,7 +364,7 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
         if index0 < 0:
             # XXX Do something useful with this.... we are not a block
             # of memory as smalltalk expects but wrapped in py-os
-            self.staticsize(),w_value)
+            raise NotImplementedError()
         else:
             self.setbyte(index0, chr(unwrap_int(w_value)))
 
