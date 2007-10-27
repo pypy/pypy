@@ -95,7 +95,9 @@ class OpWriter(object):
         ARRAYTYPE = arg.concretetype.TO
         indices = []        
         if isinstance(ARRAYTYPE, lltype.Array):
-            indices.append((self.uword, 1))
+            if not ARRAYTYPE._hints.get("nolength", False):
+                # skip the length field
+                indices.append((self.uword, 1))
         else:
             assert isinstance(ARRAYTYPE, lltype.FixedSizeArray)
         return indices
@@ -336,7 +338,8 @@ class OpWriter(object):
                 TYPE = TYPE.OF
 
             elif isinstance(TYPE, lltype.Array):
-                indices.append(("uint", 1))
+                if not TYPE._hints.get("nolength", False):
+                    indices.append(("uint", 1))
                 indices.append(("int", indexref))
                 TYPE = TYPE.OF
 

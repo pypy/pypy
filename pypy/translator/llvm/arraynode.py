@@ -32,9 +32,13 @@ class ArrayTypeNode(LLVMNode):
     # entry points from genllvm
     #
     def writedatatypedecl(self, codewriter):
-        codewriter.arraydef(self.ref,
-                            self.db.get_machine_word(),
-                            self.db.repr_type(self.arraytype))
+        if self.array._hints.get("nolength", False):
+            codewriter.arraynolendef(self.ref,
+                                     self.db.repr_type(self.arraytype))
+        else:
+            codewriter.arraydef(self.ref,
+                                self.db.get_machine_word(),
+                                self.db.repr_type(self.arraytype))
 
 class VoidArrayTypeNode(LLVMNode):
     __slots__ = "db array ref".split()
@@ -46,6 +50,7 @@ class VoidArrayTypeNode(LLVMNode):
         self.ref = "%arraytype_Void"
 
     def writedatatypedecl(self, codewriter):
+        assert not self.array._hints.get("nolength", False) 
         codewriter.typedef(self.ref, "{ %s }" % self.db.get_machine_word())
         
 class ArrayNode(ConstantLLVMNode):
@@ -131,6 +136,29 @@ class ArrayNode(ConstantLLVMNode):
                                          physicallen,
                                          typeval,
                                          arrayrepr)
+
+        s = "%s {%s}" % (self.get_typerepr(), value)
+        return s
+
+class ArrayNoLengthNode(ArrayNode):
+    def get_typerepr(self):
+        arraylen = self.get_arrayvalue()[0]
+        typeval = self.db.repr_type(self.arraytype)
+        return "{ [%s x %s] }" % (arraylen, typeval)
+    
+    def get_childref(self, index):
+        return "getelementptr(%s* %s, int 0, int %s)" %(
+            self.get_typerepr(),
+            self.ref,
+            index)
+
+    def constantvalue(self):
+        physicallen, arrayrepr = self.get_arrayvalue()
+        typeval = self.db.repr_type(self.arraytype)
+
+        value = "[%s x %s] %s" % (physicallen,
+                                  typeval,
+                                  arrayrepr)
 
         s = "%s {%s}" % (self.get_typerepr(), value)
         return s

@@ -8,7 +8,7 @@ from pypy.translator.llvm.structnode import StructNode, StructVarsizeNode, \
      StructTypeNode, StructVarsizeTypeNode, getindexhelper, \
      FixedSizeArrayTypeNode, FixedSizeArrayNode
 from pypy.translator.llvm.arraynode import ArrayNode, StrArrayNode, \
-     VoidArrayNode, ArrayTypeNode, VoidArrayTypeNode
+     VoidArrayNode, ArrayNoLengthNode, ArrayTypeNode, VoidArrayTypeNode
 from pypy.translator.llvm.opaquenode import OpaqueNode, ExtOpaqueNode, \
      OpaqueTypeNode, ExtOpaqueTypeNode
 from pypy.rpython.lltypesystem import lltype, llmemory
@@ -82,7 +82,10 @@ class Database(object):
             elif type_.OF is lltype.Void:
                 node = VoidArrayNode(self, value)
             else:
-                node = ArrayNode(self, value)
+                if type_._hints.get("nolength", False):
+                    node = ArrayNoLengthNode(self, value)
+                else:
+                    node = ArrayNode(self, value)
 
         elif isinstance(type_, lltype.OpaqueType):
             if hasattr(type_, '_exttypeinfo'):
@@ -571,13 +574,14 @@ class Primitives(object):
             # jumps to the place where the array length is stored
             from_ = value.TYPE     # <Array of T> or <GcArray of T>
             assert isinstance(value.TYPE, lltype.Array)
-            indices.append((uword, 0))
+            if not value.TYPE._hints.get("nolength", False):
+                indices.append((uword, 0))
             to = lltype.Signed
 
         elif isinstance(value, llmemory.ArrayItemsOffset):
             # jumps to the beginning of array area
             from_ = value.TYPE
-            if not isinstance(value.TYPE, lltype.FixedSizeArray):
+            if not isinstance(value.TYPE, lltype.FixedSizeArray) and not value.TYPE._hints.get("nolength", False):
                 indices.append((uword, 1))
             indices.append((word, 0))    # go to the 1st item
             to = value.TYPE.OF
