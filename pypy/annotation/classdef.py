@@ -299,12 +299,6 @@ class ClassDef:
     def generalize_attr(self, attr, s_value=None):
         # if the attribute exists in a superclass, generalize there,
         # as imposed by invariant (I)
-        #start debug
-        #if self.name.endswith('W_Root') and attr == 'setdata':
-        #    print 'NAME:',self.name
-        #    import pdb
-        #    pdb.set_trace()
-        #stop debug
         for clsdef in self.getmro():
             if attr in clsdef.attrs:
                 clsdef._generalize_attr(attr, s_value)
