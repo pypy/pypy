@@ -8,6 +8,8 @@ from pypy.rpython.typesystem import getfunctionptr
 
 
 def dump_on_stdout(database):
+    if database.gctransformer:
+        database.prepare_inline_helpers()
     print '/*********************************/'
     structdeflist = database.getstructdeflist()
     for node in structdeflist:
