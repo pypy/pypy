@@ -63,38 +63,12 @@ class FixedSizeArrayTypeNode(StructTypeNode):
 
 
 class StructVarsizeTypeNode(StructTypeNode):
-    __slots__ = "constructor_ref constructor_decl".split()
-
     def __init__(self, db, struct): 
         super(StructVarsizeTypeNode, self).__init__(db, struct)
-        prefix = '%new_varsizestruct_'
-        self.constructor_ref = self.make_ref(prefix, self.name)
-        self.constructor_decl = "%s * %s(%s %%len)" % \
-                                (self.ref,
-                                 self.constructor_ref,
-                                 self.db.get_machine_word())
 
     def __str__(self):
         return "<StructVarsizeTypeNode %r>" %(self.ref,)
         
-    # ______________________________________________________________________
-    # main entry points from genllvm 
-
-    def var_malloc_info(self):
-        # build up a list of indices to get to the last 
-        # var-sized struct (or rather the according array) 
-        indices_to_array = []
-        current = self.struct
-        while isinstance(current, lltype.Struct):
-            last_pos = len(current._names_without_voids()) - 1
-            # struct requires uint consts
-            indices_to_array.append(("uint", last_pos))
-            name = current._names_without_voids()[-1]
-            current = current._flds[name]
-        assert isinstance(current, lltype.Array)
-
-        return current, indices_to_array
-
 class StructNode(ConstantLLVMNode):
     """ A struct constant.  Can simply contain
     a primitive,

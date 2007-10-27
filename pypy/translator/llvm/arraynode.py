@@ -4,18 +4,13 @@ from pypy.translator.llvm.node import LLVMNode, ConstantLLVMNode
 log = log.structnode
 
 class ArrayTypeNode(LLVMNode):
-    __slots__ = "db array arraytype ref constructor_ref constructor_decl".split()
+    __slots__ = "db array arraytype ref".split()
 
     def __init__(self, db, array):
         assert isinstance(array, lltype.Array)
         self.db = db
         self.array = array
         self.arraytype = arraytype = array.OF
-        # ref is used to reference the arraytype in llvm source 
-        # constructor_ref is used to reference the constructor 
-        # for the array type in llvm source code 
-        # constructor_decl is used to declare the constructor
-        # for the array type (see writeimpl)
         name = ""        
         if isinstance(arraytype, lltype.Ptr):
             name += "ptr_"
@@ -26,11 +21,6 @@ class ArrayTypeNode(LLVMNode):
             name += str(arraytype)
 
         self.ref = self.make_ref('%arraytype_', name)
-        self.constructor_ref = self.make_ref('%new_array_', name)
-        self.constructor_decl = "%s * %s(%s %%len)" % \
-                                (self.ref,
-                                 self.constructor_ref,
-                                 self.db.get_machine_word())
 
     def __str__(self):
         return "<ArrayTypeNode %r>" % self.ref
@@ -46,9 +36,6 @@ class ArrayTypeNode(LLVMNode):
                             self.db.get_machine_word(),
                             self.db.repr_type(self.arraytype))
 
-    def var_malloc_info(self):
-        return self.array, ()
-    
 class VoidArrayTypeNode(LLVMNode):
     __slots__ = "db array ref".split()
 
@@ -147,7 +134,7 @@ class ArrayNode(ConstantLLVMNode):
 
         s = "%s {%s}" % (self.get_typerepr(), value)
         return s
-    
+
 class StrArrayNode(ArrayNode):
     __slots__ = "".split()
 
