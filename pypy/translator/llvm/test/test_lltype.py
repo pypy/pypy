@@ -434,7 +434,7 @@ def test_direct_fieldptr():
     assert res == 34
 
 def test_union():
-    py.test.skip("unions!!")
+    py.test.skip("not unions!!")
     U = Struct('U', ('s', Signed), ('c', Char),
                hints={'union': True})
     u = malloc(U, immortal=True)
@@ -481,3 +481,479 @@ def test_prebuilt_subarrays():
     fn = compile_function(llf, [])
     res = fn()
     assert res == 8765
+
+def test_malloc_array_void():
+    A = GcArray(Void)
+    def llf():
+        a1 = malloc(A, 5, zero=True)
+        return len(a1)
+    fn = compile_function(llf, [])
+    res = fn()
+    assert res == 5
+
+def test_sizeof_void_array():
+    from pypy.rpython.lltypesystem import llmemory
+    A = Array(Void)
+    size1 = llmemory.sizeof(A, 1)
+    size2 = llmemory.sizeof(A, 14)
+    def f(x):
+        if x:
+            return size1
+        else:
+            return size2
+    fn = compile_function(f, [int])
+    res1 = fn(1)
+    res2 = fn(0)
+    assert res1 == res2
+
+def test_null_padding():
+    from pypy.rpython.lltypesystem import llmemory
+    from pypy.rpython.lltypesystem import rstr
+    chars_offset = llmemory.FieldOffset(rstr.STR, 'chars') + \
+                   llmemory.ArrayItemsOffset(rstr.STR.chars)
+    # sadly, there's no way of forcing this to fail if the strings
+    # are allocated in a region of memory such that they just
+    # happen to get a NUL byte anyway :/ (a debug build will
+    # always fail though)
+    def trailing_byte(s):
+        adr_s = llmemory.cast_ptr_to_adr(s)
+        return (adr_s + chars_offset).char[len(s)]
+    def f(x):
+        r = 0
+        for i in range(x):
+            r += ord(trailing_byte(' '*(100-x*x)))
+        return r
+    fn = compile_function(f, [int])
+    res = fn(10)
+    assert res == 0
+
+def test_simplearray_nolength():
+    A = GcArray(Signed, hints={'nolength': True})
+    def llf():
+        s = malloc(A, 5)
+        s[0] = 1
+        s[1] = 2
+        return s[0] + s[1]
+    fn = compile_function(llf, [])
+    assert fn() == 3
+
+def test_array_nolength():
+    A = Array(Signed, hints={'nolength': True})
+    a1 = malloc(A, 3, immortal=True)
+    a1[0] = 30
+    a1[1] = 300
+    a1[2] = 3000
+    a1dummy = malloc(A, 2, immortal=True)
+
+    def f(n):
+        if n & 1:
+            src = a1dummy
+        else:
+            src = a1
+        a2 = malloc(A, n, flavor='raw')
+        for i in range(n):
+            a2[i] = src[i % 3] + i
+        res = a2[n // 2]
+        free(a2, flavor='raw')
+        return res
+
+    fn = compile_function(f, [int])
+    res = fn(100)
+    assert res == 3050
+
+def test_prebuilt_integers():
+    from pypy.rlib.unroll import unrolling_iterable
+    from pypy.rpython.lltypesystem import rffi
+    class Prebuilt:
+        pass
+    p = Prebuilt()
+    NUMBER_TYPES = rffi.NUMBER_TYPES
+    names = unrolling_iterable([TYPE.__name__ for TYPE in NUMBER_TYPES])
+    for name, TYPE in zip(names, NUMBER_TYPES):
+        value = cast_primitive(TYPE, 1)
+        setattr(p, name, value)
+
+    def f(x):
+        total = x
+        for name in names:
+            total += rffi.cast(Signed, getattr(p, name))
+        return total
+
+    fn = compile_function(f, [int])
+    res = fn(100)
+    assert res == 100 + len(list(names))
+
+def test_array_nolength():
+    A = Array(Signed, hints={'nolength': True})
+    a1 = malloc(A, 3, immortal=True)
+    a1[0] = 30
+    a1[1] = 300
+    a1[2] = 3000
+    a1dummy = malloc(A, 2, immortal=True)
+
+    def f(n):
+        if n & 1:
+            src = a1dummy
+        else:
+            src = a1
+        a2 = malloc(A, n, flavor='raw')
+        for i in range(n):
+            a2[i] = src[i % 3] + i
+        res = a2[n // 2]
+        free(a2, flavor='raw')
+        return res
+
+    fn = compile_function(f, [int])
+    res = fn(100)
+    assert res == 3050
+
+def test_gcarray_nolength():
+    A = GcArray(Signed, hints={'nolength': True})
+    a1 = malloc(A, 3, immortal=True)
+    a1[0] = 30
+    a1[1] = 300
+    a1[2] = 3000
+    a1dummy = malloc(A, 2, immortal=True)
+
+    def f(n):
+        if n & 1:
+            src = a1dummy
+        else:
+            src = a1
+        a2 = malloc(A, n)
+        for i in range(n):
+            a2[i] = src[i % 3] + i
+        res = a2[n // 2]
+        return res
+
+    fn = compile_function(f, [int])
+    res = fn(100)
+    assert res == 3050
+
+def test_structarray_nolength():
+    S = Struct('S', ('x', Signed))
+    A = Array(S, hints={'nolength': True})
+    a1 = malloc(A, 3, immortal=True)
+    a1[0].x = 30
+    a1[1].x = 300
+    a1[2].x = 3000
+    a1dummy = malloc(A, 2, immortal=True)
+
+    def f(n):
+        if n & 1:
+            src = a1dummy
+        else:
+            src = a1
+        a2 = malloc(A, n, flavor='raw')
+        for i in range(n):
+            a2[i].x = src[i % 3].x + i
+        res = a2[n // 2].x
+        free(a2, flavor='raw')
+        return res
+
+    fn = compile_function(f, [int])
+    res = fn(100)
+    assert res == 3050
+
+def test_zero_raw_malloc():
+    S = Struct('S', ('x', Signed), ('y', Signed))
+    def f(n):
+        for i in range(n):
+            p = malloc(S, flavor='raw', zero=True)
+            if p.x != 0 or p.y != 0:
+                return -1
+            p.x = i
+            p.y = i
+            free(p, flavor='raw')
+        return 42
+
+    fn = compile_function(f, [int])
+    res = fn(100)
+    assert res == 42
+
+def test_zero_raw_malloc_varsize():
+    # we don't support at the moment raw+zero mallocs with a length
+    # field to initialize
+    S = Struct('S', ('x', Signed), ('y', Array(Signed, hints={'nolength': True})))
+    def f(n):
+        for length in range(n-1, -1, -1):
+            p = malloc(S, length, flavor='raw', zero=True)
+            if p.x != 0:
+                return -1
+            p.x = n
+            for j in range(length):
+                if p.y[j] != 0:
+                    return -3
+                p.y[j] = n^j
+            free(p, flavor='raw')
+        return 42
+
+    fn = compile_function(f, [int])
+    res = fn(100)
+    assert res == 42
+
+def test_direct_ptradd_barebone():
+    from pypy.rpython.lltypesystem import rffi
+    ARRAY_OF_CHAR = Array(Char, hints={'nolength': True})
+
+    def llf():
+        data = "hello, world!"
+        a = malloc(ARRAY_OF_CHAR, len(data), flavor='raw')
+        for i in xrange(len(data)):
+            a[i] = data[i]
+        a2 = rffi.ptradd(a, 2)
+        assert typeOf(a2) == typeOf(a) == Ptr(ARRAY_OF_CHAR)
+        for i in xrange(len(data) - 2):
+            assert a2[i] == a[i + 2]
+        free(a, flavor='raw')
+        return 0
+
+    fn = compile_function(llf, [])
+    fn()
+
+def test_prebuilt_nolength_array():
+    A = Array(Signed, hints={'nolength': True})
+    a = malloc(A, 5, immortal=True)
+    a[0] = 8
+    a[1] = 5
+    a[2] = 12
+    a[3] = 12
+    a[4] = 15
+    def llf():
+        s = ''
+        for i in range(5):
+            s += chr(64+a[i])
+        assert s == "HELLO"
+        return 0
+
+    fn = compile_function(llf, [])
+    fn()
+
+class TestLowLevelType(object):
+    def getcompiled(self, f, args=[]):
+        return compile_function(f, args)
+
+    def test_direct_arrayitems(self):
+        py.test.skip("nolength ???")
+        for a in [malloc(GcArray(Signed), 5),
+                  malloc(FixedSizeArray(Signed, 5), immortal=True),
+                  malloc(Array(Signed, hints={'nolength': True}), 5, immortal=True),
+                  ]:
+            a[0] = 0
+            a[1] = 10
+            a[2] = 20
+            a[3] = 30
+            a[4] = 40
+            b0 = direct_arrayitems(a)
+            b1 = direct_ptradd(b0, 1)
+            b2 = direct_ptradd(b1, 1)
+            def llf(n):
+                b0 = direct_arrayitems(a)
+                b3 = direct_ptradd(direct_ptradd(b0, 5), -2)
+                saved = a[n]
+                a[n] = 1000
+                try:
+                    return b0[0] + b3[-2] + b2[1] + b1[3]
+                finally:
+                    a[n] = saved
+            fn = self.getcompiled(llf, [int])
+            res = fn(0)
+            assert res == 1000 + 10 + 30 + 40
+            res = fn(1)
+            assert res == 0 + 1000 + 30 + 40
+            res = fn(2)
+            assert res == 0 + 10 + 30 + 40
+            res = fn(3)
+            assert res == 0 + 10 + 1000 + 40
+            res = fn(4)
+            assert res == 0 + 10 + 30 + 1000
+
+    def test_arithmetic_cornercases(self):
+        py.test.skip("pyobject in this test - but why ???")
+        import operator, sys
+        from pypy.rlib.unroll import unrolling_iterable
+        from pypy.rlib.rarithmetic import r_longlong, r_ulonglong
+
+        class Undefined:
+            def __eq__(self, other):
+                return True
+        undefined = Undefined()
+
+        def getmin(cls):
+            if cls is int:
+                return -sys.maxint-1
+            elif cls.SIGNED:
+                return cls(-(cls.MASK>>1)-1)
+            else:
+                return cls(0)
+        getmin._annspecialcase_ = 'specialize:memo'
+
+        def getmax(cls):
+            if cls is int:
+                return sys.maxint
+            elif cls.SIGNED:
+                return cls(cls.MASK>>1)
+            else:
+                return cls(cls.MASK)
+        getmax._annspecialcase_ = 'specialize:memo'
+        maxlonglong = long(getmax(r_longlong))
+
+        classes = unrolling_iterable([int, r_uint, r_longlong, r_ulonglong])
+        operators = unrolling_iterable([operator.add,
+                                        operator.sub,
+                                        operator.mul,
+                                        operator.floordiv,
+                                        operator.mod,
+                                        operator.lshift,
+                                        operator.rshift])
+        def f(n):
+            result = ()
+            for cls in classes:
+                values = [getmin(cls), getmax(cls)]
+                for OP in operators:
+                    for x in values:
+                        res1 = OP(x, n)
+                        result += (res1,)
+            return result
+
+        def assert_eq(a, b):
+            # for better error messages when it fails
+            assert len(a) == len(b)
+            for i in range(len(a)):
+                assert a[i] == b[i]
+
+        fn = self.getcompiled(f, [int])
+        res = fn(1)
+        print res
+        assert_eq(res, (
+            # int
+            -sys.maxint, undefined,               # add
+            undefined, sys.maxint-1,              # sub
+            -sys.maxint-1, sys.maxint,            # mul
+            -sys.maxint-1, sys.maxint,            # floordiv
+            0, 0,                                 # mod
+            0, -2,                                # lshift
+            (-sys.maxint-1)//2, sys.maxint//2,    # rshift
+            # r_uint
+            1, 0,                                 # add
+            sys.maxint*2+1, sys.maxint*2,         # sub
+            0, sys.maxint*2+1,                    # mul
+            0, sys.maxint*2+1,                    # floordiv
+            0, 0,                                 # mod
+            0, sys.maxint*2,                      # lshift
+            0, sys.maxint,                        # rshift
+            # r_longlong
+            -maxlonglong, undefined,              # add
+            undefined, maxlonglong-1,             # sub
+            -maxlonglong-1, maxlonglong,          # mul
+            -maxlonglong-1, maxlonglong,          # floordiv
+            0, 0,                                 # mod
+            0, -2,                                # lshift
+            (-maxlonglong-1)//2, maxlonglong//2,  # rshift
+            # r_ulonglong
+            1, 0,                                 # add
+            maxlonglong*2+1, maxlonglong*2,       # sub
+            0, maxlonglong*2+1,                   # mul
+            0, maxlonglong*2+1,                   # floordiv
+            0, 0,                                 # mod
+            0, maxlonglong*2,                     # lshift
+            0, maxlonglong,                       # rshift
+            ))
+
+        res = fn(5)
+        print res
+        assert_eq(res, (
+            # int
+            -sys.maxint+4, undefined,             # add
+            undefined, sys.maxint-5,              # sub
+            undefined, undefined,                 # mul
+            (-sys.maxint-1)//5, sys.maxint//5,    # floordiv
+            (-sys.maxint-1)%5, sys.maxint%5,      # mod
+            0, -32,                               # lshift
+            (-sys.maxint-1)//32, sys.maxint//32,  # rshift
+            # r_uint
+            5, 4,                                 # add
+            sys.maxint*2-3, sys.maxint*2-4,       # sub
+            0, sys.maxint*2-3,                    # mul
+            0, (sys.maxint*2+1)//5,               # floordiv
+            0, (sys.maxint*2+1)%5,                # mod
+            0, sys.maxint*2-30,                   # lshift
+            0, sys.maxint>>4,                     # rshift
+            # r_longlong
+            -maxlonglong+4, undefined,            # add
+            undefined, maxlonglong-5,             # sub
+            undefined, undefined,                 # mul
+            (-maxlonglong-1)//5, maxlonglong//5,  # floordiv
+            (-maxlonglong-1)%5, maxlonglong%5,    # mod
+            0, -32,                               # lshift
+            (-maxlonglong-1)//32, maxlonglong//32,# rshift
+            # r_ulonglong
+            5, 4,                                 # add
+            maxlonglong*2-3, maxlonglong*2-4,     # sub
+            0, maxlonglong*2-3,                   # mul
+            0, (maxlonglong*2+1)//5,              # floordiv
+            0, (maxlonglong*2+1)%5,               # mod
+            0, maxlonglong*2-30,                  # lshift
+            0, maxlonglong>>4,                    # rshift
+            ))
+
+    def test_r_singlefloat(self):
+        py.test.skip("singlefloat")
+
+        z = r_singlefloat(0.4)
+
+        def g(n):
+            if n > 0:
+                return r_singlefloat(n * 0.1)
+            else:
+                return z
+
+        def llf(n):
+            return float(g(n))
+
+        fn = self.getcompiled(llf, [int])
+        res = fn(21)
+        assert res != 2.1     # precision lost
+        assert abs(res - 2.1) < 1E-6
+        res = fn(-5)
+        assert res != 0.4     # precision lost
+        assert abs(res - 0.4) < 1E-6
+
+    def test_prebuilt_nolength_char_array(self):
+        py.test.skip("fails on the trunk too")
+        for lastchar in ('\x00', 'X'):
+            A = Array(Char, hints={'nolength': True})
+            a = malloc(A, 5, immortal=True)
+            a[0] = '8'
+            a[1] = '5'
+            a[2] = '?'
+            a[3] = '!'
+            a[4] = lastchar
+            def llf():
+                s = ''
+                for i in range(5):
+                    print i
+                    print s
+                    s += a[i]
+                print s
+                assert s == "85?!" + lastchar
+                return 0
+
+            fn = self.getcompiled(llf)
+            fn()
+
+    # XXX what does this do?
+    def test_cast_primitive(self):
+        py.test.skip("ullong_lshift operation")
+        def f(x):
+            x = cast_primitive(UnsignedLongLong, x)
+            x <<= 60
+            x /= 3
+            x <<= 1
+            x = cast_primitive(SignedLongLong, x)
+            x >>= 32
+            return cast_primitive(Signed, x)
+        fn = self.getcompiled(f, [int])
+        res = fn(14)
+        assert res == -1789569707
+
