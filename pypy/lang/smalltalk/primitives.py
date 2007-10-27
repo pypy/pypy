@@ -4,6 +4,7 @@ import operator
 from pypy.lang.smalltalk import model, shadow
 from pypy.lang.smalltalk import classtable
 from pypy.lang.smalltalk import objtable
+from pypy.lang.smalltalk import constants
 from pypy.rlib import rarithmetic
 
 class PrimitiveFailedError(Exception):
@@ -80,7 +81,7 @@ def expose_primitive(code, unwrap_spec=None):
             prim_table[code] = func
             return func
         for spec in unwrap_spec:
-            assert spec in (int, float, object, index1_0)
+            assert spec in (int, float, object, index1_0, str)
         len_unwrap_spec = len(unwrap_spec)
         assert (len_unwrap_spec == len(inspect.getargspec(func)[0]) + 1,
                 "wrong number of arguments")
@@ -103,6 +104,8 @@ def expose_primitive(code, unwrap_spec=None):
                     args += (unwrap_float(arg), )
                 elif spec is object:
                     args += (arg, )
+                elif spec is str:
+                    args += (arg.as_string(), )
                 else:
                     assert 0, "this should never happen"
             res = func(interp, *args)
@@ -318,7 +321,7 @@ def func(interp, w_obj, n0, w_val):
 def func(interp, w_obj):
     if not w_obj.shadow_of_my_class().isvariable():
         raise PrimitiveFailedError()
-    return wrap_int(w_obj.size() - w_obj.shadow_of_my_class().instsize())
+    return objtable.wrap_int(w_obj.varsize())
 
 @expose_primitive(STRING_AT, unwrap_spec=[object, index1_0])
 def func(interp, w_obj, n0):
@@ -435,9 +438,16 @@ def func(interp, w_obj):
     # it returns the "next" instance after w_obj.
     raise PrimitiveNotYetWrittenError()
 
-@expose_primitive(NEW_METHOD, unwrap_spec=[object])
-def func(interp, w_mthd):
-    raise PrimitiveNotYetWrittenError()
+@expose_primitive(NEW_METHOD, unwrap_spec=[object, int, object])
+def func(interp, w_class, bytecount, w_header):
+    header = unwrap_int(w_header)
+    literalcount = ((header >> 10) & 255) + 1
+    w_method = w_class.as_class_get_shadow().new(literalcount)
+    w_method.literals[constants.METHOD_HEADER_INDEX] = w_header
+    for i in range(0,literalcount):
+        w_method.literals[i+1] = objtable.w_nil
+    w_method.bytes = [None] * bytecount
+    return w_method
 
 # ___________________________________________________________________________
 # Control Primitives
@@ -451,10 +461,7 @@ CHANGE_CLASS = 115      # Blue Book: primitiveOopsLeft
 
 @expose_primitive(EQUIVALENT, unwrap_spec=[object, object])
 def func(interp, w_arg, w_rcvr):
-    # XXX this is bogus in the presence of (our implementation of) become,
-    # as we might plan to implement become by copying all fields from one
-    # object to the other
-    return objtable.wrap_bool(w_arg is w_rcvr)
+    return objtable.wrap_bool(w_arg.equals(w_rcvr))
 
 @expose_primitive(CLASS, unwrap_spec=[object])
 def func(interp, w_obj):
@@ -671,10 +678,12 @@ def func(interp, argument_count):
     # pushed.  Also pop the receiver.
     block_args = frame.pop_and_return_n(exp_arg_cnt)
     w_block_ctx.push_all(block_args)
-    frame.pop()
 
+    frame.pop()
     finalize_block_ctx(interp, w_block_ctx, frame)
-    return w_block_ctx
+    # Value is a special case of primitive which does not return
+    # anything
+    return None
     
     
 @expose_primitive(PRIMITIVE_VALUE_WITH_ARGS, unwrap_spec=[object, object])
@@ -693,18 +702,33 @@ def func(interp, w_block_ctx, w_args):
     for i in range(exp_arg_cnt):
         w_block_ctx.push(w_args.fetchvarpointer(i))
 
+    # XXX Check original logic. Image does not test this anyway
+    # because falls back to value + internal implementation
+
     finalize_block_ctx(interp, w_block_ctx, interp.w_active_context)
-    return w_block_ctx
+
+    # Value: is a special case of primitive which does not return
+    # anything
+    return None
 
 @expose_primitive(PRIMITIVE_PERFORM)
-def func(interp, argument_count):
-    # XXX we can implement this when lookup on shadow class is done
-    raise PrimitiveNotYetWrittenError()
+def func(interp, argcount):
+    raise PrimitiveFailedError()
 
 @expose_primitive(PRIMITIVE_PERFORM_WITH_ARGS,
-                  unwrap_spec=[object, object, object])
-def func(interp, w_rcvr, w_sel, w_args):
-    raise PrimitiveNotYetWrittenError()
+                  unwrap_spec=[object, str, object])
+def func(interp, w_rcvr, sel, w_args):
+    w_method = w_rcvr.shadow_of_my_class().lookup(sel)
+    assert w_method
+
+    w_frame = w_method.create_frame(w_rcvr,
+        [w_args.fetch(i) for i in range(w_args.size())])
+
+    w_frame.w_sender = interp.w_active_context
+    interp.w_active_context = w_frame
+
+    # Don't put anything on the stack
+    return None
 
 @expose_primitive(PRIMITIVE_SIGNAL, unwrap_spec=[object])
 def func(interp, w_rcvr):

@@ -44,15 +44,16 @@ class Interpreter:
         next = self.w_active_context.getNextBytecode()
         if not objectmodel.we_are_translated():
             bytecodeimpl = BYTECODE_TABLE[next]
+            if self._w_last_active_context != self.w_active_context:
+                cnt = 0
+                p = self.w_active_context
+                while p is not None:
+                    cnt += 1
+                    p = p.w_sender
+                self._last_indent = "  " * cnt
+                self._w_last_active_context = self.w_active_context
             if self.should_trace():
-                if self._w_last_active_context != self.w_active_context:
-                    cnt = 0
-                    p = self.w_active_context
-                    while p is not None:
-                        cnt += 1
-                        p = p.w_sender
-                    self._last_indent = "  " * cnt
-                    self._w_last_active_context = self.w_active_context
+                
                 print "%sStack=%s" % (
                     self._last_indent,
                     repr(self.w_active_context.stack),)
@@ -158,12 +159,16 @@ class __extend__(W_ContextPart):
     def _sendSelector(self, selector, argcount, interp,
                       receiver, receiverclassshadow):
         if interp.should_trace():
-            print "%sSending selector %s to %s" % (
-                interp._last_indent, selector, receiver)
+            print "%sSending selector %r to %r with: %r" % (
+                interp._last_indent, selector, receiver,
+                [self.stack[i-argcount] for i in range(argcount)])
+            pass
         assert argcount >= 0
         method = receiverclassshadow.lookup(selector)
         # XXX catch MethodNotFound here and send doesNotUnderstand:
         if method.primitive:
+            if interp.should_trace():
+                print "%sActually calling primitive %d" % (interp._last_indent,method.primitive,)
             func = primitives.prim_table[method.primitive]
             try:
                 # note: argcount does not include rcvr
@@ -174,8 +179,10 @@ class __extend__(W_ContextPart):
                 pass # ignore this error and fall back to the Smalltalk version
             else:
                 # the primitive succeeded
-                assert w_result
-                self.push(w_result)
+                # Make sure that primitives that do not want to return
+                # anything, don't have to return anything (aBlock value)
+                if w_result:
+                    self.push(w_result)
                 return
         start = len(self.stack) - argcount
         assert start >= 0  # XXX check in the Blue Book what to do in this case
@@ -212,7 +219,7 @@ class __extend__(W_ContextPart):
         raise MissingBytecode("unknownBytecode")
 
     def extendedVariableTypeAndIndex(self):
-        descriptor = self.getByte()
+        descriptor = self.getbyte()
         return ((descriptor >> 6) & 3), (descriptor & 63)
 
     def extendedPushBytecode(self, interp):
@@ -246,7 +253,7 @@ class __extend__(W_ContextPart):
         self.pop()
 
     def getExtendedSelectorArgcount(self):
-        descriptor = self.getByte()
+        descriptor = self.getbyte()
         return ((self.w_method().getliteralsymbol(descriptor & 31)),
                 (descriptor >> 5))
 
@@ -255,8 +262,8 @@ class __extend__(W_ContextPart):
         self._sendSelfSelector(selector, argcount, interp)
 
     def doubleExtendedDoAnythingBytecode(self, interp):
-        second = self.getByte()
-        third = self.getByte()
+        second = self.getbyte()
+        third = self.getbyte()
         opType = second >> 5
         if opType == 0:
             # selfsend
@@ -291,7 +298,7 @@ class __extend__(W_ContextPart):
         self._sendSuperSelector(selector, argcount, interp)
 
     def secondExtendedSendBytecode(self, interp):
-        descriptor = self.getByte()
+        descriptor = self.getbyte()
         selector = self.w_method().getliteralsymbol(descriptor & 63)
         argcount = descriptor >> 6
         self._sendSelfSelector(selector, argcount, interp)
@@ -320,10 +327,10 @@ class __extend__(W_ContextPart):
         self.jumpConditional(interp.FALSE,self.shortJumpPosition())
 
     def longUnconditionalJump(self, interp):
-        self.jump((((self.currentBytecode & 7) - 4) << 8) + self.getByte())
+        self.jump((((self.currentBytecode & 7) - 4) << 8) + self.getbyte())
 
     def longJumpPosition(self):
-        return ((self.currentBytecode & 3) << 8) + self.getByte()
+        return ((self.currentBytecode & 3) << 8) + self.getbyte()
 
     def longJumpIfTrue(self, interp):
         self.jumpConditional(interp.TRUE,self.longJumpPosition())
@@ -333,10 +340,15 @@ class __extend__(W_ContextPart):
 
     def callPrimitiveAndPush(self, primitive, selector,
                              argcount, interp):
-        #XXX do something clever later
+        # XXX XXX REMEMBER TO SWITCH COMMENT AND ACTUAL CODE BEFORE
+        # TESTING ON AN IMAGE, AND TO LEAVE AS IS FOR TESTCODE (and
+        # vice versa)
         try:
             # note that argcount does not include self
-            self.push(primitives.prim_table[primitive](interp, argcount))
+            w_result = primitives.prim_table[primitive](interp, argcount)
+            if w_result: # enable primitives not to return values to
+                         # the stack
+                self.push(w_result)
         except primitives.PrimitiveFailedError:
             self._sendSelfSelector(selector, argcount, interp)
         #self._sendSelfSelector(selector, argcount, interp)

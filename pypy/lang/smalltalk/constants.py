@@ -29,6 +29,8 @@ CTXPART_SENDER_INDEX = 0
 CTXPART_PC_INDEX = 1
 CTXPART_STACKP_INDEX = 2
 
+METHOD_HEADER_INDEX = 0
+
 # Extends CTXPART_*
 BLKCTX_BLOCK_ARGUMENT_COUNT_INDEX = 3
 BLKCTX_INITIAL_IP_INDEX = 4
@@ -45,6 +47,7 @@ MTHDCTX_TEMP_FRAME_START = 6
 # Miscellaneous constants
 
 LITERAL_START = 1 # index of the first literal after the method header
+BYTES_PER_WORD = 4
 
 # ___________________________________________________________________________
 # Special objects indices

@@ -11,6 +11,9 @@ class W_Object(object):
     def size(self):
         return 0
 
+    def varsize(self):
+        return self.size()
+
     def getclass(self):
         raise NotImplementedError
 
@@ -22,6 +25,12 @@ class W_Object(object):
 
     def shadow_of_my_class(self):
         return self.getclass().as_class_get_shadow()
+
+    def shallow_equals(self,other):
+        return self == other
+
+    def equals(self, other):
+        return self.shallow_equals(other)
 
 class W_SmallInteger(W_Object):
     __slots__ = ('value',)     # the only allowed slot here
@@ -41,6 +50,11 @@ class W_SmallInteger(W_Object):
 
     def __repr__(self):
         return "W_SmallInteger(%d)" % self.value
+
+    def shallow_equals(self, other):
+        if not isinstance(other, W_SmallInteger):
+            return False
+        return self.value == other.value
 
 class UnwrappingError(Exception):
     pass
@@ -66,6 +80,11 @@ class W_Float(W_Object):
         #return isinstance(self.value, float)
     def __repr__(self):
         return "W_Float(%f)" % self.value
+
+    def shallow_equals(self, other):
+        if not isinstance(other, W_Float):
+            return False
+        return self.value == other.value
 
 class W_AbstractObjectWithIdentityHash(W_Object):
     #XXX maybe this is too extreme, but it's very random
@@ -132,12 +151,16 @@ class W_PointersObject(W_AbstractObjectWithClassReference):
         self._vars[n0] = w_value
 
     def fetchvarpointer(self, idx):
-        instsize = self.getclass().as_class_get_shadow().instsize()
-        return self._vars[idx+instsize]
+        return self._vars[idx+self.instsize()]
 
     def storevarpointer(self, idx, value):
-        instsize = self.getclass().as_class_get_shadow().instsize()
-        self._vars[idx+instsize] = value
+        self._vars[idx+self.instsize()] = value
+
+    def varsize(self):
+        return self.size() - self.shadow_of_my_class().instsize()
+
+    def instsize(self):
+        return self.getclass().as_class_get_shadow().instsize()
 
     def size(self):
         return len(self._vars)
@@ -155,6 +178,17 @@ class W_PointersObject(W_AbstractObjectWithClassReference):
         shadow.check_for_updates()
         return shadow
 
+    def equals(self, other):
+        if not isinstance(other, W_PointersObject):
+            return False
+        if not other.getclass() == self.getclass():
+            return False
+        if not other.size() == self.size():
+            return False
+        for i in range(self.size()):
+            if not other.fetch(i).shallow_equals(self.fetch(i)):
+                return False
+        return True
 
 class W_BytesObject(W_AbstractObjectWithClassReference):
     def __init__(self, w_class, size):
@@ -194,6 +228,11 @@ class W_BytesObject(W_AbstractObjectWithClassReference):
                 return False
         return True
 
+    def shallow_equals(self, other):
+        if not isinstance(other,W_BytesObject):
+            return False
+        return self.bytes == other.bytes
+
 class W_WordsObject(W_AbstractObjectWithClassReference):
     def __init__(self, w_class, size):
         W_AbstractObjectWithClassReference.__init__(self, w_class)
@@ -219,6 +258,11 @@ class W_WordsObject(W_AbstractObjectWithClassReference):
         return (W_AbstractObjectWithClassReference.invariant(self) and
                 isinstance(self.words, list))
 
+    def shallow_equals(self, other):
+        if not isinstance(other,W_WordsObject):
+            return False
+        return self.words == other.words
+
 class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
     """My instances are methods suitable for interpretation by the virtual machine.  This is the only class in the system whose instances intermix both indexable pointer fields and indexable integer fields.
 
@@ -242,7 +286,7 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
     The trailer has two variant formats.  In the first variant, the last byte is at least 252 and the last four bytes represent a source pointer into one of the sources files (see #sourcePointer).  In the second variant, the last byte is less than 252, and the last several bytes are a compressed version of the names of the method's temporary variables.  The number of bytes used for this purpose is the value of the last byte in the method.
     """
 
-    def __init__(self, literalsize, bytes, argsize=0, 
+    def __init__(self, literalsize, bytes=[], argsize=0, 
                  tempsize=0, primitive=0, w_compiledin=None):
         self.literals = [None] * literalsize
         self.w_compiledin = w_compiledin
@@ -295,6 +339,38 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
                 hasattr(self, 'primitive') and
                 self.primitive is not None)       
 
+    def size(self):
+        return self.varsize()
+
+    def staticsize(self):
+        return len(self.literals) * constants.BYTES_PER_WORD
+
+    def varsize(self):
+        # XXX
+        return  self.staticsize() + len(self.bytes)
+
+    def at0(self, index0):
+        # XXX
+        from pypy.lang.smalltalk import objtable
+        index0 = index0 - self.staticsize()
+        if index0 < 0:
+            # XXX Do something useful with this.... we are not a block
+            # of memory as smalltalk expects but wrapped in py-os
+            return objtable.wrap_int(0)
+        return objtable.wrap_int(ord(self.bytes[index0]))
+        
+    def atput0(self, index0, w_value):
+        index0 = index0 - self.staticsize()
+        if index0 < 0:
+            # XXX Do something useful with this.... we are not a block
+            # of memory as smalltalk expects but wrapped in py-os
+            self.staticsize(),w_value)
+        else:
+            self.setbyte(index0, chr(unwrap_int(w_value)))
+
+    def setbyte(self, index0, chr):
+        self.bytes[index0] = chr
+
 class W_ContextPart(W_AbstractObjectWithIdentityHash):
 
     __metaclass__ = extendabletype
@@ -316,7 +392,10 @@ class W_ContextPart(W_AbstractObjectWithIdentityHash):
     def fetch(self, index):
         from pypy.lang.smalltalk import objtable
         if index == constants.CTXPART_SENDER_INDEX:
-            return self.w_sender
+            if self.w_sender:
+                return self.w_sender
+            else:
+                return objtable.w_nil
         elif index == constants.CTXPART_PC_INDEX:
             return objtable.wrap_int(self.pc)
         elif index == constants.CTXPART_STACKP_INDEX:
@@ -334,14 +413,14 @@ class W_ContextPart(W_AbstractObjectWithIdentityHash):
     def w_method(self):
         return self.w_home._w_method
 
-    def getByte(self):
+    def getbyte(self):
         bytecode = self.w_method().bytes[self.pc]
         currentBytecode = ord(bytecode)
         self.pc = self.pc + 1
         return currentBytecode
 
     def getNextBytecode(self):
-        self.currentBytecode = self.getByte()
+        self.currentBytecode = self.getbyte()
         return self.currentBytecode
 
     # ______________________________________________________________________
@@ -435,7 +514,8 @@ class W_BlockContext(W_ContextPart):
             W_ContextPart.store(self, index, value)
 
 class W_MethodContext(W_ContextPart):
-    def __init__(self, w_method, w_receiver, arguments, w_sender = None):
+    def __init__(self, w_method, w_receiver,
+                 arguments, w_sender=None):
         W_ContextPart.__init__(self, self, w_sender)
         self._w_method = w_method
         self.w_receiver = w_receiver
