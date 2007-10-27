@@ -178,11 +178,7 @@ class __extend__(W_ContextPart):
                     print "PRIMITIVE FAILED: %d %s" % (method.primitive, selector,)
                 pass # ignore this error and fall back to the Smalltalk version
             else:
-                # the primitive succeeded
-                # Make sure that primitives that do not want to return
-                # anything, don't have to return anything (aBlock value)
-                if w_result:
-                    self.push(w_result)
+                # the primitive pushes the result (if any) onto the stack itself
                 return
         start = len(self.stack) - argcount
         assert start >= 0  # XXX check in the Blue Book what to do in this case
@@ -346,9 +342,7 @@ class __extend__(W_ContextPart):
         try:
             # note that argcount does not include self
             w_result = primitives.prim_table[primitive](interp, argcount)
-            if w_result: # enable primitives not to return values to
-                         # the stack
-                self.push(w_result)
+            # the primitive pushes the result (if any) onto the stack itself
         except primitives.PrimitiveFailedError:
             self._sendSelfSelector(selector, argcount, interp)
         #self._sendSelfSelector(selector, argcount, interp)

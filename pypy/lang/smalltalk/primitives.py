@@ -58,7 +58,7 @@ prim_table = [make_failing(i) for i in range(576)]
 # converted to an index0 
 index1_0 = object()
 
-def expose_primitive(code, unwrap_spec=None):
+def expose_primitive(code, unwrap_spec=None, no_result=False):
     # some serious magic, don't look
     from pypy.rlib.unroll import unrolling_iterable
     # heuristics to give it a nice name
@@ -78,40 +78,46 @@ def expose_primitive(code, unwrap_spec=None):
         assert code not in prim_table
         func.func_name = "prim_" + name
         if unwrap_spec is None:
-            prim_table[code] = func
-            return func
-        for spec in unwrap_spec:
-            assert spec in (int, float, object, index1_0, str)
-        len_unwrap_spec = len(unwrap_spec)
-        assert (len_unwrap_spec == len(inspect.getargspec(func)[0]) + 1,
-                "wrong number of arguments")
-        unrolling_unwrap_spec = unrolling_iterable(enumerate(unwrap_spec))
-        def wrapped(interp, argument_count_m1):
-            argument_count = argument_count_m1 + 1 # to account for the rcvr
-            frame = interp.w_active_context
-            assert argument_count == len_unwrap_spec
-            if len(frame.stack) < len_unwrap_spec:
-                raise PrimitiveFailedError()
-            args = ()
-            for i, spec in unrolling_unwrap_spec:
-                index = -len_unwrap_spec + i
-                arg = frame.stack[index]
-                if spec is int:
-                    args += (unwrap_int(arg), )
-                elif spec is index1_0:
-                    args += (unwrap_int(arg)-1, )
-                elif spec is float:
-                    args += (unwrap_float(arg), )
-                elif spec is object:
-                    args += (arg, )
-                elif spec is str:
-                    args += (arg.as_string(), )
-                else:
-                    assert 0, "this should never happen"
-            res = func(interp, *args)
-            frame.pop_n(len_unwrap_spec)   # only if no exception occurs!
-            return res
-
+            def wrapped(interp, argument_count_m1):
+                w_result = func(interp, argument_count_m1)
+                if not no_result:
+                    assert w_result is not None
+                    interp.w_active_context.push(w_result)
+                return w_result
+        else:
+            for spec in unwrap_spec:
+                assert spec in (int, float, object, index1_0, str)
+            len_unwrap_spec = len(unwrap_spec)
+            assert (len_unwrap_spec == len(inspect.getargspec(func)[0]) + 1,
+                    "wrong number of arguments")
+            unrolling_unwrap_spec = unrolling_iterable(enumerate(unwrap_spec))
+            def wrapped(interp, argument_count_m1):
+                argument_count = argument_count_m1 + 1 # to account for the rcvr
+                frame = interp.w_active_context
+                assert argument_count == len_unwrap_spec
+                if len(frame.stack) < len_unwrap_spec:
+                    raise PrimitiveFailedError()
+                args = ()
+                for i, spec in unrolling_unwrap_spec:
+                    index = -len_unwrap_spec + i
+                    arg = frame.stack[index]
+                    if spec is int:
+                        args += (unwrap_int(arg), )
+                    elif spec is index1_0:
+                        args += (unwrap_int(arg)-1, )
+                    elif spec is float:
+                        args += (unwrap_float(arg), )
+                    elif spec is object:
+                        args += (arg, )
+                    elif spec is str:
+                        args += (arg.as_string(), )
+                    else:
+                        assert 0, "this should never happen"
+                w_result = func(interp, *args)
+                frame.pop_n(len_unwrap_spec)   # only if no exception occurs!
+                if not no_result:
+                    assert w_result is not None
+                    interp.w_active_context.push(w_result)
         wrapped.func_name = "wrap_prim_" + name
         prim_table[code] = wrapped
         return func
@@ -479,7 +485,7 @@ def func(interp, w_rcvr):
 def func(interp, w_rcvr):
     raise PrimitiveNotYetWrittenError()
 
-@expose_primitive(CHANGE_CLASS, unwrap_spec=[object, object])
+@expose_primitive(CHANGE_CLASS, unwrap_spec=[object, object], no_result=True)
 def func(interp, w_arg, w_rcvr):
     w_arg_class = w_arg.getclass()
     w_rcvr_class = w_rcvr.getclass()
@@ -493,7 +499,7 @@ def func(interp, w_arg, w_rcvr):
         raise PrimitiveFailedError()
 
     # 2. Rcvr is an instance of a compact class and argument isn't
-    # or vice versa (?)
+    # or vice versa XXX we don't have to fail here, but for squeak it's a problem
 
     # 3. Format of rcvr is different from format of argument
     raise PrimitiveNotYetWrittenError()     # XXX needs to work in the shadows
@@ -506,7 +512,6 @@ def func(interp, w_arg, w_rcvr):
         raise PrimitiveFailedError()
 
     w_rcvr.w_class = w_arg.w_class
-    return 
 
 # ___________________________________________________________________________
 # Squeak Miscellaneous Primitives (128-149)
@@ -655,7 +660,7 @@ def finalize_block_ctx(interp, w_block_ctx, frame):
     w_block_ctx.w_sender = frame
     interp.w_active_context = w_block_ctx
     
-@expose_primitive(PRIMITIVE_VALUE)
+@expose_primitive(PRIMITIVE_VALUE, no_result=True)
 def func(interp, argument_count):
     # argument_count does NOT include the receiver.
     # This means that for argument_count == 3 the stack looks like:
@@ -681,12 +686,9 @@ def func(interp, argument_count):
 
     frame.pop()
     finalize_block_ctx(interp, w_block_ctx, frame)
-    # Value is a special case of primitive which does not return
-    # anything
-    return None
     
-    
-@expose_primitive(PRIMITIVE_VALUE_WITH_ARGS, unwrap_spec=[object, object])
+@expose_primitive(PRIMITIVE_VALUE_WITH_ARGS, unwrap_spec=[object, object],
+                  no_result=True)
 def func(interp, w_block_ctx, w_args):
     if not isinstance(w_block_ctx, model.W_BlockContext):
         raise PrimitiveFailedError()
@@ -707,16 +709,13 @@ def func(interp, w_block_ctx, w_args):
 
     finalize_block_ctx(interp, w_block_ctx, interp.w_active_context)
 
-    # Value: is a special case of primitive which does not return
-    # anything
-    return None
-
 @expose_primitive(PRIMITIVE_PERFORM)
 def func(interp, argcount):
     raise PrimitiveFailedError()
 
 @expose_primitive(PRIMITIVE_PERFORM_WITH_ARGS,
-                  unwrap_spec=[object, str, object])
+                  unwrap_spec=[object, str, object],
+                  no_result=True)
 def func(interp, w_rcvr, sel, w_args):
     w_method = w_rcvr.shadow_of_my_class().lookup(sel)
     assert w_method
@@ -726,9 +725,6 @@ def func(interp, w_rcvr, sel, w_args):
 
     w_frame.w_sender = interp.w_active_context
     interp.w_active_context = w_frame
-
-    # Don't put anything on the stack
-    return None
 
 @expose_primitive(PRIMITIVE_SIGNAL, unwrap_spec=[object])
 def func(interp, w_rcvr):

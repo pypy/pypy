@@ -32,7 +32,8 @@ def mock(stack):
 
 def prim(code, stack):
     interp, argument_count = mock(stack)
-    res = prim_table[code](interp, argument_count-1)
+    prim_table[code](interp, argument_count-1)
+    res = interp.w_active_context.pop()
     assert not len(interp.w_active_context.stack) # check args are consumed
     return res
 
