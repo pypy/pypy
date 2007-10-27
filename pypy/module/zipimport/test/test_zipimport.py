@@ -149,6 +149,7 @@ class AppTestZipimport:
         assert 'uu' not in sys.modules
 
     def test_force_py(self):
+        import sys
         m0 = ord(self.test_pyc[0])
         m0 ^= 0x04
         test_pyc = chr(m0) + self.test_pyc[1:]
@@ -172,7 +173,7 @@ class AppTestZipimport:
         del sys.modules['uuu']
 
     def test_package(self):
-        import os
+        import os, sys
         self.writefile(self, "xx"+os.sep+"__init__.py", "")
         self.writefile(self, "xx"+os.sep+"yy.py", "def f(x): return x")
         mod = __import__("xx", globals(), locals(), ['yy'])
