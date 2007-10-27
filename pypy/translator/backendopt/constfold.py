@@ -31,7 +31,8 @@ def fold_op_list(operations, constants, exit_early=False, exc_catch=False):
         except AttributeError:
             sideeffects = True
         else:
-            if len(args) == len(vargs):
+            sideeffects = op.sideeffects
+            if not sideeffects and len(args) == len(vargs):
                 RESTYPE = spaceop.result.concretetype
                 try:
                     result = op(RESTYPE, *args)
@@ -49,7 +50,6 @@ def fold_op_list(operations, constants, exit_early=False, exc_catch=False):
                     constants[spaceop.result] = Constant(result, RESTYPE)
                     folded_count += 1
                     continue
-            sideeffects = op.sideeffects
         # failed to fold an operation, exit early if requested
         if exit_early:
             return folded_count

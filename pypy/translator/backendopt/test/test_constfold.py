@@ -3,6 +3,7 @@ from pypy.objspace.flow.model import checkgraph, Constant, summary
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib import objectmodel
 from pypy.translator.backendopt.constfold import constant_fold_graph
 from pypy import conftest
@@ -234,3 +235,13 @@ def test_keepalive_const_arrayitems():
 
     assert summary(graph) == {'getarrayitem': 1}
     check_graph(graph, [], 1234, t)
+
+
+def test_dont_constfold_debug_print():
+    def fn():
+        llop.debug_print(lltype.Void, "hello world")
+
+    graph, t = get_graph(fn, [])
+    assert summary(graph) == {'debug_print': 1}
+    constant_fold_graph(graph)
+    assert summary(graph) == {'debug_print': 1}
