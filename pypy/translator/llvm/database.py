@@ -194,7 +194,10 @@ class Database(object):
                         return                        
 ##                elif ct is llmemory.WeakGcAddress:
 ##                    return # XXX sometime soon
+
                 else:
+                    if isinstance(const_or_var.value, llmemory.AddressOffset):
+                        self.prepare_offset(const_or_var.value)
                     return
             else:
                 assert isinstance(ct, lltype.Ptr), "Preparation of non primitive and non pointer" 
@@ -223,6 +226,12 @@ class Database(object):
         self.prepare_type(const_or_var.concretetype)
         self.prepare_arg_value(const_or_var)
 
+    def prepare_offset(self, offset):
+        if isinstance(offset, llmemory.CompositeOffset):
+            for value in offset.offsets:
+                self.prepare_offset(value)
+        else:
+            self.prepare_type(offset.TYPE)
 
     def setup_all(self):
         while self._pendingsetup: 
@@ -321,9 +330,6 @@ class Database(object):
         count = self._tmpcount 
         self._tmpcount += 1
         return "%tmp_" + str(count) 
-
-    def repr_constructor(self, type_):
-        return self.obj2node[type_].constructor_ref
 
     def repr_name(self, obj):
         " simply returns a reference to constant value "
@@ -496,15 +502,12 @@ class Primitives(object):
             repr = 0
         
         elif isinstance(value, llmemory.AddressOffset):
-            from_, indices, to = self.get_offset(value)
-            indices_as_str = ", ".join("%s %s" % (w, i) for w, i in indices)
-            r = self.database.repr_type
-            repr = "cast(%s* getelementptr(%s* null, %s) to int)" % (r(to),
-                                                                     r(from_),
-                                                                     indices_as_str)
+            repr = self.repr_offset(value)
+
         elif isinstance(value, ComputedIntSymbolic):
             # force the ComputedIntSymbolic to become a real integer value now
             repr = '%d' % value.compute_fn()
+
         elif isinstance(value, CDefinedIntSymbolic):
             if value is objectmodel.malloc_zero_filled:
                 repr = '1'
@@ -517,8 +520,34 @@ class Primitives(object):
         
         return repr
     
+    def repr_offset(self, value):
+        from_, indices, to = self.get_offset(value)
+
+        # void array special cases
+        if isinstance(from_, lltype.Array) and from_.OF is lltype.Void:
+            assert not isinstance(value, (llmemory.FieldOffset, llmemory.ItemOffset))
+            if isinstance(value, llmemory.ArrayLengthOffset):
+                pass # ok cases!
+            elif isinstance(value, llmemory.ArrayItemsOffset):
+                to = from_
+                indices = [(self.database.get_machine_word(), 1)]
+            else:
+                s = value.offsets[0]
+                isinstance(value, llmemory.CompositeOffset) 
+                return self.repr_offset(s)
+
+        if from_ is lltype.Void:
+            assert isinstance(value, llmemory.ItemOffset)
+            return "0"
+
+        r = self.database.repr_type
+        indices_as_str = ", ".join("%s %s" % (w, i) for w, i in indices)
+        return "cast(%s* getelementptr(%s* null, %s) to int)" % (r(to),
+                                                                 r(from_),
+                                                                 indices_as_str)
+
     def get_offset(self, value, initialindices=None):
-        " return (from_type, (indices, ...), to_type) "        
+        " return (from_type, (indices, ...), to_type) "
         word = self.database.get_machine_word()
         uword = self.database.get_machine_uword()
         indices = initialindices or [(word, 0)]
