@@ -31,7 +31,7 @@ def fold_op_list(operations, constants, exit_early=False, exc_catch=False):
         except AttributeError:
             sideeffects = True
         else:
-            if op.tryfold and len(args) == len(vargs):
+            if len(args) == len(vargs):
                 RESTYPE = spaceop.result.concretetype
                 try:
                     result = op(RESTYPE, *args)
