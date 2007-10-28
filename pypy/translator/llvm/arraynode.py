@@ -121,7 +121,7 @@ class ArrayNode(ConstantLLVMNode):
         return ref
 
     def get_childref(self, index):
-        return "getelementptr(%s* %s, int 0, uint 1, int %s)" %(
+        return "getelementptr(%s* %s, int 0, uint 1, int %s)" % (
             self.get_typerepr(),
             self.ref,
             index)

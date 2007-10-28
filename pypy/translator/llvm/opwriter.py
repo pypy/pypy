@@ -428,6 +428,7 @@ class OpWriter(object):
 
         # getelementptr gets a pointer to the right type, except the generated code really expected 
         # an array of size 1... so we just cast it
+        #assert isinstance(opr.op.result.concretetype.TO, lltype.FixedSizeArray) #XXX why?
         element_type = self.db.repr_type(op.result.concretetype.TO.OF) + '*'
         self.codewriter.cast(opr.retref, element_type, tmpvar, opr.rettype)
 
@@ -443,6 +444,7 @@ class OpWriter(object):
 
         # getelementptr gets a pointer to the right type, except the generated code really expected 
         # an array of size 1... so we just cast it
+        #assert isinstance(opr.op.result.concretetype.TO, lltype.FixedSizeArray) #XXX why?
         element_type = self.db.repr_type(opr.op.result.concretetype.TO.OF) + '*'
         self.codewriter.cast(opr.retref, element_type, tmpvar, opr.rettype)
 
@@ -457,6 +459,15 @@ class OpWriter(object):
         # an array of size 1... so we just cast it
         element_type = self.db.repr_type(opr.op.result.concretetype.TO.OF) + '*'
         self.codewriter.cast(opr.retref, element_type, tmpvar, opr.rettype)
+
+# +        if isinstance(opr.op.result.concretetype, lltype.FixedSizeArray):            
+# +            tmpvar = self._tmp()
+# +            self.codewriter.getelementptr(tmpvar, arraytype, array, [(self.word, incr)])
+# +            element_type = self.db.repr_type(opr.op.result.concretetype.TO.OF) + '*'
+# +            self.codewriter.cast(opr.retref, element_type, tmpvar, opr.rettype)
+# +        else:
+# +            self.codewriter.getelementptr(opr.retref, arraytype, array, [(self.word, incr)], getptr=False)
+# +
 
     def adr_delta(self, opr):
         addr1, addr2 = self._tmp(2)
@@ -583,3 +594,4 @@ class OpWriter(object):
         # If it gets this far it is always false
         self.codewriter.cast(opr.retref, 'bool',
                              'false', opr.rettype)
+

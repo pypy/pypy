@@ -192,6 +192,8 @@ class FixedSizeArrayNode(StructNode):
 
     def setup(self):
         if isinstance(self.value, lltype._subarray):
+            # XXX what is this?
+            # self.value._parentstructure()
             p, c = lltype.parentlink(self.value)
             if p is not None:
                 self.db.prepare_constant(lltype.typeOf(p), p)

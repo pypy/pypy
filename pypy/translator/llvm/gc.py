@@ -7,12 +7,6 @@ log = log.gc
 
 from pypy.translator.llvm.buildllvm import postfix
 
-def have_boehm():
-    import distutils.sysconfig
-    from os.path import exists
-    libdir = distutils.sysconfig.EXEC_PREFIX + "/lib"  
-    return exists(libdir + '/libgc.so') or exists(libdir + '/libgc.a')
-
 class GcPolicy:
     n_malloced = 0
     def __init__(self, db):
@@ -49,10 +43,7 @@ class GcPolicy:
         raise Exception, 'GcPolicy should not be used directly'
 
     def new(db, gcpolicy=None):
-    #    """ factory """
         if gcpolicy == 'boehm':
-            # XXX would be nice to localise this sort of thing?
-            #assert have_boehm(), 'warning: Boehm GC libary not found in /usr/lib'
             gcpolicy = BoehmGcPolicy(db)
         elif gcpolicy == 'ref':
             gcpolicy = RefcountingGcPolicy(db)
