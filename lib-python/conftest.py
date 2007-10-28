@@ -198,8 +198,8 @@ class SimpleRunItem(py.test.collect.Item):
         #     but we want a py.test refactoring towards
         #     more autonomy of colitems regarding 
         #     their representations 
-        regrtest = self.parent.regrtest 
-        space = gettestobjspace()
+        regrtest = self.parent.regrtest
+        space = gettestobjspace(usemodules=[])
         res, output = self.call_capture(space, regrtest.run_file, space)
 
         outputpath = regrtest.getoutputpath() 
@@ -229,7 +229,7 @@ class InterceptedRunModule(py.test.collect.Module):
         if hasattr(self, 'name2item'): 
             return
         self.name2item = {}
-        space = gettestobjspace() 
+        space = gettestobjspace(usemodules=self.regrtest.usemodules)
         if self.regrtest.dumbtest or self.regrtest.getoutputpath(): 
             self.name2item['output'] = SimpleRunItem('output', self) 
             return 
@@ -408,7 +408,7 @@ testmap = [
     RegrTest('test_bsddb3.py', enabled=False),
     RegrTest('test_bufio.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_builtin.py', enabled=True, core=True),
-    RegrTest('test_bz2.py', enabled=False),
+    RegrTest('test_bz2.py', usemodules='bz2', enabled=True),
     RegrTest('test_calendar.py', enabled=True),
     RegrTest('test_call.py', enabled=True, core=True),
     RegrTest('test_capi.py', enabled=False, dumbtest=1),
@@ -759,7 +759,7 @@ testmap = [
     RegrTest('test_xpickle.py', enabled=False),
     RegrTest('test_xrange.py', enabled=True, core=True),
     RegrTest('test_zipfile.py', enabled=False, dumbtest=1),
-    RegrTest('test_zipimport.py', enabled=True, usemodules='zlib'),
+    RegrTest('test_zipimport.py', enabled=True, usemodules='zlib zipimport'),
     RegrTest('test_zlib.py', enabled=True, usemodules='zlib'),
 ]
 
