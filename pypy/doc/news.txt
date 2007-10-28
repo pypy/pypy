@@ -28,7 +28,7 @@ hosted by the Software Composition Group of the University of Bern from the
 .. _`Bern sprint announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/bern2007/announce.html
 .. _`people that are known to come`: http://codespeak.net/pypy/extradoc/sprintinfo/bern2007/people.html
 .. _`Bern Sprint Summary blog post`: http://pypysqueak.blogspot.com/2007/10/bern-sprint-finished-summary.html
-.. _`PyPy Squeak blog`: http://pypysqueak.blogspot.net
+.. _`PyPy Squeak blog`: http://pypysqueak.blogspot.com
 
 
 
