@@ -15,6 +15,22 @@ nonsense, isn't it?  `more...`_
 .. _eventhistory: eventhistory.html
 
 
+PyPy/Squeak Sprint in Bern finished
+===================================
+
+The Bern sprint, being the first Squeak-PyPy-collaboration-sprint is finished.
+The week was very intense and productive, see `Bern Sprint Summary blog post`_
+for a list of things we accomplished. We covered most of what happened during
+the sprint in quite some detail on the `PyPy Squeak blog`_.  The sprint was
+hosted by the Software Composition Group of the University of Bern from the
+22nd to the 26th of October 2007.
+
+.. _`Bern sprint announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/bern2007/announce.html
+.. _`people that are known to come`: http://codespeak.net/pypy/extradoc/sprintinfo/bern2007/people.html
+.. _`Bern Sprint Summary blog post`: http://pypysqueak.blogspot.com/2007/10/bern-sprint-finished-summary.html
+.. _`PyPy Squeak blog`: http://pypysqueak.blogspot.net
+
+
 
 PyPy Sprint in Gothenburg: 19nd-25th November 2007
 ==================================================================
@@ -30,22 +46,6 @@ come to Gothenburg`_.
 .. _`Gothenburg sprint announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/gothenburg-2007/announce.html
 .. _`people that are known to come to Gothenburg`: http://codespeak.net/pypy/extradoc/sprintinfo/gothenburg-2007/people.html
 
-
-
-
-PyPy/Squeak Sprint in Bern: 22nd-26th October 2007
-==================================================================
-
-We are proud to announce the first Squeak-PyPy-collaboration-sprint.  The plan
-is to bring people from the Squeak/Smalltalk and the PyPy/Python communities
-together to learn about each others projects and to think about collaboration
-possibilies.  The sprint will be hosted by the Software Composition Group of
-the University of Bern from the 22nd to the 26th of October 2007. For more
-information see the `Bern sprint announcement`_ or a list of the `people that
-are known to come`_.
-
-.. _`Bern sprint announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/bern2007/announce.html
-.. _`people that are known to come`: http://codespeak.net/pypy/extradoc/sprintinfo/bern2007/people.html
 
 
 
