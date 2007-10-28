@@ -729,6 +729,19 @@ def test_prebuilt_nolength_array():
     fn = compile_function(llf, [])
     fn()
 
+def test_longlongs():
+    def llf(n):
+        return r_longlong(n) * r_longlong(2**32)
+    fn = compile_function(llf, [int])
+    assert fn(0) == 0
+    assert fn(42) == 42 * 2**32
+    assert fn(-42) == -42 * 2**32
+    def llf(n):
+        return r_ulonglong(n) * r_ulonglong(2**32)
+    fn = compile_function(llf, [int])
+    assert fn(0) == 0
+    assert fn(42) == 42 * 2**32
+
 class TestLowLevelType(object):
     def getcompiled(self, f, args=[]):
         return compile_function(f, args)

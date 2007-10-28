@@ -57,7 +57,9 @@ def %(name)s_wrapper(*args):
                  lltype.Float: "ctypes.c_double",
                  lltype.Char: "ctypes.c_char",
                  lltype.Signed: "ctypes.c_int",
-                 lltype.Unsigned: "ctypes.c_uint"
+                 lltype.Unsigned: "ctypes.c_uint",
+                 lltype.SignedLongLong: "ctypes.c_longlong",
+                 lltype.UnsignedLongLong: "ctypes.c_ulonglong"
                  }
 
     name = genllvm.entrynode.ref.strip("%")
@@ -162,7 +164,7 @@ class Builder(object):
 
     def cmds_objects(self, base):
         # XXX why this hack???
-        use_gcc = True #self.genllvm.config.translation.llvm_via_c
+        use_gcc = False #self.genllvm.config.translation.llvm_via_c
         if use_gcc:
             self.cmds.append("llc %s.bc -march=c -f -o %s.c" % (base, base))
             self.cmds.append("gcc %s.c -c -O3 -fomit-frame-pointer" % base)
