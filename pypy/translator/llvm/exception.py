@@ -20,7 +20,7 @@ def llvm_implcode(entrynode):
     noresult = _noresult(returntype)
 
     code = raisedcode % locals()
-    if returntype == "void":
+    if returntype == "void ":
         code += voidentrycode % locals()
     else:
         code += entrycode % locals()

@@ -748,6 +748,17 @@ def test_longlongs():
     assert fn(0) == 0
     assert fn(42) == 42 * 2**32
 
+def test_rettypes():
+    ' test returning bool and void types '
+    def llf():
+        return
+    fn = compile_function(llf, [])
+    assert fn() is None
+    def llf():
+        return not(False)
+    fn = compile_function(llf, [])
+    assert fn() is True
+
 class TestLowLevelType(object):
     def getcompiled(self, f, args=[]):
         return compile_function(f, args)

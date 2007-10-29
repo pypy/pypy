@@ -18,16 +18,8 @@ exception:
 voidentrycode = '''
 ccc %(returntype)s%%__entrypoint__%(entrypointname)s {
     store %%RPYTHON_EXCEPTION_VTABLE* null, %%RPYTHON_EXCEPTION_VTABLE** %%last_exception_type
-    %%result = call %(cconv)s %(returntype)s%%%(entrypointname)s
-    %%tmp    = load %%RPYTHON_EXCEPTION_VTABLE** %%last_exception_type
-    %%exc    = seteq %%RPYTHON_EXCEPTION_VTABLE* %%tmp, null
-    br bool %%exc, label %%no_exception, label %%exception
-
-no_exception:
-    ret %(returntype)s %%result
-
-exception:
-    ret %(noresult)s
+    call %(cconv)s %(returntype)s%%%(entrypointname)s
+    ret void
 }
 '''
 
