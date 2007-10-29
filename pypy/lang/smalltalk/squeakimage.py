@@ -1,7 +1,7 @@
 import py
 import os
 from pypy.lang.smalltalk import model
-from pypy.lang.smalltalk import objtable
+from pypy.lang.smalltalk import objtable, utility
 from pypy.rlib import objectmodel
 from pypy.lang.smalltalk.tool.bitmanipulation import splitter
 
@@ -225,7 +225,7 @@ class GenericObject(object):
         self.owner = reader
         self.value = value
         self.size = -1
-        self.w_object = objtable.wrap_int(value)
+        self.w_object = utility.wrap_int(value)
 
     def initialize(self, chunk, reader):
         self.owner = reader

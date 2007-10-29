@@ -56,14 +56,6 @@ class W_SmallInteger(W_Object):
             return False
         return self.value == other.value
 
-class UnwrappingError(Exception):
-    pass
-
-def unwrap_int(w_value):
-    if isinstance(w_value, W_SmallInteger):
-        return w_value.value
-    raise UnwrappingError("expected a W_SmallInteger, got %s" % (w_value,))
-
 class W_Float(W_Object):
     def __init__(self, value):
         self.value = value
@@ -196,12 +188,12 @@ class W_BytesObject(W_AbstractObjectWithClassReference):
         self.bytes = ['\x00'] * size
 
     def at0(self, index0):
-        from pypy.lang.smalltalk import objtable
-        return objtable.wrap_int(ord(self.getchar(index0)))
+        from pypy.lang.smalltalk import utility
+        return utility.wrap_int(ord(self.getchar(index0)))
        
     def atput0(self, index0, w_value):
-        # XXX use to-be-written unwrap_char
-        self.setchar(index0, chr(unwrap_int(w_value)))
+        from pypy.lang.smalltalk import utility
+        self.setchar(index0, chr(utility.unwrap_int(w_value)))
 
     def getchar(self, n0):
         return self.bytes[n0]
@@ -241,11 +233,12 @@ class W_WordsObject(W_AbstractObjectWithClassReference):
         self.words = [0] * size
         
     def at0(self, index0):
-        from pypy.lang.smalltalk import objtable
-        return objtable.wrap_int(self.getword(index0))
+        from pypy.lang.smalltalk import utility
+        return utility.wrap_int(self.getword(index0))
        
     def atput0(self, index0, w_value):
-        self.setword(index0, unwrap_int(w_value))
+        from pypy.lang.smalltalk import utility
+        self.setword(index0, utility.unwrap_int(w_value))
 
     def getword(self, n):
         return self.words[n]
@@ -353,15 +346,16 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
 
     def at0(self, index0):
         # XXX
-        from pypy.lang.smalltalk import objtable
+        from pypy.lang.smalltalk import utility
         index0 = index0 - self.staticsize()
         if index0 < 0:
             # XXX Do something useful with this.... we are not a block
             # of memory as smalltalk expects but wrapped in py-os
             raise NotImplementedError()
-        return objtable.wrap_int(ord(self.bytes[index0]))
+        return utility.wrap_int(ord(self.bytes[index0]))
         
     def atput0(self, index0, w_value):
+        from pypy.lang.smalltalk import utility
         index0 = index0 - self.staticsize()
         if index0 < 0:
             # XXX Do something useful with this.... we are not a block
@@ -369,7 +363,7 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
             raise NotImplementedError()
         else:
             # XXX use to-be-written unwrap_char
-            self.setchar(index0, chr(unwrap_int(w_value)))
+            self.setchar(index0, chr(utility.unwrap_int(w_value)))
 
     def setchar(self, index0, character):
         self.bytes = (self.bytes[:index0] + character +
@@ -394,16 +388,16 @@ class W_ContextPart(W_AbstractObjectWithIdentityHash):
     # Imitate the primitive accessors
     
     def fetch(self, index):
-        from pypy.lang.smalltalk import objtable
+        from pypy.lang.smalltalk import utility, objtable
         if index == constants.CTXPART_SENDER_INDEX:
             if self.w_sender:
                 return self.w_sender
             else:
                 return objtable.w_nil
         elif index == constants.CTXPART_PC_INDEX:
-            return objtable.wrap_int(self.pc)
+            return utility.wrap_int(self.pc)
         elif index == constants.CTXPART_STACKP_INDEX:
-            return objtable.wrap_int(len(self.stack))
+            return utility.wrap_int(len(self.stack))
         
         # Invalid!
         raise IndexError
@@ -488,11 +482,11 @@ class W_BlockContext(W_ContextPart):
         return w_BlockContext
     
     def fetch(self, index):
-        from pypy.lang.smalltalk import objtable
+        from pypy.lang.smalltalk import utility
         if index == constants.BLKCTX_BLOCK_ARGUMENT_COUNT_INDEX:
-            return objtable.wrap_int(self.argcnt)
+            return utility.wrap_int(self.argcnt)
         elif index == constants.BLKCTX_INITIAL_IP_INDEX:
-            return objtable.wrap_int(self.initialip)
+            return utility.wrap_int(self.initialip)
         elif index == constants.BLKCTX_HOME_INDEX:
             return self.w_home
         elif index >= constants.BLKCTX_TEMP_FRAME_START:
@@ -504,10 +498,11 @@ class W_BlockContext(W_ContextPart):
     def store(self, index, value):
         # THIS IS ALL UNTESTED CODE and we're a bit unhappy about it
         # because it crashd the translation N+4 times :-(
+        from pypy.lang.smalltalk import utility
         if index == constants.BLKCTX_BLOCK_ARGUMENT_COUNT_INDEX:
-            self.argcnt = unwrap_int(value)
+            self.argcnt = utility.unwrap_int(value)
         elif index == constants.BLKCTX_INITIAL_IP_INDEX:
-            self.pc = unwrap_int(value)
+            self.pc = utility.unwrap_int(value)
         elif index == constants.BLKCTX_HOME_INDEX:
             assert isinstance(value, W_MethodContext)
             self.w_home = value

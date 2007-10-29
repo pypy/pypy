@@ -3,50 +3,6 @@ from pypy.lang.smalltalk import constants
 from pypy.lang.smalltalk import model
 
 # ___________________________________________________________________________
-# Utility Methods
-
-def wrap_int(i):
-    if i <= 0x3FFFFFFF and i >= -0x40000000:
-        return model.W_SmallInteger(i)
-    raise NotImplementedError
-
-def wrap_float(i):
-    return model.W_Float(i)
-
-def wrap_string(string):
-    w_inst = classtable.w_String.as_class_get_shadow().new(len(string))
-    for i in range(len(string)):
-        w_inst.setchar(i, string[i])
-    return w_inst
-
-def wrap_char(c):
-    return CharacterTable[ord(c)]
-
-def ord_w_char(w_c):
-    assert w_c.getclass() is classtable.w_Character
-    w_ord = w_c.fetch(constants.CHARACTER_VALUE_INDEX)
-    assert w_ord.getclass() is classtable.w_SmallInteger
-    assert isinstance(w_ord, model.W_SmallInteger)
-    return w_ord.value
-
-def wrap_bool(bool):
-    if bool:
-        return w_true
-    else:
-        return w_false
-
-def wrap_list(lst_w_obj):
-    """
-    Converts a Python list of wrapper objects into
-    a wrapped smalltalk array
-    """
-    lstlen = len(lit)
-    res = classtable.w_Array.as_class_get_shadow().new(lstlen)
-    for i in range(lstlen):
-        res.storevarpointer(i, fakeliteral(lit[i]))
-    return res
-
-# ___________________________________________________________________________
 # Global Data
 
 def wrap_char_table():

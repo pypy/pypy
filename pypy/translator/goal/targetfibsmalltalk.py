@@ -1,6 +1,6 @@
 from pypy.lang.smalltalk import model, interpreter, primitives, shadow
 from pypy.lang.smalltalk import objtable
-from pypy.lang.smalltalk.objtable import wrap_int
+from pypy.lang.smalltalk.utility import wrap_int, unwrap_int
 from pypy.lang.smalltalk import classtable
 from pypy.lang.smalltalk.test.test_interpreter import *
 
@@ -30,7 +30,7 @@ def check_me():
     interp.w_active_context.push(w_object)
     interp.w_active_context.push(wrap_int(8))
     result = interp.interpret()
-    assert primitives.unwrap_int(result) == 34
+    assert unwrap_int(result) == 34
     print "check_me() ok"
 check_me()
 
@@ -45,7 +45,7 @@ def entry_point(argv):
     interp.w_active_context.push(w_object)
     interp.w_active_context.push(wrap_int(n))
     result = interp.interpret()
-    print primitives.unwrap_int(result)
+    print unwrap_int(result)
     return 0
 
 # _____ Define and setup target ___

@@ -1,7 +1,8 @@
 import py
 from pypy.lang.smalltalk import model, interpreter, primitives, shadow
-from pypy.lang.smalltalk import objtable, classtable
-from pypy.lang.smalltalk.objtable import wrap_int, wrap_char
+from pypy.lang.smalltalk import objtable, classtable, utility
+from pypy.lang.smalltalk.utility import wrap_int, wrap_char, wrap_string, \
+    unwrap_int
 
 mockclass = classtable.bootstrap_class
 
@@ -45,7 +46,7 @@ def fakesymbol(s, _cache={}):
     try:
         return _cache[s]
     except KeyError:
-        result = _cache[s] = objtable.wrap_string(s)
+        result = _cache[s] = wrap_string(s)
         return result
 
 def fakeliterals(*literals):
@@ -209,7 +210,7 @@ def test_pushConstantNilBytecode():
 def test_pushConstantMinusOneBytecode():
     interp = new_interpreter(pushConstantMinusOneBytecode)
     interp.step()
-    assert interp.w_active_context.pop() == interp.MONE
+    assert interp.w_active_context.pop() == interp.MINUS_ONE
     assert interp.w_active_context.stack == []
 
 def test_pushConstantZeroBytecode():
@@ -403,7 +404,7 @@ def test_fibWithArgument():
     interp.w_active_context.push(w_object)
     interp.w_active_context.push(wrap_int(8))
     result = interp.interpret()
-    assert primitives.unwrap_int(result) == 34
+    assert unwrap_int(result) == 34
 
 def test_send_to_primitive():
 
@@ -417,7 +418,7 @@ def test_send_to_primitive():
         assert interp.w_active_context is callerContext
         assert len(interp.w_active_context.stack) == 1
         w_result = interp.w_active_context.pop()
-        assert primitives.unwrap_int(w_result) == 42
+        assert unwrap_int(w_result) == 42
         
     run_with_faked_methods(
         [[classtable.w_SmallInteger, primitives.SUBTRACT,
@@ -720,10 +721,10 @@ def test_bc_primBytecodeAt_with_instvars():
     w_fakeinst.store(0, wrap_char("a")) # static slot 0: instance variable
     w_fakeinst.store(1, wrap_char("b")) # varying slot 1
     def test():
-        assert objtable.ord_w_char(interpret_bc(
+        assert utility.unwrap_char(interpret_bc(
             [112, 118, 192, 124],
             fakeliterals(),
-            receiver=w_fakeinst)) == ord("b")
+            receiver=w_fakeinst)) == "b"
     run_with_faked_methods(
         [[w_fakeclass, primitives.AT, 1, "at:"]],
         test)
@@ -735,12 +736,12 @@ def test_bc_primBytecodeAtPut_with_instvars():
     w_fakeinst.store(0, wrap_char("a")) # static slot 0: instance variable
     w_fakeinst.store(1, wrap_char("a")) # varying slot 1
     def test():
-        assert objtable.ord_w_char(interpret_bc(
+        assert utility.unwrap_char(interpret_bc(
             [0x70, 0x76, 0x20, 0xc1, 0x7c],
             fakeliterals(wrap_char("b")),
-            receiver=w_fakeinst)) == ord("b")
-        assert objtable.ord_w_char(w_fakeinst.fetch(0)) == ord("a")
-        assert objtable.ord_w_char(w_fakeinst.fetch(1)) == ord("b")
+            receiver=w_fakeinst)) == "b"
+        assert utility.unwrap_char(w_fakeinst.fetch(0)) == "a"
+        assert utility.unwrap_char(w_fakeinst.fetch(1)) == "b"
     run_with_faked_methods(
         [[w_fakeclass, primitives.AT_PUT, 2, "at:put:"]],
         test)

@@ -2,10 +2,8 @@ import py
 import math
 from pypy.lang.smalltalk.primitives import prim_table, PrimitiveFailedError
 from pypy.lang.smalltalk import model, shadow
-from pypy.lang.smalltalk import interpreter
-from pypy.lang.smalltalk import classtable
-from pypy.lang.smalltalk import objtable
-from pypy.lang.smalltalk import constants
+from pypy.lang.smalltalk import interpreter, utility
+from pypy.lang.smalltalk import classtable, objtable, constants
 from pypy.rlib.rarithmetic import INFINITY, NAN, isinf, isnan
 from pypy.lang.smalltalk import primitives
 
@@ -16,11 +14,11 @@ class MockFrame(model.W_MethodContext):
         self.stack = stack
 
 def wrap(x):
-    if isinstance(x, int): return objtable.wrap_int(x)
-    if isinstance(x, float): return objtable.wrap_float(x)
+    if isinstance(x, int): return utility.wrap_int(x)
+    if isinstance(x, float): return utility.wrap_float(x)
     if isinstance(x, model.W_Object): return x
-    if isinstance(x, str) and len(x) == 1: return objtable.wrap_char(x)
-    if isinstance(x, str): return objtable.wrap_string(x)
+    if isinstance(x, str) and len(x) == 1: return utility.wrap_char(x)
+    if isinstance(x, str): return utility.wrap_string(x)
     raise NotImplementedError
     
 def mock(stack):

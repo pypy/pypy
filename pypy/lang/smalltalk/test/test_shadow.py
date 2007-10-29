@@ -1,5 +1,6 @@
 import random
 from pypy.lang.smalltalk import model, shadow, classtable, constants, objtable
+from pypy.lang.smalltalk import utility
 
 w_Object = classtable.classtable['w_Object']
 w_Metaclass  = classtable.classtable['w_Metaclass']
@@ -13,14 +14,14 @@ def build_methoddict(methods):
     for i in range(size):
         w_array.store(i, objtable.w_nil)
         w_methoddict.store(constants.METHODDICT_NAMES_INDEX+i, objtable.w_nil)
-    w_tally = objtable.wrap_int(len(methods))
+    w_tally = utility.wrap_int(len(methods))
     w_methoddict.store(constants.METHODDICT_TALLY_INDEX, w_tally)
     w_methoddict.store(constants.METHODDICT_VALUES_INDEX, w_array)
     positions = range(size)
     random.shuffle(positions)
     for selector, w_compiledmethod in methods.items():
         pos = positions.pop()
-        w_selector = objtable.wrap_string(selector)
+        w_selector = utility.wrap_string(selector)
         w_methoddict.store(constants.METHODDICT_NAMES_INDEX+pos, w_selector)
         w_array.store(pos, w_compiledmethod)
     #print w_methoddict._vars
@@ -37,9 +38,9 @@ def build_smalltalk_class(name, format, w_superclass=w_Object,
     w_class = model.W_PointersObject(w_classofclass, size)
     w_class.store(constants.CLASS_SUPERCLASS_INDEX, w_superclass)
     w_class.store(constants.CLASS_METHODDICT_INDEX, w_methoddict)
-    w_class.store(constants.CLASS_FORMAT_INDEX, objtable.wrap_int(format))
+    w_class.store(constants.CLASS_FORMAT_INDEX, utility.wrap_int(format))
     if name is not None:
-        w_class.store(constants.CLASS_NAME_INDEX, objtable.wrap_string(name))
+        w_class.store(constants.CLASS_NAME_INDEX, utility.wrap_string(name))
     return w_class
 
 def basicshape(name, format, kind, varsized, instsize):

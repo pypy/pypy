@@ -3,7 +3,6 @@ import sys
 import os
 from pypy.lang.smalltalk import model, interpreter, primitives, shadow
 from pypy.lang.smalltalk import objtable
-from pypy.lang.smalltalk.objtable import wrap_int
 from pypy.lang.smalltalk import classtable
 # from pypy.lang.smalltalk.test.test_interpreter import *
 from pypy.lang.smalltalk import squeakimage
@@ -69,8 +68,8 @@ def entry_point(argv):
     reader.initialize()
     image = squeakimage.SqueakImage()
     image.from_reader(reader)
-    interp = tinyBenchmarks(image)
-    run_benchmarks(interp)
+    #interp = tinyBenchmarks(image)
+    #run_benchmarks(interp)
     return 0
 
 # _____ Define and setup target ___

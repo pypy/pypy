@@ -1,17 +1,13 @@
 import inspect
 import math
 import operator
-from pypy.lang.smalltalk import model, shadow
+from pypy.lang.smalltalk import model, shadow, utility
 from pypy.lang.smalltalk import classtable
 from pypy.lang.smalltalk import objtable
 from pypy.lang.smalltalk import constants
+from pypy.lang.smalltalk.error import PrimitiveFailedError, \
+    PrimitiveNotYetWrittenError
 from pypy.rlib import rarithmetic
-
-class PrimitiveFailedError(Exception):
-    pass
-
-class PrimitiveNotYetWrittenError(PrimitiveFailedError):
-    pass
 
 def unwrap_float(w_v):
     if isinstance(w_v, model.W_Float): return w_v.value
@@ -27,9 +23,9 @@ def w_subscript(w_obj, idx):
     if isinstance(w_obj, model.W_PointersObject):
         return w_obj.fetch(idx)
     elif isinstance(w_obj, model.W_WordsObject):
-        return objtable.wrap_int(w_obj.getword(idx))
+        return utility.wrap_int(w_obj.getword(idx))
     elif isinstance(w_obj, model.W_BytesObject):
-        return objtable.wrap_int(w_obj.getchar(idx))
+        return utility.wrap_int(w_obj.getchar(idx))
     raise PrimitiveFailedError()
 
 def assert_bounds(n0, minimum, maximum):
@@ -105,9 +101,9 @@ def expose_primitive(code, unwrap_spec=None, no_result=False):
                     index = -len_unwrap_spec + i
                     w_arg = frame.stack[index]
                     if spec is int:
-                        args += (unwrap_int(w_arg), )
+                        args += (utility.unwrap_int(w_arg), )
                     elif spec is index1_0:
-                        args += (unwrap_int(w_arg)-1, )
+                        args += (utility.unwrap_int(w_arg)-1, )
                     elif spec is float:
                         args += (unwrap_float(w_arg), )
                     elif spec is object:
@@ -132,24 +128,7 @@ def expose_primitive(code, unwrap_spec=None, no_result=False):
 # ___________________________________________________________________________
 # SmallInteger Primitives
 
-def unwrap_int(w_value):
-    if isinstance(w_value, model.W_SmallInteger): 
-        return w_value.value
-    raise PrimitiveFailedError()
 
-def unwrap_char(w_char):
-    if w_char.getclass() is not classtable.w_Character:
-        raise PrimitiveFailedError()
-    return chr(objtable.ord_w_char(w_char))
-
-
-def wrap_int(value):
-    if value > constants.TAGGED_MAXINT:
-        raise PrimitiveFailedError()
-    if value < constants.TAGGED_MININT:
-        raise PrimitiveFailedError()
-    return objtable.wrap_int(value)
-    
 ADD         = 1
 SUBTRACT    = 2
 MULTIPLY    = 9
@@ -175,7 +154,7 @@ for (code,op) in math_ops.items():
                 res = rarithmetic.ovfcheck(op(receiver, argument))
             except OverflowError:
                 raise PrimitiveFailedError()
-            return wrap_int(res)
+            return utility.wrap_int(res)
     make_func(op)
 
 bitwise_binary_ops = {
@@ -188,7 +167,7 @@ for (code,op) in bitwise_binary_ops.items():
         @expose_primitive(code, unwrap_spec=[int, int])
         def func(interp, receiver, argument):
             res = op(receiver, argument)
-            return wrap_int(res)
+            return utility.wrap_int(res)
     make_func(op)
 
 # #/ -- return the result of a division, only succeed if the division is exact
@@ -198,28 +177,28 @@ def func(interp, receiver, argument):
         raise PrimitiveFailedError()
     if receiver % argument != 0:
         raise PrimitiveFailedError()
-    return wrap_int(receiver // argument)
+    return utility.wrap_int(receiver // argument)
 
 # #\\ -- return the remainder of a division
 @expose_primitive(MOD, unwrap_spec=[int, int])
 def func(interp, receiver, argument):
     if argument == 0:
         raise PrimitiveFailedError()
-    return wrap_int(receiver % argument)
+    return utility.wrap_int(receiver % argument)
 
 # #// -- return the result of a division, rounded towards negative zero
 @expose_primitive(DIV, unwrap_spec=[int, int])
 def func(interp, receiver, argument):
     if argument == 0:
         raise PrimitiveFailedError()
-    return wrap_int(receiver // argument)
+    return utility.wrap_int(receiver // argument)
     
 # #// -- return the result of a division, rounded towards negative infinity
 @expose_primitive(QUO, unwrap_spec=[int, int])
 def func(interp, receiver, argument):
     if argument == 0:
         raise PrimitiveFailedError()
-    return wrap_int(receiver // argument)
+    return utility.wrap_int(receiver // argument)
     
 # #bitShift: -- return the shifted value
 @expose_primitive(BIT_SHIFT, unwrap_spec=[int, int])
@@ -230,11 +209,11 @@ def func(interp, receiver, argument):
         shifted = receiver << argument
         if (shifted >> argument) != receiver:
             raise PrimitiveFailedError()
-        return wrap_int(shifted)
+        return utility.wrap_int(shifted)
             
     # right shift, ok to lose bits
     else:
-        return wrap_int(receiver >> -argument)
+        return utility.wrap_int(receiver >> -argument)
    
 
 # ___________________________________________________________________________
@@ -265,35 +244,35 @@ for (code,op) in math_ops.items():
     def make_func(op):
         @expose_primitive(code, unwrap_spec=[float, float])
         def func(interp, v1, v2):
-            w_res = objtable.wrap_float(op(v1, v2))
+            w_res = utility.wrap_float(op(v1, v2))
             return w_res
     make_func(op)
 
 @expose_primitive(FLOAT_TRUNCATED, unwrap_spec=[float])
 def func(interp, f): 
-    w_res = objtable.wrap_int(int(f))
+    w_res = utility.wrap_int(int(f))
     return w_res
 
 @expose_primitive(FLOAT_TIMES_TWO_POWER, unwrap_spec=[float, int])
 def func(interp, rcvr, arg): 
-    w_res = objtable.wrap_float(math.ldexp(rcvr, arg))
+    w_res = utility.wrap_float(math.ldexp(rcvr, arg))
     return w_res
 
 @expose_primitive(FLOAT_SQUARE_ROOT, unwrap_spec=[float])
 def func(interp, f): 
     if f < 0.0:
         raise PrimitiveFailedError
-    w_res = objtable.wrap_float(math.sqrt(f))
+    w_res = utility.wrap_float(math.sqrt(f))
     return w_res
 
 @expose_primitive(FLOAT_SIN, unwrap_spec=[float])
 def func(interp, f): 
-    w_res = objtable.wrap_float(math.sin(f))
+    w_res = utility.wrap_float(math.sin(f))
     return w_res
 
 @expose_primitive(FLOAT_ARCTAN, unwrap_spec=[float])
 def func(interp, f): 
-    w_res = objtable.wrap_float(math.atan(f))
+    w_res = utility.wrap_float(math.atan(f))
     return w_res
 
 @expose_primitive(FLOAT_LOG_N, unwrap_spec=[float])
@@ -304,11 +283,11 @@ def func(interp, f):
         res = rarithmetic.NAN
     else:
         res = math.log(f)
-    return objtable.wrap_float(res)
+    return utility.wrap_float(res)
 
 @expose_primitive(FLOAT_EXP, unwrap_spec=[float])
 def func(interp, f): 
-    w_res = objtable.wrap_float(math.exp(f))
+    w_res = utility.wrap_float(math.exp(f))
     return w_res
 
 
@@ -329,17 +308,14 @@ def func(interp, w_obj, n0):
 @expose_primitive(AT_PUT, unwrap_spec=[object, index1_0, object])
 def func(interp, w_obj, n0, w_val):
     n0 = assert_valid_index(n0, w_obj)
-    try:
-        w_obj.atput0(n0, w_val)
-        return w_val
-    except model.UnwrappingError:
-        raise PrimitiveFailedError()
+    w_obj.atput0(n0, w_val)
+    return w_val
 
 @expose_primitive(SIZE, unwrap_spec=[object])
 def func(interp, w_obj):
     if not w_obj.shadow_of_my_class().isvariable():
         raise PrimitiveFailedError()
-    return objtable.wrap_int(w_obj.varsize())
+    return utility.wrap_int(w_obj.varsize())
 
 @expose_primitive(STRING_AT, unwrap_spec=[object, index1_0])
 def func(interp, w_obj, n0):
@@ -348,11 +324,11 @@ def func(interp, w_obj, n0):
     # make sure that getbyte is only performed on W_BytesObjects
     if not isinstance(w_obj, model.W_BytesObject):
         raise PrimitiveFailedError
-    return objtable.wrap_char(w_obj.getchar(n0))
+    return utility.wrap_char(w_obj.getchar(n0))
 
 @expose_primitive(STRING_AT_PUT, unwrap_spec=[object, index1_0, object])
 def func(interp, w_obj, n0, w_val):
-    val = unwrap_char(w_val)
+    val = utility.unwrap_char(w_val)
     n0 = assert_valid_index(n0, w_obj)
     w_obj.setchar(n0, val)
     return w_val
@@ -402,12 +378,11 @@ def func(interp, w_cls):
         raise PrimitiveFailedError()
     return shadow.new()
 
-@expose_primitive(NEW_WITH_ARG, unwrap_spec=[object, object])
-def func(interp, w_cls, w_size):
+@expose_primitive(NEW_WITH_ARG, unwrap_spec=[object, int])
+def func(interp, w_cls, size):
     shadow = w_cls.as_class_get_shadow()
     if not shadow.isvariable():
         raise PrimitiveFailedError()
-    size = unwrap_int(w_size)
     return shadow.new(size)
 
 @expose_primitive(ARRAY_BECOME_ONE_WAY, unwrap_spec=[object, object])
@@ -437,7 +412,7 @@ def func(interp, w_rcvr, n0, w_value):
 def func(interp, w_rcvr):
     if isinstance(w_rcvr, model.W_SmallInteger):
         raise PrimitiveFailedError()
-    return wrap_int(w_rcvr.gethash())
+    return utility.wrap_int(w_rcvr.gethash())
 
 @expose_primitive(STORE_STACKP, unwrap_spec=[object, object])
 def func(interp, w_obj1, w_obj2):
@@ -460,7 +435,8 @@ def func(interp, w_obj):
 
 @expose_primitive(NEW_METHOD, unwrap_spec=[object, int, object])
 def func(interp, w_class, bytecount, w_header):
-    header = unwrap_int(w_header)
+    # XXX untested
+    header = utility.unwrap_int(w_header)
     literalcount = ((header >> 10) & 255) + 1
     w_method = w_class.as_class_get_shadow().new(literalcount)
     # XXX not sure this is correct
@@ -483,7 +459,7 @@ CHANGE_CLASS = 115      # Blue Book: primitiveOopsLeft
 
 @expose_primitive(EQUIVALENT, unwrap_spec=[object, object])
 def func(interp, w_arg, w_rcvr):
-    return objtable.wrap_bool(w_arg.equals(w_rcvr))
+    return utility.wrap_bool(w_arg.equals(w_rcvr))
 
 @expose_primitive(CLASS, unwrap_spec=[object])
 def func(interp, w_obj):
@@ -535,7 +511,7 @@ FULL_GC = 130
 INC_GC = 131
 
 def fake_bytes_left():
-    return wrap_int(2**20) # XXX we don't know how to do this :-(
+    return utility.wrap_int(2**20) # XXX we don't know how to do this :-(
 
 @expose_primitive(INC_GC, unwrap_spec=[object])
 @expose_primitive(FULL_GC, unwrap_spec=[object])
@@ -553,13 +529,13 @@ SECONDS_CLOCK = 137
 def func(interp, w_arg):
     import time
     import math
-    return wrap_int(int(math.fmod(time.time()*1000, constants.TAGGED_MAXINT/2)))
+    return utility.wrap_int(int(math.fmod(time.time()*1000, constants.TAGGED_MAXINT/2)))
 
 @expose_primitive(SECONDS_CLOCK, unwrap_spec=[object])
 def func(interp, w_arg):
     import time
-    return wrap_int(0x23910d6c)      # HACK: too big for a small int!
-    #return wrap_int(int(time.time()))
+    return utility.wrap_int(0x23910d6c)      # HACK: too big for a small int!
+    #return utility.wrap_int(int(time.time()))
 
 # ___________________________________________________________________________
 # Boolean Primitives
@@ -591,7 +567,7 @@ for (code,op) in bool_ops.items():
         @expose_primitive(code, unwrap_spec=[int, int])
         def func(interp, v1, v2):
             res = op(v1, v2)
-            w_res = objtable.wrap_bool(res)
+            w_res = utility.wrap_bool(res)
             return w_res
     make_func(op)
 
@@ -600,7 +576,7 @@ for (code,op) in bool_ops.items():
         @expose_primitive(code+_FLOAT_OFFSET, unwrap_spec=[float, float])
         def func(interp, v1, v2):
             res = op(v1, v2)
-            w_res = objtable.wrap_bool(res)
+            w_res = utility.wrap_bool(res)
             return w_res
     make_func(op)
     
@@ -650,10 +626,9 @@ PRIMITIVE_RESUME = 87
 PRIMITIVE_SUSPEND = 88
 PRIMITIVE_FLUSH_CACHE = 89
 
-@expose_primitive(PRIMITIVE_BLOCK_COPY, unwrap_spec=[object, object])
-def func(interp, w_context, w_argcnt):
+@expose_primitive(PRIMITIVE_BLOCK_COPY, unwrap_spec=[object, int])
+def func(interp, w_context, argcnt):
     frame = interp.w_active_context
-    argcnt = unwrap_int(w_argcnt)
 
     # From B.B.: If receiver is a MethodContext, then it becomes
     # the new BlockContext's home context.  Otherwise, the home

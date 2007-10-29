@@ -1,5 +1,5 @@
 import weakref
-from pypy.lang.smalltalk import model, constants
+from pypy.lang.smalltalk import model, constants, utility, error
 
 class AbstractShadow(object):
     """A shadow is an optional extra bit of information that
@@ -17,12 +17,11 @@ WORDS = 2
 WEAK_POINTERS = 3
 COMPILED_METHOD = 4
 
-unwrap_int = model.unwrap_int
 
-class MethodNotFound(Exception):
+class MethodNotFound(error.SmalltalkException):
     pass
 
-class ClassShadowError(Exception):
+class ClassShadowError(error.SmalltalkException):
     pass
 
 class ClassShadow(AbstractShadow):
@@ -49,7 +48,8 @@ class ClassShadow(AbstractShadow):
 
         w_self = self.w_self
         # read and painfully decode the format
-        classformat = unwrap_int(w_self.fetch(constants.CLASS_FORMAT_INDEX))
+        classformat = utility.unwrap_int(
+            w_self.fetch(constants.CLASS_FORMAT_INDEX))
         # The classformat in Squeak, as an integer value, is:
         #    <2 bits=instSize//64><5 bits=cClass><4 bits=instSpec>
         #                                    <6 bits=instSize\\64><1 bit=0>
