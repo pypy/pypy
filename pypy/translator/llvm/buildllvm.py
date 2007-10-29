@@ -44,7 +44,10 @@ def %(name)s_wrapper(*args):
     result = %(name)s(*args)
     if %(name)s_raised():
         raise LLVMException("Exception raised")
-    return result
+    if %(rt_isbool)s:
+        return bool(result)
+    else:
+        return result
 """
 
     import ctypes
@@ -59,15 +62,19 @@ def %(name)s_wrapper(*args):
                  lltype.Signed: "ctypes.c_int",
                  lltype.Unsigned: "ctypes.c_uint",
                  lltype.SignedLongLong: "ctypes.c_longlong",
-                 lltype.UnsignedLongLong: "ctypes.c_ulonglong"
+                 lltype.UnsignedLongLong: "ctypes.c_ulonglong",
+                 lltype.Void: None # XXX why no ctypes.c_void ?
                  }
 
     name = genllvm.entrynode.ref.strip("%")
     
     g = genllvm.entrynode.graph  
-    returntype = TO_CTYPES[g.returnblock.inputargs[0].concretetype]
+    rt = g.returnblock.inputargs[0].concretetype
+    returntype = TO_CTYPES[rt]
     inputargtypes = [TO_CTYPES[a.concretetype] for a in g.startblock.inputargs]
     args = '[%s]' % ", ".join(inputargtypes)
+
+    rt_isbool = rt is lltype.Bool
     modfilename.write(template % locals())
     return modfilename.purebasename
 

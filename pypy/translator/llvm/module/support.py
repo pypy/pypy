@@ -117,7 +117,6 @@ internal fastcc void %%raise%s(sbyte* %%msg) {
     %%exception_type  = load %%RPYTHON_EXCEPTION_VTABLE** %%tmp
     store %%RPYTHON_EXCEPTION_VTABLE* %%exception_type, %%RPYTHON_EXCEPTION_VTABLE** %%last_exception_type
     store %%RPYTHON_EXCEPTION* %%exception_value, %%RPYTHON_EXCEPTION** %%last_exception_value
-    call fastcc void %%unwind()
     ret void
 }
 """ % (c_name, exc_repr)

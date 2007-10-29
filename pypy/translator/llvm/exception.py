@@ -1,3 +1,5 @@
+# XXX this is just so we can compile modules - need to put somewhere else
+
 
 def _noresult(returntype):
     r = returntype.strip()
@@ -13,8 +15,15 @@ def _noresult(returntype):
 
 def llvm_implcode(entrynode):
     from pypy.translator.llvm.codewriter import DEFAULT_CCONV as cconv
-    from pypy.translator.llvm.module.excsupport import exctransform_code
+    from pypy.translator.llvm.module.excsupport import entrycode, voidentrycode, raisedcode 
     returntype, entrypointname = entrynode.getdecl().split('%', 1)
     noresult = _noresult(returntype)
-    return exctransform_code % locals()
+
+    code = raisedcode % locals()
+    if returntype == "void":
+        code += voidentrycode % locals()
+    else:
+        code += entrycode % locals()
+
+    return code
 
