@@ -366,9 +366,10 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
             # of memory as smalltalk expects but wrapped in py-os
             raise NotImplementedError()
         else:
-            self.setbyte(index0, chr(unwrap_int(w_value)))
+            self.setbyte(index0, unwrap_int(w_value))
 
-    def setbyte(self, index0, character):
+    def setbyte(self, index0, byte):
+        character = chr(byte)
         self.bytes = (self.bytes[:index0] + character +
                       self.bytes[index0 + 1:])
 

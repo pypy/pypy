@@ -72,7 +72,7 @@ def test_w_compiledin():
 
 def test_w_compiledin():
     w_method = model.W_CompiledMethod(0, "abc")
-    w_method.setbyte(0, "c")
+    w_method.setbyte(0, ord("c"))
     assert w_method.bytes == "cbc"
 
 def test_hashes():
