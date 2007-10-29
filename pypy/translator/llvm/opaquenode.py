@@ -1,47 +1,25 @@
-from pypy.translator.llvm.node import LLVMNode, ConstantLLVMNode
+from pypy.translator.llvm.node import ConstantNode
 from pypy.rpython.lltypesystem import lltype
 
-class OpaqueTypeNode(LLVMNode):
-
-    def __init__(self, db, opaquetype): 
-        assert isinstance(opaquetype, lltype.OpaqueType)
-        self.db = db
-        self.opaquetype = opaquetype
-        self.ref = "%%RPyOpaque_%s" % (opaquetype.tag)
-        
-    def __str__(self):
-        return "<OpaqueNode %r>" %(self.ref,)
-
-    # ______________________________________________________________________
-    # main entry points from genllvm 
-
-    def writedatatypedecl(self, codewriter):
-        codewriter.typedef(self.ref, "opaque*")
-
-class ExtOpaqueTypeNode(OpaqueTypeNode):
-    def writedatatypedecl(self, codewriter):
-        pass
-
-class OpaqueNode(ConstantLLVMNode):
+class OpaqueNode(ConstantNode):
     def __init__(self, db, value):
         self.db = db
         self.value = value
-        self.ref = "null"
-    # ______________________________________________________________________
-    # main entry points from genllvm 
-
+        self.name = "null"
+ 
     def writeglobalconstants(self, codewriter):
         # XXX Dummy - not sure what what we want
         pass
 
-class ExtOpaqueNode(ConstantLLVMNode):
+class ExtOpaqueNode(ConstantNode):
+    prefix = '%opaqueinstance_'
     def __init__(self, db, value):
         self.db = db
         self.value = value
-        prefix = '%opaqueinstance_'
-        name = str(value).split()[1]
-        self.ref = self.make_ref(prefix, name)
         self._get_ref_cache = None
+
+        name = str(value).split()[1]
+        self.make_name(name)
 
     # ______________________________________________________________________
     # main entry points from genllvm 
@@ -52,7 +30,7 @@ class ExtOpaqueNode(ConstantLLVMNode):
             return self._get_ref_cache
         p, c = lltype.parentlink(self.value)
         if p is None:
-            ref = self.ref
+            ref = self.name
         else:
             ref = self.db.get_childref(p, c)
         self._get_ref_cache = ref

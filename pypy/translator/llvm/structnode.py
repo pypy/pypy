@@ -1,5 +1,4 @@
-from pypy.translator.llvm.log import log
-from pypy.translator.llvm.node import LLVMNode, ConstantLLVMNode
+from pypy.translator.llvm.node import ConstantNode
 from pypy.rpython.lltypesystem import lltype
 
 def getindexhelper(name, struct):
@@ -11,71 +10,14 @@ def getindexhelper(name, struct):
     except ValueError:
         index = -1
     return index
-
-log = log.structnode 
-
-class StructTypeNode(LLVMNode):
-    __slots__ = "db struct ref name".split()
-    prefix = '%structtype_'
-
-    def __init__(self, db, struct): 
-        assert isinstance(struct, lltype.Struct)
-        self.db = db
-        self.struct = struct
-        name = self.struct._name
-        self.ref = self.make_ref(self.prefix, name)
-        self.name = self.ref[len(self.prefix):]
         
-    def __str__(self):
-        return "<StructTypeNode %r>" %(self.ref,)
-
-    def _fields(self):
-        return [getattr(self.struct, name) 
-                for name in self.struct._names_without_voids()]
-    
-    def setup(self):
-        # Recurse
-        for field in self._fields():
-            self.db.prepare_type(field)
-
-    # ______________________________________________________________________
-    # main entry points from genllvm 
-
-    def writedatatypedecl(self, codewriter):
-        fields_types = [self.db.repr_type(f) for f in self._fields()]
-        codewriter.structdef(self.ref, fields_types)
-
-class FixedSizeArrayTypeNode(StructTypeNode):
-    prefix = '%fixarray_'
-
-    def __str__(self):
-        return "<FixedArrayTypeNode %r>" % self.ref
-
-    def setup(self):
-        fields = self._fields()
-        if fields:
-            self.db.prepare_type(fields[0])
-
-    def writedatatypedecl(self, codewriter):
-        codewriter.fixedarraydef(self.ref,
-                                 self.struct.length,
-                                 self.db.repr_type(self.struct.OF))
-
-
-class StructVarsizeTypeNode(StructTypeNode):
-    def __init__(self, db, struct): 
-        super(StructVarsizeTypeNode, self).__init__(db, struct)
-
-    def __str__(self):
-        return "<StructVarsizeTypeNode %r>" %(self.ref,)
-        
-class StructNode(ConstantLLVMNode):
+class StructNode(ConstantNode):
     """ A struct constant.  Can simply contain
     a primitive,
     a struct,
     pointer to struct/array
     """
-    __slots__ = "db value structtype ref _get_ref_cache _get_types".split()
+    __slots__ = "db value structtype _get_ref_cache _get_types".split()
 
     prefix = '%structinstance_'
 
@@ -84,12 +26,9 @@ class StructNode(ConstantLLVMNode):
         self.value = value
         self.structtype = self.value._TYPE
         name = str(value).split()[1]
-        self.ref = self.make_ref(self.prefix, name)
         self._get_ref_cache = None
         self._get_types = self._compute_types()
-
-    def __str__(self):
-        return "<StructNode %r>" % (self.ref,)
+        self.make_name(name)
 
     def _compute_types(self):
         return [(name, self.structtype._flds[name])
@@ -137,7 +76,7 @@ class StructNode(ConstantLLVMNode):
         #    return self._get_ref_cache
         p, c = lltype.parentlink(self.value)
         if p is None:
-            ref = self.ref
+            ref = self.name
         else:
             ref = self.db.get_childref(p, c)
         #XXXself._get_ref_cache = ref
@@ -162,9 +101,6 @@ class FixedSizeArrayNode(StructNode):
         self.array = struct
         self.arraytype = self.structtype.OF
 
-    def __str__(self):
-        return "<FixedSizeArrayNode %r>" % (self.ref,)
-
     def constantvalue(self):
         """ Returns the constant representation for this node. """
         values = self._getvalues()
@@ -174,7 +110,7 @@ class FixedSizeArrayNode(StructNode):
     def get_ref(self):
         p, c = lltype.parentlink(self.value)
         if p is None:
-            ref = self.ref
+            ref = self.name
         else:
             ref = self.db.get_childref(p, c)
             if isinstance(self.value, lltype._subarray):
@@ -211,9 +147,6 @@ class StructVarsizeNode(StructNode):
     OR
     a series of embedded structs, which has as its last element an array.
     """
-
-    def __str__(self):
-        return "<StructVarsizeNode %r>" % (self.ref,)
 
     def _getvalues(self):
         values = []
@@ -278,7 +211,7 @@ class StructVarsizeNode(StructNode):
     
     def get_pbcref(self, toptr):
         """ Returns a reference as used per pbc. """        
-        ref = self.ref
+        ref = self.name
         p, c = lltype.parentlink(self.value)
         assert p is None, "child varsize struct are NOT needed by rtyper"
         fromptr = "%s*" % self.get_typerepr()

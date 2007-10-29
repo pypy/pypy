@@ -1,71 +1,71 @@
 from pypy.rpython.lltypesystem import lltype
 
-class LLVMNode(object):
-    __slots__ = "".split()
+class Node(object):
+    __slots__ = "name".split()
+    prefix = '%'
 
     nodename_count = {}
 
-    def make_name(self, name):
+    def make_name(self, name=''):
         " helper for creating names"
+        name = self.prefix + name
         if name in self.nodename_count:
             postfix = '_%d' % self.nodename_count[name]
             self.nodename_count[name] += 1
         else:
             postfix = ''
             self.nodename_count[name] = 1
-
         name += postfix
+
         if " " in name or "<" in name: 
             name = '"%s"' % name
-        return name
 
-    def make_ref(self, prefix, name):
-        return self.make_name(prefix + name)
+        self.name = name
 
     def setup(self):
         pass
 
-    # ______________________________________________________________________
-
-    def external_c_source(self):
-        # return a list of unique includes and sources in C
-        return [], []
-
-    # __________________ before "implementation" ____________________
-
-
     def post_setup_transform(self):
         pass
+
+    def external_c_source(self):
+        " return a list of unique includes and sources in C "
+        return [], []
     
-    def writedatatypedecl(self, codewriter):
-        """ write out declare names of data types 
-            (structs/arrays/function pointers)
-        """
-
-    def writeglobalconstants(self, codewriter):
-        """ write out global values.  """
-
-    def writedecl(self, codewriter):
-        """ write function forward declarations. """ 
-
-    def writecomments(self, codewriter):
-        """ write operations strings for debugging purposes. """ 
-
-    # __________________ after "implementation" ____________________
-    def writeimpl(self, codewriter):
-        """ write function implementations. """ 
-
-    # ______________________________________________________________________
-    # pre entry-point setup
-
     def writesetupcode(self, codewriter):
+        " pre entry-point setup "
         pass
 
-class ConstantLLVMNode(LLVMNode):
+    @property
+    def ref(self):
+        return self.name
+
+    def __str__(self):
+        return "<%s %r>" % (self.__class__.__name__, self.ref)
+
+class FuncNode(Node):
+
+    # XXX proof that the whole llvm is hanging on a bunch of loose stitches 
+    def get_ref(self):
+        return self.ref
+
+    # XXX proof that the whole llvm is hanging on a bunch of loose stitches 
+    def get_pbcref(self, _):
+        return self.ref
+
+    def writedecl(self, codewriter):
+        " write function forward declarations "
+        pass
+
+    def writeimpl(self, codewriter):
+        """ write function implementations """ 
+        pass
+    
+class ConstantNode(Node):
     __slots__ = "".split()
 
     def get_ref(self):
-        """ Returns a reference as used for operations in blocks for pbc. """        
+        # XXX tmp 
         return self.ref
 
     def get_childref(self, index):
@@ -76,12 +76,12 @@ class ConstantLLVMNode(LLVMNode):
         """ Returns a reference as a pointer used per pbc. """        
         return self.ref
 
-    def constantvalue(self):
-        """ Returns the constant representation for this node. """
-        raise AttributeError("Must be implemented in subclass")
-
     # ______________________________________________________________________
     # entry points from genllvm
+
+    def constantvalue(self):
+        """ Returns the constant representation for this node. """
+        pass
 
     def writeglobalconstants(self, codewriter):
         p, c = lltype.parentlink(self.value)

@@ -2,15 +2,17 @@
 import sys
 
 from pypy.translator.llvm.log import log 
-from pypy.translator.llvm.funcnode import FuncNode, FuncTypeNode
+
+from pypy.translator.llvm.typedefnode import create_typedef_node
+
+from pypy.translator.llvm.funcnode import FuncImplNode
 from pypy.translator.llvm.extfuncnode import ExternalFuncNode, SimplerExternalFuncNode
+from pypy.translator.llvm.opaquenode import OpaqueNode, ExtOpaqueNode
 from pypy.translator.llvm.structnode import StructNode, StructVarsizeNode, \
-     StructTypeNode, StructVarsizeTypeNode, getindexhelper, \
-     FixedSizeArrayTypeNode, FixedSizeArrayNode
+     getindexhelper,  FixedSizeArrayNode
 from pypy.translator.llvm.arraynode import ArrayNode, StrArrayNode, \
-     VoidArrayNode, ArrayNoLengthNode, ArrayTypeNode, VoidArrayTypeNode
-from pypy.translator.llvm.opaquenode import OpaqueNode, ExtOpaqueNode, \
-     OpaqueTypeNode, ExtOpaqueTypeNode
+     VoidArrayNode, ArrayNoLengthNode
+     
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
@@ -30,7 +32,12 @@ class Database(object):
         self.helper2ptr = {}
 
         self.primitives = Primitives(self)
-    
+
+        # keep ordered list for when we write
+        self.funcnodes = []
+        self.typedefnodes = []
+        self.containernodes = []
+
     #_______debuggging______________________________________
 
     def dump_pbcs(self):
@@ -52,7 +59,7 @@ class Database(object):
                      "pbcref -> %s \n" % (v, k, ref, pbc_ref)
         return r
     
-    #_______setting up and preperation______________________________
+    #_______setting up and preparation______________________________
 
     def create_constant_node(self, type_, value):
         node = None
@@ -65,7 +72,7 @@ class Database(object):
             elif getattr(value, 'external', None) == 'C':
                 node = SimplerExternalFuncNode(self, value)
             else:
-                node = FuncNode(self, value)
+                node = FuncImplNode(self, value)
 
         elif isinstance(type_, lltype.FixedSizeArray):
             node = FixedSizeArrayNode(self, value)
@@ -114,37 +121,14 @@ class Database(object):
             return
 
         if isinstance(type_, lltype.Primitive):
-            pass
+            return
 
-        elif isinstance(type_, lltype.Ptr):
+        if isinstance(type_, lltype.Ptr):
             self.prepare_type(type_.TO)
-
-        elif isinstance(type_, lltype.FixedSizeArray):
-            self.addpending(type_, FixedSizeArrayTypeNode(self, type_))
-
-        elif isinstance(type_, lltype.Struct):
-            if type_._arrayfld:
-                self.addpending(type_, StructVarsizeTypeNode(self, type_))
-            else:
-                self.addpending(type_, StructTypeNode(self, type_))
-
-        elif isinstance(type_, lltype.FuncType):
-            self.addpending(type_, FuncTypeNode(self, type_))
-
-        elif isinstance(type_, lltype.Array):
-            if type_.OF is lltype.Void:
-                self.addpending(type_, VoidArrayTypeNode(self, type_))
-            else:
-                self.addpending(type_, ArrayTypeNode(self, type_))
-
-        elif isinstance(type_, lltype.OpaqueType):
-            if hasattr(type_, '_exttypeinfo'):
-                self.addpending(type_, ExtOpaqueTypeNode(self, type_))
-            else:
-                self.addpending(type_, OpaqueTypeNode(self, type_))
-
         else:
-            assert False, "need to prepare typerepr %s %s" % (type_, type(type_))
+            node = create_typedef_node(self, type_)
+            self.addpending(type_, node)
+            self.typedefnodes.append(node)
 
     def prepare_type_multi(self, types):
         for type_ in types:
@@ -248,6 +232,9 @@ class Database(object):
 
     def getnodes(self):
         return self.obj2node.itervalues()
+
+    def gettypedefnodes(self):
+        return self.typedefnodes
         
     # __________________________________________________________
     # Representing variables and constants in LLVM source code 
@@ -261,7 +248,7 @@ class Database(object):
                 if isinstance(arg.value._obj, int):
                     rt = self.repr_type(arg.concretetype)
                     v = repr(arg.value._obj)
-                    return 'cast (int %s to %s)'%(v, rt)
+                    return 'cast (int %s to %s)' % (v, rt)
                 elif not arg.value:
                     return 'null'
                 else:
@@ -312,7 +299,7 @@ class Database(object):
                 return None, "%s null" % toptr
 
             if isinstance(value, int):
-                return None, '%s cast (int %s to %s)'%(toptr, value, toptr)
+                return None, '%s cast (int %s to %s)' % (toptr, value, toptr)
 
             node = self.obj2node[value]
             ref = node.get_pbcref(toptr)
@@ -333,14 +320,6 @@ class Database(object):
         count = self._tmpcount 
         self._tmpcount += 1
         return "%tmp_" + str(count) 
-
-    def repr_name(self, obj):
-        " simply returns a reference to constant value "
-        return self.obj2node[obj].ref
-
-    def repr_value(self, value):
-        # XXX Testing
-        return self.obj2node[value].get_ref()
 
     # __________________________________________________________
     # Other helpers
@@ -520,6 +499,8 @@ class Primitives(object):
             if value is objectmodel.malloc_zero_filled:
                 repr = '1'
             elif value is jit._we_are_jitted:
+                repr = '0'
+            elif value is objectmodel.running_on_llinterp:
                 repr = '0'
             else:
                 raise NotImplementedError("CDefinedIntSymbolic: %r" % (value,))

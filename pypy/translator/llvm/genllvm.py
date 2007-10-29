@@ -12,7 +12,7 @@ from pypy.translator.llvm.codewriter import CodeWriter
 from pypy.translator.llvm import extfuncnode
 from pypy.translator.llvm.module.support import \
      extdeclarations, extfunctions, extfunctions_standalone, write_raise_exc
-from pypy.translator.llvm.node import LLVMNode
+from pypy.translator.llvm.node import Node
 from pypy.translator.llvm.externs2ll import setup_externs, generate_llfile
 from pypy.translator.llvm.gc import GcPolicy
 from pypy.translator.llvm.log import log
@@ -25,7 +25,7 @@ class GenLLVM(object):
     def __init__(self, translator, standalone):
     
         # reset counters
-        LLVMNode.nodename_count = {}    
+        Node.nodename_count = {}    
 
         self.standalone = standalone
         self.translator = translator
@@ -115,15 +115,17 @@ class GenLLVM(object):
         self._checkpoint('write externs type declarations')
 
         # write node type declarations
-        for typ_decl in self.db.getnodes():
-            typ_decl.writedatatypedecl(codewriter)
+        for typ_decl in self.db.gettypedefnodes():
+            typ_decl.writetypedef(codewriter)
         self._checkpoint('write data type declarations')
 
         codewriter.header_comment("Global Data")
 
         # write pbcs
-        for typ_decl in self.db.getnodes():
-            typ_decl.writeglobalconstants(codewriter)
+        for node in self.db.getnodes():
+            # XXX tmp
+            if hasattr(node, "writeglobalconstants"):
+                node.writeglobalconstants(codewriter)
         self._checkpoint('write global constants')
 
         codewriter.header_comment("Function Prototypes")
@@ -132,8 +134,9 @@ class GenLLVM(object):
         codewriter.write_lines(self._set_wordsize(extdeclarations))
 
         # write node protos
-        for typ_decl in self.db.getnodes():
-            typ_decl.writedecl(codewriter)
+        for node in self.db.getnodes():
+            if hasattr(node, 'writedecl'):
+                node.writedecl(codewriter)
 
         self._checkpoint('write function prototypes')
 
@@ -156,8 +159,10 @@ class GenLLVM(object):
         codewriter.write_lines(llvm_implcode(self.entrynode))
 
         # write all node implementations
-        for typ_decl in self.db.getnodes():
-            typ_decl.writeimpl(codewriter)
+        for node in self.db.getnodes():
+            if hasattr(node, 'writeimpl'):
+                node.writeimpl(codewriter)
+
         self._checkpoint('write node implementations')
 
         # write entry point if there is one

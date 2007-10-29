@@ -72,22 +72,6 @@ class CodeWriter(object):
     def typedef(self, name, type_):
         self._append("%s = type %s" % (name, type_))
 
-    def structdef(self, name, typereprs):
-        self.typedef(name, "{ %s }" % ", ".join(typereprs))
-
-    def arraydef(self, name, lentype, typerepr):
-        self.typedef(name, "{ %s, [0 x %s] }" % (lentype, typerepr))
-
-    def arraynolendef(self, name, typerepr):
-        self.typedef(name, "[0 x %s]" % (typerepr))
-
-    def fixedarraydef(self, name, arraylen, typerepr):
-        self.typedef(name, "[%s x %s]" % (arraylen, typerepr))
-
-    def funcdef(self, name, rettyperepr, argtypereprs):
-        self.typedef(name, "%s (%s)" % (rettyperepr,
-                                        ", ".join(argtypereprs)))
-
     def declare(self, decl, cconv=None):
         if cconv is None:
             cconv = self.cconv

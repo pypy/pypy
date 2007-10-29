@@ -1,49 +1,26 @@
 from pypy.objspace.flow.model import Block, Constant, Link
 from pypy.objspace.flow.model import mkentrymap, c_last_exception
 from pypy.rpython.lltypesystem import lltype
-from pypy.translator.llvm.node import LLVMNode, ConstantLLVMNode
+from pypy.translator.llvm.node import FuncNode
 from pypy.translator.llvm.opwriter import OpWriter
 from pypy.translator.llvm.log import log 
 from pypy.translator.unsimplify import remove_double_links, no_links_to_startblock
 log = log.funcnode
 
-class FuncTypeNode(LLVMNode):
-    __slots__ = "db type_ ref".split()
-    
-    def __init__(self, db, type_):
-        self.db = db
-        assert isinstance(type_, lltype.FuncType)
-        self.type_ = type_
-        self.ref = self.make_ref('%functiontype', '')
-
-    def __str__(self):
-        return "<FuncTypeNode %r>" % self.ref
-
-    def setup(self):
-        self.db.prepare_type(self.type_.RESULT)
-        self.db.prepare_type_multi(self.type_._trueargs())
-
-    def writedatatypedecl(self, codewriter):
-        returntype = self.db.repr_type(self.type_.RESULT)
-        inputargtypes = [self.db.repr_type(a) for a in self.type_._trueargs()]
-        codewriter.funcdef(self.ref, returntype, inputargtypes)
-
 class BranchException(Exception):
     pass
 
-
-class FuncNode(ConstantLLVMNode):
-    __slots__ = "db value ref graph block_to_name bad_switch_block".split()
+class FuncImplNode(FuncNode):
+    prefix = '%pypy_'
+    __slots__ = "db value graph block_to_name bad_switch_block".split()
 
     def __init__(self, db, value):
         self.db = db
         self.value = value
-        self.ref   = self.make_ref('%pypy_', value.graph.name)
         self.graph = value.graph
         self.bad_switch_block = False
 
-    def __str__(self):
-        return "<FuncNode %r>" %(self.ref,)
+        self.make_name(value.graph.name)
 
     def setup(self):
         assert self.graph, "cannot traverse"
@@ -92,9 +69,6 @@ class FuncNode(ConstantLLVMNode):
             codewriter._indent('call void %abort()')
             codewriter._indent('unreachable')
         codewriter.closefunc()
-
-    def writeglobalconstants(self, codewriter):
-        pass
     
     # ______________________________________________________________________
     # writing helpers for entry points

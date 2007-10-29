@@ -1,4 +1,4 @@
-from pypy.translator.llvm.node import ConstantLLVMNode
+from pypy.translator.llvm.node import FuncNode
 from pypy.translator.llvm.log import log 
 from pypy.translator.c.extfunc import EXTERNALS
 from pypy.rpython.lltypesystem import lltype
@@ -14,24 +14,19 @@ class ExtFuncSig(object):
 
 # signature of external functions differ from C's implementation
 ext_func_sigs = {
-    "%LL_os_isatty" : ExtFuncSig("int", None),
     "%LL_stack_too_big" : ExtFuncSig("int", None),
-    "%LL_os_lseek" : ExtFuncSig("int", None),
-    "%LL_thread_acquirelock" : ExtFuncSig("int", [None, "int"]),
-    "%LL_thread_start" : ExtFuncSig(None, ["sbyte*", "sbyte*"]),
     }
 
 if maxint != 2**31-1:
-    ext_func_sigs["%LL_os_write"] = ExtFuncSig(None, ["int", None])
     ext_func_sigs["%LL_math_ldexp"] = ExtFuncSig(None, [None, "int"])
 
 
-class SimplerExternalFuncNode(ConstantLLVMNode):
+class SimplerExternalFuncNode(FuncNode):
 
     def __init__(self, db, value):
         self.db = db
         self.value = value
-        self.ref = "%" + value._name
+        self.name = "%" + value._name
 
     def external_c_source(self):
         # return a list of unique includes and sources in C
@@ -62,7 +57,7 @@ class SimplerExternalFuncNode(ConstantLLVMNode):
     def writedecl(self, codewriter):
         codewriter.declare(self.getdecl())
 
-class ExternalFuncNode(ConstantLLVMNode):
+class ExternalFuncNode(FuncNode):
 
     def __init__(self, db, value, extname=None):
         self.db = db
@@ -76,14 +71,11 @@ class ExternalFuncNode(ConstantLLVMNode):
         else:
             mapped_name = EXTERNALS[self.callable]
 
-        self.ref = self.make_ref("%", mapped_name)
+        self.make_name(mapped_name)
         
     def setup(self):
         self.db.prepare_type(self.value._TYPE.RESULT)
         self.db.prepare_type_multi(self.value._TYPE._trueargs()) 
-
-    def __str__(self):
-        return "<ExternalFuncNode %r>" % self.ref
 
     def _get_wrapper(self):
         wrapper = ext_func_sigs.get(self.ref, None)

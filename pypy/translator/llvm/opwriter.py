@@ -595,3 +595,8 @@ class OpWriter(object):
         self.codewriter.cast(opr.retref, 'bool',
                              'false', opr.rettype)
 
+    def debug_llinterpcall(self, opr):
+        self.codewriter.call(None, "void", "%abort", [], [])
+        # cheat llvm
+        self.codewriter.cast(opr.retref, opr.rettype, 'null', opr.rettype)
+

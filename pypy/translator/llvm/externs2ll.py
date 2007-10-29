@@ -195,6 +195,7 @@ def generate_llfile(db, extern_decls, entrynode, c_include, c_sources, standalon
                 c_name = c_name[1:]
                 ccode.append("void raise%s(char *);\n" % c_name)
             else:
+                # XXX we really shouldnt do this
                 predeclarefn(c_name, db.obj2node[obj._obj].ref)                
         elif type(c_name) is str and type(obj) is int:
             ccode.append("#define\t%s\t%d\n" % (c_name, obj))
