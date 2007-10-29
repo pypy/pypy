@@ -374,7 +374,8 @@ def test_fnptr_with_fixedsizearray():
 
 def test_direct_arrayitems():
     for a in [malloc(GcArray(Signed), 5),
-              malloc(FixedSizeArray(Signed, 5), immortal=True)]:
+              malloc(FixedSizeArray(Signed, 5), immortal=True),
+              malloc(Array(Signed, hints={'nolength': True}), 5, immortal=True)]:
         a[0] = 0
         a[1] = 10
         a[2] = 20
@@ -762,41 +763,6 @@ def test_rettypes():
 class TestLowLevelType(object):
     def getcompiled(self, f, args=[]):
         return compile_function(f, args)
-
-    def test_direct_arrayitems(self):
-        py.test.skip("nolength ???")
-        for a in [malloc(GcArray(Signed), 5),
-                  malloc(FixedSizeArray(Signed, 5), immortal=True),
-                  malloc(Array(Signed, hints={'nolength': True}), 5, immortal=True),
-                  ]:
-            a[0] = 0
-            a[1] = 10
-            a[2] = 20
-            a[3] = 30
-            a[4] = 40
-            b0 = direct_arrayitems(a)
-            b1 = direct_ptradd(b0, 1)
-            b2 = direct_ptradd(b1, 1)
-            def llf(n):
-                b0 = direct_arrayitems(a)
-                b3 = direct_ptradd(direct_ptradd(b0, 5), -2)
-                saved = a[n]
-                a[n] = 1000
-                try:
-                    return b0[0] + b3[-2] + b2[1] + b1[3]
-                finally:
-                    a[n] = saved
-            fn = self.getcompiled(llf, [int])
-            res = fn(0)
-            assert res == 1000 + 10 + 30 + 40
-            res = fn(1)
-            assert res == 0 + 1000 + 30 + 40
-            res = fn(2)
-            assert res == 0 + 10 + 30 + 40
-            res = fn(3)
-            assert res == 0 + 10 + 1000 + 40
-            res = fn(4)
-            assert res == 0 + 10 + 30 + 1000
 
     def test_arithmetic_cornercases(self):
         py.test.skip("pyobject in this test - but why ???")

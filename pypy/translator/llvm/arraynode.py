@@ -50,7 +50,6 @@ class ArrayNode(ConstantNode):
         ref = "cast(%s* %s to %s*)" % (self.get_typerepr(),
                                        ref,
                                        typeval)
-        print 'KKKKKKKKKK', ref
         return ref
 
     def get_pbcref(self, toptr):
@@ -59,7 +58,6 @@ class ArrayNode(ConstantNode):
 
         fromptr = "%s*" % self.get_typerepr()
         ref = "cast(%s %s to %s)" % (fromptr, self.name, toptr)
-        print 'XXXXXXXXX', ref
         return ref
 
     def get_childref(self, index):
@@ -86,7 +84,7 @@ class ArrayNoLengthNode(ArrayNode):
     def get_typerepr(self):
         arraylen = self.get_arrayvalue()[0]
         typeval = self.db.repr_type(self.arraytype)
-        return "{ [%s x %s] }" % (arraylen, typeval)
+        return "[%s x %s]" % (arraylen, typeval)
     
     def get_childref(self, index):
         return "getelementptr(%s* %s, int 0, int %s)" %(
@@ -97,12 +95,7 @@ class ArrayNoLengthNode(ArrayNode):
     def constantvalue(self):
         physicallen, arrayrepr = self.get_arrayvalue()
         typeval = self.db.repr_type(self.arraytype)
-
-        value = "[%s x %s] %s" % (physicallen,
-                                  typeval,
-                                  arrayrepr)
-
-        s = "%s {%s}" % (self.get_typerepr(), value)
+        s = "%s %s" % (self.get_typerepr(), arrayrepr)
         return s
 
 class StrArrayNode(ArrayNode):
