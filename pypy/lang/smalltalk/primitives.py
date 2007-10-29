@@ -355,17 +355,17 @@ def func(interp, w_rcvr, n0, w_val):
 
 @expose_primitive(NEW, unwrap_spec=[object])
 def func(interp, w_cls):
-    shadow = w_cls.as_class_get_shadow()
-    if shadow.isvariable():
+    s_class = w_cls.as_class_get_shadow()
+    if s_class.isvariable():
         raise PrimitiveFailedError()
-    return shadow.new()
+    return s_class.new()
 
 @expose_primitive(NEW_WITH_ARG, unwrap_spec=[object, int])
 def func(interp, w_cls, size):
-    shadow = w_cls.as_class_get_shadow()
-    if not shadow.isvariable():
+    s_class = w_cls.as_class_get_shadow()
+    if not s_class.isvariable():
         raise PrimitiveFailedError()
-    return shadow.new(size)
+    return s_class.new(size)
 
 @expose_primitive(ARRAY_BECOME_ONE_WAY, unwrap_spec=[object, object])
 def func(interp, w_obj1, w_obj2):
@@ -374,8 +374,8 @@ def func(interp, w_obj1, w_obj2):
 @expose_primitive(INST_VAR_AT, unwrap_spec=[object, index1_0])
 def func(interp, w_rcvr, n0):
     "Fetches a fixed field from the object, and fails otherwise"
-    shadow = w_rcvr.shadow_of_my_class()
-    assert_bounds(n0, 0, shadow.instsize())
+    s_class = w_rcvr.shadow_of_my_class()
+    assert_bounds(n0, 0, s_class.instsize())
     # only pointers have non-0 size
     assert isinstance(w_rcvr, model.W_PointersObject)
     return w_rcvr.fetch(n0)
@@ -383,8 +383,8 @@ def func(interp, w_rcvr, n0):
 @expose_primitive(INST_VAR_AT_PUT, unwrap_spec=[object, index1_0, object])
 def func(interp, w_rcvr, n0, w_value):
     "Stores a value into a fixed field from the object, and fails otherwise"
-    shadow = w_rcvr.shadow_of_my_class()
-    assert_bounds(n0, 0, shadow.instsize())
+    s_class = w_rcvr.shadow_of_my_class()
+    assert_bounds(n0, 0, s_class.instsize())
     # only pointers have non-0 size    
     assert isinstance(w_rcvr, model.W_PointersObject)
     w_rcvr.store(n0, w_value)
