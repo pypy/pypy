@@ -9,6 +9,7 @@ from pypy.rpython.lltypesystem.lltype import typeOf
 
 optimize_tests = False
 MINIMUM_LLVM_VERSION = 1.9
+FLOAT_PRECISION = 8
 
 ext_modules = []
 
