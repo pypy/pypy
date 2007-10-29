@@ -332,6 +332,10 @@ def func(interp, w_obj):
 @expose_primitive(STRING_AT, unwrap_spec=[object, index1_0])
 def func(interp, w_obj, n0):
     assert_valid_index(n0, w_obj)
+    # XXX I am not sure this is correct, but it un-breaks translation:
+    # make sure that getbyte is only performed on W_BytesObjects
+    if not isinstance(w_obj, model.W_BytesObject):
+        raise PrimitiveFailedError
     byte = w_obj.getbyte(n0)
     return objtable.CharacterTable[byte]
 
@@ -449,6 +453,8 @@ def func(interp, w_class, bytecount, w_header):
     header = unwrap_int(w_header)
     literalcount = ((header >> 10) & 255) + 1
     w_method = w_class.as_class_get_shadow().new(literalcount)
+    # XXX not sure this is correct
+    assert isinstance(w_method, model.W_MethodContext)
     w_method.literals[constants.METHOD_HEADER_INDEX] = w_header
     for i in range(0,literalcount):
         w_method.literals[i+1] = objtable.w_nil

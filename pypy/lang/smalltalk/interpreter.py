@@ -215,7 +215,7 @@ class __extend__(W_ContextPart):
         raise MissingBytecode("unknownBytecode")
 
     def extendedVariableTypeAndIndex(self):
-        descriptor = self.getbyte()
+        descriptor = self.getbytecode()
         return ((descriptor >> 6) & 3), (descriptor & 63)
 
     def extendedPushBytecode(self, interp):
@@ -249,7 +249,7 @@ class __extend__(W_ContextPart):
         self.pop()
 
     def getExtendedSelectorArgcount(self):
-        descriptor = self.getbyte()
+        descriptor = self.getbytecode()
         return ((self.w_method().getliteralsymbol(descriptor & 31)),
                 (descriptor >> 5))
 
@@ -258,8 +258,8 @@ class __extend__(W_ContextPart):
         self._sendSelfSelector(selector, argcount, interp)
 
     def doubleExtendedDoAnythingBytecode(self, interp):
-        second = self.getbyte()
-        third = self.getbyte()
+        second = self.getbytecode()
+        third = self.getbytecode()
         opType = second >> 5
         if opType == 0:
             # selfsend
@@ -294,7 +294,7 @@ class __extend__(W_ContextPart):
         self._sendSuperSelector(selector, argcount, interp)
 
     def secondExtendedSendBytecode(self, interp):
-        descriptor = self.getbyte()
+        descriptor = self.getbytecode()
         selector = self.w_method().getliteralsymbol(descriptor & 63)
         argcount = descriptor >> 6
         self._sendSelfSelector(selector, argcount, interp)
@@ -323,10 +323,10 @@ class __extend__(W_ContextPart):
         self.jumpConditional(interp.FALSE,self.shortJumpPosition())
 
     def longUnconditionalJump(self, interp):
-        self.jump((((self.currentBytecode & 7) - 4) << 8) + self.getbyte())
+        self.jump((((self.currentBytecode & 7) - 4) << 8) + self.getbytecode())
 
     def longJumpPosition(self):
-        return ((self.currentBytecode & 3) << 8) + self.getbyte()
+        return ((self.currentBytecode & 3) << 8) + self.getbytecode()
 
     def longJumpIfTrue(self, interp):
         self.jumpConditional(interp.TRUE,self.longJumpPosition())

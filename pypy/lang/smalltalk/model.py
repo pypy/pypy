@@ -413,14 +413,14 @@ class W_ContextPart(W_AbstractObjectWithIdentityHash):
     def w_method(self):
         return self.w_home._w_method
 
-    def getbyte(self):
+    def getbytecode(self):
         bytecode = self.w_method().bytes[self.pc]
         currentBytecode = ord(bytecode)
         self.pc = self.pc + 1
         return currentBytecode
 
     def getNextBytecode(self):
-        self.currentBytecode = self.getbyte()
+        self.currentBytecode = self.getbytecode()
         return self.currentBytecode
 
     # ______________________________________________________________________

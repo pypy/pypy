@@ -120,12 +120,11 @@ class ClassShadow(AbstractShadow):
         if w_cls == classtable.w_BlockContext:
             return model.W_BlockContext(None, None, 0, 0)
         elif w_cls == classtable.w_MethodContext:
+            assert 0, "this seems nonsense"
             return model.W_MethodContext(None, None, [], extrasize)
         
         if self.instance_kind == POINTERS:
             return model.W_PointersObject(w_cls, self.instance_size+extrasize)
-        elif self.instance_kind == COMPILED_METHOD:
-            return model.W_CompiledMethod(extrasize+constants.LITERAL_START, w_compiledin = w_cls)
         elif self.instance_kind == WORDS:
             return model.W_WordsObject(w_cls, extrasize)
         elif self.instance_kind == BYTES:
