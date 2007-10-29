@@ -27,7 +27,7 @@ def unwrap_float(w_v):
     from pypy.lang.smalltalk import model
     if isinstance(w_v, model.W_Float): return w_v.value
     elif isinstance(w_v, model.W_SmallInteger): return float(w_v.value)
-    raise PrimitiveFailedError()
+    raise UnwrappingError()
 
 # ____________________________________________________________ 
 # wrapping utilities
