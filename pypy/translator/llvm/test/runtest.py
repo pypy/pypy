@@ -111,22 +111,22 @@ def compile_function(function, annotation, isolate_hint=True, **kwds):
 # XXX Work in progress, this was mostly copied from JsTest
 class LLVMTest(BaseRtypingTest, LLRtypeMixin):
     def _compile(self, _fn, args, policy=None):
-        # argnames = _fn.func_code.co_varnames[:_fn.func_code.co_argcount]
-        # func_name = _fn.func_name
-        # if func_name == '<lambda>':
-        #     func_name = 'func'
-        # source = py.code.Source("""
-        # def %s():
-        #     from pypy.rlib.nonconst import NonConstant
-        #     res = _fn(%s)
-        #     if isinstance(res, type(None)):
-        #         return None
-        #     else:
-        #         return str(res)"""
-        # % (func_name, ",".join(["%s=NonConstant(%r)" % (name, i) for
-        #                            name, i in zip(argnames, args)])))
-        # exec source.compile() in locals()
-        return compile_function(_fn, [])
+        argnames = _fn.func_code.co_varnames[:_fn.func_code.co_argcount]
+        func_name = _fn.func_name
+        if func_name == '<lambda>':
+            func_name = 'func'
+        source = py.code.Source("""
+        def %s():
+            from pypy.rlib.nonconst import NonConstant
+            res = _fn(%s)
+            if isinstance(res, type(None)):
+                return None
+            else:
+                return str(res)"""
+        % (func_name, ",".join(["%s=NonConstant(%r)" % (name, i) for
+                                   name, i in zip(argnames, args)])))
+        exec source.compile() in locals()
+        return compile_function(locals()[func_name], [])
 
     def interpret(self, fn, args, policy=None):
         f = self._compile(fn, args)
@@ -139,33 +139,12 @@ class LLVMTest(BaseRtypingTest, LLRtypeMixin):
         #import pdb; pdb.set_trace()
         try:
             res = self.interpret(fn, args)
-        except JSException, e:
-            s = e.args[0]
-            assert s.startswith('uncaught exception:')
-            assert re.search(exception.__name__, s)
+        except Exception, e:
+            assert issubclass(eval(ex.class_name), exception)
         else:
             raise AssertionError("Did not raise, returned %s" % res)
         #except ExceptionWrapper, ex:
         #    assert issubclass(eval(ex.class_name), exception)
         #else:
         #    assert False, 'function did raise no exception at all'
-    # 
-    # def ll_to_string(self, s):
-    #     return str(s)
-    # 
-    # def ll_to_list(self, l):
-    #     return l
-    # 
-    # def ll_unpack_tuple(self, t, length):
-    #     assert len(t) == length
-    #     return tuple(t)
-    # 
-    # def class_name(self, value):
-    #     return value[:-8].split('.')[-1]
-    # 
-    # def is_of_instance_type(self, val):
-    #     m = re.match("^<.* object>$", val)
-    #     return bool(m)
-    # 
-    # def read_attr(self, obj, name):
-    #     py.test.skip('read_attr not supported on genjs tests')
+
