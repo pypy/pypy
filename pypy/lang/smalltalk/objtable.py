@@ -13,10 +13,10 @@ def wrap_int(i):
 def wrap_float(i):
     return model.W_Float(i)
 
-def wrap_string(str):
-    w_inst = ct.w_String.as_class_get_shadow().new(len(str))
-    for i in range(len(str)):
-        w_inst.setbyte(i, ord(str[i]))
+def wrap_string(string):
+    w_inst = ct.w_String.as_class_get_shadow().new(len(string))
+    for i in range(len(string)):
+        w_inst.setchar(i, string[i])
     return w_inst
 
 def wrap_char(c):

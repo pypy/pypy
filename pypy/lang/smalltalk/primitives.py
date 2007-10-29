@@ -29,7 +29,7 @@ def w_subscript(w_obj, idx):
     elif isinstance(w_obj, model.W_WordsObject):
         return objtable.wrap_int(w_obj.getword(idx))
     elif isinstance(w_obj, model.W_BytesObject):
-        return objtable.wrap_int(w_obj.getbyte(idx))
+        return objtable.wrap_int(w_obj.getchar(idx))
     raise PrimitiveFailedError()
 
 def assert_bounds(n0, minimum, maximum):
@@ -39,6 +39,8 @@ def assert_bounds(n0, minimum, maximum):
 def assert_valid_index(n0, w_obj):
     if not 0 <= n0 < w_obj.size():
         raise PrimitiveFailedError()
+    # return the index, since from here on the annotator knows that
+    # n0 cannot be negative
     return n0
 
 # ___________________________________________________________________________
@@ -59,6 +61,7 @@ prim_table = [make_failing(i) for i in range(576)]
 # indicates that what is pushed is an index1, but it is unwrapped and
 # converted to an index0 
 index1_0 = object()
+char = object()
 
 def expose_primitive(code, unwrap_spec=None, no_result=False):
     # some serious magic, don't look
@@ -87,8 +90,6 @@ def expose_primitive(code, unwrap_spec=None, no_result=False):
                     interp.w_active_context.push(w_result)
                 return w_result
         else:
-            for spec in unwrap_spec:
-                assert spec in (int, float, object, index1_0, str)
             len_unwrap_spec = len(unwrap_spec)
             assert (len_unwrap_spec == len(inspect.getargspec(func)[0]) + 1,
                     "wrong number of arguments")
@@ -102,19 +103,22 @@ def expose_primitive(code, unwrap_spec=None, no_result=False):
                 args = ()
                 for i, spec in unrolling_unwrap_spec:
                     index = -len_unwrap_spec + i
-                    arg = frame.stack[index]
+                    w_arg = frame.stack[index]
                     if spec is int:
-                        args += (unwrap_int(arg), )
+                        args += (unwrap_int(w_arg), )
                     elif spec is index1_0:
-                        args += (unwrap_int(arg)-1, )
+                        args += (unwrap_int(w_arg)-1, )
                     elif spec is float:
-                        args += (unwrap_float(arg), )
+                        args += (unwrap_float(w_arg), )
                     elif spec is object:
-                        args += (arg, )
+                        args += (w_arg, )
                     elif spec is str:
-                        args += (arg.as_string(), )
+                        args += (w_arg.as_string(), )
+                    elif spec is char:
+                        args += (unwrap_char(w_arg), )
                     else:
-                        assert 0, "this should never happen"
+                        raise NotImplementedError(
+                            "unknown unwrap_spec %s" % (spec, ))
                 w_result = func(interp, *args)
                 frame.pop_n(len_unwrap_spec)   # only if no exception occurs!
                 if not no_result:
@@ -132,6 +136,12 @@ def unwrap_int(w_value):
     if isinstance(w_value, model.W_SmallInteger): 
         return w_value.value
     raise PrimitiveFailedError()
+
+def unwrap_char(w_char):
+    if w_char.getclass() is not classtable.w_Character:
+        raise PrimitiveFailedError()
+    return chr(objtable.ord_w_char(w_char))
+
 
 def wrap_int(value):
     if value > constants.TAGGED_MAXINT:
@@ -338,15 +348,13 @@ def func(interp, w_obj, n0):
     # make sure that getbyte is only performed on W_BytesObjects
     if not isinstance(w_obj, model.W_BytesObject):
         raise PrimitiveFailedError
-    byte = w_obj.getbyte(n0)
-    return objtable.CharacterTable[byte]
+    return objtable.wrap_char(w_obj.getchar(n0))
 
 @expose_primitive(STRING_AT_PUT, unwrap_spec=[object, index1_0, object])
 def func(interp, w_obj, n0, w_val):
+    val = unwrap_char(w_val)
     n0 = assert_valid_index(n0, w_obj)
-    if w_val.getclass() is not classtable.w_Character:
-        raise PrimitiveFailedError()
-    w_obj.setbyte(n0, objtable.ord_w_char(w_val))
+    w_obj.setchar(n0, val)
     return w_val
 
 # ___________________________________________________________________________

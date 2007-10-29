@@ -197,16 +197,18 @@ class W_BytesObject(W_AbstractObjectWithClassReference):
 
     def at0(self, index0):
         from pypy.lang.smalltalk import objtable
-        return objtable.wrap_int(self.getbyte(index0))
+        return objtable.wrap_int(ord(self.getchar(index0)))
        
     def atput0(self, index0, w_value):
-        self.setbyte(index0, unwrap_int(w_value))
+        # XXX use to-be-written unwrap_char
+        self.setchar(index0, chr(unwrap_int(w_value)))
 
-    def getbyte(self, n):
-        return ord(self.bytes[n])
-        
-    def setbyte(self, n, byte):
-        self.bytes[n] = chr(byte)
+    def getchar(self, n0):
+        return self.bytes[n0]
+    
+    def setchar(self, n0, character):
+        assert len(character) == 1
+        self.bytes[n0] = character
 
     def size(self):
         return len(self.bytes)    
@@ -366,10 +368,10 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
             # of memory as smalltalk expects but wrapped in py-os
             raise NotImplementedError()
         else:
-            self.setbyte(index0, unwrap_int(w_value))
+            # XXX use to-be-written unwrap_char
+            self.setchar(index0, chr(unwrap_int(w_value)))
 
-    def setbyte(self, index0, byte):
-        character = chr(byte)
+    def setchar(self, index0, character):
         self.bytes = (self.bytes[:index0] + character +
                       self.bytes[index0 + 1:])
 

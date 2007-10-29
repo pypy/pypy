@@ -28,11 +28,11 @@ def test_bytes_object():
     assert w_bytes.getclass() is w_class
     assert w_bytes.size() == 20
     assert w_class.as_class_get_shadow().instsize() == 0
-    assert w_bytes.getbyte(3) == 00
-    w_bytes.setbyte(3, 0xAA)  
-    assert w_bytes.getbyte(3) == 0xAA
-    assert w_bytes.getbyte(0) == 0x00
-    py.test.raises(IndexError, lambda: w_bytes.getbyte(20))
+    assert w_bytes.getchar(3) == "\x00"
+    w_bytes.setchar(3, "\xAA")
+    assert w_bytes.getchar(3) == "\xAA"
+    assert w_bytes.getchar(0) == "\x00"
+    py.test.raises(IndexError, lambda: w_bytes.getchar(20))
 
 def test_word_object():
     w_class = mockclass(0, format=shadow.WORDS)
@@ -70,9 +70,9 @@ def test_w_compiledin():
     classshadow = w_class.as_class_get_shadow()
     assert classshadow.lookup("foo").w_compiledin is w_super
 
-def test_w_compiledin():
+def test_compiledmethod_setchar():
     w_method = model.W_CompiledMethod(0, "abc")
-    w_method.setbyte(0, ord("c"))
+    w_method.setchar(0, "c")
     assert w_method.bytes == "cbc"
 
 def test_hashes():
