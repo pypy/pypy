@@ -625,7 +625,7 @@ for (code, const) in [
     (PUSH_TRUE, objtable.w_true),
     (PUSH_FALSE, objtable.w_false),
     (PUSH_NIL, objtable.w_nil),
-    (PUSH_MINUS_ONE, objtable.w_mone),
+    (PUSH_MINUS_ONE, objtable.w_minus_one),
     (PUSH_ZERO, objtable.w_zero),
     (PUSH_ONE, objtable.w_one),
     (PUSH_TWO, objtable.w_two),

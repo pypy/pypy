@@ -20,7 +20,7 @@ class Interpreter:
     TRUE = objtable.w_true
     FALSE = objtable.w_false
     NIL = objtable.w_nil
-    MONE = objtable.w_mone
+    MINUS_ONE = objtable.w_minus_one
     ZERO = objtable.w_zero
     ONE = objtable.w_one
     TWO = objtable.w_two
@@ -123,7 +123,7 @@ class __extend__(W_ContextPart):
         self.push(interp.NIL)
 
     def pushConstantMinusOneBytecode(self, interp):
-        self.push(interp.MONE)
+        self.push(interp.MINUS_ONE)
 
     def pushConstantZeroBytecode(self, interp):
         self.push(interp.ZERO)

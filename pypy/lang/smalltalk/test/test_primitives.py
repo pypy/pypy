@@ -291,7 +291,7 @@ def test_const_primitives():
         (primitives.PUSH_TRUE, objtable.w_true),
         (primitives.PUSH_FALSE, objtable.w_false),
         (primitives.PUSH_NIL, objtable.w_nil),
-        (primitives.PUSH_MINUS_ONE, objtable.w_mone),
+        (primitives.PUSH_MINUS_ONE, objtable.w_minus_one),
         (primitives.PUSH_ZERO, objtable.w_zero),
         (primitives.PUSH_ONE, objtable.w_one),
         (primitives.PUSH_TWO, objtable.w_two),

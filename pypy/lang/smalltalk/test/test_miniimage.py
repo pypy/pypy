@@ -147,7 +147,7 @@ def test_name_of_shadow_of_specials():
     w_doesnot = image.special(constants.SO_DOES_NOT_UNDERSTAND)
     assert repr(w_doesnot.shadow_of_my_class()) == "<ClassShadow Symbol>"
     assert repr(objtable.w_nil.shadow_of_my_class()) == "<ClassShadow UndefinedObject>"
-    assert repr(objtable.w_mone.shadow_of_my_class()) == "<ClassShadow SmallInteger>"
+    assert repr(objtable.w_minus_one.shadow_of_my_class()) == "<ClassShadow SmallInteger>"
     assert repr(objtable.w_zero.shadow_of_my_class()) == "<ClassShadow SmallInteger>"
     assert repr(objtable.w_one.shadow_of_my_class()) == "<ClassShadow SmallInteger>"
     assert repr(objtable.w_two.shadow_of_my_class()) == "<ClassShadow SmallInteger>"
