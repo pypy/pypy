@@ -1,9 +1,9 @@
 import py
 from pypy.lang.smalltalk import model, shadow, objtable
 from pypy.lang.smalltalk.shadow import MethodNotFound
-import pypy.lang.smalltalk.classtable as ct
+from pypy.lang.smalltalk import classtable
 
-mockclass = ct.bootstrap_class
+mockclass = classtable.bootstrap_class
 
 def test_new():
     w_mycls = mockclass(0)

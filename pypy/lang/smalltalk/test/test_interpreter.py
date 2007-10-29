@@ -1,10 +1,9 @@
 import py
 from pypy.lang.smalltalk import model, interpreter, primitives, shadow
-from pypy.lang.smalltalk import objtable
+from pypy.lang.smalltalk import objtable, classtable
 from pypy.lang.smalltalk.objtable import wrap_int, wrap_char
-import pypy.lang.smalltalk.classtable as ct
 
-mockclass = ct.bootstrap_class
+mockclass = classtable.bootstrap_class
 
 # expose the bytecode's values as global constants.
 # Bytecodes that have a whole range are exposed as global functions:
@@ -57,7 +56,7 @@ def fakeliterals(*literals):
             return wrap_int(lit)
         elif isinstance(lit, list):
             lstlen = len(lit)
-            res = ct.w_Array.as_class_get_shadow().new(lstlen)
+            res = classtable.w_Array.as_class_get_shadow().new(lstlen)
             for i in range(lstlen):
                 res.storevarpointer(i, fakeliteral(lit[i]))
             return res
@@ -271,7 +270,7 @@ def test_bytecodePrimClass():
     interp = new_interpreter(pushConstantOneBytecode + bytecodePrimClass)
     interp.step()
     interp.step()
-    assert interp.w_active_context.pop() == ct.w_SmallInteger
+    assert interp.w_active_context.pop() == classtable.w_SmallInteger
     assert interp.w_active_context.stack == []
     
 def test_bytecodePrimSubtract():
@@ -421,7 +420,7 @@ def test_send_to_primitive():
         assert primitives.unwrap_int(w_result) == 42
         
     run_with_faked_methods(
-        [[ct.w_SmallInteger, primitives.SUBTRACT,
+        [[classtable.w_SmallInteger, primitives.SUBTRACT,
           1, "sub"]],
         test)
 
@@ -652,7 +651,7 @@ def test_bc_x_plus_y():
               176, 125, 33, 34, 240, 124 ],
             fakeliterals("value:value:", wrap_int(3), wrap_int(4))).value == 7
     run_with_faked_methods(
-        [[ct.w_BlockContext, primitives.PRIMITIVE_VALUE,
+        [[classtable.w_BlockContext, primitives.PRIMITIVE_VALUE,
           2, "value:value:"]],
         test)
 
@@ -690,7 +689,7 @@ def test_bc_value_with_args():
             fakeliterals("valueWithArguments:",
                          [3, 2])).value == 1
     run_with_faked_methods(
-        [[ct.w_BlockContext, primitives.PRIMITIVE_VALUE_WITH_ARGS,
+        [[classtable.w_BlockContext, primitives.PRIMITIVE_VALUE_WITH_ARGS,
           1, "valueWithArguments:"]],
         test)
 
@@ -701,7 +700,7 @@ def test_bc_primBytecodeAt_string():
             [ 32, 118, 192, 124],
             fakeliterals("a")) == wrap_char("a")
     run_with_faked_methods(
-        [[ct.w_String, primitives.STRING_AT, 1, "at:"]],
+        [[classtable.w_String, primitives.STRING_AT, 1, "at:"]],
         test)
     
 def test_bc_primBytecodeAtPut_string():
@@ -711,7 +710,7 @@ def test_bc_primBytecodeAtPut_string():
             [ 32, 118, 33, 193, 124 ],
             fakeliterals("a", wrap_char("b"))) == wrap_char("b")
     run_with_faked_methods(
-        [[ct.w_String, primitives.STRING_AT_PUT, 2, "at:put:"]],
+        [[classtable.w_String, primitives.STRING_AT_PUT, 2, "at:put:"]],
         test)
 
 def test_bc_primBytecodeAt_with_instvars():
@@ -766,6 +765,6 @@ def test_bc_objectAtAndAtPut():
         assert interpret_bc(
             [112, 119, 224, 124], oal, receiver=prim_meth).value == 3
     run_with_faked_methods(
-        [[ct.w_CompiledMethod, primitives.OBJECT_AT, 1, "objectAt:"],
-         [ct.w_CompiledMethod, primitives.OBJECT_AT_PUT, 2, "objectAt:put:"]],
+        [[classtable.w_CompiledMethod, primitives.OBJECT_AT, 1, "objectAt:"],
+         [classtable.w_CompiledMethod, primitives.OBJECT_AT_PUT, 2, "objectAt:put:"]],
         test)
