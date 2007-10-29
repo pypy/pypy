@@ -70,6 +70,11 @@ def test_w_compiledin():
     classshadow = w_class.as_class_get_shadow()
     assert classshadow.lookup("foo").w_compiledin is w_super
 
+def test_w_compiledin():
+    w_method = model.W_CompiledMethod(0, "abc")
+    w_method.setbyte(0, "c")
+    assert w_method.bytes == "cbc"
+
 def test_hashes():
     w_five = model.W_SmallInteger(5)
     assert w_five.gethash() == 5

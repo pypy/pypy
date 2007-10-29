@@ -368,8 +368,9 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
         else:
             self.setbyte(index0, chr(unwrap_int(w_value)))
 
-    def setbyte(self, index0, chr):
-        self.bytes[index0] = chr
+    def setbyte(self, index0, character):
+        self.bytes = (self.bytes[:index0] + character +
+                      self.bytes[index0 + 1:])
 
 class W_ContextPart(W_AbstractObjectWithIdentityHash):
 
