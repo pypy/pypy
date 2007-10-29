@@ -4,6 +4,8 @@ py.test.skip("llvm is a state of flux")
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin
 from pypy.translator.llvm.buildllvm import llvm_is_on_path, llvm_version, gcc_version
 from pypy.translator.llvm.genllvm import GenLLVM
+from pypy.annotation.model import lltype_to_annotation
+from pypy.rpython.lltypesystem.lltype import typeOf
 
 optimize_tests = False
 MINIMUM_LLVM_VERSION = 1.9
@@ -108,43 +110,84 @@ def compile_function(function, annotation, isolate_hint=True, **kwds):
     " returns compiled function "
     return compile_test(function, annotation, isolate_hint=isolate_hint, **kwds)[1]
 
-# XXX Work in progress, this was mostly copied from JsTest
-class LLVMTest(BaseRtypingTest, LLRtypeMixin):
-    def _compile(self, _fn, args, policy=None):
-        argnames = _fn.func_code.co_varnames[:_fn.func_code.co_argcount]
-        func_name = _fn.func_name
-        if func_name == '<lambda>':
-            func_name = 'func'
-        source = py.code.Source("""
-        def %s():
-            from pypy.rlib.nonconst import NonConstant
-            res = _fn(%s)
-            if isinstance(res, type(None)):
-                return None
-            else:
-                return str(res)"""
-        % (func_name, ",".join(["%s=NonConstant(%r)" % (name, i) for
-                                   name, i in zip(argnames, args)])))
-        exec source.compile() in locals()
-        return compile_function(locals()[func_name], [])
+# XXX Work in progress, this was mostly copied from cli
+class InstanceWrapper:
+    def __init__(self, class_name):
+        self.class_name = class_name
 
-    def interpret(self, fn, args, policy=None):
-        f = self._compile(fn, args)
+class ExceptionWrapper:
+    def __init__(self, class_name):
+        self.class_name = class_name
+
+    def __repr__(self):
+        return 'ExceptionWrapper(%s)' % repr(self.class_name)
+
+
+class LLVMTest(BaseRtypingTest, LLRtypeMixin):
+    def __init__(self):
+        self._func = None
+        self._ann = None
+        self._llvm_func = None
+
+    def _compile(self, fn, args, ann=None):
+        if ann is None:
+            ann = [lltype_to_annotation(typeOf(x)) for x in args]
+        if self._func is fn and self._ann == ann:
+            return self._llvm_func
+        else:
+            self._llvm_func = compile_function(fn, ann)
+            self._func = fn
+            self._ann = ann
+            return self._llvm_func
+
+    def _skip_win(self, reason):
+        if platform.system() == 'Windows':
+            py.test.skip('Windows --> %s' % reason)
+
+    def _skip_powerpc(self, reason):
+        if platform.processor() == 'powerpc':
+            py.test.skip('PowerPC --> %s' % reason)
+
+    def _skip_llinterpreter(self, reason, skipLL=True, skipOO=True):
+        pass
+
+    def interpret(self, fn, args, annotation=None):
+        f = self._compile(fn, args, annotation)
         res = f(*args)
+        if isinstance(res, ExceptionWrapper):
+            raise res
         return res
 
     def interpret_raises(self, exception, fn, args):
-        #import exceptions # needed by eval
-        #try:
-        #import pdb; pdb.set_trace()
+        import exceptions # needed by eval
         try:
-            res = self.interpret(fn, args)
-        except Exception, e:
+            self.interpret(fn, args)
+        except ExceptionWrapper, ex:
             assert issubclass(eval(ex.class_name), exception)
         else:
-            raise AssertionError("Did not raise, returned %s" % res)
-        #except ExceptionWrapper, ex:
-        #    assert issubclass(eval(ex.class_name), exception)
-        #else:
-        #    assert False, 'function did raise no exception at all'
+            assert False, 'function did raise no exception at all'
 
+    def float_eq(self, x, y):
+        diff = abs(x-y)
+        return diff/x < 10**-FLOAT_PRECISION
+
+    def is_of_type(self, x, type_):
+        return True # we can't really test the type
+
+    def ll_to_string(self, s):
+        return s
+
+    def ll_to_list(self, l):
+        return l
+
+    def ll_to_tuple(self, t):
+        return t
+
+    def class_name(self, value):
+        return value.class_name.split(".")[-1] 
+
+    def is_of_instance_type(self, val):
+        return isinstance(val, InstanceWrapper)
+
+    def read_attr(self, obj, name):
+        py.test.skip('read_attr not supported on llvm tests')
