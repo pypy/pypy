@@ -23,6 +23,12 @@ def unwrap_char(w_char):
     assert isinstance(w_ord, model.W_SmallInteger)
     return chr(w_ord.value)
 
+def unwrap_float(w_v):
+    from pypy.lang.smalltalk import model
+    if isinstance(w_v, model.W_Float): return w_v.value
+    elif isinstance(w_v, model.W_SmallInteger): return float(w_v.value)
+    raise PrimitiveFailedError()
+
 # ____________________________________________________________ 
 # wrapping utilities
 

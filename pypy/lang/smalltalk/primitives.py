@@ -9,24 +9,6 @@ from pypy.lang.smalltalk.error import PrimitiveFailedError, \
     PrimitiveNotYetWrittenError
 from pypy.rlib import rarithmetic
 
-def unwrap_float(w_v):
-    if isinstance(w_v, model.W_Float): return w_v.value
-    elif isinstance(w_v, model.W_SmallInteger): return float(w_v.value)
-    raise PrimitiveFailedError()
-
-def w_subscript(w_obj, idx):
-    """
-    Rather cryptically named function which retrieves an indexed field
-    from the object, wrapping as necessary depending on the format of
-    the object so that the result can be returned.
-    """
-    if isinstance(w_obj, model.W_PointersObject):
-        return w_obj.fetch(idx)
-    elif isinstance(w_obj, model.W_WordsObject):
-        return utility.wrap_int(w_obj.getword(idx))
-    elif isinstance(w_obj, model.W_BytesObject):
-        return utility.wrap_int(w_obj.getchar(idx))
-    raise PrimitiveFailedError()
 
 def assert_bounds(n0, minimum, maximum):
     if not minimum <= n0 < maximum:
@@ -105,7 +87,7 @@ def expose_primitive(code, unwrap_spec=None, no_result=False):
                     elif spec is index1_0:
                         args += (utility.unwrap_int(w_arg)-1, )
                     elif spec is float:
-                        args += (unwrap_float(w_arg), )
+                        args += (utility.unwrap_float(w_arg), )
                     elif spec is object:
                         args += (w_arg, )
                     elif spec is str:
