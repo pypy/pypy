@@ -5,13 +5,34 @@ import py
 from pypy.tool.udir import udir
 from pypy.rlib.rarithmetic import r_uint
 
-from pypy.rpython.lltypesystem.rffi import *
 from pypy.rpython.lltypesystem.lltype import Signed, Ptr, Char, malloc
 from pypy.rpython.lltypesystem import lltype
 
 from pypy.translator.llvm.test.runtest import *
 
-py.test.skip("rffi not there yet for llvm")
+monkey_patch = False
+if monkey_patch:
+    from pypy.rpython.lltypesystem.rffi import llexternal
+    c_source = py.code.Source("""
+    int get_errno() {
+        return errno;
+    }
+    """)
+    get_errno = llexternal('get_errno', [], lltype.Signed, sources=[c_source])
+
+    c_source = py.code.Source("""
+    void set_errno(int _errno) {
+        errno = _errno;
+    }
+    """)
+    set_errno = llexternal('set_errno', [lltype.Signed], lltype.Void, sources=[c_source])
+    import pypy.rpython.lltypesystem.rffi
+    pypy.rpython.lltypesystem.rffi.get_errno = get_errno
+    pypy.rpython.lltypesystem.rffi.set_errno = set_errno
+else:
+    py.test.skip("rffi not there yet for llvm")
+
+from pypy.rpython.lltypesystem.rffi import *
 
 def test_basic():
     c_source = py.code.Source("""
