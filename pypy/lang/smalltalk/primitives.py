@@ -37,7 +37,9 @@ def assert_bounds(n0, minimum, maximum):
         raise PrimitiveFailedError()
 
 def assert_valid_index(n0, w_obj):
-    assert_bounds(n0, 0, w_obj.size())
+    if not 0 <= n0 < w_obj.size():
+        raise PrimitiveFailedError()
+    return n0
 
 # ___________________________________________________________________________
 # Primitive table: it is filled in at initialization time with the
@@ -311,12 +313,12 @@ STRING_AT_PUT = 64
 
 @expose_primitive(AT, unwrap_spec=[object, index1_0])
 def func(interp, w_obj, n0):
-    assert_valid_index(n0, w_obj)
+    n0 = assert_valid_index(n0, w_obj)
     return w_obj.at0(n0)
 
 @expose_primitive(AT_PUT, unwrap_spec=[object, index1_0, object])
 def func(interp, w_obj, n0, w_val):
-    assert_valid_index(n0, w_obj)
+    n0 = assert_valid_index(n0, w_obj)
     try:
         w_obj.atput0(n0, w_val)
         return w_val
@@ -331,7 +333,7 @@ def func(interp, w_obj):
 
 @expose_primitive(STRING_AT, unwrap_spec=[object, index1_0])
 def func(interp, w_obj, n0):
-    assert_valid_index(n0, w_obj)
+    n0 = assert_valid_index(n0, w_obj)
     # XXX I am not sure this is correct, but it un-breaks translation:
     # make sure that getbyte is only performed on W_BytesObjects
     if not isinstance(w_obj, model.W_BytesObject):
@@ -341,7 +343,7 @@ def func(interp, w_obj, n0):
 
 @expose_primitive(STRING_AT_PUT, unwrap_spec=[object, index1_0, object])
 def func(interp, w_obj, n0, w_val):
-    assert_valid_index(n0, w_obj)
+    n0 = assert_valid_index(n0, w_obj)
     if w_val.getclass() is not classtable.w_Character:
         raise PrimitiveFailedError()
     w_obj.setbyte(n0, objtable.ord_w_char(w_val))
@@ -454,11 +456,11 @@ def func(interp, w_class, bytecount, w_header):
     literalcount = ((header >> 10) & 255) + 1
     w_method = w_class.as_class_get_shadow().new(literalcount)
     # XXX not sure this is correct
-    assert isinstance(w_method, model.W_MethodContext)
+    assert isinstance(w_method, model.W_CompiledMethod)
     w_method.literals[constants.METHOD_HEADER_INDEX] = w_header
     for i in range(0,literalcount):
         w_method.literals[i+1] = objtable.w_nil
-    w_method.bytes = [None] * bytecount
+    w_method.bytes = "\x00" * bytecount
     return w_method
 
 # ___________________________________________________________________________
