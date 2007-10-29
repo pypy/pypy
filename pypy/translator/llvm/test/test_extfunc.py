@@ -22,8 +22,6 @@ def test_external_function_ll_time_clock():
     assert abs(f()-fn()) < 10.0
 
 def test_math_frexp():
-    py.test.skip("what the hell is going on!")
-
     if sys.maxint != 2**31-1:
         py.test.skip("WIP on 64 bit architectures") 
 
@@ -36,8 +34,6 @@ def test_math_frexp():
     assert res == fn(10.123)
 
 def test_math_modf():
-    py.test.skip("what the hell is going on!")
-    
     from math import modf
     def fn(x):
         res = modf(x)
