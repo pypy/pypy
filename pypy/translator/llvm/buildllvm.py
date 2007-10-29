@@ -3,80 +3,9 @@ import sys
 
 import py
 
-from pypy.translator.llvm.log import log
 from pypy.translator.tool import stdoutcapture
-
-def write_ctypes_module(genllvm, dllname):
-    """ use ctypes to create a temporary module """
-
-    template = """
-import ctypes
-from os.path import join, dirname, realpath
-_c = ctypes.CDLL(join(dirname(realpath(__file__)), "%(dllname)s"))
-
-_setup = False
-
-class LLVMException(Exception):
-    pass
-
-%(name)s = _c.__entrypoint__%(name)s
-%(name)s.argtypes = %(args)s
-%(name)s.restype = %(returntype)s
-
-%(name)s_raised = _c.__entrypoint__raised_LLVMException
-%(name)s_raised.argtypes = []
-%(name)s_raised.restype = ctypes.c_int
-
-GC_get_heap_size_wrapper = _c.GC_get_heap_size
-GC_get_heap_size_wrapper.argtypes = []
-GC_get_heap_size_wrapper.restype = ctypes.c_int
-
-startup_code = _c.ctypes_RPython_StartupCode
-startup_code.argtypes = []
-startup_code.restype = ctypes.c_int
-
-def %(name)s_wrapper(*args):
-    global _setup
-    if not _setup:
-        if not startup_code():
-            raise LLVMException("Failed to startup")
-        _setup = True
-    result = %(name)s(*args)
-    if %(name)s_raised():
-        raise LLVMException("Exception raised")
-    if %(rt_isbool)s:
-        return bool(result)
-    else:
-        return result
-"""
-
-    import ctypes
-    from pypy.rpython.lltypesystem import lltype 
-
-    basename = genllvm.filename.purebasename + '_wrapper.py'
-    modfilename = genllvm.filename.new(basename = basename)
-
-    TO_CTYPES = {lltype.Bool: "ctypes.c_int",
-                 lltype.Float: "ctypes.c_double",
-                 lltype.Char: "ctypes.c_char",
-                 lltype.Signed: "ctypes.c_int",
-                 lltype.Unsigned: "ctypes.c_uint",
-                 lltype.SignedLongLong: "ctypes.c_longlong",
-                 lltype.UnsignedLongLong: "ctypes.c_ulonglong",
-                 lltype.Void: None # XXX why no ctypes.c_void ?
-                 }
-
-    name = genllvm.entrynode.ref.strip("%")
-    
-    g = genllvm.entrynode.graph  
-    rt = g.returnblock.inputargs[0].concretetype
-    returntype = TO_CTYPES[rt]
-    inputargtypes = [TO_CTYPES[a.concretetype] for a in g.startblock.inputargs]
-    args = '[%s]' % ", ".join(inputargtypes)
-
-    rt_isbool = rt is lltype.Bool
-    modfilename.write(template % locals())
-    return modfilename.purebasename
+from pypy.translator.llvm.log import log
+from pypy.translator.llvm.modwrapper import write_ctypes_module
 
 def llvm_is_on_path():
     if py.path.local.sysfind("llvm-as") is None or \

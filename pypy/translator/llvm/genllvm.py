@@ -154,9 +154,10 @@ class GenLLVM(object):
         
         self._checkpoint('write support implentations')
 
-        # write exception implementaions
-        from pypy.translator.llvm.exception import llvm_implcode
-        codewriter.write_lines(llvm_implcode(self.entrynode))
+        # write wrapper code
+        if not self.standalone:
+            from pypy.translator.llvm.modwrapper import llvm_implcode
+            codewriter.write_lines(llvm_implcode(self.entrynode))
 
         # write all node implementations
         for node in self.db.getnodes():
