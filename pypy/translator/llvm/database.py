@@ -465,11 +465,9 @@ class Primitives(object):
         return str(ord(value))
 
     def repr_float(self, type_, value):
-        repr = "%f" % value
-        # llvm requires a . when using e notation
-        if "e" in repr and "." not in repr:
-            repr = repr.replace("e", ".0e")
-        elif repr in ["inf", "nan"]:
+        from pypy.rlib.rarithmetic import isinf, isnan
+
+        if isinf(value) or isnan(value):
             # Need hex repr
             import struct
             packed = struct.pack("d", value)
@@ -477,6 +475,13 @@ class Primitives(object):
                 packed = packed[::-1]
             
             repr = "0x" + "".join([("%02x" % ord(ii)) for ii in packed])
+        else:
+            repr = "%f" % value
+            
+            # llvm requires a . when using e notation
+            if "e" in repr and "." not in repr:
+                repr = repr.replace("e", ".0e")
+
         return repr
 
     def repr_address(self, type_, value):

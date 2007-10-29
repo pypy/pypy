@@ -216,8 +216,10 @@ def test_struct_opaque():
     f = compile_function(struct_opaque, [])
     assert f() == struct_opaque()
 
-def test_floats():  #note: this is known to fail with llvm1.6 and llvm1.7cvs when not using gcc
+def test_floats():
     " test pbc of floats "
+    from pypy.rlib.rarithmetic import INFINITY, NAN
+
     if sys.maxint != 2**31-1:
         py.test.skip("WIP on 64 bit architectures")
     F = GcStruct("f",
@@ -226,19 +228,23 @@ def test_floats():  #note: this is known to fail with llvm1.6 and llvm1.7cvs whe
                         ('f3', Float),
                         ('f4', Float),
                         ('f5', Float),
+                        ('f6', Float),
                         )
     floats = malloc(F)
     floats.f1 = 1.25
     floats.f2 = 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.252984
     floats.f3 = float(29050000000000000000000000000000000000000000000000000000000000000000)
-    floats.f4 = 1e300 * 1e300
-    nan = floats.f5 = floats.f4/floats.f4
+    floats.f4 = INFINITY
+    nan = floats.f5 = NAN
+    floats.f6 = -INFINITY
+
     def floats_fn():
         res  = floats.f1 == 1.25
         res += floats.f2 > 1e100
         res += floats.f3 > 1e50        
         res += floats.f4 > 1e200
-        res += floats.f5 == nan
+        res += floats.f5 == NAN
+        res += floats.f4 < -1e200
         return res
     f = compile_function(floats_fn, [])
     assert f() == floats_fn()
