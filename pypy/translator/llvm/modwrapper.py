@@ -119,6 +119,9 @@ def tores(res):
                     raise Exception("struct must be of same kind")
             if F0 not in TO_CTYPES:
                 raise Exception("struct must be of primitve type")
+            
+            return to_tuple % (len(fields), TO_CTYPES[F0])
+        
     elif isinstance(T, lltype.Ptr) and isinstance(T.TO, lltype.Array):
         OF = T.TO.OF
         if OF not in TO_CTYPES:
