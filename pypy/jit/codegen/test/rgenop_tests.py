@@ -2075,3 +2075,40 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
                 x |= 1
             result = fnptr(x)
             assert result == expected(x)
+
+    def test_interior_access(self):
+        # for assembler backends, the 'interior' lloperations can be
+        # simply expressed as a sequence of genop_getsubstruct and
+        # genop_getarraysubstruct.  So we put magic in the llgraph
+        # backend to recognize and rebuild the expected 'interior'
+        # lloperation in the llgraphs.
+        T = lltype.Struct('T', ('x', lltype.Signed))
+        A = lltype.Array(T)
+        S = lltype.GcStruct('S', ('a', A))
+        rgenop = self.RGenOp()
+        sigtoken = rgenop.sigToken(FUNC)
+        builder, gv_fn, [gv_x] = rgenop.newgraph(sigtoken, "interior_access")
+        builder.start_writing()
+        gv_s = builder.genop_malloc_varsize(rgenop.varsizeAllocToken(S),
+                                            rgenop.genconst(5))
+        # generate an expanded 'setinteriorfield'
+        gv_a1 = builder.genop_getsubstruct(rgenop.fieldToken(S, 'a'), gv_s)
+        gv_t1 = builder.genop_getarraysubstruct(rgenop.arrayToken(A),
+                                                gv_a1, rgenop.genconst(3))
+        builder.genop_setfield(rgenop.fieldToken(T, 'x'), gv_t1, gv_x)
+        # generate an expanded 'getinteriorfield'
+        gv_a1 = builder.genop_getsubstruct(rgenop.fieldToken(S, 'a'), gv_s)
+        gv_t1 = builder.genop_getarraysubstruct(rgenop.arrayToken(A),
+                                                gv_a1, rgenop.genconst(3))
+        gv_y = builder.genop_getfield(rgenop.fieldToken(T, 'x'), gv_t1)
+        # generate an expanded 'getinteriorarraysize'
+        gv_a1 = builder.genop_getsubstruct(rgenop.fieldToken(S, 'a'), gv_s)
+        gv_z = builder.genop_getarraysize(rgenop.arrayToken(A), gv_a1)
+        # return
+        gv_result = builder.genop2("int_add", gv_y, gv_z)
+        builder.finish_and_return(sigtoken, gv_result)
+        builder.end()
+
+        fnptr = self.cast(gv_fn, 1)
+        result = fnptr(42)
+        assert result == 47

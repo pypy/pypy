@@ -4,6 +4,7 @@ from pypy.jit.hintannotator.bookkeeper import getbookkeeper
 from pypy.rpython.lltypesystem import lltype, lloperation
 
 UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize
+                      getinteriorfield getinteriorarraysize setinteriorfield
                       cast_pointer
                       direct_call
                       indirect_call
@@ -24,7 +25,7 @@ UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize
 BINARY_OPERATIONS = """int_add int_sub int_mul int_mod int_and int_rshift
                        int_lshift int_floordiv int_xor int_or
                        int_add_ovf int_sub_ovf int_mul_ovf int_mod_ovf
-                       int_floordiv_ovf int_lshift_ovf
+                       int_floordiv_ovf int_lshift_ovf int_add_nonneg_ovf
                        uint_add uint_sub uint_mul uint_mod uint_and
                        uint_lshift uint_rshift uint_floordiv
                        char_gt char_lt char_le char_ge char_eq char_ne
@@ -345,6 +346,35 @@ class __extend__(SomeLLAbstractValue):
         S = hs_v1.concretetype.TO
         FIELD_TYPE = getattr(S, hs_fieldname.const)
         return SomeLLAbstractVariable(lltype.Ptr(FIELD_TYPE), hs_v1.deepfrozen)
+
+    def _getinterior(hs_v1, *offsets_hs):
+        hs_container = hs_v1
+        for hs_offset in offsets_hs:
+            if hs_offset.concretetype is lltype.Signed:
+                hs_container = pair(hs_container,hs_offset).getarraysubstruct()
+            else:
+                hs_container = hs_container.getsubstruct(hs_offset)
+        return hs_container
+
+    def getinteriorfield(hs_v1, *offsets_hs):
+        hs_container = hs_v1._getinterior(*offsets_hs[:-1])
+        hs_lastofs   = offsets_hs[-1]
+        if hs_lastofs.concretetype is lltype.Signed:
+            return pair(hs_container, hs_lastofs).getarrayitem()
+        else:
+            return hs_container.getfield(hs_lastofs)
+
+    def getinteriorarraysize(hs_v1, *offsets_hs):
+        return hs_v1._getinterior(*offsets_hs).getarraysize()
+
+    def setinteriorfield(hs_v1, *offsets_and_val_hs):
+        hs_inner   = hs_v1._getinterior(*offsets_and_val_hs[:-2])
+        hs_lastofs = offsets_and_val_hs[-2]
+        hs_value   = offsets_and_val_hs[-1]
+        if hs_lastofs.concretetype is lltype.Signed:
+            pair(hs_inner, hs_lastofs).setarrayitem(hs_value)
+        else:
+            hs_inner.setfield(hs_lastofs, hs_value)
 
     def cast_pointer(hs_v1):
         RESTYPE = getbookkeeper().current_op_concretetype()

@@ -880,6 +880,100 @@ class HintRTyper(RPythonTyper):
             ts.s_RedBox)
 
 
+    def _getinteriordesc(self, hop, PTRTYPE, nb_offsets):
+        path = []
+        CONTAINER = PTRTYPE.TO
+        indices_v = []
+        for i in range(1, 1 + nb_offsets):
+            T = originalconcretetype(hop.args_s[i])
+            if T is lltype.Void:
+                fieldname = hop.args_v[i].value
+                CONTAINER = getattr(CONTAINER, fieldname)
+                path.append(fieldname)
+            else:
+                assert T is lltype.Signed
+                CONTAINER = CONTAINER.OF
+                path.append(None)    # placeholder for 'array index'
+                v_index = hop.inputarg(self.getredrepr(lltype.Signed), arg=i)
+                indices_v.append(v_index)
+        if CONTAINER is lltype.Void:     # Void field
+            return None, None
+        else:
+            return (rcontainer.InteriorDesc(self, PTRTYPE.TO, tuple(path)),
+                    indices_v)
+
+    def translate_op_getinteriorfield(self, hop):
+        ts = self
+        # no virtualizable access read here
+        PTRTYPE = originalconcretetype(hop.args_s[0])
+        assert not PTRTYPE.TO._hints.get('virtualizable', False)
+
+        # non virtual case
+        interiordesc, indices_v = self._getinteriordesc(hop, PTRTYPE,
+                                                        hop.nb_args - 1)
+        if interiordesc is None:     # Void field
+            return None
+        v_argbox = hop.inputarg(self.getredrepr(PTRTYPE), arg=0)
+        v_argbox = hop.llops.as_ptrredbox(v_argbox)
+        c_deepfrozen = inputconst(lltype.Bool, hop.args_s[0].deepfrozen)
+        c_interiordesc = inputconst(lltype.Void, interiordesc)
+        s_interiordesc = ts.rtyper.annotator.bookkeeper.immutablevalue(
+            interiordesc)
+        v_jitstate = hop.llops.getjitstate()
+        return hop.llops.genmixlevelhelpercall(
+            rtimeshift.ll_gengetinteriorfield,
+            [ts.s_JITState, annmodel.s_Bool, s_interiordesc, ts.s_PtrRedBox]
+                                               + [ts.s_RedBox]*len(indices_v),
+            [v_jitstate   , c_deepfrozen   , c_interiordesc, v_argbox      ]
+                                               + indices_v,
+            ts.s_RedBox)
+
+    def translate_op_setinteriorfield(self, hop):
+        ts = self
+        PTRTYPE = originalconcretetype(hop.args_s[0])
+        # non virtual case
+        interiordesc, indices_v = self._getinteriordesc(hop, PTRTYPE,
+                                                        hop.nb_args - 2)
+        if interiordesc is None:     # Void field
+            return None
+        v_destbox = hop.inputarg(self.getredrepr(PTRTYPE), arg=0)
+        v_valuebox = hop.inputarg(self.getredrepr(interiordesc.VALUETYPE),
+                                  arg = hop.nb_args - 1)
+        v_destbox = hop.llops.as_ptrredbox(v_destbox)
+        c_interiordesc = inputconst(lltype.Void, interiordesc)
+        s_interiordesc = ts.rtyper.annotator.bookkeeper.immutablevalue(
+            interiordesc)
+        v_jitstate = hop.llops.getjitstate()
+        return hop.llops.genmixlevelhelpercall(
+            rtimeshift.ll_gensetinteriorfield,
+            [ts.s_JITState, s_interiordesc, ts.s_PtrRedBox, ts.s_RedBox]
+                                               + [ts.s_RedBox]*len(indices_v),
+            [v_jitstate,    c_interiordesc, v_destbox,      v_valuebox]
+                                               + indices_v,
+            annmodel.s_None)
+
+    def translate_op_getinteriorarraysize(self, hop):
+        ts = self
+        PTRTYPE = originalconcretetype(hop.args_s[0])
+        # non virtual case
+        interiordesc, indices_v = self._getinteriordesc(hop, PTRTYPE,
+                                                        hop.nb_args - 1)
+        assert interiordesc is not None
+        v_argbox = hop.inputarg(self.getredrepr(PTRTYPE), arg=0)
+        v_argbox = hop.llops.as_ptrredbox(v_argbox)
+        c_interiordesc = inputconst(lltype.Void, interiordesc)
+        s_interiordesc = ts.rtyper.annotator.bookkeeper.immutablevalue(
+            interiordesc)
+        v_jitstate = hop.llops.getjitstate()
+        return hop.llops.genmixlevelhelpercall(
+            rtimeshift.ll_gengetinteriorarraysize,
+            [ts.s_JITState, s_interiordesc, ts.s_PtrRedBox]
+                                               + [ts.s_RedBox]*len(indices_v),
+            [v_jitstate,    c_interiordesc, v_argbox      ]
+                                               + indices_v,
+            ts.s_RedBox)
+
+
     def translate_op_cast_pointer(self, hop):
         FROM_TYPE = originalconcretetype(hop.args_s[0])
         [v_argbox] = hop.inputargs(self.getredrepr(FROM_TYPE))

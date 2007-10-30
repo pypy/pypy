@@ -59,8 +59,7 @@ def hannotate(func, values, policy=None, inline=None, backendoptimize=False,
         auto_inlining(t, threshold=inline)
     if backendoptimize:
         from pypy.translator.backendopt.all import backend_optimizations
-        if inline is not None:
-            backend_optimizations(t, inline_threshold=inline)
+        backend_optimizations(t, inline_threshold=inline or 0)
     if portal is None:
         portal = func
     if hasattr(policy, "seetranslator"):
@@ -809,16 +808,14 @@ class TestTimeshift(TimeshiftingTests):
                               policy=P_NOVIRTUAL)
          assert res == 42
          self.check_insns({'malloc_varsize': 1,
-                           'getarraysubstruct': 3,
-                           'setfield': 2, 'getfield': 1,
+                           'setinteriorfield': 2, 'getinteriorfield': 1,
                            'getarraysize': 1, 'int_mul': 1})
 
          res = self.timeshift(ll_function, [21, -21, 1], [],
                               policy=P_NOVIRTUAL)
          assert res == -42
          self.check_insns({'malloc_varsize': 1,
-                           'getarraysubstruct': 3,
-                           'setfield': 2, 'getfield': 1,
+                           'setinteriorfield': 2, 'getinteriorfield': 1,
                            'getarraysize': 1, 'int_mul': 1})
 
 
@@ -835,12 +832,14 @@ class TestTimeshift(TimeshiftingTests):
          res = self.timeshift(ll_function, [21, -21, 0], [],
                               policy=P_NOVIRTUAL)
          assert res == 42
-         self.check_insns(malloc_varsize=1)
+         self.check_insns(malloc_varsize=1,
+                          getinteriorarraysize=1)
 
          res = self.timeshift(ll_function, [21, -21, 1], [],
                               policy=P_NOVIRTUAL)
          assert res == -42
-         self.check_insns(malloc_varsize=1)
+         self.check_insns(malloc_varsize=1,
+                          getinteriorarraysize=1)
 
     def test_array_of_voids(self):
         A = lltype.GcArray(lltype.Void)

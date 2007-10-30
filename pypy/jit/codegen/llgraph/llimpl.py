@@ -244,6 +244,114 @@ def isconst(gv_value):
     return isinstance(c, flowmodel.Constant)
 
 
+# ____________________________________________________________
+# Interior access helpers
+
+class InteriorPtrVariable(object):
+    def __init__(self, base_and_offsets_gv):
+        self.base_and_offsets_gv = base_and_offsets_gv
+
+def gengetsubstruct(block, gv_ptr, gv_PTRTYPE, gv_fieldname):
+    v_ptr = from_opaque_object(gv_ptr)
+    # don't generate any operation for an interior getsubstruct,
+    # but just return a special pseudo-variable
+    if isinstance(v_ptr, InteriorPtrVariable):
+        # a nested getsubstruct
+        v = InteriorPtrVariable(v_ptr.base_and_offsets_gv + [gv_fieldname])
+        return to_opaque_object(v)
+    # in all other cases we need a proper cast
+    gv_ptr = cast(block, gv_PTRTYPE, gv_ptr)
+    PTRTYPE = from_opaque_object(gv_PTRTYPE).value
+    if PTRTYPE.TO._gckind == 'gc':
+        # reading from a GcStruct requires returning an interior pointer
+        # pseudo-variable
+        v = InteriorPtrVariable([gv_ptr, gv_fieldname])
+        return to_opaque_object(v)
+    else:
+        vars_gv = [gv_ptr, gv_fieldname]
+        c_fieldname = from_opaque_object(gv_fieldname)
+        RESULTTYPE = lltype.Ptr(getattr(PTRTYPE.TO, c_fieldname.value))
+        return genop(block, "getsubstruct", vars_gv, RESULTTYPE)
+
+def gengetarraysubstruct(block, gv_ptr, gv_index):
+    v_ptr = from_opaque_object(gv_ptr)
+    # don't generate any operation for an interior getarraysubstruct,
+    # but just return a special pseudo-variable
+    if isinstance(v_ptr, InteriorPtrVariable):
+        # a nested getarraysubstruct
+        v = InteriorPtrVariable(v_ptr.base_and_offsets_gv + [gv_index])
+        return to_opaque_object(v)
+    PTRTYPE = v_ptr.concretetype
+    if PTRTYPE.TO._gckind == 'gc':
+        # reading from a GcArray requires returning an interior pointer
+        # pseudo-variable
+        v = InteriorPtrVariable([gv_ptr, gv_index])
+        return to_opaque_object(v)
+    else:
+        vars_gv = [gv_ptr, gv_index]
+        RESULTTYPE = lltype.Ptr(PTRTYPE.TO.OF)
+        return genop(block, "getarraysubstruct", vars_gv, RESULTTYPE)
+
+def gensetfield(block, gv_ptr, gv_PTRTYPE, gv_fieldname, gv_value):
+    v_ptr = from_opaque_object(gv_ptr)
+    if isinstance(v_ptr, InteriorPtrVariable):
+        # this is really a setinteriorfield
+        vars_gv = v_ptr.base_and_offsets_gv + [gv_fieldname, gv_value]
+        genop(block, "setinteriorfield", vars_gv, lltype.Void)
+    else:
+        # for setfield we need a proper cast (for setinteriorfield, the
+        # top-level cast was already inserted by gengetsubstruct)
+        gv_ptr = cast(block, gv_PTRTYPE, gv_ptr)
+        vars_gv = [gv_ptr, gv_fieldname, gv_value]
+        genop(block, "setfield", vars_gv, lltype.Void)
+
+def gengetfield(block, gv_ptr, gv_PTRTYPE, gv_fieldname):
+    PTRTYPE = from_opaque_object(gv_PTRTYPE).value
+    c_fieldname = from_opaque_object(gv_fieldname)
+    RESULTTYPE = getattr(PTRTYPE.TO, c_fieldname.value)
+    v_ptr = from_opaque_object(gv_ptr)
+    if isinstance(v_ptr, InteriorPtrVariable):
+        # this is really a getinteriorfield
+        vars_gv = v_ptr.base_and_offsets_gv + [gv_fieldname]
+        return genop(block, "getinteriorfield", vars_gv, RESULTTYPE)
+    else:
+        # for getfield we need a proper cast (for getinteriorfield, the
+        # top-level cast was already inserted by gengetsubstruct)
+        gv_ptr = cast(block, gv_PTRTYPE, gv_ptr)
+        vars_gv = [gv_ptr, gv_fieldname]
+        return genop(block, "getfield", vars_gv, RESULTTYPE)
+
+def gensetarrayitem(block, gv_ptr, gv_index, gv_value):
+    v_ptr = from_opaque_object(gv_ptr)
+    if isinstance(v_ptr, InteriorPtrVariable):
+        # this is really a setinteriorfield
+        vars_gv = v_ptr.base_and_offsets_gv + [gv_index, gv_value]
+        genop(block, "setinteriorfield", vars_gv, lltype.Void)
+    else:
+        vars_gv = [gv_ptr, gv_index, gv_value]
+        genop(block, "setarrayitem", vars_gv, lltype.Void)
+
+def gengetarrayitem(block, gv_ITEMTYPE, gv_ptr, gv_index):
+    ITEMTYPE = from_opaque_object(gv_ITEMTYPE).value
+    v_ptr = from_opaque_object(gv_ptr)
+    if isinstance(v_ptr, InteriorPtrVariable):
+        # this is really a getinteriorfield
+        vars_gv = v_ptr.base_and_offsets_gv + [gv_index]
+        return genop(block, "getinteriorfield", vars_gv, ITEMTYPE)
+    else:
+        vars_gv = [gv_ptr, gv_index]
+        return genop(block, "getarrayitem", vars_gv, ITEMTYPE)
+
+def gengetarraysize(block, gv_ptr):
+    v_ptr = from_opaque_object(gv_ptr)
+    if isinstance(v_ptr, InteriorPtrVariable):
+        # this is really a getinteriorarraysize
+        vars_gv = v_ptr.base_and_offsets_gv
+        return genop(block, "getinteriorarraysize", vars_gv, lltype.Signed)
+    else:
+        vars_gv = [gv_ptr]
+        return genop(block, "getarraysize", vars_gv, lltype.Signed)
+
 # XXX
 # temporary interface; it's unclear if genop itself should change to
 # ease dinstinguishing Void special args from the rest. Or there
@@ -503,6 +611,8 @@ blocktypeinfo = declareptrtype(flowmodel.Block, "Block")
 consttypeinfo = declareptrtype(flowmodel.Constant, "ConstOrVar")
 vartypeinfo   = declareptrtype(flowmodel.Variable, "ConstOrVar")
 vartypeinfo.set_lltype(consttypeinfo.get_lltype())   # force same lltype
+interiorptrvartypeinfo = declareptrtype(InteriorPtrVariable, "ConstOrVar")
+interiorptrvartypeinfo.set_lltype(vartypeinfo.get_lltype()) # force same lltype
 linktypeinfo  = declareptrtype(flowmodel.Link, "Link")
 graphtypeinfo = declareptrtype(flowmodel.FunctionGraph, "FunctionGraph")
 
@@ -566,6 +676,13 @@ setannotation(getstartblock, s_Block)
 setannotation(geninputarg, s_ConstOrVar)
 setannotation(getinputarg, s_ConstOrVar)
 setannotation(genop, s_ConstOrVar)
+setannotation(gengetsubstruct, s_ConstOrVar)
+setannotation(gengetarraysubstruct, s_ConstOrVar)
+setannotation(gensetfield, None)
+setannotation(gengetfield, s_ConstOrVar)
+setannotation(gensetarrayitem, None)
+setannotation(gengetarrayitem, s_ConstOrVar)
+setannotation(gengetarraysize, s_ConstOrVar)
 setannotation(end, None)
 setannotation(genconst, s_ConstOrVar)
 setannotation(genzeroconst, s_ConstOrVar)

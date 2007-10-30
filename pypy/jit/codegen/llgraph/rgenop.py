@@ -159,53 +159,63 @@ class LLBuilder(GenBuilder):
     def genop_getfield(self, (gv_name, gv_PTRTYPE, gv_FIELDTYPE), gv_ptr):
         debug_assert(self.rgenop.currently_writing is self,
                      "genop_getfield: bad currently_writing")
-        vars_gv = [llimpl.cast(self.b, gv_PTRTYPE.v, gv_ptr.v), gv_name.v]
-        return LLVar(llimpl.genop(self.b, 'getfield', vars_gv,
-                                  gv_FIELDTYPE.v))        
+        return LLVar(llimpl.gengetfield(self.b, gv_ptr.v,
+                                        gv_PTRTYPE.v, gv_name.v))
+        #vars_gv = [llimpl.cast(self.b, gv_PTRTYPE.v, gv_ptr.v), gv_name.v]
+        #return LLVar(llimpl.genop(self.b, 'getfield', vars_gv,
+        #                          gv_FIELDTYPE.v))        
     
     def genop_setfield(self, (gv_name, gv_PTRTYPE, gv_FIELDTYPE), gv_ptr,
                                                                   gv_value):
         debug_assert(self.rgenop.currently_writing is self,
                      "genop_setfield: bad currently_writing")
-        vars_gv = [llimpl.cast(self.b, gv_PTRTYPE.v, gv_ptr.v),
-                   gv_name.v,
-                   llimpl.cast(self.b, gv_FIELDTYPE.v, gv_value.v)]
-        return LLVar(llimpl.genop(self.b, 'setfield', vars_gv,
-                                  gv_Void.v))        
+        v_value = llimpl.cast(self.b, gv_FIELDTYPE.v, gv_value.v)
+        llimpl.gensetfield(self.b, gv_ptr.v, gv_PTRTYPE.v, gv_name.v, v_value)
+        #vars_gv = [llimpl.cast(self.b, gv_PTRTYPE.v, gv_ptr.v),
+        #           gv_name.v,
+        #           llimpl.cast(self.b, gv_FIELDTYPE.v, gv_value.v)]
+        #return LLVar(llimpl.genop(self.b, 'setfield', vars_gv,
+        #                          gv_Void.v))        
     
     def genop_getsubstruct(self, (gv_name, gv_PTRTYPE, gv_FIELDTYPE), gv_ptr):
         debug_assert(self.rgenop.currently_writing is self,
                      "genop_getsubstruct: bad currently_writing")
-        vars_gv = [llimpl.cast(self.b, gv_PTRTYPE.v, gv_ptr.v), gv_name.v]
-        return LLVar(llimpl.genop(self.b, 'getsubstruct', vars_gv,
-                                  gv_FIELDTYPE.v))        
+        return LLVar(llimpl.gengetsubstruct(self.b, gv_ptr.v,
+                                            gv_PTRTYPE.v, gv_name.v))
+        #vars_gv = [llimpl.cast(self.b, gv_PTRTYPE.v, gv_ptr.v), gv_name.v]
+        #return LLVar(llimpl.genop(self.b, 'getsubstruct', vars_gv,
+        #                          gv_FIELDTYPE.v))        
 
     def genop_getarrayitem(self, gv_ITEMTYPE, gv_ptr, gv_index):
         debug_assert(self.rgenop.currently_writing is self,
                      "genop_getarrayitem: bad currently_writing")
-        vars_gv = [gv_ptr.v, gv_index.v]
-        return LLVar(llimpl.genop(self.b, 'getarrayitem', vars_gv,
-                                  gv_ITEMTYPE.v))
+        return LLVar(llimpl.gengetarrayitem(self.b, gv_ITEMTYPE.v,
+                                            gv_ptr.v, gv_index.v))
+        #vars_gv = [gv_ptr.v, gv_index.v]
+        #return LLVar(llimpl.genop(self.b, 'getarrayitem', vars_gv,
+        #                          gv_ITEMTYPE.v))
 
     def genop_getarraysubstruct(self, gv_ITEMTYPE, gv_ptr, gv_index):
         debug_assert(self.rgenop.currently_writing is self,
                      "genop_getarraysubstruct: bad currently_writing")
-        vars_gv = [gv_ptr.v, gv_index.v]
-        return LLVar(llimpl.genop(self.b, 'getarraysubstruct', vars_gv,
-                                  gv_ITEMTYPE.v))
+        return LLVar(llimpl.gengetarraysubstruct(self.b, gv_ptr.v, gv_index.v))
+        #vars_gv = [gv_ptr.v, gv_index.v]
+        #return LLVar(llimpl.genop(self.b, 'getarraysubstruct', vars_gv,
+        #                          gv_ITEMTYPE.v))
 
     def genop_setarrayitem(self, gv_ITEMTYPE, gv_ptr, gv_index, gv_value):
         debug_assert(self.rgenop.currently_writing is self,
                      "genop_setarrayitem: bad currently_writing")
-        vars_gv = [gv_ptr.v, gv_index.v, gv_value.v]
-        return LLVar(llimpl.genop(self.b, 'setarrayitem', vars_gv,
-                                  gv_Void.v))
+        llimpl.gensetarrayitem(self.b, gv_ptr.v, gv_index.v, gv_value.v)
+        #vars_gv = [gv_ptr.v, gv_index.v, gv_value.v]
+        #llimpl.genop(self.b, 'setarrayitem', vars_gv, gv_Void.v)
 
     def genop_getarraysize(self, gv_ITEMTYPE, gv_ptr):
         debug_assert(self.rgenop.currently_writing is self,
                      "genop_getarraysize: bad currently_writing")
-        return LLVar(llimpl.genop(self.b, 'getarraysize', [gv_ptr.v],
-                                  gv_Signed.v))
+        return LLVar(llimpl.gengetarraysize(self.b, gv_ptr.v))
+        #return LLVar(llimpl.genop(self.b, 'getarraysize', [gv_ptr.v],
+        #                          gv_Signed.v))
 
     def genop_malloc_fixedsize(self, (gv_TYPE, gv_PTRTYPE)):
         debug_assert(self.rgenop.currently_writing is self,

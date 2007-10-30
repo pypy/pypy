@@ -11,6 +11,7 @@ from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 FOLDABLE_GREEN_OPS = dict.fromkeys(lloperation.enum_foldable_ops())
 FOLDABLE_GREEN_OPS['getfield'] = None
 FOLDABLE_GREEN_OPS['getarrayitem'] = None
+FOLDABLE_GREEN_OPS['getinteriorfield'] = None
 
 NULL_OBJECT = base_ptr_lltype()._defl()
 
@@ -210,6 +211,20 @@ def ll_gengetarraysize(jitstate, fielddesc, argbox):
         fielddesc.arraytoken,
         argbox.getgenvar(jitstate))
     return rvalue.IntRedBox(fielddesc.indexkind, genvar)
+
+
+def ll_gengetinteriorfield(jitstate, deepfrozen, interiordesc,
+                           argbox, *indexboxes):
+    return interiordesc.gengetinteriorfield(jitstate, deepfrozen,
+                                            argbox, *indexboxes)
+
+def ll_gensetinteriorfield(jitstate, interiordesc, destbox,
+                           valuebox, *indexboxes):
+    interiordesc.gensetinteriorfield(jitstate, destbox, valuebox, *indexboxes)
+
+def ll_gengetinteriorarraysize(jitstate, interiordesc, argbox, *indexboxes):
+    return interiordesc.gengetinteriorarraysize(jitstate, argbox, *indexboxes)
+
 
 def ll_genptrnonzero(jitstate, argbox, reverse):
     if argbox.is_constant():

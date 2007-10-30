@@ -198,7 +198,7 @@ class BinaryOp(Op2):
         self.emit(allocator.mc, dstop, op2)
 
 class OpIntAdd(BinaryOp):
-    opname = 'int_add', 'uint_add', 'int_add_ovf'
+    opname = 'int_add', 'uint_add', 'int_add_ovf', 'int_add_nonneg_ovf'
     emit = staticmethod(I386CodeBuilder.ADD)
     commutative = True
     ccexcflag = Conditions['O']

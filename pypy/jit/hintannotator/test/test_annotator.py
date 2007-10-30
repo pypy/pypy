@@ -144,7 +144,9 @@ def test_dicts_deepfreeze():
         res = hint(res, variable=True)
         return res
 
-    hs = hannotate(ll_function, [int, int], policy=P_NOVIRTUAL)
+    # must backendoptimize to remove the mallocs related to the interior ptrs
+    hs = hannotate(ll_function, [int, int], policy=P_NOVIRTUAL,
+                   backendoptimize=True)
     assert hs.concretetype == lltype.Signed
 
 
@@ -428,6 +430,7 @@ def test_degenerated_merge_substructure():
     assert hs1.contentdef.degenerated
 
 def test_degenerated_merge_cross_substructure():
+    py.test.skip("no longer a valid test")
     from pypy.rlib import objectmodel
     S = lltype.Struct('S', ('n', lltype.Signed))
     T = lltype.GcStruct('T', ('s', S), ('s1', S), ('n', lltype.Float))

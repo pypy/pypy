@@ -349,6 +349,147 @@ class VirtualizableStructTypeDesc(StructTypeDesc):
         content.content_boxes.append(outsidebox)             
         return vstructbox
 
+
+class InteriorDesc(object):
+    __metaclass__ = cachedtype
+
+    def __init__(self, hrtyper, TOPCONTAINER, path):
+        self.TOPCONTAINER = TOPCONTAINER
+        self.path = path
+        PTRTYPE = lltype.Ptr(TOPCONTAINER)
+        TYPE = TOPCONTAINER
+        fielddescs = []
+        for offset in path:
+            LASTCONTAINER = TYPE
+            if offset is None:           # array substruct
+                fielddescs.append(ArrayFieldDesc(hrtyper, TYPE))
+                TYPE = TYPE.OF
+            else:
+                fielddescs.append(NamedFieldDesc(hrtyper, lltype.Ptr(TYPE),
+                                                 offset))
+                TYPE = getattr(TYPE, offset)
+        unroll_path = unrolling_iterable(path)
+        self.VALUETYPE = TYPE
+
+        if not isinstance(TYPE, lltype.ContainerType):
+            lastoffset = path[-1]
+            lastfielddesc = fielddescs[-1]
+            immutable = LASTCONTAINER._hints.get('immutable', False)
+            getinterior_initial = make_interior_getter(fielddescs[:-1])
+
+            def gengetinteriorfield(jitstate, deepfrozen, argbox, *indexboxes):
+                if (immutable or deepfrozen) and argbox.is_constant():
+                    ptr = rvalue.ll_getvalue(argbox, PTRTYPE)
+                    if ptr:    # else don't constant-fold the segfault...
+                        i = 0
+                        for offset in unroll_path:
+                            if offset is None:        # array substruct
+                                indexbox = indexboxes[i]
+                                i += 1
+                                if not indexbox.is_constant():
+                                    break    # non-constant array index
+                                index = rvalue.ll_getvalue(indexbox,
+                                                           lltype.Signed)
+                                ptr = ptr[index]
+                            else:
+                                ptr = getattr(ptr, offset)
+                        else:
+                            # constant-folding: success
+                            assert i == len(indexboxes)
+                            return rvalue.ll_fromvalue(jitstate, ptr)
+                argbox = getinterior_initial(jitstate, argbox, *indexboxes)
+                if lastoffset is None:      # getarrayitem
+                    indexbox = indexboxes[-1]
+                    genvar = jitstate.curbuilder.genop_getarrayitem(
+                        lastfielddesc.arraytoken,
+                        argbox.getgenvar(jitstate),
+                        indexbox.getgenvar(jitstate))
+                    return lastfielddesc.makebox(jitstate, genvar)
+                else:  # getfield
+                    return argbox.op_getfield(jitstate, lastfielddesc)
+
+            def gensetinteriorfield(jitstate, destbox, valuebox, *indexboxes):
+                destbox = getinterior_initial(jitstate, destbox, *indexboxes)
+                if lastoffset is None:      # setarrayitem
+                    indexbox = indexboxes[-1]
+                    genvar = jitstate.curbuilder.genop_setarrayitem(
+                        lastfielddesc.arraytoken,
+                        destbox.getgenvar(jitstate),
+                        indexbox.getgenvar(jitstate),
+                        valuebox.getgenvar(jitstate)
+                        )
+                else:  # setfield
+                    destbox.op_setfield(jitstate, lastfielddesc, valuebox)
+
+            self.gengetinteriorfield = gengetinteriorfield
+            self.gensetinteriorfield = gensetinteriorfield
+
+        else:
+            assert isinstance(TYPE, lltype.Array)
+            arrayfielddesc = ArrayFieldDesc(hrtyper, TYPE)
+            getinterior_all = make_interior_getter(fielddescs)
+
+            def gengetinteriorarraysize(jitstate, argbox, *indexboxes):
+                if argbox.is_constant():
+                    ptr = rvalue.ll_getvalue(argbox, PTRTYPE)
+                    if ptr:    # else don't constant-fold the segfault...
+                        i = 0
+                        for offset in unroll_path:
+                            if offset is None:        # array substruct
+                                indexbox = indexboxes[i]
+                                i += 1
+                                if not indexbox.is_constant():
+                                    break    # non-constant array index
+                                index = rvalue.ll_getvalue(indexbox,
+                                                           lltype.Signed)
+                                ptr = ptr[index]
+                            else:
+                                ptr = getattr(ptr, offset)
+                        else:
+                            # constant-folding: success
+                            assert i == len(indexboxes)
+                            return rvalue.ll_fromvalue(jitstate, len(ptr))
+                argbox = getinterior_all(jitstate, argbox, *indexboxes)
+                genvar = jitstate.curbuilder.genop_getarraysize(
+                    arrayfielddesc.arraytoken,
+                    argbox.getgenvar(jitstate))
+                return rvalue.IntRedBox(arrayfielddesc.indexkind, genvar)
+
+            self.gengetinteriorarraysize = gengetinteriorarraysize
+
+    def _freeze_(self):
+        return True
+
+
+def make_interior_getter(fielddescs, _cache={}):
+    # returns a 'getinterior(jitstate, argbox, *indexboxes)' function
+    key = tuple(fielddescs)
+    try:
+        return _cache[key]
+    except KeyError:
+        unroll_fielddescs = unrolling_iterable([
+            (fielddesc, isinstance(fielddesc, ArrayFieldDesc))
+            for fielddesc in fielddescs])
+
+        def getinterior(jitstate, argbox, *indexboxes):
+            i = 0
+            for fielddesc, is_array in unroll_fielddescs:
+                if is_array:    # array substruct
+                    indexbox = indexboxes[i]
+                    i += 1
+                    genvar = jitstate.curbuilder.genop_getarraysubstruct(
+                        fielddesc.arraytoken,
+                        argbox.getgenvar(jitstate),
+                        indexbox.getgenvar(jitstate))
+                    argbox = fielddesc.makebox(jitstate, genvar)
+                else:   # getsubstruct
+                    argbox = argbox.op_getsubstruct(jitstate, fielddesc)
+                assert isinstance(argbox, rvalue.PtrRedBox)
+            return argbox
+
+        _cache[key] = getinterior
+        return getinterior
+
 # ____________________________________________________________
 
 # XXX basic field descs for now

@@ -196,10 +196,16 @@ class TestPortal(PortalTest):
             s = ["aaaaaaaaaab", "aaaa"][gets]
             return recognizetable(dfatable, s, final_states)
 
-        res = self.timeshift_from_portal(main, recognizetable, [0], policy=P_NOVIRTUAL)
+        # must backendoptimize to remove the mallocs related
+        # to the interior ptrs
+        res = self.timeshift_from_portal(main, recognizetable, [0],
+                                         policy=P_NOVIRTUAL,
+                                         backendoptimize=True)
         assert res
 
-        res = self.timeshift_from_portal(main, recognizetable, [1], policy=P_NOVIRTUAL)
+        res = self.timeshift_from_portal(main, recognizetable, [1],
+                                         policy=P_NOVIRTUAL,
+                                         backendoptimize=True)
         assert not res
 
     def test_dfa_compile2(self):
@@ -210,11 +216,17 @@ class TestPortal(PortalTest):
             s = ["aaaaaaaaaab", "aaaa"][gets]
             return recognizeparts(alltrans, final_states, s)
 
-        res = self.timeshift_from_portal(main, recognizeparts, [0, 0], policy=P_NOVIRTUAL)
+        # must backendoptimize to remove the mallocs related
+        # to the interior ptrs
+        res = self.timeshift_from_portal(main, recognizeparts, [0, 0],
+                                         policy=P_NOVIRTUAL,
+                                         backendoptimize=True)
         assert res
 
         # XXX unfortunately we have to create a new version each time - because of pbc
-        res = self.timeshift_from_portal(main, recognizeparts, [1, 0], policy=P_NOVIRTUAL)
+        res = self.timeshift_from_portal(main, recognizeparts, [1, 0],
+                                         policy=P_NOVIRTUAL,
+                                         backendoptimize=True)
         assert not res
 
     def test_dfa_compile3(self):
