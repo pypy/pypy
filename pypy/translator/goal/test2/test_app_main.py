@@ -213,6 +213,8 @@ class TestInteraction:
         child.sendline('X')
 
     def test_options_i_m(self):
+        if sys.platform == "win32":
+            skip("close_fds is not supported on Windows platforms")
         p = os.path.join(autopath.this_dir, 'mymodule.py')
         p = os.path.abspath(p)
         child = self.spawn(['-i',
@@ -234,6 +236,8 @@ class TestInteraction:
         child.expect('False')
 
     def test_options_u_i(self):
+        if sys.platform == "win32":
+            skip("close_fds is not supported on Windows platforms")
         import subprocess, select, os
         python = sys.executable
         pipe = subprocess.Popen([python, app_main, "-u", "-i"],
@@ -247,6 +251,8 @@ class TestInteraction:
         assert data.startswith('Python')
 
     def test_options_u_PYTHONINSPECT(self):
+        if sys.platform == "win32":
+            skip("close_fds is not supported on Windows platforms")
         import subprocess, select, os
         python = sys.executable
         pipe = subprocess.Popen([python, app_main, "-u"],
