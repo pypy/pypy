@@ -1,8 +1,5 @@
 from pypy.rlib import unroll
 
-# terrible hack to make the annotator think this is a real dict
-__name__ = '__builtin__'
-
 class BitSplitter(dict):
     def __getitem__(self, lengths):
         if isinstance(lengths, int):
@@ -24,5 +21,11 @@ class BitSplitter(dict):
         splitbits.func_name += "_" + "_".join([str(i) for i in lengths])
         self[lengths] = splitbits
         return splitbits
-        
+
+    def _freeze_(self):
+        # as this class is not in __builtin__, we need to explicitly tell
+        # the flow space that the object is frozen and the accesses can
+        # be constant-folded.
+        return True
+
 splitter = BitSplitter()
