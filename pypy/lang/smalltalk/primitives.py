@@ -626,7 +626,7 @@ def func(interp, w_context, argcnt):
     # byteodes to invoke this primitive to find them (hence +2)
     initialip = frame.pc + 2
     w_new_context = model.W_BlockContext(
-        w_method_context, objtable.w_nil, argcnt, initialip)
+        w_method_context, None, argcnt, initialip)
     return w_new_context
 
 def finalize_block_ctx(interp, w_block_ctx, frame):

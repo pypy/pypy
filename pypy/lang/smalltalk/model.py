@@ -20,6 +20,18 @@ class W_Object(object):
     def gethash(self):
         raise NotImplementedError
 
+    def at0(self, index0):
+        raise NotImplementedError
+
+    def atput0(self, index0, w_value):
+        raise NotImplementedError
+
+    def fetch(self, n0):
+        raise NotImplementedError
+        
+    def store(self, n0, w_value):    
+        raise NotImplementedError
+
     def invariant(self):
         return True
 
@@ -378,6 +390,7 @@ class W_ContextPart(W_AbstractObjectWithIdentityHash):
         self.pc = 0
         assert isinstance(w_home, W_MethodContext)
         self.w_home = w_home
+        assert w_sender is None or isinstance(w_sender, W_ContextPart)
         self.w_sender = w_sender
 
     def receiver(self):
