@@ -369,54 +369,44 @@ class __extend__(W_ContextPart):
             self.callPrimitive(primitive2, selector, argcount, interp)
 
     def bytecodePrimAdd(self, interp):
-        self.callPrimitive2(primitives.ADD,
-                            primitives.FLOAT_ADD,
-                            "+", 1, interp)
+        self.callPrimitive(primitives.ADD,
+                           "+", 1, interp)
 
     def bytecodePrimSubtract(self, interp):
-        self.callPrimitive2(primitives.SUBTRACT,
-                            primitives.FLOAT_SUBTRACT,
-                            "-", 1, interp)
+        self.callPrimitive(primitives.SUBTRACT,
+                           "-", 1, interp)
 
     def bytecodePrimLessThan(self, interp):        
-        self.callPrimitive2(primitives.LESSTHAN,
-                            primitives.FLOAT_LESSTHAN,
-                            "<", 1, interp)
+        self.callPrimitive(primitives.LESSTHAN,
+                           "<", 1, interp)
 
     def bytecodePrimGreaterThan(self, interp):
-        self.callPrimitive2(primitives.GREATERTHAN,
-                            primitives.FLOAT_GREATERTHAN,
-                            ">", 1, interp)
+        self.callPrimitive(primitives.GREATERTHAN,
+                          ">", 1, interp)
 
     def bytecodePrimLessOrEqual(self, interp):
-        self.callPrimitive2(primitives.LESSOREQUAL,
-                            primitives.FLOAT_LESSOREQUAL,
-                            "<=", 1, interp)
+        self.callPrimitive(primitives.LESSOREQUAL,
+                           "<=", 1, interp)
 
     def bytecodePrimGreaterOrEqual(self, interp):
-        self.callPrimitive2(primitives.GREATEROREQUAL,
-                            primitives.FLOAT_GREATEROREQUAL,
-                            ">=", 1, interp)
+        self.callPrimitive(primitives.GREATEROREQUAL,
+                           ">=", 1, interp)
 
     def bytecodePrimEqual(self, interp):
-        self.callPrimitive2(primitives.EQUAL,
-                            primitives.FLOAT_EQUAL,
+        self.callPrimitive(primitives.EQUAL,
                             "=", 1, interp)
 
     def bytecodePrimNotEqual(self, interp):
-        self.callPrimitive2(primitives.NOTEQUAL,
-                            primitives.FLOAT_NOTEQUAL,
-                            "~=", 1, interp)
+        self.callPrimitive(primitives.NOTEQUAL,
+                           "~=", 1, interp)
 
     def bytecodePrimMultiply(self, interp):
-        self.callPrimitive2(primitives.MULTIPLY,
-                            primitives.FLOAT_MULTIPLY,
-                            "*", 1, interp)
+        self.callPrimitive(primitives.MULTIPLY,
+                           "*", 1, interp)
 
     def bytecodePrimDivide(self, interp):
-        self.callPrimitive2(primitives.DIVIDE,
-                            primitives.FLOAT_DIVIDE,
-                            "/", 1, interp)
+        self.callPrimitive(primitives.DIVIDE,
+                           "/", 1, interp)
 
     def bytecodePrimMod(self, interp):
         self.callPrimitive(primitives.MOD, "\\\\", 1, interp)
