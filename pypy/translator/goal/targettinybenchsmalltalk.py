@@ -1,7 +1,7 @@
 import os
 from pypy.lang.smalltalk import model, interpreter, primitives, shadow
 from pypy.lang.smalltalk import objtable
-from pypy.lang.smalltalk.objtable import wrap_int
+from pypy.lang.smalltalk.utility import wrap_int
 from pypy.lang.smalltalk import classtable
 from pypy.lang.smalltalk.tool.analyseimage import *
 
