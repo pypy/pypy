@@ -8,6 +8,7 @@ from pypy.rpython.test.test_llinterp import gengraph, interpret
 
 class TestLLGraphRGenop(AbstractRGenOpTests):
     RGenOp = RGenOp
+    RGenOpPacked = RGenOp
 
     def setup_method(self, meth):
         if 'ovfcheck' in meth.__name__:
