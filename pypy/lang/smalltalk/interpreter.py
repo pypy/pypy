@@ -334,7 +334,7 @@ class __extend__(W_ContextPart):
     def longJumpIfFalse(self, interp):
         self.jumpConditional(interp.FALSE,self.longJumpPosition())
 
-    def callPrimitiveAndPush(self, primitive, selector,
+    def callPrimitive(self, primitive, selector,
                              argcount, interp):
         # XXX XXX REMEMBER TO SWITCH COMMENT AND ACTUAL CODE BEFORE
         # TESTING ON AN IMAGE, AND TO LEAVE AS IS FOR TESTCODE (and
@@ -348,104 +348,104 @@ class __extend__(W_ContextPart):
         #self._sendSelfSelector(selector, argcount, interp)
 
     def bytecodePrimAdd(self, interp):
-        self.callPrimitiveAndPush(primitives.ADD, "+", 1, interp)
+        self.callPrimitive(primitives.ADD, "+", 1, interp)
 
     def bytecodePrimSubtract(self, interp):
-        self.callPrimitiveAndPush(primitives.SUBTRACT, "-", 1, interp)
+        self.callPrimitive(primitives.SUBTRACT, "-", 1, interp)
 
     def bytecodePrimLessThan(self, interp):        
-        self.callPrimitiveAndPush(primitives.LESSTHAN, "<", 1, interp)
+        self.callPrimitive(primitives.LESSTHAN, "<", 1, interp)
 
     def bytecodePrimGreaterThan(self, interp):
-        self.callPrimitiveAndPush(primitives.GREATERTHAN, ">", 1, interp)
+        self.callPrimitive(primitives.GREATERTHAN, ">", 1, interp)
 
     def bytecodePrimLessOrEqual(self, interp):
-        self.callPrimitiveAndPush(primitives.LESSOREQUAL, "<=", 1, interp)
+        self.callPrimitive(primitives.LESSOREQUAL, "<=", 1, interp)
 
     def bytecodePrimGreaterOrEqual(self, interp):
-        self.callPrimitiveAndPush(primitives.GREATEROREQUAL, ">=", 1, interp)
+        self.callPrimitive(primitives.GREATEROREQUAL, ">=", 1, interp)
 
     def bytecodePrimEqual(self, interp):
-        self.callPrimitiveAndPush(primitives.EQUAL, "=", 1, interp)
+        self.callPrimitive(primitives.EQUAL, "=", 1, interp)
 
     def bytecodePrimNotEqual(self, interp):
-        self.callPrimitiveAndPush(primitives.NOTEQUAL, "~=", 1, interp)
+        self.callPrimitive(primitives.NOTEQUAL, "~=", 1, interp)
 
     def bytecodePrimMultiply(self, interp):
-        self.callPrimitiveAndPush(primitives.MULTIPLY, "*", 1, interp)
+        self.callPrimitive(primitives.MULTIPLY, "*", 1, interp)
 
     def bytecodePrimDivide(self, interp):
-        self.callPrimitiveAndPush(primitives.DIVIDE, "/", 1, interp)
+        self.callPrimitive(primitives.DIVIDE, "/", 1, interp)
 
     def bytecodePrimMod(self, interp):
-        self.callPrimitiveAndPush(primitives.MOD, "\\\\", 1, interp)
+        self.callPrimitive(primitives.MOD, "\\\\", 1, interp)
 
     def bytecodePrimMakePoint(self, interp):
         raise MissingBytecode("bytecodePrimMakePoint")
 
     def bytecodePrimBitShift(self, interp):
-        self.callPrimitiveAndPush(primitives.BIT_SHIFT, "bitShift:", 1, interp)
+        self.callPrimitive(primitives.BIT_SHIFT, "bitShift:", 1, interp)
 
     def bytecodePrimDiv(self, interp):
-        self.callPrimitiveAndPush(primitives.DIV, "//", 1, interp)
+        self.callPrimitive(primitives.DIV, "//", 1, interp)
 
     def bytecodePrimBitAnd(self, interp):
-        self.callPrimitiveAndPush(primitives.BIT_AND, "bitAnd:", 1, interp)
+        self.callPrimitive(primitives.BIT_AND, "bitAnd:", 1, interp)
 
     def bytecodePrimBitOr(self, interp):
-        self.callPrimitiveAndPush(primitives.BIT_OR, "bitOr:", 1, interp)
+        self.callPrimitive(primitives.BIT_OR, "bitOr:", 1, interp)
 
     def bytecodePrimAt(self, interp):
         # n.b.: depending on the type of the receiver, this may invoke
         # primitives.AT, primitives.STRING_AT, or something else for all
         # I know.  
-        #self.callPrimitiveAndPush(primitives.AT, "at:", 1, interp)
+        #self.callPrimitive(primitives.AT, "at:", 1, interp)
         self._sendSelfSelector("at:", 1, interp)
 
     def bytecodePrimAtPut(self, interp):
         # n.b. as above
-        #self.callPrimitiveAndPush(primitives.AT_PUT, "at:put:", 2, interp)
+        #self.callPrimitive(primitives.AT_PUT, "at:put:", 2, interp)
         self._sendSelfSelector("at:put:", 2, interp)
 
     def bytecodePrimSize(self, interp):
-        self.callPrimitiveAndPush(primitives.SIZE, "size", 0, interp)
+        self.callPrimitive(primitives.SIZE, "size", 0, interp)
 
     def bytecodePrimNext(self, interp):
-        self.callPrimitiveAndPush(primitives.NEXT, "next", 0, interp)
+        self.callPrimitive(primitives.NEXT, "next", 0, interp)
 
     def bytecodePrimNextPut(self, interp):
-        self.callPrimitiveAndPush(primitives.NEXT_PUT, "nextPut:", 1, interp)
+        self.callPrimitive(primitives.NEXT_PUT, "nextPut:", 1, interp)
 
     def bytecodePrimAtEnd(self, interp):
-        self.callPrimitiveAndPush(primitives.AT_END, "atEnd", 0, interp)
+        self.callPrimitive(primitives.AT_END, "atEnd", 0, interp)
 
     def bytecodePrimEquivalent(self, interp):
-        self.callPrimitiveAndPush(primitives.EQUIVALENT, "==", 1, interp)
+        self.callPrimitive(primitives.EQUIVALENT, "==", 1, interp)
 
     def bytecodePrimClass(self, interp):
-        self.callPrimitiveAndPush(
+        self.callPrimitive(
             primitives.CLASS, "class", 0, interp)
 
     def bytecodePrimBlockCopy(self, interp):
-        self.callPrimitiveAndPush(
+        self.callPrimitive(
             primitives.PRIMITIVE_BLOCK_COPY, "blockCopy:", 1, interp)
 
     def bytecodePrimValue(self, interp):
-        self.callPrimitiveAndPush(
+        self.callPrimitive(
             primitives.PRIMITIVE_VALUE, "value", 0, interp)
 
     def bytecodePrimValueWithArg(self, interp):
-        self.callPrimitiveAndPush(
+        self.callPrimitive(
             primitives.PRIMITIVE_VALUE, "value:", 1, interp)
 
     def bytecodePrimDo(self, interp):
         self._sendSelfSelector("do:", 1, interp)
 
     def bytecodePrimNew(self, interp):
-        self.callPrimitiveAndPush(primitives.NEW, "new", 0, interp)
+        self.callPrimitive(primitives.NEW, "new", 0, interp)
 
     def bytecodePrimNewWithArg(self, interp):
-        self.callPrimitiveAndPush(primitives.NEW_WITH_ARG, "new:", 1, interp)
+        self.callPrimitive(primitives.NEW_WITH_ARG, "new:", 1, interp)
 
     def bytecodePrimPointX(self, interp):
         self._sendSelfSelector("x", 0, interp)
