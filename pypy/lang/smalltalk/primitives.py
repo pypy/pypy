@@ -7,7 +7,7 @@ from pypy.lang.smalltalk import objtable
 from pypy.lang.smalltalk import constants
 from pypy.lang.smalltalk.error import PrimitiveFailedError, \
     PrimitiveNotYetWrittenError
-from pypy.rlib import rarithmetic
+from pypy.rlib import rarithmetic, unroll
 
 
 def assert_bounds(n0, minimum, maximum):
@@ -35,6 +35,7 @@ def make_failing(code):
 # Squeak has primitives all the way up to 575
 # So all optional primitives will default to the bytecode implementation
 prim_table = [make_failing(i) for i in range(576)]
+prim_table_implemented_only = []
 
 # indicates that what is pushed is an index1, but it is unwrapped and
 # converted to an index0 
@@ -104,6 +105,7 @@ def expose_primitive(code, unwrap_spec=None, no_result=False):
                     interp.w_active_context.push(w_result)
         wrapped.func_name = "wrap_prim_" + name
         prim_table[code] = wrapped
+        prim_table_implemented_only.append((code, wrapped))
         return func
     return decorator
 
@@ -737,3 +739,5 @@ for i in range(264, 520):
     globals()["INST_VAR_AT_%d" % (i-264)] = i
     make_prim(i)
     
+
+unrolling_prim_table = unroll.unrolling_iterable(prim_table_implemented_only)

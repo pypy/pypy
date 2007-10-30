@@ -167,19 +167,28 @@ class __extend__(W_ContextPart):
         method = receiverclassshadow.lookup(selector)
         # XXX catch MethodNotFound here and send doesNotUnderstand:
         if method.primitive:
+            # the primitive pushes the result (if any) onto the stack itself
+            code = method.primitive
             if interp.should_trace():
-                print "%sActually calling primitive %d" % (interp._last_indent,method.primitive,)
-            func = primitives.prim_table[method.primitive]
-            try:
-                # note: argcount does not include rcvr
-                w_result = func(interp, argcount)
-            except primitives.PrimitiveFailedError:
-                if interp.should_trace():
-                    print "PRIMITIVE FAILED: %d %s" % (method.primitive, selector,)
-                pass # ignore this error and fall back to the Smalltalk version
+                print "%sActually calling primitive %d" % (interp._last_indent, code,)
+            if objectmodel.we_are_translated():
+                for i, func in primitives.unrolling_prim_table:
+                    if i == code:
+                        try:
+                            func(interp, argcount)
+                            return
+                        except primitives.PrimitiveFailedError:
+                            break
             else:
-                # the primitive pushes the result (if any) onto the stack itself
-                return
+                func = primitives.prim_table[code]
+                try:
+                    # note: argcount does not include rcvr
+                    w_result = func(interp, argcount)
+                    return
+                except primitives.PrimitiveFailedError:
+                    if interp.should_trace():
+                        print "PRIMITIVE FAILED: %d %s" % (method.primitive, selector,)
+                    pass # ignore this error and fall back to the Smalltalk version
         start = len(self.stack) - argcount
         assert start >= 0  # XXX check in the Blue Book what to do in this case
         arguments = self.stack[start:]
