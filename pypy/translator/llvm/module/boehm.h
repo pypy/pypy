@@ -45,27 +45,27 @@ extern GC_all_interior_pointers;
 // fails badly (segfaults) when a reference to the data is kept
 // around and used (much) later.
 
-#define ringbufsize         1024
-#define ringbufentry_maxsize  16
+/* #define ringbufsize         1024 */
+/* #define ringbufentry_maxsize  16 */
 
-static  char    ringbufdata[ringbufsize + ringbufentry_maxsize];
-static  long    ringbufindex = 0;
+/* static  char    ringbufdata[ringbufsize + ringbufentry_maxsize]; */
+/* static  long    ringbufindex = 0; */
 
-char *pypy_malloc_ringbuffer(long size) {
-    if (size <= ringbufentry_maxsize) { //test expected to be optimized away during compile time
-        ringbufindex = (ringbufindex + ringbufentry_maxsize) & (ringbufsize - 1);
-        return &ringbufdata[ringbufindex];
-    } else {
-        return GC_MALLOC(size);
-    }
-}
+/* char *pypy_malloc_ringbuffer(long size) { */
+/*     if (size <= ringbufentry_maxsize) { //test expected to be optimized away during compile time */
+/*         ringbufindex = (ringbufindex + ringbufentry_maxsize) & (ringbufsize - 1); */
+/*         return &ringbufdata[ringbufindex]; */
+/*     } else { */
+/*         return GC_MALLOC(size); */
+/*     } */
+/* } */
 
-char *pypy_malloc_atomic_ringbuffer(long size) {
-    if (size <= ringbufentry_maxsize) { //test expected to be optimized away during compile time
-        ringbufindex = (ringbufindex + ringbufentry_maxsize) & (ringbufsize - 1);
-        return &ringbufdata[ringbufindex];
-    } else {
-        return GC_MALLOC_ATOMIC(size);
-    }
-}
+/* char *pypy_malloc_atomic_ringbuffer(long size) { */
+/*     if (size <= ringbufentry_maxsize) { //test expected to be optimized away during compile time */
+/*         ringbufindex = (ringbufindex + ringbufentry_maxsize) & (ringbufsize - 1); */
+/*         return &ringbufdata[ringbufindex]; */
+/*     } else { */
+/*         return GC_MALLOC_ATOMIC(size); */
+/*     } */
+/* } */
 
