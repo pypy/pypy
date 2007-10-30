@@ -450,6 +450,8 @@ class LLFrame(object):
                           'unexpected exception when calling')
                 log.ERROR('the external function %r:' % (fptr,))
                 log.ERROR('%s: %s' % (e.__class__.__name__, e))
+                if self.llinterpreter.tracer:
+                    self.llinterpreter.tracer.flush()
                 import sys
                 from pypy.translator.tool.pdbplus import PdbPlusShow
                 PdbPlusShow(None).post_mortem(sys.exc_info()[2])
