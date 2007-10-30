@@ -100,7 +100,7 @@ class Builder(object):
 
     def cmds_objects(self, base):
         # XXX why this hack???
-        use_gcc = False #self.genllvm.config.translation.llvm_via_c
+        use_gcc = self.genllvm.config.translation.llvm_via_c
         if use_gcc:
             self.cmds.append("llc %s.bc -march=c -f -o %s.c" % (base, base))
             self.cmds.append("gcc %s.c -c -O3 -fomit-frame-pointer" % base)

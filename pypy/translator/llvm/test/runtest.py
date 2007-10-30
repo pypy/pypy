@@ -8,6 +8,7 @@ from pypy.annotation.model import lltype_to_annotation
 from pypy.rpython.lltypesystem.lltype import typeOf
 
 optimize_tests = False
+native_llvm_backend = True
 MINIMUM_LLVM_VERSION = 1.9
 FLOAT_PRECISION = 8
 
@@ -72,7 +73,8 @@ def genllvm_compile(function,
         'translation.llvm.isolate': isolate,
         'translation.backendopt.none': not optimize,
         'translation.gc': 'boehm',
-        }
+        'translation.llvm_via_c' : not native_llvm_backend 
+}
     options.update(extra_opts)
     config.set(**options)
     driver = TranslationDriver(config=config)

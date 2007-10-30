@@ -282,38 +282,6 @@ class OpWriter(object):
         # ha, ha
         pass
 
-    # XXX not needed anymore
-    def flavored_malloc(self, opr):
-        flavor = opr.op.args[0].value
-        type_  = opr.rettype[:-1] #XXX stripping of *
-        if flavor == "raw": 
-            self.codewriter.malloc(opr.retref, type_)
-        elif flavor == "stack": 
-            self.codewriter.alloca(opr.retref, type_)
-        else:
-            raise NotImplementedError
-
-    def flavored_malloc_varsize(self, opr):
-        flavor = opr.op.args[0].value
-        if flavor == "raw":
-            arg_type = opr.op.args[1].value
-            node = self.db.obj2node[arg_type]
-            self.db.gcpolicy.var_zeromalloc(self.codewriter, opr.retref,
-                                            opr.rettype, node, opr.argrefs[2],
-                                            atomic=arg_type._is_atomic())
-        else:
-            raise NotImplementedError
-
-    def flavored_free(self, opr):
-        flavor = opr.op.args[0].value
-        if flavor == "raw":
-            self.codewriter.free(opr.argtypes[1], opr.argrefs[1])
-        elif flavor == "stack":
-            self.codewriter.comment('***Skipping free of stack allocated data')
-        else:
-            raise NotImplementedError
-    # XXX /not needed anymore
-
     def call_boehm_gc_alloc(self, opr):
         word = self.db.get_machine_word()
         self.codewriter.call(opr.retref, 'sbyte*', '%pypy_malloc',
@@ -407,7 +375,8 @@ class OpWriter(object):
         else:
             assert isinstance(TYPE, lltype.FixedSizeArray)
             lengthref = TYPE.length
-            XXX # no tests for this
+            XXX # no tests for this - is it valid even since known at compile time ????
+
         self.codewriter.load(opr.retref, opr.rettype, lengthref)
 
     # array | fixedsizearray
@@ -428,7 +397,6 @@ class OpWriter(object):
 
         # getelementptr gets a pointer to the right type, except the generated code really expected 
         # an array of size 1... so we just cast it
-        #assert isinstance(opr.op.result.concretetype.TO, lltype.FixedSizeArray) #XXX why?
         element_type = self.db.repr_type(op.result.concretetype.TO.OF) + '*'
         self.codewriter.cast(opr.retref, element_type, tmpvar, opr.rettype)
 
@@ -444,7 +412,6 @@ class OpWriter(object):
 
         # getelementptr gets a pointer to the right type, except the generated code really expected 
         # an array of size 1... so we just cast it
-        #assert isinstance(opr.op.result.concretetype.TO, lltype.FixedSizeArray) #XXX why?
         element_type = self.db.repr_type(opr.op.result.concretetype.TO.OF) + '*'
         self.codewriter.cast(opr.retref, element_type, tmpvar, opr.rettype)
 
@@ -459,15 +426,6 @@ class OpWriter(object):
         # an array of size 1... so we just cast it
         element_type = self.db.repr_type(opr.op.result.concretetype.TO.OF) + '*'
         self.codewriter.cast(opr.retref, element_type, tmpvar, opr.rettype)
-
-# +        if isinstance(opr.op.result.concretetype, lltype.FixedSizeArray):            
-# +            tmpvar = self._tmp()
-# +            self.codewriter.getelementptr(tmpvar, arraytype, array, [(self.word, incr)])
-# +            element_type = self.db.repr_type(opr.op.result.concretetype.TO.OF) + '*'
-# +            self.codewriter.cast(opr.retref, element_type, tmpvar, opr.rettype)
-# +        else:
-# +            self.codewriter.getelementptr(opr.retref, arraytype, array, [(self.word, incr)], getptr=False)
-# +
 
     def adr_delta(self, opr):
         addr1, addr2 = self._tmp(2)
