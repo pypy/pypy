@@ -337,7 +337,9 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
         # a special case for 'x < 0' or 'x >= 0',
         # where 0 is a flow graph Constant
         # (in this case we are sure that it cannot become a r_uint later)
-        if isinstance(op.args[1], Constant) and op.args[1].value == 0:
+        if (isinstance(op.args[1], Constant) and 
+            type(op.args[1].value) is int and    # filter out Symbolics
+            op.args[1].value == 0):
             if int1.nonneg:
                 if opname == 'lt':
                     r.const = False
