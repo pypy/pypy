@@ -330,21 +330,29 @@ def test_bytecodePrimEquivalent():
     assert interp.w_active_context.stack == []
     
 def test_bytecodePrimNew():
-    w_fakeclass = mockclass(1, name='fakeclass', varsized=False)
+    w_fakeclassclass = mockclass(10, name='fakeclassclass')
+    w_fakeclass = mockclass(1, name='fakeclass', varsized=False,
+                            w_metaclass=w_fakeclassclass)
     interp = new_interpreter(bytecodePrimNew)
     interp.w_active_context.push(w_fakeclass)
-    interp.step()
+    run_with_faked_methods(
+        [[w_fakeclassclass, primitives.NEW, 0, "new"]],
+        interp.step)
     w_fakeinst = interp.w_active_context.pop()
     assert interp.w_active_context.stack == []
     assert w_fakeinst.getclass() == w_fakeclass
     assert w_fakeinst.size() == 1
     
 def test_bytecodePrimNewWithArg():
-    w_fakeclass = mockclass(1, name='fakeclass', varsized=True)
+    w_fakeclassclass = mockclass(10, name='fakeclassclass')
+    w_fakeclass = mockclass(1, name='fakeclass', varsized=True,
+                            w_metaclass=w_fakeclassclass)
     interp = new_interpreter(bytecodePrimNewWithArg)
     interp.w_active_context.push(w_fakeclass)
     interp.w_active_context.push(interpreter.Interpreter.TWO)
-    interp.step()
+    run_with_faked_methods(
+        [[w_fakeclassclass, primitives.NEW_WITH_ARG, 1, "new:"]],
+        interp.step)
     w_fakeinst = interp.w_active_context.pop()
     assert interp.w_active_context.stack == []
     assert w_fakeinst.getclass() == w_fakeclass
@@ -355,7 +363,9 @@ def test_bytecodePrimSize():
     w_fakeinst = w_fakeclass.as_class_get_shadow().new(5)
     interp = new_interpreter(bytecodePrimSize)
     interp.w_active_context.push(w_fakeinst)
-    interp.step()
+    run_with_faked_methods(
+        [[w_fakeclass, primitives.SIZE, 0, "size"]],
+        interp.step)
     assert interp.w_active_context.pop().value == 5
     assert interp.w_active_context.stack == []
 
