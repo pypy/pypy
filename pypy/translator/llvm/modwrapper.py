@@ -36,6 +36,7 @@ def llvm_implcode(entrynode):
     return code
 
 TO_CTYPES = {lltype.Bool: "ctypes.c_int",
+             lltype.SingleFloat: "ctypes.c_float",
              lltype.Float: "ctypes.c_double",
              lltype.Char: "ctypes.c_char",
              lltype.Signed: "ctypes.c_int",

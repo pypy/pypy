@@ -349,6 +349,7 @@ class Primitives(object):
         self.types = {
             lltype.Char: "sbyte",
             lltype.Bool: "bool",
+            lltype.SingleFloat: "float",
             lltype.Float: "double",
             lltype.UniChar: "uint",
             lltype.Void: "void",
@@ -377,6 +378,7 @@ class Primitives(object):
             lltype.Signed : self.repr_signed,
             lltype.UnsignedLongLong : self.repr_default,
             lltype.Unsigned : self.repr_default,
+            lltype.SingleFloat: self.repr_singlefloat,
             lltype.Float : self.repr_float,
             lltype.Char : self.repr_char,
             lltype.UniChar : self.repr_unichar,
@@ -461,6 +463,26 @@ class Primitives(object):
             if "e" in repr and "." not in repr:
                 repr = repr.replace("e", ".0e")
 
+        return repr
+
+    def repr_singlefloat(self, type_, value):
+        from pypy.rlib.rarithmetic import isinf, isnan
+        
+        # XXX this doesnt work on 1.9 -> only hex repr supported for single floats
+        f = float(value)
+        if isinf(f) or isnan(f):
+            import struct
+            packed = value._bytes
+            if sys.byteorder == 'little':
+                packed = packed[::-1]
+            assert len(packed) == 4
+            repr =  "0x" + "".join([("%02x" % ord(ii)) for ii in packed])
+        else:
+            repr = "%f" % f
+            
+            # llvm requires a . when using e notation
+            if "e" in repr and "." not in repr:
+                repr = repr.replace("e", ".0e")
         return repr
 
     def repr_address(self, type_, value):

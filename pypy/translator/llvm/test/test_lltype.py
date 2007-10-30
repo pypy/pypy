@@ -760,6 +760,34 @@ def test_rettypes():
     fn = compile_function(llf, [])
     assert fn() is True
 
+def test_r_singlefloat():
+    z = r_singlefloat(0.4)
+
+    def llf():
+        return z
+
+    fn = compile_function(llf, [])
+    res = fn()
+    assert res != 0.4     # precision lost
+    assert abs(res - 0.4) < 1E-6
+
+    def g(n):
+        if n > 0:
+            return r_singlefloat(n * 0.1)
+        else:
+            return z
+
+    def llf(n):
+        return float(g(n))
+
+    fn = compile_function(llf, [int])
+    res = fn(21)
+    assert res != 2.1     # precision lost
+    assert abs(res - 2.1) < 1E-6
+    res = fn(-5)
+    assert res != 0.4     # precision lost
+    assert abs(res - 0.4) < 1E-6
+
 class TestLowLevelType(object):
     def getcompiled(self, f, args=[]):
         return compile_function(f, args)
@@ -892,28 +920,6 @@ class TestLowLevelType(object):
             0, maxlonglong*2-30,                  # lshift
             0, maxlonglong>>4,                    # rshift
             ))
-
-    def test_r_singlefloat(self):
-        py.test.skip("singlefloat")
-
-        z = r_singlefloat(0.4)
-
-        def g(n):
-            if n > 0:
-                return r_singlefloat(n * 0.1)
-            else:
-                return z
-
-        def llf(n):
-            return float(g(n))
-
-        fn = self.getcompiled(llf, [int])
-        res = fn(21)
-        assert res != 2.1     # precision lost
-        assert abs(res - 2.1) < 1E-6
-        res = fn(-5)
-        assert res != 0.4     # precision lost
-        assert abs(res - 0.4) < 1E-6
 
     def test_prebuilt_nolength_char_array(self):
         py.test.skip("fails on the trunk too")
