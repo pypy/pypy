@@ -250,7 +250,7 @@ class GenLLVM(object):
             from pypy.translator.tool.cbuild import import_module_from_directory
             mod = import_module_from_directory(dirpath, modname)
 
-        wrap_fun = getattr(mod, 'pypy_' + self.entry_func_name + "_wrapper")
+        wrap_fun = getattr(mod, 'entrypoint')
         return mod, wrap_fun
 
     def compile_standalone(self, exe_name):

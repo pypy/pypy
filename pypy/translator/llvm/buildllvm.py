@@ -5,7 +5,7 @@ import py
 
 from pypy.translator.tool import stdoutcapture
 from pypy.translator.llvm.log import log
-from pypy.translator.llvm.modwrapper import write_ctypes_module
+from pypy.translator.llvm.modwrapper import CtypesModule
 
 def llvm_is_on_path():
     if py.path.local.sysfind("llvm-as") is None or \
@@ -153,7 +153,7 @@ class Builder(object):
 
         try:
             self.execute_cmds()
-            modname = write_ctypes_module(self.genllvm, "%s.so" % base)
+            modname = CtypesModule(self.genllvm, "%s.so" % base).create()
 
         finally:
             self.lastdir.chdir()
