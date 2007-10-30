@@ -619,10 +619,10 @@ def interpret_bc(bcodes, literals, receiver=objtable.w_nil):
 # tests: bytecodePrimValue & bytecodePrimValueWithArg
 def test_bc_3_plus_4():
     # value0
-    # 	" (self >> #value0) byteCode "
-    # 	" (self >> #value0) literals "
+    #   " (self >> #value0) byteCode "
+    #   " (self >> #value0) literals "
     # 
-    # 	^ [ 3 + 4 ] value
+    #   ^ [ 3 + 4 ] value
     assert interpret_bc(
         [ 137, 117, 200, 164, 4, 32, 33, 176, 125, 201, 124],
         fakeliterals(wrap_int(3), wrap_int(4))).value == 7
@@ -630,10 +630,10 @@ def test_bc_3_plus_4():
 
 def test_bc_x_plus_x_plus_1():
     # value1
-    # 	" (self >> #value1) byteCode "
-    # 	" (self >> #value1) literals "
+    #   " (self >> #value1) byteCode "
+    #   " (self >> #value1) literals "
     # 
-    # 	^ [ :x | x + x + 1 ] value: 3
+    #   ^ [ :x | x + x + 1 ] value: 3
     assert interpret_bc(
         [ 137, 118, 200, 164, 7, 104, 16, 16,
           176, 118, 176, 125, 32, 202, 124 ],
@@ -641,10 +641,10 @@ def test_bc_x_plus_x_plus_1():
 
 def test_bc_x_plus_y():
     # value2
-    # 	" (self >> #value2) byteCode "
-    # 	" (self >> #value2) literals "
+    #   " (self >> #value2) byteCode "
+    #   " (self >> #value2) literals "
     # 
-    # 	^ [ :x :y | x + y ] value: 3 value: 4
+    #   ^ [ :x :y | x + y ] value: 3 value: 4
 
     def test():
         assert interpret_bc(
@@ -658,30 +658,30 @@ def test_bc_x_plus_y():
 
 def test_bc_push_rcvr_in_block():
     # value1
-    # 	" (self >> #value1) byteCode "
-    # 	" (self >> #value1) literals "
+    #   " (self >> #value1) byteCode "
+    #   " (self >> #value1) literals "
     # 
-    # 	^ [ self ] value
+    #   ^ [ self ] value
     assert interpret_bc(
         [ 137, 117, 200, 164, 2, 112, 125, 201, 124 ],
         fakeliterals(wrap_int(3))) is objtable.w_nil
 
 def test_bc_value_return():
     # valueReturn
-    # 	" (self >> #value1) byteCode "
-    # 	" (self >> #value1) literals "
+    #   " (self >> #value1) byteCode "
+    #   " (self >> #value1) literals "
     # 
-    # 	[ ^ 1 ] value. ^ 2
+    #   [ ^ 1 ] value. ^ 2
     assert interpret_bc(
         [ 137, 117, 200, 164, 2, 118, 124, 201, 135, 119, 124 ],
         fakeliterals()).value == 1
 
 def test_bc_value_with_args():
     # valueWithArgs
-    # 	" (self >> #value1) byteCode "
-    # 	" (self >> #value1) literals "
+    #   " (self >> #value1) byteCode "
+    #   " (self >> #value1) literals "
     # 
-    # 	[ :a :b | a - b ] valueWithArguments: #(3 2)
+    #   [ :a :b | a - b ] valueWithArguments: #(3 2)
     def test():
         assert interpret_bc(
             [ 137, 119, 200, 164, 6,
@@ -695,7 +695,7 @@ def test_bc_value_with_args():
         test)
 
 def test_bc_primBytecodeAt_string():
-    # 	^ 'a' at: 1
+    #   ^ 'a' at: 1
     def test():
         assert interpret_bc(
             [ 32, 118, 192, 124],
@@ -705,7 +705,7 @@ def test_bc_primBytecodeAt_string():
         test)
     
 def test_bc_primBytecodeAtPut_string():
-    # 	^ 'a' at: 1 put:'b'
+    #   ^ 'a' at: 1 put:'b'
     def test():
         assert interpret_bc(
             [ 32, 118, 33, 193, 124 ],
@@ -715,7 +715,7 @@ def test_bc_primBytecodeAtPut_string():
         test)
 
 def test_bc_primBytecodeAt_with_instvars():
-    # 	^ self at: 1
+    #   ^ self at: 1
     w_fakeclass = mockclass(1, name='fakeclass', varsized=True)
     w_fakeinst = w_fakeclass.as_class_get_shadow().new(1)
     w_fakeinst.store(0, wrap_char("a")) # static slot 0: instance variable
@@ -730,7 +730,7 @@ def test_bc_primBytecodeAt_with_instvars():
         test)
 
 def test_bc_primBytecodeAtPut_with_instvars():
-    # 	^ self at: 1 put: #b
+    #   ^ self at: 1 put: #b
     w_fakeclass = mockclass(1, name='fakeclass', varsized=True)
     w_fakeinst = w_fakeclass.as_class_get_shadow().new(1)
     w_fakeinst.store(0, wrap_char("a")) # static slot 0: instance variable
@@ -749,7 +749,7 @@ def test_bc_primBytecodeAtPut_with_instvars():
 def test_bc_objectAtAndAtPut():
     #   ^ self objectAt: 1.          yields the method header
     #   ^ self objectAt: 2.          yields the first literal (22)
-    # 	^ self objectAt: 2 put: 3.   changes the first literal to 3
+    #   ^ self objectAt: 2 put: 3.   changes the first literal to 3
     #   ^ self objectAt: 2.          yields the new first literal (3)
     prim_meth = model.W_CompiledMethod(0, "")
     prim_meth.literals = fakeliterals(22)
