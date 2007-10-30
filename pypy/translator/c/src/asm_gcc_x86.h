@@ -14,6 +14,9 @@
         : "0"(x), "g"(y)     /* inputs  */      \
         : "cc", "memory")    /* clobber */
 
+#undef OP_INT_ADD_NONNEG_OVF
+#define OP_INT_ADD_NONNEG_OVF(x,y,r) OP_INT_ADD_OVF(x,y,r)
+
 #undef OP_INT_SUB_OVF
 #define OP_INT_SUB_OVF(x,y,r)                   \
     asm volatile("subl %2,%0\n\t"               \
