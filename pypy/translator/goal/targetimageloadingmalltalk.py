@@ -68,8 +68,8 @@ def entry_point(argv):
     reader.initialize()
     image = squeakimage.SqueakImage()
     image.from_reader(reader)
-    #interp = tinyBenchmarks(image)
-    #run_benchmarks(interp)
+    interp = tinyBenchmarks(image)
+    run_benchmarks(interp)
     return 0
 
 # _____ Define and setup target ___
