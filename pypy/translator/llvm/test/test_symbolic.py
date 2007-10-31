@@ -74,7 +74,6 @@ def test_itemoffsetof_fixedsizearray():
     assert res == 1234501234
 
 def test_sizeof_constsize_struct():
-    py.test.skip("failing in genc too")
     # _not_ a GcStruct, since we want to raw_malloc it
     STRUCT = lltype.Struct("s", ("x", lltype.Signed), ("y", lltype.Signed))
     STRUCTPTR = lltype.Ptr(STRUCT)
