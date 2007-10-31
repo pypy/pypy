@@ -1,6 +1,7 @@
 import py
 import ctypes
 from pypy.rpython.lltypesystem import lltype 
+from pypy.rpython.lltypesystem.rstr import STR
 
 def _noresult(returntype):
     r = returntype.strip()
@@ -25,14 +26,6 @@ def llvm_implcode(entrynode):
         code += voidentrycode % locals()
     else:
         code += entrycode % locals()
-
-    print 'XXXXXXXXXXXXXXX'
-    print returntype
-    print entrypointname
-    print noresult
-    print entrynode.graph.returnblock.inputargs[0].concretetype
-    print code
-    print 'XXXXXXXXXXXXXXX'
 
     return code
 
@@ -69,7 +62,7 @@ def entrypoint(*args):
         if not startup_code():
             raise LLVMException("Failed to startup")
         _setup = True
-    args = to_llargs(args)
+    args = [f(a) for a, f in zip(args, to_llargs)]
     result = __entrypoint__(*args)
     if raised():
         raise LLVMException("Exception raised")
@@ -78,18 +71,41 @@ def entrypoint(*args):
 def identity(res):
     return res
 
+def from_unichar(arg):
+    return ord(arg)
+
 def to_bool(res):
     return bool(res)
 
-class Chars(ctypes.Structure):
-    _fields_ = [("size", ctypes.c_int),
-                ("data", ctypes.c_char * 1)]
+def to_unichar(res):
+    return unichr(res)
 
-class STR(ctypes.Structure):
-    _fields_ = [("hash", ctypes.c_int),
-                ("array", Chars)]
+def from_str(arg):
+    # XXX wont work over isolate : arg should be converted into a string first
+    n = len(arg.chars)
+    class Chars(ctypes.Structure):
+        _fields_ = [("size", ctypes.c_int),
+                    ("data", ctypes.c_byte * n)]
+
+    class STR(ctypes.Structure):
+        _fields_ = [("hash", ctypes.c_int),
+                    ("chars", Chars)]
+    s = STR()
+    s.hash = 0
+    s.chars.size = len(arg.chars)
+    for ii in range(s.chars.size):
+        s.chars.data[ii] = ord(arg.chars[ii])
+    return ctypes.addressof(s)
 
 def to_str(res):
+    class Chars(ctypes.Structure):
+        _fields_ = [("size", ctypes.c_int),
+                    ("data", ctypes.c_char * 1)]
+
+    class STR(ctypes.Structure):
+        _fields_ = [("hash", ctypes.c_int),
+                    ("array", Chars)]
+
     if res:
         s = ctypes.cast(res, ctypes.POINTER(STR)).contents
         return ctypes.string_at(res + (STR.array.offset + Chars.data.offset), s.array.size)
@@ -116,12 +132,28 @@ def to_list(res, C_TYPE, action):
 """
 
     epilog = """
-to_llargs = %(to_llargs)s
-ll_to_res = %(ll_to_res)s
 __entrypoint__ = _c.__entrypoint__%(name)s
+
+# %(RT)r
+to_llargs = %(to_llargs)s
 __entrypoint__.argtypes = %(args)s
+
+# %(ARGS)r
+ll_to_res = %(ll_to_res)s
 __entrypoint__.restype = %(returntype)s
     """
+    TO_CTYPES = {lltype.Bool: "ctypes.c_byte",
+                 lltype.SingleFloat: "ctypes.c_float",
+                 lltype.Float: "ctypes.c_double",
+                 lltype.Char: "ctypes.c_char",
+                 lltype.Signed: "ctypes.c_int",
+                 lltype.Unsigned: "ctypes.c_uint",
+                 lltype.SignedLongLong: "ctypes.c_longlong",
+                 lltype.UnsignedLongLong: "ctypes.c_ulonglong",
+                 lltype.Void: None,
+                 lltype.UniChar: "ctypes.c_uint",
+                 }
+
     def __init__(self, genllvm, dllname):
         self.genllvm = genllvm
         self.dllname = dllname
@@ -136,9 +168,11 @@ __entrypoint__.restype = %(returntype)s
         g = self.genllvm.entrynode.graph  
         name = "pypy_" + g.name
 
-        inputargtypes = [self.to_ctype(a.concretetype) for a in g.startblock.inputargs]
-        to_llargs = 'identity'
+        ARGS = [a.concretetype for a in g.startblock.inputargs]
+        inputargtypes, to_llargs = self.build_args_to_ctypes_to_lltype(ARGS)
+
         args = '[%s]' % ', '.join(inputargtypes)
+        to_llargs = '[%s]' % ', '.join(to_llargs)
 
         RT = g.returnblock.inputargs[0].concretetype
         returntype, ll_to_res = self.build_lltype_to_ctypes_to_res(RT)
@@ -155,11 +189,32 @@ __entrypoint__.restype = %(returntype)s
         self.file.write('\n')
         return name
 
-    def build_lltype_to_ctypes_to_res(self, T):
-        from pypy.rpython.lltypesystem.rstr import STR
+    def build_args_to_ctypes_to_lltype(self, ARGS):
+        ctype_s = []
+        actions = []
 
+        for A in ARGS:
+            ctype_s.append(self.to_ctype(A))
+
+            if A is lltype.UniChar:
+                action = 'from_unichar'
+
+            elif isinstance(A, lltype.Ptr) and A.TO is STR:
+                action = 'from_str'
+            else:
+                assert A in self.TO_CTYPES
+                action = 'identity'
+
+            actions.append(action)
+
+        return ctype_s, actions
+
+    def build_lltype_to_ctypes_to_res(self, T):
         if T is lltype.Bool:
             action = 'to_bool'
+
+        elif T is lltype.UniChar:
+            action = 'to_unichar'
 
         elif isinstance(T, lltype.Ptr) and T.TO is STR:
             action = 'to_str'
@@ -186,20 +241,8 @@ __entrypoint__.restype = %(returntype)s
         return c_type, action
 
     def to_ctype(self, T):
-        TO_CTYPES = {lltype.Bool: "ctypes.c_byte",
-                     lltype.SingleFloat: "ctypes.c_float",
-                     lltype.Float: "ctypes.c_double",
-                     lltype.Char: "ctypes.c_char",
-                     lltype.Signed: "ctypes.c_int",
-                     lltype.Unsigned: "ctypes.c_uint",
-                     lltype.SignedLongLong: "ctypes.c_longlong",
-                     lltype.UnsignedLongLong: "ctypes.c_ulonglong",
-                     lltype.Void: None,
-                     lltype.UniChar: "ctypes.c_uint",
-                     }
-
         if isinstance(T, lltype.Ptr):
             return 'ctypes.c_void_p'
         else:
-            return TO_CTYPES[T]
+            return self.TO_CTYPES[T]
  
