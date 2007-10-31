@@ -1185,7 +1185,24 @@ class TestTimeshift(TimeshiftingTests):
 
         res = self.timeshift(f, [0, 2, 7, 5], [0], policy=P_NOVIRTUAL)
         assert res == 44
-        self.check_insns({'int_mul': 1, 'int_add': 1, 'int_sub': 1})              
+        self.check_insns({'int_mul': 1, 'int_add': 1, 'int_sub': 1})
+
+    def test_deepfrozen_interior(self):
+        T = lltype.Struct('T', ('x', lltype.Signed))
+        A = lltype.Array(T)
+        S = lltype.GcStruct('S', ('a', A))
+        s = lltype.malloc(S, 3)
+        s.a[2].x = 42
+        def f(n):
+            s1 = hint(s, variable=True)
+            s1 = hint(s1, deepfreeze=True)
+            return s1.a[n].x
+
+        # malloc-remove the interior ptr
+        res = self.timeshift(f, [2], [0], policy=P_NOVIRTUAL,
+                             backendoptimize=True)
+        assert res == 42
+        self.check_insns({})
 
     def test_compile_time_const_tuple(self):
         d = {(4, 5): 42, (6, 7): 12}
@@ -1193,7 +1210,9 @@ class TestTimeshift(TimeshiftingTests):
             d1 = hint(d, deepfreeze=True)
             return d1[a, b]
 
-        res = self.timeshift(f, [4, 5], [0, 1], policy=P_NOVIRTUAL)
+        # malloc-remove the interior ptr
+        res = self.timeshift(f, [4, 5], [0, 1], policy=P_NOVIRTUAL,
+                             backendoptimize=True)
         assert res == 42
         self.check_insns({})
 
