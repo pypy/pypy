@@ -1,7 +1,7 @@
 
 entrycode = '''
 ccc %(returntype)s %%__entrypoint__%(entrypointname)s {
-    store %%RPYTHON_EXCEPTION_VTABLE* null, %%RPYTHON_EXCEPTION_VTABLE** %%last_exception_type
+    call fastcc void %%pypy_rpyexc_clear()
     %%result = call %(cconv)s %(returntype)s%%%(entrypointname)s
     ret %(returntype)s %%result
 }
@@ -9,18 +9,15 @@ ccc %(returntype)s %%__entrypoint__%(entrypointname)s {
 
 voidentrycode = '''
 ccc %(returntype)s %%__entrypoint__%(entrypointname)s {
-    store %%RPYTHON_EXCEPTION_VTABLE* null, %%RPYTHON_EXCEPTION_VTABLE** %%last_exception_type
+    call fastcc void %%pypy_rpyexc_clear()
     call %(cconv)s %(returntype)s%%%(entrypointname)s
     ret void
 }
 '''
 
 raisedcode = '''
-;XXX this should use the transformation data that has the same purpose
-ccc int %%__entrypoint__raised_LLVMException() {
-    %%tmp    = load %%RPYTHON_EXCEPTION_VTABLE** %%last_exception_type
-    %%result = cast %%RPYTHON_EXCEPTION_VTABLE* %%tmp to int
-    ret int %%result
+ccc bool %%__entrypoint__raised_LLVMException() {
+    %%result = call fastcc bool %%pypy_rpyexc_occured()
+    ret bool %%result
 }
-
 '''

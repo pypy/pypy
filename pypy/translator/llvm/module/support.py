@@ -1,8 +1,4 @@
-
 extdeclarations = """
-%last_exception_type  = internal global %RPYTHON_EXCEPTION_VTABLE* null
-%last_exception_value = internal global %RPYTHON_EXCEPTION* null
-
 declare ccc uint %strlen(sbyte*)
 declare ccc void %llvm.memsetPOSTFIX(sbyte*, ubyte, UWORD, UWORD)
 declare ccc void %llvm.memcpyPOSTFIX(sbyte*, sbyte*, UWORD, UWORD)
@@ -19,13 +15,6 @@ internal fastcc WORD %RPyString_Size(%RPyString* %structstring) {
     %sizeptr = getelementptr %RPyString* %structstring, int 0, uint 1, uint 0
     %size = load WORD* %sizeptr
     ret WORD %size
-}
-
-internal fastcc int %RPyExceptionOccurred() {
-    %tmp.0 = load %RPYTHON_EXCEPTION_VTABLE** %last_exception_type
-    %bool_res = setne %RPYTHON_EXCEPTION_VTABLE* %tmp.0, null
-    %res = cast bool %bool_res to int
-    ret int %res
 }
 
 internal fastcc %RPyString* %RPyString_FromString(sbyte* %s) {
@@ -79,25 +68,9 @@ return_block:
 
 """
 
-from sys import maxint
-if maxint != 2**31-1:
-    extfunctions += """
-internal fastcc void %pypy_ll_raise_OSError__Signed(int %errno_0) {
-    %tmp = cast int %errno_0 to long
-    call fastcc void %pypy_ll_raise_OSError__Signed(long %tmp)
-    ret void
-}
-
-internal fastcc void %pypy__RPyListOfString_SetItem__listPtr_Signed_rpy_stringPtr(%RPyListOfString* %l_1, int %index_0, %RPyString* %newstring_0) {
-    %index_0_long = cast int %index_0 to long
-    call fastcc void %pypy__RPyListOfString_SetItem__listPtr_Signed_rpy_stringPtr(%RPyListOfString* %l_1, long %index_0_long, %RPyString* %newstring_0)
-    ret void
-}
-
-"""
-
 extfunctions_standalone = """
 """
+from sys import maxint
 if maxint != 2**31-1:
     extfunctions_standalone += """
 internal fastcc int %pypy_entry_point(%RPyListOfString* %argv) {
@@ -108,15 +81,12 @@ internal fastcc int %pypy_entry_point(%RPyListOfString* %argv) {
 
 """
 
+
 def write_raise_exc(c_name, exc_repr, codewriter):
 
     l = """
 internal fastcc void %%raise%s(sbyte* %%msg) {
-    %%exception_value = cast %s to %%RPYTHON_EXCEPTION*
-    %%tmp             = getelementptr %%RPYTHON_EXCEPTION* %%exception_value, int 0, uint 0
-    %%exception_type  = load %%RPYTHON_EXCEPTION_VTABLE** %%tmp
-    store %%RPYTHON_EXCEPTION_VTABLE* %%exception_type, %%RPYTHON_EXCEPTION_VTABLE** %%last_exception_type
-    store %%RPYTHON_EXCEPTION* %%exception_value, %%RPYTHON_EXCEPTION** %%last_exception_value
+    ;%%exception_value = cast %s to %%RPYTHON_EXCEPTION*
     ret void
 }
 """ % (c_name, exc_repr)
