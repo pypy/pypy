@@ -177,7 +177,18 @@ class GenLLVM(object):
         ptr = getfunctionptr(bk.getdesc(func).getuniquegraph())
         c = inputconst(lltype.typeOf(ptr), ptr)
         self.db.prepare_arg_value(c)
-        self.entry_func_name = func.func_name
+        
+        # ensure unqiue entry node name for testing
+        entry_node = self.db.obj2node[c.value._obj]
+        name = entry_node.name
+        if name in self.function_count:
+            self.function_count[name] += 1
+            name += '_%d' % self.function_count[name]
+            entry_node.name =  name
+        else:
+            self.function_count[name] = 1
+
+        self.entry_name = name[6:]
         return c.value._obj 
 
     def generate_ll_externs(self):
@@ -201,13 +212,7 @@ class GenLLVM(object):
 
     def create_codewriter(self):
         # prevent running the same function twice in a test
-        if self.entry_func_name in self.function_count:
-            postfix = '_%d' % self.function_count[self.entry_func_name]
-            self.function_count[self.entry_func_name] += 1
-        else:
-            postfix = ''
-            self.function_count[self.entry_func_name] = 1
-        filename = udir.join(self.entry_func_name + postfix).new(ext='.ll')
+        filename = udir.join(self.entry_name).new(ext='.ll')
         f = open(str(filename), 'w')
         return CodeWriter(f, self.db), filename
 

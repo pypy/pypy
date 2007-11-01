@@ -131,7 +131,7 @@ class Builder(object):
         self.lastdir = py.path.local()
         self.dirpath.chdir()
 
-        return llvmfile.purebasename
+        return self.genllvm.entry_name
         
     def make_module(self):
         base = self.setup()

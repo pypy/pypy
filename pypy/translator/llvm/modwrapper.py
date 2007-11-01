@@ -132,7 +132,7 @@ def to_list(res, C_TYPE, action):
 """
 
     epilog = """
-__entrypoint__ = _c.__entrypoint__%(name)s
+__entrypoint__ = _c.__entrypoint__pypy_%(name)s
 
 # %(RT)r
 to_llargs = %(to_llargs)s
@@ -157,7 +157,7 @@ __entrypoint__.restype = %(returntype)s
     def __init__(self, genllvm, dllname):
         self.genllvm = genllvm
         self.dllname = dllname
-        basename = self.genllvm.filename.purebasename + '_wrapper.py'
+        basename = self.genllvm.entry_name + '_wrapper.py'
         self.modfilename = genllvm.filename.new(basename=basename)
         self.count = 0
 
@@ -166,7 +166,7 @@ __entrypoint__.restype = %(returntype)s
         self.file.write(self.prolog % self.dllname)
         
         g = self.genllvm.entrynode.graph  
-        name = "pypy_" + g.name
+        name = self.genllvm.entry_name
 
         ARGS = [a.concretetype for a in g.startblock.inputargs]
         inputargtypes, to_llargs = self.build_args_to_ctypes_to_lltype(ARGS)
