@@ -35,6 +35,8 @@ def make_failing(code):
 # Squeak has primitives all the way up to 575
 # So all optional primitives will default to the bytecode implementation
 prim_table = [make_failing(i) for i in range(576)]
+# clean up namespace:
+del i
 prim_table_implemented_only = []
 
 # indicates that what is pushed is an index1, but it is unwrapped and
@@ -426,8 +428,8 @@ def func(interp, w_class, bytecount, w_header):
     # XXX not sure this is correct
     assert isinstance(w_method, model.W_CompiledMethod)
     w_method.literals[constants.METHOD_HEADER_INDEX] = w_header
-    for i in range(0,literalcount):
-        w_method.literals[i+1] = objtable.w_nil
+    for i0 in range(1, literalcount):
+        w_method.literals[i0] = objtable.w_nil
     w_method.bytes = "\x00" * bytecount
     return w_method
 

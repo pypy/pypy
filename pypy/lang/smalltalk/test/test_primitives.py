@@ -411,6 +411,17 @@ def test_load_inst_var():
     w_v = prim(primitives.INST_VAR_AT_0, ["q"])
     assert w_v.value == ord("q")
 
+def test_new_method():
+    bytecode = ''.join(map(chr, [ 16, 119, 178, 154, 118, 164, 11, 112, 16, 118, 177, 224, 112, 16, 119, 177, 224, 176, 124 ]))
+
+    shadow = mockclass(0).as_class_get_shadow()
+    w_method = prim(primitives.NEW_METHOD, [classtable.w_CompiledMethod, len(bytecode), 1025])
+    assert w_method.literals[0].value == 1025
+    assert len(w_method.literals) == 2
+    assert w_method.literals[1] is objtable.w_nil
+    assert w_method.bytes == "\x00" * len(bytecode)
+
+
 # Note:
 #   primitives.NEXT is unimplemented as it is a performance optimization
 #   primitives.NEXT_PUT is unimplemented as it is a performance optimization

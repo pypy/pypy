@@ -129,6 +129,8 @@ class ClassShadow(AbstractShadow):
             return model.W_WordsObject(w_cls, extrasize)
         elif self.instance_kind == BYTES:
             return model.W_BytesObject(w_cls, extrasize)
+        elif self.instance_kind == COMPILED_METHOD:
+            return model.W_CompiledMethod(extrasize)
         else:
             raise NotImplementedError(self.instance_kind)
 
