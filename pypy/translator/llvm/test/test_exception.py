@@ -3,8 +3,11 @@ import sys
 import py
 from pypy.translator.test.snippet import try_raise_choose
 from pypy.rlib.rarithmetic import r_uint, ovfcheck, ovfcheck_lshift
-
+from pypy.rpython.test.test_exception import BaseTestException
 from pypy.translator.llvm.test.runtest import *
+
+class TestLLVMException(LLVMTest, BaseTestException):
+    pass
 
 class TestException(Exception):
     pass

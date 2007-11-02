@@ -1,7 +1,8 @@
 import sys
 from pypy.rlib.rarithmetic import r_longlong, r_uint, intmask
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rpython.lltypesystem.lltype import Signed
+from pypy.rpython.lltypesystem.lltype import Signed, SignedLongLong, \
+                                        UnsignedLongLong
 
 #XXX original SIGNED_RIGHT_SHIFT_ZERO_FILLS not taken into account
 #XXX assuming HAVE_LONG_LONG (int_mul_ovf)
@@ -32,6 +33,27 @@ def uint_floordiv_zer(x, y):
         return x / y
     else:
         raise ZeroDivisionError("unsigned integer division")
+
+def llong_floordiv_zer(x, y):
+    '''#define OP_LLONG_FLOORDIV_ZER(x,y,r) \
+    	if ((y)) { OP_LLONG_FLOORDIV(x,y,r); } \
+    	else FAIL_ZER("integer division")
+    '''
+    if y:
+        return llop.llong_floordiv(SignedLongLong, x, y)
+    else:
+        raise ZeroDivisionError("integer division")
+
+def ullong_floordiv_zer(x, y):
+    '''#define OP_ULLONG_FLOORDIV_ZER(x,y,r) \
+    	if ((y)) { OP_ULLONG_FLOORDIV(x,y,r); } \
+    	else FAIL_ZER("unsigned integer division")
+    '''
+    if y:
+        return llop.llong_floordiv(UnsignedLongLong, x, y)
+    else:
+        raise ZeroDivisionError("unsigned integer division")
+
 
 def int_neg_ovf(x):
     if x == LONG_MIN:
@@ -196,6 +218,16 @@ def int_mod_ovf_zer(x, y):
     '''
     if y:
         return int_mod_ovf(x, y)
+    else:
+        raise ZeroDivisionError("integer modulo")
+
+def llong_mod_zer(x, y):
+    '''#define OP_LLONG_MOD_ZER(x,y,r) \
+    	if ((y)) { OP_LLONG_MOD(x,y,r); } \
+    	else FAIL_ZER("integer modulo")
+    '''
+    if y:
+        return llop.int_mod(SignedLongLong, x, y)
     else:
         raise ZeroDivisionError("integer modulo")
 
