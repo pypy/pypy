@@ -60,6 +60,8 @@
     OP_INT_ADD(x,y,r); \
     if (r >= (x)); \
     else FAIL_OVF("integer addition")
+/* XXX can a C compiler be too clever and think it can "prove" that
+ * r >= x always hold above? */
 
 #define OP_INT_SUB(x,y,r)     r = (x) - (y)
 
