@@ -430,8 +430,31 @@ r_longlong, r_ulonglong, bool, float and one-length strings (i.e.,
 chars). By contrast, most types are fine for being returned: these
 include all primitive types, list, tuples and instances.
 
+Installing Python for .NET on Linux
+===================================
+
+With the CLI backend, you can access .NET libraries from RPython;
+programs using .NET libraries will always run when translated, but you
+might also want to test them on top of CPython.
+
+To do so, you can install `Python for .NET`_. Unfortunately, it does
+not work out of the box under Linux.
+
+To make it working, download and unpack the source package of Python
+for .NET; the only version tested with PyPy is the 1.0-rc2, but it
+might work also with others. Then, you need to create a file named
+Python.Runtime.dll.config at the root of the unpacked archive; put the
+following lines inside the file::
+
+  <configuration>
+    <dllmap dll="python24" target="libpython2.4.so.1.0" os="!windows"/>
+  </configuration>
+
+The installation should be complete now. To run Python for .NET,
+simply type ``mono python.exe``.
 
 
 .. _`Standard Ecma 335`: http://www.ecma-international.org/publications/standards/Ecma-335.htm
 .. _`flow graph`: translation.html#the-flow-model
 .. _`rtyper`: rtyper.html
+.. _`Python for .NET`: http://pythonnet.sourceforge.net/
