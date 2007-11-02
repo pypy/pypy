@@ -9,6 +9,7 @@ from pypy.lang.smalltalk import interpreter
 from pypy.lang.smalltalk import objtable
 from pypy.lang.smalltalk import classtable
 from pypy.lang.smalltalk import shadow
+from pypy.lang.smalltalk import utility
 # lazy initialization of test data, ie ImageReader and Float class
 
 def setup_module(module):
@@ -226,7 +227,6 @@ def test_map_mirrors_to_classtable():
     assert w_false is objtable.w_false
     
 def test_compile_method():
-    py.test.skip("not quite yet")
     sourcecode = """fib 
                         ^self < 2 
                             ifTrue: [ 1 ] 
@@ -240,15 +240,15 @@ def w(any):
     if isinstance(any, str):
         # assume never have strings of length 1
         if len(any) == 1: 
-            return objtable.wrap_chr(any)
+            return utility.wrap_chr(any)
         else:
-            return objtable.wrap_string(any)
+            return utility.wrap_string(any)
     if isinstance(any, int):    
-        return objtable.wrap_int(any)
+        return utility.wrap_int(any)
     if isinstance(any, bool):
-        return objtable.wrap_bool(any)
+        return utility.wrap_bool(any)
     if isinstance(any, float):
-        return objtable.wrap_float(any)
+        return utility.wrap_float(any)
     else:
         raise Exception    
         
