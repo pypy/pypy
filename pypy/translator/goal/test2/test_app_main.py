@@ -337,5 +337,8 @@ class TestNonInteractive:
         data = self.run('-m pypy.translator.goal.test2.mymodule extra')
         assert 'mymodule running' in data
         assert 'Name: __main__' in data
-        assert ('File: ' + p) in data
-        assert ('Argv: ' + repr([p, 'extra'])) in data
+        # ignoring case for windows. abspath behaves different from autopath
+        # concerning drive letters right now
+        # XXX fix nt module to implement _getfullpathname
+        assert ('File: ' + p).lower() in data.lower()
+        assert ('Argv: ' + repr([p, 'extra'])).lower() in data.lower()
