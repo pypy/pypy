@@ -7,6 +7,7 @@ from pypy.translator.backendopt import support
 from pypy.tool.uid import uid
 
 class CreationPoint(object):
+    constant = None
     def __init__(self, creation_method, TYPE):
         self.creation_method = creation_method
         self.TYPE = TYPE
@@ -64,6 +65,7 @@ class AbstractDataFlowInterpreter(object):
         else:
             if var_or_const not in self.constant_cps:
                 crep = CreationPoint("constant", var_or_const.concretetype)
+                crep.constant = var_or_const
                 self.constant_cps[var_or_const] = crep
             else:
                 crep = self.constant_cps[var_or_const]
@@ -154,8 +156,7 @@ class AbstractDataFlowInterpreter(object):
                 return
             
         if isonheap(op.result) or filter(None, args):
-            raise NotImplementedError("can't handle %s" % (op.opname, ))
-            #print "assuming that '%s' is irrelevant" % op
+            print "assuming that '%s' is irrelevant" % op
         
     def complete(self):
         while self.scheduled:
@@ -304,4 +305,59 @@ def malloc_to_coalloc(t):
         if graph.startblock not in adi.flown_blocks:
             adi.schedule_function(graph)
             adi.complete()
-    return adi
+    look_at = t.graphs[:]
+    total = 0
+    while look_at:
+        graph = look_at.pop()
+        for block, op in graph.iterblockops():
+            if not op.opname.startswith("set"):
+                continue
+            if not isonheap(op.args[-1]):
+                continue
+            tovarstate = adi.getstate(op.args[-1])
+            fromvarstate = adi.getstate(op.args[0])
+            if (len(tovarstate.creation_points) != 1 or
+                len(fromvarstate.creation_points) != 1):
+                continue
+            fromcrep = fromvarstate.creation_points.keys()[0]
+            tocrep = tovarstate.creation_points.keys()[0]
+            if not tocrep.creation_method.startswith("malloc"):
+                continue
+            if fromcrep.creation_method.startswith("malloc"):
+                continue # also recently malloced
+
+            num = do_coalloc(adi, graph, fromcrep, tocrep)
+
+            if num:
+                look_at.append(graph)
+                print "changed %s mallocs to coallocs in %s" % (num, graph.name)
+                total += num
+    return total
+
+
+def do_coalloc(adi, graph, fromcrep, tocrep):
+    result = 0
+    for block, op in graph.iterblockops():
+        if not op.opname.startswith("malloc"):
+            continue
+        # find coallocation var
+        if fromcrep.creation_method == "constant":
+            coallocvar = fromcrep.constant
+        else:
+            for var in block.inputargs:
+                varstate = adi.getstate(var)
+                assert len(varstate.creation_points) == 1
+                crep = varstate.creation_points.keys()[0]
+                if crep is fromcrep:
+                    coallocvar = var
+                    break
+            else:
+                continue
+        op.opname = "coalloc" + op.opname[len("malloc"):]
+        op.args.insert(1, coallocvar)
+        mallocvarstate = adi.getstate(op.result)
+        assert len(mallocvarstate.creation_points) == 1
+        malloccrep = mallocvarstate.creation_points.keys()[0]
+        malloccrep.creation_method = "coalloc"
+        result += 1
+    return result

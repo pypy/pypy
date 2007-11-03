@@ -1,5 +1,5 @@
 from pypy.translator.translator import TranslationContext, graphof
-from pypy.translator.backendopt.coalloc import AbstractDataFlowInterpreter
+from pypy.translator.backendopt.coalloc import AbstractDataFlowInterpreter, malloc_to_coalloc
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rlib.objectmodel import instantiate
 from pypy import conftest
@@ -17,6 +17,27 @@ def build_adi(function, types):
     adi.schedule_function(graph)
     adi.complete()
     return t, adi, graph
+
+def check_malloc_to_coalloc(function, types, args, expected_result, must_remove=-1):
+    t = TranslationContext()
+    t.buildannotator().build_types(function, types)
+    t.buildrtyper().specialize()
+    interp = LLInterpreter(t.rtyper)
+    graph = graphof(t, function)
+    res = interp.eval_graph(graph, args)
+    assert res == expected_result
+    num = malloc_to_coalloc(t)
+    if must_remove == -1:
+        for block in graph.iterblocks():
+            for op in block.operations:
+                assert op.opname != "malloc"
+    else:
+        assert num == must_remove
+    t.view()
+    res = interp.eval_graph(graph, args)
+    assert res == expected_result
+    return t
+
 
 def test_simple():
     class A(object):
@@ -111,4 +132,42 @@ def test_aliasing():
     assert len(state.creation_points) == 2
     for crep in state.creation_points.keys():
         assert crep.creation_method == "malloc"
+
+def test_coalloc_constants():
+    class A(object):
+        pass
+    a = A()
+    def f():
+        n = A()
+        a.next = n
+        return 1
+    check_malloc_to_coalloc(f, [], [], 1)
+
+def test_nocoalloc_aliasing():
+    class A:
+        pass
+    def fn6(n):
+        a1 = A()
+        a1.x = 5
+        a2 = A()
+        a2.x = 6
+        if n > 0:
+            a = a1
+        else:
+            a = a2
+        a.x = 12
+        return a1.x
+    t = check_malloc_to_coalloc(fn6, [int], [2], 12, must_remove=0)
+
+def test_coalloc_with_arg():
+    class A(object):
+        pass
+    def g(b):
+        b.x = A()
+    def f():
+        a = A()
+        g(a)
+        a.i = 2
+        return 4
+    t = check_malloc_to_coalloc(f, [], [], 4, must_remove=1)
 
