@@ -213,16 +213,18 @@ def test_coalloc_list():
             l.append(A())
             i += 1
         return len(l)
-    t = check_malloc_to_coalloc(f, [int], [8], 8, must_remove=2)
+    t = check_malloc_to_coalloc(f, [int], [8], 8, must_remove=1)
 
 
 def test_nocoalloc_bug():
     class A(object):
         pass
     a1 = A()
+    def g(a):
+        a.items = A()
     def f(count):
         a = A()
         a.length = count
-        a.items = A()
+        g(a)
         return a.length
     t = check_malloc_to_coalloc(f, [int], [8], 8, must_remove=1)

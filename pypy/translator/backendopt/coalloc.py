@@ -324,16 +324,17 @@ def malloc_to_coalloc(t):
                 continue
             for fromcrep in fromcreps:
                 if fromcrep.creation_method.startswith("malloc"):
-                    continue # also recently malloced
+                     break # also recently malloced
+            else:
+                #import pdb; pdb.set_trace()
+                num = do_coalloc(adi, graph, op.args[0], block,
+                                 fromcreps, tocrep)
 
-            #import pdb; pdb.set_trace()
-            num = do_coalloc(adi, graph, op.args[0], block,
-                             fromcreps, tocrep)
-
-            if num:
-                look_at.append(graph)
-                print "changed %s mallocs to coallocs in %s" % (num, graph.name)
-                total += num
+                if num:
+                    look_at.append(graph)
+                    print "changed %s mallocs to coallocs in %s" % (
+                        num, graph.name)
+                    total += num
     return total
 
 
