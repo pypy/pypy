@@ -197,14 +197,14 @@ class AbstractDataFlowInterpreter(object):
     def op_malloc(self, op, typestate, flagsstate):
         assert flagsstate is None
         flags = op.args[1].value
-        if flags != {'flavor': 'gc'}:
+        if flags['flavor'] != 'gc':
             return NotImplemented
         return VarState(self.get_creationpoint(op.result, "malloc"))
 
     def op_malloc_varsize(self, op, typestate, flagsstate, lengthstate):
         assert flagsstate is None
         flags = op.args[1].value
-        if flags != {'flavor': 'gc'}:
+        if flags['flavor'] != 'gc':
             return NotImplemented
         return VarState(self.get_creationpoint(op.result, "malloc_varsize"))
 
@@ -214,7 +214,7 @@ class AbstractDataFlowInterpreter(object):
     def op_cast_pointer(self, op, state):
         return state
     
-    def op_getfield(self, op, objstate, fieldname):
+    def op_getfield(self, op, objstate, *rest):
         # connectivity-wise the field within is identical to the containing
         # structure
         return objstate
@@ -223,7 +223,7 @@ class AbstractDataFlowInterpreter(object):
     def op_getarraysize(self, op, arraystate):
         pass
 
-    def op_setfield(self, op, objstate, fieldname, valuestate):
+    def op_setfield(self, op, objstate, *args):
         pass
     op_setarrayitem = op_setinteriorfield = op_setfield
 

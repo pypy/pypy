@@ -215,6 +215,18 @@ def test_coalloc_list():
         return len(l)
     t = check_malloc_to_coalloc(f, [int], [8], 8, must_remove=1)
 
+def test_coalloc_dict():
+    class A(object):
+        pass
+    a1 = A()
+    def f(count):
+        i = 0
+        d = {}
+        while i < count:
+            d[i] = A()
+            i += 1
+        return len(d)
+    t = check_malloc_to_coalloc(f, [int], [8], 8, must_remove=1)
 
 def test_nocoalloc_bug():
     class A(object):
