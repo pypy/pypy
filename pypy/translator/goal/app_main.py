@@ -188,7 +188,11 @@ been compiled in, so PyPy behaves really conformant, making all .py
 modules changeable, again.
 """
 
-from pypy.rlib.objectmodel import we_are_translated
+try:
+    # for some reason, some tests break with this import
+    from pypy.rlib.objectmodel import we_are_translated
+except ImportError:
+    we_are_translated = False
 
 class fake_os:
     def __init__(self):
