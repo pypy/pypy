@@ -675,6 +675,10 @@ class LLFrame(object):
             self.llinterpreter.remember_malloc(ptr, self)
         return ptr
 
+    def op_coalloc(self, obj, coallocator, flags):
+        # it's always safe to ignore the coallocator
+        return self.op_malloc(obj, flags)
+
     # only after gc transform
     def op_cpy_malloc(self, obj, cpytype): # xxx
         return self.heap.malloc(obj, flavor='cpy', extra_args=(cpytype,))
@@ -693,6 +697,10 @@ class LLFrame(object):
             return ptr
         except MemoryError:
             self.make_llexception()
+
+    def op_coalloc_varsize(self, obj, coallocator, flags, size):
+        # it's always safe to ignore the coallocator
+        return self.op_malloc_varsize(obj, flags, size)
 
     def op_free(self, obj, flavor):
         assert isinstance(flavor, str)

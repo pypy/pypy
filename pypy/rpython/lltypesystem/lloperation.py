@@ -316,6 +316,8 @@ LL_OPERATIONS = {
 
     'malloc':               LLOp(canraise=(MemoryError,), canunwindgc=True),
     'malloc_varsize':       LLOp(canraise=(MemoryError,), canunwindgc=True),
+    'coalloc':              LLOp(canraise=(MemoryError,), canunwindgc=True),
+    'coalloc_varsize':      LLOp(canraise=(MemoryError,), canunwindgc=True),
     'zero_gc_pointers_inside': LLOp(),
     'free':                 LLOp(),
     'getfield':             LLOp(sideeffects=False, canrun=True),
