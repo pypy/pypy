@@ -172,7 +172,7 @@ def test_coalloc_with_arg():
         return 4
     t = check_malloc_to_coalloc(f, [], [], 4, must_remove=1)
 
-def test_coalloc_with_arg_several_creationpoints():
+def test_coalloc_with_arg_set_in_same_block():
     class A(object):
         pass
     a1 = A()
@@ -180,6 +180,21 @@ def test_coalloc_with_arg_several_creationpoints():
         if cond:
             b = a1
         b.x = A()
+    def f(cond):
+        a2 = A()
+        g(cond, a2)
+        return 4
+    t = check_malloc_to_coalloc(f, [bool], [True], 4, must_remove=1)
+
+def test_coalloc_with_arg_several_creationpoints():
+    class A(object):
+        pass
+    a1 = A()
+    def g(cond, b):
+        a = A()
+        if cond:
+            b = a1
+        b.x = a
     def f(cond):
         a2 = A()
         g(cond, a2)
