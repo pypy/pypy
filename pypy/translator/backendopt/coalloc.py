@@ -316,17 +316,18 @@ def malloc_to_coalloc(t):
                 continue
             tovarstate = adi.getstate(op.args[-1])
             fromvarstate = adi.getstate(op.args[0])
-            if (len(tovarstate.creation_points) != 1 or
-                len(fromvarstate.creation_points) != 1):
+            if len(tovarstate.creation_points) != 1:
                 continue
-            fromcrep = fromvarstate.creation_points.keys()[0]
+            fromcreps = set(fromvarstate.creation_points.keys())
             tocrep = tovarstate.creation_points.keys()[0]
             if not tocrep.creation_method.startswith("malloc"):
                 continue
-            if fromcrep.creation_method.startswith("malloc"):
-                continue # also recently malloced
+            for fromcrep in fromcreps:
+                if fromcrep.creation_method.startswith("malloc"):
+                    continue # also recently malloced
 
-            num = do_coalloc(adi, graph, fromcrep, tocrep)
+            num = do_coalloc(adi, graph, op.args[0], block,
+                             fromcreps, tocrep)
 
             if num:
                 look_at.append(graph)
@@ -335,24 +336,28 @@ def malloc_to_coalloc(t):
     return total
 
 
-def do_coalloc(adi, graph, fromcrep, tocrep):
-    result = 0
-    for block, op in graph.iterblockops():
-        if not op.opname.startswith("malloc"):
-            continue
-        # find coallocation var
-        if fromcrep.creation_method == "constant":
-            coallocvar = fromcrep.constant
-        else:
+def do_coalloc(adi, graph, fromvar, setblock, fromcreps, tocrep):
+    def find_coalloc_var():
+        if block is setblock:
+            return fromvar
+        for fromcrep in fromcreps:
+            if fromcrep.creation_method == "constant":
+                return fromcrep.constant
+        for fromcrep in fromcreps:
             for var in block.inputargs:
                 varstate = adi.getstate(var)
                 assert len(varstate.creation_points) == 1
                 crep = varstate.creation_points.keys()[0]
                 if crep is fromcrep:
-                    coallocvar = var
-                    break
-            else:
-                continue
+                    return var
+        return None
+    result = 0
+    for block, op in graph.iterblockops():
+        if not op.opname.startswith("malloc"):
+            continue
+        coallocvar = find_coalloc_var()
+        if coallocvar is None:
+            continue
         op.opname = "coalloc" + op.opname[len("malloc"):]
         op.args.insert(1, coallocvar)
         mallocvarstate = adi.getstate(op.result)

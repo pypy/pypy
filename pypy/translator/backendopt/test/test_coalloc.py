@@ -33,7 +33,8 @@ def check_malloc_to_coalloc(function, types, args, expected_result, must_remove=
                 assert op.opname != "malloc"
     else:
         assert num == must_remove
-    t.view()
+    if conftest.option.view:
+        t.view()
     res = interp.eval_graph(graph, args)
     assert res == expected_result
     return t
@@ -170,4 +171,18 @@ def test_coalloc_with_arg():
         a.i = 2
         return 4
     t = check_malloc_to_coalloc(f, [], [], 4, must_remove=1)
+
+def test_coalloc_with_arg_several_creationpoints():
+    class A(object):
+        pass
+    a1 = A()
+    def g(cond, b):
+        if cond:
+            b = a1
+        b.x = A()
+    def f(cond):
+        a2 = A()
+        g(cond, a2)
+        return 4
+    t = check_malloc_to_coalloc(f, [bool], [True], 4, must_remove=1)
 
