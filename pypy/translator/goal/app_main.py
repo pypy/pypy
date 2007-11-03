@@ -233,25 +233,19 @@ os = fake_os()
 
 AUTOSUBPATH = 'share' + os.sep + 'pypy-%d.%d'
 
-# hack to determine if we are on windows. Maybe there is a better way...
-DRIVE_LETTER_SEP = ''
-try:
-    here = os.getcwd()
-    try:
-        os.chdir('C:')
-        DRIVE_LETTER_SEP = ':'
-    finally:
-        os.chdir(here)
-except os.OSError:
-    DRIVE_LETTER_SEP = None
-IS_WINDOWS = DRIVE_LETTER_SEP is not None
-# XXX extend here
+if 'nt' in sys.builtin_module_names:
+    IS_WINDOWS = True
+    DRIVE_LETTER_SEP = ':'
+else:
+    IS_WINDOWS = False
 
 def entry_point(executable, argv):
     # find the full path to the executable, assuming that if there is no '/'
     # in the provided one then we must look along the $PATH
     os.setup() # this is the faked one
-    if os.sep not in executable and DRIVE_LETTER_SEP not in executable:
+    if os.sep in executable or (IS_WINDOWS and DRIVE_LETTER_SEP in executable):
+        pass    # the path is already more than just an executable name
+    else:
         path = os.getenv('PATH')
         if path:
             for dir in path.split(os.pathsep):
