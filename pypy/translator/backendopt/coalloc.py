@@ -7,25 +7,20 @@ from pypy.translator.backendopt import support
 from pypy.tool.uid import uid
 
 class CreationPoint(object):
-    def __init__(self, creation_method, lltype):
-        self.changes = False
-        self.escapes = False
+    def __init__(self, creation_method, TYPE):
         self.creation_method = creation_method
-        if creation_method == "constant":
-            self.changes = True
-            self.escapes = True
-            self.malloced = False
-        self.lltype = lltype
+        self.TYPE = TYPE
 
     def __repr__(self):
-        return ("CreationPoint(<0x%x>, %r, %s, esc=%s, cha=%s)" %
-                (uid(self), self.lltype, self.creation_method, self.escapes, self.changes))
+        return ("CreationPoint(<0x%x>, %r)" %
+                (uid(self), self.TYPE))
 
 class VarState(object):
     def __init__(self, crep=None):
         self.creation_points = {}
         if crep is not None:
             self.creation_points[crep] = True
+        self.returned = False
 
     def contains(self, other):
         for crep in other.creation_points:
@@ -39,37 +34,14 @@ class VarState(object):
         newstate.creation_points = creation_points
         return newstate
 
-    def setescapes(self):
-        changed = []
-        for crep in self.creation_points:
-            if not crep.escapes:
-                changed.append(crep)
-                crep.escapes = True
-        return changed
-
-    def setchanges(self):
-        changed = []
-        for crep in self.creation_points:
-            if not crep.changes:
-                changed.append(crep)
-                crep.changes = True
-        return changed
-    
-    def does_escape(self):
-        for crep in self.creation_points:
-            if crep.escapes:
-                return True
-        return False
-
-    def does_change(self):
-        for crep in self.creation_points:
-            if crep.changes:
-                return True
-        return False
-    
     def __repr__(self):
         crepsrepr = (", ".join([repr(crep) for crep in self.creation_points]), )
         return "VarState({%s})" % crepsrepr
+
+class GraphState(object):
+    def __init__(self, graph):
+        self.graph = graph
+
 
 class AbstractDataFlowInterpreter(object):
     def __init__(self, translation_context):
@@ -82,9 +54,6 @@ class AbstractDataFlowInterpreter(object):
         self.functionargs = {} # graph: list of state of args
         self.flown_blocks = {} # block: True
 
-    def seen_graphs(self):
-        return self.functionargs.keys()
-    
     def getstate(self, var_or_const):
         if not isonheap(var_or_const):
             return None
@@ -140,16 +109,9 @@ class AbstractDataFlowInterpreter(object):
         self.flown_blocks[block] = True
         if block is graph.returnblock:
             if isonheap(block.inputargs[0]):
-                changed = self.getstate(block.inputargs[0]).setescapes()
-                self.handle_changed(changed)
+                self.getstate(block.inputargs[0]).returned = True
             return
         if block is graph.exceptblock:
-            if isonheap(block.inputargs[0]):
-                changed = self.getstate(block.inputargs[0]).setescapes()
-                self.handle_changed(changed)
-            if isonheap(block.inputargs[1]):
-                changed = self.getstate(block.inputargs[1]).setescapes()
-                self.handle_changed(changed)
             return
         self.curr_block = block
         self.curr_graph = graph
@@ -192,13 +154,7 @@ class AbstractDataFlowInterpreter(object):
                 return
             
         if isonheap(op.result) or filter(None, args):
-            for arg in args:
-                if arg is not None:
-                    changed = arg.setchanges()
-                    self.handle_changed(changed)
-                    changed = arg.setescapes()
-                    self.handle_changed(changed)
-            #raise NotImplementedError("can't handle %s" % (op.opname, ))
+            raise NotImplementedError("can't handle %s" % (op.opname, ))
             #print "assuming that '%s' is irrelevant" % op
         
     def complete(self):
@@ -257,99 +213,64 @@ class AbstractDataFlowInterpreter(object):
     def op_cast_pointer(self, op, state):
         return state
     
-    def op_setfield(self, op, objstate, fieldname, valuestate):
-        changed = objstate.setchanges()
-        self.handle_changed(changed)
-        if valuestate is not None:
-            # be pessimistic for now:
-            # everything that gets stored into a structure escapes and changes
-            self.handle_changed(changed)
-            changed = valuestate.setchanges()
-            self.handle_changed(changed)
-            changed = valuestate.setescapes()
-            self.handle_changed(changed)
-        return None
-
-    def op_setarrayitem(self, op, objstate, indexstate, valuestate):
-        changed = objstate.setchanges()
-        self.handle_changed(changed)
-        if valuestate is not None:
-            # everything that gets stored into a structure escapes and changes
-            self.handle_changed(changed)
-            changed = valuestate.setchanges()
-            self.handle_changed(changed)
-            changed = valuestate.setescapes()
-            self.handle_changed(changed)
-        return None
-
-    def op_getarrayitem(self, op, objstate, indexstate):
-        if isonheap(op.result):
-            return VarState(self.get_creationpoint(op.result, "getarrayitem"))
-    
     def op_getfield(self, op, objstate, fieldname):
-        if isonheap(op.result):
-            # assume that getfield creates a new value
-            return VarState(self.get_creationpoint(op.result, "getfield"))
-
-    def op_getsubstruct(self, op, objstate, fieldname):
-        # since this is really an embedded struct, it has the same
-        # state, the same creationpoints, etc.
+        # connectivity-wise the field within is identical to the containing
+        # structure
         return objstate
-
-    def op_getarraysubstruct(self, op, arraystate, indexstate):
-        # since this is really a struct embedded somewhere in the array it has
-        # the same state, creationpoints, etc. in most cases the resulting
-        # pointer should not be used much anyway
-        return arraystate
+    op_getarrayitem = op_getinteriorfield = op_getfield
 
     def op_getarraysize(self, op, arraystate):
         pass
 
+    def op_setfield(self, op, objstate, fieldname, valuestate):
+        pass
+    op_setarrayitem = op_setinteriorfield = op_setfield
+
     def op_direct_call(self, op, function, *args):
-        graph = get_graph(op.args[0], self.translation_context)
-        if graph is None:
-            for arg in args:
-                if arg is None:
-                    continue
-                # an external function can change every parameter:
-                changed = arg.setchanges()
-                self.handle_changed(changed)
-            funcargs = [None] * len(args)
-        else:
-            result, funcargs = self.schedule_function(graph)
-        assert len(args) == len(funcargs)
-        for localarg, funcarg in zip(args, funcargs):
-            if localarg is None:
-                assert funcarg is None
-                continue
-            if funcarg is not None:
-                self.register_state_dependency(localarg, funcarg)
+#        graph = get_graph(op.args[0], self.translation_context)
+#        if graph is None:
+#            for arg in args:
+#                if arg is None:
+#                    continue
+#                # an external function can change every parameter:
+#                changed = arg.setchanges()
+#                self.handle_changed(changed)
+#            funcargs = [None] * len(args)
+#        else:
+#            result, funcargs = self.schedule_function(graph)
+#        assert len(args) == len(funcargs)
+#        for localarg, funcarg in zip(args, funcargs):
+#            if localarg is None:
+#                assert funcarg is None
+#                continue
+#            if funcarg is not None:
+#                self.register_state_dependency(localarg, funcarg)
         if isonheap(op.result):
-            # assume that a call creates a new value
+            # for now assume that a call always creates a new value
             return VarState(self.get_creationpoint(op.result, "direct_call"))
 
     def op_indirect_call(self, op, function, *args):
-        graphs = op.args[-1].value
-        args = args[:-1]
-        if graphs is None:
-            for localarg in args:
-                if localarg is None:
-                    continue
-                changed = localarg.setescapes()
-                self.handle_changed(changed)
-                changed = localarg.setchanges()
-                self.handle_changed(changed)
-        else:
-            for graph in graphs:
-                result, funcargs = self.schedule_function(graph)
-                assert len(args) == len(funcargs)
-                for localarg, funcarg in zip(args, funcargs):
-                    if localarg is None:
-                        assert funcarg is None
-                        continue
-                    self.register_state_dependency(localarg, funcarg)
+#        graphs = op.args[-1].value
+#        args = args[:-1]
+#        if graphs is None:
+#            for localarg in args:
+#                if localarg is None:
+#                    continue
+#                changed = localarg.setescapes()
+#                self.handle_changed(changed)
+#                changed = localarg.setchanges()
+#                self.handle_changed(changed)
+#        else:
+#            for graph in graphs:
+#                result, funcargs = self.schedule_function(graph)
+#                assert len(args) == len(funcargs)
+#                for localarg, funcarg in zip(args, funcargs):
+#                    if localarg is None:
+#                        assert funcarg is None
+#                        continue
+#                    self.register_state_dependency(localarg, funcarg)
         if isonheap(op.result):
-            # assume that a call creates a new value
+            # for now assume that a call always creates a new value
             return VarState(self.get_creationpoint(op.result, "indirect_call"))
 
     def op_ptr_iszero(self, op, ptrstate):
@@ -377,35 +298,10 @@ def multicontains(l1, l2):
             return False
     return True
 
-def malloc_to_stack(t):
+def malloc_to_coalloc(t):
     adi = AbstractDataFlowInterpreter(t)
     for graph in t.graphs:
         if graph.startblock not in adi.flown_blocks:
             adi.schedule_function(graph)
             adi.complete()
-    for graph in t.graphs:
-        loop_blocks = support.find_loop_blocks(graph)
-        for block, op in graph.iterblockops():
-            if op.opname != 'malloc':
-                continue
-            STRUCT = op.args[0].value
-            # must not remove mallocs of structures that have a RTTI with a destructor
-            try:
-                destr_ptr = lltype.getRuntimeTypeInfo(STRUCT)._obj.destructor_funcptr
-                if destr_ptr:
-                    continue
-            except (ValueError, AttributeError), e:
-                pass
-            varstate = adi.getstate(op.result)
-            assert len(varstate.creation_points) == 1
-            crep = varstate.creation_points.keys()[0]
-            if not crep.escapes:
-                if block not in loop_blocks:
-                    print "moving object from heap to stack %s in %s" % (op, graph.name)
-                    flags = op.args[1].value
-                    assert flags == {'flavor': 'gc'}
-                    op.args[1] = Constant({'flavor': 'stack'}, lltype.Void)
-                else:
-                    print "%s in %s is a non-escaping malloc in a loop" % (op, graph.name)
-
-
+    return adi
