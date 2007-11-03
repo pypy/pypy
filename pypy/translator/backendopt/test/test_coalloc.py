@@ -201,3 +201,28 @@ def test_coalloc_with_arg_several_creationpoints():
         return 4
     t = check_malloc_to_coalloc(f, [bool], [True], 4, must_remove=1)
 
+
+def test_coalloc_list():
+    class A(object):
+        pass
+    a1 = A()
+    def f(count):
+        i = 0
+        l = []
+        while i < count:
+            l.append(A())
+            i += 1
+        return len(l)
+    t = check_malloc_to_coalloc(f, [int], [8], 8, must_remove=2)
+
+
+def test_nocoalloc_bug():
+    class A(object):
+        pass
+    a1 = A()
+    def f(count):
+        a = A()
+        a.length = count
+        a.items = A()
+        return a.length
+    t = check_malloc_to_coalloc(f, [int], [8], 8, must_remove=1)

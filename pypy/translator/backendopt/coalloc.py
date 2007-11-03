@@ -326,6 +326,7 @@ def malloc_to_coalloc(t):
                 if fromcrep.creation_method.startswith("malloc"):
                     continue # also recently malloced
 
+            #import pdb; pdb.set_trace()
             num = do_coalloc(adi, graph, op.args[0], block,
                              fromcreps, tocrep)
 
@@ -354,6 +355,8 @@ def do_coalloc(adi, graph, fromvar, setblock, fromcreps, tocrep):
     result = 0
     for block, op in graph.iterblockops():
         if not op.opname.startswith("malloc"):
+            continue
+        if adi.getstate(op.result).creation_points.keys()[0] is not tocrep:
             continue
         coallocvar = find_coalloc_var()
         if coallocvar is None:
