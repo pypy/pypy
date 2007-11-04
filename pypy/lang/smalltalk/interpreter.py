@@ -42,7 +42,8 @@ class Interpreter:
 
     def step(self):
         next = self.w_active_context.getNextBytecode()
-        # AK please explain this cond 
+        # we_are_translated returns false on top of CPython and true when
+        # translating the interpreter
         if not objectmodel.we_are_translated():
             bytecodeimpl = BYTECODE_TABLE[next]
             if self._w_last_active_context != self.w_active_context:
@@ -65,7 +66,10 @@ class Interpreter:
                     next, bytecodeimpl.__name__,)
             bytecodeimpl(self.w_active_context, self)
         else:
-            # AK does not understand below
+            # this is a performance optimization: when translating the
+            # interpreter, the bytecode dispatching is not implemented as a
+            # list lookup and an indirect call but as a switch. The for loop
+            # below produces the switch (by being unrolled).
             for code, bytecodeimpl in unrolling_bytecode_table:
                 if code == next:
                     bytecodeimpl(self.w_active_context, self)
@@ -81,7 +85,7 @@ class ReturnFromTopLevel(Exception):
 #
 # "self" is always a W_ContextPart instance.  
 
-# AK does not understand __extend__
+# __extend__ adds new methods to the W_ContextPart class
 class __extend__(W_ContextPart):
     # push bytecodes
     def pushReceiverVariableBytecode(self, interp):
