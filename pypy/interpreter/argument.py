@@ -155,7 +155,17 @@ class AbstractArguments:
         """ Purely abstract
         """
         raise NotImplementedError()
+
+    def _match_signature(self, scope_w, argnames, has_vararg=False, has_kwarg=False, defaults_w=[], blindargs=0, extravarargs=None):
+        """ Purely abstract
+        """
+        raise NotImplementedError()
     
+    def fixedunpack(self, argcount):
+        """ Purely abstract
+        """
+        raise NotImplementedError()        
+
 class ArgumentsPrepended(AbstractArguments):
     def __init__(self, args, w_firstarg):
         self.space = args.space
