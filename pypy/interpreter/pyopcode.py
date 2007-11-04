@@ -1073,6 +1073,11 @@ class FrameBlock:
         next_instr = self.really_handle(frame, unroller)   # JIT hack
         return hint(next_instr, promote=True)
 
+    def really_handle(self, frame, unroller):
+        """ Purely abstract method
+        """
+        raise NotImplementedError
+
 class LoopBlock(FrameBlock):
     """A loop block.  Stores the end-of-loop pointer in case of 'break'."""
 
