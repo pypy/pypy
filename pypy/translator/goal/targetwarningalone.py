@@ -8,7 +8,7 @@ class A(Base):
     c = 3
 
 class B(Base):
-    a = 1
+    a = 2
     b = 2
 
 class C(Base):
@@ -24,15 +24,19 @@ def f(n):
         x = C
     if n > 0:
         return x.a
-    return 8
+    return 9
 
 # __________  Entry point  __________
 
 def entry_point(argv):
-    f(int(argv[0]))
+    print f(int(argv[1]))
     return 0
 
 # _____ Define and setup target ___
 
 def target(*args):
     return entry_point, None
+
+if __name__ == '__main__':
+    import sys
+    entry_point(sys.argv)
