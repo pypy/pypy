@@ -302,8 +302,9 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
         self.tempsize = tempsize
         self.primitive = primitive
 
-    def compiledin(self):
+    def compiledin(self):  
         if self.w_compiledin is None:
+            # (Blue book, p 607) All CompiledMethods that contain extended-super bytecodes have the clain which they are found as their last literal variable.   
             # Last of the literals is an association with compiledin
             # as a class
             association = self.literals[-1]

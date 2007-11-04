@@ -42,11 +42,13 @@ class Interpreter:
 
     def step(self):
         next = self.w_active_context.getNextBytecode()
+        # AK please explain this cond 
         if not objectmodel.we_are_translated():
             bytecodeimpl = BYTECODE_TABLE[next]
             if self._w_last_active_context != self.w_active_context:
                 cnt = 0
                 p = self.w_active_context
+                # AK make method
                 while p is not None:
                     cnt += 1
                     p = p.w_sender
@@ -63,6 +65,7 @@ class Interpreter:
                     next, bytecodeimpl.__name__,)
             bytecodeimpl(self.w_active_context, self)
         else:
+            # AK does not understand below
             for code, bytecodeimpl in unrolling_bytecode_table:
                 if code == next:
                     bytecodeimpl(self.w_active_context, self)
@@ -78,6 +81,7 @@ class ReturnFromTopLevel(Exception):
 #
 # "self" is always a W_ContextPart instance.  
 
+# AK does not understand __extend__
 class __extend__(W_ContextPart):
     # push bytecodes
     def pushReceiverVariableBytecode(self, interp):
@@ -99,6 +103,7 @@ class __extend__(W_ContextPart):
         index = self.currentBytecode & 31
         association = self.w_method().getliteral(index)
         assert isinstance(association, model.W_PointersObject)
+        assert association.size() == 2
         self.push(association.fetch(constants.ASSOCIATION_VALUE_INDEX))
 
     def storeAndPopReceiverVariableBytecode(self, interp):
@@ -166,6 +171,7 @@ class __extend__(W_ContextPart):
         assert argcount >= 0
         method = receiverclassshadow.lookup(selector)
         # XXX catch MethodNotFound here and send doesNotUnderstand:
+        # AK shouln't that be done in lookup itself, please check what spec says about DNU in case of super sends.
         if method.primitive:
             # the primitive pushes the result (if any) onto the stack itself
             code = method.primitive
@@ -224,6 +230,7 @@ class __extend__(W_ContextPart):
         raise MissingBytecode("unknownBytecode")
 
     def extendedVariableTypeAndIndex(self):
+        # AK please explain this method (a helper, I guess)
         descriptor = self.getbytecode()
         return ((descriptor >> 6) & 3), (descriptor & 63)
 
@@ -239,7 +246,9 @@ class __extend__(W_ContextPart):
             association = self.w_method().getliteral(variableIndex)
             assert isinstance(association, model.W_PointersObject)
             self.push(association.fetch(constants.ASSOCIATION_VALUE_INDEX))
-
+        else:
+            assert 0
+        
     def extendedStoreBytecode(self, interp):
         variableType, variableIndex = self.extendedVariableTypeAndIndex()
         if variableType == 0:
