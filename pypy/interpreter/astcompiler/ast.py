@@ -73,6 +73,9 @@ class Node(Wrappable):
         lst = self.getChildNodes()
         return space.newlist( [ space.wrap( it ) for it in lst ] )
 
+    def get_value(self):
+        pass
+
 def descr_node_accept( space, w_self, w_visitor ):
     return space.call_method( w_visitor, 'visitNode', w_self )
 

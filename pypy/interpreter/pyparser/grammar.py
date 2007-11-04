@@ -68,6 +68,8 @@ class TokenSource(object):
         """Returns the source text between two scanner positions"""
         return ""
 
+    def peek(self):
+        pass
 
 ######################################################################
 
