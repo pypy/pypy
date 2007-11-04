@@ -485,7 +485,7 @@ class AbstractMultipleFrozenPBCRepr(AbstractMultipleUnrelatedFrozenPBCRepr):
                 except KeyError:
                     # don't issue warning if this attribute can be read, but
                     # is not used
-                    if not getattr(frozendesc.pyobj, attr, None):
+                    if not hasattr(frozendesc.pyobj, attr):
                         warning("Desc %r has no attribute %r" % (frozendesc, attr))
                     continue
                 llvalue = r_value.convert_const(thisattrvalue)
