@@ -114,6 +114,9 @@ class W_State(Wrappable):
     def fset_string_position(space, self, w_value):
         self.start = space.int_w(w_value)
 
+    def get_char_ord(self, p):
+        raise NotImplementedError
+
 getset_start = GetSetProperty(W_State.fget_start, W_State.fset_start, cls=W_State)
 getset_string_position = GetSetProperty(W_State.fget_string_position,
                                      W_State.fset_string_position, cls=W_State)

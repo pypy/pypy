@@ -125,6 +125,8 @@ class BaseStringFormatter(object):
                     "formatted float is too long (precision too large?)"))
         self.std_wp_number(r)
 
+    def std_wp_number(self, r, prefix=''):
+        raise NotImplementedError
 
 def make_formatter_subclass(do_unicode):
     # to build two subclasses of the BaseStringFormatter class,
