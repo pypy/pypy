@@ -1565,6 +1565,34 @@ class BaseTestRPBC(BaseRtypingTest):
 
         self.interpret_raises(NotImplementedError, f, [7])
 
+    def test_possible_missing_attribute_access(self):
+        py.test.skip("Should explode or give some warning")
+        class Base(object):
+            pass
+
+        class A(Base):
+            a = 1
+            b = 2
+
+        class B(Base):
+            a = 2
+            b = 2
+
+        class C(Base):
+            b = 8
+
+        def f(n):
+            if n > 3:
+                x = A
+            elif n > 1:
+                x = B
+            else:
+                x = C
+            if n > 0:
+                return x.a
+            return 9
+
+        self.interpret(f, [int])
 
 class TestLLtype(BaseTestRPBC, LLRtypeMixin):
     pass
