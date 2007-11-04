@@ -481,8 +481,8 @@ class AbstractMultipleFrozenPBCRepr(AbstractMultipleUnrelatedFrozenPBCRepr):
                 if r_value.lowleveltype is Void:
                     continue
                 try:
-                    thisattrvalue = frozendesc.attrcache[attr]
-                except KeyError:
+                    thisattrvalue = frozendesc.read_attribute(attr)
+                except AttributeError:
                     warning("Desc %r has no attribute %r" % (frozendesc, attr))
                     continue
                 llvalue = r_value.convert_const(thisattrvalue)
