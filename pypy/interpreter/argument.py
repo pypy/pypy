@@ -150,6 +150,11 @@ class AbstractArguments:
         """ Purely abstract
         """
         raise NotImplementedError()
+
+    def firstarg(self):
+        """ Purely abstract
+        """
+        raise NotImplementedError()
     
 class ArgumentsPrepended(AbstractArguments):
     def __init__(self, args, w_firstarg):
