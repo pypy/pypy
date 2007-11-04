@@ -145,6 +145,11 @@ class AbstractArguments:
         """
         args_w, kwds_w = self.unpack()
         return Arguments(self.space, args_w, kwds_w)
+
+    def unpack(self):
+        """ Purely abstract
+        """
+        raise NotImplementedError()
     
 class ArgumentsPrepended(AbstractArguments):
     def __init__(self, args, w_firstarg):
