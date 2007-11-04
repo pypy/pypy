@@ -36,8 +36,8 @@ def uint_floordiv_zer(x, y):
 
 def llong_floordiv_zer(x, y):
     '''#define OP_LLONG_FLOORDIV_ZER(x,y,r) \
-    	if ((y)) { OP_LLONG_FLOORDIV(x,y,r); } \
-    	else FAIL_ZER("integer division")
+      if ((y)) { OP_LLONG_FLOORDIV(x,y,r); } \
+      else FAIL_ZER("integer division")
     '''
     if y:
         return llop.llong_floordiv(SignedLongLong, x, y)
@@ -46,8 +46,8 @@ def llong_floordiv_zer(x, y):
 
 def ullong_floordiv_zer(x, y):
     '''#define OP_ULLONG_FLOORDIV_ZER(x,y,r) \
-    	if ((y)) { OP_ULLONG_FLOORDIV(x,y,r); } \
-    	else FAIL_ZER("unsigned integer division")
+      if ((y)) { OP_ULLONG_FLOORDIV(x,y,r); } \
+      else FAIL_ZER("unsigned integer division")
     '''
     if y:
         return llop.llong_floordiv(UnsignedLongLong, x, y)
@@ -223,8 +223,8 @@ def int_mod_ovf_zer(x, y):
 
 def llong_mod_zer(x, y):
     '''#define OP_LLONG_MOD_ZER(x,y,r) \
-    	if ((y)) { OP_LLONG_MOD(x,y,r); } \
-    	else FAIL_ZER("integer modulo")
+      if ((y)) { OP_LLONG_MOD(x,y,r); } \
+      else FAIL_ZER("integer modulo")
     '''
     if y:
         return llop.int_mod(SignedLongLong, x, y)
