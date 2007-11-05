@@ -5,6 +5,7 @@ import md5
 import py
 import distutils
 
+py.path.local(pypydir).join('_cache').ensure(dir=1)
 cache_dir = py.path.local(pypydir).join('_cache', 'gcc')
 cache_dir.ensure(dir=1)
 
