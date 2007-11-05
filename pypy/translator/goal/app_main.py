@@ -252,6 +252,8 @@ def entry_point(executable, argv):
     # find the full path to the executable, assuming that if there is no '/'
     # in the provided one then we must look along the $PATH
     os.setup() # this is the faked one
+    if we_are_translated() and IS_WINDOWS and not executable.lower().endswith('.exe'):
+        executable += '.exe'
     if os.sep in executable or (IS_WINDOWS and DRIVE_LETTER_SEP in executable):
         pass    # the path is already more than just an executable name
     else:
@@ -259,8 +261,6 @@ def entry_point(executable, argv):
         if path:
             for dir in path.split(os.pathsep):
                 fn = os.path.join(dir, executable)
-                if we_are_translated() and IS_WINDOWS and not fn.lower().endswith('.exe'):
-                    fn += '.exe'
                 if os.path.isfile(fn):
                     executable = fn
                     break
