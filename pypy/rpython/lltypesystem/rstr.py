@@ -12,7 +12,7 @@ from pypy.rpython.rstr import AbstractStringRepr,AbstractCharRepr,\
 from pypy.rpython.lltypesystem import ll_str
 from pypy.rpython.lltypesystem.lltype import \
      GcStruct, Signed, Array, Char, UniChar, Ptr, malloc, \
-     Bool, Void, GcArray, nullptr, pyobjectptr
+     Bool, Void, GcArray, nullptr, pyobjectptr, cast_primitive
 
 
 # ____________________________________________________________
@@ -27,29 +27,28 @@ from pypy.rpython.lltypesystem.lltype import \
 STR = GcStruct('rpy_string', ('hash',  Signed),
                              ('chars', Array(Char, hints={'immutable': True,
                                                           'isrpystring': True})))
+UNICODE = GcStruct('rpy_unicode', ('hash', Signed),
+                   ('chars', Array(UniChar, hints={'immutable': True})))
 SIGNED_ARRAY = GcArray(Signed)
 CONST_STR_CACHE = WeakValueDictionary()
 
-class StringRepr(AbstractStringRepr):
-
-    lowleveltype = Ptr(STR)
-
+class BaseStringRepr(AbstractStringRepr):
     def __init__(self, *args):
         AbstractStringRepr.__init__(self, *args)
         self.ll = LLHelpers
 
     def convert_const(self, value):
         if value is None:
-            return nullptr(STR)
+            return nullptr(self.lowleveltype.TO)
         #value = getattr(value, '__self__', value)  # for bound string methods
-        if not isinstance(value, str):
+        if not isinstance(value, self.basetype):
             raise TyperError("not a str: %r" % (value,))
         try:
             return CONST_STR_CACHE[value]
         except KeyError:
-            p = mallocstr(len(value))
+            p = self.malloc(len(value))
             for i in range(len(value)):
-                p.chars[i] = value[i]
+                p.chars[i] = cast_primitive(self.base, value[i])
             p.hash = 0
             self.ll.ll_strhash(p)   # precompute the hash
             CONST_STR_CACHE[value] = p
@@ -72,13 +71,29 @@ class StringRepr(AbstractStringRepr):
         v_items = hop.gendirectcall(LIST.ll_items, v_lst)
         return v_length, v_items
 
+class StringRepr(BaseStringRepr):
+    lowleveltype = Ptr(STR)
+    basetype = str
+    base = Char
+
+    def __init__(self, *args):
+        BaseStringRepr.__init__(self, *args)
+        self.malloc = mallocstr
+    
+class UnicodeRepr(BaseStringRepr):
+    lowleveltype = Ptr(UNICODE)
+    basetype = basestring
+    base = UniChar
+
+    def __init__(self, *args):
+        BaseStringRepr.__init__(self, *args)
+        self.malloc = mallocunicode
 
 class CharRepr(AbstractCharRepr, StringRepr):
     lowleveltype = Char
 
 class UniCharRepr(AbstractUniCharRepr):
     lowleveltype = UniChar
-
 
 class __extend__(pairtype(PyObjRepr, AbstractStringRepr)):
     def convert_from_to((r_from, r_to), v, llops):
@@ -104,13 +119,18 @@ class __extend__(pairtype(AbstractStringRepr, PyObjRepr)):
                                  resulttype=pyobj_repr,
                                  _callable= lambda v: pyobjectptr(''.join(v.chars)))
 
-def mallocstr(length):
-    debug_assert(length >= 0, "negative string length")
-    r = malloc(STR, length)
-    if not we_are_translated() or not malloc_zero_filled:
-        r.hash = 0
-    return r
-mallocstr._annspecialcase_ = 'specialize:semierased'
+def new_malloc(TP):
+    def mallocstr(length):
+        debug_assert(length >= 0, "negative string length")
+        r = malloc(TP, length)
+        if not we_are_translated() or not malloc_zero_filled:
+            r.hash = 0
+        return r
+    mallocstr._annspecialcase_ = 'specialize:semierased'
+    return mallocstr
+
+mallocstr = new_malloc(STR)
+mallocunicode = new_malloc(UNICODE)
 
 # ____________________________________________________________
 #
@@ -760,8 +780,11 @@ char_repr = CharRepr()
 unichar_repr = UniCharRepr()
 char_repr.ll = LLHelpers
 unichar_repr.ll = LLHelpers
+unicode_repr = UnicodeRepr()
 emptystr = string_repr.convert_const("")
 
+StringRepr.repr = string_repr
+UnicodeRepr.repr = unicode_repr
 
 class StringIteratorRepr(AbstractStringIteratorRepr):
 

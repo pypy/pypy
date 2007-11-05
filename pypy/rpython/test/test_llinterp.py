@@ -257,12 +257,12 @@ def test_list_multiply():
     res = interpret(f, [3])
     assert res == 3
 
-def test_unicode():
-    def f():
-        return u'Hello world'
-    res = interpret(f, [], someobjects=True)
+##def test_unicode():
+##    def f():
+##        return u'Hello world'
+##    res = interpret(f, [], someobjects=True)
     
-    assert res._obj.value == u'Hello world'
+##    assert res._obj.value == u'Hello world'
     
 ##def test_unicode_split():
 ##    def f():

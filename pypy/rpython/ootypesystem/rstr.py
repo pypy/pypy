@@ -300,6 +300,7 @@ unichar_repr = UniCharRepr()
 char_repr.ll = LLHelpers
 unichar_repr.ll = LLHelpers
 emptystr = string_repr.convert_const("")
+StringRepr.repr = string_repr
 
 class StringIteratorRepr(AbstractStringIteratorRepr):
     lowleveltype = ootype.Record({'string': string_repr.lowleveltype,

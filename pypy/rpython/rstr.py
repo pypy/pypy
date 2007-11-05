@@ -7,7 +7,8 @@ from pypy.rpython.rmodel import inputconst, Repr
 from pypy.rpython.rtuple import AbstractTupleRepr
 from pypy.rpython.rslice import AbstractSliceRepr
 from pypy.rpython import rint
-from pypy.rpython.lltypesystem.lltype import Signed, Bool, Void, UniChar
+from pypy.rpython.lltypesystem.lltype import Signed, Bool, Void, UniChar,\
+     cast_primitive
 
 class AbstractStringRepr(Repr):
     pass
@@ -18,10 +19,16 @@ class AbstractCharRepr(AbstractStringRepr):
 class AbstractUniCharRepr(Repr):
     pass
 
-
 class __extend__(annmodel.SomeString):
     def rtyper_makerepr(self, rtyper):
         return rtyper.type_system.rstr.string_repr
+    def rtyper_makekey(self):
+        return self.__class__,
+
+class __extend__(annmodel.SomeUnicodeString):
+    def rtyper_makerepr(self, rtyper):
+        return rtyper.type_system.rstr.unicode_repr
+    
     def rtyper_makekey(self):
         return self.__class__,
 
@@ -50,7 +57,7 @@ class __extend__(AbstractStringRepr):
         return self.ll.ll_strfasthash
 
     def rtype_len(self, hop):
-        string_repr = hop.rtyper.type_system.rstr.string_repr
+        string_repr = self.repr
         v_str, = hop.inputargs(string_repr)
         return hop.gendirectcall(self.ll.ll_strlen, v_str)
 
@@ -244,7 +251,7 @@ class __extend__(pairtype(AbstractStringRepr, Repr)):
 
 class __extend__(pairtype(AbstractStringRepr, IntegerRepr)):
     def rtype_getitem((r_str, r_int), hop, checkidx=False):
-        string_repr = hop.rtyper.type_system.rstr.string_repr
+        string_repr = r_str.repr
         v_str, v_index = hop.inputargs(string_repr, Signed)
         if checkidx:
             if hop.args_s[1].nonneg:
