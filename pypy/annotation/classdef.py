@@ -144,7 +144,7 @@ class Attribute:
             raise NoSuchAttrError(classdef, self.name)
 
 
-class ClassDef:
+class ClassDef(object):
     "Wraps a user class."
 
     def __init__(self, bookkeeper, classdesc):

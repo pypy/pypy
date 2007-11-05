@@ -204,6 +204,19 @@ class SomeString(SomeObject):
     def nonnoneify(self):
         return SomeString(can_be_None=False)
 
+class SomeUnicodeString(SomeObject):
+    "Stands for an object which is known to be an unicode string"
+    knowntype = unicode
+    immutable = True
+    def __init__(self, can_be_None=False):
+        self.can_be_None = can_be_None
+
+    def can_be_none(self):
+        return self.can_be_None
+
+    def nonnoneify(self):
+        return SomeUnicodeString(can_be_None=False)
+
 class SomeChar(SomeString):
     "Stands for an object known to be a string of length 1."
 

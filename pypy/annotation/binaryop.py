@@ -19,7 +19,7 @@ from pypy.annotation.model import read_can_only_throw
 from pypy.annotation.model import add_knowntypedata, merge_knowntypedata
 from pypy.annotation.model import lltype_to_annotation
 from pypy.annotation.model import SomeGenericCallable
-from pypy.annotation.model import SomeExternalInstance
+from pypy.annotation.model import SomeExternalInstance, SomeUnicodeString
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.annotation.listdef import ListDef
@@ -636,11 +636,38 @@ class __extend__(pairtype(SomeString, SomeInteger)):
         getbookkeeper().count("str_mul", str1, int2)
         return SomeString()
 
+class __extend__(pairtype(SomeUnicodeString, SomeInteger)):
+    def getitem((str1, int2)):
+        getbookkeeper().count("str_getitem", int2)        
+        return SomeUnicodeCodePoint()
+    getitem.can_only_throw = []
+
+    getitem_key = getitem
+
+    def getitem_idx((str1, int2)):
+        getbookkeeper().count("str_getitem", int2)        
+        return SomeUnicodeCodePoint()
+    getitem_idx.can_only_throw = [IndexError]
+
+    getitem_idx_key = getitem_idx
+
+    # uncomment if we really want to support that
+    #def mul((str1, int2)): # xxx do we want to support this
+    #    getbookkeeper().count("str_mul", str1, int2)
+    #    return SomeString()
+
 class __extend__(pairtype(SomeInteger, SomeString)):
     
     def mul((int1, str2)): # xxx do we want to support this
         getbookkeeper().count("str_mul", str2, int1)
         return SomeString()
+
+class __extend__(pairtype(SomeString, SomeUnicodeString),
+                 pairtype(SomeUnicodeString, SomeString),
+                 pairtype(SomeUnicodeString, SomeUnicodeString)):
+    def union((str1, str2)):
+        return SomeUnicodeString(can_be_None=str1.can_be_None or
+                                 str2.can_be_None)
 
 class __extend__(pairtype(SomeInteger, SomeList)):
     
@@ -781,6 +808,7 @@ def _make_none_union(classname, constructor_args='', glob=None):
 
 _make_none_union('SomeInstance',   'classdef=obj.classdef, can_be_None=True')
 _make_none_union('SomeString',      'can_be_None=True')
+_make_none_union('SomeUnicodeString', 'can_be_None=True')
 _make_none_union('SomeList',         'obj.listdef')
 _make_none_union('SomeDict',          'obj.dictdef')
 _make_none_union('SomeExternalObject', 'obj.knowntype')

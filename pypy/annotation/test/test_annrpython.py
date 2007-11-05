@@ -2872,6 +2872,39 @@ class TestAnnotateTestCase:
         s = a.build_types(g, [int])
         assert isinstance(s, annmodel.SomeSingleFloat)
 
+    def test_unicode_simple(self):
+        def f():
+            return u'xxx'
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeUnicodeString)        
+
+    def test_unicode(self):
+        def g(n):
+            if n > 0:
+                return "xxx"
+            else:
+                return u"x\xe4x"
+
+        def f(n):
+            x = g(0)
+            return x[n]
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(g, [int])
+        assert isinstance(s, annmodel.SomeUnicodeString)
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeUnicodeCodePoint)
+
+    def test_unicode_from_string(self):
+        def f(x):
+            return unicode(x)
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [str])
+        assert isinstance(s, annmodel.SomeUnicodeString)
 
 def g(n):
     return [0,1,2,n]

@@ -6,7 +6,7 @@ import sys
 from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
 from pypy.annotation.model import SomeString, SomeTuple, SomeSlice, s_Bool
 from pypy.annotation.model import SomeUnicodeCodePoint, SomeAddress
-from pypy.annotation.model import SomeFloat, unionof
+from pypy.annotation.model import SomeFloat, unionof, SomeUnicodeString
 from pypy.annotation.model import SomePBC, SomeInstance, SomeDict
 from pypy.annotation.model import SomeExternalObject
 from pypy.annotation.model import SomeWeakRef
@@ -107,8 +107,8 @@ def builtin_chr(s_int):
 def builtin_unichr(s_int):
     return constpropagate(unichr, [s_int], SomeUnicodeCodePoint())
 
-##def builtin_unicode(s_obj):
-##    raise TypeError, "unicode() calls should not happen at interp-level"
+def builtin_unicode(s_unicode):
+    return constpropagate(unicode, [s_unicode], SomeUnicodeString())
 
 def our_issubclass(cls1, cls2):
     """ we're going to try to be less silly in the face of old-style classes"""

@@ -11,7 +11,8 @@ from pypy.annotation.model import SomeString, SomeChar, SomeFloat, \
      SomeInteger, SomeExternalObject, SomeOOInstance, TLS, SomeAddress, \
      SomeUnicodeCodePoint, SomeOOStaticMeth, s_None, s_ImpossibleValue, \
      SomeLLADTMeth, SomeBool, SomeTuple, SomeOOClass, SomeImpossibleValue, \
-     SomeList, SomeObject, HarmlesslyBlocked, SomeWeakRef, lltype_to_annotation
+     SomeUnicodeString, SomeList, SomeObject, HarmlesslyBlocked, \
+     SomeWeakRef, lltype_to_annotation
 from pypy.annotation.classdef import ClassDef, InstanceSource
 from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
 from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
@@ -322,8 +323,11 @@ class Bookkeeper:
                 result = SomeChar()
             else:
                 result = SomeString()
-        elif tp is unicode and len(x) == 1:
-            result = SomeUnicodeCodePoint()
+        elif tp is unicode:
+            if len(x) == 1:
+                result = SomeUnicodeCodePoint()
+            else:
+                result = SomeUnicodeString()
         elif tp is tuple:
             result = SomeTuple(items = [self.immutablevalue(e, need_const) for e in x])
         elif tp is float:
