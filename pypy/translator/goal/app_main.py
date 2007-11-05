@@ -192,7 +192,7 @@ try:
     # for some reason, some tests break with this import
     from pypy.rlib.objectmodel import we_are_translated
 except ImportError:
-    we_are_translated = False
+    we_are_translated = lambda: False
 
 class fake_os:
     def __init__(self):
@@ -222,9 +222,14 @@ class fake_os:
         assert self.getenv
         
     def teardown(self):
-        for mod in sys.modules.keys():
-            if mod not in self.pre_import:
-                del sys.modules[mod]
+        # re-load modules instead of using the pre-compiled ones
+        # note that this gives trouble if we are not translated,
+        # since some exithandler in threading.py complains
+        # XXX check if this is a bug to be fixed for cpython
+        if we_are_translated():
+            for mod in sys.modules.keys():
+                if mod not in self.pre_import:
+                    del sys.modules[mod]
         global os
         import os
 
@@ -254,7 +259,7 @@ def entry_point(executable, argv):
         if path:
             for dir in path.split(os.pathsep):
                 fn = os.path.join(dir, executable)
-                if we_are_translated and IS_WINDOWS and not fn.lower().endswith('.exe'):
+                if we_are_translated() and IS_WINDOWS and not fn.lower().endswith('.exe'):
                     fn += '.exe'
                 if os.path.isfile(fn):
                     executable = fn
