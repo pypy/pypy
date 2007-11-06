@@ -15,10 +15,10 @@ FLOAT_PRECISION = 8
 ext_modules = []
 
 # prevents resource leaking
-use_isolate = True
+use_isolate = False
 
 # if test can't be run using isolate, skip the test (useful for buildbots)
-run_isolated_only = True
+run_isolated_only = False
 
 from pypy import conftest
 

@@ -35,6 +35,7 @@ class CtypesModule:
 
     prolog = """
 import ctypes
+from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from os.path import join, dirname, realpath
 
 _c = ctypes.CDLL(join(dirname(realpath(__file__)), "%s"))
@@ -142,6 +143,7 @@ __entrypoint__.argtypes = %(args)s
 ll_to_res = %(ll_to_res)s
 __entrypoint__.restype = %(returntype)s
     """
+    
     TO_CTYPES = {lltype.Bool: "ctypes.c_byte",
                  lltype.SingleFloat: "ctypes.c_float",
                  lltype.Float: "ctypes.c_double",
@@ -215,6 +217,15 @@ __entrypoint__.restype = %(returntype)s
 
         elif T is lltype.UniChar:
             action = 'to_unichar'
+
+        elif T is lltype.Unsigned:
+            action = 'r_uint'
+
+        elif T is lltype.SignedLongLong:
+            action = 'r_longlong'
+
+        elif T is lltype.UnsignedLongLong:
+            action = 'r_ulonglong'
 
         elif isinstance(T, lltype.Ptr) and T.TO is STR:
             action = 'to_str'
