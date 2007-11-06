@@ -3,33 +3,6 @@ import ctypes
 from pypy.rpython.lltypesystem import lltype 
 from pypy.rpython.lltypesystem.rstr import STR
 
-def _noresult(returntype):
-    r = returntype.strip()
-    if r == 'void':
-        return 'void'
-    elif r == 'bool':
-        return 'bool false'
-    elif r in 'float double'.split():
-        return r + ' 0.0'
-    elif r in 'ubyte sbyte ushort short uint int ulong long'.split():
-        return r + ' 0'
-    return r + ' null'
-
-def llvm_implcode(entrynode):
-    from pypy.translator.llvm.codewriter import DEFAULT_CCONV as cconv
-    from pypy.translator.llvm.module.excsupport import entrycode, voidentrycode, raisedcode 
-    returntype, entrypointname = entrynode.getdecl().split(' %', 1)
-    noresult = _noresult(returntype)
-
-    code = raisedcode % locals()
-    if returntype == "void":
-        code += voidentrycode % locals()
-    else:
-        code += entrycode % locals()
-
-    return code
-
-
 class CtypesModule:
     """ use ctypes to create a temporary module """
 
@@ -40,9 +13,13 @@ from os.path import join, dirname, realpath
 
 _c = ctypes.CDLL(join(dirname(realpath(__file__)), "%s"))
 
-raised = _c.__entrypoint__raised_LLVMException
-raised.argtypes = []
-raised.restype = ctypes.c_int
+rpyexc_occured = _c.pypy__rpyexc_occured
+rpyexc_occured.argtypes = []
+rpyexc_occured.restype = ctypes.c_int
+ 
+rpyexc_fetch_type = _c.pypy_rpyexc_fetch_type
+rpyexc_fetch_type.argtypes = []
+rpyexc_fetch_type.restype = ctypes.c_void_p
 
 GC_get_heap_size_wrapper = _c.GC_get_heap_size
 GC_get_heap_size_wrapper.argtypes = []
@@ -65,7 +42,7 @@ def entrypoint(*args):
         _setup = True
     args = [f(a) for a, f in zip(args, to_llargs)]
     result = __entrypoint__(*args)
-    if raised():
+    if rpyexc_occured():
         raise LLVMException("Exception raised")
     return ll_to_res(result)
 
@@ -133,11 +110,11 @@ def to_list(res, C_TYPE, action):
 """
 
     epilog = """
-__entrypoint__ = _c.__entrypoint__pypy_%(name)s
+__entrypoint__ = _c.pypy_%(name)s
 
 # %(RT)r
 to_llargs = %(to_llargs)s
-__entrypoint__.argtypes = %(args)s
+__entrypoint__ = _c.pypy_%(name)s
 
 # %(ARGS)r
 ll_to_res = %(ll_to_res)s

@@ -6,7 +6,6 @@ import urllib
 from pypy.objspace.flow.model import FunctionGraph
 from pypy.rpython.rmodel import inputconst
 from pypy.rpython.lltypesystem import lltype
-from pypy.translator.llvm.codewriter import DEFAULT_CCONV
 from pypy.translator.llvm.buildllvm import llvm_gcc_version
 
 from pypy.tool.udir import udir
@@ -28,7 +27,7 @@ support_functions = [
 def get_module_file(name):
     return os.path.join(get_llvm_cpath(), name)
 
-def get_ll(ccode, function_names):
+def get_ll(ccode, function_names, default_cconv):
     function_names += support_functions
     filename = str(udir.join("ccode.c"))
     f = open(filename, "w")
@@ -82,10 +81,10 @@ def get_ll(ccode, function_names):
            if line.find("internal") == -1:
                 if funcname not in ["%main", "%ctypes_RPython_StartupCode"]:
                     internal = 'internal '
-                    line = '%s%s %s' % (internal, DEFAULT_CCONV, line,)
+                    line = '%s%s %s' % (internal, default_cconv, line,)
         ll_lines.append(line)
 
-    # patch calls to function that we just declared fastcc
+    # patch calls to function that we just declared with differnet cconv
     ll_lines2, calltag, declaretag = [], 'call ', 'declare '
     for line in ll_lines:
         i = line.find(calltag)
@@ -93,14 +92,14 @@ def get_ll(ccode, function_names):
             cconv = 'ccc'
             for funcname in funcnames.iterkeys():
                 if line.find(funcname) >= 0:
-                    cconv = DEFAULT_CCONV
+                    cconv = default_cconv
                     break
             line = "%scall %s %s" % (line[:i], cconv, line[i+len(calltag):])
         if line[:len(declaretag)] == declaretag:
             cconv = 'ccc'
             for funcname in funcnames.keys():
                 if line.find(funcname) >= 0:
-                    cconv = DEFAULT_CCONV
+                    cconv = default_cconv
                     break
             line = "declare %s %s" % (cconv, line[len(declaretag):])
         ll_lines2.append(line)
@@ -167,7 +166,7 @@ def get_incdirs():
         includestr += "-I %s " % ii
     return includestr
 
-def generate_llfile(db, extern_decls, entrynode, c_includes, c_sources, standalone):
+def generate_llfile(db, extern_decls, entrynode, c_includes, c_sources, standalone, default_cconv):
     ccode = []
     function_names = []
         
@@ -223,5 +222,4 @@ def generate_llfile(db, extern_decls, entrynode, c_includes, c_sources, standalo
 
     # append our source file
     ccode.append(open(get_module_file('genexterns.c')).read())
-
-    return get_ll("".join(ccode), function_names)
+    return get_ll("".join(ccode), function_names, default_cconv)

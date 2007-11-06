@@ -45,8 +45,10 @@ class GenLLVM(object):
         # write bottom part of llvm file
         self.write_implementations(codewriter)
 
-        self._checkpoint('done')
+        # write entry point if there is one
+        codewriter.comment("End of file")
         codewriter.close()
+        self._checkpoint('done')
 
         return self.filename
 
@@ -88,13 +90,14 @@ class GenLLVM(object):
         
         self._print_node_stats()
 
-        # create ll file from c code
-        self.generate_ll_externs()
-        self._checkpoint('setup_externs')
-
         # open file & create codewriter
         codewriter, self.filename = self.create_codewriter()
         self._checkpoint('open file and create codewriter')        
+
+        # create ll file from c code
+        self.generate_ll_externs(codewriter)
+        self._checkpoint('setup_externs')
+
         return codewriter
 
     def _set_wordsize(self, s):
@@ -154,20 +157,12 @@ class GenLLVM(object):
         
         self._checkpoint('write support implentations')
 
-        # write wrapper code
-        if not self.standalone:
-            from pypy.translator.llvm.modwrapper import llvm_implcode
-            codewriter.write_lines(llvm_implcode(self.entrynode))
-
         # write all node implementations
         for node in self.db.getnodes():
             if hasattr(node, 'writeimpl'):
                 node.writeimpl(codewriter)
 
         self._checkpoint('write node implementations')
-
-        # write entry point if there is one
-        codewriter.comment("End of file")
     
     def get_entry_point(self, func):
         assert func is not None
@@ -191,7 +186,7 @@ class GenLLVM(object):
         self.entry_name = name[6:]
         return c.value._obj 
 
-    def generate_ll_externs(self):
+    def generate_ll_externs(self, codewriter):
         c_includes = {}
         c_sources = {}
 
@@ -208,13 +203,17 @@ class GenLLVM(object):
                                                self.entrynode,
                                                c_includes,
                                                c_sources,
-                                               self.standalone)
+                                               self.standalone, 
+                                               codewriter.cconv)
 
     def create_codewriter(self):
         # prevent running the same function twice in a test
         filename = udir.join(self.entry_name).new(ext='.ll')
         f = open(str(filename), 'w')
-        return CodeWriter(f, self.db), filename
+        if self.standalone:
+            return CodeWriter(f, self.db), filename
+        else:
+            return CodeWriter(f, self.db, cconv='ccc', linkage=''), filename
 
     def write_extern_decls(self, codewriter):        
         for c_name, obj in self.extern_decls:

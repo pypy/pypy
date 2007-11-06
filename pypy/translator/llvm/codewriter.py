@@ -2,18 +2,20 @@ from pypy.translator.llvm.log import log
 
 log = log.codewriter 
 
-DEFAULT_TAIL     = ''       #/tail
-DEFAULT_CCONV    = 'fastcc'    #ccc/fastcc
-DEFAULT_LINKAGE  = 'internal '       #/internal (disabled for now because of the JIT)
-
 class CodeWriter(object): 
-    def __init__(self, file, db, tail=DEFAULT_TAIL, cconv=DEFAULT_CCONV,
-                                 linkage=DEFAULT_LINKAGE): 
+    tail = ''       #/tail
+    cconv = 'fastcc'    #ccc/fastcc
+    linkage = 'internal '       #/internal (disabled for now because of the JIT)
+
+    def __init__(self, file, db, tail=None, cconv=None, linkage=None): 
         self.file = file
         self.word_repr = db.get_machine_word()
-        self.tail = tail
-        self.cconv = cconv
-        self.linkage = linkage
+        if tail is not None:
+            self.tail = tail
+        if cconv is not None:
+            self.cconv = cconv
+        if linkage is not None:
+            self.linkage = linkage
 
     def close(self): 
         self.file.close()

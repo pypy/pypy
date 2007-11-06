@@ -80,6 +80,7 @@ class RawGcPolicy(GcPolicy):
 
         # malloc_size is unsigned right now
         codewriter.malloc(targetvar, "sbyte", size)
+        # XXX uses own cconv
         codewriter.call(None, 'void', '%llvm.memset' + postfix(),
                         ['sbyte*', 'ubyte', uword, uword],
                         [targetvar, 0, size, boundary_size],
@@ -125,6 +126,7 @@ class BoehmGcPolicy(GcPolicy):
         codewriter.call(targetvar, 'sbyte*', fnname, [word], [size])
 
         if atomic:
+            # XXX uses own cconv
             codewriter.call(None, 'void', '%llvm.memset' + postfix(),
                             ['sbyte*', 'ubyte', uword, uword],
                             [targetvar, 0, sizeu, boundary_size],
