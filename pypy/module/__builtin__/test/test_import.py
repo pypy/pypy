@@ -520,3 +520,19 @@ def test_PYTHONPATH_takes_precedence(space):
     finally: 
         if old: 
             os.environ['PYTHONPATH'] = old 
+
+class AppTestImportHooks(object):
+    def test_meta_path(self):
+        tried_imports = []
+        class Importer(object):
+            def find_module(self, fullname, path=None):
+                tried_imports.append((fullname, path))
+
+        import sys
+        try:
+            sys.meta_path.append(Importer())
+            import datetime
+            assert len(tried_imports) == 1
+            tried_imports[0][0] == "datetime"
+        finally:
+            sys.meta_path.pop()
