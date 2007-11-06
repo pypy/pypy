@@ -1,3 +1,8 @@
+try:
+    import psyco
+    psyco.full()
+except ImportError:
+    pass
 
 class LifeTime(object):
     __slots__ = "typeid address size varsize birth death".split()
@@ -12,7 +17,9 @@ class LifeTime(object):
 def parse_file(f, callback):
     unknown_lifetime = {}
     current = 0
-    for line in f:
+    for i, line in enumerate(f):
+        if i % 100000 == 0:
+            print i
         line = line.split()
         if line[0] == "free":
             _, typeid, address = line
