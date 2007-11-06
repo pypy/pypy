@@ -8,6 +8,7 @@ from pypy.tool.uid import uid
 
 class CreationPoint(object):
     constant = None
+    coallocator = None
     def __init__(self, creation_method, TYPE):
         self.creation_method = creation_method
         self.TYPE = TYPE
@@ -38,6 +39,12 @@ class VarState(object):
     def __repr__(self):
         crepsrepr = (", ".join([repr(crep) for crep in self.creation_points]), )
         return "VarState({%s})" % crepsrepr
+
+    def get_crep(self, checksingle=False):
+        if checksingle:
+            assert len(self.creation_points) == 1
+        for crep in self.creation_points.iterkeys():
+            return crep
 
 class GraphState(object):
     def __init__(self, graph):
@@ -319,7 +326,7 @@ def malloc_to_coalloc(t):
             if len(tovarstate.creation_points) != 1:
                 continue
             fromcreps = set(fromvarstate.creation_points.keys())
-            tocrep = tovarstate.creation_points.keys()[0]
+            tocrep = tovarstate.get_crep()
             if not tocrep.creation_method.startswith("malloc"):
                 continue
             for fromcrep in fromcreps:
@@ -327,7 +334,7 @@ def malloc_to_coalloc(t):
                      break # also recently malloced
             else:
                 #import pdb; pdb.set_trace()
-                num = do_coalloc(adi, graph, op.args[0], block,
+                num = do_coalloc(adi, graph, block, op,
                                  fromcreps, tocrep)
 
                 if num:
@@ -338,9 +345,9 @@ def malloc_to_coalloc(t):
     return total
 
 
-def do_coalloc(adi, graph, fromvar, setblock, fromcreps, tocrep):
+def do_coalloc(adi, graph, setblock, setop, fromcreps, tocrep):
     def find_coalloc_var():
-        if block is setblock:
+        if block is setblock and seen_setvar:
             return fromvar
         for fromcrep in fromcreps:
             if fromcrep.creation_method == "constant":
@@ -348,16 +355,24 @@ def do_coalloc(adi, graph, fromvar, setblock, fromcreps, tocrep):
         for fromcrep in fromcreps:
             for var in block.inputargs:
                 varstate = adi.getstate(var)
-                assert len(varstate.creation_points) == 1
-                crep = varstate.creation_points.keys()[0]
+                if varstate is None:
+                    continue
+                crep = varstate.get_crep(checksingle=True)
                 if crep is fromcrep:
                     return var
         return None
     result = 0
+    seen_setvar = False
     for block, op in graph.iterblockops():
+        if op.result is setop.args[0]:
+            seen_setvar = True
         if not op.opname.startswith("malloc"):
             continue
-        if adi.getstate(op.result).creation_points.keys()[0] is not tocrep:
+        if adi.getstate(op.result).get_crep(checksingle=True) is not tocrep:
+            continue
+        TYPE = op.result.concretetype.TO
+        # must not remove mallocs of structures that a destructor
+        if hasdestructor(TYPE):
             continue
         coallocvar = find_coalloc_var()
         if coallocvar is None:
@@ -365,8 +380,18 @@ def do_coalloc(adi, graph, fromvar, setblock, fromcreps, tocrep):
         op.opname = "coalloc" + op.opname[len("malloc"):]
         op.args.insert(1, coallocvar)
         mallocvarstate = adi.getstate(op.result)
-        assert len(mallocvarstate.creation_points) == 1
-        malloccrep = mallocvarstate.creation_points.keys()[0]
+        malloccrep = mallocvarstate.get_crep(checksingle=True)
         malloccrep.creation_method = "coalloc"
         result += 1
     return result
+
+def hasdestructor(STRUCT):
+    if not isinstance(STRUCT, lltype.Struct):
+        return False
+    try:
+        destr_ptr = lltype.getRuntimeTypeInfo(STRUCT)._obj.destructor_funcptr
+        if destr_ptr:
+            return True
+    except (ValueError, AttributeError), e:
+        pass
+    return False

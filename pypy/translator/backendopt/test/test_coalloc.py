@@ -240,3 +240,27 @@ def test_nocoalloc_bug():
         g(a)
         return a.length
     t = check_malloc_to_coalloc(f, [int], [8], 8, must_remove=1)
+
+def test_coalloc_in_setblock():
+    class A(object):
+        pass
+    a3 = A()
+    def f():
+        a1 = A()
+        a2 = A()
+        a2.a = a1
+        a3.a = a2
+        return 1
+    # this should really be mustremove=2, but for now I am happy
+    t = check_malloc_to_coalloc(f, [], [], 1, must_remove=1)
+
+def test_nocoalloc_finalizer():
+    class A(object):
+        def __del__(self):
+            pass
+    a = A()
+    def f():
+        n = A()
+        a.next = n
+        return 1
+    check_malloc_to_coalloc(f, [], [], 1, must_remove=0)
