@@ -162,8 +162,8 @@ class AbstractDataFlowInterpreter(object):
                 self.setstate(op.result, res)
                 return
             
-        if isonheap(op.result) or filter(None, args):
-            print "assuming that '%s' is irrelevant" % op
+        #if isonheap(op.result) or filter(None, args):
+           # print "assuming that '%s' is irrelevant" % op
         
     def complete(self):
         while self.scheduled:
