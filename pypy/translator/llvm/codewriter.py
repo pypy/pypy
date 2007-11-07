@@ -1,4 +1,5 @@
 from pypy.translator.llvm.log import log 
+from pypy.translator.llvm.buildllvm import postfix
 
 log = log.codewriter 
 
@@ -10,6 +11,7 @@ class CodeWriter(object):
     def __init__(self, file, db, tail=None, cconv=None, linkage=None): 
         self.file = file
         self.word_repr = db.get_machine_word()
+        self.uword_repr = db.get_machine_uword()
         if tail is not None:
             self.tail = tail
         if cconv is not None:
@@ -43,8 +45,13 @@ class CodeWriter(object):
     def _indent(self, line): 
         self._append("        " + line) 
 
-    def write_lines(self, lines):
+    def write_lines(self, lines, patch=False):
         for l in lines.split("\n"):
+            if patch:
+                l = l.replace('UWORD', self.uword_repr)
+                l = l.replace('WORD', self.word_repr)
+                l = l.replace('POSTFIX', postfix())
+                l = l.replace('CC', self.cconv)
             self._append(l)
     
     def comment(self, line, indent=True):
