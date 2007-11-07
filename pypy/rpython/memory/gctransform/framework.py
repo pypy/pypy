@@ -87,7 +87,8 @@ def find_initializing_stores(collect_analyzer, graph):
         mallocvars = {target.inputargs[index]: True}
         mallocnum += 1
         find_in_block(target, mallocvars)
-    print graph.name, mallocnum, len(result)
+    if result:
+        print "found %s initializing stores in %s" % (len(result), graph.name)
     return result
 
 ADDRESS_VOID_FUNC = lltype.FuncType([llmemory.Address], lltype.Void)
