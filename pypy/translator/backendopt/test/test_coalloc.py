@@ -266,6 +266,28 @@ def test_coalloc_in_setblock_old():
         return 1
     t = check_malloc_to_coalloc(f, [], [], 1, must_remove=1)
 
+def test_coalloc_in_setblock_args():
+    class A(object):
+        pass
+    def g():
+        return A()
+    globala = A()
+    def f(x):
+        if x:
+            a = g()
+        else:
+            a = globala
+        a1 = A()
+        a.a = a1
+        return 1
+    t = check_malloc_to_coalloc(f, [int], [1], 1, must_remove=1)
+    fgraph = t.graphs[0]
+    # make sure that the coallocator is not globala but the variable a
+    block = fgraph.startblock.exits[0].target
+    op = block.operations[0]
+    assert op.opname == "coalloc"
+    assert op.args[1] is block.inputargs[0]
+
 
 def test_nocoalloc_finalizer():
     class A(object):
