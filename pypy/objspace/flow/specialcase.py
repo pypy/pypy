@@ -6,7 +6,18 @@ from pypy.interpreter.error import OperationError
 from pypy.tool.cache import Cache
 
 def sc_import(space, fn, args):
-    w_name, w_glob, w_loc, w_frm = args.fixedunpack(4)
+    args_w, kwds_w = args.unpack()
+    assert kwds_w == {}, "should not call %r with keyword arguments" % (fn,)
+    assert len(args_w) > 0 and len(args_w) <= 4, 'import needs 1 to 4 arguments'
+    w_name = args_w[0]
+    w_None = space.wrap(None)
+    w_glob, w_loc, w_frm = w_None, w_None, w_None
+    if len(args_w) > 1:
+        w_glob = args_w[1]
+    if len(args_w) > 2:
+        w_loc = args_w[2]
+    if len(args_w) > 3:
+        w_frm = args_w[3]   
     if not isinstance(w_loc, Constant):
         # import * in a function gives us the locals as Variable
         # we always forbid it as a SyntaxError
