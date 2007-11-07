@@ -13,24 +13,29 @@ from pypy import conftest
 INT_SIZE = struct.calcsize("i")   # only for estimates
 
 
-def rtype(func, inputtypes, specialize=True, gcname='ref', stacklessgc=False):
+def rtype(func, inputtypes, specialize=True, gcname='ref', stacklessgc=False,
+          backendopt=False, **extraconfigopts):
     from pypy.translator.translator import TranslationContext
     t = TranslationContext()
     # XXX XXX XXX mess
     t.config.translation.gc = gcname
     t.config.translation.stacklessgc = stacklessgc
+    t.config.set(**extraconfigopts)
     t.buildannotator().build_types(func, inputtypes)
     if specialize:
         t.buildrtyper().specialize()
+    if backendopt:
+        from pypy.translator.backendopt.all import backend_optimizations
+        backend_optimizations(t)
     if conftest.option.view:
-        t.view()
+        t.viewcg()
     return t
 
 class GCTest(object):
     gcpolicy = None
     stacklessgc = False
 
-    def runner(self, f, nbargs=0, statistics=False):
+    def runner(self, f, nbargs=0, statistics=False, **extraconfigopts):
         if nbargs == 2:
             def entrypoint(args):
                 x = args[0]
@@ -49,7 +54,8 @@ class GCTest(object):
         ARGS = lltype.FixedSizeArray(lltype.Signed, nbargs)
         s_args = annmodel.SomePtr(lltype.Ptr(ARGS))
         t = rtype(entrypoint, [s_args], gcname=self.gcname,
-                                        stacklessgc=self.stacklessgc)
+                                        stacklessgc=self.stacklessgc,
+                                        **extraconfigopts)
         cbuild = CStandaloneBuilder(t, entrypoint, config=t.config,
                                     gcpolicy=self.gcpolicy)
         db = cbuild.generate_graphs_for_llinterp()
@@ -688,6 +694,21 @@ class TestMarkSweepGC(GenericGCTests):
         res = run([3, 0])
         assert res == 1
 
+    def test_coalloc(self):
+        def malloc_a_lot():
+            i = 0
+            while i < 10:
+                i += 1
+                a = [1] * 10
+                j = 0
+                while j < 30:
+                    j += 1
+                    a.append(j)
+            return 0
+        run, statistics = self.runner(malloc_a_lot, statistics=True,
+                                      backendopt=True, coalloc=True)
+        run([])
+
 
 
 class TestStacklessMarkSweepGC(TestMarkSweepGC):
@@ -838,3 +859,4 @@ class TestGenerationGC(GenericMovingGCTests):
                 i += 1
         run = self.runner(f, nbargs=0)
         run([])
+

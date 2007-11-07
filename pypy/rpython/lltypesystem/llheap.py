@@ -19,3 +19,7 @@ from pypy.rpython.lltypesystem.lltype import cast_ptr_to_int as gc_id
 
 def weakref_create_getlazy(objgetter):
     return weakref_create(objgetter())
+
+def coalloc(T, coallocator, n=None, zero=True):
+    # ignore the coallocator
+    return malloc(T, n, zero=zero)

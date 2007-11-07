@@ -36,9 +36,10 @@ class GCBase(object):
     def size_gc_header(self, typeid=0):
         return self.gcheaderbuilder.size_gc_header
 
-    def malloc(self, typeid, length=0, zero=False):
+    def malloc(self, typeid, length=0, zero=False, coallocator=None):
         """For testing.  The interface used by the gctransformer is
         the four malloc_[fixed,var]size[_clear]() functions.
+        And (if they exist) to the coalloc_[fixed,var]size functios
         """
         size = self.fixed_size(typeid)
         needs_finalizer = bool(self.getfinalizer(typeid))
@@ -59,15 +60,26 @@ class GCBase(object):
                 malloc_varsize = self.malloc_varsize_clear
             else:
                 malloc_varsize = self.malloc_varsize
-            ref = malloc_varsize(typeid, length, size, itemsize,
-                                 offset_to_length, True, needs_finalizer)
+            if coallocator is not None and hasattr(self, "coalloc_varsize"):
+                assert not needs_finalizer
+                coallocator = llmemory.cast_ptr_to_adr(coallocator)
+                ref = self.coalloc_varsize(coallocator, typeid, length, size,
+                                           itemsize, offset_to_length)
+            else:
+                ref = malloc_varsize(typeid, length, size, itemsize,
+                                     offset_to_length, True, needs_finalizer)
         else:
             if zero:
                 malloc_fixedsize = self.malloc_fixedsize_clear
             else:
                 malloc_fixedsize = self.malloc_fixedsize
-            ref = malloc_fixedsize(typeid, size, True, needs_finalizer,
-                                   contains_weakptr)
+            if coallocator is not None and hasattr(self, "coalloc_fixedsize"):
+                assert not needs_finalizer
+                coallocator = llmemory.cast_ptr_to_adr(coallocator)
+                ref = self.coalloc_fixedsize(coallocator, typeid, size)
+            else:
+                ref = malloc_fixedsize(typeid, size, True, needs_finalizer,
+                                       contains_weakptr)
         # lots of cast and reverse-cast around...
         return llmemory.cast_ptr_to_adr(ref)
 

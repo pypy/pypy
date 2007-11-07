@@ -368,3 +368,17 @@ class TestGrowingSemiSpaceGC(TestSemiSpaceGC):
 
 class TestGenerationalGC(GCTest):
     from pypy.rpython.memory.gc.generation import GenerationGC as GCClass
+
+    def test_coalloc(self):
+        def malloc_a_lot():
+            i = 0
+            while i < 10:
+                i += 1
+                a = [1] * 10
+                j = 0
+                while j < 30:
+                    j += 1
+                    a.append(j)
+            return 0
+        res = self.interpret(malloc_a_lot, [], backendopt=True, coalloc=True)
+        assert res == 0

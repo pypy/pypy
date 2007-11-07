@@ -77,6 +77,17 @@ class GenerationGC(SemiSpaceGC):
             self.young_objects_with_weakrefs.append(result + size_gc_header)
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
 
+    def coalloc_fixedsize(self, coallocator, typeid, size):
+        # note: a coallocated object can never return a weakref, since the
+        # coallocation analysis is done at a time where weakrefs are
+        # represented as opaque objects which aren't allocated using malloc but
+        # with weakref_create
+        if self.is_in_nursery(coallocator):
+            return self.malloc_fixedsize(typeid, size, True, False, False)
+        else:
+            return SemiSpaceGC.malloc_fixedsize(self, typeid, size, True,
+                                                False, False)
+
     def malloc_varsize(self, typeid, length, size, itemsize, offset_to_length,
                        can_collect, has_finalizer=False):
         # only use the nursery if there are not too many items
@@ -100,6 +111,16 @@ class GenerationGC(SemiSpaceGC):
         (result + size_gc_header + offset_to_length).signed[0] = length
         self.nursery_free = result + llarena.round_up_for_allocation(totalsize)
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
+
+    def coalloc_varsize(self, coallocator, typeid, length, size, itemsize,
+                        offset_to_length):
+        if self.is_in_nursery(coallocator):
+            return self.malloc_varsize(typeid, length, size, itemsize,
+                                       offset_to_length, True, False)
+        else:
+            return SemiSpaceGC.malloc_varsize(self, typeid, length, size,
+                                              itemsize, offset_to_length,
+                                              True, False)
 
     # override the init_gc_object methods to change the default value of 'flags',
     # used by objects that are directly created outside the nursery by the SemiSpaceGC.

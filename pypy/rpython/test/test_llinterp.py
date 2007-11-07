@@ -37,8 +37,10 @@ def timelog(prefix, call, *args, **kwds):
     return res 
 
 def gengraph(func, argtypes=[], viewbefore='auto', policy=None,
-             type_system="lltype", backendopt=False, config=None):
+             type_system="lltype", backendopt=False, config=None,
+             **extraconfigopts):
     t = TranslationContext(config=config)
+    t.config.set(**extraconfigopts)
     a = t.buildannotator(policy=policy)
     timelog("annotating", a.build_types, func, argtypes)
     if viewbefore == 'auto':
@@ -69,9 +71,12 @@ def clear_tcache():
 
 def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
                     someobjects=False, type_system="lltype", backendopt=False,
-                    config=None, malloc_check=True):
-    key = (func,) + tuple([typeOf(x) for x in values])+ (someobjects,
-                                                         backendopt)
+                    config=None, malloc_check=True, **extraconfigopts):
+    extra_key = [(key, value) for key, value in extraconfigopts.iteritems()]
+    extra_key.sort()
+    extra_key = tuple(extra_key)
+    key = ((func,) + tuple([typeOf(x) for x in values]) +
+            (someobjects, backendopt, extra_key))
     try: 
         (t, interp, graph) = _tcache[key]
     except KeyError:
@@ -91,7 +96,8 @@ def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
 
         t, typer, graph = gengraph(func, [annotation(x) for x in values],
                                    viewbefore, policy, type_system=type_system,
-                                   backendopt=backendopt, config=config)
+                                   backendopt=backendopt, config=config,
+                                   **extraconfigopts)
         interp = LLInterpreter(typer, malloc_check=malloc_check)
         _tcache[key] = (t, interp, graph)
         # keep the cache small 

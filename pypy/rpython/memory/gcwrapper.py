@@ -62,6 +62,17 @@ class GCManagedHeap(object):
         assert flavor != 'gc'
         return lltype.free(TYPE, flavor=flavor)
 
+    def coalloc(self, TYPE, coallocator, size=None, zero=False):
+        if hasattr(self.gc, "coalloc_fixedsize"):
+            typeid = self.get_type_id(TYPE)
+            addr = self.gc.malloc(typeid, size, zero=zero,
+                                  coallocator=coallocator)
+            result = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(TYPE))
+            if self.gc.needs_zero_gc_pointers:
+                gctypelayout.zero_gc_pointers(result)
+            return result
+        return self.malloc(TYPE, size, 'gc', zero)
+
     def setfield(self, obj, fieldname, fieldvalue):
         STRUCT = lltype.typeOf(obj).TO
         addr = llmemory.cast_ptr_to_adr(obj)
@@ -103,6 +114,7 @@ class GCManagedHeap(object):
     def gc_id(self, ptr):
         ptr = lltype.cast_opaque_ptr(llmemory.GCREF, ptr)
         return self.gc.id(ptr)
+
 
     # ____________________________________________________________
 

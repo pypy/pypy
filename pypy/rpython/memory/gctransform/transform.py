@@ -491,6 +491,21 @@ class GCTransformer(BaseGCTransformer):
         c_size = rmodel.inputconst(lltype.Signed, llmemory.sizeof(TYPE))
         v_raw = meth(hop, flags, TYPE, c_size)
         hop.cast_result(v_raw)
+    
+    def gct_coalloc(self, hop):
+        TYPE = hop.spaceop.result.concretetype.TO
+        assert not TYPE._is_varsize()
+        flags = hop.spaceop.args[2].value
+        flavor = flags['flavor']
+        c_size = rmodel.inputconst(lltype.Signed, llmemory.sizeof(TYPE))
+        meth = getattr(self, 'gct_fv_%s_comalloc' % flavor, None)
+        if meth is None:
+            meth = getattr(self, 'gct_fv_%s_malloc' % flavor, None)
+            assert meth, "%s has no support for comalloc with flavor %r" % (self, flavor) 
+            v_raw = meth(hop, flags, TYPE, c_size)
+        else:
+            v_raw = meth(hop, hop.spaceop.args[1], flags, TYPE, c_size)
+        hop.cast_result(v_raw)
 
     def gct_fv_raw_malloc(self, hop, flags, TYPE, c_size):
         v_raw = hop.genop("direct_call", [self.raw_malloc_fixedsize_ptr, c_size],
@@ -514,16 +529,32 @@ class GCTransformer(BaseGCTransformer):
         return hop.genop('cpy_malloc', args, resulttype=op.result.concretetype)
 
     def gct_malloc_varsize(self, hop):
-        def intconst(c): return rmodel.inputconst(lltype.Signed, c)
 
-        op = hop.spaceop
-        TYPE = op.result.concretetype.TO
-        assert TYPE._is_varsize()
         flags = hop.spaceop.args[1].value
         flavor = flags['flavor']
         meth = getattr(self, 'gct_fv_%s_malloc_varsize' % flavor, None)
         assert meth, "%s has no support for malloc_varsize with flavor %r" % (self, flavor) 
+        return self.varsize_malloc_helper(hop, flags, meth, [])
 
+    def gct_coalloc_varsize(self, hop):
+
+        flags = hop.spaceop.args[2].value
+        flavor = flags['flavor']
+        meth = getattr(self, 'gct_fv_%s_coalloc_varsize' % flavor, None)
+        if meth is None:
+            meth = getattr(self, 'gct_fv_%s_malloc_varsize' % flavor, None)
+            assert meth, "%s has no support for malloc_varsize with flavor %r" % (self, flavor) 
+            return self.varsize_malloc_helper(hop, flags, meth, [])
+        else:
+            return self.varsize_malloc_helper(hop, flags, meth,
+                                              [hop.spaceop.args[1]])
+
+
+    def varsize_malloc_helper(self, hop, flags, meth, extraargs):
+        def intconst(c): return rmodel.inputconst(lltype.Signed, c)
+        op = hop.spaceop
+        TYPE = op.result.concretetype.TO
+        assert TYPE._is_varsize()
         if isinstance(TYPE, lltype.Struct):
             ARRAY = TYPE._flds[TYPE._arrayfld]
         else:
@@ -545,10 +576,12 @@ class GCTransformer(BaseGCTransformer):
                 offset_to_length = llmemory.ArrayLengthOffset(ARRAY)
             c_offset_to_length = intconst(offset_to_length)
 
-        v_raw = meth(hop, flags, TYPE, op.args[-1], c_const_size, c_item_size,
-                                                    c_offset_to_length)
+        args = [hop] + extraargs + [flags, TYPE,
+                op.args[-1], c_const_size, c_item_size, c_offset_to_length]
+        v_raw = meth(*args)
 
         hop.cast_result(v_raw)
+
 
     def gct_fv_raw_malloc_varsize(self, hop, flags, TYPE, v_length, c_const_size, c_item_size,
                                                                     c_offset_to_length):

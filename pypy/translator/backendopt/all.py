@@ -125,6 +125,10 @@ def backend_optimizations(translator, graphs=None, secondary=False, **kwds):
         print "after if-to-switch:"
         print_statistics(translator.graphs[0], translator)
 
+    if config.coalloc and not secondary:
+        from pypy.translator.backendopt import coalloc
+        coalloc.malloc_to_coalloc(translator)
+
     for graph in graphs:
         checkgraph(graph)
 

@@ -160,6 +160,9 @@ translation_optiondescription = OptionDescription(
         BoolOption("heap2stack", "Escape analysis and stack allocation",
                    default=False,
                    requires=[("translation.stackless", False)]),
+        BoolOption("coalloc", "Try to replace mallocs by coallocation",
+                   default=False,
+                   suggests=[("translation.gc", "generation")]),
         # control profile based inlining
         StrOption("profile_based_inline",
                   "Use call count profiling to drive inlining"
