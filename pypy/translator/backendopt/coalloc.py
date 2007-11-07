@@ -347,19 +347,48 @@ def malloc_to_coalloc(t):
 
 def do_coalloc(adi, graph, setblock, setop, fromcreps, tocrep):
     def find_coalloc_var():
+        # if the setting happens in the same block as the malloc, use the
+        # variable directly
         if block is setblock and seen_setvar:
             return setop.args[0]
+
+        # if the setting _always_ happens on a constant, use the constant
+        if len(fromcreps) == 1:
+            fromcrep, = fromcreps
+            if fromcrep.creation_method == "constant":
+                return fromcrep.constant
+
+        # lots of heuristics ahead
+        subsets = []
+        intersections = []
+        for var in block.inputargs:
+            varstate = adi.getstate(var)
+            if varstate is None:
+                continue
+            creps = set(varstate.creation_points)
+            if creps == fromcreps:
+                return var
+            if creps.issubset(fromcreps):
+                subsets.append((len(creps), var))
+            intersection = creps.intersection(fromcreps)
+            if intersection:
+                intersections.append((len(intersection), var))
+
+        # first, try to use the biggest subset of creps
+        if subsets:
+            subsets.sort()
+            return subsets[-1][1]
+        # then, get desparate, and use any inputarg that has the biggest
+        # intersection
+        if intersections:
+            intersections.sort()
+            return intersections[-1][1]
+
+        # if there is still nothing, check the fromcreps again and look for
+        # a constant
         for fromcrep in fromcreps:
             if fromcrep.creation_method == "constant":
                 return fromcrep.constant
-        for fromcrep in fromcreps:
-            for var in block.inputargs:
-                varstate = adi.getstate(var)
-                if varstate is None:
-                    continue
-                crep = varstate.get_crep(checksingle=True)
-                if crep is fromcrep:
-                    return var
         return None
     result = 0
     for block in graph.iterblocks():

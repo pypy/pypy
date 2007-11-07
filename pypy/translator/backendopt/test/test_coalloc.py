@@ -299,3 +299,29 @@ def test_nocoalloc_finalizer():
         a.next = n
         return 1
     check_malloc_to_coalloc(f, [], [], 1, must_remove=0)
+
+def test_coalloc_set_further_down():
+    class A(object):
+        pass
+    def g():
+        return A()
+    globala = A()
+    globala.x = 2
+    def f(x):
+        if x:
+            a = g()
+            a.x = 42
+        else:
+            a = g()
+            a.x = 43
+        a1 = A()
+        a.x = 1
+        # this if is only there to force the set into a new block
+        if not x:
+            b = a
+        else:
+            b = globala
+        a.a = a1
+        return b.x
+    t = check_malloc_to_coalloc(f, [int], [1], 2, must_remove=1)
+
