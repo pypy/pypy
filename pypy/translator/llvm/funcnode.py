@@ -66,7 +66,7 @@ class FuncImplNode(FuncNode):
                 self.write_block(codewriter, block)
         if self.bad_switch_block:
             codewriter.label('badswitch')
-            codewriter._indent('call void %abort()')
+            codewriter._indent('call void @abort()')
             codewriter._indent('unreachable')
         codewriter.closefunc()
     

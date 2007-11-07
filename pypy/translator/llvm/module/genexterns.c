@@ -5,10 +5,17 @@
 #endif
 
 #include "c/src/thread.h"
-//#include "c/src/ll_os.h"
-#include "c/src/ll_math.h"
-#include "c/src/ll_strtod.h"
-#include "c/src/stack.h"
+#ifdef LL_NEED_MATH
+  #include "c/src/ll_math.h"
+#endif
+
+#ifdef LL_NEED_STRTOD
+  #include "c/src/ll_strtod.h"
+#endif
+
+#ifdef LL_NEED_STACK
+  #include "c/src/stack.h"
+#endif
 
 // setup code for ThreadLock Opaque types
 /*char *RPyOpaque_LLVM_SETUP_ThreadLock(struct RPyOpaque_ThreadLock *lock,

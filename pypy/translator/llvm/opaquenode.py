@@ -47,6 +47,7 @@ class ExtOpaqueNode(ConstantNode):
         T = self.value._TYPE
         # XXX similar non generic hacks to genc for now
         if T.tag == 'ThreadLock':
+            XXX
             argrefs = [self.get_ref()]
             argtypes = [self.db.repr_type(T) + "*"]
             lock = self.value.externalobj

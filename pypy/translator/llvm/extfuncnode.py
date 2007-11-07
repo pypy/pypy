@@ -14,11 +14,12 @@ class ExtFuncSig(object):
 
 # signature of external functions differ from C's implementation
 ext_func_sigs = {
-    "@LL_stack_too_big" : ExtFuncSig("int", None),
+    "@LL_stack_too_big_" : ExtFuncSig("i32", None),
     }
 
-if maxint != 2**31-1:
-    ext_func_sigs["@LL_math_ldexp"] = ExtFuncSig(None, [None, "int"])
+# XXX 64 bit is really broken since 2.x
+#if maxint != 2**31-1:
+#    ext_func_sigs["@LL_math_ldexp"] = ExtFuncSig(None, [None, "int"])
 
 
 class SimplerExternalFuncNode(FuncNode):
@@ -58,12 +59,12 @@ class SimplerExternalFuncNode(FuncNode):
         codewriter.declare(self.getdecl())
 
 class ExternalFuncNode(FuncNode):
+    prefix = '@'
 
     def __init__(self, db, value, extname=None):
         self.db = db
         self.value = value
         name = value._callable.__name__
-        #assert name.startswith("ll")
 
         self.callable = value._callable
         if extname is not None:
@@ -72,7 +73,10 @@ class ExternalFuncNode(FuncNode):
             mapped_name = EXTERNALS[self.callable]
 
         self.make_name(mapped_name)
-        
+        if ext_func_sigs.get(self.ref + '_', None):
+            self.origref = self.ref
+            self.name += "_"
+
     def setup(self):
         self.db.prepare_type(self.value._TYPE.RESULT)
         self.db.prepare_type_multi(self.value._TYPE._trueargs()) 
@@ -80,31 +84,31 @@ class ExternalFuncNode(FuncNode):
     def _get_wrapper(self):
         wrapper = ext_func_sigs.get(self.ref, None)
 
-        if wrapper is None and maxint != 2**31-1:
-            #log("ref=%s" % self.ref)
-            rettype, args = self.getdecl_parts()
-            conversions = False
-            if   rettype == "long":
-                rettype = "int"
-                conversions = True
-            elif rettype == "ulong":
-                rettype = "uint"
-                conversions = True
-            else:
-                rettype = None
-            for i, a in enumerate(args):
-                if   a == "long":
-                    args[i] = "int"
-                    conversions = True
-                elif a == "ulong":
-                    args[i] = "uint"
-                    conversions = True
-                else:
-                    args[i] = None
-            if conversions:
-                wrapper = ExtFuncSig(rettype, args)
-                #log("    rettype=%s" % str(rettype))
-                #log("    args   =%s" % str(args))
+#         if wrapper is None and maxint != 2**31-1:
+#             #log("ref=%s" % self.ref)
+#             rettype, args = self.getdecl_parts()
+#             conversions = False
+#             if   rettype == "long":
+#                 rettype = "int"
+#                 conversions = True
+#             elif rettype == "ulong":
+#                 rettype = "uint"
+#                 conversions = True
+#             else:
+#                 rettype = None
+#             for i, a in enumerate(args):
+#                 if   a == "long":
+#                     args[i] = "int"
+#                     conversions = True
+#                 elif a == "ulong":
+#                     args[i] = "uint"
+#                     conversions = True
+#                 else:
+#                     args[i] = None
+#             if conversions:
+#                 wrapper = ExtFuncSig(rettype, args)
+#                 #log("    rettype=%s" % str(rettype))
+#                 #log("    args   =%s" % str(args))
         return wrapper
 
     def getdecl_parts(self):
@@ -166,15 +170,17 @@ class ExternalFuncNode(FuncNode):
         expected_rettype = wrapper.rettype or rettype
 
         # call
-        codewriter.call(returnval, expected_rettype, self.ref,
+        codewriter.call(returnval, expected_rettype, self.origref,
                         expected_argtypes, expected_argrefs)
 
         if wrapper.rettype:
             # cast to desired return type
             tmpval = returnval
             returnval = self.db.repr_tmpvar()
+            # XXX note we only have one case above - more will need
+            # to specialize the cast
             codewriter.cast(returnval, wrapper.rettype,
-                            tmpval, rettype)
+                            tmpval, rettype, 'trunc')
             
         codewriter.ret(rettype, returnval)
         codewriter.closefunc()

@@ -90,12 +90,13 @@ class OpWriter(object):
         for oo in 'lt le eq ne ge gt'.split():
             binary_operations['%s_%s' % (tt, oo)] = 'fcmp u%s' % oo
 
-    char_operations = {'char_lt': 'icmp lt',
-                       'char_le': 'icmp le',
-                       'char_eq': 'icmp eq',
-                       'char_ne': 'icmp ne',
-                       'char_ge': 'icmp ge',
-                       'char_gt': 'icmp gt'}
+    # ZZZ check that operation should be checking unsigned
+    binary_operations.update({'char_lt': 'icmp ult',
+                              'char_le': 'icmp ule',
+                              'char_eq': 'icmp eq',
+                              'char_ne': 'icmp ne',
+                              'char_ge': 'icmp uge',
+                              'char_gt': 'icmp ugt'})
 
     def __init__(self, db, codewriter):
         self.db = db
@@ -139,48 +140,14 @@ class OpWriter(object):
         elif op.opname in self.shift_operations:
             self.shiftop(opr)
 
-        elif op.opname in self.char_operations:
-            self.char_binaryop(opr)
-
         elif op.opname.startswith('cast_') or op.opname.startswith('truncate_'):
-            if op.opname == 'cast_char_to_int':
-                self.cast_char_to_int(opr)
-            else:
-                self.cast_primitive(opr)
+            self.cast_primitive(opr)
         else:
             meth = getattr(self, op.opname, None)
             if not meth:
                 raise Exception, "operation %s not found" % op.opname
             meth(opr)            
     
-    def _generic_pow(self, opr, onestr): 
-
-        # XXX This broken as... will only work for constants
-        try:
-            value = "NO VALUE"
-            value = opr.op.args[1].value
-            operand = int(value)
-        except Exception, exc:
-            msg = 'XXX: Error: _generic_pow: Variable '\
-                  '%s - failed to convert to int %s' % (value, str(exc))
-            self.codewriter.comment(msg)
-            raise Exception(msg)
-
-        mult_type = opr.argtypes[0]
-        mult_val = opr.argrefs[0]
-        last_val = mult_val
-        
-        if operand < 1:
-            res_val = onestr
-        else:
-            res_val = mult_val
-            for ii in range(operand - 1):
-                res_val = self._tmp()
-                self.codewriter.binaryop("mul", res_val, mult_type,
-                                         last_val, mult_val)
-                last_val = res_val
-        self.codewriter.cast(opr.retref, mult_type, res_val, mult_type)        
-
     def _skipped(self, opr):
         self.codewriter.comment('***Skipping operation %s()' % opr.op.opname)
     keepalive = _skipped
@@ -230,19 +197,12 @@ class OpWriter(object):
         self.codewriter.binaryop(name, opr.retref, opr.argtypes[0],
                                  opr.argrefs[0], opr.argrefs[1])
 
-    def char_binaryop(self, opr):
-        assert len(opr.argrefs) == 2
-        name = self.char_operations[opr.op.opname]
-        c1, c2 = self._tmp(2)
-        self.codewriter.cast(c1, "sbyte", opr.argrefs[0], "ubyte")
-        self.codewriter.cast(c2, "sbyte", opr.argrefs[1], "ubyte")
-        self.codewriter.binaryop(name, opr.retref, "ubyte", c1, c2)
-
     def shiftop(self, opr):
         op = opr.op
         name = self.shift_operations[op.opname]
 
         var = opr.argrefs[1]
+        # ZZZ why did we do this???
         #if isinstance(op.args[1], Constant):
         #    var = opr.argrefs[1]
         #else:
@@ -251,21 +211,18 @@ class OpWriter(object):
             
         self.codewriter.shiftop(name, opr.retref, opr.argtypes[0], opr.argrefs[0], var)
 
-    def cast_char_to_int(self, opr):
-        " works for all casts "
-        XXX
-        assert len(opr.argrefs) == 1
-        intermediate = self._tmp()
-        self.codewriter.cast(intermediate, opr.argtypes[0],
-                             opr.argrefs[0], "ubyte")
-        self.codewriter.cast(opr.retref, "ubyte", intermediate, opr.rettype)
-
     def cast_primitive(self, opr):
         " works for all casts "
         fromtype = opr.argtypes[0]
         totype = opr.rettype
         casttype = "bitcast"
         if '*' not in fromtype:
+            if fromtype[0] == 'i8':
+                 assert totype[0] == 'i'
+                 tosize = int(totype[1:])
+                 assert tosize > 8
+                 casttype = "zext" 
+                     
             if fromtype[0] == 'i' and totype[0] == 'i':
                 fromsize = int(fromtype[1:])
                 tosize = int(totype[1:])
@@ -299,7 +256,7 @@ class OpWriter(object):
     llong_is_true = int_is_true
 
     def float_is_true(self, opr):
-        self.codewriter.binaryop("setne", opr.retref, opr.argtypes[0],
+        self.codewriter.binaryop("fcmp une", opr.retref, opr.argtypes[0],
                                  opr.argrefs[0], "0.0")
 
     def ptr_nonzero(self, opr):
@@ -474,8 +431,8 @@ class OpWriter(object):
 
     def adr_delta(self, opr):
         addr1, addr2 = self._tmp(2)
-        self.codewriter.cast(addr1, opr.argtypes[0], opr.argrefs[0], self.word)
-        self.codewriter.cast(addr2, opr.argtypes[1], opr.argrefs[1], self.word)
+        self.codewriter.cast(addr1, opr.argtypes[0], opr.argrefs[0], self.word, 'ptrtoint')
+        self.codewriter.cast(addr2, opr.argtypes[1], opr.argrefs[1], self.word, 'ptrtoint')
         self.codewriter.binaryop("sub", opr.retref, opr.rettype, addr1, addr2)
 
     def _op_adr_generic(self, opr, llvm_op):
@@ -505,16 +462,16 @@ class OpWriter(object):
         self._op_adr_cmp(opr, "icmp ne")
 
     def adr_le(self, opr):
-        self._op_adr_cmp(opr, "icmp le")
+        self._op_adr_cmp(opr, "icmp sle")
 
     def adr_gt(self, opr):
-        self._op_adr_cmp(opr, "icmp gt")
+        self._op_adr_cmp(opr, "icmp sgt")
 
     def adr_lt(self, opr):
-        self._op_adr_cmp(opr, "icmp lt")
+        self._op_adr_cmp(opr, "icmp slt")
 
     def adr_ge(self, opr):
-        self._op_adr_cmp(opr, "icmp ge")
+        self._op_adr_cmp(opr, "icmp sge")
 
     # XXX Not sure any of this makes sense - maybe seperate policy for
     # different flavours of mallocs?  Well it depend on what happens the GC

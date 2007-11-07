@@ -75,6 +75,7 @@ class RawGcPolicy(GcPolicy):
     def _zeromalloc(self, codewriter, targetvar, size=1, atomic=False,
                     exc_flag=False):
         """ assumes malloc of word size """
+        XXX
         uword = self.db.get_machine_uword()
         boundary_size = 0
 

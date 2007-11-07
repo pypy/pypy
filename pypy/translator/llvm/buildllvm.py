@@ -53,22 +53,7 @@ class Builder(object):
         self.cmds = []
 
     def optimizations(self):
-        if llvm_version() < 2.0:
-            cmd = "gccas /dev/null -o /dev/null -debug-pass=Arguments 2>&1"
-            gccas_output = os.popen(cmd)
-            opts = gccas_output.read()[17:-1] + " "
-            
-            # these were added by Chris Lattner for some old version of llvm
-            #    opts += "-globalopt -constmerge -ipsccp -deadargelim -inline " \
-            #            "-instcombine -scalarrepl -globalsmodref-aa -licm -load-vn " \
-            #            "-gcse -instcombine -simplifycfg -globaldce "
-
-            # added try to reduce the amount of excessive inlining by us, llvm and gcc
-            #    opts += "-inline-threshold=175 "   #default: 200
-
-        else:
-            opts = '-std-compile-opts'
-        return opts
+        return '-std-compile-opts'
 
     def execute_cmds(self):
         c = stdoutcapture.Capture(mixed_out_err=True)

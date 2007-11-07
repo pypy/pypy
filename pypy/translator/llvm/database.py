@@ -403,11 +403,11 @@ class Primitives(object):
             
             for k, v in [
                 (rcarith.CByte, self.types[lltype.Char]),
-                (rcarith.CUByte, 'ubyte'),
-                (rcarith.CShort, 'short'),
-                (rcarith.CUShort, 'ushort'),
-                (rcarith.CInt, 'int'),
-                (rcarith.CUInt, 'uint'),
+                (rcarith.CUByte, 'i8'),
+                (rcarith.CShort, 'i16'),
+                (rcarith.CUShort, 'i16'),
+                (rcarith.CInt, 'i32'),
+                (rcarith.CUInt, 'i32'),
                 (rcarith.CLong, self.types[lltype.Signed]),
                 (rcarith.CULong, self.types[lltype.Unsigned]),
                 (rcarith.CLonglong, self.types[lltype.SignedLongLong]),
@@ -436,8 +436,10 @@ class Primitives(object):
   
     def repr_char(self, type_, value):
         x = ord(value)
+        print x
         if x >= 128:
-            r = "cast (ubyte %s to sbyte)" % x
+            # XXX check this really works
+            r = "trunc (i16 %s to i8)" % x
         else:
             r = str(x)
         return r
@@ -486,11 +488,12 @@ class Primitives(object):
         return repr
 
     def repr_address(self, type_, value):
+        # XXX why-o-why isnt this an int ???
         if not value:
             return 'null'
         ptr = value.ptr
         node, ref = self.database.repr_constant(ptr)
-        res = "cast(%s to sbyte*)" % (ref,)
+        res = "bitcast(%s to i8*)" % (ref,)
         return res
 
     def repr_weakgcaddress(self, type_, value):

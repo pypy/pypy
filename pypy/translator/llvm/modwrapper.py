@@ -52,6 +52,9 @@ def identity(res):
 def from_unichar(arg):
     return ord(arg)
 
+def from_float(arg):
+    return ctypes.c_double(arg)
+
 def from_str(arg):
     # XXX wont work over isolate : arg should be converted into a string first
     n = len(arg.chars)
@@ -108,7 +111,7 @@ __entrypoint__ = _c.pypy_%(name)s
 
 # %(RT)r
 to_llargs = %(to_llargs)s
-__entrypoint__ = _c.pypy_%(name)s
+__entrypoint__.args = _c.pypy_%(name)s
 
 # %(ARGS)r
 ll_to_res = %(ll_to_res)s
@@ -171,6 +174,9 @@ __entrypoint__.restype = %(returntype)s
 
             if A is lltype.UniChar:
                 action = 'from_unichar'
+
+            elif A is lltype.Float:
+                action = 'from_float'
 
             elif isinstance(A, lltype.Ptr) and A.TO is STR:
                 action = 'from_str'
