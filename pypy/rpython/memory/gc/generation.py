@@ -92,7 +92,8 @@ class GenerationGC(SemiSpaceGC):
                        can_collect, has_finalizer=False):
         # only use the nursery if there are not too many items
         if (has_finalizer or not can_collect or
-            length > self.nursery_size // 4 // raw_malloc_usage(itemsize) or
+            (raw_malloc_usage(itemsize) and
+             length > self.nursery_size // 4 // raw_malloc_usage(itemsize)) or
             raw_malloc_usage(size) > self.nursery_size // 4):
             return SemiSpaceGC.malloc_varsize(self, typeid, length, size,
                                               itemsize, offset_to_length,

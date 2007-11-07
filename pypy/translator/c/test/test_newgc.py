@@ -799,6 +799,17 @@ class TestUsingFramework(AbstractGCTestClass):
             "sizeof(double) not a power of two")
         assert (res & (expected_alignment-1)) == 0
 
+    def test_void_list(self):
+        class E:
+            def __init__(self):
+                self.l = []
+        def f():
+            e = E()
+            return len(e.l)
+        c_fn = self.getcompiled(f)
+        assert c_fn() == 0
+
+
 class TestUsingStacklessFramework(TestUsingFramework):
 
     def getcompiled(self, f):
