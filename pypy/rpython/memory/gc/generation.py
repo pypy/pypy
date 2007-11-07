@@ -12,6 +12,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 # pointer to a young object.
 GCFLAG_NO_YOUNG_PTRS = 2 << GCFLAGSHIFT
 
+DEBUG_PRINT = False
 
 class GenerationGC(SemiSpaceGC):
     """A basic generational GC: it's a SemiSpaceGC with an additional
@@ -136,7 +137,12 @@ class GenerationGC(SemiSpaceGC):
         self.reset_young_gcflags() # we are doing a full collection anyway
         self.weakrefs_grow_older()
         self.reset_nursery()
+        if DEBUG_PRINT:
+            llop.debug_print(lltype.Void, "major collect, size changing", size_changing)
         SemiSpaceGC.semispace_collect(self, size_changing)
+        if DEBUG_PRINT and not size_changing:
+            llop.debug_print(lltype.Void, "percent survived", float(self.free - self.tospace) / self.space_size)
+            
 
     def trace_and_copy(self, obj):
         # during a full collect, all objects copied might come from the nursery and
@@ -171,12 +177,13 @@ class GenerationGC(SemiSpaceGC):
             debug_assert(self.nursery_size <= self.top_of_space - self.free,
                          "obtain_free_space failed to do its job")
         if self.nursery:
-            #llop.debug_print(lltype.Void, "minor collect")
+            if DEBUG_PRINT:
+                llop.debug_print(lltype.Void, "minor collect")
             # a nursery-only collection
-            scan = self.free
+            scan = beginning = self.free
             self.collect_oldrefs_to_nursery()
             self.collect_roots_in_nursery()
-            self.scan_objects_just_copied_out_of_nursery(scan)
+            scan = self.scan_objects_just_copied_out_of_nursery(scan)
             # at this point, all static and old objects have got their
             # GCFLAG_NO_YOUNG_PTRS set again by trace_and_drag_out_of_nursery
             if self.young_objects_with_weakrefs.non_empty():
@@ -184,6 +191,8 @@ class GenerationGC(SemiSpaceGC):
             self.notify_objects_just_moved()
             # mark the nursery as free and fill it with zeroes again
             llarena.arena_reset(self.nursery, self.nursery_size, True)
+            if DEBUG_PRINT:
+                llop.debug_print(lltype.Void, "percent survived:", float(scan - beginning) / self.nursery_size)
         else:
             # no nursery - this occurs after a full collect, triggered either
             # just above or by some previous non-nursery-based allocation.
@@ -201,23 +210,31 @@ class GenerationGC(SemiSpaceGC):
         # Follow the old_objects_pointing_to_young list and move the
         # young objects they point to out of the nursery.  The 'forw'
         # fields are reset to their correct value along the way.
+        count = 0
         obj = self.old_objects_pointing_to_young
         while obj:
+            count += 1
             nextobj = self.header(obj).forw
             self.init_forwarding(obj)
             self.trace_and_drag_out_of_nursery(obj)
             obj = nextobj
+        if DEBUG_PRINT:
+            llop.debug_print(lltype.Void, "collect_oldrefs_to_nursery", count)
         self.old_objects_pointing_to_young = NULL
 
     def collect_roots_in_nursery(self):
         roots = self.get_roots(with_static=False)
+        count = 0
         while 1:
             root = roots.pop()
             if root == NULL:
                 break
+            count += 1
             obj = root.address[0]
             if self.is_in_nursery(obj):
                 root.address[0] = self.copy(obj)
+        if DEBUG_PRINT:
+            llop.debug_print(lltype.Void, "collect_roots_in_nursery", count)
         free_non_gc_object(roots)
 
     def scan_objects_just_copied_out_of_nursery(self, scan):
