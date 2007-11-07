@@ -11,7 +11,7 @@ class BranchException(Exception):
     pass
 
 class FuncImplNode(FuncNode):
-    prefix = '%pypy_'
+    prefix = '@pypy_'
     __slots__ = "db value graph block_to_name bad_switch_block".split()
 
     def __init__(self, db, value):

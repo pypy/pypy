@@ -11,17 +11,23 @@ from pypy.translator.llvm.buildllvm import llvm_gcc_version
 from pypy.tool.udir import udir
 
 support_functions = [
-    "%raisePyExc_IOError",
-    "%raisePyExc_ValueError",
-    "%raisePyExc_OverflowError",
-    "%raisePyExc_ZeroDivisionError",
-    "%raisePyExc_RuntimeError",
-    "%raisePyExc_thread_error",
-    "%RPyString_FromString",
-    "%RPyString_AsString",
-    "%RPyString_Size",
-    "%RPyExceptionOccurred",
-    "%LLVM_RPython_StartupCode",
+    "@raisePyExc_IOError",
+    "@raisePyExc_ValueError",
+    "@raisePyExc_OverflowError",
+    "@raisePyExc_ZeroDivisionError",
+    "@raisePyExc_RuntimeError",
+    "@raisePyExc_thread_error",
+    "@RPyString_FromString",
+    "@RPyString_AsString",
+    "@RPyString_Size",
+    "@RPyExceptionOccurred",
+    "@LLVM_RPython_StartupCode",
+    ]
+
+
+skip_lines = [
+    "%RPyString = type opaque",
+    "__main",
     ]
 
 def get_module_file(name):
@@ -59,13 +65,14 @@ def get_ll(ccode, function_names, default_cconv):
     # strip declares that are in funcnames
     for line in llcode.split('\n'):
 
-        # For some reason gcc introduces this and then we cant resolve it
-        # XXX Get rid of this - when got more time on our hands
-        if line.find("__main") >= 1:
-           continue
-
         # get rid of any of the structs that llvm-gcc introduces to struct types
         line = line.replace("%struct.", "%")
+
+        # XXX slowwwwwww
+        for x in skip_lines:
+            if line.find(x) >= 0:
+                line = ''
+                break
 
         # strip comments
         comment = line.find(';')
@@ -74,18 +81,18 @@ def get_ll(ccode, function_names, default_cconv):
         line = line.rstrip()
 
         # find function names, declare them with the default calling convertion
-        if '(' in  line and line[-1:] == '{':
-           returntype, s = line.split(' ', 1)
-           funcname  , s = s.split('(', 1)
-           funcnames[funcname] = True
-           if line.find("internal") == -1:
-                if funcname not in ["%main", "%ctypes_RPython_StartupCode"]:
-                    internal = 'internal '
-                    line = '%s%s %s' % (internal, default_cconv, line,)
+        #if '(' in  line and line[-1:] == '{':
+        #   returntype, s = line.split(' ', 1)
+        #   funcname  , s = s.split('(', 1)
+        #   funcnames[funcname] = True
+        #   if line.find("internal") == -1:
+        #        if funcname not in ["@main", "@ctypes_RPython_StartupCode"]:
+        #            internal = 'internal '
+        #            line = '%s%s %s' % (internal, default_cconv, line,)
         ll_lines.append(line)
 
-    # patch calls to function that we just declared with differnet cconv
-    ll_lines2, calltag, declaretag = [], 'call ', 'declare '
+    # patch calls to function that we just declared with different cconv
+    ll_lines2, calltag, declaretag, definetag = [], 'call ', 'declare ', 'define ' 
     for line in ll_lines:
         i = line.find(calltag)
         if i >= 0:
@@ -102,15 +109,24 @@ def get_ll(ccode, function_names, default_cconv):
                     cconv = default_cconv
                     break
             line = "declare %s %s" % (cconv, line[len(declaretag):])
+        if line[:len(definetag)] == definetag:
+            line = line.replace("internal ", "")
+            cconv = 'ccc'
+            for funcname in funcnames.keys():
+                if line.find(funcname) >= 0:
+                    cconv = default_cconv
+                    break
+            line = "define %s %s" % (cconv, line[len(definetag):])
         ll_lines2.append(line)
 
-    ll_lines2.append("declare ccc void %abort()")
+    ll_lines2.append("declare ccc void @abort()")
 
     llcode = '\n'.join(ll_lines2)
-    try:
-        decl, impl = llcode.split('implementation')
-    except:
-        raise "Can't compile external function code (llcode.c): ERROR:", llcode
+    decl, impl = '', llcode
+    #try:
+    #    decl, impl = llcode.split('implementation')
+    #except:
+    #    raise Exception("Can't compile external function code (llcode.c)")
     return decl, impl
 
 
@@ -172,7 +188,7 @@ def generate_llfile(db, extern_decls, entrynode, c_includes, c_sources, standalo
         
     def predeclarefn(c_name, llname):
         function_names.append(llname)
-        assert llname[0] == "%"
+        assert llname[0] == "@"
         llname = llname[1:]
         assert '\n' not in llname
         ccode.append('#define\t%s\t%s\n' % (c_name, llname))

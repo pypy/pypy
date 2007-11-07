@@ -88,14 +88,14 @@ class CodeWriter(object):
 
     def startimpl(self):
         self.newline()
-        self._append("implementation")
+        #self._append("implementation")
         self.newline()
 
     def br_uncond(self, blockname): 
         self._indent("br label %%%s" %(blockname,))
 
     def br(self, cond, blockname_false, blockname_true):
-        self._indent("br bool %s, label %%%s, label %%%s"
+        self._indent("br i1 %s, label %%%s, label %%%s"
                      % (cond, blockname_true, blockname_false))
 
     def switch(self, intty, cond, defaultdest, value_labels):
@@ -111,7 +111,7 @@ class CodeWriter(object):
         if linkage is None:
             linkage = self.linkage
         self.newline()
-        self._append("%s%s %s {" % (linkage, cconv, decl,))
+        self._append("define %s%s %s {" % (linkage, cconv, decl,))
 
     def closefunc(self): 
         self._append("}") 
@@ -138,10 +138,10 @@ class CodeWriter(object):
         self._indent("%s = %s %s %s, ubyte %s" % (targetvar, name, type_,
                                                   ref1, ref2))
 
-    def cast(self, targetvar, fromtype, fromvar, targettype):
+    def cast(self, targetvar, fromtype, fromvar, targettype, casttype='bitcast'):
         if fromtype == 'void' and targettype == 'void':
             return
-        self._indent("%(targetvar)s = cast %(fromtype)s "
+        self._indent("%(targetvar)s = %(casttype)s %(fromtype)s "
                      "%(fromvar)s to %(targettype)s" % locals())
 
     def getelementptr(self, targetvar, type, typevar, indices, getptr=True):

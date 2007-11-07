@@ -81,7 +81,7 @@ class RawGcPolicy(GcPolicy):
         # malloc_size is unsigned right now
         codewriter.malloc(targetvar, "sbyte", size)
         # XXX uses own cconv
-        codewriter.call(None, 'void', '%llvm.memset' + postfix(),
+        codewriter.call(None, 'void', '@llvm.memset' + postfix(),
                         ['sbyte*', 'ubyte', uword, uword],
                         [targetvar, 0, size, boundary_size],
                         cconv='ccc')               
@@ -110,7 +110,7 @@ class BoehmGcPolicy(GcPolicy):
         word = self.db.get_machine_word()
         uword = self.db.get_machine_uword()
 
-        fnname = '%pypy_malloc' + (atomic and '_atomic' or '')
+        fnname = '@pypy_malloc' + (atomic and '_atomic' or '')
 
 ##        XXX (arigo) disabled the ring buffer for comparison purposes
 ##        XXX until we know if it's a valid optimization or not
@@ -121,20 +121,20 @@ class BoehmGcPolicy(GcPolicy):
 ##            atomic = False 
 
         # malloc_size is unsigned right now
-        sizeu = '%malloc_sizeu' + self.get_count()        
-        codewriter.cast(sizeu, word, size, uword)
-        codewriter.call(targetvar, 'sbyte*', fnname, [word], [size])
+        #sizeu = '%malloc_sizeu' + self.get_count()        
+        #codewriter.cast(sizeu, word, size, uword)
+        codewriter.call(targetvar, 'i8*', fnname, [word], [size])
 
         if atomic:
             # XXX uses own cconv
-            codewriter.call(None, 'void', '%llvm.memset' + postfix(),
-                            ['sbyte*', 'ubyte', uword, uword],
-                            [targetvar, 0, sizeu, boundary_size],
+            codewriter.call(None, 'void', '@llvm.memset' + postfix(),
+                            ['i8*', 'i8', word, word],
+                            [targetvar, 0, size, boundary_size],
                             cconv='ccc')        
 
 
     def op__collect(self, codewriter, opr):
-        codewriter.call(opr.retref, opr.rettype, "%pypy_gc__collect",
+        codewriter.call(opr.retref, opr.rettype, "@pypy_gc__collect",
                         opr.argtypes, opr.argrefs)
 
 class RefcountingGcPolicy(RawGcPolicy):

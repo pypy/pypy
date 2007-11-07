@@ -39,51 +39,64 @@ class OpReprInvoke(OpReprCall):
             self.functionref = '%pypyop_' + op.opname
 
 class OpWriter(object):            
-    
+  
+    shift_operations = {
+        # ZZZ all these 
+        'int_lshift': 'shl',
+        'int_rshift': 'shr',
+        
+        'uint_lshift': 'shl',
+        'uint_rshift': 'shr',
+        
+        'llong_lshift': 'shl',
+        'llong_rshift': 'shr',
+        }
+
     binary_operations = {
         'float_mul'     : 'mul',
         'float_add'     : 'add',
         'float_sub'     : 'sub',
-        'float_truediv' : 'div',
-        
-        'ptr_eq'        : 'seteq',
-        'ptr_ne'        : 'setne' }
+        #ZZZ'float_truediv' : 'div',
+        'ptr_eq'        : 'icmp eq',
+        'ptr_ne'        : 'icmp ne' }
 
     # generic numeric ops
     for tt in 'int llong ullong uint'.split():
         for oo in 'mul add sub and or xor'.split():
             binary_operations['%s_%s' % (tt, oo)] = oo
-        binary_operations['%s_floordiv' % tt] = 'div'
-        binary_operations['%s_mod' % tt] = 'rem'
+
+        #ZZZbinary_operations['%s_floordiv' % tt] = 'div'
+        #ZZZbinary_operations['%s_mod' % tt] = 'rem'
+
 
     # comparison ops
-    for tt in 'int llong ullong uint unichar float'.split():
+    for tt in 'int llong unichar'.split():
+        for oo in 'eq ne'.split():
+            binary_operations['%s_%s' % (tt, oo)] = 'icmp %s' % oo
+        for oo in 'lt le ge gt'.split():
+            binary_operations['%s_%s' % (tt, oo)] = 'icmp s%s' % oo
+            
+    for tt in 'ullong uint'.split():
+        for oo in 'eq ne'.split():
+            binary_operations['%s_%s' % (tt, oo)] = 'icmp %s' % oo
+        for oo in 'lt le ge gt'.split():
+            binary_operations['%s_s%s' % (tt, oo)] = 'icmp u%s' % oo
+
+    for tt in 'float'.split():
         for oo in 'lt le eq ne ge gt'.split():
-            binary_operations['%s_%s' % (tt, oo)] = 'set%s' % oo
+            binary_operations['%s_%s' % (tt, oo)] = 'fcmp u%s' % oo
 
-
-    shift_operations = {'int_lshift': 'shl',
-                        'int_rshift': 'shr',
-                        
-                        'uint_lshift': 'shl',
-                        'uint_rshift': 'shr',
-                        
-                        'llong_lshift': 'shl',
-                        'llong_rshift': 'shr',
-                         }
-
-    char_operations = {'char_lt': 'setlt',
-                       'char_le': 'setle',
-                       'char_eq': 'seteq',
-                       'char_ne': 'setne',
-                       'char_ge': 'setge',
-                       'char_gt': 'setgt'}
+    char_operations = {'char_lt': 'icmp lt',
+                       'char_le': 'icmp le',
+                       'char_eq': 'icmp eq',
+                       'char_ne': 'icmp ne',
+                       'char_ge': 'icmp ge',
+                       'char_gt': 'icmp gt'}
 
     def __init__(self, db, codewriter):
         self.db = db
         self.codewriter = codewriter
         self.word = db.get_machine_word()
-        self.uword = db.get_machine_uword()
 
     def _tmp(self, count=1):
         if count == 1:
@@ -97,13 +110,15 @@ class OpWriter(object):
         if isinstance(ARRAYTYPE, lltype.Array):
             if not ARRAYTYPE._hints.get("nolength", False):
                 # skip the length field
-                indices.append((self.uword, 1))
+                indices.append((self.word, 1))
         else:
             assert isinstance(ARRAYTYPE, lltype.FixedSizeArray)
         return indices
 
     def write_operation(self, op):
-        #log(op)
+
+        if self.db.genllvm.config.translation.llvm.debug:
+            self.codewriter.comment(str(op))
 
         if op.opname in ("direct_call", 'indirect_call'):
             opr = OpReprCall(op, self.db)
@@ -113,12 +128,16 @@ class OpWriter(object):
         if op.opname.startswith('gc'):
             meth = getattr(self.db.gcpolicy, 'op' + op.opname[2:])
             meth(self.codewriter, opr)
+
         elif op.opname in self.binary_operations:
             self.binaryop(opr)
+
         elif op.opname in self.shift_operations:
             self.shiftop(opr)
+
         elif op.opname in self.char_operations:
             self.char_binaryop(opr)
+
         elif op.opname.startswith('cast_') or op.opname.startswith('truncate_'):
             if op.opname == 'cast_char_to_int':
                 self.cast_char_to_int(opr)
@@ -128,10 +147,6 @@ class OpWriter(object):
             meth = getattr(self, op.opname, None)
             if not meth:
                 raise Exception, "operation %s not found" % op.opname
-
-            # XXX bit unclean
-            if self.db.genllvm.config.translation.llvm.debug:
-                self.codewriter.comment(str(op))
             meth(opr)            
     
     def _generic_pow(self, opr, onestr): 
@@ -169,7 +184,7 @@ class OpWriter(object):
 
     def int_abs(self, opr):
         assert len(opr.argrefs) == 1
-        functionref = '%pypyop_' + opr.op.opname
+        functionref = '@pypyop_' + opr.op.opname
         self.codewriter.call(opr.retref, opr.rettype, functionref,
                              opr.argtypes, opr.argrefs)
 
@@ -234,6 +249,7 @@ class OpWriter(object):
 
     def cast_char_to_int(self, opr):
         " works for all casts "
+        XXX
         assert len(opr.argrefs) == 1
         intermediate = self._tmp()
         self.codewriter.cast(intermediate, opr.argtypes[0],
@@ -242,13 +258,38 @@ class OpWriter(object):
 
     def cast_primitive(self, opr):
         " works for all casts "
-        #assert len(opr.argrefs) == 1
+        fromtype = opr.argtypes[0]
+        totype = opr.rettype
+        casttype = "bitcast"
+        if '*' not in fromtype:
+            if fromtype[0] == 'i' and totype[0] == 'i':
+                fromsize = int(fromtype[1:])
+                tosize = int(totype[1:])
+                if tosize > fromsize:
+                    # ZZZ signed
+                    casttype = "zext" 
+                elif tosize < fromsize:
+                    casttype = "trunc"
+                else:
+                    pass
+            else:
+                if (fromtype[0] == 'i' and totype == 'double'):
+                    # ZZZ signed
+                    casttype = "sitofp"
+                elif (fromtype == 'double' and totype[0] == 'i'):
+                    # ZZZ signed
+                    casttype = "fptosi"
+                else:
+                    assert False, "this shouldtnt be possible"
+        else:
+            assert '*' in totype
+
         self.codewriter.cast(opr.retref, opr.argtypes[0],
-                             opr.argrefs[0], opr.rettype)
+                             opr.argrefs[0], opr.rettype, casttype)
     same_as = cast_primitive
 
     def int_is_true(self, opr):
-        self.codewriter.binaryop("setne", opr.retref, opr.argtypes[0],
+        self.codewriter.binaryop("icmp ne", opr.retref, opr.argtypes[0],
                                  opr.argrefs[0], "0")
     uint_is_true = int_is_true
     llong_is_true = int_is_true
@@ -258,11 +299,11 @@ class OpWriter(object):
                                  opr.argrefs[0], "0.0")
 
     def ptr_nonzero(self, opr):
-        self.codewriter.binaryop("setne", opr.retref, opr.argtypes[0],
+        self.codewriter.binaryop("icmp ne", opr.retref, opr.argtypes[0],
                                  opr.argrefs[0], "null")
 
     def ptr_iszero(self, opr):
-        self.codewriter.binaryop("seteq", opr.retref, opr.argtypes[0],
+        self.codewriter.binaryop("icmp eq", opr.retref, opr.argtypes[0],
                                  opr.argrefs[0], "null")
 
     def direct_call(self, opr):
@@ -284,7 +325,7 @@ class OpWriter(object):
 
     def call_boehm_gc_alloc(self, opr):
         word = self.db.get_machine_word()
-        self.codewriter.call(opr.retref, 'sbyte*', '%pypy_malloc',
+        self.codewriter.call(opr.retref, 'i8*', '%pypy_malloc',
                              [word], [opr.argrefs[0]])
 
     def to_getelementptr(self, TYPE, args):
@@ -302,19 +343,19 @@ class OpWriter(object):
                 indexref = self.db.repr_arg(arg)
 
             if isinstance(TYPE, lltype.FixedSizeArray):
-                indices.append(("int", indexref))
+                indices.append(("i32", indexref))
                 TYPE = TYPE.OF
 
             elif isinstance(TYPE, lltype.Array):
                 if not TYPE._hints.get("nolength", False):
-                    indices.append(("uint", 1))
-                indices.append(("int", indexref))
+                    indices.append(("i32", 1))
+                indices.append(("i32", indexref))
                 TYPE = TYPE.OF
 
             elif isinstance(TYPE, lltype.Struct):
                 assert name is not None
                 TYPE = getattr(TYPE, name)
-                indices.append(("uint", indexref))
+                indices.append(("i32", indexref))
 
             else:
                 raise Exception("unsupported type: %s" % TYPE)
@@ -369,7 +410,7 @@ class OpWriter(object):
         TYPE, indices = self.to_getelementptr(op.args[0].concretetype.TO, op.args[1:])
         if isinstance(TYPE, lltype.Array):
             # gets the length
-            indices.append(("uint", 0))
+            indices.append(("i32", 0))
             lengthref = self._tmp()
             self.codewriter.getelementptr(lengthref, opr.argtypes[0], opr.argrefs[0], indices)
         else:
@@ -393,7 +434,7 @@ class OpWriter(object):
         assert index != -1
         tmpvar = self._tmp()
         self.codewriter.getelementptr(tmpvar, opr.argtypes[0],
-                                      opr.argrefs[0], [(self.uword, index)])
+                                      opr.argrefs[0], [(self.word, index)])
 
         # getelementptr gets a pointer to the right type, except the generated code really expected 
         # an array of size 1... so we just cast it
@@ -435,9 +476,10 @@ class OpWriter(object):
 
     def _op_adr_generic(self, opr, llvm_op):
         addr, res = self._tmp(2)
-        self.codewriter.cast(addr, opr.argtypes[0], opr.argrefs[0], self.word)
+
+        self.codewriter.cast(addr, opr.argtypes[0], opr.argrefs[0], self.word, 'ptrtoint')
         self.codewriter.binaryop(llvm_op, res, self.word, addr, opr.argrefs[1])
-        self.codewriter.cast(opr.retref, self.word, res, opr.rettype)
+        self.codewriter.cast(opr.retref, self.word, res, opr.rettype, 'inttoptr')
 
     def adr_add(self, opr):
         self._op_adr_generic(opr, "add")
@@ -447,34 +489,34 @@ class OpWriter(object):
 
     def _op_adr_cmp(self, opr, llvm_op):
         addr1, addr2 = self._tmp(2)
-        self.codewriter.cast(addr1, opr.argtypes[0], opr.argrefs[0], self.word)
-        self.codewriter.cast(addr2, opr.argtypes[1], opr.argrefs[1], self.word)
-        assert opr.rettype == "bool"
+        self.codewriter.cast(addr1, opr.argtypes[0], opr.argrefs[0], self.word, 'ptrtoint')
+        self.codewriter.cast(addr2, opr.argtypes[1], opr.argrefs[1], self.word, 'ptrtoint')
+        assert opr.rettype == "i1"
         self.codewriter.binaryop(llvm_op, opr.retref, self.word, addr1, addr2)
 
     def adr_eq(self, opr):
-        self._op_adr_cmp(opr, "seteq")
+        self._op_adr_cmp(opr, "icmp eq")
 
     def adr_ne(self, opr):
-        self._op_adr_cmp(opr, "setne")
+        self._op_adr_cmp(opr, "icmp ne")
 
     def adr_le(self, opr):
-        self._op_adr_cmp(opr, "setle")
+        self._op_adr_cmp(opr, "icmp le")
 
     def adr_gt(self, opr):
-        self._op_adr_cmp(opr, "setgt")
+        self._op_adr_cmp(opr, "icmp gt")
 
     def adr_lt(self, opr):
-        self._op_adr_cmp(opr, "setlt")
+        self._op_adr_cmp(opr, "icmp lt")
 
     def adr_ge(self, opr):
-        self._op_adr_cmp(opr, "setge")
+        self._op_adr_cmp(opr, "icmp ge")
 
     # XXX Not sure any of this makes sense - maybe seperate policy for
     # different flavours of mallocs?  Well it depend on what happens the GC
     # developments
     def raw_malloc(self, opr):
-        self.codewriter.call(opr.retref, opr.rettype, "%raw_malloc",
+        self.codewriter.call(opr.retref, opr.rettype, "@raw_malloc",
                              opr.argtypes, opr.argrefs)
 
     def raw_malloc_usage(self, opr):
@@ -482,15 +524,15 @@ class OpWriter(object):
                              opr.rettype)
 
     def raw_free(self, opr):
-        self.codewriter.call(opr.retref, opr.rettype, "%raw_free",
+        self.codewriter.call(opr.retref, opr.rettype, "@raw_free",
                              opr.argtypes, opr.argrefs)
 
     def raw_memcopy(self, opr):
-        self.codewriter.call(opr.retref, opr.rettype, "%raw_memcopy",
+        self.codewriter.call(opr.retref, opr.rettype, "@raw_memcopy",
                              opr.argtypes, opr.argrefs)
 
     def raw_memclear(self, opr):
-        self.codewriter.call(opr.retref, opr.rettype, "%raw_memclear",
+        self.codewriter.call(opr.retref, opr.rettype, "@raw_memclear",
                              opr.argtypes, opr.argrefs)
 
     def raw_store(self, opr):
@@ -543,7 +585,7 @@ class OpWriter(object):
 
     def debug_fatalerror(self, opr):
         # XXX message?
-        self.codewriter.call(None, "void", "%abort", [], [])
+        self.codewriter.call(None, "void", "@abort", [], [])
 
     def hint(self, opr):
         self.same_as(opr)
@@ -554,7 +596,7 @@ class OpWriter(object):
                              'false', opr.rettype)
 
     def debug_llinterpcall(self, opr):
-        self.codewriter.call(None, "void", "%abort", [], [])
+        self.codewriter.call(None, "void", "@abort", [], [])
         # cheat llvm
         self.codewriter.cast(opr.retref, opr.rettype, 'null', opr.rettype)
 

@@ -52,12 +52,6 @@ def identity(res):
 def from_unichar(arg):
     return ord(arg)
 
-def to_bool(res):
-    return bool(res)
-
-def to_unichar(res):
-    return unichr(res)
-
 def from_str(arg):
     # XXX wont work over isolate : arg should be converted into a string first
     n = len(arg.chars)
@@ -190,10 +184,10 @@ __entrypoint__.restype = %(returntype)s
 
     def build_lltype_to_ctypes_to_res(self, T):
         if T is lltype.Bool:
-            action = 'to_bool'
+            action = 'bool'
 
         elif T is lltype.UniChar:
-            action = 'to_unichar'
+            action = 'unichr'
 
         elif T is lltype.Unsigned:
             action = 'r_uint'

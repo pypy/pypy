@@ -3,7 +3,7 @@ from pypy.translator.llvm.node import ConstantNode
 
 class ArrayNode(ConstantNode):
     __slots__ = "db value arraytype".split()
-    prefix = '%arrayinstance'
+    prefix = '@arrayinstance'
     
     def __init__(self, db, value):
         assert isinstance(lltype.typeOf(value), lltype.Array)
@@ -47,7 +47,7 @@ class ArrayNode(ConstantNode):
         else:
             ref = self.db.get_childref(p, c)
 
-        ref = "cast(%s* %s to %s*)" % (self.get_typerepr(),
+        ref = "bitcast(%s* %s to %s*)" % (self.get_typerepr(),
                                        ref,
                                        typeval)
         return ref
@@ -57,11 +57,11 @@ class ArrayNode(ConstantNode):
         assert p is None, "child PBC arrays are NOT needed by rtyper"
 
         fromptr = "%s*" % self.get_typerepr()
-        ref = "cast(%s %s to %s)" % (fromptr, self.name, toptr)
+        ref = "bitcast(%s %s to %s)" % (fromptr, self.name, toptr)
         return ref
 
     def get_childref(self, index):
-        return "getelementptr(%s* %s, int 0, uint 1, int %s)" % (
+        return "getelementptr(%s* %s, i32 0, i32 1, i32 %s)" % (
             self.get_typerepr(),
             self.name,
             index)
@@ -87,7 +87,7 @@ class ArrayNoLengthNode(ArrayNode):
         return "[%s x %s]" % (arraylen, typeval)
     
     def get_childref(self, index):
-        return "getelementptr(%s* %s, int 0, int %s)" %(
+        return "getelementptr(%s* %s, i32 0, i32 %s)" %(
             self.get_typerepr(),
             self.name,
             index)
@@ -124,7 +124,7 @@ class StrArrayNode(ArrayNode):
 
 class VoidArrayNode(ConstantNode):
     __slots__ = "db value".split()
-    prefix = '%voidarrayinstance'
+    prefix = '@voidarrayinstance'
 
     def __init__(self, db, value):
         assert isinstance(lltype.typeOf(value), lltype.Array)

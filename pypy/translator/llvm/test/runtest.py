@@ -9,7 +9,7 @@ from pypy.rpython.lltypesystem.lltype import typeOf
 
 optimize_tests = False
 native_llvm_backend = True
-MINIMUM_LLVM_VERSION = 1.9
+MINIMUM_LLVM_VERSION = 2.0
 FLOAT_PRECISION = 8
 
 ext_modules = []

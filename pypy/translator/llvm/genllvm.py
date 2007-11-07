@@ -225,12 +225,12 @@ class GenLLVM(object):
                 write_raise_exc(c_name, exc_repr, codewriter)
 
     def write_setup_impl(self, codewriter):
-        open_decl =  "sbyte* %LLVM_RPython_StartupCode()"
+        open_decl =  "i8* @LLVM_RPython_StartupCode()"
         codewriter.openfunc(open_decl)
         for node in self.db.getnodes():
             node.writesetupcode(codewriter)
 
-        codewriter.ret("sbyte*", "null")
+        codewriter.ret("i8*", "null")
         codewriter.closefunc()
 
     def compile_module(self):

@@ -19,7 +19,7 @@ class StructNode(ConstantNode):
     """
     __slots__ = "db value structtype _get_ref_cache _get_types".split()
 
-    prefix = '%structinstance_'
+    prefix = '@structinstance_'
 
     def __init__(self, db, value):
         self.db = db
@@ -63,7 +63,7 @@ class StructNode(ConstantNode):
                 break
             pos += 1
 
-        return "getelementptr(%s* %s, int 0, uint %s)" %(
+        return "getelementptr(%s* %s, i32 0, i32 %s)" %(
             self.get_typerepr(),
             self.get_ref(),
             pos)
@@ -115,13 +115,13 @@ class FixedSizeArrayNode(StructNode):
             ref = self.db.get_childref(p, c)
             if isinstance(self.value, lltype._subarray):
                 # ptr -> array of len 1
-                ref = "cast(%s* %s to %s*)" % (self.db.repr_type(self.arraytype),
+                ref = "bitcast(%s* %s to %s*)" % (self.db.repr_type(self.arraytype),
                                                ref,
                                                self.db.repr_type(lltype.typeOf(self.value)))
         return ref
 
     def get_childref(self, index):
-        return "getelementptr(%s* %s, int 0, int %s)" % (
+        return "getelementptr(%s* %s, i32 0, i32 %s)" % (
             self.get_typerepr(),
             self.get_ref(),
             index) 
@@ -194,7 +194,7 @@ class StructVarsizeNode(StructNode):
             pos += 1
         assert found
 
-        ref = "getelementptr(%s* %s, int 0, uint %s)" %(
+        ref = "getelementptr(%s* %s, i32 0, i32 %s)" %(
             self.get_typerepr(),
             super(StructVarsizeNode, self).get_ref(),
             pos)
@@ -204,9 +204,9 @@ class StructVarsizeNode(StructNode):
     def get_ref(self):
         ref = super(StructVarsizeNode, self).get_ref()
         typeval = self.db.repr_type(lltype.typeOf(self.value))
-        ref = "cast(%s* %s to %s*)" % (self.get_typerepr(),
-                                       ref,
-                                       typeval)
+        ref = "bitcast(%s* %s to %s*)" % (self.get_typerepr(),
+                                          ref,
+                                          typeval)
         return ref
     
     def get_pbcref(self, toptr):
@@ -215,6 +215,7 @@ class StructVarsizeNode(StructNode):
         p, c = lltype.parentlink(self.value)
         assert p is None, "child varsize struct are NOT needed by rtyper"
         fromptr = "%s*" % self.get_typerepr()
-        refptr = "getelementptr(%s %s, int 0)" % (fromptr, ref)
-        ref = "cast(%s %s to %s)" % (fromptr, refptr, toptr)
+        refptr = "getelementptr(%s %s, i32 0)" % (fromptr, ref)
+        ref = "bitcast(%s %s to %s)" % (fromptr, refptr, toptr)
         return ref
+    

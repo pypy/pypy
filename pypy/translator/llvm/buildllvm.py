@@ -91,12 +91,7 @@ class Builder(object):
     def cmds_bytecode(self, base):
         # run llvm assembler and optimizer
         opts = self.optimizations()
-
-        if llvm_version() < 2.0:
-            self.cmds.append("llvm-as < %s.ll | opt %s -f -o %s.bc" % (base, opts, base))
-        else:
-            # we generate 1.x .ll files, so upgrade these first
-            self.cmds.append("llvm-upgrade < %s.ll | llvm-as | opt %s -f -o %s.bc" % (base, opts, base))
+        self.cmds.append("llvm-as < %s.ll | opt %s -f -o %s.bc" % (base, opts, base))
 
     def cmds_objects(self, base):
         # XXX why this hack???

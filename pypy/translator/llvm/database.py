@@ -347,29 +347,29 @@ class Primitives(object):
     def __init__(self, database):        
         self.database = database
         self.types = {
-            lltype.Char: "sbyte",
-            lltype.Bool: "bool",
+            lltype.Char: "i8",
+            lltype.Bool: "i1",
             lltype.SingleFloat: "float",
             lltype.Float: "double",
-            lltype.UniChar: "uint",
+            lltype.UniChar: "i8",
             lltype.Void: "void",
-            lltype.UnsignedLongLong: "ulong",
-            lltype.SignedLongLong: "long",
-            llmemory.Address: "sbyte*",
+            lltype.UnsignedLongLong: "i64",
+            lltype.SignedLongLong: "i64",
+            llmemory.Address: "i8*",
             #llmemory.WeakGcAddress: "sbyte*",
             }
 
         # 32 bit platform
         if sys.maxint == 2**31-1:
             self.types.update({
-                lltype.Signed: "int",
-                lltype.Unsigned: "uint" })
+                lltype.Signed: "i32",
+                lltype.Unsigned: "i32" })
             
         # 64 bit platform
         elif sys.maxint == 2**63-1:        
             self.types.update({
-                lltype.Signed: "long",
-                lltype.Unsigned: "ulong" })            
+                lltype.Signed: "i64",
+                lltype.Unsigned: "i64" })            
         else:
             raise Exception("Unsupported platform - unknown word size")
 
@@ -553,9 +553,9 @@ class Primitives(object):
 
         r = self.database.repr_type
         indices_as_str = ", ".join("%s %s" % (w, i) for w, i in indices)
-        return "cast(%s* getelementptr(%s* null, %s) to int)" % (r(to),
-                                                                 r(from_),
-                                                                 indices_as_str)
+        return "ptrtoint(%s* getelementptr(%s* null, %s) to i32)" % (r(to),
+                                                                     r(from_),
+                                                                     indices_as_str)
 
     def get_offset(self, value, initialindices=None):
         " return (from_type, (indices, ...), to_type) "

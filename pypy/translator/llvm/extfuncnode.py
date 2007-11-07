@@ -14,11 +14,11 @@ class ExtFuncSig(object):
 
 # signature of external functions differ from C's implementation
 ext_func_sigs = {
-    "%LL_stack_too_big" : ExtFuncSig("int", None),
+    "@LL_stack_too_big" : ExtFuncSig("int", None),
     }
 
 if maxint != 2**31-1:
-    ext_func_sigs["%LL_math_ldexp"] = ExtFuncSig(None, [None, "int"])
+    ext_func_sigs["@LL_math_ldexp"] = ExtFuncSig(None, [None, "int"])
 
 
 class SimplerExternalFuncNode(FuncNode):
@@ -26,7 +26,7 @@ class SimplerExternalFuncNode(FuncNode):
     def __init__(self, db, value):
         self.db = db
         self.value = value
-        self.name = "%" + value._name
+        self.name = "@" + value._name
 
     def external_c_source(self):
         # return a list of unique includes and sources in C
