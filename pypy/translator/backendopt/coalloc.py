@@ -348,7 +348,7 @@ def malloc_to_coalloc(t):
 def do_coalloc(adi, graph, setblock, setop, fromcreps, tocrep):
     def find_coalloc_var():
         if block is setblock and seen_setvar:
-            return fromvar
+            return setop.args[0]
         for fromcrep in fromcreps:
             if fromcrep.creation_method == "constant":
                 return fromcrep.constant
@@ -362,27 +362,28 @@ def do_coalloc(adi, graph, setblock, setop, fromcreps, tocrep):
                     return var
         return None
     result = 0
-    seen_setvar = False
-    for block, op in graph.iterblockops():
-        if op.result is setop.args[0]:
-            seen_setvar = True
-        if not op.opname.startswith("malloc"):
-            continue
-        if adi.getstate(op.result).get_crep(checksingle=True) is not tocrep:
-            continue
-        TYPE = op.result.concretetype.TO
-        # must not remove mallocs of structures that a destructor
-        if hasdestructor(TYPE):
-            continue
-        coallocvar = find_coalloc_var()
-        if coallocvar is None:
-            continue
-        op.opname = "coalloc" + op.opname[len("malloc"):]
-        op.args.insert(1, coallocvar)
-        mallocvarstate = adi.getstate(op.result)
-        malloccrep = mallocvarstate.get_crep(checksingle=True)
-        malloccrep.creation_method = "coalloc"
-        result += 1
+    for block in graph.iterblocks():
+        seen_setvar = False
+        for op in block.operations:
+            if block is setblock and op.result is setop.args[0]:
+                seen_setvar = True
+            if not op.opname.startswith("malloc"):
+                continue
+            if adi.getstate(op.result).get_crep(checksingle=True) is not tocrep:
+                continue
+            TYPE = op.result.concretetype.TO
+            # must not remove mallocs of structures that a destructor
+            if hasdestructor(TYPE):
+                continue
+            coallocvar = find_coalloc_var()
+            if coallocvar is None:
+                continue
+            op.opname = "coalloc" + op.opname[len("malloc"):]
+            op.args.insert(1, coallocvar)
+            mallocvarstate = adi.getstate(op.result)
+            malloccrep = mallocvarstate.get_crep(checksingle=True)
+            malloccrep.creation_method = "coalloc"
+            result += 1
     return result
 
 def hasdestructor(STRUCT):

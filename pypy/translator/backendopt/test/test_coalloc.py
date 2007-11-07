@@ -254,6 +254,19 @@ def test_coalloc_in_setblock():
     # this should really be mustremove=2, but for now I am happy
     t = check_malloc_to_coalloc(f, [], [], 1, must_remove=1)
 
+def test_coalloc_in_setblock_old():
+    class A(object):
+        pass
+    def g():
+        return A()
+    def f():
+        a = g()
+        a1 = A()
+        a.a = a1
+        return 1
+    t = check_malloc_to_coalloc(f, [], [], 1, must_remove=1)
+
+
 def test_nocoalloc_finalizer():
     class A(object):
         def __del__(self):
