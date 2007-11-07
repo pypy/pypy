@@ -135,8 +135,7 @@ class CodeWriter(object):
                                             ref1, ref2))
 
     def shiftop(self, name, targetvar, type_, ref1, ref2):
-        self._indent("%s = %s %s %s, ubyte %s" % (targetvar, name, type_,
-                                                  ref1, ref2))
+        self._indent("%s = %s %s %s, %s" % (targetvar, name, type_, ref1, ref2))
 
     def cast(self, targetvar, fromtype, fromvar, targettype, casttype='bitcast'):
         if fromtype == 'void' and targettype == 'void':
@@ -197,6 +196,7 @@ class CodeWriter(object):
         self._indent("%s = alloca %s" % (targetvar, vartype))
 
     def malloc(self, targetvar, vartype, numelements=1):
+        XXX
         if numelements == 1:
             self._indent("%s = malloc %s" % (targetvar, vartype))
         else:

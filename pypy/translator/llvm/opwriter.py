@@ -41,22 +41,22 @@ class OpReprInvoke(OpReprCall):
 class OpWriter(object):            
   
     shift_operations = {
-        # ZZZ all these 
+        # ZZZ i guessed rshifts - ashr or lshr ?????? 
         'int_lshift': 'shl',
-        'int_rshift': 'shr',
+        'int_rshift': 'lshr',
         
         'uint_lshift': 'shl',
-        'uint_rshift': 'shr',
+        'uint_rshift': 'lshr',
         
         'llong_lshift': 'shl',
-        'llong_rshift': 'shr',
+        'llong_rshift': 'lshr',
         }
 
     binary_operations = {
         'float_mul'     : 'mul',
         'float_add'     : 'add',
         'float_sub'     : 'sub',
-        #ZZZ'float_truediv' : 'div',
+        'float_truediv' : 'fdiv',
         'ptr_eq'        : 'icmp eq',
         'ptr_ne'        : 'icmp ne' }
 
@@ -65,9 +65,13 @@ class OpWriter(object):
         for oo in 'mul add sub and or xor'.split():
             binary_operations['%s_%s' % (tt, oo)] = oo
 
-        #ZZZbinary_operations['%s_floordiv' % tt] = 'div'
-        #ZZZbinary_operations['%s_mod' % tt] = 'rem'
+    for tt in 'llong int'.split():
+        binary_operations['%s_floordiv' % tt] = 'sdiv'
+        binary_operations['%s_mod' % tt] = 'srem'
 
+    for tt in 'ullong uint'.split():
+        binary_operations['%s_floordiv' % tt] = 'udiv'
+        binary_operations['%s_mod' % tt] = 'urem'
 
     # comparison ops
     for tt in 'int llong unichar'.split():
@@ -80,7 +84,7 @@ class OpWriter(object):
         for oo in 'eq ne'.split():
             binary_operations['%s_%s' % (tt, oo)] = 'icmp %s' % oo
         for oo in 'lt le ge gt'.split():
-            binary_operations['%s_s%s' % (tt, oo)] = 'icmp u%s' % oo
+            binary_operations['%s_%s' % (tt, oo)] = 'icmp u%s' % oo
 
     for tt in 'float'.split():
         for oo in 'lt le eq ne ge gt'.split():
@@ -238,14 +242,14 @@ class OpWriter(object):
         op = opr.op
         name = self.shift_operations[op.opname]
 
-        if isinstance(op.args[1], Constant):
-            var = opr.argrefs[1]
-        else:
-            var = self._tmp()
-            self.codewriter.cast(var, opr.argtypes[1], opr.argrefs[1], 'ubyte')
+        var = opr.argrefs[1]
+        #if isinstance(op.args[1], Constant):
+        #    var = opr.argrefs[1]
+        #else:
+        #    var = self._tmp()
+        #    self.codewriter.cast(var, opr.argtypes[1], opr.argrefs[1], 'i8')
             
-        self.codewriter.shiftop(name, opr.retref, opr.argtypes[0],
-                                opr.argrefs[0], var)
+        self.codewriter.shiftop(name, opr.retref, opr.argtypes[0], opr.argrefs[0], var)
 
     def cast_char_to_int(self, opr):
         " works for all casts "
