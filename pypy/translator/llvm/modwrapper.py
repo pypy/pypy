@@ -111,7 +111,7 @@ __entrypoint__ = _c.pypy_%(name)s
 
 # %(RT)r
 to_llargs = %(to_llargs)s
-__entrypoint__.args = %(args)s
+__entrypoint__.argtypes = %(args)s
 
 # %(ARGS)r
 ll_to_res = %(ll_to_res)s
