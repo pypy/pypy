@@ -351,7 +351,7 @@ class Primitives(object):
             lltype.Bool: "i1",
             lltype.SingleFloat: "float",
             lltype.Float: "double",
-            lltype.UniChar: "i16",
+            lltype.UniChar: "i32",
             lltype.Void: "void",
             lltype.UnsignedLongLong: "i64",
             lltype.SignedLongLong: "i64",
@@ -401,18 +401,11 @@ class Primitives(object):
                 if from_ not in self.reprs:
                     self.reprs[from_] = self.repr_default
 
-            for k, v in [
-                (rffi.SIGNEDCHAR, 'i18'),
-                (rffi.UCHAR, 'i18'),
-                (rffi.SHORT, 'i16'),
-                (rffi.USHORT, 'i16'),
-                (rffi.INT, 'i32'),
-                (rffi.UINT, 'i32'),
-                (rffi.LONG, self.types[lltype.Signed]),
-                (rffi.ULONG, self.types[lltype.Signed]),
-                (rffi.LONGLONG, 'i64'),
-                (rffi.ULONGLONG, 'i64')]:
-                update(k, v)
+            for tp in [rffi.SIGNEDCHAR, rffi.UCHAR, rffi.SHORT,
+                       rffi.USHORT, rffi.INT, rffi.UINT, rffi.LONG, rffi.ULONG,
+                       rffi.LONGLONG, rffi.ULONGLONG]:
+                bits = rffi.size_and_sign(tp)[0] * 8
+                update(tp, 'i%s' % bits)
         
     def __getitem__(self, key):
         return self.types[key]
