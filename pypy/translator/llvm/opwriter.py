@@ -141,7 +141,10 @@ class OpWriter(object):
             self.shiftop(opr)
 
         elif op.opname.startswith('cast_') or op.opname.startswith('truncate_'):
-            self.cast_primitive(opr)
+            if op.opname == "cast_ptr_to_int":
+                self.cast_ptr_to_int(opr)
+            else:
+                self.cast_primitive(opr)
         else:
             meth = getattr(self, op.opname, None)
             if not meth:
@@ -219,10 +222,11 @@ class OpWriter(object):
         from_lltype = opr.op.args[0].concretetype
 
         def issigned(ct):
-            if ct is lltype.Bool:
+            # XXX why does size_and_sign() think lltype.Char, lltype.UniChar are signed??
+            if ct in [lltype.Bool, lltype.Char, lltype.UniChar]:
                 return False
             from pypy.rpython.lltypesystem.rffi import size_and_sign
-            return size_and_sign(ct)[1]
+            return not size_and_sign(ct)[1]
 
         casttype = "bitcast"
 
@@ -270,6 +274,10 @@ class OpWriter(object):
                              opr.argrefs[0], opr.rettype, casttype)
     same_as = cast_primitive
 
+    def cast_ptr_to_int(self, opr):
+        self.codewriter.cast(opr.retref, opr.argtypes[0],
+                             opr.argrefs[0], opr.rettype, 'ptrtoint')
+        
     def int_is_true(self, opr):
         self.codewriter.binaryop("icmp ne", opr.retref, opr.argtypes[0],
                                  opr.argrefs[0], "0")
