@@ -400,7 +400,8 @@ class Primitives(object):
                     self.types[from_] = type
                 if from_ not in self.reprs:
                     self.reprs[from_] = self.repr_default
-            
+
+            # XXX dont do this
             for k, v in [
                 (rcarith.CByte, self.types[lltype.Char]),
                 (rcarith.CUByte, 'i8'),

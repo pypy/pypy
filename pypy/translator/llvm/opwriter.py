@@ -213,9 +213,36 @@ class OpWriter(object):
 
     def cast_primitive(self, opr):
         " works for all casts "
-        fromtype = opr.argtypes[0]
         totype = opr.rettype
+        fromtype = opr.argtypes[0]
+        to_lltype = opr.op.result.concretetype
+        from_lltype = opr.op.args[0].concretetype
+
+        def issigned(ct):
+            # XXX MESS MESS MESS... but there doesnt seem to a be an
+            # obvious consistent place to get all numbers by type any more
+            # :-(
+            from pypy.rpython.lltypesystem.rffi import platform
+            m = platform.numbertype_to_rclass
+            assert ct in m or ct in  [
+                lltype.Bool, 
+                lltype.Char, 
+                lltype.UniChar,
+                lltype.Signed, 
+                lltype.Unsigned,
+                lltype.SignedLongLong, 
+                lltype.UnsignedLongLong]
+
+            if ct in [lltype.Signed, lltype.SignedLongLong]: 
+                return True
+            elif ct in m:
+                return m[ct].SIGNED
+            else:
+                return False 
+            # XXX :-(
+
         casttype = "bitcast"
+
         if '*' not in fromtype:
             if fromtype[0] == 'i8':
                  assert totype[0] == 'i'
@@ -227,19 +254,26 @@ class OpWriter(object):
                 fromsize = int(fromtype[1:])
                 tosize = int(totype[1:])
                 if tosize > fromsize:
-                    # ZZZ signed
-                    casttype = "zext" 
+                    if issigned(from_lltype):
+                        casttype = "sext" 
+                    else:
+                        casttype = "zext" 
                 elif tosize < fromsize:
                     casttype = "trunc"
                 else:
                     pass
             else:
                 if (fromtype[0] == 'i' and totype in ['double', 'float']):
-                    # ZZZ signed
-                    casttype = "sitofp"
+                    if issigned(from_lltype):
+                        casttype = "sitofp"
+                    else:
+                        casttype = "uitofp"
+                        
                 elif (fromtype in ['double', 'float'] and totype[0] == 'i'):
-                    # ZZZ signed
-                    casttype = "fptosi"
+                    if issigned(to_lltype):
+                        casttype = "fptosi"
+                    else:
+                        casttype = "fptoui"
                 else:
                     if fromtype != totype:
                         if fromtype == "double":
@@ -290,7 +324,7 @@ class OpWriter(object):
 
     def call_boehm_gc_alloc(self, opr):
         word = self.db.get_machine_word()
-        self.codewriter.call(opr.retref, 'i8*', '%pypy_malloc',
+        self.codewriter.call(opr.retref, 'i8*', '@pypy_malloc',
                              [word], [opr.argrefs[0]])
 
     def to_getelementptr(self, TYPE, args):
