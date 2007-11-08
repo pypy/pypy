@@ -393,7 +393,7 @@ class Primitives(object):
         except ImportError:
             pass
         else:
-            from pypy.rpython.rctypes import rcarithmetic as rcarith
+            from pypy.rpython.lltypesystem import rffi
 
             def update(from_, type):
                 if from_ not in self.types:
@@ -401,18 +401,17 @@ class Primitives(object):
                 if from_ not in self.reprs:
                     self.reprs[from_] = self.repr_default
 
-            # XXX dont do this
             for k, v in [
-                (rcarith.CByte, self.types[lltype.Char]),
-                (rcarith.CUByte, 'i8'),
-                (rcarith.CShort, 'i16'),
-                (rcarith.CUShort, 'i16'),
-                (rcarith.CInt, 'i32'),
-                (rcarith.CUInt, 'i32'),
-                (rcarith.CLong, self.types[lltype.Signed]),
-                (rcarith.CULong, self.types[lltype.Unsigned]),
-                (rcarith.CLonglong, self.types[lltype.SignedLongLong]),
-                (rcarith.CULonglong, self.types[lltype.UnsignedLongLong])]:
+                (rffi.SIGNEDCHAR, 'i18'),
+                (rffi.UCHAR, 'i18'),
+                (rffi.SHORT, 'i16'),
+                (rffi.USHORT, 'i16'),
+                (rffi.INT, 'i32'),
+                (rffi.UINT, 'i32'),
+                (rffi.LONG, self.types[lltype.Signed]),
+                (rffi.ULONG, self.types[lltype.Signed]),
+                (rffi.LONGLONG, 'i64'),
+                (rffi.ULONGLONG, 'i64')]:
                 update(k, v)
         
     def __getitem__(self, key):
