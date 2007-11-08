@@ -219,27 +219,10 @@ class OpWriter(object):
         from_lltype = opr.op.args[0].concretetype
 
         def issigned(ct):
-            # XXX MESS MESS MESS... but there doesnt seem to a be an
-            # obvious consistent place to get all numbers by type any more
-            # :-(
-            from pypy.rpython.lltypesystem.rffi import platform
-            m = platform.numbertype_to_rclass
-            assert ct in m or ct in  [
-                lltype.Bool, 
-                lltype.Char, 
-                lltype.UniChar,
-                lltype.Signed, 
-                lltype.Unsigned,
-                lltype.SignedLongLong, 
-                lltype.UnsignedLongLong]
-
-            if ct in [lltype.Signed, lltype.SignedLongLong]: 
-                return True
-            elif ct in m:
-                return m[ct].SIGNED
-            else:
-                return False 
-            # XXX :-(
+            if ct is lltype.Bool:
+                return False
+            from pypy.rpython.lltypesystem.rffi import size_and_sign
+            return size_and_sign(ct)[1]
 
         casttype = "bitcast"
 
