@@ -4,7 +4,6 @@
 #  define HAVE_RPY_LIST_OF_STRING
 #endif
 
-#include "c/src/thread.h"
 #ifdef LL_NEED_MATH
   #include "c/src/ll_math.h"
 #endif
@@ -14,25 +13,9 @@
 #endif
 
 #ifdef LL_NEED_STACK
+  #include "c/src/thread.h"
   #include "c/src/stack.h"
 #endif
-
-// setup code for ThreadLock Opaque types
-/*char *RPyOpaque_LLVM_SETUP_ThreadLock(struct RPyOpaque_ThreadLock *lock,
-				      int initially_locked) {
-
-  struct RPyOpaque_ThreadLock tmp = RPyOpaque_INITEXPR_ThreadLock;
-  memcpy(lock, &tmp, sizeof(struct RPyOpaque_ThreadLock));
-
-  if (!RPyThreadLockInit(lock)) {
-    return "Thread lock init error";
-  }
-  if ((initially_locked) && !RPyThreadAcquireLock(lock, 1)) {
-    return "Cannot acquire thread lock at init";
-  }
-  return NULL;
-}
-*/
 
 // raw malloc code
 char *raw_malloc(long size) {
