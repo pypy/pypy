@@ -31,7 +31,17 @@ def test_times():
     for value in times:
         assert isinstance(value, float)
 
-
+def test__getfullpathname():
+    if os.name != 'nt':
+        py.test.skip('nt specific function')
+    posix = __import__(os.name)
+    sysdrv = os.getenv('SystemDrive', 'C:')
+    stuff = sysdrv + 'stuff'
+    data = getllimpl(posix._getfullpathname)(stuff)
+    assert data == posix._getfullpathname(stuff)
+    # the most intriguing failure of ntpath.py should not repeat, here:
+    assert not data.endswith(stuff)
+    
 def test_getcwd():
     data = getllimpl(os.getcwd)()
     assert data == os.getcwd()

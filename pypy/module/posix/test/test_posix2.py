@@ -223,6 +223,16 @@ class AppTestPosix:
             stream = os.popen('echo 1')
             assert stream.read() == '1\n'
 
+    if hasattr(__import__(os.name), '_getfullpathname'):
+        def test__getfullpathname(self):
+            # nt specific
+            posix = self.posix
+            import os
+            sysdrv = os.getenv("SystemDrive", "C:")
+            # just see if it does anything
+            path = sysdrv + 'hubber'
+            assert os.sep in posix._getfullpathname(path)
+
     def test_utime(self):
         os = self.posix
         import os.path

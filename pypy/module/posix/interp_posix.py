@@ -236,6 +236,17 @@ def remove(space, path):
         raise wrap_oserror(space, e) 
 remove.unwrap_spec = [ObjSpace, str]
 
+def _getfullpathname(space, path):
+    """helper for ntpath.abspath """
+    posix = __import__(os.name) # nt specific
+    try:
+        fullpath = posix._getfullpathname(path)
+    except OSError, e:
+        raise wrap_oserror(space, e) 
+    else: 
+        return space.wrap(fullpath)
+_getfullpathname.unwrap_spec = [ObjSpace, str]
+
 def getcwd(space):
     """Return the current working directory."""
     try:

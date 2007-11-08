@@ -519,6 +519,57 @@ class RegisterOs(BaseLazyRegistering):
                       export_name="ll_os.ll_os_access",
                       oofakeimpl=os_access_oofakeimpl)
 
+    @registering_if(posix, '_getfullpathname')
+    def register_posix__getfullpathname(self):
+        # this nt function is not exposed via os, but needed
+        # to get a correct implementation of os.abspath
+        # XXX why do we ignore WINAPI conventions everywhere?
+        class CConfig:
+            _includes_ = ['Windows.h']
+            MAX_PATH = platform.ConstantInteger('MAX_PATH')
+            DWORD    = platform.SimpleType("DWORD", rffi.ULONG)
+            LPCTSTR  = platform.SimpleType("LPCTSTR", rffi.CCHARP)
+            LPTSTR   = platform.SimpleType("LPTSTR", rffi.CCHARP)
+            LPTSTRP  = platform.SimpleType("LPTSTR*", rffi.CCHARPP)
+
+        config = platform.configure(CConfig)
+        MAX_PATH = config['MAX_PATH']
+        DWORD    = config['DWORD']
+        LPCTSTR  = config['LPCTSTR']
+        LPTSTR   = config['LPTSTR']
+        LPTSTRP  = config['LPTSTRP']
+        # XXX unicode?
+        GetFullPathName = self.llexternal('GetFullPathNameA',
+                         [LPCTSTR, DWORD, LPTSTR, LPTSTRP], DWORD)
+        GetLastError = self.llexternal('GetLastError', [], DWORD)
+        ##DWORD WINAPI GetFullPathName(
+        ##  __in          LPCTSTR lpFileName,
+        ##  __in          DWORD nBufferLength,
+        ##  __out         LPTSTR lpBuffer,
+        ##  __out         LPTSTR* lpFilePart
+        ##);
+
+        def _getfullpathname_llimpl(lpFileName):
+            nBufferLength = MAX_PATH + 1
+            lpBuffer = lltype.malloc(LPTSTR.TO, nBufferLength, flavor='raw')
+            try:
+                res = GetFullPathName(
+                    lpFileName, rffi.cast(DWORD, nBufferLength),
+                    lpBuffer, lltype.nullptr(LPTSTRP.TO))
+                if res == 0:
+                    error = GetLastError()
+                    raise OSError(error, "_getfullpathname failed")
+                # XXX ntpath expects WindowsError :-(
+                result = rffi.charp2str(lpBuffer)
+                return result
+            finally:
+                lltype.free(lpBuffer, flavor='raw')
+
+        return extdef([str],  # a single argument which is a str
+                      str,    # returns a string
+                      "ll_os.posix__getfullpathname",
+                      llimpl=_getfullpathname_llimpl)
+
     @registering(os.getcwd)
     def register_os_getcwd(self):
         os_getcwd = self.llexternal(underscore_on_windows + 'getcwd',
