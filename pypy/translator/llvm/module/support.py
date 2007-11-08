@@ -38,30 +38,28 @@ return_block:
     ret double %result
 }
 
-"""
-"""
-internal CC WORD %pypyop_int_abs(WORD %x) {
+define internal CC i32 @pypyop_int_abs(i32 %x) {
 block0:
-    %cond1 = setge WORD %x, 0
-    br bool %cond1, label %return_block, label %block1
+    %cond1 = icmp sge i32 %x, 0
+    br i1 %cond1, label %return_block, label %block1
 block1:
-    %x2 = sub WORD 0, %x
+    %x2 = sub i32 0, %x
     br label %return_block
 return_block:
-    %result = phi WORD [%x, %block0], [%x2, %block1]
-    ret WORD %result
+    %result = phi i32 [%x, %block0], [%x2, %block1]
+    ret i32 %result
 }
 
-internal CC long %pypyop_llong_abs(long %x) {
+define internal CC i64 @pypyop_llong_abs(i64 %x) {
 block0:
-    %cond1 = setge long %x, 0
-    br bool %cond1, label %return_block, label %block1
+    %cond1 = icmp sge i64 %x, 0
+    br i1 %cond1, label %return_block, label %block1
 block1:
-    %x2 = sub long 0, %x
+    %x2 = sub i64 0, %x
     br label %return_block
 return_block:
-    %result = phi long [%x, %block0], [%x2, %block1]
-    ret long %result
+    %result = phi i64 [%x, %block0], [%x2, %block1]
+    ret i64 %result
 }
 
 """

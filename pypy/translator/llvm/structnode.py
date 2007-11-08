@@ -94,7 +94,7 @@ class StructNode(ConstantNode):
                 
                 
 class FixedSizeArrayNode(StructNode):
-    prefix = '%fixarrayinstance_'
+    prefix = '@fixarrayinstance_'
 
     def __init__(self, db, struct): 
         super(FixedSizeArrayNode, self).__init__(db, struct)

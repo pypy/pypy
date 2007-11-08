@@ -88,7 +88,7 @@ class OpWriter(object):
 
     for tt in 'float'.split():
         for oo in 'lt le eq ne ge gt'.split():
-            binary_operations['%s_%s' % (tt, oo)] = 'fcmp u%s' % oo
+            binary_operations['%s_%s' % (tt, oo)] = 'fcmp o%s' % oo
 
     # ZZZ check that operation should be checking unsigned
     binary_operations.update({'char_lt': 'icmp ult',
@@ -234,14 +234,18 @@ class OpWriter(object):
                 else:
                     pass
             else:
-                if (fromtype[0] == 'i' and totype == 'double'):
+                if (fromtype[0] == 'i' and totype in ['double', 'float']):
                     # ZZZ signed
                     casttype = "sitofp"
-                elif (fromtype == 'double' and totype[0] == 'i'):
+                elif (fromtype in ['double', 'float'] and totype[0] == 'i'):
                     # ZZZ signed
                     casttype = "fptosi"
                 else:
-                    assert False, "this shouldtnt be possible"
+                    if fromtype != totype:
+                        if fromtype == "double":
+                            casttype = 'fptrunc'
+                        else:
+                            casttype = 'fpext'
         else:
             assert '*' in totype
 
@@ -553,8 +557,7 @@ class OpWriter(object):
 
     def is_early_constant(self, opr):
         # If it gets this far it is always false
-        self.codewriter.cast(opr.retref, 'bool',
-                             'false', opr.rettype)
+        self.codewriter.cast(opr.retref, 'i1', 'false', opr.rettype)
 
     def debug_llinterpcall(self, opr):
         self.codewriter.call(None, "void", "@abort", [], [])

@@ -3,7 +3,7 @@ import sys
 import py
 from py.test import raises
 from pypy.translator.test import snippet 
-from pypy.rlib.rarithmetic import r_uint, ovfcheck, ovfcheck_lshift
+from pypy.rlib.rarithmetic import r_uint, r_longlong, ovfcheck, ovfcheck_lshift
 
 from pypy.translator.llvm.test.runtest import *
 
@@ -288,11 +288,18 @@ def test_uint_invert():
         assert str(f(i)) == str(fn(i))
 
 def test_int_abs():
-    def int_abs_(n):
+    def int_abs(n):
         return abs(n)
-    f = compile_function(int_abs_, [int])
+    f = compile_function(int_abs, [int])
     for i in (-25, 0, 75):
-        assert f(i) == int_abs_(i)
+        assert f(i) == int_abs(i)
+
+def test_long_abs():
+    def long_abs(n):
+        return abs(r_longlong(n))
+    f = compile_function(long_abs, [int])
+    for i in (-25, 0, 75):
+        assert f(i) == long_abs(i)
 
 def test_float_abs():
     def float_abs_(n):

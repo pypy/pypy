@@ -72,8 +72,6 @@ def test_abs_int_ovf():
     for i in (-sys.maxint-1, -sys.maxint, 0, sys.maxint-1, sys.maxint):
         assert f(i) == abs_int_ovf(i)
 
-############################
-
 def test_int_overflow():
     def fn(i):
         try:
@@ -98,9 +96,7 @@ def test_int_div_ovf_zer():
     assert fn(0) == 1234
 
 def test_int_mod_ovf_zer():
-    #without raisingop2direct_call the operation is not found
-    #with    raisingop2direct_call the wrong result is returned
-    py.test.skip("operation int_mod_ovf_zer not found")
+    py.test.skip("XXX fix this : the wrong result is returned")
     def fn(i):
         try:
             return snippet.mod_func(i)
@@ -139,7 +135,6 @@ def test_int_lshift_ovf_val():
     assert f(1) == 1234
 
 def test_uint_arith():
-    py.test.skip("zer operator exception not implemented")
     def fn(i):
         try:
             return ~(i*(i+1))/(i-1)
@@ -174,8 +169,8 @@ def test_int_sub_ovf():
     assert f(-sys.maxint) == 123
 
 def test_int_mul_ovf():
-    if sys.maxint != 2**31-1:
-        py.test.skip("WIP on 64 bit architectures")
+    #if sys.maxint != 2**31-1:
+    #    py.test.skip("WIP on 64 bit architectures")
     def mul_func(i):
         try:
             return ovfcheck(i * 100)
