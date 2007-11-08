@@ -351,7 +351,7 @@ class Primitives(object):
             lltype.Bool: "i1",
             lltype.SingleFloat: "float",
             lltype.Float: "double",
-            lltype.UniChar: "i8",
+            lltype.UniChar: "i16",
             lltype.Void: "void",
             lltype.UnsignedLongLong: "i64",
             lltype.SignedLongLong: "i64",
