@@ -171,6 +171,7 @@ class GenLLVM(object):
         name = entry_node.name
         if name in self.function_count:
             self.function_count[name] += 1
+            Node.nodename_count[name] = self.function_count[name] + 1
             name += '_%d' % self.function_count[name]
             entry_node.name =  name
         else:
