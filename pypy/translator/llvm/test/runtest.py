@@ -74,7 +74,8 @@ def genllvm_compile(function,
         'translation.backendopt.none': not optimize,
         'translation.gc': 'boehm',
         'translation.llvm_via_c' : not native_llvm_backend 
-}
+        }
+
     options.update(extra_opts)
     config.set(**options)
     driver = TranslationDriver(config=config)
@@ -125,7 +126,6 @@ class ExceptionWrapper:
     def __repr__(self):
         return 'ExceptionWrapper(%s)' % repr(self.class_name)
 
-
 class LLVMTest(BaseRtypingTest, LLRtypeMixin):
     def __init__(self):
         self._func = None
@@ -157,8 +157,13 @@ class LLVMTest(BaseRtypingTest, LLRtypeMixin):
     def interpret(self, fn, args, annotation=None):
         f = self._compile(fn, args, annotation)
         res = f(*args)
-        if isinstance(res, ExceptionWrapper):
-            raise res
+
+        # a start to making this work over Isolate
+        if isinstance(res, dict):
+            if res["type"] == "exceptiontypename":
+                raise ExceptionWrapper(res["value"]) 
+            elif res["type"] == "tuple":
+                res = StructTuple(res["value"])
         return res
 
     def interpret_raises(self, exception, fn, args):
@@ -194,3 +199,11 @@ class LLVMTest(BaseRtypingTest, LLRtypeMixin):
 
     def read_attr(self, obj, name):
         py.test.skip('read_attr not supported on llvm tests')
+
+class StructTuple(tuple):
+    def __getattr__(self, name):
+        if name.startswith('item'):
+            i = int(name[len('item'):])
+            return self[i]
+        else:
+            raise AttributeError, name

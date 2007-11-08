@@ -1,3 +1,5 @@
+" XXX THIS IS ONLY FOR TESTING XXX "
+
 import py
 import ctypes
 from pypy.rpython.lltypesystem import lltype 
@@ -16,7 +18,7 @@ _c = ctypes.CDLL(join(dirname(realpath(__file__)), "%s"))
 rpyexc_occured = _c.pypy__rpyexc_occured
 rpyexc_occured.argtypes = []
 rpyexc_occured.restype = ctypes.c_int
- 
+
 rpyexc_fetch_type = _c.pypy_rpyexc_fetch_type
 rpyexc_fetch_type.argtypes = []
 rpyexc_fetch_type.restype = ctypes.c_void_p
@@ -31,19 +33,17 @@ startup_code.restype = ctypes.c_int
 
 _setup = False
 
-class LLVMException(Exception):
-    pass
-
 def entrypoint(*args):
     global _setup
     if not _setup:
         if not startup_code():
-            raise LLVMException("Failed to startup")
+            raise Exception("Failed to startup")
         _setup = True
     args = [f(a) for a, f in zip(args, to_llargs)]
     result = __entrypoint__(*args)
     if rpyexc_occured():
-        raise LLVMException("Exception raised")
+        exc = rpyexc_fetch_type()
+        return {'value':to_exception_type(exc), 'type':'exceptiontypename'} 
     return ll_to_res(result)
 
 def identity(res):
@@ -54,6 +54,9 @@ def from_unichar(arg):
 
 def from_float(arg):
     return ctypes.c_double(arg)
+
+def to_unichar(res):
+    return unichr(res)
 
 def from_str(arg):
     # XXX wont work over isolate : arg should be converted into a string first
@@ -87,16 +90,28 @@ def to_str(res):
     else:
         return None
 
-def to_tuple(res, size, C_TYPE, action):
+def struct_to_tuple(res, size, C_TYPE, action):
     if res:
         t = ctypes.cast(res, ctypes.POINTER(C_TYPE * size)).contents
-        return tuple([action(ii) for ii in t])
+        return {'type':'tuple', 'value':tuple([action(ii) for ii in t])}
     else:
         return None
 
-def to_list(res, C_TYPE, action):
+def list_to_array(res, action):
     if res:
-        size = ctypes.cast(res, ctypes.POINTER(ctypes.c_int)).contents.value
+        class List(ctypes.Structure):
+            _fields_ = [("length", ctypes.c_int),
+                        ("items", ctypes.c_void_p)]
+        list = ctypes.cast(res, ctypes.POINTER(List)).contents
+        size = list.length
+        return action(list.items, size)
+    else:
+        return None
+
+def array_to_list(res, C_TYPE, action, size=-1):
+    if res:
+        if size == -1:
+            size = ctypes.cast(res, ctypes.POINTER(ctypes.c_int)).contents.value
         class Array(ctypes.Structure):
             _fields_ = [("size", ctypes.c_int),
                         ("data", C_TYPE * size)]
@@ -104,6 +119,12 @@ def to_list(res, C_TYPE, action):
         return [action(array.data[ii]) for ii in range(size)]
     else:
         return None
+
+def to_exception_type(addr):
+    addr_str = ctypes.cast(addr+12, ctypes.POINTER(ctypes.c_int)).contents.value
+    size = ctypes.cast(addr_str, ctypes.POINTER(ctypes.c_int)).contents.value - 1
+    name = ctypes.string_at(addr_str+4, size)
+    return name
 """
 
     epilog = """
@@ -208,18 +229,25 @@ __entrypoint__.restype = %(returntype)s
             action = 'to_str'
 
         elif isinstance(T, lltype.Ptr) and isinstance(T.TO, lltype.Struct):
-            fields = [getattr(T.TO, name) for name in T.TO._names_without_voids()]
+            S = T.TO
+            fields = [(getattr(S, name), name) for name in S._names_without_voids()]
             if fields:
-                F0 = fields[0]
-                _c_type, _action = self.build_lltype_to_ctypes_to_res(F0)
-                action = self.create_simple_closure('res', 'to_tuple(res, %s, %s, %s)' % (len(fields), 
-                                                                                          _c_type, 
-                                                                                          _action))
+                F0, name = fields[0]
+                if name.startswith("item"):
+                    _c_type, _action = self.build_lltype_to_ctypes_to_res(F0)
+                    action = self.create_simple_closure('res', 'struct_to_tuple(res, %s, %s, %s)' % (len(fields), 
+                                                                                                     _c_type, 
+                                                                                                     _action))
+                elif name == "length" and fields[1][1] == "items":
+                    _c_type, _action = self.build_lltype_to_ctypes_to_res(fields[1][0])
+                    action = self.create_simple_closure('res', 'list_to_array(res, %s)' % (_action))
+                else:
+                    py.test.skip("unspported struct %r" % S)
 
         elif isinstance(T, lltype.Ptr) and isinstance(T.TO, lltype.Array):
             OF = T.TO.OF
             _c_type, _action = self.build_lltype_to_ctypes_to_res(OF)
-            action = self.create_simple_closure('res', 'to_list(res, %s, %s)' % (_c_type, _action))
+            action = self.create_simple_closure('res, size=-1', 'array_to_list(res, %s, %s, size=size)' % (_c_type, _action))
 
         else:
             assert not isinstance(T, lltype.Ptr)
