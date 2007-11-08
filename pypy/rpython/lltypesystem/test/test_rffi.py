@@ -247,7 +247,7 @@ def test_rffi_sizeof():
     cache = {
         lltype.Signed:   ctypes.c_long,
         lltype.Unsigned: ctypes.c_ulong,
-        lltype.UniChar:  ctypes.c_ushort,
+        lltype.UniChar:  ctypes.c_uint,
         lltype.Char:     ctypes.c_ubyte,
         DOUBLE:     ctypes.c_double,
         SIGNEDCHAR: ctypes.c_byte,

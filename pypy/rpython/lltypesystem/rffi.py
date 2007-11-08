@@ -405,7 +405,7 @@ def sizeof(tp):
     if tp is lltype.Char:
         return 1
     if tp is lltype.UniChar:
-        return 2
+        return 4
     if tp is lltype.Float:
         return 8
     assert isinstance(tp, lltype.Number)
