@@ -17,7 +17,7 @@ translation_optiondescription = OptionDescription(
     ChoiceOption("type_system", "Type system to use when RTyping",
                  ["lltype", "ootype"], cmdline=None,
                  requires={
-                     "ootype": [("translation.backendopt.raisingop2direct_call", False),
+                     "ootype": [
                                 ("translation.backendopt.constfold", False),
                                 ("translation.backendopt.heap2stack", False),
                                 ("translation.backendopt.clever_malloc_removal", False),
