@@ -264,3 +264,17 @@ class AppTestUnicodeString:
         assert unicode(None) == u'None'
         assert unicode(123) == u'123'
         assert unicode([2, 3]) == u'[2, 3]'
+
+    def test_call_unicode(self):
+        skip("does not work")
+        class X:
+            def __unicode__(self):
+                return u'x'
+
+        try:
+            unicode(X(), 'ascii')
+        except TypeError, t:
+            assert 'need string or buffer' in str(t)
+        else:
+            raise Exception("DID NOT RAISE")
+

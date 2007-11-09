@@ -1086,6 +1086,9 @@ class LLFrame(object):
     def op_oostring(self, obj, base):
         return ootype.oostring(obj, base)
 
+    def op_oounicode(self, obj, base):
+        return ootype.oounicode(obj, base)
+
     def op_ooparse_int(self, s, base):
         try:
             return ootype.ooparse_int(s, base)

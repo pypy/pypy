@@ -8,12 +8,13 @@ from pypy.rlib.rarithmetic import _hash_string
 from pypy.rpython.rmodel import inputconst, IntegerRepr
 from pypy.rpython.rstr import AbstractStringRepr,AbstractCharRepr,\
      AbstractUniCharRepr, AbstractStringIteratorRepr,\
-     AbstractLLHelpers
+     AbstractLLHelpers, AbstractUnicodeRepr
 from pypy.rpython.lltypesystem import ll_str
 from pypy.rpython.lltypesystem.lltype import \
      GcStruct, Signed, Array, Char, UniChar, Ptr, malloc, \
-     Bool, Void, GcArray, nullptr, pyobjectptr, cast_primitive
-
+     Bool, Void, GcArray, nullptr, pyobjectptr, cast_primitive, typeOf,\
+     staticAdtMethod, GcForwardReference
+from pypy.rpython.rmodel import Repr
 
 # ____________________________________________________________
 #
@@ -24,19 +25,43 @@ from pypy.rpython.lltypesystem.lltype import \
 #        chars: array of Char
 #    }
 
-STR = GcStruct('rpy_string', ('hash',  Signed),
-                             ('chars', Array(Char, hints={'immutable': True,
-                                                          'isrpystring': True})))
-UNICODE = GcStruct('rpy_unicode', ('hash', Signed),
-                   ('chars', Array(UniChar, hints={'immutable': True})))
+STR = GcForwardReference()
+UNICODE = GcForwardReference()
+
+def new_malloc(TP):
+    def mallocstr(length):
+        debug_assert(length >= 0, "negative string length")
+        r = malloc(TP, length)
+        if not we_are_translated() or not malloc_zero_filled:
+            r.hash = 0
+        return r
+    mallocstr._annspecialcase_ = 'specialize:semierased'
+    return mallocstr
+
+mallocstr = new_malloc(STR)
+mallocunicode = new_malloc(UNICODE)
+
+def emptystrfun():
+    return emptystr
+
+def emptyunicodefun():
+    return emptyunicode
+
+STR.become(GcStruct('rpy_string', ('hash',  Signed),
+                    ('chars', Array(Char, hints={'immutable': True,
+                                                 'isrpystring': True})),
+                    adtmeths={'malloc' : staticAdtMethod(mallocstr),
+                              'empty'  : staticAdtMethod(emptystrfun)}))
+UNICODE.become(GcStruct('rpy_unicode', ('hash', Signed),
+                        ('chars', Array(UniChar, hints={'immutable': True})),
+                        adtmeths={'malloc' : staticAdtMethod(mallocunicode),
+                                  'empty'  : staticAdtMethod(emptyunicodefun)}
+                        ))
 SIGNED_ARRAY = GcArray(Signed)
 CONST_STR_CACHE = WeakValueDictionary()
+CONST_UNICODE_CACHE = WeakValueDictionary()
 
-class BaseStringRepr(AbstractStringRepr):
-    def __init__(self, *args):
-        AbstractStringRepr.__init__(self, *args)
-        self.ll = LLHelpers
-
+class BaseLLStringRepr(Repr):
     def convert_const(self, value):
         if value is None:
             return nullptr(self.lowleveltype.TO)
@@ -44,20 +69,21 @@ class BaseStringRepr(AbstractStringRepr):
         if not isinstance(value, self.basetype):
             raise TyperError("not a str: %r" % (value,))
         try:
-            return CONST_STR_CACHE[value]
+            return self.CACHE[value]
         except KeyError:
             p = self.malloc(len(value))
             for i in range(len(value)):
                 p.chars[i] = cast_primitive(self.base, value[i])
             p.hash = 0
             self.ll.ll_strhash(p)   # precompute the hash
-            CONST_STR_CACHE[value] = p
+            self.CACHE[value] = p
             return p
 
     def make_iterator_repr(self):
-        return string_iterator_repr
+        return self.iterator_repr
 
     def can_ll_be_null(self, s_value):
+        # XXX unicode
         if self is string_repr:
             return s_value.can_be_none()
         else:
@@ -71,28 +97,44 @@ class BaseStringRepr(AbstractStringRepr):
         v_items = hop.gendirectcall(LIST.ll_items, v_lst)
         return v_length, v_items
 
-class StringRepr(BaseStringRepr):
+class StringRepr(BaseLLStringRepr, AbstractStringRepr):
     lowleveltype = Ptr(STR)
     basetype = str
     base = Char
+    CACHE = CONST_STR_CACHE
 
     def __init__(self, *args):
-        BaseStringRepr.__init__(self, *args)
+        AbstractStringRepr.__init__(self, *args)
+        self.ll = LLHelpers
         self.malloc = mallocstr
     
-class UnicodeRepr(BaseStringRepr):
+class UnicodeRepr(BaseLLStringRepr, AbstractUnicodeRepr):
     lowleveltype = Ptr(UNICODE)
     basetype = basestring
     base = UniChar
+    CACHE = CONST_UNICODE_CACHE
 
     def __init__(self, *args):
-        BaseStringRepr.__init__(self, *args)
+        AbstractUnicodeRepr.__init__(self, *args)
+        self.ll = LLHelpers
         self.malloc = mallocunicode
+
+    def ll_str(self, s):
+        # XXX crazy that this is here, but I don't want to break
+        #     rmodel logic
+        lgt = len(s.chars)
+        result = mallocstr(lgt)
+        for i in range(lgt):
+            c = s.chars[i]
+            if ord(c) > 127:
+                raise UnicodeEncodeError("character not in ascii range")
+            result.chars[i] = cast_primitive(Char, c)
+        return result
 
 class CharRepr(AbstractCharRepr, StringRepr):
     lowleveltype = Char
 
-class UniCharRepr(AbstractUniCharRepr):
+class UniCharRepr(AbstractUniCharRepr, UnicodeRepr):
     lowleveltype = UniChar
 
 class __extend__(pairtype(PyObjRepr, AbstractStringRepr)):
@@ -118,19 +160,6 @@ class __extend__(pairtype(AbstractStringRepr, PyObjRepr)):
                                  [v],
                                  resulttype=pyobj_repr,
                                  _callable= lambda v: pyobjectptr(''.join(v.chars)))
-
-def new_malloc(TP):
-    def mallocstr(length):
-        debug_assert(length >= 0, "negative string length")
-        r = malloc(TP, length)
-        if not we_are_translated() or not malloc_zero_filled:
-            r.hash = 0
-        return r
-    mallocstr._annspecialcase_ = 'specialize:semierased'
-    return mallocstr
-
-mallocstr = new_malloc(STR)
-mallocunicode = new_malloc(UNICODE)
 
 # ____________________________________________________________
 #
@@ -163,9 +192,13 @@ def ll_construct_restart_positions(s, l):
 class LLHelpers(AbstractLLHelpers):
 
     def ll_char_mul(ch, times):
+        if typeOf(ch) is Char:
+            malloc = mallocstr
+        else:
+            malloc = mallocunicode
         if times < 0:
             times = 0
-        newstr = mallocstr(times)
+        newstr = malloc(times)
         j = 0
         while j < times:
             newstr.chars[j] = ch
@@ -183,8 +216,21 @@ class LLHelpers(AbstractLLHelpers):
     ll_stritem_nonneg._annenforceargs_ = [None, int]
 
     def ll_chr2str(ch):
-        s = mallocstr(1)
+        if typeOf(ch) is Char:
+            malloc = mallocstr
+        else:
+            malloc = mallocunicode
+        s = malloc(1)
         s.chars[0] = ch
+        return s
+
+    def ll_str2unicode(str):
+        lgt = len(str.chars)
+        s = mallocunicode(lgt)
+        for i in range(lgt):
+            if ord(str.chars[i]) > 127:
+                raise UnicodeDecodeError
+            s.chars[i] = cast_primitive(UniChar, str.chars[i])
         return s
 
     def ll_strhash(s):
@@ -204,7 +250,7 @@ class LLHelpers(AbstractLLHelpers):
     def ll_strconcat(s1, s2):
         len1 = len(s1.chars)
         len2 = len(s2.chars)
-        newstr = mallocstr(len1 + len2)
+        newstr = s1.malloc(len1 + len2)
         j = 0
         while j < len1:
             newstr.chars[j] = s1.chars[j]
@@ -219,7 +265,7 @@ class LLHelpers(AbstractLLHelpers):
     def ll_strip(s, ch, left, right):
         s_len = len(s.chars)
         if s_len == 0:
-            return emptystr
+            return s.empty()
         lpos = 0
         rpos = s_len - 1
         if left:
@@ -229,7 +275,7 @@ class LLHelpers(AbstractLLHelpers):
             while lpos < rpos and s.chars[rpos] == ch:
                 rpos -= 1
         r_len = rpos - lpos + 1
-        result = mallocstr(r_len)
+        result = s.malloc(r_len)
         i = 0
         j = lpos
         while i < r_len:
@@ -242,9 +288,9 @@ class LLHelpers(AbstractLLHelpers):
         s_chars = s.chars
         s_len = len(s_chars)
         if s_len == 0:
-            return emptystr
+            return s.empty()
         i = 0
-        result = mallocstr(s_len)
+        result = s.malloc(s_len)
         while i < s_len:
             ch = s_chars[i]
             if 'a' <= ch <= 'z':
@@ -257,9 +303,9 @@ class LLHelpers(AbstractLLHelpers):
         s_chars = s.chars
         s_len = len(s_chars)
         if s_len == 0:
-            return emptystr
+            return s.empty()
         i = 0
-        result = mallocstr(s_len)
+        result = s.malloc(s_len)
         while i < s_len:
             ch = s_chars[i]
             if 'A' <= ch <= 'Z':
@@ -273,13 +319,13 @@ class LLHelpers(AbstractLLHelpers):
         s_len = len(s_chars)
         num_items = length
         if num_items == 0:
-            return emptystr
+            return s.empty()
         itemslen = 0
         i = 0
         while i < num_items:
             itemslen += len(items[i].chars)
             i += 1
-        result = mallocstr(itemslen + s_len * (num_items - 1))
+        result = s.malloc(itemslen + s_len * (num_items - 1))
         res_chars = result.chars
         res_index = 0
         i = 0
@@ -529,7 +575,11 @@ class LLHelpers(AbstractLLHelpers):
         while i < num_items:
             itemslen += len(items[i].chars)
             i += 1
-        result = mallocstr(itemslen)
+        if typeOf(items).TO.OF.TO == STR:
+            malloc = mallocstr
+        else:
+            malloc = mallocunicode
+        result = malloc(itemslen)
         res_chars = result.chars
         res_index = 0
         i = 0
@@ -546,7 +596,11 @@ class LLHelpers(AbstractLLHelpers):
 
     def ll_join_chars(length, chars):
         num_chars = length
-        result = mallocstr(num_chars)
+        if typeOf(chars).TO.OF == Char:
+            malloc = mallocstr
+        else:
+            malloc = mallocunicode
+        result = malloc(num_chars)
         res_chars = result.chars
         i = 0
         while i < num_chars:
@@ -556,7 +610,7 @@ class LLHelpers(AbstractLLHelpers):
 
     def ll_stringslice_startonly(s1, start):
         len1 = len(s1.chars)
-        newstr = mallocstr(len1 - start)
+        newstr = s1.malloc(len1 - start)
         j = 0
         while start < len1:
             newstr.chars[j] = s1.chars[start]
@@ -571,7 +625,7 @@ class LLHelpers(AbstractLLHelpers):
             if start == 0:
                 return s1
             stop = len(s1.chars)
-        newstr = mallocstr(stop - start)
+        newstr = s1.malloc(stop - start)
         j = 0
         while start < stop:
             newstr.chars[j] = s1.chars[start]
@@ -581,7 +635,7 @@ class LLHelpers(AbstractLLHelpers):
 
     def ll_stringslice_minusone(s1):
         newlen = len(s1.chars) - 1
-        newstr = mallocstr(newlen)
+        newstr = s1.malloc(newlen)
         j = 0
         while j < newlen:
             newstr.chars[j] = s1.chars[j]
@@ -604,7 +658,7 @@ class LLHelpers(AbstractLLHelpers):
         resindex = 0
         while j < strlen:
             if chars[j] == c:
-                item = items[resindex] = mallocstr(j - i)
+                item = items[resindex] = s.malloc(j - i)
                 newchars = item.chars
                 k = i
                 while k < j:
@@ -613,7 +667,7 @@ class LLHelpers(AbstractLLHelpers):
                 resindex += 1
                 i = j + 1
             j += 1
-        item = items[resindex] = mallocstr(j - i)
+        item = items[resindex] = s.malloc(j - i)
         newchars = item.chars
         k = i
         while k < j:
@@ -625,7 +679,7 @@ class LLHelpers(AbstractLLHelpers):
 
     def ll_replace_chr_chr(s, c1, c2):
         length = len(s.chars)
-        newstr = mallocstr(length)
+        newstr = s.malloc(length)
         src = s.chars
         dst = newstr.chars
         j = 0
@@ -782,22 +836,42 @@ char_repr.ll = LLHelpers
 unichar_repr.ll = LLHelpers
 unicode_repr = UnicodeRepr()
 emptystr = string_repr.convert_const("")
+emptyunicode = unicode_repr.convert_const(u'')
 
 StringRepr.repr = string_repr
 UnicodeRepr.repr = unicode_repr
+UniCharRepr.repr = unicode_repr
+UniCharRepr.char_repr = unichar_repr
+UnicodeRepr.char_repr = unichar_repr
+CharRepr.char_repr = char_repr
+StringRepr.char_repr = char_repr
 
-class StringIteratorRepr(AbstractStringIteratorRepr):
-
-    lowleveltype = Ptr(GcStruct('stringiter',
-                                ('string', string_repr.lowleveltype),
-                                ('index', Signed)))
+class BaseStringIteratorRepr(AbstractStringIteratorRepr):
 
     def __init__(self):
         self.ll_striter = ll_striter
         self.ll_strnext = ll_strnext
 
+class StringIteratorRepr(BaseStringIteratorRepr):
+    
+    lowleveltype = Ptr(GcStruct('stringiter',
+                                ('string', string_repr.lowleveltype),
+                                ('index', Signed)))
+
+class UnicodeIteratorRepr(BaseStringIteratorRepr):
+
+    lowleveltype = Ptr(GcStruct('unicodeiter',
+                                ('string', unicode_repr.lowleveltype),
+                                ('index', Signed)))
+
 def ll_striter(string):
-    iter = malloc(string_iterator_repr.lowleveltype.TO)
+    if typeOf(string) == string_repr.lowleveltype:
+        TP = string_repr.iterator_repr.lowleveltype.TO
+    elif typeOf(string) == unicode_repr.lowleveltype:
+        TP = unicode_repr.iterator_repr.lowleveltype.TO
+    else:
+        raise TypeError("Unknown string type %s" % (typeOf(string),))
+    iter = malloc(TP)
     iter.string = string
     iter.index = 0
     return iter
@@ -810,8 +884,8 @@ def ll_strnext(iter):
     iter.index = index + 1
     return chars[index]
 
-string_iterator_repr = StringIteratorRepr()
-
+string_repr.iterator_repr = StringIteratorRepr()
+unicode_repr.iterator_repr = UnicodeIteratorRepr()
 
 # these should be in rclass, but circular imports prevent (also it's
 # not that insane that a string constant is built in this file).

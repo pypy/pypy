@@ -592,7 +592,7 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
             setattr(DescrOperation,_name,_impl_maker(_symbol,_specialnames))
         elif _name not in ['is_', 'id','type','issubtype',
                            # not really to be defined in DescrOperation
-                           'ord']:
+                           'ord', 'unichr', 'unicode']:
             raise Exception, "missing def for operation %s" % _name
             
             

@@ -1,34 +1,19 @@
+from pypy.tool.pairtype import pairtype
 from pypy.rpython.error import TyperError
 from pypy.rpython.rstr import AbstractStringRepr,AbstractCharRepr,\
      AbstractUniCharRepr, AbstractStringIteratorRepr,\
-     AbstractLLHelpers
+     AbstractLLHelpers, AbstractUnicodeRepr
 from pypy.rpython.rmodel import IntegerRepr
-from pypy.rpython.lltypesystem.lltype import Ptr, Char, UniChar
+from pypy.rpython.lltypesystem.lltype import Ptr, Char, UniChar, typeOf,\
+     cast_primitive
 from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.rmodel import Repr
 
 # TODO: investigate if it's possible and it's worth to concatenate a
 # String and a Char directly without passing to Char-->String
 # conversion
 
-class StringRepr(AbstractStringRepr):
-    """
-    Some comments about the state of ootype strings at the end of Tokyo sprint
-
-    What was accomplished:
-    - The rstr module was split in an lltype and ootype version.
-    - There is the beginnings of a String type in ootype.
-    - The runtime representation of Strings is a subclass of the builtin str.
-      The idea is that this saves us from boilerplate code implementing the
-      builtin str methods.
-
-    Nothing more was done because of lack of time and paralysis in the face
-    of too many problems. Among other things, to write any meaningful tests
-    we first need conversion from Chars to Strings (because
-    test_llinterp.interpret won't accept strings as arguments). We will need a
-    new low-level operation (convert_char_to_oostring or some such) for this.
-    """
-
-    lowleveltype = ootype.String
+class BaseOOStringRepr(Repr):
 
     def __init__(self, *args):
         AbstractStringRepr.__init__(self, *args)
@@ -36,13 +21,16 @@ class StringRepr(AbstractStringRepr):
 
     def convert_const(self, value):
         if value is None:
-            return ootype.String._null
-        if not isinstance(value, str):
+            return self.lowleveltype._null
+        if not isinstance(value, self.basetype):
             raise TyperError("not a str: %r" % (value,))
-        return ootype.make_string(value)
+        return self.make_string(value)
+
+    def make_string(self, value):
+        raise NotImplementedError
 
     def make_iterator_repr(self):
-        return string_iterator_repr
+        return self.string_iterator_repr
 
     def _list_length_items(self, hop, v_lst, LIST):
         # ootypesystem list has a different interface that
@@ -53,16 +41,63 @@ class StringRepr(AbstractStringRepr):
         return c_length, v_lst
 
 
+class StringRepr(BaseOOStringRepr, AbstractStringRepr):
+    lowleveltype = ootype.String
+    basetype = str
+
+    def make_string(self, value):
+        return ootype.make_string(value)
+
+class UnicodeRepr(BaseOOStringRepr, AbstractUnicodeRepr):
+    lowleveltype = ootype.Unicode
+    basetype = basestring
+
+    def make_string(self, value):
+        return ootype.make_unicode(value)
+
+    def ll_str(self, value):
+        sb = ootype.new(ootype.StringBuilder)
+        lgt = value.ll_strlen()
+        sb.ll_allocate(lgt)
+        for i in range(lgt):
+            c = value.ll_stritem_nonneg(i)
+            if ord(c) > 127:
+                raise UnicodeEncodeError("%d > 127, not ascii" % ord(c))
+            sb.ll_append_char(cast_primitive(Char, c))
+        return sb.ll_build()
+
 class CharRepr(AbstractCharRepr, StringRepr):
     lowleveltype = Char
 
-class UniCharRepr(AbstractUniCharRepr):
+class UniCharRepr(AbstractUniCharRepr, UnicodeRepr):
     lowleveltype = UniChar
+
+
+class __extend__(pairtype(UniCharRepr, UnicodeRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        rstr = llops.rtyper.type_system.rstr
+        if r_from == unichar_repr and r_to == unicode_repr:
+            return llops.gendirectcall(r_from.ll.ll_unichr2unicode, v)
+        return NotImplemented
 
 class LLHelpers(AbstractLLHelpers):
 
     def ll_chr2str(ch):
         return ootype.oostring(ch, -1)
+
+    def ll_str2unicode(s):
+        res = ootype.new(ootype.UnicodeBuilder)
+        lgt = s.ll_strlen()
+        res.ll_allocate(lgt)
+        for i in range(lgt):
+            c = s.ll_stritem_nonneg(i)
+            if ord(c) > 127:
+                raise UnicodeDecodeError
+            res.ll_append_char(cast_primitive(UniChar, c))
+        return res.ll_build()
+
+    def ll_unichr2unicode(ch):
+        return ootype.oounicode(ch, -1)
 
     def ll_strhash(s):
         return ootype.oohash(s)
@@ -73,7 +108,10 @@ class LLHelpers(AbstractLLHelpers):
     def ll_char_mul(ch, times):
         if times < 0:
             times = 0
-        buf = ootype.new(ootype.StringBuilder)
+        if typeOf(ch) == Char:
+            buf = ootype.new(ootype.StringBuilder)
+        else:
+            buf = ootype.new(ootype.UnicodeBuilder)
         buf.ll_allocate(times)
         i = 0
         while i<times:
@@ -95,7 +133,7 @@ class LLHelpers(AbstractLLHelpers):
 
     def ll_join(s, length_dummy, lst):
         length = lst.ll_length()
-        buf = ootype.new(ootype.StringBuilder)
+        buf = ootype.new(typeOf(s).builder)
 
         # TODO: check if it's worth of preallocating the buffer with
         # the exact length
@@ -119,7 +157,10 @@ class LLHelpers(AbstractLLHelpers):
         return buf.ll_build()
 
     def ll_join_chars(length_dummy, lst):
-        buf = ootype.new(ootype.StringBuilder)
+        if typeOf(lst)._ITEMTYPE == Char:
+            buf = ootype.new(ootype.StringBuilder)
+        else:
+            buf = ootype.new(ootype.UnicodeBuilder)
         length = lst.ll_length()
         buf.ll_allocate(length)
         i = 0
@@ -129,7 +170,10 @@ class LLHelpers(AbstractLLHelpers):
         return buf.ll_build()
 
     def ll_join_strs(length_dummy, lst):
-        buf = ootype.new(ootype.StringBuilder)
+        if typeOf(lst)._ITEMTYPE == ootype.String:
+            buf = ootype.new(ootype.StringBuilder)
+        else:
+            buf = ootype.new(ootype.UnicodeBuilder)
         length = lst.ll_length()
         #buf.ll_allocate(length)
         i = 0
@@ -294,13 +338,19 @@ add_helpers()
 del add_helpers
 
 do_stringformat = LLHelpers.do_stringformat
-string_repr = StringRepr()
 char_repr = CharRepr()
 unichar_repr = UniCharRepr()
 char_repr.ll = LLHelpers
 unichar_repr.ll = LLHelpers
-emptystr = string_repr.convert_const("")
+
+string_repr = StringRepr()
 StringRepr.repr = string_repr
+StringRepr.char_repr = char_repr
+emptystr = string_repr.convert_const("")
+unicode_repr = UnicodeRepr()
+UnicodeRepr.repr = unicode_repr
+UnicodeRepr.char_repr = unichar_repr
+
 
 class StringIteratorRepr(AbstractStringIteratorRepr):
     lowleveltype = ootype.Record({'string': string_repr.lowleveltype,
@@ -310,8 +360,22 @@ class StringIteratorRepr(AbstractStringIteratorRepr):
         self.ll_striter = ll_striter
         self.ll_strnext = ll_strnext
 
+class UnicodeIteratorRepr(AbstractStringIteratorRepr):
+    lowleveltype = ootype.Record({'string': unicode_repr.lowleveltype,
+                                  'index': ootype.Signed})
+
+    def __init__(self):
+        self.ll_striter = ll_unicodeiter
+        self.ll_strnext = ll_strnext
+
 def ll_striter(string):
-    iter = ootype.new(string_iterator_repr.lowleveltype)
+    iter = ootype.new(string_repr.string_iterator_repr.lowleveltype)
+    iter.string = string
+    iter.index = 0
+    return iter
+
+def ll_unicodeiter(string):
+    iter = ootype.new(unicode_repr.string_iterator_repr.lowleveltype)
     iter.string = string
     iter.index = 0
     return iter
@@ -324,8 +388,9 @@ def ll_strnext(iter):
     iter.index = index + 1
     return string.ll_stritem_nonneg(index)
 
-string_iterator_repr = StringIteratorRepr()
 
+StringRepr.string_iterator_repr = StringIteratorRepr()
+UnicodeRepr.string_iterator_repr = UnicodeIteratorRepr()
 
 # these should be in rclass, but circular imports prevent (also it's
 # not that insane that a string constant is built in this file).

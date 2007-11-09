@@ -3,7 +3,7 @@ import types
 from pypy.annotation.model import SomeBool, SomeInteger, SomeString,\
      SomeFloat, SomeList, SomeDict, s_None, SomeExternalObject,\
      SomeObject, SomeInstance, SomeTuple, lltype_to_annotation,\
-     unionof
+     unionof, SomeUnicodeString
 from pypy.annotation.classdef import ClassDef, InstanceSource
 from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
 from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
@@ -80,6 +80,8 @@ def annotationoftype(t, bookkeeper=False):
         return SomeFloat()
     elif issubclass(t, str): # py.lib uses annotated str subclasses
         return SomeString()
+    elif t is unicode:
+        return SomeUnicodeString()
     elif t is list:
         return SomeList(MOST_GENERAL_LISTDEF)
     elif t is dict:

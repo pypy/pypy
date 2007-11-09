@@ -44,6 +44,9 @@ class TestGenRpyTestCase:
         def import_sys_func():
             import sys
             return sys.__name__
+
+        def unicode_test(x):
+            return unicode(x, 'ascii')
 """
 
     def setup_class(cls): 
@@ -275,3 +278,9 @@ class TestGenRpyTestCase:
         fn = self.build_interpfunc(snippet.t_neg_long)
         result = fn()
         assert result == -132L and type(result) is long
+
+    def test_unicode_with_encoding(self):
+        fn = self.build_interpfunc(snippet.unicode_test)
+        result = fn("abc")
+        assert result == u"abc" and type(result) is unicode
+

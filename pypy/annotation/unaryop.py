@@ -9,7 +9,7 @@ from pypy.annotation.model import \
      SomeExternalObject, SomeTypedAddressAccess, SomeAddress, \
      SomeCTypesObject, s_ImpossibleValue, s_Bool, s_None, \
      unionof, set, missing_operation, add_knowntypedata, HarmlesslyBlocked, \
-     SomeGenericCallable, SomeWeakRef
+     SomeGenericCallable, SomeWeakRef, SomeUnicodeString
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation import builtin
 from pypy.annotation.binaryop import _clone ## XXX where to put this?
@@ -25,7 +25,7 @@ UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr', 'delattr', 'hash
                         'iter', 'next', 'invert', 'type', 'issubtype',
                         'pos', 'neg', 'nonzero', 'abs', 'hex', 'oct',
                         'ord', 'int', 'float', 'long', 'id',
-                        'neg_ovf', 'abs_ovf', 'hint'])
+                        'neg_ovf', 'abs_ovf', 'hint', 'unicode', 'unichr'])
 
 for opname in UNARY_OPERATIONS:
     missing_operation(SomeObject, opname)
@@ -102,6 +102,10 @@ class __extend__(SomeObject):
     def str(obj):
         getbookkeeper().count('str', obj)
         return SomeString()
+
+    def unicode(obj):
+        getbookkeeper().count('unicode', obj)
+        return SomeUnicodeString()
 
     def repr(obj):
         getbookkeeper().count('repr', obj)
@@ -201,7 +205,6 @@ class __extend__(SomeInteger):
 
     def invert(self):
         return SomeInteger(knowntype=self.knowntype)
-
     invert.can_only_throw = []
 
     def pos(self):
@@ -402,7 +405,8 @@ class __extend__(SomeDict):
         return s_Bool
 
 
-class __extend__(SomeString):
+class __extend__(SomeString,
+                 SomeUnicodeString):
 
     def method_startswith(str, frag):
         return s_Bool
@@ -420,27 +424,29 @@ class __extend__(SomeString):
         return SomeInteger(nonneg=True)
 
     def method_strip(str, chr):
-        return SomeString()
+        return str.basestringclass()
 
     def method_lstrip(str, chr):
-        return SomeString()
+        return str.basestringclass()
 
     def method_rstrip(str, chr):
-        return SomeString()
+        return str.basestringclass()
 
     def method_join(str, s_list):
         getbookkeeper().count("str_join", str)
         s_item = s_list.listdef.read_item()
         if isinstance(s_item, SomeImpossibleValue):
+            if isinstance(str, SomeUnicodeString):
+                return immutablevalue(u"")
             return immutablevalue("")
-        return SomeString()
+        return str.basestringclass()
 
     def iter(str):
         return SomeIterator(str)
     iter.can_only_throw = []
 
     def getanyitem(str):
-        return SomeChar()
+        return str.basecharclass()
 
     def ord(str):
         return SomeInteger(nonneg=True)
@@ -450,17 +456,36 @@ class __extend__(SomeString):
 
     def method_split(str, patt): # XXX
         getbookkeeper().count("str_split", str, patt)
-        return getbookkeeper().newlist(SomeString())
+        return getbookkeeper().newlist(str.basestringclass())
 
     def method_replace(str, s1, s2):
+        return str.basestringclass()
+
+class __extend__(SomeUnicodeString):
+    def method_encode(uni, s_enc):
+        if not s_enc.is_constant():
+            raise TypeError("Non-constant encoding not supported")
+        enc = s_enc.const
+        if enc != 'ascii':
+            raise TypeError("Encoding %s not supported for unicode" % (enc,))
+        return SomeString()
+    method_encode.can_only_throw = [UnicodeEncodeError]
+
+class __extend__(SomeString):
+    def method_upper(str):
         return SomeString()
 
     def method_lower(str):
         return SomeString()
 
-    def method_upper(str):
-        return SomeString()
-
+    def method_decode(str, s_enc):
+        if not s_enc.is_constant():
+            raise TypeError("Non-constant encoding not supported")
+        enc = s_enc.const
+        if enc != 'ascii':
+            raise TypeError("Encoding %s not supported for strings" % (enc,))
+        return SomeUnicodeString()
+    method_decode.can_only_throw = [UnicodeDecodeError]
 
 class __extend__(SomeChar):
 
@@ -484,12 +509,6 @@ class __extend__(SomeChar):
 
     def method_isupper(chr):
         return s_Bool
-
-class __extend__(SomeUnicodeCodePoint):
-
-    def ord(uchr):
-        return SomeInteger(nonneg=True)
-
 
 class __extend__(SomeIterator):
 

@@ -196,5 +196,7 @@ standardexceptions = {
     IndexError       : True,
     AssertionError   : True,
     RuntimeError     : True,
+    UnicodeDecodeError: True,
+    UnicodeEncodeError: True,
     }
 

@@ -16,8 +16,15 @@ class AbstractStringRepr(Repr):
 class AbstractCharRepr(AbstractStringRepr):
     pass
 
-class AbstractUniCharRepr(Repr):
+class AbstractUniCharRepr(AbstractStringRepr):
     pass
+
+class AbstractUnicodeRepr(AbstractStringRepr):
+    def rtype_method_upper(self, hop):
+        raise TypeError("Cannot do toupper on unicode string")
+
+    def rtype_method_lower(self, hop):
+        raise TypeError("Cannot do tolower on unicode string")
 
 class __extend__(annmodel.SomeString):
     def rtyper_makerepr(self, rtyper):
@@ -47,6 +54,9 @@ class __extend__(annmodel.SomeUnicodeCodePoint):
 
 class __extend__(AbstractStringRepr):
 
+    def _str_reprs(self, hop):
+        return hop.args_r[0].repr, hop.args_r[1].repr
+
     def get_ll_eq_function(self):
         return self.ll.ll_streq
 
@@ -64,7 +74,7 @@ class __extend__(AbstractStringRepr):
     def rtype_is_true(self, hop):
         s_str = hop.args_s[0]
         if s_str.can_be_None:
-            string_repr = hop.rtyper.type_system.rstr.string_repr
+            string_repr = hop.args_r[0].repr
             v_str, = hop.inputargs(string_repr)
             return hop.gendirectcall(self.ll.ll_str_is_true, v_str)
         else:
@@ -72,32 +82,38 @@ class __extend__(AbstractStringRepr):
             return super(AbstractStringRepr, self).rtype_is_true(hop)
 
     def rtype_ord(self, hop):
-        string_repr = hop.rtyper.type_system.rstr.string_repr
+        string_repr = hop.args_r[0].repr
         v_str, = hop.inputargs(string_repr)
         c_zero = inputconst(Signed, 0)
         v_chr = hop.gendirectcall(self.ll.ll_stritem_nonneg, v_str, c_zero)
-        return hop.genop('cast_char_to_int', [v_chr], resulttype=Signed)
+        if string_repr is hop.rtyper.type_system.rstr.string_repr:
+            return hop.genop('cast_char_to_int', [v_chr], resulttype=Signed)
+        else:
+            assert string_repr is hop.rtyper.type_system.rstr.unicode_repr
+            return hop.genop('cast_unichar_to_int', [v_chr], resulttype=Signed)
 
     def rtype_method_startswith(self, hop):
-        string_repr = hop.rtyper.type_system.rstr.string_repr
-        v_str, v_value = hop.inputargs(string_repr, string_repr)
+        str1_repr, str2_repr = self._str_reprs(hop)
+        v_str, v_value = hop.inputargs(str1_repr, str2_repr)
         hop.exception_cannot_occur()
         return hop.gendirectcall(self.ll.ll_startswith, v_str, v_value)
 
     def rtype_method_endswith(self, hop):
-        string_repr = hop.rtyper.type_system.rstr.string_repr
-        v_str, v_value = hop.inputargs(string_repr, string_repr)
+        str1_repr, str2_repr = self._str_reprs(hop)
+        v_str, v_value = hop.inputargs(str1_repr, str2_repr)
         hop.exception_cannot_occur()
         return hop.gendirectcall(self.ll.ll_endswith, v_str, v_value)
 
     def rtype_method_find(self, hop, reverse=False):
-        rstr = hop.rtyper.type_system.rstr        
-        v_str = hop.inputarg(rstr.string_repr, arg=0)
-        if hop.args_r[1] == rstr.char_repr:
-            v_value = hop.inputarg(rstr.char_repr, arg=1)
+        # XXX binaryop
+        string_repr = hop.args_r[0].repr
+        char_repr = hop.args_r[0].char_repr
+        v_str = hop.inputarg(string_repr, arg=0)
+        if hop.args_r[1] == char_repr:
+            v_value = hop.inputarg(char_repr, arg=1)
             llfn = reverse and self.ll.ll_rfind_char or self.ll.ll_find_char
         else:
-            v_value = hop.inputarg(rstr.string_repr, arg=1)
+            v_value = hop.inputarg(string_repr, arg=1)
             llfn = reverse and self.ll.ll_rfind or self.ll.ll_find
         if hop.nb_args > 2:
             v_start = hop.inputarg(Signed, arg=2)
@@ -118,13 +134,13 @@ class __extend__(AbstractStringRepr):
         return self.rtype_method_find(hop, reverse=True)
 
     def rtype_method_count(self, hop):
-        rstr = hop.rtyper.type_system.rstr
-        v_str = hop.inputarg(rstr.string_repr, arg=0)
+        rstr = hop.args_r[0].repr
+        v_str = hop.inputarg(rstr.repr, arg=0)
         if hop.args_r[1] == rstr.char_repr:
             v_value = hop.inputarg(rstr.char_repr, arg=1)
             llfn = self.ll.ll_count_char
         else:
-            v_value = hop.inputarg(rstr.string_repr, arg=1)
+            v_value = hop.inputarg(rstr.repr, arg=1)
             llfn = self.ll.ll_count
         if hop.nb_args > 2:
             v_start = hop.inputarg(Signed, arg=2)
@@ -142,8 +158,8 @@ class __extend__(AbstractStringRepr):
         return hop.gendirectcall(llfn, v_str, v_value, v_start, v_end)
 
     def rtype_method_strip(self, hop, left=True, right=True):
-        rstr = hop.rtyper.type_system.rstr
-        v_str = hop.inputarg(rstr.string_repr, arg=0)
+        rstr = hop.args_r[0].repr
+        v_str = hop.inputarg(rstr.repr, arg=0)
         v_char = hop.inputarg(rstr.char_repr, arg=1)
         v_left = hop.inputconst(Bool, left)
         v_right = hop.inputconst(Bool, right)
@@ -156,13 +172,13 @@ class __extend__(AbstractStringRepr):
         return self.rtype_method_strip(hop, left=False, right=True)
 
     def rtype_method_upper(self, hop):
-        string_repr = hop.rtyper.type_system.rstr.string_repr
+        string_repr = hop.args_r[0].repr
         v_str, = hop.inputargs(string_repr)
         hop.exception_cannot_occur()
         return hop.gendirectcall(self.ll.ll_upper, v_str)
         
     def rtype_method_lower(self, hop):
-        string_repr = hop.rtyper.type_system.rstr.string_repr
+        string_repr = hop.args_r[0].repr
         v_str, = hop.inputargs(string_repr)
         hop.exception_cannot_occur()
         return hop.gendirectcall(self.ll.ll_lower, v_str)
@@ -174,17 +190,17 @@ class __extend__(AbstractStringRepr):
 
     def rtype_method_join(self, hop):
         hop.exception_cannot_occur()
-        rstr = hop.rtyper.type_system.rstr
+        rstr = hop.args_r[0]
         if hop.s_result.is_constant():
-            return inputconst(rstr.string_repr, hop.s_result.const)
+            return inputconst(rstr.repr, hop.s_result.const)
         r_lst = hop.args_r[1]
         if not isinstance(r_lst, hop.rtyper.type_system.rlist.BaseListRepr):
             raise TyperError("string.join of non-list: %r" % r_lst)
-        v_str, v_lst = hop.inputargs(rstr.string_repr, r_lst)
+        v_str, v_lst = hop.inputargs(rstr.repr, r_lst)
         v_length, v_items = self._list_length_items(hop, v_lst, r_lst.lowleveltype)
 
         if hop.args_s[0].is_constant() and hop.args_s[0].const == '':
-            if r_lst.item_repr == rstr.string_repr:
+            if r_lst.item_repr == rstr.repr:
                 llfn = self.ll.ll_join_strs
             elif r_lst.item_repr == rstr.char_repr:
                 llfn = self.ll.ll_join_chars
@@ -192,15 +208,15 @@ class __extend__(AbstractStringRepr):
                 raise TyperError("''.join() of non-string list: %r" % r_lst)
             return hop.gendirectcall(llfn, v_length, v_items)
         else:
-            if r_lst.item_repr == rstr.string_repr:
+            if r_lst.item_repr == rstr.repr:
                 llfn = self.ll.ll_join
             else:
                 raise TyperError("sep.join() of non-string list: %r" % r_lst)
             return hop.gendirectcall(llfn, v_str, v_length, v_items)
 
     def rtype_method_split(self, hop):
-        rstr = hop.rtyper.type_system.rstr
-        v_str, v_chr = hop.inputargs(rstr.string_repr, rstr.char_repr)
+        rstr = hop.args_r[0].repr
+        v_str, v_chr = hop.inputargs(rstr.repr, rstr.char_repr)
         try:
             list_type = hop.r_result.lowleveltype.TO
         except AttributeError:
@@ -210,16 +226,16 @@ class __extend__(AbstractStringRepr):
         return hop.gendirectcall(self.ll.ll_split_chr, cLIST, v_str, v_chr)
 
     def rtype_method_replace(self, hop):
-        rstr = hop.rtyper.type_system.rstr        
+        rstr = hop.args_r[0].repr
         if not (hop.args_r[1] == rstr.char_repr and hop.args_r[2] == rstr.char_repr):
             raise TyperError, 'replace only works for char args'
-        v_str, v_c1, v_c2 = hop.inputargs(rstr.string_repr, rstr.char_repr, rstr.char_repr)
+        v_str, v_c1, v_c2 = hop.inputargs(rstr.repr, rstr.char_repr, rstr.char_repr)
         hop.exception_cannot_occur()
         return hop.gendirectcall(self.ll.ll_replace_chr_chr, v_str, v_c1, v_c2)
 
     def rtype_int(self, hop):
         hop.has_implicit_exception(ValueError)   # record that we know about it
-        string_repr = hop.rtyper.type_system.rstr.string_repr
+        string_repr = hop.args_r[0].repr
         if hop.nb_args == 1:
             v_str, = hop.inputargs(string_repr)
             c_base = inputconst(Signed, 10)
@@ -231,9 +247,22 @@ class __extend__(AbstractStringRepr):
         hop.exception_is_here()
         return hop.gendirectcall(self.ll.ll_int, v_str, v_base)
 
+    def rtype_unicode(self, hop):
+        if hop.args_s[0].is_constant():
+            return hop.inputconst(hop.r_result, hop.s_result.const)
+        repr = hop.args_r[0].repr
+        v_str = hop.inputarg(repr, 0)
+        hop.exception_is_here()
+        return hop.gendirectcall(self.ll.ll_str2unicode, v_str)
+
+    def rtype_method_decode(self, hop):
+        v_self = hop.inputarg(self, 0)
+        hop.exception_is_here()
+        return hop.gendirectcall(self.ll.ll_str2unicode, v_self)
+
     def rtype_float(self, hop):
         hop.has_implicit_exception(ValueError)   # record that we know about it
-        string_repr = hop.rtyper.type_system.rstr.string_repr
+        string_repr = hop.args_r[0].repr
         v_str, = hop.inputargs(string_repr)
         hop.exception_is_here()
         return hop.gendirectcall(self.ll.ll_float, v_str)
@@ -241,6 +270,11 @@ class __extend__(AbstractStringRepr):
     def ll_str(self, s):
         return s
 
+class __extend__(AbstractUnicodeRepr):
+    def rtype_method_encode(self, hop):
+        v_self = hop.inputarg(self, 0)
+        hop.exception_is_here()
+        return hop.gendirectcall(self.ll_str, v_self)
 
 class __extend__(pairtype(AbstractStringRepr, Repr)):
     def rtype_mod((r_str, _), hop):
@@ -280,73 +314,69 @@ class __extend__(pairtype(AbstractStringRepr, IntegerRepr)):
 class __extend__(pairtype(AbstractStringRepr, AbstractSliceRepr)):
 
     def rtype_getitem((r_str, r_slic), hop):
-        rstr = hop.rtyper.type_system.rstr
+        string_repr = r_str.repr
         rslice = hop.rtyper.type_system.rslice
 
         if r_slic == rslice.startonly_slice_repr:
-            v_str, v_start = hop.inputargs(rstr.string_repr, rslice.startonly_slice_repr)
+            v_str, v_start = hop.inputargs(string_repr, rslice.startonly_slice_repr)
             return hop.gendirectcall(r_str.ll.ll_stringslice_startonly, v_str, v_start)
         if r_slic == rslice.startstop_slice_repr:
-            v_str, v_slice = hop.inputargs(rstr.string_repr, rslice.startstop_slice_repr)
+            v_str, v_slice = hop.inputargs(string_repr, rslice.startstop_slice_repr)
             return hop.gendirectcall(r_str.ll.ll_stringslice, v_str, v_slice)
         if r_slic == rslice.minusone_slice_repr:
-            v_str, v_ignored = hop.inputargs(rstr.string_repr, rslice.minusone_slice_repr)
+            v_str, v_ignored = hop.inputargs(string_repr, rslice.minusone_slice_repr)
             return hop.gendirectcall(r_str.ll.ll_stringslice_minusone, v_str)
         raise TyperError(r_slic)
 
-
 class __extend__(pairtype(AbstractStringRepr, AbstractStringRepr)):
     def rtype_add((r_str1, r_str2), hop):
-        string_repr = hop.rtyper.type_system.rstr.string_repr
+        str1_repr = r_str1.repr
+        str2_repr = r_str2.repr
         if hop.s_result.is_constant():
-            return hop.inputconst(string_repr, hop.s_result.const)
-        v_str1, v_str2 = hop.inputargs(string_repr, string_repr)
+            return hop.inputconst(str1_repr, hop.s_result.const)
+        v_str1, v_str2 = hop.inputargs(str1_repr, str2_repr)
         return hop.gendirectcall(r_str1.ll.ll_strconcat, v_str1, v_str2)
     rtype_inplace_add = rtype_add
 
     def rtype_eq((r_str1, r_str2), hop):
-        string_repr = hop.rtyper.type_system.rstr.string_repr
-        v_str1, v_str2 = hop.inputargs(string_repr, string_repr)
+        v_str1, v_str2 = hop.inputargs(r_str1.repr, r_str2.repr)
         return hop.gendirectcall(r_str1.ll.ll_streq, v_str1, v_str2)
     
     def rtype_ne((r_str1, r_str2), hop):
-        string_repr = hop.rtyper.type_system.rstr.string_repr
-        v_str1, v_str2 = hop.inputargs(string_repr, string_repr)
+        v_str1, v_str2 = hop.inputargs(r_str1.repr, r_str2.repr)
         vres = hop.gendirectcall(r_str1.ll.ll_streq, v_str1, v_str2)
         return hop.genop('bool_not', [vres], resulttype=Bool)
 
     def rtype_lt((r_str1, r_str2), hop):
-        string_repr = hop.rtyper.type_system.rstr.string_repr
-        v_str1, v_str2 = hop.inputargs(string_repr, string_repr)
+        v_str1, v_str2 = hop.inputargs(r_str1.repr, r_str2.repr)
         vres = hop.gendirectcall(r_str1.ll.ll_strcmp, v_str1, v_str2)
         return hop.genop('int_lt', [vres, hop.inputconst(Signed, 0)],
                          resulttype=Bool)
 
     def rtype_le((r_str1, r_str2), hop):
-        string_repr = hop.rtyper.type_system.rstr.string_repr
-        v_str1, v_str2 = hop.inputargs(string_repr, string_repr)
+        v_str1, v_str2 = hop.inputargs(r_str1.repr, r_str2.repr)
         vres = hop.gendirectcall(r_str1.ll.ll_strcmp, v_str1, v_str2)
         return hop.genop('int_le', [vres, hop.inputconst(Signed, 0)],
                          resulttype=Bool)
 
     def rtype_ge((r_str1, r_str2), hop):
-        string_repr = hop.rtyper.type_system.rstr.string_repr
-        v_str1, v_str2 = hop.inputargs(string_repr, string_repr)
+        v_str1, v_str2 = hop.inputargs(r_str1.repr, r_str2.repr)
         vres = hop.gendirectcall(r_str1.ll.ll_strcmp, v_str1, v_str2)
         return hop.genop('int_ge', [vres, hop.inputconst(Signed, 0)],
                          resulttype=Bool)
 
     def rtype_gt((r_str1, r_str2), hop):
-        string_repr = hop.rtyper.type_system.rstr.string_repr
-        v_str1, v_str2 = hop.inputargs(string_repr, string_repr)
+        v_str1, v_str2 = hop.inputargs(r_str1.repr, r_str2.repr)
         vres = hop.gendirectcall(r_str1.ll.ll_strcmp, v_str1, v_str2)
         return hop.genop('int_gt', [vres, hop.inputconst(Signed, 0)],
                          resulttype=Bool)
 
-class __extend__(pairtype(AbstractStringRepr, AbstractCharRepr)):
+class __extend__(pairtype(AbstractStringRepr, AbstractCharRepr),
+                 pairtype(AbstractUnicodeRepr, AbstractUniCharRepr)):
     def rtype_contains((r_str, r_chr), hop):
-        rstr = hop.rtyper.type_system.rstr
-        v_str, v_chr = hop.inputargs(rstr.string_repr, rstr.char_repr)
+        string_repr = r_str.repr
+        char_repr = r_chr.char_repr
+        v_str, v_chr = hop.inputargs(string_repr, char_repr)
         return hop.gendirectcall(r_str.ll.ll_contains, v_str, v_chr)
 
 class __extend__(pairtype(AbstractStringRepr, AbstractTupleRepr)):
@@ -362,7 +392,8 @@ class __extend__(pairtype(AbstractStringRepr, AbstractTupleRepr)):
         return r_str.ll.do_stringformat(hop, sourcevars)
                 
 
-class __extend__(AbstractCharRepr):
+class __extend__(AbstractCharRepr,
+                 AbstractUniCharRepr):
 
     def convert_const(self, value):
         if not isinstance(value, str) or len(value) != 1:
@@ -388,13 +419,13 @@ class __extend__(AbstractCharRepr):
         return hop.inputconst(Bool, True)
 
     def rtype_ord(_, hop):
-        rstr = hop.rtyper.type_system.rstr
-        vlist = hop.inputargs(rstr.char_repr)
+        repr = hop.args_r[0].char_repr
+        vlist = hop.inputargs(repr)
         return hop.genop('cast_char_to_int', vlist, resulttype=Signed)
 
     def _rtype_method_isxxx(_, llfn, hop):
-        rstr = hop.rtyper.type_system.rstr
-        vlist = hop.inputargs(rstr.char_repr)
+        repr = hop.args_r[0].char_repr
+        vlist = hop.inputargs(repr)
         hop.exception_cannot_occur()
         return hop.gendirectcall(llfn, vlist[0])
 
@@ -411,18 +442,20 @@ class __extend__(AbstractCharRepr):
     def rtype_method_islower(self, hop):
         return self._rtype_method_isxxx(self.ll.ll_char_islower, hop)
 
-class __extend__(pairtype(AbstractCharRepr, IntegerRepr)):
+class __extend__(pairtype(AbstractCharRepr, IntegerRepr),
+                 pairtype(AbstractUniCharRepr, IntegerRepr)):
     
     def rtype_mul((r_chr, r_int), hop):
-        rstr = hop.rtyper.type_system.rstr
-        v_char, v_int = hop.inputargs(rstr.char_repr, Signed)
+        char_repr = r_chr.char_repr
+        v_char, v_int = hop.inputargs(char_repr, Signed)
         return hop.gendirectcall(r_chr.ll.ll_char_mul, v_char, v_int)
     rtype_inplace_mul = rtype_mul
 
-class __extend__(pairtype(IntegerRepr, AbstractCharRepr)):
+class __extend__(pairtype(IntegerRepr, AbstractCharRepr),
+                 pairtype(IntegerRepr, AbstractUniCharRepr)):
     def rtype_mul((r_int, r_chr), hop):
-        rstr = hop.rtyper.type_system.rstr
-        v_int, v_char = hop.inputargs(Signed, rstr.char_repr)
+        char_repr = r_chr.char_repr
+        v_int, v_char = hop.inputargs(Signed, char_repr)
         return hop.gendirectcall(r_chr.ll.ll_char_mul, v_char, v_int)
     rtype_inplace_mul = rtype_mul
 
@@ -492,10 +525,12 @@ def _rtype_unchr_compare_template(hop, func):
 #
 # _________________________ Conversions _________________________
 
-class __extend__(pairtype(AbstractCharRepr, AbstractStringRepr)):
+class __extend__(pairtype(AbstractCharRepr, AbstractStringRepr),
+                 pairtype(AbstractUniCharRepr, AbstractUnicodeRepr)):
     def convert_from_to((r_from, r_to), v, llops):
         rstr = llops.rtyper.type_system.rstr
-        if r_from == rstr.char_repr and r_to == rstr.string_repr:
+        if (r_from == rstr.char_repr and r_to == rstr.string_repr) or\
+           (r_from == rstr.unichar_repr and r_to == rstr.unicode_repr):
             return llops.gendirectcall(r_from.ll.ll_chr2str, v)
         return NotImplemented
 
@@ -519,7 +554,7 @@ class __extend__(pairtype(AbstractCharRepr, AbstractUniCharRepr)):
 class AbstractStringIteratorRepr(IteratorRepr):
 
     def newiter(self, hop):
-        string_repr = hop.rtyper.type_system.rstr.string_repr
+        string_repr = hop.args_r[0].repr
         v_str, = hop.inputargs(string_repr)
         return hop.gendirectcall(self.ll_striter, v_str)
 
@@ -572,7 +607,7 @@ class AbstractLLHelpers:
         c = ord(ch)
         return 65 <= c <= 90
 
-    def ll_char_islower(ch):   
+    def ll_char_islower(ch):
         c = ord(ch)
         return 97 <= c <= 122
 

@@ -322,16 +322,14 @@ class BuiltinADTType(BuiltinType):
         return set()
 
 
-# WARNING: the name 'String' is rebound at the end of file
-class String(BuiltinADTType):
-    SELFTYPE_T = object()
+class AbstractString(BuiltinADTType):
 
     def __init__(self):
         self._null = _null_string(self)
 
         generic_types = { self.SELFTYPE_T: self }
         self._GENERIC_METHODS = frozendict({
-            "ll_stritem_nonneg": Meth([Signed], Char),
+            "ll_stritem_nonneg": Meth([Signed], self.CHAR),
             "ll_strlen": Meth([], Signed),
             "ll_strconcat": Meth([self.SELFTYPE_T], self.SELFTYPE_T),
             "ll_streq": Meth([self.SELFTYPE_T], Bool),
@@ -341,29 +339,19 @@ class String(BuiltinADTType):
             "ll_find": Meth([self.SELFTYPE_T, Signed, Signed], Signed),
             "ll_rfind": Meth([self.SELFTYPE_T, Signed, Signed], Signed),
             "ll_count": Meth([self.SELFTYPE_T, Signed, Signed], Signed),
-            "ll_find_char": Meth([Char, Signed, Signed], Signed),
-            "ll_rfind_char": Meth([Char, Signed, Signed], Signed),
-            "ll_count_char": Meth([Char, Signed, Signed], Signed),
-            "ll_strip": Meth([Char, Bool, Bool], self.SELFTYPE_T),
+            "ll_find_char": Meth([self.CHAR, Signed, Signed], Signed),
+            "ll_rfind_char": Meth([self.CHAR, Signed, Signed], Signed),
+            "ll_count_char": Meth([self.CHAR, Signed, Signed], Signed),
+            "ll_strip": Meth([self.CHAR, Bool, Bool], self.SELFTYPE_T),
             "ll_upper": Meth([], self.SELFTYPE_T),
             "ll_lower": Meth([], self.SELFTYPE_T),
             "ll_substring": Meth([Signed, Signed], self.SELFTYPE_T), # ll_substring(start, count)
-            "ll_split_chr": Meth([Char], List(self.SELFTYPE_T)),
-            "ll_contains": Meth([Char], Bool),
-            "ll_replace_chr_chr": Meth([Char, Char], self.SELFTYPE_T),
+            "ll_split_chr": Meth([self.CHAR], List(self.SELFTYPE_T)),
+            "ll_contains": Meth([self.CHAR], Bool),
+            "ll_replace_chr_chr": Meth([self.CHAR, self.CHAR], self.SELFTYPE_T),
             })
         self._setup_methods(generic_types)
 
-    def _enforce(self, value):
-        TYPE = typeOf(value)
-        if TYPE == Char:
-            return make_string(value)
-        else:
-            return BuiltinADTType._enforce(self, value)
-
-    # TODO: should it return _null or ''?
-    def _defl(self):
-        return make_string("")
     def _example(self):
         return self._defl()
 
@@ -373,15 +361,52 @@ class String(BuiltinADTType):
     def _specialize(self, generic_types):
         return self
 
+# WARNING: the name 'String' is rebound at the end of file
+class String(AbstractString):
+    SELFTYPE_T = object()
+    CHAR = Char
+
+    # TODO: should it return _null or ''?
+    def _defl(self):
+        return make_string('')
+
+    def _enforce(self, value):
+        # XXX share this with Unicode?
+        TYPE = typeOf(value)
+        if TYPE == self.CHAR:
+            return make_string(value)
+        else:
+            return BuiltinADTType._enforce(self, value)
+
+
+# WARNING: the name 'Unicode' is rebound at the end of file
+class Unicode(AbstractString):
+    SELFTYPE_T = object()
+    CHAR = UniChar
+
+    # TODO: should it return _null or ''?
+    def _defl(self):
+        return make_unicode(u'')
+
+    def _enforce(self, value):
+        TYPE = typeOf(value)
+        if TYPE == self.CHAR:
+            return make_unicode(value)
+        else:
+            return BuiltinADTType._enforce(self, value)
+
+
+
+
 # WARNING: the name 'StringBuilder' is rebound at the end of file
 class StringBuilder(BuiltinADTType):
-    def __init__(self):
+    def __init__(self, STRINGTP, CHARTP):
         self._null = _null_string_builder(self)
         self._GENERIC_METHODS = frozendict({
             "ll_allocate": Meth([Signed], Void),
-            "ll_append_char": Meth([Char], Void),
-            "ll_append": Meth([String], Void),
-            "ll_build": Meth([], String),
+            "ll_append_char": Meth([CHARTP], Void),
+            "ll_append": Meth([STRINGTP], Void),
+            "ll_build": Meth([], STRINGTP),
             })
         self._setup_methods({})
 
@@ -837,6 +862,10 @@ def make_string(value):
     assert isinstance(value, str)
     return _string(String, value)
 
+def make_unicode(value):
+    assert isinstance(value, unicode)
+    return _string(Unicode, value)
+
 def make_instance(INSTANCE):
     inst = _instance(INSTANCE)
     if STATICNESS:
@@ -1049,6 +1078,14 @@ class _string(_builtin_type):
     def __cmp__(self, other):
         return cmp(self._str, other._str)
 
+    def make_string(self, value):
+        if self._TYPE is String:
+            return make_string(value)
+        elif self._TYPE is Unicode:
+            return make_unicode(value)
+        else:
+            assert False, 'Unknown type %s' % self._TYPE
+
     def ll_stritem_nonneg(self, i):
         # NOT_RPYTHON
         s = self._str
@@ -1061,7 +1098,7 @@ class _string(_builtin_type):
 
     def ll_strconcat(self, s):
         # NOT_RPYTHON
-        return make_string(self._str + s._str)
+        return self.make_string(self._str + s._str)
 
     def ll_streq(self, s):
         # NOT_RPYTON
@@ -1110,24 +1147,24 @@ class _string(_builtin_type):
             s = s.lstrip(ch)
         if right:
             s = s.rstrip(ch)
-        return make_string(s)
+        return self.make_string(s)
 
     def ll_upper(self):
         # NOT_RPYTHON
-        return make_string(self._str.upper())
+        return self.make_string(self._str.upper())
 
     def ll_lower(self):
         # NOT_RPYTHON
-        return make_string(self._str.lower())
+        return self.make_string(self._str.lower())
 
     def ll_substring(self, start, count):
         # NOT_RPYTHON
-        return make_string(self._str[start:start+count])
+        return self.make_string(self._str[start:start+count])
 
     def ll_split_chr(self, ch):
         # NOT_RPYTHON
-        res = _list(List(String))
-        res._list = [make_string(s) for s in self._str.split(ch)]
+        res = _list(List(self._TYPE))
+        res._list = [self.make_string(s) for s in self._str.split(ch)]
         return res
 
     def ll_contains(self, ch):
@@ -1136,7 +1173,7 @@ class _string(_builtin_type):
 
     def ll_replace_chr_chr(self, ch1, ch2):
         # NOT_RPYTHON
-        return make_string(self._str.replace(ch1, ch2))
+        return self.make_string(self._str.replace(ch1, ch2))
 
 class _null_string(_null_mixin(_string), _string):
     def __init__(self, STRING):
@@ -1154,7 +1191,7 @@ class _string_builder(_builtin_type):
         # do nothing
 
     def ll_append_char(self, ch):
-        assert isinstance(ch, str) and len(ch) == 1
+        assert isinstance(ch, basestring) and len(ch) == 1
         self._buf.append(ch)
 
     def ll_append(self, s):
@@ -1162,7 +1199,10 @@ class _string_builder(_builtin_type):
         self._buf.append(s._str)
 
     def ll_build(self):
-        return make_string(''.join(self._buf))
+        if self._TYPE is StringBuilder:
+            return make_string(''.join(self._buf))
+        else:
+            return make_unicode(u''.join(self._buf))
 
 class _null_string_builder(_null_mixin(_string_builder), _string_builder):
     def __init__(self, STRING_BUILDER):
@@ -1501,7 +1541,8 @@ def ooidentityhash(inst):
     return inst._identityhash()
 
 def oohash(inst):
-    assert typeOf(inst) is String # for now only strings are supported
+    assert typeOf(inst) is String or typeOf(inst) is Unicode
+    # for now only strings and unicode are supported
     return hash(inst._str)
 
 def oostring(obj, base):
@@ -1519,6 +1560,17 @@ def oostring(obj, base):
     elif isinstance(obj, _view):
         obj = '<%s object>' % obj._inst._TYPE._name
     return make_string(str(obj))
+
+def oounicode(obj, base):
+    """
+    Convert an unichar into an unicode string.
+
+    base must be -1, for consistency with oostring.
+    """
+    assert base == -1
+    assert isinstance(obj, unicode)
+    assert len(obj) == 1
+    return make_unicode(obj)
 
 def ooparse_int(s, base):
     return int(s._str, base)
@@ -1548,6 +1600,10 @@ def ooweakref_create(obj):
 
 ROOT = Instance('Root', None, _is_root=True)
 String = String()
-StringBuilder = StringBuilder()
+Unicode = Unicode()
+UnicodeBuilder = StringBuilder(Unicode, UniChar)
+StringBuilder = StringBuilder(String, Char)
+String.builder = StringBuilder
+Unicode.builder = UnicodeBuilder
 WeakReference = WeakReference()
 dead_wref = new(WeakReference)

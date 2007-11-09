@@ -29,6 +29,16 @@ class LLSupport:
         return p
     to_rstr = staticmethod(to_rstr)
 
+    def to_runicode(s):
+        from pypy.rpython.lltypesystem.rstr import UNICODE, mallocunicode
+        if s is None:
+            return lltype.nullptr(UNICODE)
+        p = mallocunicode(len(s))
+        for i in range(len(s)):
+            p.chars[i] = s[i]
+        return p
+    to_runicode = staticmethod(to_runicode)    
+
     def from_rstr(rs):
         if not rs:   # null pointer
             return None

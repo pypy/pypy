@@ -2883,7 +2883,7 @@ class TestAnnotateTestCase:
     def test_unicode(self):
         def g(n):
             if n > 0:
-                return "xxx"
+                return unichr(1234)
             else:
                 return u"x\xe4x"
 
@@ -2905,6 +2905,62 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [str])
         assert isinstance(s, annmodel.SomeUnicodeString)
+
+    def test_unicode_add(self):
+        def f(x):
+            return unicode(x) + unichr(1234)
+
+        def g(x):
+            return unichr(x) + unichr(2)
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [str])
+        assert isinstance(s, annmodel.SomeUnicodeString)
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeUnicodeString)
+
+    def test_unicode_startswith(self):
+        def f(x):
+            return u'xxxx'.replace(x, u'z')
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [unicode])
+        assert isinstance(s, annmodel.SomeUnicodeString)
+
+    def test_unicode_buildtypes(self):
+        def f(x):
+            return x
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [unicode])
+        assert isinstance(s, annmodel.SomeUnicodeString)
+
+    def test_replace_annotations(self):
+        def f(x):
+            return 'a'.replace(x, 'b')
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [str])
+        assert isinstance(s, annmodel.SomeString)
+        
+        def f(x):
+            return u'a'.replace(x, u'b')
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [unicode])
+        assert isinstance(s, annmodel.SomeUnicodeString)
+
+    def test_unicode_char(self):
+        def f(x, i):
+            for c in x:
+                if c == i:
+                    return c
+            return 'x'
+            
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [unicode, str])
+        assert isinstance(s, annmodel.SomeUnicodeCodePoint)
 
 def g(n):
     return [0,1,2,n]

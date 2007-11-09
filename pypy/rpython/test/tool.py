@@ -34,9 +34,16 @@ class LLRtypeMixin(object):
     def ll_to_string(self, s):
         return ''.join(s.chars)
 
+    def ll_to_unicode(self, s):
+        return u''.join(s.chars)
+
     def string_to_ll(self, s):
         from pypy.rpython.module.support import LLSupport        
         return LLSupport.to_rstr(s)
+
+    def unicode_to_ll(self, s):
+        from pypy.rpython.module.support import LLSupport        
+        return LLSupport.to_runicode(s)
 
     def ll_to_list(self, l):
         r = []
@@ -74,6 +81,8 @@ class OORtypeMixin(object):
 
     def ll_to_string(self, s):
         return s._str
+
+    ll_to_unicode = ll_to_string
 
     def string_to_ll(self, s):
         from pypy.rpython.module.support import OOSupport        

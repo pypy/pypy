@@ -220,13 +220,15 @@ class SomeUnicodeString(SomeObject):
 class SomeChar(SomeString):
     "Stands for an object known to be a string of length 1."
 
-class SomeUnicodeCodePoint(SomeObject):
+class SomeUnicodeCodePoint(SomeUnicodeString):
     "Stands for an object known to be a unicode codepoint."
-    knowntype = unicode
-    immutable = True
-
     def can_be_none(self):
         return False
+
+SomeString.basestringclass = SomeString
+SomeString.basecharclass = SomeChar
+SomeUnicodeString.basestringclass = SomeUnicodeString
+SomeUnicodeString.basecharclass = SomeUnicodeCodePoint
 
 class SomeList(SomeObject):
     "Stands for a homogenous list of any length."

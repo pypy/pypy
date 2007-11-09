@@ -426,12 +426,17 @@ class __extend__(pairtype(SomeChar, SomeChar)):
         return SomeChar()
 
 
-class __extend__(pairtype(SomeUnicodeCodePoint, SomeUnicodeCodePoint),
-                 pairtype(SomeChar, SomeUnicodeCodePoint),
+class __extend__(pairtype(SomeChar, SomeUnicodeCodePoint),
                  pairtype(SomeUnicodeCodePoint, SomeChar)):
-
     def union((uchr1, uchr2)):
         return SomeUnicodeCodePoint()
+
+class __extend__(pairtype(SomeUnicodeCodePoint, SomeUnicodeCodePoint)):
+    def union((uchr1, uchr2)):
+        return SomeUnicodeCodePoint()
+
+    def add((chr1, chr2)):
+        return SomeUnicodeString()
 
 class __extend__(pairtype(SomeString, SomeObject)):
 
@@ -610,10 +615,11 @@ class __extend__(pairtype(SomeList, SomeSlice)):
         lst1.listdef.resize()
     delitem.can_only_throw = []
 
-class __extend__(pairtype(SomeString, SomeSlice)):
+class __extend__(pairtype(SomeString, SomeSlice),
+                 pairtype(SomeUnicodeString, SomeSlice)):
 
     def getitem((str1, slic)):
-        return SomeString()
+        return str1.basestringclass()
     getitem.can_only_throw = []
 
 class __extend__(pairtype(SomeString, SomeInteger)):
@@ -651,23 +657,30 @@ class __extend__(pairtype(SomeUnicodeString, SomeInteger)):
 
     getitem_idx_key = getitem_idx
 
-    # uncomment if we really want to support that
-    #def mul((str1, int2)): # xxx do we want to support this
-    #    getbookkeeper().count("str_mul", str1, int2)
-    #    return SomeString()
+    def mul((str1, int2)): # xxx do we want to support this
+        getbookkeeper().count("str_mul", str1, int2)
+        return SomeUnicodeString()
 
-class __extend__(pairtype(SomeInteger, SomeString)):
+class __extend__(pairtype(SomeInteger, SomeString),
+                 pairtype(SomeInteger, SomeUnicodeString)):
     
     def mul((int1, str2)): # xxx do we want to support this
         getbookkeeper().count("str_mul", str2, int1)
-        return SomeString()
+        return str2.basestringclass()
 
-class __extend__(pairtype(SomeString, SomeUnicodeString),
-                 pairtype(SomeUnicodeString, SomeString),
+class __extend__(pairtype(SomeUnicodeCodePoint, SomeUnicodeString),
+                 pairtype(SomeUnicodeString, SomeUnicodeCodePoint),
                  pairtype(SomeUnicodeString, SomeUnicodeString)):
     def union((str1, str2)):
-        return SomeUnicodeString(can_be_None=str1.can_be_None or
-                                 str2.can_be_None)
+        return SomeUnicodeString(can_be_None=str1.can_be_none() or
+                                 str2.can_be_none())
+
+    def add((str1, str2)):
+        # propagate const-ness to help getattr(obj, 'prefix' + const_name)
+        result = SomeUnicodeString()
+        if str1.is_immutable_constant() and str2.is_immutable_constant():
+            result.const = str1.const + str2.const
+        return result
 
 class __extend__(pairtype(SomeInteger, SomeList)):
     
