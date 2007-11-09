@@ -391,12 +391,16 @@ def do_coalloc(adi, graph, setblock, setop, fromcreps, tocrep):
                 return fromcrep.constant
         return None
     result = 0
+    import py
+    py.test.pdb()
     for block in graph.iterblocks():
         seen_setvar = setop.args[0] in block.inputargs
         for op in block.operations:
             if block is setblock and op.result is setop.args[0]:
                 seen_setvar = True
             if not op.opname.startswith("malloc"):
+                continue
+            if op.args[1].value['flavor'] != 'gc':
                 continue
             if adi.getstate(op.result).get_crep(checksingle=True) is not tocrep:
                 continue
