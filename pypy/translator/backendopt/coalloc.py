@@ -391,8 +391,6 @@ def do_coalloc(adi, graph, setblock, setop, fromcreps, tocrep):
                 return fromcrep.constant
         return None
     result = 0
-    import py
-    py.test.pdb()
     for block in graph.iterblocks():
         seen_setvar = setop.args[0] in block.inputargs
         for op in block.operations:
