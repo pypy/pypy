@@ -32,7 +32,7 @@ MAX_CONST_PER_STEP = 100
 
 PRIMITIVE_TYPES = set([ootype.Void, ootype.Bool, ootype.Char, ootype.UniChar,
                        ootype.Float, ootype.Signed, ootype.Unsigned,
-                       ootype.String, ootype.SignedLongLong,
+                       ootype.String, ootype.Unicode, ootype.SignedLongLong,
                        ootype.UnsignedLongLong])
 
 def is_primitive(TYPE):

@@ -1087,7 +1087,10 @@ class LLFrame(object):
         return ootype.oostring(obj, base)
 
     def op_oounicode(self, obj, base):
-        return ootype.oounicode(obj, base)
+        try:
+            return ootype.oounicode(obj, base)
+        except UnicodeDecodeError:
+            self.make_llexception()
 
     def op_ooparse_int(self, s, base):
         try:

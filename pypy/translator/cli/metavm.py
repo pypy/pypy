@@ -55,7 +55,7 @@ class _CallMethod(_Call):
                 generator.load(arg)
 
         # XXX: very hackish, need refactoring
-        if this.concretetype is ootype.String:
+        if this.concretetype in (ootype.String, ootype.Unicode):
             # special case for string: don't use methods, but plain functions
             METH = this.concretetype._METHODS[method_name]
             cts = generator.cts
@@ -105,6 +105,17 @@ class _OOString(MicroInstruction):
         generator.load(op.args[0])
         generator.load(op.args[1])
         generator.call_signature('string [pypylib]pypy.runtime.Utils::OOString(%s, int32)' % argtype)
+
+class _OOUnicode(MicroInstruction):
+    def render(self, generator, op):
+        from pypy.objspace.flow.model import Constant
+        ARGTYPE = op.args[0].concretetype
+        argtype = generator.cts.lltype_to_cts(ARGTYPE)
+        v_base = op.args[1]
+        assert v_base.value == -1, "The second argument of oounicode must be -1"
+        
+        generator.load(op.args[0])
+        generator.call_signature('string [pypylib]pypy.runtime.Utils::OOUnicode(%s)' % argtype)
 
 class _NewCustomDict(MicroInstruction):
     def render(self, generator, op):
@@ -226,6 +237,7 @@ CallMethod = _CallMethod()
 IndirectCall = _IndirectCall()
 RuntimeNew = _RuntimeNew()
 OOString = _OOString()
+OOUnicode = _OOUnicode()
 NewCustomDict = _NewCustomDict()
 #CastWeakAdrToPtr = _CastWeakAdrToPtr()
 Box = _Box()

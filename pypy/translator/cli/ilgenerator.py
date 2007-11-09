@@ -397,7 +397,7 @@ class CLIBaseGenerator(Generator):
             ilasm.opcode('ldc.i4', str(value))
         elif TYPE in (ootype.SignedLongLong, ootype.UnsignedLongLong):
             ilasm.opcode('ldc.i8', str(value))
-        elif TYPE is ootype.String:
+        elif TYPE in (ootype.String, ootype.Unicode):
             if value._str is None:
                 ilasm.opcode('ldnull')
             else:

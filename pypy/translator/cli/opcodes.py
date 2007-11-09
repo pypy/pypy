@@ -1,7 +1,7 @@
 from pypy.translator.cli.metavm import  Call, CallMethod, \
      IndirectCall, GetField, SetField, OOString, DownCast, NewCustomDict,\
      MapException, Box, Unbox, NewArray, GetArrayElem, SetArrayElem,\
-     TypeOf, CastPrimitive
+     TypeOf, CastPrimitive, OOUnicode
 from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult, InstructionList,\
     New, RuntimeNew, CastTo, PushPrimitive
 from pypy.translator.cli.cts import WEAKREF
@@ -50,6 +50,7 @@ opcodes = {
     'ooidentityhash':           [PushAllArgs, 'callvirt instance int32 object::GetHashCode()'],
     'oohash':                   [PushAllArgs, 'callvirt instance int32 object::GetHashCode()'],    
     'oostring':                 [OOString],
+    'oounicode':                [OOUnicode],
     'ooparse_int':              [PushAllArgs, 'call int32 [pypylib]pypy.runtime.Utils::OOParseInt(string, int32)'],
     'ooparse_float':            [PushAllArgs, 'call float64 [pypylib]pypy.runtime.Utils::OOParseFloat(string)'],
     'oonewcustomdict':          [NewCustomDict],

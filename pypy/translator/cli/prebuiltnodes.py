@@ -25,10 +25,14 @@ def raise_ValueError():
 def raise_ZeroDivisionError():
     raise ZeroDivisionError
 
+def raise_UnicodeDecodeError():
+    raise UnicodeDecodeError
+
 HELPERS = [(raise_RuntimeError, []),
            (raise_OverflowError, []),
            (raise_ValueError, []),
            (raise_ZeroDivisionError, []),
+           (raise_UnicodeDecodeError, []),
            ]
 
 def _build_helpers(translator, db):

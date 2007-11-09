@@ -28,6 +28,9 @@ namespace pypy.test
             }
         }
 
+        public static string ToPython_unicode(string x) { return "u" + ToPython(x); }
+        public static string ToPython_unicode(char x)   { return "u" + ToPython(x); }
+
         public static string ToPython(object x) {
             if (x == null)
                 return "None";
@@ -101,6 +104,24 @@ namespace pypy.runtime
         public static string OOString(bool b, int base_)
         {
             return b.ToString();
+        }
+
+        private static void check_ascii(char ch)
+        {
+            if ((int)ch > 127)
+                Helpers.raise_UnicodeDecodeError();
+        }
+
+        public static string OOUnicode(char ch)
+        {
+            return ch.ToString();
+        }
+
+        public static string OOUnicode(string s)
+        {
+            foreach(char ch in s)
+                check_ascii(ch);
+            return s;
         }
 
         public static int OOParseInt(string s, int base_)

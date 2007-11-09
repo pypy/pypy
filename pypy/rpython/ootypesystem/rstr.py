@@ -86,15 +86,7 @@ class LLHelpers(AbstractLLHelpers):
         return ootype.oostring(ch, -1)
 
     def ll_str2unicode(s):
-        res = ootype.new(ootype.UnicodeBuilder)
-        lgt = s.ll_strlen()
-        res.ll_allocate(lgt)
-        for i in range(lgt):
-            c = s.ll_stritem_nonneg(i)
-            if ord(c) > 127:
-                raise UnicodeDecodeError
-            res.ll_append_char(cast_primitive(UniChar, c))
-        return res.ll_build()
+        return ootype.oounicode(s, -1)
 
     def ll_unichr2unicode(ch):
         return ootype.oounicode(ch, -1)

@@ -28,6 +28,12 @@ FLOAT_PRECISION = 8
 def format_object(TYPE, cts, ilasm):
     if TYPE is ootype.Void:
         ilasm.opcode('ldstr "None"')
+    elif TYPE in (ootype.Unicode, ootype.UniChar):
+        # the CLI type for Unicode is the very same as for
+        # ootype.String, so we can't rely on overloading to
+        # distinguish
+        type_ = cts.lltype_to_cts(TYPE)
+        ilasm.call('string class [pypylib]pypy.test.Result::ToPython_unicode(%s)' % type_)
     else:
         if isinstance(TYPE, (ootype.BuiltinType, ootype.Instance, ootype.StaticMethod)) and TYPE is not ootype.String:
             type_ = 'object'
@@ -294,6 +300,9 @@ class CliTest(BaseRtypingTest, OORtypeMixin):
         return True # we can't really test the type
 
     def ll_to_string(self, s):
+        return s
+
+    def ll_to_unicode(self, s):
         return s
 
     def ll_to_list(self, l):
