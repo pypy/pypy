@@ -128,8 +128,8 @@ class Builder(object):
             self.cmds.append("gcc -O3 %s.o %s %s -lm -bundle -o %s.so" % (base, gc_libs_path, gc_libs, base))
         else:
 
-            gc_libs_path = '-static'
-            XXX
+            gc_libs_path = '-shared'
+            self.cmds.append("gcc -O3 %s.o %s %s -pipe -o %s.so" % (base, gc_libs_path, gc_libs, base))
 
         try:
             self.execute_cmds()
