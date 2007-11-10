@@ -90,10 +90,13 @@ def to_str(res):
     else:
         return None
 
-def struct_to_tuple(res, size, C_TYPE, action):
+def struct_to_tuple(res, C_TYPE_actions):
     if res:
-        t = ctypes.cast(res, ctypes.POINTER(C_TYPE * size)).contents
-        return {'type':'tuple', 'value':tuple([action(ii) for ii in t])}
+        class S(ctypes.Structure):
+            _fields_ = [("item%%s" %% ii, C_TYPE) for ii, (C_TYPE, _) in enumerate(C_TYPE_actions)]        
+        s = ctypes.cast(res, ctypes.POINTER(S)).contents
+        items = [action(getattr(s, 'item%%s' %% ii)) for ii, (_, action) in enumerate(C_TYPE_actions)]
+        return {'type':'tuple', 'value':tuple(items)}
     else:
         return None
 
@@ -234,10 +237,9 @@ __entrypoint__.restype = %(returntype)s
             if fields:
                 F0, name = fields[0]
                 if name.startswith("item"):
-                    _c_type, _action = self.build_lltype_to_ctypes_to_res(F0)
-                    action = self.create_simple_closure('res', 'struct_to_tuple(res, %s, %s, %s)' % (len(fields), 
-                                                                                                     _c_type, 
-                                                                                                     _action))
+                    ctype_actions = "%s" % [self.build_lltype_to_ctypes_to_res(f[0]) for f in fields]
+                    ctype_actions = ctype_actions.replace("'", "")
+                    action = self.create_simple_closure('res', 'struct_to_tuple(res, %s)' % (ctype_actions))
                 elif name == "length" and fields[1][1] == "items":
                     _c_type, _action = self.build_lltype_to_ctypes_to_res(fields[1][0])
                     action = self.create_simple_closure('res', 'list_to_array(res, %s)' % (_action))
