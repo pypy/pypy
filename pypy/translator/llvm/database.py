@@ -473,7 +473,9 @@ class Primitives(object):
             assert len(packed) == 4
             repr =  "0x" + "".join([("%02x" % ord(ii)) for ii in packed])
         else:
-            repr = "%f" % f
+            #repr = "%f" % f
+            # XXX work around llvm2.1 bug, seems it doesnt like constants for floats
+            repr = "fptrunc(double %f to float)" % f
             
             # llvm requires a . when using e notation
             if "e" in repr and "." not in repr:
