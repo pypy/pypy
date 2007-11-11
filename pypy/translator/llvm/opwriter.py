@@ -150,7 +150,10 @@ class OpWriter(object):
             if not meth:
                 raise Exception, "operation %s not found" % op.opname
             meth(opr)            
-    
+
+        if self.db.genllvm.config.translation.llvm.debug:
+            self.codewriter.newline()
+
     def _skipped(self, opr):
         self.codewriter.comment('***Skipping operation %s()' % opr.op.opname)
     keepalive = _skipped

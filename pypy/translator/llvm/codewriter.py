@@ -63,7 +63,9 @@ class CodeWriter(object):
 
     def header_comment(self, s):
         self.newline()
-        self.comment(s)
+        self.comment('=' * 78, indent=False)
+        self.comment(s, indent=False)
+        self.comment('=' * 78, indent=False)
         self.newline()
 
     def newline(self):
