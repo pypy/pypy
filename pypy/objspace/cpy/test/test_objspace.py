@@ -2,6 +2,7 @@ from pypy.objspace.cpy.objspace import CPyObjSpace
 from pypy.tool.pytest.appsupport import raises_w
 from pypy.rlib.rarithmetic import r_longlong, r_ulonglong
 from pypy.rlib.rbigint import rbigint
+import py
 
 def test_simple():
     space = CPyObjSpace()
