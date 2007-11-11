@@ -14,5 +14,6 @@ public interface Interlink {
     public void throwIndexError();
     public void throwOverflowError();
     public void throwValueError();
+    public void throwUnicodeDecodeError();
     public void throwOSError(int errCode);
 }

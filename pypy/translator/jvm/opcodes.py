@@ -7,7 +7,8 @@ come from the oosupport directory.
 
 from pypy.translator.oosupport.metavm import \
      PushArg, PushAllArgs, StoreResult, InstructionList, New, DoNothing, Call,\
-     SetField, GetField, DownCast, RuntimeNew, OOString, CastTo, PushPrimitive
+     SetField, GetField, DownCast, RuntimeNew, OOString, OOUnicode, \
+     CastTo, PushPrimitive
 from pypy.translator.jvm.metavm import \
      IndirectCall, JvmCallMethod, TranslateException, NewCustomDict, \
      CastPrimitive
@@ -56,6 +57,7 @@ _opcodes = {
     'ooidentityhash':           [PushAllArgs, jvmgen.OBJHASHCODE, StoreResult], 
     'oohash':                   [PushAllArgs, jvmgen.OBJHASHCODE, StoreResult], 
     'oostring':                 [OOString, StoreResult],
+    'oounicode':                [OOUnicode, StoreResult],
     #'ooparse_int':              [PushAllArgs, 'call int32 [pypylib]pypy.runtime.Utils::OOParseInt(string, int32)'],
     'ooparse_float':            jvmgen.PYPYOOPARSEFLOAT,
     'oonewcustomdict':          [NewCustomDict, StoreResult],

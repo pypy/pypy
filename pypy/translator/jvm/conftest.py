@@ -15,8 +15,8 @@ option = py.test.config.addoptions(
            help="don't assemble jasmin files"),
     Option('--package', action='store', dest='package', default='pypy',
            help='Package to output generated classes into'),
-    Option('--trace', action='store_true', dest='trace', default=False,
-           help='Trace execution of generated code'),
+##    Option('--trace', action='store_true', dest='trace', default=False,
+##           help='Trace execution of generated code'),
     Option('--byte-arrays', action='store_true', dest='byte-arrays',
            default=False, help='Use byte arrays rather than native strings'),
     )

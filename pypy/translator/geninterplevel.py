@@ -177,7 +177,7 @@ class GenRpy:
 
         # special constructors:
         self.has_listarg = {}
-        for name in "newtuple newlist newstring".split():
+        for name in "newtuple newlist".split():
             self.has_listarg[name] = name
 
         # catching all builtins in advance, to avoid problems

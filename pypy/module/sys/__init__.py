@@ -8,6 +8,7 @@ class Module(MixedModule):
         super(Module, self).__init__(space, w_name) 
         self.checkinterval = 100
         self.recursionlimit = 100
+        self.defaultencoding = "ascii"
         
     interpleveldefs = {
         '__name__'              : '(space.wrap("sys"))', 
@@ -64,6 +65,9 @@ class Module(MixedModule):
         'path_hooks'            : 'space.wrap([])',
         'path_importer_cache'   : 'space.wrap({})',
         #'subversion'           : added in Python 2.5
+        
+        'getdefaultencoding'    : 'interp_encoding.getdefaultencoding', 
+        'setdefaultencoding'    : 'interp_encoding.setdefaultencoding', 
 }
     appleveldefs = {
         #'displayhook'           : 'app.displayhook', 
@@ -75,8 +79,6 @@ class Module(MixedModule):
         'pypy__exithandlers__'  : 'app.pypy__exithandlers__',  # internal
         'getfilesystemencoding' : 'app.getfilesystemencoding', 
         'callstats'             : 'app.callstats',
-        'getdefaultencoding'    : 'app.getdefaultencoding', 
-        'setdefaultencoding'    : 'app.setdefaultencoding', 
     }
 
     def setbuiltinmodule(self, w_module, name): 

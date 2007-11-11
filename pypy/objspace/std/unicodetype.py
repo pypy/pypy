@@ -142,73 +142,87 @@ from pypy.objspace.std.stringtype import str_lstrip as unicode_lstrip
 
 # ____________________________________________________________
 
-app = gateway.applevel('''
-def unicode_from_encoded_object(obj, encoding, errors):
-    import codecs, sys
-    if encoding is None:
-        encoding = sys.getdefaultencoding()
-    decoder = codecs.getdecoder(encoding)
-    if errors is None:
-        retval, length = decoder(obj)
-    else:
-        retval, length = decoder(obj, errors)
-    if not isinstance(retval, unicode):
-        raise TypeError("decoder did not return an unicode object (type=%s)" %
-                        type(retval).__name__)
-    return retval
+def getdefaultencoding(space):
+    return space.sys.defaultencoding
 
-def unicode_from_object(obj):
-    if isinstance(obj, str):
-        res = obj
+def unicode_from_encoded_object(space, w_obj, encoding, errors):
+    w_codecs = space.getbuiltinmodule("_codecs")
+    if encoding is None:
+        encoding = getdefaultencoding(space)
+    w_decode = space.getattr(w_codecs, space.wrap("decode"))
+    if errors is None:
+        w_retval = space.call_function(w_decode, w_obj, space.wrap(encoding))
+    else:
+        w_retval = space.call_function(w_decode, w_obj, space.wrap(encoding),
+                                       space.wrap(errors))
+    if not space.is_true(space.isinstance(w_retval, space.w_unicode)):
+        raise OperationError(
+            space.w_TypeError,
+            space.wrap(
+                "decoder did not return an unicode object (type=%s)" %
+                        space.type(w_retval).getname(space, '?')))
+    return w_retval
+
+
+def unicode_from_object(space, w_obj):
+    if space.is_true(space.isinstance(w_obj, space.w_str)):
+        w_res = w_obj
     else:
         try:
-            unicode_method = obj.__unicode__
-        except AttributeError:
-            res = str(obj)
+            # XXX should we have a space.unicode so we can go through
+            # descroperation?
+            w_unicode_method = space.getattr(w_obj, space.wrap("__unicode__"))
+        except OperationError, e:
+            if e.match(space, space.w_AttributeError):
+                w_res = space.str(w_obj)
+            else:
+                raise
         else:
-            res = unicode_method()
-    if isinstance(res, unicode):
-        return res
-    return unicode_from_encoded_object(res, None, "strict")
-    
-''')
-unicode_from_object = app.interphook('unicode_from_object')
-unicode_from_encoded_object = app.interphook('unicode_from_encoded_object')
+            w_res = space.call_function(w_unicode_method)
+    if space.is_true(space.isinstance(w_res, space.w_unicode)):
+        return w_res
+    return unicode_from_encoded_object(space, w_res, None, "strict")
 
 def unicode_from_string(space, w_str):
     # this is a performance and bootstrapping hack
     from pypy.objspace.std.unicodeobject import W_UnicodeObject
-    w_encoding = space.call_function(space.sys.get('getdefaultencoding'))
-    if not space.eq_w(w_encoding, space.wrap('ascii')):
+    encoding = getdefaultencoding(space)
+    if encoding != 'ascii':
         return unicode_from_object(space, w_str)
     s = space.str_w(w_str)
-    codelist = []
-    for i in range(len(s)):
-        code = ord(s[i])
-        if code >= 128:
-            # raising UnicodeDecodeError is messy, so "please crash for me"
-            return unicode_from_object(space, w_str)
-        codelist.append(unichr(code))
-    return W_UnicodeObject(codelist)
+    try:
+        return W_UnicodeObject(s.decode("ascii"))
+    except UnicodeDecodeError:
+        # raising UnicodeDecodeError is messy, "please crash for me"
+        return unicode_from_object(space, w_str)
 
 
-def descr__new__(space, w_unicodetype, w_string='', w_encoding=None, w_errors=None):
-    # NB. the default value of w_string is really a *wrapped* empty string:
+def _get_encoding_and_errors(space, w_encoding, w_errors):
+    if space.is_w(w_encoding, space.w_None):
+        encoding = None
+    else:
+        encoding = space.str_w(w_encoding)
+    if space.is_w(w_errors, space.w_None):
+        errors = None
+    else:
+        errors = space.str_w(w_errors)
+    return encoding, errors
+
+def descr__new__(space, w_unicodetype, w_obj='', w_encoding=None, w_errors=None):
+    # NB. the default value of w_obj is really a *wrapped* empty string:
     #     there is gateway magic at work
     from pypy.objspace.std.unicodeobject import W_UnicodeObject
-    w_obj = w_string
     w_obj_type = space.type(w_obj)
     
+    encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors) 
     if space.is_w(w_obj_type, space.w_unicode):
-        if (not space.is_w(w_encoding, space.w_None) or
-            not space.is_w(w_errors, space.w_None)):
+        if encoding is not None or errors is not None:
             raise OperationError(space.w_TypeError,
                                  space.wrap('decoding Unicode is not supported'))
         if space.is_w(w_unicodetype, space.w_unicode):
             return w_obj
         w_value = w_obj
-    elif (space.is_w(w_encoding, space.w_None) and
-          space.is_w(w_errors, space.w_None)):
+    elif encoding is None and errors is None:
         if space.is_true(space.isinstance(w_obj, space.w_str)):
             w_value = unicode_from_string(space, w_obj)
         elif space.is_true(space.isinstance(w_obj, space.w_unicode)):
@@ -216,7 +230,7 @@ def descr__new__(space, w_unicodetype, w_string='', w_encoding=None, w_errors=No
         else:
             w_value = unicode_from_object(space, w_obj)
     else:
-        w_value = unicode_from_encoded_object(space, w_obj, w_encoding, w_errors)
+        w_value = unicode_from_encoded_object(space, w_obj, encoding, errors)
     # help the annotator! also the ._value depends on W_UnicodeObject layout
     assert isinstance(w_value, W_UnicodeObject)
     w_newobj = space.allocate_instance(W_UnicodeObject, w_unicodetype)

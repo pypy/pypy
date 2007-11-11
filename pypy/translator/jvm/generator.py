@@ -389,7 +389,9 @@ PYPYSERIALIZEUINT  =    Method.s(jPyPy, 'serialize_uint', (jInt,), jString)
 PYPYSERIALIZEULONG =    Method.s(jPyPy, 'serialize_ulonglong', (jLong,), jString)
 PYPYSERIALIZEVOID =     Method.s(jPyPy, 'serialize_void', (), jString)
 PYPYESCAPEDCHAR =       Method.s(jPyPy, 'escaped_char', (jChar,), jString)
+PYPYESCAPEDUNICHAR =    Method.s(jPyPy, 'escaped_unichar', (jChar,), jString)
 PYPYESCAPEDSTRING =     Method.s(jPyPy, 'escaped_string', (jString,), jString)
+PYPYESCAPEDUNICODE =    Method.s(jPyPy, 'escaped_unicode', (jString,), jString)
 PYPYSERIALIZEOBJECT =   Method.s(jPyPy, 'serializeObject', (jObject,), jString)
 PYPYRUNTIMENEW =        Method.s(jPyPy, 'RuntimeNew', (jClass,), jObject)
 PYPYSTRING2BYTES =      Method.s(jPyPy, 'string2bytes', (jString,), jByteArray)
@@ -1018,6 +1020,13 @@ class JVMGenerator(Generator):
         self.emit(mthd)
         if self.db.using_byte_array:
             self.emit(PYPYSTRING2BYTES)
+
+    def call_oounicode(self, OOTYPE):
+        cts_type = self.db.lltype_to_cts(OOTYPE)
+        mthd = Method.s(jPyPy, 'oounicode', [cts_type], jString)
+        self.emit(mthd)
+        if self.db.using_byte_array:
+            self.emit(PYPYSTRING2BYTES)
         
     def new(self, TYPE):
         jtype = self.db.lltype_to_cts(TYPE)
@@ -1087,11 +1096,13 @@ class JVMGenerator(Generator):
             self._push_long_constant(value)
         elif TYPE is ootype.Float:
             self._push_double_constant(float(value))
-        elif TYPE is ootype.String:
-            if value == ootype.null(ootype.String):
+        elif TYPE in (ootype.String, ootype.Unicode):
+            if value == ootype.null(TYPE):
                 self.emit(ACONST_NULL)
             else:
                 self.load_string(str(value._str))
+        else:
+            assert False, 'Unknown constant type: %s' % TYPE
 
     def _push_long_constant(self, value):
         if value == 0:
@@ -1336,7 +1347,7 @@ class JasminGenerator(JVMGenerator):
             return str(arg)
         strargs = [jasmin_syntax(arg) for arg in args]
         instr_text = '%s %s' % (jvmstr, " ".join(strargs))
-        #self.curclass.out('    .line %d\n' % self.curfunc.instr_counter)
+        self.curclass.out('    .line %d\n' % self.curfunc.instr_counter)
         self.curclass.out('    %-60s\n' % (instr_text,))
         self.curfunc.instr_counter+=1
 

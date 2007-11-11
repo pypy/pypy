@@ -128,6 +128,11 @@ class Address(object):
         raise RSocketError("unknown address family")
     from_object = staticmethod(from_object)
 
+    def fill_from_object(self, space, w_address):
+        """ Purely abstract
+        """
+        raise NotImplementedError
+
 # ____________________________________________________________
 
 def makeipaddr(name, result=None):
@@ -188,6 +193,11 @@ class IPAddress(Address):
         # (with variable size numbers).
         host, serv = getnameinfo(self, NI_NUMERICHOST | NI_NUMERICSERV)
         return host
+
+    def lock_in_addr(self):
+        """ Purely abstract
+        """
+        raise NotImplementedError
 
 # ____________________________________________________________
 

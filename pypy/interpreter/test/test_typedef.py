@@ -5,6 +5,7 @@
 class AppTestTraceBackAttributes:
 
     def test_newstring(self):
+        # XXX why is this called newstring?
         import sys
         def f():
             raise TypeError, "hello"

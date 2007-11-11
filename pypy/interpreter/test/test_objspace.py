@@ -9,23 +9,6 @@ import sys
 # -- it's more to test that it's *there*
 
 class TestObjSpace: 
-    def test_newstring(self):
-        w = self.space.wrap
-        s = 'abc'
-        chars_w = [w(ord(c)) for c in s]
-        assert self.space.eq_w(w(s), self.space.newstring(chars_w))
-
-    def test_newstring_fail(self):
-        w = self.space.wrap
-        s = 'abc'
-        not_chars_w = [w(c) for c in s]
-        self.space.raises_w(self.space.w_TypeError,
-                            self.space.newstring,
-                            not_chars_w)
-        self.space.raises_w(self.space.w_ValueError,
-                            self.space.newstring,
-                            [w(-1)])
-
     def test_newlist(self):
         w = self.space.wrap
         l = range(10)

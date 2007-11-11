@@ -412,7 +412,9 @@ class Database(OODatabase):
         ootype.Bool:jvmgen.PYPYSERIALIZEBOOLEAN,
         ootype.Void:jvmgen.PYPYSERIALIZEVOID,
         ootype.Char:jvmgen.PYPYESCAPEDCHAR,
+        ootype.UniChar:jvmgen.PYPYESCAPEDUNICHAR,
         ootype.String:jvmgen.PYPYESCAPEDSTRING,
+        ootype.Unicode:jvmgen.PYPYESCAPEDUNICODE,
         }
 
     def toString_method_for_ootype(self, OOTYPE):
@@ -466,7 +468,9 @@ class Database(OODatabase):
     # will return a JvmBuiltInType based on the value
     ootype_to_builtin = {
         ootype.String:           jvmtype.jString,
+        ootype.Unicode:          jvmtype.jString,
         ootype.StringBuilder:    jvmtype.jStringBuilder,
+        ootype.UnicodeBuilder:   jvmtype.jStringBuilder,
         ootype.List:             jvmtype.jArrayList,
         ootype.Dict:             jvmtype.jHashMap,
         ootype.DictItemsIterator:jvmtype.jPyPyDictItemsIterator,

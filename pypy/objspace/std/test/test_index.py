@@ -223,15 +223,50 @@ class AppTest_TupleTestCase(SeqTestCase):
         SeqTestCase.setup_method(self, method)
         self.w_seq = self.space.newtuple([self.space.wrap(x) for x in (0,10,20,30,40,50)])
 
-class AppTest_StringTestCase(SeqTestCase):
+class StringTestCase(object):
+    def test_startswith(self):
+        self.o.ind = 1
+        assert self.const('abc').startswith(self.const('b'), self.o)
+        self.o.ind = 2
+        assert not self.const('abc').startswith(self.const('abc'), 0, self.o)
+
+    def test_endswith(self):
+        self.o.ind = 1
+        assert self.const('abc').endswith(self.const('a'), 0, self.o)
+        self.o.ind = 2
+        assert not self.const('abc').endswith(self.const('abc'), 0, self.o)
+
+    def test_index(self):
+        self.o.ind = 3
+        assert self.const('abcabc').index(self.const('abc'), 0, self.o) == 0
+        assert self.const('abcabc').index(self.const('abc'), self.o) == 3
+        assert self.const('abcabc').rindex(self.const('abc'), 0, self.o) == 0
+        assert self.const('abcabc').rindex(self.const('abc'), self.o) == 3
+
+    def test_find(self):
+        self.o.ind = 3
+        assert self.const('abcabc').find(self.const('abc'), 0, self.o) == 0
+        assert self.const('abcabc').find(self.const('abc'), self.o) == 3
+        assert self.const('abcabc').rfind(self.const('abc'), 0, self.o) == 0
+        assert self.const('abcabc').rfind(self.const('abc'), self.o) == 3
+
+    def test_count(self):
+        self.o.ind = 3
+        assert self.const('abcabc').count(self.const('abc'), 0, self.o) == 1
+        assert self.const('abcabc').count(self.const('abc'), self.o) == 1
+
+
+class AppTest_StringTestCase(SeqTestCase, StringTestCase):
     def setup_method(self, method):
         SeqTestCase.setup_method(self, method)
         self.w_seq = self.space.wrap("this is a test")
+        self.w_const = self.space.w_str
     
-class AppTest_UnicodeTestCase(SeqTestCase):
+class AppTest_UnicodeTestCase(SeqTestCase, StringTestCase):
     def setup_method(self, method):
         SeqTestCase.setup_method(self, method)
         self.w_seq = self.space.wrap(u"this is a test")
+        self.w_const = self.space.w_unicode
 
 
 class AppTest_XRangeTestCase:

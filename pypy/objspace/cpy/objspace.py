@@ -71,6 +71,9 @@ class CPyObjSpace(baseobjspace.ObjSpace):
             return PyInt_FromLong(x)
         if isinstance(x, str):
             return PyString_FromStringAndSize(x, len(x))
+        if isinstance(x, str):
+            # XXX fix me
+            raise NotImplementedError
         if isinstance(x, float):
             return PyFloat_FromDouble(x)
         if isinstance(x, r_uint):
@@ -206,7 +209,7 @@ class CPyObjSpace(baseobjspace.ObjSpace):
             buf[i] = p[i]
         return buf.raw
 
-    def unichars_w(self, w_obj):
+    def unicode_w(self, w_obj):
         not_implemented_sorry
 
     def call_function(self, w_callable, *args_w):
@@ -226,20 +229,6 @@ class CPyObjSpace(baseobjspace.ObjSpace):
         w_s = self.wrap(s)
         PyString_InternInPlace(byref(w_s))
         return w_s
-
-    def newstring(self, bytes_w):
-        length = len(bytes_w)
-        buf = ctypes.create_string_buffer(length)
-        for i in range(length):
-            buf[i] = chr(self.int_w(bytes_w[i]))
-        return PyString_FromStringAndSize(buf, length)
-
-    def newunicode(self, codes):
-        # XXX inefficient
-        lst = [PyUnicode_FromOrdinal(ord(code)) for code in codes]
-        w_lst = self.newlist(lst)
-        w_emptyunicode = PyUnicode_FromUnicode(None, 0)
-        return self.call_method(w_emptyunicode, 'join', w_lst)
 
     def newint(self, intval):
         return PyInt_FromLong(intval)

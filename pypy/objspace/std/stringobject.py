@@ -36,6 +36,21 @@ W_StringObject.EMPTY = W_StringObject('')
 W_StringObject.PREBUILT = [W_StringObject(chr(i)) for i in range(256)]
 del i
 
+def _decode_ascii(space, s):
+    try:
+        return s.decode("ascii")
+    except UnicodeDecodeError:
+        for i in range(len(s)):
+            if ord(s[i]) > 127:
+                raise OperationError(
+                    space.w_UnicodeDecodeError,
+                    space.wrap(("'ascii' codec can't decode byte %s in position %s:"
+                                " ordinal not in range(128)") % (hex(ord(s[i])), i)))
+
+def unicode_w__String(space, w_self):
+    # XXX should this use the default encoding?
+    return _decode_ascii(space, w_self._value)
+
 
 def _is_generic(space, w_self, fun): 
     v = w_self._value

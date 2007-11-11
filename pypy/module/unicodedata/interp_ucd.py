@@ -215,10 +215,10 @@ class UCD(Wrappable):
                 result[0] = ch
 
         if not composed: # If decomposed normalization we are done
-            return space.newunicode([unichr(i) for i in result[:j]])
+            return space.wrap(u''.join([unichr(i) for i in result[:j]]))
 
         if j <= 1:
-            return space.newunicode([unichr(i) for i in result[:j]])
+            return space.wrap(u''.join([unichr(i) for i in result[:j]]))
 
         current = result[0]
         starter_pos = 0
@@ -268,7 +268,7 @@ class UCD(Wrappable):
 
         result[starter_pos] = current
 
-        return space.newunicode([unichr(i) for i in result[:next_insert]])
+        return space.wrap(u''.join([unichr(i) for i in result[:next_insert]]))
     normalize.unwrap_spec = ['self', ObjSpace, str, W_Root]
     
 

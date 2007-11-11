@@ -319,6 +319,10 @@ public class PyPy implements Constants {
         return sb.toString();
     }
 
+    public static String escaped_unichar(char c) {
+        return "u" + escaped_char(c);
+    }
+
     public static String escaped_string(String b) {
         if (b == null)
             return "None";
@@ -330,6 +334,10 @@ public class PyPy implements Constants {
         }
         sb.append('"');
         return sb.toString();
+    }
+
+    public static String escaped_unicode(String b) {
+        return "u" + escaped_string(b);
     }
 
     // used in running unit tests
@@ -806,6 +814,24 @@ public class PyPy implements Constants {
     }
 
     // ----------------------------------------------------------------------
+    // OOUnicode support
+
+    public static String oounicode(char ch)
+    {
+        return new Character(ch).toString();
+    }
+
+    public static String oounicode(String s)
+    {
+        for(int i=0; i<s.length(); i++) {
+            char ch = s.charAt(i);
+            if ((int)ch > 127)
+                throwUnicodeDecodeError();
+        }
+        return s;
+    }
+
+    // ----------------------------------------------------------------------
     // Primitive built-in functions
 
     public static double ll_time_clock() {
@@ -956,6 +982,10 @@ public class PyPy implements Constants {
 
     public static void throwValueError() {
         interlink.throwValueError();
+    }
+
+    public static void throwUnicodeDecodeError() {
+        interlink.throwUnicodeDecodeError();
     }
     
     // ----------------------------------------------------------------------

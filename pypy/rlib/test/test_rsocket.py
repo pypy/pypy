@@ -1,6 +1,7 @@
 import py, errno, sys
 from pypy.rlib import rsocket
 from pypy.rlib.rsocket import *
+import socket as cpy_socket
 
 # cannot test error codes in Win32 because ll2ctypes doesn't save
 # the errors that WSAGetLastError() should return, making it likely
@@ -80,8 +81,8 @@ def test_getservbyname():
     assert getservbyname('http', 'tcp') == 80
 
 def test_getservbyport():
-    assert getservbyport(80) == 'http'
-    assert getservbyport(80, 'tcp') == 'http'
+    assert getservbyport(80) == cpy_socket.getservbyport(80)
+    assert getservbyport(80, 'tcp') == cpy_socket.getservbyport(80)
 
 def test_getprotobyname():
     assert getprotobyname('tcp') == IPPROTO_TCP

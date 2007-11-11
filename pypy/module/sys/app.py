@@ -46,17 +46,3 @@ def callstats():
     """Not implemented."""
     return None
 
-defaultencoding = 'ascii'
-
-def getdefaultencoding():
-    """Return the current default string encoding used by the Unicode 
-implementation."""
-    return defaultencoding
-
-def setdefaultencoding(encoding):
-    """Set the current default string encoding used by the Unicode 
-implementation."""
-    global defaultencoding
-    import codecs
-    codecs.lookup(encoding)
-    defaultencoding = encoding

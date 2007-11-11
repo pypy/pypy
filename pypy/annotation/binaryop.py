@@ -599,19 +599,29 @@ class __extend__(pairtype(SomeList, SomeInteger)):
         lst1.listdef.resize()
     delitem.can_only_throw = [IndexError]
 
+def check_negative_slice(s_slice):
+    if isinstance(s_slice.start, SomeInteger) and not s_slice.start.nonneg:
+        raise TypeError("%s not proven to have negative start" % s_slice)
+    if isinstance(s_slice.stop, SomeInteger) and not s_slice.stop.nonneg and\
+           getattr(s_slice.stop, 'const', 0) != -1:
+        raise TypeError("%s not proven to have negative stop" % s_slice)
+
 class __extend__(pairtype(SomeList, SomeSlice)):
 
     def getitem((lst, slic)):
+        check_negative_slice(slic)
         return lst.listdef.offspring()
     getitem.can_only_throw = []
 
     def setitem((lst, slic), s_iterable):
+        check_negative_slice(slic)
         # we need the same unifying effect as the extend() method for
         # the case lst1[x:y] = lst2.
         lst.method_extend(s_iterable)
     setitem.can_only_throw = []
 
     def delitem((lst1, slic)):
+        check_negative_slice(slic)
         lst1.listdef.resize()
     delitem.can_only_throw = []
 
@@ -619,6 +629,7 @@ class __extend__(pairtype(SomeString, SomeSlice),
                  pairtype(SomeUnicodeString, SomeSlice)):
 
     def getitem((str1, slic)):
+        check_negative_slice(slic)
         return str1.basestringclass()
     getitem.can_only_throw = []
 

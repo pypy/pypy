@@ -162,6 +162,17 @@ class Function(OOFunction, Node, CLIBaseGenerator):
         for link, lbl in cases.itervalues():
             self.render_switch_case(link, lbl)
 
+    def call_oostring(self, ARGTYPE):
+        if isinstance(ARGTYPE, ootype.Instance):
+            argtype = self.cts.types.object
+        else:
+            argtype = self.cts.lltype_to_cts(ARGTYPE)
+        self.call_signature('string [pypylib]pypy.runtime.Utils::OOString(%s, int32)' % argtype)
+
+    def call_oounicode(self, ARGTYPE):
+        argtype = self.cts.lltype_to_cts(ARGTYPE)
+        self.call_signature('string [pypylib]pypy.runtime.Utils::OOUnicode(%s)' % argtype)
+
     # Those parts of the generator interface that are function
     # specific
 

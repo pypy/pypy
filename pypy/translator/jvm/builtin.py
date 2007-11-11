@@ -149,3 +149,18 @@ built_in_methods = {
     jvmgen.Method.v(jArrayList, "get", (jInt,), jObject),
 
     }
+
+# ootype.String[Builder] and ootype.Unicode[Builder] are mapped to the
+# same JVM type, so we reuse the same builtin methods also for them
+def add_unicode_methods():
+    mapping = {
+        ootype.String.__class__: ootype.Unicode.__class__,
+        ootype.StringBuilder.__class__: ootype.UnicodeBuilder.__class__
+        }
+    
+    for (TYPE, name), value in built_in_methods.items():
+        if TYPE in mapping:
+            TYPE = mapping[TYPE]
+            built_in_methods[TYPE, name] = value
+add_unicode_methods()
+del add_unicode_methods

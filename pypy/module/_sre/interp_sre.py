@@ -150,11 +150,11 @@ class W_UnicodeState(W_State):
         rsre.insert_sre_methods(locals(), 'unicode')
 
     def unwrap_object(self):
-        self.unichars = self.space.unichars_w(self.w_string)
-        return len(self.unichars)
+        self.unicode = self.space.unicode_w(self.w_string)
+        return len(self.unicode)
 
     def get_char_ord(self, p):
-        return ord(self.unichars[p])
+        return ord(self.unicode[p])
 
 
 class W_GenericState(W_State):

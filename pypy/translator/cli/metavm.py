@@ -95,28 +95,6 @@ class _RuntimeNew(MicroInstruction):
         generator.call_signature('object [pypylib]pypy.runtime.Utils::RuntimeNew(class [mscorlib]System.Type)')
         generator.cast_to(op.result.concretetype)
 
-class _OOString(MicroInstruction):
-    def render(self, generator, op):
-        ARGTYPE = op.args[0].concretetype
-        if isinstance(ARGTYPE, ootype.Instance):
-            argtype = 'object'
-        else:
-            argtype = generator.cts.lltype_to_cts(ARGTYPE)
-        generator.load(op.args[0])
-        generator.load(op.args[1])
-        generator.call_signature('string [pypylib]pypy.runtime.Utils::OOString(%s, int32)' % argtype)
-
-class _OOUnicode(MicroInstruction):
-    def render(self, generator, op):
-        from pypy.objspace.flow.model import Constant
-        ARGTYPE = op.args[0].concretetype
-        argtype = generator.cts.lltype_to_cts(ARGTYPE)
-        v_base = op.args[1]
-        assert v_base.value == -1, "The second argument of oounicode must be -1"
-        
-        generator.load(op.args[0])
-        generator.call_signature('string [pypylib]pypy.runtime.Utils::OOUnicode(%s)' % argtype)
-
 class _NewCustomDict(MicroInstruction):
     def render(self, generator, op):
         DICT = op.args[0].value
@@ -236,8 +214,6 @@ Call = _Call()
 CallMethod = _CallMethod()
 IndirectCall = _IndirectCall()
 RuntimeNew = _RuntimeNew()
-OOString = _OOString()
-OOUnicode = _OOUnicode()
 NewCustomDict = _NewCustomDict()
 #CastWeakAdrToPtr = _CastWeakAdrToPtr()
 Box = _Box()

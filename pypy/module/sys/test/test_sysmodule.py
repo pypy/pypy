@@ -246,6 +246,16 @@ class AppTestSysModulePortedFromCPython:
         raises(TypeError, sys.getdefaultencoding, 42)
         # can't check more than the type, as the user might have changed it
         assert isinstance(sys.getdefaultencoding(), str)
+
+    def test_getdefaultencoding(self):
+        encoding = sys.getdefaultencoding()
+        sys.setdefaultencoding("ascii")
+        try:
+            assert sys.getdefaultencoding() == 'ascii'
+            raises(UnicodeDecodeError, unicode, '\x80')
+        finally:
+            sys.setdefaultencoding(encoding)
+
             
     # testing sys.settrace() is done in test_trace.py
     # testing sys.setprofile() is done in test_profile.py
