@@ -81,6 +81,9 @@ class AppTestZipimport:
         space.appexec([space.wrap(self)], """(self):
         self.write_files = []
         """)
+        space.setattr(space.getbuiltinmodule('zipimport'),
+                      space.wrap('_zip_directory_cache'),
+                      space.newdict({}))
 
     def teardown_method(self, meth):
         space = self.space
@@ -183,12 +186,13 @@ class AppTestZipimport:
 
     def test_package(self):
         import os, sys
-        self.writefile(self, "xx"+os.sep+"__init__.py", "")
-        self.writefile(self, "xx"+os.sep+"yy.py", "def f(x): return x")
-        mod = __import__("xx", globals(), locals(), ['yy'])
+        self.writefile(self, "xxuuu"+os.sep+"__init__.py", "")
+        self.writefile(self, "xxuuu"+os.sep+"yy.py", "def f(x): return x")
+        mod = __import__("xxuuu", globals(), locals(), ['yy'])
         assert mod.__path__
         assert mod.yy.f(3) == 3
-        del sys.modules['xx']
+        del sys.modules['xxuuu']
+        del sys.modules['xxuuu.yy']
 
     def test_functions(self):
         import os
