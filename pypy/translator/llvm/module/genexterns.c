@@ -1,11 +1,24 @@
+#include <stdlib.h>
 
-// append some genc files here manually from python
-#ifdef _RPyListOfString_New     /*  :-(  */
-#  define HAVE_RPY_LIST_OF_STRING
-#endif
+char *LLVM_RPython_StartupCode(void);
+
+#define RPyRaiseSimpleException(exctype, errormsg) raise##exctype(errormsg);
+
+// XXX abort() this is just to make tests pass.  actually it is a million times
+// better than it was since it used to basically be a nooop.
+
+// all of these will go away at some point
+
+#define FAKE_ERROR(name) \
+  int raisePyExc_##name(char *x) { \
+    abort(); \
+   }
 
 #ifdef LL_NEED_MATH
+  FAKE_ERROR(OverflowError);
+  FAKE_ERROR(ValueError);
   #include "c/src/ll_math.h"
+
 #endif
 
 #ifdef LL_NEED_STRTOD
@@ -13,9 +26,11 @@
 #endif
 
 #ifdef LL_NEED_STACK
+  FAKE_ERROR(RuntimeError);
   #include "c/src/thread.h"
   #include "c/src/stack.h"
 #endif
+
 
 // raw malloc code
 char *raw_malloc(long size) {
@@ -34,10 +49,7 @@ void raw_memclear(void* ptr, long size) {
   memset(ptr, 0, size);
 }
 
-char *LLVM_RPython_StartupCode();
-
 char *RPython_StartupCode() {
-
   // is there any garbage collection / memory management initialisation
   __GC_STARTUP_CODE__
 
@@ -50,6 +62,7 @@ int __ENTRY_POINT__(RPyListOfString *);
 
 int main(int argc, char *argv[])
 {
+    XXX
     char *errmsg;
     int i, exitcode;
     RPyListOfString *list;

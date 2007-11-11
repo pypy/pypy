@@ -10,8 +10,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.tool.udir import udir
 from pypy.translator.llvm.codewriter import CodeWriter
 from pypy.translator.llvm import extfuncnode
-from pypy.translator.llvm.module.support import \
-     extdeclarations, extfunctions, extfunctions_standalone, write_raise_exc
+from pypy.translator.llvm.module.support import extfunctions
 from pypy.translator.llvm.node import Node
 from pypy.translator.llvm.externs2ll import setup_externs, generate_llfile
 from pypy.translator.llvm.gc import GcPolicy
@@ -32,19 +31,41 @@ class GenLLVM(object):
         self.config = translator.config
 
     def gen_source(self, func):
-        self._checkpoint()
+        self._checkpoint("before gen source")
 
         codewriter = self.setup(func)
 
-        # write top part of llvm file
-        self.write_headers(codewriter)
+        codewriter.header_comment("Extern code")
+        codewriter.write_lines(self.llcode)
 
-        codewriter.startimpl()
+        codewriter.header_comment("Type declarations")
+        for typ_decl in self.db.gettypedefnodes():
+            typ_decl.writetypedef(codewriter)
 
-        # write bottom part of llvm file
-        self.write_implementations(codewriter)
+        codewriter.header_comment("Function prototypes")
+        for node in self.db.getnodes():
+            if hasattr(node, 'writedecl'):
+                node.writedecl(codewriter)
 
-        # write entry point if there is one
+        codewriter.header_comment("Prebuilt constants")
+        for node in self.db.getnodes():
+            # XXX tmp
+            if hasattr(node, "writeglobalconstants"):
+                node.writeglobalconstants(codewriter)
+
+        self._checkpoint("before definitions")
+
+        codewriter.header_comment('Suppport definitions')
+        codewriter.write_lines(extfunctions, patch=True)
+
+        codewriter.header_comment('Startup definition')
+        self.write_startup_impl(codewriter)
+
+        codewriter.header_comment("Function definitions")
+        for node in self.db.getnodes():
+            if hasattr(node, 'writeimpl'):
+                node.writeimpl(codewriter)
+
         codewriter.comment("End of file")
         codewriter.close()
         self._checkpoint('done')
@@ -98,65 +119,7 @@ class GenLLVM(object):
         self._checkpoint('setup_externs')
 
         return codewriter
-
-    def write_headers(self, codewriter):
-        # write external function headers
-        codewriter.header_comment('External Function Headers')
-        codewriter.write_lines(self.llexterns_header)
-
-        codewriter.header_comment("Type Declarations")
-
-        # write extern type declarations
-        self.write_extern_decls(codewriter)
-        self._checkpoint('write externs type declarations')
-
-        # write node type declarations
-        for typ_decl in self.db.gettypedefnodes():
-            typ_decl.writetypedef(codewriter)
-        self._checkpoint('write data type declarations')
-
-        codewriter.header_comment("Global Data")
-
-        # write pbcs
-        for node in self.db.getnodes():
-            # XXX tmp
-            if hasattr(node, "writeglobalconstants"):
-                node.writeglobalconstants(codewriter)
-        self._checkpoint('write global constants')
-
-        codewriter.header_comment("Function Prototypes")
-
-        # write external protos
-        codewriter.write_lines(extdeclarations, patch=True)
-
-        # write node protos
-        for node in self.db.getnodes():
-            if hasattr(node, 'writedecl'):
-                node.writedecl(codewriter)
-
-        self._checkpoint('write function prototypes')
-
-    def write_implementations(self, codewriter):
-        codewriter.header_comment("Function Implementation")
-
-        # write external function implementations
-        codewriter.header_comment('External Function Implementation')
-        codewriter.write_lines(self.llexterns_functions)
-        codewriter.write_lines(extfunctions, patch=True)
-        if self.standalone:
-            codewriter.write_lines(extfunctions_standalone, patch=True)
-        self.write_extern_impls(codewriter)
-        self.write_setup_impl(codewriter)
-        
-        self._checkpoint('write support implentations')
-
-        # write all node implementations
-        for node in self.db.getnodes():
-            if hasattr(node, 'writeimpl'):
-                node.writeimpl(codewriter)
-
-        self._checkpoint('write node implementations')
-    
+   
     def get_entry_point(self, func):
         assert func is not None
         self.entrypoint = func
@@ -191,14 +154,13 @@ class GenLLVM(object):
             for source in sources:
                 c_sources[source] = True
 
-        self.llexterns_header, self.llexterns_functions = \
-                               generate_llfile(self.db,
-                                               self.extern_decls,
-                                               self.entrynode,
-                                               c_includes,
-                                               c_sources,
-                                               self.standalone, 
-                                               codewriter.cconv)
+        self.llcode = generate_llfile(self.db,
+                                      self.extern_decls,
+                                      self.entrynode,
+                                      c_includes,
+                                      c_sources,
+                                      self.standalone, 
+                                      codewriter.cconv)
 
     def create_codewriter(self):
         # prevent running the same function twice in a test
@@ -208,24 +170,8 @@ class GenLLVM(object):
             return CodeWriter(f, self.db), filename
         else:
             return CodeWriter(f, self.db, cconv='ccc', linkage=''), filename
-
-    def write_extern_decls(self, codewriter):        
-        for c_name, obj in self.extern_decls:
-            if isinstance(obj, lltype.LowLevelType):
-                if isinstance(obj, lltype.Ptr):
-                    obj = obj.TO
-
-                l = "%%%s = type %s" % (c_name, self.db.repr_type(obj))
-                codewriter.write_lines(l)
                 
-    def write_extern_impls(self, codewriter):
-        for c_name, obj in self.extern_decls:
-            if c_name.startswith("RPyExc_"):
-                c_name = c_name[1:]
-                exc_repr = self.db.repr_constant(obj)[1]
-                write_raise_exc(c_name, exc_repr, codewriter)
-
-    def write_setup_impl(self, codewriter):
+    def write_startup_impl(self, codewriter):
         open_decl =  "i8* @LLVM_RPython_StartupCode()"
         codewriter.openfunc(open_decl)
         for node in self.db.getnodes():

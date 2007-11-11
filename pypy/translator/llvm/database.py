@@ -6,7 +6,7 @@ from pypy.translator.llvm.log import log
 from pypy.translator.llvm.typedefnode import create_typedef_node
 
 from pypy.translator.llvm.funcnode import FuncImplNode
-from pypy.translator.llvm.extfuncnode import ExternalFuncNode, SimplerExternalFuncNode
+from pypy.translator.llvm.extfuncnode import ExternalFuncNode
 from pypy.translator.llvm.opaquenode import OpaqueNode, ExtOpaqueNode
 from pypy.translator.llvm.structnode import StructNode, StructVarsizeNode, \
      getindexhelper,  FixedSizeArrayNode
@@ -65,12 +65,11 @@ class Database(object):
         node = None
         if isinstance(type_, lltype.FuncType):
             if getattr(value._callable, "suggested_primitive", False):
-                node = ExternalFuncNode(self, value)
+                node = ExternalFuncNode(self, value, value._callable)
             elif hasattr(value, '_external_name'):
                 node = ExternalFuncNode(self, value, value._external_name)
-
             elif getattr(value, 'external', None) == 'C':
-                node = SimplerExternalFuncNode(self, value)
+                node = ExternalFuncNode(self, value)
             else:
                 node = FuncImplNode(self, value)
 
