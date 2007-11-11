@@ -1,7 +1,7 @@
 import py
-py.test.skip("llvm is a state of flux")
 
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin
+from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from pypy.translator.llvm.buildllvm import llvm_is_on_path, llvm_version, gcc_version
 from pypy.translator.llvm.genllvm import GenLLVM
 from pypy.annotation.model import lltype_to_annotation
@@ -9,32 +9,36 @@ from pypy.rpython.lltypesystem.lltype import typeOf
 
 optimize_tests = False
 native_llvm_backend = True
-MINIMUM_LLVM_VERSION = 2.0
+MINIMUM_LLVM_VERSION = 2.1
 FLOAT_PRECISION = 8
 
-ext_modules = []
-
 # prevents resource leaking
-use_isolate = False
+use_isolate = True
 
 # if test can't be run using isolate, skip the test (useful for buildbots)
-run_isolated_only = False
+run_isolated_only = True
 
 from pypy import conftest
+
+_ext_modules = []
 
 def _cleanup(leave=0):
     from pypy.tool import isolate
     if leave:
-        mods = ext_modules[:-leave]
+        mods = _ext_modules[:-leave]
     else:        
-        mods = ext_modules
+        mods = _ext_modules
     for mod in mods:
         if isinstance(mod, isolate.Isolate):
-            isolate.close_isolate(mod)        
+            try:
+                isolate.close_isolate(mod)
+            except EOFError:
+                pass
+                
     if leave:
-        del ext_modules[:-leave]
+        del _ext_modules[:-leave]
     else:
-        del ext_modules[:]
+        del _ext_modules[:]
             
 def teardown_module(mod):
     _cleanup()
@@ -48,6 +52,43 @@ def llvm_test():
                      "%.1f, should be >= %.1f)" % (llvm_ver, MINIMUM_LLVM_VERSION))
 
 #______________________________________________________________________________
+
+class ExceptionWrapper:
+    def __init__(self, class_name):
+        self.class_name = class_name
+
+    def __repr__(self):
+        return 'ExceptionWrapper(%s)' % repr(self.class_name)
+
+class StructTuple(tuple):
+    def __getattr__(self, name):
+        if name.startswith('item'):
+            i = int(name[len('item'):])
+            return self[i]
+        else:
+            raise AttributeError, name
+        
+def wrapfn(fn):
+    def wrapped(*args):
+        callargs = []
+        for a in args:
+            if hasattr(a, 'chars'):
+                callargs.append(''.join(a.chars))
+            else:
+                callargs.append(a)
+        res = fn(*callargs)
+        if isinstance(res, dict):
+            # these mappings are a simple protocol to work over isolate
+            mapping = {
+                "exceptiontypename": ExceptionWrapper,
+                "tuple": StructTuple,
+                "r_uint": r_uint,
+                "r_longlong": r_longlong,
+                "r_ulonglong": r_ulonglong,
+                }
+            res = mapping[res["type"]](res["value"])
+        return res
+    return wrapped
 
 def genllvm_compile(function,
                     annotation,
@@ -107,24 +148,20 @@ def compile_test(function, annotation, isolate_hint=True, **kwds):
     mod, fn = genllvm_compile(function, annotation, optimize=optimize,
                               isolate=isolate, **kwds)
     if isolate:
-        ext_modules.append(mod)
-    return mod, fn
+        _ext_modules.append(mod)
+    return mod, wrapfn(fn)
 
 def compile_function(function, annotation, isolate_hint=True, **kwds):
     " returns compiled function "
     return compile_test(function, annotation, isolate_hint=isolate_hint, **kwds)[1]
 
+#______________________________________________________________________________
+
 # XXX Work in progress, this was mostly copied from cli
+
 class InstanceWrapper:
     def __init__(self, class_name):
         self.class_name = class_name
-
-class ExceptionWrapper:
-    def __init__(self, class_name):
-        self.class_name = class_name
-
-    def __repr__(self):
-        return 'ExceptionWrapper(%s)' % repr(self.class_name)
 
 class LLVMTest(BaseRtypingTest, LLRtypeMixin):
     def __init__(self):
@@ -155,17 +192,12 @@ class LLVMTest(BaseRtypingTest, LLRtypeMixin):
         pass
 
     def interpret(self, fn, args, annotation=None):
-        f = self._compile(fn, args, annotation)
-        res = f(*args)
-
-        # a start to making this work over Isolate
-        if isinstance(res, dict):
-            if res["type"] == "exceptiontypename":
-                raise ExceptionWrapper(res["value"]) 
-            elif res["type"] == "tuple":
-                res = StructTuple(res["value"])
+        fn = self._compile(fn, args, annotation)
+        res = fn(*args)
+        if isinstance(res, ExceptionWrapper):
+            raise res
         return res
-
+    
     def interpret_raises(self, exception, fn, args):
         import exceptions # needed by eval
         try:
@@ -200,10 +232,4 @@ class LLVMTest(BaseRtypingTest, LLRtypeMixin):
     def read_attr(self, obj, name):
         py.test.skip('read_attr not supported on llvm tests')
 
-class StructTuple(tuple):
-    def __getattr__(self, name):
-        if name.startswith('item'):
-            i = int(name[len('item'):])
-            return self[i]
-        else:
-            raise AttributeError, name
+

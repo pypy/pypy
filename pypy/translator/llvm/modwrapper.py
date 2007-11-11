@@ -10,7 +10,6 @@ class CtypesModule:
 
     prolog = """
 import ctypes
-from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from os.path import join, dirname, realpath
 
 _c = ctypes.CDLL(join(dirname(realpath(__file__)), "%s"))
@@ -49,31 +48,28 @@ def entrypoint(*args):
 def identity(res):
     return res
 
-def from_unichar(arg):
-    return ord(arg)
-
-def from_float(arg):
-    return ctypes.c_double(arg)
-
-def to_unichar(res):
-    return unichr(res)
-
 def from_str(arg):
-    # XXX wont work over isolate : arg should be converted into a string first
-    n = len(arg.chars)
     class Chars(ctypes.Structure):
         _fields_ = [("size", ctypes.c_int),
-                    ("data", ctypes.c_byte * n)]
-
+                    ("data", ctypes.c_byte * len(arg))]
     class STR(ctypes.Structure):
         _fields_ = [("hash", ctypes.c_int),
                     ("chars", Chars)]
     s = STR()
     s.hash = 0
-    s.chars.size = len(arg.chars)
-    for ii in range(s.chars.size):
-        s.chars.data[ii] = ord(arg.chars[ii])
+    s.chars.size = len(arg)
+    for ii in range(len(arg)):
+        s.chars.data[ii] = ord(arg[ii])
     return ctypes.addressof(s)
+
+def to_r_uint(res):
+    return {'type':'r_uint', 'value':long(res)}
+
+def to_r_longlong(res):
+    return {'type':'r_longlong', 'value':long(res)}
+
+def to_r_ulonglong(res):
+    return {'type':'r_ulonglong', 'value':long(res)}
 
 def to_str(res):
     class Chars(ctypes.Structure):
@@ -197,10 +193,10 @@ __entrypoint__.restype = %(returntype)s
             ctype_s.append(self.to_ctype(A))
 
             if A is lltype.UniChar:
-                action = 'from_unichar'
+                action = 'ord'
 
             elif A is lltype.Float:
-                action = 'from_float'
+                action = 'ctypes.c_double'
 
             elif isinstance(A, lltype.Ptr) and A.TO is STR:
                 action = 'from_str'
@@ -220,13 +216,13 @@ __entrypoint__.restype = %(returntype)s
             action = 'unichr'
 
         elif T is lltype.Unsigned:
-            action = 'r_uint'
+            action = 'to_r_uint'
 
         elif T is lltype.SignedLongLong:
-            action = 'r_longlong'
+            action = 'to_r_longlong'
 
         elif T is lltype.UnsignedLongLong:
-            action = 'r_ulonglong'
+            action = 'to_r_ulonglong'
 
         elif isinstance(T, lltype.Ptr) and T.TO is STR:
             action = 'to_str'
