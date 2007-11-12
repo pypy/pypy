@@ -3,7 +3,7 @@ from pypy.translator.llvm.node import ConstantNode
 
 class ArrayNode(ConstantNode):
     __slots__ = "db value arraytype".split()
-    prefix = '@a_isnt'
+    prefix = '@a_inst'
     
     def __init__(self, db, value):
         assert isinstance(lltype.typeOf(value), lltype.Array)
