@@ -87,5 +87,7 @@ class ConstantNode(Node):
         p, c = lltype.parentlink(self.value)
         if p is None:
             codewriter.globalinstance(self.ref, self.constantvalue())
+            codewriter.newline()
+            codewriter.newline()
         
 

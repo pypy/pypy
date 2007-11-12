@@ -3,7 +3,7 @@ from pypy.translator.llvm.node import ConstantNode
 
 class ArrayNode(ConstantNode):
     __slots__ = "db value arraytype".split()
-    prefix = '@arrayinstance'
+    prefix = '@a_isnt'
     
     def __init__(self, db, value):
         assert isinstance(lltype.typeOf(value), lltype.Array)
@@ -30,7 +30,12 @@ class ArrayNode(ConstantNode):
     def get_arrayvalue(self):
         items = self.value.items
         l = len(items)
-        r = "[%s]" % ", ".join([self.db.repr_constant(v)[1] for v in items])
+        reprs = [self.db.repr_constant(v)[1] for v in items]
+        line = ",  ".join(reprs)
+        if len(line) < 70:
+            r = "[%s]" % line
+        else:
+            r = "[%s]" % ",\n\t ".join(reprs)
         return l, r 
 
     def get_typerepr(self):
@@ -48,8 +53,8 @@ class ArrayNode(ConstantNode):
             ref = self.db.get_childref(p, c)
 
         ref = "bitcast(%s* %s to %s*)" % (self.get_typerepr(),
-                                       ref,
-                                       typeval)
+                                          ref,
+                                          typeval)
         return ref
 
     def get_pbcref(self, toptr):
@@ -71,11 +76,11 @@ class ArrayNode(ConstantNode):
         typeval = self.db.repr_type(self.arraytype)
 
         # first length is logical, second is physical
-        value = "%s %s, [%s x %s] %s" % (self.db.get_machine_word(),
-                                         self.get_length(),
-                                         physicallen,
-                                         typeval,
-                                         arrayrepr)
+        value = "%s %s, [%s x %s]\n\t%s" % (self.db.get_machine_word(),
+                                            self.get_length(),
+                                            physicallen,
+                                            typeval,
+                                            arrayrepr)
 
         s = "%s {%s}" % (self.get_typerepr(), value)
         return s
