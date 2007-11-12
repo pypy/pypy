@@ -25,26 +25,6 @@ EXTERNALS = {
     }
 
 #______________________________________________________
-# insert 'simple' math functions into EXTERNALs table:
-
-# XXX: messy, messy, messy
-# this interacts in strange ways with node.select_function_code_generators,
-# because it fakes to be an ll_* function.
-
-math_functions = [
-    'acos', 'asin', 'atan', 'ceil', 'cos', 'cosh', 'exp', 'fabs',
-    'floor', 'log', 'log10', 'sin', 'sinh', 'sqrt', 'tan', 'tanh',
-    'pow', 'atan2', 'fmod', 'ldexp', 'hypot'
-    ]
-# frexp and modf have been ported to the new rffi style already
-
-import math
-for name in math_functions:
-    EXTERNALS['ll_math.ll_math_%s' % name] = 'LL_math_%s' % name
-
-EXTERNALS['LL_flush_icache'] = 'LL_flush_icache'
-
-#______________________________________________________
 
 def find_list_of_str(rtyper):
     for r in rtyper.reprs.itervalues():
@@ -53,7 +33,6 @@ def find_list_of_str(rtyper):
     return None
 
 def predeclare_common_types(db, rtyper):
-    from pypy.rpython.lltypesystem.module import ll_math
     # Common types
     yield ('RPyString', STR)
     LIST_OF_STR = find_list_of_str(rtyper)

@@ -1,5 +1,6 @@
-# this registry use the new interface for external functions
-# all the above declarations in extfunctable should be moved here at some point.
+# this registry uses the new interface for external functions
+# all the above declarations in extfunctable should be moved here
+# at some point.
 
 from extfunc import register_external
 
@@ -20,24 +21,18 @@ else:
 
 # the following functions all take one float, return one float
 # and are part of math.h
-simple_math_functions = [
-    'acos', 'asin', 'atan', 'ceil', 'cos', 'cosh', 'exp', 'fabs',
-    'floor', 'log', 'log10', 'sin', 'sinh', 'sqrt', 'tan', 'tanh'
-    ]
-for name in simple_math_functions:
+for name in ll_math.unary_math_functions:
+    llimpl = getattr(ll_math, 'll_math_%s' % name, None)
     register_external(getattr(math, name), [float], float,
-                      "ll_math.ll_math_%s" % name,
-                       sandboxsafe=True)
+                      export_name="ll_math.ll_math_%s" % name,
+                       sandboxsafe=True, llimpl=llimpl)
 
 complex_math_functions = [
     ('frexp', [float],        (float, int)),
-    ('atan2', [float, float], float),
-    ('fmod',  [float, float], float),
     ('ldexp', [float, int],   float),
     ('modf',  [float],        (float, float)),
-    ('hypot', [float, float], float),
-    ('pow',   [float, float], float),
-    ]
+    ] + [(name, [float, float], float) for name in
+         ll_math.binary_math_functions]
 
 for name, args, res in complex_math_functions:
     func = getattr(math, name)
