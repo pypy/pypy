@@ -1100,7 +1100,7 @@ class JVMGenerator(Generator):
             if value == ootype.null(TYPE):
                 self.emit(ACONST_NULL)
             else:
-                self.load_string(str(value._str))
+                self.load_string(value._str)
         else:
             assert False, 'Unknown constant type: %s' % TYPE
 

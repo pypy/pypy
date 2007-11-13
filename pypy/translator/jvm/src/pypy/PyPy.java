@@ -304,23 +304,15 @@ public class PyPy implements Constants {
             return "False";
     }
 
-    public static void _append_char(StringBuffer sb, char c) {
-        if (c == '"') 
-            sb.append("\\\"");
-        else
-            sb.append(c);
+    private static String format_char(char c) {
+        String res = "\\x";
+        if (c <= 0x0F) res = res + "0";
+        res = res + Integer.toHexString(c);
+        return res;
     }
 
     public static String escaped_char(char c) {
-        StringBuffer sb = new StringBuffer();
-        sb.append('"');
-        _append_char(sb, c);
-        sb.append('"');
-        return sb.toString();
-    }
-
-    public static String escaped_unichar(char c) {
-        return "u" + escaped_char(c);
+        return "'" + format_char(c) + "'";
     }
 
     public static String escaped_string(String b) {
@@ -330,14 +322,37 @@ public class PyPy implements Constants {
         sb.append('"');
         for (int i = 0; i < b.length(); i++) {
             char c = b.charAt(i);
-            _append_char(sb, c);
+            sb.append(format_char(c));
         }
         sb.append('"');
         return sb.toString();
     }
 
+    private static String format_unichar(char c) {
+        String res = "\\u";
+        if (c <= 0xF)   res = res + "0";
+        if (c <= 0xFF)  res = res + "0";
+        if (c <= 0xFFF) res = res + "0";
+        res = res + Integer.toHexString(c);
+        return res;
+    }
+
+    public static String escaped_unichar(char c)
+    {
+        return "u'" + format_unichar(c) + "'";
+    }
+
     public static String escaped_unicode(String b) {
-        return "u" + escaped_string(b);
+        if (b == null)
+            return "None";
+        StringBuffer sb = new StringBuffer();
+        sb.append("u'");
+        for (int i = 0; i < b.length(); i++) {
+            char c = b.charAt(i);
+            sb.append(format_unichar(c));
+        }
+        sb.append("'");
+        return sb.toString();
     }
 
     // used in running unit tests

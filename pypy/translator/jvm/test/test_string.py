@@ -24,3 +24,10 @@ class TestJvmString(JvmTest, oostring.BaseTestString):
         # but we don't bother to make runtest understand how to parse that,
         # so we just skip the test.
         py.test.skip("test fails in JVM specific way")
+
+    def test_string_constant(self):
+        const = ''.join(map(chr, range(0, 256)))
+        def fn():
+            return const
+        res = self.interpret(fn, [])
+        assert res == const
