@@ -293,71 +293,13 @@ is solely implemented in a small `objspace/thunk.py`_ file consisting
 of around 200 lines of code. Since the 0.8.0 release you 
 can `translate PyPy with the thunk object space`_.
 
-Logic programming
-+++++++++++++++++
+More
+++++
 
-People familiar with logic programming languages will be interested to
-know that PyPy optionally supports logic variables and constraint-based
-programming.  Among the many interesting features of logic programming
--- like unification -- this subsumes the thunk object space by
-providing a more extensive way to deal with laziness.
+If you know more about pypy-exclusive features, choose one from the following,
+go to `objspace proxies`_ document.
 
-Try it out::
-
-    cd pypy
-    python bin/py.py -o logic
-
-    >>>> X = newvar()         # a logic variable
-    >>>> bind(X, 42)          # give it a value
-    >>>> assert X / 2 == 21   # then use it
-    >>>> assert type(X) is int
-
-    >>>> X, Y, Z = newvar(), newvar(), newvar()  # three logic vars
-    >>>> unify({'hello': Y, 'world': Z}, X)      # a complex unification
-    >>>> bind(Y, 5)                              # then give values to Y
-    >>>> bind(Z, 7)                              # ... and Z
-    >>>> X
-    {'hello': 5, 'world': 7}
-
-    >>>> bind(Z, 8)
-    RuntimeError: Cannot bind twice
-
-Read more about `Logic Object space features`_.
-
-.. _`Logic Object space features`: howto-logicobjspace.html
-
-
-Aspect Oriented Programming
-+++++++++++++++++++++++++++
-
-PyPy provides an experimental `Aspect Oriented Programming` facility
-in the 'aop' module. Be aware that this module works on the abstract
-syntax tree level, and will leave traces in the byte-compiled ('.pyc')
-files. Be sure to remove these files after playing with the module if
-you do not intend to really use the aspect oriented programming in
-your code. Even better, use the '--no-objspace-usepycfiles' command
-line option, so that the byte-compiled modules are not written to
-disk. 
-
-Here is an example::
-
- cd pypy
- python bin/py.py --no-objspace-usepycfiles
-
- >>>> from aop import Aspect, before, PointCut
- >>>> class DemoAspect:
- ....     __metaclass__ = Aspect
- ....     @before(PointCut(func="^open$").call())
- ....     def before_open(self, joinpoint):
- ....         print "opening", joinpoint.arguments()
- .... 
- >>>> aspect = DemoAspect()
- >>>> f = open("/tmp/toto.txt", 'w')
-
-To read more about this, try the `aop module documentation`_.
-
-.. _`Aspect Oriented Programming`: http://aosd.net
-.. _`aop module documentation`: aspect_oriented_programming.html
+.. _`objspace proxies`: objspace-proxies.html
 
 Running the tests
 +++++++++++++++++
@@ -389,11 +331,10 @@ run like this (this will take hours and hours and hours)::
 
 or if you have `installed py.test`_ then you simply say::
 
-    py.test
+    py.test -E
 
-from the lib-python/2.4.1/test directory. You need to have a checkout of the
-testresult directory. Running one of the above commands tells you how to
-proceed.
+from the lib-python/2.4.1/test directory. Running one of the above
+commands tells you how to proceed.
 
 .. _`installed py.test`: https://codespeak.net/py/current/doc/download.html
 
@@ -414,15 +355,8 @@ The translator is a tool based on the PyPy interpreter which can translate
 sufficiently static Python programs into low-level code. To be able to use it
 you need to:
 
-  * Download and install Pygame_ and ctypes_ if you do not already have them.
-
-  * Have an internet connection. The flowgraph viewer connects to
-    codespeak.net and lets it convert the flowgraph by a patched version of
-    `Dot Graphviz`_ that does not crash. This is only needed if you want to
-    look at the flowgraphs.
-
-  * Use Python-2.4 for using translation tools because python2.5 
-    is (as of revision 39130) not fully supported. 
+  * Download and install Pygame_ and `Dot Graphviz`_ if you do not
+    already have them.
 
 To start the interactive translator shell do::
 
@@ -502,8 +436,8 @@ Translating the flow graph to JavaScript code
 +++++++++++++++++++++++++++++++++++++++++++++
 
 The JavaScript backend is still experimental but was heavily improved
-during last
-years `Google summer of code`_. It contains some rudimentary support
+during 2006
+`Google summer of code`_. It contains support
 for the document object model and a good integration with PyPy's unittesting
 framework. Code can be tested with the `Spidermonkey`_ commandline JavaScript
 interpreter in addition to a multitude of JavaScript capable browsers. 
@@ -556,11 +490,6 @@ can use Mono_.
 
 Translating RPystone to JVM code
 ++++++++++++++++++++++++++++++++
-
-Although the JVM backend cannot yet translate the entire interpreter,
-you can use it with the interactive shell for small functions, and 
-with the ``pypy/goal/translate.py`` for some larger benchmarks such as
-RPystone.
 
 Using the interactive shell with the JVM is basically the same as any
 other backend.  For example, you might enter:
@@ -637,9 +566,9 @@ ultimate example of source that our translation toolchain can process::
 By default the translation process will try to use the
 `Boehm-Demers-Weiser garbage collector`_ for the translated interpreter (Use
 ``--gc=framework`` to use our own exact mark-n-sweep implementation which
-at the moment is slower but doesn't have external dependencies). Otherwise, be sure
-to install Boehm before starting the translation (e.g. by running
-``apt-get install libgc-dev`` on Debian).
+at the moment is slower but doesn't have external dependencies). Otherwise, be
+sure io install Boehm before starting the translation (e.g. by running
+``apt-get install libgc-dev`` on Debian or Ubuntu).
 
 This whole process will take some time and quite a lot of memory (although it
 might just work on a machine with 512MB of RAM). If the translation is
@@ -665,7 +594,7 @@ name ``pypy-c``.  Type ``pypy-c --help`` to see the options it supports --
 mainly the same basic options as CPython.  In addition, ``pypy-c --info``
 prints the translation options that where used to produce this particular
 executable.  This executable contains a lot of things that are hard-coded
-for your particular system (including paths), so it's not really meant to
+for your particular system, so it's not really meant to
 be installed or redistributed at the moment.
 
 If you exit the interpreter you get a pygame window with all the flow graphs
@@ -798,45 +727,6 @@ At the moment the only way to load a .NET class is to explicitly use
 loaded when accessing .NET namespaces as they were Python modules, as
 IronPython does.
 
-Translate using the Build Tool
-++++++++++++++++++++++++++++++
-
-If you don't have access to the required resources to build PyPy yourself,
-or want to build it on a platform you don't have access to, you can use
-the 'build tool', a set of components that allow translating and
-compiling PyPy on remote servers. The build tool provides a meta server
-that manages a set of connected build servers; clients can request a build
-by specifying target options and Subversion revision and path, and the meta
-server will do its best to get the request fulfilled.
-Currently you need to have a codespeak account to be able to use the build tool.
-
-The meta server is made available on codespeak.net and there should always be
-a number of build servers running. If you want to request a compilation you need
-to checkout the build tool sources from:
-
-    https://codespeak.net/svn/pypy/build/buildtool
-
-Then you can issue::
-
-  $ ./bin/startcompile.py [options] <email>
-
-in the root of the 'buildtool' package replacing '[options]' with
-the options you desire and '<email>' with your email address. Type::
-
-  $ ./bin/startcompile.py --help
-
-to see a list of available options.
-
-To donate build server time (we'd be eternally thankful! ;) just run::
-
-  $ ./bin/buildserver.py
-
-without arguments. Do mind that you need to be a registered user on
-'codespeak.net', and  that a decent machine with enough RAM is required
-(about 1-2 GB is recommended).
-
-Note: currently Windows is not supported.
-
 .. _`start reading sources`: 
 
 Where to start reading the sources
@@ -891,6 +781,9 @@ or start off at one of the following points:
    there is a file rxxxx.py that contains the low level functions needed for
    this type.
 
+*  `pypy/rlib`_ contains the RPython standard library, things that you can
+   use from rpython.
+
 .. _optionaltool: 
 
 Additional Tools for running (and hacking) PyPy 
@@ -913,24 +806,13 @@ want to look at generated flow graphs:
 CTypes (highly recommended)
 ++++++++++++++++++++++++++++
 
-`ctypes`_ (version 0.9.9.6 or later) is required if you want to translate PyPy
-to C. See the `download page of ctypes`_.
+`ctypes`_ (version 0.9.9.6 or later) is required if you want to run low-level
+tests. See the `download page of ctypes`_.
 
 .. _`download page of ctypes`: http://sourceforge.net/project/showfiles.php?group_id=71702
 .. _`ctypes`: http://starship.python.net/crew/theller/ctypes/
 
-
-CLISP
-+++++++
-
-The CLISP backend is optional and not quite up-to-date with the rest of
-PyPy. Still there are a few examples you can try our backend out on. 
-Here is a link to a LISP implementation that should basically work: 
-
-    http://clisp.cons.org/ 
-
-
-.. _`py.test`:  
+.. _`py.test`:
 
 py.test and the py lib 
 +++++++++++++++++++++++
@@ -973,7 +855,7 @@ plan where to meet with us.
 .. _`CLI backend`: cli-backend.html
 .. _clr: clr-module.html
 
-.. _Dot Graphviz:           http://www.graphviz.org/
+.. _`Dot Graphviz`:           http://www.graphviz.org/
 .. _Pygame:                 http://www.pygame.org/
 .. _pyopcode.py:            http://codespeak.net/svn/pypy/dist/pypy/interpreter/pyopcode.py
 .. _eval.py:                http://codespeak.net/svn/pypy/dist/pypy/interpreter/eval.py
