@@ -187,7 +187,8 @@ def main(backends=[]):
             c--gc=semispace--_faassen
             c--gc=generation--_faassen
             c--_objspace-std-withrope
-            cli
+            cli--_faassen
+            jvm--_faassen
             """.split('\n') if backend.strip() and not backend.strip().startswith('#')]
     print time.ctime()
     for backend in backends:
