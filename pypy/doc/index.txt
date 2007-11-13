@@ -42,6 +42,11 @@ Status_ of the project.
 Project Documentation
 =====================================
 
+PyPy was funded by the EU for several years. See the `web site of the EU
+project`_ for more details.
+
+.. _`web site of the EU project`: http://pypy.org
+
 architecture_ gives a complete view of PyPy's basic design. 
 
 `coding guide`_ helps you to write code for PyPy (especially also describes
