@@ -21,8 +21,6 @@ class PyPyPage(Page):
                    class_="menu"),
             html.a("contact", href=self.get_doclink("contact.html"),
                    class_="menu"), " ",
-            html.a("EU/project",
-                   href="http://pypy.org/", class_="menu"), " ",
             " ", id="menubar")
 
     def get_doclink(self, target):
