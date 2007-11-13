@@ -117,10 +117,10 @@ you can simply run PyPy's large test suite with::
 
 test_all.py is just another name for `py.test`_ which is the
 testing tool that we are using and enhancing for PyPy.
-Note that running all the tests takes a very long time, and
+**Note that running all the tests takes a very long time, and
 enormous amounts of memory if you are trying to run them all
 in the same process; test_all.py is only suitable to run a
-subset of them at a time.  To run them all we have an
+subset of them at a time.**  To run them all we have an
 `autotest driver`_ that executes the tests directory by
 directory and produces pages like the following one:
 
