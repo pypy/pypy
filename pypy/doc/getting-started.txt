@@ -353,10 +353,17 @@ Trying out the translator
 
 The translator is a tool based on the PyPy interpreter which can translate
 sufficiently static Python programs into low-level code. To be able to use it
-you need to:
+you need to (if you want to look at the flowgraphs, which you obviously
+should):
 
-  * Download and install Pygame_ and `Dot Graphviz`_ if you do not
-    already have them.
+  * Download and install Pygame_.
+
+  * Download and install `Dot Graphviz`_.
+
+or:
+
+  * Have an internet connection. The flowgraph viewer connects to
+    codespeak.net and lets it convert the flowgraph by a graphviz server.
 
 To start the interactive translator shell do::
 
