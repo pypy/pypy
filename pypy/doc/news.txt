@@ -14,6 +14,14 @@ nonsense, isn't it?  `more...`_
 .. _`iCalendar format`: webcal://pypycal.sabi.net///calendars/PyPy.ics
 .. _eventhistory: eventhistory.html
 
+PyPy blog started
+=================
+
+A few days ago some of the PyPy developers started a `PyPy Status Blog`_. Let's
+see how this works out. *(November 13th, 2007)*
+
+.. _`PyPy Status Blog`: http://morepypy.blogspot.com
+
 
 PyPy/Squeak Sprint in Bern finished
 ===================================
