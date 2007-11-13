@@ -22,6 +22,7 @@ EXTERNALS = {
     ll_stackless.ll_stackless_stack_frames_depth: 'LL_stackless_stack_frames_depth',
     ll_stack.ll_stack_unwind: 'LL_stack_unwind',
     ll_stack.ll_stack_too_big: 'LL_stack_too_big',
+    'LL_flush_icache': 'LL_flush_icache',
     }
 
 #______________________________________________________
