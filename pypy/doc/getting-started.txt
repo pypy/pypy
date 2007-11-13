@@ -61,7 +61,7 @@ interpreters.  Note that the examples in the html documentation generally
 assume that you have a py.py; with precompiled binaries, you need to 
 pick one with the matching features compiled in.
 
-.. _`98% of CPythons core language regression tests`: http://codespeak.net/~hpk/pypy-testresult/ 
+.. _`98% of CPythons core language regression tests`: http://www2.openend.se/~pedronis/pypy-c-test/allworkingmodules/summary.html
 .. _`pypy-1.0.0.tar.bz2`: http://codespeak.net/download/pypy/pypy-1.0.0.tar.bz2
 .. _`pypy-1.0.0.zip`: http://codespeak.net/download/pypy/pypy-1.0.0.zip
 .. _`pypy-1.0.0.tar.gz`: http://codespeak.net/download/pypy/pypy-1.0.0.tar.gz
