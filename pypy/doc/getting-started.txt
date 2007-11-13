@@ -156,7 +156,7 @@ Main entry point
 The py.py interpreter
 +++++++++++++++++++++
 
-To start interpreting Python with PyPy, use Python 2.3 or greater::
+To start interpreting Python with PyPy, use Python 2.4 or greater::
 
     cd pypy
     python bin/py.py
