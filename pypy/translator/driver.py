@@ -748,10 +748,48 @@ $MONO "$(dirname $0)/$(basename $0)-data/%s" "$@" # XXX doesn't work if it's pla
         # restore original os values
         if hasattr(self, 'old_cli_defs'):
             unpatch_os(self.old_cli_defs)
-
         self.log.info("Compiled JVM source")
+        if self.standalone and self.exe_name:
+            self.copy_jvm_jar()
     task_compile_jvm = taskdef(task_compile_jvm, ['source_jvm'],
                               'Compiling JVM source')
+
+    def copy_jvm_jar(self):
+        from py.compat import subprocess
+        basename = self.exe_name % self.get_info()
+        root = udir.join('pypy')
+        manifest = self.create_manifest(root)
+        classlist = self.create_classlist(root)
+        jarfile = py.path.local(basename + '.jar')
+        self.log.info('Creating jar file')
+        oldpath = root.chdir()
+        subprocess.call(['jar', 'cmf', str(manifest), str(jarfile), '@'+str(classlist)])
+        oldpath.chdir()
+
+        # create a convenience script
+        newexename = basename
+        f = file(newexename, 'w')
+        f.write("""#!/bin/bash
+java -jar $0.jar "$@"
+""")
+        f.close()
+        os.chmod(newexename, 0755)
+
+    def create_manifest(self, root):
+        filename = root.join('manifest.txt')
+        manifest = filename.open('w')
+        manifest.write('Main-class: pypy.Main\n\n')
+        manifest.close()
+        return filename
+
+    def create_classlist(self, root):
+        filename = root.join('classlist.txt')
+        classlist = filename.open('w')
+        classfiles = root.visit('*.class', True)
+        for classfile in classfiles:
+            print >> classlist, classfile.relto(root)
+        classlist.close()
+        return filename
 
     def task_run_jvm(self):
         pass
