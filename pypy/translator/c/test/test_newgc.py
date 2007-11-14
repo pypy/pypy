@@ -874,5 +874,3 @@ class TestSemiSpaceGC(TestUsingFramework):
 class TestGenerationalGC(TestSemiSpaceGC):
     gcpolicy = "generation"
     should_be_moving = True
-    def test_many_ids(self):
-        py.test.skip("fails!")
