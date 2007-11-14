@@ -57,13 +57,19 @@ class AppTest_Thunk:
         assert id(x) == id(y) == idy
 
     def test_double_become(self):
+        skip("fix me")
         from __pypy__ import thunk, become
-        x = []
-        y = []
-        z = []
+        x = [1]
+        y = [2]
+        z = [3]
         become(x, y)
         become(y, z)
         assert x is y is z
+        a = []
+        a.extend(x)
+        a.extend(y)
+        a.extend(z)
+        assert a == [3, 3, 3]
 
     def test_double_become2(self):
         from __pypy__ import thunk, become
@@ -147,3 +153,10 @@ class AppTest_Thunk:
         x = []
         become(x, x)
         assert str(x) == "[]"
+
+    def test_thunk_special_method(self):
+        skip("fix me")
+        from __pypy__ import thunk
+        x = thunk(lambda : 42)
+        assert 1 .__add__(x) == 43
+        
