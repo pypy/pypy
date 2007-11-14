@@ -321,24 +321,6 @@ class Variable(object):
         self._name = intern(name)
         self._nr = nr
 
-    def __reduce_ex__(self, *args):
-        if hasattr(self, 'concretetype'):
-            return _bv, (self._name, self._nr, self.concretetype)
-        else:
-            return _bv, (self._name, self._nr)
-    __reduce__ = __reduce_ex__
-
-def _bv(_name, _nr, concretetype=None):
-    v = Variable.__new__(Variable, object)
-    v._name = _name
-    v._nr = _nr
-    if concretetype is not None:
-        v.concretetype = concretetype
-    nd = v.namesdict
-    if _nr >= nd.get(_name, 0):
-        nd[_name] = _nr + 1
-    return v
-
 
 class Constant(Hashable):
     __slots__ = ["concretetype"]
@@ -347,12 +329,6 @@ class Constant(Hashable):
         Hashable.__init__(self, value)
         if concretetype is not None:
             self.concretetype = concretetype
-    def __reduce_ex__(self, *args):
-        if hasattr(self, 'concretetype'):
-            return Constant, (self.value, self.concretetype)
-        else:
-            return Constant, (self.value,)
-    __reduce__ = __reduce_ex__
 
 
 class SpaceOperation(object):
@@ -380,16 +356,6 @@ class SpaceOperation(object):
         return "%r = %s(%s)" % (self.result, self.opname,
                                 ", ".join(map(repr, self.args)))
 
-    def __reduce_ex__(self, *args):
-        # avoid lots of useless list entities
-        return _sop, (self.opname, self.result, self.offset) + tuple(self.args)
-    __reduce__ = __reduce_ex__
-
-# a small and efficient restorer
-def _sop(opname, result, offset, *args):
-    return SpaceOperation(opname, args, result, offset)
-
-
 class Atom:
     def __init__(self, name):
         self.__name__ = name # make save_global happy
@@ -413,56 +379,6 @@ def uniqueitems(lst):
             seen[item] = True
     return result
 
-
-#_________________________________________________________
-# a visitor for easy traversal of the above model
-
-##import inspect   # for getmro
-
-##class traverse:
-
-##    def __init__(self, visitor, functiongraph):
-##        """ send the visitor over all (reachable) nodes. 
-##            the visitor needs to have either callable attributes 'visit_typename'
-##            or otherwise is callable itself.  
-##        """
-##        self.visitor = visitor
-##        self.visitor_cache = {}
-##        self.seen = {}
-##        self.visit(functiongraph)
-
-##    def visit(self, node):
-##        if id(node) in self.seen:
-##            return
-
-##        # do the visit
-##        cls = node.__class__
-##        try:
-##            consume = self.visitor_cache[cls]
-##        except KeyError:
-##            for subclass in inspect.getmro(cls):
-##                consume = getattr(self.visitor, "visit_" + subclass.__name__, None)
-##                if consume:
-##                    break
-##            else:
-##                consume = getattr(self.visitor, 'visit', self.visitor)
-
-##                assert callable(consume), "visitor not found for %r on %r" % (cls, self.visitor)
-
-##                self.visitor_cache[cls] = consume
-
-##        self.seen[id(node)] = consume(node)
-
-##        # recurse
-##        if isinstance(node, Block):
-##            for obj in node.exits:
-##                self.visit(obj)
-##        elif isinstance(node, Link):
-##            self.visit(node.target)
-##        elif isinstance(node, FunctionGraph):
-##            self.visit(node.startblock)
-##        else:
-##            raise ValueError, "could not dispatch %r" % cls
 
 def traverse(visit, functiongraph):
     block = functiongraph.startblock
