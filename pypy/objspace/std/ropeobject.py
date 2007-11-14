@@ -1051,10 +1051,9 @@ def str_translate__Rope_ANY_ANY(space, w_string, w_table, w_deletechars=''):
     while 1:
         try:
             c = iter.next()
-            i += 1
-            w_char = W_RopeObject.PREBUILT[ord(char)]
+            w_char = W_RopeObject.PREBUILT[ord(c)]
             if not space.is_true(space.contains(w_deletechars, w_char)):
-                 chars.append(table[ord(char)])
+                 chars.append(table[ord(c)])
         except StopIteration:
             break
     return W_RopeObject(rope.rope_from_charlist(chars))
