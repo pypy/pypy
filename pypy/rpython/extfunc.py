@@ -92,7 +92,7 @@ class LazyRegisteringMeta(type):
 class BaseLazyRegistering(object):
     __metaclass__ = LazyRegisteringMeta
 
-    __ATTRIBUTES = ['includes', 'include_dirs']
+    __ATTRIBUTES = ['includes', 'include_dirs', 'libraries', 'library_dirs']
 
     def configure(self, CConfig):
         classes_seen = self.__dict__.setdefault('__classes_seen', {})
