@@ -7,7 +7,7 @@ from pypy.translator.tool.cbuild import cache_c_module
 from pypy.tool.autopath import pypydir
 
 class CConfig:
-    _includes_ = ['ll_strtod.h']
+    _includes_ = ['src/ll_strtod.h']
 
 class RegisterStrtod(BaseLazyRegistering):
     def __init__(self):
