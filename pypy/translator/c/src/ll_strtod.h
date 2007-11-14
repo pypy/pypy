@@ -1,9 +1,13 @@
+#ifndef LL_STRTOD_H
+#define LL_STRTOD_H
+
 #include <locale.h>
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
+
 
 /* prototypes */
 
@@ -124,3 +128,4 @@ char* LL_strtod_formatd(char *fmt, double x) {
 }
 
 #endif /* PYPY_NOT_MAIN_FILE */
+#endif
