@@ -899,4 +899,3 @@ null_str = string_repr.convert_const("NULL")
 unboxed_instance_str_prefix = string_repr.convert_const("<unboxed ")
 unboxed_instance_str_suffix = string_repr.convert_const(">")
 
-percent_f = string_repr.convert_const("%f")
