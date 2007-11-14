@@ -153,6 +153,13 @@ def main():
                 exesize = os.path.getsize(os.path.join(dirname, 'main.exe'))
             except OSError:
                 exesize = 'XXX'
+        elif 'pypy-jvm' in exename:
+            jarname = exename + '.jar'
+            codesize = 'N/A'
+            try:
+                exesize = os.path.getsize(jarname)
+            except OSError:
+                exesize = 'XXX'
         else:
             codesize = os.popen('size "%s" | tail -n1 | cut -f1'%(exename,)).read().strip()
             exesize = os.path.getsize(exe)
