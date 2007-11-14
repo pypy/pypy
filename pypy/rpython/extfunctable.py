@@ -163,13 +163,6 @@ def isabs(s):
 ntpath.isabs = isabs
 
 # ___________________________________________________________
-# string->float helper
-from pypy.rlib import rarithmetic
-declare(rarithmetic.parts_to_float, float, 'll_strtod/parts_to_float')
-# float->string helper
-declare(rarithmetic.formatd, str, 'll_strtod/formatd')
-
-# ___________________________________________________________
 # stackless
 from pypy.rlib import rstack
 declare(rstack.stack_frames_depth, int, 'll_stackless/stack_frames_depth')
