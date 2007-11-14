@@ -6,6 +6,10 @@ class AppTestCodecs:
         space = gettestobjspace(usemodules=('unicodedata',))
         cls.space = space
 
+    def test_register_noncallable(self):
+        import _codecs
+        raises(TypeError, _codecs.register, 1)
+
     def test_bigU_codecs(self):
         import sys
         oldmaxunicode = sys.maxunicode
@@ -257,6 +261,20 @@ class AppTestPartialEvaluation:
         assert '\\253'.decode('string_escape') == chr(0253)
         assert '\\312'.decode('string_escape') == chr(0312)
 
+
     def test_decode_utf8_different_case(self):
         constant = u"a"
         assert constant.encode("utf-8") == constant.encode("UTF-8")
+
+    def test_codec_wrong_result(self):
+        import _codecs
+        def search_function(encoding):
+            def f(input, errors="strict"):
+                return 42
+            print encoding
+            if encoding == 'test.mytestenc':
+                return (f, f, None, None)
+            return None
+        _codecs.register(search_function)
+        raises(TypeError, "hello".decode, "test.mytestenc")
+        raises(TypeError, u"hello".encode, "test.mytestenc")

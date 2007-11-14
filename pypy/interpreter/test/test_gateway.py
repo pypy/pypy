@@ -287,6 +287,27 @@ class TestGateway:
         raises(gateway.OperationError,space.call_function,w_app_g3_f,w(None))
         raises(gateway.OperationError,space.call_function,w_app_g3_f,w("foo"))
 
+    def test_interp2app_unwrap_spec_unicode(self):
+        space = self.space
+        w = space.wrap
+        def g3_u(space, uni):
+            return space.wrap(len(uni))
+        app_g3_u = gateway.interp2app_temp(g3_u,
+                                         unwrap_spec=[gateway.ObjSpace,
+                                                      unicode])
+        w_app_g3_u = space.wrap(app_g3_u)
+        assert self.space.eq_w(
+            space.call_function(w_app_g3_u, w(u"foo")),
+            w(3))
+        assert self.space.eq_w(
+            space.call_function(w_app_g3_u, w("baz")),
+            w(3))
+        raises(gateway.OperationError, space.call_function, w_app_g3_u,
+               w(None))
+        raises(gateway.OperationError, space.call_function, w_app_g3_u,
+               w(42))
+
+
     def test_interp2app_unwrap_spec_func(self):
         space = self.space
         w = space.wrap

@@ -164,7 +164,7 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
         app_sig.varargname = argname[2:]
 
     def visit__object(self, typ, app_sig):
-        if typ not in (int, str, float, r_longlong):
+        if typ not in (int, str, float, unicode, r_longlong):
             assert False, "unsupported basic type in unwrap_spec"
         self.checked_space_method(typ.__name__, app_sig)
 
@@ -210,8 +210,8 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
         self.run_args.append(self.scopenext())
 
     def visit__object(self, typ):
-        if typ not in (int, str, float, r_longlong):
-            assert False, "unsupported basic type in uwnrap_spec"
+        if typ not in (int, str, float, unicode, r_longlong):
+            assert False, "unsupported basic type in unwrap_spec"
         if typ is r_int is r_longlong:
             name = 'r_longlong'
         else:
@@ -327,7 +327,7 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
         raise FastFuncNotSupported
 
     def visit__object(self, typ):
-        if typ not in (int, str, float, r_longlong):
+        if typ not in (int, str, float, unicode, r_longlong):
             assert False, "unsupported basic type in uwnrap_spec"
         self.unwrap.append("space.%s_w(%s)" % (typ.__name__,
                                                self.nextarg()))

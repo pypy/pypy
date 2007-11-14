@@ -26,6 +26,12 @@ class W_UnicodeObject(W_Object):
     def unwrap(w_self, space):
         # for testing
         return w_self._value
+
+    def create_if_subclassed(w_self):
+        if type(w_self) is W_UnicodeObject:
+            return w_self
+        return W_UnicodeObject(w_self._value)
+
 W_UnicodeObject.EMPTY = W_UnicodeObject(u'')
 
 registerimplementation(W_UnicodeObject)
@@ -59,7 +65,8 @@ def unicode_to_decimal_w(space, w_unistr):
 
 # string-to-unicode delegation
 def delegate_String2Unicode(space, w_str):
-    w_uni =  space.call_function(space.w_unicode, w_str)
+    from pypy.objspace.std.unicodetype import unicode_from_string
+    w_uni = unicode_from_string(space, w_str)
     assert isinstance(w_uni, W_UnicodeObject) # help the annotator!
     return w_uni
 
@@ -92,17 +99,20 @@ def add__Unicode_Unicode(space, w_left, w_right):
     return W_UnicodeObject(w_left._value + w_right._value)
 
 def add__String_Unicode(space, w_left, w_right):
-    return space.add(space.call_function(space.w_unicode, w_left) , w_right)
+    from pypy.objspace.std.unicodetype import unicode_from_string
+    return space.add(unicode_from_string(space, w_left) , w_right)
 
 add__Rope_Unicode = add__String_Unicode
 
 def add__Unicode_String(space, w_left, w_right):
-    return space.add(w_left, space.call_function(space.w_unicode, w_right))
+    from pypy.objspace.std.unicodetype import unicode_from_string
+    return space.add(w_left, unicode_from_string(space, w_right))
 
 add__Unicode_Rope = add__Unicode_String
 
 def contains__String_Unicode(space, w_container, w_item):
-    return space.contains(space.call_function(space.w_unicode, w_container), w_item )
+    from pypy.objspace.std.unicodetype import unicode_from_string
+    return space.contains(unicode_from_string(space, w_container), w_item )
 contains__Rope_Unicode = contains__String_Unicode
 
 
@@ -311,8 +321,9 @@ def unicode_strip__Unicode_None(space, w_self, w_chars):
 def unicode_strip__Unicode_Unicode(space, w_self, w_chars):
     return _strip(space, w_self, w_chars, 1, 1)
 def unicode_strip__Unicode_String(space, w_self, w_chars):
+    from pypy.objspace.std.unicodetype import unicode_from_string
     return space.call_method(w_self, 'strip',
-                             space.call_function(space.w_unicode, w_chars))
+                             unicode_from_string(space, w_chars))
 unicode_strip__Unicode_Rope = unicode_strip__Unicode_String
 
 def unicode_lstrip__Unicode_None(space, w_self, w_chars):
@@ -320,8 +331,9 @@ def unicode_lstrip__Unicode_None(space, w_self, w_chars):
 def unicode_lstrip__Unicode_Unicode(space, w_self, w_chars):
     return _strip(space, w_self, w_chars, 1, 0)
 def unicode_lstrip__Unicode_String(space, w_self, w_chars):
+    from pypy.objspace.std.unicodetype import unicode_from_string
     return space.call_method(w_self, 'lstrip',
-                             space.call_function(space.w_unicode, w_chars))
+                             unicode_from_string(space, w_chars))
 
 unicode_lstrip__Unicode_Rope = unicode_lstrip__Unicode_String
 
@@ -330,8 +342,9 @@ def unicode_rstrip__Unicode_None(space, w_self, w_chars):
 def unicode_rstrip__Unicode_Unicode(space, w_self, w_chars):
     return _strip(space, w_self, w_chars, 0, 1)
 def unicode_rstrip__Unicode_String(space, w_self, w_chars):
+    from pypy.objspace.std.unicodetype import unicode_from_string
     return space.call_method(w_self, 'rstrip',
-                             space.call_function(space.w_unicode, w_chars))
+                             unicode_from_string(space, w_chars))
 
 unicode_rstrip__Unicode_Rope = unicode_rstrip__Unicode_String
 
@@ -481,7 +494,7 @@ def unicode_center__Unicode_ANY_ANY(space, w_self, w_width, w_fillchar):
     fillchar = _to_unichar_w(space, w_fillchar)
     padding = width - len(self)
     if padding < 0:
-        return space.call_function(space.w_unicode, w_self)
+        return w_self.create_if_subclassed()
     leftpad = padding // 2 + (padding & width & 1)
     result = [fillchar] * width
     for i in range(len(self)):
@@ -494,7 +507,7 @@ def unicode_ljust__Unicode_ANY_ANY(space, w_self, w_width, w_fillchar):
     fillchar = _to_unichar_w(space, w_fillchar)
     padding = width - len(self)
     if padding < 0:
-        return space.call_function(space.w_unicode, w_self)
+        return w_self.create_if_subclassed()
     result = [fillchar] * width
     for i in range(len(self)):
         result[i] = self[i]
@@ -506,7 +519,7 @@ def unicode_rjust__Unicode_ANY_ANY(space, w_self, w_width, w_fillchar):
     fillchar = _to_unichar_w(space, w_fillchar)
     padding = width - len(self)
     if padding < 0:
-        return space.call_function(space.w_unicode, w_self)
+        return w_self.create_if_subclassed()
     result = [fillchar] * width
     for i in range(len(self)):
         result[padding + i] = self[i]
@@ -519,7 +532,7 @@ def unicode_zfill__Unicode_ANY(space, w_self, w_width):
         return W_UnicodeObject(u'0' * width)
     padding = width - len(self)
     if padding <= 0:
-        return space.call_function(space.w_unicode, w_self)
+        return w_self.create_if_subclassed()
     result = [u'0'] * width
     for i in range(len(self)):
         result[padding + i] = self[i]
@@ -735,28 +748,17 @@ def unicode_replace__Unicode_Unicode_Unicode_ANY(space, w_self, w_old,
     return W_UnicodeObject(w_new._value.join(parts))
     
 
-app = gateway.applevel(r'''
-import sys
+def unicode_encode__Unicode_ANY_ANY(space, w_unistr,
+                                    w_encoding=None,
+                                    w_errors=None):
 
-def unicode_encode__Unicode_ANY_ANY(unistr, encoding=None, errors=None):
-    import codecs, sys
+    from pypy.objspace.std.unicodetype import getdefaultencoding, \
+        _get_encoding_and_errors, encode_object
+    encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
     if encoding is None:
-        encoding = sys.getdefaultencoding()
-
-    encoder = codecs.getencoder(encoding)
-    if errors is None:
-        retval, lenght = encoder(unistr)
-    else:
-        retval, length = encoder(unistr, errors)
-    if not isinstance(retval,str):
-        raise TypeError("encoder did not return a string object (type=%s)" %
-                        type(retval).__name__)
-    return retval
-''')
-
-
-
-unicode_encode__Unicode_ANY_ANY = app.interphook('unicode_encode__Unicode_ANY_ANY')
+        encoding = getdefaultencoding(space)
+    w_retval = encode_object(space, w_unistr, encoding, errors)
+    return w_retval
 
 def unicode_partition__Unicode_Unicode(space, w_unistr, w_unisub):
     unistr = w_unistr._value
@@ -859,36 +861,23 @@ def repr__Unicode(space, w_unicode):
         quote = '"'
     else:
         quote = '\''
-    result = ['\0'] * (3 + size*6)
-    result[0] = 'u'
-    result[1] = quote
-    i = 2
+    result = ['u', quote]
     j = 0
     while j<len(chars):
         ch = chars[j]
-##        if ch == u"'":
-##            quote ='''"'''
-##            result[1] = quote
-##            result[i] = '\''
-##            #result[i + 1] = "'"
-##            i += 1
-##            continue
         code = ord(ch)
         if code >= 0x10000:
             # Resize if needed
-            if i + 12 > len(result):
-                result.extend(['\0'] * 100)
-            result[i] = '\\'
-            result[i + 1] = "U"
-            result[i + 2] = hexdigits[(code >> 28) & 0xf] 
-            result[i + 3] = hexdigits[(code >> 24) & 0xf] 
-            result[i + 4] = hexdigits[(code >> 20) & 0xf] 
-            result[i + 5] = hexdigits[(code >> 16) & 0xf] 
-            result[i + 6] = hexdigits[(code >> 12) & 0xf] 
-            result[i + 7] = hexdigits[(code >>  8) & 0xf] 
-            result[i + 8] = hexdigits[(code >>  4) & 0xf] 
-            result[i + 9] = hexdigits[(code >>  0) & 0xf]
-            i += 10
+            result.extend(['\\', "U",
+                           hexdigits[(code >> 28) & 0xf],
+                           hexdigits[(code >> 24) & 0xf],
+                           hexdigits[(code >> 20) & 0xf],
+                           hexdigits[(code >> 16) & 0xf],
+                           hexdigits[(code >> 12) & 0xf],
+                           hexdigits[(code >>  8) & 0xf],
+                           hexdigits[(code >>  4) & 0xf],
+                           hexdigits[(code >>  0) & 0xf],
+                           ])
             j += 1
             continue
         if code >= 0xD800 and code < 0xDC00:
@@ -897,70 +886,59 @@ def repr__Unicode(space, w_unicode):
                 code2 = ord(ch2)
                 if code2 >= 0xDC00 and code2 <= 0xDFFF:
                     code = (((code & 0x03FF) << 10) | (code2 & 0x03FF)) + 0x00010000
-                    if i + 12 > len(result):
-                        result.extend(['\0'] * 100)
-                    result[i] = '\\'
-                    result[i + 1] = "U"
-                    result[i + 2] = hexdigits[(code >> 28) & 0xf] 
-                    result[i + 3] = hexdigits[(code >> 24) & 0xf] 
-                    result[i + 4] = hexdigits[(code >> 20) & 0xf] 
-                    result[i + 5] = hexdigits[(code >> 16) & 0xf] 
-                    result[i + 6] = hexdigits[(code >> 12) & 0xf] 
-                    result[i + 7] = hexdigits[(code >>  8) & 0xf] 
-                    result[i + 8] = hexdigits[(code >>  4) & 0xf] 
-                    result[i + 9] = hexdigits[(code >>  0) & 0xf]
-                    i += 10
+                    result.extend(["U",
+                                   hexdigits[(code >> 28) & 0xf],
+                                   hexdigits[(code >> 24) & 0xf],
+                                   hexdigits[(code >> 20) & 0xf],
+                                   hexdigits[(code >> 16) & 0xf],
+                                   hexdigits[(code >> 12) & 0xf],
+                                   hexdigits[(code >>  8) & 0xf],
+                                   hexdigits[(code >>  4) & 0xf],
+                                   hexdigits[(code >>  0) & 0xf],
+                                  ])
                     j += 2
                     continue
                 
         if code >= 0x100:
-            result[i] = '\\'
-            result[i + 1] = "u"
-            result[i + 2] = hexdigits[(code >> 12) & 0xf] 
-            result[i + 3] = hexdigits[(code >>  8) & 0xf] 
-            result[i + 4] = hexdigits[(code >>  4) & 0xf] 
-            result[i + 5] = hexdigits[(code >>  0) & 0xf] 
-            i += 6
+            result.extend(['\\', "u",
+                           hexdigits[(code >> 12) & 0xf],
+                           hexdigits[(code >>  8) & 0xf],
+                           hexdigits[(code >>  4) & 0xf],
+                           hexdigits[(code >>  0) & 0xf],
+                          ])
             j += 1
             continue
         if code == ord('\\') or code == ord(quote):
-            result[i] = '\\'
-            result[i + 1] = chr(code)
-            i += 2
+            result.append('\\')
+            result.append(chr(code))
             j += 1
             continue
         if code == ord('\t'):
-            result[i] = '\\'
-            result[i + 1] = "t"
-            i += 2
+            result.append('\\')
+            result.append('t')
             j += 1
             continue
         if code == ord('\r'):
-            result[i] = '\\'
-            result[i + 1] = "r"
-            i += 2
+            result.append('\\')
+            result.append('r')
             j += 1
             continue
         if code == ord('\n'):
-            result[i] = '\\'
-            result[i + 1] = "n"
-            i += 2
+            result.append('\\')
+            result.append('n')
             j += 1
             continue
         if code < ord(' ') or code >= 0x7f:
-            result[i] = '\\'
-            result[i + 1] = "x"
-            result[i + 2] = hexdigits[(code >> 4) & 0xf] 
-            result[i + 3] = hexdigits[(code >> 0) & 0xf] 
-            i += 4
+            result.extend(['\\', "x",
+                           hexdigits[(code >> 4) & 0xf], 
+                           hexdigits[(code >> 0) & 0xf],
+                          ])
             j += 1
             continue
-        result[i] = chr(code)
-        i += 1
+        result.append(chr(code))
         j += 1
-    result[i] = quote
-    i += 1
-    return space.wrap(''.join(result[:i]))
+    result.append(quote)
+    return space.wrap(''.join(result))
         
 
 def mod__Unicode_ANY(space, w_format, w_values):
@@ -983,47 +961,58 @@ class str_methods:
     from pypy.objspace.std.stringobject import W_StringObject
     from pypy.objspace.std.ropeobject import W_RopeObject
     def str_strip__String_Unicode(space, w_self, w_chars):
-        return space.call_method(space.call_function(space.w_unicode, w_self),
+        from pypy.objspace.std.unicodetype import unicode_from_string
+        return space.call_method(unicode_from_string(space, w_self),
                                  'strip', w_chars)
     str_strip__Rope_Unicode = str_strip__String_Unicode
     def str_lstrip__String_Unicode(space, w_self, w_chars):
-        return space.call_method(space.call_function(space.w_unicode, w_self),
+        from pypy.objspace.std.unicodetype import unicode_from_string
+        return space.call_method(unicode_from_string(space, w_self),
                                  'lstrip', w_chars)
     str_lstrip__Rope_Unicode = str_lstrip__String_Unicode
     def str_rstrip__String_Unicode(space, w_self, w_chars):
-        return space.call_method(space.call_function(space.w_unicode, w_self),
+        from pypy.objspace.std.unicodetype import unicode_from_string
+        return space.call_method(unicode_from_string(space, w_self),
                                  'rstrip', w_chars)
     str_rstrip__Rope_Unicode = str_rstrip__String_Unicode
     def str_count__String_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
-        return space.call_method(space.call_function(space.w_unicode, w_self),
+        from pypy.objspace.std.unicodetype import unicode_from_string
+        return space.call_method(unicode_from_string(space, w_self),
                                  'count', w_substr, w_start, w_end)
     str_count__Rope_Unicode_ANY_ANY = str_count__String_Unicode_ANY_ANY
     def str_find__String_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
-        return space.call_method(space.call_function(space.w_unicode, w_self),
+        from pypy.objspace.std.unicodetype import unicode_from_string
+        return space.call_method(unicode_from_string(space, w_self),
                                  'find', w_substr, w_start, w_end)
     str_find__Rope_Unicode_ANY_ANY = str_find__String_Unicode_ANY_ANY
     def str_rfind__String_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
-        return space.call_method(space.call_function(space.w_unicode, w_self),
+        from pypy.objspace.std.unicodetype import unicode_from_string
+        return space.call_method(unicode_from_string(space, w_self),
                                  'rfind', w_substr, w_start, w_end)
     str_rfind__Rope_Unicode_ANY_ANY = str_rfind__String_Unicode_ANY_ANY
     def str_index__String_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
-        return space.call_method(space.call_function(space.w_unicode, w_self),
+        from pypy.objspace.std.unicodetype import unicode_from_string
+        return space.call_method(unicode_from_string(space, w_self),
                                  'index', w_substr, w_start, w_end)
     str_index__Rope_Unicode_ANY_ANY = str_index__String_Unicode_ANY_ANY
     def str_rindex__String_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
-        return space.call_method(space.call_function(space.w_unicode, w_self),
+        from pypy.objspace.std.unicodetype import unicode_from_string
+        return space.call_method(unicode_from_string(space, w_self),
                                  'rindex', w_substr, w_start, w_end)
     str_rindex__Rope_Unicode_ANY_ANY = str_rindex__String_Unicode_ANY_ANY
     def str_replace__String_Unicode_Unicode_ANY(space, w_self, w_old, w_new, w_maxsplit):
-        return space.call_method(space.call_function(space.w_unicode, w_self),
+        from pypy.objspace.std.unicodetype import unicode_from_string
+        return space.call_method(unicode_from_string(space, w_self),
                                  'replace', w_old, w_new, w_maxsplit)
     str_replace__Rope_Unicode_Unicode_ANY = str_replace__String_Unicode_Unicode_ANY
     def str_split__String_Unicode_ANY(space, w_self, w_delim, w_maxsplit):
-        return space.call_method(space.call_function(space.w_unicode, w_self),
+        from pypy.objspace.std.unicodetype import unicode_from_string
+        return space.call_method(unicode_from_string(space, w_self),
                                  'split', w_delim, w_maxsplit)
     str_split__Rope_Unicode_ANY = str_split__String_Unicode_ANY
     def str_rsplit__String_Unicode_ANY(space, w_self, w_delim, w_maxsplit):
-        return space.call_method(space.call_function(space.w_unicode, w_self),
+        from pypy.objspace.std.unicodetype import unicode_from_string
+        return space.call_method(unicode_from_string(space, w_self),
                                  'rsplit', w_delim, w_maxsplit)
     str_rsplit__Rope_Unicode_ANY = str_rsplit__String_Unicode_ANY
     register_all(vars(), stringtype)

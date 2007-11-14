@@ -1030,44 +1030,49 @@ def repr__Rope(space, w_str):
 
     return W_RopeObject(rope.rope_from_charlist(buf[:i+1]))
 
-   
-app = gateway.applevel(r'''
-    def str_translate__Rope_ANY_ANY(s, table, deletechars=''):
-        """charfilter - unicode handling is not implemented
-        
-        Return a copy of the string where all characters occurring 
-        in the optional argument deletechars are removed, and the 
-        remaining characters have been mapped through the given translation table, 
-        which must be a string of length 256"""
+def str_translate__Rope_ANY_ANY(space, w_string, w_table, w_deletechars=''):
+    """charfilter - unicode handling is not implemented
+    
+    Return a copy of the string where all characters occurring 
+    in the optional argument deletechars are removed, and the 
+    remaining characters have been mapped through the given translation table, 
+    which must be a string of length 256"""
 
-        if len(table) != 256:
-            raise ValueError("translation table must be 256 characters long")
+    # XXX CPython accepts buffers, too, not sure what we should do
+    table = space.str_w(w_table)
+    if len(table) != 256:
+        raise OperationError(
+            space.w_ValueError,
+            space.wrap("translation table must be 256 characters long"))
 
-        L =  [ table[ord(s[i])] for i in range(len(s)) if s[i] not in deletechars ]
-        return ''.join(L)
+    node = w_string._node
+    chars = []
+    iter = rope.CharIterator(node)
+    while 1:
+        try:
+            c = iter.next()
+            i += 1
+            w_char = W_RopeObject.PREBUILT[ord(char)]
+            if not space.is_true(space.contains(w_deletechars, w_char)):
+                 chars.append(table[ord(char)])
+        except StopIteration:
+            break
+    return W_RopeObject(rope.rope_from_charlist(chars))
 
-    def str_decode__Rope_ANY_ANY(str, encoding=None, errors=None):
-        import codecs
-        if encoding is None and errors is None:
-            return unicode(str)
-        elif errors is None:
-            return codecs.getdecoder(encoding)(str)[0]
-        else:
-            return codecs.getdecoder(encoding)(str, errors)[0]
+def str_decode__Rope_ANY_ANY(space, w_string, w_encoding=None, w_errors=None):
+    from pypy.objspace.std.unicodetype import _get_encoding_and_errors, \
+        unicode_from_string, decode_object
+    encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
+    if encoding is None and errors is None:
+        return unicode_from_string(space, w_string)
+    return decode_object(space, w_string, encoding, errors)
 
-    def str_encode__Rope_ANY_ANY(str, encoding=None, errors=None):
-        import codecs
-        if encoding is None and errors is None:
-            return unicode(str)
-        elif errors is None:
-            return codecs.getencoder(encoding)(str)[0]
-        else:
-            return codecs.getencoder(encoding)(str, errors)[0]
-''', filename=__file__) 
+def str_encode__Rope_ANY_ANY(space, w_string, w_encoding=None, w_errors=None):
+    from pypy.objspace.std.unicodetype import _get_encoding_and_errors, \
+        encode_object
+    encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
+    return encode_object(space, w_string, encoding, errors)
 
-str_translate__Rope_ANY_ANY = app.interphook('str_translate__Rope_ANY_ANY') 
-str_decode__Rope_ANY_ANY = app.interphook('str_decode__Rope_ANY_ANY') 
-str_encode__Rope_ANY_ANY = app.interphook('str_encode__Rope_ANY_ANY') 
 
 # methods of the iterator
 

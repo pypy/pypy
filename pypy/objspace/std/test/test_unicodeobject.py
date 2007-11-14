@@ -1,3 +1,4 @@
+import py
 import sys
 
 
@@ -377,3 +378,88 @@ class AppTestUnicodeString:
     def test_missing_cases(self):
         # some random cases, which are discovered to not be tested during annotation
         assert u'xxx'[1:1] == u''
+
+    # these tests test lots of encodings, so they really belong to the _codecs
+    # module. however, they test useful unicode methods too
+    # they are stolen from CPython's unit tests
+
+    def test_codecs_utf7(self):
+        utfTests = [
+            (u'A\u2262\u0391.', 'A+ImIDkQ.'),             # RFC2152 example
+            (u'Hi Mom -\u263a-!', 'Hi Mom -+Jjo--!'),     # RFC2152 example
+            (u'\u65E5\u672C\u8A9E', '+ZeVnLIqe-'),        # RFC2152 example
+            (u'Item 3 is \u00a31.', 'Item 3 is +AKM-1.'), # RFC2152 example
+            (u'+', '+-'),
+            (u'+-', '+--'),
+            (u'+?', '+-?'),
+            (u'\?', '+AFw?'),
+            (u'+?', '+-?'),
+            (ur'\\?', '+AFwAXA?'),
+            (ur'\\\?', '+AFwAXABc?'),
+            (ur'++--', '+-+---')
+        ]
+
+        for (x, y) in utfTests:
+            assert x.encode('utf-7') == y
+
+        # surrogates not supported
+        raises(UnicodeError, unicode, '+3ADYAA-', 'utf-7')
+
+        assert unicode('+3ADYAA-', 'utf-7', 'replace') == u'\ufffd'
+
+    def test_codecs_utf8(self):
+        assert u''.encode('utf-8') == ''
+        assert u'\u20ac'.encode('utf-8') == '\xe2\x82\xac'
+        assert u'\ud800\udc02'.encode('utf-8') == '\xf0\x90\x80\x82'
+        assert u'\ud84d\udc56'.encode('utf-8') == '\xf0\xa3\x91\x96'
+        assert u'\ud800'.encode('utf-8') == '\xed\xa0\x80'
+        assert u'\udc00'.encode('utf-8') == '\xed\xb0\x80'
+        assert (u'\ud800\udc02'*1000).encode('utf-8') == '\xf0\x90\x80\x82'*1000
+        assert (
+            u'\u6b63\u78ba\u306b\u8a00\u3046\u3068\u7ffb\u8a33\u306f'
+            u'\u3055\u308c\u3066\u3044\u307e\u305b\u3093\u3002\u4e00'
+            u'\u90e8\u306f\u30c9\u30a4\u30c4\u8a9e\u3067\u3059\u304c'
+            u'\u3001\u3042\u3068\u306f\u3067\u305f\u3089\u3081\u3067'
+            u'\u3059\u3002\u5b9f\u969b\u306b\u306f\u300cWenn ist das'
+            u' Nunstuck git und'.encode('utf-8') == 
+            '\xe6\xad\xa3\xe7\xa2\xba\xe3\x81\xab\xe8\xa8\x80\xe3\x81'
+            '\x86\xe3\x81\xa8\xe7\xbf\xbb\xe8\xa8\xb3\xe3\x81\xaf\xe3'
+            '\x81\x95\xe3\x82\x8c\xe3\x81\xa6\xe3\x81\x84\xe3\x81\xbe'
+            '\xe3\x81\x9b\xe3\x82\x93\xe3\x80\x82\xe4\xb8\x80\xe9\x83'
+            '\xa8\xe3\x81\xaf\xe3\x83\x89\xe3\x82\xa4\xe3\x83\x84\xe8'
+            '\xaa\x9e\xe3\x81\xa7\xe3\x81\x99\xe3\x81\x8c\xe3\x80\x81'
+            '\xe3\x81\x82\xe3\x81\xa8\xe3\x81\xaf\xe3\x81\xa7\xe3\x81'
+            '\x9f\xe3\x82\x89\xe3\x82\x81\xe3\x81\xa7\xe3\x81\x99\xe3'
+            '\x80\x82\xe5\xae\x9f\xe9\x9a\x9b\xe3\x81\xab\xe3\x81\xaf'
+            '\xe3\x80\x8cWenn ist das Nunstuck git und'
+        )
+
+        # UTF-8 specific decoding tests
+        assert unicode('\xf0\xa3\x91\x96', 'utf-8') == u'\U00023456' 
+        assert unicode('\xf0\x90\x80\x82', 'utf-8') == u'\U00010002' 
+        assert unicode('\xe2\x82\xac', 'utf-8') == u'\u20ac' 
+
+    def test_codecs_errors(self):
+        # Error handling (encoding)
+        raises(UnicodeError, u'Andr\202 x'.encode, 'ascii')
+        raises(UnicodeError, u'Andr\202 x'.encode, 'ascii','strict')
+        assert u'Andr\202 x'.encode('ascii','ignore') == "Andr x"
+        assert u'Andr\202 x'.encode('ascii','replace') == "Andr? x"
+
+        # Error handling (decoding)
+        raises(UnicodeError, unicode, 'Andr\202 x', 'ascii')
+        raises(UnicodeError, unicode, 'Andr\202 x', 'ascii','strict')
+        assert unicode('Andr\202 x','ascii','ignore') == u"Andr x"
+        assert unicode('Andr\202 x','ascii','replace') == u'Andr\uFFFD x'
+
+        # Error handling (unknown character names)
+        assert "\\N{foo}xx".decode("unicode-escape", "ignore") == u"xx"
+
+        # Error handling (truncated escape sequence)
+        raises(UnicodeError, "\\".decode, "unicode-escape")
+
+    def test_repr_bug(self):
+        assert (repr(u'\U00090418\u027d\U000582b9\u54c3\U000fcb6e') == 
+                "u'\\U00090418\\u027d\\U000582b9\\u54c3\\U000fcb6e'")
+        assert (repr(u'\n') == 
+                "u'\\n'")
