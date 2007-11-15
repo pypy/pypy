@@ -99,6 +99,9 @@ class ExecutionContext:
 
     def bytecode_trace(self, frame):
         "Trace function called before each bytecode."
+        # XXX there should be some flag here which checks whether
+        #     this should be really invoked. We spend roughly 0.5% time
+        #     here when not doing anything
         # First, call yield_thread() before each Nth bytecode,
         #     as selected by sys.setcheckinterval()
         ticker = self.ticker
