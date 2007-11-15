@@ -39,7 +39,8 @@ class RegisterStrtod(BaseLazyRegistering):
             return ootype.oostring(rarithmetic.formatd(fmt._str, x), -1)
 
         return extdef([str, float], str, 'll_strtod.ll_strtod_formatd',
-                      llimpl=llimpl, oofakeimpl=oofakeimpl)
+                      llimpl=llimpl, oofakeimpl=oofakeimpl,
+                      sandboxsafe=True)
 
     @registering(rarithmetic.parts_to_float)
     def register_parts_to_float(self):
@@ -60,4 +61,4 @@ class RegisterStrtod(BaseLazyRegistering):
 
         return extdef([str, str, str, str], float,
                       'll_strtod.ll_strtod_parts_to_float', llimpl=llimpl,
-                      oofakeimpl=oofakeimpl)
+                      oofakeimpl=oofakeimpl, sandboxsafe=True)
