@@ -10,7 +10,6 @@ from pypy.translator.llvm.buildllvm import llvm_gcc_version
 
 from pypy.tool.udir import udir
 from pypy.rpython.module import ll_stack
-from pypy.rpython.lltypesystem.module import ll_strtod
 
 ll_stack_too_big = """
 
