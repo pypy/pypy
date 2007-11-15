@@ -4,16 +4,23 @@ import sys
 
 DEFAULT_MODE = None # XXX, mode support in _ffi
 
+class ArgumentError(Exception):
+    pass
+
 class _CFuncPtr(object):
     def __init__(self, (name, lib)):
         self.name = name
         self.lib = lib
-    
+        self._update_handle()
+
     def __call__(self, *args):
-        if not hasattr(self, '_handle'):
-            self._update_handle()
-        # XXX eventually cast types here
-        return self._handle(*args)
+        # XXX right now always update handle in order to keep changing
+        #     argtypes and restype
+        self._update_handle()
+        try:
+            return self._handle(*args)
+        except TypeError, e:
+            raise ArgumentError("Wrong argument", e.__class__)
 
     def _update_handle(self):
         llargs = [i._lltype for i in self.argtypes]
@@ -21,8 +28,63 @@ class _CFuncPtr(object):
         self._handle = self.lib._handle.ptr(self.name, llargs,
                                            self.restype._lltype)
 
-class c_int(object):
+class _SimpleCData(object):
+    def __init__(self, value):
+        self.value = value
+
+class c_ushort(_SimpleCData):
+    _lltype = 'H'
+
+class c_double(_SimpleCData):
+    _lltype = 'd'
+
+class c_ubyte(_SimpleCData):
+    _lltype = 'B'
+
+class c_float(_SimpleCData):
+    _lltype = 'f'
+
+class c_ulong(_SimpleCData):
+    _lltype = 'L'
+
+class c_short(_SimpleCData):
+    _lltype = 'h'
+
+class c_ubyte(_SimpleCData):
+    _lltype = 'b'
+
+class c_byte(_SimpleCData):
+    _lltype = 'B'
+
+class c_char(_SimpleCData):
+    _lltype = 'c'
+
+class c_long(_SimpleCData):
+    _lltype = 'l'
+
+class c_ulonglong(_SimpleCData):
+    _lltype = 'Q'
+
+class c_longlong(_SimpleCData):
+    _lltype = 'q'
+
+class c_int(_SimpleCData):
     _lltype = 'i'
+
+class c_uint(_SimpleCData):
+    _lltype = 'I'
+
+class c_double(_SimpleCData):
+    _lltype = 'd'
+
+class c_float(_SimpleCData):
+    _lltype = 'f'
+
+c_size_t = c_ulong # XXX
+
+class POINTER(object):
+    def __init__(self, cls):
+        self.cls = cls
 
 class CDLL(object):
     """An instance of this class represents a loaded dll/shared
@@ -66,3 +128,24 @@ class CDLL(object):
         if not isinstance(name_or_ordinal, (int, long)):
             func.__name__ = name_or_ordinal
         return func
+
+
+class LibraryLoader(object):
+    def __init__(self, dlltype):
+        self._dlltype = dlltype
+
+    def __getattr__(self, name):
+        if name[0] == '_':
+            raise AttributeError(name)
+        dll = self._dlltype(name)
+        setattr(self, name, dll)
+        return dll
+
+    def __getitem__(self, name):
+        return getattr(self, name)
+
+    def LoadLibrary(self, name):
+        return self._dlltype(name)
+
+cdll = LibraryLoader(CDLL)
+
