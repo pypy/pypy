@@ -821,11 +821,7 @@ def select_function_code_generators(fnobj, db, functionname):
         # 'fnobj' is one of the ll_xyz() functions with the suggested_primitive
         # flag in pypy.rpython.module.*.  The corresponding C wrappers are
         # written by hand in src/ll_*.h, and declared in extfunc.EXTERNALS.
-        if sandbox and not (
-                   fnobj._name.startswith('ll_strtod_')   # XXX!! TEMPORARY!
-                or fnobj._name.startswith('ll_time_')   # XXX!! TEMPORARY!
-                or fnobj._name.startswith('ll_stack_')   # XXX!! TEMPORARY!
-                ):
+        if sandbox and not fnobj._name.startswith('ll_stack_'):
             return sandbox_stub(fnobj, db)
         db.externalfuncs[fnobj._callable] = fnobj
         return []
