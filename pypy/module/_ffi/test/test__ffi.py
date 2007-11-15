@@ -9,7 +9,7 @@ def setup_module(mod):
     if sys.platform != 'linux2':
         py.test.skip("Linux only tests by now")
 
-class AppTestCTypes:
+class AppTestFfi:
     def prepare_c_example():
         from pypy.tool.udir import udir
         c_file = udir.join("xlib.c")
