@@ -23,68 +23,74 @@ class _CFuncPtr(object):
             raise ArgumentError("Wrong argument", e.__class__)
 
     def _update_handle(self):
-        llargs = [i._lltype for i in self.argtypes]
+        llargs = [i._type_ for i in self.argtypes]
         # XXX first approximation
         self._handle = self.lib._handle.ptr(self.name, llargs,
-                                           self.restype._lltype)
+                                           self.restype._type_)
 
 class _SimpleCData(object):
     def __init__(self, value):
         self.value = value
 
 class c_ushort(_SimpleCData):
-    _lltype = 'H'
+    _type_ = 'H'
 
 class c_double(_SimpleCData):
-    _lltype = 'd'
+    _type_ = 'd'
 
 class c_ubyte(_SimpleCData):
-    _lltype = 'B'
+    _type_ = 'B'
 
 class c_float(_SimpleCData):
-    _lltype = 'f'
+    _type_ = 'f'
 
 class c_ulong(_SimpleCData):
-    _lltype = 'L'
+    _type_ = 'L'
 
 class c_short(_SimpleCData):
-    _lltype = 'h'
+    _type_ = 'h'
 
 class c_ubyte(_SimpleCData):
-    _lltype = 'b'
+    _type_ = 'b'
 
 class c_byte(_SimpleCData):
-    _lltype = 'B'
+    _type_ = 'B'
 
 class c_char(_SimpleCData):
-    _lltype = 'c'
+    _type_ = 'c'
 
 class c_long(_SimpleCData):
-    _lltype = 'l'
+    _type_ = 'l'
 
 class c_ulonglong(_SimpleCData):
-    _lltype = 'Q'
+    _type_ = 'Q'
 
 class c_longlong(_SimpleCData):
-    _lltype = 'q'
+    _type_ = 'q'
 
 class c_int(_SimpleCData):
-    _lltype = 'i'
+    _type_ = 'i'
 
 class c_uint(_SimpleCData):
-    _lltype = 'I'
+    _type_ = 'I'
 
 class c_double(_SimpleCData):
-    _lltype = 'd'
+    _type_ = 'd'
 
 class c_float(_SimpleCData):
-    _lltype = 'f'
+    _type_ = 'f'
 
 c_size_t = c_ulong # XXX
 
 class POINTER(object):
     def __init__(self, cls):
         self.cls = cls
+
+class c_void_p(_SimpleCData):
+    _type_ = 'P'
+
+class c_char_p(_SimpleCData):
+    _type_ = 's'
 
 class CDLL(object):
     """An instance of this class represents a loaded dll/shared

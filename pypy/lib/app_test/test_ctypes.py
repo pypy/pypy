@@ -53,13 +53,51 @@ class AppTestCtypes(BaseTestFfi):
         assert pow(2, 2) == 4.0
         raises(ctypes.ArgumentError, "pow('x', 2.0)")
 
+    def test_getchar(self):
+        import ctypes
+        lib = ctypes.CDLL(self.lib_name)
+        get_char = lib.get_char
+        get_char.argtypes = [ctypes.c_char_p, ctypes.c_ushort]
+        get_char.restype = ctypes.c_char
+        assert get_char('dupa', 2) == 'p'
+        assert get_char('dupa', 1) == 'u'
+        raises(ValueError, "get_char('xxx', 2 ** 17)")
+        raises(ValueError, "get_char('xxx', -1)")
+
+    def test_returning_str(self):
+        import ctypes
+        lib = ctypes.CDLL(self.lib_name)
+        char_check = lib.char_check
+        char_check.argtypes = [ctypes.c_char, ctypes.c_char]
+        char_check.restype = ctypes.c_char_p
+        assert char_check('y', 'x') == 'xxxxxx'
+        assert char_check('x', 'y') is None
+
+    def test_strlen(self):
+        import ctypes
+        libc = ctypes.CDLL('libc.so.6')
+        strlen = libc.strlen
+        strlen.argtypes = [ctypes.c_char_p]
+        strlen.restype = ctypes.c_int
+        assert strlen("dupa") == 4
+        assert strlen("zupa") == 4
+        assert strlen("ddd\x00") == 3
+        strdup = libc.strdup
+        strdup.argtypes = [ctypes.c_char_p]
+        strdup.restype = ctypes.c_char_p
+        assert strdup("xxx") == "xxx"
+
     def not_implemented(self):
         skip("not implemented")
 
-    test_getchar = not_implemented
-    test_returning_str = not_implemented
-    test_strlen = not_implemented
-    test_time = not_implemented
+    def test_time(self):
+        import ctypes
+        libc = ctypes.CDLL('libc.so.6')
+        time = libc.time
+        time.argtypes = [ctypes.c_void_p]
+        time.restype = ctypes.c_long
+        assert time(None) != 0
+
     test_gettimeofday = not_implemented
     test_structreturn = not_implemented
     test_nested_structures = not_implemented
