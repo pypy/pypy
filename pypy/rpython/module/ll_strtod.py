@@ -5,6 +5,7 @@ from pypy.rlib import rarithmetic
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.translator.tool.cbuild import cache_c_module
 from pypy.tool.autopath import pypydir
+from pypy.rpython.ootypesystem import ootype
 
 class CConfig:
     _includes_ = ['src/ll_strtod.h']
@@ -34,8 +35,11 @@ class RegisterStrtod(BaseLazyRegistering):
             res = ll_strtod(fmt, x)
             return rffi.charp2str(res)
 
+        def oofakeimpl(fmt, x):
+            return ootype.oostring(rarithmetic.formatd(fmt._str, x), -1)
+
         return extdef([str, float], str, 'll_strtod.ll_strtod_formatd',
-                      llimpl=llimpl)
+                      llimpl=llimpl, oofakeimpl=oofakeimpl)
 
     @registering(rarithmetic.parts_to_float)
     def register_parts_to_float(self):
@@ -50,5 +54,10 @@ class RegisterStrtod(BaseLazyRegistering):
                 raise ValueError("Wrong literal for float")
             return res
 
+        def oofakeimpl(sign, beforept, afterpt, exponent):
+            return rarithmetic.parts_to_float(sign._str, beforept._str,
+                                              afterpt._str, exponent._str)
+
         return extdef([str, str, str, str], float,
-                      'll_strtod.ll_strtod_parts_to_float', llimpl=llimpl)
+                      'll_strtod.ll_strtod_parts_to_float', llimpl=llimpl,
+                      oofakeimpl=oofakeimpl)
