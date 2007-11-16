@@ -142,6 +142,19 @@ if sys.platform.startswith('win'):
 else:
     _name_struct_stat = 'stat'
     INCLUDES = ['sys/types.h', 'sys/stat.h', 'unistd.h']
+
+# XXX need someone to look this over...
+hack_to_run_cconfig = False
+if hack_to_run_cconfig: 
+    from pypy.rpython.module.ll_os import CConfig 
+    from pypy.rpython.tool import rffi_platform as platform
+    class CConfig:
+        _includes_ = INCLUDES
+        LL_STRUCT = platform.Struct('struct stat', LL_STAT_FIELDS)
+    config = platform.configure(CConfig)
+    LL_STRUCT = config['LL_STRUCT']
+    LL_STAT_FIELDS = [(xname[2:], LL_STRUCT._flds[xname]) for xname in LL_STRUCT._names_without_voids()]
+
 STRUCT_STAT = rffi.CStructPtr(_name_struct_stat, *LL_STAT_FIELDS)
 
 
