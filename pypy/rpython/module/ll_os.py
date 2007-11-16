@@ -80,6 +80,18 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([], int, llimpl=c_func_llimpl,
                       export_name='ll_os.ll_os_' + name)
 
+    def extdef_for_function_int_to_int(self, name, **kwds):
+        c_func = self.llexternal(name, [rffi.INT], rffi.INT, **kwds)
+        def c_func_llimpl(arg):
+            res = rffi.cast(rffi.LONG, c_func(arg))
+            if res == -1:
+                raise OSError(rffi.get_errno(), "%s failed" % name)
+        
+        c_func_llimpl.func_name = name + '_llimpl'
+
+        return extdef([int], None, llimpl=c_func_llimpl,
+                      export_name='ll_os.ll_os_' + name)
+
     @registering_if(os, 'execv')
     def register_os_execv(self):
         os_execv = self.llexternal('execv', [rffi.CCHARP, rffi.CCHARPP],
@@ -343,6 +355,14 @@ class RegisterOs(BaseLazyRegistering):
     @registering_if(os, 'geteuid')
     def register_os_geteuid(self):
         return self.extdef_for_os_function_returning_int('geteuid')
+
+    @registering_if(os, 'setuid')
+    def register_os_setuid(self):
+        return self.extdef_for_function_int_to_int('setuid')
+
+    @registering_if(os, 'setgid')
+    def register_os_setgid(self):
+        return self.extdef_for_function_int_to_int('setgid')
 
     @registering_if(os, 'getpid')
     def register_os_getpid(self):

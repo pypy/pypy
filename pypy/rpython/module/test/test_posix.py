@@ -134,6 +134,13 @@ class BaseTestPosix(BaseRtypingTest):
                 res = self.interpret(fun, [value])
                 assert res == fun(value)
 
+    if hasattr(os, 'setuid'):
+        def test_os_setuid(self):
+            def f():
+                os.setuid(os.getuid())
+                return os.getuid()
+            assert self.interpret(f, []) == f()
+
 class TestLLtype(BaseTestPosix, LLRtypeMixin):
     pass
 
