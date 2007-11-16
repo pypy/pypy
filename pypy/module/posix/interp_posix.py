@@ -552,6 +552,24 @@ def getuid(space):
     return space.wrap(os.getuid())
 getuid.unwrap_spec = [ObjSpace]
 
+def setuid(space, arg):
+    """ setuid(uid)
+
+    Set the current process's user id.
+    """
+    os.setuid(arg)
+    return space.w_None
+setuid.unwrap_spec = [ObjSpace, int]
+
+def setgid(space, arg):
+    """ setgid(gid)
+
+    Set the current process's group id.
+    """
+    os.setgid(arg)
+    return space.w_None
+setgid.unwrap_spec = [ObjSpace, int]
+
 def getgid(space):
     """ getgid() -> gid
     
