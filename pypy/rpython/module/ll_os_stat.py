@@ -143,20 +143,18 @@ else:
     _name_struct_stat = 'stat'
     INCLUDES = ['sys/types.h', 'sys/stat.h', 'unistd.h']
 
-# XXX need someone to look this over...
-hack_to_run_cconfig = False
-if hack_to_run_cconfig: 
-    from pypy.rpython.module.ll_os import CConfig 
-    from pypy.rpython.tool import rffi_platform as platform
-    class CConfig:
-        _includes_ = INCLUDES
-        LL_STRUCT = platform.Struct('struct stat', LL_STAT_FIELDS)
-    config = platform.configure(CConfig)
-    LL_STRUCT = config['LL_STRUCT']
-    LL_STAT_FIELDS = [(xname[2:], LL_STRUCT._flds[xname]) for xname in LL_STRUCT._names_without_voids()]
+# XXX need someone to look this over please...
 
-STRUCT_STAT = rffi.CStructPtr(_name_struct_stat, *LL_STAT_FIELDS)
+from pypy.rpython.module.ll_os import CConfig 
+from pypy.rpython.tool import rffi_platform as platform
+class CConfig:
+    _includes_ = INCLUDES
+    STAT_STRUCT = platform.Struct('struct %s' % _name_struct_stat, LL_STAT_FIELDS)
+config = platform.configure(CConfig)
+STAT_STRUCT = config['STAT_STRUCT']
+_LL_STAT_FIELDS = [(n[2:], STAT_STRUCT._flds[n]) for n in STAT_STRUCT._names]
 
+STRUCT_STAT = rffi.CStructPtr(_name_struct_stat, *_LL_STAT_FIELDS)
 
 def build_stat_result(st):
     # only for LL backends
