@@ -141,6 +141,10 @@ def compile(backend):
             basename_dir = basename + '-data'
             realname_dir = realname + '-data'
             run("mv %s %s" % (basename_dir, realname_dir))
+        elif backend == 'jvm':
+            basename_jar = basename + '.jar'
+            realname_jar = realname + '.jar'
+            run("mv %s %s" % (basename_jar, realname_jar))
         #pypy = open(basename, 'rb').read()
         #if len(pypy) > 0:
         #    open(realname, 'wb').write(pypy)
