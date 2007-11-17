@@ -13,10 +13,10 @@ MINIMUM_LLVM_VERSION = 2.1
 FLOAT_PRECISION = 8
 
 # prevents resource leaking
-use_isolate = True
+use_isolate = False
 
 # if test can't be run using isolate, skip the test (useful for buildbots)
-run_isolated_only = True
+run_isolated_only = False
 
 from pypy import conftest
 
@@ -40,7 +40,32 @@ def _cleanup(leave=0):
     else:
         del _ext_modules[:]
             
+def setup_module(mod):
+    from pypy.rpython.lltypesystem import lltype
+    from pypy.rpython.lltypesystem.rffi import llexternal
+
+    c_source = py.code.Source("""
+    int get_errno() {
+        return errno;
+    }
+    """)
+    get_errno = llexternal('get_errno', [], lltype.Signed, sources=[c_source])
+
+    c_source = py.code.Source("""
+    void set_errno(int _errno) {
+        errno = _errno;
+    }
+    """)
+    set_errno = llexternal('set_errno', [lltype.Signed], lltype.Void, sources=[c_source])
+    global _get_errno, _set_errno
+    import pypy.rpython.lltypesystem.rffi
+    pypy.rpython.lltypesystem.rffi.get_errno, _get_errno = get_errno, pypy.rpython.lltypesystem.rffi.get_errno
+    pypy.rpython.lltypesystem.rffi.set_errno, _set_errno= set_errno, pypy.rpython.lltypesystem.rffi.set_errno
+
 def teardown_module(mod):
+    import pypy.rpython.lltypesystem.rffi
+    pypy.rpython.lltypesystem.rffi.get_errno = _get_errno
+    pypy.rpython.lltypesystem.rffi.set_errno = _set_errno
     _cleanup()
     
 def llvm_test():
@@ -189,7 +214,7 @@ class LLVMTest(BaseRtypingTest, LLRtypeMixin):
             py.test.skip('PowerPC --> %s' % reason)
 
     def _skip_llinterpreter(self, reason, skipLL=True, skipOO=True):
-        pass
+        py.test.skip("skip_llinterpreter")
 
     def interpret(self, fn, args, annotation=None):
         fn = self._compile(fn, args, annotation)
@@ -204,6 +229,7 @@ class LLVMTest(BaseRtypingTest, LLRtypeMixin):
             self.interpret(fn, args)
         except ExceptionWrapper, ex:
             assert issubclass(eval(ex.class_name), exception)
+            return True
         else:
             assert False, 'function did raise no exception at all'
 

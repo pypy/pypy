@@ -9,47 +9,7 @@ from pypy.rpython.lltypesystem.lltype import Signed, Ptr, Char, malloc
 from pypy.rpython.lltypesystem import lltype
 
 from pypy.translator.llvm.test.runtest import *
-
-monkey_patch = False
-if monkey_patch:
-    from pypy.rpython.lltypesystem.rffi import llexternal
-    c_source = py.code.Source("""
-    int get_errno() {
-        return errno;
-    }
-    """)
-    get_errno = llexternal('get_errno', [], lltype.Signed, sources=[c_source])
-
-    c_source = py.code.Source("""
-    void set_errno(int _errno) {
-        errno = _errno;
-    }
-    """)
-    set_errno = llexternal('set_errno', [lltype.Signed], lltype.Void, sources=[c_source])
-    import pypy.rpython.lltypesystem.rffi
-    pypy.rpython.lltypesystem.rffi.get_errno = get_errno
-    pypy.rpython.lltypesystem.rffi.set_errno = set_errno
-else:
-    py.test.skip("rffi not there yet for llvm")
-
-from pypy.rpython.lltypesystem.rffi import *
-
-def test_basic():
-    c_source = py.code.Source("""
-    int z(int x)
-    {
-        return (x + 3);
-    }
-    """)
-    z = llexternal('z', [Signed], Signed, sources=[c_source])
-
-    def f():
-        return z(8)
-
-    xf = compile_function(f, [])
-    assert xf() == 8+3
-
-#py.test.skip("Extfunc support in llvm needs refactoring (!!??!)"
+from pypy.rpython.lltypesystem import rffi
 
 def test_external_function_ll_os_dup():
     def fn():
