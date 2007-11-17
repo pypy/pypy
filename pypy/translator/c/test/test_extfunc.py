@@ -4,18 +4,7 @@ import os, time, sys
 from pypy.tool.udir import udir
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.translator.c.test.test_genc import compile
-from pypy.translator.c.extfunc import EXTERNALS
 posix = __import__(os.name)
-
-def test_all_suggested_primitives():
-    for modulename in ['ll_os', 'll_os_path', 'll_time']:
-        mod = __import__('pypy.rpython.module.%s' % modulename,
-                         None, None, ['__doc__'])
-        for func in mod.__dict__.values():
-            if getattr(func, 'suggested_primitive', False):
-                yield suggested_primitive_implemented, func
-def suggested_primitive_implemented(func):
-    assert func in EXTERNALS, "missing C implementation for %r" % (func,)
 
 # note: clock synchronizes itself!
 def test_time_clock():
