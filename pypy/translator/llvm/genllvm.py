@@ -17,6 +17,8 @@ from pypy.translator.llvm.gc import GcPolicy
 from pypy.translator.llvm.log import log
 
 class GenLLVM(object):
+    debug = False
+    
     # see create_codewriter() below
     function_count = {}
 
@@ -66,6 +68,8 @@ class GenLLVM(object):
             if hasattr(node, 'writeimpl'):
                 node.writeimpl(codewriter)
 
+        self._debug()
+        
         codewriter.comment("End of file")
         codewriter.close()
         self._checkpoint('done')
@@ -228,3 +232,13 @@ class GenLLVM(object):
         for s in stats:
             log('STATS %s' % str(s))
 
+    def _debug(self):
+        if self.debug:
+            if self.db.debugstringnodes:            
+                codewriter.header_comment("Debug string")
+                for node in self.db.debugstringnodes:
+                    node.writeglobalconstants(codewriter)
+
+            #print "Start"
+            #print self.db.dump_pbcs()
+            #print "End"

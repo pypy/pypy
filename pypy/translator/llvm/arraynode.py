@@ -1,6 +1,34 @@
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.llvm.node import ConstantNode
 
+class DebugStrNode(ConstantNode):
+    prefix = "@dg_isnt"
+    def __init__(self, value):
+        self.value = value
+        self.make_name()
+
+    def get_length(self):
+        return len(self.value) + 1
+
+    def get_typerepr(self):
+        return '[%s x i8]' % self.get_length()
+    
+    def constantvalue(self):
+        return '%s c"%s\\00"' % (self.get_typerepr(), self.value)
+
+    def get_childref(self, index):
+        x = "getelementptr(%s* %s, i32 0, i32 %s)" % (
+            self.get_typerepr(),
+            self.name,
+            index)
+        #XXX probably why we are failing anyways
+        return 'bitcast(i8* %s to [0 x i8]*)' % x
+    
+    def writeglobalconstants(self, codewriter):
+        codewriter.globalinstance(self.ref, self.constantvalue())
+        codewriter.newline()
+        codewriter.newline()
+        
 class ArrayNode(ConstantNode):
     __slots__ = "db value arraytype".split()
     prefix = '@a_inst'

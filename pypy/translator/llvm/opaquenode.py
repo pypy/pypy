@@ -43,23 +43,3 @@ class ExtOpaqueNode(ConstantNode):
     def constantvalue(self):
         return "%s zeroinitializer" % self.db.repr_type(self.value._TYPE)
 
-    def writesetupcode(self, codewriter):
-        T = self.value._TYPE
-        # XXX similar non generic hacks to genc for now
-        if T.tag == 'ThreadLock':
-            XXX
-            argrefs = [self.get_ref()]
-            argtypes = [self.db.repr_type(T) + "*"]
-            lock = self.value.externalobj
-            argtypes.append("int")
-            if lock.locked():
-                argrefs.append('1')
-            else:
-                argrefs.append('0')
-
-            # XXX Check result
-            codewriter.call(self.db.repr_tmpvar(),
-                            "sbyte*",
-                            "%RPyOpaque_LLVM_SETUP_ThreadLock",
-                            argtypes, argrefs)
-            # XXX Check result

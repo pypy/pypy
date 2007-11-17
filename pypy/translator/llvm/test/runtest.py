@@ -214,7 +214,8 @@ class LLVMTest(BaseRtypingTest, LLRtypeMixin):
             py.test.skip('PowerPC --> %s' % reason)
 
     def _skip_llinterpreter(self, reason, skipLL=True, skipOO=True):
-        py.test.skip("skip_llinterpreter")
+        if skipLL:
+            py.test.skip("skip_llinterpreter - skipLL=True")
 
     def interpret(self, fn, args, annotation=None):
         fn = self._compile(fn, args, annotation)

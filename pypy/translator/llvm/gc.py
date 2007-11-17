@@ -76,14 +76,14 @@ class RawGcPolicy(GcPolicy):
                     exc_flag=False):
         """ assumes malloc of word size """
         XXX
-        uword = self.db.get_machine_uword()
+        word = self.db.get_machine_word()
         boundary_size = 0
 
         # malloc_size is unsigned right now
-        codewriter.malloc(targetvar, "sbyte", size)
+        codewriter.malloc(targetvar, "i8", size)
         # XXX uses own cconv
         codewriter.call(None, 'void', '@llvm.memset' + postfix(),
-                        ['sbyte*', 'ubyte', uword, uword],
+                        ['i8*', 'i8', word, word],
                         [targetvar, 0, size, boundary_size],
                         cconv='ccc')               
 
@@ -107,10 +107,7 @@ class BoehmGcPolicy(GcPolicy):
                     exc_flag=False):
         """ assumes malloc of word size """
         boundary_size = 0
-
         word = self.db.get_machine_word()
-        uword = self.db.get_machine_uword()
-
         fnname = '@pypy_malloc' + (atomic and '_atomic' or '')
 
 ##        XXX (arigo) disabled the ring buffer for comparison purposes
@@ -121,9 +118,6 @@ class BoehmGcPolicy(GcPolicy):
 ##            # dont clear the ringbuffer data
 ##            atomic = False 
 
-        # malloc_size is unsigned right now
-        #sizeu = '%malloc_sizeu' + self.get_count()        
-        #codewriter.cast(sizeu, word, size, uword)
         codewriter.call(targetvar, 'i8*', fnname, [word], [size])
 
         if atomic:
