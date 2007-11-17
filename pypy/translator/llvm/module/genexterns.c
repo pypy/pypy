@@ -14,17 +14,6 @@ char *LLVM_RPython_StartupCode(void);
     abort(); \
    }
 
-#ifdef LL_NEED_MATH
-  FAKE_ERROR(OverflowError);
-  FAKE_ERROR(ValueError);
-  #include "c/src/ll_math.h"
-
-#endif
-
-#ifdef LL_NEED_STRTOD
-  #include "c/src/ll_strtod.h"
-#endif
-
 #ifdef LL_NEED_STACK
   FAKE_ERROR(RuntimeError);
   #include "c/src/thread.h"

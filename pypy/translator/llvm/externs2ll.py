@@ -30,16 +30,6 @@ EXTERNALS = {
     ll_stack.ll_stack_too_big: 'LL_stack_too_big_',
     }
 
-
-math_functions = [
-    'asin', 'atan', 'ceil', 'cos', 'cosh', 'exp', 'fabs',
-    'floor', 'log', 'log10', 'sin', 'sinh', 'sqrt', 'tan', 'tanh',
-    'pow', 'atan2', 'fmod', 'ldexp', 'hypot'
-    ]
-import math
-for name in math_functions:
-    EXTERNALS['ll_math.ll_math_%s' % name] = 'LL_math_%s' % name
-
 def predeclare_stuff(c_db):
     modules = {}
     def module_name(c_name):
@@ -266,15 +256,15 @@ def generate_llfile(db, extern_decls, entrynode, c_includes, c_sources, standalo
 
     # ask gcpolicy for any code needed
     ccode.append('%s\n' % db.gcpolicy.genextern_code())
-    
-    ccode.append('\n')
+
     for c_include in c_includes:
         ccode.append('#include <%s>\n' % c_include)
-
+        
     for c_source in c_sources:
-        for l in c_source:
-            ccode.append(l)
         ccode.append('\n')
+        for l in c_source:
+            ccode.append(l + '\n') 
+    ccode.append('\n')
 
     # append our source file
     ccode.append(open(get_module_file('genexterns.c')).read())
