@@ -8,7 +8,6 @@ class OpaqueNode(ConstantNode):
         self.name = "null"
  
     def writeglobalconstants(self, codewriter):
-        # XXX Dummy - not sure what what we want
         pass
 
 class ExtOpaqueNode(ConstantNode):
@@ -37,7 +36,6 @@ class ExtOpaqueNode(ConstantNode):
         return ref
 
     def writeglobalconstants(self, codewriter):
-        # XXX Dummy - not sure what what we want
         pass
 
     def constantvalue(self):

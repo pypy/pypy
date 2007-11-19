@@ -41,7 +41,6 @@ class OpReprInvoke(OpReprCall):
 class OpWriter(object):            
   
     shift_operations = {
-        # ZZZ i guessed rshifts - ashr or lshr ?????? 
         'int_lshift': 'shl',
         'int_rshift': 'lshr',
         
@@ -90,7 +89,6 @@ class OpWriter(object):
         for oo in 'lt le eq ne ge gt'.split():
             binary_operations['%s_%s' % (tt, oo)] = 'fcmp o%s' % oo
 
-    # ZZZ check that operation should be checking unsigned
     binary_operations.update({'char_lt': 'icmp ult',
                               'char_le': 'icmp ule',
                               'char_eq': 'icmp eq',
@@ -207,14 +205,7 @@ class OpWriter(object):
         op = opr.op
         name = self.shift_operations[op.opname]
 
-        var = opr.argrefs[1]
-        # ZZZ why did we do this???
-        #if isinstance(op.args[1], Constant):
-        #    var = opr.argrefs[1]
-        #else:
-        #    var = self._tmp()
-        #    self.codewriter.cast(var, opr.argtypes[1], opr.argrefs[1], 'i8')
-            
+        var = opr.argrefs[1]            
         self.codewriter.shiftop(name, opr.retref, opr.argtypes[0], opr.argrefs[0], var)
 
     def cast_primitive(self, opr):
@@ -325,8 +316,8 @@ class OpWriter(object):
         indices = []
         for arg in args:
             name = None
-            # XXX this is because FixedSizeArray can sometimes be accessed
-            # like an Array and then sometimes a Struct
+            # this is because FixedSizeArray can sometimes be accessed like an
+            # Array and then sometimes a Struct
             if arg.concretetype is lltype.Void:
                 name = arg.value
                 assert name in list(TYPE._names)
@@ -406,9 +397,7 @@ class OpWriter(object):
             lengthref = self._tmp()
             self.codewriter.getelementptr(lengthref, opr.argtypes[0], opr.argrefs[0], indices)
         else:
-            assert isinstance(TYPE, lltype.FixedSizeArray)
-            lengthref = TYPE.length
-            XXX # no tests for this - is it valid even since known at compile time ????
+            assert False, "known at compile time"
 
         self.codewriter.load(opr.retref, opr.rettype, lengthref)
 
@@ -418,7 +407,6 @@ class OpWriter(object):
     def direct_fieldptr(self, opr):        
         from pypy.translator.llvm.structnode import getindexhelper
         
-        # XXX use to_getelementptr ?
         op = opr.op
         assert opr.rettype != "void"
         index = getindexhelper(op.args[1].value,
@@ -434,7 +422,6 @@ class OpWriter(object):
         self.codewriter.cast(opr.retref, element_type, tmpvar, opr.rettype)
 
     def direct_arrayitems(self, opr):
-        # XXX use to_getelementptr ?
         assert opr.rettype != "void"
 
         array = opr.argrefs[0]
@@ -504,9 +491,6 @@ class OpWriter(object):
     def adr_ge(self, opr):
         self._op_adr_cmp(opr, "icmp sge")
 
-    # XXX Not sure any of this makes sense - maybe seperate policy for
-    # different flavours of mallocs?  Well it depend on what happens the GC
-    # developments
     def raw_malloc(self, opr):
         self.codewriter.call(opr.retref, opr.rettype, "@raw_malloc",
                              opr.argtypes, opr.argrefs)

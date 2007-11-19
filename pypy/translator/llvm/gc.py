@@ -150,8 +150,6 @@ class FrameworkGcPolicy(GcPolicy):
         self.db = db
 
     def genextern_code(self):
-        # XXX
-        # This is not finished: we must call the gc init function!
         r  = ''
         r += '#define __GC_STARTUP_CODE__\n'
         r += '#define __GC_SETUP_CODE__\n'

@@ -117,12 +117,13 @@ def wrapfn(fn):
 
 def genllvm_compile(function,
                     annotation,
+                    gcpolicy='boehm',
                     
                     # debug options
                     debug=True,
                     logging=False,
                     isolate=True,
-
+                    
                     # pass to compile
                     optimize=True,
                     extra_opts={}):
@@ -138,7 +139,7 @@ def genllvm_compile(function,
         'translation.llvm.logging': logging,
         'translation.llvm.isolate': isolate,
         'translation.backendopt.none': not optimize,
-        'translation.gc': 'boehm',
+        'translation.gc': gcpolicy,
         'translation.llvm_via_c' : not native_llvm_backend 
         }
 

@@ -192,7 +192,7 @@ class CodeWriter(object):
         self._indent("%s = alloca %s" % (targetvar, vartype))
 
     def malloc(self, targetvar, vartype, numelements=1):
-        XXX
+        XXX # we should use this for raw malloc (unless it is slow)
         if numelements == 1:
             self._indent("%s = malloc %s" % (targetvar, vartype))
         else:
@@ -203,6 +203,7 @@ class CodeWriter(object):
             
 
     def free(self, vartype, varref):
+        XXX # we should use this for raw malloc (unless it is slow)
         self._indent("free %s %s" % (vartype, varref))
 
     def debug_print(self, s):

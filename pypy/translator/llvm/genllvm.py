@@ -89,9 +89,7 @@ class GenLLVM(object):
         c_db = cbuild.generate_graphs_for_llinterp()
 
         self.db = Database(self, self.translator)
-
-        # XXX hardcoded for now
-        self.db.gcpolicy = GcPolicy.new(self.db, 'boehm')
+        self.db.gcpolicy = GcPolicy.new(self.db, self.config.translation.gc)
 
         # get entry point
         entry_point = self.get_entry_point(func)

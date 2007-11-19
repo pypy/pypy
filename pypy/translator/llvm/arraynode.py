@@ -21,7 +21,6 @@ class DebugStrNode(ConstantNode):
             self.get_typerepr(),
             self.name,
             index)
-        #XXX probably why we are failing anyways
         return 'bitcast(i8* %s to [0 x i8]*)' % x
     
     def writeglobalconstants(self, codewriter):

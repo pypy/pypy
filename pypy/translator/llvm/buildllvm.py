@@ -79,7 +79,6 @@ class Builder(object):
         self.cmds.append("llvm-as < %s.ll | opt %s -f -o %s.bc" % (base, opts, base))
 
     def cmds_objects(self, base):
-        # XXX why this hack???
         use_gcc = self.genllvm.config.translation.llvm_via_c
         if use_gcc:
             self.cmds.append("llc %s.bc -march=c -f -o %s.c" % (base, base))
@@ -88,6 +87,7 @@ class Builder(object):
             self.cmds.append("llc -relocation-model=pic %s.bc -f -o %s.s" % (base, base))
             self.cmds.append("as %s.s -o %s.o" % (base, base))
 
+# XXX support profile?
 #             if (self.genllvm.config.translation.profopt is not None and
 #                 not self.genllvm.config.translation.noprofopt):
 #                 cmd = "gcc -fprofile-generate %s.c -c -O3 -pipe -o %s.o" % (base, base)
