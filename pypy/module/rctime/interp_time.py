@@ -66,7 +66,7 @@ glob_buf = lltype.malloc(tm, flavor='raw', zero=True)
 
 if cConfig.has_gettimeofday:
     c_gettimeofday = external('gettimeofday', [rffi.VOIDP, rffi.VOIDP], rffi.INT)
-TIME_TP = lltype.Ptr(rffi.CFixedArray(time_t, 1))
+TIME_TP = rffi.CArrayPtr(time_t)
 TM_P = lltype.Ptr(tm)
 c_clock = external('clock', [TIME_TP], clock_t)
 c_time = external('time', [TIME_TP], time_t)
@@ -106,7 +106,7 @@ def _init_timezone():
 
         t = (((c_time(lltype.nullptr(TIME_TP.TO))) / YEAR) * YEAR)
         # we cannot have reference to stack variable, put it on the heap
-        t_ref = lltype.malloc(TIME_TP.TO, flavor='raw')
+        t_ref = lltype.malloc(TIME_TP.TO, 1, flavor='raw')
         t_ref[0] = t
         p = c_localtime(t_ref)
         janzone = -p.c_tm_gmtoff
@@ -185,7 +185,7 @@ def _gettmarg(space, w_tup, allowNone=True):
     if allowNone and space.is_w(w_tup, space.w_None):
         # default to the current local time
         tt = int(pytime.time())
-        t_ref = lltype.malloc(TIME_TP.TO, flavor='raw')
+        t_ref = lltype.malloc(TIME_TP.TO, 1, flavor='raw')
         t_ref[0] = tt
         pbuf = c_localtime(t_ref)
         lltype.free(t_ref, flavor='raw')
@@ -275,7 +275,7 @@ def ctime(space, w_seconds=None):
 
     seconds = _get_inttime(space, w_seconds)
     
-    t_ref = lltype.malloc(TIME_TP.TO, flavor='raw')
+    t_ref = lltype.malloc(TIME_TP.TO, 1, flavor='raw')
     t_ref[0] = seconds
     p = c_ctime(t_ref)
     lltype.free(t_ref, flavor='raw')
@@ -314,7 +314,7 @@ def gmtime(space, w_seconds=None):
     # rpython does not support that a variable has two incompatible builtins
     # as value so we have to duplicate the code. NOT GOOD! see localtime() too
     seconds = _get_inttime(space, w_seconds)
-    t_ref = lltype.malloc(TIME_TP.TO, flavor='raw')
+    t_ref = lltype.malloc(TIME_TP.TO, 1, flavor='raw')
     t_ref[0] = seconds
     p = c_gmtime(t_ref)
     lltype.free(t_ref, flavor='raw')
@@ -332,7 +332,7 @@ def localtime(space, w_seconds=None):
     When 'seconds' is not passed in, convert the current time instead."""
 
     seconds = _get_inttime(space, w_seconds)
-    t_ref = lltype.malloc(TIME_TP.TO, flavor='raw')
+    t_ref = lltype.malloc(TIME_TP.TO, 1, flavor='raw')
     t_ref[0] = seconds
     p = c_localtime(t_ref)
     lltype.free(t_ref, flavor='raw')
