@@ -146,5 +146,5 @@ class TestLLtype(BaseTestPosix, LLRtypeMixin):
 
 class TestOOtype(BaseTestPosix, OORtypeMixin):
     def test_fstat(self):
-        py.test.skip("not working")
+        py.test.skip("ootypesystem does not support os.fstat")
 

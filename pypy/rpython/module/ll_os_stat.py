@@ -143,18 +143,14 @@ else:
     _name_struct_stat = 'stat'
     INCLUDES = ['sys/types.h', 'sys/stat.h', 'unistd.h']
 
-# XXX need someone to look this over please...
-
 from pypy.rpython.module.ll_os import CConfig 
 from pypy.rpython.tool import rffi_platform as platform
 class CConfig:
     _includes_ = INCLUDES
     STAT_STRUCT = platform.Struct('struct %s' % _name_struct_stat, LL_STAT_FIELDS)
 config = platform.configure(CConfig)
-STAT_STRUCT = config['STAT_STRUCT']
-_LL_STAT_FIELDS = [(n[2:], STAT_STRUCT._flds[n]) for n in STAT_STRUCT._names]
 
-STRUCT_STAT = rffi.CStructPtr(_name_struct_stat, *_LL_STAT_FIELDS)
+STAT_STRUCT = lltype.Ptr(config['STAT_STRUCT'])
 
 def build_stat_result(st):
     # only for LL backends
@@ -199,11 +195,11 @@ def register_stat_variant(name):
         ARG1 = rffi.CCHARP
     else:
         ARG1 = rffi.INT
-    os_mystat = rffi.llexternal(c_func_name, [ARG1, STRUCT_STAT], rffi.INT,
+    os_mystat = rffi.llexternal(c_func_name, [ARG1, STAT_STRUCT], rffi.INT,
                                 includes=INCLUDES)
 
     def os_mystat_llimpl(arg):
-        stresult = lltype.malloc(STRUCT_STAT.TO, flavor='raw')
+        stresult = lltype.malloc(STAT_STRUCT.TO, flavor='raw')
         try:
             if arg_is_path:
                 arg = rffi.str2charp(arg)
