@@ -384,7 +384,6 @@ class OpWriter(object):
     def setinteriorfield(self, opr):
         op = opr.op
         if opr.argtypes[-1] != "void":
-            print op.args, op.args[1:-1]
             _, indices = self.to_getelementptr(op.args[0].concretetype.TO, op.args[1:-1])
             tmpvar = self._tmp()
             self.codewriter.getelementptr(tmpvar, opr.argtypes[0], opr.argrefs[0], indices)

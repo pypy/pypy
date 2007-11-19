@@ -430,7 +430,6 @@ class Primitives(object):
   
     def repr_char(self, type_, value):
         x = ord(value)
-        print x
         if x >= 128:
             # XXX check this really works
             r = "trunc (i16 %s to i8)" % x

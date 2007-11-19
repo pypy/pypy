@@ -9,14 +9,14 @@ from pypy.rpython.lltypesystem.lltype import typeOf
 
 optimize_tests = False
 native_llvm_backend = True
-MINIMUM_LLVM_VERSION = 2.1
+MINIMUM_LLVM_VERSION = 2.0
 FLOAT_PRECISION = 8
 
 # prevents resource leaking
-use_isolate = False
+use_isolate = True
 
 # if test can't be run using isolate, skip the test (useful for buildbots)
-run_isolated_only = False
+run_isolated_only = True
 
 from pypy import conftest
 
