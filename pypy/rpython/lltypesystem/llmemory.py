@@ -302,6 +302,7 @@ offsetof._annspecialcase_ = 'specialize:memo'
 
 def itemoffsetof(TYPE, n=0):
     return ArrayItemsOffset(TYPE) + ItemOffset(TYPE.OF) * n
+itemoffsetof._annspecialcase_ = 'specialize:memo'
 # -------------------------------------------------------------
 
 class fakeaddress(object):
