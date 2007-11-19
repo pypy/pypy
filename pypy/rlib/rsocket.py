@@ -1027,7 +1027,7 @@ if hasattr(_c, 'socketpair'):
         The arguments are the same as for socket() except the default family is
         AF_UNIX if defined on the platform; otherwise, the default is AF_INET.
         """
-        result = lltype.malloc(_c.socketpair_t, flavor='raw')
+        result = lltype.malloc(_c.socketpair_t, 2, flavor='raw')
         res = _c.socketpair(family, type, proto, result)
         if res < 0:
             raise last_error()
