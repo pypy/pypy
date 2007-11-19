@@ -88,6 +88,10 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['geteuid'] = 'interp_posix.geteuid'
     if hasattr(os, 'getgid'):
         interpleveldefs['getgid'] = 'interp_posix.getgid'
+    if hasattr(os, 'setuid'):
+        interpleveldefs['setuid'] = 'interp_posix.setuid'
+    if hasattr(os, 'setgid'):
+        interpleveldefs['setgid'] = 'interp_posix.setgid'
     # not visible via os, inconsistency in nt:
     if hasattr(posix, '_getfullpathname'):
         interpleveldefs['_getfullpathname'] = 'interp_posix._getfullpathname'
