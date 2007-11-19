@@ -168,14 +168,14 @@ class RegisterOs(BaseLazyRegistering):
                                                              ('tv_usec', rffi.LONG)])
             config = platform.configure(CConfig)
             TIMEVAL = config['TIMEVAL']
-            TIMEVAL2P = lltype.Ptr(lltype.FixedSizeArray(TIMEVAL, 2))
+            TIMEVAL2P = rffi.CArrayPtr(TIMEVAL)
             os_utimes = self.llexternal('utimes', [rffi.CCHARP, TIMEVAL2P],
                                         rffi.INT,
                                         includes=['sys/time.h'])
 
             def os_utime_platform(path, actime, modtime):
                 import math
-                l_times = lltype.malloc(TIMEVAL2P.TO, flavor='raw')
+                l_times = lltype.malloc(TIMEVAL2P.TO, 2, flavor='raw')
                 fracpart, intpart = math.modf(actime)
                 l_times[0].c_tv_sec = int(intpart)
                 l_times[0].c_tv_usec = int(fracpart * 1E6)
@@ -764,11 +764,11 @@ class RegisterOs(BaseLazyRegistering):
                 return (fdread, fdwrite)
 
         else:
-            INT_ARRAY_P = lltype.Ptr(lltype.FixedSizeArray(rffi.INT, 2))
+            INT_ARRAY_P = rffi.CArrayPtr(rffi.INT)
             os_pipe = self.llexternal('pipe', [INT_ARRAY_P], rffi.INT)
 
             def os_pipe_llimpl():
-                filedes = lltype.malloc(INT_ARRAY_P.TO, flavor='raw')
+                filedes = lltype.malloc(INT_ARRAY_P.TO, 2, flavor='raw')
                 error = os_pipe(filedes)
                 read_fd = filedes[0]
                 write_fd = filedes[1]

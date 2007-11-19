@@ -132,7 +132,7 @@ if hasattr(__import__(os.name), 'unsetenv'):
 # Access to the 'environ' external variable
 
 if sys.platform.startswith('darwin'):
-    CCHARPPP = lltype.Ptr(lltype.FixedSizeArray(rffi.CCHARPP, 1))
+    CCHARPPP = rffi.CArrayPtr(rffi.CCHARPP))
     _os_NSGetEnviron = rffi.llexternal('_NSGetEnviron', [], CCHARPPP,
                                        includes=['crt_externs.h'])
     def os_get_environ():
