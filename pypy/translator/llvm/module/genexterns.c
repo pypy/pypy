@@ -47,41 +47,16 @@ char *RPython_StartupCode() {
 
 #ifdef ENTRY_POINT_DEFINED
 
-int __ENTRY_POINT__(RPyListOfString *);
+int __ENTRY_POINT__(voidzd *);
 
-int main(int argc, char *argv[])
-{
-    XXX
-    char *errmsg;
-    int i, exitcode;
-    RPyListOfString *list;
-    errmsg = RPython_StartupCode();
-    if (errmsg) goto error;
-    
-    list = _RPyListOfString_New(argc);
-    if (_RPyExceptionOccurred()) goto memory_out;
-    for (i=0; i<argc; i++) {
-      RPyString *s = RPyString_FromString(argv[i]);
-
-      if (_RPyExceptionOccurred()) {
-	goto memory_out;
-      }
-
-      _RPyListOfString_SetItem(list, i, s);
-    }
-
-    exitcode = __ENTRY_POINT__(list);
-
-    if (_RPyExceptionOccurred()) {
-      goto error; // XXX see genc
-    }
-    return exitcode;
-
- memory_out:
-    errmsg = "out of memory";
- error:
+int main(int argc, char *argv[]) {
+  char *errmsg = RPython_StartupCode();
+  if (errmsg) {
     fprintf(stderr, "Fatal error during initialization: %s\n", errmsg);
     return 1;
+  }
+
+  return __ENTRY_POINT__(NULL);
 }
 
 #else

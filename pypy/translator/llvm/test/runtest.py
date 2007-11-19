@@ -156,8 +156,8 @@ def genllvm_compile(function,
     driver.compile() 
     if conftest.option.view:
         driver.translator.view()
-    return driver.c_module, driver.c_entryp
-
+    return driver
+    
 def compile_test(function, annotation, isolate_hint=True, **kwds):
     " returns module and compiled function "    
     llvm_test()
@@ -171,8 +171,9 @@ def compile_test(function, annotation, isolate_hint=True, **kwds):
     # maintain only 3 isolated process (if any)
     _cleanup(leave=3)
     optimize = kwds.pop('optimize', optimize_tests)
-    mod, fn = genllvm_compile(function, annotation, optimize=optimize,
-                              isolate=isolate, **kwds)
+    driver = genllvm_compile(function, annotation, optimize=optimize,
+                             isolate=isolate, **kwds)
+    mod, fn = driver.c_module, driver.c_entryp
     if isolate:
         _ext_modules.append(mod)
     return mod, wrapfn(fn)
@@ -181,6 +182,9 @@ def compile_function(function, annotation, isolate_hint=True, **kwds):
     " returns compiled function "
     return compile_test(function, annotation, isolate_hint=isolate_hint, **kwds)[1]
 
+def compile_standalone(function, **kwds):
+    optimize = kwds.pop('optimize', optimize_tests)
+    drvier = genllvm_compile(function, None, optimize=optimize, **kwds)
 #______________________________________________________________________________
 
 # XXX Work in progress, this was mostly copied from cli
