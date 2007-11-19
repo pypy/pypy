@@ -143,7 +143,6 @@ else:
     _name_struct_stat = 'stat'
     INCLUDES = ['sys/types.h', 'sys/stat.h', 'unistd.h']
 
-from pypy.rpython.module.ll_os import CConfig 
 from pypy.rpython.tool import rffi_platform as platform
 class CConfig:
     _includes_ = INCLUDES
