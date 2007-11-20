@@ -193,8 +193,8 @@ def setup_externs(c_db, db):
     return decls
 
 def get_c_cpath():
-    from pypy.translator import translator
-    return os.path.dirname(translator.__file__)
+    from pypy.translator.c import genc
+    return os.path.dirname(genc.__file__)
 
 def get_llvm_cpath():
     return os.path.join(os.path.dirname(__file__), "module")
