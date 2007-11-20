@@ -438,18 +438,3 @@ class UnicodeEncodeError(UnicodeError):
             self.encoding, self.start, self.end - 1, self.reason)
 
 
-
-#-- Logic object space specific stuff
-#XXX conditionalize me on '-o logic'
-
-class LogicError(Exception): pass
-
-class UnificationError(LogicError): pass
-class RebindingError(UnificationError): pass
-class FutureBindingError(LogicError): pass
-
-class AllBlockedError(LogicError): pass
-
-# constraints
-
-class ConsistencyError(LogicError): pass
