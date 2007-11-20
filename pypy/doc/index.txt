@@ -301,14 +301,10 @@ Directory                      explanation/links
 
 `translator/js/`_              the `JavaScript backend`_
 
-`translator/jvm/`_             the Java backend (in-progress)
-
-`translator/lisp/`_            the `Common Lisp backend`_ (incomplete)
+`translator/jvm/`_             the Java backend
 
 `translator/llvm/`_            contains the `LLVM backend`_ producing LLVM assembler 
                                from fully annotated RPython programs 
-
-`translator/squeak/`_          the `Squeak backend`_ (very incomplete)
 
 `translator/stackless/`_       the `Stackless Transform`_
 
@@ -348,8 +344,6 @@ Directory                      explanation/links
 .. _`GenC backend`: translation.html#genc 
 .. _`LLVM backend`: translation.html#llvm
 .. _`CLI backend`: cli-backend.html
-.. _`Common Lisp backend`: translation.html#gencl
-.. _`Squeak backend`: translation.html#gensqueak
 .. _`extension compiler`: extcompiler.html
 .. _`py.py`: getting-started.html#main-entry-point
 .. _`translatorshell.py`: getting-started.html#try-out-the-translator

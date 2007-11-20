@@ -2050,8 +2050,8 @@ The approach eventually selected is different.  We proceed in two steps:
 We can currently generate C-like low-level flow graphs and turn them
 into either C or LLVM_ code; or experimentally, PowerPC machine code or
 JavaScript_.  If we go through slightly less low-level flow graphs
-instead, we can also interface with an experimental back-end generating
-Squeak_ and in the future Java and/or .NET.
+instead, we can also interface with back-ends generating bytecode for
+JVM, CLI/.NET and even Javascript.
 
 
 RTyper
@@ -2171,10 +2171,9 @@ management and exception model, as well as for generating alternate
 styles of code for different execution models like coroutines.
 
 We will give as an example an overview of the `GenC back-end`_.  The
-`LLVM back-end`_ works at the same level.  The (undocumented) Squeak
-back-end takes ootyped graphs instead, as described above, and faces
-different problems (e.g. the graphs have unstructured control flow, so
-they are difficult to render in a language with no ``goto`` equivalent).
+`LLVM back-end`_ works at the same level.  The CLI and JVM
+back-ends take ootyped graphs instead, as described above, and faces
+different problems.
 
 .. _`Generating C code`:
 
@@ -2330,8 +2329,6 @@ Glossary and links mentioned in the text:
 
 * RTyper (RPython Low-level Typer): see [TR]_.
 
-* Squeak: http://www.squeak.org/
-
 * SSA (Static Single Assignment): http://en.wikipedia.org/wiki/Static_single_assignment_form
 
 * Standard Object Space: see `Object Space`_.
@@ -2354,7 +2351,6 @@ Glossary and links mentioned in the text:
 .. _`GenC back-end`: translation.html#genc
 .. _`LLVM back-end`: translation.html#llvm
 .. _JavaScript: http://www.ecma-international.org/publications/standards/Ecma-262.htm
-.. _Squeak: http://www.squeak.org/
 .. _lltype: rtyper.html#low-level-types
 .. _`post on the Perl 6 compiler mailing list`: http://www.nntp.perl.org/group/perl.perl6.compiler/1107
 

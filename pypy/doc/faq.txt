@@ -339,17 +339,12 @@ Which backends are there?
 
 Backends that can actually translate all of PyPy:
 
- * C_, LLVM_, CLI_
+ * C_, LLVM_, CLI_, JVM_
 
 Somewhat mature backends:
 
 * Low level backends: C_, LLVM_
 * High level backends: CLI_, JVM_, JavaScript_
-
-Partially implemented backends (both high-level):
-
-* Squeak_, `Common Lisp`_
-
 
 To learn more about backends take a look at the `translation document`_.
 
@@ -359,8 +354,6 @@ To learn more about backends take a look at the `translation document`_.
 .. _LLVM: translation.html#the-llvm-back-end
 .. _`translation document`: translation.html
 .. _JVM: translation.html#genjvm
-.. _Squeak: translation.html#gensqueak
-.. _`Common Lisp`: translation.html#gencl
 
 ----------------------
 How do I compile PyPy?

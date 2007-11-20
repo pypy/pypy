@@ -28,8 +28,8 @@ this task into several steps, and the purpose of this document is to
 introduce them.
 
 As of the 1.0 release, RPython_ programs can be translated into the following
-languages/platforms: C/POSIX, LLVM/POSIX, CLI/.NET, Squeak, Javascript,
-Common Lisp and Java/JVM (in addition, there's `a backend`_ that translates
+languages/platforms: C/POSIX, LLVM/POSIX, CLI/.NET, Javascript
+and Java/JVM (in addition, there's `a backend`_ that translates
 `application-level`_ into `interpreter-level`_ code, but this is a special
 case in several ways).
 
@@ -106,7 +106,6 @@ The following figure gives a simplified overview (`PDF color version`_):
 .. _`bytecode evaluator`: interpreter.html
 .. _`abstract interpretation`: theory.html#abstract-interpretation
 .. _`Flow Object Space`: objspace.html#the-flow-object-space
-.. _`Common Lisp`: ../../pypy/translator/lisp/
 .. _`interactive interface`: getting-started.html#try-out-the-translator
 .. _`translatorshell.py`: ../../pypy/bin/translatorshell.py
 
@@ -791,20 +790,6 @@ richards benchmarks.
 GenJVM is almost entirely the work of Niko Matsakis, who worked on it
 also as part of the Summer of PyPy program.
 
-GenSqueak
-+++++++++
-
-GenSqueak translates RPython programs into source that can be run in `Squeak
-<http://www.squeak.org/>`__, the free Smalltalk implementation.
-
-It is probably the least complete of the backends listed here.
-
-The first version was written by Bert Freudenberg of Impara GmbH, mostly as a
-way of motivating the design of the ootypesystem.  More recently, it has been
-worked on by Niklaus Haldimann.
-
-GenSqueak is considered dead now.
-
 GenJS
 +++++
 
@@ -831,26 +816,6 @@ a `using document`_.
 
 .. _`whatis document`: js/whatis.html
 .. _`using document`: js/using.html
-
-GenCL
-+++++
-
-GenCL generates `ANSI Common Lisp`_ source.
-
-.. _`ANSI Common Lisp`: http://www.lisp.org/HyperSpec/FrontMatter/index.html
-
-GenCL is one of the oldest backends -- some version of it has been present
-since before revision 2000, long long before any version of the RTyper
-existed!  At the Tokyo sprint in April 2006, GenCL was revived and ported to
-work on OOTyped graphs.
-
-GenCL has seen work from many people, but the driving force has mostly been
-Seo Sanghyeon.
-
-GenCL is considered dead now.
-
-.. _`Python again`:
-.. _`Python back-end`:
 
 The Interpreter-Level backend
 -----------------------------

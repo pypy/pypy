@@ -66,11 +66,10 @@ Some ideas on concrete steps for benchmarking:
 Start or improve a back-end
 ---------------------------
 
-PyPy has complete, or nearly so, back-ends for C, LLVM, CLI/.NET and JVM and partial
-backends for JavaScript, Common Lisp, Squeak.  It would be an
-interesting project to improve either of these partial backends, or start one
-for another platform (Objective C comes to mind as one that should not be too
-terribly hard).
+PyPy has complete, or nearly so, back-ends for C, LLVM, CLI/.NET and
+JVM. It would be an interesting project to improve either of these
+partial backends, or start one for another platform (Objective C comes
+to mind as one that should not be too terribly hard).
 
 Improve JavaScript backend
 --------------------------

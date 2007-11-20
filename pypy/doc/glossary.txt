@@ -116,8 +116,8 @@ links to more information.
 **ootypesystem**
    An `object oriented type model <rtyper.html#object-oriented-types>`__
    containing classes and instances.  A backend_ that uses this type system
-   is also called a high-level backend.  The common lisp, javascript and
-   cli backends all use this typesystem.
+   is also called a high-level backend.  The JVM, Javascript and
+   CLI backends all use this typesystem.
 
 .. _`prebuilt constant`:
 

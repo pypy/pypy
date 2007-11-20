@@ -122,7 +122,6 @@
 .. _`pypy/translator/goal/targetprologstandalone.py`: ../../pypy/translator/goal/targetprologstandalone.py
 .. _`translator/js/`: ../../pypy/translator/js
 .. _`translator/jvm/`: ../../pypy/translator/jvm
-.. _`translator/lisp/`: ../../pypy/translator/lisp
 .. _`translator/llvm/`: ../../pypy/translator/llvm
 .. _`translator/squeak/`: ../../pypy/translator/squeak
 .. _`translator/stackless/`: ../../pypy/translator/stackless
