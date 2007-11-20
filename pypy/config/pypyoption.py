@@ -46,8 +46,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                  requires = {
                      "logic": [#("objspace.geninterp", False),
                                ("objspace.usemodules._stackless", True),
-                               ("objspace.usemodules._cslib", True),
-                               ("objspace.usemodules.cclp", True),
                                ("translation.gc", 'marksweep'),
                                ],
                  },

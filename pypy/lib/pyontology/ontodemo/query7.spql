@@ -1,8 +1,0 @@
-	PREFIX ltw: <http://www.lt-world.org/ltw.owl/#>
-	PREFIX owl: <http://www.w3.org/2002/07/owl/#>
-	PREFIX rdf : <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-      SELECT ?aim
-              WHERE { 
-                    ?project_obj            rdf:type  	 	 ltw:Active_Project .
-			  ?project_obj		ltw:projectTheme         ?aim .
-			  }
