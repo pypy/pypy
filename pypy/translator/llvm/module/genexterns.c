@@ -16,8 +16,8 @@ char *LLVM_RPython_StartupCode(void);
 
 #ifdef LL_NEED_STACK
   FAKE_ERROR(RuntimeError);
-  #include "c/src/thread.h"
-  #include "c/src/stack.h"
+  #include "src/thread.h"
+  #include "src/stack.h"
 #endif
 
 
@@ -47,7 +47,16 @@ char *RPython_StartupCode() {
 
 #ifdef ENTRY_POINT_DEFINED
 
-int __ENTRY_POINT__(voidzd *);
+int _argc;
+char **argv;
+
+int _pypy_getargc() {
+  return _argc;
+}
+
+char ** _pypy_getargv() {
+  return _argv;
+}
 
 int main(int argc, char *argv[]) {
   char *errmsg = RPython_StartupCode();
@@ -56,7 +65,7 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  return __ENTRY_POINT__(NULL);
+  return __ENTRY_POINT__();
 }
 
 #else

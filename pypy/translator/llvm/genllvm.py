@@ -82,30 +82,6 @@ class GenLLVM(object):
             create ll file for c file
             create codewriter """
 
-        if self.standalone:
-            # XXX this requires jumping through way too many hoops
-
-            from pypy.rpython.lltypesystem import rffi            
-            getargc = rffi.llexternal('__pypy_getargc', [], rffi.INT)
-            getargv = rffi.llexternal('__pypy_getargv', [], rffi.CCHARPP)
-
-            def entry_point(args=None):
-                argc = getargc()
-                argv = getargv()
-                if args is None:
-                    args = []
-                for ii in range(argc):
-                    s = rffi.charp2str(argv[ii])
-                    args.append(s)
-                return func(args)
-            from pypy.annotation.listdef import s_list_of_strings
-            graph = self.translator.rtyper.annotate_helper(entry_point, [s_list_of_strings])
-            self.translator.rtyper.specialize_more_blocks()
-            # XXX this is really bad
-            from pypy.translator.backendopt.all import backend_optimizations
-            backend_optimizations(self.translator)
-            func = entry_point
-
         # XXX please dont ask!
         from pypy.translator.c.genc import CStandaloneBuilder
         cbuild = CStandaloneBuilder(self.translator, func, config=self.config)
