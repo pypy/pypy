@@ -3,19 +3,12 @@ import py
 from pypy.translator.driver import TranslationDriver
 from py.compat import optparse
 
-def cmpl(l1, l2):
-    l1 = list(l1)
-    l2 = list(l2)
-    l1.sort()
-    l2.sort()
-    return l1 == l2
-
 def test_ctr():
     td = TranslationDriver()
     expected = ['annotate', 'backendopt', 'llinterpret', 'rtype', 'source',
                 'compile', 'run', 'prehannotatebackendopt', 'hintannotate',
                 'timeshift']
-    assert cmpl(td.exposed, expected)
+    assert set(td.exposed) == set(expected)
 
     assert td.backend_select_goals(['compile_c']) == ['compile_c']
     assert td.backend_select_goals(['compile']) == ['compile_c']
@@ -38,15 +31,15 @@ def test_ctr():
     expected = ['annotate', 'backendopt_lltype',
                  'backendopt_ootype',
                  'llinterpret_lltype',
-                 'rtype_ootype', 'rtype_lltype', 'source_cl', 'source_js',
-                 'source_squeak', 'source_cli', 'source_c', 'source_llvm',
-                 'compile_cl', 'compile_cli', 'compile_c', 'compile_squeak',
-                 'compile_llvm', 'compile_js', 'run_cl', 'run_squeak',
+                 'rtype_ootype', 'rtype_lltype', 'source_js',
+                 'source_cli', 'source_c', 'source_llvm',
+                 'compile_cli', 'compile_c',
+                 'compile_llvm', 'compile_js',
                  'run_llvm', 'run_c', 'run_js', 'run_cli',
                  'compile_jvm', 'source_jvm', 'run_jvm',
                  'prehannotatebackendopt_lltype', 'hintannotate_lltype',
                  'timeshift_lltype']
-    assert cmpl(td.exposed, expected)                             
+    assert set(td.exposed) == set(expected)                             
 
     td = TranslationDriver({'backend': None, 'type_system': 'lltype'})
 
@@ -62,4 +55,4 @@ def test_ctr():
                 'source_llvm', 'compile_c', 'compile_llvm', 'run_llvm',
                 'run_c', 'prehannotatebackendopt', 'hintannotate', 'timeshift']
 
-    assert cmpl(td.exposed, expected)
+    assert set(td.exposed) == set(expected)
