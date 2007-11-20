@@ -4,7 +4,6 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable, \
      Arguments
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError
-# XXX
 from pypy.interpreter.callmethod import object_getattribute
 
 class W_Super(Wrappable):
@@ -90,3 +89,4 @@ class C(B):
     def meth(self, arg):
         super(C, self).meth(arg)"""
 )
+
