@@ -665,8 +665,9 @@ class TranslationDriver(SimpleTaskEngine):
         newexename = basename
         f = file(newexename, 'w')
         f.write("""#!/bin/bash
+LEDIT=`which ledit 2>/dev/null`
 if [ `uname -o` = 'Cygwin' ]; then MONO=; else MONO=mono; fi
-$MONO "$(dirname $0)/$(basename $0)-data/%s" "$@" # XXX doesn't work if it's placed in PATH
+$LEDIT $MONO "$(dirname $0)/$(basename $0)-data/%s" "$@" # XXX doesn't work if it's placed in PATH
 """ % main_exe_name)
         f.close()
         os.chmod(newexename, 0755)
@@ -734,7 +735,8 @@ $MONO "$(dirname $0)/$(basename $0)-data/%s" "$@" # XXX doesn't work if it's pla
         newexename = basename
         f = file(newexename, 'w')
         f.write("""#!/bin/bash
-java -jar $0.jar "$@"
+LEDIT=`which ledit 2>/dev/null`
+$LEDIT java -jar $0.jar "$@"
 """)
         f.close()
         os.chmod(newexename, 0755)

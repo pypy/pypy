@@ -100,21 +100,25 @@ class Record(Node):
         self.ilasm.end_function()
 
     def _getHashCode(self):
-        # return the hash of the first field. XXX: it can lead to a bad distribution
         record_type = self.cts.lltype_to_cts(self.record)
         self.ilasm.begin_function('GetHashCode', [], 'int32', False, 'virtual', 'instance', 'default')
         gethash = 'int32 [pypylib]pypy.runtime.Utils::GetHashCode<%s>(!!0)'
+
+        self.ilasm.opcode('ldc.i4.0') # initial hash
         if self.record._fields:
-            f_name, (FIELD_TYPE, default) = self.record._fields.iteritems().next()
-            if FIELD_TYPE is ootype.Void:
-                self.ilasm.opcode('ldc.i4.0')
-            else:
-                f_name = self.cts.escape_name(f_name)
-                f_type = self.cts.lltype_to_cts(FIELD_TYPE)
-                self.ilasm.opcode('ldarg.0')
-                self.ilasm.get_field((f_type, record_type.classname(), f_name))
-                self.ilasm.call(gethash % f_type)
-        else:
-            self.ilasm.opcode('ldc.i4.0')
+            for f_name, (FIELD_TYPE, default) in self.record._fields.iteritems():
+                if FIELD_TYPE is ootype.Void:
+                    continue
+                else:
+                    # compute the hash for this field
+                    f_name = self.cts.escape_name(f_name)
+                    f_type = self.cts.lltype_to_cts(FIELD_TYPE)
+                    self.ilasm.opcode('ldarg.0')
+                    self.ilasm.get_field((f_type, record_type.classname(), f_name))
+                    self.ilasm.call(gethash % f_type)
+
+                    # xor with the previous value
+                    self.ilasm.opcode('xor')
+                    
         self.ilasm.opcode('ret')
         self.ilasm.end_function()
