@@ -14,7 +14,6 @@ from pypy.tool.uid import fixid
 from pypy.tool.tls import tlsobject
 from pypy.rlib.rarithmetic import r_uint, r_singlefloat
 from pypy.annotation import model as annmodel
-from pypy.rpython.rbuiltin import gen_cast
 
 
 def uaddressof(obj):
@@ -636,6 +635,7 @@ class ForceCastEntry(ExtRegistryEntry):
         return annmodel.lltype_to_annotation(RESTYPE)
 
     def specialize_call(self, hop):
+        from pypy.rpython.rbuiltin import gen_cast
         hop.exception_cannot_occur()
         s_RESTYPE = hop.args_s[0]
         assert s_RESTYPE.is_constant()

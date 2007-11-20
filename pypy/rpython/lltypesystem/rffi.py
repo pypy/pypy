@@ -1,13 +1,11 @@
 
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem import ll2ctypes
 from pypy.annotation.model import lltype_to_annotation
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.objectmodel import Symbolic, CDefinedIntSymbolic
 from pypy.rlib import rarithmetic
-from pypy.rpython.rbuiltin import parse_kwds
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.tool.sourcetools import func_with_new_name
