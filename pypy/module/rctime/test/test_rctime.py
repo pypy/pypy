@@ -101,7 +101,7 @@ class AppTestRCTime:
     
         t = rctime.time()
         assert long(rctime.mktime(rctime.localtime(t))) == long(t)
-        assert long(rctime.mktime(rctime.gmtime(t))) + rctime.timezone == long(t)
+        assert long(rctime.mktime(rctime.gmtime(t))) - rctime.timezone == long(t)
         ltime = rctime.localtime()
         assert rctime.mktime(tuple(ltime)) == rctime.mktime(ltime)
     
