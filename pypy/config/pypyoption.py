@@ -41,14 +41,8 @@ if os.name == "posix":
 
 pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
     ChoiceOption("name", "Object Space name",
-                 ["std", "flow", "logic", "thunk", "cpy", "dump", "taint"],
+                 ["std", "flow", "thunk", "cpy", "dump", "taint"],
                  "std",
-                 requires = {
-                     "logic": [#("objspace.geninterp", False),
-                               ("objspace.usemodules._stackless", True),
-                               ("translation.gc", 'marksweep'),
-                               ],
-                 },
                  cmdline='--objspace -o'),
 
     ChoiceOption("parser", "which parser to use for app-level code",
