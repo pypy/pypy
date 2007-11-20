@@ -5,65 +5,6 @@ Plain Python definition of the builtin descriptors.
 # Descriptor code, shamelessly stolen from Raymond Hettinger:
 #    http://users.rcn.com/python/download/Descriptor.htm
 
-
-# XXX there is an interp-level pypy.interpreter.function.StaticMethod
-# XXX because __new__ needs to be a StaticMethod early.
-class staticmethod(object):
-    """staticmethod(function) -> static method
-
-Convert a function to be a static method.
-
-A static method does not receive an implicit first argument.
-To declare a static method, use this idiom:
-
-     class C:
-         def f(arg1, arg2, ...): ...
-         f = staticmethod(f)
-
-It can be called either on the class (e.g. C.f()) or on an instance
-(e.g. C().f()).  The instance is ignored except for its class."""
-    __slots__ = ['_f']
-
-    def __init__(self, f):
-        self._f = f
-
-    def __get__(self, obj, objtype=None):
-        return self._f
-
-
-class classmethod(object):
-    """classmethod(function) -> class method
-
-Convert a function to be a class method.
-
-A class method receives the class as implicit first argument,
-just like an instance method receives the instance.
-To declare a class method, use this idiom:
-
-  class C:
-      def f(cls, arg1, arg2, ...): ...
-      f = classmethod(f)
-
-It can be called either on the class (e.g. C.f()) or on an instance
-(e.g. C().f()).  The instance is ignored except for its class.
-If a class method is called for a derived class, the derived class
-object is passed as the implied first argument."""
-    __slots__ = ['_f']
-
-    def __init__(self, f):
-        if not callable(f):
-            raise TypeError, "'%s' object is not callable" % type(f).__name__
-        self._f = f
-
-    def __get__(self, obj, klass=None):
-        if klass is None:
-            klass = type(obj)
-        return MethodType(self._f, klass)
-
-def dummy(): pass
-MethodType = type(dummy.__get__(42))
-del dummy
-
 # It's difficult to have a class that has both a docstring and a slot called
 # '__doc__', but not impossible...
 class docstring(object):

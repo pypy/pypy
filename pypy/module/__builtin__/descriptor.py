@@ -5,6 +5,7 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable, \
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.callmethod import object_getattribute
+from pypy.interpreter.function import StaticMethod, Method
 
 class W_Super(Wrappable):
     def __init__(self, space, w_selftype, w_starttype, w_type, w_self):
@@ -89,3 +90,42 @@ class C(B):
         super(C, self).meth(arg)"""
 )
 
+class W_ClassMethod(Wrappable):
+    def __init__(self, w_function):
+        self.w_function = w_function
+
+    def new(space, w_type, w_function):
+        if not space.is_true(space.callable(w_function)):
+            name = space.getattr(space.type(w_function), space.wrap('__name__'))
+            raise OperationError(space.w_TypeError, space.wrap(
+                                 "'%s' object is not callable" % name))
+        return W_ClassMethod(w_function)
+
+    def get(self, space, w_obj, w_klass=None):
+        if space.is_w(w_klass, space.w_None):
+            w_klass = space.type(w_obj)
+        return space.wrap(Method(space, self.w_function, w_klass, space.w_None))
+
+W_ClassMethod.typedef = TypeDef(
+    'classmethod',
+    __new__ = interp2app(W_ClassMethod.new.im_func,
+                         unwrap_spec=[ObjSpace, W_Root, W_Root]),
+    __get__ = interp2app(W_ClassMethod.get,
+                         unwrap_spec=['self', ObjSpace, W_Root, W_Root]),
+    __doc__ = """classmethod(function) -> class method
+
+Convert a function to be a class method.
+
+A class method receives the class as implicit first argument,
+just like an instance method receives the instance.
+To declare a class method, use this idiom:
+
+  class C:
+      def f(cls, arg1, arg2, ...): ...
+      f = classmethod(f)
+
+It can be called either on the class (e.g. C.f()) or on an instance
+(e.g. C().f()).  The instance is ignored except for its class.
+If a class method is called for a derived class, the derived class
+object is passed as the implied first argument.""",
+)

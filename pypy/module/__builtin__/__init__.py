@@ -56,8 +56,6 @@ class Module(MixedModule):
         'dir'           : 'app_inspect.dir',
 
         'property'      : 'app_descriptor.property',
-        'staticmethod'  : 'app_descriptor.staticmethod',
-        'classmethod'   : 'app_descriptor.classmethod',
 
         'complex'       : 'app_complex.complex',
 
@@ -127,6 +125,8 @@ class Module(MixedModule):
         'all'           : 'functional.all',
         'any'           : 'functional.any',
         'super'         : 'descriptor.W_Super',
+        'staticmethod'  : 'descriptor.StaticMethod',
+        'classmethod'   : 'descriptor.W_ClassMethod',
     }
 
     def pick_builtin(self, w_globals):

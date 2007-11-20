@@ -193,3 +193,34 @@ class AppTestBuiltinApp:
         raises(TypeError, "super(D, C())")
         raises(TypeError, "super(D).__get__(12)")
         raises(TypeError, "super(D).__get__(C())")
+
+    def test_classmethods_various(self):
+        class C(object):
+            def foo(*a): return a
+            goo = classmethod(foo)
+        c = C()
+        assert C.goo(1) == (C, 1)
+        assert c.goo(1) == (C, 1)
+        
+        assert c.foo(1) == (c, 1)
+        class D(C):
+            pass
+        d = D()
+        assert D.goo(1) == (D, 1)
+        assert d.goo(1) == (D, 1)
+        assert d.foo(1) == (d, 1)
+        assert D.foo(d, 1) == (d, 1)
+        def f(cls, arg): return (cls, arg)
+        ff = classmethod(f)
+        assert ff.__get__(0, int)(42) == (int, 42)
+        assert ff.__get__(0)(42) == (int, 42)
+
+        assert C.goo.im_self is C
+        assert D.goo.im_self is D
+        assert super(D,D).goo.im_self is D
+        assert super(D,d).goo.im_self is D
+        assert super(D,D).goo() == (D,)
+        assert super(D,d).goo() == (D,)
+
+        raises(TypeError, "classmethod(1).__get__(1)")
+
