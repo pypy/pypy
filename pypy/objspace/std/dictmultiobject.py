@@ -134,6 +134,11 @@ class IteratorImplementation(object):
         self.dictimplementation = None
         return None
 
+    def next_entry(self):
+        """ Purely abstract method
+        """
+        raise NotImplementedError
+
     def length(self):
         if self.dictimplementation is not None:
             return self.len - self.pos
