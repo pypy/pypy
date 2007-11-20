@@ -7,7 +7,6 @@ Low-level implementations for the external functions of the 'os' module.
 
 import os, sys, errno
 from pypy.rpython.module.support import ll_strcpy, OOSupport
-from pypy.rpython.module.support import to_opaque_object, from_opaque_object
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.rpython.extfunc import BaseLazyRegistering
