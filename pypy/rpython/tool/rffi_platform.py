@@ -85,11 +85,13 @@ class _CWriter(object):
     def write_header(self):
         f = self.f
         CConfig = self.config
-        print >> f, C_HEADER
-        print >> f
+        # NB: the _header_ must be printed before everything else,
+        # because it might contain #defines that need to appear before
+        # any system #include.
         print >> f, getattr(CConfig, '_header_', '')      # optional
         for path in getattr(CConfig, '_includes_', ()):   # optional
             print >> f, '#include <%s>' % (path,)
+        print >> f, C_HEADER
         print >> f
 
     def write_entry(self, key, entry):

@@ -145,6 +145,8 @@ else:
 
 from pypy.rpython.tool import rffi_platform as platform
 class CConfig:
+    # This must be set to 64 on some systems to enable large file support.
+    _header_ = '#define _FILE_OFFSET_BITS 64'
     _includes_ = INCLUDES
     STAT_STRUCT = platform.Struct('struct %s' % _name_struct_stat, LL_STAT_FIELDS)
 config = platform.configure(CConfig)
