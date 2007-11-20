@@ -58,7 +58,6 @@ class Module(MixedModule):
         'property'      : 'app_descriptor.property',
         'staticmethod'  : 'app_descriptor.staticmethod',
         'classmethod'   : 'app_descriptor.classmethod',
-        'super'         : 'app_descriptor.super',
 
         'complex'       : 'app_complex.complex',
 
@@ -127,6 +126,7 @@ class Module(MixedModule):
         'xrange'        : 'functional.W_XRange',
         'all'           : 'functional.all',
         'any'           : 'functional.any',
+        'super'         : 'descriptor.W_Super',
     }
 
     def pick_builtin(self, w_globals):

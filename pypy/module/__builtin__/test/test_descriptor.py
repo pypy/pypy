@@ -87,3 +87,109 @@ class AppTestBuiltinApp:
         except TypeError, e:
             message = e.args[0]
             assert message.startswith('super(type, obj): obj must be an instance or subtype of type')
+
+    def test_super_various(self):
+        
+        class A(object):
+            def meth(self, a):
+                return "A(%r)" % a
+
+        class B(A):
+            def __init__(self):
+                self.__super = super(B, self)
+            def meth(self, a):
+                return "B(%r)" % a + self.__super.meth(a)
+
+        assert B().meth(2) == "B(2)A(2)"
+
+        class C(A):
+            def meth(self, a):
+                return "C(%r)" % a + self.__super.meth(a)
+        C._C__super = super(C)
+
+        assert C().meth(3) == "C(3)A(3)"
+
+        class D(C, B):
+            def meth(self, a):
+                return "D(%r)" % a + super(D, self).meth(a)
+
+        assert D().meth(4) == "D(4)C(4)B(4)A(4)"
+
+        # subclasses
+        class mysuper(super):
+            def __init__(self, *args):
+                return super(mysuper, self).__init__(*args)
+
+        class E(D):
+            def meth(self, a):
+                return "E(%r)" % a + mysuper(E, self).meth(a)
+
+        assert E().meth(5) == "E(5)D(5)C(5)B(5)A(5)"
+
+        class F(E):
+            def meth(self, a):
+                s = self.__super # == mysuper(F, self)
+                return "F(%r)[%s]" % (a, s.__class__.__name__) + s.meth(a)
+        F._F__super = mysuper(F)
+
+        assert F().meth(6) == "F(6)[mysuper]E(6)D(6)C(6)B(6)A(6)"
+
+
+    def test_super_lookup(self):
+        class DDbase(object):
+            def getx(self):
+                return 42
+            x = property(getx)
+
+        class DDsub(DDbase):
+            def getx(self):
+                return "hello"
+            x = property(getx)
+
+        dd = DDsub()
+        assert dd.x == "hello"
+        assert super(DDsub, dd).x == 42
+
+    def test_super_lookup2(self):
+
+        class Base(object):
+            aProp = property(lambda self: "foo")
+
+        class Sub(Base):
+            def test(klass):
+                return super(Sub,klass).aProp
+            test = classmethod(test)
+
+        assert Sub.test() is Base.aProp
+
+    def test_proxy_super(self):
+        class Proxy(object):
+            def __init__(self, obj):
+                self.__obj = obj
+            def __getattribute__(self, name):
+                if name.startswith("_Proxy__"):
+                    return object.__getattribute__(self, name)
+                else:
+                    return getattr(self.__obj, name)
+
+        class B(object):
+            def f(self):
+                return "B.f"
+
+        class C(B):
+            def f(self):
+                return super(C, self).f() + "->C.f"
+
+        obj = C()
+        p = Proxy(obj)
+        assert C.__dict__["f"](p) == "B.f->C.f"
+
+    def test_super_errors(self):
+        class C:
+            pass
+        class D(C):
+            pass
+        raises(TypeError, "super(D, 42)")
+        raises(TypeError, "super(D, C())")
+        raises(TypeError, "super(D).__get__(12)")
+        raises(TypeError, "super(D).__get__(C())")

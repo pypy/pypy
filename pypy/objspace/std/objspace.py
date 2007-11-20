@@ -541,6 +541,14 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return w_type.lookup_where(name)
     lookup_in_type_where._annspecialcase_ = 'specialize:lookup_in_type_where'
 
+    def lookup_in_type_starting_at(self, w_type, w_starttype, name):
+        """ Only supposed to be used to implement super, w_starttype
+        and w_type are the same as for super(starttype, type)
+        """
+        assert isinstance(w_type, W_TypeObject)
+        assert isinstance(w_starttype, W_TypeObject)
+        return w_type.lookup_starting_at(w_starttype, name)
+
     def allocate_instance(self, cls, w_subtype):
         """Allocate the memory needed for an instance of an internal or
         user-defined type, without actually __init__ializing the instance."""
