@@ -113,9 +113,11 @@ class OpWriter(object):
         if isinstance(ARRAYTYPE, lltype.Array):
             if not ARRAYTYPE._hints.get("nolength", False):
                 # skip the length field
+                indices.append((self.word, 0))
                 indices.append((self.word, 1))
         else:
             assert isinstance(ARRAYTYPE, lltype.FixedSizeArray)
+            indices.append((self.word, 0))
         return indices
 
     def write_operation(self, op):
@@ -313,7 +315,10 @@ class OpWriter(object):
                              [word], [opr.argrefs[0]])
 
     def to_getelementptr(self, TYPE, args):
-        indices = []
+        if isinstance(TYPE, lltype.Array) and TYPE._hints.get("nolength", False):
+            indices = []
+        else:
+            indices = [("i32", 0)]
         for arg in args:
             name = None
             # this is because FixedSizeArray can sometimes be accessed like an
@@ -351,7 +356,7 @@ class OpWriter(object):
             op = opr.op
             _, indices = self.to_getelementptr(op.args[0].concretetype.TO, op.args[1:])
             tmpvar = self._tmp()
-            self.codewriter.getelementptr(tmpvar, opr.argtypes[0], opr.argrefs[0], indices)
+            self.codewriter.getelementptr(tmpvar, opr.argtypes[0], opr.argrefs[0], indices, getptr=False)
             self.codewriter.load(opr.retref, opr.rettype, tmpvar)
         else:
             self._skipped(opr)
@@ -365,7 +370,7 @@ class OpWriter(object):
         assert opr.rettype != "void"
         op = opr.op
         _, indices = self.to_getelementptr(op.args[0].concretetype.TO, op.args[1:])
-        self.codewriter.getelementptr(opr.retref, opr.argtypes[0], opr.argrefs[0], indices)
+        self.codewriter.getelementptr(opr.retref, opr.argtypes[0], opr.argrefs[0], indices, getptr=False)
 
     # struct, name
     getsubstruct = _getinteriorpointer
@@ -377,7 +382,7 @@ class OpWriter(object):
         if opr.argtypes[-1] != "void":
             _, indices = self.to_getelementptr(op.args[0].concretetype.TO, op.args[1:-1])
             tmpvar = self._tmp()
-            self.codewriter.getelementptr(tmpvar, opr.argtypes[0], opr.argrefs[0], indices)
+            self.codewriter.getelementptr(tmpvar, opr.argtypes[0], opr.argrefs[0], indices, getptr=False)
             self.codewriter.store(opr.argtypes[-1], opr.argrefs[-1], tmpvar)
         else:
             self._skipped(opr)            
@@ -392,10 +397,11 @@ class OpWriter(object):
         op = opr.op
         TYPE, indices = self.to_getelementptr(op.args[0].concretetype.TO, op.args[1:])
         if isinstance(TYPE, lltype.Array):
+            assert not TYPE._hints.get("nolength", False) 
             # gets the length
             indices.append(("i32", 0))
             lengthref = self._tmp()
-            self.codewriter.getelementptr(lengthref, opr.argtypes[0], opr.argrefs[0], indices)
+            self.codewriter.getelementptr(lengthref, opr.argtypes[0], opr.argrefs[0], indices, getptr=False)
         else:
             assert False, "known at compile time"
 
@@ -428,7 +434,7 @@ class OpWriter(object):
         arraytype = opr.argtypes[0]
         indices = self._arrayindices(opr.op.args[0]) + [(self.word, 0)]
         tmpvar = self._tmp()
-        self.codewriter.getelementptr(tmpvar, arraytype, array, indices)
+        self.codewriter.getelementptr(tmpvar, arraytype, array, indices, getptr=False)
 
         # getelementptr gets a pointer to the right type, except the generated code really expected 
         # an array of size 1... so we just cast it
@@ -440,7 +446,13 @@ class OpWriter(object):
         arraytype, _ = opr.argtypes
         
         tmpvar = self._tmp()
-        self.codewriter.getelementptr(tmpvar, arraytype, array, [(self.word, incr)])
+
+        indices = []
+        ARRAY = opr.op.args[0].concretetype.TO
+        if not (isinstance(ARRAY, lltype.Array) and ARRAY._hints.get("nolength", False)):
+            indices.append( (self.word, 0))
+        indices.append((self.word, incr))
+        self.codewriter.getelementptr(tmpvar, arraytype, array, indices, getptr=False)
 
         # getelementptr gets a pointer to the right type, except the generated code really expected 
         # an array of size 1... so we just cast it

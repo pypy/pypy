@@ -34,7 +34,7 @@ class ArrayTypeNode(TypeDefNode):
     def writetypedef(self, codewriter):
         if self.ARRAY._hints.get("nolength", False):
             codewriter.typedef(self.ref, 
-                               "[0 x %s]" % self.db.repr_type(self.ARRAY.OF))
+                               "%s" % self.db.repr_type(self.ARRAY.OF))
         else:
             codewriter.typedef(self.ref, 
                                "{ %s, [0 x %s] }" % (self.db.get_machine_word(),

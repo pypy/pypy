@@ -529,7 +529,7 @@ class Primitives(object):
         return repr
     
     def repr_offset(self, value):
-        from_, indices, to = self.get_offset(value)
+        from_, indices, to = self.get_offset(value, [])
 
         # void array special cases
         if isinstance(from_, lltype.Array) and from_.OF is lltype.Void:
@@ -554,12 +554,15 @@ class Primitives(object):
                                                                      r(from_),
                                                                      indices_as_str)
 
-    def get_offset(self, value, initialindices=None):
+    def get_offset(self, value, indices):
         " return (from_type, (indices, ...), to_type) "
+
         word = self.database.get_machine_word()
-        indices = initialindices or [(word, 0)]
 
         if isinstance(value, llmemory.ItemOffset):
+            if not indices:
+                indices.append((word, 0))
+            
             # skips over a fixed size item (eg array access)
             from_ = value.TYPE
             lasttype, lastvalue = indices[-1]
@@ -568,6 +571,9 @@ class Primitives(object):
             to = value.TYPE
         
         elif isinstance(value, llmemory.FieldOffset):
+            if not indices:
+                indices.append((word, 0))
+
             # jumps to a field position in a struct
             from_ = value.TYPE
             pos = getindexhelper(value.fldname, value.TYPE)
@@ -575,19 +581,32 @@ class Primitives(object):
             to = getattr(value.TYPE, value.fldname)            
 
         elif isinstance(value, llmemory.ArrayLengthOffset):
+            assert not value.TYPE._hints.get("nolength", False)
+
+            if not indices:
+                indices.append((word, 0))
+
             # jumps to the place where the array length is stored
             from_ = value.TYPE     # <Array of T> or <GcArray of T>
             assert isinstance(value.TYPE, lltype.Array)
-            if not value.TYPE._hints.get("nolength", False):
-                indices.append((word, 0))
+            indices.append((word, 0))
             to = lltype.Signed
 
         elif isinstance(value, llmemory.ArrayItemsOffset):
+            if not indices:
+                if isinstance(value.TYPE, lltype.Array) and value.TYPE._hints.get("nolength", False):
+                    pass
+                else:
+                    indices.append((word, 0))
+                    
             # jumps to the beginning of array area
             from_ = value.TYPE
             if not isinstance(value.TYPE, lltype.FixedSizeArray) and not value.TYPE._hints.get("nolength", False):
                 indices.append((word, 1))
-            indices.append((word, 0))    # go to the 1st item
+                indices.append((word, 0)) # go to the 1st item
+            if isinstance(value.TYPE, lltype.FixedSizeArray):
+                indices.append((word, 0)) # go to the 1st item
+                            
             to = value.TYPE.OF
 
         elif isinstance(value, llmemory.CompositeOffset):
