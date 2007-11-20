@@ -589,42 +589,6 @@ class TranslationDriver(SimpleTaskEngine):
                             "Running compiled llvm source",
                             idemp=True)
 
-    def task_source_cl(self):
-        from pypy.translator.lisp.gencl import GenCL
-        self.gen = GenCL(self.translator, self.entry_point)
-        filename = self.gen.emitfile()
-        self.log.info("Wrote %s" % (filename,))
-    task_source_cl = taskdef(task_source_cl, [OOTYPE],
-                             'Generating Common Lisp source')
-
-    def task_compile_cl(self):
-        pass
-    task_compile_cl = taskdef(task_compile_cl, ['source_cl'],
-                              'XXX')
-
-    def task_run_cl(self):
-        pass
-    task_run_cl = taskdef(task_run_cl, ['compile_cl'],
-                              'XXX')
-
-    def task_source_squeak(self):
-        from pypy.translator.squeak.gensqueak import GenSqueak
-        self.gen = GenSqueak(dir, self.translator)
-        filename = self.gen.gen()
-        self.log.info("Wrote %s" % (filename,))
-    task_source_squeak = taskdef(task_source_squeak, [OOTYPE],
-                             'Generating Squeak source')
-
-    def task_compile_squeak(self):
-        pass
-    task_compile_squeak = taskdef(task_compile_squeak, ['source_squeak'],
-                              'XXX')
-
-    def task_run_squeak(self):
-        pass
-    task_run_squeak = taskdef(task_run_squeak, ['compile_squeak'],
-                              'XXX')
-
     def task_source_js(self):
         from pypy.translator.js.js import JS
         self.gen = JS(self.translator, functions=[self.entry_point],
