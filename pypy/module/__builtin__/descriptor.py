@@ -39,15 +39,14 @@ class W_Super(Wrappable):
         try:
             w_get = space.getattr(w_value, space.wrap('__get__'))
             if space.is_w(self.w_self, self.w_type):
-                w_self = None
+                w_self = space.w_None
             else:
                 w_self = self.w_self
         except OperationError, o:
             if not o.match(space, space.w_AttributeError):
                 raise
             return w_value
-        ###return space.call_function(w_get, w_self, self.w_type)
-        return space.call(w_get, space.newlist([w_self, self.w_type]))
+        return space.call_function(w_get, w_self, self.w_type)
     getattribute.unwrap_spec = ['self', ObjSpace, str]
 
 def descr_new_super(space, w_self, w_starttype, w_obj_or_type=None):
