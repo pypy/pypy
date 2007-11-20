@@ -90,16 +90,3 @@ def test_start_new_thread():
     freed_counter = fn()
     print freed_counter
     assert freed_counter > 0
-
-def test_prebuilt_lock():
-    py.test.skip("Does not work (prebuilt opaque object)")
-    l = allocate_lock()
-
-    def f():
-        l.acquire(True)
-        l.release()
-
-    fn = compile(f, [], gcpolicy='boehm')
-    fn()
-
-    
