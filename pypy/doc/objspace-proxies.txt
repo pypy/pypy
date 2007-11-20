@@ -18,9 +18,6 @@ Here is what we implemented so far, in historical order:
   only if and when needed; and a way to globally replace an object with
   another.
 
-* *Logic Object Space*: logical variables, i.e. placeholder objects
-  whose value can be bound once.
-
 * *Taint Object Space*: a soft security system; your application cannot
   accidentally compute results based on tainted objects unless it
   explicitly untaints them first.
@@ -135,33 +132,6 @@ the ``__pypy__`` module exposes the following interface:
  * ``lazy(callable)``: should be used as a function decorator - the decorated
    function behaves lazily: all calls to it return a thunk object.
 
-
-.. _logic:
-
-The Logic Object Space
-======================
-
-The Logic Object Space adds several logic programming features,
-including the notion of logical variable.  A logical variable is really
-an object from the Python point of view; it is called "variable" for
-consistency with logic programming terminology.  It is an "empty" object
-with no initial value: its value can be set once, and only once, at any
-point in time.
-
-Logical variables are not entirely different from lazily-computed objects,
-except that the objects have no built-in knowledge about how they should
-compute themselves.
-
-Using a logical variable before it gets a value results in a lock:
-the current thread is suspended, in the hope that another thread will
-eventually give it a value.  In practice, this works well
-with microthreads instead of real threads (see `Stackless features`_).
-
-The `EU Interim Report`_ (PDF) describes the Logic Object Space in
-more detail.
-
-.. _`EU Interim Report`: http://codespeak.net/pypy/extradoc/eu-report/D09.1_Constraint_Solving_and_Semantic_Web-interim-2007-02-28.pdf
-.. _`Stackless features`: stackless.html
 
 .. _taint:
 

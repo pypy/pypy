@@ -263,8 +263,6 @@ Directory                      explanation/links
 
 `objspace/thunk.py`_           the `thunk object space`_, providing unique object features 
 
-`objspace/logic.py`_           the `logic object space`_, providing Prolog-like logic variables
-
 `objspace/cpy/`_               an object space supporting the `extension compiler`_
 
 `objspace/flow/`_              the FlowObjSpace_ implementing `abstract interpretation`
@@ -330,7 +328,6 @@ Directory                      explanation/links
 .. _`trace object space`: objspace.html#the-trace-object-space 
 .. _`taint object space`: objspace-proxies.html#taint
 .. _`thunk object space`: objspace-proxies.html#thunk
-.. _`logic object space`: objspace-proxies.html#logic
 .. _`transparent proxies`: objspace-proxies.html#tproxy
 .. _`What PyPy can do for your objects`: objspace-proxies.html
 .. _`Stackless and coroutines`: stackless.html
