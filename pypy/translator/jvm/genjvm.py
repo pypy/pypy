@@ -49,7 +49,6 @@ class JvmSubprogramError(JvmError):
         print "vvv Stderr vvv\n"
         print self.stderr
         
-    pass
 
 class JvmGeneratedSource(object):
     
