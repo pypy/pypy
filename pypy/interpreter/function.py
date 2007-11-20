@@ -461,6 +461,9 @@ class StaticMethod(Wrappable):
         """staticmethod(x).__get__(obj[, type]) -> x"""
         return self.w_function
 
+    def descr_staticmethod__new__(space, w_type, w_function):
+        return space.wrap(StaticMethod(w_function))
+
 class BuiltinFunction(Function):
 
     def __init__(self, func):

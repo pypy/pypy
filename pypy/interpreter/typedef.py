@@ -677,7 +677,22 @@ Method.typedef = TypeDef("method",
     )
 
 StaticMethod.typedef = TypeDef("staticmethod",
+    __doc__ = """staticmethod(function) -> static method
+
+Convert a function to be a static method.
+
+A static method does not receive an implicit first argument.
+To declare a static method, use this idiom:
+
+     class C:
+         def f(arg1, arg2, ...): ...
+         f = staticmethod(f)
+
+It can be called either on the class (e.g. C.f()) or on an instance
+(e.g. C().f()).  The instance is ignored except for its class.""",
     __get__ = interp2app(StaticMethod.descr_staticmethod_get),
+    __new__ = interp2app(StaticMethod.descr_staticmethod__new__.im_func,
+                         unwrap_spec = [ObjSpace, W_Root, W_Root]),
     )
 
 def always_none(self, obj):
