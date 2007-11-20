@@ -19,8 +19,8 @@ class W_Super(Wrappable):
         if self.w_self is None or space.is_w(w_obj, space.w_None):
             return w(self)
         else:
-            return space.call(self.w_selftype, space.newlist([
-                self.w_starttype, w_obj]))
+            return space.call_function(self.w_selftype, self.w_starttype, w_obj
+                                       )
     get.unwrap_spec = ['self', ObjSpace, W_Root, W_Root]
 
     def getattribute(self, space, name):
@@ -28,8 +28,8 @@ class W_Super(Wrappable):
         if name == '__class__':
             return self.w_selftype
         if self.w_type is None:
-            return space.call(object_getattribute(space),
-                              space.newlist([w(self), w(name)]))
+            return space.call_function(object_getattribute(space),
+                                       w(self), w(name))
             
         w_value = space.lookup_in_type_starting_at(self.w_type,
                                                    self.w_starttype,
@@ -47,6 +47,7 @@ class W_Super(Wrappable):
             if not o.match(space, space.w_AttributeError):
                 raise
             return w_value
+        ###return space.call_function(w_get, w_self, self.w_type)
         return space.call(w_get, space.newlist([w_self, self.w_type]))
     getattribute.unwrap_spec = ['self', ObjSpace, str]
 
