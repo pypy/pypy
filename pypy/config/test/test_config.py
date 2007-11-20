@@ -5,7 +5,7 @@ def make_description():
     gcoption = ChoiceOption('name', 'GC name', ['ref', 'framework'], 'ref')
     gcdummy = BoolOption('dummy', 'dummy', default=False)
     objspaceoption = ChoiceOption('objspace', 'Object space',
-                                ['std', 'logic'], 'std')
+                                ['std', 'thunk'], 'std')
     booloption = BoolOption('bool', 'Test boolean option', default=True)
     intoption = IntOption('int', 'Test int option', default=0)
     floatoption = FloatOption('float', 'Test float option', default=2.3)
@@ -34,8 +34,8 @@ def test_base_config():
     assert getattr(config, "gc.name") == 'framework'
 
     assert config.objspace == 'std'
-    config.objspace = 'logic'
-    assert config.objspace == 'logic'
+    config.objspace = 'thunk'
+    assert config.objspace == 'thunk'
     
     assert config.gc.float == 2.3
     assert config.int == 0
