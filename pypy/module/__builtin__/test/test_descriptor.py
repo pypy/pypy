@@ -80,3 +80,10 @@ class AppTestBuiltinApp:
                 return [cls, super(B, cls).f()]
             f = classmethod(f)
         assert B().f() == [B, B]
+
+    def test_super_fail(self):
+        try:
+            super(list, 2)
+        except TypeError, e:
+            message = e.args[0]
+            assert message.startswith('super(type, obj): obj must be an instance or subtype of type')
