@@ -24,7 +24,7 @@ translation_optiondescription = OptionDescription(
                                 ]
                      }),
     ChoiceOption("backend", "Backend to use for code generation",
-                 ["c", "llvm", "cli", "jvm", "js", "squeak", "cl"],
+                 ["c", "llvm", "cli", "jvm", "js"],
                  requires={
                      "c":      [("translation.type_system", "lltype")],
                      "llvm":   [("translation.type_system", "lltype"),
@@ -33,8 +33,6 @@ translation_optiondescription = OptionDescription(
                      "cli":    [("translation.type_system", "ootype")],
                      "jvm":    [("translation.type_system", "ootype")],
                      "js":     [("translation.type_system", "ootype")],
-                     "squeak": [("translation.type_system", "ootype")],
-                     "cl":     [("translation.type_system", "ootype")],
                      },
                  cmdline="-b --backend"),
     BoolOption("llvm_via_c", "compile llvm via C",
