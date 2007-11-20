@@ -36,6 +36,9 @@ class C_Controller(Controller):
     def setitem(self, obj, key, value):
         value.append(obj + key)
 
+    def call(self, obj, arg):
+        return obj + arg
+
 class Entry(ControllerEntry):
     _about_ = C
     _controller_ = C_Controller
@@ -96,14 +99,16 @@ def fun3(a):
     lst = []
     c = C(a)
     c['foo'] = lst    # side-effect on lst!  well, it's a test
-    return c['bar'], lst[0]
+    call_res = c("baz")
+    return c['bar'], lst[0], call_res
 
 def test_getsetitem_annotate():
     a = RPythonAnnotator()
     s = a.build_types(fun3, [a.bookkeeper.immutablevalue("4")])
-    assert s.const == ("4_bar", "4_foo")
+    assert s.const == ("4_bar", "4_foo", "4_baz")
 
 def test_getsetitem_specialize():
     res = interpret(fun3, ["4"])
     assert ''.join(res.item0.chars) == "4_bar"
     assert ''.join(res.item1.chars) == "4_foo"
+    assert ''.join(res.item2.chars) == "4_baz"

@@ -31,6 +31,9 @@ class ControlledInstanceRepr(Repr):
     def rtype_is_true(self, hop):
         return self.controller.rtype_is_true(hop)
 
+    def rtype_simple_call(self, hop):
+        return self.controller.rtype_call(hop)
+
 
 class __extend__(pairtype(ControlledInstanceRepr, Repr)):
 
