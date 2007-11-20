@@ -5,17 +5,35 @@ RPython-compliant way, intended mostly for use by the Stackless PyPy.
 
 import inspect
 
+from pypy.rlib.objectmodel import we_are_translated
+from pypy.rpython.extregistry import ExtRegistryEntry
+from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rpython.controllerentry import Controller, SomeControlledInstance
+
+
 def stack_unwind():
+    if we_are_translated():
+        from pypy.rpython.lltypesystem.lloperation import llop
+        return llop.stack_unwind(lltype.Void)
     raise RuntimeError("cannot unwind stack in non-translated versions")
+
 
 def stack_capture():
+    if we_are_translated():
+        from pypy.rpython.lltypesystem.lloperation import llop
+        ptr = llop.stack_capture(OPAQUE_STATE_HEADER_PTR)
+        return frame_stack_top_controller.box(ptr)
     raise RuntimeError("cannot unwind stack in non-translated versions")
 
-def stack_frames_depth():
-    return len(inspect.stack())
 
-def stack_too_big():
-    return False
+def stack_frames_depth():
+    if we_are_translated():
+        from pypy.rpython.lltypesystem.lloperation import llop
+        return llop.stack_frames_depth(lltype.Signed)
+    else:
+        return len(inspect.stack())
+
+stack_too_big = rffi.llexternal('LL_stack_too_big', [], rffi.INT, _callable=lambda: 0)
 
 def stack_check():
     if stack_too_big():
@@ -29,15 +47,61 @@ def stack_check():
 def yield_current_frame_to_caller():
     raise NotImplementedError("only works in translated versions")
 
+
 class frame_stack_top(object):
     def switch(self):
         raise NotImplementedError("only works in translated versions")
 
 
-from pypy.rpython.extregistry import ExtRegistryEntry
+class BoundSwitchOfFrameStackTop(object): pass
+class BoundSwitchOfFrameStackTopController(Controller):
+    knowntype = BoundSwitchOfFrameStackTop
+    def call(self, real_object):
+        from pypy.rpython.lltypesystem.lloperation import llop
+        ptr = llop.stack_switch(OPAQUE_STATE_HEADER_PTR, real_object)
+        return frame_stack_top_controller.box(ptr)
+
+
+class FrameStackTopController(Controller):
+    knowntype = frame_stack_top
+    can_be_None = True
+
+    def is_true(self, real_object):
+        return bool(real_object)
+
+    def get_switch(self, real_object):
+        return bound_switch_of_frame_stack_top_controller.box(real_object)
+
+    def convert(self, obj):
+        assert obj is None
+        return lltype.nullptr(OPAQUE_STATE_HEADER_PTR.TO)
+
+frame_stack_top_controller = FrameStackTopController()
+bound_switch_of_frame_stack_top_controller = BoundSwitchOfFrameStackTopController()
+OPAQUE_STATE_HEADER = lltype.GcOpaqueType("OPAQUE_STATE_HEADER")
+OPAQUE_STATE_HEADER._exttypeinfo = "Really bad hack - dont remove"
+OPAQUE_STATE_HEADER_PTR = lltype.Ptr(OPAQUE_STATE_HEADER)
+
+
+
+class FrameStackTopReturningFnEntry(ExtRegistryEntry):
+    def compute_result_annotation(self):
+        from pypy.annotation import model as annmodel
+        return SomeControlledInstance(annmodel.lltype_to_annotation(OPAQUE_STATE_HEADER_PTR), frame_stack_top_controller)
+
+
+class YieldCurrentFrameToCallerFnEntry(FrameStackTopReturningFnEntry):
+    _about_ = yield_current_frame_to_caller
+
+    def specialize_call(self, hop):
+        var = hop.genop("yield_current_frame_to_caller", [], hop.r_result.lowleveltype)
+        return var
+
 
 def resume_point(label, *args, **kwds):
     pass
+
+
 
 class ResumePointFnEntry(ExtRegistryEntry):
     _about_ = resume_point
@@ -83,17 +147,14 @@ def concretify_argument(hop, index):
     r_arg = hop.rtyper.bindingrepr(v_arg)
     return hop.inputarg(r_arg, arg=index)
 
-class ResumeStateCreateFnEntry(ExtRegistryEntry):
+class ResumeStateCreateFnEntry(FrameStackTopReturningFnEntry):
     _about_ = resume_state_create
 
     def compute_result_annotation(self, s_prevstate, s_label, *args_s):
-        from pypy.annotation import model as annmodel
-        return annmodel.SomeExternalObject(frame_stack_top)
+        return FrameStackTopReturningFnEntry.compute_result_annotation(self)
 
     def specialize_call(self, hop):
         from pypy.rpython.lltypesystem import lltype
-        from pypy.rpython.rmodel import SimplePointerRepr
-        from pypy.translator.stackless.frame import STATE_HEADER
 
         assert hop.args_s[1].is_constant()
         c_label = hop.inputconst(lltype.Void, hop.args_s[1].const)
@@ -141,5 +202,4 @@ class ResumeStateInvokeFnEntry(ExtRegistryEntry):
         hop.exception_is_here()
         return hop.genop('resume_state_invoke', [v_state, v_returning, v_raising],
                          hop.r_result)
-        
         

@@ -16,7 +16,7 @@ from pypy.objspace.flow.model import *
 from pypy.rlib.rarithmetic import r_uint, base_int, r_longlong, r_ulonglong
 from pypy.rlib.rarithmetic import r_singlefloat
 from pypy.rlib import objectmodel
-from pypy.objspace.flow import FlowObjSpace
+from pypy.objspace.flow.objspace import FlowObjSpace
 
 from pypy.translator.test import snippet
 

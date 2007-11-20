@@ -4,7 +4,7 @@ from py.test import raises
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow.framestate import *
 from pypy.interpreter.pycode import PyCode
-from pypy.objspace.flow import FlowObjSpace
+from pypy.objspace.flow.objspace import FlowObjSpace
 
 class TestFrameState:
     def setup_class(cls):

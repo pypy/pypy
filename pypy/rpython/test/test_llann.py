@@ -9,7 +9,7 @@ from pypy.rpython.annlowlevel import llhelper, cast_instance_to_base_ptr
 from pypy.rpython.annlowlevel import base_ptr_lltype
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.test.test_llinterp import interpret
-from pypy.objspace.flow import FlowObjSpace 
+from pypy.objspace.flow.objspace import FlowObjSpace 
 from pypy.conftest import option
 
 # helpers

@@ -64,3 +64,25 @@ def test_yield_frame():
 
     res = run_stackless_function(f)
     assert res == 1234567
+
+
+def test_frame_none_mix():
+    def h(flag):
+        if flag:
+            c = g()
+        else:
+            c = None
+        return c
+    def f():
+        return bool(h(False)) * 2 + bool(h(True))
+    def g():
+        d = rstack.yield_current_frame_to_caller()
+        return d
+
+    data = llinterp_stackless_function(f)
+    assert data == 1
+
+    res = run_stackless_function(f)
+    assert res == 1
+
+

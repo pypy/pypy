@@ -4,7 +4,7 @@ from pypy.objspace.flow.model import Constant, Block, Link, Variable, traverse
 from pypy.objspace.flow.model import flatten
 from pypy.interpreter.argument import Arguments
 from pypy.translator.simplify import simplify_graph
-from pypy.objspace.flow import FlowObjSpace 
+from pypy.objspace.flow.objspace import FlowObjSpace 
 from pypy.objspace.flow import objspace
 from pypy import conftest
 

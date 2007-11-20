@@ -5,7 +5,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.rlist import ListRepr
 from pypy.rpython.rint import signed_repr
 from pypy.annotation import model as annmodel
-from pypy.objspace.flow import FlowObjSpace
+from pypy.objspace.flow.objspace import FlowObjSpace
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rlib.objectmodel import r_dict

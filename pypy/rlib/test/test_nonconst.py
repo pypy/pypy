@@ -4,7 +4,7 @@
 
 from pypy.rlib.nonconst import NonConstant
 
-from pypy.objspace.flow import FlowObjSpace
+from pypy.objspace.flow.objspace import FlowObjSpace
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.conftest import option
 from pypy.annotation.model import SomeInstance

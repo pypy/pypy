@@ -812,6 +812,17 @@ class LLFrame(object):
     def op_yield_current_frame_to_caller(self):
         raise NotImplementedError("yield_current_frame_to_caller")
 
+    def op_stack_frames_depth(self):
+        return len(self.llinterpreter.frame_stack)
+
+    def op_stack_switch(self, frametop):
+        raise NotImplementedError("stack_switch")
+
+    def op_stack_unwind(self):
+        raise NotImplementedError("stack_unwind")
+
+    def op_stack_capture(self):
+        raise NotImplementedError("stack_capture")
 
     # operations on pyobjects!
     for opname in lloperation.opimpls.keys():

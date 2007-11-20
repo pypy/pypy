@@ -1,5 +1,6 @@
 from pypy.annotation import model as annmodel
 from pypy.tool.pairtype import pairtype
+from pypy.annotation.binaryop import _make_none_union, SomePBC # SomePBC needed by _make_none_union
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.annlowlevel import cachedtype
@@ -48,6 +49,7 @@ class ControllerEntryForPrebuilt(ExtRegistryEntry):
 
 class Controller(object):
     __metaclass__ = cachedtype
+    can_be_None = False
 
     def _freeze_(self):
         return True
@@ -210,6 +212,9 @@ class SomeControlledInstance(annmodel.SomeObject):
         self.controller = controller
         self.knowntype = controller.knowntype
 
+    def can_be_none(self):
+        return self.controller.can_be_None
+
     def rtyper_makerepr(self, rtyper):
         from pypy.rpython.rcontrollerentry import ControlledInstanceRepr
         return ControlledInstanceRepr(rtyper, self.s_real_obj, self.controller)
@@ -218,6 +223,7 @@ class SomeControlledInstance(annmodel.SomeObject):
         real_key = rtyper.makekey(self.s_real_obj)
         return self.__class__, real_key, self.controller
 
+_make_none_union("SomeControlledInstance", "obj.s_real_obj, obj.controller", globals())
 
 class __extend__(SomeControlledInstance):
 

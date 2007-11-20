@@ -9,46 +9,8 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.translator.llvm.buildllvm import llvm_gcc_version
 
 from pypy.tool.udir import udir
-from pypy.rpython.module import ll_stack
-
-ll_stack_too_big = """
-
-define internal ccc i1 @LL_stack_too_big_() {
-    %result = call ccc i32 @LL_stack_too_big()
-    %tmp = trunc i32 %result to i1
-    ret i1 %tmp
-}
-
-"""
-
-# table of functions hand-written in src/ll_*.h
-# Note about *.im_func: The annotator and the rtyper expect direct
-# references to functions, so we cannot insert classmethods here.
-
-EXTERNALS = {
-    ll_stack.ll_stack_unwind: 'LL_stack_unwind',
-    ll_stack.ll_stack_too_big: 'LL_stack_too_big_',
-    }
 
 def predeclare_stuff(c_db):
-    modules = {}
-    def module_name(c_name):
-        frags = c_name[3:].split('_')
-        if frags[0] == '':
-            return '_' + frags[1]
-        else:
-            return frags[0]
-
-    for func, funcobj in c_db.externalfuncs.items():
-        c_name = EXTERNALS[func]
-        # construct a define LL_NEED_<modname> to make it possible to isolate in-development externals and headers
-        modname = module_name(c_name)
-        if modname not in modules:
-            modules[modname] = True
-            yield 'LL_NEED_%s' % modname.upper(), 1
-        funcptr = funcobj._as_ptr()
-        yield c_name, funcptr
-
     exctransformer = c_db.exctransformer
     yield ('_rpyexc_occured_ptr',  exctransformer._rpyexc_occured_ptr.value)
     yield ('rpyexc_fetch_type_ptr', exctransformer.rpyexc_fetch_type_ptr.value)
@@ -228,7 +190,6 @@ def generate_llfile(db, extern_decls, entrynode, c_includes, c_sources, standalo
         predeclarefn("__ENTRY_POINT__", entrynode.get_ref())
         ccode.append('#define ENTRY_POINT_DEFINED 1\n\n')
 
-    LL_stack_too_big_ = False
     for c_name, obj in extern_decls:
         if isinstance(obj, lltype.LowLevelType):
             s = "#define %s struct %s\n%s;\n" % (c_name, c_name, c_name)
@@ -243,8 +204,6 @@ def generate_llfile(db, extern_decls, entrynode, c_includes, c_sources, standalo
             pass
 
         elif type(c_name) is str and type(obj) is int:
-            if c_name == 'LL_NEED_STACK':
-                LL_stack_too_big_ = True
             ccode.append("#define\t%s\t%d\n" % (c_name, obj))
 
         else:
@@ -269,9 +228,4 @@ def generate_llfile(db, extern_decls, entrynode, c_includes, c_sources, standalo
     # append our source file
     ccode.append(open(get_module_file('genexterns.c')).read())
     llcode = get_ll("".join(ccode), function_names, default_cconv)
-
-    # XXX enormous temporary hack
-    if LL_stack_too_big_:
-        llcode += ll_stack_too_big
-        
     return llcode

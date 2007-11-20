@@ -12,7 +12,6 @@ from pypy.translator.stackless import code, frame
 from pypy.rpython.rclass import getinstancerepr
 from pypy.rpython.rbuiltin import gen_cast
 from pypy.rpython.rtyper import LowLevelOpList
-from pypy.rpython.module import ll_stackless, ll_stack
 from pypy.rlib.objectmodel import ComputedIntSymbolic
 from pypy.translator.backendopt import graphanalyze
 
@@ -250,13 +249,9 @@ class StacklessAnalyzer(graphanalyze.GraphAnalyzer):
         self.stackless_gc = stackless_gc
 
     def operation_is_true(self, op):
-        if op.opname == 'yield_current_frame_to_caller':
-            return True
-        elif op.opname == 'resume_point':
-            return True
-        elif op.opname == 'resume_state_invoke':
-            return True
-        elif op.opname == 'resume_state_create':
+        if op.opname in ('yield_current_frame_to_caller', 'resume_point',
+                'resume_state_invoke', 'resume_state_create', 'stack_frames_depth',
+                'stack_switch', 'stack_unwind', 'stack_capture'):
             return True
         if self.stackless_gc:
             if op.opname in ('malloc', 'malloc_varsize'):
@@ -265,11 +260,6 @@ class StacklessAnalyzer(graphanalyze.GraphAnalyzer):
             return  LL_OPERATIONS[op.opname].canunwindgc
         return False
 
-    def analyze_external_call(self, op):
-        callable = op.args[0].value._obj._callable
-        return callable in [ll_stack.ll_stack_unwind, ll_stack.ll_stack_capture,
-                            ll_stackless.ll_stackless_stack_frames_depth,
-                            ll_stackless.ll_stackless_switch]
 
 def vars_to_save(block):
     lastresult = block.operations[-1].result
@@ -373,23 +363,20 @@ class StacklessTransformer(object):
             }
 
         s_StatePtr = annmodel.SomePtr(frame.OPAQUE_STATE_HEADER_PTR)
-        self.suggested_primitives = {
-            ll_stackless.ll_stackless_stack_frames_depth:
-                mixlevelannotator.constfunc(
-                    code.stack_frames_depth, [], annmodel.SomeInteger()),
-            ll_stackless.ll_stackless_switch:
-                mixlevelannotator.constfunc(
-                    code.ll_frame_switch, [s_StatePtr], s_StatePtr),
-            ll_stack.ll_stack_unwind:
-                mixlevelannotator.constfunc(
-                    code.ll_stack_unwind, [], annmodel.s_None),
-            ll_stack.ll_stack_capture:
-                mixlevelannotator.constfunc(
-                    code.ll_stack_capture, [], s_StatePtr),
-            }
 
-        self.yield_current_frame_to_caller_ptr = mixlevelannotator.constfunc(
-            code.yield_current_frame_to_caller, [], s_StatePtr)
+        self.operation_replacement = {
+                'yield_current_frame_to_caller': mixlevelannotator.constfunc(
+                    code.yield_current_frame_to_caller, [], s_StatePtr),
+                'stack_frames_depth':  mixlevelannotator.constfunc(
+                    code.stack_frames_depth, [], annmodel.SomeInteger()),
+                'stack_switch': mixlevelannotator.constfunc(
+                    code.ll_frame_switch, [s_StatePtr], s_StatePtr),
+                'stack_unwind': mixlevelannotator.constfunc(
+                    code.ll_stack_unwind, [], annmodel.s_None),
+                'stack_capture': mixlevelannotator.constfunc(
+                    code.ll_stack_capture, [], s_StatePtr),
+        }
+
 
         s_hdrptr = annmodel.SomePtr(lltype.Ptr(STATE_HEADER))
         # order really matters on 64 bits machines on which
@@ -798,7 +785,7 @@ class StacklessTransformer(object):
         i = 0
 
         def replace_with_call(fnptr):
-            args = [fnptr] + op.args[1:]
+            args = [fnptr] + op.args
             newop = model.SpaceOperation('direct_call', args, op.result)
             block.operations[i] = newop
             return newop
@@ -806,8 +793,9 @@ class StacklessTransformer(object):
         while i < len(block.operations):
             stackless_op = False
             op = block.operations[i]
-            if op.opname == 'yield_current_frame_to_caller':
-                op = replace_with_call(self.yield_current_frame_to_caller_ptr)
+
+            if op.opname in self.operation_replacement:
+                op = replace_with_call(self.operation_replacement[op.opname])
                 stackless_op = True
 
             if op.opname == 'resume_state_create':
@@ -823,13 +811,6 @@ class StacklessTransformer(object):
                     else:
                         i = 0
                         continue
-
-                # trap calls to stackless-related suggested primitives
-                if op.opname == 'direct_call':
-                    func = getattr(op.args[0].value._obj, '_callable', None)
-                    if func in self.suggested_primitives:
-                        op = replace_with_call(self.suggested_primitives[func])
-                        stackless_op = True
 
                 if not stackless_op and not self.analyzer.analyze(op):
                     i += 1

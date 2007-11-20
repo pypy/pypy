@@ -18,7 +18,6 @@ from pypy.annotation import description
 from pypy.objspace.flow.model import Constant
 import pypy.rlib.rarithmetic
 import pypy.rlib.objectmodel
-import pypy.rlib.rstack
 
 # convenience only!
 def immutablevalue(x):
@@ -339,9 +338,6 @@ def llmemory_cast_adr_to_int(s):
 def llmemory_cast_int_to_adr(s):
     return SomeAddress()
 
-def rstack_yield_current_frame_to_caller():
-    return SomeExternalObject(pypy.rlib.rstack.frame_stack_top)
-    
 
 ##def rarith_ovfcheck(s_obj):
 ##    if isinstance(s_obj, SomeInteger) and s_obj.unsigned:
@@ -384,8 +380,6 @@ BUILTIN_ANALYZERS[pypy.rpython.lltypesystem.llmemory.cast_ptr_to_adr] = llmemory
 BUILTIN_ANALYZERS[pypy.rpython.lltypesystem.llmemory.cast_adr_to_ptr] = llmemory_cast_adr_to_ptr
 BUILTIN_ANALYZERS[pypy.rpython.lltypesystem.llmemory.cast_adr_to_int] = llmemory_cast_adr_to_int
 BUILTIN_ANALYZERS[pypy.rpython.lltypesystem.llmemory.cast_int_to_adr] = llmemory_cast_int_to_adr
-BUILTIN_ANALYZERS[pypy.rlib.rstack.yield_current_frame_to_caller] = (
-    rstack_yield_current_frame_to_caller)
 
 BUILTIN_ANALYZERS[getattr(OSError.__init__, 'im_func', OSError.__init__)] = (
     OSError_init)

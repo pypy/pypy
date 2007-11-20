@@ -6,6 +6,7 @@
 from __future__ import generators
 import py
 from pypy.tool.uid import uid, Hashable
+from pypy.tool.descriptor import roproperty
 from pypy.tool.sourcetools import PY_IDENTIFIER, nice_repr_for_func
 
 """
@@ -29,15 +30,6 @@ from pypy.tool.sourcetools import PY_IDENTIFIER, nice_repr_for_func
 """
 
 __metaclass__ = type
-
-class roproperty(object):
-    def __init__(self, getter):
-        self.getter = getter
-    def __get__(self, obj, cls=None):
-        if obj is None:
-            return self
-        else:
-            return self.getter(obj)
 
 
 class FunctionGraph(object):

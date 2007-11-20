@@ -6,17 +6,12 @@ from pypy.rpython.lltypesystem.rstr import STR, mallocstr
 from pypy.rpython.lltypesystem import rstr
 from pypy.rpython.lltypesystem import rlist
 from pypy.rpython.module import ll_time, ll_os
-from pypy.rpython.module import ll_stackless, ll_stack
 
 # table of functions hand-written in src/ll_*.h
 # Note about *.im_func: The annotator and the rtyper expect direct
 # references to functions, so we cannot insert classmethods here.
 
 EXTERNALS = {
-    ll_stackless.ll_stackless_switch:             'LL_stackless_switch',
-    ll_stackless.ll_stackless_stack_frames_depth: 'LL_stackless_stack_frames_depth',
-    ll_stack.ll_stack_unwind: 'LL_stack_unwind',
-    ll_stack.ll_stack_too_big: 'LL_stack_too_big',
     'LL_flush_icache': 'LL_flush_icache',
     }
 

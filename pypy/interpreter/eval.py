@@ -4,7 +4,6 @@ Code and Frame.
 """
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.rlib import rstack # for resume points
 
 
 class Code(Wrappable):

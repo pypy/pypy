@@ -4,7 +4,7 @@
 
 import py
 from pypy.annotation import model as annmodel
-from pypy.objspace.flow import FlowObjSpace
+from pypy.objspace.flow.objspace import FlowObjSpace
 from pypy.annotation.annrpython import RPythonAnnotator
 import exceptions
 from pypy.rpython.ootypesystem.bltregistry import BasicExternal, ExternalType, MethodDesc, described

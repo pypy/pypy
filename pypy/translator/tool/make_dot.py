@@ -6,7 +6,7 @@ from __future__ import generators
 import autopath, os
 import inspect, linecache
 from pypy.objspace.flow.model import *
-from pypy.objspace.flow import Space
+from pypy.objspace.flow.objspace import FlowObjSpace as Space
 from pypy.tool.udir import udir
 from py.process import cmdexec
 from pypy.interpreter.pytraceback import offset2lineno

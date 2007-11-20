@@ -2,24 +2,6 @@
 
 char *LLVM_RPython_StartupCode(void);
 
-#define RPyRaiseSimpleException(exctype, errormsg) raise##exctype(errormsg);
-
-// XXX abort() this is just to make tests pass.  actually it is a million times
-// better than it was since it used to basically be a nooop.
-
-// all of these will go away at some point
-
-#define FAKE_ERROR(name) \
-  int raisePyExc_##name(char *x) { \
-    abort(); \
-   }
-
-#ifdef LL_NEED_STACK
-  FAKE_ERROR(RuntimeError);
-  #include "src/thread.h"
-  #include "src/stack.h"
-#endif
-
 
 // raw malloc code
 char *raw_malloc(long size) {

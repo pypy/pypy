@@ -3,7 +3,7 @@ The table of all LL operations.
 """
 
 from pypy.rpython.extregistry import ExtRegistryEntry
-from pypy.objspace.flow.model import roproperty
+from pypy.tool.descriptor import roproperty
 
 
 class LLOp(object):
@@ -93,6 +93,12 @@ class LLOp(object):
 
     def __repr__(self):
         return '<LLOp %s>' % (getattr(self, 'opname', '?'),)
+
+
+class _LLOP(object):
+    def _freeze_(self):
+        return True
+llop = _LLOP()
 
 
 def enum_ops_without_sideeffects(raising_is_ok=False):
@@ -425,6 +431,10 @@ LL_OPERATIONS = {
     'resume_point':         LLOp(canraise=(Exception,)),
     'resume_state_create':  LLOp(canraise=(MemoryError,), canunwindgc=True),
     'resume_state_invoke':  LLOp(canraise=(Exception, StackException)),
+    'stack_frames_depth':   LLOp(sideeffects=False, canraise=(StackException, )),
+    'stack_switch':         LLOp(canraise=(StackException, )),
+    'stack_unwind':         LLOp(canraise=(StackException, )),
+    'stack_capture':        LLOp(canraise=(StackException, )),
 
     # __________ misc operations __________
 
@@ -500,10 +510,6 @@ del opname, opdesc
 # Also export all operations in an attribute-based namespace.
 # Example usage from LL helpers:  z = llop.int_add(Signed, x, y)
 
-class LLOP(object):
-    def _freeze_(self):
-        return True
-llop = LLOP()
 for opname, opdesc in LL_OPERATIONS.iteritems():
     setattr(llop, opname, opdesc)
 del opname, opdesc

@@ -239,10 +239,10 @@ def insert_stackcheck(ann):
 
 def insert_ll_stackcheck(translator):
     from pypy.translator.backendopt.support import find_calls_from
-    from pypy.rpython.module.ll_stack import ll_stack_check
+    from pypy.rlib.rstack import stack_check
     from pypy.tool.algo.graphlib import Edge, make_edge_dict, break_cycles
     rtyper = translator.rtyper
-    graph = rtyper.annotate_helper(ll_stack_check, [])
+    graph = rtyper.annotate_helper(stack_check, [])
     rtyper.specialize_more_blocks()
     stack_check_ptr = rtyper.getcallable(graph)
     stack_check_ptr_const = Constant(stack_check_ptr, lltype.typeOf(stack_check_ptr))

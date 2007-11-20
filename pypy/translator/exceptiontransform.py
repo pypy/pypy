@@ -55,6 +55,10 @@ class BaseExceptionTransformer(object):
         self.mixlevelannotator  = MixLevelHelperAnnotator(translator.rtyper)
         exc_data, null_type, null_value = self.setup_excdata()
 
+        runtime_error_def = translator.annotator.bookkeeper.getuniqueclassdef(RuntimeError)
+        runtime_error_ll_exc = edata.get_standard_ll_exc_instance(translator.rtyper, runtime_error_def)
+        runtime_error_ll_exc_type = runtime_error_ll_exc.typeptr
+
         def rpyexc_occured():
             exc_type = exc_data.exc_type
             return bool(exc_type)
@@ -80,6 +84,9 @@ class BaseExceptionTransformer(object):
             # assert(!RPyExceptionOccurred());
             exc_data.exc_type = etype
             exc_data.exc_value = evalue
+
+        def rpyexc_raise_runtime_error():
+            rpyexc_raise(runtime_error_ll_exc_type, runtime_error_ll_exc)
 
         self.rpyexc_occured_ptr = self.build_func(
             "RPyExceptionOccurred",
@@ -113,6 +120,11 @@ class BaseExceptionTransformer(object):
             [self.lltype_of_exception_type, self.lltype_of_exception_value],
             lltype.Void,
             jitcallkind='rpyexc_raise') # for the JIT
+
+        self.rpyexc_raise_runtime_error_ptr = self.build_func(
+            "RPyRaiseRuntimeError",
+            rpyexc_raise_runtime_error,
+            [], lltype.Void)
 
         self.mixlevelannotator.finish()
         self.lltype_to_classdef = translator.rtyper.lltype_to_classdef_mapping()
@@ -148,6 +160,7 @@ class BaseExceptionTransformer(object):
         n_need_exc_matching_blocks = 0
         n_gen_exc_checks           = 0
         for block in list(graph.iterblocks()):
+            self.replace_stack_unwind(block)
             need_exc_matching, gen_exc_checks = self.transform_block(graph, block)
             n_need_exc_matching_blocks += need_exc_matching
             n_gen_exc_checks           += gen_exc_checks
@@ -155,6 +168,16 @@ class BaseExceptionTransformer(object):
         cleanup_graph(graph)
         removenoops.remove_superfluous_keep_alive(graph)
         return n_need_exc_matching_blocks, n_gen_exc_checks
+
+    def replace_stack_unwind(self, block):
+        for i in range(len(block.operations)):
+            if block.operations[i].opname == 'stack_unwind':
+                # if there are stack_unwind ops left,
+                # the graph was not stackless-transformed
+                # so we need to raise a RuntimeError in any
+                # case
+                block.operations[i].opname = "direct_call"
+                block.operations[i].args = [self.rpyexc_raise_runtime_error_ptr]
 
     def transform_block(self, graph, block):
         need_exc_matching = False

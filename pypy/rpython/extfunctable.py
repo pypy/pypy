@@ -163,18 +163,6 @@ def isabs(s):
 ntpath.isabs = isabs
 
 # ___________________________________________________________
-# stackless
-from pypy.rlib import rstack
-declare(rstack.stack_frames_depth, int, 'll_stackless/stack_frames_depth')
-declare(rstack.stack_too_big, bool, 'll_stack/too_big')
-declare(rstack.stack_check, noneannotation, 'll_stack/check')
-declare(rstack.stack_unwind, noneannotation, 'll_stack/unwind')
-declare(rstack.stack_capture, rstack.frame_stack_top, 'll_stack/capture')
-frametop_type_info = declaregcptrtype(rstack.frame_stack_top,'frame_stack_top',
-                                        switch = (rstack.frame_stack_top,
-                                                  'll_stackless/switch'))
-
-# ___________________________________________________________
 # the exceptions that can be implicitely raised by some operations
 standardexceptions = {
     TypeError        : True,

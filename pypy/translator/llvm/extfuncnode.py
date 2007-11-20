@@ -1,13 +1,9 @@
 from pypy.translator.llvm.node import FuncNode
-from pypy.translator.llvm.externs2ll import EXTERNALS
 from pypy.rpython.lltypesystem import lltype
 
 class ExternalFuncNode(FuncNode):
-    def __init__(self, db, value, mapname=None):
-        if mapname is None:
-            name = value._name
-        else:
-            name = EXTERNALS[mapname]
+    def __init__(self, db, value):
+        name = value._name
         self.db = db
         self.value = value
         self.name = "@" + name

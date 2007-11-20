@@ -3,7 +3,7 @@ from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem import lltype, rclass, llmemory
 from pypy.rpython import rint, raddress
-from pypy.rlib import rarithmetic, rstack, objectmodel
+from pypy.rlib import rarithmetic, objectmodel
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
 from pypy.rpython.rrange import rtype_builtin_range, rtype_builtin_xrange
@@ -273,10 +273,6 @@ def rtype_we_are_translated(hop):
     hop.exception_cannot_occur()
     return hop.inputconst(lltype.Bool, True)
 
-def rtype_yield_current_frame_to_caller(hop):
-    return hop.genop('yield_current_frame_to_caller', [],
-                     resulttype=hop.r_result)
-
 def rtype_hlinvoke(hop):
     _, s_repr = hop.r_s_popfirstarg()
     r_callable = s_repr.const
@@ -516,8 +512,6 @@ BUILTIN_TYPER[lltype.Ptr] = rtype_const_result
 BUILTIN_TYPER[lltype.runtime_type_info] = rtype_runtime_type_info
 BUILTIN_TYPER[rarithmetic.intmask] = rtype_intmask
 BUILTIN_TYPER[objectmodel.we_are_translated] = rtype_we_are_translated
-BUILTIN_TYPER[rstack.yield_current_frame_to_caller] = (
-    rtype_yield_current_frame_to_caller)
 
 BUILTIN_TYPER[objectmodel.hlinvoke] = rtype_hlinvoke
 

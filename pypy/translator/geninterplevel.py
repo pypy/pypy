@@ -57,7 +57,7 @@ from pypy.interpreter.argument import Arguments
 from pypy.translator.backendopt.ssa import SSI_to_SSA
 
 from pypy.translator.translator import TranslationContext
-from pypy.objspace.flow import FlowObjSpace
+from pypy.objspace.flow.objspace import FlowObjSpace
 
 from pypy.tool.sourcetools import render_docstr, NiceCompile
 
