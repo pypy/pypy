@@ -39,33 +39,8 @@ def _cleanup(leave=0):
         del _ext_modules[:-leave]
     else:
         del _ext_modules[:]
-            
-def setup_module(mod):
-    from pypy.rpython.lltypesystem import lltype
-    from pypy.rpython.lltypesystem.rffi import llexternal
-
-    c_source = py.code.Source("""
-    int get_errno() {
-        return errno;
-    }
-    """)
-    get_errno = llexternal('get_errno', [], lltype.Signed, sources=[c_source])
-
-    c_source = py.code.Source("""
-    void set_errno(int _errno) {
-        errno = _errno;
-    }
-    """)
-    set_errno = llexternal('set_errno', [lltype.Signed], lltype.Void, sources=[c_source])
-    global _get_errno, _set_errno
-    import pypy.rpython.lltypesystem.rffi
-    pypy.rpython.lltypesystem.rffi.get_errno, _get_errno = get_errno, pypy.rpython.lltypesystem.rffi.get_errno
-    pypy.rpython.lltypesystem.rffi.set_errno, _set_errno= set_errno, pypy.rpython.lltypesystem.rffi.set_errno
 
 def teardown_module(mod):
-    import pypy.rpython.lltypesystem.rffi
-    pypy.rpython.lltypesystem.rffi.get_errno = _get_errno
-    pypy.rpython.lltypesystem.rffi.set_errno = _set_errno
     _cleanup()
     
 def llvm_test():

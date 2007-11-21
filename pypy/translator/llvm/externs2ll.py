@@ -221,8 +221,7 @@ def generate_llfile(db, extern_decls, entrynode, c_includes, c_sources, standalo
         
     for c_source in c_sources:
         ccode.append('\n')
-        for l in c_source:
-            ccode.append(l + '\n') 
+        ccode.append(c_source + '\n') 
     ccode.append('\n')
 
     # append our source file
