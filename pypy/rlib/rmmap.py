@@ -1,6 +1,7 @@
 
 from pypy.rpython.tool import rffi_platform
 from pypy.rpython.lltypesystem import rffi, lltype, llmemory
+from pypy.rlib import rposix
 
 import sys
 import os
@@ -111,7 +112,7 @@ if _POSIX:
     _get_page_size = external('getpagesize', [], rffi.INT)
 
     def _get_error_no():
-        return rffi.get_errno()
+        return rposix.get_errno()
 
 elif _MS_WINDOWS:
 

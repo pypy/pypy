@@ -10,6 +10,7 @@ from pypy.rpython import extregistry
 from pypy.rpython.extfunc import register_external
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.lltypesystem.rtupletype import TUPLE_TYPE
+from pypy.rlib import rposix
 
 # XXX on Windows, stat() is flawed; see CPython's posixmodule.c for
 # an implementation based on the Win32 API
@@ -208,7 +209,7 @@ def register_stat_variant(name):
             if arg_is_path:
                 rffi.free_charp(arg)
             if error != 0:
-                raise OSError(rffi.get_errno(), "os_?stat failed")
+                raise OSError(rposix.get_errno(), "os_?stat failed")
             return build_stat_result(stresult)
         finally:
             lltype.free(stresult, flavor='raw')

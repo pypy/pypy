@@ -3,7 +3,7 @@ from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.rpython.lltypesystem.rffi import CCHARP
-from pypy.rpython.lltypesystem.rffi import get_errno as geterrno
+from pypy.rlib.rposix import get_errno as geterrno
 
 from pypy.rlib.rarithmetic import intmask, r_uint
 import os

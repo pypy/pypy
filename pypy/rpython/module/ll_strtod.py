@@ -6,6 +6,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.translator.tool.cbuild import cache_c_module
 from pypy.tool.autopath import pypydir
 from pypy.rpython.ootypesystem import ootype
+from pypy.rlib import rposix
 
 class CConfig:
     _includes_ = ['src/ll_strtod.h']
@@ -51,7 +52,7 @@ class RegisterStrtod(BaseLazyRegistering):
 
         def llimpl(sign, beforept, afterpt, exponent):
             res = ll_parts_to_float(sign, beforept, afterpt, exponent)
-            if res == -1 and rffi.get_errno() == 42:
+            if res == -1 and rposix.get_errno() == 42:
                 raise ValueError("Wrong literal for float")
             return res
 

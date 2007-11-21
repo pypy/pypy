@@ -8,6 +8,7 @@ from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.extfunc import BaseLazyRegistering, registering, extdef
+from pypy.rlib import rposix
 
 class CConfig:
     if sys.platform.startswith('win'):
@@ -163,9 +164,9 @@ class RegisterTime(BaseLazyRegistering):
                     t.c_tv_sec = int(secs)
                     t.c_tv_usec = int(frac*1000000.0)
                     if rffi.cast(rffi.LONG, c_select(0, void, void, void, t)) != 0:
-                        errno = rffi.get_errno()
+                        errno = rposix.get_errno()
                         if errno != EINTR:
-                            raise OSError(rffi.get_errno(), "Select failed")
+                            raise OSError(rposix.get_errno(), "Select failed")
                 finally:
                     lltype.free(t, flavor='raw')
 

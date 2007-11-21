@@ -158,6 +158,7 @@ def cache_c_module(cfiles, modname, cache_dir=None,
     modname = str(cache_dir.join(modname))
     compile_c_module(cfiles, modname, include_dirs=include_dirs,
                      libraries=libraries)
+    return modname + '.so'
 
 def make_module_from_c(cfile, include_dirs=None, libraries=[]):
     cfile = py.path.local(cfile)

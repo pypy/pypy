@@ -3,6 +3,7 @@ import errno
 import py
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
+from pypy.rlib import rposix
 
 math_frexp = rffi.llexternal('frexp', [rffi.DOUBLE, rffi.INTP], rffi.DOUBLE,
                              sandboxsafe=True)
@@ -40,11 +41,11 @@ def ll_math_ldexp(x, exp):
     return r
 
 def _error_reset():
-    rffi.set_errno(0)
+    rposix.set_errno(0)
 
 ERANGE = errno.ERANGE
 def _check_error(x):
-    errno = rffi.get_errno()
+    errno = rposix.get_errno()
     if errno:
         if errno == ERANGE:
             if not x:

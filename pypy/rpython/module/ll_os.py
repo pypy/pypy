@@ -16,6 +16,7 @@ from pypy.annotation.model import s_ImpossibleValue, s_None, s_Bool
 from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.tool import rffi_platform as platform
+from pypy.rlib import rposix
 posix = __import__(os.name)
 
 if sys.platform.startswith('win'):
@@ -72,7 +73,7 @@ class RegisterOs(BaseLazyRegistering):
         def c_func_llimpl():
             res = rffi.cast(rffi.LONG, c_func())
             if res == -1:
-                raise OSError(rffi.get_errno(), "%s failed" % name)
+                raise OSError(rposix.get_errno(), "%s failed" % name)
             return res
         c_func_llimpl.func_name = name + '_llimpl'
 
@@ -84,7 +85,7 @@ class RegisterOs(BaseLazyRegistering):
         def c_func_llimpl(arg):
             res = rffi.cast(rffi.LONG, c_func(arg))
             if res == -1:
-                raise OSError(rffi.get_errno(), "%s failed" % name)
+                raise OSError(rposix.get_errno(), "%s failed" % name)
         
         c_func_llimpl.func_name = name + '_llimpl'
 
@@ -100,7 +101,7 @@ class RegisterOs(BaseLazyRegistering):
             l_args = rffi.liststr2charpp(args)
             os_execv(path, l_args)
             rffi.free_charpp(l_args)
-            raise OSError(rffi.get_errno(), "execv failed")
+            raise OSError(rposix.get_errno(), "execv failed")
 
         return extdef([str, [str]], s_ImpossibleValue, llimpl=execv_llimpl,
                       export_name="ll_os.ll_os_execv")
@@ -117,7 +118,7 @@ class RegisterOs(BaseLazyRegistering):
             childpid = os_spawnv(mode, path, l_args)
             rffi.free_charpp(l_args)
             if childpid == -1:
-                raise OSError(rffi.get_errno(), "os_spawnv failed")
+                raise OSError(rposix.get_errno(), "os_spawnv failed")
             return rffi.cast(lltype.Signed, childpid)
 
         return extdef([int, str, [str]], int, llimpl=spawnv_llimpl,
@@ -130,7 +131,7 @@ class RegisterOs(BaseLazyRegistering):
         def dup_llimpl(fd):
             newfd = rffi.cast(lltype.Signed, os_dup(rffi.cast(rffi.INT, fd)))
             if newfd == -1:
-                raise OSError(rffi.get_errno(), "dup failed")
+                raise OSError(rposix.get_errno(), "dup failed")
             return newfd
         
         return extdef([int], int, llimpl=dup_llimpl,
@@ -145,7 +146,7 @@ class RegisterOs(BaseLazyRegistering):
             error = rffi.cast(lltype.Signed, os_dup2(rffi.cast(rffi.INT, fd),
                                              rffi.cast(rffi.INT, newfd)))
             if error == -1:
-                raise OSError(rffi.get_errno(), "dup2 failed")
+                raise OSError(rposix.get_errno(), "dup2 failed")
 
         return extdef([int, int], s_None, llimpl=dup2_llimpl,
                       export_name="ll_os.ll_os_dup2")
@@ -204,7 +205,7 @@ class RegisterOs(BaseLazyRegistering):
                 actime, modtime = tp
                 error = os_utime_platform(path, actime, modtime)
             if error == -1:
-                raise OSError(rffi.get_errno(), "os_utime failed")
+                raise OSError(rposix.get_errno(), "os_utime failed")
         os_utime_llimpl._annspecialcase_ = 'specialize:argtype(1)'
 
         s_string = SomeString()
@@ -287,7 +288,7 @@ class RegisterOs(BaseLazyRegistering):
             try:
                 result = os_times(l_tmsbuf)
                 if result == rffi.cast(self.CLOCK_T, -1):
-                    raise OSError(rffi.get_errno(), "times failed")
+                    raise OSError(rposix.get_errno(), "times failed")
                 return (
                     l_tmsbuf.c_tms_utime / CLOCK_TICKS_PER_SECOND,
                     l_tmsbuf.c_tms_stime / CLOCK_TICKS_PER_SECOND,
@@ -306,7 +307,7 @@ class RegisterOs(BaseLazyRegistering):
         def setsid_llimpl():
             result = rffi.cast(lltype.Signed, os_setsid())
             if result == -1:
-                raise OSError(rffi.get_errno(), "os_setsid failed")
+                raise OSError(rposix.get_errno(), "os_setsid failed")
             return result
 
         return extdef([], int, export_name="ll_os.ll_os_setsid",
@@ -333,7 +334,7 @@ class RegisterOs(BaseLazyRegistering):
             l_utsbuf = lltype.malloc(UTSNAMEP.TO, flavor='raw')
             result = os_uname(l_utsbuf)
             if result == -1:
-                raise OSError(rffi.get_errno(), "os_uname failed")
+                raise OSError(rposix.get_errno(), "os_uname failed")
             retval = (
                 rffi.charp2str(rffi.cast(rffi.CCHARP, l_utsbuf.c_sysname)),
                 rffi.charp2str(rffi.cast(rffi.CCHARP, l_utsbuf.c_nodename)),
@@ -380,7 +381,7 @@ class RegisterOs(BaseLazyRegistering):
         def os_open_llimpl(path, flags, mode):
             result = rffi.cast(rffi.LONG, os_open(path, flags, mode))
             if result == -1:
-                raise OSError(rffi.get_errno(), "os_open failed")
+                raise OSError(rposix.get_errno(), "os_open failed")
             return result
 
         def os_open_oofakeimpl(o_path, flags, mode):
@@ -405,7 +406,7 @@ class RegisterOs(BaseLazyRegistering):
                 got = rffi.cast(lltype.Signed, os_read(rffi.cast(rffi.INT, fd),
                                 inbuf, rffi.cast(rffi.SIZE_T, count)))
                 if got < 0:
-                    raise OSError(rffi.get_errno(), "os_read failed")
+                    raise OSError(rposix.get_errno(), "os_read failed")
                 # XXX too many copies of the data!
                 l = [inbuf[i] for i in range(got)]
             finally:
@@ -434,7 +435,7 @@ class RegisterOs(BaseLazyRegistering):
                     rffi.cast(rffi.INT, fd),
                     outbuf, rffi.cast(rffi.SIZE_T, count)))
                 if written < 0:
-                    raise OSError(rffi.get_errno(), "os_write failed")
+                    raise OSError(rposix.get_errno(), "os_write failed")
             finally:
                 lltype.free(outbuf, flavor='raw')
             return written
@@ -453,7 +454,7 @@ class RegisterOs(BaseLazyRegistering):
         def close_llimpl(fd):
             error = rffi.cast(lltype.Signed, os_close(rffi.cast(rffi.INT, fd)))
             if error == -1:
-                raise OSError(rffi.get_errno(), "close failed")
+                raise OSError(rposix.get_errno(), "close failed")
 
         return extdef([int], s_None, llimpl=close_llimpl,
                       export_name="ll_os.ll_os_close", oofakeimpl=os.close)
@@ -492,7 +493,7 @@ class RegisterOs(BaseLazyRegistering):
                            rffi.cast(rffi.INT,      how))
             res = rffi.cast(lltype.SignedLongLong, res)
             if res < 0:
-                raise OSError(rffi.get_errno(), "os_lseek failed")
+                raise OSError(rposix.get_errno(), "os_lseek failed")
             return res
 
         def os_lseek_oofakeimpl(fd, pos, how):
@@ -515,7 +516,7 @@ class RegisterOs(BaseLazyRegistering):
                             os_ftruncate(rffi.cast(rffi.INT, fd),
                                          rffi.cast(rffi.LONGLONG, length)))
             if res < 0:
-                raise OSError(rffi.get_errno(), "os_lseek failed")
+                raise OSError(rposix.get_errno(), "os_lseek failed")
 
         return extdef([int, r_longlong], s_None,
                       llimpl = ftruncate_llimpl,
@@ -602,7 +603,7 @@ class RegisterOs(BaseLazyRegistering):
                 res = os_getcwd(buf, rffi.cast(rffi.SIZE_T, bufsize))
                 if res:
                     break   # ok
-                error = rffi.get_errno()
+                error = rposix.get_errno()
                 lltype.free(buf, flavor='raw')
                 if error != errno.ERANGE:
                     raise OSError(error, "getcwd failed")
@@ -710,13 +711,13 @@ class RegisterOs(BaseLazyRegistering):
             def os_listdir_llimpl(path):
                 dirp = os_opendir(path)
                 if not dirp:
-                    raise OSError(rffi.get_errno(), "os_opendir failed")
-                rffi.set_errno(0)
+                    raise OSError(rposix.get_errno(), "os_opendir failed")
+                rposix.set_errno(0)
                 result = []
                 while True:
                     direntp = os_readdir(dirp)
                     if not direntp:
-                        error = rffi.get_errno()
+                        error = rposix.get_errno()
                         break
                     namep = rffi.cast(rffi.CCHARP, direntp.c_d_name)
                     name = rffi.charp2str(namep)
@@ -773,7 +774,7 @@ class RegisterOs(BaseLazyRegistering):
                 write_fd = filedes[1]
                 lltype.free(filedes, flavor='raw')
                 if error != 0:
-                    raise OSError(rffi.get_errno(), "os_pipe failed")
+                    raise OSError(rposix.get_errno(), "os_pipe failed")
                 return (read_fd, write_fd)
 
         return extdef([], (int, int),
@@ -796,7 +797,7 @@ class RegisterOs(BaseLazyRegistering):
                 res = os_readlink(l_path, buf, bufsize)
                 lltype.free(l_path, flavor='raw')
                 if res < 0:
-                    error = rffi.get_errno()    # failed
+                    error = rposix.get_errno()    # failed
                     lltype.free(buf, flavor='raw')
                     raise OSError(error, "readlink failed")
                 elif res < bufsize:
@@ -843,7 +844,7 @@ class RegisterOs(BaseLazyRegistering):
             status = status_p[0]
             lltype.free(status_p, flavor='raw')
             if result == -1:
-                raise OSError(rffi.get_errno(), "os_waitpid failed")
+                raise OSError(rposix.get_errno(), "os_waitpid failed")
             return (rffi.cast(lltype.Signed, result),
                     rffi.cast(lltype.Signed, status))
 
@@ -893,7 +894,7 @@ class RegisterOs(BaseLazyRegistering):
         def unlink_llimpl(pathname):
             res = os_unlink(pathname)
             if res < 0:
-                raise OSError(rffi.get_errno(), "os_unlink failed")
+                raise OSError(rposix.get_errno(), "os_unlink failed")
 
         return extdef([str], s_None, llimpl=unlink_llimpl,
                       export_name="ll_os.ll_os_unlink")
@@ -905,7 +906,7 @@ class RegisterOs(BaseLazyRegistering):
         def chdir_llimpl(path):
             res = os_chdir(path)
             if res < 0:
-                raise OSError(rffi.get_errno(), "os_chdir failed")
+                raise OSError(rposix.get_errno(), "os_chdir failed")
 
         return extdef([str], s_None, llimpl=chdir_llimpl,
                       export_name="ll_os.ll_os_chdir")
@@ -926,7 +927,7 @@ class RegisterOs(BaseLazyRegistering):
             else:
                 res = os_mkdir(pathname, mode)
             if res < 0:
-                raise OSError(rffi.get_errno(), "os_mkdir failed")
+                raise OSError(rposix.get_errno(), "os_mkdir failed")
 
         return extdef([str, int], s_None, llimpl=mkdir_llimpl,
                       export_name="ll_os.ll_os_mkdir")
@@ -938,7 +939,7 @@ class RegisterOs(BaseLazyRegistering):
         def rmdir_llimpl(pathname):
             res = os_rmdir(pathname)
             if res < 0:
-                raise OSError(rffi.get_errno(), "os_rmdir failed")
+                raise OSError(rposix.get_errno(), "os_rmdir failed")
 
         return extdef([str], s_None, llimpl=rmdir_llimpl,
                       export_name="ll_os.ll_os_rmdir")
@@ -951,7 +952,7 @@ class RegisterOs(BaseLazyRegistering):
         def chmod_llimpl(path, mode):
             res = os_chmod(path, rffi.cast(rffi.MODE_T, mode))
             if res < 0:
-                raise OSError(rffi.get_errno(), "os_chmod failed")
+                raise OSError(rposix.get_errno(), "os_chmod failed")
 
         return extdef([str, int], s_None, llimpl=chmod_llimpl,
                       export_name="ll_os.ll_os_chmod")
@@ -964,7 +965,7 @@ class RegisterOs(BaseLazyRegistering):
         def rename_llimpl(oldpath, newpath):
             res = os_rename(oldpath, newpath)
             if res < 0:
-                raise OSError(rffi.get_errno(), "os_rename failed")
+                raise OSError(rposix.get_errno(), "os_rename failed")
 
         return extdef([str, str], s_None, llimpl=rename_llimpl,
                       export_name="ll_os.ll_os_rename")
@@ -989,7 +990,7 @@ class RegisterOs(BaseLazyRegistering):
             res = os_kill(rffi.cast(rffi.PID_T, pid),
                           rffi.cast(rffi.INT, sig))
             if res < 0:
-                raise OSError(rffi.get_errno(), "os_kill failed")
+                raise OSError(rposix.get_errno(), "os_kill failed")
 
         return extdef([int, int], s_None, llimpl=kill_llimpl,
                       export_name="ll_os.ll_os_kill")
@@ -1002,7 +1003,7 @@ class RegisterOs(BaseLazyRegistering):
         def link_llimpl(oldpath, newpath):
             res = os_link(oldpath, newpath)
             if res < 0:
-                raise OSError(rffi.get_errno(), "os_link failed")
+                raise OSError(rposix.get_errno(), "os_link failed")
 
         return extdef([str, str], s_None, llimpl=link_llimpl,
                       export_name="ll_os.ll_os_link")
@@ -1015,7 +1016,7 @@ class RegisterOs(BaseLazyRegistering):
         def symlink_llimpl(oldpath, newpath):
             res = os_symlink(oldpath, newpath)
             if res < 0:
-                raise OSError(rffi.get_errno(), "os_symlink failed")
+                raise OSError(rposix.get_errno(), "os_symlink failed")
 
         return extdef([str, str], s_None, llimpl=symlink_llimpl,
                       export_name="ll_os.ll_os_symlink")
@@ -1027,7 +1028,7 @@ class RegisterOs(BaseLazyRegistering):
         def fork_llimpl():
             childpid = os_fork()
             if childpid == -1:
-                raise OSError(rffi.get_errno(), "os_fork failed")
+                raise OSError(rposix.get_errno(), "os_fork failed")
             return rffi.cast(lltype.Signed, childpid)
 
         return extdef([], int, llimpl=fork_llimpl,
@@ -1102,7 +1103,7 @@ class RegisterOs(BaseLazyRegistering):
         def ttyname_llimpl(fd):
             l_name = os_ttyname(fd)
             if not l_name:
-                raise OSError(rffi.get_errno(), "ttyname raised")
+                raise OSError(rposix.get_errno(), "ttyname raised")
             return rffi.charp2str(l_name)
 
         return extdef([int], str, "ll_os.ttyname",

@@ -8,7 +8,7 @@ from pypy.rpython.lltypesystem.ll2ctypes import standard_c_lib
 from pypy.rpython.lltypesystem.ll2ctypes import uninitialized2ctypes
 from pypy.rpython.lltypesystem.ll2ctypes import ALLOCATED
 from pypy.rpython.annlowlevel import llhelper
-
+from pypy.rlib import rposix
 
 class TestLL2Ctypes(object):
 
@@ -598,7 +598,7 @@ class TestLL2Ctypes(object):
         # the next line is a random external function call,
         # to check that it doesn't reset errno
         strlen("hi!")
-        err = rffi.get_errno()
+        err = rposix.get_errno()
         import errno
         assert err == errno.EBADF
         assert not ALLOCATED     # detects memory leaks in the test
@@ -675,4 +675,9 @@ class TestLL2Ctypes(object):
         fcntl_int(12345, 1, 0)
         fcntl_str(12345, 3, "xxx")
         fcntl_int(12345, 1, 0)
+
+    def test_llexternal_source(self):
+        fn = rffi.llexternal('fn', [], rffi.INT, sources = ["int fn() { return 42; }"])
+        res = fn()
+        assert res == 42
 
