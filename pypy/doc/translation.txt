@@ -817,6 +817,9 @@ a `using document`_.
 .. _`whatis document`: js/whatis.html
 .. _`using document`: js/using.html
 
+.. _`Python again`:
+.. _`Python back-end`:
+
 The Interpreter-Level backend
 -----------------------------
 

@@ -70,7 +70,6 @@
 .. _`objspace/cpy/`: ../../pypy/objspace/cpy
 .. _`objspace/dump.py`: ../../pypy/objspace/dump.py
 .. _`objspace/flow/`: ../../pypy/objspace/flow
-.. _`objspace/logic.py`: ../../pypy/objspace/logic.py
 .. _`objspace/std/`:
 .. _`pypy/objspace/std`: ../../pypy/objspace/std
 .. _`objspace/taint.py`: ../../pypy/objspace/taint.py
@@ -123,6 +122,5 @@
 .. _`translator/js/`: ../../pypy/translator/js
 .. _`translator/jvm/`: ../../pypy/translator/jvm
 .. _`translator/llvm/`: ../../pypy/translator/llvm
-.. _`translator/squeak/`: ../../pypy/translator/squeak
 .. _`translator/stackless/`: ../../pypy/translator/stackless
 .. _`translator/tool/`: ../../pypy/translator/tool
