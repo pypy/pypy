@@ -134,20 +134,31 @@ class BaseTester(object):
             c = [i for i in range(n2)]
             return 33 + big() + g(10)
 
-        t  = self.translateopt(idempotent, [int, int], raisingop2direct_call=True,
-                          constfold=False)
+        t  = self.translateopt(idempotent, [int, int],
+                               raisingop2direct_call=True,
+                               constfold=False)
+        #backend_optimizations(t, raisingop2direct_call=True,
+        #                      inline_threshold=0, constfold=False)
+
         digest1 = md5digest(t)
 
         digest2 = md5digest(t)
-        assert digest1 == digest2
+        def compare(digest1, digest2):
+            diffs = []
+            assert digest1.keys() == digest2.keys()
+            for name in digest1:
+                if digest1[name] != digest2[name]:
+                    diffs.append(name)
+            assert not diffs
+
+        compare(digest1, digest2)
 
         #XXX Inlining and constfold are currently non-idempotent.
         #    Maybe they just renames variables but the graph changes in some way.
         backend_optimizations(t, raisingop2direct_call=True,
                               inline_threshold=0, constfold=False)
         digest3 = md5digest(t)
-        assert digest1 == digest3
-
+        compare(digest1, digest3)
 
     def test_bug_inlined_if(self):
         def f(x, flag):

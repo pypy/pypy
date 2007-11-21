@@ -185,9 +185,12 @@ def find_loop_blocks(graph):
 
 def md5digest(translator):
     import md5
-    m = md5.new()
-    for op in all_operations(translator.graphs):
-        m.update(op.opname + str(op.result))
-        for a in op.args:
-            m.update(str(a))
-    return m.digest()[:]
+    graph2digest = {}
+    for graph in translator.graphs:
+        m = md5.new()
+        for op in graph_operations(graph):
+            m.update(op.opname + str(op.result))
+            for a in op.args:
+                m.update(str(a))
+        graph2digest[graph.name] = m.digest()
+    return graph2digest
