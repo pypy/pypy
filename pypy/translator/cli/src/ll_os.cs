@@ -524,6 +524,11 @@ namespace pypy.builtin
         {
         }
 
+        public static string posix__getfullpathname(string path)
+        {
+            return System.IO.Path.GetFullPath(path);
+        }
+
         public static Record_Signed_Signed ll_os_pipe()
         {
             Helpers.raise_OSError(Errno.EPERM); // this is only a stub
