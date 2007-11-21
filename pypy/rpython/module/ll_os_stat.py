@@ -138,7 +138,7 @@ class MakeStatResultEntry(extregistry.ExtRegistryEntry):
 
 if sys.platform.startswith('win'):
     _name_struct_stat = '_stati64'
-    INCLUDES = []
+    INCLUDES = ['sys/types.h', 'sys/stat.h']
 else:
     _name_struct_stat = 'stat'
     INCLUDES = ['sys/types.h', 'sys/stat.h', 'unistd.h']
