@@ -5,7 +5,7 @@ log = log.codewriter
 
 class CodeWriter(object): 
     tail = ''       #/tail
-    cconv = 'fastcc'    #ccc/fastcc
+    cconv = 'ccc'    #ccc/fastcc
     linkage = 'internal '       #/internal (disabled for now because of the JIT)
 
     def __init__(self, file, db, tail=None, cconv=None, linkage=None): 

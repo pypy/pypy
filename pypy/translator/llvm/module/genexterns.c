@@ -30,7 +30,7 @@ char *RPython_StartupCode() {
 #ifdef ENTRY_POINT_DEFINED
 
 int _argc;
-char **argv;
+char **_argv;
 
 int _pypy_getargc() {
   return _argc;
@@ -40,14 +40,25 @@ char ** _pypy_getargv() {
   return _argv;
 }
 
+/* we still need to forward declare our entry point */
+int __ENTRY_POINT__(void);
+
+#include <stdio.h>
+
 int main(int argc, char *argv[]) {
-  char *errmsg = RPython_StartupCode();
+  int res;
+  char *errmsg;
+  errmsg = RPython_StartupCode();
   if (errmsg) {
     fprintf(stderr, "Fatal error during initialization: %s\n", errmsg);
     return 1;
   }
 
-  return __ENTRY_POINT__();
+  _argc = argc;
+  _argv = argv;
+
+  res = __ENTRY_POINT__();
+  return res;
 }
 
 #else

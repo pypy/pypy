@@ -15,6 +15,36 @@ from pypy.translator.llvm.node import Node
 from pypy.translator.llvm.externs2ll import setup_externs, generate_llfile
 from pypy.translator.llvm.gc import GcPolicy
 from pypy.translator.llvm.log import log
+from pypy.rlib.nonconst import NonConstant
+from pypy.annotation.listdef import s_list_of_strings
+from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
+from pypy.annotation import model as annmodel
+from pypy.rpython.lltypesystem import rffi
+
+def augment_entrypoint(translator, entrypoint):
+    bk = translator.annotator.bookkeeper
+    graph_entrypoint = bk.getdesc(entrypoint).getuniquegraph()
+    s_result = translator.annotator.binding(graph_entrypoint.getreturnvar())
+    get_argc = rffi.llexternal('_pypy_getargc', [], rffi.INT)
+    get_argv = rffi.llexternal('_pypy_getargv', [], rffi.CCHARPP)
+
+    def return_list_of_strings():
+        argc = get_argc()
+        argv = get_argv()
+        return [rffi.charp2str(argv[i]) for i in range(argc)]
+
+    def new_entrypoint():
+        return entrypoint(return_list_of_strings())
+
+    mixlevelannotator = MixLevelHelperAnnotator(translator.rtyper)
+    mixlevelannotator.getgraph(return_list_of_strings, [], s_list_of_strings)
+    graph = mixlevelannotator.getgraph(new_entrypoint, [], s_result)
+    mixlevelannotator.finish()
+
+    from pypy.translator.backendopt.all import backend_optimizations
+    backend_optimizations(translator)
+    
+    return new_entrypoint
 
 class GenLLVM(object):
     debug = False
@@ -81,6 +111,9 @@ class GenLLVM(object):
             create c file for externs
             create ll file for c file
             create codewriter """
+
+        if self.standalone:
+            func = augment_entrypoint(self.translator, func)
 
         # XXX please dont ask!
         from pypy.translator.c.genc import CStandaloneBuilder
