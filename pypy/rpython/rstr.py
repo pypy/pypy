@@ -371,6 +371,15 @@ class __extend__(pairtype(AbstractStringRepr, AbstractStringRepr)):
         return hop.genop('int_gt', [vres, hop.inputconst(Signed, 0)],
                          resulttype=Bool)
 
+    def rtype_contains((r_str1, r_str2), hop):
+        v_str1, v_str2 = hop.inputargs(r_str1.repr, r_str2.repr)
+        v_end = hop.gendirectcall(r_str1.ll.ll_strlen, v_str1)
+        vres = hop.gendirectcall(r_str1.ll.ll_find, v_str1, v_str2,
+                                 hop.inputconst(Signed, 0), v_end)
+        return hop.genop('int_ne', [vres, hop.inputconst(Signed, -1)],
+                         resulttype=Bool)
+
+
 class __extend__(pairtype(AbstractStringRepr, AbstractCharRepr),
                  pairtype(AbstractUnicodeRepr, AbstractUniCharRepr)):
     def rtype_contains((r_str, r_chr), hop):

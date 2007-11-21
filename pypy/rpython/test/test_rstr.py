@@ -239,6 +239,18 @@ class AbstractTestRstr(BaseRtypingTest):
                 res = self.interpret(fn, [i,j])
                 assert res == fn(i, j)
 
+
+    def test_contains_str(self):
+        const = self.const
+        def fn(i, j):
+            s1 = [const('one two three'), const('abc abcdab abcdabcdabde')]
+            s2 = [const('one'), const('two'), const('abcdab'), const('one tou'), const('abcdefgh'), const('fortytwo'), const('')]
+            return s2[j] in s1[i]
+        for i in range(2):
+            for j in range(7):
+                res = self.interpret(fn, [i,j])
+                assert res == fn(i, j)
+
     def test_find_with_start(self):
         const = self.const
         def fn(i):
