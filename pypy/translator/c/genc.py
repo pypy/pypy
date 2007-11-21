@@ -126,11 +126,12 @@ class CBuilder(object):
             db = self.build_database()
         pf = self.getentrypointptr()
         pfname = db.get(pf)
-
+        extra_info = extra_information(db)
         if self.modulename is None:
             self.modulename = uniquemodulename('testing')
         modulename = self.modulename
         targetdir = udir.ensure(modulename, dir=1)
+        
         self.targetdir = targetdir
         defines = defines.copy()
         if self.config.translation.countmallocs:
@@ -149,7 +150,8 @@ class CBuilder(object):
                               defines = defines,
                               exports = self.exports,
                               symboltable = self.symboltable,
-                              libraries = self.libraries)
+                              libraries = self.libraries,
+                              extra_info = extra_info)
         else:
             if self.config.translation.instrument:
                 defines['INSTRUMENT'] = 1
@@ -159,7 +161,8 @@ class CBuilder(object):
             cfile, extra, include_dirs, library_dirs = \
                    gen_source_standalone(db, modulename, targetdir,
                                          entrypointname = pfname,
-                                         defines = defines)
+                                         defines = defines,
+                                         extra_info = extra_info)
         self.c_source_filename = py.path.local(cfile)
         self.extrafiles = extra
         self.include_dirs = include_dirs.keys()
@@ -387,15 +390,6 @@ class SourceGenerator:
 #        graph.simulate()
 #        graph.optimize()
 #        self.funcnodes = graph.ordered_funcnodes()
-
-    def write_extra_sources(self, sources):
-        basename = 'additional_node.c'
-        retval = []
-        for source in sorted(sources.keys()):
-            f = self.makefile(self.uniquecname(basename))
-            for include in sources[source]:
-                print >>f, "#include <%s>" % (include,)
-            print >>f, str(source)
 
     def uniquecname(self, name):
         assert name.endswith('.c')
@@ -633,24 +627,17 @@ def extra_information(database):
     include_dirs = {}
     library_dirs = {}
     for node in database.globalcontainers():
-        if hasattr(node, 'includes'):
-            for include in node.includes:
-                includes[include] = True
-        if hasattr(node, 'sources'):
-            for source in node.sources:
-                sources[source] = getattr(node, 'includes', [])
-        if hasattr(node, 'include_dirs'):
-            for include_dir in node.include_dirs:
-                include_dirs[include_dir] = True
-        if hasattr(node, 'library_dirs'):
-            for library_dir in node.library_dirs:
-                library_dirs[library_dir] = True
+        for attrname in ['includes', 'sources', 'include_dirs', 'library_dirs']:
+            if hasattr(node, attrname):
+                for elem in getattr(node, attrname):
+                    locals()[attrname][elem] = True
     includes = includes.keys()
     includes.sort()
-    return includes, sources, include_dirs, library_dirs
+    return {'includes':includes, 'sources':sources,
+            'include_dirs':include_dirs, 'library_dirs':library_dirs}
 
 def gen_source_standalone(database, modulename, targetdir, 
-                          entrypointname, defines={}): 
+                          entrypointname, defines={}, extra_info={}): 
     assert database.standalone
     if isinstance(targetdir, str):
         targetdir = py.path.local(targetdir)
@@ -678,9 +665,10 @@ def gen_source_standalone(database, modulename, targetdir,
     for line in database.gcpolicy.pre_gc_code():
         print >> fi, line
 
-    includes, sources, include_dirs, library_dirs = extra_information(database)
-    for include in includes:
+    for include in extra_info.get('includes', []):
         print >> fi, '#include <%s>' % (include,)
+    for source in extra_info.get('sources', []):
+        print >> f, source
     fi.close()
 
     preimplementationlines = list(
@@ -694,7 +682,6 @@ def gen_source_standalone(database, modulename, targetdir,
     sg.set_strategy(targetdir)
     database.prepare_inline_helpers()
     sg.gen_readable_parts_of_source(f)
-    sg.write_extra_sources(sources)
 
     # 3) start-up code
     print >> f
@@ -708,11 +695,12 @@ def gen_source_standalone(database, modulename, targetdir,
         print >>fi, "#define INSTRUMENT_NCOUNTER %d" % n
         fi.close()
 
-    return filename, sg.getextrafiles(), include_dirs, library_dirs
+    return filename, sg.getextrafiles(), extra_info.get('include_dirs', None),\
+           extra_info.get('library_dirs', None)
 
 
 def gen_source(database, modulename, targetdir, defines={}, exports={},
-               symboltable=None, libraries=[]):
+               symboltable=None, libraries=[], extra_info={}):
     assert not database.standalone
     if isinstance(targetdir, str):
         targetdir = py.path.local(targetdir)
@@ -738,9 +726,10 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
     for line in database.gcpolicy.pre_gc_code():
         print >> fi, line
 
-    includes, sources, include_dirs, library_dirs = extra_information(database)
-    for include in includes:
+    for include in extra_info.get('includes', []):
         print >> fi, '#include <%s>' % (include,)
+    for source in extra_info.get('sources', []):
+        print >> f, source
     fi.close()
 
     if database.translator is None or database.translator.rtyper is None:
@@ -756,7 +745,6 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
     sg = SourceGenerator(database, preimplementationlines)
     sg.set_strategy(targetdir)
     sg.gen_readable_parts_of_source(f)
-    sg.write_extra_sources(sources)
 
     #
     # Debugging info
@@ -867,10 +855,13 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
     #
     pypy_include_dir = autopath.this_dir
     f = targetdir.join('setup.py').open('w')
+    include_dirs = extra_info.get('include_dirs', [])
+    library_dirs = extra_info.get('library_dirs', [])
     f.write(SETUP_PY % locals())
     f.close()
 
-    return filename, sg.getextrafiles(), include_dirs, library_dirs
+    return filename, sg.getextrafiles(), include_dirs,\
+           library_dirs
 
 
 SETUP_PY = '''
