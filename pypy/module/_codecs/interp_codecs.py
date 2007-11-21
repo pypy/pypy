@@ -218,7 +218,7 @@ def make_encoder_wrapper(name):
 def make_decoder_wrapper(name):
     rname = "str_decode_%s" % (name.replace("_decode", ""), )
     assert hasattr(runicode, rname)
-    def wrap_decoder(space, string, errors="strict", w_final=True):
+    def wrap_decoder(space, string, errors="strict", w_final=False):
         final = space.is_true(w_final)
         state = space.fromcache(CodecState)
         func = getattr(runicode, rname)
