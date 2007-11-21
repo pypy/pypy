@@ -20,11 +20,6 @@ int LL_stack_too_big(void);
 # endif
 #endif
 
-void LL_stack_unwind(void)
-{
-	RPyRaiseSimpleException(PyExc_RuntimeError, "Recursion limit exceeded");
-}
-
 long PYPY_NOINLINE _LL_stack_growing_direction(char *parent)
 {
 	char local;
