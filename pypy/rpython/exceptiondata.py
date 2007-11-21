@@ -36,3 +36,9 @@ class AbstractExceptionData:
         helper_fn = rtyper.annotate_helper_fn(ll_raise_OSError, [annmodel.SomeInteger()])
         return helper_fn
 
+    def get_standard_ll_exc_instance(self, rtyper, clsdef):
+        rclass = rtyper.type_system.rclass
+        r_inst = rclass.getinstancerepr(rtyper, clsdef)
+        example = r_inst.get_reusable_prebuilt_instance()
+        example = self.cast_exception(self.lltype_of_exception_value, example)
+        return example

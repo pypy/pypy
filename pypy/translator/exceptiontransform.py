@@ -55,9 +55,10 @@ class BaseExceptionTransformer(object):
         self.mixlevelannotator  = MixLevelHelperAnnotator(translator.rtyper)
         exc_data, null_type, null_value = self.setup_excdata()
 
+        rclass = translator.rtyper.type_system.rclass
         runtime_error_def = translator.annotator.bookkeeper.getuniqueclassdef(RuntimeError)
         runtime_error_ll_exc = edata.get_standard_ll_exc_instance(translator.rtyper, runtime_error_def)
-        runtime_error_ll_exc_type = runtime_error_ll_exc.typeptr
+        runtime_error_ll_exc_type = rclass.ll_inst_type(runtime_error_ll_exc)
 
         def rpyexc_occured():
             exc_type = exc_data.exc_type

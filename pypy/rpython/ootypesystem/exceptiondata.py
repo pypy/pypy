@@ -56,9 +56,7 @@ class ExceptionData(AbstractExceptionData):
                     is_standard = (cls.__module__ == 'exceptions'
                                    and not clsdef.attrs)
                 if is_standard:
-                    r_inst = rclass.getinstancerepr(rtyper, clsdef)
-                    example = r_inst.get_reusable_prebuilt_instance()
-                    example = ootype.ooupcast(self.lltype_of_exception_value, example)
+                    example = self.get_standard_ll_exc_instance(rtyper, clsdef)
                     table[cls] = example
         r_inst = rclass.getinstancerepr(rtyper, None)
         r_inst.setup()
@@ -99,3 +97,6 @@ class ExceptionData(AbstractExceptionData):
                 self._TYPE = FakeCallableType
                 self._callable = fn
         return fake_callable(pyexcclass2exc)
+
+    def cast_exception(self, TYPE, value):
+        return ootype.ooupcast(TYPE, value)
