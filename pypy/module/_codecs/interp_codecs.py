@@ -131,7 +131,7 @@ def lookup_error(space, errors):
 lookup_error.unwrap_spec = [ObjSpace, str]
 
 
-def encode(space, w_obj, encoding=NoneNotWrapped, errors='strict'):
+def encode(space, w_obj, w_encoding=NoneNotWrapped, errors='strict'):
     """encode(obj, [encoding[,errors]]) -> object
     
     Encodes obj using the codec registered for encoding. encoding defaults
@@ -142,17 +142,19 @@ def encode(space, w_obj, encoding=NoneNotWrapped, errors='strict'):
     codecs.register_error that can handle ValueErrors.
     """
     #import pdb; pdb.set_trace()
-    if encoding is None:
+    if w_encoding is None:
         encoding = space.sys.defaultencoding
+    else:
+        encoding = space.str_w(w_encoding)
     w_encoder = space.getitem(lookup_codec(space, encoding), space.wrap(0))
     if space.is_true(w_encoder):
         w_res = space.call_function(w_encoder, w_obj, space.wrap(errors))
         return space.getitem(w_res, space.wrap(0))
     else:
         assert 0, "XXX, what to do here?"
-encode.unwrap_spec = [ObjSpace, W_Root, str, str]
+encode.unwrap_spec = [ObjSpace, W_Root, W_Root, str]
 
-def decode(space, w_obj, encoding=NoneNotWrapped, errors='strict'):
+def decode(space, w_obj, w_encoding=NoneNotWrapped, errors='strict'):
     """decode(obj, [encoding[,errors]]) -> object
 
     Decodes obj using the codec registered for encoding. encoding defaults
@@ -162,8 +164,10 @@ def decode(space, w_obj, encoding=NoneNotWrapped, errors='strict'):
     as well as any other name registerd with codecs.register_error that is
     able to handle ValueErrors.
     """
-    if encoding is None:
+    if w_encoding is None:
         encoding = space.sys.defaultencoding
+    else:
+        encoding = space.str_w(w_encoding)
     w_decoder = space.getitem(lookup_codec(space, encoding), space.wrap(1))
     if space.is_true(w_decoder):
         w_res = space.call_function(w_decoder, w_obj, space.wrap(errors))
@@ -175,7 +179,7 @@ def decode(space, w_obj, encoding=NoneNotWrapped, errors='strict'):
         return space.getitem(w_res, space.wrap(0))
     else:
         assert 0, "XXX, what to do here?"
-decode.unwrap_spec = [ObjSpace, W_Root, str, str]
+decode.unwrap_spec = [ObjSpace, W_Root, W_Root, str]
 
 def register_error(space, errors, w_handler):
     """register_error(errors, handler)

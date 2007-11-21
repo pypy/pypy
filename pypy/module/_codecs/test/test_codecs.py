@@ -278,3 +278,16 @@ class AppTestPartialEvaluation:
         _codecs.register(search_function)
         raises(TypeError, "hello".decode, "test.mytestenc")
         raises(TypeError, u"hello".encode, "test.mytestenc")
+
+    def test_cpytest_decode(self):
+        import codecs
+        print 1
+        assert codecs.decode('\xe4\xf6\xfc', 'latin-1') == u'\xe4\xf6\xfc'
+        print 2
+        raises(TypeError, codecs.decode)
+        print 3
+        assert codecs.decode('abc') == u'abc'
+        print 4
+        raises(UnicodeDecodeError, codecs.decode, '\xff', 'ascii')
+
+
