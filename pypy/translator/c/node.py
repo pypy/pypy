@@ -433,7 +433,7 @@ class FixedSizeArrayDefNode:
 
 
 class ExtTypeOpaqueDefNode:
-    "For OpaqueTypes created by pypy.rpython.extfunctable.ExtTypeInfo."
+    """For OpaqueTypes created with the hint render_structure."""
     typetag = 'struct'
 
     def __init__(self, db, T):
@@ -867,7 +867,7 @@ class ExtType_OpaqueNode(ContainerNode):
 def opaquenode_factory(db, T, obj):
     if T == RuntimeTypeInfo:
         return db.gcpolicy.rtti_node_factory()(db, T, obj)
-    if hasattr(T, '_exttypeinfo'):
+    if T.hints.get("render_structure", False):
         return ExtType_OpaqueNode(db, T, obj)
     raise Exception("don't know about %r" % (T,))
 

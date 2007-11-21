@@ -1,6 +1,5 @@
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython import extfunctable
 from pypy.rpython.lltypesystem.lltype import \
      GcStruct, Signed, Array, Char, Ptr, malloc, GcArray
 from pypy.rpython.rlist import ll_append
@@ -86,19 +85,4 @@ def _ll_strfill(dst_s, srcchars, n):
         dstchars[i] = srcchars[i]
         i += 1
 
-def init_opaque_object(opaqueptr, value):
-    "NOT_RPYTHON"
-    opaqueptr._obj.externalobj = value
-init_opaque_object._annspecialcase_ = "override:init_opaque_object"
 
-def from_opaque_object(opaqueptr):
-    "NOT_RPYTHON"
-    return opaqueptr._obj.externalobj
-from_opaque_object._annspecialcase_ = "override:from_opaque_object"
-
-def to_opaque_object(value):
-    "NOT_RPYTHON"
-    exttypeinfo = extfunctable.typetable[value.__class__]
-    return lltype.opaqueptr(exttypeinfo.get_lltype(), 'opaque',
-                            externalobj=value)
-to_opaque_object._annspecialcase_ = "override:to_opaque_object"

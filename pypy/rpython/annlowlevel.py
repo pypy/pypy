@@ -8,7 +8,7 @@ from pypy.annotation import model as annmodel
 from pypy.annotation.policy import AnnotatorPolicy, Sig
 from pypy.annotation.specialize import flatten_star_args
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython import extfunctable, extregistry
+from pypy.rpython import extregistry
 from pypy.objspace.flow.model import Constant
 
 class KeyComp(object):
@@ -70,25 +70,6 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
     def default_specialize(funcdesc, args_s):
         return LowLevelAnnotatorPolicy.lowlevelspecialize(funcdesc, args_s, {})
     default_specialize = staticmethod(default_specialize)
-
-    def override__init_opaque_object(pol, s_opaqueptr, s_value):
-        assert isinstance(s_opaqueptr, annmodel.SomePtr)
-        assert isinstance(s_opaqueptr.ll_ptrtype.TO, lltype.OpaqueType)
-        assert isinstance(s_value, annmodel.SomeExternalObject)
-        exttypeinfo = extfunctable.typetable[s_value.knowntype]
-        assert s_opaqueptr.ll_ptrtype.TO._exttypeinfo == exttypeinfo
-        return annmodel.SomeExternalObject(exttypeinfo.typ)
-
-    def override__from_opaque_object(pol, s_opaqueptr):
-        assert isinstance(s_opaqueptr, annmodel.SomePtr)
-        assert isinstance(s_opaqueptr.ll_ptrtype.TO, lltype.OpaqueType)
-        exttypeinfo = s_opaqueptr.ll_ptrtype.TO._exttypeinfo
-        return annmodel.SomeExternalObject(exttypeinfo.typ)
-
-    def override__to_opaque_object(pol, s_value):
-        assert isinstance(s_value, annmodel.SomeExternalObject)
-        exttypeinfo = extfunctable.typetable[s_value.knowntype]
-        return annmodel.SomePtr(lltype.Ptr(exttypeinfo.get_lltype()))
 
     def specialize__ts(pol, funcdesc, args_s, ref):
         ts = pol.rtyper.type_system

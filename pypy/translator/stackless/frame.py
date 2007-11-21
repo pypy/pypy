@@ -1,5 +1,4 @@
 from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython import extfunctable
 from pypy.rpython.typesystem import getfunctionptr
 from pypy.rpython.annlowlevel import annotate_lowlevel_helper
 from pypy.objspace.flow.model import FunctionGraph

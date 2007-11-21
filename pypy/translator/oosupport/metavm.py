@@ -410,12 +410,6 @@ class _Call(MicroInstruction):
             graph = callee.graph
         except AttributeError:
             return callee._name.rsplit('.', 1)
-        else:
-            if getattr(graph.func, 'suggested_primitive', False):
-                _, module = graph.func.__module__.rsplit('.', 1)
-                return module, graph.func.func_name
-            else:
-                return None
 
     def render(self, generator, op):
         callee = op.args[0].value

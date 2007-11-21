@@ -460,9 +460,7 @@ class SomeBuiltinMethod(SomeBuiltin):
 
 class SomeExternalObject(SomeObject):
     """Stands for an object of 'external' type.  External types have a Repr
-    controlled by pypy.rpython.extregistry; or they come from the (obsolete)
-    table created by pypy.rpython.extfunctable.declaretype() and represent
-    simple types with some methods that need direct back-end support."""
+    controlled by pypy.rpython.extregistry."""
 
     def __init__(self, knowntype):
         self.knowntype = knowntype

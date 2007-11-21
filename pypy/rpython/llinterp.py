@@ -615,8 +615,6 @@ class LLFrame(object):
     def perform_call(self, f, ARGS, args):
         fobj = self.llinterpreter.typer.type_system.deref(f)
         has_callable = getattr(fobj, '_callable', None) is not None
-        if has_callable and getattr(fobj._callable, 'suggested_primitive', False):
-                return self.invoke_callable_with_pyexceptions(f, *args)
         if hasattr(fobj, 'graph'):
             graph = fobj.graph
         else:

@@ -4,7 +4,6 @@ from pypy.rpython.lltypesystem.lltype import \
      Array, malloc, Ptr, PyObject, pyobjectptr, \
      FuncType, functionptr, Signed
 from pypy.rpython.exceptiondata import AbstractExceptionData
-from pypy.rpython.extfunctable import standardexceptions
 from pypy.annotation.classdef import FORCE_ATTRIBUTES_INTO_CLASSES
 
 class ExceptionData(AbstractExceptionData):

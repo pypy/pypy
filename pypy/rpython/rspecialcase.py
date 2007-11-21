@@ -30,18 +30,6 @@ def rtype_identity_function(hop):
     v, = hop.inputargs(hop.args_r[0])
     return v
 
-def rtype_override_init_opaque_object(hop):
-    return hop.genop('init_opaque_object_should_never_be_seen_by_the_backend',
-                     [], resulttype=hop.r_result)
-
-def rtype_override_from_opaque_object(hop):
-    return hop.genop('from_opaque_object_should_never_be_seen_by_the_backend',
-                     [], resulttype=hop.r_result)
-
-def rtype_override_to_opaque_object(hop):
-    return hop.genop('to_opaque_object_should_never_be_seen_by_the_backend',
-                     [], resulttype=hop.r_result)
-
 def rtype_override_yield_current_frame_to_caller(hop):
     return hop.genop('yield_current_frame_to_caller', [], 
                      resulttype=hop.r_result)

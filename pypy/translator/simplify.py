@@ -34,9 +34,6 @@ def get_graph(arg, translator):
     funcobj = get_funcobj(f)
     try:
         callable = funcobj._callable
-        # external function calls don't have a real graph
-        if getattr(callable, "suggested_primitive", False):
-            return None
     except (AttributeError, KeyError, AssertionError):
         return None
     try:

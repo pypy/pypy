@@ -72,9 +72,7 @@ class Database(object):
     def create_constant_node(self, type_, value):
         node = None
         if isinstance(type_, lltype.FuncType):
-            if getattr(value._callable, "suggested_primitive", False):
-                node = ExternalFuncNode(self, value, value._callable)
-            elif hasattr(value, '_external_name'):
+            if hasattr(value, '_external_name'):
                 node = ExternalFuncNode(self, value, value._external_name)
             elif getattr(value, 'external', None) == 'C':
                 node = ExternalFuncNode(self, value)
@@ -102,7 +100,7 @@ class Database(object):
                     node = ArrayNode(self, value)
 
         elif isinstance(type_, lltype.OpaqueType):
-            if hasattr(type_, '_exttypeinfo'):
+            if type_.hints.get('render_structure', False):
                 node = ExtOpaqueNode(self, value)
             else:
                 node = OpaqueNode(self, value)

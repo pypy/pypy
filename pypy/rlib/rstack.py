@@ -78,8 +78,7 @@ class FrameStackTopController(Controller):
 
 frame_stack_top_controller = FrameStackTopController()
 bound_switch_of_frame_stack_top_controller = BoundSwitchOfFrameStackTopController()
-OPAQUE_STATE_HEADER = lltype.GcOpaqueType("OPAQUE_STATE_HEADER")
-OPAQUE_STATE_HEADER._exttypeinfo = "Really bad hack - dont remove"
+OPAQUE_STATE_HEADER = lltype.GcOpaqueType("OPAQUE_STATE_HEADER", hints={"render_structure": True})
 OPAQUE_STATE_HEADER_PTR = lltype.Ptr(OPAQUE_STATE_HEADER)
 
 

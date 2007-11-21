@@ -515,53 +515,6 @@ BUILTIN_TYPER[objectmodel.we_are_translated] = rtype_we_are_translated
 
 BUILTIN_TYPER[objectmodel.hlinvoke] = rtype_hlinvoke
 
-from pypy.rpython import extfunctable
-
-def rnormalize(rtyper, r):
-    # this replaces char_repr with string_repr, because so far we have
-    # no external function expecting a char, but only external functions
-    # that happily crash if passed a char instead of a string
-    if r == rtyper.type_system.rstr.char_repr:
-        r = rtyper.type_system.rstr.string_repr
-    return r
-
-def make_rtype_extfunc(extfuncinfo):
-    if extfuncinfo.ll_annotable:
-        def rtype_extfunc(hop):
-            ll_function = extfuncinfo.get_ll_function(hop.rtyper.type_system)
-            vars = hop.inputargs(*[rnormalize(hop.rtyper, r)
-                                   for r in hop.args_r])
-            hop.exception_is_here()
-            return hop.gendirectcall(ll_function, *vars)
-    else:
-        def rtype_extfunc(hop):
-            ll_function = extfuncinfo.get_ll_function(hop.rtyper.type_system)
-            resulttype = hop.r_result
-            vars = hop.inputargs(*[rnormalize(hop.rtyper, r)
-                                   for r in hop.args_r])
-            hop.exception_is_here()
-            return hop.llops.genexternalcall(ll_function.__name__, vars, resulttype=resulttype,
-                                             _callable = ll_function)
-            
-    if extfuncinfo.func is not None:
-        rtype_extfunc = sourcetools.func_with_new_name(rtype_extfunc,
-            "rtype_extfunc_%s" % extfuncinfo.func.__name__)
-    return rtype_extfunc
-
-
-def update_exttable():
-    """import rtyping information for external functions 
-    from the extfunctable.table  into our own specific table
-    """
-    for func, extfuncinfo in extfunctable.table.iteritems():
-        if func not in BUILTIN_TYPER:
-            BUILTIN_TYPER[func] = make_rtype_extfunc(extfuncinfo)
-
-# Note: calls to declare() may occur after rbuiltin.py is first imported.
-# We must track future changes to the extfunctable.
-extfunctable.table_callbacks.append(update_exttable)
-update_exttable()
-
 
 # _________________________________________________________________
 # memory addresses

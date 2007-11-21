@@ -109,9 +109,6 @@ class Function(object):
         if self.db.graph_name(self.graph) is not None and not self.is_method:
             return # already rendered
 
-        if getattr(self.graph.func, 'suggested_primitive', False):
-            assert False, 'Cannot render a suggested_primitive'
-
         self.ilasm = ilasm
         self.generator = self._create_generator(self.ilasm)
         graph = self.graph

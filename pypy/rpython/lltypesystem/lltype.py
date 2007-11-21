@@ -455,6 +455,8 @@ class OpaqueType(ContainerType):
     _gckind = 'raw'
     
     def __init__(self, tag, hints={}):
+        """ if hints['render_structure'] is set, the type is internal and not considered
+            to come from somewhere else (it should be rendered as a structure) """
         self.tag = tag
         self.__name__ = tag
         self.hints = frozendict(hints)

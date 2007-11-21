@@ -108,8 +108,6 @@ def split_block_with_keepalive(block, index_operation,
     return splitlink
 
 def find_calls_from(translator, graph):
-    if getattr(getattr(graph, "func", None), "suggested_primitive", False):
-        return
     for block in graph.iterblocks():
         for op in block.operations:
             if op.opname == "direct_call":

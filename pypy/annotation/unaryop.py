@@ -634,21 +634,8 @@ class __extend__(SomeGenericCallable):
         return self.s_result
 
 class __extend__(SomeExternalObject):
-    # XXX kill with extfunctable.py
-    def find_method(obj, name):
-        "Look for a special-case implementation for the named method."
-        type_analyser = builtin.EXTERNAL_TYPE_ANALYZERS[obj.knowntype]
-        if name in type_analyser:
-            analyser = type_analyser[name]
-            return SomeBuiltin(analyser, obj, name)
-        return SomeObject.find_method(obj, name)
-
     def getattr(p, s_attr):
         if s_attr.is_constant() and isinstance(s_attr.const, str):
-            # XXX kill with extfunctable.py
-            if p.knowntype in builtin.EXTERNAL_TYPE_ANALYZERS:
-                return SomeObject.getattr(p, s_attr)
-            
             attr = s_attr.const
             entry = extregistry.lookup_type(p.knowntype)
             s_value = entry.get_field_annotation(p.knowntype, attr)

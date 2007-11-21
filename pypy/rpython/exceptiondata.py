@@ -1,6 +1,25 @@
 from pypy.rpython import rclass
-from pypy.rpython.extfunctable import standardexceptions
 from pypy.annotation import model as annmodel
+
+
+# the exceptions that can be implicitely raised by some operations
+standardexceptions = {
+    TypeError        : True,
+    OverflowError    : True,
+    ValueError       : True,
+    ZeroDivisionError: True,
+    MemoryError      : True,
+    IOError          : True,
+    OSError          : True,
+    StopIteration    : True,
+    KeyError         : True,
+    IndexError       : True,
+    AssertionError   : True,
+    RuntimeError     : True,
+    UnicodeDecodeError: True,
+    UnicodeEncodeError: True,
+    }
+
 
 class AbstractExceptionData:
     """Public information for the code generators to help with exceptions."""
@@ -42,3 +61,5 @@ class AbstractExceptionData:
         example = r_inst.get_reusable_prebuilt_instance()
         example = self.cast_exception(self.lltype_of_exception_value, example)
         return example
+ 
+

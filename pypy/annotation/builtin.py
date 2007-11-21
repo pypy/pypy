@@ -662,25 +662,3 @@ def offsetof(TYPE, fldname):
 
 BUILTIN_ANALYZERS[llmemory.offsetof] = offsetof
 
-#_________________________________
-# external functions
-
-
-from pypy.rpython import extfunctable
-
-def update_exttables():
-
-    # import annotation information for external functions 
-    # from the extfunctable.table  into our own annotation specific table 
-    for func, extfuncinfo in extfunctable.table.iteritems():
-        BUILTIN_ANALYZERS[func] = extfuncinfo.annotation 
-
-    # import annotation information for external types
-    # from the extfunctable.typetable  into our own annotation specific table 
-    for typ, exttypeinfo in extfunctable.typetable.iteritems():
-        EXTERNAL_TYPE_ANALYZERS[typ] = exttypeinfo.get_annotations()
-
-# Note: calls to declare() may occur after builtin.py is first imported.
-# We must track future changes to the extfunctables.
-extfunctable.table_callbacks.append(update_exttables)
-update_exttables()

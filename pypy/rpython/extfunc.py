@@ -271,8 +271,6 @@ BaseLazyRegistering.register = staticmethod(register_external)
 def is_external(func):
     if hasattr(func, 'value'):
         func = func.value
-    if getattr(func._callable, 'suggested_primitive', False):
-        return True
     if hasattr(func, '_external_name'):
         return True
     return False
