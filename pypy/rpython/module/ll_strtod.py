@@ -10,20 +10,10 @@ from pypy.rlib import rposix
 
 class CConfig:
     _includes_ = ['src/ll_strtod.h']
+    _sources_ = ['#include <src/ll_strtod.h>']
 
 class RegisterStrtod(BaseLazyRegistering):
     def __init__(self):
-        # HACK HACK HACK
-        # we need to have some sane way of doing stuff below
-        # problem: we don't have a way to call things in our header files
-        from pypy.tool.udir import udir
-        c_file = udir.join('test_strtod.c')
-        c_file.write(py.code.Source("""
-        #include <src/ll_strtod.h>
-        """))
-        cache_c_module([c_file], '_ll_strtod')
-        self._libraries_ = [str(py.path.local(pypydir).join('_cache',
-                                                            '_ll_strtod.so'))]
         self.configure(CConfig)
     
     @registering(rarithmetic.formatd)
