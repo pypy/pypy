@@ -28,16 +28,14 @@ def augment_entrypoint(translator, entrypoint):
     get_argc = rffi.llexternal('_pypy_getargc', [], rffi.INT)
     get_argv = rffi.llexternal('_pypy_getargv', [], rffi.CCHARPP)
 
-    def return_list_of_strings():
+    def new_entrypoint():
         argc = get_argc()
         argv = get_argv()
-        return [rffi.charp2str(argv[i]) for i in range(argc)]
+        args = [rffi.charp2str(argv[i]) for i in range(argc)]
+        return entrypoint(args)
 
-    def new_entrypoint():
-        return entrypoint(return_list_of_strings())
-
+    entrypoint._annenforceargs_ = [s_list_of_strings]
     mixlevelannotator = MixLevelHelperAnnotator(translator.rtyper)
-    mixlevelannotator.getgraph(return_list_of_strings, [], s_list_of_strings)
     graph = mixlevelannotator.getgraph(new_entrypoint, [], s_result)
     mixlevelannotator.finish()
 
