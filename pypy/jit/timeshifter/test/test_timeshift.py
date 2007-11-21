@@ -1191,7 +1191,7 @@ class TestTimeshift(TimeshiftingTests):
         T = lltype.Struct('T', ('x', lltype.Signed))
         A = lltype.Array(T)
         S = lltype.GcStruct('S', ('a', A))
-        s = lltype.malloc(S, 3)
+        s = lltype.malloc(S, 3, zero=True)
         s.a[2].x = 42
         def f(n):
             s1 = hint(s, variable=True)
