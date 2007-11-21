@@ -405,8 +405,6 @@ class Bookkeeper:
         elif extregistry.is_registered(x, self.policy):
             entry = extregistry.lookup(x, self.policy)
             result = entry.compute_annotation_bk(self)
-        elif tp in EXTERNAL_TYPE_ANALYZERS:
-            result = SomeExternalObject(tp)
         elif isinstance(x, lltype._ptr):
             result = SomePtr(lltype.typeOf(x))
         elif isinstance(x, llmemory.fakeaddress):
@@ -771,7 +769,6 @@ def getbookkeeper():
 
 def delayed_imports():
     # import ordering hack
-    global BUILTIN_ANALYZERS, EXTERNAL_TYPE_ANALYZERS
+    global BUILTIN_ANALYZERS
     from pypy.annotation.builtin import BUILTIN_ANALYZERS
-    from pypy.annotation.builtin import EXTERNAL_TYPE_ANALYZERS
 

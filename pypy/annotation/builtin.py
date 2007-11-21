@@ -361,7 +361,6 @@ def import_func(*args):
 # collect all functions
 import __builtin__, exceptions
 BUILTIN_ANALYZERS = {}
-EXTERNAL_TYPE_ANALYZERS = {}
 for name, value in globals().items():
     if name.startswith('builtin_'):
         original = getattr(__builtin__, name[8:])
