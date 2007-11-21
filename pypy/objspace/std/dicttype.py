@@ -52,6 +52,8 @@ def dict_reversed__ANY(space, w_dict):
 #dict_str        = StdObjSpace.str
 
 # default application-level implementations for some operations
+# most of these (notably not popitem and update*) are overwritten
+# in dictmultiobject
 # gateway is imported in the stdtypedef module
 app = gateway.applevel('''
 
@@ -64,9 +66,10 @@ app = gateway.applevel('''
                 d[k] = v
 
     def update(d, *args, **kwargs):
-        if len(args) == 1:
+        len_args = len(args)
+        if len_args == 1:
             update1(d, args[0])
-        elif len(args) > 1:
+        elif len_args > 1:
             raise TypeError("update takes at most 1 (non-keyword) argument")
         if kwargs:
             update1(d, kwargs)

@@ -1235,6 +1235,21 @@ def dict_clear__DictMulti(space, w_self):
 def dict_get__DictMulti_ANY_ANY(space, w_dict, w_lookup, w_default):
     return w_dict.get(w_lookup, w_default)
 
+def dict_pop__DictMulti_ANY(space, w_dict, w_key, w_defaults):
+    defaults = space.unpackiterable(w_defaults)
+    len_defaults = len(defaults)
+    if len_defaults > 1:
+        raise OperationError(space.w_TypeError, space.wrap("pop expected at most 2 arguments, got %d" % (1 + len_defaults, )))
+    w_item = w_dict.implementation.get(w_key)
+    if w_item is None:
+        if len_defaults > 0:
+            return defaults[0]
+        else:
+            raise OperationError(space.w_KeyError, w_key)
+    else:
+        w_dict.implementation.delitem(w_key)
+        return w_item
+
 app = gateway.applevel('''
     def dictrepr(currently_in_repr, d):
         # Now we only handle one implementation of dicts, this one.
