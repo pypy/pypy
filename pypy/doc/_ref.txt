@@ -87,7 +87,6 @@
 .. _`pypy/rpython/`:
 .. _`rpython/`: ../../pypy/rpython
 .. _`pypy/rpython/controllerentry.py`: ../../pypy/rpython/controllerentry.py
-.. _`pypy/rpython/extfunctable.py`: ../../pypy/rpython/extfunctable.py
 .. _`rpython/lltypesystem/`: ../../pypy/rpython/lltypesystem
 .. _`pypy/rpython/lltypesystem/lltype.py`:
 .. _`rpython/lltypesystem/lltype.py`: ../../pypy/rpython/lltypesystem/lltype.py
