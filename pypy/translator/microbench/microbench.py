@@ -52,7 +52,11 @@ if __name__ == '__main__':
         data = [s for s in os.popen(exe + ' microbench.py %s 2>&1' % limit).readlines() if not s.startswith('debug:')]
         benchdata = {}
         for d in data:
-            testcase, took, duration, seconds = d.split()
+            try:
+                testcase, took, duration, seconds = d.split()
+            except ValueError:
+                print >> sys.stderr, 'Unexpected output:\n%s' % d
+                sys.exit(1)
             benchdata[testcase] = float(duration)
         if n == 0:
             benchdata_ref = benchdata
