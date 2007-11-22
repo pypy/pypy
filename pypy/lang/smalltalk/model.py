@@ -319,11 +319,11 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
         return w_CompiledMethod
 
     def getliteral(self, index):
+                                    # We changed this part
         return self.literals[index] #+ constants.LITERAL_START]
 
     def getliteralsymbol(self, index):
         w_literal = self.getliteral(index)
-        print "literals: %r" % self.literals
         assert isinstance(w_literal, W_BytesObject)
         return w_literal.as_string()    # XXX performance issue here
 
@@ -351,7 +351,7 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
                 self.primitive is not None)       
 
     def size(self):
-        return self.getliteralsize() + len(self.bytes)
+        return self.getliteralsize() + len(self.bytes) + self.headersize()
 
     def getliteralsize(self):
         return self.literalsize * constants.BYTES_PER_WORD
