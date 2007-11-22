@@ -12,6 +12,7 @@ from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.miscutils import Action
 from pypy.module.thread.threadlocals import OSThreadLocals
 from pypy.rlib.objectmodel import invoke_around_extcall
+from pypy.rlib.rposix import get_errno, set_errno
 
 class GILThreadLocals(OSThreadLocals):
     """A version of OSThreadLocals that enforces a GIL."""
@@ -83,10 +84,16 @@ class SpaceState:
     pass
 spacestate = SpaceState()
 
+# Fragile code below.  We have to preserve the C-level errno manually...
+
 def before_external_call():
     # this function must not raise, in such a way that the exception
     # transformer knows that it cannot raise!
+    e = get_errno()
     spacestate.GIL.release()
+    set_errno(e)
 
 def after_external_call():
+    e = get_errno()
     spacestate.GIL.acquire(True)
+    set_errno(e)
