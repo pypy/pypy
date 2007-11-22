@@ -100,6 +100,7 @@ def genllvm_compile(function,
                     isolate=True,
                     
                     # pass to compile
+                    exe_name=None,
                     optimize=True,
                     extra_opts={}):
 
@@ -120,7 +121,7 @@ def genllvm_compile(function,
 
     options.update(extra_opts)
     config.set(**options)
-    driver = TranslationDriver(config=config)
+    driver = TranslationDriver(config=config, exe_name=exe_name)
     driver.setup(function, annotation)
     driver.annotate()
     if conftest.option.view:
@@ -158,8 +159,12 @@ def compile_function(function, annotation, isolate_hint=True, **kwds):
     return compile_test(function, annotation, isolate_hint=isolate_hint, **kwds)[1]
 
 def compile_standalone(function, **kwds):
+    exe_name = kwds.pop('exe_name', function.func_name)
     optimize = kwds.pop('optimize', optimize_tests)
-    drvier = genllvm_compile(function, None, optimize=optimize, **kwds)
+    driver = genllvm_compile(function, None,
+                             optimize=optimize,
+                             exe_name=exe_name,
+                             **kwds)
 #______________________________________________________________________________
 
 # XXX Work in progress, this was mostly copied from cli

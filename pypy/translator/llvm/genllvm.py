@@ -25,6 +25,7 @@ def augment_entrypoint(translator, entrypoint):
     bk = translator.annotator.bookkeeper
     graph_entrypoint = bk.getdesc(entrypoint).getuniquegraph()
     s_result = translator.annotator.binding(graph_entrypoint.getreturnvar())
+
     get_argc = rffi.llexternal('_pypy_getargc', [], rffi.INT)
     get_argv = rffi.llexternal('_pypy_getargv', [], rffi.CCHARPP)
 
@@ -36,11 +37,10 @@ def augment_entrypoint(translator, entrypoint):
 
     entrypoint._annenforceargs_ = [s_list_of_strings]
     mixlevelannotator = MixLevelHelperAnnotator(translator.rtyper)
+
     graph = mixlevelannotator.getgraph(new_entrypoint, [], s_result)
     mixlevelannotator.finish()
-
-    from pypy.translator.backendopt.all import backend_optimizations
-    backend_optimizations(translator)
+    mixlevelannotator.backend_optimize()
     
     return new_entrypoint
 
