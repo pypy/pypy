@@ -66,7 +66,10 @@ def descr__new__(space, w_inttype, w_x=0, w_base=NoneNotWrapped):
             except ParseStringOverflowError, e:
                  w_longval = retry_to_w_long(space, e.parser)                
         elif space.is_true(space.isinstance(w_value, space.w_unicode)):
-            from unicodeobject import unicode_to_decimal_w
+            if space.config.objspace.std.withropeunicode:
+                from pypy.objspace.std.ropeunicodeobject import unicode_to_decimal_w
+            else:
+                from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
             string = unicode_to_decimal_w(space, w_value)
             try:
                 value = string_to_int(string)
@@ -95,7 +98,10 @@ def descr__new__(space, w_inttype, w_x=0, w_base=NoneNotWrapped):
         base = space.int_w(w_base)
 
         if space.is_true(space.isinstance(w_value, space.w_unicode)):
-            from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
+            if space.config.objspace.std.withropeunicode:
+                from pypy.objspace.std.ropeunicodeobject import unicode_to_decimal_w
+            else:
+                from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
             s = unicode_to_decimal_w(space, w_value)
         else:
             try:

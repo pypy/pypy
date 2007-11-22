@@ -5,6 +5,14 @@ from pypy.interpreter.error import OperationError
 
 from sys import maxint
 
+def wrapunicode(space, uni):
+    from pypy.objspace.std.unicodeobject import W_UnicodeObject
+    from pypy.objspace.std.ropeunicodeobject import wrapunicode
+    if space.config.objspace.std.withropeunicode:
+        return wrapunicode(space, uni)
+    return W_UnicodeObject(uni)
+
+
 unicode_capitalize = SMM('capitalize', 1,
                          doc='S.capitalize() -> unicode\n\nReturn a'
                              ' capitalized version of S, i.e. make the first'
@@ -218,8 +226,11 @@ def unicode_from_object(space, w_obj):
 
 def unicode_from_string(space, w_str):
     # this is a performance and bootstrapping hack
-    from pypy.objspace.std.unicodeobject import W_UnicodeObject
+    if space.config.objspace.std.withropeunicode:
+        from pypy.objspace.std.ropeunicodeobject import unicode_from_string
+        return unicode_from_string(space, w_str)
     encoding = getdefaultencoding(space)
+    from pypy.objspace.std.unicodeobject import W_UnicodeObject
     if encoding != 'ascii':
         return unicode_from_encoded_object(space, w_str, encoding, "strict")
     s = space.str_w(w_str)
@@ -227,13 +238,14 @@ def unicode_from_string(space, w_str):
         return W_UnicodeObject(s.decode("ascii"))
     except UnicodeDecodeError:
         # raising UnicodeDecodeError is messy, "please crash for me"
-        return unicode_from_object(space, w_str)
+        return unicode_from_encoded_object(space, w_str, "ascii", "strict")
 
 
 def descr__new__(space, w_unicodetype, w_obj='', w_encoding=None, w_errors=None):
     # NB. the default value of w_obj is really a *wrapped* empty string:
     #     there is gateway magic at work
     from pypy.objspace.std.unicodeobject import W_UnicodeObject
+    from pypy.objspace.std.ropeunicodeobject import W_RopeUnicodeObject
     w_obj_type = space.type(w_obj)
     
     encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors) 
@@ -253,7 +265,12 @@ def descr__new__(space, w_unicodetype, w_obj='', w_encoding=None, w_errors=None)
             w_value = unicode_from_object(space, w_obj)
     else:
         w_value = unicode_from_encoded_object(space, w_obj, encoding, errors)
-    # XXX this is not true when there are different unicode implementations
+    if space.config.objspace.std.withropeunicode:
+        assert isinstance(w_value, W_RopeUnicodeObject)
+        w_newobj = space.allocate_instance(W_RopeUnicodeObject, w_unicodetype)
+        W_RopeUnicodeObject.__init__(w_newobj, w_value._node)
+        return w_newobj
+
     assert isinstance(w_value, W_UnicodeObject)
     w_newobj = space.allocate_instance(W_UnicodeObject, w_unicodetype)
     W_UnicodeObject.__init__(w_newobj, w_value._value)

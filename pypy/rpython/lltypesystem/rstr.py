@@ -108,6 +108,13 @@ class StringRepr(BaseLLStringRepr, AbstractStringRepr):
         self.ll = LLHelpers
         self.malloc = mallocstr
     
+    def ll_decode_latin1(self, value):
+        lgt = len(value.chars)
+        s = mallocunicode(lgt)
+        for i in range(lgt):
+            s.chars[i] = cast_primitive(UniChar, value.chars[i])
+        return s
+
 class UnicodeRepr(BaseLLStringRepr, AbstractUnicodeRepr):
     lowleveltype = Ptr(UNICODE)
     basetype = basestring
@@ -130,6 +137,17 @@ class UnicodeRepr(BaseLLStringRepr, AbstractUnicodeRepr):
                 raise UnicodeEncodeError("character not in ascii range")
             result.chars[i] = cast_primitive(Char, c)
         return result
+
+    def ll_encode_latin1(self, s):
+        length = len(s.chars)
+        result = mallocstr(length)
+        for i in range(length):
+            c = s.chars[i]
+            if ord(c) > 255:
+                raise UnicodeEncodeError("character not in latin1 range")
+            result.chars[i] = cast_primitive(Char, c)
+        return result
+
 
 class CharRepr(AbstractCharRepr, StringRepr):
     lowleveltype = Char

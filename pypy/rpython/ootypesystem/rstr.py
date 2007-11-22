@@ -48,6 +48,16 @@ class StringRepr(BaseOOStringRepr, AbstractStringRepr):
     def make_string(self, value):
         return ootype.make_string(value)
 
+    def ll_decode_latin1(self, value):
+        sb = ootype.new(ootype.UnicodeBuilder)
+        length = value.ll_strlen()
+        sb.ll_allocate(length)
+        for i in range(length):
+            c = value.ll_stritem_nonneg(i)
+            sb.ll_append_char(cast_primitive(UniChar, c))
+        return sb.ll_build()
+
+
 class UnicodeRepr(BaseOOStringRepr, AbstractUnicodeRepr):
     lowleveltype = ootype.Unicode
     basetype = basestring
@@ -63,6 +73,17 @@ class UnicodeRepr(BaseOOStringRepr, AbstractUnicodeRepr):
             c = value.ll_stritem_nonneg(i)
             if ord(c) > 127:
                 raise UnicodeEncodeError("%d > 127, not ascii" % ord(c))
+            sb.ll_append_char(cast_primitive(Char, c))
+        return sb.ll_build()
+
+    def ll_encode_latin1(self, value):
+        sb = ootype.new(ootype.StringBuilder)
+        length = value.ll_strlen()
+        sb.ll_allocate(length)
+        for i in range(length):
+            c = value.ll_stritem_nonneg(i)
+            if ord(c) > 255:
+                raise UnicodeEncodeError("%d > 255, not latin-1" % ord(c))
             sb.ll_append_char(cast_primitive(Char, c))
         return sb.ll_build()
 

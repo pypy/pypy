@@ -38,14 +38,13 @@ class UnicodeTests(object):
     def checkencodeerror(self, s, encoding, start, stop):
         called = [False]
         def errorhandler(errors, enc, msg, t, startingpos,
-                         endingpos, decode):
+                         endingpos):
             called[0] = True
             assert errors == "foo!"
             assert enc == encoding
             assert t is s
             assert start == startingpos
             assert stop == endingpos
-            assert not decode
             return "42424242", stop
         encoder = self.getencoder(encoding)
         result = encoder(s, len(s), "foo!", errorhandler)
@@ -55,7 +54,7 @@ class UnicodeTests(object):
     def checkdecodeerror(self, s, encoding, start, stop, addstuff=True):
         called = [0]
         def errorhandler(errors, enc, msg, t, startingpos,
-                         endingpos, decode=True):
+                         endingpos):
             called[0] += 1
             if called[0] == 1:
                 assert errors == "foo!"
@@ -63,7 +62,6 @@ class UnicodeTests(object):
                 assert t is s
                 assert start == startingpos
                 assert stop == endingpos
-                assert decode
                 return u"42424242", stop
             return "", endingpos
         decoder = self.getdecoder(encoding)

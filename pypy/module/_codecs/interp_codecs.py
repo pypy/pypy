@@ -8,11 +8,12 @@ class CodecState(object):
         self.codec_search_cache = {}
         self.codec_error_registry = {}
         self.codec_need_encodings = True
-        self.error_handler = self.make_errorhandler(space)
+        self.decode_error_handler = self.make_errorhandler(space, True)
+        self.encode_error_handler = self.make_errorhandler(space, False)
 
-    def make_errorhandler(self, space):
+    def make_errorhandler(self, space, decode):
         def unicode_call_errorhandler(errors,  encoding, reason, input,
-                                      startpos, endpos, decode=True):
+                                      startpos, endpos):
             
             w_errorhandler = lookup_error(space, errors)
             if decode:
@@ -51,7 +52,6 @@ class CodecState(object):
             else:
                 replace = space.str_w(w_replace)
                 return replace, newpos
-        unicode_call_errorhandler._annspecialcase_ = "specialize:arg(6)"
         return unicode_call_errorhandler
 
 
@@ -210,7 +210,7 @@ def make_encoder_wrapper(name):
     def wrap_encoder(space, uni, errors="strict"):
         state = space.fromcache(CodecState)
         func = getattr(runicode, rname)
-        result = func(uni, len(uni), errors, state.error_handler)
+        result = func(uni, len(uni), errors, state.encode_error_handler)
         return space.newtuple([space.wrap(result), space.wrap(len(result))])
     wrap_encoder.unwrap_spec = [ObjSpace, unicode, str]
     globals()[name] = wrap_encoder
@@ -223,7 +223,7 @@ def make_decoder_wrapper(name):
         state = space.fromcache(CodecState)
         func = getattr(runicode, rname)
         result, consumed = func(string, len(string), errors,
-                                final, state.error_handler)
+                                final, state.decode_error_handler)
         return space.newtuple([space.wrap(result), space.wrap(consumed)])
     wrap_decoder.unwrap_spec = [ObjSpace, str, str, W_Root]
     globals()[name] = wrap_decoder
@@ -264,7 +264,7 @@ def utf_16_ex_decode(space, data, errors='strict', byteorder=0, w_final=False):
     if final:
         consumed = 0
     res, consumed, byteorder = runicode.str_decode_utf_16_helper(
-        data, len(data), errors, final, state.error_handler, byteorder)
+        data, len(data), errors, final, state.decode_error_handler, byteorder)
     return space.newtuple([space.wrap(res), space.wrap(consumed),
                            space.wrap(byteorder)])
 utf_16_ex_decode.unwrap_spec = [ObjSpace, str, str, int, W_Root]

@@ -305,6 +305,15 @@ class AppTestUnicodeString:
         assert not u'hello'.startswith((u'he', u'hel'), 0, 1)
         assert u'hello'.startswith((u'he', u'hel'), 0, 2)
         raises(TypeError, u'hello'.startswith, (42,))
+
+    def test_startswith_endswith_convert(self):
+        assert 'hello'.startswith((u'he\u1111', u'he'))
+        assert not 'hello'.startswith((u'lo\u1111', u'llo'))
+        assert 'hello'.startswith((u'hellox\u1111', u'hello'))
+        assert not 'hello'.startswith((u'lo', u'he\u1111'), 0, -1)
+        assert not 'hello'.endswith((u'he\u1111', u'he'))
+        assert 'hello'.endswith((u'\u1111lo', u'llo'))
+        assert 'hello'.endswith((u'\u1111hellox', u'hello'))
     
     def test_endswith(self):
         assert u'ab'.endswith(u'ab') is True
@@ -463,3 +472,78 @@ class AppTestUnicodeString:
                 "u'\\U00090418\\u027d\\U000582b9\\u54c3\\U000fcb6e'")
         assert (repr(u'\n') == 
                 "u'\\n'")
+
+
+    def test_partition(self):
+
+        assert (u'this is the par', u'ti', u'tion method') == \
+            u'this is the partition method'.partition(u'ti')
+
+        # from raymond's original specification
+        S = u'http://www.python.org'
+        assert (u'http', u'://', u'www.python.org') == S.partition(u'://')
+        assert (u'http://www.python.org', u'', u'') == S.partition(u'?')
+        assert (u'', u'http://', u'www.python.org') == S.partition(u'http://')
+        assert (u'http://www.python.', u'org', u'') == S.partition(u'org')
+
+        raises(ValueError, S.partition, u'')
+        raises(TypeError, S.partition, None)
+
+    def test_rpartition(self):
+
+        assert (u'this is the rparti', u'ti', u'on method') == \
+            u'this is the rpartition method'.rpartition(u'ti')
+
+        # from raymond's original specification
+        S = u'http://www.python.org'
+        assert (u'http', u'://', u'www.python.org') == S.rpartition(u'://')
+        assert (u'', u'', u'http://www.python.org') == S.rpartition(u'?')
+        assert (u'', u'http://', u'www.python.org') == S.rpartition(u'http://')
+        assert (u'http://www.python.', u'org', u'') == S.rpartition(u'org')
+
+        raises(ValueError, S.rpartition, u'')
+        raises(TypeError, S.rpartition, None)
+
+
+    def test_rindex(self):
+        from sys import maxint
+        assert u'abcdefghiabc'.rindex(u'') == 12
+        assert u'abcdefghiabc'.rindex(u'def') == 3
+        assert u'abcdefghiabc'.rindex(u'abc') == 9
+        assert u'abcdefghiabc'.rindex(u'abc', 0, -1) == 0
+        assert u'abcdefghiabc'.rindex(u'abc', -4*maxint, 4*maxint) == 9
+        raises(ValueError, u'abcdefghiabc'.rindex, u'hib')
+        raises(ValueError, u'defghiabc'.rindex, u'def', 1)
+        raises(ValueError, u'defghiabc'.rindex, u'abc', 0, -1)
+        raises(ValueError, u'abcdefghi'.rindex, u'ghi', 0, 8)
+        raises(ValueError, u'abcdefghi'.rindex, u'ghi', 0, -1)
+        raises(TypeError, u'abcdefghijklmn'.rindex, u'abc', 0, 0.0)
+        raises(TypeError, u'abcdefghijklmn'.rindex, u'abc', -10.0, 30)
+
+    def test_len_iter(self):
+        assert len(iter(u"abcdef\uffff")) == 7
+        for i in range(10):
+            assert len(iter(unicode(i))) == 1
+
+    def test_rfind(self):
+        assert u'abcdefghiabc'.rfind(u'abc') == 9
+        assert u'abcdefghiabc'.rfind(u'') == 12
+        assert u'abcdefghiabc'.rfind(u'abcd') == 0
+        assert u'abcdefghiabc'.rfind(u'abcz') == -1
+
+
+    def test_count(self):
+        assert u"".count(u"x") ==0
+        assert u"".count(u"") ==1
+        assert u"Python".count(u"") ==7
+        assert u"ab aaba".count(u"ab") ==2
+        assert 'aaa'.count('a') == 3
+        assert 'aaa'.count('b') == 0
+        assert 'aaa'.count('a', -1) == 1
+        assert 'aaa'.count('a', -10) == 3
+        assert 'aaa'.count('a', 0, -1) == 2
+        assert 'aaa'.count('a', 0, -10) == 0
+        assert 'ababa'.count('aba') == 1
+
+    def test_swapcase(self):
+        assert u'\xe4\xc4\xdf'.swapcase() == u'\xc4\xe4\xdf'

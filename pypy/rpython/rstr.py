@@ -256,9 +256,17 @@ class __extend__(AbstractStringRepr):
         return hop.gendirectcall(self.ll.ll_str2unicode, v_str)
 
     def rtype_method_decode(self, hop):
-        v_self = hop.inputarg(self, 0)
+        if not hop.args_s[1].is_constant():
+            raise TyperError("encoding must be a constant")
+        encoding = hop.args_s[1].const
+        v_self = hop.inputarg(self.repr, 0)
         hop.exception_is_here()
-        return hop.gendirectcall(self.ll.ll_str2unicode, v_self)
+        if encoding == 'ascii':
+            return hop.gendirectcall(self.ll.ll_str2unicode, v_self)
+        elif encoding == 'latin-1':
+            return hop.gendirectcall(self.ll_decode_latin1, v_self)
+        else:
+            raise TyperError("encoding %s not implemented" % (encoding, ))
 
     def rtype_float(self, hop):
         hop.has_implicit_exception(ValueError)   # record that we know about it
@@ -272,9 +280,18 @@ class __extend__(AbstractStringRepr):
 
 class __extend__(AbstractUnicodeRepr):
     def rtype_method_encode(self, hop):
-        v_self = hop.inputarg(self, 0)
+        if not hop.args_s[1].is_constant():
+            raise TyperError("encoding must be constant")
+        encoding = hop.args_s[1].const
+        v_self = hop.inputarg(self.repr, 0)
         hop.exception_is_here()
-        return hop.gendirectcall(self.ll_str, v_self)
+        if encoding == "ascii":
+            return hop.gendirectcall(self.ll_str, v_self)
+        elif encoding == "latin-1":
+            return hop.gendirectcall(self.ll_encode_latin1, v_self)
+        else:
+            raise TyperError("encoding %s not implemented" % (encoding, ))
+
 
 class __extend__(pairtype(AbstractStringRepr, Repr)):
     def rtype_mod((r_str, _), hop):

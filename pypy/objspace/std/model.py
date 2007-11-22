@@ -17,6 +17,8 @@ option_to_typename = {
     "withmultilist"  : ["listmultiobject.W_ListMultiObject"],
     "withrope"       : ["ropeobject.W_RopeObject",
                         "ropeobject.W_RopeIterObject"],
+    "withropeunicode": ["ropeunicodeobject.W_RopeUnicodeObject",
+                        "ropeunicodeobject.W_RopeUnicodeIterObject"],
     "withrangelist"  : ["rangeobject.W_RangeListObject",
                         "rangeobject.W_RangeIterObject"],
     "withtproxy" : ["proxyobject.W_TransparentList",
@@ -68,6 +70,7 @@ class StdTypeModel:
         from pypy.objspace.std import listmultiobject
         from pypy.objspace.std import stringobject
         from pypy.objspace.std import ropeobject
+        from pypy.objspace.std import ropeunicodeobject
         from pypy.objspace.std import strsliceobject
         from pypy.objspace.std import strjoinobject
         from pypy.objspace.std import typeobject
@@ -186,9 +189,15 @@ class StdTypeModel:
              (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
                 ]
         else:
-            self.typeorder[ropeobject.W_RopeObject] += [
-             (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
-                ]
+            if config.objspace.std.withropeunicode:
+                self.typeorder[ropeobject.W_RopeObject] += [
+                 (ropeunicodeobject.W_RopeUnicodeObject,
+                     ropeunicodeobject.delegate_Rope2RopeUnicode),
+                 ]
+            else:
+                self.typeorder[ropeobject.W_RopeObject] += [
+                 (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
+                    ]
 
         if config.objspace.std.withstrslice:
             self.typeorder[strsliceobject.W_StringSliceObject] += [

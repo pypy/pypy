@@ -400,7 +400,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
             from pypy.objspace.std.stringtype import wrapstr
             return wrapstr(self, x)
         if isinstance(x, unicode):
-            return W_UnicodeObject(x)
+            from pypy.objspace.std.unicodetype import wrapunicode
+            return wrapunicode(self, x)
         if isinstance(x, float):
             return W_FloatObject(x)
         if isinstance(x, Wrappable):

@@ -19,7 +19,10 @@ def descr__new__(space, w_floattype, w_x=0.0):
             raise OperationError(space.w_ValueError,
                                  space.wrap(e.msg))
     elif space.is_true(space.isinstance(w_value, space.w_unicode)):
-        from unicodeobject import unicode_to_decimal_w
+        if space.config.objspace.std.withropeunicode:
+            from pypy.objspace.std.ropeunicodeobject import unicode_to_decimal_w
+        else:
+            from unicodeobject import unicode_to_decimal_w
         strvalue = unicode_to_decimal_w(space, w_value)
         try:
             if USE_NEW_S2F:

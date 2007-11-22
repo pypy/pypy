@@ -84,26 +84,37 @@ class BaseTestRUnicode(AbstractTestRstr):
     def test_unicode_encode(self):
         def f(x):
             y = u'xxx'
-            return (y + unichr(x)).encode('ascii')
+            return (y + unichr(x)).encode('ascii') + y.encode('latin-1')
 
         assert self.ll_to_string(self.interpret(f, [38])) == f(38)
 
     def test_unicode_encode_error(self):
-        def f(x):
-            y = u'xxx'
-            try:
-                x = (y + unichr(x)).encode('ascii')
-                return len(x)
-            except UnicodeEncodeError:
-                return -1
+        def f(x, which):
+            if which:
+                y = u'xxx'
+                try:
+                    x = (y + unichr(x)).encode('ascii')
+                    return len(x)
+                except UnicodeEncodeError:
+                    return -1
+            else:
+                y = u'xxx'
+                try:
+                    x = (y + unichr(x)).encode('latin-1')
+                    return len(x)
+                except UnicodeEncodeError:
+                    return -1
 
-        assert self.interpret(f, [38]) == f(38)
-        assert self.interpret(f, [138]) == f(138)
+        assert self.interpret(f, [38, True]) == f(38, True)
+        assert self.interpret(f, [138, True]) == f(138, True)
+        assert self.interpret(f, [38, False]) == f(38, False)
+        assert self.interpret(f, [138, False]) == f(138, False)
+        assert self.interpret(f, [300, False]) == f(300, False)
 
     def test_unicode_decode(self):
         def f(x):
             y = 'xxx'
-            return (y + chr(x)).decode('ascii')
+            return (y + chr(x)).decode('ascii') + chr(x).decode("latin-1") 
 
         assert self.ll_to_string(self.interpret(f, [38])) == f(38)
 
