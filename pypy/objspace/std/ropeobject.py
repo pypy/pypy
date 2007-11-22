@@ -830,7 +830,10 @@ def str_translate__Rope_ANY_ANY(space, w_string, w_table, w_deletechars=''):
 def str_decode__Rope_ANY_ANY(space, w_string, w_encoding=None, w_errors=None):
     from pypy.objspace.std.unicodetype import _get_encoding_and_errors, \
         getdefaultencoding
-    from pypy.objspace.std.ropeunicodeobject import decode_string
+    if space.config.objspace.std.withropeunicode:
+        from pypy.objspace.std.ropeunicodeobject import decode_string
+    else:
+        from pypy.objspace.std.unicodetype import decode_object as decode_string
     encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
     if encoding is None:
         encoding = getdefaultencoding(space)

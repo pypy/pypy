@@ -771,7 +771,7 @@ def unicode_partition__Unicode_Unicode(space, w_unistr, w_unisub):
         return space.newtuple([w_unistr, W_UnicodeObject.EMPTY,
                                W_UnicodeObject.EMPTY])
     else:
-        assert pos > 0
+        assert pos >= 0
         return space.newtuple([space.wrap(unistr[:pos]), w_unisub,
                                space.wrap(unistr[pos+len(unisub):])])
 
@@ -786,7 +786,7 @@ def unicode_rpartition__Unicode_Unicode(space, w_unistr, w_unisub):
         return space.newtuple([W_UnicodeObject.EMPTY,
                                W_UnicodeObject.EMPTY, w_unistr])
     else:
-        assert pos > 0
+        assert pos >= 0
         return space.newtuple([space.wrap(unistr[:pos]), w_unisub,
                                space.wrap(unistr[pos+len(unisub):])])
 
