@@ -22,10 +22,18 @@ def unicode_from_string(space, w_str):
     from pypy.objspace.std.unicodetype import getdefaultencoding
     assert isinstance(w_str, W_RopeObject)
     encoding = getdefaultencoding(space)
-    return decode_string(space, w_str, encoding, "strict")
+    w_retval = decode_string(space, w_str, encoding, "strict")
+    if not space.is_true(space.isinstance(w_retval, space.w_unicode)):
+        raise OperationError(
+            space.w_TypeError,
+            space.wrap(
+                "decoder did not return an unicode object (type=%s)" %
+                        space.type(w_retval).getname(space, '?')))
+    assert isinstance(w_retval, W_RopeUnicodeObject)
+    return w_retval
 
 def decode_string(space, w_str, encoding, errors):
-    from pypy.objspace.std.unicodetype import unicode_from_encoded_object
+    from pypy.objspace.std.unicodetype import decode_object
     if errors is None or errors == "strict":
         node = w_str._node
         if encoding == 'ascii':
@@ -39,9 +47,8 @@ def decode_string(space, w_str, encoding, errors):
             result = rope.str_decode_utf8(node)
             if result is not None:
                 return W_RopeUnicodeObject(result)
-    result = unicode_from_encoded_object(space, w_str, encoding, errors)
-    assert isinstance(result, W_RopeUnicodeObject)
-    return result
+    w_result = decode_object(space, w_str, encoding, errors)
+    return w_result
 
 def encode_unicode(space, w_unistr, encoding, errors):
     from pypy.objspace.std.unicodetype import getdefaultencoding, \
