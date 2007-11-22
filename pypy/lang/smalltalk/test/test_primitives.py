@@ -211,7 +211,7 @@ def test_size_of_compiled_method():
     bytecount = 3
     w_cm = model.W_CompiledMethod(bytecount)
     w_cm.literalsize = literalsize
-    assert prim(primitives.SIZE, [w_cm]).value == (literalsize)*constants.BYTES_PER_WORD + bytecount
+    assert prim(primitives.SIZE, [w_cm]).value == (literalsize+1)*constants.BYTES_PER_WORD + bytecount
 
 def test_string_at():
     assert prim(primitives.STRING_AT, ["foobar", 4]) == wrap("b")
