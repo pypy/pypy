@@ -60,10 +60,6 @@
 #endif
 #endif
 
-#ifndef AVR
-#include "src/stack.h"
-#endif
-
 #ifdef PYPY_STANDALONE
 #  include "src/main.h"
 #endif

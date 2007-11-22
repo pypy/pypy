@@ -2,6 +2,7 @@
 /************************************************************/
  /***  C header subsection: stack operations               ***/
 
+
 #ifndef MAX_STACK_SIZE
 #    define MAX_STACK_SIZE (1 << 19)
 #endif
@@ -10,6 +11,7 @@ void LL_stack_unwind(void);
 int LL_stack_too_big(void);
 
 #ifndef PYPY_NOT_MAIN_FILE
+#include "thread.h"
 
 #ifndef PYPY_NOINLINE
 # if defined __GNUC__

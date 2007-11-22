@@ -33,7 +33,7 @@ def stack_frames_depth():
     else:
         return len(inspect.stack())
 
-stack_too_big = rffi.llexternal('LL_stack_too_big', [], rffi.INT, _callable=lambda: 0)
+stack_too_big = rffi.llexternal('LL_stack_too_big', [], rffi.INT, includes=['src/stack.h'], _callable=lambda: 0)
 
 def stack_check():
     if stack_too_big():
