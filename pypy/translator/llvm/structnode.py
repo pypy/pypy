@@ -124,10 +124,21 @@ class FixedSizeArrayNode(StructNode):
         return ref
 
     def get_childref(self, index):
+        if isinstance(index, str):
+            pos = 0
+            found = False
+            for name in self.structtype._names_without_voids():
+                if name == index:
+                    found = True
+                    break
+                pos += 1
+        else:
+            pos = index
+            
         return "getelementptr(%s* %s, i32 0, i32 %s)" % (
             self.get_typerepr(),
             self.get_ref(),
-            index) 
+            pos) 
 
     def setup(self):
         if isinstance(self.value, lltype._subarray):
