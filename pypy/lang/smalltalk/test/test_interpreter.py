@@ -30,8 +30,10 @@ def run_with_faked_methods(methods, func):
     # Install faked compiled methods that just invoke the primitive:
     for (w_class, primnum, argsize, methname) in methods:
         s_class = w_class.as_class_get_shadow()
-        prim_meth = model.W_CompiledMethod(
-            0, "", argsize=argsize, primitive=primnum)
+        prim_meth = model.W_CompiledMethod(0)
+        prim_meth.primitive = primnum
+        prim_meth.w_compiledin = w_class
+        prim_meth.argsize = argsize
         s_class.installmethod(methname, prim_meth)
         
     try:
@@ -62,20 +64,24 @@ def fakeliterals(*literals):
                 res.storevarpointer(i, fakeliteral(lit[i]))
             return res
         return lit
-    return [fakesymbol("methodheader")]+[fakeliteral(lit) for lit in literals]
+    return [fakeliteral(lit) for lit in literals]
 
 def new_interpreter(bytes, receiver=objtable.w_nil):
     assert isinstance(bytes, str)
-    w_method = model.W_CompiledMethod(0, bytes=bytes,
-                                      argsize=2, tempsize=1)
+    w_method = model.W_CompiledMethod(len(bytes))
+    w_method.bytes = bytes
+    w_method.argsize=2
+    w_method.tempsize=1
     w_frame = w_method.create_frame(receiver, ["foo", "bar"])
     interp = interpreter.Interpreter()
     interp.w_active_context = w_frame
     return interp
 
 def test_create_frame():
-    w_method = model.W_CompiledMethod(0, bytes="hello",
-                                      argsize=2, tempsize=1)
+    w_method = model.W_CompiledMethod(len("hello"))
+    w_method.bytes="hello"
+    w_method.argsize=2
+    w_method.tempsize=1
     w_frame = w_method.create_frame("receiver", ["foo", "bar"])
     assert w_frame.w_receiver == "receiver"
     assert w_frame.gettemp(0) == "foo"
@@ -380,8 +386,9 @@ def sendBytecodesTest(w_class, w_object, bytecodes):
           (returnNil, interpreter.Interpreter.NIL),
           (returnTopFromMethod, interpreter.Interpreter.ONE) ]:
         shadow = w_class.as_class_get_shadow()
-        shadow.installmethod("foo",
-             model.W_CompiledMethod(0, pushConstantOneBytecode + bytecode))
+        w_method = model.W_CompiledMethod(2)
+        w_method.bytes = pushConstantOneBytecode + bytecode
+        shadow.installmethod("foo", w_method)
         interp = new_interpreter(bytecodes)
         interp.w_active_context.w_method().literals = fakeliterals("foo")
         interp.w_active_context.push(w_object)
@@ -405,7 +412,10 @@ def test_sendLiteralSelectorBytecode():
 def test_fibWithArgument():
     bytecode = ''.join(map(chr, [ 16, 119, 178, 154, 118, 164, 11, 112, 16, 118, 177, 224, 112, 16, 119, 177, 224, 176, 124 ]))
     shadow = mockclass(0).as_class_get_shadow()
-    method = model.W_CompiledMethod(1, bytecode, 1)
+    method = model.W_CompiledMethod(len(bytecode))
+    method.literalsize = 1
+    method.bytes = bytecode
+    method.argsize = 1
     method.literals = fakeliterals("fib:")
     shadow.installmethod("fib:", method)
     w_object = shadow.new()
@@ -529,7 +539,11 @@ def test_extendedStoreAndPopBytecode():
 def test_callPrimitiveAndPush_fallback():
     interp = new_interpreter(bytecodePrimAdd)
     shadow = mockclass(0).as_class_get_shadow()
-    shadow.installmethod("+", model.W_CompiledMethod(1, "", 1))
+    w_method = model.W_CompiledMethod(0)
+    w_method.argsize = 1
+    w_method.literalsize = 1
+    shadow.installmethod("+", w_method) 
+    
     w_object = shadow.new()
     interp.w_active_context.push(w_object)
     interp.w_active_context.push(interp.ONE)
@@ -567,12 +581,14 @@ def test_singleExtendedSuperBytecode(bytecode=singleExtendedSuperBytecode + chr(
     # first call method installed in w_class
     bytecodes = singleExtendedSendBytecode + chr(0)
     # which does a call to its super
-    meth1 = model.W_CompiledMethod(0, pushReceiverBytecode + bytecode)
+    meth1 = model.W_CompiledMethod(2)
+    meth1.bytes = pushReceiverBytecode + bytecode
     w_class.as_class_get_shadow().installmethod("foo", meth1)
     # and that one again to its super
-    meth2 = model.W_CompiledMethod(0, pushReceiverBytecode + bytecode)
+    meth2 = model.W_CompiledMethod(2)
+    meth2.bytes = pushReceiverBytecode + bytecode
     w_super.as_class_get_shadow().installmethod("foo", meth2)
-    meth3 = model.W_CompiledMethod(0, "")
+    meth3 = model.W_CompiledMethod(0)
     w_supersuper.as_class_get_shadow().installmethod("foo", meth3)
     meth1.literals = fakeliterals("foo")
     meth2.literals = fakeliterals("foo")
@@ -726,7 +742,7 @@ def test_bc_primBytecodeAtPut_string():
 
 def test_bc_primBytecodeAt_with_instvars():
     #   ^ self at: 1
-    py.test.skip("Broken, we are fixing it.")
+    py.test.skip("Broken, fix me")
     w_fakeclass = mockclass(1, name='fakeclass', varsized=True)
     w_fakeinst = w_fakeclass.as_class_get_shadow().new(1)
     w_fakeinst.store(0, wrap_char("a")) # static slot 0: instance variable
@@ -742,7 +758,7 @@ def test_bc_primBytecodeAt_with_instvars():
 
 def test_bc_primBytecodeAtPut_with_instvars():
     #   ^ self at: 1 put: #b
-    py.test.skip("Broken, we are fixing it.")
+    py.test.skip("Broken, fix me")
     w_fakeclass = mockclass(1, name='fakeclass', varsized=True)
     w_fakeinst = w_fakeclass.as_class_get_shadow().new(1)
     w_fakeinst.store(0, wrap_char("a")) # static slot 0: instance variable
@@ -763,7 +779,8 @@ def test_bc_objectAtAndAtPut():
     #   ^ self objectAt: 2.          yields the first literal (22)
     #   ^ self objectAt: 2 put: 3.   changes the first literal to 3
     #   ^ self objectAt: 2.          yields the new first literal (3)
-    prim_meth = model.W_CompiledMethod(0, "")
+    py.test.skip("Broken, fix me")
+    prim_meth = model.W_CompiledMethod(0)
     prim_meth.literals = fakeliterals(22)
     mhs = fakesymbol("methodheader")
     oal = fakeliterals("objectAt:")

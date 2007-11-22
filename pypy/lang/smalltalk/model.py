@@ -4,6 +4,7 @@ from pypy.rlib.rarithmetic import intmask
 from pypy.lang.smalltalk import constants
 from pypy.tool.pairtype import extendabletype
 from pypy.rlib.objectmodel import instantiate
+from pypy.lang.smalltalk.tool.bitmanipulation import splitter
 
 class W_Object(object):
     __slots__ = ()    # no RPython-level instance variables allowed in W_Object
@@ -299,14 +300,9 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
     The trailer has two variant formats.  In the first variant, the last byte is at least 252 and the last four bytes represent a source pointer into one of the sources files (see #sourcePointer).  In the second variant, the last byte is less than 252, and the last several bytes are a compressed version of the names of the method's temporary variables.  The number of bytes used for this purpose is the value of the last byte in the method.
     """
 
-    def __init__(self, literalsize, bytes="", argsize=0, 
-                 tempsize=0, primitive=0, w_compiledin=None):
-        self.literals = [None] * literalsize
-        self.w_compiledin = w_compiledin
-        self.bytes = bytes
-        self.argsize = argsize
-        self.tempsize = tempsize
-        self.primitive = primitive
+    def __init__(self, bytecount=0, header=0):
+        self.setheader(header)
+        self.bytes = "\x00"*bytecount
 
     def compiledin(self):  
         if self.w_compiledin is None:
@@ -323,10 +319,11 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
         return w_CompiledMethod
 
     def getliteral(self, index):
-        return self.literals[index + constants.LITERAL_START]
+        return self.literals[index] #+ constants.LITERAL_START]
 
     def getliteralsymbol(self, index):
         w_literal = self.getliteral(index)
+        print "literals: %r" % self.literals
         assert isinstance(w_literal, W_BytesObject)
         return w_literal.as_string()    # XXX performance issue here
 
@@ -354,36 +351,73 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
                 self.primitive is not None)       
 
     def size(self):
-        return self.literalsize() + len(self.bytes)
+        return self.getliteralsize() + len(self.bytes)
 
-    def literalsize(self):
-        return len(self.literals) * constants.BYTES_PER_WORD
+    def getliteralsize(self):
+        return self.literalsize * constants.BYTES_PER_WORD
 
     def primsize(self):
-        return self.size() + self.headersize()
+        return self.size()
 
     def headersize(self):
         return constants.BYTES_PER_WORD
 
+    def getheader(self):
+        return self.header
+
+    def setheader(self, header):
+        #(index 0)  9 bits: main part of primitive number   (#primitive)
+        #(index 9)  8 bits: number of literals (#numLiterals)
+        #(index 17) 1 bit:  whether a large frame size is needed (#frameSize)
+        #(index 18) 6 bits: number of temporary variables (#numTemps)
+        #(index 24) 4 bits: number of arguments to the method (#numArgs)
+        #(index 28) 1 bit:  high-bit of primitive number (#primitive)
+        #(index 29) 1 bit:  flag bit, ignored by the VM  (#flag)
+        primitive, literalsize, islarge, tempsize, numargs, highbit = (
+            splitter[9,8,1,6,4,1](header))
+        primitive = primitive + (highbit << 10) ##XXX todo, check this
+        self.literalsize = literalsize
+        self.literals = [w_nil] * self.literalsize
+        self.header = header
+        self.argsize = numargs
+        self.tempsize = tempsize
+        self.primitive = primitive
+        self.w_compiledin = None
+
+    def literalat0(self, index0):
+        if index0 == 0:
+            from pypy.lang.smalltalk import utility
+            return utility.wrap_int(self.getheader())
+        else:
+            return self.literals[index0-1]
+
+    def literalatput0(self, index0, w_value):
+        if index0 == 0:
+            from pypy.lang.smalltalk import utility
+            print "Going to save as header: %r" % w_value
+            header = utility.unwrap_int(w_value)
+            self.setheader(header)
+        else:
+            self.literals[index0-1] = w_value
+
     def at0(self, index0):
         # XXX
         from pypy.lang.smalltalk import utility
-        index0 = index0 - self.literalsize()
-        if index0 < 0:
-            # XXX Do something useful with this.... we are not a block
-            # of memory as smalltalk expects but wrapped in py-os
-            raise NotImplementedError()
-        return utility.wrap_int(ord(self.bytes[index0]))
+        print "TRYING TO GET: %d %d" % (self.getliteralsize(), index0)
+        if index0 < self.getliteralsize():
+            self.literalat0(index0)
+        else:
+            index0 = index0 - self.getliteralsize()
+            return utility.wrap_int(ord(self.bytes[index0]))
         
     def atput0(self, index0, w_value):
         from pypy.lang.smalltalk import utility
-        index0 = index0 - self.literalsize()
-        if index0 < 0:
-            # XXX Do something useful with this.... we are not a block
-            # of memory as smalltalk expects but wrapped in py-os
-            raise NotImplementedError()
+        print "TRYING TO SET: %d %d %r" % (self.getliteralsize(), index0, w_value)
+        if index0 < self.getliteralsize():
+            self.literalatput0(index0, w_value)
         else:
             # XXX use to-be-written unwrap_char
+            index0 = index0 - self.getliteralsize()
             self.setchar(index0, chr(utility.unwrap_int(w_value)))
 
     def setchar(self, index0, character):

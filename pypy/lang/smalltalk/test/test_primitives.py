@@ -207,10 +207,11 @@ def test_size():
     assert prim(primitives.SIZE, [w_obj]).value == 5
 
 def test_size_of_compiled_method():
-    varsize = 3
-    text = "abc"
-    w_cm = model.W_CompiledMethod(varsize, text, 1, 1)
-    assert prim(primitives.SIZE, [w_cm]).value == (varsize+1)*constants.BYTES_PER_WORD + len(text)
+    literalsize = 3
+    bytecount = 3
+    w_cm = model.W_CompiledMethod(bytecount)
+    w_cm.literalsize = literalsize
+    assert prim(primitives.SIZE, [w_cm]).value == (literalsize)*constants.BYTES_PER_WORD + bytecount
 
 def test_string_at():
     assert prim(primitives.STRING_AT, ["foobar", 4]) == wrap("b")
@@ -422,9 +423,9 @@ def test_new_method():
 
     shadow = mockclass(0).as_class_get_shadow()
     w_method = prim(primitives.NEW_METHOD, [classtable.w_CompiledMethod, len(bytecode), 1025])
-    assert w_method.literals[0].value == 1025
-    assert len(w_method.literals) == 2
-    assert w_method.literals[1] is objtable.w_nil
+    assert w_method.literalat0(0).value == 1025
+    assert w_method.literalsize == 2
+    assert w_method.literalat0(1) is objtable.w_nil
     assert w_method.bytes == "\x00" * len(bytecode)
 
 

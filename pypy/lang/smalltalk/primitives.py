@@ -346,16 +346,15 @@ NEW_METHOD = 79
 def func(interp, w_rcvr, n0):
     if not isinstance(w_rcvr, model.W_CompiledMethod):
         raise PrimitiveFailedError()
-    assert_bounds(n0, 0, len(w_rcvr.literals))
-    return w_rcvr.literals[n0]
+    return w_rcvr.literalat0(n0)
 
 @expose_primitive(OBJECT_AT_PUT, unwrap_spec=[object, index1_0, object])
-def func(interp, w_rcvr, n0, w_val):
+def func(interp, w_rcvr, n0, w_value):
     if not isinstance(w_rcvr, model.W_CompiledMethod):
         raise PrimitiveFailedError()
-    assert_bounds(n0, 0, len(w_rcvr.literals))
-    w_rcvr.literals[n0] = w_val
-    return w_val
+    #assert_bounds(n0, 0, len(w_rcvr.literals))
+    w_rcvr.literalatput0(n0, w_value)
+    return w_value
 
 @expose_primitive(NEW, unwrap_spec=[object])
 def func(interp, w_cls):
@@ -419,18 +418,10 @@ def func(interp, w_obj):
     # it returns the "next" instance after w_obj.
     raise PrimitiveNotYetWrittenError()
 
-@expose_primitive(NEW_METHOD, unwrap_spec=[object, int, object])
-def func(interp, w_class, bytecount, w_header):
-    # XXX untested
-    header = utility.unwrap_int(w_header)
-    literalcount = ((header >> 10) & 255) + 1
-    w_method = w_class.as_class_get_shadow().new(literalcount)
-    # XXX not sure this is correct
-    assert isinstance(w_method, model.W_CompiledMethod)
-    w_method.literals[constants.METHOD_HEADER_INDEX] = w_header
-    for i0 in range(1, literalcount):
-        w_method.literals[i0] = objtable.w_nil
-    w_method.bytes = "\x00" * bytecount
+@expose_primitive(NEW_METHOD, unwrap_spec=[object, int, int])
+def func(interp, w_class, bytecount, header):
+    # We ignore w_class because W_CompiledMethod is special
+    w_method = model.W_CompiledMethod(bytecount, header)
     return w_method
 
 # ___________________________________________________________________________

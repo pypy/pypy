@@ -66,14 +66,14 @@ def test_w_compiledin():
     w_super = mockclass(0)
     w_class = mockclass(0, w_superclass=w_super)
     supershadow = w_super.as_class_get_shadow()
-    supershadow.installmethod("foo", model.W_CompiledMethod(0, ""))
+    supershadow.installmethod("foo", model.W_CompiledMethod(0))
     classshadow = w_class.as_class_get_shadow()
     assert classshadow.lookup("foo").w_compiledin is w_super
 
 def test_compiledmethod_setchar():
-    w_method = model.W_CompiledMethod(0, "abc")
+    w_method = model.W_CompiledMethod(3)
     w_method.setchar(0, "c")
-    assert w_method.bytes == "cbc"
+    assert w_method.bytes == "c\x00\x00"
 
 def test_hashes():
     w_five = model.W_SmallInteger(5)
