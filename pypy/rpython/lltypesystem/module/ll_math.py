@@ -9,7 +9,8 @@ math_frexp = rffi.llexternal('frexp', [rffi.DOUBLE, rffi.INTP], rffi.DOUBLE,
                              sandboxsafe=True)
 math_modf  = rffi.llexternal('modf',  [rffi.DOUBLE, rffi.DOUBLEP], rffi.DOUBLE,
                              sandboxsafe=True)
-math_ldexp = rffi.llexternal('ldexp', [rffi.DOUBLE, rffi.INT], rffi.DOUBLE)
+math_ldexp = rffi.llexternal('ldexp', [rffi.DOUBLE, rffi.INT], rffi.DOUBLE,
+                             sandboxsafe=True)
 
 unary_math_functions = [
     'acos', 'asin', 'atan', 'ceil', 'cos', 'cosh', 'exp', 'fabs',
