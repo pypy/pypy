@@ -49,7 +49,7 @@ def get_ll(ccode, function_names, default_cconv):
         include_path, includes, emit_llvm, plain, plain)
 
     if os.system(cmd) != 0:
-        raise Exception("Failed to run '%s'")
+        raise Exception("Failed to run '%s'" % cmd)
 
     llcode = open(plain + '.ll').read()
 
