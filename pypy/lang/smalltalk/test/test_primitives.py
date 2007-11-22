@@ -206,6 +206,12 @@ def test_size():
     w_obj = mockclass(3, varsized=True).as_class_get_shadow().new(5)
     assert prim(primitives.SIZE, [w_obj]).value == 5
 
+def test_size_of_compiled_method():
+    varsize = 3
+    text = "abc"
+    w_cm = model.W_CompiledMethod(varsize, text, 1, 1)
+    assert prim(primitives.SIZE, [w_cm]).value == (varsize+1)*constants.BYTES_PER_WORD + len(text)
+
 def test_string_at():
     assert prim(primitives.STRING_AT, ["foobar", 4]) == wrap("b")
 

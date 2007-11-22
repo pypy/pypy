@@ -301,7 +301,7 @@ def func(interp, w_obj, n0, w_val):
 def func(interp, w_obj):
     if not w_obj.shadow_of_my_class().isvariable():
         raise PrimitiveFailedError()
-    return utility.wrap_int(w_obj.varsize())
+    return utility.wrap_int(w_obj.primsize())
 
 @expose_primitive(STRING_AT, unwrap_spec=[object, index1_0])
 def func(interp, w_obj, n0):

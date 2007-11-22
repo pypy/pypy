@@ -227,14 +227,14 @@ def test_map_mirrors_to_classtable():
     assert w_false is objtable.w_false
     
 def test_compile_method():
-    py.test.skip("not working")
+    #py.test.skip("not working")
     sourcecode = """fib 
                         ^self < 2 
                             ifTrue: [ 1 ] 
                             ifFalse: [ (self - 1) fib + (self - 2) fib ]"""
     perform(w(10).getclass(), "compile:classified:notifying:", w(sourcecode), w('pypy'), w(None))
     assert perform(w(10), "fib") == w(89)
-        
+
 def w(any): 
     if any is None:
         return objtable.w_nil
