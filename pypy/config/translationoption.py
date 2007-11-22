@@ -29,7 +29,8 @@ translation_optiondescription = OptionDescription(
                      "c":      [("translation.type_system", "lltype")],
                      "llvm":   [("translation.type_system", "lltype"),
                                 ("translation.gc", "boehm"),
-                                ("translation.backendopt.raisingop2direct_call", True)],
+                                ("translation.backendopt.raisingop2direct_call", True),
+                                ("translation.rweakref", False)],
                      "cli":    [("translation.type_system", "ootype")],
                      "jvm":    [("translation.type_system", "ootype")],
                      "js":     [("translation.type_system", "ootype")],
@@ -216,7 +217,7 @@ translation_optiondescription = OptionDescription(
         BoolOption("logging", "Log how long the various parts of llvm generation take", default=False),
         BoolOption("isolate", "Perform an isolated import", default=True),
         StrOption("opt_options", "Options passed to opt (influences level of optimization in LLVM)",
-                     default="-std-compile-opts", cmdline="--translation-llvm-opt-options"),
+                     default="-std-compile-opts"),
     ]),
 
     OptionDescription("cli", "GenCLI options", [
