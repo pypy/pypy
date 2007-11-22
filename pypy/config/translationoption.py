@@ -214,7 +214,9 @@ translation_optiondescription = OptionDescription(
     OptionDescription("llvm", "GenLLVM options", [
         BoolOption("debug", "Include the llops in the source as comments", default=False),
         BoolOption("logging", "Log how long the various parts of llvm generation take", default=False),
-        BoolOption("isolate", "Peform an isolated import", default=True),
+        BoolOption("isolate", "Perform an isolated import", default=True),
+        StrOption("opt_options", "Options passed to opt (influences level of optimization in LLVM)",
+                     default="-std-compile-opts", cmdline="--translation-llvm-opt-options"),
     ]),
 
     OptionDescription("cli", "GenCLI options", [

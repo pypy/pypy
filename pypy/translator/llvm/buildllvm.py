@@ -53,7 +53,7 @@ class Builder(object):
         self.cmds = []
 
     def optimizations(self):
-        return '-std-compile-opts'
+        return self.genllvm.config.translation.llvm.opt_options
 
     def execute_cmds(self):
         c = stdoutcapture.Capture(mixed_out_err=True)
