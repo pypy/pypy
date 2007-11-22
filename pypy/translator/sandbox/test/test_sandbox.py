@@ -160,6 +160,21 @@ class TestPrintedResults:
             return 0
         self.run(entry_point, ["3.011"], "2 4 13 75 2 1 3\n")
 
+    def test_safefuncs_exception(self):
+        import math
+        def entry_point(argv):
+            a = float(argv[1])
+            x = math.log(a)
+            print int(x * 100.0)
+            try:
+                math.log(-a)
+            except ValueError:
+                print 'as expected, got a ValueError'
+            else:
+                print 'did not get a ValueError!'
+            return 0
+        self.run(entry_point, ["3.011"], "110\nas expected, got a ValueError\n")
+
     def test_os_path_safe(self):
         def entry_point(argv):
             print os.path.join('tmp', argv[1])

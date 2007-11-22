@@ -16,5 +16,5 @@ class CConstantErrno(CConstant):
         ll2ctypes.TLS.errno = value
 
 get_errno, set_errno = CExternVariable(lltype.Signed, 'errno', CConstantErrno,
-                                       includes=['errno.h'])
+                                       includes=['errno.h'], sandboxsafe=True)
 

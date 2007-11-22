@@ -242,7 +242,8 @@ def COpaque(name, hints=None, **kwds):
 def COpaquePtr(*args, **kwds):
     return lltype.Ptr(COpaque(*args, **kwds))
 
-def CExternVariable(TYPE, name, _CConstantClass=CConstant, includes=[], include_dirs=[]):
+def CExternVariable(TYPE, name, _CConstantClass=CConstant, includes=[],
+                    include_dirs=[], sandboxsafe=False):
     """Return a pair of functions - a getter and a setter - to access
     the given global C variable.
     """
@@ -269,7 +270,7 @@ def CExternVariable(TYPE, name, _CConstantClass=CConstant, includes=[], include_
     sources = ('\n'.join(lines),)
 
     kwds = {'includes': includes, 'sources':sources,
-            'include_dirs':include_dirs}
+            'include_dirs':include_dirs, 'sandboxsafe': sandboxsafe}
     getter = llexternal(getter_name, [], TYPE, **kwds)
     setter = llexternal(setter_name, [TYPE], lltype.Void, **kwds)
     return getter, setter
