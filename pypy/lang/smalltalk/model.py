@@ -15,6 +15,9 @@ class W_Object(object):
     def varsize(self):
         return self.size()
 
+    def primsize(self):
+        return self.size()
+
     def getclass(self):
         raise NotImplementedError
 
@@ -221,9 +224,6 @@ class W_BytesObject(W_AbstractObjectWithClassReference):
     def size(self):
         return len(self.bytes)    
 
-    def primsize(self):
-        return self.size()
-
     def __str__(self):
         return self.as_string()
 
@@ -355,9 +355,6 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
 
     def getliteralsize(self):
         return self.literalsize * constants.BYTES_PER_WORD
-
-    def primsize(self):
-        return self.size()
 
     def headersize(self):
         return constants.BYTES_PER_WORD
