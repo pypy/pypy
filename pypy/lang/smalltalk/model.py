@@ -391,16 +391,13 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
     def literalatput0(self, index0, w_value):
         if index0 == 0:
             from pypy.lang.smalltalk import utility
-            print "Going to save as header: %r" % w_value
             header = utility.unwrap_int(w_value)
             self.setheader(header)
         else:
             self.literals[index0-1] = w_value
 
     def at0(self, index0):
-        # XXX
         from pypy.lang.smalltalk import utility
-        print "TRYING TO GET: %d %d" % (self.getliteralsize(), index0)
         if index0 < self.getliteralsize():
             self.literalat0(index0)
         else:
@@ -409,7 +406,6 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
         
     def atput0(self, index0, w_value):
         from pypy.lang.smalltalk import utility
-        print "TRYING TO SET: %d %d %r" % (self.getliteralsize(), index0, w_value)
         if index0 < self.getliteralsize():
             self.literalatput0(index0, w_value)
         else:

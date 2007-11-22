@@ -120,8 +120,8 @@ class ClassShadow(AbstractShadow):
         if w_cls == classtable.w_BlockContext:
             return model.W_BlockContext(None, None, 0, 0)
         elif w_cls == classtable.w_MethodContext:
-            assert 0, "this seems nonsense"
-            return model.W_MethodContext(None, None, [], extrasize)
+            # From slang: Contexts must only be created with newForMethod:
+            raise error.PrimitiveFailedError
         
         if self.instance_kind == POINTERS:
             return model.W_PointersObject(w_cls, self.instance_size+extrasize)
