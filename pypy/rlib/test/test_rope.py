@@ -1,6 +1,6 @@
 import py
 import random, sys
-from pypy.objspace.std.rope import *
+from pypy.rlib.rope import *
 
 def make_random_string(operations=10, slicing=True, print_seed=True,
                        unicode=False):

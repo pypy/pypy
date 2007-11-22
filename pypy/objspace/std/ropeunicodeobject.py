@@ -4,7 +4,7 @@ from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.unicodeobject import _normalize_index
 from pypy.objspace.std.ropeobject import W_RopeObject
 from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.objspace.std import rope
+from pypy.rlib import rope
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std import slicetype
 from pypy.objspace.std.tupleobject import W_TupleObject

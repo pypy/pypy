@@ -10,7 +10,7 @@ from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.objspace.std.stringtype import wrapchar
 
-from pypy.objspace.std import rope
+from pypy.rlib import rope
 from pypy.objspace.std.stringobject import mod__String_ANY as mod__Rope_ANY,\
     _upper, _lower    
 
