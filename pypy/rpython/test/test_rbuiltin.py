@@ -161,6 +161,13 @@ class BaseTestRbuiltin(BaseRtypingTest):
         mantissa, exponent = math.frexp(10/3.0)        
         assert self.float_eq(res.item0, mantissa) and self.float_eq(res.item1, exponent)
 
+    def test_builtin_math_ldexp(self):
+        import math
+        def fn(a, b):
+            return math.ldexp(a, b)
+        assert self.interpret(fn, [1, 2]) == 4
+        self.interpret_raises(OverflowError, fn, [1, 100000])
+
     def test_builtin_math_modf(self):
         import math
         def fn(f):

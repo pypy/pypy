@@ -108,7 +108,7 @@ namespace pypy.builtin
 
             // Handle overflow
             if (e >= MEXP)
-                return 2.0*MAXNUM;
+                Helpers.raise_OverflowError();
 
             if (e < 1)
             {

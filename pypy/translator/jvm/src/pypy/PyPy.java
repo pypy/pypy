@@ -249,7 +249,7 @@ public class PyPy implements Constants {
         try {
             return Double.parseDouble(s);
         } catch(NumberFormatException ex) {
-            interlink.throwValueError();
+            throwValueError();
             return 0.0; // not reached
         }
     }
@@ -974,6 +974,18 @@ public class PyPy implements Constants {
     public static double ll_math_fmod(double x, double y)
     {
         return x % y;
+    }
+
+    public static double ll_math_ldexp(double v, int w) {
+        return check(v * Math.pow(2.0, w));
+    }
+
+    private static double check(double v) {
+        if (Double.isNaN(v))
+            throwValueError();
+        if (Double.isInfinite(v))
+            throwOverflowError();
+        return v;
     }
 
     // ----------------------------------------------------------------------
