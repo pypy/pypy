@@ -31,6 +31,10 @@ void pypy_gc__collect() {
   GC_invoke_finalizers();
 }
 
+void pypy_register_finalizer(void *whatever, void *proc) {
+  GC_REGISTER_FINALIZER(whatever, (GC_finalization_proc)proc, NULL, NULL, NULL);
+}
+
 extern GC_all_interior_pointers;
 
 // startup specific code for boehm 

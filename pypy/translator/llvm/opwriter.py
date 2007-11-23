@@ -306,8 +306,9 @@ class OpWriter(object):
         self.db.gcpolicy._zeromalloc(self.codewriter, opr.retref, opr.argrefs[0], atomic=True)
 
     def boehm_register_finalizer(self, opr):
-        # ha, ha
-        pass
+        tmpvar = self._tmp()
+        self.codewriter.cast(tmpvar, opr.argtypes[1], opr.argrefs[1], 'i8 *')
+        self.codewriter.call(None, 'void', '@pypy_register_finalizer',  ['i8 *', 'i8 *'], [opr.argrefs[0], tmpvar])
 
     def call_boehm_gc_alloc(self, opr):
         word = self.db.get_machine_word()

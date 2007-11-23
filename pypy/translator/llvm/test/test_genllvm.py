@@ -4,6 +4,7 @@ import sys
 
 import py
 from pypy.rlib.rarithmetic import r_uint
+from pypy.rpython.lltypesystem import lltype
 
 from pypy.translator.llvm.test.runtest import *
 
@@ -471,3 +472,39 @@ def test_call_boehm_gc_alloc():
     f = compile_function(f, [int])
     res = f(4)
     assert res == 4*(4+2)
+
+def test__del__():
+    from pypy.rpython.lltypesystem.lloperation import llop
+    class State:
+        pass
+    s = State()
+    class A(object):
+        def __del__(self):
+            s.a_dels += 1
+    class B(A):
+        def __del__(self):
+            s.b_dels += 1
+    class C(A):
+        pass
+    def f():
+        s.a_dels = 0
+        s.b_dels = 0
+        A()
+        B()
+        C()
+        A()
+        B()
+        C()
+        llop.gc__collect(lltype.Void)
+        return s.a_dels * 10 + s.b_dels
+    fn = compile_function(f, [])
+    # we can't demand that boehm has collected all of the objects,
+    # even with the gc__collect call.  calling the compiled
+    # function twice seems to help, though.
+    res = 0
+    res += fn()
+    res += fn()
+    
+    # if res is still 0, then we haven't tested anything so fail.
+    assert 0 < res <= 84 
+ 
