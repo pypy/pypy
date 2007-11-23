@@ -201,6 +201,9 @@ class BaseExceptionTransformer(object):
                 block.operations[i].args = [self.rpyexc_raise_runtime_error_ptr]
 
     def replace_fetch_restore_operations(self, block):
+        # the gctransformer will create these operations.  It looks as if the
+        # order of transformations is important - but the gctransformer will
+        # put them in a new graph, so all transformations will run again.
         for i in range(len(block.operations)):
             if block.operations[i].opname == 'gc_fetch_exception':
                 block.operations[i].opname = "direct_call"
