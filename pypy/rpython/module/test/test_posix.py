@@ -1,6 +1,8 @@
 import py
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.tool.udir import udir
+from pypy.translator.llvm.test.runtest import compile_function as compile_llvm
+from pypy.translator.c.test.test_genc import compile
 import os
 exec 'import %s as posix' % os.name
 
@@ -138,9 +140,8 @@ class TestOOtype(BaseTestPosix, OORtypeMixin):
         py.test.skip("ootypesystem does not support os.fstat")
 
 
-def test_os_wstar():
+def os_wstar_tester(compile):
     from pypy.rpython.module.ll_os import RegisterOs
-    from pypy.translator.c.test.test_genc import compile
     for name in RegisterOs.w_star:
         if not hasattr(os, name):
             continue
@@ -152,3 +153,6 @@ def test_os_wstar():
             res = fun_c(value)
             assert res == fun(value)
 
+def test_os_wstar():
+    yield os_wstar_tester, compile_llvm
+    yield os_wstar_tester, compile

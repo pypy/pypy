@@ -72,10 +72,10 @@ class RegisterOs(BaseLazyRegistering):
 
         # we need an indirection via c functions to get macro calls working on llvm
         decl_snippet = """
-            %(ret_type)s pypy_%(name)s (int status);
+            %(ret_type)s pypy_macro_wrapper_%(name)s (int status);
         """
         def_snippet = """
-            %(ret_type)s pypy_%(name)s (int status) {
+            %(ret_type)s pypy_macro_wrapper_%(name)s (int status) {
                 return %(name)s(status);
             }
         """
@@ -1102,7 +1102,7 @@ class RegisterOs(BaseLazyRegistering):
             return int(getattr(os, name)(status))
         fake.func_name = 'fake_' + name
 
-        os_c_func = self.llexternal("pypy_" + name, [lltype.Signed],
+        os_c_func = self.llexternal("pypy_macro_wrapper_" + name, [lltype.Signed],
                                     lltype.Signed, includes=['pypy_os_macros.h'],
                                     _callable=fake)
     
