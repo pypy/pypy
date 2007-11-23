@@ -128,6 +128,9 @@ class BoehmGcPolicy(GcPolicy):
                             cconv='ccc')        
 
 
+    def op_set_max_heap_size(self, codewriter, opr):
+        pass
+
     def op__collect(self, codewriter, opr):
         codewriter.call(opr.retref, opr.rettype, "@pypy_gc__collect",
                         opr.argtypes, opr.argrefs)
