@@ -1,0 +1,2 @@
+The options passed to the LLVM tool opt which is resposible for optimizations. By default, only "-std-compile-opts" is used.
+
