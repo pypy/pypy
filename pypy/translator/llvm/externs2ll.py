@@ -7,22 +7,10 @@ from pypy.objspace.flow.model import FunctionGraph
 from pypy.rpython.rmodel import inputconst
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.llvm.buildllvm import llvm_gcc_version
-
 from pypy.tool.udir import udir
-
-def predeclare_stuff(c_db):
-    exctransformer = c_db.exctransformer
-    yield ('_rpyexc_occured_ptr',  exctransformer._rpyexc_occured_ptr.value)
-    yield ('rpyexc_fetch_type_ptr', exctransformer.rpyexc_fetch_type_ptr.value)
-    yield ('rpyexc_clear_ptr',     exctransformer.rpyexc_clear_ptr.value)
 
 support_functions = [
     "@LLVM_RPython_StartupCode",
-    ]
-
-skip_lines = [
-    "%RPyString = type opaque",
-    "__main",
     ]
 
 def get_module_file(name):
@@ -62,12 +50,6 @@ def get_ll(ccode, function_names, default_cconv):
 
         # get rid of any of the structs that llvm-gcc introduces to struct types
         line = line.replace("%struct.", "%")
-
-        # XXX slowwwwwww
-        for x in skip_lines:
-            if line.find(x) >= 0:
-                line = ''
-                break
 
         # strip comments
         comment = line.find(';')
@@ -117,43 +99,6 @@ def get_ll(ccode, function_names, default_cconv):
     ll_lines2.append("declare ccc void @abort()")
     return'\n'.join(ll_lines2)
 
-def find_list_of_str(rtyper):
-    from pypy.rpython.lltypesystem import rlist
-    for r in rtyper.reprs.itervalues():
-        if isinstance(r, rlist.ListRepr) and r.item_repr is rstr.string_repr:
-            return r.lowleveltype.TO
-    return None
-
-def setup_externs(c_db, db):
-    # hacks to make predeclare_all work    
-
-    rtyper = db.translator.rtyper
-    decls = list(predeclare_stuff(c_db))
-    
-    for c_name, obj in decls:
-        if isinstance(obj, lltype.LowLevelType):
-            db.prepare_type(obj)
-        elif isinstance(obj, FunctionGraph):
-            funcptr = rtyper.getcallable(obj)
-            c = inputconst(lltype.typeOf(funcptr), funcptr)
-            db.prepare_arg_value(c)
-        elif isinstance(lltype.typeOf(obj), lltype.Ptr):
-            db.prepare_constant(lltype.typeOf(obj), obj)
-        elif type(c_name) is str and type(obj) is int:
-            pass    #define c_name obj
-        else:
-            assert False, "unhandled predeclare %s %s %s" % (c_name, type(obj), obj)
-
-    def annotatehelper(func, *argtypes):
-        graph = db.translator.rtyper.annotate_helper(func, argtypes)
-        fptr = rtyper.getcallable(graph)
-        c = inputconst(lltype.typeOf(fptr), fptr)
-        db.prepare_arg_value(c)
-        decls.append(("ll_" + func.func_name, graph))
-        return graph.name
-
-    return decls
-
 def get_c_cpath():
     from pypy.translator.c import genc
     return os.path.dirname(genc.__file__)
@@ -175,7 +120,7 @@ def get_incdirs():
         includestr += "-I %s " % ii
     return includestr
 
-def generate_llfile(db, extern_decls, entrynode, c_includes, c_sources, standalone, default_cconv):
+def generate_llfile(db, entrynode, c_includes, c_sources, standalone, default_cconv):
     ccode = []
     function_names = []
         
@@ -190,32 +135,10 @@ def generate_llfile(db, extern_decls, entrynode, c_includes, c_sources, standalo
         predeclarefn("__ENTRY_POINT__", entrynode.get_ref())
         ccode.append('#define ENTRY_POINT_DEFINED 1\n\n')
 
-    for c_name, obj in extern_decls:
-        if isinstance(obj, lltype.LowLevelType):
-            s = "#define %s struct %s\n%s;\n" % (c_name, c_name, c_name)
-            ccode.append(s)
-            
-        elif isinstance(obj, FunctionGraph):
-            funcptr = db.translator.rtyper.getcallable(obj)
-            c = inputconst(lltype.typeOf(funcptr), funcptr)
-            predeclarefn(c_name, db.repr_arg(c))
-
-        elif isinstance(lltype.typeOf(obj), lltype.Ptr):
-            pass
-
-        elif type(c_name) is str and type(obj) is int:
-            ccode.append("#define\t%s\t%d\n" % (c_name, obj))
-
-        else:
-            assert False, "unhandled extern_decls %s %s %s" % (c_name, type(obj), obj)
-
-
-    # include this early to get constants and macros for any further includes
-    ccode.append('#include <Python.h>\n')
-
     # ask gcpolicy for any code needed
     ccode.append('%s\n' % db.gcpolicy.genextern_code())
 
+    # ask rffi for includes/source
     for c_include in c_includes:
         ccode.append('#include <%s>\n' % c_include)
         

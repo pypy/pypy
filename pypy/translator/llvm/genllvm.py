@@ -12,7 +12,7 @@ from pypy.translator.llvm.codewriter import CodeWriter
 from pypy.translator.llvm import extfuncnode
 from pypy.translator.llvm.module.support import extfunctions
 from pypy.translator.llvm.node import Node
-from pypy.translator.llvm.externs2ll import setup_externs, generate_llfile
+from pypy.translator.llvm.externs2ll import generate_llfile
 from pypy.translator.llvm.gc import GcPolicy
 from pypy.translator.llvm.log import log
 from pypy.rlib.nonconst import NonConstant
@@ -133,7 +133,8 @@ class GenLLVM(object):
         self._checkpoint('setup_all all nodes')
 
         # set up externs nodes
-        self.extern_decls = setup_externs(c_db, self.db)
+        self.setup_externs(c_db, self.db)
+
         self.translator.rtyper.specialize_more_blocks()
         self.db.setup_all()
         self._checkpoint('setup_all externs')
@@ -149,10 +150,17 @@ class GenLLVM(object):
 
         # create ll file from c code
         self.generate_ll_externs(codewriter)
-        self._checkpoint('setup_externs')
 
         return codewriter
    
+    def setup_externs(self, c_db, db):
+        # XXX
+        exctransformer = c_db.exctransformer
+        for obj in [exctransformer._rpyexc_occured_ptr.value,
+                    exctransformer.rpyexc_fetch_type_ptr.value,
+                    exctransformer.rpyexc_clear_ptr.value]:
+            db.prepare_constant(lltype.typeOf(obj), obj)
+
     def get_entry_point(self, func):
         assert func is not None
         self.entrypoint = func
@@ -188,7 +196,6 @@ class GenLLVM(object):
                 c_sources[source] = True
 
         self.llcode = generate_llfile(self.db,
-                                      self.extern_decls,
                                       self.entrynode,
                                       c_includes,
                                       c_sources,
