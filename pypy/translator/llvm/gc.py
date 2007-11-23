@@ -33,12 +33,6 @@ class GcPolicy:
     def op_free(self, codewriter, opr):
         raise Exception, 'GcPolicy should not be used directly'
 
-    def op_fetch_exception(self, codewriter, opr):
-        raise Exception, 'GcPolicy should not be used directly'
-
-    def op_restore_exception(self, codewriter, opr):
-        raise Exception, 'GcPolicy should not be used directly'
-
     def op_collect(self, codewriter, opr):
         raise Exception, 'GcPolicy should not be used directly'
 
