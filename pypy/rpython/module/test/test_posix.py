@@ -122,17 +122,6 @@ class BaseTestPosix(BaseRtypingTest):
                 return os.getgid()
             assert self.interpret(f, []) == f()
 
-    def test_os_wstar(self):
-        from pypy.rpython.module.ll_os import RegisterOs
-        for name in RegisterOs.w_star:
-            if not hasattr(os, name):
-                continue
-            def fun(s):
-                return getattr(os, name)(s)
-
-            for value in [0, 1, 127, 128, 255]:
-                res = self.interpret(fun, [value])
-                assert res == fun(value)
 
     if hasattr(os, 'setuid'):
         def test_os_setuid(self):
@@ -147,4 +136,19 @@ class TestLLtype(BaseTestPosix, LLRtypeMixin):
 class TestOOtype(BaseTestPosix, OORtypeMixin):
     def test_fstat(self):
         py.test.skip("ootypesystem does not support os.fstat")
+
+
+def test_os_wstar():
+    from pypy.rpython.module.ll_os import RegisterOs
+    from pypy.translator.c.test.test_genc import compile
+    for name in RegisterOs.w_star:
+        if not hasattr(os, name):
+            continue
+        def fun(s):
+            return getattr(os, name)(s)
+
+        fun_c = compile(fun, [int])
+        for value in [0, 1, 127, 128, 255]:
+            res = fun_c(value)
+            assert res == fun(value)
 

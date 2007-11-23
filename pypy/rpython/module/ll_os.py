@@ -17,6 +17,8 @@ from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.rlib import rposix
+from pypy.tool.udir import udir
+
 posix = __import__(os.name)
 
 if sys.platform.startswith('win'):
@@ -52,6 +54,7 @@ class CConfig:
                            ('tms_cstime', rffi.INT)])
     else:
         _includes_ += ['sys/utime.h']
+    _include_dirs_ = [str(udir)]
 
     SEEK_SET = platform.DefinedConstantInteger('SEEK_SET')
     SEEK_CUR = platform.DefinedConstantInteger('SEEK_CUR')
@@ -66,6 +69,25 @@ class RegisterOs(BaseLazyRegistering):
 
     def __init__(self):
         self.configure(CConfig)
+
+        # we need an indirection via c functions to get macro calls working on llvm
+        decl_snippet = """
+            %(ret_type)s pypy_%(name)s (int status);
+        """
+        def_snippet = """
+            %(ret_type)s pypy_%(name)s (int status) {
+                return %(name)s(status);
+            }
+        """
+        decls = []
+        defs = []
+        for name in self.w_star:
+            data = {'ret_type': 'int', 'name': name}
+            decls.append(decl_snippet % data)
+            defs.append(def_snippet % data)
+        h_source = ['#include "sys/wait.h"'] + decls + ["#ifndef PYPY_NOT_MAIN_FILE"] + defs + ["#endif"]
+        h_file = udir.join("pypy_os_macros.h")
+        h_file.write("\n".join(h_source))
 
     # a simple, yet usefull factory
     def extdef_for_os_function_returning_int(self, name, **kwds):
@@ -1069,16 +1091,20 @@ class RegisterOs(BaseLazyRegistering):
     # last 3 are returning int
     w_star_returning_int = dict.fromkeys(w_star[-3:])
 
+
+
     def declare_new_w_star(self, name):
         """ stupid workaround for the python late-binding
         'feature'
         """
+
         def fake(status):
             return int(getattr(os, name)(status))
         fake.func_name = 'fake_' + name
 
-        os_c_func = self.llexternal(name, [lltype.Signed],
-                                    lltype.Signed, _callable=fake)
+        os_c_func = self.llexternal("pypy_" + name, [lltype.Signed],
+                                    lltype.Signed, includes=['pypy_os_macros.h'],
+                                    _callable=fake)
     
         if name in self.w_star_returning_int:
             def llimpl(status):
@@ -1089,7 +1115,7 @@ class RegisterOs(BaseLazyRegistering):
                 return bool(os_c_func(status))
             resulttype = bool
         llimpl.func_name = name + '_llimpl'
-        return extdef([int], resulttype, "ll_os."+name,
+        return extdef([int], resulttype, "ll_os." + name,
                       llimpl=llimpl)
 
     for name in w_star:
