@@ -1,22 +1,26 @@
 from pypy.rpython.lltypesystem import lltype
 
+
 class Node(object):
     __slots__ = "name".split()
     prefix = '%'
 
     nodename_count = {}
 
+    def mangle(self, name):
+        if name not in self.nodename_count:
+            result = name
+            self.nodename_count[name] = 1
+            return result
+        else:
+            result = '%s_%d' % (name, self.nodename_count[name])
+            self.nodename_count[name] += 1
+            return self.mangle(result)
+
     def make_name(self, name=''):
         " helper for creating names"
         name = self.prefix + name
-        if name in self.nodename_count:
-            postfix = '_%d' % self.nodename_count[name]
-            self.nodename_count[name] += 1
-        else:
-            postfix = ''
-            self.nodename_count[name] = 1
-        name += postfix
-
+        name = self.mangle(name)
         if " " in name or "<" in name: 
             name = '"%s"' % name
 

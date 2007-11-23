@@ -473,6 +473,31 @@ def test_call_boehm_gc_alloc():
     res = f(4)
     assert res == 4*(4+2)
 
+
+def func_with_dup_name():
+    return 1
+
+foo_func_with_dup_name = func_with_dup_name
+
+def test_dup_func():
+    def func_with_dup_name():
+        return 2
+    def func_with_dup_name_1():
+        return 3
+    def call_func(x):
+        if x > 10:
+            return foo_func_with_dup_name()
+        elif x > 5:
+            return func_with_dup_name_1()
+        elif x > 0:
+            return func_with_dup_name()
+        return 0
+    f = compile_function(call_func, [int])
+    assert f(1) == 2
+    assert f(6) == 3
+    assert f(11) == 1
+
+
 def test__del__():
     from pypy.rpython.lltypesystem.lloperation import llop
     class State:
