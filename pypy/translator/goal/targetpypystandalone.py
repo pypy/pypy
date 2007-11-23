@@ -8,6 +8,7 @@ from pypy.interpreter.error import OperationError
 from pypy.translator.goal.ann_override import PyPyAnnotatorPolicy
 from pypy.config.config import Config, to_optparse, make_dict, SUPPRESS_USAGE
 from pypy.tool.option import make_objspace
+from pypy.translator.goal.nanos import setup_nanos
 
 thisdir = py.magic.autopath().dirpath()
 
@@ -26,6 +27,7 @@ def create_entry_point(space, w_dict):
     w_run_toplevel = space.getitem(w_dict, space.wrap('run_toplevel'))
     w_call_finish_gateway = space.wrap(gateway.interp2app(call_finish))
     w_call_startup_gateway = space.wrap(gateway.interp2app(call_startup))
+    w_os = setup_nanos(space)
 
     def entry_point(argv):
         #debug("entry point starting") 
@@ -43,7 +45,7 @@ def create_entry_point(space, w_dict):
                 space.call_function(w_run_toplevel, w_call_startup_gateway)
                 w_executable = space.wrap(argv[0])
                 w_argv = space.newlist([space.wrap(s) for s in argv[1:]])
-                w_exitcode = space.call_function(w_entry_point, w_executable, w_argv)
+                w_exitcode = space.call_function(w_entry_point, w_executable, w_argv, w_os)
                 exitcode = space.int_w(w_exitcode)
                 # try to pull it all in
             ##    from pypy.interpreter import main, interactive, error

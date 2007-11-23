@@ -144,104 +144,15 @@ def set_unbuffered_io():
 # ____________________________________________________________
 # Main entry point
 
-# faking os, until we really are able to import it from source
-"""
-Why fake_os ?
--------------
-
-When pypy is starting, the builtin modules are there, but os.path
-is a Python module. The current startup code depends on os.py,
-which had the side effect that os.py got frozen into the binary.
-
-Os.py is a wrapper for system specific built-in modules and tries
-to unify the interface. One problem is os.environ which looks
-very differently per os.
-Due to the way os.py initializes its environ variable on Windows,
-it s hard to get a correct os.getenv that uses the actual environment
-variables. In order to fix that without modifying os.py, we need to
-re-import it several times, before and after compilation.
-
-When compiling the source, we first create a fake_os class instance.
-fake_os contains all of os, when compiling.reduction seems to be not
-appropriate, since lots of other modules are sucked in, at the same time.
-A complete reduction is possible, but would require much more work.
-
-In the course of creating fake_os, we import the real os. We keep a record
-of which modules were imported, before.
-
-During start of the entry_point, we call os.setup().
-This repeats an import of the specific parts in os.name.
-Depending of the underlying os, this might or might not
-cause a redefinition of certain os variables, but this happens
-exactly like in os.py's initialization.
-We then capture the variable environ, which may or may not come from the
-specific os.
-After that, we re-initialize our dict to what is expected in standard
-os. The effect of all this magic is that we have captured the environ
-cariable, again, and we now can redefine os.getenv to use this fresh
-variable, being accurate and not frozen.
-
-At this point, we finally can compute the location of our import.
-
-As a side effect, the involved modules are re-imported, although they had
-been compiled in, so PyPy behaves really conformant, making all .py
-modules changeable, again.
-"""
+# see nanos.py for explainment why we do not import os here
+# CAUTION!
+# remember to update nanos.py if you are using more functions
+# from os or os.path!
+# Running test/test_nanos.py might be helpful as well.
 
 def we_are_translated():
-    # this function does not exist on app-level.
-    # Don't confuse it with
-    # from pypy.rlib.objectmodel import we_are_translated
-    # which I did.
+    # app-level, very different from pypy.rlib.objectmodel.we_are_translated
     return hasattr(sys, 'pypy_translation_info')
-
-class fake_os:
-    def __init__(self):
-        import sys
-        self.pre_import = sys.modules.keys()
-        import os
-        self.os = os
-        # make ourselves a clone of os
-        self.__dict__.update(self.os.__dict__)
-
-    def setup(self):
-        # we now repeat the os-specific initialization, which
-        # must be done before importing os, since os hides
-        # variables after initialization.
-        specifics = __import__(self.os.name)
-        self.__dict__.update(specifics.__dict__)
-        # depending on the os, we now might or might not have
-        # a new environ variable. However, we can now
-        # repeat the environ initialisation from os.py
-        environ = self.os._Environ(self.environ)
-        # to be safe, reset our dict to be like os
-        self.__dict__.update(self.os.__dict__)
-        # but now we insert the fresh environ
-        self.environ = environ
-        del self.getenv
-        # use our method, instead of the os's one's
-        assert self.getenv
-        
-    def teardown(self):
-        # re-load modules instead of using the pre-compiled ones
-        # note that this gives trouble if we are not translated,
-        # since some exithandler in threading.py complains
-        # XXX check if this is a bug to be fixed for cpython
-        if we_are_translated():
-            for mod in sys.modules.keys():
-                if mod not in self.pre_import:
-                    del sys.modules[mod]
-        global os
-        import os
-
-    def getenv(self, key, default=None):
-        """Get an environment variable, return None if it doesn't exist.
-        The optional second argument can specify an alternate default."""
-        return self.environ.get(key, default)
-        
-os = fake_os()
-
-AUTOSUBPATH = 'share' + os.sep + 'pypy-%d.%d'
 
 if 'nt' in sys.builtin_module_names:
     IS_WINDOWS = True
@@ -249,10 +160,13 @@ if 'nt' in sys.builtin_module_names:
 else:
     IS_WINDOWS = False
 
-def entry_point(executable, argv):
+def entry_point(executable, argv, nanos):
+    # a substituted os if we are translated
+    global os
+    os = nanos
+    AUTOSUBPATH = 'share' + os.sep + 'pypy-%d.%d'
     # find the full path to the executable, assuming that if there is no '/'
     # in the provided one then we must look along the $PATH
-    os.setup() # this is the faked one
     if we_are_translated() and IS_WINDOWS and not executable.lower().endswith('.exe'):
         executable += '.exe'
     if os.sep in executable or (IS_WINDOWS and DRIVE_LETTER_SEP in executable):
@@ -285,8 +199,6 @@ def entry_point(executable, argv):
                 continue
         sys.path = newpath      # found!
         break
-    
-    os.teardown() # from now on this is the real one
     
     go_interactive = False
     run_command = False
@@ -489,6 +401,7 @@ def interactive_console(mainmodule):
 
 
 if __name__ == '__main__':
+    import os
     import autopath
     # obscure! try removing the following line, see how it crashes, and
     # guess why...
@@ -507,5 +420,5 @@ if __name__ == '__main__':
     from pypy.module.sys.version import PYPY_VERSION
     sys.pypy_version_info = PYPY_VERSION
     sys.pypy_initial_path = pypy_initial_path
-    sys.exit(entry_point(sys.argv[0], sys.argv[1:]))
+    sys.exit(entry_point(sys.argv[0], sys.argv[1:], os))
     #sys.exit(entry_point('app_main.py', sys.argv[1:]))
