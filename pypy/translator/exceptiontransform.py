@@ -86,6 +86,15 @@ class BaseExceptionTransformer(object):
             exc_data.exc_type = etype
             exc_data.exc_value = evalue
 
+        def rpyexc_fetch_exception():
+            evalue = rpyexc_fetch_value()
+            rpyexc_clear()
+            return evalue
+        
+        def rpyexc_restore_exception(evalue):
+            if evalue:
+                rpyexc_raise(rclass.ll_inst_type(evalue), evalue)
+
         def rpyexc_raise_runtime_error():
             rpyexc_raise(runtime_error_ll_exc_type, runtime_error_ll_exc)
 
@@ -127,6 +136,16 @@ class BaseExceptionTransformer(object):
             rpyexc_raise_runtime_error,
             [], lltype.Void)
 
+        self.rpyexc_fetch_exception_ptr = self.build_func(
+            "RPyFetchException",
+            rpyexc_fetch_exception,
+            [], self.lltype_of_exception_value)
+
+        self.rpyexc_restore_exception_ptr = self.build_func(
+            "RPyRestoreException",
+            rpyexc_restore_exception,
+            [self.lltype_of_exception_value], lltype.Void)
+
         self.mixlevelannotator.finish()
         self.lltype_to_classdef = translator.rtyper.lltype_to_classdef_mapping()
 
@@ -162,6 +181,7 @@ class BaseExceptionTransformer(object):
         n_gen_exc_checks           = 0
         for block in list(graph.iterblocks()):
             self.replace_stack_unwind(block)
+            self.replace_fetch_restore_operations(block)
             need_exc_matching, gen_exc_checks = self.transform_block(graph, block)
             n_need_exc_matching_blocks += need_exc_matching
             n_gen_exc_checks           += gen_exc_checks
@@ -179,6 +199,16 @@ class BaseExceptionTransformer(object):
                 # case
                 block.operations[i].opname = "direct_call"
                 block.operations[i].args = [self.rpyexc_raise_runtime_error_ptr]
+
+    def replace_fetch_restore_operations(self, block):
+        for i in range(len(block.operations)):
+            if block.operations[i].opname == 'gc_fetch_exception':
+                block.operations[i].opname = "direct_call"
+                block.operations[i].args = [self.rpyexc_fetch_exception_ptr]
+
+            if block.operations[i].opname == 'gc_restore_exception':
+                block.operations[i].opname = "direct_call"
+                block.operations[i].args.insert(0, self.rpyexc_restore_exception_ptr)
 
     def transform_block(self, graph, block):
         need_exc_matching = False

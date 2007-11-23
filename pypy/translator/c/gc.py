@@ -129,15 +129,6 @@ class RefcountingGcPolicy(BasicGcPolicy):
         args = [funcgen.expr(v) for v in op.args]
         return 'OP_FREE(%s);' % (args[0], )    
 
-    def OP_GC_FETCH_EXCEPTION(self, funcgen, op):
-        result = funcgen.expr(op.result)
-        return ('%s = RPyFetchExceptionValue();\n'
-                'RPyClearException();') % (result, )
-
-    def OP_GC_RESTORE_EXCEPTION(self, funcgen, op):
-        argh = funcgen.expr(op.args[0])
-        return 'if (%s != NULL) RPyRaiseException(RPYTHON_TYPE_OF_EXC_INST(%s), %s);' % (argh, argh, argh)
-
     def OP_GC__COLLECT(self, funcgen, op):
         return ''
 
@@ -215,15 +206,6 @@ class BoehmGcPolicy(BasicGcPolicy):
 
     def convert_weakref_to(self, ptarget):
         return boehm.convert_weakref_to(ptarget)
-
-    def OP_GC_FETCH_EXCEPTION(self, funcgen, op):
-        result = funcgen.expr(op.result)
-        return ('%s = RPyFetchExceptionValue();\n'
-                'RPyClearException();') % (result, )
-
-    def OP_GC_RESTORE_EXCEPTION(self, funcgen, op):
-        argh = funcgen.expr(op.args[0])
-        return 'if (%s != NULL) RPyRaiseException(RPYTHON_TYPE_OF_EXC_INST(%s), %s);' % (argh, argh, argh)
 
     def OP_GC__COLLECT(self, funcgen, op):
         return 'GC_gcollect(); GC_invoke_finalizers();'
