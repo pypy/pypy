@@ -946,7 +946,6 @@ class TestLowLevelType(object):
 
     # XXX what does this do?
     def test_cast_primitive(self):
-        py.test.skip("ullong_lshift operation")
         def f(x):
             x = cast_primitive(UnsignedLongLong, x)
             x <<= 60

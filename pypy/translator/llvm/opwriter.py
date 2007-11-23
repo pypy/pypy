@@ -49,6 +49,8 @@ class OpWriter(object):
         
         'llong_lshift': 'shl',
         'llong_rshift': 'lshr',
+        'ullong_lshift': 'shl',
+        'ullong_rshift': 'lshr',
         }
 
     binary_operations = {
