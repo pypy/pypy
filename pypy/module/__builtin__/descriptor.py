@@ -138,12 +138,6 @@ class W_Property(Wrappable):
         self.w_fset = w_fset
         self.w_fdel = w_fdel
         self.doc = doc
-        # eh...
-        w = space.wrap
-        self.w_dict = space.newdict()
-        for w_item, w_value in [(w('fget'), w_fget), (w('fset'), w_fset),
-                                (w('fdel'), w_fdel)]:
-            space.setitem(self.w_dict, w_item, w_value)
 
     def new(space, w_type, w_fget=None, w_fset=None, w_fdel=None, doc=''):
         return W_Property(space, w_fget, w_fset, w_fdel, doc)
@@ -178,23 +172,23 @@ class W_Property(Wrappable):
         if attr == '__doc__':
             return space.wrap(self.doc)
         # shortcuts
-        elif attr == 'fget':
-            return self.w_fget
-        elif attr == 'fset':
-            return self.w_fset
-        elif attr == 'fdel':
-            return self.w_fdel
         return space.call_function(object_getattribute(space),
                                    space.wrap(self), space.wrap(attr))
     getattribute.unwrap_spec = ['self', ObjSpace, str]
+
+    def fget(space, self):
+        return self.w_fget
+
+    def fset(space, self):
+        return self.w_fset
+
+    def fdel(space, self):
+        return self.w_fdel
 
     def setattr(self, space, attr, w_value):
         raise OperationError(space.w_TypeError, space.wrap(
             "Trying to set readonly attribute %s on property" % (attr,)))
     setattr.unwrap_spec = ['self', ObjSpace, str, W_Root]
-
-    def descr_get_dict(space, self):
-        return self.w_dict
 
 W_Property.typedef = TypeDef(
     'property',
@@ -213,7 +207,9 @@ class C(object):
     __set__ = interp2app(W_Property.set),
     __delete__ = interp2app(W_Property.delete),
     __getattribute__ = interp2app(W_Property.getattribute),
-    __dict__ = GetSetProperty(W_Property.descr_get_dict),
     __setattr__ = interp2app(W_Property.setattr),
+    fdel = GetSetProperty(W_Property.fdel),
+    fget = GetSetProperty(W_Property.fget),
+    fset = GetSetProperty(W_Property.fset),
 )
 
