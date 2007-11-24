@@ -473,34 +473,6 @@ class SomeExternalInstance(SomeExternalObject):
     attributes as well as methods
     """
 
-class SomeCTypesObject(SomeExternalObject):
-    """Stands for an object of the ctypes module."""
-
-    def __init__(self, knowntype, ownsmemory):
-        self.knowntype = knowntype
-        self.ownsmemory = ownsmemory
-        # 'ownsmemory' specifies if the object is *statically known* to own
-        # its C memory.  If it is False, it will be rtyped as an alias object.
-        # Alias objects are allowed, at run-time, to have keepalives, so
-        # that they can indirectly own their memory too (it's just less
-        # efficient).
-
-    def can_be_none(self):
-        # only 'py_object' can also be None
-        import ctypes
-        return issubclass(self.knowntype, ctypes.py_object)
-
-    def return_annotation(self):
-        """Returns either 'self' or the annotation of the unwrapped version
-        of this ctype, following the logic used when ctypes operations
-        return a value.
-        """
-        from pypy.rpython import extregistry
-        assert extregistry.is_registered_type(self.knowntype)
-        entry = extregistry.lookup_type(self.knowntype)
-        # special case for returning primitives or c_char_p
-        return getattr(entry, 's_return_trick', self)
-
 class SomeImpossibleValue(SomeObject):
     """The empty set.  Instances are placeholders for objects that
     will never show up at run-time, e.g. elements of an empty list."""

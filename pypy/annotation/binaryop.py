@@ -13,7 +13,7 @@ from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeIterator
 from pypy.annotation.model import SomePBC, SomeSlice, SomeFloat, s_None
 from pypy.annotation.model import SomeExternalObject, SomeWeakRef
 from pypy.annotation.model import SomeAddress, SomeTypedAddressAccess
-from pypy.annotation.model import SomeCTypesObject, SomeSingleFloat
+from pypy.annotation.model import SomeSingleFloat
 from pypy.annotation.model import unionof, UnionError, set, missing_operation, TLS
 from pypy.annotation.model import read_can_only_throw
 from pypy.annotation.model import add_knowntypedata, merge_knowntypedata
@@ -1011,53 +1011,3 @@ class __extend__(pairtype(SomeAddress, SomeObject)):
 class __extend__(pairtype(SomeObject, SomeAddress)):
     def union((s_obj, s_addr)):
         raise UnionError, "union of address and anything else makes no sense"
-
-
-
-class __extend__(pairtype(SomeCTypesObject, SomeInteger)):
-    def setitem((s_cto, s_index), s_value):
-        pass
-
-    def getitem((s_cto, s_index)):
-        # Note: The following works for index either pointers and arrays,
-        # because both have a _type_ attribute that contains the type of the
-        # object pointed to or in the case of an array the element type.
-        result_ctype = s_cto.knowntype._type_
-        s_result = SomeCTypesObject(result_ctype, ownsmemory=False)
-        return s_result.return_annotation()
-
-class __extend__(pairtype(SomeCTypesObject, SomeSlice)):
-    def setitem((s_cto, s_slice), s_iterable):
-        raise NotImplementedError("ctypes array slice assignment")
-
-    def getitem((s_cto, s_slice)):
-        result_ctype = s_cto.knowntype._type_
-        s_result = SomeCTypesObject(result_ctype, ownsmemory=False)
-        list_item = s_result.return_annotation()
-        if isinstance(list_item, SomeChar):
-            return SomeString()
-        raise NotImplementedError("ctypes array slicing: "
-                                  "only for arrays of char")
-
-class __extend__(pairtype(SomeCTypesObject, SomeCTypesObject)):
-    def union((s_cto1, s_cto2)):
-        if s_cto1.knowntype == s_cto2.knowntype:
-            return SomeCTypesObject(s_cto1.knowntype,
-                                    ownsmemory = (s_cto1.ownsmemory and
-                                                  s_cto2.ownsmemory))
-        else:
-            return SomeObject()
-
-class __extend__(pairtype(SomeCTypesObject, SomePBC)):
-    def union((obj, pbc)):
-        if pbc.isNone() and obj.can_be_none():
-            return obj
-        else:
-            return SomeObject()
-
-class __extend__(pairtype(SomePBC, SomeCTypesObject)):
-    def union((pbc, obj)):
-        if pbc.isNone() and obj.can_be_none():
-            return obj
-        else:
-            return SomeObject()

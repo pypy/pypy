@@ -7,7 +7,7 @@ from pypy.annotation.model import \
      SomeDict, SomeUnicodeCodePoint, SomeTuple, SomeImpossibleValue, \
      SomeInstance, SomeBuiltin, SomeFloat, SomeIterator, SomePBC, \
      SomeExternalObject, SomeTypedAddressAccess, SomeAddress, \
-     SomeCTypesObject, s_ImpossibleValue, s_Bool, s_None, \
+     s_ImpossibleValue, s_Bool, s_None, \
      unionof, set, missing_operation, add_knowntypedata, HarmlesslyBlocked, \
      SomeGenericCallable, SomeWeakRef, SomeUnicodeString
 from pypy.annotation.bookkeeper import getbookkeeper
@@ -734,27 +734,6 @@ class __extend__(SomeOOStaticMeth):
         smeth = m.method._example()
         v = smeth(*llargs)
         return ll_to_annotation(v)
-
-class __extend__(SomeCTypesObject):
-    def setattr(cto, s_attr, s_value):
-        pass
-
-    def getattr(cto, s_attr):
-        if s_attr.is_constant() and isinstance(s_attr.const, str):
-            attr = s_attr.const
-            entry = extregistry.lookup_type(cto.knowntype)
-            s_value = entry.get_field_annotation(cto, attr)
-            return s_value
-        else:
-            return SomeObject()
-
-    def is_true(cto):
-        return s_Bool
-
-    def simple_call(cto, *args_s):
-        # for variables containing ctypes function pointers
-        entry = extregistry.lookup_type(cto.knowntype)
-        return entry.compute_result_annotation(*args_s)
 
 #_________________________________________
 # weakrefs
