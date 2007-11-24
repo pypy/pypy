@@ -7,7 +7,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.callmethod import object_getattribute
 from pypy.interpreter.function import StaticMethod, Method
 from pypy.interpreter.typedef import GetSetProperty, descr_get_dict, \
-     descr_set_dict
+     descr_set_dict, interp_attrproperty_w
 
 class W_Super(Wrappable):
     def __init__(self, space, w_selftype, w_starttype, w_type, w_self):
@@ -133,15 +133,15 @@ object is passed as the implied first argument.""",
 )
 
 class W_Property(Wrappable):
-    def __init__(self, space, w_fget, w_fset, w_fdel, doc):
+    def __init__(self, space, w_fget, w_fset, w_fdel, w_doc):
         self.w_fget = w_fget
         self.w_fset = w_fset
         self.w_fdel = w_fdel
-        self.doc = doc
+        self.w_doc = w_doc
 
-    def new(space, w_type, w_fget=None, w_fset=None, w_fdel=None, doc=''):
-        return W_Property(space, w_fget, w_fset, w_fdel, doc)
-    new.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root, W_Root, str]
+    def new(space, w_type, w_fget=None, w_fset=None, w_fdel=None, w_doc=None):
+        return W_Property(space, w_fget, w_fset, w_fdel, w_doc)
+    new.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root, W_Root, W_Root]
 
     def get(self, space, w_obj, w_objtype=None):
         if space.is_w(w_obj, space.w_None):
@@ -170,20 +170,11 @@ class W_Property(Wrappable):
 
     def getattribute(self, space, attr):
         if attr == '__doc__':
-            return space.wrap(self.doc)
+            return self.w_doc
         # shortcuts
         return space.call_function(object_getattribute(space),
                                    space.wrap(self), space.wrap(attr))
     getattribute.unwrap_spec = ['self', ObjSpace, str]
-
-    def fget(space, self):
-        return self.w_fget
-
-    def fset(space, self):
-        return self.w_fset
-
-    def fdel(space, self):
-        return self.w_fdel
 
     def setattr(self, space, attr, w_value):
         raise OperationError(space.w_TypeError, space.wrap(
@@ -208,8 +199,8 @@ class C(object):
     __delete__ = interp2app(W_Property.delete),
     __getattribute__ = interp2app(W_Property.getattribute),
     __setattr__ = interp2app(W_Property.setattr),
-    fdel = GetSetProperty(W_Property.fdel),
-    fget = GetSetProperty(W_Property.fget),
-    fset = GetSetProperty(W_Property.fset),
+    fdel = interp_attrproperty_w('w_fdel', W_Property),
+    fget = interp_attrproperty_w('w_fget', W_Property),
+    fset = interp_attrproperty_w('w_fset', W_Property),
 )
 
