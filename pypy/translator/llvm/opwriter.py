@@ -295,8 +295,23 @@ class OpWriter(object):
                                  opr.argrefs[0], "null")
 
     def direct_call(self, opr):
+        cconv = None
+
+        # XXX aargh - more illegal fishing
+        # XXX sort this out later...
+        arg = opr.op.args[0]
+        from pypy.objspace.flow.model import Constant
+        if isinstance(arg, Constant):
+            T = arg.concretetype.TO
+            assert isinstance(T, lltype.FuncType)
+            value = opr.op.args[0].value._obj        
+            if getattr(value, 'external', None) == 'C':
+                cconv = 'ccc'
+            
+        # if we are external node - should use standard calling conventions
         self.codewriter.call(opr.retref, opr.rettype, opr.argrefs[0],
-                             opr.argtypes[1:], opr.argrefs[1:])
+                             opr.argtypes[1:], opr.argrefs[1:], cconv=cconv)
+
     # the following works since the extra arguments that indirect_call has
     # is of type Void, which is removed by direct_call
     indirect_call = direct_call

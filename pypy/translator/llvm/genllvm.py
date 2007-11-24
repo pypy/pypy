@@ -12,7 +12,7 @@ from pypy.translator.llvm.codewriter import CodeWriter
 from pypy.translator.llvm import extfuncnode
 from pypy.translator.llvm.module.support import extfunctions
 from pypy.translator.llvm.node import Node
-from pypy.translator.llvm.externs2ll import generate_llfile
+from pypy.translator.llvm.externs2ll import generate_c, generate_ll
 from pypy.translator.llvm.gc import GcPolicy
 from pypy.translator.llvm.log import log
 from pypy.rlib.nonconst import NonConstant
@@ -198,14 +198,9 @@ class GenLLVM(object):
             for source in sources:
                 c_sources[source] = True
 
-        self.llcode = generate_llfile(self.db,
-                                      self.entrynode,
-                                      c_include_dirs,
-                                      c_includes,
-                                      c_sources,
-                                      self.standalone, 
-                                      codewriter.cconv)
-
+        ccode = generate_c(self.db, self.entrynode, c_includes, c_sources, self.standalone)
+        self.llcode = generate_ll(ccode, codewriter.cconv, c_include_dirs)
+        
     def create_codewriter(self):
         # prevent running the same function twice in a test
         filename = udir.join(self.entry_name).new(ext='.ll')

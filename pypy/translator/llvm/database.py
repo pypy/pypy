@@ -72,9 +72,7 @@ class Database(object):
     def create_constant_node(self, type_, value):
         node = None
         if isinstance(type_, lltype.FuncType):
-            if hasattr(value, '_external_name'):
-                node = ExternalFuncNode(self, value, value._external_name)
-            elif getattr(value, 'external', None) == 'C':
+            if getattr(value, 'external', None) == 'C':
                 node = ExternalFuncNode(self, value)
             else:
                 node = FuncImplNode(self, value)
