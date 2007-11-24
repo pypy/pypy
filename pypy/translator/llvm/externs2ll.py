@@ -136,6 +136,9 @@ def generate_llfile(db, entrynode, c_include_dirs, c_includes, c_sources, standa
         predeclarefn("__ENTRY_POINT__", entrynode.get_ref())
         ccode.append('#define ENTRY_POINT_DEFINED 1\n\n')
 
+    # include python.h early
+    ccode.append('#include <Python.h>\n')
+
     # ask gcpolicy for any code needed
     ccode.append('%s\n' % db.gcpolicy.genextern_code())
 
