@@ -292,7 +292,7 @@ class CStandaloneBuilder(CBuilder):
                     print >> f
                 prefix = ' ' * len(prefix)
 
-        compiler = self.getccompiler(extra_includes=['.'])
+        compiler = self.getccompiler(extra_includes=['.', str(self.targetdir)] + self.include_dirs)
         if sys.platform == 'darwin':
             compiler.compile_extra.append('-mdynamic-no-pic')
         if self.config.translation.compilerflags:

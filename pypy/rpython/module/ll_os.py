@@ -85,7 +85,7 @@ class RegisterOs(BaseLazyRegistering):
             data = {'ret_type': 'int', 'name': name}
             decls.append(decl_snippet % data)
             defs.append(def_snippet % data)
-        h_source = ['#include "sys/wait.h"'] + decls + ["#ifndef PYPY_NOT_MAIN_FILE"] + defs + ["#endif"]
+        h_source = ['#include "sys/wait.h"'] + decls + ["#ifndef PYPY_NOT_MAIN_FILE"] + defs + ["#endif", ""]
         h_file = udir.join("pypy_os_macros.h")
         h_file.write("\n".join(h_source))
 
