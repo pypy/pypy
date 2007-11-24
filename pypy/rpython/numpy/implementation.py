@@ -1,6 +1,5 @@
 # Base classes describing annotation and rtyping
 
-from pypy.annotation.model import SomeCTypesObject
 from pypy.rpython import extregistry
 from pypy.rpython.extregistry import ExtRegistryEntry
 
