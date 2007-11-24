@@ -105,8 +105,6 @@ def get_llvm_cpath():
 
 def get_incdirs(c_include_dirs):
 
-    c_include_dirs
-
     import distutils.sysconfig
 
     includes = tuple(c_include_dirs) + ("/sw/include",
@@ -114,7 +112,7 @@ def get_incdirs(c_include_dirs):
                 distutils.sysconfig.EXEC_PREFIX + "/include/gc",
                 distutils.sysconfig.get_python_inc(),
                 get_c_cpath(),
-                get_llvm_cpath())
+                get_llvm_cpath(),)
 
     includestr = ""
     for ii in includes:
