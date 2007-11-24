@@ -224,3 +224,71 @@ class AppTestBuiltinApp:
 
         raises(TypeError, "classmethod(1).__get__(1)")
 
+    def test_property_docstring(self):
+        assert property.__doc__.startswith('property')
+
+        class A:
+            pass
+
+        A.x = property(lambda x: x, lambda x, y: x, lambda x:x, 'xxx')
+        assert A.x.__doc__ == 'xxx'
+
+    def test_property(self):
+        class C(object):
+            def getx(self):
+                return self.__x
+            def setx(self, value):
+                self.__x = value
+            def delx(self):
+                del self.__x
+            x = property(getx, setx, delx, doc="I'm the x property.")
+        a = C()
+        assert not hasattr(a, "x")
+        a.x = 42
+        assert a._C__x == 42
+        assert a.x == 42
+        del a.x
+        assert not hasattr(a, "x")
+        assert not hasattr(a, "_C__x")
+        C.x.__set__(a, 100)
+        assert C.x.__get__(a) == 100
+        C.x.__delete__(a)
+        assert not hasattr(a, "x")
+
+        raw = C.__dict__['x']
+        assert isinstance(raw, property)
+
+        attrs = dir(raw)
+        assert "__doc__" in attrs
+        assert "fget" in attrs
+        assert "fset" in attrs
+        assert "fdel" in attrs
+
+        assert raw.__doc__ == "I'm the x property."
+        assert raw.fget is C.__dict__['getx']
+        assert raw.fset is C.__dict__['setx']
+        assert raw.fdel is C.__dict__['delx']
+
+        for attr in "__doc__", "fget", "fset", "fdel":
+            try:
+                setattr(raw, attr, 42)
+            except TypeError, msg:
+                if str(msg).find('readonly') < 0:
+                    raise Exception("when setting readonly attr %r on a "
+                                    "property, got unexpected TypeError "
+                                    "msg %r" % (attr, str(msg)))
+            else:
+                raise Exception("expected TypeError from trying to set "
+                                "readonly %r attr on a property" % attr)
+
+        class D(object):
+            __getitem__ = property(lambda s: 1/0)
+
+        d = D()
+        try:
+            for i in d:
+                str(i)
+        except ZeroDivisionError:
+            pass
+        else:
+            raise Exception, "expected ZeroDivisionError from bad property"

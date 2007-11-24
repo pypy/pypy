@@ -6,6 +6,8 @@ from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.callmethod import object_getattribute
 from pypy.interpreter.function import StaticMethod, Method
+from pypy.interpreter.typedef import GetSetProperty, descr_get_dict, \
+     descr_set_dict
 
 class W_Super(Wrappable):
     def __init__(self, space, w_selftype, w_starttype, w_type, w_self):
@@ -129,3 +131,89 @@ It can be called either on the class (e.g. C.f()) or on an instance
 If a class method is called for a derived class, the derived class
 object is passed as the implied first argument.""",
 )
+
+class W_Property(Wrappable):
+    def __init__(self, space, w_fget, w_fset, w_fdel, doc):
+        self.w_fget = w_fget
+        self.w_fset = w_fset
+        self.w_fdel = w_fdel
+        self.doc = doc
+        # eh...
+        w = space.wrap
+        self.w_dict = space.newdict()
+        for w_item, w_value in [(w('fget'), w_fget), (w('fset'), w_fset),
+                                (w('fdel'), w_fdel)]:
+            space.setitem(self.w_dict, w_item, w_value)
+
+    def new(space, w_type, w_fget=None, w_fset=None, w_fdel=None, doc=''):
+        return W_Property(space, w_fget, w_fset, w_fdel, doc)
+    new.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root, W_Root, str]
+
+    def get(self, space, w_obj, w_objtype=None):
+        if space.is_w(w_obj, space.w_None):
+            return space.wrap(self)
+        if space.is_w(self.w_fget, space.w_None):
+            raise OperationError(space.w_AttributeError, space.wrap(
+                "unreadable attribute"))
+        return space.call_function(self.w_fget, w_obj)
+    get.unwrap_spec = ['self', ObjSpace, W_Root, W_Root]
+
+    def set(self, space, w_obj, w_value):
+        if space.is_w(self.w_fset, space.w_None):
+            raise OperationError(space.w_AttributeError, space.wrap(
+                "can't set attribute"))
+        space.call_function(self.w_fset, w_obj, w_value)
+        return space.w_None
+    set.unwrap_spec = ['self', ObjSpace, W_Root, W_Root]
+
+    def delete(self, space, w_obj):
+        if space.is_w(self.w_fdel, space.w_None):
+            raise OperationError(space.w_AttributeError, space.wrap(
+                "can't delete attribute"))
+        space.call_function(self.w_fdel, w_obj)
+        return space.w_None
+    delete.unwrap_spec = ['self', ObjSpace, W_Root]
+
+    def getattribute(self, space, attr):
+        if attr == '__doc__':
+            return space.wrap(self.doc)
+        # shortcuts
+        elif attr == 'fget':
+            return self.w_fget
+        elif attr == 'fset':
+            return self.w_fset
+        elif attr == 'fdel':
+            return self.w_fdel
+        return space.call_function(object_getattribute(space),
+                                   space.wrap(self), space.wrap(attr))
+    getattribute.unwrap_spec = ['self', ObjSpace, str]
+
+    def setattr(self, space, attr, w_value):
+        raise OperationError(space.w_TypeError, space.wrap(
+            "Trying to set readonly attribute %s on property" % (attr,)))
+    setattr.unwrap_spec = ['self', ObjSpace, str, W_Root]
+
+    def descr_get_dict(space, self):
+        return self.w_dict
+
+W_Property.typedef = TypeDef(
+    'property',
+    __doc__ = '''property(fget=None, fset=None, fdel=None, doc=None) -> property attribute
+
+fget is a function to be used for getting an attribute value, and likewise
+fset is a function for setting, and fdel a function for deleting, an
+attribute.  Typical use is to define a managed attribute x:
+class C(object):
+    def getx(self): return self.__x
+    def setx(self, value): self.__x = value
+    def delx(self): del self.__x
+    x = property(getx, setx, delx, "I am the 'x' property.")''',
+    __new__ = interp2app(W_Property.new.im_func),
+    __get__ = interp2app(W_Property.get),
+    __set__ = interp2app(W_Property.set),
+    __delete__ = interp2app(W_Property.delete),
+    __getattribute__ = interp2app(W_Property.getattribute),
+    __dict__ = GetSetProperty(W_Property.descr_get_dict),
+    __setattr__ = interp2app(W_Property.setattr),
+)
+
