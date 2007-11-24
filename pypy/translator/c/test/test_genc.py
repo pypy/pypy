@@ -3,32 +3,17 @@ from pypy.rpython.lltypesystem.lltype import *
 from pypy.annotation import model as annmodel
 from pypy.translator.translator import TranslationContext
 from pypy.translator.c.database import LowLevelDatabase
+from pypy.translator.c import genc
 from pypy.translator.c.genc import gen_source
 from pypy.translator.c.gc import NoneGcPolicy
 from pypy.objspace.flow.model import Constant, Variable, SpaceOperation
 from pypy.objspace.flow.model import Block, Link, FunctionGraph
 from pypy.tool.udir import udir
 from pypy.translator.tool.cbuild import make_module_from_c
-from pypy.translator.tool.cbuild import enable_fast_compilation
 from pypy.translator.gensupp import uniquemodulename
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.interactive import Translation
 from pypy import conftest
-
-# XXX this tries to make compiling faster for full-scale testing
-# XXX tcc leaves some errors undetected! Bad!
-#from pypy.translator.tool import cbuild
-#cbuild.enable_fast_compilation()
-
-def compile_db(db):
-    enable_fast_compilation()  # for testing
-    modulename = uniquemodulename('testing')
-    targetdir = udir.join(modulename).ensure(dir=1)
-    gen_source(db, modulename, str(targetdir), defines={'COUNT_OP_MALLOCS': 1})
-    m = make_module_from_c(targetdir.join(modulename+'.c'),
-                           include_dirs = [os.path.dirname(autopath.this_dir)],
-                           libraries = db.gcpolicy.gc_libraries())
-    return m
 
 def compile(fn, argtypes, view=False, gcpolicy="ref", backendopt=True,
             annotatorpolicy=None):
@@ -42,15 +27,14 @@ def compile(fn, argtypes, view=False, gcpolicy="ref", backendopt=True,
     compiled_fn = t.compile_c()
     if conftest.option.view:
         t.view()
-    # XXX fish fish fish some more
-    module = t.driver.cbuilder.c_ext_module
+    malloc_counters = t.driver.cbuilder.get_malloc_counters()
     def checking_fn(*args, **kwds):
         if 'expected_extra_mallocs' in kwds:
             expected_extra_mallocs = kwds.pop('expected_extra_mallocs')
         else:
             expected_extra_mallocs = 0
         res = compiled_fn(*args, **kwds)
-        mallocs, frees = module.malloc_counters()
+        mallocs, frees = malloc_counters()
         if isinstance(expected_extra_mallocs, int):
             assert mallocs - frees == expected_extra_mallocs
         else:
@@ -58,28 +42,24 @@ def compile(fn, argtypes, view=False, gcpolicy="ref", backendopt=True,
         return res
     return checking_fn
 
-def test_func_as_pyobject():
+def test_simple():
     def f(x):
         return x*2
     t = TranslationContext()
     t.buildannotator().build_types(f, [int])
     t.buildrtyper().specialize()
 
-    db = LowLevelDatabase(t)
-    entrypoint = db.get(pyobjectptr(f))
-    db.complete()
-    module = compile_db(db)
+    t.config.translation.countmallocs = True
+    builder = genc.CExtModuleBuilder(t, f, config=t.config)
+    builder.generate_source()
+    builder.compile()
+    f1 = builder.get_entry_point()
 
-    f1 = getattr(module, entrypoint)
     assert f1(5) == 10
-    assert f1(x=5) == 10
     assert f1(-123) == -246
-    assert module.malloc_counters() == (0, 0)
+    assert builder.get_malloc_counters()() == (0, 0)
+
     py.test.raises(Exception, f1, "world")  # check that it's really typed
-    py.test.raises(Exception, f1)
-    py.test.raises(Exception, f1, 2, 3)
-    py.test.raises(Exception, f1, 2, x=2)
-    #py.test.raises(Exception, f1, 2, y=2)   XXX missing a check at the moment
 
 
 def test_rlist():
@@ -89,7 +69,7 @@ def test_rlist():
         return l[0] * l[-1]
     f1 = compile(f, [int])
     assert f1(5) == 30
-    assert f1(x=5) == 30
+    #assert f1(x=5) == 30
 
 
 def test_rptr():
@@ -106,7 +86,7 @@ def test_rptr():
             return -42
     f1 = compile(f, [int])
     assert f1(5) == 10
-    assert f1(i=5) == 10
+    #assert f1(i=5) == 10
     assert f1(1) == 2
     assert f1(0) == -42
     assert f1(-1) == -42
@@ -142,7 +122,7 @@ def test_runtime_type_info():
         p1 = malloc(S1)
         p1.sub.is_actually_s1 = True
         # and no crash when p and p1 are decref'ed
-        return sys
+        return None
     t = TranslationContext()
     t.buildannotator().build_types(does_stuff, [])
     rtyper = t.buildrtyper()
@@ -151,15 +131,14 @@ def test_runtime_type_info():
     rtyper.specialize()
     #t.view()
 
-    db = LowLevelDatabase(t)
-    entrypoint = db.get(pyobjectptr(does_stuff))
-    db.complete()
-
-    module = compile_db(db)
-
-    f1 = getattr(module, entrypoint)
+    from pypy.translator.c import genc
+    t.config.translation.countmallocs = True
+    builder = genc.CExtModuleBuilder(t, does_stuff, config=t.config)
+    builder.generate_source()
+    builder.compile()
+    f1 = builder.get_entry_point()
     f1()
-    mallocs, frees = module.malloc_counters()
+    mallocs, frees = builder.get_malloc_counters()()
     assert mallocs == frees
 
 
@@ -359,7 +338,6 @@ def test_refcount_pyobj_setfield_increfs():
     print f(C)
 
 def test_oswrite():
-    py.test.skip("Example of single character string degenerating to SomeObject")
     def f():
         import os
         os.write(1,"o")

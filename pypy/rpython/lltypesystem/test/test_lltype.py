@@ -709,23 +709,6 @@ def test_str_of_dead_ptr():
 def test_pyobject():
     p = pyobjectptr({42: 84})
     assert typeOf(p) == Ptr(PyObject)
-    S1 = PyStruct('S1', ('head', PyObject), ('x', Signed))
-    py.test.raises(TypeError, PyStruct, 'S2', ('y', Signed))
-    py.test.raises(TypeError, PyStruct, 'S2', ('x', Struct('X')))
-    py.test.raises(TypeError, PyStruct, 'S2', ('x', GcStruct('X')))
-
-    inttype = pyobjectptr(int)
-    s1 = malloc(S1, flavor='cpy', extra_args=(inttype,))
-    s1.x = 17
-    assert typeOf(s1.head) == Ptr(PyObject)
-    h1 = cast_pointer(Ptr(PyObject), s1)
-    assert s1.head == h1
-    s2 = cast_pointer(Ptr(S1), h1)
-    assert s2 == s1
-
-    del s1, s2
-    s3 = cast_pointer(Ptr(S1), h1)
-    assert s3.x == 17
 
 def test_name_clash():
     import re

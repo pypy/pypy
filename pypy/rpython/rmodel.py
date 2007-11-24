@@ -171,8 +171,8 @@ class Repr:
         if (isinstance(T, lltype.Ptr) and
             isinstance(T.TO, (lltype.Struct,
                               lltype.Array,
-                              lltype.ForwardReference)) and
-            T.TO._gckind != 'cpy'):
+                              lltype.ForwardReference))):
+            assert T.TO._gckind != 'cpy'
             return DummyValueBuilder(rtyper, T.TO)
         else:
             return None
@@ -439,9 +439,6 @@ class HalfConcreteWrapper:
 PyObjPtr = Ptr(PyObject)
 
 def getgcflavor(classdef):
-    for parentdef in classdef.getmro():
-        if hasattr(parentdef, '_cpy_exported_type_'):
-            return 'cpy'
     classdesc = classdef.classdesc
     alloc_flavor = classdesc.read_attribute('_alloc_flavor_',
                                             Constant('gc')).value

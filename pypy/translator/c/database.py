@@ -54,9 +54,6 @@ class LowLevelDatabase(object):
         # constant
         self.late_initializations = []
         self.namespace = CNameManager()
-        if not standalone:
-            from pypy.translator.c.pyobj import PyObjMaker
-            self.pyobjmaker = PyObjMaker(self.namespace, self, translator)
 
         if translator is None or translator.rtyper is None:
             self.exctransformer = None
@@ -303,8 +300,6 @@ class LowLevelDatabase(object):
         
         while True:
             while True:
-                if hasattr(self, 'pyobjmaker'):
-                    self.pyobjmaker.collect_initcode()
                 while self.pendingsetupnodes:
                     lst = self.pendingsetupnodes
                     self.pendingsetupnodes = []

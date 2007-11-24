@@ -1,6 +1,6 @@
-from pypy.rpython.memory.gctransform.transform import GCTransformer, var_ispyobj
+from pypy.rpython.memory.gctransform.transform import GCTransformer
 from pypy.rpython.memory.gctransform.support import find_gc_ptrs_in_type, \
-     get_rtti, ll_call_destructor, type_contains_pyobjs
+     get_rtti, ll_call_destructor, type_contains_pyobjs, var_ispyobj
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython import rmodel
 from pypy.rpython.memory import gctypelayout

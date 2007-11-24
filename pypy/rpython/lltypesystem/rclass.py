@@ -72,21 +72,13 @@ OBJECT_VTABLE.become(Struct('object_vtable',
 NONGCOBJECT = Struct('nongcobject', ('typeptr', CLASSTYPE))
 NONGCOBJECTPTR = Ptr(OBJECT)
 
-# cpy case (XXX try to merge the typeptr with the ob_type)
-CPYOBJECT = lltype.PyStruct('cpyobject', ('head', PyObject),
-                                         ('typeptr', CLASSTYPE))
-CPYOBJECTPTR = Ptr(CPYOBJECT)
-
 OBJECT_BY_FLAVOR = {'gc': OBJECT,
-                    'raw': NONGCOBJECT,
-                    'cpy': CPYOBJECT}
+                    'raw': NONGCOBJECT}
 
 LLFLAVOR = {'gc'   : 'gc',
             'raw'  : 'raw',
-            'cpy'  : 'cpy',
             'stack': 'raw',
             }
-RTTIFLAVORS = ('gc', 'cpy')
 
 def cast_vtable_to_typeptr(vtable):
     while typeOf(vtable).TO != OBJECT_VTABLE:
@@ -190,7 +182,7 @@ class ClassRepr(AbstractClassRepr):
                 vtable.subclassrange_max = sys.maxint
             rinstance = getinstancerepr(self.rtyper, rsubcls.classdef)
             rinstance.setup()
-            if rinstance.gcflavor in RTTIFLAVORS:
+            if rinstance.gcflavor == 'gc':
                 vtable.rtti = getRuntimeTypeInfo(rinstance.object_type)
             if rsubcls.classdef is None:
                 name = 'object'
@@ -346,11 +338,6 @@ class InstanceRepr(AbstractInstanceRepr):
             self.rbase = getinstancerepr(self.rtyper, self.classdef.basedef,
                                          self.gcflavor)
             self.rbase.setup()
-            #
-            # PyObject wrapper support
-            if self.has_wrapper and '_wrapper_' not in self.rbase.allinstancefields:
-                fields['_wrapper_'] = 'wrapper', pyobj_repr
-                llfields.append(('wrapper', Ptr(PyObject)))
 
             MkStruct = lltype.STRUCT_BY_FLAVOR[LLFLAVOR[self.gcflavor]]
             if adtmeths is None:
@@ -370,11 +357,11 @@ class InstanceRepr(AbstractInstanceRepr):
         allinstancefields.update(fields)
         self.fields = fields
         self.allinstancefields = allinstancefields
-        if self.gcflavor in RTTIFLAVORS:
+        if self.gcflavor == 'gc':
             attachRuntimeTypeInfo(self.object_type)
 
     def _setup_repr_final(self):
-        if self.gcflavor in RTTIFLAVORS:
+        if self.gcflavor == 'gc':
             if (self.classdef is not None and
                 self.classdef.classdesc.lookup('__del__') is not None):
                 s_func = self.classdef.classdesc.s_read_attribute('__del__')
@@ -404,18 +391,7 @@ class InstanceRepr(AbstractInstanceRepr):
         return cast_pointer(self.lowleveltype, result)
 
     def create_instance(self):
-        if self.gcflavor == 'cpy':
-            from pypy.rpython import rcpy
-            extra_args = (rcpy.build_pytypeobject(self),)
-        else:
-            extra_args = ()
-        return malloc(self.object_type, flavor=self.gcflavor,
-                      extra_args=extra_args)
-
-    def has_wrapper(self):
-        return self.classdef is not None and (
-            self.rtyper.needs_wrapper(self.classdef.classdesc.pyobj))
-    has_wrapper = property(has_wrapper)
+        return malloc(self.object_type, flavor=self.gcflavor)
 
     def get_ll_hash_function(self):
         if self.classdef is None:
@@ -487,35 +463,27 @@ class InstanceRepr(AbstractInstanceRepr):
                                        flags=flags)
 
     def setfield(self, vinst, attr, vvalue, llops, force_cast=False,
-                 opname='setfield', flags={}):
+                 flags={}):
         """Write the given attribute (or __class__ for the type) of 'vinst'."""
         if attr in self.fields:
             mangled_name, r = self.fields[attr]
             cname = inputconst(Void, mangled_name)
             if force_cast:
                 vinst = llops.genop('cast_pointer', [vinst], resulttype=self)
-            llops.genop(opname, [vinst, cname, vvalue])
-            # XXX this is a temporary hack to clear a dead PyObject
+            llops.genop('setfield', [vinst, cname, vvalue])
         else:
             if self.classdef is None:
                 raise MissingRTypeAttribute(attr)
             self.rbase.setfield(vinst, attr, vvalue, llops, force_cast=True,
-                                opname=opname, flags=flags)
+                                flags=flags)
 
-    def new_instance(self, llops, classcallhop=None, v_cpytype=None):
+    def new_instance(self, llops, classcallhop=None):
         """Build a new instance, without calling __init__."""
         flavor = self.gcflavor
         flags = {'flavor': flavor }
         ctype = inputconst(Void, self.object_type)
         cflags = inputconst(Void, flags)
         vlist = [ctype, cflags]
-        if self.classdef is not None:
-            if flavor == 'cpy':
-                if v_cpytype is None:
-                    from pypy.rpython import rcpy
-                    cpytype = rcpy.build_pytypeobject(self)
-                    v_cpytype = inputconst(Ptr(PyObject), cpytype)
-                vlist.append(v_cpytype)
         vptr = llops.genop('malloc', vlist,
                            resulttype = Ptr(self.object_type))
         ctypeptr = inputconst(CLASSTYPE, self.rclass.getvtable())
@@ -688,129 +656,6 @@ class __extend__(pairtype(InstanceRepr, InstanceRepr)):
     def rtype_ne(rpair, hop):
         v = rpair.rtype_eq(hop)
         return hop.genop("bool_not", [v], resulttype=Bool)
-
-#
-# _________________________ Conversions for CPython _________________________
-
-# part I: wrapping, destructor, preserving object identity
-
-def call_destructor(thing, repr):
-    ll_call_destructor(thing, repr)
-
-def ll_call_destructor(thang, repr):
-    return 42 # will be mapped
-
-class Entry(ExtRegistryEntry):
-    _about_ = ll_call_destructor
-    s_result_annotation = None
-
-    def specialize_call(self, hop):
-        v_inst, c_spec = hop.inputargs(*hop.args_r)
-        repr = c_spec.value
-        if repr.has_wrapper:
-            null = hop.inputconst(Ptr(PyObject), nullptr(PyObject))
-            # XXX this bare_setfield is needed because we cannot do refcount operations
-            # XXX on a dead object. Actually this is an abuse. Instead,
-            # XXX we should consider a different operation for 'uninitialized fields'
-            repr.setfield(v_inst, '_wrapper_', null, hop.llops,
-                          opname='bare_setfield')
-        hop.genop('gc_unprotect', [v_inst])
-
-
-def create_pywrapper(thing, repr):
-    return ll_create_pywrapper(thing, repr)
-
-def ll_create_pywrapper(thing, repr):
-    return 42
-
-def into_cobject(v_inst, repr, llops):
-    llops.genop('gc_protect', [v_inst])
-    ARG = repr.lowleveltype
-    reprPBC = llops.rtyper.annotator.bookkeeper.immutablevalue(repr)
-    fp_dtor = llops.rtyper.annotate_helper_fn(call_destructor, [ARG, reprPBC])
-    FUNC = FuncType([ARG, Void], Void)
-    c_dtor = inputconst(Ptr(FUNC), fp_dtor)
-    return llops.gencapicall('PyCObject_FromVoidPtr', [v_inst, c_dtor], resulttype=pyobj_repr)
-
-def outof_cobject(v_obj, repr, llops):
-    v_inst = llops.gencapicall('PyCObject_AsVoidPtr', [v_obj], resulttype=repr)
-    llops.genop('gc_protect', [v_inst])
-    return v_inst
-
-class Entry(ExtRegistryEntry):
-    _about_ = ll_create_pywrapper
-    s_result_annotation = annmodel.SomePtr(Ptr(PyObject))
-
-    def specialize_call(self, hop):
-        v_inst, c_spec = hop.inputargs(*hop.args_r)
-        repr = c_spec.value
-        v_res = into_cobject(v_inst, repr, hop.llops)
-        v_cobj = v_res
-        c_cls = hop.inputconst(pyobj_repr, repr.classdef.classdesc.pyobj)
-        c_0 = hop.inputconst(Signed, 0)
-        v_res = hop.llops.gencapicall('PyType_GenericAlloc', [c_cls, c_0],
-                                      resulttype=pyobj_repr)
-        c_self = hop.inputconst(pyobj_repr, '__self__')
-        hop.genop('setattr', [v_res, c_self, v_cobj], resulttype=pyobj_repr)
-        if repr.has_wrapper:
-            repr.setfield(v_inst, '_wrapper_', v_res, hop.llops)
-            hop.genop('gc_unprotect', [v_res]) # yes a weak ref
-        return v_res
-
-
-def fetch_pywrapper(thing, repr):
-    return ll_fetch_pywrapper(thing, repr)
-
-def ll_fetch_pywrapper(thing, repr):
-    return 42
-
-class Entry(ExtRegistryEntry):
-    _about_ = ll_fetch_pywrapper
-    s_result_annotation = annmodel.SomePtr(Ptr(PyObject))
-
-    def specialize_call(self, hop):
-        v_inst, c_spec = hop.inputargs(*hop.args_r)
-        repr = c_spec.value
-        if repr.has_wrapper:
-            return repr.getfield(v_inst, '_wrapper_', hop.llops)
-        else:
-            null = hop.inputconst(Ptr(PyObject), nullptr(PyObject))
-            return null
-
-
-def ll_wrap_object(obj, repr):
-    ret = fetch_pywrapper(obj, repr)
-    if not ret:
-        ret = create_pywrapper(obj, repr)
-    return ret
-
-class __extend__(pairtype(InstanceRepr, PyObjRepr)):
-    def convert_from_to((r_from, r_to), v, llops):
-        c_repr = inputconst(Void, r_from)
-        if r_from.has_wrapper:
-            return llops.gendirectcall(ll_wrap_object, v, c_repr)
-        else:
-            return llops.gendirectcall(create_pywrapper, v, c_repr)
-
-# part II: unwrapping, creating the instance
-
-class __extend__(pairtype(PyObjRepr, InstanceRepr)):
-    def convert_from_to((r_from, r_to), v, llops):
-        if r_to.has_wrapper:
-            init, context = llops.rtyper.get_wrapping_hint(r_to.classdef)
-            if context is init:
-                # saving an extra __new__ method, we create the instance on __init__
-                v_inst = r_to.new_instance(llops)
-                v_cobj = into_cobject(v_inst, r_to, llops)
-                c_self = inputconst(pyobj_repr, '__self__')
-                llops.genop('setattr', [v, c_self, v_cobj], resulttype=pyobj_repr)
-                r_to.setfield(v_inst, '_wrapper_', v, llops)
-                llops.genop('gc_unprotect', [v])
-                return v_inst
-        # if we don't have a wrapper field, we just don't support __init__
-        c_self = inputconst(pyobj_repr, '__self__')
-        v = llops.genop('getattr', [v, c_self], resulttype=r_from)
-        return outof_cobject(v, r_to, llops)
 
 # ____________________________________________________________
 #

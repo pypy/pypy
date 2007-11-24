@@ -401,7 +401,7 @@ BUILTIN_ANALYZERS[__import__] = import_func
 from pypy.annotation.model import SomePtr
 from pypy.rpython.lltypesystem import lltype
 
-def malloc(s_T, s_n=None, s_flavor=None, s_extra_args=None, s_zero=None):
+def malloc(s_T, s_n=None, s_flavor=None, s_zero=None):
     assert (s_n is None or s_n.knowntype == int
             or issubclass(s_n.knowntype, pypy.rlib.rarithmetic.base_int))
     assert s_T.is_constant()

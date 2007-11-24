@@ -215,7 +215,6 @@ mailing list`_.  You can also have a look around our documentation_.
 .. _`py.execnet`: http://codespeak.net/py/current/doc/execnet.html
 .. _`Prolog interpreter`: http://codespeak.net/svn/user/cfbolz/hack/prolog/interpreter
 .. _`JavaScript interpreter`: ../../pypy/lang/js
-.. _`extension compiler`: extcompiler.html
 .. _`object spaces`: objspace.html
 .. _`code templating solution`: http://codespeak.net/svn/pypy/extradoc/soc-2006/code-templating.txt
 

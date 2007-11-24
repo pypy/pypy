@@ -388,6 +388,7 @@ class FunctionCodeGenerator(object):
                 continue    # skip 'void' argument
             args.append(self.expr(v))
             # special case for rctypes: by-value container args:
+            # XXX is this still needed now that rctypes is gone
             if isinstance(ARGTYPE, ContainerType):
                 args[-1] = '*%s' % (args[-1],)
 
@@ -572,17 +573,6 @@ class FunctionCodeGenerator(object):
         eresult = self.expr(op.result)
         esize = self.expr(op.args[0])
         return "OP_STACK_MALLOC(%s, %s, void *);" % (esize, eresult)
-
-    def OP_CPY_MALLOC(self, op):
-        TYPE = self.lltypemap(op.result).TO
-        typename = self.db.gettype(TYPE)
-        erestype = cdecl(typename, '*')
-        eresult = self.expr(op.result)
-        cpytype = self.expr(op.args[1])
-        return "OP_CPY_MALLOC(%s, %s, %s);" % (cpytype, eresult, erestype)
-
-    def OP_CPY_FREE(self, op):
-        return "OP_CPY_FREE(%s);" % (self.expr(op.args[0]),)
 
     def OP_DIRECT_FIELDPTR(self, op):
         return self.OP_GETFIELD(op, ampersand='&')

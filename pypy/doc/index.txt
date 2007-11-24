@@ -26,10 +26,6 @@ Translation Framework:
   * `JIT Generation in PyPy`_ 
   * `Sandboxing Python code`_
 
-`extension compiler`_ describes the (in-progress) tool that can be used
-to write modules in PyPy's style and compile them into regular CPython
-extension modules.
-
 `JavaScript backend`_ describes how to use the JavaScript backend to create
 AJAX-based web pages.
 
@@ -263,8 +259,6 @@ Directory                      explanation/links
 
 `objspace/thunk.py`_           the `thunk object space`_, providing unique object features 
 
-`objspace/cpy/`_               an object space supporting the `extension compiler`_
-
 `objspace/flow/`_              the FlowObjSpace_ implementing `abstract interpretation`
 
 `objspace/std/`_               the StdObjSpace_ implementing CPython's objects and types
@@ -341,7 +335,6 @@ Directory                      explanation/links
 .. _`GenC backend`: translation.html#genc 
 .. _`LLVM backend`: translation.html#llvm
 .. _`CLI backend`: cli-backend.html
-.. _`extension compiler`: extcompiler.html
 .. _`py.py`: getting-started.html#main-entry-point
 .. _`translatorshell.py`: getting-started.html#try-out-the-translator
 .. _JIT: jit.html

@@ -11,6 +11,60 @@ py.log.setconsumer("cbuild", ansi_log)
 
 debug = 0
 
+class ExternalCompilationInfo(object):
+
+    _ATTRIBUTES = ['pre_include_lines', 'includes', 'include_dirs',
+                   'post_include_lines', 'libraries', 'library_dirs',
+                   'separate_module_sources', 'separate_module_files']
+
+    def __init__(self,
+                 pre_include_lines       = [],
+                 includes                = [],
+                 include_dirs            = [],
+                 post_include_lines      = [],
+                 libraries               = [],
+                 library_dirs            = [],
+                 separate_module_sources = [],
+                 separate_module_files   = []):
+        """
+        pre_include_lines: list of lines that should be put at the top
+        of the generated .c files, before any #include.  They shouldn't
+        contain an #include themselves.
+
+        includes: list of .h file names to be #include'd from the
+        generated .c files.
+
+        include_dirs: list of dir names that is passed to the C compiler
+
+        post_include_lines: list of lines that should be put at the top
+        of the generated .c files, after the #includes.
+
+        libraries: list of library names that is passed to the linker
+
+        library_dirs: list of dir names that is passed to the linker
+
+        separate_module_sources: list of multiline strings that are
+        each written to a .c file and compiled separately and linked
+        later on.  (If function prototypes are needed for other .c files
+        to access this, they can be put in post_include_lines.)
+
+        separate_module_files: list of .c file names that are compiled
+        separately and linked later on.  (If an .h file is needed for
+        other .c files to access this, it can be put in includes.)
+        """
+        for name in self._ATTRIBUTES:
+            value = locals()[name]
+            assert isinstance(value, (list, tuple))
+            setattr(self, name, tuple(value))
+
+        # XXX custom hash and eq functions, they should be compared
+        #     by contents
+
+if sys.platform == 'win32':
+    so_ext = '.dll'
+else:
+    so_ext = '.so'
+
 def compiler_command():
     # e.g. for tcc, you might set this to
     #    "tcc -shared -o %s.so %s.c"
@@ -158,7 +212,7 @@ def cache_c_module(cfiles, modname, cache_dir=None,
     modname = str(cache_dir.join(modname))
     compile_c_module(cfiles, modname, include_dirs=include_dirs,
                      libraries=libraries)
-    return modname + '.so'
+    return modname + so_ext
 
 def make_module_from_c(cfile, include_dirs=None, libraries=[]):
     cfile = py.path.local(cfile)

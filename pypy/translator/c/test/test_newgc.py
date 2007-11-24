@@ -23,16 +23,15 @@ def compile_func(fn, inputtypes, t=None, gcpolicy="ref"):
     builder = genc.CExtModuleBuilder(t, fn, config=config)
     builder.generate_source(defines={'COUNT_OP_MALLOCS': 1})
     builder.compile()
-    builder.import_module()
     if conftest.option.view:
         t.view()
-    module = builder.c_ext_module
     compiled_fn = builder.get_entry_point()
+    malloc_counters = builder.get_malloc_counters()
     def checking_fn(*args, **kwds):
         try:
             return compiled_fn(*args, **kwds)
         finally:
-            mallocs, frees = module.malloc_counters()
+            mallocs, frees = malloc_counters()
             assert mallocs == frees
     return checking_fn
 
@@ -113,6 +112,7 @@ def test_multiply_passed_var():
     fn(0) == 3
 
 def test_pyobj():
+    py.test.skip("unsupported")    
     def f(x):
         if x:
             a = 1

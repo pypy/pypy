@@ -310,18 +310,8 @@ class RttiStruct(Struct):
 class GcStruct(RttiStruct):
     _gckind = 'gc'
 
-class PyStruct(RttiStruct):
-    _gckind = 'cpy'
-
-    def __init__(self, name, *fields, **kwds):
-        RttiStruct.__init__(self, name, *fields, **kwds)
-        if self._first_struct() == (None, None):
-            raise TypeError("a PyStruct must have another PyStruct or "
-                            "PyObject as first field")
-
 STRUCT_BY_FLAVOR = {'raw': Struct,
-                    'gc':  GcStruct,
-                    'cpy': PyStruct}
+                    'gc':  GcStruct}
 
 class Array(ContainerType):
     _gckind = 'raw'
@@ -423,9 +413,9 @@ class FuncType(ContainerType):
     def __init__(self, args, result):
         for arg in args:
             assert isinstance(arg, LowLevelType)
-            # -- disabled the following check for the benefits of rctypes --
-            #if isinstance(arg, ContainerType):
-            #    raise TypeError, "function arguments can only be primitives or pointers"
+            # -- disable the following check for the benefits of rffi --
+            if isinstance(arg, ContainerType):
+                raise TypeError, "function arguments can only be primitives or pointers"
         self.ARGS = tuple(args)
         assert isinstance(result, LowLevelType)
         if isinstance(result, ContainerType):
@@ -495,7 +485,7 @@ class PyObjectType(ContainerType):
     def _inline_is_varsize(self, last):
         return False
     def _defl(self, parent=None, parentindex=None):
-        return _pyobjheader(parent, parentindex)
+        return _pyobject(None)
     def _allocate(self, initialization, parent=None, parentindex=None):
         return self._defl(parent=parent, parentindex=parentindex)
 
@@ -519,15 +509,12 @@ class ForwardReference(ContainerType):
 class GcForwardReference(ForwardReference):
     _gckind = 'gc'
 
-class PyForwardReference(ForwardReference):
-    _gckind = 'cpy'
 
 class FuncForwardReference(ForwardReference):
     _gckind = 'prebuilt'
 
 FORWARDREF_BY_FLAVOR = {'raw': ForwardReference,
                         'gc':  GcForwardReference,
-                        'cpy': PyForwardReference,
                         'prebuilt': FuncForwardReference}
 
 
@@ -1351,9 +1338,6 @@ class _parentable(_container):
             container = parent
         return container
 
-    def _setup_extra_args(self):
-        pass
-
 def _struct_variety(flds, cache={}):
     flds = list(flds)
     flds.sort()
@@ -1444,12 +1428,6 @@ class _struct(_parentable):
         assert isinstance(self._TYPE, FixedSizeArray)
         setattr(self, 'item%d' % index, value)
 
-    def _setup_extra_args(self, *args):
-        fieldname, FIELDTYPE = self._TYPE._first_struct()
-        if fieldname is not None:
-            getattr(self, fieldname)._setup_extra_args(*args)
-        else:
-            assert not args
 
 class _array(_parentable):
     _kind = "array"
@@ -1732,28 +1710,10 @@ class _pyobject(Hashable, _container):
     def _getid(self):
         return id(self.value)
 
-class _pyobjheader(_parentable):
-    def __init__(self, parent=None, parentindex=None):
-        _parentable.__init__(self, PyObject)
-        if parent is not None:
-            self._setparentstructure(parent, parentindex)
-        # the extra attributes 'ob_type' and 'setup_fnptr' are
-        # not set by __init__(), but by malloc(extra_args=(...))
 
-    def _setup_extra_args(self, ob_type, setup_fnptr=None):
-        assert typeOf(ob_type) == Ptr(PyObject)
-        self.ob_type = ob_type
-        self.setup_fnptr = setup_fnptr
-
-    def __repr__(self):
-        return '<%s>' % (self,)
-
-    def __str__(self):
-        return "pyobjheader of type %r" % (getattr(self, 'ob_type', '???'),)
-
-
-def malloc(T, n=None, flavor='gc', immortal=False, extra_args=(), zero=False):
-    if zero or immortal or flavor == 'cpy':
+def malloc(T, n=None, flavor='gc', immortal=False, zero=False):
+    assert flavor != 'cpy'
+    if zero or immortal:
         initialization = 'example'
     elif flavor == 'raw':
         initialization = 'raw'
@@ -1770,7 +1730,6 @@ def malloc(T, n=None, flavor='gc', immortal=False, extra_args=(), zero=False):
         raise TypeError, "malloc for Structs and Arrays only"
     if T._gckind != 'gc' and not immortal and flavor.startswith('gc'):
         raise TypeError, "gc flavor malloc of a non-GC non-immortal structure"
-    o._setup_extra_args(*extra_args)
     solid = immortal or not flavor.startswith('gc') # immortal or non-gc case
     return _ptr(Ptr(T), o, solid)
 

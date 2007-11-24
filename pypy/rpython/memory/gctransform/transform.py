@@ -13,6 +13,7 @@ from pypy.translator.backendopt.ssa import DataFlowFamilyBuilder
 from pypy.annotation import model as annmodel
 from pypy.rpython import rmodel, annlowlevel
 from pypy.rpython.memory import gc
+from pypy.rpython.memory.gctransform.support import var_ispyobj
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.rpython.rtyper import LowLevelOpList
 from pypy.rpython.rbuiltin import gen_cast
@@ -20,16 +21,6 @@ from pypy.rlib.rarithmetic import ovfcheck
 import sets, os, sys
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.translator.simplify import join_blocks, cleanup_graph
-
-def var_ispyobj(var):
-    if hasattr(var, 'concretetype'):
-        if isinstance(var.concretetype, lltype.Ptr):
-            return var.concretetype.TO._gckind == 'cpy'
-        else:
-            return False
-    else:
-        # assume PyObjPtr
-        return True
 
 PyObjPtr = lltype.Ptr(lltype.PyObject)
 
@@ -521,17 +512,11 @@ class GCTransformer(BaseGCTransformer):
             hop.genop("raw_memclear", [v_raw, c_size])
         return v_raw        
 
-    def gct_fv_cpy_malloc(self, hop, flags, TYPE, c_size): # xxx
-        op = hop.spaceop
-        args = op.args[:]
-        del args[1]
-        assert not flags.get('zero')
-        return hop.genop('cpy_malloc', args, resulttype=op.result.concretetype)
-
     def gct_malloc_varsize(self, hop):
 
         flags = hop.spaceop.args[1].value
         flavor = flags['flavor']
+        assert flavor != 'cpy', "cannot malloc CPython objects directly"
         meth = getattr(self, 'gct_fv_%s_malloc_varsize' % flavor, None)
         assert meth, "%s has no support for malloc_varsize with flavor %r" % (self, flavor) 
         return self.varsize_malloc_helper(hop, flags, meth, [])
@@ -606,10 +591,9 @@ class GCTransformer(BaseGCTransformer):
         op = hop.spaceop
         flavor = op.args[1].value
         v = op.args[0]
+        assert flavor != 'cpy', "cannot free CPython objects directly"
         if flavor == 'raw':
             v = hop.genop("cast_ptr_to_adr", [v], resulttype=llmemory.Address)
             hop.genop('raw_free', [v])
-        elif flavor == 'cpy':
-            hop.genop('cpy_free', [v]) # xxx
         else:
             assert False, "%s has no support for free with flavor %r" % (self, flavor)           

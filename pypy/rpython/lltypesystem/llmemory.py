@@ -84,7 +84,6 @@ class ItemOffset(AddressOffset):
         repeat = self.repeat
         if repeat == 0:
             return
-        from pypy.rpython.rctypes.rmodel import reccopy
         if isinstance(self.TYPE, lltype.ContainerType):
             PTR = lltype.Ptr(self.TYPE)
         else:
@@ -92,7 +91,7 @@ class ItemOffset(AddressOffset):
         while True:
             src = cast_adr_to_ptr(srcadr, PTR)
             dst = cast_adr_to_ptr(dstadr, PTR)
-            reccopy(src, dst)
+            _reccopy(src, dst)
             repeat -= 1
             if repeat <= 0:
                 break
@@ -133,8 +132,7 @@ class FieldOffset(AddressOffset):
         PTR = lltype.Ptr(self.TYPE)
         src = cast_adr_to_ptr(srcadr, PTR)
         dst = cast_adr_to_ptr(dstadr, PTR)
-        from pypy.rpython.rctypes.rmodel import reccopy
-        reccopy(src, dst)
+        _reccopy(src, dst)
 
 
 class CompositeOffset(AddressOffset):
@@ -257,8 +255,7 @@ class GCHeaderOffset(AddressOffset):
         return cast_ptr_to_adr(headerptr)
 
     def raw_memcopy(self, srcadr, dstadr):
-        from pypy.rpython.rctypes.rmodel import reccopy
-        reccopy(srcadr.ptr, dstadr.ptr)
+        _reccopy(srcadr.ptr, dstadr.ptr)
 
 class GCHeaderAntiOffset(AddressOffset):
     def __init__(self, gcheaderbuilder):
@@ -638,3 +635,34 @@ def cast_any_ptr(EXPECTED_TYPE, ptr):
     else:
         # regular case
         return lltype.cast_pointer(EXPECTED_TYPE, ptr)
+
+
+def _reccopy(source, dest):
+    # copy recursively a structure or array onto another.
+    T = lltype.typeOf(source).TO
+    assert T == lltype.typeOf(dest).TO
+    if isinstance(T, (lltype.Array, lltype.FixedSizeArray)):
+        assert source._obj.getlength() == dest._obj.getlength()
+        ITEMTYPE = T.OF
+        for i in range(source._obj.getlength()):
+            if isinstance(ITEMTYPE, lltype.ContainerType):
+                subsrc = source._obj.getitem(i)._as_ptr()
+                subdst = dest._obj.getitem(i)._as_ptr()
+                _reccopy(subsrc, subdst)
+            else:
+                # this is a hack XXX de-hack this
+                llvalue = source._obj.getitem(i, uninitialized_ok=True)
+                dest._obj.setitem(i, llvalue)
+    elif isinstance(T, lltype.Struct):
+        for name in T._names:
+            FIELDTYPE = getattr(T, name)
+            if isinstance(FIELDTYPE, lltype.ContainerType):
+                subsrc = source._obj._getattr(name)._as_ptr()
+                subdst = dest._obj._getattr(name)._as_ptr()
+                _reccopy(subsrc, subdst)
+            else:
+                # this is a hack XXX de-hack this
+                llvalue = source._obj._getattr(name, uninitialized_ok=True)
+                setattr(dest._obj, name, llvalue)
+    else:
+        raise TypeError(T)

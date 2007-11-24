@@ -7,7 +7,7 @@ from pypy.tool import udir
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.annotation.builtin import *
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-from pypy.rpython.rctypes.rcarithmetic import CShort
+from pypy.rpython.lltypesystem.rffi import SHORT
 from pypy.rpython import extfunc
 import py
 
@@ -480,7 +480,7 @@ class TestLLtype(BaseTestRbuiltin, LLRtypeMixin):
         res = self.interpret(llf, [ord('x')], policy=LowLevelAnnotatorPolicy())
         assert res == u'x'
         def llf(v):
-            return lltype.cast_primitive(CShort, v)
+            return lltype.cast_primitive(SHORT, v)
         res = self.interpret(llf, [123], policy=LowLevelAnnotatorPolicy())
         assert res == 123
 

@@ -226,7 +226,7 @@ class DiskFile(Stream):
         os.lseek(self.fd, offset, whence)
 
     def tell(self):
-        #XXX for running on top of the cpy objspace. later we want r_longlong
+        #XXX we really want r_longlong
         return int(os.lseek(self.fd, 0, 1))
 
     def read(self, n):

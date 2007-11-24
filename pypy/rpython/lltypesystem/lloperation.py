@@ -365,8 +365,6 @@ LL_OPERATIONS = {
     'raw_load':             LLOp(sideeffects=False),
     'raw_store':            LLOp(),
     'stack_malloc':         LLOp(), # mmh
-    'cpy_malloc':           LLOp(), # xxx
-    'cpy_free':             LLOp(), # xxx
     'adr_add':              LLOp(canfold=True),
     'adr_sub':              LLOp(canfold=True),
     'adr_delta':            LLOp(canfold=True),
@@ -396,8 +394,6 @@ LL_OPERATIONS = {
     'gc_deallocate':        LLOp(),
     'gc_push_alive_pyobj':  LLOp(),
     'gc_pop_alive_pyobj':   LLOp(),
-    'gc_protect':           LLOp(),
-    'gc_unprotect':         LLOp(),    
     'gc_reload_possibly_moved': LLOp(),
     'gc_id':                LLOp(canraise=(MemoryError,), sideeffects=False),
     'gc_set_max_heap_size': LLOp(),

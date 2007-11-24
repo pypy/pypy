@@ -116,8 +116,7 @@ class BuiltinFunctionRepr(Repr):
 
     def rtype_call_args(self, hop):
         # calling a built-in function with keyword arguments:
-        # mostly for rpython.objectmodel.hint() and for constructing
-        # rctypes structures
+        # mostly for rpython.objectmodel.hint()
         hop, kwds_i = call_args_expand(hop)
 
         bltintyper = self.findbltintyper(hop.rtyper)
@@ -322,34 +321,22 @@ BUILTIN_TYPER[getattr(OSError.__init__, 'im_func', OSError.__init__)] = (
 BUILTIN_TYPER[object.__init__] = rtype_object__init__
 # annotation of low-level types
 
-def rtype_malloc(hop, i_flavor=None, i_extra_args=None, i_zero=None):
+def rtype_malloc(hop, i_flavor=None, i_zero=None):
     assert hop.args_s[0].is_constant()
     vlist = [hop.inputarg(lltype.Void, arg=0)]
     opname = 'malloc'
-    v_flavor, v_extra_args, v_zero = parse_kwds(hop, (i_flavor, lltype.Void),
-                                                     (i_extra_args, None),
-                                                     (i_zero, None))
+    v_flavor, v_zero = parse_kwds(hop, (i_flavor, lltype.Void), (i_zero, None))
 
     flags = {'flavor': 'gc'}
     if v_flavor is not None:
         flags['flavor'] = v_flavor.value
     if i_zero is not None:
-        assert i_extra_args is None
         flags['zero'] = v_zero.value
     vlist.append(hop.inputconst(lltype.Void, flags))
         
     if hop.nb_args == 2:
         vlist.append(hop.inputarg(lltype.Signed, arg=1))
         opname += '_varsize'
-
-    if v_extra_args is not None:
-        # items of the v_extra_args tuple become additional args to the op
-        from pypy.rpython.rtuple import AbstractTupleRepr
-        r_tup = hop.args_r[i_extra_args]
-        assert isinstance(r_tup, AbstractTupleRepr)
-        for n, r in enumerate(r_tup.items_r):
-            v = r_tup.getitem(hop.llops, v_extra_args, n)
-            vlist.append(v)
 
     hop.has_implicit_exception(MemoryError)   # record that we know about it
     hop.exception_is_here()

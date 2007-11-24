@@ -1,4 +1,4 @@
-from pypy.rpython.memory.gctransform.transform import var_ispyobj
+from pypy.rpython.memory.gctransform.support import var_ispyobj
 from pypy.rpython.memory.gctransform.framework import FrameworkGCTransformer
 from pypy.rpython.lltypesystem import lltype, llmemory
 

@@ -4,9 +4,7 @@ Usage:  checkmodule.py [-b backend] <module-name>
 
 Compiles the PyPy extension module from pypy/module/<module-name>/
 into a fake program which does nothing. Useful for testing whether a
-modules compiles without doing a full translation, especially the ones
-that cannot be compiled with compilemodule.py because rely on
-ootypesystem features (such as _dotnet). Default backend is cli.
+modules compiles without doing a full translation. Default backend is cli.
 
 WARNING: this is still incomplete: there are chances that the
 compilation fails with strange errors not due to the module. If a

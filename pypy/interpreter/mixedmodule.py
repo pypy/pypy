@@ -171,8 +171,7 @@ def getinterpevalloader(pkgroot, spec):
                 if is_type:
                     return space.gettypefor(value)
 
-                W_Object = getattr(space, 'W_Object', ()) # for cpyobjspace
-                assert isinstance(value, (W_Root, W_Object)), (
+                assert isinstance(value, W_Root), (
                     "interpleveldef %s.%s must return a wrapped object "
                     "(got %r instead)" % (pkgroot, spec, value))
                 return value 
@@ -203,33 +202,3 @@ def getappfileloader(pkgroot, appname, spec):
         return app.wget(space, attrname)
     return afileloader 
 
-# ____________________________________________________________
-# Helper to test mixed modules on top of CPython
-
-def testmodule(name, basepath='pypy.module'):
-    """Helper to test mixed modules on top of CPython,
-    running with the CPy Object Space.  The module should behave
-    more or less as if it had been compiled, either with the
-    pypy/bin/compilemodule.py tool, or within pypy-c.
-
-    Try:   testmodule('_demo')
-    """
-    import sys, new
-    from pypy.objspace.cpy.objspace import CPyObjSpace
-    space = CPyObjSpace()
-    
-    fullname = "%s.%s" % (basepath, name) 
-    Module = __import__(fullname, 
-                        None, None, ["Module"]).Module
-    appname = Module.get_applevel_name()
-    mod = Module(space, space.wrap(appname))
-    res = new.module(appname)
-    sys.modules[appname] = res
-    moddict = space.unwrap(mod.getdict())
-    res.__dict__.update(moddict)
-    return res
-
-def compilemodule(name, interactive=False):
-    "Compile a PyPy module for CPython."
-    from pypy.rpython.rctypes.tool.compilemodule import compilemodule
-    return compilemodule(name, interactive=interactive)

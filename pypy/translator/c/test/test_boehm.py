@@ -41,9 +41,8 @@ class AbstractGCTestClass:
             if conftest.option.view:
                 t.view()
             cbuilder.compile()
-            mod = cbuilder.isolated_import()
             self._cleanups.append(cbuilder.cleanup) # schedule cleanup after test
-            return cbuilder.get_entry_point()
+            return cbuilder.get_entry_point(isolated=True)
         return compile()
 
 

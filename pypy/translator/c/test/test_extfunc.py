@@ -825,9 +825,9 @@ def test_listdir():
 
 if hasattr(posix, 'execv') and hasattr(posix, 'fork'):
     def test_execv():
+        progname = str(sys.executable)
         filename = str(udir.join('test_execv.txt'))
         def does_stuff():
-            progname = str(sys.executable)
             l = [progname, '-c', 'open(%r,"w").write("1")' % filename]
             pid = os.fork()
             if pid == 0:

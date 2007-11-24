@@ -680,13 +680,6 @@ class LLFrame(object):
         ptr = self.heap.coalloc(obj, coallocator, zero=zero)
         return ptr
 
-    # only after gc transform
-    def op_cpy_malloc(self, obj, cpytype): # xxx
-        return self.heap.malloc(obj, flavor='cpy', extra_args=(cpytype,))
-
-    def op_cpy_free(self, obj):
-        return self.heap.free(obj, flavor='cpy') # xxx ?
-
     def op_malloc_varsize(self, obj, flags, size):
         flavor = flags['flavor']
         zero = flags.get('zero', False)
@@ -785,12 +778,6 @@ class LLFrame(object):
 
     def op_gc_pop_alive_pyobj(self, pyobj):
         raise NotImplementedError("gc_pop_alive_pyobj")
-
-    def op_gc_protect(self, obj):
-        raise NotImplementedError("gc_protect")
-
-    def op_gc_unprotect(self, obj):
-        raise NotImplementedError("gc_unprotect")
 
     def op_gc_reload_possibly_moved(self, v_newaddr, v_ptr):
         assert v_newaddr.concretetype is llmemory.Address

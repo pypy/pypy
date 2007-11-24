@@ -151,26 +151,6 @@ def test_func_simple():
     db.complete()
     dump_on_stdout(db)
 
-def test_untyped_func():
-    def f(x):
-        return x+1
-    graph = TranslationContext().buildflowgraph(f)
-
-    F = FuncType([Ptr(PyObject)], Ptr(PyObject))
-    f = functionptr(F, "f", graph=graph)
-    db = LowLevelDatabase()
-    db.get(f)
-    db.complete()
-    dump_on_stdout(db)
-
-    S = GcStruct('testing', ('fptr', Ptr(F)))
-    s = malloc(S)
-    s.fptr = f
-    db = LowLevelDatabase()
-    db.get(s)
-    db.complete()
-    dump_on_stdout(db)
-
 # ____________________________________________________________
 
 def makegraph(func, argtypes):
@@ -195,15 +175,6 @@ def test_function_call():
     db.complete()
     dump_on_stdout(db)
 
-def test_func_as_pyobject():
-    def f(x):
-        return x+1
-    t, graph = makegraph(f, [int])
-
-    db = LowLevelDatabase(t)
-    db.get(pyobjectptr(f))
-    db.complete()
-    dump_on_stdout(db)
 
 def test_malloc():
     S = GcStruct('testing', ('x', Signed), ('y', Signed))
@@ -240,29 +211,11 @@ def test_multiple_malloc():
     db.complete()
     dump_on_stdout(db)
 
-def test_array():
-    A = GcArray(('obj', Ptr(PyObject)))
-    a = malloc(A, 10)
-    a[3].obj = pyobjectptr(5)
-    db = LowLevelDatabase()
-    db.get(a)
-    db.complete()
-    dump_on_stdout(db)
-
 def test_array_of_char():
     A = GcArray(Char)
     a = malloc(A, 11)
     for i, c in zip(range(11), 'hello world'):
         a[i] = c
-    db = LowLevelDatabase()
-    db.get(a)
-    db.complete()
-    dump_on_stdout(db)
-
-def test_array_of_pyobj():
-    A = GcArray(Ptr(PyObject))
-    a = malloc(A, 10)
-    a[3] = pyobjectptr(5)
     db = LowLevelDatabase()
     db.get(a)
     db.complete()

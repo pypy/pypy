@@ -82,8 +82,8 @@ class VirtualizableInstanceRepr(InstanceRepr):
         else:
             self.rbase.set_vable(llops, vinst, force_cast=True)
 
-    def new_instance(self, llops, classcallhop=None, v_cpytype=None):
-        vptr = InstanceRepr.new_instance(self, llops, classcallhop, v_cpytype)
+    def new_instance(self, llops, classcallhop=None):
+        vptr = InstanceRepr.new_instance(self, llops, classcallhop)
         self.set_vable(llops, vptr)
         return vptr
 
@@ -139,7 +139,7 @@ class VirtualizableInstanceRepr(InstanceRepr):
             return InstanceRepr.getfield(self, vinst, attr, llops, force_cast)
 
     def setfield(self, vinst, attr, vvalue, llops, force_cast=False,
-                 opname='setfield', flags={}):
+                 flags={}):
         """Write the given attribute (or __class__ for the type) of 'vinst'."""
         if (attr in self.my_redirected_fields
             and not flags.get('access_directly')):
@@ -149,5 +149,4 @@ class VirtualizableInstanceRepr(InstanceRepr):
             ll_setter = self.get_setter(mangled_name)                
             llops.gendirectcall(ll_setter, vinst, vvalue)
         else:
-            InstanceRepr.setfield(self, vinst, attr, vvalue, llops, force_cast,
-                                  opname)
+            InstanceRepr.setfield(self, vinst, attr, vvalue, llops, force_cast)

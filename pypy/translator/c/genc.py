@@ -1,10 +1,12 @@
 import autopath
 import py
 import sys
-from pypy.translator.c.node import PyObjectNode, PyObjHeadNode, FuncNode
+from pypy.translator.c.node import PyObjectNode, FuncNode
 from pypy.translator.c.database import LowLevelDatabase
 from pypy.translator.c.extfunc import pre_include_code_lines
+from pypy.translator.llsupport.wrapper import new_wrapper
 from pypy.translator.gensupp import uniquemodulename, NameManager
+from pypy.translator.tool.cbuild import so_ext
 from pypy.translator.tool.cbuild import compile_c_module
 from pypy.translator.tool.cbuild import build_executable, CCompiler, ProfOpt
 from pypy.translator.tool.cbuild import import_module_from_directory
@@ -20,13 +22,13 @@ from pypy.translator.c import gc
 class CBuilder(object):
     c_source_filename = None
     _compiled = False
-    symboltable = None
     modulename = None
     
     def __init__(self, translator, entrypoint, config, libraries=None,
                  gcpolicy=None):
         self.translator = translator
         self.entrypoint = entrypoint
+        self.entrypoint_name = self.entrypoint.func_name
         self.originalentrypoint = entrypoint
         self.gcpolicy = gcpolicy
         if gcpolicy is not None and gcpolicy.requires_stackless:
@@ -38,7 +40,7 @@ class CBuilder(object):
         self.libraries = libraries
         self.exports = {}
 
-    def build_database(self, exports=[], pyobj_options=None):
+    def build_database(self):
         translator = self.translator
 
         gcpolicyclass = self.get_gcpolicyclass()
@@ -60,10 +62,7 @@ class CBuilder(object):
                               stacklesstransformer=stacklesstransformer,
                               thread_enabled=self.config.translation.thread,
                               sandbox=self.config.translation.sandbox)
-        # pass extra options into pyobjmaker
-        if pyobj_options:
-            for key, value in pyobj_options.items():
-                setattr(db.pyobjmaker, key, value)
+        self.db = db
 
         # we need a concrete gcpolicy to do this
         self.libraries += db.gcpolicy.gc_libraries()
@@ -75,21 +74,8 @@ class CBuilder(object):
         # build entrypoint and eventually other things to expose
         pf = self.getentrypointptr()
         pfname = db.get(pf)
-        self.exports[self.entrypoint.func_name] = pf
-        for obj in exports:
-            if type(obj) is tuple:
-                objname, obj = obj
-            elif hasattr(obj, '__name__'):
-                objname = obj.__name__
-            else:
-                objname = None
-            po = self.getentrypointptr(obj)
-            poname = db.get(po)
-            objname = objname or poname
-            if objname in self.exports:
-                raise NameError, 'duplicate name in export: %s is %s and %s' % (
-                    objname, db.get(self.exports[objname]), poname)
-            self.exports[objname] = po
+        self.exports[self.entrypoint_name] = pf
+        self.c_entrypoint_name = pfname
         db.complete()
 
         # add library dependencies
@@ -142,14 +128,10 @@ class CBuilder(object):
             CBuilder.have___thread = check_under_under_thread()
         if not self.standalone:
             assert not self.config.translation.instrument
-            from pypy.translator.c.symboltable import SymbolTable
-            # XXX fix symboltable
-            #self.symboltable = SymbolTable()
             cfile, extra, include_dirs, library_dirs = \
                    gen_source(db, modulename, targetdir,
                               defines = defines,
                               exports = self.exports,
-                              symboltable = self.symboltable,
                               libraries = self.libraries,
                               extra_info = extra_info)
         else:
@@ -187,12 +169,13 @@ class CBuilder(object):
 
 class CExtModuleBuilder(CBuilder):
     standalone = False
-    c_ext_module = None 
+    _module = None
+    _wrapper = None
 
-    def getentrypointptr(self, obj=None):
-        if obj is None:
-            obj = self.entrypoint
-        return lltype.pyobjectptr(obj)
+    def getentrypointptr(self): # xxx
+        if self._wrapper is None:
+            self._wrapper = new_wrapper(self.entrypoint, self.translator)
+        return self._wrapper
 
     def compile(self):
         assert self.c_source_filename 
@@ -205,32 +188,71 @@ class CExtModuleBuilder(CBuilder):
                          libraries=self.libraries)
         self._compiled = True
 
-    def import_module(self):
-        assert self._compiled
-        assert not self.c_ext_module
-        mod = import_module_from_directory(self.c_source_filename.dirpath(),
-                                           self.c_source_filename.purebasename)
-        self.c_ext_module = mod
-        if self.symboltable:
-            self.symboltable.attach(mod)   # hopefully temporary hack
-        return mod
+    def _make_wrapper_module(self):
+        fname = 'wrap_' + self.c_source_filename.purebasename
+        modfile = self.c_source_filename.new(purebasename=fname, ext=".py")
 
-    def isolated_import(self):
-        assert self._compiled
-        assert not self.c_ext_module
-        self.c_ext_module = isolate.Isolate((str(self.c_source_filename.dirpath()),
-                                             self.c_source_filename.purebasename))
-        return self.c_ext_module
+        entrypoint_ptr = self.getentrypointptr()
+        wrapped_entrypoint_c_name = self.db.get(entrypoint_ptr)
         
-    def get_entry_point(self):
-        assert self.c_ext_module 
-        return getattr(self.c_ext_module, 
-                       self.entrypoint.func_name)
+        CODE = """
+import ctypes
 
+_lib = ctypes.PyDLL("%(so_name)s")
+
+_entry_point = getattr(_lib, "%(c_entrypoint_name)s")
+_entry_point.restype = ctypes.py_object
+_entry_point.argtypes = %(nargs)d*(ctypes.py_object,)
+
+def %(entrypoint_name)s(*args):
+    return _entry_point(*args)
+
+try:
+    _malloc_counters = _lib.malloc_counters
+except AttributeError:
+    pass
+else:
+    _malloc_counters.restype = ctypes.py_object
+    _malloc_counters.argtypes = 2*(ctypes.py_object,)
+
+    def malloc_counters():
+        return _malloc_counters(None, None)
+
+_rpython_startup = _lib.RPython_StartupCode
+_rpython_startup()
+""" % {'so_name': self.c_source_filename.new(ext=so_ext),
+       'entrypoint_name': self.entrypoint_name,
+       'c_entrypoint_name': wrapped_entrypoint_c_name,
+       'nargs': len(lltype.typeOf(entrypoint_ptr).TO.ARGS)}
+        modfile.write(CODE)
+        self._module_path = modfile
+       
+    def _import_module(self, isolated=False):
+        if self._module is not None:
+            return self._module
+        assert self._compiled
+        assert not self._module
+        self._make_wrapper_module()
+        if not isolated:
+            mod = self._module_path.pyimport()
+        else:
+            mod = isolate.Isolate((str(self._module_path.dirpath()),
+                                   self._module_path.purebasename))
+        self._module = mod
+        return mod
+        
+    def get_entry_point(self, isolated=False):
+        self._import_module(isolated=isolated)
+        return getattr(self._module, self.entrypoint_name)
+
+    def get_malloc_counters(self, isolated=False):
+        self._import_module(isolated=isolated)
+        return self._module.malloc_counters
+                       
     def cleanup(self):
-        assert self.c_ext_module
-        if isinstance(self.c_ext_module, isolate.Isolate):
-            isolate.close_isolate(self.c_ext_module)
+        #assert self._module
+        if isinstance(self._module, isolate.Isolate):
+            isolate.close_isolate(self._module)
 
 class CStandaloneBuilder(CBuilder):
     standalone = True
@@ -344,13 +366,6 @@ class CStandaloneBuilder(CBuilder):
         print >> f, MAKEFILE.strip()
         f.close()
 
-
-def translator2database(translator, entrypoint):
-    pf = lltype.pyobjectptr(entrypoint)
-    db = LowLevelDatabase(translator)
-    db.get(pf)
-    db.complete()
-    return db, pf
 
 # ____________________________________________________________
 
@@ -700,7 +715,7 @@ def gen_source_standalone(database, modulename, targetdir,
 
 
 def gen_source(database, modulename, targetdir, defines={}, exports={},
-               symboltable=None, libraries=[], extra_info={}):
+               libraries=[], extra_info={}):
     assert not database.standalone
     if isinstance(targetdir, str):
         targetdir = py.path.local(targetdir)
@@ -746,108 +761,7 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
     sg.set_strategy(targetdir)
     sg.gen_readable_parts_of_source(f)
 
-    #
-    # Debugging info
-    #
-    if symboltable:
-        print >> f
-        print >> f, '/*******************************************************/'
-        print >> f, '/***  Debugging info                                 ***/'
-        print >> f
-        print >> f, 'static int debuginfo_offsets[] = {'
-        for node in database.structdefnodes.values():
-            for expr in symboltable.generate_type_info(database, node):
-                print >> f, '\t%s,' % expr
-        print >> f, '\t0 };'
-        print >> f, 'static void *debuginfo_globals[] = {'
-        for node in database.globalcontainers():
-            if not isinstance(node, PyObjectNode):
-                result = symboltable.generate_global_info(database, node)
-                print >> f, '\t%s,' % (result,)
-        print >> f, '\tNULL };'
-        print >> f, '#include "src/debuginfo.h"'
-
-    #
-    # PyObject support (strange) code
-    #
-    pyobjmaker = database.pyobjmaker
-    print >> f
-    print >> f, '/***********************************************************/'
-    print >> f, '/***  Table of global PyObjects                          ***/'
-    print >> f
-    print >> f, 'static globalobjectdef_t globalobjectdefs[] = {'
-    for node in database.containerlist:
-        if isinstance(node, (PyObjectNode, PyObjHeadNode)):
-            for target in node.where_to_copy_me:
-                print >> f, '\t{%s, "%s"},' % (target, node.exported_name)
-    print >> f, '\t{ NULL, NULL }\t/* Sentinel */'
-    print >> f, '};'
-    print >> f
-    print >> f, 'static cpyobjheaddef_t cpyobjheaddefs[] = {'
-    for node in database.containerlist:
-        if isinstance(node, PyObjHeadNode):
-            print >> f, '\t{"%s", %s, %s},' % (node.exported_name,
-                                               node.ptrname,
-                                               node.get_setupfn_name())
-    print >> f, '\t{ NULL, NULL, NULL }\t/* Sentinel */'
-    print >> f, '};'
-    print >> f
-    print >> f, '/***********************************************************/'
-    print >> f, '/***  Table of functions                                 ***/'
-    print >> f
-    print >> f, 'static globalfunctiondef_t globalfunctiondefs[] = {'
-    wrappers = pyobjmaker.wrappers.items()
-    wrappers.sort()
-    for globalobject_name, (base_name, wrapper_name, func_doc) in wrappers:
-        print >> f, ('\t{&%s, "%s", {"%s", (PyCFunction)%s, '
-                     'METH_VARARGS|METH_KEYWORDS, %s}},' % (
-            globalobject_name,
-            globalobject_name,
-            base_name,
-            wrapper_name,
-            func_doc and c_string_constant(func_doc) or 'NULL'))
-    print >> f, '\t{ NULL }\t/* Sentinel */'
-    print >> f, '};'
-    print >> f, 'static globalfunctiondef_t *globalfunctiondefsptr = &globalfunctiondefs[0];'
-    print >> f
-    print >> f, '/***********************************************************/'
-    print >> f, '/***  Frozen Python bytecode: the initialization code    ***/'
-    print >> f
-    print >> f, 'static char *frozen_initcode[] = {"\\'
-    bytecode, originalsource = database.pyobjmaker.getfrozenbytecode()
-    g = targetdir.join('frozen.py').open('w')
-    g.write(originalsource)
-    g.close()
-    def char_repr(c):
-        if c in '\\"': return '\\' + c
-        if ' ' <= c < '\x7F': return c
-        return '\\%03o' % ord(c)
-    for i in range(0, len(bytecode), 32):
-        print >> f, ''.join([char_repr(c) for c in bytecode[i:i+32]])+'\\'
-        if (i+32) % 1024 == 0:
-            print >> f, '", "\\'
-    print >> f, '"};'
-    print >> f, "#define FROZEN_INITCODE_SIZE %d" % len(bytecode)
-    print >> f
-
-    #
-    # Module initialization function
-    #
-    print >> f, '/***********************************************************/'
-    print >> f, '/***  Module initialization function                     ***/'
-    print >> f
     gen_startupcode(f, database)
-    print >> f
-    print >> f, 'MODULE_INITFUNC(%s)' % modulename
-    print >> f, '{'
-    print >> f, '\tSETUP_MODULE(%s);' % modulename
-    for publicname, pyobjptr in exports.items():
-        # some fishing needed to find the name of the obj
-        pyobjnode = database.containernodes[pyobjptr._obj]
-        print >> f, '\tPyModule_AddObject(m, "%s", %s);' % (publicname,
-                                                            pyobjnode.name)
-    print >> f, '\tcall_postsetup(m);'
-    print >> f, '}'
     f.close()
 
     #

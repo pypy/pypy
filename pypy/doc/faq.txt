@@ -126,16 +126,7 @@ PyPy extension modules are written in the form of `mixed modules`_, so
 called because they can contain a mixture of compiled and interpreted
 Python code.  At the moment they all need to be translated together with the rest of PyPy.
 
-We have a proof concept of what we call the `extension compiler`_ and
-our support for a static variant of the ctypes interface (`rctypes`_) to
-help with their development. At the moment both have quite some rough
-edges.  This kind of module can even be cross-compiled to regular CPython
-extension modules, although this doesn't deliver completely satisfying
-results so far.  This area is going to improve over time.
-
 .. _`mixed modules`: coding-guide.html#mixed-module-mechanism
-.. _`extension compiler`: extcompiler.html
-.. _`rctypes`: rctypes.html
 
 .. _`slower than CPython`:
 .. _`how fast is pypy`:

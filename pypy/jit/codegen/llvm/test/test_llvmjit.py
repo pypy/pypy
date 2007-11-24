@@ -4,6 +4,8 @@ from pypy.translator.c.test.test_genc import compile
 from pypy.jit.codegen.llvm import llvmjit
 from pypy.jit.codegen.llvm.compatibility import define, globalprefix, icmp, i1, i32
 
+py.test.skip("doesn't work right now since it is using rctypes")
+
 try:
     from pypy.jit.codegen.llvm import llvmjit
 except OSError:

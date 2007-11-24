@@ -218,17 +218,6 @@
 #define OP_NEWDICT(args,r)     if (!(r=PyDict_Pack args)) CFAIL()
 #define OP_NEWTUPLE(args,r)    if (!(r=PyTuple_Pack args)) CFAIL()
 
-/*** argument parsing ***/
-
-#define OP_DECODE_ARG(fname, pos, name, vargs, vkwds, r)	\
-	if (!(r=decode_arg(fname, pos, name, vargs, vkwds, NULL))) CFAIL()
-#define OP_DECODE_ARG_DEF(fname, pos, name, vargs, vkwds, def, r)	\
-	if (!(r=decode_arg(fname, pos, name, vargs, vkwds, def))) CFAIL()
-#define OP_CHECK_NO_MORE_ARG(fname, n, vargs, r)	\
-	if ((r=check_no_more_arg(fname, n, vargs)) < 0) CFAIL()
-#define OP_CHECK_SELF_NONZERO(fname, self, r)	\
-	if ((r=check_self_nonzero(fname, self)) < 0) CFAIL()
-
 unsigned long long RPyLong_AsUnsignedLongLong(PyObject *v);
 long long RPyLong_AsLongLong(PyObject *v);
 

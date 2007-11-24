@@ -56,14 +56,6 @@ class BoehmGCTransformer(GCTransformer):
     def pop_alive_nopyobj(self, var, llops):
         pass
 
-    def gct_gc_protect(self, hop):
-        """ for boehm it is enough to do nothing"""
-        pass
-
-    def gct_gc_unprotect(self, hop):
-        """ for boehm it is enough to do nothing"""
-        pass
-
     def gct_fv_gc_malloc(self, hop, flags, TYPE, c_size):
         # XXX same behavior for zero=True: in theory that's wrong
         if TYPE._is_atomic():

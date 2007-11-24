@@ -1,6 +1,7 @@
 import os, random, sys
 import pypy.tool.udir
 import py
+py.test.skip("XXX convert this to a normal applevel test!")
 from pypy.interpreter.mixedmodule import testmodule
 
 udir = pypy.tool.udir.udir.ensure('test_file_extra', dir=1)
@@ -206,7 +207,7 @@ class BaseROTests:
 #
 #  Basic 'rb' mode
 
-class TestFile(BaseROTests):
+class AppTestFile(BaseROTests):
     expected_filename  = str(udir.join('sample'))
     expected_mode      = 'rb'
     extra_args = ()

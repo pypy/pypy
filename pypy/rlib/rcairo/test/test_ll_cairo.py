@@ -9,6 +9,9 @@ from pypy.tool.udir import udir
 
 import py.test
 import distutils.errors
+
+py.test.skip("this is using rctypes, so not working currently")
+
 try:
     from pypy.rlib.rcairo._cairo import CAIRO_FORMAT_ARGB32
     from pypy.rlib.rcairo.ll_cairo import *

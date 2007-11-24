@@ -105,7 +105,7 @@ void RPyConvertExceptionToCPython(void)
 		v = NULL;
 	}
 	else {
-		pycls = RPythonError;
+		pycls = PyExc_Exception; /* XXX RPythonError */
 		v = PyString_FromString(clsname);
 	}
 	Py_INCREF(pycls);

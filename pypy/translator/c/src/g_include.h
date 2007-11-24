@@ -24,7 +24,6 @@
 #endif
 
 #ifndef PYPY_STANDALONE
-#  include "src/module.h"
 #  include "src/pyobj.h"
 #endif
 

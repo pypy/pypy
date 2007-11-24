@@ -35,7 +35,6 @@ class CompilationTestCase:
         builder = genc.CExtModuleBuilder(t, func, config=t.config)
         builder.generate_source()
         builder.compile()
-        builder.import_module()
         return builder.get_entry_point()
 
     def getcompiled(self, func, argtypes=None, view=False):
@@ -61,7 +60,7 @@ class TestTypedTestCase(CompilationTestCase):
 
     def test_inheritance2(self):
         inheritance2 = self.getcompiled(snippet.inheritance2)
-        assert inheritance2() == ((-12, -12), (3, "world"))
+        assert inheritance2() == ((-12, -12.0), (3, 12.3))
 
     def test_factorial2(self):
         factorial2 = self.getcompiled(snippet.factorial2, [int])
