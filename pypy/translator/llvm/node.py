@@ -34,7 +34,7 @@ class Node(object):
 
     def external_c_source(self):
         " return a list of unique includes and sources in C "
-        return [], []
+        return [], [], []
     
     def writesetupcode(self, codewriter):
         " pre entry-point setup "

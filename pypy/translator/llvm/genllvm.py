@@ -185,11 +185,14 @@ class GenLLVM(object):
         return c.value._obj 
 
     def generate_ll_externs(self, codewriter):
+        c_include_dirs = {}
         c_includes = {}
         c_sources = {}
 
         for node in self.db.getnodes():
-            includes, sources = node.external_c_source()            
+            include_dirs, includes, sources = node.external_c_source()            
+            for incdirin in include_dirs:
+                c_include_dirs[incdir] = True
             for include in includes:
                 c_includes[include] = True
             for source in sources:
@@ -197,6 +200,7 @@ class GenLLVM(object):
 
         self.llcode = generate_llfile(self.db,
                                       self.entrynode,
+                                      c_include_dirs,
                                       c_includes,
                                       c_sources,
                                       self.standalone, 

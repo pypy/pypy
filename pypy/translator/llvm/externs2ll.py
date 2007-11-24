@@ -16,7 +16,7 @@ support_functions = [
 def get_module_file(name):
     return os.path.join(get_llvm_cpath(), name)
 
-def get_ll(ccode, function_names, default_cconv):
+def get_ll(ccode, function_names, default_cconv, c_include_dirs):
     function_names += support_functions
     filename = str(udir.join("ccode.c"))
     f = open(filename, "w")
@@ -24,17 +24,14 @@ def get_ll(ccode, function_names, default_cconv):
     f.close()
 
     plain = filename[:-2]
-    includes = get_incdirs()
-
+    includes = get_incdirs(c_include_dirs)
     if llvm_gcc_version() < 4.0:
         emit_llvm = ''
     else:
         emit_llvm = '-emit-llvm -O0'
         
-    # XXX localize this
-    include_path = '-I/sw/include'
-    cmd = "llvm-gcc %s %s %s -S %s.c -o %s.ll 2>&1" % (
-        include_path, includes, emit_llvm, plain, plain)
+    cmd = "llvm-gcc %s %s -S %s.c -o %s.ll 2>&1" % (
+        includes, emit_llvm, plain, plain)
 
     if os.system(cmd) != 0:
         raise Exception("Failed to run '%s'" % cmd)
@@ -106,10 +103,14 @@ def get_c_cpath():
 def get_llvm_cpath():
     return os.path.join(os.path.dirname(__file__), "module")
 
-def get_incdirs():
+def get_incdirs(c_include_dirs):
+
+    c_include_dirs
 
     import distutils.sysconfig
-    includes = (distutils.sysconfig.EXEC_PREFIX + "/include", 
+
+    includes = tuple(c_include_dirs) + ("/sw/include",
+                distutils.sysconfig.EXEC_PREFIX + "/include", 
                 distutils.sysconfig.EXEC_PREFIX + "/include/gc",
                 distutils.sysconfig.get_python_inc(),
                 get_c_cpath(),
@@ -120,7 +121,7 @@ def get_incdirs():
         includestr += "-I %s " % ii
     return includestr
 
-def generate_llfile(db, entrynode, c_includes, c_sources, standalone, default_cconv):
+def generate_llfile(db, entrynode, c_include_dirs, c_includes, c_sources, standalone, default_cconv):
     ccode = []
     function_names = []
         
@@ -149,5 +150,5 @@ def generate_llfile(db, entrynode, c_includes, c_sources, standalone, default_cc
 
     # append our source file
     ccode.append(open(get_module_file('genexterns.c')).read())
-    llcode = get_ll("".join(ccode), function_names, default_cconv)
+    llcode = get_ll("".join(ccode), function_names, default_cconv, c_include_dirs)
     return llcode

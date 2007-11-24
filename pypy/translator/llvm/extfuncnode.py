@@ -10,8 +10,12 @@ class ExternalFuncNode(FuncNode):
 
     def external_c_source(self):
         # return a list of unique includes and sources in C
+        c_include_dirs = []
         c_includes = []
         c_sources = []
+
+        if hasattr(self.value, 'include_dirs'):
+            c_include_dirs = list(self.value.include_dirs)
 
         if hasattr(self.value, 'includes'):
             c_includes = list(self.value.includes)
@@ -19,7 +23,7 @@ class ExternalFuncNode(FuncNode):
         if hasattr(self.value, 'sources'):
             c_sources = list(self.value.sources)
 
-        return c_includes, c_sources
+        return c_include_dirs, c_includes, c_sources
 
     def writeglobalconstants(self, codewriter):
         pass
