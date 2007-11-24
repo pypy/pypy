@@ -191,7 +191,7 @@ class GenLLVM(object):
 
         for node in self.db.getnodes():
             include_dirs, includes, sources = node.external_c_source()            
-            for incdirin in include_dirs:
+            for incdir in include_dirs:
                 c_include_dirs[incdir] = True
             for include in includes:
                 c_includes[include] = True
