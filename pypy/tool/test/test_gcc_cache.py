@@ -2,6 +2,7 @@
 from pypy.tool.gcc_cache import *
 from pypy.tool.udir import udir
 import md5
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 def test_gcc_exec():
     f = udir.join("x.c")
@@ -18,8 +19,8 @@ def test_gcc_exec():
         cache_dir.join(md5.md5(f.read()).hexdigest()).remove()
     except:
         pass
-    assert build_executable_cache([f]) == "3\n"
-    assert build_executable_cache([f], compiler_exe="xxx") == "3\n"
+    assert build_executable_cache([f], ExternalCompilationInfo()) == "3\n"
+    assert build_executable_cache([f], ExternalCompilationInfo(), compiler_exe="xxx") == "3\n"
 
 def test_gcc_ask():
     f = udir.join("y.c")
@@ -33,5 +34,5 @@ def test_gcc_ask():
         cache_dir.join(md5.md5(f.read()).hexdigest()).remove()
     except:
         pass
-    assert try_compile_cache([f])
-    assert try_compile_cache([f], compiler_exe="xxx")
+    assert try_compile_cache([f], ExternalCompilationInfo())
+    assert try_compile_cache([f], ExternalCompilationInfo(), compiler_exe="xxx")

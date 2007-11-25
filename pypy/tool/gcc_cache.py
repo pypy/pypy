@@ -1,9 +1,10 @@
 
 from pypy.tool.autopath import pypydir
-from pypy.translator.tool.cbuild import build_executable
+from pypy.translator.tool.cbuild import build_executable, ExternalCompilationInfo
 import md5
 import py
 import distutils
+import distutils.errors
 
 py.path.local(pypydir).join('_cache').ensure(dir=1)
 cache_dir = py.path.local(pypydir).join('_cache', 'gcc')
