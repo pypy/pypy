@@ -1,8 +1,13 @@
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.tool import rffi_platform as platform
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
+
+compilation_info = ExternalCompilationInfo(
+    includes = ("sys/types.h", "sys/mman.h")
+)
 
 class CConfig:
-    _includes_ = ("sys/types.h", "sys/mman.h")
+    _compilation_info_ = compilation_info
     size_t = platform.SimpleType("size_t", rffi.ULONG)
     off_t = platform.SimpleType("off_t", rffi.LONG)
 
@@ -26,11 +31,11 @@ PTR = rffi.CCHARP
 mmap_ = rffi.llexternal('mmap',
                         [PTR, size_t, rffi.INT, rffi.INT, rffi.INT, off_t],
                         PTR,
-                        includes = ["sys/mman.h"])
+                        compilation_info=compilation_info)
 munmap_ = rffi.llexternal('munmap',
                           [PTR, size_t],
                           rffi.INT,
-                          includes = ["sys/mman.h"])
+                          compilation_info=compilation_info)
 
 class Hint:
     pos = -0x4fff0000   # for reproducible results
