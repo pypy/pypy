@@ -18,7 +18,7 @@ STRING = P.tokens['STRING']
 
 def parse_source(source):
     """returns list of parsed tokens"""
-    lexer = Source( P, source.splitlines(True))
+    lexer = Source( P, source.splitlines(True), {})
     tokens = []
     last_token = Token( P, NULLTOKEN, None)
     while last_token.codename != ENDMARKER:

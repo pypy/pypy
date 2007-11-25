@@ -4,26 +4,17 @@
 helper functions are provided that use the grammar to parse
 using file_input, single_input and eval_input targets
 """
-import sys
-import os
-from pypy.interpreter.error import OperationError, debug_print
 from pypy.interpreter import gateway
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.interpreter.pyparser.pythonlexer import Source, match_encoding_declaration
 from pypy.interpreter.astcompiler.consts import CO_FUTURE_WITH_STATEMENT
-import pypy.interpreter.pyparser.pysymbol as pysymbol
 import pypy.interpreter.pyparser.pytoken as pytoken
 import pypy.interpreter.pyparser.ebnfparse as ebnfparse
 from pypy.interpreter.pyparser.ebnflexer import GrammarSource
 from pypy.interpreter.pyparser.ebnfgrammar import GRAMMAR_GRAMMAR
 import pypy.interpreter.pyparser.grammar as grammar
-from pypy.interpreter.pyparser.pythonutil import build_parser_for_version, build_parser
-
-# try:
+from pypy.interpreter.pyparser.pythonutil import build_parser_for_version
 from pypy.interpreter.pyparser import symbol
-# except ImportError:
-#     # for standalone testing
-#     import symbol
 
 from codeop import PyCF_DONT_IMPLY_DEDENT
 
@@ -123,12 +114,16 @@ class PythonParser(grammar.Parser):
 
 
     def parse_lines(self, lines, goal, builder, flags=0):
-        # builder.keywords = self.keywords.copy()
-        # if flags & CO_FUTURE_WITH_STATEMENT:
-        #     builder.enable_with()
         goalnumber = self.symbols[goal]
         target = self.root_rules[goalnumber]
-        src = Source(self, lines, flags)
+        keywords = {} # dict.fromkeys(self.keywords)
+        disable_with = not (flags & CO_FUTURE_WITH_STATEMENT)
+        for keyword in self.keywords:
+            if disable_with and keyword in ('with', 'as'):
+                continue
+            keywords[keyword] = None
+        src = Source(self, lines, keywords, flags)
+
         if not target.match(src, builder):
             line, lineno = src.debug()
             # XXX needs better error messages
@@ -190,6 +185,7 @@ def translation_target(grammardef):
 ##     grammar.build_first_sets(ebnfbuilder.all_rules)
 ##     return space.wrap( ebnfbuilder.root_rules )
 
+# XXX Unused?
 def grammar_rules( space ):
     w_rules = space.newdict()
     parser = make_pyparser(space.config.objspace.pyversion)

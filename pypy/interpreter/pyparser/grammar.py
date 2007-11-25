@@ -656,6 +656,7 @@ class KleeneStar(GrammarElement):
 
 class Token(GrammarElement):
     """Represents a Token in a grammar rule (a lexer token)"""
+    isKeyword = True
     def __init__(self, parser, codename, value=None):
         GrammarElement.__init__(self, parser, codename)
         self.value = value
@@ -680,7 +681,7 @@ class Token(GrammarElement):
 
         ctx = source.context()
         tk = source.next()
-        if tk.codename == self.codename:
+        if tk.codename == self.codename and tk.isKeyword:
             if self.value is None:
                 ret = builder.token( tk.codename, tk.value, source )
                 return ret
@@ -711,12 +712,7 @@ class Token(GrammarElement):
             raise RuntimeError("Unexpected token type")
         if other is self.parser.EmptyToken:
             return False
-        # XXX (adim): this is trunk's keyword management
-        # if (self.value is not None and builder.keywords is not None
-        #     and self.value not in builder.keywords):
-        #     return False
-        res = other.codename == self.codename and self.value in [None, other.value]
-        #print "matching", self, other, res
+        res = other.isKeyword and other.codename == self.codename and self.value in [None, other.value]
         return res
 
     def __eq__(self, other):

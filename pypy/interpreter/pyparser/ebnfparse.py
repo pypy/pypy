@@ -40,9 +40,8 @@ TERMINALS = ['NAME', 'NUMBER', 'STRING', 'NEWLINE', 'ENDMARKER',
 
 class NameToken(Token):
     """A token that is not a keyword"""
-    def __init__(self, parser, keywords=None):
+    def __init__(self, parser):
         Token.__init__(self, parser, parser.tokens['NAME'])
-        self.keywords = keywords
 
     def match(self, source, builder, level=0):
         """Matches a token.
@@ -60,7 +59,7 @@ class NameToken(Token):
         if tk.codename == self.codename:
             # XXX (adim): this is trunk's keyword management
             # if tk.value not in builder.keywords:
-            if tk.value not in self.keywords:
+            if not tk.isKeyword:
                 ret = builder.token( tk.codename, tk.value, source )
                 return ret
         source.restore( ctx )
@@ -78,7 +77,7 @@ class NameToken(Token):
             return False
         # XXX (adim): this is trunk's keyword management
         # if other.value in builder.keywords:
-        if other.value in self.keywords:
+        if other.isKeyword:
             return False
         return True
 
@@ -107,7 +106,7 @@ class EBNFBuilder(AbstractBuilder):
         self.keywords = []
         NAME = dest_parser.add_token('NAME')
         # NAME = dest_parser.tokens['NAME']
-        self.tokens[NAME] = NameToken(dest_parser, keywords=self.keywords)
+        self.tokens[NAME] = NameToken(dest_parser)
 
     def context(self):
         return EBNFBuilderContext(len(self.rule_stack), self.seqcounts, self.altcounts)

@@ -1,5 +1,5 @@
-from pypy.interpreter.pyparser.grammar import Alternative, Sequence, KleeneStar, \
-     Token, Parser
+from pypy.interpreter.pyparser.grammar import Alternative, \
+     Sequence, KleeneStar, Token, Parser
 
 class TestLookAheadBasics:
 

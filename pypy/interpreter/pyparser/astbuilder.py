@@ -872,50 +872,7 @@ def build_import_from(builder, nb):
             names.append((name, as_name))
             if index < l: # case ','
                 index += 1
-##     if from_name == '__future__':
-##         for name, asname in names:
-##             if name == 'with_statement':
-##                 # found from __future__ import with_statement
-##                 if not builder.with_enabled:
-##                     builder.enable_with()
-##                     #raise pythonparse.AlternateGrammarException()
     builder.push(ast.From(from_name, names, atoms[0].lineno))
-
-
-def build_future_import_feature(builder, nb):
-    """
-    future_import_feature: NAME [('as'|NAME) NAME]
-
-    Enables python language future imports. Called once per feature imported,
-    no matter how you got to this one particular feature.
-    """
-
-    atoms = peek_atoms(builder, nb)
-
-    feature_name = atoms[0].get_value()
-    assert type(feature_name) is str
-    space = builder.space
-    feature_code = space.unwrap(space.appexec([space.wrap(feature_name)],
-        """(feature):
-            import __future__ as f
-            feature = getattr(f, feature, None)
-            return feature and feature.compiler_flag or 0
-        """))
-
-    # We will call a method on the parser (the method exists only in unit
-    # tests).
-    if feature_code == consts.CO_FUTURE_WITH_STATEMENT:
-        rules = """
-            compound_stmt: (if_stmt | while_stmt | for_stmt | try_stmt |
-                            funcdef | classdef | with_stmt)
-            with_stmt: 'with' test [ 'as' expr ] ':' suite
-            """
-        builder.insert_grammar_rule(rules, {
-            'with_stmt': build_with_stmt})
-
-    # We need to keep the rule on the stack so we can share atoms
-    # with a later rule
-    return True
 
 
 def build_yield_stmt(builder, nb):
@@ -1089,6 +1046,7 @@ ASTRULES_Template = {
     'exprlist' : build_exprlist,
     'decorator' : build_decorator,
     'eval_input' : build_eval_input,
+    'with_stmt' : build_with_stmt,
     }
 
 
@@ -1099,28 +1057,15 @@ class AstBuilderContext(AbstractContext):
         self.d = len(rule_stack)
 
 class AstBuilder(BaseGrammarBuilder):
-    """A builder that directly produce the AST"""
+    """A builder that directly produces the AST"""
 
     def __init__(self, parser, grammar_version, debug=0, space=None):
         BaseGrammarBuilder.__init__(self, parser, debug)
         self.rule_stack = []
         self.space = space
         self.source_encoding = None
-##        self.with_enabled = False
         self.build_rules = ASTRULES_Template
         self.user_build_rules = {}
-        if grammar_version >= "2.5":
-            self.build_rules.update({
-                'future_import_feature': build_future_import_feature,
-                'import_from_future': build_import_from,
-                })
-
-##     def enable_with(self):
-##         if self.with_enabled:
-##             return
-##         self.with_enabled = True
-##         # XXX
-##         # self.keywords.update({'with':None, 'as': None})
 
     def context(self):
         return AstBuilderContext(self.rule_stack)
@@ -1156,7 +1101,9 @@ class AstBuilder(BaseGrammarBuilder):
                 self.push(astnode)
             else:
                 builder_func = self.build_rules.get(rulename, None)
-                if not builder_func or builder_func(self, 1):
+                if builder_func:
+                   builder_func(self, 1)
+                else:
                     self.push_rule(rule.codename, 1, source)
         else:
             self.push_rule(rule.codename, 1, source)
@@ -1176,7 +1123,9 @@ class AstBuilder(BaseGrammarBuilder):
                 self.push(astnode)
             else:
                 builder_func = self.build_rules.get(rulename, None)
-                if not builder_func or builder_func(self, elts_number):
+                if builder_func:
+                    builder_func(self, elts_number)
+                else:
                     self.push_rule(rule.codename, elts_number, source)
         else:
             self.push_rule(rule.codename, elts_number, source)
@@ -1226,14 +1175,6 @@ class AstBuilder(BaseGrammarBuilder):
             return self.space.w_None
         else:
             return None
-
-    def insert_grammar_rule(self, rule, buildfuncs):
-        """Inserts new grammar rules for the builder
-        This allows to change the rules during the parsing
-        """
-        self.parser.insert_rule(rule)
-        self.build_rules.update(buildfuncs)
-
 
 def show_stack(before, after):
     """debugging helper function"""
