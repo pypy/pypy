@@ -9,20 +9,24 @@ from pypy.rpython.extfunc import register_external
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.module._curses import interp_curses
 from pypy.rpython.lltypesystem import llmemory
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
-# waaa...
-includes = ['curses.h', 'term.h']
-libs = ['curses']
+eci = ExternalCompilationInfo(
+    includes = ['curses.h', 'term.h'],
+    libraries = ['curses'],
+)
+
+
 
 INT = rffi.INT
 INTP = lltype.Ptr(lltype.Array(INT, hints={'nolength':True}))
 c_setupterm = rffi.llexternal('setupterm', [rffi.CCHARP, INT, INTP], INT,
-                              includes=includes, libraries=libs)
+                              compilation_info=eci)
 c_tigetstr = rffi.llexternal('tigetstr', [rffi.CCHARP], rffi.CCHARP,
-                             includes=includes, libraries=libs)
+                             compilation_info=eci)
 c_tparm = rffi.llexternal('tparm', [rffi.CCHARP, INT, INT, INT, INT, INT,
                                     INT, INT, INT, INT, INT], rffi.CCHARP,
-                          includes=includes, libraries=libs)
+                          compilation_info=eci)
 
 ERR = rffi.CConstant('ERR', INT)
 OK = rffi.CConstant('OK', INT)

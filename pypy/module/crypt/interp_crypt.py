@@ -1,10 +1,11 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
-
+eci = ExternalCompilationInfo(libraries=['crypt'])
 c_crypt = rffi.llexternal('crypt', [rffi.CCHARP, rffi.CCHARP], rffi.CCHARP,
-                          libraries=["crypt"], threadsafe=False)
+                          compilation_info=eci, threadsafe=False)
 
 def crypt(space, word, salt):
     """word will usually be a user's password. salt is a 2-character string

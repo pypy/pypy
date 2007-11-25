@@ -2,13 +2,15 @@ from pypy.rpython.tool import rffi_platform as platform
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace, interp2app
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
-includes = ["readline/readline.h", "readline/history.h"]
-libs = ['readline']
+eci = ExternalCompilationInfo(
+    includes = ["readline/readline.h", "readline/history.h"],
+    libraries = ['readline']
+)
 
 def external(name, args, result):
-    return rffi.llexternal(name, args, result, includes=includes,
-                           libraries=libs)
+    return rffi.llexternal(name, args, result, compilation_info=eci)
 
 # get a binding to  c library functions and define their args and return types
 # char *readline(char *)
