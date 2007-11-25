@@ -204,7 +204,7 @@ _entry_point = getattr(_lib, "%(c_entrypoint_name)s")
 _entry_point.restype = ctypes.py_object
 _entry_point.argtypes = %(nargs)d*(ctypes.py_object,)
 
-def %(entrypoint_name)s(*args):
+def entrypoint(*args):
     return _entry_point(*args)
 
 try:
@@ -221,7 +221,6 @@ else:
 _rpython_startup = _lib.RPython_StartupCode
 _rpython_startup()
 """ % {'so_name': self.c_source_filename.new(ext=so_ext),
-       'entrypoint_name': self.entrypoint_name,
        'c_entrypoint_name': wrapped_entrypoint_c_name,
        'nargs': len(lltype.typeOf(entrypoint_ptr).TO.ARGS)}
         modfile.write(CODE)
@@ -243,7 +242,7 @@ _rpython_startup()
         
     def get_entry_point(self, isolated=False):
         self._import_module(isolated=isolated)
-        return getattr(self._module, self.entrypoint_name)
+        return getattr(self._module, "entrypoint")
 
     def get_malloc_counters(self, isolated=False):
         self._import_module(isolated=isolated)
