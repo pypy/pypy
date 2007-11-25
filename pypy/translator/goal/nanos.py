@@ -29,10 +29,12 @@ from pypy.interpreter.gateway import applevel, ObjSpace, W_Root, interp2app
 import os
 
 app_os_path = applevel(r'''
+    # NOT_RPYTHON
     from os.path import dirname, join, abspath, isfile, islink
 ''', filename=__file__)
 
 app_os = applevel(r'''
+    # NOT_RPYTHON
     from os import sep, pathsep
     try:
         from os import readlink
