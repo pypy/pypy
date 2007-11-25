@@ -413,9 +413,8 @@ class FuncType(ContainerType):
     def __init__(self, args, result):
         for arg in args:
             assert isinstance(arg, LowLevelType)
-            # -- disable the following check for the benefits of rffi --
-            if isinstance(arg, ContainerType):
-                raise TypeError, "function arguments can only be primitives or pointers"
+            # There are external C functions eating raw structures, not
+            # pointers, don't check args not being container types
         self.ARGS = tuple(args)
         assert isinstance(result, LowLevelType)
         if isinstance(result, ContainerType):
