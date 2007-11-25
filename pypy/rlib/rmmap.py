@@ -2,6 +2,7 @@
 from pypy.rpython.tool import rffi_platform
 from pypy.rpython.lltypesystem import rffi, lltype, llmemory
 from pypy.rlib import rposix
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 import sys
 import os
@@ -21,11 +22,17 @@ class RTypeError(Exception):
     def __init__(self, message):
         self.message = message    
 
+includes = ["sys/types.h"]
+if _POSIX:
+    includes += ['unistd.h', 'sys/mman.h']
+elif _MS_WINDOWS:
+    includes.append("windows.h")
+
 class CConfig:
-    _includes_ = ["sys/types.h"]
-    if _POSIX:
-        _includes_.append('unistd.h')
-    _header_ = '#define _GNU_SOURCE\n'
+    _compilation_info_ = ExternalCompilationInfo(
+        includes=includes,
+        pre_include_lines=['#define _GNU_SOURCE']
+    )
     size_t = rffi_platform.SimpleType("size_t", rffi.LONG)
     off_t = rffi_platform.SimpleType("off_t", rffi.LONG)
     if _MS_WINDOWS:
@@ -47,7 +54,6 @@ class CConfig:
 
 constants = {}
 if _POSIX:
-    CConfig._includes_ += ("sys/mman.h",)
     # constants, look in sys/mman.h and platform docs for the meaning
     # some constants are linux only so they will be correctly exposed outside 
     # depending on the OS
@@ -68,7 +74,6 @@ if _POSIX:
     # a dirty hack, this is probably a macro
 
 elif _MS_WINDOWS:
-    CConfig._includes_ += ("windows.h",)
     constant_names = ['PAGE_READONLY', 'PAGE_READWRITE', 'PAGE_WRITECOPY',
                       'FILE_MAP_READ', 'FILE_MAP_WRITE', 'FILE_MAP_COPY',
                       'DUPLICATE_SAME_ACCESS']
@@ -91,10 +96,11 @@ locals().update(constants)
 _ACCESS_DEFAULT, ACCESS_READ, ACCESS_WRITE, ACCESS_COPY = range(4)
 
 def external(name, args, result):
-    return rffi.llexternal(name, args, result, includes=CConfig._includes_)
+    return rffi.llexternal(name, args, result,
+                           compilation_info=CConfig._compilation_info_)
 
 def winexternal(name, args, result):
-    return rffi.llexternal(name, args, result, includes=CConfig._includes_, calling_conv='win')
+    return rffi.llexternal(name, args, result, compilation_info=CConfig._compilation_info_, calling_conv='win')
 
 PTR = rffi.CCHARP
 
