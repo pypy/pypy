@@ -100,6 +100,16 @@ class MovingGCBase(GCBase):
     moving_gc = True
 
     def __init__(self):
+        # WaRnInG!  Putting GC objects as fields of the GC itself is
+        # basically *not* working in general!  When running tests with
+        # the gcwrapper, there is no way they can be returned from
+        # get_roots_from_llinterp().  When the whole GC goes through the
+        # gctransformer, though, it works if the fields are read-only
+        # (and thus only ever reference a prebuilt list or dict).  These
+        # prebuilt lists or dicts themselves can be mutated and point to
+        # more non-prebuild GC objects; this is fine because the
+        # internal GC ptr in the prebuilt list or dict is found by
+        # gctypelayout and listed in addresses_of_static_ptrs.
         self.wr_to_objects_with_id = []
         self.object_id_dict = {}
         self.object_id_dict_ends_at = 0

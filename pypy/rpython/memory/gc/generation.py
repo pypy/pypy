@@ -223,6 +223,10 @@ class GenerationGC(SemiSpaceGC):
         self.old_objects_pointing_to_young = NULL
 
     def collect_roots_in_nursery(self):
+        # we don't need to trace prebuilt GcStructs during a minor collect:
+        # if a prebuilt GcStruct contains a pointer to a young object,
+        # then the write_barrier must have ensured that the prebuilt
+        # GcStruct is in the list self.old_objects_pointing_to_young.
         roots = self.get_roots(with_static=False)
         count = 0
         while 1:
