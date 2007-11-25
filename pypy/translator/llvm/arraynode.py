@@ -17,11 +17,10 @@ class DebugStrNode(ConstantNode):
         return '%s c"%s\\00"' % (self.get_typerepr(), self.value)
 
     def get_childref(self, index):
-        x = "getelementptr(%s* %s, i32 0, i32 %s)" % (
+        return "getelementptr(%s* %s, i32 0, i32 %s)" % (
             self.get_typerepr(),
             self.name,
             index)
-        return 'bitcast(i8* %s to [0 x i8]*)' % x
     
     def writeglobalconstants(self, codewriter):
         codewriter.globalinstance(self.ref, self.constantvalue())

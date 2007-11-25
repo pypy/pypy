@@ -210,5 +210,5 @@ class CodeWriter(object):
         var = self.db.repr_tmpvar()
         node = self.db.create_debug_string(s)
         self.call(var, "i32", "@write",
-                  ['i32', '[0 x i8]*', 'i32'],
-                  ['2', node.get_childref(0), '%d' % node.get_length()])
+                  ['i32', 'i8*', 'i32'],
+                  ['2', node.get_childref(0), '%d' % node.get_length()], cconv='ccc')
