@@ -4,33 +4,29 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.rpython.extfunc import genericcallable
 from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
-from pypy.translator.tool.cbuild import cache_c_module
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.lltypesystem import llmemory
 import thread, py
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem.lltype import typeOf
 from pypy.rlib.objectmodel import debug_assert
+from pypy.tool import autopath
 
 error = thread.error
 
-from pypy.tool.autopath import pypydir
-pypydir = py.path.local(pypydir)
-c_dir = pypydir.join('translator', 'c')
-includes = ['unistd.h', 'src/thread.h']
-include_dirs = [str(c_dir)]
-
-def setup_thread_so():
-    # XXX this is quiiiiiiiite a hack!
-    files = [c_dir.join('src', 'thread.c')]
-    modname = '_thread'
-    cache_c_module(files, modname, include_dirs=[str(c_dir)])
-    return str(pypydir.join('_cache', modname)) + '.so'
-libraries = [setup_thread_so()]
+eci = ExternalCompilationInfo(
+    includes = ['unistd.h', 'src/thread.h'],
+    separate_module_sources=['''
+    #include <Python.h>
+    #include <src/exception.h>
+    #include <src/thread.h>
+    '''],
+    include_dirs = [str(py.path.local(autopath.pypydir).join('translator', 'c'))]
+)
 
 def llexternal(name, args, result, **kwds):
-    return rffi.llexternal(name, args, result, includes=includes,
-                           libraries=libraries, include_dirs=[str(c_dir)],
+    return rffi.llexternal(name, args, result, compilation_info=eci,
                            **kwds)
 
 CALLBACK = lltype.Ptr(lltype.FuncType([rffi.VOIDP], rffi.VOIDP))
@@ -38,8 +34,7 @@ c_thread_start = llexternal('RPyThreadStart', [CALLBACK, rffi.VOIDP], rffi.INT)
 c_thread_get_ident = llexternal('RPyThreadGetIdent', [], rffi.INT)
 
 TLOCKP = rffi.COpaquePtr('struct RPyOpaque_ThreadLock',
-                          includes=includes,
-                          include_dirs=include_dirs)
+                          compilation_info=eci)
 
 c_thread_lock_init = llexternal('RPyThreadLockInit', [TLOCKP], lltype.Void)
 c_thread_acquirelock = llexternal('RPyThreadAcquireLock', [TLOCKP, rffi.INT],
