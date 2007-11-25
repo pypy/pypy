@@ -33,17 +33,18 @@ def get_incdirs(c_include_dirs):
         includestr += "-I %s " % ii
     return includestr
 
-# call entrypoint needs to be fastcc
 # call boehm finalizers need to be fastcc
 
 def generate_ll(ccode, default_cconv, c_include_dirs, call_funcnames=[]):
-
-    call_funcnames += ['@LLVM_RPython_StartupCode']
+    call_funcnames = ['@LLVM_RPython_StartupCode'] + call_funcnames
     define_funcnames = ['@pypy_malloc',
                         '@pypy_malloc_atomic',
                         '@pypy_gc__collect',
-                        '@pypy_register_finalizer']
-    declare_funcnames = ['@LLVM_RPython_StartupCode']
+                        '@pypy_register_finalizer',
+                        '@raw_malloc',
+                        '@raw_free',
+                        ]
+    declare_funcnames = call_funcnames
 
     filename = str(udir.join("ccode.c"))
     f = open(filename, "w")

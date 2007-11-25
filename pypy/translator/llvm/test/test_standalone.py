@@ -37,3 +37,44 @@ def test_hello_world():
     data = cmdexec(exe_name, 'hi', 'there')
     assert data.startswith('''hello world\nargument count: 2\n   'hi'\n   'there'\n''')
 
+def test__del__():
+    from pypy.rpython.lltypesystem import lltype
+    from pypy.rpython.lltypesystem.lloperation import llop
+    class State:
+        pass
+    s = State()
+    class A(object):
+        def __del__(self):
+            s.a_dels += 1
+    class B(A):
+        def __del__(self):
+            s.b_dels += 1
+    class C(A):
+        pass
+    def f():
+        s.a_dels = 0
+        s.b_dels = 0
+        A()
+        B()
+        C()
+        A()
+        B()
+        C()
+        llop.gc__collect(lltype.Void)
+        return s.a_dels * 10 + s.b_dels
+
+    def entry_point(args):
+        res = 0
+        res += f()
+        res += f()
+        print 'count %d' % res
+        return 0
+
+    exe_name = 'test__del__'
+    compile_standalone(entry_point, exe_name=exe_name)
+    data = cmdexec(exe_name, 'abc', 'def')
+    print data
+    #assert data.startswith('argument count: 3')
+
+    #assert 0 < res <= 84 
+

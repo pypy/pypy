@@ -126,6 +126,7 @@ class OpWriter(object):
 
         if self.db.genllvm.config.translation.llvm.debug:
             self.codewriter.comment(str(op))
+            #self.codewriter.debug_print(str(op) + "\n")
 
         if op.opname in ("direct_call", 'indirect_call'):
             opr = OpReprCall(op, self.db)
@@ -307,6 +308,9 @@ class OpWriter(object):
             value = opr.op.args[0].value._obj        
             if getattr(value, 'external', None) == 'C':
                 cconv = 'ccc'
+
+        #self.codewriter.debug_print(str(opr.op) + "\n")
+        #self.codewriter.debug_print(str(cconv) + "\n")
             
         # if we are external node - should use standard calling conventions
         self.codewriter.call(opr.retref, opr.rettype, opr.argrefs[0],
@@ -323,6 +327,8 @@ class OpWriter(object):
         self.db.gcpolicy._zeromalloc(self.codewriter, opr.retref, opr.argrefs[0], atomic=True)
 
     def boehm_register_finalizer(self, opr):
+        # XXX point in note - the registeree here have fastcc.... not sure if llvm is dealing with this
+        # because it is a pointer... - presumably
         tmpvar = self._tmp()
         self.codewriter.cast(tmpvar, opr.argtypes[1], opr.argrefs[1], 'i8 *')
         self.codewriter.call(None, 'void', '@pypy_register_finalizer',  ['i8 *', 'i8 *'], [opr.argrefs[0], tmpvar])

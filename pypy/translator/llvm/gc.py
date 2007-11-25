@@ -75,7 +75,6 @@ class RawGcPolicy(GcPolicy):
 
         # malloc_size is unsigned right now
         codewriter.malloc(targetvar, "i8", size)
-        # XXX uses own cconv
         codewriter.call(None, 'void', '@llvm.memset' + postfix(),
                         ['i8*', 'i8', word, word],
                         [targetvar, 0, size, boundary_size],

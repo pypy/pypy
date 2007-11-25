@@ -39,6 +39,9 @@ class Database(object):
 
         self.debugstringnodes = []
 
+        # call back into rpython code from c code
+        self.extern_to_funcnodes = []
+
 
     #_______debuggging______________________________________
 
@@ -316,6 +319,9 @@ class Database(object):
         count = self._tmpcount 
         self._tmpcount += 1
         return "%tmp_" + str(count) 
+
+    def add_extern_to_funcnode(self, name): 
+        self.extern_to_funcnodes.append(name)
 
     # __________________________________________________________
     # Other helpers

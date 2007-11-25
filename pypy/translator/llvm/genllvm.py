@@ -45,8 +45,6 @@ def augment_entrypoint(translator, entrypoint):
     return new_entrypoint
 
 class GenLLVM(object):
-    debug = False
-    
     # see create_codewriter() below
     function_count = {}
 
@@ -96,7 +94,7 @@ class GenLLVM(object):
             if hasattr(node, 'writeimpl'):
                 node.writeimpl(codewriter)
 
-        self._debug()
+        self._debug(codewriter)
         
         codewriter.comment("End of file")
         codewriter.close()
@@ -125,7 +123,7 @@ class GenLLVM(object):
         # get entry point
         entry_point = self.get_entry_point(func)
         self._checkpoint('get_entry_point')
-        
+
         # set up all nodes
         self.db.setup_all()
         
@@ -181,6 +179,7 @@ class GenLLVM(object):
         else:
             self.function_count[name] = 1
 
+        self.db.add_extern_to_funcnode(name)
         self.entry_name = name[6:]
         return c.value._obj 
 
@@ -199,7 +198,7 @@ class GenLLVM(object):
                 c_sources[source] = True
 
         ccode = generate_c(self.db, self.entrynode, c_includes, c_sources, self.standalone)
-        self.llcode = generate_ll(ccode, codewriter.cconv, c_include_dirs)
+        self.llcode = generate_ll(ccode, codewriter.cconv, c_include_dirs, self.db.extern_to_funcnodes)
         
     def create_codewriter(self):
         # prevent running the same function twice in a test
@@ -267,12 +266,11 @@ class GenLLVM(object):
         for s in stats:
             log('STATS %s' % str(s))
 
-    def _debug(self):
-        if self.debug:
-            if self.db.debugstringnodes:            
-                codewriter.header_comment("Debug string")
-                for node in self.db.debugstringnodes:
-                    node.writeglobalconstants(codewriter)
+    def _debug(self, codewriter):
+        if self.db.debugstringnodes:            
+            codewriter.header_comment("Debug string")
+            for node in self.db.debugstringnodes:
+                node.writeglobalconstants(codewriter)
 
             #print "Start"
             #print self.db.dump_pbcs()
