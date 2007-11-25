@@ -13,7 +13,7 @@ from pypy.translator.c.support import c_char_array_constant, barebonearray
 from pypy.translator.c.primitive import PrimitiveType
 from pypy.rlib.rarithmetic import isinf, isnan
 from pypy.translator.c import extfunc
-
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 def needs_gcheader(T):
     if not isinstance(T, ContainerType):
@@ -692,23 +692,19 @@ class FuncNode(ContainerNode):
         self.db = db
         self.T = T
         self.obj = obj
-        if hasattr(obj, 'includes') and not db.need_sandboxing(obj):
-            self.includes = obj.includes
+        if getattr(obj, 'external', None) == 'C' and not db.need_sandboxing(obj):
             self.name = forcename or self.basename()
         else:
             self.name = (forcename or
                          db.namespace.uniquename('g_' + self.basename()))
-        for attrname in 'libraries', 'include_dirs', 'includes', 'sources', 'library_dirs':
-            if hasattr(obj, attrname):
-                setattr(self, attrname, getattr(obj, attrname))
+        self.compilation_info = getattr(obj, 'compilation_info',
+                                        ExternalCompilationInfo())
         self.make_funcgens()
         #self.dependencies = {}
         self.typename = db.gettype(T)  #, who_asks=self)
         self.ptrname = self.name
 
     def make_funcgens(self):
-        if hasattr(self.obj, 'sources'):
-            self.sources = self.obj.sources
         self.funcgens = select_function_code_generators(self.obj, self.db, self.name)
         if self.funcgens:
             argnames = self.funcgens[0].argnames()  #Assume identical for all funcgens
@@ -825,13 +821,13 @@ def select_function_code_generators(fnobj, db, functionname):
         exception_policy = getattr(fnobj, 'exception_policy', None)
         return [FunctionCodeGenerator(fnobj.graph, db, exception_policy,
                                       functionname)]
-    elif getattr(fnobj, 'external', None) == 'C':
+    elif getattr(fnobj, 'external', None) is not None:
         if sandbox:
             return sandbox_stub(fnobj, db)
-        if hasattr(fnobj, 'includes'):
-            return []   # assume no wrapper needed
+        elif fnobj.external == 'C':
+            return []
         else:
-            # deprecated case
+            assert fnobj.external == 'CPython'
             return [CExternalFunctionCodeGenerator(fnobj, db)]
     else:
         raise ValueError, "don't know how to generate code for %r" % (fnobj,)

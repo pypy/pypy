@@ -1,5 +1,6 @@
 from pypy.rpython.lltypesystem.rffi import CConstant, CExternVariable
 from pypy.rpython.lltypesystem import lltype, ll2ctypes
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 class CConstantErrno(CConstant):
     # these accessors are used when calling get_errno() or set_errno()
@@ -15,6 +16,10 @@ class CConstantErrno(CConstant):
         assert index == 0
         ll2ctypes.TLS.errno = value
 
-get_errno, set_errno = CExternVariable(lltype.Signed, 'errno', CConstantErrno,
-                                       includes=['errno.h'], sandboxsafe=True)
+errno_eci = ExternalCompilationInfo(
+    includes=['errno.h']
+)
+
+get_errno, set_errno = CExternVariable(lltype.Signed, 'errno', errno_eci,
+                                       CConstantErrno, sandboxsafe=True)
 

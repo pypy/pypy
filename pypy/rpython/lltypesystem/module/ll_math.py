@@ -4,6 +4,7 @@ import py
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib import rposix
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 math_frexp = rffi.llexternal('frexp', [rffi.DOUBLE, rffi.INTP], rffi.DOUBLE,
                              sandboxsafe=True)
@@ -55,9 +56,11 @@ def _check_error(x):
         else:
             raise ValueError("math domain error")
 
+eci = ExternalCompilationInfo(libraries=['m'])
+
 def new_unary_math_function(name):
     c_func = rffi.llexternal(name, [rffi.DOUBLE], rffi.DOUBLE,
-                             sandboxsafe=True, libraries=['m'])
+                             compilation_info=eci, sandboxsafe=True)
 
     def ll_math(x):
         _error_reset()
@@ -69,7 +72,7 @@ def new_unary_math_function(name):
 
 def new_binary_math_function(name):
     c_func = rffi.llexternal(name, [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE,
-                             sandboxsafe=True, libraries=['m'])
+                             compilation_info=eci, sandboxsafe=True)
 
     def ll_math(x, y):
         _error_reset()

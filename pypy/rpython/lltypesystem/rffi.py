@@ -10,6 +10,7 @@ from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.tool.rfficache import platform
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 import os
 
 class CConstant(Symbolic):
@@ -25,8 +26,8 @@ class CConstant(Symbolic):
     def lltype(self):
         return self.TP
 
-def llexternal(name, args, result, _callable=None, sources=[], includes=[],
-               libraries=[], include_dirs=[], library_dirs=[],
+def llexternal(name, args, result, _callable=None,
+               compilation_info=ExternalCompilationInfo(),
                sandboxsafe=False, threadsafe='auto',
                canraise=False, _nowrapper=False, calling_conv='c'):
     """Build an external function that will invoke the C function 'name'
@@ -44,15 +45,13 @@ def llexternal(name, args, result, _callable=None, sources=[], includes=[],
                 don't bother releasing the GIL.  An explicit True or False
                 overrides this logic.
     """
+    if _callable is not None:
+        assert callable(_callable)
     ext_type = lltype.FuncType(args, result)
     if _callable is None:
         _callable = ll2ctypes.LL2CtypesCallable(ext_type, calling_conv)
     funcptr = lltype.functionptr(ext_type, name, external='C',
-                                 sources=tuple(sources),
-                                 includes=tuple(includes),
-                                 libraries=tuple(libraries),
-                                 include_dirs=tuple(include_dirs),
-                                 library_dirs=tuple(library_dirs),
+                                 compilation_info=compilation_info,
                                  _callable=_callable,
                                  _safe_not_sandboxed=sandboxsafe,
                                  _debugexc=True, # on top of llinterp
@@ -220,7 +219,9 @@ def CArrayPtr(tp):
     return lltype.Ptr(CArray(tp))
 CArray._annspecialcase_ = 'specialize:memo'
 
-def COpaque(name, hints=None, **kwds):
+def COpaque(name, hints=None, compilation_info=None):
+    if compilation_info is None:
+        compilation_info = ExternalCompilationInfo()
     if hints is None:
         hints = {}
     else:
@@ -230,11 +231,7 @@ def COpaque(name, hints=None, **kwds):
     def lazy_getsize():
         from pypy.rpython.tool import rffi_platform
         k = {}
-        for _name, value in kwds.items():
-            if _name in ['includes', 'include_dirs', 'libraries',
-                         'library_dirs']:
-                k['_%s_' % _name] = value
-        return rffi_platform.sizeof(name, '', **k)
+        return rffi_platform.sizeof(name, compilation_info)
     
     hints['getsize'] = lazy_getsize
     return lltype.OpaqueType(name, hints)
@@ -242,18 +239,21 @@ def COpaque(name, hints=None, **kwds):
 def COpaquePtr(*args, **kwds):
     return lltype.Ptr(COpaque(*args, **kwds))
 
-def CExternVariable(TYPE, name, _CConstantClass=CConstant, includes=[],
-                    include_dirs=[], sandboxsafe=False):
+def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
+                    sandboxsafe=False):
     """Return a pair of functions - a getter and a setter - to access
     the given global C variable.
     """
     from pypy.translator.c.primitive import PrimitiveType
+    from pypy.translator.tool.cbuild import ExternalCompilationInfo
     # XXX we cannot really enumerate all C types here, do it on a case-by-case
     #     basis
     if TYPE == CCHARPP:
         c_type = 'char **'
     elif TYPE == CCHARP:
         c_type = 'char *'
+    elif TYPE == INT:
+        c_type = 'int'
     else:
         c_type = PrimitiveType[TYPE]
         assert c_type.endswith(' @')
@@ -261,18 +261,25 @@ def CExternVariable(TYPE, name, _CConstantClass=CConstant, includes=[],
 
     getter_name = 'get_' + name
     setter_name = 'set_' + name
+    getter_prototype = "%(c_type)s %(getter_name)s ();" % locals()
+    setter_prototype = "void %(setter_name)s (%(c_type)s v);" % locals()
     c_getter = "%(c_type)s %(getter_name)s () { return %(name)s; }" % locals()
     c_setter = "void %(setter_name)s (%(c_type)s v) { %(name)s = v; }" % locals()
 
-    lines = ["#include <%s>" % i for i in includes]
+    lines = ["#include <%s>" % i for i in eci.includes]
+    lines.append('extern %s %s;' % (c_type, name))
     lines.append(c_getter)
     lines.append(c_setter)
     sources = ('\n'.join(lines),)
+    new_eci = eci.merge(ExternalCompilationInfo(
+        separate_module_sources = sources,
+        post_include_lines = [getter_prototype, setter_prototype],
+    ))
 
-    kwds = {'includes': includes, 'sources':sources,
-            'include_dirs':include_dirs, 'sandboxsafe': sandboxsafe}
-    getter = llexternal(getter_name, [], TYPE, **kwds)
-    setter = llexternal(setter_name, [TYPE], lltype.Void, **kwds)
+    getter = llexternal(getter_name, [], TYPE, compilation_info=new_eci,
+                        sandboxsafe=sandboxsafe)
+    setter = llexternal(setter_name, [TYPE], lltype.Void,
+                        compilation_info=new_eci, sandboxsafe=sandboxsafe)
     return getter, setter
     
 ##    # XXX THIS IS ONLY A QUICK HACK TO MAKE IT WORK

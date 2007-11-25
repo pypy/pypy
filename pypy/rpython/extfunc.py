@@ -92,19 +92,13 @@ class LazyRegisteringMeta(type):
 class BaseLazyRegistering(object):
     __metaclass__ = LazyRegisteringMeta
 
-    __ATTRIBUTES = ['includes', 'include_dirs', 'libraries', 'library_dirs',
-                    'sources']
-
     def configure(self, CConfig):
         classes_seen = self.__dict__.setdefault('__classes_seen', {})
         if CConfig in classes_seen:
             return
         from pypy.rpython.tool import rffi_platform as platform
         # copy some stuff
-        for item in self.__ATTRIBUTES:
-            value = getattr(CConfig, '_%s_' % item, None)
-            if value:
-                setattr(self, '_%s_' % item, value)
+        self.compilation_info = CConfig._compilation_info_
         self.__dict__.update(platform.configure(CConfig))
         classes_seen[CConfig] = True
 
@@ -112,11 +106,11 @@ class BaseLazyRegistering(object):
         kwds = kwds.copy()
         from pypy.rpython.lltypesystem import rffi
 
-        for item in self.__ATTRIBUTES:
-            if item not in kwds:
-                kwds[item] = getattr(self, '_%s_' % item, [])
-            else:
-                kwds[item] += getattr(self, '_%s_' % item, [])
+        if 'compilation_info' in kwds:
+            kwds['compilation_info'] = self.compilation_info.merge(
+                kwds['compilation_info'])
+        else:
+            kwds['compilation_info'] = self.compilation_info
         return rffi.llexternal(*args, **kwds)
 
     def _freeze_(self):

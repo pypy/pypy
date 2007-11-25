@@ -3,14 +3,16 @@ import py
 from pypy.rpython.extfunc import BaseLazyRegistering, extdef, registering
 from pypy.rlib import rarithmetic
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.translator.tool.cbuild import cache_c_module
 from pypy.tool.autopath import pypydir
 from pypy.rpython.ootypesystem import ootype
 from pypy.rlib import rposix
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 class CConfig:
-    _includes_ = ['src/ll_strtod.h']
-    _sources_ = ['#include <src/ll_strtod.h>']
+    _compilation_info_ = ExternalCompilationInfo(
+        includes = ['src/ll_strtod.h'],
+        separate_module_sources = ['#include <src/ll_strtod.h>'],
+    )
 
 class RegisterStrtod(BaseLazyRegistering):
     def __init__(self):

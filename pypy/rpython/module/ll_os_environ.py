@@ -132,6 +132,8 @@ if hasattr(__import__(os.name), 'unsetenv'):
 # ____________________________________________________________
 # Access to the 'environ' external variable
 
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
+
 if sys.platform.startswith('darwin'):
     CCHARPPP = rffi.CArrayPtr(rffi.CCHARPP)
     _os_NSGetEnviron = rffi.llexternal('_NSGetEnviron', [], CCHARPPP,
@@ -140,7 +142,8 @@ if sys.platform.startswith('darwin'):
         return _os_NSGetEnviron()[0]
 else:
     os_get_environ, _os_set_environ = rffi.CExternVariable(rffi.CCHARPP,
-                                                           'environ')
+                                                           'environ',
+                                                           ExternalCompilationInfo())
 
 # ____________________________________________________________
 

@@ -154,5 +154,5 @@ def os_wstar_tester(compile):
             assert res == fun(value)
 
 def test_os_wstar():
-    yield os_wstar_tester, compile_llvm
     yield os_wstar_tester, compile
+    yield os_wstar_tester, compile_llvm

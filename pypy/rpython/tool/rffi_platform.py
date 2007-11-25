@@ -5,6 +5,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem import llmemory
 from pypy.tool.gcc_cache import build_executable_cache, try_compile_cache
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.tool.udir import udir
 import distutils
 
@@ -12,39 +13,44 @@ import distutils
 #
 # Helpers for simple cases
 
+def eci_from_header(c_header_source):
+    return ExternalCompilationInfo(
+        pre_include_lines=c_header_source.split("\n")
+    )
+
 def getstruct(name, c_header_source, interesting_fields):
     class CConfig:
-        _header_ = c_header_source
+        _compilation_info_ = eci_from_header(c_header_source)
         STRUCT = Struct(name, interesting_fields)
     return configure(CConfig)['STRUCT']
 
 def getsimpletype(name, c_header_source, ctype_hint=rffi.INT):
     class CConfig:
-        _header_ = c_header_source
+        _compilation_info_ = eci_from_header(c_header_source)
         TYPE = SimpleType(name, ctype_hint)
     return configure(CConfig)['TYPE']
 
 def getconstantinteger(name, c_header_source):
     class CConfig:
-        _header_ = c_header_source
+        _compilation_info_ = eci_from_header(c_header_source)
         CONST = ConstantInteger(name)
     return configure(CConfig)['CONST']
 
 def getdefined(macro, c_header_source):
     class CConfig:
-        _header_ = c_header_source
+        _compilation_info_ = eci_from_header(c_header_source)
         DEFINED = Defined(macro)
     return configure(CConfig)['DEFINED']
 
 def has(name, c_header_source):
     class CConfig:
-        _header_ = c_header_source
+        _compilation_info_ = eci_from_header(c_header_source)
         HAS = Has(name)
     return configure(CConfig)['HAS']
 
-def sizeof(name, c_header_source, **kwds):
+def sizeof(name, eci, **kwds):
     class CConfig:
-        _header_ = c_header_source
+        _compilation_info_ = eci
         SIZE = SizeOf(name)
     for k, v in kwds.items():
         setattr(CConfig, k, v)
@@ -85,12 +91,7 @@ class _CWriter(object):
     def write_header(self):
         f = self.f
         CConfig = self.config
-        # NB: the _header_ must be printed before everything else,
-        # because it might contain #defines that need to appear before
-        # any system #include.
-        print >> f, getattr(CConfig, '_header_', '')      # optional
-        for path in getattr(CConfig, '_includes_', ()):   # optional
-            print >> f, '#include <%s>' % (path,)
+        CConfig._compilation_info_.write_c_header(f)
         print >> f, C_HEADER
         print >> f
 
@@ -122,12 +123,8 @@ class _CWriter(object):
         self.start_main()
         self.f.write(question + "\n")
         self.close()
-        include_dirs = getattr(self.config, '_include_dirs_', [])
-        libraries = getattr(self.config, '_libraries_', [])
-        library_dirs = getattr(self.config, '_library_dirs_', [])
-        return try_compile_cache([self.path], include_dirs=include_dirs,
-                                 libraries=libraries,
-                                 library_dirs=library_dirs)
+        eci = self.config._compilation_info_
+        return try_compile_cache([self.path], eci)
         
 def configure(CConfig):
     """Examine the local system by running the C compiler.
@@ -135,6 +132,9 @@ def configure(CConfig):
     what should be inspected; configure() returns a dict mapping
     names to the results.
     """
+    for attr in ['_includes_', '_libraries_', '_sources_', '_library_dirs_',
+                 '_include_dirs_', '_header_']:
+        assert not hasattr(CConfig, attr), "Found legacy attribut %s on CConfig" % (attr,)
     entries = []
     for key in dir(CConfig):
         value = getattr(CConfig, key)
@@ -153,11 +153,8 @@ def configure(CConfig):
             writer.write_entry_main(key)
         writer.close()
 
-        include_dirs = getattr(CConfig, '_include_dirs_', [])
-        libraries = getattr(CConfig, '_libraries_', [])
-        library_dirs = getattr(CConfig, '_library_dirs_', [])
-        infolist = list(run_example_code(writer.path, include_dirs,
-                                         libraries, library_dirs))
+        eci = CConfig._compilation_info_
+        infolist = list(run_example_code(writer.path, eci))
         assert len(infolist) == len(entries)
 
         resultinfo = {}
@@ -503,10 +500,8 @@ void dump(char* key, int value) {
 }
 """
 
-def run_example_code(filepath, include_dirs=[], libraries=[], library_dirs=[]):
-    output = build_executable_cache([filepath], include_dirs=include_dirs,
-                                    libraries=libraries,
-                                    library_dirs=library_dirs)
+def run_example_code(filepath, eci):
+    output = build_executable_cache([filepath], eci)
     section = None
     for line in output.splitlines():
         line = line.strip()

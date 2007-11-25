@@ -3,10 +3,13 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from pypy.rlib import rposix
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 import sys
 
 class CConfig:
-    _includes_ = ['fcntl.h', 'sys/file.h', 'sys/ioctl.h']
+    _compilation_info_ = ExternalCompilationInfo(
+        includes = ['fcntl.h', 'sys/file.h', 'sys/ioctl.h']
+    )
     flock = platform.Struct("struct flock",
         [('l_start', rffi.LONGLONG), ('l_len', rffi.LONGLONG),
         ('l_pid', rffi.LONG), ('l_type', rffi.SHORT),
@@ -53,7 +56,7 @@ for name in constant_names:
 locals().update(constants)
 
 def external(name, args, result):
-    return rffi.llexternal(name, args, result, includes=CConfig._includes_)
+    return rffi.llexternal(name, args, result, compilation_info=CConfig._compilation_info_)
 
 _flock = lltype.Ptr(cConfig.flock)
 strerror = external('strerror', [rffi.INT], rffi.CCHARP)

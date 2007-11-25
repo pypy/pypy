@@ -9,6 +9,8 @@ from pypy.rpython.lltypesystem.ll2ctypes import uninitialized2ctypes
 from pypy.rpython.lltypesystem.ll2ctypes import ALLOCATED
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib import rposix
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.tool.udir import udir
 
 class TestLL2Ctypes(object):
 
@@ -139,8 +141,9 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_strlen(self):
+        eci = ExternalCompilationInfo(includes=['string.h'])
         strlen = rffi.llexternal('strlen', [rffi.CCHARP], rffi.SIZE_T,
-                                 includes=['string.h'])
+                                 compilation_info=eci)
         s = rffi.str2charp("xxx")
         res = strlen(s)
         rffi.free_charp(s)
@@ -152,19 +155,22 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_func_not_in_clib(self):
+        eci = ExternalCompilationInfo(libraries=['m'])
         foobar = rffi.llexternal('I_really_dont_exist', [], lltype.Signed)
         py.test.raises(NotImplementedError, foobar)
 
         foobar = rffi.llexternal('I_really_dont_exist', [], lltype.Signed,
-                                 libraries=['m'])    # math library
+                                 compilation_info=eci)    # math library
         py.test.raises(NotImplementedError, foobar)
 
+        eci = ExternalCompilationInfo(libraries=['m', 'z'])
         foobar = rffi.llexternal('I_really_dont_exist', [], lltype.Signed,
-                                 libraries=['m', 'z'])  # math and zlib
+                                 compilation_info=eci)  # math and zlib
         py.test.raises(NotImplementedError, foobar)
 
+        eci = ExternalCompilationInfo(libraries=['I_really_dont_exist_either'])
         foobar = rffi.llexternal('I_really_dont_exist', [], lltype.Signed,
-                                 libraries=['I_really_dont_exist_either'])
+                                 compilation_info=eci)
         py.test.raises(NotImplementedError, foobar)
         assert not ALLOCATED     # detects memory leaks in the test
 
@@ -229,9 +235,9 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_strchr(self):
+        eci = ExternalCompilationInfo(includes=['string.h'])
         strchr = rffi.llexternal('strchr', [rffi.CCHARP, rffi.INT],
-                                 rffi.CCHARP,
-                                 includes=['string.h'])
+                                 rffi.CCHARP, compilation_info=eci)
         s = rffi.str2charp("hello world")
         res = strchr(s, ord('r'))
         assert res[0] == 'r'
@@ -243,11 +249,11 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_frexp(self):
+        eci = ExternalCompilationInfo(includes=['math.h'],
+                                      libraries=['m'])
         A = lltype.FixedSizeArray(rffi.INT, 1)
         frexp = rffi.llexternal('frexp', [rffi.DOUBLE, lltype.Ptr(A)],
-                                rffi.DOUBLE,
-                                includes=['math.h'],
-                                libraries=['m'])
+                                rffi.DOUBLE, compilation_info=eci)
         p = lltype.malloc(A, flavor='raw')
         res = frexp(2.5, p)
         assert res == 0.625
@@ -256,10 +262,11 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_rand(self):
+        eci = ExternalCompilationInfo(includes=['stdlib.h'])
         rand = rffi.llexternal('rand', [], rffi.INT,
-                               includes=['stdlib.h'])
+                               compilation_info=eci)
         srand = rffi.llexternal('srand', [rffi.UINT], lltype.Void,
-                                includes=['stdlib.h'])
+                                compilation_info=eci)
         srand(rffi.r_uint(123))
         res1 = rand()
         res2 = rand()
@@ -274,11 +281,13 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_opaque_obj(self):
-        includes = ['sys/time.h', 'time.h']
-        TIMEVALP = rffi.COpaquePtr('struct timeval', includes=includes)
-        TIMEZONEP = rffi.COpaquePtr('struct timezone', includes=includes)
+        eci = ExternalCompilationInfo(
+            includes = ['sys/time.h', 'time.h']
+        )
+        TIMEVALP = rffi.COpaquePtr('struct timeval', compilation_info=eci)
+        TIMEZONEP = rffi.COpaquePtr('struct timezone', compilation_info=eci)
         gettimeofday = rffi.llexternal('gettimeofday', [TIMEVALP, TIMEZONEP],
-                                       rffi.INT, includes=includes)
+                                       rffi.INT, compilation_info=eci)
         ll_timevalp = lltype.malloc(TIMEVALP.TO, flavor='raw')
         ll_timezonep = lltype.malloc(TIMEZONEP.TO, flavor='raw')
         res = gettimeofday(ll_timevalp, ll_timezonep)
@@ -582,12 +591,13 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_get_errno(self):
+        eci = ExternalCompilationInfo(includes=['string.h'])
         if sys.platform.startswith('win'):
             underscore_on_windows = '_'
         else:
             underscore_on_windows = ''
         strlen = rffi.llexternal('strlen', [rffi.CCHARP], rffi.SIZE_T,
-                                 includes=['string.h'])
+                                 compilation_info=eci)
         os_write = rffi.llexternal(underscore_on_windows+'write',
                                    [rffi.INT, rffi.CCHARP, rffi.SIZE_T],
                                    rffi.SIZE_T)
@@ -650,23 +660,6 @@ class TestLL2Ctypes(object):
         assert isinstance(b[2], rffi.r_singlefloat)
         assert abs(float(b[2]) - 2.2) < 1E-6
 
-    def test_cfunc_returning_newly_allocated(self):
-        py.test.skip("complains about a double free")
-        from crypt import crypt as pycrypt
-        crypt = rffi.llexternal('crypt', [rffi.CCHARP, rffi.CCHARP],
-                                rffi.CCHARP,
-                                libraries=['crypt'])
-
-        s1 = rffi.str2charp("pass")
-        s2 = rffi.str2charp("ab")
-        r = crypt(s1, s2)
-        rffi.free_charp(s1)
-        rffi.free_charp(s2)
-        res = rffi.charp2str(r)
-        assert res == pycrypt("pass", "ab")
-        rffi.free_charp(r)
-        assert not ALLOCATED
-
     def test_different_signatures(self):
         fcntl_int = rffi.llexternal('fcntl', [rffi.INT, rffi.INT, rffi.INT],
                                     rffi.INT)
@@ -677,7 +670,42 @@ class TestLL2Ctypes(object):
         fcntl_int(12345, 1, 0)
 
     def test_llexternal_source(self):
-        fn = rffi.llexternal('fn', [], rffi.INT, sources = ["int fn() { return 42; }"])
+        eci = ExternalCompilationInfo(
+            separate_module_sources = ["int fn() { return 42; }"]
+        )
+        fn = rffi.llexternal('fn', [], rffi.INT, compilation_info=eci)
         res = fn()
         assert res == 42
 
+    def test_prebuilt_constant(self):
+        header = py.code.Source("""
+        #include <stdlib.h>
+        
+        static int x = 3;
+        char **z = NULL;
+        """)
+        h_file = udir.join("some_h.h")
+        h_file.write(header)
+        
+        eci = ExternalCompilationInfo(includes=['stdio.h', str(h_file.basename)],
+                                      include_dirs=[str(udir)])
+        
+        get_x, set_x = rffi.CExternVariable(rffi.LONG, 'x', eci)
+        get_z, set_z = rffi.CExternVariable(rffi.CCHARPP, 'z', eci)
+
+        def f():
+            one = get_x()
+            set_x(13)
+            return one + get_x()
+
+        def g():
+            l = rffi.liststr2charpp(["a", "b", "c"])
+            try:
+                set_z(l)
+                return rffi.charp2str(get_z()[2])
+            finally:
+                rffi.free_charpp(l)
+
+        res = f()
+        assert res == 16
+        assert g() == "c"

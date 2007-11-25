@@ -7,11 +7,14 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.typedef import interp_attrproperty
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped, interp2app
 from pypy.rlib.streamio import Stream
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 import sys
 
 class CConfig:
-    _includes_ = ['stdio.h', 'sys/types.h', 'bzlib.h']
-    _libraries_ = ['bz2']
+    _compilation_info_ = ExternalCompilationInfo(
+        includes = ['stdio.h', 'sys/types.h', 'bzlib.h'],
+        libraries = ['bz2'],
+    )
     calling_conv = 'c'
 
     off_t = platform.SimpleType("off_t", rffi.LONGLONG)
@@ -101,8 +104,8 @@ else:
         return bzs.total_out
 
 def external(name, args, result):
-    return rffi.llexternal(name, args, result, includes=CConfig._includes_,
-                           libraries=['bz2'])
+    return rffi.llexternal(name, args, result, compilation_info=
+                           CConfig._compilation_info_)
 
 # the least but one parameter should be rffi.VOIDP but it's not used
 # so I trick the compiler to not complain about constanst pointer passed

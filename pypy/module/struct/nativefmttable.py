@@ -3,6 +3,7 @@ from pypy.module.struct import standardfmttable as std
 from pypy.rpython.tool import rffi_platform
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rarithmetic import r_singlefloat
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 native_is_bigendian = struct.pack("=i", 1) == struct.pack(">i", 1)
 
@@ -83,16 +84,21 @@ def setup():
                'd': 'double',
                }
 
-    class CConfig:
-        _header_ = ""
-
+    pre_include_lines = []
     for fmtchar, ctype in INSPECT.items():
-        CConfig._header_ += """
+        pre_include_lines += ("""
             struct about_%s {
                 char pad;
                 %s field;
             };
-        """ % (fmtchar, ctype)
+        """ % (fmtchar, ctype)).split("\n")
+
+    class CConfig:
+        _compilation_info_ = ExternalCompilationInfo(
+            pre_include_lines = pre_include_lines
+        )
+
+    for fmtchar, ctype in INSPECT.items():
         setattr(CConfig, fmtchar, rffi_platform.Struct(
             "struct about_%s" % (fmtchar,),
             [('field', lltype.FixedSizeArray(rffi.CHAR, 1))]))

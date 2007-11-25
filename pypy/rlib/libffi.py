@@ -8,6 +8,7 @@ from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.tool.autopath import pypydir
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 import py
 
 includes = ['dlfcn.h', 'ffi.h']
@@ -24,10 +25,12 @@ FFI_TYPE_P = lltype.Ptr(lltype.ForwardReference())
 FFI_TYPE_PP = rffi.CArrayPtr(FFI_TYPE_P)
 
 class CConfig:
-    _includes_ = includes
-    _libraries_ = ['ffi']
-    _include_dirs_ = include_dirs
-    _library_dirs_ = lib_dirs
+    _compilation_info_ = ExternalCompilationInfo(
+        includes = includes,
+        libraries = ['ffi', 'dl'],
+        include_dirs = include_dirs,
+        library_dirs = lib_dirs,
+    )
 
     RTLD_LOCAL = rffi_platform.DefinedConstantInteger('RTLD_LOCAL')
     RTLD_GLOBAL = rffi_platform.DefinedConstantInteger('RTLD_GLOBAL')
@@ -95,9 +98,8 @@ TYPE_MAP = {
     }
 
 def external(name, args, result, **kwds):
-    return rffi.llexternal(name, args, result, includes=includes,
-                           include_dirs=include_dirs, library_dirs=lib_dirs,
-                           libraries=['dl', 'ffi'], **kwds)
+    return rffi.llexternal(name, args, result,
+                           compilation_info=CConfig._compilation_info_, **kwds)
 
 c_dlopen = external('dlopen', [rffi.CCHARP, rffi.INT], rffi.VOIDP,
                     _nowrapper=True)
@@ -111,9 +113,7 @@ RTLD_NOW = cConfig.RTLD_NOW
 FFI_OK = cConfig.FFI_OK
 FFI_BAD_TYPEDEF = cConfig.FFI_BAD_TYPEDEF
 FFI_DEFAULT_ABI = rffi.cast(rffi.USHORT, cConfig.FFI_DEFAULT_ABI)
-FFI_CIFP = rffi.COpaquePtr('ffi_cif', includes=includes,
-                           include_dirs=include_dirs,
-                           library_dirs=lib_dirs)
+FFI_CIFP = rffi.COpaquePtr('ffi_cif', compilation_info=CConfig._compilation_info_)
 
 VOIDPP = rffi.CArrayPtr(rffi.VOIDP)
 

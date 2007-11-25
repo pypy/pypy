@@ -11,6 +11,7 @@ from pypy.rpython.extfunc import register_external
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.lltypesystem.rtupletype import TUPLE_TYPE
 from pypy.rlib import rposix
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 # XXX on Windows, stat() is flawed; see CPython's posixmodule.c for
 # an implementation based on the Win32 API
@@ -144,11 +145,15 @@ else:
     _name_struct_stat = 'stat'
     INCLUDES = ['sys/types.h', 'sys/stat.h', 'unistd.h']
 
+compilation_info = ExternalCompilationInfo(
+    pre_include_lines = ['#define _FILE_OFFSET_BITS 64'],
+    includes = INCLUDES
+)
+
 from pypy.rpython.tool import rffi_platform as platform
 class CConfig:
     # This must be set to 64 on some systems to enable large file support.
-    _header_ = '#define _FILE_OFFSET_BITS 64'
-    _includes_ = INCLUDES
+    _compilation_info_ = compilation_info
     STAT_STRUCT = platform.Struct('struct %s' % _name_struct_stat, LL_STAT_FIELDS)
 config = platform.configure(CConfig)
 
@@ -198,7 +203,7 @@ def register_stat_variant(name):
     else:
         ARG1 = rffi.INT
     os_mystat = rffi.llexternal(c_func_name, [ARG1, STAT_STRUCT], rffi.INT,
-                                includes=INCLUDES)
+                                compilation_info=compilation_info)
 
     def os_mystat_llimpl(arg):
         stresult = lltype.malloc(STAT_STRUCT.TO, flavor='raw')

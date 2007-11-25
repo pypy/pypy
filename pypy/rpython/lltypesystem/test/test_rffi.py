@@ -13,15 +13,19 @@ from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.translator import graphof
 from pypy.conftest import option
 from pypy.objspace.flow.model import summary
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 def test_basic():
     c_source = py.code.Source("""
-    int z(int x)
+    int someexternalfunction(int x)
     {
         return (x + 3);
     }
     """)
-    z = llexternal('z', [Signed], Signed, sources=[c_source])
+
+    eci = ExternalCompilationInfo(separate_module_sources=[c_source])
+    z = llexternal('someexternalfunction', [Signed], Signed,
+                   compilation_info=eci)
 
     def f():
         return z(8)
@@ -30,14 +34,16 @@ def test_basic():
     assert xf() == 8+3
 
 def test_hashdefine():
-    c_source = """
+    h_source = """
     #define X(i) (i+3)
     """
 
-    c_file = udir.join("stuff.c")
-    c_file.write(c_source)
+    h_file = udir.join("stuff.h")
+    h_file.write(h_source)
 
-    z = llexternal('X', [Signed], Signed, includes=[str(c_file)])
+    eci = ExternalCompilationInfo(includes=['stuff.h'],
+                                  include_dirs=[udir])
+    z = llexternal('X', [Signed], Signed, compilation_info=eci)
 
     def f():
         return z(8)
@@ -46,7 +52,8 @@ def test_hashdefine():
     assert xf() == 8+3
 
 def test_string():
-    z = llexternal('strlen', [CCHARP], Signed, includes=['string.h'])
+    eci = ExternalCompilationInfo(includes=['string.h'])
+    z = llexternal('strlen', [CCHARP], Signed, compilation_info=eci)
 
     def f():
         s = str2charp("xxx")
@@ -69,7 +76,8 @@ def test_string_reverse():
         return ret;
     }
     """)
-    z = llexternal('f', [CCHARP], CCHARP, sources=[c_source])
+    eci = ExternalCompilationInfo(separate_module_sources=[c_source])
+    z = llexternal('f', [CCHARP], CCHARP, compilation_info=eci)
 
     def f():
         s = str2charp("xxx")
@@ -96,7 +104,8 @@ def test_stringstar():
         return (l);
     }
     """
-    z = llexternal('f', [CCHARPP], Signed, sources=[c_source])
+    eci = ExternalCompilationInfo(separate_module_sources=[c_source])
+    z = llexternal('f', [CCHARPP], Signed, compilation_info=eci)
 
     def f():
         l = ["xxx", "x", "xxxx"]
@@ -110,16 +119,21 @@ def test_stringstar():
 
 def test_struct():
     h_source = """
+    #ifndef _MY_SOURCE_H
+    #define _MY_SOURCE_H
     struct xx {
        int one;
        char two;
        int three;
     };
+    #endif
     """
     h_file = udir.join("structxx.h")
     h_file.write(h_source)
     
     c_source = """
+    #include <structxx.h>
+    
     int f(struct xx* z)
     {
       return (z->one + z->three);
@@ -127,8 +141,12 @@ def test_struct():
     """
     TP = CStructPtr('xx', ('one', INT), ('two', Char), ('three', INT))
 
-    z = llexternal('f', [TP], INT, sources=[c_source],
-                   includes=[str(h_file)], include_dirs=[udir])
+    eci = ExternalCompilationInfo(
+        includes=['structxx.h'],
+        include_dirs=[udir],
+        separate_module_sources=[c_source]
+    )
+    z = llexternal('f', [TP], INT, compilation_info=eci)
 
     def f():
         struct = lltype.malloc(TP.TO, flavor='raw')
@@ -183,8 +201,12 @@ def test_extra_include_dirs():
         return (C);
     }
     """)
-    z = llexternal('fun', [], Signed, sources=[c_source], include_dirs=
-                   [str(udir.join("incl"))])
+    eci = ExternalCompilationInfo(
+        includes=['incl.h'],
+        include_dirs=[str(udir.join('incl'))],
+        separate_module_sources=[c_source]
+    )
+    z = llexternal('fun', [], Signed, compilation_info=eci)
 
     def f():
         return z()
@@ -225,11 +247,13 @@ def test_opaque_type():
     h_file.write(h_source)
 
     from pypy.rpython.tool import rffi_platform
-    STUFFP = COpaquePtr('struct stuff', includes=['opaque.h'],
-                     include_dirs=[str(udir)])
+    eci = ExternalCompilationInfo(
+        includes=['opaque.h'],
+        include_dirs=[str(udir)]
+    )
+    STUFFP = COpaquePtr('struct stuff', compilation_info=eci)
 
-    ll_get = llexternal('get', [STUFFP], lltype.Char, includes=['opaque.h'],
-                        include_dirs=[str(udir)])
+    ll_get = llexternal('get', [STUFFP], lltype.Char, compilation_info=eci)
 
     def f():
         ll_stuff = lltype.malloc(STUFFP.TO, flavor='raw')
@@ -289,9 +313,8 @@ def test_rffi_offsetof():
     assert offsetof(S, "c_c") == struct.calcsize("hii") - struct.calcsize("i")
 
 def test_prebuilt_constant():
+    py.test.skip("Think how to do it sane")
     h_source = py.code.Source("""
-    #ifndef _CONSTANTS
-    #define _CONSTANTS
     int x = 3;
     char** z = NULL;
     #endif
@@ -299,9 +322,12 @@ def test_prebuilt_constant():
     h_include = udir.join('constants.h')
     h_include.write(h_source)
 
-    kwds = {'includes':['constants.h'], 'include_dirs':[str(udir)]}
-    get_x, set_x = CExternVariable(lltype.Signed, 'x', **kwds)
-    get_z, set_z = CExternVariable(CCHARPP, 'z', **kwds)
+    eci = ExternalCompilationInfo(includes=['stdio.h',
+                                            str(h_include.basename)],
+                                  include_dirs=[str(udir)])
+
+    get_x, set_x = CExternVariable(lltype.Signed, 'x', eci)
+    get_z, set_z = CExternVariable(CCHARPP, 'z', eci)
 
     def f():
         one = get_x()
@@ -377,21 +403,15 @@ def test_implicit_cast():
     
 
 def test_stringpolicy1():
-    strlen = llexternal('strlen', [CCHARP], SIZE_T, includes=['string.h'])
+    eci = ExternalCompilationInfo(includes=['string.h'])
+    strlen = llexternal('strlen', [CCHARP], SIZE_T, compilation_info=eci)
     def f():
         return cast(LONG, strlen("Xxx"))
     assert interpret(f, [], backendopt=True) == 3
 
-def test_stringpolicy2():
-    py.test.skip("stringpolicy='autocast' no longer implemented")
-    def f():
-        return strlen("Xxx")        
-    strlen = llexternal('strlen', [CCHARP], INT,
-                        includes=['string.h'], stringpolicy='autocast')
-    py.test.raises(MallocMismatch, interpret, f, [], backendopt=True)
-
 def test_stringpolicy3():
-    strlen = llexternal('strlen', [CCHARP], INT, includes=['string.h'])
+    eci = ExternalCompilationInfo(includes=['string.h'])
+    strlen = llexternal('strlen', [CCHARP], INT, compilation_info=eci)
     def f():
         ll_str = str2charp("Xxx")
         res = strlen(ll_str)
@@ -401,8 +421,9 @@ def test_stringpolicy3():
     assert interpret(f, [], backendopt=True) == 3
 
 def test_stringpolicy_mixed():
+    eci = ExternalCompilationInfo(includes=['string.h'])
     strlen = llexternal('strlen', [CCHARP], SIZE_T,
-                        includes=['string.h'])
+                        compilation_info=eci)
     def f():
         res1 = strlen("abcd")
         ll_str = str2charp("Xxx")

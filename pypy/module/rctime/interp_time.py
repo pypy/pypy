@@ -5,6 +5,7 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from pypy.rpython.lltypesystem import lltype
 from pypy.rlib.rarithmetic import ovfcheck_float_to_int
 from pypy.rlib import rposix
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 import math
 import os
 import sys
@@ -18,7 +19,9 @@ if _POSIX:
     _includes.append('sys/time.h')
 
 class CConfig:
-    _includes_ = _includes
+    _compilation_info_ = ExternalCompilationInfo(
+        includes = _includes
+    )
     CLOCKS_PER_SEC = platform.ConstantInteger("CLOCKS_PER_SEC")
     clock_t = platform.SimpleType("clock_t", rffi.ULONG)
     time_t = platform.SimpleType("time_t", rffi.LONG)
@@ -51,7 +54,8 @@ cConfig.tm.__name__ = "_tm"
 
 def external(name, args, result):
     return rffi.llexternal(name, args, result,
-                           includes=_includes, calling_conv=calling_conv,
+                           compilation_info=CConfig._compilation_info_,
+                           calling_conv=calling_conv,
                            threadsafe=False)
 
 if _POSIX:

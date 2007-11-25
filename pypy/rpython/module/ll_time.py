@@ -9,14 +9,19 @@ from pypy.rpython.tool import rffi_platform as platform
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.extfunc import BaseLazyRegistering, registering, extdef
 from pypy.rlib import rposix
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
+
+if sys.platform.startswith('win'):
+    includes = ['time.h', 'windows.h']
+else:
+    includes = ['sys/time.h', 'time.h', 'errno.h', 'sys/select.h',
+                'sys/types.h', 'unistd.h', 'sys/timeb.h']
+
 
 class CConfig:
-    if sys.platform.startswith('win'):
-        _includes_ = ['time.h', 'windows.h']
-    else:
-        _includes_ = ['sys/time.h', 'time.h', 'errno.h', 'sys/select.h',
-                      'sys/types.h', 'unistd.h', 'sys/timeb.h']
-    
+    _compilation_info_ = ExternalCompilationInfo(
+        includes=includes
+    )
     CLOCK_T = platform.SimpleType('clock_t', rffi.INT)
     TIMEVAL = platform.Struct('struct timeval', [('tv_sec', rffi.INT),
                                                  ('tv_usec', rffi.INT)])
@@ -25,7 +30,7 @@ class CConfig:
     HAVE_FTIME = platform.Has('ftime')
 
 class CConfigForFTime:
-    _includes_ = ['sys/timeb.h']
+    _compilation_info_ = ExternalCompilationInfo(includes=['sys/timeb.h'])
     TIMEB = platform.Struct('struct timeb', [('time', rffi.INT),
                                              ('millitm', rffi.INT)])
 

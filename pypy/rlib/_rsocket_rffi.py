@@ -4,6 +4,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.rpython.lltypesystem.rffi import CCHARP
 from pypy.rlib.rposix import get_errno as geterrno
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 from pypy.rlib.rarithmetic import intmask, r_uint
 import os
@@ -51,9 +52,13 @@ if _MS_WINDOWS:
     COND_HEADER = ''
 constants = {}
 
+eci = ExternalCompilationInfo(
+    pre_include_lines = (HEADER + COND_HEADER).split("\n"),
+    includes = includes
+)
 
 class CConfig:
-    _header_ = HEADER + COND_HEADER
+    _compilation_info_ = eci
     # constants
     linux      = platform.Defined('linux')
     MS_WINDOWS = platform.Defined('_WIN32')
@@ -376,10 +381,10 @@ if _POSIX:
     for _name, _header in cond_includes:
         if getattr(cConfig, _name) is not None:
             includes.append(_header)
+    eci = ExternalCompilationInfo(includes=includes, libraries=libraries)
 
 def external(name, args, result):
-    return rffi.llexternal(name, args, result,
-                           includes=includes, libraries=libraries,
+    return rffi.llexternal(name, args, result, compilation_info=eci,
                            calling_conv=calling_conv)
 
 if _POSIX:

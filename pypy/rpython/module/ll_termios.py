@@ -15,11 +15,14 @@ from pypy.annotation import model as annmodel
 from pypy.rpython import rclass
 from pypy.rlib import rtermios
 from pypy.rpython.tool import rffi_platform
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
-includes = ['termios.h', 'unistd.h']
+eci = ExternalCompilationInfo(
+    includes = ['termios.h', 'unistd.h']
+)
 
 class CConfig:
-    _includes_ = includes
+    _compilation_info_ = eci
     NCCS = rffi_platform.DefinedConstantInteger('NCCS')
 
 NCCS = rffi_platform.configure(CConfig)['NCCS']
@@ -39,7 +42,7 @@ TERMIOSP = rffi.CStructPtr('termios', ('c_iflag', TCFLAG_T), ('c_oflag', TCFLAG_
                            ('c_cc', lltype.FixedSizeArray(CC_T, NCCS)))
 
 def c_external(name, args, result):
-    return rffi.llexternal(name, args, result, includes=includes)
+    return rffi.llexternal(name, args, result, compilation_info=eci)
 
 c_tcsetattr = c_external('tcsetattr', [INT, INT, TERMIOSP], INT)
 c_cfgetispeed = c_external('cfgetispeed', [TERMIOSP], SPEED_T)

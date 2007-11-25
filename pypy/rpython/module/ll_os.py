@@ -18,6 +18,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.rlib import rposix
 from pypy.tool.udir import udir
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 posix = __import__(os.name)
 
@@ -25,6 +26,15 @@ if sys.platform.startswith('win'):
     underscore_on_windows = '_'
 else:
     underscore_on_windows = ''
+
+includes = []
+if not sys.platform.startswith('win'):
+    # XXX many of these includes are not portable at all
+    includes += ['dirent.h', 'sys/stat.h',
+                 'sys/times.h', 'utime.h', 'sys/types.h', 'unistd.h',
+                 'signal.h', 'sys/wait.h']
+else:
+    includes += ['sys/utime.h']
 
 
 class CConfig:
@@ -38,13 +48,11 @@ class CConfig:
         register(function, [CLOCK_T], ...)
 
     """
-    _includes_ = []
-    if not sys.platform.startswith('win'):
-        # XXX many of these includes are not portable at all
-        _includes_ += ['dirent.h', 'sys/stat.h',
-                       'sys/times.h', 'utime.h', 'sys/types.h', 'unistd.h',
-                       'signal.h', 'sys/wait.h']
 
+    _compilation_info_ = ExternalCompilationInfo(
+        includes=includes
+    )
+    if not sys.platform.startswith('win'):
         CLOCK_T = platform.SimpleType('clock_t', rffi.INT)
 
         TMS = platform.Struct(
@@ -52,9 +60,6 @@ class CConfig:
                            ('tms_stime', rffi.INT),
                            ('tms_cutime', rffi.INT),
                            ('tms_cstime', rffi.INT)])
-    else:
-        _includes_ += ['sys/utime.h']
-    _include_dirs_ = [str(udir)]
 
     SEEK_SET = platform.DefinedConstantInteger('SEEK_SET')
     SEEK_CUR = platform.DefinedConstantInteger('SEEK_CUR')
@@ -85,9 +90,13 @@ class RegisterOs(BaseLazyRegistering):
             data = {'ret_type': 'int', 'name': name}
             decls.append(decl_snippet % data)
             defs.append(def_snippet % data)
-        h_source = ['#include "sys/wait.h"'] + decls + ["#ifndef PYPY_NOT_MAIN_FILE"] + defs + ["#endif", ""]
-        h_file = udir.join("pypy_os_macros.h")
-        h_file.write("\n".join(h_source))
+        h_source = ['#include "sys/wait.h"'] + decls + defs
+
+        self.compilation_info = self.compilation_info.merge(
+            ExternalCompilationInfo(
+            post_include_lines = decls,
+            separate_module_sources = ["\n".join(h_source)]
+        ))
 
     # a simple, yet usefull factory
     def extdef_for_os_function_returning_int(self, name, **kwds):
@@ -179,21 +188,24 @@ class RegisterOs(BaseLazyRegistering):
         os_utime = self.llexternal('utime', [rffi.CCHARP, UTIMBUFP], rffi.INT)
 
         class CConfig:
-            _includes_ = ['sys/time.h']
+            _compilation_info_ = ExternalCompilationInfo(
+                includes=['sys/time.h']
+            )
             HAVE_UTIMES = platform.Has('utimes')
         config = platform.configure(CConfig)
 
         if config['HAVE_UTIMES']:
             class CConfig:
-                _includes_ = ['sys/time.h']
+                _compilation_info_ = ExternalCompilationInfo(
+                    includes = ['sys/time.h']
+                )
                 TIMEVAL = platform.Struct('struct timeval', [('tv_sec', rffi.LONG),
                                                              ('tv_usec', rffi.LONG)])
             config = platform.configure(CConfig)
             TIMEVAL = config['TIMEVAL']
             TIMEVAL2P = rffi.CArrayPtr(TIMEVAL)
             os_utimes = self.llexternal('utimes', [rffi.CCHARP, TIMEVAL2P],
-                                        rffi.INT,
-                                        includes=['sys/time.h'])
+                                        rffi.INT, compilation_info=CConfig._compilation_info_)
 
             def os_utime_platform(path, actime, modtime):
                 import math
@@ -339,7 +351,9 @@ class RegisterOs(BaseLazyRegistering):
     def register_os_uname(self):
         CHARARRAY = lltype.FixedSizeArray(lltype.Char, 1)
         class CConfig:
-            _includes_ = ['sys/utsname.h']
+            _compilation_info_ = ExternalCompilationInfo(
+                includes = ['sys/utsname.h']
+            )
             UTSNAME = platform.Struct('struct utsname', [
                 ('sysname',  CHARARRAY),
                 ('nodename', CHARARRAY),
@@ -350,7 +364,7 @@ class RegisterOs(BaseLazyRegistering):
         UTSNAMEP = lltype.Ptr(config['UTSNAME'])
 
         os_uname = self.llexternal('uname', [UTSNAMEP], rffi.INT,
-                                   includes=CConfig._includes_)
+                                   compilation_info=CConfig._compilation_info_)
 
         def uname_llimpl():
             l_utsbuf = lltype.malloc(UTSNAMEP.TO, flavor='raw')
@@ -567,7 +581,9 @@ class RegisterOs(BaseLazyRegistering):
         # to get a correct implementation of os.abspath
         # XXX why do we ignore WINAPI conventions everywhere?
         class CConfig:
-            _includes_ = ['Windows.h']
+            _compilation_info_ = ExternalCompilationInfo(
+                includes = ['Windows.h']
+            )
             MAX_PATH = platform.ConstantInteger('MAX_PATH')
             DWORD    = platform.SimpleType("DWORD", rffi.ULONG)
             LPCTSTR  = platform.SimpleType("LPCTSTR", rffi.CCHARP)
@@ -649,7 +665,9 @@ class RegisterOs(BaseLazyRegistering):
         # we need a different approach on Windows and on Posix
         if sys.platform.startswith('win'):
             class CConfig:
-                _includes_ = ['windows.h']
+                _compilation_info_ = ExternalCompilationInfo(
+                    includes = ['windows.h']
+                )
                 WIN32_FIND_DATA = platform.Struct('struct _WIN32_FIND_DATAA',
                     [('cFileName', lltype.FixedSizeArray(rffi.CHAR, 1))])
                 INVALID_HANDLE_VALUE = platform.ConstantInteger(
@@ -714,8 +732,11 @@ class RegisterOs(BaseLazyRegistering):
                     lltype.free(filedata, flavor='raw')
 
         else:
+            compilation_info = ExternalCompilationInfo(
+                includes = ['sys/types.h', 'dirent.h']
+            )
             class CConfig:
-                _includes_ = ['sys/types.h', 'dirent.h']
+                _compilation_info_ = compilation_info
                 DIRENT = platform.Struct('struct dirent',
                     [('d_name', lltype.FixedSizeArray(rffi.CHAR, 1))])
 
@@ -724,11 +745,11 @@ class RegisterOs(BaseLazyRegistering):
             DIRENT = config['DIRENT']
             DIRENTP = lltype.Ptr(DIRENT)
             os_opendir = self.llexternal('opendir', [rffi.CCHARP], DIRP,
-                                         includes=CConfig._includes_)
+                                         compilation_info=compilation_info)
             os_readdir = self.llexternal('readdir', [DIRP], DIRENTP,
-                                         includes=CConfig._includes_)
+                                         compilation_info=compilation_info)
             os_closedir = self.llexternal('closedir', [DIRP], rffi.INT,
-                                          includes=CConfig._includes_)
+                                          compilation_info=compilation_info)
 
             def os_listdir_llimpl(path):
                 dirp = os_opendir(path)
@@ -1102,8 +1123,8 @@ class RegisterOs(BaseLazyRegistering):
             return int(getattr(os, name)(status))
         fake.func_name = 'fake_' + name
 
-        os_c_func = self.llexternal("pypy_macro_wrapper_" + name, [lltype.Signed],
-                                    lltype.Signed, includes=['pypy_os_macros.h'],
+        os_c_func = self.llexternal("pypy_macro_wrapper_" + name,
+                                    [lltype.Signed], lltype.Signed,
                                     _callable=fake)
     
         if name in self.w_star_returning_int:

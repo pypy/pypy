@@ -6,7 +6,7 @@ from pypy.translator.c.database import LowLevelDatabase
 from pypy.translator.c.extfunc import pre_include_code_lines
 from pypy.translator.llsupport.wrapper import new_wrapper
 from pypy.translator.gensupp import uniquemodulename, NameManager
-from pypy.translator.tool.cbuild import so_ext
+from pypy.translator.tool.cbuild import so_ext, ExternalCompilationInfo
 from pypy.translator.tool.cbuild import compile_c_module
 from pypy.translator.tool.cbuild import build_executable, CCompiler, ProfOpt
 from pypy.translator.tool.cbuild import import_module_from_directory
@@ -24,8 +24,8 @@ class CBuilder(object):
     _compiled = False
     modulename = None
     
-    def __init__(self, translator, entrypoint, config, libraries=None,
-                 gcpolicy=None):
+    def __init__(self, translator, entrypoint, config,
+                 eci=ExternalCompilationInfo(), gcpolicy=None):
         self.translator = translator
         self.entrypoint = entrypoint
         self.entrypoint_name = self.entrypoint.func_name
@@ -34,11 +34,8 @@ class CBuilder(object):
         if gcpolicy is not None and gcpolicy.requires_stackless:
             config.translation.stackless = True
         self.config = config
-
-        if libraries is None:
-            libraries = []
-        self.libraries = libraries
         self.exports = {}
+        self.eci = eci
 
     def build_database(self):
         translator = self.translator
@@ -65,7 +62,8 @@ class CBuilder(object):
         self.db = db
 
         # we need a concrete gcpolicy to do this
-        self.libraries += db.gcpolicy.gc_libraries()
+        self.eci = self.eci.merge(ExternalCompilationInfo(
+            libraries=db.gcpolicy.gc_libraries()))
 
         # give the gc a chance to register interest in the start-up functions it
         # need (we call this for its side-effects of db.get())
@@ -77,19 +75,19 @@ class CBuilder(object):
         self.exports[self.entrypoint_name] = pf
         self.c_entrypoint_name = pfname
         db.complete()
-
-        # add library dependencies
-        seen = dict.fromkeys(self.libraries)
-        for node in db.globalcontainers():
-            if hasattr(node, 'libraries'):
-                for library in node.libraries:
-                    if library not in seen:
-                        self.libraries.append(library)
-                        seen[library] = True
+        
+        self.collect_compilation_info()
         return db
 
     have___thread = None
 
+    def collect_compilation_info(self):
+        all = []
+        for node in self.db.globalcontainers():
+            eci = getattr(node, 'compilation_info', None)
+            if eci:
+                all.append(eci)
+        self.eci = self.eci.merge(*all)
 
     def get_gcpolicyclass(self):
         if self.gcpolicy is None:
@@ -112,7 +110,6 @@ class CBuilder(object):
             db = self.build_database()
         pf = self.getentrypointptr()
         pfname = db.get(pf)
-        extra_info = extra_information(db)
         if self.modulename is None:
             self.modulename = uniquemodulename('testing')
         modulename = self.modulename
@@ -128,27 +125,29 @@ class CBuilder(object):
             CBuilder.have___thread = check_under_under_thread()
         if not self.standalone:
             assert not self.config.translation.instrument
-            cfile, extra, include_dirs, library_dirs = \
-                   gen_source(db, modulename, targetdir,
-                              defines = defines,
-                              exports = self.exports,
-                              libraries = self.libraries,
-                              extra_info = extra_info)
+            cfile, extra = gen_source(db, modulename, targetdir, self.eci,
+                                      defines = defines,
+                                      exports = self.exports)
         else:
             if self.config.translation.instrument:
                 defines['INSTRUMENT'] = 1
             if CBuilder.have___thread:
                 if not self.config.translation.no__thread:
                     defines['USE___THREAD'] = 1
-            cfile, extra, include_dirs, library_dirs = \
-                   gen_source_standalone(db, modulename, targetdir,
-                                         entrypointname = pfname,
-                                         defines = defines,
-                                         extra_info = extra_info)
+            # explicitely include python.h and exceptions.h
+            # XXX for now, we always include Python.h
+            from distutils import sysconfig
+            python_inc = sysconfig.get_python_inc()
+            pypy_include_dir = autopath.this_dir
+            self.eci = self.eci.merge(ExternalCompilationInfo(
+                include_dirs=[python_inc, pypy_include_dir],
+            ))
+            cfile, extra = gen_source_standalone(db, modulename, targetdir,
+                                                 self.eci,
+                                                 entrypointname = pfname,
+                                                 defines = defines)
         self.c_source_filename = py.path.local(cfile)
         self.extrafiles = extra
-        self.include_dirs = include_dirs.keys()
-        self.library_dirs = library_dirs.keys()
         if self.standalone:
             self.gen_makefile(targetdir)
         return cfile
@@ -180,12 +179,9 @@ class CExtModuleBuilder(CBuilder):
     def compile(self):
         assert self.c_source_filename 
         assert not self._compiled
-        extra_includes = self.include_dirs
         compile_c_module([self.c_source_filename] + self.extrafiles,
-                         self.c_source_filename.purebasename,
-                         include_dirs = [autopath.this_dir] + extra_includes,
-                         library_dirs = self.library_dirs,
-                         libraries=self.libraries)
+                         self.c_source_filename.purebasename, self.eci,
+                         tmpdir=self.c_source_filename.dirpath())
         self._compiled = True
 
     def _make_wrapper_module(self):
@@ -263,10 +259,7 @@ class CStandaloneBuilder(CBuilder):
         bk = self.translator.annotator.bookkeeper
         return getfunctionptr(bk.getdesc(self.entrypoint).getuniquegraph())
 
-    def getccompiler(self, extra_includes):
-        # XXX for now, we always include Python.h
-        from distutils import sysconfig
-        python_inc = sysconfig.get_python_inc()
+    def getccompiler(self):            
         cc = self.config.translation.cc
         profbased = None
         if self.config.translation.instrumentctl is not None:
@@ -278,16 +271,14 @@ class CStandaloneBuilder(CBuilder):
 
         return CCompiler(
             [self.c_source_filename] + self.extrafiles,
-            include_dirs = [autopath.this_dir, python_inc] + extra_includes,
-            libraries    = self.libraries,
-            library_dirs = self.library_dirs,
-            compiler_exe = cc, profbased = profbased)
+            self.eci, compiler_exe = cc, profbased = profbased)
 
     def compile(self):
         assert self.c_source_filename
         assert not self._compiled
-        compiler = self.getccompiler(extra_includes=[str(self.targetdir)] +
-                                     self.include_dirs)
+        eci = self.eci.merge(ExternalCompilationInfo(includes=
+                                                     [str(self.targetdir)]))
+        compiler = self.getccompiler()
         if sys.platform == 'darwin':
             compiler.compile_extra.append('-mdynamic-no-pic')
         if self.config.translation.compilerflags:
@@ -313,7 +304,9 @@ class CStandaloneBuilder(CBuilder):
                     print >> f
                 prefix = ' ' * len(prefix)
 
-        compiler = self.getccompiler(extra_includes=['.', str(self.targetdir)] + self.include_dirs)
+        self.eci = self.eci.merge(ExternalCompilationInfo(
+            includes=['.', str(self.targetdir)]))
+        compiler = self.getccompiler()
         if sys.platform == 'darwin':
             compiler.compile_extra.append('-mdynamic-no-pic')
         if self.config.translation.compilerflags:
@@ -346,11 +339,11 @@ class CStandaloneBuilder(CBuilder):
         print >> f
         write_list(ofiles, 'OBJECTS =')
         print >> f
-        args = ['-l'+libname for libname in compiler.libraries]
+        args = ['-l'+libname for libname in self.eci.libraries]
         print >> f, 'LIBS =', ' '.join(args)
-        args = ['-L'+path for path in compiler.library_dirs]
+        args = ['-L'+path for path in self.eci.library_dirs]
         print >> f, 'LIBDIRS =', ' '.join(args)
-        args = ['-I'+path for path in compiler.include_dirs]
+        args = ['-I'+path for path in self.eci.include_dirs]
         write_list(args, 'INCLUDEDIRS =')
         print >> f
         print >> f, 'CFLAGS  =', ' '.join(compiler.compile_extra)
@@ -635,23 +628,8 @@ def gen_startupcode(f, database):
     print >> f, '\treturn error;'
     print >> f, '}'
 
-def extra_information(database):
-    includes = {}
-    sources = {}
-    include_dirs = {}
-    library_dirs = {}
-    for node in database.globalcontainers():
-        for attrname in ['includes', 'sources', 'include_dirs', 'library_dirs']:
-            if hasattr(node, attrname):
-                for elem in getattr(node, attrname):
-                    locals()[attrname][elem] = True
-    includes = includes.keys()
-    includes.sort()
-    return {'includes':includes, 'sources':sources,
-            'include_dirs':include_dirs, 'library_dirs':library_dirs}
-
-def gen_source_standalone(database, modulename, targetdir, 
-                          entrypointname, defines={}, extra_info={}): 
+def gen_source_standalone(database, modulename, targetdir, eci,
+                          entrypointname, defines={}): 
     assert database.standalone
     if isinstance(targetdir, str):
         targetdir = py.path.local(targetdir)
@@ -674,15 +652,13 @@ def gen_source_standalone(database, modulename, targetdir,
     for line in database.gcpolicy.pre_pre_gc_code():
         print >> fi, line
 
+    eci.write_c_header(fi)
+
     print >> fi, '#include "src/g_prerequisite.h"'
 
     for line in database.gcpolicy.pre_gc_code():
         print >> fi, line
 
-    for include in extra_info.get('includes', []):
-        print >> fi, '#include <%s>' % (include,)
-    for source in extra_info.get('sources', []):
-        print >> f, source
     fi.close()
 
     preimplementationlines = list(
@@ -709,12 +685,11 @@ def gen_source_standalone(database, modulename, targetdir,
         print >>fi, "#define INSTRUMENT_NCOUNTER %d" % n
         fi.close()
 
-    return filename, sg.getextrafiles(), extra_info.get('include_dirs', None),\
-           extra_info.get('library_dirs', None)
+    eci = eci.convert_sources_to_files(being_main=True)
+    return filename, sg.getextrafiles() + list(eci.separate_module_files)
 
 
-def gen_source(database, modulename, targetdir, defines={}, exports={},
-               libraries=[], extra_info={}):
+def gen_source(database, modulename, targetdir, eci, defines={}, exports={}):
     assert not database.standalone
     if isinstance(targetdir, str):
         targetdir = py.path.local(targetdir)
@@ -740,10 +715,7 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
     for line in database.gcpolicy.pre_gc_code():
         print >> fi, line
 
-    for include in extra_info.get('includes', []):
-        print >> fi, '#include <%s>' % (include,)
-    for source in extra_info.get('sources', []):
-        print >> f, source
+    eci.write_c_header(fi)
     fi.close()
 
     if database.translator is None or database.translator.rtyper is None:
@@ -768,13 +740,14 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
     #
     pypy_include_dir = autopath.this_dir
     f = targetdir.join('setup.py').open('w')
-    include_dirs = extra_info.get('include_dirs', [])
-    library_dirs = extra_info.get('library_dirs', [])
+    include_dirs = eci.include_dirs
+    library_dirs = eci.library_dirs
+    libraries = eci.libraries
     f.write(SETUP_PY % locals())
     f.close()
+    eci = eci.convert_sources_to_files(being_main=True)
 
-    return filename, sg.getextrafiles(), include_dirs,\
-           library_dirs
+    return filename, sg.getextrafiles() + list(eci.separate_module_files)
 
 
 SETUP_PY = '''

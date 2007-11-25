@@ -1,12 +1,12 @@
 
-""" This file creates and maintains _cache/stdtypes.py, which
-keeps information about C type sizes
-"""
+# XXX This is completely outdated file, kept here only for bootstrapping
+#     reasons. If you touch it, try removing it
 
 import py
 import os
 import distutils
-from pypy.translator.tool.cbuild import build_executable
+from pypy.translator.tool.cbuild import build_executable, \
+     ExternalCompilationInfo
 from pypy.tool.udir import udir
 from pypy.tool.autopath import pypydir
 from pypy.rlib import rarithmetic
@@ -31,7 +31,8 @@ def ask_gcc(question, add_source="", compiler_exe=None):
     ''' % (include_string, add_source, str(question)))
     c_file = udir.join("gcctest.c")
     c_file.write(c_source)
-    return build_executable_cache([c_file], compiler_exe=compiler_exe)
+    eci = ExternalCompilationInfo()
+    return build_executable_cache([c_file], eci, compiler_exe=compiler_exe)
 
 def sizeof_c_type(c_typename, **kwds):
     question = 'printf("%%d", sizeof(%s));' % (c_typename,);

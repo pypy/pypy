@@ -14,14 +14,13 @@ from pypy.tool.uid import fixid
 from pypy.tool.tls import tlsobject
 from pypy.rlib.rarithmetic import r_uint, r_singlefloat
 from pypy.annotation import model as annmodel
-from pypy.translator.tool.cbuild import cache_c_module
-
 
 def uaddressof(obj):
     return fixid(ctypes.addressof(obj))
 
 
 _ctypes_cache = {}
+_eci_cache = {}
 
 def _setup_ctypes_cache():
     from pypy.rpython.lltypesystem import rffi
@@ -513,15 +512,6 @@ if ctypes:
 # ____________________________________________
 
 
-def compile_c_snippet(name, source):
-    from pypy.tool.udir import udir
-    cname = udir.join(name + '.c')
-    f = cname.open('w')
-    f.write(source)
-    f.write('\n')
-    f.close()
-    return cache_c_module([cname], name)
-    
 def get_ctypes_callable(funcptr, calling_conv):
     if not ctypes:
         raise ImportError("ctypes is needed to use ll2ctypes")
@@ -534,16 +524,17 @@ def get_ctypes_callable(funcptr, calling_conv):
         except AttributeError:
             pass
     
-    sources = getattr(funcptr._obj, 'sources', None)
-    if sources:
-        assert len(sources) == 1
-        dllname = compile_c_snippet(funcptr._obj._name, sources[0])
-        libraries = [dllname]
-    else:
-        libraries = getattr(funcptr._obj, 'libraries', None)
+    old_eci = funcptr._obj.compilation_info
+    funcname = funcptr._obj._name
+    try:
+        eci = _eci_cache[old_eci]
+    except KeyError:
+        eci = old_eci.compile_shared_lib()
+        _eci_cache[old_eci] = eci
+
+    libraries = list(eci.libraries)
 
     FUNCTYPE = lltype.typeOf(funcptr).TO
-    funcname = funcptr._obj._name
     if not libraries:
         cfunc = get_on_lib(standard_c_lib, funcname)
         # XXX magic: on Windows try to load the function from 'kernel32' too

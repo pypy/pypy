@@ -75,6 +75,26 @@ def test_simple_lambda():
 
     assert f1(5) == 10
 
+def test_py_capi_exc():
+    def f(x):
+        if x:
+            l = None
+        else:
+            l = [2]
+        x = x*2
+        return l[0]
+    t = TranslationContext()
+    t.buildannotator().build_types(f, [int])
+    t.buildrtyper().specialize()
+
+    builder = genc.CExtModuleBuilder(t, f, config=t.config)
+    builder.generate_source()
+    builder.compile()
+    f1 = builder.get_entry_point(isolated=True)
+
+    x = py.test.raises(Exception, f1, "world")
+    assert not isinstance(x.value, EOFError) # EOFError === segfault
+
 def test_rlist():
     def f(x):
         l = [x]

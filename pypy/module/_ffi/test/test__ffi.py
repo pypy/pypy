@@ -1,7 +1,7 @@
 
 
 from pypy.conftest import gettestobjspace
-from pypy.translator.tool.cbuild import compile_c_module
+from pypy.translator.tool.cbuild import compile_c_module, ExternalCompilationInfo
 
 import os, sys, py
 
@@ -90,7 +90,7 @@ class AppTestFfi:
         }
 
         '''))
-        compile_c_module([c_file], 'x')
+        compile_c_module([c_file], 'x', ExternalCompilationInfo())
         return str(udir.join('x.so'))
     prepare_c_example = staticmethod(prepare_c_example)
     

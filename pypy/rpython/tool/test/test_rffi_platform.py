@@ -3,6 +3,7 @@ from pypy.rpython.tool import rffi_platform
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem import rffi
 from pypy.tool.udir import udir
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 def import_ctypes():
     try:
@@ -109,11 +110,12 @@ def test_configure():
     test_h.write('#define XYZZY 42\n')
 
     class CConfig:
-        _header_ = """ /* a C comment */
-                       #include <stdio.h>
-                       #include <test_ctypes_platform.h>
-                   """
-        _include_dirs_ = [str(udir)]
+        _compilation_info_ = ExternalCompilationInfo(
+            pre_include_lines = ["/* a C comment */",
+                                 "#include <stdio.h>",
+                                 "#include <test_ctypes_platform.h>"],
+            include_dirs = [str(udir)]
+        )
 
         FILE = rffi_platform.Struct('FILE', [])
         ushort = rffi_platform.SimpleType('unsigned short')
@@ -127,14 +129,14 @@ def test_configure():
 
 def test_ifdef():
     class CConfig:
-        _header_ = """ /* a C comment */
-#define XYZZY 42
-typedef int foo;
-struct s {
-    int i;
-    double f;
-};
-"""
+        _compilation_info_ = ExternalCompilationInfo(
+            post_include_lines = ['/* a C comment */',
+                                  '#define XYZZY 42',
+                                  'typedef int foo;',
+                                  'struct s {',
+                                  'int i;',
+                                  'double f;'
+                                  '};'])
 
         s = rffi_platform.Struct('struct s', [('i', rffi.INT)],
                                    ifdef='XYZZY')
@@ -152,16 +154,17 @@ struct s {
 
 def test_nested_structs():
     class CConfig:
-        _header_ = """
-struct x {
-    int foo;
-    unsigned long bar;
-    };
-struct y {
-    char c;
-    struct x x;
-    };
-"""
+        _compilation_info_ = ExternalCompilationInfo(
+            post_include_lines="""
+            struct x {
+            int foo;
+            unsigned long bar;
+            };
+            struct y {
+            char c;
+            struct x x;
+            };
+            """.split("\n"))
         x = rffi_platform.Struct("struct x", [("bar", rffi.SHORT)])
         y = rffi_platform.Struct("struct y", [("x", x)])
 
@@ -193,4 +196,4 @@ def test_has():
     assert not rffi_platform.has("x", "#include <some/path/which/cannot/exist>")
 
 def test_sizeof():
-    assert rffi_platform.sizeof("char", "") == 1
+    assert rffi_platform.sizeof("char", ExternalCompilationInfo()) == 1

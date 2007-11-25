@@ -8,6 +8,7 @@ import py
 from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer("cbuild")
 py.log.setconsumer("cbuild", ansi_log)
+from pypy.tool.udir import udir
 
 debug = 0
 
@@ -16,6 +17,8 @@ class ExternalCompilationInfo(object):
     _ATTRIBUTES = ['pre_include_lines', 'includes', 'include_dirs',
                    'post_include_lines', 'libraries', 'library_dirs',
                    'separate_module_sources', 'separate_module_files']
+    _AVOID_DUPLICATES = ['separate_module_files', 'libraries', 'includes',
+                         'include_dirs', 'library_dirs', 'separate_module_sources']
 
     def __init__(self,
                  pre_include_lines       = [],
@@ -57,8 +60,94 @@ class ExternalCompilationInfo(object):
             assert isinstance(value, (list, tuple))
             setattr(self, name, tuple(value))
 
-        # XXX custom hash and eq functions, they should be compared
-        #     by contents
+    def _value(self):
+        return tuple([getattr(self, x) for x in self._ATTRIBUTES])
+
+    def __hash__(self):
+        return hash(self._value())
+
+    def __eq__(self, other):
+        return self.__class__ is other.__class__ and \
+               self._value() == other._value()
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __repr__(self):
+        info = []
+        for attr in self._ATTRIBUTES:
+            val = getattr(self, attr)
+            info.append("%s=%s" % (attr, repr(val)))
+        return "<ExternalCompilationInfo (%s)>" % ", ".join(info)
+
+    def merge(self, *others):
+        others = list(others)
+        attrs = {}
+        for name in self._ATTRIBUTES:
+            if name not in self._AVOID_DUPLICATES:
+                s = []
+                for i in [self] + others:
+                    s += getattr(i, name)
+                attrs[name] = s
+            else:
+                s = set()
+                attr = []
+                for one in [self] + others:
+                    for elem in getattr(one, name):
+                        if elem not in s:
+                            s.add(elem)
+                            attr.append(elem)
+                attrs[name] = attr
+        return ExternalCompilationInfo(**attrs)
+
+    def write_c_header(self, fileobj):
+        for line in self.pre_include_lines:
+            print >> fileobj, line
+        for path in self.includes:
+            print >> fileobj, '#include <%s>' % (path,)
+        for line in self.post_include_lines:
+            print >> fileobj, line
+
+    def _copy_attributes(self):
+        d = {}
+        for attr in self._ATTRIBUTES:
+            d[attr] = getattr(self, attr)
+        return d
+
+    def convert_sources_to_files(self, cache_dir=None, being_main=False):
+        if not self.separate_module_sources:
+            return self
+        if cache_dir is None:
+            cache_dir = udir.join('module_cache').ensure(dir=1)
+        num = 0
+        files = []
+        for source in self.separate_module_sources:
+            while 1:
+                filename = cache_dir.join('module_%d.c' % num)
+                num += 1
+                if not filename.check():
+                    break
+            f = filename.open("w")
+            if being_main:
+                f.write("#define PYPY_NOT_MAIN_FILE\n")
+            f.write(source)
+            f.close()
+            files.append(str(filename))
+        d = self._copy_attributes()
+        d['separate_module_sources'] = ()
+        d['separate_module_files'] += tuple(files)
+        return ExternalCompilationInfo(**d)
+
+    def compile_shared_lib(self):
+        self = self.convert_sources_to_files()
+        if not self.separate_module_files:
+            return self
+        lib = compile_c_module([], 'externmod', self)
+        d = self._copy_attributes()
+        d['libraries'] += (lib,)
+        d['separate_module_files'] = ()
+        d['separate_module_sources'] = ()
+        return ExternalCompilationInfo(**d)
 
 if sys.platform == 'win32':
     so_ext = '.dll'
@@ -94,17 +183,21 @@ def ensure_correct_math():
         opt += '/Op'
     gcv['OPT'] = opt
 
-def compile_c_module(cfiles, modname, include_dirs=[], libraries=[],
-                     library_dirs=[]):
+def compile_c_module(cfiles, modbasename, eci, tmpdir=None):
     #try:
     #    from distutils.log import set_threshold
     #    set_threshold(10000)
     #except ImportError:
     #    print "ERROR IMPORTING"
     #    pass
-    include_dirs = list(include_dirs)
+    cfiles = [py.path.local(f) for f in cfiles]
+    if tmpdir is None:
+        tmpdir = udir.join("module_cache").ensure(dir=1)
+    num = 0
+    cfiles += eci.separate_module_files
+    include_dirs = list(eci.include_dirs)
     include_dirs.append(py.path.local(pypydir).join('translator', 'c'))
-    library_dirs = list(library_dirs)
+    library_dirs = list(eci.library_dirs)
     if sys.platform == 'darwin':    # support Fink & Darwinports
         for s in ('/sw/', '/opt/local/'):
             if s + 'include' not in include_dirs and \
@@ -114,8 +207,16 @@ def compile_c_module(cfiles, modname, include_dirs=[], libraries=[],
                os.path.exists(s + 'lib'):
                 library_dirs.append(s + 'lib')
 
-    dirpath = cfiles[0].dirpath()
-    lastdir = dirpath.chdir()
+    num = 0
+    modname = modbasename
+    while 1:
+        if not tmpdir.join(modname + so_ext).check():
+            break
+        num += 1
+        modname = '%s_%d' % (modbasename, num)
+
+    lastdir = tmpdir.chdir()
+    libraries = eci.libraries
     ensure_correct_math()
     try:
         if debug: print "modname", modname
@@ -127,7 +228,7 @@ def compile_c_module(cfiles, modname, include_dirs=[], libraries=[],
                     from distutils import sysconfig
                     gcv = sysconfig.get_config_vars()
                     cmd = compiler_command().replace('%s',
-                                                     str(dirpath.join(modname)))
+                                                     str(tmpdir.join(modname)))
                     for dir in [gcv['INCLUDEPY']] + list(include_dirs):
                         cmd += ' -I%s' % dir
                     for dir in library_dirs:
@@ -195,29 +296,12 @@ def compile_c_module(cfiles, modname, include_dirs=[], libraries=[],
             raise
     finally:
         lastdir.chdir()
+    return str(tmpdir.join(modname) + so_ext)
 
-def cache_c_module(cfiles, modname, cache_dir=None,
-                   include_dirs=[], libraries=[]):
-    """ Same as build c module, but instead caches results.
-    XXX currently there is no way to force a recompile, so this is pretty
-    useless as soon as the sources (or headers they depend on) change :-/
-    XXX for now I'm forcing a recompilation all the time.  Better than not...
-    """
-    from pypy.tool.autopath import pypydir
-    if cache_dir is None:
-        cache_dir = py.path.local(pypydir).join('_cache')
-    else:
-        cache_dir = py.path.local(cache_dir)
-    assert cache_dir.check(dir=1)   # XXX
-    modname = str(cache_dir.join(modname))
-    compile_c_module(cfiles, modname, include_dirs=include_dirs,
-                     libraries=libraries)
-    return modname + so_ext
-
-def make_module_from_c(cfile, include_dirs=None, libraries=[]):
+def make_module_from_c(cfile, eci):
     cfile = py.path.local(cfile)
     modname = cfile.purebasename
-    compile_c_module([cfile], modname, include_dirs, libraries)
+    compile_c_module([cfile], modname, eci)
     return import_module_from_directory(cfile.dirpath(), modname)
 
 def import_module_from_directory(dir, modname):
@@ -267,16 +351,15 @@ class ProfOpt(object):
             
 class CCompiler:
 
-    def __init__(self, cfilenames, outputfilename=None, include_dirs=[],
-                 libraries=[], library_dirs=[], compiler_exe=None,
-                 profbased=None):
+    def __init__(self, cfilenames, eci, outputfilename=None,
+                 compiler_exe=None, profbased=None):
         self.cfilenames = cfilenames
         ext = ''
         self.compile_extra = []
         self.link_extra = []
-        self.libraries = list(libraries)
-        self.include_dirs = list(include_dirs)
-        self.library_dirs = list(library_dirs)
+        self.libraries = list(eci.libraries)
+        self.include_dirs = list(eci.include_dirs)
+        self.library_dirs = list(eci.library_dirs)
         self.compiler_exe = compiler_exe
         self.profbased = profbased
         if not sys.platform in ('win32', 'darwin'): # xxx
@@ -302,7 +385,8 @@ class CCompiler:
         if outputfilename is None:
             self.outputfilename = py.path.local(cfilenames[0]).new(ext=ext)
         else: 
-            self.outputfilename = py.path.local(outputfilename) 
+            self.outputfilename = py.path.local(outputfilename)
+        self.eci = eci
 
     def build(self, noerr=False):
         basename = self.outputfilename.new(ext='')
@@ -354,7 +438,7 @@ class CCompiler:
             old = cfile.dirpath().chdir() 
             try: 
                 res = compiler.compile([cfile.basename], 
-                                       include_dirs=self.include_dirs,
+                                       include_dirs=self.eci.include_dirs,
                                        extra_preargs=self.compile_extra)
                 assert len(res) == 1
                 cobjfile = py.path.local(res[0]) 
@@ -363,9 +447,9 @@ class CCompiler:
             finally: 
                 old.chdir() 
         compiler.link_executable(objects, str(self.outputfilename),
-                                 libraries=self.libraries,
+                                 libraries=self.eci.libraries,
                                  extra_preargs=self.link_extra,
-                                 library_dirs=self.library_dirs)
+                                 library_dirs=self.eci.library_dirs)
 
 def build_executable(*args, **kwds):
     noerr = kwds.pop('noerr', False)

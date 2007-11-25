@@ -925,7 +925,7 @@ class LowLevelOpList(list):
         return self.genop('direct_call', [cf]+list(args_v), resulttype)
 
     def gencapicall(self, cfnname, args_v, resulttype=None, **flags):
-        return self.genexternalcall(cfnname, args_v, resulttype=resulttype, external="C", **flags)
+        return self.genexternalcall(cfnname, args_v, resulttype=resulttype, external="CPython", **flags)
 
     def genconst(self, ll_value):
         return inputconst(typeOf(ll_value), ll_value)
