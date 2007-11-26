@@ -237,7 +237,7 @@ class BaseTestRffi:
         )
         STUFFP = COpaquePtr('struct stuff', compilation_info=eci)
     
-        ll_get = llexternal('get', [STUFFP], lltype.Char, compilation_info=eci)
+        ll_get = llexternal('get', [STUFFP], CHAR, compilation_info=eci)
     
         def f():
             ll_stuff = lltype.malloc(STUFFP.TO, flavor='raw')
@@ -247,7 +247,37 @@ class BaseTestRffi:
     
         f1 = self.compile(f, [])
         assert f1() == 'a'
+
+    def return_char(self, signed):
+        ctype_pref = ["un", ""][signed]
+        rffi_type = [UCHAR, SIGNEDCHAR][signed]
+        h_source = py.code.Source("""
+        %ssigned char returnchar(void)
+        {
+            return 42;
+        }
+        """ % (ctype_pref, ))
+        h_file = udir.join("opaque2%s.h" % (ctype_pref, ))
+        h_file.write(h_source)
     
+        from pypy.rpython.tool import rffi_platform
+        eci = ExternalCompilationInfo(
+            includes=[h_file.basename],
+            include_dirs=[str(udir)]
+        )
+        ll_returnchar = llexternal('returnchar', [], rffi_type, compilation_info=eci)
+    
+        def f():
+            result = ll_returnchar()
+            return result
+    
+        f1 = self.compile(f, [])
+        assert f1() == chr(42)
+
+    def test_generate_return_char_tests(self):
+        yield self.return_char, False
+        yield self.return_char, True
+ 
     def test_prebuilt_constant(self):
         py.test.skip("Think how to do it sane")
         h_source = py.code.Source("""
@@ -491,6 +521,9 @@ class TestCRffi(BaseTestRffi):
     def compile(self, func, args, **kwds):
         return compile_c(func, args, **kwds)
 
+    def test_generate_return_char_tests(self):
+        py.test.skip("GenC does not handle char return values correctly")
+
 class TestLLVMRffi(BaseTestRffi):
     def compile(self, func, args, **kwds):
         # pfff....
@@ -502,3 +535,5 @@ class TestLLVMRffi(BaseTestRffi):
     def test_hashdefine(self):
         py.test.skip("Macros cannot be called as llexternals by design, rffi does not have any special support for them")
 
+    def test_opaque_type(self):
+        py.test.skip("GenLLVM handles opaque type defs incorrectly")
