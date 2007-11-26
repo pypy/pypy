@@ -129,10 +129,12 @@ def generate_c(db, entrynode, eci, standalone):
     # ask gcpolicy for any code needed
     ccode.append('%s' % db.gcpolicy.genextern_code())
 
+    ccode.append("#define PYPY_NOT_MAIN_FILE")
     # ask rffi for includes/source
     s = StringIO()
     eci.write_c_header(s)
     ccode.append(s.getvalue())
+    ccode.append("#undef PYPY_NOT_MAIN_FILE")
     
     ccode.append('')
 
