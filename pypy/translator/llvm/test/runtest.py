@@ -69,7 +69,8 @@ class StructTuple(tuple):
             raise AttributeError, name
         
 def wrapfn(fn):
-    def wrapped(*args):
+    def wrapped(*args, **kwds):
+        # XXX implement fishing, ie expected_extra_mallocs
         callargs = []
         for a in args:
             if hasattr(a, 'chars'):

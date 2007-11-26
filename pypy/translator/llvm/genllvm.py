@@ -20,6 +20,7 @@ from pypy.annotation.listdef import s_list_of_strings
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import rffi
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 def augment_entrypoint(translator, entrypoint):
     bk = translator.annotator.bookkeeper
@@ -184,21 +185,14 @@ class GenLLVM(object):
         return c.value._obj 
 
     def generate_ll_externs(self, codewriter):
-        c_include_dirs = {}
-        c_includes = {}
-        c_sources = {}
-
+        all = []
         for node in self.db.getnodes():
-            include_dirs, includes, sources = node.external_c_source()            
-            for incdir in include_dirs:
-                c_include_dirs[incdir] = True
-            for include in includes:
-                c_includes[include] = True
-            for source in sources:
-                c_sources[source] = True
-
-        ccode = generate_c(self.db, self.entrynode, c_includes, c_sources, self.standalone)
-        self.llcode = generate_ll(ccode, codewriter.cconv, c_include_dirs, self.db.extern_to_funcnodes)
+            eci = getattr(node, 'compilation_info', None)
+            if eci is not None:
+                all.append(eci)
+        eci = ExternalCompilationInfo().merge(*all)
+        ccode = generate_c(self.db, self.entrynode, eci, self.standalone)
+        self.llcode = generate_ll(ccode, codewriter.cconv, eci, self.db.extern_to_funcnodes)
         
     def create_codewriter(self):
         # prevent running the same function twice in a test

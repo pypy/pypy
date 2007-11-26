@@ -32,10 +32,6 @@ class Node(object):
     def post_setup_transform(self):
         pass
 
-    def external_c_source(self):
-        " return a list of unique includes and sources in C "
-        return [], [], []
-    
     def writesetupcode(self, codewriter):
         " pre entry-point setup "
         pass

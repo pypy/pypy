@@ -7,23 +7,7 @@ class ExternalFuncNode(FuncNode):
         self.db = db
         self.value = value
         self.name = "@" + name
-
-    def external_c_source(self):
-        # return a list of unique includes and sources in C
-        c_include_dirs = []
-        c_includes = []
-        c_sources = []
-
-        if hasattr(self.value, 'include_dirs'):
-            c_include_dirs = list(self.value.include_dirs)
-
-        if hasattr(self.value, 'includes'):
-            c_includes = list(self.value.includes)
-
-        if hasattr(self.value, 'sources'):
-            c_sources = list(self.value.sources)
-
-        return c_include_dirs, c_includes, c_sources
+        self.compilation_info = getattr(value, 'compilation_info', None)
 
     def writeglobalconstants(self, codewriter):
         pass

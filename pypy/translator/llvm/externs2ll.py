@@ -7,6 +7,7 @@ from pypy.objspace.flow.model import FunctionGraph
 from pypy.rpython.rmodel import inputconst
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.udir import udir
+from StringIO import StringIO
 
 def get_c_cpath():
     from pypy.translator.c import genc
@@ -35,7 +36,7 @@ def get_incdirs(c_include_dirs):
 
 # call boehm finalizers need to be fastcc
 
-def generate_ll(ccode, default_cconv, c_include_dirs, call_funcnames=[]):
+def generate_ll(ccode, default_cconv, eci, call_funcnames=[]):
     call_funcnames = ['@LLVM_RPython_StartupCode'] + call_funcnames
     define_funcnames = ['@pypy_malloc',
                         '@pypy_malloc_atomic',
@@ -51,22 +52,28 @@ def generate_ll(ccode, default_cconv, c_include_dirs, call_funcnames=[]):
     f.write(ccode)
     f.close()
 
-    plain = filename[:-2]
-    includes = get_incdirs(c_include_dirs)
-    cmd = "llvm-gcc -emit-llvm -O0 -S %s %s.c -o %s.ll 2>&1" % (
-        includes, plain, plain)
+    includes = get_incdirs(eci.include_dirs)
+    eci = eci.convert_sources_to_files()
+    c_files = [filename] + list(eci.separate_module_files)
+    read_lines = []
+    for name in c_files:
+    # XXX this is evil...
+        plain = name[:-2]
+        cmd = "llvm-gcc -emit-llvm -O0 -S %s %s.c -o %s.ll 2>&1" % (
+            includes, plain, plain)
 
-    if os.system(cmd) != 0:
-        raise Exception("Failed to run '%s'" % cmd)
+        if os.system(cmd) != 0:
+            raise Exception("Failed to run '%s'" % cmd)
 
-    llcode = open(plain + '.ll').read()
+        llcode = open(plain + '.ll').read()
+        read_lines += llcode.split("\n")
 
     # strip lines
     lines = []
 
     calltag, declaretag, definetag = 'call ', 'declare ', 'define '
     
-    for line in llcode.split('\n'):
+    for line in read_lines:
 
         # get rid of any of the structs that llvm-gcc introduces to struct types
         line = line.replace("%struct.", "%")
@@ -109,7 +116,7 @@ def generate_ll(ccode, default_cconv, c_include_dirs, call_funcnames=[]):
     lines.append("declare ccc void @abort()")
     return'\n'.join(lines)
 
-def generate_c(db, entrynode, c_includes, c_sources, standalone):
+def generate_c(db, entrynode, eci, standalone):
     ccode = []
         
     if standalone:
@@ -123,14 +130,10 @@ def generate_c(db, entrynode, c_includes, c_sources, standalone):
     ccode.append('%s' % db.gcpolicy.genextern_code())
 
     # ask rffi for includes/source
-    for c_include in c_includes:
-        ccode.append('#include <%s>' % c_include)
-        
-    ccode.append('')
-
-    for c_source in c_sources:
-        ccode.append(c_source) 
-
+    s = StringIO()
+    eci.write_c_header(s)
+    ccode.append(s.getvalue())
+    
     ccode.append('')
 
     # append our source file
