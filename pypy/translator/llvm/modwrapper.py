@@ -2,7 +2,7 @@
 
 import py
 import ctypes
-from pypy.rpython.lltypesystem import lltype 
+from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.lltypesystem.rstr import STR
 
 class CtypesModule:
@@ -148,6 +148,8 @@ __entrypoint__.restype = %(returntype)s
                  lltype.UnsignedLongLong: "ctypes.c_ulonglong",
                  lltype.Void: None,
                  lltype.UniChar: "ctypes.c_uint",
+                 rffi.SIGNEDCHAR: "ctypes.c_char",
+                 rffi.UCHAR: "ctypes.c_ubyte"
                  }
 
     def __init__(self, genllvm, dllname):
@@ -212,6 +214,8 @@ __entrypoint__.restype = %(returntype)s
         if T is lltype.Bool:
             action = 'bool'
 
+        elif T is rffi.UCHAR:
+            action = "chr"
         elif T is lltype.UniChar:
             action = 'unichr'
 

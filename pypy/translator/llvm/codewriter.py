@@ -167,7 +167,7 @@ class CodeWriter(object):
         self._indent("unwind")
 
     def call(self, targetvar, returntype, functionref, argtypes, argrefs,
-             tail=None, cconv=None):
+             tail=None, cconv=None, ret_type_attrs=""):
         if tail is None:
             tail = self.tail
         if cconv is None:
@@ -181,12 +181,13 @@ class CodeWriter(object):
         else:
             return_str = '%s = ' % targetvar
 
-        self._indent("%s%scall %s %s %s(%s)" % (return_str,
+        self._indent("%s%scall %s %s %s(%s) %s" % (return_str,
                                                 tail,
                                                 cconv,
                                                 returntype,
                                                 functionref,
-                                                args))
+                                                args,
+                                                ret_type_attrs))
 
     def alloca(self, targetvar, vartype):
         self._indent("%s = alloca %s" % (targetvar, vartype))

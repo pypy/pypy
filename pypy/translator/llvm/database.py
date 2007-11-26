@@ -13,7 +13,7 @@ from pypy.translator.llvm.structnode import StructNode, StructVarsizeNode, \
 from pypy.translator.llvm.arraynode import ArrayNode, StrArrayNode, \
      VoidArrayNode, ArrayNoLengthNode, DebugStrNode
      
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
@@ -396,8 +396,6 @@ class Primitives(object):
         except ImportError:
             pass
         else:
-            from pypy.rpython.lltypesystem import rffi
-
             def update(from_, type):
                 if from_ not in self.types:
                     self.types[from_] = type
@@ -409,7 +407,23 @@ class Primitives(object):
                        rffi.LONGLONG, rffi.ULONGLONG]:
                 bits = rffi.size_and_sign(tp)[0] * 8
                 update(tp, 'i%s' % bits)
-        
+
+    def get_attrs_for_type(self, type):
+        # because we want to bind to external functions that depend
+        # on sign/zero extensions, we need to use these attributes in function sigs
+        # note that this is not needed for internal functions because they use
+        # casts if necessary
+        type_attrs = ""
+        if not isinstance(type, lltype.Number):
+            return type_attrs
+        size, sign = rffi.size_and_sign(type)
+        if size < 4:
+            if not sign:
+                type_attrs += "signext"
+            else:
+                type_attrs += "zeroext"
+        return type_attrs
+ 
     def __getitem__(self, key):
         return self.types[key]
         
