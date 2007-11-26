@@ -1,6 +1,8 @@
 
 /* some ifdefs from CPython's signalmodule.c... */
 
+#include <stdlib.h>
+
 #ifdef MS_WINDOWS
 #include <process.h>
 #endif
