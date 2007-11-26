@@ -2,7 +2,10 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from pypy.interpreter.miscutils import Action
 import signal as cpy_signal
-
+from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
+import py
+from pypy.tool import autopath
 
 def setup():
     for key, value in cpy_signal.__dict__.items():
@@ -15,6 +18,19 @@ SIG_DFL = cpy_signal.SIG_DFL
 SIG_IGN = cpy_signal.SIG_IGN
 signal_names = list(setup())
 
+eci = ExternalCompilationInfo(
+    includes = ['stdlib.h', 'src/signals.h'],
+    separate_module_sources = ['#include <src/signals.h>'],
+    include_dirs = [str(py.path.local(autopath.pypydir).join('translator', 'c'))]
+)
+
+def external(name, args, result, **kwds):
+    return rffi.llexternal(name, args, result, compilation_info=eci, **kwds)
+
+pypysig_ignore = external('pypysig_ignore', [rffi.INT], lltype.Void)
+pypysig_default = external('pypysig_default', [rffi.INT], lltype.Void)
+pypysig_setflag = external('pypysig_setflag', [rffi.INT], lltype.Void)
+pypysig_poll = external('pypysig_poll', [], rffi.INT)
 
 class CheckSignalAction(Action):
     """A repeatitive action at the space level, checking if the
@@ -121,62 +137,3 @@ def signal(space, signum, w_handler):
         action.handlers_w[signum] = w_handler
     return old_handler
 signal.unwrap_spec = [ObjSpace, int, W_Root]
-
-# ____________________________________________________________
-# CPython and LLTypeSystem implementations
-
-from pypy.rpython.extregistry import ExtRegistryEntry
-
-signal_queue = []    # only for py.py, not for translated pypy-c's
-
-def pypysig_poll():
-    "NOT_RPYTHON"
-    if signal_queue:
-        return signal_queue.pop(0)
-    else:
-        return -1
-
-def pypysig_default(signum):
-    "NOT_RPYTHON"
-    cpy_signal.signal(signum, cpy_signal.SIG_DFL)  # XXX error handling
-
-def pypysig_ignore(signum):
-    "NOT_RPYTHON"
-    cpy_signal.signal(signum, cpy_signal.SIG_IGN)  # XXX error handling
-
-def _queue_handler(signum, frame):
-    if signum not in signal_queue:
-        signal_queue.append(signum)
-
-def pypysig_setflag(signum):
-    "NOT_RPYTHON"
-    cpy_signal.signal(signum, _queue_handler)
-
-
-# lltyping - direct mapping to the C functions defined in
-# translator/c/src/signals.h
-
-class Entry(ExtRegistryEntry):
-    _about_ = pypysig_poll
-    def compute_result_annotation(self):
-        from pypy.annotation import model as annmodel
-        return annmodel.SomeInteger()
-    def specialize_call(self, hop):
-        from pypy.rpython.lltypesystem import lltype
-        hop.exception_cannot_occur()
-        return hop.llops.gencapicall("pypysig_poll", [], lltype.Signed,
-                                     includes=('src/signals.h',))
-
-for _fn in [pypysig_default, pypysig_ignore, pypysig_setflag]:
-    class Entry(ExtRegistryEntry):
-        _about_ = _fn
-        funcname = _fn.func_name
-        def compute_result_annotation(self, s_signum):
-            return None
-        def specialize_call(self, hop):
-            from pypy.rpython.lltypesystem import lltype
-            vlist = hop.inputargs(lltype.Signed)
-            hop.exception_cannot_occur()
-            hop.llops.gencapicall(self.funcname, vlist,
-                                  includes=('src/signals.h',))
-del _fn
