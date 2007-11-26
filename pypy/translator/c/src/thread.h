@@ -3,6 +3,7 @@
 
 #ifndef __PYPY_THREAD_H
 #define __PYPY_THREAD_H
+#include "Python.h"
 
 #ifndef _POSIX_THREADS
 /* This means pthreads are not implemented in libc headers, hence the macro
