@@ -78,3 +78,12 @@ def test__del__():
 
     #assert 0 < res <= 84 
 
+def test_strtod():
+    py.test.skip("Explodes")
+    def entry_point(args):
+        print float(args[1])
+        return 0
+
+    exe_name = 'test_strtod'
+    compile_standalone(entry_point, exe_name=exe_name)
+    data = cmdexed(exe_name, '3.13e1')
