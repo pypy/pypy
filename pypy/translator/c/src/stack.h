@@ -12,6 +12,7 @@ void LL_stack_unwind(void);
 int LL_stack_too_big(void);
 
 #ifndef PYPY_NOT_MAIN_FILE
+#include <stdio.h>
 #include "thread.h"
 
 #ifndef PYPY_NOINLINE
