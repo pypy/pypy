@@ -1,7 +1,7 @@
 from pypy.interpreter.pyparser.pythonlexer import Source, TokenError, \
      match_encoding_declaration
 from pypy.interpreter.pyparser.grammar import Token, GrammarElement
-from pypy.interpreter.pyparser.pythonparse import make_pyparser
+from pypy.interpreter.pyparser.pythonparse import make_pyparser, _check_for_encoding
 
 P = make_pyparser('2.4')
 
@@ -108,3 +108,17 @@ def test_encoding_declarations_match():
     for comment, encoding in checks:
         res = match_encoding_declaration(comment)
         assert res == encoding, "Failed on (%s), %s != %s" % (comment, res, encoding)
+
+
+def test_check_for_enconding():
+    
+    res = _check_for_encoding("# foo")
+    assert res is None
+    res = _check_for_encoding("# -*- coding: ascii -*-  ")
+    assert res == "ascii"    
+    res = _check_for_encoding("# -*- coding: iso-8859-15 -*-  ")
+    assert res == "iso-8859-15"
+    res = _check_for_encoding("\n   # -*- coding: iso-8859-15 -*-  \n")
+    assert res == "iso-8859-15"
+    res = _check_for_encoding("\n\n   # -*- coding: iso-8859-15 -*-  \n")
+    assert res is None   
