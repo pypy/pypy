@@ -90,8 +90,7 @@ class AppTestFfi:
         }
 
         '''))
-        compile_c_module([c_file], 'x', ExternalCompilationInfo())
-        return str(udir.join('x.so'))
+        return compile_c_module([c_file], 'x', ExternalCompilationInfo())
     prepare_c_example = staticmethod(prepare_c_example)
     
     def setup_class(cls):
