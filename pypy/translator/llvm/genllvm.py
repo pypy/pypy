@@ -52,7 +52,8 @@ class GenLLVM(object):
     def __init__(self, translator, standalone):
     
         # reset counters
-        Node.nodename_count = {}    
+        Node.nodename_count = {}
+        self.eci = ExternalCompilationInfo()
 
         self.standalone = standalone
         self.translator = translator
@@ -187,12 +188,14 @@ class GenLLVM(object):
     def generate_ll_externs(self, codewriter):
         all = []
         for node in self.db.getnodes():
-            eci = getattr(node, 'compilation_info', None)
-            if eci is not None:
+            eci = getattr(node, 'eci', None)
+            if eci:
                 all.append(eci)
-        eci = ExternalCompilationInfo().merge(*all)
-        ccode = generate_c(self.db, self.entrynode, eci, self.standalone)
-        self.llcode = generate_ll(ccode, codewriter.cconv, eci, self.db.extern_to_funcnodes)
+        self.eci = self.eci.merge(*all)
+
+        ccode = generate_c(self.db, self.entrynode, self.eci, self.standalone)
+        self.llcode = generate_ll(ccode, codewriter.cconv, self.eci, self.db.extern_to_funcnodes)
+        self.eci = self.eci.convert_sources_to_files(being_main=True)
         
     def create_codewriter(self):
         # prevent running the same function twice in a test

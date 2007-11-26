@@ -7,7 +7,7 @@ class ExternalFuncNode(FuncNode):
         self.db = db
         self.value = value
         self.name = "@" + name
-        self.compilation_info = getattr(value, 'compilation_info', None)
+        self.eci = self.value.compilation_info
 
     def writeglobalconstants(self, codewriter):
         pass

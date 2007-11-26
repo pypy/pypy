@@ -3,11 +3,12 @@ import sys
 import types
 import urllib
 
+from StringIO import StringIO
+
 from pypy.objspace.flow.model import FunctionGraph
 from pypy.rpython.rmodel import inputconst
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.udir import udir
-from StringIO import StringIO
 
 def get_c_cpath():
     from pypy.translator.c import genc
@@ -19,10 +20,10 @@ def get_llvm_cpath():
 def get_module_file(name):
     return os.path.join(get_llvm_cpath(), name)
 
-def get_incdirs(c_include_dirs):
+def get_incdirs(eci):
     import distutils.sysconfig
 
-    includes = tuple(c_include_dirs) + ("/sw/include",
+    includes = eci.include_dirs + ("/sw/include",
                 distutils.sysconfig.EXEC_PREFIX + "/include", 
                 distutils.sysconfig.EXEC_PREFIX + "/include/gc",
                 distutils.sysconfig.get_python_inc(),
@@ -52,28 +53,22 @@ def generate_ll(ccode, default_cconv, eci, call_funcnames=[]):
     f.write(ccode)
     f.close()
 
-    includes = get_incdirs(eci.include_dirs)
-    eci = eci.convert_sources_to_files()
-    c_files = [filename] + list(eci.separate_module_files)
-    read_lines = []
-    for name in c_files:
-    # XXX this is evil...
-        plain = name[:-2]
-        cmd = "llvm-gcc -emit-llvm -O0 -S %s %s.c -o %s.ll 2>&1" % (
-            includes, plain, plain)
+    plain = filename[:-2]
+    includes = get_incdirs(eci)
+    cmd = "llvm-gcc -emit-llvm -O0 -S %s %s.c -o %s.ll 2>&1" % (
+        includes, plain, plain)
 
-        if os.system(cmd) != 0:
-            raise Exception("Failed to run '%s'" % cmd)
+    if os.system(cmd) != 0:
+        raise Exception("Failed to run '%s'" % cmd)
 
-        llcode = open(plain + '.ll').read()
-        read_lines += llcode.split("\n")
+    llcode = open(plain + '.ll').read()
 
     # strip lines
     lines = []
 
     calltag, declaretag, definetag = 'call ', 'declare ', 'define '
     
-    for line in read_lines:
+    for line in llcode.split('\n'):
 
         # get rid of any of the structs that llvm-gcc introduces to struct types
         line = line.replace("%struct.", "%")
@@ -123,20 +118,15 @@ def generate_c(db, entrynode, eci, standalone):
         ccode.append('#define __ENTRY_POINT__ %s' % entrynode.get_ref()[1:])
         ccode.append('#define ENTRY_POINT_DEFINED 1')
 
+    sio = StringIO()
+    eci.write_c_header(sio)
+    ccode.extend(sio.getvalue().splitlines())
+
     # include python.h early
     ccode.append('#include <Python.h>')
 
     # ask gcpolicy for any code needed
     ccode.append('%s' % db.gcpolicy.genextern_code())
-
-    ccode.append("#define PYPY_NOT_MAIN_FILE")
-    # ask rffi for includes/source
-    s = StringIO()
-    eci.write_c_header(s)
-    ccode.append(s.getvalue())
-    ccode.append("#undef PYPY_NOT_MAIN_FILE")
-    
-    ccode.append('')
 
     # append our source file
     ccode.append(open(get_module_file('genexterns.c')).read())

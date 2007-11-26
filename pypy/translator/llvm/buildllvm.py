@@ -4,8 +4,10 @@ import sys
 import py
 
 from pypy.translator.tool import stdoutcapture
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.llvm.log import log
 from pypy.translator.llvm.modwrapper import CtypesModule
+from pypy.translator.llvm.externs2ll import get_incdirs
 
 def llvm_is_on_path():
     if py.path.local.sysfind("llvm-as") is None or \
@@ -87,6 +89,19 @@ class Builder(object):
             self.cmds.append("llc -relocation-model=pic %s.bc -f -o %s.s" % (base, base))
             self.cmds.append("as %s.s -o %s.o" % (base, base))
 
+        include_opts = get_incdirs(self.genllvm.eci)
+        # compile separate files
+        libraries = set()
+        for filename in self.genllvm.eci.separate_module_files:
+            assert filename.endswith(".c")
+            objname = filename[:-2] + ".o"
+            libraries.add(objname)
+            self.cmds.append("gcc %s -c %s -O3 -o %s" % (filename, include_opts, objname))
+
+        attrs = self.genllvm.eci._copy_attributes()
+        attrs['libraries'] = tuple(libraries) + attrs['libraries'] 
+        self.genllvm.eci = ExternalCompilationInfo(**attrs)
+
 # XXX support profile?
 #             if (self.genllvm.config.translation.profopt is not None and
 #                 not self.genllvm.config.translation.noprofopt):
@@ -112,50 +127,59 @@ class Builder(object):
         self.dirpath.chdir()
 
         return self.genllvm.entry_name
-        
-    def make_module(self):
+ 
+    def setup_linker_command(self, exename):
         base = self.setup()
         self.cmds_bytecode(base)
         self.cmds_objects(base)
 
-        # link (ok this is a mess!)
+        eci = self.genllvm.eci
         library_files = self.genllvm.db.gcpolicy.gc_libraries()
-        gc_libs = ' '.join(['-l' + lib for lib in library_files])
+        library_files = list(library_files) + list(eci.libraries)
+        library_dirs = list(eci.library_dirs)
+        compiler_opts = []
 
         if sys.platform == 'darwin':
-            libdir = '/sw/lib'
-            gc_libs_path = '-L%s -ldl' % libdir
-            self.cmds.append("gcc -O3 %s.o %s %s -lm -bundle -o %s.so" % (base, gc_libs_path, gc_libs, base))
+            library_dirs.append('/sw/lib')
+            library_files.append("m")
+            library_files.append("dl")
+            if not exename:
+                compiler_opts.append("-bundle")
         else:
+            if not exename:
+                compiler_opts.append("-shared")
+            else:
+                compiler_opts.append("-static")
+            compiler_opts.append("-pipe")
 
-            gc_libs_path = '-shared'
-            self.cmds.append("gcc -O3 %s.o %s %s -pipe -o %s.so" % (base, gc_libs_path, gc_libs, base))
+        lib_opts = []
+        for lib in library_files:
+            if lib[0] != "/":
+                lib = "-l" + lib
+            lib_opts.append(lib)
+        lib_dir_opts = ["-L" + libdir for libdir in library_dirs]
+        compiler_opts.extend(lib_opts)
+        compiler_opts.extend(lib_dir_opts)
 
+        out = base + ".so"
+        if exename:
+            out = exename
+        self.cmds.append("gcc -O3 %s.o %s -o %s" % (base, " ".join(compiler_opts), out))
+        return base
+
+
+    def make_module(self):
+        base = self.setup_linker_command(False)
         try:
             self.execute_cmds()
             modname = CtypesModule(self.genllvm, "%s.so" % base).create()
-
         finally:
             self.lastdir.chdir()
 
         return modname, str(self.dirpath)
 
     def make_standalone(self, exename):
-        base = self.setup()
-        self.cmds_bytecode(base)
-        self.cmds_objects(base)
-
-        object_files = ["-L/sw/lib"]
-        library_files = self.genllvm.db.gcpolicy.gc_libraries()
-        gc_libs = ' '.join(['-l' + lib for lib in library_files])
-
-        if sys.platform == 'darwin':
-            libdir = '/sw/' + "/lib"
-            gc_libs_path = '-L%s -ldl' % libdir
-        else:
-            gc_libs_path = '-static'
-
-        self.cmds.append("gcc -O3 %s.o %s %s -lm -pipe -o %s" % (base, gc_libs_path, gc_libs, exename))
+        base = self.setup_linker_command(exename)
 
         try:
             self.execute_cmds()
