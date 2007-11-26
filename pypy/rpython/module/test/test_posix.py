@@ -1,8 +1,6 @@
 import py
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.tool.udir import udir
-from pypy.translator.llvm.test.runtest import compile_function as compile_llvm
-from pypy.translator.c.test.test_genc import compile
 import os
 exec 'import %s as posix' % os.name
 
@@ -132,27 +130,24 @@ class BaseTestPosix(BaseRtypingTest):
                 return os.getuid()
             assert self.interpret(f, []) == f()
 
+
+
+    def test_os_wstar(self):
+        from pypy.rpython.module.ll_os import RegisterOs
+        for name in RegisterOs.w_star:
+            if not hasattr(os, name):
+                continue
+            def fun(s):
+                return getattr(os, name)(s)
+
+            for value in [0, 1, 127, 128, 255]:
+                res = self.interpret(fun, [value])
+                assert res == fun(value)
+
+
 class TestLLtype(BaseTestPosix, LLRtypeMixin):
     pass
 
 class TestOOtype(BaseTestPosix, OORtypeMixin):
     def test_fstat(self):
         py.test.skip("ootypesystem does not support os.fstat")
-
-
-def os_wstar_tester(compile):
-    from pypy.rpython.module.ll_os import RegisterOs
-    for name in RegisterOs.w_star:
-        if not hasattr(os, name):
-            continue
-        def fun(s):
-            return getattr(os, name)(s)
-
-        fun_c = compile(fun, [int])
-        for value in [0, 1, 127, 128, 255]:
-            res = fun_c(value)
-            assert res == fun(value)
-
-def test_os_wstar():
-    yield os_wstar_tester, compile
-    yield os_wstar_tester, compile_llvm
