@@ -188,7 +188,7 @@ class GenLLVM(object):
     def generate_ll_externs(self, codewriter):
         all = []
         for node in self.db.getnodes():
-            eci = getattr(node, 'eci', None)
+            eci = getattr(node, 'compilation_info', None)
             if eci:
                 all.append(eci)
         self.eci = self.eci.merge(*all)
