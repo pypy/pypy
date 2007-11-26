@@ -500,7 +500,5 @@ class TestLLVMRffi(BaseTestRffi):
         return compile_llvm(func, args, **kwds)
 
     def test_hashdefine(self):
-        py.test.skip("FIXME")
+        py.test.skip("Macros cannot be called as llexternals by design, rffi does not have any special support for them")
 
-    def test_opaque_type(self):
-        py.test.skip("FIXME")
