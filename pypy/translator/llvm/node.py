@@ -1,16 +1,11 @@
 from pypy.rpython.lltypesystem import lltype
 
-NAME_BLACKLIST = "get".split()
 
 class Node(object):
     __slots__ = "name".split()
     prefix = '%'
 
     nodename_count = {}
-    for _name in NAME_BLACKLIST:
-        nodename_count[_name] = 1
-    del _name
-
     def mangle(self, name):
         if name not in self.nodename_count:
             result = name
