@@ -7,13 +7,6 @@ nonsense, isn't it?  `more...`_
 .. _Python: http://www.python.org/doc/current/ref/ref.html
 .. _`more...`: architecture.html#mission-statement 
 
-
-   The planned PyPy events announced below are also published in
-   `iCalendar format`_.  See eventhistory_ for a list of past events.
-
-.. _`iCalendar format`: webcal://pypycal.sabi.net///calendars/PyPy.ics
-.. _eventhistory: eventhistory.html
-
 PyPy blog started
 =================
 
