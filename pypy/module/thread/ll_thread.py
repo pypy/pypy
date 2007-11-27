@@ -12,6 +12,8 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem.lltype import typeOf
 from pypy.rlib.objectmodel import debug_assert
 from pypy.tool import autopath
+from distutils import sysconfig
+python_inc = sysconfig.get_python_inc()
 
 error = thread.error
 
@@ -22,7 +24,8 @@ eci = ExternalCompilationInfo(
     #include <src/exception.h>
     #include <src/thread.h>
     '''],
-    include_dirs = [str(py.path.local(autopath.pypydir).join('translator', 'c'))]
+    include_dirs = [str(py.path.local(autopath.pypydir).join('translator', 'c')),
+                    python_inc]
 )
 
 def llexternal(name, args, result, **kwds):
