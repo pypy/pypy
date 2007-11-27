@@ -136,8 +136,10 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 if sys.platform.startswith('darwin'):
     CCHARPPP = rffi.CArrayPtr(rffi.CCHARPP)
-    _os_NSGetEnviron = rffi.llexternal('_NSGetEnviron', [], CCHARPPP,
-                                       includes=['crt_externs.h'])
+    _os_NSGetEnviron = rffi.llexternal(
+        '_NSGetEnviron', [], CCHARPPP,
+        compilation_info=ExternalCompilationInfo(includes=['crt_externs.h'])
+        )
     def os_get_environ():
         return _os_NSGetEnviron()[0]
 else:
