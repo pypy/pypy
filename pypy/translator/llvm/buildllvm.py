@@ -80,17 +80,24 @@ class Builder(object):
         opts = self.optimizations()
         self.cmds.append("llvm-as < %s.ll | opt %s -f -o %s.bc" % (base, opts, base))
 
-    def cmds_objects(self, base):
+    def cmds_objects(self, base, standalone):
         use_gcc = self.genllvm.config.translation.llvm_via_c
         if use_gcc:
             self.cmds.append("llc %s.bc -march=c -f -o %s.c" % (base, base))
             self.cmds.append("gcc %s.c -c -O3 -fomit-frame-pointer" % base)
         else:
-            self.cmds.append("llc -relocation-model=pic %s.bc -f -o %s.s" % (base, base))
+            model = ''
+            if not standalone:
+                model = ' -relocation-model=pic'
+                
+            self.cmds.append("llc %s %s.bc -f -o %s.s" % (model, base, base))
             self.cmds.append("as %s.s -o %s.o" % (base, base))
 
         include_opts = get_incdirs(self.genllvm.eci)
+
         # compile separate files
+        # XXX rxe: why do we want to run a c compiler, when we run llvm
+        # compiler - these seems a step backwards IMHO ?????
         libraries = set()
         for filename in self.genllvm.eci.separate_module_files:
             assert filename.endswith(".c")
@@ -128,11 +135,7 @@ class Builder(object):
 
         return self.genllvm.entry_name
  
-    def setup_linker_command(self, exename):
-        base = self.setup()
-        self.cmds_bytecode(base)
-        self.cmds_objects(base)
-
+    def setup_linker_command(self, base, exename=None):
         eci = self.genllvm.eci
         library_files = self.genllvm.db.gcpolicy.gc_libraries()
         library_files = list(library_files) + list(eci.libraries)
@@ -165,11 +168,12 @@ class Builder(object):
         if exename:
             out = exename
         self.cmds.append("gcc -O3 %s.o %s -o %s" % (base, " ".join(compiler_opts), out))
-        return base
-
 
     def make_module(self):
-        base = self.setup_linker_command(False)
+        base = self.setup()
+        self.cmds_bytecode(base)
+        self.cmds_objects(base, False)
+        self.setup_linker_command(base)
         try:
             self.execute_cmds()
             modname = CtypesModule(self.genllvm, "%s.so" % base).create()
@@ -179,7 +183,10 @@ class Builder(object):
         return modname, str(self.dirpath)
 
     def make_standalone(self, exename):
-        base = self.setup_linker_command(exename)
+        base = self.setup()
+        self.cmds_bytecode(base)
+        self.cmds_objects(base, True)
+        self.setup_linker_command(base, exename)
 
         try:
             self.execute_cmds()

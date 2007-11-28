@@ -181,7 +181,6 @@ class GenLLVM(object):
         else:
             self.function_count[name] = 1
 
-        self.db.add_extern_to_funcnode(name)
         self.entry_name = name[6:]
         return c.value._obj 
 
@@ -194,7 +193,7 @@ class GenLLVM(object):
         self.eci = self.eci.merge(*all)
 
         ccode = generate_c(self.db, self.entrynode, self.eci, self.standalone)
-        self.llcode = generate_ll(ccode, codewriter.cconv, self.eci, self.db.extern_to_funcnodes)
+        self.llcode = generate_ll(ccode, self.eci)
         self.eci = self.eci.convert_sources_to_files(being_main=True)
         
     def create_codewriter(self):
@@ -204,7 +203,7 @@ class GenLLVM(object):
         if self.standalone:
             return CodeWriter(f, self.db), filename
         else:
-            return CodeWriter(f, self.db, cconv='ccc', linkage=''), filename
+            return CodeWriter(f, self.db, linkage=''), filename
                 
     def write_startup_impl(self, codewriter):
         open_decl =  "i8* @LLVM_RPython_StartupCode()"

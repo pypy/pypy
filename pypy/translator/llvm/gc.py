@@ -77,8 +77,7 @@ class RawGcPolicy(GcPolicy):
         codewriter.malloc(targetvar, "i8", size)
         codewriter.call(None, 'void', '@llvm.memset' + postfix(),
                         ['i8*', 'i8', word, word],
-                        [targetvar, 0, size, boundary_size],
-                        cconv='ccc')               
+                        [targetvar, 0, size, boundary_size])
 
 class BoehmGcPolicy(GcPolicy):
 
@@ -114,11 +113,9 @@ class BoehmGcPolicy(GcPolicy):
         codewriter.call(targetvar, 'i8*', fnname, [word], [size])
 
         if atomic:
-            # XXX uses own cconv
             codewriter.call(None, 'void', '@llvm.memset' + postfix(),
                             ['i8*', 'i8', word, word],
-                            [targetvar, 0, size, boundary_size],
-                            cconv='ccc')        
+                            [targetvar, 0, size, boundary_size])
 
 
     def op_set_max_heap_size(self, codewriter, opr):

@@ -296,7 +296,6 @@ class OpWriter(object):
                                  opr.argrefs[0], "null")
 
     def direct_call(self, opr):
-        cconv = None
         rettype_attrs = ""
 
         # XXX aargh - more illegal fishing
@@ -308,15 +307,10 @@ class OpWriter(object):
             assert isinstance(T, lltype.FuncType)
             value = opr.op.args[0].value._obj        
             if getattr(value, 'external', None) == 'C':
-                cconv = 'ccc'
                 rettype_attrs = self.db.primitives.get_attrs_for_type(T.RESULT)
-
-
-        #self.codewriter.debug_print(str(opr.op) + "\n")
-        #self.codewriter.debug_print(str(cconv) + "\n")
             
         self.codewriter.call(opr.retref, opr.rettype, opr.argrefs[0],
-                             opr.argtypes[1:], opr.argrefs[1:], cconv=cconv, ret_type_attrs=rettype_attrs)
+                             opr.argtypes[1:], opr.argrefs[1:], ret_type_attrs=rettype_attrs)
 
     # the following works since the extra arguments that indirect_call has
     # is of type Void, which is removed by direct_call

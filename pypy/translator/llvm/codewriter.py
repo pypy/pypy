@@ -4,39 +4,17 @@ from pypy.translator.llvm.buildllvm import postfix
 log = log.codewriter 
 
 class CodeWriter(object): 
-    tail = ''       #/tail
-    cconv = 'ccc'    #ccc/fastcc
     linkage = 'internal '       #/internal (disabled for now because of the JIT)
 
-    def __init__(self, file, db, tail=None, cconv=None, linkage=None): 
+    def __init__(self, file, db, linkage=None): 
         self.db = db
         self.file = file
         self.word_repr = db.get_machine_word()
-        if tail is not None:
-            self.tail = tail
-        if cconv is not None:
-            self.cconv = cconv
         if linkage is not None:
             self.linkage = linkage
 
     def close(self): 
         self.file.close()
-
-    def _resolvetail(self, tail, cconv):
-        # from: http://llvm.org/docs/LangRef.html
-        # The optional "tail" marker indicates whether the callee function
-        # accesses any allocas or varargs in the caller. If the "tail" marker
-        # is present, the function call is eligible for tail call
-        # optimization. Note that calls may be marked "tail" even if they do
-        # not occur before a ret instruction.
-
-        if cconv is not 'fastcc':
-            tail_ = ''
-        else:
-            tail_ = tail
-        if tail_:
-            tail_ += ' '
-        return tail_
 
     # keep these two internal for now - incase we try a different API
     def _append(self, line): 
@@ -50,7 +28,6 @@ class CodeWriter(object):
             if patch:
                 l = l.replace('WORD', self.word_repr)
                 l = l.replace('POSTFIX', postfix())
-                l = l.replace('CC', self.cconv)
             self._append(l)
     
     def comment(self, line, indent=True):
@@ -82,10 +59,8 @@ class CodeWriter(object):
     def typedef(self, name, type_):
         self._append("%s = type %s" % (name, type_))
 
-    def declare(self, decl, cconv=None):
-        if cconv is None:
-            cconv = self.cconv
-        self._append("declare %s %s" %(cconv, decl,))
+    def declare(self, decl):
+        self._append("declare %s" % decl)
 
     def br_uncond(self, blockname): 
         self._indent("br label %%%s" %(blockname,))
@@ -101,13 +76,11 @@ class CodeWriter(object):
         self._indent("switch %s %s, label %%%s [%s ]"
                      % (intty, cond, defaultdest, labels))
 
-    def openfunc(self, decl, cconv=None, linkage=None): 
-        if cconv is None:
-            cconv = self.cconv
+    def openfunc(self, decl, linkage=None): 
         if linkage is None:
             linkage = self.linkage
         self.newline()
-        self._append("define %s%s %s {" % (linkage, cconv, decl,))
+        self._append("define %s %s {" % (linkage, decl,))
 
     def closefunc(self): 
         self._append("}") 
@@ -166,14 +139,7 @@ class CodeWriter(object):
     def unwind(self):
         self._indent("unwind")
 
-    def call(self, targetvar, returntype, functionref, argtypes, argrefs,
-             tail=None, cconv=None, ret_type_attrs=""):
-        if tail is None:
-            tail = self.tail
-        if cconv is None:
-            cconv = self.cconv
-            
-        tail = self._resolvetail(tail, cconv)        
+    def call(self, targetvar, returntype, functionref, argtypes, argrefs, ret_type_attrs=""):
         args = ", ".join(["%s %s" % item for item in zip(argtypes, argrefs)])
 
         if returntype == 'void':
@@ -181,13 +147,11 @@ class CodeWriter(object):
         else:
             return_str = '%s = ' % targetvar
 
-        self._indent("%s%scall %s %s %s(%s) %s" % (return_str,
-                                                tail,
-                                                cconv,
-                                                returntype,
-                                                functionref,
-                                                args,
-                                                ret_type_attrs))
+        self._indent("%s call %s %s(%s) %s" % (return_str,
+                                               returntype,
+                                               functionref,
+                                               args,
+                                               ret_type_attrs))
 
     def alloca(self, targetvar, vartype):
         self._indent("%s = alloca %s" % (targetvar, vartype))
@@ -212,4 +176,4 @@ class CodeWriter(object):
         node = self.db.create_debug_string(s)
         self.call(var, "i32", "@write",
                   ['i32', 'i8*', 'i32'],
-                  ['2', node.get_childref(0), '%d' % node.get_length()], cconv='ccc')
+                  ['2', node.get_childref(0), '%d' % node.get_length()])

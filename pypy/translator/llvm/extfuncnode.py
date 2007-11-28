@@ -29,5 +29,5 @@ class ExternalFuncNode(FuncNode):
         return "%s %s(%s) %s" % (rettype, self.ref, ", ".join(argtypes), rettype_attrs)
 
     def writedecl(self, codewriter):
-        codewriter.declare(self.getdecl(), cconv="ccc")
+        codewriter.declare(self.getdecl())
 

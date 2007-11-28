@@ -37,17 +37,7 @@ def get_incdirs(eci):
 
 # call boehm finalizers need to be fastcc
 
-def generate_ll(ccode, default_cconv, eci, call_funcnames=[]):
-    call_funcnames = ['@LLVM_RPython_StartupCode'] + call_funcnames
-    define_funcnames = ['@pypy_malloc',
-                        '@pypy_malloc_atomic',
-                        '@pypy_gc__collect',
-                        '@pypy_register_finalizer',
-                        '@raw_malloc',
-                        '@raw_free',
-                        ]
-    declare_funcnames = call_funcnames
-
+def generate_ll(ccode, eci):
     filename = str(udir.join("ccode.c"))
     f = open(filename, "w")
     f.write(ccode)
@@ -65,47 +55,7 @@ def generate_ll(ccode, default_cconv, eci, call_funcnames=[]):
 
     # strip lines
     lines = []
-
-    calltag, declaretag, definetag = 'call ', 'declare ', 'define '
-    
     for line in llcode.split('\n'):
-
-        # get rid of any of the structs that llvm-gcc introduces to struct types
-        line = line.replace("%struct.", "%")
-
-        # strip comments
-        comment = line.find(';')
-        if comment >= 0:
-            line = line[:comment]
-        line = line.rstrip()
-
-        # patch calls (upgrade to default_cconv)
-        i = line.find(calltag)
-        if i >= 0:
-            for funcname in call_funcnames:
-                if line.find(funcname) >= 0:
-                    line = "%scall %s %s" % (line[:i], default_cconv, line[i+len(calltag):])
-                    break
-
-        if line[:len(declaretag)] == declaretag:
-            xline = line[len(declaretag):] 
-            for funcname in declare_funcnames: 
-                if xline.find(funcname) != -1:
-                    line = "declare %s %s %s" % (internal, default_cconv, xline)
-                    break
-                    
-        if line[:len(definetag)] == definetag:
-            xline = line[len(definetag):] 
-            internal = ''
-            if xline.startswith('internal '):
-                internal = 'internal '
-                xline = xline.replace('internal ', '')
-
-            for funcname in define_funcnames: 
-                if xline.find(funcname) != -1:
-                    line = "define %s %s %s" % (internal, default_cconv, xline)
-                    break
-
         lines.append(line)
 
     lines.append("declare ccc void @abort()")

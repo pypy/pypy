@@ -1,5 +1,5 @@
 extfunctions = """
-define internal CC double @pypyop_float_abs(double %x) {
+define internal double @pypyop_float_abs(double %x) {
 block0:
     %cond1 = fcmp ugt double %x, 0.0
     br i1 %cond1, label %return_block, label %block1
@@ -11,7 +11,7 @@ return_block:
     ret double %result
 }
 
-define internal CC i32 @pypyop_int_abs(i32 %x) {
+define internal i32 @pypyop_int_abs(i32 %x) {
 block0:
     %cond1 = icmp sge i32 %x, 0
     br i1 %cond1, label %return_block, label %block1
@@ -23,7 +23,7 @@ return_block:
     ret i32 %result
 }
 
-define internal CC i64 @pypyop_llong_abs(i64 %x) {
+define internal i64 @pypyop_llong_abs(i64 %x) {
 block0:
     %cond1 = icmp sge i64 %x, 0
     br i1 %cond1, label %return_block, label %block1
