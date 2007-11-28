@@ -180,7 +180,6 @@ def benchmark():
 def main(backends=[]):
     if backends == []:  #_ prefix means target specific option, # prefix to outcomment
         backends = [backend.strip() for backend in """
-            llvm--_faassen
             c
             c--stackless--_faassen
             c--_faassen
