@@ -200,6 +200,16 @@ class AppTestUnicodeObject:
     def test_unicode_convert(self):
         assert isinstance("%s" % (u"x"), unicode)
 
+    def test_unicode_nonascii(self):
+        """
+        Interpolating a unicode string with non-ascii characters in it into
+        a string format should decode the format string as ascii and return
+        unicode.
+        """
+        result = "%s" % u'\x80'
+        assert isinstance(result, unicode)
+        assert result == u'\x80'
+
     def test_unicode_d(self):
         assert u"%.1d" % 3 == '3'
 
