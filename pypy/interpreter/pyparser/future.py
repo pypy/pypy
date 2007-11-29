@@ -31,7 +31,7 @@ def getFutures(futureFlags, source):
     futures = FutureAutomaton(futureFlags, source)
     try:
         futures.start()
-    except (IndexError, DoneException), e:
+    except DoneException, e:
         pass
     return futures.flags
     
@@ -68,9 +68,15 @@ class FutureAutomaton(object):
         self.pos = 0
         self.docstringConsumed = False
         self.flags = 0
-        
+
+    def getc(self, offset=0):
+        try:
+            return self.s[self.pos + offset]
+        except IndexError:
+            raise DoneException
+
     def start(self):
-        c = self.s[self.pos]
+        c = self.getc()
         if c in ["'", '"'] and not self.docstringConsumed:
             self.consumeDocstring()
         elif c in whitespace:
@@ -84,19 +90,19 @@ class FutureAutomaton(object):
 
     def consumeDocstring(self):
         self.docstringConsumed = True
-        endchar = self.s[self.pos]
-        if (self.s[self.pos] == self.s[self.pos+1] and
-            self.s[self.pos] == self.s[self.pos+2]):
+        endchar = self.getc()
+        if (self.getc() == self.getc(+1) and
+            self.getc() == self.getc(+2)):
             self.pos += 3
             while 1: # Deal with a triple quoted docstring
-                if self.s[self.pos] == '\\':
+                if self.getc() == '\\':
                     self.pos += 2
-                elif self.s[self.pos] != endchar:
+                elif self.getc() != endchar:
                     self.pos += 1
                 else:
                     self.pos += 1
-                    if (self.s[self.pos] == endchar and
-                        self.s[self.pos+1] == endchar):
+                    if (self.getc() == endchar and
+                        self.getc(+1) == endchar):
                         self.pos += 2
                         self.consumeEmptyLine()
                         break
@@ -104,18 +110,18 @@ class FutureAutomaton(object):
         else: # Deal with a single quoted docstring
             self.pos += 1
             while 1:
-                c = self.s[self.pos]
+                c = self.getc()
                 self.pos += 1
                 if c == endchar:
                     self.consumeEmptyLine()
                     return
                 elif c == '\\':
                     # Deal with linefeeds
-                    if self.s[self.pos] != '\r':
+                    if self.getc() != '\r':
                         self.pos += 1
                     else:
                         self.pos += 1
-                        if self.s[self.pos] == '\n':
+                        if self.getc() == '\n':
                             self.pos += 1
                 elif c in '\r\n':
                     # Syntax error
@@ -126,31 +132,29 @@ class FutureAutomaton(object):
         Called when the remainder of the line can only contain whitespace
         and comments.
         """
-        while self.s[self.pos] in whitespace:
+        while self.getc() in whitespace:
             self.pos += 1
-        if self.s[self.pos] == '#':
+        if self.getc() == '#':
             self.consumeComment()
-        elif self.s[self.pos] == ';':
+        elif self.getc() == ';':
             self.pos += 1
             self.consumeWhitespace()
             self.start()
-        elif self.s[self.pos] in '\r\n':
+        elif self.getc() in '\r\n':
             self.pos += 1
-            if self.s[self.pos] == '\n':
+            if self.getc() == '\n':
                 self.pos += 1
             self.start()
             
     def consumeComment(self):
         self.pos += 1
-        while self.s[self.pos] not in '\r\n':
+        while self.getc() not in '\r\n':
             self.pos += 1
         self.consumeEmptyLine()
 
     def consumeFrom(self):
         self.pos += 1
-        p = self.pos
-        s = self.s
-        if s[p] == 'r' and s[p+1] == 'o' and s[p+2] == 'm':
+        if self.getc() == 'r' and self.getc(+1) == 'o' and self.getc(+2) == 'm':
             self.docstringConsumed = True
             self.pos += 3
             self.consumeMandatoryWhitespace()
@@ -162,7 +166,7 @@ class FutureAutomaton(object):
                 raise DoneException
             self.pos += 6
             self.consumeWhitespace()
-            if self.s[self.pos] == '(':
+            if self.getc() == '(':
                 self.pos += 1
                 self.consumeWhitespace()
                 self.setFlag(self.getName())
@@ -176,25 +180,25 @@ class FutureAutomaton(object):
             return
         
     def consumeMandatoryWhitespace(self):
-        if self.s[self.pos] not in whitespace + '\\':
+        if self.getc() not in whitespace + '\\':
             raise DoneException
         self.consumeWhitespace()
         
     def consumeWhitespace(self):
         while 1:
-            c = self.s[self.pos]
+            c = self.getc()
             if c in whitespace:
                 self.pos += 1
                 continue
             elif c == '\\':
                 self.pos += 1
-                c = self.s[self.pos]
+                c = self.getc()
                 if c == '\n':
                     self.pos += 1
                     continue
                 elif c == '\r':
                     self.pos += 1
-                    if self.s[self.pos] == '\n':
+                    if self.getc() == '\n':
                         self.pos += 1
                 else:
                     raise DoneException
@@ -202,35 +206,35 @@ class FutureAutomaton(object):
                 return
 
     def getName(self):
-        if self.s[self.pos] not in letters:
+        if self.getc() not in letters:
             raise DoneException
         p = self.pos
         while 1:
             self.pos += 1
-            if self.s[self.pos] not in alphanumerics:
+            if self.getc() not in alphanumerics:
                 break
         name = self.s[p:self.pos]
         self.consumeWhitespace()
         return name
 
     def getMore(self, parenList=False):
-        if parenList and self.s[self.pos] == ')':
+        if parenList and self.getc() == ')':
             self.pos += 1
             return
         
-        if (self.s[self.pos] == 'a' and
-            self.s[self.pos+1] == 's' and
-            self.s[self.pos+2] in whitespace):
+        if (self.getc() == 'a' and
+            self.getc(+1) == 's' and
+            self.getc(+2) in whitespace):
             self.getName()
             self.getName()
             self.getMore(parenList=parenList)
             return
-        elif self.s[self.pos] != ',':
+        elif self.getc() != ',':
             return
         else:
             self.pos += 1
             self.consumeWhitespace()
-            if parenList and self.s[self.pos] == ')':
+            if parenList and self.getc() == ')':
                 self.pos += 1
                 return # Handles trailing comma inside parenthesis
             self.setFlag(self.getName())

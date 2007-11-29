@@ -6,7 +6,7 @@ def run(s):
     f = future.FutureAutomaton(future.futureFlags_2_5, s)
     try:
         f.start()
-    except IndexError, future.DoneException:
+    except future.DoneException:
         pass
     return f
 
