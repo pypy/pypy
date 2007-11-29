@@ -18,11 +18,13 @@ abstract class FileWrapper
 
 class PrintStreamWrapper extends FileWrapper
 {
-    private PrintStream stream;
+    private final PrintStream stream;
+    private final ll_os os;
 
-    public PrintStreamWrapper(PrintStream stream)
+    public PrintStreamWrapper(PrintStream stream, ll_os os)
     {
         this.stream = stream;
+        this.os = os;
     }
 
     public void write(String buffer)
@@ -32,13 +34,13 @@ class PrintStreamWrapper extends FileWrapper
 
     public String read(int count)
     {
-        ll_os.throwOSError(PyPy.EBADF, "Write-only fd");
+        os.throwOSError(PyPy.EBADF, "Write-only fd");
         return null; // never reached
     }
 
     public void close()
     {
-        ll_os.throwOSError(PyPy.EBADF, "Cannot close stdout or stderr");
+        os.throwOSError(PyPy.EBADF, "Cannot close stdout or stderr");
     }
 
     public RandomAccessFile getFile()
@@ -49,16 +51,18 @@ class PrintStreamWrapper extends FileWrapper
 
 class InputStreamWrapper extends FileWrapper
 {
-    private InputStream stream;
+    private final InputStream stream;
+    private final ll_os os;
 
-    public InputStreamWrapper(InputStream stream)
+    public InputStreamWrapper(InputStream stream, ll_os os)
     {
         this.stream = stream;
+        this.os = os;
     }
 
     public void write(String buffer)
     {
-        ll_os.throwOSError(PyPy.EBADF, "Read-only fd");
+        os.throwOSError(PyPy.EBADF, "Read-only fd");
     }
 
     public String read(int count)
@@ -71,14 +75,14 @@ class InputStreamWrapper extends FileWrapper
             return new String(buf, 0, n);
         }
         catch(IOException e) {
-            ll_os.throwOSError(PyPy.EIO, e.getMessage());
+            os.throwOSError(PyPy.EIO, e.getMessage());
             return null; // never reached
         }
     }
 
     public void close()
     {
-        ll_os.throwOSError(PyPy.EBADF, "Cannot close stdin");
+        os.throwOSError(PyPy.EBADF, "Cannot close stdin");
     }
 
     public RandomAccessFile getFile()
@@ -89,34 +93,39 @@ class InputStreamWrapper extends FileWrapper
 
 class RandomAccessFileWrapper extends FileWrapper
 {
-    private RandomAccessFile file;
-    private boolean canRead;
-    private boolean canWrite;
+    private final RandomAccessFile file;
+    private final boolean canRead;
+    private final boolean canWrite;
+    private final ll_os os;
 
-    public RandomAccessFileWrapper(RandomAccessFile file, boolean canRead, boolean canWrite)
+    public RandomAccessFileWrapper(RandomAccessFile file, 
+                                   boolean canRead, 
+                                   boolean canWrite,
+                                   ll_os os)
     {
         this.file = file;
         this.canRead = canRead;
         this.canWrite = canWrite;
+        this.os = os;
     }
 
     public void write(String buffer)
     {
         if (!this.canWrite)
-            ll_os.throwOSError(PyPy.EBADF, "Cannot write to this fd");
+            os.throwOSError(PyPy.EBADF, "Cannot write to this fd");
 
         try {
             this.file.writeBytes(buffer);
         }
         catch(IOException e) {
-            ll_os.throwOSError(PyPy.EIO, e.getMessage());
+            os.throwOSError(PyPy.EIO, e.getMessage());
         }
     }
 
     public String read(int count)
     {
         if (!this.canRead)
-            ll_os.throwOSError(PyPy.EBADF, "Cannot read from this fd");
+            os.throwOSError(PyPy.EBADF, "Cannot read from this fd");
 
         try {
             byte[] buffer = new byte[count];
@@ -127,7 +136,7 @@ class RandomAccessFileWrapper extends FileWrapper
                 return new String(buffer, 0, n);
         }
         catch(IOException e) {
-            ll_os.throwOSError(PyPy.EIO, e.getMessage());
+            os.throwOSError(PyPy.EIO, e.getMessage());
             return null; // never reached
         }
     }
@@ -138,7 +147,7 @@ class RandomAccessFileWrapper extends FileWrapper
             this.file.close();
         }
         catch(IOException e) {
-            ll_os.throwOSError(PyPy.EIO, e.getMessage());
+            os.throwOSError(PyPy.EIO, e.getMessage());
         }
     }
 
@@ -172,36 +181,40 @@ public class ll_os implements Constants {
     private static final int SEEK_CUR = 1;
     private static final int SEEK_END = 2;
 
-    private static int fdcount;
-    private static Map<Integer, FileWrapper> FileDescriptors = new HashMap<Integer, FileWrapper>();
-    private static Map<Integer, String> ErrorMessages = new HashMap<Integer, String>();
+    private int fdcount;
+    private final Map<Integer, FileWrapper> FileDescriptors = 
+      new HashMap<Integer, FileWrapper>();
+    private final Map<Integer, String> ErrorMessages = 
+      new HashMap<Integer, String>();
+    private final Interlink interlink;
 
-    static {
-        FileDescriptors.put(new Integer(0), new InputStreamWrapper(System.in));
-        FileDescriptors.put(new Integer(1), new PrintStreamWrapper(System.out));
-        FileDescriptors.put(new Integer(2), new PrintStreamWrapper(System.err));
+    public ll_os(Interlink interlink) {
+        this.interlink = interlink;
+        FileDescriptors.put(0, new InputStreamWrapper(System.in, this));
+        FileDescriptors.put(1, new PrintStreamWrapper(System.out, this));
+        FileDescriptors.put(2, new PrintStreamWrapper(System.err, this));
         fdcount = 2;
     }
-    
+
     public static final boolean STRACE = false;
     public static void strace(String arg) {
         System.err.println(arg);
     }
 
-    public static void throwOSError(int errno, String errText) {
-        ErrorMessages.put(new Integer(errno), errText);
-        PyPy.interlink.throwOSError(errno);
+    public void throwOSError(int errno, String errText) {
+        ErrorMessages.put(errno, errText);
+        interlink.throwOSError(errno);
     }
 
-    private static FileWrapper getfd(int fd)
+    private FileWrapper getfd(int fd)
     {
-        FileWrapper f = FileDescriptors.get(new Integer(fd));
+        FileWrapper f = FileDescriptors.get(fd);
         if (f == null)
             throwOSError(PyPy.EBADF, "Invalid file descriptor: " + fd);
         return f;
     }
 
-    private static RandomAccessFile open_file(String name, String javaMode, int flags)
+    private RandomAccessFile open_file(String name, String javaMode, int flags)
     {
         RandomAccessFile file;
 
@@ -228,7 +241,7 @@ public class ll_os implements Constants {
         return file;
     }
 
-    public static int ll_os_open(String name, int flags, int mode)
+    public int ll_os_open(String name, int flags, int mode)
     {
         boolean canRead = false;
         boolean canWrite = false;
@@ -246,24 +259,25 @@ public class ll_os implements Constants {
 
         // XXX: we ignore O_CREAT
         RandomAccessFile file = open_file(name, javaMode, flags);
-        RandomAccessFileWrapper wrapper = new RandomAccessFileWrapper(file, canRead, canWrite);
+        RandomAccessFileWrapper wrapper = 
+          new RandomAccessFileWrapper(file, canRead, canWrite, this);
 
         fdcount++;
-        FileDescriptors.put(new Integer(fdcount), wrapper);
+        FileDescriptors.put(fdcount, wrapper);
 
         if (STRACE) strace("ll_os_open: "+name+"->"+fdcount);
         return fdcount;
     }
 
-    public static void ll_os_close(int fd)
+    public void ll_os_close(int fd)
     {
         if (STRACE) strace("ll_os_close: "+fd);
         FileWrapper wrapper = getfd(fd);
         wrapper.close();
-        FileDescriptors.remove(new Integer(fd));
+        FileDescriptors.remove(fd);
     }
 
-    public static int ll_os_dup(int fd)
+    public int ll_os_dup(int fd)
     {
         FileWrapper wrapper = getfd(fd);
         for (int i = 0; i < Integer.MAX_VALUE; i++) {
@@ -277,19 +291,19 @@ public class ll_os implements Constants {
         return -1;
     }
     
-    public static String ll_os_read(int fd, int count)
+    public String ll_os_read(int fd, int count)
     {
         if (STRACE) strace("ll_os_read: "+fd);
         return getfd(fd).read(count);
     }
 
-    public static String ll_os_read(int fd, long count)
+    public String ll_os_read(int fd, long count)
     {
         if (STRACE) strace("ll_os_read: "+fd);
         return ll_os_read(fd, (int)count);
     }
 
-    public static long ll_os_lseek(int fd, long offset, int whence)
+    public long ll_os_lseek(int fd, long offset, int whence)
     {
         if (STRACE) strace("ll_os_lseek: "+fd);
         FileWrapper wrapper = getfd(fd);
@@ -320,30 +334,30 @@ public class ll_os implements Constants {
         return pos;
     }
 
-    public static StatResult ll_os_lstat(String path)
+    public StatResult ll_os_lstat(String path)
     {
         return ll_os_stat(path); // XXX
     }
 
-    public static String ll_os_strerror(int errno)
+    public String ll_os_strerror(int errno)
     {
-        String msg = ErrorMessages.remove(new Integer(errno));
+        String msg = ErrorMessages.remove(errno);
         if (msg == null)
             return "errno: " + errno;
         else
             return msg;
     }
 
-    public static int ll_os_write(int fd, String text) {
+    public int ll_os_write(int fd, String text) {
         if (STRACE) strace("ll_os_write: "+fd+" "+text);        
-        FileWrapper f = FileDescriptors.get(new Integer(fd));
+        FileWrapper f = FileDescriptors.get(fd);
         if (f == null)
             throwOSError(PyPy.EBADF, "Invalid fd: " + fd);
         f.write(text);
         return text.length();
     }
 
-    public static boolean ll_os_isatty(int x)
+    public boolean ll_os_isatty(int x)
     {
         // XXX: this is not the right behaviour, but it's needed
         // to have the interactive interpreter working
@@ -353,25 +367,25 @@ public class ll_os implements Constants {
             return false;
     }
 
-    public static String ll_os_getenv(String key)
+    public String ll_os_getenv(String key)
     {
         return System.getenv(key);
     }
     
-    public static void ll_os_putenv(String key, String value)
+    public void ll_os_putenv(String key, String value)
     {
         //System.setenv(key, value);
         // it appears that there is no such method??!!
     }    
     
-    public static ArrayList ll_os_envkeys()
+    public ArrayList ll_os_envkeys()
     {
         Map variables = System.getenv();
         Set variableNames = variables.keySet();
         return new ArrayList(variableNames);
     }
     
-    public static ArrayList ll_os_envitems()
+    public ArrayList ll_os_envitems()
     {
         Map variables = System.getenv();
         Set variableNames = variables.keySet();
@@ -382,13 +396,13 @@ public class ll_os implements Constants {
         {
              String name = (String) nameIterator.next();
              String value = (String) variables.get(name);
-             result.add(PyPy.interlink.recordStringString(name, value));
+             result.add(interlink.recordStringString(name, value));
         }
         
         return result;
     }
     
-    public static ArrayList<String> ll_os_listdir(String path)
+    public ArrayList<String> ll_os_listdir(String path)
     {
         if (path == "")
             throwOSError(PyPy.ENOENT, "No such file or directory: ''");
@@ -400,15 +414,15 @@ public class ll_os implements Constants {
         return new ArrayList(Arrays.asList(f.list()));
     }
 
-    public static String ll_os_getcwd()
+    public String ll_os_getcwd()
     {
         return System.getProperty("user.dir");
     }
 
-    public static StatResult ll_os_stat(String path)
+    public StatResult ll_os_stat(String path)
     {
         if (path.equals(""))
-            ll_os.throwOSError(PyPy.ENOENT, "No such file or directory: ''");
+            throwOSError(PyPy.ENOENT, "No such file or directory: ''");
 
         File f = new File(path);
         
@@ -424,7 +438,7 @@ public class ll_os implements Constants {
             return res;
         }
 
-        ll_os.throwOSError(PyPy.ENOENT, "No such file or directory: '"+path+"'");
+        throwOSError(PyPy.ENOENT, "No such file or directory: '"+path+"'");
         return null; // never reached
     }
 }

@@ -11,21 +11,40 @@ from pypy.translator.oosupport.metavm import \
      CastTo, PushPrimitive
 from pypy.translator.jvm.metavm import \
      IndirectCall, JvmCallMethod, TranslateException, NewCustomDict, \
-     CastPrimitive
+     CastPrimitive, PushPyPy
 from pypy.rpython.ootypesystem import ootype
 
 import pypy.translator.jvm.generator as jvmgen
 import pypy.translator.jvm.typesystem as jvmtype
 
 def _proc(val):
+    if isinstance(val, list):
+        # Lists of instructions we leave alone:
+        return InstructionList(val)
+    elif isinstance(val, jvmgen.Method) and not val.is_static():
+        # For virtual methods, we first push an instance of the relevant
+        # class, then the arguments, and then invoke the method.  Note
+        # that we only allow virtual methods of certain pre-designated
+        # classes to be in the table.
+        if val.class_name == jvmtype.jPyPy.name:
+            return InstructionList(
+                (PushPyPy, PushAllArgs, val, StoreResult))
+        else:
+            raise Exception("Unknown class for non-static method")
+    # For anything else (static methods, strings, etc) we first push
+    # all arguments, then invoke the emit() routine, and finally
+    # store the result.
+    return InstructionList((PushAllArgs, val, StoreResult))
+        
+def _proc_dict(original):
+    
     """ Function which is used to post-process each entry in the
-    opcodes table; it adds a PushAllArgs and StoreResult by default,
-    unless the entry is a list already. """
-    if not isinstance(val, list):
-        val = InstructionList((PushAllArgs, val, StoreResult))
-    else:
-        val = InstructionList(val)
-    return val
+    opcodes table."""
+
+    res = {}
+    for key, val in original.items():
+        res[key] = _proc(val)
+    return res
 
 def _check_zer(op):
     return [TranslateException(
@@ -41,7 +60,7 @@ Ignore = []
 
 # This table maps the opcodes to micro-ops for processing them.
 # It is post-processed by _proc.
-_opcodes = {
+opcodes = _proc_dict({
     # __________ object oriented operations __________
     'new':                      [New, StoreResult],
     'runtimenew':               [RuntimeNew, StoreResult],
@@ -58,16 +77,13 @@ _opcodes = {
     'oohash':                   [PushAllArgs, jvmgen.OBJHASHCODE, StoreResult], 
     'oostring':                 [OOString, StoreResult],
     'oounicode':                [OOUnicode, StoreResult],
-    #'ooparse_int':              [PushAllArgs, 'call int32 [pypylib]pypy.runtime.Utils::OOParseInt(string, int32)'],
     'ooparse_float':            jvmgen.PYPYOOPARSEFLOAT,
     'oonewcustomdict':          [NewCustomDict, StoreResult],
-    #
     'same_as':                  DoNothing,
     'hint':                     [PushArg(0), StoreResult],
     'direct_call':              [Call, StoreResult],
     'indirect_call':            [PushAllArgs, IndirectCall, StoreResult],
 
-    #'cast_ptr_to_weakadr':      CastPtrToWeakAddress
     'gc__collect':              jvmgen.SYSTEMGC,
     'gc_set_max_heap_size':     Ignore,
     'resume_point':             Ignore,
@@ -222,7 +238,7 @@ _opcodes = {
     'ullong_ge':                'ulong_greater_equals',
     'ullong_lshift':            [PushAllArgs, jvmgen.L2I, jvmgen.LSHL, StoreResult],
     'ullong_rshift':            [PushAllArgs, jvmgen.L2I, jvmgen.LUSHR, StoreResult],
-    'ullong_mod_zer':           _check_zer(jvmgen.PYPYULONGMOD),
+    'ullong_mod_zer':           jvmgen.PYPYULONGMOD,
 
     # when casting from bool we want that every truth value is casted
     # to 1: we can't simply DoNothing, because the CLI stack could
@@ -248,10 +264,4 @@ _opcodes = {
     'cast_primitive':           [PushAllArgs, CastPrimitive, StoreResult],
     'is_early_constant':        [PushPrimitive(ootype.Bool, False), StoreResult]
     
-}
-
-opcodes = {}
-for opc, val in _opcodes.items():
-    opcodes[opc] = _proc(val)
-del _opcodes
-
+})

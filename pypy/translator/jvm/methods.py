@@ -22,18 +22,16 @@ class BaseDumpMethod(object):
         self.jrettype = jvmtype.jString
 
     def _print_field_value(self, fieldnm, FIELDOOTY):
-        self.gen.emit(jvmgen.DUP)
         self.gen.load_this_ptr()
         fieldobj = self.clsobj.lookup_field(fieldnm)
         fieldobj.load(self.gen)
         dumpmethod = self.db.toString_method_for_ootype(FIELDOOTY)
         self.gen.emit(dumpmethod)
-        self.gen.emit(jvmgen.PYPYAPPEND)
+        self.gen.emit(jvmgen.STRINGBUILDERAPPEND)
 
     def _print(self, str):
-        self.gen.emit(jvmgen.DUP)
         self.gen.load_string(str)
-        self.gen.emit(jvmgen.PYPYAPPEND)
+        self.gen.emit(jvmgen.STRINGBUILDERAPPEND)
 
     def render(self, gen):
         self.gen = gen

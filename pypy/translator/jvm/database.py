@@ -15,7 +15,7 @@ from pypy.translator.jvm.generator import Method, Property, Field
 import pypy.translator.jvm.constant as jvmconst
 from pypy.translator.jvm.typesystem import \
      jStringBuilder, jInt, jVoid, jString, jChar, jObject, \
-     jThrowable, JvmNativeClass
+     jThrowable, JvmNativeClass, jPyPy, JvmClassType
 from pypy.translator.jvm.builtin import JvmBuiltInType
 
 from pypy.translator.oosupport.database import Database as OODatabase
@@ -50,6 +50,18 @@ class Database(OODatabase):
         self._object_interf = None
         self._object_impl = None
         self._object_exc_impl = None
+
+        # Create information about the Main class we will build:
+        #
+        #    note that it will have a static field called 'pypy' that
+        #    points to a PyPy instance.  This PyPy instance has been
+        #    paired with the appropriate Interlink implementation
+        #    which allows it to create generated structures.
+        #
+        #    These are public attributes that are referenced from
+        #    elsewhere in the code.
+        self.jPyPyMain = JvmClassType(self._pkg('Main'))
+        self.pypy_field = jvmgen.Field.s(self.jPyPyMain, 'pypy', jPyPy)
 
     # _________________________________________________________________
     # Java String vs Byte Array
@@ -108,7 +120,7 @@ class Database(OODatabase):
         for method_name, helper in methods.items():
             cls.add_method(node.InterlinkFunction(cls, method_name, helper))
         cls.add_interface(jvmtype.jPyPyInterlink)
-        self.interlink_class = cls
+        self.jInterlinkImplementation = cls
         self.pending_node(cls)
 
     def types_for_graph(self, graph):

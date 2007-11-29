@@ -22,6 +22,14 @@ class BaseTestConstant:
         assert res.item0 == 1
         assert res.item1 == 2
 
+    def test_tuples_of_different_types(self):
+        const = "1", "2"
+        def fn():
+            return const
+        res = self.interpret(fn, [])
+        assert res.item0 == "1"
+        assert res.item1 == "2"
+
     def test_list(self):
         const = [1, 2]
         def fn():

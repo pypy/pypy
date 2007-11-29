@@ -172,11 +172,40 @@ class Generator(object):
         Stack: argN, arg2, arg1, this, ... -> ret, ... """
         raise NotImplementedError
 
+    def prepare_call_primitive(self, op, module, name):
+        """ see call_primitive: by default does nothing """
+        pass
+        
     def call_primitive(self, op, module, name):
         """ Like call_graph, but it has been suggested that the method be
-        rendered as a primitive.
+        rendered as a primitive.  The full sequence for invoking a primitive:
+
+          self.prepare_call_primitive(op, module, name)
+          for each arg: self.load(arg)
+          self.call_primitive(op, module, name)
 
         Stack: argN...arg2, arg1, arg0, ... -> ret, ... """
+        raise NotImplementedError
+
+    def prepare_call_oostring(self, OOTYPE):
+        " see call_oostring "
+        pass
+
+    def call_oostring(self, OOTYPE):
+        """ Invoked for the oostring opcode with both operands
+        (object, int base) already pushed onto the stack.
+        prepare_call_oostring() is invoked before the operands are
+        pushed."""
+        raise NotImplementedError
+
+    def prepare_call_oounicode(self, OOTYPE):
+        " see call_oounicode "
+        pass
+
+    def call_oounicode(self, OOTYPE):
+        """ Invoked for the oounicode opcode with the operand already
+        pushed onto the stack.  prepare_call_oounicode() is invoked
+        before the operand is pushed. """
         raise NotImplementedError
 
     def new(self, TYPE):
@@ -415,11 +444,14 @@ class _Call(MicroInstruction):
         callee = op.args[0].value
         is_primitive = self._get_primitive_name(callee)
 
-        for arg in op.args[1:]:
-            generator.load(arg)
-        
         if is_primitive:
             module, name = is_primitive
+            generator.prepare_call_primitive(op, module, name)
+
+        for arg in op.args[1:]:
+            generator.load(arg)
+
+        if is_primitive:
             generator.call_primitive(op, module, name)
         else:
             generator.call_graph(callee.graph)
@@ -442,6 +474,7 @@ class _RuntimeNew(MicroInstruction):
 class _OOString(MicroInstruction):
     def render(self, generator, op):
         ARGTYPE = op.args[0].concretetype
+        generator.prepare_call_oostring(ARGTYPE)
         generator.load(op.args[0])
         generator.load(op.args[1])
         generator.call_oostring(ARGTYPE)
@@ -452,6 +485,7 @@ class _OOUnicode(MicroInstruction):
         assert v_base.value == -1, "The second argument of oounicode must be -1"
 
         ARGTYPE = op.args[0].concretetype
+        generator.prepare_call_oounicode(ARGTYPE)
         generator.load(op.args[0])
         generator.call_oounicode(ARGTYPE)
 

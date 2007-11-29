@@ -69,11 +69,12 @@ class TranslateException(MicroInstruction):
         jexc: the JvmType of the exception
         pexcmthd: the name of the method on the PyPy object to call.
         The PyPy method must take no arguments, return void, and must
-        always throw an exception in practice.
+        always throw an exception in practice.  It would be better to
+        just find the class to throw normally, but I don't know how.
         """
         self.java_exc = jexc
-        self.pypy_method = jvmgen.Method.s(
-            jvmtype.jPyPy, pexcmthd, [], jvmtype.jVoid)
+        self.pypy_method = jvmgen.Method.v(
+            jvmtype.jPyPyInterlink, pexcmthd, [], jvmtype.jVoid)
         self.instruction = inst
         
     def render(self, gen, op):
@@ -87,8 +88,10 @@ class TranslateException(MicroInstruction):
         gen.goto(donelbl)
         # } catch (JavaExceptionType) {
         gen.mark(catchlbl)
-        gen.emit(jvmgen.POP)
-        gen.emit(self.pypy_method)
+        gen.emit(jvmgen.POP)            # throw away the exception object
+        gen.push_pypy()                 # load the PyPy object
+        gen.emit(jvmgen.PYPYINTERLINK)  # load the interlink field from it
+        gen.emit(self.pypy_method)      # invoke the method
         # Note: these instructions will never execute, as we expect
         # the pypy_method to throw an exception and not to return.  We
         # need them here to satisfy the Java verifier, however, as it
@@ -158,3 +161,10 @@ class _CastPrimitive(MicroInstruction):
         if opcode:
             generator.emit(opcode)
 CastPrimitive = _CastPrimitive()
+
+class _PushPyPy(MicroInstruction):
+    """ Pushes the PyPy instance where our helper functions are found
+    from the static field on the generated PyPyMain class """
+    def render(self, generator, op):
+        generator.push_pypy()
+PushPyPy = _PushPyPy()

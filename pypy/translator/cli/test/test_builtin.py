@@ -12,7 +12,6 @@ def skip_win():
         py.test.skip("Doesn't work on Windows, yet")
 
 class TestCliBuiltin(CliTest, BaseTestBuiltin):
-    test_os_dup = skip_os
     test_os_path_exists = skip_os
     test_os_isdir = skip_os
 

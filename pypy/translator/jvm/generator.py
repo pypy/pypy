@@ -13,7 +13,7 @@ from pypy.translator.jvm.typesystem import \
      jObject, jByteArray, jPyPyExcWrap, jIntegerClass, jLongClass, \
      jDoubleClass, jCharClass, jStringBuilder, JvmScalarType, jArrayList, \
      jObjectArray, jPyPyInterlink, jPyPyCustomDict, jPyPyEquals, \
-     jPyPyHashCode, jMap, jPyPyWeakRef, jSystem, jll_os
+     jPyPyHashCode, jMap, jPyPyWeakRef, jSystem, jll_os, jPyPyInterlink
 
 
 # ___________________________________________________________________________
@@ -267,7 +267,7 @@ class Method(object):
                       opcode=INVOKESPECIAL)
     c = staticmethod(c)
 
-    # Create a virtual method:
+    # Create a virtual or interface method:
     def v(classty, methnm, argtypes, rettype):
         """
         Shorthand to create a virtual method.
@@ -337,56 +337,56 @@ LONGTOSTRINGL =         Method.s(jLongClass, 'toString', (jLong,), jString)
 DOUBLETOSTRINGD =       Method.s(jDoubleClass, 'toString', (jDouble,), jString)
 CHARTOSTRINGC =         Method.s(jCharClass, 'toString', (jChar,), jString)
 MATHIABS =              Method.s(jMath, 'abs', (jInt,), jInt)
-IABSOVF =               Method.s(jPyPy, 'abs_ovf', (jInt,), jInt)
+IABSOVF =               Method.v(jPyPy, 'abs_ovf', (jInt,), jInt)
 MATHLABS =              Method.s(jMath, 'abs', (jLong,), jLong)
-LABSOVF =               Method.s(jPyPy, 'abs_ovf', (jLong,), jLong)
+LABSOVF =               Method.v(jPyPy, 'abs_ovf', (jLong,), jLong)
 MATHDABS =              Method.s(jMath, 'abs', (jDouble,), jDouble)
-INEGOVF =               Method.s(jPyPy, 'negate_ovf', (jInt,), jInt)
-LNEGOVF =               Method.s(jPyPy, 'negate_ovf', (jLong,), jLong)
-IADDOVF =               Method.s(jPyPy, 'add_ovf', (jInt, jInt), jInt)
-LADDOVF =               Method.s(jPyPy, 'add_ovf', (jLong, jLong), jLong)
-ISUBOVF =               Method.s(jPyPy, 'subtract_ovf', (jInt, jInt), jInt)
-LSUBOVF =               Method.s(jPyPy, 'subtract_ovf', (jLong, jLong), jLong)
-IMULOVF =               Method.s(jPyPy, 'multiply_ovf', (jInt, jInt), jInt)
-LMULOVF =               Method.s(jPyPy, 'multiply_ovf', (jLong, jLong), jLong)
+INEGOVF =               Method.v(jPyPy, 'negate_ovf', (jInt,), jInt)
+LNEGOVF =               Method.v(jPyPy, 'negate_ovf', (jLong,), jLong)
+IADDOVF =               Method.v(jPyPy, 'add_ovf', (jInt, jInt), jInt)
+LADDOVF =               Method.v(jPyPy, 'add_ovf', (jLong, jLong), jLong)
+ISUBOVF =               Method.v(jPyPy, 'subtract_ovf', (jInt, jInt), jInt)
+LSUBOVF =               Method.v(jPyPy, 'subtract_ovf', (jLong, jLong), jLong)
+IMULOVF =               Method.v(jPyPy, 'multiply_ovf', (jInt, jInt), jInt)
+LMULOVF =               Method.v(jPyPy, 'multiply_ovf', (jLong, jLong), jLong)
 MATHFLOOR =             Method.s(jMath, 'floor', (jDouble,), jDouble)
-IFLOORDIVOVF =          Method.s(jPyPy, 'floordiv_ovf', (jInt, jInt), jInt)
-LFLOORDIVOVF =          Method.s(jPyPy, 'floordiv_ovf', (jLong, jLong), jLong)
-IFLOORDIVZEROVF =       Method.s(jPyPy, 'floordiv_zer_ovf', (jInt, jInt), jInt)
-LFLOORDIVZEROVF =       Method.s(jPyPy, 'floordiv_zer_ovf', (jLong, jLong), jLong)
-IREMOVF =               Method.s(jPyPy, 'mod_ovf', (jInt, jInt), jInt)
-LREMOVF =               Method.s(jPyPy, 'mod_ovf', (jLong, jLong), jLong)
-ISHLOVF =               Method.s(jPyPy, 'lshift_ovf', (jInt, jInt), jInt)
-LSHLOVF =               Method.s(jPyPy, 'lshift_ovf', (jLong, jLong), jLong)
+IFLOORDIVOVF =          Method.v(jPyPy, 'floordiv_ovf', (jInt, jInt), jInt)
+LFLOORDIVOVF =          Method.v(jPyPy, 'floordiv_ovf', (jLong, jLong), jLong)
+IFLOORDIVZEROVF =       Method.v(jPyPy, 'floordiv_zer_ovf', (jInt, jInt), jInt)
+LFLOORDIVZEROVF =       Method.v(jPyPy, 'floordiv_zer_ovf', (jLong, jLong), jLong)
+IREMOVF =               Method.v(jPyPy, 'mod_ovf', (jInt, jInt), jInt)
+LREMOVF =               Method.v(jPyPy, 'mod_ovf', (jLong, jLong), jLong)
+ISHLOVF =               Method.v(jPyPy, 'lshift_ovf', (jInt, jInt), jInt)
+LSHLOVF =               Method.v(jPyPy, 'lshift_ovf', (jLong, jLong), jLong)
 MATHDPOW =              Method.s(jMath, 'pow', (jDouble, jDouble), jDouble)
 PRINTSTREAMPRINTSTR =   Method.v(jPrintStream, 'print', (jString,), jVoid)
 CLASSFORNAME =          Method.s(jClass, 'forName', (jString,), jClass)
 CLASSISASSIGNABLEFROM = Method.v(jClass, 'isAssignableFrom', (jClass,), jBool)
-PYPYAPPEND =            Method.s(jPyPy, 'append',
-                                 (jStringBuilder, jString), jVoid)
+STRINGBUILDERAPPEND =   Method.v(jStringBuilder, 'append',
+                                 (jString,), jStringBuilder)
 PYPYUINTCMP =           Method.s(jPyPy, 'uint_cmp', (jInt,jInt,), jInt)
 PYPYULONGCMP =          Method.s(jPyPy, 'ulong_cmp', (jLong,jLong), jInt)
-PYPYUINTMOD =           Method.s(jPyPy, 'uint_mod', (jInt, jInt), jInt)
-PYPYUINTMUL =           Method.s(jPyPy, 'uint_mul', (jInt, jInt), jInt)
-PYPYUINTDIV =           Method.s(jPyPy, 'uint_div', (jInt, jInt), jInt)
-PYPYULONGMOD =          Method.s(jPyPy, 'ulong_mod', (jLong, jLong), jLong)
+PYPYUINTMOD =           Method.v(jPyPy, 'uint_mod', (jInt, jInt), jInt)
+PYPYUINTMUL =           Method.v(jPyPy, 'uint_mul', (jInt, jInt), jInt)
+PYPYUINTDIV =           Method.v(jPyPy, 'uint_div', (jInt, jInt), jInt)
+PYPYULONGMOD =          Method.v(jPyPy, 'ulong_mod', (jLong, jLong), jLong)
 PYPYUINTTODOUBLE =      Method.s(jPyPy, 'uint_to_double', (jInt,), jDouble)
 PYPYDOUBLETOUINT =      Method.s(jPyPy, 'double_to_uint', (jDouble,), jInt)
-PYPYDOUBLETOLONG =      Method.s(jPyPy, 'double_to_long', (jDouble,), jLong) #PAUL
-PYPYLONGBITWISENEGATE = Method.s(jPyPy, 'long_bitwise_negate', (jLong,), jLong)
-PYPYSTRTOINT =          Method.s(jPyPy, 'str_to_int', (jString,), jInt)
-PYPYSTRTOUINT =         Method.s(jPyPy, 'str_to_uint', (jString,), jInt)
-PYPYSTRTOLONG =         Method.s(jPyPy, 'str_to_long', (jString,), jLong)
-PYPYSTRTOULONG =        Method.s(jPyPy, 'str_to_ulong', (jString,), jLong)
-PYPYSTRTOBOOL =         Method.s(jPyPy, 'str_to_bool', (jString,), jBool)
-PYPYSTRTODOUBLE =       Method.s(jPyPy, 'str_to_double', (jString,), jDouble)
-PYPYSTRTOCHAR =         Method.s(jPyPy, 'str_to_char', (jString,), jChar)
-PYPYBOOLTODOUBLE =      Method.s(jPyPy, 'bool_to_double', (jBool,), jDouble)
+PYPYDOUBLETOLONG =      Method.v(jPyPy, 'double_to_long', (jDouble,), jLong) #PAUL
+PYPYLONGBITWISENEGATE = Method.v(jPyPy, 'long_bitwise_negate', (jLong,), jLong)
+PYPYSTRTOINT =          Method.v(jPyPy, 'str_to_int', (jString,), jInt)
+PYPYSTRTOUINT =         Method.v(jPyPy, 'str_to_uint', (jString,), jInt)
+PYPYSTRTOLONG =         Method.v(jPyPy, 'str_to_long', (jString,), jLong)
+PYPYSTRTOULONG =        Method.v(jPyPy, 'str_to_ulong', (jString,), jLong)
+PYPYSTRTOBOOL =         Method.v(jPyPy, 'str_to_bool', (jString,), jBool)
+PYPYSTRTODOUBLE =       Method.v(jPyPy, 'str_to_double', (jString,), jDouble)
+PYPYSTRTOCHAR =         Method.v(jPyPy, 'str_to_char', (jString,), jChar)
+PYPYBOOLTODOUBLE =      Method.v(jPyPy, 'bool_to_double', (jBool,), jDouble)
 PYPYDUMP          =     Method.s(jPyPy, 'dump', (jString,), jVoid)
 PYPYDUMPEXCWRAPPER =    Method.s(jPyPy, 'dump_exc_wrapper', (jObject,), jVoid)
 PYPYSERIALIZEBOOLEAN =  Method.s(jPyPy, 'serialize_boolean', (jBool,), jString)
 PYPYSERIALIZEUINT  =    Method.s(jPyPy, 'serialize_uint', (jInt,), jString)
-PYPYSERIALIZEULONG =    Method.s(jPyPy, 'serialize_ulonglong', (jLong,), jString)
+PYPYSERIALIZEULONG =    Method.s(jPyPy, 'serialize_ulonglong', (jLong,),jString)
 PYPYSERIALIZEVOID =     Method.s(jPyPy, 'serialize_void', (), jString)
 PYPYESCAPEDCHAR =       Method.s(jPyPy, 'escaped_char', (jChar,), jString)
 PYPYESCAPEDUNICHAR =    Method.s(jPyPy, 'escaped_unichar', (jChar,), jString)
@@ -396,13 +396,13 @@ PYPYSERIALIZEOBJECT =   Method.s(jPyPy, 'serializeObject', (jObject,), jString)
 PYPYRUNTIMENEW =        Method.s(jPyPy, 'RuntimeNew', (jClass,), jObject)
 PYPYSTRING2BYTES =      Method.s(jPyPy, 'string2bytes', (jString,), jByteArray)
 PYPYARRAYTOLIST =       Method.s(jPyPy, 'array_to_list', (jObjectArray,), jArrayList)
-PYPYOOPARSEFLOAT =      Method.s(jPyPy, 'ooparse_float', (jString,), jDouble)
+PYPYOOPARSEFLOAT =      Method.v(jPyPy, 'ooparse_float', (jString,), jDouble)
 OBJECTGETCLASS =        Method.v(jObject, 'getClass', (), jClass)
 CLASSGETNAME =          Method.v(jClass, 'getName', (), jString)
 CUSTOMDICTMAKE =        Method.s(jPyPyCustomDict, 'make',
                                  (jPyPyEquals, jPyPyHashCode), jPyPyCustomDict)
 PYPYWEAKREFCREATE =     Method.s(jPyPyWeakRef, 'create', (jObject,), jPyPyWeakRef)
-PYPYWEAKREFGET =        Method.v(jPyPyWeakRef, 'll_get', (), jObject)
+PYPYWEAKREFGET =        Method.s(jPyPyWeakRef, 'll_get', (), jObject)
 
 # ___________________________________________________________________________
 # Fields
@@ -410,6 +410,29 @@ PYPYWEAKREFGET =        Method.v(jPyPyWeakRef, 'll_get', (), jObject)
 # Field objects encode information about fields.
 
 class Field(object):
+
+    @staticmethod
+    def i(classty, fieldnm, fieldty, OOTYPE=None):
+        """
+        Shorthand to create an instance field.
+        'class' - JvmType object for the class containing the field
+        'fieldnm' - name of the field (Python string)
+        'fieldty' - JvmType object for the type of the field
+        'OOTYPE' - optional OOTYPE object for the type of the field
+        """
+        return Field(classty.name, fieldnm, fieldty, False, OOTYPE)
+    
+    @staticmethod
+    def s(classty, fieldnm, fieldty, OOTYPE=None):
+        """
+        Shorthand to create a static field.
+        'class' - JvmType object for the class containing the field
+        'fieldnm' - name of the field (Python string)
+        'fieldty' - JvmType object for the type of the field
+        'OOTYPE' - optional OOTYPE object for the type of the field
+        """
+        return Field(classty.name, fieldnm, fieldty, True, OOTYPE)
+
     def __init__(self, classnm, fieldnm, jtype, static, OOTYPE=None):
         # All fields are public
         self.class_name = classnm  # String, ie. "java.lang.Math"
@@ -456,13 +479,14 @@ class Property(object):
     # jasmin_syntax is not needed, since this object itself never appears
     # as an argument an Opcode
 
-SYSTEMOUT =    Field('java.lang.System', 'out', jPrintStream, True)
-SYSTEMERR =    Field('java.lang.System', 'err', jPrintStream, True)
-DOUBLENAN =    Field('java.lang.Double', 'NaN', jDouble, True)
-DOUBLEPOSINF = Field('java.lang.Double', 'POSITIVE_INFINITY', jDouble, True)
-DOUBLENEGINF = Field('java.lang.Double', 'NEGATIVE_INFINITY', jDouble, True)
+SYSTEMOUT =    Field.s(jSystem, 'out', jPrintStream)
+SYSTEMERR =    Field.s(jSystem, 'err', jPrintStream)
+DOUBLENAN =    Field.s(jDoubleClass, 'NaN', jDouble)
+DOUBLEPOSINF = Field.s(jDoubleClass, 'POSITIVE_INFINITY', jDouble)
+DOUBLENEGINF = Field.s(jDoubleClass, 'NEGATIVE_INFINITY', jDouble)
 
-PYPYINTERLINK= Field(jPyPy.name, 'interlink', jPyPyInterlink, True)
+PYPYINTERLINK= Field.i(jPyPy, 'interlink', jPyPyInterlink)
+PYPYOS =       Field.i(jPyPy, 'os', jll_os)
 
 # ___________________________________________________________________________
 # Generator State
@@ -941,6 +965,11 @@ class JVMGenerator(Generator):
         fieldobj = clsobj.lookup_field(fieldname)
         fieldobj.store(self)
 
+    def push_pypy(self):
+        """ Pushes the PyPy object which contains all of our helper methods
+        onto the stack """
+        self.db.pypy_field.load(self)
+
     def get_field(self, CONCRETETYPE, fieldname):
         clsobj = self.db.pending_class(CONCRETETYPE)
         fieldobj = clsobj.lookup_field(fieldname)
@@ -999,15 +1028,28 @@ class JVMGenerator(Generator):
             # we have to "deal with it"
             self.prepare_generic_result(RETTYPE)
 
+    def prepare_call_primitive(self, op, module, name):
+        # Load the PyPy object pointer onto the stack:
+        self.push_pypy()
+
+        # If necessary, load the ll_os object pointer instead:
+        if module == 'll_os':
+            PYPYOS.load(self)
+        
     def call_primitive(self, op, module, name):
         callee = op.args[0].value
-        argtypes, rettype = self.db.types_for_signature(callee._TYPE.ARGS, callee._TYPE.RESULT)
+        argtypes, rettype = self.db.types_for_signature(
+            callee._TYPE.ARGS, callee._TYPE.RESULT)
         if module == 'll_os':
             jcls = jll_os
         else:
             jcls = jPyPy
-        mthd = Method.s(jcls, name, argtypes, rettype)
+        mthd = Method.v(jcls, name, argtypes, rettype)
         self.emit(mthd)
+
+    def prepare_call_oostring(self, OOTYPE):
+        # Load the PyPy object pointer onto the stack:
+        self.push_pypy()
 
     def call_oostring(self, OOTYPE):
         cts_type = self.db.lltype_to_cts(OOTYPE)
@@ -1016,14 +1058,18 @@ class JVMGenerator(Generator):
         if isinstance(cts_type, jvmtype.JvmClassType):
             cts_type = jObject
             
-        mthd = Method.s(jPyPy, 'oostring', [cts_type, jInt], jString)
+        mthd = Method.v(jPyPy, 'oostring', [cts_type, jInt], jString)
         self.emit(mthd)
         if self.db.using_byte_array:
             self.emit(PYPYSTRING2BYTES)
 
+    def prepare_call_oounicode(self, OOTYPE):
+        # Load the PyPy object pointer onto the stack:
+        self.push_pypy()
+
     def call_oounicode(self, OOTYPE):
         cts_type = self.db.lltype_to_cts(OOTYPE)
-        mthd = Method.s(jPyPy, 'oounicode', [cts_type], jString)
+        mthd = Method.v(jPyPy, 'oounicode', [cts_type], jString)
         self.emit(mthd)
         if self.db.using_byte_array:
             self.emit(PYPYSTRING2BYTES)
@@ -1032,8 +1078,9 @@ class JVMGenerator(Generator):
         jtype = self.db.lltype_to_cts(TYPE)
         self.new_with_jtype(jtype)
 
-    def new_with_jtype(self, jtype):
-        ctor = Method.c(jtype, ())
+    def new_with_jtype(self, jtype, ctor=None):
+        if ctor is None:
+            ctor = Method.c(jtype, ())
         self.emit(NEW, jtype)
         self.emit(DUP)
         self.emit(ctor)

@@ -32,10 +32,28 @@ class BaseTestBuiltin(BaseTestRbuiltin):
         res = self.ll_to_string(self.interpret(fn, [False]))
         assert res == file(tmpfile, 'r').read()
 
+    def test_os_dup_oo(self):
+        tmpdir = str(udir.udir.join("os_dup_oo"))
+        def fn():
+            fd = os.open(tmpdir, os.O_WRONLY|os.O_CREAT|os.O_TRUNC, 0777)
+            os.write(fd, "hello world")
+            fd2 = os.dup(fd)
+            os.write(fd2, " (dupped)")
+            os.close(fd)
+            try:
+                os.write(fd2, " (uh oh)")
+            except OSError, e:
+                return e.errno
+            return -1
+        assert self.interpret(fn, []) == 5 # EIO
+        assert file(tmpdir).read() == 'hello world (dupped)'
+
     # the following tests can't be executed with gencli because they
     # returns file descriptors, and cli code is executed in another
-    # process. Instead of those, there is a new test that opens and
+    # process. Instead of those, there are new tests that opens and
     # write to a file all in the same process.
+    def test_os_dup(self):
+        pass
     def test_os_write(self):
         pass
     def test_os_write_single_char(self):

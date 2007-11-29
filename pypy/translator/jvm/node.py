@@ -20,9 +20,9 @@ from pypy.rpython.lltypesystem import \
 from pypy.rpython.ootypesystem import \
      ootype, rclass
 from pypy.translator.jvm.typesystem import \
-     JvmClassType, jString, jStringArray, jVoid, jThrowable, jInt, jPyPyMain, \
+     JvmClassType, jString, jStringArray, jVoid, jThrowable, jInt, \
      jObject, JvmType, jStringBuilder, jPyPyInterlink, jCallbackInterfaces, \
-     JvmInterfaceType
+     JvmInterfaceType, jPyPy
 from pypy.translator.jvm.opcodes import \
      opcodes
 from pypy.translator.jvm.option import \
@@ -91,21 +91,35 @@ class EntryPoint(Node):
         }
 
     def render(self, gen):
-        gen.begin_class(jPyPyMain, jObject)
-        gen.begin_function(
-            'main', (), [jStringArray], jVoid, static=True)
+        gen.begin_class(gen.db.jPyPyMain, jObject)
+        gen.add_field(gen.db.pypy_field)
 
         # Initialization:
         # 
-        #    1. Setup the PyPy helper, which (for now) is a static
-        #    variable of the PyPy class, though that precludes running
-        #    multiple translations.
+        #    1. Create a PyPy helper class, passing in an appropriate
+        #    interlink instance.
         #
         #    2. Run the initialization method for the constant class.
         #
-        gen.new_with_jtype(gen.db.interlink_class)
-        jvmgen.PYPYINTERLINK.store(gen)
+        gen.begin_function(
+            '<clinit>', (), [], jVoid, static=True)
+        gen.emit(jvmgen.NEW, jPyPy)
+        gen.emit(jvmgen.DUP)
+        gen.new_with_jtype(gen.db.jInterlinkImplementation)
+        gen.emit(jvmgen.Method.c(jPyPy, [jPyPyInterlink]))
+        gen.db.pypy_field.store(gen)
         gen.db.constant_generator.runtime_init(gen)
+        gen.return_val(jVoid)
+        gen.end_function()
+        
+        # Main method:
+        # 
+        #    1. Parse the arguments and create Python objects.
+        #    2. Invoke the main function.
+        #    3. Print the result to stdout if self.print_result is true
+        #
+        gen.begin_function(
+            'main', (), [jStringArray], jVoid, static=True)
 
         if self.print_result:
             gen.begin_try()
@@ -116,10 +130,11 @@ class EntryPoint(Node):
             # invoking an appropriate helper function on each one
             for i, arg in enumerate(self.graph.getargs()):
                 jty = self.db.lltype_to_cts(arg.concretetype)
+                conv = self._type_conversion_methods[arg.concretetype]
+                if conv: gen.push_pypy()
                 gen.load_jvm_var(jStringArray, 0)
                 gen.emit(jvmgen.ICONST, i)
                 gen.load_from_array(jString)
-                conv = self._type_conversion_methods[arg.concretetype]
                 if conv: gen.emit(conv)
         else:
             # Convert the array of strings to a List<String> as the

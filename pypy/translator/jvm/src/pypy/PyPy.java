@@ -9,21 +9,33 @@ import java.util.Map;
 import java.text.DecimalFormat;
 
 /**
- * Class with a number of utility routines.
+ * Class with a number of utility routines.  One instance of this is
+ * created by the PyPy entrypoint, and paired with an appropriate
+ * interlink implementation.
  * 
  * I apologize for the Python-esque naming conventions, but it seems
  * I can't switch my mind to camelCase when working so closely with 
  * Python mere minutes before.
+ *
+ * In general, its methods should be virtual.  In some cases, however,
+ * they are static because it is more expedient in the generated code
+ * to not have to push the pypy instance before invoking the method.
  */
 public class PyPy implements Constants {
     
-    public static Interlink interlink;
+    public final Interlink interlink;
+    public final ll_os os;
 
-    public static final long LONG_MAX = Long.MAX_VALUE;
-    public static final long LONG_MIN = Long.MIN_VALUE;
-    public static final int INT_MAX = Integer.MAX_VALUE;
-    public static final int INT_MIN = Integer.MIN_VALUE;
-    public static final double ULONG_MAX = 18446744073709551616.0;
+    public PyPy(Interlink interlink) {
+        this.interlink = interlink;
+        this.os = new ll_os(interlink);
+    }
+
+    public final static long LONG_MAX = Long.MAX_VALUE;
+    public final static long LONG_MIN = Long.MIN_VALUE;
+    public final static int INT_MAX = Integer.MAX_VALUE;
+    public final static int INT_MIN = Integer.MIN_VALUE;
+    public final static double ULONG_MAX = 18446744073709551616.0;
 
     /** 
      * Compares two unsigned integers (value1 and value2) and returns
@@ -68,36 +80,41 @@ public class PyPy implements Constants {
         return VALUE2BIGGER;
     }
 
-    public static int uint_mod(int x, int y) {
+    public int uint_mod(int x, int y) {
         long lx = uint_to_long(x);
         long ly = uint_to_long(y);
         long lr = lx % ly;
         return long_to_uint(lr);
     }
 
-    public static int uint_mul(int x, int y)
+    public int uint_mul(int x, int y)
     {
         long xx = uint_to_long(x);
         long yy = uint_to_long(y);
         return long_to_uint(xx * yy);
     }
 
-    public static int uint_div(int x, int y)
+    public int uint_div(int x, int y)
     {
         long xx = uint_to_long(x);
         long yy = uint_to_long(y);
         return long_to_uint(xx / yy);
     }
     
-    public static long ulong_shl(long x, long y) {
+    public long ulong_shl(long x, long y) {
         int yi = (int)y;
         return x << yi;
     }
 
-    public static long ulong_mod(long x, long y) {
+    public long ulong_mod(long x, long y) {
         double dx = ulong_to_double(x);
-        double modulo = Math.IEEEremainder(dx, y);
-        return (long)modulo;
+        try {
+            double modulo = Math.IEEEremainder(dx, y);
+            return (long)modulo;
+        } catch (ArithmeticException e) {
+            interlink.throwZeroDivisionError();
+            return 0; // never reached
+        }
     }
 
     public static int ulong_cmp(long value1, long value2) {
@@ -131,7 +148,7 @@ public class PyPy implements Constants {
         return VALUE2BIGGER;
     }
 
-    public static final double BITS16 = (double)0xFFFF;
+    public final double BITS16 = (double)0xFFFF;
 
     public static double uint_to_double(int value) {
         return (double)uint_to_long(value);
@@ -167,7 +184,7 @@ public class PyPy implements Constants {
         return res;
     }
 
-    public static long double_to_long(double value)
+    public long double_to_long(double value)
     {
         //if (value <= LONG_MAX)
         //{
@@ -176,11 +193,11 @@ public class PyPy implements Constants {
         //TODO: Add some logic here, but I don't think we'll need it
     }
 
-    public static long long_bitwise_negate(long value) {
+    public long long_bitwise_negate(long value) {
         return ~value;
     }
 
-    public static int str_to_int(String s) {
+    public int str_to_int(String s) {
         try {
             return Integer.parseInt(s);
         } catch (NumberFormatException fe) {
@@ -188,7 +205,7 @@ public class PyPy implements Constants {
         }
     }
 
-    public static int str_to_uint(String s) {
+    public int str_to_uint(String s) {
         try {
             long l = Long.parseLong(s);
             if (l < Integer.MAX_VALUE)
@@ -201,7 +218,7 @@ public class PyPy implements Constants {
         }
     }
 
-    public static long str_to_long(String s) {
+    public long str_to_long(String s) {
         try {
             return Long.parseLong(s);
         } catch (NumberFormatException fe) {
@@ -209,7 +226,7 @@ public class PyPy implements Constants {
         }
     }
 
-    public static long str_to_ulong(String s) {
+    public long str_to_ulong(String s) {
         long res = 0;
         s = s.trim();
         for(int i=0; i<s.length(); i++) {
@@ -221,7 +238,7 @@ public class PyPy implements Constants {
         return res;
     }
 
-    public static boolean str_to_bool(String s) {
+    public boolean str_to_bool(String s) {
         // not sure what are considered valid boolean values...
         // let's be very accepting and take both strings and numbers
         if (s.equalsIgnoreCase("true"))
@@ -237,7 +254,7 @@ public class PyPy implements Constants {
         }
     }
 
-    public static double str_to_double(String s) {
+    public double str_to_double(String s) {
         try {
             return Double.parseDouble(s);
         } catch (NumberFormatException ex) {
@@ -245,22 +262,22 @@ public class PyPy implements Constants {
         }
     }
 
-    public static double ooparse_float(String s) {
+    public double ooparse_float(String s) {
         try {
             return Double.parseDouble(s);
         } catch(NumberFormatException ex) {
-            throwValueError();
+            interlink.throwValueError();
             return 0.0; // not reached
         }
     }
 
-    public static char str_to_char(String s) {
+    public char str_to_char(String s) {
         if (s.length() != 1)
             throw new RuntimeException("String not single character: '"+s+"'");
         return s.charAt(0);
     }
 
-    public static double bool_to_double(boolean b) { //This should be replaced with JASMIN code later
+    public double bool_to_double(boolean b) { //This should be replaced with JASMIN code later
         double result;
         if (b)
             result = 1.0;
@@ -274,6 +291,9 @@ public class PyPy implements Constants {
     //    A series of methods which serve a similar purpose to repr() in Python:
     //    they create strings that can be exec'd() to rebuild data structures.
     //    Also methods for writing to System.out.
+    //
+    //    These are static because they never throw exceptions etc, and it
+    //    is more convenient that way.
 
     public static void dump(String text) {
         System.out.println(text);
@@ -386,58 +406,58 @@ public class PyPy implements Constants {
 
     // ----------------------------------------------------------------------
     // Checked Arithmetic - Overflow protection
-    public static int negate_ovf(int x) 
+    public int negate_ovf(int x) 
     {
         if (x == INT_MIN)
         {
-            throwOverflowError();
+            interlink.throwOverflowError();
         }
         return -x;
     }
 
-    public static long negate_ovf(long x) 
+    public long negate_ovf(long x) 
     {
         if (x == LONG_MIN)
         {
-            throwOverflowError();
+            interlink.throwOverflowError();
         }
         return -x;
     }
     
-    public static int abs_ovf(int x) 
+    public int abs_ovf(int x) 
     {
         if (x == INT_MIN)
         {
-            throwOverflowError();
+            interlink.throwOverflowError();
         }
         return Math.abs(x);
     }
 
-    public static long abs_ovf(long x) 
+    public long abs_ovf(long x) 
     {
         if (x == LONG_MIN)
         {
-            throwOverflowError();
+            interlink.throwOverflowError();
         }
         return Math.abs(x);
     }
 
-    public static int add_ovf(int x, int y) 
+    public int add_ovf(int x, int y) 
     {
         int result = x+y;
         if (!(((result^x) >=0) || ((result^y) >=0)))
         {
-            throwOverflowError();
+            interlink.throwOverflowError();
         }
         return result;
     }
 
-    public static int subtract_ovf(int x, int y) 
+    public int subtract_ovf(int x, int y) 
     {
         int result = x-y;
         if (!(((result^x) >=0) || ((result^(~y)) >=0)))
         {
-            throwOverflowError();
+            interlink.throwOverflowError();
         }
         return result;
     }
@@ -458,31 +478,31 @@ public class PyPy implements Constants {
         else
             return false;
     }
-    public static int multiply_ovf(int x, int y) 
+    public int multiply_ovf(int x, int y) 
     {
         if (!(int_multiply(x, y)))
         {
-            throwOverflowError();
+            interlink.throwOverflowError();
         }
         return x * y;
     }
 
-    public static long add_ovf(long x, long y) 
+    public long add_ovf(long x, long y) 
     {
         long result = x+y;
         if (!(((result^x) >=0) || ((result^y) >=0)))
         {
-            throwOverflowError();
+            interlink.throwOverflowError();
         }
         return result;
     }
 
-    public static long subtract_ovf(long x, long y) 
+    public long subtract_ovf(long x, long y) 
     {
         long result = x-y;
         if (!(((result^x) >=0) || ((result^(~y)) >=0)))
         {
-            throwOverflowError();
+            interlink.throwOverflowError();
         }
         return result;
     }
@@ -503,54 +523,51 @@ public class PyPy implements Constants {
         else
             return false;
     }
-    public static long multiply_ovf(long x, long y) 
+    public long multiply_ovf(long x, long y) 
     {
         //if (long_multiply(x, y))
         //{
         //    return x * y;
         //}
         //else
-        //    throwOverflowError();
+        //    interlink.throwOverflowError();
         if (!(long_multiply(x, y)))
         {
-            throwOverflowError();
+            interlink.throwOverflowError();
         }
         return x*y;
         //else
-        //    throwOverflowError();
+        //    interlink.throwOverflowError();
     }
 
 
     /* floor division */
-    public static int floordiv_ovf(int x, int y) 
+    public int floordiv_ovf(int x, int y) 
     {
         if ((y == -1) && (x == INT_MIN))
         {
-            throwOverflowError();
+            interlink.throwOverflowError();
         }
         return x/y;
     }
 
-    public static int floordiv_zer_ovf(int x, int y) 
+    public int floordiv_zer_ovf(int x, int y) 
     {
-        if (y != 0)
-        {
-            return floordiv_ovf(x,y);
-        }
-        else
-            throw new ArithmeticException("Floor Division with integer by 0");
+        if (y == 0)
+            interlink.throwZeroDivisionError();
+        return floordiv_ovf(x,y);
     }
 
-    public static long floordiv_ovf(long x, long y) 
+    public long floordiv_ovf(long x, long y) 
     {
         if ((y == -1) && (x == LONG_MIN))
         {
-            throwOverflowError();
+            interlink.throwOverflowError();
         }
         return x/y;
     }
 
-    public static long floordiv_zer_ovf(long x, long y)
+    public long floordiv_zer_ovf(long x, long y)
     {
         if (y != 0)
         {
@@ -561,41 +578,41 @@ public class PyPy implements Constants {
     }
 
     /* modulo */
-    public static int mod_ovf(int x, int y) 
+    public int mod_ovf(int x, int y) 
     {
         if ((y == -1) && (x == INT_MIN))
         {
-            throwOverflowError();
+            interlink.throwOverflowError();
         }
         return x%y;
     }
 
-    public static long mod_ovf(long x, long y) 
+    public long mod_ovf(long x, long y) 
     {
         if ((y == -1) && (x == LONG_MIN))
         {
-            throwOverflowError();
+            interlink.throwOverflowError();
         }
         return x%y;
     }
 
     /* shifting */
-    public static int lshift_ovf(int x, int y) // x << y
+    public int lshift_ovf(int x, int y) // x << y
     {
         int result = x << y;
         if (x != (result >> y))
         {
-            throwOverflowError();
+            interlink.throwOverflowError();
         }
         return result;
     }
 
-    public static long lshift_ovf(long x, long y) // x << y
+    public long lshift_ovf(long x, long y) // x << y
     {
         long result = x << y;
         if (x != (result >> y))
         {
-            throwOverflowError();
+            interlink.throwOverflowError();
         }
         return result;
     }
@@ -612,30 +629,29 @@ public class PyPy implements Constants {
         return str.indexOf((int) char1) != -1;
     }
 
-    public static int ll_find(String haystack, String needle, int start, int end) {
-        // if it is impossible for the needle to occur:
-        //   this deals w/ a disparity in how java and python handle when needle=""
+    public static int ll_find(String haystack, String needle, 
+                              int start, int end) {
+        // if it is impossible for the needle to occur: this deals w/
+        //   a disparity in how java and python handle when needle=""
         if (start > haystack.length())
             return -1;
 
         int res = haystack.indexOf(needle, start);
-        //System.err.println("haystack="+haystack+" needle="+needle+" start="+start+
-        //                   " end="+end+" res="+res);
         if (res + needle.length() > end) 
             return -1;
         return res;
     }
 
-    public static int ll_rfind(String haystack, String needle, int start, int end) {
+    public static int ll_rfind(String haystack, String needle, 
+                               int start, int end) {
         int res = haystack.lastIndexOf(needle, end-1);
-        //System.err.println("haystack="+haystack+" needle="+needle+" start="+start+
-        //                   " end="+end+" res="+res);
         if (res >= start) 
             return res;
         return -1;
     }
 
-    public static int ll_count(String haystack, String needle, int start, int end) {
+    public static int ll_count(String haystack, String needle, 
+                               int start, int end) {
         haystack = haystack.substring(start, end);
 
         if (needle.length() == 0) {
@@ -651,7 +667,8 @@ public class PyPy implements Constants {
         return cnt;
     }
 
-    public static int ll_find_char(String haystack, char needle, int start, int end) {
+    public static int ll_find_char(String haystack, char needle, 
+                                   int start, int end) {
         // see ll_find
         if (start > haystack.length())
             return -1;
@@ -662,16 +679,16 @@ public class PyPy implements Constants {
         return res;
     }
 
-    public static int ll_rfind_char(String haystack, char needle, int start, int end) {
+    public static int ll_rfind_char(String haystack, char needle, 
+                                    int start, int end) {
         int res = haystack.lastIndexOf(needle, end-1);
-        //System.err.println("haystack="+haystack+" needle="+needle+" start="+start+
-        //                   " end="+end+" res="+res);
         if (res >= start) 
             return res;
         return -1;
     }
 
-    public static int ll_count_char(String haystack, char needle, int start, int end) {
+    public static int ll_count_char(String haystack, char needle, 
+                                    int start, int end) {
         haystack = haystack.substring(start, end);
         int cnt = 0;
         int idx = -1;
@@ -681,7 +698,8 @@ public class PyPy implements Constants {
         return cnt;
     }
 
-    public static String ll_strip(String str, char ch, boolean left, boolean right) {
+    public static String ll_strip(String str, char ch, 
+                                  boolean left, boolean right) {
         int start = 0;
         int end = str.length();
 
@@ -769,11 +787,6 @@ public class PyPy implements Constants {
         return s.getBytes();
     }
 
-    public static void append(StringBuilder sb, String s) {
-        // avoid the annoying return value of StringBuilder.append
-        sb.append(s);
-    }
-
     public static ArrayList array_to_list(Object[] array)
     {
         ArrayList list = new ArrayList(java.util.Arrays.asList(array));
@@ -784,7 +797,7 @@ public class PyPy implements Constants {
     // ----------------------------------------------------------------------
     // OOString support
     
-    public static String oostring(int n, int base_) {
+    public String oostring(int n, int base_) {
         // XXX needs special case for unsigned ints
         if (base_ == -1)
             base_ = 10;
@@ -794,11 +807,11 @@ public class PyPy implements Constants {
             return Integer.toString(n, base_);
     }
 
-    public static String oostring(double d, int base_) {
+    public String oostring(double d, int base_) {
         return new Double(d).toString();
     }
 
-    public static String oostring(Object obj, int base_)
+    public String oostring(Object obj, int base_)
     {
         String clnm = obj.getClass().getName();
         int underscore = clnm.lastIndexOf('_');
@@ -807,22 +820,22 @@ public class PyPy implements Constants {
         return String.format("<%s object>", new Object[] { clnm });
     }
 
-    public static String oostring(char ch, int base_)
+    public String oostring(char ch, int base_)
     {
         return new Character(ch).toString();
     }
 
-    public static byte[] oostring(byte[] s, int base_)
+    public byte[] oostring(byte[] s, int base_)
     {
         return s;
     }
 
-    public static String oostring(String s, int base_)
+    public String oostring(String s, int base_)
     {
         return s;
     }
 
-    public static String oostring(boolean b, int base_)
+    public String oostring(boolean b, int base_)
     {
         if (b) return "True";
         return "False";
@@ -831,17 +844,17 @@ public class PyPy implements Constants {
     // ----------------------------------------------------------------------
     // OOUnicode support
 
-    public static String oounicode(char ch)
+    public String oounicode(char ch)
     {
         return new Character(ch).toString();
     }
 
-    public static String oounicode(String s)
+    public String oounicode(String s)
     {
         for(int i=0; i<s.length(); i++) {
             char ch = s.charAt(i);
             if ((int)ch > 127)
-                throwUnicodeDecodeError();
+                interlink.throwUnicodeDecodeError();
         }
         return s;
     }
@@ -849,15 +862,15 @@ public class PyPy implements Constants {
     // ----------------------------------------------------------------------
     // Primitive built-in functions
 
-    public static double ll_time_clock() {
+    public double ll_time_clock() {
         return System.currentTimeMillis()/1000.0; // XXX: processor time?
     }
 
-    public static double ll_time_time() {
+    public double ll_time_time() {
         return System.currentTimeMillis()/1000.0;
     }
     
-    public static void ll_time_sleep(double seconds)
+    public void ll_time_sleep(double seconds)
     {
         double startTime = ll_time_time();
         double endTime = startTime + seconds;
@@ -870,39 +883,18 @@ public class PyPy implements Constants {
         } while (startTime < endTime);
     }
     
-    public static String ll_join(String a, String b)
+    public String ll_join(String a, String b)
     {
         return a + "/" + b; // XXX
     }
 
-    public static String ll_strtod_formatd(String format, double d)
+    public String ll_strtod_formatd(String format, double d)
     {
         // XXX: this is really a quick hack to make things work.
         // it should disappear, because this function is not
         // supported by ootypesystem.
         return Double.toString(d); // XXX: we are ignoring "format"
     }
-
-    // ----------------------------------------------------------------------
-    // Exceptions
-    //
-    // If we don't use true Java exceptions, then this 
-
-/*
-    static private ThreadLocal<Object> excObject  = new ThreadLocal();
-
-    public static int startTry() {
-        return excCounter.get();
-    }
-
-    public void throw(Object o) {
-        excObject.put(o);
-    }
-
-    public static Object catch(int ctr) {
-        return excObject.get();
-    }
-*/
 
     // ----------------------------------------------------------------------
     // Dicts
@@ -966,55 +958,28 @@ public class PyPy implements Constants {
     // ----------------------------------------------------------------------
     // ll_math
 
-    public static double ll_math_floor(double x)
+    public double ll_math_floor(double x)
     {
         return Math.floor(x);
     }
 
-    public static double ll_math_fmod(double x, double y)
+    public double ll_math_fmod(double x, double y)
     {
         return x % y;
     }
 
-    public static double ll_math_ldexp(double v, int w) {
+    public double ll_math_ldexp(double v, int w) {
         return check(v * Math.pow(2.0, w));
     }
 
-    private static double check(double v) {
+    private double check(double v) {
         if (Double.isNaN(v))
-            throwValueError();
+            interlink.throwValueError();
         if (Double.isInfinite(v))
-            throwOverflowError();
+            interlink.throwOverflowError();
         return v;
     }
 
-    // ----------------------------------------------------------------------
-    // Convenient Helpers for throwing exceptions
-    //
-    // Also, an abstraction barrier: at a later date we may want to
-    // switch to using thread-local data rather than a global variable,
-    // and if so we can easily do it in these functions here.
-
-    public static void throwZeroDivisionError() {
-        interlink.throwZeroDivisionError();
-    }
-
-    public static void throwIndexError() {
-        interlink.throwIndexError();
-    }
-
-    public static void throwOverflowError() {
-        interlink.throwOverflowError();
-    }
-
-    public static void throwValueError() {
-        interlink.throwValueError();
-    }
-
-    public static void throwUnicodeDecodeError() {
-        interlink.throwUnicodeDecodeError();
-    }
-    
     // ----------------------------------------------------------------------
     // Self Test
 
@@ -1032,6 +997,8 @@ public class PyPy implements Constants {
 
     public static void main(String args[]) {
         // Small self test:
+
+        PyPy pypy = new PyPy(null);
 
         ensure(uint_cmp(0xFFFFFFFF, 0) > 0);
         ensure(uint_cmp(0, 0xFFFFFFFF) < 0);
