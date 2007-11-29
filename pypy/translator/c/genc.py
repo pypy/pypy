@@ -316,10 +316,14 @@ class CStandaloneBuilder(CBuilder):
         cfiles = []
         ofiles = []
         for fn in compiler.cfilenames:
-            fn = py.path.local(fn).basename
-            assert fn.endswith('.c')
-            cfiles.append(fn)
-            ofiles.append(fn[:-2] + '.o')
+            fn = py.path.local(fn)
+            if fn.dirpath() == targetdir:
+                name = fn.basename
+            else:
+                assert fn.dirpath().dirpath() == udir
+                name = '../' + fn.relto(udir)
+            cfiles.append(name)
+            ofiles.append(name[:-2] + '.o')
 
         if self.config.translation.cc:
             cc = self.config.translation.cc
