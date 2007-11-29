@@ -293,9 +293,10 @@ class GenerationGC(SemiSpaceGC):
                 if self.is_forwarded(pointing_to):
                     (obj + offset).address[0] = self.get_forwarding_address(
                         pointing_to)
-                    self.objects_with_weakrefs.append(obj)
                 else:
                     (obj + offset).address[0] = NULL
+                    continue    # no need to remember this weakref any longer
+            self.objects_with_weakrefs.append(obj)
 
     def write_barrier(self, oldvalue, newvalue, addr_struct):
         if self.header(addr_struct).tid & GCFLAG_NO_YOUNG_PTRS:

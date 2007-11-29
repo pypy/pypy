@@ -327,6 +327,29 @@ class GCTest(object):
         res = self.interpret(f, [20])  # for GenerationGC, enough for a minor collection
         assert res == 20 + 20
 
+    def test_young_weakref_to_old_object(self):
+        import weakref
+        class A:
+            pass
+        def f(x):
+            a = A()
+            llop.gc__collect(lltype.Void)
+            # 'a' is old, 'ref' is young
+            ref = weakref.ref(a)
+            # now trigger a minor collection
+            all = [None] * x
+            i = 0
+            while i < x:
+                all[i] = [i] * i
+                i += 1
+            # now 'a' is old, but 'ref' did not move
+            assert ref() is a
+            llop.gc__collect(lltype.Void)
+            # now both 'a' and 'ref' have moved
+            return ref() is a
+        res = self.interpret(f, [20])  # for GenerationGC, enough for a minor collection
+        assert res == True
+
     def test_many_weakrefs(self):
         # test for the case where allocating the weakref itself triggers
         # a collection

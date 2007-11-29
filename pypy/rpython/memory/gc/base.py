@@ -167,6 +167,8 @@ class MovingGCBase(GCBase):
             if not target:
                 freeentry = i
             else:
+                debug_assert(self.get_type_id(llmemory.cast_ptr_to_adr(target))
+                             > 0, "bogus weakref in compute_id()")
                 # record this entry in the dict
                 adr = llmemory.cast_ptr_to_adr(target)
                 self.object_id_dict[adr] = i
