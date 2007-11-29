@@ -365,16 +365,15 @@ class Bookkeeper:
                         s_hashfn = self.immutablevalue(x.key_hash)
                         result.dictdef.dictkey.update_rdict_annotations(s_eqfn,
                                                                         s_hashfn)
-                    done = False
-                    while not done:
-                        try:
-                            for ek, ev in x.iteritems():
-                                result.dictdef.generalize_key(self.immutablevalue(ek))
-                                result.dictdef.generalize_value(self.immutablevalue(ev))
-                        except RuntimeError, r:
-                            pass
-                        else:
-                            done = True
+                    seen_elements = 0
+                    while seen_elements != len(x):
+                        items = x.items()
+                        for ek, ev in items:
+                            result.dictdef.generalize_key(self.immutablevalue(ek))
+                            result.dictdef.generalize_value(self.immutablevalue(ev))
+                        seen_elements = len(items)
+                        # if the dictionary grew during the iteration,
+                        # start over again
                     result.const_box = key
                     return result
             else:
