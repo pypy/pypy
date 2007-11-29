@@ -2962,6 +2962,30 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [unicode, str])
         assert isinstance(s, annmodel.SomeUnicodeCodePoint)
 
+    def test_strformatting_unicode(self):
+        def f(x):
+            return '%s' % unichr(x)
+            
+        a = self.RPythonAnnotator()
+        py.test.raises(NotImplementedError, a.build_types, f, [int])
+        def f(x):
+            return '%s' % (unichr(x) * 3)
+            
+        a = self.RPythonAnnotator()
+        py.test.raises(NotImplementedError, a.build_types, f, [int])
+        def f(x):
+            return '%s%s' % (1, unichr(x))
+            
+        a = self.RPythonAnnotator()
+        py.test.raises(NotImplementedError, a.build_types, f, [int])
+        def f(x):
+            return '%s%s' % (1, unichr(x) * 15)
+            
+        a = self.RPythonAnnotator()
+        py.test.raises(NotImplementedError, a.build_types, f, [int])
+
+
+
     def test_negative_slice(self):
         def f(s, e):
             return [1, 2, 3][s:e]

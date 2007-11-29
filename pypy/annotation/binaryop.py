@@ -438,6 +438,23 @@ class __extend__(pairtype(SomeUnicodeCodePoint, SomeUnicodeCodePoint)):
     def add((chr1, chr2)):
         return SomeUnicodeString()
 
+class __extend__(pairtype(SomeString, SomeUnicodeString),
+                 pairtype(SomeString, SomeUnicodeString)):
+    def mod((str, unistring)):
+        raise NotImplementedError(
+            "string formatting mixing strings and unicode not supported")
+
+
+class __extend__(pairtype(SomeString, SomeTuple)):
+    def mod((str, s_tuple)):
+        for s_item in s_tuple.items:
+            if isinstance(s_item, (SomeUnicodeCodePoint, SomeUnicodeString)):
+                raise NotImplementedError(
+                    "string formatting mixing strings and unicode not supported")
+        getbookkeeper().count('strformat', str, args)
+        return SomeString()
+
+
 class __extend__(pairtype(SomeString, SomeObject)):
 
     def mod((str, args)):
