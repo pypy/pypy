@@ -2985,6 +2985,19 @@ class TestAnnotateTestCase:
         py.test.raises(NotImplementedError, a.build_types, f, [int])
 
 
+    def test_strformatting_tuple(self):
+        """
+        A function which returns the result of interpolating a tuple of a
+        single str into a str format string should be annotated as returning
+        SomeString.
+        """
+        def f(x):
+            return '%s' % (x,)
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [str])
+        assert isinstance(s, annmodel.SomeString)
+
 
     def test_negative_slice(self):
         def f(s, e):

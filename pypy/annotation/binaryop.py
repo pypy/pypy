@@ -451,7 +451,7 @@ class __extend__(pairtype(SomeString, SomeTuple)):
             if isinstance(s_item, (SomeUnicodeCodePoint, SomeUnicodeString)):
                 raise NotImplementedError(
                     "string formatting mixing strings and unicode not supported")
-        getbookkeeper().count('strformat', str, args)
+        getbookkeeper().count('strformat', str, s_tuple)
         return SomeString()
 
 
