@@ -797,9 +797,6 @@ class LLHelpers(AbstractLLHelpers):
         cflags = inputconst(Void, {'flavor': 'gc'})
         vtemp = hop.genop("malloc_varsize", [cTEMP, cflags, size],
                           resulttype=Ptr(TEMP))
-        # XXX hash
-        r_tuple = hop.args_r[1]
-        v_tuple = hop.args_v[1]
 
         argsiter = iter(sourcevarsrepr)
 
