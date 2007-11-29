@@ -179,7 +179,10 @@ jPyPyCustomDict = JvmClassType('pypy.CustomDict')
 jPyPyStatResult = JvmClassType('pypy.StatResult')
 jPyPyWeakRef = JvmClassType('pypy.PyPyWeakRef')
 jll_os = JvmClassType('pypy.ll_os')
+jPyPyRecordSignedSigned = JvmClassType('pypy.RecordSignedSigned')
 jPyPyRecordStringString = JvmClassType('pypy.RecordStringString')
+jPyPyRecordFloatSigned = JvmClassType('pypy.RecordFloatSigned')
+jPyPyRecordFloatFloat = JvmClassType('pypy.RecordFloatFloat')
 
 jArithmeticException = JvmClassType('java.lang.ArithmeticException', throwable=True)
 

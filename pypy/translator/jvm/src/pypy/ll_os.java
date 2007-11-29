@@ -149,7 +149,7 @@ class RandomAccessFileWrapper extends FileWrapper
 }
 
 
-public class ll_os {
+public class ll_os implements Constants {
 
     // NB: these values are those used by Windows and they differs
     // from the Unix ones; the os module is patched with these
@@ -181,6 +181,11 @@ public class ll_os {
         FileDescriptors.put(new Integer(1), new PrintStreamWrapper(System.out));
         FileDescriptors.put(new Integer(2), new PrintStreamWrapper(System.err));
         fdcount = 2;
+    }
+    
+    public static final boolean STRACE = false;
+    public static void strace(String arg) {
+        System.err.println(arg);
     }
 
     public static void throwOSError(int errno, String errText) {
@@ -245,28 +250,48 @@ public class ll_os {
 
         fdcount++;
         FileDescriptors.put(new Integer(fdcount), wrapper);
+
+        if (STRACE) strace("ll_os_open: "+name+"->"+fdcount);
         return fdcount;
     }
 
     public static void ll_os_close(int fd)
     {
+        if (STRACE) strace("ll_os_close: "+fd);
         FileWrapper wrapper = getfd(fd);
         wrapper.close();
         FileDescriptors.remove(new Integer(fd));
     }
 
+    public static int ll_os_dup(int fd)
+    {
+        FileWrapper wrapper = getfd(fd);
+        for (int i = 0; i < Integer.MAX_VALUE; i++) {
+            if (FileDescriptors.get(i) == null) {
+                FileDescriptors.put(i, wrapper);
+                if (STRACE) strace("ll_os_dup: "+fd+" -> "+i);
+                return i;
+            }
+        }
+        throwOSError(EMFILE, "No remaining file descriptors.");
+        return -1;
+    }
+    
     public static String ll_os_read(int fd, int count)
     {
+        if (STRACE) strace("ll_os_read: "+fd);
         return getfd(fd).read(count);
     }
 
     public static String ll_os_read(int fd, long count)
     {
+        if (STRACE) strace("ll_os_read: "+fd);
         return ll_os_read(fd, (int)count);
     }
 
     public static long ll_os_lseek(int fd, long offset, int whence)
     {
+        if (STRACE) strace("ll_os_lseek: "+fd);
         FileWrapper wrapper = getfd(fd);
         RandomAccessFile file = wrapper.getFile();
         if (file == null)
@@ -310,6 +335,7 @@ public class ll_os {
     }
 
     public static int ll_os_write(int fd, String text) {
+        if (STRACE) strace("ll_os_write: "+fd+" "+text);        
         FileWrapper f = FileDescriptors.get(new Integer(fd));
         if (f == null)
             throwOSError(PyPy.EBADF, "Invalid fd: " + fd);
@@ -356,7 +382,7 @@ public class ll_os {
         {
              String name = (String) nameIterator.next();
              String value = (String) variables.get(name);
-             result.add(new RecordStringString(name, value));
+             result.add(PyPy.interlink.recordStringString(name, value));
         }
         
         return result;

@@ -779,21 +779,31 @@ class InterlinkFunction(Function):
         self.interlink = interlink
         self.name = name
         self.helper = helper
+
+        # The functions in Interlink.java either return Object,
+        # because they are returning an instance of a class generated
+        # by us which the JVM doesn't know about, or they return a
+        # scalar.
+        if self.helper.return_type.descriptor.is_reference():
+            self.return_type = jObject
+        else:
+            self.return_type = self.helper.return_type
+            
         self.method_obj = jvmgen.Method.v(interlink,
                                           self.name,
                                           self.helper.argument_types,
-                                          jVoid)
+                                          self.return_type)
 
     def method(self):
         return self.method_obj
 
     def render(self, gen):
         argtypes = [self.interlink] + list(self.helper.argument_types)
-        gen.begin_function(self.name, (), argtypes, jVoid)
+        gen.begin_function(self.name, (), argtypes, self.return_type)
         varindex = 1
         for argty in self.helper.argument_types:
             gen.load_jvm_var(argty, varindex)
             varindex += argty.descriptor.type_width()
         gen.emit(self.helper)
-        gen.return_val(jVoid)
+        gen.return_val(self.return_type)
         gen.end_function()
