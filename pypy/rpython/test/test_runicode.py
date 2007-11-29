@@ -46,6 +46,20 @@ class BaseTestRUnicode(AbstractTestRstr):
 
         assert self.ll_to_string(self.interpret(f, [])) == 'xxx'
 
+    def test_unicode_of_unicode(self):
+        def f(x):
+            return len(unicode(unichr(x) * 3))
+        assert self.interpret(f, [ord('a')]) == 3
+        assert self.interpret(f, [128]) == 3
+        assert self.interpret(f, [1000]) == 3
+
+    def test_unicode_of_unichar(self):
+        def f(x):
+            return len(unicode(unichr(x)))
+        assert self.interpret(f, [ord('a')]) == 1
+        assert self.interpret(f, [128]) == 1
+        assert self.interpret(f, [1000]) == 1
+
     def test_conversion_errors(self):
         py.test.skip("do we want this test to pass?")
         def f(x):

@@ -252,6 +252,9 @@ class __extend__(AbstractStringRepr):
             return hop.inputconst(hop.r_result, hop.s_result.const)
         repr = hop.args_r[0].repr
         v_str = hop.inputarg(repr, 0)
+        if repr == self.repr: # the argument is a unicode string already
+            hop.exception_cannot_occur()
+            return v_str
         hop.exception_is_here()
         return hop.gendirectcall(self.ll.ll_str2unicode, v_str)
 
