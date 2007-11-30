@@ -1011,8 +1011,10 @@ for attr in py.builtin.sorted(_example.__dict__):
         continue
     bodySrc.append(tmpl%locals())
 exec py.code.Source('''
+from pypy.rlib.objectmodel import current_object_addr_as_int
 def _report_one(fd, info):
-    os.write(fd, "_address" + ": " + str(id(info)) + "\\n")
+    os.write(fd, "_address" + ": " + str(current_object_addr_as_int(info))
+                 + "\\n")
     %s
 '''%'\n    '.join(bodySrc)).compile()
 

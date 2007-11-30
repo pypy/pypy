@@ -7,6 +7,7 @@ from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef, Member
 from pypy.objspace.std.objecttype import object_typedef
 from pypy.objspace.std.dictproxyobject import W_DictProxyObject
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import current_object_addr_as_int
 from pypy.rlib.jit import hint
 from pypy.rlib.rarithmetic import intmask, r_uint
 
@@ -335,7 +336,14 @@ class W_TypeObject(W_Object):
             tup = w_self._lookup_where(name)
             return tup
         SHIFT = r_uint.BITS - space.config.objspace.std.methodcachesizeexp
-        method_hash = r_uint(intmask(id(version_tag) * hash(name))) >> SHIFT
+        version_tag_as_int = current_object_addr_as_int(version_tag)
+        # ^^^Note: if the version_tag object is moved by a moving GC, the
+        # existing method cache entries won't be found any more; new
+        # entries will be created based on the new address.  The
+        # assumption is that the version_tag object won't keep moving all
+        # the time - so using the fast current_object_addr_as_int() instead
+        # of a slower solution like hash() is still a good trade-off.
+        method_hash = r_uint(intmask(version_tag_as_int * hash(name))) >> SHIFT
         cached_version_tag = ec.method_cache_versions[method_hash]
         if cached_version_tag is version_tag:
             cached_name = ec.method_cache_names[method_hash]
