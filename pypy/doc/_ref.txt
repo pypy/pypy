@@ -67,7 +67,6 @@
 .. _`pypy/module/readline`: ../../pypy/module/readline
 .. _`objspace/`:
 .. _`pypy/objspace`: ../../pypy/objspace
-.. _`objspace/cpy/`: ../../pypy/objspace/cpy
 .. _`objspace/dump.py`: ../../pypy/objspace/dump.py
 .. _`objspace/flow/`: ../../pypy/objspace/flow
 .. _`objspace/std/`:
@@ -80,8 +79,6 @@
 .. _`pypy/rlib`:
 .. _`rlib/`: ../../pypy/rlib
 .. _`pypy/rlib/rarithmetic.py`: ../../pypy/rlib/rarithmetic.py
-.. _`pypy/rlib/rctypes/rctypesobject.py`: ../../pypy/rlib/rctypes/rctypesobject.py
-.. _`pypy/rlib/rctypes/test/test_rctypesobject.py`: ../../pypy/rlib/rctypes/test/test_rctypesobject.py
 .. _`pypy/rlib/test`: ../../pypy/rlib/test
 .. _`pypy/rpython`:
 .. _`pypy/rpython/`:
@@ -96,7 +93,6 @@
 .. _`pypy/rpython/module/test`: ../../pypy/rpython/module/test
 .. _`rpython/ootypesystem/`: ../../pypy/rpython/ootypesystem
 .. _`rpython/ootypesystem/ootype.py`: ../../pypy/rpython/ootypesystem/ootype.py
-.. _`pypy/rpython/rctypes/test/test_ctypes.py`: ../../pypy/rpython/rctypes/test/test_ctypes.py
 .. _`rpython/rint.py`: ../../pypy/rpython/rint.py
 .. _`rpython/rlist.py`: ../../pypy/rpython/rlist.py
 .. _`rpython/rmodel.py`: ../../pypy/rpython/rmodel.py
