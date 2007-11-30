@@ -4,7 +4,7 @@ from pypy.rlib.objectmodel import instantiate, we_are_translated
 from pypy.rlib.objectmodel import running_on_llinterp, debug_llinterpcall
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool import udir
-from pypy.rlib.rarithmetic import r_uint, intmask
+from pypy.rlib.rarithmetic import r_uint, intmask, r_longlong
 from pypy.annotation.builtin import *
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rpython.lltypesystem.rffi import SHORT
@@ -428,6 +428,26 @@ class BaseTestRbuiltin(BaseRtypingTest):
         f = compile(fn, [int])
         res = f(7)
         assert res == 321
+
+    def test_id(self):
+        from pypy.rlib.objectmodel import compute_unique_id
+        from pypy.rlib.objectmodel import current_object_addr_as_int
+        class A:
+            pass
+        def fn():
+            a1 = A()
+            a2 = A()
+            return (compute_unique_id(a1), current_object_addr_as_int(a1),
+                    compute_unique_id(a2), current_object_addr_as_int(a2))
+        res = self.interpret(fn, [])
+        x0, x1, x2, x3 = self.ll_unpack_tuple(res, 4)
+        assert isinstance(x0, (int, r_longlong))
+        assert isinstance(x1, int)
+        assert isinstance(x2, (int, r_longlong))
+        assert isinstance(x3, int)
+        assert x1 == intmask(x0)     # at least on top of llinterp
+        assert x3 == intmask(x2)     # at least on top of llinterp
+        assert x0 != x2
 
 class TestLLtype(BaseTestRbuiltin, LLRtypeMixin):
 

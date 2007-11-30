@@ -409,12 +409,13 @@ def test_basic_instantiation():
     assert res == 5
 
 def test_id():
+    from pypy.rlib.objectmodel import compute_unique_id
     def getids(i, j):
         e1 = ExampleClass(1)
         e2 = ExampleClass(2)
         a = [e1, e2][i]
         b = [e1, e2][j]
-        return (id(a) == id(b)) == (a is b)
+        return (compute_unique_id(a) == compute_unique_id(b)) == (a is b)
     for i in [0, 1]:
         for j in [0, 1]:
             result = interpret(getids, [i, j])

@@ -437,6 +437,7 @@ def test_ne():
     assert res == ~0x0200 & 0x3ff
 
 def test_hash_preservation():
+    from pypy.rlib.objectmodel import current_object_addr_as_int
     class C:
         pass
     class D(C):
@@ -445,7 +446,7 @@ def test_hash_preservation():
         d2 = D()
         # xxx we assume that the identityhash doesn't change from
         #     one line to the next
-        current_identityhash = id(d2)
+        current_identityhash = current_object_addr_as_int(d2)
         instance_hash = hash(d2)
         return ((current_identityhash & sys.maxint) ==
                 (instance_hash & sys.maxint))

@@ -449,10 +449,6 @@ class InstanceRepr(AbstractInstanceRepr):
             cmeta = inputconst(ootype.Void, "meta")
             return hop.genop('oogetfield', [vinst, cmeta], resulttype=CLASSTYPE)
 
-    def rtype_id(self, hop):
-        vinst, = hop.inputargs(self)
-        return hop.genop('ooidentityhash', [vinst], resulttype=ootype.Signed)
-
     def null_instance(self):
         return ootype.null(self.lowleveltype)
 

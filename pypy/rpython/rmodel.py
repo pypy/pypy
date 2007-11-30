@@ -215,13 +215,6 @@ class Repr:
         else:
             return hop.genop('int_is_true', [vlen], resulttype=Bool)
 
-    def rtype_id(self, hop):
-        if not isinstance(self.lowleveltype, Ptr):
-            raise TyperError('id() of an instance of the non-pointer %r' % (
-                self,))
-        vobj, = hop.inputargs(self)
-        return hop.genop('gc_id', [vobj], resulttype=Signed)
-
     def rtype_hash(self, hop):
         ll_hash = self.get_ll_hash_function()
         v, = hop.inputargs(self)

@@ -1,6 +1,7 @@
 """Default implementation for some operation."""
 
 from pypy.objspace.std.objspace import *
+from pypy.rlib import objectmodel
 
 
 # The following default implementations are used before delegation is tried.
@@ -8,7 +9,7 @@ from pypy.objspace.std.objspace import *
 
 def id__ANY(space, w_obj):
     #print 'id:', w_obj
-    return space.wrap(id(w_obj))
+    return space.wrap(objectmodel.compute_unique_id(w_obj))
 
 # __init__ should succeed if called internally as a multimethod
 

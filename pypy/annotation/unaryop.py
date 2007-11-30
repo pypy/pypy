@@ -119,8 +119,11 @@ class __extend__(SomeObject):
         getbookkeeper().count('oct', obj)
         return SomeString()
 
-    def id(obj): # xxx
-        return SomeInteger()
+    def id(obj):
+        raise Exception("cannot use id() in RPython; pick one of:\n"
+                        "\t\t objectmodel.compute_unique_id()\n"
+                        "\t\t hash()\n"
+                        "\t\t objectmodel.current_object_addr_as_int()")
 
     def int(obj):
         return SomeInteger()

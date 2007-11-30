@@ -128,6 +128,80 @@ def free_non_gc_object(obj):
 from pypy.rpython.extregistry import ExtRegistryEntry
 
 # ____________________________________________________________
+#
+# id-like functions.
+# In addition, RPython supports hash(x) on RPython instances,
+# returning a number that is not guaranteed to be unique but
+# that doesn't change over time for a given 'x'.
+
+def compute_unique_id(x):
+    """RPython equivalent of id(x).  The 'x' must be an RPython instance.
+    This operation can be very costly depending on the garbage collector.
+    To remind you of this fact, we don't support id(x) directly.
+    """
+    return id(x)      # XXX need to return r_longlong on some platforms
+
+def current_object_addr_as_int(x):
+    """A cheap version of id(x).  The current memory location of an
+    instance can change over time for moving GCs.  Also note that on
+    ootypesystem this typically doesn't return the real address but
+    just the same as hash(x).
+    """
+    from pypy.rlib.rarithmetic import intmask
+    return intmask(id(x))
+
+class Entry(ExtRegistryEntry):
+    _about_ = compute_unique_id
+
+    def compute_result_annotation(self, s_x):
+        from pypy.annotation import model as annmodel
+        assert isinstance(s_x, annmodel.SomeInstance)
+        return annmodel.SomeInteger()
+
+    def specialize_call(self, hop):
+        vobj, = hop.inputargs(hop.args_r[0])
+        if hop.rtyper.type_system.name == 'lltypesystem':
+            from pypy.rpython.lltypesystem import lltype
+            if isinstance(vobj.concretetype, lltype.Ptr):
+                return hop.genop('gc_id', [vobj],
+                                 resulttype = lltype.Signed)
+        elif hop.rtyper.type_system.name == 'ootypesystem':
+            from pypy.rpython.ootypesystem import ootype
+            if isinstance(vobj.concretetype, ootype.Instance):
+                # XXX wrong implementation for now, fix me
+                from pypy.rpython.rmodel import warning
+                warning("compute_unique_id() is not fully supported on ootype")
+                return hop.genop('ooidentityhash', [vobj],
+                                 resulttype = ootype.Signed)
+        from pypy.rpython.error import TyperError
+        raise TyperError("compute_unique_id() cannot be applied to %r" % (
+            vobj.concretetype,))
+
+class Entry(ExtRegistryEntry):
+    _about_ = current_object_addr_as_int
+
+    def compute_result_annotation(self, s_x):
+        from pypy.annotation import model as annmodel
+        assert isinstance(s_x, annmodel.SomeInstance)
+        return annmodel.SomeInteger()
+
+    def specialize_call(self, hop):
+        vobj, = hop.inputargs(hop.args_r[0])
+        if hop.rtyper.type_system.name == 'lltypesystem':
+            from pypy.rpython.lltypesystem import lltype
+            if isinstance(vobj.concretetype, lltype.Ptr):
+                return hop.genop('cast_ptr_to_int', [vobj],
+                                 resulttype = lltype.Signed)
+        elif hop.rtyper.type_system.name == 'ootypesystem':
+            from pypy.rpython.ootypesystem import ootype
+            if isinstance(vobj.concretetype, ootype.Instance):
+                return hop.genop('ooidentityhash', [vobj],
+                                 resulttype = ootype.Signed)
+        from pypy.rpython.error import TyperError
+        raise TyperError("current_object_addr_as_int() cannot be applied to"
+                         " %r" % (vobj.concretetype,))
+
+# ____________________________________________________________
 
 def debug_assert(x, msg):
     """After translation to C, this becomes an RPyAssert."""

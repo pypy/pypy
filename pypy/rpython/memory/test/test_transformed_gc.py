@@ -8,6 +8,7 @@ from pypy.rpython.memory.gctransform import framework
 from pypy.rpython.memory.gctransform import stacklessframework
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.memory.gc.marksweep import X_CLONE, X_POOL, X_POOL_PTR
+from pypy.rlib.objectmodel import compute_unique_id
 from pypy import conftest
 
 INT_SIZE = struct.calcsize("i")   # only for estimates
@@ -428,14 +429,14 @@ class GenericGCTests(GCTest):
         def func():
             a2 = A()
             a3 = A()
-            id1 = id(a1)
-            id2 = id(a2)
-            id3 = id(a3)
+            id1 = compute_unique_id(a1)
+            id2 = compute_unique_id(a2)
+            id3 = compute_unique_id(a3)
             llop.gc__collect(lltype.Void)
             error = 0
-            if id1 != id(a1): error += 1
-            if id2 != id(a2): error += 2
-            if id3 != id(a3): error += 4
+            if id1 != compute_unique_id(a1): error += 1
+            if id2 != compute_unique_id(a2): error += 2
+            if id3 != compute_unique_id(a3): error += 4
             return error
         run = self.runner(func)
         res = run([])
@@ -456,7 +457,7 @@ class GenericMovingGCTests(GenericGCTests):
             # remember the ids, it will trigger some collections itself
             i = 0
             while i < len(alist):
-                idarray[i] = id(alist[i])
+                idarray[i] = compute_unique_id(alist[i])
                 i += 1
             j = 0
             while j < 2:
@@ -464,7 +465,7 @@ class GenericMovingGCTests(GenericGCTests):
                     [A() for i in range(20)]
                 i = 0
                 while i < len(alist):
-                    assert idarray[i] == id(alist[i])
+                    assert idarray[i] == compute_unique_id(alist[i])
                     i += 1
                 j += 1
             lltype.free(idarray, flavor='raw')

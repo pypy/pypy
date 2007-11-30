@@ -390,6 +390,7 @@ class BaseTestRclass(BaseRtypingTest):
         assert res == ~0x0200 & 0x3ff
 
     def test_hash_preservation(self):
+        from pypy.rlib.objectmodel import current_object_addr_as_int
         class C:
             pass
         class D(C):
@@ -399,7 +400,9 @@ class BaseTestRclass(BaseRtypingTest):
         def f():
             d2 = D()
             # xxx check for this CPython peculiarity for now:
-            x = (hash(d2) & sys.maxint) == (id(d2) & sys.maxint)
+            # (this is true on top of the llinterp too)
+            x = ((hash(d2) & sys.maxint) ==
+                 (current_object_addr_as_int(d2) & sys.maxint))
             return x, hash(c)+hash(d)
 
         res = self.interpret(f, [])
@@ -688,11 +691,14 @@ class TestLltype(BaseTestRclass, LLRtypeMixin):
         assert summary(graph) == {"setfield": 2}
         
     def test_instance_repr(self):
+        from pypy.rlib.objectmodel import current_object_addr_as_int
         class FooBar(object):
             pass
         def f():
             x = FooBar()
-            return id(x), str(x)
+            # on lltype, the RPython-level repr of an instance contains the
+            # current object address
+            return current_object_addr_as_int(x), str(x)
 
         res = self.interpret(f, [])
         xid, xstr = self.ll_unpack_tuple(res, 2)

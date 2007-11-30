@@ -701,7 +701,7 @@ def ll_inst_hash(ins):
         return 0    # for None
     cached = ins.hash_cache
     if cached == 0:
-       cached = ins.hash_cache = intmask(id(ins))     # XXX issue325
+       cached = ins.hash_cache = cast_ptr_to_int(ins)
     return cached
 
 def ll_inst_type(obj):

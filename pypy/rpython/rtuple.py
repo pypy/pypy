@@ -204,9 +204,6 @@ class AbstractTupleRepr(Repr):
     def rtype_len(self, hop):
         return hop.inputconst(Signed, len(self.items_r))
 
-    def rtype_id(self, hop):
-        raise TyperError("cannot ask for the id() of a tuple")
-
     def get_ll_eq_function(self):
         return gen_eq_function(self.items_r)
 
