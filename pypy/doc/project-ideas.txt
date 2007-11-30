@@ -159,31 +159,6 @@ work, i.e. allow RPython programs to use some Numeric facilities.
 Additionally, these facilities could be exposed to applications interpreted by
 the translated PyPy interpreter.
 
-Extension modules
------------------
-
-Rewrite one or several CPython extension modules to be based on **ctypes**
-(integrated in Python 2.5): this is generally useful for Python
-developers, and it is now the best path to write extension modules that are
-compatible with both CPython and PyPy.  This is done with the `extension
-compiler`_ component of PyPy, which will likely require some attention as
-well.
-
-Modules where some work is already done:
-
-* ``_socket``, ``os``, ``select`` (unfinished yet, feel free to help;
-  see e.g. http://codespeak.net/svn/pypy/dist/pypy/module/_socket/).
-
-* SSL for socket, ``bz2``, ``fcntl``, ``mmap`` and ``time``: part of the
-  Summer of Code project of Lawrence Oluyede
-  (http://codespeak.net/svn/user/rhymes/).
-
-You are free to pick any other CPython module, either standard or third-party
-(if relatively well-known, like gtk bindings).
-Note that some modules exist in a ctypes version
-already, which would be a good start for porting them to PyPy's extension
-compiler.
-
 Extend py.execnet to a peer-to-peer model
 -----------------------------------------
 
