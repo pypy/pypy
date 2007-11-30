@@ -18,7 +18,7 @@ public interface Interlink {
     public void throwOSError(int errCode);
 
     public Object recordStringString(String a, String b);
-    public Object recordFloatFloat(String a, String b);
-    public Object recordFloatSigned(String a, String b);
-    public Object recordSignedSigned(String a, String b);
+    public Object recordFloatFloat(double a, double b);
+    public Object recordFloatSigned(double a, int b);
+    public Object recordSignedSigned(int a, int b);
 }

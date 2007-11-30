@@ -957,19 +957,116 @@ public class PyPy implements Constants {
 
     // ----------------------------------------------------------------------
     // ll_math
+    //
+    // not sure how many of these functions are needed.  we should add
+    // something in the backend to redirect to the Math module by
+    // default, perhaps.
 
-    public double ll_math_floor(double x)
-    {
+    public double ll_math_ceil(double x) {
+        return Math.ceil(x);
+    }
+
+    public double ll_math_fabs(double x) {
+        return Math.abs(x);
+    }
+
+    public double ll_math_floor(double x) {
         return Math.floor(x);
     }
 
-    public double ll_math_fmod(double x, double y)
-    {
+    public double ll_math_fmod(double x, double y) {
         return x % y;
     }
 
+    /* TODO
+    public double ll_math_frexp(double x) {
+    }
+    */
+
     public double ll_math_ldexp(double v, int w) {
         return check(v * Math.pow(2.0, w));
+    }
+
+    public Object ll_math_modf(double x) {
+        if (x >= 0) {
+            double floor_x = Math.floor(x);
+            return interlink.recordFloatFloat(floor_x, x - floor_x);
+        }
+
+        double ceil_x = Math.ceil(x);
+        return interlink.recordFloatFloat(ceil_x, x + ceil_x);
+    }
+
+    public double ll_math_exp(double x) {
+        return Math.exp(x);
+    }
+
+    public double ll_math_log(double x, double base) {
+        return Math.log10(x) / Math.log10(base);
+    }
+
+    public double ll_math_log10(double v) {
+        return check(Math.log10(v));
+    }
+
+    public double ll_math_pow(double x, double y) {
+        return Math.pow(x, y);
+    }
+
+    public double ll_math_sqrt(double x) {
+        return Math.sqrt(x);
+    }
+
+    public double ll_math_acos(double x) {
+        return Math.acos(x);
+    }
+
+    public double ll_math_asin(double x) {
+        return Math.asin(x);
+    }
+
+    public double ll_math_atan(double x) {
+        return Math.atan(x);
+    }
+
+    public double ll_math_atan2(double x, double y) {
+        return Math.atan2(x, y);
+    }
+
+    public double ll_math_cos(double x) {
+        return Math.cos(x);
+    }
+
+    public double ll_math_hypot(double x, double y) {
+        return Math.hypot(x, y);
+    }
+
+    public double ll_math_sin(double x) {
+        return Math.sin(x);
+    }
+
+    public double ll_math_tan(double x) {
+        return Math.tan(x);
+    }
+
+    public double ll_math_degrees(double x) {
+        return Math.toDegrees(x);
+    }
+
+    public double ll_math_radians(double x) {
+        return Math.toRadians(x);
+    }
+
+    public double ll_math_cosh(double x) {
+        return Math.cosh(x);
+    }
+
+    public double ll_math_sinh(double x) {
+        return Math.sinh(x);
+    }
+
+    public double ll_math_tanh(double x) {
+        return Math.tanh(x);
     }
 
     private double check(double v) {
