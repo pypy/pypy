@@ -847,6 +847,15 @@ class TestFlowObjSpace(Base):
 
         py.test.raises(TypeError, "self.codetest(f)")
 
+    def test_dont_capture_RuntimeError(self):
+        class Foo:
+            def __hash__(self):
+                return hash(self)
+        foolist = [Foo()]
+        def f():
+            return foolist[0]
+        py.test.raises(RuntimeError, "self.codetest(f)")
+
 class TestFlowObjSpaceDelay(Base):
     def setup_class(cls):
         cls.space = FlowObjSpace()

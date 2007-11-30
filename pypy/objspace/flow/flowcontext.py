@@ -309,6 +309,9 @@ class FlowExecutionContext(ExecutionContext):
                     e.w_type is self.space.w_ImportError):
                     raise ImportError('import statement always raises %s' % (
                         e,))
+                if e.w_type is self.space.w_RuntimeError:
+                    raise RuntimeError('during flow graph construction: %r' % (
+                        e.w_value,))
                 link = self.make_link([e.w_type, e.w_value], self.graph.exceptblock)
                 self.recorder.crnt_block.closeblock(link)
 
