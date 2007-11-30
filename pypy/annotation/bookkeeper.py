@@ -19,8 +19,6 @@ from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
 from pypy.annotation import description
 from pypy.annotation.signature import annotationoftype
 from pypy.interpreter.argument import Arguments, ArgErr
-from pypy.rlib.rarithmetic import r_int, r_uint, r_ulonglong, r_longlong
-from pypy.rlib.rarithmetic import base_int
 from pypy.rlib.objectmodel import r_dict, Symbolic
 from pypy.tool.algo.unionfind import UnionFind
 from pypy.rpython.lltypesystem import lltype, llmemory
