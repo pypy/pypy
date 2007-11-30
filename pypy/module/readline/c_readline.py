@@ -4,8 +4,10 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace, interp2app
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
+# at least on Gentoo Linux, readline.h doesn't compile if stdio.h is not
+# included before
 eci = ExternalCompilationInfo(
-    includes = ["readline/readline.h", "readline/history.h"],
+    includes = ["stdio.h", "readline/readline.h", "readline/history.h"],
     libraries = ['readline']
 )
 
