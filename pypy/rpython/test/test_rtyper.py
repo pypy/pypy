@@ -144,9 +144,6 @@ def test_getgcflavor():
     assert rmodel.getgcflavor(DummyClsDescDef(A)) == 'gc'
     assert rmodel.getgcflavor(DummyClsDescDef(B)) == 'gc'
     assert rmodel.getgcflavor(DummyClsDescDef(R)) == 'raw'
-    cdef = DummyClsDescDef(A)
-    cdef._cpy_exported_type_ = type(Ellipsis)
-    assert rmodel.getgcflavor(cdef) == 'cpy'
 
 def test_missing_gvflavor_bug():
     class MyClass:
