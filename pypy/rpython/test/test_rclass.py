@@ -399,16 +399,19 @@ class BaseTestRclass(BaseRtypingTest):
         d = D()
         def f():
             d2 = D()
-            # xxx check for this CPython peculiarity for now:
-            # (this is true on top of the llinterp too)
-            x = ((hash(d2) & sys.maxint) ==
-                 (current_object_addr_as_int(d2) & sys.maxint))
-            return x, hash(c)+hash(d)
+            return hash(d2), current_object_addr_as_int(d2), hash(c), hash(d)
 
         res = self.interpret(f, [])
-
-        assert res.item0 == True
-        assert res.item1 == intmask(hash(c)+hash(d))
+        # xxx this is too precise, checking the exact implementation
+        if isinstance(self, OORtypeMixin):
+            assert res.item0 == res.item1
+        else:
+            assert res.item0 == ~res.item1
+        # the following property is essential on top of the lltypesystem
+        # otherwise prebuilt dictionaries are broken.  It's not that
+        # relevant on top of the ootypesystem though.
+        assert res.item2 == hash(c)
+        assert res.item3 == hash(d)
         
     def test_type(self):
         class A:

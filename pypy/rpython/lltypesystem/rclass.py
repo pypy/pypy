@@ -701,7 +701,11 @@ def ll_inst_hash(ins):
         return 0    # for None
     cached = ins.hash_cache
     if cached == 0:
-       cached = ins.hash_cache = cast_ptr_to_int(ins)
+        # XXX this should ideally be done in a GC-dependent way: we only
+        # need a hash_cache for moving GCs, and we only need the '~' to
+        # avoid Boehm keeping the object alive if the value is passed
+        # around
+       cached = ins.hash_cache = ~cast_ptr_to_int(ins)
     return cached
 
 def ll_inst_type(obj):
