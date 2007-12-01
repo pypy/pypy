@@ -1,4 +1,4 @@
-import os
+import os, math
 import errno
 import stat
 from py.builtin import sorted
@@ -137,6 +137,16 @@ class BaseTestBuiltin(BaseTestRbuiltin):
 
     # XXX: remember to test ll_os_readlink and ll_os_pipe as soon as
     # they are implemented
+
+    def test_math_modf(self):
+        def fn(x):
+            return math.modf(x)
+        for x in (.5, 1, 1.5):
+            for y in (1, -1):
+                act_res = self.interpret(fn, [x*y])
+                exp_res = math.modf(x*y)
+                assert act_res.item0 == exp_res[0]
+                assert act_res.item1 == exp_res[1]
 
 
 class BaseTestTime(llBaseTestTime):

@@ -20,9 +20,9 @@ from pypy.rpython.lltypesystem import \
 from pypy.rpython.ootypesystem import \
      ootype, rclass
 from pypy.translator.jvm.typesystem import \
-     JvmClassType, jString, jStringArray, jVoid, jThrowable, jInt, \
+     JvmGeneratedClassType, jString, jStringArray, jVoid, jThrowable, jInt, \
      jObject, JvmType, jStringBuilder, jPyPyInterlink, jCallbackInterfaces, \
-     JvmInterfaceType, jPyPy
+     JvmGeneratedInterfaceType, jPyPy
 from pypy.translator.jvm.opcodes import \
      opcodes
 from pypy.translator.jvm.option import \
@@ -445,7 +445,7 @@ class GraphFunction(OOFunction, Function):
         OOFunction._render_op(self, op)
 
 
-class StaticMethodInterface(Node, JvmClassType):
+class StaticMethodInterface(Node, JvmGeneratedClassType):
     """
     We generate an abstract base class when we need function pointers,
     which correspond to constants of StaticMethod ootype.  We need a
@@ -467,7 +467,7 @@ class StaticMethodInterface(Node, JvmClassType):
         argtypes: list of JvmTypes
         rettype: JvmType
         """
-        JvmClassType.__init__(self, name)
+        JvmGeneratedClassType.__init__(self, name)
         assert isinstance(jrettype, JvmType)
         self.java_argument_types = [self] + list(jargtypes)
         self.java_return_type = jrettype
@@ -539,7 +539,7 @@ class StaticMethodInterface(Node, JvmClassType):
             
         gen.end_class()
 
-class StaticMethodImplementation(Node, JvmClassType):
+class StaticMethodImplementation(Node, JvmGeneratedClassType):
     """
     In addition to the StaticMethodInterface, we must generate an
     implementation for each specific method that is called.  These
@@ -567,7 +567,7 @@ class StaticMethodImplementation(Node, JvmClassType):
     }
     """
     def __init__(self, name, super_class, bound_to_jty, impl_method):
-        JvmClassType.__init__(self, name)
+        JvmGeneratedClassType.__init__(self, name)
         self.super_class = super_class
         self.impl_method = impl_method
         self.dump_method = ConstantStringDumpMethod(
@@ -633,13 +633,13 @@ class StaticMethodImplementation(Node, JvmClassType):
         gen.end_function()
         gen.end_class()
 
-class Interface(Node, JvmInterfaceType):
+class Interface(Node, JvmGeneratedInterfaceType):
     """
     Represents an interface to be generated.  The only class that we
     currently generate into an interface is ootype.ROOT.
     """
     def __init__(self, name):
-        JvmClassType.__init__(self, name)
+        JvmGeneratedInterfaceType.__init__(self, name)
         self.super_class = jObject
         self.rendered = False
         self.properties = {}
@@ -675,7 +675,7 @@ class Interface(Node, JvmInterfaceType):
 
         gen.end_class()
 
-class Class(Node, JvmClassType):
+class Class(Node, JvmGeneratedClassType):
 
     """ Represents a class to be emitted.  Note that currently, classes
     are emitted all in one shot, not piecemeal. """
@@ -685,7 +685,7 @@ class Class(Node, JvmClassType):
         'name' should be a fully qualified Java class name like
         "java.lang.String", supercls is a Class object
         """
-        JvmClassType.__init__(self, name)
+        JvmGeneratedClassType.__init__(self, name)
         self.rendered = False       # has rendering occurred?
         self.abstract = False       # is this an abstract class?
         self.fields = {}            # maps field name to jvmgen.Field object

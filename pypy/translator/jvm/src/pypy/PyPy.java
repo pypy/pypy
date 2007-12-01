@@ -988,13 +988,8 @@ public class PyPy implements Constants {
     }
 
     public Object ll_math_modf(double x) {
-        if (x >= 0) {
-            double floor_x = Math.floor(x);
-            return interlink.recordFloatFloat(floor_x, x - floor_x);
-        }
-
-        double ceil_x = Math.ceil(x);
-        return interlink.recordFloatFloat(ceil_x, x + ceil_x);
+        double integer_x = (x >= 0 ? Math.floor(x) : Math.ceil(x));
+        return interlink.recordFloatFloat(x - integer_x, integer_x);
     }
 
     public double ll_math_exp(double x) {

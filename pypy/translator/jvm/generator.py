@@ -1047,14 +1047,31 @@ class JVMGenerator(Generator):
         
     def call_primitive(self, op, module, name):
         callee = op.args[0].value
-        argtypes, rettype = self.db.types_for_signature(
+        jargtypes, jrettype = self.db.types_for_signature(
             callee._TYPE.ARGS, callee._TYPE.RESULT)
+
+        # Determine what class the primitive is implemented in:
         if module == 'll_os':
             jcls = jll_os
         else:
             jcls = jPyPy
-        mthd = Method.v(jcls, name, argtypes, rettype)
+
+        # Determine the method signature:
+        #    n.b.: if the method returns a generated type, then
+        #    it's static type will be Object.  This is because
+        #    the method cannot directly refer to the Java type in
+        #    .java source, as its name is not yet known.
+        if jrettype.is_generated():
+            mthd = Method.v(jcls, name, jargtypes, jObject)
+        else:
+            mthd = Method.v(jcls, name, jargtypes, jrettype)
+
+        # Invoke the method
         self.emit(mthd)
+
+        # Cast the result, if needed
+        if jrettype.is_generated():
+            self.downcast_jtype(jrettype)
 
     def prepare_call_oostring(self, OOTYPE):
         # Load the PyPy object pointer onto the stack:
