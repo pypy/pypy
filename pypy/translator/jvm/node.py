@@ -795,11 +795,10 @@ class InterlinkFunction(Function):
         self.name = name
         self.helper = helper
 
-        # The functions in Interlink.java either return Object,
-        # because they are returning an instance of a class generated
-        # by us which the JVM doesn't know about, or they return a
-        # scalar.
-        if self.helper.return_type.descriptor.is_reference():
+        # Since the names of classes we generate are not statically
+        # known, the functions in Interlink.java simply return
+        # Object when they create an instance of one of those types.
+        if self.helper.return_type.is_generated():
             self.return_type = jObject
         else:
             self.return_type = self.helper.return_type
