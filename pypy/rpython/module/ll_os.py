@@ -137,6 +137,36 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([str, [str]], s_ImpossibleValue, llimpl=execv_llimpl,
                       export_name="ll_os.ll_os_execv")
 
+
+    @registering_if(os, 'execve')
+    def register_os_execve(self):
+        os_execve = self.llexternal(
+            'execve', [rffi.CCHARP, rffi.CCHARPP, rffi.CCHARPP], rffi.INT)
+
+        def execve_llimpl(path, args, env):
+            # XXX Check path, args, env for \0 and raise TypeErrors as
+            # appropriate
+            envstrs = []
+            for item in env.iteritems():
+                envstrs.append("%s=%s" % item)
+
+            l_args = rffi.liststr2charpp(args)
+            l_env = rffi.liststr2charpp(envstrs)
+            os_execve(path, l_args, l_env)
+
+            # XXX untested
+            rffi.free_charpp(l_env)
+            rffi.free_charpp(l_args)
+
+            raise OSError(rposix.get_errno(), "execve failed")
+
+        return extdef(
+            [str, [str], {str: str}],
+            s_ImpossibleValue,
+            llimpl=execve_llimpl,
+            export_name="ll_os.ll_os_execve")
+
+
     @registering_if(posix, 'spawnv')
     def register_os_spawnv(self):
         os_spawnv = self.llexternal('spawnv',

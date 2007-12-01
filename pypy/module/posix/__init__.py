@@ -75,7 +75,7 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['waitpid'] = 'interp_posix.waitpid'
     if hasattr(os, 'execv'):
         interpleveldefs['execv'] = 'interp_posix.execv'
-    if hasattr(os, 'execve')   and 0:     # XXX XXX in-progress
+    if hasattr(os, 'execve'):
         interpleveldefs['execve'] = 'interp_posix.execve'
     if False and hasattr(os, 'uname'):
         interpleveldefs['uname'] = 'interp_posix.uname'

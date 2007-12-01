@@ -206,8 +206,9 @@ class AppTestPosix:
             t([3, "a"])
 
         def test_execve(self):
-            skip("Not implemented")
             os = self.posix
+            if not hasattr(os, "fork"):
+                skip("Need fork() to test execve()")
             pid = os.fork()
             if pid == 0:
                 os.execve("/usr/bin/env", ["env", "python", "-c", "import os; open('onefile', 'w').write(os.environ['ddd'])"], {'ddd':'xxx'})

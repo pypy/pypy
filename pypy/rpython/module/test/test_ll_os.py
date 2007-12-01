@@ -1,8 +1,11 @@
 import os
+from py.path import local
+
 from pypy.tool.udir import udir
 from pypy.translator.c.test.test_genc import compile
 
 from pypy.rpython import extregistry
+import errno
 import sys
 import py
 
@@ -57,6 +60,43 @@ def test_system():
     assert data == 0
     assert file(filename).read().strip() == '2'
     os.unlink(filename)
+
+
+EXECVE_ENV = {"foo": "bar", "baz": "quux"}
+execve_tests = str(local(__file__).dirpath().join('execve_tests.py'))
+
+def test_execve():
+    if os.name != 'posix':
+        py.test.skip('posix specific function')
+    base = sys.executable + " " + execve_tests + " "
+
+    # Test exit status and code
+    result = os.system(base + "execve_true")
+    assert os.WIFEXITED(result)
+    assert os.WEXITSTATUS(result) == 0
+    result = os.system(base + "execve_false")
+    assert os.WIFEXITED(result)
+    assert os.WEXITSTATUS(result) == 1
+
+    # Test environment
+    result = os.popen(base + "execve_env").read()
+    assert dict([line.split('=') for line in result.splitlines()]) == EXECVE_ENV
+
+    # These won't actually execute anything, so they don't need a child process
+    # helper.
+    execve = getllimpl(os.execve)
+
+    # If the target does not exist, an OSError should result
+    info = py.test.raises(
+        OSError, execve, execve_tests + "-non-existent", [], {})
+    assert info.value.errno == errno.ENOENT
+
+    # If the target is not executable, an OSError should result
+    info = py.test.raises(
+        OSError, execve, execve_tests, [], {})
+    assert info.value.errno == errno.EACCES
+
+
 
 class ExpectTestOs:
     def setup_class(cls):
