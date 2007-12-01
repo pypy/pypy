@@ -35,7 +35,7 @@ app_os_path = applevel(r'''
 
 app_os = applevel(r'''
     # NOT_RPYTHON
-    from os import sep, pathsep
+    from os import sep, pathsep, getenv, name, fdopen
     try:
         from os import readlink
     except ImportError:
@@ -53,3 +53,14 @@ def setup_nanos(space):
     space.setattr(w_os, space.wrap('path'), w_os_path)
     space.setattr(w_os, space.wrap('getenv'), space.wrap(getenv_w))
     return w_os
+
+
+# in order to be able to test app_main without the pypy interpreter
+# we create the nanos module with the same names here like it would
+# be created while translation
+path_module_for_testing = type(os)("os.path")
+os_module_for_testing = type(os)("os")
+os_module_for_testing.path = path_module_for_testing
+eval(app_os_path.code, path_module_for_testing.__dict__)
+eval(app_os.code, os_module_for_testing.__dict__)
+

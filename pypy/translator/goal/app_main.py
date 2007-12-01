@@ -401,8 +401,8 @@ def interactive_console(mainmodule):
 
 
 if __name__ == '__main__':
-    import os
     import autopath
+    import nanos
     # obscure! try removing the following line, see how it crashes, and
     # guess why...
     ImStillAroundDontForgetMe = sys.modules['__main__']
@@ -420,5 +420,6 @@ if __name__ == '__main__':
     from pypy.module.sys.version import PYPY_VERSION
     sys.pypy_version_info = PYPY_VERSION
     sys.pypy_initial_path = pypy_initial_path
+    os = nanos.os_module_for_testing
     sys.exit(entry_point(sys.argv[0], sys.argv[1:], os))
     #sys.exit(entry_point('app_main.py', sys.argv[1:]))
