@@ -573,6 +573,7 @@ class TestTypedTestCase(CompilationTestCase):
         assert f(255) == 255
 
     def test_hash_preservation(self):
+        from pypy.rlib.objectmodel import current_object_addr_as_int
         class C:
             pass
         class D(C):
@@ -581,16 +582,16 @@ class TestTypedTestCase(CompilationTestCase):
         d = D()
         def fn():
             d2 = D()
-            # xxx check for this CPython peculiarity for now:
-            x = (hash(d2) & sys.maxint) == (id(d2) & sys.maxint)
-            return x, hash(c)+hash(d)
+            return hash(d2), current_object_addr_as_int(d2), hash(c), hash(d)
         
         f = self.getcompiled(fn)
 
         res = f()
 
-        assert res[0] == True
-        assert res[1] == intmask(hash(c)+hash(d))
+        # xxx this is too precise, checking the exact implementation
+        assert res[0] == ~res[1]
+        assert res[2] == hash(c)
+        assert res[3] == hash(d)
 
     def test_list_basic_ops(self):
         def list_basic_ops(i, j):
