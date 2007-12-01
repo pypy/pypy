@@ -322,12 +322,11 @@ class TranslationDriver(SimpleTaskEngine):
     def sanity_check_annotation(self):
         translator = self.translator
         irreg = query.qoutput(query.check_exceptblocks_qgen(translator))
-        if not irreg:
-            self.log.info("All exceptblocks seem sane")
+        if irreg:
+            self.log.info("Some exceptblocks seem insane")
 
         lost = query.qoutput(query.check_methods_qgen(translator))
         assert not lost, "lost methods, something gone wrong with the annotation of method defs"
-        self.log.info("No lost method defs")
 
         so = query.qoutput(query.polluted_qgen(translator))
         tot = len(translator.graphs)
