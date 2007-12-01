@@ -92,7 +92,7 @@ def test_remove_keepalive():
         s2 = lltype.malloc(S)
         llop.keepalive(lltype.Void, s1)
         llop.keepalive(lltype.Void, s2)
-        return id(s1) + id(s2)
+        return lltype.cast_ptr_to_int(s1) + lltype.cast_ptr_to_int(s2)
     graph, t = get_graph(f, [])
     remove_superfluous_keep_alive(graph)
     ops = getops(graph)

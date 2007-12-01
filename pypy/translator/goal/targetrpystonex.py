@@ -1,4 +1,5 @@
 from pypy.translator.test import rpystone
+from pypy.rlib.objectmodel import current_object_addr_as_int
 
 
 def make_target_definition(LOOPS):
@@ -15,7 +16,7 @@ def make_target_definition(LOOPS):
                 g.Array2Glob[i][j] = 0
         g.PtrGlb = None
         g.PtrGlbNext = None
-        return rpystone.pystones(loops), id(g)
+        return rpystone.pystones(loops), current_object_addr_as_int(g)
 
     def target(*args):
         return entry_point, [int]

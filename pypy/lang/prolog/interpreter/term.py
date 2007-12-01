@@ -1,5 +1,6 @@
 import math
 from pypy.rlib.objectmodel import we_are_translated, UnboxedValue
+from pypy.rlib.objectmodel import compute_unique_id
 from pypy.rlib.rarithmetic import intmask
 from pypy.lang.prolog.interpreter.error import UnificationFailed, UncatchableError
 from pypy.lang.prolog.interpreter import error
@@ -380,7 +381,7 @@ class BlackBox(NonVar):
             raise UnificationFailed
 
     def get_unify_hash(self, heap):
-        return intmask(id(self) << TAGBITS | self.TAG)
+        return intmask(hash(self) << TAGBITS | self.TAG)
 
 
 
@@ -572,7 +573,7 @@ def cmp_standard_order(obj1, obj2, heap):
         return c
     if isinstance(obj1, Var):
         assert isinstance(obj2, Var)
-        return rcmp(id(obj1), id(obj2))
+        return rcmp(compute_unique_id(obj1), compute_unique_id(obj2))
     if isinstance(obj1, Atom):
         assert isinstance(obj2, Atom)
         return rcmp(obj1.name, obj2.name)
