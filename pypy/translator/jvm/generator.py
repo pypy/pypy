@@ -497,8 +497,10 @@ class ClassState(object):
     def __init__(self, classty, superclassty):
         self.class_type = classty
         self.superclass_type = superclassty
+        self.line_number = 1
     def out(self, arg):
         self.file.write(arg)
+        self.line_number += arg.count("\n")
 
 class FunctionState(object):
     """ When you invoked begin_function(), one of these objects is allocated
@@ -508,20 +510,27 @@ class FunctionState(object):
         self.local_vars = {}
         self.function_arguments = []
         self.instr_counter = 0
-    def add_var(self, jvar, jtype):
+    def add_var(self, jvar, jtype, is_param):
         """ Adds new entry for variable 'jvar', of java type 'jtype' """
         idx = self.next_offset
         self.next_offset += jtype.descriptor.type_width()
         if jvar:
             assert jvar.name not in self.local_vars # never been added before
-            self.local_vars[jvar.name] = idx
-        self.function_arguments.append((jtype, idx))
+            self.local_vars[jvar.name] = (idx, jtype)
+        if is_param:
+            self.function_arguments.append((jtype, idx))
         return idx
     def var_offset(self, jvar, jtype):
         """ Returns offset for variable 'jvar', of java type 'jtype' """
         if jvar.name in self.local_vars:
-            return self.local_vars[jvar.name]
-        return self.add_var(jvar, jtype)
+            return self.local_vars[jvar.name][0]
+        return self.add_var(jvar, jtype, False)
+    def var_info_list(self):
+        var_info_list = [None] * self.next_offset
+        for name, (idx, jtype) in self.local_vars.items():
+            var_info_list[idx] = (name, jtype)
+        return var_info_list
+        
 
 
 # ___________________________________________________________________________
@@ -654,7 +663,7 @@ class JVMGenerator(Generator):
         for idx, ty in enumerate(argtypes):
             if idx < len(argvars): var = argvars[idx]
             else: var = None
-            self.curfunc.add_var(var, ty)
+            self.curfunc.add_var(var, ty, True)
         # Prepare a map for the local variable indices we will add
         # Let the subclass do the rest of the work; note that it does
         # not need to know the argvars parameter, so don't pass it
@@ -1371,12 +1380,34 @@ class JasminGenerator(JVMGenerator):
             funcname,
             "".join([a.descriptor for a in argtypes]),
             rettype.descriptor))
-        self._abstract_method = abstract
+        self.abstract_method = abstract
+
+        if not self.abstract_method:
+            self.function_start_label = self.unique_label(
+                'function_start', True)
 
     def _end_function(self):
-        if not self._abstract_method:
+        
+        if not self.abstract_method:
+            function_end_label = self.unique_label('function_end', True)
+            
             self.curclass.out('.limit stack 100\n') # HACK, track max offset
             self.curclass.out('.limit locals %d\n' % self.curfunc.next_offset)
+
+            # Declare debug information for each variable:
+            var_info_list = self.curfunc.var_info_list()
+            for idx, data in enumerate(var_info_list):
+                if data:
+                    name, jtype = data
+                    if jtype is not jVoid:
+                        self.curclass.out(
+                            '.var %d is %s %s from %s to %s\n' % (
+                            idx,
+                            name,
+                            jtype.descriptor,
+                            self.function_start_label.label,
+                            function_end_label.label))
+        
         self.curclass.out('.end method\n')
 
     def mark(self, lbl):
@@ -1394,7 +1425,7 @@ class JasminGenerator(JVMGenerator):
             return str(arg)
         strargs = [jasmin_syntax(arg) for arg in args]
         instr_text = '%s %s' % (jvmstr, " ".join(strargs))
-        self.curclass.out('    .line %d\n' % self.curfunc.instr_counter)
+        self.curclass.out('    .line %d\n' % self.curclass.line_number)
         self.curclass.out('    %-60s\n' % (instr_text,))
         self.curfunc.instr_counter+=1
 
