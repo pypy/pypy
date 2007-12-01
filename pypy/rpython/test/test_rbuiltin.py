@@ -445,9 +445,12 @@ class BaseTestRbuiltin(BaseRtypingTest):
         assert isinstance(x1, int)
         assert isinstance(x2, (int, r_longlong))
         assert isinstance(x3, int)
-        assert x1 == intmask(x0)     # at least on top of llinterp
-        assert x3 == intmask(x2)     # at least on top of llinterp
         assert x0 != x2
+        # the following checks are probably too precise, but work at
+        # least on top of llinterp
+        if type(self) is TestLLtype:
+            assert x1 == intmask(x0)
+            assert x3 == intmask(x2)
 
 class TestLLtype(BaseTestRbuiltin, LLRtypeMixin):
 
