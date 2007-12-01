@@ -479,6 +479,8 @@ def test_find_iterator():
 
 
 def test_find_iterator_unicode():
+    if sys.version_info > (2, 5):
+        py.test.skip("bug in unicode.find that was fixed in 2.5")
     for searchstring in [
         u"\uAAAA\uBBBB\uCCCC", u"\uAAAA", u"", u"\u6666",
         u"\u6666\u7777\u8888",
