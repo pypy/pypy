@@ -391,8 +391,6 @@ def test_seekforward():
     for j in range(len(result) - 1):
         for i in range(len(result) - 1 - j):
             iter = SeekableItemIterator(rope)
-#            if (j, i) == (3, 1):
-#                import pdb; pdb.set_trace()
             for c in result[:j]:
                 c2 = iter.nextchar()
                 assert c2 == c

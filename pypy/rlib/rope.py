@@ -970,48 +970,64 @@ class ReverseItemIterator(object):
 
 class SeekableItemIterator(object):
     def __init__(self, node):
-        self.iter = SeekableFringeIterator(node)
-        self.node = self.nextnode()
-        self.nodelength = self.node.length()
-        self.index = 0
+        self.stack = []
+        self.tookleft = []
+        self.find_downward(node)
+        assert False not in self.tookleft
+
+    def find_downward(self, node, items=0):
+        assert 0 <= items < node.length()
+        while isinstance(node, BinaryConcatNode):
+            self.stack.append(node)
+            right = node.right
+            left = node.left
+            if items >= left.length():
+                items -= left.length()
+                node = node.right
+                self.tookleft.append(False)
+            else:
+                node = node.left
+                self.tookleft.append(True)
+        assert len(self.tookleft) == len(self.stack)
+        self.node = node
+        self.nodelength = node.length()
+        self.index = items
+        return self.node
 
     def nextnode(self):
-        while 1:
-            node = self.node = self.iter.next()
-            nodelength = self.nodelength = node.length()
-            if nodelength != 0:
-                break
-        self.index = 0
-        return node
+        below = self.node
+        while self.stack:
+            tookleft = self.tookleft.pop()
+            if tookleft:
+                node = self.stack[-1]
+                assert isinstance(node, BinaryConcatNode)
+                self.tookleft.append(False)
+                self.find_downward(node.right)
+                return self.node
+            self.stack.pop()
+        raise StopIteration
 
+    def getnode(self):
+        if self.index == self.node.length():
+            return self.nextnode()
+        return self.node
     
-    def advance_index(self):
-        if self.index == self.nodelength - 1:
-            self.node = None
-        self.index += 1
-
     def nextchar(self):
-        node = self.node
-        if node is None:
-            node = self.nextnode()
-        result = self.node.getchar(self.index)
-        self.advance_index()
+        node = self.getnode()
+        result = node.getchar(self.index)
+        self.index += 1
         return result
 
     def nextunichar(self):
-        node = self.node
-        if node is None:
-            node = self.nextnode()
-        result = self.node.getunichar(self.index)
-        self.advance_index()
+        node = self.getnode()
+        result = node.getunichar(self.index)
+        self.index += 1
         return result
 
     def nextint(self):
-        node = self.node
-        if node is None:
-            node = self.nextnode()
-        result = self.node.getint(self.index)
-        self.advance_index()
+        node = self.getnode()
+        result = node.getint(self.index)
+        self.index += 1
         return result
 
     def seekforward(self, numchars):
@@ -1019,36 +1035,42 @@ class SeekableItemIterator(object):
             self.index += numchars
             return
         numchars -= self.nodelength - self.index
-        while 1:
-            node = self.iter.next()
-            length = node.length()
-            if length <= numchars:
-                numchars -= length
-            else:
-                self.index = numchars
-                self.node = node
-                self.nodelength = node.length()
-                return
+        while self.stack:
+            tookleft = self.tookleft.pop()
+            if tookleft:
+                node = self.stack[-1]
+                assert isinstance(node, BinaryConcatNode)
+                right = node.right
+                if right.length() > numchars:
+                    break
+                numchars -= right.length()
+            self.stack.pop()
+        else:
+            raise StopIteration
+        self.tookleft.append(False)
+        self.find_downward(right, numchars)
+
         
     def seekback(self, numchars):
         if numchars <= self.index:
             self.index -= numchars
-            if self.node is None:
-                self.iter.seekback()
-                self.node = self.iter.next()
             return
         numchars -= self.index
-        self.iter.seekback() # for first item
-        while 1:
-            node = self.iter.seekback()
-            length = node.length()
-            if length < numchars:
-                numchars -= length
-            else:
-                self.index = length - numchars
-                self.node = self.iter.next()
-                self.nodelength = self.node.length()
-                return
+        while self.stack:
+            tookleft = self.tookleft.pop()
+            if not tookleft:
+                node = self.stack[-1]
+                assert isinstance(node, BinaryConcatNode)
+                left = node.left
+                if left.length() >= numchars:
+                    break
+                numchars -= left.length()
+            self.stack.pop()
+        else:
+            raise StopIteration
+        self.tookleft.append(True)
+        self.find_downward(left, left.length() - numchars)
+
 
 class FindIterator(object):
     def __init__(self, node, sub, start=0, stop=-1):
