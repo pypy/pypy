@@ -112,7 +112,7 @@ class AppTraceback(py.code.Traceback):
 
     def __init__(self, space, apptb):
         l = []
-        while apptb is not space.w_None: 
+        while apptb is not space.w_None and apptb is not None:
             l.append(self.Entry(space, apptb))
             apptb = space.getattr(apptb, space.wrap('tb_next'))
         list.__init__(self, l)
