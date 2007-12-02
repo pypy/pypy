@@ -841,6 +841,7 @@ class TestSemiSpaceGC(TestUsingFramework):
     should_be_moving = True
 
     def test_many_ids(self):
+        from pypy.rlib.objectmodel import compute_unique_id
         class A(object):
             pass
         def f():
@@ -852,7 +853,7 @@ class TestSemiSpaceGC(TestUsingFramework):
             # remember the ids, it will trigger some collections itself
             i = 0
             while i < len(alist):
-                idarray[i] = id(alist[i])
+                idarray[i] = compute_unique_id(alist[i])
                 i += 1
             j = 0
             while j < 2:
@@ -860,7 +861,7 @@ class TestSemiSpaceGC(TestUsingFramework):
                     [A() for i in range(20000)]
                 i = 0
                 while i < len(alist):
-                    if idarray[i] != id(alist[i]):
+                    if idarray[i] != compute_unique_id(alist[i]):
                         return j * 1000000 + i
                     i += 1
                 j += 1
