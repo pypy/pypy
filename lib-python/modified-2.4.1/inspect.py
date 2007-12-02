@@ -679,7 +679,9 @@ def getargspec(func):
 
     if ismethod(func):
         func = func.im_func
-    if not isfunction(func):
+    if not (isfunction(func) or
+            isbuiltin(func) and hasattr(func, 'func_code')):
+            # PyPy extension: this works for built-in functions too
         raise TypeError('arg is not a Python function')
     args, varargs, varkw = getargs(func.func_code)
     return args, varargs, varkw, func.func_defaults
