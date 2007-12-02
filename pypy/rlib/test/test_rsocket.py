@@ -345,6 +345,32 @@ def test_inet_ntop():
         py.test.skip("no inet_ntop()")
     assert inet_ntop(AF_INET, '\x01\x02\x03\x05') == '1.2.3.5'
 
+def test_unix_socket_connect():
+    if getattr(rsocket, 'AF_UNIX', None) is None:
+        py.test.skip('AF_UNIX not supported.')
+    from pypy.tool.udir import udir
+    sockpath = str(udir.join('test_unix_socket_connect'))
+    a = UNIXAddress(sockpath)
+
+    serversock = RSocket(AF_UNIX)
+    serversock.bind(a)
+    serversock.listen(1)
+
+    clientsock = RSocket(AF_UNIX)
+    clientsock.connect(a)
+    s, addr = serversock.accept()
+
+    s.send('X')
+    data = clientsock.recv(100)
+    assert data == 'X'
+    clientsock.send('Y')
+    data = s.recv(100)
+    assert data == 'Y'
+
+    clientsock.close()
+    s.close()
+
+
 class TestTCP:
     PORT = 50007
     HOST = 'localhost'

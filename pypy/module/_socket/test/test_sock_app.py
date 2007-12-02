@@ -1,13 +1,13 @@
 from pypy.conftest import gettestobjspace
 import sys
 import py
+from pypy.tool.udir import udir
 
 def setup_module(mod):
     mod.space = gettestobjspace(usemodules=['_socket'])
     global socket
     import socket
     mod.w_socket = space.appexec([], "(): import _socket as m; return m")
-    from pypy.tool.udir import udir
     mod.path = udir.join('fd')
     mod.path.write('fo')
     mod.raises = py.test.raises # make raises available from app-level tests
@@ -233,6 +233,7 @@ def test_timeout():
 class AppTestSocket:
     def setup_class(cls):
         cls.space = space
+        cls.w_udir = space.wrap(str(udir))
 
     def test_ntoa_exception(self):
         import _socket
@@ -407,7 +408,32 @@ class AppTestSocket:
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM, 0)
         s.sendto(buffer(''), ('localhost', 9)) # Send to discard port.
         s.close()
-        
+
+    def test_unix_socket_connect(self):
+        import _socket, os
+        if not hasattr(_socket, 'AF_UNIX'):
+            skip('AF_UNIX not supported.')
+        sockpath = os.path.join(self.udir, 'app_test_unix_socket_connect')
+
+        serversock = _socket.socket(_socket.AF_UNIX)
+        serversock.bind(sockpath)
+        serversock.listen(1)
+
+        clientsock = _socket.socket(_socket.AF_UNIX)
+        clientsock.connect(sockpath)
+        s, addr = serversock.accept()
+        assert not addr
+
+        s.send('X')
+        data = clientsock.recv(100)
+        assert data == 'X'
+        clientsock.send('Y')
+        data = s.recv(100)
+        assert data == 'Y'
+
+        clientsock.close()
+        s.close()
+
 
 class AppTestSocketTCP:
     def setup_class(cls):

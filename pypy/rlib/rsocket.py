@@ -377,7 +377,7 @@ if 'AF_UNIX' in constants:
     class UNIXAddress(Address):
         family = AF_UNIX
         struct = _c.sockaddr_un
-        minlen = offsetof(_c.sockaddr_un, 'c_sun_path') + 1
+        minlen = offsetof(_c.sockaddr_un, 'c_sun_path')
         maxlen = sizeof(struct)
 
         def __init__(self, path):
@@ -406,7 +406,7 @@ if 'AF_UNIX' in constants:
         def get_path(self):
             a = self.lock(_c.sockaddr_un)
             maxlength = self.addrlen - offsetof(_c.sockaddr_un, 'c_sun_path')
-            if _c.linux and a.c_sun_path[0] == '\x00':
+            if _c.linux and maxlength > 0 and a.c_sun_path[0] == '\x00':
                 # Linux abstract namespace
                 length = maxlength
             else:
