@@ -472,3 +472,80 @@ class TestPackrat(object):
         assert expected == ['a', 'x', 'y']
 
 
+    def test_python_future(self):
+        class parser(PackratParser):
+            r"""
+            comment:
+                `#[^\r\n]*` lineend;
+            lineend:
+                `(\r|\n)+`;
+            docstring:
+                `(\"\"\"[^\\]*(\\[^\\]+)*\"\"\")|(\'\'\'[^\\]*(\\[^\\]+)*\'\'\')`
+                ignore*
+              | `(\"[^\\]*(\\[^\\]+)*\")|(\'[^\\]*(\\[^\\]+)*\')`
+                ignore*;
+            ignore:
+                `[ \t]+`;
+            ignoreline:
+                `[ \t]*[\r\n]+`;
+            fromimport:
+                'from' ignore+
+                '__future__' ignore+
+                'import' ignore+
+                what;
+            identifier:
+                `[a-zA-Z0-9_]+`;
+            what:
+                '(' ignoreline*
+                g = group
+                ignoreline*
+                rest = ([',' ignoreline*] group)*
+                ')'
+                return {[g] + rest} 
+              | g = group
+                rest = ([',' ignore*] group)*
+                return {[g] + rest};
+            group:
+                name = identifier ignore+ 'as' ignore+ identifier ignore*
+                return {name}
+              | name = identifier ignore*
+                return {name};
+            line:
+                comment
+                return {None}
+              | docstring lineend
+                return {None}
+              | ignore lineend
+                return {None}
+              | t = fromimport
+                ignore*
+                lineend
+                return {t};
+            header:
+                l = line*
+                return {[elt for sublist in l if sublist is not None for elt in sublist]};
+            """
+        p = parser("#\n")
+        lines = p.header()
+        assert lines == []
+        p = parser('''"abc"\n''')
+        lines = p.header()
+        assert lines == []
+        p = parser(''''abc'\n''')
+        lines = p.header()
+        assert lines == []
+        p = parser(''''abc'\n''')
+        lines = p.header()
+        assert lines == []
+        p = parser('''from __future__ import division\n''')
+        lines = p.header()
+        assert lines == ['division']
+        p = parser('''from __future__ import division, generators\n''')
+        lines = p.fromimport()
+        assert lines == ['division', 'generators']
+        p = parser('''from __future__ import (division, \ngenerators)\n''')
+        lines = p.fromimport()
+        assert lines == ['division', 'generators']
+        p = parser('''from __future__ import (division as d, \ngenerators)\n''')
+        lines = p.fromimport()
+        assert lines == ['division', 'generators']
