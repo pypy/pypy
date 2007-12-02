@@ -400,7 +400,7 @@ def test_seekforward():
             for c in result[i + j:]:
                 c2 = iter.nextchar()
                 assert c2 == c
-        py.test.raises(StopIteration, iter.nextchar)
+            py.test.raises(StopIteration, iter.nextchar)
 
 def test_find_int():
     rope, st = make_random_string()
