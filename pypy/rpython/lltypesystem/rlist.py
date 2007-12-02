@@ -71,6 +71,7 @@ class BaseListRepr(AbstractBaseListRepr):
         ITEMARRAY = GcArray(ITEM,
                             adtmeths = ADTIFixedList({
                                  "ll_newlist": ll_fixed_newlist,
+                                 "ll_newemptylist": ll_fixed_newemptylist,
                                  "ll_length": ll_fixed_length,
                                  "ll_items": ll_fixed_items,
                                  ##"list_builder": self.list_builder,
@@ -184,6 +185,7 @@ class ListRepr(AbstractListRepr, BaseListRepr):
                                               ("items", Ptr(ITEMARRAY)),
                                       adtmeths = ADTIList({
                                           "ll_newlist": ll_newlist,
+                                          "ll_newemptylist": ll_newemptylist,
                                           "ll_length": ll_length,
                                           "ll_items": ll_items,
                                           ##"list_builder": self.list_builder,
@@ -362,6 +364,26 @@ def ll_newlist(LIST, length):
 ll_newlist = typeMethod(ll_newlist)
 ll_newlist.oopspec = 'newlist(length)'
 
+# should empty lists start with no allocated memory, or with a preallocated
+# minimal number of entries?  XXX compare memory usage versus speed, and
+# check how many always-empty lists there are in a typical pypy-c run...
+INITIAL_EMPTY_LIST_ALLOCATION = 0
+
+def _ll_prebuilt_empty_array(LISTITEM):
+    return malloc(LISTITEM, 0)
+_ll_prebuilt_empty_array._annspecialcase_ = 'specialize:memo'
+
+def ll_newemptylist(LIST):
+    l = malloc(LIST)
+    l.length = 0
+    if INITIAL_EMPTY_LIST_ALLOCATION > 0:
+        l.items = malloc(LIST.items.TO, INITIAL_EMPTY_LIST_ALLOCATION)
+    else:
+        l.items = _ll_prebuilt_empty_array(LIST.items.TO)
+    return l
+ll_newemptylist = typeMethod(ll_newemptylist)
+ll_newemptylist.oopspec = 'newlist(0)'
+
 def ll_length(l):
     return l.length
 
@@ -385,6 +407,10 @@ def ll_fixed_newlist(LIST, length):
 ll_fixed_newlist = typeMethod(ll_fixed_newlist)
 ll_fixed_newlist.oopspec = 'newlist(length)'
 
+def ll_fixed_newemptylist(LIST):
+    return ll_fixed_newlist(LIST, 0)
+ll_fixed_newemptylist = typeMethod(ll_fixed_newemptylist)
+
 def ll_fixed_length(l):
     return len(l)
 
@@ -401,8 +427,11 @@ def ll_fixed_setitem_fast(l, index, item):
 
 def newlist(llops, r_list, items_v):
     LIST = r_list.LIST
-    cno = inputconst(Signed, len(items_v))
-    v_result = llops.gendirectcall(LIST.ll_newlist, cno)
+    if len(items_v) == 0:
+        v_result = llops.gendirectcall(LIST.ll_newemptylist)
+    else:
+        cno = inputconst(Signed, len(items_v))
+        v_result = llops.gendirectcall(LIST.ll_newlist, cno)
     v_func = inputconst(Void, dum_nocheck)
     for i, v_item in enumerate(items_v):
         ci = inputconst(Signed, i)
