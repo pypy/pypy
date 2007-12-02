@@ -1042,13 +1042,12 @@ class SeekableItemIterator(object):
                 assert isinstance(node, BinaryConcatNode)
                 right = node.right
                 if right.length() > numchars:
-                    break
+                    self.tookleft.append(False)
+                    self.find_downward(right, numchars)
+                    return
                 numchars -= right.length()
             self.stack.pop()
-        else:
-            raise StopIteration
-        self.tookleft.append(False)
-        self.find_downward(right, numchars)
+        raise StopIteration
 
         
     def seekback(self, numchars):
@@ -1063,13 +1062,12 @@ class SeekableItemIterator(object):
                 assert isinstance(node, BinaryConcatNode)
                 left = node.left
                 if left.length() >= numchars:
-                    break
+                    self.tookleft.append(True)
+                    self.find_downward(left, left.length() - numchars)
+                    return
                 numchars -= left.length()
             self.stack.pop()
-        else:
-            raise StopIteration
-        self.tookleft.append(True)
-        self.find_downward(left, left.length() - numchars)
+        raise StopIteration
 
 
 class FindIterator(object):
