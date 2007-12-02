@@ -437,6 +437,8 @@ def test_find():
                             LiteralStringNode("bacbb"))
     pos = find(node, LiteralStringNode("a"), 0, node.length())
     assert pos == 6
+    pos = find(node, LiteralStringNode("aaa"), 0, 2)
+    assert pos == -1
 
 
 def test_find_unicode():

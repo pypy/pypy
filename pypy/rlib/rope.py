@@ -698,6 +698,8 @@ def find(node, subnode, start=0, stop=-1):
         if (stop - start) < 0:
             return -1
         return start
+    if len2 >= stop - start:
+        return -1
     restart = construct_restart_positions_node(subnode)
     return _find_node(node, subnode, start, stop, restart)
 
