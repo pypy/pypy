@@ -484,7 +484,7 @@ def multiply(node, times):
     twopower = node
     number = 1
     result = None
-    while number < times:
+    while number <= times:
         if number & times:
             if result is None:
                 result = twopower
