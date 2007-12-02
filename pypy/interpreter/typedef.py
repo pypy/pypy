@@ -287,7 +287,8 @@ def make_descr_typecheck_wrapper(func, extraargs=(), cls=None):
     return miniglobals['descr_typecheck_%s' % func.__name__]
 
 def unknown_objclass_getter(space):
-    raise OperationError(space.w_TypeError,
+    # NB. this is an AttributeError to make inspect.py happy
+    raise OperationError(space.w_AttributeError,
                          space.wrap("generic property has no __objclass__"))
 
 def make_objclass_getter(func, cls, cache={}):
