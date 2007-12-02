@@ -1,4 +1,10 @@
+from pypy.tool.udir import udir
+
 class AppTestMarshal:
+
+    def setup_class(cls):
+        tmpfile = udir.join('AppTestMarshal.tmp')
+        cls.w_tmpfile = cls.space.wrap(str(tmpfile))
 
     def test_None(self):
         import sys
@@ -589,6 +595,26 @@ class AppTestMarshal:
         x = marshal.load(f)
         assert x == case and type(x) is type(case)
 
+    def test_stream_reader_writer(self):
+        # for performance, we have a special case when reading/writing real
+        # file objects
+        import marshal
+        obj1 = [4, ("hello", 7.5)]
+        obj2 = "foobar"
+        f = open(self.tmpfile, 'wb')
+        marshal.dump(obj1, f)
+        marshal.dump(obj2, f)
+        f.write('END')
+        f.close()
+        f = open(self.tmpfile, 'rb')
+        obj1b = marshal.load(f)
+        obj2b = marshal.load(f)
+        tail = f.read()
+        f.close()
+        assert obj1b == obj1
+        assert obj2b == obj2
+        assert tail == 'END'
+
 
 class AppTestMultiDict(object):
     def setup_class(cls):
@@ -602,3 +628,4 @@ class AppTestRope(AppTestMarshal):
     def setup_class(cls):
         from pypy.conftest import gettestobjspace
         cls.space = gettestobjspace(**{"objspace.std.withrope": True})
+        AppTestMarshal.setup_class.im_func(cls)

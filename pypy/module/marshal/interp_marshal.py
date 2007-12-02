@@ -1,6 +1,7 @@
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import intmask
+from pypy.module._file.interp_file import file2stream
 import sys
 
 # Py_MARSHAL_VERSION = 2
@@ -14,12 +15,19 @@ Py_MARSHAL_VERSION = 1
 
 def dump(space, w_data, w_f, w_version=Py_MARSHAL_VERSION):
     """Write the 'data' object into the open file 'f'."""
-    writer = FileWriter(space, w_f)
-    # note: bound methods are currently not supported,
-    # so we have to pass the instance in, instead.
-    ##m = Marshaller(space, writer.write, space.int_w(w_version))
-    m = Marshaller(space, writer, space.int_w(w_version))
-    m.put_w_obj(w_data)
+    w_stream = file2stream(space, w_f)
+    if w_stream is not None:
+        writer = StreamWriter(space, w_stream)
+    else:
+        writer = FileWriter(space, w_f)
+    try:
+        # note: bound methods are currently not supported,
+        # so we have to pass the instance in, instead.
+        ##m = Marshaller(space, writer.write, space.int_w(w_version))
+        m = Marshaller(space, writer, space.int_w(w_version))
+        m.put_w_obj(w_data)
+    finally:
+        writer.finished()
 
 def dumps(space, w_data, w_version=Py_MARSHAL_VERSION):
     """Return the string that would have been written to a file
@@ -30,9 +38,17 @@ by dump(data, file)."""
 
 def load(space, w_f):
     """Read one value from the file 'f' and return it."""
-    reader = FileReader(space, w_f)
-    u = Unmarshaller(space, reader)
-    return u.get_w_obj(False)
+    # special case real files for performance
+    w_stream = file2stream(space, w_f)
+    if w_stream is not None:
+        reader = StreamReader(space, w_stream)
+    else:
+        reader = FileReader(space, w_f)
+    try:
+        u = Unmarshaller(space, reader)
+        return u.get_w_obj(False)
+    finally:
+        reader.finished()
 
 def loads(space, w_str):
     """Convert a string back to a value.  Extra characters in the string are
@@ -41,9 +57,22 @@ ignored."""
     return u.get_w_obj(False)
 
 
-class FileWriter(object):
-    def __init__(self, space, w_f):
+class AbstractReaderWriter(object):
+    def __init__(self, space):
         self.space = space
+
+    def raise_eof(self):
+        space = self.space
+        raise OperationError(space.w_EOFError, space.wrap(
+            'EOF read where object expected'))
+
+    def finished(self):
+        pass
+
+
+class FileWriter(AbstractReaderWriter):
+    def __init__(self, space, w_f):
+        AbstractReaderWriter.__init__(self, space)
         try:
             self.func = space.getattr(w_f, space.wrap('write'))
             # XXX how to check if it is callable?
@@ -53,19 +82,14 @@ class FileWriter(object):
             raise OperationError(space.w_TypeError, space.wrap(
             'marshal.dump() 2nd arg must be file-like object'))
 
-    def raise_eof(self):
-        space = self.space
-        raise OperationError(space.w_EOFError, space.wrap(
-            'EOF read where object expected'))
-
     def write(self, data):
         space = self.space
         space.call_function(self.func, space.wrap(data))
 
 
-class FileReader(object):
+class FileReader(AbstractReaderWriter):
     def __init__(self, space, w_f):
-        self.space = space
+        AbstractReaderWriter.__init__(self, space)
         try:
             self.func = space.getattr(w_f, space.wrap('read'))
             # XXX how to check if it is callable?
@@ -83,10 +107,29 @@ class FileReader(object):
             self.raise_eof()
         return ret
 
-    def raise_eof(self):
-        space = self.space
-        raise OperationError(space.w_EOFError, space.wrap(
-            'EOF read where object expected'))
+
+class StreamReaderWriter(AbstractReaderWriter):
+    def __init__(self, space, w_stream):
+        AbstractReaderWriter.__init__(self, space)
+        self.w_stream = w_stream
+        w_stream.descr_lock()
+
+    def finished(self):
+        self.w_stream.descr_unlock()
+
+class StreamWriter(StreamReaderWriter):
+    def write(self, data):
+        self.w_stream.do_write(data)
+
+class StreamReader(StreamReaderWriter):
+    def read(self, n):
+        result = data = self.w_stream.do_read(n)
+        while len(result) < n:
+            if len(data) == 0:
+                self.raise_eof()
+            data = self.w_stream.do_read(n)
+            result += data
+        return result
 
 
 MAX_MARSHAL_DEPTH = 5000

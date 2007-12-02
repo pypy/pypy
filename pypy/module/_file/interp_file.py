@@ -87,6 +87,36 @@ class W_Stream(Wrappable):
         assert self.slockowner is None
         return False
 
+    def do_read(self, n):
+        """
+        An interface for direct interp-level usage of W_Stream,
+        e.g. from interp_marshal.py.
+        NOTE: this assumes that the stream lock is already acquired.
+        Like os.read(), this can return less than n bytes.
+        """
+        try:
+            return self.stream.read(n)
+        except streamio.StreamError, e:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap(e.message))
+        except OSError, e:
+            raise wrap_oserror_as_ioerror(space, e)
+
+    def do_write(self, data):
+        """
+        An interface for direct interp-level usage of W_Stream,
+        e.g. from interp_marshal.py.
+        NOTE: this assumes that the stream lock is already acquired.
+        """
+        try:
+            self.stream.write(data)
+        except streamio.StreamError, e:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap(e.message))
+        except OSError, e:
+            raise wrap_oserror_as_ioerror(space, e)
+
+
 for name, argtypes in streamio.STREAM_METHODS.iteritems():
     numargs = len(argtypes)
     args = ", ".join(["v%s" % i for i in range(numargs)])
@@ -136,3 +166,20 @@ def fdopen_as_stream(space, fd, mode="r", buffering=-1):
             space, streamio.fdopen_as_stream(fd, mode, buffering)))
 fdopen_as_stream.unwrap_spec = [ObjSpace, int, str, int]
 
+
+def file2stream(space, w_f):
+    """A hack for direct interp-level access to W_Stream objects,
+    for better performance e.g. when marshalling directly from/to a
+    real file object.  This peels off the app-level layers of the file class
+    defined in app_file.py.  It complains if the file is already closed.
+    """
+    w_stream = space.findattr(w_f, space.wrap('stream'))
+    if w_stream is None:
+        return None
+    w_stream = space.interpclass_w(w_stream)
+    if not isinstance(w_stream, W_Stream):
+        return None
+    if space.is_true(space.getattr(w_f, space.wrap('_closed'))):
+        raise OperationError(space.w_ValueError,
+                             space.wrap('I/O operation on closed file'))
+    return w_stream
