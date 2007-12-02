@@ -258,3 +258,8 @@ class ExecutionContext:
     def add_pending_action(self, action):
         self.pending_actions.append(action)
         self.ticker = 0
+
+    def _freeze_(self):
+        raise Exception("ExecutionContext instances should not be seen during"
+                        " translation.  Now is a good time to inspect the"
+                        " traceback and see where this one comes from :-)")
