@@ -126,3 +126,12 @@ class AppTestCodeIntrospection:
         exec "def f(): pass" in d2
         assert d1['f'].func_code == d2['f'].func_code
         assert hash(d1['f'].func_code) == hash(d2['f'].func_code)
+
+    def test_inspect(self):
+        if not hasattr(len, 'func_code'):
+            skip("CPython: no func_code attribute on built-in functions")
+        import inspect
+        args, varargs, varkw = inspect.getargs(len.func_code)
+        assert args == ['obj']
+        assert varargs is None
+        assert varkw is None
