@@ -97,10 +97,10 @@ class W_Stream(Wrappable):
         try:
             return self.stream.read(n)
         except streamio.StreamError, e:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap(e.message))
+            raise OperationError(self.space.w_ValueError,
+                                 self.space.wrap(e.message))
         except OSError, e:
-            raise wrap_oserror_as_ioerror(space, e)
+            raise wrap_oserror_as_ioerror(self.space, e)
 
     def do_write(self, data):
         """
@@ -111,10 +111,10 @@ class W_Stream(Wrappable):
         try:
             self.stream.write(data)
         except streamio.StreamError, e:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap(e.message))
+            raise OperationError(self.space.w_ValueError,
+                                 self.space.wrap(e.message))
         except OSError, e:
-            raise wrap_oserror_as_ioerror(space, e)
+            raise wrap_oserror_as_ioerror(self.space, e)
 
 
 for name, argtypes in streamio.STREAM_METHODS.iteritems():
