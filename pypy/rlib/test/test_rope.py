@@ -439,6 +439,8 @@ def test_find():
     assert pos == 6
     pos = find(node, LiteralStringNode("aaa"), 0, 2)
     assert pos == -1
+    pos = find(node, LiteralStringNode("btf"), 0, 3)
+    assert pos == 0
 
 
 def test_find_unicode():

@@ -698,7 +698,7 @@ def find(node, subnode, start=0, stop=-1):
         if (stop - start) < 0:
             return -1
         return start
-    if len2 >= stop - start:
+    if len2 > stop - start:
         return -1
     restart = construct_restart_positions_node(subnode)
     return _find_node(node, subnode, start, stop, restart)
@@ -1079,16 +1079,20 @@ class FindIterator(object):
         len1 = self.length = node.length()
         len2 = sub.length()
         self.search_length = len2
-        if len2 == 0:
-            self.restart_positions = None
-        elif len2 == 1:
-            self.restart_positions = None
-        else:
-            self.restart_positions = construct_restart_positions_node(sub)
         self.start = start
         if stop == -1 or stop > len1:
             stop = len1
         self.stop = stop
+        if len2 == 0:
+            self.restart_positions = None
+        elif len2 == 1:
+            self.restart_positions = None
+        elif len2 > stop - start:
+            self.restart_positions = None
+            # ensure that a StopIteration is immediately raised
+            self.stop = self.start
+        else:
+            self.restart_positions = construct_restart_positions_node(sub)
     
     def next(self):
         if self.search_length == 0:
