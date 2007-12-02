@@ -8,7 +8,7 @@ LOG2 = math.log(2)
 NBITS = int(math.log(sys.maxint) / LOG2) + 2
 
 # XXX should optimize the numbers
-NEW_NODE_WHEN_LENGTH = 16
+NEW_NODE_WHEN_LENGTH = 32
 CONVERT_WHEN_SMALLER = 8
 MAX_DEPTH = 32 # maybe should be smaller
 CONCATENATE_WHEN_MULTIPLYING = 128
@@ -476,36 +476,32 @@ def getslice_left(node, stop):
         return node.getslice(0, stop)
 
 
-
 def multiply(node, times):
     if times <= 0:
         return LiteralStringNode.EMPTY
     if times == 1:
         return node
-    end_length = node.length() * times
-    num_bits = 2
-    mask = times >> 2
-    while mask:
-        num_bits += 1
-        mask >>= 1
-    result = node
-    mask = 1 << (num_bits - 2)
-    #import pdb; pdb.set_trace()
-    for i in range(num_bits - 1):
-        if mask & times:
-            if result.length() < CONCATENATE_WHEN_MULTIPLYING:
-                result = concatenate(result, result)
-                result = concatenate(result, node)
+    twopower = node
+    number = 1
+    result = None
+    while number < times:
+        if number & times:
+            if result is None:
+                result = twopower
+            elif result.length() < CONCATENATE_WHEN_MULTIPLYING:
+                result = concatenate(result, twopower)
             else:
-                result = BinaryConcatNode(result, result)
-                result = BinaryConcatNode(result, node)
+                result = BinaryConcatNode(result, twopower)
+        try:
+            number = ovfcheck(number * 2)
+        except OverflowError:
+            break
+        if twopower.length() < CONCATENATE_WHEN_MULTIPLYING:
+            twopower = concatenate(twopower, twopower)
         else:
-            if result.length() < CONCATENATE_WHEN_MULTIPLYING:
-                result = concatenate(result, result)
-            else:
-                result = BinaryConcatNode(result, result)
-        mask >>= 1
+            twopower = BinaryConcatNode(twopower, twopower)
     return result
+
 
 def join(node, l):
     if node.length() == 0:
@@ -538,7 +534,7 @@ def rebalance(nodelist, sizehint=-1):
     first_node = None
     while stack:
         curr = stack.pop()
-        while isinstance(curr, BinaryConcatNode) and not curr.balanced:
+        while isinstance(curr, BinaryConcatNode) and not curr.check_balanced():
             stack.append(curr.right)
             curr = curr.left
 

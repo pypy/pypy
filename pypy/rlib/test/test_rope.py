@@ -838,3 +838,7 @@ def test_decode_utf8():
     
     res = str_decode_utf8(node)
     assert res is None
+
+def test_multiply_result_needs_no_rebalancing():
+    r1 = multiply(LiteralStringNode("s"), 2**31 - 2)
+    assert r1.rebalance() is r1
