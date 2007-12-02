@@ -476,16 +476,14 @@ Execute a path with arguments and environment, replacing current process.
         args: iterable of arguments
         env: dictionary of strings mapping to strings
     """
+    args = [space.str_w(w_arg) for w_arg in space.unpackiterable(w_args)]
+    env = {}
+    w_keys = space.call_method(w_env, 'keys')
+    for w_key in space.unpackiterable(w_keys):
+        w_value = space.getitem(w_env, w_key)
+        env[space.str_w(w_key)] = space.str_w(w_value)
     try:
-        args = [space.str_w(i) for i in space.unpackiterable(w_args)]
-        env = {}
-        keys = space.call_function(space.getattr(w_env, space.wrap('keys')))
-        for key in space.unpackiterable(keys):
-            value = space.getitem(w_env, key)
-            env[space.str_w(key)] = space.str_w(value)
         os.execve(command, args, env)
-    except ValueError, e:
-        raise OperationError(space.w_ValueError, space.wrap(str(e)))
     except OSError, e:
         raise wrap_oserror(space, e)
 execve.unwrap_spec = [ObjSpace, str, W_Root, W_Root]
