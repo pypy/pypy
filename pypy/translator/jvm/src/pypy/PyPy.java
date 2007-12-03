@@ -978,11 +978,48 @@ public class PyPy implements Constants {
         return x % y;
     }
 
-    /* TODO
-    public double ll_math_frexp(double x) {
-    }
-    */
+    public Object ll_math_frexp(double x) {
+        /*
+          Return the mantissa and exponent of x as the pair (m, e). m
+          is a float and e is an integer such that x == m * 2**e
+          exactly. If x is zero, returns (0.0, 0), otherwise 0.5 <=
+          abs(m) < 1. This is used to "pick apart" the internal
+          representation of a float in a portable way.
+        */
 
+        // NaN: Python returns (NaN, 0)
+        if (Double.isNaN(x))
+            return interlink.recordFloatSigned(x, 0);
+
+        // Infinity: Python throws exception
+        if (Double.isInfinite(x))
+            interlink.throwOverflowError();
+
+        // Extract the various parts of the format:
+        final long e=11, f=52; // number of bits in IEEE format
+        long bits = Double.doubleToLongBits(x);
+        long bits_mantissa = bits & ((1 << f) - 1);
+        int bits_exponent = (int)((bits >> f) & ((1 << e) - 1));
+        int bits_sign = (int)(bits >> (e+f));
+
+        // [+-]0
+        if (bits_exponent == 0 && bits_mantissa == 0)
+            return interlink.recordFloatSigned(x, 0);
+
+        // TODO: Non-looping impl
+        double mantissa = x;
+        int exponent = 0;
+        while (mantissa > 1) {
+            mantissa /= 2;
+            exponent += 1;
+        }
+        while (mantissa < 0.5) {
+            mantissa *= 2;
+            exponent -= 1;
+        }
+        return interlink.recordFloatSigned(mantissa, exponent); 
+    }
+          
     public double ll_math_ldexp(double v, int w) {
         return check(v * Math.pow(2.0, w));
     }
@@ -996,8 +1033,8 @@ public class PyPy implements Constants {
         return Math.exp(x);
     }
 
-    public double ll_math_log(double x, double base) {
-        return Math.log10(x) / Math.log10(base);
+    public double ll_math_log(double x) {
+        return Math.log(x);
     }
 
     public double ll_math_log10(double v) {

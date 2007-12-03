@@ -357,6 +357,29 @@ public class ll_os implements Constants {
         return text.length();
     }
 
+    public void ll_os_mkdir(String path, int mode) {
+        File f = new File(path);
+        if (f.exists())
+            throwOSError(PyPy.EEXIST, "File exists: '"+path+"'");
+        if (!f.mkdir())
+            throwOSError(PyPy.EPERM, "Operation not permitted: '"+path+"'");
+    }
+
+    public void ll_os_unlink(String path) {
+        if (STRACE) strace("ll_os_unlink: "+path);
+
+        File f = new File(path);
+
+        if (!f.exists())
+            throwOSError(PyPy.ENOENT, "No such file or directory: '"+path+"'");
+
+        if (f.isDirectory())
+            throwOSError(PyPy.EPERM, "Operation not permitted: '"+path+"'");
+
+        if (!f.delete())
+            throwOSError(PyPy.EPERM, "Operation not permitted: '"+path+"'");
+    }
+
     public boolean ll_os_isatty(int x)
     {
         // XXX: this is not the right behaviour, but it's needed

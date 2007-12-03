@@ -14,12 +14,6 @@ class TestJavaBuiltin(JvmTest, BaseTestBuiltin):
         skip_win()
         BaseTestBuiltin.test_os_write_magic(self)
 
-    def test_builtin_math_frexp(self):
-        py.test.skip("metavm.py needs to be updated to handle this math op; graphless extrernal")
-        
-    def test_builtin_math_modf(self):
-        py.test.skip("metavm.py needs to be updated to handle this math op; graphless extrernal")
-
     def test_os_path_exists(self):
         py.test.skip("fails in annotation stage, unrelated to JVM I think")
         
