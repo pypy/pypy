@@ -282,6 +282,7 @@ class OpWriter(object):
                                  opr.argrefs[0], "0")
     uint_is_true = int_is_true
     llong_is_true = int_is_true
+    ullong_is_true = int_is_true
 
     def float_is_true(self, opr):
         self.codewriter.binaryop("fcmp une", opr.retref, opr.argtypes[0],
