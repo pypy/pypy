@@ -864,6 +864,7 @@ class ItemIterator(object):
             self._advance_to(start)
     
     def _advance_to(self, index):
+        # XXX this is O(index), should be O(log(index))
         assert index > 0
         assert self.index == 0
         while 1:
