@@ -38,3 +38,11 @@ def test_find_pattern1():
     while i < N:
         i += 1
         u2.find(u"b")
+
+u3 = u"baaaaaaaaaaaaaaa" * 1000
+def test_bad_case_python2_5():
+    p = u"a" * 16 + u"b" + u"a" * 16
+    i = 0
+    while i < 10000:
+        i += 1
+        u3.find(p)
