@@ -146,3 +146,7 @@ def test_empty_string():
         f = getattr(binascii, n)
         f('')
     binascii.crc_hqx('', 0)
+
+def test_incorrect_padding():
+    import binascii
+    raises(binascii.Error, "'x'.decode('base64')")
