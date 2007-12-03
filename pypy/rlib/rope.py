@@ -167,8 +167,6 @@ class LiteralStringNode(LiteralNode):
         if what >= 256:
             return -1
         result = self.s.find(chr(what), start, stop)
-        if result == -1:
-            return -1
         return result
 
     def literal_concat(self, other):
@@ -244,8 +242,6 @@ class LiteralUnicodeNode(LiteralNode):
 
     def find_int(self, what, start, stop):
         result = self.u.find(unichr(what), start, stop)
-        if result == -1:
-            return -1
         return result
 
     def literal_concat(self, other):
