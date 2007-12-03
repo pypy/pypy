@@ -317,16 +317,21 @@ def make_formatter_subclass(do_unicode):
         def std_wp(self, r):
             length = len(r)
             prec = self.prec
+            if prec == -1 and self.width == 0:
+                # fast path
+                self.result.append(const(r))
+                return
             if prec >= 0 and prec < length:
                 length = prec   # ignore the end of the string if too long
             result = self.result
             padding = self.width - length
-            if not self.f_ljust:
+            if not self.f_ljust and padding > 0:
                 result.append(const(' ' * padding))
                 # add any padding at the left of 'r'
                 padding = 0
             result.append(const(r[:length]))       # add 'r' itself
-            result.append(const(' ' * padding))
+            if padding > 0:
+                result.append(const(' ' * padding))
             # add any remaining padding at the right
         std_wp._annspecialcase_ = 'specialize:argtype(1)'
 
