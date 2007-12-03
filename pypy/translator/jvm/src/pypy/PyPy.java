@@ -1007,9 +1007,9 @@ public class PyPy implements Constants {
             return interlink.recordFloatSigned(x, 0);
 
         // TODO: Non-looping impl
-        double mantissa = x;
+        double mantissa = Math.abs(x);
         int exponent = 0;
-        while (mantissa > 1) {
+        while (mantissa >= 1.0) {
             mantissa /= 2;
             exponent += 1;
         }
@@ -1017,6 +1017,7 @@ public class PyPy implements Constants {
             mantissa *= 2;
             exponent -= 1;
         }
+        mantissa = (x < 0 ? -mantissa : mantissa);
         return interlink.recordFloatSigned(mantissa, exponent); 
     }
           

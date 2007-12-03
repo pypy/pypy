@@ -148,7 +148,6 @@ class BaseTestBuiltin(BaseTestRbuiltin):
                 assert act_res.item0 == exp_res[0]
                 assert act_res.item1 == exp_res[1]
 
-
 class BaseTestTime(llBaseTestTime):
 
     def test_time_clock(self):
