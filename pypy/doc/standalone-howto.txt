@@ -9,6 +9,8 @@ that if you write a larger RPython program, the best and most flexible
 way to compile it is not as described below, but by writing a target
 file as described in the `FAQ entries`_.)
 
+**Warning:** the bits of this howto that describe rctypes are outdated
+
 ========================================
 
 First, see the note above.
@@ -99,7 +101,7 @@ As another example::
 Now we can sum with different kinds of lists, eg.
 ``sum([1,2,3])`` and ``sum([1.0,2.0,3.0])``.
 
-Here is an example of using rctypes_::
+Here is an example of using rctypes::
 
     import ctypes
     from ctypes import c_int, c_char_p
