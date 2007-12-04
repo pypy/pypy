@@ -10,7 +10,6 @@ from pypy.rpython.lltypesystem.lltype import typeOf
 optimize_tests = False
 native_llvm_backend = True
 MINIMUM_LLVM_VERSION = 2.0
-FLOAT_PRECISION = 8
 
 # prevents resource leaking
 use_isolate = True
@@ -219,10 +218,8 @@ class LLVMTest(BaseRtypingTest, LLRtypeMixin):
             return True
         else:
             assert False, 'function did raise no exception at all'
-
-    def float_eq(self, x, y):
-        diff = abs(x-y)
-        return diff/x < 10**-FLOAT_PRECISION
+ 
+    float_eq = BaseRtypingTest.float_eq_approx
 
     def is_of_type(self, x, type_):
         return True # we can't really test the type

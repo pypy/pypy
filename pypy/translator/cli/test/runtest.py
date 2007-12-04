@@ -23,7 +23,6 @@ from pypy.translator.cli.sdk import SDK
 from pypy.translator.cli.entrypoint import BaseEntryPoint
 from pypy.translator.oosupport.support import patch_os, unpatch_os
 
-FLOAT_PRECISION = 8
 
 def format_object(TYPE, cts, ilasm):
     if TYPE is ootype.Void:
@@ -292,9 +291,7 @@ class CliTest(BaseRtypingTest, OORtypeMixin):
         else:
             assert False, 'function did raise no exception at all'
 
-    def float_eq(self, x, y):
-        diff = abs(x-y)
-        return diff/x < 10**-FLOAT_PRECISION
+    float_eq = BaseRtypingTest.float_eq_approx
 
     def is_of_type(self, x, type_):
         return True # we can't really test the type
