@@ -27,13 +27,4 @@ interpreter
  - review the things implemented at applevel whether they are performance-
    critical
 
- - rewrite the following rctypes modules using rffi:
-
-  - _ssl
-
- - move the following from using old-style C-api
-
-  - signal module
-  - strtod (RPyton level)
-
  - review CPython regression test suite, enable running tests, fix bugs
