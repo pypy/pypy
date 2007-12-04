@@ -8,6 +8,9 @@ import java.util.Set;
 import java.util.Iterator;
 import java.util.Arrays;
 
+import com.sun.jna.Library;
+import com.sun.jna.Native;
+
 abstract class FileWrapper
 {
     public abstract void write(String buffer);
@@ -159,6 +162,25 @@ class RandomAccessFileWrapper extends FileWrapper
 
 
 public class ll_os implements Constants {
+
+    /** 
+     * JNA Interface: allows access to functions we don't normally
+     * have in the Java standard lib
+     */
+    static public interface Libc extends Library {
+        public int getpid();
+        public int symlink(String path1, String path2);
+    }
+    static final Libc libc;
+    static {
+        Libc res;
+        try {
+            res = (Libc) Native.loadLibrary("c", Libc.class);
+        } catch (Throwable t) {
+            res = null;
+        }
+        libc = res;
+    }
 
     // NB: these values are those used by Windows and they differs
     // from the Unix ones; the os module is patched with these
@@ -365,19 +387,24 @@ public class ll_os implements Constants {
             throwOSError(PyPy.EPERM, "Operation not permitted: '"+path+"'");
     }
 
-    public void ll_os_unlink(String path) {
-        if (STRACE) strace("ll_os_unlink: "+path);
-
+    public void delete(String path, boolean should_be_dir) {
         File f = new File(path);
-
         if (!f.exists())
             throwOSError(PyPy.ENOENT, "No such file or directory: '"+path+"'");
-
-        if (f.isDirectory())
+        if (f.isDirectory() != should_be_dir)
             throwOSError(PyPy.EPERM, "Operation not permitted: '"+path+"'");
-
         if (!f.delete())
             throwOSError(PyPy.EPERM, "Operation not permitted: '"+path+"'");
+    }
+
+    public void ll_os_rmdir(String path) {
+        if (STRACE) strace("ll_os_rmdir: "+path);
+        delete(path, true);
+    }
+
+    public void ll_os_unlink(String path) {
+        if (STRACE) strace("ll_os_unlink: "+path);
+        delete(path, false);
     }
 
     public boolean ll_os_isatty(int x)
@@ -463,5 +490,24 @@ public class ll_os implements Constants {
 
         throwOSError(PyPy.ENOENT, "No such file or directory: '"+path+"'");
         return null; // never reached
+    }
+
+    public void checkLibc() {
+        if (libc == null)
+            throwOSError(EPERM, "jna.jar required");
+    }
+
+    public int ll_os_getpid() 
+    {
+        checkLibc();
+        return libc.getpid();
+    }
+
+    public void ll_os_symlink(String path1, String path2) 
+    {
+        checkLibc();
+        int res = libc.symlink(path1, path2);
+        if (res != 0)
+            throwOSError(res, "");
     }
 }
