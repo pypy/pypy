@@ -20,10 +20,6 @@ translation toolchain
    https://codespeak.net/issue/pypy-dev/issue303 and the fact that
    we can have more than one translator/annotator around (with the
    timeshifter)
- - unicode strings in RPython
- - finish rctypes removal
- - think about approaches to id, especially concerning boehm, where the id will
-   keep the object alive and concerning a moving GC
 
 interpreter
 -----------
