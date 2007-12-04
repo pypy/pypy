@@ -683,24 +683,36 @@ def find_int(node, what, start=0, stop=-1):
     length = node.length()
     if stop == -1:
         stop = length
+    if start != 0 or stop != length:
+        newstart, newstop, node = find_straddling(node, start, stop)
+        offset = start - newstart
+        start = newstart
+        stop = newstop
     assert 0 <= start <= stop
     if isinstance(node, LiteralNode):
         pos = node.find_int(what, start, stop)
         if pos == -1:
             return pos
         return pos + offset
-    iter = FringeIterator(node)
-    newstart = iter._seekforward(start)
-    offset += start - newstart
-    start = newstart
+    if not node.can_contain_int(what):
+        return -1
+    # invariant: stack should only contain nodes that can contain the int what
+    stack = [node]
     #import pdb; pdb.set_trace()
     i = 0
-    while i < stop:
-        try:
-            fringenode = iter.next()
-        except StopIteration:
-            return -1
-        nodelength = fringenode.length()
+    while stack:
+        curr = stack.pop()
+        while isinstance(curr, BinaryConcatNode):
+            if curr.left.can_contain_int(what):
+                if curr.right.can_contain_int(what):
+                    stack.append(curr.right)
+                curr = curr.left
+            else:
+                i += curr.left.length()
+                # if left cannot contain what, then right must contain it
+                curr = curr.right
+        nodelength = curr.length()
+        fringenode = curr
         if i + nodelength <= start:
             i += nodelength
             continue
