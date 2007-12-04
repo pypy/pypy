@@ -432,6 +432,20 @@ def test_find():
     pos = find(node, LiteralStringNode("btf"), 0, 3)
     assert pos == 0
 
+def test_find_random():
+    py.test.skip("fix me!")
+    rope, st = make_random_string(unicode=True)
+    rope = getslice_one(rope, 10, 10000)
+    st = st[10:10000]
+    for i in range(1000):
+        searchlength = random.randrange(2, min(len(st) - 1, 1001))
+        start = random.randrange(len(st) - searchlength)
+        searchstart = random.randrange(len(st))
+        searchstop = random.randrange(searchstart, len(st))
+        p = st[start:start+searchlength]
+        rp = getslice_one(rope, start, start + searchlength)
+        pos = find(rope, rp, searchstart, searchstop)
+        assert pos == st.find(p, searchstart, searchstop)
 
 def test_find_unicode():
     node = BinaryConcatNode(LiteralUnicodeNode(u"\uaaaa\ubbbb\uaaaa"),
