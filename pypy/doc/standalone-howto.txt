@@ -9,8 +9,6 @@ that if you write a larger RPython program, the best and most flexible
 way to compile it is not as described below, but by writing a target
 file as described in the `FAQ entries`_.)
 
-**Warning:** the bits of this howto that describe rctypes are outdated
-
 ========================================
 
 First, see the note above.
@@ -101,33 +99,9 @@ As another example::
 Now we can sum with different kinds of lists, eg.
 ``sum([1,2,3])`` and ``sum([1.0,2.0,3.0])``.
 
-Here is an example of using rctypes::
-
-    import ctypes
-    from ctypes import c_int, c_char_p
-    import pypy.rpython.rctypes.implementation
-    
-    libc = ctypes.cdll.LoadLibrary('libc.so.6')
-    
-    write = libc.write
-    write.argtypes = [c_int, c_char_p, c_int]
-    write.restype = c_int
-    
-    def main(argv):
-    
-        msg = "Hello world!\n"
-        write(1, msg, len(msg))
-    
-        return 0
-
-PyPy implements the `ctypes semantics`_ as the corresponding native c-code
-equivalents.
-
     
 .. _`FAQ Entries`: faq.html#pypy-translation-tool-chain
 .. _`RPython`: coding-guide.html#restricted-python
 .. _`Annotator`: dynamic-language-translation.html#annotator
 .. _`RTyper`: dynamic-language-translation.html#rtyper
-.. _`rctypes`: rctypes.html
-.. _`ctypes semantics`: http://docs.python.org/dev/lib/module-ctypes.html
 
