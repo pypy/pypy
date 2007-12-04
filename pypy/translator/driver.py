@@ -664,7 +664,7 @@ class TranslationDriver(SimpleTaskEngine):
         f = file(newexename, 'w')
         f.write("""#!/bin/bash
 LEDIT=`type -p ledit`
-if [ `uname -o` = 'Cygwin' ]; then MONO=; else MONO=mono; fi
+if [ `uname -s` = 'Cygwin' ]; then MONO=; else MONO=mono; fi
 $LEDIT $MONO "$(dirname $0)/$(basename $0)-data/%s" "$@" # XXX doesn't work if it's placed in PATH
 """ % main_exe_name)
         f.close()
