@@ -53,6 +53,7 @@ def masked_power(a, b):
 
 class StringNode(object):
     hash_cache = 0
+    charbitmask = 0
     def length(self):
         raise NotImplementedError("base class")
 
@@ -86,6 +87,9 @@ class StringNode(object):
     def getslice(self, start, stop):
         raise NotImplementedError("abstract base class")
 
+    def can_contain_int(self, value):
+        return True #conservative default
+
     def view(self):
         view([self])
 
@@ -115,9 +119,13 @@ class LiteralStringNode(LiteralNode):
         assert isinstance(s, str)
         self.s = s
         is_ascii = True
+        charbitmask = 0
         for c in s:
-            if ord(c) >= 128:
+            ordc = ord(c)
+            if ordc >= 128:
                 is_ascii = False
+            charbitmask |= 1 << (ordc & 0x1F)
+        self.charbitmask = charbitmask
         self._is_ascii = is_ascii
     
     def length(self):
@@ -158,16 +166,22 @@ class LiteralStringNode(LiteralNode):
     def getrope(self, index):
         return LiteralStringNode.PREBUILT[ord(self.s[index])]
 
+    def can_contain_int(self, value):
+        if value > 255:
+            return False
+        if self.is_ascii() and value > 127:
+            return False
+        return (1 << (value & 0x1f)) & self.charbitmask
+
     def getslice(self, start, stop):
         assert 0 <= start <= stop
         return LiteralStringNode(self.s[start:stop])
 
 
     def find_int(self, what, start, stop):
-        if what >= 256:
+        if not self.can_contain_int(what):
             return -1
-        result = self.s.find(chr(what), start, stop)
-        return result
+        return self.s.find(chr(what), start, stop)
 
     def literal_concat(self, other):
         if (isinstance(other, LiteralStringNode) and
@@ -198,6 +212,13 @@ class LiteralUnicodeNode(LiteralNode):
     def __init__(self, u):
         assert isinstance(u, unicode)
         self.u = u
+        charbitmask = 0
+        for c in u:
+            ordc = ord(c)
+            if ordc >= 128:
+                charbitmask |= 1 # be compatible with LiteralStringNode
+            charbitmask |= 1 << (ordc & 0x1F)
+        self.charbitmask = charbitmask
     
     def length(self):
         return len(self.u)
@@ -236,13 +257,17 @@ class LiteralUnicodeNode(LiteralNode):
             return self
         return LiteralUnicodeNode(unichr(ch))
 
+    def can_contain_int(self, value):
+        return (1 << (value & 0x1f)) & self.charbitmask
+
     def getslice(self, start, stop):
         assert 0 <= start <= stop
         return LiteralUnicodeNode(self.u[start:stop])
 
     def find_int(self, what, start, stop):
-        result = self.u.find(unichr(what), start, stop)
-        return result
+        if not self.can_contain_int(what):
+            return -1
+        return self.u.find(unichr(what), start, stop)
 
     def literal_concat(self, other):
         if (isinstance(other, LiteralUnicodeNode) and
@@ -278,6 +303,7 @@ class BinaryConcatNode(StringNode):
         self.balanced = False
         self._is_ascii = left.is_ascii() and right.is_ascii()
         self._is_bytestring = left.is_bytestring() and right.is_bytestring()
+        self.charbitmask = left.charbitmask | right.charbitmask
 
     def is_ascii(self):
         return self._is_ascii
@@ -334,6 +360,13 @@ class BinaryConcatNode(StringNode):
             return self.right.getrope(index - llen)
         else:
             return self.left.getrope(index)
+
+    def can_contain_int(self, value):
+        if self.is_bytestring() and value > 255:
+            return False
+        if self.is_ascii() and value > 127:
+            return False
+        return (1 << (value & 0x1f)) & self.charbitmask
 
     def flatten_string(self):
         f = fringe(self)
@@ -650,11 +683,6 @@ def find_int(node, what, start=0, stop=-1):
     length = node.length()
     if stop == -1:
         stop = length
-    if start != 0 or stop != length:
-        newstart, newstop, node = find_straddling(node, start, stop)
-        offset = start - newstart
-        start = newstart
-        stop = newstop
     assert 0 <= start <= stop
     if isinstance(node, LiteralNode):
         pos = node.find_int(what, start, stop)
@@ -662,6 +690,9 @@ def find_int(node, what, start=0, stop=-1):
             return pos
         return pos + offset
     iter = FringeIterator(node)
+    newstart = iter._seekforward(start)
+    offset += start - newstart
+    start = newstart
     #import pdb; pdb.set_trace()
     i = 0
     while i < stop:
@@ -675,6 +706,8 @@ def find_int(node, what, start=0, stop=-1):
             continue
         searchstart = max(0, start - i)
         searchstop = min(stop - i, nodelength)
+        if searchstop <= 0:
+            return -1
         assert isinstance(fringenode, LiteralNode)
         pos = fringenode.find_int(what, searchstart, searchstop)
         if pos != -1:
@@ -809,6 +842,29 @@ class FringeIterator(object):
                     return curr
         raise StopIteration
 
+    def _seekforward(self, length):
+        """seek forward up to n characters, returning the number remaining chars.
+        experimental api"""
+        curr = None
+        while self.stack:
+            curr = self.stack.pop()
+            if length < curr.length():
+                break
+            length -= curr.length()
+        else:
+            raise StopIteration
+        while isinstance(curr, BinaryConcatNode):
+            left_length = curr.left.length()
+            if length < left_length:
+                self.stack.append(curr.right)
+                curr = curr.left
+            else:
+                length -= left_length
+                curr = curr.right
+        self.stack.append(curr)
+        return length
+
+
 def fringe(node):
     result = []
     iter = FringeIterator(node)
@@ -834,25 +890,6 @@ class ReverseFringeIterator(object):
                     return curr
         raise StopIteration
 
-class SeekableFringeIterator(FringeIterator):
-    def __init__(self, node):
-        FringeIterator.__init__(self, node)
-        self.fringestack = []
-        self.fringe = []
-
-    def next(self):
-        if self.fringestack:
-            result = self.fringestack.pop()
-        else:
-            result = FringeIterator.next(self)
-        self.fringe.append(result)
-        return result
-
-    def seekback(self):
-        result = self.fringe.pop()
-        self.fringestack.append(result)
-        return result
-
 
 class ItemIterator(object):
     def __init__(self, node, start=0):
@@ -864,19 +901,9 @@ class ItemIterator(object):
             self._advance_to(start)
     
     def _advance_to(self, index):
-        # XXX this is O(index), should be O(log(index))
-        assert index > 0
-        assert self.index == 0
-        while 1:
-            node = self.iter.next()
-            length = node.length()
-            if index < length:
-                self.index = index
-                self.node = node
-                self.nodelength = length
-                break
-            index -= length
-            assert index >= 0
+        self.index = self.iter._seekforward(index)
+        self.node = self.iter.next()
+        self.nodelength = self.node.length()
 
     def getnode(self):
         node = self.node

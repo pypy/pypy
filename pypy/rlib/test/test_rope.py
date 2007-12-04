@@ -350,36 +350,26 @@ def test_fringe_iterator():
     n = iter.next()
     assert n is GHI
     py.test.raises(StopIteration, iter.next)
+    iter = FringeIterator(rope)
 
-def test_seekable_fringe_iterator():
+def test_fringe_iterator_seekforward():
     ABC = LiteralStringNode("abc")
     DEF = LiteralStringNode("def")
     GHI = LiteralStringNode("ghi")
     rope = BinaryConcatNode(BinaryConcatNode(ABC, DEF), GHI)
-    iter = SeekableFringeIterator(rope)
+    iter = FringeIterator(rope)
     n = iter.next()
     assert n is ABC
-    n = iter.seekback()
-    assert n is ABC
-    n = iter.next()
-    assert n is ABC
-    n = iter.next()
-    assert n is DEF
-    n = iter.next()
-    assert n is GHI
-    n = iter.seekback()
-    assert n is GHI
-    n = iter.seekback()
-    assert n is DEF
-    n = iter.seekback()
-    assert n is ABC
-    n = iter.next()
-    assert n is ABC
-    n = iter.next()
-    assert n is DEF
+    i = iter._seekforward(5)
+    assert i == 2
     n = iter.next()
     assert n is GHI
     py.test.raises(StopIteration, iter.next)
+    iter = FringeIterator(rope)
+    i = iter._seekforward(7)
+    assert i == 1
+    n = iter.next()
+    assert n is GHI
 
 
 def test_seekforward():
