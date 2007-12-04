@@ -1,6 +1,7 @@
 import os
 from py.path import local
 
+import pypy
 from pypy.tool.udir import udir
 from pypy.translator.c.test.test_genc import compile
 
@@ -68,7 +69,11 @@ execve_tests = str(local(__file__).dirpath().join('execve_tests.py'))
 def test_execve():
     if os.name != 'posix':
         py.test.skip('posix specific function')
-    base = sys.executable + " " + execve_tests + " "
+    base = " ".join([
+        sys.executable,
+       execve_tests,
+       str(local(pypy.__file__).join('..', '..')),
+       ''])
 
     # Test exit status and code
     result = os.system(base + "execve_true")

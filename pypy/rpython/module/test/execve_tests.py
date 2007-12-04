@@ -6,6 +6,7 @@ here to be run as a child process of the test process.
 """
 
 import os, sys
+sys.path.append(sys.argv[1])
 
 from pypy.rpython.module.test.test_ll_os import EXECVE_ENV, getllimpl
 
@@ -22,4 +23,4 @@ def execve_env():
     execve("/usr/bin/env", ["/usr/bin/env"], EXECVE_ENV)
 
 if __name__ == '__main__':
-    globals()[sys.argv[1]]()
+    globals()[sys.argv[2]]()
