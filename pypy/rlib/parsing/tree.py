@@ -88,17 +88,19 @@ def make_dispatch_function(__general_nonterminal_visit=None,
                            **dispatch_table):
     def dispatch(self, node):
         if isinstance(node, Nonterminal):
-            if node.symbol not in dispatch_table:
+            func = dispatch_table.get(node.symbol, None)
+            if func is None:
                 if __general_nonterminal_visit:
                     return __general_nonterminal_visit(self, node)
             else:
-                return dispatch_table[node.symbol](self, node)
+                return func(self, node)
         elif isinstance(node, Symbol):
-            if node.symbol not in dispatch_table:
+            func = dispatch_table.get(node.symbol, None)
+            if func is None:
                 if __general_symbol_visit:
                     return __general_symbol_visit(self, node)
             else:
-                return dispatch_table[node.symbol](self, node)
+                return func(self, node)
         if __general_visit:
             return __general_visit(self, node)
         raise VisitError(node)
