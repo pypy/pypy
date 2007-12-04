@@ -1,5 +1,5 @@
 from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rlib.objectmodel import debug_assert
+from pypy.rlib.debug import ll_assert
 
 class GCBase(object):
     _alloc_flavor_ = "raw"
@@ -156,7 +156,7 @@ class MovingGCBase(GCBase):
                 # double-check that the answer we got is correct
                 lst = self.wr_to_objects_with_id
                 target = llmemory.weakref_deref(llmemory.GCREF, lst[i])
-                debug_assert(target == ptr, "bogus object_id_dict")
+                ll_assert(target == ptr, "bogus object_id_dict")
                 return i + 1     # found via the dict
         # Walk the tail of the list, where entries are not also in the dict
         lst = self.wr_to_objects_with_id
@@ -167,7 +167,7 @@ class MovingGCBase(GCBase):
             if not target:
                 freeentry = i
             else:
-                debug_assert(self.get_type_id(llmemory.cast_ptr_to_adr(target))
+                ll_assert(self.get_type_id(llmemory.cast_ptr_to_adr(target))
                              > 0, "bogus weakref in compute_id()")
                 # record this entry in the dict
                 adr = llmemory.cast_ptr_to_adr(target)
@@ -179,7 +179,7 @@ class MovingGCBase(GCBase):
             # not found
             wr = llmemory.weakref_create(ptr)
             if freeentry < 0:
-                debug_assert(end == len(lst), "unexpected lst growth in gc_id")
+                ll_assert(end == len(lst), "unexpected lst growth in gc_id")
                 i = end
                 lst.append(wr)
             else:

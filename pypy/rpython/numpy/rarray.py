@@ -5,7 +5,7 @@ from pypy.rpython.numpy.aarray import SomeArray
 from pypy.tool.pairtype import pairtype, pair
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.annotation import listdef
-from pypy.rlib.objectmodel import debug_assert
+from pypy.rlib.debug import ll_assert
 from pypy.rpython.annlowlevel import ADTInterface
 from pypy.rpython.memory.lltypelayout import sizeof
 from pypy.rpython.rmodel import Repr, FloatRepr, inputconst
@@ -136,8 +136,8 @@ def gen_iter_funcs(ndim):
         # Suffix of ao.shape must match target_ao.shape
         # (suffix starts at the first non-1 entry in ao.shape.)
         # ao.shape must be no longer than target_ao.shape.
-        debug_assert(ao.ndim <= ndim, "ao.ndim <= ndim")
-        debug_assert(target_ao.ndim == ndim, "target_ao.ndim == ndim")
+        ll_assert(ao.ndim <= ndim, "ao.ndim <= ndim")
+        ll_assert(target_ao.ndim == ndim, "target_ao.ndim == ndim")
         # XX check suffix condition here... ?
         broadcast = ao.ndim < ndim
         i = 0
@@ -147,7 +147,7 @@ def gen_iter_funcs(ndim):
             i += 1
         if broadcast:
             return iter_broadcast_to_shape(ITER, ao, target_ao)
-        debug_assert(ao.ndim == ndim, "ao.ndim == ndim")
+        ll_assert(ao.ndim == ndim, "ao.ndim == ndim")
         it = malloc(ITER)
         it.nd_m1 = ndim - 1
         it.size = ll_mul_list(ao.shape, ndim)
@@ -165,7 +165,7 @@ def gen_iter_funcs(ndim):
 
     def ll_iter_broadcast_to_shape(ITER, ao, target_ao):
         "iterate over <ao> but broadcast to the shape of <target_ao>"
-        debug_assert(target_ao.ndim == ndim, "target_ao.ndim == ndim")
+        ll_assert(target_ao.ndim == ndim, "target_ao.ndim == ndim")
         delta = j = ndim - ao.ndim
         shape = target_ao.shape
         for i in range(ao.ndim):
@@ -198,7 +198,7 @@ def gen_iter_funcs(ndim):
 def ll_array_set(ITEM, it0, it1):
     if it0.size == 0:
         return # empty LHS..
-    debug_assert(it0.size == it1.size, "it0.size == it1.size")
+    ll_assert(it0.size == it1.size, "it0.size == it1.size")
     while it0.index < it0.size:
         it0.dataptr[0] = cast_primitive(ITEM, it1.dataptr[0])
         it0.ll_next()
@@ -365,8 +365,8 @@ class __extend__(SomeArray):
 #______________________________________________________________________________
 
 def ll_array_binop(it0, it1, it2, binop):
-    debug_assert(it0.size == it1.size, "it0.size == it1.size")
-    debug_assert(it1.size == it2.size, "it0.size == it1.size")
+    ll_assert(it0.size == it1.size, "it0.size == it1.size")
+    ll_assert(it1.size == it2.size, "it0.size == it1.size")
     while it0.index < it0.size:
         # We don't need a cast here, because it0.dataptr[0] is always
         # big enough to contain the result.
@@ -423,7 +423,7 @@ for tp in (pairtype(ArrayRepr, ArrayRepr),
 #______________________________________________________________________________
 
 def ll_array_inplace_binop(ITEM, it0, it1, binop):
-    debug_assert(it0.size == it1.size, "it0.size == it1.size")
+    ll_assert(it0.size == it1.size, "it0.size == it1.size")
     while it0.index < it0.size:
         it0.dataptr[0] = cast_primitive(ITEM, binop(it0.dataptr[0], it1.dataptr[0]))
         it0.ll_next()
@@ -538,7 +538,7 @@ def gen_get_view(r_array, r_tuple, hop): # XX method on the pair type ?
             array.strides[tgt_i] = ao.strides[src_i]
             tgt_i += 1
             src_i += 1
-        debug_assert(tgt_i == ndim, "tgt_i == ndim")
+        ll_assert(tgt_i == ndim, "tgt_i == ndim")
         array.dataptr = dataptr
         array.data = ao.data # keep a ref
         return array

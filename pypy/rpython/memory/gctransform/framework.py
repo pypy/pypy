@@ -7,7 +7,7 @@ from pypy.rpython.memory import gctypelayout
 from pypy.rpython.memory.gc import marksweep
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rlib.rarithmetic import ovfcheck
-from pypy.rlib.objectmodel import debug_assert
+from pypy.rlib.debug import ll_assert
 from pypy.translator.backendopt import graphanalyze
 from pypy.translator.backendopt.support import var_needsgc
 from pypy.annotation import model as annmodel
@@ -129,39 +129,39 @@ class FrameworkGCTransformer(GCTransformer):
             TYPE_INFO_TABLE = lltype.Array(TYPE_INFO)
 
         def q_is_varsize(typeid):
-            debug_assert(typeid > 0, "invalid type_id")
+            ll_assert(typeid > 0, "invalid type_id")
             return gcdata.type_info_table[typeid].isvarsize
 
         def q_finalizer(typeid):
-            debug_assert(typeid > 0, "invalid type_id")
+            ll_assert(typeid > 0, "invalid type_id")
             return gcdata.type_info_table[typeid].finalizer
 
         def q_offsets_to_gc_pointers(typeid):
-            debug_assert(typeid > 0, "invalid type_id")
+            ll_assert(typeid > 0, "invalid type_id")
             return gcdata.type_info_table[typeid].ofstoptrs
 
         def q_fixed_size(typeid):
-            debug_assert(typeid > 0, "invalid type_id")
+            ll_assert(typeid > 0, "invalid type_id")
             return gcdata.type_info_table[typeid].fixedsize
 
         def q_varsize_item_sizes(typeid):
-            debug_assert(typeid > 0, "invalid type_id")
+            ll_assert(typeid > 0, "invalid type_id")
             return gcdata.type_info_table[typeid].varitemsize
 
         def q_varsize_offset_to_variable_part(typeid):
-            debug_assert(typeid > 0, "invalid type_id")
+            ll_assert(typeid > 0, "invalid type_id")
             return gcdata.type_info_table[typeid].ofstovar
 
         def q_varsize_offset_to_length(typeid):
-            debug_assert(typeid > 0, "invalid type_id")
+            ll_assert(typeid > 0, "invalid type_id")
             return gcdata.type_info_table[typeid].ofstolength
 
         def q_varsize_offsets_to_gcpointers_in_var_part(typeid):
-            debug_assert(typeid > 0, "invalid type_id")
+            ll_assert(typeid > 0, "invalid type_id")
             return gcdata.type_info_table[typeid].varofstoptrs
 
         def q_weakpointer_offset(typeid):
-            debug_assert(typeid > 0, "invalid type_id")
+            ll_assert(typeid > 0, "invalid type_id")
             return gcdata.type_info_table[typeid].weakptrofs
 
         self.layoutbuilder = TransformerLayoutBuilder(self)
@@ -389,7 +389,7 @@ class FrameworkGCTransformer(GCTransformer):
             _alloc_flavor_ = 'raw'
             def setup_root_stack():
                 stackbase = llmemory.raw_malloc(rootstacksize)
-                debug_assert(bool(stackbase), "could not allocate root stack")
+                ll_assert(bool(stackbase), "could not allocate root stack")
                 llmemory.raw_memclear(stackbase, rootstacksize)
                 gcdata.root_stack_top  = stackbase
                 gcdata.root_stack_base = stackbase

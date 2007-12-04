@@ -276,7 +276,7 @@ def round_up_for_allocation(size):
 import os, sys
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.extfunc import register_external
-from pypy.rlib.objectmodel import debug_assert, CDefinedIntSymbolic
+from pypy.rlib.objectmodel import CDefinedIntSymbolic
 
 if os.name == 'posix':
     READ_MAX = (sys.maxint//4) + 1    # upper bound on reads to avoid surprises

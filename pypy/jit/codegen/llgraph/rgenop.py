@@ -1,4 +1,5 @@
-from pypy.rlib.objectmodel import specialize, debug_assert
+from pypy.rlib.objectmodel import specialize
+from pypy.rlib.debug import ll_assert
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.codegen.model import AbstractRGenOp, GenLabel, GenBuilder
 from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
@@ -72,7 +73,7 @@ class LLFlexSwitch(CodeGenSwitch):
         l_case = llimpl.add_case(self.b, gv_case.v)
         b = llimpl.closelinktofreshblock(l_case, self.args_gv, self.l_default)
         builder = LLBuilder(self.rgenop, self.gv_f, b)
-        debug_assert(self.rgenop.currently_writing is None or
+        ll_assert(self.rgenop.currently_writing is None or
                      # special case: we stop replaying and add a case after
                      # a call to flexswitch() on a replay builder
                      self.rgenop.currently_writing.is_default_builder,
@@ -85,7 +86,7 @@ class LLFlexSwitch(CodeGenSwitch):
         self.l_default = l_default
         b = llimpl.closelinktofreshblock(l_default, self.args_gv, None)
         builder = LLBuilder(self.rgenop, self.gv_f, b)
-        debug_assert(self.rgenop.currently_writing is None,
+        ll_assert(self.rgenop.currently_writing is None,
                      "_add_default: currently_writing elsewhere")
         self.rgenop.currently_writing = builder
         builder.is_default_builder = True
@@ -101,19 +102,19 @@ class LLBuilder(GenBuilder):
         self.b = block
 
     def end(self):
-        debug_assert(self.rgenop.currently_writing is None,
+        ll_assert(self.rgenop.currently_writing is None,
                      "end: currently_writing")
         llimpl.end(self.gv_f)
         
     @specialize.arg(1)
     def genop1(self, opname, gv_arg):
-        debug_assert(self.rgenop.currently_writing is self,
+        ll_assert(self.rgenop.currently_writing is self,
                      "genop1: bad currently_writing")
         return LLVar(llimpl.genop(self.b, opname, [gv_arg], llimpl.guess))
 
     @specialize.arg(1)
     def genraisingop1(self, opname, gv_arg):
-        debug_assert(self.rgenop.currently_writing is self,
+        ll_assert(self.rgenop.currently_writing is self,
                      "genraisingop1: bad currently_writing")
         gv_res = LLVar(llimpl.genop(self.b, opname, [gv_arg], llimpl.guess))
         gv_exc = LLVar(llimpl.genop(self.b, "check_and_clear_exc", [],
@@ -122,14 +123,14 @@ class LLBuilder(GenBuilder):
 
     @specialize.arg(1)
     def genop2(self, opname, gv_arg1, gv_arg2):
-        debug_assert(self.rgenop.currently_writing is self,
+        ll_assert(self.rgenop.currently_writing is self,
                      "genop2: bad currently_writing")
         return LLVar(llimpl.genop(self.b, opname, [gv_arg1, gv_arg2],
                                   llimpl.guess))
 
     @specialize.arg(1)
     def genraisingop2(self, opname, gv_arg1, gv_arg2):
-        debug_assert(self.rgenop.currently_writing is self,
+        ll_assert(self.rgenop.currently_writing is self,
                      "genraisingop2: bad currently_writing")
         gv_res = LLVar(llimpl.genop(self.b, opname, [gv_arg1, gv_arg2],
                                     llimpl.guess))
@@ -138,7 +139,7 @@ class LLBuilder(GenBuilder):
         return gv_res, gv_exc
 
     def genop_call(self, (ARGS_gv, gv_RESULT, _), gv_callable, args_gv):
-        debug_assert(self.rgenop.currently_writing is self,
+        ll_assert(self.rgenop.currently_writing is self,
                      "genop_call: bad currently_writing")
         vars_gv = [gv_callable]
         j = 0
@@ -157,7 +158,7 @@ class LLBuilder(GenBuilder):
         return LLVar(v)
 
     def genop_getfield(self, (gv_name, gv_PTRTYPE, gv_FIELDTYPE), gv_ptr):
-        debug_assert(self.rgenop.currently_writing is self,
+        ll_assert(self.rgenop.currently_writing is self,
                      "genop_getfield: bad currently_writing")
         return LLVar(llimpl.gengetfield(self.b, gv_ptr.v,
                                         gv_PTRTYPE.v, gv_name.v))
@@ -167,7 +168,7 @@ class LLBuilder(GenBuilder):
     
     def genop_setfield(self, (gv_name, gv_PTRTYPE, gv_FIELDTYPE), gv_ptr,
                                                                   gv_value):
-        debug_assert(self.rgenop.currently_writing is self,
+        ll_assert(self.rgenop.currently_writing is self,
                      "genop_setfield: bad currently_writing")
         v_value = llimpl.cast(self.b, gv_FIELDTYPE.v, gv_value.v)
         llimpl.gensetfield(self.b, gv_ptr.v, gv_PTRTYPE.v, gv_name.v, v_value)
@@ -178,7 +179,7 @@ class LLBuilder(GenBuilder):
         #                          gv_Void.v))        
     
     def genop_getsubstruct(self, (gv_name, gv_PTRTYPE, gv_FIELDTYPE), gv_ptr):
-        debug_assert(self.rgenop.currently_writing is self,
+        ll_assert(self.rgenop.currently_writing is self,
                      "genop_getsubstruct: bad currently_writing")
         return LLVar(llimpl.gengetsubstruct(self.b, gv_ptr.v,
                                             gv_PTRTYPE.v, gv_name.v))
@@ -187,7 +188,7 @@ class LLBuilder(GenBuilder):
         #                          gv_FIELDTYPE.v))        
 
     def genop_getarrayitem(self, gv_ITEMTYPE, gv_ptr, gv_index):
-        debug_assert(self.rgenop.currently_writing is self,
+        ll_assert(self.rgenop.currently_writing is self,
                      "genop_getarrayitem: bad currently_writing")
         return LLVar(llimpl.gengetarrayitem(self.b, gv_ITEMTYPE.v,
                                             gv_ptr.v, gv_index.v))
@@ -196,7 +197,7 @@ class LLBuilder(GenBuilder):
         #                          gv_ITEMTYPE.v))
 
     def genop_getarraysubstruct(self, gv_ITEMTYPE, gv_ptr, gv_index):
-        debug_assert(self.rgenop.currently_writing is self,
+        ll_assert(self.rgenop.currently_writing is self,
                      "genop_getarraysubstruct: bad currently_writing")
         return LLVar(llimpl.gengetarraysubstruct(self.b, gv_ptr.v, gv_index.v))
         #vars_gv = [gv_ptr.v, gv_index.v]
@@ -204,53 +205,53 @@ class LLBuilder(GenBuilder):
         #                          gv_ITEMTYPE.v))
 
     def genop_setarrayitem(self, gv_ITEMTYPE, gv_ptr, gv_index, gv_value):
-        debug_assert(self.rgenop.currently_writing is self,
+        ll_assert(self.rgenop.currently_writing is self,
                      "genop_setarrayitem: bad currently_writing")
         llimpl.gensetarrayitem(self.b, gv_ptr.v, gv_index.v, gv_value.v)
         #vars_gv = [gv_ptr.v, gv_index.v, gv_value.v]
         #llimpl.genop(self.b, 'setarrayitem', vars_gv, gv_Void.v)
 
     def genop_getarraysize(self, gv_ITEMTYPE, gv_ptr):
-        debug_assert(self.rgenop.currently_writing is self,
+        ll_assert(self.rgenop.currently_writing is self,
                      "genop_getarraysize: bad currently_writing")
         return LLVar(llimpl.gengetarraysize(self.b, gv_ptr.v))
         #return LLVar(llimpl.genop(self.b, 'getarraysize', [gv_ptr.v],
         #                          gv_Signed.v))
 
     def genop_malloc_fixedsize(self, (gv_TYPE, gv_PTRTYPE)):
-        debug_assert(self.rgenop.currently_writing is self,
+        ll_assert(self.rgenop.currently_writing is self,
                      "genop_malloc_fixedsize: bad currently_writing")
         vars_gv = [gv_TYPE.v, gv_flavor_gc.v]
         return LLVar(llimpl.genop(self.b, 'malloc', vars_gv,
                                   gv_PTRTYPE.v))
 
     def genop_malloc_varsize(self, (gv_TYPE, gv_PTRTYPE), gv_length):
-        debug_assert(self.rgenop.currently_writing is self,
+        ll_assert(self.rgenop.currently_writing is self,
                      "genop_malloc_varsize: bad currently_writing")
         vars_gv = [gv_TYPE.v, gv_flavor_gc.v, gv_length.v]
         return LLVar(llimpl.genop(self.b, 'malloc_varsize', vars_gv,
                                   gv_PTRTYPE.v))
 
     def genop_same_as(self, gv_TYPE, gv_value):
-        debug_assert(self.rgenop.currently_writing is self,
+        ll_assert(self.rgenop.currently_writing is self,
                      "genop_same_as: bad currently_writing")
         gv_value = llimpl.cast(self.b, gv_TYPE.v, gv_value.v)
         return LLVar(llimpl.genop(self.b, 'same_as', [gv_value], gv_TYPE.v))
 
     def genop_ptr_iszero(self, gv_PTRTYPE, gv_ptr):
-        debug_assert(self.rgenop.currently_writing is self,
+        ll_assert(self.rgenop.currently_writing is self,
                      "genop_ptr_iszero: bad currently_writing")
         gv_ptr = llimpl.cast(self.b, gv_PTRTYPE.v, gv_ptr.v)
         return LLVar(llimpl.genop(self.b, 'ptr_iszero', [gv_ptr], gv_Bool.v))
 
     def genop_ptr_nonzero(self, gv_PTRTYPE, gv_ptr):
-        debug_assert(self.rgenop.currently_writing is self,
+        ll_assert(self.rgenop.currently_writing is self,
                      "genop_ptr_nonzero: bad currently_writing")
         gv_ptr = llimpl.cast(self.b, gv_PTRTYPE.v, gv_ptr.v)
         return LLVar(llimpl.genop(self.b, 'ptr_nonzero', [gv_ptr], gv_Bool.v))
                                   
     def genop_ptr_eq(self, gv_PTRTYPE, gv_ptr1, gv_ptr2):
-        debug_assert(self.rgenop.currently_writing is self,
+        ll_assert(self.rgenop.currently_writing is self,
                      "genop_ptr_eq: bad currently_writing")
         gv_ptr1 = llimpl.cast(self.b, gv_PTRTYPE.v, gv_ptr1.v)
         gv_ptr2 = llimpl.cast(self.b, gv_PTRTYPE.v, gv_ptr2.v)        
@@ -258,7 +259,7 @@ class LLBuilder(GenBuilder):
                                   gv_Bool.v))
 
     def genop_ptr_ne(self, gv_PTRTYPE, gv_ptr1, gv_ptr2):
-        debug_assert(self.rgenop.currently_writing is self,
+        ll_assert(self.rgenop.currently_writing is self,
                      "genop_ptr_ne: bad currently_writing")
         gv_ptr1 = llimpl.cast(self.b, gv_PTRTYPE.v, gv_ptr1.v)
         gv_ptr2 = llimpl.cast(self.b, gv_PTRTYPE.v, gv_ptr2.v)        
@@ -266,7 +267,7 @@ class LLBuilder(GenBuilder):
                                   gv_Bool.v))
 
     def genop_cast_int_to_ptr(self, gv_PTRTYPE, gv_int):
-        debug_assert(self.rgenop.currently_writing is self,
+        ll_assert(self.rgenop.currently_writing is self,
                      "genop_cast_int_to_ptr: bad currently_writing")
         return LLVar(llimpl.genop(self.b, 'cast_int_to_ptr', [gv_int],
                                   gv_PTRTYPE.v))
@@ -276,7 +277,7 @@ class LLBuilder(GenBuilder):
         return [LLVar(llimpl.geninputarg(newb, kind.v)) for kind in kinds]
 
     def enter_next_block(self, kinds, args_gv):
-        debug_assert(self.rgenop.currently_writing is self,
+        ll_assert(self.rgenop.currently_writing is self,
                      "enter_next_block: bad currently_writing")
         lnk = llimpl.closeblock1(self.b)
         newb_args_gv = self._newblock(kinds) 
@@ -297,7 +298,7 @@ class LLBuilder(GenBuilder):
         self._close()
 
     def _jump(self, l_jump, l_no_jump, args_for_jump_gv):
-        debug_assert(self.rgenop.currently_writing is self,
+        ll_assert(self.rgenop.currently_writing is self,
                      "_jump: bad currently_writing")
         self.b = llimpl.closelinktofreshblock(l_no_jump, None, None)
         b2 = llimpl.closelinktofreshblock(l_jump, args_for_jump_gv, None)
@@ -321,7 +322,7 @@ class LLBuilder(GenBuilder):
         return (flexswitch, flexswitch._add_default())
 
     def _close(self):
-        debug_assert(self.rgenop.currently_writing is self,
+        ll_assert(self.rgenop.currently_writing is self,
                      "_close: bad currently_writing")
         self.rgenop.currently_writing = None
         self.b = llimpl.nullblock
@@ -333,7 +334,7 @@ class LLBuilder(GenBuilder):
         assert self.later_block != llimpl.nullblock
         self.b = self.later_block
         self.later_block = llimpl.nullblock
-        debug_assert(self.rgenop.currently_writing is None,
+        ll_assert(self.rgenop.currently_writing is None,
                      "start_writing: currently_writing")
         self.rgenop.currently_writing = self
 
@@ -352,18 +353,18 @@ class LLBuilder(GenBuilder):
     # read_frame_var support
 
     def genop_get_frame_base(self):
-        debug_assert(self.rgenop.currently_writing is self,
+        ll_assert(self.rgenop.currently_writing is self,
                      "genop_get_frame_base: bad currently_writing")
         return LLVar(llimpl.genop(self.b, 'get_frame_base', [],
                                   gv_Address.v))
 
     def get_frame_info(self, vars):
-        debug_assert(self.rgenop.currently_writing is self,
+        ll_assert(self.rgenop.currently_writing is self,
                      "get_frame_info: bad currently_writing")
         return llimpl.get_frame_info(self.b, vars)
 
     def alloc_frame_place(self, gv_TYPE, gv_initial_value=None):
-        debug_assert(self.rgenop.currently_writing is self,
+        ll_assert(self.rgenop.currently_writing is self,
                      "alloc_frame_place: bad currently_writing")
         if gv_initial_value is None:
             gv_initial_value = self.rgenop.genzeroconst(gv_TYPE)
@@ -373,9 +374,9 @@ class LLBuilder(GenBuilder):
         return LLPlace(v, llimpl.get_frame_info(self.b, [v]))
 
     def genop_absorb_place(self, gv_TYPE, place):
-        debug_assert(self.rgenop.currently_writing is self,
+        ll_assert(self.rgenop.currently_writing is self,
                      "alloc_frame_place: bad currently_writing")
-        debug_assert(not place.absorbed, "place already absorbed")
+        ll_assert(not place.absorbed, "place already absorbed")
         place.absorbed = True
         return place.v
 
@@ -449,7 +450,7 @@ class RGenOp(AbstractRGenOp):
     def replay(self, label, kinds):
         builder = LLBuilder(self, label.g, llimpl.nullblock)
         args_gv = builder._newblock(kinds)
-        debug_assert(self.currently_writing is None,
+        ll_assert(self.currently_writing is None,
                      "replay: currently_writing")
         self.currently_writing = builder
         return builder, args_gv

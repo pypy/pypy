@@ -2,7 +2,7 @@ from weakref import WeakValueDictionary
 from pypy.tool.pairtype import pairtype
 from pypy.rpython.error import TyperError
 from pypy.rlib.objectmodel import malloc_zero_filled, we_are_translated
-from pypy.rlib.objectmodel import debug_assert
+from pypy.rlib.debug import ll_assert
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rlib.rarithmetic import _hash_string
 from pypy.rpython.rmodel import inputconst, IntegerRepr
@@ -30,7 +30,7 @@ UNICODE = GcForwardReference()
 
 def new_malloc(TP):
     def mallocstr(length):
-        debug_assert(length >= 0, "negative string length")
+        ll_assert(length >= 0, "negative string length")
         r = malloc(TP, length)
         if not we_are_translated() or not malloc_zero_filled:
             r.hash = 0
@@ -228,8 +228,8 @@ class LLHelpers(AbstractLLHelpers):
 
     def ll_stritem_nonneg(s, i):
         chars = s.chars
-        debug_assert(i>=0, "negative str getitem index")
-        debug_assert(i<len(chars), "str getitem index out of bound")
+        ll_assert(i>=0, "negative str getitem index")
+        ll_assert(i<len(chars), "str getitem index out of bound")
         return chars[i]
     ll_stritem_nonneg._annenforceargs_ = [None, int]
 

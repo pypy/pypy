@@ -3,7 +3,8 @@ from pypy.rpython.memory.gc.semispace import SemiSpaceGC, GCFLAGSHIFT, \
     GCFLAG_IMMORTAL
 from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena
-from pypy.rlib.objectmodel import free_non_gc_object, debug_assert
+from pypy.rlib.objectmodel import free_non_gc_object
+from pypy.rlib.debug import ll_assert
 from pypy.rpython.lltypesystem.lloperation import llop
 
 # The following flag is never set on young objects, i.e. the ones living
@@ -60,7 +61,7 @@ class GenerationGC(SemiSpaceGC):
                          contains_weakptr=False):
         if (has_finalizer or not can_collect or
             raw_malloc_usage(size) >= self.nursery_size // 2):
-            debug_assert(not contains_weakptr, "wrong case for mallocing weakref")
+            ll_assert(not contains_weakptr, "wrong case for mallocing weakref")
             # "non-simple" case or object too big: don't use the nursery
             return SemiSpaceGC.malloc_fixedsize(self, typeid, size,
                                                 can_collect, has_finalizer,
@@ -174,7 +175,7 @@ class GenerationGC(SemiSpaceGC):
         if self.nursery_size > self.top_of_space - self.free:
             # the semispace is running out, do a full collect
             self.obtain_free_space(self.nursery_size)
-            debug_assert(self.nursery_size <= self.top_of_space - self.free,
+            ll_assert(self.nursery_size <= self.top_of_space - self.free,
                          "obtain_free_space failed to do its job")
         if self.nursery:
             if DEBUG_PRINT:
@@ -303,7 +304,7 @@ class GenerationGC(SemiSpaceGC):
             self.remember_young_pointer(addr_struct, newvalue)
 
     def remember_young_pointer(self, addr_struct, addr):
-        debug_assert(not self.is_in_nursery(addr_struct),
+        ll_assert(not self.is_in_nursery(addr_struct),
                      "nursery object with GCFLAG_NO_YOUNG_PTRS")
         if self.is_in_nursery(addr):
             oldhdr = self.header(addr_struct)

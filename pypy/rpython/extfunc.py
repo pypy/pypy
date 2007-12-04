@@ -182,12 +182,12 @@ class ExtFuncEntry(ExtRegistryEntry):
                 # If we have both an {ll,oo}impl and a {ll,oo}fakeimpl,
                 # we need a wrapper that selects the proper one and calls it
                 from pypy.rlib.objectmodel import running_on_llinterp
-                from pypy.rlib.objectmodel import debug_llinterpcall
+                from pypy.rlib.debug import llinterpcall
                 from pypy.tool.sourcetools import func_with_new_name
                 original_impl = impl
                 def ll_wrapper(*args):
                     if running_on_llinterp:
-                        return debug_llinterpcall(s_result, fakeimpl, *args)
+                        return llinterpcall(s_result, fakeimpl, *args)
                     else:
                         return original_impl(*args)
                 impl = func_with_new_name(ll_wrapper, name + '_wrapper')

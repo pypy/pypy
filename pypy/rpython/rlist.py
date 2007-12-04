@@ -8,7 +8,8 @@ from pypy.rpython.rstr import AbstractStringRepr, AbstractCharRepr
 from pypy.rpython.lltypesystem.lltype import typeOf, Ptr, Void, Signed, Bool
 from pypy.rpython.lltypesystem.lltype import nullptr, Char, UniChar
 from pypy.rpython import robject
-from pypy.rlib.objectmodel import malloc_zero_filled, debug_assert
+from pypy.rlib.objectmodel import malloc_zero_filled
+from pypy.rlib.debug import ll_assert
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.annlowlevel import ADTInterface
 
@@ -582,8 +583,8 @@ ll_concat.oopspec = 'list.concat(l1, l2)'
 
 def ll_insert_nonneg(l, index, newitem):
     length = l.ll_length()
-    debug_assert(0 <= index, "negative list insertion index")
-    debug_assert(index <= length, "list insertion index out of bound")
+    ll_assert(0 <= index, "negative list insertion index")
+    ll_assert(index <= length, "list insertion index out of bound")
     l._ll_resize_ge(length+1)           # see "a note about overflows" above
     dst = length
     while dst > index:
@@ -594,12 +595,12 @@ def ll_insert_nonneg(l, index, newitem):
 ll_insert_nonneg.oopspec = 'list.insert(l, index, newitem)'
 
 def ll_pop_nonneg(func, l, index):
-    debug_assert(index >= 0, "unexpectedly negative list pop index")
+    ll_assert(index >= 0, "unexpectedly negative list pop index")
     if func is dum_checkidx:
         if index >= l.ll_length():
             raise IndexError
     else:
-        debug_assert(index < l.ll_length(), "list pop index out of bound")
+        ll_assert(index < l.ll_length(), "list pop index out of bound")
     res = l.ll_getitem_fast(index)
     ll_delitem_nonneg(dum_nocheck, l, index)
     return res
@@ -609,7 +610,7 @@ def ll_pop_default(func, l):
     length = l.ll_length()
     if func is dum_checkidx and (length == 0):
         raise IndexError
-    debug_assert(length > 0, "pop from empty list")
+    ll_assert(length > 0, "pop from empty list")
     index = length - 1
     newlength = index
     res = l.ll_getitem_fast(index)
@@ -624,7 +625,7 @@ def ll_pop_zero(func, l):
     length = l.ll_length()
     if func is dum_checkidx and (length == 0):
         raise IndexError
-    debug_assert(length > 0, "pop(0) from empty list")
+    ll_assert(length > 0, "pop(0) from empty list")
     newlength = length - 1
     res = l.ll_getitem_fast(0)
     j = 0
@@ -648,8 +649,8 @@ def ll_pop(func, l, index):
         if index < 0 or index >= length:
             raise IndexError
     else:
-        debug_assert(index >= 0, "negative list pop index out of bound")
-        debug_assert(index < length, "list pop index out of bound")
+        ll_assert(index >= 0, "negative list pop index out of bound")
+        ll_assert(index < length, "list pop index out of bound")
     res = l.ll_getitem_fast(index)
     ll_delitem_nonneg(dum_nocheck, l, index)
     return res
@@ -668,12 +669,12 @@ def ll_reverse(l):
 ll_reverse.oopspec = 'list.reverse(l)'
 
 def ll_getitem_nonneg(func, l, index):
-    debug_assert(index >= 0, "unexpectedly negative list getitem index")
+    ll_assert(index >= 0, "unexpectedly negative list getitem index")
     if func is dum_checkidx:
         if index >= l.ll_length():
             raise IndexError
     else:
-        debug_assert(index < l.ll_length(), "list getitem index out of bound")
+        ll_assert(index < l.ll_length(), "list getitem index out of bound")
     return l.ll_getitem_fast(index)
 ll_getitem_nonneg.oopspec = 'list.getitem(l, index)'
 ll_getitem_nonneg.oopargcheck = lambda l, index: (bool(l) and
@@ -687,20 +688,20 @@ def ll_getitem(func, l, index):
         if index < 0 or index >= length:
             raise IndexError
     else:
-        debug_assert(index >= 0, "negative list getitem index out of bound")
-        debug_assert(index < length, "list getitem index out of bound")
+        ll_assert(index >= 0, "negative list getitem index out of bound")
+        ll_assert(index < length, "list getitem index out of bound")
     return l.ll_getitem_fast(index)
 ll_getitem.oopspec = 'list.getitem(l, index)'
 ll_getitem.oopargcheck = lambda l, index: (bool(l) and -l.ll_length() <=
                                                        index < l.ll_length())
 
 def ll_setitem_nonneg(func, l, index, newitem):
-    debug_assert(index >= 0, "unexpectedly negative list setitem index")
+    ll_assert(index >= 0, "unexpectedly negative list setitem index")
     if func is dum_checkidx:
         if index >= l.ll_length():
             raise IndexError
     else:
-        debug_assert(index < l.ll_length(), "list setitem index out of bound")
+        ll_assert(index < l.ll_length(), "list setitem index out of bound")
     l.ll_setitem_fast(index, newitem)
 ll_setitem_nonneg.oopspec = 'list.setitem(l, index, newitem)'
 
@@ -712,19 +713,19 @@ def ll_setitem(func, l, index, newitem):
         if index < 0 or index >= length:
             raise IndexError
     else:
-        debug_assert(index >= 0, "negative list setitem index out of bound")
-        debug_assert(index < length, "list setitem index out of bound")
+        ll_assert(index >= 0, "negative list setitem index out of bound")
+        ll_assert(index < length, "list setitem index out of bound")
     l.ll_setitem_fast(index, newitem)
 ll_setitem.oopspec = 'list.setitem(l, index, newitem)'
 
 def ll_delitem_nonneg(func, l, index):
-    debug_assert(index >= 0, "unexpectedly negative list delitem index")
+    ll_assert(index >= 0, "unexpectedly negative list delitem index")
     length = l.ll_length()
     if func is dum_checkidx:
         if index >= length:
             raise IndexError
     else:
-        debug_assert(index < length, "list delitem index out of bound")
+        ll_assert(index < length, "list delitem index out of bound")
     newlength = length - 1
     j = index
     j1 = j+1
@@ -747,8 +748,8 @@ def ll_delitem(func, l, i):
         if i < 0 or i >= length:
             raise IndexError
     else:
-        debug_assert(i >= 0, "negative list delitem index out of bound")
-        debug_assert(i < length, "list delitem index out of bound")
+        ll_assert(i >= 0, "negative list delitem index out of bound")
+        ll_assert(i < length, "list delitem index out of bound")
     ll_delitem_nonneg(dum_nocheck, l, i)
 ll_delitem.oopspec = 'list.delitem(l, i)'
 
@@ -775,7 +776,7 @@ def ll_extend_with_str_slice_startonly(lst, s, getstrlen, getstritem, start):
     len1 = lst.ll_length()
     len2 = getstrlen(s)
     count2 = len2 - start
-    debug_assert(start >= 0, "unexpectedly negative str slice start")
+    ll_assert(start >= 0, "unexpectedly negative str slice start")
     assert count2 >= 0, "str slice start larger than str length"
     try:
         newlength = ovfcheck(len1 + count2)
@@ -797,8 +798,8 @@ def ll_extend_with_str_slice(lst, s, getstrlen, getstritem, slice):
     stop = slice.stop
     len1 = lst.ll_length()
     len2 = getstrlen(s)
-    debug_assert(start >= 0, "unexpectedly negative str slice start")
-    debug_assert(start <= len2, "str slice start larger than str length")
+    ll_assert(start >= 0, "unexpectedly negative str slice start")
+    ll_assert(start <= len2, "str slice start larger than str length")
     if stop > len2:
         stop = len2
     count2 = stop - start
@@ -855,8 +856,8 @@ def ll_extend_with_char_count(lst, char, count):
 
 def ll_listslice_startonly(RESLIST, l1, start):
     len1 = l1.ll_length()
-    debug_assert(start >= 0, "unexpectedly negative list slice start")
-    debug_assert(start <= len1, "list slice start larger than list length")
+    ll_assert(start >= 0, "unexpectedly negative list slice start")
+    ll_assert(start <= len1, "list slice start larger than list length")
     newlength = len1 - start
     l = RESLIST.ll_newlist(newlength)
     j = 0
@@ -871,9 +872,9 @@ def ll_listslice(RESLIST, l1, slice):
     start = slice.start
     stop = slice.stop
     length = l1.ll_length()
-    debug_assert(start >= 0, "unexpectedly negative list slice start")
-    debug_assert(start <= length, "list slice start larger than list length")
-    debug_assert(stop >= start, "list slice stop smaller than start")
+    ll_assert(start >= 0, "unexpectedly negative list slice start")
+    ll_assert(start <= length, "list slice start larger than list length")
+    ll_assert(stop >= start, "list slice stop smaller than start")
     if stop > length:
         stop = length
     newlength = stop - start
@@ -888,7 +889,7 @@ def ll_listslice(RESLIST, l1, slice):
 
 def ll_listslice_minusone(RESLIST, l1):
     newlength = l1.ll_length() - 1
-    debug_assert(newlength >= 0, "empty list is sliced with [:-1]")
+    ll_assert(newlength >= 0, "empty list is sliced with [:-1]")
     l = RESLIST.ll_newlist(newlength)
     j = 0
     while j < newlength:
@@ -897,8 +898,8 @@ def ll_listslice_minusone(RESLIST, l1):
     return l
 
 def ll_listdelslice_startonly(l, start):
-    debug_assert(start >= 0, "del l[start:] with unexpectedly negative start")
-    debug_assert(start <= l.ll_length(), "del l[start:] with start > len(l)")
+    ll_assert(start >= 0, "del l[start:] with unexpectedly negative start")
+    ll_assert(start <= l.ll_length(), "del l[start:] with start > len(l)")
     newlength = start
     null = ll_null_item(l)
     if null is not None:
@@ -912,9 +913,9 @@ def ll_listdelslice(l, slice):
     start = slice.start
     stop = slice.stop
     length = l.ll_length()
-    debug_assert(start >= 0, "del l[start:x] with unexpectedly negative start")
-    debug_assert(start <= length, "del l[start:x] with start > len(l)")
-    debug_assert(stop >= start, "del l[x:y] with x > y")
+    ll_assert(start >= 0, "del l[start:x] with unexpectedly negative start")
+    ll_assert(start <= length, "del l[start:x] with start > len(l)")
+    ll_assert(stop >= start, "del l[x:y] with x > y")
     if stop > length:
         stop = length
     newlength = length - (stop-start)
@@ -935,9 +936,9 @@ def ll_listdelslice(l, slice):
 def ll_listsetslice(l1, slice, l2):
     count = l2.ll_length()
     start = slice.start
-    debug_assert(start >= 0, "l[start:x] = l with unexpectedly negative start")
-    debug_assert(start <= l1.ll_length(), "l[start:x] = l with start > len(l)")
-    debug_assert(count == slice.stop - start,
+    ll_assert(start >= 0, "l[start:x] = l with unexpectedly negative start")
+    ll_assert(start <= l1.ll_length(), "l[start:x] = l with start > len(l)")
+    ll_assert(count == slice.stop - start,
                  "setslice cannot resize lists in RPython")
     # XXX but it should be easy enough to support, soon
     j = start

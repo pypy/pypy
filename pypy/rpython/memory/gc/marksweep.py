@@ -4,7 +4,7 @@ from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
 from pypy.rpython.memory.support import get_address_linked_list
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rlib.objectmodel import free_non_gc_object, debug_assert
+from pypy.rlib.objectmodel import free_non_gc_object
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.memory.gc.base import GCBase
@@ -102,6 +102,7 @@ class MarkSweepGC(GCBase):
         #llop.debug_print(lltype.Void, 'malloc typeid', typeid,
         #                 '->', llmemory.cast_adr_to_int(result))
         return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
+    malloc_fixedsize.dont_inline = True
 
     def malloc_fixedsize_clear(self, typeid, size, can_collect,
                                has_finalizer=False, contains_weakptr=False):
@@ -135,6 +136,7 @@ class MarkSweepGC(GCBase):
         #llop.debug_print(lltype.Void, 'malloc typeid', typeid,
         #                 '->', llmemory.cast_adr_to_int(result))
         return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
+    malloc_fixedsize_clear.dont_inline = True
 
     def malloc_varsize(self, typeid, length, size, itemsize, offset_to_length,
                        can_collect, has_finalizer=False):
@@ -169,6 +171,7 @@ class MarkSweepGC(GCBase):
         #                 'typeid', typeid,
         #                 '->', llmemory.cast_adr_to_int(result))
         return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
+    malloc_varsize.dont_inline = True
 
     def malloc_varsize_clear(self, typeid, length, size, itemsize,
                              offset_to_length, can_collect,
@@ -205,6 +208,7 @@ class MarkSweepGC(GCBase):
         #                 'typeid', typeid,
         #                 '->', llmemory.cast_adr_to_int(result))
         return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
+    malloc_varsize_clear.dont_inline = True
 
     def collect(self):
         # 1. mark from the roots, and also the objects that objects-with-del

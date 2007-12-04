@@ -16,8 +16,11 @@ from pypy.rpython.lltypesystem.lltype import \
      Bool, nullptr, typeMethod
 from pypy.rpython.lltypesystem import rstr
 from pypy.rpython import robject
-from pypy.rlib.objectmodel import debug_assert
+from pypy.rlib.debug import ll_assert
 from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rpython.lltypesystem.llmemory import cast_ptr_to_adr, raw_memclear,\
+     raw_memcopy, sizeof, itemoffsetof
+from pypy.rpython.lltypesystem import rffi
 
 # ____________________________________________________________
 #
@@ -284,7 +287,7 @@ def _ll_list_resize_really(l, newsize):
     # system malloc().
     # The growth pattern is:  0, 4, 8, 16, 25, 35, 46, 58, 72, 88, ...
     if newsize <= 0:
-        debug_assert(newsize == 0, "negative list length")
+        ll_assert(newsize == 0, "negative list length")
         new_allocated = 0
     else:
         if newsize < 9:
@@ -305,11 +308,11 @@ def _ll_list_resize_really(l, newsize):
     else:
         p = new_allocated - 1
     while p >= 0:
-            newitems[p] = items[p]
-            ITEM = typeOf(l).TO.ITEM
-            if isinstance(ITEM, Ptr):
-                items[p] = nullptr(ITEM.TO)
-            p -= 1
+        newitems[p] = items[p]
+        ITEM = typeOf(l).TO.ITEM
+        if isinstance(ITEM, Ptr):
+            items[p] = nullptr(ITEM.TO)
+        p -= 1
     l.length = newsize
     l.items = newitems
 _ll_list_resize_really._annenforceargs_ = (None, int)
@@ -356,7 +359,7 @@ def ll_both_none(lst1, lst2):
 #  Accessor methods
 
 def ll_newlist(LIST, length):
-    debug_assert(length >= 0, "negative list length")
+    ll_assert(length >= 0, "negative list length")
     l = malloc(LIST)
     l.length = length
     l.items = malloc(LIST.items.TO, length)
@@ -391,17 +394,17 @@ def ll_items(l):
     return l.items
 
 def ll_getitem_fast(l, index):
-    debug_assert(index < l.length, "getitem out of bounds")
+    ll_assert(index < l.length, "getitem out of bounds")
     return l.ll_items()[index]
 
 def ll_setitem_fast(l, index, item):
-    debug_assert(index < l.length, "setitem out of bounds")
+    ll_assert(index < l.length, "setitem out of bounds")
     l.ll_items()[index] = item
 
 # fixed size versions
 
 def ll_fixed_newlist(LIST, length):
-    debug_assert(length >= 0, "negative fixed list length")
+    ll_assert(length >= 0, "negative fixed list length")
     l = malloc(LIST, length)
     return l
 ll_fixed_newlist = typeMethod(ll_fixed_newlist)
@@ -418,11 +421,11 @@ def ll_fixed_items(l):
     return l
 
 def ll_fixed_getitem_fast(l, index):
-    debug_assert(index < len(l), "fixed getitem out of bounds")
+    ll_assert(index < len(l), "fixed getitem out of bounds")
     return l[index]
 
 def ll_fixed_setitem_fast(l, index, item):
-    debug_assert(index < len(l), "fixed setitem out of bounds")
+    ll_assert(index < len(l), "fixed setitem out of bounds")
     l[index] = item
 
 def newlist(llops, r_list, items_v):

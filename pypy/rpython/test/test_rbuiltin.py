@@ -1,7 +1,8 @@
 from pypy.translator.translator import graphof
 from pypy.rpython.test import test_llinterp
 from pypy.rlib.objectmodel import instantiate, we_are_translated
-from pypy.rlib.objectmodel import running_on_llinterp, debug_llinterpcall
+from pypy.rlib.objectmodel import running_on_llinterp
+from pypy.rlib.debug import llinterpcall
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool import udir
 from pypy.rlib.rarithmetic import r_uint, intmask, r_longlong
@@ -422,7 +423,7 @@ class BaseTestRbuiltin(BaseRtypingTest):
             return s
         def fn(n):
             if running_on_llinterp:
-                return debug_llinterpcall(SPTR, foo, n).m
+                return llinterpcall(SPTR, foo, n).m
             else:
                 return 321
         res = self.interpret(fn, [7])

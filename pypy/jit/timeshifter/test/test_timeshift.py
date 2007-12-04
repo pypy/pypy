@@ -10,7 +10,8 @@ from pypy.jit.timeshifter import rtimeshift, rvalue
 from pypy.objspace.flow.model import summary, Variable
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr
 from pypy.rlib.jit import hint
-from pypy.rlib.objectmodel import keepalive_until_here, debug_assert
+from pypy.rlib.objectmodel import keepalive_until_here
+from pypy.rlib.debug import ll_assert
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.annlowlevel import PseudoHighLevelCallable, cachedtype
@@ -1379,7 +1380,7 @@ class TestTimeshift(TimeshiftingTests):
             return s
         def g(s):
             # assumes that s is not null here
-            debug_assert(bool(s), "please don't give me a null")
+            ll_assert(bool(s), "please don't give me a null")
             return 5
         def f(m):
             s = h()

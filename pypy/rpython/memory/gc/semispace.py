@@ -4,7 +4,8 @@ from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
 from pypy.rpython.memory.support import get_address_linked_list
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena
-from pypy.rlib.objectmodel import free_non_gc_object, debug_assert
+from pypy.rlib.objectmodel import free_non_gc_object
+from pypy.rlib.debug import ll_assert
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.memory.gc.base import MovingGCBase
@@ -37,10 +38,10 @@ class SemiSpaceGC(MovingGCBase):
 
     def setup(self):
         self.tospace = llarena.arena_malloc(self.space_size, True)
-        debug_assert(bool(self.tospace), "couldn't allocate tospace")
+        ll_assert(bool(self.tospace), "couldn't allocate tospace")
         self.top_of_space = self.tospace + self.space_size
         self.fromspace = llarena.arena_malloc(self.space_size, True)
-        debug_assert(bool(self.fromspace), "couldn't allocate fromspace")
+        ll_assert(bool(self.fromspace), "couldn't allocate fromspace")
         self.free = self.tospace
         self.objects_with_finalizers = self.AddressLinkedList()
         self.run_finalizers = self.AddressLinkedList()
@@ -134,7 +135,7 @@ class SemiSpaceGC(MovingGCBase):
             while self.space_size < proposed_size:
                 if not self.double_space_size():
                     return False
-            debug_assert(needed <= self.top_of_space - self.free,
+            ll_assert(needed <= self.top_of_space - self.free,
                          "double_space_size() failed to do its job")
             return True
 
@@ -166,7 +167,7 @@ class SemiSpaceGC(MovingGCBase):
             #              because doing arena_free(self.fromspace) would crash
             self.fromspace = self.tospace + self.space_size
             self.top_of_space = self.fromspace
-            debug_assert(self.free <= self.top_of_space,
+            ll_assert(self.free <= self.top_of_space,
                          "unexpected growth of GC space usage during collect")
             return False     # out of memory
 

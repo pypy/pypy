@@ -10,7 +10,7 @@ import thread, py
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem.lltype import typeOf
-from pypy.rlib.objectmodel import debug_assert
+from pypy.rlib.debug import ll_assert
 from pypy.tool import autopath
 from distutils import sysconfig
 python_inc = sysconfig.get_python_inc()
@@ -154,11 +154,11 @@ class Lock_NOAUTO(object):
         return bool(c_thread_acquirelock_NOAUTO(self._lock, int(flag)))
 
     def release(self):
-        debug_assert(not self.acquire(False), "Lock_NOAUTO was not held!")
+        ll_assert(not self.acquire(False), "Lock_NOAUTO was not held!")
         c_thread_releaselock_NOAUTO(self._lock)
 
     def fused_release_acquire(self):
-        debug_assert(not self.acquire(False), "Lock_NOAUTO was not held!")
+        ll_assert(not self.acquire(False), "Lock_NOAUTO was not held!")
         c_thread_fused_releaseacquirelock_NOAUTO(self._lock)
 
     def __del__(self):
