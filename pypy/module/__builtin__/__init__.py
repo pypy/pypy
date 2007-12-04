@@ -124,7 +124,7 @@ class Module(MixedModule):
         'any'           : 'functional.any',
         'super'         : 'descriptor.W_Super',
         'staticmethod'  : 'descriptor.StaticMethod',
-        'classmethod'   : 'descriptor.W_ClassMethod',
+        'classmethod'   : 'descriptor.ClassMethod',
         'property'      : 'descriptor.W_Property',
 
     }

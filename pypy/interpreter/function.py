@@ -451,8 +451,7 @@ class Method(Wrappable):
         return space.newtuple([new_inst, space.newtuple(tup)])
         
 class StaticMethod(Wrappable):
-    """A static method.  Note that there is one class staticmethod at
-    app-level too currently; this is only used for __new__ methods."""
+    """The staticmethod objects."""
 
     def __init__(self, w_function):
         self.w_function = w_function
@@ -463,6 +462,24 @@ class StaticMethod(Wrappable):
 
     def descr_staticmethod__new__(space, w_type, w_function):
         return space.wrap(StaticMethod(w_function))
+
+class ClassMethod(Wrappable):
+    """The classmethod objects."""
+
+    def __init__(self, w_function):
+        self.w_function = w_function
+
+    def descr_classmethod_get(self, space, w_obj, w_klass=None):
+        if space.is_w(w_klass, space.w_None):
+            w_klass = space.type(w_obj)
+        return space.wrap(Method(space, self.w_function, w_klass, space.w_None))
+
+    def descr_classmethod__new__(space, w_type, w_function):
+        if not space.is_true(space.callable(w_function)):
+            typename = space.type(w_function).getname(space, '?')
+            raise OperationError(space.w_TypeError, space.wrap(
+                                 "'%s' object is not callable" % typename))
+        return space.wrap(ClassMethod(w_function))
 
 class BuiltinFunction(Function):
 

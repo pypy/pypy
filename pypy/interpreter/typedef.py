@@ -482,6 +482,7 @@ from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyopcode import SuspendedUnroller
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import Function, Method, StaticMethod
+from pypy.interpreter.function import ClassMethod
 from pypy.interpreter.function import BuiltinFunction, descr_function_get
 from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter.generator import GeneratorIterator
@@ -695,6 +696,30 @@ It can be called either on the class (e.g. C.f()) or on an instance
     __new__ = interp2app(StaticMethod.descr_staticmethod__new__.im_func,
                          unwrap_spec = [ObjSpace, W_Root, W_Root]),
     )
+
+ClassMethod.typedef = TypeDef(
+    'classmethod',
+    __new__ = interp2app(ClassMethod.descr_classmethod__new__.im_func,
+                         unwrap_spec = [ObjSpace, W_Root, W_Root]),
+    __get__ = interp2app(ClassMethod.descr_classmethod_get,
+                         unwrap_spec = ['self', ObjSpace, W_Root, W_Root]),
+    __doc__ = """classmethod(function) -> class method
+
+Convert a function to be a class method.
+
+A class method receives the class as implicit first argument,
+just like an instance method receives the instance.
+To declare a class method, use this idiom:
+
+  class C:
+      def f(cls, arg1, arg2, ...): ...
+      f = classmethod(f)
+
+It can be called either on the class (e.g. C.f()) or on an instance
+(e.g. C().f()).  The instance is ignored except for its class.
+If a class method is called for a derived class, the derived class
+object is passed as the implied first argument.""",
+)
 
 def always_none(self, obj):
     return None
