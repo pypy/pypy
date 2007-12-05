@@ -86,6 +86,8 @@ def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
                 return object
             elif T == Ptr(rstr.STR):
                 return str
+            elif T == Ptr(rstr.UNICODE):
+                return unicode
             else:
                 return lltype_to_annotation(T)
 
