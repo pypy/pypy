@@ -172,6 +172,7 @@ class CodeWriter(object):
         self._indent("free %s %s" % (vartype, varref))
 
     def debug_print(self, s):
+        XXX # fixme
         var = self.db.repr_tmpvar()
         node = self.db.create_debug_string(s)
         self.call(var, "i32", "@write",

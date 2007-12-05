@@ -26,18 +26,6 @@ class OpReprCall(OpRepr):
             self.rettype  = "%s (%s)*" % (self.rettype,
                                           ", ".join(self.argtypes[1:]))
 
-class OpReprInvoke(OpReprCall):
-    __slots__ = "db op retref rettype argrefs argtypes functionref".split()
-    def __init__(self, op, db):
-        super(OpReprInvoke, self).__init__(op, db)
-        
-        if op.opname in ('direct_call', 'indirect_call'):
-            self.functionref = self.argrefs[0]
-            self.argrefs = self.argrefs[1:]
-            self.argtypes = self.argtypes[1:]            
-        else:
-            self.functionref = '%pypyop_' + op.opname
-
 class OpWriter(object):            
   
     shift_operations = {
@@ -123,7 +111,6 @@ class OpWriter(object):
         return indices
 
     def write_operation(self, op):
-
         if self.db.genllvm.config.translation.llvm.debug:
             self.codewriter.comment(str(op))
             #self.codewriter.debug_print(str(op) + "\n")

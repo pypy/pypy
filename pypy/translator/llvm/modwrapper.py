@@ -14,9 +14,9 @@ from os.path import join, dirname, realpath
 
 _c = ctypes.CDLL(join(dirname(realpath(__file__)), "%s"))
 
-rpyexc_occured = _c.pypy__rpyexc_occured
+rpyexc_occured = _c.pypy_rpyexc_occured
 rpyexc_occured.argtypes = []
-rpyexc_occured.restype = ctypes.c_int
+rpyexc_occured.restype = ctypes.c_byte
 
 rpyexc_fetch_type = _c.pypy_rpyexc_fetch_type
 rpyexc_fetch_type.argtypes = []

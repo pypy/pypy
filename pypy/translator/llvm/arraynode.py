@@ -15,12 +15,6 @@ class DebugStrNode(ConstantNode):
     
     def constantvalue(self):
         return '%s c"%s\\00"' % (self.get_typerepr(), self.value)
-
-    def get_childref(self, index):
-        return "getelementptr(%s* %s, i32 0, i32 %s)" % (
-            self.get_typerepr(),
-            self.name,
-            index)
     
     def writeglobalconstants(self, codewriter):
         codewriter.globalinstance(self.ref, self.constantvalue())
@@ -69,33 +63,6 @@ class ArrayNode(ConstantNode):
         typeval = self.db.repr_type(self.arraytype)
         return "{ %s, [%s x %s] }" % (self.db.get_machine_word(),
                                       arraylen, typeval)
-
-    def get_ref(self):
-        typeval = self.db.repr_type(lltype.typeOf(self.value))
-        p, c = lltype.parentlink(self.value)
-        if p is None:
-            ref = self.name
-        else:
-            ref = self.db.get_childref(p, c)
-
-        ref = "bitcast(%s* %s to %s*)" % (self.get_typerepr(),
-                                          ref,
-                                          typeval)
-        return ref
-
-    def get_pbcref(self, toptr):
-        p, c = lltype.parentlink(self.value)
-        assert p is None, "child PBC arrays are NOT needed by rtyper"
-
-        fromptr = "%s*" % self.get_typerepr()
-        ref = "bitcast(%s %s to %s)" % (fromptr, self.name, toptr)
-        return ref
-
-    def get_childref(self, index):
-        return "getelementptr(%s* %s, i32 0, i32 1, i32 %s)" % (
-            self.get_typerepr(),
-            self.name,
-            index)
     
     def constantvalue(self):
         physicallen, arrayrepr = self.get_arrayvalue()
@@ -108,20 +75,13 @@ class ArrayNode(ConstantNode):
                                             typeval,
                                             arrayrepr)
 
-        s = "%s {%s}" % (self.get_typerepr(), value)
-        return s
+        return "%s {%s}" % (self.get_typerepr(), value)
 
 class ArrayNoLengthNode(ArrayNode):
     def get_typerepr(self):
         arraylen = self.get_arrayvalue()[0]
         typeval = self.db.repr_type(self.arraytype)
         return "[%s x %s]" % (arraylen, typeval)
-    
-    def get_childref(self, index):
-        return "getelementptr(%s* %s, i32 0, i32 %s)" %(
-            self.get_typerepr(),
-            self.name,
-            index)
 
     def constantvalue(self):
         physicallen, arrayrepr = self.get_arrayvalue()
@@ -163,6 +123,9 @@ class VoidArrayNode(ConstantNode):
         self.value = value
         name = '' #str(value).split()[1]
         self.make_name(name)
+
+    def get_typerepr(self):
+        return '[%s x i8]' % self.get_length()
 
     def constantvalue(self):
         return "{ %s } {%s %s}" % (self.db.get_machine_word(),

@@ -1,4 +1,3 @@
-
 import sys
 
 from pypy.translator.llvm.log import log 
@@ -22,6 +21,17 @@ from pypy.rlib import jit
 
 log = log.database 
 
+def var_size_type(T):
+    " returns None if T not varsize "
+    if not T._is_varsize():
+        return None
+    elif isinstance(T, lltype.Array):
+        return T.OF
+    elif isinstance(T, lltype.Struct):
+        return T._arrayfld
+    else:
+        assert False, "unknown type"
+        
 class Database(object): 
     def __init__(self, genllvm, translator): 
         self.genllvm = genllvm
@@ -43,6 +53,7 @@ class Database(object):
     #_______debuggging______________________________________
 
     def dump_pbcs(self):
+        XXX#FIXME
         r = ""
         for k, v in self.obj2node.iteritems():
 
@@ -58,13 +69,10 @@ class Database(object):
             p, _ = lltype.parentlink(k)
             ref = v.get_ref()
             type_ = self.repr_type(lltype.Ptr(lltype.typeOf(k)))
-            pbc_ref = v.get_pbcref(type_)
-                
             r += "\ndump_pbcs %s (%s)\n" \
                  "parent %s\n" \
                  "type %s\n" \
-                 "getref -> %s \n" \
-                 "pbcref -> %s \n" % (v, k, p, type_, ref, pbc_ref)
+                 "getref -> %s \n" % (v, k, p, type_, ref)
         return r
     
     #_______setting up and preparation______________________________
@@ -113,7 +121,7 @@ class Database(object):
 
         assert key not in self.obj2node, (
             "node with key %r already known!" %(key,))
-        
+            
         #log("added to pending nodes:", type(key), node)        
 
         self.obj2node[key] = node 
@@ -242,6 +250,87 @@ class Database(object):
     # __________________________________________________________
     # Representing variables and constants in LLVM source code 
 
+    def to_getelementptr(self, value):
+        # so we build the thing up instead
+        p = value
+        children = []
+        while True:
+            p, c = lltype.parentlink(p)
+            if p is None:
+                break
+            children.append((p, c))
+
+        children.reverse()
+        
+        TYPE = lltype.typeOf(children[0][0])
+        parentnode = self.obj2node[children[0][0]]
+
+        indices = [("i32", 0)]
+
+        for _, ii in children:
+            name = None
+
+            # this is because FixedSizeArray can sometimes be accessed like an
+            # Array and then sometimes a Struct
+            if isinstance(ii, str):
+                name = ii
+                assert name in list(TYPE._names)
+                fieldnames = TYPE._names_without_voids()
+                indexref = fieldnames.index(name)
+            else:
+                indexref = ii
+
+            if isinstance(TYPE, lltype.FixedSizeArray):
+                indices.append(("i32", indexref))
+                TYPE = TYPE.OF
+
+            elif isinstance(TYPE, lltype.Array):
+                if not TYPE._hints.get("nolength", False):
+                    indices.append(("i32", 1))
+                indices.append(("i32", indexref))
+                TYPE = TYPE.OF
+
+            elif isinstance(TYPE, lltype.Struct):
+                assert name is not None
+                TYPE = getattr(TYPE, name)
+                indices.append(("i32", indexref))
+
+            else:
+                raise Exception("unsupported type: %s" % TYPE)
+
+        indices_str = ', '.join ([('%s %s' % (x,y)) for x, y in indices])
+        ref = "getelementptr(%s* %s, %s)" % (
+            parentnode.get_typerepr(),
+            parentnode.ref,
+            indices_str)
+
+        return ref
+
+    def get_ref(self, value):
+        node = self.obj2node[value]
+        T = lltype.typeOf(value)
+        p, c = lltype.parentlink(value)
+        if p is None:
+            ref = node.ref
+            VT = var_size_type(T)
+            if VT and VT is not lltype.Void:
+                ref = "bitcast(%s* %s to %s*)" % (node.get_typerepr(),
+                                                  ref,
+                                                  self.repr_type(T))
+        else:
+            ref = self.to_getelementptr(value)
+            
+            if isinstance(node, FixedSizeArrayNode):
+                assert isinstance(value, lltype._subarray)
+
+                # XXX UGLY (but needs fixing outside of genllvm)
+                #  ptr -> array of len 1 (for now, since operations expect this)
+                ref = "bitcast(%s* %s to %s*)" % (self.repr_type(T.OF),
+                                                  ref,
+                                                  self.repr_type(T))
+
+        return ref
+
     def repr_arg(self, arg):
         if isinstance(arg, Constant):
             if isinstance(arg.concretetype, lltype.Primitive):
@@ -251,8 +340,7 @@ class Database(object):
                 if not arg.value:
                     return 'null'
                 else:
-                    node = self.obj2node[arg.value._obj]
-                    return node.get_ref()
+                    return self.get_ref(arg.value._obj)
         else:
             assert isinstance(arg, Variable)
             return "%" + str(arg)
@@ -298,7 +386,7 @@ class Database(object):
                 return None, "%s null" % toptr
 
             node = self.obj2node[value]
-            ref = node.get_pbcref(toptr)
+            ref = self.get_ref(value)
             return node, "%s %s" % (toptr, ref)
 
         elif isinstance(type_, (lltype.Array, lltype.Struct)):
@@ -330,10 +418,6 @@ class Database(object):
                 if isinstance(arg.TO, lltype.FuncType):
                     return True
         return False
-
-    def get_childref(self, parent, child):
-        node = self.obj2node[parent]
-        return node.get_childref(child)
 
     def create_debug_string(self, s):
         r = DebugStrNode(s)

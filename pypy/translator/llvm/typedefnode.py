@@ -64,7 +64,9 @@ class StructTypeNode(TypeDefNode):
         assert isinstance(STRUCT, lltype.Struct)
         self.db = db
         self.STRUCT = STRUCT
-        self.make_name(self.STRUCT._name)
+        parts = self.STRUCT._name.split('.')
+        name = parts[-1]
+        self.make_name(name)
 
     def _fields(self):
         return [getattr(self.STRUCT, name) 

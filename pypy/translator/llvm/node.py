@@ -8,12 +8,13 @@ class Node(object):
     nodename_count = {}
     def mangle(self, name):
         if name not in self.nodename_count:
-            result = name
             self.nodename_count[name] = 1
-            return result
+            return name
         else:
             result = '%s_%d' % (name, self.nodename_count[name])
             self.nodename_count[name] += 1
+            # this ensures (a) doesn exist yet, and (b) adds it to the
+            # dictionary just to prevent some function called xxx_42() and clashing
             return self.mangle(result)
 
     def make_name(self, name=''):
@@ -44,14 +45,6 @@ class Node(object):
 
 class FuncNode(Node):
 
-    # XXX proof that the whole llvm is hanging on a bunch of loose stitches 
-    def get_ref(self):
-        return self.ref
-
-    # XXX proof that the whole llvm is hanging on a bunch of loose stitches 
-    def get_pbcref(self, _):
-        return self.ref
-
     def writedecl(self, codewriter):
         " write function forward declarations "
         pass
@@ -62,18 +55,6 @@ class FuncNode(Node):
     
 class ConstantNode(Node):
     __slots__ = "".split()
-
-    def get_ref(self):
-        # XXX tmp 
-        return self.ref
-
-    def get_childref(self, index):
-        """ Returns a reference as used for operations in blocks for internals of a pbc. """
-        raise AttributeError("Must be implemented in subclass")
-
-    def get_pbcref(self, toptr):
-        """ Returns a reference as a pointer used per pbc. """        
-        return self.ref
 
     # ______________________________________________________________________
     # entry points from genllvm

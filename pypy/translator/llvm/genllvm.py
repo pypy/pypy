@@ -154,9 +154,9 @@ class GenLLVM(object):
         return codewriter
    
     def setup_externs(self, c_db, db):
-        # XXX
+        # XXX this should be done via augmenting entrypoint
         exctransformer = c_db.exctransformer
-        for obj in [exctransformer._rpyexc_occured_ptr.value,
+        for obj in [exctransformer.rpyexc_occured_ptr.value,
                     exctransformer.rpyexc_fetch_type_ptr.value,
                     exctransformer.rpyexc_clear_ptr.value]:
             db.prepare_constant(lltype.typeOf(obj), obj)

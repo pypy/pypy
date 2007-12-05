@@ -65,7 +65,7 @@ def generate_c(db, entrynode, eci, standalone):
     ccode = []
         
     if standalone:
-        ccode.append('#define __ENTRY_POINT__ %s' % entrynode.get_ref()[1:])
+        ccode.append('#define __ENTRY_POINT__ %s' % entrynode.ref[1:])
         ccode.append('#define ENTRY_POINT_DEFINED 1')
 
     sio = StringIO()
