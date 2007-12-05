@@ -63,7 +63,7 @@ class GCManagedHeap(object):
         return lltype.free(TYPE, flavor=flavor)
 
     def coalloc(self, TYPE, coallocator, size=None, zero=False):
-        if hasattr(self.gc, "coalloc_fixedsize"):
+        if hasattr(self.gc, "coalloc_fixedsize_clear"):
             typeid = self.get_type_id(TYPE)
             addr = self.gc.malloc(typeid, size, zero=zero,
                                   coallocator=coallocator)

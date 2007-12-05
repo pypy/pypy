@@ -39,8 +39,14 @@ class GCBase(object):
     def malloc(self, typeid, length=0, zero=False, coallocator=None):
         """For testing.  The interface used by the gctransformer is
         the four malloc_[fixed,var]size[_clear]() functions.
-        And (if they exist) to the coalloc_[fixed,var]size functios
+        And (if they exist) to the coalloc_[fixed,var]size_clear functions
         """
+        # Rules about fallbacks in case of missing malloc methods:
+        #  * malloc_fixedsize_clear() and malloc_varsize_clear() are mandatory
+        #  * malloc_fixedsize() and malloc_varsize() fallback to the above
+        #  * coalloc_fixedsize_clear() and coalloc_varsize_clear() are optional
+        # There is no non-clear version of coalloc for now.
+
         size = self.fixed_size(typeid)
         needs_finalizer = bool(self.getfinalizer(typeid))
         weakptr_offset = self.weakpointer_offset(typeid)
@@ -56,28 +62,31 @@ class GCBase(object):
             assert not contains_weakptr
             itemsize = self.varsize_item_sizes(typeid)
             offset_to_length = self.varsize_offset_to_length(typeid)
-            if zero:
-                malloc_varsize = self.malloc_varsize_clear
-            else:
-                malloc_varsize = self.malloc_varsize
-            if coallocator is not None and hasattr(self, "coalloc_varsize"):
+            if (coallocator is not None and
+                hasattr(self, "coalloc_varsize_clear")):
                 assert not needs_finalizer
                 coallocator = llmemory.cast_ptr_to_adr(coallocator)
-                ref = self.coalloc_varsize(coallocator, typeid, length, size,
-                                           itemsize, offset_to_length)
+                ref = self.coalloc_varsize_clear(coallocator, typeid,
+                                                 length, size,
+                                                 itemsize, offset_to_length)
             else:
+                if zero or not hasattr(self, 'malloc_varsize'):
+                    malloc_varsize = self.malloc_varsize_clear
+                else:
+                    malloc_varsize = self.malloc_varsize
                 ref = malloc_varsize(typeid, length, size, itemsize,
                                      offset_to_length, True, needs_finalizer)
         else:
-            if zero:
-                malloc_fixedsize = self.malloc_fixedsize_clear
-            else:
-                malloc_fixedsize = self.malloc_fixedsize
-            if coallocator is not None and hasattr(self, "coalloc_fixedsize"):
+            if (coallocator is not None and
+                hasattr(self, "coalloc_fixedsize_clear")):
                 assert not needs_finalizer
                 coallocator = llmemory.cast_ptr_to_adr(coallocator)
-                ref = self.coalloc_fixedsize(coallocator, typeid, size)
+                ref = self.coalloc_fixedsize_clear(coallocator, typeid, size)
             else:
+                if zero or not hasattr(self, 'malloc_fixedsize'):
+                    malloc_fixedsize = self.malloc_fixedsize_clear
+                else:
+                    malloc_fixedsize = self.malloc_fixedsize
                 ref = malloc_fixedsize(typeid, size, True, needs_finalizer,
                                        contains_weakptr)
         # lots of cast and reverse-cast around...

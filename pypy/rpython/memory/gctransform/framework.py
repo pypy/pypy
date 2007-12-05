@@ -264,20 +264,27 @@ class FrameworkGCTransformer(GCTransformer):
         classdef = bk.getuniqueclassdef(GCClass)
         s_gc = annmodel.SomeInstance(classdef)
         s_gcref = annmodel.SomePtr(llmemory.GCREF)
-        self.malloc_fixedsize_ptr = getfn(
-            GCClass.malloc_fixedsize.im_func,
-            [s_gc, annmodel.SomeInteger(nonneg=True),
-             annmodel.SomeInteger(nonneg=True),
-             annmodel.SomeBool(), annmodel.SomeBool(),
-             annmodel.SomeBool()], s_gcref,
-            inline = False)
+
+        malloc_fixedsize_clear_meth = GCClass.malloc_fixedsize_clear.im_func
         self.malloc_fixedsize_clear_ptr = getfn(
-            GCClass.malloc_fixedsize_clear.im_func,
+            malloc_fixedsize_clear_meth,
             [s_gc, annmodel.SomeInteger(nonneg=True),
              annmodel.SomeInteger(nonneg=True),
              annmodel.SomeBool(), annmodel.SomeBool(),
              annmodel.SomeBool()], s_gcref,
             inline = False)
+        if hasattr(GCClass, 'malloc_fixedsize'):
+            malloc_fixedsize_meth = GCClass.malloc_fixedsize.im_func
+            self.malloc_fixedsize_ptr = getfn(
+                malloc_fixedsize_meth,
+                [s_gc, annmodel.SomeInteger(nonneg=True),
+                 annmodel.SomeInteger(nonneg=True),
+                 annmodel.SomeBool(), annmodel.SomeBool(),
+                 annmodel.SomeBool()], s_gcref,
+                inline = False)
+        else:
+            malloc_fixedsize_meth = None
+            self.malloc_fixedsize_ptr = self.malloc_fixedsize_clear_ptr
 ##         self.malloc_varsize_ptr = getfn(
 ##             GCClass.malloc_varsize.im_func,
 ##             [s_gc] + [annmodel.SomeInteger(nonneg=True) for i in range(5)]
@@ -294,8 +301,14 @@ class FrameworkGCTransformer(GCTransformer):
         if getattr(GCClass, 'inline_simple_malloc', False):
             # make a copy of this function so that it gets annotated
             # independently and the constants are folded inside
+            if malloc_fixedsize_meth is None:
+                malloc_fast_meth = malloc_fixedsize_clear_meth
+                self.malloc_fast_is_clearing = True
+            else:
+                malloc_fast_meth = malloc_fixedsize_meth
+                self.malloc_fast_is_clearing = False
             malloc_fast = func_with_new_name(
-                GCClass.malloc_fixedsize.im_func,
+                malloc_fast_meth,
                 "malloc_fast")
             s_False = annmodel.SomeBool(); s_False.const = False
             s_True  = annmodel.SomeBool(); s_True .const = True
@@ -307,7 +320,7 @@ class FrameworkGCTransformer(GCTransformer):
                  s_False], s_gcref,
                 inline = True)
         else:
-            self.malloc_fast_ptr = self.malloc_fixedsize_ptr
+            self.malloc_fast_ptr = None
 
         if GCClass.moving_gc:
             self.id_ptr = getfn(GCClass.id.im_func,
@@ -326,15 +339,15 @@ class FrameworkGCTransformer(GCTransformer):
                                            inline=True)
         else:
             self.write_barrier_ptr = None
-        if hasattr(GCClass, "coalloc_fixedsize"):
+        if hasattr(GCClass, "coalloc_fixedsize_clear"):
             self.coalloc_clear_ptr = getfn(
-                GCClass.coalloc_fixedsize.im_func,
+                GCClass.coalloc_fixedsize_clear.im_func,
                 [s_gc, annmodel.SomeAddress(),
                  annmodel.SomeInteger(nonneg=True),
                  annmodel.SomeInteger(nonneg=True)],
                 s_gcref, inline=True)
             self.coalloc_varsize_clear_ptr = getfn(
-                GCClass.coalloc_varsize.im_func,
+                GCClass.coalloc_varsize_clear.im_func,
                 [s_gc, annmodel.SomeAddress()] +
                 [annmodel.SomeInteger(nonneg=True) for i in range(5)],
                 s_gcref, inline=True)
@@ -552,10 +565,12 @@ class FrameworkGCTransformer(GCTransformer):
         if not op.opname.endswith('_varsize'):
             #malloc_ptr = self.malloc_fixedsize_ptr
             zero = flags.get('zero', False)
-            if zero:
-                malloc_ptr = self.malloc_fixedsize_clear_ptr
-            elif c_can_collect.value and not c_has_finalizer.value:
+            if (self.malloc_fast_ptr is not None and
+                c_can_collect.value and not c_has_finalizer.value and
+                (self.malloc_fast_is_clearing or not zero)):
                 malloc_ptr = self.malloc_fast_ptr
+            elif zero:
+                malloc_ptr = self.malloc_fixedsize_clear_ptr
             else:
                 malloc_ptr = self.malloc_fixedsize_ptr
             args = [self.c_const_gc, c_type_id, c_size, c_can_collect,

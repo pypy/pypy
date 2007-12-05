@@ -57,8 +57,11 @@ class SemiSpaceGC(MovingGCBase):
         if self.run_finalizers.non_empty():
             self.execute_finalizers()
 
-    def malloc_fixedsize(self, typeid, size, can_collect, has_finalizer=False,
-                         contains_weakptr=False):
+    # This class only defines the malloc_{fixed,var}size_clear() methods
+    # because the spaces are filled with zeroes in advance.
+
+    def malloc_fixedsize_clear(self, typeid, size, can_collect,
+                               has_finalizer=False, contains_weakptr=False):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size
         result = self.free
@@ -75,8 +78,9 @@ class SemiSpaceGC(MovingGCBase):
             self.objects_with_weakrefs.append(result + size_gc_header)
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
 
-    def malloc_varsize(self, typeid, length, size, itemsize, offset_to_length,
-                       can_collect, has_finalizer=False):
+    def malloc_varsize_clear(self, typeid, length, size, itemsize,
+                             offset_to_length, can_collect,
+                             has_finalizer=False):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         nonvarsize = size_gc_header + size
         try:
@@ -97,13 +101,9 @@ class SemiSpaceGC(MovingGCBase):
             self.objects_with_finalizers.append(result + size_gc_header)
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
 
-    # for now, the spaces are filled with zeroes in advance
-    malloc_fixedsize_clear = malloc_fixedsize
-    malloc_varsize_clear   = malloc_varsize
-
     def obtain_free_space(self, needed):
         # a bit of tweaking to maximize the performance and minimize the
-        # amount of code in an inlined version of malloc_fixedsize()
+        # amount of code in an inlined version of malloc_fixedsize_clear()
         if not self.try_obtain_free_space(needed):
             raise memoryError
         return self.free

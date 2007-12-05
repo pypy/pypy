@@ -57,15 +57,16 @@ class GenerationGC(SemiSpaceGC):
     def is_in_nursery(self, addr):
         return self.nursery <= addr < self.nursery_top
 
-    def malloc_fixedsize(self, typeid, size, can_collect, has_finalizer=False,
-                         contains_weakptr=False):
+    def malloc_fixedsize_clear(self, typeid, size, can_collect,
+                               has_finalizer=False, contains_weakptr=False):
         if (has_finalizer or not can_collect or
             raw_malloc_usage(size) >= self.nursery_size // 2):
             ll_assert(not contains_weakptr, "wrong case for mallocing weakref")
             # "non-simple" case or object too big: don't use the nursery
-            return SemiSpaceGC.malloc_fixedsize(self, typeid, size,
-                                                can_collect, has_finalizer,
-                                                contains_weakptr)
+            return SemiSpaceGC.malloc_fixedsize_clear(self, typeid, size,
+                                                      can_collect,
+                                                      has_finalizer,
+                                                      contains_weakptr)
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size
         result = self.nursery_free
@@ -79,27 +80,29 @@ class GenerationGC(SemiSpaceGC):
             self.young_objects_with_weakrefs.append(result + size_gc_header)
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
 
-    def coalloc_fixedsize(self, coallocator, typeid, size):
+    def coalloc_fixedsize_clear(self, coallocator, typeid, size):
         # note: a coallocated object can never return a weakref, since the
         # coallocation analysis is done at a time where weakrefs are
         # represented as opaque objects which aren't allocated using malloc but
         # with weakref_create
         if self.is_in_nursery(coallocator):
-            return self.malloc_fixedsize(typeid, size, True, False, False)
+            return self.malloc_fixedsize_clear(typeid, size,
+                                               True, False, False)
         else:
-            return SemiSpaceGC.malloc_fixedsize(self, typeid, size, True,
-                                                False, False)
+            return SemiSpaceGC.malloc_fixedsize_clear(self, typeid, size,
+                                                      True, False, False)
 
-    def malloc_varsize(self, typeid, length, size, itemsize, offset_to_length,
-                       can_collect, has_finalizer=False):
+    def malloc_varsize_clear(self, typeid, length, size, itemsize,
+                             offset_to_length, can_collect,
+                             has_finalizer=False):
         # only use the nursery if there are not too many items
         if (has_finalizer or not can_collect or
             (raw_malloc_usage(itemsize) and
              length > self.nursery_size // 4 // raw_malloc_usage(itemsize)) or
             raw_malloc_usage(size) > self.nursery_size // 4):
-            return SemiSpaceGC.malloc_varsize(self, typeid, length, size,
-                                              itemsize, offset_to_length,
-                                              can_collect, has_finalizer)
+            return SemiSpaceGC.malloc_varsize_clear(self, typeid, length, size,
+                                                    itemsize, offset_to_length,
+                                                    can_collect, has_finalizer)
         # with the above checks we know now that totalsize cannot be more
         # than about half of the nursery size; in particular, the + and *
         # cannot overflow
@@ -115,18 +118,16 @@ class GenerationGC(SemiSpaceGC):
         self.nursery_free = result + llarena.round_up_for_allocation(totalsize)
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
 
-    def coalloc_varsize(self, coallocator, typeid, length, size, itemsize,
-                        offset_to_length):
+    def coalloc_varsize_clear(self, coallocator, typeid,
+                              length, size, itemsize,
+                              offset_to_length):
         if self.is_in_nursery(coallocator):
-            return self.malloc_varsize(typeid, length, size, itemsize,
-                                       offset_to_length, True, False)
+            return self.malloc_varsize_clear(typeid, length, size, itemsize,
+                                             offset_to_length, True, False)
         else:
-            return SemiSpaceGC.malloc_varsize(self, typeid, length, size,
-                                              itemsize, offset_to_length,
-                                              True, False)
-
-    malloc_fixedsize_clear = malloc_fixedsize
-    malloc_varsize_clear   = malloc_varsize
+            return SemiSpaceGC.malloc_varsize_clear(self, typeid, length, size,
+                                                    itemsize, offset_to_length,
+                                                    True, False)
 
     # override the init_gc_object methods to change the default value of 'flags',
     # used by objects that are directly created outside the nursery by the SemiSpaceGC.
