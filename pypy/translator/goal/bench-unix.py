@@ -82,7 +82,7 @@ def run_richards(executable='/usr/local/bin/python', n=5):
 def get_executables():  #sorted by revision number (highest first)
     exes = []
     for exe in [os.path.join('.', name) for name in os.listdir('.') if name.startswith('pypy-')]:
-        if os.path.isdir(exe):
+        if os.path.isdir(exe) or exe.endswith('.jar'):
             continue
         try:
             exes.append( (exe.split('-')[2], exe) )
