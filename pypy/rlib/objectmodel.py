@@ -350,3 +350,24 @@ class _r_dictkey_with_hash(_r_dictkey):
         self.key = key
         self.hash = hash
 
+# ------------------------- optimization hints ------------------------------
+
+def newlist(sizehint=0):
+    return []
+
+class Entry(ExtRegistryEntry):
+    _about_ = newlist
+
+    def compute_result_annotation(self, s_sizehint):
+        return self.bookkeeper.newlist()
+
+    def specialize_call(self, orig_hop, i_sizehint):
+        from pypy.rpython.rlist import rtype_newlist
+        from pypy.rpython.lltypesystem import lltype
+        # fish a bit hop
+        hop = orig_hop.copy()
+        v = hop.args_v[0]
+        r, s = hop.r_s_popfirstarg()
+        if s.is_constant():
+            v = hop.inputconst(r, s.const)
+        return rtype_newlist(hop, v_sizehint=v)

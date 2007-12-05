@@ -2,6 +2,7 @@ import py
 from pypy.rlib.objectmodel import *
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from pypy.conftest import option
 
 def strange_key_eq(key1, key2):
     return key1[0] == key2[0]   # only the 1st character is relevant
@@ -302,3 +303,46 @@ def test_specialize_decorator():
     specialize.arg(1)(f)
 
     assert f._annspecialcase_ == 'specialize:arg(1)'
+
+def getgraph(f, argtypes):
+    from pypy.translator.translator import TranslationContext, graphof
+    from pypy.translator.backendopt.all import backend_optimizations
+    t = TranslationContext()
+    a = t.buildannotator()
+    typer = t.buildrtyper()
+    a.build_types(f, argtypes)
+    typer.specialize()
+    backend_optimizations(t)
+    graph = graphof(t, f)
+    if option.view:
+        graph.show()
+    return graph
+
+def test_newlist():
+    from pypy.annotation.model import SomeInteger
+    def f(z):
+        x = newlist(sizehint=38)
+        if z < 0:
+            x.append(1)
+        return len(x)
+
+    graph = getgraph(f, [SomeInteger()])
+    for llop in graph.startblock.operations:
+        if llop.opname == 'malloc_varsize':
+            break
+    assert llop.args[2].value == 38
+
+def test_newlist_nonconst():
+    from pypy.annotation.model import SomeInteger
+    from pypy.objspace.flow.model import Variable
+    def f(z):
+        x = newlist(sizehint=z)
+        return len(x)
+
+    graph = getgraph(f, [SomeInteger()])
+    for llop in graph.startblock.operations:
+        if llop.opname == 'malloc_varsize':
+            break
+    assert llop.args[2] is graph.startblock.inputargs[0]
+
+    
