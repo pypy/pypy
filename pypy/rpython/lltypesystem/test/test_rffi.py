@@ -219,13 +219,19 @@ class BaseTestRffi:
         struct stuff {
            char data[38];
         };
-    
+        """)
+        
+        c_source = py.code.Source("""
+        #include "opaque.h"
+                                  
         char get(struct stuff* x)
         {
            x->data[13] = 'a';
            return x->data[13];
         }
         """)
+        
+
         # if it doesn't segfault, than we probably malloced it :-)
         h_file = udir.join("opaque.h")
         h_file.write(h_source)
@@ -233,7 +239,8 @@ class BaseTestRffi:
         from pypy.rpython.tool import rffi_platform
         eci = ExternalCompilationInfo(
             includes=['opaque.h'],
-            include_dirs=[str(udir)]
+            include_dirs=[str(udir)],
+            separate_module_sources=[c_source]
         )
         STUFFP = COpaquePtr('struct stuff', compilation_info=eci)
     
@@ -534,6 +541,3 @@ class TestLLVMRffi(BaseTestRffi):
 
     def test_hashdefine(self):
         py.test.skip("Macros cannot be called as llexternals by design, rffi does not have any special support for them")
-
-    def test_opaque_type(self):
-        py.test.skip("GenLLVM handles opaque type defs incorrectly")
