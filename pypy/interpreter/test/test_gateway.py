@@ -325,3 +325,18 @@ class TestGateway:
         assert space.eq_w(space.call_function(w_app_g_id,w("foo")),w("foo"))
         assert len(l) == 1
         assert space.eq_w(l[0], w("foo"))
+
+    def test_interp2app_classmethod(self):
+        space = self.space
+        w = space.wrap
+        def g_run(space, w_type):
+            assert space.is_w(w_type, space.w_str)
+            return w(42)
+
+        app_g_run = gateway.interp2app_temp(g_run,
+                                            unwrap_spec=[gateway.ObjSpace,
+                                                         gateway.W_Root],
+                                            as_classmethod=True)
+        w_app_g_run = space.wrap(app_g_run)
+        w_bound = space.get(w_app_g_run, w("hello"), space.w_str)
+        assert space.eq_w(space.call_function(w_bound), w(42))

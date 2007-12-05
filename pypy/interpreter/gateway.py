@@ -14,7 +14,7 @@ NoneNotWrapped = object()
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.interpreter.error import OperationError 
 from pypy.interpreter import eval
-from pypy.interpreter.function import Function, Method
+from pypy.interpreter.function import Function, Method, ClassMethod
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
 from pypy.interpreter.baseobjspace import Wrappable, SpaceCache, DescrMismatch
 from pypy.interpreter.argument import Arguments, AbstractArguments
@@ -656,7 +656,7 @@ class interp2app(Wrappable):
     NOT_RPYTHON_ATTRIBUTES = ['_staticdefs']
     
     def __init__(self, f, app_name=None, unwrap_spec = None,
-                 descrmismatch=None):
+                 descrmismatch=None, as_classmethod=False):
         "NOT_RPYTHON"
         Wrappable.__init__(self)
         # f must be a function whose name does NOT start with 'app_'
@@ -676,6 +676,7 @@ class interp2app(Wrappable):
                                  descrmismatch=descrmismatch)
         self.__name__ = f.func_name
         self.name = app_name
+        self.as_classmethod = as_classmethod
         self._staticdefs = list(f.func_defaults or ())
 
     def _getdefaults(self, space):
@@ -701,20 +702,6 @@ class interp2app(Wrappable):
     def getcache(self, space):
         return space.fromcache(GatewayCache)
 
-    def get_method(self, obj):
-        # to bind this as a method out of an instance, we build a
-        # Function and get it.
-        # the object space is implicitely fetched out of the instance
-        assert self._code.ismethod, (
-            'global built-in function %r used as method' %
-            self._code.func)
-
-        space = obj.space
-        fn = self.get_function(space)
-        w_obj = space.wrap(obj)
-        return Method(space, space.wrap(fn),
-                      w_obj, space.type(w_obj))
-
 
 class GatewayCache(SpaceCache):
     def build(cache, gateway):
@@ -723,6 +710,8 @@ class GatewayCache(SpaceCache):
         defs = gateway._getdefaults(space) # needs to be implemented by subclass
         code = gateway._code
         fn = Function(space, code, None, defs, forcename = gateway.name)
+        if gateway.as_classmethod:
+            fn = ClassMethod(space.wrap(fn))
         return fn
 
 
