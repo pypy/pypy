@@ -580,6 +580,8 @@ class _gctransformed_wref(lltype._container):
         return '<%s>' % (self,)
     def __str__(self):
         return 'gctransformed_wref(%s)' % (self._ptr,)
+    def _normalizedcontainer(self):
+        return self._ptr._obj
 
 # ____________________________________________________________
 
