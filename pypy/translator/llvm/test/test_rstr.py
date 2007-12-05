@@ -2,6 +2,8 @@ import py
 from pypy.rpython.test.test_rstr import BaseTestRstr
 from pypy.translator.llvm.test.runtest import *
 
+# ====> ../../../rpython/test/test_rstr.py
+
 class TestLLVMStr(LLVMTest, BaseTestRstr):
     EMPTY_STRING_HASH = -1
 
