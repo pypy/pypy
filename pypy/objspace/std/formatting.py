@@ -5,7 +5,7 @@ from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.rarithmetic import ovfcheck, formatd_overflow, isnan, isinf
 from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import func_with_new_name
-
+from pypy.rlib.debug import check_annotation
 
 class BaseStringFormatter(object):
     def __init__(self, space, values_w, w_valuedict):
@@ -267,9 +267,9 @@ def make_formatter_subclass(do_unicode):
                         break
                     i += 1
                 else:
-                    result.append(const(fmt[i0:]))
+                    result += const(fmt[i0:])
                     break     # end of 'fmt' string 
-                result.append(const(fmt[i0:i]))
+                result += const(fmt[i0:i])
                 self.fmtpos = i + 1
 
                 # interpret the next formatter
@@ -277,7 +277,7 @@ def make_formatter_subclass(do_unicode):
                 c = self.peekchr()
                 self.forward()
                 if c == '%':
-                    self.std_wp('%')
+                    self.std_wp(const('%'))
                     continue
                 if w_value is None:
                     w_value = self.nextinputvalue()
@@ -319,19 +319,19 @@ def make_formatter_subclass(do_unicode):
             prec = self.prec
             if prec == -1 and self.width == 0:
                 # fast path
-                self.result.append(const(r))
+                self.result += const(r)
                 return
             if prec >= 0 and prec < length:
                 length = prec   # ignore the end of the string if too long
             result = self.result
             padding = self.width - length
             if not self.f_ljust and padding > 0:
-                result.append(const(' ' * padding))
+                result += const(' ') * padding
                 # add any padding at the left of 'r'
                 padding = 0
-            result.append(const(r[:length]))       # add 'r' itself
+            result += const(r[:length])       # add 'r' itself
             if padding > 0:
-                result.append(const(' ' * padding))
+                result += const(' ') * padding
             # add any remaining padding at the right
         std_wp._annspecialcase_ = 'specialize:argtype(1)'
 
@@ -359,15 +359,15 @@ def make_formatter_subclass(do_unicode):
                 padnumber = '>'
 
             if padnumber == '>':
-                result.append(const(' ' * padding))    # pad with spaces on the left
+                result += const(' ') * padding    # pad with spaces on the left
             if sign:
-                result.append(const(r[0]))        # the sign
-            result.append(const(prefix))               # the prefix
+                result += const(r[0])        # the sign
+            result += const(prefix)               # the prefix
             if padnumber == '0':
-                result.append(const('0' * padding))    # pad with zeroes
-            result.append(const(r[int(sign):]))        # the rest of the number
+                result += const('0') * padding    # pad with zeroes
+            result += const(r[int(sign):])        # the rest of the number
             if padnumber == '<':           # spaces on the right
-                result.append(const(' ' * padding))
+                result += const(' ') * padding
 
         def fmt_s(self, w_value):
             space = self.space
@@ -437,6 +437,11 @@ FORMATTER_CHARS = unrolling_iterable(
     [_name[-1] for _name in dir(StringFormatter)
                if len(_name) == 5 and _name.startswith('fmt_')])
 
+def is_list_of_chars_or_unichars(ann, bk):
+    from pypy.annotation.model import SomeChar, SomeUnicodeCodePoint
+    if not isinstance(ann.listdef.listitem.s_value,
+                      (SomeChar, SomeUnicodeCodePoint)):
+        raise TypeError("Formatter should return as a result a list of chars or unichars, otherwise we miss important optimization")
 
 def format(space, w_fmt, values_w, w_valuedict=None, do_unicode=False):
     "Entry point"
@@ -449,11 +454,13 @@ def format(space, w_fmt, values_w, w_valuedict=None, do_unicode=False):
             # fall through to the unicode case
             fmt = unicode(fmt)
         else:
+            check_annotation(result, is_list_of_chars_or_unichars)
             return space.wrap(''.join(result))
     else:
         fmt = space.unicode_w(w_fmt)
     formatter = UnicodeFormatter(space, fmt, values_w, w_valuedict)
     result = formatter.format()
+    check_annotation(result, is_list_of_chars_or_unichars)
     return space.wrap(u''.join(result))
 
 def mod_format(space, w_format, w_values, do_unicode=False):
