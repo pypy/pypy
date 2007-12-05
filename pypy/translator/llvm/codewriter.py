@@ -1,10 +1,5 @@
-from pypy.translator.llvm.log import log 
-from pypy.translator.llvm.buildllvm import postfix
-
-log = log.codewriter 
-
 class CodeWriter(object): 
-    linkage = 'internal '       #/internal (disabled for now because of the JIT)
+    linkage = 'internal '       #internal/
 
     def __init__(self, file, db, linkage=None): 
         self.db = db
@@ -27,7 +22,6 @@ class CodeWriter(object):
         for l in lines.split("\n"):
             if patch:
                 l = l.replace('WORD', self.word_repr)
-                l = l.replace('POSTFIX', postfix())
             self._append(l)
     
     def comment(self, line, indent=True):
@@ -156,25 +150,24 @@ class CodeWriter(object):
     def alloca(self, targetvar, vartype):
         self._indent("%s = alloca %s" % (targetvar, vartype))
 
-    def malloc(self, targetvar, vartype, numelements=1):
-        XXX # we should use this for raw malloc (unless it is slow)
-        if numelements == 1:
-            self._indent("%s = malloc %s" % (targetvar, vartype))
-        else:
-            assert numelements > 1
-            self._indent("%s = malloc %s, uint %s" % (targetvar,
-                                                      vartype,
-                                                      numelements))
+#     def malloc(self, targetvar, vartype, numelements=1):
+#         XXX # we should use this for raw malloc (unless it is slow)
+#         if numelements == 1:
+#             self._indent("%s = malloc %s" % (targetvar, vartype))
+#         else:
+#             assert numelements > 1
+#             self._indent("%s = malloc %s, uint %s" % (targetvar,
+#                                                       vartype,
+#                                                       numelements))
             
 
-    def free(self, vartype, varref):
-        XXX # we should use this for raw malloc (unless it is slow)
-        self._indent("free %s %s" % (vartype, varref))
+#     def free(self, vartype, varref):
+#         XXX # we should use this for raw malloc (unless it is slow)
+#         self._indent("free %s %s" % (vartype, varref))
 
     def debug_print(self, s):
-        XXX # fixme
         var = self.db.repr_tmpvar()
         node = self.db.create_debug_string(s)
         self.call(var, "i32", "@write",
                   ['i32', 'i8*', 'i32'],
-                  ['2', node.get_childref(0), '%d' % node.get_length()])
+                  ['2', node.ref, '%d' % node.get_length()])

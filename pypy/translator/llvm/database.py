@@ -53,7 +53,6 @@ class Database(object):
     #_______debuggging______________________________________
 
     def dump_pbcs(self):
-        XXX#FIXME
         r = ""
         for k, v in self.obj2node.iteritems():
 
@@ -67,12 +66,11 @@ class Database(object):
             
             # Only dump top levels
             p, _ = lltype.parentlink(k)
-            ref = v.get_ref()
             type_ = self.repr_type(lltype.Ptr(lltype.typeOf(k)))
             r += "\ndump_pbcs %s (%s)\n" \
                  "parent %s\n" \
                  "type %s\n" \
-                 "getref -> %s \n" % (v, k, p, type_, ref)
+                 "ref -> %s \n" % (v, k, p, type_, v.ref)
         return r
     
     #_______setting up and preparation______________________________

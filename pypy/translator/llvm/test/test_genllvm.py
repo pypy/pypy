@@ -533,3 +533,9 @@ def test__del__():
     # if res is still 0, then we haven't tested anything so fail.
     assert 0 < res <= 84 
  
+def test_debug():
+    # just tests code runs
+    def simple():
+        return 42
+    f = compile_function(simple, [], debug=True)
+    assert f() == 42

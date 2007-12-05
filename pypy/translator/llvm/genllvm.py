@@ -263,11 +263,12 @@ class GenLLVM(object):
             log('STATS %s' % str(s))
 
     def _debug(self, codewriter):
-        if self.db.debugstringnodes:            
-            codewriter.header_comment("Debug string")
-            for node in self.db.debugstringnodes:
-                node.writeglobalconstants(codewriter)
+        if self.config.translation.llvm.debug: 
+            if self.db.debugstringnodes:            
+                codewriter.header_comment("Debug string")
+                for node in self.db.debugstringnodes:
+                    node.writeglobalconstants(codewriter)
 
-            #print "Start"
-            #print self.db.dump_pbcs()
-            #print "End"
+            print "Start"
+            print self.db.dump_pbcs()
+            print "End"

@@ -95,7 +95,7 @@ def genllvm_compile(function,
                     gcpolicy='boehm',
                     
                     # debug options
-                    debug=True,
+                    debug=False,
                     logging=False,
                     isolate=True,
                     
