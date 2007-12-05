@@ -726,11 +726,11 @@ Only specified names will be exported to a Mixed Module's applevel
 namespace.
 
 Sometimes it is necessary to really write some functions in C (or
-whatever target language). See `rctypes`_ and `external functions
+whatever target language). See `rffi`_ and `external functions
 documentation`_ for details. The latter approach is cumbersome and
 being phased out and former has currently quite a few rough edges.
 
-.. _`rctypes`: rctypes.html
+.. _`rffi`: rffi.html
 .. _`external functions documentation`: translation.html#extfunccalls
 
 application level definitions
