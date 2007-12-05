@@ -69,6 +69,8 @@ class AbstractReaderWriter(object):
     def finished(self):
         pass
 
+    def read(self, n):
+        raise NotImplementedError("Purely abstract method")
 
 class FileWriter(AbstractReaderWriter):
     def __init__(self, space, w_f):
