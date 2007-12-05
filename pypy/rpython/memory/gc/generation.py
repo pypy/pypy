@@ -125,6 +125,9 @@ class GenerationGC(SemiSpaceGC):
                                               itemsize, offset_to_length,
                                               True, False)
 
+    malloc_fixedsize_clear = malloc_fixedsize
+    malloc_varsize_clear   = malloc_varsize
+
     # override the init_gc_object methods to change the default value of 'flags',
     # used by objects that are directly created outside the nursery by the SemiSpaceGC.
     # These objects must have the GCFLAG_NO_YOUNG_PTRS flag set immediately.

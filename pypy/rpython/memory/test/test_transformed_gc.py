@@ -9,6 +9,7 @@ from pypy.rpython.memory.gctransform import stacklessframework
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.memory.gc.marksweep import X_CLONE, X_POOL, X_POOL_PTR
 from pypy.rlib.objectmodel import compute_unique_id
+from pypy.rlib.debug import ll_assert
 from pypy import conftest
 
 INT_SIZE = struct.calcsize("i")   # only for estimates
@@ -861,3 +862,37 @@ class TestGenerationGC(GenericMovingGCTests):
         run = self.runner(f, nbargs=0)
         run([])
 
+
+class TestGenerationalNoFullCollectGC(GCTest):
+    # test that nursery is doing its job and that no full collection
+    # is needed when most allocated objects die quickly
+
+    gcname = "generation"
+
+    class gcpolicy(gc.FrameworkGcPolicy):
+        class transformerclass(framework.FrameworkGCTransformer):
+            from pypy.rpython.memory.gc.generation import GenerationGC
+            class GCClass(GenerationGC):
+                def semispace_collect(self, size_changing=False):
+                    ll_assert(False,
+                              "no full collect should occur in this test")
+            GC_PARAMS = {'space_size': 2048,
+                         'nursery_size': 512}
+            root_stack_depth = 200
+
+    def test_working_nursery(self):
+        def f():
+            total = 0
+            i = 0
+            while i < 40:
+                lst = []
+                j = 0
+                while j < 5:
+                    lst.append(i*j)
+                    j += 1
+                total += len(lst)
+                i += 1
+            return total
+        run = self.runner(f, nbargs=0)
+        res = run([])
+        assert res == 40 * 5
