@@ -57,3 +57,28 @@ class Entry(ExtRegistryEntry):
         return hop.genop('debug_llinterpcall', [c_pythonfunction] + args_v,
                          resulttype=RESTYPE)
 
+
+def check_annotation(arg, checker):
+    """ Function checking if annotation is as expected when translating,
+    does nothing when just run. Checker is supposed to be a constant
+    callable which checks if annotation is as expected,
+    arguments passed are (current annotation, bookkeeper)
+    """
+    pass
+
+class Entry(ExtRegistryEntry):
+    _about_ = check_annotation
+
+    def compute_result_annotation(self, s_arg, s_checker):
+        if not s_checker.is_constant():
+            raise ValueError("Second argument of check_annotation must be constant")
+        checker = s_checker.const
+        checker(s_arg, self.bookkeeper)
+        from pypy.annotation import model
+        return s_arg
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        vlist = [hop.inputarg(hop.args_r[0], arg=0)]
+        return hop.genop("same_as", vlist, resulttype=hop.r_result)
+
