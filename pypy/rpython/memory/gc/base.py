@@ -46,6 +46,8 @@ class GCBase(object):
         #  * malloc_fixedsize() and malloc_varsize() fallback to the above
         #  * coalloc_fixedsize_clear() and coalloc_varsize_clear() are optional
         # There is no non-clear version of coalloc for now.
+        # XXX: as of r49360, gctransformer.framework never inserts calls
+        # to malloc_varsize(), but always uses malloc_varsize_clear()
 
         size = self.fixed_size(typeid)
         needs_finalizer = bool(self.getfinalizer(typeid))
