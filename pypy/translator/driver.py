@@ -734,7 +734,7 @@ $LEDIT $MONO "$(dirname $0)/$(basename $0)-data/%s" "$@" # XXX doesn't work if i
         f = file(newexename, 'w')
         f.write("""#!/bin/bash
 LEDIT=`type -p ledit`
-$LEDIT java -jar $0.jar "$@"
+$LEDIT java -Xmx256m -jar $0.jar "$@"
 """)
         f.close()
         os.chmod(newexename, 0755)
