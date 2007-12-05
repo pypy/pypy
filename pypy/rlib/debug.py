@@ -74,11 +74,9 @@ class Entry(ExtRegistryEntry):
             raise ValueError("Second argument of check_annotation must be constant")
         checker = s_checker.const
         checker(s_arg, self.bookkeeper)
-        from pypy.annotation import model
         return s_arg
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
-        vlist = [hop.inputarg(hop.args_r[0], arg=0)]
-        return hop.genop("same_as", vlist, resulttype=hop.r_result)
+        return hop.inputarg(hop.args_r[0], arg=0)
 
