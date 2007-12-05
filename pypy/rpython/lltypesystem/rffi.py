@@ -281,20 +281,6 @@ def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
     setter = llexternal(setter_name, [TYPE], lltype.Void,
                         compilation_info=new_eci, sandboxsafe=sandboxsafe)
     return getter, setter
-    
-##    # XXX THIS IS ONLY A QUICK HACK TO MAKE IT WORK
-##    # In general, we need to re-think a few things to be more consistent,
-##    # e.g. what if a CStruct, COpaque or CExternVariable requires
-##    # some #include...
-##    assert not isinstance(TYPE, lltype.ContainerType)
-##    CTYPE = lltype.FixedSizeArray(TYPE, 1)
-##    c_variable_ref = _CConstantClass('(&%s)' % (name,), lltype.Ptr(CTYPE))
-##    def getter():
-##        return c_variable_ref[0]
-##    def setter(newvalue):
-##        c_variable_ref[0] = newvalue
-##    return (func_with_new_name(getter, '%s_getter' % (name,)),
-##            func_with_new_name(setter, '%s_setter' % (name,)))
 
 # char, represented as a Python character
 # (use SIGNEDCHAR or UCHAR for the small integer types)
