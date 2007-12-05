@@ -85,7 +85,8 @@ class __extend__(pairtype(BaseListRepr, BaseListRepr)):
 
 
 
-def newlist(llops, r_list, items_v):
+def newlist(llops, r_list, items_v, v_sizehint=None):
+    # XXX do something about v_sizehint
     c_list = inputconst(ootype.Void, r_list.lowleveltype)
     v_result = llops.genop("new", [c_list], resulttype=r_list.lowleveltype)
     c_resize = inputconst(ootype.Void, "_ll_resize")

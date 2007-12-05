@@ -1389,7 +1389,17 @@ class TestLLtype(BaseTestRlist, LLRtypeMixin):
         for i in range(3):
             lis = self.interpret(fnpop, [i])
             assert list_is_clear(lis, 3-i)
-    
+
+    def test_hints(self):
+        from pypy.rlib.objectmodel import newlist
+
+        def f(z):
+            x = newlist(sizehint=13)
+            x += z
+            return ''.join(x)
+
+        res = self.interpret(f, [self.string_to_ll('abc')])
+        assert self.ll_to_string(res) == 'abc'
 
 class TestOOtype(BaseTestRlist, OORtypeMixin):
     rlist = oo_rlist
