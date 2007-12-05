@@ -359,7 +359,7 @@ class __extend__(pairtype(AbstractListRepr, AbstractStringRepr)):
         if r_lst1.item_repr.lowleveltype not in (Char, UniChar):
             raise TyperError('"lst += string" only supported with a list '
                              'of chars or unichars')
-        string_repr = r_lst1.rtyper.type_system.rstr.string_repr
+        string_repr = r_str2.repr
         v_lst1, v_str2 = hop.inputargs(r_lst1, string_repr)
         c_strlen  = hop.inputconst(Void, string_repr.ll.ll_strlen)
         c_stritem = hop.inputconst(Void, string_repr.ll.ll_stritem_nonneg)

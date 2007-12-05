@@ -56,6 +56,10 @@ class OOSupport:
     def to_rstr(s):
         return ootype.oostring(s, -1)
     to_rstr = staticmethod(to_rstr)
+
+    def to_runicode(u):
+        return ootype.oounicode(u, -1)
+    to_runicode = staticmethod(to_runicode)
     
     def from_rstr(rs):
         if not rs:   # null pointer

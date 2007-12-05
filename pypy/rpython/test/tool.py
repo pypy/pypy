@@ -94,6 +94,10 @@ class OORtypeMixin(object):
         from pypy.rpython.module.support import OOSupport        
         return OOSupport.to_rstr(s)
 
+    def unicode_to_ll(self, u):
+        from pypy.rpython.module.support import OOSupport
+        return OOSupport.to_runicode(u)
+
     def ll_to_list(self, l):
         return l._list[:]
 

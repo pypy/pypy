@@ -1571,7 +1571,6 @@ def oounicode(obj, base):
     """
     assert base == -1
     if isinstance(obj, unicode):
-        assert len(obj) == 1
         return make_unicode(obj)
     elif isinstance(obj, _string):
         s = unicode(obj._str)

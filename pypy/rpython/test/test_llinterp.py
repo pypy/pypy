@@ -11,6 +11,7 @@ from pypy.rpython.lltypesystem import rstr, lltype
 from pypy.annotation import model as annmodel
 from pypy.annotation.model import lltype_to_annotation
 from pypy.rlib.rarithmetic import r_uint, ovfcheck
+from pypy.rpython.ootypesystem import ootype
 from pypy import conftest
 
 # switch on logging of interp to show more info on failing tests
@@ -84,9 +85,9 @@ def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
             T = typeOf(x)
             if T == Ptr(PyObject) and someobjects:
                 return object
-            elif T == Ptr(rstr.STR):
+            elif T == Ptr(rstr.STR) or T == ootype.String:
                 return str
-            elif T == Ptr(rstr.UNICODE):
+            elif T == Ptr(rstr.UNICODE) or T == ootype.Unicode:
                 return unicode
             else:
                 return lltype_to_annotation(T)

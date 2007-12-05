@@ -215,6 +215,19 @@ class BaseTestRUnicode(AbstractTestRstr):
         py.test.skip("We should think how to solve this problem")
     test_rfind_empty_string = test_find_empty_string
 
+
+    def test_inplace_add(self):
+        const = self.const
+        def f(x, y):
+            if x > 0:
+                l = [const('a'), const('b')]
+            else:
+                l = [const('a')]
+            l += y
+            return const('').join(l)
+
+        assert self.ll_to_unicode(self.interpret(f, [1, self.unicode_to_ll(const('abc'))])) == 'ababc'
+
 class TestLLtype(BaseTestRUnicode, LLRtypeMixin):
     EMPTY_STRING_HASH = -1
 

@@ -779,6 +779,18 @@ class AbstractTestRstr(BaseRtypingTest):
         if conftest.option.view:
             t.view()
         assert summary(fgraph) == {}
+
+    def test_inplace_add(self):
+        const = self.const
+        def f(x, y):
+            if x > 0:
+                l = [const('a'), const('b')]
+            else:
+                l = [const('a')]
+            l += y
+            return const('').join(l)
+
+        assert self.ll_to_string(self.interpret(f, [1, self.string_to_ll(const('abc'))])) == 'ababc'
         
 
 def FIXME_test_str_to_pystringobj():
