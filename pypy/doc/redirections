@@ -32,8 +32,6 @@
     'draft-dynamic-language-translation.html': 'dynamic-language-translation.html',
     'draft-low-level-encapsulation.html': 'low-level-encapsulation.html',
     'draft-memory-management-threading-model.html': 'translation-aspects.html',
-    'ctypes-integration.html': 'rctypes.html',
-    'cpython-ctypes-behaviour.html': 'rctypes.html#cpython-behavior',
     'proxy.html': 'objspace-proxies.html#tproxy',
 }
 
