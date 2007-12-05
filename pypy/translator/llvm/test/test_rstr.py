@@ -13,4 +13,6 @@ class TestLLVMStr(LLVMTest, BaseTestRstr):
     def test_float(self):
         py.test.skip('XXX special case me')
 
+    def test_inplace_add(self):
+        py.test.skip('XXX special case me')
 
