@@ -52,7 +52,7 @@ class BaseExceptionTransformer(object):
         edata = translator.rtyper.getexceptiondata()
         self.lltype_of_exception_value = edata.lltype_of_exception_value
         self.lltype_of_exception_type = edata.lltype_of_exception_type
-        self.mixlevelannotator  = MixLevelHelperAnnotator(translator.rtyper)
+        self.mixlevelannotator = MixLevelHelperAnnotator(translator.rtyper)
         exc_data, null_type, null_value = self.setup_excdata()
 
         rclass = translator.rtyper.type_system.rclass
@@ -61,13 +61,6 @@ class BaseExceptionTransformer(object):
         runtime_error_ll_exc_type = rclass.ll_inst_type(runtime_error_ll_exc)
 
         def rpyexc_occured():
-            exc_type = exc_data.exc_type
-            return bool(exc_type)
-
-        # XXX tmp HACK for genllvm
-        # llvm is strongly typed between bools and ints, which means we have no way of
-        # calling rpyexc_occured() from c code with lltype.Bool
-        def _rpyexc_occured():
             exc_type = exc_data.exc_type
             return bool(exc_type)
 
@@ -102,12 +95,6 @@ class BaseExceptionTransformer(object):
             "RPyExceptionOccurred",
             rpyexc_occured,
             [], lltype.Bool)
-
-        # XXX tmp HACK for genllvm
-        self._rpyexc_occured_ptr = self.build_func(
-            "_RPyExceptionOccurred",
-            _rpyexc_occured,
-            [], lltype.Signed)
 
         self.rpyexc_fetch_type_ptr = self.build_func(
             "RPyFetchExceptionType",

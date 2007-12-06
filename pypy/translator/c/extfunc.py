@@ -109,7 +109,6 @@ def predeclare_exception_data(db, rtyper):
     if not db.standalone:
         yield ('RPYTHON_PYEXCCLASS2EXC', exceptiondata.fn_pyexcclass2exc)
 
-    yield ('_RPyExceptionOccurred',    exctransformer._rpyexc_occured_ptr.value)
     yield ('RPyExceptionOccurred1',    exctransformer.rpyexc_occured_ptr.value)
     yield ('RPyFetchExceptionType',    exctransformer.rpyexc_fetch_type_ptr.value)
     yield ('RPyFetchExceptionValue',   exctransformer.rpyexc_fetch_value_ptr.value)
