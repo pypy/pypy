@@ -35,8 +35,6 @@ def get_incdirs(eci):
         includestr += "-I %s " % ii
     return includestr
 
-# call boehm finalizers need to be fastcc
-
 def generate_ll(ccode, eci):
     filename = str(udir.join("ccode.c"))
     f = open(filename, "w")
@@ -52,13 +50,14 @@ def generate_ll(ccode, eci):
         raise Exception("Failed to run '%s'" % cmd)
 
     llcode = open(plain + '.ll').read()
-
+ 
     # strip lines
     lines = []
     for line in llcode.split('\n'):
         lines.append(line)
 
-    lines.append("declare ccc void @abort()")
+    lines.append("declare void @abort()")
+    lines.append("declare i32 @write(i32, i8 *, i32)")
     return'\n'.join(lines)
 
 def generate_c(db, entrynode, eci, standalone):

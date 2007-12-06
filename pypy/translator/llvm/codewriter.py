@@ -168,6 +168,7 @@ class CodeWriter(object):
     def debug_print(self, s):
         var = self.db.repr_tmpvar()
         node = self.db.create_debug_string(s)
+        arg = "bitcast(%s* %s to i8*)" % (node.get_typerepr(), node.ref)
         self.call(var, "i32", "@write",
                   ['i32', 'i8*', 'i32'],
-                  ['2', node.ref, '%d' % node.get_length()])
+                  ['2', arg, '%d' % node.get_length()])

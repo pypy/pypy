@@ -111,9 +111,9 @@ class OpWriter(object):
         return indices
 
     def write_operation(self, op):
+        self.codewriter.comment(str(op))
         if self.db.genllvm.config.translation.llvm.debug:
-            self.codewriter.comment(str(op))
-            #self.codewriter.debug_print(str(op) + "\n")
+            self.codewriter.debug_print(str(op) + "\n")
 
         if op.opname in ("direct_call", 'indirect_call'):
             opr = OpReprCall(op, self.db)
