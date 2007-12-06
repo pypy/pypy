@@ -456,10 +456,11 @@ def test_empty_production():
     regexs, rules, ToAST = parse_ebnf("""
 IGNORE: " ";
 DECIMAL: "0|[1-9][0-9]*";
+file: <stuff> EOF;
 stuff: "a" >stuff< "a" | "y" | >empty<;
 empty: ;
     """)
-    parse = make_parse_function(regexs, rules)
+    parse = make_parse_function(regexs, rules, eof=True)
     t = parse(" ")
     t = ToAST().transform(t)
     assert isinstance(t, Nonterminal)
@@ -467,3 +468,4 @@ empty: ;
     t = parse(" a  a  a  a a    a ")
     t = ToAST().transform(t)
     assert len(t.children) == 6
+    excinfo = py.test.raises(ParseError, parse, "a")
