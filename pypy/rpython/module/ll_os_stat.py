@@ -196,7 +196,11 @@ def register_stat_variant(name):
                       'lstat': '_stati64'}    # no lstat on Windows
         c_func_name = _functions[name]
     else:
-        c_func_name = name
+        # because we always use _FILE_OFFSET_BITS 64 - this helps things work that are not a c compiler 
+        _functions = {'stat':  'stat64',
+                      'fstat': 'fstat64',
+                      'lstat': 'lstat64'}
+        c_func_name = _functions[name]
     arg_is_path = (name != 'fstat')
     if arg_is_path:
         ARG1 = rffi.CCHARP
