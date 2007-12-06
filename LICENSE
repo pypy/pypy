@@ -111,3 +111,10 @@ in the 'lib-python/2.4.1' and 'lib-python/2.4.1-modified' directories
 are all copyrighted by the Python Software Foundation and licensed under
 the Python Software License of which you can find a copy here:
 http://www.python.org/doc/Copyright.html 
+
+License for 'pypy/translator/jvm/src/jna.jar'
+=============================================
+
+The file 'pypy/translator/jvm/src/jna.jar' is licensed under the GNU
+Lesser General Public License of which you can find a copy here:
+http://www.gnu.org/licenses/lgpl.html
