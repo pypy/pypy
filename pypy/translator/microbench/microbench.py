@@ -4,7 +4,7 @@
 implementations on a set of microbenchmarks. The script usally is started
 with "./microbench.py python ./pypy" where pypy is a symlink to you pypy exectable."""
 
-import os, time, sys
+import os, time, sys, gc
 
 microbenches = []
 for fname in os.listdir('.'):
@@ -26,6 +26,7 @@ def run(test_cases):
                 else:
                     continue
             testcase = microbench + '.' + k + '()'
+            gc.collect()
             start = time.clock()
             n = 0
             duration = 0.0
