@@ -722,7 +722,8 @@ $LEDIT $MONO "$(dirname $0)/$(basename $0)-data/%s" "$@" # XXX doesn't work if i
         basename = self.exe_name % self.get_info()
         root = udir.join('pypy')
         manifest = self.create_manifest(root)
-        classlist = self.create_classlist(root)
+        jnajar = py.path.local(__file__).dirpath('jvm', 'src', 'jna.jar')
+        classlist = self.create_classlist(root, [jnajar])
         jarfile = py.path.local(basename + '.jar')
         self.log.info('Creating jar file')
         oldpath = root.chdir()
@@ -746,10 +747,19 @@ $LEDIT java -Xmx256m -jar $0.jar "$@"
         manifest.close()
         return filename
 
-    def create_classlist(self, root):
+    def create_classlist(self, root, additional_jars=[]):
+        from py.compat import subprocess
+        # first, uncompress additional jars
+        for jarfile in additional_jars:
+            oldpwd = root.chdir()
+            subprocess.call(['jar', 'xf', str(jarfile)])
+            oldpwd.chdir()
         filename = root.join('classlist.txt')
         classlist = filename.open('w')
-        classfiles = root.visit('*.class', True)
+        classfiles = list(root.visit('*.class', True))
+        classfiles += root.visit('*.so', True)
+        classfiles += root.visit('*.dll', True)
+        classfiles += root.visit('*.jnilib', True)
         for classfile in classfiles:
             print >> classlist, classfile.relto(root)
         classlist.close()

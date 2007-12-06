@@ -114,6 +114,7 @@ class JvmGeneratedSource(object):
         srcdir = rootdir.join('pypy')
         javafiles = srcdir.listdir('*.java')
         classfiles = srcdir.listdir('*.class')
+        jnajar = rootdir.join('jna.jar')
 
         recompile = True
         if len(classfiles) == len(javafiles):
@@ -125,7 +126,12 @@ class JvmGeneratedSource(object):
         if recompile:
            log.red('Compiling java classes')               
            javasrcs = [str(jf) for jf in javafiles]
-           self._invoke([getoption('javac'), '-nowarn', '-d', str(rootdir)] + javasrcs, True)
+           self._invoke([getoption('javac'),
+                         '-nowarn',
+                         '-d', str(rootdir),
+                         '-classpath', str(jnajar)
+                         ] + javasrcs,
+                        True)
 
         # copy .class files to classdir
         for classfile in srcdir.listdir('*.class'):
