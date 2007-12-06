@@ -450,3 +450,20 @@ list: DECIMAL >list< | <DECIMAL>;
     t = parse("1 2 3 4 5")
     t = ToAST().transform(t)
 
+def test_empty_production():
+    # this could be seen as using the transformer in the wrong way
+    # but I have no clue how to detect this situation
+    regexs, rules, ToAST = parse_ebnf("""
+IGNORE: " ";
+DECIMAL: "0|[1-9][0-9]*";
+stuff: "a" >stuff< "a" | "y" | >empty<;
+empty: ;
+    """)
+    parse = make_parse_function(regexs, rules)
+    t = parse(" ")
+    t = ToAST().transform(t)
+    assert isinstance(t, Nonterminal)
+    assert len(t.children) == 0
+    t = parse(" a  a  a  a a    a ")
+    t = ToAST().transform(t)
+    assert len(t.children) == 6
