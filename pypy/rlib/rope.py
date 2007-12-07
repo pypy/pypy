@@ -1033,21 +1033,11 @@ class SeekableItemIterator(object):
         return self.node
 
     def nextnode(self):
-        below = self.node
-        while self.stack:
-            tookleft = self.tookleft.pop()
-            if tookleft:
-                node = self.stack[-1]
-                assert isinstance(node, BinaryConcatNode)
-                self.tookleft.append(False)
-                self.find_downward(node.right)
-                return self.node
-            self.stack.pop()
-        raise StopIteration
+        self.seekforward(0)
 
     def getnode(self):
         if self.index == self.node.length():
-            return self.nextnode()
+            self.nextnode()
         return self.node
     
     def nextchar(self):
