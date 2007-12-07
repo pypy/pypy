@@ -14,8 +14,6 @@ from pypy.translator.jvm.genjvm import \
      generate_source_for_function, JvmError, detect_missing_support_programs
 from pypy.translator.jvm.option import getoption
 
-FLOAT_PRECISION = 5
-
 class StructTuple(tuple):
     def __getattr__(self, name):
         if name.startswith('item'):
@@ -81,6 +79,9 @@ class JvmGeneratedSourceWrapper(object):
         return res
 
 class JvmTest(BaseRtypingTest, OORtypeMixin):
+
+    FLOAT_PRECISION = 7
+    
     def __init__(self):
         self._func = None
         self._ann = None
@@ -132,7 +133,7 @@ class JvmTest(BaseRtypingTest, OORtypeMixin):
             assert False, 'function did not raise any exception at all'
 
     def float_eq(self, x, y):
-        return round(x, FLOAT_PRECISION) == round(y, FLOAT_PRECISION)        
+        return self.float_eq_approx(x, y)
 
     def is_of_type(self, x, type_):
         return True # we can't really test the type

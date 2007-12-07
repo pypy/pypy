@@ -14,7 +14,9 @@ def skip_win():
 class TestCliBuiltin(CliTest, BaseTestBuiltin):
     test_os_path_exists = skip_os
     test_os_isdir = skip_os
+    test_os_dup_oo = skip_os
 
+        
     def test_builtin_math_frexp(self):
         self._skip_powerpc("Mono math floating point problem")
         BaseTestBuiltin.test_builtin_math_frexp(self)

@@ -3,9 +3,9 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.test.test_llinterp import gengraph, interpret, interpret_raises
 
-FLOAT_PRECISION = 8
-
 class BaseRtypingTest(object):
+
+    FLOAT_PRECISION = 8
 
     def gengraph(self, func, argtypes=[], viewbefore='auto', policy=None,
              backendopt=False, config=None):
@@ -23,7 +23,8 @@ class BaseRtypingTest(object):
 
     def float_eq_approx(self, x, y):
         diff = abs(x-y)
-        return diff < 10**-FLOAT_PRECISION
+        error = diff/y
+        return error < 10**-self.FLOAT_PRECISION
 
     def is_of_type(self, x, type_):
         return type(x) is type_
