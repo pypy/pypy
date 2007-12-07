@@ -314,6 +314,11 @@ class test__mkstemp_inner(TC):
             tester = '"%s"' % tester
         else:
             decorated = sys.executable
+            try:
+                import fcntl
+            except ImportError:
+                return    # for interpreters without fcntl, on Unix platforms,
+                          # we can't set the FD_CLOEXEC flag
 
         retval = os.spawnl(os.P_WAIT, sys.executable, decorated, tester, v, fd)
         file.close()
