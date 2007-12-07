@@ -22,9 +22,16 @@ class BaseRtypingTest(object):
         return x == y
 
     def float_eq_approx(self, x, y):
-        diff = abs(x-y)
-        error = diff/y
-        return error < 10**-self.FLOAT_PRECISION
+        maxError = 10**-self.FLOAT_PRECISION
+        if abs(x-y) < maxError:
+            return True
+
+        if abs(y) > abs(x):
+            relativeError = abs((x - y) / y)
+        else:
+            relativeError = abs((x - y) / x)
+
+        return relativeError < maxError
 
     def is_of_type(self, x, type_):
         return type(x) is type_
