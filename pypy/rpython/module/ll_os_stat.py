@@ -141,9 +141,6 @@ class MakeStatResultEntry(extregistry.ExtRegistryEntry):
 if sys.platform.startswith('win'):
     _name_struct_stat = '_stati64'
     INCLUDES = ['sys/types.h', 'sys/stat.h']
-elif sys.platform.startswith('darwin'):
-    _name_struct_stat = 'stat64'
-    INCLUDES = ['sys/stat.h']
 else:
     _name_struct_stat = 'stat'
     INCLUDES = ['sys/types.h', 'sys/stat.h', 'unistd.h']
@@ -198,12 +195,15 @@ def register_stat_variant(name):
                       'fstat': '_fstati64',
                       'lstat': '_stati64'}    # no lstat on Windows
         c_func_name = _functions[name]
-    else:
+    elif sys.platform.startswith('linux'):
         # because we always use _FILE_OFFSET_BITS 64 - this helps things work that are not a c compiler 
         _functions = {'stat':  'stat64',
                       'fstat': 'fstat64',
                       'lstat': 'lstat64'}
         c_func_name = _functions[name]
+    else:
+        c_func_name = name
+
     arg_is_path = (name != 'fstat')
     if arg_is_path:
         ARG1 = rffi.CCHARP
