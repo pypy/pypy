@@ -390,6 +390,17 @@ def test_seekforward():
                 assert c2 == c
             py.test.raises(StopIteration, iter.nextchar)
 
+def test_iterbackward():
+    rope = BinaryConcatNode(BinaryConcatNode(LiteralStringNode("abc"),
+                                             LiteralStringNode("def")),
+                            LiteralStringNode("ghi"))
+    iter = SeekableItemIterator(rope)
+    iter.seekforward(8)
+    for c in "abcdefghi"[::-1]:
+        c2 = iter.lastchar()
+        assert c2 == c
+    py.test.raises(StopIteration, iter.lastchar)
+
 def test_find_int():
     rope, st = make_random_string()
     rope = getslice_one(rope, 10, 100)

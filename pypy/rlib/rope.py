@@ -1005,6 +1005,17 @@ class ReverseItemIterator(object):
         self.advance_index()
         return result
 
+def make_seekable_method(resultgetter, backward=False):
+    if backward:
+        direction = -1
+    else:
+        direction = 1
+    def next(self):
+        node = self.getnode()
+        result = getattr(node, resultgetter)(self.index)
+        self.index += direction
+        return result
+    return next
 
 class SeekableItemIterator(object):
     def __init__(self, node):
@@ -1032,31 +1043,19 @@ class SeekableItemIterator(object):
         self.index = items
         return self.node
 
-    def nextnode(self):
-        self.seekforward(0)
-
     def getnode(self):
-        if self.index == self.node.length():
-            self.nextnode()
+        if self.index == self.nodelength:
+            self.seekforward(0)
+        if self.index == -1:
+            self.seekback(0)
         return self.node
     
-    def nextchar(self):
-        node = self.getnode()
-        result = node.getchar(self.index)
-        self.index += 1
-        return result
-
-    def nextunichar(self):
-        node = self.getnode()
-        result = node.getunichar(self.index)
-        self.index += 1
-        return result
-
-    def nextint(self):
-        node = self.getnode()
-        result = node.getint(self.index)
-        self.index += 1
-        return result
+    nextchar = make_seekable_method("getchar")
+    nextunichar = make_seekable_method("getunichar")
+    nextint = make_seekable_method("getint")
+    lastchar = make_seekable_method("getchar", backward=True)
+    lastunichar = make_seekable_method("getunichar", backward=True)
+    lastint = make_seekable_method("getint", backward=True)
 
     def seekforward(self, numchars):
         if numchars < (self.nodelength - self.index):
