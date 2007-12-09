@@ -286,11 +286,8 @@ def str_join__Rope_ANY(space, w_self, w_list):
             assert isinstance(w_s, W_RopeObject)
             node = w_s._node
             l.append(node)
-        selfnode = w_self._node
-        length = selfnode.length()
-        listlen_minus_one = len(list_w) - 1
         try:
-            return W_RopeObject(rope.join(selfnode, l))
+            return W_RopeObject(rope.join(self, l))
         except OverflowError:
             raise OperationError(space.w_OverflowError,
                                  space.wrap("string too long"))
