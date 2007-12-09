@@ -290,6 +290,17 @@ class LiteralUnicodeNode(LiteralNode):
             id(self), len(self.u),
             repr(addinfo).replace('"', '').replace("\\", "\\\\")))
 
+def make_binary_get(getter):
+    def get(self, index):
+        while isinstance(self, BinaryConcatNode):
+            llen = self.left.length()
+            if index >= llen:
+                self = self.right
+                index -= llen
+            else:
+                self = self.left
+        return getattr(self, getter)(index)
+    return get
 
 class BinaryConcatNode(StringNode):
     def __init__(self, left, right):
@@ -333,33 +344,10 @@ class BinaryConcatNode(StringNode):
     def depth(self):
         return self._depth
 
-    def getchar(self, index):
-        llen = self.left.length()
-        if index >= llen:
-            return self.right.getchar(index - llen)
-        else:
-            return self.left.getchar(index)
-
-    def getunichar(self, index):
-        llen = self.left.length()
-        if index >= llen:
-            return self.right.getunichar(index - llen)
-        else:
-            return self.left.getunichar(index)
-
-    def getint(self, index):
-        llen = self.left.length()
-        if index >= llen:
-            return self.right.getint(index - llen)
-        else:
-            return self.left.getint(index)
-
-    def getrope(self, index):
-        llen = self.left.length()
-        if index >= llen:
-            return self.right.getrope(index - llen)
-        else:
-            return self.left.getrope(index)
+    getchar = make_binary_get("getchar")
+    getunichar = make_binary_get("getunichar")
+    getint = make_binary_get("getint")
+    getrope = make_binary_get("getrope")
 
     def can_contain_int(self, value):
         if self.is_bytestring() and value > 255:
@@ -367,6 +355,17 @@ class BinaryConcatNode(StringNode):
         if self.is_ascii() and value > 127:
             return False
         return (1 << (value & 0x1f)) & self.charbitmask
+
+    def getslice(self, start, stop):
+        if start == 0:
+            if stop == self.length():
+                return self
+            return getslice_left(self, stop)
+        if stop == self.length():
+            return getslice_right(self, start)
+        return concatenate(
+            getslice_right(self.left, start),
+            getslice_left(self.right, stop - self.left.length()))
 
     def flatten_string(self):
         f = fringe(self)
@@ -448,18 +447,7 @@ def getslice(node, start, stop, step, slicelength=-1):
 
 def getslice_one(node, start, stop):
     start, stop, node = find_straddling(node, start, stop)
-    if isinstance(node, BinaryConcatNode):
-        if start == 0:
-            if stop == node.length():
-                return node
-            return getslice_left(node, stop)
-        if stop == node.length():
-            return getslice_right(node, start)
-        return concatenate(
-            getslice_right(node.left, start),
-            getslice_left(node.right, stop - node.left.length()))
-    else:
-        return node.getslice(start, stop)
+    return node.getslice(start, stop)
 
 def find_straddling(node, start, stop):
     while 1:
@@ -546,13 +534,13 @@ def join(node, l):
     return rebalance(nodelist, length)
 
 def rebalance(nodelist, sizehint=-1):
-    nodelist.reverse()
     if sizehint < 0:
         sizehint = 0
         for node in nodelist:
             sizehint += node.length()
     if sizehint == 0:
         return LiteralStringNode.EMPTY
+    nodelist.reverse()
 
     # this code is based on the Fibonacci identity:
     #   sum(fib(i) for i in range(n+1)) == fib(n+2)
