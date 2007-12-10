@@ -3,7 +3,10 @@
 Tests for the zlib module.
 """
 
-import zlib
+try:
+    import zlib
+except ImportError:
+    import py; py.test.skip("no zlib module on this host Python")
 
 from pypy.conftest import gettestobjspace
 
