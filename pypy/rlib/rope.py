@@ -53,7 +53,6 @@ def masked_power(a, b):
 
 class StringNode(object):
     hash_cache = 0
-    charbitmask = 0
     def length(self):
         raise NotImplementedError("base class")
 
@@ -67,6 +66,9 @@ class StringNode(object):
         return 0
 
     def hash_part(self):
+        raise NotImplementedError("base class")
+
+    def charbitmask(self):
         raise NotImplementedError("base class")
 
     def check_balanced(self):
@@ -115,23 +117,28 @@ class LiteralNode(StringNode):
 
 
 class LiteralStringNode(LiteralNode):
-    def __init__(self, s):
+    _is_ascii = False
+    _charbitmask = 0
+    def __init__(self, s, charbitmask=0, is_ascii=False):
         assert isinstance(s, str)
         self.s = s
-        is_ascii = True
-        charbitmask = 0
-        for c in s:
-            ordc = ord(c)
-            if ordc >= 128:
-                is_ascii = False
-            charbitmask |= 1 << (ordc & 0x1F)
-        self.charbitmask = charbitmask
-        self._is_ascii = is_ascii
+        if not s:
+            self._is_ascii = True
+            self._calculated = True
+        elif charbitmask:
+            self._charbitmask = charbitmask
+            self._is_ascii = is_ascii
+            self._calculated = True
+        else:
+            self._calculated = False
+
     
     def length(self):
         return len(self.s)
 
     def is_ascii(self):
+        if not self._calculated:
+            self._calculate()
         return self._is_ascii
 
     def is_bytestring(self):
@@ -154,6 +161,23 @@ class LiteralStringNode(LiteralNode):
             h = self.hash_cache = x
         return h
 
+    def _calculate(self):
+        is_ascii = True
+        charbitmask = 0
+        for c in self.s:
+            ordc = ord(c)
+            if ordc >= 128:
+                is_ascii = False
+            charbitmask |= intmask(1 << (ordc & 0x1F))
+        self._is_ascii = is_ascii
+        self._charbitmask = charbitmask
+        self._calculated = True
+
+    def charbitmask(self):
+        if not self._calculated:
+            self._calculate()
+        return self._charbitmask
+
     def getchar(self, index):
         return self.s[index]
 
@@ -171,7 +195,7 @@ class LiteralStringNode(LiteralNode):
             return False
         if self.is_ascii() and value > 127:
             return False
-        return (1 << (value & 0x1f)) & self.charbitmask
+        return (1 << (value & 0x1f)) & self.charbitmask()
 
     def getslice(self, start, stop):
         assert 0 <= start <= stop
@@ -203,6 +227,9 @@ class LiteralStringNode(LiteralNode):
         yield ('"%s" [shape=box,label="length: %s\\n%s"];' % (
             id(self), len(self.s),
             repr(addinfo).replace('"', '').replace("\\", "\\\\")))
+
+    def _freeze_(self):
+        self._calculate()
 LiteralStringNode.EMPTY = LiteralStringNode("")
 LiteralStringNode.PREBUILT = [LiteralStringNode(chr(i)) for i in range(256)]
 del i
@@ -212,13 +239,7 @@ class LiteralUnicodeNode(LiteralNode):
     def __init__(self, u):
         assert isinstance(u, unicode)
         self.u = u
-        charbitmask = 0
-        for c in u:
-            ordc = ord(c)
-            if ordc >= 128:
-                charbitmask |= 1 # be compatible with LiteralStringNode
-            charbitmask |= 1 << (ordc & 0x1F)
-        self.charbitmask = charbitmask
+        self._charbitmask = 0
     
     def length(self):
         return len(self.u)
@@ -243,6 +264,22 @@ class LiteralUnicodeNode(LiteralNode):
             h = self.hash_cache = x
         return h
 
+    def _calculate(self):
+        if len(self.u) == 0:
+            return
+        charbitmask = 0
+        for c in self.u:
+            ordc = ord(c)
+            if ordc >= 128:
+                charbitmask |= 1 # be compatible with LiteralStringNode
+            charbitmask |= intmask(1 << (ordc & 0x1F))
+        self._charbitmask = intmask(charbitmask)
+
+    def charbitmask(self):
+        if not self._charbitmask:
+            self._calculate()
+        return self._charbitmask
+
     def getunichar(self, index):
         return self.u[index]
 
@@ -258,7 +295,7 @@ class LiteralUnicodeNode(LiteralNode):
         return LiteralUnicodeNode(unichr(ch))
 
     def can_contain_int(self, value):
-        return (1 << (value & 0x1f)) & self.charbitmask
+        return (1 << (value & 0x1f)) & self.charbitmask()
 
     def getslice(self, start, stop):
         assert 0 <= start <= stop
@@ -289,6 +326,8 @@ class LiteralUnicodeNode(LiteralNode):
         yield ('"%s" [shape=box,label="length: %s\\n%s"];' % (
             id(self), len(self.u),
             repr(addinfo).replace('"', '').replace("\\", "\\\\")))
+    def _freeze_(self):
+        self._calculate()
 
 def make_binary_get(getter):
     def get(self, index):
@@ -303,46 +342,43 @@ def make_binary_get(getter):
     return get
 
 class BinaryConcatNode(StringNode):
-    def __init__(self, left, right):
+    def __init__(self, left, right, balanced=False):
         self.left = left
         self.right = right
         try:
             self.len = ovfcheck(left.length() + right.length())
         except OverflowError:
             raise
-        self._depth = max(left.depth(), right.depth()) + 1
-        self.balanced = False
-        self._is_ascii = left.is_ascii() and right.is_ascii()
-        self._is_bytestring = left.is_bytestring() and right.is_bytestring()
-        self.charbitmask = left.charbitmask | right.charbitmask
+        self.balanced = balanced
+        self._calculated = False
+        self._depth = 0
 
     def is_ascii(self):
+        if not self._calculated:
+            self._calculate()
         return self._is_ascii
 
     def is_bytestring(self):
+        if not self._calculated:
+            self._calculate()
         return self._is_bytestring
 
     def check_balanced(self):
         if self.balanced:
             return True
-        if not self.left.check_balanced() or not self.right.check_balanced():
-            return False
-        left = self.left
-        right = self.right
-        llen = left.length()
-        rlen = right.length()
-        ldepth = left.depth()
-        rdepth = right.depth()
-        balanced = (find_fib_index(self.len // (NEW_NODE_WHEN_LENGTH / 2)) >=
-                    self._depth)
-        self.balanced = balanced
-        return balanced
+        if not self._calculated:
+            self._calculate()
+        return self.balanced
 
     def length(self):
         return self.len
 
     def depth(self):
-        return self._depth
+        depth = self._depth
+        if not depth:
+            depth = self._depth = max(self.left.depth(),
+                                      self.right.depth()) + 1
+        return depth
 
     getchar = make_binary_get("getchar")
     getunichar = make_binary_get("getunichar")
@@ -354,7 +390,7 @@ class BinaryConcatNode(StringNode):
             return False
         if self.is_ascii() and value > 127:
             return False
-        return (1 << (value & 0x1f)) & self.charbitmask
+        return (1 << (value & 0x1f)) & self.charbitmask()
 
     def getslice(self, start, stop):
         if start == 0:
@@ -385,7 +421,32 @@ class BinaryConcatNode(StringNode):
             h = self.hash_cache = x
         return h
 
+    def _calculate(self):
+        left = self.left
+        right = self.right
+        self._is_ascii = left.is_ascii() and right.is_ascii()
+        self._is_bytestring = left.is_bytestring() and right.is_bytestring()
+        self._charbitmask = left.charbitmask() | right.charbitmask()
+        # balance calculation
+        # XXX improve?
+        if self.balanced:
+            balanced = True
+        elif not left.check_balanced() or not right.check_balanced():
+            balanced = False
+        else:
+            balanced = (find_fib_index(self.len // (NEW_NODE_WHEN_LENGTH / 2)) >=
+                        self._depth)
+        self.balanced = balanced
+        self._calculated = True
+
+    def charbitmask(self):
+        if not self._calculated:
+            self._calculate()
+        return self._charbitmask
+
     def rebalance(self):
+        if self.balanced:
+            return self
         return rebalance([self], self.len)
 
     def dot(self, seen, toplevel=False):
@@ -404,6 +465,8 @@ class BinaryConcatNode(StringNode):
             yield '"%s" -> "%s";' % (id(self), id(child))
             for line in child.dot(seen):
                 yield line
+    def _freeze_(self):
+        self._calculate()
 
 def concatenate(node1, node2):
     if node1.length() == 0:
@@ -427,8 +490,8 @@ def getslice(node, start, stop, step, slicelength=-1):
     if slicelength == -1:
         # XXX for testing only
         slicelength = len(xrange(start, stop, step))
+    start, stop, node = find_straddling(node, start, stop)
     if step != 1:
-        start, stop, node = find_straddling(node, start, stop)
         iter = SeekableItemIterator(node)
         iter.seekforward(start)
         if node.is_bytestring():
@@ -443,7 +506,7 @@ def getslice(node, start, stop, step, slicelength=-1):
                 iter.seekforward(step - 1)
                 result.append(iter.nextunichar())
             return rope_from_unicharlist(result)
-    return getslice_one(node, start, stop)
+    return node.getslice(start, stop)
 
 def getslice_one(node, start, stop):
     start, stop, node = find_straddling(node, start, stop)
@@ -589,7 +652,6 @@ def rebalance(nodelist, sizehint=-1):
         if l[index] is not None:
             curr = BinaryConcatNode(l[index], curr)
     assert curr is not None
-    curr.check_balanced()
     return curr
 
 # __________________________________________________________________________
