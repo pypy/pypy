@@ -5,7 +5,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.typedef import interp_attrproperty
-from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped, interp2app
+from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped, interp2app, Arguments
 from pypy.rlib.streamio import Stream
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 import sys
@@ -161,12 +161,86 @@ def _new_buffer_size(current_size):
             return current_size + BIGCHUNK
     return current_size + SMALLCHUNK
 
-def open_file_as_stream(space, path, mode="r", buffering=-1, compresslevel=9):
+# ____________________________________________________________
+#
+# Make the BZ2File type by internally inheriting from W_File.
+# XXX this depends on internal details of W_File to work properly.
+
+from pypy.module._file.interp_file import W_File
+
+class W_BZ2File(W_File):
+
+    def direct_bz2__init__(self, name, mode='r', buffering=-1,
+                           compresslevel=9):
+        self.direct_close()
+        # the stream should always be opened in binary mode
+        if "b" not in mode:
+            mode = mode + "b"
+        self.check_mode_ok(mode)
+        stream = open_bz2file_as_stream(self.space, name, mode,
+                                        buffering, compresslevel)
+        fd = stream.try_to_find_file_descriptor()
+        self.fdopenstream(stream, fd, mode, name)
+
+    _exposed_method_names = []
+    W_File._decl.im_func(locals(), "bz2__init__", ['self', str, str, int, int],
+          """Opens a BZ2-compressed file.""")
+    # XXX ^^^ hacking hacking... can't just use the name "__init__" again
+    # because the RTyper is confused about the two direct__init__() with
+    # a different signature, confusion caused by the fact that
+    # W_File.file__init__() would appear to contain an indirect call to
+    # one of the two versions of direct__init__().
+
+    def file_bz2__repr__(self):
+        if self.stream is None:
+            head = "closed"
+        else:
+            head = "open"
+        info = "%s bz2.BZ2File '%s', mode '%s'" % (head, self.name, self.mode)
+        return self.getrepr(self.space, info)
+    file_bz2__repr__.unwrap_spec = ['self']
+
+def descr_bz2file__new__(space, w_subtype, args):
+    bz2file = space.allocate_instance(W_BZ2File, w_subtype)
+    W_BZ2File.__init__(bz2file, space)
+    return space.wrap(bz2file)
+descr_bz2file__new__.unwrap_spec = [ObjSpace, W_Root, Arguments]
+
+same_attributes_as_in_file = list(W_File._exposed_method_names)
+same_attributes_as_in_file.remove('__init__')
+same_attributes_as_in_file.extend([
+    'name', 'mode', 'encoding', 'closed', 'newlines', 'softspace',
+    '__weakref__'])
+
+W_BZ2File.typedef = TypeDef(
+    "BZ2File",
+    __doc__ = """\
+BZ2File(name [, mode='r', buffering=-1, compresslevel=9]) -> file object
+
+Open a bz2 file. The mode can be 'r' or 'w', for reading (default) or
+writing. When opened for writing, the file will be created if it doesn't
+exist, and truncated otherwise. If the buffering argument is given, 0 means
+unbuffered, and larger numbers specify the buffer size. If compresslevel
+is given, must be a number between 1 and 9.
+
+Add a 'U' to mode to open the file for input with universal newline
+support. Any line ending in the input file will be seen as a '\\n' in
+Python. Also, a file so opened gains the attribute 'newlines'; the value
+for this attribute is one of None (no newline read yet), '\\r', '\\n',
+'\\r\\n' or a tuple containing all the newline types seen. Universal
+newlines are available only when reading.""",
+    __new__  = interp2app(descr_bz2file__new__),
+    __init__ = interp2app(W_BZ2File.file_bz2__init__),
+    __repr__ = interp2app(W_BZ2File.file_bz2__repr__),
+    **dict([(name, W_File.typedef.rawdict[name])
+            for name in same_attributes_as_in_file]))
+
+# ____________________________________________________________
+
+def open_bz2file_as_stream(space, path, mode="r", buffering=-1,
+                           compresslevel=9):
     from pypy.rlib.streamio import decode_mode, open_path_helper
     from pypy.rlib.streamio import construct_stream_tower
-    from pypy.module._file.interp_file import wrap_oserror_as_ioerror, W_Stream
-    from pypy.module._file.interp_file import is_mode_ok
-    is_mode_ok(space, mode)
     os_flags, universal, reading, writing, basemode = decode_mode(mode)
     if reading and writing:
         raise OperationError(space.w_ValueError,
@@ -174,32 +248,33 @@ def open_file_as_stream(space, path, mode="r", buffering=-1, compresslevel=9):
     if basemode == "a":
         raise OperationError(space.w_ValueError,
                              space.wrap("cannot append to bz2 file"))
-    try:
-        stream = open_path_helper(path, os_flags, False)
-    except OSError, exc:
-        raise wrap_oserror_as_ioerror(space, exc)
+    stream = open_path_helper(path, os_flags, False)
     if reading:
-        bz2stream = ReadBZ2Filter(space, stream, compresslevel)
+        bz2stream = ReadBZ2Filter(space, stream, buffering)
+        buffering = 0     # by construction, the ReadBZ2Filter acts like
+                          # a read buffer too - no need for another one
     else:
         assert writing
         bz2stream = WriteBZ2Filter(space, stream, compresslevel)
     stream = construct_stream_tower(bz2stream, buffering, universal, reading,
                                     writing)
-    return space.wrap(W_Stream(space, stream))
-open_file_as_stream.unwrap_spec = [ObjSpace, str, str, int, int]
+    return stream
 
 
 class ReadBZ2Filter(Stream):
 
     """Standard I/O stream filter that decompresses the stream with bz2."""
 
-    def __init__(self, space, stream, compresslevel):
+    def __init__(self, space, stream, buffering):
         self.space = space
         self.stream = stream
         self.decompressor = W_BZ2Decompressor(space)
         self.readlength = 0
         self.buffer = ""
         self.finished = False
+        if buffering < 1024:
+            buffering = 1024   # minimum amount of compressed data read at once
+        self.buffering = buffering
 
     def close(self):
         self.stream.close()
@@ -229,12 +304,18 @@ class ReadBZ2Filter(Stream):
                 if not length:
                     break
         else:
-            raise NotImplementedError
+            # first measure the length by reading everything left
+            while len(self.read(65536)) > 0:
+                pass
+            pos = self.readlength + offset
+            self.seek(pos, 0)
 
     def readall(self):
         w_result = self.decompressor.decompress(self.stream.readall())
         result = self.space.str_w(w_result)
         self.readlength += len(result)
+        result = self.buffer + result
+        self.buffer = ''
         return result
 
     def read(self, n):
@@ -244,8 +325,12 @@ class ReadBZ2Filter(Stream):
         while not self.buffer:
             if self.finished:
                 return ""
+            moredata = self.stream.read(max(self.buffering, n))
+            if not moredata:
+                self.finished = True
+                return ""
             try:
-                w_read = self.decompressor.decompress(self.stream.read(n))
+                w_read = self.decompressor.decompress(moredata)
             except OperationError, e:
                 if e.match(self.space, self.space.w_EOFError):
                     self.finished = True
@@ -260,6 +345,9 @@ class ReadBZ2Filter(Stream):
             self.buffer = ""
         self.readlength += len(result)
         return result
+
+    def peek(self):
+        return self.buffer
 
     def try_to_find_file_descriptor(self):
         return self.stream.try_to_find_file_descriptor()
@@ -507,7 +595,9 @@ class W_BZ2Decompressor(Wrappable):
         after the end of stream is found, EOFError will be raised. If any data
         was found after the end of stream, it'll be ignored and saved in
         unused_data attribute."""
-        
+
+        if data == '':
+            return self.space.wrap('')
         if not self.running:
             raise OperationError(self.space.w_EOFError,
                 self.space.wrap("end of stream was already found"))

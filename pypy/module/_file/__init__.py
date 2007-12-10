@@ -4,11 +4,21 @@ from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
     appleveldefs = {
-        "file": "app_file.file",
     }
 
     interpleveldefs = {
-        "open_file_as_stream": "interp_file.open_file_as_stream",
-        "fdopen_as_stream": "interp_file.fdopen_as_stream",
+        "file": "interp_file.W_File",
     }
 
+    def shutdown(self, space):
+        # at shutdown, flush all open streams
+        from pypy.module._file.interp_file import getopenstreams
+        openstreams = getopenstreams(space)
+        while openstreams:
+            for stream in openstreams.keys():
+                try:
+                    del openstreams[stream]
+                except KeyError:
+                    pass    # key was removed in the meantime
+                else:
+                    stream.flush()

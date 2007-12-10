@@ -1,7 +1,8 @@
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import intmask
-from pypy.module._file.interp_file import file2stream
+from pypy.module._file.interp_file import W_File
+from pypy.module._file.interp_stream import StreamErrors, wrap_streamerror
 import sys
 
 # Py_MARSHAL_VERSION = 2
@@ -15,9 +16,10 @@ Py_MARSHAL_VERSION = 1
 
 def dump(space, w_data, w_f, w_version=Py_MARSHAL_VERSION):
     """Write the 'data' object into the open file 'f'."""
-    w_stream = file2stream(space, w_f)
-    if w_stream is not None:
-        writer = StreamWriter(space, w_stream)
+    # special case real files for performance
+    file = space.interpclass_w(w_f)
+    if isinstance(file, W_File):
+        writer = DirectStreamWriter(space, file)
     else:
         writer = FileWriter(space, w_f)
     try:
@@ -39,9 +41,9 @@ by dump(data, file)."""
 def load(space, w_f):
     """Read one value from the file 'f' and return it."""
     # special case real files for performance
-    w_stream = file2stream(space, w_f)
-    if w_stream is not None:
-        reader = StreamReader(space, w_stream)
+    file = space.interpclass_w(w_f)
+    if isinstance(file, W_File):
+        reader = DirectStreamReader(space, file)
     else:
         reader = FileReader(space, w_f)
     try:
@@ -114,27 +116,24 @@ class FileReader(AbstractReaderWriter):
 
 
 class StreamReaderWriter(AbstractReaderWriter):
-    def __init__(self, space, w_stream):
+    def __init__(self, space, file):
         AbstractReaderWriter.__init__(self, space)
-        self.w_stream = w_stream
-        w_stream.descr_lock()
+        self.file = file
+        file.lock()
 
     def finished(self):
-        self.w_stream.descr_unlock()
+        self.file.unlock()
 
-class StreamWriter(StreamReaderWriter):
+class DirectStreamWriter(StreamReaderWriter):
     def write(self, data):
-        self.w_stream.do_write(data)
+        self.file.direct_write(data)
 
-class StreamReader(StreamReaderWriter):
+class DirectStreamReader(StreamReaderWriter):
     def read(self, n):
-        result = data = self.w_stream.do_read(n)
-        while len(result) < n:
-            if len(data) == 0:
-                self.raise_eof()
-            data = self.w_stream.do_read(n)
-            result += data
-        return result
+        data = self.file.direct_read(n)
+        if len(data) < n:
+            self.raise_eof()
+        return data
 
 
 MAX_MARSHAL_DEPTH = 5000

@@ -206,7 +206,7 @@ class ObjSpace(object):
         for w_modname in self.unpackiterable(
                                 self.sys.get('builtin_module_names')):
             modname = self.str_w(w_modname)
-            mod = self.getbuiltinmodule(modname)
+            mod = self.interpclass_w(self.getbuiltinmodule(modname))
             if isinstance(mod, Module):
                 mod.startup(self)
 
@@ -214,12 +214,13 @@ class ObjSpace(object):
         w_exitfunc = self.sys.getdictvalue_w(self, 'exitfunc')
         if w_exitfunc is not None:
             self.call_function(w_exitfunc)
-        w_exithandlers = self.sys.getdictvalue_w(self, 'pypy__exithandlers__')
-        if w_exithandlers is not None:
-            while self.is_true(w_exithandlers):
-                w_key_value = self.call_method(w_exithandlers, 'popitem')
-                w_key, w_value = self.unpacktuple(w_key_value, 2)
-                self.call_function(w_value)
+        from pypy.interpreter.module import Module
+        for w_modname in self.unpackiterable(
+                                self.sys.get('builtin_module_names')):
+            modname = self.str_w(w_modname)
+            mod = self.interpclass_w(self.getbuiltinmodule(modname))
+            if isinstance(mod, Module):
+                mod.shutdown(self)
         if self.config.objspace.std.withdictmeasurement:
             from pypy.objspace.std.dictmultiobject import report
             report()

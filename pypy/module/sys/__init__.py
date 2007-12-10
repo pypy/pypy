@@ -76,7 +76,6 @@ class Module(MixedModule):
         '__excepthook__'        : 'app.excepthook', 
         'exit'                  : 'app.exit', 
         'exitfunc'              : 'app.exitfunc',
-        'pypy__exithandlers__'  : 'app.pypy__exithandlers__',  # internal
         'getfilesystemencoding' : 'app.getfilesystemencoding', 
         'callstats'             : 'app.callstats',
     }

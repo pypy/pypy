@@ -24,6 +24,11 @@ class Module(Wrappable):
         """This is called at runtime before the space gets uses to allow
         the module to do initialization at runtime.
         """
+
+    def shutdown(self, space):
+        """This is called when the space is shut down, just after
+        sys.exitfunc().
+        """
         
     def getdict(self):
         return self.w_dict

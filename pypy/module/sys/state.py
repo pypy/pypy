@@ -76,25 +76,23 @@ def get(space):
 
 class IOState:
     def __init__(self, space):
+        from pypy.module._file.interp_file import W_File
         self.space = space
 
-        w_fdopen = space.getattr(space.builtin.get('file'),
-                                 space.wrap("fdopen"))
-        self.w_stdin = space.call_function(
-            w_fdopen, space.wrap(0), space.wrap("r"),
-            space.wrap(1))
-        space.setattr(self.w_stdin, space.wrap("_name"),
-                      space.wrap("<stdin>"))
-        self.w_stdout = space.call_function(
-            w_fdopen, space.wrap(1), space.wrap("w"),
-            space.wrap(1))
-        space.setattr(self.w_stdout, space.wrap("_name"),
-                      space.wrap("<stdout>"))
-        self.w_stderr = space.call_function(
-            w_fdopen, space.wrap(2), space.wrap("w"),
-            space.wrap(0))
-        space.setattr(self.w_stderr, space.wrap("_name"),
-                      space.wrap("<stderr>"))
+        stdin = W_File(space)
+        stdin.file_fdopen(0, "r", 1)
+        stdin.name = '<stdin>'
+        self.w_stdin = space.wrap(stdin)
+
+        stdout = W_File(space)
+        stdout.file_fdopen(1, "w", 1)
+        stdout.name = '<stdout>'
+        self.w_stdout = space.wrap(stdout)
+
+        stderr = W_File(space)
+        stderr.file_fdopen(2, "w", 0)
+        stderr.name = '<stderr>'
+        self.w_stderr = space.wrap(stderr)
 
 def getio(space):
     return space.fromcache(IOState)

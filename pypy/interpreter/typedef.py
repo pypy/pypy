@@ -380,13 +380,13 @@ class GetSetProperty(Wrappable):
     def descr_get_objclass(space, property):
         return property.objclass_getter(space)
 
-def interp_attrproperty(name, cls):
+def interp_attrproperty(name, cls, doc=None):
     "NOT_RPYTHON: initialization-time only"
     def fget(space, obj):
         return space.wrap(getattr(obj, name))
-    return GetSetProperty(fget, cls=cls)
+    return GetSetProperty(fget, cls=cls, doc=doc)
 
-def interp_attrproperty_w(name, cls):
+def interp_attrproperty_w(name, cls, doc=None):
     "NOT_RPYTHON: initialization-time only"
     def fget(space, obj):
         w_value = getattr(obj, name)
@@ -395,7 +395,7 @@ def interp_attrproperty_w(name, cls):
         else:
             return w_value
     
-    return GetSetProperty(fget, cls=cls)
+    return GetSetProperty(fget, cls=cls, doc=doc)
 
 GetSetProperty.typedef = TypeDef(
     "getset_descriptor",
