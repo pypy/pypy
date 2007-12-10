@@ -14,11 +14,28 @@ class WeakrefLifeline(object):
         self.cached_proxy_index = -1
         
     def __del__(self):
+        """This runs when the interp-level object goes away, and allows
+        its lifeline to go away.  The purpose of this is to activate the
+        callbacks even if there is no __del__ method on the interp-level
+        W_Root subclass implementing the object.
+        """
         for i in range(len(self.refs_weak) - 1, -1, -1):
             w_ref = self.refs_weak[i]()
             if w_ref is not None:
                 w_ref.activate_callback()
-    
+
+    def clear_all_weakrefs(self):
+        """Clear all weakrefs.  This is called when an app-level object has
+        a __del__, just before the app-level __del__ method is called.
+        """
+        for ref_w_ref in self.refs_weak:
+            w_ref = ref_w_ref()
+            if w_ref is not None:
+                w_ref.clear()
+        # Note that for no particular reason other than convenience,
+        # weakref callbacks are not invoked eagerly here.  They are
+        # invoked by self.__del__() anyway.
+
     def get_or_make_weakref(self, space, w_subtype, w_obj, w_callable):
         w_weakreftype = space.gettypeobject(W_Weakref.typedef)
         is_weakreftype = space.is_w(w_weakreftype, w_subtype)
@@ -68,6 +85,17 @@ class WeakrefLifeline(object):
                 return w_ref
         return space.w_None
 
+# ____________________________________________________________
+
+class Dummy:
+    pass
+dead_ref = weakref.ref(Dummy())
+for i in range(5):
+    if dead_ref() is not None:
+        import gc; gc.collect()
+assert dead_ref() is None
+
+
 class W_WeakrefBase(Wrappable):
     def __init__(w_self, space, w_obj, w_callable):
         if space.is_w(w_callable, space.w_None):
@@ -80,6 +108,9 @@ class W_WeakrefBase(Wrappable):
     def dereference(self):
         w_obj = self.w_obj_weak()
         return w_obj
+
+    def clear(self):
+        self.w_obj_weak = dead_ref
 
     def activate_callback(w_self):
         if not w_self.w_callable is None:

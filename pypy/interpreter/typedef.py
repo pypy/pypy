@@ -149,6 +149,15 @@ def _buildusercls(cls, hasdict, wants_slots, wants_del, weakrefable):
         parent_destructor = getattr(cls, '__del__', None)
         class Proto(object):
             def __del__(self):
+                lifeline = self.getweakref()
+                if lifeline is not None:
+                    # Clear all weakrefs to this object before we call
+                    # the app-level __del__.  We detach the lifeline
+                    # first: if the app-level __del__ tries to use
+                    # weakrefs again, they won't reuse the broken
+                    # (already-cleared) ones from this lifeline.
+                    self.setweakref(None)
+                    lifeline.clear_all_weakrefs()
                 try:
                     self.space.userdel(self)
                 except OperationError, e:
