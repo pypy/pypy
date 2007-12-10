@@ -268,6 +268,31 @@ class AppTestWeakref(object):
             a1 = w()
             assert a1 is None
 
+    def test_del_and_callback_and_id(self):
+        import gc, weakref
+        seen_del = []
+        class A(object):
+            def __del__(self):
+                seen_del.append(id(self))
+                seen_del.append(w1() is None)
+                seen_del.append(w2() is None)
+        seen_callback = []
+        def callback(r):
+            seen_callback.append(r is w2)
+            seen_callback.append(w1() is None)
+            seen_callback.append(w2() is None)
+        a = A()
+        w1 = weakref.ref(a)
+        w2 = weakref.ref(a, callback)
+        aid = id(a)
+        del a
+        for i in range(5):
+            gc.collect()
+        if seen_del:
+            assert seen_del == [aid, True, True]
+        if seen_callback:
+            assert seen_callback == [True, True, True]
+
 
 class AppTestProxy(object):
     def setup_class(cls):
