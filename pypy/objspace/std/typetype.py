@@ -172,9 +172,9 @@ def descr_set__bases__(space, w_type, w_value):
         raise OperationError(space.w_TypeError,
                              space.wrap("__bases__ assignment: '%s' object layout differs from '%s'" %
                                         (w_type.getname(space, '?'), new_base.getname(space, '?'))))
-    if space.config.objspace.std.withtypeversion:
-        # it does not make sense to cache this type, it changes bases
-        w_type.version_tag = None
+
+    # invalidate the version_tag of all the current subclasses
+    w_type.mutated()
 
     saved_bases = w_type.bases_w
     saved_base = w_type.w_bestbase

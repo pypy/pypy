@@ -211,3 +211,22 @@ class AppTestMethodCaching(AppTestShadowTracking):
         assert append_counter[0] >= 5 * len(names)
         for name, count in zip(names, names_counters):
             assert count[0] >= 5
+
+    def test_mutating_bases(self):
+        class C(object):
+            pass
+        class C2(object):
+            foo = 5
+        class D(C):
+            pass
+        class E(D):
+            pass
+        d = D()
+        e = E()
+        D.__bases__ = (C2,)
+        assert e.foo == 5
+
+        class F(object):
+            foo = 3
+        D.__bases__ = (C, F)
+        assert e.foo == 3
