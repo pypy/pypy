@@ -350,7 +350,13 @@ class BinaryConcatNode(StringNode):
         except OverflowError:
             raise
         self.balanced = balanced
+        if balanced:
+            self.balance_known = True
+        else:
+            self.balance_known = False
         self._calculated = False
+        self._is_ascii = False
+        self._is_bytestring = False
         self._depth = 0
 
     def is_ascii(self):
@@ -364,10 +370,17 @@ class BinaryConcatNode(StringNode):
         return self._is_bytestring
 
     def check_balanced(self):
-        if self.balanced:
-            return True
-        if not self._calculated:
-            self._calculate()
+        if self.balance_known:
+            return self.balanced
+        # balance calculation
+        # XXX improve?
+        if not self.left.check_balanced() or not self.right.check_balanced():
+            balanced = False
+        else:
+            balanced = (find_fib_index(self.len // (NEW_NODE_WHEN_LENGTH / 2)) >=
+                        self._depth)
+        self.balanced = balanced
+        self.balance_known = True
         return self.balanced
 
     def length(self):
@@ -427,16 +440,6 @@ class BinaryConcatNode(StringNode):
         self._is_ascii = left.is_ascii() and right.is_ascii()
         self._is_bytestring = left.is_bytestring() and right.is_bytestring()
         self._charbitmask = left.charbitmask() | right.charbitmask()
-        # balance calculation
-        # XXX improve?
-        if self.balanced:
-            balanced = True
-        elif not left.check_balanced() or not right.check_balanced():
-            balanced = False
-        else:
-            balanced = (find_fib_index(self.len // (NEW_NODE_WHEN_LENGTH / 2)) >=
-                        self._depth)
-        self.balanced = balanced
         self._calculated = True
 
     def charbitmask(self):
