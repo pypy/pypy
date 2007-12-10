@@ -51,8 +51,39 @@ def masked_power(a, b):
     return result
 
 
+class GlobalRopeInfo(object):
+    """contains data that is "global" to the whole string, e.g. requires
+    an iteration over the whole string"""
+    def __init__(self):
+        self.charbitmask = 0
+        self.hash = 0
+        self.is_bytestring = False
+        self.is_ascii = False
+
+    def combine(self, other, rightlength):
+        result = GlobalRopeInfo()
+        result.charbitmask = self.charbitmask | other.charbitmask
+        h1 = self.hash
+        h2 = other.hash
+        x = intmask(h2 + h1 * (masked_power(1000003, rightlength)))
+        x |= HIGHEST_BIT_SET
+        result.hash = x
+        result.is_ascii = self.is_ascii and other.is_ascii
+        result.is_bytestring = self.is_bytestring and right.is_bytestring()
+        return result
+
+
 class StringNode(object):
-    hash_cache = 0
+    _additional_info = None
+    def additional_info(self):
+        addinfo = self._additional_info
+        if addinfo is None:
+            return self.compute_additional_info()
+        return addinfo
+
+    def compute_additional_info(self):
+        raise NotImplementedError("base class")
+
     def length(self):
         raise NotImplementedError("base class")
 
@@ -107,6 +138,8 @@ class StringNode(object):
     def __add__(self, other):
         return concatenate(self, other)
 
+    def _freeze_(self):
+        self.additional_info()
 
 class LiteralNode(StringNode):
     def find_int(self, what, start, stop):
@@ -117,29 +150,15 @@ class LiteralNode(StringNode):
 
 
 class LiteralStringNode(LiteralNode):
-    _is_ascii = False
-    _charbitmask = 0
-    def __init__(self, s, charbitmask=0, is_ascii=False):
+    def __init__(self, s):
         assert isinstance(s, str)
         self.s = s
-        if not s:
-            self._is_ascii = True
-            self._calculated = True
-        elif charbitmask:
-            self._charbitmask = charbitmask
-            self._is_ascii = is_ascii
-            self._calculated = True
-        else:
-            self._calculated = False
-
     
     def length(self):
         return len(self.s)
 
     def is_ascii(self):
-        if not self._calculated:
-            self._calculate()
-        return self._is_ascii
+        return self.additional_info().is_ascii
 
     def is_bytestring(self):
         return True
@@ -151,32 +170,30 @@ class LiteralStringNode(LiteralNode):
         return self.s.decode('latin-1')
 
     def hash_part(self):
-        h = self.hash_cache
-        if not h:
-            x = 0
-            for c in self.s:
-                x = (1000003*x) + ord(c)
-            x = intmask(x)
-            x |= HIGHEST_BIT_SET
-            h = self.hash_cache = x
-        return h
+        return self.additional_info().hash
 
-    def _calculate(self):
+    def compute_additional_info(self):
+        additional_info = GlobalRopeInfo()
         is_ascii = True
         charbitmask = 0
+        partial_hash = 0
         for c in self.s:
             ordc = ord(c)
+            partial_hash = (1000003*partial_hash) + ord(c)
             if ordc >= 128:
                 is_ascii = False
             charbitmask |= intmask(1 << (ordc & 0x1F))
-        self._is_ascii = is_ascii
-        self._charbitmask = charbitmask
-        self._calculated = True
+        partial_hash = intmask(partial_hash)
+        partial_hash |= HIGHEST_BIT_SET
+
+        additional_info.hash = partial_hash
+        additional_info.is_ascii = is_ascii
+        additional_info.charbitmask = charbitmask
+        self._additional_info = additional_info
+        return additional_info
 
     def charbitmask(self):
-        if not self._calculated:
-            self._calculate()
-        return self._charbitmask
+        return self.additional_info().charbitmask
 
     def getchar(self, index):
         return self.s[index]
@@ -227,9 +244,6 @@ class LiteralStringNode(LiteralNode):
         yield ('"%s" [shape=box,label="length: %s\\n%s"];' % (
             id(self), len(self.s),
             repr(addinfo).replace('"', '').replace("\\", "\\\\")))
-
-    def _freeze_(self):
-        self._calculate()
 LiteralStringNode.EMPTY = LiteralStringNode("")
 LiteralStringNode.PREBUILT = [LiteralStringNode(chr(i)) for i in range(256)]
 del i
@@ -239,7 +253,6 @@ class LiteralUnicodeNode(LiteralNode):
     def __init__(self, u):
         assert isinstance(u, unicode)
         self.u = u
-        self._charbitmask = 0
     
     def length(self):
         return len(self.u)
@@ -254,31 +267,26 @@ class LiteralUnicodeNode(LiteralNode):
         return False
 
     def hash_part(self):
-        h = self.hash_cache
-        if not h:
-            x = 0
-            for c in self.u:
-                x = (1000003*x) + ord(c)
-            x = intmask(x)
-            x |= HIGHEST_BIT_SET
-            h = self.hash_cache = x
-        return h
+        return self.additional_info().hash
 
-    def _calculate(self):
-        if len(self.u) == 0:
-            return
+    def compute_additional_info(self):
+        additional_info = GlobalRopeInfo()
         charbitmask = 0
+        partial_hash = 0
         for c in self.u:
             ordc = ord(c)
-            if ordc >= 128:
-                charbitmask |= 1 # be compatible with LiteralStringNode
             charbitmask |= intmask(1 << (ordc & 0x1F))
-        self._charbitmask = intmask(charbitmask)
+            partial_hash = (1000003*partial_hash) + ordc
+        partial_hash = intmask(partial_hash)
+        partial_hash |= HIGHEST_BIT_SET
+
+        additional_info.charbitmask = intmask(charbitmask)
+        additional_info.hash = partial_hash
+        self._additional_info = additional_info
+        return additional_info
 
     def charbitmask(self):
-        if not self._charbitmask:
-            self._calculate()
-        return self._charbitmask
+        return self.additional_info().charbitmask
 
     def getunichar(self, index):
         return self.u[index]
@@ -326,8 +334,6 @@ class LiteralUnicodeNode(LiteralNode):
         yield ('"%s" [shape=box,label="length: %s\\n%s"];' % (
             id(self), len(self.u),
             repr(addinfo).replace('"', '').replace("\\", "\\\\")))
-    def _freeze_(self):
-        self._calculate()
 
 def make_binary_get(getter):
     def get(self, index):
@@ -349,25 +355,19 @@ class BinaryConcatNode(StringNode):
             self.len = ovfcheck(left.length() + right.length())
         except OverflowError:
             raise
+        self._depth = 0
+        # XXX the balance should become part of the depth
         self.balanced = balanced
         if balanced:
             self.balance_known = True
         else:
             self.balance_known = False
-        self._calculated = False
-        self._is_ascii = False
-        self._is_bytestring = False
-        self._depth = 0
 
     def is_ascii(self):
-        if not self._calculated:
-            self._calculate()
-        return self._is_ascii
+        return self.additional_info().is_ascii
 
     def is_bytestring(self):
-        if not self._calculated:
-            self._calculate()
-        return self._is_bytestring
+        return self.additional_info().is_bytestring
 
     def check_balanced(self):
         if self.balance_known:
@@ -381,7 +381,7 @@ class BinaryConcatNode(StringNode):
                         self._depth)
         self.balanced = balanced
         self.balance_known = True
-        return self.balanced
+        return balanced
 
     def length(self):
         return self.len
@@ -425,27 +425,18 @@ class BinaryConcatNode(StringNode):
         return u"".join([node.flatten_unicode() for node in f])
  
     def hash_part(self):
-        h = self.hash_cache
-        if not h:
-            h1 = self.left.hash_part()
-            h2 = self.right.hash_part()
-            x = intmask(h2 + h1 * (masked_power(1000003, self.right.length())))
-            x |= HIGHEST_BIT_SET
-            h = self.hash_cache = x
-        return h
+        return self.additional_info().hash
 
-    def _calculate(self):
-        left = self.left
-        right = self.right
-        self._is_ascii = left.is_ascii() and right.is_ascii()
-        self._is_bytestring = left.is_bytestring() and right.is_bytestring()
-        self._charbitmask = left.charbitmask() | right.charbitmask()
-        self._calculated = True
+    def compute_additional_info(self):
+        leftaddinfo = self.left.additional_info()
+        rightaddinfo = self.right.additional_info()
+        additional_info =  leftaddinfo.combine(rightaddinfo,
+                                                    self.right.length())
+        self._additional_info = additional_info
+        return additional_info
 
     def charbitmask(self):
-        if not self._calculated:
-            self._calculate()
-        return self._charbitmask
+        return self.additional_info().charbitmask
 
     def rebalance(self):
         if self.balanced:
@@ -468,8 +459,7 @@ class BinaryConcatNode(StringNode):
             yield '"%s" -> "%s";' % (id(self), id(child))
             for line in child.dot(seen):
                 yield line
-    def _freeze_(self):
-        self._calculate()
+
 
 def concatenate(node1, node2, rebalance=True):
     if node1.length() == 0:
