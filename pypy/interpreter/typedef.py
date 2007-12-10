@@ -156,7 +156,7 @@ def _buildusercls(cls, hasdict, wants_slots, wants_del, weakrefable):
                     # first: if the app-level __del__ tries to use
                     # weakrefs again, they won't reuse the broken
                     # (already-cleared) ones from this lifeline.
-                    self.setweakref(None)
+                    self.setweakref(self.space, None)
                     lifeline.clear_all_weakrefs()
                 try:
                     self.space.userdel(self)
