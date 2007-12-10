@@ -135,6 +135,9 @@ class StringNode(object):
     def flatten_unicode(self):
         raise NotImplementedError("abstract base class")
 
+    def _concat(self, other):
+        raise NotImplementedError("abstract base class")
+
     def __add__(self, other):
         return concatenate(self, other)
 
@@ -145,8 +148,6 @@ class LiteralNode(StringNode):
     def find_int(self, what, start, stop):
         raise NotImplementedError("abstract base class")
 
-    def literal_concat(self, other):
-        raise NotImplementedError("abstract base class")
 
 
 class LiteralStringNode(LiteralNode):
@@ -224,7 +225,7 @@ class LiteralStringNode(LiteralNode):
             return -1
         return self.s.find(chr(what), start, stop)
 
-    def literal_concat(self, other):
+    def _concat(self, other):
         if (isinstance(other, LiteralStringNode) and
             len(other.s) + len(self.s) < NEW_NODE_WHEN_LENGTH):
             return LiteralStringNode(self.s + other.s)
@@ -314,7 +315,7 @@ class LiteralUnicodeNode(LiteralNode):
             return -1
         return self.u.find(unichr(what), start, stop)
 
-    def literal_concat(self, other):
+    def _concat(self, other):
         if (isinstance(other, LiteralUnicodeNode) and
             len(other.u) + len(self.u) < NEW_NODE_WHEN_LENGTH):
             return LiteralUnicodeNode(self.u + other.u)
@@ -443,6 +444,15 @@ class BinaryConcatNode(StringNode):
             return self
         return rebalance([self], self.len)
 
+    
+    def _concat(self, other):
+        if isinstance(other, LiteralNode):
+            r = self.right
+            if isinstance(r, LiteralNode):
+                return BinaryConcatNode(self.left,
+                                        r._concat(other))
+        return BinaryConcatNode(self, other)
+
     def dot(self, seen, toplevel=False):
         if self in seen:
             return
@@ -454,30 +464,23 @@ class BinaryConcatNode(StringNode):
         else:
             addition = ""
         yield '"%s" [shape=octagon,label="+\\ndepth=%s, length=%s"%s];' % (
-                id(self), self._depth, self.len, addition)
+                id(self), self.depth(), self.len, addition)
         for child in [self.left, self.right]:
             yield '"%s" -> "%s";' % (id(self), id(child))
             for line in child.dot(seen):
                 yield line
 
 
-def concatenate(node1, node2, rebalance=True):
+def concatenate(node1, node2):
     if node1.length() == 0:
         return node2
     if node2.length() == 0:
         return node1
-    if isinstance(node2, LiteralNode):
-        if isinstance(node1, LiteralNode):
-            return node1.literal_concat(node2)
-        elif isinstance(node1, BinaryConcatNode):
-            r = node1.right
-            if isinstance(r, LiteralNode):
-                return BinaryConcatNode(node1.left,
-                                        r.literal_concat(node2))
-    result = BinaryConcatNode(node1, node2)
+    result = node1._concat(node2)
     if rebalance and result.depth() > MAX_DEPTH: #XXX better check
         return result.rebalance()
     return result
+
 
 def getslice(node, start, stop, step, slicelength=-1):
     if slicelength == -1:
@@ -627,7 +630,7 @@ def rebalance(nodelist, sizehint=-1):
             # sweep all elements up to the preferred location for 'curr'
             while not (currlen < b and l[empty_up_to] is None):
                 if l[empty_up_to] is not None:
-                    curr = concatenate(l[empty_up_to], curr, rebalance=False)
+                    curr = l[empty_up_to]._concat(curr)
                     l[empty_up_to] = None
                     currlen = curr.length()
                 else:
