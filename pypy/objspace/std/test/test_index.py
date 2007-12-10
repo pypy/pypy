@@ -260,13 +260,13 @@ class AppTest_StringTestCase(SeqTestCase, StringTestCase):
     def setup_method(self, method):
         SeqTestCase.setup_method(self, method)
         self.w_seq = self.space.wrap("this is a test")
-        self.w_const = self.space.w_str
+        self.w_const = self.space.appexec([], """(): return str""")
     
 class AppTest_UnicodeTestCase(SeqTestCase, StringTestCase):
     def setup_method(self, method):
         SeqTestCase.setup_method(self, method)
         self.w_seq = self.space.wrap(u"this is a test")
-        self.w_const = self.space.w_unicode
+        self.w_const = self.space.appexec([], """(): return unicode""")
 
 
 class AppTest_XRangeTestCase:
