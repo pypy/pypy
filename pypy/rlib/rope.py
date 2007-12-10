@@ -471,7 +471,7 @@ class BinaryConcatNode(StringNode):
     def _freeze_(self):
         self._calculate()
 
-def concatenate(node1, node2):
+def concatenate(node1, node2, rebalance=True):
     if node1.length() == 0:
         return node2
     if node2.length() == 0:
@@ -485,7 +485,7 @@ def concatenate(node1, node2):
                 return BinaryConcatNode(node1.left,
                                         r.literal_concat(node2))
     result = BinaryConcatNode(node1, node2)
-    if result.depth() > MAX_DEPTH: #XXX better check
+    if rebalance and result.depth() > MAX_DEPTH: #XXX better check
         return result.rebalance()
     return result
 
@@ -637,7 +637,7 @@ def rebalance(nodelist, sizehint=-1):
             # sweep all elements up to the preferred location for 'curr'
             while not (currlen < b and l[empty_up_to] is None):
                 if l[empty_up_to] is not None:
-                    curr = concatenate(l[empty_up_to], curr)
+                    curr = concatenate(l[empty_up_to], curr, rebalance=False)
                     l[empty_up_to] = None
                     currlen = curr.length()
                 else:
