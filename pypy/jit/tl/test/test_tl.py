@@ -39,7 +39,7 @@ class TestTL(test_boehm.AbstractGCTestClass):
     def test_tl_translatable(self):
         code = list2bytecode([PUSH,42, PUSH,100, ADD])
         fn = self.getcompiled(self.interp, [str, int, int])
-        assert self.interp(code) == fn(code)
+        assert self.interp(code, 0, 0) == fn(code, 0, 0)
 
     def test_swap(self):
         code = [PUSH,42, PUSH, 84]
