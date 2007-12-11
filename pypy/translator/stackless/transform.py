@@ -260,6 +260,13 @@ class StacklessAnalyzer(graphanalyze.GraphAnalyzer):
             return  LL_OPERATIONS[op.opname].canunwindgc
         return False
 
+    def analyze_external_call(self, op):
+        # An external call cannot cause a stack unwind
+        # Note that this is essential to get good performance in framework GCs
+        # because there is a pseudo-external call to ROUND_UP_FOR_ALLOCATION
+        # in critical paths there.
+        return False
+
 
 def vars_to_save(block):
     lastresult = block.operations[-1].result
