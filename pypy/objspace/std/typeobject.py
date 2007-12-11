@@ -221,7 +221,8 @@ class W_TypeObject(W_Object):
 
     def mutated(w_self):
         space = w_self.space
-        assert space.config.objspace.std.withtypeversion
+        if not space.config.objspace.std.withtypeversion:
+            return
         if w_self.version_tag is not None:
             w_self.version_tag = VersionTag()
             subclasses_w = w_self.get_subclasses()
@@ -529,8 +530,7 @@ def setattr__Type_ANY_ANY(space, w_type, w_name, w_value):
     # Note. This is exactly the same thing as descroperation.descr__setattr__,
     # but it is needed at bootstrap to avoid a call to w_type.getdict() which
     # would un-lazify the whole type.
-    if space.config.objspace.std.withtypeversion:
-        w_type.mutated()
+    w_type.mutated()
     name = space.str_w(w_name)
     w_descr = space.lookup(w_type, name)
     if w_descr is not None:
@@ -544,8 +544,7 @@ def setattr__Type_ANY_ANY(space, w_type, w_name, w_value):
     w_type.dict_w[name] = w_value
 
 def delattr__Type_ANY(space, w_type, w_name):
-    if space.config.objspace.std.withtypeversion:
-        w_type.mutated()
+    w_type.mutated()
     if w_type.lazyloaders:
         w_type._freeze_()    # force un-lazification
     name = space.str_w(w_name)
