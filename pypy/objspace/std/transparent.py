@@ -7,8 +7,18 @@ from pypy.interpreter.function import Function
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.proxyobject import *
 from pypy.objspace.std.typeobject import W_TypeObject
+from pypy.rlib.objectmodel import r_dict
+from pypy.rlib.unroll import unrolling_iterable
 
-type_cache = {}
+class TypeCache(object):
+    def __init__(self):
+        self.cache = []
+
+    def _freeze_(self):
+        self.cache = unrolling_iterable(self.cache)
+        return True
+
+type_cache = TypeCache()
 
 def proxy(space, w_type, w_controller):
     """tproxy(typ, controller) -> obj
@@ -40,7 +50,10 @@ completely controlled by the controller."""
     else:
         raise OperationError(space.w_TypeError, space.wrap("type expected as first argument"))
     try:
-        return type_cache[w_type or w_type.w_bestbase](space, w_type, w_controller)
+        w_lookup = w_type or w_type.w_besttype
+        for k, v in type_cache.cache:
+            if w_lookup == k:
+                return v(space, w_type, w_controller)
     except KeyError:
         raise OperationError(space.w_TypeError, space.wrap("Object type %s could not "\
                                                            "be wrapped (YET)" % w_type.getname(space, "?")))
@@ -49,7 +62,7 @@ def register_proxyable(space, cls):
     tpdef = cls.typedef
     class W_TransparentUserCreated(W_Transparent):
         typedef = tpdef
-    type_cache[space.gettypeobject(tpdef)] = W_TransparentUserCreated
+    type_cache.cache.append((space.gettypeobject(tpdef), W_TransparentUserCreated))
 
 def proxy_controller(space, w_object):
     """get_tproxy_controller(obj) -> controller
