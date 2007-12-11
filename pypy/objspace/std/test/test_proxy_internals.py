@@ -122,6 +122,14 @@ class AppTestProxyTracebackController(AppProxy):
         lst = tproxy(list, f)
         assert get_tproxy_controller(lst) is f
 
+    def test_proxy_file(self):
+        from __pypy__ import tproxy
+
+        def f(name, *args, **kwds):
+            pass
+
+        t = tproxy(file, f)
+
 class DONTAppTestProxyType(AppProxy):
     def test_filetype(self):
         f = self.get_proxy(file)
