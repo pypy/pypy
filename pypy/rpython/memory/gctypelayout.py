@@ -26,7 +26,8 @@ class TypeLayoutBuilder(object):
             assert self.can_add_new_types
             assert isinstance(TYPE, (lltype.GcStruct, lltype.GcArray))
             # Record the new type_id description as a small dict for now.
-            # It will be turned into a Struct("type_info") in finish()
+            # The framework gc transformer will turn it into a
+            # Struct("type_info") in flatten_table().
             type_id = len(self.type_info_list)
             assert type_id & 0xffff == type_id # make sure it fits into 2 bytes
             info = {}
