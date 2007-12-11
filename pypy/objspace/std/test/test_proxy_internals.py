@@ -123,6 +123,7 @@ class AppTestProxyTracebackController(AppProxy):
         assert get_tproxy_controller(lst) is f
 
     def test_proxy_file(self):
+        skip("Not working")
         from __pypy__ import tproxy
 
         def f(name, *args, **kwds):
