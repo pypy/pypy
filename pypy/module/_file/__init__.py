@@ -22,3 +22,8 @@ class Module(MixedModule):
                     pass    # key was removed in the meantime
                 else:
                     stream.flush()
+
+    def setup_after_space_initialization(self):
+        from pypy.module._file.interp_file import W_File
+        from pypy.objspace.std.transparent import register_proxyable
+        register_proxyable(self.space, W_File)
