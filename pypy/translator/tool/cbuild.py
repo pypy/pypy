@@ -458,6 +458,7 @@ def build_executable(*args, **kwds):
     return str(compiler.outputfilename)
 
 def check_boehm_presence():
+    import distutils.errors
     from pypy.tool.udir import udir
     try:
         cfile = udir.join('check_boehm.c')
@@ -472,15 +473,18 @@ int main() {
 """)
         cfile.close()
         if sys.platform == 'win32':
-            build_executable([cfname], libraries=['gc_pypy'], noerr=True)
+            eci = ExternalCompilationInfo(libraries=['gc_pypy'])
         else:
-            build_executable([cfname], libraries=['gc'], noerr=True)
-    except:
+            eci = ExternalCompilationInfo(libraries=['gc'])
+        build_executable([cfname], eci, noerr=True)
+    except (distutils.errors.CompileError,
+            distutils.errors.LinkError):
         return False
     else:
         return True
 
 def check_under_under_thread():
+    import distutils.errors
     from pypy.tool.udir import udir
     cfile = py.path.local(autopath.this_dir).join('__thread_test.c')
     fsource = cfile.open('r')
@@ -491,12 +495,12 @@ def check_under_under_thread():
     fsource.write(source)
     fsource.close()
     try:
-       exe = build_executable([str(cfile)], 
+       exe = build_executable([str(cfile)], ExternalCompilationInfo(),
                               noerr=True)
        py.process.cmdexec(exe)
-    except (KeyboardInterrupt, SystemExit):
-        raise
-    except:
+    except (distutils.errors.CompileError,
+            distutils.errors.LinkError,
+            py.error.Error):
         return False
     else:
         return True

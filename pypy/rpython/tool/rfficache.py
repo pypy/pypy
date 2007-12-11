@@ -5,8 +5,7 @@
 import py
 import os
 import distutils
-from pypy.translator.tool.cbuild import build_executable, \
-     ExternalCompilationInfo
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.tool.udir import udir
 from pypy.tool.autopath import pypydir
 from pypy.rlib import rarithmetic

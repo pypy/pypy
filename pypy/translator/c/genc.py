@@ -8,7 +8,7 @@ from pypy.translator.llsupport.wrapper import new_wrapper
 from pypy.translator.gensupp import uniquemodulename, NameManager
 from pypy.translator.tool.cbuild import so_ext, ExternalCompilationInfo
 from pypy.translator.tool.cbuild import compile_c_module
-from pypy.translator.tool.cbuild import build_executable, CCompiler, ProfOpt
+from pypy.translator.tool.cbuild import CCompiler, ProfOpt
 from pypy.translator.tool.cbuild import import_module_from_directory
 from pypy.translator.tool.cbuild import check_under_under_thread
 from pypy.rpython.lltypesystem import lltype
