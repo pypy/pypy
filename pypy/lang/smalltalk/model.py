@@ -414,6 +414,7 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
             self.setchar(index0, chr(utility.unwrap_int(w_value)))
 
     def setchar(self, index0, character):
+        assert index0 >= 0
         self.bytes = (self.bytes[:index0] + character +
                       self.bytes[index0 + 1:])
 
