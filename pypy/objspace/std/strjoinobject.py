@@ -2,7 +2,7 @@ from pypy.objspace.std.objspace import *
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.unicodeobject import delegate_String2Unicode
 
-from pypy.objspace.std.stringtype import joined, wrapstr
+from pypy.objspace.std.stringtype import wrapstr
 
 class W_StringJoinObject(W_Object):
     from pypy.objspace.std.stringtype import str_typedef as typedef

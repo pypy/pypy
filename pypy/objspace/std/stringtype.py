@@ -58,6 +58,14 @@ def joined(space, strlist):
     else:
         return wrapstr(space, "".join(strlist))
 
+def joined2(space, str1, str2):
+    assert not space.config.objspace.std.withrope
+    if space.config.objspace.std.withstrjoin:
+        from pypy.objspace.std.strjoinobject import W_StringJoinObject
+        return W_StringJoinObject([str1, str2])
+    else:
+        return wrapstr(space, str1 + str2)
+
 str_join    = SMM('join', 2,
                   doc='S.join(sequence) -> string\n\nReturn a string which is'
                       ' the concatenation of the strings in the\nsequence. '

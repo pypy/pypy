@@ -12,7 +12,7 @@ from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.tupleobject import W_TupleObject
 
 from pypy.objspace.std.stringtype import sliced, joined, wrapstr, wrapchar, \
-     stringendswith, stringstartswith
+     stringendswith, stringstartswith, joined2
 
 from pypy.objspace.std.formatting import mod_format
 
@@ -827,7 +827,7 @@ def mul__ANY_String(space, w_times, w_str):
 def add__String_String(space, w_left, w_right):
     right = w_right._value
     left = w_left._value
-    return joined(space, [left, right])
+    return joined2(space, left, right)
 
 def len__String(space, w_str):
     return space.wrap(len(w_str._value))
