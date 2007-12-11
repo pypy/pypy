@@ -69,7 +69,7 @@ class GlobalRopeInfo(object):
         x |= HIGHEST_BIT_SET
         result.hash = x
         result.is_ascii = self.is_ascii and other.is_ascii
-        result.is_bytestring = self.is_bytestring and right.is_bytestring()
+        result.is_bytestring = self.is_bytestring and other.is_bytestring
         return result
 
 
@@ -190,6 +190,7 @@ class LiteralStringNode(LiteralNode):
         additional_info.hash = partial_hash
         additional_info.is_ascii = is_ascii
         additional_info.charbitmask = charbitmask
+        additional_info.is_bytestring = True
         self._additional_info = additional_info
         return additional_info
 
@@ -432,7 +433,7 @@ class BinaryConcatNode(StringNode):
         leftaddinfo = self.left.additional_info()
         rightaddinfo = self.right.additional_info()
         additional_info =  leftaddinfo.combine(rightaddinfo,
-                                                    self.right.length())
+                                               self.right.length())
         self._additional_info = additional_info
         return additional_info
 
