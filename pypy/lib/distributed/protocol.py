@@ -328,7 +328,12 @@ def remote_loop(protocol):
             name, w_obj, w_type = data
             obj = protocol.unwrap(w_obj)
             type_ = protocol.unwrap(w_type)
-            send(('finished', protocol.wrap(getattr(type(obj), name).__get__(obj, type_))))
+            if obj:
+                type__ = type(obj)
+            else:
+                type__ = type_
+            send(('finished', protocol.wrap(getattr(type__, name).__get__(obj, type_))))
+
         elif command == 'desc_set':
             name, w_obj, w_value = data
             obj = protocol.unwrap(w_obj)

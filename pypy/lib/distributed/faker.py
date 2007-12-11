@@ -28,7 +28,7 @@ class GetDescriptor(object):
 
 from types import MethodType, FunctionType
 
-def ignore(name):
+def not_ignore(name):
     # we don't want to fake some default descriptors, because
     # they'll alter the way we set attributes
     l = ['__dict__', '__weakref__', '__class__', '__bases__',
@@ -43,14 +43,13 @@ def wrap_type(protocol, tp, tp_id):
     dict_w = {}
     for item in tp.__dict__.keys():
         value = getattr(tp, item)
-        if ignore(item):
+        if not_ignore(item):
             # we've got shortcut for method
             if hasattr(value, '__get__') and not type(value) is MethodType:
-                name = type(value).__name__
                 if hasattr(value, '__set__'):
-                    dict_w[item] = ('get', name)
+                    dict_w[item] = ('get', item)
                 else:
-                    dict_w[item] = ('set', name)
+                    dict_w[item] = ('set', item)
             else:
                 dict_w[item] = protocol.wrap(value)
     bases_w = [protocol.wrap(i) for i in tp.__bases__ if i is not object]
