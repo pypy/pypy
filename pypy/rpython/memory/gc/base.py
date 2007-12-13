@@ -7,7 +7,8 @@ class GCBase(object):
     needs_write_barrier = False
     needs_zero_gc_pointers = True
 
-    def set_query_functions(self, is_varsize, getfinalizer,
+    def set_query_functions(self, is_varsize, has_gcptr_in_varsize,
+                            getfinalizer,
                             offsets_to_gc_pointers,
                             fixed_size, varsize_item_sizes,
                             varsize_offset_to_variable_part,
@@ -16,6 +17,7 @@ class GCBase(object):
                             weakpointer_offset):
         self.getfinalizer = getfinalizer
         self.is_varsize = is_varsize
+        self.has_gcptr_in_varsize = has_gcptr_in_varsize
         self.offsets_to_gc_pointers = offsets_to_gc_pointers
         self.fixed_size = fixed_size
         self.varsize_item_sizes = varsize_item_sizes
@@ -118,7 +120,7 @@ class GCBase(object):
         while i < len(offsets):
             callback(obj + offsets[i], arg)
             i += 1
-        if self.is_varsize(typeid):
+        if self.has_gcptr_in_varsize(typeid):
             offset = self.varsize_offset_to_variable_part(
                 typeid)
             length = (obj + self.varsize_offset_to_length(typeid)).signed[0]

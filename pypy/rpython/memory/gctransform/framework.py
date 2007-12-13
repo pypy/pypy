@@ -116,7 +116,7 @@ class FrameworkGCTransformer(GCTransformer):
             # types of the GC information tables
             OFFSETS_TO_GC_PTR = lltype.Array(lltype.Signed)
             TYPE_INFO = lltype.Struct("type_info",
-                ("isvarsize",   lltype.Bool),
+                ("isvarsize",   lltype.Signed),
                 ("finalizer",   self.FINALIZERTYPE),
                 ("fixedsize",   lltype.Signed),
                 ("ofstoptrs",   lltype.Ptr(OFFSETS_TO_GC_PTR)),
@@ -130,7 +130,11 @@ class FrameworkGCTransformer(GCTransformer):
 
         def q_is_varsize(typeid):
             ll_assert(typeid > 0, "invalid type_id")
-            return gcdata.type_info_table[typeid].isvarsize
+            return gcdata.type_info_table[typeid].isvarsize != 0
+
+        def q_has_gcptr_in_varsize(typeid):
+            ll_assert(typeid > 0, "invalid type_id")
+            return gcdata.type_info_table[typeid].isvarsize > 1
 
         def q_finalizer(typeid):
             ll_assert(typeid > 0, "invalid type_id")
@@ -194,6 +198,7 @@ class FrameworkGCTransformer(GCTransformer):
             gcdata.gc.setup()
             gcdata.gc.set_query_functions(
                 q_is_varsize,
+                q_has_gcptr_in_varsize,
                 q_finalizer,
                 q_offsets_to_gc_pointers,
                 q_fixed_size,
