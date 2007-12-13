@@ -666,7 +666,7 @@ class AbstractClassesPBCRepr(Repr):
         if desc not in self.s_pbc.descriptions:
             raise TyperError("%r not in %r" % (cls, self))
         if self.lowleveltype is Void:
-            return desc.pyobj
+            return None
         return rclass.get_type_repr(self.rtyper).convert_desc(desc)
 
     def convert_const(self, cls):
