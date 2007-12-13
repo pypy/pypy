@@ -38,7 +38,8 @@ class TypeLayoutBuilder(object):
             info["finalizer"] = self.make_finalizer_funcptr_for_type(TYPE)
             info["weakptrofs"] = weakpointer_offset(TYPE)
             if not TYPE._is_varsize():
-                info["isvarsize"] = 0
+                info["isvarsize"] = False
+                info["gcptrinvarsize"] = False
                 info["fixedsize"] = llarena.round_up_for_allocation(
                     llmemory.sizeof(TYPE))
                 info["ofstolength"] = -1
@@ -47,6 +48,7 @@ class TypeLayoutBuilder(object):
                 # varsize ones, the GC must anyway compute the size at run-time
                 # and round up that result.
             else:
+                info["isvarsize"] = True
                 info["fixedsize"] = llmemory.sizeof(TYPE, 0)
                 if isinstance(TYPE, lltype.Struct):
                     ARRAY = TYPE._flds[TYPE._arrayfld]
@@ -72,9 +74,7 @@ class TypeLayoutBuilder(object):
                     offsets = ()
                 info["varofstoptrs"] = self.offsets2table(offsets, ARRAY.OF)
                 info["varitemsize"] = llmemory.sizeof(ARRAY.OF)
-                info["isvarsize"] = 1 + (len(offsets) > 0)
-                # isvarsize is set to 1 if there are no gc ptrs in the
-                # varsize part, and to 2 if there are.
+                info["gcptrinvarsize"] = len(offsets) > 0
             return type_id
 
     def offsets2table(self, offsets, TYPE):
@@ -92,11 +92,11 @@ class TypeLayoutBuilder(object):
 
     def q_is_varsize(self, typeid):
         assert typeid > 0
-        return self.type_info_list[typeid]["isvarsize"] != 0
+        return self.type_info_list[typeid]["isvarsize"]
 
     def q_has_gcptr_in_varsize(self, typeid):
         assert typeid > 0
-        return self.type_info_list[typeid]["isvarsize"] > 1
+        return self.type_info_list[typeid]["gcptrinvarsize"]
 
     def q_finalizer(self, typeid):
         assert typeid > 0
