@@ -61,7 +61,8 @@ class ItemOffset(AddressOffset):
                 assert index.startswith('item')    # itemN => N
                 index = int(index[4:])
             return parent.getitem(index + self.repeat)._as_ptr()
-        elif isinstance(A, lltype.FixedSizeArray) and A.OF == self.TYPE:
+        elif (isinstance(A, lltype.FixedSizeArray) and
+              array_item_type_match(A.OF, self.TYPE)):
             # for array of primitives or pointers
             return lltype.direct_ptradd(firstitemptr, self.repeat)
         else:
@@ -191,7 +192,7 @@ class ArrayItemsOffset(AddressOffset):
         return '< ArrayItemsOffset %r >' % (self.TYPE,)
 
     def ref(self, arrayptr):
-        assert lltype.typeOf(arrayptr).TO == self.TYPE
+        assert array_type_match(lltype.typeOf(arrayptr).TO, self.TYPE)
         if isinstance(self.TYPE.OF, lltype.ContainerType):
             # XXX this doesn't support empty arrays
             o = arrayptr._obj.getitem(0)
@@ -228,7 +229,7 @@ class ArrayLengthOffset(AddressOffset):
         return '< ArrayLengthOffset %r >' % (self.TYPE,)
 
     def ref(self, arrayptr):
-        assert lltype.typeOf(arrayptr).TO == self.TYPE
+        assert array_type_match(lltype.typeOf(arrayptr).TO, self.TYPE)
         return lltype._arraylenref._makeptr(arrayptr._obj, arrayptr._solid)
 
 
@@ -404,6 +405,21 @@ Address = lltype.Primitive("Address", NULL)
 
 # GCREF is similar to Address but it is GC-aware
 GCREF = lltype.Ptr(lltype.GcOpaqueType('GCREF'))
+
+# A placeholder for any type that is a GcArray of pointers.
+# This can be used in the symbolic offsets above to access such arrays
+# in a generic way.
+GCARRAY_OF_PTR = lltype.GcArray(GCREF, hints={'placeholder': True})
+gcarrayofptr_lengthoffset = ArrayLengthOffset(GCARRAY_OF_PTR)
+gcarrayofptr_itemsoffset = ArrayItemsOffset(GCARRAY_OF_PTR)
+gcarrayofptr_singleitemoffset = ItemOffset(GCARRAY_OF_PTR.OF)
+def array_type_match(A1, A2):
+    return A1 == A2 or (A2 == GCARRAY_OF_PTR and
+                        isinstance(A1, lltype.GcArray) and
+                        isinstance(A1.OF, lltype.Ptr) and
+                        not A1._hints.get('nolength'))
+def array_item_type_match(T1, T2):
+    return T1 == T2 or (T2 == GCREF and isinstance(T1, lltype.Ptr))
 
 
 class _fakeaccessor(object):

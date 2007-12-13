@@ -524,3 +524,21 @@ def test_weakref():
     assert weakref_deref(lltype.Ptr(S), w) == lltype.nullptr(S)
     assert weakref_deref(lltype.Ptr(S1), w) == lltype.nullptr(S1)
 
+def test_generic_gcarray_of_ptr():
+    S1 = lltype.GcStruct('S1', ('x', lltype.Signed))
+    A1 = lltype.GcArray(lltype.Ptr(S1))
+    A2 = lltype.GcArray(lltype.Ptr(A1))
+    a2 = lltype.malloc(A2, 3)
+    a2[1] = lltype.malloc(A1, 4)
+    a2[1][2] = lltype.malloc(S1)
+    a2[1][2].x = -33
+
+    adr = cast_ptr_to_adr(a2)
+    assert (adr + gcarrayofptr_lengthoffset).signed[0] == 3
+    adr += gcarrayofptr_itemsoffset
+    adr += gcarrayofptr_singleitemoffset
+    adr = adr.address[0]    # => a2[1]
+    assert (adr + gcarrayofptr_lengthoffset).signed[0] == 4
+    adr += gcarrayofptr_itemsoffset + 2 * gcarrayofptr_singleitemoffset
+    adr = adr.address[0]    # => s2[1][2]
+    assert (adr + FieldOffset(S1, 'x')).signed[0] == -33
