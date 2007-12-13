@@ -1,4 +1,5 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena
+from pypy.rpython.memory.gc.base import GCBase
 
 
 class TypeLayoutBuilder(object):
@@ -25,6 +26,22 @@ class TypeLayoutBuilder(object):
         except KeyError:
             assert self.can_add_new_types
             assert isinstance(TYPE, (lltype.GcStruct, lltype.GcArray))
+
+            if TYPE != llmemory.GCARRAY_OF_PTR:
+                # first, force GcArray(gcptr) to have typeid 1, for the
+                # performance-related special-casing done by GCBase.trace().
+                if llmemory.GCARRAY_OF_PTR not in self.id_of_type:
+                    typeid = self.get_type_id(llmemory.GCARRAY_OF_PTR)
+                    assert typeid == GCBase.TYPEID_OF_GCARRAY_OF_GCPTR
+                # all types that are of the shape GcArray(gcptr) get a
+                # typeid of 1.
+                if (isinstance(TYPE, lltype.GcArray)
+                    and isinstance(TYPE.OF, lltype.Ptr)
+                    and TYPE.OF.TO._gckind == 'gc'):
+                    type_id = GCBase.TYPEID_OF_GCARRAY_OF_GCPTR
+                    self.id_of_type[TYPE] = type_id
+                    return type_id
+
             # Record the new type_id description as a small dict for now.
             # The framework gc transformer will turn it into a
             # Struct("type_info") in flatten_table().

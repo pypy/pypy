@@ -7,6 +7,8 @@ class GCBase(object):
     needs_write_barrier = False
     needs_zero_gc_pointers = True
 
+    TYPEID_OF_GCARRAY_OF_GCPTR = 1
+
     def set_query_functions(self, is_varsize, has_gcptr_in_varsize,
                             getfinalizer,
                             offsets_to_gc_pointers,
@@ -115,6 +117,15 @@ class GCBase(object):
         Typically, 'callback' is a bound method and 'arg' can be None.
         """
         typeid = self.get_type_id(obj)
+        if typeid == GCBase.TYPEID_OF_GCARRAY_OF_GCPTR:
+            # a performance shortcut for GcArray(gcptr)
+            length = (obj + llmemory.gcarrayofptr_lengthoffset).signed[0]
+            item = obj + llmemory.gcarrayofptr_itemsoffset
+            while length > 0:
+                callback(item, arg)
+                item += llmemory.gcarrayofptr_singleitemoffset
+                length -= 1
+            return
         offsets = self.offsets_to_gc_pointers(typeid)
         i = 0
         while i < len(offsets):
@@ -125,14 +136,13 @@ class GCBase(object):
             length = (obj + self.varsize_offset_to_length(typeid)).signed[0]
             offsets = self.varsize_offsets_to_gcpointers_in_var_part(typeid)
             itemlength = self.varsize_item_sizes(typeid)
-            i = 0
-            while i < length:
+            while length > 0:
                 j = 0
                 while j < len(offsets):
                     callback(item + offsets[j], arg)
                     j += 1
-                i += 1
                 item += itemlength
+                length -= 1
     trace._annspecialcase_ = 'specialize:arg(2)'
 
 
