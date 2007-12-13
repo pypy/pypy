@@ -184,7 +184,6 @@ def main(backends=[]):
             c--stackless--_faassen
             c--_faassen--_allworkingmodules
             c--thread
-            c--_objspace=taint
             c--gc=marksweep--_faassen
             c--gc=semispace--_faassen
             c--gc=generation--_faassen
