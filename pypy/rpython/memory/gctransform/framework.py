@@ -534,6 +534,7 @@ class FrameworkGCTransformer(GCTransformer):
         all.sort()
         for typeid, TYPE in all:
             f.write("%s %s\n" % (typeid, TYPE))
+        f.close()
 
     def transform_graph(self, graph):
         if self.write_barrier_ptr:
