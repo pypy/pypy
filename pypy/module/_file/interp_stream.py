@@ -72,6 +72,7 @@ class W_AbstractStream(Wrappable):
         if self.slockowner is me:
             return False    # already acquired by the current thread
         self.slock.acquire(True)
+        assert self.slockowner is None
         self.slockowner = me
         return True
 
