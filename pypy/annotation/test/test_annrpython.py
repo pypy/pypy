@@ -1099,6 +1099,32 @@ class TestAnnotateTestCase:
         assert graph1 in a.translator.graphs
         assert graph2 in a.translator.graphs
 
+    def test_specialize_arg_bound_method(self):
+        class GC(object):
+            def trace(self, callback, arg):
+                return callback(arg)
+            trace._annspecialcase_ = "specialize:arg(1)"
+
+            def callback1(self, arg):
+                self.x = arg
+                return "hello"
+
+            def callback2(self, arg):
+                self.y = arg
+                return 6
+
+        def f():
+            gc = GC()
+            s1 = gc.trace(gc.callback1, None)
+            n2 = gc.trace(gc.callback2, 7)
+            return (s1, n2, gc.x, gc.y)
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.items[0].const == "hello"
+        assert s.items[1].const == 6
+        assert s.items[2].const == None
+        assert s.items[3].const == 7
+
     def test_assert_list_doesnt_lose_info(self):
         class T(object):
             pass

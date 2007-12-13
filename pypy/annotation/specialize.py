@@ -421,7 +421,19 @@ def make_constgraphbuilder(n, v=None, factory=None):
     return constgraphbuilder
 
 def specialize_argvalue(funcdesc, args_s, *argindices):
-    key = tuple([args_s[i].const for i in argindices])
+    from pypy.annotation.model import SomePBC
+    key = []
+    for i in argindices:
+        s = args_s[i]
+        if s.is_constant():
+            key.append(s.const)
+        elif isinstance(s, SomePBC) and len(s.descriptions) == 1:
+            # for test_specialize_arg_bound_method
+            key.append(s.descriptions.keys()[0])
+        else:
+            raise Exception("specialize:arg(%d): argument not constant: %r"
+                            % (i, s))
+    key = tuple(key)
     return funcdesc.cachedgraph(key)
 
 def specialize_argtype(funcdesc, args_s, *argindices):
