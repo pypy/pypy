@@ -165,7 +165,7 @@ def create_trace_space(space):
 
         def __getattribute__(self, name):
             obj = super(Trace, self).__getattribute__(name)
-            if name in ["_result", "_in_cache",
+            if name in ["_result", "_in_cache", "_ect_cache",
                         "_tracing", "_config_options"]:
                 return obj
 
@@ -189,6 +189,7 @@ def create_trace_space(space):
 
         def settrace(self):
             self._result = TraceResult(self, **self._config_options)
+            self._ect_cache = {}
             self._tracing = True
 
         def unsettrace(self):
@@ -200,8 +201,13 @@ def create_trace_space(space):
         def getexecutioncontext(self):
             ec = super(Trace, self).getexecutioncontext()
             if not self._in_cache:
-                assert not isinstance(ec, ExecutionContextTracer)
-                ec = ExecutionContextTracer(self._result, ec)
+                try:
+                    ect = self._ect_cache[ec]
+                except KeyError:
+                    assert not isinstance(ec, ExecutionContextTracer)
+                    ect = ExecutionContextTracer(self._result, ec)
+                    self._ect_cache[ec] = ect
+                return ect
             return ec
         
         # XXX Rename
@@ -210,7 +216,8 @@ def create_trace_space(space):
             space.__class__ = space.__oldclass__
             del space.__oldclass__
 
-            for k in ["_result", "_in_cache", "_config_options", "_operations"]:
+            for k in ["_result", "_in_cache", "_ect_cache",
+                      "_config_options", "_operations"]:
                 if hasattr(self, k):
                     delattr(self, k)
             
@@ -221,6 +228,7 @@ def create_trace_space(space):
     from pypy.tool.traceconfig import config
     space._tracing = False
     space._result = None
+    space._ect_cache = {}
     space._in_cache = 0
     space._config_options = config
 
