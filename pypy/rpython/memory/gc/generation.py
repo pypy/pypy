@@ -258,30 +258,11 @@ class GenerationGC(SemiSpaceGC):
         young objects it references out of the nursery.
         """
         self.header(obj).tid |= GCFLAG_NO_YOUNG_PTRS
-        typeid = self.get_type_id(obj)
-        offsets = self.offsets_to_gc_pointers(typeid)
-        i = 0
-        while i < len(offsets):
-            pointer = obj + offsets[i]
-            if self.is_in_nursery(pointer.address[0]):
-                pointer.address[0] = self.copy(pointer.address[0])
-            i += 1
-        if self.is_varsize(typeid):
-            offset = self.varsize_offset_to_variable_part(
-                typeid)
-            length = (obj + self.varsize_offset_to_length(typeid)).signed[0]
-            offsets = self.varsize_offsets_to_gcpointers_in_var_part(typeid)
-            itemlength = self.varsize_item_sizes(typeid)
-            i = 0
-            while i < length:
-                item = obj + offset + itemlength * i
-                j = 0
-                while j < len(offsets):
-                    pointer = item + offsets[j]
-                    if self.is_in_nursery(pointer.address[0]):
-                        pointer.address[0] = self.copy(pointer.address[0])
-                    j += 1
-                i += 1
+        self.trace(obj, self._trace_drag_out, None)
+
+    def _trace_drag_out(self, pointer, ignored):
+        if self.is_in_nursery(pointer.address[0]):
+            pointer.address[0] = self.copy(pointer.address[0])
 
     def invalidate_young_weakrefs(self):
         # walk over the list of objects that contain weakrefs and are in the

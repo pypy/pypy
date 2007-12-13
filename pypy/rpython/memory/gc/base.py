@@ -106,6 +106,34 @@ class GCBase(object):
     def x_become(self, target_addr, source_addr):
         raise RuntimeError("no support for x_become in the GC")
 
+    def trace(self, obj, callback, arg):
+        """Enumerate the locations inside the given obj that can contain
+        GC pointers.  For each such location, callback(pointer, arg) is
+        called, where 'pointer' is an address inside the object.
+        Typically, 'callback' is a bound method and 'arg' can be None.
+        """
+        typeid = self.get_type_id(obj)
+        offsets = self.offsets_to_gc_pointers(typeid)
+        i = 0
+        while i < len(offsets):
+            callback(obj + offsets[i], arg)
+            i += 1
+        if self.is_varsize(typeid):
+            offset = self.varsize_offset_to_variable_part(
+                typeid)
+            length = (obj + self.varsize_offset_to_length(typeid)).signed[0]
+            offsets = self.varsize_offsets_to_gcpointers_in_var_part(typeid)
+            itemlength = self.varsize_item_sizes(typeid)
+            i = 0
+            while i < length:
+                item = obj + offset + itemlength * i
+                j = 0
+                while j < len(offsets):
+                    callback(item + offsets[j], arg)
+                    j += 1
+                i += 1
+    trace._annspecialcase_ = 'specialize:arg(2)'
+
 
 class MovingGCBase(GCBase):
     moving_gc = True

@@ -256,30 +256,11 @@ class SemiSpaceGC(MovingGCBase):
             return newobj
 
     def trace_and_copy(self, obj):
-        typeid = self.get_type_id(obj)
-        offsets = self.offsets_to_gc_pointers(typeid)
-        i = 0
-        while i < len(offsets):
-            pointer = obj + offsets[i]
-            if pointer.address[0] != NULL:
-                pointer.address[0] = self.copy(pointer.address[0])
-            i += 1
-        if self.is_varsize(typeid):
-            offset = self.varsize_offset_to_variable_part(
-                typeid)
-            length = (obj + self.varsize_offset_to_length(typeid)).signed[0]
-            offsets = self.varsize_offsets_to_gcpointers_in_var_part(typeid)
-            itemlength = self.varsize_item_sizes(typeid)
-            i = 0
-            while i < length:
-                item = obj + offset + itemlength * i
-                j = 0
-                while j < len(offsets):
-                    pointer = item + offsets[j]
-                    if pointer.address[0] != NULL:
-                        pointer.address[0] = self.copy(pointer.address[0])
-                    j += 1
-                i += 1
+        self.trace(obj, self._trace_copy, None)
+
+    def _trace_copy(self, pointer, ignored):
+        if pointer.address[0] != NULL:
+            pointer.address[0] = self.copy(pointer.address[0])
 
     def is_forwarded(self, obj):
         return self.header(obj).forw != NULL

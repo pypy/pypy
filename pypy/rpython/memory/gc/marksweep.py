@@ -458,33 +458,18 @@ class MarkSweepGC(GCBase):
     STAT_BYTES_MALLOCED = 1
     STATISTICS_NUMBERS  = 2
 
-    def add_reachable_to_stack(self, obj, objects):
+    def get_type_id(self, obj):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         gc_info = obj - size_gc_header
         hdr = llmemory.cast_adr_to_ptr(gc_info, self.HDRPTR)
-        typeid = hdr.typeid >> 1
-        offsets = self.offsets_to_gc_pointers(typeid)
-        i = 0
-        while i < len(offsets):
-            pointer = obj + offsets[i]
-            objects.append(pointer.address[0])
-            i += 1
-        if self.is_varsize(typeid):
-            offset = self.varsize_offset_to_variable_part(
-                typeid)
-            length = (obj + self.varsize_offset_to_length(typeid)).signed[0]
-            obj += offset
-            offsets = self.varsize_offsets_to_gcpointers_in_var_part(typeid)
-            itemlength = self.varsize_item_sizes(typeid)
-            i = 0
-            while i < length:
-                item = obj + itemlength * i
-                j = 0
-                while j < len(offsets):
-                    pointer = item + offsets[j]
-                    objects.append(pointer.address[0])
-                    j += 1
-                i += 1
+        return hdr.typeid >> 1
+
+    def add_reachable_to_stack(self, obj, objects):
+        self.trace(obj, self._add_reachable, objects)
+
+    def _add_reachable(pointer, objects):
+        objects.append(pointer.address[0])
+    _add_reachable = staticmethod(_add_reachable)
 
     def statistics(self, index):
         # no memory allocation here!
@@ -675,48 +660,18 @@ class MarkSweepGC(GCBase):
         # reinstall the pool that was current at the beginning of x_clone()
         clonedata.pool = self.x_swap_pool(curpool)
 
-    def add_reachable_to_stack2(self, obj, objects, target_addr, source_addr):
+    def add_reachable_to_stack2(self, obj, objects):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         gc_info = obj - size_gc_header
         hdr = llmemory.cast_adr_to_ptr(gc_info, self.HDRPTR)
         if hdr.typeid & 1:
             return
-        typeid = hdr.typeid >> 1
-        offsets = self.offsets_to_gc_pointers(typeid)
-        i = 0
-        while i < len(offsets):
-            pointer = obj + offsets[i]
-            # -------------------------------------------------
-            # begin difference from collect
-            if pointer.address[0] == target_addr:
-                pointer.address[0] = source_addr
-            # end difference from collect
-            # -------------------------------------------------
-            objects.append(pointer.address[0])
-            i += 1
-        if self.is_varsize(typeid):
-            offset = self.varsize_offset_to_variable_part(
-                typeid)
-            length = (obj + self.varsize_offset_to_length(typeid)).signed[0]
-            obj += offset
-            offsets = self.varsize_offsets_to_gcpointers_in_var_part(typeid)
-            itemlength = self.varsize_item_sizes(typeid)
-            i = 0
-            while i < length:
-                item = obj + itemlength * i
-                j = 0
-                while j < len(offsets):
-                    pointer = item + offsets[j]
-                    # -------------------------------------------------
-                    # begin difference from collect
-                    if pointer.address[0] == target_addr:
-                        pointer.address[0] = source_addr
-                    ## end difference from collect
-                    # -------------------------------------------------
-                    objects.append(pointer.address[0])
-                    j += 1
-                i += 1
+        self.trace(obj, self._add_reachable_and_rename, objects)
 
+    def _add_reachable_and_rename(self, pointer, objects):
+        if pointer.address[0] == self.x_become_target_addr:
+            pointer.address[0] = self.x_become_source_addr
+        objects.append(pointer.address[0])
 
     def x_become(self, target_addr, source_addr):
         # 1. mark from the roots, and also the objects that objects-with-del
@@ -754,6 +709,9 @@ class MarkSweepGC(GCBase):
         curr_heap_size = 0
         freed_size = 0
 
+        self.x_become_target_addr = target_addr
+        self.x_become_source_addr = source_addr
+
         # mark objects reachable by objects with a finalizer, but not those
         # themselves. add their size to curr_heap_size, since they always
         # survive the collection
@@ -763,7 +721,7 @@ class MarkSweepGC(GCBase):
             typeid = hdr.typeid >> 1
             gc_info = llmemory.cast_ptr_to_adr(hdr)
             obj = gc_info + size_gc_header
-            self.add_reachable_to_stack2(obj, objects, target_addr, source_addr)
+            self.add_reachable_to_stack2(obj, objects)
             addr = llmemory.cast_ptr_to_adr(hdr)
             size = self.fixed_size(typeid)
             if self.is_varsize(typeid):
@@ -777,7 +735,7 @@ class MarkSweepGC(GCBase):
         # stack until the stack is empty
         while objects.non_empty():  #mark
             curr = objects.pop()
-            self.add_reachable_to_stack2(curr, objects, target_addr, source_addr)
+            self.add_reachable_to_stack2(curr, objects)
             gc_info = curr - size_gc_header
             hdr = llmemory.cast_adr_to_ptr(gc_info, self.HDRPTR)
             if hdr.typeid & 1:
