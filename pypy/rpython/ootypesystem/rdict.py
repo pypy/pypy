@@ -160,7 +160,7 @@ class DictRepr(AbstractDictRepr):
             r_func, nimplicitarg = r_func.get_r_implfunc()
         else:
             obj = None
-        callable = r_func.convert_const(fn)
+        callable = r_func.get_unique_llfn().value
         func_name, interp_fn = llinterp.wrap_callable(interp, callable, obj, None)
         return ootype.static_meth(TYPE, func_name, _callable=interp_fn)
         
@@ -232,7 +232,7 @@ class __extend__(pairtype(DictRepr, rmodel.Repr)):
 
 def _get_call_vars(hop, r_func, arg, params_annotation):
     if isinstance(r_func, AbstractFunctionsPBCRepr):
-        v_fn = hop.inputarg(r_func, arg=arg)
+        v_fn = r_func.get_unique_llfn()
         v_obj = hop.inputconst(ootype.Void, None)
         c_method_name = hop.inputconst(ootype.Void, None)
     elif isinstance(r_func, AbstractMethodsPBCRepr):
@@ -243,7 +243,7 @@ def _get_call_vars(hop, r_func, arg, params_annotation):
         c_method_name = hop.inputconst(ootype.Void, methodname)
     elif isinstance(r_func, MethodOfFrozenPBCRepr):
         r_impl, nimplicitarg = r_func.get_r_implfunc()
-        v_fn = hop.inputconst(r_impl, r_func.funcdesc.pyobj)
+        v_fn = r_impl.get_unique_llfn()
         v_obj = hop.inputarg(r_func, arg=arg)
         c_method_name = hop.inputconst(ootype.Void, None)
 

@@ -1,7 +1,7 @@
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.rmodel import Repr, HalfConcreteWrapper
+from pypy.rpython.rmodel import Repr
 from pypy.rpython import rbuiltin
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.rpython import extregistry

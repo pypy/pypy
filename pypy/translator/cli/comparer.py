@@ -50,10 +50,9 @@ class EqualityComparer(Node):
             self._call_function(fn_args.graph, len(arglist))
         else:
             fn, obj, method_name = fn_args
-            # fn is a HalfConcreteWrapper
-            sm = fn.value.concretize().value
+            # fn is a Constant(StaticMethod)
             if method_name.value is None:
-                self._call_function(sm.graph, len(arglist))
+                self._call_function(fn.value.graph, len(arglist))
             else:
                 assert False, 'XXX'
 

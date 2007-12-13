@@ -27,7 +27,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.translator.unsimplify import insert_empty_block
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, inputconst, BrokenReprTyperError
-from pypy.rpython.rmodel import warning, HalfConcreteWrapper
+from pypy.rpython.rmodel import warning
 from pypy.rpython.annlowlevel import annotate_lowlevel_helper, LowLevelAnnotatorPolicy
 from pypy.rpython.typesystem import LowLevelTypeSystem,\
                                     ObjectOrientedTypeSystem
@@ -884,12 +884,6 @@ class LowLevelOpList(list):
                     raise TyperError("non-constant variable of type Void")
                 if not isinstance(s_value, annmodel.SomePBC):
                     raise TyperError("non-PBC Void argument: %r", (s_value,))
-                if isinstance(s_value.const, HalfConcreteWrapper):
-                    # Modify args_v so that 'v' gets the concrete value
-                    # returned by the wrapper
-                    wrapper = s_value.const
-                    v = wrapper.concretize()
-                    s_value = annmodel.lltype_to_annotation(v.concretetype)
                 args_s.append(s_value)
             else:
                 args_s.append(annmodel.lltype_to_annotation(v.concretetype))

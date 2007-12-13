@@ -1215,12 +1215,12 @@ class Tracer(object):
 
 def wrap_callable(llinterpreter, fn, obj, method_name):
     if method_name is None:
-        # fn is a HalfConcreteWrapper wrapping a StaticMethod
+        # fn is a StaticMethod
         if obj is not None:
             self_arg = [obj]
         else:
             self_arg = []
-        func_graph = fn.concretize().value.graph
+        func_graph = fn.graph
     else:
         # obj is an instance, we want to call 'method_name' on it
         assert fn is None        

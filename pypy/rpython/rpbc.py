@@ -7,7 +7,7 @@ from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem.lltype import \
      typeOf, Void, Bool, nullptr, frozendict, Ptr, Struct, malloc
 from pypy.rpython.error import TyperError
-from pypy.rpython.rmodel import Repr, inputconst, HalfConcreteWrapper, CanBeNull, \
+from pypy.rpython.rmodel import Repr, inputconst, CanBeNull, \
         mangle, inputdesc, warning, impossible_repr
 from pypy.rpython import rclass
 from pypy.rpython import robject
@@ -225,7 +225,7 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
         except KeyError:
             pass
         if self.lowleveltype is Void:
-            result = HalfConcreteWrapper(self.get_unique_llfn)
+            result = None
         else:
             llfns = {}
             found_anything = False
@@ -255,7 +255,7 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
         if isinstance(value, types.MethodType) and value.im_self is None:
             value = value.im_func   # unbound method -> bare function
         if self.lowleveltype is Void:
-            return HalfConcreteWrapper(self.get_unique_llfn)
+            return None
         if value is None:
             null = self.rtyper.type_system.null_callable(self.lowleveltype)
             return null
@@ -346,8 +346,7 @@ class __extend__(pairtype(AbstractFunctionsPBCRepr, AbstractFunctionsPBCRepr)):
             if r_fpbc1.lowleveltype is Void:
                 return inputconst(r_fpbc2, r_fpbc1.s_pbc.const)
             if r_fpbc2.lowleveltype is Void:
-                wrapper = HalfConcreteWrapper(r_fpbc2.get_unique_llfn)
-                return inputconst(Void, wrapper)
+                return inputconst(Void, None)
             return NotImplemented
 
 class OverriddenFunctionPBCRepr(Repr):

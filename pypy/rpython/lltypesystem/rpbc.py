@@ -7,7 +7,7 @@ from pypy.objspace.flow.model import Constant, Variable
 from pypy.rpython.lltypesystem.lltype import \
      typeOf, Void, ForwardReference, Struct, Bool, Char, \
      Ptr, malloc, nullptr, Array, Signed, FuncType
-from pypy.rpython.rmodel import Repr, TyperError, inputconst, inputdesc, HalfConcreteWrapper
+from pypy.rpython.rmodel import Repr, TyperError, inputconst, inputdesc
 from pypy.rpython.rpbc import samesig,\
      commonbase, allattributenames, adjust_shape, \
      AbstractClassesPBCRepr, AbstractMethodsPBCRepr, OverriddenFunctionPBCRepr, \
@@ -261,8 +261,7 @@ class SmallFunctionSetPBCRepr(Repr):
 class __extend__(pairtype(SmallFunctionSetPBCRepr, FunctionsPBCRepr)):
     def convert_from_to((r_set, r_ptr), v, llops):
         if r_ptr.lowleveltype is Void:
-            wrapper = HalfConcreteWrapper(r_ptr.get_unique_llfn)
-            return inputconst(Void, wrapper)
+            return inputconst(Void, None)
         else:
             assert v.concretetype is Char
             v_int = llops.genop('cast_char_to_int', [v],

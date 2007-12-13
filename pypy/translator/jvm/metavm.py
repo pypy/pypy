@@ -110,7 +110,7 @@ class _NewCustomDict(MicroInstruction):
             # Standalone function: find the delegate class and
             # instantiate it.
             assert method_name.value is None
-            smimpl = fn.value.concretize().value   # ootype._static_meth
+            smimpl = fn.value                      # ootype._static_meth
             db.record_delegate(smimpl._TYPE)       # _TYPE is a StaticMethod
             ty = db.record_delegate_standalone_func_impl(smimpl.graph)
             gen.new_with_jtype(ty)
