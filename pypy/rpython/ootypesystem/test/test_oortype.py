@@ -193,6 +193,7 @@ def test_is_exception_instance():
     assert rtyper.exceptiondata.is_exception_instance(INST)
 
 def test_string_annotation():
+    py.test.skip("XXX interpret() does special magic about String arguments")
     def oof(lst):
         return lst.ll_strlen()
 
