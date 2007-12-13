@@ -121,19 +121,18 @@ class GCBase(object):
             callback(obj + offsets[i], arg)
             i += 1
         if self.has_gcptr_in_varsize(typeid):
-            offset = self.varsize_offset_to_variable_part(
-                typeid)
+            item = obj + self.varsize_offset_to_variable_part(typeid)
             length = (obj + self.varsize_offset_to_length(typeid)).signed[0]
             offsets = self.varsize_offsets_to_gcpointers_in_var_part(typeid)
             itemlength = self.varsize_item_sizes(typeid)
             i = 0
             while i < length:
-                item = obj + offset + itemlength * i
                 j = 0
                 while j < len(offsets):
                     callback(item + offsets[j], arg)
                     j += 1
                 i += 1
+                item += itemlength
     trace._annspecialcase_ = 'specialize:arg(2)'
 
 
