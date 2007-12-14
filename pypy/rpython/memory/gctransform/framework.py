@@ -418,9 +418,10 @@ class FrameworkGCTransformer(GCTransformer):
 
         # replace the type_info_table pointer in gcdata -- at this point,
         # the database is in principle complete, so it has already seen
-        # the old (empty) array.  We need to force it to consider the new
-        # array now.  It's a bit hackish as the old empty array will also
-        # be generated in the C source, but that's a rather minor problem.
+        # the delayed pointer, but it still remembers it and will look
+        # again after we "resolve" it to a real pointer.
+
+        self.gcdata.type_info_table._become(table)
 
         # XXX because we call inputconst already in replace_malloc, we can't
         # modify the instance, we have to modify the 'rtyped instance'
@@ -430,8 +431,6 @@ class FrameworkGCTransformer(GCTransformer):
             self.gcdata)
         r_gcdata = self.translator.rtyper.getrepr(s_gcdata)
         ll_instance = rmodel.inputconst(r_gcdata, self.gcdata).value
-        ll_instance.inst_type_info_table = table
-        #self.gcdata.type_info_table = table
 
         addresses_of_static_ptrs = (
             self.layoutbuilder.addresses_of_static_ptrs +
@@ -447,7 +446,6 @@ class FrameworkGCTransformer(GCTransformer):
         ll_instance.inst_static_root_end = ll_instance.inst_static_root_start + llmemory.sizeof(llmemory.Address) * len(ll_static_roots_inside)
 
         newgcdependencies = []
-        newgcdependencies.append(table)
         newgcdependencies.append(ll_static_roots_inside)
         self.write_typeid_list()
         return newgcdependencies
