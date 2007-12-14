@@ -1,5 +1,6 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, llheap
 from pypy.rpython import llinterp
+from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.memory.support import get_address_linked_list
 from pypy.rpython.memory import gctypelayout
 from pypy.objspace.flow.model import Constant
@@ -18,7 +19,7 @@ class GCManagedHeap(object):
     def prepare_graphs(self, flowgraphs):
         layoutbuilder = DirectRunLayoutBuilder(self.llinterp)
         self.get_type_id = layoutbuilder.get_type_id
-        self.gc.set_query_functions(*layoutbuilder.get_query_functions())
+        layoutbuilder.initialize_gc_query_function(self.gc)
 
         constants = collect_constants(flowgraphs)
         for obj in constants:
@@ -141,7 +142,7 @@ class DirectRunLayoutBuilder(gctypelayout.TypeLayoutBuilder):
             DESTR_ARG = lltype.typeOf(destrptr).TO.ARGS[0]
             destrgraph = destrptr._obj.graph
         else:
-            return None
+            return lltype.nullptr(gctypelayout.GCData.FINALIZERTYPE.TO)
 
         assert not type_contains_pyobjs(TYPE), "not implemented"
         def ll_finalizer(addr):
@@ -151,7 +152,7 @@ class DirectRunLayoutBuilder(gctypelayout.TypeLayoutBuilder):
             except llinterp.LLException:
                 raise RuntimeError(
                     "a finalizer raised an exception, shouldn't happen")
-        return ll_finalizer
+        return llhelper(gctypelayout.GCData.FINALIZERTYPE, ll_finalizer)
 
 
 def collect_constants(graphs):
