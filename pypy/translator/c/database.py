@@ -164,9 +164,9 @@ class LowLevelDatabase(object):
             self.containerstats[kind] = self.containerstats.get(kind, 0) + 1
             self.containerlist.append(node)
             if self.completed:
-                assert not node.globalcontainer
-                # non-global containers are found very late, e.g. _subarrays
-                # via addresses introduced by the GC transformer
+                pass # we would like to fail here, but a few containers
+                     # are found very late, e.g. _subarrays via addresses
+                     # introduced by the GC transformer, or the type_info_table
         return node
 
     def get(self, obj):
