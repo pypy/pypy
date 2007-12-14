@@ -279,7 +279,8 @@ class BaseGCTransformer(object):
         self.need_minimal_transform(graph)
         if inline:
             self.graphs_to_inline[graph] = True
-        return self.mixlevelannotator.graph2delayed(graph)
+        FUNCTYPE = lltype.FuncType(ll_args, ll_result)
+        return self.mixlevelannotator.graph2delayed(graph, FUNCTYPE=FUNCTYPE)
 
     def inittime_helper(self, ll_helper, ll_args, ll_result, inline=True):
         ptr = self.annotate_helper(ll_helper, ll_args, ll_result, inline=inline)
