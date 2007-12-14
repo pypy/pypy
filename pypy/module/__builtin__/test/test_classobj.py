@@ -638,3 +638,16 @@ class AppTestOldstyle(object):
         gc.collect()
         gc.collect()
         assert ref() is None
+
+    def test_next(self):
+        class X:
+            def __iter__(self):
+                return Y()
+         
+        class Y:
+            def next(self):
+                return 3
+         
+        for i in X():
+            print i,
+            break

@@ -591,6 +591,12 @@ class W_InstanceObject(Wrappable):
                 return space.call_function(w_func, w_other, w_modulo)
             return space.w_NotImplemented
 
+    def descr_next(self, space):
+        w_func = self.getattr(space, space.wrap('next'), False)
+        if w_func is None:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("instance has no next() method"))
+        return space.call_function(w_func)
 
 rawdict = {}
 
@@ -678,6 +684,8 @@ W_InstanceObject.typedef = TypeDef("instance",
                          unwrap_spec=['self', ObjSpace, W_Root, W_Root]),
     __rpow__ = interp2app(W_InstanceObject.descr_rpow,
                          unwrap_spec=['self', ObjSpace, W_Root, W_Root]),
+    next = interp2app(W_InstanceObject.descr_next,
+                      unwrap_spec=['self', ObjSpace]),
     __weakref__ = make_weakref_descr(W_InstanceObject),
     **rawdict
 )
