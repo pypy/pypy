@@ -131,6 +131,7 @@ class FrameworkGCTransformer(GCTransformer):
 
         StackRootIterator = self.build_stack_root_iterator()
         gcdata.gc = GCClass(AddressLinkedList, get_roots=StackRootIterator, **GC_PARAMS)
+        gcdata.set_query_functions(gcdata.gc)
         self.num_pushs = 0
         self.write_barrier_calls = 0
 
@@ -138,7 +139,6 @@ class FrameworkGCTransformer(GCTransformer):
             # run-time initialization code
             StackRootIterator.setup_root_stack()
             gcdata.gc.setup()
-            gcdata.set_query_functions(gcdata.gc)
 
         bk = self.translator.annotator.bookkeeper
 
