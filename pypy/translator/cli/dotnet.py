@@ -402,11 +402,13 @@ class Entry(ExtRegistryEntry):
             return OverloadingResolver.lltype_to_annotation(TYPE)
 
     def specialize_call(self, hop):
-        v_obj, v_type = hop.inputargs(*hop.args_r)
-        if v_type.value is ootype.String or isinstance(v_type.value, (type, types.ClassType)):
+        TYPE = hop.args_v[1].value
+        v_obj = hop.inputarg(hop.args_r[0], arg=0)
+        if TYPE is ootype.String or isinstance(TYPE, (type, types.ClassType)):
             return hop.genop('oodowncast', [v_obj], hop.r_result.lowleveltype)
         else:
-            return hop.genop('cliunbox', [v_obj, v_type], hop.r_result.lowleveltype)
+            c_type = hop.inputconst(ootype.Void, TYPE)
+            return hop.genop('cliunbox', [v_obj, c_type], hop.r_result.lowleveltype)
 
 
 native_exc_cache = {}
