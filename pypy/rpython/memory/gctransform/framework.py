@@ -113,14 +113,17 @@ class FrameworkGCTransformer(GCTransformer):
         self.get_type_id = self.layoutbuilder.get_type_id
 
         # set up dummy a table, to be overwritten with the real one in finish()
-        type_info_table = lltype.malloc(gctypelayout.GCData.TYPE_INFO_TABLE, 0,
-                                        immortal=True)
+        type_info_table = lltype._ptr(
+            lltype.Ptr(gctypelayout.GCData.TYPE_INFO_TABLE),
+            "delayed!type_info_table", solid=True)
         gcdata = gctypelayout.GCData(type_info_table)
 
         # initialize the following two fields with a random non-NULL address,
         # to make the annotator happy.  The fields are patched in finish()
-        # to point to a real array (not 'type_info_table', another one).
-        a_random_address = llmemory.cast_ptr_to_adr(type_info_table)
+        # to point to a real array.
+        foo = lltype.malloc(lltype.FixedSizeArray(llmemory.Address, 1),
+                            immortal=True, zero=True)
+        a_random_address = llmemory.cast_ptr_to_adr(foo)
         gcdata.static_root_start = a_random_address      # patched in finish()
         gcdata.static_root_nongcstart = a_random_address # patched in finish()
         gcdata.static_root_end = a_random_address        # patched in finish()
@@ -143,11 +146,8 @@ class FrameworkGCTransformer(GCTransformer):
         bk = self.translator.annotator.bookkeeper
 
         # the point of this little dance is to not annotate
-        # self.gcdata.type_info_table as a constant.
+        # self.gcdata.static_root_xyz as constants. XXX is it still needed??
         data_classdef = bk.getuniqueclassdef(gctypelayout.GCData)
-        data_classdef.generalize_attr(
-            'type_info_table',
-            annmodel.SomePtr(lltype.Ptr(gctypelayout.GCData.TYPE_INFO_TABLE)))
         data_classdef.generalize_attr(
             'static_root_start',
             annmodel.SomeAddress())
@@ -418,8 +418,8 @@ class FrameworkGCTransformer(GCTransformer):
 
         # replace the type_info_table pointer in gcdata -- at this point,
         # the database is in principle complete, so it has already seen
-        # the delayed pointer, but it still remembers it and will look
-        # again after we "resolve" it to a real pointer.
+        # the delayed pointer.  We need to force it to consider the new
+        # array now.
 
         self.gcdata.type_info_table._become(table)
 
