@@ -75,6 +75,11 @@ class TypeLayoutBuilder(object):
                 info["varofstoptrs"] = self.offsets2table(offsets, ARRAY.OF)
                 info["varitemsize"] = llmemory.sizeof(ARRAY.OF)
                 info["gcptrinvarsize"] = len(offsets) > 0
+            # if the type is of the shape GcArray(gcptr) then we record,
+            # for now, a flag in the 'info'.  XXX could use a bit in typeid
+            info["gcarrayofgcptr"] = (isinstance(TYPE, lltype.GcArray)
+                                      and isinstance(TYPE.OF, lltype.Ptr)
+                                      and TYPE.OF.TO._gckind == 'gc')
             return type_id
 
     def offsets2table(self, offsets, TYPE):
@@ -97,6 +102,10 @@ class TypeLayoutBuilder(object):
     def q_has_gcptr_in_varsize(self, typeid):
         assert typeid > 0
         return self.type_info_list[typeid]["gcptrinvarsize"]
+
+    def q_is_gcarrayofgcptr(self, typeid):
+        assert typeid > 0
+        return self.type_info_list[typeid]["gcarrayofgcptr"]
 
     def q_finalizer(self, typeid):
         assert typeid > 0
@@ -133,6 +142,7 @@ class TypeLayoutBuilder(object):
     def get_query_functions(self):
         return (self.q_is_varsize,
                 self.q_has_gcptr_in_varsize,
+                self.q_is_gcarrayofgcptr,
                 self.q_finalizer,
                 self.q_offsets_to_gc_pointers,
                 self.q_fixed_size,
