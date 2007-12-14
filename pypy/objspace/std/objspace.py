@@ -282,15 +282,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def setup_old_style_classes(self):
         """NOT_RPYTHON"""
         # sanity check that this approach is working and is not too late
-        w_mod, w_dic = self.create_builtin_module('_classobj.py', 'classobj')
-        w_purify = self.getitem(w_dic, self.wrap('purify'))
-        w_classobj = self.getitem(w_dic, self.wrap('classobj'))
-        w_instance = self.getitem(w_dic, self.wrap('instance'))
-        self.call_function(w_purify)
-        assert not self.is_true(self.contains(self.builtin.w_dict,self.wrap('_classobj'))),"app-level code has seen dummy old style classes"
-        assert not self.is_true(self.contains(self.builtin.w_dict,self.wrap('_instance'))),"app-level code has seen dummy old style classes"
-        self.w_classobj = w_classobj
-        self.w_instance = w_instance
+        self.w_classobj = self.getattr(self.builtin, self.wrap('_classobj'))
+        self.w_instance = self.getattr(self.builtin, self.wrap('_instance'))
 
     def create_builtin_module(self, pyname, publicname):
         """NOT_RPYTHON

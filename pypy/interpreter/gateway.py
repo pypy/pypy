@@ -328,7 +328,7 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
 
     def visit__object(self, typ):
         if typ not in (int, str, float, unicode, r_longlong):
-            assert False, "unsupported basic type in uwnrap_spec"
+            assert False, "unsupported basic type in unwrap_spec"
         self.unwrap.append("space.%s_w(%s)" % (typ.__name__,
                                                self.nextarg()))
 

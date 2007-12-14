@@ -110,7 +110,7 @@ class W_Random(Wrappable):
     getrandbits.unwrap_spec = ['self', ObjSpace, int]
 
 
-W_Random.typedef = TypeDef("W_Random",
+W_Random.typedef = TypeDef("Random",
     __new__ = interp2app(descr_new__),
     random = interp2app(W_Random.random),
     seed = interp2app(W_Random.seed),

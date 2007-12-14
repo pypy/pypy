@@ -60,9 +60,6 @@ class Module(MixedModule):
         'buffer'        : 'app_buffer.buffer',
         'reload'        : 'app_misc.reload',
 
-        'set'           : 'app_sets.set',
-        'frozenset'     : 'app_sets.frozenset',
-
         '__filestub'    : 'app_file_stub.file',
     }
 
@@ -80,8 +77,8 @@ class Module(MixedModule):
         'open'          : 'state.get(space).w_file',
 
         # old-style classes dummy support
-        '_classobj'     : 'space.w_classobj',
-        '_instance'     : 'space.w_instance',
+        '_classobj'     : 'interp_classobj.W_ClassObject',
+        '_instance'     : 'interp_classobj.W_InstanceObject',
         # default __metaclass__
         '__metaclass__' : '(space.w_type)',
 
