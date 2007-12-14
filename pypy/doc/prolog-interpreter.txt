@@ -25,7 +25,7 @@ see Carl Friedrich's bachelor thesis `A Prolog interpreter in Python`_ paper.
 .. _`Learn Prolog Now!`: http://www.coli.uni-saarland.de/~kris/learn-prolog-now/
 .. _`A Prolog interpreter in Python`: http://codespeak.net/pypy/extradoc/paper/prolog-in-python.pdf
 
-Example useage
+Example usage
 ==============
 
 First some simple examples that show simple unification::
