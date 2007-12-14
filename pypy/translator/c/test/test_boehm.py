@@ -98,8 +98,9 @@ class TestUsingBoehm(AbstractGCTestClass):
         assert 0 < res <= 84
 
     def test_id_is_weak(self):
-        # test that id(obj) does not keep obj alive
+        # test that compute_unique_id(obj) does not keep obj alive
         from pypy.rpython.lltypesystem.lloperation import llop
+        from pypy.rlib.objectmodel import compute_unique_id
         class State:
             pass
         s = State()
@@ -113,11 +114,11 @@ class TestUsingBoehm(AbstractGCTestClass):
             pass
         def run_once():
             a = A()
-            ida = id(a)
+            ida = compute_unique_id(a)
             b = B()
-            idb = id(b)
+            idb = compute_unique_id(b)
             c = C()
-            idc = id(c)
+            idc = compute_unique_id(c)
             llop.gc__collect(lltype.Void)
             llop.gc__collect(lltype.Void)
             llop.gc__collect(lltype.Void)
