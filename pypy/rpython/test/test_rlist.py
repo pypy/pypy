@@ -1392,8 +1392,10 @@ class TestLLtype(BaseTestRlist, LLRtypeMixin):
 
     def test_hints(self):
         from pypy.rlib.objectmodel import newlist
-
+        from pypy.rpython.annlowlevel import hlstr
+        
         def f(z):
+            z = hlstr(z)
             x = newlist(sizehint=13)
             x += z
             return ''.join(x)

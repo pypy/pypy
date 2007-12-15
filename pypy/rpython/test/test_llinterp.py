@@ -85,10 +85,6 @@ def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
             T = typeOf(x)
             if T == Ptr(PyObject) and someobjects:
                 return object
-            elif T == Ptr(rstr.STR) or T == ootype.String:
-                return str
-            elif T == Ptr(rstr.UNICODE) or T == ootype.Unicode:
-                return unicode
             else:
                 return lltype_to_annotation(T)
 

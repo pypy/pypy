@@ -11,7 +11,11 @@ class BaseTestStrtod(BaseRtypingTest):
         assert self.ll_to_string(self.interpret(f, [3.0])) == f(3.0)
 
     def test_parts_to_float(self):
+        from pypy.rpython.annlowlevel import hlstr
+        
         def f(a, b, c, d):
+            a,b,c,d = hlstr(a), hlstr(b), hlstr(c), hlstr(d)
+            
             return rarithmetic.parts_to_float(a, b, c, d)
         
         data = [

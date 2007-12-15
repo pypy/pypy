@@ -700,15 +700,6 @@ class AbstractTestRstr(BaseRtypingTest):
             return const('ababa').count(const('aba'))
         res = self.interpret(fn, [])
         assert res == 1
-
-    def test_hlstr(self):
-        const = self.const
-        from pypy.rpython.annlowlevel import hlstr
-        def f(s):
-            return const("*")+const(hlstr(s))+const("*") == const("*abba*")
-
-        res = self.interpret(f, [self.string_to_ll(const("abba"))])
-        assert res
        
     def test_getitem_exc(self):
         const = self.const
@@ -781,8 +772,10 @@ class AbstractTestRstr(BaseRtypingTest):
         assert summary(fgraph) == {}
 
     def test_inplace_add(self):
+        from pypy.rpython.annlowlevel import hlstr
         const = self.const
         def f(x, y):
+            y = const(hlstr(y))
             if x > 0:
                 l = [const('a'), const('b')]
             else:
@@ -790,8 +783,17 @@ class AbstractTestRstr(BaseRtypingTest):
             l += y
             return const('').join(l)
 
-        assert self.ll_to_string(self.interpret(f, [1, self.string_to_ll(const('abc'))])) == 'ababc'
+        assert self.ll_to_string(self.interpret(f, [1,
+                                       self.string_to_ll('abc')])) == 'ababc'
         
+    def test_hlstr(self):
+        const = self.const
+        from pypy.rpython.annlowlevel import hlstr
+        def f(s):
+            return const("*")+const(hlstr(s))+const("*") == const("*abba*")
+
+        res = self.interpret(f, [self.string_to_ll(const("abba"))])
+        assert res
 
 def FIXME_test_str_to_pystringobj():
     def f(n):

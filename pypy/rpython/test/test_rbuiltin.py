@@ -288,8 +288,11 @@ class BaseTestRbuiltin(BaseRtypingTest):
 
     def test_os_path_exists(self):
         self._skip_llinterpreter("os.stat()")
+        from pypy.rpython.annlowlevel import hlstr
+        
         import os
         def f(fn):
+            fn = hlstr(fn)
             return os.path.exists(fn)
         filename = self.string_to_ll(str(py.magic.autopath()))
         assert self.interpret(f, [filename]) == True
@@ -298,8 +301,11 @@ class BaseTestRbuiltin(BaseRtypingTest):
 
     def test_os_isdir(self):
         self._skip_llinterpreter("os.stat()")
+        from pypy.rpython.annlowlevel import hlstr
+        
         import os
         def f(fn):
+            fn = hlstr(fn)
             return os.path.isdir(fn)
         assert self.interpret(f, [self.string_to_ll("/")]) == True
         assert self.interpret(f, [self.string_to_ll(str(py.magic.autopath()))]) == False
