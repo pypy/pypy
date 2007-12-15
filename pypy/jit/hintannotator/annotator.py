@@ -6,7 +6,8 @@ from pypy.jit.hintannotator import model as hintmodel
 from pypy.jit.hintannotator.bookkeeper import HintBookkeeper
 from pypy.jit.hintannotator.policy import HintAnnotatorPolicy
 from pypy.rpython.lltypesystem import lltype
-
+from pypy.rpython.ootypesystem import ootype
+from pypy.translator.simplify import get_funcobj
 
 class HintAnnotator(RPythonAnnotator):
 
@@ -27,6 +28,15 @@ class HintAnnotator(RPythonAnnotator):
 
     def getuserclassdefinitions(self):
         return []
+
+    def consider_op_new(self, hs_TYPE):
+        TYPE = hs_TYPE.const
+        if self.policy.novirtualcontainer:
+            return hintmodel.SomeLLAbstractVariable(TYPE)
+        else:
+            # XXX: ootype
+            vstructdef = self.bookkeeper.getvirtualcontainerdef(TYPE)
+            return hintmodel.SomeLLAbstractContainer(vstructdef)        
 
     def consider_op_malloc(self, hs_TYPE, hs_flags):
         TYPE = hs_TYPE.const
@@ -65,10 +75,15 @@ class HintAnnotator(RPythonAnnotator):
 
     def consider_op_ts_metacall(self, hs_f1, hs_metadesccls, *args_hs):
         bookkeeper = self.bookkeeper
-        fnobj = hs_f1.const._obj
+        fnobj = get_funcobj(hs_f1.const)
         return hintmodel.cannot_follow_call(bookkeeper, fnobj.graph, args_hs,
                                             lltype.typeOf(fnobj).RESULT)
 
+    def consider_op_oosend(self, hs_name, *args_hs):
+        assert hs_name.concretetype is ootype.Void
+        hs_obj, args_hs = args_hs[0], args_hs[1:]
+        return hs_obj.oosend(hs_name, *args_hs)
+    
     def simplify(self):
         RPythonAnnotator.simplify(self, extra_passes=[])
 

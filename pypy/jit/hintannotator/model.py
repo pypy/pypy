@@ -2,6 +2,8 @@ from pypy.annotation import model as annmodel
 from pypy.tool.pairtype import pair, pairtype
 from pypy.jit.hintannotator.bookkeeper import getbookkeeper
 from pypy.rpython.lltypesystem import lltype, lloperation
+from pypy.rpython.ootypesystem import ootype
+from pypy.translator.simplify import get_funcobj
 
 UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize
                       getinteriorfield getinteriorarraysize setinteriorfield
@@ -20,6 +22,14 @@ UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize
                       ptr_nonzero
                       ptr_iszero
                       is_early_constant
+                      oogetfield
+                      oosetfield
+                      oononnull
+                      ooupcast
+                      oodowncast
+                      oois
+                      subclassof
+                      instanceof
                       """.split()
 
 BINARY_OPERATIONS = """int_add int_sub int_mul int_mod int_and int_rshift
@@ -244,7 +254,11 @@ class SomeLLAbstractContainer(SomeLLAbstractValue):
 
     def __init__(self, contentdef):
         self.contentdef = contentdef
-        self.concretetype = lltype.Ptr(contentdef.T)
+        T = contentdef.T
+        if isinstance(T, ootype.OOType):
+            self.concretetype = T
+        else:
+            self.concretetype = lltype.Ptr(T)
 
     def annotationcolor(self):
         """Compute the color of the variables with this annotation
@@ -339,7 +353,14 @@ class __extend__(SomeLLAbstractValue):
         FIELD_TYPE = getattr(S, hs_fieldname.const)
         return variableoftype(FIELD_TYPE, hs_v1.deepfrozen)
 
+    def oogetfield(hs_v1, hs_fieldname):
+        _, FIELD_TYPE = hs_v1.concretetype._lookup_field(hs_fieldname.const)
+        return variableoftype(FIELD_TYPE, hs_v1.deepfrozen)
+
     def setfield(hs_v1, hs_fieldname, hs_value):
+        pass
+
+    def oosetfield(hs_v1, hs_fieldname, hs_value):
         pass
 
     def getsubstruct(hs_v1, hs_fieldname):
@@ -406,6 +427,9 @@ class __extend__(SomeLLAbstractValue):
         # function
         return annmodel.unionof(hs_res, bookkeeper.current_op_binding())
 
+    def oosend(hs_v1, hs_name, *args_hs): 
+        RESTYPE = getbookkeeper().current_op_concretetype()
+        return SomeLLAbstractVariable(RESTYPE)
 
 class __extend__(SomeLLAbstractConstant):
 
@@ -428,7 +452,7 @@ class __extend__(SomeLLAbstractConstant):
 
     def direct_call(hs_f1, *args_hs):
         bookkeeper = getbookkeeper()
-        fnobj = hs_f1.const._obj
+        fnobj = get_funcobj(hs_f1.const)
         if (bookkeeper.annotator.policy.oopspec and
             hasattr(fnobj._callable, 'oopspec')):
             # try to handle the call as a high-level operation
@@ -473,9 +497,34 @@ class __extend__(SomeLLAbstractConstant):
         # function
         return annmodel.unionof(hs_res, bookkeeper.current_op_binding())
 
+    def oosend(hs_c1, hs_name, *args_hs): 
+        TYPE = hs_c1.concretetype
+        name = hs_name.const
+        graph_list = TYPE._lookup_graphs(name)
+        if not graph_list:
+            # it's a method of a BuiltinType
+            bk = getbookkeeper()
+            origin = bk.myorigin()
+            d = setadd(hs_c1.origins, origin)
+            RESTYPE = bk.current_op_concretetype() 
+            hs_res = SomeLLAbstractConstant(RESTYPE, d,
+                                            eager_concrete = hs_c1.eager_concrete,
+                                            myorigin = origin)
+            # if hs_c1.is_constant(): ...
+            return hs_res
+        #import pdb;pdb.set_trace()
+
     def getfield(hs_c1, hs_fieldname):
         S = hs_c1.concretetype.TO
         FIELD_TYPE = getattr(S, hs_fieldname.const)
+        return hs_c1.getfield_impl(S, FIELD_TYPE)
+
+    def oogetfield(hs_c1, hs_fieldname):
+        S = hs_c1.concretetype
+        _, FIELD_TYPE = S._lookup_field(hs_fieldname.const)
+        return hs_c1.getfield_impl(S, FIELD_TYPE)
+
+    def getfield_impl(hs_c1, S, FIELD_TYPE):
         if S._hints.get('immutable', False) or hs_c1.deepfrozen:
             origin = getbookkeeper().myorigin()
             d = setadd(hs_c1.origins, origin)
