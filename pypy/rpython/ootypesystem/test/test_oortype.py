@@ -9,6 +9,7 @@ from pypy.objspace.flow.objspace import FlowObjSpace
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rlib.objectmodel import r_dict
+from pypy.tool.error import AnnotatorError
 from pypy.rpython.ootypesystem import ooregistry # side effects
 
 def gengraph(f, args=[], viewBefore=False, viewAfter=False, mangle=True):
@@ -300,3 +301,40 @@ def test_pbc_record():
     
     res = interpret(oof, [], type_system='ootype')
     assert res == 42
+
+def test_ooupcast():
+    A = Instance('A', ootype.ROOT, {})
+    B = Instance('B', A, {})
+    C = Instance('C', ootype.ROOT)
+
+    def fn():
+        b = new(B)
+        return ooupcast(A, b)
+
+    res = interpret(fn, [], type_system='ootype')
+    assert typeOf(res) is A
+
+    def fn():
+        c = new(C)
+        return ooupcast(A, c)
+
+    py.test.raises(AnnotatorError, interpret, fn, [], type_system='ootype')
+
+def test_oodowncast():
+    A = Instance('A', ootype.ROOT, {})
+    B = Instance('B', A, {})
+    C = Instance('C', ootype.ROOT)
+
+    def fn():
+        b = new(B)
+        a = ooupcast(A, b)
+        return oodowncast(B, a)
+
+    res = interpret(fn, [], type_system='ootype')
+    assert typeOf(res) is B
+
+    def fn():
+        c = new(C)
+        return oodowncast(A, c)
+
+    py.test.raises(AnnotatorError, interpret, fn, [], type_system='ootype')

@@ -263,11 +263,12 @@ class Record(BuiltinType):
     # We try to keep Record as similar to Instance as possible, so backends
     # can treat them polymorphically, if they choose to do so.
     
-    def __init__(self, fields):
+    def __init__(self, fields, _hints={}):
         self._fields = frozendict()
         for name, ITEMTYPE in fields.items():
             self._fields[name] = ITEMTYPE, ITEMTYPE._defl()
         self._null = _null_record(self)
+        self._hints = frozendict(_hints)
 
     def _defl(self):
         return self._null

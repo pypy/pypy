@@ -16,6 +16,7 @@ from pypy.annotation.model import s_ImpossibleValue
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation import description
 from pypy.objspace.flow.model import Constant
+from pypy.tool.error import AnnotatorError
 import pypy.rlib.rarithmetic
 import pypy.rlib.objectmodel
 
@@ -547,6 +548,20 @@ def ooidentityhash(i):
     assert isinstance(i, SomeOOInstance)
     return SomeInteger()
 
+def ooupcast(I, i):
+    assert isinstance(I.const, ootype.Instance)
+    if ootype.isSubclass(i.ootype, I.const):
+        return SomeOOInstance(I.const)
+    else:
+        raise AnnotatorError, 'Cannot cast %s to %s' % (i.ootype, I.const)
+
+def oodowncast(I, i):
+    assert isinstance(I.const, ootype.Instance)
+    if ootype.isSubclass(I.const, i.ootype):
+        return SomeOOInstance(I.const)
+    else:
+        raise AnnotatorError, 'Cannot cast %s to %s' % (i.ootype, I.const)
+
 BUILTIN_ANALYZERS[ootype.instanceof] = instanceof
 BUILTIN_ANALYZERS[ootype.new] = new
 BUILTIN_ANALYZERS[ootype.null] = null
@@ -554,6 +569,8 @@ BUILTIN_ANALYZERS[ootype.runtimenew] = runtimenew
 BUILTIN_ANALYZERS[ootype.classof] = classof
 BUILTIN_ANALYZERS[ootype.subclassof] = subclassof
 BUILTIN_ANALYZERS[ootype.ooidentityhash] = ooidentityhash
+BUILTIN_ANALYZERS[ootype.ooupcast] = ooupcast
+BUILTIN_ANALYZERS[ootype.oodowncast] = oodowncast
 
 #________________________________
 # weakrefs

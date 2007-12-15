@@ -40,6 +40,18 @@ def rtype_ooidentityhash(hop):
     return hop.genop('ooidentityhash', vlist,
                      resulttype = ootype.Signed)
 
+def rtype_ooupcast(hop):
+    assert isinstance(hop.args_s[0].const, ootype.Instance)
+    assert isinstance(hop.args_s[1], annmodel.SomeOOInstance)
+    v_inst = hop.inputarg(hop.args_r[1], arg=1)
+    return hop.genop('ooupcast', [v_inst], resulttype = hop.r_result.lowleveltype)
+
+def rtype_oodowncast(hop):
+    assert isinstance(hop.args_s[0].const, ootype.Instance)
+    assert isinstance(hop.args_s[1], annmodel.SomeOOInstance)
+    v_inst = hop.inputarg(hop.args_r[1], arg=1)
+    return hop.genop('oodowncast', [v_inst], resulttype = hop.r_result.lowleveltype)
+
 def rtype_builtin_isinstance(hop):
     if hop.s_result.is_constant():
         return hop.inputconst(ootype.Bool, hop.s_result.const)
@@ -98,6 +110,8 @@ BUILTIN_TYPER[ootype.classof] = rtype_classof
 BUILTIN_TYPER[ootype.subclassof] = rtype_subclassof
 BUILTIN_TYPER[ootype.runtimenew] = rtype_runtimenew
 BUILTIN_TYPER[ootype.ooidentityhash] = rtype_ooidentityhash
+BUILTIN_TYPER[ootype.ooupcast] = rtype_ooupcast
+BUILTIN_TYPER[ootype.oodowncast] = rtype_oodowncast
 BUILTIN_TYPER[isinstance] = rtype_builtin_isinstance
 BUILTIN_TYPER[objectmodel.r_dict] = rtype_r_dict
 BUILTIN_TYPER[objectmodel.instantiate] = rtype_instantiate
