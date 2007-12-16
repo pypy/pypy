@@ -63,7 +63,7 @@ def test_start_new_thread():
         y = Y()
         y.z = Z(i)
         start_new_thread(Y.bootstrap, (y,))
-    g.dont_inline = True
+    g._dont_inline_ = True
 
     def f():
         main_ident = get_ident()

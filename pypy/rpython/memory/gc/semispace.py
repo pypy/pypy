@@ -107,7 +107,7 @@ class SemiSpaceGC(MovingGCBase):
         if not self.try_obtain_free_space(needed):
             raise memoryError
         return self.free
-    obtain_free_space.dont_inline = True
+    obtain_free_space._dont_inline_ = True
 
     def try_obtain_free_space(self, needed):
         # XXX for bonus points do big objects differently

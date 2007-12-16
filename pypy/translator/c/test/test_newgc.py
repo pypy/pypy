@@ -298,7 +298,7 @@ class TestUsingFramework(AbstractGCTestClass):
             a = A()
             a.b = g(1)
             return a
-        make.dont_inline = True
+        make._dont_inline_ = True
         def f():
             a = make()
             llop.gc__collect(lltype.Void)
@@ -316,7 +316,7 @@ class TestUsingFramework(AbstractGCTestClass):
             pass
         def g(x): # cause a collect
             llop.gc__collect(lltype.Void)
-        g.dont_inline = True
+        g._dont_inline_ = True
         global_a = A()
         global_a.b = B()
         global_a.b.a = A()
@@ -330,7 +330,7 @@ class TestUsingFramework(AbstractGCTestClass):
             g(1)
             b0 = a.b
             b0.c = b.c = 42
-        make.dont_inline = True
+        make._dont_inline_ = True
         def f():
             make()
             llop.gc__collect(lltype.Void)
@@ -356,7 +356,7 @@ class TestUsingFramework(AbstractGCTestClass):
             for i in range(1000):
                 prepare(B(), -1)    # probably overwrites collected memory
             return a.value
-        g.dont_inline = True
+        g._dont_inline_ = True
         def f():
             b = B()
             prepare(b, 123)
@@ -420,7 +420,7 @@ class TestUsingFramework(AbstractGCTestClass):
         a.x = None
         def make():
             a.x = A(42)
-        make.dont_inline = True
+        make._dont_inline_ = True
         def f():
             make()
             llop.gc__collect(lltype.Void)
@@ -481,12 +481,12 @@ class TestUsingFramework(AbstractGCTestClass):
             a = lltype.malloc(A)
             a.value = -n * 7
             return lltype.cast_opaque_ptr(lltype.Ptr(O), a)
-        gethidden.dont_inline = True
+        gethidden._dont_inline_ = True
         def reveal(o):
             return lltype.cast_opaque_ptr(lltype.Ptr(A), o)
         def overwrite(a, i):
             a.value = i
-        overwrite.dont_inline = True
+        overwrite._dont_inline_ = True
         def f():
             o = gethidden(10)
             llop.gc__collect(lltype.Void)

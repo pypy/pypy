@@ -310,7 +310,7 @@ def define_call_function_retval(TYPE, typename):
         fn = llmemory.cast_adr_to_ptr(fnaddr, FUNCTYPE)
         return fn()
     call_function_retval_xyz.stackless_explicit = True
-    call_function_retval_xyz.dont_inline = True
+    call_function_retval_xyz._dont_inline_ = True
     fnname = 'call_function_retval_' + typename
     fn = func_with_new_name(call_function_retval_xyz, fnname)
     globals()[fnname] = fn

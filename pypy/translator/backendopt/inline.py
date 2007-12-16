@@ -634,7 +634,7 @@ def inlinable_static_callers(graphs):
                     graph = getattr(funcobj, 'graph', None)
                     if graph is not None:
                         if getattr(getattr(funcobj, '_callable', None),
-                                   'dont_inline', False):
+                                   '_dont_inline_', False):
                             continue
                         result.append((parentgraph, graph))
                 if op.opname == "oosend":
@@ -666,7 +666,7 @@ def instrument_inline_candidates(graphs, threshold):
                     graph = getattr(funcobj, 'graph', None)
                     if graph is not None:
                         if getattr(getattr(funcobj, '_callable', None),
-                                   'dont_inline', False):
+                                   '_dont_inline_', False):
                             continue
                     if candidate(graph):
                         tag = Constant('inline', Void)

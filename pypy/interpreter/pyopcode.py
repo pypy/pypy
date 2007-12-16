@@ -291,7 +291,7 @@ class __extend__(pyframe.PyFrame):
         varname = f.getlocalvarname(varindex)
         message = "local variable '%s' referenced before assignment" % varname
         raise OperationError(f.space.w_UnboundLocalError, f.space.wrap(message))
-    _load_fast_failed.dont_inline = True
+    _load_fast_failed._dont_inline_ = True
 
     def LOAD_CONST(f, constindex, *ignored):
         w_const = f.getconstant_w(constindex)
@@ -653,7 +653,7 @@ class __extend__(pyframe.PyFrame):
         message = "global name '%s' is not defined" % varname
         raise OperationError(f.space.w_NameError,
                              f.space.wrap(message))
-    _load_global_failed.dont_inline = True
+    _load_global_failed._dont_inline_ = True
 
     def LOAD_GLOBAL(f, nameindex, *ignored):
         f.pushvalue(f._load_global(f.getname_w(nameindex)))

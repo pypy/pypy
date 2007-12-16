@@ -41,7 +41,7 @@ def test_compile_lock():
         ok3 = l.acquire(False)
         res = ok1 and not ok2 and ok3
         return res
-    g.dont_inline = True
+    g._dont_inline_ = True
     def f():
         res = g()
         # the lock must have been freed by now - we use refcounting

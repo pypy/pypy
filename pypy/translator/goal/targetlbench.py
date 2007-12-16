@@ -16,7 +16,7 @@ def longername(a, b, size):
         for i in range(x):
             a.append(i)
     return 0
-longername.dont_inline = True
+longername._dont_inline_ = True
 
 def entry_point(argv):
     size = int(argv[1])

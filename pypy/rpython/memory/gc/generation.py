@@ -312,4 +312,4 @@ class GenerationGC(SemiSpaceGC):
             oldhdr.tid &= ~GCFLAG_NO_YOUNG_PTRS
         if oldhdr.tid & GCFLAG_NO_HEAP_PTRS:
             self.move_to_static_roots(addr_struct)
-    remember_young_pointer.dont_inline = True
+    remember_young_pointer._dont_inline_ = True

@@ -192,7 +192,7 @@ class ExtFuncEntry(ExtRegistryEntry):
                         return original_impl(*args)
                 impl = func_with_new_name(ll_wrapper, name + '_wrapper')
             if rtyper.annotator.translator.config.translation.sandbox:
-                impl.dont_inline = True
+                impl._dont_inline_ = True
             # store some attributes to the 'impl' function, where
             # the eventual call to rtyper.getcallable() will find them
             # and transfer them to the final lltype.functionptr().

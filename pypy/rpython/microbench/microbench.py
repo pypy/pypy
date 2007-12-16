@@ -11,7 +11,7 @@ LOOPS = 10000000
 class MetaBench(type):
     def __new__(self, cls_name, bases, cls_dict):
         loop = cls_dict['loop']
-        loop.dont_inline = True
+        loop._dont_inline_ = True
         myglob = {
             'init': cls_dict['init'],
             'loop': loop,

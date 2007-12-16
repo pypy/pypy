@@ -47,14 +47,14 @@ def get_address_linked_list(chunk_size=DEFAULT_CHUNK_SIZE):
             new.length = 0
             self.chunk = new
             return new
-        enlarge.dont_inline = True
+        enlarge._dont_inline_ = True
 
         def shrink(self):
             old = self.chunk
             self.chunk = old.previous
             unused_chunks.put(old)
             return self.chunk
-        shrink.dont_inline = True
+        shrink._dont_inline_ = True
 
         def append(self, addr):
             if addr == llmemory.NULL:
