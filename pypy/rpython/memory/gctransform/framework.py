@@ -446,7 +446,6 @@ class FrameworkGCTransformer(GCTransformer):
         ll_instance.inst_static_root_end = ll_instance.inst_static_root_start + llmemory.sizeof(llmemory.Address) * len(ll_static_roots_inside)
 
         newgcdependencies = []
-        newgcdependencies.append(self.gcdata.type_info_table)
         newgcdependencies.append(ll_static_roots_inside)
         self.write_typeid_list()
         return newgcdependencies
