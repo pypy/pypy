@@ -11,10 +11,13 @@ class GCManagedHeap(object):
     def __init__(self, llinterp, flowgraphs, gc_class, GC_PARAMS={}):
         self.AddressLinkedList = get_address_linked_list(10)
         self.gc = gc_class(self.AddressLinkedList, **GC_PARAMS)
-        self.gc.get_roots = self.get_roots_from_llinterp
+        def my_get_roots(with_static=True):
+            return self.get_roots_from_llinterp(with_static)
+        self.gc.get_roots = my_get_roots
         self.llinterp = llinterp
         self.prepare_graphs(flowgraphs)
         self.gc.setup()
+        my_get_roots.append_static_root = self.constantroots.append
 
     def prepare_graphs(self, flowgraphs):
         layoutbuilder = DirectRunLayoutBuilder(self.llinterp)
@@ -26,7 +29,7 @@ class GCManagedHeap(object):
             TYPE = lltype.typeOf(obj)
             layoutbuilder.consider_constant(TYPE, obj, self.gc)
 
-        self.constantroots = layoutbuilder.addresses_of_static_ptrs
+        self.constantroots = list(layoutbuilder.addresses_of_static_ptrs)
         self.constantrootsnongc = layoutbuilder.addresses_of_static_ptrs_in_nongc
 
     def get_roots_from_llinterp(self, with_static=True):

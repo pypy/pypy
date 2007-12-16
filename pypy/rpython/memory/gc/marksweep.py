@@ -483,8 +483,9 @@ class MarkSweepGC(GCBase):
         hdr = llmemory.cast_adr_to_ptr(addr, self.HDRPTR)
         hdr.typeid = typeid << 1
 
-    def init_gc_object_immortal(self, addr, typeid):
+    def init_gc_object_immortal(self, addr, typeid, flags=0):
         # prebuilt gc structures always have the mark bit set
+        # ignore flags
         hdr = llmemory.cast_adr_to_ptr(addr, self.HDRPTR)
         hdr.typeid = (typeid << 1) | 1
 

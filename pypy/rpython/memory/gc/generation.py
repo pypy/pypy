@@ -11,7 +11,11 @@ from pypy.rpython.lltypesystem.lloperation import llop
 # in the nursery.  It is initially set on all prebuilt and old objects,
 # and gets cleared by the write_barrier() when we write in them a
 # pointer to a young object.
-GCFLAG_NO_YOUNG_PTRS = 2 << GCFLAGSHIFT
+GCFLAG_NO_YOUNG_PTRS = 1 << (GCFLAGSHIFT+1)
+
+# The following flag is set for static roots which are not on the list
+# of static roots yet, but will appear with write barrier
+GCFLAG_NO_HEAP_PTRS = 1 << (GCFLAGSHIFT+2)
 
 DEBUG_PRINT = False
 
@@ -23,6 +27,7 @@ class GenerationGC(SemiSpaceGC):
     """
     inline_simple_malloc = True
     needs_write_barrier = True
+    prebuilt_gc_objects_are_static_roots = False
 
     def __init__(self, AddressLinkedList,
                  nursery_size=128,
@@ -135,7 +140,8 @@ class GenerationGC(SemiSpaceGC):
     def init_gc_object(self, addr, typeid, flags=GCFLAG_NO_YOUNG_PTRS):
         SemiSpaceGC.init_gc_object(self, addr, typeid, flags)
 
-    def init_gc_object_immortal(self, addr, typeid, flags=GCFLAG_NO_YOUNG_PTRS):
+    def init_gc_object_immortal(self, addr, typeid,
+                                flags=GCFLAG_NO_YOUNG_PTRS|GCFLAG_NO_HEAP_PTRS):
         SemiSpaceGC.init_gc_object_immortal(self, addr, typeid, flags)
 
     def semispace_collect(self, size_changing=False):
@@ -288,12 +294,22 @@ class GenerationGC(SemiSpaceGC):
         if self.header(addr_struct).tid & GCFLAG_NO_YOUNG_PTRS:
             self.remember_young_pointer(addr_struct, newvalue)
 
+    def append_to_static_roots(self, pointer, arg):
+        self.get_roots.append_static_root(pointer)
+
+    def move_to_static_roots(self, addr_struct):
+        objhdr = self.header(addr_struct)
+        objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
+        self.trace(addr_struct, self.append_to_static_roots, None)
+
     def remember_young_pointer(self, addr_struct, addr):
         ll_assert(not self.is_in_nursery(addr_struct),
                      "nursery object with GCFLAG_NO_YOUNG_PTRS")
+        oldhdr = self.header(addr_struct)
         if self.is_in_nursery(addr):
-            oldhdr = self.header(addr_struct)
             oldhdr.forw = self.old_objects_pointing_to_young
             self.old_objects_pointing_to_young = addr_struct
             oldhdr.tid &= ~GCFLAG_NO_YOUNG_PTRS
+        if oldhdr.tid & GCFLAG_NO_HEAP_PTRS:
+            self.move_to_static_roots(addr_struct)
     remember_young_pointer.dont_inline = True
