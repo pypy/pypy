@@ -6,6 +6,7 @@ from pypy.interpreter.miscutils import ThreadLocals
 from pypy.rlib.jit import hint
 from pypy.tool.cache import Cache
 from pypy.tool.uid import HUGEVAL_BYTES
+from pypy.rlib.objectmodel import we_are_translated
 import os, sys
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
@@ -397,6 +398,22 @@ class ObjSpace(object):
 
     def getexecutioncontext(self):
         "Return what we consider to be the active execution context."
+        # Important: the annotator must not see a prebuilt ExecutionContext
+        # for reasons related to the specialization of the framestack attribute
+        # so we make sure that the threadlocals never *have* an
+        # ExecutionContext during translation.
+        if self.config.translating and not we_are_translated():
+            assert self.threadlocals.getvalue() is None, (
+                "threadlocals got an ExecutionContext during translation!")
+            try:
+                return self._ec_during_translation
+            except AttributeError:
+                ec = self.createexecutioncontext()
+                self._ec_during_translation = ec
+                return ec
+        # normal case follows.  The 'thread' module installs a real
+        # thread-local object in self.threadlocals, so this builds
+        # and caches a new ec in each thread.
         ec = self.threadlocals.getvalue()
         if ec is None:
             ec = self.createexecutioncontext()
@@ -404,10 +421,6 @@ class ObjSpace(object):
         return ec
 
     def _freeze_(self):
-        # Important: the annotator must not see a prebuilt ExecutionContext
-        # for reasons related to the specialization of the framestack attribute
-        # so we make sure there is no executioncontext at freeze-time
-        self.threadlocals.setvalue(None)
         return True
 
     def createexecutioncontext(self):
