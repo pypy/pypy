@@ -264,7 +264,7 @@ def descr_instance_new(space, w_type, w_class, w_dict=None):
         raise OperationError(
             space.w_TypeError,
             space.wrap("instance() first arg must be class"))
-    if w_dict is None:
+    if space.is_w(w_dict, space.w_None):
         w_dict = space.newdict()
     elif not space.is_true(space.isinstance(w_dict, space.w_dict)):
         raise OperationError(

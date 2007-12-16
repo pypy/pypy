@@ -574,6 +574,10 @@ class AppTestOldstyle(object):
         class A:
             b = 1
         a = A()
+        a = type(a).__new__(type(a), A)
+        assert a.b == 1
+        a = type(a).__new__(type(a), A, None)
+        assert a.b == 1
         a = type(a).__new__(type(a), A, {'c': 2})
         assert a.b == 1
         assert a.c == 2
