@@ -272,7 +272,8 @@ class TypeLayoutBuilder(object):
         return fptr
 
     def make_finalizer_funcptr_for_type(self, TYPE):
-        return None   # must be overridden for proper finalizer support
+        # must be overridden for proper finalizer support
+        return lltype.nullptr(GCData.ADDRESS_VOID_FUNC)
 
     def initialize_gc_query_function(self, gc):
         return GCData(self.type_info_list).set_query_functions(gc)
