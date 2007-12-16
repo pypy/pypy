@@ -285,6 +285,7 @@ class __extend__(pyframe.PyFrame):
         if w_value is None:
             f._load_fast_failed(varindex)
         f.pushvalue(w_value)
+    LOAD_FAST._always_inline_ = True
 
     def _load_fast_failed(f, varindex):
         varname = f.getlocalvarname(varindex)
@@ -645,7 +646,7 @@ class __extend__(pyframe.PyFrame):
             if w_value is None:
                 f._load_global_failed(w_varname)
         return w_value
-    _load_global.always_inline = True
+    _load_global._always_inline_ = True
 
     def _load_global_failed(f, w_varname):
         varname = f.space.str_w(w_varname)
@@ -656,7 +657,7 @@ class __extend__(pyframe.PyFrame):
 
     def LOAD_GLOBAL(f, nameindex, *ignored):
         f.pushvalue(f._load_global(f.getname_w(nameindex)))
-    LOAD_GLOBAL.always_inline = True
+    LOAD_GLOBAL._always_inline_ = True
 
     def DELETE_FAST(f, varindex, *ignored):
         if f.fastlocals_w[varindex] is None:
@@ -688,7 +689,7 @@ class __extend__(pyframe.PyFrame):
         w_obj = f.popvalue()
         w_value = f.space.getattr(w_obj, w_attributename)
         f.pushvalue(w_value)
-    LOAD_ATTR.always_inline = True
+    LOAD_ATTR._always_inline_ = True
 
     def cmp_lt(f, w_1, w_2):  return f.space.lt(w_1, w_2)
     def cmp_le(f, w_1, w_2):  return f.space.le(w_1, w_2)
