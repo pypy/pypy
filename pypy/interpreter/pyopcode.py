@@ -283,10 +283,14 @@ class __extend__(pyframe.PyFrame):
         # access a local variable directly
         w_value = f.fastlocals_w[varindex]
         if w_value is None:
-            varname = f.getlocalvarname(varindex)
-            message = "local variable '%s' referenced before assignment" % varname
-            raise OperationError(f.space.w_UnboundLocalError, f.space.wrap(message))
+            f._load_fast_failed(varindex)
         f.pushvalue(w_value)
+
+    def _load_fast_failed(f, varindex):
+        varname = f.getlocalvarname(varindex)
+        message = "local variable '%s' referenced before assignment" % varname
+        raise OperationError(f.space.w_UnboundLocalError, f.space.wrap(message))
+    _load_fast_failed.dont_inline = True
 
     def LOAD_CONST(f, constindex, *ignored):
         w_const = f.getconstant_w(constindex)
@@ -639,14 +643,20 @@ class __extend__(pyframe.PyFrame):
             # not in the globals, now look in the built-ins
             w_value = f.get_builtin().getdictvalue(f.space, w_varname)
             if w_value is None:
-                varname = f.space.str_w(w_varname)
-                message = "global name '%s' is not defined" % varname
-                raise OperationError(f.space.w_NameError,
-                                     f.space.wrap(message))
+                f._load_global_failed(w_varname)
         return w_value
+    _load_global.always_inline = True
+
+    def _load_global_failed(f, w_varname):
+        varname = f.space.str_w(w_varname)
+        message = "global name '%s' is not defined" % varname
+        raise OperationError(f.space.w_NameError,
+                             f.space.wrap(message))
+    _load_global_failed.dont_inline = True
 
     def LOAD_GLOBAL(f, nameindex, *ignored):
         f.pushvalue(f._load_global(f.getname_w(nameindex)))
+    LOAD_GLOBAL.always_inline = True
 
     def DELETE_FAST(f, varindex, *ignored):
         if f.fastlocals_w[varindex] is None:
@@ -678,6 +688,7 @@ class __extend__(pyframe.PyFrame):
         w_obj = f.popvalue()
         w_value = f.space.getattr(w_obj, w_attributename)
         f.pushvalue(w_value)
+    LOAD_ATTR.always_inline = True
 
     def cmp_lt(f, w_1, w_2):  return f.space.lt(w_1, w_2)
     def cmp_le(f, w_1, w_2):  return f.space.le(w_1, w_2)

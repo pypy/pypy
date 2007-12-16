@@ -99,24 +99,22 @@ class ExecutionContext:
 
     def bytecode_trace(self, frame):
         "Trace function called before each bytecode."
-        # XXX there should be some flag here which checks whether
-        #     this should be really invoked. We spend roughly 0.5% time
-        #     here when not doing anything
-        # First, call yield_thread() before each Nth bytecode,
-        #     as selected by sys.setcheckinterval()
-        ticker = self.ticker
-        if ticker <= 0:
-            Action.perform_actions(self.space.pending_actions)
-            Action.perform_actions(self.pending_actions)
-            ticker = self.space.sys.checkinterval
-        self.ticker = ticker - 1
-        if frame.w_f_trace is None or self.is_tracing:
-            return
-        self._do_bytecode_trace(frame)
-
+        # this is split into a fast path and a slower path that is
+        # not invoked every time bytecode_trace() is.
+        ticker = self.ticker - 1
+        self.ticker = ticker
+        if ticker < 0 or frame.w_f_trace is not None:
+            self._do_bytecode_trace(frame)
+    bytecode_trace.always_inline = True
 
     def _do_bytecode_trace(self, frame):
-        code = getattr(frame, 'pycode')
+        if self.ticker < 0:
+            Action.perform_actions(self.space.pending_actions)
+            Action.perform_actions(self.pending_actions)
+            self.ticker = self.space.sys.checkinterval
+        if frame.w_f_trace is None or self.is_tracing:
+            return
+        code = frame.pycode
         if frame.instr_lb <= frame.last_instr < frame.instr_ub:
             if frame.last_instr <= frame.instr_prev:
                 # We jumped backwards in the same line.
