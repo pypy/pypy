@@ -25,16 +25,17 @@ def run(test_cases):
                         break
                 else:
                     continue
-            testcase = microbench + '.' + k + '()'
+            testcase_name = microbench + '.' + k + '()'
+            testcase = getattr(globals()[microbench], k)
             gc.collect()
             start = time.clock()
             n = 0
             duration = 0.0
             while duration < MINIMUM_MICROBENCH_TIME:
-                exec testcase
+                testcase()
                 n += 1
                 duration = time.clock() - start
-            print '%s took %.2f seconds' % (testcase, duration / float(n))
+            print '%s took %.2f seconds' % (testcase_name, duration / float(n))
 
 if __name__ == '__main__':
     args = sys.argv[1:]
