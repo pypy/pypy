@@ -181,10 +181,8 @@ class ObjSpace(object):
             config = get_pypy_config(translating=False)
         self.config = config
 
-        # import extra modules for side-effects, possibly based on config
+        # import extra modules for side-effects
         import pypy.interpreter.nestedscope     # register *_DEREF bytecodes
-        if self.config.objspace.opcodes.CALL_METHOD:
-            import pypy.interpreter.callmethod  # register *_METHOD bytecodes
 
         self.interned_strings = {}
         self.pending_actions = []

@@ -931,6 +931,25 @@ class __extend__(pyframe.PyFrame):
             f.dropvalues(nargs)
         f.pushvalue(w_result)
 
+    def LOOKUP_METHOD(f, nameindex, *ignored):
+        # overridden by faster version in the standard object space.
+        space = f.space
+        w_obj = f.popvalue()
+        w_name = f.getname_w(nameindex)
+        w_value = space.getattr(w_obj, w_name)
+        f.pushvalue(w_value)
+        #f.pushvalue(None)
+
+    def CALL_METHOD(f, nargs, *ignored):
+        # overridden by faster version in the standard object space.
+        # 'nargs' is the argument count excluding the implicit 'self'
+        w_callable = f.peekvalue(nargs)
+        try:
+            w_result = f.space.call_valuestack(w_callable, nargs, f)
+        finally:
+            f.dropvalues(nargs + 1)
+        f.pushvalue(w_result)
+
 ##     def EXTENDED_ARG(f, oparg, *ignored):
 ##         opcode = f.nextop()
 ##         oparg = oparg<<16 | f.nextarg()

@@ -6,6 +6,13 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import default_identity_hash
 from pypy.tool.sourcetools import compile2, func_with_new_name
 
+def object_getattribute(space):
+    "Utility that returns the app-level descriptor object.__getattribute__."
+    w_src, w_getattribute = space.lookup_in_type_where(space.w_object,
+                                                       '__getattribute__')
+    return w_getattribute
+object_getattribute._annspecialcase_ = 'specialize:memo'
+
 def raiseattrerror(space, w_obj, name, w_descr=None):
     w_type = space.type(w_obj)
     typename = w_type.getname(space, '?')

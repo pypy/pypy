@@ -19,24 +19,6 @@ class MergeBlock(Exception):
         self.block = block
         self.currentstate = currentstate
 
-class PyFrame(pyframe.PyFrame):
-    def LOOKUP_METHOD(f, nameindex, *ignored):
-        space = f.space
-        w_obj = f.popvalue()
-        w_name = f.getname_w(nameindex)
-        w_value = space.getattr(w_obj, w_name)
-        f.pushvalue(w_value)
-        #f.pushvalue(None)
-
-    def CALL_METHOD(f, nargs, *ignored):
-        # 'nargs' is the argument count excluding the implicit 'self'
-        w_callable = f.peekvalue(nargs)
-        try:
-            w_result = f.space.call_valuestack(w_callable, nargs, f)
-        finally:
-            f.dropvalues(nargs + 1)
-        f.pushvalue(w_result)
-
 class SpamBlock(Block):
     # make slots optional, for debugging
     if hasattr(Block, '__slots__'):
@@ -236,7 +218,7 @@ class FlowExecutionContext(ExecutionContext):
         # create an empty frame suitable for the code object
         # while ignoring any operation like the creation of the locals dict
         self.recorder = []
-        frame = PyFrame(self.space, self.code,
+        frame = pyframe.PyFrame(self.space, self.code,
                                 self.w_globals, self.closure)
         frame.last_instr = 0
         return frame

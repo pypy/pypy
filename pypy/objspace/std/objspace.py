@@ -134,6 +134,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
                         f.dropvalues(nargs)
                     f.pushvalue(w_result)
 
+            if self.config.objspace.opcodes.CALL_METHOD:
+                # def LOOKUP_METHOD(...):
+                from pypy.objspace.std.callmethod import LOOKUP_METHOD
+                # def CALL_METHOD(...):
+                from pypy.objspace.std.callmethod import CALL_METHOD
+
             if self.config.objspace.std.logspaceoptypes:
                 _space_op_types = []
                 for name, func in pyframe.PyFrame.__dict__.iteritems():
@@ -605,6 +611,13 @@ class StdObjSpace(ObjSpace, DescrOperation):
             w_obj.set_str_keyed_item(w_key, w_value, shadows_type)
         else:
             self.setitem(w_obj, w_key, w_value)
+
+    def call_method(self, w_obj, methname, *arg_w):
+        if self.config.objspace.opcodes.CALL_METHOD:
+            from pypy.objspace.std.callmethod import call_method_opt
+            return call_method_opt(self, w_obj, methname, *arg_w)
+        else:
+            return ObjSpace.call_method(self, w_obj, methname, *arg_w)
 
     # support for the deprecated __getslice__, __setslice__, __delslice__
 

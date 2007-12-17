@@ -1,3 +1,4 @@
+import py
 from pypy.conftest import gettestobjspace
 
 
@@ -121,3 +122,11 @@ class TestCallMethod:
         space = self.space
         space.int_w(space.call_method(space.wrap(space.sys),
                                       'getrecursionlimit'))
+
+    def test_optimizations_enabled(self):
+        # check that the callmethod module is really enabled.
+        from pypy.objspace.std import callmethod
+        assert (self.space.FrameClass.LOOKUP_METHOD.im_func ==
+                callmethod.LOOKUP_METHOD)
+        assert (self.space.FrameClass.CALL_METHOD.im_func ==
+                callmethod.CALL_METHOD)

@@ -4,7 +4,7 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable, \
      Arguments
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.callmethod import object_getattribute
+from pypy.objspace.descroperation import object_getattribute
 from pypy.interpreter.function import StaticMethod, ClassMethod
 from pypy.interpreter.typedef import GetSetProperty, descr_get_dict, \
      descr_set_dict, interp_attrproperty_w
