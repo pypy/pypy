@@ -890,7 +890,17 @@ class TestGenerationGC(GenericMovingGCTests):
         run, transformer = self.runner(f, nbargs=2, transformer=True)
         run([1, 4])
         assert len(transformer.layoutbuilder.addresses_of_static_ptrs) == 0
-        assert transformer.layoutbuilder.additional_roots_sources == 5
+        assert transformer.layoutbuilder.additional_roots_sources >= 4
+        # NB. Remember that additional_roots_sources does not count
+        # the number of prebuilt GC objects, but the number of locations
+        # within prebuilt GC objects that are of type Ptr(Gc).
+        # At the moment we get additional_roots_sources == 6:
+        #  * all[0]
+        #  * all[1]
+        #  * parent.sub
+        #  * parent2.sub
+        #  * the GcArray pointer from gc.wr_to_objects_with_id
+        #  * the GcArray pointer from gc.object_id_dict.
 
 class TestGenerationalNoFullCollectGC(GCTest):
     # test that nursery is doing its job and that no full collection

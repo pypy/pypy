@@ -203,6 +203,9 @@ class TypeLayoutBuilder(object):
         self.addresses_of_static_ptrs = []
         # this lists contains pointers in raw Structs and Arrays
         self.addresses_of_static_ptrs_in_nongc = []
+        # if not gc.prebuilt_gc_objects_are_static_roots, then
+        # additional_roots_sources counts the number of locations
+        # within prebuilt GC objects that are of type Ptr(Gc)
         self.additional_roots_sources = 0
         self.finalizer_funcptrs = {}
         self.offsettable_cache = {}
