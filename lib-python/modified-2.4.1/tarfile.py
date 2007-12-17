@@ -343,7 +343,7 @@ class _Stream:
                                             -self.zlib.MAX_WBITS,
                                             self.zlib.DEF_MEM_LEVEL,
                                             0)
-        timestamp = struct.pack("<L", long(time.time()))
+        timestamp = struct.pack("<L", long(time.time(), 10))
         self.__write("\037\213\010\010%s\002\377" % timestamp)
         if self.name.endswith(".gz"):
             self.name = self.name[:-3]
