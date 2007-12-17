@@ -55,8 +55,6 @@ class Module(MixedModule):
         'vars'          : 'app_inspect.vars',
         'dir'           : 'app_inspect.dir',
 
-        'complex'       : 'app_complex.complex',
-
         'buffer'        : 'app_buffer.buffer',
         'reload'        : 'app_misc.reload',
 
