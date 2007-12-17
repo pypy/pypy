@@ -63,6 +63,21 @@ class TestInteraction:
             import pexpect
         except ImportError, e:
             py.test.skip(str(e))
+        else:
+            # Version is of the style "0.999" or "2.1".  Older versions of
+            # pexpect try to get the fileno of stdin, which generally won't
+            # work with py.test (due to sys.stdin being a DontReadFromInput
+            # instance).
+            version = map(int, pexpect.__version__.split('.'))
+
+            # I only tested 0.999 and 2.1.  The former does not work, the
+            # latter does.  Feel free to refine this measurement.
+            # -exarkun, 17/12/2007
+            if version < [2, 1]:
+                py.test.skip(
+                    "pexpect version too old, requires 2.1 or newer: %r" % (
+                        pexpect.__version__,))
+
         kwds.setdefault('timeout', 10)
         print 'SPAWN:', args, kwds
         child = pexpect.spawn(*args, **kwds)
