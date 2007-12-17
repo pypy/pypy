@@ -21,6 +21,8 @@ class TestCliString(CliTest, oostring.BaseTestString):
     def test_hlstr(self):
         py.test.skip("CLI tests can't have string as input arguments")
 
+    test_inplace_add = test_hlstr
+
     def test_getitem_exc(self):
         py.test.skip('fixme!')
 

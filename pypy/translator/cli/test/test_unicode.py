@@ -18,3 +18,6 @@ class TestCliUnicode(CliTest, BaseTestRUnicode):
 
     def test_getitem_exc(self):
         py.test.skip('fixme!')
+
+    def test_inplace_add(self):
+        py.test.skip("CLI tests can't have string as input arguments")
