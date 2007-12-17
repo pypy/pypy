@@ -16,7 +16,6 @@ from pypy.objspace.std import stdtypedef
 from pypy.rlib.rarithmetic import base_int
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.jit import hint, we_are_jitted
-from pypy.objspace.flow.flowcontext import PyFrame as FlowPyFrame
 import sys
 import os
 import __builtin__
@@ -59,7 +58,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # Import all the object types and implementations
         self.model = StdTypeModel(self.config)
 
-        class StdObjSpaceFrame(FlowPyFrame):
+        class StdObjSpaceFrame(pyframe.PyFrame):
             if self.config.objspace.std.optimized_int_add:
                 if self.config.objspace.std.withsmallint:
                     def BINARY_ADD(f, oparg, *ignored):
