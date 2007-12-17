@@ -65,23 +65,25 @@ except ImportError:
 # from tarfile import *
 __all__ = ["TarFile", "TarInfo", "is_tarfile", "TarError"]
 
-builtin_int = int
-builtin_long = long
+# Calls to long() and int() with a string and a second (base) argument
+# relied on an undocumented behaviour of the conversion. Trailing null
+# characters were ignored (but were not ignored if the second argument was
+# missing). The behaviour changed in Python2.5, so that it is always an
+# error to have trailing null characters. This code is compatible with
+# both Python 2.4 and 2.5.
 
-def long(string, base):
-	return builtin_long(int(string, base))
+def to_long(string, base=None):
+	return long(to_int(string, base))
 	
-def int(string, base=None):
-	print "My int func", repr(string)
+def to_int(string, base=None):
 	if base == None:
-		return builtin_int(string)
+		return int(string)
 	try:
 		end = string.index('\x00')
-	except ValueError:
-		return builtin_int(string, base)
-	res = builtin_int(string[:end],base)
-	print oct(res)
-	return res
+	except ValueError, AttributeError:
+		return int(string, base)
+	return int(string[:end], base)
+
 
 #---------------------------------------------------------
 # tar constants
@@ -343,7 +345,7 @@ class _Stream:
                                             -self.zlib.MAX_WBITS,
                                             self.zlib.DEF_MEM_LEVEL,
                                             0)
-        timestamp = struct.pack("<L", long(time.time(), 10))
+        timestamp = struct.pack("<L", long(time.time()))
         self.__write("\037\213\010\010%s\002\377" % timestamp)
         if self.name.endswith(".gz"):
             self.name = self.name[:-3]
@@ -679,29 +681,29 @@ class TarInfo(object):
         """
         tarinfo = cls()
         tarinfo.name   = nts(buf[0:100])
-        tarinfo.mode   = int(buf[100:108], 8)
-        tarinfo.uid    = int(buf[108:116],8)
-        tarinfo.gid    = int(buf[116:124],8)
+        tarinfo.mode   = to_int(buf[100:108], 8)
+        tarinfo.uid    = to_int(buf[108:116],8)
+        tarinfo.gid    = to_int(buf[116:124],8)
 
         # There are two possible codings for the size field we
         # have to discriminate, see comment in tobuf() below.
         if buf[124] != chr(0200):
-            tarinfo.size = long(buf[124:136], 8)
+            tarinfo.size = to_long(buf[124:136], 8)
         else:
             tarinfo.size = 0L
             for i in range(11):
                 tarinfo.size <<= 8
                 tarinfo.size += ord(buf[125 + i])
 
-        tarinfo.mtime  = long(buf[136:148], 8)
-        tarinfo.chksum = int(buf[148:156], 8)
+        tarinfo.mtime  = to_long(buf[136:148], 8)
+        tarinfo.chksum = to_int(buf[148:156], 8)
         tarinfo.type   = buf[156:157]
         tarinfo.linkname = nts(buf[157:257])
         tarinfo.uname  = nts(buf[265:297])
         tarinfo.gname  = nts(buf[297:329])
         try:
-            tarinfo.devmajor = int(buf[329:337], 8)
-            tarinfo.devminor = int(buf[337:345], 8)
+            tarinfo.devmajor = to_int(buf[329:337], 8)
+            tarinfo.devminor = to_int(buf[337:345], 8)
         except ValueError:
             tarinfo.devmajor = tarinfo.devmajor = 0
         tarinfo.prefix = buf[345:500]
@@ -1705,8 +1707,8 @@ class TarFile(object):
         # first header.
         for i in xrange(4):
             try:
-                offset = int(buf[pos:pos + 12], 8)
-                numbytes = int(buf[pos + 12:pos + 24], 8)
+                offset = to_int(buf[pos:pos + 12], 8)
+                numbytes = to_int(buf[pos + 12:pos + 24], 8)
             except ValueError:
                 break
             if offset > lastpos:
@@ -1717,7 +1719,7 @@ class TarFile(object):
             pos += 24
 
         isextended = ord(buf[482])
-        origsize = int(buf[483:495], 8)
+        origsize = to_int(buf[483:495], 8)
 
         # If the isextended flag is given,
         # there are extra headers to process.
@@ -1727,8 +1729,8 @@ class TarFile(object):
             pos = 0
             for i in xrange(21):
                 try:
-                    offset = int(buf[pos:pos + 12], 8)
-                    numbytes = int(buf[pos + 12:pos + 24], 8)
+                    offset = to_int(buf[pos:pos + 12], 8)
+                    numbytes = to_int(buf[pos + 12:pos + 24], 8)
                 except ValueError:
                     break
                 if offset > lastpos:
