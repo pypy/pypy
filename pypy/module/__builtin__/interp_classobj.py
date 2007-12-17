@@ -212,10 +212,15 @@ def make_unary_instance_method(name):
 
 def make_binary_returning_notimplemented_instance_method(name):
     def binaryop(self, space, w_other):
-        w_meth = self.getattr(space, space.wrap(name), False)
-        if w_meth is None:
-            return space.w_NotImplemented
-        return space.call_function(w_meth, w_other)
+        try:
+            w_meth = self.getattr(space, space.wrap(name), False)
+        except OperationError, e:
+            if e.match(space, space.w_AttributeError):
+                return space.w_NotImplemented
+        else:
+            if w_meth is None:
+                return space.w_NotImplemented
+            return space.call_function(w_meth, w_other)
     return binaryop
 
 def make_binary_instance_method(name):
@@ -321,13 +326,7 @@ class W_InstanceObject(Wrappable):
         w_descr_get = space.lookup(w_value, '__get__')
         if w_descr_get is None:
             return w_value
-        try:
-            return space.call_function(w_descr_get, w_value, self, self.w_class)
-        except OperationError, e:
-            if exc or not e.match(space, space.w_AttributeError):
-                raise
-            return None
-
+        return space.call_function(w_descr_get, w_value, self, self.w_class)
 
     def descr_getattribute(self, space, w_attr):
         #import pdb; pdb.set_trace()

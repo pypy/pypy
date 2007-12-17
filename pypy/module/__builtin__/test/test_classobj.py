@@ -610,9 +610,15 @@ class AppTestOldstyle(object):
 
         class E:
             __eq__ = property(booh)
+            __iadd__ = property(booh)
 
+        e = E()
+        raises(TypeError, "e += 1")
         # does not crash
         E() == E()
+        class I:
+            __init__ = property(booh)
+        raises(AttributeError, I)
 
     def test_multiple_inheritance_more(self):
         l = []
