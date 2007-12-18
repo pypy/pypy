@@ -530,7 +530,7 @@ class __extend__(SomeLLAbstractConstant):
             return hs_c1._call_single_graph(graph, METH.RESULT, hs_c1, *args_hs) # prepend hs_c1 to the args
         else:
             # like an indirect_call
-            XXX fixme
+            XXX-fixme
 
     def getfield(hs_c1, hs_fieldname):
         S = hs_c1.concretetype.TO
