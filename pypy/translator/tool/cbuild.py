@@ -367,8 +367,8 @@ class CCompiler:
                 self.libraries.append('m')
             if 'pthread' not in self.libraries:
                 self.libraries.append('pthread')
-            self.compile_extra += ['-O2', '-pthread']
-            self.link_extra += ['-pthread']
+            self.compile_extra += ['-O3', '-fomit-frame-pointer', '-pthread']
+            self.link_extra += ['-O3', '-pthread']
         if sys.platform == 'win32':
             self.link_extra += ['/DEBUG'] # generate .pdb file
         if sys.platform == 'darwin':
