@@ -12,7 +12,7 @@ from pypy.translator.llvm.structnode import StructNode, StructVarsizeNode, \
 from pypy.translator.llvm.arraynode import ArrayNode, StrArrayNode, \
      VoidArrayNode, ArrayNoLengthNode, DebugStrNode
      
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
+from pypy.rpython.lltypesystem import lltype, llmemory, llarena, rffi
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
@@ -143,76 +143,50 @@ class Database(object):
         for type_ in types:
             self.prepare_type(type_)
 
-    def prepare_constant(self, type_, value):
-        if isinstance(type_, lltype.Primitive):
-            #log.prepareconstant(value, "(is primitive)")
-            if type_ is llmemory.Address:
+    def prepare_constant(self, ct, value):
+        # always add type (it is safe)
+        self.prepare_type(ct)
+
+        if isinstance(ct, lltype.Primitive):
+            # special cases for address
+            if ct is llmemory.Address:
                 # prepare the constant data which this address references
-                assert isinstance(value, llmemory.fakeaddress)
-                if value:
-                    self.prepare_constant(lltype.typeOf(value.ptr), value.ptr)
+                fakedaddress = value
+                if fakedaddress:
+                    ptrvalue = fakedaddress.ptr
+                    ct = lltype.typeOf(ptrvalue)
+                    self.prepare_constant(ct, ptrvalue)
+            ##elif ct is llmemory.WeakGcAddress:
+            ##    return # XXX sometime soon
+
+            else:
+                if isinstance(value, llmemory.AddressOffset):
+                    self.prepare_offset(value)
             return
 
-        if isinstance(type_, lltype.Ptr) and isinstance(value._obj, int):
-            return
-        
-        if isinstance(type_, lltype.Ptr):
-            type_ = type_.TO
-            value = value._obj
-
-            #log.prepareconstant("preparing ptr", value)
-
+        if isinstance(ct, lltype.Ptr):
+            ptrvalue = value
+            ct = ct.TO
+            value = ptrvalue._obj
             # we dont need a node for nulls
             if value is None:
                 return
+            # we dont need a node for tagged pointers
+            if isinstance(value, int):
+                return
 
         # we can share data via pointers
+        assert isinstance(ct, lltype.ContainerType)
         if value not in self.obj2node: 
-            self.addpending(value, self.create_constant_node(type_, value))
-
-        # always add type (it is safe)
-        self.prepare_type(type_)
+            self.addpending(value, self.create_constant_node(ct, value))
         
     def prepare_arg_value(self, const_or_var):
         """if const_or_var is not already in a dictionary self.obj2node,
         the appropriate node gets constructed and gets added to
         self._pendingsetup and to self.obj2node"""
         if isinstance(const_or_var, Constant):
-            ct = const_or_var.concretetype
-            if isinstance(ct, lltype.Primitive):
-                # special cases for address
-                if ct is llmemory.Address:
-                    fakedaddress = const_or_var.value
-                    if fakedaddress:
-                        ptrvalue = fakedaddress.ptr
-                        ct = lltype.typeOf(ptrvalue)
-                    else:
-                        return                        
-##                elif ct is llmemory.WeakGcAddress:
-##                    return # XXX sometime soon
-
-                else:
-                    if isinstance(const_or_var.value, llmemory.AddressOffset):
-                        self.prepare_offset(const_or_var.value)
-                    return
-            else:
-                assert isinstance(ct, lltype.Ptr), "Preparation of non primitive and non pointer" 
-                ptrvalue = const_or_var.value
-                
-            value = ptrvalue._obj
-
-            if isinstance(value, int):
-                return
-
-            # Only prepare root values at this point 
-            if isinstance(ct, lltype.Array) or isinstance(ct, lltype.Struct):
-                p, c = lltype.parentlink(value)
-                if p is None:
-                    #log.prepareargvalue("skipping preparing non root", value)
-                    return
-
-            if value is not None and value not in self.obj2node:
-                self.addpending(value, self.create_constant_node(ct.TO, value))
+            self.prepare_constant(const_or_var.concretetype,
+                                  const_or_var.value)
         else:
             assert isinstance(const_or_var, Variable)
 
@@ -226,7 +200,11 @@ class Database(object):
         if isinstance(offset, llmemory.CompositeOffset):
             for value in offset.offsets:
                 self.prepare_offset(value)
-        else:
+        elif isinstance(offset, llarena.RoundedUpForAllocation):
+            print '<<<<<<<<<<<<<<<', offset.basesize
+            #import pdb; pdb.set_trace()
+            self.prepare_offset(offset.basesize)
+        elif hasattr(offset, 'TYPE'):
             self.prepare_type(offset.TYPE)
 
     def setup_all(self):
@@ -621,6 +599,11 @@ class Primitives(object):
         return repr
     
     def repr_offset(self, value):
+        if isinstance(value, llarena.RoundedUpForAllocation):
+            # XXX not supported when used in a CompositeOffset
+            r_basesize = self.repr_offset(value.basesize)
+            return "((%s + 7) & ~ 7)"
+
         from_, indices, to = self.get_offset(value, [])
 
         # void array special cases

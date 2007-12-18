@@ -20,6 +20,15 @@ void raw_memclear(void* ptr, long size) {
   memset(ptr, 0, size);
 }
 
+/* alignment for arena-based garbage collectors: the following line
+   enforces an alignment of 8.  This number 8 is also hard-coded in
+   database.py:repr_offset(). */
+#define MEMORY_ALIGNMENT		8
+long ROUND_UP_FOR_ALLOCATION(long x) {
+  return (x + (MEMORY_ALIGNMENT-1)) & ~(MEMORY_ALIGNMENT-1);
+}
+
+
 char *RPython_StartupCode() {
   // is there any garbage collection / memory management initialisation
   __GC_STARTUP_CODE__

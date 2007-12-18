@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.translator.llvm.node import Node
 
 class TypeDefNode(Node):
@@ -151,7 +151,11 @@ def create_typedef_node(db, TYPE):
             return ExtOpaqueTypeNode(db, TYPE)
         else:
             return OpaqueTypeNode(db, TYPE)
-            
+
+    elif TYPE == llmemory.WeakRef:
+        REALT = db.gcpolicy.get_real_weakref_type()
+        return create_typedef_node(db, REALT)
+
     else:
         assert False, "create_typedef_node %s %s" % (TYPE, type(TYPE))
         

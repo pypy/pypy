@@ -36,7 +36,8 @@ class GcPolicy:
     def op_collect(self, codewriter, opr):
         raise Exception, 'GcPolicy should not be used directly'
 
-    def new(db, gcpolicy=None):
+    def new(db, config):
+        gcpolicy = config.translation.gctransformer
         if gcpolicy == 'boehm':
             gcpolicy = BoehmGcPolicy(db)
         elif gcpolicy == 'ref':
@@ -150,3 +151,7 @@ class FrameworkGcPolicy(GcPolicy):
 
     def gc_libraries(self):
         return ['pthread']
+
+    def get_real_weakref_type(self):
+        from pypy.rpython.memory.gctransform import framework
+        return framework.WEAKREF
