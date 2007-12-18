@@ -323,6 +323,18 @@ class BaseAnnotatorTest(AbstractAnnotatorTest):
         assert hs.concretetype == lltype.Signed
         assert len(hs.origins) == 5
 
+    def test_simple_method_call(self):
+        class A:
+            def ll2(self, x, y, z):
+                return x + (y + 42)
+        obj = A()
+        def ll1(x, y, z):
+            return obj.ll2(x, y - z, x + y + z)
+        hs = self.hannotate(ll1, [int, int, int], policy=P_NOVIRTUAL)
+        assert isinstance(hs, SomeLLAbstractConstant)
+        assert hs.concretetype == lltype.Signed
+        assert len(hs.origins) == 5
+
     def test_simple_list_operations(self):
         def ll_function(x, y, index):
             l = [x]
@@ -692,7 +704,6 @@ class BaseAnnotatorTest(AbstractAnnotatorTest):
 
         hs = self.hannotate(ll_function, [int, int], policy=P_NOVIRTUAL)
         assert not hs.is_green()
-
 
     def test_indirect_sometimes_residual_pure_red_call(self):
         def h1(x):

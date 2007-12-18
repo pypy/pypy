@@ -30,6 +30,7 @@ UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize
                       oois
                       subclassof
                       instanceof
+                      oostring
                       """.split()
 
 BINARY_OPERATIONS = """int_add int_sub int_mul int_mod int_and int_rshift
@@ -104,6 +105,8 @@ class CallOpOriginFlags(OriginFlags):
             v_callable = self.spaceop.args[0]
             retdeps = greenorigindependencies.setdefault(self, [])
             retdeps.append(v_callable)
+        elif self.spaceop.opname == 'oosend':
+            args = self.spaceop.args[1:]
         else:
             raise AssertionError(self.spaceop.opname)
 
@@ -468,21 +471,25 @@ class __extend__(SomeLLAbstractConstant):
         # normal call
         if not hasattr(fnobj, 'graph'):
             raise NotImplementedError("XXX call to externals or primitives")
-        if not bookkeeper.annotator.policy.look_inside_graph(fnobj.graph):
-            return cannot_follow_call(bookkeeper, fnobj.graph, args_hs,
-                                      lltype.typeOf(fnobj).RESULT)
+
+        return hs_f1._call_single_graph(fnobj.graph, lltype.typeOf(fnobj).RESULT, *args_hs)
+
+    def _call_single_graph(hs_f1, graph, RESULT, *args_hs):
+        bookkeeper = getbookkeeper()
+        if not bookkeeper.annotator.policy.look_inside_graph(graph):
+            return cannot_follow_call(bookkeeper, graph, args_hs, RESULT)
 
         # recursive call from the entry point to itself: ignore them and
         # just hope the annotations are correct
-        if (bookkeeper.getdesc(fnobj.graph)._cache.get(None, None) is
+        if (bookkeeper.getdesc(graph)._cache.get(None, None) is
             bookkeeper.annotator.translator.graphs[0]):
-            return variableoftype(lltype.typeOf(fnobj).RESULT)
+            return variableoftype(RESULT)
 
         myorigin = bookkeeper.myorigin()
         myorigin.__class__ = CallOpOriginFlags     # thud
         fixed = myorigin.read_fixed()
         tsgraphs_accum = []
-        hs_res = bookkeeper.graph_call(fnobj.graph, fixed, args_hs,
+        hs_res = bookkeeper.graph_call(graph, fixed, args_hs,
                                        tsgraphs_accum)
         myorigin.any_called_graph = tsgraphs_accum[0]
 
@@ -503,6 +510,7 @@ class __extend__(SomeLLAbstractConstant):
     def oosend(hs_c1, hs_name, *args_hs): 
         TYPE = hs_c1.concretetype
         name = hs_name.const
+        _, meth = TYPE._lookup(name)
         graph_list = TYPE._lookup_graphs(name)
         if not graph_list:
             # it's a method of a BuiltinType
@@ -515,7 +523,14 @@ class __extend__(SomeLLAbstractConstant):
                                             myorigin = origin)
             # if hs_c1.is_constant(): ...
             return hs_res
-        #import pdb;pdb.set_trace()
+        elif len(graph_list) == 1:
+            # like a direct_call
+            graph = graph_list.pop()
+            METH = lltype.typeOf(meth)
+            return hs_c1._call_single_graph(graph, METH.RESULT, hs_c1, *args_hs) # prepend hs_c1 to the args
+        else:
+            # like an indirect_call
+            XXX fixme
 
     def getfield(hs_c1, hs_fieldname):
         S = hs_c1.concretetype.TO
