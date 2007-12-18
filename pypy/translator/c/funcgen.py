@@ -285,7 +285,7 @@ class FunctionCodeGenerator(object):
                         yield 'case %s:' % self.db.get(link.llexitcase)
                         for op in self.gen_link(link):
                             yield '\t' + op
-                        yield 'break;'
+                        # 'break;' not needed, as gen_link ends in a 'goto'
                         
                     # Emit default case
                     yield 'default:'
