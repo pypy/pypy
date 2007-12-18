@@ -1019,3 +1019,13 @@ class TestOOType(BaseAnnotatorTest):
     test_deepfreeze_variables = skip_policy
     test_cast_pointer_keeps_deepfreeze = skip_policy
     test_concrete_fnptr_for_green_call = skip_policy
+
+    def test_void_oosend(self):
+        class Foo:
+            def bar(self):
+                pass
+
+        def fn():
+            f = Foo()
+            f.bar()
+        hs = self.hannotate(fn, [], policy=P_OOPSPEC_NOVIRTUAL)

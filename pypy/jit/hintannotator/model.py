@@ -429,7 +429,10 @@ class __extend__(SomeLLAbstractValue):
 
     def oosend(hs_v1, hs_name, *args_hs): 
         RESTYPE = getbookkeeper().current_op_concretetype()
-        return SomeLLAbstractVariable(RESTYPE)
+        if RESTYPE is not ootype.Void:
+            return SomeLLAbstractVariable(RESTYPE)
+        else:
+            return # XXX: is it right?
 
 class __extend__(SomeLLAbstractConstant):
 
