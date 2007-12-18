@@ -245,3 +245,31 @@ def test_dont_constfold_debug_print():
     assert summary(graph) == {'debug_print': 1}
     constant_fold_graph(graph)
     assert summary(graph) == {'debug_print': 1}
+
+
+def test_fold_exitswitch_along_one_path():
+    def g(n):
+        if n == 42:
+            return 5
+        else:
+            return n+1
+    def fn(n):
+        if g(n) == 5:
+            return 100
+        else:
+            return 0
+
+    graph, t = get_graph(fn, [int])
+    from pypy.translator.backendopt import removenoops, inline
+    inline.auto_inline_graphs(t, [graph], threshold=999)
+    constant_fold_graph(graph)
+    removenoops.remove_same_as(graph)
+    if conftest.option.view:
+        t.view()
+    # check that the graph starts with a condition (which should be 'n==42')
+    # and that if this condition is true, it goes directly to 'return 100'.
+    assert len(graph.startblock.exits) == 2
+    assert graph.startblock.exits[1].exitcase == True
+    assert graph.startblock.exits[1].target is graph.returnblock
+    check_graph(graph, [10], 0, t)
+    check_graph(graph, [42], 100, t)

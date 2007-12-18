@@ -130,8 +130,44 @@ def complete_constants(link, constants):
         else:
             constants[v2] = v1
 
+def rewire_link_for_known_exitswitch(link1, llexitvalue):
+    # For the case where link1.target contains only a switch, rewire link1
+    # to go directly to the correct exit based on a constant switch value.
+    # This is a situation that occurs typically after inlining; see
+    # test_fold_exitswitch_along_one_path.
+    block = link1.target
+    if block.exits[-1].exitcase == "default":
+        defaultexit = block.exits[-1]
+        nondefaultexits = block.exits[:-1]
+    else:
+        defaultexit = None
+        nondefaultexits = block.exits
+    for nextlink in nondefaultexits:
+        if nextlink.llexitcase == llexitvalue:
+            break   # found -- the result is in 'nextlink'
+    else:
+        if defaultexit is None:
+            return    # exit case not found!  just ignore the problem here
+        nextlink = defaultexit
+    blockmapping = dict(zip(block.inputargs, link1.args))
+    newargs = []
+    for v in nextlink.args:
+        if isinstance(v, Variable):
+            v = blockmapping[v]
+        newargs.append(v)
+    link1.target = nextlink.target
+    link1.args = newargs
+
 def prepare_constant_fold_link(link, constants, splitblocks):
     block = link.target
+    if not block.operations:
+        # when the target block has no operation, there is nothing we can do
+        # except trying to fold an exitswitch
+        if block.exitswitch is not None and block.exitswitch in constants:
+            llexitvalue = constants[block.exitswitch].value
+            rewire_link_for_known_exitswitch(link, llexitvalue)
+        return
+
     folded_count = fold_op_list(block.operations, constants, exit_early=True)
 
     n = len(block.operations)
