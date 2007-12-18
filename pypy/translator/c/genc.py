@@ -14,7 +14,6 @@ from pypy.translator.tool.cbuild import check_under_under_thread
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.udir import udir
 from pypy.tool import isolate
-from pypy.translator.locality.calltree import CallTree
 from pypy.translator.c.support import log, c_string_constant
 from pypy.rpython.typesystem import getfunctionptr
 from pypy.translator.c import gc
@@ -396,11 +395,6 @@ class SourceGenerator:
         self.funcnodes = funcnodes
         self.othernodes = othernodes
         self.path = path
-        # disabled this for a while, does worsen things
-#        graph = CallTree(self.funcnodes, self.database)
-#        graph.simulate()
-#        graph.optimize()
-#        self.funcnodes = graph.ordered_funcnodes()
 
     def uniquecname(self, name):
         assert name.endswith('.c')
