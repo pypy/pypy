@@ -21,6 +21,7 @@ memoryError = MemoryError()
 class SemiSpaceGC(MovingGCBase):
     _alloc_flavor_ = "raw"
     inline_simple_malloc = True
+    inline_simple_malloc_varsize = True
     needs_zero_gc_pointers = False
 
     HDR = lltype.Struct('header', ('forw', llmemory.Address),

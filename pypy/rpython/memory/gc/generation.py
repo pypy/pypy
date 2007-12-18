@@ -26,6 +26,7 @@ class GenerationGC(SemiSpaceGC):
     list, chained to each other via their 'forw' header field.
     """
     inline_simple_malloc = True
+    inline_simple_malloc_varsize = True
     needs_write_barrier = True
     prebuilt_gc_objects_are_static_roots = False
 

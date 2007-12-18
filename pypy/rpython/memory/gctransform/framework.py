@@ -257,6 +257,28 @@ class FrameworkGCTransformer(GCTransformer):
         else:
             self.malloc_fast_ptr = None
 
+        # in some GCs we can also inline the common case of
+        # malloc_varsize(typeid, length, (3 constant sizes), True, False)
+        if getattr(GCClass, 'inline_simple_malloc_varsize', False):
+            # make a copy of this function so that it gets annotated
+            # independently and the constants are folded inside
+            malloc_varsize_clear_fast = func_with_new_name(
+                GCClass.malloc_varsize_clear.im_func,
+                "malloc_varsize_clear_fast")
+            s_False = annmodel.SomeBool(); s_False.const = False
+            s_True  = annmodel.SomeBool(); s_True .const = True
+            self.malloc_varsize_clear_fast_ptr = getfn(
+                malloc_varsize_clear_fast,
+                [s_gc, annmodel.SomeInteger(nonneg=True),
+                 annmodel.SomeInteger(nonneg=True),
+                 annmodel.SomeInteger(nonneg=True),
+                 annmodel.SomeInteger(nonneg=True),
+                 annmodel.SomeInteger(nonneg=True),
+                 s_True, s_False], s_gcref,
+                inline = True)
+        else:
+            self.malloc_varsize_clear_fast_ptr = None
+
         if GCClass.moving_gc:
             self.id_ptr = getfn(GCClass.id.im_func,
                                 [s_gc, s_gcref], annmodel.SomeInteger(),
@@ -521,11 +543,11 @@ class FrameworkGCTransformer(GCTransformer):
             v_length = op.args[-1]
             c_ofstolength = rmodel.inputconst(lltype.Signed, info.ofstolength)
             c_varitemsize = rmodel.inputconst(lltype.Signed, info.varitemsize)
-            malloc_ptr = self.malloc_varsize_clear_ptr
-##             if op.opname.startswith('zero'):
-##                 malloc_ptr = self.malloc_varsize_clear_ptr
-##             else:
-##                 malloc_ptr = self.malloc_varsize_clear_ptr
+            if (self.malloc_varsize_clear_fast_ptr is not None and
+                c_can_collect.value and not c_has_finalizer.value):
+                malloc_ptr = self.malloc_varsize_clear_fast_ptr
+            else:
+                malloc_ptr = self.malloc_varsize_clear_ptr
             args = [self.c_const_gc, c_type_id, v_length, c_size,
                     c_varitemsize, c_ofstolength, c_can_collect,
                     c_has_finalizer]
