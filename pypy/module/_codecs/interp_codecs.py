@@ -28,16 +28,14 @@ class CodecState(object):
                 space.wrap(endpos),
                 space.wrap(reason))
             w_res = space.call_function(w_errorhandler, w_exc)
-            try:
-                w_replace, w_newpos = space.unpacktuple(w_res, 2)
-            except OperationError, e:
-                if not e.match(space, space.w_TypeError):
-                    raise
+            if (not space.is_true(space.isinstance(w_res, space.w_tuple))
+                or space.int_w(space.len(w_res)) != 2):
                 raise OperationError(
                     space.w_TypeError,
                     space.wrap("encoding error handler must return "
                                "(unicode, int) tuple, not %s" % (
                                    space.str_w(space.repr(w_res)))))
+            w_replace, w_newpos = space.unpacktuple(w_res, 2)
             newpos = space.int_w(w_newpos)
             if (newpos < 0):
                 newpos = len(input) + newpos

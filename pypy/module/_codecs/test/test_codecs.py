@@ -281,13 +281,19 @@ class AppTestPartialEvaluation:
 
     def test_cpytest_decode(self):
         import codecs
-        print 1
         assert codecs.decode('\xe4\xf6\xfc', 'latin-1') == u'\xe4\xf6\xfc'
-        print 2
         raises(TypeError, codecs.decode)
-        print 3
         assert codecs.decode('abc') == u'abc'
-        print 4
         raises(UnicodeDecodeError, codecs.decode, '\xff', 'ascii')
 
-
+    def test_bad_errorhandler_return(self):
+        import codecs
+        def baddecodereturn1(exc):
+            return 42
+        codecs.register_error("test.baddecodereturn1", baddecodereturn1)
+        raises(TypeError, "\xff".decode, "ascii", "test.baddecodereturn1")
+        raises(TypeError, "\\".decode, "unicode-escape", "test.baddecodereturn1")
+        raises(TypeError, "\\x0".decode, "unicode-escape", "test.baddecodereturn1")
+        raises(TypeError, "\\x0y".decode, "unicode-escape", "test.baddecodereturn1")
+        raises(TypeError, "\\Uffffeeee".decode, "unicode-escape", "test.baddecodereturn1")
+        raises(TypeError, "\\uyyyy".decode, "raw-unicode-escape", "test.baddecodereturn1")
