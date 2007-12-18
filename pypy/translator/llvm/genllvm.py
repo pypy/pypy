@@ -121,6 +121,7 @@ class GenLLVM(object):
 
         self.db = Database(self, self.translator)
         self.db.gcpolicy = GcPolicy.new(self.db, self.config)
+        self.db.gctransformer = c_db.gctransformer
 
         # get entry point
         entry_point = self.get_entry_point(func)
@@ -138,9 +139,6 @@ class GenLLVM(object):
         self.translator.rtyper.specialize_more_blocks()
         self.db.setup_all()
         self._checkpoint('setup_all externs')
-
-        for node in self.db.getnodes():
-            node.post_setup_transform()
         
         self._print_node_stats()
 
@@ -168,7 +166,7 @@ class GenLLVM(object):
         bk = self.translator.annotator.bookkeeper
         ptr = getfunctionptr(bk.getdesc(func).getuniquegraph())
         c = inputconst(lltype.typeOf(ptr), ptr)
-        self.db.prepare_arg_value(c)
+        self.db.prepare_arg(c)
         
         # ensure unqiue entry node name for testing
         entry_node = self.db.obj2node[c.value._obj]

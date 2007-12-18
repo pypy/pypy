@@ -36,6 +36,7 @@ class Database(object):
     def __init__(self, genllvm, translator): 
         self.genllvm = genllvm
         self.translator = translator
+        self.gctransformer = None
         self.obj2node = {}
         self._pendingsetup = []
         self._tmpcount = 1
@@ -180,7 +181,7 @@ class Database(object):
         if value not in self.obj2node: 
             self.addpending(value, self.create_constant_node(ct, value))
         
-    def prepare_arg_value(self, const_or_var):
+    def prepare_arg(self, const_or_var):
         """if const_or_var is not already in a dictionary self.obj2node,
         the appropriate node gets constructed and gets added to
         self._pendingsetup and to self.obj2node"""
@@ -189,27 +190,22 @@ class Database(object):
                                   const_or_var.value)
         else:
             assert isinstance(const_or_var, Variable)
+            self.prepare_type(const_or_var.concretetype)
 
-
-    def prepare_arg(self, const_or_var):
-        #log.prepare(const_or_var)
-        self.prepare_type(const_or_var.concretetype)
-        self.prepare_arg_value(const_or_var)
 
     def prepare_offset(self, offset):
         if isinstance(offset, llmemory.CompositeOffset):
             for value in offset.offsets:
                 self.prepare_offset(value)
         elif isinstance(offset, llarena.RoundedUpForAllocation):
-            print '<<<<<<<<<<<<<<<', offset.basesize
-            #import pdb; pdb.set_trace()
             self.prepare_offset(offset.basesize)
         elif hasattr(offset, 'TYPE'):
             self.prepare_type(offset.TYPE)
 
     def setup_all(self):
+        self.gcpolicy.setup()
         while self._pendingsetup: 
-            node = self._pendingsetup.pop(0)
+            node = self._pendingsetup.pop()
             #log.settingup(node)
             node.setup()
 
@@ -602,7 +598,10 @@ class Primitives(object):
         if isinstance(value, llarena.RoundedUpForAllocation):
             # XXX not supported when used in a CompositeOffset
             r_basesize = self.repr_offset(value.basesize)
-            return "((%s + 7) & ~ 7)"
+            # XXX XXX XXX we hit an llvm assertion with the following
+            # expression! for now let's not align anything :-(
+            #return "and(i32 add(i32 %s, i32 7), i32 -8)" % r_basesize
+            return r_basesize
 
         from_, indices, to = self.get_offset(value, [])
 

@@ -11,6 +11,9 @@ class GcPolicy:
     n_malloced = 0
     def __init__(self, db):
         raise Exception, 'GcPolicy should not be used directly'
+
+    def setup(self):
+        pass
     
     def genextern_code(self):
         return ''
@@ -143,9 +146,15 @@ class FrameworkGcPolicy(GcPolicy):
     def __init__(self, db):
         self.db = db
 
+    def setup(self):
+        c_fnptr = self.db.gctransformer.frameworkgc_setup_ptr
+        self.db.prepare_arg(c_fnptr)
+
     def genextern_code(self):
-        r  = ''
-        r += '#define __GC_STARTUP_CODE__\n'
+        fnptr = self.db.gctransformer.frameworkgc_setup_ptr.value
+        fnnode = self.db.obj2node[fnptr._obj]
+        r = 'void %s(void);  /* forward declaration */\n' % (fnnode.name[1:],)
+        r += '#define __GC_STARTUP_CODE__ %s();\n' % (fnnode.name[1:],)
         r += '#define __GC_SETUP_CODE__\n'
         return r
 

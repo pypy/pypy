@@ -1,4 +1,4 @@
-from pypy.objspace.flow.model import Block, Constant, Link
+from pypy.objspace.flow.model import Block, Constant, Link, copygraph, Variable
 from pypy.objspace.flow.model import mkentrymap, c_last_exception
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.llvm.node import FuncNode
@@ -40,14 +40,45 @@ class FuncImplNode(FuncNode):
     # ______________________________________________________________________
     # main entry points from genllvm 
 
-    def post_setup_transform(self):
-        remove_double_links(self.db.translator.annotator, self.graph)
-        no_links_to_startblock(self.graph)
+    def patch_graph(self):
+        graph = self.graph
+        if self.db.gctransformer:
+            # inline the GC helpers (malloc, write_barrier) into
+            # a copy of the graph
+            graph = copygraph(graph, shallow=True)
+            self.db.gctransformer.inline_helpers(graph)
+            # the 'gc_reload_possibly_moved' operations make the graph not
+            # really SSA.  Fix them now.
+            for block in graph.iterblocks():
+                rename = {}
+                for op in list(block.operations):
+                    if rename:
+                        op.args = [rename.get(v, v) for v in op.args]
+                    if op.opname == 'gc_reload_possibly_moved':
+                        v_newaddr, v_targetvar = op.args
+                        assert isinstance(v_targetvar.concretetype, lltype.Ptr)
+                        v_newptr = Variable()
+                        v_newptr.concretetype = v_targetvar.concretetype
+                        op.opname = 'cast_adr_to_ptr'
+                        op.args = [v_newaddr]
+                        op.result = v_newptr
+                        rename[v_targetvar] = v_newptr
+                if rename:
+                    block.exitswitch = rename.get(block.exitswitch,
+                                                  block.exitswitch)
+                    for link in block.exits:
+                        link.args = [rename.get(v, v) for v in link.args]
+        # fix special cases that llvm can't handle
+        remove_double_links(self.db.translator.annotator, graph)
+        no_links_to_startblock(graph)
+        return graph
 
     def writedecl(self, codewriter): 
         codewriter.declare(self.getdecl())
 
     def writeimpl(self, codewriter):
+        self.oldgraph = self.graph
+        self.graph = self.patch_graph()
         graph = self.graph
         log.writeimpl(graph.name)
         codewriter.openfunc(self.getdecl())
@@ -69,6 +100,8 @@ class FuncImplNode(FuncNode):
             codewriter._indent('call void @abort()')
             codewriter._indent('unreachable')
         codewriter.closefunc()
+        self.graph = self.oldgraph
+        del self.oldgraph
     
     # ______________________________________________________________________
     # writing helpers for entry points

@@ -29,9 +29,6 @@ class Node(object):
     def setup(self):
         pass
 
-    def post_setup_transform(self):
-        pass
-
     def writesetupcode(self, codewriter):
         " pre entry-point setup "
         pass
