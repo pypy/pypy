@@ -3,7 +3,7 @@ from pypy.tool.pairtype import pair, pairtype
 from pypy.jit.hintannotator.bookkeeper import getbookkeeper
 from pypy.rpython.lltypesystem import lltype, lloperation
 from pypy.rpython.ootypesystem import ootype
-from pypy.translator.simplify import get_funcobj
+from pypy.translator.simplify import get_funcobj, get_functype
 
 UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize
                       getinteriorfield getinteriorarraysize setinteriorfield
@@ -107,6 +107,13 @@ class CallOpOriginFlags(OriginFlags):
             retdeps.append(v_callable)
         elif self.spaceop.opname == 'oosend':
             args = self.spaceop.args[1:]
+            methname = self.spaceop.args[0].value
+            TYPE = self.spaceop.args[1].concretetype
+            graphs = TYPE._lookup_graphs(methname)
+            if len(graphs) > 1:
+                v_self = self.spaceop.args[1]
+                retdeps = greenorigindependencies.setdefault(self, [])
+                retdeps.append(v_self)
         else:
             raise AssertionError(self.spaceop.opname)
 
@@ -173,7 +180,6 @@ class SomeLLAbstractValue(annmodel.SomeObject):
         c = object.__new__(self.__class__)
         c.__dict__.update(self.__dict__)
         return c
-
 
 class SomeLLAbstractConstant(SomeLLAbstractValue):
     " color: dont know yet.. "
@@ -409,9 +415,13 @@ class __extend__(SomeLLAbstractValue):
         args_hs = args_hs[:-1]
         assert hs_graph_list.is_constant()
         graph_list = hs_graph_list.const
+        FUNC = get_functype(hs_v1.concretetype)
+        return hs_v1._call_multiple_graphs(graph_list, FUNC.RESULT, *args_hs)
+
+    def _call_multiple_graphs(hs_v1, graph_list, RESULT, *args_hs):
         if graph_list is None:
             # cannot follow indirect calls to unknown targets
-            return variableoftype(hs_v1.concretetype.TO.RESULT)
+            return variableoftype(RESULT)
 
         bookkeeper = getbookkeeper()
         myorigin = bookkeeper.myorigin()
@@ -430,12 +440,9 @@ class __extend__(SomeLLAbstractValue):
         # function
         return annmodel.unionof(hs_res, bookkeeper.current_op_binding())
 
-    def oosend(hs_v1, hs_name, *args_hs): 
+    def oosend(hs_v1, hs_name, *args_hs):
         RESTYPE = getbookkeeper().current_op_concretetype()
-        if RESTYPE is not ootype.Void:
-            return SomeLLAbstractVariable(RESTYPE)
-        else:
-            return # XXX: is it right?
+        return variableoftype(RESTYPE)
 
 class __extend__(SomeLLAbstractConstant):
 
@@ -494,14 +501,8 @@ class __extend__(SomeLLAbstractConstant):
         myorigin.any_called_graph = tsgraphs_accum[0]
 
         if isinstance(hs_res, SomeLLAbstractConstant):
-            hs_res.myorigin = myorigin
+            hs_res.myorigin = myorigin        
 
-##        elif fnobj.graph.name.startswith('ll_stritem'):
-##            if isinstance(hs_res, SomeLLAbstractVariable):
-##                print hs_res
-##                import pdb; pdb.set_trace()
-        
-            
         # we need to make sure that hs_res does not become temporarily less
         # general as a result of calling another specialized version of the
         # function
@@ -511,13 +512,14 @@ class __extend__(SomeLLAbstractConstant):
         TYPE = hs_c1.concretetype
         name = hs_name.const
         _, meth = TYPE._lookup(name)
+        METH = lltype.typeOf(meth)
         graph_list = TYPE._lookup_graphs(name)
         if not graph_list:
             # it's a method of a BuiltinType
             bk = getbookkeeper()
             origin = bk.myorigin()
             d = setadd(hs_c1.origins, origin)
-            RESTYPE = bk.current_op_concretetype() 
+            RESTYPE = bk.current_op_concretetype()
             hs_res = SomeLLAbstractConstant(RESTYPE, d,
                                             eager_concrete = hs_c1.eager_concrete,
                                             myorigin = origin)
@@ -526,11 +528,10 @@ class __extend__(SomeLLAbstractConstant):
         elif len(graph_list) == 1:
             # like a direct_call
             graph = graph_list.pop()
-            METH = lltype.typeOf(meth)
             return hs_c1._call_single_graph(graph, METH.RESULT, hs_c1, *args_hs) # prepend hs_c1 to the args
         else:
             # like an indirect_call
-            XXX-fixme
+            return hs_c1._call_multiple_graphs(graph_list, METH.RESULT, hs_c1, *args_hs)
 
     def getfield(hs_c1, hs_fieldname):
         S = hs_c1.concretetype.TO

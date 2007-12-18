@@ -335,6 +335,18 @@ class BaseAnnotatorTest(AbstractAnnotatorTest):
         assert hs.concretetype == lltype.Signed
         assert len(hs.origins) == 5
 
+    def test_simple_method_call_var(self):
+        class A:
+            def ll2(self, x, y, z):
+                return x + (y + 42)
+        def ll1(x, y, z):
+            obj = A()
+            return obj.ll2(x, y - z, x + y + z)
+        hs = self.hannotate(ll1, [int, int, int], policy=P_NOVIRTUAL)
+        assert isinstance(hs, SomeLLAbstractConstant)
+        assert hs.concretetype == lltype.Signed
+        assert len(hs.origins) == 5
+
     def test_simple_list_operations(self):
         def ll_function(x, y, index):
             l = [x]
@@ -705,6 +717,23 @@ class BaseAnnotatorTest(AbstractAnnotatorTest):
         hs = self.hannotate(ll_function, [int, int], policy=P_NOVIRTUAL)
         assert not hs.is_green()
 
+    def test_indirect_method_yellow_call(self):
+        class A:
+            def h1(self, n):
+                return 123
+
+        class B(A):
+            def h1(self, n):
+                return 456
+
+        lst = [A(), B()]
+
+        def ll_function(n, m):
+            obj = hint(lst, deepfreeze=True)[m]
+            return obj.h1(n)
+        hs = self.hannotate(ll_function, [int, int], policy=P_NOVIRTUAL)
+        assert not hs.is_green()
+
     def test_indirect_sometimes_residual_pure_red_call(self):
         def h1(x):
             return x-2
@@ -1040,3 +1069,6 @@ class TestOOType(BaseAnnotatorTest):
             f = Foo()
             f.bar()
         hs = self.hannotate(fn, [], policy=P_OOPSPEC_NOVIRTUAL)
+
+    def test_simple_method_call_var(self):
+        py.test.skip('fixme!')

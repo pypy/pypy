@@ -10,7 +10,8 @@ from pypy.objspace.flow.model import SpaceOperation
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import c_last_exception
 from pypy.objspace.flow.model import checkgraph, traverse, mkentrymap
-from pypy.rpython.lltypesystem import lloperation
+from pypy.rpython.lltypesystem import lloperation, lltype
+from pypy.rpython.ootypesystem import ootype
 
 def get_funcobj(func):
     """
@@ -21,6 +22,12 @@ def get_funcobj(func):
     else:
         return func # ootypesystem
 
+def get_functype(TYPE):
+    if isinstance(TYPE, lltype.Ptr):
+        return TYPE.TO
+    elif isinstance(TYPE, ootype.StaticMethod):
+        return TYPE
+    assert False
 
 def get_graph(arg, translator):
     from pypy.translator.translator import graphof
