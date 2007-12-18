@@ -273,3 +273,47 @@ def test_fold_exitswitch_along_one_path():
     assert graph.startblock.exits[1].target is graph.returnblock
     check_graph(graph, [10], 0, t)
     check_graph(graph, [42], 100, t)
+
+def test_knownswitch_after_exitswitch():
+    def fn(n):
+        cond = n > 10
+        if cond:
+            return cond + 5
+        else:
+            return cond + 17
+
+    graph, t = get_graph(fn, [int])
+    from pypy.translator.backendopt import removenoops
+    removenoops.remove_same_as(graph)
+    constant_fold_graph(graph)
+    if conftest.option.view:
+        t.view()
+    assert summary(graph) == {'int_gt': 1}
+    check_graph(graph, [2], 17, t)
+    check_graph(graph, [42], 6, t)
+
+def test_coalesce_exitswitchs():
+    def g(n):
+        return n > 5 and n < 20
+    def fn(n):
+        if g(n):
+            return 100
+        else:
+            return 0
+
+    graph, t = get_graph(fn, [int])
+    from pypy.translator.backendopt import removenoops, inline
+    inline.auto_inline_graphs(t, [graph], threshold=999)
+    removenoops.remove_same_as(graph)
+    constant_fold_graph(graph)
+    if conftest.option.view:
+        t.view()
+    # check that the graph starts with a condition (which should be 'n > 5')
+    # and that if this condition is false, it goes directly to 'return 0'.
+    assert summary(graph) == {'int_gt': 1, 'int_lt': 1}
+    assert len(graph.startblock.exits) == 2
+    assert graph.startblock.exits[0].exitcase == False
+    assert graph.startblock.exits[0].target is graph.returnblock
+    check_graph(graph, [2], 0, t)
+    check_graph(graph, [10], 100, t)
+    check_graph(graph, [42], 0, t)

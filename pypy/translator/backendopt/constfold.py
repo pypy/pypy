@@ -234,11 +234,22 @@ def rewire_links(splitblocks, graph):
 
 
 def constant_diffuse(graph):
+    count = 0
+    # after 'exitswitch vexit', replace 'vexit' with the corresponding constant
+    # if it also appears on the outgoing links
+    for block in graph.iterblocks():
+        vexit = block.exitswitch
+        if isinstance(vexit, Variable):
+            for link in block.exits:
+                if vexit in link.args:
+                    remap = {vexit: Constant(link.llexitcase,
+                                             vexit.concretetype)}
+                    link.args = [remap.get(v, v) for v in link.args]
+                    count += 1
     # if the same constants appear at the same positions in all links
     # into a block remove them from the links, remove the corresponding
     # input variables and introduce equivalent same_as at the beginning
     # of the block then try to fold the block further
-    count = 0
     for block, links in mkentrymap(graph).iteritems():
         if block is graph.startblock:
             continue
