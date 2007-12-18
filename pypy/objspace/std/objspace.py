@@ -190,6 +190,15 @@ class StdObjSpace(ObjSpace, DescrOperation):
         else:
             from pypy.objspace.std import dictobject
             self.DictObjectCls = dictobject.W_DictObject
+        assert self.DictObjectCls in self.model.typeorder
+
+        if not self.config.objspace.std.withrope:
+            from pypy.objspace.std import stringobject
+            self.StringObjectCls = stringobject.W_StringObject
+        else:
+            from pypy.objspace.std import ropeobject
+            self.StringObjectCls = ropeobject.W_RopeObject
+        assert self.StringObjectCls in self.model.typeorder
 
         # install all the MultiMethods into the space instance
         for name, mm in self.MM.__dict__.items():

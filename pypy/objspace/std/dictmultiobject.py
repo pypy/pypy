@@ -457,6 +457,10 @@ class StrDictImplementation(DictImplementation):
 
     def get(self, w_lookup):
         space = self.space
+        # -- This is called extremely often.  Hack for performance --
+        if type(w_lookup) is space.StringObjectCls:
+            return self.content.get(w_lookup.unwrap(space), None)
+        # -- End of performance hack --
         w_lookup_type = space.type(w_lookup)
         if space.is_w(w_lookup_type, space.w_str):
             return self.content.get(space.str_w(w_lookup), None)
