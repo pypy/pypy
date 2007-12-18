@@ -185,6 +185,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    "version type objects when changing them",
                    cmdline=None,
                    default=False,
+                   # weakrefs needed, because of get_subclasses()
                    requires=[("translation.rweakref", True)]),
 
         BoolOption("withshadowtracking",
