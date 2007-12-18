@@ -368,7 +368,7 @@ class CCompiler:
             if 'pthread' not in self.libraries:
                 self.libraries.append('pthread')
             self.compile_extra += ['-O3', '-fomit-frame-pointer', '-pthread']
-            self.link_extra += ['-O3', '-pthread']
+            self.link_extra += ['-pthread']
         if sys.platform == 'win32':
             self.link_extra += ['/DEBUG'] # generate .pdb file
         if sys.platform == 'darwin':
@@ -380,7 +380,7 @@ class CCompiler:
                 if s + 'lib' not in self.library_dirs and \
                    os.path.exists(s + 'lib'):
                     self.library_dirs.append(s + 'lib')
-            self.compile_extra += ['-O2']
+            self.compile_extra += ['-O3', '-fomit-frame-pointer']
 
         if outputfilename is None:
             self.outputfilename = py.path.local(cfilenames[0]).new(ext=ext)
