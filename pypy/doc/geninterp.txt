@@ -19,15 +19,6 @@ any longer to execute this code.
 
 .. _`application-level`: coding-guide.html#app-preferable
 .. _exceptions: ../../pypy/lib/_exceptions.py
-.. _oldstyle: ../../pypy/lib/_classobj.py
-
-Examples are exceptions_ and oldstyle_ classes. They are
-needed in a very early phase of bootstrapping StdObjspace, but
-for simplicity, they are written as RPythonic application
-level code. This implies that the interpreter must be quite
-completely initialized to execute this code, which is
-impossible in the early phase, where we have neither
-exceptions implemented nor classes available.
 
 Solution
 ++++++++
@@ -178,10 +169,9 @@ Interplevel Snippets in the Sources
 +++++++++++++++++++++++++++++++++++
 
 .. _`_exceptions.py`: ../../pypy/lib/_exceptions.py
-.. _`_classobj.py`: ../../pypy/lib/_classobj.py
 
 Code written in application space can consist of complete files
-to be translated (`_exceptions.py`_, `_classobj.py`_), or they
+to be translated (e.g. `_exceptions.py`_), or they
 can be tiny snippets scattered all over a source file, similar
 to our example from above.
 
