@@ -1,3 +1,9 @@
+try:
+    import pycrash
+    mypycrash = pycrash.PyCrash({'AppName': 'genjvm'})
+except ImportError:
+    mypycrash = None
+
 from pypy.objspace.flow import model as flowmodel
 from pypy.translator.oosupport.metavm import Generator
 from pypy.translator.oosupport.treebuilder import SubOperation
@@ -1379,6 +1385,13 @@ class JasminGenerator(JVMGenerator):
             '.implements ' + jinterface.descriptor.int_class_name() + '\n')
         
     def add_field(self, fobj):
+        try:
+            fobj.jtype.descriptor
+        except AttributeError:
+            if mypycrash is not None:
+                mypycrash.forceDump()
+                mypycrash.saveToFile("/tmp/test_jvm_weakref.pycrash")
+
         kw = ['public']
         if fobj.is_static: kw.append('static')
         self.curclass.out('.field %s %s %s\n' % (
