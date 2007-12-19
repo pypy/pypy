@@ -56,15 +56,10 @@
 .. _`pypy/lib/stackless.py`: ../../pypy/lib/stackless.py
 .. _`pypy/lib/test2`: ../../pypy/lib/test2
 .. _`module/`:
-.. _`pypy/module`:
-.. _`pypy/module/`: ../../pypy/module
+.. _`pypy/module`: ../../pypy/module
 .. _`pypy/module/__builtin__/__init__.py`: ../../pypy/module/__builtin__/__init__.py
-.. _`pypy/module/_demo`: ../../pypy/module/_demo
-.. _`pypy/module/_sre`: ../../pypy/module/_sre
-.. _`pypy/module/_sre/interp_sre.py`: ../../pypy/module/_sre/interp_sre.py
 .. _`pypy/module/_stackless/test/test_clonable.py`: ../../pypy/module/_stackless/test/test_clonable.py
 .. _`pypy/module/_stackless/test/test_composable_coroutine.py`: ../../pypy/module/_stackless/test/test_composable_coroutine.py
-.. _`pypy/module/readline`: ../../pypy/module/readline
 .. _`objspace/`:
 .. _`pypy/objspace`: ../../pypy/objspace
 .. _`objspace/dump.py`: ../../pypy/objspace/dump.py
@@ -83,14 +78,10 @@
 .. _`pypy/rpython`:
 .. _`pypy/rpython/`:
 .. _`rpython/`: ../../pypy/rpython
-.. _`pypy/rpython/controllerentry.py`: ../../pypy/rpython/controllerentry.py
 .. _`rpython/lltypesystem/`: ../../pypy/rpython/lltypesystem
 .. _`pypy/rpython/lltypesystem/lltype.py`:
 .. _`rpython/lltypesystem/lltype.py`: ../../pypy/rpython/lltypesystem/lltype.py
 .. _`rpython/memory/`: ../../pypy/rpython/memory
-.. _`pypy/rpython/module/`: ../../pypy/rpython/module
-.. _`pypy/rpython/module/ll_os.py`: ../../pypy/rpython/module/ll_os.py
-.. _`pypy/rpython/module/test`: ../../pypy/rpython/module/test
 .. _`rpython/ootypesystem/`: ../../pypy/rpython/ootypesystem
 .. _`rpython/ootypesystem/ootype.py`: ../../pypy/rpython/ootypesystem/ootype.py
 .. _`rpython/rint.py`: ../../pypy/rpython/rint.py
@@ -106,10 +97,6 @@
 .. _`translator/`: ../../pypy/translator
 .. _`translator/backendopt/`: ../../pypy/translator/backendopt
 .. _`translator/c/`: ../../pypy/translator/c
-.. _`pypy/translator/c/extfunc.py`: ../../pypy/translator/c/extfunc.py
-.. _`pypy/translator/c/src/`: ../../pypy/translator/c/src
-.. _`pypy/translator/c/src/ll_os.h`: ../../pypy/translator/c/src/ll_os.h
-.. _`pypy/translator/c/test/test_extfunc.py`: ../../pypy/translator/c/test/test_extfunc.py
 .. _`translator/cli/`: ../../pypy/translator/cli
 .. _`translator/goal/`: ../../pypy/translator/goal
 .. _`pypy/translator/goal/targetnopstandalone.py`: ../../pypy/translator/goal/targetnopstandalone.py
