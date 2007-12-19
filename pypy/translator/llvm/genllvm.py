@@ -25,21 +25,29 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 def augment_entrypoint(translator, entrypoint):
     bk = translator.annotator.bookkeeper
     graph_entrypoint = bk.getdesc(entrypoint).getuniquegraph()
-    s_result = translator.annotator.binding(graph_entrypoint.getreturnvar())
 
     get_argc = rffi.llexternal('_pypy_getargc', [], rffi.INT)
     get_argv = rffi.llexternal('_pypy_getargv', [], rffi.CCHARPP)
 
+    import os
+        
     def new_entrypoint():
         argc = get_argc()
         argv = get_argv()
         args = [rffi.charp2str(argv[i]) for i in range(argc)]
-        return entrypoint(args)
 
+        result = 255
+        try:
+            result = entrypoint(args)
+        except Exception, exc:
+            os.write(2, 'DEBUG: An uncaught exception was raised in entrypoint: ' + str(exc) + '\n')
+
+        return result
+    
     entrypoint._annenforceargs_ = [s_list_of_strings]
     mixlevelannotator = MixLevelHelperAnnotator(translator.rtyper)
-
-    graph = mixlevelannotator.getgraph(new_entrypoint, [], s_result)
+    res = annmodel.lltype_to_annotation(lltype.Signed)
+    graph = mixlevelannotator.getgraph(new_entrypoint, [], res)
     mixlevelannotator.finish()
     mixlevelannotator.backend_optimize()
     
@@ -116,9 +124,8 @@ class GenLLVM(object):
         # XXX please dont ask!
         from pypy.translator.c.genc import CStandaloneBuilder
         cbuild = CStandaloneBuilder(self.translator, func, config=self.config)
-        #cbuild.stackless = self.stackless
         c_db = cbuild.generate_graphs_for_llinterp()
-
+    
         self.db = Database(self, self.translator)
         self.db.gcpolicy = GcPolicy.new(self.db, self.config)
         self.db.gctransformer = c_db.gctransformer
@@ -135,9 +142,6 @@ class GenLLVM(object):
 
         # set up externs nodes
         self.setup_externs(c_db, self.db)
-
-        self.translator.rtyper.specialize_more_blocks()
-        self.db.setup_all()
         self._checkpoint('setup_all externs')
         
         self._print_node_stats()
@@ -175,7 +179,7 @@ class GenLLVM(object):
             self.function_count[name] += 1
             Node.nodename_count[name] = self.function_count[name] + 1
             name += '_%d' % self.function_count[name]
-            entry_node.name =  name
+            entry_node.name = name
         else:
             self.function_count[name] = 1
 

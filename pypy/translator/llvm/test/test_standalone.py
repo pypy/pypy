@@ -86,3 +86,19 @@ def test_strtod():
     exe_name = 'test_strtod'
     compile_standalone(entry_point, exe_name=exe_name)
     data = cmdexec(exe_name, '3.13e1')
+
+def test_exception_leaking():
+    def entry_point(argv):
+        if len(argv) > 5:
+            raise ValueError
+        print 'ok'
+        return 0
+
+    exe_name = 'test_exception_leaking'
+    compile_standalone(entry_point, exe_name=exe_name)
+    data = cmdexec(exe_name, 'abc', 'def')
+    assert data.startswith('ok')
+    try:
+        data = cmdexec(exe_name, 'abc', 'def', 'abc', 'def', 'abc', 'def')
+    except py.process.cmdexec.Error, exc:
+        assert exc.err.startswith('DEBUG')
