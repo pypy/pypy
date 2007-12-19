@@ -6,19 +6,25 @@ with "./microbench.py python ./pypy" where pypy is a symlink to you pypy exectab
 
 import os, time, sys, gc
 
+try:
+    this_dir = os.path.dirname(__file__)
+except NameError:
+    this_dir = os.path.dirname(sys.argv[0])
+
 microbenches = []
 for fname in os.listdir('.'):
     if not fname.startswith('test_') or not fname.endswith('.py'):
         continue
     microbench = fname[:-3]
-    exec 'import ' + microbench
     microbenches.append(microbench)
 
 def run(test_cases):
     MINIMUM_MICROBENCH_TIME = 1.0
 
     for microbench in microbenches:
-        for k in [s for s in globals()[microbench].__dict__ if s.startswith('test_')] :
+        testmoddict = {}
+        execfile(os.path.join(this_dir, microbench + '.py'), testmoddict)
+        for k in [s for s in testmoddict if s.startswith('test_')] :
             if test_cases:
                 for tc in test_cases:
                     if k.startswith(tc):
@@ -26,7 +32,7 @@ def run(test_cases):
                 else:
                     continue
             testcase_name = microbench + '.' + k + '()'
-            testcase = getattr(globals()[microbench], k)
+            testcase = testmoddict[k]
             gc.collect()
             start = time.clock()
             n = 0
