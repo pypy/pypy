@@ -20,6 +20,14 @@ any longer to execute this code.
 .. _`application-level`: coding-guide.html#app-preferable
 .. _exceptions: ../../pypy/lib/_exceptions.py
 
+An example is exceptions_. They are
+needed in a very early phase of bootstrapping StdObjspace, but
+for simplicity, they are written as RPythonic application
+level code. This implies that the interpreter must be quite
+completely initialized to execute this code, which is
+impossible in the early phase, where we have neither
+exceptions implemented nor classes available.
+
 Solution
 ++++++++
 
