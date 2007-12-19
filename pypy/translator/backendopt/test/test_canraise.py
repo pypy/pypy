@@ -1,3 +1,4 @@
+import py
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.simplify import get_funcobj
 from pypy.translator.backendopt.canraise import RaiseAnalyzer
@@ -180,6 +181,5 @@ class TestLLType(LLRtypeMixin, BaseTestCanRaise):
 
 
 class TestOOType(OORtypeMixin, BaseTestCanRaise):
-    pass
-
-
+    def test_can_raise_recursive(self):
+        py.test.skip("ootype: no explicit stack checks raising RuntimeError")
