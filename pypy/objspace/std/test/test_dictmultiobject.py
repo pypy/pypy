@@ -84,6 +84,7 @@ class FakeSpace(test_dictobject.FakeSpace):
 
     w_StopIteration = StopIteration
     w_None = None
+    StringObjectCls = None  # xxx untested: shortcut in StrDictImpl.getitem
 
 class TestDictImplementation:
     def setup_method(self,method):
