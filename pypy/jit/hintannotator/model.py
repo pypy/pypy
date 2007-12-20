@@ -518,12 +518,19 @@ class __extend__(SomeLLAbstractConstant):
             # it's a method of a BuiltinType
             bk = getbookkeeper()
             origin = bk.myorigin()
-            d = setadd(hs_c1.origins, origin)
+            d = hs_c1.origins.copy()
+            eager_concrete = hs_c1.eager_concrete
+            for hs_arg in args_hs:
+                d.update(hs_arg.origins)
+                eager_concrete = eager_concrete or hs_arg.eager_concrete
+            d.update({origin: True})
+
             RESTYPE = bk.current_op_concretetype()
             hs_res = SomeLLAbstractConstant(RESTYPE, d,
-                                            eager_concrete = hs_c1.eager_concrete,
+                                            eager_concrete = eager_concrete,
                                             myorigin = origin)
-            # if hs_c1.is_constant(): ...
+            # if hs_c1.is_constant(): # and hs_arg.is_constat() for all args_hs
+            #     XXX # constfold here?
             return hs_res
         elif len(graph_list) == 1:
             # like a direct_call

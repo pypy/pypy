@@ -75,7 +75,6 @@ class BaseAnnotatorTest(AbstractAnnotatorTest):
         assert len(hs.origins) == 4
         assert hs.concretetype == lltype.Signed
 
-
     def test_simple_hint_result(self):
         def ll_function(cond, x,y):
             if cond:
@@ -699,6 +698,22 @@ class BaseAnnotatorTest(AbstractAnnotatorTest):
         hs = self.hannotate(ll_function, [int, int], policy=P_NOVIRTUAL)
         assert hs.is_green()
 
+    def test_concrete_fnptr_for_green_method_call(self):
+        class A:
+            def h(self, n):
+                return n*10
+        class B(A):
+            def h(self, n):
+                return n+20
+        lst = [A(), B()]
+        def ll_function(n, m):
+            obj = hint(lst, deepfreeze=True)[m]
+            res = obj.h(n)
+            hint(res, concrete=True)   # so 'obj' and 'h' get green, so 'm' gets green
+            return m
+
+        hs = self.hannotate(ll_function, [int, int], policy=P_NOVIRTUAL)
+        assert hs.is_green()
 
     def test_indirect_yellow_call(self):
 
