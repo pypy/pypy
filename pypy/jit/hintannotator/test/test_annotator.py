@@ -788,7 +788,7 @@ class BaseAnnotatorTest(AbstractAnnotatorTest):
     def test_indirect_sometimes_residual_pure_red_call_oosend(self):
         self.test_indirect_sometimes_residual_pure_red_call(setup_for_oosend)
 
-    def test_indirect_sometimes_residual_red_call(self):
+    def test_indirect_sometimes_residual_red_call(self, setup=setup_for_indirect_call):
         class Stuff:
             pass
         stuff = Stuff()
@@ -797,11 +797,11 @@ class BaseAnnotatorTest(AbstractAnnotatorTest):
             return x-2
         def h2(x):
             return x*4
-        l = [h1, h2]
+        call, lst = setup(h1, h2)
         def f(n, x):
-            frozenl = hint(l, deepfreeze=True)
+            frozenl = hint(lst, deepfreeze=True)
             h = frozenl[n&1]
-            return h(x)
+            return call(h, x)
 
         P = StopAtXPolicy(h1)
         P.oopspec = True
@@ -813,17 +813,19 @@ class BaseAnnotatorTest(AbstractAnnotatorTest):
         hs = hannotator.binding(tsgraph.getargs()[0])
         assert not hs.is_green()
 
+    def test_indirect_sometimes_residual_red_call_oosend(self):
+        self.test_indirect_sometimes_residual_red_call(setup_for_oosend)
 
-    def test_indirect_sometimes_residual_pure_but_fixed_red_call(self):
+    def test_indirect_sometimes_residual_pure_but_fixed_red_call(self, setup=setup_for_indirect_call):
         def h1(x):
             return x-2
         def h2(x):
             return x*4
-        l = [h1, h2]
+        call, lst = setup(h1, h2)
         def f(n, x):
-            frozenl = hint(l, deepfreeze=True)
+            frozenl = hint(lst, deepfreeze=True)
             h = frozenl[n&1]
-            z = h(x)
+            z = call(h, x)
             hint(z, concrete=True)
             return z
 
@@ -843,6 +845,9 @@ class BaseAnnotatorTest(AbstractAnnotatorTest):
         hs = hannotator.binding(tsgraph.getargs()[1])
         assert hs.is_green()
 
+    def test_indirect_sometimes_residual_pure_but_fixed_red_call_oosend(self):
+        self.test_indirect_sometimes_residual_pure_but_fixed_red_call(setup_for_oosend)
+        
     def test_ignore_nonjitted_path(self):
         def f(n):
             if we_are_jitted():
