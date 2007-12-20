@@ -299,7 +299,10 @@ def offsetof(TYPE, fldname):
 offsetof._annspecialcase_ = 'specialize:memo'
 
 def itemoffsetof(TYPE, n=0):
-    return ArrayItemsOffset(TYPE) + ItemOffset(TYPE.OF) * n
+    result = ArrayItemsOffset(TYPE)
+    if n != 0:
+        result += ItemOffset(TYPE.OF) * n
+    return result
 itemoffsetof._annspecialcase_ = 'specialize:memo'
 # -------------------------------------------------------------
 

@@ -159,21 +159,14 @@ def encode_type_shape(builder, info, TYPE):
             ARRAY = TYPE._flds[TYPE._arrayfld]
             ofs1 = llmemory.offsetof(TYPE, TYPE._arrayfld)
             info.ofstolength = ofs1 + llmemory.ArrayLengthOffset(ARRAY)
-            if ARRAY.OF != lltype.Void:
-                info.ofstovar = ofs1 + llmemory.itemoffsetof(ARRAY, 0)
-            else:
-                info.fixedsize = ofs1 + llmemory.sizeof(lltype.Signed)
+            info.ofstovar = ofs1 + llmemory.itemoffsetof(ARRAY, 0)
             # XXX we probably don't need isrpystring any more
             if ARRAY._hints.get('isrpystring'):
                 info.fixedsize = llmemory.sizeof(TYPE, 1)
         else:
             ARRAY = TYPE
             info.ofstolength = llmemory.ArrayLengthOffset(ARRAY)
-            if ARRAY.OF != lltype.Void:
-                info.ofstovar = llmemory.itemoffsetof(TYPE, 0)
-            else:
-                info.fixedsize = (llmemory.ArrayLengthOffset(ARRAY) +
-                                  llmemory.sizeof(lltype.Signed))
+            info.ofstovar = llmemory.itemoffsetof(TYPE, 0)
         assert isinstance(ARRAY, lltype.Array)
         if ARRAY.OF != lltype.Void:
             offsets = offsets_to_gc_pointers(ARRAY.OF)
