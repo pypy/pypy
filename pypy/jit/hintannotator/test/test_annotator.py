@@ -20,6 +20,38 @@ P_OOPSPEC_NOVIRTUAL = HintAnnotatorPolicy(oopspec=True,
 P_NOVIRTUAL = HintAnnotatorPolicy(novirtualcontainer=True,
                                   entrypoint_returns_red=False)
 
+
+def setup_for_indirect_call(h, g):
+    def call(fn, x):
+        return fn(x)
+    return call, [h, g]
+
+def setup_for_oosend(h, g):
+    def call(obj, x):
+        return obj.call(x)
+    
+    class A:
+        def call(self, x):
+            return h(x)
+    class B(A):
+        def call(self, x):
+            return g(x)
+        
+    return call, [A(), B()]
+
+def test_setup_for_indirect_call_oosend():
+    def h(x):
+        return x+1
+    def g(x):
+        return x*2
+    call, lst = setup_for_indirect_call(h, g)
+    assert call(lst[0], 41) == 42
+    assert call(lst[1], 41) == 82
+
+    call, lst = setup_for_oosend(h, g)
+    assert call(lst[0], 41) == 42
+    assert call(lst[1], 41) == 82
+
 class AbstractAnnotatorTest:
     type_system = None
     
@@ -715,50 +747,32 @@ class BaseAnnotatorTest(AbstractAnnotatorTest):
         hs = self.hannotate(ll_function, [int, int], policy=P_NOVIRTUAL)
         assert hs.is_green()
 
-    def test_indirect_yellow_call(self):
-
+    def test_indirect_yellow_call(self, setup=setup_for_indirect_call):
         def h1(n):
             return 123
-
         def h2(n):
             return 456
-
-        lst = [h1, h2]
-
+        call, lst = setup(h1, h2)
         def ll_function(n, m):
             h = hint(lst, deepfreeze=True)[m]
-            return h(n)
+            return call(h, n)
 
         hs = self.hannotate(ll_function, [int, int], policy=P_NOVIRTUAL)
         assert not hs.is_green()
 
-    def test_indirect_method_yellow_call(self):
-        class A:
-            def h1(self, n):
-                return 123
+    def test_indirect_yellow_call_oosend(self):
+        self.test_indirect_yellow_call(setup_for_oosend)
 
-        class B(A):
-            def h1(self, n):
-                return 456
-
-        lst = [A(), B()]
-
-        def ll_function(n, m):
-            obj = hint(lst, deepfreeze=True)[m]
-            return obj.h1(n)
-        hs = self.hannotate(ll_function, [int, int], policy=P_NOVIRTUAL)
-        assert not hs.is_green()
-
-    def test_indirect_sometimes_residual_pure_red_call(self):
+    def test_indirect_sometimes_residual_pure_red_call(self, setup=setup_for_indirect_call):
         def h1(x):
             return x-2
         def h2(x):
             return x*4
-        l = [h1, h2]
+        call, lst = setup(h1, h2)
         def f(n, x):
-            frozenl = hint(l, deepfreeze=True)
+            frozenl = hint(lst, deepfreeze=True)
             h = frozenl[n&1]
-            return h(x)
+            return call(h, x)
 
         P = StopAtXPolicy(h1)
         P.oopspec = True
@@ -771,6 +785,8 @@ class BaseAnnotatorTest(AbstractAnnotatorTest):
         hs = hannotator.binding(tsgraph.getargs()[0])
         assert not hs.is_green()
 
+    def test_indirect_sometimes_residual_pure_red_call_oosend(self):
+        self.test_indirect_sometimes_residual_pure_red_call(setup_for_oosend)
 
     def test_indirect_sometimes_residual_red_call(self):
         class Stuff:
