@@ -204,6 +204,7 @@ class Instance(OOType):
         return graphs
 
 
+
 class SpecializableType(OOType):
     def _specialize_type(self, TYPE, generic_types):
         if isinstance(TYPE, SpecializableType):
@@ -300,6 +301,8 @@ class Record(BuiltinType):
 
 class BuiltinADTType(BuiltinType):
 
+    immutable = False # conservative
+
     def _setup_methods(self, generic_types, can_raise=[]):
         methods = {}
         for name, meth in self._GENERIC_METHODS.iteritems():
@@ -324,6 +327,8 @@ class BuiltinADTType(BuiltinType):
 
 
 class AbstractString(BuiltinADTType):
+
+    immutable = True
 
     def __init__(self):
         self._null = _null_string(self)

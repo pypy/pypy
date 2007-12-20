@@ -71,6 +71,7 @@ class AbstractAnnotatorTest:
         graph1 = graphof(t, func)
 
         # build hint annotator types
+        policy = self.fixpolicy(policy)
         hannotator = HintAnnotator(base_translator=t, policy=policy)
         hs = hannotator.build_types(graph1, [SomeLLAbstractConstant(v.concretetype,
                                                                     {OriginFlags(): True})
@@ -83,6 +84,9 @@ class AbstractAnnotatorTest:
             return hs, hannotator
         else:
             return hs
+
+    def fixpolicy(self, policy):
+        return policy
 
 
 class BaseAnnotatorTest(AbstractAnnotatorTest):
@@ -413,6 +417,25 @@ class BaseAnnotatorTest(AbstractAnnotatorTest):
             hint(z, concrete=True)
             return z
         hs = self.hannotate(ll_function, [int], policy=P_OOPSPEC_NOVIRTUAL)
+        assert hs.is_green()
+
+    def test_nonfrozen_list(self):
+        lst = [5, 7, 9]
+        def ll_function(x):
+            mylist = hint(lst, concrete=True)
+            hint(x, concrete=True)
+            z = mylist[x]
+            return z
+        hs = self.hannotate(ll_function, [int], policy=P_OOPSPEC_NOVIRTUAL)
+        assert isinstance(hs, SomeLLAbstractVariable)
+
+    def test_nonfrozen_string(self):
+        s = 'foobar'
+        def ll_function(x):
+            z = s[x]
+            hint(z, concrete=True)
+            return z
+        hs = self.hannotate(ll_function, [int], policy=P_NOVIRTUAL)
         assert hs.is_green()
 
     def test_prebuilt_structure(self):
@@ -1053,9 +1076,14 @@ class TestLLType(BaseAnnotatorTest):
 
 class TestOOType(BaseAnnotatorTest):
     type_system = 'ootype'
-
     malloc = property(lambda self: ootype.new)
 
+    def fixpolicy(self, policy):
+        import copy
+        newpolicy = copy.copy(policy)
+        newpolicy.oopspec = False
+        return newpolicy
+    
     def make_struct(self, name, *fields, **kwds):
         fields = dict(fields)
         hints = kwds.pop('hints', None)
@@ -1069,11 +1097,14 @@ class TestOOType(BaseAnnotatorTest):
     def skip_policy(self):
         py.test.skip('fixme? (This policy is not relevant for now)')
 
+    # these tests fail because ootype doesn't support SomeLLAbstractContainer
     test_simple_list_operations = skip_policy
     test_some_more_list_operations = skip_policy
     test_make_a_list = skip_policy
     test_simple_struct_malloc = skip_policy
     test_container_union = skip_policy
+
+    # these tests fail because of deepfreeze
     test_specialize_deepfreeze_calls = skip_policy
     test_deepfreeze_variables = skip_policy
     test_cast_pointer_keeps_deepfreeze = skip_policy

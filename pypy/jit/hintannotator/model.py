@@ -515,30 +515,16 @@ class __extend__(SomeLLAbstractConstant):
         METH = lltype.typeOf(meth)
         graph_list = TYPE._lookup_graphs(name)
         if not graph_list:
-            # it's a method of a BuiltinType
+            # it's a graphless method of a BuiltinADTType
             bk = getbookkeeper()
-            origin = bk.myorigin()
-            d = hs_c1.origins.copy()
-            eager_concrete = hs_c1.eager_concrete
-            for hs_arg in args_hs:
-                d.update(hs_arg.origins)
-                eager_concrete = eager_concrete or hs_arg.eager_concrete
-            d.update({origin: True})
-
-            RESTYPE = bk.current_op_concretetype()
-            hs_res = SomeLLAbstractConstant(RESTYPE, d,
-                                            eager_concrete = eager_concrete,
-                                            myorigin = origin)
-            # if hs_c1.is_constant(): # and hs_arg.is_constat() for all args_hs
-            #     XXX # constfold here?
-            return hs_res
+            return handle_highlevel_operation_novirtual(bk, True, TYPE.immutable, hs_c1, *args_hs)
         elif len(graph_list) == 1:
             # like a direct_call
             graph = graph_list.pop()
             return hs_c1._call_single_graph(graph, METH.RESULT, hs_c1, *args_hs) # prepend hs_c1 to the args
         else:
             # like an indirect_call
-            return hs_c1._call_multiple_graphs(graph_list, METH.RESULT, hs_c1, *args_hs)
+            return hs_c1._call_multiple_graphs(graph_list, METH.RESULT, hs_c1, *args_hs) # prepend hs_c1 to the args
 
     def getfield(hs_c1, hs_fieldname):
         S = hs_c1.concretetype.TO
@@ -731,6 +717,22 @@ class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractConstant)):
 
 # ____________________________________________________________
 
+def handle_highlevel_operation_novirtual(bookkeeper, ismethod, immutable, *args_hs):
+    RESULT = bookkeeper.current_op_concretetype()
+    if ismethod and (immutable or args_hs[0].deepfrozen):
+        for hs_v in args_hs:
+            if not isinstance(hs_v, SomeLLAbstractConstant):
+                break
+        else:
+            myorigin = bookkeeper.myorigin()
+            d = newset({myorigin: True}, *[hs_c.origins
+                                           for hs_c in args_hs])
+            return SomeLLAbstractConstant(RESULT, d,
+                                          eager_concrete = False,   # probably
+                                          myorigin = myorigin)
+    return variableoftype(RESULT)
+    
+
 def handle_highlevel_operation(bookkeeper, ll_func, *args_hs):
     # parse the oopspec and fill in the arguments
     operation_name, args = ll_func.oopspec.split('(', 1)
@@ -751,19 +753,8 @@ def handle_highlevel_operation(bookkeeper, ll_func, *args_hs):
     if bookkeeper.annotator.policy.novirtualcontainer:
         # "blue variables" disabled, we just return a red var all the time.
         # Exception: an operation on a frozen container is constant-foldable.
-        RESULT = bookkeeper.current_op_concretetype()
-        if '.' in operation_name and args_hs[0].deepfrozen:
-            for hs_v in args_hs:
-                if not isinstance(hs_v, SomeLLAbstractConstant):
-                    break
-            else:
-                myorigin = bookkeeper.myorigin()
-                d = newset({myorigin: True}, *[hs_c.origins
-                                               for hs_c in args_hs])
-                return SomeLLAbstractConstant(RESULT, d,
-                                              eager_concrete = False,   # probably
-                                              myorigin = myorigin)
-        return variableoftype(RESULT)
+        ismethod = '.' in operation_name
+        return handle_highlevel_operation_novirtual(bookkeeper, ismethod, False, *args_hs)
 
     # --- the code below is not used any more except by test_annotator.py ---
     if operation_name == 'newlist':
