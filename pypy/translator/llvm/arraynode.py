@@ -35,6 +35,8 @@ class ArrayNode(ConstantNode):
         self.make_name(name)
 
     def setup(self):
+        for value in self.db.gcpolicy.gcheader_initdata(self.value):
+            self.db.prepare_constant(lltype.typeOf(value), value)
         for item in self.value.items:
             self.db.prepare_constant(self.arraytype, item)
 
@@ -60,22 +62,24 @@ class ArrayNode(ConstantNode):
 
     def get_typerepr(self):
         arraylen = self.get_arrayvalue()[0]
-        typeval = self.db.repr_type(self.arraytype)
-        return "{ %s, [%s x %s] }" % (self.db.get_machine_word(),
-                                      arraylen, typeval)
+        typedefnode = self.db.obj2node[lltype.typeOf(self.value)]
+        return typedefnode.get_typerepr(arraylen)
     
     def constantvalue(self):
         physicallen, arrayrepr = self.get_arrayvalue()
         typeval = self.db.repr_type(self.arraytype)
 
         # first length is logical, second is physical
-        value = "%s %s, [%s x %s]\n\t%s" % (self.db.get_machine_word(),
+        result = ""
+        for value in self.db.gcpolicy.gcheader_initdata(self.value):
+            result += "%s, " % (self.db.repr_constant(value)[1],)
+        result += "%s %s, [%s x %s]\n\t%s" % (self.db.get_machine_word(),
                                             self.get_length(),
                                             physicallen,
                                             typeval,
                                             arrayrepr)
 
-        return "%s {%s}" % (self.get_typerepr(), value)
+        return "%s {%s}" % (self.get_typerepr(), result)
 
 class ArrayNoLengthNode(ArrayNode):
     def get_typerepr(self):
@@ -85,7 +89,6 @@ class ArrayNoLengthNode(ArrayNode):
 
     def constantvalue(self):
         physicallen, arrayrepr = self.get_arrayvalue()
-        typeval = self.db.repr_type(self.arraytype)
         s = "%s %s" % (self.get_typerepr(), arrayrepr)
         return s
 
@@ -113,6 +116,9 @@ class StrArrayNode(ArrayNode):
         r = 'c"%s"' % "".join(s)
         return item_length, r
 
+class StrArrayNoLengthNode(StrArrayNode, ArrayNoLengthNode):
+    pass
+
 class VoidArrayNode(ConstantNode):
     __slots__ = "db value".split()
     prefix = '@voidarrayinstance'
@@ -124,10 +130,23 @@ class VoidArrayNode(ConstantNode):
         name = '' #str(value).split()[1]
         self.make_name(name)
 
+    def setup(self):
+        for value in self.db.gcpolicy.gcheader_initdata(self.value):
+            self.db.prepare_constant(lltype.typeOf(value), value)
+
     def get_typerepr(self):
-        return '[%s x i8]' % self.get_length()
+        typedefnode = self.db.obj2node[lltype.typeOf(self.value)]
+        return typedefnode.get_typerepr()
+
+    def get_length(self):
+        """ returns logical length of array """
+        items = self.value.items
+        return len(items)
 
     def constantvalue(self):
-        return "{ %s } {%s %s}" % (self.db.get_machine_word(),
-                                   self.db.get_machine_word(),
-                                   len(self.value.items))
+        result = ""
+        for value in self.db.gcpolicy.gcheader_initdata(self.value):
+            result += "%s %s, " % self.db.repr_constant(value)
+        result += "%s %s" % (self.db.get_machine_word(),
+                             self.get_length())
+        return "%s { %s }" % (self.get_typerepr(), result)

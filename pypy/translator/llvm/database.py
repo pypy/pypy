@@ -3,14 +3,15 @@ import sys
 from pypy.translator.llvm.log import log 
 
 from pypy.translator.llvm.typedefnode import create_typedef_node
+from pypy.translator.llvm.typedefnode import getindexhelper
 
 from pypy.translator.llvm.funcnode import FuncImplNode
 from pypy.translator.llvm.extfuncnode import ExternalFuncNode
 from pypy.translator.llvm.opaquenode import OpaqueNode, ExtOpaqueNode
 from pypy.translator.llvm.structnode import StructNode, StructVarsizeNode, \
-     getindexhelper,  FixedSizeArrayNode
+     FixedSizeArrayNode
 from pypy.translator.llvm.arraynode import ArrayNode, StrArrayNode, \
-     VoidArrayNode, ArrayNoLengthNode, DebugStrNode
+     VoidArrayNode, ArrayNoLengthNode, StrArrayNoLengthNode, DebugStrNode
      
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena, rffi
 from pypy.objspace.flow.model import Constant, Variable
@@ -95,7 +96,10 @@ class Database(object):
                     
         elif isinstance(type_, lltype.Array):
             if type_.OF is lltype.Char:
-                node = StrArrayNode(self, value)
+                if type_._hints.get("nolength", False):
+                    node = StrArrayNoLengthNode(self, value)
+                else:
+                    node = StrArrayNode(self, value)
             elif type_.OF is lltype.Void:
                 node = VoidArrayNode(self, value)
             else:
@@ -240,35 +244,11 @@ class Database(object):
         indices = [("i32", 0)]
 
         for _, ii in children:
-            name = None
-
-            # this is because FixedSizeArray can sometimes be accessed like an
-            # Array and then sometimes a Struct
+            typedefnode = self.obj2node[TYPE]
             if isinstance(ii, str):
-                name = ii
-                assert name in list(TYPE._names)
-                fieldnames = TYPE._names_without_voids()
-                indexref = fieldnames.index(name)
+                TYPE = typedefnode.fieldname_to_getelementptr(indices, ii)
             else:
-                indexref = ii
-
-            if isinstance(TYPE, lltype.FixedSizeArray):
-                indices.append(("i32", indexref))
-                TYPE = TYPE.OF
-
-            elif isinstance(TYPE, lltype.Array):
-                if not TYPE._hints.get("nolength", False):
-                    indices.append(("i32", 1))
-                indices.append(("i32", indexref))
-                TYPE = TYPE.OF
-
-            elif isinstance(TYPE, lltype.Struct):
-                assert name is not None
-                TYPE = getattr(TYPE, name)
-                indices.append(("i32", indexref))
-
-            else:
-                raise Exception("unsupported type: %s" % TYPE)
+                TYPE = typedefnode.indexref_to_getelementptr(indices, ii)
 
         indices_str = ', '.join ([('%s %s' % (x,y)) for x, y in indices])
         ref = "getelementptr(%s* %s, %s)" % (
@@ -604,19 +584,6 @@ class Primitives(object):
 
         from_, indices, to = self.get_offset(value, [])
 
-        # void array special cases
-        if isinstance(from_, lltype.Array) and from_.OF is lltype.Void:
-            assert not isinstance(value, (llmemory.FieldOffset, llmemory.ItemOffset))
-            if isinstance(value, llmemory.ArrayLengthOffset):
-                pass # ok cases!
-            elif isinstance(value, llmemory.ArrayItemsOffset):
-                to = from_
-                indices = [(self.database.get_machine_word(), 1)]
-            else:
-                s = value.offsets[0]
-                isinstance(value, llmemory.CompositeOffset) 
-                return self.repr_offset(s)
-
         if from_ is lltype.Void:
             assert isinstance(value, llmemory.ItemOffset)
             return "0"
@@ -649,7 +616,7 @@ class Primitives(object):
 
             # jumps to a field position in a struct
             from_ = value.TYPE
-            pos = getindexhelper(value.fldname, value.TYPE)
+            pos = getindexhelper(self.database, value.fldname, value.TYPE)
             indices.append((word, pos))
             to = getattr(value.TYPE, value.fldname)            
 
@@ -662,7 +629,9 @@ class Primitives(object):
             # jumps to the place where the array length is stored
             from_ = value.TYPE     # <Array of T> or <GcArray of T>
             assert isinstance(value.TYPE, lltype.Array)
-            indices.append((word, 0))
+            typedefnode = self.database.obj2node[value.TYPE]
+            indexref = typedefnode.indexref_for_length()
+            indices.append((word, indexref))
             to = lltype.Signed
 
         elif isinstance(value, llmemory.ArrayItemsOffset):
@@ -671,11 +640,19 @@ class Primitives(object):
                     pass
                 else:
                     indices.append((word, 0))
-                    
+
+            if value.TYPE.OF is lltype.Void:
+                # skip over the whole structure in order to get to the
+                # (not-really-existent) array part
+                return self.get_offset(llmemory.ItemOffset(value.TYPE),
+                                       indices)
+
             # jumps to the beginning of array area
             from_ = value.TYPE
             if not isinstance(value.TYPE, lltype.FixedSizeArray) and not value.TYPE._hints.get("nolength", False):
-                indices.append((word, 1))
+                typedefnode = self.database.obj2node[value.TYPE]
+                indexref = typedefnode.indexref_for_items()
+                indices.append((word, indexref))
                 indices.append((word, 0)) # go to the 1st item
             if isinstance(value.TYPE, lltype.FixedSizeArray):
                 indices.append((word, 0)) # go to the 1st item
@@ -685,7 +662,9 @@ class Primitives(object):
         elif isinstance(value, llmemory.CompositeOffset):
             from_, indices, to = self.get_offset(value.offsets[0], indices)
             for item in value.offsets[1:]:
-                _, indices, to = self.get_offset(item, indices)
+                _, indices, to1 = self.get_offset(item, indices)
+                if to1 is not lltype.Void:
+                    to = to1
 
         else:
             raise Exception("unsupported offset")

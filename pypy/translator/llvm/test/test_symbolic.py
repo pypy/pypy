@@ -167,7 +167,6 @@ def test_vararray():
 def test_itemoffset_void():
     A = lltype.GcArray(lltype.Void)
     s = llmemory.sizeof(A, 1)
-    s += llmemory.sizeof(lltype.Signed)
     def f():
         return s
     fn = compile_function(f, [])

@@ -1,5 +1,6 @@
 import sys
 from pypy.rpython.lltypesystem.rstr import STR
+from pypy.rpython.lltypesystem import lltype
 from pypy.translator.c import gc
 
 from pypy.translator.llvm.log import log
@@ -17,10 +18,16 @@ class GcPolicy:
     
     def genextern_code(self):
         return ''
+
+    def gcheader_definition(self, TYPE):
+        return []
+
+    def gcheader_initdata(self, container):
+        return []
     
     def gc_libraries(self):
         return []
-    
+
     def get_count(self, inc=False):
         if inc:
             self.n_malloced = self.n_malloced + 1
@@ -158,9 +165,33 @@ class FrameworkGcPolicy(GcPolicy):
         r += '#define __GC_SETUP_CODE__\n'
         return r
 
+    def gcheader_definition(self, TYPE):
+        if needs_gcheader(TYPE):
+            return self.db.gctransformer.gc_fields()
+        else:
+            return []
+
+    def gcheader_initdata(self, container):
+        if needs_gcheader(container._TYPE):
+            o = lltype.top_container(container)
+            return self.db.gctransformer.gc_field_values_for(o)
+        else:
+            return []
+
     def gc_libraries(self):
         return ['pthread']
 
     def get_real_weakref_type(self):
         from pypy.rpython.memory.gctransform import framework
         return framework.WEAKREF
+
+
+def needs_gcheader(T):
+    if not isinstance(T, lltype.ContainerType):
+        return False
+    if T._gckind != 'gc':
+        return False
+    if isinstance(T, lltype.GcStruct):
+        if T._first_struct() != (None, None):
+            return False   # gcheader already in the first field
+    return True

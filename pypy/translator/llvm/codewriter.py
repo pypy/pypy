@@ -46,6 +46,7 @@ class CodeWriter(object):
         self._append("    %s:" % name)
 
     def globalinstance(self, name, typeandata, linkage=None):
+        assert not typeandata.startswith('i8')
         if linkage is None:
             linkage = self.linkage
         self._append("%s = %sglobal %s" % (name, linkage, typeandata))

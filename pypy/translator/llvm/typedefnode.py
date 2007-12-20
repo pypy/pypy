@@ -1,6 +1,18 @@
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.translator.llvm.node import Node
 
+def getindexhelper(db, name, struct):
+    assert name in list(struct._names)
+
+    fieldnames = struct._names_without_voids()
+    try:
+        index = fieldnames.index(name)
+    except ValueError:
+        index = -1
+    else:
+        index += len(db.gcpolicy.gcheader_definition(struct))
+    return index
+
 class TypeDefNode(Node):
     __slots__ = "".split()
     
@@ -30,15 +42,38 @@ class ArrayTypeNode(TypeDefNode):
         
     def setup(self):
         self.db.prepare_type(self.ARRAY.OF)
+        for name, F in self.db.gcpolicy.gcheader_definition(self.ARRAY):
+            self.db.prepare_type(F)
+
+    def get_typerepr(self, arraylen=0):
+        gchdr = self.db.gcpolicy.gcheader_definition(self.ARRAY)
+        if self.ARRAY._hints.get("nolength", False):
+            assert len(gchdr) == 0
+            return "%s" % self.db.repr_type(self.ARRAY.OF)
+        else:
+            fields = [self.db.repr_type(F) for name, F in gchdr]
+            fields.append(self.db.get_machine_word())
+            fields.append("[%d x %s]" % (arraylen,
+                                         self.db.repr_type(self.ARRAY.OF),))
+            return "{ %s }" % ", ".join(fields)
 
     def writetypedef(self, codewriter):
-        if self.ARRAY._hints.get("nolength", False):
-            codewriter.typedef(self.ref, 
-                               "%s" % self.db.repr_type(self.ARRAY.OF))
-        else:
-            codewriter.typedef(self.ref, 
-                               "{ %s, [0 x %s] }" % (self.db.get_machine_word(),
-                                                     self.db.repr_type(self.ARRAY.OF)))
+        codewriter.typedef(self.ref, self.get_typerepr())
+
+    def indexref_to_getelementptr(self, indices, indexref):
+        TYPE = self.ARRAY
+        if not TYPE._hints.get("nolength", False):
+            indices.append(("i32", self.indexref_for_items()))
+        indices.append(("i32", indexref))
+        return TYPE.OF
+
+    def indexref_for_length(self):
+        gchdr = self.db.gcpolicy.gcheader_definition(self.ARRAY)
+        return len(gchdr) + 0
+
+    def indexref_for_items(self):
+        gchdr = self.db.gcpolicy.gcheader_definition(self.ARRAY)
+        return len(gchdr) + 1
 
 class VoidArrayTypeNode(TypeDefNode):
     " void arrays dont have any real elements "
@@ -53,8 +88,23 @@ class VoidArrayTypeNode(TypeDefNode):
         self.ARRAY = ARRAY
         self.make_name()
 
+    def setup(self):
+        for name, F in self.db.gcpolicy.gcheader_definition(self.ARRAY):
+            self.db.prepare_type(F)
+
+    def get_typerepr(self, arraylen=0):
+        assert not self.ARRAY._hints.get("nolength", False), "XXX"
+        gchdr = self.db.gcpolicy.gcheader_definition(self.ARRAY)
+        fields = [self.db.repr_type(F) for name, F in gchdr]
+        fields.append(self.db.get_machine_word())
+        return "{ %s }" % ", ".join(fields)
+
     def writetypedef(self, codewriter):
-        codewriter.typedef(self.ref, "{ %s }" % self.db.get_machine_word())
+        codewriter.typedef(self.ref, self.get_typerepr())
+
+    def indexref_for_length(self):
+        gchdr = self.db.gcpolicy.gcheader_definition(self.ARRAY)
+        return len(gchdr) + 0
 
 class StructTypeNode(TypeDefNode):
     __slots__ = "db STRUCT".split()
@@ -69,9 +119,13 @@ class StructTypeNode(TypeDefNode):
         self.make_name(name)
 
     def _fields(self):
-        return [getattr(self.STRUCT, name) 
-                for name in self.STRUCT._names_without_voids()]
-    
+        types = []
+        for name, T in self.db.gcpolicy.gcheader_definition(self.STRUCT):
+            types.append(T)
+        for name in self.STRUCT._names_without_voids():
+            types.append(getattr(self.STRUCT, name))
+        return types
+
     def setup(self):
         for F in self._fields():
             self.db.prepare_type(F)
@@ -81,10 +135,17 @@ class StructTypeNode(TypeDefNode):
         codewriter.typedef(self.ref, 
                            "{ %s }" % ", ".join(fields_types))
 
+    def fieldname_to_getelementptr(self, indices, name):
+        TYPE = self.STRUCT
+        indexref = getindexhelper(self.db, name, TYPE)
+        indices.append(("i32", indexref))
+        return getattr(TYPE, name)
+
 class FixedSizeArrayTypeNode(StructTypeNode):
     prefix = '%fixarray_'
 
     def setup(self):
+        assert self.STRUCT._gckind != 'gc'
         FIELDS = self._fields()
         if FIELDS:
             self.db.prepare_type(FIELDS[0])
@@ -93,6 +154,12 @@ class FixedSizeArrayTypeNode(StructTypeNode):
         codewriter.typedef(self.ref,
                            "[%s x %s]" % (self.STRUCT.length, 
                                           self.db.repr_type(self.STRUCT.OF)))
+
+    def indexref_to_getelementptr(self, indices, indexref):
+        TYPE = self.STRUCT
+        assert TYPE._gckind != 'gc'
+        indices.append(("i32", indexref))
+        return TYPE.OF
 
 class FuncTypeNode(TypeDefNode):
     __slots__ = "db T".split()

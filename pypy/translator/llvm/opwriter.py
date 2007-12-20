@@ -104,7 +104,9 @@ class OpWriter(object):
             if not ARRAYTYPE._hints.get("nolength", False):
                 # skip the length field
                 indices.append((self.word, 0))
-                indices.append((self.word, 1))
+                typedefnode = self.db.obj2node[ARRAYTYPE]
+                indexref = typedefnode.indexref_for_items()
+                indices.append((self.word, indexref))
         else:
             assert isinstance(ARRAYTYPE, lltype.FixedSizeArray)
             indices.append((self.word, 0))
@@ -326,34 +328,15 @@ class OpWriter(object):
         else:
             indices = [("i32", 0)]
         for arg in args:
-            name = None
-            # this is because FixedSizeArray can sometimes be accessed like an
-            # Array and then sometimes a Struct
+            typedefnode = self.db.obj2node[TYPE]
             if arg.concretetype is lltype.Void:
+                # access via a field name
                 name = arg.value
-                assert name in list(TYPE._names)
-                fieldnames = TYPE._names_without_voids()
-                indexref = fieldnames.index(name)
+                TYPE = typedefnode.fieldname_to_getelementptr(indices, name)
             else:
+                # access via an array index
                 indexref = self.db.repr_arg(arg)
-
-            if isinstance(TYPE, lltype.FixedSizeArray):
-                indices.append(("i32", indexref))
-                TYPE = TYPE.OF
-
-            elif isinstance(TYPE, lltype.Array):
-                if not TYPE._hints.get("nolength", False):
-                    indices.append(("i32", 1))
-                indices.append(("i32", indexref))
-                TYPE = TYPE.OF
-
-            elif isinstance(TYPE, lltype.Struct):
-                assert name is not None
-                TYPE = getattr(TYPE, name)
-                indices.append(("i32", indexref))
-
-            else:
-                raise Exception("unsupported type: %s" % TYPE)
+                TYPE = typedefnode.indexref_to_getelementptr(indices, indexref)
 
         return TYPE, indices
 
@@ -405,7 +388,9 @@ class OpWriter(object):
         if isinstance(TYPE, lltype.Array):
             assert not TYPE._hints.get("nolength", False) 
             # gets the length
-            indices.append(("i32", 0))
+            typedefnode = self.db.obj2node[TYPE]
+            indexref = typedefnode.indexref_for_length()
+            indices.append(("i32", indexref))
             lengthref = self._tmp()
             self.codewriter.getelementptr(lengthref, opr.argtypes[0], opr.argrefs[0], indices, getptr=False)
         else:
@@ -417,11 +402,12 @@ class OpWriter(object):
     getarraysize = getinteriorarraysize
 
     def direct_fieldptr(self, opr):        
-        from pypy.translator.llvm.structnode import getindexhelper
+        from pypy.translator.llvm.typedefnode import getindexhelper
         
         op = opr.op
         assert opr.rettype != "void"
-        index = getindexhelper(op.args[1].value,
+        index = getindexhelper(self.db,
+                               op.args[1].value,
                                op.args[0].concretetype.TO)
         assert index != -1
         tmpvar = self._tmp()
