@@ -711,41 +711,24 @@ class BaseAnnotatorTest(AbstractAnnotatorTest):
         assert hs.deepfrozen
 
 
-    def test_concrete_fnptr_for_green_call(self):
-
+    def test_concrete_fnptr_for_green_call(self, setup=setup_for_indirect_call):
         def h1(n):
             return n * 10
-
         def h2(n):
             return n + 20
-
-        lst = [h1, h2]
+        call, lst = setup(h1, h2)
 
         def ll_function(n, m):
             h = hint(lst, deepfreeze=True)[m]
-            res = h(n)
+            res = call(h, n)
             hint(res, concrete=True)   # so 'h' gets green, so 'm' gets green
             return m
 
         hs = self.hannotate(ll_function, [int, int], policy=P_NOVIRTUAL)
         assert hs.is_green()
 
-    def test_concrete_fnptr_for_green_method_call(self):
-        class A:
-            def h(self, n):
-                return n*10
-        class B(A):
-            def h(self, n):
-                return n+20
-        lst = [A(), B()]
-        def ll_function(n, m):
-            obj = hint(lst, deepfreeze=True)[m]
-            res = obj.h(n)
-            hint(res, concrete=True)   # so 'obj' and 'h' get green, so 'm' gets green
-            return m
-
-        hs = self.hannotate(ll_function, [int, int], policy=P_NOVIRTUAL)
-        assert hs.is_green()
+    def test_concrete_fnptr_for_green_call_oosend(self):
+        self.test_concrete_fnptr_for_green_call(setup_for_oosend)
 
     def test_indirect_yellow_call(self, setup=setup_for_indirect_call):
         def h1(n):
@@ -1094,7 +1077,6 @@ class TestOOType(BaseAnnotatorTest):
     test_specialize_deepfreeze_calls = skip_policy
     test_deepfreeze_variables = skip_policy
     test_cast_pointer_keeps_deepfreeze = skip_policy
-    test_concrete_fnptr_for_green_call = skip_policy
 
     def test_void_oosend(self):
         class Foo:
