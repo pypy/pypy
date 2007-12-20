@@ -143,7 +143,6 @@ class GenLLVM(object):
         # set up externs nodes
         self.setup_externs(c_db, self.db)
 
-        self.translator.rtyper.specialize_more_blocks()
         self.db.setup_all()
         self._checkpoint('setup_all externs')
         
