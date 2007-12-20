@@ -730,7 +730,7 @@ def handle_highlevel_operation_novirtual(bookkeeper, ismethod, immutable, *args_
             return SomeLLAbstractConstant(RESULT, d,
                                           eager_concrete = False,   # probably
                                           myorigin = myorigin)
-    return variableoftype(RESULT)
+    return variableoftype(RESULT, deepfrozen=args_hs[0].deepfrozen)
     
 
 def handle_highlevel_operation(bookkeeper, ll_func, *args_hs):
