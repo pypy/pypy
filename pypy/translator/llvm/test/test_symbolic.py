@@ -23,12 +23,14 @@ def test_offsetof():
 
 def test_sizeof_array_with_no_length():
     A = lltype.GcArray(lltype.Signed, hints={'nolength': True})
+    B = lltype.Array(lltype.Signed, hints={'nolength': True})
     a = lltype.malloc(A, 5, zero=True)
     
     arraysize = llmemory.itemoffsetof(A, 10)
     signedsize = llmemory.sizeof(lltype.Signed)
+    b_items = llmemory.ArrayItemsOffset(B)
     def f():
-        return a[0] + arraysize-signedsize*10
+        return (a[0] + arraysize-signedsize*10) * 1000 + b_items
     fn = compile_function(f, [])
     res = fn()
     assert res == 0

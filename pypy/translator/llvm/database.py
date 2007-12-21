@@ -584,9 +584,9 @@ class Primitives(object):
 
         from_, indices, to = self.get_offset(value, [])
 
-        if from_ is lltype.Void:
-            assert isinstance(value, llmemory.ItemOffset)
+        if from_ is lltype.Void or not indices:
             return "0"
+        assert to is not lltype.Void
 
         r = self.database.repr_type
         indices_as_str = ", ".join("%s %s" % (w, i) for w, i in indices)
@@ -605,9 +605,10 @@ class Primitives(object):
             
             # skips over a fixed size item (eg array access)
             from_ = value.TYPE
-            lasttype, lastvalue = indices[-1]
-            assert lasttype == word
-            indices[-1] = (word, lastvalue + value.repeat)
+            if from_ is not lltype.Void:
+                lasttype, lastvalue = indices[-1]
+                assert lasttype == word
+                indices[-1] = (word, lastvalue + value.repeat)
             to = value.TYPE
         
         elif isinstance(value, llmemory.FieldOffset):

@@ -7,7 +7,7 @@ def test_richards():
 
     result, start, end = entry_point(1000)
     assert result
-    assert end - start > 0 and end - start < 5.0
+    assert end - start > 0 and end - start < 15.0
 
 def test_rpystone():
     from pypy.translator.test.rpystone import pystones as entry_point
