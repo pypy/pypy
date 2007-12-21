@@ -133,8 +133,10 @@ class OpWriter(object):
             self.shiftop(opr)
 
         elif op.opname.startswith('cast_') or op.opname.startswith('truncate_'):
-            if op.opname == "cast_ptr_to_int":
+            if op.opname in ("cast_ptr_to_int", "cast_adr_to_int"):
                 self.cast_ptr_to_int(opr)
+            elif op.opname in ("cast_int_to_ptr", "cast_int_to_adr"):
+                self.cast_int_to_ptr(opr)
             else:
                 self.cast_primitive(opr)
         else:
@@ -265,7 +267,11 @@ class OpWriter(object):
     def cast_ptr_to_int(self, opr):
         self.codewriter.cast(opr.retref, opr.argtypes[0],
                              opr.argrefs[0], opr.rettype, 'ptrtoint')
-        
+
+    def cast_int_to_ptr(self, opr):
+        self.codewriter.cast(opr.retref, opr.argtypes[0],
+                             opr.argrefs[0], opr.rettype, 'inttoptr')
+
     def int_is_true(self, opr):
         self.codewriter.binaryop("icmp ne", opr.retref, opr.argtypes[0],
                                  opr.argrefs[0], "0")

@@ -154,5 +154,17 @@ def test_fakeaddress2():
         return s1.x + s1.y
     
     fn = compile_function(f, [])
-    assert f() == 579
+    assert fn() == 579
     
+def test_cast_to_int():
+    S1 = lltype.GcStruct("S1", ("x", lltype.Signed), ("y", lltype.Signed))
+    s1 = lltype.malloc(S1, zero=True)
+    def f():
+        a1 = llmemory.cast_ptr_to_adr(s1)
+        i1 = llmemory.cast_adr_to_int(a1)
+        a2 = llmemory.cast_int_to_adr(i1)
+        s2 = llmemory.cast_adr_to_ptr(a2, lltype.Ptr(S1))
+        return int(s1 == s2)
+
+    fn = compile_function(f, [])
+    assert fn() == 1
