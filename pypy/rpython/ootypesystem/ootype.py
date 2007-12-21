@@ -198,7 +198,8 @@ class Instance(OOType):
     def _lookup_graphs(self, meth_name):
         _, meth = self._lookup(meth_name)
         graphs = set()
-        graphs.add(meth.graph) # we assume there is always a graph
+        if not getattr(meth, 'abstract', False):
+            graphs.add(meth.graph)
         for SUBTYPE in self._subclasses:
             graphs.update(SUBTYPE._lookup_graphs(meth_name))
         return graphs

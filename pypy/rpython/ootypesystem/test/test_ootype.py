@@ -508,4 +508,30 @@ def test_lookup_graphs():
     assert len(TYPE_B._lookup_graphs('ofoo')) == 1
     assert len(TYPE_A._lookup_graphs('obar')) == 1
     assert len(TYPE_B._lookup_graphs('obar')) == 1
-        
+
+def test_lookup_graphs_abstract():
+    from pypy.translator.translator import TranslationContext, graphof
+    class A:
+        pass
+    class B(A):
+        def foo(self):
+            pass
+    class C(A):
+        def foo(self):
+            pass
+
+    def fn(flag):
+        obj = flag and B() or C()
+        obj.foo()
+        return obj
+
+    t = TranslationContext()
+    t.buildannotator().build_types(fn, [int])
+    t.buildrtyper(type_system='ootype').specialize()
+    graph = graphof(t, fn)
+    TYPE_A = graph.getreturnvar().concretetype
+    TYPE_B = TYPE_A._subclasses[0]
+    TYPE_C = TYPE_A._subclasses[1]
+    assert len(TYPE_A._lookup_graphs('ofoo')) == 2
+    assert len(TYPE_B._lookup_graphs('ofoo')) == 1
+    assert len(TYPE_C._lookup_graphs('ofoo')) == 1
