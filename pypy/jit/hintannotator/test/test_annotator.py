@@ -1104,9 +1104,6 @@ class TestOOType(BaseAnnotatorTest):
     test_simple_struct_malloc = skip_policy
     test_container_union = skip_policy
 
-    # these tests fail because of deepfreeze
-    test_specialize_deepfreeze_calls = skip_policy
-
     def test_void_oosend(self):
         class Foo:
             def bar(self):

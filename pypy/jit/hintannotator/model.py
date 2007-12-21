@@ -724,6 +724,7 @@ class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractConstant)):
 
 def handle_highlevel_operation_novirtual(bookkeeper, ismethod, immutable, *args_hs):
     RESULT = bookkeeper.current_op_concretetype()
+    deepfrozen = ismethod and args_hs[0].deepfrozen # if self is deepfrozen, the result is it too
     if ismethod and (immutable or args_hs[0].deepfrozen):
         for hs_v in args_hs:
             if not isinstance(hs_v, SomeLLAbstractConstant):
@@ -734,8 +735,8 @@ def handle_highlevel_operation_novirtual(bookkeeper, ismethod, immutable, *args_
                                            for hs_c in args_hs])
             return SomeLLAbstractConstant(RESULT, d,
                                           eager_concrete = False,   # probably
-                                          myorigin = myorigin)
-    deepfrozen = ismethod and args_hs[0].deepfrozen # if self is deepfrozen, the result is it too
+                                          myorigin = myorigin,
+                                          deepfrozen=deepfrozen)
     return variableoftype(RESULT, deepfrozen=deepfrozen)
     
 
