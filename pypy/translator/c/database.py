@@ -287,11 +287,14 @@ class LowLevelDatabase(object):
         # list:
         finish_callbacks = []
         if self.gctransformer:
-            finish_callbacks.append(self.gctransformer.finish_helpers)
+            finish_callbacks.append(('GC transformer: finished helpers',
+                                     self.gctransformer.finish_helpers))
         if self.stacklesstransformer:
-            finish_callbacks.append(self.stacklesstransformer.finish)
+            finish_callbacks.append(('Stackless transformer: finished',
+                                     self.stacklesstransformer.finish))
         if self.gctransformer:
-            finish_callbacks.append(self.gctransformer.finish_tables)
+            finish_callbacks.append(('GC transformer: finished tables',
+                                     self.gctransformer.finish_tables))
 
         def add_dependencies(newdependencies):
             for value in newdependencies:
@@ -335,8 +338,9 @@ class LowLevelDatabase(object):
                     continue   # progress - follow all dependencies again
 
             if finish_callbacks:
-                finish = finish_callbacks.pop(0)
+                logmsg, finish = finish_callbacks.pop(0)
                 newdependencies = finish()
+                log.database(logmsg)
                 if newdependencies:
                     add_dependencies(newdependencies)
                 continue       # progress - follow all dependencies again
@@ -347,6 +351,7 @@ class LowLevelDatabase(object):
         self.completed = True
         if show_progress:
             dump()
+        log.database("Completed")
 
     def globalcontainers(self):
         for node in self.containerlist:
