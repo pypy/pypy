@@ -41,3 +41,40 @@ def test_1():
 
     mod, f = compile_test(fn, [int], gcpolicy="semispace")
     assert f(5000) == fn(5000)
+
+def test_weakref():
+    import weakref
+    from pypy.rlib import rgc
+
+    class A:
+        pass
+
+    keepalive = []
+    def fn():
+        n = 7000
+        weakrefs = []
+        a = None
+        for i in range(n):
+            if i & 1 == 0:
+                a = A()
+                a.index = i
+            assert a is not None
+            weakrefs.append(weakref.ref(a))
+            if i % 7 == 6:
+                keepalive.append(a)
+        rgc.collect()
+        count_free = 0
+        for i in range(n):
+            a = weakrefs[i]()
+            if i % 7 == 6:
+                assert a is not None
+            if a is not None:
+                assert a.index == i & ~1
+            else:
+                count_free += 1
+        return count_free
+
+    mod, f = compile_test(fn, [], gcpolicy="semispace")
+    res = f()
+    # more than half of them should have been freed, ideally up to 6000
+    assert 3500 <= res <= 6000
