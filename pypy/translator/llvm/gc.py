@@ -46,6 +46,9 @@ class GcPolicy:
     def op_collect(self, codewriter, opr):
         raise Exception, 'GcPolicy should not be used directly'
 
+    def op_set_max_heap_size(self, codewriter, opr):
+        pass
+
     def new(db, config):
         gcpolicy = config.translation.gctransformer
         if gcpolicy == 'boehm':
@@ -128,9 +131,6 @@ class BoehmGcPolicy(GcPolicy):
                             ['i8*', 'i8', word, word],
                             [targetvar, 0, size, boundary_size])
 
-
-    def op_set_max_heap_size(self, codewriter, opr):
-        pass
 
     def op__collect(self, codewriter, opr):
         codewriter.call(opr.retref, opr.rettype, "@pypy_gc__collect",
