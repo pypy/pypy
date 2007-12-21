@@ -289,6 +289,7 @@ class MixLevelHelperAnnotator:
         translator = self.rtyper.annotator.translator
         newgraphs = self.newgraphs.keys()
         backend_optimizations(translator, newgraphs, secondary=True, **flags)
+        self.newgraphs.clear()
 
 # ____________________________________________________________
 
