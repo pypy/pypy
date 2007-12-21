@@ -114,6 +114,14 @@ class Database(object):
             else:
                 node = OpaqueNode(self, value)
 
+        elif type_ is llmemory.WeakRef:
+            # XXX this uses a hack in translator.c.node.weakrefnode_factory()
+            # because we need to obtain not just *a* conversion of the weakref
+            # by the gcpolicy, but *the same* one as was already registered
+            # in the genc database and seen by the gctransformer
+            value = value._converted_weakref
+            return self.create_constant_node(lltype.typeOf(value), value)
+
         assert node is not None, "%s not supported" % (type_)
         return node
 
@@ -161,8 +169,6 @@ class Database(object):
                     ptrvalue = fakedaddress.ptr
                     ct = lltype.typeOf(ptrvalue)
                     self.prepare_constant(ct, ptrvalue)
-            ##elif ct is llmemory.WeakGcAddress:
-            ##    return # XXX sometime soon
 
             else:
                 if isinstance(value, llmemory.AddressOffset):
@@ -389,7 +395,6 @@ class Primitives(object):
             lltype.UnsignedLongLong: "i64",
             lltype.SignedLongLong: "i64",
             llmemory.Address: "i8*",
-            #XXX llmemory.WeakGcAddress: "i8*",
             }
 
         # 32 bit platform
@@ -418,7 +423,6 @@ class Primitives(object):
             lltype.Bool : self.repr_bool,
             lltype.Void : self.repr_void,
             llmemory.Address : self.repr_address,
-            #llmemory.WeakGcAddress : self.repr_weakgcaddress,
             }        
 
         try:
@@ -535,11 +539,6 @@ class Primitives(object):
         node, ref = self.database.repr_constant(ptr)
         res = "bitcast(%s to i8*)" % (ref,)
         return res
-
-    def repr_weakgcaddress(self, type_, value):
-        assert isinstance(value, llmemory.fakeweakaddress)
-        log.WARNING("XXX weakgcaddress completely ignored...")
-        return 'null'
 
     def repr_signed(self, type_, value):
         if isinstance(value, Symbolic):

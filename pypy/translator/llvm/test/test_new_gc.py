@@ -78,3 +78,27 @@ def test_weakref():
     res = f()
     # more than half of them should have been freed, ideally up to 6000
     assert 3500 <= res <= 6000
+
+def test_prebuilt_weakref():
+    import weakref
+    from pypy.rlib import rgc
+    class A:
+        pass
+    a = A()
+    a.hello = 42
+    refs = [weakref.ref(a), weakref.ref(A())]
+    rgc.collect()
+    def fn():
+        result = 0
+        for i in range(2):
+            a = refs[i]()
+            rgc.collect()
+            if a is None:
+                result += (i+1)
+            else:
+                result += a.hello * (i+1)
+        return result
+
+    mod, f = compile_test(fn, [], gcpolicy="semispace")
+    res = f()
+    assert res == fn()
