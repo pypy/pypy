@@ -108,7 +108,7 @@ class BoehmGCTransformer(GCTransformer):
                    "    v = cast_adr_to_ptr(addr, PTR_TYPE)\n"
                    "%s\n")%(static_body,)
             exec src in d
-            fptr = self.annotate_helper(d['ll_finalizer'], [llmemory.Address], lltype.Void)
+            fptr = self.annotate_finalizer(d['ll_finalizer'], [llmemory.Address], lltype.Void)
         elif destrptr:
             EXC_INSTANCE_TYPE = self.translator.rtyper.exceptiondata.lltype_of_exception_value
             def ll_finalizer(addr):
@@ -116,7 +116,7 @@ class BoehmGCTransformer(GCTransformer):
                 v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
                 ll_call_destructor(destrptr, v)
                 llop.gc_restore_exception(lltype.Void, exc_instance)
-            fptr = self.annotate_helper(ll_finalizer, [llmemory.Address], lltype.Void)
+            fptr = self.annotate_finalizer(ll_finalizer, [llmemory.Address], lltype.Void)
         else:
             fptr = lltype.nullptr(self.FINALIZER_PTR.TO)
 

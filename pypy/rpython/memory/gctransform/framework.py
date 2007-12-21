@@ -801,9 +801,9 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
             def ll_finalizer(addr):
                 v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
                 ll_call_destructor(destrptr, v)
-            fptr = self.transformer.annotate_helper(ll_finalizer,
-                                                    [llmemory.Address],
-                                                    lltype.Void)
+            fptr = self.transformer.annotate_finalizer(ll_finalizer,
+                                                       [llmemory.Address],
+                                                       lltype.Void)
         else:
             fptr = lltype.nullptr(gctypelayout.GCData.FINALIZERTYPE.TO)
         return fptr

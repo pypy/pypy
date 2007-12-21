@@ -111,6 +111,7 @@ class BaseGCTransformer(object):
             self.lltype_to_classdef = translator.rtyper.lltype_to_classdef_mapping()
         self.graphs_to_inline = {}
         self.graph_dependencies = {}
+        self.ll_finalizers_ptrs = []
         if self.MinimalGCTransformer:
             self.minimalgctransformer = self.MinimalGCTransformer(self)
         else:
@@ -286,6 +287,11 @@ class BaseGCTransformer(object):
         ptr = self.annotate_helper(ll_helper, ll_args, ll_result, inline=inline)
         return Constant(ptr, lltype.typeOf(ptr))
 
+    def annotate_finalizer(self, ll_finalizer, ll_args, ll_result):
+        fptr = self.annotate_helper(ll_finalizer, ll_args, ll_result)
+        self.ll_finalizers_ptrs.append(fptr)
+        return fptr
+
     def finish_helpers(self):
         if self.translator is not None:
             self.mixlevelannotator.finish_annotate()
@@ -293,6 +299,11 @@ class BaseGCTransformer(object):
         if self.translator is not None:
             self.mixlevelannotator.finish_rtype()
             self.mixlevelannotator.backend_optimize()
+        # Make sure that the database also sees all finalizers now.
+        # XXX we need to think more about the interaction with stackless...
+        # It is likely that the finalizers need special support there
+        newgcdependencies = self.ll_finalizers_ptrs
+        return newgcdependencies
 
     def finish_tables(self):
         pass
