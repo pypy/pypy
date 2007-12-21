@@ -416,7 +416,7 @@ def mallocHelpers():
         except OverflowError:
             raise MemoryError()
         return tot_size
-    _ll_compute_size._inline_ = True
+    _ll_compute_size._always_inline_ = True
 
     def _ll_malloc_varsize_no_length(length, size, itemsize):
         tot_size = _ll_compute_size(length, size, itemsize)
