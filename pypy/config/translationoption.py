@@ -28,9 +28,7 @@ translation_optiondescription = OptionDescription(
                  requires={
                      "c":      [("translation.type_system", "lltype")],
                      "llvm":   [("translation.type_system", "lltype"),
-                                #("translation.gc", "boehm"),
                                 ("translation.backendopt.raisingop2direct_call", True),
-                                #("translation.rweakref", False),
                                 ],
                      "cli":    [("translation.type_system", "ootype")],
                      "jvm":    [("translation.type_system", "ootype")],

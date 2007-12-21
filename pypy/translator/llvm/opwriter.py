@@ -323,6 +323,9 @@ class OpWriter(object):
         self.codewriter.cast(tmpvar, opr.argtypes[1], opr.argrefs[1], 'i8 *')
         self.codewriter.call(None, 'void', '@pypy_register_finalizer',  ['i8 *', 'i8 *'], [opr.argrefs[0], tmpvar])
 
+    def boehm_disappearing_link(self, opr):
+        self.codewriter.call(None, 'void', '@pypy_disappearing_link', ['i8 *', 'i8 *'], [opr.argrefs[0], opr.argrefs[1]])
+
     def call_boehm_gc_alloc(self, opr):
         word = self.db.get_machine_word()
         self.codewriter.call(opr.retref, 'i8*', '@pypy_malloc',

@@ -42,63 +42,72 @@ def test_1():
     mod, f = compile_test(fn, [int], gcpolicy="semispace")
     assert f(5000) == fn(5000)
 
-def test_weakref():
-    import weakref
-    from pypy.rlib import rgc
+class BaseTestGC(object):
 
-    class A:
-        pass
+    def test_weakref(self):
+        import weakref
+        from pypy.rlib import rgc
 
-    keepalive = []
-    def fn():
-        n = 7000
-        weakrefs = []
-        a = None
-        for i in range(n):
-            if i & 1 == 0:
-                a = A()
-                a.index = i
-            assert a is not None
-            weakrefs.append(weakref.ref(a))
-            if i % 7 == 6:
-                keepalive.append(a)
-        rgc.collect()
-        count_free = 0
-        for i in range(n):
-            a = weakrefs[i]()
-            if i % 7 == 6:
+        class A:
+            pass
+
+        keepalive = []
+        def fn():
+            n = 7000
+            weakrefs = []
+            a = None
+            for i in range(n):
+                if i & 1 == 0:
+                    a = A()
+                    a.index = i
                 assert a is not None
-            if a is not None:
-                assert a.index == i & ~1
-            else:
-                count_free += 1
-        return count_free
-
-    mod, f = compile_test(fn, [], gcpolicy="semispace")
-    res = f()
-    # more than half of them should have been freed, ideally up to 6000
-    assert 3500 <= res <= 6000
-
-def test_prebuilt_weakref():
-    import weakref
-    from pypy.rlib import rgc
-    class A:
-        pass
-    a = A()
-    a.hello = 42
-    refs = [weakref.ref(a), weakref.ref(A())]
-    rgc.collect()
-    def fn():
-        result = 0
-        for i in range(2):
-            a = refs[i]()
+                weakrefs.append(weakref.ref(a))
+                if i % 7 == 6:
+                    keepalive.append(a)
             rgc.collect()
-            if a is None:
-                result += (i+1)
-            else:
-                result += a.hello * (i+1)
-        return result
+            count_free = 0
+            for i in range(n):
+                a = weakrefs[i]()
+                if i % 7 == 6:
+                    assert a is not None
+                if a is not None:
+                    assert a.index == i & ~1
+                else:
+                    count_free += 1
+            return count_free
 
-    mod, f = compile_test(fn, [], gcpolicy="semispace")
-    res = f()
-    assert res == fn()
+        mod, f = compile_test(fn, [], gcpolicy=self.gcpolicy)
+        res = f()
+        # more than half of them should have been freed, ideally up to 6000
+        assert 3500 <= res <= 6000
+
+    def test_prebuilt_weakref(self):
+        import weakref
+        from pypy.rlib import rgc
+        class A:
+            pass
+        a = A()
+        a.hello = 42
+        refs = [weakref.ref(a), weakref.ref(A())]
+        rgc.collect()
+        def fn():
+            result = 0
+            for i in range(2):
+                a = refs[i]()
+                rgc.collect()
+                if a is None:
+                    result += (i+1)
+                else:
+                    result += a.hello * (i+1)
+            return result
+
+        mod, f = compile_test(fn, [], gcpolicy=self.gcpolicy)
+        res = f()
+        assert res == fn()
+
+
+class TestBoehmGC(BaseTestGC):
+    gcpolicy = "boehm"
+
+class TestFrameworkGC(BaseTestGC):
+    gcpolicy = "semispace"

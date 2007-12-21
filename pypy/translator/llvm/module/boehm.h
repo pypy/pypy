@@ -35,6 +35,15 @@ void pypy_register_finalizer(void *whatever, void *proc) {
   GC_REGISTER_FINALIZER(whatever, (GC_finalization_proc)proc, NULL, NULL, NULL);
 }
 
+void pypy_disappearing_link(void *link, void *obj) {
+  if (GC_base(obj) == NULL)
+    ; /* 'obj' is probably a prebuilt object - it makes no */
+      /* sense to register it then, and it crashes Boehm in */
+      /* quite obscure ways */
+  else
+    GC_GENERAL_REGISTER_DISAPPEARING_LINK(link, obj);
+}
+
 extern GC_all_interior_pointers;
 
 // startup specific code for boehm 

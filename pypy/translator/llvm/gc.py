@@ -109,6 +109,10 @@ class BoehmGcPolicy(GcPolicy):
     def gc_libraries(self):
         return ['gc', 'pthread']
 
+    def get_real_weakref_type(self):
+        from pypy.rpython.memory.gctransform import boehm
+        return boehm.WEAKLINK
+
     def _zeromalloc(self, codewriter, targetvar, size=1, atomic=False,
                     exc_flag=False):
         """ assumes malloc of word size """
