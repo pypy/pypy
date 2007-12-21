@@ -142,7 +142,7 @@ class MixLevelHelperAnnotator:
         self.delayedreprs = {}
         self.delayedconsts = []
         self.delayedfuncs = []
-        self.original_graph_count = len(rtyper.annotator.translator.graphs)
+        self.newgraphs = {}
 
     def getgraph(self, ll_function, args_s, s_result):
         # get the graph of the mix-level helper ll_function and prepare it for
@@ -233,6 +233,8 @@ class MixLevelHelperAnnotator:
         rtyper = self.rtyper
         ann = rtyper.annotator
         bk = ann.bookkeeper
+        translator = ann.translator
+        original_graph_count = len(translator.graphs)
         for ll_function, graph, args_s, s_result in self.pending:
             # mark the return block as already annotated, because the return var
             # annotation was forced in getgraph() above.  This prevents temporary
@@ -241,6 +243,7 @@ class MixLevelHelperAnnotator:
             ann.annotated[graph.returnblock] = graph
             s_function = bk.immutablevalue(ll_function)
             bk.emulate_pbc_call(graph, s_function, args_s)
+            self.newgraphs[graph] = True
         ann.complete_helpers(self.policy)
         for ll_function, graph, args_s, s_result in self.pending:
             s_real_result = ann.binding(graph.getreturnvar())
@@ -250,9 +253,13 @@ class MixLevelHelperAnnotator:
                                 " found by annotating: %r" %
                                 (graph, s_result, s_real_result))
         del self.pending[:]
+        for graph in translator.graphs[original_graph_count:]:
+            self.newgraphs[graph] = True
 
     def finish_rtype(self):
         rtyper = self.rtyper
+        translator = rtyper.annotator.translator
+        original_graph_count = len(translator.graphs)
         rtyper.type_system.perform_normalizations(rtyper)
         for r in self.delayedreprs:
             r.set_setup_delayed(False)
@@ -261,6 +268,7 @@ class MixLevelHelperAnnotator:
             p._become(repr.convert_const(obj))
         rtyper.call_all_setups()
         for p, graph in self.delayedfuncs:
+            self.newgraphs[graph] = True
             real_p = rtyper.getcallable(graph)
             REAL = lltype.typeOf(real_p).TO
             FUNCTYPE = lltype.typeOf(p).TO
@@ -272,13 +280,14 @@ class MixLevelHelperAnnotator:
         self.delayedreprs.clear()
         del self.delayedconsts[:]
         del self.delayedfuncs[:]
+        for graph in translator.graphs[original_graph_count:]:
+            self.newgraphs[graph] = True
 
     def backend_optimize(self, **flags):
         # only optimize the newly created graphs
         from pypy.translator.backendopt.all import backend_optimizations
         translator = self.rtyper.annotator.translator
-        newgraphs = translator.graphs[self.original_graph_count:]
-        self.original_graph_count = len(translator.graphs)
+        newgraphs = self.newgraphs.keys()
         backend_optimizations(translator, newgraphs, secondary=True, **flags)
 
 # ____________________________________________________________

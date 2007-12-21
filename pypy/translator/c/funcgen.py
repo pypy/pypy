@@ -37,6 +37,7 @@ class FunctionCodeGenerator(object):
                        oldgraph""".split()
 
     def __init__(self, graph, db, exception_policy=None, functionname=None):
+        graph._seen_by_the_backend = True
         self.graph = graph
         self.db = db
         self.gcpolicy = db.gcpolicy

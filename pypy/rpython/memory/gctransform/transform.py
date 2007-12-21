@@ -292,6 +292,7 @@ class BaseGCTransformer(object):
         self.finished_helpers = True
         if self.translator is not None:
             self.mixlevelannotator.finish_rtype()
+            self.mixlevelannotator.backend_optimize()
 
     def finish_tables(self):
         pass

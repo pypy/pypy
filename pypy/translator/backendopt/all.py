@@ -42,6 +42,8 @@ def backend_optimizations(translator, graphs=None, secondary=False, **kwds):
 
     if graphs is None:
         graphs = translator.graphs
+    for graph in graphs:
+        assert not hasattr(graph, '_seen_by_the_backend')
 
     if config.print_statistics:
         print "before optimizations:"
