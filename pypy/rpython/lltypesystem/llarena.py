@@ -360,7 +360,8 @@ register_external(arena_reserve, [llmemory.Address, int], None,
 
 llimpl_round_up_for_allocation = rffi.llexternal('ROUND_UP_FOR_ALLOCATION',
                                                  [rffi.INT], rffi.INT,
-                                                 sandboxsafe=True)
+                                                 sandboxsafe=True,
+                                                 _nowrapper=True)
 register_external(round_up_for_allocation, [int], int,
                   'll_arena.round_up_for_allocation',
                   llimpl=llimpl_round_up_for_allocation,

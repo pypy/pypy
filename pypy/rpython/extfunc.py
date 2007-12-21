@@ -181,16 +181,25 @@ class ExtFuncEntry(ExtRegistryEntry):
             if hasattr(self, fake_method_name):
                 # If we have both an {ll,oo}impl and a {ll,oo}fakeimpl,
                 # we need a wrapper that selects the proper one and calls it
-                from pypy.rlib.objectmodel import running_on_llinterp
-                from pypy.rlib.debug import llinterpcall
                 from pypy.tool.sourcetools import func_with_new_name
-                original_impl = impl
-                def ll_wrapper(*args):
-                    if running_on_llinterp:
-                        return llinterpcall(s_result, fakeimpl, *args)
-                    else:
-                        return original_impl(*args)
-                impl = func_with_new_name(ll_wrapper, name + '_wrapper')
+                # Using '*args' is delicate because this wrapper is also
+                # created for init-time functions like llarena.arena_malloc
+                # which are called before the GC is fully initialized
+                args = ', '.join(['arg%d' % i for i in range(len(args_ll))])
+                d = {'original_impl': impl,
+                     's_result': s_result,
+                     'fakeimpl': fakeimpl,
+                     }
+                exec py.code.compile("""
+                    from pypy.rlib.objectmodel import running_on_llinterp
+                    from pypy.rlib.debug import llinterpcall
+                    def ll_wrapper(%s):
+                        if running_on_llinterp:
+                            return llinterpcall(s_result, fakeimpl, %s)
+                        else:
+                            return original_impl(%s)
+                """ % (args, args, args)) in d
+                impl = func_with_new_name(d['ll_wrapper'], name + '_wrapper')
             if rtyper.annotator.translator.config.translation.sandbox:
                 impl._dont_inline_ = True
             # store some attributes to the 'impl' function, where

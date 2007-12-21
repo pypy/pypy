@@ -5,7 +5,6 @@ from pypy.translator.llvm.test.runtest import *
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena
 
 def test_gc_offsets():
-    py.test.skip("in-progress")
     STRUCT = lltype.GcStruct('S1', ('x', lltype.Signed))
     ARRAY = lltype.GcArray(lltype.Signed)
     s1 = llarena.round_up_for_allocation(llmemory.sizeof(STRUCT))
@@ -34,12 +33,11 @@ def test_gc_offsets():
     assert i3 + 4 <= i5
 
 def test_1():
-    py.test.skip("in-progress")
     def fn(n):
         d = {}
         for i in range(n):
             d[i] = str(i)
-        return d[n//2]
+        return int(d[n//2])
 
     mod, f = compile_test(fn, [int], gcpolicy="semispace")
     assert f(5000) == fn(5000)
