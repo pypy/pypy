@@ -1106,7 +1106,6 @@ class TestOOType(BaseAnnotatorTest):
 
     # these tests fail because of deepfreeze
     test_specialize_deepfreeze_calls = skip_policy
-    test_cast_pointer_keeps_deepfreeze = skip_policy
 
     def test_void_oosend(self):
         class Foo:

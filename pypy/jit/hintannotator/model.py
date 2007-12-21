@@ -410,6 +410,9 @@ class __extend__(SomeLLAbstractValue):
         RESTYPE = getbookkeeper().current_op_concretetype()
         return SomeLLAbstractVariable(RESTYPE, hs_v1.deepfrozen)
 
+    ooupcast = cast_pointer
+    oodowncast = cast_pointer
+
     def indirect_call(hs_v1, *args_hs):
         hs_graph_list = args_hs[-1]
         args_hs = args_hs[:-1]
@@ -566,6 +569,8 @@ class __extend__(SomeLLAbstractConstant):
                                       myorigin = origin,
                                       deepfrozen = hs_c1.deepfrozen)
 
+    ooupcast = cast_pointer
+    oodowncast = cast_pointer
 
 class __extend__(SomeLLAbstractContainer):
 

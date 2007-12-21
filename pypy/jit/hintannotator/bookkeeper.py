@@ -6,6 +6,7 @@ from pypy.objspace.flow.model import copygraph, SpaceOperation, Constant
 from pypy.objspace.flow.model import Variable, Block, Link, FunctionGraph
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype, lloperation
+from pypy.rpython.ootypesystem import ootype
 from pypy.tool.algo.unionfind import UnionFind
 from pypy.translator.backendopt import graphanalyze
 from pypy.translator.unsimplify import copyvar
@@ -291,7 +292,10 @@ class HintBookkeeper(object):
         res = hintmodel.SomeLLAbstractConstant(const.concretetype, {})
         res.const = const.value
         # we want null pointers to be deepfrozen!
-        if isinstance(const.concretetype, lltype.Ptr):
+        if isinstance(const.concretetype, (lltype.Ptr,
+                                           ootype.Instance,
+                                           ootype.BuiltinType,
+                                           ootype.StaticMethod)):
             if not const.value:
                 res.deepfrozen = True
         return res
