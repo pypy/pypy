@@ -764,7 +764,7 @@ setup(name="%(modulename)s",
       ext_modules = [Extension(name = "%(modulename)s",
                             sources = ["%(modulename)s.c"],
                  extra_compile_args = extra_compile_args,
-                       include_dirs = [PYPY_INCLUDE_DIR] + %(include_dirs)r,
+                       include_dirs = (PYPY_INCLUDE_DIR,) + %(include_dirs)r,
                        library_dirs = %(library_dirs)r,
                           libraries = %(libraries)r)])
 '''
