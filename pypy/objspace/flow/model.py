@@ -522,8 +522,8 @@ def checkgraph(graph):
                         #assert v.value != last_exc_value
                 if op.opname == 'direct_call':
                     assert isinstance(op.args[0], Constant)
-                #elif op.opname == 'indirect_call':
-                #    assert isinstance(op.args[0], Variable)
+                elif op.opname == 'indirect_call':
+                    assert isinstance(op.args[0], Variable)
                 definevar(op.result)
 
             exc_links = {}
