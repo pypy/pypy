@@ -366,7 +366,12 @@ def join_blocks(graph):
             def rename_op(op):
                 args = [rename(a) for a in op.args]
                 op = SpaceOperation(op.opname, args, rename(op.result), op.offset)
-                #op = SpaceOperation(op.opname, args, rename(op.result))
+                # special case...
+                if op.opname == 'indirect_call':
+                    if isinstance(op.args[0], Constant):
+                        assert isinstance(op.args[-1], Constant)
+                        del op.args[-1]
+                        op.opname = 'direct_call'
                 return op
             for op in link.target.operations:
                 link.prevblock.operations.append(rename_op(op))

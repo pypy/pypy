@@ -718,3 +718,16 @@ class TestInlineOOType(OORtypeMixin, BaseTestInline):
         eval_func, t = self.check_auto_inlining(fn5, [], checkvirtual=True)
         res = eval_func([])
         assert res == 42
+
+    def test_indirect_call_becomes_direct(self):
+        def h1(n):
+            return n+1
+        def h2(n):
+            return n+2
+        def g(myfunc, n):
+            return myfunc(n*5)
+        def f(x, y):
+            return g(h1, x) + g(h2, y)
+        eval_func = self.check_inline(g, f, [int, int])
+        res = eval_func([10, 173])
+        assert res == f(10, 173)
