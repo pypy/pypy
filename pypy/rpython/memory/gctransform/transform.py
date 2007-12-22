@@ -292,13 +292,14 @@ class BaseGCTransformer(object):
         self.ll_finalizers_ptrs.append(fptr)
         return fptr
 
-    def finish_helpers(self):
+    def finish_helpers(self, backendopt=True):
         if self.translator is not None:
             self.mixlevelannotator.finish_annotate()
         self.finished_helpers = True
         if self.translator is not None:
             self.mixlevelannotator.finish_rtype()
-            self.mixlevelannotator.backend_optimize()
+            if backendopt:
+                self.mixlevelannotator.backend_optimize()
         # Make sure that the database also sees all finalizers now.
         # XXX we need to think more about the interaction with stackless...
         # It is likely that the finalizers need special support there
@@ -308,8 +309,8 @@ class BaseGCTransformer(object):
     def finish_tables(self):
         pass
 
-    def finish(self):
-        self.finish_helpers()
+    def finish(self, backendopt=True):
+        self.finish_helpers(backendopt=backendopt)
         self.finish_tables()
 
     def transform_generic_set(self, hop):

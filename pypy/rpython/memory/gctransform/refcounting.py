@@ -115,8 +115,8 @@ class RefcountingGCTransformer(GCTransformer):
         self.dynamic_deallocator_funcptrs = {}
         self.queryptr2dynamic_deallocator_funcptr = {}
 
-    def finish_helpers(self):
-        GCTransformer.finish_helpers(self)
+    def finish_helpers(self, **kwds):
+        GCTransformer.finish_helpers(self, **kwds)
         from pypy.translator.backendopt.malloc import remove_mallocs
         seen = {}
         graphs = []

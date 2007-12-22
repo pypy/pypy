@@ -127,7 +127,7 @@ def make_deallocator(TYPE,
     transformer = cls(t)
     fptr = getattr(transformer, attr)(TYPE)
     transformer.transform_graph(graphof(t, f))
-    transformer.finish()
+    transformer.finish(backendopt=False)
     if conftest.option.view:
         t.view()
     if fptr:
