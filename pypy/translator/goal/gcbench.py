@@ -133,7 +133,8 @@ def main(depths=range(kMinTreeDepth, kMaxTreeDepth+1, 2)):
         time_construction(d)
 
     if long_lived_tree is None or array[1000] != 1.0/1000:
-        println("Failed")
+        println("FAILED")
+        return
 
     t_finish = time.time()
     print_diagnostics()
