@@ -443,47 +443,6 @@ class __extend__(SomeLLAbstractValue):
         # function
         return annmodel.unionof(hs_res, bookkeeper.current_op_binding())
 
-    def oosend(hs_v1, hs_name, *args_hs):
-        RESTYPE = getbookkeeper().current_op_concretetype()
-        return variableoftype(RESTYPE)
-
-class __extend__(SomeLLAbstractConstant):
-
-    def same_as(hs_c1):
-        # this is here to prevent setup() below from adding a different
-        # version of same_as()
-        return hs_c1
-
-    def hint(hs_c1, hs_flags):
-        if hs_flags.const.get('concrete', False):
-            for o in hs_c1.origins:
-                o.set_fixed()
-            hs_concrete = reorigin(hs_c1)
-            hs_concrete.eager_concrete = True
-            return hs_concrete 
-        if hs_flags.const.get('forget', False):
-            assert isinstance(hs_c1, SomeLLAbstractConstant)
-            return reorigin(hs_c1)
-        return SomeLLAbstractValue.hint(hs_c1, hs_flags)
-
-    def direct_call(hs_f1, *args_hs):
-        bookkeeper = getbookkeeper()
-        fnobj = get_funcobj(hs_f1.const)
-        if (bookkeeper.annotator.policy.oopspec and
-            hasattr(fnobj._callable, 'oopspec')):
-            # try to handle the call as a high-level operation
-            try:
-                return handle_highlevel_operation(bookkeeper, fnobj._callable,
-                                                  *args_hs)
-            except NotImplementedError:
-                pass
-
-        # normal call
-        if not hasattr(fnobj, 'graph'):
-            raise NotImplementedError("XXX call to externals or primitives")
-
-        return hs_f1._call_single_graph(fnobj.graph, lltype.typeOf(fnobj).RESULT, *args_hs)
-
     def _call_single_graph(hs_f1, graph, RESULT, *args_hs):
         bookkeeper = getbookkeeper()
         if not bookkeeper.annotator.policy.look_inside_graph(graph):
@@ -528,6 +487,43 @@ class __extend__(SomeLLAbstractConstant):
         else:
             # like an indirect_call
             return hs_c1._call_multiple_graphs(graph_list, METH.RESULT, hs_c1, *args_hs) # prepend hs_c1 to the args
+
+class __extend__(SomeLLAbstractConstant):
+
+    def same_as(hs_c1):
+        # this is here to prevent setup() below from adding a different
+        # version of same_as()
+        return hs_c1
+
+    def hint(hs_c1, hs_flags):
+        if hs_flags.const.get('concrete', False):
+            for o in hs_c1.origins:
+                o.set_fixed()
+            hs_concrete = reorigin(hs_c1)
+            hs_concrete.eager_concrete = True
+            return hs_concrete 
+        if hs_flags.const.get('forget', False):
+            assert isinstance(hs_c1, SomeLLAbstractConstant)
+            return reorigin(hs_c1)
+        return SomeLLAbstractValue.hint(hs_c1, hs_flags)
+
+    def direct_call(hs_f1, *args_hs):
+        bookkeeper = getbookkeeper()
+        fnobj = get_funcobj(hs_f1.const)
+        if (bookkeeper.annotator.policy.oopspec and
+            hasattr(fnobj._callable, 'oopspec')):
+            # try to handle the call as a high-level operation
+            try:
+                return handle_highlevel_operation(bookkeeper, fnobj._callable,
+                                                  *args_hs)
+            except NotImplementedError:
+                pass
+
+        # normal call
+        if not hasattr(fnobj, 'graph'):
+            raise NotImplementedError("XXX call to externals or primitives")
+
+        return hs_f1._call_single_graph(fnobj.graph, lltype.typeOf(fnobj).RESULT, *args_hs)
 
     def getfield(hs_c1, hs_fieldname):
         S = hs_c1.concretetype.TO

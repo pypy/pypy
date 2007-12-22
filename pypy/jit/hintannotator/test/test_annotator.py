@@ -1113,6 +1113,3 @@ class TestOOType(BaseAnnotatorTest):
             f = Foo()
             f.bar()
         hs = self.hannotate(fn, [], policy=P_OOPSPEC_NOVIRTUAL)
-
-    def test_simple_method_call_var(self):
-        py.test.skip('fixme!')
