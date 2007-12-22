@@ -150,7 +150,6 @@ class TestUsingBoehm(AbstractGCTestClass):
 
     def test_del_raises(self):
         from pypy.rpython.lltypesystem.lloperation import llop
-        import os
         class A(object):
             def __del__(self):
                 s.dels += 1

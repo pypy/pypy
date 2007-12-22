@@ -230,6 +230,53 @@ class TestLLType(BaseTester):
         res = interp.eval_graph(f_graph, [11, 22])
         assert res == 33
 
+    def test_secondary_backendopt(self):
+        # checks an issue with a newly added graph that calls an
+        # already-exception-transformed graph.  This can occur e.g.
+        # from a late-seen destructor added by the GC transformer
+        # which ends up calling existing code.
+        def common(n):
+            if n > 5:
+                raise ValueError
+        def main(n):
+            common(n)
+        def later(n):
+            try:
+                common(n)
+                return 0
+            except ValueError:
+                return 1
+
+        t = TranslationContext()
+        t.buildannotator().build_types(main, [int])
+        t.buildrtyper(type_system='lltype').specialize()
+        exctransformer = t.getexceptiontransformer()
+        exctransformer.create_exception_handling(graphof(t, common))
+        from pypy.annotation import model as annmodel
+        from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
+        annhelper = MixLevelHelperAnnotator(t.rtyper)
+        later_graph = annhelper.getgraph(later, [annmodel.SomeInteger()],
+                                         annmodel.SomeInteger())
+        annhelper.finish()
+        annhelper.backend_optimize()
+        # ^^^ as the inliner can't handle exception-transformed graphs,
+        # this should *not* inline common() into later().
+        if conftest.option.view:
+            later_graph.show()
+        common_graph = graphof(t, common)
+        found = False
+        for block in later_graph.iterblocks():
+            for op in block.operations:
+                if (op.opname == 'direct_call' and
+                    op.args[0].value._obj.graph is common_graph):
+                    found = True
+        assert found, "cannot find the call (buggily inlined?)"
+        from pypy.rpython.llinterp import LLInterpreter
+        llinterp = LLInterpreter(t.rtyper)
+        res = llinterp.eval_graph(later_graph, [10])
+        assert res == 1
+
+
 class TestOOType(BaseTester):
     type_system = 'ootype'
     check_malloc_removed = OOTypeMallocRemovalTest.check_malloc_removed

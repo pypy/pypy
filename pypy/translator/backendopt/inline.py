@@ -625,6 +625,7 @@ def inlining_heuristic(graph):
 
 
 def inlinable_static_callers(graphs):
+    ok_to_call = dict.fromkeys(graphs)
     result = []
     for parentgraph in graphs:
         for block in parentgraph.iterblocks():
@@ -632,7 +633,7 @@ def inlinable_static_callers(graphs):
                 if op.opname == "direct_call":
                     funcobj = get_funcobj(op.args[0].value)
                     graph = getattr(funcobj, 'graph', None)
-                    if graph is not None:
+                    if graph is not None and graph in ok_to_call:
                         if getattr(getattr(funcobj, '_callable', None),
                                    '_dont_inline_', False):
                             continue
@@ -640,7 +641,7 @@ def inlinable_static_callers(graphs):
                 if op.opname == "oosend":
                     meth = get_meth_from_oosend(op)
                     graph = getattr(meth, 'graph', None)
-                    if graph is not None:
+                    if graph is not None and graph in ok_to_call:
                         result.append((parentgraph, graph))
     return result
     

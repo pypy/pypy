@@ -261,7 +261,7 @@ def test_fold_exitswitch_along_one_path():
 
     graph, t = get_graph(fn, [int])
     from pypy.translator.backendopt import removenoops, inline
-    inline.auto_inline_graphs(t, [graph], threshold=999)
+    inline.auto_inline_graphs(t, t.graphs, threshold=999)
     constant_fold_graph(graph)
     removenoops.remove_same_as(graph)
     if conftest.option.view:
@@ -303,7 +303,7 @@ def test_coalesce_exitswitchs():
 
     graph, t = get_graph(fn, [int])
     from pypy.translator.backendopt import removenoops, inline
-    inline.auto_inline_graphs(t, [graph], threshold=999)
+    inline.auto_inline_graphs(t, t.graphs, threshold=999)
     removenoops.remove_same_as(graph)
     constant_fold_graph(graph)
     if conftest.option.view:
