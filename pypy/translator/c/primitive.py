@@ -158,20 +158,6 @@ PrimitiveType = {
     Address:  'void* @',
     }
 
-PrimitiveErrorValue = {
-    SignedLongLong:   '-1LL',
-    Signed:   '-1',
-    UnsignedLongLong: '((unsigned long long) -1)',
-    Unsigned: '((unsigned) -1)',
-    Float:    '-1.0',
-    SingleFloat: '-1.0f',
-    Char:     '((char) -1)',
-    UniChar:  '((unsigned) -1)',
-    Bool:     '0 /* error */',
-    Void:     '/* error */',
-    Address:  'NULL',
-    }
-
 def define_c_primitive(ll_type, c_name):
     if ll_type in PrimitiveName:
         return
@@ -181,7 +167,6 @@ def define_c_primitive(ll_type, c_name):
         name_str = '((%s) %%dLL)' % c_name
     PrimitiveName[ll_type] = lambda value, db: name_str % value
     PrimitiveType[ll_type] = '%s @'% c_name
-    PrimitiveErrorValue[ll_type] = '((%s) -1)'% c_name
     
 for ll_type, c_name in [(rffi.SIGNEDCHAR, 'signed char'),
                         (rffi.UCHAR, 'unsigned char'),

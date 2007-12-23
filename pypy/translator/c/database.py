@@ -7,11 +7,10 @@ from pypy.rpython.lltypesystem.llmemory import Address, WeakRef, _WeakRefType
 from pypy.rpython.lltypesystem.rffi import CConstant
 from pypy.tool.sourcetools import valid_identifier
 from pypy.translator.c.primitive import PrimitiveName, PrimitiveType
-from pypy.translator.c.primitive import PrimitiveErrorValue
 from pypy.translator.c.node import StructDefNode, ArrayDefNode
 from pypy.translator.c.node import FixedSizeArrayDefNode, BareBoneArrayDefNode
 from pypy.translator.c.node import ContainerNodeFactory, ExtTypeOpaqueDefNode
-from pypy.translator.c.support import cdecl, CNameManager, ErrorValue
+from pypy.translator.c.support import cdecl, CNameManager
 from pypy.translator.c.support import log, barebonearray
 from pypy.translator.c.extfunc import do_the_getting
 from pypy import conftest
@@ -170,15 +169,8 @@ class LowLevelDatabase(object):
         return node
 
     def get(self, obj):
-        if isinstance(obj, ErrorValue):
-            T = obj.TYPE
-            if isinstance(T, Primitive):
-                return PrimitiveErrorValue[T]
-            elif isinstance(T, Ptr):
-                return 'NULL'
-            else:
-                raise Exception("don't know about %r" % (T,))
-        else:
+        # XXX extra indent is preserve svn blame - kind of important IMHO (rxe)
+        if 1:
             if isinstance(obj, CConstant):
                 return obj.c_name  # without further checks
             T = typeOf(obj)

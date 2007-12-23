@@ -9,11 +9,6 @@ USESLOTS = True
 
 PyObjPtr = lltype.Ptr(lltype.PyObject)
 
-
-class ErrorValue:
-    def __init__(self, TYPE):
-        self.TYPE = TYPE
-
 def barebonearray(ARRAY):
     """Check if ARRAY is a 'simple' array type,
     i.e. doesn't need a length nor GC headers."""

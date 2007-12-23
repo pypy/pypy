@@ -23,18 +23,13 @@ class CBuilder(object):
     _compiled = False
     modulename = None
     
-    def __init__(self, translator, entrypoint, config,
-                 eci=ExternalCompilationInfo(), gcpolicy=None):
+    def __init__(self, translator, entrypoint, config):
         self.translator = translator
         self.entrypoint = entrypoint
         self.entrypoint_name = self.entrypoint.func_name
         self.originalentrypoint = entrypoint
-        self.gcpolicy = gcpolicy
-        if gcpolicy is not None and gcpolicy.requires_stackless:
-            config.translation.stackless = True
         self.config = config
-        self.exports = {}
-        self.eci = eci
+        self.eci = ExternalCompilationInfo()
 
     def build_database(self):
         translator = self.translator
@@ -59,11 +54,7 @@ class CBuilder(object):
                               thread_enabled=self.config.translation.thread,
                               sandbox=self.config.translation.sandbox)
         self.db = db
-
-        # we need a concrete gcpolicy to do this
-        self.eci = self.eci.merge(ExternalCompilationInfo(
-            libraries=db.gcpolicy.gc_libraries()))
-
+        
         # give the gc a chance to register interest in the start-up functions it
         # need (we call this for its side-effects of db.get())
         list(db.gcpolicy.gc_startup_code())
@@ -71,16 +62,19 @@ class CBuilder(object):
         # build entrypoint and eventually other things to expose
         pf = self.getentrypointptr()
         pfname = db.get(pf)
-        self.exports[self.entrypoint_name] = pf
         self.c_entrypoint_name = pfname
         db.complete()
-        
-        self.collect_compilation_info()
+
+        self.collect_compilation_info(db)
         return db
 
     have___thread = None
 
-    def collect_compilation_info(self):
+    def collect_compilation_info(self, db):
+        # we need a concrete gcpolicy to do this
+        self.eci = self.eci.merge(ExternalCompilationInfo(
+            libraries=db.gcpolicy.gc_libraries()))
+
         all = []
         for node in self.db.globalcontainers():
             eci = getattr(node, 'compilation_info', None)
@@ -89,12 +83,10 @@ class CBuilder(object):
         self.eci = self.eci.merge(*all)
 
     def get_gcpolicyclass(self):
-        if self.gcpolicy is None:
-            name = self.config.translation.gctransformer
-            if self.config.translation.stacklessgc:
-                name = "%s+stacklessgc" % (name,)
-            return gc.name_to_gcpolicy[name]
-        return self.gcpolicy
+        name = self.config.translation.gctransformer
+        if self.config.translation.stacklessgc:
+            name = "%s+stacklessgc" % (name,)
+        return gc.name_to_gcpolicy[name]
 
     # use generate_source(defines=DEBUG_DEFINES) to force the #definition
     # of the macros that enable debugging assertions
@@ -125,8 +117,7 @@ class CBuilder(object):
         if not self.standalone:
             assert not self.config.translation.instrument
             cfile, extra = gen_source(db, modulename, targetdir, self.eci,
-                                      defines = defines,
-                                      exports = self.exports)
+                                      defines = defines)
         else:
             if self.config.translation.instrument:
                 defines['INSTRUMENT'] = 1
@@ -687,7 +678,7 @@ def gen_source_standalone(database, modulename, targetdir, eci,
     return filename, sg.getextrafiles() + list(eci.separate_module_files)
 
 
-def gen_source(database, modulename, targetdir, eci, defines={}, exports={}):
+def gen_source(database, modulename, targetdir, eci, defines={}):
     assert not database.standalone
     if isinstance(targetdir, str):
         targetdir = py.path.local(targetdir)
