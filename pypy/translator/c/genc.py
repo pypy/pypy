@@ -23,12 +23,15 @@ class CBuilder(object):
     _compiled = False
     modulename = None
     
-    def __init__(self, translator, entrypoint, config):
+    def __init__(self, translator, entrypoint, config, gcpolicy=None):
         self.translator = translator
         self.entrypoint = entrypoint
         self.entrypoint_name = self.entrypoint.func_name
         self.originalentrypoint = entrypoint
         self.config = config
+        self.gcpolicy = gcpolicy    # for tests only, e.g. rpython/memory/
+        if gcpolicy is not None and gcpolicy.requires_stackless:
+            config.translation.stackless = True
         self.eci = ExternalCompilationInfo()
 
     def build_database(self):
@@ -83,6 +86,8 @@ class CBuilder(object):
         self.eci = self.eci.merge(*all)
 
     def get_gcpolicyclass(self):
+        if self.gcpolicy is not None:
+            return self.gcpolicy     # for tests only
         name = self.config.translation.gctransformer
         if self.config.translation.stacklessgc:
             name = "%s+stacklessgc" % (name,)
