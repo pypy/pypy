@@ -5,11 +5,16 @@ import py
 udir = pypy.tool.udir.udir.ensure('test_file_extra', dir=1)
 
 
+# XXX this file is a random test.  It may only fail occasionally
+# depending on the details of the random string SAMPLE.
+
 SAMPLE = ''.join([chr(random.randrange(0, 256)) for i in range(12487)])
 for extra in ['\r\r', '\r\n', '\n\r', '\n\n']:
     for i in range(20):
         j = random.randrange(0, len(SAMPLE)+1)
         SAMPLE = SAMPLE[:j] + extra + SAMPLE[j:]
+    if random.random() < 0.1:
+        SAMPLE += extra    # occasionally, also test strings ending in an EOL
 
 
 def setup_module(mod):
@@ -23,6 +28,10 @@ class BaseROTests:
         lines = self.sample.split('\n')
         for i in range(len(lines)-1):
             lines[i] += '\n'
+        # if self.sample ends exactly in '\n', the split() gives a
+        # spurious empty line at the end.  Fix it:
+        if lines[-1] == '':
+            del lines[-1]
         return lines
 
     def test_simple_tell(self):
@@ -310,7 +319,11 @@ class AppTestLargeBufferFdOpen(AppTestFdOpen):
 
 class AppTestUniversalNewlines(AppTestFile):
     expected_mode = 'rU'
-    sample = '\n'.join(SAMPLE.splitlines(False))
+    sample = '\n'.join((SAMPLE+'X').splitlines(False))[:-1]
+    # ^^^ if SAMPLE ends in any end-of-line character combination, read()ing
+    # it in 'rU' mode gives a final '\n', but splitlines(False) doesn't give
+    # a final empty line.  Adding and removing an extra 'X' avoids this
+    # corner case.
 
     def test_seek(self):
         skip("does not apply in universal newlines mode")
