@@ -478,13 +478,15 @@ class For_r_singlefloat_values_Entry(extregistry.ExtRegistryEntry):
     _type_ = r_singlefloat
 
     def compute_annotation(self):
-        return _somesinglefloat()
+        from pypy.annotation import model as annmodel
+        return annmodel.SomeSingleFloat()
 
 class For_r_singlefloat_type_Entry(extregistry.ExtRegistryEntry):
     _about_ = r_singlefloat
 
     def compute_result_annotation(self, *args_s, **kwds_s):
-        return _somesinglefloat()
+        from pypy.annotation import model as annmodel
+        return annmodel.SomeSingleFloat()
 
     def specialize_call(self, hop):
         from pypy.rpython.lltypesystem import lltype
@@ -493,31 +495,3 @@ class For_r_singlefloat_type_Entry(extregistry.ExtRegistryEntry):
         # we use cast_primitive to go between Float and SingleFloat.
         return hop.genop('cast_primitive', [v],
                          resulttype = lltype.SingleFloat)
-
-def _somesinglefloat():
-    """Returns SomeSingleFloat(), but also lazily register the rtyping support
-    for SomeSingleFloat.
-    """
-    from pypy.annotation import model as annmodel
-
-    if 'rtyper_makerepr' not in annmodel.SomeSingleFloat.__dict__:
-        from pypy.rpython.lltypesystem import lltype
-        from pypy.rpython.rmodel import Repr
-
-        class SingleFloatRepr(Repr):
-            lowleveltype = lltype.SingleFloat
-
-            def rtype_float(self, hop):
-                v, = hop.inputargs(lltype.SingleFloat)
-                hop.exception_cannot_occur()
-                # we use cast_primitive to go between Float and SingleFloat.
-                return hop.genop('cast_primitive', [v],
-                                 resulttype = lltype.Float)
-
-        class __extend__(annmodel.SomeSingleFloat):
-            def rtyper_makerepr(self, rtyper):
-                return SingleFloatRepr()
-            def rtyper_makekey(self):
-                return self.__class__,
-
-    return annmodel.SomeSingleFloat()
