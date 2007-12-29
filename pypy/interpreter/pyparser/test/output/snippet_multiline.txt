@@ -1,0 +1,43 @@
+from foo import bar, \
+    baz
+
+if True and \
+    False \
+    and True:
+    print "excellent !"
+
+===============================================================================
+co_filename = '<?>'
+co_varnames = ()
+co_flags    = 64
+  1           0 LOAD_CONST               1 (('bar', 'baz'))
+              3 IMPORT_NAME              0 (foo)
+              6 IMPORT_FROM              1 (bar)
+              9 STORE_NAME               1 (bar)
+             12 IMPORT_FROM              2 (baz)
+             15 STORE_NAME               2 (baz)
+             18 POP_TOP             
+
+  4          19 LOAD_NAME                3 (True)
+             22 JUMP_IF_FALSE           11 (to 36)
+             25 POP_TOP             
+
+  5          26 LOAD_NAME                4 (False)
+             29 JUMP_IF_FALSE            4 (to 36)
+             32 POP_TOP             
+
+  6          33 LOAD_NAME                3 (True)
+        >>   36 JUMP_IF_FALSE            9 (to 48)
+             39 POP_TOP             
+
+  7          40 LOAD_CONST               2 ('excellent !')
+             43 PRINT_ITEM          
+             44 PRINT_NEWLINE       
+             45 JUMP_FORWARD             1 (to 49)
+        >>   48 POP_TOP             
+        >>   49 LOAD_CONST               0 (None)
+             52 RETURN_VALUE        
+co_consts:
+[0] None
+[1] ('bar', 'baz')
+[2] 'excellent !'

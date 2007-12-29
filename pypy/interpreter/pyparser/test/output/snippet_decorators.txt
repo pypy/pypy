@@ -1,0 +1,104 @@
+# Function(Decorators([Name('foo')]), 'f', ['a', 'b'], [], 0, None, Stmt([Pass()]))
+@foo
+def f(a, b):
+    pass
+
+@accepts(int, (int,float))
+@returns((int,float))
+def func0(arg1, arg2):
+    return arg1 * arg2
+
+
+## Stmt([Function(Decorators([CallFunc(Getattr(Getattr(Name('mod1'), 'mod2'), 'accepts'), [Name('int'), Tuple([Name('int'), Name('float')])], None, None),
+##                            CallFunc(Getattr(Getattr(Name('mod1'), 'mod2'), 'returns'), [Tuple([Name('int'), Name('float')])], None, None)]),
+##                'func', ['arg1', 'arg2'], [], 0, None, Stmt([Return(Mul((Name('arg1'), Name('arg2'))))]))])
+@mod1.mod2.accepts(int, (int,float))
+@mod1.mod2.returns((int,float))
+def func(arg1, arg2):
+    return arg1 * arg2
+
+===============================================================================
+co_filename = '<?>'
+co_varnames = ()
+co_flags    = 64
+  2           0 LOAD_NAME                0 (foo)
+
+  3           3 LOAD_CONST               1 (<pypy.interpreter.pycode.PyCode object at xxx>)
+              6 MAKE_FUNCTION            0
+              9 CALL_FUNCTION            1
+             12 STORE_NAME               1 (f)
+
+  6          15 LOAD_NAME                2 (accepts)
+             18 LOAD_NAME                3 (int)
+             21 LOAD_NAME                3 (int)
+             24 LOAD_NAME                4 (float)
+             27 BUILD_TUPLE              2
+             30 CALL_FUNCTION            2
+
+  7          33 LOAD_NAME                5 (returns)
+             36 LOAD_NAME                3 (int)
+             39 LOAD_NAME                4 (float)
+             42 BUILD_TUPLE              2
+             45 CALL_FUNCTION            1
+
+  8          48 LOAD_CONST               2 (<pypy.interpreter.pycode.PyCode object at xxx>)
+             51 MAKE_FUNCTION            0
+             54 CALL_FUNCTION            1
+             57 CALL_FUNCTION            1
+             60 STORE_NAME               6 (func0)
+
+ 15          63 LOAD_NAME                7 (mod1)
+             66 LOAD_ATTR                8 (mod2)
+             69 LOAD_ATTR                2 (accepts)
+             72 LOAD_NAME                3 (int)
+             75 LOAD_NAME                3 (int)
+             78 LOAD_NAME                4 (float)
+             81 BUILD_TUPLE              2
+             84 CALL_FUNCTION            2
+
+ 16          87 LOAD_NAME                7 (mod1)
+             90 LOAD_ATTR                8 (mod2)
+             93 LOAD_ATTR                5 (returns)
+             96 LOAD_NAME                3 (int)
+             99 LOAD_NAME                4 (float)
+            102 BUILD_TUPLE              2
+            105 CALL_FUNCTION            1
+
+ 17         108 LOAD_CONST               3 (<pypy.interpreter.pycode.PyCode object at xxx>)
+            111 MAKE_FUNCTION            0
+            114 CALL_FUNCTION            1
+            117 CALL_FUNCTION            1
+            120 STORE_NAME               9 (func)
+            123 LOAD_CONST               0 (None)
+            126 RETURN_VALUE        
+co_consts:
+[0] None
+[1] co_filename = '<?>'
+    co_varnames = ('a', 'b')
+    co_flags    = 67
+      3           0 LOAD_CONST               0 (None)
+                  3 RETURN_VALUE        
+    co_consts:
+    [0] None
+[2] co_filename = '<?>'
+    co_varnames = ('arg1', 'arg2')
+    co_flags    = 67
+      9           0 LOAD_FAST                0 (arg1)
+                  3 LOAD_FAST                1 (arg2)
+                  6 BINARY_MULTIPLY     
+                  7 RETURN_VALUE        
+                  8 LOAD_CONST               0 (None)
+                 11 RETURN_VALUE        
+    co_consts:
+    [0] None
+[3] co_filename = '<?>'
+    co_varnames = ('arg1', 'arg2')
+    co_flags    = 67
+     18           0 LOAD_FAST                0 (arg1)
+                  3 LOAD_FAST                1 (arg2)
+                  6 BINARY_MULTIPLY     
+                  7 RETURN_VALUE        
+                  8 LOAD_CONST               0 (None)
+                 11 RETURN_VALUE        
+    co_consts:
+    [0] None

@@ -146,12 +146,6 @@ def test_basic_astgen():
         for expr in family:
             yield check_compile, expr
 
-def test_snippets():
-    for snippet_name in SNIPPETS:
-        filepath = os.path.join(os.path.dirname(__file__), 'samples', snippet_name)
-        source = file(filepath).read()
-        yield check_compile, source, 'exec'
-
 STDLIB_PATH = os.path.dirname(os.__file__)
 def test_on_stdlib():
     py.test.skip('too ambitious for now (and time consuming)')

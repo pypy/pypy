@@ -1,0 +1,31 @@
+import os
+import os.path as osp
+from sets import Set, ImmutableSet
+
+
+
+===============================================================================
+co_filename = '<?>'
+co_varnames = ()
+co_flags    = 64
+  1           0 LOAD_CONST               0 (None)
+              3 IMPORT_NAME              0 (os)
+              6 STORE_NAME               0 (os)
+
+  2           9 LOAD_CONST               0 (None)
+             12 IMPORT_NAME              1 (os.path)
+             15 LOAD_ATTR                2 (path)
+             18 STORE_NAME               3 (osp)
+
+  3          21 LOAD_CONST               1 (('Set', 'ImmutableSet'))
+             24 IMPORT_NAME              4 (sets)
+             27 IMPORT_FROM              5 (Set)
+             30 STORE_NAME               5 (Set)
+             33 IMPORT_FROM              6 (ImmutableSet)
+             36 STORE_NAME               6 (ImmutableSet)
+             39 POP_TOP             
+             40 LOAD_CONST               0 (None)
+             43 RETURN_VALUE        
+co_consts:
+[0] None
+[1] ('Set', 'ImmutableSet')

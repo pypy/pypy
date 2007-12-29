@@ -1,0 +1,702 @@
+
+
+
+import os, os.path as osp
+import sys
+from ebnf import parse_grammar
+from python import python_parse, pypy_parse, set_debug
+from pprint import pprint
+import grammar
+grammar.DEBUG = False
+from symbol import sym_name
+
+
+def name(elt):
+    return "%s[%d]"% (sym_name.get(elt,elt),elt)
+
+def read_samples_dir():
+    return [osp.join('samples', fname) for fname in os.listdir('samples')
+            if fname.endswith('.py')]
+
+
+def print_sym_tuple( tup ):
+    print "\n(",
+    for elt in tup:
+        if type(elt)==int:
+            print name(elt),
+        elif type(elt)==str:
+            print repr(elt),
+        else:
+            print_sym_tuple(elt)
+    print ")",
+
+def assert_tuples_equal(tup1, tup2, curpos = (), disp=""):
+    if disp:
+        print "\n"+disp+"(",
+    for index, (elt1, elt2) in enumerate(zip(tup1, tup2)):
+        if disp and elt1==elt2 and type(elt1)==int:
+            print name(elt1),
+        if elt1 != elt2:
+            if type(elt1) is tuple and type(elt2) is tuple:
+                if disp:
+                    disp=disp+" "
+                assert_tuples_equal(elt1, elt2, curpos + (index,), disp)
+            print
+            print "TUP1"
+            print_sym_tuple(tup1)
+            print
+            print "TUP2"
+            print_sym_tuple(tup2)
+            
+            raise AssertionError('Found difference at %s : %s != %s' %
+                                 (curpos, name(elt1), name(elt2) ), curpos)
+    if disp:
+        print ")",
+
+def test_samples( samples ):
+    for sample in samples:
+        pypy_tuples = pypy_parse(sample)
+        python_tuples = python_parse(sample)
+        print "="*20
+        print file(sample).read()
+        print "-"*10
+        pprint(pypy_tuples)
+        print "-"*10
+        pprint(python_tuples)
+        try:
+            assert_tuples_equal( python_tuples, pypy_tuples, disp=" " )
+            assert python_tuples == pypy_tuples
+        except AssertionError,e:
+            print
+            print "python_tuples"
+            show( python_tuples, e.args[-1] )
+            print
+            print "pypy_tuples"
+            show( pypy_tuples, e.args[-1] )
+            raise
+
+
+def show( tup, idxs ):
+    for level, i in enumerate(idxs):
+        print " "*level , tup
+        tup=tup[i]
+    print tup
+
+if __name__=="__main__":
+    import getopt
+    opts, args = getopt.getopt( sys.argv[1:], "d:", [] )
+    for opt, val in opts:
+        if opt=="-d":
+            set_debug(int(val))
+    if args:
+        samples = args
+    else:
+        samples = read_samples_dir()
+
+    test_samples( samples )
+
+===============================================================================
+co_filename = '<?>'
+co_varnames = ()
+co_flags    = 64
+  4           0 LOAD_CONST               0 (None)
+              3 IMPORT_NAME              0 (os)
+              6 STORE_NAME               0 (os)
+              9 LOAD_CONST               0 (None)
+             12 IMPORT_NAME              1 (os.path)
+             15 LOAD_ATTR                2 (path)
+             18 STORE_NAME               3 (osp)
+
+  5          21 LOAD_CONST               0 (None)
+             24 IMPORT_NAME              4 (sys)
+             27 STORE_NAME               4 (sys)
+
+  6          30 LOAD_CONST               1 (('parse_grammar',))
+             33 IMPORT_NAME              5 (ebnf)
+             36 IMPORT_FROM              6 (parse_grammar)
+             39 STORE_NAME               6 (parse_grammar)
+             42 POP_TOP             
+
+  7          43 LOAD_CONST               2 (('python_parse', 'pypy_parse', 'set_debug'))
+             46 IMPORT_NAME              7 (python)
+             49 IMPORT_FROM              8 (python_parse)
+             52 STORE_NAME               8 (python_parse)
+             55 IMPORT_FROM              9 (pypy_parse)
+             58 STORE_NAME               9 (pypy_parse)
+             61 IMPORT_FROM             10 (set_debug)
+             64 STORE_NAME              10 (set_debug)
+             67 POP_TOP             
+
+  8          68 LOAD_CONST               3 (('pprint',))
+             71 IMPORT_NAME             11 (pprint)
+             74 IMPORT_FROM             11 (pprint)
+             77 STORE_NAME              11 (pprint)
+             80 POP_TOP             
+
+  9          81 LOAD_CONST               0 (None)
+             84 IMPORT_NAME             12 (grammar)
+             87 STORE_NAME              12 (grammar)
+
+ 10          90 LOAD_NAME               13 (False)
+             93 LOAD_NAME               12 (grammar)
+             96 STORE_ATTR              14 (DEBUG)
+
+ 11          99 LOAD_CONST               4 (('sym_name',))
+            102 IMPORT_NAME             15 (symbol)
+            105 IMPORT_FROM             16 (sym_name)
+            108 STORE_NAME              16 (sym_name)
+            111 POP_TOP             
+
+ 14         112 LOAD_CONST               5 (<pypy.interpreter.pycode.PyCode object at xxx>)
+            115 MAKE_FUNCTION            0
+            118 STORE_NAME              17 (name)
+
+ 17         121 LOAD_CONST               6 (<pypy.interpreter.pycode.PyCode object at xxx>)
+            124 MAKE_FUNCTION            0
+            127 STORE_NAME              18 (read_samples_dir)
+
+ 22         130 LOAD_CONST               7 (<pypy.interpreter.pycode.PyCode object at xxx>)
+            133 MAKE_FUNCTION            0
+            136 STORE_NAME              19 (print_sym_tuple)
+
+ 33         139 BUILD_TUPLE              0
+            142 LOAD_CONST               8 ('')
+            145 LOAD_CONST               9 (<pypy.interpreter.pycode.PyCode object at xxx>)
+            148 MAKE_FUNCTION            2
+            151 STORE_NAME              20 (assert_tuples_equal)
+
+ 56         154 LOAD_CONST              10 (<pypy.interpreter.pycode.PyCode object at xxx>)
+            157 MAKE_FUNCTION            0
+            160 STORE_NAME              21 (test_samples)
+
+ 79         163 LOAD_CONST              11 (<pypy.interpreter.pycode.PyCode object at xxx>)
+            166 MAKE_FUNCTION            0
+            169 STORE_NAME              22 (show)
+
+ 85         172 LOAD_NAME               23 (__name__)
+            175 LOAD_CONST              12 ('__main__')
+            178 COMPARE_OP               2 (==)
+            181 JUMP_IF_FALSE          139 (to 323)
+            184 POP_TOP             
+
+ 86         185 LOAD_CONST               0 (None)
+            188 IMPORT_NAME             24 (getopt)
+            191 STORE_NAME              24 (getopt)
+
+ 87         194 LOAD_NAME               24 (getopt)
+            197 LOAD_ATTR               24 (getopt)
+            200 LOAD_NAME                4 (sys)
+            203 LOAD_ATTR               25 (argv)
+            206 LOAD_CONST              13 (1)
+            209 SLICE+1             
+            210 LOAD_CONST              14 ('d:')
+            213 BUILD_LIST               0
+            216 CALL_FUNCTION            3
+            219 UNPACK_SEQUENCE          2
+            222 STORE_NAME              26 (opts)
+            225 STORE_NAME              27 (args)
+
+ 88         228 SETUP_LOOP              53 (to 284)
+            231 LOAD_NAME               26 (opts)
+            234 GET_ITER            
+        >>  235 FOR_ITER                45 (to 283)
+            238 UNPACK_SEQUENCE          2
+            241 STORE_NAME              28 (opt)
+            244 STORE_NAME              29 (val)
+
+ 89         247 LOAD_NAME               28 (opt)
+            250 LOAD_CONST              15 ('-d')
+            253 COMPARE_OP               2 (==)
+            256 JUMP_IF_FALSE           20 (to 279)
+            259 POP_TOP             
+
+ 90         260 LOAD_NAME               10 (set_debug)
+            263 LOAD_NAME               30 (int)
+            266 LOAD_NAME               29 (val)
+            269 CALL_FUNCTION            1
+            272 CALL_FUNCTION            1
+            275 POP_TOP             
+            276 JUMP_FORWARD             1 (to 280)
+        >>  279 POP_TOP             
+        >>  280 JUMP_ABSOLUTE          235
+        >>  283 POP_BLOCK           
+
+ 91     >>  284 LOAD_NAME               27 (args)
+            287 JUMP_IF_FALSE           10 (to 300)
+            290 POP_TOP             
+
+ 92         291 LOAD_NAME               27 (args)
+            294 STORE_NAME              31 (samples)
+            297 JUMP_FORWARD            10 (to 310)
+        >>  300 POP_TOP             
+
+ 94         301 LOAD_NAME               18 (read_samples_dir)
+            304 CALL_FUNCTION            0
+            307 STORE_NAME              31 (samples)
+
+ 96     >>  310 LOAD_NAME               21 (test_samples)
+            313 LOAD_NAME               31 (samples)
+            316 CALL_FUNCTION            1
+            319 POP_TOP             
+            320 JUMP_FORWARD             1 (to 324)
+        >>  323 POP_TOP             
+        >>  324 LOAD_CONST               0 (None)
+            327 RETURN_VALUE        
+co_consts:
+[0] None
+[1] ('parse_grammar',)
+[2] ('python_parse', 'pypy_parse', 'set_debug')
+[3] ('pprint',)
+[4] ('sym_name',)
+[5] co_filename = '<?>'
+    co_varnames = ('elt',)
+    co_flags    = 67
+     15           0 LOAD_CONST               1 ('%s[%d]')
+                  3 LOAD_GLOBAL              0 (sym_name)
+                  6 LOAD_ATTR                1 (get)
+                  9 LOAD_FAST                0 (elt)
+                 12 LOAD_FAST                0 (elt)
+                 15 CALL_FUNCTION            2
+                 18 LOAD_FAST                0 (elt)
+                 21 BUILD_TUPLE              2
+                 24 BINARY_MODULO       
+                 25 RETURN_VALUE        
+                 26 LOAD_CONST               0 (None)
+                 29 RETURN_VALUE        
+    co_consts:
+    [0] None
+    [1] '%s[%d]'
+[6] co_filename = '<?>'
+    co_varnames = ('$append0', 'fname')
+    co_flags    = 67
+     18           0 BUILD_LIST               0
+                  3 DUP_TOP             
+                  4 LOAD_ATTR                0 (append)
+                  7 STORE_FAST               0 ($append0)
+                 10 LOAD_GLOBAL              2 (os)
+                 13 LOAD_ATTR                3 (listdir)
+                 16 LOAD_CONST               1 ('samples')
+                 19 CALL_FUNCTION            1
+                 22 GET_ITER            
+            >>   23 FOR_ITER                48 (to 74)
+                 26 STORE_FAST               1 (fname)
+    
+     19          29 LOAD_FAST                1 (fname)
+                 32 LOAD_ATTR                5 (endswith)
+                 35 LOAD_CONST               2 ('.py')
+                 38 CALL_FUNCTION            1
+                 41 JUMP_IF_FALSE           26 (to 70)
+                 44 POP_TOP             
+                 45 LOAD_FAST                0 ($append0)
+                 48 LOAD_GLOBAL              6 (osp)
+                 51 LOAD_ATTR                7 (join)
+                 54 LOAD_CONST               1 ('samples')
+                 57 LOAD_FAST                1 (fname)
+                 60 CALL_FUNCTION            2
+                 63 CALL_FUNCTION            1
+                 66 POP_TOP             
+                 67 JUMP_FORWARD             1 (to 71)
+            >>   70 POP_TOP             
+            >>   71 JUMP_ABSOLUTE           23
+            >>   74 DELETE_FAST              0 ($append0)
+                 77 RETURN_VALUE        
+                 78 LOAD_CONST               0 (None)
+                 81 RETURN_VALUE        
+    co_consts:
+    [0] None
+    [1] 'samples'
+    [2] '.py'
+[7] co_filename = '<?>'
+    co_varnames = ('tup', 'elt')
+    co_flags    = 67
+     23           0 LOAD_CONST               1 ('\n(')
+                  3 PRINT_ITEM          
+    
+     24           4 SETUP_LOOP              90 (to 97)
+                  7 LOAD_FAST                0 (tup)
+                 10 GET_ITER            
+            >>   11 FOR_ITER                82 (to 96)
+                 14 STORE_FAST               1 (elt)
+    
+     25          17 LOAD_GLOBAL              2 (type)
+                 20 LOAD_FAST                1 (elt)
+                 23 CALL_FUNCTION            1
+                 26 LOAD_GLOBAL              3 (int)
+                 29 COMPARE_OP               2 (==)
+                 32 JUMP_IF_FALSE           14 (to 49)
+                 35 POP_TOP             
+    
+     26          36 LOAD_GLOBAL              4 (name)
+                 39 LOAD_FAST                1 (elt)
+                 42 CALL_FUNCTION            1
+                 45 PRINT_ITEM          
+                 46 JUMP_FORWARD            44 (to 93)
+            >>   49 POP_TOP             
+    
+     27          50 LOAD_GLOBAL              2 (type)
+                 53 LOAD_FAST                1 (elt)
+                 56 CALL_FUNCTION            1
+                 59 LOAD_GLOBAL              5 (str)
+                 62 COMPARE_OP               2 (==)
+                 65 JUMP_IF_FALSE           14 (to 82)
+                 68 POP_TOP             
+    
+     28          69 LOAD_GLOBAL              6 (repr)
+                 72 LOAD_FAST                1 (elt)
+                 75 CALL_FUNCTION            1
+                 78 PRINT_ITEM          
+                 79 JUMP_FORWARD            11 (to 93)
+            >>   82 POP_TOP             
+    
+     30          83 LOAD_GLOBAL              7 (print_sym_tuple)
+                 86 LOAD_FAST                1 (elt)
+                 89 CALL_FUNCTION            1
+                 92 POP_TOP             
+            >>   93 JUMP_ABSOLUTE           11
+            >>   96 POP_BLOCK           
+    
+     31     >>   97 LOAD_CONST               2 (')')
+                100 PRINT_ITEM          
+                101 LOAD_CONST               0 (None)
+                104 RETURN_VALUE        
+    co_consts:
+    [0] None
+    [1] '\n('
+    [2] ')'
+[8] ''
+[9] co_filename = '<?>'
+    co_varnames = ('tup1', 'tup2', 'curpos', 'disp', 'index', 'elt1', 'elt2')
+    co_flags    = 67
+     34           0 LOAD_FAST                3 (disp)
+                  3 JUMP_IF_FALSE           16 (to 22)
+                  6 POP_TOP             
+    
+     35           7 LOAD_CONST               1 ('\n')
+                 10 LOAD_FAST                3 (disp)
+                 13 BINARY_ADD          
+                 14 LOAD_CONST               2 ('(')
+                 17 BINARY_ADD          
+                 18 PRINT_ITEM          
+                 19 JUMP_FORWARD             1 (to 23)
+            >>   22 POP_TOP             
+    
+     36     >>   23 SETUP_LOOP             272 (to 298)
+                 26 LOAD_GLOBAL              1 (enumerate)
+                 29 LOAD_GLOBAL              2 (zip)
+                 32 LOAD_FAST                0 (tup1)
+                 35 LOAD_FAST                1 (tup2)
+                 38 CALL_FUNCTION            2
+                 41 CALL_FUNCTION            1
+                 44 GET_ITER            
+            >>   45 FOR_ITER               249 (to 297)
+                 48 UNPACK_SEQUENCE          2
+                 51 STORE_FAST               4 (index)
+                 54 UNPACK_SEQUENCE          2
+                 57 STORE_FAST               5 (elt1)
+                 60 STORE_FAST               6 (elt2)
+    
+     37          63 LOAD_FAST                3 (disp)
+                 66 JUMP_IF_FALSE           29 (to 98)
+                 69 POP_TOP             
+                 70 LOAD_FAST                5 (elt1)
+                 73 LOAD_FAST                6 (elt2)
+                 76 COMPARE_OP               2 (==)
+                 79 JUMP_IF_FALSE           16 (to 98)
+                 82 POP_TOP             
+                 83 LOAD_GLOBAL              8 (type)
+                 86 LOAD_FAST                5 (elt1)
+                 89 CALL_FUNCTION            1
+                 92 LOAD_GLOBAL              9 (int)
+                 95 COMPARE_OP               2 (==)
+            >>   98 JUMP_IF_FALSE           14 (to 115)
+                101 POP_TOP             
+    
+     38         102 LOAD_GLOBAL             10 (name)
+                105 LOAD_FAST                5 (elt1)
+                108 CALL_FUNCTION            1
+                111 PRINT_ITEM          
+                112 JUMP_FORWARD             1 (to 116)
+            >>  115 POP_TOP             
+    
+     39     >>  116 LOAD_FAST                5 (elt1)
+                119 LOAD_FAST                6 (elt2)
+                122 COMPARE_OP               3 (!=)
+                125 JUMP_IF_FALSE          165 (to 293)
+                128 POP_TOP             
+    
+     40         129 LOAD_GLOBAL              8 (type)
+                132 LOAD_FAST                5 (elt1)
+                135 CALL_FUNCTION            1
+                138 LOAD_GLOBAL             11 (tuple)
+                141 COMPARE_OP               8 (is)
+                144 JUMP_IF_FALSE           16 (to 163)
+                147 POP_TOP             
+                148 LOAD_GLOBAL              8 (type)
+                151 LOAD_FAST                6 (elt2)
+                154 CALL_FUNCTION            1
+                157 LOAD_GLOBAL             11 (tuple)
+                160 COMPARE_OP               8 (is)
+            >>  163 JUMP_IF_FALSE           51 (to 217)
+                166 POP_TOP             
+    
+     41         167 LOAD_FAST                3 (disp)
+                170 JUMP_IF_FALSE           14 (to 187)
+                173 POP_TOP             
+    
+     42         174 LOAD_FAST                3 (disp)
+                177 LOAD_CONST               3 (' ')
+                180 BINARY_ADD          
+                181 STORE_FAST               3 (disp)
+                184 JUMP_FORWARD             1 (to 188)
+            >>  187 POP_TOP             
+    
+     43     >>  188 LOAD_GLOBAL             12 (assert_tuples_equal)
+                191 LOAD_FAST                5 (elt1)
+                194 LOAD_FAST                6 (elt2)
+                197 LOAD_FAST                2 (curpos)
+                200 LOAD_FAST                4 (index)
+                203 BUILD_TUPLE              1
+                206 BINARY_ADD          
+                207 LOAD_FAST                3 (disp)
+                210 CALL_FUNCTION            4
+                213 POP_TOP             
+                214 JUMP_FORWARD             1 (to 218)
+            >>  217 POP_TOP             
+    
+     44     >>  218 PRINT_NEWLINE       
+    
+     45         219 LOAD_CONST               4 ('TUP1')
+                222 PRINT_ITEM          
+                223 PRINT_NEWLINE       
+    
+     46         224 LOAD_GLOBAL             14 (print_sym_tuple)
+                227 LOAD_FAST                0 (tup1)
+                230 CALL_FUNCTION            1
+                233 POP_TOP             
+    
+     47         234 PRINT_NEWLINE       
+    
+     48         235 LOAD_CONST               5 ('TUP2')
+                238 PRINT_ITEM          
+                239 PRINT_NEWLINE       
+    
+     49         240 LOAD_GLOBAL             14 (print_sym_tuple)
+                243 LOAD_FAST                1 (tup2)
+                246 CALL_FUNCTION            1
+                249 POP_TOP             
+    
+     51         250 LOAD_GLOBAL             15 (AssertionError)
+                253 LOAD_CONST               6 ('Found difference at %s : %s != %s')
+    
+     52         256 LOAD_FAST                2 (curpos)
+                259 LOAD_GLOBAL             10 (name)
+                262 LOAD_FAST                5 (elt1)
+                265 CALL_FUNCTION            1
+                268 LOAD_GLOBAL             10 (name)
+                271 LOAD_FAST                6 (elt2)
+                274 CALL_FUNCTION            1
+                277 BUILD_TUPLE              3
+                280 BINARY_MODULO       
+                281 LOAD_FAST                2 (curpos)
+                284 CALL_FUNCTION            2
+                287 RAISE_VARARGS            1
+                290 JUMP_FORWARD             1 (to 294)
+            >>  293 POP_TOP             
+            >>  294 JUMP_ABSOLUTE           45
+            >>  297 POP_BLOCK           
+    
+     53     >>  298 LOAD_FAST                3 (disp)
+                301 JUMP_IF_FALSE            8 (to 312)
+                304 POP_TOP             
+    
+     54         305 LOAD_CONST               7 (')')
+                308 PRINT_ITEM          
+                309 JUMP_FORWARD             1 (to 313)
+            >>  312 POP_TOP             
+            >>  313 LOAD_CONST               0 (None)
+                316 RETURN_VALUE        
+    co_consts:
+    [0] None
+    [1] '\n'
+    [2] '('
+    [3] ' '
+    [4] 'TUP1'
+    [5] 'TUP2'
+    [6] 'Found difference at %s : %s != %s'
+    [7] ')'
+[10] co_filename = '<?>'
+    co_varnames = ('samples', 'sample', 'pypy_tuples', 'python_tuples', 'e')
+    co_flags    = 67
+     57           0 SETUP_LOOP             226 (to 229)
+                  3 LOAD_FAST                0 (samples)
+                  6 GET_ITER            
+            >>    7 FOR_ITER               218 (to 228)
+                 10 STORE_FAST               1 (sample)
+    
+     58          13 LOAD_GLOBAL              2 (pypy_parse)
+                 16 LOAD_FAST                1 (sample)
+                 19 CALL_FUNCTION            1
+                 22 STORE_FAST               2 (pypy_tuples)
+    
+     59          25 LOAD_GLOBAL              4 (python_parse)
+                 28 LOAD_FAST                1 (sample)
+                 31 CALL_FUNCTION            1
+                 34 STORE_FAST               3 (python_tuples)
+    
+     60          37 LOAD_CONST               1 ('=')
+                 40 LOAD_CONST               2 (20)
+                 43 BINARY_MULTIPLY     
+                 44 PRINT_ITEM          
+                 45 PRINT_NEWLINE       
+    
+     61          46 LOAD_GLOBAL              6 (file)
+                 49 LOAD_FAST                1 (sample)
+                 52 CALL_FUNCTION            1
+                 55 LOAD_ATTR                7 (read)
+                 58 CALL_FUNCTION            0
+                 61 PRINT_ITEM          
+                 62 PRINT_NEWLINE       
+    
+     62          63 LOAD_CONST               3 ('-')
+                 66 LOAD_CONST               4 (10)
+                 69 BINARY_MULTIPLY     
+                 70 PRINT_ITEM          
+                 71 PRINT_NEWLINE       
+    
+     63          72 LOAD_GLOBAL              8 (pprint)
+                 75 LOAD_FAST                2 (pypy_tuples)
+                 78 CALL_FUNCTION            1
+                 81 POP_TOP             
+    
+     64          82 LOAD_CONST               3 ('-')
+                 85 LOAD_CONST               4 (10)
+                 88 BINARY_MULTIPLY     
+                 89 PRINT_ITEM          
+                 90 PRINT_NEWLINE       
+    
+     65          91 LOAD_GLOBAL              8 (pprint)
+                 94 LOAD_FAST                3 (python_tuples)
+                 97 CALL_FUNCTION            1
+                100 POP_TOP             
+    
+     66         101 SETUP_EXCEPT            43 (to 147)
+    
+     67         104 LOAD_GLOBAL              9 (assert_tuples_equal)
+                107 LOAD_FAST                3 (python_tuples)
+                110 LOAD_FAST                2 (pypy_tuples)
+                113 LOAD_CONST               5 ('disp')
+                116 LOAD_CONST               6 (' ')
+                119 CALL_FUNCTION          258
+                122 POP_TOP             
+    
+     68         123 LOAD_FAST                3 (python_tuples)
+                126 LOAD_FAST                2 (pypy_tuples)
+                129 COMPARE_OP               2 (==)
+                132 JUMP_IF_TRUE             7 (to 142)
+                135 POP_TOP             
+                136 LOAD_GLOBAL             10 (AssertionError)
+                139 RAISE_VARARGS            1
+            >>  142 POP_TOP             
+                143 POP_BLOCK           
+                144 JUMP_FORWARD            78 (to 225)
+    
+     69     >>  147 DUP_TOP             
+                148 LOAD_GLOBAL             10 (AssertionError)
+                151 COMPARE_OP              10 (exception match)
+                154 JUMP_IF_FALSE           66 (to 223)
+                157 POP_TOP             
+                158 POP_TOP             
+                159 STORE_FAST               4 (e)
+                162 POP_TOP             
+    
+     70         163 PRINT_NEWLINE       
+    
+     71         164 LOAD_CONST               7 ('python_tuples')
+                167 PRINT_ITEM          
+                168 PRINT_NEWLINE       
+    
+     72         169 LOAD_GLOBAL             12 (show)
+                172 LOAD_FAST                3 (python_tuples)
+                175 LOAD_FAST                4 (e)
+                178 LOAD_ATTR               13 (args)
+                181 LOAD_CONST               8 (1)
+                184 UNARY_NEGATIVE      
+                185 BINARY_SUBSCR       
+                186 CALL_FUNCTION            2
+                189 POP_TOP             
+    
+     73         190 PRINT_NEWLINE       
+    
+     74         191 LOAD_CONST               9 ('pypy_tuples')
+                194 PRINT_ITEM          
+                195 PRINT_NEWLINE       
+    
+     75         196 LOAD_GLOBAL             12 (show)
+                199 LOAD_FAST                2 (pypy_tuples)
+                202 LOAD_FAST                4 (e)
+                205 LOAD_ATTR               13 (args)
+                208 LOAD_CONST               8 (1)
+                211 UNARY_NEGATIVE      
+                212 BINARY_SUBSCR       
+                213 CALL_FUNCTION            2
+                216 POP_TOP             
+    
+     76         217 RAISE_VARARGS            0
+                220 JUMP_FORWARD             2 (to 225)
+            >>  223 POP_TOP             
+                224 END_FINALLY         
+            >>  225 JUMP_ABSOLUTE            7
+            >>  228 POP_BLOCK           
+            >>  229 LOAD_CONST               0 (None)
+                232 RETURN_VALUE        
+    co_consts:
+    [0] None
+    [1] '='
+    [2] 20
+    [3] '-'
+    [4] 10
+    [5] 'disp'
+    [6] ' '
+    [7] 'python_tuples'
+    [8] 1
+    [9] 'pypy_tuples'
+[11] co_filename = '<?>'
+    co_varnames = ('tup', 'idxs', 'level', 'i')
+    co_flags    = 67
+     80           0 SETUP_LOOP              49 (to 52)
+                  3 LOAD_GLOBAL              0 (enumerate)
+                  6 LOAD_FAST                1 (idxs)
+                  9 CALL_FUNCTION            1
+                 12 GET_ITER            
+            >>   13 FOR_ITER                35 (to 51)
+                 16 UNPACK_SEQUENCE          2
+                 19 STORE_FAST               2 (level)
+                 22 STORE_FAST               3 (i)
+    
+     81          25 LOAD_CONST               1 (' ')
+                 28 LOAD_FAST                2 (level)
+                 31 BINARY_MULTIPLY     
+                 32 PRINT_ITEM          
+                 33 LOAD_FAST                0 (tup)
+                 36 PRINT_ITEM          
+                 37 PRINT_NEWLINE       
+    
+     82          38 LOAD_FAST                0 (tup)
+                 41 LOAD_FAST                3 (i)
+                 44 BINARY_SUBSCR       
+                 45 STORE_FAST               0 (tup)
+                 48 JUMP_ABSOLUTE           13
+            >>   51 POP_BLOCK           
+    
+     83     >>   52 LOAD_FAST                0 (tup)
+                 55 PRINT_ITEM          
+                 56 PRINT_NEWLINE       
+                 57 LOAD_CONST               0 (None)
+                 60 RETURN_VALUE        
+    co_consts:
+    [0] None
+    [1] ' '
+[12] '__main__'
+[13] 1
+[14] 'd:'
+[15] '-d'

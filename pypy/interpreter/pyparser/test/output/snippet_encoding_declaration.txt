@@ -1,0 +1,14 @@
+# -*- coding: ISO-8859-1 -*-
+a = 1 # keep this statement for now (see test_only_one_comment.py)
+
+===============================================================================
+co_filename = '<?>'
+co_varnames = ()
+co_flags    = 64
+  2           0 LOAD_CONST               1 (1)
+              3 STORE_NAME               0 (a)
+              6 LOAD_CONST               0 (None)
+              9 RETURN_VALUE        
+co_consts:
+[0] None
+[1] 1

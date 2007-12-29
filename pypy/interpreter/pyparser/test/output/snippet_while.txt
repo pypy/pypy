@@ -1,0 +1,54 @@
+index = 0
+while index < 10:
+    index += 1
+    foo = 10 - index
+    if False:
+        break
+else:
+    foo = 12
+
+===============================================================================
+co_filename = '<?>'
+co_varnames = ()
+co_flags    = 64
+  1           0 LOAD_CONST               1 (0)
+              3 STORE_NAME               0 (index)
+
+  2           6 SETUP_LOOP              56 (to 65)
+        >>    9 LOAD_NAME                0 (index)
+             12 LOAD_CONST               2 (10)
+             15 COMPARE_OP               0 (<)
+             18 JUMP_IF_FALSE           36 (to 57)
+             21 POP_TOP             
+
+  3          22 LOAD_NAME                0 (index)
+             25 LOAD_CONST               3 (1)
+             28 INPLACE_ADD         
+             29 STORE_NAME               0 (index)
+
+  4          32 LOAD_CONST               2 (10)
+             35 LOAD_NAME                0 (index)
+             38 BINARY_SUBTRACT     
+             39 STORE_NAME               1 (foo)
+
+  5          42 LOAD_NAME                2 (False)
+             45 JUMP_IF_FALSE            5 (to 53)
+             48 POP_TOP             
+
+  6          49 BREAK_LOOP          
+             50 JUMP_FORWARD             1 (to 54)
+        >>   53 POP_TOP             
+        >>   54 JUMP_ABSOLUTE            9
+        >>   57 POP_TOP             
+             58 POP_BLOCK           
+
+  8          59 LOAD_CONST               4 (12)
+             62 STORE_NAME               1 (foo)
+        >>   65 LOAD_CONST               0 (None)
+             68 RETURN_VALUE        
+co_consts:
+[0] None
+[1] 0
+[2] 10
+[3] 1
+[4] 12

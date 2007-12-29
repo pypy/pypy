@@ -1,0 +1,20 @@
+l = []
+l    .     append   (     12          )
+
+===============================================================================
+co_filename = '<?>'
+co_varnames = ()
+co_flags    = 64
+  1           0 BUILD_LIST               0
+              3 STORE_NAME               0 (l)
+
+  2           6 LOAD_NAME                0 (l)
+              9 LOAD_ATTR                1 (append)
+             12 LOAD_CONST               1 (12)
+             15 CALL_FUNCTION            1
+             18 POP_TOP             
+             19 LOAD_CONST               0 (None)
+             22 RETURN_VALUE        
+co_consts:
+[0] None
+[1] 12

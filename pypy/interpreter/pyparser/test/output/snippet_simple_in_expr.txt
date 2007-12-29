@@ -1,0 +1,17 @@
+x in range(10)
+
+===============================================================================
+co_filename = '<?>'
+co_varnames = ()
+co_flags    = 64
+  1           0 LOAD_NAME                0 (x)
+              3 LOAD_NAME                1 (range)
+              6 LOAD_CONST               1 (10)
+              9 CALL_FUNCTION            1
+             12 COMPARE_OP               6 (in)
+             15 POP_TOP             
+             16 LOAD_CONST               0 (None)
+             19 RETURN_VALUE        
+co_consts:
+[0] None
+[1] 10

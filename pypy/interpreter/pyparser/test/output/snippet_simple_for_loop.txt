@@ -1,0 +1,90 @@
+for x in range(10):
+   pass
+
+for x in range(5):
+   a += x
+   b += 2
+   if False:
+      break
+   else:
+      continue
+else:
+   c = 3
+
+for index, val in enumerate(range(5)):
+   val *= 2
+
+===============================================================================
+co_filename = '<?>'
+co_varnames = ()
+co_flags    = 64
+  1           0 SETUP_LOOP              20 (to 23)
+              3 LOAD_NAME                0 (range)
+              6 LOAD_CONST               1 (10)
+              9 CALL_FUNCTION            1
+             12 GET_ITER            
+        >>   13 FOR_ITER                 6 (to 22)
+             16 STORE_NAME               1 (x)
+
+  2          19 JUMP_ABSOLUTE           13
+        >>   22 POP_BLOCK           
+
+  4     >>   23 SETUP_LOOP              61 (to 87)
+             26 LOAD_NAME                0 (range)
+             29 LOAD_CONST               2 (5)
+             32 CALL_FUNCTION            1
+             35 GET_ITER            
+        >>   36 FOR_ITER                41 (to 80)
+             39 STORE_NAME               1 (x)
+
+  5          42 LOAD_NAME                2 (a)
+             45 LOAD_NAME                1 (x)
+             48 INPLACE_ADD         
+             49 STORE_NAME               2 (a)
+
+  6          52 LOAD_NAME                3 (b)
+             55 LOAD_CONST               3 (2)
+             58 INPLACE_ADD         
+             59 STORE_NAME               3 (b)
+
+  7          62 LOAD_NAME                4 (False)
+             65 JUMP_IF_FALSE            5 (to 73)
+             68 POP_TOP             
+
+  8          69 BREAK_LOOP          
+             70 JUMP_FORWARD             4 (to 77)
+        >>   73 POP_TOP             
+
+ 10          74 JUMP_ABSOLUTE           36
+        >>   77 JUMP_ABSOLUTE           36
+        >>   80 POP_BLOCK           
+
+ 12          81 LOAD_CONST               4 (3)
+             84 STORE_NAME               5 (c)
+
+ 14     >>   87 SETUP_LOOP              42 (to 132)
+             90 LOAD_NAME                6 (enumerate)
+             93 LOAD_NAME                0 (range)
+             96 LOAD_CONST               2 (5)
+             99 CALL_FUNCTION            1
+            102 CALL_FUNCTION            1
+            105 GET_ITER            
+        >>  106 FOR_ITER                22 (to 131)
+            109 UNPACK_SEQUENCE          2
+            112 STORE_NAME               7 (index)
+            115 STORE_NAME               8 (val)
+
+ 15         118 LOAD_NAME                8 (val)
+            121 LOAD_CONST               3 (2)
+            124 INPLACE_MULTIPLY    
+            125 STORE_NAME               8 (val)
+            128 JUMP_ABSOLUTE          106
+        >>  131 POP_BLOCK           
+        >>  132 LOAD_CONST               0 (None)
+            135 RETURN_VALUE        
+co_consts:
+[0] None
+[1] 10
+[2] 5
+[3] 2
+[4] 3

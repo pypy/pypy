@@ -1,0 +1,10 @@
+# only one comment
+
+===============================================================================
+co_filename = '<?>'
+co_varnames = ()
+co_flags    = 64
+  0           0 LOAD_CONST               0 (None)
+              3 RETURN_VALUE        
+co_consts:
+[0] None

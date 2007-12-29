@@ -1,0 +1,17 @@
+
+x = y + 1
+
+
+===============================================================================
+co_filename = '<?>'
+co_varnames = ()
+co_flags    = 64
+  2           0 LOAD_NAME                0 (y)
+              3 LOAD_CONST               1 (1)
+              6 BINARY_ADD          
+              7 STORE_NAME               1 (x)
+             10 LOAD_CONST               0 (None)
+             13 RETURN_VALUE        
+co_consts:
+[0] None
+[1] 1

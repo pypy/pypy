@@ -1,0 +1,64 @@
+class A:
+    
+    def with_white_spaces_before(self):
+        pass
+
+
+    def another_method(self, foo):
+        """with a docstring
+        on several lines
+        # with a sharpsign
+        """
+        self.bar = foo
+
+===============================================================================
+co_filename = '<?>'
+co_varnames = ()
+co_flags    = 64
+  1           0 LOAD_CONST               1 ('A')
+              3 BUILD_TUPLE              0
+              6 LOAD_CONST               2 (<pypy.interpreter.pycode.PyCode object at xxx>)
+              9 MAKE_FUNCTION            0
+             12 CALL_FUNCTION            0
+             15 BUILD_CLASS         
+             16 STORE_NAME               0 (A)
+             19 LOAD_CONST               0 (None)
+             22 RETURN_VALUE        
+co_consts:
+[0] None
+[1] 'A'
+[2] co_filename = '<?>'
+    co_varnames = ()
+    co_flags    = 66
+      1           0 LOAD_GLOBAL              0 (__name__)
+                  3 STORE_NAME               1 (__module__)
+    
+      3           6 LOAD_CONST               1 (<pypy.interpreter.pycode.PyCode object at xxx>)
+                  9 MAKE_FUNCTION            0
+                 12 STORE_NAME               2 (with_white_spaces_before)
+    
+      7          15 LOAD_CONST               2 (<pypy.interpreter.pycode.PyCode object at xxx>)
+                 18 MAKE_FUNCTION            0
+                 21 STORE_NAME               3 (another_method)
+                 24 LOAD_LOCALS         
+                 25 RETURN_VALUE        
+    co_consts:
+    [0] 'with a docstring\n        on several lines\n        # with a sharpsign\n        '
+    [1] co_filename = '<?>'
+        co_varnames = ('self',)
+        co_flags    = 67
+          3           0 LOAD_CONST               0 (None)
+                      3 RETURN_VALUE        
+        co_consts:
+        [0] None
+    [2] co_filename = '<?>'
+        co_varnames = ('self', 'foo')
+        co_flags    = 67
+         12           0 LOAD_FAST                1 (foo)
+                      3 LOAD_FAST                0 (self)
+                      6 STORE_ATTR               2 (bar)
+                      9 LOAD_CONST               1 (None)
+                     12 RETURN_VALUE        
+        co_consts:
+        [0] 'with a docstring\n        on several lines\n        # with a sharpsign\n        '
+        [1] None
