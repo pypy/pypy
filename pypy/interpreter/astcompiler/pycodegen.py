@@ -229,6 +229,9 @@ class CodeGenerator(ast.ASTVisitor):
         self._nameOp('DELETE', name)
 
     def _nameOp(self, prefix, name):
+        if name == 'None':     # always use LOAD_CONST to load None
+            self.emitop_obj('LOAD_CONST', self.space.w_None)
+            return
         name = self.mangle(name)
         scope = self.scope.check_name(name)
         if scope == SC_LOCAL:
