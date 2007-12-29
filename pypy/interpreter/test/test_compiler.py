@@ -548,6 +548,40 @@ def test():
         w_res = space.getitem(w_d, space.wrap('res'))
         assert space.eq_w(w_res, space.wrap("var"))
 
+    def test_dont_inherit_flag(self):
+        space = self.space
+        s1 = str(py.code.Source("""
+            from __future__ import division
+            exec compile('x = 1/2', '?', 'exec', 0, 1)
+        """))
+        w_result = space.appexec([space.wrap(s1)], """(s1):
+            exec s1
+            return x
+        """)
+        assert space.float_w(w_result) == 0
+
+    def test_dont_inherit_across_import(self):
+        from pypy.tool.udir import udir
+        udir.join('test_dont_inherit_across_import.py').write('x = 1/2\n')
+        space = self.space
+        s1 = str(py.code.Source("""
+            from __future__ import division
+            from test_dont_inherit_across_import import x
+        """))
+        w_result = space.appexec([space.wrap(str(udir)), space.wrap(s1)],
+                                 """(udir, s1):
+            import sys
+            copy = sys.path[:]
+            sys.path.insert(0, udir)
+            try:
+                exec s1
+            finally:
+                sys.path[:] = copy
+            return x
+        """)
+        assert space.float_w(w_result) == 0
+
+
 class TestECCompiler(BaseTestCompiler):
     def setup_method(self, method):
         self.compiler = self.space.getexecutioncontext().compiler

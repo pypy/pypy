@@ -431,12 +431,8 @@ def get_pyc_magic(space):
 
 def parse_source_module(space, pathname, source):
     """ Parse a source file and return the corresponding code object """
-    w = space.wrap
-    w_source = w(source)
-    w_mode = w("exec")
-    w_pathname = w(pathname)
-    w_code = space.builtin.call('compile', w_source, w_pathname, w_mode)
-    pycode = space.interp_w(Code, w_code)
+    ec = space.getexecutioncontext()
+    pycode = ec.compiler.compile(source, pathname, 'exec', 0)
     return pycode
 
 def load_source_module(space, w_modulename, w_mod, pathname, source,
