@@ -709,3 +709,48 @@ class TestLL2Ctypes(object):
         res = f()
         assert res == 16
         assert g() == "c"
+
+    def test_c_callback(self):
+        c_source = py.code.Source("""
+        int eating_callback(int arg, int(*call)(int))
+        {
+            return call(arg);
+        }
+        """)
+
+        eci = ExternalCompilationInfo(separate_module_sources=[c_source])
+
+        args = [rffi.INT, rffi.CCallback([rffi.INT], rffi.INT)]
+        eating_callback = rffi.llexternal('eating_callback', args, rffi.INT,
+                                          compilation_info=eci)
+
+        def g(i):
+            return i + 3
+
+        def f():
+            return eating_callback(3, g)
+
+        assert f() == 6
+
+    def test_qsort(self):
+        TP = rffi.CArrayPtr(rffi.INT)
+        a = lltype.malloc(TP.TO, 5, flavor='raw')
+        a[0] = 5
+        a[1] = 3
+        a[2] = 2
+        a[3] = 1
+        a[4] = 4
+
+        def compare(a, b):
+            if a[0] > b[0]:
+                return 1
+            else:
+                return -1
+
+        CALLBACK = rffi.CCallback([rffi.VOIDP, rffi.VOIDP], rffi.INT)
+        qsort = rffi.llexternal('qsort', [rffi.VOIDP, rffi.INT,
+                                          rffi.INT, CALLBACK], lltype.Void)
+
+        qsort(rffi.cast(rffi.VOIDP, a), 5, rffi.sizeof(rffi.INT), compare)
+        for i in range(5):
+            assert a[i] == i + 1

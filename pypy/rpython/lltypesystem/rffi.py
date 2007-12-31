@@ -11,7 +11,11 @@ from pypy.rlib.unroll import unrolling_iterable
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.tool.rfficache import platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.translator.backendopt.canraise import RaiseAnalyzer
 import os
+
+class UnhandledRPythonException(Exception):
+    pass
 
 class CConstant(Symbolic):
     """ A C-level constant, maybe #define, rendered directly.
@@ -25,6 +29,13 @@ class CConstant(Symbolic):
 
     def lltype(self):
         return self.TP
+
+def isfunctype(TP):
+    """ Evil hack to get rid of flow objspace inability
+    to accept .TO when TP is not a pointer
+    """
+    return isinstance(TP, lltype.Ptr) and isinstance(TP.TO, lltype.FuncType)
+isfunctype._annspecialcase_ = 'specialize:memo'
 
 def llexternal(name, args, result, _callable=None,
                compilation_info=ExternalCompilationInfo(),
@@ -92,6 +103,8 @@ def llexternal(name, args, result, _callable=None,
                     # XXX leaks if a str2charp() fails with MemoryError
                     # and was not the first in this function
                     freeme = arg
+            elif isfunctype(TARGET):
+                arg = _callback(arg, TARGET)
             else:
                 SOURCE = lltype.typeOf(arg)
                 if SOURCE != TARGET:
@@ -121,6 +134,7 @@ def llexternal(name, args, result, _callable=None,
     wrapper._always_inline_ = True
     # for debugging, stick ll func ptr to that
     wrapper._ptr = funcptr
+
     return func_with_new_name(wrapper, name)
 
 AroundFnPtr = lltype.Ptr(lltype.FuncType([], lltype.Void))
@@ -131,6 +145,54 @@ class AroundState:
         return False
 aroundstate = AroundState()
 aroundstate._freeze_()
+
+def _callback(arg, TP):
+    return lltype.functionptr(TP.TO, arg.func_name, _callable=arg)
+_callback._annspecialcase_ = 'specialize:arg(1)'
+
+class Entry(ExtRegistryEntry):
+    _about_ = _callback
+    _CACHE = {}
+
+    def compute_result_annotation(self, s_pbc, s_TP):
+        assert s_TP.is_constant()
+        assert s_pbc.is_constant()
+        # XXX in general this can be non-constant, but get_unique_llfn
+        #     will not work in this case
+        TP = s_TP.const
+        bk = self.bookkeeper
+        args_s = [annmodel.lltype_to_annotation(ll_arg) for ll_arg in TP.TO.ARGS]
+        res = bk.emulate_pbc_call(s_pbc, s_pbc, args_s)
+        return annmodel.SomePtr(TP)
+
+    # this is some wrapper creation for handling exceptions.
+    # I think this is ugly and better way is needed for that,
+    # but we definitely need a way to express exception raising inside
+    # the callback function
+
+    #def _get_or_create_wrapper_pbc(self, bk, func):
+    #    try:
+    #        return self._CACHE[func]
+    #    except:
+    #        def wrapper(*args):
+    #            try:
+    #                return func(*args)
+    #            except Exception, e:
+    #                os.write(2, "Unhandled Fatal RPython exception %s in callback" % str(e))
+    #                return 0
+    #            # we ignore exception here, we can exit the program as well
+    #            # not sure what is the best way
+    #        s_pbc = annmodel.SomePBC([bk.getdesc(wrapper)])
+    #        self._CACHE[func] = s_pbc
+    #        return s_pbc
+
+    def specialize_call(self, hop):
+        #hop.exception_cannot_occur()
+        ## XXX fish a bit to have a wrapper here, not sure if annmixlevel
+        ##     is not waaaay better here
+        #repr = hop.rtyper.getrepr(self._CACHE[hop.args_s[0].const])
+        repr = hop.args_r[0]
+        return repr.get_unique_llfn()
 
 # ____________________________________________________________
 
@@ -219,6 +281,10 @@ def CArrayPtr(tp):
     return lltype.Ptr(CArray(tp))
 CArray._annspecialcase_ = 'specialize:memo'
 
+def CCallback(args, res):
+    return lltype.Ptr(lltype.FuncType(args, res))
+CCallback._annspecialcase_ = 'specialize:memo'
+
 def COpaque(name, hints=None, compilation_info=None):
     if compilation_info is None:
         compilation_info = ExternalCompilationInfo()
@@ -296,6 +362,9 @@ r_singlefloat = rarithmetic.r_singlefloat
 
 # void *   - for now, represented as char *
 VOIDP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
+
+# void **
+VOIDPP = CArrayPtr(VOIDP)
 
 # char *
 CCHARP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))

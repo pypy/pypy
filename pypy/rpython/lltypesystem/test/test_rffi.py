@@ -319,6 +319,48 @@ class BaseTestRffi:
         assert fn() == 16
         gn = self.compile(g, [])
         assert gn() == "c"
+
+    def test_c_callback(self):
+        h_source = py.code.Source("""
+        int eating_callback(int arg, int(*call)(int))
+        {
+            return call(arg);
+        }
+        """)
+        
+        h_include = udir.join('callback.h')
+        h_include.write(h_source)
+
+        eci = ExternalCompilationInfo(includes=['callback.h'],
+                                      include_dirs=[str(udir)])
+
+        args = [INT, CCallback([INT], INT)]
+        eating_callback = llexternal('eating_callback', args, INT,
+                                     compilation_info=eci)
+
+        def g(i):
+            return i + 3
+
+        def z(i):
+            if i:
+                raise ValueError()
+            else:
+                return 0
+
+        def f():
+            return eating_callback(3, g)
+
+        fn = self.compile(f, [])
+        assert fn() == 6
+
+        def z2():
+            return eating_callback(3, z)
+
+        # this should complain if there are unhandled exceptions inside
+        # callbacks, or complain if really raising exception
+        #fn = self.compile(z2, [])
+        #fn()
+        #raises(UnhandledRPythonException, "self.compile(z2, [])")
             
 class TestRffiInternals:
     def test_struct_create(self):
