@@ -42,11 +42,33 @@ class W_ZipImporter(Wrappable):
         space.setattr(w_mod, w('__loader__'), space.wrap(self))
         return result
 
+    def check_newer_pyfile(self, space, filename, timestamp):
+        w = space.wrap
+        try:
+            w_info = space.call_function(space.getattr(self.w_dir,
+                                         w('getinfo')), w(filename))
+            w_all = space.getattr(w_info, w('date_time'))
+        except OperationError, e:
+            # in either case, this is a fallback
+            return False
+        else:
+            w_mktime = space.getattr(space.getbuiltinmodule('time'),
+                                     w('mktime'))
+            # XXX this is incredible fishing around module limitations
+            #     in order to compare timestamps of .py and .pyc files
+            all = space.unpackiterable(w_all)
+            all += [w(0), w(1), w(-1)]
+            mtime = int(space.float_w(space.call_function(w_mktime, space.newtuple(all))))
+            return mtime > timestamp
+
     def import_pyc_file(self, space, modname, filename, w_buf, pkgpath):
         w = space.wrap
         buf = space.str_w(w_buf)
         magic = importing._get_long(buf[:4])
         timestamp = importing._get_long(buf[4:8])
+        if self.check_newer_pyfile(space, filename[:-1], timestamp):
+            return self.import_py_file(space, modname, filename[:-1], w_buf,
+                                       pkgpath)
         buf = buf[8:] # XXX ugly copy, should use sequential read instead
         w_mod = w(Module(space, w(modname)))
         real_name = self.name + os.path.sep + filename
@@ -100,16 +122,16 @@ class W_ZipImporter(Wrappable):
                     pkgpath = None
                 if compiled:
                     return self.import_pyc_file(space, fullname, fname,
-                                                w_buf, pkgpath)
+                                                  w_buf, pkgpath)
                 else:
                     return self.import_py_file(space, fullname, fname,
                                                w_buf, pkgpath)
             except OperationError, e:
                 last_exc = e
                 w_mods = space.sys.get('modules')
-                space.call_method(w_mods,'pop', w(fullname), space.w_None)
+                space.call_method(w_mods, 'pop', w(fullname), space.w_None)
         if last_exc:
-            raise OperationError(w_ZipImportError, last_exc.w_value)
+            raise OperationError(space.w_ImportError, last_exc.w_value)
         # should never happen I think
         return space.w_None
     load_module.unwrap_spec = ['self', ObjSpace, str]
@@ -119,8 +141,8 @@ class W_ZipImporter(Wrappable):
             filename = filename.replace(os.path.sep, ZIPSEP)
         w = space.wrap
         try:
-            return space.call(space.getattr(self.w_dir, w('read')),
-                              space.newlist([w(filename)]))
+            return space.call_function(space.getattr(self.w_dir, w('read')),
+                                       w(filename))
         except OperationError, e:
             raise OperationError(space.w_IOError, e.w_value)
     get_data.unwrap_spec = ['self', ObjSpace, str]
