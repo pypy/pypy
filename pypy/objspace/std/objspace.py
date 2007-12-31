@@ -370,9 +370,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     def createframe(self, code, w_globals, closure=None):
         from pypy.objspace.std.fake import CPythonFakeCode, CPythonFakeFrame
-        # XXX this function is not inlined. I don't get why, but
-        #     either I'm wrong or it shows some problems with our inlining
-        #     [fijal]
         if not we_are_translated() and isinstance(code, CPythonFakeCode):
             return CPythonFakeFrame(self, code, w_globals)
         else:
