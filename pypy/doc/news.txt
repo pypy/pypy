@@ -7,6 +7,27 @@ nonsense, isn't it?  `more...`_
 .. _Python: http://www.python.org/doc/current/ref/ref.html
 .. _`more...`: architecture.html#mission-statement 
 
+
+Leysin Winter Sports Sprint, 12th - 19th January 2008
+==================================================================
+
+.. raw:: html
+
+   <table border=0><tr><td>
+
+The next PyPy sprint will be in Leysin, Switzerland, for the fifth time.
+Proposed topics: ctypes, JIT, testing, LLVM.  This is a fully public
+sprint: newcomers and topics other than those proposed are welcome.  See
+the `sprint announcement`__ for details.
+
+.. raw:: html
+
+   </td><td>&nbsp;
+   </td><td><img src="http://www.ermina.ch/002.JPG"></td></tr></table>
+
+.. __: http://codespeak.net/pypy/extradoc/sprintinfo/leysin-winter-2008/announcement.html
+
+
 PyPy blog started
 =================
 
