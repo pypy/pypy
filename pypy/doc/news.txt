@@ -13,12 +13,21 @@ Leysin Winter Sports Sprint, 12th - 19th January 2008
 
 .. raw:: html
 
-   <table border=0><tr><td>
+   <table border=0><tr><td colspan="3">
 
-The next PyPy sprint will be in Leysin, Switzerland, for the fifth time.
-Proposed topics: ctypes, JIT, testing, LLVM.  This is a fully public
-sprint: newcomers and topics other than those proposed are welcome.  See
-the `sprint announcement`__ for details.
+The next PyPy sprint will be held in Leysin, Switzerland, for
+the fifth time.  The overall idea of the sprint is to continue
+working on making PyPy ready for general use. 
+
+.. raw:: html
+
+   </td></tr><tr><td valign="top">
+
+The proposed topics are: ctypes, JIT, testing, LLVM.  This is
+a fully public sprint, so newcomers and other topics are
+welcome.  And like previous winters, the main side goal is to
+have fun in winter sports :-) See the `sprint announcement`__
+for details.
 
 .. raw:: html
 
