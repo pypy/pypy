@@ -4,7 +4,18 @@
 implementations on a set of microbenchmarks. The script usally is started
 with "./microbench.py python ./pypy" where pypy is a symlink to you pypy exectable."""
 
-import os, time, sys, gc
+import os, time, sys
+
+try:
+    import gc
+except ImportError:
+    if sys.platform.startswith('java'):
+        import java.lang
+        gccollect = java.lang.System.gc
+    else:
+        gccollect = lambda: None
+else:
+    gccollect = gc.collect
 
 try:
     this_dir = os.path.dirname(__file__)
@@ -18,7 +29,7 @@ for fname in os.listdir('.'):
     microbench = fname[:-3]
     microbenches.append(microbench)
 
-def run(test_cases):
+def run(test_cases, fmt):
     MINIMUM_MICROBENCH_TIME = 1.0
 
     for microbench in microbenches:
@@ -33,7 +44,7 @@ def run(test_cases):
                     continue
             testcase_name = microbench + '.' + k + '()'
             testcase = testmoddict[k]
-            gc.collect()
+            gccollect()
             start = time.clock()
             n = 0
             duration = 0.0
@@ -41,10 +52,16 @@ def run(test_cases):
                 testcase()
                 n += 1
                 duration = time.clock() - start
-            print '%s took %.2f seconds' % (testcase_name, duration / float(n))
+            print ('%s took ' + fmt +' seconds') % (testcase_name, duration / float(n))
 
 if __name__ == '__main__':
     args = sys.argv[1:]
+    if args[0].startswith('-F'):
+        fmt = "%" + args[0][2:]
+        args.pop(0)
+    else:
+        fmt = "%.2f"
+        
     if '-k' in args:
         i = args.index('-k')
         executables = args[:i]
@@ -57,7 +74,7 @@ if __name__ == '__main__':
 
     for n, exe in enumerate(executables):
         print 'exe:', exe
-        data = [s for s in os.popen(exe + ' microbench.py %s 2>&1' % limit).readlines() if not s.startswith('debug:')]
+        data = [s for s in os.popen(exe + ' microbench.py -Fr %s 2>&1' % limit).readlines() if not s.startswith('debug:')]
         benchdata = {}
         for d in data:
             try:
@@ -78,4 +95,4 @@ if __name__ == '__main__':
                 print '%5.2fx slower on %s' % (slowdown, testcase)
         
     if not executables:
-        run(test_cases)
+        run(test_cases, fmt)
