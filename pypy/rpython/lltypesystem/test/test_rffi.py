@@ -320,7 +320,7 @@ class BaseTestRffi:
         gn = self.compile(g, [])
         assert gn() == "c"
 
-    def test_c_callback(self):
+    def eating_callback(self):
         h_source = py.code.Source("""
         int eating_callback(int arg, int(*call)(int))
         {
@@ -338,14 +338,12 @@ class BaseTestRffi:
         eating_callback = llexternal('eating_callback', args, INT,
                                      compilation_info=eci)
 
+        return eating_callback
+
+    def test_c_callback(self):
+        eating_callback = self.eating_callback()
         def g(i):
             return i + 3
-
-        def z(i):
-            if i:
-                raise ValueError()
-            else:
-                return 0
 
         def f():
             return eating_callback(3, g)
@@ -353,15 +351,25 @@ class BaseTestRffi:
         fn = self.compile(f, [])
         assert fn() == 6
 
-        def z2():
-            return eating_callback(3, z)
+    def test_double_callback(self):
+        eating_callback = self.eating_callback()
 
-        # this should complain if there are unhandled exceptions inside
-        # callbacks, or complain if really raising exception
-        #fn = self.compile(z2, [])
-        #fn()
-        #raises(UnhandledRPythonException, "self.compile(z2, [])")
-            
+        def one(i):
+            return i
+
+        def two(i):
+            return i + 2
+        
+        def f(i):
+            if i > 3:
+                return eating_callback(i, one)
+            else:
+                return eating_callback(i, two)
+
+        fn = self.compile(f, [int])
+        assert fn(4) == 4
+        assert fn(1) == 3
+
 class TestRffiInternals:
     def test_struct_create(self):
         X = CStruct('xx', ('one', INT))
