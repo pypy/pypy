@@ -401,10 +401,10 @@ Node._methods.update({
     'cloneNode' : MethodDesc([int], Element),
     'getElementsByTagName' : MethodDesc([str], [Element]),
     'hasChildNodes' : MethodDesc([], bool),
-    'insertBefore' : MethodDesc([Element], Element),
+    'insertBefore' : MethodDesc([Element, Element], Element),
     'normalize' : MethodDesc([]),
     'removeChild' : MethodDesc([Element]),
-    'replaceChild' : MethodDesc([Element], Element),
+    'replaceChild' : MethodDesc([Element, Element], Element),
 })
 
 Element._fields = Node._fields.copy()
