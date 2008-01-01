@@ -127,11 +127,11 @@ def test_simple_tcp():
     lock = thread.allocate_lock()
     lock.acquire()
     thread.start_new_thread(connecting, ())
-    print 'waiting for connexion'
+    print 'waiting for connection'
     s1, addr2 = sock.accept()
-    print 'connexion accepted'
+    print 'connection accepted'
     lock.acquire()
-    print 'connecting side knows that the connexion was accepted too'
+    print 'connecting side knows that the connection was accepted too'
     assert addr.eq(s2.getpeername())
     assert addr2.eq(s2.getsockname())
     assert addr2.eq(s1.getpeername())
