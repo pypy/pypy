@@ -214,5 +214,22 @@ class AppTestZipimport:
         assert z.get_source('xx') == "5"
         assert z.archive == self.zipfile
 
+    def test_archive(self):
+        """
+        The archive attribute of zipimport.zipimporter gives the path to the
+        zipfile itself.
+        """
+        import os
+        import zipimport
+        self.writefile(
+            self, os.sep.join(("directory", "package", "__init__.py")), "")
+        importer = zipimport.zipimporter(self.zipfile + "/directory")
+        # Grab this so if the assertion fails, py.test will display its
+        # value.  Not sure why it doesn't the assertion uses import.archive
+        # directly. -exarkun
+        archive = importer.archive
+        assert archive == self.zipfile
+
+
 class AppTestZipimportDeflated(AppTestZipimport):
     compression = ZIP_DEFLATED

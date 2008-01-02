@@ -184,7 +184,9 @@ class W_ZipImporter(Wrappable):
     is_package.unwrap_spec = ['self', ObjSpace, str]
 
     def getarchive(space, self):
-        return space.wrap(self.name)
+        space = self.space
+        return space.getattr(self.w_dir, space.wrap('filename'))
+
 
 def descr_new_zipimporter(space, w_type, name):
     w_zip_cache = space.getattr(space.getbuiltinmodule('zipimport'),
