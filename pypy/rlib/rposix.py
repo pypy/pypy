@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem.rffi import CConstant, CExternVariable
+from pypy.rpython.lltypesystem.rffi import CConstant, CExternVariable, INT
 from pypy.rpython.lltypesystem import lltype, ll2ctypes
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rlib.rarithmetic import intmask
@@ -21,7 +21,7 @@ errno_eci = ExternalCompilationInfo(
     includes=['errno.h']
 )
 
-_get_errno, set_errno = CExternVariable(lltype.Signed, 'errno', errno_eci,
+_get_errno, set_errno = CExternVariable(INT, 'errno', errno_eci,
                                         CConstantErrno, sandboxsafe=True)
 
 def get_errno():
