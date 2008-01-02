@@ -1,6 +1,7 @@
 from pypy.rpython.lltypesystem.rffi import CConstant, CExternVariable
 from pypy.rpython.lltypesystem import lltype, ll2ctypes
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.rlib.rarithmetic import intmask
 
 class CConstantErrno(CConstant):
     # these accessors are used when calling get_errno() or set_errno()
@@ -20,6 +21,8 @@ errno_eci = ExternalCompilationInfo(
     includes=['errno.h']
 )
 
-get_errno, set_errno = CExternVariable(lltype.Signed, 'errno', errno_eci,
-                                       CConstantErrno, sandboxsafe=True)
+_get_errno, set_errno = CExternVariable(lltype.Signed, 'errno', errno_eci,
+                                        CConstantErrno, sandboxsafe=True)
 
+def get_errno():
+    return intmask(_get_errno())
