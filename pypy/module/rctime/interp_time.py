@@ -239,10 +239,10 @@ def _gettmarg(space, w_tup, allowNone=True):
         raise OperationError(space.w_ValueError,
                              space.wrap("day of week out of range"))
 
-    glob_buf.c_tm_year = y - 1900
-    glob_buf.c_tm_mon = glob_buf.c_tm_mon - 1
-    glob_buf.c_tm_wday = (glob_buf.c_tm_wday + 1) % 7
-    glob_buf.c_tm_yday = glob_buf.c_tm_yday - 1
+    rffi.setintfield(glob_buf, 'c_tm_year', y - 1900)
+    rffi.setintfield(glob_buf, 'c_tm_mon', glob_buf.c_tm_mon - 1)
+    rffi.setintfield(glob_buf, 'c_tm_wday', (glob_buf.c_tm_wday + 1) % 7)
+    rffi.setintfield(glob_buf, 'c_tm_yday', glob_buf.c_tm_yday - 1)
 
     return glob_buf
 
