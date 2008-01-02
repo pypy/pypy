@@ -27,17 +27,6 @@ def is_py_name( name ):
     return True
 
 
-punct=['>=', '<>', '!=', '<', '>', '<=', '==', '\\*=',
-       '//=', '%=', '^=', '<<=', '\\*\\*=', '\\', '=',
-       '\\+=', '>>=', '=', '&=', '/=', '-=', '\n,', '^',
-       '>>', '&', '\\+', '\\*', '-', '/', '\\.', '\\*\\*',
-       '%', '<<', '//', '\\', '', '\n\\)', '\\(', ';', ':',
-       '@', '\\[', '\\]', '`', '\\{', '\\}']
-
-TERMINALS = ['NAME', 'NUMBER', 'STRING', 'NEWLINE', 'ENDMARKER',
-             'INDENT', 'DEDENT' ]
-
-
 class NameToken(Token):
     """A token that is not a keyword"""
     def __init__(self, parser):
