@@ -107,7 +107,7 @@ def test_encoding_declarations_match():
         ]
     for comment, encoding in checks:
         res = match_encoding_declaration(comment)
-        assert res == encoding, "Failed on (%s), %s != %s" % (comment, res, encoding)
+        assert res == encoding
 
 
 def test_check_for_enconding():
