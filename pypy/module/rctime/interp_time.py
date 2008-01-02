@@ -206,18 +206,18 @@ def _gettmarg(space, w_tup, allowNone=True):
                                         "length 9, not %d" % len(tup_w)))
 
     y = space.int_w(tup_w[0])
-    glob_buf.c_tm_mon = space.int_w(tup_w[1])
-    glob_buf.c_tm_mday = space.int_w(tup_w[2])
-    glob_buf.c_tm_hour = space.int_w(tup_w[3])
-    glob_buf.c_tm_min = space.int_w(tup_w[4])
-    glob_buf.c_tm_sec = space.int_w(tup_w[5])
-    glob_buf.c_tm_wday = space.int_w(tup_w[6])
-    glob_buf.c_tm_yday = space.int_w(tup_w[7])
-    glob_buf.c_tm_isdst = space.int_w(tup_w[8])
+    rffi.setintfield(glob_buf, 'c_tm_mon', space.int_w(tup_w[1]))
+    rffi.setintfield(glob_buf, 'c_tm_mday', space.int_w(tup_w[2]))
+    rffi.setintfield(glob_buf, 'c_tm_hour', space.int_w(tup_w[3]))
+    rffi.setintfield(glob_buf, 'c_tm_min', space.int_w(tup_w[4]))
+    rffi.setintfield(glob_buf, 'c_tm_sec', space.int_w(tup_w[5]))
+    rffi.setintfield(glob_buf, 'c_tm_wday', space.int_w(tup_w[6]))
+    rffi.setintfield(glob_buf, 'c_tm_yday', space.int_w(tup_w[7]))
+    rffi.setintfield(glob_buf, 'c_tm_isdst', space.int_w(tup_w[8]))
     if _POSIX:
         # actually never happens, but makes annotator happy
         glob_buf.c_tm_zone = lltype.nullptr(rffi.CCHARP.TO)
-        glob_buf.c_tm_gmtoff = 0
+        rffi.setintfield(glob_buf, 'c_tm_gmtoff', 0)
 
     w_accept2dyear = _get_module_object(space, "accept2dyear")
     accept2dyear = space.int_w(w_accept2dyear)
