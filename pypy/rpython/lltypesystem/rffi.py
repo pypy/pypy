@@ -12,6 +12,7 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.tool.rfficache import platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.backendopt.canraise import RaiseAnalyzer
+from pypy.rpython.annlowlevel import llhelper
 import os
 
 class UnhandledRPythonException(Exception):
@@ -104,7 +105,8 @@ def llexternal(name, args, result, _callable=None,
                     # and was not the first in this function
                     freeme = arg
             elif isfunctype(TARGET):
-                arg = _callback(arg, TARGET)
+                # XXX pass additional arguments
+                arg = llhelper(TARGET, _make_wrapper_for(arg))
             else:
                 SOURCE = lltype.typeOf(arg)
                 if SOURCE != TARGET:
@@ -136,6 +138,15 @@ def llexternal(name, args, result, _callable=None,
     wrapper._ptr = funcptr
 
     return func_with_new_name(wrapper, name)
+
+def _make_wrapper_for(callable, error_code=None):
+    """ Function creating wrappers for callbacks. Note that this is
+    cheating as we assume constant callbacks and we just memoize wrappers
+    """
+    def wrapper(*args):
+        return callable(*args)
+    return wrapper
+_make_wrapper_for._annspecialcase_ = 'specialize:memo'
 
 AroundFnPtr = lltype.Ptr(lltype.FuncType([], lltype.Void))
 class AroundState:
