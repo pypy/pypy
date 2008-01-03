@@ -182,54 +182,6 @@ class AroundState:
 aroundstate = AroundState()
 aroundstate._freeze_()
 
-def _callback(arg, TP):
-    return lltype.functionptr(TP.TO, arg.func_name, _callable=arg)
-_callback._annspecialcase_ = 'specialize:arg(1)'
-
-class Entry(ExtRegistryEntry):
-    _about_ = _callback
-    _CACHE = {}
-
-    def compute_result_annotation(self, s_pbc, s_TP):
-        assert s_TP.is_constant()
-        assert s_pbc.is_constant()
-        # XXX in general this can be non-constant, but get_unique_llfn
-        #     will not work in this case
-        TP = s_TP.const
-        bk = self.bookkeeper
-        args_s = [annmodel.lltype_to_annotation(ll_arg) for ll_arg in TP.TO.ARGS]
-        res = bk.emulate_pbc_call(s_pbc, s_pbc, args_s)
-        return annmodel.SomePtr(TP)
-
-    # this is some wrapper creation for handling exceptions.
-    # I think this is ugly and better way is needed for that,
-    # but we definitely need a way to express exception raising inside
-    # the callback function
-
-    #def _get_or_create_wrapper_pbc(self, bk, func):
-    #    try:
-    #        return self._CACHE[func]
-    #    except:
-    #        def wrapper(*args):
-    #            try:
-    #                return func(*args)
-    #            except Exception, e:
-    #                os.write(2, "Unhandled Fatal RPython exception %s in callback" % str(e))
-    #                return 0
-    #            # we ignore exception here, we can exit the program as well
-    #            # not sure what is the best way
-    #        s_pbc = annmodel.SomePBC([bk.getdesc(wrapper)])
-    #        self._CACHE[func] = s_pbc
-    #        return s_pbc
-
-    def specialize_call(self, hop):
-        #hop.exception_cannot_occur()
-        ## XXX fish a bit to have a wrapper here, not sure if annmixlevel
-        ##     is not waaaay better here
-        #repr = hop.rtyper.getrepr(self._CACHE[hop.args_s[0].const])
-        repr = hop.args_r[0]
-        return repr.get_unique_llfn()
-
 # ____________________________________________________________
 
 TYPES = []
