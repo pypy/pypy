@@ -155,7 +155,7 @@ def _make_wrapper_for(TP, callable, aroundstate=None):
         try:
             return callable(*args)
         except Exception, e:
-            os.write(2, "Warning: uncatched exception: %s" % str(e))
+            os.write(2, "Warning: uncatched exception in callback: %s %s" % (callable, str(e)))
             return errorcode
     return wrapper
 _make_wrapper_for._annspecialcase_ = 'specialize:memo'
