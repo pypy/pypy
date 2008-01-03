@@ -106,7 +106,11 @@ def llexternal(name, args, result, _callable=None,
                     freeme = arg
             elif isfunctype(TARGET):
                 # XXX pass additional arguments
-                arg = llhelper(TARGET, _make_wrapper_for(arg))
+                if invoke_around_handlers:
+                    arg = llhelper(TARGET, _make_wrapper_for(TARGET, arg,
+                                                             aroundstate))
+                else:
+                    arg = llhelper(TARGET, _make_wrapper_for(TARGET, arg))
             else:
                 SOURCE = lltype.typeOf(arg)
                 if SOURCE != TARGET:
@@ -139,12 +143,20 @@ def llexternal(name, args, result, _callable=None,
 
     return func_with_new_name(wrapper, name)
 
-def _make_wrapper_for(callable, error_code=None):
+def _make_wrapper_for(TP, callable, aroundstate=None):
     """ Function creating wrappers for callbacks. Note that this is
     cheating as we assume constant callbacks and we just memoize wrappers
     """
+    if hasattr(callable, '_errorcode_'):
+        errorcode = callable._errorcode_
+    else:
+        errorcode = TP.TO.RESULT._example()
     def wrapper(*args):
-        return callable(*args)
+        try:
+            return callable(*args)
+        except Exception, e:
+            os.write(2, "Warning: uncatched exception: %s" % str(e))
+            return errorcode
     return wrapper
 _make_wrapper_for._annspecialcase_ = 'specialize:memo'
 

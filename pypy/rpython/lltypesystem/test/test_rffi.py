@@ -324,7 +324,10 @@ class BaseTestRffi:
         h_source = py.code.Source("""
         int eating_callback(int arg, int(*call)(int))
         {
-            return call(arg);
+            int res = call(arg);
+            if (res == -1)
+              return -1;
+            return res;
         }
         """)
         
@@ -369,6 +372,22 @@ class BaseTestRffi:
         fn = self.compile(f, [int])
         assert fn(4) == 4
         assert fn(1) == 3
+
+    def test_exception_callback(self):
+        eating_callback = self.eating_callback()
+
+        def raising(i):
+            if i > 3:
+                raise ValueError
+            else:
+                return 3
+        raising._errorcode_ = -1
+
+        def f(i):
+            return eating_callback(i, raising)
+
+        fn = self.compile(f, [int])
+        assert fn(13) == -1
 
 class TestRffiInternals:
     def test_struct_create(self):
