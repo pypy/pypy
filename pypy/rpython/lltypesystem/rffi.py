@@ -151,11 +151,24 @@ def _make_wrapper_for(TP, callable, aroundstate=None):
         errorcode = callable._errorcode_
     else:
         errorcode = TP.TO.RESULT._example()
+    if aroundstate is not None:
+        before = aroundstate.before
+        after = aroundstate.after
+    else:
+        before = None
+        after = None
     def wrapper(*args):
         try:
-            return callable(*args)
+            if before:
+                before()
+            result = callable(*args)
+            if after:
+                after()
+            return result
         except Exception, e:
-            os.write(2, "Warning: uncatched exception in callback: %s %s\n" % (str(callable), str(e)))
+            if after:
+                after()
+            os.write(2, "Warning: uncaught exception in callback: %s %s\n" % (str(callable), str(e)))
             return errorcode
     return wrapper
 _make_wrapper_for._annspecialcase_ = 'specialize:memo'
