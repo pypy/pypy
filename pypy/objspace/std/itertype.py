@@ -7,8 +7,8 @@ def descr_seqiter__reduce__(w_self, space):
     XXX to do: remove this __reduce__ method and do
     a registration with copy_reg, instead.
     """
-    from pypy.objspace.std.iterobject import W_SeqIterObject
-    assert isinstance(w_self, W_SeqIterObject)
+    from pypy.objspace.std.iterobject import W_AbstractSeqIterObject
+    assert isinstance(w_self, W_AbstractSeqIterObject)
     from pypy.interpreter.mixedmodule import MixedModule
     w_mod    = space.getbuiltinmodule('_pickle_support')
     mod      = space.interp_w(MixedModule, w_mod)
@@ -44,9 +44,11 @@ In the second form, the callable is called until it returns the sentinel.''',
     __reduce__ = gateway.interp2app(descr_seqiter__reduce__,
                            unwrap_spec=[gateway.W_Root, gateway.ObjSpace]),
     )
+iter_typedef.acceptable_as_base_class = False
 
 reverse_iter_typedef = StdTypeDef("reversesequenceiterator",
 
     __reduce__ = gateway.interp2app(descr_reverseseqiter__reduce__,
                            unwrap_spec=[gateway.W_Root, gateway.ObjSpace]),
     )
+reverse_iter_typedef.acceptable_as_base_class = False

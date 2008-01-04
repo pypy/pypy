@@ -33,10 +33,26 @@ def init__List(space, w_list, __args__):
     w_iterable, = __args__.parse('list',
                                (['sequence'], None, None),   # signature
                                [EMPTY_LIST])                 # default argument
-    if w_iterable is EMPTY_LIST:
-        w_list.wrappeditems = []
-    else:
-        w_list.wrappeditems = space.unpackiterable(w_iterable)
+    #
+    # this is the old version of the loop at the end of this function:
+    #
+    #   w_list.wrappeditems = space.unpackiterable(w_iterable)
+    #
+    # This is commented out to avoid assigning a new RPython list to
+    # 'wrappeditems', which defeats the W_FastSeqIterObject optimization.
+    #
+    items_w = w_list.wrappeditems
+    del items_w[:]
+    if w_iterable is not EMPTY_LIST:
+        w_iterator = space.iter(w_iterable)
+        while True:
+            try:
+                w_item = space.next(w_iterator)
+            except OperationError, e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                break  # done
+            items_w.append(w_item)
 
 def len__List(space, w_list):
     result = len(w_list.wrappeditems)
@@ -76,7 +92,7 @@ def contains__List_ANY(space, w_list, w_obj):
 
 def iter__List(space, w_list):
     from pypy.objspace.std import iterobject
-    return iterobject.W_SeqIterObject(w_list)
+    return iterobject.W_FastSeqIterObject(w_list, w_list.wrappeditems)
 
 def add__List_List(space, w_list1, w_list2):
     return W_ListObject(w_list1.wrappeditems + w_list2.wrappeditems)

@@ -60,7 +60,7 @@ def contains__Tuple_ANY(space, w_tuple, w_obj):
 
 def iter__Tuple(space, w_tuple):
     from pypy.objspace.std import iterobject
-    return iterobject.W_SeqIterObject(w_tuple)
+    return iterobject.W_FastSeqIterObject(w_tuple, w_tuple.wrappeditems)
 
 def add__Tuple_Tuple(space, w_tuple1, w_tuple2):
     items1 = w_tuple1.wrappeditems
