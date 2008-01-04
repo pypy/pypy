@@ -104,7 +104,6 @@ class Module(MixedModule):
         'hasattr'       : 'operation.hasattr',
         'iter'          : 'operation.iter',
         'id'            : 'operation.id',
-        '_seqiter'      : 'operation._seqiter',
         'intern'        : 'operation.intern',
         'callable'      : 'operation.callable',
 

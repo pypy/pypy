@@ -196,9 +196,6 @@ iter(callable, sentinel) -> iterator calling callable() until it returns
     else:
         return iter_sentinel(space, w_collection_or_callable, w_sentinel)
 
-def _seqiter(space, w_obj):
-    return space.newseqiter(w_obj)
-
 def ord(space, w_val):
     """Return the integer ordinal of a character."""
     return space.ord(w_val)
