@@ -1,6 +1,6 @@
 import py
 from pypy.rlib.parsing.regexparse import parse_regex, make_runner
-from pypy.rlib.parsing.lexer import Lexer
+from pypy.rlib.parsing.lexer import Lexer, Token, SourcePos
 
 # attempts at writing a Python-lexer
 
@@ -14,7 +14,7 @@ def maybe(*choices):
 #____________________________________________________________
 # Numbers
 
-Hexnumber = r'0[xX][0-9a-fA-F]*[lL]?'
+Hexnumber = r'0[xX][0-9a-fA-F]*[lL]?' #XXX this parses 0xl, but shouldn't
 Octnumber = r'0[0-7]*[lL]?'
 Decnumber = r'[1-9][0-9]*[lL]?'
 Intnumber = group(Hexnumber, Octnumber, Decnumber)
@@ -85,7 +85,8 @@ Name = r'[a-zA-Z_][a-zA-Z0-9_]*'
 Operator = group(r"\*\*=?", r">>=?", r"<<=?", r"<>", r"!=",
                  r"//=?",
                  r"[\+\-\*\/\%\&\|\^\=\<\>]=?",
-                 r"~")
+                 r"~",
+                 Special)
 
 OpenBracket = r'[\[\(\{]'
 CloseBracket = r'[\]\)\}]'
@@ -93,7 +94,7 @@ CloseBracket = r'[\]\)\}]'
 #____________________________________________________________
 # all tokens
 
-tokens = ["Number", "String", "Name", "Ignore", "Special", "Indent", 
+tokens = ["Number", "String", "Name", "Ignore", "Indent", 
           "OpenBracket", "CloseBracket", "Operator"]
 
 def make_lexer():
@@ -117,12 +118,20 @@ def postprocess(tokens):
             token.name = "Operator"
             output_tokens.append(token)
         elif token.name == "Indent":
+            token.name = "Newline"
             if parenthesis_level == 0:
                 s = token.source
                 length = len(s)
-                pos = 1
+                pos = 0
                 column = 0
-                while pos < length:  # measure leading whitespace
+                # the token looks like this: \r?\n[ \f\t]*
+                if s[0] == '\n':
+                    pos = 1
+                    start = 1
+                else:
+                    pos = 2
+                    start = 2
+                while pos < length:  # count the indentation depth of the whitespace
                     c = s[pos]
                     if c == ' ':
                         column = column + 1
@@ -130,16 +139,25 @@ def postprocess(tokens):
                         column = (column // tabsize + 1) * tabsize
                     elif c == '\f':
                         column = 0
-                    else:
-                        break
                     pos = pos + 1
+                # split the token in two: one for the newline and one for the 
+                output_tokens.append(Token("Newline", s[:start], token.source_pos))
                 if column > indentation_levels[-1]: # count indents or dedents
                     indentation_levels.append(column)
                     token.name = "Indent"
-                while column < indentation_levels[-1]:
-                    indentation_levels.pop()
-                    token.name = "Dedent"
-                output_tokens.append(token)
+                else:
+                    dedented = False
+                    while column < indentation_levels[-1]:
+                        dedented = True
+                        indentation_levels.pop()
+                    if dedented:
+                        token.name = "Dedent"
+                if token.name != "Newline":
+                    token.source = s[start:]
+                    token.source_pos.i += 1
+                    token.source_pos.lineno += 1
+                    token.source_pos.columnno = 0
+                    output_tokens.append(token)
             else:
                 pass # implicit line-continuations within parenthesis
         elif token.name == "Ignore":
@@ -223,9 +241,9 @@ b
         d
     e"""
     tokens = pythonlex(s)
-    assert [t.name for t in tokens] == ["Name", "Indent", "Name", "Indent",
-                                        "Name", "Indent", "Name", "Dedent",
-                                        "Name"]
+    assert [t.name for t in tokens] == ["Name", "Newline", "Name", "Newline",
+                                        "Indent", "Name", "Newline", "Indent",
+                                        "Name", "Newline", "Dedent", "Name"]
 
 def test_linecont():
     s = "a + \\\n     b"
@@ -237,3 +255,21 @@ def test_parenthesis():
     tokens = pythonlex(s)
     assert [t.name for t in tokens] == ["Operator", "Name", "Operator", "Name",
                                         "Operator"]
+
+def dont_test_self_full():
+    equivalents = {
+        "nl": "newline",
+        "comment": "newline",
+        "op": "operator",
+    }
+    import tokenize, token
+    s = py.magic.autopath().read()
+    tokens = pythonlex(s)
+    print [t.name for t in tokens][:20]
+    tokens2 = list(tokenize.generate_tokens(iter(s.splitlines(True)).next))
+    print [token.tok_name[t[0]] for t in tokens2][:20]
+    for i, (t1, t2) in enumerate(zip(tokens, tokens2)):
+        n1 = t1.name.lower()
+        n2 = token.tok_name[t2[0]].lower()
+        n2 = equivalents.get(n2, n2)
+        assert n1 == n2
