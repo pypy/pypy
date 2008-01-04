@@ -836,10 +836,6 @@ class ObjSpace(object):
         If w_exception is None, silently clamp in case of overflow;
         else raise w_exception.
         """
-        # shortcut for int objects
-        if self.is_w(self.type(w_obj), self.w_int):
-            return self.int_w(w_obj)
-
         try:
             w_index = self.index(w_obj)
         except OperationError, err:

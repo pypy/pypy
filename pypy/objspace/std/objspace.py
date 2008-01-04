@@ -621,6 +621,14 @@ class StdObjSpace(ObjSpace, DescrOperation):
         else:
             self.setitem(w_obj, w_key, w_value)
 
+    def getindex_w(self, w_obj, w_exception, objdescr=None):
+        # performance shortcut for W_IntObject
+        # XXX we should also have one for W_SmallIntObject, I guess
+        if type(w_obj) is W_IntObject:
+            return w_obj.intval
+        else:
+            return ObjSpace.getindex_w(self, w_obj, w_exception, objdescr)
+
     def call_method(self, w_obj, methname, *arg_w):
         if self.config.objspace.opcodes.CALL_METHOD:
             from pypy.objspace.std.callmethod import call_method_opt
