@@ -156,8 +156,7 @@ class AppTestZipimport:
         m0 ^= 0x04
         test_pyc = chr(m0) + self.test_pyc[1:]
         self.writefile(self, "uu.pyc", test_pyc)
-        raises(ImportError
-               "__import__('uu', globals(), locals(), [])")
+        raises(ImportError, "__import__('uu', globals(), locals(), [])")
         assert 'uu' not in sys.modules
 
     def test_force_py(self):
