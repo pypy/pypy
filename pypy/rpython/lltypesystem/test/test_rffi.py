@@ -389,6 +389,18 @@ class BaseTestRffi:
         fn = self.compile(f, [int])
         assert fn(13) == -1
 
+    def test_callback_already_llptr(self):
+        eating_callback = self.eating_callback()
+        def g(i):
+            return i + 3
+        G = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
+
+        def f():
+            return eating_callback(3, llhelper(G, g))
+
+        fn = self.compile(f, [])
+        assert fn() == 6
+
 class TestRffiInternals:
     def test_struct_create(self):
         X = CStruct('xx', ('one', INT))
