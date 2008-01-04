@@ -89,15 +89,14 @@ class DummyLexer(Lexer):
         self.ignore = ignore
         self.matcher = matcher
 
-class LexingDFARunner(deterministic.DFARunner):
+class AbstractLexingDFARunner(deterministic.DFARunner):
     i = 0
-    def __init__(self, matcher, automaton, text, ignore, eof=False):
+    def __init__(self, matcher, automaton, text, eof=False):
         self.automaton = automaton
         self.state = 0
         self.text = text
         self.last_matched_state = 0
         self.last_matched_index = -1
-        self.ignore = ignore
         self.eof = eof
         self.matcher = matcher
         self.lineno = 0
@@ -112,8 +111,7 @@ class LexingDFARunner(deterministic.DFARunner):
             if i == len(self.text):
                 if self.eof:
                     self.last_matched_index += 1
-                    return Token("EOF", "EOF",
-                                 SourcePos(i, self.lineno, self.columnno))
+                    return self.make_token(i, -1, "", eof=True)
                 else:
                     raise StopIteration
             if i >= len(self.text) + 1:
@@ -128,25 +126,22 @@ class LexingDFARunner(deterministic.DFARunner):
                 stop = self.last_matched_index + 1
                 assert stop >= 0
                 source = self.text[start: stop]
-                lineno, columnno = self.adjust_position(source)
-                if self.automaton.names[self.last_matched_state] in self.ignore:
+                result = self.make_token(start, self.last_matched_index, source)
+                self.adjust_position(source)
+                if self.ignore_token(self.last_matched_state):
                     continue
-                source_pos = SourcePos(start, lineno, columnno)
-                return Token(self.automaton.names[self.last_matched_state],
-                             source, source_pos)
+                return result
             if self.last_matched_index == i - 1:
-                token = self.text[start: ]
-                lineno, columnno = self.adjust_position(token)
-                if self.automaton.names[self.last_matched_state] in self.ignore:
+                source = self.text[start: ]
+                result = self.make_token(start, self.last_matched_index, source)
+                self.adjust_position(source)
+                if self.ignore_token(self.last_matched_state):
                     if self.eof:
                         self.last_matched_index += 1
-                        return Token("EOF", "EOF",
-                                     SourcePos(i, self.lineno, self.columnno))
+                        return self.make_token(i, -1, "", eof=True)
                     else:
                         raise StopIteration
-                return Token(self.automaton.names[self.last_matched_state],
-                             self.text[start:],
-                             SourcePos(start, lineno, columnno))
+                return result
             source_pos = SourcePos(i - 1, self.lineno, self.columnno)
             raise deterministic.LexerError(self.text, self.state, source_pos)
 
@@ -158,7 +153,6 @@ class LexingDFARunner(deterministic.DFARunner):
             self.columnno += len(token)
         else:
             self.columnno = token.rfind("\n")
-        return lineno, columnno
     
 #    def inner_loop(self, i):
 #        while i < len(self.text):
@@ -184,3 +178,17 @@ class LexingDFARunner(deterministic.DFARunner):
     def __iter__(self):
         return self
 
+class LexingDFARunner(AbstractLexingDFARunner):
+    def __init__(self, matcher, automaton, text, ignore, eof=False):
+        AbstractLexingDFARunner.__init__(self, matcher, automaton, text, eof)
+        self.ignore = ignore
+
+    def ignore_token(self, state):
+        return self.automaton.names[self.last_matched_state] in self.ignore
+
+    def make_token(self, index, state, text, eof=False):
+        source_pos = SourcePos(index, self.lineno, self.columnno)
+        if eof:
+            return Token("EOF", "EOF", source_pos)
+        return Token(self.automaton.names[self.last_matched_state],
+                     text, source_pos)
