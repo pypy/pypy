@@ -1003,11 +1003,6 @@ def equal_impls(space, impl1, impl2):
         i += 1
     return space.w_True
 
-def _min(a, b):
-    if a < b:
-        return a
-    return b
-
 def lessthan_impls(space, impl1, impl2):
     # needs to be safe against eq_w() mutating the w_lists behind our back
     # Search for the first index where items are different

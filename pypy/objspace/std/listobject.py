@@ -131,11 +131,6 @@ def equal_wrappeditems(space, items1_w, items2_w):
         i += 1
     return space.w_True
 
-def _min(a, b):
-    if a < b:
-        return a
-    return b
-
 def lessthan_unwrappeditems(space, items1_w, items2_w):
     # needs to be safe against eq_w() mutating the w_lists behind our back
     # Search for the first index where items are different
