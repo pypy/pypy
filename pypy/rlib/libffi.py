@@ -138,7 +138,7 @@ def dlopen(name):
         mode = RTLD_LOCAL | RTLD_NOW
     else:
         mode = RTLD_NOW
-    res = c_dlopen(name, mode)
+    res = c_dlopen(name, rffi.cast(rffi.INT, mode))
     if not res:
         raise OSError(-1, dlerror())
     return res
