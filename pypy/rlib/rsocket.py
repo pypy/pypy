@@ -1125,7 +1125,7 @@ def getaddrinfo(host, port_or_service,
     rffi.setintfield(hints, 'c_ai_flags'   , flags)
     # XXX need to lock around getaddrinfo() calls?
     p_res = lltype.malloc(rffi.CArray(_c.addrinfo_ptr), 1, flavor='raw')
-    error = _c.getaddrinfo(host, port_or_service, hints, p_res)
+    error = intmask(_c.getaddrinfo(host, port_or_service, hints, p_res))
     res = p_res[0]
     lltype.free(p_res, flavor='raw')
     lltype.free(hints, flavor='raw')
@@ -1177,9 +1177,9 @@ def getnameinfo(address, flags):
         serv = lltype.malloc(rffi.CCHARP.TO, NI_MAXSERV, flavor='raw')
         try:
             addr = address.lock()
-            error =_c.getnameinfo(addr, address.addrlen,
-                                  host, NI_MAXHOST,
-                                  serv, NI_MAXSERV, flags)
+            error = intmask(_c.getnameinfo(addr, address.addrlen,
+                                           host, NI_MAXHOST,
+                                           serv, NI_MAXSERV, flags))
             address.unlock()
             if error:
                 raise GAIError(error)
