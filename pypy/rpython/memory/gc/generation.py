@@ -374,6 +374,14 @@ class GenerationGC(SemiSpaceGC):
 
 # ____________________________________________________________
 
+def best_nursery_size_for_L2cache(L2cache):
+    if DEBUG_PRINT:
+        llop.debug_print(lltype.Void, "CCC  L2cache =", L2cache)
+    # Heuristically, the best nursery size to choose is almost as
+    # big as the L2 cache.  XXX adjust
+    return L2cache // 8 * 7
+
+
 if sys.platform == 'linux2':
     def estimate_best_nursery_size():
         """Try to estimate the best nursery size at run-time, depending
@@ -428,13 +436,9 @@ if sys.platform == 'linux2':
                     L2cache = number
 
         if L2cache < sys.maxint:
-            if DEBUG_PRINT:
-                llop.debug_print(lltype.Void, "CCC  L2cache =", L2cache)
-
-            # Heuristically, the best nursery size to choose is almost as
-            # big as the L2 cache.  XXX adjust
-            return L2cache // 8 * 7
+            return best_nursery_size_for_L2cache(L2cache)
         else:
+            # Print a warning even in non-debug builds
             llop.debug_print(lltype.Void,
                 "Warning: cannot find your CPU L2 cache size in /proc/cpuinfo")
             return -1
@@ -449,6 +453,48 @@ if sys.platform == 'linux2':
         while data[pos] in (' ', '\t'):
             pos += 1
         return pos
+
+elif sys.platform == 'darwin':
+    from pypy.rpython.lltypesystem import lltype, rffi
+
+    sysctlbyname = rffi.llexternal('sysctlbyname',
+                                   [rffi.CCHARP, rffi.VOIDP, rffi.SIZE_TP,
+                                    rffi.VOIDP, rffi.SIZE_T],
+                                   rffi.INT)
+
+    def estimate_best_nursery_size():
+        """Try to estimate the best nursery size at run-time, depending
+        on the machine we are running on.
+        """
+        L2cache = 0
+        l2cache_p = lltype.malloc(rffi.LONGLONGP.TO, 1, flavor='raw')
+        try:
+            len_p = lltype.malloc(rffi.SIZE_TP.TO, 1, flavor='raw')
+            try:
+                size = rffi.sizeof(rffi.LONGLONG)
+                l2cache_p[0] = rffi.cast(rffi.LONGLONG, 0)
+                len_p[0] = rffi.cast(rffi.SIZE_T, size)
+                result = sysctlbyname("hw.l2cachesize",
+                                      rffi.cast(rffi.VOIDP, l2cache_p),
+                                      len_p,
+                                      lltype.nullptr(rffi.VOIDP.TO), 
+                                      rffi.cast(rffi.SIZE_T, 0))
+                if (rffi.cast(lltype.Signed, result) == 0 and
+                    rffi.cast(lltype.Signed, len_p[0]) == size):
+                    L2cache = rffi.cast(lltype.Signed, l2cache_p[0])
+                    if rffi.cast(rffi.LONGLONG, L2cache) != l2cache_p[0]:
+                        L2cache = 0    # overflow!
+            finally:
+                lltype.free(len_p, flavor='raw')
+        finally:
+            lltype.free(l2cache_p, flavor='raw')
+        if L2cache > 0:
+            return best_nursery_size_for_L2cache(L2cache)
+        else:
+            # Print a warning even in non-debug builds
+            llop.debug_print(lltype.Void,
+                "Warning: cannot find your CPU L2 cache size with sysctl()")
+            return -1
 
 else:
     def estimate_best_nursery_size():
