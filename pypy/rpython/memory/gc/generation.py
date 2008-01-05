@@ -32,6 +32,8 @@ class GenerationGC(SemiSpaceGC):
 
     def __init__(self, AddressLinkedList,
                  nursery_size=128,
+                 min_nursery_size=128,
+                 auto_nursery_size=False,
                  space_size=4096,
                  max_space_size=sys.maxint//2+1,
                  get_roots=None):
@@ -39,8 +41,10 @@ class GenerationGC(SemiSpaceGC):
                              space_size = space_size,
                              max_space_size = max_space_size,
                              get_roots = get_roots)
-        self.nursery_size = nursery_size
-        assert nursery_size <= space_size // 2
+        assert min_nursery_size <= nursery_size <= space_size // 2
+        self.initial_nursery_size = nursery_size
+        self.auto_nursery_size = auto_nursery_size
+        self.min_nursery_size = min_nursery_size
 
     def setup(self):
         SemiSpaceGC.setup(self)
@@ -54,11 +58,48 @@ class GenerationGC(SemiSpaceGC):
         # reset to its correct value when GCFLAG_NO_YOUNG_PTRS is set
         # again at the start of a collection.
         self.young_objects_with_weakrefs = self.AddressLinkedList()
+        self.set_nursery_size(self.initial_nursery_size)
+        # the GC is fully setup now.  The rest can make use of it.
+        if self.auto_nursery_size:
+            newsize = estimate_best_nursery_size()
+            if newsize > 0:
+                self.set_nursery_size(newsize)
 
     def reset_nursery(self):
         self.nursery      = NULL
         self.nursery_top  = NULL
         self.nursery_free = NULL
+
+    def set_nursery_size(self, newsize):
+        if newsize < self.min_nursery_size:
+            newsize = self.min_nursery_size
+        if newsize > self.space_size // 2:
+            newsize = self.space_size // 2
+
+        # Compute the new bounds for how large young objects can be
+        # (larger objects are allocated directly old).   XXX adjust
+        self.nursery_size = newsize
+        self.largest_young_fixedsize = newsize // 2 - 1
+        self.largest_young_var_basesize = newsize // 4 - 1
+        scale = 0
+        while (self.min_nursery_size << (scale+1)) <= newsize:
+            scale += 1
+        self.nursery_scale = scale
+        if DEBUG_PRINT:
+            llop.debug_print(lltype.Void, "SSS  nursery_size =", newsize)
+            llop.debug_print(lltype.Void, "SSS  largest_young_fixedsize =",
+                             self.largest_young_fixedsize)
+            llop.debug_print(lltype.Void, "SSS  largest_young_var_basesize =",
+                             self.largest_young_var_basesize)
+            llop.debug_print(lltype.Void, "SSS  nursery_scale =", scale)
+        # we get the following invariant:
+        assert self.nursery_size >= (self.min_nursery_size << scale)
+
+        # Force a full collect to remove the current nursery whose size
+        # no longer matches the bounds that we just computed.  This must
+        # be done after changing the bounds, because it might re-create
+        # a new nursery (e.g. if it invokes finalizers).
+        self.semispace_collect()
 
     def is_in_nursery(self, addr):
         return self.nursery <= addr < self.nursery_top
@@ -66,7 +107,7 @@ class GenerationGC(SemiSpaceGC):
     def malloc_fixedsize_clear(self, typeid, size, can_collect,
                                has_finalizer=False, contains_weakptr=False):
         if (has_finalizer or not can_collect or
-            raw_malloc_usage(size) >= self.nursery_size // 2):
+            raw_malloc_usage(size) > self.largest_young_fixedsize):
             ll_assert(not contains_weakptr, "wrong case for mallocing weakref")
             # "non-simple" case or object too big: don't use the nursery
             return SemiSpaceGC.malloc_fixedsize_clear(self, typeid, size,
@@ -101,11 +142,27 @@ class GenerationGC(SemiSpaceGC):
     def malloc_varsize_clear(self, typeid, length, size, itemsize,
                              offset_to_length, can_collect,
                              has_finalizer=False):
-        # only use the nursery if there are not too many items
+        # Only use the nursery if there are not too many items.
+        if not raw_malloc_usage(itemsize):
+            too_many_items = False
+        else:
+            # The following line is usually constant-folded because both
+            # min_nursery_size and itemsize are constants (the latter
+            # due to inlining).
+            maxlength_for_minimal_nursery = (self.min_nursery_size // 4 //
+                                             raw_malloc_usage(itemsize))
+            
+            # The actual maximum length for our nursery depends on how
+            # many times our nursery is bigger than the minimal size.
+            # The computation is done in this roundabout way so that
+            # only the only remaining computation is the following
+            # shift.
+            maxlength = maxlength_for_minimal_nursery << self.nursery_scale
+            too_many_items = length > maxlength
+
         if (has_finalizer or not can_collect or
-            (raw_malloc_usage(itemsize) and
-             length > self.nursery_size // 4 // raw_malloc_usage(itemsize)) or
-            raw_malloc_usage(size) > self.nursery_size // 4):
+            too_many_items or
+            raw_malloc_usage(size) > self.largest_young_var_basesize):
             return SemiSpaceGC.malloc_varsize_clear(self, typeid, length, size,
                                                     itemsize, offset_to_length,
                                                     can_collect, has_finalizer)
@@ -314,3 +371,85 @@ class GenerationGC(SemiSpaceGC):
         if oldhdr.tid & GCFLAG_NO_HEAP_PTRS:
             self.move_to_static_roots(addr_struct)
     remember_young_pointer._dont_inline_ = True
+
+# ____________________________________________________________
+
+if sys.platform == 'linux2':
+    def estimate_best_nursery_size():
+        """Try to estimate the best nursery size at run-time, depending
+        on the machine we are running on.
+        """
+        import os
+        L2cache = sys.maxint
+        try:
+            fd = os.open('/proc/cpuinfo', os.O_RDONLY, 0644)
+            try:
+                data = []
+                while True:
+                    buf = os.read(fd, 4096)
+                    if not buf:
+                        break
+                    data.append(buf)
+            finally:
+                os.close(fd)
+        except OSError:
+            pass
+        else:
+            data = ''.join(data)
+            linepos = 0
+            while True:
+                start = findend(data, '\ncache size', linepos)
+                if start < 0:
+                    break    # done
+                linepos = findend(data, '\n', start)
+                if linepos < 0:
+                    break    # no end-of-line??
+                # *** data[start:linepos] == "   : 2048 KB\n"
+                start = skipspace(data, start)
+                if data[start] != ':':
+                    continue
+                # *** data[start:linepos] == ": 2048 KB\n"
+                start = skipspace(data, start + 1)
+                # *** data[start:linepos] == "2048 KB\n"
+                end = start
+                while '0' <= data[end] <= '9':
+                    end += 1
+                # *** data[start:end] == "2048"
+                if start == end:
+                    continue
+                number = int(data[start:end])
+                # *** data[end:linepos] == " KB\n"
+                end = skipspace(data, end)
+                if data[end] not in ('K', 'k'):    # assume kilobytes for now
+                    continue
+                number = number * 1024
+                # for now we look for the smallest of the L2 caches of the CPUs
+                if number < L2cache:
+                    L2cache = number
+
+        if L2cache < sys.maxint:
+            if DEBUG_PRINT:
+                llop.debug_print(lltype.Void, "CCC  L2cache =", L2cache)
+
+            # Heuristically, the best nursery size to choose is almost as
+            # big as the L2 cache.  XXX adjust
+            return L2cache // 8 * 7
+        else:
+            llop.debug_print(lltype.Void,
+                "Warning: cannot find your CPU L2 cache size in /proc/cpuinfo")
+            return -1
+
+    def findend(data, pattern, pos):
+        pos = data.find(pattern, pos)
+        if pos < 0:
+            return -1
+        return pos + len(pattern)
+
+    def skipspace(data, pos):
+        while data[pos] in (' ', '\t'):
+            pos += 1
+        return pos
+
+else:
+    def estimate_best_nursery_size():
+        return -1     # XXX implement me for other platforms

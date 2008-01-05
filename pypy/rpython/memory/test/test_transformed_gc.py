@@ -912,8 +912,13 @@ class TestGenerationalNoFullCollectGC(GCTest):
         class transformerclass(framework.FrameworkGCTransformer):
             from pypy.rpython.memory.gc.generation import GenerationGC
             class GCClass(GenerationGC):
+                __ready = False
+                def setup(self):
+                    from pypy.rpython.memory.gc.generation import GenerationGC
+                    GenerationGC.setup(self)
+                    self.__ready = True
                 def semispace_collect(self, size_changing=False):
-                    ll_assert(False,
+                    ll_assert(not self.__ready,
                               "no full collect should occur in this test")
             GC_PARAMS = {'space_size': 2048,
                          'nursery_size': 512}
