@@ -268,6 +268,7 @@ class RegisterOs(BaseLazyRegistering):
             else:
                 actime, modtime = tp
                 error = os_utime_platform(path, actime, modtime)
+            error = rffi.cast(lltype.Signed, error)
             if error == -1:
                 raise OSError(rposix.get_errno(), "os_utime failed")
         os_utime_llimpl._annspecialcase_ = 'specialize:argtype(1)'
@@ -595,7 +596,7 @@ class RegisterOs(BaseLazyRegistering):
                                     rffi.INT)
 
         def access_llimpl(path, mode):
-            error = os_access(path, mode)
+            error = rffi.cast(lltype.Signed, os_access(path, mode))
             return error == 0
 
         def os_access_oofakeimpl(path, mode):
@@ -842,13 +843,14 @@ class RegisterOs(BaseLazyRegistering):
 
             def os_pipe_llimpl():
                 filedes = lltype.malloc(INT_ARRAY_P.TO, 2, flavor='raw')
-                error = os_pipe(filedes)
+                error = rffi.cast(lltype.Signed, os_pipe(filedes))
                 read_fd = filedes[0]
                 write_fd = filedes[1]
                 lltype.free(filedes, flavor='raw')
                 if error != 0:
                     raise OSError(rposix.get_errno(), "os_pipe failed")
-                return (read_fd, write_fd)
+                return (rffi.cast(lltype.Signed, read_fd),
+                        rffi.cast(lltype.Signed, write_fd))
 
         return extdef([], (int, int),
                       "ll_os.ll_os_pipe",
@@ -867,7 +869,7 @@ class RegisterOs(BaseLazyRegistering):
                 l_path = rffi.str2charp(path)
                 buf = lltype.malloc(rffi.CCHARP.TO, bufsize,
                                     flavor='raw')
-                res = os_readlink(l_path, buf, bufsize)
+                res = rffi.cast(lltype.Signed, os_readlink(l_path, buf, bufsize))
                 lltype.free(l_path, flavor='raw')
                 if res < 0:
                     error = rposix.get_errno()    # failed
@@ -910,10 +912,11 @@ class RegisterOs(BaseLazyRegistering):
 
         def os_waitpid_llimpl(pid, options):
             status_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
-            status_p[0] = 0
+            status_p[0] = rffi.cast(rffi.INT, 0)
             result = os_waitpid(rffi.cast(rffi.PID_T, pid),
                                 status_p,
                                 rffi.cast(rffi.INT, options))
+            result = rffi.cast(lltype.Signed, result)
             status = status_p[0]
             lltype.free(status_p, flavor='raw')
             if result == -1:
@@ -955,7 +958,7 @@ class RegisterOs(BaseLazyRegistering):
 
         def system_llimpl(command):
             res = os_system(command)
-            return res
+            return rffi.cast(lltype.Signed, res)
 
         return extdef([str], int, llimpl=system_llimpl,
                       export_name="ll_os.ll_os_system")
@@ -965,7 +968,7 @@ class RegisterOs(BaseLazyRegistering):
         os_unlink = self.llexternal(underscore_on_windows+'unlink', [rffi.CCHARP], rffi.INT)
 
         def unlink_llimpl(pathname):
-            res = os_unlink(pathname)
+            res = rffi.cast(lltype.Signed, os_unlink(pathname))
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_unlink failed")
 
@@ -977,7 +980,7 @@ class RegisterOs(BaseLazyRegistering):
         os_chdir = self.llexternal(underscore_on_windows+'chdir', [rffi.CCHARP], rffi.INT)
 
         def chdir_llimpl(path):
-            res = os_chdir(path)
+            res = rffi.cast(lltype.Signed, os_chdir(path))
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_chdir failed")
 
@@ -999,6 +1002,7 @@ class RegisterOs(BaseLazyRegistering):
                 res = os_mkdir(pathname)
             else:
                 res = os_mkdir(pathname, mode)
+            res = rffi.cast(lltype.Signed, res)
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_mkdir failed")
 
@@ -1010,7 +1014,7 @@ class RegisterOs(BaseLazyRegistering):
         os_rmdir = self.llexternal(underscore_on_windows+'rmdir', [rffi.CCHARP], rffi.INT)
 
         def rmdir_llimpl(pathname):
-            res = os_rmdir(pathname)
+            res = rffi.cast(lltype.Signed, os_rmdir(pathname))
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_rmdir failed")
 
@@ -1023,7 +1027,7 @@ class RegisterOs(BaseLazyRegistering):
                                    rffi.INT)
 
         def chmod_llimpl(path, mode):
-            res = os_chmod(path, rffi.cast(rffi.MODE_T, mode))
+            res = rffi.cast(lltype.Signed, os_chmod(path, rffi.cast(rffi.MODE_T, mode)))
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_chmod failed")
 
@@ -1036,7 +1040,7 @@ class RegisterOs(BaseLazyRegistering):
                                     rffi.INT)
 
         def rename_llimpl(oldpath, newpath):
-            res = os_rename(oldpath, newpath)
+            res = rffi.cast(lltype.Signed, os_rename(oldpath, newpath))
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_rename failed")
 
@@ -1060,8 +1064,8 @@ class RegisterOs(BaseLazyRegistering):
                                   rffi.INT)
 
         def kill_llimpl(pid, sig):
-            res = os_kill(rffi.cast(rffi.PID_T, pid),
-                          rffi.cast(rffi.INT, sig))
+            res = rffi.cast(lltype.Signed, os_kill(rffi.cast(rffi.PID_T, pid),
+                                                   rffi.cast(rffi.INT, sig)))
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_kill failed")
 
@@ -1074,7 +1078,7 @@ class RegisterOs(BaseLazyRegistering):
                                   rffi.INT)
 
         def link_llimpl(oldpath, newpath):
-            res = os_link(oldpath, newpath)
+            res = rffi.cast(lltype.Signed, os_link(oldpath, newpath))
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_link failed")
 
@@ -1087,7 +1091,7 @@ class RegisterOs(BaseLazyRegistering):
                                      rffi.INT)
 
         def symlink_llimpl(oldpath, newpath):
-            res = os_symlink(oldpath, newpath)
+            res = rffi.cast(lltype.Signed, os_symlink(oldpath, newpath))
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_symlink failed")
 
@@ -1099,7 +1103,7 @@ class RegisterOs(BaseLazyRegistering):
         os_fork = self.llexternal('fork', [], rffi.PID_T)
 
         def fork_llimpl():
-            childpid = os_fork()
+            childpid = rffi.cast(lltype.Signed, os_fork())
             if childpid == -1:
                 raise OSError(rposix.get_errno(), "os_fork failed")
             return rffi.cast(lltype.Signed, childpid)

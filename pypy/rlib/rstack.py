@@ -41,7 +41,7 @@ stack_too_big = rffi.llexternal('LL_stack_too_big', [], rffi.INT,
                                 _callable=lambda: 0)
 
 def stack_check():
-    if stack_too_big():
+    if rffi.cast(lltype.Signed, stack_too_big()):
         # stack_unwind implementation is different depending on if stackless
         # is enabled. If it is it unwinds the stack, otherwise it simply
         # raises a RuntimeError.

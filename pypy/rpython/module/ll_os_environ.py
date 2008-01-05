@@ -82,7 +82,7 @@ os_putenv = rffi.llexternal('putenv', [rffi.CCHARP], rffi.INT)
 
 def putenv_llimpl(name, value):
     l_string = rffi.str2charp('%s=%s' % (name, value))
-    error = os_putenv(l_string)
+    error = rffi.cast(lltype.Signed, os_putenv(l_string))
     if error:
         rffi.free_charp(l_string)
         raise OSError(rposix.get_errno(), "os_putenv failed")
@@ -107,9 +107,12 @@ if hasattr(__import__(os.name), 'unsetenv'):
 
     if sys.platform.startswith('darwin'):
         RETTYPE = lltype.Void
+        os_unsetenv = rffi.llexternal('unsetenv', [rffi.CCHARP], RETTYPE)
     else:
         RETTYPE = rffi.INT
-    os_unsetenv = rffi.llexternal('unsetenv', [rffi.CCHARP], RETTYPE)
+        _os_unsetenv = rffi.llexternal('unsetenv', [rffi.CCHARP], RETTYPE)
+        def os_unsetenv(l_name):
+            return rffi.cast(lltype.Signed, _os_unsetenv(l_name))
 
     def unsetenv_llimpl(name):
         l_name = rffi.str2charp(name)
