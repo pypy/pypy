@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 """This script computes the relative performance between python
-implementations on a set of microbenchmarks. The script usally is started
-with "./microbench.py python ./pypy" where pypy is a symlink to you pypy exectable."""
+implementations on a set of microbenchmarks. The script usually is started
+with "./microbench.py python ./pypy" where pypy is a symlink to your pypy executable."""
 
 import os, time, sys
 
@@ -96,3 +96,4 @@ if __name__ == '__main__':
         
     if not executables:
         run(test_cases, fmt)
+
