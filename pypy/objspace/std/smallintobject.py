@@ -181,7 +181,7 @@ def divmod__SmallInt_SmallInt(space, w_int1, w_int2):
                                 space.wrap("integer modulo"))
     # no overflow possible
     m = x % y
-    return space.wrap((z,m))
+    return space.newtuple([space.wrap(z), space.wrap(m)])
 
 def div__SmallInt_SmallInt(space, w_int1, w_int2):
     return _floordiv(space, w_int1, w_int2)

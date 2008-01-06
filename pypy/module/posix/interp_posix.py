@@ -207,7 +207,11 @@ def times(space):
     except OSError, e:
         raise wrap_oserror(space, e)
     else:
-        return space.wrap(times)
+        return space.newtuple([space.wrap(times[0]),
+                               space.wrap(times[1]),
+                               space.wrap(times[2]),
+                               space.wrap(times[3]),
+                               space.wrap(times[4])])
 times.unwrap_spec = [ObjSpace]
 
 def system(space, cmd):

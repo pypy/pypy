@@ -52,6 +52,9 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
             typ = Wrappable
         else:
             assert not issubclass(typ, Wrappable)
+            assert typ != tuple, "space.wrap(tuple) forbidden; use newtuple()"
+            assert typ != list, "space.wrap(list) forbidden; use newlist()"
+            assert typ != dict, "space.wrap(dict) forbidden; use newdict()"
             if args_s[0].is_constant() and args_s[1].is_constant():
                 if typ in (str, bool, int, float):
                     space = args_s[0].const
