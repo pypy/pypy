@@ -184,7 +184,7 @@ class LexingDFARunner(AbstractLexingDFARunner):
         self.ignore = ignore
 
     def ignore_token(self, state):
-        return self.automaton.names[self.last_matched_state] in self.ignore
+        return self.automaton.names[state] in self.ignore
 
     def make_token(self, index, state, text, eof=False):
         source_pos = SourcePos(index, self.lineno, self.columnno)
