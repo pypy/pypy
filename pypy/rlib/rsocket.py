@@ -523,7 +523,7 @@ class RSocket(object):
     fd = _c.INVALID_SOCKET
     def __init__(self, family=AF_INET, type=SOCK_STREAM, proto=0):
         """Create a new socket."""
-        fd = _c.socket(family, type, proto)
+        fd = intmask(_c.socket(family, type, proto))
         if _c.invalid_socket(fd):
             raise self.error_handler()
         # PLAT RISCOS
