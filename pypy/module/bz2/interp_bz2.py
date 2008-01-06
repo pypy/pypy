@@ -8,6 +8,7 @@ from pypy.interpreter.typedef import interp_attrproperty
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped, interp2app, Arguments
 from pypy.rlib.streamio import Stream
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.rlib.rarithmetic import intmask
 import sys
 
 class CConfig:
@@ -417,7 +418,7 @@ class W_BZ2Compressor(Wrappable):
             raise OperationError(self.space.w_ValueError,
                 self.space.wrap("compresslevel must be between 1 and 9"))
 
-        bzerror = BZ2_bzCompressInit(self.bzs, compresslevel, 0, 0)
+        bzerror = intmask(BZ2_bzCompressInit(self.bzs, compresslevel, 0, 0))
         if bzerror != BZ_OK:
             _catch_bz2_error(self.space, bzerror)
         
