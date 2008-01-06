@@ -538,7 +538,7 @@ class RSocket(object):
 
     if hasattr(_c, 'fcntl'):
         def _setblocking(self, block):
-            delay_flag = _c.fcntl(self.fd, _c.F_GETFL, 0)
+            delay_flag = intmask(_c.fcntl(self.fd, _c.F_GETFL, 0))
             if block:
                 delay_flag &= ~_c.O_NONBLOCK
             else:
