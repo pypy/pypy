@@ -449,6 +449,28 @@ def try_show(obj):
     else:
         raise TypeError("try_show(%r object)" % (type(obj).__name__,))
 
+def try_get_functiongraph(obj):
+    if isinstance(obj, FunctionGraph):
+        obj.show()
+    elif isinstance(obj, Link):
+        try_show(obj.prevblock)
+    elif isinstance(obj, Block):
+        import gc
+        pending = [obj]   # pending blocks
+        seen = {obj: True, None: True}
+        for x in pending:
+            for y in gc.get_referrers(x):
+                if isinstance(y, FunctionGraph):
+                    return y
+                elif isinstance(y, Link):
+                    block = y.prevblock
+                    if block not in seen:
+                        pending.append(block)
+                        seen[block] = True
+        return pending
+    else:
+        raise TypeError("try_get_functiongraph(%r object)" % (type(obj).__name__,))    
+
 class IncompleteGraph:
     name = '(incomplete graph)'
     tag = None
