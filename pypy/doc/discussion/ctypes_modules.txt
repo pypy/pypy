@@ -15,3 +15,18 @@ Quick recap for module evaluation:
 
 6. does it depend on cpython c-api over ctypes?
 
+Pygame
+======
+
+1. yes, for various things, but basic functionality can be achieved without
+
+2. probably not
+
+3. not that I know of
+
+4. yes for tests, no for unittests
+
+5. numpy, but can live without, besides only C-level dependencies. On OS/X
+   it requires PyObjC.
+
+6. no
