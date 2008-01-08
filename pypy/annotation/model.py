@@ -114,7 +114,6 @@ class SomeObject:
 
     # for debugging, record where each instance comes from
     # this is disabled if DEBUG is set to False
-    _coming_from = {}
     def __new__(cls, *args, **kw):
         self = super(SomeObject, cls).__new__(cls, *args, **kw)
         if DEBUG:
@@ -124,20 +123,26 @@ class SomeObject:
             except AttributeError:
                 pass
             else:
-                SomeObject._coming_from[id(self)] = position_key, None
+                bookkeeper._someobject_coming_from[id(self)] = position_key, None
         return self
 
     def origin(self):
-        return SomeObject._coming_from.get(id(self), (None, None))[0]
-    def set_origin(self, nvalue):
-        SomeObject._coming_from[id(self)] = nvalue, self.caused_by_merge
-    origin = property(origin, set_origin)
-    del set_origin
+        bookkeeper = pypy.annotation.bookkeeper.getbookkeeper()
+        if bookkeeper is None:
+            return None
+        return bookkeeper._someobject_coming_from.get(id(self), (None, None))[0]
+    origin = property(origin)
 
     def caused_by_merge(self):
-        return SomeObject._coming_from.get(id(self), (None, None))[1]
+        bookkeeper = pypy.annotation.bookkeeper.getbookkeeper()
+        if bookkeeper is None:
+            return None
+        return bookkeeper._someobject_coming_from.get(id(self), (None, None))[1]
     def set_caused_by_merge(self, nvalue):
-        SomeObject._coming_from[id(self)] = self.origin, nvalue
+        bookkeeper = pypy.annotation.bookkeeper.getbookkeeper()
+        if bookkeeper is None:
+            return
+        bookkeeper._someobject_coming_from[id(self)] = self.origin, nvalue
     caused_by_merge = property(caused_by_merge, set_caused_by_merge)
     del set_caused_by_merge
 

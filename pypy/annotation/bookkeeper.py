@@ -179,6 +179,9 @@ class Bookkeeper:
 
         self.stats = Stats(self)
 
+        # used in SomeObject.__new__ for keeping debugging info
+        self._someobject_coming_from = {}
+
         delayed_imports()
 
     def count(self, category, *args):
