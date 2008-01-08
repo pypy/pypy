@@ -61,7 +61,9 @@ class GenerationGC(SemiSpaceGC):
         self.set_nursery_size(self.initial_nursery_size)
         # the GC is fully setup now.  The rest can make use of it.
         if self.auto_nursery_size:
-            newsize = estimate_best_nursery_size()
+            newsize = nursery_size_from_env()
+            if newsize <= 0:
+                newsize = estimate_best_nursery_size()
             if newsize > 0:
                 self.set_nursery_size(newsize)
 
@@ -374,6 +376,22 @@ class GenerationGC(SemiSpaceGC):
 
 # ____________________________________________________________
 
+import os
+
+def nursery_size_from_env():
+    value = os.environ.get('PYPY_GENERATIONGC_NURSERY')
+    if value:
+        if value[-1] in 'kK':
+            factor = 1024
+            value = value[:-1]
+        else:
+            factor = 1
+        try:
+            return int(value) * factor
+        except ValueError:
+            pass
+    return -1
+
 def best_nursery_size_for_L2cache(L2cache):
     if DEBUG_PRINT:
         llop.debug_print(lltype.Void, "CCC  L2cache =", L2cache)
@@ -387,7 +405,6 @@ if sys.platform == 'linux2':
         """Try to estimate the best nursery size at run-time, depending
         on the machine we are running on.
         """
-        import os
         L2cache = sys.maxint
         try:
             fd = os.open('/proc/cpuinfo', os.O_RDONLY, 0644)
