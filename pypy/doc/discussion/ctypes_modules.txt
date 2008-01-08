@@ -30,3 +30,19 @@ Pygame
    it requires PyObjC.
 
 6. no
+
+Sqlite
+======
+
+1. yes, but I think it's not necessary
+
+2. no
+
+3. no
+
+4. yes
+
+5. datetime
+
+6. it passes py_object around in few places, not sure why (probably as an
+   opaque argument).
