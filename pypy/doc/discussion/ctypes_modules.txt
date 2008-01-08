@@ -1,0 +1,17 @@
+Few words what we need for ctypes-based pygame and how feasible it is
+=====================================================================
+
+Quick recap for module evaluation:
+
+1. do we need callbacks?
+
+2. how sophisticated ctypes usage is (accessing of _objects?)
+
+3. any specific tricks
+
+4. does it has tests?
+
+5. dependencies
+
+6. does it depend on cpython c-api over ctypes?
+
