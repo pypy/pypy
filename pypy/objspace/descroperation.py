@@ -406,14 +406,36 @@ def _cmp(space, w_obj1, w_obj2):
         #print "WARNING, comparison by address!"
         w_id1 = space.id(w_obj1)
         w_id2 = space.id(w_obj2)
+        lt = space.is_true(space.lt(w_id1, w_id2))
     else:
-        #print "WARNING, comparison by address!"
-        w_id1 = space.id(w_typ1)
-        w_id2 = space.id(w_typ2)
-    if space.is_true(space.lt(w_id1, w_id2)):
+        #print "WARNING, comparison by type name!"
+
+        # the CPython rule is to compare type names; numbers are
+        # smaller.  So we compare the types by the following key:
+        #   (not_a_number_flag, type_name, type_id)
+        num1 = number_check(space, w_obj1)
+        num2 = number_check(space, w_obj2)
+        if num1 != num2:
+            lt = num1      # if obj1 is a number, it is Lower Than obj2
+        else:
+            name1 = w_typ1.getname(space, "")
+            name2 = w_typ2.getname(space, "")
+            if name1 != name2:
+                lt = name1 < name2
+            else:
+                w_id1 = space.id(w_typ1)
+                w_id2 = space.id(w_typ2)
+                lt = space.is_true(space.lt(w_id1, w_id2))
+    if lt:
         return space.wrap(-1)
     else:
         return space.wrap(1)
+
+def number_check(space, w_obj):
+    # avoid this as much as possible.  It checks if w_obj "looks like"
+    # it might be a number-ish thing.
+    return (space.lookup(w_obj, '__int__') is not None or
+            space.lookup(w_obj, '__float__') is not None)
 
 # regular methods def helpers
 
