@@ -79,7 +79,8 @@ def test_samples():
             if fname in SKIP_ALWAYS:
                 continue
             if GRAMMAR_MISMATCH and fname in SKIP_IF_NOT_NATIVE:
-                print "Skipping", fname
+                yield lambda: py.test.skip(
+                    "Grammar mismatch and %s is not native" % (fname,))
                 continue
             abspath = osp.join(samples_dir, fname)
             yield check_parse, abspath
