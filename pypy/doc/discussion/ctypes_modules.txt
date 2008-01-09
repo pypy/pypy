@@ -9,7 +9,7 @@ Quick recap for module evaluation:
 
 3. any specific tricks
 
-4. does it has tests?
+4. does it have tests?
 
 5. dependencies
 
