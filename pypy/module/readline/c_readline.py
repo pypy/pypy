@@ -4,12 +4,30 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace, interp2app
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
-# at least on Gentoo Linux, readline.h doesn't compile if stdio.h is not
-# included before
-eci = ExternalCompilationInfo(
-    includes = ["stdio.h", "readline/readline.h", "readline/history.h"],
-    libraries = ['readline']
-)
+# On various platforms, linking only with libreadline is not enough;
+# we also need to link with some variant of curses or libtermcap.
+# We follow the logic of CPython below.
+def try_with_lib(extralibs, **kwds):
+    # at least on Gentoo Linux, readline.h doesn't compile if stdio.h is not
+    # included before
+    eci = ExternalCompilationInfo(
+        includes = ["stdio.h", "readline/readline.h", "readline/history.h"],
+        libraries = extralibs + ['readline'],
+        )
+    if platform.check_eci(eci):
+        return eci
+    else:
+        return None
+
+eci = (try_with_lib([]) or
+       try_with_lib(['ncursesw']) or
+       try_with_lib(['ncurses']) or
+       try_with_lib(['curses']) or
+       try_with_lib(['termcap'], library_dirs=['/usr/lib/termcap']))
+if eci is None:
+    raise Exception("cannot find how to link to the readline library")
+
+# ____________________________________________________________
 
 def external(name, args, result):
     return rffi.llexternal(name, args, result, compilation_info=eci)
