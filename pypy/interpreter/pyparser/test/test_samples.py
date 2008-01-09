@@ -3,7 +3,7 @@ import os, os.path as osp
 from symbol import sym_name
 from pprint import pprint
 
-import py.test
+import py
 
 from pypy.interpreter.pyparser.pythonutil import python_parsefile, \
     pypy_parsefile, pypy_parse, python_parse, get_grammar_file, PYTHON_VERSION
@@ -69,21 +69,18 @@ def assert_tuples_equal(tup1, tup2, curpos = ()):
                                  (curpos, name(elt1), name(elt2) ), curpos)
 
 def test_samples():
-    samples_dir = osp.join(osp.dirname(__file__), 'samples')
-    # samples_dir = osp.dirname(os.__file__)
+    samples_dir = py.magic.autopath().dirpath("samples") 
     for use_lookahead in (True, False):
         grammar.USE_LOOKAHEAD = use_lookahead
-        for fname in os.listdir(samples_dir):
-            if not fname.endswith('.py'):
-                continue
+        for path in samples_dir.listdir("*.py"): 
+            fname = path.basename 
             if fname in SKIP_ALWAYS:
                 continue
             if GRAMMAR_MISMATCH and fname in SKIP_IF_NOT_NATIVE:
                 yield lambda: py.test.skip(
                     "Grammar mismatch and %s is not native" % (fname,))
                 continue
-            abspath = osp.join(samples_dir, fname)
-            yield check_parse, abspath
+            yield check_parse, str(path)
 
 def DISABLED_check_tuples_equality(pypy_tuples, python_tuples, testname):
     """XXX FIXME: refactor with assert_tuples_equal()"""
