@@ -161,6 +161,30 @@ class CBuilder(object):
         return db
 
 
+class ModuleWithCleanup(object):
+    def __init__(self, mod):
+        self.__dict__['mod'] = mod
+
+    def __getattr__(self, name):
+        mod = self.__dict__['mod']
+        return getattr(mod, name)
+
+    def __setattr__(self, name, val):
+        mod = self.__dict__['mod']
+        setattr(mod, name, val)
+
+    def __del__(self):
+        import sys
+        from _ctypes import dlclose
+        # XXX fish fish fish
+        mod = self.__dict__['mod']
+        dlclose(mod._lib._handle)
+        try:
+            del sys.modules[mod.__name__]
+        except KeyError:
+            pass
+
+
 class CExtModuleBuilder(CBuilder):
     standalone = False
     _module = None
@@ -224,7 +248,7 @@ _rpython_startup()
         assert not self._module
         self._make_wrapper_module()
         if not isolated:
-            mod = self._module_path.pyimport()
+            mod = ModuleWithCleanup(self._module_path.pyimport())
         else:
             mod = isolate.Isolate((str(self._module_path.dirpath()),
                                    self._module_path.purebasename))
