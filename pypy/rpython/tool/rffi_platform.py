@@ -48,6 +48,13 @@ def has(name, c_header_source):
         HAS = Has(name)
     return configure(CConfig)['HAS']
 
+def check_eci(eci):
+    """Check if a given ExternalCompilationInfo compiles and links."""
+    class CConfig:
+        _compilation_info_ = eci
+        WORKS = Works()
+    return configure(CConfig)['WORKS']
+
 def sizeof(name, eci, **kwds):
     class CConfig:
         _compilation_info_ = eci
@@ -420,6 +427,10 @@ class Has(CConfigSingleEntry):
     
     def question(self, ask_gcc):
         return ask_gcc(self.name + ';')
+
+class Works(CConfigSingleEntry):
+    def question(self, ask_gcc):
+        return ask_gcc("")
 
 class SizeOf(CConfigEntry):
     """An entry in a CConfig class that stands for
