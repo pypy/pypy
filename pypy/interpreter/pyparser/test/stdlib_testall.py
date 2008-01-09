@@ -1,4 +1,4 @@
-import autopath
+import pypy 
 import py
 from test_astcompiler import compile_with_astcompiler
 
@@ -9,14 +9,13 @@ def setup_module(mod):
     import pypy.conftest
     mod.std_space = pypy.conftest.gettestobjspace('std')
 
-def check_file_compile(filename):
-    print 'Compiling:', filename
-    source = open(filename).read()
+def check_file_compile(filepath):
+    print 'Compiling:', filepath 
+    source = filepath.read() 
     #check_compile(source, 'exec', quiet=True, space=std_space)
-    compile_with_astcompiler(source, target='exec', space=std_space)
+    compile_with_astcompiler(source, mode='exec', space=std_space)
 
 def test_all():
-    p = py.path.local(autopath.pypydir).dirpath().join('lib-python', '2.4.1')
-    for s in p.listdir():
-        if s.check(ext='.py'):
-            yield check_file_compile, str(s)
+    p = py.path.local(pypy.__file__).dirpath().dirpath('lib-python', '2.4.1')
+    for s in p.listdir("*.py"): 
+        yield check_file_compile, s 
