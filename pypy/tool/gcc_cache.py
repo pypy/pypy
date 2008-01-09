@@ -6,31 +6,34 @@ import py
 import distutils
 import distutils.errors
 
-py.path.local(pypydir).join('_cache').ensure(dir=1)
-cache_dir = py.path.local(pypydir).join('_cache', 'gcc')
-cache_dir.ensure(dir=1)
+cache_dir_root = py.path.local(pypydir).join('_cache').ensure(dir=1)
 
-def build_executable_cache(c_files, *args, **kwds):
-    s = "\n\n".join([c_file.read() for c_file in c_files])
-    hash = md5.md5(s).hexdigest()
+def cache_file_path(c_files, eci, cachename):
+    cache_dir = cache_dir_root.join(cachename).ensure(dir=1)
+    filecontents = [c_file.read() for c_file in c_files]
+    key = repr((filecontents, eci))
+    hash = md5.md5(key).hexdigest()
+    return cache_dir.join(hash)
+
+def build_executable_cache(c_files, eci):
+    path = cache_file_path(c_files, eci, 'build_executable_cache')
     try:
-        return cache_dir.join(hash).read()
+        return path.read()
     except py.error.Error:
-        result = py.process.cmdexec(build_executable(c_files, *args, **kwds))
-        cache_dir.join(hash).write(result)
+        result = py.process.cmdexec(build_executable(c_files, eci))
+        path.write(result)
         return result
 
-def try_compile_cache(c_files, *args, **kwds):
-    s = "\n\n".join([c_file.read() for c_file in c_files])
-    hash = md5.md5(s).hexdigest()
+def try_compile_cache(c_files, eci):
+    path = cache_file_path(c_files, eci, 'try_compile_cache')
     try:
-        return eval(cache_dir.join(hash).read())
+        return eval(path.read())
     except py.error.Error:
         try:
-            build_executable(c_files, *args, **kwds)
+            build_executable(c_files, eci)
             result = True
         except (distutils.errors.CompileError,
                 distutils.errors.LinkError):
             result = False
-        cache_dir.join(hash).write(repr(result))
-        return bool(result)
+        path.write(repr(result))
+        return result
