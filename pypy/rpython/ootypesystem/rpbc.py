@@ -67,7 +67,7 @@ class MethodImplementations(object):
         samplemdesc = methdescs.iterkeys().next()
         concretetable, uniquerows = get_concrete_calltable(rtyper,
                                              samplemdesc.funcdesc.getcallfamily())
-        self.row_mapping = {} 
+        self.row_mapping = {}
         for row in uniquerows:
             sample_as_static_meth = row.itervalues().next()
             SM = ootype.typeOf(sample_as_static_meth)
@@ -95,8 +95,12 @@ class MethodImplementations(object):
             if methdesc is None:
                 m = ootype.meth(M, _name=name, abstract=True, **flags)
             else:
-                impl_graph = row[methdesc.funcdesc].graph
-                m = ootype.meth(M, _name=name, graph=impl_graph, **flags)
+                try:
+                    impl_graph = row[methdesc.funcdesc].graph
+                except KeyError:
+                    m = ootype.meth(M, _name=name, abstract=True, **flags) # XXX ???
+                else:
+                    m = ootype.meth(M, _name=name, graph=impl_graph, **flags)
             derived_name = row_method_name(name, rowname)
             impls[derived_name] = m
         return impls

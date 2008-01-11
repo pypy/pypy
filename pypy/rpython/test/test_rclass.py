@@ -593,22 +593,23 @@ class BaseTestRclass(BaseRtypingTest):
         assert res == -7
 
     def test_specialize_methods(self):
-        self._skip_llinterpreter("ootype bug :-(", skipLL=False)
         from pypy.rlib.objectmodel import specialize
         class A:
             @specialize.arg(1)
             def revealconst(self, T):
-                return 1
+                return 3 * T
+            revealconst.cls = 'A'
         class B(A):
             @specialize.arg(1)
             def revealconst(self, T):
-                return 2
+                return 4 * T
+            revealconst.cls = 'B'
 
         def fn():
             a = A()
             b = B()
-            return a.revealconst('a') + b.revealconst('b') + a.revealconst('c')
-        assert self.interpret(fn, []) == 4
+            return a.revealconst(1) + b.revealconst(2) + a.revealconst(3)
+        assert self.interpret(fn, []) == 3 + 8 + 9
 
 
 class TestLltype(BaseTestRclass, LLRtypeMixin):
