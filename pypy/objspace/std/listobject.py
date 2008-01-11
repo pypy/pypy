@@ -23,6 +23,9 @@ class W_ListObject(W_Object):
         items = [space.unwrap(w_item) for w_item in w_list.wrappeditems]# XXX generic mixed types unwrap
         return list(items)
 
+    def append(w_list, w_item):
+        w_list.wrappeditems.append(w_item)
+
 
 registerimplementation(W_ListObject)
 

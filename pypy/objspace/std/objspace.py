@@ -103,6 +103,14 @@ class StdObjSpace(ObjSpace, DescrOperation):
                         w_result = f.space.getitem(w_1, w_2)
                     f.pushvalue(w_result)
 
+            def LIST_APPEND(f, *ignored):
+                w = f.popvalue()
+                v = f.popvalue()
+                if type(v) is W_ListObject:
+                    v.append(w)
+                else:
+                    f.space.call_method(v, 'append', w)
+
             if self.config.objspace.opcodes.CALL_LIKELY_BUILTIN:
                 def CALL_LIKELY_BUILTIN(f, oparg, *ignored):
                     from pypy.module.__builtin__ import OPTIMIZED_BUILTINS, Module
