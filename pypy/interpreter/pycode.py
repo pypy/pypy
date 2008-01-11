@@ -4,7 +4,7 @@ PyCode instances have the same co_xxx arguments as CPython code objects.
 The bytecode interpreter itself is implemented by the PyFrame class.
 """
 
-import dis, imp, struct, types
+import dis, imp, struct, types, new
 
 from pypy.interpreter import eval
 from pypy.interpreter.error import OperationError
@@ -77,7 +77,6 @@ class PyCode(eval.Code):
         self.co_lnotab = lnotab
         self.hidden_applevel = hidden_applevel
         self.magic = magic
-        self._compute_fastcall()
         self._signature = cpython_code_signature(self)
         # Precompute what arguments need to be copied into cellvars
         self._args_as_cellvars = []
@@ -89,21 +88,27 @@ class PyCode(eval.Code):
                 argcount += 1
             if self.co_flags & CO_VARKEYWORDS:
                 argcount += 1
-            # the first few cell vars could shadow already-set arguments,
-            # in the same order as they appear in co_varnames
+            # Cell vars could shadow already-set arguments.
+            # astcompiler.pyassem used to be clever about the order of
+            # the variables in both co_varnames and co_cellvars, but
+            # it no longer is for the sake of simplicity.  Moreover
+            # code objects loaded from CPython don't necessarily follow
+            # an order, which could lead to strange bugs if .pyc files
+            # produced by CPython are loaded by PyPy.  Note that CPython
+            # contains the following bad-looking nested loops at *every*
+            # function call!
             argvars  = self.co_varnames
             cellvars = self.co_cellvars
-            next     = 0
-            nextname = cellvars[0]
-            for i in range(argcount):
-                if argvars[i] == nextname:
-                    # argument i has the same name as the next cell var
-                    self._args_as_cellvars.append(i)
-                    next += 1
-                    try:
-                        nextname = cellvars[next]
-                    except IndexError:
-                        break   # all cell vars initialized this way
+            for i in range(len(cellvars)):
+                cellname = cellvars[i]
+                for j in range(argcount):
+                    if cellname == argvars[j]:
+                        # argument j has the same name as the cell var i
+                        while len(self._args_as_cellvars) <= i:
+                            self._args_as_cellvars.append(-1)   # pad
+                        self._args_as_cellvars[i] = j
+
+        self._compute_fastcall()
 
     co_names = property(lambda self: [self.space.unwrap(w_name) for w_name in self.co_names_w]) # for trace
 
@@ -162,11 +167,8 @@ class PyCode(eval.Code):
             return
         if self.co_flags & (CO_VARARGS | CO_VARKEYWORDS):
             return
-        if self.co_cellvars:
-            first_cellvar = self.co_cellvars[0]
-            for i in range(self.co_argcount):
-                if first_cellvar == self.co_varnames[i]:
-                    return
+        if len(self._args_as_cellvars) > 0:
+            return
 
         self.do_fastcall = self.co_argcount
 
@@ -239,6 +241,34 @@ class PyCode(eval.Code):
         (for FlowObjSpace)"""
         # first approximation
         return dis.findlabels(self.co_code)
+
+    def _to_code(self):
+        """For debugging only."""
+        consts = []
+        for w in self.co_consts_w:
+            if isinstance(w, PyCode):
+                consts.append(w._to_code())
+            else:
+                consts.append(self.space.unwrap(w))
+        return new.code( self.co_argcount,
+                         self.co_nlocals,
+                         self.co_stacksize,
+                         self.co_flags,
+                         self.co_code,
+                         tuple(consts),
+                         tuple(self.co_names),
+                         tuple(self.co_varnames),
+                         self.co_filename,
+                         self.co_name,
+                         self.co_firstlineno,
+                         self.co_lnotab,
+                         tuple(self.co_freevars),
+                         tuple(self.co_cellvars) )
+
+    def dump(self):
+        """A dis.dis() dump of the code object."""
+        co = self._to_code()
+        dis.dis(co)
 
     def fget_co_consts(space, self):
         return space.newtuple(self.co_consts_w)

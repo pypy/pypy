@@ -127,7 +127,9 @@ flatten_nodes(Compare.ops):
         nodelist.append(node)
 
 mutate(Compare.ops):
-    self.ops[:] = [(op_name, node.mutate(visitor)) for (op_name, node) in self.ops]
+    for i in range(len(self.ops)):
+        op_name, node = self.ops[i]
+        self.ops[i] = op_name, node.mutate(visitor)
 
 flatten_nodes(TryExcept.handlers):
     # handlers is a list of triplets (expr1, expr2, body)
@@ -140,15 +142,15 @@ flatten_nodes(TryExcept.handlers):
             nodelist.append(body)
 
 mutate(TryExcept.handlers):
-    newhandlers = []
-    for expr1, expr2, body in self.handlers:
+    for i in range(len(self.handlers)):
+        expr1, expr2, body = self.handlers[i]
         if expr1 is not None:
-            newhandlers.append(expr1.mutate(visitor))
+            expr1 = expr1.mutate(visitor)
         if expr2 is not None:
-            newhandlers.append(expr2.mutate(visitor))
+            expr2 = expr2.mutate(visitor)
         if body is not None:
-            newhandlers.append(body.mutate(visitor))
-    self.handlers[:] = newhandlers
+            body = body.mutate(visitor)
+        self.handlers[i] = expr1, expr2, body
 
 flatten_nodes(Dict.items):
     # items is a list of couples (node (key), node (value))
@@ -157,7 +159,9 @@ flatten_nodes(Dict.items):
         nodelist.append(value)
 
 mutate(Dict.items):
-    self.items[:] = [(n.mutate(visitor), o.mutate(visitor)) for (n, o) in self.items]
+    for i in range(len(self.items)):
+        n, o = self.items[i]
+        self.items[i] = n.mutate(visitor), o.mutate(visitor)
 
 flatten_nodes(If.tests):
     # tests is a list of couples (node (test), node (suite))
@@ -166,7 +170,9 @@ flatten_nodes(If.tests):
         nodelist.append(suite)
 
 mutate(If.tests):
-    self.tests[:] = [(n.mutate(visitor), o.mutate(visitor)) for (n, o) in self.tests]
+    for i in range(len(self.tests)):
+        n, o = self.tests[i]
+        self.tests[i] = n.mutate(visitor), o.mutate(visitor)
 
 AssTuple.getArgNames(self):
     argnames = []

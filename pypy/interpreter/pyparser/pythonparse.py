@@ -174,21 +174,3 @@ def translation_target(grammardef):
     parser.build_first_sets()
     parser.keywords = builder.keywords
     return 0
-
-
-## XXX BROKEN
-## def parse_grammar(space, w_src):
-##     """Loads the grammar using the 'dynamic' rpython parser"""
-##     src = space.str_w( w_src )
-##     ebnfbuilder = ebnfparse.parse_grammar_text( src )
-##     ebnfbuilder.resolve_rules()
-##     grammar.build_first_sets(ebnfbuilder.all_rules)
-##     return space.wrap( ebnfbuilder.root_rules )
-
-# XXX Unused?
-def grammar_rules( space ):
-    w_rules = space.newdict()
-    parser = make_pyparser(space.config.objspace.pyversion)
-    for key, value in parser.rules.iteritems():
-        space.setitem(w_rules, space.wrap(key), space.wrap(value))
-    return w_rules

@@ -154,15 +154,8 @@ def generate_tokens( parser, lines, flags, keywords):
                 pos = pos + 1
             if pos == max: break
 
-            if line[pos] in '#\r\n':           # skip comments or blank lines
-                if line[pos] == '#':
-                    tok = Token(parser, parser.tokens['COMMENT'], line[pos:])
-                    last_comment = line[pos:]
-                else:
-                    tok = Token(parser, parser.tokens['NL'], line[pos:])
-                    last_comment = ''
-                # XXX Skip NL and COMMENT Tokens
-                # token_list.append((tok, line, lnum, pos))
+            if line[pos] in '#\r\n':
+                # skip comments or blank lines
                 continue
 
             if column > indents[-1]:           # count indents or dedents
@@ -203,21 +196,15 @@ def generate_tokens( parser, lines, flags, keywords):
                     token_list.append((tok, line, lnum, pos))
                     last_comment = ''
                 elif initial in '\r\n':
-                    if parenlev > 0:
-                        tok = Token(parser, parser.tokens['NL'], token)
-                        last_comment = ''
-                        # XXX Skip NL
-                    else:
+                    if parenlev <= 0:
                         tok = Token(parser, parser.tokens['NEWLINE'], token)
                         # XXX YUCK !
                         tok.value = last_comment
                         token_list.append((tok, line, lnum, pos))
-                        last_comment = ''
+                    last_comment = ''
                 elif initial == '#':
-                    tok = Token(parser, parser.tokens['COMMENT'], token)
+                    # skip comment
                     last_comment = token
-                    # XXX Skip # token_list.append((tok, line, lnum, pos))
-                    # token_list.append((COMMENT, token, spos, epos, line))
                 elif token in triple_quoted:
                     endDFA = endDFAs[token]
                     endmatch = endDFA.recognize(line, pos)

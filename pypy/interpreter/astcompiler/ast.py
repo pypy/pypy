@@ -45,7 +45,7 @@ class Node(Wrappable):
     def accept(self, visitor):
         raise NotImplementedError
     def mutate(self, visitor):
-        return visitor.visitNode(self)
+        raise NotImplementedError
     def flatten(self):
         res = []
         nodes = self.getChildNodes()
@@ -364,12 +364,7 @@ class And(AbstractTest):
         return visitor.visitAnd(self)
 
     def mutate(self, visitor):
-        newlist = []
-        for n in self.nodes:
-            item = n.mutate(visitor)
-            if item is not None:
-                newlist.append(item)
-        self.nodes[:] = newlist
+        visitor._mutate_list(self.nodes)
         return visitor.visitAnd(self)
 
     def fget_nodes( space, self):
@@ -550,12 +545,7 @@ class AssList(AssSeq):
         return visitor.visitAssList(self)
 
     def mutate(self, visitor):
-        newlist = []
-        for n in self.nodes:
-            item = n.mutate(visitor)
-            if item is not None:
-                newlist.append(item)
-        self.nodes[:] = newlist
+        visitor._mutate_list(self.nodes)
         return visitor.visitAssList(self)
 
     def fget_nodes( space, self):
@@ -697,12 +687,7 @@ class AssTuple(AssSeq):
         return visitor.visitAssTuple(self)
 
     def mutate(self, visitor):
-        newlist = []
-        for n in self.nodes:
-            item = n.mutate(visitor)
-            if item is not None:
-                newlist.append(item)
-        self.nodes[:] = newlist
+        visitor._mutate_list(self.nodes)
         return visitor.visitAssTuple(self)
 
     def fget_nodes( space, self):
@@ -859,12 +844,7 @@ class Assign(Node):
         return visitor.visitAssign(self)
 
     def mutate(self, visitor):
-        newlist = []
-        for n in self.nodes:
-            item = n.mutate(visitor)
-            if item is not None:
-                newlist.append(item)
-        self.nodes[:] = newlist
+        visitor._mutate_list(self.nodes)
         self.expr = self.expr.mutate(visitor)
         return visitor.visitAssign(self)
 
@@ -1156,12 +1136,7 @@ class Bitand(BitOp):
         return visitor.visitBitand(self)
 
     def mutate(self, visitor):
-        newlist = []
-        for n in self.nodes:
-            item = n.mutate(visitor)
-            if item is not None:
-                newlist.append(item)
-        self.nodes[:] = newlist
+        visitor._mutate_list(self.nodes)
         return visitor.visitBitand(self)
 
     def fget_nodes( space, self):
@@ -1234,12 +1209,7 @@ class Bitor(BitOp):
         return visitor.visitBitor(self)
 
     def mutate(self, visitor):
-        newlist = []
-        for n in self.nodes:
-            item = n.mutate(visitor)
-            if item is not None:
-                newlist.append(item)
-        self.nodes[:] = newlist
+        visitor._mutate_list(self.nodes)
         return visitor.visitBitor(self)
 
     def fget_nodes( space, self):
@@ -1312,12 +1282,7 @@ class Bitxor(BitOp):
         return visitor.visitBitxor(self)
 
     def mutate(self, visitor):
-        newlist = []
-        for n in self.nodes:
-            item = n.mutate(visitor)
-            if item is not None:
-                newlist.append(item)
-        self.nodes[:] = newlist
+        visitor._mutate_list(self.nodes)
         return visitor.visitBitxor(self)
 
     def fget_nodes( space, self):
@@ -1443,12 +1408,7 @@ class CallFunc(Node):
 
     def mutate(self, visitor):
         self.node = self.node.mutate(visitor)
-        newlist = []
-        for n in self.args:
-            item = n.mutate(visitor)
-            if item is not None:
-                newlist.append(item)
-        self.args[:] = newlist
+        visitor._mutate_list(self.args)
         if self.star_args is not None:
             self.star_args = self.star_args.mutate(visitor)
         if self.dstar_args is not None:
@@ -1567,12 +1527,7 @@ class Class(Node):
         return visitor.visitClass(self)
 
     def mutate(self, visitor):
-        newlist = []
-        for n in self.bases:
-            item = n.mutate(visitor)
-            if item is not None:
-                newlist.append(item)
-        self.bases[:] = newlist
+        visitor._mutate_list(self.bases)
         self.code = self.code.mutate(visitor)
         return visitor.visitClass(self)
 
@@ -1688,7 +1643,11 @@ class Compare(Node):
 
     def mutate(self, visitor):
         self.expr = self.expr.mutate(visitor)
-        self.ops[:] = [(op_name, node.mutate(visitor)) for (op_name, node) in self.ops]
+        for i in range(len(self.ops)):
+
+            op_name, node = self.ops[i]
+
+            self.ops[i] = op_name, node.mutate(visitor)
 
         return visitor.visitCompare(self)
 
@@ -1934,12 +1893,7 @@ class Decorators(Node):
         return visitor.visitDecorators(self)
 
     def mutate(self, visitor):
-        newlist = []
-        for n in self.nodes:
-            item = n.mutate(visitor)
-            if item is not None:
-                newlist.append(item)
-        self.nodes[:] = newlist
+        visitor._mutate_list(self.nodes)
         return visitor.visitDecorators(self)
 
     def fget_nodes( space, self):
@@ -2032,7 +1986,11 @@ class Dict(Node):
         return visitor.visitDict(self)
 
     def mutate(self, visitor):
-        self.items[:] = [(n.mutate(visitor), o.mutate(visitor)) for (n, o) in self.items]
+        for i in range(len(self.items)):
+
+            n, o = self.items[i]
+
+            self.items[i] = n.mutate(visitor), o.mutate(visitor)
 
         return visitor.visitDict(self)
 
@@ -2645,18 +2603,8 @@ class Function(AbstractFunction):
     def mutate(self, visitor):
         if self.decorators is not None:
             self.decorators = self.decorators.mutate(visitor)
-        newlist = []
-        for n in self.argnames:
-            item = n.mutate(visitor)
-            if item is not None:
-                newlist.append(item)
-        self.argnames[:] = newlist
-        newlist = []
-        for n in self.defaults:
-            item = n.mutate(visitor)
-            if item is not None:
-                newlist.append(item)
-        self.defaults[:] = newlist
+        visitor._mutate_list(self.argnames)
+        visitor._mutate_list(self.defaults)
         self.code = self.code.mutate(visitor)
         return visitor.visitFunction(self)
 
@@ -2865,12 +2813,7 @@ class GenExprFor(Node):
     def mutate(self, visitor):
         self.assign = self.assign.mutate(visitor)
         self.iter = self.iter.mutate(visitor)
-        newlist = []
-        for n in self.ifs:
-            item = n.mutate(visitor)
-            if item is not None:
-                newlist.append(item)
-        self.ifs[:] = newlist
+        visitor._mutate_list(self.ifs)
         return visitor.visitGenExprFor(self)
 
     def fget_assign( space, self):
@@ -3015,12 +2958,7 @@ class GenExprInner(Node):
 
     def mutate(self, visitor):
         self.expr = self.expr.mutate(visitor)
-        newlist = []
-        for n in self.quals:
-            item = n.mutate(visitor)
-            if item is not None:
-                newlist.append(item)
-        self.quals[:] = newlist
+        visitor._mutate_list(self.quals)
         return visitor.visitGenExprInner(self)
 
     def fget_expr( space, self):
@@ -3231,7 +3169,11 @@ class If(Node):
         return visitor.visitIf(self)
 
     def mutate(self, visitor):
-        self.tests[:] = [(n.mutate(visitor), o.mutate(visitor)) for (n, o) in self.tests]
+        for i in range(len(self.tests)):
+
+            n, o = self.tests[i]
+
+            self.tests[i] = n.mutate(visitor), o.mutate(visitor)
 
         if self.else_ is not None:
             self.else_ = self.else_.mutate(visitor)
@@ -3516,18 +3458,8 @@ class Lambda(AbstractFunction):
         return visitor.visitLambda(self)
 
     def mutate(self, visitor):
-        newlist = []
-        for n in self.argnames:
-            item = n.mutate(visitor)
-            if item is not None:
-                newlist.append(item)
-        self.argnames[:] = newlist
-        newlist = []
-        for n in self.defaults:
-            item = n.mutate(visitor)
-            if item is not None:
-                newlist.append(item)
-        self.defaults[:] = newlist
+        visitor._mutate_list(self.argnames)
+        visitor._mutate_list(self.defaults)
         self.code = self.code.mutate(visitor)
         return visitor.visitLambda(self)
 
@@ -3703,12 +3635,7 @@ class List(Node):
         return visitor.visitList(self)
 
     def mutate(self, visitor):
-        newlist = []
-        for n in self.nodes:
-            item = n.mutate(visitor)
-            if item is not None:
-                newlist.append(item)
-        self.nodes[:] = newlist
+        visitor._mutate_list(self.nodes)
         return visitor.visitList(self)
 
     def fget_nodes( space, self):
@@ -3787,12 +3714,7 @@ class ListComp(Node):
 
     def mutate(self, visitor):
         self.expr = self.expr.mutate(visitor)
-        newlist = []
-        for n in self.quals:
-            item = n.mutate(visitor)
-            if item is not None:
-                newlist.append(item)
-        self.quals[:] = newlist
+        visitor._mutate_list(self.quals)
         return visitor.visitListComp(self)
 
     def fget_expr( space, self):
@@ -3876,12 +3798,7 @@ class ListCompFor(Node):
     def mutate(self, visitor):
         self.assign = self.assign.mutate(visitor)
         self.list = self.list.mutate(visitor)
-        newlist = []
-        for n in self.ifs:
-            item = n.mutate(visitor)
-            if item is not None:
-                newlist.append(item)
-        self.ifs[:] = newlist
+        visitor._mutate_list(self.ifs)
         return visitor.visitListCompFor(self)
 
     def fget_assign( space, self):
@@ -4355,12 +4272,7 @@ class Or(AbstractTest):
         return visitor.visitOr(self)
 
     def mutate(self, visitor):
-        newlist = []
-        for n in self.nodes:
-            item = n.mutate(visitor)
-            if item is not None:
-                newlist.append(item)
-        self.nodes[:] = newlist
+        visitor._mutate_list(self.nodes)
         return visitor.visitOr(self)
 
     def fget_nodes( space, self):
@@ -4545,12 +4457,7 @@ class Print(Node):
         return visitor.visitPrint(self)
 
     def mutate(self, visitor):
-        newlist = []
-        for n in self.nodes:
-            item = n.mutate(visitor)
-            if item is not None:
-                newlist.append(item)
-        self.nodes[:] = newlist
+        visitor._mutate_list(self.nodes)
         if self.dest is not None:
             self.dest = self.dest.mutate(visitor)
         return visitor.visitPrint(self)
@@ -4647,12 +4554,7 @@ class Printnl(Node):
         return visitor.visitPrintnl(self)
 
     def mutate(self, visitor):
-        newlist = []
-        for n in self.nodes:
-            item = n.mutate(visitor)
-            if item is not None:
-                newlist.append(item)
-        self.nodes[:] = newlist
+        visitor._mutate_list(self.nodes)
         if self.dest is not None:
             self.dest = self.dest.mutate(visitor)
         return visitor.visitPrintnl(self)
@@ -5088,12 +4990,7 @@ class Sliceobj(Node):
         return visitor.visitSliceobj(self)
 
     def mutate(self, visitor):
-        newlist = []
-        for n in self.nodes:
-            item = n.mutate(visitor)
-            if item is not None:
-                newlist.append(item)
-        self.nodes[:] = newlist
+        visitor._mutate_list(self.nodes)
         return visitor.visitSliceobj(self)
 
     def fget_nodes( space, self):
@@ -5166,12 +5063,7 @@ class Stmt(Node):
         return visitor.visitStmt(self)
 
     def mutate(self, visitor):
-        newlist = []
-        for n in self.nodes:
-            item = n.mutate(visitor)
-            if item is not None:
-                newlist.append(item)
-        self.nodes[:] = newlist
+        visitor._mutate_list(self.nodes)
         return visitor.visitStmt(self)
 
     def fget_nodes( space, self):
@@ -5423,23 +5315,23 @@ class TryExcept(Node):
 
     def mutate(self, visitor):
         self.body = self.body.mutate(visitor)
-        newhandlers = []
+        for i in range(len(self.handlers)):
 
-        for expr1, expr2, body in self.handlers:
+            expr1, expr2, body = self.handlers[i]
 
             if expr1 is not None:
 
-                newhandlers.append(expr1.mutate(visitor))
+                expr1 = expr1.mutate(visitor)
 
             if expr2 is not None:
 
-                newhandlers.append(expr2.mutate(visitor))
+                expr2 = expr2.mutate(visitor)
 
             if body is not None:
 
-                newhandlers.append(body.mutate(visitor))
+                body = body.mutate(visitor)
 
-        self.handlers[:] = newhandlers
+            self.handlers[i] = expr1, expr2, body
 
         if self.else_ is not None:
             self.else_ = self.else_.mutate(visitor)
@@ -5614,12 +5506,7 @@ class Tuple(Node):
         return visitor.visitTuple(self)
 
     def mutate(self, visitor):
-        newlist = []
-        for n in self.nodes:
-            item = n.mutate(visitor)
-            if item is not None:
-                newlist.append(item)
-        self.nodes[:] = newlist
+        visitor._mutate_list(self.nodes)
         return visitor.visitTuple(self)
 
     def fget_nodes( space, self):
@@ -6028,8 +5915,22 @@ class ASTVisitor(object):
     """
 
     def default(self, node):
+        """This method is only suitable for when we use accept(visitor),
+        not mutate(visitor).  In the latter case it *must* be overridden
+        by the visitor, typically to just return an unmodified "node".
+        """
         for child in node.getChildNodes():
             child.accept(self)
+
+    def _mutate_list(self, lst):
+        i = 0
+        while i < len(lst):
+            item = lst[i].mutate(self)
+            if item is not None:
+                lst[i] = item
+                i += 1
+            else:
+                del lst[i]
 
     def visitExpression(self, node):
         return self.default(node)

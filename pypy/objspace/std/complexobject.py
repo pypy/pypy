@@ -16,6 +16,9 @@ class W_ComplexObject(W_Object):
         w_self.realval = float(realval)
         w_self.imagval = float(imgval)
 
+    def unwrap(w_self, space):   # for tests only
+        return complex(w_self.realval, w_self.imagval)
+
     def __repr__(w_self):
         """ representation for debugging purposes """
         return "<W_ComplexObject(%f,%f)>" % (w_self.realval, w_self.imagval)

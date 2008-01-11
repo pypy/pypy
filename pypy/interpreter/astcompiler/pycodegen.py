@@ -4,15 +4,17 @@ import marshal
 import struct
 import sys
 
-#from pypy.interpreter.astcompiler import ast, parse, walk, syntax
 from pypy.interpreter.astcompiler import ast
-from pypy.interpreter.astcompiler import pyassem, misc, future, symbols
+from pypy.interpreter.astcompiler import pyassem, misc, future, symbols, opt
 from pypy.interpreter.astcompiler.consts import SC_LOCAL, SC_GLOBAL, \
     SC_FREE, SC_CELL, SC_DEFAULT, OP_APPLY, OP_ASSIGN, OP_DELETE, OP_NONE
 from pypy.interpreter.astcompiler.consts import CO_VARARGS, CO_VARKEYWORDS, \
     CO_NEWLOCALS, CO_NESTED, CO_GENERATOR, CO_GENERATOR_ALLOWED, \
     CO_FUTURE_DIVISION, CO_FUTURE_WITH_STATEMENT
 from pypy.interpreter.pyparser.error import SyntaxError
+from pypy.interpreter.astcompiler.opt import is_constant_false
+from pypy.interpreter.astcompiler.opt import is_constant_true
+from pypy.interpreter.error import OperationError
 
 # drop VERSION dependency since it the ast transformer for 2.4 doesn't work with 2.3 anyway
 VERSION = 2
@@ -72,7 +74,7 @@ class AbstractCompileMode:
     def _get_tree(self):
         tree = parse(self.source, self.mode)
         misc.set_filename(self.filename, tree)
-        syntax.check(tree)
+        #syntax.check(tree)
         return tree
 
     def compile(self):
@@ -123,18 +125,6 @@ class Module(AbstractCompileMode):
         mtime = struct.pack('<i', mtime)
         return self.MAGIC + mtime
 
-def is_constant_false(space, node):
-    if isinstance(node, ast.Const):
-        if not space.is_true(node.value):
-            return 1
-    return 0
-
-def is_constant_true(space, node):
-    if isinstance(node, ast.Const):
-        if space.is_true(node.value):
-            return 1
-    return 0
-
 class CodeGenerator(ast.ASTVisitor):
     """Defines basic code generator for Python bytecode
     """
@@ -171,7 +161,9 @@ class CodeGenerator(ast.ASTVisitor):
         return self.graph.emitop_obj( inst, obj )
 
     def emitop_code(self, inst, gen):
-        return self.graph.emitop_code( inst, gen )    
+        code = gen.getCode()
+        w_code = self.space.wrap(code)
+        return self.graph.emitop_obj( inst, w_code )
 
     def emitop_int(self, inst, op):
         assert isinstance(op, int)
@@ -180,13 +172,9 @@ class CodeGenerator(ast.ASTVisitor):
     def emitop_block(self, inst, block):
         return self.graph.emitop_block( inst, block )
 
-    def nextBlock(self, block=None ):
+    def nextBlock(self, block ):
         """graph delegation"""
         return self.graph.nextBlock( block )
-
-    def startBlock(self, block ):
-        """graph delegation"""
-        return self.graph.startBlock( block )
 
     def newBlock(self):
         """graph delegation"""
@@ -208,7 +196,7 @@ class CodeGenerator(ast.ASTVisitor):
         tree.accept(s)
 
     def get_module(self):
-        raise RuntimeError, "should be implemented by subclasses"
+        raise NotImplementedError("should be implemented by subclasses")
 
     # Next five methods handle name access
     def storeName(self, name, lineno):
@@ -249,8 +237,9 @@ class CodeGenerator(ast.ASTVisitor):
             else:
                 self.emitop(prefix + '_NAME', name)
         else:
-            raise RuntimeError, "unsupported scope for var %s in %s: %d" % \
-                  (name, self.scope.name, scope)
+            raise pyassem.InternalCompilerError(
+                  "unsupported scope for var %s in %s: %d" %
+                  (name, self.scope.name, scope))
 
     def _implicitNameOp(self, prefix, name):
         """Emit name ops for names generated implicitly by for loops
@@ -324,8 +313,6 @@ class CodeGenerator(ast.ASTVisitor):
     def visitFunction(self, node):
         self._visitFuncOrLambda(node, isLambda=0)
         space = self.space
-        if not space.is_w(node.w_doc, space.w_None):
-            self.setDocstring(node.w_doc)
         self.storeName(node.name, node.lineno)
 
     def visitLambda(self, node):
@@ -389,18 +376,22 @@ class CodeGenerator(ast.ASTVisitor):
     def visitIf(self, node):
         end = self.newBlock()
         for test, suite in node.tests:
+            if is_constant_true(self.space, test):
+                # "if 1:"
+                suite.accept( self )
+                self.nextBlock(end)
+                return
             if is_constant_false(self.space, test):
-                # XXX will need to check generator stuff here
+                # "if 0:" XXX will need to check generator stuff here
                 continue
+            # normal case
             self.set_lineno(test)
-            test.accept( self )
             nextTest = self.newBlock()
-            self.emitop_block('JUMP_IF_FALSE', nextTest)
-            self.nextBlock()
+            test.opt_accept_jump_if(self, False, nextTest)
             self.emit('POP_TOP')
             suite.accept( self )
             self.emitop_block('JUMP_FORWARD', end)
-            self.startBlock(nextTest)
+            self.nextBlock(nextTest)
             self.emit('POP_TOP')
         if node.else_:
             node.else_.accept( self )
@@ -408,6 +399,11 @@ class CodeGenerator(ast.ASTVisitor):
 
     def visitWhile(self, node):
         self.set_lineno(node)
+        if is_constant_false(self.space, node.test):
+            # "while 0:"
+            if node.else_:
+                node.else_.accept( self )
+            return
 
         loop = self.newBlock()
         else_ = self.newBlock()
@@ -420,17 +416,15 @@ class CodeGenerator(ast.ASTVisitor):
 
         self.set_lineno(node, force=True)
         if is_constant_true(self.space, node.test):
-            self.nextBlock()
+            # "while 1:"
+            pass
         else:
-            node.test.accept( self )
-            self.emitop_block('JUMP_IF_FALSE', else_ or after)
-
-            self.nextBlock()
+            node.test.opt_accept_jump_if(self, False, else_)
             self.emit('POP_TOP')
         node.body.accept( self )
         self.emitop_block('JUMP_ABSOLUTE', loop)
 
-        self.startBlock(else_) # or just the POPs if not else clause
+        self.nextBlock(else_) # or just the POPs if not else clause
         self.emit('POP_TOP')
         self.emit('POP_BLOCK')
         self.setups.pop()
@@ -475,7 +469,6 @@ class CodeGenerator(ast.ASTVisitor):
         if kind == LOOP:
             self.set_lineno(node)
             self.emitop_block('JUMP_ABSOLUTE', block)
-            self.nextBlock()
         elif kind == EXCEPT or kind == TRY_FINALLY:
             self.set_lineno(node)
             # find the block that starts the loop
@@ -492,7 +485,6 @@ class CodeGenerator(ast.ASTVisitor):
             if kind != LOOP:
                 raise SyntaxError( "'continue' not properly in loop", node.lineno)
             self.emitop_block('CONTINUE_LOOP', loop_block)
-            self.nextBlock()
         elif kind == END_FINALLY:
             msg = "'continue' not supported inside 'finally' clause"
             raise SyntaxError( msg, node.lineno )
@@ -502,7 +494,6 @@ class CodeGenerator(ast.ASTVisitor):
         for child in node.nodes[:-1]:
             child.accept( self )
             self.emitop_block(jump, end)
-            self.nextBlock()
             self.emit('POP_TOP')
         node.nodes[-1].accept( self )
         self.nextBlock(end)
@@ -514,13 +505,10 @@ class CodeGenerator(ast.ASTVisitor):
         self._visitTest(node, 'JUMP_IF_TRUE')
 
     def visitCondExpr(self, node):
-        node.test.accept(self)
-
         end = self.newBlock()
         falseblock = self.newBlock()
 
-        self.emitop_block('JUMP_IF_FALSE', falseblock)
-
+        node.test.opt_accept_jump_if(self, False, falseblock)
         self.emit('POP_TOP')
         node.true_expr.accept(self)
         self.emitop_block('JUMP_FORWARD', end)
@@ -588,7 +576,6 @@ class CodeGenerator(ast.ASTVisitor):
             self.emit('ROT_THREE')
             self.emitop('COMPARE_OP', op)
             self.emitop_block('JUMP_IF_FALSE', cleanup)
-            self.nextBlock()
             self.emit('POP_TOP')
         # now do the last comparison
         if node.ops:
@@ -598,7 +585,7 @@ class CodeGenerator(ast.ASTVisitor):
         if len(node.ops) > 1:
             end = self.newBlock()
             self.emitop_block('JUMP_FORWARD', end)
-            self.startBlock(cleanup)
+            self.nextBlock(cleanup)
             self.emit('ROT_TWO')
             self.emit('POP_TOP')
             self.nextBlock(end)
@@ -609,13 +596,11 @@ class CodeGenerator(ast.ASTVisitor):
     def visitListComp(self, node):
         self.set_lineno(node)
         # setup list
-        append = "$append%d" % self.__list_count
+        tmpname = "$list%d" % self.__list_count
         self.__list_count = self.__list_count + 1
         self.emitop_int('BUILD_LIST', 0)
         self.emit('DUP_TOP')
-        self.emitop('LOAD_ATTR', 'append')
-        self._implicitNameOp('STORE', append)
-
+        self._implicitNameOp('STORE', tmpname)
 
         stack = []
         i = 0
@@ -631,21 +616,20 @@ class CodeGenerator(ast.ASTVisitor):
             self.genexpr_cont_stack.pop()
             i += 1
 
-        self._implicitNameOp('LOAD', append)
+        self._implicitNameOp('LOAD', tmpname)
         node.expr.accept( self )
-        self.emitop_int('CALL_FUNCTION', 1)
-        self.emit('POP_TOP')
+        self.emit('LIST_APPEND')
 
         for start, cont, anchor in stack:
             if cont:
                 skip_one = self.newBlock()
                 self.emitop_block('JUMP_FORWARD', skip_one)
-                self.startBlock(cont)
+                self.nextBlock(cont)
                 self.emit('POP_TOP')
                 self.nextBlock(skip_one)
             self.emitop_block('JUMP_ABSOLUTE', start)
-            self.startBlock(anchor)
-        self._implicitNameOp('DELETE', append)
+            self.nextBlock(anchor)
+        self._implicitNameOp('DELETE', tmpname)
 
         self.__list_count = self.__list_count - 1
 
@@ -658,16 +642,13 @@ class CodeGenerator(ast.ASTVisitor):
         self.nextBlock(start)
         self.set_lineno(node, force=True)
         self.emitop_block('FOR_ITER', anchor)
-        self.nextBlock()
         node.assign.accept( self )
         return start, anchor
 
     def visitListCompIf(self, node):
         branch = self.genexpr_cont_stack[-1]
         self.set_lineno(node, force=True)
-        node.test.accept( self )
-        self.emitop_block('JUMP_IF_FALSE', branch)
-        self.newBlock()
+        node.test.opt_accept_jump_if(self, False, branch)
         self.emit('POP_TOP')
 
     def visitGenExpr(self, node):
@@ -719,11 +700,11 @@ class CodeGenerator(ast.ASTVisitor):
             if cont:
                 skip_one = self.newBlock()
                 self.emitop_block('JUMP_FORWARD', skip_one)
-                self.startBlock(cont)
+                self.nextBlock(cont)
                 self.emit('POP_TOP')
                 self.nextBlock(skip_one)
             self.emitop_block('JUMP_ABSOLUTE', start)
-            self.startBlock(anchor)
+            self.nextBlock(anchor)
         self.emitop_obj('LOAD_CONST', self.space.w_None)
 
     def _visitGenExprFor(self, node):
@@ -739,16 +720,13 @@ class CodeGenerator(ast.ASTVisitor):
         self.nextBlock(start)
         self.set_lineno(node, force=True)
         self.emitop_block('FOR_ITER', anchor)
-        self.nextBlock()
         node.assign.accept( self )
         return start, anchor
 
     def visitGenExprIf(self, node ):
         branch = self.genexpr_cont_stack[-1]
         self.set_lineno(node, force=True)
-        node.test.accept( self )
-        self.emitop_block('JUMP_IF_FALSE', branch)
-        self.newBlock()
+        node.test.opt_accept_jump_if(self, False, branch)
         self.emit('POP_TOP')
 
     # exception related
@@ -762,10 +740,7 @@ class CodeGenerator(ast.ASTVisitor):
             # XXX AssertionError appears to be special case -- it is always
             # loaded as a global even if there is a local name.  I guess this
             # is a sort of renaming op.
-            self.nextBlock()
-            node.test.accept( self )
-            self.emitop_block('JUMP_IF_TRUE', end)
-            self.nextBlock()
+            node.test.opt_accept_jump_if(self, True, end)
             self.emit('POP_TOP')
             self.emitop('LOAD_GLOBAL', 'AssertionError')
             if node.fail:
@@ -806,10 +781,9 @@ class CodeGenerator(ast.ASTVisitor):
         self.emit('POP_BLOCK')
         self.setups.pop()
         self.emitop_block('JUMP_FORWARD', lElse)
-        self.startBlock(handlers)
+        self.nextBlock(handlers)
 
         last = len(node.handlers) - 1
-        next = None
         for expr, target, body in node.handlers:
             if expr:
                 self.set_lineno(expr)
@@ -818,7 +792,6 @@ class CodeGenerator(ast.ASTVisitor):
                 self.emitop('COMPARE_OP', 'exception match')
                 next = self.newBlock()
                 self.emitop_block('JUMP_IF_FALSE', next)
-                self.nextBlock()
                 self.emit('POP_TOP')
             else:
                 next = None
@@ -830,8 +803,8 @@ class CodeGenerator(ast.ASTVisitor):
             self.emit('POP_TOP')
             body.accept( self )
             self.emitop_block('JUMP_FORWARD', end)
-            self.nextBlock(next)
             if expr: # XXX
+                self.nextBlock(next)
                 self.emit('POP_TOP')
         self.emit('END_FINALLY')
         if node.else_:
@@ -887,7 +860,7 @@ class CodeGenerator(ast.ASTVisitor):
         self.loadName(node.varname, node.lineno)
 
     def visitPass(self, node):
-        self.set_lineno(node)
+        pass  # no self.set_lineno(node) unnecessarily! see test_return_lineno
 
     def visitImport(self, node):
         self.set_lineno(node)
@@ -934,14 +907,82 @@ class CodeGenerator(ast.ASTVisitor):
 
     def visitAssign(self, node):
         self.set_lineno(node)
+        if opt.OPTIMIZE and self._visitTupleAssignment(node):
+            return
         node.expr.accept( self )
         dups = len(node.nodes) - 1
         for i in range(len(node.nodes)):
             elt = node.nodes[i]
             if i < dups:
                 self.emit('DUP_TOP')
-            if isinstance(elt, ast.Node):
-                elt.accept( self )
+            assert isinstance(elt, ast.Node)
+            elt.accept( self )
+
+    def _visitTupleAssignment(self, parentnode):
+        # look for the assignment pattern (...) = (...)
+        space = self.space
+        expr = parentnode.expr
+        if isinstance(expr, ast.Tuple):
+            srcnodes = expr.nodes
+        elif isinstance(expr, ast.List):
+            srcnodes = expr.nodes
+        elif isinstance(expr, ast.Const):
+            try:
+                values_w = space.unpackiterable(expr.value)
+            except OperationError:
+                return False
+            srcnodes = [ast.Const(w) for w in values_w]
+        else:
+            return False
+        if len(parentnode.nodes) != 1:
+            return False
+        target = parentnode.nodes[0]
+        if not isinstance(target, ast.AssSeq):
+            return False
+        targetnodes = target.nodes
+        if len(targetnodes) != len(srcnodes):
+            return False
+        # we can only optimize two (common) particular cases, because
+        # the order of evaluation of the expression *and* the order
+        # of assignment should both be kept, in principle.
+        # 1. if all targetnodes are simple names, the assignment order
+        #    *should* not really matter.
+        # 2. otherwise, if the tuple is of length <= 3, we can emit simple
+        #    bytecodes to reverse the items in the value stack.
+        for node in targetnodes:
+            if not isinstance(node, ast.AssName):
+                break    # not a simple name
+        else:
+            # all simple names, case 1.
+            for node in srcnodes:
+                node.accept(self)
+            # let's be careful about the same name appearing several times
+            seen = {}
+            for i in range(len(targetnodes)-1, -1, -1):
+                node = targetnodes[i]
+                assert isinstance(node, ast.AssName)
+                if node.name not in seen:
+                    seen[node.name] = True
+                    self.storeName(node.name, node.lineno)
+                else:
+                    self.emit('POP_TOP')
+            return True  # done
+
+        n = len(srcnodes)
+        if n > 3:
+            return False    # can't do it
+        else:
+            # case 2.
+            for node in srcnodes:
+                node.accept(self)
+            if n == 2:
+                self.emit('ROT_TWO')
+            elif n == 3:
+                self.emit('ROT_THREE')
+                self.emit('ROT_TWO')
+            for node in targetnodes:
+                node.accept(self)
+            return True     # done
 
     def visitAssName(self, node):
         if node.flags == OP_ASSIGN:
@@ -1334,7 +1375,10 @@ class InteractiveCodeGenerator(CodeGenerator):
         self.emit('PRINT_EXPR')
         
 class AbstractFunctionCode(CodeGenerator):
-    def __init__(self, space, func, isLambda, mod):
+    def __init__(self, space, scope, func, isLambda, mod):
+        assert scope is not None
+        self.scope = scope
+        self.localsfullyknown = self.scope.locals_fully_known()
         self.module = mod
         if isLambda:
             name = "<lambda>"
@@ -1373,7 +1417,10 @@ class AbstractFunctionCode(CodeGenerator):
         CodeGenerator.__init__(self, space, graph)
         self.optimized = 1
 
-        if not isLambda and not space.is_w(func.w_doc, space.w_None):
+        self.graph.setFreeVars(self.scope.get_free_vars_in_scope())
+        self.graph.setCellVars(self.scope.get_cell_vars())
+
+        if not isLambda:
             self.setDocstring(func.w_doc)
 
         if func.varargs:
@@ -1387,7 +1434,6 @@ class AbstractFunctionCode(CodeGenerator):
         return self.module
 
     def finish(self):
-        self.graph.startExitBlock()
         if not self.isLambda:
             self.emitop_obj('LOAD_CONST', self.space.w_None)
         self.emit('RETURN_VALUE')
@@ -1419,13 +1465,8 @@ class AbstractFunctionCode(CodeGenerator):
 class FunctionCodeGenerator(AbstractFunctionCode):
 
     def __init__(self, space, func, isLambda, mod):
-        assert func.scope is not None
-        self.scope = func.scope
-        self.localsfullyknown = self.scope.locals_fully_known()
-        AbstractFunctionCode.__init__(self, space, func, isLambda, mod)
-        
-        self.graph.setFreeVars(self.scope.get_free_vars_in_scope())
-        self.graph.setCellVars(self.scope.get_cell_vars())
+        AbstractFunctionCode.__init__(self, space, func.scope,
+                                      func, isLambda, mod)
         if self.scope.generator:
             self.graph.setFlag(CO_GENERATOR)
             if self.scope.return_with_arg is not None:
@@ -1436,12 +1477,7 @@ class FunctionCodeGenerator(AbstractFunctionCode):
 class GenExprCodeGenerator(AbstractFunctionCode):
 
     def __init__(self, space, gexp, mod):
-        assert gexp.scope is not None
-        self.scope = gexp.scope
-        self.localsfullyknown = self.scope.locals_fully_known()
-        AbstractFunctionCode.__init__(self, space, gexp, 1, mod)
-        self.graph.setFreeVars(self.scope.get_free_vars_in_scope())
-        self.graph.setCellVars(self.scope.get_cell_vars())
+        AbstractFunctionCode.__init__(self, space, gexp.scope, gexp, 1, mod)
         self.graph.setFlag(CO_GENERATOR)
 
 class AbstractClassCode(CodeGenerator):
@@ -1453,14 +1489,12 @@ class AbstractClassCode(CodeGenerator):
 
         CodeGenerator.__init__(self, space, graph)
         self.graph.setFlag(CO_NEWLOCALS)
-        if not space.is_w(klass.w_doc, space.w_None):
-            self.setDocstring(klass.w_doc)
+        self.setDocstring(klass.w_doc)
 
     def get_module(self):
         return self.module
 
     def finish(self):
-        self.graph.startExitBlock()
         self.emit('LOAD_LOCALS')
         self.emit('RETURN_VALUE')
 
@@ -1511,7 +1545,7 @@ class AugLoadVisitor(ast.ASTVisitor):
         self.main = main_visitor
 
     def default(self, node):
-        raise RuntimeError("shouldn't arrive here!")
+        raise pyassem.InternalCompilerError("shouldn't arrive here!")
     
     def visitName(self, node ):
         self.main.loadName(node.varname, node.lineno)
@@ -1533,7 +1567,7 @@ class AugStoreVisitor(ast.ASTVisitor):
         self.main = main_visitor
         
     def default(self, node):
-        raise RuntimeError("shouldn't arrive here!")
+        raise pyassem.InternalCompilerError("shouldn't arrive here!")
     
     def visitName(self, node):
         self.main.storeName(node.varname, node.lineno)

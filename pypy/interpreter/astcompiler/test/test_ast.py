@@ -2,12 +2,7 @@ from pypy.interpreter.astcompiler import ast#_temp as ast
 from pypy.module.recparser.pyparser import source2ast
 from pypy.interpreter.pyparser.test.test_astbuilder import FakeSpace
 
-class BaseVisitor:
-    def __getattr__(self, attr):
-        if attr.startswith('visit'):
-            return self.default
-        else:
-            raise AttributeError(attr)
+class BaseVisitor(ast.ASTVisitor):
     def default(self, node):
         return node
     def visitAdd(self, node):

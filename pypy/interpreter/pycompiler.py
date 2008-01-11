@@ -233,6 +233,7 @@ class PythonAstCompiler(PyCodeCompiler):
         from pypy.interpreter.astcompiler.pycodegen import InteractiveCodeGenerator
         from pypy.interpreter.astcompiler.pycodegen import ExpressionCodeGenerator
         from pypy.interpreter.astcompiler.ast import Node
+        from pypy.interpreter.astcompiler import opt
         from pyparser.astbuilder import AstBuilder
         from pypy.interpreter.pycode import PyCode
         from pypy.interpreter.function import Function
@@ -253,6 +254,8 @@ class PythonAstCompiler(PyCodeCompiler):
         except SyntaxError, e:
             raise OperationError(space.w_SyntaxError,
                                  e.wrap_info(space, filename))
+
+        ast_tree = opt.optimize_ast_tree(space, ast_tree)
 
         if not space.is_w(self.w_compile_hook, space.w_None):
             try:

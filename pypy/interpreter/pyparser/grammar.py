@@ -73,32 +73,6 @@ class TokenSource(object):
 
 ######################################################################
 
-
-def build_first_sets(rules):
-    """XXX : dead
-    builds the real first tokens set for each rule in <rules>
-
-    Because a rule can be recursive (directly or indirectly), the
-    *simplest* algorithm to build each first set is to recompute them
-    until Computation(N) = Computation(N-1), N being the number of rounds.
-    As an example, on Python2.3's grammar, we need 19 cycles to compute
-    full first sets.
-    """
-    changed = True
-    while changed:
-        # loop while one first set is changed
-        changed = False
-        for rule in rules:
-            # For each rule, recompute first set
-            size = len(rule.first_set)
-            rule.calc_first_set()
-            new_size = len(rule.first_set)
-            if new_size != size:
-                changed = True
-    for r in rules:
-        assert len(r.first_set) > 0, "Error: ot Empty firstset for %s" % r
-        r.reorder_rule()
-
 class AbstractContext(object):
     """Abstract base class. derived objects put
     some attributes here that users can use to save

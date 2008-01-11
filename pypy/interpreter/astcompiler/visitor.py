@@ -97,14 +97,14 @@ class ExampleASTVisitor(ASTVisitor):
 
 # XXX this is an API change
 
-_walker = ASTVisitor
-def walk(tree, visitor, walker=None, verbose=None):
-    if walker is None:
-        walker = _walker()
-    if verbose is not None:
-        walker.VERBOSE = verbose
-    walker.preorder(tree, visitor)
-    return walker.visitor
+##_walker = ASTVisitor
+##def walk(tree, visitor, walker=None, verbose=None):
+##    if walker is None:
+##        walker = _walker()
+##    if verbose is not None:
+##        walker.VERBOSE = verbose
+##    walker.preorder(tree, visitor)
+##    return walker.visitor
 
 def walk(tree, visitor, verbose=-1):
     tree.accept(visitor)
