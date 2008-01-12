@@ -33,6 +33,14 @@ class AppTestRangeListObject(object):
         assert result == [81, 77, 73, 69, 65]
         assert self.not_forced(r)
 
+    def test_empty_range(self):
+        r = range(10, 10)
+        r.sort(reverse=True)
+        assert len(r) == 0
+        assert list(reversed(r)) == []
+        assert r[:] == []
+        assert self.not_forced(r)
+
     def test_repr(self):
         r = range(5)
         assert repr(r) == "[0, 1, 2, 3, 4]"

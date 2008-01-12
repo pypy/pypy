@@ -59,6 +59,10 @@ class W_RangeListObject(W_Object):
             raise IndexError
         return w_self.start + i * w_self.step
 
+    def getitem_unchecked(w_self, i):
+        # bounds not checked, on purpose
+        return w_self.start + i * w_self.step
+
     def __repr__(w_self):
         if w_self.w_list is None:
             return "W_RangeListObject(%s, %s, %s)" % (
@@ -91,7 +95,7 @@ def getitem__RangeList_Slice(space, w_rangelist, w_slice):
     length = w_rangelist.length
     start, stop, step, slicelength = w_slice.indices4(space, length)
     assert slicelength >= 0
-    rangestart = w_rangelist.getitem(start)
+    rangestart = w_rangelist.getitem_unchecked(start)
     rangestep = w_rangelist.step * step
     return W_RangeListObject(rangestart, rangestep, slicelength)
 
@@ -140,7 +144,7 @@ def list_reverse__RangeList(space, w_rangelist):
     # probably somewhat useless, but well...
     if w_rangelist.w_list is not None:
         raise FailedToImplement
-    w_rangelist.start = w_rangelist.getitem(-1)
+    w_rangelist.start = w_rangelist.getitem_unchecked(w_rangelist.length-1)
     w_rangelist.step = -w_rangelist.step
 
 def list_sort__RangeList_None_None_ANY(space, w_rangelist, w_cmp,
@@ -155,7 +159,7 @@ def list_sort__RangeList_None_None_ANY(space, w_rangelist, w_cmp,
         factor = 1
     reverse = w_rangelist.step * factor < 0
     if reverse:
-        w_rangelist.start = w_rangelist.getitem(-1)
+        w_rangelist.start = w_rangelist.getitem_unchecked(w_rangelist.length-1)
         w_rangelist.step = -w_rangelist.step
     return space.w_None
 
