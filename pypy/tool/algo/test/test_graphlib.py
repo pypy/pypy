@@ -69,10 +69,11 @@ class TestLoops:
         edges[i] = [Edge(i, j)]
     for i in range(19):
         edges[i*10].append(Edge(i*10, i*10+15))
+    vertices = dict([(i, True) for i in range(200)])
 
     def test_strong_components(self):
         edges = self.edges
-        result = list(strong_components(edges, edges))
+        result = list(strong_components(self.vertices, edges))
         assert len(result) == 20
         result.sort()
         for i in range(20):
@@ -82,7 +83,7 @@ class TestLoops:
 
     def test_break_cycles(self, edges=None):
         edges = edges or self.edges
-        result = list(break_cycles(edges, edges))
+        result = list(break_cycles(self.vertices, edges))
         assert len(result) == 20
         result = [(edge.source, edge.target) for edge in result]
         result.sort()
