@@ -144,6 +144,17 @@ class TestBugCase:
         assert list(result[0]) == [0]
         assert list(result[1]) in ([1,2], [2,1])
 
+class TestBadCase:
+    # a complete graph
+    NUM = 30
+    edges = make_edge_dict([Edge(i, j) for i in range(NUM)
+                                       for j in range(NUM)])
+    vertices = dict.fromkeys(range(NUM))
+
+    def test_break_cycles(self):
+        result = list(break_cycles(self.edges, self.edges))
+        assert result
+
 
 class TestRandom:
     edges = make_edge_dict([Edge(random.randrange(0,100),
