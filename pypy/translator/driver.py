@@ -51,6 +51,7 @@ _BACKEND_TO_TYPESYSTEM = {
 def backend_to_typesystem(backend):
     return _BACKEND_TO_TYPESYSTEM.get(backend, 'ootype')
 
+# set of translation steps to profile
 PROFILE = set([])
 
 class Instrument(Exception):
@@ -450,7 +451,8 @@ class TranslationDriver(SimpleTaskEngine):
 
     def task_stackcheckinsertion_lltype(self):
         from pypy.translator.transform import insert_ll_stackcheck
-        insert_ll_stackcheck(self.translator)
+        count = insert_ll_stackcheck(self.translator)
+        self.log.info("inserted %d stack checks." % (count,))
         
     task_stackcheckinsertion_lltype = taskdef(
         task_stackcheckinsertion_lltype,

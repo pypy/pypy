@@ -269,7 +269,8 @@ def insert_ll_stackcheck(translator):
         v.concretetype = lltype.Void
         unwind_op = SpaceOperation('direct_call', [stack_check_ptr_const], v)
         block.operations.insert(0, unwind_op)
-           
+    return len(insert_in)
+
 
 default_extra_passes = [
     transform_allocate,
