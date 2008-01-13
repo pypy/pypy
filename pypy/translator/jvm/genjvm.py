@@ -141,7 +141,7 @@ class JvmGeneratedSource(object):
         """
         Compiles the .java sources into .class files, ready for execution.
         """
-        jascmd = [getoption('jasmin'), '-d', str(self.javadir)]
+        jascmd = [getoption('jasmin'), '-g', '-d', str(self.javadir)]
 
         def split_list(files):
             "Split the files list into manageable pieces"
