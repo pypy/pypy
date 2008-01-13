@@ -708,8 +708,9 @@ $LEDIT $MONO "$(dirname $0)/$(basename $0)-data/%s" "$@" # XXX doesn't work if i
 
     def task_compile_jvm(self):
         from pypy.translator.oosupport.support import unpatch_os
+        from pypy.translator.jvm.test.runtest import JvmGeneratedSourceWrapper
         self.jvmsource.compile()
-        self.c_entryp = lambda *args: eval(self.jvmsource.execute(args))
+        self.c_entryp = JvmGeneratedSourceWrapper(self.jvmsource)
         # restore original os values
         if hasattr(self, 'old_cli_defs'):
             unpatch_os(self.old_cli_defs)

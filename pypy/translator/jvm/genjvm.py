@@ -104,7 +104,7 @@ class JvmGeneratedSource(object):
         res = subp.wait()
         if res or (not allow_stderr and stderr):
             raise JvmSubprogramError(res, args, stdout, stderr)
-        return stdout, stderr
+        return stdout, stderr, res
 
     def _compile_helper(self):
         # HACK: compile the Java helper classes.  Should eventually
@@ -187,15 +187,16 @@ class JvmGeneratedSource(object):
         assert self.compiled
         strargs = [self._make_str(a) for a in args]
         cmd = [getoption('java'),
+               '-Xmx256M', # increase the heapsize so the microbenchmarks run
                '-cp',
                str(self.javadir),
                self.package+".Main"] + strargs
         print "Invoking java to run the code"
-        stdout, stderr = self._invoke(cmd, True)
+        stdout, stderr, retval = self._invoke(cmd, True)
         print "...done!"
         sys.stderr.write(stderr)
-        return stdout
-        
+        return stdout, stderr, retval
+
 def generate_source_for_function(func, annotation, backendopt=False):
     
     """

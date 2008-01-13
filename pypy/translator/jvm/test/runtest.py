@@ -60,6 +60,22 @@ class JvmGeneratedSourceWrapper(object):
         """ gensrc is an instance of JvmGeneratedSource """
         self.gensrc = gensrc
 
+    def run(self,*args):
+        if not self.gensrc.compiled:
+            py.test.skip("Assembly disabled")
+
+        if getoption('norun'):
+            py.test.skip("Execution disabled")
+
+#        if self._exe is None:
+#            py.test.skip("Compilation disabled")
+
+#        if getoption('norun'):
+#            py.test.skip("Execution disabled")
+
+        stdout, stderr, retval = self.gensrc.execute(args)
+        return stdout, stderr, retval
+        
     def __call__(self, *args):
         if not self.gensrc.compiled:
             py.test.skip("Assembly disabled")
@@ -67,9 +83,8 @@ class JvmGeneratedSourceWrapper(object):
         if getoption('norun'):
             py.test.skip("Execution disabled")
 
-        resstr = self.gensrc.execute(args)
-        print "resstr=%s" % repr(resstr)
-        res = eval(resstr)
+        stdout, stderr, retval = self.gensrc.execute(args)
+        res = eval(stdout.strip())
         if isinstance(res, tuple):
             res = StructTuple(res) # so tests can access tuple elements with .item0, .item1, etc.
         elif isinstance(res, list):
