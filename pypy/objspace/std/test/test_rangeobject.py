@@ -16,6 +16,7 @@ class AppTestRangeListObject(object):
                         "W_ListObject" not in __pypy__.internal_repr(r))
             return f
         """)
+        cls.w_SORT_FORCES_LISTS = cls.space.wrap(False)
 
     def test_simple(self):
         result = []
@@ -35,7 +36,8 @@ class AppTestRangeListObject(object):
 
     def test_empty_range(self):
         r = range(10, 10)
-        r.sort(reverse=True)
+        if not self.SORT_FORCES_LISTS:
+            r.sort(reverse=True)
         assert len(r) == 0
         assert list(reversed(r)) == []
         assert r[:] == []
@@ -64,6 +66,8 @@ class AppTestRangeListObject(object):
         assert r == [2, 1, 1]
 
     def test_sort(self):
+        if self.SORT_FORCES_LISTS:
+            skip("sort() forces these lists")
         r = range(10, -1, -1)
         r.sort()
         assert self.not_forced(r)

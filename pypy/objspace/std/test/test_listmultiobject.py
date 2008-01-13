@@ -78,9 +78,7 @@ class AppTestRangeImplementation(AppTestRangeListObject):
                         "RangeImplementation" in __pypy__.internal_repr(r))
             return f
         """)
-
-    def test_sort(self):
-        pass # won't work with multilists
+        cls.w_SORT_FORCES_LISTS = cls.space.wrap(True)
 
 
 class AppTest_FastSlice(BaseAppTest_ListMultiObject):
