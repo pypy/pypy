@@ -130,6 +130,7 @@ class ExternalCompilationInfo(object):
             f = filename.open("w")
             if being_main:
                 f.write("#define PYPY_NOT_MAIN_FILE\n")
+            self.write_c_header(f)
             f.write(str(source))
             f.close()
             files.append(str(filename))
