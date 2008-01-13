@@ -100,26 +100,42 @@ def all_cycles(root, vertices, edges):
 def break_cycles(vertices, edges):
     """Enumerates a reasonably minimal set of edges that must be removed to
     make the graph acyclic."""
-    graphs = [(vertices, edges)]
-    for vertices, edges in graphs:
-        #print ''.join(vertices),
-        #print [e.source+e.target for l in edges.values() for e in l]
-        for component in strong_components(vertices, edges):
-            #print '-->', ''.join(component)
-            edge_weights = {}
-            random_vertex = component.iterkeys().next()
-            for cycle in all_cycles(random_vertex, component, edges):
-                #print '\tcycle:', [e.source+e.target for e in cycle]
-                for edge in cycle:
-                    edge_weights[edge] = edge_weights.get(edge, 0) + 1
-            if edge_weights:
-                max_weight = max(edge_weights.values())
-                for edge, weight in edge_weights.iteritems():
-                    if weight == max_weight:
-                        break
-                # kill this edge
-                yield edge
-                new_edges = edges.copy()
-                new_edges[edge.source] = [e for e in new_edges[edge.source]
-                                            if e is not edge]
-                graphs.append((component, new_edges))
+    # the approach is as follows: for each strongly connected component, find
+    # all cycles (which takens exponential time, potentially). Then break the
+    # edges that are part of the most cycles, until all cycles in that
+    # component are broken.
+    for component in strong_components(vertices, edges):
+        #print '-->', ''.join(component)
+        random_vertex = component.iterkeys().next()
+        cycles = all_cycles(random_vertex, component, edges)
+        if not cycles:
+            continue
+        allcycles = dict.fromkeys([id(cycle) for cycle in cycles])
+        edge2cycles = {}
+        edge_weights = {}
+        for cycle in cycles:
+            #print '\tcycle:', [e.source+e.target for e in cycle]
+            for edge in cycle:
+                edge2cycles.setdefault(edge, []).append(cycle)
+                edge_weights[edge] = edge_weights.get(edge, 0) + 1
+        while allcycles:
+            max_weight = 0
+            max_edge = None
+            for edge, weight in edge_weights.iteritems():
+                if weight >= max_weight:
+                    max_edge = edge
+                    max_weight = weight
+            broken_cycles = edge2cycles[max_edge]
+            assert max_edge is not None
+            # kill this edge
+            yield max_edge
+            for broken_cycle in broken_cycles:
+                try:
+                    del allcycles[id(broken_cycle)]
+                except KeyError:
+                    pass
+                else:
+                    for edge in broken_cycle:
+                        edge_weights[edge] -= 1
+                        if edge_weights[edge] == 0:
+                            del edge_weights[edge]

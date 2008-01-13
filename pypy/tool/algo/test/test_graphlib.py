@@ -146,7 +146,7 @@ class TestBugCase:
 
 class TestBadCase:
     # a complete graph
-    NUM = 30
+    NUM = 50
     edges = make_edge_dict([Edge(i, j) for i in range(NUM)
                                        for j in range(NUM)])
     vertices = dict.fromkeys(range(NUM))
