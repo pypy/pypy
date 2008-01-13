@@ -2,11 +2,11 @@ from pypy.interpreter.error import OperationError
 from pypy.objspace.std.listmultiobject import W_ListMultiObject, \
     SliceTrackingListImplementation
 from pypy.conftest import gettestobjspace
-from pypy.objspace.std.test.test_listobject import AppTestW_ListObject
+from pypy.objspace.std.test import test_listobject
 from pypy.objspace.std.test.test_dictmultiobject import FakeSpace
-from pypy.objspace.std.test.test_rangeobject import AppTestRangeListObject
+from pypy.objspace.std.test import test_rangeobject
 
-class BaseAppTest_ListMultiObject(AppTestW_ListObject):
+class BaseAppTest_ListMultiObject(test_listobject.AppTestW_ListObject):
     @staticmethod
     def setup_class(cls, conf_switch='withmultilist', impl_tag=''):
         cls.space = gettestobjspace(**{"objspace.std."+conf_switch: True})
@@ -67,7 +67,7 @@ class AppTest_ListMultiObject(BaseAppTest_ListMultiObject):
         assert l == ["a", "b", "c", "d", "e", "f"]
         assert self.impl_used(l, "StrListImplementation")
 
-class AppTestRangeImplementation(AppTestRangeListObject):
+class AppTestRangeImplementation(test_rangeobject.AppTestRangeListObject):
 
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withmultilist": True})
