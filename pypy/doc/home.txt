@@ -8,21 +8,27 @@ nonsense, isn't it?  `more...`_
 Getting into PyPy ... 
 =============================================
 
-* `PyPy blog`_: news and status info about PyPy 
+* `PyPy Blog`_: news and status info about PyPy 
 
-* `development mailing list`_: development mailing list. 
+* `Documentation`_: extensive documentation about PyPy.  
 
-* `subversion commit mailing list`_: updates to code and
+* `Getting Started`_: Getting started and playing with PyPy. 
+
+* `Development mailing list`_: development and conceptual
+  discussions. 
+
+* `Subversion commit mailing list`_: updates to code and
   documentation. 
 
-* `development bug/feature tracker`_: filing bugs and feature requests. 
+* `Development bug/feature tracker`_: filing bugs and feature requests. 
 
-* `sprint mailing list`_: mailing list for organising upcoming sprints 
+* `Sprint mailing list`_: mailing list for organising upcoming sprints. 
 
 * **IRC channel #pypy on freenode**: Many of the core developers are hanging out 
   at #pypy on irc.freenode.net.  You are welcome to join and ask questions.  
-  Please first checkout the FAQ_. You can find the logs of the channel here_.  
+  Please first checkout the FAQ_. You can find logs of the channel here_.  
 
+.. XXX play1? 
 
 Meeting PyPy developers
 =======================
@@ -40,6 +46,5 @@ anyone interested in the project.  Watch out for sprint announcements.
 .. _`subversion commit mailing list`: http://codespeak.net/mailman/listinfo/pypy-svn
 .. _`development mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
 .. _`FAQ`: faq.html
-
-
-
+.. _`Documentation`: index.html 
+.. _`Getting Started`: getting-started.html
