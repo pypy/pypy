@@ -395,9 +395,9 @@ def nursery_size_from_env():
 def best_nursery_size_for_L2cache(L2cache):
     if DEBUG_PRINT:
         llop.debug_print(lltype.Void, "CCC  L2cache =", L2cache)
-    # Heuristically, the best nursery size to choose is almost as
-    # big as the L2 cache.  XXX adjust
-    return L2cache // 8 * 7
+    # Heuristically, the best nursery size to choose is about half
+    # of the L2 cache.  XXX benchmark some more.
+    return L2cache // 2
 
 
 if sys.platform == 'linux2':
