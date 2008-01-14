@@ -1,6 +1,10 @@
 #ifndef LL_STRTOD_H
 #define LL_STRTOD_H
 
+#ifdef MS_WINDOWS
+#include <winsock2.h>
+#endif
+
 #include <locale.h>
 #include <ctype.h>
 #include <string.h>
