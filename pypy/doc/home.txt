@@ -1,0 +1,45 @@
+
+The PyPy project aims at producing a flexible and fast Python_
+implementation.  The guiding idea is to translate a Python-level
+description of the Python language itself to lower level languages.
+Rumors have it that the secret goal is being faster-than-C which is
+nonsense, isn't it?  `more...`_
+
+Getting into PyPy ... 
+=============================================
+
+* `PyPy blog`_ for news and status blog about PyPy developments 
+
+* `development mailing list`_ for conceptual and coding discussions 
+
+* `subversion commit mailing list`_ for all updates to code and
+  documentation. 
+
+.. _`sprint mailing list`: http://codespeak.net/mailman/listinfo/pypy-sprint 
+.. _`subversion commit mailing list`: http://codespeak.net/mailman/listinfo/pypy-svn
+.. _`development mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
+
+* `development bug/feature tracker`_ for filing bugs and feature requests. 
+
+* `sprint mailing list`_ for people (interested in) attending upcoming sprints. 
+
+* **IRC channel #pypy on freenode**: Many of the core developers are hanging out 
+  at #pypy on irc.freenode.net.  You are welcome to join and ask questions even more 
+  so if you are interested in participating in some parts of the PyPy project. You 
+  can find the logs of the channel here_.
+
+
+Meeting PyPy developers
+=======================
+
+The PyPy developers are organising sprints and presenting results at
+conferences all year round. They will be happy to meet in person with
+anyone interested in the project.  Watch out for sprint announcements. 
+
+.. _Python: http://www.python.org/doc/current/ref/ref.html
+.. _`more...`: architecture.html#mission-statement 
+.. _`PyPy blog`: http://morepypy.blogspot.com/
+.. _`development bug/feature tracker`: https://codespeak.net/issue/pypy-dev/ 
+.. _here: http://tismerysoft.de/pypy/irc-logs/pypy
+
+
