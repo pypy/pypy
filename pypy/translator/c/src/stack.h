@@ -2,8 +2,6 @@
 /************************************************************/
  /***  C header subsection: stack operations               ***/
 
-#include <unistd.h>
-
 #ifndef MAX_STACK_SIZE
 #    define MAX_STACK_SIZE (1 << 19)
 #endif
