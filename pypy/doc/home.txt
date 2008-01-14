@@ -8,21 +8,20 @@ nonsense, isn't it?  `more...`_
 Getting into PyPy ... 
 =============================================
 
-* `PyPy blog`_ for news and status blog about PyPy developments 
+* `PyPy blog`_: news and status info about PyPy 
 
-* `development mailing list`_ for conceptual and coding discussions 
+* `development mailing list`_: development mailing list. 
 
-* `subversion commit mailing list`_ for all updates to code and
+* `subversion commit mailing list`_: updates to code and
   documentation. 
 
-* `development bug/feature tracker`_ for filing bugs and feature requests. 
+* `development bug/feature tracker`_: filing bugs and feature requests. 
 
-* `sprint mailing list`_ for people (interested in) attending upcoming sprints. 
+* `sprint mailing list`_: mailing list for organising upcoming sprints 
 
 * **IRC channel #pypy on freenode**: Many of the core developers are hanging out 
-  at #pypy on irc.freenode.net.  You are welcome to join and ask questions even more 
-  so if you are interested in participating in some parts of the PyPy project. You 
-  can find the logs of the channel here_.
+  at #pypy on irc.freenode.net.  You are welcome to join and ask questions.  
+  Please first checkout the FAQ_. You can find the logs of the channel here_.  
 
 
 Meeting PyPy developers
@@ -40,6 +39,7 @@ anyone interested in the project.  Watch out for sprint announcements.
 .. _`sprint mailing list`: http://codespeak.net/mailman/listinfo/pypy-sprint 
 .. _`subversion commit mailing list`: http://codespeak.net/mailman/listinfo/pypy-svn
 .. _`development mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
+.. _`FAQ`: faq.html
 
 
 
