@@ -571,9 +571,9 @@ ultimate example of source that our translation toolchain can process::
     python translate.py --run targetpypystandalone.py
 
 By default the translation process will try to use the
-`Boehm-Demers-Weiser garbage collector`_ for the translated interpreter (Use
-``--gc=framework`` to use our own exact mark-n-sweep implementation which
-at the moment is slower but doesn't have external dependencies). Otherwise, be
+`Boehm-Demers-Weiser garbage collector`_ for the translated interpreter.  Use
+``--gc=generation`` to use our own exact generational implementation which
+is now faster and doesn't have external dependencies.  Otherwise, be
 sure io install Boehm before starting the translation (e.g. by running
 ``apt-get install libgc-dev`` on Debian or Ubuntu).
 
@@ -621,10 +621,9 @@ interesting options are:
    * ``--stackless``: this produces a pypy-c that includes features
      inspired by `Stackless Python <http://www.stackless.com>`__.
 
-   * ``--gc=boehm|ref|framework|stacklessgc``: choose between using
+   * ``--gc=boehm|ref|marknsweep|semispace|generation``: choose between using
      the `Boehm-Demers-Weiser garbage collector`_, our reference
-     counting implementation or our own implementation of a mark and
-     sweep collector, with two different approaches for finding roots
+     counting implementation or three of own collector implementations
      (as we have seen Boehm's collector is the default).
 
 Find a more detailed description of the various options in our `configuration
