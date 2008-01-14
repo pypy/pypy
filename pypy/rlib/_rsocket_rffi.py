@@ -36,7 +36,7 @@ if _POSIX:
     COND_HEADER = ''.join(['#ifdef %s\n#include <%s>\n#endif\n' % cond_include
                           for cond_include in cond_includes])
 if _MS_WINDOWS:
-    includes = ('WinSock2.h', 'WS2tcpip.h')
+    includes = ()
     libraries = ('ws2_32',)
     calling_conv = 'win'
     HEADER = '\n'.join([
