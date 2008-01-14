@@ -574,7 +574,7 @@ By default the translation process will try to use the
 `Boehm-Demers-Weiser garbage collector`_ for the translated interpreter.  Use
 ``--gc=generation`` to use our own exact generational implementation which
 is now faster and doesn't have external dependencies.  Otherwise, be
-sure io install Boehm before starting the translation (e.g. by running
+sure to install Boehm before starting the translation (e.g. by running
 ``apt-get install libgc-dev`` on Debian or Ubuntu).
 
 This whole process will take some time and quite a lot of memory (although it
