@@ -1,6 +1,9 @@
 
 /* some ifdefs from CPython's signalmodule.c... */
 
+#ifndef _PYPY_SIGNALS_H
+#define _PYPY_SIGNALS_H
+
 #include <stdlib.h>
 
 #ifdef MS_WINDOWS
@@ -119,5 +122,7 @@ int pypysig_poll(void)
     }
   return -1;  /* no pending signal */
 }
+
+#endif
 
 #endif
