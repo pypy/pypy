@@ -76,27 +76,28 @@ class RegisterOs(BaseLazyRegistering):
         self.configure(CConfig)
 
         # we need an indirection via c functions to get macro calls working on llvm
-        decl_snippet = """
+        if hasattr(os, 'WCOREDUMP'):
+            decl_snippet = """
             %(ret_type)s pypy_macro_wrapper_%(name)s (int status);
-        """
-        def_snippet = """
+            """
+            def_snippet = """
             %(ret_type)s pypy_macro_wrapper_%(name)s (int status) {
-                return %(name)s(status);
+            return %(name)s(status);
             }
-        """
-        decls = []
-        defs = []
-        for name in self.w_star:
-            data = {'ret_type': 'int', 'name': name}
-            decls.append(decl_snippet % data)
-            defs.append(def_snippet % data)
-        h_source = decls + defs
+            """
+            decls = []
+            defs = []
+            for name in self.w_star:
+                data = {'ret_type': 'int', 'name': name}
+                decls.append(decl_snippet % data)
+                defs.append(def_snippet % data)
+            h_source = decls + defs
 
-        self.compilation_info = self.compilation_info.merge(
-            ExternalCompilationInfo(
-            post_include_lines = decls,
-            separate_module_sources = ["\n".join(h_source)]
-        ))
+            self.compilation_info = self.compilation_info.merge(
+                ExternalCompilationInfo(
+                post_include_lines = decls,
+                separate_module_sources = ["\n".join(h_source)]
+            ))
 
     # a simple, yet usefull factory
     def extdef_for_os_function_returning_int(self, name, **kwds):
