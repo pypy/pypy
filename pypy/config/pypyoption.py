@@ -41,7 +41,7 @@ if os.name == "posix":
 
 pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
     ChoiceOption("name", "Object Space name",
-                 ["std", "flow", "thunk", "dump", "taint"],
+                 ["std", "flow", "thunk", "dump", "taint", "reflective"],
                  "std",
                  cmdline='--objspace -o'),
 
