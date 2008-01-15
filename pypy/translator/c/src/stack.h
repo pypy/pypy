@@ -6,6 +6,10 @@
 #    define MAX_STACK_SIZE (1 << 19)
 #endif
 
+/* This include must be done in any case to initialise
+ * the header dependencies early (thread -> winsock2, before windows.h) */
+#include "thread.h"
+
 void LL_stack_unwind(void);
 int LL_stack_too_big_slowpath(void);
 
@@ -28,9 +32,9 @@ static int LL_stack_too_big(void)
 		&& LL_stack_too_big_slowpath());
 }
 
+
 #ifndef PYPY_NOT_MAIN_FILE
 #include <stdio.h>
-#include "thread.h"
 
 #ifndef PYPY_NOINLINE
 # if defined __GNUC__
