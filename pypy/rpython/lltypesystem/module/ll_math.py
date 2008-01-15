@@ -1,6 +1,8 @@
 import math
 import errno
 import py
+import sys
+
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib import rposix
@@ -56,7 +58,11 @@ def _check_error(x):
         else:
             raise ValueError("math domain error")
 
-eci = ExternalCompilationInfo(libraries=['m'])
+if sys.platform[:3] == "win":
+    eci = ExternalCompilationInfo(libraries=[])
+else:
+    eci = ExternalCompilationInfo(libraries=['m'])
+
 
 def new_unary_math_function(name):
     c_func = rffi.llexternal(name, [rffi.DOUBLE], rffi.DOUBLE,
