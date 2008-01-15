@@ -9,7 +9,7 @@ yet and also do not require too much in depth knowledge to get started
 with.
 
 Feel free to suggest new ideas and discuss them in #pypy on the freenode IRC
-network or the pypy-dev mailing list (see the contact_ page).
+network or the pypy-dev mailing list (see the home_ page).
 
 -----------
 
@@ -194,7 +194,7 @@ mailing list`_.  You can also have a look around our documentation_.
 .. _`code templating solution`: http://codespeak.net/svn/pypy/extradoc/soc-2006/code-templating.txt
 
 .. _documentation: index.html
-.. _contact: contact.html
+.. _home: home.html
 .. _`pypy-dev mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
 .. _`Summer of PyPy`: summer-of-pypy.html
 .. _`ZODB's Persistent class`: http://www.zope.org/Documentation/Books/ZDG/current/Persistence.stx

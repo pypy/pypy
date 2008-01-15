@@ -844,7 +844,7 @@ plan where to meet with us.
 
 .. _events: http://codespeak.net/pypy/dist/pypy/doc/news.html
 .. _`pypy-dev mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
-.. _`contact possibilities`: contact.html
+.. _`contact possibilities`: home.html
 
 .. _`py library`: http://codespeak.net/py 
 .. _`PyPy/LLVM backend`: translation.html#llvm 
@@ -878,7 +878,7 @@ plan where to meet with us.
 .. _trace:                  ../../pypy/objspace/trace.py
 .. _flow:                   ../../pypy/objspace/flow/
 .. _translator.py:          ../../pypy/translator/translator.py
-.. _mailing lists:          contact.html
+.. _mailing lists:          home.html
 .. _documentation:          index.html 
 .. _unit tests:             coding-guide.html#test-design
 .. _bug reports:            https://codespeak.net/issue/pypy-dev/

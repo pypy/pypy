@@ -4,22 +4,25 @@ from py.__.doc.confrest import *
 class PyPyPage(Page): 
     def fill_menubar(self):
         self.menubar = html.div(
-            html.a("news",
-                   href="http://codespeak.net/pypy/dist/pypy/doc/news.html",
-                   class_="menu"), " ",
+            html.a("home", 
+                   href=self.get_doclink("home.html"), 
+                   class_="menu"), 
+            " ",
             html.a("blog", href="http://morepypy.blogspot.com", class_="menu"),
+            " ", 
             html.a("getting-started",
                    href=self.get_doclink("getting-started.html"),
-                   class_="menu"), " ",
+                   class_="menu"), 
+            " ",
             html.a("documentation", href=self.get_doclink("index.html"),
-                   class_="menu"), " ",
+                   class_="menu"),
+            " ", 
             html.a("svn", href="https://codespeak.net/viewvc/pypy/dist/",
-                   class_="menu"), " ",
+                   class_="menu"),
+            " ", 
             html.a("issues",
                    href="https://codespeak.net/issue/pypy-dev/",
                    class_="menu"),
-            html.a("contact", href=self.get_doclink("contact.html"),
-                   class_="menu"), " ",
             " ", id="menubar")
 
     def get_doclink(self, target):
