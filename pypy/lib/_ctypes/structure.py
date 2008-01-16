@@ -3,34 +3,51 @@ import _rawffi
 from _ctypes.basics import _CData, _CDataMeta
 import inspect
 
+def names_and_fields(_fields_, superclass):
+    all_fields = _fields_[:]
+    for cls in inspect.getmro(superclass):
+        all_fields += getattr(cls, '_fields_', [])
+    names = [name for name, ctype in all_fields]
+    rawfields = [(name, ctype._ffiletter)
+                 for name, ctype in all_fields]
+    return names, rawfields, dict(all_fields)
+
 class StructureMeta(_CDataMeta):
     def __new__(self, name, cls, typedict):
         res = type.__new__(self, name, cls, typedict)
         if '_fields_' in typedict:
-            all_fields = typedict['_fields_'][:]
-            for cls in inspect.getmro(cls[0]):
-                all_fields += getattr(cls, '_fields_', [])
-            names = [name for name, ctype in all_fields]
-            res._fieldtypes = dict(all_fields)
-            rawfields = [(name, ctype._ffiletter)
-                         for name, ctype in all_fields]
-            ffistruct = _rawffi.Structure(rawfields)
-            res._ffistruct = ffistruct
+            res._names, rawfields, res._fieldtypes = names_and_fields(
+                typedict['_fields_'], cls[0])
+            res._ffistruct = _rawffi.Structure(rawfields)            
 
-            def __init__(self, *args, **kwds):
-                self.__dict__['_buffer'] = ffistruct()
-                if len(args) > len(names):
-                    raise TypeError("too many arguments")
-                for name, arg in zip(names, args):
-                    if name in kwds:
-                        raise TypeError("duplicate value for argument %r" % (
-                            name,))
-                    self.__setattr__(name, arg)
-                for name, arg in kwds.items():
-                    self.__setattr__(name, arg)
-            res.__init__ = __init__
+        def __init__(self, *args, **kwds):
+            if not hasattr(self, '_ffistruct'):
+                raise TypeError("Cannot instantiate structure, has no _fields_")
+            self.__dict__['_buffer'] = self._ffistruct()
+            if len(args) > len(self._names):
+                raise TypeError("too many arguments")
+            for name, arg in zip(self._names, args):
+                if name in kwds:
+                    raise TypeError("duplicate value for argument %r" % (
+                        name,))
+                self.__setattr__(name, arg)
+            for name, arg in kwds.items():
+                self.__setattr__(name, arg)
+        res.__init__ = __init__
+
 
         return res
+
+    def __setattr__(self, name, value):
+        if name == '_fields_':
+            if self.__dict__.get('_fields_', None):
+                raise TypeError("Fields already final")
+            self._names, rawfields, self._fieldtypes = names_and_fields(
+                value, self.__bases__[0])
+            self._ffistruct = _rawffi.Structure(rawfields)
+            _CDataMeta.__setattr__(self, '_fields_', value)
+            return
+        _CDataMeta.__setattr__(self, name, value)
 
     def from_address(self, address):
         instance = self.__new__(self)
@@ -38,6 +55,8 @@ class StructureMeta(_CDataMeta):
         return instance
 
     def _sizeofinstances(self):
+        if not hasattr(self, '_ffistruct'):
+            return 0
         return self._ffistruct.size
 
 class Structure(_CData):
