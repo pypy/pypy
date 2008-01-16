@@ -4,8 +4,8 @@ The functions below produce L2 graphs, but they define an interface
 that can be used to produce any other kind of graph.
 """
 
-from pypy.rpython.lltypesystem import lltype, llmemory, rtupletype
-from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.lltypesystem import lltype, llmemory, rtupletype as llrtupletype
+from pypy.rpython.ootypesystem import ootype, rtupletype as oortupletype
 from pypy.objspace.flow import model as flowmodel
 from pypy.translator.simplify import eliminate_empty_blocks
 from pypy.translator.unsimplify import varoftype
@@ -475,11 +475,25 @@ def add_default(block):
     block.recloseblock(*exits)
     return _to_opaque(default_link)
 
+# incredible hack here; pseudotuple must pretend to be both a LL tuple
+# and an OO tuple, so we need to make the llinterpreter thinking that
+# its _TYPE is compatible both with a struct and a
+# record. TwoFacedType does exactly this.
+class TwoFacedType(ootype.BuiltinType):
+    def __init__(self, TYPE1, TYPE2):
+        self.TYPE1 = TYPE1
+        self.TYPE2 = TYPE2
+
+    def __eq__(self, other):
+        return self.TYPE1 == other or self.TYPE2 == other
+
 class pseudotuple(object):
-    # something that looks both like a hl and a ll tuple
+    # something that looks both like a hl, a ll tuple and an oo tuple
     def __init__(self, *items):
-        self._TYPE = rtupletype.TUPLE_TYPE(
-            [lltype.typeOf(item) for item in items])
+        fields = [lltype.typeOf(item) for item in items]
+        TYPE1 = llrtupletype.TUPLE_TYPE(fields)
+        TYPE2 = oortupletype.TUPLE_TYPE(fields)
+        self._TYPE = TwoFacedType(TYPE1, TYPE2)
         for i, item in enumerate(items):
             setattr(self, 'item%d' % i, item)
         self._items = items

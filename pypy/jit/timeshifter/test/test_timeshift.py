@@ -1796,6 +1796,10 @@ class TestLLType(BaseTestTimeshift):
 passing_ootype_tests = set([
     'test_very_simple',
     'test_convert_const_to_redbox',
+    'test_simple_opt_const_propagation1',
+    'test_simple_opt_const_propagation2',
+    'test_loop_folding',
+    'test_loop_merging',
     ])
 class TestOOType(BaseTestTimeshift):
     type_system = 'ootype'
