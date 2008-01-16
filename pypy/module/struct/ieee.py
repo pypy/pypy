@@ -20,7 +20,7 @@ def pack_float(result, number, size, bigendian):
 
     if isnan(number):
         sign = 0x80
-        man, e = 1.5, 1024
+        man, e = 1.5, bias + 1
     else:
         if number < 0:
             sign = 0x80
@@ -32,7 +32,7 @@ def pack_float(result, number, size, bigendian):
         else:
             sign = 0x00
         if isinf(number):
-            man, e = 1.0, 1024
+            man, e = 1.0, bias + 1
         else:
             man, e = math.frexp(number)
 
@@ -98,7 +98,7 @@ def unpack_float(input, bigendian):
     e -= bias
     e += 1
     sign = bytes[-1] & 0x80
-    if e == 1025:
+    if e == bias + 2:
         if mantissa == 0.5:
             number = INFINITY
         else:
