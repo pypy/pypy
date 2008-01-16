@@ -378,47 +378,22 @@ def getimportlock(space):
    a .pyc file in text mode the magic number will be wrong; also, the
    Apple MPW compiler swaps their values, botching string constants.
 
-   The magic numbers must be spaced apart atleast 2 values, as the
-   -U interpeter flag will cause MAGIC+1 being used. They have been
-   odd numbers for some time now.
+   CPython uses values between 20121 - 62xxx
 
-   There were a variety of old schemes for setting the magic number.
-   The current working scheme is to increment the previous value by
-   10.
-
-   Known values:
-       Python 1.5:   20121
-       Python 1.5.1: 20121
-       Python 1.5.2: 20121
-       Python 2.0:   50823
-       Python 2.0.1: 50823
-       Python 2.1:   60202
-       Python 2.1.1: 60202
-       Python 2.1.2: 60202
-       Python 2.2:   60717
-       Python 2.3a0: 62011
-       Python 2.3a0: 62021
-       Python 2.3a0: 62011 (!)
-       Python 2.4a0: 62041
-       Python 2.4a3: 62051
-       Python 2.4b1: 62061
-       Python 2.5a0: 62071
 """
 
-# we decided to use the magic of 2.4.1
+# we decided to use our own magic 1024 and we have 10 potential bits
+# for different opcodes free.
 #
-# In addition, for now, the presence of special bytecodes bumps the
+# The presence of special bytecodes bumps the
 # magic number:
 #
 #  * CALL_LIKELY_BUILTIN    +2
 #  * CALL_METHOD            +4
 #
-# this is a bit of a hack waiting for a nicer general solution.
-# Adding another bytecode is already a problem: if we bump the
-# number by a total of +10 we collide with CPython's own magic
-# number for 2.5a0.
 #
-MAGIC = 62061 | (ord('\r')<<16) | (ord('\n')<<24)
+MAGIC = 1024 | (ord('\r')<<16) | (ord('\n')<<24)
+MARSHAL_VERSION_FOR_PYC = 2
 
 def get_pyc_magic(space):
     result = MAGIC
@@ -500,15 +475,10 @@ def check_compiled_module(space, pathname, mtime, cpathname):
     magic = _r_long(stream)
     try:
         if magic != get_pyc_magic(space):
-            # XXX what to do about Py_VerboseFlag ?
-            # PySys_WriteStderr("# %s has bad magic\n", cpathname);
             return -1
         pyc_mtime = _r_long(stream)
         if pyc_mtime != mtime:
-            # PySys_WriteStderr("# %s has bad mtime\n", cpathname);
             return 0
-        # if (Py_VerboseFlag)
-           # PySys_WriteStderr("# %s matches %s\n", cpathname, pathname);
     finally:
         stream.close()
     return 1
@@ -556,7 +526,8 @@ def write_compiled_module(space, co, cpathname, mtime):
     """
     w_marshal = space.getbuiltinmodule('marshal')
     try:
-        w_str = space.call_method(w_marshal, 'dumps', space.wrap(co))
+        w_str = space.call_method(w_marshal, 'dumps', space.wrap(co),
+                                  space.wrap(MARSHAL_VERSION_FOR_PYC))
         strbuf = space.str_w(w_str)
     except OperationError, e:
         if e.async(space):
