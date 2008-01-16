@@ -43,7 +43,7 @@ class SimpleType(_CDataMeta):
         result._ffiletter = tp
         result._ffiarray = ffiarray
         if tp == 'z':
-            # c_char_p special cases
+            # c_char_p
             from _ctypes import Array, _Pointer
 
             def _getvalue(self):
@@ -52,6 +52,7 @@ class SimpleType(_CDataMeta):
                     return None
                 else:
                     return _rawffi.charp2string(addr)
+
             def _setvalue(self, value):
                 if isinstance(value, str):
                     array = _rawffi.Array('c')(len(value)+1, value)
@@ -62,16 +63,40 @@ class SimpleType(_CDataMeta):
                 self._buffer[0] = value
             result.value = property(_getvalue, _setvalue)
 
+        elif tp == 'P':
+            # c_void_p
+
+            def _getvalue(self):
+                addr = self._buffer[0]
+                if addr == 0:
+                    return None
+                return addr
+
+            def _setvalue(self, value):
+                if isinstance(value, str):
+                    array = _rawffi.Array('c')(len(value)+1, value)
+                    value = array.buffer
+                    # XXX free 'array' later
+                elif value is None:
+                    value = 0
+                self._buffer[0] = value
+            result.value = property(_getvalue, _setvalue)            
+        
+        if tp == 'z' or tp == 'P':
+            from _ctypes import Array, _Pointer
+            # c_char_p and c_void_p
             def from_param(self, value):
                 if value is None:
                     return None
                 if isinstance(value, basestring):
                     return self(value)
-                if isinstance(value, self):
+                if isinstance(value, _SimpleCData) and \
+                       type(value)._type_ in 'zP':
                     return value
                 if isinstance(value, (Array, _Pointer)):
-                    from ctypes import c_char
-                    if type(value)._type_ == c_char:
+                    from ctypes import c_char, c_byte
+                    if type(value)._type_ == c_char or \
+                           type(value)._type_ == c_byte:
                         return value
                 return SimpleType.from_param(self, value)
             result.from_param = classmethod(from_param)
