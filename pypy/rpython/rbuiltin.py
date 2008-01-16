@@ -439,14 +439,12 @@ def gen_cast(llops, TGT, v_value):
                 return llops.genop('cast_pointer', [v_value], resulttype = TGT)
         elif ORIG == llmemory.Address:
             return llops.genop('cast_adr_to_ptr', [v_value], resulttype = TGT)
-        elif isinstance(ORIG, lltype.Primitive) and ORIG in _cast_to_Signed:
-            op = _cast_to_Signed[ORIG]
-            if op:
-                v_value = llops.genop(op, [v_value], resulttype=lltype.Signed)
+        elif isinstance(ORIG, lltype.Primitive):
+            v_value = gen_cast(llops, lltype.Signed, v_value)            
             return llops.genop('cast_int_to_ptr', [v_value], resulttype=TGT)
     elif TGT == llmemory.Address and isinstance(ORIG, lltype.Ptr):
         return llops.genop('cast_ptr_to_adr', [v_value], resulttype = TGT)
-    elif isinstance(TGT, lltype.Primitive) and TGT in _cast_from_Signed:
+    elif isinstance(TGT, lltype.Primitive):
         if isinstance(ORIG, lltype.Ptr):
             v_value = llops.genop('cast_ptr_to_int', [v_value],
                                   resulttype=lltype.Signed)
@@ -456,10 +454,7 @@ def gen_cast(llops, TGT, v_value):
         else:
             raise TypeError("don't know how to cast from %r to %r" % (ORIG,
                                                                       TGT))
-        op = _cast_from_Signed[TGT]
-        if op:
-            v_value = llops.genop(op, [v_value], resulttype=TGT)
-        return v_value
+        return gen_cast(llops, TGT, v_value)
     raise TypeError("don't know how to cast from %r to %r" % (ORIG, TGT))
 
 def rtype_cast_ptr_to_int(hop):

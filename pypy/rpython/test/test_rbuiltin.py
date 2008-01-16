@@ -5,10 +5,10 @@ from pypy.rlib.objectmodel import running_on_llinterp
 from pypy.rlib.debug import llinterpcall
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool import udir
-from pypy.rlib.rarithmetic import r_uint, intmask, r_longlong
+from pypy.rlib.rarithmetic import r_uint, intmask, r_longlong, r_ulonglong
 from pypy.annotation.builtin import *
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-from pypy.rpython.lltypesystem.rffi import SHORT
+from pypy.rpython.lltypesystem import rffi
 from pypy.rpython import extfunc
 import py
 
@@ -513,12 +513,21 @@ class TestLLtype(BaseTestRbuiltin, LLRtypeMixin):
         res = self.interpret(llf, [ord('x')], policy=LowLevelAnnotatorPolicy())
         assert res == u'x'
         def llf(v):
-            return lltype.cast_primitive(SHORT, v)
+            return lltype.cast_primitive(rffi.SHORT, v)
         res = self.interpret(llf, [123], policy=LowLevelAnnotatorPolicy())
         assert res == 123
 
-
-    
+    def test_cast(self):
+        def llfn(v):
+            return rffi.cast(rffi.VOIDP, v)
+        res = self.interpret(llfn, [r_ulonglong(0)])
+        assert res == lltype.nullptr(rffi.VOIDP.TO)
+        def llfn(v):
+            return rffi.cast(rffi.LONGLONG, v)
+        res = self.interpret(llfn, [lltype.nullptr(rffi.VOIDP.TO)])
+        assert res == 0
+        assert isinstance(res, r_longlong)
+        
 class TestOOtype(BaseTestRbuiltin, OORtypeMixin):
 
     def test_instantiate_meta(self):
