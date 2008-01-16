@@ -40,13 +40,13 @@ def generate_redirection(oldname, newname):
     oldpath.write("""<html>
     <head>
         <meta http-equiv="refresh"
-              content="2 ; URL=%s" />
+              content="0 ; URL=%s" />
         <META HTTP-EQUIV="CACHE-CONTROL" CONTENT="NO-CACHE">
         <META HTTP-EQUIV="expires" CONTENT="0">
     </head>
-    <body>
+    <body> X
         <p>
-            you should be redirected to
+            you should be automatically redirected to
             <a href="%s">%s</a>
         </p>
     </body>

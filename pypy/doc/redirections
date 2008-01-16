@@ -33,5 +33,7 @@
     'draft-low-level-encapsulation.html': 'low-level-encapsulation.html',
     'draft-memory-management-threading-model.html': 'translation-aspects.html',
     'proxy.html': 'objspace-proxies.html#tproxy',
+    'news.html': 'home.html',
+    'contact.html': 'home.html',
 }
 
