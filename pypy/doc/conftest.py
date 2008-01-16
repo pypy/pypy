@@ -8,7 +8,7 @@ Option = py.test.config.Option
 option = py.test.config.addoptions("pypy-doc options", 
         Option('--generate-redirections', action="store_true",
                dest="generateredirections",
-               default=False, help="Generate the redirecting HTML files"),
+               default=True, help="Generate the redirecting HTML files"),
         Option('--enable-doctests', action="store_true",
                dest="doctests", 
                default=False, help="enable doctests in .txt files"), 
