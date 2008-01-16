@@ -680,10 +680,16 @@ class TestLL2Ctypes(object):
     def test_prebuilt_constant(self):
         header = py.code.Source("""
         #include <stdlib.h>
-        
+
+        #ifndef _SOME_H_H_
+        #define _SOME_H_H_
+
         static int x = 3;
-        char **z = NULL;
+        char **z;
+
+        #endif _SOME_H_H_
         """)
+
         h_file = udir.join("some_h.h")
         h_file.write(header)
         
