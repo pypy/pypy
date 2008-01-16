@@ -44,7 +44,7 @@ def generate_redirection(oldname, newname):
         <META HTTP-EQUIV="CACHE-CONTROL" CONTENT="NO-CACHE">
         <META HTTP-EQUIV="expires" CONTENT="0">
     </head>
-    <body> X
+    <body>
         <p>
             you should be automatically redirected to
             <a href="%s">%s</a>
