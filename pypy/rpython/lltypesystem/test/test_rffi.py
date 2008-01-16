@@ -216,9 +216,15 @@ class BaseTestRffi:
     
     def test_opaque_type(self):
         h_source = py.code.Source("""
+
+        #ifndef _OPAQUE_H_
+        #define _OPAQUE_H_
+        
         struct stuff {
            char data[38];
         };
+
+        #endif
         """)
         
         c_source = py.code.Source("""
@@ -322,6 +328,15 @@ class BaseTestRffi:
 
     def eating_callback(self):
         h_source = py.code.Source("""
+        #ifndef _CALLBACK_H_
+        #define _CALLBACK_H_
+
+        int eating_callback(int arg, int(*call)(int));
+
+        #endif
+        """)
+
+        c_source = py.code.Source("""
         int eating_callback(int arg, int(*call)(int))
         {
             int res = call(arg);
@@ -329,13 +344,15 @@ class BaseTestRffi:
               return -1;
             return res;
         }
+
         """)
         
         h_include = udir.join('callback.h')
         h_include.write(h_source)
 
         eci = ExternalCompilationInfo(includes=['callback.h'],
-                                      include_dirs=[str(udir)])
+                                      include_dirs=[str(udir)],
+                                      separate_module_sources=[c_source])
 
         args = [INT, CCallback([INT], INT)]
         eating_callback = llexternal('eating_callback', args, INT,
