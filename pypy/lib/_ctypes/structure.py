@@ -1,15 +1,19 @@
 
 import _rawffi
 from _ctypes.basics import _CData, _CDataMeta
+import inspect
 
 class StructureMeta(_CDataMeta):
     def __new__(self, name, cls, typedict):
         res = type.__new__(self, name, cls, typedict)
         if '_fields_' in typedict:
-            names = [name for name, ctype in typedict['_fields_']]
-            res._fieldtypes = dict(typedict['_fields_'])
+            all_fields = typedict['_fields_'][:]
+            for cls in inspect.getmro(cls[0]):
+                all_fields += getattr(cls, '_fields_', [])
+            names = [name for name, ctype in all_fields]
+            res._fieldtypes = dict(all_fields)
             rawfields = [(name, ctype._ffiletter)
-                         for name, ctype in typedict['_fields_']]
+                         for name, ctype in all_fields]
             ffistruct = _rawffi.Structure(rawfields)
             res._ffistruct = ffistruct
 
@@ -33,6 +37,8 @@ class StructureMeta(_CDataMeta):
         instance.__dict__['_buffer'] = self._ffistruct.fromaddress(address)
         return instance
 
+    def _sizeofinstances(self):
+        return self._ffistruct.size
 
 class Structure(_CData):
     __metaclass__ = StructureMeta
