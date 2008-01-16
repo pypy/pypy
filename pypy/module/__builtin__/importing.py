@@ -382,8 +382,8 @@ def getimportlock(space):
 
 """
 
-# we decided to use our own magic 1024 and we have 10 potential bits
-# for different opcodes free.
+# we decided to use our own magic number starting from 1024
+# and we have 10 potential bits for different opcodes free.
 #
 # The presence of special bytecodes bumps the
 # magic number:
