@@ -1800,6 +1800,13 @@ passing_ootype_tests = set([
     'test_simple_opt_const_propagation2',
     'test_loop_folding',
     'test_loop_merging',
+    'test_two_loops_merging',
+    'test_convert_greenvar_to_redvar',
+    'test_green_across_split',
+    'test_merge_const_before_return',
+    'test_merge_3_redconsts_before_return',
+    'test_merge_const_at_return',
+    'test_arith_plus_minus',
     ])
 class TestOOType(BaseTestTimeshift):
     type_system = 'ootype'
