@@ -3,12 +3,7 @@ Packing and unpacking of floats in the IEEE 32-bit and 64-bit formats.
 """
 
 import math
-from pypy.rlib.rarithmetic import r_longlong
-
-
-def sane_float(man,e):
-    # TODO: XXX Implement checks for floats
-    return True
+from pypy.rlib.rarithmetic import r_longlong, isinf, isnan, INFINITY, NAN
 
 def pack_float(result, number, size, bigendian):
     """Append to 'result' the 'size' characters of the 32-bit or 64-bit
@@ -22,45 +17,49 @@ def pack_float(result, number, size, bigendian):
         bias = 1023
         exp = 11
         prec = 52
-    if number < 0:
-        sign = 0x80
-        number *= -1
-    elif number == 0.0:
-        for i in range(size):
-            result.append('\x00')
-        return
-    else:
-        sign = 0x00
 
-    man, e = math.frexp(number)
+    if isnan(number):
+        sign = 0x80
+        man, e = 1.5, 1024
+    else:
+        if number < 0:
+            sign = 0x80
+            number *= -1
+        elif number == 0.0:
+            for i in range(size):
+                result.append('\x00')
+            return
+        else:
+            sign = 0x00
+        if isinf(number):
+            man, e = 1.0, 1024
+        else:
+            man, e = math.frexp(number)
+
     if 0.5 <= man and man < 1.0:
         man *= 2
         e -= 1
-    if sane_float(man,e):
-        man -= 1
-        e += bias
-        power_of_two = r_longlong(1) << prec
-        mantissa = r_longlong(power_of_two * man + 0.5)
-        if mantissa >> prec :
-            mantissa = 0
-            e += 1
+    man -= 1
+    e += bias
+    power_of_two = r_longlong(1) << prec
+    mantissa = r_longlong(power_of_two * man + 0.5)
+    if mantissa >> prec :
+        mantissa = 0
+        e += 1
 
-        for i in range(size-2):
-            result.append(chr(mantissa & 0xff))
-            mantissa >>= 8
-        x = (mantissa & ((1<<(15-exp))-1)) | ((e & ((1<<(exp-7))-1))<<(15-exp))
-        result.append(chr(x))
-        x = sign | e >> (exp - 7)
-        result.append(chr(x))
-        if bigendian:
-            first = len(result) - size
-            last = len(result) - 1
-            for i in range(size // 2):
-                (result[first + i], result[last - i]) = (
-                    result[last - i], result[first + i])
-    #else:
-    #   ...
-
+    for i in range(size-2):
+        result.append(chr(mantissa & 0xff))
+        mantissa >>= 8
+    x = (mantissa & ((1<<(15-exp))-1)) | ((e & ((1<<(exp-7))-1))<<(15-exp))
+    result.append(chr(x))
+    x = sign | e >> (exp - 7)
+    result.append(chr(x))
+    if bigendian:
+        first = len(result) - size
+        last = len(result) - 1
+        for i in range(size // 2):
+            (result[first + i], result[last - i]) = (
+                result[last - i], result[first + i])
 
 def unpack_float(input, bigendian):
     """Interpret the 'input' string into a 32-bit or 64-bit
@@ -99,6 +98,12 @@ def unpack_float(input, bigendian):
     e -= bias
     e += 1
     sign = bytes[-1] & 0x80
-    number = math.ldexp(mantissa,e)
+    if e == 1025:
+        if mantissa == 0.5:
+            number = INFINITY
+        else:
+            return NAN
+    else:
+        number = math.ldexp(mantissa,e)
     if sign : number = -number
     return number

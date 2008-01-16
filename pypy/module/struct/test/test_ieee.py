@@ -1,5 +1,5 @@
 from pypy.module.struct.ieee import pack_float, unpack_float
-
+from pypy.rlib.rarithmetic import isnan
 
 testcases = [
     (-0.025, 4, False, '\xcd\xcc\xcc\xbc'),
@@ -10,8 +10,27 @@ testcases = [
     (2.0 ** 100, 8, False, '\x00\x00\x00\x00\x00\x000F'),
     (0.0, 8, True, '\x00\x00\x00\x00\x00\x00\x00\x00'),
     (-123456789, 8, True, '\xc1\x9do4T\x00\x00\x00'),
+    (1e200*1e200, 8, False, '\x00\x00\x00\x00\x00\x00\xf0\x7f'),
+    (-1e200*1e200, 8, False, '\x00\x00\x00\x00\x00\x00\xf0\xff'),
+    ((1e200*1e200)/(1e200*1e200), 8, False, '\x00\x00\x00\x00\x00\x00\xf8\xff')
     ]
 
+
+def test_correct_tests():
+    import struct
+    for number, size, bigendian, expected in testcases:
+        if bigendian:
+            fmt = '>'
+        else:
+            fmt = '<'
+        if size == 4:
+            fmt += 'f'
+        else:
+            fmt += 'd'
+        res, = struct.unpack(fmt, expected)
+        assert (isnan(res) and isnan(number)) or \
+                res == number or abs(res - number) < 1E-6
+        assert struct.pack(fmt, number) == expected
 
 def test_pack():
     for number, size, bigendian, expected in testcases:
@@ -26,10 +45,13 @@ def test_unpack():
         print 'test_unpack:', expected, size, bigendian
         assert len(input) == size
         res = unpack_float(input, bigendian)
-        if size == 8:
-            assert res == expected    # exact result expected
+        if isnan(res) and isnan(expected):
+            pass
         else:
-            assert abs(res - expected) < 1E-6
+            if size == 8:
+                assert res == expected    # exact result expected
+            else:
+                assert abs(res - expected) < 1E-6
 
 
 def test_llinterpreted():
