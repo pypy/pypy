@@ -397,20 +397,22 @@ def rtype_cast_primitive(hop):
     return gen_cast(hop.llops, TGT, v_value)
 
 _cast_to_Signed = {
-    lltype.Signed:   None,
-    lltype.Bool:     'cast_bool_to_int',
-    lltype.Char:     'cast_char_to_int',
-    lltype.UniChar:  'cast_unichar_to_int',
-    lltype.Float:    'cast_float_to_int',
-    lltype.Unsigned: 'cast_uint_to_int',
+    lltype.Signed:         None,
+    lltype.Bool:           'cast_bool_to_int',
+    lltype.Char:           'cast_char_to_int',
+    lltype.UniChar:        'cast_unichar_to_int',
+    lltype.Float:          'cast_float_to_int',
+    lltype.Unsigned:       'cast_uint_to_int',
+    lltype.SignedLongLong: 'truncate_longlong_to_int',
     }
 _cast_from_Signed = {
-    lltype.Signed:   None,
-    lltype.Bool:     'int_is_true',
-    lltype.Char:     'cast_int_to_char',
-    lltype.UniChar:  'cast_int_to_unichar',
-    lltype.Float:    'cast_int_to_float',
-    lltype.Unsigned: 'cast_int_to_uint',
+    lltype.Signed:         None,
+    lltype.Bool:           'int_is_true',
+    lltype.Char:           'cast_int_to_char',
+    lltype.UniChar:        'cast_int_to_unichar',
+    lltype.Float:          'cast_int_to_float',
+    lltype.Unsigned:       'cast_int_to_uint',
+    lltype.SignedLongLong: 'cast_int_to_longlong',
     }
 def gen_cast(llops, TGT, v_value):
     ORIG = v_value.concretetype
