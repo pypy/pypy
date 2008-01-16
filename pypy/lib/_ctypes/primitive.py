@@ -116,6 +116,9 @@ class SimpleType(_CDataMeta):
     def _sizeofinstances(self):
         return _rawffi.sizeof(self._type_)
 
+    def _alignmentofinstances(self):
+        return _rawffi.alignment(self._type_)
+
     def _is_pointer_like(self):
         return self._type_ in "sPzUZXO"
 

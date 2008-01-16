@@ -41,7 +41,7 @@ class StructureMeta(_CDataMeta):
     def __setattr__(self, name, value):
         if name == '_fields_':
             if self.__dict__.get('_fields_', None):
-                raise TypeError("Fields already final")
+                raise AttributeError("_fields_ is final")
             self._names, rawfields, self._fieldtypes = names_and_fields(
                 value, self.__bases__[0])
             self._ffistruct = _rawffi.Structure(rawfields)
@@ -59,8 +59,12 @@ class StructureMeta(_CDataMeta):
             return 0
         return self._ffistruct.size
 
+    def _alignmentofinstances(self):
+        return self._ffistruct.alignment
+
 class Structure(_CData):
     __metaclass__ = StructureMeta
+    _ffiletter = 'P'
 
     def _subarray(self, fieldtype, name):
         """Return a _rawffi array of length 1 whose address is the same as

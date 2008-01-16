@@ -48,8 +48,14 @@ class PointerType(_CDataMeta):
     def _sizeofinstances(self):
         return _rawffi.sizeof('P')
 
+    def _alignmentofinstances(self):
+        return _rawffi.alignment('P')
+
     def _is_pointer_like(self):
         return True
+
+    def set_type(self, TP):
+        pass # XXX???
 
     from_address = cdata_from_address
 

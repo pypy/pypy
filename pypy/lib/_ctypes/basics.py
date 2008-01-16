@@ -73,8 +73,13 @@ def sizeof(tp):
     return tp._sizeofinstances()
 
 def alignment(tp):
-    ffitp = tp._type_
-    return _rawffi.alignment(ffitp)
+    if not isinstance(tp, _CDataMeta):
+        if isinstance(tp, _CData):
+            tp = type(tp)
+        else:
+            raise TypeError("ctypes type or instance expected, got %r" % (
+                type(tp).__name__,))
+    return tp._alignmentofinstances()
 
 def byref(cdata):
     from ctypes import pointer

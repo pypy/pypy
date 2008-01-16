@@ -6,11 +6,10 @@ from _ctypes.basics import _CData, cdata_from_address, _CDataMeta, sizeof
 class ArrayMeta(_CDataMeta):
     def __new__(self, name, cls, typedict):
         res = type.__new__(self, name, cls, typedict)
-        res._ffiletter = 'P'
         if '_type_' in typedict:
             ffiarray = _rawffi.Array(typedict['_type_']._ffiletter)
             res._ffiarray = ffiarray
-            if typedict['_type_']._type_ == 'c':
+            if getattr(typedict['_type_'], '_type_', None) == 'c':
                 def getvalue(self):
                     return _rawffi.charp2string(self._buffer.buffer,
                                                 self._length_)
@@ -41,8 +40,12 @@ class ArrayMeta(_CDataMeta):
         size, alignment = self._ffiarray.gettypecode(self._length_)
         return size
 
+    def _alignmentofinstances(self):
+        return self._type_._alignmentofinstances()
+
 class Array(_CData):
     __metaclass__ = ArrayMeta
+    _ffiletter = 'P'
 
     def __init__(self, *args):
         self._buffer = self._ffiarray(self._length_)

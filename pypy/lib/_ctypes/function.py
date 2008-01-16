@@ -11,6 +11,8 @@ class CFuncPtr(_CData):
 
     _argtypes_ = None
     _restype_ = None
+    _ffiletter = 'P'
+    _buffer = 0
 
     def _getargtypes(self):
         return self._argtypes_
@@ -48,6 +50,9 @@ class CFuncPtr(_CData):
             return restype._CData_output(resarray)
 
     def _getfuncptr(self, argtypes, restype):
+        if restype is None:
+            import ctypes
+            restype = ctypes.c_int
         argletters = [arg._ffiletter for arg in argtypes]
         return self.dll._handle.ptr(self.name, argletters, restype._ffiletter)
 
