@@ -18,6 +18,7 @@ from pypy.objspace.std.objspace import StdObjSpace
 from pypy.interpreter.special import Ellipsis
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter import gateway
+from pypy.module.struct import ieee
 
 from pypy.objspace.std.boolobject    import W_BoolObject
 from pypy.objspace.std.complexobject import W_ComplexObject
@@ -172,67 +173,58 @@ def unmarshal_Int64(space, u, tc):
         return res
 register(TYPE_INT64, unmarshal_Int64)
 
-# support for marshal version 2:
-# we call back into the struct module.
-# XXX struct should become interp-level.
-# XXX we also should have an rtyper operation
-# that allows to typecast between double and char{8}
+def pack_float(f):
+    result = []
+    ieee.pack_float(result, f, 8, False)
+    return ''.join(result)
 
-app = gateway.applevel(r'''
-    def float_to_str(fl):
-        import struct
-        return struct.pack('<d', fl)
-
-    def str_to_float(s):
-        import struct
-        return struct.unpack('<d', s)[0]
-''')
-
-float_to_str = app.interphook('float_to_str')
-str_to_float = app.interphook('str_to_float')
+def unpack_float(s):
+    return ieee.unpack_float(s, False)
 
 def marshal_w__Float(space, w_float, m):
     if m.version > 1:
         m.start(TYPE_BINARY_FLOAT)
-        m.put(space.str_w(float_to_str(space, w_float)))
+        m.put(pack_float(w_float.floatval))
     else:
         m.start(TYPE_FLOAT)
         m.put_pascal(space.str_w(repr_float(space, w_float)))
 
 def unmarshal_Float(space, u, tc):
-    if tc == TYPE_BINARY_FLOAT:
-        w_ret = str_to_float(space, space.wrap(u.get(8)))
-        return W_FloatObject(space.float_w(w_ret))
-    else:
-        return space.call_function(space.builtin.get('float'),
-                                 space.wrap(u.get_pascal()))
-register(TYPE_FLOAT + TYPE_BINARY_FLOAT, unmarshal_Float)
+    return space.call_function(space.builtin.get('float'),
+                               space.wrap(u.get_pascal()))
+register(TYPE_FLOAT, unmarshal_Float)
+
+def unmarshal_Float_bin(space, u, tc):
+    return W_FloatObject(unpack_float(u.get(8)))
+register(TYPE_BINARY_FLOAT, unmarshal_Float_bin)
 
 def marshal_w__Complex(space, w_complex, m):
-    # XXX a bit too wrap-happy
-    w_real = space.wrap(w_complex.realval)
-    w_imag = space.wrap(w_complex.imagval)
     if m.version > 1:
         m.start(TYPE_BINARY_COMPLEX)
-        m.put(space.str_w(float_to_str(space, w_real)))
-        m.put(space.str_w(float_to_str(space, w_imag)))
+        m.put(pack_float(w_complex.realval))
+        m.put(pack_float(w_complex.imagval))
     else:
+        # XXX a bit too wrap-happy
+        w_real = space.wrap(w_complex.realval)
+        w_imag = space.wrap(w_complex.imagval)
         m.start(TYPE_COMPLEX)
         m.put_pascal(space.str_w(repr_float(space, w_real)))
         m.put_pascal(space.str_w(repr_float(space, w_imag)))
 
 def unmarshal_Complex(space, u, tc):
-    if tc == TYPE_BINARY_COMPLEX:
-        w_real = str_to_float(space, space.wrap(u.get(8)))
-        w_imag = str_to_float(space, space.wrap(u.get(8)))
-    else:
-        w_real = space.call_function(space.builtin.get('float'),
-                                     space.wrap(u.get_pascal()))
-        w_imag = space.call_function(space.builtin.get('float'),
-                                     space.wrap(u.get_pascal()))
+    w_real = space.call_function(space.builtin.get('float'),
+                                 space.wrap(u.get_pascal()))
+    w_imag = space.call_function(space.builtin.get('float'),
+                                 space.wrap(u.get_pascal()))
     w_t = space.builtin.get('complex')
     return space.call_function(w_t, w_real, w_imag)
-register(TYPE_COMPLEX + TYPE_BINARY_COMPLEX, unmarshal_Complex)
+register(TYPE_COMPLEX, unmarshal_Complex)
+
+def unmarshal_Complex_bin(space, u, tc):
+    real = unpack_float(u.get(8))
+    imag = unpack_float(u.get(8))
+    return W_ComplexObject(real, imag)
+register(TYPE_BINARY_COMPLEX, unmarshal_Complex_bin)
 
 def marshal_w__Long(space, w_long, m):
     assert long_bits == 15, """if long_bits is not 15,
