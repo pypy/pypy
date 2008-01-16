@@ -849,6 +849,11 @@ class _view(object):
             return res.__class__(res.DEFINST, _view(res.DEFINST, res.inst), res.meth)
         return res
 
+    def _become(self, other):
+        assert self._TYPE == other._TYPE
+        assert isinstance(other, _view)
+        self.__dict__['_inst'] = other._inst
+
     def _instanceof(self, INSTANCE):
         return self._inst._instanceof(INSTANCE)
 

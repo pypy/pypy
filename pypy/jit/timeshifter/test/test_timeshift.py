@@ -1793,7 +1793,17 @@ class BaseTestTimeshift(TimeshiftingTests):
 class TestLLType(BaseTestTimeshift):
     type_system = 'lltype'
 
-# skip it for now, only test_very_simple works
-class xTestOOType(BaseTestTimeshift):
+passing_ootype_tests = set([
+    'test_very_simple',
+    'test_convert_const_to_redbox',
+    ])
+class TestOOType(BaseTestTimeshift):
     type_system = 'ootype'
 
+    def __getattribute__(self, name):
+        if name.startswith('test_') and name not in passing_ootype_tests:
+            def fn():
+                py.test.skip("doesn't work yet")
+            return fn
+        else:
+            return object.__getattribute__(self, name)

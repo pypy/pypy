@@ -226,7 +226,10 @@ class MixLevelHelperAnnotator:
             bk = self.rtyper.annotator.bookkeeper
             bk.immutablevalue(obj)
 
-            delayedptr = lltype._ptr(repr.lowleveltype, "delayed!")
+            if self.rtyper.type_system.name == 'lltypesystem':
+                delayedptr = lltype._ptr(repr.lowleveltype, "delayed!")
+            else:
+                delayedptr = ootype.make_instance(repr.lowleveltype)
             self.delayedconsts.append((delayedptr, repr, obj))
             return delayedptr
         else:
