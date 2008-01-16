@@ -211,9 +211,9 @@ class PtrRedBox(RedBox):
             else:
                 self.known_nonzero = True
         else:
-            if self.is_constant():
-                ok = not self.genvar.revealconst(llmemory.Address) # ok if null
-            else:
+            if self.known_nonzero:
+                ok = False
+            elif not self.is_constant():
                 gv_null = jitstate.curbuilder.rgenop.genzeroconst(self.kind)
                 self.setgenvar_hint(gv_null, known_nonzero=False)
         return ok
