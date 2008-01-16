@@ -47,35 +47,6 @@ def annotation(a, x):
         t = annmodel.lltype_to_annotation(T)
     return a.typeannotation(t)
 
-def hannotate(func, values, policy=None, inline=None, backendoptimize=False,
-              portal=None):
-    # build the normal ll graphs for ll_function
-    t = TranslationContext()
-    a = t.buildannotator()
-    argtypes = getargtypes(a, values)
-    a.build_types(func, argtypes)
-    rtyper = t.buildrtyper()
-    rtyper.specialize()
-    if inline:
-        auto_inlining(t, threshold=inline)
-    if backendoptimize:
-        from pypy.translator.backendopt.all import backend_optimizations
-        backend_optimizations(t, inline_threshold=inline or 0)
-    if portal is None:
-        portal = func
-    if hasattr(policy, "seetranslator"):
-        policy.seetranslator(t)
-    graph1 = graphof(t, portal)
-    # build hint annotator types
-    hannotator = HintAnnotator(base_translator=t, policy=policy)
-    hs = hannotator.build_types(graph1, [SomeLLAbstractConstant(v.concretetype,
-                                                                {OriginFlags(): True})
-                                         for v in graph1.getargs()])
-    hannotator.simplify()
-    if conftest.option.view:
-        hannotator.translator.view()
-    return hs, hannotator, rtyper
-
 class TimeshiftingTests(object):
     RGenOp = LLRGenOp
 
@@ -93,6 +64,46 @@ class TimeshiftingTests(object):
     def teardown_class(cls):
         del cls._cache
         del cls._cache_order
+
+    def hannotate(self, func, values, policy=None, inline=None, backendoptimize=False,
+                  portal=None):
+        # build the normal ll graphs for ll_function
+        t = TranslationContext()
+        a = t.buildannotator()
+        argtypes = getargtypes(a, values)
+        a.build_types(func, argtypes)
+        rtyper = t.buildrtyper(type_system = self.type_system)
+        rtyper.specialize()
+        if inline:
+            auto_inlining(t, threshold=inline)
+        if backendoptimize:
+            from pypy.translator.backendopt.all import backend_optimizations
+            backend_optimizations(t, inline_threshold=inline or 0)
+        if portal is None:
+            portal = func
+
+        policy = self.fixpolicy(policy)
+        if hasattr(policy, "seetranslator"):
+            policy.seetranslator(t)
+        graph1 = graphof(t, portal)
+        # build hint annotator types
+        hannotator = HintAnnotator(base_translator=t, policy=policy)
+        hs = hannotator.build_types(graph1, [SomeLLAbstractConstant(v.concretetype,
+                                                                    {OriginFlags(): True})
+                                             for v in graph1.getargs()])
+        hannotator.simplify()
+        if conftest.option.view:
+            hannotator.translator.view()
+        return hs, hannotator, rtyper
+
+    def fixpolicy(self, policy):
+        import copy
+        if self.type_system == 'ootype' and policy is not None:
+            newpolicy = copy.copy(policy)
+            newpolicy.oopspec = False
+            return newpolicy
+        else:
+            return policy
 
     def timeshift_cached(self, ll_function, values, inline=None, policy=None,
                          check_raises='ignored anyway',
@@ -115,9 +126,9 @@ class TimeshiftingTests(object):
 
         if len(self._cache_order) >= 3:
             del self._cache[self._cache_order.pop(0)]
-        hs, ha, rtyper = hannotate(ll_function, values,
-                                   inline=inline, policy=policy,
-                                   backendoptimize=backendoptimize)
+        hs, ha, rtyper = self.hannotate(ll_function, values,
+                                        inline=inline, policy=policy,
+                                        backendoptimize=backendoptimize)
 
         # make the timeshifted graphs
         hrtyper = HintRTyper(ha, rtyper, self.RGenOp)
@@ -367,7 +378,7 @@ class TimeshiftingTests(object):
         assert count == expected_count
 
 
-class TestTimeshift(TimeshiftingTests):
+class BaseTestTimeshift(TimeshiftingTests):
 
     def test_simple_fixed(self):
         py.test.skip("green return not working")
@@ -1778,3 +1789,11 @@ class TestTimeshift(TimeshiftingTests):
             hint(None, global_merge_point=True)
             return g(n)
         py.test.raises(AssertionError, self.timeshift, f, [7], [])
+
+class TestLLType(BaseTestTimeshift):
+    type_system = 'lltype'
+
+# skip it for now, only test_very_simple works
+class xTestOOType(BaseTestTimeshift):
+    type_system = 'ootype'
+

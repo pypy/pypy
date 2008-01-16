@@ -193,3 +193,33 @@ class AbstractInstanceRepr(Repr):
 def rtype_new_instance(rtyper, classdef, llops, classcallhop=None):
     rinstance = getinstancerepr(rtyper, classdef)
     return rinstance.new_instance(llops, classcallhop)
+
+
+_missing = object()
+
+def fishllattr(inst, name, default=_missing):
+    from pypy.rpython.lltypesystem import lltype
+    from pypy.rpython.ootypesystem import ootype
+    if isinstance(inst, (ootype._instance, ootype._view)):
+        # XXX: we need to call ootypesystem.rclass.mangle, but we
+        # can't because we don't have a config object
+        mangled = 'o' + name
+        if default is _missing:
+            return getattr(inst, mangled)
+        else:
+            return getattr(inst, mangled, default)
+    else:
+        p = widest = lltype.normalizeptr(inst)
+        while True:
+            try:
+                return getattr(p, 'inst_' + name)
+            except AttributeError:
+                pass
+            try:
+                p = p.super
+            except AttributeError:
+                break
+        if default is _missing:
+            raise AttributeError("%s has no field %s" % (lltype.typeOf(widest),
+                                                         name))
+        return default

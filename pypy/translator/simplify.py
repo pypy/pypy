@@ -25,7 +25,7 @@ def get_funcobj(func):
 def get_functype(TYPE):
     if isinstance(TYPE, lltype.Ptr):
         return TYPE.TO
-    elif isinstance(TYPE, ootype.StaticMethod):
+    elif isinstance(TYPE, (ootype.StaticMethod, ootype.ForwardReference)):
         return TYPE
     assert False
 

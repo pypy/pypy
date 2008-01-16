@@ -1,5 +1,5 @@
 from pypy.rpython.lltypesystem.lltype import *
-from pypy.rpython.lltypesystem.rclass import OBJECTPTR, fishllattr
+from pypy.rpython.rclass import OBJECTPTR, fishllattr
 from pypy.translator.translator import TranslationContext
 from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import annotate_lowlevel_helper

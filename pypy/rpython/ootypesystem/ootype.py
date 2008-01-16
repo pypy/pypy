@@ -31,6 +31,18 @@ class OOType(LowLevelType):
         raise TypeError
 
 
+class ForwardReference(OOType):
+    def become(self, realtype):
+        if not isinstance(realtype, OOType):
+            raise TypeError("ForwardReference can only be to an OOType, "
+                            "not %r" % (realtype,))
+        self.__class__ = realtype.__class__
+        self.__dict__ = realtype.__dict__
+
+    def __hash__(self):
+        raise TypeError("%r object is not hashable" % self.__class__.__name__)
+
+
 class Class(OOType):
 
     def _defl(self):
@@ -219,7 +231,6 @@ class SpecializableType(OOType):
         raise NotImplementedError
 
 class StaticMethod(SpecializableType):
-    __slots__ = ['_null']
 
     def __init__(self, args, result):
         self.ARGS = tuple(args)
@@ -924,9 +935,10 @@ class _callable(object):
 
 
 class _static_meth(_callable):
+   allowed_types = (StaticMethod,)
 
    def __init__(self, STATICMETHOD, **attrs):
-       assert isinstance(STATICMETHOD, StaticMethod)
+       assert isinstance(STATICMETHOD, self.allowed_types)
        _callable.__init__(self, STATICMETHOD, **attrs)
 
    def __call__(self, *args):
@@ -936,6 +948,18 @@ class _static_meth(_callable):
    def __repr__(self):
        return 'sm %s' % self._name
 
+class _forward_static_meth(_static_meth):
+   allowed_types = (StaticMethod, ForwardReference)
+
+   def __eq__(self, other):
+       return self is other
+   
+   def __hash__(self):
+       return id(self)
+
+   def _become(self, other):
+       assert isinstance(other, _static_meth)
+       self.__dict__ = other.__dict__
 
 class _bound_meth(object):
     def __init__(self, DEFINST, inst, meth):

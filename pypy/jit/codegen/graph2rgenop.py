@@ -7,7 +7,7 @@ from pypy.objspace.flow import model as flowmodel
 import random
 
 
-def rcompile(rgenop, entrypoint, argtypes, random_seed=0):
+def rcompile(rgenop, entrypoint, argtypes, random_seed=0, type_system='lltype'):
     from pypy.translator.translator import TranslationContext
     from pypy.annotation.policy import AnnotatorPolicy
     from pypy import conftest
@@ -15,7 +15,7 @@ def rcompile(rgenop, entrypoint, argtypes, random_seed=0):
     policy = AnnotatorPolicy()
     policy.allow_someobjects = False
     t.buildannotator(policy=policy).build_types(entrypoint, argtypes)
-    t.buildrtyper().specialize()
+    t.buildrtyper(type_system = type_system).specialize()
 
     # note that backend optimizations will constant-fold simple operations,
     # which is required by some backends that don't accept calls like

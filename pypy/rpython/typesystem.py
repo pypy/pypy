@@ -153,6 +153,9 @@ class ObjectOrientedTypeSystem(TypeSystem):
         vlist = hop.inputargs(repr)
         return hop.genop('oononnull', vlist, resulttype=ootype.Bool)
 
+    def getconcretetype(self, v):
+        return v.concretetype
+
     def null_callable(self, T):
         return ootype.null(T)
 

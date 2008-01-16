@@ -5,13 +5,14 @@ that can be used to produce any other kind of graph.
 """
 
 from pypy.rpython.lltypesystem import lltype, llmemory, rtupletype
+from pypy.rpython.ootypesystem import ootype
 from pypy.objspace.flow import model as flowmodel
 from pypy.translator.simplify import eliminate_empty_blocks
 from pypy.translator.unsimplify import varoftype
-from pypy.rpython.module.support import LLSupport
+from pypy.rpython.module.support import LLSupport, OOSupport
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.llinterp import LLInterpreter
-from pypy.rpython.lltypesystem.rclass import fishllattr
+from pypy.rpython.rclass import fishllattr
 from pypy.rpython.lltypesystem.lloperation import llop
 
 def _from_opaque(opq):
@@ -34,11 +35,18 @@ def newblock():
     block = flowmodel.Block([])
     return _to_opaque(block)
 
+def from_opaque_string(s):
+    if isinstance(s, str):
+        return s
+    elif isinstance(s, ootype._string):
+        return OOSupport.from_rstr(s)
+    else:
+        return LLSupport.from_rstr(s)
+
 def newgraph(gv_FUNCTYPE, name):
     FUNCTYPE = _from_opaque(gv_FUNCTYPE).value
     # 'name' is just a way to track things
-    if not isinstance(name, str):
-        name = LLSupport.from_rstr(name)
+    name = from_opaque_string(name)
     inputargs = []
     erasedinputargs = []
     for ARG in FUNCTYPE.ARGS:
@@ -103,9 +111,8 @@ def _inputvars(vars):
     newvars = []
     if not isinstance(vars, list):
         n = vars.ll_length()
-        vars = vars.ll_items()
         for i in range(n):
-            v = vars[i]
+            v = vars.ll_getitem_fast(i)
             if not v:
                 v = dummy_placeholder
             else:
@@ -156,8 +163,7 @@ def erasedvar(v, block):
 def genop(block, opname, vars_gv, gv_RESULT_TYPE):
     # 'opname' is a constant string
     # gv_RESULT_TYPE comes from constTYPE
-    if not isinstance(opname, str):
-        opname = LLSupport.from_rstr(opname)
+    opname = from_opaque_string(opname)
     block = _from_opaque(block)
     assert block.exits == [], "block already closed"
     opvars = _inputvars(vars_gv)
@@ -222,10 +228,15 @@ def genzeroconst(gv_TYPE):
     return _to_opaque(c)
 
 def _generalcast(T, value):
-    if isinstance(T, lltype.Ptr):
+    if lltype.typeOf(value) == T:
+        return value
+    elif isinstance(T, lltype.Ptr):
         return lltype.cast_pointer(T, value)
     elif T == llmemory.Address:
         return llmemory.cast_ptr_to_adr(value)
+    elif isinstance(T, ootype.StaticMethod):
+        fn = value._obj
+        return ootype._static_meth(T, graph=fn.graph, _callable=fn._callable)
     else:
         T1 = lltype.typeOf(value)
         if T1 is llmemory.Address:
@@ -243,6 +254,8 @@ def revealconst(T, gv_value):
 
 def revealconstrepr(gv_value):
     c = _from_opaque(gv_value)
+    # XXX: what to do with ootype?
+    #import pdb;pdb.set_trace()
     return LLSupport.to_rstr(repr(c.value))
 
 def isconst(gv_value):
@@ -654,12 +667,18 @@ def setannotation(func, annotation, specialize_as_constant=False):
         else:
             # specialize as direct_call
             def specialize_call(self, hop):
-                FUNCTYPE = lltype.FuncType([r.lowleveltype for r in hop.args_r],
-                                           hop.r_result.lowleveltype)
+                ARGS = [r.lowleveltype for r in hop.args_r]
+                RESULT = hop.r_result.lowleveltype
+                if hop.rtyper.type_system.name == 'lltypesystem':
+                    FUNCTYPE = lltype.FuncType(ARGS, RESULT)
+                    funcptr = lltype.functionptr(FUNCTYPE, func.__name__,
+                                                 _callable=func, _debugexc=True)
+                    cfunc = hop.inputconst(lltype.Ptr(FUNCTYPE), funcptr)
+                else:
+                    FUNCTYPE = ootype.StaticMethod(ARGS, RESULT)
+                    sm = ootype._static_meth(FUNCTYPE, _name=func.__name__, _callable=func)
+                    cfunc = hop.inputconst(FUNCTYPE, sm)
                 args_v = hop.inputargs(*hop.args_r)
-                funcptr = lltype.functionptr(FUNCTYPE, func.__name__,
-                                             _callable=func, _debugexc=True)
-                cfunc = hop.inputconst(lltype.Ptr(FUNCTYPE), funcptr)
                 return hop.genop('direct_call', [cfunc] + args_v, hop.r_result)
 
 # annotations

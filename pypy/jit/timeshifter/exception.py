@@ -12,22 +12,30 @@ class ExceptionDesc:
         self.gv_excdata = RGenOp.constPrebuiltGlobal(self.exc_data_ptr)
 
         EXCDATA = self.etrafo.EXCDATA
+        LL_EXC_TYPE = self.etrafo.lltype_of_exception_type
+        LL_EXC_VALUE = self.etrafo.lltype_of_exception_value
         self.exc_type_token  = RGenOp.fieldToken(EXCDATA, 'exc_type')
         self.exc_value_token = RGenOp.fieldToken(EXCDATA, 'exc_value')
-        self.exc_type_kind   = RGenOp.kindToken(EXCDATA.exc_type)
-        self.exc_value_kind  = RGenOp.kindToken(EXCDATA.exc_value)
+        self.exc_type_kind   = RGenOp.kindToken(LL_EXC_TYPE)
+        self.exc_value_kind  = RGenOp.kindToken(LL_EXC_VALUE)
 
-        LL_EXC_TYPE  = EXCDATA.exc_type
-        LL_EXC_VALUE = EXCDATA.exc_value
+        null_exc_type = self.etrafo.c_null_etype.value
+        null_exc_value = self.etrafo.c_null_evalue.value
+        self.gv_null_exc_type = RGenOp.constPrebuiltGlobal(null_exc_type)
+        self.gv_null_exc_value = RGenOp.constPrebuiltGlobal(null_exc_value)
 
-        self.gv_null_exc_type = RGenOp.constPrebuiltGlobal(
-                                         lltype.nullptr(LL_EXC_TYPE.TO))
-        self.gv_null_exc_value = RGenOp.constPrebuiltGlobal(
-                                         lltype.nullptr(LL_EXC_VALUE.TO))
-        self.null_exc_type_box = rvalue.PtrRedBox(self.exc_type_kind,
-                                                  self.gv_null_exc_type)
-        self.null_exc_value_box = rvalue.PtrRedBox(self.exc_value_kind,
-                                                   self.gv_null_exc_value)
+        if hrtyper.rtyper.type_system.name == 'lltypesystem':
+            self.null_exc_type_box = rvalue.PtrRedBox(self.exc_type_kind,
+                                                      self.gv_null_exc_type)
+            self.null_exc_value_box = rvalue.PtrRedBox(self.exc_value_kind,
+                                                       self.gv_null_exc_value)
+        else:
+            # XXX: think more about exceptions
+            self.null_exc_type_box = rvalue.PtrRedBox(self.exc_type_kind,
+                                                      RGenOp.constPrebuiltGlobal(llmemory.NULL))
+            self.null_exc_value_box = rvalue.IntRedBox(self.exc_value_kind,
+                                                       RGenOp.constPrebuiltGlobal(llmemory.NULL))
+            
         self.lazy_exception_path = lazy_exception_path
 
     def _freeze_(self):

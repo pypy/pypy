@@ -8,8 +8,10 @@ from pypy.annotation import model as annmodel
 from pypy.annotation.policy import AnnotatorPolicy, Sig
 from pypy.annotation.specialize import flatten_star_args
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.ootypesystem import ootype
 from pypy.rpython import extregistry
 from pypy.objspace.flow.model import Constant
+from pypy.translator.simplify import get_functype
 
 class KeyComp(object):
     def __init__(self, val):
@@ -175,13 +177,19 @@ class MixLevelHelperAnnotator:
         return Constant(p, lltype.typeOf(p))
 
     def graph2delayed(self, graph, FUNCTYPE=None):
-        if FUNCTYPE is None:
-            FUNCTYPE = lltype.ForwardReference()
-        # obscure hack: embed the name of the function in the string, so
-        # that the genc database can get it even before the delayedptr
-        # is really computed
-        name = "delayed!%s" % (graph.name,)
-        delayedptr = lltype._ptr(lltype.Ptr(FUNCTYPE), name, solid=True)
+        if self.rtyper.type_system.name == 'lltypesystem':
+            if FUNCTYPE is None:
+                FUNCTYPE = lltype.ForwardReference()
+            # obscure hack: embed the name of the function in the string, so
+            # that the genc database can get it even before the delayedptr
+            # is really computed
+            name = "delayed!%s" % (graph.name,)
+            delayedptr = lltype._ptr(lltype.Ptr(FUNCTYPE), name, solid=True)
+        else:
+            if FUNCTYPE is None:
+                FUNCTYPE = ootype.ForwardReference()
+            name = "delayed!%s" % (graph.name,)
+            delayedptr = ootype._forward_static_meth(FUNCTYPE, _name=name)
         self.delayedfuncs.append((delayedptr, graph))
         return delayedptr
 
@@ -270,9 +278,9 @@ class MixLevelHelperAnnotator:
         for p, graph in self.delayedfuncs:
             self.newgraphs[graph] = True
             real_p = rtyper.getcallable(graph)
-            REAL = lltype.typeOf(real_p).TO
-            FUNCTYPE = lltype.typeOf(p).TO
-            if isinstance(FUNCTYPE, lltype.ForwardReference):
+            REAL = get_functype(lltype.typeOf(real_p))
+            FUNCTYPE = get_functype(lltype.typeOf(p))
+            if isinstance(FUNCTYPE, (lltype.ForwardReference, ootype.ForwardReference)):
                 FUNCTYPE.become(REAL)
             assert FUNCTYPE == REAL
             p._become(real_p)
@@ -320,9 +328,10 @@ class PseudoHighLevelCallableEntry(extregistry.ExtRegistryEntry):
         p = self.instance.llfnptr
         TYPE = lltype.typeOf(p)
         c_func = Constant(p, TYPE)
-        for r_arg, ARGTYPE in zip(args_r, TYPE.TO.ARGS):
+        FUNCTYPE = get_functype(TYPE)
+        for r_arg, ARGTYPE in zip(args_r, FUNCTYPE.ARGS):
             assert r_arg.lowleveltype == ARGTYPE
-        assert r_res.lowleveltype == TYPE.TO.RESULT
+        assert r_res.lowleveltype == FUNCTYPE.RESULT
         hop.exception_is_here()
         return hop.genop('direct_call', [c_func] + vlist, resulttype = r_res)
 

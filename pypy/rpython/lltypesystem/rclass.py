@@ -720,24 +720,6 @@ def ll_both_none(ins1, ins2):
 
 # ____________________________________________________________
 
-_missing = object()
-
-def fishllattr(inst, name, default=_missing):
-    p = widest = lltype.normalizeptr(inst)
-    while True:
-        try:
-            return getattr(p, 'inst_' + name)
-        except AttributeError:
-            pass
-        try:
-            p = p.super
-        except AttributeError:
-            break
-    if default is _missing:
-        raise AttributeError("%s has no field %s" % (lltype.typeOf(widest),
-                                                     name))
-    return default
-
 def feedllattr(inst, name, llvalue):
     p = widest = lltype.normalizeptr(inst)
     while True:

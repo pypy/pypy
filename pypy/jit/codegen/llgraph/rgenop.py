@@ -1,10 +1,11 @@
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.debug import ll_assert
 from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.ootypesystem import ootype
 from pypy.jit.codegen.model import AbstractRGenOp, GenLabel, GenBuilder
 from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
 from pypy.jit.codegen.llgraph import llimpl
-from pypy.rpython.lltypesystem.rclass import fishllattr
+from pypy.rpython.rclass import fishllattr
 from pypy.rpython.module.support import LLSupport
 
 
@@ -380,6 +381,19 @@ class LLBuilder(GenBuilder):
         place.absorbed = True
         return place.v
 
+def getfieldtype(T, name):
+    if isinstance(T, ootype.OOType):
+        _, TYPE = T._lookup_field(name)
+        return TYPE
+    else:
+        assert name in T._flds
+        return getattr(T, name)
+
+def getptr(T):
+    if isinstance(T, ootype.OOType):
+        return T
+    else:
+        return lltype.Ptr(T)
 
 class RGenOp(AbstractRGenOp):
     gv_Void = gv_Void
@@ -410,19 +424,18 @@ class RGenOp(AbstractRGenOp):
     @staticmethod
     @specialize.memo()
     def fieldToken(T, name):
-        assert name in T._flds
-        FIELDTYPE = getattr(T, name)
+        FIELDTYPE = getfieldtype(T, name)
         if isinstance(FIELDTYPE, lltype.ContainerType):
-            FIELDTYPE = lltype.Ptr(FIELDTYPE)
+            FIELDTYPE = getptr(FIELDTYPE)
         return (LLConst(llimpl.constFieldName(name)),
-                gv_TYPE(lltype.Ptr(T)),
+                gv_TYPE(getptr(T)),
                 gv_TYPE(FIELDTYPE))
 
     @staticmethod
     @specialize.memo()
     def allocToken(TYPE):
         return (gv_TYPE(TYPE),
-                gv_TYPE(lltype.Ptr(TYPE)))
+                gv_TYPE(getptr(TYPE)))
 
     varsizeAllocToken = allocToken
 
@@ -431,7 +444,7 @@ class RGenOp(AbstractRGenOp):
     def arrayToken(A):
         ITEMTYPE = A.OF
         if isinstance(ITEMTYPE, lltype.ContainerType):
-            ITEMTYPE = lltype.Ptr(ITEMTYPE)
+            ITEMTYPE = getptr(ITEMTYPE)
         return gv_TYPE(ITEMTYPE)
 
     @staticmethod
