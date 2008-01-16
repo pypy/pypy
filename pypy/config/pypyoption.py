@@ -34,7 +34,9 @@ if sys.platform == "win32":
     del working_modules["crypt"]
 
 
-module_dependencies = { }
+module_dependencies = {'_ffi': [("objspace.usemodules.struct", True)],
+                       '_rawffi': [("objspace.usemodules.struct", True)],
+                       }
 if os.name == "posix":
     module_dependencies['rctime'] = [("objspace.usemodules.select", True),]
 

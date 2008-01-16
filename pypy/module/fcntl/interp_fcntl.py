@@ -125,7 +125,10 @@ def fcntl(space, w_fd, op, w_arg=0):
         if len(arg) > 1024:
             raise OperationError(space.w_ValueError,
                 space.wrap("fcntl string arg too long"))
-        rv = fcntl_str(fd, op, arg)
+        ll_arg = rffi.str2charp(arg)
+        rv = fcntl_str(fd, op, ll_arg)
+        arg = rffi.charp2str(ll_arg)
+        lltype.free(ll_arg, flavor='raw')
         if rv < 0:
             raise OperationError(space.w_IOError,
                 space.wrap(_get_error_msg()))
@@ -258,7 +261,10 @@ def ioctl(space, w_fd, op, w_arg=0, mutate_flag=True):
             raise OperationError(space.w_ValueError,
                 space.wrap("ioctl string arg too long"))
     
-        rv = ioctl_str(fd, op, arg)
+        ll_arg = rffi.str2charp(arg)
+        rv = ioctl_str(fd, op, ll_arg)
+        arg = rffi.charp2str(ll_arg)
+        lltype.free(ll_arg, flavor='raw')
         if rv < 0:
             raise OperationError(space.w_IOError,
                 space.wrap(_get_error_msg()))

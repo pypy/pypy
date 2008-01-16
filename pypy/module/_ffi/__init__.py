@@ -12,14 +12,16 @@ class Module(MixedModule):
     interpleveldefs = {
         'CDLL'               : 'interp_ffi.W_CDLL',
         'FuncPtr'            : 'interp_ffi.W_FuncPtr',
+        'Structure'          : 'structure.W_Structure',
         'StructureInstance'  : 'structure.W_StructureInstance',
+        'Array'              : 'array.W_Array',
         'ArrayInstance'      : 'array.W_ArrayInstance',
         '_get_type'          : 'interp_ffi._w_get_type',
+        'sizeof'             : 'interp_ffi.sizeof',
+        'alignment'          : 'interp_ffi.alignment',
         #'CallbackPtr'        : 'callback.W_CallbackPtr',
     }
 
     appleveldefs = {
-        'Structure'         : 'app_ffi.Structure',
-        'Array'             : 'app_ffi.Array',
-        #'StructureInstance' : 'app_ffi.StructureInstance',
+        'SegfaultException'  : 'error.SegfaultException',
     }

@@ -184,6 +184,19 @@ def test_intmask():
     assert intmask(r_uint(-1)) == -1
     assert intmask(r_ulonglong(-1)) == -1
 
+def test_intmask_small():
+    from pypy.rpython.lltypesystem import rffi
+    for tp in [rffi.r_signedchar, rffi.r_short, rffi.r_int,
+               rffi.r_long, rffi.r_longlong]:
+        x = intmask(tp(5))
+        assert (type(x), x) == (int, 5)
+        x = intmask(tp(-5))
+        assert (type(x), x) == (int, -5)
+    for tp in [rffi.r_uchar, rffi.r_ushort, rffi.r_uint,
+               rffi.r_ulong, rffi.r_ulonglong]:
+        x = intmask(tp(5))
+        assert (type(x), x) == (int, 5)
+
 def test_ovfcheck():
     one = 1
     x = sys.maxint

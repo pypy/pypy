@@ -3,7 +3,7 @@ import py
 from random import random, randint
 from pypy.rlib.rbigint import rbigint, SHIFT, MASK
 from pypy.rlib import rbigint as lobj
-from pypy.rlib.rarithmetic import r_uint, r_longlong
+from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 import operator, sys
 
 class TestRLong(object):
@@ -418,6 +418,16 @@ class TestInternalFunctions(object):
         assert f2.tolonglong() == -max
         py.test.raises(OverflowError, f3.tolonglong)
         py.test.raises(OverflowError, f4.tolonglong)
+
+    def test_ulonglongmask(self):
+        assert rbigint.fromlong(-1).ulonglongmask() == r_ulonglong(-1)
+        assert rbigint.fromlong(0).ulonglongmask() == r_ulonglong(0)
+        assert (rbigint.fromlong(sys.maxint).ulonglongmask() ==
+                r_ulonglong(sys.maxint))
+        assert (rbigint.fromlong(9**50).ulonglongmask() ==
+                r_ulonglong(9**50))
+        assert (rbigint.fromlong(-9**50).ulonglongmask() ==
+                r_ulonglong(-9**50))
 
 
 class TestTranslatable(object):

@@ -332,6 +332,10 @@ class TestLL2Ctypes(object):
         for i in range(10):
             assert e[i] == i*i
 
+        c = lltype.nullptr(rffi.VOIDP.TO)
+        addr = rffi.cast(lltype.Signed, c)
+        assert addr == 0
+
         lltype.free(a, flavor='raw')
         assert not ALLOCATED     # detects memory leaks in the test
 
@@ -680,16 +684,10 @@ class TestLL2Ctypes(object):
     def test_prebuilt_constant(self):
         header = py.code.Source("""
         #include <stdlib.h>
-
-        #ifndef _SOME_H_H_
-        #define _SOME_H_H_
-
+        
         static int x = 3;
-        char **z;
-
-        #endif _SOME_H_H_
+        char **z = NULL;
         """)
-
         h_file = udir.join("some_h.h")
         h_file.write(header)
         
@@ -760,3 +758,11 @@ class TestLL2Ctypes(object):
         qsort(rffi.cast(rffi.VOIDP, a), 5, rffi.sizeof(rffi.INT), compare)
         for i in range(5):
             assert a[i] == i + 1
+
+    def test_array_type_bug(self):
+        A = lltype.Array(lltype.Signed)
+        a1 = lltype.malloc(A, 0, flavor='raw')
+        a2 = lltype.malloc(A, 0, flavor='raw')
+        c1 = lltype2ctypes(a1)
+        c2 = lltype2ctypes(a2)
+        assert type(c1) is type(c2)

@@ -60,10 +60,9 @@ def isnan(v):
 def intmask(n):
     if isinstance(n, int):
         return int(n)   # possibly bool->int
-    if isinstance(n, unsigned_int):
-        n = long(n)
-    elif isinstance(n, objectmodel.Symbolic):
+    if isinstance(n, objectmodel.Symbolic):
         return n        # assume Symbolics don't overflow
+    n = long(n)
     n &= LONG_MASK
     if n >= LONG_TEST:
         n -= 2*LONG_TEST

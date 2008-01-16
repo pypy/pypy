@@ -20,7 +20,7 @@ from pypy.interpreter.baseobjspace import Wrappable, SpaceCache, DescrMismatch
 from pypy.interpreter.argument import Arguments, AbstractArguments
 from pypy.tool.sourcetools import NiceCompile, compile2
 from pypy.rlib.jit import hint
-from pypy.rlib.rarithmetic import r_longlong, r_int
+from pypy.rlib.rarithmetic import r_longlong, r_int, r_ulonglong, r_uint
 
 # internal non-translatable parts: 
 import py
@@ -164,9 +164,8 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
         app_sig.varargname = argname[2:]
 
     def visit__object(self, typ, app_sig):
-        if typ not in (int, str, float, unicode, r_longlong):
-            assert False, "unsupported basic type in unwrap_spec"
-        self.checked_space_method(typ.__name__, app_sig)
+        name = int_unwrapping_space_method(typ)
+        self.checked_space_method(name, app_sig)
 
 
 class UnwrapSpec_EmitRun(UnwrapSpecEmit):
@@ -210,12 +209,7 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
         self.run_args.append(self.scopenext())
 
     def visit__object(self, typ):
-        if typ not in (int, str, float, unicode, r_longlong):
-            assert False, "unsupported basic type in unwrap_spec"
-        if typ is r_int is r_longlong:
-            name = 'r_longlong'
-        else:
-            name = typ.__name__
+        name = int_unwrapping_space_method(typ)
         self.run_args.append("space.%s_w(%s)" %
                              (name, self.scopenext()))
 
@@ -327,9 +321,8 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
         raise FastFuncNotSupported
 
     def visit__object(self, typ):
-        if typ not in (int, str, float, unicode, r_longlong):
-            assert False, "unsupported basic type in unwrap_spec"
-        self.unwrap.append("space.%s_w(%s)" % (typ.__name__,
+        name = int_unwrapping_space_method(typ)
+        self.unwrap.append("space.%s_w(%s)" % (name,
                                                self.nextarg()))
 
     def visit_index(self, typ):
@@ -364,7 +357,16 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
             fastfunc = d['fastfunc_%s_%d' % (func.__name__, narg)]
         return narg, fastfunc
     make_fastfunc = staticmethod(make_fastfunc)
-        
+
+def int_unwrapping_space_method(typ):
+    assert typ in (int, str, float, unicode, r_longlong, r_uint, r_ulonglong)
+    if typ is r_int is r_longlong:
+        return 'r_longlong'
+    elif typ is r_uint:
+        return 'uint'
+    else:
+        return typ.__name__
+
 class BuiltinCode(eval.Code):
     "The code object implementing a built-in (interpreter-level) hook."
     _immutable_ = True

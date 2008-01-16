@@ -11,10 +11,24 @@ from pypy.rlib.unroll import unrolling_iterable
 
 from pypy.module.struct.standardfmttable import min_max_acc_method
 from pypy.module.struct.nativefmttable import native_fmttable
+from pypy.tool.sourcetools import func_with_new_name
 
 class FfiValueError(Exception):
     def __init__(self, msg):
         self.msg = msg
+
+
+def _signed_type_for(TYPE):
+    sz = rffi.sizeof(TYPE)
+    if sz == 4:   return ffi_type_sint32
+    elif sz == 8: return ffi_type_sint64
+    else: raise ValueError("unsupported type size for %r" % (TYPE,))
+
+def _unsigned_type_for(TYPE):
+    sz = rffi.sizeof(TYPE)
+    if sz == 4:   return ffi_type_uint32
+    elif sz == 8: return ffi_type_uint64
+    else: raise ValueError("unsupported type size for %r" % (TYPE,))
 
 TYPEMAP = {
     # XXX A mess with unsigned/signed/normal chars :-/
@@ -25,21 +39,24 @@ TYPEMAP = {
     'H' : ffi_type_ushort,
     'i' : ffi_type_sint,
     'I' : ffi_type_uint,
-    'l' : ffi_type_slong,
-    'L' : ffi_type_ulong,
-    # XXX I'm not sure what is long long here, let's assume it's 64 bit :-/
-    'q' : ffi_type_sint64,
-    'Q' : ffi_type_uint64,
+    # xxx don't use ffi_type_slong and ffi_type_ulong - their meaning
+    # changes from a libffi version to another :-((
+    'l' : _signed_type_for(rffi.LONG),
+    'L' : _unsigned_type_for(rffi.ULONG),
+    'q' : _signed_type_for(rffi.LONGLONG),
+    'Q' : _unsigned_type_for(rffi.ULONGLONG),
     'f' : ffi_type_float,
     'd' : ffi_type_double,
     's' : ffi_type_pointer,
     'P' : ffi_type_pointer,
+    'z' : ffi_type_pointer,
+    'O' : ffi_type_pointer,
 }
 
 LL_TYPEMAP = {
     'c' : rffi.CHAR,
-    'b' : rffi.UCHAR,
-    'B' : rffi.CHAR,
+    'b' : rffi.SIGNEDCHAR,
+    'B' : rffi.UCHAR,
     'h' : rffi.SHORT,
     'H' : rffi.USHORT,
     'i' : rffi.INT,
@@ -51,6 +68,8 @@ LL_TYPEMAP = {
     'f' : rffi.FLOAT,
     'd' : rffi.DOUBLE,
     's' : rffi.CCHARP,
+    'z' : rffi.CCHARP,
+    'O' : rffi.VOIDP,
     'P' : rffi.VOIDP,
     'v' : lltype.Void,
 }
@@ -124,14 +143,14 @@ W_CDLL.typedef = TypeDef(
     __new__     = interp2app(descr_new_cdll),
     ptr         = interp2app(W_CDLL.ptr),
     __doc__     = """ C Dynamically loaded library
-use CDLL(libname) to create handle to C library (argument is processed the
-same way as dlopen processes it). On such library call:
+use CDLL(libname) to create a handle to a C library (the argument is processed
+the same way as dlopen processes it). On such a library you can call:
 lib.ptr(func_name, argtype_list, restype)
 
 where argtype_list is a list of single characters and restype is a single
-character. Character meanings are more or less the same as in struct module,
-except that s has trailing \x00 added, while p is considered a raw buffer.
-"""
+character. The character meanings are more or less the same as in the struct
+module, except that s has trailing \x00 added, while p is considered a raw
+buffer."""
 )
 
 def pack_pointer(space, add_arg, argdesc, w_arg, push_func):
@@ -179,15 +198,17 @@ def unwrap_value(space, push_func, add_arg, argdesc, tp, w_arg, to_free):
         else:
             push_func(add_arg, argdesc, rffi.cast(rffi.FLOAT,
                                                   space.float_w(w_arg)))
-    elif tp == "s":
+    elif tp == "s" or tp =="z":
         ll_str = rffi.str2charp(space.str_w(w_arg))
         if to_free is not None:
             to_free.append(ll_str)
         push_func(add_arg, argdesc, ll_str)
-    elif tp == "P":
+    elif tp == "P" or tp == "O":
         # check for NULL ptr
         if space.is_w(w_arg, space.w_None):
             push_func(add_arg, argdesc, lltype.nullptr(rffi.VOIDP.TO))
+        elif space.is_true(space.isinstance(w_arg, space.w_int)):
+            push_func(add_arg, argdesc, rffi.cast(rffi.VOIDP, space.int_w(w_arg)))
         elif space.is_true(space.isinstance(w_arg, space.w_basestring)):
             if to_free is not None:
                 to_free.append(pack_pointer(space, add_arg, argdesc, w_arg, push_func))
@@ -208,10 +229,10 @@ def unwrap_value(space, push_func, add_arg, argdesc, tp, w_arg, to_free):
             else:
                 raise OperationError(space.w_TypeError, w(
                     "Expected structure, array or simple type"))
-    if tp == "c":
+    elif tp == "c":
         s = space.str_w(w_arg)
         if len(s) != 1:
-            raise OperationError(space.w_ValueError, w(
+            raise OperationError(space.w_TypeError, w(
                 "Expected string of length one as character"))
         val = s[0]
         push_func(add_arg, argdesc, val)
@@ -240,12 +261,12 @@ ll_typemap_iter = unrolling_iterable(LL_TYPEMAP.items())
 def wrap_value(space, func, add_arg, argdesc, tp):
     for c, ll_type in ll_typemap_iter:
         if tp == c:
-            if c == 's':
+            if c == 's' or c == 'z':
                 ptr = func(add_arg, argdesc, rffi.CCHARP)
                 if not ptr:
                     return space.w_None
                 return space.wrap(rffi.charp2str(ptr))
-            elif c == 'P':
+            elif c == 'P' or c == 'O':
                 res = func(add_arg, argdesc, rffi.VOIDP)
                 if not res:
                     return space.w_None
@@ -257,7 +278,7 @@ def wrap_value(space, func, add_arg, argdesc, tp):
                 return space.wrap(func(add_arg, argdesc, ll_type))
             elif c == 'f' or c == 'd':
                 return space.wrap(float(func(add_arg, argdesc, ll_type)))
-            elif c == 'c' or c == 'b' or c == 'B':
+            elif c == 'c':
                 return space.wrap(chr(rffi.cast(rffi.INT, func(add_arg, argdesc,
                                                                ll_type))))
             elif c == 'h' or c == 'H':
@@ -306,3 +327,20 @@ W_FuncPtr.typedef = TypeDef(
     'FuncPtr',
     __call__ = interp2app(W_FuncPtr.call)
 )
+
+def _create_new_accessor(func_name, name):
+    def accessor(space, tp_letter):
+        if len(tp_letter) != 1:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "Expecting string of length one"))
+        tp_letter = tp_letter[0] # fool annotator
+        try:
+            return space.wrap(intmask(getattr(TYPEMAP[tp_letter], name)))
+        except KeyError:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "Unknown type specification %s" % tp_letter))
+    accessor.unwrap_spec = [ObjSpace, str]
+    return func_with_new_name(accessor, func_name)
+
+sizeof = _create_new_accessor('sizeof', 'c_size')
+alignment = _create_new_accessor('alignment', 'c_alignment')

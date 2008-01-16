@@ -170,33 +170,58 @@ push_arg_as_ffiptr._annspecialcase_ = 'specialize:argtype(1)'
 def check_pointer_type(TP):
     pass
 
-class FuncPtr(object):
+class AbstractFuncPtr(object):
+    ll_cif = lltype.nullptr(FFI_CIFP.TO)
+    ll_argtypes = lltype.nullptr(FFI_TYPE_PP.TO)
+
     def __init__(self, name, argtypes, restype, funcsym):
-        # initialize each one of pointers with null
-        TP = rffi.CArray(rffi.VOIDP)
-        self.ll_args = lltype.nullptr(TP)
-        self.ll_cif = lltype.nullptr(FFI_CIFP.TO)
-        self.ll_argtypes = lltype.nullptr(FFI_TYPE_PP.TO)
-        self.ll_result = lltype.nullptr(rffi.VOIDP.TO)
         self.name = name
         self.argtypes = argtypes
         self.restype = restype
         self.funcsym = funcsym
         argnum = len(argtypes)
-        self.argnum = argnum
-        self.pushed_args = 0
-        self.ll_args = lltype.malloc(TP, argnum, flavor='raw')
-        self.ll_cif = lltype.malloc(FFI_CIFP.TO, flavor='raw')
         self.ll_argtypes = lltype.malloc(FFI_TYPE_PP.TO, argnum, flavor='raw')
         for i in range(argnum):
             self.ll_argtypes[i] = argtypes[i]
         # XXX why cast to FFI_TYPE_PP is needed? ll2ctypes bug?
+        self.ll_cif = lltype.malloc(FFI_CIFP.TO, flavor='raw')
         res = c_ffi_prep_cif(self.ll_cif, FFI_DEFAULT_ABI,
                              rffi.cast(rffi.UINT, argnum), restype,
                              rffi.cast(FFI_TYPE_PP, self.ll_argtypes))
         if not res == FFI_OK:
             raise OSError(-1, "Wrong typedef")
-        for i in range(argnum):
+
+    def __del__(self):
+        if self.ll_cif:
+            lltype.free(self.ll_cif, flavor='raw')
+        if self.ll_argtypes:
+            lltype.free(self.ll_argtypes, flavor='raw')
+
+
+class RawFuncPtr(AbstractFuncPtr):
+
+    def call(self, args_ll, ll_result):
+        assert len(args_ll) == len(self.argtypes), (
+            "wrong number of arguments in call to %s(): "
+            "%d instead of %d" % (self.name, len(args_ll), len(self.argtypes)))
+        ll_args = lltype.malloc(rffi.VOIDPP.TO, len(args_ll), flavor='raw')
+        for i in range(len(args_ll)):
+            ll_args[i] = args_ll[i]
+        c_ffi_call(self.ll_cif, self.funcsym, ll_result, ll_args)
+        lltype.free(ll_args, flavor='raw')
+
+
+class FuncPtr(AbstractFuncPtr):
+    ll_args = lltype.nullptr(rffi.VOIDPP.TO)
+    ll_result = lltype.nullptr(rffi.VOIDP.TO)
+
+    def __init__(self, name, argtypes, restype, funcsym):
+        # initialize each one of pointers with null
+        AbstractFuncPtr.__init__(self, name, argtypes, restype, funcsym)
+        self.argnum = len(self.argtypes)
+        self.pushed_args = 0
+        self.ll_args = lltype.malloc(rffi.VOIDPP.TO, self.argnum, flavor='raw')
+        for i in range(self.argnum):
             # space for each argument
             self.ll_args[i] = lltype.malloc(rffi.VOIDP.TO,
                                             intmask(argtypes[i].c_size),
@@ -257,10 +282,7 @@ class FuncPtr(object):
             lltype.free(self.ll_args, flavor='raw')
         if self.ll_result:
             lltype.free(self.ll_result, flavor='raw')
-        if self.ll_cif:
-            lltype.free(self.ll_cif, flavor='raw')
-        if self.ll_argtypes:
-            lltype.free(self.ll_argtypes, flavor='raw')
+        AbstractFuncPtr.__del__(self)
 
 class CDLL:
     def __init__(self, libname):
@@ -280,3 +302,7 @@ class CDLL:
         # structures!
         return FuncPtr(name, argtypes, restype, dlsym(self.lib, name))
 
+    def getrawpointer(self, name, argtypes, restype):
+        # these arguments are already casted to proper ffi
+        # structures!
+        return RawFuncPtr(name, argtypes, restype, dlsym(self.lib, name))

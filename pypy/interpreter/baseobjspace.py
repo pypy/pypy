@@ -99,9 +99,12 @@ class W_Root(object):
         raise NotImplementedError
 
     def descr_call_mismatch(self, space, opname, RequiredClass, args):
+        if RequiredClass is None:
+            classname = '?'
+        else:
+            classname = wrappable_class_name(RequiredClass)
         msg = "'%s' object expected, got '%s' instead" % (
-            RequiredClass.typedef.name,
-            self.getclass(space).getname(space, '?'))
+            classname, self.getclass(space).getname(space, '?'))
         raise OperationError(space.w_TypeError, space.wrap(msg))
 
     # used by _weakref implemenation
@@ -163,6 +166,15 @@ class UnpackValueError(ValueError):
 
 class DescrMismatch(Exception):
     pass
+
+def wrappable_class_name(Class):
+    try:
+        return Class.typedef.name
+    except AttributeError:
+        return 'internal subclass of %s' % (Class.__name__,)
+wrappable_class_name._annspecialcase_ = 'specialize:memo'
+
+# ____________________________________________________________
 
 class ObjSpace(object):
     """Base class for the interpreter-level implementations of object spaces.
@@ -565,13 +577,14 @@ class ObjSpace(object):
         Unwrap w_obj, checking that it is an instance of the required internal
         interpreter class (a subclass of Wrappable).
         """
+        assert RequiredClass is not None
         if can_be_None and self.is_w(w_obj, self.w_None):
             return None
         obj = self.interpclass_w(w_obj)
         if not isinstance(obj, RequiredClass):   # or obj is None
             msg = "'%s' object expected, got '%s' instead" % (
-                RequiredClass.typedef.name,
-            w_obj.getclass(self).getname(self, '?'))
+                wrappable_class_name(RequiredClass),
+                w_obj.getclass(self).getname(self, '?'))
             raise OperationError(self.w_TypeError, self.wrap(msg))
         return obj
     interp_w._annspecialcase_ = 'specialize:arg(1)'

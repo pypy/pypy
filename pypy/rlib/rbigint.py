@@ -200,6 +200,10 @@ class rbigint(object):
             raise ValueError("cannot convert negative integer to unsigned int")
         return _AsULonglong_ignore_sign(self)
 
+    def ulonglongmask(self):
+        """Return r_ulonglong(self), truncating."""
+        return _AsULonglong_mask(self)
+
     def tofloat(self):
         return _AsDouble(self)
 
@@ -1582,6 +1586,17 @@ def _AsULonglong_ignore_sign(v):
                 raise OverflowError(
                     "long int too large to convert to unsigned long long int")
         i -= 1
+    return x
+
+def _AsULonglong_mask(v):
+    x = r_ulonglong(0)
+    i = len(v.digits) - 1
+    while i >= 0:
+        prev = x
+        x = (x << SHIFT) + v.digits[i]
+        i -= 1
+    if v.sign < 0:
+        x = -x
     return x
 
 def _hash(v):

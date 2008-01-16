@@ -1,0 +1,179 @@
+
+""" Interpreter-level implementation of structure, exposing ll-structure
+to app-level with apropriate interface
+"""
+
+from pypy.interpreter.baseobjspace import W_Root, Wrappable
+from pypy.interpreter.gateway import interp2app, ObjSpace
+from pypy.interpreter.typedef import interp_attrproperty
+from pypy.interpreter.argument import Arguments
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.interpreter.error import OperationError, wrap_oserror
+from pypy.module._rawffi.interp_rawffi import segfault_exception
+from pypy.module._rawffi.interp_rawffi import W_DataInstance
+from pypy.module._rawffi.interp_rawffi import wrap_value, unwrap_value
+from pypy.module._rawffi.interp_rawffi import unpack_typecode
+from pypy.rlib.rarithmetic import intmask, r_uint
+
+def unpack_fields(space, w_fields):
+    fields_w = space.unpackiterable(w_fields)
+    fields = []
+    for w_tup in fields_w:
+        l_w = space.unpackiterable(w_tup)
+        if not len(l_w) == 2:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "Expected list of 2-size tuples"))
+        name = space.str_w(l_w[0])
+        tp = unpack_typecode(space, l_w[1])
+        fields.append((name, tp))
+    return fields
+
+def round_up(size, alignment):
+    return (size + alignment - 1) & -alignment
+
+def size_alignment_pos(fields):
+    size = 0
+    alignment = 1
+    pos = []
+    for fieldname, (letter, fieldsize, fieldalignment) in fields:
+        size = round_up(size, fieldalignment)
+        alignment = max(alignment, fieldalignment)
+        pos.append(size)
+        size += intmask(fieldsize)
+    size = round_up(size, alignment)
+    return size, alignment, pos
+
+
+class W_Structure(Wrappable):
+    def __init__(self, space, w_fields):
+        fields = unpack_fields(space, w_fields)
+        name_to_index = {}
+        for i in range(len(fields)):
+            name, tp = fields[i]
+            if name in name_to_index:
+                raise OperationError(space.w_ValueError, space.wrap(
+                    "duplicate field name %s" % (name, )))
+            name_to_index[name] = i
+        size, alignment, pos = size_alignment_pos(fields)
+        self.size = size
+        self.alignment = alignment
+        self.ll_positions = pos
+        self.fields = fields
+        self.name_to_index = name_to_index
+
+    def getindex(self, space, attr):
+        try:
+            return self.name_to_index[attr]
+        except KeyError:
+            raise OperationError(space.w_AttributeError, space.wrap(
+                "C Structure has no attribute %s" % attr))
+
+    def descr_call(self, space, __args__):
+        args_w, kwargs_w = __args__.unpack()
+        if args_w:
+            raise OperationError(
+                space.w_TypeError,
+                space.wrap("Structure accepts only keyword arguments as field initializers"))
+        return space.wrap(W_StructureInstance(space, self, 0, kwargs_w))
+    descr_call.unwrap_spec = ['self', ObjSpace, Arguments]
+
+    def descr_repr(self, space):
+        fieldnames = ' '.join(["'%s'" % name for name, _ in self.fields])
+        return space.wrap("<_rawffi.Structure %s (%d, %d)>" % (fieldnames,
+                                                               self.size,
+                                                               self.alignment))
+    descr_repr.unwrap_spec = ['self', ObjSpace]
+
+    def fromaddress(self, space, address):
+        return space.wrap(W_StructureInstance(space, self, address, None))
+    fromaddress.unwrap_spec = ['self', ObjSpace, r_uint]
+
+    def descr_fieldoffset(self, space, attr):
+        index = self.getindex(space, attr)
+        return space.wrap(self.ll_positions[index])
+    descr_fieldoffset.unwrap_spec = ['self', ObjSpace, str]
+
+    def descr_gettypecode(self, space):
+        return space.newtuple([space.wrap(self.size),
+                               space.wrap(self.alignment)])
+    descr_gettypecode.unwrap_spec = ['self', ObjSpace]
+
+def descr_new_structure(space, w_type, w_fields):
+    return space.wrap(W_Structure(space, w_fields))
+
+W_Structure.typedef = TypeDef(
+    'Structure',
+    __new__     = interp2app(descr_new_structure),
+    __call__    = interp2app(W_Structure.descr_call),
+    __repr__    = interp2app(W_Structure.descr_repr),
+    fromaddress = interp2app(W_Structure.fromaddress),
+    size        = interp_attrproperty('size', W_Structure),
+    alignment   = interp_attrproperty('alignment', W_Structure),
+    fieldoffset = interp2app(W_Structure.descr_fieldoffset),
+    gettypecode = interp2app(W_Structure.descr_gettypecode),
+)
+W_Structure.typedef.acceptable_as_base_class = False
+
+def push_field(self, num, value):
+    ptr = rffi.ptradd(self.ll_buffer, self.shape.ll_positions[num])
+    TP = lltype.typeOf(value)
+    T = lltype.Ptr(rffi.CArray(TP))
+    rffi.cast(T, ptr)[0] = value
+push_field._annspecialcase_ = 'specialize:argtype(2)'
+    
+def cast_pos(self, i, ll_t):
+    pos = rffi.ptradd(self.ll_buffer, self.shape.ll_positions[i])
+    TP = lltype.Ptr(rffi.CArray(ll_t))
+    return rffi.cast(TP, pos)[0]
+cast_pos._annspecialcase_ = 'specialize:arg(2)'
+
+class W_StructureInstance(W_DataInstance):
+    def __init__(self, space, shape, address, fieldinits_w):
+        W_DataInstance.__init__(self, space, shape.size, address)
+        self.shape = shape
+        if fieldinits_w:
+            for field, w_value in fieldinits_w.iteritems():
+                self.setattr(space, field, w_value)
+
+    def descr_repr(self, space):
+        addr = rffi.cast(lltype.Unsigned, self.ll_buffer)
+        return space.wrap("<_rawffi struct %x>" % (addr,))
+    descr_repr.unwrap_spec = ['self', ObjSpace]
+
+    def getattr(self, space, attr):
+        if not self.ll_buffer:
+            raise segfault_exception(space, "accessing NULL pointer")
+        i = self.shape.getindex(space, attr)
+        _, tp = self.shape.fields[i]
+        return wrap_value(space, cast_pos, self, i, tp)
+    getattr.unwrap_spec = ['self', ObjSpace, str]
+
+    def setattr(self, space, attr, w_value):
+        if not self.ll_buffer:
+            raise segfault_exception(space, "accessing NULL pointer")
+        i = self.shape.getindex(space, attr)
+        _, tp = self.shape.fields[i]
+        unwrap_value(space, push_field, self, i, tp, w_value)
+    setattr.unwrap_spec = ['self', ObjSpace, str, W_Root]
+
+    def descr_fieldaddress(self, space, attr):
+        i = self.shape.getindex(space, attr)
+        ptr = rffi.ptradd(self.ll_buffer, self.shape.ll_positions[i])
+        return space.wrap(rffi.cast(lltype.Unsigned, ptr))
+    descr_fieldaddress.unwrap_spec = ['self', ObjSpace, str]
+
+
+W_StructureInstance.typedef = TypeDef(
+    'StructureInstance',
+    __repr__    = interp2app(W_StructureInstance.descr_repr),
+    __getattr__ = interp2app(W_StructureInstance.getattr),
+    __setattr__ = interp2app(W_StructureInstance.setattr),
+    buffer      = GetSetProperty(W_StructureInstance.getbuffer),
+    free        = interp2app(W_StructureInstance.free),
+    shape       = interp_attrproperty('shape', W_StructureInstance),
+    byptr       = interp2app(W_StructureInstance.byptr),
+    fieldaddress= interp2app(W_StructureInstance.descr_fieldaddress),
+)
+W_StructureInstance.typedef.acceptable_as_base_class = False
+

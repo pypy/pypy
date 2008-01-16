@@ -51,7 +51,7 @@ def build_ctypes_struct(S, delayed_builders, max_n=None):
         for fieldname in S._names:
             FIELDTYPE = S._flds[fieldname]
             if max_n is not None and fieldname == S._arrayfld:
-                cls = build_ctypes_array(FIELDTYPE, None, max_n)
+                cls = get_ctypes_array_of_size(FIELDTYPE, max_n)
             else:
                 cls = get_ctypes_type(FIELDTYPE)
             fields.append((fieldname, cls))
@@ -100,7 +100,7 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
         def _malloc(cls, n=None):
             if not isinstance(n, int):
                 raise TypeError, "array length must be an int"
-            biggercls = build_ctypes_array(A, None, n)
+            biggercls = get_ctypes_array_of_size(A, n)
             bigarray = biggercls()
             if hasattr(bigarray, 'length'):
                 bigarray.length = n
@@ -135,6 +135,15 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
     if max_n > 0:
         CArray._normalized_ctype = get_ctypes_type(A)
     return CArray
+
+def get_ctypes_array_of_size(FIELDTYPE, max_n):
+    if max_n > 0:
+        # no need to cache the results in this case, because the exact
+        # type is never seen - the array instances are cast to the
+        # array's _normalized_ctype, which is always the same.
+        return build_ctypes_array(FIELDTYPE, None, max_n)
+    else:
+        return get_ctypes_type(FIELDTYPE)
 
 def get_ctypes_type(T, delayed_builders=None):
     try:
@@ -620,6 +629,8 @@ def force_cast(RESTYPE, value):
             return ctypes2lltype(RESTYPE, cptr)
         # first cast the input pointer to an integer
         cvalue = ctypes.cast(cvalue, ctypes.c_void_p).value
+        if cvalue is None:
+            cvalue = 0
     elif isinstance(cvalue, (str, unicode)):
         cvalue = ord(cvalue)     # character -> integer
 

@@ -231,6 +231,44 @@ class TestGateway:
         space.raises_w(space.w_OverflowError,
                        space.call_function, w_app_g3_ll, w_huge)
 
+    def test_interp2app_unwrap_spec_r_uint(self):
+        space = self.space
+        w = space.wrap
+        def g3_ll(space, n):
+            return space.wrap(n * 3)
+        app_g3_ll = gateway.interp2app_temp(g3_ll,
+                                         unwrap_spec=[gateway.ObjSpace,
+                                                      gateway.r_uint])
+        w_app_g3_ll = space.wrap(app_g3_ll)
+        w_big = w(gateway.r_uint(sys.maxint+100))
+        assert space.eq_w(
+            space.call_function(w_app_g3_ll, w_big),
+            w(gateway.r_uint((sys.maxint+100)*3)))
+        space.raises_w(space.w_OverflowError,
+                       space.call_function, w_app_g3_ll, w(10L**100))
+        space.raises_w(space.w_ValueError,
+                       space.call_function, w_app_g3_ll, w(-1))
+
+    def test_interp2app_unwrap_spec_r_ulonglong(self):
+        space = self.space
+        w = space.wrap
+        def g3_ll(space, n):
+            return space.wrap(n * 3)
+        app_g3_ll = gateway.interp2app_temp(g3_ll,
+                                         unwrap_spec=[gateway.ObjSpace,
+                                                      gateway.r_ulonglong])
+        w_app_g3_ll = space.wrap(app_g3_ll)
+        w_big = w(gateway.r_ulonglong(-100))
+        assert space.eq_w(
+            space.call_function(w_app_g3_ll, w_big),
+            w(gateway.r_ulonglong(-300)))
+        space.raises_w(space.w_OverflowError,
+                       space.call_function, w_app_g3_ll, w(10L**100))
+        space.raises_w(space.w_ValueError,
+                       space.call_function, w_app_g3_ll, w(-1))
+        space.raises_w(space.w_ValueError,
+                       space.call_function, w_app_g3_ll, w(-10L**99))
+
     def test_interp2app_unwrap_spec_index(self):
         space = self.space
         w = space.wrap

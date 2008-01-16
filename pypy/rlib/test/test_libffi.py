@@ -14,6 +14,11 @@ import time
 def setup_module(mod):
     if not sys.platform.startswith('linux'):
         py.test.skip("Fragile tests, linux only by now")
+    for name in type_names:
+        # XXX force this to be seen by ll2ctypes
+        # so that ALLOCATED.clear() clears it
+        ffistruct = globals()[name]
+        rffi.cast(rffi.VOIDP, ffistruct)
 
 class TestDLOperations:
     def setup_method(self, meth):
@@ -37,7 +42,7 @@ class TestDLOperations:
         py.test.raises(KeyError, lib.getpointer, 'xxxxxxxxxxxxxxx', [], ffi_type_void)
         del ptr
         del lib
-        assert len(ALLOCATED) == 1
+        assert not ALLOCATED
 
     def test_library_func_call(self):
         lib = self.get_libc()
@@ -52,7 +57,7 @@ class TestDLOperations:
         # not very hard check, but something :]
         del ptr
         del lib
-        assert len(ALLOCATED) == 1 # ffi_type_sint get allocated
+        assert not ALLOCATED
 
     def test_call_args(self):
         libm = CDLL('libm.so')
@@ -68,7 +73,7 @@ class TestDLOperations:
         assert res == 27.0
         del pow
         del libm
-        assert len(ALLOCATED) == 1
+        assert not ALLOCATED
 
     def test_wrong_args(self):
         libc = CDLL('libc.so.6')
@@ -101,7 +106,8 @@ class TestDLOperations:
         assert l_t[0] == t1
         lltype.free(l_t, flavor='raw')
         del ctime
-        assert len(ALLOCATED) == 1
+        del libc
+        assert not ALLOCATED
 
     def test_compile(self):
         import py
@@ -121,4 +127,19 @@ class TestDLOperations:
         res = fn(2.0, 4.0)
         assert res == 16.0
 
-        
+    def test_rawfuncptr(self):
+        libm = CDLL('libm.so')
+        pow = libm.getrawpointer('pow', [ffi_type_double, ffi_type_double],
+                                 ffi_type_double)
+        buffer = lltype.malloc(rffi.DOUBLEP.TO, 3, flavor='raw')
+        buffer[0] = 2.0
+        buffer[1] = 3.0
+        buffer[2] = 43.5
+        pow.call([rffi.cast(rffi.VOIDP, buffer),
+                  rffi.cast(rffi.VOIDP, rffi.ptradd(buffer, 1))],
+                 rffi.cast(rffi.VOIDP, rffi.ptradd(buffer, 2)))
+        assert buffer[2] == 8.0
+        lltype.free(buffer, flavor='raw')
+        del pow
+        del libm
+        assert not ALLOCATED
