@@ -43,48 +43,40 @@ DontWrapMe = [
 def proxymaker(space, opname, parentfn):
     if opname in DontWrapMe:
         return None
-    elif opname == "newdict": # grr grr kwargs
+    def user_hook(*args_w):
+        if w_rspace is not None:
+            try:
+                w_f = space.getattr(w_rspace, space.wrap("newdict"))
+            except OperationError, e:
+                if not e.match(space, space.w_AttributeError):
+                    raise
+            else:
+                w_obj = space.call_function(w_f, w_obj)
+                reset_reflective_space(space, w_rspace)
+                return w_obj
+        return None
+
+    if opname == "newdict": # grr grr kwargs
         def fn(track_builtin_shadowing=False):
             w_obj = parentfn(track_builtin_shadowing)
             w_rspace = get_reflective_space(space)
-            if w_rspace is not None:
-                try:
-                    w_f = space.getattr(w_rspace, space.wrap("newdict"))
-                except OperationError, e:
-                    if not e.match(space, space.w_AttributeError):
-                        raise
-                else:
-                    w_obj = space.call_function(w_f, w_obj)
-                    reset_reflective_space(space, w_rspace)
+            w_newobj = user_hook(w_obj)
+            if w_newobj is not None:
+                return w_newobj
             return w_obj
     elif opname.startswith("new"):
         def fn(*args_w):
             w_obj = parentfn(*args_w)
             w_rspace = get_reflective_space(space)
-            if w_rspace is not None:
-                try:
-                    w_f = space.getattr(w_rspace, space.wrap(opname))
-                except OperationError, e:
-                    if not e.match(space, space.w_AttributeError):
-                        raise
-                else:
-                    w_obj = space.call_function(w_f, w_obj)
-                    reset_reflective_space(space, w_rspace)
+            w_newobj = user_hook(w_obj)
+            if w_newobj is not None:
+                return w_newobj
             return w_obj
     else:
         def fn(*args_w):
-            ec = space.getexecutioncontext()
-            w_rspace = get_reflective_space(space)
-            if w_rspace is not None:
-                try:
-                    w_f = space.getattr(w_rspace, space.wrap(opname))
-                except OperationError, e:
-                    if not e.match(space, space.w_AttributeError):
-                        raise
-                else:
-                    w_res = space.call_function(w_f, *args_w)
-                    reset_reflective_space(space, w_rspace)
-                    return w_res
+            w_obj = user_hook(*args_w)
+            if w_obj is not None:
+                return w_obj
             return parentfn(*args_w)
     fn.func_name = opname
     return fn
