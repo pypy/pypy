@@ -6,7 +6,7 @@ from pypy.objspace.proxy import patch_space_in_place
 
 def set_reflectivespace(space, w_reflectivespace):
     ec = space.getexecutioncontext()
-    if space.is_w(ec.w_reflectivespace, space.w_None):
+    if space.is_w(w_reflectivespace, space.w_None):
         ec.w_reflectivespace = None
     else:
         ec.w_reflectivespace = w_reflectivespace
@@ -48,14 +48,15 @@ def proxymaker(space, opname, parentfn):
         w_rspace = get_reflective_space(space)
         if w_rspace is not None:
             try:
-                w_f = space.getattr(w_rspace, space.wrap(opname))
-            except OperationError, e:
-                if not e.match(space, space.w_AttributeError):
-                    raise
-            else:
-                w_obj = space.call_function(w_f, *args_w)
+                try:
+                    w_f = space.getattr(w_rspace, space.wrap(opname))
+                except OperationError, e:
+                    if not e.match(space, space.w_AttributeError):
+                        raise
+                else:
+                    return space.call_function(w_f, *args_w)
+            finally:
                 reset_reflective_space(space, w_rspace)
-                return w_obj
         return None
 
     if opname == "newdict": # grr grr kwargs
@@ -66,12 +67,22 @@ def proxymaker(space, opname, parentfn):
                 return w_newobj
             return w_obj
     elif opname.startswith("new"):
-        def fn(*args_w):
-            w_obj = parentfn(*args_w)
+        def fn(*args):
+            w_obj = parentfn(*args)
             w_newobj = user_hook(w_obj)
             if w_newobj is not None:
                 return w_newobj
             return w_obj
+    elif opname == "type":
+        def fn(*args_w):
+            w_obj = user_hook(*args_w)
+            if w_obj is not None:
+                if not isinstance(w_obj, W_TypeObject):
+                    raise OperationError(
+                        space.w_TypeError,
+                        space.wrap("space.type must return a type object!"))
+                return w_obj
+            return parentfn(*args_w)
     else:
         def fn(*args_w):
             w_obj = user_hook(*args_w)
