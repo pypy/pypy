@@ -592,6 +592,27 @@ class BaseTestRclass(BaseRtypingTest):
         res = self.interpret(f, [])
         assert res == -7
 
+    def test_instantiate_despite_abstract_methods(self):
+        class A:
+            pass
+        class B(A):
+            def foo(self):
+                return 42
+        def fn(n):
+            # Although the code below is a bit strange, there are
+            # subtle ways in which the same situation could occur.
+            # One is shown by test_specialize_methods().
+            if n < 0:
+                x = B()
+            else:
+                x = A()
+            if n < -3:
+                return x.foo()
+            else:
+                return 100
+        assert self.interpret(fn, [-5]) == 42
+        assert self.interpret(fn, [5]) == 100
+
     def test_specialize_methods(self):
         from pypy.rlib.objectmodel import specialize
         class A:
