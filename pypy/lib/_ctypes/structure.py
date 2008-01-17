@@ -93,7 +93,7 @@ class StructureMeta(_CDataMeta):
     def __getattr__(self, name):
         if hasattr(self, '_fieldtypes') and name in self._fieldtypes:
             return self._fieldtypes[name]
-        return _CDataMeta.__getattr__(self, name)
+        return _CDataMeta.__getattribute__(self, name)
         #return Field(name, 
 
     def from_address(self, address):
