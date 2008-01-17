@@ -327,7 +327,10 @@ listrepr = app.interphook("listrepr")
 def repr__List(space, w_list):
     if len(w_list.wrappeditems) == 0:
         return space.wrap('[]')
-    w_currently_in_repr = space.getexecutioncontext()._py_repr
+    ec = space.getexecutioncontext()
+    w_currently_in_repr = ec._py_repr
+    if w_currently_in_repr is None:
+        w_currently_in_repr = ec._py_repr = space.newdict()
     return listrepr(space, w_currently_in_repr, w_list)
 
 def list_insert__List_ANY_ANY(space, w_list, w_where, w_any):

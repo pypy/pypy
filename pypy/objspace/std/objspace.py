@@ -364,8 +364,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     def createexecutioncontext(self):
         # add space specific fields to execution context
+        # note that this method must not call space methods that might need an
+        # execution context themselves (e.g. nearly all space methods)
         ec = ObjSpace.createexecutioncontext(self)
-        ec._py_repr = self.newdict()
+        ec._py_repr = None
         if self.config.objspace.std.withmethodcache:
             SIZE = 1 << self.config.objspace.std.methodcachesizeexp
             ec.method_cache_versions = [None] * SIZE

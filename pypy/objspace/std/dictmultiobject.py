@@ -1286,7 +1286,10 @@ dictrepr = app.interphook("dictrepr")
 def repr__DictMulti(space, w_dict):
     if w_dict.implementation.length() == 0:
         return space.wrap('{}')
-    w_currently_in_repr = space.getexecutioncontext()._py_repr
+    ec = space.getexecutioncontext()
+    w_currently_in_repr = ec._py_repr
+    if w_currently_in_repr is None:
+        w_currently_in_repr = ec._py_repr = space.newdict()
     return dictrepr(space, w_currently_in_repr, w_dict)
 
 
