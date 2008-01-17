@@ -42,8 +42,8 @@ def proxymaker(space, opname, parentfn):
                     reset_reflective_space(space, w_rspace)
             return w_obj
     elif opname.startswith("new"):
-        def fn(*args_w, **kwargs):
-            w_obj = parentfn(*args_w, **kwargs)
+        def fn(*args_w):
+            w_obj = parentfn(*args_w)
             w_rspace = get_reflective_space(space)
             if w_rspace is not None:
                 try:
