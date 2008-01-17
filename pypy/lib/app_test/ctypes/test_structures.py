@@ -205,7 +205,7 @@ class TestStructure:
         raises(ValueError, type(Structure), "X", (Structure,), d)
 
     def test_initializers(self):
-        py.test.skip("???")
+        py.test.skip("unsupported")
         class Person(Structure):
             _fields_ = [("name", c_char*6),
                         ("age", c_int)]
@@ -232,7 +232,6 @@ class TestStructure:
         assert (pt.x, pt.y) == (1, 2)
 
     def test_invalid_field_types(self):
-        py.test.skip("???")
         class POINT(Structure):
             pass
         raises(TypeError, setattr, POINT, "_fields_", [("x", 1), ("y", 2)])

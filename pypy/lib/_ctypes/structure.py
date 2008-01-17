@@ -23,6 +23,9 @@ def size_alignment_pos(fields):
     return size, alignment, pos
 
 def names_and_fields(_fields_, superclass):
+    for _, tp in _fields_:
+        if not isinstance(tp, _CDataMeta):
+            raise TypeError("Expected CData subclass, got %s" % (tp,))
     import ctypes
     all_fields = _fields_[:]
     for cls in inspect.getmro(superclass):
