@@ -12,7 +12,9 @@ class AppTest_Reflective:
                 return 40+2
 
         set_reflectivespace(Space())
-        assert 1+2 == 42
+        x = 1
+        y = 2
+        assert x + y == 42
 
         set_reflectivespace(None)
         assert 1+2 == 3
@@ -24,3 +26,28 @@ class AppTest_Reflective:
 
         set_reflectivespace(Space())
         assert 1+2 == 3
+
+    def test_newdict(self):
+        from __pypy__ import set_reflectivespace
+        class Space:
+            def newdict(self, d):
+                d['surprise'] = 42
+                return d
+
+        set_reflectivespace(Space())
+        d = {"b": 1}
+        assert d["surprise"] == 42
+        set_reflectivespace(None)
+
+
+    def test_newlist(self):
+        from __pypy__ import set_reflectivespace
+        class Space:
+            def newlist(self, l):
+                l.append(len(l))
+                return l
+
+        set_reflectivespace(Space())
+        l = [1, 2, 3, 4, 5]
+        assert len(l) == 6
+        set_reflectivespace(None)

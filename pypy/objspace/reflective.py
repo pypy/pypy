@@ -11,23 +11,65 @@ def set_reflectivespace(space, w_reflectivespace):
         ec.w_reflectivespace = w_reflectivespace
 app_set_reflectivespace = gateway.interp2app(set_reflectivespace)
 
+def get_reflective_space(space):
+    ec = space.getexecutioncontext()
+    if ec.w_reflectivespace is not None:
+        w_rspace = ec.w_reflectivespace
+        ec.w_reflectivespace = None
+        return w_rspace
+    return None
+
+def reset_reflective_space(space, w_rspace):
+    ec = space.getexecutioncontext()
+    ec.w_reflectivespace = w_rspace
+
 
 def proxymaker(space, opname, parentfn):
-    def fn(*args_w):
-        ec = space.getexecutioncontext()
-        if ec.w_reflectivespace is not None:
-            w_rspace = ec.w_reflectivespace
-            ec.w_reflectivespace = None
-            try:
-                w_f = space.getattr(w_rspace, space.wrap(opname))
-            except OperationError, e:
-                if not e.match(space, space.w_AttributeError):
-                    raise
-            else:
-                w_res = space.call_function(w_f, *args_w)
-                ec.w_reflectivespace = w_rspace
-                return w_res
-        return parentfn(*args_w)
+    if opname == "wrap":
+        return parentfn # no way to override wrapping for now
+    elif opname == "newdict": # grr grr kwargs
+        def fn(track_builtin_shadowing=False):
+            w_obj = parentfn(track_builtin_shadowing)
+            w_rspace = get_reflective_space(space)
+            if w_rspace is not None:
+                try:
+                    w_f = space.getattr(w_rspace, space.wrap("newdict"))
+                except OperationError, e:
+                    if not e.match(space, space.w_AttributeError):
+                        raise
+                else:
+                    w_obj = space.call_function(w_f, w_obj)
+                    reset_reflective_space(space, w_rspace)
+            return w_obj
+    elif opname.startswith("new"):
+        def fn(*args_w, **kwargs):
+            w_obj = parentfn(*args_w, **kwargs)
+            w_rspace = get_reflective_space(space)
+            if w_rspace is not None:
+                try:
+                    w_f = space.getattr(w_rspace, space.wrap(opname))
+                except OperationError, e:
+                    if not e.match(space, space.w_AttributeError):
+                        raise
+                else:
+                    w_obj = space.call_function(w_f, w_obj)
+                    reset_reflective_space(space, w_rspace)
+            return w_obj
+    else:
+        def fn(*args_w):
+            ec = space.getexecutioncontext()
+            w_rspace = get_reflective_space(space)
+            if w_rspace is not None:
+                try:
+                    w_f = space.getattr(w_rspace, space.wrap(opname))
+                except OperationError, e:
+                    if not e.match(space, space.w_AttributeError):
+                        raise
+                else:
+                    w_res = space.call_function(w_f, *args_w)
+                    reset_reflective_space(space, w_rspace)
+                    return w_res
+            return parentfn(*args_w)
     fn.func_name = opname
     return fn
 
