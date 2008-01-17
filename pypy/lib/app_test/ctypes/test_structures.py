@@ -129,7 +129,6 @@ class TestStructure:
         assert sizeof(XX) == 0
 
     def test_fields(self):
-        py.test.skip("???")
         # test the offset and size attributes of Structure/Unoin fields.
         class X(Structure):
             _fields_ = [("x", c_int),
@@ -145,6 +144,7 @@ class TestStructure:
         raises((TypeError, AttributeError), setattr, X.x, "offset", 92)
         raises((TypeError, AttributeError), setattr, X.x, "size", 92)
 
+        py.test.skip("No unions support")
         class X(Union):
             _fields_ = [("x", c_int),
                         ("y", c_char)]
