@@ -403,7 +403,10 @@ class W_TypeObject(W_Object):
         dictspec = []
         for key, w_value in w_self.dict_w.items():
             dictspec.append((space.wrap(key), w_value))
-        newdic = space.newdict()
+        # speed hack: instantiate a dict object cls directly
+        # NB: cannot use newdict, because that could return something else
+        # than an instance of DictObjectCls
+        newdic = space.DictObjectCls(space)
         newdic.initialize_content(dictspec)
         return W_DictProxyObject(newdic)
 
