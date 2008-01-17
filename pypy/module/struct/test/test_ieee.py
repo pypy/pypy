@@ -1,5 +1,6 @@
+import sys
 from pypy.module.struct.ieee import pack_float, unpack_float
-from pypy.rlib.rarithmetic import isnan
+from pypy.rlib.rarithmetic import isinf, isnan
 
 testcases = [
     (-0.025, 4, False, '\xcd\xcc\xcc\xbc'),
@@ -22,6 +23,8 @@ testcases = [
 def test_correct_tests():
     import struct
     for number, size, bigendian, expected in testcases:
+        if sys.version < (2, 5) and (isinf(number) or isnan(number)):
+            continue    # 'inf' and 'nan' unsupported in CPython 2.4's struct
         if bigendian:
             fmt = '>'
         else:
