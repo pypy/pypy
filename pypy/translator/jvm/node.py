@@ -22,7 +22,7 @@ from pypy.rpython.ootypesystem import \
 from pypy.translator.jvm.typesystem import \
      JvmGeneratedClassType, jString, jStringArray, jVoid, jThrowable, jInt, \
      jObject, JvmType, jStringBuilder, jPyPyInterlink, jCallbackInterfaces, \
-     JvmGeneratedInterfaceType, jPyPy
+     JvmGeneratedInterfaceType, jPyPy, jPyPyAbstractMethodException
 from pypy.translator.jvm.opcodes import \
      opcodes
 from pypy.translator.jvm.option import \
@@ -687,7 +687,6 @@ class Class(Node, JvmGeneratedClassType):
         """
         JvmGeneratedClassType.__init__(self, name)
         self.rendered = False       # has rendering occurred?
-        self.abstract = False       # is this an abstract class?
         self.fields = {}            # maps field name to jvmgen.Field object
         self.interfaces = []        # list of JvmTypes
         self.methods = {}           # maps method name to a Function object*
@@ -744,12 +743,11 @@ class Class(Node, JvmGeneratedClassType):
         """ Adds an abstract method to our list of methods; jmethod should
         be a jvmgen.Method object """
         assert jmethod.method_name not in self.methods
-        self.abstract = True
         self.abstract_methods[jmethod.method_name] = jmethod
 
     def render(self, gen):
         self.rendered = True
-        gen.begin_class(self, self.super_class, abstract=self.abstract)
+        gen.begin_class(self, self.super_class)
 
         for inter in self.interfaces:
             gen.implements(inter)
@@ -772,7 +770,9 @@ class Class(Node, JvmGeneratedClassType):
             method.render(gen)
 
         for method in self.abstract_methods.values():
-            gen.begin_j_function(self, method, abstract=True)
+            gen.begin_j_function(self, method)
+            gen.new_with_jtype(jPyPyAbstractMethodException)
+            gen.throw()
             gen.end_function()
         
         gen.end_class()

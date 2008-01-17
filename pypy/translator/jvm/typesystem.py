@@ -199,6 +199,7 @@ jPyPyRecordSignedSigned = JvmClassType('pypy.RecordSignedSigned')
 jPyPyRecordStringString = JvmClassType('pypy.RecordStringString')
 jPyPyRecordFloatSigned = JvmClassType('pypy.RecordFloatSigned')
 jPyPyRecordFloatFloat = JvmClassType('pypy.RecordFloatFloat')
+jPyPyAbstractMethodException = JvmClassType('pypy.AbstractMethodException')
 
 jArithmeticException = JvmClassType('java.lang.ArithmeticException', throwable=True)
 
