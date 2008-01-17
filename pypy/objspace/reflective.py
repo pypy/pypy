@@ -89,18 +89,14 @@ def proxymaker(space, opname, parentfn):
     fn.func_name = opname
     return fn
 
-def createexecutioncontextmaker(space, parentfn):
-    def createexecutioncontext():
-        ec = parentfn()
+class ReflectiveObjSpace(std.Space):
+    def createexecutioncontext(self):
+        ec = std.Space.createexecutioncontext(self)
         ec.w_reflectivespace = None
         return ec
-    return createexecutioncontext
 
 def Space(*args, **kwds):
-    space = std.Space(*args, **kwds)
-    space.createexecutioncontext = createexecutioncontextmaker(
-        space, space.createexecutioncontext)
-    space.getexecutioncontext().w_reflectivespace = None # patch the already built ec
+    space = ReflectiveObjSpace(*args, **kwds)
     patch_space_in_place(space, 'reflective', proxymaker)
     w___pypy__ = space.getbuiltinmodule("__pypy__")
     space.setattr(w___pypy__, space.wrap('set_reflectivespace'),
