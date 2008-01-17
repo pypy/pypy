@@ -237,7 +237,7 @@ class TestStructure:
         raises(TypeError, setattr, POINT, "_fields_", [("x", 1), ("y", 2)])
 
     def test_intarray_fields(self):
-        py.test.skip("???")
+        py.test.skip("unsupported")
         class SomeInts(Structure):
             _fields_ = [("a", c_int * 4)]
 
@@ -383,7 +383,6 @@ class TestPointerMember:
         assert items == [1, 2, 3]
 
     def test_none_to_pointer_fields(self):
-        py.test.skip("???")
         class S(Structure):
             _fields_ = [("x", c_int),
                         ("p", POINTER(c_int))]
