@@ -24,8 +24,24 @@ def reset_reflective_space(space, w_rspace):
     ec.w_reflectivespace = w_rspace
 
 
+DontWrapMe = [
+    'wrap',
+    'str_w',
+    'int_w',
+    'float_w',
+    'uint_w',
+    'bigint_w',
+    'unicode_w',
+    'interpclass_w',
+    'unwrap',
+    'is_true',
+    'is_w',
+    'call_args',
+    'marshal_w',
+    ]
+
 def proxymaker(space, opname, parentfn):
-    if opname in ["wrap", "call_args"]:
+    if opname in DontWrapMe:
         return parentfn # no way to override wrapping for now
     elif opname == "newdict": # grr grr kwargs
         def fn(track_builtin_shadowing=False):
