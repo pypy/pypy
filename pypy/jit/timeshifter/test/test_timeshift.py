@@ -701,11 +701,11 @@ class BaseTestTimeshift(TimeshiftingTests):
 
         res = self.timeshift(ll_function, [0], [])
         assert res == "4"
-        if self.__class__ is TestTimeshift:
+        if self.__class__ in (TestLLType, TestOOType):
             assert lltype.parentlink(glob_result.s._obj) == (None, None)
         res = self.timeshift(ll_function, [1], [])
         assert res == "3"
-        if self.__class__ is TestTimeshift:
+        if self.__class__ in (TestLLType, TestOOType):
             parent, parentindex = lltype.parentlink(glob_result.s._obj)
             assert parentindex == 's'
             assert parent.n == 3.25

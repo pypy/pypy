@@ -12,7 +12,7 @@ class PPCLLInterpTimeshiftingTestMixin(I386LLInterpTimeshiftingTestMixin):
     from pypy.jit.codegen.ppc.test.test_interp import LLTypeRGenOp as RGenOp
 
 class TestTimeshiftPPC(PPCLLInterpTimeshiftingTestMixin,
-                       test_timeshift.TestTimeshift):
+                       test_timeshift.TestLLType):
 
     # for the individual tests see
     # ====> ../../../timeshifter/test/test_timeshift.py

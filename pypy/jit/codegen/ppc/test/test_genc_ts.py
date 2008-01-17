@@ -7,7 +7,7 @@ class PPCTimeshiftingTestMixin(I386TimeshiftingTestMixin):
     RGenOp = RPPCGenOp
 
 class TestTimeshiftPPC(PPCTimeshiftingTestMixin,
-                        test_timeshift.TestTimeshift):
+                        test_timeshift.TestLLType):
 
     # for the individual tests see
     # ====> ../../../timeshifter/test/test_timeshift.py

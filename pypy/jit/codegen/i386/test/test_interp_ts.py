@@ -44,7 +44,7 @@ class I386LLInterpTimeshiftingTestMixin(object):
 
 
 class TestTimeshiftI386LLInterp(I386LLInterpTimeshiftingTestMixin,
-                                test_timeshift.TestTimeshift):
+                                test_timeshift.TestLLType):
     
     # for the individual tests see
     # ====> ../../../timeshifter/test/test_timeshift.py

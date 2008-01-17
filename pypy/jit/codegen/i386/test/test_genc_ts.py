@@ -145,7 +145,7 @@ class I386TimeshiftingTestMixin(object):
         "Cannot check instructions in the generated assembler."
 
 class TestTimeshiftI386(I386TimeshiftingTestMixin,
-                        test_timeshift.TestTimeshift):
+                        test_timeshift.TestLLType):
 
     # for the individual tests see
     # ====> ../../../timeshifter/test/test_timeshift.py

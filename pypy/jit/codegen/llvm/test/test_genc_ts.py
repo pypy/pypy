@@ -10,7 +10,7 @@ class LLVMTimeshiftingTestMixin(I386TimeshiftingTestMixin):
 
 
 class TestTimeshiftLLVM(LLVMTimeshiftingTestMixin,
-                        test_timeshift.TestTimeshift):
+                        test_timeshift.TestLLType):
 
     # for the individual tests see
     # ====> ../../../timeshifter/test/test_timeshift.py
