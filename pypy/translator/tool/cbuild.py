@@ -131,7 +131,10 @@ class ExternalCompilationInfo(object):
             if being_main:
                 f.write("#define PYPY_NOT_MAIN_FILE\n")
             self.write_c_header(f)
-            f.write(str(source))
+            source = str(source)
+            f.write(source)
+            if not source.endswith('\n'):
+                f.write('\n')
             f.close()
             files.append(str(filename))
         d = self._copy_attributes()
