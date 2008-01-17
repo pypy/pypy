@@ -3,15 +3,28 @@ from pypy.conftest import gettestobjspace
 
 class _AppTestSelect:
     def test_sleep(self):
+        """
+        The timeout parameter to select.select specifies the approximate
+        maximum amount of time for that function to block before it returns
+        to report that no results are available.
+        """
         import time, select
         readend, writeend = getpair()
-        start = time.time()
-        iwtd, owtd, ewtd = select.select([readend], [], [], 0.3)
-        end = time.time()
-        assert iwtd == owtd == ewtd == []
-        assert end - start > 0.25
+        try:
+            start = time.time()
+            iwtd, owtd, ewtd = select.select([readend], [], [], 0.3)
+            end = time.time()
+            assert iwtd == owtd == ewtd == []
+            assert end - start > 0.25
+        finally:
+            readend.close()
+            writeend.close()
 
     def test_readable(self):
+        """
+        select.select returns elements from the "read list" (the first
+        parameter) which may have data available to be read.
+        """
         import select
         readend, writeend = getpair()
         try:
@@ -26,6 +39,13 @@ class _AppTestSelect:
             readend.close()
 
     def test_write_read(self):
+        """
+        select.select returns elements from the "write list" (the second
+        parameter) on which a write/send may be possible.  select.select
+        returns elements from the "read list" (the first parameter) which
+        may have data available to be read. (the second part of this test
+        overlaps significantly with test_readable. -exarkun)
+        """
         import select
         readend, writeend = getpair()
         try:
@@ -54,6 +74,10 @@ class _AppTestSelect:
             readend.close()
 
     def test_close(self):
+        """
+        select.select returns elements from the "read list" (the first
+        parameter) which have no data to be read but which have been closed.
+        """
         import select, sys
         readend, writeend = getpair()
         try:
@@ -83,6 +107,11 @@ class _AppTestSelect:
             readend.close()
 
     def test_read_many(self):
+        """
+        select.select returns only the elements from the "read list" (the
+        first parameter) which may have data available to be read.
+        (test_readable has a lot of overlap with this test. -exarkun)
+        """
         import select
         readends = []
         writeends = []
@@ -108,6 +137,12 @@ class _AppTestSelect:
                 fd.close()
 
     def test_read_end_closed(self):
+        """
+        select.select returns elements from the "write list" (the second
+        parameter) when they are not writable but when the corresponding
+        read end has been closed. (this test currently doesn't make the
+        write end non-writable before testing its selectability. -exarkun)
+        """
         import select
         readend, writeend = getpair()
         readend.close()
