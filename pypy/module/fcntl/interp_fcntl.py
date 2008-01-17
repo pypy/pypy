@@ -263,7 +263,7 @@ def ioctl(space, w_fd, op, w_arg=0, mutate_flag=True):
     
         ll_arg = rffi.str2charp(arg)
         rv = ioctl_str(fd, op, ll_arg)
-        arg = rffi.charp2str(ll_arg)
+        arg = rffi.charpsize2str(ll_arg, len(arg))
         lltype.free(ll_arg, flavor='raw')
         if rv < 0:
             raise OperationError(space.w_IOError,
