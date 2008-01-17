@@ -25,7 +25,9 @@ class AppTest_Reflective:
             pass
 
         set_reflectivespace(Space())
-        assert 1+2 == 3
+        x = 1
+        y = 2
+        assert x + y == 3
 
     def test_newdict(self):
         from __pypy__ import set_reflectivespace
