@@ -76,7 +76,6 @@ class TestStructure:
                                  (calcsize("%c" % (code)), code))
 
     def test_struct_alignment(self):
-        py.test.skip("???")
         class X(Structure):
             _fields_ = [("x", c_char * 3)]
         assert alignment(X) == calcsize("s")

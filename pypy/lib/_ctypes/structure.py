@@ -8,7 +8,7 @@ def names_and_fields(_fields_, superclass):
     for cls in inspect.getmro(superclass):
         all_fields += getattr(cls, '_fields_', [])
     names = [name for name, ctype in all_fields]
-    rawfields = [(name, ctype._ffiletter)
+    rawfields = [(name, ctype._ffishape)
                  for name, ctype in all_fields]
     return names, rawfields, dict(all_fields)
 
@@ -18,7 +18,8 @@ class StructureMeta(_CDataMeta):
         if '_fields_' in typedict:
             res._names, rawfields, res._fieldtypes = names_and_fields(
                 typedict['_fields_'], cls[0])
-            res._ffistruct = _rawffi.Structure(rawfields)            
+            res._ffistruct = _rawffi.Structure(rawfields)
+            res._ffishape = res._ffistruct.gettypecode()
 
         def __init__(self, *args, **kwds):
             if not hasattr(self, '_ffistruct'):
@@ -46,6 +47,7 @@ class StructureMeta(_CDataMeta):
                 value, self.__bases__[0])
             self._ffistruct = _rawffi.Structure(rawfields)
             _CDataMeta.__setattr__(self, '_fields_', value)
+            self._ffishape = self._ffistruct.gettypecode()
             return
         _CDataMeta.__setattr__(self, name, value)
 
@@ -70,7 +72,7 @@ class Structure(_CData):
         """Return a _rawffi array of length 1 whose address is the same as
         the address of the field 'name' of self."""
         address = self._buffer.fieldaddress(name)
-        A = _rawffi.Array(fieldtype._ffiletter)
+        A = _rawffi.Array(fieldtype._ffishape)
         return A.fromaddress(address, 1)
 
     def __setattr__(self, name, value):

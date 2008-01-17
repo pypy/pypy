@@ -7,7 +7,7 @@ class ArrayMeta(_CDataMeta):
     def __new__(self, name, cls, typedict):
         res = type.__new__(self, name, cls, typedict)
         if '_type_' in typedict:
-            ffiarray = _rawffi.Array(typedict['_type_']._ffiletter)
+            ffiarray = _rawffi.Array(typedict['_type_']._ffishape)
             res._ffiarray = ffiarray
             if getattr(typedict['_type_'], '_type_', None) == 'c':
                 def getvalue(self):
@@ -30,6 +30,8 @@ class ArrayMeta(_CDataMeta):
                     for i in range(len(buffer)):
                         self[i] = buffer[i]
                 res.raw = property(getraw, setraw)
+            if '_length_' in typedict:
+                res._ffishape = ffiarray.gettypecode(typedict['_length_'])
         else:
             res._ffiarray = None
         return res
