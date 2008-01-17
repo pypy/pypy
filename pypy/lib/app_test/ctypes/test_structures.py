@@ -394,7 +394,6 @@ class TestPointerMember:
 
 class TestRecursiveStructure:
     def test_contains_itself(self):
-        py.test.skip("???")
         class Recursive(Structure):
             pass
 

@@ -82,6 +82,8 @@ class StructureMeta(_CDataMeta):
         if name == '_fields_':
             if self.__dict__.get('_fields_', None):
                 raise AttributeError("_fields_ is final")
+            if self in [v for k, v in value]:
+                raise AttributeError("Structure or union cannot contain itself")
             self._names, rawfields, self._fieldtypes = names_and_fields(
                 value, self.__bases__[0])
             self._ffistruct = _rawffi.Structure(rawfields)
