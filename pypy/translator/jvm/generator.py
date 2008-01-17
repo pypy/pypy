@@ -1456,7 +1456,7 @@ class JasminGenerator(JVMGenerator):
         strargs = [jasmin_syntax(arg) for arg in args]
         instr_text = '%s %s' % (jvmstr, " ".join(strargs))
         self.curclass.out('    .line %d\n' % self.curclass.line_number)
-        self.curclass.out('    %-60s\n' % (instr_text,))
+        self.curclass.out('    %s\n' % (instr_text,))
         self.curfunc.instr_counter+=1
 
     def try_catch_region(self, jexcclsty, trystartlbl, tryendlbl, catchlbl):
