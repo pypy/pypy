@@ -638,6 +638,8 @@ def force_cast(RESTYPE, value):
         raise NotImplementedError("casting %r to %r" % (TYPE1, RESTYPE))
 
     if isinstance(RESTYPE, lltype.Ptr):
+        # upgrade to a more recent ctypes (e.g. 1.0.2) if you get
+        # an OverflowError on the following line.
         cvalue = ctypes.cast(ctypes.c_void_p(cvalue), cresulttype)
     else:
         cvalue = cresulttype(cvalue).value   # mask high bits off if needed
