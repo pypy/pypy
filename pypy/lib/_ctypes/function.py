@@ -1,10 +1,16 @@
 
 import types
 from _ctypes.basics import _CData, _CDataMeta
+import _rawffi
 
 class CFuncPtrType(_CDataMeta):
     # XXX write down here defaults and such things
-    pass
+
+    def _sizeofinstances(self):
+        return _rawffi.sizeof('P')
+
+    def _alignmentofinstances(self):
+        return _rawffi.alignment('P')
 
 class CFuncPtr(_CData):
     __metaclass__ = CFuncPtrType
@@ -12,7 +18,7 @@ class CFuncPtr(_CData):
     _argtypes_ = None
     _restype_ = None
     _ffiletter = 'P'
-    _buffer = 0
+    _ffishape = 'P'
 
     def _getargtypes(self):
         return self._argtypes_
@@ -31,6 +37,8 @@ class CFuncPtr(_CData):
             self.name, self.dll = address_or_name_and_dll
         else:
             self.address = address_or_name_and_dll
+            if isinstance(self.address, int):
+                self._buffer = _rawffi.Array('P').fromaddress(self.address, 1)
             self.name = None
 
     def __call__(self, *args):

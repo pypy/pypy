@@ -21,16 +21,11 @@ class PointerType(_CDataMeta):
         for k, v in d.iteritems():
             setattr(obj, k, v)
         if '_type_' in typedict:
-            ffiarray = _rawffi.Array('P')
-            def __init__(self, value=None):
-                self._buffer = ffiarray(1)
-                if value is not None:
-                    self.contents = value
-            obj._ffiarray = ffiarray
+            self.set_type(obj, typedict['_type_'])
         else:
             def __init__(self, value=None):
                 raise TypeError("%s has no type" % obj)
-        obj.__init__ = __init__
+            obj.__init__ = __init__
         return obj
 
     def from_param(self, value):
@@ -56,7 +51,14 @@ class PointerType(_CDataMeta):
         return True
 
     def set_type(self, TP):
-        pass # XXX???
+        ffiarray = _rawffi.Array('P')
+        def __init__(self, value=None):
+            self._buffer = ffiarray(1)
+            if value is not None:
+                self.contents = value
+        self._ffiarray = ffiarray
+        self.__init__ = __init__
+        self._type_ = TP
 
     from_address = cdata_from_address
 

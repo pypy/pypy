@@ -45,6 +45,14 @@ class ArrayMeta(_CDataMeta):
     def _alignmentofinstances(self):
         return self._type_._alignmentofinstances()
 
+    def from_param(self, value):
+        # check for iterable
+        if hasattr(value, '__iter__'):
+            if len(value) > self._length_:
+                raise ValueError("%s too long" % (value,))
+            return self(*value)
+        return _CDataMeta.from_param(self, value)
+
 class Array(_CData):
     __metaclass__ = ArrayMeta
     _ffiletter = 'P'

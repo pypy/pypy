@@ -44,6 +44,10 @@ class Field(object):
     def __setattr__(self, name, value):
         raise AttributeError(name)
 
+    def __repr__(self):
+        return "<Field '%s' offset=%d size=%d>" % (self.name, self.offset,
+                                                   self.size)
+
 class StructureMeta(_CDataMeta):
     def __new__(self, name, cls, typedict):
         res = type.__new__(self, name, cls, typedict)
