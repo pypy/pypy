@@ -479,9 +479,10 @@ def add_default(block):
 # and an OO tuple, so we need to make the llinterpreter thinking that
 # its _TYPE is compatible both with a struct and a
 # record. TwoFacedType does exactly this.
-class TwoFacedType(ootype.BuiltinType):
+class TwoFacedType(lltype.Ptr, ootype.BuiltinType):
     def __init__(self, TYPE1, TYPE2):
         self.TYPE1 = TYPE1
+        self.TO = TYPE1.TO   # this must be the LL type, a Ptr
         self.TYPE2 = TYPE2
 
     def __eq__(self, other):
