@@ -35,8 +35,8 @@ class PointerType(_CDataMeta):
     def from_param(self, value):
         if value is None:
             return 0
-	# If we expect POINTER(<type>), but receive a <type> instance, accept
-	# it by calling byref(<type>).
+        # If we expect POINTER(<type>), but receive a <type> instance, accept
+        # it by calling byref(<type>).
         if isinstance(value, self._type_):
             return byref(value)
         # Array instances are also pointers when the item types are the same.
