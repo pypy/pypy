@@ -42,7 +42,7 @@ DontWrapMe = [
 
 def proxymaker(space, opname, parentfn):
     if opname in DontWrapMe:
-        return parentfn # no way to override wrapping for now
+        return None
     elif opname == "newdict": # grr grr kwargs
         def fn(track_builtin_shadowing=False):
             w_obj = parentfn(track_builtin_shadowing)
