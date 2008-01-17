@@ -49,8 +49,8 @@ def annotation(a, x):
 
 class TimeshiftingTests(object):
     RGenOp = LLRGenOp
-
     small = True
+    type_system = 'lltype' # because a lot of tests inherits from this class
 
     def setup_class(cls):
         from pypy.jit.timeshifter.test.conftest import option
@@ -65,14 +65,15 @@ class TimeshiftingTests(object):
         del cls._cache
         del cls._cache_order
 
-    def hannotate(self, func, values, policy=None, inline=None, backendoptimize=False,
+    @classmethod
+    def hannotate(cls, func, values, policy=None, inline=None, backendoptimize=False,
                   portal=None):
         # build the normal ll graphs for ll_function
         t = TranslationContext()
         a = t.buildannotator()
         argtypes = getargtypes(a, values)
         a.build_types(func, argtypes)
-        rtyper = t.buildrtyper(type_system = self.type_system)
+        rtyper = t.buildrtyper(type_system = cls.type_system)
         rtyper.specialize()
         if inline:
             auto_inlining(t, threshold=inline)
@@ -82,7 +83,7 @@ class TimeshiftingTests(object):
         if portal is None:
             portal = func
 
-        policy = self.fixpolicy(policy)
+        policy = cls.fixpolicy(policy)
         if hasattr(policy, "seetranslator"):
             policy.seetranslator(t)
         graph1 = graphof(t, portal)
@@ -96,9 +97,10 @@ class TimeshiftingTests(object):
             hannotator.translator.view()
         return hs, hannotator, rtyper
 
-    def fixpolicy(self, policy):
+    @classmethod
+    def fixpolicy(cls, policy):
         import copy
-        if self.type_system == 'ootype' and policy is not None:
+        if cls.type_system == 'ootype' and policy is not None:
             newpolicy = copy.copy(policy)
             newpolicy.oopspec = False
             return newpolicy

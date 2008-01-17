@@ -1,6 +1,6 @@
 from pypy import conftest
 from pypy.translator.translator import graphof
-from pypy.jit.timeshifter.test.test_timeshift import hannotate, getargtypes
+from pypy.jit.timeshifter.test.test_timeshift import TestLLType as TSTestLLType, getargtypes
 from pypy.jit.timeshifter.hrtyper import HintRTyper
 from pypy.jit.timeshifter.test.test_timeshift import P_NOVIRTUAL, StopAtXPolicy
 from pypy.jit.timeshifter.test.test_vlist import P_OOPSPEC
@@ -53,7 +53,7 @@ class PortalTest(object):
             assert argtypes == getargtypes(self.rtyper.annotator, main_args)
             return main_args
 
-        hs, ha, self.rtyper = hannotate(main, main_args, portal=portal,
+        hs, ha, self.rtyper = TSTestLLType.hannotate(main, main_args, portal=portal,
                                    policy=policy, inline=inline,
                                    backendoptimize=backendoptimize)
 
