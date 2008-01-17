@@ -38,6 +38,21 @@ class _AppTestSelect:
             writeend.close()
             readend.close()
 
+    def test_writable(self):
+        """
+        select.select returns elements from the "write list" (the second
+        parameter) on which a write/send may be possible.
+        """
+        import select
+        readend, writeend = getpair()
+        try:
+            iwtd, owtd, ewtd = select.select([], [writeend], [], 0)
+            assert iwtd == ewtd == []
+            assert owtd == [writeend]
+        finally:
+            writeend.close()
+            readend.close()
+
     def test_write_read(self):
         """
         select.select returns elements from the "write list" (the second
@@ -73,7 +88,7 @@ class _AppTestSelect:
             writeend.close()
             readend.close()
 
-    def test_close(self):
+    def test_write_close(self):
         """
         select.select returns elements from the "read list" (the first
         parameter) which have no data to be read but which have been closed.
@@ -105,6 +120,22 @@ class _AppTestSelect:
             assert total_in == total_out
         finally:
             readend.close()
+
+    def test_read_closed(self):
+        """
+        select.select returns elements from the "read list" (the first
+        parameter) which are at eof (even if they are the write end of a
+        pipe).
+        """
+        import select
+        readend, writeend = getpair()
+        try:
+            readend.close()
+            iwtd, owtd, ewtd = select.select([writeend], [], [], 0)
+            assert iwtd == [writeend]
+            assert owtd == ewtd == []
+        finally:
+            writeend.close()
 
     def test_read_many(self):
         """
