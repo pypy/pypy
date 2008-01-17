@@ -122,12 +122,12 @@ def fcntl(space, w_fd, op, w_arg=0):
         return space.wrap(rv)
     elif space.is_w(space.type(w_arg), space.w_str):
         arg = space.str_w(w_arg)
-        if len(arg) > 1024:
+        if len(arg) > 1024:   # XXX probably makes no sense for PyPy
             raise OperationError(space.w_ValueError,
                 space.wrap("fcntl string arg too long"))
         ll_arg = rffi.str2charp(arg)
         rv = fcntl_str(fd, op, ll_arg)
-        arg = rffi.charp2str(ll_arg)
+        arg = rffi.charpsize2str(ll_arg, len(arg))
         lltype.free(ll_arg, flavor='raw')
         if rv < 0:
             raise OperationError(space.w_IOError,

@@ -410,6 +410,11 @@ def charp2strn(cp, maxlen):
         i += 1
     return "".join(l)
 
+# char* and size -> str (which can contain null bytes)
+def charpsize2str(cp, size):
+    l = [cp[i] for i in range(size)]
+    return "".join(l)
+
 # char**
 CCHARPP = lltype.Ptr(lltype.Array(CCHARP, hints={'nolength': True}))
 
