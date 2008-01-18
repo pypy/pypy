@@ -1,6 +1,8 @@
 # Fake stuff for the tests.
 
-from pypy.jit.codegen.model import GenVar, GenConst
+from pypy.jit.codegen.model import GenVarOrConst, GenVar, GenConst
+from pypy.rpython.lltypesystem import lltype
+from pypy.jit.timeshifter import rvalue, rcontainer
 
 
 class FakeJITState(object):
@@ -58,6 +60,8 @@ class FakeBuilder(object):
 class FakeHRTyper(object):
     RGenOp = FakeRGenOp
 
+fakehrtyper = FakeHRTyper()
+
 class FakeGenVar(GenVar):
     def __init__(self, count=0):
         self.count=count
@@ -75,3 +79,28 @@ class FakeGenConst(GenConst):
 
     def revealconst(self, T):
         return self._value
+
+# ____________________________________________________________
+
+signed_kind = FakeRGenOp.kindToken(lltype.Signed)
+
+def vmalloc(TYPE, *boxes):
+    jitstate = FakeJITState()
+    assert isinstance(TYPE, lltype.Struct)   # for now
+    structdesc = rcontainer.StructTypeDesc(fakehrtyper, TYPE)
+    box = structdesc.factory()
+    for fielddesc, valuebox in zip(structdesc.fielddescs, boxes):
+        box.op_setfield(jitstate, fielddesc, valuebox)
+    assert jitstate.curbuilder.ops == []
+    return box
+
+def makebox(value):
+    if not isinstance(value, GenVarOrConst):
+        assert isinstance(value, int)    # for now
+        value = FakeGenConst(value)
+    return rvalue.IntRedBox(signed_kind, value)
+
+def getfielddesc(STRUCT, name):
+    assert isinstance(STRUCT, lltype.Struct)
+    structdesc = rcontainer.StructTypeDesc(fakehrtyper, STRUCT)
+    return structdesc.fielddesc_by_name[name]
