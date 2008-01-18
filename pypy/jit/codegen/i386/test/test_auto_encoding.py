@@ -213,6 +213,11 @@ def rec_test_all(instrname, modes, args=[]):
         if instrname in ('MOVZX', 'MOVSX'):
             if args[1][1].width == 4:
                 return []
+        if instrname == "TEST":
+            if (args[0] != args[1] and
+                isinstance(args[0][1], i386.REG) and
+                isinstance(args[1][1], i386.REG)):
+                return []   # TEST reg1, reg2  <=>  TEST reg2, reg1
         if instrname == 'o16' or instrname.endswith('cond'):
             return []
         return [args]
