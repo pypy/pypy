@@ -470,3 +470,12 @@ class ExpectClassCollector(py.test.collect.Class):
             import pexpect
         except ImportError:
             py.test.skip("pexpect not found")
+
+
+class Directory(py.test.collect.Directory):
+    def run(self):
+        # hack to exclude lib/ctypes/
+        if self.fspath == rootdir.join('lib', 'ctypes', 'test'):
+            py.test.skip("These are the original ctypes tests.\n"
+                         "You can try to run them with 'pypy-c runtests.py'.")
+        return py.test.collect.Directory.run(self)
