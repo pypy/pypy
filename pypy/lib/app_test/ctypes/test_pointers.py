@@ -235,3 +235,16 @@ class TestPointers:
 
         py.test.raises(TypeError, c_void_p, 3.14) # make sure floats are NOT accepted
         py.test.raises(TypeError, c_void_p, object()) # nor other objects
+
+    def test_c_char_p_byref(self):
+        dll = CDLL(_ctypes_test)
+        TwoOutArgs = dll.TwoOutArgs
+        TwoOutArgs.restype = None
+        TwoOutArgs.argtypes = [c_int, c_void_p, c_int, c_void_p]
+        a = c_int(3)
+        b = c_int(4)
+        c = c_int(5)
+        d = c_int(6)
+        TwoOutArgs(a, byref(b), c, byref(d))
+        assert b.value == 7
+        assert d.value == 11

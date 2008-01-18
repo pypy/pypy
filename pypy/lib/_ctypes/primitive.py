@@ -83,12 +83,12 @@ class SimpleType(_CDataMeta):
                 self._buffer[0] = value
             result.value = property(_getvalue, _setvalue)            
         
-        if tp == 'z' or tp == 'P':
+        if tp == 'z':
             from _ctypes import Array, _Pointer
-            # c_char_p and c_void_p
+            # c_char_p
             def from_param(self, value):
                 if value is None:
-                    return None
+                    return self(None)
                 if isinstance(value, basestring):
                     return self(value)
                 if isinstance(value, _SimpleCData) and \
@@ -99,6 +99,26 @@ class SimpleType(_CDataMeta):
                     if type(value)._type_ == c_char or \
                            type(value)._type_ == c_byte:
                         return value
+                return SimpleType.from_param(self, value)
+            result.from_param = classmethod(from_param)
+        elif tp == 'P':
+            from _ctypes import Array, _Pointer
+            # c_void_p
+            def from_param(self, value):
+                if value is None:
+                    return self(None)
+                if isinstance(value, basestring):
+                    return self(value)
+                if isinstance(value, _SimpleCData) and \
+                       type(value)._type_ in 'zP':
+                    return value
+                if isinstance(value, Array):
+                    from ctypes import c_char, c_byte
+                    if type(value)._type_ == c_char or \
+                           type(value)._type_ == c_byte:
+                        return value
+                if isinstance(value, _Pointer):
+                    return self.from_address(value._buffer.buffer)
                 return SimpleType.from_param(self, value)
             result.from_param = classmethod(from_param)
 
