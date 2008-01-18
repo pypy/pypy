@@ -37,11 +37,11 @@ class Timer(object):
         """ Pretty print
         """
         spacing = " "*(30 - len("Total:"))
-        total = "Total:%s - %.1f s" % (spacing, self.ttime())
+        total = "Total:%s --- %.1f s" % (spacing, self.ttime())
         log.bold("Timings:")
         for event, time in self.events:
             spacing = " "*(30 - len(event))
-            first = "%s%s - " % (event, spacing)
+            first = "%s%s --- " % (event, spacing)
             second = "%.1f s" % (time,)
             additional_spaces = " " * (len(total) - len(first) - len(second))
             log.bold("%s%s%s" % (first, additional_spaces, second))
