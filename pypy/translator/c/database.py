@@ -363,11 +363,15 @@ class LowLevelDatabase(object):
         seen = {}
         def produce(node):
             if node not in seen:
-                for othernode in node.dependencies:
+                deps = node.dependencies.keys()
+                deps.sort(key=lambda x: x.name)
+                for othernode in deps:
                     produce(othernode)
                 result.append(node)
                 seen[node] = True
-        for node in self.structdefnodes.values():
+        nodes = self.structdefnodes.values()
+        nodes.sort(key=lambda x: x.name)
+        for node in nodes:
             produce(node)
         return result
 
