@@ -72,3 +72,6 @@ class FakeGenVar(GenVar):
 class FakeGenConst(GenConst):
     def __init__(self, _value=None):
         self._value = _value
+
+    def revealconst(self, T):
+        return self._value

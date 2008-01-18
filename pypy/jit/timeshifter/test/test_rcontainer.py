@@ -44,18 +44,71 @@ class TestVirtualStruct:
     def test_simple_merge(self):
         oldbox = self.make_virtual_struct()
         frozenbox = oldbox.freeze(rvalue.freeze_memo())
+        # check that frozenbox matches oldbox exactly
         outgoingvarboxes = []
         res = frozenbox.exactmatch(oldbox, outgoingvarboxes,
                                    rvalue.exactmatch_memo())
         assert res
         fieldbox = oldbox.content.op_getfield(self.jitstate, self.fielddesc)
         assert outgoingvarboxes == [fieldbox]
+        #       ^^^ the live box corresponding to the FrozenVar
 
         newbox = self.make_virtual_struct()
         constbox = rvalue.IntRedBox("dummy kind", FakeGenConst(23))
         newbox.content.op_setfield(self.jitstate, self.fielddesc, constbox)
+        # check that frozenbox also matches newbox exactly
         outgoingvarboxes = []
         res = frozenbox.exactmatch(newbox, outgoingvarboxes,
                                    rvalue.exactmatch_memo())
         assert res
         assert outgoingvarboxes == [constbox]
+        #       ^^^ the live box corresponding to the FrozenVar
+
+    def test_simple_merge_generalize(self):
+        oldbox = self.make_virtual_struct()
+        oldconstbox = rvalue.IntRedBox("dummy kind", FakeGenConst(20))
+        oldbox.content.op_setfield(self.jitstate, self.fielddesc, oldconstbox)
+        frozenbox = oldbox.freeze(rvalue.freeze_memo())
+        # check that frozenbox matches oldbox exactly
+        outgoingvarboxes = []
+        res = frozenbox.exactmatch(oldbox, outgoingvarboxes,
+                                   rvalue.exactmatch_memo())
+        assert res
+        assert outgoingvarboxes == []     # there is no FrozenVar
+
+        newbox = self.make_virtual_struct()
+        C23 = FakeGenConst(23)
+        constbox = rvalue.IntRedBox("dummy kind", C23)
+        newbox.content.op_setfield(self.jitstate, self.fielddesc, constbox)
+        # non-exact match: a different constant box in the virtual struct field
+        outgoingvarboxes = []
+        res = frozenbox.exactmatch(newbox, outgoingvarboxes,
+                                   rvalue.exactmatch_memo())
+        assert not res
+        assert outgoingvarboxes == [constbox]
+        #       ^^^ the constbox is what should be generalized with forcevar()
+        #           in order to get something that is at least as general as
+        #           both oldbox and newbox
+
+        assert self.jitstate.curbuilder.ops == []
+        replace_memo = rvalue.copy_memo()
+        forcedbox = constbox.forcevar(self.jitstate, replace_memo, False)
+        assert not forcedbox.is_constant()
+        assert self.jitstate.curbuilder.ops == [
+            ('same_as', ("dummy kind", C23), forcedbox.genvar)]
+        assert replace_memo.boxes == {constbox: forcedbox}
+
+        # change constbox to forcedbox inside newbox
+        newbox.replace(replace_memo)
+        assert (newbox.content.op_getfield(self.jitstate, self.fielddesc) is
+                forcedbox)
+
+        # check that now newbox really generalizes oldbox
+        newfrozenbox = newbox.freeze(rvalue.freeze_memo())
+        outgoingvarboxes = []
+        res = newfrozenbox.exactmatch(oldbox, outgoingvarboxes,
+                                      rvalue.exactmatch_memo())
+        assert res
+        assert outgoingvarboxes == [oldconstbox]
+        #       ^^^ the FrozenVar() in newfrozenbox corresponds to
+        #           oldconstbox in oldbox.
