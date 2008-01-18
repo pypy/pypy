@@ -1,4 +1,4 @@
-
+import py
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem import ll2ctypes
@@ -168,20 +168,31 @@ def _make_wrapper_for(TP, callable, aroundstate=None):
     else:
         before = None
         after = None
-    def wrapper(*args):
-        try:
+    args = ', '.join(['a%d' % i for i in range(len(TP.TO.ARGS))])
+    source = py.code.Source(r"""
+        def wrapper(%s):    # no *args - no GIL for mallocing the tuple
+            if after:
+                after()
+            # from now on we hold the GIL
+            try:
+                result = callable(%s)
+            except Exception, e:
+                os.write(2,
+                    "Warning: uncaught exception in callback: %%s %%s\n" %%
+                    (str(callable), str(e)))
+                result = errorcode
             if before:
                 before()
-            result = callable(*args)
-            if after:
-                after()
+            # here we don't hold the GIL any more. As in the wrapper() produced
+            # by llexternal, it is essential that no exception checking occurs
+            # after the call to before().
             return result
-        except Exception, e:
-            if after:
-                after()
-            os.write(2, "Warning: uncaught exception in callback: %s %s\n" % (str(callable), str(e)))
-            return errorcode
-    return wrapper
+    """ % (args, args))
+    miniglobals = locals().copy()
+    miniglobals['Exception'] = Exception
+    miniglobals['os'] = os
+    exec source.compile() in miniglobals
+    return miniglobals['wrapper']
 _make_wrapper_for._annspecialcase_ = 'specialize:memo'
 
 AroundFnPtr = lltype.Ptr(lltype.FuncType([], lltype.Void))
