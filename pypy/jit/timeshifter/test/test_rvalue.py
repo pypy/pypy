@@ -2,73 +2,7 @@ import py
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.timeshifter import rvalue
 from pypy.jit.timeshifter import rcontainer
-from pypy.jit.codegen.model import GenVar, GenConst
-
-class FakeJITState(object):
-    def __init__(self):
-        self.curbuilder = FakeBuilder()
-
-class FakeRGenOp(object):
-    def genzeroconst(self, kind):
-        if kind == "dummy pointer":
-            return FakeGenConst("NULL")
-        return FakeGenConst(0)
-
-    @staticmethod
-    def kindToken(TYPE):
-        return TYPE
-
-    @staticmethod
-    def fieldToken(TYPE, name):
-        return TYPE, name
-
-    @staticmethod
-    def constPrebuiltGlobal(value):
-        return FakeGenConst(value)
-
-
-class FakeBuilder(object):
-    ops_with_no_retval = set(['setfield'])
-    
-    def __init__(self):
-        self.ops = []
-        self.varcount = 1
-        self.rgenop = FakeRGenOp()
-
-    def __getattr__(self, name):
-        if name.startswith('genop_'):
-            opname = name[len('genop_'):]            
-            def genop_(*args):
-                if opname in self.ops_with_no_retval:
-                    v = None
-                else:
-                    v = FakeGenVar(self.varcount)
-                    self.varcount += 1
-                self.ops.append((opname, args, v))
-                return v
-            genop_.func_name = name
-            return genop_
-        else:
-            raise AttributeError, name
-
-
-class FakeHRTyper(object):
-    RGenOp = FakeRGenOp
-
-class FakeGenVar(GenVar):
-    def __init__(self, count=0):
-        self.count=count
-    
-    def __repr__(self):
-        return "V%d" % self.count
-
-    def __eq__(self, other):
-        return self.count == other.count
-
-
-class FakeGenConst(GenConst):
-    def __init__(self, _value=None):
-        self._value = _value
+from pypy.jit.timeshifter.test.support import *
 
 
 def test_create_int_redbox_var():
@@ -130,10 +64,10 @@ def test_box_get_set_field():
     box2 = box.op_getfield(jitstate, desc)
     V1 = box2.genvar
     assert box.known_nonzero
-    assert jitstate.curbuilder.ops == [('getfield', ((STRUCT, 'foo'), V0), V1)]
+    assert jitstate.curbuilder.ops == [('getfield', (('field', STRUCT, 'foo'), V0), V1)]
 
     jitstate.curbuilder.ops = []
     V42 = FakeGenVar(42)
     valuebox = rvalue.IntRedBox("dummy kind", V42)
     box.op_setfield(jitstate, desc, valuebox)
-    assert jitstate.curbuilder.ops == [('setfield', ((STRUCT, 'foo'), V0, V42), None)]
+    assert jitstate.curbuilder.ops == [('setfield', (('field', STRUCT, 'foo'), V0, V42), None)]
