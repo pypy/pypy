@@ -29,6 +29,8 @@ class CFuncPtr(_CData):
     def _getrestype(self):
         return self._restype_
     def _setrestype(self, restype):
+        if not isinstance(restype, _CDataMeta) and not restype is None:
+            raise TypeError("Expected ctypes type, got %s" % (restype,))
         self._restype_ = restype    
     restype = property(_getrestype, _setrestype)    
 
@@ -66,10 +68,17 @@ class CFuncPtr(_CData):
 
     def _guess_argtypes(self, args):
         from _ctypes import _CData
+        from ctypes import c_char_p, c_void_p
         res = []
         for arg in args:
-            assert isinstance(arg, _CData)
-            res.append(type(arg))
+            if isinstance(arg, str):
+                res.append(c_char_p)
+            elif isinstance(arg, _CData):
+                res.append(type(arg))
+            elif arg is None:
+                res.append(c_void_p)
+            else:
+                raise TypeError("Dont know how to handle %s" % (arg,))
         return res
 
     def _wrap_args(self, argtypes, args):
