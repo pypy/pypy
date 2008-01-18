@@ -6,12 +6,16 @@ class Exchange(object):
         self.inp = inp
 
     def send(self, data):
+        if marshal is None:
+            return
         s = marshal.dumps(data)
         h = struct.pack('L', len(s))
         self.out.write(h+s)
         self.out.flush()
 
     def recv(self):
+        if not struct:
+            return 'done'
         HSIZE = struct.calcsize('L')
         h = self.inp.read(HSIZE)
         if len(h) < HSIZE:
