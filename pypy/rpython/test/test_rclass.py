@@ -602,16 +602,16 @@ class BaseTestRclass(BaseRtypingTest):
             # Although the code below is a bit strange, there are
             # subtle ways in which the same situation could occur.
             # One is shown by test_specialize_methods().
-            if n < 0:
+            if n < 10:
                 x = B()
             else:
                 x = A()
-            if n < -3:
+            if n < 7:
                 return x.foo()
             else:
                 return 100
-        assert self.interpret(fn, [-5]) == 42
-        assert self.interpret(fn, [5]) == 100
+        assert self.interpret(fn, [5]) == 42
+        assert self.interpret(fn, [15]) == 100
 
     def test_specialize_methods(self):
         from pypy.rlib.objectmodel import specialize
