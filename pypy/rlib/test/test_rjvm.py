@@ -1,6 +1,6 @@
-from pypy.rlib.rjvm import java, JavaWrapper, JavaClassWrapper, JavaInstanceWrapper, JavaMethodWrapper, JavaStaticMethodWrapper
 import py
 py.test.skip("In Progress...")
+from pypy.rlib.rjvm import java, JavaWrapper, JavaClassWrapper, JavaInstanceWrapper, JavaMethodWrapper, JavaStaticMethodWrapper
 def test_static_method():
     assert isinstance(java.lang, JavaWrapper)
     assert isinstance(java.lang.Math, JavaClassWrapper)
