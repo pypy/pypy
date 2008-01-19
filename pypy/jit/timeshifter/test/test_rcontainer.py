@@ -35,29 +35,31 @@ class TestVirtualStruct:
             ('malloc_fixedsize', (('alloc', self.STRUCT),), V1),
             ('setfield', (('field', self.STRUCT, 'foo'), V1, V42), None)]
 
+    def match(self, frozenbox, box, expected_outgoing):
+        # In case of exact match, expected_outgoing is the list of subboxes
+        # of 'box' that correspond to FrozenVar placeholders in frozenbox.
+        # Otherwise, it is the list of subboxes of 'box' that should be
+        # generalized to become variables.
+        outgoingvarboxes = []
+        res = frozenbox.exactmatch(box, outgoingvarboxes,
+                                   rvalue.exactmatch_memo())
+        assert outgoingvarboxes == expected_outgoing
+        return res
+
     def test_simple_merge(self):
         V42 = FakeGenVar(42)
         oldbox = vmalloc(self.STRUCT, makebox(V42))
         frozenbox = oldbox.freeze(rvalue.freeze_memo())
         # check that frozenbox matches oldbox exactly
-        outgoingvarboxes = []
-        res = frozenbox.exactmatch(oldbox, outgoingvarboxes,
-                                   rvalue.exactmatch_memo())
-        assert res
         jitstate = FakeJITState()
         fieldbox = oldbox.content.op_getfield(jitstate, self.fielddesc)
-        assert outgoingvarboxes == [fieldbox]
-        #       ^^^ the live box corresponding to the FrozenVar
+        assert self.match(frozenbox, oldbox, [fieldbox])
 
         constbox23 = makebox(23)
         newbox = vmalloc(self.STRUCT, constbox23)
         # check that frozenbox also matches newbox exactly
-        outgoingvarboxes = []
-        res = frozenbox.exactmatch(newbox, outgoingvarboxes,
-                                   rvalue.exactmatch_memo())
-        assert res
-        assert outgoingvarboxes == [constbox23]
-        #       ^^^ the live box corresponding to the FrozenVar
+        assert self.match(frozenbox, newbox, [constbox23])
+
 
     def test_simple_merge_generalize(self):
         S = self.STRUCT
@@ -65,23 +67,15 @@ class TestVirtualStruct:
         oldbox = vmalloc(S, constbox20)
         frozenbox = oldbox.freeze(rvalue.freeze_memo())
         # check that frozenbox matches oldbox exactly
-        outgoingvarboxes = []
-        res = frozenbox.exactmatch(oldbox, outgoingvarboxes,
-                                   rvalue.exactmatch_memo())
-        assert res
-        assert outgoingvarboxes == []     # there is no FrozenVar
+        assert self.match(frozenbox, oldbox, [])      # there is no FrozenVar
 
         constbox23 = makebox(23)
         newbox = vmalloc(S, constbox23)
         # non-exact match: a different constant box in the virtual struct field
-        outgoingvarboxes = []
-        res = frozenbox.exactmatch(newbox, outgoingvarboxes,
-                                   rvalue.exactmatch_memo())
-        assert not res
-        assert outgoingvarboxes == [constbox23]
-        #       ^^^ constbox23 is what should be generalized with forcevar()
-        #           in order to get something that is at least as general as
-        #           both oldbox and newbox
+        assert not self.match(frozenbox, newbox, [constbox23])
+        #  constbox23 is what should be generalized with forcevar()
+        #  in order to get something that is at least as general as
+        #  both oldbox and newbox
 
         jitstate = FakeJITState()
         replace_memo = rvalue.copy_memo()
@@ -98,13 +92,10 @@ class TestVirtualStruct:
 
         # check that now newbox really generalizes oldbox
         newfrozenbox = newbox.freeze(rvalue.freeze_memo())
-        outgoingvarboxes = []
-        res = newfrozenbox.exactmatch(oldbox, outgoingvarboxes,
-                                      rvalue.exactmatch_memo())
-        assert res
-        assert outgoingvarboxes == [constbox20]
+        assert self.match(newfrozenbox, oldbox, [constbox20])
         #       ^^^ the FrozenVar() in newfrozenbox corresponds to
         #           constbox20 in oldbox.
+
 
     def test_nested_structure_no_vars(self):
         NESTED = self.NESTEDSTRUCT
@@ -115,33 +106,20 @@ class TestVirtualStruct:
         jitstate = FakeJITState()
         frozenbox = oldbox.freeze(rvalue.freeze_memo())
         # check that frozenbox matches oldbox exactly
-        outgoingvarboxes = []
-        res = frozenbox.exactmatch(oldbox, outgoingvarboxes,
-                                   rvalue.exactmatch_memo())
-        assert res
-        assert outgoingvarboxes == []     # there is no FrozenVar
+        assert self.match(frozenbox, oldbox, [])     # there is no FrozenVar
 
 
     def test_nested_structures_variables(self):
         NESTED = self.NESTEDSTRUCT
-        V42 = FakeGenVar(42)
+        varbox42 = makebox(FakeGenVar(42))
         constbox20 = makebox(20)
-        oldbox = vmalloc(NESTED, constbox20, vmalloc(NESTED, makebox(V42)))
+        oldbox = vmalloc(NESTED, constbox20, vmalloc(NESTED, varbox42))
         jitstate = FakeJITState()
         frozenbox = oldbox.freeze(rvalue.freeze_memo())
         # check that frozenbox matches oldbox exactly
-        outgoingvarboxes = []
-        res = frozenbox.exactmatch(oldbox, outgoingvarboxes,
-                                   rvalue.exactmatch_memo())
-        assert res
-        assert len(outgoingvarboxes) == 1 and outgoingvarboxes[0].genvar is V42
+        assert self.match(frozenbox, oldbox, [varbox42])
 
         constbox30 = makebox(30)
         newbox = vmalloc(NESTED, constbox20, vmalloc(NESTED, constbox30))
         # check that frozenbox also matches newbox exactly
-        outgoingvarboxes = []
-        res = frozenbox.exactmatch(newbox, outgoingvarboxes,
-                                   rvalue.exactmatch_memo())
-        assert res
-        assert outgoingvarboxes == [constbox30]
-        #       ^^^ the live box corresponding to the FrozenVar
+        assert self.match(frozenbox, newbox, [constbox30])
