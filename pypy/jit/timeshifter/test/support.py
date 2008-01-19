@@ -90,6 +90,8 @@ def vmalloc(TYPE, *boxes):
     structdesc = rcontainer.StructTypeDesc(fakehrtyper, TYPE)
     box = structdesc.factory()
     for fielddesc, valuebox in zip(structdesc.fielddescs, boxes):
+        if valuebox is None:
+            break
         box.op_setfield(jitstate, fielddesc, valuebox)
     assert jitstate.curbuilder.ops == []
     return box

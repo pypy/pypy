@@ -10,8 +10,12 @@ from pypy.jit.timeshifter.test.support import getfielddesc
 class TestVirtualStruct:
 
     def setup_class(cls):
-        cls.STRUCT = lltype.Struct("dummy", ("foo", lltype.Signed))
+        cls.STRUCT = lltype.GcStruct("dummy", ("foo", lltype.Signed))
         cls.fielddesc = getfielddesc(cls.STRUCT, "foo")
+        FORWARD = lltype.GcForwardReference()
+        cls.NESTEDSTRUCT = lltype.GcStruct('dummy', ("foo", lltype.Signed),
+                                                    ('x', lltype.Ptr(FORWARD)))
+        FORWARD.become(cls.NESTEDSTRUCT)
 
     def test_virtualstruct_get_set_field(self):
         V42 = FakeGenVar(42)
@@ -101,3 +105,43 @@ class TestVirtualStruct:
         assert outgoingvarboxes == [constbox20]
         #       ^^^ the FrozenVar() in newfrozenbox corresponds to
         #           constbox20 in oldbox.
+
+    def test_nested_structure_no_vars(self):
+        NESTED = self.NESTEDSTRUCT
+        constbox30 = makebox(30)
+        constbox20 = makebox(20)
+        oldbox = vmalloc(NESTED, constbox20, vmalloc(NESTED, constbox30))
+
+        jitstate = FakeJITState()
+        frozenbox = oldbox.freeze(rvalue.freeze_memo())
+        # check that frozenbox matches oldbox exactly
+        outgoingvarboxes = []
+        res = frozenbox.exactmatch(oldbox, outgoingvarboxes,
+                                   rvalue.exactmatch_memo())
+        assert res
+        assert outgoingvarboxes == []     # there is no FrozenVar
+
+
+    def test_nested_structures_variables(self):
+        NESTED = self.NESTEDSTRUCT
+        V42 = FakeGenVar(42)
+        constbox20 = makebox(20)
+        oldbox = vmalloc(NESTED, constbox20, vmalloc(NESTED, makebox(V42)))
+        jitstate = FakeJITState()
+        frozenbox = oldbox.freeze(rvalue.freeze_memo())
+        # check that frozenbox matches oldbox exactly
+        outgoingvarboxes = []
+        res = frozenbox.exactmatch(oldbox, outgoingvarboxes,
+                                   rvalue.exactmatch_memo())
+        assert res
+        assert len(outgoingvarboxes) == 1 and outgoingvarboxes[0].genvar is V42
+
+        constbox30 = makebox(30)
+        newbox = vmalloc(NESTED, constbox20, vmalloc(NESTED, constbox30))
+        # check that frozenbox also matches newbox exactly
+        outgoingvarboxes = []
+        res = frozenbox.exactmatch(newbox, outgoingvarboxes,
+                                   rvalue.exactmatch_memo())
+        assert res
+        assert outgoingvarboxes == [constbox30]
+        #       ^^^ the live box corresponding to the FrozenVar
