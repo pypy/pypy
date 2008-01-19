@@ -659,5 +659,5 @@ class AppTestOldstyle(object):
                 return 3
          
         for i in X():
-            print i,
+            assert i == 3
             break
