@@ -10,9 +10,7 @@ Rainbow Interpreter
         - all basics operations in red and green variants
 
         - additional operations for JIT housekeeping like split, merge,
-          promote, calls?, return
-
-        - special ops: box green, clear vars
+          promote, calls?, return, box_green_var
 
     - special care needed (later) for implicit promotes (e.g. for exception
       paths and virtualizables)
@@ -21,6 +19,9 @@ Rainbow Interpreter
     
     - green variables are GenConsts, should be stored on the VirtualFrame as
       well
+
+    - variables are valid for one block, renaming op (with variable number of
+      args)
     
     - interpreter is manually written in a stackless style: jitstates have
       linked lists of frames anyway already
