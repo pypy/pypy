@@ -519,3 +519,21 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         v_type, = hop.inputargs(*hop.args_r)
         return hop.genop('cli_typeof', [v_type], hop.r_result.lowleveltype)
+
+
+def eventhandler(obj):
+    return CLR.System.EventHandler(obj)
+
+class Entry(ExtRegistryEntry):
+    _about_ = eventhandler
+
+    def compute_result_annotation(self, s_value):
+        from pypy.translator.cli.query import load_class_maybe
+        cliType = load_class_maybe('System.EventHandler')
+        return SomeOOInstance(cliType._INSTANCE)
+
+    def specialize_call(self, hop):
+        v_obj, = hop.inputargs(*hop.args_r)
+        methodname = hop.args_r[0].methodname
+        c_methodname = hop.inputconst(ootype.Void, methodname)
+        return hop.genop('cli_eventhandler', [v_obj, c_methodname], hop.r_result.lowleveltype)

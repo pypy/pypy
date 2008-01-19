@@ -9,6 +9,13 @@ from pypy.translator.cli.dotnet import _static_meth, NativeInstance
 
 STRING_HELPER_CLASS = '[pypylib]pypy.runtime.String'
 
+def functype_to_cts(cts, FUNC):
+    ret_type = cts.lltype_to_cts(FUNC.RESULT)
+    arg_types = [cts.lltype_to_cts(arg).typename()
+                 for arg in FUNC.ARGS
+                 if arg is not ootype.Void]
+    return ret_type, arg_types
+
 class _Call(_OOCall):
     
     def render(self, generator, op):
@@ -22,10 +29,7 @@ class _Call(_OOCall):
         for func_arg in args[1:]: # push parameters
             self._load_arg_or_null(generator, func_arg)
         cts = generator.cts
-        ret_type = cts.lltype_to_cts(funcdesc._TYPE.RESULT)
-        arg_types = [cts.lltype_to_cts(arg).typename()
-                     for arg in funcdesc._TYPE.ARGS
-                     if arg is not ootype.Void]
+        ret_type, arg_types = functype_to_cts(cts, funcdesc._TYPE)
         arg_list = ', '.join(arg_types)
         signature = '%s %s::%s(%s)' % (ret_type, funcdesc._cls._name, funcdesc._name, arg_list)
         generator.call_signature(signature)
@@ -59,10 +63,7 @@ class _CallMethod(_Call):
             # special case for string: don't use methods, but plain functions
             METH = this.concretetype._METHODS[method_name]
             cts = generator.cts
-            ret_type = cts.lltype_to_cts(METH.RESULT)
-            arg_types = [cts.lltype_to_cts(arg).typename()
-                         for arg in METH.ARGS
-                         if arg is not ootype.Void]
+            ret_type, arg_types = functype_to_cts(cts, METH)
             arg_types.insert(0, cts.lltype_to_cts(ootype.String).typename())
             arg_list = ', '.join(arg_types)
             signature = '%s %s::%s(%s)' % (ret_type, STRING_HELPER_CLASS, method_name, arg_list)
@@ -197,6 +198,25 @@ class _TypeOf(MicroInstruction):
         generator.ilasm.opcode('ldtoken', fullname)
         generator.ilasm.call('class [mscorlib]System.Type class [mscorlib]System.Type::GetTypeFromHandle(valuetype [mscorlib]System.RuntimeTypeHandle)')
 
+class _EventHandler(MicroInstruction):
+    def render(self, generator, op):
+        cts = generator.cts
+        v_obj, c_methname = op.args
+        assert c_methname.concretetype is ootype.Void
+        TYPE = v_obj.concretetype
+        classname = TYPE._name
+        methname = 'o' + c_methname.value # XXX: do proper mangling
+        _, meth = TYPE._lookup(methname)
+        METH = ootype.typeOf(meth)
+        ret_type, arg_types = functype_to_cts(cts, METH)
+        arg_list = ', '.join(arg_types)
+        generator.load(v_obj)
+        desc = '%s class %s::%s(%s)' % (ret_type, classname, methname, arg_list)
+        generator.ilasm.opcode('ldftn instance', desc)
+        generator.ilasm.opcode('newobj', 'instance void class [mscorlib]System.EventHandler::.ctor(object, native int)')
+
+
+
 OOTYPE_TO_MNEMONIC = {
     ootype.Signed: 'i4',
     ootype.SignedLongLong: 'i8',
@@ -222,4 +242,5 @@ NewArray = _NewArray()
 GetArrayElem = _GetArrayElem()
 SetArrayElem = _SetArrayElem()
 TypeOf = _TypeOf()
+EventHandler = _EventHandler()
 CastPrimitive = _CastPrimitive()

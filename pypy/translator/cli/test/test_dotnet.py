@@ -7,7 +7,7 @@ from pypy.rpython.ootypesystem.ootype import meth, Meth, Char, Signed, Float, St
 from pypy.translator.cli.test.runtest import CliTest
 from pypy.translator.cli.dotnet import SomeCliClass, SomeCliStaticMethod,\
      NativeInstance, CLR, box, unbox, OverloadingResolver, NativeException,\
-     native_exc, new_array, init_array, typeof
+     native_exc, new_array, init_array, typeof, eventhandler
 
 System = CLR.System
 Math = CLR.System.Math
@@ -416,6 +416,23 @@ class TestDotnetRtyping(CliTest):
                 return True
         res = self.interpret(fn, [], backendopt=False)
         assert res is True
+
+    def test_delegate(self):
+        class Foo:
+            def __init__(self):
+                self.x = 0
+            def m(self, sender, args):
+                self.x = 42
+
+        def fn(flag):
+            f = Foo()
+            if flag:
+                f.m(None, None)
+            delegate = eventhandler(f.m)
+            delegate.Invoke(None, None)
+            return f.x
+        res = self.interpret(fn, [False])
+        assert res == 42
 
 class TestPythonnet(TestDotnetRtyping):
     # don't interpreter functions but execute them directly through pythonnet
