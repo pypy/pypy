@@ -68,8 +68,9 @@ class AppTestDotnet:
 
     def test_AddReferenceByPartialName(self):
         import clr
-        def fn():
-            import System.Xml.XmlReader
-        raises(ImportError, fn)
         clr.AddReferenceByPartialName('System.Xml')
-        fn() # does not raise
+        import System.Xml.XmlReader # does not raise
+        
+    def test_AddReference_early(self):
+        import clr
+        clr.AddReferenceByPartialName('System.Xml')

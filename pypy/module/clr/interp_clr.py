@@ -30,10 +30,14 @@ def get_method(space, b_type, name, b_paramtypes):
 
 def get_constructor(space, b_type, b_paramtypes):
     try:
-        return b_type.GetConstructor(b_paramtypes)
+        ctor = b_type.GetConstructor(b_paramtypes)
     except AmbiguousMatchException:
         msg = 'Multiple constructors could match'
         raise OperationError(space.w_TypeError, space.wrap(msg))
+    if ctor is None:
+        msg = 'No overloads for constructor could match'
+        raise OperationError(space.w_TypeError, space.wrap(msg))
+    return ctor
 
 def rewrap_args(space, w_args, startfrom):
     args = space.unpackiterable(w_args)
@@ -86,7 +90,20 @@ def call_staticmethod(space, typename, methname, w_args):
 call_staticmethod.unwrap_spec = [ObjSpace, str, str, W_Root]
 
 def py2cli(space, w_obj):
-    return w_obj.tocli()
+    try:
+        cliobj = space.getattr(w_obj, space.wrap('__cliobj__'))
+    except OperationError, e:
+        if e.match(space, space.w_AttributeError):
+            # it hasn't got a __cloobj__
+            return w_obj.tocli()
+        else:
+            raise
+    else:
+        if isinstance(cliobj, W_CliObject):
+            return cliobj.b_obj # unwrap it!
+        else:
+            # this shouldn't happen! Fallback to the default impl
+            return w_obj.tocli()
 
 def cli2py(space, b_obj):
     # TODO: support other types and find the most efficient way to

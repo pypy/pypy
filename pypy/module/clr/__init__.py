@@ -21,5 +21,6 @@ class Module(MixedModule):
     def startup(self, space):
         self.space.appexec([self], """(clr_module):
             import sys
+            clr_module.get_assemblies_info() # load info for std assemblies
             sys.meta_path.append(clr_module.dotnetimporter())
             """)

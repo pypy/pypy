@@ -131,7 +131,7 @@ class CliClassWrapper(object):
 
     def __init__(self, *args):
         import clr
-        self.__cliobj__ = clr._CliObject_internal(self.__cliclass__, args)
+        self.__cliobj__ = clr._CliObject_internal(self.__fullyqualifiedname__, args)
 
 
 class IEnumeratorWrapper(object):
@@ -165,7 +165,7 @@ def build_wrapper(namespace, classname, assemblyname,
          '__assemblyname__': assemblyname,
          '__module__': namespace}
     for name in staticmethods:
-        d[name] = StaticMethodWrapper(fullname, name)
+        d[name] = StaticMethodWrapper(assembly_qualified_name, name)
     for name in methods:
         d[name] = MethodWrapper(name)
 

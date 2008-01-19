@@ -103,6 +103,10 @@ class AppTestDotnet:
         Math = clr.load_cli_class(self.mscorlib, 'System', 'Math')
         raises(TypeError, Math.Abs, "foo")
 
+    def test_wrong_overload_ctor(self):
+        from System.Collections import ArrayList
+        raises(TypeError, ArrayList, "foo")
+
     def test_staticmethod(self):
         import clr
         Math = clr.load_cli_class(self.mscorlib, 'System', 'Math')
@@ -263,3 +267,19 @@ class AppTestDotnet:
         import clr
         from System.Collections.Generic import List
         raises(TypeError, "List[int, int]")
+
+    def test_py2cli_cliobjects(self):
+        from System.IO import StreamReader, MemoryStream
+        mem = MemoryStream(100)
+        sr = StreamReader(mem) # does not raise
+        
+    def test_external_assemblies(self):
+        import clr
+        clr.AddReferenceByPartialName('System.Xml')
+        from System.IO import StringReader
+        from System.Xml import XmlReader
+        buffer = StringReader("<foo>test</foo>")
+        xml = XmlReader.Create(buffer)
+        xml.ReadStartElement("foo")
+        assert xml.ReadString() == 'test'
+        xml.ReadEndElement()
