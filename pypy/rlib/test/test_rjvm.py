@@ -1,6 +1,11 @@
 import py
-py.test.skip("In Progress...")
+try:
+    import jpype
+except ImportError:
+    py.test.skip("In Progress...")
+
 from pypy.rlib.rjvm import java, JavaWrapper, JavaClassWrapper, JavaInstanceWrapper, JavaMethodWrapper, JavaStaticMethodWrapper
+
 def test_static_method():
     assert isinstance(java.lang, JavaWrapper)
     assert isinstance(java.lang.Math, JavaClassWrapper)
@@ -17,6 +22,7 @@ def test_class_instantiate():
     assert al.get(0) == "test"
 
 def test_reflection():
+    py.test.skip('in progress')
     al_class = java.lang.Class.forName("java.util.ArrayList")
     assert isinstance(al_class, JavaInstanceWrapper)
     #meths = al_class.__javaclass__.getDeclaredMethods()
@@ -34,6 +40,3 @@ def test_reflection():
     assert al_org[0] == "Hello"
     al_add.invoke(al, ["Hello"])
     assert al[0] == "Hello"
-
-
-
