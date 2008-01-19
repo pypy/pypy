@@ -487,8 +487,8 @@ class AppTestOldstyle(object):
 
     def test_index(self):
         import sys
-        if not hasattr(sys, 'pypy_objspaceclass'):
-            skip("this is not supported by CPython")
+        if sys.version_info < (2, 5):
+            skip("this is not supported by CPython before version 2.4")
         class A:
             def __index__(self):
                 return 1
