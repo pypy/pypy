@@ -90,6 +90,8 @@ class TinyObjSpace(object):
                                          "module %r required" % (modname,))
                 continue
             if info is None:
+                if key == 'objspace.std.oldstyle' and value:
+                    continue    # fine on CPython
                 py.test.skip("cannot runappdirect this test on top of CPython")
             has = info.get(key, None)
             if has != value:

@@ -47,8 +47,9 @@ class AppTestOldstyle(object):
         assert C.c == 19
 
     def test_class_repr(self):
-        class A:
-            pass
+        d = {}
+        exec "class A: pass" in d    # to have no __module__
+        A = d['A']
         assert repr(A).startswith("<class __builtin__.A at 0x")
         A.__name__ = 'B'
         assert repr(A).startswith("<class __builtin__.B at 0x")
@@ -60,8 +61,9 @@ class AppTestOldstyle(object):
         assert repr(A).startswith("<class ?.B at 0x")
 
     def test_class_str(self):
-        class A:
-            pass
+        d = {}
+        exec "class A: pass" in d    # to have no __module__
+        A = d['A']
         assert str(A) == "__builtin__.A"
         A.__name__ = 'B'
         assert str(A) == "__builtin__.B"
@@ -265,8 +267,9 @@ class AppTestOldstyle(object):
         raises(TypeError, "assert a")
 
     def test_repr(self):
-        class A:
-            pass
+        d = {}
+        exec "class A: pass" in d    # to have no __module__
+        A = d['A']
         a = A()
         assert repr(a).startswith("<__builtin__.A instance at")
         assert str(a).startswith("<__builtin__.A instance at")
@@ -289,9 +292,12 @@ class AppTestOldstyle(object):
         assert str(A()) == "foo"
 
     def test_str(self):
-        class A:
+        d = {}
+        exec '''class A:
             def __str__(self):
                 return "foo"
+'''         in d    # to have no __module__
+        A = d['A']
         a = A()
         assert repr(a).startswith("<__builtin__.A instance at")
         assert str(a) == "foo"
@@ -480,6 +486,9 @@ class AppTestOldstyle(object):
         raises(TypeError, hash, a)
 
     def test_index(self):
+        import sys
+        if not hasattr(sys, 'pypy_objspaceclass'):
+            skip("this is not supported by CPython")
         class A:
             def __index__(self):
                 return 1
@@ -539,6 +548,9 @@ class AppTestOldstyle(object):
         assert 4 ** a == 16
         assert pow(4, a) == 16
         raises(TypeError, "a ** 4")
+        import sys
+        if not hasattr(sys, 'pypy_objspaceclass'):
+            skip("__rpow__(self, other, mod) seems not to work on CPython")
         assert pow(4, a, 5) == 625
 
     def test_getsetdelslice(self):
@@ -564,6 +576,9 @@ class AppTestOldstyle(object):
         raises(TypeError, "1 in A()")
 
     def test_class_instantiation_bug(self):
+        class A:
+            pass
+        _classobj = type(A)
         raises(TypeError, "class A(1, 2): pass")
         raises(TypeError, "_classobj(1, (), {})")
         raises(TypeError, "_classobj('abc', 1, {})")
