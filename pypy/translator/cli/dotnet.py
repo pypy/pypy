@@ -157,7 +157,7 @@ class OverloadingResolver(ootype.OverloadingResolver):
         elif TYPE is ootype.Char:
             return SomeChar()
         elif TYPE is ootype.String:
-            return SomeString()
+            return SomeString(can_be_None=True)
         else:
             return lltype_to_annotation(TYPE)
     lltype_to_annotation = classmethod(lltype_to_annotation)
@@ -423,7 +423,7 @@ def NativeException(cliClass):
 def _create_NativeException(cliClass):
     from pypy.translator.cli.query import getattr_ex
     TYPE = cliClass._INSTANCE
-    if PythonNet.__name__ == 'CLR':
+    if PythonNet.__name__ in ('CLR', 'clr'):
         # we are using pythonnet -- use the .NET class
         name = '%s.%s' % (TYPE._namespace, TYPE._classname)
         res = getattr_ex(PythonNet, name)

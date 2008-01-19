@@ -1,4 +1,5 @@
 import os.path
+from pypy.module.clr import assemblyname
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root, Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, ApplevelClass
@@ -8,11 +9,13 @@ from pypy.translator.cli.dotnet import CLR, box, unbox, NativeException, native_
      new_array, init_array, typeof
 
 System = CLR.System
+Assembly = CLR.System.Reflection.Assembly
 TargetInvocationException = NativeException(CLR.System.Reflection.TargetInvocationException)
 AmbiguousMatchException = NativeException(CLR.System.Reflection.AmbiguousMatchException)
 
 System.Double  # force the type to be loaded, else the annotator could think that System has no Double attribute
 System.Boolean # the same
+System.AppDomain
 
 def get_method(space, b_type, name, b_paramtypes):
     try:
@@ -109,13 +112,29 @@ def cli2py(space, b_obj):
         strval = unbox(b_obj, ootype.String)
         return space.wrap(strval)
     else:
-        msg = "Can't convert object %s to Python" % str(b_obj.ToString())
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+        namespace, classname = split_fullname(b_type.ToString())
+        assemblyname = b_type.get_Assembly().get_FullName()
+        w_cls = load_cli_class(space, assemblyname, namespace, classname)
+        cliobj = W_CliObject(space, b_obj)
+        return wrapper_from_cliobj(space, w_cls, cliobj)
+
+def split_fullname(name):
+    lastdot = name.rfind('.')
+    if lastdot < 0:
+        return '', name
+    return name[:lastdot], name[lastdot+1:]
 
 def wrap_list_of_tuples(space, lst):
     list_w = []
     for (a,b,c,d) in lst:
         items_w = [space.wrap(a), space.wrap(b), space.wrap(c), space.wrap(d)]
+        list_w.append(space.newtuple(items_w))
+    return space.newlist(list_w)
+
+def wrap_list_of_pairs(space, lst):
+    list_w = []
+    for (a,b) in lst:
+        items_w = [space.wrap(a), space.wrap(b)]
         list_w.append(space.newtuple(items_w))
     return space.newlist(list_w)
 
@@ -153,8 +172,9 @@ def get_properties(space, b_type):
             is_static = get_meth.get_IsStatic()
         if b_prop.get_CanWrite():
             set_meth = b_prop.GetSetMethod()
-            set_name = set_meth.get_Name()
-            is_static = set_meth.get_IsStatic()
+            if set_meth:
+                set_name = set_meth.get_Name()
+                is_static = set_meth.get_IsStatic()
         b_indexparams = b_prop.GetIndexParameters()
         if len(b_indexparams) == 0:
             properties.append((b_prop.get_Name(), get_name, set_name, is_static))
@@ -176,7 +196,75 @@ class _CliClassCache:
         return self.cache.get(fullname, None)
 CliClassCache = _CliClassCache()
 
-def load_cli_class(space, namespace, classname):
+class _AssembliesInfo:
+    w_namespaces = None
+    w_classes = None
+    w_generics = None
+    w_info = None # a tuple containing (w_namespaces, w_classes, w_generics)
+AssembliesInfo = _AssembliesInfo()
+
+def save_info_for_assembly(space, b_assembly):
+    info = AssembliesInfo
+    b_types = b_assembly.GetTypes()
+    w_assemblyName = space.wrap(b_assembly.get_FullName())
+    for i in range(len(b_types)):
+        b_type = b_types[i]
+        namespace = b_type.get_Namespace()
+        fullname = b_type.get_FullName()
+        if '+' in fullname:
+            # it's an internal type, skip it
+            continue
+        if namespace is not None:
+            # builds all possible sub-namespaces
+            # (e.g. 'System', 'System.Windows', 'System.Windows.Forms')
+            chunks = namespace.split(".")
+            temp_name = chunks[0]
+            space.setitem(info.w_namespaces, space.wrap(temp_name), space.w_None)
+            for chunk in chunks[1:]:
+                temp_name += "."+chunk
+                space.setitem(info.w_namespaces, space.wrap(temp_name), space.w_None)
+        if b_type.get_IsGenericType():
+            index = fullname.rfind("`")
+            assert index >= 0
+            pyName = fullname[0:index]
+            space.setitem(info.w_classes, space.wrap(pyName), w_assemblyName)
+            space.setitem(info.w_generics, space.wrap(pyName), space.wrap(fullname))
+        else:
+            space.setitem(info.w_classes, space.wrap(fullname), w_assemblyName)
+
+    
+def save_info_for_std_assemblies(space):
+    # in theory we should use Assembly.Load, but it doesn't work with
+    # pythonnet because it thinks it should use the Load(byte[]) overload
+    b_mscorlib = Assembly.LoadWithPartialName(assemblyname.mscorlib)
+    b_System = Assembly.LoadWithPartialName(assemblyname.System)
+    save_info_for_assembly(space, b_mscorlib)
+    save_info_for_assembly(space, b_System)
+
+def get_assemblies_info(space):
+    info = AssembliesInfo
+    if info.w_info is None:
+        info.w_namespaces = space.newdict()
+        info.w_classes = space.newdict()
+        info.w_generics = space.newdict()
+        info.w_info = space.newtuple([info.w_namespaces, info.w_classes, info.w_generics])
+        save_info_for_std_assemblies(space)
+    return info.w_info
+get_assemblies_info.unwrap_spec = [ObjSpace]
+
+#_______________________________________________________________________________
+# AddReference* methods
+
+# AddReference', 'AddReferenceByName', 'AddReferenceByPartialName', 'AddReferenceToFile', 'AddReferenceToFileAndPath'
+
+def AddReferenceByPartialName(space, name):
+    b_assembly = Assembly.LoadWithPartialName(name)
+    if b_assembly is not None:
+        save_info_for_assembly(space, b_assembly)
+AddReferenceByPartialName.unwrap_spec = [ObjSpace, str]
+
+
+def load_cli_class(space, assemblyname, namespace, classname):
     """
     Load the given .NET class into the PyPy interpreter and return a
     Python class referencing to it.
@@ -191,22 +279,39 @@ def load_cli_class(space, namespace, classname):
     fullname = '%s.%s' % (namespace, classname)
     w_cls = CliClassCache.get(fullname)
     if w_cls is None:
-        w_cls = build_cli_class(space, namespace, classname, fullname)
+        w_cls = build_cli_class(space, namespace, classname, fullname, assemblyname)
         CliClassCache.put(fullname, w_cls)
     return w_cls
-load_cli_class.unwrap_spec = [ObjSpace, str, str]
+load_cli_class.unwrap_spec = [ObjSpace, str, str, str]
 
-def build_cli_class(space, namespace, classname, fullname):
-    b_type = System.Type.GetType(fullname)
+def build_cli_class(space, namespace, classname, fullname, assemblyname):
+    assembly_qualified_name = '%s, %s' % (fullname, assemblyname)
+    b_type = System.Type.GetType(assembly_qualified_name)
+    if b_type is None:
+        raise OperationError(space.w_ImportError, space.wrap("Cannot load .NET type: %s" % fullname))
+
+    # this is where we locate the interfaces inherited by the class
+    # set the flag hasIEnumerable if IEnumerable interface has been by the class
+    hasIEnumerable = b_type.GetInterface("System.Collections.IEnumerable") is not None
+
+    # this is where we test if the class is Generic
+    # set the flag isClassGeneric 
+    isClassGeneric = False
+    if b_type.get_IsGenericType():
+        isClassGeneric = True
+
     w_staticmethods, w_methods = get_methods(space, b_type)
     w_properties, w_indexers = get_properties(space, b_type)
     return build_wrapper(space,
                          space.wrap(namespace),
                          space.wrap(classname),
+                         space.wrap(assemblyname),
                          w_staticmethods,
                          w_methods,
                          w_properties,
-                         w_indexers)
+                         w_indexers,
+                         space.wrap(hasIEnumerable),
+                         space.wrap(isClassGeneric))
 
 
 class W_CliObject(Wrappable):
@@ -243,3 +348,4 @@ app_clr = os.path.join(path, 'app_clr.py')
 app = ApplevelClass(file(app_clr).read())
 del path, app_clr
 build_wrapper = app.interphook("build_wrapper")
+wrapper_from_cliobj = app.interphook("wrapper_from_cliobj")

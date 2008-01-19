@@ -66,8 +66,9 @@ class BoundMethod(object):
         return self.im_self.__cliobj__.call_method(self.im_name, args)
 
     def __repr__(self):
-        return '<bound CLI method %s.%s of %s>' % (self.im_self.__class__.__cliclass__, self.im_name, self.im_self)
-
+        return '<bound CLI method %s.%s of %s>' % (self.im_self.__class__.__cliclass__,
+                                                   self.im_name,
+                                                   self.im_self)
 
 class StaticProperty(object):
     def __init__(self, fget=None, fset=None):
@@ -76,6 +77,46 @@ class StaticProperty(object):
 
     def __get__(self, obj, type_):
         return self.fget()
+
+def _qualify(t):
+    mscorlib = 'mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'
+    return '%s, %s' % (t, mscorlib)
+
+class MetaGenericCliClassWrapper(type):
+    _cli_types = {
+        int: _qualify('System.Int32'),
+        str: _qualify('System.String'),
+        bool: _qualify('System.Boolean'),
+        float: _qualify('System.Double'),
+        }
+    _System_Object = _qualify('System.Object')
+
+    def _cli_name(cls, ttype):
+        if isinstance(ttype, MetaCliClassWrapper):
+            return '[%s]' % ttype.__fullyqualifiedname__
+        else:
+            return '[%s]' % cls._cli_types.get(ttype, cls._System_Object)
+    
+    def __setattr__(cls, name, value):
+        obj = cls.__dict__.get(name, None)
+        if isinstance(obj, StaticProperty):
+            obj.fset(value)
+        else:
+            type.__setattr__(cls, name, value)
+
+    def __getitem__(cls, type_or_tuple):
+        import clr
+        if isinstance(type_or_tuple, tuple):
+            types = type_or_tuple
+        else:
+            types = (type_or_tuple,)
+        namespace, generic_class = cls.__cliclass__.rsplit('.', 1)
+        generic_params = [cls._cli_name(t) for t in types]        
+        instance_class = '%s[%s]' % (generic_class, ','.join(generic_params))
+        try:
+            return clr.load_cli_class(cls.__assemblyname__, namespace, instance_class)
+        except ImportError:
+            raise TypeError, "Cannot load type %s.%s" % (namespace, instance_class)
 
 class MetaCliClassWrapper(type):
     def __setattr__(cls, name, value):
@@ -93,14 +134,44 @@ class CliClassWrapper(object):
         self.__cliobj__ = clr._CliObject_internal(self.__cliclass__, args)
 
 
-def build_wrapper(namespace, classname, staticmethods, methods, properties, indexers):
+class IEnumeratorWrapper(object):
+    def __init__(self, enumerator):
+        self.__enumerator__ = enumerator
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        if not self.__enumerator__.MoveNext():
+            raise StopIteration
+        return self.__enumerator__.Current
+
+# this method need to be attached only to classes that implements IEnumerable (see build_wrapper)
+def __iter__(self):
+    return IEnumeratorWrapper(self.GetEnumerator())
+
+def wrapper_from_cliobj(cls, cliobj):
+    obj = cls.__new__(cls)
+    obj.__cliobj__ = cliobj
+    return obj
+
+def build_wrapper(namespace, classname, assemblyname,
+                  staticmethods, methods, properties, indexers,
+                  hasIEnumerable, isClassGeneric):
     fullname = '%s.%s' % (namespace, classname)
+    assembly_qualified_name = '%s, %s' % (fullname, assemblyname)
     d = {'__cliclass__': fullname,
+         '__fullyqualifiedname__': assembly_qualified_name,
+         '__assemblyname__': assemblyname,
          '__module__': namespace}
     for name in staticmethods:
         d[name] = StaticMethodWrapper(fullname, name)
     for name in methods:
         d[name] = MethodWrapper(name)
+
+    # check if IEnumerable is implemented
+    if hasIEnumerable:
+        d['__iter__'] = __iter__
 
     assert len(indexers) <= 1
     if indexers:
@@ -110,7 +181,10 @@ def build_wrapper(namespace, classname, staticmethods, methods, properties, inde
             d['__getitem__'] = d[getter]
         if setter:
             d['__setitem__'] = d[setter]
-    cls = MetaCliClassWrapper(classname, (CliClassWrapper,), d)
+    if isClassGeneric:
+        cls = MetaGenericCliClassWrapper(classname, (CliClassWrapper,), d)
+    else: 
+        cls = MetaCliClassWrapper(classname, (CliClassWrapper,), d)
 
     # we must add properties *after* the class has been created
     # because we need to store UnboundMethods as getters and setters

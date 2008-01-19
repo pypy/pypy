@@ -7,7 +7,7 @@ log = py.log.Producer("cli")
 py.log.setconsumer("cli", ansi_log) 
 
 try:
-    import CLR as PythonNet
+    import clr as PythonNet
     PythonNet.System.Reflection.Assembly.LoadFile(Support.get())
 except ImportError:
     class _PythonNet:

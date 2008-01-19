@@ -12,6 +12,7 @@ from pypy.translator.cli.dotnet import SomeCliClass, SomeCliStaticMethod,\
 System = CLR.System
 Math = CLR.System.Math
 ArrayList = CLR.System.Collections.ArrayList
+Type = CLR.System.Type
 
 class TestDotnetAnnotation(object):
 
@@ -168,6 +169,15 @@ class TestDotnetAnnotation(object):
         s = a.build_types(fn, [])
         assert isinstance(s, annmodel.SomeInstance)
         assert s.classdef.name.endswith('Foo')
+
+    def test_can_be_None(self):
+        def fn():
+            ttype = Type.GetType('foo')
+            return ttype.get_Namespace()
+        a = RPythonAnnotator()
+        s = a.build_types(fn, [])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.can_be_None
 
 
 class TestDotnetRtyping(CliTest):
@@ -389,9 +399,27 @@ class TestDotnetRtyping(CliTest):
         res = self.interpret(fn, [])
         assert res is True
 
+    def test_compare_string_None(self):
+        from pypy.rlib.nonconst import NonConstant
+        def null():
+            if NonConstant(True):
+                return None
+            else:
+                return ""
+        
+        def fn():
+            ttype = Type.GetType('Consts, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089')
+            namespace = ttype.get_Namespace()
+            if namespace is not None:
+                return False
+            else:
+                return True
+        res = self.interpret(fn, [], backendopt=False)
+        assert res is True
+
 class TestPythonnet(TestDotnetRtyping):
     # don't interpreter functions but execute them directly through pythonnet
-    def interpret(self, f, args):
+    def interpret(self, f, args, backendopt='ignored'):
         return f(*args)
 
     def _skip_pythonnet(self, msg):
