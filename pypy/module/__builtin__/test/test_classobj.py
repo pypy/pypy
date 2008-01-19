@@ -661,3 +661,14 @@ class AppTestOldstyle(object):
         for i in X():
             assert i == 3
             break
+
+    def test_cmp_returning_notimplemented(self):
+        class X:
+            def __cmp__(self, other):
+                return NotImplemented
+
+        class Y:
+            pass
+
+        assert X() != 5
+        assert Y() != X()

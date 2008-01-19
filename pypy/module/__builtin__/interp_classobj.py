@@ -476,6 +476,8 @@ class W_InstanceObject(Wrappable):
             w_func = w_a.getattr(space, space.wrap('__cmp__'), False)
             if w_func is not None:
                 w_res = space.call_function(w_func, w_b)
+                if space.is_w(w_res, space.w_NotImplemented):
+                    return w_res
                 try:
                     res = space.int_w(w_res)
                 except OperationError, e:
@@ -493,6 +495,8 @@ class W_InstanceObject(Wrappable):
             w_func = w_b.getattr(space, space.wrap('__cmp__'), False)
             if w_func is not None:
                 w_res = space.call_function(w_func, w_a)
+                if space.is_w(w_res, space.w_NotImplemented):
+                    return w_res
                 try:
                     res = space.int_w(w_res)
                 except OperationError, e:
