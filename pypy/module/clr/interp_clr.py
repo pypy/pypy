@@ -159,7 +159,7 @@ def get_methods(space, b_type):
 
 def get_properties(space, b_type):
     properties = []
-    indexers = []
+    indexers = {}
     b_propertyinfos = b_type.GetProperties()
     for i in range(len(b_propertyinfos)):
         b_prop = b_propertyinfos[i]
@@ -179,9 +179,9 @@ def get_properties(space, b_type):
         if len(b_indexparams) == 0:
             properties.append((b_prop.get_Name(), get_name, set_name, is_static))
         else:
-            indexers.append((b_prop.get_Name(), get_name, set_name, is_static))
+            indexers[b_prop.get_Name(), get_name, set_name, is_static] = None
     w_properties = wrap_list_of_tuples(space, properties)
-    w_indexers = wrap_list_of_tuples(space, indexers)
+    w_indexers = wrap_list_of_tuples(space, indexers.keys())
     return w_properties, w_indexers
 
 class _CliClassCache:
