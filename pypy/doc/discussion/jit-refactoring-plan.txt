@@ -2,7 +2,8 @@ Rainbow Interpreter
 ===================
 
     - bytecode: linearize hintannotated low-level exceptionstransformed graphs
-      into strings
+      into a datastructure containing a bytecode string (the opcodes) and
+      constants
  
     - opcodes:
 
