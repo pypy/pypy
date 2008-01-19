@@ -1,0 +1,26 @@
+Rainbow Interpreter
+===================
+
+    - bytecode: linearize hintannotated low-level exceptionstransformed graphs
+      into strings
+ 
+    - opcodes:
+
+        - all basics operations in red and green variants
+
+        - additional operations for JIT housekeeping like split, merge,
+          promote, calls?, return
+
+        - special ops: box green, clear vars
+
+    - special care needed (later) for implicit promotes (e.g. for exception
+      paths and virtualizables)
+
+    - red variables are boxes, already stored on the VirtualFrame
+    
+    - green variables are GenConsts, should be stored on the VirtualFrame as
+      well
+    
+    - interpreter is manually written in a stackless style: jitstates have
+      linked lists of frames anyway already
+
