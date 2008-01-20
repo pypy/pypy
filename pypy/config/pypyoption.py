@@ -32,6 +32,7 @@ if sys.platform == "win32":
     del working_modules["fcntl"]
     del working_modules["readline"]
     del working_modules["crypt"]
+    del working_modules["termios"]
 
 
 module_dependencies = {'_ffi': [("objspace.usemodules.struct", True)],
