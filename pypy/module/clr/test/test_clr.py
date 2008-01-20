@@ -1,6 +1,14 @@
 from pypy.conftest import gettestobjspace
-mscorlib = 'mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'
+from pypy.module.clr.assemblyname import mscorlib
 
+def skip_if_not_pythonnet():
+    import py
+    try:
+        import clr
+    except ImportError:
+        py.test.skip('Must use pythonnet to access .NET libraries')
+
+skip_if_not_pythonnet()
 
 class AppTestDotnet:
     def setup_class(cls):
