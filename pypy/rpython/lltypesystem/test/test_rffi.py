@@ -1,6 +1,7 @@
 
 import py
 from pypy.rpython.lltypesystem.rffi import *
+from pypy.rpython.lltypesystem.rffi import _keeper_for_type # crap
 from pypy.rlib.rposix import get_errno, set_errno
 from pypy.translator.c.test.test_genc import compile as compile_c
 from pypy.translator.llvm.test.runtest import compile_function as compile_llvm
@@ -411,6 +412,22 @@ class BaseTestRffi:
 
         fn = self.compile(f, [])
         assert fn() == 6
+
+    def test_pass_opaque_pointer_via_callback(self):
+        eating_callback = self.eating_callback()
+        TP = lltype.Ptr(lltype.GcStruct('X', ('x', lltype.Signed)))
+        struct = lltype.malloc(TP.TO) # gc structure
+        struct.x = 8
+        
+        def g(i):
+            return get_keepalive_object(i, TP).x
+
+        pos = register_keepalive(struct)
+        assert _keeper_for_type(TP).stuff_to_keepalive[pos] is struct
+        del struct
+        res = eating_callback(pos, g)
+        unregister_keepalive(pos, TP)
+        assert res == 8
 
 class TestRffiInternals:
     def test_struct_create(self):

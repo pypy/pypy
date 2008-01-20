@@ -205,6 +205,63 @@ aroundstate = AroundState()
 aroundstate._freeze_()
 
 # ____________________________________________________________
+# Few helpers for keeping callback arguments alive
+# this makes passing opaque objects possible (they don't even pass
+# through C, only integer specifying number passes)
+
+_KEEPER_CACHE = {}
+
+def _keeper_for_type(TP):
+    try:
+        return _KEEPER_CACHE[TP]
+    except KeyError:
+        tp_str = str(TP) # make annotator happy
+        class KeepaliveKeeper(object):
+            def __init__(self):
+                self.stuff_to_keepalive = []
+                self.free_positions = []
+
+            def __del__(self):
+                # checker
+                num = len([i for i in self.stuff_to_keepalive if i is not None])
+                if num:
+                    print "WARNING! %d elements kept alive for type %s" % \
+                          (num, tp_str)
+        keeper = KeepaliveKeeper()
+        _KEEPER_CACHE[TP] = keeper
+        return keeper
+_keeper_for_type._annspecialcase_ = 'specialize:memo'
+
+def register_keepalive(obj):
+    """ Register object obj to be kept alive,
+    returns a position for that object
+    """
+    keeper = _keeper_for_type(lltype.typeOf(obj))
+    if len(keeper.free_positions):
+        pos = keeper.free_positions.pop()
+        keeper.stuff_to_keepalive[pos] = obj
+        return pos
+    # we don't have any free positions
+    pos = len(keeper.stuff_to_keepalive)
+    keeper.stuff_to_keepalive.append(obj)
+    return pos
+register_keepalive._annspecialcase_ = 'specialize:argtype(0)'
+
+def get_keepalive_object(pos, TP):
+    keeper = _keeper_for_type(TP)
+    return keeper.stuff_to_keepalive[pos]
+get_keepalive_object._annspecialcase_ = 'specialize:arg(1)'
+
+def unregister_keepalive(pos, TP):
+    """ Unregister an object of type TP, stored at position
+    pos (position previously returned by register_keepalive)
+    """
+    keeper = _keeper_for_type(TP)
+    keeper.stuff_to_keepalive[pos] = None
+    keeper.free_positions.append(pos)
+unregister_keepalive._annspecialcase_ = 'specialize:arg(1)'
+
+# ____________________________________________________________
 
 TYPES = []
 for _name in 'short int long'.split():
