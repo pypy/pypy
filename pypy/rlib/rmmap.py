@@ -26,7 +26,7 @@ includes = ["sys/types.h"]
 if _POSIX:
     includes += ['unistd.h', 'sys/mman.h']
 elif _MS_WINDOWS:
-    includes.append("windows.h")
+    includes +=['winsock2.h','windows.h']
 
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
@@ -125,7 +125,7 @@ if _POSIX:
 elif _MS_WINDOWS:
 
     class ComplexCConfig:
-        _includes_ = CConfig._includes_
+        _compilation_info_ =CConfig._compilation_info_
 
         SYSINFO_STRUCT = rffi.CStruct(
             'SYSINFO_STRUCT',
