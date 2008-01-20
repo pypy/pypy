@@ -374,6 +374,12 @@ class _array_of_unknown_length(_parentable_mixin, lltype._parentable):
 
 # ____________________________________________________________
 
+# XXX THIS IS A HACK XXX
+# ctypes does not keep callback arguments alive. So we do. Forever
+# we need to think deeper how to approach this problem
+# additionally, this adds mess to __del__ "semantics"
+_all_callbacks = []
+
 def lltype2ctypes(llobj, normalize=True):
     """Convert the lltype object 'llobj' to its ctypes equivalent.
     'normalize' should only be False in tests, where we want to
@@ -404,7 +410,9 @@ def lltype2ctypes(llobj, normalize=True):
                         return None
                     else:
                         return lltype2ctypes(llres)
-                return ctypes_func_type(callback)
+                res = ctypes_func_type(callback)
+                _all_callbacks.append(res)
+                return res
 
         if T.TO._gckind != 'raw':
             raise Exception("can only pass 'raw' data structures to C, not %r"
