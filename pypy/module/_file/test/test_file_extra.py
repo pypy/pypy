@@ -561,3 +561,6 @@ class AppTestAFewExtra:
         raises(ValueError, iter, f)
         raises(ValueError, f.xreadlines)
         f.close()     # accepted as a no-op
+
+    def test_docstrings(self):
+        assert file.closed.__doc__ == 'True if the file is closed'

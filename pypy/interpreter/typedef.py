@@ -411,6 +411,7 @@ GetSetProperty.typedef = TypeDef(
                                            GetSetProperty, W_Root]),
     __name__ = interp_attrproperty('name', cls=GetSetProperty),
     __objclass__ = GetSetProperty(GetSetProperty.descr_get_objclass),
+    __doc__ = interp_attrproperty('doc', cls=GetSetProperty),
     )
 
 
