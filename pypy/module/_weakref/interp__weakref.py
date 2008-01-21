@@ -8,7 +8,8 @@ import weakref
 
 
 class WeakrefLifeline(object):
-    def __init__(self):
+    def __init__(self, space):
+        self.space = space       # this is here for W_Root.clear_all_weakrefs()
         self.refs_weak = []
         self.cached_weakref_index = -1
         self.cached_proxy_index = -1
@@ -145,7 +146,7 @@ class W_Weakref(W_WeakrefBase):
 def descr__new__weakref(space, w_subtype, w_obj, w_callable=None):
     lifeline = w_obj.getweakref()
     if lifeline is None:
-        lifeline = WeakrefLifeline()
+        lifeline = WeakrefLifeline(space)
         w_obj.setweakref(space, lifeline)
     return lifeline.get_or_make_weakref(space, w_subtype, w_obj, w_callable)
 
@@ -218,7 +219,7 @@ def proxy(space, w_obj, w_callable=None):
 is about to be finalized."""
     lifeline = w_obj.getweakref()
     if lifeline is None:
-        lifeline = WeakrefLifeline()
+        lifeline = WeakrefLifeline(space)
         w_obj.setweakref(space, lifeline) 
     return lifeline.get_or_make_proxy(space, w_obj, w_callable)
 

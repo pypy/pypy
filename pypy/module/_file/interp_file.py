@@ -33,6 +33,7 @@ class W_File(W_AbstractStream):
     def __del__(self):
         # assume that the file and stream objects are only visible in the
         # thread that runs __del__, so no race condition should be possible
+        self.clear_all_weakrefs()
         self.direct_close()
 
     def fdopenstream(self, stream, fd, mode, name):

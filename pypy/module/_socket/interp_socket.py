@@ -22,6 +22,10 @@ def coerce_to_str_w(space, w_obj):
     return space.str_w(w_obj)
 
 class W_RSocket(Wrappable, RSocket):
+    def __del__(self):
+        self.clear_all_weakrefs()
+        self.close()
+
     def accept_w(self, space):
         """accept() -> (socket object, address info)
 

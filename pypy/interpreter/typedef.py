@@ -149,15 +149,7 @@ def _buildusercls(cls, hasdict, wants_slots, wants_del, weakrefable):
         parent_destructor = getattr(cls, '__del__', None)
         class Proto(object):
             def __del__(self):
-                lifeline = self.getweakref()
-                if lifeline is not None:
-                    # Clear all weakrefs to this object before we call
-                    # the app-level __del__.  We detach the lifeline
-                    # first: if the app-level __del__ tries to use
-                    # weakrefs again, they won't reuse the broken
-                    # (already-cleared) ones from this lifeline.
-                    self.setweakref(self.space, None)
-                    lifeline.clear_all_weakrefs()
+                self.clear_all_weakrefs()
                 try:
                     self.space.userdel(self)
                 except OperationError, e:
@@ -546,6 +538,12 @@ weakref_descr = GetSetProperty(descr_get_weakref)
 weakref_descr.name = '__weakref__'
 
 def make_weakref_descr(cls):
+    """Make instances of the Wrappable subclass 'cls' weakrefable.
+    This returns the '__weakref__' desctriptor to use for the TypeDef.
+    Note that if the class also defines a custom '__del__', the
+    __del__ should call self.clear_all_weakrefs() before it clears
+    the resources used by the object.
+    """
     # force the interface into the given cls
     def getweakref(self):
         return self._lifeline_

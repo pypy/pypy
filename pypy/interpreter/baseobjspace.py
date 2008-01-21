@@ -117,6 +117,23 @@ class W_Root(object):
         raise OperationError(space.w_TypeError, space.wrap(
             "cannot create weak reference to '%s' object" % typename))
 
+    def clear_all_weakrefs(self):
+        """Call this at the beginning of interp-level __del__() methods
+        in subclasses.  It ensures that weakrefs (if any) are cleared
+        before the object is further destroyed.
+        """
+        lifeline = self.getweakref()
+        if lifeline is not None:
+            # Clear all weakrefs to this object before we proceed with
+            # the destruction of the object.  We detach the lifeline
+            # first: if the code following before_del() calls the
+            # app-level, e.g. a user-defined __del__(), and this code
+            # tries to use weakrefs again, it won't reuse the broken
+            # (already-cleared) weakrefs from this lifeline.
+            self.setweakref(lifeline.space, None)
+            lifeline.clear_all_weakrefs()
+
+
 class Wrappable(W_Root):
     """A subclass of Wrappable is an internal, interpreter-level class
     that can nevertheless be exposed at application-level by space.wrap()."""
