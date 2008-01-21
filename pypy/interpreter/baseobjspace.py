@@ -834,6 +834,7 @@ class ObjSpace(object):
         w_func = self.fromcache(AppExecCache).getorbuild(source)
         args = Arguments(self, list(posargs_w))
         return self.call_args(w_func, args)
+    appexec._annspecialcase_ = 'specialize:arg(2)'
 
     def decode_index(self, w_index_or_slice, seqlength):
         """Helper for custom sequence implementations
