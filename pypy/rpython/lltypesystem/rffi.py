@@ -168,6 +168,7 @@ def _make_wrapper_for(TP, callable, aroundstate=None):
     else:
         before = None
         after = None
+    callable_name = getattr(callable, '__name__', '?')
     args = ', '.join(['a%d' % i for i in range(len(TP.TO.ARGS))])
     source = py.code.Source(r"""
         def wrapper(%s):    # no *args - no GIL for mallocing the tuple
@@ -179,7 +180,7 @@ def _make_wrapper_for(TP, callable, aroundstate=None):
             except Exception, e:
                 os.write(2,
                     "Warning: uncaught exception in callback: %%s %%s\n" %%
-                    (str(callable), str(e)))
+                    (callable_name, str(e)))
                 result = errorcode
             if before:
                 before()
