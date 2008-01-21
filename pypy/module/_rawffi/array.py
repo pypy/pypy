@@ -17,12 +17,12 @@ from pypy.rlib.rarithmetic import intmask, r_uint
 
 def push_elem(ll_array, pos, value):
     TP = lltype.typeOf(value)
-    ll_array = rffi.cast(lltype.Ptr(rffi.CArray(TP)), ll_array)
+    ll_array = rffi.cast(rffi.CArrayPtr(TP), ll_array)
     ll_array[pos] = value
 push_elem._annspecialcase_ = 'specialize:argtype(2)'
 
 def get_elem(ll_array, pos, ll_t):
-    ll_array = rffi.cast(lltype.Ptr(rffi.CArray(ll_t)), ll_array)
+    ll_array = rffi.cast(rffi.CArrayPtr(ll_t), ll_array)
     return ll_array[pos]
 get_elem._annspecialcase_ = 'specialize:arg(2)'
 
