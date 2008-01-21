@@ -867,13 +867,20 @@ def repr__String(space, w_str):
 
     for c in s:
         i += 1
-        bs_char = None # character quoted by backspace
+        use_bs_char = False # character quoted by backspace
 
         if c == '\\' or c == quote:
             bs_char = c
-        elif c == '\t': bs_char = 't'
-        elif c == '\r': bs_char = 'r'
-        elif c == '\n': bs_char = 'n'
+            use_bs_char = True
+        elif c == '\t':
+            bs_char = 't'
+            use_bs_char = True
+        elif c == '\r':
+            bs_char = 'r'
+            use_bs_char = True
+        elif c == '\n':
+            bs_char = 'n'
+            use_bs_char = True
         elif not '\x20' <= c < '\x7f':
             n = ord(c)
             buf[i] = '\\'
@@ -886,7 +893,7 @@ def repr__String(space, w_str):
         else:
             buf[i] = c
 
-        if bs_char is not None:
+        if use_bs_char:
             buf[i] = '\\'
             i += 1
             buf[i] = bs_char
