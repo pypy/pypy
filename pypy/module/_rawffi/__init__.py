@@ -19,7 +19,7 @@ class Module(MixedModule):
         'sizeof'             : 'interp_rawffi.sizeof',
         'alignment'          : 'interp_rawffi.alignment',
         'charp2string'       : 'interp_rawffi.charp2string',
-        #'CallbackPtr'        : 'callback.W_CallbackPtr',
+        'CallbackPtr'        : 'callback.W_CallbackPtr',
     }
 
     appleveldefs = {

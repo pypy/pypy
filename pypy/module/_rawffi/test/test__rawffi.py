@@ -359,18 +359,32 @@ class AppTestFfi:
         arg1.free()
     
     def test_callback(self):
-        skip("Not working")
         import _rawffi
+        import struct
         libc = _rawffi.CDLL('libc.so.6')
-        to_sort = "kljhgfa"
-        ll_to_sort = _rawffi.Array('c')(to_sort)
+        ll_to_sort = _rawffi.Array('i')(4)
+        for i in range(4):
+            ll_to_sort[i] = 4-i
         qsort = libc.ptr('qsort', ['P', 'i', 'i', 'P'], None)
+        resarray = _rawffi.Array('i')(1)
         def compare(a, b):
-            return a < b
-        qsort(ll_to_sort, len(to_sort), 1,
-              _rawffi.CallbackPtr(compare, ['i', 'i'], 'i'))
-        res = [ll_to_sort[i] for i in range(len(to_sort))]
-        assert res == sorted(to_sort)
+            a1 = _rawffi.Array('i').fromaddress(a, 1)
+            a2 = _rawffi.Array('i').fromaddress(b, 1)
+            if a1[0] > a2[0]:
+                res = 1
+            res = -1
+            resarray[0] = res
+            return resarray
+        a1 = ll_to_sort.byptr()
+        a2 = _rawffi.Array('i')(1)
+        a2[0] = len(ll_to_sort)
+        a3 = _rawffi.Array('i')(1)
+        a3[0] = struct.calcsize('i')
+        cb = _rawffi.CallbackPtr(compare, ['P', 'P'], 'i')
+        a4 = cb.byptr()
+        qsort(a1, a2, a3, a4)
+        res = [ll_to_sort[i] for i in range(len(ll_to_sort))]
+        assert res == [1,2,3,4]
 
     def test_setattr_struct(self):
         import _rawffi
