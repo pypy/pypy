@@ -1,149 +1,147 @@
+import sys
 import cPickle as pickle
 import os.path
+import py
 from py.compat import subprocess
+from pypy.tool.udir import udir
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.cli.rte import Query
 from pypy.translator.cli.sdk import SDK
 from pypy.translator.cli.support import log
 from pypy.translator.cli.dotnet import CLR, CliNamespace, CliClass,\
      NativeInstance, _overloaded_static_meth, _static_meth, OverloadingResolver
-    
-ClassCache = {}
-OOTypeCache = {}
-Descriptions = {}
 
-class Dummy: pass
-fake_root = Dummy()
-fake_root._INSTANCE = ootype.ROOT
-ClassCache['ROOT'] = fake_root
-ClassCache['System.Array'] = fake_root
-del fake_root
-del Dummy
+Assemblies = set()
+Types = {} # TypeName -> ClassDesc
+Namespaces = set()
+mscorlib = 'mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'
 
-def _descfilename(filename):
-    if filename is None:
-        curdir = os.path.dirname(__file__)
-        return os.path.join(curdir, 'query-descriptions')
-    else:
-        return filename
+#_______________________________________________________________________________
+# This is the public interface of query.py
 
-def savedesc(filename=None):
-    f = open(_descfilename(filename), 'wb')
-    pickle.dump(Descriptions, f, protocol=-1)
-    f.close()
-
-def loaddesc(filename=None):
-    filename = _descfilename(filename)
-    if not os.path.exists(filename):
+def load_assembly(name):
+    if name in Assemblies:
         return
-    f = open(filename, 'rb')
-    try:
-        newdesc = pickle.load(f)        
-    except pickle.UnpicklingError:
-        log.WARNING('query-descriptions file exits, but failed to unpickle')
+    Query.get() # clear the cache if we need to recompile
+    _cache = get_cachedir()
+    outfile = _cache.join(name + '.pickle')
+    if outfile.check():
+        f = outfile.open('rb')
+        types = pickle.load(f)
+        f.close()
     else:
-        Descriptions.clear()
-        Descriptions.update(newdesc)
+        types = load_and_cache_assembly(name, outfile)
 
-def getattr_ex(target, attr):
-    parts = attr.split('.')
-    for part in parts:
-        target = getattr(target, part)
-    return target
+    for ttype in types:
+        parts = ttype.split('.')
+        ns = parts[0]
+        Namespaces.add(ns)
+        for part in parts[1:-1]:
+            ns = '%s.%s' % (ns, part)
+            Namespaces.add(ns)
+    Assemblies.add(name)
+    Types.update(types)
 
-def setattr_ex(target, attr, value):
-    if '.' in attr:
-        namespace, attr = attr.rsplit('.', 1)
-        target = getattr_ex(target, namespace)
-    setattr(target, attr, value)
 
-def load_class_or_namespace(name):
-    try:
-        desc = Descriptions[name]
-    except KeyError:
-        desc = query_description(name)
-        Descriptions[name] = desc
-    res = desc.build()
-    setattr_ex(CLR, name, res)
-    return res
+def get_cli_class(name):
+    desc = get_class_desc(name)
+    return desc.get_cliclass()
 
-def query_description(name):
-    log.query('Loading description for %s' % name)
-    arglist = SDK.runtime() + [Query.get(), name]
-    query = subprocess.Popen(arglist, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                             universal_newlines=True)
-    stdout, stderr = query.communicate()
-    retval = query.wait()
-    if retval == 0:
-        cls = ClassDesc()
-        exec stdout in cls.__dict__
-        del cls.__dict__['__builtins__']
-        return cls
-    elif retval == 1:
-        raise RuntimeError, 'query.exe failed with this message:\n%s' % stderr
-    elif retval == 2:
-        # can't load type, assume it's a namespace
-        return NamespaceDesc(name)
+#_______________________________________________________________________________
 
-def load_class_maybe(name):
-    if name.startswith('System.Array+InternalArray'):
-        res = ClassCache['System.Array']
-        ClassCache[name] = res
-        return res
-    elif name not in ClassCache:
-        return load_class_or_namespace(name)
+
+def get_cachedir():
+    import pypy
+    _cache = py.path.local(pypy.__file__).new(basename='_cache').ensure(dir=1)
+    return _cache
+
+def load_and_cache_assembly(name, outfile):
+    tmpfile = udir.join(name)
+    arglist = SDK.runtime() + [Query.get(), name, str(tmpfile)]
+    retcode = subprocess.call(arglist)
+    assert retcode == 0
+    mydict = {}
+    execfile(str(tmpfile), mydict)
+    types = mydict['types']
+    f = outfile.open('wb')
+    pickle.dump(types, f, pickle.HIGHEST_PROTOCOL)
+    f.close()
+    return types
+
+def get_ootype(name):
+    # a bit messy, but works
+    if name.startswith('ootype.'):
+        _, name = name.split('.')
+        return getattr(ootype, name)
     else:
-        return ClassCache[name]
+        cliclass = get_cli_class(name)
+        return cliclass._INSTANCE
+
+def get_class_desc(name):
+    if name in Types:
+        return Types[name]
+
+    if name == 'System.Array':
+        desc = ClassDesc()
+        desc.Assembly = mscorlib
+        desc.FullName = name
+        desc.BaseType = 'System.Object'
+        desc.IsArray = True
+        desc.ElementType = 'System.Object' # not really true, but we need something
+        desc.StaticMethods = []
+        desc.Methods = []
+    elif name.endswith('[]'): # it's an array
+        itemname = name[:-2]
+        itemdesc = get_class_desc(itemname)
+        desc = ClassDesc()
+        desc.Assembly = mscorlib
+        desc.FullName = name
+        desc.BaseType = 'System.Array'
+        desc.ElementType = itemdesc.FullName
+        desc.IsArray = True
+        desc.StaticMethods = []
+        desc.Methods = [
+            ('Get', ['ootype.Signed', ], itemdesc.FullName),
+            ('Set', ['ootype.Signed', itemdesc.FullName], 'ootype.Void')
+            ]
+    else:
+        assert False, 'Unknown desc'
+
+    Types[name] = desc
+    return desc
 
 
-class Desc:
-    def build(self):
-        raise NotImplementedError
-    
+class ClassDesc(object):
+    _cliclass = None
+
     def __eq__(self, other):
         return self.__dict__ == other.__dict__
 
     def __hash__(self):
         raise TypeError
-    
-class NamespaceDesc(Desc):
-    def __init__(self, name):
-        self.name = name
 
-    def build(self):
-        return CliNamespace(self.name)
-
-class ClassDesc(Desc):
-    def build(self):
+    def get_cliclass(self):
+        if self._cliclass is not None:
+            return self._cliclass
+        
         assert self.Assembly.startswith('mscorlib') # TODO: support external assemblies
         namespace, name = self.FullName.rsplit('.', 1)
 
         # construct OOTYPE and CliClass
-        if self.FullName == 'System.Type':
-            # we need to special case System.Type because it contains
-            # circular dependencies, since its superclasses have got
-            # methods which take System.Type as parameters
-            BASETYPE = None
-        else:
-            load_class_maybe(self.BaseType)
-            BASETYPE = ClassCache[self.BaseType]._INSTANCE
-        TYPE = NativeInstance('[mscorlib]', namespace, name, BASETYPE, {}, {})
-        TYPE._isArray = self.IsArray
-        if self.IsArray:
-            load_class_maybe(self.ElementType)
-            TYPE._ELEMENT = ClassCache[self.ElementType]._INSTANCE
+        # no superclass for now, will add it later
+        TYPE = NativeInstance('[mscorlib]', namespace, name, None, {}, {})
         Class = CliClass(TYPE, {})
-        OOTypeCache[self.OOType] = TYPE
-        ClassCache[self.FullName] = Class
-
-        if BASETYPE is None:
-            load_class_maybe(self.BaseType)
-            BASETYPE = ClassCache[self.BaseType]._INSTANCE
+        self._cliclass = Class
+        # we need to check also for System.Array to prevent a circular recursion
+        if self.FullName in ('System.Object', 'System.Array'):
+            TYPE._set_superclass(ootype.ROOT)
+        else:
+            BASETYPE = get_ootype(self.BaseType)
             TYPE._set_superclass(BASETYPE)
 
-        # render dependencies
-        for name in self.Depend:
-            load_class_maybe(name)
+        TYPE._isArray = self.IsArray
+        if self.IsArray:
+            TYPE._ELEMENT = get_ootype(self.ElementType)
 
         # add both static and instance methods
         static_meths = self.group_methods(self.StaticMethods, _overloaded_static_meth,
@@ -167,17 +165,6 @@ class ClassDesc(Desc):
         return res
 
     def get_method_type(self, Meth, args, result):
-        ARGS = [self.get_ootype(arg) for arg in args]
-        RESULT = self.get_ootype(result)
+        ARGS = [get_ootype(arg) for arg in args]
+        RESULT = get_ootype(result)
         return Meth(ARGS, RESULT)
-
-    def get_ootype(self, t):
-        # a bit messy, but works
-        if t.startswith('ootype.'):
-            _, name = t.split('.')
-            return getattr(ootype, name)
-        else:
-            return OOTypeCache[t]
-
-
-loaddesc() ## automatically loads the cached Dependencies

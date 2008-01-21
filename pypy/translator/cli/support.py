@@ -66,3 +66,14 @@ class Counter:
             f.write('%s: %d\n' % (label, self.counters[key]))
         f.close()
 
+def getattr_ex(target, attr):
+    parts = attr.split('.')
+    for part in parts:
+        target = getattr(target, part)
+    return target
+
+def setattr_ex(target, attr, value):
+    if '.' in attr:
+        namespace, attr = attr.rsplit('.', 1)
+        target = getattr_ex(target, namespace)
+    setattr(target, attr, value)

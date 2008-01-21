@@ -95,10 +95,10 @@ class Query(Target):
 
     def compile(cls, sources, out):
         # assume that if query.exe need to be recompiled the descriptions cache is invalid        
-        from pypy.translator.cli.query import _descfilename
-        filename = _descfilename(None)
-        if os.path.exists(filename):
-            os.remove(filename)
+        from pypy.translator.cli.query import get_cachedir, mscorlib
+        mscorlib_cache = get_cachedir().join(mscorlib + '.pickle') 
+        if mscorlib_cache.check():
+            mscorlib_cache.remove()
         Target.compile.im_func(cls, sources, out)
     compile = classmethod(compile)
 

@@ -259,6 +259,7 @@ class Entry(ExtRegistryEntry):
     def compute_result_annotation(self):
         return SomeOOInstance(self.instance._INSTANCE)
 
+
 class CliNamespace(object):
     def __init__(self, name):
         self._name = name
@@ -270,23 +271,19 @@ class CliNamespace(object):
             return '%s.%s' % (self._name, name)
 
     def __getattr__(self, attr):
-        from pypy.translator.cli.query import load_class_or_namespace
-        # .NET namespace are not self-entities but just parts of the
-        # FullName of a class. This imply that there is no way ask
-        # .NET if a particular name is a namespace; there are many
-        # names that are clearly not namespaces such as im_self and
-        # _freeze_, but there is no general rule and we have to guess.
-        # For now, the heuristic simply check is the first char of the
-        # name is a UPPERCASE letter.
+        from pypy.translator.cli.query import get_cli_class, Types, Namespaces
+        from pypy.translator.cli.query import load_assembly, mscorlib
+        load_assembly(mscorlib)
         
-        if attr[0].isalpha() and attr[0] == attr[0].upper():
-            # we assume it's a class or namespace
-            name = self.__fullname(attr)
-            load_class_or_namespace(name)
-            assert attr in self.__dict__
-            return getattr(self, attr)
+        fullname = self.__fullname(attr)
+        if fullname in Namespaces:
+            value = CliNamespace(fullname)
+        elif fullname in Types:
+            value = get_cli_class(fullname)
         else:
-            raise AttributeError
+            raise AttributeError, attr
+        setattr(self, attr, value)
+        return value
 
 CLR = CliNamespace(None)
 
@@ -421,7 +418,7 @@ def NativeException(cliClass):
         return res
 
 def _create_NativeException(cliClass):
-    from pypy.translator.cli.query import getattr_ex
+    from pypy.translator.cli.support import getattr_ex
     TYPE = cliClass._INSTANCE
     if PythonNet.__name__ in ('CLR', 'clr'):
         # we are using pythonnet -- use the .NET class
@@ -461,12 +458,12 @@ class Entry(ExtRegistryEntry):
     _about_ = new_array
 
     def compute_result_annotation(self, type_s, length_s):
-        from pypy.translator.cli.query import load_class_maybe
+        from pypy.translator.cli.query import get_cli_class
         assert type_s.is_constant()
         assert isinstance(length_s, SomeInteger)
         TYPE = type_s.const._INSTANCE
         fullname = '%s.%s[]' % (TYPE._namespace, TYPE._classname)
-        cliArray = load_class_maybe(fullname)
+        cliArray = get_cli_class(fullname)
         return SomeOOInstance(cliArray._INSTANCE)
 
     def specialize_call(self, hop):
@@ -479,7 +476,7 @@ class Entry(ExtRegistryEntry):
     _about_ = init_array
 
     def compute_result_annotation(self, type_s, *args_s):
-        from pypy.translator.cli.query import load_class_maybe
+        from pypy.translator.cli.query import get_cli_class
         assert type_s.is_constant()
         TYPE = type_s.const._INSTANCE
         for i, arg_s in enumerate(args_s):
@@ -487,7 +484,7 @@ class Entry(ExtRegistryEntry):
                 raise TypeError, 'Wrong type of arg #%d: %s expected, %s found' % \
                       (i, TYPE, arg_s.ootype)
         fullname = '%s.%s[]' % (TYPE._namespace, TYPE._classname)
-        cliArray = load_class_maybe(fullname)
+        cliArray = get_cli_class(fullname)
         return SomeOOInstance(cliArray._INSTANCE)
 
     def specialize_call(self, hop):
@@ -511,9 +508,9 @@ class Entry(ExtRegistryEntry):
     _about_ = typeof
 
     def compute_result_annotation(self, cliClass_s):
-        from query import load_class_maybe
+        from pypy.translator.cli.query import get_cli_class
         assert cliClass_s.is_constant()
-        cliType = load_class_maybe('System.Type')
+        cliType = get_cli_class('System.Type')
         return SomeOOInstance(cliType._INSTANCE)
 
     def specialize_call(self, hop):

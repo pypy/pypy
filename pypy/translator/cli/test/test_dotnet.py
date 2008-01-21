@@ -349,6 +349,7 @@ class TestDotnetRtyping(CliTest):
         assert res.startswith("Index is less than 0")
 
     def test_typeof(self):
+        System.Int32 # force Int32 to be loaded
         def fn():
             x = box(42)
             return x.GetType() == typeof(System.Int32)

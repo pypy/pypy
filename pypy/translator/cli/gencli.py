@@ -17,7 +17,6 @@ from pypy.translator.cli.sdk import SDK
 from pypy.translator.cli.rte import get_pypy_dll
 from pypy.translator.cli.support import Tee
 from pypy.translator.cli.prebuiltnodes import get_prebuilt_nodes
-from pypy.translator.cli import query
 from pypy.translator.cli import constant
 
 class GenCli(GenOO):
@@ -50,7 +49,6 @@ class GenCli(GenOO):
     def generate_source(self):
         GenOO.generate_source(self)
         self.db.const_count.dump(self.const_stat)
-        query.savedesc()
         return self.tmpfile.strpath
 
     def create_assembler(self):
