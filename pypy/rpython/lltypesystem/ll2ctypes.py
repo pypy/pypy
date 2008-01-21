@@ -414,7 +414,7 @@ def lltype2ctypes(llobj, normalize=True):
                 _all_callbacks.append(res)
                 return res
 
-        if T.TO._gckind != 'raw':
+        if T.TO._gckind != 'raw' and not T.TO._hints.get('callback', None):
             raise Exception("can only pass 'raw' data structures to C, not %r"
                             % (T.TO._gckind,))
         if container._storage is None:
