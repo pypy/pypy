@@ -14,11 +14,6 @@ from pypy.module.struct.nativefmttable import native_fmttable
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rarithmetic import intmask, r_uint
 
-class FfiValueError(Exception):
-    def __init__(self, msg):
-        self.msg = msg
-
-
 def _signed_type_for(TYPE):
     sz = rffi.sizeof(TYPE)
     if sz == 4:   return ffi_type_sint32
