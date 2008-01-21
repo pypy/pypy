@@ -17,7 +17,7 @@ f = None
 gc.collect()
 gc.collect()
 try:
-    p.tell()
+    p.name
 except ReferenceError:
     pass
 else:
