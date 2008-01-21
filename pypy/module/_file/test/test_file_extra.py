@@ -522,6 +522,26 @@ class AppTestAFewExtra:
         assert f.tell() == 5
         f.close()
 
+    def test_weakref_dies_before_file_closes(self):
+        # Hard-to-reproduce failure (which should now be fixed).
+        # I think that this is how lib-python/modified-2.4.1/test_file.py
+        # sometimes failed on a Boehm pypy-c.
+        import weakref, gc
+        fn = self.temptestfile
+        f = open(fn, 'wb')
+        f.close()
+        f = open(fn, 'rb')
+        ref = weakref.ref(f)
+        attempts = range(10)
+        del f
+        for i in attempts:
+            f1 = ref()
+            if f1 is None:
+                break     # all gone
+            assert not f1.closed   # if still reachable, should be still open
+            del f1
+            gc.collect()
+
     def test_ValueError(self):
         fn = self.temptestfile
         f = open(fn, 'wb')
