@@ -1073,6 +1073,13 @@ class TestLLType(BaseAnnotatorTest):
         hs = self.hannotate(f, [], policy=P_NOVIRTUAL)
         assert not hs.is_green()
 
+    def test_raw_malloc(self):
+        py.test.skip("Exploding")
+        S = lltype.Struct('x', ('x', lltype.Signed))
+        def f():
+            p = lltype.malloc(S, flavor='raw')
+
+        hs = self.hannotate(f, [], policy=P_NOVIRTUAL)
 
 class TestOOType(BaseAnnotatorTest):
     type_system = 'ootype'
