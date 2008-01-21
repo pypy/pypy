@@ -241,11 +241,12 @@ def unicode_from_string(space, w_str):
         return unicode_from_encoded_object(space, w_str, "ascii", "strict")
 
 
-def descr__new__(space, w_unicodetype, w_obj='', w_encoding=None, w_errors=None):
+def descr__new__(space, w_unicodetype, w_string='', w_encoding=None, w_errors=None):
     # NB. the default value of w_obj is really a *wrapped* empty string:
     #     there is gateway magic at work
     from pypy.objspace.std.unicodeobject import W_UnicodeObject
     from pypy.objspace.std.ropeunicodeobject import W_RopeUnicodeObject
+    w_obj = w_string
     w_obj_type = space.type(w_obj)
     
     encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors) 
