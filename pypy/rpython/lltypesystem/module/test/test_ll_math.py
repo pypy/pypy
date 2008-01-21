@@ -42,3 +42,6 @@ class TestMath(BaseRtypingTest, LLRtypeMixin):
             return math.ldexp(x, y)
 
         assert self.interpret(f, [3.4, 2]) == f(3.4, 2)
+        # underflows give 0.0 with no exception raised
+        assert f(1.0, -10000) == 0.0     # sanity-check the host Python
+        assert self.interpret(f, [1.0, -10000]) == 0.0

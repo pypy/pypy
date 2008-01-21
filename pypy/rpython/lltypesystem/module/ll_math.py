@@ -53,7 +53,7 @@ def _check_error(x):
     if errno:
         if errno == ERANGE:
             if not x:
-                raise OSError
+                return # we consider underflow to not be an error, like CPython
             raise OverflowError("math range error")
         else:
             raise ValueError("math domain error")
