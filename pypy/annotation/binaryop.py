@@ -15,7 +15,7 @@ from pypy.annotation.model import SomeExternalObject, SomeWeakRef
 from pypy.annotation.model import SomeAddress, SomeTypedAddressAccess
 from pypy.annotation.model import SomeSingleFloat
 from pypy.annotation.model import unionof, UnionError, set, missing_operation
-from pypy.annotation.model import isdegenerated
+from pypy.annotation.model import isdegenerated, TLS
 from pypy.annotation.model import read_can_only_throw
 from pypy.annotation.model import add_knowntypedata, merge_knowntypedata
 from pypy.annotation.model import lltype_to_annotation
@@ -33,7 +33,7 @@ def immutablevalue(x):
 
 def unioncheck(*somevalues):
     s_value = unionof(*somevalues)
-    if isdegenerated(s_value):
+    if isdegenerated(s_value) and not TLS.no_side_effects_in_union:
         bookkeeper = getbookkeeper()
         if bookkeeper is not None:
             bookkeeper.ondegenerated('union', s_value)
