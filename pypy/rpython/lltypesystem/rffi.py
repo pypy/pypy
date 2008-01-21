@@ -346,7 +346,7 @@ CArray._annspecialcase_ = 'specialize:memo'
 
 def CArrayPtr(tp):
     return lltype.Ptr(CArray(tp))
-CArray._annspecialcase_ = 'specialize:memo'
+CArrayPtr._annspecialcase_ = 'specialize:memo'
 
 def CCallback(args, res):
     return lltype.Ptr(lltype.FuncType(args, res))
