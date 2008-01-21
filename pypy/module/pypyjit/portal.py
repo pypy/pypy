@@ -20,6 +20,8 @@ class PyPyHintAnnotatorPolicy(ManualGraphPolicy):
         if mod.startswith('pypy.module.'):
             if not mod.startswith('pypy.module.pypyjit.'):
                 return False
+        if mod.startswith('pypy.translator.goal.nanos'):
+            return False
         if mod in forbidden_modules:
             return False
         if func.__name__.startswith('_mm_') or '_mth_mm_' in func.__name__:
