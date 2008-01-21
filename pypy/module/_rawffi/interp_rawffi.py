@@ -9,10 +9,8 @@ from pypy.rlib.libffi import *
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.unroll import unrolling_iterable
 
-from pypy.module.struct.standardfmttable import min_max_acc_method
-from pypy.module.struct.nativefmttable import native_fmttable
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib.rarithmetic import intmask, r_uint
+from pypy.rlib.rarithmetic import intmask, r_uint, r_singlefloat
 
 def _signed_type_for(TYPE):
     sz = rffi.sizeof(TYPE)
