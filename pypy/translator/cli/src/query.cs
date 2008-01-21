@@ -143,6 +143,7 @@ public class Query
             &&(t == typeof(System.Array) ||
                t.FullName == null ||
                t.FullName.StartsWith("System.Array+InternalArray") ||
+               t.IsNested ||
                t.IsNotPublic ||
                t.IsByRef ||
                t.IsPointer ||

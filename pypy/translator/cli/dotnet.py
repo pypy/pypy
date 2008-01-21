@@ -260,33 +260,6 @@ class Entry(ExtRegistryEntry):
         return SomeOOInstance(self.instance._INSTANCE)
 
 
-class CliNamespace(object):
-    def __init__(self, name):
-        self._name = name
-
-    def __fullname(self, name):
-        if self._name is None:
-            return name
-        else:
-            return '%s.%s' % (self._name, name)
-
-    def __getattr__(self, attr):
-        from pypy.translator.cli.query import get_cli_class, Types, Namespaces
-        from pypy.translator.cli.query import load_assembly, mscorlib
-        load_assembly(mscorlib)
-        
-        fullname = self.__fullname(attr)
-        if fullname in Namespaces:
-            value = CliNamespace(fullname)
-        elif fullname in Types:
-            value = get_cli_class(fullname)
-        else:
-            raise AttributeError, attr
-        setattr(self, attr, value)
-        return value
-
-CLR = CliNamespace(None)
-
 BOXABLE_TYPES = [ootype.Signed, ootype.Unsigned, ootype.SignedLongLong,
                  ootype.UnsignedLongLong, ootype.Bool, ootype.Float,
                  ootype.Char, ootype.String]
@@ -525,8 +498,8 @@ class Entry(ExtRegistryEntry):
     _about_ = eventhandler
 
     def compute_result_annotation(self, s_value):
-        from pypy.translator.cli.query import load_class_maybe
-        cliType = load_class_maybe('System.EventHandler')
+        from pypy.translator.cli.query import get_cli_class
+        cliType = get_cli_class('System.EventHandler')
         return SomeOOInstance(cliType._INSTANCE)
 
     def specialize_call(self, hop):
@@ -534,3 +507,7 @@ class Entry(ExtRegistryEntry):
         methodname = hop.args_r[0].methodname
         c_methodname = hop.inputconst(ootype.Void, methodname)
         return hop.genop('cli_eventhandler', [v_obj, c_methodname], hop.r_result.lowleveltype)
+
+from pypy.translator.cli.query import CliNamespace
+CLR = CliNamespace(None)
+CLR._buildtree()

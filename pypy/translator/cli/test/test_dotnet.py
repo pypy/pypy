@@ -10,9 +10,7 @@ from pypy.translator.cli.dotnet import SomeCliClass, SomeCliStaticMethod,\
      native_exc, new_array, init_array, typeof, eventhandler
 
 System = CLR.System
-Math = CLR.System.Math
 ArrayList = CLR.System.Collections.ArrayList
-Type = CLR.System.Type
 
 class TestDotnetAnnotation(object):
 
@@ -38,11 +36,11 @@ class TestDotnetAnnotation(object):
 
     def test_class(self):
         def fn():
-            return Math
+            return System.Math
         a = RPythonAnnotator()
         s = a.build_types(fn, [])
         assert isinstance(s, SomeCliClass)
-        assert s.const is Math
+        assert s.const is System.Math
 
     def test_fullname(self):
         def fn():
@@ -50,22 +48,22 @@ class TestDotnetAnnotation(object):
         a = RPythonAnnotator()
         s = a.build_types(fn, [])
         assert isinstance(s, SomeCliClass)
-        assert s.const is Math
+        assert s.const is System.Math
 
     def test_staticmeth(self):
         def fn():
-            return Math.Abs
+            return System.Math.Abs
         a = RPythonAnnotator()
         s = a.build_types(fn, [])
         assert isinstance(s, SomeCliStaticMethod)
-        assert s.cli_class is Math
+        assert s.cli_class is System.Math
         assert s.meth_name == 'Abs'
 
     def test_staticmeth_call(self):
         def fn1():
-            return Math.Abs(42)
+            return System.Math.Abs(42)
         def fn2():
-            return Math.Abs(42.5)
+            return System.Math.Abs(42.5)
         a = RPythonAnnotator()
         assert type(a.build_types(fn1, [])) is annmodel.SomeInteger
         assert type(a.build_types(fn2, [])) is annmodel.SomeFloat
@@ -172,7 +170,7 @@ class TestDotnetAnnotation(object):
 
     def test_can_be_None(self):
         def fn():
-            ttype = Type.GetType('foo')
+            ttype = System.Type.GetType('foo')
             return ttype.get_Namespace()
         a = RPythonAnnotator()
         s = a.build_types(fn, [])
@@ -186,13 +184,13 @@ class TestDotnetRtyping(CliTest):
 
     def test_staticmeth_call(self):
         def fn(x):
-            return Math.Abs(x)
+            return System.Math.Abs(x)
         assert self.interpret(fn, [-42]) == 42
 
     def test_staticmeth_overload(self):
         self._skip_pythonnet('Pythonnet bug!')
         def fn(x, y):
-            return Math.Abs(x), Math.Abs(y)
+            return System.Math.Abs(x), System.Math.Abs(y)
         res = self.interpret(fn, [-42, -42.5])
         item0, item1 = self.ll_to_tuple(res)
         assert item0 == 42
@@ -349,7 +347,6 @@ class TestDotnetRtyping(CliTest):
         assert res.startswith("Index is less than 0")
 
     def test_typeof(self):
-        System.Int32 # force Int32 to be loaded
         def fn():
             x = box(42)
             return x.GetType() == typeof(System.Int32)
@@ -409,7 +406,7 @@ class TestDotnetRtyping(CliTest):
                 return ""
         
         def fn():
-            ttype = Type.GetType('Consts, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089')
+            ttype = System.Type.GetType('Consts, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089')
             namespace = ttype.get_Namespace()
             if namespace is not None:
                 return False

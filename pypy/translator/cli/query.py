@@ -8,8 +8,6 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.translator.cli.rte import Query
 from pypy.translator.cli.sdk import SDK
 from pypy.translator.cli.support import log
-from pypy.translator.cli.dotnet import CLR, CliNamespace, CliClass,\
-     NativeInstance, _overloaded_static_meth, _static_meth, OverloadingResolver
 
 Assemblies = set()
 Types = {} # TypeName -> ClassDesc
@@ -121,6 +119,9 @@ class ClassDesc(object):
         raise TypeError
 
     def get_cliclass(self):
+        from pypy.translator.cli.dotnet import CliClass, NativeInstance
+        from pypy.translator.cli.dotnet import _overloaded_static_meth, _static_meth
+
         if self._cliclass is not None:
             return self._cliclass
         
@@ -152,6 +153,7 @@ class ClassDesc(object):
         return Class
 
     def group_methods(self, methods, overload, meth, Meth):
+        from pypy.translator.cli.dotnet import OverloadingResolver
         groups = {}
         for name, args, result in methods:
             groups.setdefault(name, []).append((args, result))
@@ -168,3 +170,40 @@ class ClassDesc(object):
         ARGS = [get_ootype(arg) for arg in args]
         RESULT = get_ootype(result)
         return Meth(ARGS, RESULT)
+
+placeholder = object()
+class CliNamespace(object):
+    def __init__(self, name):
+        self._name = name
+        self.__treebuilt = False
+
+    def __fullname(self, name):
+        if self._name is None:
+            return name
+        else:
+            return '%s.%s' % (self._name, name)
+
+    def _buildtree(self):
+        assert self._name is None, '_buildtree can be called only on top-level CLR, not on namespaces'
+        from pypy.translator.cli.support import getattr_ex
+        load_assembly(mscorlib)
+        for fullname in sorted(list(Namespaces)):
+            if '.' in fullname:
+                parent, name = fullname.rsplit('.', 1)
+                parent = getattr_ex(self, parent)
+                setattr(parent, name, CliNamespace(fullname))
+            else:
+                setattr(self, fullname, CliNamespace(fullname))
+
+        for fullname in Types.keys():
+            parent, name = fullname.rsplit('.', 1)
+            parent = getattr_ex(self, parent)
+            setattr(parent, name, placeholder)
+
+    def __getattribute__(self, attr):
+        value = object.__getattribute__(self, attr)
+        if value is placeholder:
+            fullname = self.__fullname(attr)
+            value = get_cli_class(fullname)
+            setattr(self, attr, value)
+        return value
