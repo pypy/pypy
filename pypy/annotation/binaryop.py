@@ -14,7 +14,8 @@ from pypy.annotation.model import SomePBC, SomeSlice, SomeFloat, s_None
 from pypy.annotation.model import SomeExternalObject, SomeWeakRef
 from pypy.annotation.model import SomeAddress, SomeTypedAddressAccess
 from pypy.annotation.model import SomeSingleFloat
-from pypy.annotation.model import unionof, UnionError, set, missing_operation, TLS
+from pypy.annotation.model import unionof, UnionError, set, missing_operation
+from pypy.annotation.model import isdegenerated
 from pypy.annotation.model import read_can_only_throw
 from pypy.annotation.model import add_knowntypedata, merge_knowntypedata
 from pypy.annotation.model import lltype_to_annotation
@@ -29,6 +30,14 @@ from pypy.rpython import extregistry
 # convenience only!
 def immutablevalue(x):
     return getbookkeeper().immutablevalue(x)
+
+def unioncheck(*somevalues):
+    s_value = unionof(*somevalues)
+    if isdegenerated(s_value):
+        bookkeeper = getbookkeeper()
+        if bookkeeper is not None:
+            bookkeeper.ondegenerated('union', s_value)
+    return s_value
 
 # XXX unify this with ObjSpace.MethodTable
 BINARY_OPERATIONS = set(['add', 'sub', 'mul', 'div', 'mod',
@@ -80,11 +89,11 @@ class __extend__(pairtype(SomeObject, SomeObject)):
                     result.is_type_of = is_type_of1
             # try to preserve the origin of SomeObjects
             if obj1 == result:
-                return obj1
+                result = obj1
             elif obj2 == result:
-                return obj2
-            else:
-                return result
+                result = obj2
+            unioncheck(result)
+            return result
 
     # inplace_xxx ---> xxx by default
     def inplace_add((obj1, obj2)):      return pair(obj1, obj2).add()
@@ -519,7 +528,7 @@ class __extend__(pairtype(SomeTuple, SomeTuple)):
         if len(tup1.items) != len(tup2.items):
             return SomeObject()
         else:
-            unions = [unionof(x,y) for x,y in zip(tup1.items, tup2.items)]
+            unions = [unioncheck(x,y) for x,y in zip(tup1.items, tup2.items)]
             return SomeTuple(items = unions)
 
     def add((tup1, tup2)):
@@ -560,9 +569,9 @@ class __extend__(pairtype(SomeDict, SomeObject)):
 class __extend__(pairtype(SomeSlice, SomeSlice)):
 
     def union((slic1, slic2)):
-        return SomeSlice(unionof(slic1.start, slic2.start),
-                         unionof(slic1.stop, slic2.stop),
-                         unionof(slic1.step, slic2.step))
+        return SomeSlice(unioncheck(slic1.start, slic2.start),
+                         unioncheck(slic1.stop, slic2.stop),
+                         unioncheck(slic1.step, slic2.step))
 
 
 class __extend__(pairtype(SomeTuple, SomeInteger)):
@@ -766,7 +775,7 @@ class __extend__(pairtype(SomeInstance, SomeInstance)):
 class __extend__(pairtype(SomeIterator, SomeIterator)):
 
     def union((iter1, iter2)):
-        s_cont = unionof(iter1.s_container, iter2.s_container)
+        s_cont = unioncheck(iter1.s_container, iter2.s_container)
         if iter1.variant != iter2.variant:
             raise UnionError("merging incompatible iterators variants")
         return SomeIterator(s_cont, *iter1.variant)
@@ -780,7 +789,7 @@ class __extend__(pairtype(SomeBuiltin, SomeBuiltin)):
             bltn1.s_self is None or bltn2.s_self is None):
             raise UnionError("cannot merge two different builtin functions "
                              "or methods:\n  %r\n  %r" % (bltn1, bltn2))
-        s_self = unionof(bltn1.s_self, bltn2.s_self)
+        s_self = unioncheck(bltn1.s_self, bltn2.s_self)
         return SomeBuiltin(bltn1.analyser, s_self, methodname=bltn1.methodname)
 
 class __extend__(pairtype(SomePBC, SomePBC)):
@@ -808,7 +817,7 @@ class __extend__(pairtype(SomeGenericCallable, SomePBC)):
             unique_key = desc
             bk = desc.bookkeeper
             s_result = bk.emulate_pbc_call(unique_key, pbc, gencall.args_s)
-            s_result = unionof(s_result, gencall.s_result)
+            s_result = unioncheck(s_result, gencall.s_result)
             assert gencall.s_result.contains(s_result)
         return gencall
 
