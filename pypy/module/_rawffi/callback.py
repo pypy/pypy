@@ -51,7 +51,7 @@ class W_CallbackPtr(W_DataInstance):
         # necessary to keep stuff alive
         self.ll_callback = CallbackFuncPtr(ffiargs, ffiresult,
                                            callback, number)
-        self.ll_buffer = self.ll_callback.ll_closure
+        self.ll_buffer = rffi.cast(rffi.VOIDP, self.ll_callback.ll_closure)
 
     def __del__(self):
         del self.CallbackPtr_by_number[self.number]

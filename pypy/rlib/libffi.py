@@ -191,11 +191,10 @@ class AbstractFuncPtr(object):
     ll_cif = lltype.nullptr(FFI_CIFP.TO)
     ll_argtypes = lltype.nullptr(FFI_TYPE_PP.TO)
 
-    def __init__(self, name, argtypes, restype, funcsym):
+    def __init__(self, name, argtypes, restype):
         self.name = name
         self.argtypes = argtypes
         self.restype = restype
-        self.funcsym = funcsym
         argnum = len(argtypes)
         self.ll_argtypes = lltype.malloc(FFI_TYPE_PP.TO, argnum, flavor='raw')
         for i in range(argnum):
@@ -228,7 +227,7 @@ class CallbackFuncPtr(AbstractFuncPtr):
     ll_userdata = lltype.nullptr(USERDATA_P.TO)
 
     def __init__(self, argtypes, restype, func, additional_arg=0):
-        AbstractFuncPtr.__init__(self, "callback", argtypes, restype, None)
+        AbstractFuncPtr.__init__(self, "callback", argtypes, restype)
         self.ll_closure = lltype.malloc(FFI_CLOSUREP.TO, flavor='raw')
         self.ll_userdata = lltype.malloc(USERDATA_P.TO)
         self.ll_userdata.callback = rffi.llhelper(CALLBACK_TP, func)
@@ -245,6 +244,10 @@ class CallbackFuncPtr(AbstractFuncPtr):
             lltype.free(self.ll_closure, flavor='raw')
 
 class RawFuncPtr(AbstractFuncPtr):
+
+    def __init__(self, name, argtypes, restype, funcsym):
+        AbstractFuncPtr.__init__(self, name, argtypes, restype)
+        self.funcsym = funcsym
 
     def call(self, args_ll, ll_result):
         assert len(args_ll) == len(self.argtypes), (
@@ -263,7 +266,8 @@ class FuncPtr(AbstractFuncPtr):
 
     def __init__(self, name, argtypes, restype, funcsym):
         # initialize each one of pointers with null
-        AbstractFuncPtr.__init__(self, name, argtypes, restype, funcsym)
+        AbstractFuncPtr.__init__(self, name, argtypes, restype)
+        self.funcsym = funcsym
         self.argnum = len(self.argtypes)
         self.pushed_args = 0
         self.ll_args = lltype.malloc(rffi.VOIDPP.TO, self.argnum, flavor='raw')
