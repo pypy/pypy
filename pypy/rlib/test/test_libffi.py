@@ -109,6 +109,38 @@ class TestDLOperations:
         del libc
         assert not ALLOCATED
 
+    def test_callback(self):
+        libc = CDLL('libc.so.6')
+        qsort = libc.getpointer('qsort', [ffi_type_pointer, ffi_type_slong,
+                                          ffi_type_slong, ffi_type_pointer],
+                                ffi_type_void)
+
+        def callback(ll_args, ll_res):
+            a1 = rffi.cast(rffi.INTP, rffi.cast(rffi.VOIDPP, ll_args[0])[0])[0]
+            a2 = rffi.cast(rffi.INTP, rffi.cast(rffi.VOIDPP, ll_args[0])[1])[0]
+            res = rffi.cast(rffi.INTP, ll_res)
+            if a1 > a2:
+                res[0] = 1
+            else:
+                res[0] = -1
+
+        ptr = CallbackFuncPtr([ffi_type_pointer, ffi_type_pointer],
+                              ffi_type_sint, callback)
+        
+        TP = rffi.CArray(rffi.INT)
+        to_sort = lltype.malloc(TP, 4, flavor='raw')
+        to_sort[0] = 4
+        to_sort[1] = 3
+        to_sort[2] = 1
+        to_sort[3] = 2
+        qsort.push_arg(rffi.cast(rffi.VOIDP, to_sort))
+        qsort.push_arg(rffi.sizeof(rffi.INT))
+        qsort.push_arg(4)
+        qsort.push_arg(ptr.ll_closure)
+        qsort.call(lltype.Void)
+        assert [to_sort[i] for i in range(4)] == [1,2,3,4]
+        lltype.free(to_sort, flavor='raw')
+
     def test_compile(self):
         import py
         py.test.skip("Segfaulting test, skip")

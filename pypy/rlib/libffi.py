@@ -113,7 +113,11 @@ RTLD_NOW = cConfig.RTLD_NOW
 FFI_OK = cConfig.FFI_OK
 FFI_BAD_TYPEDEF = cConfig.FFI_BAD_TYPEDEF
 FFI_DEFAULT_ABI = rffi.cast(rffi.USHORT, cConfig.FFI_DEFAULT_ABI)
-FFI_CIFP = rffi.COpaquePtr('ffi_cif', compilation_info=CConfig._compilation_info_)
+FFI_CIFP = rffi.COpaquePtr('ffi_cif', compilation_info=CConfig.
+                           _compilation_info_)
+
+FFI_CLOSUREP = rffi.COpaquePtr('ffi_closure', compilation_info=CConfig.
+                               _compilation_info_)
 
 VOIDPP = rffi.CArrayPtr(rffi.VOIDP)
 
@@ -121,6 +125,11 @@ c_ffi_prep_cif = external('ffi_prep_cif', [FFI_CIFP, rffi.USHORT, rffi.UINT,
                                            FFI_TYPE_P, FFI_TYPE_PP], rffi.INT)
 c_ffi_call = external('ffi_call', [FFI_CIFP, rffi.VOIDP, rffi.VOIDP,
                                    VOIDPP], lltype.Void)
+CALLBACK_TP = rffi.CCallback([FFI_CIFP, rffi.VOIDP, rffi.VOIDPP, rffi.VOIDP],
+                             lltype.Void)
+c_ffi_prep_closure = external('ffi_prep_closure', [FFI_CLOSUREP, FFI_CIFP,
+                                                   CALLBACK_TP, rffi.VOIDP],
+                              rffi.INT)            
 
 def dlerror():
     # XXX this would never work on top of ll2ctypes, because
@@ -167,8 +176,16 @@ def push_arg_as_ffiptr(ffitp, arg, ll_buf):
     buf[0] = arg
 push_arg_as_ffiptr._annspecialcase_ = 'specialize:argtype(1)'
 
-def check_pointer_type(TP):
-    pass
+def ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
+    """ Callback specification.
+    ffi_cif - something ffi specific, don't care
+    ll_args - rffi.VOIDPP - pointer to array of pointers to args
+    ll_restype - rffi.VOIDP - pointer to result
+    ll_userdata - a special structure which holds necessary information
+                  (what the real callback is for example), casted to VOIDP
+    """
+    userdata = rffi.cast(USERDATA_P, ll_userdata)
+    userdata.callback(ll_args, ll_res)
 
 class AbstractFuncPtr(object):
     ll_cif = lltype.nullptr(FFI_CIFP.TO)
@@ -183,11 +200,10 @@ class AbstractFuncPtr(object):
         self.ll_argtypes = lltype.malloc(FFI_TYPE_PP.TO, argnum, flavor='raw')
         for i in range(argnum):
             self.ll_argtypes[i] = argtypes[i]
-        # XXX why cast to FFI_TYPE_PP is needed? ll2ctypes bug?
         self.ll_cif = lltype.malloc(FFI_CIFP.TO, flavor='raw')
         res = c_ffi_prep_cif(self.ll_cif, FFI_DEFAULT_ABI,
                              rffi.cast(rffi.UINT, argnum), restype,
-                             rffi.cast(FFI_TYPE_PP, self.ll_argtypes))
+                             self.ll_argtypes)
         if not res == FFI_OK:
             raise OSError(-1, "Wrong typedef")
 
@@ -197,6 +213,32 @@ class AbstractFuncPtr(object):
         if self.ll_argtypes:
             lltype.free(self.ll_argtypes, flavor='raw')
 
+CALLBACK_TP = lltype.Ptr(lltype.FuncType([rffi.VOIDPP, rffi.VOIDP],
+                                         lltype.Void))
+USERDATA_P = lltype.Ptr(lltype.GcStruct('userdata', ('callback', CALLBACK_TP),
+                                        hints={'callback':True}))
+
+# as long as CallbackFuncPtr is kept alive, the underlaying userdata
+# is kept alive as well
+class CallbackFuncPtr(AbstractFuncPtr):
+    ll_closure = lltype.nullptr(FFI_CLOSUREP.TO)
+    ll_userdata = lltype.nullptr(USERDATA_P.TO)
+
+    def __init__(self, argtypes, restype, func):
+        AbstractFuncPtr.__init__(self, "callback", argtypes, restype, None)
+        self.ll_closure = lltype.malloc(FFI_CLOSUREP.TO, flavor='raw')
+        self.ll_userdata = lltype.malloc(USERDATA_P.TO)
+        self.ll_userdata.callback = rffi.llhelper(CALLBACK_TP, func)
+        res = c_ffi_prep_closure(self.ll_closure, self.ll_cif,
+                                 ll_callback, rffi.cast(rffi.VOIDP,
+                                                        self.ll_userdata))
+        if not res == FFI_OK:
+            raise OSError(-1, "Unspecified error calling ffi_prep_closure")
+
+    def __del__(self):
+        AbstractFuncPtr.__del__(self)
+        if self.ll_closure:
+            lltype.free(self.ll_closure, flavor='raw')
 
 class RawFuncPtr(AbstractFuncPtr):
 
