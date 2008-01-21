@@ -115,7 +115,7 @@ class TestDLOperations:
                                           ffi_type_slong, ffi_type_pointer],
                                 ffi_type_void)
 
-        def callback(ll_args, ll_res):
+        def callback(ll_args, ll_res, stuff):
             a1 = rffi.cast(rffi.INTP, rffi.cast(rffi.VOIDPP, ll_args[0])[0])[0]
             a2 = rffi.cast(rffi.INTP, rffi.cast(rffi.VOIDPP, ll_args[0])[1])[0]
             res = rffi.cast(rffi.INTP, ll_res)

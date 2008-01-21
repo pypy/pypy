@@ -185,7 +185,7 @@ def ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
                   (what the real callback is for example), casted to VOIDP
     """
     userdata = rffi.cast(USERDATA_P, ll_userdata)
-    userdata.callback(ll_args, ll_res)
+    userdata.callback(ll_args, ll_res, userdata)
 
 class AbstractFuncPtr(object):
     ll_cif = lltype.nullptr(FFI_CIFP.TO)
@@ -213,10 +213,13 @@ class AbstractFuncPtr(object):
         if self.ll_argtypes:
             lltype.free(self.ll_argtypes, flavor='raw')
 
-CALLBACK_TP = lltype.Ptr(lltype.FuncType([rffi.VOIDPP, rffi.VOIDP],
+USERDATA_P = lltype.Ptr(lltype.GcForwardReference())
+CALLBACK_TP = lltype.Ptr(lltype.FuncType([rffi.VOIDPP, rffi.VOIDP, USERDATA_P],
                                          lltype.Void))
-USERDATA_P = lltype.Ptr(lltype.GcStruct('userdata', ('callback', CALLBACK_TP),
-                                        hints={'callback':True}))
+USERDATA_P.TO.become(lltype.GcStruct('userdata',
+                                     ('callback', CALLBACK_TP),
+                                     ('addarg', rffi.INT),
+                                     hints={'callback':True}))
 
 # as long as CallbackFuncPtr is kept alive, the underlaying userdata
 # is kept alive as well
@@ -224,11 +227,12 @@ class CallbackFuncPtr(AbstractFuncPtr):
     ll_closure = lltype.nullptr(FFI_CLOSUREP.TO)
     ll_userdata = lltype.nullptr(USERDATA_P.TO)
 
-    def __init__(self, argtypes, restype, func):
+    def __init__(self, argtypes, restype, func, additional_arg=0):
         AbstractFuncPtr.__init__(self, "callback", argtypes, restype, None)
         self.ll_closure = lltype.malloc(FFI_CLOSUREP.TO, flavor='raw')
         self.ll_userdata = lltype.malloc(USERDATA_P.TO)
         self.ll_userdata.callback = rffi.llhelper(CALLBACK_TP, func)
+        self.ll_userdata.addarg = additional_arg
         res = c_ffi_prep_closure(self.ll_closure, self.ll_cif,
                                  ll_callback, rffi.cast(rffi.VOIDP,
                                                         self.ll_userdata))
