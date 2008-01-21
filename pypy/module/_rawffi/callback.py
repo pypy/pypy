@@ -18,7 +18,7 @@ def callback(ll_args, ll_res, ll_userdata):
     argtypes = callback_ptr.args
     space = callback_ptr.space
     w_args = space.newlist([wrap_value(space, get_elem, ll_args[i], 0,
-                                       (argtypes[i], None, None))
+                                       (argtypes[i], 0, 0))
                             for i in range(len(argtypes))])
     w_res = space.call(w_callable, w_args)
     if space.is_w(w_res, space.w_None):
