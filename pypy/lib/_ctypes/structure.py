@@ -116,6 +116,13 @@ class StructureMeta(_CDataMeta):
     def _alignmentofinstances(self):
         return self._ffistruct.alignment
 
+    def _CData_output(self, resarray):
+        assert isinstance(resarray, _rawffi.ArrayInstance)
+        res = self.__new__(self)
+        ffistruct = self._ffistruct.fromaddress(resarray.buffer)
+        res.__dict__['_buffer'] = ffistruct
+        return res.__ctypes_from_outparam__()
+
 class Structure(_CData):
     __metaclass__ = StructureMeta
     _ffiletter = 'P'
