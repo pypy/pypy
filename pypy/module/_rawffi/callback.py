@@ -63,4 +63,5 @@ W_CallbackPtr.typedef = TypeDef(
     'CallbackPtr',
     __new__ = interp2app(descr_new_callbackptr),
     byptr   = interp2app(W_CallbackPtr.byptr),
+    buffer  = GetSetProperty(W_CallbackPtr.getbuffer),
 )
