@@ -92,19 +92,27 @@ class AppTest_Reflective:
                 self.func = func
                 self.args = args
                 self.kwargs = kwargs
-            def __call__(self, *args, **kwargs):
+            def combine_args(self, args, kwargs):
                 args = self.args + args
                 for key, value in self.kwargs.iteritems():
                     if key in kwargs:
                         raise TypeError("got multiple values for keyword argument %r" % (key, ))
                     kwargs[key] = value
+                return args, kwargs
+
+            def __call__(self, *args, **kwargs):
+                args, kwargs = self.combine_args(args, kwargs)
                 return self.func(*args, **kwargs)
         import types
         class Space:
             def call_args(self, func, *args, **kwargs):
                 print func, args, kwargs
-                if (len(kwargs) != 0 or not 
-                    isinstance(func, types.FunctionType)):
+                if len(kwargs) != 0: # XXX for now
+                    return func(*args, **kwargs)
+                if isinstance(func, partial):
+                    args, kwargs = func.combine_args(args, kwargs)
+                    func = func.func
+                elif not isinstance(func, types.FunctionType):
                     return func(*args, **kwargs)
                 defaults = func.func_defaults
                 if defaults is None:
@@ -119,5 +127,4 @@ class AppTest_Reflective:
         set_reflectivespace(Space())
         g = f(1, 2)
         assert g(3) == f(1, 2, 3)
-        # XXX the following does not work, of course:
-        # assert f(4)(6)(7) == f(4, 6, 7)
+        assert f(4)(6)(7) == f(4, 6, 7)
