@@ -1,4 +1,3 @@
-from _ctypes.dummy import Union
 from _ctypes.dummy import resize
 from _ctypes.basics import _CData, sizeof, alignment, byref, addressof,\
      ArgumentError
@@ -9,6 +8,7 @@ from _ctypes.dll import dlopen
 from _ctypes.structure import Structure
 from _ctypes.array import Array
 from _ctypes.builtin import _memmove_addr, _string_at_addr, _memset_addr
+from _ctypes.union import Union
 
 __version__ = '1.0.2'
 #XXX platform dependant?

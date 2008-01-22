@@ -22,7 +22,13 @@ def size_alignment_pos(fields):
     size = round_up(size, alignment)
     return size, alignment, pos
 
-def names_and_fields(_fields_, superclass):
+
+def struct_getattr(self, name):
+    if hasattr(self, '_fieldtypes') and name in self._fieldtypes:
+        return self._fieldtypes[name]
+    return _CDataMeta.__getattribute__(self, name)
+
+def names_and_fields(_fields_, superclass, zero_offset=False):
     for _, tp in _fields_:
         if not isinstance(tp, _CDataMeta):
             raise TypeError("Expected CData subclass, got %s" % (tp,))
@@ -33,7 +39,10 @@ def names_and_fields(_fields_, superclass):
     names = [name for name, ctype in all_fields]
     rawfields = [(name, ctype._ffishape)
                  for name, ctype in all_fields]
-    _, _, pos = size_alignment_pos(all_fields)
+    if not zero_offset:
+        _, _, pos = size_alignment_pos(all_fields)
+    else:
+        pos = [0] * len(all_fields)
     fields = {}
     for i, (name, ctype) in enumerate(all_fields):
         fields[name] = Field(name, pos[i], ctypes.sizeof(ctype), ctype)
@@ -78,6 +87,8 @@ class StructureMeta(_CDataMeta):
 
         return res
 
+    __getattr__ = struct_getattr
+
     def __setattr__(self, name, value):
         if name == '_fields_':
             if self.__dict__.get('_fields_', None):
@@ -91,12 +102,6 @@ class StructureMeta(_CDataMeta):
             self._ffishape = self._ffistruct.gettypecode()
             return
         _CDataMeta.__setattr__(self, name, value)
-
-    def __getattr__(self, name):
-        if hasattr(self, '_fieldtypes') and name in self._fieldtypes:
-            return self._fieldtypes[name]
-        return _CDataMeta.__getattribute__(self, name)
-        #return Field(name, 
 
     def from_address(self, address):
         instance = self.__new__(self)
