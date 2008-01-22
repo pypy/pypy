@@ -32,7 +32,7 @@ class _CDataMeta(type):
         and this returns a general Python object that corresponds.
         """
         res = self.__new__(self)
-        res._buffer = resarray
+        res.__dict__['_buffer'] = resarray
         return res.__ctypes_from_outparam__()
 
     def __mul__(self, other):
