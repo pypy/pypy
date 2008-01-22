@@ -4,9 +4,6 @@ class UnionType(type):
 class Union(object):
     __metaclass__ = UnionType
 
-class ArgumentError(Exception):
-    pass
-
 def dummyfunc(*args, **kwargs):
     return None
 

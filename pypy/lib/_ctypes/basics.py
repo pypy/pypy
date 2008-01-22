@@ -2,6 +2,9 @@
 import _rawffi
 import sys
 
+class ArgumentError(Exception):
+    pass
+
 class _CDataMeta(type):
     def from_param(self, value):
         if isinstance(value, self):

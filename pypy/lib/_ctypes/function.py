@@ -1,6 +1,6 @@
 
 import types
-from _ctypes.basics import _CData, _CDataMeta
+from _ctypes.basics import _CData, _CDataMeta, ArgumentError
 import _rawffi
 
 class CFuncPtrType(_CDataMeta):
@@ -34,22 +34,31 @@ class CFuncPtr(_CData):
         self._restype_ = restype    
     restype = property(_getrestype, _setrestype)    
 
-    def __init__(self, address_or_name_and_dll=0):
-        if isinstance(address_or_name_and_dll, tuple):
-            self.name, self.dll = address_or_name_and_dll
+    def __init__(self, argument=None):
+        self.callable = None
+        self.name = None
+        if isinstance(argument, int):
+            self._buffer = _rawffi.Array('P').fromaddress(argument, 1)
+            # XXX finish this one, we need to be able to jump there somehow
+        elif callable(argument):
+            self.callable = argument
+            argtypes = [arg._ffiletter for arg in self._argtypes_]
+            restype = self._restype_._ffiletter
+            self._ptr = _rawffi.CallbackPtr(argument, argtypes, restype)
+            self._buffer = self._ptr.byptr()
+        elif isinstance(argument, tuple) and len(argument) == 2:
+            import ctypes
+            self.name, self.dll = argument
+            # we need to check dll anyway
+            self._getfuncptr([], ctypes.c_int)
+        elif argument is None:
+            return # needed for test..
         else:
-            self.address = address_or_name_and_dll
-            if isinstance(self.address, int):
-                self._buffer = _rawffi.Array('P').fromaddress(self.address, 1)
-            self.name = None
-
+            raise TypeError("Unknown constructor %s" % (argument,))
+    
     def __call__(self, *args):
-        if self.name is None:
-            if isinstance(self.address, types.FunctionType):
-                # special hack to support to way a few functions like
-                # ctypes.cast() are implemented in ctypes/__init__.py
-                return self.address(*args)
-            raise NotImplementedError("Creation of function pointer to pure addresses is not implemented")
+        if self.callable is not None:
+            return self.callable(*args)
         argtypes = self._argtypes_
         if argtypes is None:
             argtypes = self._guess_argtypes(args)
@@ -68,7 +77,7 @@ class CFuncPtr(_CData):
 
     def _guess_argtypes(self, args):
         from _ctypes import _CData
-        from ctypes import c_char_p, c_void_p
+        from ctypes import c_char_p, c_void_p, c_int, Array, Structure
         res = []
         for arg in args:
             if isinstance(arg, str):
@@ -77,10 +86,17 @@ class CFuncPtr(_CData):
                 res.append(type(arg))
             elif arg is None:
                 res.append(c_void_p)
+            elif arg == 0:
+                res.append(c_void_p)
+            elif isinstance(arg, int):
+                res.append(c_int)
             else:
                 raise TypeError("Dont know how to handle %s" % (arg,))
         return res
 
     def _wrap_args(self, argtypes, args):
-        return [argtype._CData_input(arg) for argtype, arg in
-                zip(argtypes, args)]
+        try:
+            return [argtype._CData_input(arg) for argtype, arg in
+                    zip(argtypes, args)]
+        except TypeError, e:
+            raise ArgumentError(e.args[0])
