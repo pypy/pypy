@@ -84,7 +84,10 @@ class Array(_CData):
 
     def _slice_getitem(self, index):
         start, stop = self._get_slice_params(index)
-        return "".join([self[i] for i in range(start, stop)])
+        l = [self[i] for i in range(start, stop)]
+        if getattr(self._type_, '_type_', None) == 'c':
+            return "".join(l)
+        return l
 
     def _subarray(self, index):
         """Return a _rawffi array of length 1 whose address is the same as
