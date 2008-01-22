@@ -12,7 +12,7 @@ from pypy.rlib.libffi import USERDATA_P, CallbackFuncPtr
 
 def callback(ll_args, ll_res, ll_userdata):
     userdata = rffi.cast(USERDATA_P, ll_userdata)
-    callback_ptr = W_CallbackPtr.CallbackPtr_by_number[userdata.addarg]
+    callback_ptr = global_counter.CallbackPtr_by_number[userdata.addarg]
     w_callable = callback_ptr.w_callable
     res = rffi.cast(rffi.VOIDPP, ll_res)
     argtypes = callback_ptr.args
@@ -24,16 +24,22 @@ def callback(ll_args, ll_res, ll_userdata):
     unwrap_value(space, push_elem, ll_res, 0,
                  letter2tp(space, callback_ptr.result), w_res)
 
+# XXX some weird hackery to be able to recover W_CallbackPtr object
+#     out of number    
+class GlobalCounter:
+    def __init__(self):
+        self.CallbackPtr_id = 0
+        self.CallbackPtr_by_number = {}
+
+global_counter = GlobalCounter()
+
 class W_CallbackPtr(W_DataInstance):
-    # XXX some weird hackery to be able to recover W_CallbackPtr object
-    #     out of number
-    CallbackPtr_by_number = {}
-    CallbackPtr_id = 0
+    global_counter = global_counter
     
     def __init__(self, space, w_callable, w_args, w_result):
-        number = self.CallbackPtr_id
-        self.__class__.CallbackPtr_id += 1
-        self.CallbackPtr_by_number[number] = self
+        number = global_counter.CallbackPtr_id
+        global_counter.CallbackPtr_id += 1
+        global_counter.CallbackPtr_by_number[number] = self
         self.space = space
         self.w_callable = w_callable
         self.number = number
@@ -48,7 +54,7 @@ class W_CallbackPtr(W_DataInstance):
         self.ll_buffer = rffi.cast(rffi.VOIDP, self.ll_callback.ll_closure)
 
     def __del__(self):
-        del self.CallbackPtr_by_number[self.number]
+        del self.global_counter.CallbackPtr_by_number[self.number]
 
 def descr_new_callbackptr(space, w_type, w_callable, w_args, w_result):
     return W_CallbackPtr(space, w_callable, w_args, w_result)
