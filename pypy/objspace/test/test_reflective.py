@@ -128,8 +128,7 @@ class AppTest_Reflective:
         g = f(1, 2)
         assert g(3) == f(1, 2, 3)
         assert f(4)(6)(7) == f(4, 6, 7)
-        return
-        # XXX the following does not work:
+        skip("XXX the following does not work because there are no fallbacks in the reflective object space")
         def g(x):
             return f(x)
         assert g(4)(5, 6) == f(4, 5, 6)
