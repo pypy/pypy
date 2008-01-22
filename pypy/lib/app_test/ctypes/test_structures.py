@@ -202,7 +202,7 @@ class TestStructure:
         raises(ValueError, type(Structure), "X", (Structure,), d)
 
     def test_initializers(self):
-        py.test.skip("unsupported")
+        py.test.skip("Structures with inlined arrays")
         class Person(Structure):
             _fields_ = [("name", c_char*6),
                         ("age", c_int)]
@@ -234,7 +234,7 @@ class TestStructure:
         raises(TypeError, setattr, POINT, "_fields_", [("x", 1), ("y", 2)])
 
     def test_intarray_fields(self):
-        py.test.skip("unsupported")
+        py.test.skip("Structures with inlined arrays")
         class SomeInts(Structure):
             _fields_ = [("a", c_int * 4)]
 
@@ -431,3 +431,4 @@ class TestPatologicalCases:
 
         x = X()
         assert x.x == 0
+

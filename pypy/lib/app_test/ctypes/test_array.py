@@ -108,3 +108,16 @@ class TestArray:
             sz = (c_wchar * 3).from_address(addressof(p))
             assert sz[:] == "foo"
             assert sz.value == "foo"
+
+class TestSophisticatedThings:
+    def test_array_of_structures(self):
+        class X(Structure):
+            _fields_ = [('x', c_int), ('y', c_int)]
+
+        Y = X * 2
+        y = Y()
+        x = X()
+        x.y = 3
+        y[1] = x
+        assert y[1].y == 3
+    

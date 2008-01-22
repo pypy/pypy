@@ -101,7 +101,14 @@ class Array(_CData):
             return
         value = self._type_._CData_input(value)
         index = self._fix_index(index)
-        self._buffer[index] = value[0]
+        if not isinstance(self._type_._ffishape, tuple):
+            self._buffer[index] = value[0]
+            # something more sophisticated, cannot set field directly
+        else:
+            from ctypes import memmove
+            dest = self._buffer.itemaddress(index)
+            source = value[0]
+            memmove(dest, source, self._type_._ffishape[0])
 
     def __getitem__(self, index):
         if isinstance(index, slice):
