@@ -420,3 +420,14 @@ class TestRecursiveStructure:
         else:
             raise AssertionError, "AttributeError not raised"
 
+
+class TestPatologicalCases:
+    def test_structure_overloading_getattr(self):
+        class X(Structure):
+            _fields_ = [('x', c_int)]
+
+            def __getattr__(self, name):
+                raise AttributeError, name
+
+        x = X()
+        assert x.x == 0

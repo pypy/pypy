@@ -142,11 +142,13 @@ class Structure(_CData):
         value = fieldtype._CData_input(value)
         self._buffer.__setattr__(name, value[0])
 
-    def __getattr__(self, name):
+    def __getattribute__(self, name):
+        if name == '_fieldtypes':
+            return _CData.__getattribute__(self, '_fieldtypes')
         try:
             fieldtype = self._fieldtypes[name].ctype
         except KeyError:
-            raise AttributeError(name)
+            return _CData.__getattribute__(self, name)
         return fieldtype._CData_output(self._subarray(fieldtype, name))
 
     def _get_buffer_for_param(self):
