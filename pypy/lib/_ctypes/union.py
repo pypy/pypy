@@ -49,7 +49,7 @@ class Union(_CData):
             fieldtype = self._fieldtypes[name].ctype
         except KeyError:
             raise AttributeError(name)
-        val = self._ffiarrays[name].fromaddress(self._buffer.buffer, 1)[0]
+        val = self._ffiarrays[name].fromaddress(self._buffer.buffer, 1)
         return fieldtype._CData_output(val)
 
     def __setattr__(self, name, value):

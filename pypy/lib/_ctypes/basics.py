@@ -27,6 +27,7 @@ class _CDataMeta(type):
         return cobj._get_buffer_for_param()
 
     def _CData_output(self, resarray):
+        assert isinstance(resarray, _rawffi.ArrayInstance)
         """Used when data exits ctypes and goes into user code.
         'resarray' is a _rawffi array of length 1 containing the value,
         and this returns a general Python object that corresponds.
