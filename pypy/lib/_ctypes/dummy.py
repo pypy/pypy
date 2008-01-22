@@ -8,5 +8,4 @@ def dummyfunc(*args, **kwargs):
     EXPLODE
 
 resize = dummyfunc
-_memset_addr = dummyfunc
 

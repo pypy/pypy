@@ -29,9 +29,12 @@ class CFuncPtr(_CData):
     def _getrestype(self):
         return self._restype_
     def _setrestype(self, restype):
+        if restype is int:
+            from ctypes import c_int
+            restype = c_int
         if not isinstance(restype, _CDataMeta) and not restype is None:
             raise TypeError("Expected ctypes type, got %s" % (restype,))
-        self._restype_ = restype    
+        self._restype_ = restype
     restype = property(_getrestype, _setrestype)    
 
     def __init__(self, argument=None):
@@ -49,6 +52,8 @@ class CFuncPtr(_CData):
         elif isinstance(argument, tuple) and len(argument) == 2:
             import ctypes
             self.name, self.dll = argument
+            if isinstance(self.dll, str):
+                self.dll = ctypes.CDLL(self.dll)
             # we need to check dll anyway
             self._getfuncptr([], ctypes.c_int)
         elif argument is None:
