@@ -140,13 +140,18 @@ def llexternal(name, args, result, _callable=None,
             if before: before()
             # NB. it is essential that no exception checking occurs after
             # the call to before(), because we don't have the GIL any more!
-        result = funcptr(*real_args)
+        res = funcptr(*real_args)
         if invoke_around_handlers:
             if after: after()
         for i, TARGET in unrolling_arg_tps:
             if to_free[i]:
                 lltype.free(to_free[i], flavor='raw')
-        return result
+        if rarithmetic.r_int is not r_int:
+            if result is INT:
+                return cast(lltype.Signed, res)
+            elif result is UINT:
+                return cast(lltype.Unsigned, res)
+        return res
     wrapper._annspecialcase_ = 'specialize:ll'
     wrapper._always_inline_ = True
     # for debugging, stick ll func ptr to that
