@@ -651,3 +651,10 @@ def setintfield(pdst, fieldname, value):
     assert isinstance(TDST, lltype.Number)
     setattr(pdst, fieldname, cast(TDST, value))
 setintfield._annspecialcase_ = 'specialize:ll_and_arg(1)'
+
+def getintfield(pdst, fieldname):
+    """As temporary as previous: get integer from a field in structure,
+    casting it to lltype.Signed
+    """
+    return cast(lltype.Signed, getattr(pdst, fieldname))
+getintfield._annspecialcase_ = 'specialize:ll_and_arg(1)'
