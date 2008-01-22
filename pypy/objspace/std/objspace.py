@@ -426,7 +426,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
             w_result = x.__spacebind__(self)
             #print 'wrapping', x, '->', w_result
             return w_result
-        if isinstance(x, (r_int, r_uint, r_longlong, r_ulonglong)):
+        if isinstance(x, r_int) or isinstance(x, r_uint) or \
+           isinstance(x, r_longlong) or isinstance(x, r_ulonglong):
             return W_LongObject.fromrarith_int(x)
 
         # _____ below here is where the annotator should not get _____
