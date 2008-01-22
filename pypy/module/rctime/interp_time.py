@@ -172,15 +172,15 @@ def _get_inttime(space, w_seconds):
 def _tm_to_tuple(space, t):
     time_tuple = []
 
-    time_tuple.append(space.wrap(t.c_tm_year + 1900))
-    time_tuple.append(space.wrap(t.c_tm_mon + 1)) # want january == 1
-    time_tuple.append(space.wrap(t.c_tm_mday))
-    time_tuple.append(space.wrap(t.c_tm_hour))
-    time_tuple.append(space.wrap(t.c_tm_min))
-    time_tuple.append(space.wrap(t.c_tm_sec))
-    time_tuple.append(space.wrap((t.c_tm_wday + 6) % 7)) # want monday == 0
-    time_tuple.append(space.wrap(t.c_tm_yday + 1)) # want january, 1 == 1
-    time_tuple.append(space.wrap(t.c_tm_isdst))
+    time_tuple.append(space.wrap(rffi.getintfield(t, 'c_tm_year') + 1900))
+    time_tuple.append(space.wrap(rffi.getintfield(t, 'c_tm_mon') + 1)) # want january == 1
+    time_tuple.append(space.wrap(rffi.getintfield(t, 'c_tm_mday')) )
+    time_tuple.append(space.wrap(rffi.getintfield(t, 'c_tm_hour')) )
+    time_tuple.append(space.wrap(rffi.getintfield(t, 'c_tm_min')) )
+    time_tuple.append(space.wrap(rffi.getintfield(t, 'c_tm_sec')) )
+    time_tuple.append(space.wrap((rffi.getintfield(t, 'c_tm_wday') + 6) % 7)) # want monday == 0
+    time_tuple.append(space.wrap(rffi.getintfield(t, 'c_tm_yday') + 1)) # want january, 1 == 1
+    time_tuple.append(space.wrap(rffi.getintfield(t, 'c_tm_isdst')) )
     
     w_struct_time = _get_module_object(space, 'struct_time')
     w_time_tuple = space.newtuple(time_tuple)
@@ -235,14 +235,17 @@ def _gettmarg(space, w_tup, allowNone=True):
             raise OperationError(space.w_ValueError,
                 space.wrap("year out of range"))
 
-    if glob_buf.c_tm_wday < 0:
+    if rffi.getintfield(glob_buf, 'c_tm_wday') < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("day of week out of range"))
 
     rffi.setintfield(glob_buf, 'c_tm_year', y - 1900)
-    rffi.setintfield(glob_buf, 'c_tm_mon', glob_buf.c_tm_mon - 1)
-    rffi.setintfield(glob_buf, 'c_tm_wday', (glob_buf.c_tm_wday + 1) % 7)
-    rffi.setintfield(glob_buf, 'c_tm_yday', glob_buf.c_tm_yday - 1)
+    rffi.setintfield(glob_buf, 'c_tm_mon',
+                     rffi.getintfield(glob_buf, 'c_tm_mon') - 1)
+    rffi.setintfield(glob_buf, 'c_tm_wday',
+                     (rffi.getintfield(glob_buf, 'c_tm_wday') + 1) % 7)
+    rffi.setintfield(glob_buf, 'c_tm_yday',
+                     rffi.getintfield(glob_buf, 'c_tm_yday') - 1)
 
     return glob_buf
 
@@ -398,25 +401,25 @@ def strftime(space, format, w_tup=None):
     # indexing blindly into some array for a textual representation
     # by some bad index (fixes bug #897625).
     # No check for year since handled in gettmarg().
-    if buf_value.c_tm_mon < 0 or buf_value.c_tm_mon > 11:
+    if rffi.getintfield(buf_value, 'c_tm_mon') < 0 or rffi.getintfield(buf_value, 'c_tm_mon') > 11:
         raise OperationError(space.w_ValueError,
                              space.wrap("month out of range"))
-    if buf_value.c_tm_mday < 1 or buf_value.c_tm_mday > 31:
+    if rffi.getintfield(buf_value, 'c_tm_mday') < 1 or rffi.getintfield(buf_value, 'c_tm_mday') > 31:
         raise OperationError(space.w_ValueError,
                              space.wrap("day of month out of range"))
-    if buf_value.c_tm_hour < 0 or buf_value.c_tm_hour > 23:
+    if rffi.getintfield(buf_value, 'c_tm_hour') < 0 or rffi.getintfield(buf_value, 'c_tm_hour') > 23:
         raise OperationError(space.w_ValueError,
                              space.wrap("hour out of range"))
-    if buf_value.c_tm_min < 0 or buf_value.c_tm_min > 59:
+    if rffi.getintfield(buf_value, 'c_tm_min') < 0 or rffi.getintfield(buf_value, 'c_tm_min') > 59:
         raise OperationError(space.w_ValueError,
                              space.wrap("minute out of range"))
-    if buf_value.c_tm_sec < 0 or buf_value.c_tm_sec > 61:
+    if rffi.getintfield(buf_value, 'c_tm_sec') < 0 or rffi.getintfield(buf_value, 'c_tm_sec') > 61:
         raise OperationError(space.w_ValueError,
                              space.wrap("seconds out of range"))
-    if buf_value.c_tm_yday < 0 or buf_value.c_tm_yday > 365:
+    if rffi.getintfield(buf_value, 'c_tm_yday') < 0 or rffi.getintfield(buf_value, 'c_tm_yday') > 365:
         raise OperationError(space.w_ValueError,
                              space.wrap("day of year out of range"))
-    if buf_value.c_tm_isdst < -1 or buf_value.c_tm_isdst > 1:
+    if rffi.getintfield(buf_value, 'c_tm_isdst') < -1 or rffi.getintfield(buf_value, 'c_tm_isdst') > 1:
         raise OperationError(space.w_ValueError,
                              space.wrap("daylight savings flag out of range"))
 
