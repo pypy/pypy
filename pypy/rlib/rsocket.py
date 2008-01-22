@@ -523,7 +523,7 @@ class RSocket(object):
     fd = _c.INVALID_SOCKET
     def __init__(self, family=AF_INET, type=SOCK_STREAM, proto=0):
         """Create a new socket."""
-        fd = intmask(_c.socket(family, type, proto))
+        fd = _c.socket(family, type, proto)
         if _c.invalid_socket(fd):
             raise self.error_handler()
         # PLAT RISCOS
@@ -642,7 +642,7 @@ class RSocket(object):
             address.unlock()
         if _c.invalid_socket(newfd):
             raise self.error_handler()
-        address.addrlen = addrlen
+        address.addrlen = rffi.cast(lltype.Signed, addrlen)
         sock = make_socket(newfd, self.family, self.type, self.proto,
                            SocketClass)
         return (sock, address)
@@ -735,7 +735,7 @@ class RSocket(object):
             address.unlock()
         if res < 0:
             raise self.error_handler()
-        address.addrlen = addrlen
+        address.addrlen = rffi.cast(lltype.Signed, addrlen)
         return address
 
     def getsockname(self):
@@ -749,7 +749,7 @@ class RSocket(object):
             address.unlock()
         if res < 0:
             raise self.error_handler()
-        address.addrlen = addrlen
+        address.addrlen = rffi.cast(lltype.Signed, addrlen)
         return address
 
     def getsockopt(self, level, option, maxlen):
@@ -762,7 +762,7 @@ class RSocket(object):
                                           buf, bufsize_p)
                 if res < 0:
                     raise self.error_handler()
-                size = bufsize_p[0]
+                size = rffi.cast(lltype.Signed, bufsize_p[0])
                 assert size >= 0       # socklen_t is signed on Windows
                 result = ''.join([buf[i] for i in range(size)])
             finally:
@@ -782,7 +782,7 @@ class RSocket(object):
                                           flagsize_p)
                 if res < 0:
                     raise self.error_handler()
-                result = flag_p[0]
+                result = rffi.cast(lltype.Signed, flag_p[0])
             finally:
                 lltype.free(flagsize_p, flavor='raw')
         finally:
@@ -838,7 +838,7 @@ class RSocket(object):
                 try:
                     read_bytes = _c.recvfrom(self.fd, buf, buffersize, flags,
                                              addr_p, addrlen_p)
-                    addrlen = addrlen_p[0]
+                    addrlen = rffi.cast(lltype.Signed, addrlen_p[0])
                 finally:
                     lltype.free(addrlen_p, flavor='raw')
                     address.unlock()
@@ -1031,8 +1031,8 @@ if hasattr(_c, 'socketpair'):
         res = _c.socketpair(family, type, proto, result)
         if res < 0:
             raise last_error()
-        fd0 = result[0]
-        fd1 = result[1]
+        fd0 = rffi.cast(lltype.Signed, result[0])
+        fd1 = rffi.cast(lltype.Signed, result[1])
         lltype.free(result, flavor='raw')
         return (make_socket(fd0, family, type, proto, SocketClass),
                 make_socket(fd1, family, type, proto, SocketClass))
@@ -1069,7 +1069,7 @@ def gethostbyname(name):
 def gethost_common(hostname, hostent, addr=None):
     if not hostent:
         raise HSocketError(hostname)
-    family = hostent.c_h_addrtype
+    family = rffi.getintfield(hostent, 'c_h_addrtype')
     if addr is not None and addr.family != family:
         raise CSocketError(_c.EAFNOSUPPORT)
 
@@ -1135,7 +1135,8 @@ def getaddrinfo(host, port_or_service,
         result = []
         info = res
         while info:
-            addr = make_address(info.c_ai_addr, info.c_ai_addrlen,
+            addr = make_address(info.c_ai_addr,
+                                rffi.getintfield(info, 'c_ai_addrlen'),
                                 address_to_fill)
             if info.c_ai_canonname:
                 canonname = rffi.charp2str(info.c_ai_canonname)
@@ -1207,7 +1208,7 @@ else:
         if ip == "255.255.255.255":
             return "\xff\xff\xff\xff"
         packed_addr = _c.inet_addr(ip)
-        if packed_addr == rffi.cast(rffi.UINT, INADDR_NONE):
+        if packed_addr == rffi.cast(lltype.Unsigned, INADDR_NONE):
             raise RSocketError("illegal IP address string passed to inet_aton")
         size = sizeof(_c.in_addr)
         buf = mallocbuf(size)
