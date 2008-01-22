@@ -46,6 +46,9 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
     ChoiceOption("name", "Object Space name",
                  ["std", "flow", "thunk", "dump", "taint", "reflective"],
                  "std",
+                 requires={"reflective":
+                               [("objspace.disable_call_speedhacks", True)]
+                          },
                  cmdline='--objspace -o'),
 
     ChoiceOption("parser", "which parser to use for app-level code",
@@ -106,6 +109,10 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
    
     BoolOption("honor__builtins__",
                "Honor the __builtins__ key of a module dictionary",
+               default=False),
+
+    BoolOption("disable_call_speedhacks",
+               "make sure that all calls go through space.call_args",
                default=False),
 
     OptionDescription("std", "Standard Object Space Options", [

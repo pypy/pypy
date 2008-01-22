@@ -83,3 +83,41 @@ class AppTest_Reflective:
         a = A()
         set_reflectivespace(Space())
         assert a.f() == 2
+
+    def test_autocurry(self):
+        # rather simplified for now
+        from __pypy__ import set_reflectivespace
+        class partial(object):
+            def __init__(self, func, *args, **kwargs):
+                self.func = func
+                self.args = args
+                self.kwargs = kwargs
+            def __call__(self, *args, **kwargs):
+                args = self.args + args
+                for key, value in self.kwargs.iteritems():
+                    if key in kwargs:
+                        raise TypeError("got multiple values for keyword argument %r" % (key, ))
+                    kwargs[key] = value
+                return self.func(*args, **kwargs)
+        import types
+        class Space:
+            def call_args(self, func, *args, **kwargs):
+                print func, args, kwargs
+                if (len(kwargs) != 0 or not 
+                    isinstance(func, types.FunctionType)):
+                    return func(*args, **kwargs)
+                defaults = func.func_defaults
+                if defaults is None:
+                    defaults = ()
+                argcount = func.func_code.co_argcount
+                minargs = argcount - len(defaults)
+                if len(args) >= minargs:
+                    return func(*args, **kwargs)
+                return partial(func, *args, **kwargs)
+        def f(x, y, z):
+            return x + y * z
+        set_reflectivespace(Space())
+        g = f(1, 2)
+        assert g(3) == f(1, 2, 3)
+        # XXX the following does not work, of course:
+        # assert f(4)(6)(7) == f(4, 6, 7)

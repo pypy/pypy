@@ -661,43 +661,45 @@ class ObjSpace(object):
         return self.call_args(w_callable, args)
 
     def call_function(self, w_func, *args_w):
-        # XXX start of hack for performance
-        from pypy.interpreter.function import Function, Method
-        if isinstance(w_func, Method):
-            w_inst = w_func.w_instance
-            if w_inst is not None:
-                func = w_func.w_function
-                if isinstance(func, Function):
-                    return func.funccall(w_inst, *args_w)
-            elif args_w and self.is_true(
-                    self.abstract_isinstance(args_w[0], w_func.w_class)):
-                w_func = w_func.w_function
+        if not self.config.objspace.disable_call_speedhacks:
+            # XXX start of hack for performance
+            from pypy.interpreter.function import Function, Method
+            if isinstance(w_func, Method):
+                w_inst = w_func.w_instance
+                if w_inst is not None:
+                    func = w_func.w_function
+                    if isinstance(func, Function):
+                        return func.funccall(w_inst, *args_w)
+                elif args_w and self.is_true(
+                        self.abstract_isinstance(args_w[0], w_func.w_class)):
+                    w_func = w_func.w_function
 
-        if isinstance(w_func, Function):
-            return w_func.funccall(*args_w)
-        # XXX end of hack for performance
+            if isinstance(w_func, Function):
+                return w_func.funccall(*args_w)
+            # XXX end of hack for performance
 
         args = Arguments(self, list(args_w))
         return self.call_args(w_func, args)
 
     def call_valuestack(self, w_func, nargs, frame):
-        # XXX start of hack for performance
-        from pypy.interpreter.function import Function, Method
-        hint(w_func.__class__, promote=True)
-        if isinstance(w_func, Method):
-            w_inst = w_func.w_instance
-            if w_inst is not None:
-                func = w_func.w_function
-                if isinstance(func, Function):
-                    return func.funccall_obj_valuestack(w_inst, nargs, frame)
-            elif nargs > 0 and self.is_true(
-                self.abstract_isinstance(frame.peekvalue(nargs-1),   #    :-(
-                                         w_func.w_class)):
-                w_func = w_func.w_function
+        if not self.config.objspace.disable_call_speedhacks:
+            # XXX start of hack for performance
+            from pypy.interpreter.function import Function, Method
+            hint(w_func.__class__, promote=True)
+            if isinstance(w_func, Method):
+                w_inst = w_func.w_instance
+                if w_inst is not None:
+                    func = w_func.w_function
+                    if isinstance(func, Function):
+                        return func.funccall_obj_valuestack(w_inst, nargs, frame)
+                elif nargs > 0 and self.is_true(
+                    self.abstract_isinstance(frame.peekvalue(nargs-1),   #    :-(
+                                             w_func.w_class)):
+                    w_func = w_func.w_function
 
-        if isinstance(w_func, Function):
-            return w_func.funccall_valuestack(nargs, frame)
-        # XXX end of hack for performance
+            if isinstance(w_func, Function):
+                return w_func.funccall_valuestack(nargs, frame)
+            # XXX end of hack for performance
 
         args = frame.make_arguments(nargs)
         try:
