@@ -59,7 +59,7 @@ class TestPointers:
         assert i.value == 54345
 
     def test_callbacks_with_pointers(self):
-        py.test.skip("callbacks not supported")
+        py.test.skip("This test looks bogus (never checks anything)")
         # a function type receiving a pointer
         PROTOTYPE = CFUNCTYPE(c_int, POINTER(c_int))
 

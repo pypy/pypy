@@ -67,7 +67,6 @@ class TestStructure:
                                  (calcsize("c%c0%c" % (code, code)), code))
 
     def test_unions(self):
-        py.test.skip("No unions support")
         for code, tp in self.formats.items():
             class X(Union):
                 _fields_ = [("x", c_char),
@@ -107,7 +106,6 @@ class TestStructure:
         assert sizeof(XX) == calcsize("3s 3s 0s")
 
     def test_emtpy(self):
-        py.test.skip("No unions support")
         # I had problems with these
         #
         # Although these are patological cases: Empty Structures!
@@ -144,7 +142,6 @@ class TestStructure:
         raises((TypeError, AttributeError), setattr, X.x, "offset", 92)
         raises((TypeError, AttributeError), setattr, X.x, "size", 92)
 
-        py.test.skip("No unions support")
         class X(Union):
             _fields_ = [("x", c_int),
                         ("y", c_char)]
