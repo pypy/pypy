@@ -162,6 +162,11 @@ class AppTestFfi:
         arg2[0] = 'x'
         res = char_check(arg1, arg2)
         assert _rawffi.charp2string(res[0]) == 'xxxxxx'
+        assert _rawffi.charp2rawstring(res[0]) == 'xxxxxx'
+        assert _rawffi.charp2rawstring(res[0], 3) == 'xxx'
+        a = A(6, 'xx\x00\x00xx')
+        assert _rawffi.charp2string(a.buffer) == 'xx'
+        assert _rawffi.charp2rawstring(a.buffer, 4) == 'xx\x00\x00'
         res.free()
         arg1[0] = 'x'
         arg2[0] = 'y'

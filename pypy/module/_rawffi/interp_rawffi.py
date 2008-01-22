@@ -334,3 +334,10 @@ def charp2string(space, address, maxlength=sys.maxint):
     s = rffi.charp2strn(rffi.cast(rffi.CCHARP, address), maxlength)
     return space.wrap(s)
 charp2string.unwrap_spec = [ObjSpace, r_uint, int]
+
+def charp2rawstring(space, address, maxlength=-1):
+    if maxlength == -1:
+        return charp2string(space, address)
+    s = rffi.charpsize2str(rffi.cast(rffi.CCHARP, address), maxlength)
+    return space.wrap(s)
+charp2rawstring.unwrap_spec = [ObjSpace, r_uint, int]
