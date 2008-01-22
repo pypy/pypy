@@ -104,6 +104,11 @@ class AppTestFfi:
             return prebuilt_array1;
         }
 
+        long long runcallback(long long(*callback)())
+        {
+            return callback();
+        }
+
         '''))
         return compile_c_module([c_file], 'x', ExternalCompilationInfo())
     prepare_c_example = staticmethod(prepare_c_example)
@@ -371,10 +376,9 @@ class AppTestFfi:
             a1 = _rawffi.Array('i').fromaddress(a, 1)
             a2 = _rawffi.Array('i').fromaddress(b, 1)
             if a1[0] > a2[0]:
-                res = 1
-            res = -1
-            resarray[0] = res
-            return resarray
+                res = -1
+            res = 1
+            return res
         a1 = ll_to_sort.byptr()
         a2 = _rawffi.Array('i')(1)
         a2[0] = len(ll_to_sort)
@@ -385,6 +389,27 @@ class AppTestFfi:
         qsort(a1, a2, a3, a4)
         res = [ll_to_sort[i] for i in range(len(ll_to_sort))]
         assert res == [1,2,3,4]
+        a1.free()
+        a2.free()
+        a3.free()
+        a4.free()
+        ll_to_sort.free()
+        del cb
+
+    def test_another_callback(self):
+        import _rawffi
+        lib = _rawffi.CDLL(self.lib_name)
+        runcallback = lib.ptr('runcallback', ['P'], 'q')
+        def callback():
+            return 1<<42
+
+        cb = _rawffi.CallbackPtr(callback, [], 'q')
+        a1 = cb.byptr()
+        res = runcallback(a1)
+        assert res[0] == 1<<42
+        res.free()
+        a1.free()
+        del cb
 
     def test_setattr_struct(self):
         import _rawffi

@@ -5,9 +5,9 @@ from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.module._rawffi.structure import unpack_fields
-from pypy.module._rawffi.array import get_elem
+from pypy.module._rawffi.array import get_elem, push_elem
 from pypy.module._rawffi.interp_rawffi import W_DataInstance, _get_type_,\
-     wrap_value, unwrap_value, unwrap_truncate_int
+     wrap_value, unwrap_value, unwrap_truncate_int, letter2tp
 from pypy.rlib.libffi import USERDATA_P, CallbackFuncPtr
 
 def callback(ll_args, ll_res, ll_userdata):
@@ -18,17 +18,11 @@ def callback(ll_args, ll_res, ll_userdata):
     argtypes = callback_ptr.args
     space = callback_ptr.space
     w_args = space.newlist([wrap_value(space, get_elem, ll_args[i], 0,
-                                       (argtypes[i], 0, 0))
+                                       letter2tp(space, argtypes[i]))
                             for i in range(len(argtypes))])
     w_res = space.call(w_callable, w_args)
-    if space.is_w(w_res, space.w_None):
-        res[0] = lltype.nullptr(rffi.VOIDP.TO)
-    else:
-        instance = space.interpclass_w(w_res)
-        if isinstance(instance, W_DataInstance):
-            res[0] = instance.ll_buffer
-        else:
-            res[0] = unwrap_truncate_int(rffi.VOIDP, space, w_res)
+    unwrap_value(space, push_elem, ll_res, 0,
+                 letter2tp(space, callback_ptr.result), w_res)
 
 class W_CallbackPtr(W_DataInstance):
     # XXX some weird hackery to be able to recover W_CallbackPtr object
@@ -38,7 +32,7 @@ class W_CallbackPtr(W_DataInstance):
     
     def __init__(self, space, w_callable, w_args, w_result):
         number = self.CallbackPtr_id
-        self.CallbackPtr_id += 1
+        self.__class__.CallbackPtr_id += 1
         self.CallbackPtr_by_number[number] = self
         self.space = space
         self.w_callable = w_callable
