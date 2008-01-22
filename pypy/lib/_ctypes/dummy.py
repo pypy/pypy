@@ -1,5 +1,5 @@
 def dummyfunc(*args, **kwargs):
-    EXPLODE
+    raise NotImplementedError("non-implemented ctypes function")
 
 resize = dummyfunc
 
