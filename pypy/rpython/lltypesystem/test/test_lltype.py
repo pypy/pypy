@@ -696,6 +696,9 @@ def test_odd_ints():
     assert cast_ptr_to_int(t) == 21
     assert s == cast_pointer(Ptr(S), t)
 
+def test_cast_float():
+    assert cast_float_to_int(2.3) == 0x40133333
+
 def test_str_of_dead_ptr():
     S = Struct('S', ('x', Signed))
     T = GcStruct('T', ('s', S))

@@ -7,6 +7,7 @@ from pypy.tool.uid import Hashable
 from pypy.tool.tls import tlsobject
 from types import NoneType
 from sys import maxint
+import struct
 import weakref
 
 log = py.log.Producer('lltype')
@@ -1771,6 +1772,9 @@ def cast_int_to_ptr(PTRTYPE, oddint):
         return nullptr(PTRTYPE.TO)
     assert oddint & 1, "only odd integers can be cast back to ptr"
     return _ptr(PTRTYPE, oddint, solid=True)
+
+def cast_float_to_int(val):
+    return struct.unpack('i', struct.pack('f', val))[0]
 
 def attachRuntimeTypeInfo(GCSTRUCT, funcptr=None, destrptr=None):
     if not isinstance(GCSTRUCT, RttiStruct):
