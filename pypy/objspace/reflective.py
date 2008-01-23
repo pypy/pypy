@@ -36,6 +36,8 @@ def get_spaceop_args(name):
     for opname, _, args, _ in ObjSpace.MethodTable:
         if opname == name:
             return args
+    if opname == "is_true":
+        return 1
 
 def make_space_access_method(name, wrappedfn, parentfn):
     if name.startswith("new") or name.endswith("_w"):
@@ -50,6 +52,17 @@ def make_space_access_method(name, wrappedfn, parentfn):
             finally:
                 reset_reflective_space(space, w_old_reflectivespace)
         unwrap_spec = ['self', ObjSpace, W_Root, argument.Arguments]
+    elif name == "is_true":
+        def func(self, space, w_obj):
+            w_old_reflectivespace = get_reflective_space(space)
+            set_reflectivespace(space, self.w_reflectivespace)
+            try:
+                if parentfn(w_obj):
+                    return space.w_True
+                return space.w_False
+            finally:
+                reset_reflective_space(space, w_old_reflectivespace)
+        unwrap_spec = ['self', ObjSpace, W_Root]
     else:
         args = get_spaceop_args(name)
         if args == 1:
@@ -90,8 +103,8 @@ DontWrapMe = [
     'wrap',
     'interpclass_w',
     'unwrap',
-    'is_true',
     'marshal_w',
+    'nonzero', # maps to is_true anyway
     ]
 
 
@@ -175,6 +188,17 @@ def proxymaker(space, opname, parentfn):
                         space.wrap("space.type must return a type object!"))
                 return w_obj
             return parentfn(*args_w)
+    elif opname == "is_true":
+        def fn(w_obj):
+            w_newobj = user_hook(w_obj)
+            if w_newobj is not None:
+                if w_newobj is space.w_True:
+                    return True
+                elif w_newobj is space.w_False:
+                    return False
+                raise OperationError(space.w_TypeError,
+                                     space.wrap("is_true must return True or False"))
+            return parentfn(w_obj)
     else:
         def fn(*args_w):
             w_obj = user_hook(*args_w)

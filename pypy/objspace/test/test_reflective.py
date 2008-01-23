@@ -134,6 +134,25 @@ class AppTest_Reflective:
         raises(AttributeError, "a.x = 2")
         set_reflectivespace(None)
 
+    def test_is_true(self):
+        from __pypy__ import set_reflectivespace
+        class Space:
+            def is_true(self, space, obj):
+                print "is_true", obj
+                if type(obj) == int:
+                    # confusity
+                    return bool(obj % 13)
+                return space.is_true(bool)
+        set_reflectivespace(Space())
+        bool(13)
+        if 13:
+            assert False, "should not get here"
+        if "abc":
+            pass
+        else:
+            assert False, "should not get here"
+        set_reflectivespace(None)
+        
 
     def test_autocurry(self):
         # rather simplified for now
