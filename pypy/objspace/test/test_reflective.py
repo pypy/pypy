@@ -8,7 +8,7 @@ class AppTest_Reflective:
     def test_add(self):
         from __pypy__ import set_reflectivespace
         class Space:
-            def add(self, x, y):
+            def add(self, space, x, y):
                 return 40+2
 
         set_reflectivespace(Space())
@@ -20,6 +20,23 @@ class AppTest_Reflective:
         x = 1
         y = 2
         assert x + y == 3
+
+    def test_fallback(self):
+        from __pypy__ import set_reflectivespace
+        class Space:
+            def mul(self, space, x, y):
+                return space.add(x, y)
+
+        class Add(object):
+            def __init__(self, val):
+                self.val = val
+            def __add__(self, other):
+                return self.val * other.val
+        a2 = Add(2)
+        a5 = Add(5)
+        set_reflectivespace(Space())
+        assert a2 * a5 == 7
+        set_reflectivespace(None)
         
     def test_default_behaviour(self):
         from __pypy__ import set_reflectivespace
@@ -59,7 +76,7 @@ class AppTest_Reflective:
     def test_type_must_return_type(self):
         from __pypy__ import set_reflectivespace
         class Space:
-            def type(self, o):
+            def type(self, space, o):
                 if o is l:
                     return 1
                 return type(o)
@@ -71,7 +88,7 @@ class AppTest_Reflective:
     def test_type(self):
         from __pypy__ import set_reflectivespace
         class Space:
-            def type(self, o):
+            def type(self, space, o):
                 if o is a:
                     return B
                 return type(o)
@@ -105,22 +122,22 @@ class AppTest_Reflective:
                 return self.func(*args, **kwargs)
         import types
         class Space:
-            def call_args(self, func, *args, **kwargs):
+            def call_args(self, space, func, *args, **kwargs):
                 print func, args, kwargs
                 if len(kwargs) != 0: # XXX for now
-                    return func(*args, **kwargs)
+                    return space.call_args(func, *args, **kwargs)
                 if isinstance(func, partial):
                     args, kwargs = func.combine_args(args, kwargs)
                     func = func.func
                 elif not isinstance(func, types.FunctionType):
-                    return func(*args, **kwargs)
+                    return space.call_args(func, *args, **kwargs)
                 defaults = func.func_defaults
                 if defaults is None:
                     defaults = ()
                 argcount = func.func_code.co_argcount
                 minargs = argcount - len(defaults)
                 if len(args) >= minargs:
-                    return func(*args, **kwargs)
+                    return space.call_args(func, *args, **kwargs)
                 return partial(func, *args, **kwargs)
         def f(x, y, z):
             return x + y * z
@@ -128,7 +145,6 @@ class AppTest_Reflective:
         g = f(1, 2)
         assert g(3) == f(1, 2, 3)
         assert f(4)(6)(7) == f(4, 6, 7)
-        skip("XXX the following does not work because there are no fallbacks in the reflective object space")
         def g(x):
             return f(x)
         assert g(4)(5, 6) == f(4, 5, 6)
