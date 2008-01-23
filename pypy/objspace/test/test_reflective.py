@@ -111,6 +111,35 @@ class AppTest_Reflective:
         set_reflectivespace(Space())
         assert chr("123") == chr(123)
 
+    def test_is(self):
+        from __pypy__ import set_reflectivespace
+        IAmNone = object()
+        class Space:
+            def replace(self, obj):
+                if obj is IAmNone:
+                    return None
+                return obj
+            def is_(self, space, a, b):
+                return self.replace(a) is self.replace(b)
+            def __getattr__(self, name):
+                if name in ["repr", "type"]:
+                    def f(space, *args):
+                        newargs = []
+                        for arg in args:
+                            newargs.append(self.replace(arg))
+                        return getattr(space, name)(*newargs)
+                    return f
+                raise AttributeError
+        set_reflectivespace(Space())
+        assert IAmNone is None
+        assert type(IAmNone) is type(None)
+        # check that space.is_w is not using a fast path
+        class A(object):
+            x = property(lambda self: 1, IAmNone)
+        a = A()
+        assert a.x == 1
+        raises(AttributeError, "a.x = 2")
+
 
     def test_autocurry(self):
         # rather simplified for now

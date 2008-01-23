@@ -91,7 +91,6 @@ DontWrapMe = [
     'interpclass_w',
     'unwrap',
     'is_true',
-    'is_w',
     'marshal_w',
     ]
 
@@ -136,6 +135,9 @@ def proxymaker(space, opname, parentfn):
                 return w_newobj
             return w_obj
         want_spaceaccess = False
+    elif opname == "is_w":
+        def fn(w_obj1, w_obj2):
+            return space.is_true(space.is_(w_obj1, w_obj2))
     elif opname.endswith("_w"):
         def fn(w_obj):
             w_newobj = user_hook(w_obj)
