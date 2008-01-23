@@ -433,6 +433,15 @@ BREAKPOINT = Instruction()    # INT 3
 BREAKPOINT.mode0(['\xCC'])
 BREAKPOINT.as_alias = "INT3"
 
+# ------------------------- floating point instructions ------------------
+FLD = Instruction()
+FLD.mode1(MODRM, ['\xDD', modrm(1)])
+
+FADD = Instruction()
+FADD.mode1(MODRM, ['\xDC', modrm(1)])
+
+# ------------------------- end of floating point ------------------------
+
 UD2 = Instruction()      # reserved as an illegal instruction
 UD2.mode0(['\x0F\x0B'])
 
