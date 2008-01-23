@@ -105,8 +105,9 @@ class AppTest_Reflective:
         # rather simplified for now
         from __pypy__ import set_reflectivespace
         class partial(object):
-            def __init__(self, func, *args, **kwargs):
+            def __init__(self, func, callable, *args, **kwargs):
                 self.func = func
+                self.callable = callable
                 self.args = args
                 self.kwargs = kwargs
             def combine_args(self, args, kwargs):
@@ -116,10 +117,9 @@ class AppTest_Reflective:
                         raise TypeError("got multiple values for keyword argument %r" % (key, ))
                     kwargs[key] = value
                 return args, kwargs
-
             def __call__(self, *args, **kwargs):
                 args, kwargs = self.combine_args(args, kwargs)
-                return self.func(*args, **kwargs)
+                return self.callable(*args, **kwargs)
         import types
         class Space:
             def call_args(self, space, callable, *args, **kwargs):
@@ -129,12 +129,14 @@ class AppTest_Reflective:
                 if isinstance(callable, partial):
                     args, kwargs = callable.combine_args(args, kwargs)
                     func = callable.func
-                elif isinstance(callable, types.MethodType):
+                    callable = callable.callable
+                if isinstance(callable, types.MethodType):
                     if callable.im_self is not None:
                         args = (callable.im_self, ) + args
                         func = callable.im_func
+                        callable = func
                     else:
-                        return space.call_args(callable, *args, **kwargs)
+                        func = callable.im_func
                 elif not isinstance(callable, types.FunctionType):
                     return space.call_args(callable, *args, **kwargs)
                 else:
@@ -145,8 +147,8 @@ class AppTest_Reflective:
                 argcount = func.func_code.co_argcount
                 minargs = argcount - len(defaults)
                 if len(args) >= minargs:
-                    return space.call_args(func, *args, **kwargs)
-                return partial(func, *args, **kwargs)
+                    return space.call_args(callable, *args, **kwargs)
+                return partial(func, callable, *args, **kwargs)
         def f(x, y, z):
             return x + y * z
         set_reflectivespace(Space())
@@ -163,3 +165,4 @@ class AppTest_Reflective:
                 return self.val + b * c
         a = A(3)
         assert a.func()(5, 6) == f(3, 5, 6)
+        assert A.func()(a)(5)(6) == f(3, 5, 6)
