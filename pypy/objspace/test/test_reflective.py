@@ -121,15 +121,8 @@ class AppTest_Reflective:
                 return obj
             def is_(self, space, a, b):
                 return self.replace(a) is self.replace(b)
-            def __getattr__(self, name):
-                if name in ["repr", "type"]:
-                    def f(space, *args):
-                        newargs = []
-                        for arg in args:
-                            newargs.append(self.replace(arg))
-                        return getattr(space, name)(*newargs)
-                    return f
-                raise AttributeError
+            def type(self, space, a):
+                return type(self.replace(a))
         set_reflectivespace(Space())
         assert IAmNone is None
         assert type(IAmNone) is type(None)
@@ -139,6 +132,7 @@ class AppTest_Reflective:
         a = A()
         assert a.x == 1
         raises(AttributeError, "a.x = 2")
+        set_reflectivespace(None)
 
 
     def test_autocurry(self):
