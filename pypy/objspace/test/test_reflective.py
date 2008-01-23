@@ -122,15 +122,23 @@ class AppTest_Reflective:
                 return self.func(*args, **kwargs)
         import types
         class Space:
-            def call_args(self, space, func, *args, **kwargs):
-                print func, args, kwargs
+            def call_args(self, space, callable, *args, **kwargs):
+                print callable, args, kwargs
                 if len(kwargs) != 0: # XXX for now
-                    return space.call_args(func, *args, **kwargs)
-                if isinstance(func, partial):
-                    args, kwargs = func.combine_args(args, kwargs)
-                    func = func.func
-                elif not isinstance(func, types.FunctionType):
-                    return space.call_args(func, *args, **kwargs)
+                    return space.call_args(callable, *args, **kwargs)
+                if isinstance(callable, partial):
+                    args, kwargs = callable.combine_args(args, kwargs)
+                    func = callable.func
+                elif isinstance(callable, types.MethodType):
+                    if callable.im_self is not None:
+                        args = (callable.im_self, ) + args
+                        func = callable.im_func
+                    else:
+                        return space.call_args(callable, *args, **kwargs)
+                elif not isinstance(callable, types.FunctionType):
+                    return space.call_args(callable, *args, **kwargs)
+                else:
+                    func = callable
                 defaults = func.func_defaults
                 if defaults is None:
                     defaults = ()
@@ -148,3 +156,10 @@ class AppTest_Reflective:
         def g(x):
             return f(x)
         assert g(4)(5, 6) == f(4, 5, 6)
+        class A(object):
+            def __init__(self, val):
+                self.val = val
+            def func(self, b, c):
+                return self.val + b * c
+        a = A(3)
+        assert a.func()(5, 6) == f(3, 5, 6)
