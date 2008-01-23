@@ -215,6 +215,14 @@ class _EventHandler(MicroInstruction):
         generator.ilasm.opcode('ldftn instance', desc)
         generator.ilasm.opcode('newobj', 'instance void class [mscorlib]System.EventHandler::.ctor(object, native int)')
 
+class _GetStaticField(MicroInstruction):
+    def render(self, generator, op):
+        cli_class = op.args[0].value
+        fldname = op.args[1].value
+        TYPE = op.result.concretetype
+        cts_type = generator.cts.lltype_to_cts(TYPE)
+        desc = '%s::%s' % (cli_class._name, fldname)
+        generator.ilasm.load_static_field(cts_type, desc)
 
 
 OOTYPE_TO_MNEMONIC = {
@@ -243,4 +251,5 @@ GetArrayElem = _GetArrayElem()
 SetArrayElem = _SetArrayElem()
 TypeOf = _TypeOf()
 EventHandler = _EventHandler()
+GetStaticField = _GetStaticField()
 CastPrimitive = _CastPrimitive()

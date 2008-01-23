@@ -1,7 +1,7 @@
 from pypy.translator.cli.metavm import  Call, CallMethod, \
      IndirectCall, GetField, SetField, DownCast, NewCustomDict,\
      MapException, Box, Unbox, NewArray, GetArrayElem, SetArrayElem,\
-     TypeOf, CastPrimitive, EventHandler
+     TypeOf, CastPrimitive, EventHandler, GetStaticField
 from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult, InstructionList,\
     New, RuntimeNew, CastTo, PushPrimitive, OOString, OOUnicode
 from pypy.translator.cli.cts import WEAKREF
@@ -44,6 +44,7 @@ opcodes = {
     'cli_typeof':               [TypeOf],
     'cli_arraylength':          'ldlen',
     'cli_eventhandler':         [EventHandler],
+    'cli_getstaticfield':       [GetStaticField],
     'oois':                     'ceq',
     'oononnull':                [PushAllArgs, 'ldnull', 'ceq']+Not,
     'instanceof':               [CastTo, 'ldnull', 'cgt.un'],

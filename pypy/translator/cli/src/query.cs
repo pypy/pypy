@@ -60,8 +60,10 @@ public class Query
         outfile.WriteLine("desc.FullName = '{0}'", t.FullName);
         outfile.WriteLine("desc.BaseType = '{0}'", GetBaseType(t));
         outfile.WriteLine("desc.IsArray = {0}", t.IsArray);
+        outfile.WriteLine("desc.IsValueType = {0}", t.IsValueType);
         PrintMethods("desc.StaticMethods", t.GetMethods(BindingFlags.Static|BindingFlags.Public|BindingFlags.DeclaredOnly));
         PrintMethods("desc.Methods", t.GetMethods(BindingFlags.Instance|BindingFlags.Public|BindingFlags.DeclaredOnly));
+        PrintFields("desc.StaticFields", t.GetFields(BindingFlags.Static|BindingFlags.Public|BindingFlags.DeclaredOnly));
     }
 
     private static string GetBaseType(Type t)
@@ -115,6 +117,15 @@ public class Query
             }
             outfile.WriteLine("], '{0}'),", GetOOType(meth.ReturnType));
         }
+        outfile.WriteLine("  ]");
+    }
+
+    private static void PrintFields(string varname, FieldInfo[] fields)
+    {
+        outfile.WriteLine("{0} = [", varname);
+        // FieldName, RESULT
+        foreach(FieldInfo fld in fields)
+            outfile.WriteLine("    ('{0}', '{1}'),", fld.Name, GetOOType(fld.FieldType));
         outfile.WriteLine("  ]");
     }
 

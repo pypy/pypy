@@ -41,12 +41,13 @@ class CliPrimitiveType(CliType):
 
 
 class CliReferenceType(CliType):
+    prefix = 'class '
+    
     def typename(self):
-        return 'class ' + self.classname()
+        return self.prefix + self.classname()
 
     def classname(self):
         raise NotImplementedError
-
 
 class CliClassType(CliReferenceType):
     def __init__(self, assembly, name):
@@ -58,6 +59,9 @@ class CliClassType(CliReferenceType):
             return '[%s]%s' % (self.assembly, self.name)
         else:
             return self.name
+
+class CliValueType(CliClassType):
+    prefix = 'valuetype '
 
 
 class CliGenericType(CliReferenceType):
@@ -229,12 +233,16 @@ class CTS(object):
         elif isinstance(t, lltype.Ptr) and isinstance(t.TO, lltype.OpaqueType):
             return types.object
         elif isinstance(t, ootype.Instance):
+            if getattr(t, '_is_value_type', False):
+                cls = CliValueType
+            else:
+                cls = CliClassType
             NATIVE_INSTANCE = t._hints.get('NATIVE_INSTANCE', None)
             if NATIVE_INSTANCE:
-                return CliClassType(None, NATIVE_INSTANCE._name)
+                return cls(None, NATIVE_INSTANCE._name)
             else:
                 name = self.db.pending_class(t)
-                return CliClassType(None, name)
+                return cls(None, name)
         elif isinstance(t, ootype.Record):
             name = self.db.pending_record(t)
             return CliClassType(None, name)

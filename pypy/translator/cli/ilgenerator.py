@@ -203,17 +203,21 @@ class IlasmGenerator(object):
     def load_self(self):
         self.opcode('ldarg.0')
     
-    def load_arg(self,v):
+    def load_arg(self, v):
         self.opcode('ldarg', repr(v.name))
     
-    def load_local(self,v):
-        self.opcode('ldloc', repr(v.name))
+    def load_local(self, v):
+        TYPE = v.concretetype
+        if getattr(TYPE, '_is_value_type', False):
+            self.opcode('ldloca', repr(v.name))
+        else:
+            self.opcode('ldloc', repr(v.name))
 
     def switch(self, targets):
         cmd = 'switch(%s)' % ', '.join(targets)
         self.opcode(cmd)
 
-    def load_const(self,type_,v):
+    def load_const(self,type_, v):
         if type_ is Void:
             pass
         elif type_ is Bool:

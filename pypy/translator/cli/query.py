@@ -86,8 +86,6 @@ def get_class_desc(name):
         desc.BaseType = 'System.Object'
         desc.IsArray = True
         desc.ElementType = 'System.Object' # not really true, but we need something
-        desc.StaticMethods = []
-        desc.Methods = []
     elif name.endswith('[]'): # it's an array
         itemname = name[:-2]
         itemdesc = get_class_desc(itemname)
@@ -97,7 +95,6 @@ def get_class_desc(name):
         desc.BaseType = 'System.Array'
         desc.ElementType = itemdesc.FullName
         desc.IsArray = True
-        desc.StaticMethods = []
         desc.Methods = [
             ('Get', ['ootype.Signed', ], itemdesc.FullName),
             ('Set', ['ootype.Signed', itemdesc.FullName], 'ootype.Void')
@@ -110,6 +107,13 @@ def get_class_desc(name):
 
 
 class ClassDesc(object):
+
+    # default values
+    StaticFields = []
+    StaticMethods = []
+    Methods = []
+    IsValueType = False
+
     _cliclass = None
 
     def __eq__(self, other):
@@ -131,7 +135,8 @@ class ClassDesc(object):
         # construct OOTYPE and CliClass
         # no superclass for now, will add it later
         TYPE = NativeInstance('[mscorlib]', namespace, name, None, {}, {})
-        Class = CliClass(TYPE, {})
+        TYPE._is_value_type = self.IsValueType
+        Class = CliClass(TYPE, {}, {})
         self._cliclass = Class
         # we need to check also for System.Array to prevent a circular recursion
         if self.FullName in ('System.Object', 'System.Array'):
@@ -144,11 +149,13 @@ class ClassDesc(object):
         if self.IsArray:
             TYPE._ELEMENT = get_ootype(self.ElementType)
 
-        # add both static and instance methods
+        # add both static and instance methods, and static fields
         static_meths = self.group_methods(self.StaticMethods, _overloaded_static_meth,
                                           _static_meth, ootype.StaticMethod)
         meths = self.group_methods(self.Methods, ootype.overload, ootype.meth, ootype.Meth)
+        fields = dict([(name, get_ootype(t)) for name, t in self.StaticFields])
         Class._add_methods(static_meths)
+        Class._add_static_fields(fields)
         TYPE._add_methods(meths)
         return Class
 

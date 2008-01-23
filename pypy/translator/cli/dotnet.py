@@ -21,7 +21,15 @@ class SomeCliClass(SomeObject):
     def getattr(self, s_attr):
         assert self.is_constant()
         assert s_attr.is_constant()
-        return SomeCliStaticMethod(self.const, s_attr.const)
+        cliclass = self.const
+        attrname = s_attr.const
+        if attrname in cliclass._static_fields:
+            TYPE = cliclass._static_fields[attrname]
+            return OverloadingResolver.lltype_to_annotation(TYPE)
+        elif attrname in cliclass._static_methods:
+            return SomeCliStaticMethod(cliclass, attrname)
+        else:
+            return s_ImpossibleValue
 
     def simple_call(self, *s_args):
         assert self.is_constant()
@@ -75,7 +83,15 @@ class CliClassRepr(Repr):
         self.cli_class = cli_class
 
     def rtype_getattr(self, hop):
-        return hop.inputconst(ootype.Void, self.cli_class)
+        attrname = hop.args_v[1].value
+        if attrname in self.cli_class._static_methods:
+            return hop.inputconst(ootype.Void, self.cli_class)
+        else:
+            assert attrname in self.cli_class._static_fields
+            TYPE = self.cli_class._static_fields[attrname]
+            c_class = hop.inputarg(hop.args_r[0], arg=0)
+            c_name = hop.inputconst(ootype.Void, hop.args_v[1].value)
+            return hop.genop("cli_getstaticfield", [c_class, c_name], resulttype=hop.r_result.lowleveltype)
 
     def rtype_simple_call(self, hop):
         # TODO: resolve constructor overloading
@@ -199,16 +215,18 @@ class NativeInstance(ootype.Instance):
         fullname = '%s%s.%s' % (assembly, namespace, name)
         self._namespace = namespace
         self._classname = name
+        self._is_value_type = False
         ootype.Instance.__init__(self, fullname, superclass, fields, methods, _is_root, _hints)
 
 
 ## RPython interface definition
 
 class CliClass(object):
-    def __init__(self, INSTANCE, static_methods):
+    def __init__(self, INSTANCE, static_methods, static_fields):
         self._name = INSTANCE._name
         self._INSTANCE = INSTANCE
         self._static_methods = {}
+        self._static_fields = {}
         self._add_methods(static_methods)
 
     def __repr__(self):
@@ -221,6 +239,9 @@ class CliClass(object):
         self._static_methods.update(methods)
         for name, meth in methods.iteritems():
             meth._set_attrs(self, name)
+
+    def _add_static_fields(self, fields):
+        self._static_fields.update(fields)
 
     def _lookup(self, meth_name, ARGS):
         meth = self._static_methods[meth_name]
@@ -239,7 +260,7 @@ class CliClass(object):
         self._PythonNet_class = obj
 
     def __getattr__(self, attr):
-        if attr in self._static_methods:
+        if attr in self._static_methods or attr in self._static_fields:
             self._load_class()
             return getattr(self._PythonNet_class, attr)
         else:

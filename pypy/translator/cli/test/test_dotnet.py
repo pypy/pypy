@@ -432,6 +432,14 @@ class TestDotnetRtyping(CliTest):
         res = self.interpret(fn, [False])
         assert res == 42
 
+    def test_static_fields(self):
+        OpCodes = System.Reflection.Emit.OpCodes
+        def fn():
+            op = OpCodes.Add
+            return op.get_Name()
+        res = self.interpret(fn, [])
+        assert self.ll_to_string(res) == 'add'
+
 class TestPythonnet(TestDotnetRtyping):
     # don't interpreter functions but execute them directly through pythonnet
     def interpret(self, f, args, backendopt='ignored'):

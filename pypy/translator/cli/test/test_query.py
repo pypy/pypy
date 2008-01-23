@@ -23,6 +23,10 @@ def test_CLR_getattr():
     assert System._name == 'System'
     assert hasattr(CLR, 'System')
 
+def test_static_fields():
+    desc = query.get_class_desc('System.Reflection.Emit.OpCodes')
+    assert ('Add', 'System.Reflection.Emit.OpCode') in desc.StaticFields
+
 def test_System_Object():
     Object = CLR.System.Object
     assert Object._name == '[mscorlib]System.Object'
