@@ -120,12 +120,37 @@ class AppTest_Reflective:
             def __call__(self, *args, **kwargs):
                 args, kwargs = self.combine_args(args, kwargs)
                 return self.callable(*args, **kwargs)
+        def enough_args(func, args, kwargs):
+            code = func.func_code
+            needed = code.co_varnames[:code.co_argcount]
+            needed_set = set(needed)
+            argnames = set(needed)
+            defaults = func.func_defaults
+            has_varargs = bool(code.co_flags & 4)
+            for i in range(min(len(args), len(needed))):
+                name = needed[i]
+                needed_set.remove(name)
+            for key, value in kwargs.iteritems():
+                if key not in needed_set:
+                    if key not in argnames:
+                        raise TypeError(
+                            "%s() got an unexpected keyword argument %r" % (
+                                func.func_name, key))
+                    else:
+                        raise TypeError(
+                            "%s() got multiple values for keyword argument %r" % (
+                                func.func_name, key))
+                needed_set.remove(key)
+            if defaults is not None:
+                for i in range(len(defaults)):
+                    default_name = needed[-1 - i]
+                    needed_set.discard(default_name)
+            return len(needed_set) == 0
+
         import types
         class Space:
             def call_args(self, space, callable, *args, **kwargs):
                 print callable, args, kwargs
-                if len(kwargs) != 0: # XXX for now
-                    return space.call_args(callable, *args, **kwargs)
                 if isinstance(callable, partial):
                     args, kwargs = callable.combine_args(args, kwargs)
                     func = callable.func
@@ -141,12 +166,7 @@ class AppTest_Reflective:
                     return space.call_args(callable, *args, **kwargs)
                 else:
                     func = callable
-                defaults = func.func_defaults
-                if defaults is None:
-                    defaults = ()
-                argcount = func.func_code.co_argcount
-                minargs = argcount - len(defaults)
-                if len(args) >= minargs:
+                if enough_args(func, args, kwargs):
                     return space.call_args(callable, *args, **kwargs)
                 return partial(func, callable, *args, **kwargs)
         def f(x, y, z):
@@ -166,3 +186,6 @@ class AppTest_Reflective:
         a = A(3)
         assert a.func()(5, 6) == f(3, 5, 6)
         assert A.func()(a)(5)(6) == f(3, 5, 6)
+        def f(x, y=1):
+            return x + y * 2
+        f(y=2)(3) == 7
