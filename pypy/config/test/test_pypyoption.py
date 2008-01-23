@@ -35,16 +35,6 @@ def test_frameworkgc():
         conf.translation.gc = name
         assert conf.translation.gctransformer == "framework"
 
-def test_check_documentation():
-    from pypy.doc.config.confrest import all_optiondescrs
-    configdocdir = thisdir.dirpath().dirpath().join("doc", "config")
-    for descr in all_optiondescrs:
-        prefix = descr._name
-        c = Config(descr)
-        for path in c.getpaths(include_groups=True):
-            fn = prefix + "." + path + ".txt"
-            assert configdocdir.join(fn).check()
-
 def test_rweakref_required():
     conf = get_pypy_config()
     conf.translation.rweakref = False
@@ -53,3 +43,17 @@ def test_rweakref_required():
     assert not conf.objspace.std.withtypeversion
     assert not conf.objspace.std.withmethodcache
     assert not conf.objspace.std.withshadowtracking
+
+def test_check_documentation():
+    def check_file_exists(fn):
+        assert configdocdir.join(fn).check()
+
+    from pypy.doc.config.confrest import all_optiondescrs
+    configdocdir = thisdir.dirpath().dirpath().join("doc", "config")
+    for descr in all_optiondescrs:
+        prefix = descr._name
+        c = Config(descr)
+        for path in c.getpaths(include_groups=True):
+            fn = prefix + "." + path + ".txt"
+            yield check_file_exists, fn
+
