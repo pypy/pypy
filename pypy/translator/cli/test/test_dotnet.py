@@ -440,6 +440,12 @@ class TestDotnetRtyping(CliTest):
         res = self.interpret(fn, [])
         assert self.ll_to_string(res) == 'add'
 
+    def test_pypylib(self):
+        def fn():
+            return CLR.pypy.runtime.Utils.OOString(42, -1)
+        res = self.interpret(fn, [])
+        assert self.ll_to_string(res) == '42'
+
 class TestPythonnet(TestDotnetRtyping):
     # don't interpreter functions but execute them directly through pythonnet
     def interpret(self, f, args, backendopt='ignored'):

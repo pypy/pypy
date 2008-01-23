@@ -13,9 +13,29 @@ Assemblies = set()
 Types = {} # TypeName -> ClassDesc
 Namespaces = set()
 mscorlib = 'mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'
+pypylib = 'pypylib, Version=0.0.0.0, Culture=neutral'
 
 #_______________________________________________________________________________
 # This is the public interface of query.py
+
+def get_cli_class(name):
+    desc = get_class_desc(name)
+    return desc.get_cliclass()
+
+#_______________________________________________________________________________
+
+def load_pypylib():
+    from pypy.translator.cli.rte import get_pypy_dll
+    dll = get_pypy_dll()
+    try:
+        import clr
+        from System.Reflection import Assembly
+    except ImportError:
+        pass
+    else:
+        Assembly.LoadFrom(dll)
+        clr.AddReference(pypylib)
+    load_assembly(pypylib)
 
 def load_assembly(name):
     if name in Assemblies:
@@ -39,13 +59,6 @@ def load_assembly(name):
             Namespaces.add(ns)
     Assemblies.add(name)
     Types.update(types)
-
-
-def get_cli_class(name):
-    desc = get_class_desc(name)
-    return desc.get_cliclass()
-
-#_______________________________________________________________________________
 
 
 def get_cachedir():
@@ -128,13 +141,18 @@ class ClassDesc(object):
 
         if self._cliclass is not None:
             return self._cliclass
-        
-        assert self.Assembly.startswith('mscorlib') # TODO: support external assemblies
+
+        if self.Assembly == mscorlib:
+            assembly = '[mscorlib]'
+        elif self.Assembly == pypylib:
+            assembly = '[pypylib]'
+        else:
+            assert False, 'TODO: support external assemblies'
         namespace, name = self.FullName.rsplit('.', 1)
 
         # construct OOTYPE and CliClass
         # no superclass for now, will add it later
-        TYPE = NativeInstance('[mscorlib]', namespace, name, None, {}, {})
+        TYPE = NativeInstance(assembly, namespace, name, None, {}, {})
         TYPE._is_value_type = self.IsValueType
         Class = CliClass(TYPE, {}, {})
         self._cliclass = Class
@@ -194,6 +212,7 @@ class CliNamespace(object):
         assert self._name is None, '_buildtree can be called only on top-level CLR, not on namespaces'
         from pypy.translator.cli.support import getattr_ex
         load_assembly(mscorlib)
+        load_pypylib()
         for fullname in sorted(list(Namespaces)):
             if '.' in fullname:
                 parent, name = fullname.rsplit('.', 1)
