@@ -44,3 +44,6 @@ class AppTestAppBoolTest:
         assert bool.__new__(bool, "") is False
         raises(TypeError, bool.__new__, int)
         raises(TypeError, bool.__new__, 42)
+
+    def test_cant_subclass_bool(self):
+        raises(TypeError, "class b(bool): pass")
