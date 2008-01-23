@@ -101,6 +101,17 @@ class AppTest_Reflective:
         set_reflectivespace(Space())
         assert a.f() == 2
 
+    def test_typed_unwrap(self):
+        from __pypy__ import set_reflectivespace
+        class Space:
+            def int_w(self, i):
+                if isinstance(i, basestring):
+                    return int(i)
+                return i
+        set_reflectivespace(Space())
+        assert chr("123") == chr(123)
+
+
     def test_autocurry(self):
         # rather simplified for now
         from __pypy__ import set_reflectivespace

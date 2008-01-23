@@ -38,8 +38,8 @@ def get_spaceop_args(name):
             return args
 
 def make_space_access_method(name, wrappedfn, parentfn):
-    if name.startswith("new"):
-        # those options cannot call back to applevel, so no need to expose them
+    if name.startswith("new") or name.endswith("_w"):
+        # those methods cannot call back to applevel, so no need to expose them
         return
     if name == "call_args":
         def func(self, space, w_func, args):
@@ -88,12 +88,6 @@ def make_space_access_method(name, wrappedfn, parentfn):
 
 DontWrapMe = [
     'wrap',
-    'str_w',
-    'int_w',
-    'float_w',
-    'uint_w',
-    'bigint_w',
-    'unicode_w',
     'interpclass_w',
     'unwrap',
     'is_true',
@@ -105,7 +99,7 @@ DontWrapMe = [
 def proxymaker(space, opname, parentfn):
     if opname in DontWrapMe:
         return None
-    want_spaceaccess = not opname.startswith("new")
+    want_spaceaccess = True # changed below
     def user_hook(*args_w):
         w_rspace = get_reflective_space(space)
         if w_rspace is not None:
@@ -133,6 +127,7 @@ def proxymaker(space, opname, parentfn):
             if w_newobj is not None:
                 return w_newobj
             return w_obj
+        want_spaceaccess = False
     elif opname.startswith("new"):
         def fn(*args):
             w_obj = parentfn(*args)
@@ -140,6 +135,14 @@ def proxymaker(space, opname, parentfn):
             if w_newobj is not None:
                 return w_newobj
             return w_obj
+        want_spaceaccess = False
+    elif opname.endswith("_w"):
+        def fn(w_obj):
+            w_newobj = user_hook(w_obj)
+            if w_newobj is not None:
+                w_obj = w_newobj
+            return parentfn(w_obj)
+        want_spaceaccess = False
     elif opname == "call_args":
         def fn(w_callable, args):
             w_rspace = get_reflective_space(space)
