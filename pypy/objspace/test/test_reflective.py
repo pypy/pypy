@@ -126,21 +126,16 @@ class AppTest_Reflective:
             needed_set = set(needed)
             argnames = set(needed)
             defaults = func.func_defaults
-            has_varargs = bool(code.co_flags & 4)
             for i in range(min(len(args), len(needed))):
                 name = needed[i]
                 needed_set.remove(name)
             for key, value in kwargs.iteritems():
                 if key not in needed_set:
-                    if key not in argnames:
-                        raise TypeError(
-                            "%s() got an unexpected keyword argument %r" % (
-                                func.func_name, key))
-                    else:
+                    if key in argnames:
                         raise TypeError(
                             "%s() got multiple values for keyword argument %r" % (
                                 func.func_name, key))
-                needed_set.remove(key)
+                needed_set.discard(key)
             if defaults is not None:
                 for i in range(len(defaults)):
                     default_name = needed[-1 - i]
@@ -188,4 +183,7 @@ class AppTest_Reflective:
         assert A.func()(a)(5)(6) == f(3, 5, 6)
         def f(x, y=1):
             return x + y * 2
+        f(y=2)(3) == 7
+        def f(x, **kwds):
+            return x + kwds['y'] * 2
         f(y=2)(3) == 7
