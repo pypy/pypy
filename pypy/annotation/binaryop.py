@@ -33,10 +33,11 @@ def immutablevalue(x):
 
 def unioncheck(*somevalues):
     s_value = unionof(*somevalues)
-    if isdegenerated(s_value) and not TLS.no_side_effects_in_union:
-        bookkeeper = getbookkeeper()
-        if bookkeeper is not None:
-            bookkeeper.ondegenerated('union', s_value)
+    if isdegenerated(s_value):
+        if not getattr(TLS, 'no_side_effects_in_union', 0):
+            bookkeeper = getbookkeeper()
+            if bookkeeper is not None:
+                bookkeeper.ondegenerated('union', s_value)
     return s_value
 
 # XXX unify this with ObjSpace.MethodTable
