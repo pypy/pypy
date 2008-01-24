@@ -158,7 +158,7 @@ def run_test(instrname, instr, args_lists):
     try:
         f = open(FILENAME, 'rb')
     except IOError:
-        raise "Assembler error"
+        raise Exception("Assembler error")
     data = f.read()
     f.close()
 ##    os.unlink(FILENAME)
