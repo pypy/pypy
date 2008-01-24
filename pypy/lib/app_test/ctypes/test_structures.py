@@ -265,6 +265,7 @@ class TestStructure:
         assert p.age == 5
 
     def test_structures_with_wchar(self):
+        py.test.skip("Inlined array")
         try:
             c_wchar
         except NameError:

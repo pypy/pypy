@@ -10,6 +10,7 @@ NULL = NULL()
 
 TP_TO_DEFAULT = {
         'c': 0,
+        'u': 0,
         'b': 0,
         'B': 0,
         'h': 0,
@@ -26,6 +27,7 @@ TP_TO_DEFAULT = {
         # not part of struct
         'O': NULL,
         'z': None,
+        'Z': None,
 }
  
 DEFAULT_VALUE = object()
@@ -83,7 +85,7 @@ class SimpleType(_CDataMeta):
                 self._buffer[0] = value
             result.value = property(_getvalue, _setvalue)            
         
-        if tp == 'z':
+        if tp in 'zZ':
             from _ctypes import Array, _Pointer
             # c_char_p
             def from_param(self, value):
@@ -95,9 +97,8 @@ class SimpleType(_CDataMeta):
                        type(value)._type_ in 'zP':
                     return value
                 if isinstance(value, (Array, _Pointer)):
-                    from ctypes import c_char, c_byte
-                    if type(value)._type_ == c_char or \
-                           type(value)._type_ == c_byte:
+                    from ctypes import c_char, c_byte, c_wchar
+                    if type(value)._type_ in [c_char, c_byte, c_wchar]:
                         return value
                 return SimpleType.from_param(self, value)
             result.from_param = classmethod(from_param)
@@ -113,9 +114,8 @@ class SimpleType(_CDataMeta):
                        type(value)._type_ in 'zP':
                     return value
                 if isinstance(value, Array):
-                    from ctypes import c_char, c_byte
-                    if type(value)._type_ == c_char or \
-                           type(value)._type_ == c_byte:
+                    from ctypes import c_char, c_byte, c_wchar
+                    if type(value)._type_ in [c_char, c_byte, c_wchar]:
                         return value
                 if isinstance(value, _Pointer):
                     return self.from_address(value._buffer.buffer)

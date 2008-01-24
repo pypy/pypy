@@ -3,13 +3,22 @@ import _rawffi
 
 from _ctypes.basics import _CData, cdata_from_address, _CDataMeta, sizeof
 
+def _create_unicode(buffer, maxlength):
+    res = []
+    for i in range(maxlength):
+        if buffer[i] == '\x00':
+            break
+        res.append(buffer[i])
+    return u''.join(res)
+
 class ArrayMeta(_CDataMeta):
     def __new__(self, name, cls, typedict):
         res = type.__new__(self, name, cls, typedict)
         if '_type_' in typedict:
             ffiarray = _rawffi.Array(typedict['_type_']._ffishape)
             res._ffiarray = ffiarray
-            if getattr(typedict['_type_'], '_type_', None) == 'c':
+            subletter = getattr(typedict['_type_'], '_type_', None)
+            if subletter == 'c':
                 def getvalue(self):
                     return _rawffi.charp2string(self._buffer.buffer,
                                                 self._length_)
@@ -30,6 +39,21 @@ class ArrayMeta(_CDataMeta):
                     for i in range(len(buffer)):
                         self[i] = buffer[i]
                 res.raw = property(getraw, setraw)
+            elif subletter == 'u':
+                def getvalue(self):
+                    # rawffi support anyone?
+                    return _create_unicode(self._buffer, self._length_)
+
+                def setvalue(self, val):
+                    # we don't want to have buffers here
+                    if len(val) > self._length_:
+                        raise ValueError("%r too long" % (val,))
+                    for i in range(len(val)):
+                        self[i] = val[i]
+                    if len(val) < self._length_:
+                        self[len(val)] = '\x00'
+                res.value = property(getvalue, setvalue)
+                
             if '_length_' in typedict:
                 res._ffishape = ffiarray.gettypecode(typedict['_length_'])
         else:
@@ -47,11 +71,14 @@ class ArrayMeta(_CDataMeta):
 
     def from_param(self, value):
         # check for iterable
-        if hasattr(value, '__iter__'):
+        try:
+            iter(value)
+        except ValueError:
+            return _CDataMeta.from_param(self, value)
+        else:
             if len(value) > self._length_:
                 raise ValueError("%s too long" % (value,))
             return self(*value)
-        return _CDataMeta.from_param(self, value)
 
 def array_get_slice_params(self, index):
     if index.step is not None:
@@ -68,8 +95,11 @@ def array_slice_setitem(self, index, value):
 def array_slice_getitem(self, index):
     start, stop = self._get_slice_params(index)
     l = [self[i] for i in range(start, stop)]
-    if getattr(self._type_, '_type_', None) == 'c':
+    letter = getattr(self._type_, '_type_', None)
+    if letter == 'c':
         return "".join(l)
+    if letter == 'u':
+        return u"".join(l)
     return l
 
 class Array(_CData):
