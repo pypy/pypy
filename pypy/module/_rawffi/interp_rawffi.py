@@ -30,6 +30,7 @@ TYPEMAP = {
     'b' : ffi_type_schar,
     'B' : ffi_type_uchar,
     'h' : ffi_type_sshort,
+    'u' : ffi_type_ushort, # XXX alias for wide-character
     'H' : ffi_type_ushort,
     'i' : ffi_type_sint,
     'I' : ffi_type_uint,
@@ -45,6 +46,7 @@ TYPEMAP = {
     'P' : ffi_type_pointer,
     'z' : ffi_type_pointer,
     'O' : ffi_type_pointer,
+    'Z' : ffi_type_pointer,
 }
 TYPEMAP_PTR_LETTERS = "POsz"
 
@@ -55,6 +57,7 @@ UNPACKED_TYPECODES = dict([(code, (code,
 
 LL_TYPEMAP = {
     'c' : rffi.CHAR,
+    'u' : lltype.UniChar,
     'b' : rffi.SIGNEDCHAR,
     'B' : rffi.UCHAR,
     'h' : rffi.SHORT,
@@ -227,6 +230,13 @@ def unwrap_value(space, push_func, add_arg, argdesc, tp, w_arg):
                 "Expected string of length one as character"))
         val = s[0]
         push_func(add_arg, argdesc, val)
+    elif letter == 'u':
+        s = space.unicode_w(w_arg)
+        if len(s) != 1:
+            raise OperationError(space.w_TypeError, w(
+                "Expected unicode string og length one as wide character"))
+        val = s[0]
+        push_func(add_arg, argdesc, val)
     else:
         for c in unroll_letters_for_numbers:
             if letter == c:
@@ -251,7 +261,7 @@ def wrap_value(space, func, add_arg, argdesc, tp):
             elif c == 'v':
                 func(add_arg, argdesc, ll_type)
                 return space.w_None
-            elif c == 'q' or c == 'Q' or c == 'L' or c == 'c':
+            elif c == 'q' or c == 'Q' or c == 'L' or c == 'c' or c == 'u':
                 return space.wrap(func(add_arg, argdesc, ll_type))
             elif c == 'f' or c == 'd':
                 return space.wrap(float(func(add_arg, argdesc, ll_type)))

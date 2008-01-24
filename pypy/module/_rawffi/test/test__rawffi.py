@@ -497,6 +497,14 @@ class AppTestFfi:
                                                                len(a))
         a.free()
 
+    def test_wide_char(self):
+        import _rawffi
+        A = _rawffi.Array('u')
+        a = A(1)
+        a[0] = u'x'
+        assert a[0] == u'x'
+        a.free()
+
     def test_truncate(self):
         import _rawffi, struct
         a = _rawffi.Array('b')(1)
