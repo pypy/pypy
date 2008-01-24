@@ -2,10 +2,13 @@
 
 import _rawffi
 from _ctypes.basics import _CData, _CDataMeta
-from _ctypes.structure import round_up, names_and_fields, struct_getattr
+from _ctypes.structure import round_up, names_and_fields, struct_getattr,\
+     struct_setattr
 import inspect
 
 class UnionMeta(_CDataMeta):
+    _is_union = True
+    
     def __new__(self, name, cls, typedict):
         res = type.__new__(self, name, cls, typedict)
         if '_fields_' in typedict:
@@ -38,7 +41,8 @@ class UnionMeta(_CDataMeta):
             self._alignment_ = max([alignment(field.ctype) for field in
                                     self._fieldtypes.values()] + [1])
         return self._alignment_
-
+    
+    __setattr__ = struct_setattr
     __getattr__ = struct_getattr
 
 class Union(_CData):

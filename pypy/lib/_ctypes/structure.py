@@ -27,6 +27,21 @@ def struct_getattr(self, name):
         return self._fieldtypes[name]
     return _CDataMeta.__getattribute__(self, name)
 
+def struct_setattr(self, name, value):
+    if name == '_fields_':
+        if self.__dict__.get('_fields_', None):
+            raise AttributeError("_fields_ is final")
+        if self in [v for k, v in value]:
+            raise AttributeError("Structure or union cannot contain itself")
+        self._names, rawfields, self._fieldtypes = names_and_fields(
+            value, self.__bases__[0], self._is_union,
+            self.__dict__.get('_anonymous_', None))
+        self._ffistruct = _rawffi.Structure(rawfields)
+        _CDataMeta.__setattr__(self, '_fields_', value)
+        self._ffishape = self._ffistruct.gettypecode()
+        return
+    _CDataMeta.__setattr__(self, name, value)
+
 def names_and_fields(_fields_, superclass, zero_offset=False, anon=None):
     for _, tp in _fields_:
         if not isinstance(tp, _CDataMeta):
@@ -73,6 +88,8 @@ class Field(object):
                                                    self.size)
 
 class StructureMeta(_CDataMeta):
+    _is_union = False
+    
     def __new__(self, name, cls, typedict):
         res = type.__new__(self, name, cls, typedict)
         if '_fields_' in typedict:
@@ -106,20 +123,7 @@ class StructureMeta(_CDataMeta):
         return res
 
     __getattr__ = struct_getattr
-
-    def __setattr__(self, name, value):
-        if name == '_fields_':
-            if self.__dict__.get('_fields_', None):
-                raise AttributeError("_fields_ is final")
-            if self in [v for k, v in value]:
-                raise AttributeError("Structure or union cannot contain itself")
-            self._names, rawfields, self._fieldtypes = names_and_fields(
-                value, self.__bases__[0])
-            self._ffistruct = _rawffi.Structure(rawfields)
-            _CDataMeta.__setattr__(self, '_fields_', value)
-            self._ffishape = self._ffistruct.gettypecode()
-            return
-        _CDataMeta.__setattr__(self, name, value)
+    __setattr__ = struct_setattr
 
     def from_address(self, address):
         instance = self.__new__(self)
