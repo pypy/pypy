@@ -16,51 +16,38 @@ native_fmttable = {
 
 # ____________________________________________________________
 
+double_buf = lltype.malloc(rffi.DOUBLEP.TO, 1, flavor='raw', immortal=True)
+float_buf = lltype.malloc(rffi.FLOATP.TO, 1, flavor='raw', immortal=True)
+
 def pack_double(fmtiter):
     doubleval = fmtiter.accept_float_arg()
-    buf = lltype.malloc(rffi.DOUBLEP.TO, 1, flavor='raw')
-    try:
-        buf[0] = doubleval
-        p = rffi.cast(rffi.CCHARP, buf)
-        for i in range(sizeof_double):
-            fmtiter.result.append(p[i])
-    finally:
-        lltype.free(buf, flavor='raw')
+    double_buf[0] = doubleval
+    p = rffi.cast(rffi.CCHARP, double_buf)
+    for i in range(sizeof_double):
+        fmtiter.result.append(p[i])
 
 def unpack_double(fmtiter):
     input = fmtiter.read(sizeof_double)
-    buf = lltype.malloc(rffi.DOUBLEP.TO, 1, flavor='raw')
-    try:
-        p = rffi.cast(rffi.CCHARP, buf)
-        for i in range(sizeof_double):
-            p[i] = input[i]
-        doubleval = buf[0]
-    finally:
-        lltype.free(buf, flavor='raw')
+    p = rffi.cast(rffi.CCHARP, double_buf)
+    for i in range(sizeof_double):
+        p[i] = input[i]
+    doubleval = double_buf[0]
     fmtiter.appendobj(doubleval)
 
 def pack_float(fmtiter):
     doubleval = fmtiter.accept_float_arg()
     floatval = r_singlefloat(doubleval)
-    buf = lltype.malloc(rffi.FLOATP.TO, 1, flavor='raw')
-    try:
-        buf[0] = floatval
-        p = rffi.cast(rffi.CCHARP, buf)
-        for i in range(sizeof_float):
-            fmtiter.result.append(p[i])
-    finally:
-        lltype.free(buf, flavor='raw')
+    float_buf[0] = floatval
+    p = rffi.cast(rffi.CCHARP, float_buf)
+    for i in range(sizeof_float):
+        fmtiter.result.append(p[i])
 
 def unpack_float(fmtiter):
     input = fmtiter.read(sizeof_float)
-    buf = lltype.malloc(rffi.FLOATP.TO, 1, flavor='raw')
-    try:
-        p = rffi.cast(rffi.CCHARP, buf)
-        for i in range(sizeof_float):
-            p[i] = input[i]
-        floatval = buf[0]
-    finally:
-        lltype.free(buf, flavor='raw')
+    p = rffi.cast(rffi.CCHARP, float_buf)
+    for i in range(sizeof_float):
+        p[i] = input[i]
+    floatval = float_buf[0]
     doubleval = float(floatval)
     fmtiter.appendobj(doubleval)
 
