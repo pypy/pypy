@@ -41,7 +41,7 @@ def _setup_ctypes_cache():
         rffi.LONGLONG:   ctypes.c_longlong,
         rffi.ULONGLONG:  ctypes.c_ulonglong,
         rffi.SIZE_T:     ctypes.c_size_t,
-        lltype.UniChar:  ctypes.c_ushort,
+        lltype.UniChar:  ctypes.c_uint,
         })
 
 def build_ctypes_struct(S, delayed_builders, max_n=None):
