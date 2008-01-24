@@ -53,6 +53,25 @@ class ArrayMeta(_CDataMeta):
             return self(*value)
         return _CDataMeta.from_param(self, value)
 
+def array_get_slice_params(self, index):
+    if index.step is not None:
+        raise TypeError("3 arg slices not supported (for no reason)")
+    start = index.start or 0
+    stop = index.stop or self._length_
+    return start, stop
+
+def array_slice_setitem(self, index, value):
+    start, stop = self._get_slice_params(index)
+    for i in range(start, stop):
+        self[i] = value[i - start]
+
+def array_slice_getitem(self, index):
+    start, stop = self._get_slice_params(index)
+    l = [self[i] for i in range(start, stop)]
+    if getattr(self._type_, '_type_', None) == 'c':
+        return "".join(l)
+    return l
+
 class Array(_CData):
     __metaclass__ = ArrayMeta
     _ffiletter = 'P'
@@ -70,24 +89,9 @@ class Array(_CData):
         else:
             raise IndexError
 
-    def _get_slice_params(self, index):
-        if index.step is not None:
-            raise TypeError("3 arg slices not supported (for no reason)")
-        start = index.start or 0
-        stop = index.stop or self._length_
-        return start, stop
-    
-    def _slice_setitem(self, index, value):
-        start, stop = self._get_slice_params(index)
-        for i in range(start, stop):
-            self[i] = value[i - start]
-
-    def _slice_getitem(self, index):
-        start, stop = self._get_slice_params(index)
-        l = [self[i] for i in range(start, stop)]
-        if getattr(self._type_, '_type_', None) == 'c':
-            return "".join(l)
-        return l
+    _get_slice_params = array_get_slice_params
+    _slice_getitem = array_slice_getitem
+    _slice_setitem = array_slice_setitem
 
     def _subarray(self, index):
         """Return a _rawffi array of length 1 whose address is the same as

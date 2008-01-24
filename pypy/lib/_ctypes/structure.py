@@ -117,7 +117,6 @@ class StructureMeta(_CDataMeta):
         return self._ffistruct.alignment
 
     def _CData_output(self, resarray):
-        assert isinstance(resarray, _rawffi.ArrayInstance)
         res = self.__new__(self)
         ffistruct = self._ffistruct.fromaddress(resarray.buffer)
         res.__dict__['_buffer'] = ffistruct

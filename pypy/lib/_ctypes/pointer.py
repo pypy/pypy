@@ -2,7 +2,8 @@
 import _rawffi
 from _ctypes.basics import _CData, _CDataMeta, cdata_from_address
 from _ctypes.basics import sizeof, byref
-from _ctypes.array import Array
+from _ctypes.array import Array, array_get_slice_params, array_slice_getitem,\
+     array_slice_setitem
 
 DEFAULT_VALUE = object()
 
@@ -78,14 +79,19 @@ class _Pointer(_CData):
         value = value._buffer
         self._buffer[0] = value
 
+    _get_slice_params = array_get_slice_params
+    _slice_getitem = array_slice_getitem
+
     def _subarray(self, index=0):
         """Return a _rawffi array of length 1 whose address is the same as
         the index'th item to which self is pointing."""
         address = self._buffer[0]
         address += index * sizeof(self._type_)
-        return self._type_._ffiarray.fromaddress(address, 1)
+        return self._type_.from_address(address)._buffer
 
     def __getitem__(self, index):
+        if isinstance(index, slice):
+            return self._slice_getitem(index)
         return self._type_._CData_output(self._subarray(index))
 
     def __setitem__(self, index, value):
@@ -100,12 +106,17 @@ class _Pointer(_CData):
 
 
 def _cast_addr(obj, _, tp):
-    if not (isinstance(obj, _CData) and type(obj)._is_pointer_like()):
-        raise TypeError("cast() argument 1 must be a pointer, not %s"
-                        % (type(obj),))
     if not (isinstance(tp, _CDataMeta) and tp._is_pointer_like()):
         raise TypeError("cast() argument 2 must be a pointer type, not %s"
                         % (tp,))
+    if isinstance(obj, Array):
+        ptr = tp.__new__(tp)
+        ptr._buffer = tp._ffiarray(1)
+        ptr._buffer[0] = obj._buffer
+        return ptr
+    if not (isinstance(obj, _CData) and type(obj)._is_pointer_like()):
+        raise TypeError("cast() argument 1 must be a pointer, not %s"
+                        % (type(obj),))
     result = tp()
     result._buffer[0] = obj._buffer[0]
     return result

@@ -27,7 +27,6 @@ class TestMemFunctions:
         assert string_at(a, 20) == "xxxxxxxxxxxxxxxx\0\0\0\0"
 
     def test_cast(self):
-        py.test.skip("I'm not sure I understood")
         a = (c_ubyte * 32)(*map(ord, "abcdef"))
         assert cast(a, c_char_p).value == "abcdef"
         assert cast(a, POINTER(c_byte))[:7] == (
