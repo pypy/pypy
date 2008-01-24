@@ -234,9 +234,14 @@ def convert_array(container):
     carray = cls._malloc(container.getlength())
     add_storage(container, _array_mixin, carray)
     if not isinstance(ARRAY.OF, lltype.ContainerType):
-        for i in range(container.getlength()):
-            item_value = container.items[i]    # fish fish
-            carray.items[i] = lltype2ctypes(item_value)
+        # XXX obscure case when array.items is not modifiable
+        if isinstance(carray.items, unicode):
+            carray.items = u''.join([container.items[i] for i in
+                                     range(container.getlength())])
+        else:
+            for i in range(container.getlength()):
+                item_value = container.items[i]    # fish fish
+                carray.items[i] = lltype2ctypes(item_value)
         remove_regular_array_content(container)
     else:
         assert isinstance(ARRAY.OF, lltype.Struct)

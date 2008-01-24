@@ -143,7 +143,6 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_unicharp(self):
-        py.test.skip("Unsupported")
         SP = rffi.CArrayPtr(lltype.UniChar)
         s = lltype.malloc(SP.TO, 3, flavor='raw')
         s[0] = u'x'
