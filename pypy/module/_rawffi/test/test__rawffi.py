@@ -500,9 +500,17 @@ class AppTestFfi:
     def test_wide_char(self):
         import _rawffi
         A = _rawffi.Array('u')
-        a = A(1)
+        a = A(3)
         a[0] = u'x'
+        a[1] = u'y'
+        a[2] = u'z'
         assert a[0] == u'x'
+        b = _rawffi.Array('c').fromaddress(a.buffer, 38)
+        assert b[0] == 'x'
+        assert b[1] == '\x00'
+        assert b[2] == '\x00'
+        assert b[3] == '\x00'
+        assert b[4] == 'y'
         a.free()
 
     def test_truncate(self):

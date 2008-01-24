@@ -30,7 +30,7 @@ TYPEMAP = {
     'b' : ffi_type_schar,
     'B' : ffi_type_uchar,
     'h' : ffi_type_sshort,
-    'u' : ffi_type_ushort, # XXX alias for wide-character
+    'u' : ffi_type_uint, # XXX think deeper how to map it properly
     'H' : ffi_type_ushort,
     'i' : ffi_type_sint,
     'I' : ffi_type_uint,
