@@ -142,6 +142,21 @@ class TestLL2Ctypes(object):
         rffi.free_charp(s)
         assert not ALLOCATED     # detects memory leaks in the test
 
+    def test_unicharp(self):
+        py.test.skip("Unsupported")
+        SP = rffi.CArrayPtr(lltype.UniChar)
+        s = lltype.malloc(SP.TO, 3, flavor='raw')
+        s[0] = u'x'
+        s[1] = u'y'
+        s[2] = u'z'
+        sc = lltype2ctypes(s, normalize=False)
+        assert sc.contents.items[0] == u'x'
+        assert sc.contents.items[1] == u'y'
+        assert sc.contents.items[2] == u'z'
+        assert not hasattr(sc.contents, 'length')
+        lltype.free(s, flavor='raw')
+        assert not ALLOCATED
+        
     def test_strlen(self):
         eci = ExternalCompilationInfo(includes=['string.h'])
         strlen = rffi.llexternal('strlen', [rffi.CCHARP], rffi.SIZE_T,
