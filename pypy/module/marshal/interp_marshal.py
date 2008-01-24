@@ -10,8 +10,7 @@ import sys
 # already implemented, but for compatibility,
 # we default to version 1. Version 2 can be
 # tested, anyway, by using the optional parameter.
-# XXX auto-configure this by inspecting the
-# Python version we emulate. How to do this?
+# XXX make it 2 when used with --pyversion=2.5 translation
 Py_MARSHAL_VERSION = 1
 
 def dump(space, w_data, w_f, w_version=Py_MARSHAL_VERSION):
