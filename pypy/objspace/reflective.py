@@ -111,7 +111,6 @@ DontWrapMe = [
 def proxymaker(space, opname, parentfn):
     if opname in DontWrapMe:
         return None
-    want_spaceaccess = True # changed below
     def user_hook(*args_w):
         w_rspace = get_reflective_space(space)
         if w_rspace is not None:
@@ -122,12 +121,9 @@ def proxymaker(space, opname, parentfn):
                     if not e.match(space, space.w_AttributeError):
                         raise
                 else:
-                    if want_spaceaccess:
-                        spaceaccess = W_SpaceAccess(space, w_rspace)
-                        w_spaceaccess = space.wrap(spaceaccess)
-                        return space.call_function(w_f, w_spaceaccess, *args_w)
-                    else:
-                        return space.call_function(w_f, *args_w)
+                    spaceaccess = W_SpaceAccess(space, w_rspace)
+                    w_spaceaccess = space.wrap(spaceaccess)
+                    return space.call_function(w_f, w_spaceaccess, *args_w)
             finally:
                 reset_reflective_space(space, w_rspace)
         return None
@@ -139,7 +135,6 @@ def proxymaker(space, opname, parentfn):
             if w_newobj is not None:
                 return w_newobj
             return w_obj
-        want_spaceaccess = False
     elif opname.startswith("new"):
         def fn(*args):
             w_obj = parentfn(*args)
@@ -147,7 +142,6 @@ def proxymaker(space, opname, parentfn):
             if w_newobj is not None:
                 return w_newobj
             return w_obj
-        want_spaceaccess = False
     elif opname == "is_w":
         def fn(w_obj1, w_obj2):
             return space.is_true(space.is_(w_obj1, w_obj2))
@@ -157,7 +151,6 @@ def proxymaker(space, opname, parentfn):
             if w_newobj is not None:
                 w_obj = w_newobj
             return parentfn(w_obj)
-        want_spaceaccess = False
     elif opname == "call_args":
         def fn(w_callable, args):
             w_rspace = get_reflective_space(space)

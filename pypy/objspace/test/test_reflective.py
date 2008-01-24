@@ -51,7 +51,7 @@ class AppTest_Reflective:
     def test_newdict(self):
         from __pypy__ import set_reflectivespace
         class Space:
-            def newdict(self, d):
+            def newdict(self, space, d):
                 d['surprise'] = 42
                 return d
 
@@ -64,7 +64,7 @@ class AppTest_Reflective:
     def test_newlist(self):
         from __pypy__ import set_reflectivespace
         class Space:
-            def newlist(self, l):
+            def newlist(self, space, l):
                 l.append(len(l))
                 return l
 
@@ -104,7 +104,7 @@ class AppTest_Reflective:
     def test_typed_unwrap(self):
         from __pypy__ import set_reflectivespace
         class Space:
-            def int_w(self, i):
+            def int_w(self, space, i):
                 if isinstance(i, basestring):
                     return int(i)
                 return i
@@ -240,3 +240,31 @@ class AppTest_Reflective:
         def f(x, **kwds):
             return x + kwds['y'] * 2
         f(y=2)(3) == 7
+
+    def test_logicspace(self):
+        from __pypy__ import set_reflectivespace
+        NotBound = object()
+        class Var(object):
+            def __init__(self):
+                self.boundto = NotBound
+        def bind(var, obj):
+            XXX # never called? :-)
+        forcing_args = {
+            'setattr': 2,
+            'setitem': 2,
+            'get': 2,
+        }
+        class UnboundVariable(Exception):
+            pass
+        class Space(object):
+            def convert(self, obj):
+                if isinstance(obj, Var):
+                    if obj.boundto is not NotBound:
+                        return obj
+                    raise UnboundVariable
+            def __getattr__(self, name):
+                if name.startswith("new"):
+                    raise AttributeError
+                def f(self, space, *args):
+                    pass
+                
