@@ -22,13 +22,12 @@ def size_alignment_pos(fields):
     size = round_up(size, alignment)
     return size, alignment, pos
 
-
 def struct_getattr(self, name):
     if hasattr(self, '_fieldtypes') and name in self._fieldtypes:
         return self._fieldtypes[name]
     return _CDataMeta.__getattribute__(self, name)
 
-def names_and_fields(_fields_, superclass, zero_offset=False):
+def names_and_fields(_fields_, superclass, zero_offset=False, anon=None):
     for _, tp in _fields_:
         if not isinstance(tp, _CDataMeta):
             raise TypeError("Expected CData subclass, got %s" % (tp,))
@@ -46,6 +45,19 @@ def names_and_fields(_fields_, superclass, zero_offset=False):
     fields = {}
     for i, (name, ctype) in enumerate(all_fields):
         fields[name] = Field(name, pos[i], ctypes.sizeof(ctype), ctype)
+    if anon:
+        resnames = []
+        for i, (name, value) in enumerate(all_fields):
+            if name in anon:
+                for subname in value._names:
+                    resnames.append(subname)
+                    relpos = pos[i] + value._fieldtypes[subname].offset
+                    subvalue = value._fieldtypes[subname].ctype
+                    fields[subname] = Field(subname, relpos,
+                                            ctypes.sizeof(subvalue), subvalue)
+            else:
+                resnames.append(name)
+        names = resnames
     return names, rawfields, fields
 
 class Field(object):
@@ -64,8 +76,14 @@ class StructureMeta(_CDataMeta):
     def __new__(self, name, cls, typedict):
         res = type.__new__(self, name, cls, typedict)
         if '_fields_' in typedict:
+            if not hasattr(typedict.get('_anonymous_', []), '__iter__'):
+                raise TypeError("Anonymous field must be iterable")
+            for item in typedict.get('_anonymous_', []):
+                if item not in dict(typedict['_fields_']):
+                    raise AttributeError("Anonymous field not found")
             res._names, rawfields, res._fieldtypes = names_and_fields(
-                typedict['_fields_'], cls[0])
+                typedict['_fields_'], cls[0], False,
+                typedict.get('_anonymous_', None))
             res._ffistruct = _rawffi.Structure(rawfields)
             res._ffishape = res._ffistruct.gettypecode()
 

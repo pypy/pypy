@@ -10,7 +10,8 @@ class UnionMeta(_CDataMeta):
         res = type.__new__(self, name, cls, typedict)
         if '_fields_' in typedict:
             res._names, rawfields, res._fieldtypes = names_and_fields(
-                typedict['_fields_'], cls[0], True)
+                typedict['_fields_'], cls[0], True,
+                typedict.get('_anonymous_', None))
             res._ffishape = (res._sizeofinstances(),
                              res._alignmentofinstances())
             # we need to create an array of size one for each
