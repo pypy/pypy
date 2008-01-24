@@ -21,6 +21,7 @@ class TestLL2Ctypes(object):
         assert lltype2ctypes(5) == 5
         assert lltype2ctypes('?') == ord('?')
         assert lltype2ctypes('\xE0') == 0xE0
+        assert lltype2ctypes(unichr(1234)) == 1234
         assert ctypes2lltype(lltype.Signed, 5) == 5
         assert ctypes2lltype(lltype.Char, ord('a')) == 'a'
         assert ctypes2lltype(lltype.UniChar, ord(u'x')) == u'x'
@@ -144,14 +145,15 @@ class TestLL2Ctypes(object):
 
     def test_unicharp(self):
         SP = rffi.CArrayPtr(lltype.UniChar)
-        s = lltype.malloc(SP.TO, 3, flavor='raw')
+        s = lltype.malloc(SP.TO, 4, flavor='raw')
         s[0] = u'x'
         s[1] = u'y'
         s[2] = u'z'
+        s[3] = u'\x00'
         sc = lltype2ctypes(s, normalize=False)
-        assert sc.contents.items[0] == u'x'
-        assert sc.contents.items[1] == u'y'
-        assert sc.contents.items[2] == u'z'
+        assert sc.contents.items[0] == ord(u'x')
+        assert sc.contents.items[1] == ord(u'y')
+        assert sc.contents.items[2] == ord(u'z')
         assert not hasattr(sc.contents, 'length')
         lltype.free(s, flavor='raw')
         assert not ALLOCATED
