@@ -82,6 +82,13 @@ class PyPyLibDLL(Target):
     FLAGS = ['/t:library', '/unsafe', '/r:main.exe']
     DEPENDENCIES = [MainStub]
 
+    def compile(cls, sources, out):
+        from pypy.translator.cli.query import pypylib
+        remove_cache_for_assembly(pypylib)
+        Target.compile.im_func(cls, sources, out)
+    compile = classmethod(compile)
+
+
 class RPythonNetModule(Target):
     SOURCES = []
     OUTPUT = 'rpython.netmodule'
@@ -95,10 +102,9 @@ class Query(Target):
 
     def compile(cls, sources, out):
         # assume that if query.exe need to be recompiled the descriptions cache is invalid        
-        from pypy.translator.cli.query import get_cachedir, mscorlib
-        mscorlib_cache = get_cachedir().join(mscorlib + '.pickle') 
-        if mscorlib_cache.check():
-            mscorlib_cache.remove()
+        from pypy.translator.cli.query import mscorlib, pypylib
+        remove_cache_for_assembly(mscorlib)
+        remove_cache_for_assembly(pypylib)
         Target.compile.im_func(cls, sources, out)
     compile = classmethod(compile)
 
@@ -109,6 +115,12 @@ class Support(Target):
 
 def get_pypy_dll():
     return PyPyLibDLL.get()
+
+def remove_cache_for_assembly(ass):
+    from pypy.translator.cli.query import get_cachedir
+    cache = get_cachedir().join(ass + '.pickle')
+    if cache.check():
+        cache.remove()
 
 if __name__ == '__main__':
     get_pypy_dll()

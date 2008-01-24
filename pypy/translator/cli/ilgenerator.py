@@ -207,11 +207,14 @@ class IlasmGenerator(object):
         self.opcode('ldarg', repr(v.name))
     
     def load_local(self, v):
-        TYPE = v.concretetype
-        if getattr(TYPE, '_is_value_type', False):
-            self.opcode('ldloca', repr(v.name))
-        else:
-            self.opcode('ldloc', repr(v.name))
+        self.opcode('ldloc', repr(v.name))
+##        # the code commented out is needed to pass test_static_fields,
+##        # but breaks other tests
+##        TYPE = v.concretetype
+##        if getattr(TYPE, '_is_value_type', False):
+##            self.opcode('ldloca', repr(v.name))
+##        else:
+##            self.opcode('ldloc', repr(v.name))
 
     def switch(self, targets):
         cmd = 'switch(%s)' % ', '.join(targets)

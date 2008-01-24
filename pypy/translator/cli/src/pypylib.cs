@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Runtime.Serialization;
 using System.IO;
+using System.Reflection.Emit;
 using pypy.runtime;
 
 namespace pypy.test
@@ -52,8 +53,15 @@ namespace pypy.test
 
 namespace pypy.runtime
 {
+    public delegate int DelegateType_int__int_int(int a, int b);
+
     public class Utils
     {
+        public static DynamicMethod CreateDynamicMethod(string name, Type res, Type[] args)
+        {
+            return new DynamicMethod(name, res, args, typeof(Utils).Module);
+        }
+
         public static object RuntimeNew(Type t)
         {
             return t.GetConstructor(new Type[0]).Invoke(new object[0]);

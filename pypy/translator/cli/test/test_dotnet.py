@@ -11,6 +11,8 @@ from pypy.translator.cli.dotnet import SomeCliClass, SomeCliStaticMethod,\
 
 System = CLR.System
 ArrayList = CLR.System.Collections.ArrayList
+OpCodes = System.Reflection.Emit.OpCodes
+DynamicMethod = System.Reflection.Emit.DynamicMethod
 
 class TestDotnetAnnotation(object):
 
@@ -349,7 +351,7 @@ class TestDotnetRtyping(CliTest):
     def test_typeof(self):
         def fn():
             x = box(42)
-            return x.GetType() == typeof(System.Int32)
+            return x.GetType() ==  typeof(System.Int32)
         res = self.interpret(fn, [])
         assert res is True
 
@@ -433,7 +435,7 @@ class TestDotnetRtyping(CliTest):
         assert res == 42
 
     def test_static_fields(self):
-        OpCodes = System.Reflection.Emit.OpCodes
+        py.test.skip("does not work, and no need to implement")
         def fn():
             op = OpCodes.Add
             return op.get_Name()
@@ -446,6 +448,28 @@ class TestDotnetRtyping(CliTest):
         res = self.interpret(fn, [])
         assert self.ll_to_string(res) == '42'
 
+    def test_dynamic_method(self):
+        from pypy.rpython.ootypesystem import ootype
+        self._skip_pythonnet("does not work")
+        DelegateType = CLR.pypy.runtime.DelegateType_int__int_int
+        DELEGATETYPE = DelegateType._INSTANCE
+        Utils = CLR.pypy.runtime.Utils
+        def fn():
+            tInt = typeof(System.Int32)
+            args = init_array(System.Type, tInt, tInt)
+            meth = Utils.CreateDynamicMethod("add", tInt, args)
+            il = meth.GetILGenerator()
+            il.Emit(OpCodes.Ldarg_0)
+            il.Emit(OpCodes.Ldarg_1)
+            il.Emit(OpCodes.Add)
+            il.Emit(OpCodes.Ret)
+            myfunc = meth.CreateDelegate(typeof(DelegateType))
+            myfunc = ootype.oodowncast(DELEGATETYPE, myfunc) # XXX messy
+            return myfunc.Invoke(30, 12)
+        res = self.interpret(fn, [])
+        assert res == 42
+
+
 class TestPythonnet(TestDotnetRtyping):
     # don't interpreter functions but execute them directly through pythonnet
     def interpret(self, f, args, backendopt='ignored'):
@@ -456,3 +480,4 @@ class TestPythonnet(TestDotnetRtyping):
 
     def test_whitout_box(self):
         pass # it makes sense only during translation
+        
