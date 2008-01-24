@@ -1774,7 +1774,7 @@ def cast_int_to_ptr(PTRTYPE, oddint):
     return _ptr(PTRTYPE, oddint, solid=True)
 
 def cast_float_to_int(val):
-    return struct.unpack('i', struct.pack('f', val))[0]
+    return struct.unpack('i', struct.pack('d', val))[0]
 
 def attachRuntimeTypeInfo(GCSTRUCT, funcptr=None, destrptr=None):
     if not isinstance(GCSTRUCT, RttiStruct):

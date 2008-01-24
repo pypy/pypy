@@ -41,6 +41,7 @@ def _setup_ctypes_cache():
         rffi.LONGLONG:   ctypes.c_longlong,
         rffi.ULONGLONG:  ctypes.c_ulonglong,
         rffi.SIZE_T:     ctypes.c_size_t,
+        lltype.UniChar:  ctypes.c_wchar,
         })
 
 def build_ctypes_struct(S, delayed_builders, max_n=None):
@@ -443,7 +444,7 @@ def lltype2ctypes(llobj, normalize=True):
         else:
             raise NotImplementedError(llobj)  # don't know about symbolic value
 
-    if T is lltype.Char:
+    if T is lltype.Char or T is lltype.UniChar:
         return ord(llobj)
 
     if T is lltype.SingleFloat:
@@ -480,6 +481,8 @@ def ctypes2lltype(T, cobj):
         llobj = lltype._ptr(T, container, solid=True)
     elif T is lltype.Char:
         llobj = chr(cobj)
+    elif T is lltype.UniChar:
+        llobj = unichr(cobj)
     elif T is lltype.Signed:
         llobj = cobj
     elif T is lltype.SingleFloat:
