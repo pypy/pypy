@@ -48,7 +48,7 @@ TYPEMAP = {
     'O' : ffi_type_pointer,
     'Z' : ffi_type_pointer,
 }
-TYPEMAP_PTR_LETTERS = "POsz"
+TYPEMAP_PTR_LETTERS = "POszZ"
 
 UNPACKED_TYPECODES = dict([(code, (code,
                                    intmask(field_desc.c_size),
@@ -72,6 +72,7 @@ LL_TYPEMAP = {
     'd' : rffi.DOUBLE,
     's' : rffi.CCHARP,
     'z' : rffi.CCHARP,
+    'Z' : rffi.CArrayPtr(lltype.UniChar),
     'O' : rffi.VOIDP,
     'P' : rffi.VOIDP,
     'v' : lltype.Void,
