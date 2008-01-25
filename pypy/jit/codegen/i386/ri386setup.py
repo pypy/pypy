@@ -42,8 +42,9 @@ type_order = {
 
     REL32: [(REL32, None)],
 
-    MODRM:  [(MODRM,  None)],
-    MODRM8: [(MODRM8, None)],
+    MODRM:   [(MODRM,  None)],
+    MODRM8:  [(MODRM8, None)],
+    MODRM64: [(MODRM64, None)],
 
     MISSING: [(MISSING, None)],  # missing operands
     }
@@ -436,7 +437,7 @@ BREAKPOINT.as_alias = "INT3"
 # ------------------------- floating point instructions ------------------
 
 FLD = Instruction()
-FLD.mode1(MODRM64, ['\xDD', modrm(1)])
+FLD.mode1(MODRM64, ['\xD9', modrm(1)])
 
 FADD = Instruction()
 #FADD.mode1(MODRM64, ['\xDC', modrm(1)])

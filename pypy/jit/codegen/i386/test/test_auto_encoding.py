@@ -86,7 +86,7 @@ def modrm_tests():
     return i386.registers + [pick1(i386.memSIB) for i in range(COUNT2)]
 
 def modrm64_tests():
-    return [pick1(i386.memSIB) for i in range(COUNT2)]
+    return [pick1(i386.memSIB64) for i in range(COUNT2)]
 
 def modrm8_tests():
     return i386.registers8 + [pick1(i386.memSIB8) for i in range(COUNT2)]
@@ -287,8 +287,6 @@ def test_auto():
         #print name
         if name in ('CMOVPE', 'CMOVPO'):
             py.test.skip("why doesn't 'as' know about CMOVPE/CMOVPO?")
-        if name == 'FLD':
-            py.test.skip("XXX")
         complete_test(name, insn)
 
     items = all_instructions.items()

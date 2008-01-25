@@ -250,6 +250,9 @@ def mem(basereg, offset=0):
 def memSIB(base, index, scaleshift, offset):
     return _SIBencode(MODRM, base, index, scaleshift, offset)
 
+def memSIB64(base, index, scaleshift, offset):
+    return _SIBencode(MODRM64, base, index, scaleshift, offset)    
+
 def memregister8(register):
     assert register.width == 1
     return MODRM8(0xC0 | register.op, '')
