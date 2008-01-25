@@ -43,6 +43,12 @@ class _CDataMeta(type):
     def _is_pointer_like(self):
         return False
 
+    def in_dll(self, dll, name):
+        buffer = dll._handle.getprimitive(self._ffishape, name)
+        val = self.__new__(self)
+        val._buffer = buffer
+        return val
+
 class _CData(object):
     """ The most basic object for all ctypes types
     """
