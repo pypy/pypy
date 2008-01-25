@@ -135,6 +135,14 @@ class W_CDLL(Wrappable):
                 "No symbol %s found in library %s" % (name, self.name)))
     ptr.unwrap_spec = ['self', ObjSpace, str, W_Root, W_Root]
 
+    def getprimitive(self, space, letter, name):
+        from pypy.module._rawffi.array import get_array_cache
+        cache = get_array_cache(space)
+        w_array = cache.get_array_type(letter2tp(space, letter))
+        address_as_uint = rffi.cast(lltype.Unsigned, self.cdll.getaddressindll(name))
+        return w_array.fromaddress(space, address_as_uint, 1)
+    getprimitive.unwrap_spec = ['self', ObjSpace, str, str]
+
 def descr_new_cdll(space, w_type, name):
     try:
         return space.wrap(W_CDLL(space, name))
@@ -146,6 +154,7 @@ W_CDLL.typedef = TypeDef(
     'CDLL',
     __new__     = interp2app(descr_new_cdll),
     ptr         = interp2app(W_CDLL.ptr),
+    getprimitive= interp2app(W_CDLL.getprimitive),
     __doc__     = """ C Dynamically loaded library
 use CDLL(libname) to create a handle to a C library (the argument is processed
 the same way as dlopen processes it). On such a library you can call:

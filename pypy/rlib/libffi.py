@@ -365,3 +365,6 @@ class CDLL:
         # these arguments are already casted to proper ffi
         # structures!
         return RawFuncPtr(name, argtypes, restype, dlsym(self.lib, name))
+
+    def getaddressindll(self, name):
+        return dlsym(self.lib, name)

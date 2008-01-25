@@ -54,6 +54,8 @@ class AppTestFfi:
         }
         
         const char *static_str = "xxxxxx";
+        const long static_int = 42;
+        const double static_double = 42.42;
         
         unsigned short add_shorts(short one, short two)
         {
@@ -574,3 +576,12 @@ class AppTestFfi:
         a[0] = -2
         assert a[0] == maxptr - 1
         a.free()
+
+    def test_getprimitive(self):
+        import _rawffi
+        lib = _rawffi.CDLL(self.lib_name)
+        a = lib.getprimitive("l", "static_int")
+        assert a[0] == 42
+        a = lib.getprimitive("d", "static_double")
+        assert a[0] == 42.42
+
