@@ -32,6 +32,17 @@ TP_TO_DEFAULT = {
  
 DEFAULT_VALUE = object()
 
+def generic_xxx_p_from_param(self, value):
+    from _ctypes import Array, _Pointer
+    if value is None:
+        return self(None)
+    if isinstance(value, basestring):
+        return self(value)
+    if isinstance(value, _SimpleCData) and \
+           type(value)._type_ in 'zP':
+        return value
+    return None # eventually raise
+
 class SimpleType(_CDataMeta):
     def __new__(self, name, bases, dct):
         tp = dct['_type_']
@@ -89,13 +100,9 @@ class SimpleType(_CDataMeta):
             from _ctypes import Array, _Pointer
             # c_char_p
             def from_param(self, value):
-                if value is None:
-                    return self(None)
-                if isinstance(value, basestring):
-                    return self(value)
-                if isinstance(value, _SimpleCData) and \
-                       type(value)._type_ in 'zP':
-                    return value
+                res = generic_xxx_p_from_param(self, value)
+                if res is not None:
+                    return res
                 if isinstance(value, (Array, _Pointer)):
                     from ctypes import c_char, c_byte, c_wchar
                     if type(value)._type_ in [c_char, c_byte, c_wchar]:
@@ -106,13 +113,9 @@ class SimpleType(_CDataMeta):
             from _ctypes import Array, _Pointer
             # c_void_p
             def from_param(self, value):
-                if value is None:
-                    return self(None)
-                if isinstance(value, basestring):
-                    return self(value)
-                if isinstance(value, _SimpleCData) and \
-                       type(value)._type_ in 'zP':
-                    return value
+                res = generic_xxx_p_from_param(self, value)
+                if res is not None:
+                    return res
                 if isinstance(value, Array):
                     from ctypes import c_char, c_byte, c_wchar
                     if type(value)._type_ in [c_char, c_byte, c_wchar]:
