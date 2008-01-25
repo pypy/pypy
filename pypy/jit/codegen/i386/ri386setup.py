@@ -434,11 +434,16 @@ BREAKPOINT.mode0(['\xCC'])
 BREAKPOINT.as_alias = "INT3"
 
 # ------------------------- floating point instructions ------------------
+
 FLD = Instruction()
-FLD.mode1(MODRM, ['\xDD', modrm(1)])
+FLD.mode1(MODRM64, ['\xDD', modrm(1)])
 
 FADD = Instruction()
-FADD.mode1(MODRM, ['\xDC', modrm(1)])
+#FADD.mode1(MODRM64, ['\xDC', modrm(1)])
+FADD.mode0(['\xDE\xC1'])
+
+#FISTP = Instruction()
+#FISTP.mode1(MODRM64, ['\xDF', modrm(1)])
 
 # ------------------------- end of floating point ------------------------
 
