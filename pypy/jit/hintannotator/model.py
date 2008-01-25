@@ -44,7 +44,7 @@ BINARY_OPERATIONS = """int_add int_sub int_mul int_mod int_and int_rshift
                        uint_gt uint_lt uint_le uint_ge uint_eq uint_ne 
                        getarrayitem setarrayitem
                        getarraysubstruct
-                       ptr_eq ptr_ne""".split()
+                       ptr_eq ptr_ne float_add""".split()
 
 class HintError(Exception):
     pass

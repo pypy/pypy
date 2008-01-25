@@ -99,6 +99,14 @@ class BaseAnnotatorTest(AbstractAnnotatorTest):
         assert len(hs.origins) == 3
         assert hs.concretetype == lltype.Signed
 
+    def test_simple_float(self):
+        def ll_function(x, y):
+            return x + y
+        hs = self.hannotate(ll_function, [float, float])
+        assert isinstance(hs, SomeLLAbstractConstant)
+        assert len(hs.origins) == 3
+        assert hs.concretetype == lltype.Float 
+
     def test_join(self):
         def ll_function(cond, x,y):
             if cond:
