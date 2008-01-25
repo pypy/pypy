@@ -209,8 +209,10 @@ class AbstractFuncPtr(object):
     def __del__(self):
         if self.ll_cif:
             lltype.free(self.ll_cif, flavor='raw')
+            self.ll_cif = lltype.nullptr(FFI_CIFP.TO)
         if self.ll_argtypes:
             lltype.free(self.ll_argtypes, flavor='raw')
+            self.ll_argtypes = lltype.nullptr(FFI_TYPE_PP.TO)
 
 USERDATA_P = lltype.Ptr(lltype.GcForwardReference())
 CALLBACK_TP = lltype.Ptr(lltype.FuncType([rffi.VOIDPP, rffi.VOIDP, USERDATA_P],
@@ -242,6 +244,9 @@ class CallbackFuncPtr(AbstractFuncPtr):
         AbstractFuncPtr.__del__(self)
         if self.ll_closure:
             lltype.free(self.ll_closure, flavor='raw')
+            self.ll_closure = lltype.nullptr(FFI_CLOSUREP.TO)
+        # note that ll_userdata is a GC object and therefore does not need to
+        # be explicitely freed
 
 class RawFuncPtr(AbstractFuncPtr):
 
@@ -330,8 +335,10 @@ class FuncPtr(AbstractFuncPtr):
                 if self.ll_args[i]:
                     lltype.free(self.ll_args[i], flavor='raw')
             lltype.free(self.ll_args, flavor='raw')
+            self.ll_args = lltype.nullptr(rffi.VOIDPP.TO)
         if self.ll_result:
             lltype.free(self.ll_result, flavor='raw')
+            self.ll_result = lltype.nullptr(rffi.VOIDP.TO)
         AbstractFuncPtr.__del__(self)
 
 class CDLL:
@@ -344,8 +351,10 @@ class CDLL:
     def __del__(self):
         if self.lib:
             c_dlclose(self.lib)
+            self.lib = lltype.nullptr(rffi.CCHARP.TO)
         if self.ll_libname:
             lltype.free(self.ll_libname, flavor='raw')
+            self.ll_libname = lltype.nullptr(rffi.CCHARP.TO)
 
     def getpointer(self, name, argtypes, restype):
         # these arguments are already casted to proper ffi
