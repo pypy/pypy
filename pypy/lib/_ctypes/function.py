@@ -92,6 +92,8 @@ class CFuncPtr(_CData):
         from ctypes import c_char_p, c_void_p, c_int, Array, Structure
         res = []
         for arg in args:
+            if hasattr(arg, '_as_parameter_'):
+                arg = arg._as_parameter_
             if isinstance(arg, str):
                 res.append(c_char_p)
             elif isinstance(arg, _CData):
