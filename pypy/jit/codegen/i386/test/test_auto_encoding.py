@@ -34,6 +34,7 @@ sizes = {
 
     i386.REG: 4,
     i386.MODRM: 4,
+    i386.MODRM64: 8,
     i386.IMM32: 4,
     i386.REG8: 1,
     i386.MODRM8: 1,
@@ -84,6 +85,9 @@ def pick1(memSIB, cache=[]):
 def modrm_tests():
     return i386.registers + [pick1(i386.memSIB) for i in range(COUNT2)]
 
+def modrm64_tests():
+    return [pick1(i386.memSIB) for i in range(COUNT2)]
+
 def modrm8_tests():
     return i386.registers8 + [pick1(i386.memSIB8) for i in range(COUNT2)]
 
@@ -108,6 +112,7 @@ tests = {
 
     i386.REG: reg_tests,
     i386.MODRM: modrm_tests,
+    i386.MODRM64: modrm64_tests,
     i386.IMM32: imm32_tests,
     i386.REG8: reg8_tests,
     i386.MODRM8: modrm8_tests,
@@ -282,8 +287,8 @@ def test_auto():
         #print name
         if name in ('CMOVPE', 'CMOVPO'):
             py.test.skip("why doesn't 'as' know about CMOVPE/CMOVPO?")
-        if name in ('FADD', 'FLD'):
-            py.test.skip("XXX TEST ME: " + name)
+        if name == 'FLD':
+            py.test.skip("XXX")
         complete_test(name, insn)
 
     items = all_instructions.items()
