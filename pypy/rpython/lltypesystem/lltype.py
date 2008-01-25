@@ -1773,9 +1773,6 @@ def cast_int_to_ptr(PTRTYPE, oddint):
     assert oddint & 1, "only odd integers can be cast back to ptr"
     return _ptr(PTRTYPE, oddint, solid=True)
 
-def cast_float_to_int(val):
-    return struct.unpack('i', struct.pack('d', val))[0]
-
 def attachRuntimeTypeInfo(GCSTRUCT, funcptr=None, destrptr=None):
     if not isinstance(GCSTRUCT, RttiStruct):
         raise TypeError, "expected a RttiStruct: %s" % GCSTRUCT
