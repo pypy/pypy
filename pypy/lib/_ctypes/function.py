@@ -100,10 +100,10 @@ class CFuncPtr(_CData):
                 res.append(c_void_p)
             elif arg == 0:
                 res.append(c_void_p)
-            elif isinstance(arg, int):
+            elif isinstance(arg, (int, long)):
                 res.append(c_int)
             else:
-                raise TypeError("Dont know how to handle %s" % (arg,))
+                raise TypeError("Don't know how to handle %s" % (arg,))
         return res
 
     def _wrap_args(self, argtypes, args):
