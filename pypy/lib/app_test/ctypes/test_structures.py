@@ -341,7 +341,6 @@ class TestStructure:
         assert (cls, msg) == (TypeError, "abstract class")
 
     def test_methods(self):
-        py.test.skip("???")
 ##        class X(Structure):
 ##            _fields_ = []
 
