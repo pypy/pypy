@@ -7,8 +7,6 @@ from _ctypes.structure import round_up, names_and_fields, struct_getattr,\
 import inspect
 
 class UnionMeta(_CDataMeta):
-    _is_union = True
-    
     def __new__(self, name, cls, typedict):
         res = type.__new__(self, name, cls, typedict)
         if '_fields_' in typedict:
@@ -22,11 +20,13 @@ class UnionMeta(_CDataMeta):
             res._ffiarrays = {}
             for name, field in res._fieldtypes.iteritems():
                 res._ffiarrays[name] = _rawffi.Array(field.ctype._ffishape)
-            def __init__(self): # don't allow arguments by now
-                # malloc size
-                size = self.__class__._sizeofinstances()
-                self.__dict__['_buffer'] = _rawffi.Array('c')(size)
-            res.__init__ = __init__
+        def __init__(self): # don't allow arguments by now
+            if not hasattr(self, '_ffiarrays'):
+                raise TypeError("Cannot instantiate union, has no type")
+            # malloc size
+            size = self.__class__._sizeofinstances()
+            self.__dict__['_buffer'] = _rawffi.Array('c')(size)
+        res.__init__ = __init__
         return res
 
     def _sizeofinstances(self):
@@ -42,8 +42,25 @@ class UnionMeta(_CDataMeta):
                                     self._fieldtypes.values()] + [1])
         return self._alignment_
     
-    __setattr__ = struct_setattr
     __getattr__ = struct_getattr
+
+    def __setattr__(self, name, value):
+        if name == '_fields_':
+            if self.__dict__.get('_fields_', None):
+                raise AttributeError("_fields_ is final")
+            if self in [v for k, v in value]:
+                raise AttributeError("Union cannot contain itself")
+            self._names, rawfields, self._fieldtypes = names_and_fields(
+                value, self.__bases__[0], True,
+                self.__dict__.get('_anonymous_', None))
+            self._ffiarrays = {}
+            for name, field in self._fieldtypes.iteritems():
+                self._ffiarrays[name] = _rawffi.Array(field.ctype._ffishape)
+            _CDataMeta.__setattr__(self, '_fields_', value)
+            self._ffishape = (self._sizeofinstances(),
+                             self._alignmentofinstances())
+            return
+        _CDataMeta.__setattr__(self, name, value)
 
 class Union(_CData):
     __metaclass__ = UnionMeta

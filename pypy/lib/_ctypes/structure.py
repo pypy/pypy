@@ -34,7 +34,7 @@ def struct_setattr(self, name, value):
         if self in [v for k, v in value]:
             raise AttributeError("Structure or union cannot contain itself")
         self._names, rawfields, self._fieldtypes = names_and_fields(
-            value, self.__bases__[0], self._is_union,
+            value, self.__bases__[0], False,
             self.__dict__.get('_anonymous_', None))
         self._ffistruct = _rawffi.Structure(rawfields)
         _CDataMeta.__setattr__(self, '_fields_', value)
@@ -70,6 +70,7 @@ def names_and_fields(_fields_, superclass, zero_offset=False, anon=None):
                     subvalue = value._fieldtypes[subname].ctype
                     fields[subname] = Field(subname, relpos,
                                             ctypes.sizeof(subvalue), subvalue)
+                    # XXX we never set rawfields here, let's wait for a test
             else:
                 resnames.append(name)
         names = resnames
@@ -88,8 +89,6 @@ class Field(object):
                                                    self.size)
 
 class StructureMeta(_CDataMeta):
-    _is_union = False
-    
     def __new__(self, name, cls, typedict):
         res = type.__new__(self, name, cls, typedict)
         if '_fields_' in typedict:
