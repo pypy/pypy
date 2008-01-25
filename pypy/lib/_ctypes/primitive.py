@@ -76,6 +76,25 @@ class SimpleType(_CDataMeta):
                     value = 0
                 self._buffer[0] = value
             result.value = property(_getvalue, _setvalue)
+        elif tp == 'Z':
+            # c_wchar_p
+            from _ctypes import Array, _Pointer, _wstring_at_addr
+            def _getvalue(self):
+                addr = self._buffer[0]
+                if addr == 0:
+                    return None
+                else:
+                    return _wstring_at_addr(addr)
+
+            def _setvalue(self, value):
+                if isinstance(value, str):
+                    array = _rawffi.Array('u')(len(value)+1, value)
+                    value = array.buffer
+                    # XXX free 'array' later
+                elif value is None:
+                    value = 0
+                self._buffer[0] = value
+            result.value = property(_getvalue, _setvalue)
 
         elif tp == 'P':
             # c_void_p

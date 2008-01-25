@@ -95,8 +95,6 @@ class _Pointer(_CData):
         return self._type_._CData_output(self._subarray(index))
 
     def __setitem__(self, index, value):
-        if index != 0:
-            raise IndexError
         self._subarray(index)[0] = self._type_._CData_input(value)[0]
 
     def __nonzero__(self):
@@ -114,6 +112,10 @@ def _cast_addr(obj, _, tp):
         ptr._buffer = tp._ffiarray(1)
         ptr._buffer[0] = obj._buffer
         return ptr
+    if isinstance(obj, (int, long)):
+        result = tp()
+        result._buffer[0] = obj
+        return result
     if not (isinstance(obj, _CData) and type(obj)._is_pointer_like()):
         raise TypeError("cast() argument 1 must be a pointer, not %s"
                         % (type(obj),))
