@@ -18,14 +18,10 @@ DEBUG_TRAP = conftest.option.trap
 
 # ____________________________________________________________
 
-class IntConst(GenConst):
+class AbstractConst(GenConst):
 
     def __init__(self, value):
         self.value = value
-
-    @specialize.arg(1)
-    def revealconst(self, T):
-        return cast_int_to_whatever(T, self.value)
 
     def __repr__(self):
         "NOT_RPYTHON"
@@ -36,6 +32,16 @@ class IntConst(GenConst):
 
     def repr(self):
         return "const=$%s" % (self.value,)
+
+class IntConst(AbstractConst):
+    @specialize.arg(1)
+    def revealconst(self, T):
+        return cast_int_to_whatever(T, self.value)
+
+class FloatConst(AbstractConst):
+    @specialize.arg(1)
+    def revealconst(self, T):
+        return cast_float_to_whatever(T, self.value)
 
 class AddrConst(GenConst):
 
@@ -61,6 +67,15 @@ def cast_int_to_whatever(T, value):
         return llmemory.cast_int_to_adr(value)
     else:
         return lltype.cast_primitive(T, value)
+
+@specialize.arg(0)
+def cast_float_to_whatever(T, value):
+    if T is lltype.Signed:
+        return lltype.cast_float_to_int(value)
+    elif T is lltype.Float:
+        return value
+    else:
+        raise NotImplementedError
 
 @specialize.arg(0)
 def cast_whatever_to_int(T, value):
@@ -653,6 +668,8 @@ class RI386GenOp(AbstractRGenOp):
         T = lltype.typeOf(llvalue)
         if T is llmemory.Address:
             return AddrConst(llvalue)
+        elif T is lltype.Float:
+            return FloatConst(lltype.cast_primitive(lltype.Float, llvalue))
         elif isinstance(T, lltype.Primitive):
             return IntConst(lltype.cast_primitive(lltype.Signed, llvalue))
         elif isinstance(T, lltype.Ptr):
