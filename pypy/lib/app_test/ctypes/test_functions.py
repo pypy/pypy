@@ -388,6 +388,13 @@ class TestFunctions:
             assert (s8i.a, s8i.b, s8i.c, s8i.d, s8i.e, s8i.f, s8i.g, s8i.h) == (
                                  (9*2, 8*3, 7*4, 6*5, 5*6, 4*7, 3*8, 2*9))
 
+    def test_call_some_args(self):
+        f = dll.my_strchr
+        f.argtypes = [c_char_p]
+        f.restype = c_char_p
+        result = f("abcd", ord("b"))
+        assert result == "bcd"
+
     def test_sf1651235(self):
         py.test.skip("???")
         # see http://www.python.org/sf/1651235

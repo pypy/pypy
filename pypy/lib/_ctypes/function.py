@@ -67,6 +67,13 @@ class CFuncPtr(_CData):
         argtypes = self._argtypes_
         if argtypes is None:
             argtypes = self._guess_argtypes(args)
+        else:
+            dif = len(args) - len(argtypes)
+            if dif < 0:
+                raise TypeError("Not enough arguments")
+            if dif > 0:
+                cut = len(args) - dif
+                argtypes = argtypes[:] + self._guess_argtypes(args[cut:])
         restype = self._restype_
         funcptr = self._getfuncptr(argtypes, restype)
         resarray = funcptr(*self._wrap_args(argtypes, args))
