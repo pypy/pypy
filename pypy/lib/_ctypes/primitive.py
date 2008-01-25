@@ -84,7 +84,7 @@ class SimpleType(_CDataMeta):
                 if addr == 0:
                     return None
                 else:
-                    return _wstring_at_addr(addr)
+                    return _wstring_at_addr(addr, -1)
 
             def _setvalue(self, value):
                 if isinstance(value, str):

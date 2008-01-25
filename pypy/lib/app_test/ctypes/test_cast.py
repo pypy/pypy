@@ -69,7 +69,6 @@ class TestCast:
         pass
     else:
         def test_wchar_p(self):
-            py.test.skip("XXX reenable")
             s = c_wchar_p("hiho")
             assert cast(cast(s, c_void_p), c_wchar_p).value == (
                                  "hiho")
