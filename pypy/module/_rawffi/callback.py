@@ -53,8 +53,8 @@ class W_CallbackPtr(W_DataInstance):
                                            callback, number)
         self.ll_buffer = rffi.cast(rffi.VOIDP, self.ll_callback.ll_closure)
 
-    def __del__(self):
-        del self.global_counter.CallbackPtr_by_number[self.number]
+    #def free(self):
+    #    del self.global_counter.CallbackPtr_by_number[self.number]
 
 def descr_new_callbackptr(space, w_type, w_callable, w_args, w_result):
     return W_CallbackPtr(space, w_callable, w_args, w_result)
