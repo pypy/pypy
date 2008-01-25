@@ -10,6 +10,7 @@ class PseudoAnnhelper(object):
     rtyper = None
 GENOP_POLICY = MixLevelAnnotatorPolicy(PseudoAnnhelper())
 
+FLOATFUNC = lltype.FuncType([lltype.Float], lltype.Float)
 FUNC  = lltype.FuncType([lltype.Signed], lltype.Signed)
 FUNC2 = lltype.FuncType([lltype.Signed]*2, lltype.Signed)
 FUNC3 = lltype.FuncType([lltype.Signed]*3, lltype.Signed)
@@ -26,6 +27,19 @@ def make_adder(rgenop, n):
     builder.end()
     return gv_add_one
 
+def make_float_adder(rgenop, n):
+    # 'return x+n'
+    sigtoken = rgenop.sigToken(FLOATFUNC)
+    import pdb
+    pdb.set_trace()
+    builder, gv_add_one, [gv_x] = rgenop.newgraph(sigtoken, "float_adder")
+    builder.start_writing()
+    c2 = rgenop.genconst(n)
+    gv_result = builder.genop2("float_add", gv_x, c2)
+    builder.finish_and_return(sigtoken, gv_result)
+    builder.end()
+    return gv_add_one
+
 def get_adder_runner(RGenOp):
     def runner(x, y):
         rgenop = RGenOp()
@@ -33,6 +47,16 @@ def get_adder_runner(RGenOp):
         add_x = gv_add_x.revealconst(lltype.Ptr(FUNC))
         res = add_x(y)
         keepalive_until_here(rgenop)    # to keep the code blocks alive
+        return res
+    return runner
+
+def get_float_adder_runner(RGenOp):
+    def runner(x, y):
+        rgenop = RGenOp()
+        gv_add_x = make_float_adder(rgenop, x)
+        add_x = gv_add_x.revealconst(lltype.Ptr(FLOATFUNC))
+        res = add_x(y)
+        keepalive_until_here(rgenop)
         return res
     return runner
 
@@ -846,6 +870,10 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         F1 = lltype.FuncType([lltype.Signed] * nb_args, lltype.Signed)
         return self.RGenOp.get_python_callable(lltype.Ptr(F1), gv)
 
+    def cast_float(self, gv, nb_args):
+        F1 = lltype.FuncType([lltype.Float] * nb_args, lltype.Float)
+        return self.RGenOp.get_python_callable(lltype.Ptr(F1), gv)
+
     def directtesthelper(self, FUNCTYPE, func):
         # for machine code backends: build a ctypes function pointer
         # (with a real physical address) that will call back our 'func'
@@ -890,10 +918,22 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         res = fnptr(37)
         assert res == 42
 
+    def test_float_adder(self):
+        rgenop = self.RGenOp()
+        gv_add_5 = make_float_adder(rgenop, 3.2)
+        fnptr = self.cast_float(gv_add_5, 1)
+        res = fnptr(1.2)
+        assert res == 4.4
+
     def test_adder_compile(self):
         fn = self.compile(get_adder_runner(self.RGenOp), [int, int])
         res = fn(9080983, -9080941)
         assert res == 42
+
+    def test_float_adder_compile(self):
+        fn = self.compile(get_float_adder_runner(self.RGenOp), [float, float])
+        res = fn(1.2, 3.4)
+        assert res == 4.6
 
     def test_dummy_direct(self):
         rgenop = self.RGenOp()

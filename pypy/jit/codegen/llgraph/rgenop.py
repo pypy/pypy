@@ -43,6 +43,7 @@ def gv_TYPE(TYPE):
 
 gv_Void = gv_TYPE(lltype.Void)
 gv_Signed = gv_TYPE(lltype.Signed)
+gv_Double = gv_TYPE(lltype.Float)
 gv_Bool = gv_TYPE(lltype.Bool)
 gv_dummy_placeholder = LLConst(llimpl.dummy_placeholder)
 gv_flavor_gc = LLConst(llimpl.placeholder({'flavor': 'gc'}))
