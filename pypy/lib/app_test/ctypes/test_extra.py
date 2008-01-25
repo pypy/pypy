@@ -222,3 +222,7 @@ def test_cfunctype_inspection():
     # T.argtypes and T.restype don't work, must use a dummy instance
     assert list(T().argtypes) == [c_ubyte]
     assert T().restype == c_int
+
+def test_from_param():
+    # other working cases of from_param
+    assert isinstance(c_void_p.from_param((c_int * 4)()), c_int*4)

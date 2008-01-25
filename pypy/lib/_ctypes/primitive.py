@@ -117,9 +117,7 @@ class SimpleType(_CDataMeta):
                 if res is not None:
                     return res
                 if isinstance(value, Array):
-                    from ctypes import c_char, c_byte, c_wchar
-                    if type(value)._type_ in [c_char, c_byte, c_wchar]:
-                        return value
+                    return value
                 if isinstance(value, _Pointer):
                     return self.from_address(value._buffer.buffer)
                 return SimpleType.from_param(self, value)
