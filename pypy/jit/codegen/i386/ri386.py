@@ -18,12 +18,30 @@ class REG(OPERAND):
         else:
             raise ValueError
 
+class FLOATREG(OPERAND):
+    width = 4
+
+    def __repr__(self):
+        return '<ST(%d)>' % self.num
+
+    def assembler(self):
+        raise TypeError("Float registers should not appear in assembler")
+
+class ST0(FLOATREG): num=0
+class ST1(FLOATREG): num=1
+class ST2(FLOATREG): num=2
+class ST3(FLOATREG): num=3
+class ST4(FLOATREG): num=4
+class ST5(FLOATREG): num=5
+class ST6(FLOATREG): num=6
+class ST7(FLOATREG): num=7
+
 class REG8(OPERAND):
     width = 1
     def __repr__(self):
         return '<%s>' % self.__class__.__name__.lower()
     def assembler(self):
-        return '%' + self.__class__.__name__.lower()
+        return '%' + self.__class__.__name__.lower()    
 
 class EAX(REG): op=0
 class ECX(REG): op=1
@@ -160,6 +178,9 @@ class MODRM(OPERAND):
         else:
             return rm == ECX.op
 
+class MODRM64(MODRM):
+    width = 8
+    # XXX some logic that it cannot be register
 
 class MODRM8(MODRM):
     width = 1
