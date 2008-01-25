@@ -139,7 +139,12 @@ class W_CDLL(Wrappable):
         from pypy.module._rawffi.array import get_array_cache
         cache = get_array_cache(space)
         w_array = cache.get_array_type(letter2tp(space, letter))
-        address_as_uint = rffi.cast(lltype.Unsigned, self.cdll.getaddressindll(name))
+        try:
+            address_as_uint = rffi.cast(lltype.Unsigned,
+                                        self.cdll.getaddressindll(name))
+        except KeyError:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("Cannot find symbol %s" % (name,)))
         return w_array.fromaddress(space, address_as_uint, 1)
     getprimitive.unwrap_spec = ['self', ObjSpace, str, str]
 

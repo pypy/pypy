@@ -584,4 +584,6 @@ class AppTestFfi:
         assert a[0] == 42
         a = lib.getprimitive("d", "static_double")
         assert a[0] == 42.42
+        raises(ValueError, lib.getprimitive, 'z', 'ddddddd')
+        raises(ValueError, lib.getprimitive, 'zzz', 'static_int')
 
