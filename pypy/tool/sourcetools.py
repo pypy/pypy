@@ -66,9 +66,9 @@ class NiceCompile(object):
         if self.srctext:
             try:
                 p = self.srctext.index(src)
-            except ValueError, e:
-                e.args = "Source text not found in %s - use a raw string" % self.srcname
-                raise
+            except ValueError:
+                msg = "Source text not found in %s - use a raw string" % self.srcname
+                raise ValueError(msg)
             prelines = self.srctext[:p].count("\n") + 1
         else:
             prelines = 0
