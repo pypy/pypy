@@ -641,13 +641,21 @@ class RI386GenOp(AbstractRGenOp):
         graphctx.write_stack_adj(mc, initial=True)
         # ^^^ pushed 5 words including the retval ( == PROLOGUE_FIXED_WORDS)
         # ----------------
-        numargs = sigtoken     # for now
+        numargs = len(sigtoken)
         inputargs_gv = []
         inputoperands = []
+        relofs = 0
         for i in range(numargs):
+            size = sigtoken[i] + 1
             inputargs_gv.append(GenVar())
-            ofs = WORD * (GraphCtx.PROLOGUE_FIXED_WORDS+i)
-            inputoperands.append(mem(ebp, ofs))
+            ofs = WORD * (GraphCtx.PROLOGUE_FIXED_WORDS+relofs)
+            relofs += size
+            if size == 1:
+                inputoperands.append(mem(ebp, ofs))
+            elif size == 2:
+                inputoperands.append(mem64(ebp, ofs))
+            else:
+                raise Exception("Unknown size %d" % (size,))
         builder = Builder(self, graphctx, inputargs_gv, inputoperands)
         # XXX this makes the code layout in memory a bit obscure: we have the
         # prologue of the new graph somewhere in the middle of its first
@@ -727,18 +735,23 @@ class RI386GenOp(AbstractRGenOp):
     @staticmethod
     @specialize.memo()
     def kindToken(T):
-        if T is lltype.Float:
-            py.test.skip("not implemented: floats in the i386 back-end")
-        return None     # for now
+        # 32 bit stuff
+        if T is lltype.Signed or T is llmemory.Address or \
+               isinstance(T, lltype.Ptr) or T is lltype.Bool or \
+               T is lltype.Void:
+            # XXX should be else return 0? be on the safe side
+            return 0
+        elif T is lltype.Float:
+            return 1
+        else:
+            raise NotImplementedError(T)
 
     @staticmethod
     @specialize.memo()
     def sigToken(FUNCTYPE):
-        numargs = 0
-        for ARG in FUNCTYPE.ARGS:
-            if ARG is not lltype.Void:
-                numargs += 1
-        return numargs     # for now
+        argtokens = [RI386GenOp.kindToken(i) for i in FUNCTYPE.ARGS
+                     if i is not lltype.Void]
+        return argtokens
 
     @staticmethod
     def erasedType(T):
