@@ -6,13 +6,11 @@ from pypy.jit.codegen.model import GenVar
 
 WORD = op.WORD
 
-class DummyMc(I386CodeBuilder):
+class DummyMc:
     def __init__(self):
         self.ops = []
     
-    def __getattribute__(self, attr):
-        if attr == '__dict__' or attr == 'ops':
-            return object.__getattribute__(self, attr)
+    def __getattr__(self, attr):
         def append_to_ops(*args):
             if attr == 'write':
                 return
