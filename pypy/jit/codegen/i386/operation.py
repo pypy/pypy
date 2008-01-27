@@ -18,10 +18,31 @@ if sys.platform == 'darwin':
 else:
     CALL_ALIGN = 1
 
+class OperationType(type):
+    def __new__(self, name, bases, typedict):
+        res = type.__new__(self, name, bases, typedict)
+        if 'emit_opcode' in typedict:
+            # create emit method based on opcode
+            opcode_name = typedict['emit_opcode']
+            argnum = res.argnum
+            if argnum == 1:
+                def emit(self, mc, dstop):
+                    return getattr(mc, opcode_name)(dstop)
+            else:
+                assert argnum == 2
+                def emit(self, mc, dstop, op1):
+                    return getattr(mc, opcode_name)(dstop, op1)
+            res.emit = emit
+        return res
 
 class Operation(GenVar):
     clobbers_cc = True
     side_effects = True
+    width = WORD
+    __metaclass__ = OperationType
+
+    def getwidth(self):
+        return self.getwidth()
 
     def mark_used_vars(self, allocator):
         raise NotImplementedError
@@ -29,6 +50,7 @@ class Operation(GenVar):
         raise NotImplementedError
 
 class Op1(Operation):
+    argnum = 1
     def __init__(self, x):
         self.x = x
     def mark_used_vars(self, allocator):
@@ -51,12 +73,12 @@ class UnaryOp(Op1):
 
 class OpIntNeg(UnaryOp):
     opname = 'int_neg', 'int_neg_ovf'
-    emit = staticmethod(I386CodeBuilder.NEG)
+    emit_opcode = 'NEG'
     ccexcflag = Conditions['O']
 
 class OpIntInvert(UnaryOp):
     opname = 'int_invert', 'uint_invert'
-    emit = staticmethod(I386CodeBuilder.NOT)
+    emit_opcode = 'NOT'
 
 class OpIntAbs(Op1):
     opname = 'int_abs', 'int_abs_ovf'
@@ -148,12 +170,37 @@ class OpFetchCC(Operation):
         allocator.create_in_cc(self, ccop)
 
 class Op2(Operation):
+    argnum = 2
     def __init__(self, x, y):
         self.x = x
         self.y = y
     def mark_used_vars(self, allocator):
         allocator.using(self.x)
         allocator.using(self.y)
+
+class OpFloatAdd(Op2):
+    opname = 'float_add'
+    width = 2*8
+    
+    def mark_used_vars(self, allocator):
+        allocator.using(self.y)
+        allocator.using(self.x)
+
+    def generate(self, allocator):
+        x, y = self.x, self.y
+        op1 = allocator.get_float_operand(x)
+        assert not isinstance(op1, ST0)
+        #I386CodeBuilder.FLD(allocator.mc, op1)
+        #op2 = allocator.get_float_operand(y)
+        #if not isinstance(op2, ST0):
+        #    I386CodeBuilder.FLD(allocator.mc, op2)
+        #I386CodeBuilder.FADD(allocator.mc)
+        allocator.release(x)
+        #allocator.release(y)
+        #I386CodeBuilder.FISTP(allocator.mc, op1)
+        #loc = allocator.create(self)
+        #loc2 = allocator.create(self)
+        allocator.create_exactly_at(self, op1)
 
 class BinaryOp(Op2):
     side_effects = False
@@ -199,26 +246,26 @@ class BinaryOp(Op2):
 
 class OpIntAdd(BinaryOp):
     opname = 'int_add', 'uint_add', 'int_add_ovf', 'int_add_nonneg_ovf'
-    emit = staticmethod(I386CodeBuilder.ADD)
+    emit_opcode = 'ADD'
     commutative = True
     ccexcflag = Conditions['O']
 
 class OpIntSub(BinaryOp):
     opname = 'int_sub', 'uint_sub', 'int_sub_ovf'
-    emit = staticmethod(I386CodeBuilder.SUB)
+    emit_opcode = 'SUB'
     ccexcflag = Conditions['O']
 
 class OpIntAnd(BinaryOp):
     opname = 'int_and', 'uint_and'
-    emit = staticmethod(I386CodeBuilder.AND)
+    emit_opcode = 'AND'
 
 class OpIntOr(BinaryOp):
     opname = 'int_or', 'uint_or'
-    emit = staticmethod(I386CodeBuilder.OR)
+    emit_opcode = 'OR'
 
 class OpIntXor(BinaryOp):
     opname = 'int_xor', 'uint_xor'
-    emit = staticmethod(I386CodeBuilder.XOR)
+    emit_opcode = 'XOR'
 
 class OpIntMul(Op2):
     opname = 'int_mul', 'int_mul_ovf'
@@ -493,15 +540,15 @@ class OpShift(Op2):
 
 class OpIntLShift(OpShift):
     opname = 'int_lshift', 'uint_lshift'
-    emit = staticmethod(I386CodeBuilder.SHL)
+    emit_opcode = 'SHL'
 
 class OpUIntRShift(OpShift):
     opname = 'uint_rshift'
-    emit = staticmethod(I386CodeBuilder.SHR)
+    emit_opcode = 'SHR'
 
 class OpIntRShift(OpShift):
     opname = 'int_rshift'
-    emit = staticmethod(I386CodeBuilder.SAR)
+    emit_opcode = 'SAR'
     countmax31 = True
 
 class OpCompare2(Op2):
