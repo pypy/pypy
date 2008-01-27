@@ -247,6 +247,9 @@ def memregister(register):
 def mem(basereg, offset=0):
     return memSIB(basereg, None, 0, offset)
 
+def mem64(basereg, offset=0):
+    return memSIB64(basereg, None, 0, offset)
+
 def memSIB(base, index, scaleshift, offset):
     return _SIBencode(MODRM, base, index, scaleshift, offset)
 
