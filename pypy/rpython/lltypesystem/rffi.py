@@ -226,13 +226,6 @@ def _keeper_for_type(TP):
             def __init__(self):
                 self.stuff_to_keepalive = []
                 self.free_positions = []
-
-            def __del__(self):
-                # checker
-                num = len([i for i in self.stuff_to_keepalive if i is not None])
-                if num:
-                    print "WARNING! %d elements kept alive for type %s" % \
-                          (num, tp_str)
         keeper = KeepaliveKeeper()
         _KEEPER_CACHE[TP] = keeper
         return keeper
