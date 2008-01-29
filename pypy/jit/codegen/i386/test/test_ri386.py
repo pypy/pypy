@@ -74,9 +74,9 @@ def test_basic():
     # call +17
     yield check, '\xE8\x11\x00\x00\x00',     'CALL', rel32(22)
     # fld
-    yield check, '\xDD\x44\x24\x04', 'FLD', mem(esp, 4)
+    #yield check, '\xDD\x44\x24\x04', 'FLD', mem(esp, 4)
     # fadd
-    yield check, '\xDC\x44\x24\x08', 'FADD', mem(esp, 8)
+    #yield check, '\xDC\x44\x24\x08', 'FADD', mem(esp, 8)
 
 ##def test_conditional():
 ##    """Compare the encoding for the instructions JE, JAE, JC etc.,
