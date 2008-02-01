@@ -469,9 +469,7 @@ class TestDotnetRtyping(CliTest):
 
     def test_dynamic_method(self):
         from pypy.rpython.ootypesystem import ootype
-        self._skip_pythonnet("does not work")
         DelegateType = CLR.pypy.runtime.DelegateType_int__int_int
-        DELEGATETYPE = DelegateType._INSTANCE
         Utils = CLR.pypy.runtime.Utils
         def fn():
             tInt = typeof(System.Int32)
@@ -483,7 +481,7 @@ class TestDotnetRtyping(CliTest):
             il.Emit(OpCodes.Add)
             il.Emit(OpCodes.Ret)
             myfunc = meth.CreateDelegate(typeof(DelegateType))
-            myfunc = ootype.oodowncast(DELEGATETYPE, myfunc) # XXX messy
+            myfunc = clidowncast(DelegateType, myfunc)
             return myfunc.Invoke(30, 12)
         res = self.interpret(fn, [])
         assert res == 42
