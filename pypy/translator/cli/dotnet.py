@@ -528,6 +528,26 @@ class Entry(ExtRegistryEntry):
         c_methodname = hop.inputconst(ootype.Void, methodname)
         return hop.genop('cli_eventhandler', [v_obj, c_methodname], hop.r_result.lowleveltype)
 
+
+def clidowncast(cliClass, obj):
+    return obj
+
+class Entry(ExtRegistryEntry):
+    _about_ = clidowncast
+
+    def compute_result_annotation(self, s_type, s_value):
+        assert s_type.is_constant()
+        cliClass = s_type.const
+        TYPE = cliClass._INSTANCE
+        assert ootype.isSubclass(TYPE, s_value.ootype)
+        return SomeOOInstance(TYPE)
+
+    def specialize_call(self, hop):
+        assert isinstance(hop.args_s[0].const, CliClass)
+        assert isinstance(hop.args_s[1], annmodel.SomeOOInstance)
+        v_inst = hop.inputarg(hop.args_r[1], arg=1)
+        return hop.genop('oodowncast', [v_inst], resulttype = hop.r_result.lowleveltype)
+
 from pypy.translator.cli.query import CliNamespace
 CLR = CliNamespace(None)
 CLR._buildtree()

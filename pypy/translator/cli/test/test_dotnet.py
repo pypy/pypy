@@ -7,7 +7,7 @@ from pypy.rpython.ootypesystem.ootype import meth, Meth, Char, Signed, Float, St
 from pypy.translator.cli.test.runtest import CliTest
 from pypy.translator.cli.dotnet import SomeCliClass, SomeCliStaticMethod,\
      NativeInstance, CLR, box, unbox, OverloadingResolver, NativeException,\
-     native_exc, new_array, init_array, typeof, eventhandler
+     native_exc, new_array, init_array, typeof, eventhandler, clidowncast
 
 System = CLR.System
 ArrayList = CLR.System.Collections.ArrayList
@@ -361,6 +361,18 @@ class TestDotnetRtyping(CliTest):
             return typeof(DelegateType) is not None
         res = self.interpret(fn, [])
         assert res is True
+
+    def test_clidowncast(self):
+        def fn():
+            a = ArrayList()
+            b = ArrayList()
+            a.Add(b)
+            c = a.get_Item(0) # type of c is Object
+            c = clidowncast(ArrayList, c)
+            c.Add(None)
+            return c.get_Item(0)
+        res = self.interpret(fn, [])
+        assert res is None
 
     def test_mix_None_and_instance(self):
         def g(x):
