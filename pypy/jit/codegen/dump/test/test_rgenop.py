@@ -2,8 +2,7 @@ import py
 from pypy.jit.codegen.dump.rgenop import RDumpGenOp
 from pypy.jit.timeshifter.test.test_timeshift import Whatever
 from pypy.rpython.lltypesystem import lltype
-from pypy.jit.codegen.test.rgenop_tests import AbstractRGenOpTests, FUNC, FUNC2
-from ctypes import cast, c_int, c_void_p, CFUNCTYPE
+from pypy.jit.codegen.test.rgenop_tests import AbstractRGenOpTests
 
 class TestRDumpGenop(AbstractRGenOpTests):
     RGenOp = RDumpGenOp
