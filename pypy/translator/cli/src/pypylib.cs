@@ -53,6 +53,7 @@ namespace pypy.test
 
 namespace pypy.runtime
 {
+    public delegate int DelegateType_int__int(int a);
     public delegate int DelegateType_int__int_int(int a, int b);
 
     public class Utils

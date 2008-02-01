@@ -33,7 +33,8 @@ def load_pypylib():
     except ImportError:
         pass
     else:
-        Assembly.LoadFrom(dll)
+        ass = Assembly.LoadFrom(dll)
+        assert ass is not None
         clr.AddReference(pypylib)
     load_assembly(pypylib)
 
@@ -96,6 +97,7 @@ def get_class_desc(name):
         desc = ClassDesc()
         desc.Assembly = mscorlib
         desc.FullName = name
+        desc.AssemblyQualifiedName = name # XXX
         desc.BaseType = 'System.Object'
         desc.IsArray = True
         desc.ElementType = 'System.Object' # not really true, but we need something
@@ -105,6 +107,7 @@ def get_class_desc(name):
         desc = ClassDesc()
         desc.Assembly = mscorlib
         desc.FullName = name
+        desc.AssemblyQualifiedName = name # XXX
         desc.BaseType = 'System.Array'
         desc.ElementType = itemdesc.FullName
         desc.IsArray = True
@@ -154,6 +157,7 @@ class ClassDesc(object):
         # no superclass for now, will add it later
         TYPE = NativeInstance(assembly, namespace, name, None, {}, {})
         TYPE._is_value_type = self.IsValueType
+        TYPE._assembly_qualified_name = self.AssemblyQualifiedName
         Class = CliClass(TYPE, {}, {})
         self._cliclass = Class
         # we need to check also for System.Array to prevent a circular recursion

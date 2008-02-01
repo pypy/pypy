@@ -355,6 +355,13 @@ class TestDotnetRtyping(CliTest):
         res = self.interpret(fn, [])
         assert res is True
 
+    def test_typeof_pypylib(self):
+        DelegateType = CLR.pypy.runtime.DelegateType_int__int_int
+        def fn():
+            return typeof(DelegateType) is not None
+        res = self.interpret(fn, [])
+        assert res is True
+
     def test_mix_None_and_instance(self):
         def g(x):
             return x

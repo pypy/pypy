@@ -495,8 +495,7 @@ class Entry(ExtRegistryEntry):
 
 def typeof(cliClass):
     TYPE = cliClass._INSTANCE
-    name = '%s.%s' % (TYPE._namespace, TYPE._classname)
-    return PythonNet.System.Type.GetType(name)
+    return PythonNet.System.Type.GetType(TYPE._assembly_qualified_name)
 
 class Entry(ExtRegistryEntry):
     _about_ = typeof

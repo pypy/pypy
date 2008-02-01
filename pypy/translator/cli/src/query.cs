@@ -58,6 +58,7 @@ public class Query
         outfile.WriteLine("desc = ClassDesc()");
         outfile.WriteLine("desc.Assembly = '{0}'", t.Assembly.FullName);
         outfile.WriteLine("desc.FullName = '{0}'", t.FullName);
+        outfile.WriteLine("desc.AssemblyQualifiedName = '{0}'", t.AssemblyQualifiedName);
         outfile.WriteLine("desc.BaseType = '{0}'", GetBaseType(t));
         outfile.WriteLine("desc.IsArray = {0}", t.IsArray);
         outfile.WriteLine("desc.IsValueType = {0}", t.IsValueType);
