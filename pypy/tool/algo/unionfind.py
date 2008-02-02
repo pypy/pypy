@@ -87,6 +87,8 @@ class UnionFind(object):
         self.link_to_parent[rep2] = rep1
 
         del self.weight[rep2]
+        if hasattr(info2, "cleanup"):
+            info2.cleanup()
         del self.root_info[rep2]
 
         self.weight[rep1] = w

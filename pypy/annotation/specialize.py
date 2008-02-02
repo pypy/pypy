@@ -96,10 +96,18 @@ class MemoTable:
         self.funcdesc = funcdesc
         self.table = {args: value}
         self.graph = None
+        self.do_not_process = False
+
+    def register_finish(self):
+        bookkeeper = self.funcdesc.bookkeeper
+        bookkeeper.pending_specializations.append(self.finish)
 
     def update(self, other):
         self.table.update(other.table)
         self.graph = None   # just in case
+
+    def cleanup(self):
+        self.do_not_process = True
 
     fieldnamecounter = 0
 
@@ -110,6 +118,8 @@ class MemoTable:
         return fieldname
 
     def finish(self):
+        if self.do_not_process:
+            return
         from pypy.annotation.model import unionof
         assert self.graph is None, "MemoTable already finished"
         # list of which argument positions can take more than one value
@@ -273,7 +283,7 @@ def memo(funcdesc, arglist_s):
         def compute_one_result(args):
             value = func(*args)
             memotable = MemoTable(funcdesc, args, value)
-            bookkeeper.pending_specializations.append(memotable.finish)
+            memotable.register_finish()
             return memotable
 
         memotables = UnionFind(compute_one_result)
