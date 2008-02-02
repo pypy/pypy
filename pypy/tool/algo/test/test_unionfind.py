@@ -21,6 +21,6 @@ def test_cleanup():
     uf.find(2)
     for i in xrange(2, 20, 2):
         uf.union(i, 2)
-    assert len(state) < 3
+    assert len(state) == 2 # we have exactly 2 partitions
 
 
