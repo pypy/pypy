@@ -14,6 +14,7 @@ from pypy.rpython import robject
 
 from pypy.rpython import callparse
 
+
 def small_cand(rtyper, s_pbc):
     if 1 < len(s_pbc.descriptions) < rtyper.getconfig().translation.withsmallfuncsets and \
            hasattr(rtyper.type_system.rpbc, 'SmallFunctionSetPBCRepr'):
@@ -482,10 +483,7 @@ class AbstractMultipleFrozenPBCRepr(AbstractMultipleUnrelatedFrozenPBCRepr):
                 try:
                     thisattrvalue = frozendesc.attrcache[attr]
                 except KeyError:
-                    # don't issue warning if this attribute can be read, but
-                    # is not used
-                    if not hasattr(frozendesc.pyobj, attr):
-                        warning("Desc %r has no attribute %r" % (frozendesc, attr))
+                    warning("Desc %r has no attribute %r" % (frozendesc, attr))
                     continue
                 llvalue = r_value.convert_const(thisattrvalue)
                 setattr(result, mangled_name, llvalue)
