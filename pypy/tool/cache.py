@@ -58,6 +58,9 @@ class Cache(object):
             if lock: lock.release()
     getorbuild._annspecialcase_ = "specialize:memo"
 
+    def __repr__(self):
+        return "<Cache %r (%i items)>" % (self.__class__.__name__, len(self.content))
+
     def _ready(self, result):
         pass
 
