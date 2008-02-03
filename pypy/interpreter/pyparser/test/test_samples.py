@@ -72,9 +72,15 @@ def test_samples():
     samples_dir = py.magic.autopath().dirpath("samples") 
     for use_lookahead in (True, False):
         grammar.USE_LOOKAHEAD = use_lookahead
-        for path in samples_dir.listdir("*.py"): 
+        sample_paths = samples_dir.listdir("*.py")
+        # Make it as likely as possible (without tons of effort) that each
+        # sample will have the same test name in each run.
+        sample_paths.sort()
+        for path in sample_paths:
             fname = path.basename 
             if fname in SKIP_ALWAYS:
+                yield lambda: py.test.skip(
+                    "%r is set to always skip." % (fname,))
                 continue
             if GRAMMAR_MISMATCH and fname in SKIP_IF_NOT_NATIVE:
                 yield lambda: py.test.skip(
