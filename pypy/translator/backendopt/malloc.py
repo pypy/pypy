@@ -15,10 +15,11 @@ class LifeTime:
         self.creationpoints = {}   # set of ("type of creation point", ...)
         self.usepoints = {}        # set of ("type of use point",      ...)
 
-    def update(self, other):
+    def absorb(self, other):
         self.variables.update(other.variables)
         self.creationpoints.update(other.creationpoints)
         self.usepoints.update(other.usepoints)
+
 
 class BaseMallocRemover(object):
 

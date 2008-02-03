@@ -26,6 +26,7 @@ class CallFamily:
         for shape, table in other.calltables.items():
             for row in table:
                 self.calltable_add_row(shape, row)
+    absorb = update # UnionFind API
 
     def calltable_lookup_row(self, callshape, row):
         # this code looks up a table of which graph to
@@ -63,6 +64,7 @@ class FrozenAttrFamily:
         self.descs.update(other.descs)
         self.read_locations.update(other.read_locations)
         self.attrs.update(other.attrs)
+    absorb = update # UnionFind API
 
     def get_s_value(self, attrname):
         try:
@@ -100,6 +102,7 @@ class ClassAttrFamily:
         self.descs.update(other.descs)
         self.read_locations.update(other.read_locations)
         self.s_value = unionof(self.s_value, other.s_value)
+    absorb = update # UnionFind API
 
     def get_s_value(self, attrname):
         return self.s_value

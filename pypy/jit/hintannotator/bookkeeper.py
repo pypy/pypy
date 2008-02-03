@@ -110,6 +110,7 @@ class TsGraphCallFamily:
 
     def update(self, other):
         self.tsgraphs.update(other.tsgraphs)
+    absorb = update # UnionFind API
 
 
 class ImpurityAnalyzer(graphanalyze.GraphAnalyzer):

@@ -102,12 +102,10 @@ class MemoTable:
         bookkeeper = self.funcdesc.bookkeeper
         bookkeeper.pending_specializations.append(self.finish)
 
-    def update(self, other):
+    def absorb(self, other):
         self.table.update(other.table)
         self.graph = None   # just in case
-
-    def cleanup(self):
-        self.do_not_process = True
+        other.do_not_process = True
 
     fieldnamecounter = 0
 

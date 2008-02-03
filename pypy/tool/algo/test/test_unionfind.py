@@ -8,11 +8,8 @@ def test_cleanup():
             state.append(self)
             self.obj = obj
 
-        def update(self, other):
-            pass
-
-        def cleanup(self):
-            state.remove(self)
+        def absorb(self, other):
+            state.remove(other)
 
     uf = UnionFind(ReferencedByExternalState)
     uf.find(1)
