@@ -29,6 +29,9 @@ class GCBase(object):
         self.varsize_offsets_to_gcpointers_in_var_part = varsize_offsets_to_gcpointers_in_var_part
         self.weakpointer_offset = weakpointer_offset
 
+    def set_root_walker(self, root_walker):
+        self.root_walker = root_walker
+
     def write_barrier(self, oldvalue, newvalue, addr_struct):
         pass
 

@@ -588,3 +588,27 @@ class OpWriter(object):
         # cheat llvm
         self.codewriter.cast(opr.retref, opr.rettype, 'undef', opr.rettype)
 
+    # ____________________________________________________________
+    # Special support for llvm.gcroot
+
+    def llvm_store_gcroot(self, opr):
+        index = opr.op.args[0].value
+        rootref = '%%gcroot%d' % index
+        var = self.db.repr_tmpvar()
+        self.codewriter.cast(var, opr.argtypes[1], opr.argrefs[1], 'i8*')
+        self.codewriter.store('i8*', var, rootref)
+
+    def llvm_load_gcroot(self, opr):
+        index = opr.op.args[0].value
+        rootref = '%%gcroot%d' % index
+        self.codewriter.load(opr.retref, opr.rettype, rootref)
+
+    def llvm_frameaddress(self, opr):
+        self.codewriter.call(opr.retref, opr.rettype,
+                             "@llvm.frameaddress", ['i32'], ['0'])
+
+    def llvm_gcmapstart(self, opr):
+        self.codewriter.cast(opr.retref, 'i8*', '@__gcmapstart', opr.rettype)
+
+    def llvm_gcmapend(self, opr):
+        self.codewriter.cast(opr.retref, 'i8*', '@__gcmapend', opr.rettype)

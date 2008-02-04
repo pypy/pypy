@@ -18,14 +18,14 @@ def test_required():
 
 def test_stacklessgc_required():
     conf = get_pypy_config()
-    conf.translation.stacklessgc = True
+    conf.translation.gcrootfinder = "stackless"
     assert conf.translation.stackless
     assert conf.translation.type_system == "lltype"
     assert conf.translation.gctransformer == "framework"
-    assert conf.translation.gc == "marksweep"
+    assert conf.translation.gc == "generation"
     conf = get_pypy_config()
     conf.translation.gc = "boehm"
-    py.test.raises(ValueError, "conf.translation.stacklessgc = True")
+    py.test.raises(ValueError, "conf.translation.gcrootfinder = 'stackless'")
 
 
 def test_frameworkgc():

@@ -35,12 +35,10 @@ class GenerationGC(SemiSpaceGC):
                  min_nursery_size=128,
                  auto_nursery_size=False,
                  space_size=4096,
-                 max_space_size=sys.maxint//2+1,
-                 get_roots=None):
+                 max_space_size=sys.maxint//2+1):
         SemiSpaceGC.__init__(self, AddressLinkedList,
                              space_size = space_size,
-                             max_space_size = max_space_size,
-                             get_roots = get_roots)
+                             max_space_size = max_space_size)
         assert min_nursery_size <= nursery_size <= space_size // 2
         self.initial_nursery_size = nursery_size
         self.auto_nursery_size = auto_nursery_size
@@ -298,19 +296,15 @@ class GenerationGC(SemiSpaceGC):
         # if a prebuilt GcStruct contains a pointer to a young object,
         # then the write_barrier must have ensured that the prebuilt
         # GcStruct is in the list self.old_objects_pointing_to_young.
-        roots = self.get_roots(with_static=False)
-        count = 0
-        while 1:
-            root = roots.pop()
-            if root == NULL:
-                break
-            count += 1
-            obj = root.address[0]
-            if self.is_in_nursery(obj):
-                root.address[0] = self.copy(obj)
-        if DEBUG_PRINT:
-            llop.debug_print(lltype.Void, "collect_roots_in_nursery", count)
-        free_non_gc_object(roots)
+        self.root_walker.walk_roots(
+            GenerationGC._collect_root_in_nursery,  # stack roots
+            GenerationGC._collect_root_in_nursery,  # static in prebuilt non-gc
+            None)                                   # static in prebuilt gc
+
+    def _collect_root_in_nursery(self, root):
+        obj = root.address[0]
+        if self.is_in_nursery(obj):
+            root.address[0] = self.copy(obj)
 
     def scan_objects_just_copied_out_of_nursery(self, scan):
         while scan < self.free:
@@ -355,7 +349,7 @@ class GenerationGC(SemiSpaceGC):
             self.remember_young_pointer(addr_struct, newvalue)
 
     def append_to_static_roots(self, pointer, arg):
-        self.get_roots.append_static_root(pointer)
+        self.root_walker.append_static_root(pointer)
 
     def move_to_static_roots(self, addr_struct):
         objhdr = self.header(addr_struct)

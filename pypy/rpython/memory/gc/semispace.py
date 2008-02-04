@@ -28,12 +28,10 @@ class SemiSpaceGC(MovingGCBase):
                                   ('tid', lltype.Signed))
 
     def __init__(self, AddressLinkedList, space_size=4096,
-                 max_space_size=sys.maxint//2+1,
-                 get_roots=None):
+                 max_space_size=sys.maxint//2+1):
         MovingGCBase.__init__(self)
         self.space_size = space_size
         self.max_space_size = max_space_size
-        self.get_roots = get_roots
         self.gcheaderbuilder = GCHeaderBuilder(self.HDR)
         self.AddressLinkedList = AddressLinkedList
 
@@ -228,13 +226,13 @@ class SemiSpaceGC(MovingGCBase):
         return scan
 
     def collect_roots(self):
-        roots = self.get_roots()
-        while 1:
-            root = roots.pop()
-            if root == NULL:
-                break
-            root.address[0] = self.copy(root.address[0])
-        free_non_gc_object(roots)
+        self.root_walker.walk_roots(
+            SemiSpaceGC._collect_root,  # stack roots
+            SemiSpaceGC._collect_root,  # static in prebuilt non-gc structures
+            SemiSpaceGC._collect_root)  # static in prebuilt gc objects
+
+    def _collect_root(self, root):
+        root.address[0] = self.copy(root.address[0])
 
     def copy(self, obj):
         # Objects not living the GC heap have all been initialized by

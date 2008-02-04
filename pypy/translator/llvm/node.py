@@ -1,29 +1,16 @@
 from pypy.rpython.lltypesystem import lltype
+from pypy.translator.gensupp import NameManager
+
+NODE_NAMES = NameManager()
 
 
 class Node(object):
     __slots__ = "name".split()
     prefix = '%'
 
-    nodename_count = {}
-    def mangle(self, name):
-        if name not in self.nodename_count:
-            self.nodename_count[name] = 1
-            return name
-        else:
-            result = '%s_%d' % (name, self.nodename_count[name])
-            self.nodename_count[name] += 1
-            # this ensures (a) doesn exist yet, and (b) adds it to the
-            # dictionary just to prevent some function called xxx_42() and clashing
-            return self.mangle(result)
-
     def make_name(self, name=''):
         " helper for creating names"
-        name = self.prefix + name
-        name = self.mangle(name)
-        if " " in name or "<" in name: 
-            name = '"%s"' % name
-
+        name = self.prefix + NODE_NAMES.uniquename(name)
         self.name = name
 
     def setup(self):

@@ -1,6 +1,6 @@
 import autopath
 import py
-import sys
+import sys, os
 from pypy.translator.c.node import PyObjectNode, FuncNode
 from pypy.translator.c.database import LowLevelDatabase
 from pypy.translator.c.extfunc import pre_include_code_lines
@@ -38,6 +38,10 @@ class CBuilder(object):
         translator = self.translator
 
         gcpolicyclass = self.get_gcpolicyclass()
+
+        if self.config.translation.gcrootfinder == "asmgcc":
+            if not self.standalone:
+                raise NotImplementedError("--gcrootfinder=asmgcc requires standalone")
 
         if self.config.translation.stackless:
             if not self.standalone:
@@ -86,12 +90,16 @@ class CBuilder(object):
         self.eci = self.eci.merge(*all)
 
     def get_gcpolicyclass(self):
-        if self.gcpolicy is not None:
-            return self.gcpolicy     # for tests only
-        name = self.config.translation.gctransformer
-        if self.config.translation.stacklessgc:
-            name = "%s+stacklessgc" % (name,)
-        return gc.name_to_gcpolicy[name]
+        if self.gcpolicy is None:
+            name = self.config.translation.gctransformer
+            if self.config.translation.gcrootfinder == "stackless":
+                name = "%s+stacklessgc" % (name,)
+            elif self.config.translation.gcrootfinder == "llvmgc":
+                name = "%s+llvmgcroot" % (name,)
+            elif self.config.translation.gcrootfinder == "asmgcc":
+                name = "%s+asmgcroot" % (name,)
+            return gc.name_to_gcpolicy[name]
+        return self.gcpolicy
 
     # use generate_source(defines=DEBUG_DEFINES) to force the #definition
     # of the macros that enable debugging assertions
@@ -295,16 +303,23 @@ class CStandaloneBuilder(CBuilder):
     def compile(self):
         assert self.c_source_filename
         assert not self._compiled
-        eci = self.eci.merge(ExternalCompilationInfo(includes=
-                                                     [str(self.targetdir)]))
         compiler = self.getccompiler()
-        if sys.platform == 'darwin':
-            compiler.compile_extra.append('-mdynamic-no-pic')
-        if self.config.translation.compilerflags:
-            compiler.compile_extra.append(self.config.translation.compilerflags)
-        if self.config.translation.linkerflags:
-            compiler.link_extra.append(self.config.translation.linkerflags)
-        compiler.build()
+        if self.config.translation.gcrootfinder == "asmgcc":
+            # as we are gcc-only anyway, let's just use the Makefile.
+            cmdline = "make -C '%s'" % (self.targetdir,)
+            err = os.system(cmdline)
+            if err != 0:
+                raise OSError("failed (see output): " + cmdline)
+        else:
+            eci = self.eci.merge(ExternalCompilationInfo(includes=
+                                                         [str(self.targetdir)]))
+            if sys.platform == 'darwin':
+                compiler.compile_extra.append('-mdynamic-no-pic')
+            if self.config.translation.compilerflags:
+                compiler.compile_extra.append(self.config.translation.compilerflags)
+            if self.config.translation.linkerflags:
+                compiler.link_extra.append(self.config.translation.linkerflags)
+            compiler.build()
         self.executable_name = str(compiler.outputfilename)
         self._compiled = True
         return self.executable_name
@@ -332,6 +347,7 @@ class CStandaloneBuilder(CBuilder):
             compiler.compile_extra.append(self.config.translation.compilerflags)
         if self.config.translation.linkerflags:
             compiler.link_extra.append(self.config.translation.linkerflags)
+        assert self.config.translation.gcrootfinder != "llvmgc"
         cfiles = []
         ofiles = []
         for fn in compiler.cfilenames:
@@ -342,7 +358,10 @@ class CStandaloneBuilder(CBuilder):
                 assert fn.dirpath().dirpath() == udir
                 name = '../' + fn.relto(udir)
             cfiles.append(name)
-            ofiles.append(name[:-2] + '.o')
+            if self.config.translation.gcrootfinder == "asmgcc":
+                ofiles.append(name[:-2] + '.s')
+            else:
+                ofiles.append(name[:-2] + '.o')
 
         if self.config.translation.cc:
             cc = self.config.translation.cc
@@ -360,7 +379,15 @@ class CStandaloneBuilder(CBuilder):
         print >> f
         write_list(cfiles, 'SOURCES =')
         print >> f
-        write_list(ofiles, 'OBJECTS =')
+        if self.config.translation.gcrootfinder == "asmgcc":
+            write_list(ofiles, 'ASMFILES =')
+            print >> f, 'OBJECTS = $(ASMFILES) gcmaptable.s'
+        else:
+            write_list(ofiles, 'OBJECTS =')
+        print >> f
+        if self.config.translation.gcrootfinder == "asmgcc":
+            print >> f, 'TRACKGCROOT="%s"' % (os.path.join(autopath.this_dir,
+                                              'gcc', 'trackgcroot.py'),)
         print >> f
         args = ['-l'+libname for libname in self.eci.libraries]
         print >> f, 'LIBS =', ' '.join(args)
@@ -796,6 +823,12 @@ $(TARGET): $(OBJECTS)
 
 %.o: %.c
 \t$(CC) $(CFLAGS) -o $@ -c $< $(INCLUDEDIRS)
+
+%.s: %.c
+\t$(CC) $(CFLAGS) -o $@ -S $< $(INCLUDEDIRS)
+
+gcmaptable.s: $(ASMFILES)
+\t$(TRACKGCROOT) $(ASMFILES) > $@ || (rm -f $@ && exit 1)
 
 clean:
 \trm -f $(OBJECTS) $(TARGET)

@@ -33,7 +33,8 @@ class StacklessTest(object):
         config = get_pypy_config(translating=True)
         config.translation.gc = self.gcpolicy
         config.translation.stackless = True
-        config.translation.stacklessgc = self.stacklessgc
+        if self.stacklessgc:
+            config.translation.gcrootfinder = "stackless"
         t = TranslationContext(config=config)
         self.t = t
         t.buildannotator().build_types(entry_point, [s_list_of_strings])

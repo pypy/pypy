@@ -218,13 +218,16 @@ class ChoiceOption(Option):
     opt_type = 'string'
     
     def __init__(self, name, doc, values, default=None, requires=None,
-                 cmdline=DEFAULT_OPTION_NAME):
+                 suggests=None, cmdline=DEFAULT_OPTION_NAME):
         super(ChoiceOption, self).__init__(name, doc, cmdline)
         self.values = values
         self.default = default
         if requires is None:
             requires = {}
         self._requires = requires
+        if suggests is None:
+            suggests = {}
+        self._suggests = suggests
 
     def setoption(self, config, value, who):
         name = self._name
@@ -232,6 +235,15 @@ class ChoiceOption(Option):
             toplevel = config._cfgimpl_get_toplevel()
             homeconfig, name = toplevel._cfgimpl_get_home_by_path(path)
             homeconfig.setoption(name, reqvalue, who)
+        for path, reqvalue in self._suggests.get(value, []):
+            toplevel = config._cfgimpl_get_toplevel()
+            homeconfig, name = toplevel._cfgimpl_get_home_by_path(path)
+            try:
+                homeconfig.setoption(name, reqvalue, "suggested")
+            except ValueError:
+                # setting didn't work, but that is fine, since it is
+                # suggested only
+                pass
         super(ChoiceOption, self).setoption(config, value, who)
 
     def validate(self, value):

@@ -131,17 +131,16 @@ class FrameworkGCTransformer(GCTransformer):
         self.gcdata = gcdata
         self.malloc_fnptr_cache = {}
 
-        sizeofaddr = llmemory.sizeof(llmemory.Address)
-
-        StackRootIterator = self.build_stack_root_iterator()
-        gcdata.gc = GCClass(AddressLinkedList, get_roots=StackRootIterator, **GC_PARAMS)
+        gcdata.gc = GCClass(AddressLinkedList, **GC_PARAMS)
+        root_walker = self.build_root_walker()
         gcdata.set_query_functions(gcdata.gc)
+        gcdata.gc.set_root_walker(root_walker)
         self.num_pushs = 0
         self.write_barrier_calls = 0
 
         def frameworkgc_setup():
             # run-time initialization code
-            StackRootIterator.setup_root_stack()
+            root_walker.setup_root_walker()
             gcdata.gc.setup()
 
         bk = self.translator.annotator.bookkeeper
@@ -172,25 +171,16 @@ class FrameworkGCTransformer(GCTransformer):
 
         self.frameworkgc_setup_ptr = getfn(frameworkgc_setup, [],
                                            annmodel.s_None)
-        if StackRootIterator.need_root_stack:
-            #self.pop_root_ptr = getfn(StackRootIterator.pop_root, [],
-            #                          annmodel.SomeAddress(),
-            #                          inline = True)
-            #self.push_root_ptr = getfn(StackRootIterator.push_root,
-            #                           [annmodel.SomeAddress()],
-            #                           annmodel.s_None,
-            #                           inline = True)
-            self.incr_stack_ptr = getfn(StackRootIterator.incr_stack,
+        if root_walker.need_root_stack:
+            self.incr_stack_ptr = getfn(root_walker.incr_stack,
                                        [annmodel.SomeInteger()],
                                        annmodel.SomeAddress(),
                                        inline = True)
-            self.decr_stack_ptr = getfn(StackRootIterator.decr_stack,
+            self.decr_stack_ptr = getfn(root_walker.decr_stack,
                                        [annmodel.SomeInteger()],
                                        annmodel.SomeAddress(),
                                        inline = True)
         else:
-            #self.push_root_ptr = None
-            #self.pop_root_ptr = None
             self.incr_stack_ptr = None
             self.decr_stack_ptr = None
         self.weakref_deref_ptr = self.inittime_helper(
@@ -350,72 +340,8 @@ class FrameworkGCTransformer(GCTransformer):
             FLDTYPE = getattr(HDR, fldname)
             fields.append(('_' + fldname, FLDTYPE))
 
-    def build_stack_root_iterator(self):
-        gcdata = self.gcdata
-        sizeofaddr = llmemory.sizeof(llmemory.Address)
-        rootstacksize = sizeofaddr * self.root_stack_depth
-
-        class StackRootIterator:
-            _alloc_flavor_ = 'raw'
-            def setup_root_stack():
-                stackbase = llmemory.raw_malloc(rootstacksize)
-                ll_assert(bool(stackbase), "could not allocate root stack")
-                llmemory.raw_memclear(stackbase, rootstacksize)
-                gcdata.root_stack_top  = stackbase
-                gcdata.root_stack_base = stackbase
-            setup_root_stack = staticmethod(setup_root_stack)
-
-            need_root_stack = True
-            
-            def incr_stack(n):
-                top = gcdata.root_stack_top
-                gcdata.root_stack_top = top + n*sizeofaddr
-                return top
-            incr_stack = staticmethod(incr_stack)
-
-            def append_static_root(adr):
-                gcdata.static_root_end.address[0] = adr
-                gcdata.static_root_end += sizeofaddr
-            append_static_root = staticmethod(append_static_root)
-            
-            def decr_stack(n):
-                top = gcdata.root_stack_top - n*sizeofaddr
-                gcdata.root_stack_top = top
-                return top
-            decr_stack = staticmethod(decr_stack)
-                
-            def push_root(addr):
-                top = gcdata.root_stack_top
-                top.address[0] = addr
-                gcdata.root_stack_top = top + sizeofaddr
-            push_root = staticmethod(push_root)
-
-            def pop_root():
-                top = gcdata.root_stack_top - sizeofaddr
-                gcdata.root_stack_top = top
-                return top.address[0]
-            pop_root = staticmethod(pop_root)
-
-            def __init__(self, with_static=True):
-                self.stack_current = gcdata.root_stack_top
-                if with_static:
-                    self.static_current = gcdata.static_root_end
-                else:
-                    self.static_current = gcdata.static_root_nongcend
-
-            def pop(self):
-                while self.static_current != gcdata.static_root_start:
-                    self.static_current -= sizeofaddr
-                    result = self.static_current.address[0]
-                    if result.address[0] != llmemory.NULL:
-                        return result
-                while self.stack_current != gcdata.root_stack_base:
-                    self.stack_current -= sizeofaddr
-                    if self.stack_current.address[0] != llmemory.NULL:
-                        return self.stack_current
-                return llmemory.NULL
-
-        return StackRootIterator
+    def build_root_walker(self):
+        return ShadowStackRootWalker(self)
 
     def consider_constant(self, TYPE, value):
         self.layoutbuilder.consider_constant(TYPE, value, self.gcdata.gc)
@@ -732,9 +658,7 @@ class FrameworkGCTransformer(GCTransformer):
     def pop_alive_nopyobj(self, var, llops):
         pass
 
-    def push_roots(self, hop, keep_current_args=False):
-        if self.incr_stack_ptr is None:
-            return
+    def get_livevars_for_roots(self, hop, keep_current_args=False):
         if self.gcdata.gc.moving_gc and not keep_current_args:
             # moving GCs don't borrow, so the caller does not need to keep
             # the arguments alive
@@ -743,6 +667,12 @@ class FrameworkGCTransformer(GCTransformer):
         else:
             livevars = hop.livevars_after_op() + hop.current_op_keeps_alive()
             livevars = [var for var in livevars if not var_ispyobj(var)]
+        return livevars
+
+    def push_roots(self, hop, keep_current_args=False):
+        if self.incr_stack_ptr is None:
+            return
+        livevars = self.get_livevars_for_roots(hop, keep_current_args)
         self.num_pushs += len(livevars)
         if not livevars:
             return []
@@ -825,3 +755,89 @@ def gen_zero_gc_pointers(TYPE, v, llops, previous_steps=None):
                             [v] + previous_steps + [c_name, c_null])
         elif isinstance(FIELD, lltype.Struct):
             gen_zero_gc_pointers(FIELD, v, llops, previous_steps + [c_name])
+
+# ____________________________________________________________
+
+
+sizeofaddr = llmemory.sizeof(llmemory.Address)
+
+
+class BaseRootWalker:
+    need_root_stack = False
+
+    def __init__(self, gctransformer):
+        self.gcdata = gctransformer.gcdata
+        self.gc = self.gcdata.gc
+
+    def _freeze_(self):
+        return True
+
+    def setup_root_walker(self):
+        pass
+
+    def append_static_root(self, adr):
+        self.gcdata.static_root_end.address[0] = adr
+        self.gcdata.static_root_end += sizeofaddr
+
+    def walk_roots(self, collect_stack_root,
+                   collect_static_in_prebuilt_nongc,
+                   collect_static_in_prebuilt_gc):
+        gcdata = self.gcdata
+        gc = self.gc
+        if collect_static_in_prebuilt_nongc:
+            addr = gcdata.static_root_start
+            end = gcdata.static_root_nongcend
+            while addr != end:
+                result = addr.address[0]
+                if result.address[0] != llmemory.NULL:
+                    collect_static_in_prebuilt_nongc(gc, result)
+                addr += sizeofaddr
+        if collect_static_in_prebuilt_gc:
+            addr = gcdata.static_root_nongcend
+            end = gcdata.static_root_end
+            while addr != end:
+                result = addr.address[0]
+                if result.address[0] != llmemory.NULL:
+                    collect_static_in_prebuilt_gc(gc, result)
+                addr += sizeofaddr
+        if collect_stack_root:
+            self.walk_stack_roots(collect_stack_root)     # abstract
+
+
+class ShadowStackRootWalker(BaseRootWalker):
+    need_root_stack = True
+
+    def __init__(self, gctransformer):
+        BaseRootWalker.__init__(self, gctransformer)
+        self.rootstacksize = sizeofaddr * gctransformer.root_stack_depth
+        # NB. 'self' is frozen, but we can use self.gcdata to store state
+        gcdata = self.gcdata
+
+        def incr_stack(n):
+            top = gcdata.root_stack_top
+            gcdata.root_stack_top = top + n*sizeofaddr
+            return top
+        self.incr_stack = incr_stack
+
+        def decr_stack(n):
+            top = gcdata.root_stack_top - n*sizeofaddr
+            gcdata.root_stack_top = top
+            return top
+        self.decr_stack = decr_stack
+
+    def setup_root_walker(self):
+        stackbase = llmemory.raw_malloc(self.rootstacksize)
+        ll_assert(bool(stackbase), "could not allocate root stack")
+        llmemory.raw_memclear(stackbase, self.rootstacksize)
+        self.gcdata.root_stack_top  = stackbase
+        self.gcdata.root_stack_base = stackbase
+
+    def walk_stack_roots(self, collect_stack_root):
+        gcdata = self.gcdata
+        gc = self.gc
+        addr = gcdata.root_stack_base
+        end = gcdata.root_stack_top
+        while addr != end:
+            if addr.address[0] != llmemory.NULL:
+                collect_stack_root(gc, addr)
+            addr += sizeofaddr

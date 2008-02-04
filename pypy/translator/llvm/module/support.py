@@ -34,5 +34,11 @@ return_block:
     %result = phi i64 [%x, %block0], [%x2, %block1]
     ret i64 %result
 }
+
+declare void @llvm.gcroot(i8**, i8*) nounwind
+declare i8* @llvm.frameaddress(i32) nounwind
+
+@__gcmapstart = external constant i8
+@__gcmapend   = external constant i8
 """
 

@@ -5,7 +5,7 @@ from pypy.rpython.lltypesystem.lltype import \
      typeOf, Ptr, ContainerType, RttiStruct, \
      RuntimeTypeInfo, getRuntimeTypeInfo, top_container
 from pypy.rpython.memory.gctransform import \
-     refcounting, boehm, framework, stacklessframework
+     refcounting, boehm, framework, stacklessframework, llvmgcroot, asmgcroot
 from pypy.rpython.lltypesystem import lltype, llmemory
 
 class BasicGcPolicy(object):
@@ -305,6 +305,12 @@ class StacklessFrameworkGcPolicy(FrameworkGcPolicy):
     transformerclass = stacklessframework.StacklessFrameworkGCTransformer
     requires_stackless = True
 
+class LLVMGcRootFrameworkGcPolicy(FrameworkGcPolicy):
+    transformerclass = llvmgcroot.LLVMGcRootFrameworkGCTransformer
+
+class AsmGcRootFrameworkGcPolicy(FrameworkGcPolicy):
+    transformerclass = asmgcroot.AsmGcRootFrameworkGCTransformer
+
 
 name_to_gcpolicy = {
     'boehm': BoehmGcPolicy,
@@ -312,6 +318,8 @@ name_to_gcpolicy = {
     'none': NoneGcPolicy,
     'framework': FrameworkGcPolicy,
     'framework+stacklessgc': StacklessFrameworkGcPolicy,
+    'framework+llvmgcroot': LLVMGcRootFrameworkGcPolicy,
+    'framework+asmgcroot': AsmGcRootFrameworkGcPolicy,
 }
 
 

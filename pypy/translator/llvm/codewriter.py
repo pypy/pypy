@@ -173,3 +173,14 @@ class CodeWriter(object):
         self.call(var, "i32", "@write",
                   ['i32', 'i8*', 'i32'],
                   ['2', arg, '%d' % node.get_length()])
+
+    # ____________________________________________________________
+    # Special support for llvm.gcroot
+
+    def declare_gcroots(self, gcrootscount):
+        assert self.db.genllvm.config.translation.gcrootfinder == "llvmgc"
+        for i in range(gcrootscount):
+            self._indent("%%gcroot%d = alloca i8*" % i)
+        for i in range(gcrootscount):
+            self._indent("call void @llvm.gcroot(i8** %%gcroot%d, i8* null)"
+                         % i)

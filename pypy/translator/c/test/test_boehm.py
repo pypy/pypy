@@ -26,7 +26,8 @@ class AbstractGCTestClass:
         from pypy.config.pypyoption import get_pypy_config
         config = get_pypy_config(translating=True)
         config.translation.gc = self.gcpolicy
-        config.translation.stacklessgc = self.stacklessgc
+        if self.stacklessgc:
+            config.translation.gcrootfinder = "stackless"
         config.translation.simplifying = True
         t = TranslationContext(config=config)
         self.t = t

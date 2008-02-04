@@ -707,5 +707,9 @@ class FunctionCodeGenerator(object):
             
     def OP_IS_EARLY_CONSTANT(self, op):
         return self.expr(op.result)  + ' = 0;' # Allways false
-    
+
+    def OP_ASM_GCROOT(self, op):
+        value = self.expr(op.args[0])
+        return 'PYPY_GCROOT(%s);' % (value,)
+
 assert not USESLOTS or '__dict__' not in dir(FunctionCodeGenerator)

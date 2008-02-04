@@ -11,13 +11,10 @@ class GCManagedHeap(object):
     def __init__(self, llinterp, flowgraphs, gc_class, GC_PARAMS={}):
         self.AddressLinkedList = get_address_linked_list(10)
         self.gc = gc_class(self.AddressLinkedList, **GC_PARAMS)
-        def my_get_roots(with_static=True):
-            return self.get_roots_from_llinterp(with_static)
-        self.gc.get_roots = my_get_roots
+        self.gc.set_root_walker(LLInterpRootWalker(self))
         self.llinterp = llinterp
         self.prepare_graphs(flowgraphs)
         self.gc.setup()
-        my_get_roots.append_static_root = self.constantroots.append
 
     def prepare_graphs(self, flowgraphs):
         layoutbuilder = DirectRunLayoutBuilder(self.llinterp)
@@ -31,21 +28,6 @@ class GCManagedHeap(object):
 
         self.constantroots = list(layoutbuilder.addresses_of_static_ptrs)
         self.constantrootsnongc = layoutbuilder.addresses_of_static_ptrs_in_nongc
-
-    def get_roots_from_llinterp(self, with_static=True):
-        sizeofaddr = llmemory.sizeof(llmemory.Address)
-        ll = [llmemory.NULL]     # end marker
-        if with_static:
-            for addrofaddr in self.constantroots:
-                if addrofaddr.address[0]:
-                    ll.append(addrofaddr)
-        for addrofaddr in self.constantrootsnongc:
-            if addrofaddr.address[0]:
-                ll.append(addrofaddr)
-        for addrofaddr in self.llinterp.find_roots():
-            if addrofaddr.address[0]:
-                ll.append(addrofaddr)
-        return RootLinkedList(ll)
 
     # ____________________________________________________________
     #
@@ -120,14 +102,34 @@ class GCManagedHeap(object):
         return self.gc.id(ptr)
 
 
-    # ____________________________________________________________
+# ____________________________________________________________
 
-class RootLinkedList(object):
+class LLInterpRootWalker:
     _alloc_flavor_ = 'raw'
 
-    def __init__(self, lst):
-        self._lst = lst
-        self.pop = lst.pop
+    def __init__(self, gcheap):
+        self.gcheap = gcheap
+
+    def append_static_root(self, pointer):
+        self.gcheap.constantroots.append(pointer)
+
+    def walk_roots(self, collect_stack_root,
+                   collect_static_in_prebuilt_nongc,
+                   collect_static_in_prebuilt_gc):
+        gcheap = self.gcheap
+        gc = gcheap.gc
+        if collect_static_in_prebuilt_gc:
+            for addrofaddr in gcheap.constantroots:
+                if addrofaddr.address[0]:
+                    collect_static_in_prebuilt_gc(gc, addrofaddr)
+        if collect_static_in_prebuilt_nongc:
+            for addrofaddr in gcheap.constantrootsnongc:
+                if addrofaddr.address[0]:
+                    collect_static_in_prebuilt_nongc(gc, addrofaddr)
+        if collect_stack_root:
+            for addrofaddr in gcheap.llinterp.find_roots():
+                if addrofaddr.address[0]:
+                    collect_stack_root(gc, addrofaddr)
 
 
 class DirectRunLayoutBuilder(gctypelayout.TypeLayoutBuilder):

@@ -447,7 +447,7 @@ def test_copy():
     assert c2.s1.a
     c2.int = 44 # does not crash
 
-def test_suggests():
+def test_bool_suggests():
     descr = OptionDescription("test", '', [
         BoolOption("toplevel", "", default=False),
         BoolOption("opt", "", default=False,
@@ -504,6 +504,30 @@ def test_suggests_can_fail():
     assert not c.t2
 
 
+def test_choice_suggests():
+    descr = OptionDescription("test", '', [
+        BoolOption("toplevel", "", default=False),
+        ChoiceOption("opt", "", ["a", "b", "c"],
+                     "a",
+                     suggests={"b": [("toplevel", True)]})
+    ])
+    c = Config(descr)
+    assert not c.toplevel
+    assert c.opt == "a"
+    c.opt = "b"
+    assert c.opt == "b"
+    assert c.toplevel
+    # does not crash
+    c.toplevel = False
+    assert not c.toplevel
+
+    c = Config(descr)
+    c.toplevel = False
+    assert not c.toplevel
+    # does not crash
+    c.opt = "b"
+    assert c.opt == "b"
+    assert not c.toplevel
 
 
 def test_delattr():

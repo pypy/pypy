@@ -42,6 +42,7 @@ class FuncImplNode(FuncNode):
 
     def patch_graph(self):
         graph = self.graph
+        self.gcrootscount = 0
         if self.db.gctransformer:
             # inline the GC helpers (malloc, write_barrier) into
             # a copy of the graph
@@ -51,7 +52,7 @@ class FuncImplNode(FuncNode):
             # really SSA.  Fix them now.
             for block in graph.iterblocks():
                 rename = {}
-                for op in list(block.operations):
+                for op in block.operations:
                     if rename:
                         op.args = [rename.get(v, v) for v in op.args]
                     if op.opname == 'gc_reload_possibly_moved':
@@ -63,6 +64,9 @@ class FuncImplNode(FuncNode):
                         op.args = [v_newaddr]
                         op.result = v_newptr
                         rename[v_targetvar] = v_newptr
+                    elif op.opname == 'llvm_store_gcroot':
+                        index = op.args[0].value
+                        self.gcrootscount = max(self.gcrootscount, index+1)
                 if rename:
                     block.exitswitch = rename.get(block.exitswitch,
                                                   block.exitswitch)
@@ -120,7 +124,7 @@ class FuncImplNode(FuncNode):
 
     def getdecl(self):
         returntype, ref, args = self.getdecl_parts()
-        return "%s %s(%s)" % (returntype, ref, ", ".join(args))
+        return '%s %s(%s) gc "gcrootsingle"' % (returntype, ref, ", ".join(args))
 
     # ______________________________________________________________________
     # helpers for block writers
@@ -220,6 +224,8 @@ class FuncImplNode(FuncNode):
     # actual block writers
     
     def write_startblock(self, codewriter, block):
+        if self.gcrootscount > 0:
+            codewriter.declare_gcroots(self.gcrootscount)
         self.write_block_operations(codewriter, block)
         # a start block may return also
         if block.exitswitch is None and len(block.exits) == 0:

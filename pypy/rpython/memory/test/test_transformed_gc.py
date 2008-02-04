@@ -21,7 +21,8 @@ def rtype(func, inputtypes, specialize=True, gcname='ref', stacklessgc=False,
     t = TranslationContext()
     # XXX XXX XXX mess
     t.config.translation.gc = gcname
-    t.config.translation.stacklessgc = stacklessgc
+    if stacklessgc:
+        t.config.translation.gcrootfinder = "stackless"
     t.config.set(**extraconfigopts)
     t.buildannotator().build_types(func, inputtypes)
     if specialize:
