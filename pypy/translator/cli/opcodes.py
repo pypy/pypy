@@ -67,6 +67,7 @@ opcodes = {
     'gc_set_max_heap_size':     Ignore,
     'resume_point':             Ignore,
     'debug_assert':             Ignore,
+    'keepalive':                Ignore,
 
     # __________ numeric operations __________
 

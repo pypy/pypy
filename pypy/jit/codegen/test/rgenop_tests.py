@@ -3,6 +3,7 @@ from pypy.rpython.annlowlevel import MixLevelAnnotatorPolicy, llhelper
 from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.ootypesystem import ootype
 from pypy.translator.c.test import test_boehm
 from ctypes import c_void_p, cast, CFUNCTYPE, c_int
 
@@ -21,7 +22,20 @@ class LLType(object):
     @staticmethod
     def Ptr(FUNC):
         return lltype.Ptr(FUNC)
-    
+
+
+class OOType(object):
+    FUNC  = ootype.StaticMethod([lltype.Signed], lltype.Signed)
+    FUNC2 = ootype.StaticMethod([lltype.Signed]*2, lltype.Signed)
+    FUNC3 = ootype.StaticMethod([lltype.Signed]*3, lltype.Signed)
+    FUNC5 = ootype.StaticMethod([lltype.Signed]*5, lltype.Signed)
+    FUNC27= ootype.StaticMethod([lltype.Signed]*27, lltype.Signed)
+    FUNC100 = ootype.StaticMethod([lltype.Signed]*100, lltype.Signed)
+
+    @staticmethod
+    def Ptr(FUNC):
+        return FUNC
+
 
 def make_adder(T, rgenop, n):
     # 'return x+n'
