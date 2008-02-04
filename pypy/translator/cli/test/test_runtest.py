@@ -9,3 +9,10 @@ class TestRunTest(BaseTestRunTest, CliTest):
             raise ValueError
         f = self._compile(fn, [], auto_raise_exc=True)
         py.test.raises(ValueError, f)
+
+    def test_big_arglist(self):
+        def fn(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9):
+            return a0
+        res = self.interpret(fn, [42]*10)
+        assert res == 42
+    

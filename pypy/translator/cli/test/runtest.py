@@ -67,7 +67,7 @@ class TestEntryPoint(BaseEntryPoint):
         # convert string arguments to their true type
         for i, arg in enumerate(self.graph.getargs()):
             ilasm.opcode('ldarg.0')
-            ilasm.opcode('ldc.i4.%d' % i)
+            ilasm.opcode('ldc.i4 %d' % i)
             ilasm.opcode('ldelem.ref')
             arg_type, arg_var = self.cts.llvar_to_cts(arg)
             ilasm.call('%s class [mscorlib]System.Convert::%s(string)' %
