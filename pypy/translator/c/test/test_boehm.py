@@ -9,7 +9,7 @@ def setup_module(mod):
     if not check_boehm_presence():
         py.test.skip("Boehm GC not present")
 
-class AbstractGCTestClass:
+class AbstractGCTestClass(object):
     gcpolicy = "boehm"
     stacklessgc = False
    

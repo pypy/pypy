@@ -20,8 +20,17 @@ class LLType(object):
     FUNC100 = lltype.FuncType([lltype.Signed]*100, lltype.Signed)
 
     @staticmethod
-    def Ptr(FUNC):
-        return lltype.Ptr(FUNC)
+    def Ptr(T):
+        return lltype.Ptr(T)
+
+    @staticmethod
+    def Struct(name, *fields):
+        S = lltype.GcStruct(name, *fields)
+        return S
+
+    @staticmethod
+    def malloc(S):
+        return lltype.malloc(S)
 
 
 class OOType(object):
@@ -33,8 +42,17 @@ class OOType(object):
     FUNC100 = ootype.StaticMethod([lltype.Signed]*100, lltype.Signed)
 
     @staticmethod
-    def Ptr(FUNC):
-        return FUNC
+    def Ptr(T):
+        return T
+
+    @staticmethod
+    def Struct(name, *fields):
+        I = ootype.Instance(name, ootype.ROOT, dict(fields))
+        return I
+
+    @staticmethod
+    def malloc(I):
+        return ootype.new(I)
 
 
 def make_adder(T, rgenop, n):
@@ -944,11 +962,11 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
 
     def test_hide_and_reveal_p(self):
         RGenOp = self.RGenOp
-        S = lltype.GcStruct('s', ('x', lltype.Signed))
+        S = self.T.Struct('s', ('x', lltype.Signed))
         S_PTR = self.T.Ptr(S)
-        s1 = lltype.malloc(S)
+        s1 = self.T.malloc(S)
         s1.x = 8111
-        s2 = lltype.malloc(S)
+        s2 = self.T.malloc(S)
         s2.x = 8222
         def hide_and_reveal_p(n):
             rgenop = RGenOp()
