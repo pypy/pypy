@@ -13,6 +13,21 @@ System = CLR.System
 ArrayList = CLR.System.Collections.ArrayList
 OpCodes = System.Reflection.Emit.OpCodes
 DynamicMethod = System.Reflection.Emit.DynamicMethod
+DelegateType = CLR.pypy.runtime.DelegateType_int__int_int
+Utils = CLR.pypy.runtime.Utils
+
+# RPython function, used by test_dynamic_method and test_call_delegate
+def build_fn():
+    tInt = typeof(System.Int32)
+    args = init_array(System.Type, tInt, tInt)
+    meth = Utils.CreateDynamicMethod("add", tInt, args)
+    il = meth.GetILGenerator()
+    il.Emit(OpCodes.Ldarg_0)
+    il.Emit(OpCodes.Ldarg_1)
+    il.Emit(OpCodes.Add)
+    il.Emit(OpCodes.Ret)
+    myfunc = meth.CreateDelegate(typeof(DelegateType))
+    return clidowncast(DelegateType, myfunc)
 
 class TestDotnetAnnotation(object):
 
@@ -468,21 +483,16 @@ class TestDotnetRtyping(CliTest):
         assert self.ll_to_string(res) == '42'
 
     def test_dynamic_method(self):
-        from pypy.rpython.ootypesystem import ootype
-        DelegateType = CLR.pypy.runtime.DelegateType_int__int_int
-        Utils = CLR.pypy.runtime.Utils
         def fn():
-            tInt = typeof(System.Int32)
-            args = init_array(System.Type, tInt, tInt)
-            meth = Utils.CreateDynamicMethod("add", tInt, args)
-            il = meth.GetILGenerator()
-            il.Emit(OpCodes.Ldarg_0)
-            il.Emit(OpCodes.Ldarg_1)
-            il.Emit(OpCodes.Add)
-            il.Emit(OpCodes.Ret)
-            myfunc = meth.CreateDelegate(typeof(DelegateType))
-            myfunc = clidowncast(DelegateType, myfunc)
+            myfunc = build_fn()
             return myfunc.Invoke(30, 12)
+        res = self.interpret(fn, [])
+        assert res == 42
+
+    def test_call_delegate(self):
+        def fn():
+            myfunc = build_fn()
+            return myfunc(30, 12)
         res = self.interpret(fn, [])
         assert res == 42
 

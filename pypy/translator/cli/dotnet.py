@@ -3,6 +3,7 @@ import types
 from pypy.tool.pairtype import pair, pairtype
 from pypy.annotation.model import SomeObject, SomeInstance, SomeOOInstance, SomeInteger, s_None,\
      s_ImpossibleValue, lltype_to_annotation, annotation_to_lltype, SomeChar, SomeString, SomePBC
+from pypy.annotation.unaryop import immutablevalue
 from pypy.annotation.binaryop import _make_none_union
 from pypy.annotation import model as annmodel
 from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
@@ -56,6 +57,17 @@ class SomeCliStaticMethod(SomeObject):
     def rtyper_makekey(self):
         return self.__class__, self.cli_class, self.meth_name
 
+class __extend__(SomeOOInstance):
+
+    def simple_call(self, *s_args):
+        from pypy.translator.cli.query import get_cli_class
+        DELEGATE = get_cli_class('System.Delegate')._INSTANCE
+        if ootype.isSubclass(self.ootype, DELEGATE):
+            s_invoke = self.getattr(immutablevalue('Invoke'))
+            return s_invoke.simple_call(*s_args)
+        else:
+            # cannot call a non-delegate
+            return SomeObject.simple_call(self, *s_args)
 
 class __extend__(pairtype(SomeOOInstance, SomeInteger)):
     def getitem((ooinst, index)):
@@ -147,6 +159,19 @@ class __extend__(OOInstanceRepr):
         vlist = hop.inputargs(*hop.args_r)
         hop.exception_cannot_occur()
         return hop.genop('cli_arraylength', vlist, hop.r_result.lowleveltype)
+
+    def rtype_simple_call(self, hop):
+        TYPE = self.lowleveltype
+        _, meth = TYPE._lookup('Invoke')
+        assert isinstance(meth, ootype._overloaded_meth)
+        ARGS = tuple([repr.lowleveltype for repr in hop.args_r[1:]])
+        desc = meth._get_desc('Invoke', ARGS)
+        cname = hop.inputconst(ootype.Void, desc)
+        vlist = hop.inputargs(self, *hop.args_r[1:])
+        hop.exception_is_here()
+        return hop.genop("oosend", [cname]+vlist,
+                         resulttype = hop.r_result.lowleveltype)
+
 
 ## OOType model
 
