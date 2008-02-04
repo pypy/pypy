@@ -379,6 +379,8 @@ class CStandaloneBuilder(CBuilder):
         f = targetdir.join('Makefile').open('w')
         print >> f, '# automatically generated Makefile'
         print >> f
+        print >> f, 'PYPYDIR =', autopath.pypydir
+        print >> f
         print >> f, 'TARGET =', py.path.local(compiler.outputfilename).basename
         print >> f
         write_list(cfiles, 'SOURCES =')
@@ -389,15 +391,17 @@ class CStandaloneBuilder(CBuilder):
         else:
             write_list(ofiles, 'OBJECTS =')
         print >> f
-        if self.config.translation.gcrootfinder == "asmgcc":
-            print >> f, 'TRACKGCROOT="%s"' % (os.path.join(autopath.this_dir,
-                                              'gcc', 'trackgcroot.py'),)
-        print >> f
+        def makerel(path):
+            rel = py.path.local(path).relto(py.path.local(autopath.pypydir))
+            if rel:
+                return os.path.join('$(PYPYDIR)', rel)
+            else:
+                return path
         args = ['-l'+libname for libname in self.eci.libraries]
         print >> f, 'LIBS =', ' '.join(args)
-        args = ['-L'+path for path in self.eci.library_dirs]
+        args = ['-L'+makerel(path) for path in self.eci.library_dirs]
         print >> f, 'LIBDIRS =', ' '.join(args)
-        args = ['-I'+path for path in self.eci.include_dirs]
+        args = ['-I'+makerel(path) for path in self.eci.include_dirs]
         write_list(args, 'INCLUDEDIRS =')
         print >> f
         print >> f, 'CFLAGS  =', ' '.join(compiler.compile_extra)
@@ -832,7 +836,7 @@ $(TARGET): $(OBJECTS)
 \t$(CC) $(CFLAGS) -o $@ -S $< $(INCLUDEDIRS)
 
 gcmaptable.s: $(ASMFILES)
-\t$(TRACKGCROOT) $(ASMFILES) > $@ || (rm -f $@ && exit 1)
+\t$(PYPYDIR)/translator/c/gcc/trackgcroot.py $(ASMFILES) > $@ || (rm -f $@ && exit 1)
 
 clean:
 \trm -f $(OBJECTS) $(TARGET)
@@ -857,7 +861,7 @@ profile:
 
 profopt:
 \t$(MAKE) CFLAGS="-fprofile-generate $(CFLAGS)" LDFLAGS="-fprofile-generate $(LDFLAGS)"
-\t./$(TARGET) $(PROFOPT)
+\tcd $(PYPYDIR)/translator/goal && $(abspath $(TARGET)) $(PROFOPT)
 \trm -f $(OBJECTS) $(TARGET)
 \t$(MAKE) CFLAGS="-fprofile-use $(CFLAGS)" LDFLAGS="-fprofile-use $(LDFLAGS)"
 '''
