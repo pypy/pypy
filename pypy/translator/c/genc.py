@@ -306,7 +306,11 @@ class CStandaloneBuilder(CBuilder):
         compiler = self.getccompiler()
         if self.config.translation.gcrootfinder == "asmgcc":
             # as we are gcc-only anyway, let's just use the Makefile.
-            cmdline = "make -C '%s'" % (self.targetdir,)
+            if compiler.profbased:
+                target = 'profopt'
+            else:
+                target = ''   # default target
+            cmdline = "make -C '%s' %s" % (self.targetdir, target)
             err = os.system(cmdline)
             if err != 0:
                 raise OSError("failed (see output): " + cmdline)
