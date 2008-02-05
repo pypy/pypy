@@ -38,7 +38,7 @@ class MarkSweepGC(GCBase):
     POOLNODE.become(lltype.Struct('gc_pool_node', ('linkedlist', HDRPTR),
                                                   ('nextnode', POOLNODEPTR)))
 
-    def __init__(self, AddressLinkedList, start_heap_size=4096, get_roots=None):
+    def __init__(self, AddressLinkedList, start_heap_size=4096):
         self.heap_usage = 0          # at the end of the latest collection
         self.bytes_malloced = 0      # since the latest collection
         self.bytes_malloced_threshold = start_heap_size
@@ -49,7 +49,6 @@ class MarkSweepGC(GCBase):
         # these are usually only the small bits of memory that make a
         # weakref object
         self.objects_with_weak_pointers = lltype.nullptr(self.HDR)
-        self.get_roots = get_roots
         self.gcheaderbuilder = GCHeaderBuilder(self.HDR)
         # pools, for x_swap_pool():
         #   'curpool' is the current pool, lazily allocated (i.e. NULL means
@@ -222,20 +221,18 @@ class MarkSweepGC(GCBase):
             llop.debug_print(lltype.Void, 'collecting...')
         start_time = time.time()
         self.collect_in_progress = True
-        roots = self.get_roots()
         size_gc_header = self.gcheaderbuilder.size_gc_header
 ##        llop.debug_view(lltype.Void, self.malloced_objects, self.poolnodes,
 ##                        size_gc_header)
 
         # push the roots on the mark stack
         objects = self.AddressLinkedList() # mark stack
-        while 1:
-            curr = roots.pop()
-            if curr == NULL:
-                break
-            # roots is a list of addresses to addresses:
-            objects.append(curr.address[0])
-        free_non_gc_object(roots)
+        self._mark_stack = objects
+        self.root_walker.walk_roots(
+            MarkSweepGC._mark_root,  # stack roots
+            MarkSweepGC._mark_root,  # static in prebuilt non-gc structures
+            MarkSweepGC._mark_root)  # static in prebuilt gc objects
+
         # from this point onwards, no more mallocs should be possible
         old_malloced = self.bytes_malloced
         self.bytes_malloced = 0
@@ -453,6 +450,18 @@ class MarkSweepGC(GCBase):
                     last.next = lltype.nullptr(self.HDR)
             hdr = next
         self.collect_in_progress = False
+
+    def _mark_root(self, root):   # 'root' is the address of the GCPTR
+        gcobjectaddr = root.address[0]
+        self._mark_stack.append(gcobjectaddr)
+
+    def _mark_root_and_clear_bit(self, root):
+        gcobjectaddr = root.address[0]
+        self._mark_stack.append(gcobjectaddr)
+        size_gc_header = self.gcheaderbuilder.size_gc_header
+        gc_info = gcobjectaddr - size_gc_header
+        hdr = llmemory.cast_adr_to_ptr(gc_info, self.HDRPTR)
+        hdr.typeid = hdr.typeid & (~1)
 
     STAT_HEAP_USAGE     = 0
     STAT_BYTES_MALLOCED = 1
@@ -685,25 +694,20 @@ class MarkSweepGC(GCBase):
         if DEBUG_PRINT:
             llop.debug_print(lltype.Void, 'collecting...')
         start_time = time.time()
-        roots = self.get_roots()
         size_gc_header = self.gcheaderbuilder.size_gc_header
 ##        llop.debug_view(lltype.Void, self.malloced_objects, self.poolnodes,
 ##                        size_gc_header)
 
         # push the roots on the mark stack
         objects = self.AddressLinkedList() # mark stack
-        while 1:
-            curr = roots.pop()
-            if curr == NULL:
-                break
-            # roots is a list of addresses to addresses:
-            objects.append(curr.address[0])
-            # the last sweep did not clear the mark bit of static roots, 
-            # since they are not in the malloced_objects list
-            gc_info = curr.address[0] - size_gc_header
-            hdr = llmemory.cast_adr_to_ptr(gc_info, self.HDRPTR)
-            hdr.typeid = hdr.typeid & (~1)
-        free_non_gc_object(roots)
+        self._mark_stack = objects
+        # the last sweep did not clear the mark bit of static roots, 
+        # since they are not in the malloced_objects list
+        self.root_walker.walk_roots(
+            MarkSweepGC._mark_root_and_clear_bit,  # stack roots
+            MarkSweepGC._mark_root_and_clear_bit,  # static in prebuilt non-gc
+            MarkSweepGC._mark_root_and_clear_bit)  # static in prebuilt gc
+
         # from this point onwards, no more mallocs should be possible
         old_malloced = self.bytes_malloced
         self.bytes_malloced = 0
@@ -839,8 +843,8 @@ class PrintingMarkSweepGC(MarkSweepGC):
     _alloc_flavor_ = "raw"
     COLLECT_EVERY = 2000
 
-    def __init__(self, AddressLinkedList, start_heap_size=4096, get_roots=None):
-        MarkSweepGC.__init__(self, AddressLinkedList, start_heap_size, get_roots)
+    def __init__(self, AddressLinkedList, start_heap_size=4096):
+        MarkSweepGC.__init__(self, AddressLinkedList, start_heap_size)
         self.count_mallocs = 0
 
     def write_malloc_statistics(self, typeid, size, result, varsize):
@@ -1012,20 +1016,18 @@ class PrintingMarkSweepGC(MarkSweepGC):
         self.count_mallocs = 0
         start_time = time.time()
         self.collect_in_progress = True
-        roots = self.get_roots()
         size_gc_header = self.gcheaderbuilder.size_gc_header
 ##        llop.debug_view(lltype.Void, self.malloced_objects, self.poolnodes,
 ##                        size_gc_header)
 
         # push the roots on the mark stack
         objects = self.AddressLinkedList() # mark stack
-        while 1:
-            curr = roots.pop()
-            if curr == NULL:
-                break
-            # roots is a list of addresses to addresses:
-            objects.append(curr.address[0])
-        free_non_gc_object(roots)
+        self._mark_stack = objects
+        self.root_walker.walk_roots(
+            MarkSweepGC._mark_root,  # stack roots
+            MarkSweepGC._mark_root,  # static in prebuilt non-gc structures
+            MarkSweepGC._mark_root)  # static in prebuilt gc objects
+
         # from this point onwards, no more mallocs should be possible
         old_malloced = self.bytes_malloced
         self.bytes_malloced = 0
