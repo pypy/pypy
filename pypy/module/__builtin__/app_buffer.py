@@ -1,4 +1,4 @@
-# Might probably be deprecated in Python at some point.
+
 import sys
 
 class buffer(object):
