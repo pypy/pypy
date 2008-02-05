@@ -21,6 +21,10 @@ Few ctypes-related todo points:
 
   - unicode is not implemented (all the conversion functions and friends)
 
+  - bitfields are not implemented
+
+
+
 * keepalive is not there (everything is kept alive forever basically)
 
 * as all stuff is applevel, we cannot have it really fast right now.
