@@ -124,7 +124,10 @@ class FuncImplNode(FuncNode):
 
     def getdecl(self):
         returntype, ref, args = self.getdecl_parts()
-        return '%s %s(%s) gc "gcrootsingle"' % (returntype, ref, ", ".join(args))
+        annotations = ''
+        if self.db.genllvm.config.translation.gcrootfinder == "llvmgc":
+            annotations += ' gc "gcrootsingle"'
+        return '%s %s(%s)%s' % (returntype, ref, ", ".join(args), annotations)
 
     # ______________________________________________________________________
     # helpers for block writers
