@@ -306,7 +306,6 @@ class TestFunctions:
 
     def test_errors(self):
         raises(AttributeError, getattr, dll, "_xxx_yyy")
-        py.test.skip("in_dll not supported")
         raises(ValueError, c_int.in_dll, dll, "_xxx_yyy")
 
     def test_byval(self):
