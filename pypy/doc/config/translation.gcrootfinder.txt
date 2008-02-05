@@ -5,7 +5,9 @@ a choice of various alternatives:
  - use a shadow stack (XXX link to paper), e.g. explicitely maintaining a stack
    of roots
 
- - use stackless to find roots by unwinding the stack
+ - use stackless to find roots by unwinding the stack.  Requires
+   :config:`translation.stackless`.  Note that this turned out to
+   be slower than just using a shadow stack.
 
  - use GCC and i386 specific assembler hackery to find the roots on the stack.
    This is fastest but platform specific.
