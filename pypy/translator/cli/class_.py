@@ -131,6 +131,8 @@ class Class(Node):
         default_values = self.INSTANCE._fields.copy()
         default_values.update(self.INSTANCE._overridden_defaults)
         for f_name, (F_TYPE, f_default) in default_values.iteritems():
+            if getattr(F_TYPE, '_is_value_type', False):
+                continue # we can't set it to null
             INSTANCE_DEF, _ = self.INSTANCE._lookup_field(f_name)
             cts_type = self.cts.lltype_to_cts(F_TYPE)
             f_name = self.cts.escape_name(f_name)

@@ -496,6 +496,16 @@ class TestDotnetRtyping(CliTest):
         res = self.interpret(fn, [])
         assert res == 42
 
+    def test_valuetype_field(self):
+        class Foo:
+            def __init__(self, x):
+                self.x = x
+
+        def fn():
+            f = Foo(OpCodes.Add)
+            return f
+        self.interpret(fn, [])
+
 
 class TestPythonnet(TestDotnetRtyping):
     # don't interpreter functions but execute them directly through pythonnet
