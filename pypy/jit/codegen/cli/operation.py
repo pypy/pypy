@@ -1,27 +1,69 @@
-from pypy.translator.cli.dotnet import CLR
-OpCodes = CLR.System.Reflection.Emit.OpCodes
+from pypy.rpython.ootypesystem import ootype
+from pypy.translator.cli.dotnet import CLR, typeof
+System = CLR.System
+OpCodes = System.Reflection.Emit.OpCodes
 
 class Operation:
-    restype = None
     _gv_res = None
+
+    def restype(self):
+        return self.gv_x.getCliType()
 
     def gv_res(self):
         from pypy.jit.codegen.cli.rgenop import GenLocalVar
         if self._gv_res is None:
-            # if restype is None, assume it's the same as the first arg
-            t = self.restype or self.gv_x.getCliType()
-            loc = self.il.DeclareLocal(t)
-            self._gv_res = GenLocalVar(loc)
+            restype = self.restype()
+            if restype is not None:
+                loc = self.il.DeclareLocal(restype)
+                self._gv_res = GenLocalVar(loc)
         return self._gv_res
 
     def emit(self):
         raise NotImplementedError
 
 
+class Branch(Operation):
+    
+    def __init__(self, il, label):
+        self.il = il
+        self.label = label
+
+    def emit(self):
+        self.il.emit(OpCodes.Br, self.label)
+
+
 class UnaryOp(Operation):
     def __init__(self, il, gv_x):
         self.il = il
         self.gv_x = gv_x
+
+
+class AbstractBranchIf(UnaryOp):
+
+    def __init__(self, il, gv_x, label):
+        self.il = il
+        self.gv_x = gv_x
+        self.label = label
+
+    def restype(self):
+        return None
+
+    def emit(self):
+        self.il.emit(self.getOpCode(), self.label)
+
+    def getOpCode(self):
+        return OpCodes.Brtrue
+
+
+class BrFalse(AbstractBranchIf):
+
+    def getOpCode(self):
+        return OpCodes.Brfalse
+
+class BrTrue(AbstractBranchIf):
+
+    def getOpCode(self):
+        return OpCodes.Brtrue
 
 
 class SameAs(UnaryOp):
@@ -55,3 +97,10 @@ class Add(BinaryOp):
 class Sub(BinaryOp):
     def getOpCode(self):
         return OpCodes.Sub
+
+class Gt(BinaryOp):
+    def restype(self):
+        return typeof(System.Boolean)
+
+    def getOpCode(self):
+        return OpCodes.Cgt

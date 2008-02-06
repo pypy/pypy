@@ -11,6 +11,8 @@ def fn():
         'test_dummy',
         'test_hide_and_reveal',
         'test_hide_and_reveal_p',
+        'test_largedummy_direct', # _compile works if we set a higher maxstack
+        'test_branching',
         ]
 
     for p in prefixes:

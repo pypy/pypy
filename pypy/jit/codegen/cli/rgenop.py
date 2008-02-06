@@ -20,6 +20,8 @@ def sigtoken2clitype(tok):
         return typeof(CLR.pypy.runtime.DelegateType_int__int)
     elif tok == (['<Signed>', '<Signed>'], '<Signed>'):
         return typeof(CLR.pypy.runtime.DelegateType_int__int_int)
+    elif tok == (['<Signed>'] * 100, '<Signed>'):
+        return typeof(CLR.pypy.runtime.DelegateType_int__int_100)
     else:
         assert False
 
@@ -85,6 +87,9 @@ class IntConst(GenConst):
         assert T is ootype.Signed
         return self.value
 
+    def getCliType(self):
+        return typeof(System.Int32)
+
     def load(self, il):
         il.Emit(OpCodes.Ldc_I4, self.value)
 
@@ -93,6 +98,7 @@ class IntConst(GenConst):
 
 SM_INT__INT = ootype.StaticMethod([ootype.Signed], ootype.Signed)
 SM_INT__INT_INT = ootype.StaticMethod([ootype.Signed, ootype.Signed], ootype.Signed)
+SM_INT__INT_100 = ootype.StaticMethod([ootype.Signed] * 100, ootype.Signed)
 
 class ObjectConst(GenConst):
 
@@ -107,6 +113,9 @@ class ObjectConst(GenConst):
             return clidowncast(DelegateType, self.obj)
         elif T == SM_INT__INT_INT:
             DelegateType = CLR.pypy.runtime.DelegateType_int__int_int
+            return clidowncast(DelegateType, self.obj)
+        elif T == SM_INT__INT_100:
+            DelegateType = CLR.pypy.runtime.DelegateType_int__int_100
             return clidowncast(DelegateType, self.obj)
         else:
             assert isinstance(T, ootype.OOType)
@@ -149,14 +158,14 @@ class RCliGenOp(AbstractRGenOp):
         for i in range(len(argtoks)):
             args[i] = token2clitype(argtoks[i])
         res = token2clitype(restok)
-        builder = Builder(self, name, res, args)
+        builder = Builder(self, name, res, args, sigtoken)
         return builder, builder.gv_entrypoint, builder.inputargs_gv[:]
 
 
 
 class Builder(GenBuilder):
 
-    def __init__(self, rgenop, name, res, args):
+    def __init__(self, rgenop, name, res, args, sigtoken):
         self.rgenop = rgenop
         self.meth = Utils.CreateDynamicMethod(name, res, args)
         self.il = self.meth.GetILGenerator()
@@ -164,6 +173,8 @@ class Builder(GenBuilder):
         for i in range(len(args)):
             self.inputargs_gv.append(GenArgVar(i, args[i]))
         self.gv_entrypoint = ObjectConst(None) # XXX?
+        self.sigtoken = sigtoken
+        self.isOpen = False
  
     @specialize.arg(1)
     def genop2(self, opname, gv_arg1, gv_arg2):
@@ -171,26 +182,59 @@ class Builder(GenBuilder):
             op = ops.Add(self.il, gv_arg1, gv_arg2)
         elif opname == 'int_sub':
             op = ops.Sub(self.il, gv_arg1, gv_arg2)
+        elif opname == 'int_gt':
+            op = ops.Gt(self.il, gv_arg1, gv_arg2)
         else:
             assert False
-        op.emit()
+        self.emit(op)
         return op.gv_res()
+
+    def emit(self, op):
+        op.emit()
+
+    def start_writing(self):
+        self.isOpen = True
 
     def finish_and_return(self, sigtoken, gv_returnvar):
         gv_returnvar.load(self.il)
         self.il.Emit(OpCodes.Ret)
-        delegate_type = sigtoken2clitype(sigtoken)
-        myfunc = self.meth.CreateDelegate(delegate_type)
-        self.gv_entrypoint.obj = myfunc
+        self.isOpen = False
 
     def end(self):
-        pass
+        delegate_type = sigtoken2clitype(self.sigtoken)
+        myfunc = self.meth.CreateDelegate(delegate_type)
+        self.gv_entrypoint.obj = myfunc
 
     def enter_next_block(self, kinds, args_gv):
         for i in range(len(args_gv)):
             op = ops.SameAs(self.il, args_gv[i])
             op.emit()
             args_gv[i] = op.gv_res()
-        lbl = self.il.DefineLabel()
-        self.il.MarkLabel(lbl)
-        return lbl
+        label = self.il.DefineLabel()
+        self.il.MarkLabel(label)
+        return label
+
+    def _jump_if(self, gv_condition, opcode):
+        label = self.il.DefineLabel()
+        gv_condition.load(self.il)
+        self.il.Emit(opcode, label)
+        return BranchBuilder(self, label)
+
+    def jump_if_false(self, gv_condition, args_for_jump_gv):
+        return self._jump_if(gv_condition, OpCodes.Brfalse)
+
+    def jump_if_true(self, gv_condition, args_for_jump_gv):
+        return self._jump_if(gv_condition, OpCodes.Brtrue)
+
+class BranchBuilder(Builder):
+
+    def __init__(self, parent, label):
+        self.parent = parent
+        self.label = label
+        self.il = parent.il
+        self.isOpen = False
+
+    def start_writing(self):
+        assert not self.parent.isOpen
+        self.isOpen = True
+        self.il.MarkLabel(self.label)
