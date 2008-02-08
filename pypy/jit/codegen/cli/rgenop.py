@@ -178,14 +178,8 @@ class Builder(GenBuilder):
  
     @specialize.arg(1)
     def genop2(self, opname, gv_arg1, gv_arg2):
-        if opname == 'int_add':
-            op = ops.Add(self.il, gv_arg1, gv_arg2)
-        elif opname == 'int_sub':
-            op = ops.Sub(self.il, gv_arg1, gv_arg2)
-        elif opname == 'int_gt':
-            op = ops.Gt(self.il, gv_arg1, gv_arg2)
-        else:
-            assert False
+        opcls = ops.getopclass2(opname)
+        op = opcls(self.il, gv_arg1, gv_arg2)
         self.emit(op)
         return op.gv_res()
 

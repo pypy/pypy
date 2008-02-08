@@ -26,9 +26,8 @@ def _check_zer(op):
     mapping = [('[mscorlib]System.DivideByZeroException', 'exceptions.ZeroDivisionError')]
     return [MapException(op, mapping)]
 
-
-opcodes = {
-    # __________ object oriented operations __________
+# __________ object oriented & misc operations __________
+misc_ops = {
     'new':                      [New],
     'runtimenew':               [RuntimeNew],
     'oosetfield':               [SetField],
@@ -57,7 +56,6 @@ opcodes = {
     'ooparse_float':            [PushAllArgs, 'call float64 [pypylib]pypy.runtime.Utils::OOParseFloat(string)'],
     'oonewcustomdict':          [NewCustomDict],
     
-    'same_as':                  DoNothing,
     'hint':                     [PushArg(0), StoreResult],
     'direct_call':              [Call],
     'indirect_call':            [IndirectCall],
@@ -68,11 +66,65 @@ opcodes = {
     'resume_point':             Ignore,
     'debug_assert':             Ignore,
     'keepalive':                Ignore,
+    'is_early_constant':        [PushPrimitive(ootype.Bool, False)],
+    }
 
-    # __________ numeric operations __________
+# __________ numeric operations __________
 
+unary_ops = {
+    'same_as':                  DoNothing,
+    
     'bool_not':                 [PushAllArgs]+Not,
 
+    'int_is_true':              [PushAllArgs, 'ldc.i4.0', 'cgt.un'],
+    'int_neg':                  'neg',
+    'int_neg_ovf':              _check_ovf(['ldc.i4.0', PushAllArgs, 'sub.ovf', StoreResult]),
+    'int_abs':                  _abs('int32'),
+    'int_abs_ovf':              _check_ovf(_abs('int32')),
+    'int_invert':               'not',
+
+    'uint_is_true':             [PushAllArgs, 'ldc.i4.0', 'cgt.un'],
+    'uint_invert':              'not',
+
+    'float_is_true':            [PushAllArgs, 'ldc.r8 0', 'ceq']+Not,
+    'float_neg':                'neg',
+    'float_abs':                _abs('float64'),
+
+    'llong_is_true':            [PushAllArgs, 'ldc.i8 0', 'cgt.un'],
+    'llong_neg':                'neg',
+    'llong_neg_ovf':            _check_ovf(['ldc.i8 0', PushAllArgs, 'sub.ovf', StoreResult]),
+    'llong_abs':                _abs('int64'),
+    'llong_abs_ovf':            _check_ovf(_abs('int64')),
+    'llong_invert':             'not',
+
+    'ullong_is_true':            [PushAllArgs, 'ldc.i8 0', 'cgt.un'],
+    'ullong_invert':             'not',
+
+    # when casting from bool we want that every truth value is casted
+    # to 1: we can't simply DoNothing, because the CLI stack could
+    # contains a truth value not equal to 1, so we should use the !=0
+    # trick.
+    'cast_bool_to_int':         [PushAllArgs, 'ldc.i4.0', 'ceq']+Not,
+    'cast_bool_to_uint':        [PushAllArgs, 'ldc.i4.0', 'ceq']+Not,
+    'cast_bool_to_float':       [PushAllArgs, 'ldc.i4 0', 'ceq']+Not+['conv.r8'],
+    'cast_char_to_int':         DoNothing,
+    'cast_unichar_to_int':      DoNothing,
+    'cast_int_to_char':         DoNothing,
+    'cast_int_to_unichar':      DoNothing,
+    'cast_int_to_uint':         DoNothing,
+    'cast_int_to_float':        'conv.r8',
+    'cast_int_to_longlong':     'conv.i8',
+    'cast_uint_to_int':         DoNothing,
+    'cast_uint_to_float':       [PushAllArgs, 'conv.u8', 'conv.r8'],
+    'cast_float_to_int':        'conv.i4',
+    'cast_float_to_uint':       'conv.u4',
+    'cast_longlong_to_float':   'conv.r8',
+    'cast_float_to_longlong':   'conv.i8',
+    'cast_primitive':           [PushAllArgs, CastPrimitive],
+    'truncate_longlong_to_int': 'conv.i4',
+    }
+
+binary_ops = {
     'char_lt':                  'clt',
     'char_le':                  _not('cgt'),
     'char_eq':                  'ceq',
@@ -82,13 +134,6 @@ opcodes = {
 
     'unichar_eq':               'ceq',
     'unichar_ne':               _not('ceq'),
-
-    'int_is_true':              [PushAllArgs, 'ldc.i4.0', 'cgt.un'],
-    'int_neg':                  'neg',
-    'int_neg_ovf':              _check_ovf(['ldc.i4.0', PushAllArgs, 'sub.ovf', StoreResult]),
-    'int_abs':                  _abs('int32'),
-    'int_abs_ovf':              _check_ovf(_abs('int32')),
-    'int_invert':               'not',
 
     'int_add':                  'add',
     'int_sub':                  'sub',
@@ -133,9 +178,6 @@ opcodes = {
     'int_mod_ovf_zer':          _check_zer('rem'),
     'int_mod_zer':              _check_zer('rem'),
 
-    'uint_is_true':             [PushAllArgs, 'ldc.i4.0', 'cgt.un'],
-    'uint_invert':              'not',
-
     'uint_add':                 'add',
     'uint_sub':                 'sub',
     'uint_mul':                 'mul',
@@ -155,10 +197,6 @@ opcodes = {
     'uint_rshift':              'shr.un',
     'uint_xor':                 'xor',
 
-    'float_is_true':            [PushAllArgs, 'ldc.r8 0', 'ceq']+Not,
-    'float_neg':                'neg',
-    'float_abs':                _abs('float64'),
-
     'float_add':                'add',
     'float_sub':                'sub',
     'float_mul':                'mul',
@@ -169,13 +207,6 @@ opcodes = {
     'float_ne':                 _not('ceq'),
     'float_gt':                 'cgt',
     'float_ge':                 _not('clt'),
-   
-    'llong_is_true':            [PushAllArgs, 'ldc.i8 0', 'cgt.un'],
-    'llong_neg':                'neg',
-    'llong_neg_ovf':            _check_ovf(['ldc.i8 0', PushAllArgs, 'sub.ovf', StoreResult]),
-    'llong_abs':                _abs('int64'),
-    'llong_abs_ovf':            _check_ovf(_abs('int64')),
-    'llong_invert':             'not',
 
     'llong_add':                'add',
     'llong_sub':                'sub',
@@ -198,9 +229,6 @@ opcodes = {
     'llong_rshift':             [PushAllArgs, 'conv.i4', 'shr'],
     'llong_xor':                'xor',
 
-    'ullong_is_true':            [PushAllArgs, 'ldc.i8 0', 'cgt.un'],
-    'ullong_invert':             'not',
-
     'ullong_add':               'add',
     'ullong_sub':               'sub',
     'ullong_mul':               'mul',
@@ -216,31 +244,11 @@ opcodes = {
     'ullong_ge':                _not('clt.un'),
     'ullong_lshift':            [PushAllArgs, 'conv.u4', 'shl'],
     'ullong_rshift':            [PushAllArgs, 'conv.i4', 'shr'],
-
-    # when casting from bool we want that every truth value is casted
-    # to 1: we can't simply DoNothing, because the CLI stack could
-    # contains a truth value not equal to 1, so we should use the !=0
-    # trick.
-    'cast_bool_to_int':         [PushAllArgs, 'ldc.i4.0', 'ceq']+Not,
-    'cast_bool_to_uint':        [PushAllArgs, 'ldc.i4.0', 'ceq']+Not,
-    'cast_bool_to_float':       [PushAllArgs, 'ldc.i4 0', 'ceq']+Not+['conv.r8'],
-    'cast_char_to_int':         DoNothing,
-    'cast_unichar_to_int':      DoNothing,
-    'cast_int_to_char':         DoNothing,
-    'cast_int_to_unichar':      DoNothing,
-    'cast_int_to_uint':         DoNothing,
-    'cast_int_to_float':        'conv.r8',
-    'cast_int_to_longlong':     'conv.i8',
-    'cast_uint_to_int':         DoNothing,
-    'cast_uint_to_float':       [PushAllArgs, 'conv.u8', 'conv.r8'],
-    'cast_float_to_int':        'conv.i4',
-    'cast_float_to_uint':       'conv.u4',
-    'cast_longlong_to_float':   'conv.r8',
-    'cast_float_to_longlong':   'conv.i8',
-    'cast_primitive':           [PushAllArgs, CastPrimitive],
-    'truncate_longlong_to_int': 'conv.i4',
-    'is_early_constant':        [PushPrimitive(ootype.Bool, False)]
 }
+
+opcodes = misc_ops.copy()
+opcodes.update(unary_ops)
+opcodes.update(binary_ops)
 
 for key, value in opcodes.iteritems():
     if type(value) is str:
@@ -251,5 +259,4 @@ for key, value in opcodes.iteritems():
         value = InstructionList(value)
 
     opcodes[key] = value
-
 
