@@ -182,7 +182,6 @@ binary_ops = {
     'uint_sub':                 'sub',
     'uint_mul':                 'mul',
     'uint_div':                 'div.un',
-    'uint_truediv':             None, # TODO
     'uint_floordiv':            'div.un',
     'uint_mod':                 'rem.un',
     'uint_lt':                  'clt.un',
@@ -212,7 +211,6 @@ binary_ops = {
     'llong_sub':                'sub',
     'llong_mul':                'mul',
     'llong_div':                'div',
-    'llong_truediv':            None, # TODO
     'llong_floordiv':           'div',
     'llong_floordiv_zer':       _check_zer('div'),
     'llong_mod':                'rem',
@@ -233,7 +231,6 @@ binary_ops = {
     'ullong_sub':               'sub',
     'ullong_mul':               'mul',
     'ullong_div':               'div.un',
-    'ullong_truediv':           None, # TODO
     'ullong_floordiv':          'div.un',
     'ullong_mod':               'rem.un',
     'ullong_lt':                'clt.un',
