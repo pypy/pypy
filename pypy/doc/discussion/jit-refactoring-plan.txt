@@ -26,3 +26,158 @@ Rainbow Interpreter
     - interpreter is manually written in a stackless style: jitstates have
       linked lists of frames anyway already
 
+
+"Plan B" Control Flow
+---------------------
+
+A few notes about a refactoring that I was thinking about for after the
+rainbow interpreter works nicely.  Let's use the Python interpreter as a
+motivating example.
+
+* hot path: for a frequently-executed Python opcode in a certain
+  function in the user program, the "hot path" is the path in the
+  interpreter that is generally followed for this particular opcode.
+  Opposite: "cold path".
+
+The current approach tends to produce far too much machine code at
+run-time - many cold paths give machine code.  So let's see what would
+be involved in producing as little machine code as possible (maybe
+that's the opposite extreme and some middle path would be better).
+While we're at it let's include the question of how to produce machine
+code for only the relevant parts of the user program.
+
+Hints
+++++++++++++++++
+
+We'd replace portals and global merge points with the following variant:
+two hints, "jit_can_enter" and "jit_can_leave", which are where the
+execution can go from interpreter to JITted and back.  The idea is that
+"jit_can_leave" is present at the beginning of the main interpreter loop
+-- i.e. it is a global merge point.
+
+The other hint, "jit_can_enter", is the place where some lightweight
+profiling occurs in order to know if we should enter the JIT.  It's
+important to not have one "jit_can_enter" for each opcode -- that's a
+too heavy slow-down for regularly interpreted code (but it would be
+correct too).  A probably reasonable idea is to put it in the opcodes
+that close loops (JUMP_ABSOLUTE, CONTINUE).  This would make the regular
+Python interpreter try to start JITting the Python-level loops that are
+often executed.  (In time, the JIT should follow calls too, so that
+means that the functions called by loops also get JITted.)
+
+If the profiling in "jit_can_enter" finds out we should start JITting,
+it calls the JIT, which compiles and executes some machine code, which
+makes the current function frame progress, maybe to its end or not, but
+at least to an opcode boundary; so when the call done by "jit_can_enter"
+returns the regular interpreter can simply continue from the new next
+opcode.  For this reason it's necessary to put "jit_can_enter" and
+"jit_can_leave" next to each other, control-flow-wise --
+i.e. "jit_can_enter" should be at the end of JUMP_ABSOLUTE and CONTINUE,
+so that they are immediately followed by the global "jit_can_leave".
+
+Note that "jit_can_enter", in the regular interpreter, has another goal
+too: it should quickly check if machine code was already emitted for the
+next opcode, and if so, jump to it -- i.e. do a call to it.  As above
+the call to the machine code will make the current function execution
+progress and when it returns we can go on interpreter it.
+
+PyPy contains some custom logic to virtualize the frame and the value
+stack; in this new model it should go somewhere related to
+"jit_can_enter".
+
+The "jit_can_enter" hint becomes nothing in the rainbow interpreter's
+bytecode.  Conversely, the "jit_can_leave" hint becomes nothing in
+the regular interpreter, but an important bytecode in the rainbow
+bytecode -- a global merge point.
+
+Very lazy code generation
+++++++++++++++++++++++++++++
+
+Now to the controversial part (if the above wasn't already).  The idea
+is for the JIT to be as lazy as possible producing machine code.  The
+simplest approach allows us to always maintain a single JITState, never
+a chained list of pending-to-be-compiled JITStates.  (Note that this is
+not *necessary*; it's quite possible that it's better to combine
+approaches and compile things a bit more eagerly along several paths.
+I'm mostly decribing the other extreme here.)
+
+The basic idea is to stop compiling early, and wait before execution
+actually followed one of the possible paths often enough before
+continuing.  "Early" means at some red splits and all promotions.  The
+picture is that the JIT should compile a single straight-code path
+corresponding to maybe half an opcode or a few opcodes, and then wait;
+then compile a bit more, and wait; and progress like this.  In this
+model we get the nice effect that in a Python-level loop, we would end
+up compiling only the loop instead of the whole function that contains
+it: indeed, the "jit_can_enter" profiling only triggers on the start of
+the loop, and the stop-early logic means that the path that exits the
+loop is cold and will not be compiled.
+
+Red splits and promotions
+++++++++++++++++++++++++++++++++++++++++
+
+We would identify two kinds of red splits: the ones that just correspond
+to "simple if-then-else" patterns; and the "complicated" ones.  We can
+be more clever about simple if-then-else patterns, but for all other red
+splits, we would just stop emitting machine code.  The JIT puts in the
+machine code a jump to a special "fall-back rainbow interpreter".  This
+interpreter is a variant that considers everything as green and just
+interprets everything normally.  The idea is that when execution reaches
+the red split, in the middle of the rainbow bytecode of whatever
+function of the Python interpreter, we only want to produce more machine
+code for the hot path; so we have to do something to continue executing
+when we don't want to generate more code immediately.
+
+The "something" in question, the fall-back rainbow interpreter, is quite
+slow, but only runs until the end of the current opcode and can directly
+perform all nested calls instead of interpreting them.  When it reaches
+the "jit_can_leave", it then returns; as described in the "hints"
+section this should be a return from the initial call to the JIT or the
+machine code -- a call which was in "jit_can_enter" in the regular
+interpreter.  So the control flow is now in the regular interpreter,
+which can go on interpreting at its normal speed from there.
+
+All in all I guess that there is a chance that the fallback rainbow
+interpreter is not too much of an overhead.  The important point is that
+whenever we use the fallback rainbow interpreter, we also update
+counters, and when enough executions have been seen, we compile the hot
+path (and only the hot path, unless we find out quickly that the other
+path is hot enough too).  So after the compilation converges overall,
+the fallback rainbow interpreter is only ever executed on the cold
+paths.
+
+As noted above, we can (later) be clever about simple if-then-else
+patterns, and always immediately compile both branches.  If we still
+want a single JITState, we need to make sure that it's a good idea to
+always merge the two states at the end of the two branches; a criteria
+could be that an if-then-else is "simple enough" if the branches contain
+no allocation (i.e. no potential new virtual stuff that could raise
+DontMerge in the current rvalue.py).  This should be good enough to
+directly compile machine code like::
+
+    x = 5
+    if condition:
+        x += 1
+    do_more_stuff
+
+Promotions are similar to red splits -- go to the fall-back rainbow
+interpreter, which update counters, and later resumes compilation for
+the values that seem to be hot.  For further improvements, this also
+makes it easy to decide, looking at the counters, that a site is
+"megamorphic", i.e. receives tons of different values with no clear
+winner.  For this case we can really compile a megamorphic path where
+the promotion did not occur (i.e. the value stays as a red variable
+after all).  The megamorphic path is "hot", in a sense, so compiling for
+it puts the fallback rainbow interpreter out of the hot path again.
+
+About calls: non-residual calls would always just return a single
+JITState in this simplified model, so no need for the careful red/yellow
+call logic (at least for now).  Residual calls, like now, would be
+followed by the equivalent of a promotion, checking if the residual call
+caused an exception or forced devirtualization.
+
+About local merge points: in this model of a single JITState, I vaguely
+suspect that it gives better results to have *less* local merge points,
+e.g. only at the beginning of local loops.  To be experimented with.  It
+might remove the need for the DontMerge exception and the need to
+maintain (and linearly scan through) more than one state per green key.
