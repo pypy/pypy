@@ -1,7 +1,7 @@
 from pypy.tool.pairtype import extendabletype
 from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.objectmodel import specialize
-from pypy.jit.codegen.model import AbstractRGenOp, GenBuilder
+from pypy.jit.codegen.model import AbstractRGenOp, GenBuilder, GenLabel
 from pypy.jit.codegen.model import GenVarOrConst, GenVar, GenConst, CodeGenSwitch
 from pypy.jit.codegen.cli import operation as ops
 from pypy.translator.cli.dotnet import CLR, typeof, new_array, clidowncast
@@ -121,6 +121,12 @@ class ObjectConst(GenConst):
             assert isinstance(T, ootype.OOType)
             return ootype.oodowncast(T, self.obj)
 
+class Label(GenLabel):
+    def __init__(self, label, inputargs_gv):
+        self.label = label
+        self.inputargs_gv = inputargs_gv
+
+
 class RCliGenOp(AbstractRGenOp):
 
     def __init__(self):
@@ -194,6 +200,15 @@ class Builder(GenBuilder):
         self.il.Emit(OpCodes.Ret)
         self.isOpen = False
 
+    def finish_and_goto(self, outputargs_gv, target):
+        inputargs_gv = target.inputargs_gv
+        assert len(inputargs_gv) == len(outputargs_gv)
+        for i in range(len(outputargs_gv)):
+            outputargs_gv[i].load(self.il)
+            inputargs_gv[i].store(self.il)
+        self.il.Emit(OpCodes.Br, target.label)
+        self.isOpen = False
+
     def end(self):
         delegate_type = sigtoken2clitype(self.sigtoken)
         myfunc = self.meth.CreateDelegate(delegate_type)
@@ -206,7 +221,7 @@ class Builder(GenBuilder):
             args_gv[i] = op.gv_res()
         label = self.il.DefineLabel()
         self.il.MarkLabel(label)
-        return label
+        return Label(label, args_gv)
 
     def _jump_if(self, gv_condition, opcode):
         label = self.il.DefineLabel()
@@ -232,3 +247,10 @@ class BranchBuilder(Builder):
         assert not self.parent.isOpen
         self.isOpen = True
         self.il.MarkLabel(self.label)
+
+    @specialize.arg(1)
+    def genop2(self, opname, gv_arg1, gv_arg2):
+        # XXX: this only serves to mask a bug in gencli which I don't
+        # feel like fixing now. Try to uncomment this and run
+        # test_goto_compile to see why it fails
+        return Builder.genop2(self, opname, gv_arg1, gv_arg2)
