@@ -27,6 +27,9 @@ class RBuffer:
             raise IndexError(item)
         return self.ll_buffer[item]
 
+    def getslice(self, start, end):
+        return "".join([self.getitem(item) for item in range(start, end)])
+
     def setitem(self, item, value):
         if item >= self.size or item < 0:
             raise IndexError(item)
