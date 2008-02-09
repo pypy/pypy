@@ -469,12 +469,13 @@ class TestDotnetRtyping(CliTest):
         assert res == 42
 
     def test_static_fields(self):
-        py.test.skip("does not work, and no need to implement")
+        Constants = CLR.pypy.runtime.Constants
         def fn():
-            op = OpCodes.Add
-            return op.get_Name()
+            obj = System.Object()
+            Constants.const1 = obj
+            return Constants.const1 is obj
         res = self.interpret(fn, [])
-        assert self.ll_to_string(res) == 'add'
+        assert res
 
     def test_pypylib(self):
         def fn():

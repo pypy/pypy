@@ -32,6 +32,15 @@ class SomeCliClass(SomeObject):
         else:
             return s_ImpossibleValue
 
+    def setattr(self, s_attr, s_value):
+        assert self.is_constant()
+        assert s_attr.is_constant
+        cliclass = self.const
+        attrname = s_attr.const
+        if attrname not in cliclass._static_fields:
+            return s_ImpossibleValue
+        # XXX: check types?
+
     def simple_call(self, *s_args):
         assert self.is_constant()
         return SomeOOInstance(self.const._INSTANCE)
@@ -102,8 +111,16 @@ class CliClassRepr(Repr):
             assert attrname in self.cli_class._static_fields
             TYPE = self.cli_class._static_fields[attrname]
             c_class = hop.inputarg(hop.args_r[0], arg=0)
-            c_name = hop.inputconst(ootype.Void, hop.args_v[1].value)
+            c_name = hop.inputconst(ootype.Void, attrname)
             return hop.genop("cli_getstaticfield", [c_class, c_name], resulttype=hop.r_result.lowleveltype)
+
+    def rtype_setattr(self, hop):
+        attrname = hop.args_v[1].value
+        assert attrname in self.cli_class._static_fields
+        c_class = hop.inputarg(hop.args_r[0], arg=0)
+        c_name = hop.inputconst(ootype.Void, attrname)
+        v_value = hop.inputarg(hop.args_r[2], arg=2)
+        return hop.genop("cli_setstaticfield", [c_class, c_name, v_value], resulttype=hop.r_result.lowleveltype)
 
     def rtype_simple_call(self, hop):
         # TODO: resolve constructor overloading

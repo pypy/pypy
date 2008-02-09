@@ -1,7 +1,7 @@
 from pypy.translator.cli.metavm import  Call, CallMethod, \
      IndirectCall, GetField, SetField, DownCast, NewCustomDict,\
      MapException, Box, Unbox, NewArray, GetArrayElem, SetArrayElem,\
-     TypeOf, CastPrimitive, EventHandler, GetStaticField
+     TypeOf, CastPrimitive, EventHandler, GetStaticField, SetStaticField
 from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult, InstructionList,\
     New, RuntimeNew, CastTo, PushPrimitive, OOString, OOUnicode
 from pypy.translator.cli.cts import WEAKREF
@@ -44,6 +44,7 @@ misc_ops = {
     'cli_arraylength':          'ldlen',
     'cli_eventhandler':         [EventHandler],
     'cli_getstaticfield':       [GetStaticField],
+    'cli_setstaticfield':       [SetStaticField],
     'oois':                     'ceq',
     'oononnull':                [PushAllArgs, 'ldnull', 'ceq']+Not,
     'instanceof':               [CastTo, 'ldnull', 'cgt.un'],
@@ -106,7 +107,7 @@ unary_ops = {
     # trick.
     'cast_bool_to_int':         [PushAllArgs, 'ldc.i4.0', 'ceq']+Not,
     'cast_bool_to_uint':        [PushAllArgs, 'ldc.i4.0', 'ceq']+Not,
-    'cast_bool_to_float':       [PushAllArgs, 'ldc.i4 0', 'ceq']+Not+['conv.r8'],
+    'cast_bool_to_float':       [PushAllArgs, 'ldc.i4.0', 'ceq']+Not+['conv.r8'],
     'cast_char_to_int':         DoNothing,
     'cast_unichar_to_int':      DoNothing,
     'cast_int_to_char':         DoNothing,

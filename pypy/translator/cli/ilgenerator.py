@@ -244,6 +244,9 @@ class IlasmGenerator(object):
     def load_static_field(self, cts_type, name):
         self.opcode('ldsfld', '%s %s' % (cts_type, name))
 
+    def store_static_field(self, cts_type, name):
+        self.opcode('stsfld', '%s %s' % (cts_type, name))
+
     def emit(self, opcode, *args):
         self.opcode(opcode,*args)
 
