@@ -59,6 +59,7 @@ namespace pypy.runtime
 
     public class Constants
     {
+        public static object const0;
         public static object const1;
         public static object const2;
     }

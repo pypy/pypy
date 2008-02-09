@@ -65,7 +65,37 @@ class SameAs(UnaryOp):
         self.gv_res().store(self.il)
 
 
+class Call(Operation):
+
+    def __init__(self, il, sigtoken, gv_fnptr, args_gv):
+        from pypy.jit.codegen.cli.rgenop import token2clitype
+        self.il = il
+        self.sigtoken = sigtoken
+        self.gv_fnptr = gv_fnptr
+        self.args_gv = args_gv
+        self._restype = token2clitype(sigtoken[1])
+
+    def restype(self):
+        return self._restype
+
+    def emit(self):
+        from pypy.jit.codegen.cli.rgenop import sigtoken2clitype
+        delegate_type = sigtoken2clitype(self.sigtoken)
+        meth_invoke = delegate_type.GetMethod('Invoke')
+        self.gv_fnptr.load(self.il)
+        self.il.Emit(OpCodes.Castclass, delegate_type)
+        for gv_arg in self.args_gv:
+            gv_arg.load(self.il)
+        self.il.EmitCall(OpCodes.Callvirt, meth_invoke, None)
+        self.storeResult()
+
+        
+
 def opcode2attrname(opcode):
+    if opcode == 'ldc.r8 0':
+        return 'Ldc_R8, 0' # XXX this is a hack
+    if opcode == 'ldc.i8 0':
+        return 'Ldc_I8, 0' # XXX this is a hack
     parts = map(str.capitalize, opcode.split('.'))
     return '_'.join(parts)
 
@@ -97,8 +127,36 @@ def fillops(ops, baseclass):
         elif value is cli_opcodes.DoNothing:
             out[opname] = SameAs
         else:
-            pass # XXX: handle remaining ops
+            renderCustomOp(opname, baseclass, value, out)
     return out
+
+def renderCustomOp(opname, baseclass, steps, out):
+    assert steps
+    body = []
+    for step in steps:
+        if step is cli_opcodes.PushAllArgs:
+            body.append('self.pushAllArgs()')
+        elif step is cli_opcodes.StoreResult:
+            body.append('self.storeResult()')
+        elif isinstance(step, str):
+            if 'call' in step:
+                return # XXX, fix this
+            attrname = opcode2attrname(step)
+            body.append('self.il.Emit(OpCodes.%s)' % attrname)
+        elif isinstance(step, cli_opcodes.MapException):
+            return # XXX, TODO
+        else:
+            return # ignore it for now
+
+    if cli_opcodes.StoreResult not in steps:
+        body.append('self.storeResult()')
+
+    emit = py.code.Source('\n'.join(body))
+    emit = emit.putaround('def emit(self):')
+    source = emit.putaround('class %(opname)s (%(baseclass)s):' % locals())
+    code = source.compile()
+    exec code in globals(), out
+
 
 UNARYOPS = fillops(cli_opcodes.unary_ops, "UnaryOp")
 BINARYOPS = fillops(cli_opcodes.binary_ops, "BinaryOp")

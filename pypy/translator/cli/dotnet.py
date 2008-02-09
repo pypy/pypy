@@ -306,7 +306,7 @@ class CliClass(object):
             self._load_class()
             return getattr(self._PythonNet_class, attr)
         else:
-            raise AttributeError
+            raise AttributeError, attr
 
     def __call__(self, *args):
         self._load_class()

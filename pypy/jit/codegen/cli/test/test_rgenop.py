@@ -10,10 +10,13 @@ def fn():
         'test_adder',
         'test_dummy',
         'test_hide_and_reveal',
-        'test_hide_and_reveal_p',
+        # 'test_hide_and_reveal_p', # think about this
         'test_largedummy_direct', # _compile works if we set a higher maxstack
         'test_branching',
         'test_goto',
+        'test_if',
+        # 'test_switch', # no promotion/flexswitch for now please :-)
+        'test_fact',
         ]
 
     for p in prefixes:
@@ -38,7 +41,7 @@ class TestRCliGenop(AbstractRGenOpTests):
     def cast(self, gv, nb_args):
         "NOT_RPYTHON"
         def fn(*args):
-            return gv.obj.Invoke(*args)
+            return gv.getobj().Invoke(*args)
         return fn
 
     def directtesthelper(self, FUNCTYPE, func):
