@@ -50,11 +50,12 @@ class AsmStackRootWalker(BaseRootWalker):
         def _asm_callback(initialframedata):
             self.walk_stack_from(initialframedata)
         self._asm_callback = _asm_callback
+        self._shape_decompressor = ShapeDecompressor()
 
     def setup_root_walker(self):
-        # The gcmap table is a list of pairs of pointers:
+        # The gcmap table is a list of entries, two machine words each:
         #     void *SafePointAddress;
-        #     void *Shape;
+        #     int Shape;
         # Here, i.e. when the program starts, we sort it
         # in-place on the SafePointAddress to allow for more
         # efficient searches.
@@ -98,9 +99,9 @@ class AsmStackRootWalker(BaseRootWalker):
         callback from the GC code for each GC root found in 'caller'.
         """
         #
-        # The gcmap table is a list of pairs of pointers:
+        # The gcmap table is a list of entries, two machine words each:
         #     void *SafePointAddress;
-        #     void *Shape;
+        #     int Shape;
         #
         # A "safe point" is the return address of a call.
         # The "shape" of a safe point is a list of integers
@@ -148,20 +149,26 @@ class AsmStackRootWalker(BaseRootWalker):
         gcmapend   = llop.llvm_gcmapend(llmemory.Address)
         item = binary_search(gcmapstart, gcmapend, retaddr)
         if item.address[0] != retaddr:
-            # retaddr not found!
-            llop.debug_fatalerror(lltype.Void, "cannot find gc roots!")
-            return False
+            # 'retaddr' not exactly found.  Check that 'item' the start of a
+            # compressed range containing 'retaddr'.
+            if retaddr > item.address[0] and item.signed[1] < 0:
+                pass   # ok
+            else:
+                llop.debug_fatalerror(lltype.Void, "cannot find gc roots!")
+                return False
         #
         # found!  Enumerate the GC roots in the caller frame
         #
-        shape = item.address[1]
+        shape = item.signed[1]
+        if shape < 0:
+            shape = ~ shape     # can ignore this "range" marker here
+        self._shape_decompressor.setpos(shape)
         collect_stack_root = self.gcdata._gc_collect_stack_root
         gc = self.gc
-        LIVELOCS = 1 + CALLEE_SAVED_REGS + 1  # index of the first gc root loc
-        livecount = shape.signed[LIVELOCS-1]
-        while livecount > 0:
-            livecount -= 1
-            location = shape.signed[LIVELOCS + livecount]
+        while True:
+            location = self._shape_decompressor.next()
+            if location == 0:
+                break
             addr = self.getlocation(callee, location)
             if addr.address[0] != llmemory.NULL:
                 collect_stack_root(gc, addr)
@@ -169,17 +176,18 @@ class AsmStackRootWalker(BaseRootWalker):
         # track where the caller_frame saved the registers from its own
         # caller
         #
-        location = shape.signed[0]
-        caller.frame_address = self.getlocation(callee, location)
-        if not caller.frame_address:   # marker that means "I'm the frame
-            return False               # of the entry point, stop walking"
-        reg = 0
-        while reg < CALLEE_SAVED_REGS:
-            location = shape.signed[1+reg]
+        reg = CALLEE_SAVED_REGS - 1
+        while reg >= 0:
+            location = self._shape_decompressor.next()
             addr = self.getlocation(callee, location)
             caller.regs_stored_at[reg] = addr
-            reg += 1
-        return True
+            reg -= 1
+
+        location = self._shape_decompressor.next()
+        caller.frame_address = self.getlocation(callee, location)
+        # we get a NULL marker to mean "I'm the frame
+        # of the entry point, stop walking"
+        return caller.frame_address != llmemory.NULL
 
     def getlocation(self, callee, location):
         """Get the location in the 'caller' frame of a variable, based
@@ -241,6 +249,9 @@ def insertion_sort(start, end):
     This is an insertion sort, so it's slowish unless the array is mostly
     sorted already (which is what I expect, but XXX check this).
     """
+    # XXX this should check that it's not changing the relative order
+    # of entry and the following entry in case it's a compressed "range"
+    # entry, i.e. "entry.signed[1] < 0".
     next = start
     while next < end:
         # assuming the interval from start (included) to next (excluded)
@@ -256,6 +267,31 @@ def insertion_sort(start, end):
         scan.address[0] = addr1
         scan.address[1] = addr2
         next += arrayitemsize
+
+# ____________________________________________________________
+
+class ShapeDecompressor:
+    _alloc_flavor_ = "raw"
+
+    def setpos(self, pos):
+        gccallshapes = llop.llvm_gccallshapes(llmemory.Address)
+        self.addr = gccallshapes + pos
+
+    def next(self):
+        value = 0
+        addr = self.addr
+        while True:
+            b = ord(addr.char[0])
+            addr += 1
+            value += b
+            if b < 0x80:
+                break
+            value = (value - 0x80) << 7
+        self.addr = addr
+        if value & 1:
+            value = ~ value
+        value = value >> 1
+        return value
 
 # ____________________________________________________________
 

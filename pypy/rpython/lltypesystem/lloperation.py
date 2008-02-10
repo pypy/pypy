@@ -412,6 +412,7 @@ LL_OPERATIONS = {
     'llvm_frameaddress':    LLOp(sideeffects=False),
     'llvm_gcmapstart':      LLOp(sideeffects=False),
     'llvm_gcmapend':        LLOp(sideeffects=False),
+    'llvm_gccallshapes':    LLOp(sideeffects=False),
     'llvm_store_gcroot':    LLOp(),
     'llvm_load_gcroot':     LLOp(),
 
