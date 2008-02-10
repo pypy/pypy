@@ -598,6 +598,13 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 len(t), expected_length)
         return t
 
+    def sliceindices(self, w_slice, w_length):
+        if isinstance(w_slice, W_SliceObject):
+            a, b, c = w_slice.indices3(self, self.int_w(w_length))
+            return self.newtuple([a, b, c])
+        w_indices = self.getattr(w_slice, self.wrap('indices'))
+        return self.call_function(w_indices, w_length)
+
     def is_(self, w_one, w_two):
         # XXX a bit of hacking to gain more speed 
         if w_one is w_two:

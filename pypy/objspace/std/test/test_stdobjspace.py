@@ -1,7 +1,5 @@
 from pypy.interpreter.error import OperationError
 
-
-
 class TestW_StdObjSpace:
 
     def test_wrap_wrap(self):
@@ -33,3 +31,11 @@ class TestW_StdObjSpace:
         assert ('pop', True) in res
         assert ('reverse', True) in res
         assert ('popitem', True) not in res
+
+    def test_sliceindices(self):
+        space = self.space
+        w = space.wrap
+        w_slice = space.newslice(w(1), w(2), w(1))
+        assert space.unpacktuple(space.sliceindices(w_slice, w(3))) == [1,2,1]
+        
+
