@@ -4,11 +4,14 @@ from pypy.rlib.objectmodel import specialize
 from pypy.jit.codegen.model import AbstractRGenOp, GenBuilder, GenLabel
 from pypy.jit.codegen.model import GenVarOrConst, GenVar, GenConst, CodeGenSwitch
 from pypy.jit.codegen.cli import operation as ops
+from pypy.jit.codegen.cli.dumpgenerator import DumpGenerator
 from pypy.translator.cli.dotnet import CLR, typeof, new_array, clidowncast
 System = CLR.System
 Utils = CLR.pypy.runtime.Utils
 Constants = CLR.pypy.runtime.Constants
 OpCodes = System.Reflection.Emit.OpCodes
+
+DEBUG = False
 
 def token2clitype(tok):
     if tok == '<Signed>':
@@ -199,19 +202,24 @@ class RCliGenOp(AbstractRGenOp):
         return builder, builder.gv_entrypoint, builder.inputargs_gv[:]
 
 
-
 class Builder(GenBuilder):
 
     def __init__(self, rgenop, name, res, args, sigtoken):
         self.rgenop = rgenop
         self.meth = Utils.CreateDynamicMethod(name, res, args)
         self.il = self.meth.GetILGenerator()
+        if DEBUG:
+            self.il = DumpGenerator(self.il)
         self.inputargs_gv = []
         for i in range(len(args)):
             self.inputargs_gv.append(GenArgVar(i, args[i]))
         self.gv_entrypoint = self.rgenop.newconst(FunctionConst)
         self.sigtoken = sigtoken
         self.isOpen = False
+        self.operations = []
+        self.branches = []
+        self.retlabel = self.il.DefineLabel()
+        self.gv_returnvar = None
 
     @specialize.arg(1)
     def genop1(self, opname, gv_arg):
@@ -235,24 +243,35 @@ class Builder(GenBuilder):
     def emit(self, op):
         op.emit()
 
+    def appendbranch(self, branch):
+        self.branches.append(branch)
+
     def start_writing(self):
         self.isOpen = True
 
     def finish_and_return(self, sigtoken, gv_returnvar):
-        gv_returnvar.load(self.il)
-        self.il.Emit(OpCodes.Ret)
+        self.il.Emit(OpCodes.Br, self.retlabel)
+        self.gv_returnvar = gv_returnvar
         self.isOpen = False
 
     def finish_and_goto(self, outputargs_gv, target):
         inputargs_gv = target.inputargs_gv
         assert len(inputargs_gv) == len(outputargs_gv)
-        for i in range(len(outputargs_gv)):
-            outputargs_gv[i].load(self.il)
-            inputargs_gv[i].store(self.il)
-        self.il.Emit(OpCodes.Br, target.label)
+        op = ops.FollowLink(self.il, outputargs_gv, inputargs_gv, target.label)
+        self.emit(op)
         self.isOpen = False
 
     def end(self):
+        # render all the pending branches
+        for branch in self.branches:
+            branch.replayops()
+
+        # render the return block for last, else the verifier could complain
+        self.il.MarkLabel(self.retlabel)
+        op = ops.Return(self.il, self.gv_returnvar)
+        self.emit(op)
+
+        # build the delegate
         delegate_type = sigtoken2clitype(self.sigtoken)
         myfunc = self.meth.CreateDelegate(delegate_type)
         self.gv_entrypoint.setobj(myfunc)
@@ -268,9 +287,11 @@ class Builder(GenBuilder):
 
     def _jump_if(self, gv_condition, opcode):
         label = self.il.DefineLabel()
-        gv_condition.load(self.il)
-        self.il.Emit(opcode, label)
-        return BranchBuilder(self, label)
+        op = ops.BranchIf(self.il, gv_condition, opcode, label)
+        self.emit(op)
+        branch = BranchBuilder(self, label)
+        self.appendbranch(branch)
+        return branch
 
     def jump_if_false(self, gv_condition, args_for_jump_gv):
         return self._jump_if(gv_condition, OpCodes.Brfalse)
@@ -284,12 +305,11 @@ class BranchBuilder(Builder):
         self.parent = parent
         self.label = label
         self.il = parent.il
+        self.operations = []
         self.isOpen = False
 
     def start_writing(self):
-        assert not self.parent.isOpen
         self.isOpen = True
-        self.il.MarkLabel(self.label)
 
     @specialize.arg(1)
     def genop2(self, opname, gv_arg1, gv_arg2):
@@ -297,3 +317,22 @@ class BranchBuilder(Builder):
         # feel like fixing now. Try to uncomment this and run
         # test_goto_compile to see why it fails
         return Builder.genop2(self, opname, gv_arg1, gv_arg2)
+
+    def finish_and_return(self, sigtoken, gv_returnvar):
+        op = ops.Return(self.parent.il, gv_returnvar)
+        self.emit(op)
+        self.isOpen = False
+
+    def emit(self, op):
+        self.operations.append(op)
+
+    def appendbranch(self, branch):
+        self.parent.appendbranch(branch)
+
+    def replayops(self):
+        assert not self.isOpen
+        assert not self.parent.isOpen
+        il = self.parent.il
+        il.MarkLabel(self.label)        
+        for op in self.operations:
+            op.emit()

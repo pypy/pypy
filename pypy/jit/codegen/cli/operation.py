@@ -65,6 +65,51 @@ class SameAs(UnaryOp):
         self.gv_res().store(self.il)
 
 
+class FollowLink(Operation):
+    
+    def __init__(self, il, outputargs_gv, inputargs_gv, label):
+        self.il = il
+        self.outputargs_gv = outputargs_gv
+        self.inputargs_gv = inputargs_gv
+        self.label = label
+
+    def restype(self):
+        return None
+
+    def emit(self):
+        for i in range(len(self.outputargs_gv)):
+            self.outputargs_gv[i].load(self.il)
+            self.inputargs_gv[i].store(self.il)
+        self.il.Emit(OpCodes.Br, self.label)
+
+class BranchIf(Operation):
+    
+    def __init__(self, il, gv_cond, opcode, label):
+        self.il = il
+        self.gv_cond = gv_cond
+        self.opcode = opcode
+        self.label = label
+
+    def restype(self):
+        return None
+
+    def emit(self):
+        self.gv_cond.load(self.il)
+        self.il.Emit(self.opcode, self.label)
+
+class Return(Operation):
+
+    def __init__(self, il, gv_x):
+        self.il = il
+        self.gv_x = gv_x
+
+    def restype(self):
+        return None
+
+    def emit(self):
+        self.gv_x.load(self.il)
+        self.il.Emit(OpCodes.Ret)
+
 class Call(Operation):
 
     def __init__(self, il, sigtoken, gv_fnptr, args_gv):
