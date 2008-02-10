@@ -35,8 +35,6 @@ class GcRootTracker(object):
     def dump(self, output):
         assert self.seen_main
         shapes = {}
-        shapelines = []
-        shapeofs = 0
         print >> output, """\t.text
         .globl pypy_asm_stackwalk
             .type pypy_asm_stackwalk, @function
@@ -70,26 +68,30 @@ class GcRootTracker(object):
         print >> output, '\t.align\t4'
         print >> output, '\t.globl\t__gcmapstart'
         print >> output, '__gcmapstart:'
-        for label, state, is_range in self.gcmaptable:
-            try:
-                n = shapes[state]
-            except KeyError:
-                n = shapes[state] = shapeofs
-                bytes = [str(b) for b in compress_callshape(state)]
-                shapelines.append('\t/*%d*/\t.byte\t%s\n' % (
-                    shapeofs,
-                    ', '.join(bytes)))
-                shapeofs += len(bytes)
-            if is_range:
-                n = ~ n
+        for label, state in self.gcmaptable:
+            if state not in shapes:
+                lst = ['__gcmap_shape']
+                for n in state:
+                    if n < 0:
+                        n = 'm%d' % (-n,)
+                    lst.append(str(n))
+                shapes[state] = '_'.join(lst)
             print >> output, '\t.long\t%s' % (label,)
-            print >> output, '\t.long\t%d' % (n,)
+            print >> output, '\t.long\t%s' % (shapes[state],)
         print >> output, '\t.globl\t__gcmapend'
         print >> output, '__gcmapend:'
         print >> output, '\t.section\t.rodata'
-        print >> output, '\t.globl\t__gccallshapes'
-        print >> output, '__gccallshapes:'
-        output.writelines(shapelines)
+        print >> output, '\t.align\t4'
+        keys = shapes.keys()
+        keys.sort()
+        FIXED = 1 + len(CALLEE_SAVE_REGISTERS)
+        for state in keys:
+            print >> output, '%s:' % (shapes[state],)
+            for i in range(FIXED):
+                print >> output, '\t.long\t%d' % (state[i],)
+            print >> output, '\t.long\t%d' % (len(state)-FIXED,)
+            for p in state[FIXED:]:
+                print >> output, '\t.long\t%d' % (p,)         # gcroots
 
     def find_functions(self, iterlines):
         functionlines = []
@@ -113,13 +115,10 @@ class GcRootTracker(object):
         yield False, functionlines
 
     def process(self, iterlines, newfile, entrypoint='main', filename='?'):
-        self.localgcmaptable = []
         for in_function, lines in self.find_functions(iterlines):
             if in_function:
                 lines = self.process_function(lines, entrypoint, filename)
             newfile.writelines(lines)
-        self.gcmaptable.extend(compress_gcmaptable(self.localgcmaptable))
-        del self.localgcmaptable
         self.files_seen += 1
 
     def process_function(self, lines, entrypoint, filename):
@@ -132,7 +131,7 @@ class GcRootTracker(object):
         if self.verbose > 1:
             for label, state in table:
                 print >> sys.stderr, label, '\t', format_callshape(state)
-        self.localgcmaptable.extend(table)
+        self.gcmaptable.extend(table)
         self.seen_main |= tracker.is_main
         return tracker.lines
 
@@ -897,82 +896,6 @@ def format_callshape(shape):
     return '{%s | %s | %s}' % (result[0],
                                ', '.join(result[1:5]),
                                ', '.join(result[5:]))
-
-# __________ table compression __________
-
-def compress_gcmaptable(table):
-    # Compress ranges table[i:j] of entries with the same state
-    # into a single entry whose label is the start of the range.
-    # The last element in the table is never compressed in this
-    # way for debugging reasons, to avoid that a random address
-    # in memory gets mapped to the last element in the table
-    # just because it's the closest address.
-    # Also, compress_gcmaptable() should be called after each
-    # .s file processed -- otherwise the result depends on the
-    # linker not rearranging the .s files in memory, which looks
-    # fragile.
-    i = 0
-    limit = len(table) - 1     # only process entries table[:limit]
-    while i < len(table):
-        label1, state = table[i]
-        is_range = False
-        j = i + 1
-        while j < limit and table[j][1] == state:
-            is_range = True
-            j += 1
-        # now all entries in table[i:j] have the same state
-        yield (label1, state, is_range)
-        i = j
-
-def compress_callshape(shape):
-    # For a single shape, this turns the list of integers into a list of
-    # bytes and reverses the order of the entries.  The length is
-    # encoded by inserting a 0 marker after the gc roots coming from
-    # shape[5:] and before the 5 values coming from shape[4] to
-    # shape[0].  In practice it seems that shapes contain many integers
-    # whose value is up to a few thousands, which the algorithm below
-    # compresses down to 2 bytes.  Very small values compress down to a
-    # single byte.
-    assert len(shape) >= 5
-    shape = list(shape)
-    assert 0 not in shape[5:]
-    shape.insert(5, 0)
-    result = []
-    for loc in shape:
-        if loc < 0:
-            loc = (-loc) * 2 - 1
-        else:
-            loc = loc * 2
-        flag = 0
-        while loc >= 0x80:
-            result.append(int(loc & 0x7F) | flag)
-            flag = 0x80
-            loc >>= 7
-        result.append(int(loc) | flag)
-    result.reverse()
-    return result
-
-def decompress_callshape(bytes):
-    # For tests.  This logic is copied in asmgcroot.py.
-    result = []
-    n = 0
-    while n < len(bytes):
-        value = 0
-        while True:
-            b = bytes[n]
-            n += 1
-            value += b
-            if b < 0x80:
-                break
-            value = (value - 0x80) << 7
-        if value & 1:
-            value = ~ value
-        value = value >> 1
-        result.append(value)
-    result.reverse()
-    assert result[5] == 0
-    del result[5]
-    return result
 
 
 if __name__ == '__main__':

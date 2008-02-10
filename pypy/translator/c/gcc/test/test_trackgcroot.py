@@ -6,8 +6,6 @@ from pypy.translator.c.gcc.trackgcroot import LOC_NOWHERE, LOC_REG
 from pypy.translator.c.gcc.trackgcroot import LOC_EBP_BASED, LOC_ESP_BASED
 from pypy.translator.c.gcc.trackgcroot import GcRootTracker
 from pypy.translator.c.gcc.trackgcroot import FunctionGcRootTracker
-from pypy.translator.c.gcc.trackgcroot import compress_callshape
-from pypy.translator.c.gcc.trackgcroot import decompress_callshape
 from StringIO import StringIO
 
 this_dir = py.path.local(__file__).dirpath()
@@ -37,14 +35,6 @@ def test_format_callshape():
                              LOC_EBP_BASED+20,
                              LOC_EBP_BASED+24,
                              LOC_EBP_BASED+28)) == expected
-
-def test_compress_callshape():
-    shape = (1, -3, 0x1234, -0x5678, 0x234567,
-             -0x765432, 0x61626364, -0x41424344)
-    bytes = list(compress_callshape(shape))
-    print bytes
-    assert len(bytes) == 1+1+2+3+4+4+5+5+1
-    assert decompress_callshape(bytes) == list(shape)
 
 def test_find_functions():
     source = """\

@@ -10,7 +10,7 @@
 
 extern char __gcmapstart;
 extern char __gcmapend;
-extern char __gccallshapes;
+extern char* __gcmap_frame_address(void);
 
 #define PYPY_GCROOT(p)  asm ("/* GCROOT %0 */" : "=g" (p) : "0" (p) : "memory")
 #define pypy_asm_gcroot(p) ({void*_r; \
@@ -19,7 +19,10 @@ extern char __gccallshapes;
 
 #define OP_LLVM_GCMAPSTART(r)	r = &__gcmapstart
 #define OP_LLVM_GCMAPEND(r)	r = &__gcmapend
-#define OP_LLVM_GCCALLSHAPES(r)	r = &__gccallshapes
+#define OP_LLVM_FRAMEADDRESS(r)	asm ("pypygetframeaddress %0" : "=r" (r))
+/* NB. we cannot use __builtin_frame_address(0) - apparently, gcc thinks
+   it can return %ebp even if -fomit-frame-pointer is specified, which
+   doesn't work.  So we need a bit of help from trackgcroot.py... */
 
 
 #define RAW_MALLOC_ZERO_FILLED 0
