@@ -181,3 +181,35 @@ suspect that it gives better results to have *less* local merge points,
 e.g. only at the beginning of local loops.  To be experimented with.  It
 might remove the need for the DontMerge exception and the need to
 maintain (and linearly scan through) more than one state per green key.
+
+Random improvement ideas
+++++++++++++++++++++++++++++++++
+
+- in the global merge point "jit_can_leave", so far we'd
+  record one state snapshot for each opcode; instead, we can
+  use the idea implemented in the flow object space of only
+  recording the state at the beginning of an opcode that actually
+  causes machine code to be produced (or, more practically, to
+  throw away the latest recorded state if no new machine code
+  was generated in the meantime).
+
+- maybe it's a bit of a mess but the fallback rainbow interpreter
+  could also record profiling information about more than one
+  red split or promotion -- all the ones it finds alongs its
+  path.
+
+- I didn't think about the impact of this model on our compact
+  Path objects.  As step one we can always make complete state
+  snapshot at each red split and promotion, and reintroduce
+  the compact Paths as step two.
+
+- compiling of more code: we could tweak the flexswitch
+  interface.  For example, instead of "please add a new path",
+  it would make sense to have an API "please override the
+  switch completely so that it has this new set of paths".
+
+- we also need a "jit_can_enter" at the end of the stack
+  unroller corresponding to CONTINUE, for the case where the
+  "continue" statement was in a try:finally:.  This is not
+  necessarily a problem, just a note that we have to allow
+  this hint to be in some subfunction, potentially.
