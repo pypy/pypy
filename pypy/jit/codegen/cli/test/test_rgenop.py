@@ -24,6 +24,7 @@ def fn():
         'test_flipped_cmp_with_immediate',
         'test_tight_loop',
         'test_jump_to_block_with_many_vars',
+        'test_same_as',
         ]
 
     for p in prefixes:

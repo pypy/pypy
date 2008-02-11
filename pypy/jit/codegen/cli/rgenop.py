@@ -261,6 +261,11 @@ class Builder(GenBuilder):
         op = ops.Call(self.il, sigtoken, gv_fnptr, args_gv)
         self.emit(op)
         return op.gv_res()
+
+    def genop_same_as(self, kindtoken, gv_x):
+        op = ops.SameAs(self.il, gv_x)
+        self.emit(op)
+        return op.gv_res()
         
     def emit(self, op):
         op.emit()
