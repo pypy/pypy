@@ -20,6 +20,7 @@ def fn():
         'test_calling_pause',
         'test_longwinded_and',
         'test_condition_result_cross_link_direct',
+        'test_multiple_cmps',
         ]
 
     for p in prefixes:

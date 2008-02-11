@@ -11,6 +11,7 @@ Utils = CLR.pypy.runtime.Utils
 Constants = CLR.pypy.runtime.Constants
 OpCodes = System.Reflection.Emit.OpCodes
 
+DUMP_IL = False
 DEBUG = False
 
 def token2clitype(tok):
@@ -208,7 +209,7 @@ class Builder(GenBuilder):
         self.rgenop = rgenop
         self.meth = Utils.CreateDynamicMethod(name, res, args)
         self.il = self.meth.GetILGenerator()
-        if DEBUG:
+        if DUMP_IL:
             self.il = DumpGenerator(self.il)
         self.inputargs_gv = []
         for i in range(len(args)):
@@ -226,14 +227,36 @@ class Builder(GenBuilder):
         opcls = ops.getopclass1(opname)
         op = opcls(self.il, gv_arg)
         self.emit(op)
-        return op.gv_res()
+        gv_res = op.gv_res()
+        if DEBUG:
+            self.il.EmitWriteLine(opname)
+            self.writeline_gv(gv_arg)
+            self.writeline_gv(gv_res)
+            self.il.EmitWriteLine('')
+        return gv_res
+    
 
     @specialize.arg(1)
     def genop2(self, opname, gv_arg1, gv_arg2):
         opcls = ops.getopclass2(opname)
         op = opcls(self.il, gv_arg1, gv_arg2)
         self.emit(op)
-        return op.gv_res()
+        gv_res = op.gv_res()
+        if DEBUG:
+            self.il.EmitWriteLine(opname)
+            self.writeline_gv(gv_arg1)
+            self.writeline_gv(gv_arg2)
+            self.writeline_gv(gv_res)
+            self.il.EmitWriteLine('')
+        return gv_res
+
+    def writeline_gv(self, gv):
+        if isinstance(gv, GenLocalVar):
+            self.il.EmitWriteLine(gv.v)
+        elif isinstance(gv, IntConst):
+            self.il.EmitWriteLine('%s' % gv.value)
+        else:
+            assert False
 
     def genop_call(self, sigtoken, gv_fnptr, args_gv):
         op = ops.Call(self.il, sigtoken, gv_fnptr, args_gv)

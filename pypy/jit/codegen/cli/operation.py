@@ -44,6 +44,8 @@ class UnaryOp(Operation):
         self.il.Emit(self.getOpCode())
         self.storeResult()
 
+    def getOpCode(self):
+        raise NotImplementedError
 
 class BinaryOp(Operation):
     def __init__(self, il, gv_x, gv_y):
@@ -157,11 +159,15 @@ def is_comparison(opname):
             return True
     return False
 
-def fillops(ops, baseclass):
-    # monkey-patch boolean operations
-    def restype(self):
-        return typeof(System.Boolean)
+def restype_bool(self):     return typeof(System.Boolean)
+def restype_int(self):      return typeof(System.Int32)
+def restype_uint(self):     return typeof(System.Int32)
+def restype_float(self):    return typeof(System.Double)
+def restype_char(self):     return typeof(System.Char)
+def restype_unichar(self):  return typeof(System.Char)
+def restype_longlong(self): return typeof(System.Int64)
 
+def fillops(ops, baseclass):
     out = {}
     for opname, value in ops.iteritems():
         if isinstance(value, str):
@@ -173,12 +179,19 @@ def fillops(ops, baseclass):
             """ % locals())
             code = source.compile()
             exec code in globals(), out
-            if is_comparison(opname):
-                out[opname].restype = restype
         elif value is cli_opcodes.DoNothing:
             out[opname] = SameAs
         else:
             renderCustomOp(opname, baseclass, value, out)
+
+        # fix the restype for comparison ops and casts
+        if is_comparison(opname):
+            out[opname].restype = restype_bool
+        elif opname != 'cast_primitive' and opname.startswith('cast_'):
+            _, _, _, to = opname.split('_')
+            funcname = 'restype_%s' % to
+            out[opname].restype = globals()[funcname]
+
     return out
 
 def renderCustomOp(opname, baseclass, steps, out):
