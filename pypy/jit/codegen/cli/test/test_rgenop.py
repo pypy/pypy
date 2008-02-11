@@ -15,7 +15,8 @@ def fn():
         'test_branching',
         'test_goto',
         'test_if',
-        # 'test_switch', # no promotion/flexswitch for now please :-)
+        # 'test_switch',              # no promotion/flexswitch for now please :-)
+        # 'test_defaultonly_switch',  # the same
         'test_fact',
         'test_calling_pause',
         'test_longwinded_and',
@@ -26,6 +27,21 @@ def fn():
         'test_jump_to_block_with_many_vars',
         'test_same_as',
         'test_pause_and_resume',
+        'test_like_residual_red_call_with_exc',
+        'test_call_functions_with_different_signatures',
+        'test_bool_not_direct',
+        # 'test_read_frame_var',     # not for now
+        # 'test_write_frame_place',
+        # 'test_write_lots_of_frame_places_direct',
+        # 'test_read_frame_place_direct',
+        # 'test_read_frame_place_compile'
+        # 'test_frame_vars_like_the_frontend_direct',
+        'test_unaliasing_variables_direct',
+        # 'test_from_random_direct',  # mono crashes
+        'test_from_random_2_direct',
+        # 'test_from_random_3_direct', # we need yet another delegate type
+        'test_from_random_4_direct',
+        # 'test_from_random_5_direct', # we need yet another delegate type
         ]
 
     for p in prefixes:
