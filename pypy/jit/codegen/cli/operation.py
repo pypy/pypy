@@ -39,6 +39,12 @@ class UnaryOp(Operation):
     def pushAllArgs(self):
         self.gv_x.load(self.il)
 
+    def emit(self):
+        self.pushAllArgs()
+        self.il.Emit(self.getOpCode())
+        self.storeResult()
+
+
 class BinaryOp(Operation):
     def __init__(self, il, gv_x, gv_y):
         self.il = il

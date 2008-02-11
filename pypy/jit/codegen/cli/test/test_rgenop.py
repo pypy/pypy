@@ -17,6 +17,7 @@ def fn():
         'test_if',
         # 'test_switch', # no promotion/flexswitch for now please :-)
         'test_fact',
+        'test_calling_pause',
         ]
 
     for p in prefixes:
