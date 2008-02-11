@@ -601,9 +601,14 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def sliceindices(self, w_slice, w_length):
         if isinstance(w_slice, W_SliceObject):
             a, b, c = w_slice.indices3(self, self.int_w(w_length))
-            return self.newtuple([a, b, c])
+            return (a, b, c)
         w_indices = self.getattr(w_slice, self.wrap('indices'))
-        return self.call_function(w_indices, w_length)
+        w_tup = self.call_function(w_indices, w_length)
+        l_w = self.unpackiterable(w_tup)
+        if not len(l_w) == 3:
+            raise OperationError(self.w_ValueError,
+                                 self.wrap("Expected tuple of length 3"))
+        return self.int_w(l_w[0]), self.int_w(l_w[1]), self.int_w(l_w[2])
 
     def is_(self, w_one, w_two):
         # XXX a bit of hacking to gain more speed 

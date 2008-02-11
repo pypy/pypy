@@ -1,4 +1,5 @@
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import app2interp
 
 class TestW_StdObjSpace:
 
@@ -34,8 +35,14 @@ class TestW_StdObjSpace:
 
     def test_sliceindices(self):
         space = self.space
+        w_obj = space.appexec([], """():
+            class Stuff(object):
+                def indices(self, l):
+                    return 1,2,3
+            return Stuff()
+        """)
         w = space.wrap
         w_slice = space.newslice(w(1), w(2), w(1))
-        assert space.unpacktuple(space.sliceindices(w_slice, w(3))) == [1,2,1]
-        
+        assert space.sliceindices(w_slice, w(3)) == (1,2,1)
+        assert space.sliceindices(w_obj, w(3)) == (1,2,3)
 
