@@ -72,6 +72,17 @@ class SameAs(UnaryOp):
         self.gv_x.load(self.il)
         self.gv_res().store(self.il)
 
+class MarkLabel(Operation):
+
+    def __init__(self, il, label):
+        self.il = il
+        self.label = label
+
+    def restype(self):
+        return None
+
+    def emit(self):
+        self.il.MarkLabel(self.label)
 
 class FollowLink(Operation):
     

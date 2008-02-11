@@ -310,7 +310,7 @@ class Builder(GenBuilder):
             op.emit()
             args_gv[i] = op.gv_res()
         label = self.il.DefineLabel()
-        self.il.MarkLabel(label)
+        self.emit(ops.MarkLabel(self.il, label))
         return Label(label, args_gv)
 
     def _jump_if(self, gv_condition, opcode):

@@ -23,6 +23,7 @@ def fn():
         'test_multiple_cmps',
         'test_flipped_cmp_with_immediate',
         'test_tight_loop',
+        'test_jump_to_block_with_many_vars',
         ]
 
     for p in prefixes:
