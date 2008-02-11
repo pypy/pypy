@@ -21,6 +21,8 @@ def fn():
         'test_longwinded_and',
         'test_condition_result_cross_link_direct',
         'test_multiple_cmps',
+        'test_flipped_cmp_with_immediate',
+        'test_tight_loop',
         ]
 
     for p in prefixes:

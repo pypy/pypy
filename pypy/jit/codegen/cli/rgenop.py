@@ -219,8 +219,7 @@ class Builder(GenBuilder):
         self.isOpen = False
         self.operations = []
         self.branches = []
-        self.retlabel = self.il.DefineLabel()
-        self.gv_returnvar = None
+        self.returnblocks = []
 
     @specialize.arg(1)
     def genop1(self, opname, gv_arg):
@@ -269,12 +268,17 @@ class Builder(GenBuilder):
     def appendbranch(self, branch):
         self.branches.append(branch)
 
+    def appendreturn(self, retlabel, gv_returnvar):
+        self.returnblocks.append((retlabel, gv_returnvar))
+
     def start_writing(self):
         self.isOpen = True
 
     def finish_and_return(self, sigtoken, gv_returnvar):
-        self.il.Emit(OpCodes.Br, self.retlabel)
-        self.gv_returnvar = gv_returnvar
+        retlabel = self.il.DefineLabel()
+        op = ops.Branch(self.il, None, OpCodes.Br, retlabel)
+        self.emit(op)
+        self.appendreturn(retlabel, gv_returnvar)
         self.isOpen = False
 
     def finish_and_goto(self, outputargs_gv, target):
@@ -289,10 +293,11 @@ class Builder(GenBuilder):
         for branch in self.branches:
             branch.replayops()
 
-        # render the return block for last, else the verifier could complain
-        self.il.MarkLabel(self.retlabel)
-        op = ops.Return(self.il, self.gv_returnvar)
-        self.emit(op)
+        # render the return blocks for last, else the verifier could complain
+        for retlabel, gv_returnvar in self.returnblocks:
+            self.il.MarkLabel(retlabel)
+            op = ops.Return(self.il, gv_returnvar)
+            self.emit(op)
 
         # build the delegate
         delegate_type = sigtoken2clitype(self.sigtoken)
@@ -310,7 +315,7 @@ class Builder(GenBuilder):
 
     def _jump_if(self, gv_condition, opcode):
         label = self.il.DefineLabel()
-        op = ops.BranchIf(self.il, gv_condition, opcode, label)
+        op = ops.Branch(self.il, gv_condition, opcode, label)
         self.emit(op)
         branch = BranchBuilder(self, label)
         self.appendbranch(branch)
@@ -341,16 +346,14 @@ class BranchBuilder(Builder):
         # test_goto_compile to see why it fails
         return Builder.genop2(self, opname, gv_arg1, gv_arg2)
 
-    def finish_and_return(self, sigtoken, gv_returnvar):
-        op = ops.Return(self.parent.il, gv_returnvar)
-        self.emit(op)
-        self.isOpen = False
-
     def emit(self, op):
         self.operations.append(op)
 
     def appendbranch(self, branch):
         self.parent.appendbranch(branch)
+
+    def appendreturn(self, retlabel, gv_returnvar):
+        self.parent.appendreturn(retlabel, gv_returnvar)
 
     def replayops(self):
         assert not self.isOpen

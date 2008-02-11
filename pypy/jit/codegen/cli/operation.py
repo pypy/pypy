@@ -90,7 +90,7 @@ class FollowLink(Operation):
             self.inputargs_gv[i].store(self.il)
         self.il.Emit(OpCodes.Br, self.label)
 
-class BranchIf(Operation):
+class Branch(Operation):
     
     def __init__(self, il, gv_cond, opcode, label):
         self.il = il
@@ -102,7 +102,8 @@ class BranchIf(Operation):
         return None
 
     def emit(self):
-        self.gv_cond.load(self.il)
+        if self.gv_cond is not None:
+            self.gv_cond.load(self.il)
         self.il.Emit(self.opcode, self.label)
 
 class Return(Operation):
