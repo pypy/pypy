@@ -4,6 +4,7 @@ import ctypes
 from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem import lltype
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 import py
 
@@ -44,9 +45,16 @@ class RffiBuilder(object):
             self.ns = {}
         else:
             self.ns = ns
-        self.includes = includes
-        self.libraries = libraries
         self.include_dirs = include_dirs
+
+        CConfig = type('CConfig', (object,), {})
+        CConfig._compilation_info_ = ExternalCompilationInfo(
+            includes = list(includes),
+            include_dirs = list(include_dirs),
+            libraries = list(libraries),
+        )
+
+        self.CConfig = CConfig
 
     def proc_struct(self, tp):
         name = tp.__name__
@@ -88,8 +96,7 @@ class RffiBuilder(object):
         ll_item = rffi.llexternal(
             name, arg_tps,
             self.proc_tp(func.restype), 
-            includes=self.includes, libraries=self.libraries, 
-            include_dirs=self.include_dirs)
+            compilation_info=self.CConfig._compilation_info_)
         self.ns[name] = ll_item
         return ll_item
 
