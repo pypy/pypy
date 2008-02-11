@@ -18,6 +18,8 @@ def fn():
         # 'test_switch', # no promotion/flexswitch for now please :-)
         'test_fact',
         'test_calling_pause',
+        'test_longwinded_and',
+        'test_condition_result_cross_link_direct',
         ]
 
     for p in prefixes:
