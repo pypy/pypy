@@ -549,7 +549,7 @@ def make_pause_and_resume(T, rgenop):
     #     return w
     signed_kind = rgenop.kindToken(lltype.Signed)
     sigtoken = rgenop.sigToken(T.FUNC)
-    builder, gv_callable, [gv_x] = rgenop.newgraph(sigtoken, "f")
+    builder, gv_callable, [gv_x] = rgenop.newgraph(sigtoken, "fn")
     builder.start_writing()
 
     gv_one = rgenop.genconst(1)
@@ -1322,7 +1322,6 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
 
         gvs.append(builder2.genop_call(sigtoken, gv_verysmall_callable,
                                        [gv_x2]))
-
         while len(gvs) > 1:
             gvs.append(builder2.genop2("int_add", gvs.pop(), gvs.pop()))
 

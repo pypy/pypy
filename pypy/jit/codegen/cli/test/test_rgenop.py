@@ -25,6 +25,7 @@ def fn():
         'test_tight_loop',
         'test_jump_to_block_with_many_vars',
         'test_same_as',
+        'test_pause_and_resume',
         ]
 
     for p in prefixes:
