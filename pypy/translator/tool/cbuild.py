@@ -273,7 +273,7 @@ def compile_c_module(cfiles, modbasename, eci, tmpdir=None):
                                     include_dirs=include_dirs,
                                     library_dirs=library_dirs,
                                     extra_compile_args=extra_compile_args,
-                                    libraries=libraries,)
+                                    libraries=list(libraries),)
                                 ],
                             'script_name': 'setup.py',
                             'script_args': ['-q', 'build_ext', '--inplace', '--force'],
