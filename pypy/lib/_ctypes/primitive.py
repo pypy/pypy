@@ -3,6 +3,7 @@ import _rawffi
 SIMPLE_TYPE_CHARS = "cbBhHiIlLdfuzZqQPXOv"
 
 from _ctypes.basics import _CData, _CDataMeta, cdata_from_address
+from _ctypes.builtin import ConvMode
 
 class NULL(object):
     pass
@@ -68,7 +69,10 @@ class SimpleType(_CDataMeta):
                     return _rawffi.charp2string(addr)
 
             def _setvalue(self, value):
-                if isinstance(value, str):
+                if isinstance(value, basestring):
+                    if isinstance(value, unicode):
+                        value = value.encode(ConvMode.encoding,
+                                             ConvMode.errors)
                     array = _rawffi.Array('c')(len(value)+1, value)
                     value = array.buffer
                     # XXX free 'array' later
@@ -87,7 +91,10 @@ class SimpleType(_CDataMeta):
                     return _wstring_at_addr(addr, -1)
 
             def _setvalue(self, value):
-                if isinstance(value, str):
+                if isinstance(value, basestring):
+                    if isinstance(value, str):
+                        value = value.decode(ConvMode.encoding,
+                                             ConvMode.errors)
                     array = _rawffi.Array('u')(len(value)+1, value)
                     value = array.buffer
                     # XXX free 'array' later
@@ -141,6 +148,27 @@ class SimpleType(_CDataMeta):
                     return self.from_address(value._buffer.buffer)
                 return SimpleType.from_param(self, value)
             result.from_param = classmethod(from_param)
+
+        elif tp == 'u':
+            def _setvalue(self, val):
+                if isinstance(val, str):
+                    val = val.decode(ConvMode.encoding, ConvMode.errors)
+                # possible if we use 'ignore'
+                if val:
+                    self._buffer[0] = val
+            def _getvalue(self):
+                return self._buffer[0]
+            result.value = property(_getvalue, _setvalue)
+
+        elif tp == 'c':
+            def _setvalue(self, val):
+                if isinstance(val, unicode):
+                    val = val.encode(ConvMode.encoding, ConvMode.errors)
+                if val:
+                    self._buffer[0] = val
+            def _getvalue(self):
+                return self._buffer[0]
+            result.value = property(_getvalue, _setvalue)
 
         return result
 

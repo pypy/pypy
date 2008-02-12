@@ -112,5 +112,5 @@ class CFuncPtr(_CData):
         try:
             return [argtype._CData_input(arg) for argtype, arg in
                     zip(argtypes, args)]
-        except TypeError, e:
-            raise ArgumentError(e.args[0])
+        except (UnicodeError, TypeError), e:
+            raise ArgumentError(str(e))
