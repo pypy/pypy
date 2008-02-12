@@ -197,7 +197,7 @@ class W_DataInstance(Wrappable):
             self.ll_buffer = lltype.malloc(rffi.VOIDP.TO, size, flavor='raw',
                                            zero=True)
             if tracker.DO_TRACING:
-                ll_buf = rffi.cast(rffi.UINT, self.ll_buffer)
+                ll_buf = rffi.cast(rffi.INT, self.ll_buffer)
                 tracker.trace_allocation(ll_buf, self)
 
     def getbuffer(space, self):
@@ -215,7 +215,7 @@ class W_DataInstance(Wrappable):
         if not self.ll_buffer:
             raise segfault_exception(space, "freeing NULL pointer")
         if tracker.DO_TRACING:
-            ll_buf = rffi.cast(rffi.UINT, self.ll_buffer)
+            ll_buf = rffi.cast(rffi.INT, self.ll_buffer)
             tracker.trace_free(ll_buf)
         lltype.free(self.ll_buffer, flavor='raw')
         self.ll_buffer = lltype.nullptr(rffi.VOIDP.TO)
