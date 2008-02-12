@@ -1,7 +1,6 @@
 # coding: latin-1
 import ctypes
 import py
-py.test.skip("Unsupported")
 
 try:
     ctypes.c_wchar
@@ -29,7 +28,7 @@ else:
             assert wcslen(u"ab\u2070") == 3
             # string args are converted
             assert wcslen("abc") == 3
-            raises(ctypes.ArgumentError, wcslen, "abä")
+            py.test.raises(ctypes.ArgumentError, wcslen, "abä")
 
         def test_ascii_replace(self):
             ctypes.set_conversion_mode("ascii", "replace")
@@ -68,12 +67,12 @@ else:
             assert buf[:] == u"ab\0\0\0\0"
 
     class TestString(TestUnicode):
-        def setup_method(self):
+        def setup_method(self, method):
             self.prev_conv_mode = ctypes.set_conversion_mode("ascii", "strict")
             func.argtypes = [ctypes.c_char_p]
             func.restype = ctypes.c_char_p
 
-        def teardown_method(self):
+        def teardown_method(self, method):
             ctypes.set_conversion_mode(*self.prev_conv_mode)
             func.argtypes = None
             func.restype = ctypes.c_int
