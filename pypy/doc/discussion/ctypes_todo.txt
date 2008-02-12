@@ -19,11 +19,7 @@ Few ctypes-related todo points:
   - not all combinations of arrays/structures inlined in other
     arrays/structures work.
 
-  - unicode is not implemented (all the conversion functions and friends)
-
   - bitfields are not implemented
-
-
 
 * keepalive is not there (everything is kept alive forever basically)
 
