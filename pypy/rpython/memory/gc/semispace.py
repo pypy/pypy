@@ -311,6 +311,7 @@ class SemiSpaceGC(MovingGCBase):
         # walk over list of objects with finalizers
         # if it is not copied, add it to the list of to-be-called finalizers
         # and copy it, to me make the finalizer runnable
+        # NOTE: the caller is calling scan_copied, so no need to do it here
         new_with_finalizer = self.AddressLinkedList()
         while self.objects_with_finalizers.non_empty():
             obj = self.objects_with_finalizers.pop()
