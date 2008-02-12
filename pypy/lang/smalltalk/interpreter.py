@@ -356,6 +356,9 @@ class __extend__(W_ContextPart):
     def longJumpIfFalse(self, interp):
         self.jumpConditional(interp.FALSE,self.longJumpPosition())
 
+    # RPython trick: specialize the following function on its second argument
+    # this makes sure that the primitive call is a direct one
+    @objectmodel.specialize.arg(1)
     def callPrimitive(self, primitive, selector, argcount, interp):
         # WARNING: this is used for bytecodes for which it is safe to
         # directly call the primitive.  In general, it is not safe: for
@@ -364,12 +367,14 @@ class __extend__(W_ContextPart):
         # else that the user put in a class in an 'at:' method.
         # The rule of thumb is that primitives with only int and float
         # in their unwrap_spec are safe.
-        try:
-            # note that argcount does not include self
-            primitives.prim_table[primitive](interp, argcount)
-            # the primitive pushes the result (if any) onto the stack itself
-        except primitives.PrimitiveFailedError:
-            self._sendSelfSelector(selector, argcount, interp)
+        for i, func in primitives.unrolling_prim_table:
+            if i == primitive:
+                try:
+                    func(interp, argcount)
+                    return
+                except primitives.PrimitiveFailedError:
+                    break
+        self._sendSelfSelector(selector, argcount, interp)
 
     def callPrimitive2(self, primitive1, primitive2,
                        selector, argcount, interp):
