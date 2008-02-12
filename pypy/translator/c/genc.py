@@ -848,7 +848,13 @@ debug_exc:
 \t$(MAKE) CFLAGS="-g -DRPY_ASSERT -DDO_LOG_EXC"
 
 debug_mem:
+\t$(MAKE) CFLAGS="-g -DRPY_ASSERT -DTRIVIAL_MALLOC_DEBUG"
+
+no_obmalloc:
 \t$(MAKE) CFLAGS="-g -DRPY_ASSERT -DNO_OBMALLOC"
+
+linuxmemchk:
+\t$(MAKE) CFLAGS="-g -DRPY_ASSERT -DLINUXMEMCHK"
 
 llsafer:
 \t$(MAKE) CFLAGS="-O2 -DRPY_LL_ASSERT"
