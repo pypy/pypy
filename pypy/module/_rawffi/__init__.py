@@ -5,6 +5,7 @@
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.module._rawffi.interp_rawffi import W_CDLL
 from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.module._rawffi.tracker import Tracker
 
 class Module(MixedModule):
     applevelname = '_rawffi'
@@ -21,6 +22,7 @@ class Module(MixedModule):
         'charp2string'       : 'interp_rawffi.charp2string',
         'charp2rawstring'    : 'interp_rawffi.charp2rawstring',
         'CallbackPtr'        : 'callback.W_CallbackPtr',
+        '_num_of_allocated_objects' : 'tracker.num_of_allocated_objects',
     }
 
     appleveldefs = {

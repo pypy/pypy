@@ -11,6 +11,7 @@ from pypy.rlib.unroll import unrolling_iterable
 
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rarithmetic import intmask, r_uint, r_singlefloat
+from pypy.module._rawffi.tracker import tracker
 
 def _signed_type_for(TYPE):
     sz = rffi.sizeof(TYPE)
@@ -195,6 +196,9 @@ class W_DataInstance(Wrappable):
         else:
             self.ll_buffer = lltype.malloc(rffi.VOIDP.TO, size, flavor='raw',
                                            zero=True)
+            if tracker.DO_TRACING:
+                ll_buf = rffi.cast(rffi.UINT, self.ll_buffer)
+                tracker.trace_allocation(ll_buf, self)
 
     def getbuffer(space, self):
         return space.wrap(rffi.cast(lltype.Unsigned, self.ll_buffer))
@@ -210,6 +214,9 @@ class W_DataInstance(Wrappable):
     def free(self, space):
         if not self.ll_buffer:
             raise segfault_exception(space, "freeing NULL pointer")
+        if tracker.DO_TRACING:
+            ll_buf = rffi.cast(rffi.UINT, self.ll_buffer)
+            tracker.trace_free(ll_buf)
         lltype.free(self.ll_buffer, flavor='raw')
         self.ll_buffer = lltype.nullptr(rffi.VOIDP.TO)
     free.unwrap_spec = ['self', ObjSpace]
