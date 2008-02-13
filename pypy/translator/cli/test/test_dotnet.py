@@ -274,6 +274,7 @@ class TestDotnetRtyping(CliTest):
         assert self.interpret(fn, []) == 42+43
 
     def test_array_setitem_None(self):
+        py.test.skip('Mono bug :-(')
         def fn():
             x = init_array(System.Object, box(42), box(43))
             x[0] = None

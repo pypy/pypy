@@ -589,7 +589,7 @@ class Entry(ExtRegistryEntry):
             cliClass = s_type.const
             TYPE = cliClass._INSTANCE
         if isinstance(TYPE, ootype.StaticMethod):
-            assert ootype.isSubclass(s_value.ootype, CLR.System.Delegate._INSTANCE)
+            assert ootype.isSubclass(s_value.ootype, CLR.System.Object._INSTANCE)
             return SomeOOStaticMeth(TYPE)
         else:
             assert ootype.isSubclass(TYPE, s_value.ootype)

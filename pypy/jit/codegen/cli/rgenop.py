@@ -14,6 +14,11 @@ OpCodes = System.Reflection.Emit.OpCodes
 DUMP_IL = False
 DEBUG = False
 
+SM_INT__INT_1 = ootype.StaticMethod([ootype.Signed], ootype.Signed)
+SM_INT__INT_2 = ootype.StaticMethod([ootype.Signed] * 2, ootype.Signed)
+SM_INT__INT_3 = ootype.StaticMethod([ootype.Signed] * 3, ootype.Signed)
+SM_INT__INT_100 = ootype.StaticMethod([ootype.Signed] * 100, ootype.Signed)
+
 def token2clitype(tok):
     if tok == '<Signed>':
         return typeof(System.Int32)
@@ -22,13 +27,13 @@ def token2clitype(tok):
 
 def sigtoken2clitype(tok):
     if tok == (['<Signed>'], '<Signed>'):
-        return typeof(CLR.pypy.runtime.DelegateType_int__int_1)
+        return typeof(SM_INT__INT_1)
     elif tok == (['<Signed>', '<Signed>'], '<Signed>'):
-        return typeof(CLR.pypy.runtime.DelegateType_int__int_2)
+        return typeof(SM_INT__INT_2)
     elif tok == (['<Signed>'] * 3, '<Signed>'):
-        return typeof(CLR.pypy.runtime.DelegateType_int__int_3)
+        return typeof(SM_INT__INT_3)
     elif tok == (['<Signed>'] * 100, '<Signed>'):
-        return typeof(CLR.pypy.runtime.DelegateType_int__int_100)
+        return typeof(SM_INT__INT_100)
     else:
         assert False
 
@@ -126,28 +131,11 @@ class BaseConst(GenConst):
         il.Emit(OpCodes.Ldsfld, field)
 
 
-SM_INT__INT_1 = ootype.StaticMethod([ootype.Signed], ootype.Signed)
-SM_INT__INT_2 = ootype.StaticMethod([ootype.Signed] * 2, ootype.Signed)
-SM_INT__INT_3 = ootype.StaticMethod([ootype.Signed] * 3, ootype.Signed)
-SM_INT__INT_100 = ootype.StaticMethod([ootype.Signed] * 100, ootype.Signed)
 class FunctionConst(BaseConst):
     
     @specialize.arg(1)
     def revealconst(self, T):
-        if T == SM_INT__INT_1:
-            DelegateType = CLR.pypy.runtime.DelegateType_int__int_1
-            return clidowncast(DelegateType, self.getobj())
-        elif T == SM_INT__INT_2:
-            DelegateType = CLR.pypy.runtime.DelegateType_int__int_2
-            return clidowncast(DelegateType, self.getobj())
-        elif T == SM_INT__INT_3:
-            DelegateType = CLR.pypy.runtime.DelegateType_int__int_3
-            return clidowncast(DelegateType, self.getobj())
-        elif T == SM_INT__INT_100:
-            DelegateType = CLR.pypy.runtime.DelegateType_int__int_100
-            return clidowncast(DelegateType, self.getobj())
-        else:
-            assert False
+        return clidowncast(self.getobj(), T)
 
 class ObjectConst(BaseConst):
 
@@ -382,3 +370,6 @@ class BranchBuilder(Builder):
         il.MarkLabel(self.label)        
         for op in self.operations:
             op.emit()
+
+global_rgenop = RCliGenOp()
+RCliGenOp.constPrebuiltGlobal = global_rgenop.genconst
