@@ -107,6 +107,7 @@ class StructureMeta(_CDataMeta):
             if not hasattr(self, '_ffistruct'):
                 raise TypeError("Cannot instantiate structure, has no _fields_")
             self.__dict__['_buffer'] = self._ffistruct()
+            self.__dict__['_needs_free'] = True
             if len(args) > len(self._names):
                 raise TypeError("too many arguments")
             for name, arg in zip(self._names, args):
@@ -146,6 +147,7 @@ class StructureMeta(_CDataMeta):
 class Structure(_CData):
     __metaclass__ = StructureMeta
     _ffiletter = 'P'
+    _needs_free = False
 
     def _subarray(self, fieldtype, name):
         """Return a _rawffi array of length 1 whose address is the same as
@@ -173,3 +175,9 @@ class Structure(_CData):
 
     def _get_buffer_for_param(self):
         return self._buffer.byptr()
+
+    def __del__(self):
+        if self._needs_free:
+            self._buffer.free()
+            self.__dict__['_buffer'] = None
+            self.__dict__['_needs_free'] = False
