@@ -1,7 +1,8 @@
 from pypy.rpython.lltypesystem.llmemory import raw_malloc, raw_free
 from pypy.rpython.lltypesystem.llmemory import raw_memcopy, raw_memclear
 from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
-from pypy.rpython.memory.support import get_address_linked_list
+from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
+from pypy.rpython.memory.support import get_address_stack
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena
 from pypy.rlib.objectmodel import free_non_gc_object
@@ -27,13 +28,13 @@ class SemiSpaceGC(MovingGCBase):
     HDR = lltype.Struct('header', ('forw', llmemory.Address),
                                   ('tid', lltype.Signed))
 
-    def __init__(self, AddressLinkedList, space_size=4096,
+    def __init__(self, chunk_size=DEFAULT_CHUNK_SIZE, space_size=4096,
                  max_space_size=sys.maxint//2+1):
         MovingGCBase.__init__(self)
         self.space_size = space_size
         self.max_space_size = max_space_size
         self.gcheaderbuilder = GCHeaderBuilder(self.HDR)
-        self.AddressLinkedList = AddressLinkedList
+        self.AddressStack = get_address_stack(chunk_size)
 
     def setup(self):
         self.tospace = llarena.arena_malloc(self.space_size, True)
@@ -42,9 +43,9 @@ class SemiSpaceGC(MovingGCBase):
         self.fromspace = llarena.arena_malloc(self.space_size, True)
         ll_assert(bool(self.fromspace), "couldn't allocate fromspace")
         self.free = self.tospace
-        self.objects_with_finalizers = self.AddressLinkedList()
-        self.run_finalizers = self.AddressLinkedList()
-        self.objects_with_weakrefs = self.AddressLinkedList()
+        self.objects_with_finalizers = self.AddressStack()
+        self.run_finalizers = self.AddressStack()
+        self.objects_with_weakrefs = self.AddressStack()
         self.finalizer_lock_count = 0
         self.red_zone = 0
 
@@ -312,7 +313,7 @@ class SemiSpaceGC(MovingGCBase):
         # if it is not copied, add it to the list of to-be-called finalizers
         # and copy it, to me make the finalizer runnable
         # NOTE: the caller is calling scan_copied, so no need to do it here
-        new_with_finalizer = self.AddressLinkedList()
+        new_with_finalizer = self.AddressStack()
         while self.objects_with_finalizers.non_empty():
             obj = self.objects_with_finalizers.pop()
             if self.is_forwarded(obj):
@@ -326,7 +327,7 @@ class SemiSpaceGC(MovingGCBase):
         # walk over list of objects that contain weakrefs
         # if the object it references survives then update the weakref
         # otherwise invalidate the weakref
-        new_with_weakref = self.AddressLinkedList()
+        new_with_weakref = self.AddressStack()
         while self.objects_with_weakrefs.non_empty():
             obj = self.objects_with_weakrefs.pop()
             if not self.is_forwarded(obj):
@@ -348,7 +349,7 @@ class SemiSpaceGC(MovingGCBase):
     def update_run_finalizers(self):
         # we are in an inner collection, caused by a finalizer
         # the run_finalizers objects need to be copied
-        new_run_finalizer = self.AddressLinkedList()
+        new_run_finalizer = self.AddressStack()
         while self.run_finalizers.non_empty():
             obj = self.run_finalizers.pop()
             new_run_finalizer.append(self.copy(obj))

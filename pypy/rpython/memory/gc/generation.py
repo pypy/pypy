@@ -3,6 +3,7 @@ from pypy.rpython.memory.gc.semispace import SemiSpaceGC, GCFLAGSHIFT, \
     GCFLAG_IMMORTAL
 from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena
+from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
 from pypy.rlib.objectmodel import free_non_gc_object
 from pypy.rlib.debug import ll_assert
 from pypy.rpython.lltypesystem.lloperation import llop
@@ -30,13 +31,13 @@ class GenerationGC(SemiSpaceGC):
     needs_write_barrier = True
     prebuilt_gc_objects_are_static_roots = False
 
-    def __init__(self, AddressLinkedList,
+    def __init__(self, chunk_size=DEFAULT_CHUNK_SIZE,
                  nursery_size=128,
                  min_nursery_size=128,
                  auto_nursery_size=False,
                  space_size=4096,
                  max_space_size=sys.maxint//2+1):
-        SemiSpaceGC.__init__(self, AddressLinkedList,
+        SemiSpaceGC.__init__(self, chunk_size = chunk_size,
                              space_size = space_size,
                              max_space_size = max_space_size)
         assert min_nursery_size <= nursery_size <= space_size // 2
@@ -55,7 +56,7 @@ class GenerationGC(SemiSpaceGC):
         # of such objects is abused for this linked list; it needs to be
         # reset to its correct value when GCFLAG_NO_YOUNG_PTRS is set
         # again at the start of a collection.
-        self.young_objects_with_weakrefs = self.AddressLinkedList()
+        self.young_objects_with_weakrefs = self.AddressStack()
         self.set_nursery_size(self.initial_nursery_size)
         # the GC is fully setup now.  The rest can make use of it.
         if self.auto_nursery_size:

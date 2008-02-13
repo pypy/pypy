@@ -97,10 +97,8 @@ class FrameworkGCTransformer(GCTransformer):
     root_stack_depth = 163840
 
     def __init__(self, translator):
-        from pypy.rpython.memory.support import get_address_linked_list
         from pypy.rpython.memory.gc.base import choose_gc_from_config
         super(FrameworkGCTransformer, self).__init__(translator, inline=True)
-        AddressLinkedList = get_address_linked_list()
         if hasattr(self, 'GC_PARAMS'):
             # for tests: the GC choice can be specified as class attributes
             from pypy.rpython.memory.gc.marksweep import MarkSweepGC
@@ -131,7 +129,7 @@ class FrameworkGCTransformer(GCTransformer):
         self.gcdata = gcdata
         self.malloc_fnptr_cache = {}
 
-        gcdata.gc = GCClass(AddressLinkedList, **GC_PARAMS)
+        gcdata.gc = GCClass(**GC_PARAMS)
         root_walker = self.build_root_walker()
         gcdata.set_query_functions(gcdata.gc)
         gcdata.gc.set_root_walker(root_walker)

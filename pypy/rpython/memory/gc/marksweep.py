@@ -1,7 +1,8 @@
 from pypy.rpython.lltypesystem.llmemory import raw_malloc, raw_free
 from pypy.rpython.lltypesystem.llmemory import raw_memcopy, raw_memclear
 from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
-from pypy.rpython.memory.support import get_address_linked_list
+from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
+from pypy.rpython.memory.support import get_address_stack
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rlib.objectmodel import free_non_gc_object
@@ -38,12 +39,12 @@ class MarkSweepGC(GCBase):
     POOLNODE.become(lltype.Struct('gc_pool_node', ('linkedlist', HDRPTR),
                                                   ('nextnode', POOLNODEPTR)))
 
-    def __init__(self, AddressLinkedList, start_heap_size=4096):
+    def __init__(self, chunk_size=DEFAULT_CHUNK_SIZE, start_heap_size=4096):
         self.heap_usage = 0          # at the end of the latest collection
         self.bytes_malloced = 0      # since the latest collection
         self.bytes_malloced_threshold = start_heap_size
         self.total_collection_time = 0.0
-        self.AddressLinkedList = AddressLinkedList
+        self.AddressStack = get_address_stack(chunk_size)
         self.malloced_objects = lltype.nullptr(self.HDR)
         self.malloced_objects_with_finalizer = lltype.nullptr(self.HDR)
         # these are usually only the small bits of memory that make a
@@ -226,7 +227,7 @@ class MarkSweepGC(GCBase):
 ##                        size_gc_header)
 
         # push the roots on the mark stack
-        objects = self.AddressLinkedList() # mark stack
+        objects = self.AddressStack() # mark stack
         self._mark_stack = objects
         self.root_walker.walk_roots(
             MarkSweepGC._mark_root,  # stack roots
@@ -477,7 +478,9 @@ class MarkSweepGC(GCBase):
         self.trace(obj, self._add_reachable, objects)
 
     def _add_reachable(pointer, objects):
-        objects.append(pointer.address[0])
+        obj = pointer.address[0]
+        if obj:
+            objects.append(obj)
     _add_reachable = staticmethod(_add_reachable)
 
     def statistics(self, index):
@@ -558,7 +561,7 @@ class MarkSweepGC(GCBase):
         curpool = self.x_swap_pool(lltype.nullptr(X_POOL))
 
         size_gc_header = self.gcheaderbuilder.size_gc_header
-        oldobjects = self.AddressLinkedList()
+        oldobjects = self.AddressStack()
         # if no pool specified, use the current pool as the 'source' pool
         oldpool = clonedata.pool or curpool
         oldpool = lltype.cast_opaque_ptr(self.POOLPTR, oldpool)
@@ -576,7 +579,7 @@ class MarkSweepGC(GCBase):
 
         # a stack of addresses of places that still points to old objects
         # and that must possibly be fixed to point to a new copy
-        stack = self.AddressLinkedList()
+        stack = self.AddressStack()
         stack.append(llmemory.cast_ptr_to_adr(clonedata)
                      + llmemory.offsetof(X_CLONE, 'gcobjectptr'))
         while stack.non_empty():
@@ -679,9 +682,11 @@ class MarkSweepGC(GCBase):
         self.trace(obj, self._add_reachable_and_rename, objects)
 
     def _add_reachable_and_rename(self, pointer, objects):
-        if pointer.address[0] == self.x_become_target_addr:
-            pointer.address[0] = self.x_become_source_addr
-        objects.append(pointer.address[0])
+        obj = pointer.address[0]
+        if obj:
+            if obj == self.x_become_target_addr:
+                obj = pointer.address[0] = self.x_become_source_addr
+            objects.append(obj)
 
     def x_become(self, target_addr, source_addr):
         # 1. mark from the roots, and also the objects that objects-with-del
@@ -699,7 +704,7 @@ class MarkSweepGC(GCBase):
 ##                        size_gc_header)
 
         # push the roots on the mark stack
-        objects = self.AddressLinkedList() # mark stack
+        objects = self.AddressStack() # mark stack
         self._mark_stack = objects
         # the last sweep did not clear the mark bit of static roots, 
         # since they are not in the malloced_objects list
@@ -843,8 +848,8 @@ class PrintingMarkSweepGC(MarkSweepGC):
     _alloc_flavor_ = "raw"
     COLLECT_EVERY = 2000
 
-    def __init__(self, AddressLinkedList, start_heap_size=4096):
-        MarkSweepGC.__init__(self, AddressLinkedList, start_heap_size)
+    def __init__(self, chunk_size=DEFAULT_CHUNK_SIZE, start_heap_size=4096):
+        MarkSweepGC.__init__(self, chunk_size, start_heap_size)
         self.count_mallocs = 0
 
     def write_malloc_statistics(self, typeid, size, result, varsize):
@@ -1021,7 +1026,7 @@ class PrintingMarkSweepGC(MarkSweepGC):
 ##                        size_gc_header)
 
         # push the roots on the mark stack
-        objects = self.AddressLinkedList() # mark stack
+        objects = self.AddressStack() # mark stack
         self._mark_stack = objects
         self.root_walker.walk_roots(
             MarkSweepGC._mark_root,  # stack roots

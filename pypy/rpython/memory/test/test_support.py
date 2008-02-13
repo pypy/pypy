@@ -1,17 +1,18 @@
 from pypy.rlib.objectmodel import free_non_gc_object
-from pypy.rpython.memory.support import get_address_linked_list
+from pypy.rpython.memory.support import get_address_stack
+from pypy.rpython.memory.support import get_address_deque
 
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.llmemory import raw_malloc, raw_free, NULL
 
-class TestAddressLinkedList(object):
+class TestAddressStack(object):
     def test_simple_access(self):
-        AddressLinkedList = get_address_linked_list()
+        AddressStack = get_address_stack()
         addr0 = raw_malloc(llmemory.sizeof(lltype.Signed))
         addr1 = raw_malloc(llmemory.sizeof(lltype.Signed))
         addr2 = raw_malloc(llmemory.sizeof(lltype.Signed))
-        ll = AddressLinkedList()
+        ll = AddressStack()
         ll.append(addr0)
         ll.append(addr1)
         ll.append(addr2)
@@ -27,20 +28,23 @@ class TestAddressLinkedList(object):
         assert not ll.non_empty()
         ll.append(addr0)
         ll.delete()
-        ll = AddressLinkedList()
+        ll = AddressStack()
         ll.append(addr0)
         ll.append(addr1)
         ll.append(addr2)
+        ll.append(NULL)
+        a = ll.pop()
+        assert a == NULL
         ll.delete()
         raw_free(addr2)
         raw_free(addr1)
         raw_free(addr0)
 
     def test_big_access(self):
-        AddressLinkedList = get_address_linked_list()
+        AddressStack = get_address_stack()
         addrs = [raw_malloc(llmemory.sizeof(lltype.Signed))
                  for i in range(3000)]
-        ll = AddressLinkedList()
+        ll = AddressStack()
         for i in range(3000):
             print i
             ll.append(addrs[i])
@@ -57,12 +61,32 @@ class TestAddressLinkedList(object):
         for addr in addrs:
             raw_free(addr)
 
-def test_linked_list_annotate():
-    AddressLinkedList = get_address_linked_list(60)
+
+class TestAddressDeque:
+    def test_big_access(self):
+        import random
+        AddressDeque = get_address_deque(10)
+        deque = AddressDeque()
+        expected = []
+        for i in range(3000):
+            assert deque.non_empty() == (len(expected) > 0)
+            r = random.random()
+            if r < 0.51 and expected:
+                x = deque.popleft()
+                y = expected.pop(0)
+                assert x == y
+            else:
+                x = raw_malloc(llmemory.sizeof(lltype.Signed))
+                deque.append(x)
+                expected.append(x)
+
+
+def test_stack_annotate():
+    AddressStack = get_address_stack(60)
     INT_SIZE = llmemory.sizeof(lltype.Signed)
     def f():
         addr = raw_malloc(INT_SIZE*100)
-        ll = AddressLinkedList()
+        ll = AddressStack()
         ll.append(addr)
         ll.append(addr + INT_SIZE*1)
         ll.append(addr + INT_SIZE*2)
@@ -86,7 +110,7 @@ def test_linked_list_annotate():
             a = ll.pop()
             res = res and (a - INT_SIZE*i == addr)
         ll.delete()
-        ll = AddressLinkedList()
+        ll = AddressStack()
         ll.append(addr)
         ll.append(addr + INT_SIZE*1)
         ll.append(addr + INT_SIZE*2)
@@ -95,6 +119,6 @@ def test_linked_list_annotate():
         return res
 
     assert f()
-    AddressLinkedList = get_address_linked_list()
+    AddressStack = get_address_stack()
     res = interpret(f, [], malloc_check=False)
     assert res

@@ -1,7 +1,6 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, llheap
 from pypy.rpython import llinterp
 from pypy.rpython.annlowlevel import llhelper
-from pypy.rpython.memory.support import get_address_linked_list
 from pypy.rpython.memory import gctypelayout
 from pypy.objspace.flow.model import Constant
 
@@ -9,8 +8,7 @@ from pypy.objspace.flow.model import Constant
 class GCManagedHeap(object):
 
     def __init__(self, llinterp, flowgraphs, gc_class, GC_PARAMS={}):
-        self.AddressLinkedList = get_address_linked_list(10)
-        self.gc = gc_class(self.AddressLinkedList, **GC_PARAMS)
+        self.gc = gc_class(chunk_size = 10, **GC_PARAMS)
         self.gc.set_root_walker(LLInterpRootWalker(self))
         self.llinterp = llinterp
         self.prepare_graphs(flowgraphs)
