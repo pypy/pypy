@@ -1513,8 +1513,8 @@ assert not '__dict__' in dir(_array)
 assert not '__dict__' in dir(_struct)
 
 
-class _subarray(_parentable):     # only for cast_subarray_pointer()
-                                  # and cast_structfield_pointer()
+class _subarray(_parentable):     # only for direct_fieldptr()
+                                  # and direct_arrayitems()
     _kind = "subarray"
     _cache = weakref.WeakKeyDictionary()  # parentarray -> {subarrays}
 
