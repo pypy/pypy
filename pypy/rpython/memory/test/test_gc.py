@@ -430,6 +430,7 @@ class TestSemiSpaceGC(GCTest):
             def __del__(self):
                 assert state.age[self.key] == -1
                 state.age[self.key] = state.time
+                state.progress = True
 
         def build_example(input):
             state.time = 0
@@ -447,7 +448,10 @@ class TestSemiSpaceGC(GCTest):
                 input, components, strict = examples[i]
                 build_example(input)
                 while state.time < len(letters):
+                    state.progress = False
                     llop.gc__collect(lltype.Void)
+                    if not state.progress:
+                        break
                     state.time += 1
                 # check that all instances have been finalized
                 if -1 in state.age.values():
