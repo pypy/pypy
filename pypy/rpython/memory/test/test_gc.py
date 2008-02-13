@@ -387,10 +387,105 @@ class TestMarkSweepGC(GCTest):
 class TestSemiSpaceGC(GCTest):
     from pypy.rpython.memory.gc.semispace import SemiSpaceGC as GCClass
 
+    def test_finalizer_order(self):
+        py.test.skip("in-progress")
+        import random
+        from pypy.tool.algo import graphlib
+
+        examples = []
+        letters = 'abcdefghijklmnopqrstuvwxyz'
+        for i in range(20):
+            input = []
+            edges = {}
+            for c in letters:
+                edges[c] = []
+            # make up a random graph
+            for c in letters:
+                for j in range(random.randrange(0, 4)):
+                    d = random.choice(letters)
+                    edges[c].append(graphlib.Edge(c, d))
+                    input.append((c, d))
+            # find the expected order in which destructors should be called
+            components = list(graphlib.strong_components(edges, edges))
+            head = {}
+            for component in components:
+                c = component.keys()[0]
+                for d in component:
+                    assert d not in head
+                    head[d] = c
+            assert len(head) == len(letters)
+            strict = []
+            for c, d in input:
+                if head[c] != head[d]:
+                    strict.append((c, d))
+            examples.append((input, components, strict))
+
+        class State:
+            pass
+        state = State()
+        class A:
+            def __init__(self, key):
+                self.key = key
+                self.refs = []
+            def __del__(self):
+                assert state.age[self.key] == -1
+                state.age[self.key] = state.time
+
+        def build_example(input):
+            state.time = 0
+            state.age = {}
+            vertices = {}
+            for c in letters:
+                vertices[c] = A(c)
+                state.age[c] = -1
+            for c, d in input:
+                vertices[c].refs.append(d)
+
+        def f():
+            i = 0
+            while i < len(examples):
+                input, components, strict = examples[i]
+                build_example(input)
+                while state.time < len(letters):
+                    llop.gc__collect(lltype.Void)
+                    state.time += 1
+                # check that all instances have been finalized
+                if -1 in state.age.values():
+                    return i * 10 + 1
+                # check that if a -> b and a and b are not in the same
+                # strong component, then a is finalized strictly before b
+                for c, d in strict:
+                    if state.age[c] >= state.age[d]:
+                        return i * 10 + 2
+                # check that two instances in the same strong component
+                # are never finalized during the same collection
+                for component in components:
+                    seen = {}
+                    for c in component:
+                        age = state.age[c]
+                        if age in seen:
+                            return i * 10 + 3
+                        seen[age] = True
+                i += 1
+            return 0
+
+        res = self.interpret(f, [])
+        if res != 0:
+            import pprint
+            pprint.pprint(examples[res / 10])
+            if res % 10 == 1:
+                py.test.fail("some instances have not been finalized at all")
+            if res % 10 == 2:
+                py.test.fail("the strict order is not respected")
+            if res % 10 == 3:
+                py.test.fail("two instances from the same component "
+                             "have been finalized together")
+            assert 0
+
 class TestGrowingSemiSpaceGC(TestSemiSpaceGC):
     GC_PARAMS = {'space_size': 64}
 
-class TestGenerationalGC(GCTest):
+class TestGenerationalGC(TestSemiSpaceGC):
     from pypy.rpython.memory.gc.generation import GenerationGC as GCClass
 
     def test_coalloc(self):
