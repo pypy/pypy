@@ -377,3 +377,9 @@ example enables a stackless build programmatically.
 .. _`getting-started`: getting-started.html
 
 .. include:: _ref.txt
+
+----------------------------------------------------------
+Why does PyPy draw a Mandelbrot fractal while translating?
+----------------------------------------------------------
+
+Because it's fun.
