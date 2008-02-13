@@ -39,7 +39,35 @@ def test_array():
     assert b.signed[0] == 123
     b.signed[0] = 14
     assert x[3] == 14
-    
+
+def test_array_endaddress():
+    A = lltype.GcArray(lltype.Signed)
+    x = lltype.malloc(A, 5)
+    x[4] = 321
+    a = fakeaddress(x)
+    b = a + ArrayItemsOffset(A)
+    b += ItemOffset(lltype.Signed)*5
+    assert b == a + ArrayItemsOffset(A) + ItemOffset(lltype.Signed)*5
+    py.test.raises(IndexError, "b.signed[0]")
+    b -= ItemOffset(lltype.Signed)
+    assert b.signed[0] == 321
+
+def test_structarray_endaddress():
+    S = lltype.Struct('S', ('foo', lltype.Signed))
+    A = lltype.GcArray(S)
+    x = lltype.malloc(A, 5)
+    x[4].foo = 321
+    a = fakeaddress(x)
+    b = a + ArrayItemsOffset(A)
+    b += ItemOffset(S)*5
+    assert b == a + ArrayItemsOffset(A) + ItemOffset(S)*5
+    p = cast_adr_to_ptr(b, lltype.Ptr(S))
+    py.test.raises(AttributeError, "p.foo")
+    py.test.raises(AttributeError, "p.foo = 55")
+    b -= ItemOffset(S)
+    p = cast_adr_to_ptr(b, lltype.Ptr(S))
+    assert p.foo == 321
+
 def test_dont_mix_offsets_and_ints():
     o = AddressOffset()
     py.test.raises(TypeError, "1 + o")

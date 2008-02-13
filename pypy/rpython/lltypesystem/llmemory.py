@@ -60,7 +60,18 @@ class ItemOffset(AddressOffset):
             if isinstance(index, str):
                 assert index.startswith('item')    # itemN => N
                 index = int(index[4:])
-            return parent.getitem(index + self.repeat)._as_ptr()
+            index += self.repeat
+            if index == parent.getlength():
+                # for references exactly to the end of the array
+                try:
+                    endmarker = _end_markers[parent]
+                except KeyError:
+                    endmarker = _endmarker_struct(A, parent=parent,
+                                                  parentindex=index)
+                    _end_markers[parent] = endmarker
+                return endmarker._as_ptr()
+            else:
+                return parent.getitem(index)._as_ptr()
         elif (isinstance(A, lltype.FixedSizeArray) and
               array_item_type_match(A.OF, self.TYPE)):
             # for array of primitives or pointers
@@ -98,6 +109,24 @@ class ItemOffset(AddressOffset):
                 break
             srcadr += ItemOffset(self.TYPE)
             dstadr += ItemOffset(self.TYPE)
+
+_end_markers = weakref.WeakKeyDictionary()  # <array of STRUCT> -> _endmarker
+class _endmarker_struct(lltype._struct):
+    __slots__ = ()
+    def __new__(self, *args, **kwds):
+        return object.__new__(self)
+    def __init__(self, *args, **kwds):
+        lltype._struct.__init__(self, *args, **kwds)
+        self._storage = False
+    def __getattr__(self, name):
+        raise AttributeError("cannot access fields in the endmarker "
+                             "structure at the end of the array")
+    def __setattr__(self, name, value):
+        if name.startswith('_'):
+            object.__setattr__(self, name, value)  # '_xxx' attributes
+        elif self._storage is False:
+            raise AttributeError("cannot access fields in the endmarker "
+                                 "structure at the end of the array")
 
 
 class FieldOffset(AddressOffset):
