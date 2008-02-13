@@ -177,10 +177,10 @@ def collect_constants(graphs):
     return constants
 
 def reccollect(constants, llvalue):
-    T = lltype.typeOf(llvalue)
-    if isinstance(T, lltype.Ptr) and llvalue and llvalue._obj not in constants:
+    if (isinstance(llvalue, lltype._abstract_ptr)
+        and llvalue._obj is not None and llvalue._obj not in constants):
+        TYPE = llvalue._T
         constants[llvalue._obj] = True
-        TYPE = T.TO
         if isinstance(TYPE, lltype.Struct):
             for name in TYPE._names:
                 reccollect(constants, getattr(llvalue, name))
