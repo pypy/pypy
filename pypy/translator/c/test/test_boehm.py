@@ -332,4 +332,36 @@ class TestUsingBoehm(AbstractGCTestClass):
         c_fn = self.getcompiled(fn, [int])
         c_fn(100)
 
+    def test_nested_finalizers(self):
+        from pypy.rlib import rgc
+        class State:
+            pass
+        state = State()
+        def g():
+            n = state.counter
+            if n > 0:
+                for i in range(5):
+                    state.a = A(n)
+                state.a = None
+            rgc.collect()
+            return n
 
+        fun = g
+        for i in range(200):
+            def fun(next=fun):
+                return next() + 1     # prevents tail-call optimization
+
+        class A:
+            def __init__(self, level):
+                self.level = level
+            def __del__(self):
+                if state.counter == self.level:
+                    state.counter -= 1
+                    fun()
+        def fn(n):
+            state.counter = n
+            fun()
+            return state.counter
+        c_fn = self.getcompiled(fn, [int])
+        res = c_fn(10000)
+        assert res == 0
