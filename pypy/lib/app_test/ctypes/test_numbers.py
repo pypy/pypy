@@ -41,6 +41,25 @@ signed_ranges = valid_ranges(*signed_types)
 ################################################################
 
 class TestNumber:
+    def setup_class(cls):
+        try:
+            import _rawffi
+        except ImportError:
+            pass
+        else:
+            cls.old_num = _rawffi._num_of_allocated_objects()
+    
+    def teardown_class(cls):
+        try:
+            import _rawffi
+        except ImportError:
+            pass
+        else:
+            import gc
+            gc.collect()
+            # there is one reference coming from the byref() above
+            assert _rawffi._num_of_allocated_objects() <= cls.old_num
+
     def test_default_init(self):
         # default values are set to zero
         for t in signed_types + unsigned_types + float_types:
@@ -175,7 +194,7 @@ class TestNumber:
 ##    def test_perf(self):
 ##        check_perf()
 
-from ctypes import _SimpleCData
-class c_int_S(_SimpleCData):
-    _type_ = "i"
-    __slots__ = []
+#from ctypes import _SimpleCData
+#class c_int_S(_SimpleCData):
+#    _type_ = "i"
+#    __slots__ = []
