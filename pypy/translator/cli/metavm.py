@@ -191,10 +191,14 @@ class _SetArrayElem(MicroInstruction):
 
 class _TypeOf(MicroInstruction):
     def render(self, generator, op):
-        v_type, = op.args
-        assert v_type.concretetype is ootype.Void
-        cliClass = v_type.value
-        fullname = cliClass._INSTANCE._name
+        c_type, = op.args
+        assert c_type.concretetype is ootype.Void
+        if isinstance(c_type.value, ootype.StaticMethod):
+            FUNC = c_type.value
+            fullname = generator.cts.lltype_to_cts(FUNC)
+        else:
+            cliClass = c_type.value
+            fullname = cliClass._INSTANCE._name
         generator.ilasm.opcode('ldtoken', fullname)
         generator.ilasm.call('class [mscorlib]System.Type class [mscorlib]System.Type::GetTypeFromHandle(valuetype [mscorlib]System.RuntimeTypeHandle)')
 

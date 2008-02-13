@@ -2,7 +2,7 @@ import types
 
 from pypy.tool.pairtype import pair, pairtype
 from pypy.annotation.model import SomeObject, SomeInstance, SomeOOInstance, SomeInteger, s_None,\
-     s_ImpossibleValue, lltype_to_annotation, annotation_to_lltype, SomeChar, SomeString, SomePBC
+     s_ImpossibleValue, lltype_to_annotation, annotation_to_lltype, SomeChar, SomeString, SomeOOStaticMeth
 from pypy.annotation.unaryop import immutablevalue
 from pypy.annotation.binaryop import _make_none_union
 from pypy.annotation import model as annmodel
@@ -534,8 +534,13 @@ class Entry(ExtRegistryEntry):
             hop.genop('cli_setelem', [v_array, c_index, v_elem], ootype.Void)
         return v_array
 
-
-def typeof(cliClass):
+def typeof(cliClass_or_type):
+    if isinstance(cliClass_or_type, ootype.StaticMethod):
+        FUNCTYPE = cliClass_or_type
+        cliClass = known_delegates[FUNCTYPE]
+    else:
+        assert isinstance(cliClass_or_type, CliClass)
+        cliClass = cliClass_or_type
     TYPE = cliClass._INSTANCE
     return PythonNet.System.Type.GetType(TYPE._assembly_qualified_name)
 
@@ -571,25 +576,37 @@ class Entry(ExtRegistryEntry):
         return hop.genop('cli_eventhandler', [v_obj, c_methodname], hop.r_result.lowleveltype)
 
 
-def clidowncast(cliClass, obj):
+def clidowncast(obj, TYPE):
     return obj
 
 class Entry(ExtRegistryEntry):
     _about_ = clidowncast
 
-    def compute_result_annotation(self, s_type, s_value):
-        assert s_type.is_constant()
-        cliClass = s_type.const
-        TYPE = cliClass._INSTANCE
-        assert ootype.isSubclass(TYPE, s_value.ootype)
-        return SomeOOInstance(TYPE)
+    def compute_result_annotation(self, s_value, s_type):
+        if isinstance(s_type.const, ootype.OOType):
+            TYPE = s_type.const
+        else:
+            cliClass = s_type.const
+            TYPE = cliClass._INSTANCE
+        if isinstance(TYPE, ootype.StaticMethod):
+            assert ootype.isSubclass(s_value.ootype, CLR.System.Delegate._INSTANCE)
+            return SomeOOStaticMeth(TYPE)
+        else:
+            assert ootype.isSubclass(TYPE, s_value.ootype)
+            return SomeOOInstance(TYPE)
 
     def specialize_call(self, hop):
-        assert isinstance(hop.args_s[0].const, CliClass)
-        assert isinstance(hop.args_s[1], annmodel.SomeOOInstance)
-        v_inst = hop.inputarg(hop.args_r[1], arg=1)
+        assert isinstance(hop.args_s[0], annmodel.SomeOOInstance)
+        v_inst = hop.inputarg(hop.args_r[0], arg=0)
         return hop.genop('oodowncast', [v_inst], resulttype = hop.r_result.lowleveltype)
 
 from pypy.translator.cli.query import CliNamespace
 CLR = CliNamespace(None)
 CLR._buildtree()
+
+known_delegates = {
+    ootype.StaticMethod([ootype.Signed], ootype.Signed):       CLR.pypy.test.DelegateType_int__int_1,
+    ootype.StaticMethod([ootype.Signed] * 2, ootype.Signed):   CLR.pypy.test.DelegateType_int__int_2,
+    ootype.StaticMethod([ootype.Signed] * 3, ootype.Signed):   CLR.pypy.test.DelegateType_int__int_3,
+    ootype.StaticMethod([ootype.Signed] * 100, ootype.Signed): CLR.pypy.test.DelegateType_int__int_100
+    }

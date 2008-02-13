@@ -13,21 +13,8 @@ System = CLR.System
 ArrayList = CLR.System.Collections.ArrayList
 OpCodes = System.Reflection.Emit.OpCodes
 DynamicMethod = System.Reflection.Emit.DynamicMethod
-DelegateType = CLR.pypy.runtime.DelegateType_int__int_int
 Utils = CLR.pypy.runtime.Utils
-
-# RPython function, used by test_dynamic_method and test_call_delegate
-def build_fn():
-    tInt = typeof(System.Int32)
-    args = init_array(System.Type, tInt, tInt)
-    meth = Utils.CreateDynamicMethod("add", tInt, args)
-    il = meth.GetILGenerator()
-    il.Emit(OpCodes.Ldarg_0)
-    il.Emit(OpCodes.Ldarg_1)
-    il.Emit(OpCodes.Add)
-    il.Emit(OpCodes.Ret)
-    myfunc = meth.CreateDelegate(typeof(DelegateType))
-    return clidowncast(DelegateType, myfunc)
+FUNCTYPE = ootype.StaticMethod([ootype.Signed, ootype.Signed], ootype.Signed)
 
 class TestDotnetAnnotation(object):
 
@@ -371,11 +358,19 @@ class TestDotnetRtyping(CliTest):
         assert res is True
 
     def test_typeof_pypylib(self):
-        DelegateType = CLR.pypy.runtime.DelegateType_int__int_int
+        DelegateType = CLR.pypy.test.DelegateType_int__int_2
         def fn():
             return typeof(DelegateType) is not None
         res = self.interpret(fn, [])
         assert res is True
+
+    def test_typeof_functype(self):
+        # this test is overridden in TestPythonnet
+        def fn():
+            t = typeof(FUNCTYPE)
+            return t.get_Name()
+        res = self.interpret(fn, [])
+        assert res.startswith('StaticMethod__')
 
     def test_clidowncast(self):
         def fn():
@@ -383,7 +378,20 @@ class TestDotnetRtyping(CliTest):
             b = ArrayList()
             a.Add(b)
             c = a.get_Item(0) # type of c is Object
-            c = clidowncast(ArrayList, c)
+            c = clidowncast(c, ArrayList)
+            c.Add(None)
+            return c.get_Item(0)
+        res = self.interpret(fn, [])
+        assert res is None
+
+    def test_clidowncast_lltype(self):
+        ARRAY_LIST = ArrayList._INSTANCE
+        def fn():
+            a = ArrayList()
+            b = ArrayList()
+            a.Add(b)
+            c = a.get_Item(0) # type of c is Object
+            c = clidowncast(c, ARRAY_LIST)
             c.Add(None)
             return c.get_Item(0)
         res = self.interpret(fn, [])
@@ -483,16 +491,21 @@ class TestDotnetRtyping(CliTest):
         res = self.interpret(fn, [])
         assert self.ll_to_string(res) == '42'
 
-    def test_dynamic_method(self):
-        def fn():
-            myfunc = build_fn()
-            return myfunc.Invoke(30, 12)
-        res = self.interpret(fn, [])
-        assert res == 42
-
     def test_call_delegate(self):
+        def build_fn():
+            tInt = typeof(System.Int32)
+            args = init_array(System.Type, tInt, tInt)
+            meth = Utils.CreateDynamicMethod("add", tInt, args)
+            il = meth.GetILGenerator()
+            il.Emit(OpCodes.Ldarg_0)
+            il.Emit(OpCodes.Ldarg_1)
+            il.Emit(OpCodes.Add)
+            il.Emit(OpCodes.Ret)
+            myfunc = meth.CreateDelegate(typeof(FUNCTYPE))
+            return myfunc
+        
         def fn():
-            myfunc = build_fn()
+            myfunc = clidowncast(build_fn(), FUNCTYPE)
             return myfunc(30, 12)
         res = self.interpret(fn, [])
         assert res == 42
@@ -519,3 +532,9 @@ class TestPythonnet(TestDotnetRtyping):
     def test_whitout_box(self):
         pass # it makes sense only during translation
         
+    def test_typeof_functype(self):
+        def fn():
+            t = typeof(FUNCTYPE)
+            return t.get_Name()
+        res = self.interpret(fn, [])
+        assert res == 'DelegateType_int__int_2'

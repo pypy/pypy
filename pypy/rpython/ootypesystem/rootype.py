@@ -105,6 +105,12 @@ class OOStaticMethRepr(Repr):
     def __init__(self, METHODTYPE):
         self.lowleveltype = METHODTYPE
 
+    def rtype_simple_call(self, hop):
+        vlist = hop.inputargs(*hop.args_r)
+        cgraphs = hop.inputconst(ootype.Void, None)
+        vlist.append(cgraphs)
+        return hop.genop("indirect_call", vlist, resulttype = hop.r_result.lowleveltype)
+
 
 class __extend__(pairtype(OOInstanceRepr, OOBoundMethRepr)):
 

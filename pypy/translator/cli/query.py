@@ -229,6 +229,7 @@ class CliNamespace(object):
             parent, name = fullname.rsplit('.', 1)
             parent = getattr_ex(self, parent)
             setattr(parent, name, placeholder)
+        self.System.Object # XXX hack
 
     def __getattribute__(self, attr):
         value = object.__getattribute__(self, attr)
