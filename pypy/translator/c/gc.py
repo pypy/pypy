@@ -208,7 +208,7 @@ class BoehmGcPolicy(BasicGcPolicy):
         return boehm.convert_weakref_to(ptarget)
 
     def OP_GC__COLLECT(self, funcgen, op):
-        return 'GC_gcollect(); GC_invoke_finalizers();'
+        return 'GC_gcollect();'
 
     def OP_GC_SET_MAX_HEAP_SIZE(self, funcgen, op):
         nbytes = funcgen.expr(op.args[0])
