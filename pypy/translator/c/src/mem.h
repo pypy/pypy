@@ -128,6 +128,29 @@ if GC integration has happened and this junk is still here, please delete it :)
 	else								   \
 		GC_GENERAL_REGISTER_DISAPPEARING_LINK(link, obj)
 
+void boehm_gc_startup_code(void);
+
+#ifndef PYPY_NOT_MAIN_FILE
+static void boehm_gc_finalizer_notifier(void)
+{
+	static int recursing = 0;
+	if (recursing)
+		return;  /* GC_invoke_finalizers() will be done by the
+			    boehm_gc_finalizer_notifier() that is
+			    currently in the C stack, when we return there */
+	recursing = 1;
+	while (GC_should_invoke_finalizers())
+		GC_invoke_finalizers();
+	recursing = 0;
+}
+void boehm_gc_startup_code(void)
+{
+	GC_init();
+	GC_finalizer_notifier = &boehm_gc_finalizer_notifier;
+	GC_finalize_on_demand = 1;
+}
+#endif /* PYPY_NOT_MAIN_FILE */
+
 #endif /* USING_BOEHM_GC */
 
 /************************************************************/

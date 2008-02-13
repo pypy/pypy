@@ -199,7 +199,7 @@ class BoehmGcPolicy(BasicGcPolicy):
             pass # yield 'assert(GC_all_interior_pointers == 0);'
         else:
             yield 'GC_all_interior_pointers = 0;'
-        yield 'GC_init();'
+        yield 'boehm_gc_startup_code();'
 
     def get_real_weakref_type(self):
         return boehm.WEAKLINK
