@@ -1,8 +1,9 @@
 
 import py
 from ctypes import *
+from support import BaseCTypesTestChecker
 
-class TestStringArray:
+class TestStringArray(BaseCTypesTestChecker):
     def test_one(self):
         BUF = c_char * 4
 
@@ -53,7 +54,7 @@ try:
 except NameError:
     pass
 else:
-    class TestWString:
+    class TestWString(BaseCTypesTestChecker):
         def test(self):
             BUF = c_wchar * 4
 

@@ -1,5 +1,6 @@
 import py
 from ctypes import *
+from support import BaseCTypesTestChecker
 
 ctype_types = [c_byte, c_ubyte, c_short, c_ushort, c_int, c_uint,
                  c_long, c_ulong, c_longlong, c_ulonglong, c_double, c_float]
@@ -11,7 +12,6 @@ def setup_module(mod):
     mod._ctypes_test = str(conftest.sofile)
 
 class TestPointers:
-
     def test_pointer_crash(self):
 
         class A(POINTER(c_ulong)):

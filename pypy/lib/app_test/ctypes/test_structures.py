@@ -1,9 +1,10 @@
 from ctypes import *
 from struct import calcsize
+from support import BaseCTypesTestChecker
 
 import py
 
-class TestSubclasses:
+class TestSubclasses(BaseCTypesTestChecker):
     def test_subclass(self):
         class X(Structure):
             _fields_ = [("a", c_int)]
@@ -42,7 +43,7 @@ class TestSubclasses:
         assert Y._fields_ == [("b", c_int)]
         assert Z._fields_ == [("a", c_int)]
 
-class TestStructure:
+class TestStructure(BaseCTypesTestChecker):
     formats = {"c": c_char,
                "b": c_byte,
                "B": c_ubyte,
@@ -348,7 +349,7 @@ class TestStructure:
         assert "from_address" in dir(type(Structure))
         assert "in_dll" in dir(type(Structure))
 
-class TestPointerMember:
+class TestPointerMember:#(BaseCTypesTestChecker):
 
     def test_1(self):
         # a Structure with a POINTER field
@@ -389,7 +390,7 @@ class TestPointerMember:
         s.p = None
         assert s.x == 12345678
 
-class TestRecursiveStructure:
+class TestRecursiveStructure(BaseCTypesTestChecker):
     def test_contains_itself(self):
         class Recursive(Structure):
             pass
@@ -421,7 +422,7 @@ class TestRecursiveStructure:
             raise AssertionError, "AttributeError not raised"
 
 
-class TestPatologicalCases:
+class TestPatologicalCases(BaseCTypesTestChecker):
     def test_structure_overloading_getattr(self):
         class X(Structure):
             _fields_ = [('x', c_int)]

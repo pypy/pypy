@@ -8,6 +8,7 @@ Later...
 from ctypes import *
 import sys
 import py
+from support import BaseCTypesTestChecker
 
 try:
     WINFUNCTYPE
@@ -28,7 +29,7 @@ class POINT(Structure):
 class RECT(Structure):
     _fields_ = [("left", c_int), ("top", c_int),
                 ("right", c_int), ("bottom", c_int)]
-class TestFunctions:
+class TestFunctions(BaseCTypesTestChecker):
 
     def test_mro(self):
         # in Python 2.3, this raises TypeError: MRO conflict among bases classes,
