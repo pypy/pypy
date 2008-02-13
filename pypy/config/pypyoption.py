@@ -35,7 +35,7 @@ if sys.platform == "win32":
     del working_modules["termios"]
 
 
-module_dependencies = {'_ffi': [("objspace.usemodules.struct", True)],
+module_dependencies = {
                        '_rawffi': [("objspace.usemodules.struct", True)],
                        }
 if os.name == "posix":
