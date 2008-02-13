@@ -600,6 +600,22 @@ class Entry(ExtRegistryEntry):
         v_inst = hop.inputarg(hop.args_r[0], arg=0)
         return hop.genop('oodowncast', [v_inst], resulttype = hop.r_result.lowleveltype)
 
+
+def fieldinfo_for_const(const):
+    assert False, 'It works only after translation'
+
+class Entry(ExtRegistryEntry):
+    _about_ = fieldinfo_for_const
+
+    def compute_result_annotation(self, s_const):
+        assert s_const.is_constant()
+        return SomeOOInstance(CLR.System.Reflection.FieldInfo._INSTANCE)
+
+    def specialize_call(self, hop):
+        llvalue = hop.args_v[0].value
+        c_llvalue = hop.inputconst(ootype.Void, llvalue)
+        return hop.genop('cli_fieldinfo_for_const', [c_llvalue], resulttype = hop.r_result.lowleveltype)
+
 from pypy.translator.cli.query import CliNamespace
 CLR = CliNamespace(None)
 CLR._buildtree()

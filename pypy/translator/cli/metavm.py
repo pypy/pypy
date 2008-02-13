@@ -238,6 +238,18 @@ class _SetStaticField(MicroInstruction):
         generator.load(op.args[2])
         generator.ilasm.store_static_field(cts_type, desc)
 
+class _FieldInfoForConst(MicroInstruction):
+    def render(self, generator, op):
+        from pypy.translator.cli.constant import CONST_CLASS
+        llvalue = op.args[0].value
+        constgen = generator.db.constant_generator
+        const = constgen.record_const(llvalue)
+        generator.ilasm.opcode('ldtoken', CONST_CLASS)
+        generator.ilasm.call('class [mscorlib]System.Type class [mscorlib]System.Type::GetTypeFromHandle(valuetype [mscorlib]System.RuntimeTypeHandle)')
+        generator.ilasm.opcode('ldstr', '"%s"' % const.name)
+        generator.ilasm.call_method('class [mscorlib]System.Reflection.FieldInfo class [mscorlib]System.Type::GetField(string)', virtual=True)
+
+
 OOTYPE_TO_MNEMONIC = {
     ootype.Signed: 'i4',
     ootype.SignedLongLong: 'i8',
@@ -266,4 +278,5 @@ TypeOf = _TypeOf()
 EventHandler = _EventHandler()
 GetStaticField = _GetStaticField()
 SetStaticField = _SetStaticField()
+FieldInfoForConst = _FieldInfoForConst()
 CastPrimitive = _CastPrimitive()

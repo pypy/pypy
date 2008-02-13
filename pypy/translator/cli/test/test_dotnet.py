@@ -7,7 +7,8 @@ from pypy.rpython.ootypesystem.ootype import meth, Meth, Char, Signed, Float, St
 from pypy.translator.cli.test.runtest import CliTest
 from pypy.translator.cli.dotnet import SomeCliClass, SomeCliStaticMethod,\
      NativeInstance, CLR, box, unbox, OverloadingResolver, NativeException,\
-     native_exc, new_array, init_array, typeof, eventhandler, clidowncast
+     native_exc, new_array, init_array, typeof, eventhandler, clidowncast,\
+     fieldinfo_for_const
 
 System = CLR.System
 ArrayList = CLR.System.Collections.ArrayList
@@ -521,6 +522,21 @@ class TestDotnetRtyping(CliTest):
             return f
         self.interpret(fn, [])
 
+    def test_fieldinfo_for_const(self):
+        A = ootype.Instance('A', ootype.ROOT, {'xx': ootype.Signed})
+        const = ootype.new(A)
+        const.xx = 42
+        def fn():
+            fieldinfo = fieldinfo_for_const(const)
+            obj = fieldinfo.GetValue(None)
+            # get the 'xx' field by using reflection
+            t = obj.GetType()
+            x_info = t.GetField('xx')
+            x_value = x_info.GetValue(obj)
+            return unbox(x_value, ootype.Signed)
+        res = self.interpret(fn, [])
+        assert res == 42
+
 
 class TestPythonnet(TestDotnetRtyping):
     # don't interpreter functions but execute them directly through pythonnet
@@ -539,3 +555,6 @@ class TestPythonnet(TestDotnetRtyping):
             return t.get_Name()
         res = self.interpret(fn, [])
         assert res == 'DelegateType_int__int_2'
+
+    def test_fieldinfo_for_const(self):
+        pass # it makes sense only during translation
