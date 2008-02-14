@@ -28,7 +28,7 @@ The CLI implementation is broken into three sections:
 from pypy.translator.oosupport.constant import \
      push_constant, WeakRefConst, StaticMethodConst, CustomDictConst, \
      ListConst, ClassConst, InstanceConst, RecordConst, DictConst, \
-     BaseConstantGenerator
+     BaseConstantGenerator, AbstractConst
 from pypy.translator.cli.ilgenerator import CLIBaseGenerator
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.cli.comparer import EqualityComparer
@@ -83,6 +83,14 @@ class CLIBaseConstGenerator(BaseConstantGenerator):
     def downcast_constant(self, gen, const, EXPECTED_TYPE):
         type = self.cts.lltype_to_cts(EXPECTED_TYPE)
         gen.ilasm.opcode('castclass', type)
+
+    def _create_complex_const(self, value):
+        from pypy.translator.cli.dotnet import _fieldinfo
+        if isinstance(value, _fieldinfo):
+            uniq = self.db.unique()
+            return CLIFieldInfoConst(self.db, value.llvalue, uniq)
+        else:
+            return BaseConstantGenerator._create_complex_const(self, value)
 
 class FieldConstGenerator(CLIBaseConstGenerator):
     pass
@@ -408,3 +416,26 @@ class CLIWeakRefConst(CLIBaseConstMixin, WeakRefConst):
             gen.ilasm.call_method('void %s::ll_set(object)' % self.get_type(), True)
             return True
     
+
+class CLIFieldInfoConst(AbstractConst):
+    def __init__(self, db, llvalue, count):
+        AbstractConst.__init__(self, db, llvalue, count)
+        self.name = 'FieldInfo__%d' % count
+    
+    def create_pointer(self, generator):
+        constgen = generator.db.constant_generator
+        const = constgen.record_const(self.value)
+        generator.ilasm.opcode('ldtoken', CONST_CLASS)
+        generator.ilasm.call('class [mscorlib]System.Type class [mscorlib]System.Type::GetTypeFromHandle(valuetype [mscorlib]System.RuntimeTypeHandle)')
+        generator.ilasm.opcode('ldstr', '"%s"' % const.name)
+        generator.ilasm.call_method('class [mscorlib]System.Reflection.FieldInfo class [mscorlib]System.Type::GetField(string)', virtual=True)
+
+    def get_type(self):
+        from pypy.translator.cli.cts import CliClassType
+        return CliClassType('mscorlib', 'System.Reflection.FieldInfo')
+
+    def initialize_data(self, constgen, gen):
+        pass
+
+    def record_dependencies(self):
+        self.db.constant_generator.record_const(self.value)

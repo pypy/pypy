@@ -537,6 +537,20 @@ class TestDotnetRtyping(CliTest):
         res = self.interpret(fn, [])
         assert res == 42
 
+    def test_fieldinfo_for_const_pbc(self):
+        A = ootype.Instance('A', ootype.ROOT, {'xx': ootype.Signed})
+        const = ootype.new(A)
+        fieldinfo = fieldinfo_for_const(const)
+        def fn():
+            const.xx = 42
+            obj = fieldinfo.GetValue(None)
+            # get the 'xx' field by using reflection
+            t = obj.GetType()
+            x_info = t.GetField('xx')
+            x_value = x_info.GetValue(obj)
+            return unbox(x_value, ootype.Signed)
+        res = self.interpret(fn, [])
+        assert res == 42
 
 class TestPythonnet(TestDotnetRtyping):
     # don't interpreter functions but execute them directly through pythonnet
@@ -557,4 +571,7 @@ class TestPythonnet(TestDotnetRtyping):
         assert res == 'DelegateType_int__int_2'
 
     def test_fieldinfo_for_const(self):
+        pass # it makes sense only during translation
+
+    def test_fieldinfo_for_const_pbc(self):
         pass # it makes sense only during translation
