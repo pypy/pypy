@@ -512,6 +512,27 @@ class TestDotnetRtyping(CliTest):
         res = self.interpret(fn, [])
         assert res == 42
 
+    def test_bound_delegate(self):
+        def build_fn():
+            tObjArray = System.Type.GetType("System.Object[]")
+            tInt = typeof(System.Int32)
+            args = init_array(System.Type, tObjArray, tInt, tInt)
+            meth = Utils.CreateDynamicMethod("add", tInt, args)
+            il = meth.GetILGenerator()
+            il.Emit(OpCodes.Ldarg_1)
+            il.Emit(OpCodes.Ldarg_2)
+            il.Emit(OpCodes.Add)
+            il.Emit(OpCodes.Ret)
+            array = new_array(System.Object, 0)
+            myfunc = meth.CreateDelegate(typeof(FUNCTYPE), array)
+            return myfunc
+
+        def fn():
+            myfunc = clidowncast(build_fn(), FUNCTYPE)
+            return myfunc(30, 12)
+        res = self.interpret(fn, [])
+        assert res == 42
+
     def test_valuetype_field(self):
         class Foo:
             def __init__(self, x):

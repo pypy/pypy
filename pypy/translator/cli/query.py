@@ -160,8 +160,7 @@ class ClassDesc(object):
         TYPE._assembly_qualified_name = self.AssemblyQualifiedName
         Class = CliClass(TYPE, {}, {})
         self._cliclass = Class
-        # we need to check also for System.Array to prevent a circular recursion
-        if self.FullName in ('System.Object', 'System.Array'):
+        if self.FullName == 'System.Object':
             TYPE._set_superclass(ootype.ROOT)
         else:
             BASETYPE = get_ootype(self.BaseType)
