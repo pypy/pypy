@@ -1,6 +1,5 @@
 import sys
-from pypy.rpython.memory.gc.semispace import SemiSpaceGC, GCFLAGSHIFT, \
-    GCFLAG_IMMORTAL
+from pypy.rpython.memory.gc.semispace import SemiSpaceGC, GCFLAG_IMMORTAL
 from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena
 from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
@@ -12,11 +11,11 @@ from pypy.rpython.lltypesystem.lloperation import llop
 # in the nursery.  It is initially set on all prebuilt and old objects,
 # and gets cleared by the write_barrier() when we write in them a
 # pointer to a young object.
-GCFLAG_NO_YOUNG_PTRS = 1 << (GCFLAGSHIFT+1)
+GCFLAG_NO_YOUNG_PTRS = SemiSpaceGC.first_unused_gcflag << 1
 
 # The following flag is set for static roots which are not on the list
 # of static roots yet, but will appear with write barrier
-GCFLAG_NO_HEAP_PTRS = 1 << (GCFLAGSHIFT+2)
+GCFLAG_NO_HEAP_PTRS = SemiSpaceGC.first_unused_gcflag << 2
 
 DEBUG_PRINT = False
 
@@ -30,6 +29,7 @@ class GenerationGC(SemiSpaceGC):
     inline_simple_malloc_varsize = True
     needs_write_barrier = True
     prebuilt_gc_objects_are_static_roots = False
+    first_unused_gcflag = SemiSpaceGC.first_unused_gcflag << 3
 
     def __init__(self, chunk_size=DEFAULT_CHUNK_SIZE,
                  nursery_size=128,

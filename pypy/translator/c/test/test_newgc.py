@@ -9,6 +9,7 @@ from pypy.translator.backendopt.stat import print_statistics
 from pypy.translator.c import genc, gc
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
+from pypy.rpython.memory.test import snippet
 from pypy import conftest
 
 def compile_func(fn, inputtypes, t=None, gcpolicy="ref"):
@@ -280,6 +281,12 @@ from pypy.translator.c.test.test_boehm import AbstractGCTestClass
 class TestUsingFramework(AbstractGCTestClass):
     gcpolicy = "marksweep"
     should_be_moving = False
+
+    # interface for snippet.py
+    large_tests_ok = True
+    def run(self, func):
+        fn = self.getcompiled(func)
+        return fn()
 
     def test_empty_collect(self):
         def f():
@@ -836,7 +843,7 @@ class TestUsingStacklessFramework(TestUsingFramework):
     def test_weakref(self):
         py.test.skip("fails for some reason I couldn't figure out yet :-(")
 
-class TestSemiSpaceGC(TestUsingFramework):
+class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTests):
     gcpolicy = "semispace"
     should_be_moving = True
 

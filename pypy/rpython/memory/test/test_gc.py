@@ -3,8 +3,10 @@ import sys
 
 #from pypy.rpython.memory.support import INT_SIZE
 from pypy.rpython.memory import gcwrapper
+from pypy.rpython.memory.test import snippet
 from pypy.rpython.test.test_llinterp import get_interpreter
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem.rstr import STR
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.objectmodel import compute_unique_id
@@ -34,6 +36,12 @@ class GCTest(object):
         gcwrapper.prepare_graphs_and_create_gc(interp, self.GCClass,
                                                self.GC_PARAMS)
         return interp.eval_graph(graph, values)
+
+    def run(self, func):      # for snippet.py
+        res = self.interpret(func, [])
+        if lltype.typeOf(res) == lltype.Ptr(STR):
+            res = ''.join(res.chars)
+        return res
 
     def test_llinterp_lists(self):
         #curr = simulator.current_size
@@ -384,107 +392,8 @@ class GCTest(object):
 class TestMarkSweepGC(GCTest):
     from pypy.rpython.memory.gc.marksweep import MarkSweepGC as GCClass
 
-class TestSemiSpaceGC(GCTest):
+class TestSemiSpaceGC(GCTest, snippet.SemiSpaceGCTests):
     from pypy.rpython.memory.gc.semispace import SemiSpaceGC as GCClass
-
-    def test_finalizer_order(self):
-        py.test.skip("in-progress")
-        import random
-        from pypy.tool.algo import graphlib
-
-        examples = []
-        letters = 'abcdefghijklmnopqrstuvwxyz'
-        for i in range(20):
-            input = []
-            edges = {}
-            for c in letters:
-                edges[c] = []
-            # make up a random graph
-            for c in letters:
-                for j in range(random.randrange(0, 4)):
-                    d = random.choice(letters)
-                    edges[c].append(graphlib.Edge(c, d))
-                    input.append((c, d))
-            # find the expected order in which destructors should be called
-            components = list(graphlib.strong_components(edges, edges))
-            head = {}
-            for component in components:
-                c = component.keys()[0]
-                for d in component:
-                    assert d not in head
-                    head[d] = c
-            assert len(head) == len(letters)
-            strict = []
-            for c, d in input:
-                if head[c] != head[d]:
-                    strict.append((c, d))
-            examples.append((input, components, strict))
-
-        class State:
-            pass
-        state = State()
-        class A:
-            def __init__(self, key):
-                self.key = key
-                self.refs = []
-            def __del__(self):
-                assert state.age[self.key] == -1
-                state.age[self.key] = state.time
-                state.progress = True
-
-        def build_example(input):
-            state.time = 0
-            state.age = {}
-            vertices = {}
-            for c in letters:
-                vertices[c] = A(c)
-                state.age[c] = -1
-            for c, d in input:
-                vertices[c].refs.append(d)
-
-        def f():
-            i = 0
-            while i < len(examples):
-                input, components, strict = examples[i]
-                build_example(input)
-                while state.time < len(letters):
-                    state.progress = False
-                    llop.gc__collect(lltype.Void)
-                    if not state.progress:
-                        break
-                    state.time += 1
-                # check that all instances have been finalized
-                if -1 in state.age.values():
-                    return i * 10 + 1
-                # check that if a -> b and a and b are not in the same
-                # strong component, then a is finalized strictly before b
-                for c, d in strict:
-                    if state.age[c] >= state.age[d]:
-                        return i * 10 + 2
-                # check that two instances in the same strong component
-                # are never finalized during the same collection
-                for component in components:
-                    seen = {}
-                    for c in component:
-                        age = state.age[c]
-                        if age in seen:
-                            return i * 10 + 3
-                        seen[age] = True
-                i += 1
-            return 0
-
-        res = self.interpret(f, [])
-        if res != 0:
-            import pprint
-            pprint.pprint(examples[res / 10])
-            if res % 10 == 1:
-                py.test.fail("some instances have not been finalized at all")
-            if res % 10 == 2:
-                py.test.fail("the strict order is not respected")
-            if res % 10 == 3:
-                py.test.fail("two instances from the same component "
-                             "have been finalized together")
-            assert 0
 
 class TestGrowingSemiSpaceGC(TestSemiSpaceGC):
     GC_PARAMS = {'space_size': 64}

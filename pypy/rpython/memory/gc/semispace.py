@@ -2,7 +2,7 @@ from pypy.rpython.lltypesystem.llmemory import raw_malloc, raw_free
 from pypy.rpython.lltypesystem.llmemory import raw_memcopy, raw_memclear
 from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
 from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
-from pypy.rpython.memory.support import get_address_stack
+from pypy.rpython.memory.support import get_address_stack, get_address_deque
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena
 from pypy.rlib.objectmodel import free_non_gc_object
@@ -14,8 +14,9 @@ from pypy.rpython.memory.gc.base import MovingGCBase
 import sys, os
 
 TYPEID_MASK = 0xffff
-GCFLAGSHIFT = 16
-GCFLAG_IMMORTAL = 1 << GCFLAGSHIFT
+first_gcflag = 1 << 16
+GCFLAG_IMMORTAL = first_gcflag
+GCFLAG_FINALIZATION_ORDERING = first_gcflag << 1
 
 memoryError = MemoryError()
 
@@ -24,6 +25,7 @@ class SemiSpaceGC(MovingGCBase):
     inline_simple_malloc = True
     inline_simple_malloc_varsize = True
     needs_zero_gc_pointers = False
+    first_unused_gcflag = first_gcflag << 2
 
     HDR = lltype.Struct('header', ('forw', llmemory.Address),
                                   ('tid', lltype.Signed))
@@ -35,6 +37,7 @@ class SemiSpaceGC(MovingGCBase):
         self.max_space_size = max_space_size
         self.gcheaderbuilder = GCHeaderBuilder(self.HDR)
         self.AddressStack = get_address_stack(chunk_size)
+        self.AddressDeque = get_address_deque(chunk_size)
 
     def setup(self):
         self.tospace = llarena.arena_malloc(self.space_size, True)
@@ -43,8 +46,8 @@ class SemiSpaceGC(MovingGCBase):
         self.fromspace = llarena.arena_malloc(self.space_size, True)
         ll_assert(bool(self.fromspace), "couldn't allocate fromspace")
         self.free = self.tospace
-        self.objects_with_finalizers = self.AddressStack()
-        self.run_finalizers = self.AddressStack()
+        self.objects_with_finalizers = self.AddressDeque()
+        self.run_finalizers = self.AddressDeque()
         self.objects_with_weakrefs = self.AddressStack()
         self.finalizer_lock_count = 0
         self.red_zone = 0
@@ -189,12 +192,11 @@ class SemiSpaceGC(MovingGCBase):
         self.top_of_space = tospace + self.space_size
         scan = self.free = tospace
         self.collect_roots()
-        scan = self.scan_copied(scan)
         if self.run_finalizers.non_empty():
             self.update_run_finalizers()
-        if self.objects_with_finalizers.non_empty():
-            self.deal_with_objects_with_finalizers()
         scan = self.scan_copied(scan)
+        if self.objects_with_finalizers.non_empty():
+            scan = self.deal_with_objects_with_finalizers(scan)
         if self.objects_with_weakrefs.non_empty():
             self.invalidate_weakrefs()
         self.notify_objects_just_moved()
@@ -308,20 +310,105 @@ class SemiSpaceGC(MovingGCBase):
         else:
             hdr.forw = NULL
 
-    def deal_with_objects_with_finalizers(self):
+    def deal_with_objects_with_finalizers(self, scan):
         # walk over list of objects with finalizers
         # if it is not copied, add it to the list of to-be-called finalizers
         # and copy it, to me make the finalizer runnable
-        # NOTE: the caller is calling scan_copied, so no need to do it here
-        new_with_finalizer = self.AddressStack()
+        # We try to run the finalizers in a "reasonable" order, like
+        # CPython does.  The details of this algorithm are in
+        # pypy/doc/discussion/finalizer-order.txt.
+        new_with_finalizer = self.AddressDeque()
+        marked = self.AddressDeque()
+        pending = self.AddressStack()
         while self.objects_with_finalizers.non_empty():
-            obj = self.objects_with_finalizers.pop()
-            if self.is_forwarded(obj):
-                new_with_finalizer.append(self.get_forwarding_address(obj))
+            x = self.objects_with_finalizers.popleft()
+            ll_assert(self._finalization_state(x) != 1, 
+                      "bad finalization state 1")
+            if self.is_forwarded(x):
+                new_with_finalizer.append(self.get_forwarding_address(x))
+                continue
+            marked.append(x)
+            pending.append(x)
+            while pending.non_empty():
+                y = pending.pop()
+                state = self._finalization_state(y)
+                if state == 0:
+                    self._bump_finalization_state_from_0_to_1(y)
+                elif state == 2:
+                    self._bump_finalization_state_from_2_to_3(y)
+                else:
+                    continue   # don't need to recurse inside y
+                self.trace(y, self._append_if_nonnull, pending)
+            scan = self._recursively_bump_finalization_state_from_1_to_2(
+                       x, scan)
+
+        while marked.non_empty():
+            x = marked.popleft()
+            state = self._finalization_state(x)
+            ll_assert(state >= 2, "unexpected finalization state < 2")
+            newx = self.get_forwarding_address(x)
+            if state == 2:
+                self.run_finalizers.append(newx)
+                # we must also fix the state from 2 to 3 here, otherwise
+                # we leave the GCFLAG_FINALIZATION_ORDERING bit behind
+                # which will confuse the next collection
+                pending.append(x)
+                while pending.non_empty():
+                    y = pending.pop()
+                    state = self._finalization_state(y)
+                    if state == 2:
+                        self._bump_finalization_state_from_2_to_3(y)
+                        self.trace(y, self._append_if_nonnull, pending)
             else:
-                self.run_finalizers.append(self.copy(obj))
+                new_with_finalizer.append(newx)
+
+        pending.delete()
+        marked.delete()
         self.objects_with_finalizers.delete()
         self.objects_with_finalizers = new_with_finalizer
+        return scan
+
+    def _append_if_nonnull(pointer, stack):
+        if pointer.address[0] != NULL:
+            stack.append(pointer.address[0])
+    _append_if_nonnull = staticmethod(_append_if_nonnull)
+
+    def _finalization_state(self, obj):
+        if self.is_forwarded(obj):
+            newobj = self.get_forwarding_address(obj)
+            hdr = self.header(newobj)
+            if hdr.tid & GCFLAG_FINALIZATION_ORDERING:
+                return 2
+            else:
+                return 3
+        else:
+            hdr = self.header(obj)
+            if hdr.tid & GCFLAG_FINALIZATION_ORDERING:
+                return 1
+            else:
+                return 0
+
+    def _bump_finalization_state_from_0_to_1(self, obj):
+        ll_assert(self._finalization_state(obj) == 0,
+                  "unexpected finalization state != 0")
+        hdr = self.header(obj)
+        hdr.tid |= GCFLAG_FINALIZATION_ORDERING
+
+    def _bump_finalization_state_from_2_to_3(self, obj):
+        ll_assert(self._finalization_state(obj) == 2,
+                  "unexpected finalization state != 2")
+        newobj = self.get_forwarding_address(obj)
+        hdr = self.header(newobj)
+        hdr.tid &= ~GCFLAG_FINALIZATION_ORDERING
+
+    def _recursively_bump_finalization_state_from_1_to_2(self, obj, scan):
+        # recursively convert objects from state 1 to state 2.
+        # Note that copy() copies all bits, including the
+        # GCFLAG_FINALIZATION_ORDERING.  The mapping between
+        # state numbers and the presence of this bit was designed
+        # for the following to work :-)
+        self.copy(obj)
+        return self.scan_copied(scan)
 
     def invalidate_weakrefs(self):
         # walk over list of objects that contain weakrefs
@@ -349,9 +436,9 @@ class SemiSpaceGC(MovingGCBase):
     def update_run_finalizers(self):
         # we are in an inner collection, caused by a finalizer
         # the run_finalizers objects need to be copied
-        new_run_finalizer = self.AddressStack()
+        new_run_finalizer = self.AddressDeque()
         while self.run_finalizers.non_empty():
-            obj = self.run_finalizers.pop()
+            obj = self.run_finalizers.popleft()
             new_run_finalizer.append(self.copy(obj))
         self.run_finalizers.delete()
         self.run_finalizers = new_run_finalizer
@@ -363,7 +450,7 @@ class SemiSpaceGC(MovingGCBase):
         try:
             while self.run_finalizers.non_empty():
                 #print "finalizer"
-                obj = self.run_finalizers.pop()
+                obj = self.run_finalizers.popleft()
                 finalizer = self.getfinalizer(self.get_type_id(obj))
                 finalizer(obj)
         finally:
