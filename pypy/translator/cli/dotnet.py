@@ -386,6 +386,12 @@ def unbox(x, TYPE):
         else:
             return None
 
+    if isinstance(TYPE, ootype.OOType) and TYPE is not ootype.String:
+        try:
+            return ootype.enforce(TYPE, x)
+        except TypeError:
+            return None
+
     # TODO: do the typechecking also in the other cases
 
     # this is a workaround against a pythonnet limitation: you can't
@@ -409,7 +415,7 @@ class Entry(ExtRegistryEntry):
 
         hop.exception_cannot_occur()
         TYPE = v_obj.concretetype
-        if (TYPE is ootype.String or isinstance(TYPE, (ootype.Instance, ootype.BuiltinType, NativeInstance))):
+        if (TYPE is ootype.String or isinstance(TYPE, (ootype.OOType, NativeInstance))):
             return hop.genop('ooupcast', [v_obj], hop.r_result.lowleveltype)
         else:
             if TYPE not in BOXABLE_TYPES:
@@ -430,6 +436,8 @@ class Entry(ExtRegistryEntry):
             # can_be_None == True because it can always return None, if it fails
             classdef = self.bookkeeper.getuniqueclassdef(TYPE)
             return SomeInstance(classdef, can_be_None=True)
+        elif isinstance(TYPE, ootype.OOType):
+            return SomeOOInstance(TYPE)
         else:
             assert TYPE in BOXABLE_TYPES
             return OverloadingResolver.lltype_to_annotation(TYPE)
@@ -437,7 +445,7 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         TYPE = hop.args_v[1].value
         v_obj = hop.inputarg(hop.args_r[0], arg=0)
-        if TYPE is ootype.String or isinstance(TYPE, (type, types.ClassType)):
+        if TYPE is ootype.String or isinstance(TYPE, (type, types.ClassType)) or isinstance(TYPE, ootype.OOType):
             return hop.genop('oodowncast', [v_obj], hop.r_result.lowleveltype)
         else:
             c_type = hop.inputconst(ootype.Void, TYPE)

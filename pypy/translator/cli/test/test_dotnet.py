@@ -431,6 +431,37 @@ class TestDotnetRtyping(CliTest):
         res = self.interpret(fn, [])
         assert res is None
 
+    def test_box_unbox_ooinstance(self):
+        A = ootype.Instance('A', ootype.ROOT, {'xx': ootype.Signed})
+        def fn(flag):
+            a = ootype.new(A)
+            a.xx = 42
+            b_obj = box(a)
+            a2 = unbox(b_obj, A)
+            return a2.xx
+        res = self.interpret(fn, [True])
+        assert res == 42
+
+    def test_box_unbox_ooinstance_fail(self):
+        A = ootype.Instance('A', ootype.ROOT, {'xx': ootype.Signed})
+        def fn(flag):
+            b_obj = System.Object()
+            a2 = unbox(b_obj, A)
+            return a2
+        res = self.interpret(fn, [True])
+        assert res is None
+
+    def test_box_unbox_oorecord(self):
+        A = ootype.Record({'xx': ootype.Signed})
+        def fn(flag):
+            a = ootype.new(A)
+            a.xx = 42
+            b_obj = box(a)
+            a2 = unbox(b_obj, A)
+            return a2.xx
+        res = self.interpret(fn, [True])
+        assert res == 42
+
     def test_instance_wrapping(self):
         class Foo:
             pass
