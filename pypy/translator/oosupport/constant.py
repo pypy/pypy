@@ -98,7 +98,7 @@ class BaseConstantGenerator(object):
 
         Loads the constant onto the stack.  Can be invoked at any time.
         """        
-        raise NotImplementedError
+        raise NotImplemented
 
     def _store_constant(self, gen, const):
         """
@@ -107,7 +107,7 @@ class BaseConstantGenerator(object):
 
         stores the constant from the stack
         """
-        raise NotImplementedError
+        raise NotImplemented
 
     # _________________________________________________________________
     # Optional Constant Operations
@@ -303,27 +303,27 @@ class BaseConstantGenerator(object):
         """ Invoked with the assembler and sorted list of constants
         before anything else.  Expected to return a generator that will
         be passed around after that (the parameter named 'gen'). """
-        raise NotImplementedError
+        raise NotImplemented
 
     def _declare_const(self, gen, const):
         """ Invoked once for each constant before any steps are created. """
-        raise NotImplementedError        
+        raise NotImplemented        
 
     def _declare_step(self, gen, stepnum):
         """ Invoked to begin step #stepnum.  stepnum starts with 0 (!)
         and proceeds monotonically. If _declare_step() is invoked,
         there will always be a corresponding call to _close_step(). """
-        raise NotImplementedError     
+        raise NotImplemented     
     
     def _close_step(self, gen, stepnum):
         """ Invoked to end step #stepnum.  Never invoked without a
         corresponding call from _declare_step() first. """
-        raise NotImplementedError        
+        raise NotImplemented        
     
     def _end_gen_constants(self, gen, numsteps):
         """ Invoked as the very last thing.  numsteps is the total number
         of steps that were created. """
-        raise NotImplementedError        
+        raise NotImplemented        
 
 # ______________________________________________________________________
 # Constant base class
@@ -395,7 +395,7 @@ class AbstractConst(object):
         and any classes that are used are loaded.  Called when the
         constant object is created.
         """
-        raise NotImplementedException
+        raise NotImplemented
     
     def create_pointer(self, gen):
         """
@@ -413,7 +413,7 @@ class AbstractConst(object):
         the pointer from the stack in the process; otherwise, a pop
         is automatically inserted afterwards.
         """
-        raise NotImplementedException
+        raise NotImplemented
 
     # ____________________________________________________________
     # Internal helpers
@@ -685,7 +685,7 @@ class StaticMethodConst(AbstractConst):
         self.delegate_type = self.db.record_delegate(self.value._TYPE)
 
     def initialize_data(self, constgen, gen):
-        raise NotImplementedError
+        raise NotImplemented
 
 # ______________________________________________________________________
 # Weak Reference constants
