@@ -18,6 +18,7 @@ first_gcflag = 1 << 16
 GCFLAG_IMMORTAL = first_gcflag
 GCFLAG_FINALIZATION_ORDERING = first_gcflag << 1
 
+DEBUG_PRINT = False
 memoryError = MemoryError()
 
 class SemiSpaceGC(MovingGCBase):
@@ -26,6 +27,8 @@ class SemiSpaceGC(MovingGCBase):
     inline_simple_malloc_varsize = True
     needs_zero_gc_pointers = False
     first_unused_gcflag = first_gcflag << 2
+    total_collection_time = 0.0
+    total_collection_count = 0
 
     HDR = lltype.Struct('header', ('forw', llmemory.Address),
                                   ('tid', lltype.Signed))
@@ -40,6 +43,9 @@ class SemiSpaceGC(MovingGCBase):
         self.AddressDeque = get_address_deque(chunk_size)
 
     def setup(self):
+        if DEBUG_PRINT:
+            import time
+            self.program_start_time = time.time()
         self.tospace = llarena.arena_malloc(self.space_size, True)
         ll_assert(bool(self.tospace), "couldn't allocate tospace")
         self.top_of_space = self.tospace + self.space_size
@@ -184,6 +190,16 @@ class SemiSpaceGC(MovingGCBase):
         # to by the gc transformer, and the default argument would crash
 
     def semispace_collect(self, size_changing=False):
+        if DEBUG_PRINT:
+            import time
+            llop.debug_print(lltype.Void)
+            llop.debug_print(lltype.Void,
+                             ".----------- Full collection ------------------")
+            start_usage = self.free - self.tospace
+            llop.debug_print(lltype.Void,
+                             "| used before collection:          ",
+                             start_usage, "bytes")
+            start_time = time.time()
         #llop.debug_print(lltype.Void, 'semispace_collect', int(size_changing))
         tospace = self.fromspace
         fromspace = self.tospace
@@ -205,6 +221,41 @@ class SemiSpaceGC(MovingGCBase):
             self.record_red_zone()
             self.execute_finalizers()
         #llop.debug_print(lltype.Void, 'collected', self.space_size, size_changing, self.top_of_space - self.free)
+        if DEBUG_PRINT:
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+            self.total_collection_time += elapsed_time
+            self.total_collection_count += 1
+            total_program_time = end_time - self.program_start_time
+            end_usage = self.free - self.tospace
+            llop.debug_print(lltype.Void,
+                             "| used after collection:           ",
+                             end_usage, "bytes")
+            llop.debug_print(lltype.Void,
+                             "| freed:                           ",
+                             start_usage - end_usage, "bytes")
+            llop.debug_print(lltype.Void,
+                             "| size of each semispace:          ",
+                             self.space_size, "bytes")
+            llop.debug_print(lltype.Void,
+                             "| fraction of semispace now used:  ",
+                             end_usage * 100.0 / self.space_size, "%")
+            ct = self.total_collection_time
+            cc = self.total_collection_count
+            llop.debug_print(lltype.Void,
+                             "| number of semispace_collects:    ",
+                             cc)
+            llop.debug_print(lltype.Void,
+                             "|                         i.e.:    ",
+                             cc / total_program_time, "per second")
+            llop.debug_print(lltype.Void,
+                             "| total time in semispace_collect: ",
+                             ct, "seconds")
+            llop.debug_print(lltype.Void,
+                             "|                            i.e.: ",
+                             ct * 100.0 / total_program_time, "%")
+            llop.debug_print(lltype.Void,
+                             "`----------------------------------------------")
 
     def record_red_zone(self):
         # red zone: if the space is more than 80% full, the next collection
