@@ -35,7 +35,10 @@ if sys.platform == "win32":
     del working_modules["termios"]
 
 
-module_dependencies = {
+module_dependencies = {}
+module_suggests = {    # the reason you want _rawffi is for ctypes, which
+                       # itself needs the interp-level struct module
+                       # because 'P' is missing from the app-level one
                        '_rawffi': [("objspace.usemodules.struct", True)],
                        }
 if os.name == "posix":
@@ -85,6 +88,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    default=modname in default_modules,
                    cmdline="--withmod-%s" % (modname, ),
                    requires=module_dependencies.get(modname, []),
+                   suggests=module_suggests.get(modname, []),
                    negation=modname not in essential_modules)
         for modname in all_modules]),
 
