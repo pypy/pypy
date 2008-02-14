@@ -43,10 +43,10 @@ class __extend__(GenVarOrConst):
     def getCliType(self):
         raise NotImplementedError
     
-    def load(self, il):
+    def load(self, builder):
         raise NotImplementedError
 
-    def store(self, il):
+    def store(self, builder):
         raise NotImplementedError
 
 class GenArgVar(GenVar):
@@ -57,20 +57,20 @@ class GenArgVar(GenVar):
     def getCliType(self):
         return self.cliType
 
-    def load(self, il):
+    def load(self, builder):
         if self.index == 0:
-            il.Emit(OpCodes.Ldarg_0)
+            builder.il.Emit(OpCodes.Ldarg_0)
         elif self.index == 1:
-            il.Emit(OpCodes.Ldarg_1)
+            builder.il.Emit(OpCodes.Ldarg_1)
         elif self.index == 2:
-            il.Emit(OpCodes.Ldarg_2)
+            builder.il.Emit(OpCodes.Ldarg_2)
         elif self.index == 3:
-            il.Emit(OpCodes.Ldarg_3)
+            builder.il.Emit(OpCodes.Ldarg_3)
         else:
-            il.Emit(OpCodes.Ldarg, self.index)
+            builder.il.Emit(OpCodes.Ldarg, self.index)
 
-    def store(self, il):
-        il.Emit(OpCodes.Starg, self.index)
+    def store(self, builder):
+        builder.il.Emit(OpCodes.Starg, self.index)
 
     def __repr__(self):
         return "GenArgVar(%d)" % self.index
@@ -82,11 +82,11 @@ class GenLocalVar(GenVar):
     def getCliType(self):
         return self.v.get_LocalType()
 
-    def load(self, il):
-        il.Emit(OpCodes.Ldloc, self.v)
+    def load(self, builder):
+        builder.il.Emit(OpCodes.Ldloc, self.v)
 
-    def store(self, il):
-        il.Emit(OpCodes.Stloc, self.v)
+    def store(self, builder):
+        builder.il.Emit(OpCodes.Stloc, self.v)
 
 
 class IntConst(GenConst):
@@ -106,13 +106,14 @@ class IntConst(GenConst):
     def getCliType(self):
         return typeof(System.Int32)
 
-    def load(self, il):
-        il.Emit(OpCodes.Ldc_I4, self.value)
+    def load(self, builder):
+        builder.il.Emit(OpCodes.Ldc_I4, self.value)
 
     def __repr__(self):
         return "const=%s" % self.value
 
-class BaseConst(GenConst):
+class FunctionConst(GenConst):
+    
     def __init__(self, num):
         self.num = num
         self.fieldname = "const" + str(num)
@@ -125,19 +126,33 @@ class BaseConst(GenConst):
         t = typeof(Constants)
         t.GetField(self.fieldname).SetValue(None, obj)
 
-    def load(self, il):
+    def load(self, builder):
         t = typeof(Constants)
         field = t.GetField(self.fieldname)
-        il.Emit(OpCodes.Ldsfld, field)
+        builder.il.Emit(OpCodes.Ldsfld, field)
 
-
-class FunctionConst(BaseConst):
-    
     @specialize.arg(1)
     def revealconst(self, T):
         return clidowncast(self.getobj(), T)
 
-class ObjectConst(BaseConst):
+class ObjectConst(GenConst):
+
+    def __init__(self, obj):
+        self.obj = obj
+
+    def load(self, builder):
+        # check whether there is already an index associated to this const
+        try:
+            index = builder.genconsts[self.obj]
+        except KeyError:
+            index = len(builder.genconsts)
+            builder.genconsts[self.obj] = index
+
+        t = self.obj.GetType()
+        builder.il.Emit(OpCodes.Ldarg_0)
+        builder.il.Emit(OpCodes.Ldc_i4, index)
+        builder.il.Emit(OpCodes.Ldelem_ref)
+        builder.il.Emit(OpCodes.Castclass, t)
 
     @specialize.arg(1)
     def revealconst(self, T):
@@ -172,9 +187,7 @@ class RCliGenOp(AbstractRGenOp):
         elif T is ootype.Bool:
             return IntConst(int(llvalue))
         elif isinstance(T, ootype.OOType):
-            const = self.newconst(ObjectConst)
-            const.setobj(llvalue)
-            return const
+            return ObjectConst(llvalue)
         else:
             assert False, "XXX not implemented"
 
@@ -195,9 +208,10 @@ class RCliGenOp(AbstractRGenOp):
 
     def newgraph(self, sigtoken, name):
         argtoks, restok = sigtoken
-        args = new_array(System.Type, len(argtoks))
+        args = new_array(System.Type, len(argtoks)+1)
+        args[0] = System.Type.GetType("System.Object[]")
         for i in range(len(argtoks)):
-            args[i] = token2clitype(argtoks[i])
+            args[i+1] = token2clitype(argtoks[i])
         res = token2clitype(restok)
         builder = Builder(self, name, res, args, sigtoken)
         return builder, builder.gv_entrypoint, builder.inputargs_gv[:]
@@ -212,7 +226,8 @@ class Builder(GenBuilder):
         if DUMP_IL:
             self.il = DumpGenerator(self.il)
         self.inputargs_gv = []
-        for i in range(len(args)):
+        # we start from 1 because the 1st arg is an Object[] containing the genconsts
+        for i in range(1, len(args)):
             self.inputargs_gv.append(GenArgVar(i, args[i]))
         self.gv_entrypoint = self.rgenop.newconst(FunctionConst)
         self.sigtoken = sigtoken
@@ -220,11 +235,12 @@ class Builder(GenBuilder):
         self.operations = []
         self.branches = []
         self.returnblocks = []
+        self.genconsts = {}
 
     @specialize.arg(1)
     def genop1(self, opname, gv_arg):
         opcls = ops.getopclass1(opname)
-        op = opcls(self.il, gv_arg)
+        op = opcls(self, gv_arg)
         self.emit(op)
         gv_res = op.gv_res()
         if DEBUG:
@@ -238,7 +254,7 @@ class Builder(GenBuilder):
     @specialize.arg(1)
     def genop2(self, opname, gv_arg1, gv_arg2):
         opcls = ops.getopclass2(opname)
-        op = opcls(self.il, gv_arg1, gv_arg2)
+        op = opcls(self, gv_arg1, gv_arg2)
         self.emit(op)
         gv_res = op.gv_res()
         if DEBUG:
@@ -258,12 +274,12 @@ class Builder(GenBuilder):
             assert False
 
     def genop_call(self, sigtoken, gv_fnptr, args_gv):
-        op = ops.Call(self.il, sigtoken, gv_fnptr, args_gv)
+        op = ops.Call(self, sigtoken, gv_fnptr, args_gv)
         self.emit(op)
         return op.gv_res()
 
     def genop_same_as(self, kindtoken, gv_x):
-        op = ops.SameAs(self.il, gv_x)
+        op = ops.SameAs(self, gv_x)
         self.emit(op)
         return op.gv_res()
         
@@ -281,7 +297,7 @@ class Builder(GenBuilder):
 
     def finish_and_return(self, sigtoken, gv_returnvar):
         retlabel = self.il.DefineLabel()
-        op = ops.Branch(self.il, None, OpCodes.Br, retlabel)
+        op = ops.Branch(self, None, OpCodes.Br, retlabel)
         self.emit(op)
         self.appendreturn(retlabel, gv_returnvar)
         self.isOpen = False
@@ -289,7 +305,7 @@ class Builder(GenBuilder):
     def finish_and_goto(self, outputargs_gv, target):
         inputargs_gv = target.inputargs_gv
         assert len(inputargs_gv) == len(outputargs_gv)
-        op = ops.FollowLink(self.il, outputargs_gv, inputargs_gv, target.label)
+        op = ops.FollowLink(self, outputargs_gv, inputargs_gv, target.label)
         self.emit(op)
         self.isOpen = False
 
@@ -301,26 +317,30 @@ class Builder(GenBuilder):
         # render the return blocks for last, else the verifier could complain
         for retlabel, gv_returnvar in self.returnblocks:
             self.il.MarkLabel(retlabel)
-            op = ops.Return(self.il, gv_returnvar)
+            op = ops.Return(self, gv_returnvar)
             self.emit(op)
 
+        # initialize the array of genconsts
+        consts = new_array(System.Object, len(self.genconsts))
+        for obj, i in self.genconsts.iteritems():
+            consts[i] = obj
         # build the delegate
         delegate_type = sigtoken2clitype(self.sigtoken)
-        myfunc = self.meth.CreateDelegate(delegate_type)
+        myfunc = self.meth.CreateDelegate(delegate_type, consts)
         self.gv_entrypoint.setobj(myfunc)
 
     def enter_next_block(self, kinds, args_gv):
         for i in range(len(args_gv)):
-            op = ops.SameAs(self.il, args_gv[i])
+            op = ops.SameAs(self, args_gv[i])
             op.emit()
             args_gv[i] = op.gv_res()
         label = self.il.DefineLabel()
-        self.emit(ops.MarkLabel(self.il, label))
+        self.emit(ops.MarkLabel(self, label))
         return Label(label, args_gv)
 
     def _jump_if(self, gv_condition, opcode):
         label = self.il.DefineLabel()
-        op = ops.Branch(self.il, gv_condition, opcode, label)
+        op = ops.Branch(self, gv_condition, opcode, label)
         self.emit(op)
         branch = BranchBuilder(self, label)
         self.appendbranch(branch)

@@ -17,7 +17,7 @@ class Operation:
         if self._gv_res is None:
             restype = self.restype()
             if restype is not None:
-                loc = self.il.DeclareLocal(restype)
+                loc = self.builder.il.DeclareLocal(restype)
                 self._gv_res = GenLocalVar(loc)
         return self._gv_res
 
@@ -28,38 +28,38 @@ class Operation:
         raise NotImplementedError
 
     def storeResult(self):
-        self.gv_res().store(self.il)
+        self.gv_res().store(self.builder)
 
 
 class UnaryOp(Operation):
-    def __init__(self, il, gv_x):
-        self.il = il
+    def __init__(self, builder, gv_x):
+        self.builder = builder
         self.gv_x = gv_x
 
     def pushAllArgs(self):
-        self.gv_x.load(self.il)
+        self.gv_x.load(self.builder)
 
     def emit(self):
         self.pushAllArgs()
-        self.il.Emit(self.getOpCode())
+        self.builder.il.Emit(self.getOpCode())
         self.storeResult()
 
     def getOpCode(self):
         raise NotImplementedError
 
 class BinaryOp(Operation):
-    def __init__(self, il, gv_x, gv_y):
-        self.il = il
+    def __init__(self, builder, gv_x, gv_y):
+        self.builder = builder
         self.gv_x = gv_x
         self.gv_y = gv_y
 
     def pushAllArgs(self):
-        self.gv_x.load(self.il)
-        self.gv_y.load(self.il)
+        self.gv_x.load(self.builder)
+        self.gv_y.load(self.builder)
 
     def emit(self):
         self.pushAllArgs()
-        self.il.Emit(self.getOpCode())
+        self.builder.il.Emit(self.getOpCode())
         self.storeResult()
 
     def getOpCode(self):
@@ -69,25 +69,25 @@ class BinaryOp(Operation):
 class SameAs(UnaryOp):
     def emit(self):
         gv_res = self.gv_res()
-        self.gv_x.load(self.il)
-        self.gv_res().store(self.il)
+        self.gv_x.load(self.builder)
+        self.gv_res().store(self.builder)
 
 class MarkLabel(Operation):
 
-    def __init__(self, il, label):
-        self.il = il
+    def __init__(self, builder, label):
+        self.builder = builder
         self.label = label
 
     def restype(self):
         return None
 
     def emit(self):
-        self.il.MarkLabel(self.label)
+        self.builder.il.MarkLabel(self.label)
 
 class FollowLink(Operation):
     
-    def __init__(self, il, outputargs_gv, inputargs_gv, label):
-        self.il = il
+    def __init__(self, builder, outputargs_gv, inputargs_gv, label):
+        self.builder = builder
         self.outputargs_gv = outputargs_gv
         self.inputargs_gv = inputargs_gv
         self.label = label
@@ -97,14 +97,14 @@ class FollowLink(Operation):
 
     def emit(self):
         for i in range(len(self.outputargs_gv)):
-            self.outputargs_gv[i].load(self.il)
-            self.inputargs_gv[i].store(self.il)
-        self.il.Emit(OpCodes.Br, self.label)
+            self.outputargs_gv[i].load(self.builder)
+            self.inputargs_gv[i].store(self.builder)
+        self.builder.il.Emit(OpCodes.Br, self.label)
 
 class Branch(Operation):
     
-    def __init__(self, il, gv_cond, opcode, label):
-        self.il = il
+    def __init__(self, builder, gv_cond, opcode, label):
+        self.builder = builder
         self.gv_cond = gv_cond
         self.opcode = opcode
         self.label = label
@@ -114,27 +114,27 @@ class Branch(Operation):
 
     def emit(self):
         if self.gv_cond is not None:
-            self.gv_cond.load(self.il)
-        self.il.Emit(self.opcode, self.label)
+            self.gv_cond.load(self.builder)
+        self.builder.il.Emit(self.opcode, self.label)
 
 class Return(Operation):
 
-    def __init__(self, il, gv_x):
-        self.il = il
+    def __init__(self, builder, gv_x):
+        self.builder = builder
         self.gv_x = gv_x
 
     def restype(self):
         return None
 
     def emit(self):
-        self.gv_x.load(self.il)
-        self.il.Emit(OpCodes.Ret)
+        self.gv_x.load(self.builder)
+        self.builder.il.Emit(OpCodes.Ret)
 
 class Call(Operation):
 
-    def __init__(self, il, sigtoken, gv_fnptr, args_gv):
+    def __init__(self, builder, sigtoken, gv_fnptr, args_gv):
         from pypy.jit.codegen.cli.rgenop import token2clitype
-        self.il = il
+        self.builder = builder
         self.sigtoken = sigtoken
         self.gv_fnptr = gv_fnptr
         self.args_gv = args_gv
@@ -147,11 +147,11 @@ class Call(Operation):
         from pypy.jit.codegen.cli.rgenop import sigtoken2clitype
         delegate_type = sigtoken2clitype(self.sigtoken)
         meth_invoke = delegate_type.GetMethod('Invoke')
-        self.gv_fnptr.load(self.il)
-        self.il.Emit(OpCodes.Castclass, delegate_type)
+        self.gv_fnptr.load(self.builder)
+        self.builder.il.Emit(OpCodes.Castclass, delegate_type)
         for gv_arg in self.args_gv:
-            gv_arg.load(self.il)
-        self.il.EmitCall(OpCodes.Callvirt, meth_invoke, None)
+            gv_arg.load(self.builder)
+        self.builder.il.EmitCall(OpCodes.Callvirt, meth_invoke, None)
         self.storeResult()
 
         
@@ -218,7 +218,7 @@ def renderCustomOp(opname, baseclass, steps, out):
             if 'call' in step:
                 return # XXX, fix this
             attrname = opcode2attrname(step)
-            body.append('self.il.Emit(OpCodes.%s)' % attrname)
+            body.append('self.builder.il.Emit(OpCodes.%s)' % attrname)
         elif isinstance(step, cli_opcodes.MapException):
             return # XXX, TODO
         else:

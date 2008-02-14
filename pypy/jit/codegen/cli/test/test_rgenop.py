@@ -10,7 +10,7 @@ def fn():
         'test_adder',
         'test_dummy',
         'test_hide_and_reveal',
-        # 'test_hide_and_reveal_p', # think about this
+        'test_hide_and_reveal_p',
         'test_largedummy_direct', # _compile works if we set a higher maxstack
         'test_branching',
         'test_goto',
