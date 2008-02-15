@@ -108,6 +108,7 @@ class StructureMeta(_CDataMeta):
                 raise TypeError("Cannot instantiate structure, has no _fields_")
             self.__dict__['_buffer'] = self._ffistruct()
             self.__dict__['_needs_free'] = True
+            self.__dict__['_objects'] = {}
             if len(args) > len(self._names):
                 raise TypeError("too many arguments")
             for name, arg in zip(self._names, args):
@@ -117,7 +118,6 @@ class StructureMeta(_CDataMeta):
                 self.__setattr__(name, arg)
             for name, arg in kwds.items():
                 self.__setattr__(name, arg)
-            self.__dict__['_objects'] = {}
         res.__init__ = __init__
 
 
@@ -165,8 +165,8 @@ class Structure(_CData):
         except KeyError:
             raise AttributeError(name)
         if getattr(value, '_objects', None):
-            self._objects[str(getattr(self.__class__, name).offset)] = \
-                                                      value._objects
+            key = str(getattr(self.__class__, name).offset)
+            self.__dict__['_objects'][key] = value._objects
         value = fieldtype._CData_input(value)
         self._buffer.__setattr__(name, value[0])
 

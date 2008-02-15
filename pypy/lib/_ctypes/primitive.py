@@ -73,6 +73,7 @@ class SimpleType(_CDataMeta):
                     if isinstance(value, unicode):
                         value = value.encode(ConvMode.encoding,
                                              ConvMode.errors)
+                    self._objects = value
                     array = _rawffi.Array('c')(len(value)+1, value)
                     value = array.buffer
                     # XXX free 'array' later
@@ -95,6 +96,7 @@ class SimpleType(_CDataMeta):
                     if isinstance(value, str):
                         value = value.decode(ConvMode.encoding,
                                              ConvMode.errors)
+                    self._objects = value
                     array = _rawffi.Array('u')(len(value)+1, value)
                     value = array.buffer
                     # XXX free 'array' later
