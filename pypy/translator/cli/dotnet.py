@@ -386,7 +386,7 @@ def unbox(x, TYPE):
         else:
             return None
 
-    if isinstance(TYPE, ootype.OOType) and TYPE is not ootype.String:
+    if isinstance(TYPE, ootype.OOType) and TYPE is not ootype.String and not isinstance(TYPE, ootype.StaticMethod):
         try:
             return ootype.enforce(TYPE, x)
         except TypeError:
@@ -428,7 +428,7 @@ class Entry(ExtRegistryEntry):
 
     def compute_result_annotation(self, x_s, type_s):
         assert isinstance(x_s, SomeOOInstance)
-        assert x_s.ootype == CLR.System.Object._INSTANCE
+        assert isinstance(x_s.ootype, NativeInstance)
         assert type_s.is_constant()
         TYPE = type_s.const
         if isinstance(TYPE, (type, types.ClassType)):
@@ -436,6 +436,8 @@ class Entry(ExtRegistryEntry):
             # can_be_None == True because it can always return None, if it fails
             classdef = self.bookkeeper.getuniqueclassdef(TYPE)
             return SomeInstance(classdef, can_be_None=True)
+        elif isinstance(TYPE, ootype.StaticMethod):
+            return SomeOOStaticMeth(TYPE)
         elif isinstance(TYPE, ootype.OOType):
             return SomeOOInstance(TYPE)
         else:
@@ -596,12 +598,8 @@ class Entry(ExtRegistryEntry):
         else:
             cliClass = s_type.const
             TYPE = cliClass._INSTANCE
-        if isinstance(TYPE, ootype.StaticMethod):
-            assert ootype.isSubclass(s_value.ootype, CLR.System.Object._INSTANCE)
-            return SomeOOStaticMeth(TYPE)
-        else:
-            assert ootype.isSubclass(TYPE, s_value.ootype)
-            return SomeOOInstance(TYPE)
+        assert ootype.isSubclass(TYPE, s_value.ootype)
+        return SomeOOInstance(TYPE)
 
     def specialize_call(self, hop):
         assert isinstance(hop.args_s[0], annmodel.SomeOOInstance)

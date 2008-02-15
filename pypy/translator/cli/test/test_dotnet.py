@@ -538,7 +538,7 @@ class TestDotnetRtyping(CliTest):
             return myfunc
         
         def fn():
-            myfunc = clidowncast(build_fn(), FUNCTYPE)
+            myfunc = unbox(build_fn(), FUNCTYPE)
             return myfunc(30, 12)
         res = self.interpret(fn, [])
         assert res == 42
@@ -559,7 +559,7 @@ class TestDotnetRtyping(CliTest):
             return myfunc
 
         def fn():
-            myfunc = clidowncast(build_fn(), FUNCTYPE)
+            myfunc = unbox(build_fn(), FUNCTYPE)
             return myfunc(30, 12)
         res = self.interpret(fn, [])
         assert res == 42
