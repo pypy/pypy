@@ -176,6 +176,17 @@ def push_arg_as_ffiptr(ffitp, arg, ll_buf):
     buf[0] = arg
 push_arg_as_ffiptr._annspecialcase_ = 'specialize:argtype(1)'
 
+
+# type defs for callback and closure userdata
+USERDATA_P = lltype.Ptr(lltype.ForwardReference())
+CALLBACK_TP = lltype.Ptr(lltype.FuncType([rffi.VOIDPP, rffi.VOIDP, USERDATA_P],
+                                         lltype.Void))
+USERDATA_P.TO.become(lltype.Struct('userdata',
+                                   ('callback', CALLBACK_TP),
+                                   ('addarg', rffi.INT),
+                                   hints={'callback':True}))
+
+
 def ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     """ Callback specification.
     ffi_cif - something ffi specific, don't care
@@ -214,24 +225,18 @@ class AbstractFuncPtr(object):
             lltype.free(self.ll_argtypes, flavor='raw')
             self.ll_argtypes = lltype.nullptr(FFI_TYPE_PP.TO)
 
-USERDATA_P = lltype.Ptr(lltype.GcForwardReference())
-CALLBACK_TP = lltype.Ptr(lltype.FuncType([rffi.VOIDPP, rffi.VOIDP, USERDATA_P],
-                                         lltype.Void))
-USERDATA_P.TO.become(lltype.GcStruct('userdata',
-                                     ('callback', CALLBACK_TP),
-                                     ('addarg', rffi.INT),
-                                     hints={'callback':True}))
-
 # as long as CallbackFuncPtr is kept alive, the underlaying userdata
 # is kept alive as well
 class CallbackFuncPtr(AbstractFuncPtr):
     ll_closure = lltype.nullptr(FFI_CLOSUREP.TO)
     ll_userdata = lltype.nullptr(USERDATA_P.TO)
 
+    # additional_arg should really be a non-heap type like a integer,
+    # it cannot be any kind of movable gc reference
     def __init__(self, argtypes, restype, func, additional_arg=0):
         AbstractFuncPtr.__init__(self, "callback", argtypes, restype)
         self.ll_closure = lltype.malloc(FFI_CLOSUREP.TO, flavor='raw')
-        self.ll_userdata = lltype.malloc(USERDATA_P.TO)
+        self.ll_userdata = lltype.malloc(USERDATA_P.TO, flavor='raw')
         self.ll_userdata.callback = rffi.llhelper(CALLBACK_TP, func)
         self.ll_userdata.addarg = additional_arg
         res = c_ffi_prep_closure(self.ll_closure, self.ll_cif,
@@ -245,8 +250,8 @@ class CallbackFuncPtr(AbstractFuncPtr):
         if self.ll_closure:
             lltype.free(self.ll_closure, flavor='raw')
             self.ll_closure = lltype.nullptr(FFI_CLOSUREP.TO)
-        # note that ll_userdata is a GC object and therefore does not need to
-        # be explicitely freed
+            lltype.free(self.ll_userdata, flavor='raw')
+            self.ll_userdata = lltype.nullptr(USERDATA_P.TO)
 
 class RawFuncPtr(AbstractFuncPtr):
 
