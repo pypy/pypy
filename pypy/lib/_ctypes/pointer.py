@@ -94,10 +94,11 @@ class _Pointer(_CData):
     def __getitem__(self, index):
         if isinstance(index, slice):
             return self._slice_getitem(index)
-        return self._type_._CData_output(self._subarray(index))
+        return self._type_._CData_output(self._subarray(index), self, index)
 
     def __setitem__(self, index, value):
-        self._subarray(index)[0] = self._type_._CData_input(value)[0]
+        self._subarray(index)[0] = self._type_._CData_input(value, self,
+                                                            index)[0]
 
     def __nonzero__(self):
         return self._buffer[0] != 0

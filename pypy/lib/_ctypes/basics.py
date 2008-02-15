@@ -17,16 +17,18 @@ class _CDataMeta(type):
         else:
             return self.from_param(as_parameter)
 
-    def _CData_input(self, value):
+    def _CData_input(self, value, base=None, index=-1):
         """Used when data enters into ctypes from user code.  'value' is
         some user-specified Python object, which is converted into a _rawffi
         array of length 1 containing the same value according to the
         type 'self'.
         """
         cobj = self.from_param(value)
+        cobj.__dict__['_base'] = base
+        cobj.__dict__['_index'] = index
         return cobj._get_buffer_for_param()
 
-    def _CData_output(self, resarray):
+    def _CData_output(self, resarray, base=None, index=-1):
         assert isinstance(resarray, _rawffi.ArrayInstance)
         """Used when data exits ctypes and goes into user code.
         'resarray' is a _rawffi array of length 1 containing the value,
@@ -34,6 +36,8 @@ class _CDataMeta(type):
         """
         res = self.__new__(self)
         res.__dict__['_buffer'] = resarray
+        res.__dict__['_base'] = base
+        res.__dict__['_index'] = index
         return res.__ctypes_from_outparam__()
 
     def __mul__(self, other):
