@@ -79,6 +79,8 @@ class _Pointer(_CData):
             raise TypeError("expected %s instead of %s" % (
                 self._type_.__name__, type(value).__name__))
         self._objects = {keepalive_key(1):value}
+        if getattr(value, '_objects', None):
+            self._objects[keepalive_key(0)] = value._objects
         value = value._buffer
         self._buffer[0] = value
 

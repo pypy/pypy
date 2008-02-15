@@ -41,6 +41,16 @@ class TestKeepalive:
         assert c_char_p("abc")._objects == "abc"
         assert c_int(3)._objects is None
 
+    def test_pointer_to_pointer(self):
+        l = c_long(2)
+        assert l._objects is None
+
+        p1 = pointer(l)
+        assert p1._objects == {'1':l}
+
+        p2 = pointer(p1)
+        assert p2._objects == {'1':p1, '0':{'1':l}}
+
     def test_cfunc(self):
         def f():
             pass
