@@ -26,6 +26,8 @@ class _CDataMeta(type):
         type 'self'.
         """
         cobj = self.from_param(value)
+        # XXX this function segfaults randomly, because
+        # cobj is considered to be an owner of that, fix
         return cobj._get_buffer_for_param()
 
     def _CData_output(self, resarray, base=None, index=-1):
