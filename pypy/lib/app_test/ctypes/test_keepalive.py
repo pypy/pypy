@@ -37,7 +37,12 @@ class TestKeepalive:
         assert p._objects.keys() == ['1']
         assert p._objects['1'].value == 3
 
-    def test_char_p(self):
+    def test_primitive(self):
         assert c_char_p("abc")._objects == "abc"
         assert c_int(3)._objects is None
-    
+
+    def test_cfunc(self):
+        def f():
+            pass
+        cf = CFUNCTYPE(c_int, c_int)(f)
+        assert cf._objects == {'0':cf}
