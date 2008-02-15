@@ -250,6 +250,7 @@ class CallbackFuncPtr(AbstractFuncPtr):
         if self.ll_closure:
             lltype.free(self.ll_closure, flavor='raw')
             self.ll_closure = lltype.nullptr(FFI_CLOSUREP.TO)
+        if self.ll_userdata:
             lltype.free(self.ll_userdata, flavor='raw')
             self.ll_userdata = lltype.nullptr(USERDATA_P.TO)
 
