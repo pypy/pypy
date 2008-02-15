@@ -118,6 +118,7 @@ class SimpleType(_CDataMeta):
                 if isinstance(value, str):
                     array = _rawffi.Array('c')(len(value)+1, value)
                     value = array.buffer
+                    self._objects = value
                     # XXX free 'array' later
                 elif value is None:
                     value = 0
