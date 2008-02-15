@@ -219,7 +219,7 @@ class _SimpleCData(_CData):
     def __nonzero__(self):
         return self._buffer[0] not in (0, '\x00')
 
-    def __del__(self):
+    def delete(self):
         if self._needs_free:
             self._needs_free = False
             self._buffer.free()

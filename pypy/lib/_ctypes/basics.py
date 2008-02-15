@@ -99,7 +99,6 @@ def cdata_from_address(self, address):
     # fix the address, in case it's unsigned
     address = address & (sys.maxint * 2 + 1)
     instance = self.__new__(self)
-    instance._objects = []
     lgt = getattr(self, '_length_', 1)
     instance._buffer = self._ffiarray.fromaddress(address, lgt)
     return instance

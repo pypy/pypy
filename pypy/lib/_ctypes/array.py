@@ -110,7 +110,6 @@ class Array(_CData):
     def __init__(self, *args):
         self._buffer = self._ffiarray(self._length_)
         self._needs_free = True
-        self._objects = []
         for i, arg in enumerate(args):
             self[i] = arg
 
@@ -136,7 +135,6 @@ class Array(_CData):
         if isinstance(index, slice):
             self._slice_setitem(index, value)
             return
-        self._objects.append(value) # keepalive value
         value = self._type_._CData_input(value)
         index = self._fix_index(index)
         if not isinstance(self._type_._ffishape, tuple):
@@ -160,7 +158,7 @@ class Array(_CData):
     def _get_buffer_for_param(self):
         return self._buffer.byptr()
 
-    def __del__(self):
+    def delete(self):
         if self._needs_free:
             self._buffer.free()
             self._buffer = None

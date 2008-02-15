@@ -56,7 +56,6 @@ class PointerType(_CDataMeta):
         def __init__(self, value=None):
             self._buffer = ffiarray(1)
             self._needs_free = True
-            self._objects = [value] # keepalive value
             if value is not None:
                 self.contents = value
         self._ffiarray = ffiarray
@@ -80,7 +79,6 @@ class _Pointer(_CData):
             raise TypeError("expected %s instead of %s" % (
                 self._type_.__name__, type(value).__name__))
         value = value._buffer
-        self._objects = [value]
         self._buffer[0] = value
 
     _get_slice_params = array_get_slice_params
@@ -99,13 +97,12 @@ class _Pointer(_CData):
         return self._type_._CData_output(self._subarray(index))
 
     def __setitem__(self, index, value):
-        self._objects = [value]
         self._subarray(index)[0] = self._type_._CData_input(value)[0]
 
     def __nonzero__(self):
         return self._buffer[0] != 0
 
-    def __del__(self):
+    def delete(self):
         if self._needs_free:
             self._buffer.free()
             self._needs_free = False
