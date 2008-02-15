@@ -40,6 +40,7 @@ class CFuncPtr(_CData):
     def __init__(self, argument=None):
         self.callable = None
         self.name = None
+        self._objects = {'0':self}
         if isinstance(argument, int):
             self._buffer = _rawffi.Array('P').fromaddress(argument, 1)
             # XXX finish this one, we need to be able to jump there somehow
