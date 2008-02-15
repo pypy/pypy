@@ -117,6 +117,7 @@ class StructureMeta(_CDataMeta):
                 self.__setattr__(name, arg)
             for name, arg in kwds.items():
                 self.__setattr__(name, arg)
+            self.__dict__['_objects'] = {}
         res.__init__ = __init__
 
 
@@ -163,6 +164,9 @@ class Structure(_CData):
             fieldtype = self._fieldtypes[name].ctype
         except KeyError:
             raise AttributeError(name)
+        if getattr(value, '_objects', None):
+            self._objects[str(getattr(self.__class__, name).offset)] = \
+                                                      value._objects
         value = fieldtype._CData_input(value)
         self._buffer.__setattr__(name, value[0])
 

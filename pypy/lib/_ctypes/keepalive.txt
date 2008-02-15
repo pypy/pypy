@@ -32,5 +32,3 @@ places storing stuff in _objects:
 * set contents on pointer
 
 * set value on primitive or __init__ on primitive
-
-    
