@@ -177,8 +177,9 @@ class Structure(_CData):
             fieldtype = self._fieldtypes[name].ctype
         except KeyError:
             return _CData.__getattribute__(self, name)
+        offset = self.__class__._fieldtypes[name].offset
         return fieldtype._CData_output(self._subarray(fieldtype, name), self,
-                                       getattr(self.__class__, name).offset)
+                                       offset)
 
     def _get_buffer_for_param(self):
         return self._buffer.byptr()
