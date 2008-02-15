@@ -5,8 +5,8 @@ Few ctypes-related todo points:
 
   - for unions and structs, late assignement of _fields_ is somewhat buggy.
     Tests about behavior of getattr working properly on instances
-    are missing or not full. Some tests are skipped because I didn't understand
-    details.
+    are missing or not comprehensive. Some tests are skipped because I didn't
+    understand the details.
 
   - restype being a function is not working.
 
