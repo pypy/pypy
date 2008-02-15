@@ -27,3 +27,12 @@ class TestKeepalive:
         assert x.x._objects is None
         assert p._objects == {'1': u}
         assert x._objects == {'0': p._objects}
+
+    def test_pointer_setitem(self):
+        x = c_int(2)
+        y = c_int(3)
+        p = pointer(x)
+        assert p._objects == {'1':x}
+        p[0] = y
+        assert p._objects.keys() == ['1']
+        assert p._objects['1'].value == 3
