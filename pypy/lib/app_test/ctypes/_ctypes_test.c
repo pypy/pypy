@@ -8,11 +8,11 @@
 #define EXPORT(x) x
 #endif
 
-#include <wchar.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <wchar.h>
+#include <stdio.h>
 
 #define HAVE_LONG_LONG
 #define LONG_LONG long long
