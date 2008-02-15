@@ -1,7 +1,8 @@
 
 import _rawffi
 
-from _ctypes.basics import _CData, cdata_from_address, _CDataMeta, sizeof
+from _ctypes.basics import _CData, cdata_from_address, _CDataMeta, sizeof,\
+     keepalive_key
 
 def _create_unicode(buffer, maxlength):
     res = []
@@ -138,7 +139,7 @@ class Array(_CData):
             return
         index = self._fix_index(index)
         if getattr(value, '_objects', None):
-            self._objects[str(index)] = value._objects
+            self._objects[keepalive_key(index)] = value._objects
         value = self._type_._CData_input(value)
         if not isinstance(self._type_._ffishape, tuple):
             self._buffer[index] = value[0]

@@ -2,6 +2,8 @@
 import _rawffi
 import sys
 
+keepalive_key = str # XXX fix this when provided with test
+
 class ArgumentError(Exception):
     pass
 

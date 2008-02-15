@@ -1,7 +1,7 @@
 
 import _rawffi
 from _ctypes.basics import _CData, _CDataMeta, cdata_from_address
-from _ctypes.basics import sizeof, byref
+from _ctypes.basics import sizeof, byref, keepalive_key
 from _ctypes.array import Array, array_get_slice_params, array_slice_getitem,\
      array_slice_setitem
 
@@ -78,7 +78,7 @@ class _Pointer(_CData):
         if not isinstance(value, self._type_):
             raise TypeError("expected %s instead of %s" % (
                 self._type_.__name__, type(value).__name__))
-        self._objects = {'1':value}
+        self._objects = {keepalive_key(1):value}
         value = value._buffer
         self._buffer[0] = value
 
