@@ -103,7 +103,7 @@ class _Pointer(_CData):
     def __nonzero__(self):
         return self._buffer[0] != 0
 
-    def delete(self):
+    def __del__(self):
         if self._needs_free:
             self._buffer.free()
             self._needs_free = False

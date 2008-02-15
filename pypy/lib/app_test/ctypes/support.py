@@ -9,7 +9,7 @@ class BaseCTypesTestChecker:
             cls.old_num = _rawffi._num_of_allocated_objects()
     
     def teardown_class(cls):
-        return
+        #return
         try:
             import _rawffi
         except ImportError:

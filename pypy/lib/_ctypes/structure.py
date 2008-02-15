@@ -183,7 +183,7 @@ class Structure(_CData):
     def _get_buffer_for_param(self):
         return self._buffer.byptr()
 
-    def delete(self):
+    def __del__(self):
         if self._needs_free:
             self._buffer.free()
             self.__dict__['_buffer'] = None
