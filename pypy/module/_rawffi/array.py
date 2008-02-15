@@ -115,6 +115,8 @@ class W_ArrayInstance(W_DataInstance):
     # XXX don't allow negative indexes, nor slices
 
     def setitem(self, space, num, w_value):
+        if not self.ll_buffer:
+            raise segfault_exception(space, "setting element of freed array")
         if num >= self.length or num < 0:
             raise OperationError(space.w_IndexError, space.w_None)
         unwrap_value(space, push_elem, self.ll_buffer, num, self.shape.itemtp,
@@ -122,6 +124,8 @@ class W_ArrayInstance(W_DataInstance):
     setitem.unwrap_spec = ['self', ObjSpace, int, W_Root]
 
     def getitem(self, space, num):
+        if not self.ll_buffer:
+            raise segfault_exception(space, "accessing elements of freed array")
         if num >= self.length or num < 0:
             raise OperationError(space.w_IndexError, space.w_None)
         return wrap_value(space, get_elem, self.ll_buffer, num,

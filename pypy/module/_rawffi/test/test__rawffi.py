@@ -587,3 +587,19 @@ class AppTestFfi:
         raises(ValueError, lib.getprimitive, 'z', 'ddddddd')
         raises(ValueError, lib.getprimitive, 'zzz', 'static_int')
 
+    def test_segfault_exception(self):
+        import _rawffi
+        S = _rawffi.Structure([('x', 'i')])
+        s = S()
+        s.x = 3
+        s.free()
+        raises(_rawffi.SegfaultException, s.__getattr__, 'x')
+        raises(_rawffi.SegfaultException, s.__setattr__, 'x', 3)
+        A = _rawffi.Array('c')
+        a = A(13)
+        a.free()
+        raises(_rawffi.SegfaultException, a.__getitem__, 3)
+        raises(_rawffi.SegfaultException, a.__setitem__, 3, 3)
+        
+        
+        
