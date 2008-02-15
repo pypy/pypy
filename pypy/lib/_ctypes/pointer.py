@@ -78,6 +78,7 @@ class _Pointer(_CData):
         if not isinstance(value, self._type_):
             raise TypeError("expected %s instead of %s" % (
                 self._type_.__name__, type(value).__name__))
+        self._objects = {'1':value}
         value = value._buffer
         self._buffer[0] = value
 

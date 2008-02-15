@@ -57,6 +57,7 @@ class _CData(object):
     """ The most basic object for all ctypes types
     """
     __metaclass__ = _CDataMeta
+    _objects = None
 
     def __init__(self, *args, **kwds):
         raise TypeError("%s has no type" % (type(self),))
