@@ -5,10 +5,10 @@ from pypy.jit.codegen.model import AbstractRGenOp, GenBuilder, GenLabel
 from pypy.jit.codegen.model import GenVarOrConst, GenVar, GenConst, CodeGenSwitch
 from pypy.jit.codegen.cli import operation as ops
 from pypy.jit.codegen.cli.dumpgenerator import DumpGenerator
-from pypy.translator.cli.dotnet import CLR, typeof, new_array, clidowncast
+from pypy.translator.cli.dotnet import CLR, typeof, new_array, box, unbox
 System = CLR.System
 Utils = CLR.pypy.runtime.Utils
-Constants = CLR.pypy.runtime.Constants
+DelegateHolder = CLR.pypy.runtime.DelegateHolder
 OpCodes = System.Reflection.Emit.OpCodes
 
 DUMP_IL = False
@@ -112,53 +112,67 @@ class IntConst(GenConst):
     def __repr__(self):
         return "const=%s" % self.value
 
-class FunctionConst(GenConst):
-    
-    def __init__(self, num):
-        self.num = num
-        self.fieldname = "const" + str(num)
+class BaseConst(GenConst):
+
+    def _get_index(self, builder):
+        # check whether there is already an index associated to this const
+        try:
+            index = builder.genconsts[self]
+        except KeyError:
+            index = len(builder.genconsts)
+            builder.genconsts[self] = index
+        return index
+
+    def _load_from_array(self, builder, index, clitype):
+        builder.il.Emit(OpCodes.Ldarg_0)
+        builder.il.Emit(OpCodes.Ldc_I4, index)
+        builder.il.Emit(OpCodes.Ldelem_Ref)
+        builder.il.Emit(OpCodes.Castclass, clitype)
 
     def getobj(self):
-        t = typeof(Constants)
-        return t.GetField(self.fieldname).GetValue(None)
+        raise NotImplementedError
 
-    def setobj(self, obj):
-        t = typeof(Constants)
-        t.GetField(self.fieldname).SetValue(None, obj)
-
-    def load(self, builder):
-        t = typeof(Constants)
-        field = t.GetField(self.fieldname)
-        builder.il.Emit(OpCodes.Ldsfld, field)
-
-    @specialize.arg(1)
-    def revealconst(self, T):
-        return clidowncast(self.getobj(), T)
-
-class ObjectConst(GenConst):
+class ObjectConst(BaseConst):
 
     def __init__(self, obj):
         self.obj = obj
 
-    def load(self, builder):
-        # check whether there is already an index associated to this const
-        try:
-            index = builder.genconsts[self.obj]
-        except KeyError:
-            index = len(builder.genconsts)
-            builder.genconsts[self.obj] = index
+    def getobj(self):
+        return self.obj
 
+    def load(self, builder):
+        index = self._get_index(builder)
         t = self.obj.GetType()
-        builder.il.Emit(OpCodes.Ldarg_0)
-        builder.il.Emit(OpCodes.Ldc_i4, index)
-        builder.il.Emit(OpCodes.Ldelem_ref)
-        builder.il.Emit(OpCodes.Castclass, t)
+        self._load_from_array(builder, index, t)
 
     @specialize.arg(1)
     def revealconst(self, T):
         assert isinstance(T, ootype.OOType)
-        return ootype.oodowncast(T, self.obj)
+        return unbox(self.obj, T)
 
+
+class FunctionConst(BaseConst):
+
+    def __init__(self, delegatetype):
+        self.holder = DelegateHolder()
+        self.delegatetype = delegatetype
+
+    def getobj(self):
+        return self.holder
+
+    def load(self, builder):
+        holdertype = box(self.holder).GetType()
+        funcfield = holdertype.GetField('func')
+        delegatetype = self.delegatetype
+        index = self._get_index(builder)
+        self._load_from_array(builder, index, holdertype)
+        builder.il.Emit(OpCodes.Ldfld, funcfield)
+        builder.il.Emit(OpCodes.Castclass, delegatetype)
+
+    @specialize.arg(1)
+    def revealconst(self, T):
+        assert isinstance(T, ootype.OOType)
+        return unbox(self.holder.GetFunc(), T)
 
 class Label(GenLabel):
     def __init__(self, label, inputargs_gv):
@@ -173,12 +187,6 @@ class RCliGenOp(AbstractRGenOp):
         self.il = None
         self.constcount = 0
 
-    def newconst(self, cls):
-        assert self.constcount < 3 # the number of static fields declared in Constants
-        res = cls(self.constcount)
-        self.constcount += 1
-        return res
-
     @specialize.genconst(1)
     def genconst(self, llvalue):
         T = ootype.typeOf(llvalue)
@@ -187,7 +195,7 @@ class RCliGenOp(AbstractRGenOp):
         elif T is ootype.Bool:
             return IntConst(int(llvalue))
         elif isinstance(T, ootype.OOType):
-            return ObjectConst(llvalue)
+            return ObjectConst(box(llvalue))
         else:
             assert False, "XXX not implemented"
 
@@ -229,8 +237,8 @@ class Builder(GenBuilder):
         # we start from 1 because the 1st arg is an Object[] containing the genconsts
         for i in range(1, len(args)):
             self.inputargs_gv.append(GenArgVar(i, args[i]))
-        self.gv_entrypoint = self.rgenop.newconst(FunctionConst)
-        self.sigtoken = sigtoken
+        self.delegatetype = sigtoken2clitype(sigtoken)
+        self.gv_entrypoint = FunctionConst(self.delegatetype)
         self.isOpen = False
         self.operations = []
         self.branches = []
@@ -250,7 +258,6 @@ class Builder(GenBuilder):
             self.il.EmitWriteLine('')
         return gv_res
     
-
     @specialize.arg(1)
     def genop2(self, opname, gv_arg1, gv_arg2):
         opcls = ops.getopclass2(opname)
@@ -322,12 +329,11 @@ class Builder(GenBuilder):
 
         # initialize the array of genconsts
         consts = new_array(System.Object, len(self.genconsts))
-        for obj, i in self.genconsts.iteritems():
-            consts[i] = obj
+        for gv_const, i in self.genconsts.iteritems():
+            consts[i] = gv_const.getobj()
         # build the delegate
-        delegate_type = sigtoken2clitype(self.sigtoken)
-        myfunc = self.meth.CreateDelegate(delegate_type, consts)
-        self.gv_entrypoint.setobj(myfunc)
+        myfunc = self.meth.CreateDelegate(self.delegatetype, consts)
+        self.gv_entrypoint.holder.SetFunc(myfunc)
 
     def enter_next_block(self, kinds, args_gv):
         for i in range(len(args_gv)):
@@ -360,6 +366,7 @@ class BranchBuilder(Builder):
         self.il = parent.il
         self.operations = []
         self.isOpen = False
+        self.genconsts = parent.genconsts
 
     def start_writing(self):
         self.isOpen = True

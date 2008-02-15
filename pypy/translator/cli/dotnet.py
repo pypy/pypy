@@ -445,7 +445,8 @@ class Entry(ExtRegistryEntry):
             return OverloadingResolver.lltype_to_annotation(TYPE)
 
     def specialize_call(self, hop):
-        TYPE = hop.args_v[1].value
+        assert hop.args_s[1].is_constant()
+        TYPE = hop.args_s[1].const
         v_obj = hop.inputarg(hop.args_r[0], arg=0)
         if TYPE is ootype.String or isinstance(TYPE, (type, types.ClassType)) or isinstance(TYPE, ootype.OOType):
             return hop.genop('oodowncast', [v_obj], hop.r_result.lowleveltype)

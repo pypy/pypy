@@ -61,12 +61,12 @@ class TestRCliGenop(AbstractRGenOpTests):
     def getcompiled(self, fn, annotation, annotatorpolicy):
         return compile_function(fn, annotation,
                                 annotatorpolicy=annotatorpolicy,
-                                nowrap=True)
+                                nowrap=False)
 
     def cast(self, gv, nb_args):
         "NOT_RPYTHON"
         def fn(*args):
-            return gv.getobj().Invoke(*args)
+            return gv.getobj().func.Invoke(*args)
         return fn
 
     def directtesthelper(self, FUNCTYPE, func):

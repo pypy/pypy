@@ -59,11 +59,21 @@ namespace pypy.test
 
 namespace pypy.runtime
 {
-    public class Constants
+
+    public class DelegateHolder
     {
-        public static object const0;
-        public static object const1;
-        public static object const2;
+        public Delegate func;
+
+        // we need getter and setter because we can't directly access fields from RPython
+        public void SetFunc(Delegate func)
+        {
+            this.func = func;
+        }
+
+        public Delegate GetFunc()
+        {
+            return this.func;
+        }
     }
 
     public class Utils
