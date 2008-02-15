@@ -19,7 +19,10 @@ class AbstractTestAsmGCRoot:
             except MemoryError:
                 print 'Result: MemoryError'
             else:
-                print 'Result:', res
+                if isinstance(res, int):
+                    print 'Result:', res
+                else:
+                    print 'Result: "%s"' % (res,)
             return 0
         from pypy.config.pypyoption import get_pypy_config
         config = get_pypy_config(translating=True)
@@ -54,6 +57,8 @@ class AbstractTestAsmGCRoot:
             result = lines[-1][len('Result:'):].strip()
             if result == 'MemoryError':
                 raise MemoryError("subprocess got an RPython MemoryError")
+            if result.startswith('"') and result.endswith('"'):
+                return result[1:-1]
             else:
                 return int(result)
         return run
