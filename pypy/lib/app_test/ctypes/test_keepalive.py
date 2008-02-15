@@ -1,3 +1,4 @@
+import py
 
 from ctypes import *
 
@@ -56,3 +57,21 @@ class TestKeepalive:
             pass
         cf = CFUNCTYPE(c_int, c_int)(f)
         assert cf._objects == {'0':cf}
+    
+    def test_array_of_struct_with_pointer(self):
+        py.test.skip("explodes right now")
+        class S(Structure):
+            _fields_ = [('x', c_int)]
+        PS = POINTER(S)
+
+        class Q(Structure):
+            _fields_ = [('p', PS)]
+
+        A = Q*10
+        a=A()
+        s=S()
+        s.x=3
+        a[3].p = pointer(s)
+
+        print a._objects
+        
