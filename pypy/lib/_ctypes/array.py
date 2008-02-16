@@ -72,6 +72,9 @@ class ArrayMeta(_CDataMeta):
 
     def from_param(self, value):
         # check for iterable
+        # shortcut
+        if isinstance(value, self):
+            return value
         try:
             iter(value)
         except ValueError:
