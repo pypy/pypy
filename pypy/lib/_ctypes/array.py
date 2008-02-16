@@ -70,20 +70,6 @@ class ArrayMeta(_CDataMeta):
     def _alignmentofinstances(self):
         return self._type_._alignmentofinstances()
 
-    def from_param(self, value):
-        # check for iterable
-        # shortcut
-        if isinstance(value, self):
-            return value
-        try:
-            iter(value)
-        except ValueError:
-            return _CDataMeta.from_param(self, value)
-        else:
-            if len(value) > self._length_:
-                raise ValueError("%s too long" % (value,))
-            return self(*value)
-
 def array_get_slice_params(self, index):
     if index.step is not None:
         raise TypeError("3 arg slices not supported (for no reason)")
