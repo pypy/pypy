@@ -129,7 +129,7 @@ class Array(_CData):
         index = self._fix_index(index)
         if getattr(value, '_objects', None):
             self._objects[keepalive_key(index)] = value._objects
-        value = self._type_._CData_input(value)
+        cobj, value = self._type_._CData_input(value)
         if not isinstance(self._type_._ffishape, tuple):
             self._buffer[index] = value[0]
             # something more sophisticated, cannot set field directly

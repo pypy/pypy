@@ -79,6 +79,6 @@ class Union(_CData):
             fieldtype = self._fieldtypes[name].ctype
         except KeyError:
             raise AttributeError(name)
-        value = fieldtype._CData_input(value)
+        cobj, value = fieldtype._CData_input(value)
         buf = self._ffiarrays[name].fromaddress(self._buffer.buffer, 1)
         buf[0] = value[0]

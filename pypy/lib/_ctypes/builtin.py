@@ -11,7 +11,8 @@ _memset_addr = ('memset', 'libc.so.6')
 def _string_at_addr(addr, lgt):
     # address here can be almost anything
     import ctypes
-    obj = ctypes.c_char_p._CData_input(addr)[0]
+    cobj, arg = ctypes.c_char_p._CData_input(addr)
+    obj = arg[0]
     return _rawffi.charp2rawstring(obj, lgt)
 
 def set_conversion_mode(encoding, errors):
@@ -22,7 +23,8 @@ def set_conversion_mode(encoding, errors):
 
 def _wstring_at_addr(addr, lgt):
     import ctypes
-    obj = ctypes.c_wchar_p._CData_input(addr)[0]
+    cobj, arg = ctypes.c_wchar_p._CData_input(addr)
+    obj = arg[0]
     # XXX purely applevel
     if lgt == -1:
         lgt = sys.maxint

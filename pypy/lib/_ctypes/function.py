@@ -77,7 +77,8 @@ class CFuncPtr(_CData):
                 argtypes = argtypes[:] + self._guess_argtypes(args[cut:])
         restype = self._restype_
         funcptr = self._getfuncptr(argtypes, restype)
-        resarray = funcptr(*self._wrap_args(argtypes, args))
+        args = self._wrap_args(argtypes, args)
+        resarray = funcptr(*[arg for obj, arg in args])
         if restype is not None:
             return restype._CData_output(resarray)
 
