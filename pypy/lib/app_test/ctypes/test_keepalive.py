@@ -39,7 +39,7 @@ class TestKeepalive:
         assert p._objects['1'].value == 3
 
     def test_primitive(self):
-        assert c_char_p("abc")._objects == "abc"
+        assert c_char_p("abc")._objects['0']._buffer[0] == "a"
         assert c_int(3)._objects is None
 
     def test_pointer_to_pointer(self):

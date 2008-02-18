@@ -11,7 +11,7 @@ def setup_module(mod):
     import conftest
     mod._ctypes_test = str(conftest.sofile)
 
-class TestPointers:
+class TestPointers(BaseCTypesTestChecker):
     def test_pointer_crash(self):
 
         class A(POINTER(c_ulong)):

@@ -349,7 +349,7 @@ class TestStructure(BaseCTypesTestChecker):
         assert "from_address" in dir(type(Structure))
         assert "in_dll" in dir(type(Structure))
 
-class TestPointerMember:#(BaseCTypesTestChecker):
+class TestPointerMember(BaseCTypesTestChecker):
 
     def test_1(self):
         # a Structure with a POINTER field

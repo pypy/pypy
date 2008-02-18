@@ -2,8 +2,9 @@
 import py
 import sys
 from ctypes import *
+from support import BaseCTypesTestChecker
 
-class TestMemFunctions:
+class TestMemFunctions(BaseCTypesTestChecker):
     def test_memmove(self):
         # large buffers apparently increase the chance that the memory
         # is allocated in high address space.

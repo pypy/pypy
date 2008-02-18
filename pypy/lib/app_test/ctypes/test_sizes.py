@@ -1,8 +1,9 @@
 # Test specifically-sized containers.
 
 from ctypes import *
+from support import BaseCTypesTestChecker
 
-class TestSizes:
+class TestSizes(BaseCTypesTestChecker):
     def test_8(self):
         assert 1 == sizeof(c_int8)
         assert 1 == sizeof(c_uint8)

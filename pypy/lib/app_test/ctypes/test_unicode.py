@@ -1,6 +1,7 @@
 # coding: latin-1
 import ctypes
 import py
+from support import BaseCTypesTestChecker
 
 try:
     ctypes.c_wchar
@@ -14,7 +15,7 @@ else:
         mod.wcslen.argtypes = [ctypes.c_wchar_p]
         mod.func = dll._testfunc_p_p
 
-    class TestUnicode:
+    class TestUnicode(BaseCTypesTestChecker):
         def setup_method(self, method):
             self.prev_conv_mode = ctypes.set_conversion_mode("ascii", "strict")
 
@@ -109,5 +110,3 @@ else:
             # is that correct? not sure.  But with 'ignore', you get what you pay for..
             assert buf[:] == "ab\0\0\0\0"
 
-if __name__ == '__main__':
-    unittest.main()
