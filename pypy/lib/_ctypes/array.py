@@ -143,8 +143,7 @@ class Array(_CData):
         if isinstance(index, slice):
             return self._slice_getitem(index)
         index = self._fix_index(index)
-        return self._type_._CData_output(self._subarray(index), self,
-                                         self._ffiarray.gettypecode(index)[0])
+        return self._type_._CData_output(self._subarray(index), self, index)
 
     def __len__(self):
         return self._length_

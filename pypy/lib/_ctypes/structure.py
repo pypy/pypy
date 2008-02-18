@@ -1,6 +1,7 @@
 
 import _rawffi
-from _ctypes.basics import _CData, _CDataMeta, keepalive_key
+from _ctypes.basics import _CData, _CDataMeta, keepalive_key,\
+     store_reference
 import inspect
 
 def round_up(size, alignment):
@@ -166,7 +167,7 @@ class Structure(_CData):
             raise AttributeError(name)
         if getattr(value, '_objects', None):
             key = keepalive_key(getattr(self.__class__, name).offset)
-            self.__dict__['_objects'][key] = value._objects
+            store_reference(self, key, value._objects)
         cobj, value = fieldtype._CData_input(value)
         self._buffer.__setattr__(name, value[0])
 

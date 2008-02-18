@@ -4,6 +4,19 @@ import sys
 
 keepalive_key = str # XXX fix this when provided with test
 
+def store_reference(where, base_key, target):
+    #self.__dict__['_objects'][key] = value._objects
+    if '_objects' in where.__dict__:
+        # shortcut
+        where.__dict__['_objects'][str(base_key)] = target
+        return
+    key = [base_key]
+    while not '_objects' in where.__dict__:
+        key.append(where.__dict__['_index'])
+        where = where.__dict__['_base']
+    real_key = ":".join([str(i) for i in key])
+    where.__dict__['_objects'][real_key] = target
+
 class ArgumentError(Exception):
     pass
 
