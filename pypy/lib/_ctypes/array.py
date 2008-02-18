@@ -2,7 +2,7 @@
 import _rawffi
 
 from _ctypes.basics import _CData, cdata_from_address, _CDataMeta, sizeof,\
-     keepalive_key
+     keepalive_key, CArgObject
 
 def _create_unicode(buffer, maxlength):
     res = []
@@ -129,14 +129,14 @@ class Array(_CData):
         index = self._fix_index(index)
         if getattr(value, '_objects', None):
             self._objects[keepalive_key(index)] = value._objects
-        cobj, value = self._type_._CData_input(value)
+        cobj, arg = self._type_._CData_input(value)
         if not isinstance(self._type_._ffishape, tuple):
-            self._buffer[index] = value[0]
+            self._buffer[index] = arg._buffer[0]
             # something more sophisticated, cannot set field directly
         else:
             from ctypes import memmove
             dest = self._buffer.itemaddress(index)
-            source = value[0]
+            source = arg._buffer[0]
             memmove(dest, source, self._type_._ffishape[0])
 
     def __getitem__(self, index):
@@ -149,7 +149,7 @@ class Array(_CData):
         return self._length_
 
     def _get_buffer_for_param(self):
-        return self._buffer.byptr()
+        return CArgObject(self._buffer.byptr())
 
     def __del__(self):
         if self._needs_free:

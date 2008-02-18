@@ -39,11 +39,9 @@ class _CDataMeta(type):
         type 'self'.
         """
         cobj = self.from_param(value)
-        # XXX this function segfaults randomly, because
-        # cobj is considered to be an owner of that, fix
         return cobj, cobj._get_buffer_for_param()
 
-    def _CData_output(self, resarray, base=None, index=-1):
+    def _CData_output(self, resarray, base=None, index=-1, needs_free=False):
         assert isinstance(resarray, _rawffi.ArrayInstance)
         """Used when data exits ctypes and goes into user code.
         'resarray' is a _rawffi array of length 1 containing the value,
@@ -53,6 +51,7 @@ class _CDataMeta(type):
         res.__dict__['_buffer'] = resarray
         res.__dict__['_base'] = base
         res.__dict__['_index'] = index
+        res.__dict__['_needs_free'] = needs_free
         return res.__ctypes_from_outparam__()
 
     def __mul__(self, other):
@@ -68,6 +67,17 @@ class _CDataMeta(type):
         val._buffer = buffer
         return val
 
+class CArgObject(object):
+    """ simple wrapper around buffer, just for the case of freeing
+    it afterwards
+    """
+    def __init__(self, buffer):
+        self._buffer = buffer
+
+    def __del__(self):
+        self._buffer.free()
+        self._buffer = None
+
 class _CData(object):
     """ The most basic object for all ctypes types
     """
@@ -81,17 +91,7 @@ class _CData(object):
         return self
 
     def _get_buffer_for_param(self):
-        return self._buffer
-
-#class CArgObject(object):
-#    def __init__(self, letter, raw_value, _type):
-#        self.ffiletter = letter
-#        self._array = raw_value
-#        self._type = _type
-
-#    def __repr__(self):
-#        return "<cparam '%s' %r>" % (self.ffiletter, self._array[0])
-
+        return self
 
 def sizeof(tp):
     if not isinstance(tp, _CDataMeta):

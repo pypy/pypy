@@ -1,7 +1,7 @@
 
 import _rawffi
 from _ctypes.basics import _CData, _CDataMeta, keepalive_key,\
-     store_reference
+     store_reference, CArgObject
 import inspect
 
 def round_up(size, alignment):
@@ -168,8 +168,8 @@ class Structure(_CData):
         if getattr(value, '_objects', None):
             key = keepalive_key(getattr(self.__class__, name).offset)
             store_reference(self, key, value._objects)
-        cobj, value = fieldtype._CData_input(value)
-        self._buffer.__setattr__(name, value[0])
+        cobj, arg = fieldtype._CData_input(value)
+        self._buffer.__setattr__(name, arg._buffer[0])
 
     def __getattribute__(self, name):
         if name == '_fieldtypes':
@@ -183,7 +183,7 @@ class Structure(_CData):
                                        offset)
 
     def _get_buffer_for_param(self):
-        return self._buffer.byptr()
+        return CArgObject(self._buffer.byptr())
 
     def __del__(self):
         if self._needs_free:

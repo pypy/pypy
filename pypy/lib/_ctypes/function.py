@@ -78,9 +78,11 @@ class CFuncPtr(_CData):
         restype = self._restype_
         funcptr = self._getfuncptr(argtypes, restype)
         args = self._wrap_args(argtypes, args)
-        resarray = funcptr(*[arg for obj, arg in args])
+        resarray = funcptr(*[arg._buffer for obj, arg in args])
         if restype is not None:
-            return restype._CData_output(resarray)
+            return restype._CData_output(resarray, needs_free=True)
+        else:
+            resarray.free()
 
     def _getfuncptr(self, argtypes, restype):
         if restype is None:

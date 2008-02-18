@@ -101,7 +101,7 @@ class _Pointer(_CData):
 
     def __setitem__(self, index, value):
         cobj, arg = self._type_._CData_input(value)
-        self._subarray(index)[0] = arg[0]
+        self._subarray(index)[0] = arg._buffer[0]
 
     def __nonzero__(self):
         return self._buffer[0] != 0
