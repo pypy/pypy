@@ -122,6 +122,7 @@ def _cast_addr(obj, _, tp):
         ptr = tp.__new__(tp)
         ptr._buffer = tp._ffiarray(1)
         ptr._buffer[0] = obj._buffer
+        ptr._needs_free = True
         return ptr
     if isinstance(obj, (int, long)):
         result = tp()
@@ -132,4 +133,5 @@ def _cast_addr(obj, _, tp):
                         % (type(obj),))
     result = tp()
     result._buffer[0] = obj._buffer[0]
+    result._needs_free = True
     return result
