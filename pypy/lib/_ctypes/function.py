@@ -19,6 +19,7 @@ class CFuncPtr(_CData):
     _restype_ = None
     _ffiletter = 'P'
     _ffishape = 'P'
+    _needs_free = False
 
     def _getargtypes(self):
         return self._argtypes_
@@ -49,6 +50,7 @@ class CFuncPtr(_CData):
             argtypes = [arg._ffiletter for arg in self._argtypes_]
             restype = self._restype_._ffiletter
             self._ptr = _rawffi.CallbackPtr(argument, argtypes, restype)
+            self._needs_free = True
             self._buffer = self._ptr.byptr()
         elif isinstance(argument, tuple) and len(argument) == 2:
             import ctypes
@@ -118,3 +120,11 @@ class CFuncPtr(_CData):
                     zip(argtypes, args)]
         except (UnicodeError, TypeError), e:
             raise ArgumentError(str(e))
+
+    def __del__(self):
+        if self._needs_free:
+            self._buffer.free()
+            self._buffer = None
+            self._ptr.free()
+            self._ptr = None
+            self._needs_free = False
