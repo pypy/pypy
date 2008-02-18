@@ -88,5 +88,5 @@ class Union(_CData):
     def __del__(self):
         if self._needs_free:
             self._buffer.free()
-            self._buffer = None
-            self._needs_free = False
+            self.__dict__['_buffer'] = None
+            self.__dict__['_needs_free'] = False
