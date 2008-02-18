@@ -2,6 +2,7 @@ from ctypes import *
 from binascii import hexlify
 import re
 import py
+from support import BaseCTypesTestChecker
 
 def dump(obj):
     # helper function to dump memory contents in hex, with a hyphen
@@ -23,8 +24,9 @@ class Value(Structure):
 class Container(Structure):
     _fields_ = [("pvalues", POINTER(Value))]
 
-class TestOne:
+class TestOne(BaseCTypesTestChecker):
     def test(self):
+        from _rawffi import _num_of_allocated_objects as _num
         # create an array of 4 values
         val_array = (Value * 4)()
 

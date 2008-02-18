@@ -1,6 +1,7 @@
 from ctypes import *
+from support import BaseCTypesTestChecker
 
-class TestAnon:
+class TestAnon(BaseCTypesTestChecker):
 
     def test_anon(self):
         class ANON(Union):
