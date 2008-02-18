@@ -26,7 +26,6 @@ class Container(Structure):
 
 class TestOne(BaseCTypesTestChecker):
     def test(self):
-        from _rawffi import _num_of_allocated_objects as _num
         # create an array of 4 values
         val_array = (Value * 4)()
 

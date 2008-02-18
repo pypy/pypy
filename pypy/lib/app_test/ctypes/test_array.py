@@ -2,7 +2,6 @@
 import py
 from ctypes import *
 from support import BaseCTypesTestChecker
-import _rawffi
 
 formats = "bBhHiIlLqQfd"
 
