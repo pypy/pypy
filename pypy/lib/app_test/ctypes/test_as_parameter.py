@@ -1,5 +1,6 @@
 from ctypes import *
 import py
+from support import BaseCTypesTestChecker
 
 def setup_module(mod):
     import conftest
@@ -15,7 +16,7 @@ except NameError:
 class POINT(Structure):
     _fields_ = [("x", c_int), ("y", c_int)]
 
-class BasicTestWrap:
+class BasicTestWrap(BaseCTypesTestChecker):
     def wrap(self, param):
         return param
 
