@@ -6,6 +6,8 @@ class BaseCTypesTestChecker:
         except ImportError:
             pass
         else:
+            import gc
+            gc.collect()
             cls.old_num = _rawffi._num_of_allocated_objects()
     
     def teardown_class(cls):
@@ -17,5 +19,7 @@ class BaseCTypesTestChecker:
         else:
             import gc
             gc.collect()
+            gc.collect()
+            gc.collect()
             # there is one reference coming from the byref() above
-            assert _rawffi._num_of_allocated_objects() <= cls.old_num
+            assert _rawffi._num_of_allocated_objects() == cls.old_num

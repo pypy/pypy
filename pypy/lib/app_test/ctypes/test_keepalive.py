@@ -73,4 +73,4 @@ class TestKeepalive:
         a[3].p = pointer(s)
 
         assert a._objects['0:3']['1'] is s
-        
+

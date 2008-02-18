@@ -1,7 +1,8 @@
 
 from ctypes import *
+from support import BaseCTypesTestChecker
 
-class TestUnion:
+class TestUnion(BaseCTypesTestChecker):
     def test_getattr(self):
         class Stuff(Union):
             _fields_ = [('x', c_char), ('y', c_int)]

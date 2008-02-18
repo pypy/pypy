@@ -1,13 +1,15 @@
 
 import py
 from ctypes import *
+from support import BaseCTypesTestChecker
+import _rawffi
 
 formats = "bBhHiIlLqQfd"
 
 formats = c_byte, c_ubyte, c_short, c_ushort, c_int, c_uint, \
           c_long, c_ulonglong, c_float, c_double
 
-class TestArray:
+class TestArray(BaseCTypesTestChecker):
     def test_simple(self):
         # create classes holding simple numeric types, and check
         # various properties.
@@ -109,8 +111,14 @@ class TestArray:
             assert sz[:] == "foo"
             assert sz.value == "foo"
 
-class TestSophisticatedThings:
+class TestSophisticatedThings(BaseCTypesTestChecker):
     def test_array_of_structures(self):
+        import gc
+        gc.collect()
+        gc.collect()
+        gc.collect()
+        from _rawffi import _num_of_allocated_objects as _num
+        assert _num() == 3
         class X(Structure):
             _fields_ = [('x', c_int), ('y', c_int)]
 
@@ -120,4 +128,4 @@ class TestSophisticatedThings:
         x.y = 3
         y[1] = x
         assert y[1].y == 3
-    
+        
