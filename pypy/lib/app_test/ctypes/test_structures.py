@@ -161,7 +161,7 @@ class TestStructure(BaseCTypesTestChecker):
         # offset is always relative to the class...
 
     def test_packed(self):
-        py.test.skip("???")
+        py.test.skip("Custom alignment not supported")
         class X(Structure):
             _fields_ = [("a", c_byte),
                         ("b", c_longlong)]
@@ -203,7 +203,6 @@ class TestStructure(BaseCTypesTestChecker):
         raises(ValueError, type(Structure), "X", (Structure,), d)
 
     def test_initializers(self):
-        py.test.skip("Structures with inlined arrays")
         class Person(Structure):
             _fields_ = [("name", c_char*6),
                         ("age", c_int)]
@@ -235,7 +234,6 @@ class TestStructure(BaseCTypesTestChecker):
         raises(TypeError, setattr, POINT, "_fields_", [("x", 1), ("y", 2)])
 
     def test_intarray_fields(self):
-        py.test.skip("Structures with inlined arrays")
         class SomeInts(Structure):
             _fields_ = [("a", c_int * 4)]
 
@@ -247,7 +245,6 @@ class TestStructure(BaseCTypesTestChecker):
         raises(RuntimeError, SomeInts, (1, 2, 3, 4, 5))
 
     def test_nested_initializers(self):
-        py.test.skip("???")
         # test initializing nested structures
         class Phone(Structure):
             _fields_ = [("areacode", c_char*6),
@@ -266,7 +263,7 @@ class TestStructure(BaseCTypesTestChecker):
         assert p.age == 5
 
     def test_structures_with_wchar(self):
-        py.test.skip("Inlined array")
+        py.test.skip("need unicode support on _rawffi level")
         try:
             c_wchar
         except NameError:
@@ -287,7 +284,7 @@ class TestStructure(BaseCTypesTestChecker):
         raises(ValueError, PersonW, u"1234567890123")
 
     def test_init_errors(self):
-        py.test.skip("???")
+        py.test.skip("Very fragile errors")
         class Phone(Structure):
             _fields_ = [("areacode", c_char*6),
                         ("number", c_char*12)]
@@ -334,7 +331,7 @@ class TestStructure(BaseCTypesTestChecker):
 ##                             (AttributeError, "class must define a '_fields_' attribute"))
 
     def test_abstract_class(self):
-        py.test.skip("???")
+        py.test.skip("What is _abstract_?")
         class X(Structure):
             _abstract_ = "something"
         # try 'X()'
@@ -405,7 +402,7 @@ class TestRecursiveStructure(BaseCTypesTestChecker):
 
 
     def test_vice_versa(self):
-        py.test.skip("???")
+        py.test.skip("I don't understand this test at all")
         class First(Structure):
             pass
         class Second(Structure):

@@ -141,6 +141,11 @@ class StructureMeta(_CDataMeta):
     def _alignmentofinstances(self):
         return self._ffistruct.alignment
 
+    def _CData_value(self, value):
+        if isinstance(value, tuple):
+            return self(*value)
+        return _CDataMeta._CData_value(self, value)
+
     def _CData_output(self, resarray, base=None, index=-1):
         res = self.__new__(self)
         ffistruct = self._ffistruct.fromaddress(resarray.buffer)
@@ -169,7 +174,13 @@ class Structure(_CData):
         if getattr(value, '_objects', None):
             key = keepalive_key(getattr(self.__class__, name).offset)
             store_reference(self, key, value._objects)
-        self._buffer.__setattr__(name, fieldtype._CData_value(value))
+        arg = fieldtype._CData_value(value)
+        if isinstance(fieldtype._ffishape, tuple):
+            from ctypes import memmove
+            dest = self._buffer.fieldaddress(name)
+            memmove(dest, arg._buffer.buffer, fieldtype._ffishape[0])
+        else:
+            self._buffer.__setattr__(name, arg)
 
     def __getattribute__(self, name):
         if name == '_fieldtypes':
@@ -184,6 +195,9 @@ class Structure(_CData):
 
     def _get_buffer_for_param(self):
         return CArgObject(self._buffer.byptr())
+
+    def _get_buffer_value(self):
+        return self._buffer.buffer
 
     def __del__(self):
         if self._needs_free:

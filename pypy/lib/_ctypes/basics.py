@@ -45,7 +45,7 @@ class _CDataMeta(type):
         cobj = self.from_param(value)
         # we don't care here if this stuff will live afterwards, as we're
         # interested only in value anyway
-        return cobj._get_buffer_for_param()._buffer[0]
+        return cobj._get_buffer_value()
 
     def _CData_output(self, resarray, base=None, index=-1, needs_free=False):
         assert isinstance(resarray, _rawffi.ArrayInstance)
@@ -98,6 +98,9 @@ class _CData(object):
 
     def _get_buffer_for_param(self):
         return self
+
+    def _get_buffer_value(self):
+        return self._buffer[0]
 
 def sizeof(tp):
     if not isinstance(tp, _CDataMeta):

@@ -3,6 +3,7 @@ import _rawffi
 
 from _ctypes.basics import _CData, cdata_from_address, _CDataMeta, sizeof,\
      keepalive_key, store_reference, CArgObject
+from _ctypes.builtin import _string_at_addr, _wstring_at_addr
 
 def _create_unicode(buffer, maxlength):
     res = []
@@ -71,12 +72,34 @@ class ArrayMeta(_CDataMeta):
         return self._type_._alignmentofinstances()
 
     def _CData_output(self, resarray, base=None, index=-1):
+        # this seems to be a string if we're array of char, surprise!
+        from ctypes import c_char, c_wchar, c_char_p, c_wchar_p
+        if self._type_ is c_char:
+            return _rawffi.charp2string(resarray.buffer, self._length_)
+        if self._type_ is c_wchar:
+            xxx
         res = self.__new__(self)
         ffiarray = self._ffiarray.fromaddress(resarray.buffer, self._length_)
         res._buffer = ffiarray
         res._base = base
         res._index = index
         return res.__ctypes_from_outparam__()
+
+    def _CData_value(self, value):
+        # array accepts very strange parameters as part of structure
+        # or function argument...
+        from ctypes import c_char, c_wchar
+        if issubclass(self._type_, (c_char, c_wchar)):
+            if isinstance(value, basestring):
+                if len(value) > self._length_:
+                    raise ValueError("Invalid length")
+                return self(*value)
+        else:
+            if isinstance(value, tuple):
+                if len(value) > self._length_:
+                    raise RuntimeError("Invalid length")
+                return self(*value)
+        return _CDataMeta._CData_value(self, value)
 
 def array_get_slice_params(self, index):
     if index.step is not None:
@@ -157,6 +180,9 @@ class Array(_CData):
 
     def _get_buffer_for_param(self):
         return CArgObject(self._buffer.byptr())
+
+    def _get_buffer_value(self):
+        return self._buffer.buffer
 
     def __del__(self):
         if self._needs_free:
