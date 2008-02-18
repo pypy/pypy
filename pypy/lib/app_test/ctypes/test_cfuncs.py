@@ -3,6 +3,7 @@
 
 from ctypes import *
 import py
+from support import BaseCTypesTestChecker
 
 def setup_module(mod):
     import conftest
@@ -10,7 +11,7 @@ def setup_module(mod):
     # this means you cannot run tests directly without invoking this
     mod.TestCFunctions._dll = CDLL(_ctypes_test)
 
-class TestCFunctions:
+class TestCFunctions(BaseCTypesTestChecker):
 
     def S(self):
         return c_longlong.in_dll(self._dll, "last_tf_arg_s").value

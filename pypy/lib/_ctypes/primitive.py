@@ -119,7 +119,7 @@ class SimpleType(_CDataMeta):
                 if isinstance(value, str):
                     array = _rawffi.Array('c')(len(value)+1, value)
                     value = array.buffer
-                    self._objects = {'0': CArgObject(value)}
+                    self._objects = {'0': CArgObject(array)}
                 elif value is None:
                     value = 0
                 self._buffer[0] = value
