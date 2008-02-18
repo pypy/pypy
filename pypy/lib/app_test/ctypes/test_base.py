@@ -1,6 +1,8 @@
 
 from ctypes import *
 
+# WhiteBoxTests
+
 class TestCTypesBase:
     def test_pointer(self):
         p = pointer(pointer(c_int(2)))
@@ -20,4 +22,4 @@ class TestCTypesBase:
         X = POINTER(c_int) * 24
         x = X()
         assert x[16]._base is x
-        assert x[16]._index == 16 * sizeof(POINTER(c_int))
+        assert x[16]._index == 16

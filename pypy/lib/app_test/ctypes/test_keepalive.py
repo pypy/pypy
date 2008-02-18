@@ -59,7 +59,6 @@ class TestKeepalive:
         assert cf._objects == {'0':cf}
     
     def test_array_of_struct_with_pointer(self):
-        py.test.skip("explodes right now")
         class S(Structure):
             _fields_ = [('x', c_int)]
         PS = POINTER(S)
@@ -73,5 +72,5 @@ class TestKeepalive:
         s.x=3
         a[3].p = pointer(s)
 
-        print a._objects
+        assert a._objects['0:3']['1'] is s
         
