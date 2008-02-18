@@ -6,7 +6,7 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable, \
      Arguments
 
 class Tracker(object):
-    DO_TRACING = False
+    DO_TRACING = True
 
     def __init__(self):
         self.alloced = {}
