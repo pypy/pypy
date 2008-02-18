@@ -26,6 +26,7 @@ class UnionMeta(_CDataMeta):
             # malloc size
             size = self.__class__._sizeofinstances()
             self.__dict__['_buffer'] = _rawffi.Array('c')(size)
+            self.__dict__['_needs_free'] = True
         res.__init__ = __init__
         return res
 
@@ -65,6 +66,7 @@ class UnionMeta(_CDataMeta):
 class Union(_CData):
     __metaclass__ = UnionMeta
     _ffiletter = 'P'
+    _needs_free = False
 
     def __getattr__(self, name):
         try:
@@ -82,3 +84,9 @@ class Union(_CData):
         cobj, value = fieldtype._CData_input(value)
         buf = self._ffiarrays[name].fromaddress(self._buffer.buffer, 1)
         buf[0] = value[0]
+
+    def __del__(self):
+        if self._needs_free:
+            self._buffer.free()
+            self._buffer = None
+            self._needs_free = False
