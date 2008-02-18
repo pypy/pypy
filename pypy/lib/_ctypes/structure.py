@@ -60,7 +60,7 @@ def names_and_fields(_fields_, superclass, zero_offset=False, anon=None):
         pos = [0] * len(all_fields)
     fields = {}
     for i, (name, ctype) in enumerate(all_fields):
-        fields[name] = Field(name, pos[i], ctypes.sizeof(ctype), ctype)
+        fields[name] = Field(name, pos[i], ctypes.sizeof(ctype), ctype, i)
     if anon:
         resnames = []
         for i, (name, value) in enumerate(all_fields):
@@ -70,7 +70,8 @@ def names_and_fields(_fields_, superclass, zero_offset=False, anon=None):
                     relpos = pos[i] + value._fieldtypes[subname].offset
                     subvalue = value._fieldtypes[subname].ctype
                     fields[subname] = Field(subname, relpos,
-                                            ctypes.sizeof(subvalue), subvalue)
+                                            ctypes.sizeof(subvalue), subvalue,
+                                            i)
                     # XXX we never set rawfields here, let's wait for a test
             else:
                 resnames.append(name)
@@ -78,8 +79,8 @@ def names_and_fields(_fields_, superclass, zero_offset=False, anon=None):
     return names, rawfields, fields
 
 class Field(object):
-    def __init__(self, name, offset, size, ctype):
-        for k in ('name', 'offset', 'size', 'ctype'):
+    def __init__(self, name, offset, size, ctype, num):
+        for k in ('name', 'offset', 'size', 'ctype', 'num'):
             self.__dict__[k] = locals()[k]
 
     def __setattr__(self, name, value):
@@ -177,7 +178,7 @@ class Structure(_CData):
             fieldtype = self._fieldtypes[name].ctype
         except KeyError:
             return _CData.__getattribute__(self, name)
-        offset = self.__class__._fieldtypes[name].offset
+        offset = self.__class__._fieldtypes[name].num
         suba = self._subarray(fieldtype, name)
         return fieldtype._CData_output(suba, self, offset)
 

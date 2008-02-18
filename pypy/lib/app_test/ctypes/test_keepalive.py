@@ -1,6 +1,7 @@
 import py
 
 from ctypes import *
+import sys
 
 class TestKeepalive:
     """ Tests whether various objects land in _objects
@@ -39,6 +40,8 @@ class TestKeepalive:
         assert p._objects['1'].value == 3
 
     def test_primitive(self):
+        if not hasattr(sys, 'pypy_translation_info'):
+            py.test.skip("whitebox test")
         assert c_char_p("abc")._objects['0']._buffer[0] == "a"
         assert c_int(3)._objects is None
 
@@ -74,3 +77,12 @@ class TestKeepalive:
 
         assert a._objects['0:3']['1'] is s
 
+    def test_struct_with_inlined_array(self):
+        class S(Structure):
+            _fields_ = [('b', c_int),
+                        ('a', POINTER(c_int) * 2)]
+
+        s = S()
+        stuff = c_int(2)
+        s.a[1] = pointer(stuff)
+        assert s._objects == {'1:1': {'1': stuff}}

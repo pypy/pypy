@@ -2,7 +2,7 @@
 import _rawffi
 
 from _ctypes.basics import _CData, cdata_from_address, _CDataMeta, sizeof,\
-     keepalive_key, CArgObject
+     keepalive_key, store_reference, CArgObject
 
 def _create_unicode(buffer, maxlength):
     res = []
@@ -70,6 +70,14 @@ class ArrayMeta(_CDataMeta):
     def _alignmentofinstances(self):
         return self._type_._alignmentofinstances()
 
+    def _CData_output(self, resarray, base=None, index=-1):
+        res = self.__new__(self)
+        ffiarray = self._ffiarray.fromaddress(resarray.buffer, self._length_)
+        res._buffer = ffiarray
+        res._base = base
+        res._index = index
+        return res.__ctypes_from_outparam__()
+
 def array_get_slice_params(self, index):
     if index.step is not None:
         raise TypeError("3 arg slices not supported (for no reason)")
@@ -128,7 +136,7 @@ class Array(_CData):
             return
         index = self._fix_index(index)
         if getattr(value, '_objects', None):
-            self._objects[keepalive_key(index)] = value._objects
+            store_reference(self, index, value._objects)
         arg = self._type_._CData_value(value)
         if not isinstance(self._type_._ffishape, tuple):
             self._buffer[index] = arg
