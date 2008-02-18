@@ -16,12 +16,9 @@ Few ctypes-related todo points:
   - raw structure/arrays as function arguments/result types are not supported
     (even on _rawffi level)
 
-  - not all combinations of arrays/structures inlined in other
-    arrays/structures work.
-
   - bitfields are not implemented
 
-* keepalive is not there (everything is kept alive forever basically)
+  - byteorder is not implemented
 
 * as all stuff is applevel, we cannot have it really fast right now.
 
