@@ -1,7 +1,8 @@
 from ctypes import *
 import py
+from support import BaseCTypesTestChecker
 
-class TestCallbacks:
+class TestCallbacks(BaseCTypesTestChecker):
     functype = CFUNCTYPE
 
 ##    def tearDown(self):
@@ -107,7 +108,7 @@ else:
 
 ################################################################
 
-class TestSampleCallbacks:
+class TestSampleCallbacks(BaseCTypesTestChecker):
 
     def test_integrate(self):
         # Derived from some then non-working code, posted by David Foster

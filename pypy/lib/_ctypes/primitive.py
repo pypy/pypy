@@ -2,7 +2,8 @@ import _rawffi
 
 SIMPLE_TYPE_CHARS = "cbBhHiIlLdfuzZqQPXOv"
 
-from _ctypes.basics import _CData, _CDataMeta, cdata_from_address
+from _ctypes.basics import _CData, _CDataMeta, cdata_from_address,\
+     CArgObject
 from _ctypes.builtin import ConvMode
 
 class NULL(object):
@@ -76,7 +77,7 @@ class SimpleType(_CDataMeta):
                     self._objects = value
                     array = _rawffi.Array('c')(len(value)+1, value)
                     value = array.buffer
-                    # XXX free 'array' later
+                    self._objects = {'0': CArgObject(array)}
                 elif value is None:
                     value = 0
                 self._buffer[0] = value
@@ -99,7 +100,7 @@ class SimpleType(_CDataMeta):
                     self._objects = value
                     array = _rawffi.Array('u')(len(value)+1, value)
                     value = array.buffer
-                    # XXX free 'array' later
+                    self._objects = {'0': CArgObject(array)}
                 elif value is None:
                     value = 0
                 self._buffer[0] = value
@@ -118,8 +119,7 @@ class SimpleType(_CDataMeta):
                 if isinstance(value, str):
                     array = _rawffi.Array('c')(len(value)+1, value)
                     value = array.buffer
-                    self._objects = value
-                    # XXX free 'array' later
+                    self._objects = {'0': CArgObject(value)}
                 elif value is None:
                     value = 0
                 self._buffer[0] = value

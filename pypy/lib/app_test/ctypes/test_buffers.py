@@ -1,6 +1,7 @@
 from ctypes import *
+from support import BaseCTypesTestChecker
 
-class TestStringBuffer:
+class TestStringBuffer(BaseCTypesTestChecker):
 
     def test_buffer(self):
         b = create_string_buffer(32)

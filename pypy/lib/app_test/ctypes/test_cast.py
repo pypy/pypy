@@ -1,7 +1,8 @@
 from ctypes import *
 import sys, py
+from support import BaseCTypesTestChecker
 
-class TestCast:
+class TestCast(BaseCTypesTestChecker):
 
     def test_array2pointer(self):
         array = (c_int * 3)(42, 17, 2)
@@ -30,9 +31,9 @@ class TestCast:
         assert [ptr[i] for i in range(3)] == [42, 17, 2]
 
     def test_p2a_objects(self):
-        py.test.skip("keepalive logic")
+        py.test.skip("We don't keep alive strings")
         array = (c_char_p * 5)()
-        assert array._objects == None
+        assert array._objects is None
         array[0] = "foo bar"
         assert array._objects == {'0': "foo bar"}
 
@@ -60,6 +61,7 @@ class TestCast:
     def test_char_p(self):
         # This didn't work: bad argument to internal function
         s = c_char_p("hiho")
+        
         assert cast(cast(s, c_void_p), c_char_p).value == (
                              "hiho")
 
