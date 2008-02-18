@@ -18,8 +18,7 @@ class BaseCTypesTestChecker:
             pass
         else:
             import gc
-            gc.collect()
-            gc.collect()
-            gc.collect()
+            for _ in range(3):
+                gc.collect()
             # there is one reference coming from the byref() above
             assert _rawffi._num_of_allocated_objects() == cls.old_num
