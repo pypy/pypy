@@ -24,6 +24,13 @@ class AppTestTracker:
         s.free()
         assert _rawffi._num_of_allocated_objects() == 0
 
+    def test_callback(self):
+        import _rawffi
+        c = _rawffi.CallbackPtr(lambda : 3, [], 'i')
+        assert _rawffi._num_of_allocated_objects() == 1
+        c.free()
+        assert _rawffi._num_of_allocated_objects() == 0
+
     def teardown_class(cls):
         Tracker.DO_TRACING = False
 

@@ -9,6 +9,7 @@ from pypy.module._rawffi.array import get_elem, push_elem
 from pypy.module._rawffi.interp_rawffi import W_DataInstance, _get_type_,\
      wrap_value, unwrap_value, unwrap_truncate_int, letter2tp
 from pypy.rlib.libffi import USERDATA_P, CallbackFuncPtr
+from pypy.module._rawffi.tracker import tracker
 
 def callback(ll_args, ll_res, ll_userdata):
     userdata = rffi.cast(USERDATA_P, ll_userdata)
@@ -52,9 +53,16 @@ class W_CallbackPtr(W_DataInstance):
         self.ll_callback = CallbackFuncPtr(ffiargs, ffiresult,
                                            callback, number)
         self.ll_buffer = rffi.cast(rffi.VOIDP, self.ll_callback.ll_closure)
+        if tracker.DO_TRACING:
+            addr = rffi.cast(rffi.INT, self.ll_callback.ll_closure)
+            tracker.trace_allocation(addr, self)
 
-    #def free(self):
-    #    del self.global_counter.CallbackPtr_by_number[self.number]
+    def free(self):
+        if tracker.DO_TRACING:
+            addr = rffi.cast(rffi.INT, self.ll_callback.ll_closure)
+            tracker.trace_free(addr)
+        del self.global_counter.CallbackPtr_by_number[self.number]
+    free.unwrap_spec = ['self']
 
 def descr_new_callbackptr(space, w_type, w_callable, w_args, w_result):
     return W_CallbackPtr(space, w_callable, w_args, w_result)
@@ -64,4 +72,5 @@ W_CallbackPtr.typedef = TypeDef(
     __new__ = interp2app(descr_new_callbackptr),
     byptr   = interp2app(W_CallbackPtr.byptr),
     buffer  = GetSetProperty(W_CallbackPtr.getbuffer),
+    free    = interp2app(W_CallbackPtr.free),
 )

@@ -600,6 +600,3 @@ class AppTestFfi:
         a.free()
         raises(_rawffi.SegfaultException, a.__getitem__, 3)
         raises(_rawffi.SegfaultException, a.__setitem__, 3, 3)
-        
-        
-        
