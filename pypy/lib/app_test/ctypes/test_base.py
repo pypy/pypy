@@ -16,7 +16,7 @@ class TestCTypesBase:
 
         x = X()
         assert x.y._base is x
-        assert x.y._index == sizeof(POINTER(c_int))
+        assert x.y._index == 1
     
     def test_array(self):
         X = POINTER(c_int) * 24
