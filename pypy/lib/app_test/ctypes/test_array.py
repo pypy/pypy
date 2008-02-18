@@ -113,12 +113,6 @@ class TestArray(BaseCTypesTestChecker):
 
 class TestSophisticatedThings(BaseCTypesTestChecker):
     def test_array_of_structures(self):
-        import gc
-        gc.collect()
-        gc.collect()
-        gc.collect()
-        from _rawffi import _num_of_allocated_objects as _num
-        assert _num() == 3
         class X(Structure):
             _fields_ = [('x', c_int), ('y', c_int)]
 
