@@ -81,9 +81,8 @@ class Union(_CData):
             fieldtype = self._fieldtypes[name].ctype
         except KeyError:
             raise AttributeError(name)
-        cobj, arg = fieldtype._CData_input(value)
         buf = self._ffiarrays[name].fromaddress(self._buffer.buffer, 1)
-        buf[0] = arg._buffer[0]
+        buf[0] = fieldtype._CData_value(value)
 
     def __del__(self):
         if self._needs_free:

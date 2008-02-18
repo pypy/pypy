@@ -168,8 +168,7 @@ class Structure(_CData):
         if getattr(value, '_objects', None):
             key = keepalive_key(getattr(self.__class__, name).offset)
             store_reference(self, key, value._objects)
-        cobj, arg = fieldtype._CData_input(value)
-        self._buffer.__setattr__(name, arg._buffer[0])
+        self._buffer.__setattr__(name, fieldtype._CData_value(value))
 
     def __getattribute__(self, name):
         if name == '_fieldtypes':

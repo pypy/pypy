@@ -100,8 +100,7 @@ class _Pointer(_CData):
         return self._type_._CData_output(self._subarray(index), self, index)
 
     def __setitem__(self, index, value):
-        cobj, arg = self._type_._CData_input(value)
-        self._subarray(index)[0] = arg._buffer[0]
+        self._subarray(index)[0] = self._type_._CData_value(value)
 
     def __nonzero__(self):
         return self._buffer[0] != 0

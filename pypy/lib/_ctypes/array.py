@@ -129,15 +129,14 @@ class Array(_CData):
         index = self._fix_index(index)
         if getattr(value, '_objects', None):
             self._objects[keepalive_key(index)] = value._objects
-        cobj, arg = self._type_._CData_input(value)
+        arg = self._type_._CData_value(value)
         if not isinstance(self._type_._ffishape, tuple):
-            self._buffer[index] = arg._buffer[0]
+            self._buffer[index] = arg
             # something more sophisticated, cannot set field directly
         else:
             from ctypes import memmove
             dest = self._buffer.itemaddress(index)
-            source = arg._buffer[0]
-            memmove(dest, source, self._type_._ffishape[0])
+            memmove(dest, arg, self._type_._ffishape[0])
 
     def __getitem__(self, index):
         if isinstance(index, slice):
