@@ -298,6 +298,7 @@ class TransformerMaker(Codebuilder):
         for i in range(len(self.rules)):
             self.create_visit_method(i)
         self.start_block("def transform(self, tree):")
+        self.emit("#auto-generated code, don't edit")
         self.emit("assert isinstance(tree, Nonterminal)")
         startsymbol = self.rules[0].nonterminal
         self.emit("assert tree.symbol == %r" % (startsymbol, ))
@@ -339,6 +340,7 @@ class TransformerMaker(Codebuilder):
         rule = self.rules[index]
         change = self.changes[index]
         self.start_block("def visit_%s(self, node):" % (rule.nonterminal, ))
+        self.emit("#auto-generated code, don't edit")
         if len(change) == 0:
             self.emit("return [node]")
             self.end_block(rule.nonterminal)

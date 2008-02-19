@@ -266,6 +266,7 @@ class DFA(object):
         from pypy.rlib.parsing.codebuilder import Codebuilder
         result = Codebuilder()
         result.start_block("def recognize(runner, i):")
+        result.emit("#auto-generated code, don't edit")
         result.emit("assert i >= 0")
         result.emit("input = runner.text")
         result.emit("state = 0")
