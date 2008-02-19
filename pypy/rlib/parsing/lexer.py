@@ -131,14 +131,14 @@ class AbstractLexingDFARunner(deterministic.DFARunner):
                     raise deterministic.LexerError(self.text, self.state,
                                                    source_pos)
                 source = self.text[start:stop]
-                result = self.make_token(start, self.last_matched_index, source)
+                result = self.make_token(start, self.last_matched_state, source)
                 self.adjust_position(source)
                 if self.ignore_token(self.last_matched_state):
                     continue
                 return result
             if self.last_matched_index == i - 1:
                 source = self.text[start: ]
-                result = self.make_token(start, self.last_matched_index, source)
+                result = self.make_token(start, self.last_matched_state, source)
                 self.adjust_position(source)
                 if self.ignore_token(self.last_matched_state):
                     if self.eof:
@@ -192,6 +192,7 @@ class LexingDFARunner(AbstractLexingDFARunner):
         return self.automaton.names[state] in self.ignore
 
     def make_token(self, index, state, text, eof=False):
+        assert (eof and state == -1) or 0 <= state < len(self.automaton.names)
         source_pos = SourcePos(index, self.lineno, self.columnno)
         if eof:
             return Token("EOF", "EOF", source_pos)
