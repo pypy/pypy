@@ -576,10 +576,13 @@ class Primitives(object):
     def repr_offset(self, value):
         if isinstance(value, llarena.RoundedUpForAllocation):
             # XXX not supported when used in a CompositeOffset
+            from pypy.rpython.tool import rffi_platform
+            align = rffi_platform.memory_alignment()
             r_basesize = self.repr_offset(value.basesize)
             # Note that the following expression is known to crash 'llc';
             # you may need to upgrade llvm.
-            return "and(i32 add(i32 %s, i32 7), i32 -8)" % r_basesize
+            return "and(i32 add(i32 %s, i32 %d), i32 %d)" % (
+                r_basesize, align-1, ~(align-1))
 
         from_, indices, to = self.get_offset(value, [])
 

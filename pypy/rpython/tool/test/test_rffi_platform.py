@@ -203,3 +203,8 @@ def test_check_eci():
 
 def test_sizeof():
     assert rffi_platform.sizeof("char", ExternalCompilationInfo()) == 1
+
+def test_memory_alignment():
+    a = rffi_platform.memory_alignment()
+    print a
+    assert a % struct.calcsize("P") == 0

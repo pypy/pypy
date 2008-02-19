@@ -2,7 +2,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, llarena
 
 import struct
 
-memory_alignment = 4
+memory_alignment = struct.calcsize("P")
 
 primitive_to_fmt = {lltype.Signed:          "l",
                     lltype.Unsigned:        "L",

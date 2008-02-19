@@ -63,6 +63,24 @@ def sizeof(name, eci, **kwds):
         setattr(CConfig, k, v)
     return configure(CConfig)['SIZE']
 
+def memory_alignment():
+    """Return the alignment (in bytes) of memory allocations.
+    This is enough to make sure a structure with pointers and 'double'
+    fields is properly aligned."""
+    global _memory_alignment
+    if _memory_alignment is None:
+        S = getstruct('struct memory_alignment_test', """
+           struct memory_alignment_test {
+               double d;
+               void* p;
+           };
+        """, [])
+        result = S._hints['align']
+        assert result & (result-1) == 0, "not a power of two??"
+        _memory_alignment = result
+    return _memory_alignment
+_memory_alignment = None
+
 # ____________________________________________________________
 #
 # General interface

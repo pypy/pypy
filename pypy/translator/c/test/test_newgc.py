@@ -784,9 +784,9 @@ class TestUsingFramework(AbstractGCTestClass):
         assert res == 42
 
     def test_object_alignment(self):
-        # all objects returned by the GC should be aligned on a 8-bytes
-        # boundary, or whatever sizeof(double) is on this platform
+        # all objects returned by the GC should be properly aligned.
         from pypy.rpython.lltypesystem import rffi
+        from pypy.rpython.tool import rffi_platform
         mylist = ['a', 'bc', '84139871', 'ajkdh', '876']
         def f():
             result = 0
@@ -800,10 +800,7 @@ class TestUsingFramework(AbstractGCTestClass):
 
         fn = self.getcompiled(f)
         res = fn()
-        import struct
-        expected_alignment = struct.calcsize("d")
-        assert (expected_alignment & (expected_alignment-1)) == 0, (
-            "sizeof(double) not a power of two")
+        expected_alignment = rffi_platform.memory_alignment()
         assert (res & (expected_alignment-1)) == 0
 
     def test_void_list(self):

@@ -3,8 +3,17 @@
  /***  C header subsection: operations on LowLevelTypes    ***/
 
 /* alignment for arena-based garbage collectors: the following line
-   enforces an alignment of sizeof(double). */
-#define MEMORY_ALIGNMENT		sizeof(double)
+   enforces an alignment that should be enough for any structure
+   containing pointers and 'double' fields. */
+struct rpy_memory_alignment_test1 {
+  double d;
+  void* p;
+};
+struct rpy_memory_alignment_test2 {
+  char c;
+  struct rpy_memory_alignment_test1 s;
+};
+#define MEMORY_ALIGNMENT	offsetof(struct rpy_memory_alignment_test2, s)
 #define ROUND_UP_FOR_ALLOCATION(x)	\
 		(((x) + (MEMORY_ALIGNMENT-1)) & ~(MEMORY_ALIGNMENT-1))
 
