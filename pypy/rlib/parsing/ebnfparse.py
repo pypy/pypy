@@ -448,11 +448,13 @@ class TransformerMaker(Codebuilder):
 # generated code between this line and its other occurence
 class EBNFToAST(object):
     def visit_file(self, node):
+        #auto-generated code, don't edit
         children = []
         children.extend(self.visit_list(node.children[0]))
         children.extend([node.children[1]])
         return [Nonterminal(node.symbol, children)]
     def visit__plus_symbol0(self, node):
+        #auto-generated code, don't edit
         length = len(node.children)
         if length == 1:
             children = []
@@ -465,17 +467,20 @@ class EBNFToAST(object):
         children.extend(expr[0].children)
         return [Nonterminal(node.symbol, children)]
     def visit_list(self, node):
+        #auto-generated code, don't edit
         children = []
         expr = self.visit__plus_symbol0(node.children[0])
         assert len(expr) == 1
         children.extend(expr[0].children)
         return [Nonterminal(node.symbol, children)]
     def visit_element(self, node):
+        #auto-generated code, don't edit
         length = len(node.children)
         if node.children[0].symbol == 'production':
             return self.visit_production(node.children[0])
         return self.visit_regex(node.children[0])
     def visit_regex(self, node):
+        #auto-generated code, don't edit
         children = []
         children.extend([node.children[0]])
         children.extend([node.children[1]])
@@ -483,10 +488,12 @@ class EBNFToAST(object):
         children.extend([node.children[3]])
         return [Nonterminal(node.symbol, children)]
     def visit__maybe_symbol0(self, node):
+        #auto-generated code, don't edit
         children = []
         children.extend(self.visit_body(node.children[0]))
         return [Nonterminal(node.symbol, children)]
     def visit_production(self, node):
+        #auto-generated code, don't edit
         length = len(node.children)
         if length == 3:
             children = []
@@ -503,6 +510,7 @@ class EBNFToAST(object):
         children.extend([node.children[3]])
         return [Nonterminal(node.symbol, children)]
     def visit__star_symbol1(self, node):
+        #auto-generated code, don't edit
         length = len(node.children)
         if length == 2:
             children = []
@@ -515,6 +523,7 @@ class EBNFToAST(object):
         children.extend(expr[0].children)
         return [Nonterminal(node.symbol, children)]
     def visit_body(self, node):
+        #auto-generated code, don't edit
         length = len(node.children)
         if length == 1:
             children = []
@@ -527,6 +536,7 @@ class EBNFToAST(object):
         children.extend(self.visit_expansion(node.children[1]))
         return [Nonterminal(node.symbol, children)]
     def visit__plus_symbol1(self, node):
+        #auto-generated code, don't edit
         length = len(node.children)
         if length == 1:
             children = []
@@ -539,12 +549,14 @@ class EBNFToAST(object):
         children.extend(expr[0].children)
         return [Nonterminal(node.symbol, children)]
     def visit_expansion(self, node):
+        #auto-generated code, don't edit
         children = []
         expr = self.visit__plus_symbol1(node.children[0])
         assert len(expr) == 1
         children.extend(expr[0].children)
         return [Nonterminal(node.symbol, children)]
     def visit_decorated(self, node):
+        #auto-generated code, don't edit
         length = len(node.children)
         if length == 1:
             return self.visit_enclosed(node.children[0])
@@ -563,6 +575,7 @@ class EBNFToAST(object):
         children.extend([node.children[1]])
         return [Nonterminal(node.symbol, children)]
     def visit_enclosed(self, node):
+        #auto-generated code, don't edit
         length = len(node.children)
         if length == 1:
             return self.visit_primary(node.children[0])
@@ -586,6 +599,7 @@ class EBNFToAST(object):
         children.extend([node.children[2]])
         return [Nonterminal(node.symbol, children)]
     def visit_primary(self, node):
+        #auto-generated code, don't edit
         length = len(node.children)
         if node.children[0].symbol == 'NONTERMINALNAME':
             children = []
@@ -599,6 +613,7 @@ class EBNFToAST(object):
         children.extend([node.children[0]])
         return [Nonterminal(node.symbol, children)]
     def transform(self, tree):
+        #auto-generated code, don't edit
         assert isinstance(tree, Nonterminal)
         assert tree.symbol == 'file'
         r = self.visit_file(tree)

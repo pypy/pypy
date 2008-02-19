@@ -1277,7 +1277,10 @@ class Parser(object):
             self._pos = _choice0
             raise BacktrackException
         _upto = _runner.last_matched_index + 1
-        _result = self._inputstream[self._pos: _upto]
+        _pos = self._pos
+        assert _pos >= 0
+        assert _upto >= 0
+        _result = self._inputstream[_pos: _upto]
         self._pos = _upto
         return _result
     def _regex1323868075(self):
@@ -1288,7 +1291,10 @@ class Parser(object):
             self._pos = _choice1
             raise BacktrackException
         _upto = _runner.last_matched_index + 1
-        _result = self._inputstream[self._pos: _upto]
+        _pos = self._pos
+        assert _pos >= 0
+        assert _upto >= 0
+        _result = self._inputstream[_pos: _upto]
         self._pos = _upto
         return _result
     def _regex1380912319(self):
@@ -1299,7 +1305,10 @@ class Parser(object):
             self._pos = _choice2
             raise BacktrackException
         _upto = _runner.last_matched_index + 1
-        _result = self._inputstream[self._pos: _upto]
+        _pos = self._pos
+        assert _pos >= 0
+        assert _upto >= 0
+        _result = self._inputstream[_pos: _upto]
         self._pos = _upto
         return _result
     class _Runner(object):
@@ -1310,34 +1319,35 @@ class Parser(object):
             self.last_matched_index = -1
             self.state = -1
         def recognize_1166214427(runner, i):
+            #auto-generated code, don't edit
             assert i >= 0
             input = runner.text
             state = 0
             while 1:
                 if state == 0:
-                    if i < len(input):
+                    try:
                         char = input[i]
                         i += 1
-                    else:
+                    except IndexError:
                         runner.state = 0
                         return ~i
-                    if '1' <= char <= '9':
+                    if char == '0':
                         state = 1
-                    elif char == '0':
+                    elif '1' <= char <= '9':
                         state = 2
                     else:
                         break
-                if state == 1:
+                if state == 2:
                     runner.last_matched_index = i - 1
                     runner.last_matched_state = state
-                    if i < len(input):
+                    try:
                         char = input[i]
                         i += 1
-                    else:
-                        runner.state = 1
+                    except IndexError:
+                        runner.state = 2
                         return i
                     if '0' <= char <= '9':
-                        state = 1
+                        state = 2
                         continue
                     else:
                         break
@@ -1352,26 +1362,27 @@ class Parser(object):
             runner.state = state
             return ~i
         def recognize_1323868075(runner, i):
+            #auto-generated code, don't edit
             assert i >= 0
             input = runner.text
             state = 0
             while 1:
                 if state == 0:
-                    if i < len(input):
+                    try:
                         char = input[i]
                         i += 1
-                    else:
+                    except IndexError:
                         runner.state = 0
                         return ~i
-                    if '\x00' <= char <= "'":
+                    if char == '\\':
                         state = 1
                     elif '/' <= char <= '>':
                         state = 1
                     elif '@' <= char <= 'Z':
                         state = 1
-                    elif char == '\\':
-                        state = 1
                     elif '_' <= char <= 'z':
+                        state = 1
+                    elif '\x00' <= char <= "'":
                         state = 1
                     elif '~' <= char <= '\xff':
                         state = 1
@@ -1388,65 +1399,70 @@ class Parser(object):
             runner.state = state
             return ~i
         def recognize_1380912319(runner, i):
+            #auto-generated code, don't edit
             assert i >= 0
             input = runner.text
             state = 0
             while 1:
                 if state == 0:
-                    if i < len(input):
+                    try:
                         char = input[i]
                         i += 1
-                    else:
+                    except IndexError:
                         runner.state = 0
                         return ~i
                     if char == '\\':
-                        state = 1
+                        state = 4
                     else:
                         break
                 if state == 1:
-                    if i < len(input):
+                    try:
                         char = input[i]
                         i += 1
-                    else:
+                    except IndexError:
                         runner.state = 1
                         return ~i
-                    if char == 'x':
-                        state = 2
-                    elif '\x00' <= char <= 'w':
+                    if 'A' <= char <= 'F':
                         state = 3
-                    elif 'y' <= char <= '\xff':
+                    elif 'a' <= char <= 'f':
+                        state = 3
+                    elif '0' <= char <= '9':
                         state = 3
                     else:
                         break
                 if state == 2:
                     runner.last_matched_index = i - 1
                     runner.last_matched_state = state
-                    if i < len(input):
+                    try:
                         char = input[i]
                         i += 1
-                    else:
+                    except IndexError:
                         runner.state = 2
                         return i
-                    if '0' <= char <= '9':
-                        state = 4
-                    elif 'A' <= char <= 'F':
-                        state = 4
+                    if 'A' <= char <= 'F':
+                        state = 1
+                        continue
                     elif 'a' <= char <= 'f':
-                        state = 4
+                        state = 1
+                        continue
+                    elif '0' <= char <= '9':
+                        state = 1
+                        continue
                     else:
                         break
                 if state == 4:
-                    if i < len(input):
+                    try:
                         char = input[i]
                         i += 1
-                    else:
+                    except IndexError:
                         runner.state = 4
                         return ~i
-                    if '0' <= char <= '9':
+                    if char == 'x':
+                        state = 2
+                        continue
+                    elif '\x00' <= char <= 'w':
                         state = 3
-                    elif 'A' <= char <= 'F':
-                        state = 3
-                    elif 'a' <= char <= 'f':
+                    elif 'y' <= char <= '\xff':
                         state = 3
                     else:
                         break
@@ -1471,6 +1487,7 @@ for key, value in Parser.__dict__.iteritems():
         setattr(RegexParser, key, value)
 RegexParser.init_parser = Parser.__init__.im_func
 # generated code between this line and its other occurence
+
 
 
 
