@@ -23,7 +23,7 @@ import sys
 
 class CollectAnalyzer(graphanalyze.GraphAnalyzer):
     def operation_is_true(self, op):
-        if op.opname in ('gc__collect', 'gc_x_become'):
+        if op.opname == 'gc__collect':
             return True
         if op.opname in ('malloc', 'malloc_varsize'):
             flags = op.args[1].value
@@ -316,11 +316,6 @@ class FrameworkGCTransformer(GCTransformer):
                                  annmodel.s_None,
                                  minimal_transform = False)
 
-        self.x_become_ptr = getfn(
-            GCClass.x_become.im_func,
-            [s_gc, annmodel.SomeAddress(), annmodel.SomeAddress()],
-            annmodel.s_None)
-
         annhelper.finish()   # at this point, annotate all mix-level helpers
         annhelper.backend_optimize()
 
@@ -548,15 +543,6 @@ class FrameworkGCTransformer(GCTransformer):
         hop.genop("same_as",
                   [c_result],
                   resultvar=op.result)
-
-    def gct_gc_x_become(self, hop):
-        op = hop.spaceop
-        [v_target, v_source] = op.args
-        livevars = self.push_roots(hop)
-        hop.genop("direct_call",
-                  [self.x_become_ptr, self.c_const_gc, v_target, v_source],
-                  resultvar=op.result)
-        self.pop_roots(hop, livevars)
 
     def gct_zero_gc_pointers_inside(self, hop):
         if self.needs_zero_gc_pointers:

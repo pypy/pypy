@@ -403,10 +403,6 @@ LL_OPERATIONS = {
     'gc_x_clone':           LLOp(canraise=(MemoryError, RuntimeError),
                                  canunwindgc=True),
     'gc_x_size_header':     LLOp(),
-    # this one is even more experimental; only implemented with the
-    # Mark&Sweep GC, and likely only useful when combined with
-    # stackless:
-    'gc_x_become':          LLOp(canraise=(RuntimeError,), canunwindgc=True),
 
     # for llvm.gcroot() support.  can change at any time
     'llvm_frameaddress':    LLOp(sideeffects=False),

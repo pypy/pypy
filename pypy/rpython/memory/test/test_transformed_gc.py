@@ -729,26 +729,6 @@ class TestStacklessMarkSweepGC(TestMarkSweepGC):
     def test_instances(self):
         py.test.skip("fails for a stupid reasons")
 
-    def test_x_become(self):
-        from pypy.rlib import objectmodel
-        S = lltype.GcStruct("S", ('x', lltype.Signed))
-        def f():
-            x = lltype.malloc(S)
-            x.x = 10
-            y = lltype.malloc(S)
-            y.x = 20
-            z = x
-            llop.gc_x_become(lltype.Void,
-                             llmemory.cast_ptr_to_adr(x),
-                             llmemory.cast_ptr_to_adr(y))
-            # keep 'y' alive until the x_become() is finished, because in
-            # theory it could go away as soon as only its address is present
-            objectmodel.keepalive_until_here(y)
-            return z.x
-        run = self.runner(f)
-        res = run([])
-        assert res == 20
-
 
 class TestPrintingGC(GenericGCTests):
     gcname = "statistics"

@@ -111,9 +111,6 @@ class GCBase(object):
     def x_clone(self, clonedata):
         raise RuntimeError("no support for x_clone in the GC")
 
-    def x_become(self, target_addr, source_addr):
-        raise RuntimeError("no support for x_become in the GC")
-
     def trace(self, obj, callback, arg):
         """Enumerate the locations inside the given obj that can contain
         GC pointers.  For each such location, callback(pointer, arg) is
