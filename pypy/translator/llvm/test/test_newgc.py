@@ -5,7 +5,7 @@ from pypy.translator.llvm.test.runtest import *
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena
 
 def test_gc_offsets():
-    STRUCT = lltype.GcStruct('S1', ('x', lltype.Signed))
+    STRUCT = lltype.GcStruct('S1', ('x', lltype.Signed), ('y', lltype.Char))
     ARRAY = lltype.GcArray(lltype.Signed)
     s1 = llarena.round_up_for_allocation(llmemory.sizeof(STRUCT))
     s2 = llmemory.offsetof(STRUCT, 'x')
@@ -25,10 +25,10 @@ def test_gc_offsets():
     i3 = (res // 10000) % 100
     i4 = (res // 100) % 100
     i5 = (res // 1) % 100
-    assert i1 % 8 == 0
+    assert i1 % 4 == 0
     assert 12 <= i1 <= 24
     assert 8 <= i2 <= i1 - 4
-    assert 8 <= i3 <= 16
+    assert 4 <= i3 <= 12
     assert i4 == i5
     assert i3 + 4 <= i5
 
