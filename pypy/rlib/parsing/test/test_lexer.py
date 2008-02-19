@@ -3,7 +3,6 @@ from pypy.rlib.parsing.lexer import *
 from pypy.rlib.parsing.regex import *
 from pypy.rlib.parsing import deterministic
 
-
 class TestDirectLexer(object):
     def get_lexer(self, rexs, names, ignore=None):
         return Lexer(rexs, names, ignore)
@@ -133,3 +132,27 @@ class TestDirectLexer(object):
         tok = runner.find_next_token()
         assert tok.name == "WHITE"
         py.test.raises(deterministic.LexerError, runner.find_next_token)
+
+class TestSourcePos(object):
+    def test_copy(self):
+        base = SourcePos(1, 2, 3)
+        attributes = {'i':4, 'lineno': 5, 'columnno': 6}
+        for attr, new_val in attributes.iteritems():
+            copy = base.copy()
+            assert base==copy
+            setattr(copy, attr, new_val)    # change one attribute
+            assert base!=copy
+
+class TestToken(object):
+    def test_copy(self):
+        base = Token('test', 'spource', SourcePos(1,2,3))
+        attributes = {'name': 'xxx', 'source': 'yyy', 'source_pos': SourcePos(4,5,6)}
+        for attr, new_val in attributes.iteritems():
+            copy = base.copy()
+            assert base==copy
+            setattr(copy, attr, new_val)    # change one attribute
+            assert base!=copy
+        # copy() is not deep... verify this.
+        copy = base.copy()
+        copy.source_pos.i = 0 # changes base too
+        assert base==copy

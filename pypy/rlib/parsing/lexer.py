@@ -8,6 +8,9 @@ class Token(object):
         self.source = source
         self.source_pos = source_pos
 
+    def copy(self):
+        return Token(self.name, self.source, self.source_pos)
+
     def __eq__(self, other):
         # for testing only
         return self.__dict__ == other.__dict__
@@ -20,10 +23,14 @@ class Token(object):
         return "Token(%r, %r, %r)" % (self.name, self.source, self.source_pos)
 
 class SourcePos(object):
+    """An object to record position in source code."""
     def __init__(self, i, lineno, columnno):
-        self.i = i
-        self.lineno = lineno
-        self.columnno = columnno
+        self.i = i                  # index in source string
+        self.lineno = lineno        # line number in source
+        self.columnno = columnno    # column in line
+
+    def copy(self):
+        return SourcePos(self.i, self.lineno, self.columnno)
 
     def __eq__(self, other):
         # for testing only
@@ -46,7 +53,6 @@ class Lexer(object):
         self.automaton.optimize() # XXX not sure whether this is a good idea
         if ignore is None:
             ignore = []
-        self.ignore = []
         for ign in ignore:
             assert ign in names
         self.ignore = dict.fromkeys(ignore)
@@ -57,8 +63,8 @@ class Lexer(object):
                                self.ignore, eof)
 
     def tokenize(self, text, eof=False):
-        r = LexingDFARunner(self.matcher, self.automaton, text,
-                            self.ignore, eof)
+        """Return a list of Token's from text."""
+        r = self.get_runner(text, eof)
         result = []
         while 1:
             try:
@@ -105,27 +111,26 @@ class AbstractLexingDFARunner(deterministic.DFARunner):
     def find_next_token(self):
         while 1:
             self.state = 0
-            i = self.last_matched_index + 1
-            start = i
+            start = self.last_matched_index + 1
             assert start >= 0
-            if i == len(self.text):
-                if self.eof:
-                    self.last_matched_index += 1
-                    return self.make_token(i, -1, "", eof=True)
-                else:
-                    raise StopIteration
-            if i >= len(self.text) + 1:
+
+            # Handle end of file situation
+            if start == len(self.text) and self.eof:
+                self.last_matched_index += 1
+                return self.make_token(start, -1, "", eof=True)
+            elif start >= len(self.text):
                 raise StopIteration
-            i = self.inner_loop(i)
+
+            i = self.inner_loop(start)
             if i < 0:
                 i = ~i
-                if start == self.last_matched_index + 1:
+                stop = self.last_matched_index + 1
+                assert stop >= 0
+                if start == stop:   
                     source_pos = SourcePos(i - 1, self.lineno, self.columnno)
                     raise deterministic.LexerError(self.text, self.state,
                                                    source_pos)
-                stop = self.last_matched_index + 1
-                assert stop >= 0
-                source = self.text[start: stop]
+                source = self.text[start:stop]
                 result = self.make_token(start, self.last_matched_index, source)
                 self.adjust_position(source)
                 if self.ignore_token(self.last_matched_state):
@@ -146,10 +151,10 @@ class AbstractLexingDFARunner(deterministic.DFARunner):
             raise deterministic.LexerError(self.text, self.state, source_pos)
 
     def adjust_position(self, token):
-        lineno = self.lineno
-        columnno = self.columnno
-        self.lineno += token.count("\n")
-        if lineno == self.lineno:
+        """Update the line# and col# as a result of this token."""
+        newlines = token.count("\n")
+        self.lineno += newlines
+        if newlines==0:
             self.columnno += len(token)
         else:
             self.columnno = token.rfind("\n")
