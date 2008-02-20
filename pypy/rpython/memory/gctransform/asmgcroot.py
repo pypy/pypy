@@ -52,17 +52,6 @@ class AsmStackRootWalker(BaseRootWalker):
         self._asm_callback = _asm_callback
         self._shape_decompressor = ShapeDecompressor()
 
-    def setup_root_walker(self):
-        # The gcmap table is a list of entries, two machine words each:
-        #     void *SafePointAddress;
-        #     int Shape;
-        # Here, i.e. when the program starts, we sort it
-        # in-place on the SafePointAddress to allow for more
-        # efficient searches.
-        gcmapstart = llop.llvm_gcmapstart(llmemory.Address)
-        gcmapend   = llop.llvm_gcmapend(llmemory.Address)
-        insertion_sort(gcmapstart, gcmapend)
-
     def walk_stack_roots(self, collect_stack_root):
         gcdata = self.gcdata
         gcdata._gc_collect_stack_root = collect_stack_root
@@ -147,13 +136,13 @@ class AsmStackRootWalker(BaseRootWalker):
         #
         gcmapstart = llop.llvm_gcmapstart(llmemory.Address)
         gcmapend   = llop.llvm_gcmapend(llmemory.Address)
-        item = binary_search(gcmapstart, gcmapend, retaddr)
-        if item.address[0] != retaddr:
-            # 'retaddr' not exactly found.  Check that 'item' the start of a
-            # compressed range containing 'retaddr'.
-            if retaddr > item.address[0] and item.signed[1] < 0:
-                pass   # ok
-            else:
+        item = search_in_gcmap(gcmapstart, gcmapend, retaddr)
+        if not item:
+            # the item may have been not found because the array was
+            # not sorted.  Sort it and try again.
+            sort_gcmap(gcmapstart, gcmapend)
+            item = search_in_gcmap(gcmapstart, gcmapend, retaddr)
+            if not item:
                 llop.debug_fatalerror(lltype.Void, "cannot find gc roots!")
                 return False
         #
@@ -243,30 +232,33 @@ def binary_search(start, end, addr1):
             count -= middleindex
     return start
 
-def insertion_sort(start, end):
-    """Sort an array of pairs of addresses.
+def search_in_gcmap(gcmapstart, gcmapend, retaddr):
+    item = binary_search(gcmapstart, gcmapend, retaddr)
+    if item.address[0] == retaddr:
+        return item     # found
+    # 'retaddr' not exactly found.  Check that 'item' is the start of a
+    # compressed range that includes 'retaddr'.
+    if retaddr > item.address[0] and item.signed[1] < 0:
+        return item     # ok
+    else:
+        return llmemory.NULL    # failed
 
-    This is an insertion sort, so it's slowish unless the array is mostly
-    sorted already (which is what I expect, but XXX check this).
-    """
-    # XXX this should check that it's not changing the relative order
-    # of entry and the following entry in case it's a compressed "range"
-    # entry, i.e. "entry.signed[1] < 0".
-    next = start
-    while next < end:
-        # assuming the interval from start (included) to next (excluded)
-        # to be already sorted, move the next element back into the array
-        # until it reaches its proper place.
-        addr1 = next.address[0]
-        addr2 = next.address[1]
-        scan = next
-        while scan > start and addr1 < scan.address[-2]:
-            scan.address[0] = scan.address[-2]
-            scan.address[1] = scan.address[-1]
-            scan -= arrayitemsize
-        scan.address[0] = addr1
-        scan.address[1] = addr2
-        next += arrayitemsize
+def sort_gcmap(gcmapstart, gcmapend):
+    count = (gcmapend - gcmapstart) // arrayitemsize
+    qsort(gcmapstart,
+          rffi.cast(rffi.SIZE_T, count),
+          rffi.cast(rffi.SIZE_T, arrayitemsize),
+          llhelper(QSORT_CALLBACK_PTR, _compare_gcmap_entries))
+
+def _compare_gcmap_entries(addr1, addr2):
+    key1 = addr1.address[0]
+    key2 = addr2.address[0]
+    if key1 < key2:
+        return -1
+    elif key1 == key2:
+        return 0
+    else:
+        return 1
 
 # ____________________________________________________________
 
@@ -336,3 +328,14 @@ pypy_asm_gcroot = rffi.llexternal('pypy_asm_gcroot',
                                   sandboxsafe=True,
                                   _nowrapper=True)
 c_asm_gcroot = Constant(pypy_asm_gcroot, lltype.typeOf(pypy_asm_gcroot))
+
+QSORT_CALLBACK_PTR = lltype.Ptr(lltype.FuncType([llmemory.Address,
+                                                 llmemory.Address], rffi.INT))
+qsort = rffi.llexternal('qsort',
+                        [llmemory.Address,
+                         rffi.SIZE_T,
+                         rffi.SIZE_T,
+                         QSORT_CALLBACK_PTR],
+                        lltype.Void,
+                        sandboxsafe=True,
+                        _nowrapper=True)
