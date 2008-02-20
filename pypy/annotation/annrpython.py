@@ -1,10 +1,10 @@
 from __future__ import generators
 
-from types import ClassType, FunctionType
+from types import FunctionType
 from pypy.tool.ansi_print import ansi_log, raise_nicer_exception
 from pypy.annotation import model as annmodel
 from pypy.tool.pairtype import pair
-from pypy.annotation.bookkeeper import Bookkeeper, getbookkeeper
+from pypy.annotation.bookkeeper import Bookkeeper
 from pypy.annotation import signature
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.objspace.flow.model import FunctionGraph
@@ -26,7 +26,7 @@ class RPythonAnnotator(object):
         import pypy.rpython.ootypesystem.bltregistry # has side effects
         import pypy.rpython.extfuncregistry # has side effects
         import pypy.rlib.nonconst # has side effects
-        
+
         if translator is None:
             # interface for tests
             from pypy.translator.translator import TranslationContext

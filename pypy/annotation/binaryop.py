@@ -18,14 +18,11 @@ from pypy.annotation.model import unionof, UnionError, set, missing_operation
 from pypy.annotation.model import isdegenerated, TLS
 from pypy.annotation.model import read_can_only_throw
 from pypy.annotation.model import add_knowntypedata, merge_knowntypedata
-from pypy.annotation.model import lltype_to_annotation
 from pypy.annotation.model import SomeGenericCallable
 from pypy.annotation.model import SomeExternalInstance, SomeUnicodeString
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.objspace.flow.model import Variable, Constant
-from pypy.annotation.listdef import ListDef
 from pypy.rlib import rarithmetic
-from pypy.rpython import extregistry
 
 # convenience only!
 def immutablevalue(x):

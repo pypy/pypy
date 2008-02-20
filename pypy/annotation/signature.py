@@ -1,10 +1,9 @@
 
 import types
 from pypy.annotation.model import SomeBool, SomeInteger, SomeString,\
-     SomeFloat, SomeList, SomeDict, s_None, SomeExternalObject,\
+     SomeFloat, SomeList, SomeDict, s_None, \
      SomeObject, SomeInstance, SomeTuple, lltype_to_annotation,\
      unionof, SomeUnicodeString
-from pypy.annotation.classdef import ClassDef, InstanceSource
 from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
 from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
 
@@ -38,7 +37,6 @@ def annotation(t, bookkeeper=None):
 
 def _compute_annotation(t, bookkeeper=None):
     from pypy.rpython.lltypesystem import lltype
-    from pypy.annotation.bookkeeper import getbookkeeper
     from pypy.rpython import extregistry
     if isinstance(t, SomeObject):
         return t
@@ -65,7 +63,6 @@ def _compute_annotation(t, bookkeeper=None):
         return annotationoftype(t, bookkeeper)
 
 def annotationoftype(t, bookkeeper=False):
-    from pypy.annotation.builtin import BUILTIN_ANALYZERS
     from pypy.rpython import extregistry
 
     """The most precise SomeValue instance that contains all

@@ -8,17 +8,17 @@ import sys, types, inspect, weakref
 from pypy.objspace.flow.model import Constant
 from pypy.annotation.model import SomeString, SomeChar, SomeFloat, \
      SomePtr, unionof, SomeInstance, SomeDict, SomeBuiltin, SomePBC, \
-     SomeInteger, SomeExternalObject, SomeOOInstance, TLS, SomeAddress, \
+     SomeInteger, SomeOOInstance, TLS, SomeAddress, \
      SomeUnicodeCodePoint, SomeOOStaticMeth, s_None, s_ImpossibleValue, \
      SomeLLADTMeth, SomeBool, SomeTuple, SomeOOClass, SomeImpossibleValue, \
      SomeUnicodeString, SomeList, SomeObject, HarmlesslyBlocked, \
      SomeWeakRef, lltype_to_annotation
-from pypy.annotation.classdef import ClassDef, InstanceSource
-from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
-from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
+from pypy.annotation.classdef import InstanceSource
+from pypy.annotation.listdef import ListDef
+from pypy.annotation.dictdef import DictDef
 from pypy.annotation import description
 from pypy.annotation.signature import annotationoftype
-from pypy.interpreter.argument import Arguments, ArgErr
+from pypy.interpreter.argument import Arguments
 from pypy.rlib.objectmodel import r_dict, Symbolic
 from pypy.tool.algo.unionfind import UnionFind
 from pypy.rpython.lltypesystem import lltype, llmemory

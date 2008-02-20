@@ -1,5 +1,4 @@
 # specialization support
-import types
 import py
 from pypy.tool.uid import uid
 from pypy.tool.sourcetools import func_with_new_name

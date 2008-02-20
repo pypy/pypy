@@ -4,7 +4,7 @@ Unary operations on SomeValues.
 
 from pypy.annotation.model import \
      SomeObject, SomeInteger, SomeBool, SomeString, SomeChar, SomeList, \
-     SomeDict, SomeUnicodeCodePoint, SomeTuple, SomeImpossibleValue, \
+     SomeDict, SomeTuple, SomeImpossibleValue, \
      SomeInstance, SomeBuiltin, SomeFloat, SomeIterator, SomePBC, \
      SomeExternalObject, SomeTypedAddressAccess, SomeAddress, \
      s_ImpossibleValue, s_Bool, s_None, \
@@ -14,7 +14,6 @@ from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation import builtin
 from pypy.annotation.binaryop import _clone ## XXX where to put this?
 from pypy.rpython import extregistry
-from pypy.annotation.signature import annotation
 
 # convenience only!
 def immutablevalue(x):

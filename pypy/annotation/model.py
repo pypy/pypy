@@ -33,11 +33,9 @@ import pypy
 from pypy.tool import descriptor
 from pypy.tool.pairtype import pair, extendabletype
 from pypy.tool.tls import tlsobject
-from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, base_int
+from pypy.rlib.rarithmetic import r_uint, r_ulonglong, base_int
 from pypy.rlib.rarithmetic import r_singlefloat
 import inspect, weakref
-from sys import maxint
-from pypy.annotation.description import FunctionDesc
 
 DEBUG = True    # set to False to disable recording of debugging information
 TLS = tlsobject()

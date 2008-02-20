@@ -8,7 +8,6 @@ from pypy.annotation.model import SomeString, SomeTuple, SomeSlice, s_Bool
 from pypy.annotation.model import SomeUnicodeCodePoint, SomeAddress
 from pypy.annotation.model import SomeFloat, unionof, SomeUnicodeString
 from pypy.annotation.model import SomePBC, SomeInstance, SomeDict
-from pypy.annotation.model import SomeExternalObject
 from pypy.annotation.model import SomeWeakRef
 from pypy.annotation.model import annotation_to_lltype, lltype_to_annotation, ll_to_annotation
 from pypy.annotation.model import add_knowntypedata
@@ -360,7 +359,7 @@ def import_func(*args):
     return SomeObject()
 
 # collect all functions
-import __builtin__, exceptions
+import __builtin__
 BUILTIN_ANALYZERS = {}
 for name, value in globals().items():
     if name.startswith('builtin_'):
