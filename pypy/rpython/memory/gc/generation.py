@@ -22,8 +22,8 @@ DEBUG_PRINT = False
 class GenerationGC(SemiSpaceGC):
     """A basic generational GC: it's a SemiSpaceGC with an additional
     nursery for young objects.  A write barrier is used to ensure that
-    old objects that contain pointers to young objects are in a linked
-    list, chained to each other via their 'forw' header field.
+    old objects that contain pointers to young objects are recorded in
+    a list.
     """
     inline_simple_malloc = True
     inline_simple_malloc_varsize = True
@@ -44,19 +44,16 @@ class GenerationGC(SemiSpaceGC):
         self.initial_nursery_size = nursery_size
         self.auto_nursery_size = auto_nursery_size
         self.min_nursery_size = min_nursery_size
+        self.old_objects_pointing_to_young = self.AddressStack()
+        # ^^^ a list of addresses inside the old objects space; it
+        # may contain static prebuilt objects as well.  More precisely,
+        # it lists exactly the old and static objects whose
+        # GCFLAG_NO_YOUNG_PTRS bit is not set.
+        self.young_objects_with_weakrefs = self.AddressStack()
+        self.reset_nursery()
 
     def setup(self):
         SemiSpaceGC.setup(self)
-        self.reset_nursery()
-        self.old_objects_pointing_to_young = NULL
-        # ^^^ the head of a linked list inside the old objects space; it
-        # may contain static prebuilt objects as well.  More precisely,
-        # it lists exactly the old and static objects whose
-        # GCFLAG_NO_YOUNG_PTRS bit is not set.  The 'forw' header field
-        # of such objects is abused for this linked list; it needs to be
-        # reset to its correct value when GCFLAG_NO_YOUNG_PTRS is set
-        # again at the start of a collection.
-        self.young_objects_with_weakrefs = self.AddressStack()
         self.set_nursery_size(self.initial_nursery_size)
         # the GC is fully setup now.  The rest can make use of it.
         if self.auto_nursery_size:
@@ -226,14 +223,11 @@ class GenerationGC(SemiSpaceGC):
         # the next usage.
 
     def reset_young_gcflags(self):
-        obj = self.old_objects_pointing_to_young
-        while obj:
+        oldlist = self.old_objects_pointing_to_young
+        while oldlist.non_empty():
+            obj = oldlist.pop()
             hdr = self.header(obj)
             hdr.tid |= GCFLAG_NO_YOUNG_PTRS
-            nextobj = hdr.forw
-            self.init_forwarding(obj)
-            obj = nextobj
-        self.old_objects_pointing_to_young = NULL
 
     def weakrefs_grow_older(self):
         while self.young_objects_with_weakrefs.non_empty():
@@ -278,19 +272,15 @@ class GenerationGC(SemiSpaceGC):
 
     def collect_oldrefs_to_nursery(self):
         # Follow the old_objects_pointing_to_young list and move the
-        # young objects they point to out of the nursery.  The 'forw'
-        # fields are reset to their correct value along the way.
+        # young objects they point to out of the nursery.
         count = 0
-        obj = self.old_objects_pointing_to_young
-        while obj:
+        oldlist = self.old_objects_pointing_to_young
+        while oldlist.non_empty():
             count += 1
-            nextobj = self.header(obj).forw
-            self.init_forwarding(obj)
+            obj = oldlist.pop()
             self.trace_and_drag_out_of_nursery(obj)
-            obj = nextobj
         if DEBUG_PRINT:
             llop.debug_print(lltype.Void, "collect_oldrefs_to_nursery", count)
-        self.old_objects_pointing_to_young = NULL
 
     def collect_roots_in_nursery(self):
         # we don't need to trace prebuilt GcStructs during a minor collect:
@@ -362,8 +352,7 @@ class GenerationGC(SemiSpaceGC):
                      "nursery object with GCFLAG_NO_YOUNG_PTRS")
         oldhdr = self.header(addr_struct)
         if self.is_in_nursery(addr):
-            oldhdr.forw = self.old_objects_pointing_to_young
-            self.old_objects_pointing_to_young = addr_struct
+            self.old_objects_pointing_to_young.append(addr_struct)
             oldhdr.tid &= ~GCFLAG_NO_YOUNG_PTRS
         if oldhdr.tid & GCFLAG_NO_HEAP_PTRS:
             self.move_to_static_roots(addr_struct)

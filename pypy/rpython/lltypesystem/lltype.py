@@ -968,7 +968,7 @@ class _abstract_ptr(object):
         self._set_solid(solid)
         self._set_obj0(obj0)
         
-    def _getobj(self):
+    def _getobj(self, check=True):
         obj = self._obj0
         if obj is not None:
             if self._weak:
@@ -977,11 +977,16 @@ class _abstract_ptr(object):
                     raise RuntimeError("accessing already garbage collected %r"
                                    % (self._T,))
             if isinstance(obj, _container):
-                obj._check()
+                if check:
+                    obj._check()
             elif isinstance(obj, str) and obj.startswith("delayed!"):
                 raise DelayedPointer
         return obj
     _obj = property(_getobj)
+
+    def _was_freed(self):
+        return (self._obj0 is not None and
+                self._getobj(check=False)._was_freed())
 
     def __getattr__(self, field_name): # ! can only return basic or ptr !
         if isinstance(self._T, Struct):
@@ -1178,6 +1183,10 @@ class _ptr(_abstract_ptr):
         from pypy.rpython.lltypesystem import llmemory
         if isinstance(self._T, FuncType):
             return llmemory.fakeaddress(self)
+        elif self._was_freed():
+            # hack to support llarena.test_replace_object_with_stub()
+            from pypy.rpython.lltypesystem import llarena
+            return llarena._oldobj_to_address(self._getobj(check=False))
         elif isinstance(self._obj, _subarray):
             return llmemory.fakeaddress(self)
 ##            # return an address built as an offset in the whole array
@@ -1192,8 +1201,8 @@ class _ptr(_abstract_ptr):
 
     def _as_ptr(self):
         return self
-    def _as_obj(self):
-        return self._obj
+    def _as_obj(self, check=True):
+        return self._getobj(check=check)
 
     def _expose(self, offset, val):
         """XXX A nice docstring here"""
@@ -1258,13 +1267,13 @@ assert not '__dict__' in dir(_interior_ptr)
 
 class _container(object):
     __slots__ = ()
-    def _parentstructure(self):
+    def _parentstructure(self, check=True):
         return None
     def _check(self):
         pass
     def _as_ptr(self):
         return _ptr(Ptr(self._TYPE), self, True)
-    def _as_obj(self):
+    def _as_obj(self, check=True):
         return self
     def _normalizedcontainer(self):
         return self
@@ -1295,7 +1304,16 @@ class _parentable(_container):
         self._storage = None
 
     def _was_freed(self):
-        return self._storage is None
+        if self._storage is None:
+            return True
+        if self._wrparent is None:
+            return False
+        parent = self._wrparent()
+        if parent is None:
+            raise RuntimeError("accessing sub%s %r,\n"
+                               "but already garbage collected parent %r"
+                               % (self._kind, self, self._parent_type))
+        return parent._was_freed()
 
     def _setparentstructure(self, parent, parentindex):
         self._wrparent = weakref.ref(parent)
@@ -1307,14 +1325,15 @@ class _parentable(_container):
             # keep strong reference to parent, we share the same allocation
             self._keepparent = parent 
 
-    def _parentstructure(self):
+    def _parentstructure(self, check=True):
         if self._wrparent is not None:
             parent = self._wrparent()
             if parent is None:
                 raise RuntimeError("accessing sub%s %r,\n"
                                    "but already garbage collected parent %r"
                                    % (self._kind, self, self._parent_type))
-            parent._check()
+            if check:
+                parent._check()
             return parent
         return None
 
@@ -1323,14 +1342,15 @@ class _parentable(_container):
             raise RuntimeError("accessing freed %r" % self._TYPE)
         self._parentstructure()
 
-    def _normalizedcontainer(self):
+    def _normalizedcontainer(self, check=True):
         # if we are the first inlined substructure of a structure,
         # return the whole (larger) structure instead
         container = self
         while True:
-            parent, index = parentlink(container)
+            parent = container._parentstructure(check=check)
             if parent is None:
                 break
+            index = container._parent_index
             T = typeOf(parent)
             if (not isinstance(T, Struct) or T._first_struct()[0] != index
                 or isinstance(T, FixedSizeArray)):
@@ -1525,7 +1545,7 @@ class _subarray(_parentable):     # only for direct_fieldptr()
     def __repr__(self):
         
         return '<_subarray at %r in %r>' % (self._parent_index,
-                                            self._parentstructure())
+                                            self._parentstructure(check=False))
 
     def getlength(self):
         assert isinstance(self._TYPE, FixedSizeArray)

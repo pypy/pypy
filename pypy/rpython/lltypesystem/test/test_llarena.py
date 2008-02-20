@@ -165,6 +165,8 @@ def test_partial_arena_reset():
         plist.append(llmemory.cast_adr_to_ptr(b, SPTR))
     # clear blist[1] and blist[2] but not blist[0] nor blist[3]
     arena_reset(blist[1], llmemory.raw_malloc_usage(precomputed_size)*2, False)
+    py.test.raises(RuntimeError, "plist[1].x")     # marked as freed
+    py.test.raises(RuntimeError, "plist[2].x")     # marked as freed
     # re-reserve object at index 1 and 2
     blist[1] = reserve(1)
     blist[2] = reserve(2)
@@ -173,6 +175,10 @@ def test_partial_arena_reset():
     assert plist[3].x == 103
     py.test.raises(RuntimeError, "plist[1].x")     # marked as freed
     py.test.raises(RuntimeError, "plist[2].x")     # marked as freed
+    # but we can still cast the old ptrs to addresses, which compare equal
+    # to the new ones we gotq
+    assert llmemory.cast_ptr_to_adr(plist[1]) == blist[1]
+    assert llmemory.cast_ptr_to_adr(plist[2]) == blist[2]
     # check via addresses
     assert (blist[0] + llmemory.offsetof(SX, 'x')).signed[0] == 100
     assert (blist[3] + llmemory.offsetof(SX, 'x')).signed[0] == 103
@@ -203,6 +209,45 @@ def test_address_eq_as_int():
     py.test.skip("cast_adr_to_int() is hard to get consistent")
     assert llmemory.cast_adr_to_int(a) == llmemory.cast_adr_to_int(a1)
     assert llmemory.cast_adr_to_int(a+1) == llmemory.cast_adr_to_int(a1) + 1
+
+def test_replace_object_with_stub():
+    from pypy.rpython.memory.gcheader import GCHeaderBuilder
+    HDR = lltype.Struct('HDR', ('x', lltype.Signed))
+    S = lltype.GcStruct('S', ('y', lltype.Signed), ('z', lltype.Signed))
+    STUB = lltype.GcStruct('STUB', ('t', lltype.Char))
+    gcheaderbuilder = GCHeaderBuilder(HDR)
+    size_gc_header = gcheaderbuilder.size_gc_header
+
+    a = arena_malloc(50, True)
+    hdraddr = a + 12
+    arena_reserve(hdraddr, size_gc_header + llmemory.sizeof(S))
+    hdr = llmemory.cast_adr_to_ptr(hdraddr, lltype.Ptr(HDR))
+    hdr.x = 42
+    obj = llmemory.cast_adr_to_ptr(hdraddr + size_gc_header, lltype.Ptr(S))
+    obj.y = -5
+    obj.z = -6
+
+    hdraddr = llmemory.cast_ptr_to_adr(obj) - size_gc_header
+    arena_reset(hdraddr, size_gc_header + llmemory.sizeof(S), False)
+    arena_reserve(hdraddr, size_gc_header + llmemory.sizeof(STUB))
+
+    # check that it possible to reach the newly reserved HDR+STUB
+    # via the header of the old 'obj' pointer, both via the existing
+    # 'hdraddr':
+    hdr = llmemory.cast_adr_to_ptr(hdraddr, lltype.Ptr(HDR))
+    hdr.x = 46
+    stub = llmemory.cast_adr_to_ptr(hdraddr + size_gc_header, lltype.Ptr(STUB))
+    stub.t = '!'
+
+    # and via a (now-invalid) pointer to the old 'obj': (this is needed
+    # because during a garbage collection there are still pointers to
+    # the old 'obj' around to be fixed)
+    hdraddr = llmemory.cast_ptr_to_adr(obj) - size_gc_header
+    hdr = llmemory.cast_adr_to_ptr(hdraddr, lltype.Ptr(HDR))
+    assert hdr.x == 46
+    stub = llmemory.cast_adr_to_ptr(hdraddr + size_gc_header,
+                                    lltype.Ptr(STUB))
+    assert stub.t == '!'
 
 
 def test_llinterpreted():

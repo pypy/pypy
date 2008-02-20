@@ -339,7 +339,9 @@ class fakeaddress(object):
     # NOTE: the 'ptr' in the addresses must be normalized.
     # Use cast_ptr_to_adr() instead of directly fakeaddress() if unsure.
     def __init__(self, ptr):
-        self.ptr = ptr or None   # null ptr => None
+        if ptr is not None and ptr._obj0 is None:
+            ptr = None   # null ptr => None
+        self.ptr = ptr
 
     def __repr__(self):
         if self.ptr is None:
@@ -374,8 +376,8 @@ class fakeaddress(object):
 
     def __eq__(self, other):
         if isinstance(other, fakeaddress):
-            obj1 = self.ptr
-            obj2 = other.ptr
+            obj1 = self._fixup().ptr
+            obj2 = other._fixup().ptr
             if obj1 is not None: obj1 = obj1._obj
             if obj2 is not None: obj2 = obj2._obj
             return obj1 == obj2
@@ -412,8 +414,9 @@ class fakeaddress(object):
         return self.ptr
 
     def _cast_to_ptr(self, EXPECTED_TYPE):
-        if self:
-            return cast_any_ptr(EXPECTED_TYPE, self.ptr)
+        addr = self._fixup()
+        if addr:
+            return cast_any_ptr(EXPECTED_TYPE, addr.ptr)
         else:
             return lltype.nullptr(EXPECTED_TYPE.TO)
 
@@ -422,6 +425,14 @@ class fakeaddress(object):
             return self.ptr._cast_to_int()
         else:
             return 0
+
+    def _fixup(self):
+        if self.ptr is not None and self.ptr._was_freed():
+            # hack to support llarena.test_replace_object_with_stub()
+            from pypy.rpython.lltypesystem import llarena
+            return llarena._getfakearenaaddress(self)
+        else:
+            return self
 
 # ____________________________________________________________
 

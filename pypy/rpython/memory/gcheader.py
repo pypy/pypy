@@ -16,17 +16,17 @@ class GCHeaderBuilder(object):
 
     def header_of_object(self, gcptr):
         # XXX hackhackhack
-        gcptr = gcptr._as_obj()
+        gcptr = gcptr._as_obj(check=False)
         if isinstance(gcptr, llmemory._gctransformed_wref):
-            return self.obj2header[gcptr._ptr._as_obj()]
+            return self.obj2header[gcptr._ptr._as_obj(check=False)]
         return self.obj2header[gcptr]
 
     def object_from_header(headerptr):
-        return header2obj[headerptr._as_obj()]
+        return header2obj[headerptr._as_obj(check=False)]
     object_from_header = staticmethod(object_from_header)
 
     def get_header(self, gcptr):
-        return self.obj2header.get(gcptr._as_obj(), None)
+        return self.obj2header.get(gcptr._as_obj(check=False), None)
 
     def attach_header(self, gcptr, headerptr):
         gcobj = gcptr._as_obj()

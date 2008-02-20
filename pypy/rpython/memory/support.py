@@ -26,7 +26,10 @@ def get_chunk_manager(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
 
         def get(self):
             if not self.free_list:
-                return lltype.malloc(CHUNK, flavor="raw")
+                # we zero-initialize the chunks to make the translation
+                # backends happy, but we don't need to do it at run-time.
+                zero = not we_are_translated()
+                return lltype.malloc(CHUNK, flavor="raw", zero=zero)
                 
             result = self.free_list
             self.free_list = result.next

@@ -1,4 +1,4 @@
-import array
+import array, weakref
 from pypy.rpython.lltypesystem import lltype, llmemory
 
 # An "arena" is a large area of memory which can hold a number of
@@ -15,6 +15,7 @@ class ArenaError(Exception):
 
 class Arena(object):
     object_arena_location = {}     # {container: (arena, offset)}
+    old_object_arena_location = weakref.WeakKeyDictionary()
 
     def __init__(self, nbytes, zero):
         self.nbytes = nbytes
@@ -29,7 +30,7 @@ class Arena(object):
         if size is None:
             stop = self.nbytes
         else:
-            stop = start + size
+            stop = start + llmemory.raw_malloc_usage(size)
         assert 0 <= start <= stop <= self.nbytes
         for offset, ptr in self.objectptrs.items():
             size = self.objectsizes[offset]
@@ -79,9 +80,7 @@ class Arena(object):
         addr2 = size._raw_malloc([], zero=zero)
         pattern = 'X' + 'x'*(bytes-1)
         self.usagemap[offset:offset+bytes] = array.array('c', pattern)
-        self.objectptrs[offset] = addr2.ptr
-        self.objectsizes[offset] = bytes
-        Arena.object_arena_location[addr2.ptr._obj] = self, offset
+        self.setobject(addr2, offset, bytes)
         # common case: 'size' starts with a GCHeaderOffset.  In this case
         # we can also remember that the real object starts after the header.
         while isinstance(size, RoundedUpForAllocation):
@@ -91,11 +90,16 @@ class Arena(object):
             objaddr = addr2 + size.offsets[0]
             hdrbytes = llmemory.raw_malloc_usage(size.offsets[0])
             objoffset = offset + hdrbytes
-            assert objoffset not in self.objectptrs
-            self.objectptrs[objoffset] = objaddr.ptr
-            self.objectsizes[objoffset] = bytes - hdrbytes
-            Arena.object_arena_location[objaddr.ptr._obj] = self, objoffset
+            self.setobject(objaddr, objoffset, bytes - hdrbytes)
         return addr2
+
+    def setobject(self, objaddr, offset, bytes):
+        assert offset not in self.objectptrs
+        self.objectptrs[offset] = objaddr.ptr
+        self.objectsizes[offset] = bytes
+        container = objaddr.ptr._obj
+        Arena.object_arena_location[container] = self, offset
+        Arena.old_object_arena_location[container] = self, offset
 
 class fakearenaaddress(llmemory.fakeaddress):
 
@@ -148,6 +152,7 @@ class fakearenaaddress(llmemory.fakeaddress):
         return True
 
     def compare_with_fakeaddr(self, other):
+        other = other._fixup()
         if not other:
             return None, None
         obj = other.ptr._obj
@@ -205,6 +210,30 @@ class fakearenaaddress(llmemory.fakeaddress):
         return self.arena._getid() + self.offset
 
 
+def _getfakearenaaddress(addr):
+    """Logic to handle test_replace_object_with_stub()."""
+    if isinstance(addr, fakearenaaddress):
+        return addr
+    else:
+        assert isinstance(addr, llmemory.fakeaddress)
+        assert addr, "NULL address"
+        # it must be possible to use the address of an already-freed
+        # arena object
+        obj = addr.ptr._getobj(check=False)
+        return _oldobj_to_address(obj)
+
+def _oldobj_to_address(obj):
+    obj = obj._normalizedcontainer(check=False)
+    try:
+        arena, offset = Arena.old_object_arena_location[obj]
+    except KeyError:
+        if obj._was_freed():
+            msg = "taking address of %r, but it was freed"
+        else:
+            msg = "taking address of %r, but it is not in an arena"
+        raise RuntimeError(msg % (obj,))
+    return arena.getaddr(offset)
+
 class RoundedUpForAllocation(llmemory.AddressOffset):
     """A size that is rounded up in order to preserve alignment of objects
     following it.  For arenas containing heterogenous objects.
@@ -247,7 +276,7 @@ def arena_reset(arena_addr, size, zero):
     """Free all objects in the arena, which can then be reused.
     The arena is filled with zeroes if 'zero' is True.  This can also
     be used on a subrange of the arena."""
-    assert isinstance(arena_addr, fakearenaaddress)
+    arena_addr = _getfakearenaaddress(arena_addr)
     arena_addr.arena.reset(zero, arena_addr.offset, size)
 
 def arena_reserve(addr, size, check_alignment=True):
@@ -256,7 +285,7 @@ def arena_reserve(addr, size, check_alignment=True):
     overlap.  The size must be symbolic; in non-translated version
     this is used to know what type of lltype object to allocate."""
     from pypy.rpython.memory.lltypelayout import memory_alignment
-    assert isinstance(addr, fakearenaaddress)
+    addr = _getfakearenaaddress(addr)
     if check_alignment and (addr.offset & (memory_alignment-1)) != 0:
         raise ArenaError("object at offset %d would not be correctly aligned"
                          % (addr.offset,))
