@@ -1,4 +1,3 @@
-import py
 from pypy.rpython.memory.gctransform.transform import GCTransformer, mallocHelpers
 from pypy.rpython.memory.gctransform.support import find_gc_ptrs_in_type, \
      get_rtti, _static_deallocator_body_for_type, LLTransformerOp, ll_call_destructor

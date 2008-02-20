@@ -2,8 +2,6 @@ from pypy.rpython.memory.gctransform.transform import GCTransformer, mallocHelpe
 from pypy.rpython.memory.gctransform.support import type_contains_pyobjs, \
      get_rtti, _static_deallocator_body_for_type, LLTransformerOp, ll_call_destructor
 from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython import rmodel
-from pypy.rlib.rarithmetic import ovfcheck
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem.lloperation import llop
 
