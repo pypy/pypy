@@ -35,7 +35,9 @@ def create_entry_point(space, w_dict):
         #    debug(" argv -> " + arg)
         if len(argv) > 2 and argv[1] == '--heapsize':
             # Undocumented option, handled at interp-level.
-            # It has silently no effect in non-Boehm translations.
+            # It has silently no effect with some GCs.
+            # It works in Boehm and in the semispace or generational GCs
+            # (but see comments in semispace.py:set_max_heap_size()).
             # At the moment this option exists mainly to support sandboxing.
             from pypy.rlib import rgc
             rgc.set_max_heap_size(int(argv[2]))

@@ -187,6 +187,14 @@ class SemiSpaceGC(MovingGCBase):
         self.space_size = newsize
         return True    # success
 
+    def set_max_heap_size(self, size):
+        # Set the maximum semispace size.  Note that the logic above will
+        # round this number *up* to the next power of two.  Also, this is
+        # the size of one semispace only, so actual usage can be the double
+        # during a collection.  Finally, note that this will never shrink
+        # an already-allocated heap.
+        self.max_space_size = size
+
     def collect(self):
         self.semispace_collect()
         # the indirection is required by the fact that collect() is referred

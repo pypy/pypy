@@ -105,6 +105,9 @@ class GCBase(object):
     def id(self, ptr):
         return lltype.cast_ptr_to_int(ptr)
 
+    def set_max_heap_size(self, size):
+        pass
+
     def x_swap_pool(self, newpool):
         return newpool
 

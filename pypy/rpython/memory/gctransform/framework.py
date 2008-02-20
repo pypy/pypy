@@ -275,6 +275,11 @@ class FrameworkGCTransformer(GCTransformer):
         else:
             self.id_ptr = None
 
+        self.set_max_heap_size_ptr = getfn(GCClass.set_max_heap_size.im_func,
+                                           [s_gc,
+                                            annmodel.SomeInteger(nonneg=True)],
+                                           annmodel.s_None)
+
         if GCClass.needs_write_barrier:
             self.write_barrier_ptr = getfn(GCClass.write_barrier.im_func,
                                            [s_gc, annmodel.SomeAddress(),
@@ -602,6 +607,12 @@ class FrameworkGCTransformer(GCTransformer):
             self.pop_roots(hop, livevars)
         else:
             hop.rename('cast_ptr_to_int')     # works nicely for non-moving GCs
+
+    def gct_gc_set_max_heap_size(self, hop):
+        [v_size] = hop.spaceop.args
+        hop.genop("direct_call", [self.set_max_heap_size_ptr,
+                                  self.c_const_gc,
+                                  v_size])
 
     def transform_generic_set(self, hop):
         from pypy.objspace.flow.model import Constant

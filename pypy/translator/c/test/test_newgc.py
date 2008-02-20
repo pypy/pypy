@@ -875,6 +875,26 @@ class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTests):
         res = fn()
         assert res == -2
 
+    def test_gc_set_max_heap_size(self):
+        def g(n):
+            return 'x' * n
+        def fn():
+            # the semispace size starts at 8MB for now, so setting a
+            # smaller limit has no effect
+            from pypy.rlib import rgc
+            rgc.set_max_heap_size(20000000)   # almost 20 MB
+            s1 = s2 = s3 = None
+            try:
+                s1 = g(400000)      # ~ 400 KB
+                s2 = g(4000000)     # ~ 4 MB
+                s3 = g(40000000)    # ~ 40 MB
+            except MemoryError:
+                pass
+            return (s1 is not None) + (s2 is not None) + (s3 is not None)
+        c_fn = self.getcompiled(fn)
+        res = c_fn()
+        assert res == 2
+
 
 class TestGenerationalGC(TestSemiSpaceGC):
     gcpolicy = "generation"
