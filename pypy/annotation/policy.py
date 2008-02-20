@@ -4,6 +4,7 @@ from pypy.annotation.specialize import specialize_argvalue, specialize_argtype, 
 from pypy.annotation.specialize import memo
 # for some reason, model must be imported first,
 # or we create a cycle.
+from pypy.annotation import model as annmodel
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation.signature import Sig
 
