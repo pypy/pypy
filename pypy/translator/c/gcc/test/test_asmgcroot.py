@@ -38,6 +38,7 @@ class AbstractTestAsmGCRoot:
         cbuilder = CStandaloneBuilder(t, main, config=config)
         c_source_filename = cbuilder.generate_source(
             defines = cbuilder.DEBUG_DEFINES)
+        self.patch_makefile(cbuilder.targetdir)
         if conftest.option.view:
             t.view()
         exe_name = cbuilder.compile()
@@ -62,6 +63,24 @@ class AbstractTestAsmGCRoot:
             else:
                 return int(result)
         return run
+
+    def patch_makefile(self, targetdir):
+        # for testing, patch the Makefile to add the -r option to
+        # trackgcroot.py.
+        makefile = targetdir.join('Makefile')
+        f = makefile.open()
+        lines = f.readlines()
+        f.close()
+        found = False
+        for i in range(len(lines)):
+            if 'trackgcroot.py' in lines[i]:
+                lines[i] = lines[i].replace('trackgcroot.py',
+                                            'trackgcroot.py -r')
+                found = True
+        assert found
+        f = makefile.open('w')
+        f.writelines(lines)
+        f.close()
 
 
 class TestAsmGCRootWithSemiSpaceGC(AbstractTestAsmGCRoot,

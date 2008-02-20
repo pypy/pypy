@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 
-import re, sys, os
+import re, sys, os, random
 
 r_functionstart = re.compile(r"\t.type\s+(\w+),\s*[@]function\s*$")
 r_functionend   = re.compile(r"\t.size\s+(\w+),\s*[.]-(\w+)\s*$")
@@ -26,11 +26,12 @@ r_localvar_ebp  = re.compile(r"(-?\d*)[(]%ebp[)]")
 
 class GcRootTracker(object):
 
-    def __init__(self, verbose=0):
+    def __init__(self, verbose=0, shuffle=False):
         self.gcmaptable = []
         self.verbose = verbose
         self.seen_main = False
         self.files_seen = 0
+        self.shuffle = shuffle     # to debug the sorting logic in asmgcroot.py
 
     def dump(self, output):
         assert self.seen_main
@@ -129,7 +130,11 @@ class GcRootTracker(object):
         if self.verbose > 1:
             for label, state in table:
                 print >> sys.stderr, label, '\t', format_callshape(state)
-        self.gcmaptable.extend(compress_gcmaptable(table))
+        table = compress_gcmaptable(table)
+        if self.shuffle and random.random() < 0.5:
+            self.gcmaptable[:0] = table
+        else:
+            self.gcmaptable.extend(table)
         self.seen_main |= tracker.is_main
         return tracker.lines
 
@@ -973,12 +978,18 @@ def decompress_callshape(bytes):
 
 
 if __name__ == '__main__':
-    if sys.argv and sys.argv[1] == '-v':
-        del sys.argv[1]
-        verbose = sys.maxint
-    else:
-        verbose = 1
-    tracker = GcRootTracker(verbose=verbose)
+    verbose = 1
+    shuffle = False
+    while len(sys.argv) > 1:
+        if sys.argv[1] == '-v':
+            del sys.argv[1]
+            verbose = sys.maxint
+        elif sys.argv[1] == '-r':
+            del sys.argv[1]
+            shuffle = True
+        else:
+            break
+    tracker = GcRootTracker(verbose=verbose, shuffle=shuffle)
     for fn in sys.argv[1:]:
         tmpfn = fn + '.TMP'
         f = open(fn, 'r')
