@@ -69,14 +69,9 @@ class W_Structure(Wrappable):
             raise OperationError(space.w_AttributeError, space.wrap(
                 "C Structure has no attribute %s" % attr))
 
-    def descr_call(self, space, __args__):
-        args_w, kwargs_w = __args__.unpack()
-        if args_w:
-            raise OperationError(
-                space.w_TypeError,
-                space.wrap("Structure accepts only keyword arguments as field initializers"))
-        return space.wrap(W_StructureInstance(space, self, 0, kwargs_w))
-    descr_call.unwrap_spec = ['self', ObjSpace, Arguments]
+    def descr_call(self, space):
+        return space.wrap(W_StructureInstance(space, self, 0))
+    descr_call.unwrap_spec = ['self', ObjSpace]
 
     def descr_repr(self, space):
         fieldnames = ' '.join(["'%s'" % name for name, _ in self.fields])
@@ -86,7 +81,7 @@ class W_Structure(Wrappable):
     descr_repr.unwrap_spec = ['self', ObjSpace]
 
     def fromaddress(self, space, address):
-        return space.wrap(W_StructureInstance(space, self, address, None))
+        return space.wrap(W_StructureInstance(space, self, address))
     fromaddress.unwrap_spec = ['self', ObjSpace, r_uint]
 
     def descr_fieldoffset(self, space, attr):
@@ -129,12 +124,9 @@ def cast_pos(self, i, ll_t):
 cast_pos._annspecialcase_ = 'specialize:arg(2)'
 
 class W_StructureInstance(W_DataInstance):
-    def __init__(self, space, shape, address, fieldinits_w):
+    def __init__(self, space, shape, address):
         W_DataInstance.__init__(self, space, shape.size, address)
         self.shape = shape
-        if fieldinits_w:
-            for field, w_value in fieldinits_w.iteritems():
-                self.setattr(space, field, w_value)
 
     def descr_repr(self, space):
         addr = rffi.cast(lltype.Unsigned, self.ll_buffer)

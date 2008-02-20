@@ -280,8 +280,14 @@ class AppTestFfi:
         lib = _rawffi.CDLL(self.lib_name)
         inner = lib.ptr("inner_struct_elem", ['P'], 'c')
         X = _rawffi.Structure([('x1', 'i'), ('x2', 'h'), ('x3', 'c'), ('next', 'P')])
-        next = X(next=0, x3='x')
-        x = X(next=next, x1=1, x2=2, x3='x')
+        next = X()
+        next.next = 0
+        next.x3 = 'x'
+        x = X()
+        x.next = next
+        x.x1 = 1
+        x.x2 = 2
+        x.x3 = 'x'
         assert X.fromaddress(x.next).x3 == 'x'
         x.free()
         next.free()
@@ -319,7 +325,8 @@ class AppTestFfi:
         lib = _rawffi.CDLL(self.lib_name)
         A = _rawffi.Array('P')
         X = _rawffi.Structure([('x1', 'i'), ('x2', 'h'), ('x3', 'c'), ('next', 'P')])
-        x = X(x2=3)
+        x = X()
+        x.x2 = 3
         a = A(3)
         a[1] = x
         get_array_elem_s = lib.ptr('get_array_elem_s', ['P', 'i'], 'P')
@@ -421,7 +428,9 @@ class AppTestFfi:
     def test_setattr_struct(self):
         import _rawffi
         X = _rawffi.Structure([('value1', 'i'), ('value2', 'i')])
-        x = X(value1=1, value2=2)
+        x = X()
+        x.value1 = 1
+        x.value2 = 2
         assert x.value1 == 1
         assert x.value2 == 2
         x.value1 = 3
@@ -454,7 +463,8 @@ class AppTestFfi:
         assert a.shape is A
         a.free()
         S = _rawffi.Structure([('v1', 'i')])
-        s = S(v1=3)
+        s = S()
+        s.v1 = 3
         assert s.shape is S
         s.free()
 
