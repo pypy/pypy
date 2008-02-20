@@ -69,21 +69,11 @@ class W_Structure(Wrappable):
             raise OperationError(space.w_AttributeError, space.wrap(
                 "C Structure has no attribute %s" % attr))
 
-    def descr_call(self, space, __args__):
-        args_w, kwargs_w = __args__.unpack()
-        if args_w:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("too many arguments"))
-        autofree = False
-        if 'autofree' in kwargs_w:
-            autofree = space.is_true(kwargs_w.pop('autofree'))
-        if len(kwargs_w):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("unknown keyword argument"))
+    def descr_call(self, space, autofree=False):
         if autofree:
             return space.wrap(W_StructureInstanceAutoFree(space, self))
         return space.wrap(W_StructureInstance(space, self, 0))
-    descr_call.unwrap_spec = ['self', ObjSpace, Arguments]
+    descr_call.unwrap_spec = ['self', ObjSpace, int]
 
     def descr_repr(self, space):
         fieldnames = ' '.join(["'%s'" % name for name, _ in self.fields])
