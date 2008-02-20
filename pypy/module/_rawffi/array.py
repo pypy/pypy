@@ -32,13 +32,25 @@ class W_Array(Wrappable):
         self.space = space
         self.itemtp = itemtp
 
-    def allocate(self, space, length):
+    def allocate(self, space, length, autofree=False):
+        if autofree:
+            return W_ArrayInstanceAutoFree(space, self, length)
         return W_ArrayInstance(space, self, length)
 
-    def descr_call(self, space, length, w_iterable=None):
-        result = self.allocate(space, length)
-        if not space.is_w(w_iterable, space.w_None):
-            items_w = space.unpackiterable(w_iterable)
+    def descr_call(self, space, length, __args__):
+        args_w, kwargs_w = __args__.unpack()
+        if len(args_w) > 1:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("too many arguments"))
+        autofree = False
+        if 'autofree' in kwargs_w:
+            autofree = space.is_true(kwargs_w.pop('autofree'))
+        if len(kwargs_w):
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("unknown keyword argument"))
+        result = self.allocate(space, length, autofree)
+        if len(args_w) == 1:
+            items_w = space.unpackiterable(args_w[0])
             iterlength = len(items_w)
             if iterlength > length:
                 raise OperationError(space.w_ValueError,
@@ -91,7 +103,7 @@ W_Array.typedef = TypeDef(
     __new__  = interp2app(descr_new_array,
                           unwrap_spec=[ObjSpace, W_Root, W_Root]),
     __call__ = interp2app(W_Array.descr_call,
-                          unwrap_spec=['self', ObjSpace, int, W_Root]),
+                          unwrap_spec=['self', ObjSpace, int, Arguments]),
     __repr__ = interp2app(W_Array.descr_repr),
     fromaddress = interp2app(W_Array.fromaddress),
     gettypecode = interp2app(W_Array.descr_gettypecode),
@@ -155,3 +167,13 @@ W_ArrayInstance.typedef = TypeDef(
     itemaddress = interp2app(W_ArrayInstance.descr_itemaddress),
 )
 W_ArrayInstance.typedef.acceptable_as_base_class = False
+
+
+class W_ArrayInstanceAutoFree(W_ArrayInstance):
+    def __init__(self, space, shape, length):
+        W_ArrayInstance.__init__(self, space, shape, length, 0)
+
+    def __del__(self):
+        if self.ll_buffer:
+            self._free()
+
