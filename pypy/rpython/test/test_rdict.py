@@ -670,6 +670,19 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
         assert hasattr(DICT.entries.TO.OF, 'f_everused') # all ints can be zero
         assert hasattr(DICT.entries.TO.OF, 'f_valid')    # no dummy available
 
+    def test_opt_boolean_has_no_dummy(self):
+        def f(n):
+            d = {n: True}
+            d[-87] = True
+            del d[n]
+            return len(d.copy()), d[-87], d
+        res = self.interpret(f, [5])
+        assert res.item0 == 1
+        assert res.item1 is True
+        DICT = lltype.typeOf(res.item2).TO
+        assert hasattr(DICT.entries.TO.OF, 'f_everused') # all ints can be zero
+        assert hasattr(DICT.entries.TO.OF, 'f_valid')    # no dummy available
+
     def test_opt_multiple_identical_dicts(self):
         def f(n):
             s = "x" * n

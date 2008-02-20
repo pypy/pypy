@@ -297,7 +297,7 @@ class __extend__(IntegerRepr):
 
     def get_ll_dummyval_obj(self, rtyper, s_value):
         # if >= 0, then all negative values are special
-        if s_value.nonneg and not s_value.unsigned:
+        if s_value.nonneg and self.lowleveltype is Signed:
             return signed_repr    # whose ll_dummy_value is -1
         else:
             return None
