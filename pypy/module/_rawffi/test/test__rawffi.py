@@ -4,6 +4,7 @@ from pypy.conftest import gettestobjspace
 from pypy.translator.tool.cbuild import compile_c_module, \
      ExternalCompilationInfo
 from pypy.module._rawffi.interp_rawffi import TYPEMAP
+from pypy.module._rawffi.tracker import Tracker
 
 import os, sys, py
 
@@ -610,3 +611,28 @@ class AppTestFfi:
         a.free()
         raises(_rawffi.SegfaultException, a.__getitem__, 3)
         raises(_rawffi.SegfaultException, a.__setitem__, 3, 3)
+
+
+class AppTestAutoFree:
+    def setup_class(cls):
+        space = gettestobjspace(usemodules=('_rawffi', 'struct'))
+        cls.space = space
+        cls.w_sizes_and_alignments = space.wrap(dict(
+            [(k, (v.c_size, v.c_alignment)) for k,v in TYPEMAP.iteritems()]))
+        Tracker.DO_TRACING = True
+
+    def test_structure_autofree(self):
+        import gc, _rawffi
+        S = _rawffi.Structure([('x', 'i')])
+        oldnum = _rawffi._num_of_allocated_objects()
+        s = S(autofree=True)
+        s.x = 3
+        s = None
+        gc.collect()
+        gc.collect()
+        gc.collect()
+        assert oldnum == _rawffi._num_of_allocated_objects()
+
+    def teardown_class(cls):
+        Tracker.DO_TRACING = False
+

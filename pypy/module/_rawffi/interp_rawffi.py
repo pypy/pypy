@@ -214,13 +214,15 @@ class W_DataInstance(Wrappable):
     def free(self, space):
         if not self.ll_buffer:
             raise segfault_exception(space, "freeing NULL pointer")
+        self._free()
+    free.unwrap_spec = ['self', ObjSpace]
+
+    def _free(self):
         if tracker.DO_TRACING:
             ll_buf = rffi.cast(rffi.INT, self.ll_buffer)
             tracker.trace_free(ll_buf)
         lltype.free(self.ll_buffer, flavor='raw')
         self.ll_buffer = lltype.nullptr(rffi.VOIDP.TO)
-    free.unwrap_spec = ['self', ObjSpace]
-
 
 def unwrap_truncate_int(TP, space, w_arg):
     if space.is_true(space.isinstance(w_arg, space.w_int)):

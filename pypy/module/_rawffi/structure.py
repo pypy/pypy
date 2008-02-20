@@ -69,9 +69,21 @@ class W_Structure(Wrappable):
             raise OperationError(space.w_AttributeError, space.wrap(
                 "C Structure has no attribute %s" % attr))
 
-    def descr_call(self, space):
+    def descr_call(self, space, __args__):
+        args_w, kwargs_w = __args__.unpack()
+        if args_w:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("too many arguments"))
+        autofree = False
+        if 'autofree' in kwargs_w:
+            autofree = space.is_true(kwargs_w.pop('autofree'))
+        if len(kwargs_w):
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("unknown keyword argument"))
+        if autofree:
+            return space.wrap(W_StructureInstanceAutoFree(space, self))
         return space.wrap(W_StructureInstance(space, self, 0))
-    descr_call.unwrap_spec = ['self', ObjSpace]
+    descr_call.unwrap_spec = ['self', ObjSpace, Arguments]
 
     def descr_repr(self, space):
         fieldnames = ' '.join(["'%s'" % name for name, _ in self.fields])
@@ -168,4 +180,12 @@ W_StructureInstance.typedef = TypeDef(
     fieldaddress= interp2app(W_StructureInstance.descr_fieldaddress),
 )
 W_StructureInstance.typedef.acceptable_as_base_class = False
+
+class W_StructureInstanceAutoFree(W_StructureInstance):
+    def __init__(self, space, shape):
+        W_StructureInstance.__init__(self, space, shape, 0)
+
+    def __del__(self):
+        if self.ll_buffer:
+            self._free()
 
