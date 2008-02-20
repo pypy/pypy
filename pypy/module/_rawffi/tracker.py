@@ -12,7 +12,7 @@ class Tracker(object):
         self.alloced = {}
 
     def trace_allocation(self, address, obj):
-        self.alloced[address] = True
+        self.alloced[address] = None
 
     def trace_free(self, address):
         del self.alloced[address]
