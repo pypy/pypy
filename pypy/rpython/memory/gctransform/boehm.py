@@ -14,28 +14,21 @@ class BoehmGCTransformer(GCTransformer):
 
         atomic_mh = mallocHelpers()
         atomic_mh.allocate = lambda size: llop.boehm_malloc_atomic(llmemory.Address, size)
-        def ll_malloc_fixedsize_atomic(size, finalizer):
-            result = atomic_mh._ll_malloc_fixedsize(size)
-            if finalizer: # XXX runtime check here is bad?
-                llop.boehm_register_finalizer(lltype.Void, result, finalizer)
-            return result
+        ll_malloc_fixedsize_atomic = atomic_mh._ll_malloc_fixedsize
 
         mh = mallocHelpers()
         mh.allocate = lambda size: llop.boehm_malloc(llmemory.Address, size)
-        def ll_malloc_fixedsize(size, finalizer):
-            result = mh._ll_malloc_fixedsize(size)
-            if finalizer: # XXX runtime check here is bad?
-                llop.boehm_register_finalizer(lltype.Void, result, finalizer)
-            return result
+        ll_malloc_fixedsize = mh._ll_malloc_fixedsize
+
         # XXX, do we need/want an atomic version of this function?
         ll_malloc_varsize_no_length = mh.ll_malloc_varsize_no_length
         ll_malloc_varsize = mh.ll_malloc_varsize
 
         if self.translator:
             self.malloc_fixedsize_ptr = self.inittime_helper(
-                ll_malloc_fixedsize, [lltype.Signed, self.FINALIZER_PTR], llmemory.Address)
+                ll_malloc_fixedsize, [lltype.Signed], llmemory.Address)
             self.malloc_fixedsize_atomic_ptr = self.inittime_helper(
-                ll_malloc_fixedsize_atomic, [lltype.Signed, self.FINALIZER_PTR], llmemory.Address)
+                ll_malloc_fixedsize_atomic, [lltype.Signed], llmemory.Address)
             self.malloc_varsize_no_length_ptr = self.inittime_helper(
                 ll_malloc_varsize_no_length, [lltype.Signed]*3, llmemory.Address, inline=False)
             self.malloc_varsize_ptr = self.inittime_helper(
@@ -60,10 +53,13 @@ class BoehmGCTransformer(GCTransformer):
             funcptr = self.malloc_fixedsize_atomic_ptr
         else:
             funcptr = self.malloc_fixedsize_ptr
-        c_finalizer_ptr = Constant(self.finalizer_funcptr_for_type(TYPE), self.FINALIZER_PTR)
         v_raw = hop.genop("direct_call",
-                          [funcptr, c_size, c_finalizer_ptr],
+                          [funcptr, c_size],
                           resulttype=llmemory.Address)
+        finalizer_ptr = self.finalizer_funcptr_for_type(TYPE)
+        if finalizer_ptr:
+            c_finalizer_ptr = Constant(finalizer_ptr, self.FINALIZER_PTR)
+            hop.genop("boehm_register_finalizer", [v_raw, c_finalizer_ptr])
         return v_raw
 
 
