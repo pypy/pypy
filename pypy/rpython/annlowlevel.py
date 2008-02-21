@@ -342,8 +342,24 @@ class PseudoHighLevelCallableEntry(extregistry.ExtRegistryEntry):
 
 
 def llhelper(F, f):
-    # implementation for the purpose of direct running only
-    # XXX need more cleverness to support translation of prebuilt llhelper ptr
+    """Gives a low-level function pointer of type F which, when called,
+    invokes the RPython function f().
+    """
+    # Example - the following code can be either run or translated:
+    #
+    #   def my_rpython_code():
+    #       g = llhelper(F, my_other_rpython_function)
+    #       assert typeOf(g) == F
+    #       ...
+    #       g()
+    #
+    # however the following doesn't translate (xxx could be fixed with hacks):
+    #
+    #   prebuilt_g = llhelper(F, f)
+    #   def my_rpython_code():
+    #       prebuilt_g()
+
+    # the next line is the implementation for the purpose of direct running
     return lltype.functionptr(F.TO, f.func_name, _callable=f)
 
 class LLHelperEntry(extregistry.ExtRegistryEntry):
