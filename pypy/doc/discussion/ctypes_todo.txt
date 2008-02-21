@@ -8,6 +8,8 @@ Few ctypes-related todo points:
     are missing or not comprehensive. Some tests are skipped because I didn't
     understand the details.
 
+  - _fields_ can be tuples too as well as lists
+
   - restype being a function is not working.
 
   - there are features, which we don't support like buffer() and
