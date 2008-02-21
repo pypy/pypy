@@ -316,6 +316,7 @@ class TestStructure(BaseCTypesTestChecker):
 
 
     def get_except(self, func, *args):
+        # XXX remove this, py.test.raises returns a nice inspectable object
         try:
             func(*args)
         except Exception, detail:
@@ -345,6 +346,31 @@ class TestStructure(BaseCTypesTestChecker):
         assert "in_dll" in dir(type(Structure))
         assert "from_address" in dir(type(Structure))
         assert "in_dll" in dir(type(Structure))
+
+    def test_fields_is_a_tuple(self):
+        class Person(Structure):
+            _fields_ = (("name", c_char*6),
+                        ("age", c_int))
+
+        # short enough
+        p = Person("123456", 6)
+        assert p.name == "123456"
+        assert p.age == 6
+
+    def test_subclassing_field_is_a_tuple(self):
+        py.test.skip("this leaks")
+        class Person(Structure):
+            _fields_ = (("name", c_char*6),
+                        ("age", c_int))
+        class PersonWithIncome(Person):
+            _fields_ = [("income", c_int)]
+
+        # short enough
+        p = PersonWithIncome("123456", 6, 5)
+        assert p.name == "123456"
+        assert p.age == 6
+        assert p.income == 5
+
 
 class TestPointerMember(BaseCTypesTestChecker):
 
@@ -387,15 +413,6 @@ class TestPointerMember(BaseCTypesTestChecker):
         s.p = None
         assert s.x == 12345678
 
-    def test_fields_is_a_tuple(self):
-        class Person(Structure):
-            _fields_ = (("name", c_char*6),
-                        ("age", c_int))
-
-        # short enough
-        p = Person("123456", 6)
-        assert p.name == "123456"
-        assert p.age == 6
 
 class TestRecursiveStructure(BaseCTypesTestChecker):
     def test_contains_itself(self):
