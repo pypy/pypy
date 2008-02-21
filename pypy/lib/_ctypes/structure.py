@@ -44,6 +44,8 @@ def struct_setattr(self, name, value):
     _CDataMeta.__setattr__(self, name, value)
 
 def names_and_fields(_fields_, superclass, zero_offset=False, anon=None):
+    if isinstance(_fields_, tuple):
+        _fields_ = list(_fields_)
     for _, tp in _fields_:
         if not isinstance(tp, _CDataMeta):
             raise TypeError("Expected CData subclass, got %s" % (tp,))

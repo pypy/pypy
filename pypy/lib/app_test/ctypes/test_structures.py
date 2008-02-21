@@ -387,6 +387,16 @@ class TestPointerMember(BaseCTypesTestChecker):
         s.p = None
         assert s.x == 12345678
 
+    def test_fields_is_a_tuple(self):
+        class Person(Structure):
+            _fields_ = (("name", c_char*6),
+                        ("age", c_int))
+
+        # short enough
+        p = Person("123456", 6)
+        assert p.name == "123456"
+        assert p.age == 6
+
 class TestRecursiveStructure(BaseCTypesTestChecker):
     def test_contains_itself(self):
         class Recursive(Structure):
