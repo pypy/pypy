@@ -40,6 +40,8 @@ class CConfig:
     FFI_BAD_TYPEDEF = rffi_platform.ConstantInteger('FFI_BAD_TYPEDEF')
     FFI_DEFAULT_ABI = rffi_platform.ConstantInteger('FFI_DEFAULT_ABI')
 
+    FFI_TYPE_STRUCT = rffi_platform.ConstantInteger('FFI_TYPE_STRUCT')
+
     size_t = rffi_platform.SimpleType("size_t", rffi.ULONG)
 
     ffi_type = rffi_platform.Struct('ffi_type', [('size', rffi.ULONG),
@@ -113,6 +115,7 @@ RTLD_NOW = cConfig.RTLD_NOW
 FFI_OK = cConfig.FFI_OK
 FFI_BAD_TYPEDEF = cConfig.FFI_BAD_TYPEDEF
 FFI_DEFAULT_ABI = rffi.cast(rffi.USHORT, cConfig.FFI_DEFAULT_ABI)
+FFI_TYPE_STRUCT = rffi.cast(rffi.USHORT, cConfig.FFI_TYPE_STRUCT)
 FFI_CIFP = rffi.COpaquePtr('ffi_cif', compilation_info=CConfig.
                            _compilation_info_)
 
@@ -160,6 +163,14 @@ def dlsym(libhandle, name):
         raise KeyError(name)
     # XXX rffi.cast here...
     return res
+
+def make_struct_ffitype(size, aligment):
+    tp = lltype.malloc(FFI_TYPE_P.TO, flavor='raw')
+    tp.c_type = FFI_TYPE_STRUCT
+    tp.c_size = rffi.cast(rffi.SIZE_T, size)
+    tp.c_alignment = rffi.cast(rffi.USHORT, aligment)
+    tp.c_elements = lltype.nullptr(FFI_TYPE_PP.TO)
+    return tp
 
 def cast_type_to_ffitype(tp):
     """ This function returns ffi representation of rpython type tp

@@ -310,7 +310,6 @@ class TestFunctions(BaseCTypesTestChecker):
         raises(ValueError, c_int.in_dll, dll, "_xxx_yyy")
 
     def test_byval(self):
-        py.test.skip("Structure by value")
         # without prototype
         ptin = POINT(1, 2)
         ptout = POINT()

@@ -112,6 +112,15 @@ class AppTestFfi:
             return callback();
         }
 
+        struct x_y {
+            long x;
+            long y;
+        };
+
+        long sum_x_y(struct x_y s) {
+            return s.x + s.y;
+        }
+        
         '''))
         return compile_c_module([c_file], 'x', ExternalCompilationInfo())
     prepare_c_example = staticmethod(prepare_c_example)
@@ -498,7 +507,7 @@ class AppTestFfi:
         s = struct.calcsize("i")
         assert (repr(_rawffi.Array('i')) ==
                 "<_rawffi.Array 'i' (%d, %d)>" % (s, s))
-        assert repr(_rawffi.Array((18, 2))) == "<_rawffi.Array '?' (18, 2)>"
+        assert repr(_rawffi.Array((18, 2))) == "<_rawffi.Array 'V' (18, 2)>"
         assert (repr(_rawffi.Structure([('x', 'i'), ('yz', 'i')])) ==
                 "<_rawffi.Structure 'x' 'yz' (%d, %d)>" % (2*s, s))
 
@@ -611,6 +620,18 @@ class AppTestFfi:
         a.free()
         raises(_rawffi.SegfaultException, a.__getitem__, 3)
         raises(_rawffi.SegfaultException, a.__setitem__, 3, 3)
+
+    def test_struct_byvalue(self):
+        import _rawffi
+        X_Y = _rawffi.Structure([('x', 'l'), ('y', 'l')])
+        x_y = X_Y()
+        lib = _rawffi.CDLL(self.lib_name)
+        sum_x_y = lib.ptr('sum_x_y', [X_Y.gettypecode()], 'l')
+        x_y.x = 200
+        x_y.y = 220
+        res = sum_x_y(x_y)
+        assert res[0] == 420
+        x_y.free()
 
 
 class AppTestAutoFree:

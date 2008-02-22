@@ -175,3 +175,59 @@ class TestDLOperations:
         del pow
         del libm
         assert not ALLOCATED
+
+    def test_make_struct_fftiype(self):
+        tp = make_struct_ffitype(6, 2)
+        assert tp.c_type == FFI_TYPE_STRUCT
+        assert tp.c_size == 6
+        assert tp.c_alignment == 2
+        lltype.free(tp, flavor='raw')
+
+    def test_struct_by_val(self):
+        from pypy.translator.tool.cbuild import compile_c_module, \
+             ExternalCompilationInfo
+        from pypy.tool.udir import udir
+
+        c_file = udir.ensure("test_libffi", dir=1).join("xlib.c")
+        c_file.write(py.code.Source('''
+        #include <stdlib.h>
+        #include <stdio.h>
+
+        struct x_y {
+            long x;
+            long y;
+        };
+
+        long sum_x_y(struct x_y s) {
+            return s.x + s.y;
+        }
+
+        long sum_x_y_p(struct x_y *p) {
+            return p->x + p->y;
+        }
+        
+        '''))
+        lib_name = compile_c_module([c_file], 'x', ExternalCompilationInfo())
+
+        lib = CDLL(lib_name)
+
+        size = ffi_type_slong.c_size*2
+        alignment = ffi_type_slong.c_alignment
+        tp = make_struct_ffitype(size, alignment)
+
+        sum_x_y = lib.getrawpointer('sum_x_y', [tp], ffi_type_slong)
+
+        buffer = lltype.malloc(rffi.LONGP.TO, 3, flavor='raw')
+        buffer[0] = 200
+        buffer[1] = 220
+        buffer[2] = 666
+        sum_x_y.call([rffi.cast(rffi.VOIDP, buffer)],
+                     rffi.cast(rffi.VOIDP, rffi.ptradd(buffer, 2)))
+        assert buffer[2] == 420
+
+        lltype.free(buffer, flavor='raw')
+        del sum_x_y
+        lltype.free(tp, flavor='raw')
+        del lib
+
+        assert not ALLOCATED

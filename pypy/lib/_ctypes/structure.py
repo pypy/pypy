@@ -106,6 +106,7 @@ class StructureMeta(_CDataMeta):
                 typedict.get('_anonymous_', None))
             res._ffistruct = _rawffi.Structure(rawfields)
             res._ffishape = res._ffistruct.gettypecode()
+            res._ffiletter = res._ffishape
 
         def __init__(self, *args, **kwds):
             if not hasattr(self, '_ffistruct'):
@@ -158,7 +159,6 @@ class StructureMeta(_CDataMeta):
 
 class Structure(_CData):
     __metaclass__ = StructureMeta
-    _ffiletter = 'P'
     _needs_free = False
 
     def _subarray(self, fieldtype, name):
@@ -196,7 +196,7 @@ class Structure(_CData):
         return fieldtype._CData_output(suba, self, offset)
 
     def _get_buffer_for_param(self):
-        return CArgObject(self._buffer.byptr())
+        return self
 
     def _get_buffer_value(self):
         return self._buffer.buffer

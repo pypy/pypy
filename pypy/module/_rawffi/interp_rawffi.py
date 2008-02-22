@@ -86,6 +86,14 @@ def letter2tp(space, key):
         raise OperationError(space.w_ValueError, space.wrap(
             "Unknown type letter %s" % (key,)))
 
+def unpack_typecode(space, w_typecode):
+    if space.is_true(space.isinstance(w_typecode, space.w_str)):
+        letter = space.str_w(w_typecode)
+        return letter2tp(space, letter)
+    else:
+        w_size, w_align = space.unpacktuple(w_typecode, expected_length=2)
+        return ('V', space.int_w(w_size), space.int_w(w_align)) # value object
+
 def _get_type_(space, key):
     try:
         return TYPEMAP[key]
@@ -99,6 +107,13 @@ class W_CDLL(Wrappable):
         self.name = name
         self.w_cache = space.newdict()
         self.space = space
+
+    def get_arg_type(self, letter, argsize, argalignment):
+        space = self.space
+        if letter == 'V': # xxx leaks
+            return make_struct_ffitype(argsize, argalignment)
+        else:
+            return _get_type_(space, letter)
 
     def get_type(self, key):
         space = self.space
@@ -125,8 +140,10 @@ class W_CDLL(Wrappable):
             else:
                 raise
         argtypes_w = space.unpackiterable(w_argtypes)
-        argtypes = [space.str_w(w_arg) for w_arg in argtypes_w]
-        ffi_argtypes = [self.get_type(arg) for arg in argtypes]
+        argtypes = [unpack_typecode(space, w_arg) for w_arg in argtypes_w]
+        ffi_argtypes = [self.get_arg_type(letter, argsize, argalignment)
+                                               for letter, argsize, argalignment
+                                                    in argtypes]
         try:
             ptr = self.cdll.getrawpointer(name, ffi_argtypes, ffi_restype)
             w_funcptr = W_FuncPtr(space, ptr, argtypes, restype)
@@ -179,14 +196,6 @@ def segfault_exception(space, reason):
     w_mod = space.getbuiltinmodule("_rawffi")
     w_exception = space.getattr(w_mod, space.wrap("SegfaultException"))
     return OperationError(w_exception, space.wrap(reason))
-
-def unpack_typecode(space, w_typecode):
-    if space.is_true(space.isinstance(w_typecode, space.w_str)):
-        letter = space.str_w(w_typecode)
-        return letter2tp(space, letter)
-    else:
-        w_size, w_align = space.unpacktuple(w_typecode, expected_length=2)
-        return ('?', space.int_w(w_size), space.int_w(w_align))
 
 
 class W_DataInstance(Wrappable):
@@ -308,6 +317,7 @@ class W_FuncPtr(Wrappable):
 
     def call(self, space, args_w):
         from pypy.module._rawffi.array import W_ArrayInstance
+        from pypy.module._rawffi.structure import W_StructureInstance
         argnum = len(args_w)
         if argnum != len(self.argtypes):
             msg = "Wrong number of argument: expected %d, got %d" % (
@@ -315,20 +325,31 @@ class W_FuncPtr(Wrappable):
             raise OperationError(space.w_TypeError, space.wrap(msg))
         args_ll = []
         for i in range(argnum):
-            argtype = self.argtypes[i]
+            argtype_letter, argtype_size, argtype_alignment = self.argtypes[i]
             w_arg = args_w[i]
-            arg = space.interp_w(W_ArrayInstance, w_arg)
-            if arg.length != 1:
-                msg = ("Argument %d should be an array of length 1, "
-                       "got length %d" % (i+1, arg.length))
-                raise OperationError(space.w_TypeError, space.wrap(msg))
-            letter = arg.shape.itemtp[0]
-            if letter != argtype:
-                if not (argtype in TYPEMAP_PTR_LETTERS and
-                        letter in TYPEMAP_PTR_LETTERS):
-                    msg = "Argument %d should be typecode %s, got %s" % (
-                        i+1, argtype, letter)
+            if argtype_letter == 'V': # by value object
+                arg = space.interp_w(W_StructureInstance, w_arg)
+                if (arg.shape.size != argtype_size or
+                    arg.shape.alignment != argtype_alignment):
+                    msg = ("Argument %d should be a structure of size %d and "
+                           "alignment %d, "
+                           "got instead size %d and alignment %d" %
+                           (i+1, argtype_size, argtype_alignment,
+                            arg.shape.size, arg.shape.alignment))
                     raise OperationError(space.w_TypeError, space.wrap(msg))
+            else:
+                arg = space.interp_w(W_ArrayInstance, w_arg)
+                if arg.length != 1:
+                    msg = ("Argument %d should be an array of length 1, "
+                           "got length %d" % (i+1, arg.length))
+                    raise OperationError(space.w_TypeError, space.wrap(msg))
+                letter = arg.shape.itemtp[0]
+                if letter != argtype_letter:
+                    if not (argtype_letter in TYPEMAP_PTR_LETTERS and
+                            letter in TYPEMAP_PTR_LETTERS):
+                        msg = "Argument %d should be typecode %s, got %s" % (
+                            i+1, argtype_letter, letter)
+                        raise OperationError(space.w_TypeError, space.wrap(msg))
             args_ll.append(arg.ll_buffer)
             # XXX we could avoid the intermediate list args_ll
         if self.resarray is not None:

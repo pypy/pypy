@@ -144,7 +144,6 @@ class BasicTestWrap(BaseCTypesTestChecker):
         assert 13577625587 == int(f(self.wrap(1000000000000), self.wrap(cb)))
 
     def test_byval(self):
-        py.test.skip("Structure by value")
         # without prototype
         ptin = POINT(1, 2)
         ptout = POINT()
