@@ -71,10 +71,20 @@ class MarkSweepGC(GCBase):
         self.collect_in_progress = False
         self.prev_collect_end_time = 0.0
 
+    def maybe_collect(self):
+        if self.bytes_malloced > self.bytes_malloced_threshold:
+            self.collect()
+
+    def write_malloc_statistics(self, typeid, size, result, varsize):
+        pass
+
+    def write_free_statistics(self, typeid, result):
+        pass
+
     def malloc_fixedsize(self, typeid, size, can_collect, has_finalizer=False,
                          contains_weakptr=False):
-        if can_collect and self.bytes_malloced > self.bytes_malloced_threshold:
-            self.collect()
+        if can_collect:
+            self.maybe_collect()
         size_gc_header = self.gcheaderbuilder.size_gc_header
         try:
             tot_size = size_gc_header + size
@@ -101,13 +111,14 @@ class MarkSweepGC(GCBase):
         result += size_gc_header
         #llop.debug_print(lltype.Void, 'malloc typeid', typeid,
         #                 '->', llmemory.cast_adr_to_int(result))
+        self.write_malloc_statistics(typeid, tot_size, result, False)
         return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
     malloc_fixedsize._dont_inline_ = True
 
     def malloc_fixedsize_clear(self, typeid, size, can_collect,
                                has_finalizer=False, contains_weakptr=False):
-        if can_collect and self.bytes_malloced > self.bytes_malloced_threshold:
-            self.collect()
+        if can_collect:
+            self.maybe_collect()
         size_gc_header = self.gcheaderbuilder.size_gc_header
         try:
             tot_size = size_gc_header + size
@@ -135,13 +146,14 @@ class MarkSweepGC(GCBase):
         result += size_gc_header
         #llop.debug_print(lltype.Void, 'malloc typeid', typeid,
         #                 '->', llmemory.cast_adr_to_int(result))
+        self.write_malloc_statistics(typeid, tot_size, result, False)
         return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
     malloc_fixedsize_clear._dont_inline_ = True
 
     def malloc_varsize(self, typeid, length, size, itemsize, offset_to_length,
                        can_collect, has_finalizer=False):
-        if can_collect and self.bytes_malloced > self.bytes_malloced_threshold:
-            self.collect()
+        if can_collect:
+            self.maybe_collect()
         size_gc_header = self.gcheaderbuilder.size_gc_header
         try:
             fixsize = size_gc_header + size
@@ -170,14 +182,15 @@ class MarkSweepGC(GCBase):
         #llop.debug_print(lltype.Void, 'malloc_varsize length', length,
         #                 'typeid', typeid,
         #                 '->', llmemory.cast_adr_to_int(result))
+        self.write_malloc_statistics(typeid, tot_size, result, True)
         return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
     malloc_varsize._dont_inline_ = True
 
     def malloc_varsize_clear(self, typeid, length, size, itemsize,
                              offset_to_length, can_collect,
                              has_finalizer=False):
-        if can_collect and self.bytes_malloced > self.bytes_malloced_threshold:
-            self.collect()
+        if can_collect:
+            self.maybe_collect()
         size_gc_header = self.gcheaderbuilder.size_gc_header
         try:
             fixsize = size_gc_header + size
@@ -207,6 +220,7 @@ class MarkSweepGC(GCBase):
         #llop.debug_print(lltype.Void, 'malloc_varsize length', length,
         #                 'typeid', typeid,
         #                 '->', llmemory.cast_adr_to_int(result))
+        self.write_malloc_statistics(typeid, tot_size, result, True)
         return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
     malloc_varsize_clear._dont_inline_ = True
 
@@ -307,6 +321,9 @@ class MarkSweepGC(GCBase):
                 surviving = hdr
                 curr_heap_size += estimate
             else:
+                gc_info = llmemory.cast_ptr_to_adr(hdr)
+                weakref_obj = gc_info + size_gc_header
+                self.write_free_statistics(typeid, weakref_obj)
                 freed_size += estimate
                 raw_free(addr)
             hdr = next
@@ -338,6 +355,9 @@ class MarkSweepGC(GCBase):
                     ppnext += llmemory.offsetof(self.HDR, 'next')
                     curr_heap_size += estimate
                 else:
+                    gc_info = llmemory.cast_ptr_to_adr(hdr)
+                    obj = gc_info + size_gc_header
+                    self.write_free_statistics(typeid, obj)
                     freed_size += estimate
                     raw_free(addr)
                 hdr = next
@@ -682,6 +702,11 @@ class PrintingMarkSweepGC(MarkSweepGC):
         MarkSweepGC.__init__(self, chunk_size, start_heap_size)
         self.count_mallocs = 0
 
+    def maybe_collect(self):
+        self.count_mallocs += 1
+        if self.count_mallocs > self.COLLECT_EVERY:
+            self.collect()
+
     def write_malloc_statistics(self, typeid, size, result, varsize):
         if varsize:
             what = "malloc_varsize"
@@ -692,397 +717,6 @@ class PrintingMarkSweepGC(MarkSweepGC):
     def write_free_statistics(self, typeid, result):
         llop.debug_print(lltype.Void, "free", typeid, " ", result)
 
-
-    #XXX XXX XXX XXX XXX XXX XXX XXX
-    # the next methods are nearly copies of the MarkSweepGC methods
-    # not clear how that can be improved
-
-    def malloc_fixedsize(self, typeid, size, can_collect, has_finalizer=False,
-                         contains_weakptr=False):
-        self.count_mallocs += 1
-        if can_collect and self.count_mallocs > self.COLLECT_EVERY:
-            self.collect()
-        size_gc_header = self.gcheaderbuilder.size_gc_header
-        try:
-            tot_size = size_gc_header + size
-            usage = raw_malloc_usage(tot_size)
-            bytes_malloced = ovfcheck(self.bytes_malloced+usage)
-            ovfcheck(self.heap_usage + bytes_malloced)
-        except OverflowError:
-            raise memoryError
-        result = raw_malloc(tot_size)
-        if not result:
-            raise memoryError
-        hdr = llmemory.cast_adr_to_ptr(result, self.HDRPTR)
-        hdr.typeid = typeid << 1
-        if has_finalizer:
-            hdr.next = self.malloced_objects_with_finalizer
-            self.malloced_objects_with_finalizer = hdr
-        elif contains_weakptr:
-            hdr.next = self.objects_with_weak_pointers
-            self.objects_with_weak_pointers = hdr
-        else:
-            hdr.next = self.malloced_objects
-            self.malloced_objects = hdr
-        self.bytes_malloced = bytes_malloced
-        result += size_gc_header
-        #llop.debug_print(lltype.Void, 'malloc typeid', typeid,
-        #                 '->', llmemory.cast_adr_to_int(result))
-        self.write_malloc_statistics(typeid, tot_size, result, False)
-        return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
-
-    def malloc_fixedsize_clear(self, typeid, size, can_collect,
-                               has_finalizer=False, contains_weakptr=False):
-        self.count_mallocs += 1
-        if can_collect and self.count_mallocs > self.COLLECT_EVERY:
-            self.collect()
-        size_gc_header = self.gcheaderbuilder.size_gc_header
-        try:
-            tot_size = size_gc_header + size
-            usage = raw_malloc_usage(tot_size)
-            bytes_malloced = ovfcheck(self.bytes_malloced+usage)
-            ovfcheck(self.heap_usage + bytes_malloced)
-        except OverflowError:
-            raise memoryError
-        result = raw_malloc(tot_size)
-        if not result:
-            raise memoryError
-        raw_memclear(result, tot_size)
-        hdr = llmemory.cast_adr_to_ptr(result, self.HDRPTR)
-        hdr.typeid = typeid << 1
-        if has_finalizer:
-            hdr.next = self.malloced_objects_with_finalizer
-            self.malloced_objects_with_finalizer = hdr
-        elif contains_weakptr:
-            hdr.next = self.objects_with_weak_pointers
-            self.objects_with_weak_pointers = hdr
-        else:
-            hdr.next = self.malloced_objects
-            self.malloced_objects = hdr
-        self.bytes_malloced = bytes_malloced
-        result += size_gc_header
-        #llop.debug_print(lltype.Void, 'malloc typeid', typeid,
-        #                 '->', llmemory.cast_adr_to_int(result))
-        self.write_malloc_statistics(typeid, tot_size, result, False)
-        return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
-
-    def malloc_varsize(self, typeid, length, size, itemsize, offset_to_length,
-                       can_collect, has_finalizer=False):
-        self.count_mallocs += 1
-        if can_collect and self.count_mallocs > self.COLLECT_EVERY:
-            self.collect()
-        size_gc_header = self.gcheaderbuilder.size_gc_header
-        try:
-            fixsize = size_gc_header + size
-            varsize = ovfcheck(itemsize * length)
-            tot_size = ovfcheck(fixsize + varsize)
-            usage = raw_malloc_usage(tot_size)
-            bytes_malloced = ovfcheck(self.bytes_malloced+usage)
-            ovfcheck(self.heap_usage + bytes_malloced)
-        except OverflowError:
-            raise memoryError
-        result = raw_malloc(tot_size)
-        if not result:
-            raise memoryError
-        (result + size_gc_header + offset_to_length).signed[0] = length
-        hdr = llmemory.cast_adr_to_ptr(result, self.HDRPTR)
-        hdr.typeid = typeid << 1
-        if has_finalizer:
-            hdr.next = self.malloced_objects_with_finalizer
-            self.malloced_objects_with_finalizer = hdr
-        else:
-            hdr.next = self.malloced_objects
-            self.malloced_objects = hdr
-        self.bytes_malloced = bytes_malloced
-            
-        result += size_gc_header
-        #llop.debug_print(lltype.Void, 'malloc_varsize length', length,
-        #                 'typeid', typeid,
-        #                 '->', llmemory.cast_adr_to_int(result))
-        self.write_malloc_statistics(typeid, tot_size, result, True)
-        return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
-
-    def malloc_varsize_clear(self, typeid, length, size, itemsize,
-                             offset_to_length, can_collect,
-                             has_finalizer=False):
-        self.count_mallocs += 1
-        if can_collect and self.count_mallocs > self.COLLECT_EVERY:
-            self.collect()
-        size_gc_header = self.gcheaderbuilder.size_gc_header
-        try:
-            fixsize = size_gc_header + size
-            varsize = ovfcheck(itemsize * length)
-            tot_size = ovfcheck(fixsize + varsize)
-            usage = raw_malloc_usage(tot_size)
-            bytes_malloced = ovfcheck(self.bytes_malloced+usage)
-            ovfcheck(self.heap_usage + bytes_malloced)
-        except OverflowError:
-            raise memoryError
-        result = raw_malloc(tot_size)
-        if not result:
-            raise memoryError
-        raw_memclear(result, tot_size)        
-        (result + size_gc_header + offset_to_length).signed[0] = length
-        hdr = llmemory.cast_adr_to_ptr(result, self.HDRPTR)
-        hdr.typeid = typeid << 1
-        if has_finalizer:
-            hdr.next = self.malloced_objects_with_finalizer
-            self.malloced_objects_with_finalizer = hdr
-        else:
-            hdr.next = self.malloced_objects
-            self.malloced_objects = hdr
-        self.bytes_malloced = bytes_malloced
-            
-        result += size_gc_header
-        #llop.debug_print(lltype.Void, 'malloc_varsize length', length,
-        #                 'typeid', typeid,
-        #                 '->', llmemory.cast_adr_to_int(result))
-        self.write_malloc_statistics(typeid, tot_size, result, True)
-        return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
-
     def collect(self):
-        # 1. mark from the roots, and also the objects that objects-with-del
-        #    point to (using the list of malloced_objects_with_finalizer)
-        # 2. walk the list of objects-without-del and free the ones not marked
-        # 3. walk the list of objects-with-del and for the ones not marked:
-        #    call __del__, move the object to the list of object-without-del
-        import time
-        from pypy.rpython.lltypesystem.lloperation import llop
         self.count_mallocs = 0
-        start_time = time.time()
-        self.collect_in_progress = True
-        size_gc_header = self.gcheaderbuilder.size_gc_header
-##        llop.debug_view(lltype.Void, self.malloced_objects, self.poolnodes,
-##                        size_gc_header)
-
-        # push the roots on the mark stack
-        objects = self.AddressStack() # mark stack
-        self._mark_stack = objects
-        self.root_walker.walk_roots(
-            MarkSweepGC._mark_root,  # stack roots
-            MarkSweepGC._mark_root,  # static in prebuilt non-gc structures
-            MarkSweepGC._mark_root)  # static in prebuilt gc objects
-
-        # from this point onwards, no more mallocs should be possible
-        old_malloced = self.bytes_malloced
-        self.bytes_malloced = 0
-        curr_heap_size = 0
-        freed_size = 0
-
-        # mark objects reachable by objects with a finalizer, but not those
-        # themselves. add their size to curr_heap_size, since they always
-        # survive the collection
-        hdr = self.malloced_objects_with_finalizer
-        while hdr:
-            next = hdr.next
-            typeid = hdr.typeid >> 1
-            gc_info = llmemory.cast_ptr_to_adr(hdr)
-            obj = gc_info + size_gc_header
-            if not hdr.typeid & 1:
-                self.add_reachable_to_stack(obj, objects)
-            addr = llmemory.cast_ptr_to_adr(hdr)
-            size = self.fixed_size(typeid)
-            if self.is_varsize(typeid):
-                length = (obj + self.varsize_offset_to_length(typeid)).signed[0]
-                size += self.varsize_item_sizes(typeid) * length
-            estimate = raw_malloc_usage(size_gc_header + size)
-            curr_heap_size += estimate
-            hdr = next
-
-        # mark thinks on the mark stack and put their descendants onto the
-        # stack until the stack is empty
-        while objects.non_empty():  #mark
-            curr = objects.pop()
-            gc_info = curr - size_gc_header
-            hdr = llmemory.cast_adr_to_ptr(gc_info, self.HDRPTR)
-            if hdr.typeid & 1:
-                continue
-            self.add_reachable_to_stack(curr, objects)
-            hdr.typeid = hdr.typeid | 1
-        objects.delete()
-        # also mark self.curpool
-        if self.curpool:
-            gc_info = llmemory.cast_ptr_to_adr(self.curpool) - size_gc_header
-            hdr = llmemory.cast_adr_to_ptr(gc_info, self.HDRPTR)
-            hdr.typeid = hdr.typeid | 1
-        # go through the list of objects containing weak pointers
-        # and kill the links if they go to dead objects
-        # if the object itself is not marked, free it
-        hdr = self.objects_with_weak_pointers
-        surviving = lltype.nullptr(self.HDR)
-        while hdr:
-            typeid = hdr.typeid >> 1
-            next = hdr.next
-            addr = llmemory.cast_ptr_to_adr(hdr)
-            size = self.fixed_size(typeid)
-            estimate = raw_malloc_usage(size_gc_header + size)
-            if hdr.typeid & 1:
-                typeid = hdr.typeid >> 1
-                offset = self.weakpointer_offset(typeid)
-                hdr.typeid = hdr.typeid & (~1)
-                gc_info = llmemory.cast_ptr_to_adr(hdr)
-                weakref_obj = gc_info + size_gc_header
-                pointing_to = (weakref_obj + offset).address[0]
-                if pointing_to:
-                    gc_info_pointing_to = pointing_to - size_gc_header
-                    hdr_pointing_to = llmemory.cast_adr_to_ptr(
-                        gc_info_pointing_to, self.HDRPTR)
-                    # pointed to object will die
-                    # XXX what to do if the object has a finalizer which resurrects
-                    # the object?
-                    if not hdr_pointing_to.typeid & 1:
-                        (weakref_obj + offset).address[0] = NULL
-                hdr.next = surviving
-                surviving = hdr
-                curr_heap_size += estimate
-            else:
-                gc_info = llmemory.cast_ptr_to_adr(hdr)
-                weakref_obj = gc_info + size_gc_header
-                self.write_free_statistics(typeid, weakref_obj)
-                freed_size += estimate
-                raw_free(addr)
-            hdr = next
-        self.objects_with_weak_pointers = surviving
-        # sweep: delete objects without del if they are not marked
-        # unmark objects without del that are marked
-        firstpoolnode = lltype.malloc(self.POOLNODE, flavor='raw')
-        firstpoolnode.linkedlist = self.malloced_objects
-        firstpoolnode.nextnode = self.poolnodes
-        prevpoolnode = lltype.nullptr(self.POOLNODE)
-        poolnode = firstpoolnode
-        while poolnode:   #sweep
-            ppnext = llmemory.cast_ptr_to_adr(poolnode)
-            ppnext += llmemory.offsetof(self.POOLNODE, 'linkedlist')
-            hdr = poolnode.linkedlist
-            while hdr:  #sweep
-                typeid = hdr.typeid >> 1
-                next = hdr.next
-                addr = llmemory.cast_ptr_to_adr(hdr)
-                size = self.fixed_size(typeid)
-                if self.is_varsize(typeid):
-                    length = (addr + size_gc_header + self.varsize_offset_to_length(typeid)).signed[0]
-                    size += self.varsize_item_sizes(typeid) * length
-                estimate = raw_malloc_usage(size_gc_header + size)
-                if hdr.typeid & 1:
-                    hdr.typeid = hdr.typeid & (~1)
-                    ppnext.address[0] = addr
-                    ppnext = llmemory.cast_ptr_to_adr(hdr)
-                    ppnext += llmemory.offsetof(self.HDR, 'next')
-                    curr_heap_size += estimate
-                else:
-                    gc_info = llmemory.cast_ptr_to_adr(hdr)
-                    obj = gc_info + size_gc_header
-                    self.write_free_statistics(typeid, obj)
-                    freed_size += estimate
-                    raw_free(addr)
-                hdr = next
-            ppnext.address[0] = llmemory.NULL
-            next = poolnode.nextnode
-            if not poolnode.linkedlist and prevpoolnode:
-                # completely empty node
-                prevpoolnode.nextnode = next
-                lltype.free(poolnode, flavor='raw')
-            else:
-                prevpoolnode = poolnode
-            poolnode = next
-        self.malloced_objects = firstpoolnode.linkedlist
-        self.poolnodes = firstpoolnode.nextnode
-        lltype.free(firstpoolnode, flavor='raw')
-        #llop.debug_view(lltype.Void, self.malloced_objects, self.malloced_objects_with_finalizer, size_gc_header)
-
-        end_time = time.time()
-        compute_time = start_time - self.prev_collect_end_time
-        collect_time = end_time - start_time
-
-        garbage_collected = old_malloced - (curr_heap_size - self.heap_usage)
-
-        if (collect_time * curr_heap_size >
-            0.02 * garbage_collected * compute_time): 
-            self.bytes_malloced_threshold += self.bytes_malloced_threshold / 2
-        if (collect_time * curr_heap_size <
-            0.005 * garbage_collected * compute_time):
-            self.bytes_malloced_threshold /= 2
-
-        # Use atleast as much memory as current live objects.
-        if curr_heap_size > self.bytes_malloced_threshold:
-            self.bytes_malloced_threshold = curr_heap_size
-
-        # Cap at 1/4 GB
-        self.bytes_malloced_threshold = min(self.bytes_malloced_threshold,
-                                            256 * 1024 * 1024)
-        self.total_collection_time += collect_time
-        self.prev_collect_end_time = end_time
-        if DEBUG_PRINT:
-            llop.debug_print(lltype.Void,
-                             "  malloced since previous collection:",
-                             old_malloced, "bytes")
-            llop.debug_print(lltype.Void,
-                             "  heap usage at start of collection: ",
-                             self.heap_usage + old_malloced, "bytes")
-            llop.debug_print(lltype.Void,
-                             "  freed:                             ",
-                             freed_size, "bytes")
-            llop.debug_print(lltype.Void,
-                             "  new heap usage:                    ",
-                             curr_heap_size, "bytes")
-            llop.debug_print(lltype.Void,
-                             "  total time spent collecting:       ",
-                             self.total_collection_time, "seconds")
-            llop.debug_print(lltype.Void,
-                             "  collecting time:                   ",
-                             collect_time)
-            llop.debug_print(lltype.Void,
-                             "  computing time:                    ",
-                             collect_time)
-            llop.debug_print(lltype.Void,
-                             "  new threshold:                     ",
-                             self.bytes_malloced_threshold)
-##        llop.debug_view(lltype.Void, self.malloced_objects, self.poolnodes,
-##                        size_gc_header)
-        assert self.heap_usage + old_malloced == curr_heap_size + freed_size
-
-        self.heap_usage = curr_heap_size
-        hdr = self.malloced_objects_with_finalizer
-        self.malloced_objects_with_finalizer = lltype.nullptr(self.HDR)
-        last = lltype.nullptr(self.HDR)
-        while hdr:
-            next = hdr.next
-            if hdr.typeid & 1:
-                hdr.next = lltype.nullptr(self.HDR)
-                if not self.malloced_objects_with_finalizer:
-                    self.malloced_objects_with_finalizer = hdr
-                else:
-                    last.next = hdr
-                hdr.typeid = hdr.typeid & (~1)
-                last = hdr
-            else:
-                obj = llmemory.cast_ptr_to_adr(hdr) + size_gc_header
-                finalizer = self.getfinalizer(hdr.typeid >> 1)
-                # make malloced_objects_with_finalizer consistent
-                # for the sake of a possible collection caused by finalizer
-                if not self.malloced_objects_with_finalizer:
-                    self.malloced_objects_with_finalizer = next
-                else:
-                    last.next = next
-                hdr.next = self.malloced_objects
-                self.malloced_objects = hdr
-                #llop.debug_view(lltype.Void, self.malloced_objects, self.malloced_objects_with_finalizer, size_gc_header)
-                finalizer(obj)
-                if not self.collect_in_progress: # another collection was caused?
-                    llop.debug_print(lltype.Void, "outer collect interrupted "
-                                                  "by recursive collect")
-                    return
-                if not last:
-                    if self.malloced_objects_with_finalizer == next:
-                        self.malloced_objects_with_finalizer = lltype.nullptr(self.HDR)
-                    else:
-                        # now it gets annoying: finalizer caused a malloc of something
-                        # with a finalizer
-                        last = self.malloced_objects_with_finalizer
-                        while last.next != next:
-                            last = last.next
-                            last.next = lltype.nullptr(self.HDR)
-                else:
-                    last.next = lltype.nullptr(self.HDR)
-            hdr = next
-        self.collect_in_progress = False
+        MarkSweepGC.collect(self)
