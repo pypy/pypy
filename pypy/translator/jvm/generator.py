@@ -733,15 +733,11 @@ class JVMGenerator(Generator):
         if jvartype is jVoid:
             return
         opc = LOAD.for_type(jvartype)
-        self.add_comment("     load_jvm_jar: jvartype=%s varidx=%s" % (
-            repr(jvartype), repr(varidx)))
         self._instr(opc, varidx)
 
     def store_jvm_var(self, vartype, varidx):
         """ Loads from jvm slot #varidx, which is expected to hold a value of
         type vartype """
-        self.add_comment("     store_jvm_jar: vartype=%s varidx=%s" % (
-            repr(vartype), repr(varidx)))
         self._instr(STORE.for_type(vartype), varidx)
 
     def load_from_array(self, elemtype):
@@ -831,37 +827,30 @@ class JVMGenerator(Generator):
 
     # __________________________________________________________________
     # Exception Handling
+    #
+    # You can demarcate regions of code as "try/catch" regions using
+    # the various functions included here.  Either invoke
+    # try_catch_region(), in which case you must supply all the
+    # relevant labels, or use the begin_try()/end_try()/begin_catch()
+    # methods.  In the latter case, you define the 3 needed labels as
+    # you go.  Both begin_try() and end_try() must have been invoked
+    # before begin_catch() is invoked (i.e., the try region must
+    # appear before the corresponding catch regions).  Note that
+    # end_try() can be called again to reset the end of the try
+    # region.
 
     def begin_try(self):
-        """
-        Begins a try/catch region.  Must be followed by a call to end_try()
-        after the code w/in the try region is complete.
-        """
         self.begintrylbl = self.unique_label("begin_try", mark=True)
 
     def end_try(self):
-        """
-        Ends a try/catch region.  Must be followed immediately
-        by a call to begin_catch().
-        """
         self.endtrylbl = self.unique_label("end_try", mark=True)
 
     def begin_catch(self, jexcclsty):
-        """
-        Begins a catch region corresponding to the last try; there can
-        be more than one call to begin_catch, in which case the last
-        try region is reused.
-        'jexcclsty' --- a JvmType for the class of exception to be caught
-        """
         catchlbl = self.unique_label("catch", mark=True)
         self.try_catch_region(
             jexcclsty, self.begintrylbl, self.endtrylbl, catchlbl)
-
+ 
     def end_catch(self):
-        """
-        Ends a catch region.
-        (Included for CLI compatibility)
-        """
         return
         
     def try_catch_region(self, jexcclsty, trystartlbl, tryendlbl, catchlbl):
@@ -984,6 +973,11 @@ class JVMGenerator(Generator):
         """ Pushes the PyPy object which contains all of our helper methods
         onto the stack """
         self.db.pypy_field.load(self)
+
+    def push_interlink(self):
+        """ Pushes the Interlink object which contains the methods
+        from prebuildnodes.py onto the stack """
+        self.db.interlink_field.load(self)
 
     def get_field(self, CONCRETETYPE, fieldname):
         clsobj = self.db.pending_class(CONCRETETYPE)

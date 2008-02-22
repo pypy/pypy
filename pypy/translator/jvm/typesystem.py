@@ -201,6 +201,8 @@ jPyPyRecordFloatSigned = JvmClassType('pypy.RecordFloatSigned')
 jPyPyRecordFloatFloat = JvmClassType('pypy.RecordFloatFloat')
 jPyPyAbstractMethodException = JvmClassType('pypy.AbstractMethodException')
 
+jStackOverflowError = JvmClassType('java.lang.StackOverflowError', throwable=True)
+jOutOfMemoryError = JvmClassType('java.lang.OutOfMemoryError', throwable=True)
 jArithmeticException = JvmClassType('java.lang.ArithmeticException', throwable=True)
 
 class JvmScalarType(JvmType):

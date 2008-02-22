@@ -13,6 +13,7 @@ public interface Interlink {
     public void throwZeroDivisionError();
     public void throwIndexError();
     public void throwOverflowError();
+    public void throwRuntimeError();
     public void throwValueError();
     public void throwUnicodeDecodeError();
     public void throwOSError(int errCode);

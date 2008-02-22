@@ -10,7 +10,7 @@ from pypy.translator.oosupport.metavm import \
      SetField, GetField, DownCast, RuntimeNew, OOString, OOUnicode, \
      CastTo, PushPrimitive
 from pypy.translator.jvm.metavm import \
-     IndirectCall, JvmCallMethod, TranslateException, NewCustomDict, \
+     IndirectCall, JvmCallMethod, NewCustomDict, \
      CastPrimitive, PushPyPy
 from pypy.rpython.ootypesystem import ootype
 
@@ -47,10 +47,11 @@ def _proc_dict(original):
     return res
 
 def _check_zer(op):
-    return [TranslateException(
-        jvmtype.jArithmeticException,
-        'throwZeroDivisionError',
-        _proc(op))]
+    # Note: we convert from Java's ArithmeticException to RPython's
+    # ZeroDivisionError in the *catch* code, not here where the
+    # exception is generated.  See introduce_exception_conversions()
+    # in node.py for details.
+    return op
 
 def _check_ovf(op):
     return op
@@ -213,7 +214,7 @@ opcodes = _proc_dict({
     'llong_ge':                 'long_greater_equals',
     'llong_and':                jvmgen.LAND,
     'llong_or':                 jvmgen.LOR,
-    'llong_lshift':             jvmgen.LSHL,
+    'llong_lshift':             [PushAllArgs, jvmgen.L2I, jvmgen.LSHL, StoreResult], # XXX - do we care about shifts of >(1<<32) bits??
     'llong_rshift':             [PushAllArgs, jvmgen.L2I, jvmgen.LSHR, StoreResult],
     'llong_xor':                jvmgen.LXOR,
     'llong_floordiv_ovf':       jvmgen.LDIV, # these can't overflow!

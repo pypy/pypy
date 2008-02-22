@@ -1,4 +1,5 @@
 from pypy.translator.test import snippet as s
+from pypy.rlib.rarithmetic import r_longlong
 
 # -----------------------------------------------------------------
 
@@ -41,6 +42,12 @@ class BaseTestSnippets(object):
         def fn(x, y):
             return x+y
         assert self.interpret(fn, [4,7]) == 11
+
+    def test_llshl(self):
+        def fn(a, b):
+            return a << b
+        assert self.interpret(fn, [r_longlong(1), 52]) == (1<<52)
+        assert self.interpret(fn, [r_longlong(1), r_longlong(52)]) == (1<<52)
 
     def test_manipulate(self):
         def fn(x,y):

@@ -53,15 +53,23 @@ class Database(OODatabase):
 
         # Create information about the Main class we will build:
         #
-        #    note that it will have a static field called 'pypy' that
-        #    points to a PyPy instance.  This PyPy instance has been
-        #    paired with the appropriate Interlink implementation
-        #    which allows it to create generated structures.
+        #    It will have two static fields, 'ilink' and 'pypy'.  The
+        #    first points to an instance of the interface pypy.Interlink
+        #    which we will be generated.  The second points to an instance
+        #    of pypy.PyPy which was created with this Interlink instance.
+        #
+        #    The Interlink class provides the bridge between static helper
+        #    code and dynamically generated classes.  Since there is one
+        #    Main per set of translated code, this also allows multiple
+        #    PyPy interpreters to overlap with one another.
         #
         #    These are public attributes that are referenced from
-        #    elsewhere in the code.
+        #    elsewhere in the code using
+        #    jvmgen.Generator.push_interlink() and .push_pypy().
         self.jPyPyMain = JvmClassType(self._pkg('Main'))
         self.pypy_field = jvmgen.Field.s(self.jPyPyMain, 'pypy', jPyPy)
+        self.interlink_field = jvmgen.Field.s(self.jPyPyMain, 'ilink',
+                                              jvmtype.jPyPyInterlink)
 
     # _________________________________________________________________
     # Java String vs Byte Array
@@ -509,7 +517,8 @@ class Database(OODatabase):
         # Handle built-in types:
         if OOT in self.ootype_to_scalar:
             return self.ootype_to_scalar[OOT]
-        if isinstance(OOT, lltype.Ptr) and isinstance(t.TO, lltype.OpaqueType):
+        if (isinstance(OOT, lltype.Ptr) and
+            isinstance(OOT.TO, lltype.OpaqueType)):
             return jObject
         if OOT in self.ootype_to_builtin:
             return JvmBuiltInType(self, self.ootype_to_builtin[OOT], OOT)

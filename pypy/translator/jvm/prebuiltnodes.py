@@ -22,6 +22,10 @@ def throwOverflowError():
     raise OverflowError
 
 @with_types([])
+def throwRuntimeError():
+    raise RuntimeError
+
+@with_types([])
 def throwValueError():
     raise ValueError
 

@@ -176,6 +176,13 @@ class Function(object):
         else:
             assert False, "No non-exceptional case from exc_handling block"
 
+        # give the backend a chance to see all the exceptions that might
+        # be caught here.  For ex., JVM uses this to convert between
+        # built-in JVM exceptions to their RPython equivalents
+        if anyHandler:
+            self.introduce_exception_conversions(
+                [link.exitcase for link in block.exits if link.exitcase])
+
         # catch the exception and dispatch to the appropriate block
         for link in block.exits:
             if link.exitcase is None:
@@ -191,6 +198,11 @@ class Function(object):
             self.end_catch(target_label)
 
         self.after_except_block()
+
+    def introduce_exception_conversions(self, llexitcases):
+        """ Called before any catch blocks are emitted with the full set of
+        exceptions that might be caught """        
+        return
 
     def after_except_block(self):
         pass

@@ -35,6 +35,7 @@ from pypy.translator.oosupport.constant import \
      push_constant
 
 import pypy.translator.jvm.generator as jvmgen
+import pypy.translator.jvm.typesystem as jvmtype
 from pypy.translator.jvm.log import log
 
 class Node(object):
@@ -93,11 +94,12 @@ class EntryPoint(Node):
     def render(self, gen):
         gen.begin_class(gen.db.jPyPyMain, jObject)
         gen.add_field(gen.db.pypy_field)
+        gen.add_field(gen.db.interlink_field)
 
         # Initialization:
         # 
-        #    1. Create a PyPy helper class, passing in an appropriate
-        #    interlink instance.
+        #    1. Create an Interlink instance and a PyPy helper class, and
+        #    store them in the appropriate static fields.
         #
         #    2. Run the initialization method for the constant class.
         #
@@ -106,6 +108,8 @@ class EntryPoint(Node):
         gen.emit(jvmgen.NEW, jPyPy)
         gen.emit(jvmgen.DUP)
         gen.new_with_jtype(gen.db.jInterlinkImplementation)
+        gen.emit(jvmgen.DUP)
+        gen.db.interlink_field.store(gen)
         gen.emit(jvmgen.Method.c(jPyPy, [jPyPyInterlink]))
         gen.db.pypy_field.store(gen)
         gen.db.constant_generator.runtime_init(gen)
@@ -314,12 +318,54 @@ class GraphFunction(OOFunction, Function):
         if cond:
             self.ilasm.end_try()
 
+    def introduce_exception_conversions(self, llexitcases):
+
+        # These are exceptions thrown internally by the JVM.
+        # If the user is catching an RPython exception that corresponds
+        # to one of these cases, we introduce a translation block which
+        # catches the corresponding JVM exception and re-throwns the
+        # RPython one.  A better solution would be to find a way to
+        # make the RPython class the same as the JVM class, but that is
+        # currently hindered by the presence of a few fields (meta) on
+        # the Object class.
+        translation_table = [
+            (ZeroDivisionError, jvmtype.jArithmeticException),
+            (RuntimeError, jvmtype.jStackOverflowError),
+            (MemoryError, jvmtype.jOutOfMemoryError),
+            ]
+
+        for pyexccls, jexcty in translation_table:
+            for llexitcase in llexitcases:
+                assert issubclass(llexitcase, BaseException)
+                if issubclass(llexitcase, pyexccls):
+                    # Generate some converter code like:
+                    #   try { ... }
+                    #   catch (OutOfStackError e) {
+                    #     jPyPyMain.ilink.throwRuntimeError();
+                    #     throw null;
+                    #   }
+                    # The "throw null" will never execute, it's just
+                    # there to make the verifier happy, since it doesn't
+                    # realize that Interlink's throwXyzError() methods
+                    # never return.  At the end we invoke end_try() again
+                    # so as to extend the encompassing try/catch region
+                    # to include this code, thus allowing the RPython
+                    # exception to be caught by the normal handlers.
+                    self.ilasm.begin_catch(jexcty)
+                    self.ilasm.push_interlink()
+                    interlink_method = jvmgen.Method.v(
+                        jPyPyInterlink, "throw"+pyexccls.__name__, [], jVoid)
+                    self.ilasm.emit(interlink_method)
+                    self.ilasm.emit(jvmgen.ACONST_NULL)
+                    self.ilasm.emit(jvmgen.ATHROW)
+                    self.ilasm.end_try()        
+
     def begin_catch(self, llexitcase):
         ll_meta_exc = llexitcase
         ll_exc = ll_meta_exc._inst.class_._INSTANCE
         jtype = self.cts.lltype_to_cts(ll_exc)
         assert jtype.throwable # SHOULD only try to catch subtypes of Exception
-        self.ilasm.begin_catch(jtype)        
+        self.ilasm.begin_catch(jtype)
 
     def end_catch(self, exit_lbl):
         self.ilasm.goto(exit_lbl)
