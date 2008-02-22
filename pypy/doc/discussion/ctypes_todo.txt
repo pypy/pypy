@@ -15,8 +15,15 @@ Few ctypes-related todo points:
   - there are features, which we don't support like buffer() and
     array() protocols.
 
-  - raw structure/arrays as function arguments/result types are not supported
-    (even on _rawffi level)
+  - decide who should create own and free the needed ffitypes for structures by value args,
+    right now we simple leak them. Structure types etc seem the right place for this.
+
+  - no tests for passing a union by value
+
+  - returning structures by value is still not implemented
+
+  - for some ABIs we will need completely filled ffitypes to do the right thing for passing
+    structures by value
 
   - bitfields are not implemented
 
