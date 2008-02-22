@@ -125,7 +125,7 @@ def array_slice_getitem(self, index):
 
 class Array(_CData):
     __metaclass__ = ArrayMeta
-    _ffiletter = 'P'
+    _ffiargshape = _ffiletter = 'P'
     _needs_free = False
 
     def __init__(self, *args):

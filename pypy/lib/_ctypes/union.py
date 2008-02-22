@@ -15,6 +15,7 @@ class UnionMeta(_CDataMeta):
                 typedict.get('_anonymous_', None))
             res._ffishape = (res._sizeofinstances(),
                              res._alignmentofinstances())
+            res._ffiargshape = res._ffishape
             # we need to create an array of size one for each
             # of our elements
             res._ffiarrays = {}
@@ -58,14 +59,13 @@ class UnionMeta(_CDataMeta):
             for name, field in self._fieldtypes.iteritems():
                 self._ffiarrays[name] = _rawffi.Array(field.ctype._ffishape)
             _CDataMeta.__setattr__(self, '_fields_', value)
-            self._ffishape = (self._sizeofinstances(),
-                             self._alignmentofinstances())
+            self._ffiargshape = self._ffishape = (self._sizeofinstances(),
+                                                  self._alignmentofinstances())
             return
         _CDataMeta.__setattr__(self, name, value)
 
 class Union(_CData):
     __metaclass__ = UnionMeta
-    _ffiletter = 'P'
     _needs_free = False
 
     def __getattr__(self, name):

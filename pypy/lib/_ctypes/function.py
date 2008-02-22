@@ -17,7 +17,7 @@ class CFuncPtr(_CData):
 
     _argtypes_ = None
     _restype_ = None
-    _ffiletter = 'P'
+    _ffiargshape = _ffiletter = 'P'
     _ffishape = 'P'
     _needs_free = False
 
@@ -47,7 +47,7 @@ class CFuncPtr(_CData):
             # XXX finish this one, we need to be able to jump there somehow
         elif callable(argument):
             self.callable = argument
-            argtypes = [arg._ffiletter for arg in self._argtypes_]
+            argtypes = [arg._ffiargshape for arg in self._argtypes_]
             restype = self._restype_._ffiletter
             self._ptr = _rawffi.CallbackPtr(argument, argtypes, restype)
             self._needs_free = True
@@ -90,8 +90,8 @@ class CFuncPtr(_CData):
         if restype is None:
             import ctypes
             restype = ctypes.c_int
-        argletters = [arg._ffiletter for arg in argtypes]
-        return self.dll._handle.ptr(self.name, argletters, restype._ffiletter)
+        argshapes = [arg._ffiargshape for arg in argtypes]
+        return self.dll._handle.ptr(self.name, argshapes, restype._ffiletter)
 
     def _guess_argtypes(self, args):
         from _ctypes import _CData

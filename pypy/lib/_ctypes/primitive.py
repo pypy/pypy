@@ -56,6 +56,7 @@ class SimpleType(_CDataMeta):
         ffiarray = _rawffi.Array(tp)
         result = type.__new__(self, name, bases, dct)
         result._ffiletter = tp
+        result._ffiargshape = tp
         result._ffishape = tp
         result._ffiarray = ffiarray
         if tp == 'z':

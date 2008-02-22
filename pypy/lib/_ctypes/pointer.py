@@ -13,6 +13,7 @@ class PointerType(_CDataMeta):
             size       = _rawffi.sizeof('P'),
             align      = _rawffi.alignment('P'),
             length     = 1,
+            _ffiargshape = 'P',
             _ffiletter = 'P',
             _ffishape  = 'P',
         )

@@ -13,7 +13,6 @@ def size_alignment_pos(fields):
     alignment = 1
     pos = []
     for fieldname, ctype in fields:
-        letter = ctype._ffiletter
         fieldsize = ctypes.sizeof(ctype)
         fieldalignment = ctypes.alignment(ctype)
         size = round_up(size, fieldalignment)
@@ -39,7 +38,7 @@ def struct_setattr(self, name, value):
             self.__dict__.get('_anonymous_', None))
         self._ffistruct = _rawffi.Structure(rawfields)
         _CDataMeta.__setattr__(self, '_fields_', value)
-        self._ffishape = self._ffistruct.gettypecode()
+        self._ffiargshape = self._ffishape = self._ffistruct.gettypecode()
         return
     _CDataMeta.__setattr__(self, name, value)
 
@@ -106,7 +105,7 @@ class StructureMeta(_CDataMeta):
                 typedict.get('_anonymous_', None))
             res._ffistruct = _rawffi.Structure(rawfields)
             res._ffishape = res._ffistruct.gettypecode()
-            res._ffiletter = res._ffishape
+            res._ffiargshape = res._ffishape
 
         def __init__(self, *args, **kwds):
             if not hasattr(self, '_ffistruct'):
