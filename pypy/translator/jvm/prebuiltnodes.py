@@ -26,6 +26,10 @@ def throwRuntimeError():
     raise RuntimeError
 
 @with_types([])
+def throwMemoryError():
+    raise MemoryError
+
+@with_types([])
 def throwValueError():
     raise ValueError
 
