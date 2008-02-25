@@ -50,14 +50,15 @@ Hints
 ++++++++++++++++
 
 We'd replace portals and global merge points with the following variant:
-two hints, "jit_can_enter" and "jit_can_leave", which are where the
-execution can go from interpreter to JITted and back.  The idea is that
-"jit_can_leave" is present at the beginning of the main interpreter loop
--- i.e. it is a global merge point.
+two hints, "can_enter_jit" and "global_merge_point", which are where the
+execution can go from interpreter to JITted and back.  As before,
+"global_merge_point" is present at the beginning of the main interpreter
+loop; in this model it has the additional meaning of being where the
+JIT can be *left* in order to go back to regular interpretation.
 
-The other hint, "jit_can_enter", is the place where some lightweight
+The other hint, "can_enter_jit", is the place where some lightweight
 profiling occurs in order to know if we should enter the JIT.  It's
-important to not have one "jit_can_enter" for each opcode -- that's a
+important to not have one "can_enter_jit" for each opcode -- that's a
 too heavy slow-down for regularly interpreted code (but it would be
 correct too).  A probably reasonable idea is to put it in the opcodes
 that close loops (JUMP_ABSOLUTE, CONTINUE).  This would make the regular
@@ -65,30 +66,30 @@ Python interpreter try to start JITting the Python-level loops that are
 often executed.  (In time, the JIT should follow calls too, so that
 means that the functions called by loops also get JITted.)
 
-If the profiling in "jit_can_enter" finds out we should start JITting,
+If the profiling in "can_enter_jit" finds out we should start JITting,
 it calls the JIT, which compiles and executes some machine code, which
 makes the current function frame progress, maybe to its end or not, but
-at least to an opcode boundary; so when the call done by "jit_can_enter"
+at least to an opcode boundary; so when the call done by "can_enter_jit"
 returns the regular interpreter can simply continue from the new next
-opcode.  For this reason it's necessary to put "jit_can_enter" and
-"jit_can_leave" next to each other, control-flow-wise --
-i.e. "jit_can_enter" should be at the end of JUMP_ABSOLUTE and CONTINUE,
-so that they are immediately followed by the global "jit_can_leave".
+opcode.  For this reason it's necessary to put "can_enter_jit" and
+"global_merge_point" next to each other, control-flow-wise --
+i.e. "can_enter_jit" should be at the end of JUMP_ABSOLUTE and CONTINUE,
+so that they are immediately followed by the "global_merge_point".
 
-Note that "jit_can_enter", in the regular interpreter, has another goal
+Note that "can_enter_jit", in the regular interpreter, has another goal
 too: it should quickly check if machine code was already emitted for the
 next opcode, and if so, jump to it -- i.e. do a call to it.  As above
 the call to the machine code will make the current function execution
-progress and when it returns we can go on interpreter it.
+progress and when it returns we can go on interpreting it.
 
 PyPy contains some custom logic to virtualize the frame and the value
 stack; in this new model it should go somewhere related to
-"jit_can_enter".
+"can_enter_jit".
 
-The "jit_can_enter" hint becomes nothing in the rainbow interpreter's
-bytecode.  Conversely, the "jit_can_leave" hint becomes nothing in
+The "can_enter_jit" hint becomes nothing in the rainbow interpreter's
+bytecode.  Conversely, the "global_merge_point" hint becomes nothing in
 the regular interpreter, but an important bytecode in the rainbow
-bytecode -- a global merge point.
+bytecode.
 
 Very lazy code generation
 ++++++++++++++++++++++++++++
@@ -109,7 +110,7 @@ corresponding to maybe half an opcode or a few opcodes, and then wait;
 then compile a bit more, and wait; and progress like this.  In this
 model we get the nice effect that in a Python-level loop, we would end
 up compiling only the loop instead of the whole function that contains
-it: indeed, the "jit_can_enter" profiling only triggers on the start of
+it: indeed, the "can_enter_jit" profiling only triggers on the start of
 the loop, and the stop-early logic means that the path that exits the
 loop is cold and will not be compiled.
 
@@ -131,9 +132,9 @@ when we don't want to generate more code immediately.
 The "something" in question, the fall-back rainbow interpreter, is quite
 slow, but only runs until the end of the current opcode and can directly
 perform all nested calls instead of interpreting them.  When it reaches
-the "jit_can_leave", it then returns; as described in the "hints"
+the "global_merge_point", it then returns; as described in the "hints"
 section this should be a return from the initial call to the JIT or the
-machine code -- a call which was in "jit_can_enter" in the regular
+machine code -- a call which was in "can_enter_jit" in the regular
 interpreter.  So the control flow is now in the regular interpreter,
 which can go on interpreting at its normal speed from there.
 
@@ -174,7 +175,9 @@ About calls: non-residual calls would always just return a single
 JITState in this simplified model, so no need for the careful red/yellow
 call logic (at least for now).  Residual calls, like now, would be
 followed by the equivalent of a promotion, checking if the residual call
-caused an exception or forced devirtualization.
+caused an exception or forced devirtualization (though we could
+immediately compile the expected common case, which is no exception and
+no forcing).
 
 About local merge points: in this model of a single JITState, I vaguely
 suspect that it gives better results to have *less* local merge points,
@@ -185,7 +188,7 @@ maintain (and linearly scan through) more than one state per green key.
 Random improvement ideas
 ++++++++++++++++++++++++++++++++
 
-- in the global merge point "jit_can_leave", so far we'd
+- in the "global_merge_point", so far we'd
   record one state snapshot for each opcode; instead, we can
   use the idea implemented in the flow object space of only
   recording the state at the beginning of an opcode that actually
@@ -204,11 +207,12 @@ Random improvement ideas
   the compact Paths as step two.
 
 - compiling of more code: we could tweak the flexswitch
-  interface.  For example, instead of "please add a new path",
+  interface of the JIT backends.
+  For example, instead of "please add a new path",
   it would make sense to have an API "please override the
   switch completely so that it has this new set of paths".
 
-- we also need a "jit_can_enter" at the end of the stack
+- we also need a "can_enter_jit" at the end of the stack
   unroller corresponding to CONTINUE, for the case where the
   "continue" statement was in a try:finally:.  This is not
   necessarily a problem, just a note that we have to allow
