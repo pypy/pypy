@@ -155,6 +155,19 @@ def test_something():
     fda = a.make_deterministic()
     
 def test_compress_char_set():
+    import string
     assert compress_char_set("ace") == [('a', 1), ('c', 1), ('e', 1)]
     assert compress_char_set("abcdefg") == [('a', 7)]
     assert compress_char_set("ABCabc") == [('A', 3), ('a', 3)]
+    assert compress_char_set("zycba") == [('a',3), ('y',2)]
+    assert compress_char_set(string.ascii_letters) == [('A', 26), ('a', 26)]
+    assert compress_char_set(string.printable) == [(' ', 95), ('\t', 5)]
+    
+def test_make_nice_charset_repr():
+    import string
+    assert make_nice_charset_repr("ace") == 'ace'
+    assert make_nice_charset_repr("abcdefg") == 'a-g'
+    assert make_nice_charset_repr("ABCabc") == 'A-Ca-c'
+    assert make_nice_charset_repr("zycba") == 'a-cyz'
+    assert make_nice_charset_repr(string.ascii_letters) == 'A-Za-z'
+    assert make_nice_charset_repr(string.printable) == 'A-Za-z0-9\\t\\x0b\\n\\r\\x0c! #"%$\'&)(+*,/.;:=<?>@[]\\\\_^`{}|~\\-'

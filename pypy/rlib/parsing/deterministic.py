@@ -6,21 +6,48 @@ except NameError:
     from sets import Set as set, ImmutableSet as frozenset
 
 def compress_char_set(chars):
+    """Take the character list and compress runs of adjacent
+    characters; the result is a list of the first character in
+    a run and the number of chars following, sorted with longer
+    runs first.
+    
+    Example: 'abc' => [('a', 3)]
+    Example: 'abcmxyz' => [('a',3),('x',3),('m',1)]"""
+    # Find the runs. Creates a list like [['a',3],['m',1],['x',3]]
     chars = list(chars)
     chars.sort()
-    result = [chars[0], 1]
+    result = [[chars[0], 1]]
     for a, b in zip(chars[:-1], chars[1:]):
         if ord(a) == ord(b) - 1:
-            result.append(result.pop() + 1)
+            # Found adjacent characters, increment counter
+            result[-1][1] += 1
         else:
-            result.append(b)
-            result.append(1)
-    real_result = []
-    for i in range(len(result) // 2):
-        real_result.append((result[i * 2 + 1], result[i * 2]))
-    real_result.sort()
-    real_result = zip(*zip(*real_result)[::-1])
+            # Found a 'hole', so create a new entry
+            result += [[b, 1]]
+    
+    # Change the above list into a list of sorted tuples
+    real_result = [(c,l) for [c,l] in result]
+    real_result.sort(key=lambda (l,c): (-c,l))
     return real_result
+
+def make_nice_charset_repr(chars):
+    # Compress the letters & digits
+    letters = set(chars) & set("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+    therest = set(chars) - letters - set('-')
+    charranges = compress_char_set(letters)
+    result = []
+    for a, num in charranges:
+        if num == 1:
+            result.append(a)
+        elif num==2:    # 'ab' better than 'a-b'
+            result.append(a)
+            result.append(chr(ord(a)+1))
+        else:
+            result.append("%s-%s" % (repr(a)[1:-1], repr(chr(ord(a) + num - 1))[1:-1]))
+    result += [repr(c)[1:-1] for c in therest]
+    if '-' in chars:
+        result += ['\\-']
+    return "".join(result)
 
 class LexerError(Exception):
     def __init__(self, input, state, source_pos):
@@ -35,18 +62,6 @@ class LexerError(Exception):
         result.append(" " * self.source_pos.columnno + "^")
         result.append("LexerError")
         return "\n".join(result)
-
-def make_nice_charset_repr(chars):
-    charranges = compress_char_set(chars)
-    result = []
-    for a, num in charranges:
-        if num == 1:
-            result.append(a)
-            if a == "-":
-                result.append("\\-")
-        else:
-            result.append("%s-%s" % (repr(a)[1:-1], repr(chr(ord(a) + num - 1))[1:-1]))
-    return "".join(result)
 
 class DFA(object):
     def __init__(self, num_states=0, transitions=None, final_states=None,
@@ -81,8 +96,9 @@ class DFA(object):
         if name is None:
             name = str(state)
         self.names.append(name)
-        return self.num_states - 1
+        return state
 
+    # DFA returns transitions like a dict()
     def __setitem__(self, (state, input), next_state):
         self.transitions[state, input] = next_state
 
@@ -94,7 +110,7 @@ class DFA(object):
 
     def get_all_chars(self):
         all_chars = set()
-        for state, input in self.transitions:
+        for (state, input) in self.transitions:
             all_chars.add(input)
         return all_chars
 
@@ -448,25 +464,27 @@ class NFA(object):
         return result
 
     def epsilon_closure(self, states):
-        result = set(states)
+        """Return the epsilon-closure of 'states'."""
+        closure = set(states)   # states are in closure, by definition
         stack = list(states)
         while stack:
             state = stack.pop()
+            # Get all next_state s.t. state->next_state is marked epsilon (None):
             for next_state in self.transitions.get(state, {}).get(None, set()):
-                if next_state not in result:
-                    result.add(next_state)
-                    stack.append(next_state)
-        return result
+                if next_state not in closure:
+                    closure.add(next_state)
+                    stack.append(next_state)    # Need to find eps-cl of next_state
+        return closure
 
     def make_deterministic(self, name_precedence=None):
         fda = DFA()
         set_to_state = {}
         stack = []
-        def get_state(states):
+        def get_dfa_state(states):
             states = self.epsilon_closure(states)
             frozenstates = frozenset(states)
             if frozenstates in set_to_state:
-                return set_to_state[frozenstates]
+                return set_to_state[frozenstates]   # already created this state
             if states == self.start_states:
                 assert not set_to_state
             final = bool(
@@ -495,7 +513,7 @@ class NFA(object):
                 name, final, unmergeable)
             stack.append((result, states))
             return result
-        startstate = get_state(self.start_states)
+        startstate = get_dfa_state(self.start_states)
         while stack:
             fdastate, ndastates = stack.pop()
             chars_to_states = {}
@@ -506,7 +524,7 @@ class NFA(object):
             for char, states in chars_to_states.iteritems():
                 if char is None:
                     continue
-                fda[fdastate, char] = get_state(states)
+                fda[fdastate, char] = get_dfa_state(states)
         return fda
 
     def update(self, other):
