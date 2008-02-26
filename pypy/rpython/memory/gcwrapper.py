@@ -36,7 +36,7 @@ class GCManagedHeap(object):
             typeid = self.get_type_id(TYPE)
             addr = self.gc.malloc(typeid, n, zero=zero)
             result = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(TYPE))
-            if self.gc.needs_zero_gc_pointers:
+            if not self.gc.malloc_zero_filled:
                 gctypelayout.zero_gc_pointers(result)
             return result
         else:
@@ -52,7 +52,7 @@ class GCManagedHeap(object):
             addr = self.gc.malloc(typeid, size, zero=zero,
                                   coallocator=coallocator)
             result = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(TYPE))
-            if self.gc.needs_zero_gc_pointers:
+            if not self.gc.malloc_zero_filled:
                 gctypelayout.zero_gc_pointers(result)
             return result
         return self.malloc(TYPE, size, 'gc', zero)

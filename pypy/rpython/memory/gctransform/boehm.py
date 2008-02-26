@@ -6,6 +6,7 @@ from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem.lloperation import llop
 
 class BoehmGCTransformer(GCTransformer):
+    malloc_zero_filled = True
     FINALIZER_PTR = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Void))
 
     def __init__(self, translator, inline=False):

@@ -5,7 +5,7 @@ class GCBase(object):
     _alloc_flavor_ = "raw"
     moving_gc = False
     needs_write_barrier = False
-    needs_zero_gc_pointers = True
+    malloc_zero_filled = False
     prebuilt_gc_objects_are_static_roots = True
 
     def set_query_functions(self, is_varsize, has_gcptr_in_varsize,

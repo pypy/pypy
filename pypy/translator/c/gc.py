@@ -40,7 +40,9 @@ class BasicGcPolicy(object):
         return []
 
     def pre_pre_gc_code(self): # code that goes before include g_prerequisite.h
-        return []
+        gct = self.db.gctransformer
+        yield '/* using %s */' % (gct.__class__.__name__,)
+        yield '#define MALLOC_ZERO_FILLED %d' % (gct.malloc_zero_filled,)
 
     def pre_gc_code(self):
         return ['typedef void *GC_hidden_pointer;']
@@ -182,6 +184,8 @@ class BoehmGcPolicy(BasicGcPolicy):
         return ['gc']
 
     def pre_pre_gc_code(self):
+        for line in BasicGcPolicy.pre_pre_gc_code(self):
+            yield line
         if sys.platform == "linux2":
             yield "#define _REENTRANT 1"
             yield "#define GC_LINUX_THREADS 1"
@@ -247,9 +251,6 @@ class NoneGcPolicy(BoehmGcPolicy):
     gc_libraries = RefcountingGcPolicy.gc_libraries.im_func
     gc_startup_code = RefcountingGcPolicy.gc_startup_code.im_func
 
-    def pre_pre_gc_code(self):
-        yield '#define USING_NO_GC'
-
 
 class FrameworkGcPolicy(BasicGcPolicy):
     transformerclass = framework.FrameworkGCTransformer
@@ -276,9 +277,6 @@ class FrameworkGcPolicy(BasicGcPolicy):
 
     def rtti_node_factory(self):
         return FrameworkGcRuntimeTypeInfo_OpaqueNode
-
-    def pre_pre_gc_code(self):
-        yield '#define USING_FRAMEWORK_GC'
 
     def gc_startup_code(self):
         fnptr = self.db.gctransformer.frameworkgc_setup_ptr.value

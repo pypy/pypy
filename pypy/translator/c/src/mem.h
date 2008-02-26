@@ -64,12 +64,6 @@ extern char __gccallshapes;
 #define alloca  _alloca
 #endif
 
-#ifdef USING_FRAMEWORK_GC
-#define MALLOC_ZERO_FILLED 0
-#else
-#define MALLOC_ZERO_FILLED 1
-#endif
-
 #define OP_STACK_MALLOC(size,r,restype)                                 \
     r = (restype) alloca(size);                                         \
     if (r != NULL) memset((void*) r, 0, size);

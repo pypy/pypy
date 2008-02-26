@@ -32,6 +32,7 @@ counts = {}
 ADDRESS_VOID_FUNC = lltype.FuncType([llmemory.Address], lltype.Void)
 
 class RefcountingGCTransformer(GCTransformer):
+    malloc_zero_filled = True
 
     HDR = lltype.Struct("header", ("refcount", lltype.Signed))
 

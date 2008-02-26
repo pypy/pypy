@@ -26,7 +26,7 @@ class SemiSpaceGC(MovingGCBase):
     _alloc_flavor_ = "raw"
     inline_simple_malloc = True
     inline_simple_malloc_varsize = True
-    needs_zero_gc_pointers = False
+    malloc_zero_filled = True
     first_unused_gcflag = first_gcflag << 3
     total_collection_time = 0.0
     total_collection_count = 0

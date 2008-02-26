@@ -330,7 +330,7 @@ class FrameworkGCTransformer(GCTransformer):
         s_gc = self.translator.annotator.bookkeeper.valueoftype(GCClass)
         r_gc = self.translator.rtyper.getrepr(s_gc)
         self.c_const_gc = rmodel.inputconst(r_gc, self.gcdata.gc)
-        self.needs_zero_gc_pointers = GCClass.needs_zero_gc_pointers
+        self.malloc_zero_filled = GCClass.malloc_zero_filled
 
         HDR = self._gc_HDR = self.gcdata.gc.gcheaderbuilder.HDR
         self._gc_fields = fields = []
@@ -550,7 +550,7 @@ class FrameworkGCTransformer(GCTransformer):
                   resultvar=op.result)
 
     def gct_zero_gc_pointers_inside(self, hop):
-        if self.needs_zero_gc_pointers:
+        if not self.malloc_zero_filled:
             v_ob = hop.spaceop.args[0]
             TYPE = v_ob.concretetype.TO
             gen_zero_gc_pointers(TYPE, v_ob, hop.llops)
