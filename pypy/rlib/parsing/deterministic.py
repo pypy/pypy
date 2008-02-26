@@ -27,13 +27,14 @@ def compress_char_set(chars):
     
     # Change the above list into a list of sorted tuples
     real_result = [(c,l) for [c,l] in result]
+    # Sort longer runs first (hence -c), then alphabetically
     real_result.sort(key=lambda (l,c): (-c,l))
     return real_result
 
 def make_nice_charset_repr(chars):
     # Compress the letters & digits
     letters = set(chars) & set("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-    therest = set(chars) - letters - set('-')
+    therest = set(chars) - letters - set(['-',']'])
     charranges = compress_char_set(letters)
     result = []
     for a, num in charranges:
@@ -45,8 +46,11 @@ def make_nice_charset_repr(chars):
         else:
             result.append("%s-%s" % (repr(a)[1:-1], repr(chr(ord(a) + num - 1))[1:-1]))
     result += [repr(c)[1:-1] for c in therest]
+    # Handle the special chars that MUST get escaped
     if '-' in chars:
         result += ['\\-']
+    if ']' in chars:
+        result += ['\\]']
     return "".join(result)
 
 class LexerError(Exception):
@@ -214,6 +218,9 @@ class DFA(object):
         result.emit("i = 0")
         result.emit("state = 0")
         result.start_block("while 1:")
+        
+        # state_to_chars is a dict containing the sets of 
+        #   Ex: state_to_chars = { 0: set('a','b','c'), ...}
         state_to_chars = {}
         for (state, char), nextstate in self.transitions.iteritems():
             state_to_chars.setdefault(state, {}).setdefault(nextstate, set()).add(char)

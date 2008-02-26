@@ -20,23 +20,38 @@ ESCAPES = {
 }
 
 for i in range(256):
-    # 'x' and numbers are reserved for hexadecimal/octal escapes
-    if chr(i) in 'x01234567':
-        continue
-    escaped = "\\" + chr(i)
+    if chr(i) not in 'x01234567':
+        # 'x' and numbers are reserved for hexadecimal/octal escapes
+        escaped = "\\" + chr(i)
+        if escaped not in ESCAPES:
+            ESCAPES[escaped] = chr(i)
+
+    # Three digit octals
+    escaped = "\\%03o" % i
     if escaped not in ESCAPES:
         ESCAPES[escaped] = chr(i)
+
+    if 0 <= i <= 077:
+        # Two digit octal digs are ok too
+        escaped = "\\%02o" % i
+        if escaped not in ESCAPES:
+            ESCAPES[escaped] = chr(i)
+    
+    # Add the ctrl-x types:
+    #   Rule, according to PCRE:
+    #     if x is a lower case letter, it is converted to upper case. 
+    #     Then bit 6 of the character (hex 40) is inverted.   
+    #     Thus, \cz => 0x1A, but \c{ => 0x3B, while \c; => 0x7B.
+    escaped = "\\c%s" % chr(i)
+    if escaped not in ESCAPES:
+        ESCAPES[escaped] = chr(ord(chr(i).upper()) ^ 0x40)
+    
+
 for a in "0123456789ABCDEFabcdef":
     for b in "0123456789ABCDEFabcdef":
         escaped = "\\x%s%s" % (a, b)
         if escaped not in ESCAPES:
             ESCAPES[escaped] = chr(int("%s%s" % (a, b), 16))
-for a in "0123":
-    for b in "01234567":
-        for c in "01234567":
-            escaped = "\\x%s%s%s" % (a, b, c)
-            if escaped not in ESCAPES:
-                ESCAPES[escaped] = chr(int("%s%s%s" % (a, b, c), 8))
 
 def unescape(s):
     result = []
@@ -90,11 +105,16 @@ repetition:
   | r1 = primary
     '?'
     return {regex.StringExpression("") | r1}
-  | r = primary
+  | r1 = primary
+    '{'
+    n = clippednumrange
+    '}'
+    return {r1 * n + r1.kleene()}
+  | r1 = primary
     '{'
     n = numrange
     '}'
-    return {r * n[0] + reduce(operator.or_, [r * i for i in range(n[1] - n[0] + 1)], regex.StringExpression(""))}
+    return {r1 * n[0] + reduce(operator.or_, [r1 * i for i in range(n[1] - n[0] + 1)], regex.StringExpression(""))}
   | primary;
 
 primary:
@@ -112,7 +132,7 @@ char:
     return {c};
 
 QUOTEDCHAR:
-    `(\\x[0-9a-fA-F]{2})|(\\.)`;
+    `(\\x[0-9a-fA-F]{2})|(\\[0-3]?[0-7][0-7])|(\\c.)|(\\.)`;
 
 CHAR:
     `[^\*\+\(\)\[\]\{\}\|\.\-\?\,\^]`;
@@ -148,6 +168,11 @@ numrange:
     return {n1, n2}
   | n1 = NUM
     return {n1, n1};
+
+clippednumrange:
+    n1 = NUM
+    ','
+    return {n1};
 
 NUM:
     c = `0|([1-9][0-9]*)`
@@ -537,14 +562,14 @@ class Parser(object):
                     _call_status = self._primary()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
-                    r = _result
+                    r1 = _result
                     _result = self.__chars__('{')
-                    _call_status = self._numrange()
+                    _call_status = self._clippednumrange()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     n = _result
                     _result = self.__chars__('}')
-                    _result = (r * n[0] + reduce(operator.or_, [r * i for i in range(n[1] - n[0] + 1)], regex.StringExpression("")))
+                    _result = (r1 * n + r1.kleene())
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
@@ -554,10 +579,27 @@ class Parser(object):
                     _call_status = self._primary()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
+                    r1 = _result
+                    _result = self.__chars__('{')
+                    _call_status = self._numrange()
+                    _result = _call_status.result
+                    _error = self._combine_errors(_error, _call_status.error)
+                    n = _result
+                    _result = self.__chars__('}')
+                    _result = (r1 * n[0] + reduce(operator.or_, [r1 * i for i in range(n[1] - n[0] + 1)], regex.StringExpression("")))
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
                     self._pos = _choice4
+                _choice5 = self._pos
+                try:
+                    _call_status = self._primary()
+                    _result = _call_status.result
+                    _error = self._combine_errors(_error, _call_status.error)
+                    break
+                except BacktrackException, _exc:
+                    _error = self._combine_errors(_error, _exc.error)
+                    self._pos = _choice5
                     raise BacktrackException(_error)
                 _call_status = self._primary()
                 _result = _call_status.result
@@ -787,7 +829,7 @@ class Parser(object):
         try:
             _result = None
             _error = None
-            _result = self._regex1380912319()
+            _result = self._regex1192240515()
             assert _status.status != _status.LEFTRECURSION
             _status.status = _status.NORMAL
             _status.pos = self._pos
@@ -1216,6 +1258,64 @@ class Parser(object):
             _status.error = _error
             _status.status = _status.ERROR
             raise BacktrackException(_error)
+    def clippednumrange(self):
+        return self._clippednumrange().result
+    def _clippednumrange(self):
+        _key = self._pos
+        _status = self._dict_clippednumrange.get(_key, None)
+        if _status is None:
+            _status = self._dict_clippednumrange[_key] = Status()
+        else:
+            _statusstatus = _status.status
+            if _statusstatus == _status.NORMAL:
+                self._pos = _status.pos
+                return _status
+            elif _statusstatus == _status.ERROR:
+                raise BacktrackException(_status.error)
+            elif (_statusstatus == _status.INPROGRESS or
+                  _statusstatus == _status.LEFTRECURSION):
+                _status.status = _status.LEFTRECURSION
+                if _status.result is not None:
+                    self._pos = _status.pos
+                    return _status
+                else:
+                    raise BacktrackException(None)
+            elif _statusstatus == _status.SOMESOLUTIONS:
+                _status.status = _status.INPROGRESS
+        _startingpos = self._pos
+        try:
+            _result = None
+            _error = None
+            _call_status = self._NUM()
+            _result = _call_status.result
+            _error = _call_status.error
+            n1 = _result
+            _result = self.__chars__(',')
+            _result = (n1)
+            if _status.status == _status.LEFTRECURSION:
+                if _status.result is not None:
+                    if _status.pos >= self._pos:
+                        _status.status = _status.NORMAL
+                        self._pos = _status.pos
+                        return _status
+                _status.pos = self._pos
+                _status.status = _status.SOMESOLUTIONS
+                _status.result = _result
+                _status.error = _error
+                self._pos = _startingpos
+                return self._clippednumrange()
+            _status.status = _status.NORMAL
+            _status.pos = self._pos
+            _status.result = _result
+            _status.error = _error
+            return _status
+        except BacktrackException, _exc:
+            _status.pos = -1
+            _status.result = None
+            _error = self._combine_errors(_error, _exc.error)
+            _status.error = _error
+            _status.status = _status.ERROR
+            raise BacktrackException(_error)
     def NUM(self):
         return self._NUM().result
     def _NUM(self):
@@ -1265,6 +1365,7 @@ class Parser(object):
         self._dict_subrange = {}
         self._dict_rangeelement = {}
         self._dict_numrange = {}
+        self._dict_clippednumrange = {}
         self._dict_NUM = {}
         self._pos = 0
         self._inputstream = inputstream
@@ -1282,10 +1383,10 @@ class Parser(object):
         _result = self._inputstream[_pos: _upto]
         self._pos = _upto
         return _result
-    def _regex1323868075(self):
+    def _regex1192240515(self):
         _choice1 = self._pos
         _runner = self._Runner(self._inputstream, self._pos)
-        _i = _runner.recognize_1323868075(self._pos)
+        _i = _runner.recognize_1192240515(self._pos)
         if _runner.last_matched_state == -1:
             self._pos = _choice1
             raise BacktrackException
@@ -1296,10 +1397,10 @@ class Parser(object):
         _result = self._inputstream[_pos: _upto]
         self._pos = _upto
         return _result
-    def _regex1380912319(self):
+    def _regex1323868075(self):
         _choice2 = self._pos
         _runner = self._Runner(self._inputstream, self._pos)
-        _i = _runner.recognize_1380912319(self._pos)
+        _i = _runner.recognize_1323868075(self._pos)
         if _runner.last_matched_state == -1:
             self._pos = _choice2
             raise BacktrackException
@@ -1360,6 +1461,133 @@ class Parser(object):
                 break
             runner.state = state
             return ~i
+        def recognize_1192240515(runner, i):
+            #auto-generated code, don't edit
+            assert i >= 0
+            input = runner.text
+            state = 0
+            while 1:
+                if state == 0:
+                    try:
+                        char = input[i]
+                        i += 1
+                    except IndexError:
+                        runner.state = 0
+                        return ~i
+                    if char == '\\':
+                        state = 6
+                    else:
+                        break
+                if state == 1:
+                    runner.last_matched_index = i - 1
+                    runner.last_matched_state = state
+                    try:
+                        char = input[i]
+                        i += 1
+                    except IndexError:
+                        runner.state = 1
+                        return i
+                    if '0' <= char <= '7':
+                        state = 4
+                    else:
+                        break
+                if state == 2:
+                    runner.last_matched_index = i - 1
+                    runner.last_matched_state = state
+                    try:
+                        char = input[i]
+                        i += 1
+                    except IndexError:
+                        runner.state = 2
+                        return i
+                    if '0' <= char <= '9':
+                        state = 5
+                    elif 'A' <= char <= 'F':
+                        state = 5
+                    elif 'a' <= char <= 'f':
+                        state = 5
+                    else:
+                        break
+                if state == 3:
+                    runner.last_matched_index = i - 1
+                    runner.last_matched_state = state
+                    try:
+                        char = input[i]
+                        i += 1
+                    except IndexError:
+                        runner.state = 3
+                        return i
+                    if '\x00' <= char <= '\xff':
+                        state = 7
+                    else:
+                        break
+                if state == 4:
+                    runner.last_matched_index = i - 1
+                    runner.last_matched_state = state
+                    try:
+                        char = input[i]
+                        i += 1
+                    except IndexError:
+                        runner.state = 4
+                        return i
+                    if '0' <= char <= '7':
+                        state = 7
+                    else:
+                        break
+                if state == 5:
+                    try:
+                        char = input[i]
+                        i += 1
+                    except IndexError:
+                        runner.state = 5
+                        return ~i
+                    if '0' <= char <= '9':
+                        state = 7
+                    elif 'A' <= char <= 'F':
+                        state = 7
+                    elif 'a' <= char <= 'f':
+                        state = 7
+                    else:
+                        break
+                if state == 6:
+                    try:
+                        char = input[i]
+                        i += 1
+                    except IndexError:
+                        runner.state = 6
+                        return ~i
+                    if '0' <= char <= '3':
+                        state = 1
+                        continue
+                    elif char == 'x':
+                        state = 2
+                        continue
+                    elif char == 'c':
+                        state = 3
+                        continue
+                    elif '4' <= char <= '7':
+                        state = 4
+                        continue
+                    elif 'y' <= char <= '\xff':
+                        state = 7
+                    elif '\x00' <= char <= '/':
+                        state = 7
+                    elif '8' <= char <= 'b':
+                        state = 7
+                    elif 'd' <= char <= 'w':
+                        state = 7
+                    else:
+                        break
+                runner.last_matched_state = state
+                runner.last_matched_index = i - 1
+                runner.state = state
+                if i == len(input):
+                    return i
+                else:
+                    return ~i
+                break
+            runner.state = state
+            return ~i
         def recognize_1323868075(runner, i):
             #auto-generated code, don't edit
             assert i >= 0
@@ -1373,96 +1601,18 @@ class Parser(object):
                     except IndexError:
                         runner.state = 0
                         return ~i
-                    if char == '\\':
-                        state = 1
-                    elif '/' <= char <= '>':
-                        state = 1
-                    elif '@' <= char <= 'Z':
-                        state = 1
-                    elif '_' <= char <= 'z':
+                    if '~' <= char <= '\xff':
                         state = 1
                     elif '\x00' <= char <= "'":
                         state = 1
-                    elif '~' <= char <= '\xff':
+                    elif '_' <= char <= 'z':
                         state = 1
-                    else:
-                        break
-                runner.last_matched_state = state
-                runner.last_matched_index = i - 1
-                runner.state = state
-                if i == len(input):
-                    return i
-                else:
-                    return ~i
-                break
-            runner.state = state
-            return ~i
-        def recognize_1380912319(runner, i):
-            #auto-generated code, don't edit
-            assert i >= 0
-            input = runner.text
-            state = 0
-            while 1:
-                if state == 0:
-                    try:
-                        char = input[i]
-                        i += 1
-                    except IndexError:
-                        runner.state = 0
-                        return ~i
-                    if char == '\\':
-                        state = 4
-                    else:
-                        break
-                if state == 1:
-                    try:
-                        char = input[i]
-                        i += 1
-                    except IndexError:
-                        runner.state = 1
-                        return ~i
-                    if 'A' <= char <= 'F':
-                        state = 3
-                    elif 'a' <= char <= 'f':
-                        state = 3
-                    elif '0' <= char <= '9':
-                        state = 3
-                    else:
-                        break
-                if state == 2:
-                    runner.last_matched_index = i - 1
-                    runner.last_matched_state = state
-                    try:
-                        char = input[i]
-                        i += 1
-                    except IndexError:
-                        runner.state = 2
-                        return i
-                    if 'A' <= char <= 'F':
+                    elif '@' <= char <= 'Z':
                         state = 1
-                        continue
-                    elif 'a' <= char <= 'f':
+                    elif '/' <= char <= '>':
                         state = 1
-                        continue
-                    elif '0' <= char <= '9':
+                    elif char == '\\':
                         state = 1
-                        continue
-                    else:
-                        break
-                if state == 4:
-                    try:
-                        char = input[i]
-                        i += 1
-                    except IndexError:
-                        runner.state = 4
-                        return ~i
-                    if char == 'x':
-                        state = 2
-                        continue
-                    elif '\x00' <= char <= 'w':
-                        state = 3
-                    elif 'y' <= char <= '\xff':
-                        state = 3
                     else:
                         break
                 runner.last_matched_state = state
@@ -1486,6 +1636,13 @@ for key, value in Parser.__dict__.iteritems():
         setattr(RegexParser, key, value)
 RegexParser.init_parser = Parser.__init__.im_func
 # generated code between this line and its other occurence
+
+
+
+
+
+
+
 
 
 

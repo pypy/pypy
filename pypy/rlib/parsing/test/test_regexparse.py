@@ -96,7 +96,7 @@ def test_repetition():
     assert r.recognize("a" * 15)
     assert not r.recognize("a" * 14)
     assert not r.recognize("a" * 16)
-    assert not r.recognize("b" * 16)
+    assert not r.recognize("b" * 15)
     r = make_runner('a{2,10}')
     assert r.recognize("a" * 2)
     assert r.recognize("a" * 5)
@@ -105,6 +105,14 @@ def test_repetition():
     assert not r.recognize("a" + "b")
     assert not r.recognize("a" * 11)
     assert not r.recognize("a" * 12)
+    r = make_runner('a{3,}')
+    assert r.recognize("a" * 3)
+    assert r.recognize("a" * 5)
+    assert r.recognize("a" * 10)
+    assert r.recognize("a" * 12)
+    assert not r.recognize("a")
+    assert not r.recognize("a" + "b")
+    assert not r.recognize("a" * 2)
 
 def test_quotes():
     r = make_runner('"[^\\"]*"')
@@ -114,6 +122,13 @@ def test_quotes():
     r = make_runner('\\n\\x0a')
     assert not r.recognize("n\n")
     assert r.recognize("\n\n")
+    r = make_runner('\\12\\012')
+    assert r.recognize("\n\n")
+    r = make_runner('\\377\\xff')
+    assert r.recognize("\xff\xff")
+    r = make_runner('\\?')
+    assert r.recognize("?")
+    assert not r.recognize("a")
 
 def test_comment():
     r = make_runner("(/\\*[^\\*/]*\\*/)")
