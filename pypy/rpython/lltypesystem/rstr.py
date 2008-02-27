@@ -48,8 +48,7 @@ def emptyunicodefun():
     return emptyunicode
 
 STR.become(GcStruct('rpy_string', ('hash',  Signed),
-                    ('chars', Array(Char, hints={'immutable': True,
-                                                 'isrpystring': True})),
+                    ('chars', Array(Char, hints={'immutable': True})),
                     adtmeths={'malloc' : staticAdtMethod(mallocstr),
                               'empty'  : staticAdtMethod(emptystrfun)}))
 UNICODE.become(GcStruct('rpy_unicode', ('hash', Signed),

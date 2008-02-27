@@ -158,7 +158,6 @@ def test_str_methods():
             assert res == testfn_endswith(i, j)
 
 def test_str_join():
-    #py.test.skip("issue with malloc_varsize of varsized struct (rpystring here)")
     #py.test.skip("stringBuilder support")
     def testfn(i, j):
         s1 = [ '', ',', ' and ']

@@ -200,9 +200,6 @@ class ArrayDefNode:
         self.LLTYPE = ARRAY
         original_varlength = varlength
         self.gcfields = []
-        
-        if ARRAY._hints.get('isrpystring'):
-            varlength += 1   # for the NUL char terminator at the end of the string
         self.varlength = varlength
         if original_varlength == 1:
             basename = 'array'
@@ -597,8 +594,6 @@ class ArrayNode(ContainerNode):
             yield '}'
         elif self.T.OF == Char:
             s = ''.join(self.obj.items)
-            if self.T._hints.get('isrpystring', False):
-                s += '\x00'
             yield '\t%s%s' % (length, c_char_array_constant(s))
             yield '}'
         else:

@@ -1068,15 +1068,6 @@ class _abstract_ptr(object):
         else:
             return None
 
-    def __iter__(self):
-        # this is a work-around for the 'isrpystring' hack in __getitem__,
-        # which otherwise causes list(p) to include the extra \x00 character.
-        if isinstance(self._T, (Array, FixedSizeArray)):
-            for i in range(self._obj.getlength()):
-                yield self[i]
-        else:
-            raise TypeError("%r instance is not an array" % (self._T,))
-
     def __repr__(self):
         return '<%s>' % (self,)
 
@@ -1497,37 +1488,16 @@ class _array(_parentable):
 
     def getbounds(self):
         stop = len(self.items)
-        if self._TYPE._hints.get('isrpystring', False):
-            # special hack for the null terminator
-            assert self._TYPE.OF == Char
-            stop += 1
         return 0, stop
 
     def getitem(self, index, uninitialized_ok=False):
-        try:
-            v = self.items[index]
-            if isinstance(v, _uninitialized) and not uninitialized_ok:
-                raise UninitializedMemoryAccess("%r[%s]"%(self, index))
-            return v
-        except IndexError:
-            if (self._TYPE._hints.get('isrpystring', False) and
-                index == len(self.items)):
-                # special hack for the null terminator
-                assert self._TYPE.OF == Char
-                return '\x00'
-            raise
+        v = self.items[index]
+        if isinstance(v, _uninitialized) and not uninitialized_ok:
+            raise UninitializedMemoryAccess("%r[%s]"%(self, index))
+        return v
 
     def setitem(self, index, value):
-        try:
-            self.items[index] = value
-        except IndexError:
-            if (self._TYPE._hints.get('isrpystring', False) and
-                index == len(self.items)):
-                # special hack for the null terminator: can overwrite it
-                # with another null
-                assert value == '\x00'
-                return
-            raise
+        self.items[index] = value
 
 assert not '__dict__' in dir(_array)
 assert not '__dict__' in dir(_struct)

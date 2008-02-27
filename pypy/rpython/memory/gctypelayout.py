@@ -160,9 +160,6 @@ def encode_type_shape(builder, info, TYPE):
             ofs1 = llmemory.offsetof(TYPE, TYPE._arrayfld)
             info.ofstolength = ofs1 + llmemory.ArrayLengthOffset(ARRAY)
             info.ofstovar = ofs1 + llmemory.itemoffsetof(ARRAY, 0)
-            # XXX we probably don't need isrpystring any more
-            if ARRAY._hints.get('isrpystring'):
-                info.fixedsize = llmemory.sizeof(TYPE, 1)
         else:
             ARRAY = TYPE
             info.ofstolength = llmemory.ArrayLengthOffset(ARRAY)

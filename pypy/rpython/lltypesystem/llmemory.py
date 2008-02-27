@@ -237,8 +237,6 @@ class ArrayItemsOffset(AddressOffset):
             count = rest[0].repeat
         else:
             count = 0
-        if self.TYPE._hints.get('isrpystring'):
-            count -= 1  # because malloc() will give us the extra char for free
         p = lltype.malloc(parenttype or self.TYPE, count,
                           immortal = self.TYPE._gckind == 'raw',
                           zero = zero)

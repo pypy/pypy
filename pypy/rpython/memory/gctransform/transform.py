@@ -559,10 +559,7 @@ class GCTransformer(BaseGCTransformer):
         else:
             ARRAY = TYPE
         assert isinstance(ARRAY, lltype.Array)
-        if ARRAY._hints.get('isrpystring', False):
-            c_const_size = intconst(llmemory.sizeof(TYPE, 1))
-        else:
-            c_const_size = intconst(llmemory.sizeof(TYPE, 0))
+        c_const_size = intconst(llmemory.sizeof(TYPE, 0))
         c_item_size = intconst(llmemory.sizeof(ARRAY.OF))
 
         if ARRAY._hints.get("nolength", False):
