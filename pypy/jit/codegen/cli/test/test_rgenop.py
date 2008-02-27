@@ -71,10 +71,10 @@ class TestRCliGenop(AbstractRGenOpTests):
         py.test.skip('mono crashes')
         
     def test_from_random_3_direct(self):
-        py.test.skip('we need yet another delegate type')
+        py.test.skip('infinite loop')
         
     def test_from_random_5_direct(self):
-        py.test.skip('we need yet another delegate type')
+        py.test.skip('mono crash')
 
     def test_genzeroconst(self):
         py.test.skip('fixme')

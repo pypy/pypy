@@ -17,6 +17,8 @@ DEBUG = False
 SM_INT__INT_1 = ootype.StaticMethod([ootype.Signed], ootype.Signed)
 SM_INT__INT_2 = ootype.StaticMethod([ootype.Signed] * 2, ootype.Signed)
 SM_INT__INT_3 = ootype.StaticMethod([ootype.Signed] * 3, ootype.Signed)
+SM_INT__INT_5 = ootype.StaticMethod([ootype.Signed] * 5, ootype.Signed)
+SM_INT__INT_27 = ootype.StaticMethod([ootype.Signed] * 27, ootype.Signed)
 SM_INT__INT_100 = ootype.StaticMethod([ootype.Signed] * 100, ootype.Signed)
 
 def token2clitype(tok):
@@ -32,6 +34,10 @@ def sigtoken2clitype(tok):
         return typeof(SM_INT__INT_2)
     elif tok == (['<Signed>'] * 3, '<Signed>'):
         return typeof(SM_INT__INT_3)
+    elif tok == (['<Signed>'] * 5, '<Signed>'):
+        return typeof(SM_INT__INT_5)
+    elif tok == (['<Signed>'] * 27, '<Signed>'):
+        return typeof(SM_INT__INT_27)
     elif tok == (['<Signed>'] * 100, '<Signed>'):
         return typeof(SM_INT__INT_100)
     else:
