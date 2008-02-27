@@ -52,6 +52,15 @@ class GenerationGC(SemiSpaceGC):
         self.young_objects_with_weakrefs = self.AddressStack()
         self.reset_nursery()
 
+        # compute the constant lower bounds for the attributes
+        # largest_young_fixedsize and largest_young_var_basesize.
+        # It is expected that most (or all) objects have a fixedsize
+        # that is much lower anyway.
+        sz = self.get_young_fixedsize(self.min_nursery_size)
+        self.lb_young_fixedsize = sz
+        sz = self.get_young_var_basesize(self.min_nursery_size)
+        self.lb_young_var_basesize = sz
+
     def setup(self):
         SemiSpaceGC.setup(self)
         self.set_nursery_size(self.initial_nursery_size)
@@ -77,8 +86,8 @@ class GenerationGC(SemiSpaceGC):
         # Compute the new bounds for how large young objects can be
         # (larger objects are allocated directly old).   XXX adjust
         self.nursery_size = newsize
-        self.largest_young_fixedsize = newsize // 2 - 1
-        self.largest_young_var_basesize = newsize // 4 - 1
+        self.largest_young_fixedsize = self.get_young_fixedsize(newsize)
+        self.largest_young_var_basesize = self.get_young_var_basesize(newsize)
         scale = 0
         while (self.min_nursery_size << (scale+1)) <= newsize:
             scale += 1
@@ -99,13 +108,24 @@ class GenerationGC(SemiSpaceGC):
         # a new nursery (e.g. if it invokes finalizers).
         self.semispace_collect()
 
+    def get_young_fixedsize(self, nursery_size):
+        return nursery_size // 2 - 1
+
+    def get_young_var_basesize(self, nursery_size):
+        return nursery_size // 4 - 1
+
     def is_in_nursery(self, addr):
         return self.nursery <= addr < self.nursery_top
 
     def malloc_fixedsize_clear(self, typeid, size, can_collect,
                                has_finalizer=False, contains_weakptr=False):
         if (has_finalizer or not can_collect or
-            raw_malloc_usage(size) > self.largest_young_fixedsize):
+            (raw_malloc_usage(size) > self.lb_young_var_basesize and
+             raw_malloc_usage(size) > self.largest_young_fixedsize)):
+            # ^^^ we do two size comparisons; the first one appears redundant,
+            #     but it can be constant-folded if 'size' is a constant; then
+            #     it almost always folds down to False, which kills the
+            #     second comparison as well.
             ll_assert(not contains_weakptr, "wrong case for mallocing weakref")
             # "non-simple" case or object too big: don't use the nursery
             return SemiSpaceGC.malloc_fixedsize_clear(self, typeid, size,
@@ -160,7 +180,12 @@ class GenerationGC(SemiSpaceGC):
 
         if (has_finalizer or not can_collect or
             too_many_items or
-            raw_malloc_usage(size) > self.largest_young_var_basesize):
+            (raw_malloc_usage(size) > self.lb_young_var_basesize and
+             raw_malloc_usage(size) > self.largest_young_var_basesize)):
+            # ^^^ we do two size comparisons; the first one appears redundant,
+            #     but it can be constant-folded if 'size' is a constant; then
+            #     it almost always folds down to False, which kills the
+            #     second comparison as well.
             return SemiSpaceGC.malloc_varsize_clear(self, typeid, length, size,
                                                     itemsize, offset_to_length,
                                                     can_collect, has_finalizer)
