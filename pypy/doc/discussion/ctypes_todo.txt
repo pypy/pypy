@@ -15,12 +15,11 @@ Few ctypes-related todo points:
   - there are features, which we don't support like buffer() and
     array() protocols.
 
-  - decide who should create own and free the needed ffitypes for structures by value args,
-    right now we simple leak them. Structure types etc seem the right place for this.
+  - started refactoring (on the rawffi-shape-cleanup) to use rawffi types
+    instead of size, aligment tuples to describe members and arguments.
+    Rawffi composite types should be able to create corresponding ffi_types.
 
   - no tests for passing a union by value
-
-  - returning structures by value is still not implemented
 
   - for some ABIs we will need completely filled ffitypes to do the right thing for passing
     structures by value
