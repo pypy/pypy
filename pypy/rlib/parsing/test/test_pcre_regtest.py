@@ -6,7 +6,7 @@
 # files with pypy?)
 
 import py
-from pypy.rlib.parsing.regexparse import make_runner, unescape, RegexParser
+from pypy.rlib.parsing.regexparse import make_runner, unescape
 import string
 import re
 
@@ -25,66 +25,75 @@ def get_simult_lines(tests, results, test_line_num=0):
         
     return test
     
-def get_definition_line(tests, results):
-    """Gets a test definition line, formatted per the PCRE spec."""
-    delim = None
-    test = ''
-    result = ''
+def create_regex_iterator(tests, results):
+    """Gets a test definition line, formatted per the PCRE spec. This is a 
+    generator that returns each regex test."""
+    while tests:
+        delim = None
+        regex = ''
     
-    # A line is marked by a start-delimeter and an end-delimeter.
-    # The delimeter is non-alphanumeric
-    # If a backslash follows the delimiter, then the backslash should
-    #   be appended to the end. (Otherwise, \ + delim would not be a
-    #   delim anymore!)
-    while 1:
-        test += get_simult_lines(tests, results)
+        # A line is marked by a start-delimeter and an end-delimeter.
+        # The delimeter is non-alphanumeric
+        # If a backslash follows the delimiter, then the backslash should
+        #   be appended to the end. (Otherwise, \ + delim would not be a
+        #   delim anymore!)
+        while 1:
+            regex += get_simult_lines(tests, results)
     
-        if delim is None:
-            delim = test[0]
-            assert delim in (set(string.printable) - set(string.letters) - set(string.digits))
-            test_re = re.compile(r'%(delim)s(([^%(delim)s]|\\%(delim)s)*([^\\]))%(delim)s(\\?)(.*)' % {'delim': delim})
-        
-        matches = test_re.findall(test)
-        if matches:
-            break
+            if delim is None:
+                delim = regex[0]
+                assert delim in (set(string.printable) - set(string.letters) - set(string.digits))
+                test_re = re.compile(r'%(delim)s(([^%(delim)s]|\\%(delim)s)*([^\\]))%(delim)s(\\?)(.*)' % {'delim': delim})
+                # last two groups are an optional backslash and optional flags
+            
+            matches = test_re.findall(regex)
+            if matches:
+                break
 
-    assert len(matches)==1
-    test = matches[0][0]
+        assert len(matches)==1
     
-    # Add the backslash, if we gotta
-    test += matches[0][-2]
-    flags = matches[0][-1]
+        regex = matches[0][0]
+        regex += matches[0][-2] # Add the backslash, if we gotta
+        flags = matches[0][-1] # Get the flags for the regex
 
-    return test, flags
-    
-def get_test_result(tests, results):
-    """Gets the expected return from the regular expression"""
+        yield regex, flags
+
+def create_result_iterator(tests, results):
+    """Gets the expected return sets for each regular expression."""
     # Second line is the test to run against the regex
     # '    TEXT'
-    test = get_simult_lines(tests, results)
-    if not test:
-        return None, None
-    if not test.startswith('    '):
-        raise Exception("Input & output match, but I don't understand. (Got %r)" % test)
-    test = unescape(test[4:])
+    while 1:
+        test = get_simult_lines(tests, results)
+        if not test:
+            raise StopIteration
+        if not test.startswith('    '):
+            raise Exception("Input & output match, but I don't understand. (Got %r)" % test)
+        if test.endswith('\\'): # Tests that end in \ expect the \ to be chopped off
+            assert not test.endswith('\\\\')    # make sure there are no \\ at end
+            test = test[:-1]
+        test = unescape(test[4:])
     
-    # Third line in the OUTPUT is the result, either:
-    # ' 0: ...' for a match
-    # 'No match' for no match
-    result = unescape(results.pop(0))
-    if result == 'No match':
-        pass
-    elif result.startswith(' 0: '):
-        # Now we need to eat any further lines like:
-        # ' 1: ....' a subgroup match
-        while results[0]:
-            if results[0][2] == ':':
-                results.pop(0)
-            else:
-                break
-    else:
-        raise Exception("Lost sync in output.")
-    return test, result
+        # Third line in the OUTPUT is the result, either:
+        # ' 0: ...' for a match (but this is ONLY escaped by \x__ types)
+        # 'No match' for no match
+        result = results.pop(0)
+        result = re.sub(r'\\x([0-9a-fA-F]{2})', lambda m: chr(int(m.group(1),16)), result)
+        if result == 'No match':
+            pass
+        elif result.startswith(' 0:'):
+            # Now we need to eat any further lines like:
+            # ' 1: ....' a subgroup match
+            while results[0]:
+                if results[0][2] == ':':
+                    results.pop(0)
+                else:
+                    break
+        else:
+            raise Exception("Lost sync in output.")
+        yield test, result
+    
+class SkipException(Exception):
+    pass
     
 def test_file():
     """Open the PCRE tests and run them."""
@@ -95,60 +104,62 @@ def test_file():
                            'i': lambda s: s.upper()
                          }
     
+    regex_set = create_regex_iterator(tests, results)    
     import pdb
-    while tests:
-        # First line is a test, in the form:
-        # '/regex expression/FLAGS'
-        regex, regex_flags = get_definition_line(tests, results)
-
-        # Handle the flags:
+    for regex, regex_flags in regex_set:
         try:
-            text_prepare = regex_flag_mapping[regex_flags]
-        except KeyError:
-            print "UNKNOWN FLAGS: %s" % regex_flags
-            continue
-        
-        print '%r' % regex
+            print '%r' % regex
 
-        skipped = any([op in regex for op in ['*?', '??', '+?', '}?']])        
-        if skipped:
-            print "  SKIPPED (cant do non-greedy operators)"
-            # now burn all the tests for this regex
-            while 1:
-                test, result = get_test_result(tests, results)
-                if not test:
-                    break   # A blank line means we have nothing to do
-            continue
+            # Create an iterator to grab the test/results for this regex
+            result_set = create_result_iterator(tests, results)
+
+            # Handle the flags:
+            if regex_flags in regex_flag_mapping:
+                text_prepare = regex_flag_mapping[regex_flags]
+            elif 'x' in regex_flags:
+                raise SkipException("Cant do extended PRCE expressions")            
+            else:
+                print "UNKNOWN FLAGS: %s" % regex_flags
+                continue
+        
+            skipped = any([op in regex for op in ['*?', '??', '+?', '}?', '(?']])        
+            if skipped:
+                raise SkipException("Cant do non-greedy operators or '(?' constructions)")
                 
-        regex_to_use = text_prepare(regex)
+            regex_to_use = text_prepare(regex)
         
-        anchor_left = regex_to_use.startswith('^')
-        anchor_right = regex_to_use.endswith('$') and not regex_to_use.endswith('\\$')
-        if anchor_left:
-            regex_to_use = regex_to_use[1:]   # chop the ^ if it's there
-        if anchor_right:
-            regex_to_use = regex_to_use[:-1]  # chop the $ if it's there
+            anchor_left = regex_to_use.startswith('^')
+            anchor_right = regex_to_use.endswith('$') and not regex_to_use.endswith('\\$')
+            if anchor_left:
+                regex_to_use = regex_to_use[1:]   # chop the ^ if it's there
+            if anchor_right:
+                regex_to_use = regex_to_use[:-1]  # chop the $ if it's there
         
+            if not regex_to_use:
+                raise SkipException("Cant do blank regex")
+        except SkipException, e:
+            print "  SKIPPED (%s)" % e.message
+            # now burn all the tests for this regex
+            for _ in result_set:
+                pass
+            continue
+            
         # Finally, we make the pypy regex runner
         runner = make_runner(regex_to_use)
-
+        
         # Now run the test expressions against the Regex
-        while 1:
-            test, result = get_test_result(tests, results)
-            if not test:
-                break   # A blank line means we have nothing to do
-                
+        for test, result in result_set:
             # Create possible subsequences that we should test
             if anchor_left:
-                subseq_gen = [0]
+                start_range = [0]
             else:
-                subseq_gen = (start for start in range(0, len(test)))
+                start_range = range(0, len(test))
             
             if anchor_right:
-                subseq_gen = ( (start, len(test)) for start in subseq_gen )
+                subseq_gen = ( (start, len(test)) for start in start_range )
             else:
                 # Go backwards to simulate greediness
-                subseq_gen = ( (start, end) for start in subseq_gen for end in range(len(test)+1, start+1, -1) )
+                subseq_gen = ( (start, end) for start in start_range for end in range(len(test)+1, start, -1) )
 
             # Search the possibilities for a match...
             for start, end in subseq_gen:
@@ -162,11 +173,11 @@ def test_file():
                 if matched:
                     print "  FALSE MATCH: regex==%r test==%r" % (regex, test)
                 else:
-                    print "  pass       : regex==%r test==%r" % (regex, test)
+                    print "  pass:        regex==%r test==%r" % (regex, test)
             elif result.startswith(' 0: '):
                 if not matched:
                     print "  MISSED:      regex==%r test==%r" % (regex, test)
                 elif not attempt==text_prepare(result[4:]):
                     print "  BAD MATCH:   regex==%r test==%r found==%r expect==%r" % (regex, test, attempt, result[4:])
                 else:
-                    print "  pass       : regex==%r test==%r" % (regex, test)
+                    print "  pass:        regex==%r test==%r" % (regex, test)

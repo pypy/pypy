@@ -34,7 +34,7 @@ def compress_char_set(chars):
 def make_nice_charset_repr(chars):
     # Compress the letters & digits
     letters = set(chars) & set("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-    therest = set(chars) - letters - set(['-',']'])
+    therest = set(chars) - letters - set(['-'])
     charranges = compress_char_set(letters)
     result = []
     for a, num in charranges:
@@ -49,8 +49,6 @@ def make_nice_charset_repr(chars):
     # Handle the special chars that MUST get escaped
     if '-' in chars:
         result += ['\\-']
-    if ']' in chars:
-        result += ['\\]']
     return "".join(result)
 
 class LexerError(Exception):

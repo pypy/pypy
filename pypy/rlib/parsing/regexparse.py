@@ -11,6 +11,7 @@ set = py.builtin.set
 ESCAPES = {
     "\\a": "\a",
     "\\b": "\b",
+    "\\e": "\x1b",
     "\\f": "\f",
     "\\n": "\n",
     "\\r": "\r",
@@ -20,7 +21,7 @@ ESCAPES = {
 }
 
 for i in range(256):
-    if chr(i) not in 'x01234567':
+    if chr(i) not in 'x01234567sSwWdD':
         # 'x' and numbers are reserved for hexadecimal/octal escapes
         escaped = "\\" + chr(i)
         if escaped not in ESCAPES:
@@ -120,6 +121,8 @@ repetition:
 primary:
     ['('] regex [')']
   | range
+  | cc = charclass
+    return {reduce(operator.or_, [regex.RangeExpression(a, chr(ord(a) + b - 1)) for a, b in compress_char_set(cc)])}
   | c = char
     return {regex.StringExpression(c)}
   | '.'
@@ -133,7 +136,7 @@ char:
 
 QUOTEDCHAR:
     `(\\x[0-9a-fA-F]{2})|(\\[0-3]?[0-7][0-7])|(\\c.)|(\\.)`;
-
+    
 CHAR:
     `[^\*\+\(\)\[\]\{\}\|\.\-\?\,\^]`;
 
@@ -150,11 +153,15 @@ rangeinner:
   | subrange;
 
 subrange:
+    ']'
     l = rangeelement+
+    return {reduce(operator.or_, [set(["]"])] + l)}
+  | l = rangeelement+
     return {reduce(operator.or_, l)};
 
 rangeelement:
-    c1 = char
+    charclass
+  | c1 = char
     '-'
     c2 = char
     return {set([chr(i) for i in range(ord(c1), ord(c2) + 1)])}
@@ -173,6 +180,25 @@ clippednumrange:
     n1 = NUM
     ','
     return {n1};
+
+charclass:
+    '\' 'd'
+    return { set([chr(c) for c in range(ord('0'), ord('9')+1)]) }
+  | '\' 
+    's'
+    return { set(['\t', '\n', '\f', '\r', ' ']) }
+  | '\' 
+    'w'
+    return { set([chr(c) for c in range(ord('a'), ord('z')+1)] + [chr(c) for c in range(ord('A'), ord('Z')+1)] + [chr(c) for c in range(ord('0'), ord('9')+1)] + ['_']) }
+  | '\' 
+    'D'
+    return { set([chr(c) for c in range(256)]) - set([chr(c) for c in range(ord('0'), ord('9')+1)]) }
+  | '\' 
+    'S'
+    return { set([chr(c) for c in range(256)]) - set(['\t', '\n', '\f', '\r', ' ']) }
+  | '\' 
+    'W'
+    return { set([chr(c) for c in range(256)]) - set([chr(c) for c in range(ord('a'), ord('z')+1)] + [chr(c) for c in range(ord('A'), ord('Z')+1)] + [chr(c) for c in range(ord('0'), ord('9')+1)] + ['_'])};
 
 NUM:
     c = `0|([1-9][0-9]*)`
@@ -684,6 +710,17 @@ class Parser(object):
                     self._pos = _choice3
                 _choice4 = self._pos
                 try:
+                    _call_status = self._charclass()
+                    _result = _call_status.result
+                    _error = self._combine_errors(_error, _call_status.error)
+                    cc = _result
+                    _result = (reduce(operator.or_, [regex.RangeExpression(a, chr(ord(a) + b - 1)) for a, b in compress_char_set(cc)]))
+                    break
+                except BacktrackException, _exc:
+                    _error = self._combine_errors(_error, _exc.error)
+                    self._pos = _choice4
+                _choice5 = self._pos
+                try:
                     _call_status = self._char()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
@@ -692,15 +729,15 @@ class Parser(object):
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice4
-                _choice5 = self._pos
+                    self._pos = _choice5
+                _choice6 = self._pos
                 try:
                     _result = self.__chars__('.')
                     _result = (regex.RangeExpression(chr(0), chr(255)))
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice5
+                    self._pos = _choice6
                     raise BacktrackException(_error)
                 _result = self.__chars__('.')
                 _result = (regex.RangeExpression(chr(0), chr(255)))
@@ -1041,25 +1078,79 @@ class Parser(object):
         try:
             _result = None
             _error = None
-            _all0 = []
-            _call_status = self._rangeelement()
-            _result = _call_status.result
-            _error = _call_status.error
-            _all0.append(_result)
             while 1:
-                _choice1 = self._pos
+                _choice0 = self._pos
                 try:
+                    _result = self.__chars__(']')
+                    _all1 = []
+                    _call_status = self._rangeelement()
+                    _result = _call_status.result
+                    _error = _call_status.error
+                    _all1.append(_result)
+                    while 1:
+                        _choice2 = self._pos
+                        try:
+                            _call_status = self._rangeelement()
+                            _result = _call_status.result
+                            _error = self._combine_errors(_error, _call_status.error)
+                            _all1.append(_result)
+                        except BacktrackException, _exc:
+                            _error = self._combine_errors(_error, _exc.error)
+                            self._pos = _choice2
+                            break
+                    _result = _all1
+                    l = _result
+                    _result = (reduce(operator.or_, [set(["]"])] + l))
+                    break
+                except BacktrackException, _exc:
+                    _error = self._combine_errors(_error, _exc.error)
+                    self._pos = _choice0
+                _choice3 = self._pos
+                try:
+                    _all4 = []
                     _call_status = self._rangeelement()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
-                    _all0.append(_result)
+                    _all4.append(_result)
+                    while 1:
+                        _choice5 = self._pos
+                        try:
+                            _call_status = self._rangeelement()
+                            _result = _call_status.result
+                            _error = self._combine_errors(_error, _call_status.error)
+                            _all4.append(_result)
+                        except BacktrackException, _exc:
+                            _error = self._combine_errors(_error, _exc.error)
+                            self._pos = _choice5
+                            break
+                    _result = _all4
+                    l = _result
+                    _result = (reduce(operator.or_, l))
+                    break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice1
-                    break
-            _result = _all0
-            l = _result
-            _result = (reduce(operator.or_, l))
+                    self._pos = _choice3
+                    raise BacktrackException(_error)
+                _all6 = []
+                _call_status = self._rangeelement()
+                _result = _call_status.result
+                _error = self._combine_errors(_error, _call_status.error)
+                _all6.append(_result)
+                while 1:
+                    _choice7 = self._pos
+                    try:
+                        _call_status = self._rangeelement()
+                        _result = _call_status.result
+                        _error = self._combine_errors(_error, _call_status.error)
+                        _all6.append(_result)
+                    except BacktrackException, _exc:
+                        _error = self._combine_errors(_error, _exc.error)
+                        self._pos = _choice7
+                        break
+                _result = _all6
+                l = _result
+                _result = (reduce(operator.or_, l))
+                break
             if _status.status == _status.LEFTRECURSION:
                 if _status.result is not None:
                     if _status.pos >= self._pos:
@@ -1115,9 +1206,18 @@ class Parser(object):
             while 1:
                 _choice0 = self._pos
                 try:
-                    _call_status = self._char()
+                    _call_status = self._charclass()
                     _result = _call_status.result
                     _error = _call_status.error
+                    break
+                except BacktrackException, _exc:
+                    _error = self._combine_errors(_error, _exc.error)
+                    self._pos = _choice0
+                _choice1 = self._pos
+                try:
+                    _call_status = self._char()
+                    _result = _call_status.result
+                    _error = self._combine_errors(_error, _call_status.error)
                     c1 = _result
                     _result = self.__chars__('-')
                     _call_status = self._char()
@@ -1128,8 +1228,8 @@ class Parser(object):
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice0
-                _choice1 = self._pos
+                    self._pos = _choice1
+                _choice2 = self._pos
                 try:
                     _call_status = self._char()
                     _result = _call_status.result
@@ -1139,7 +1239,7 @@ class Parser(object):
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice1
+                    self._pos = _choice2
                     raise BacktrackException(_error)
                 _call_status = self._char()
                 _result = _call_status.result
@@ -1316,6 +1416,97 @@ class Parser(object):
             _status.error = _error
             _status.status = _status.ERROR
             raise BacktrackException(_error)
+    def charclass(self):
+        return self._charclass().result
+    def _charclass(self):
+        _key = self._pos
+        _status = self._dict_charclass.get(_key, None)
+        if _status is None:
+            _status = self._dict_charclass[_key] = Status()
+        else:
+            _statusstatus = _status.status
+            if _statusstatus == _status.NORMAL:
+                self._pos = _status.pos
+                return _status
+            elif _statusstatus == _status.ERROR:
+                raise BacktrackException(_status.error)
+        _startingpos = self._pos
+        try:
+            _result = None
+            _error = None
+            while 1:
+                _choice0 = self._pos
+                try:
+                    _result = self.__chars__('\\')
+                    _result = self.__chars__('d')
+                    _result = ( set([chr(c) for c in range(ord('0'), ord('9')+1)]) )
+                    break
+                except BacktrackException, _exc:
+                    _error = _exc.error
+                    self._pos = _choice0
+                _choice1 = self._pos
+                try:
+                    _result = self.__chars__('\\')
+                    _result = self.__chars__('s')
+                    _result = ( set(['\t', '\n', '\f', '\r', ' ']) )
+                    break
+                except BacktrackException, _exc:
+                    _error = self._combine_errors(_error, _exc.error)
+                    self._pos = _choice1
+                _choice2 = self._pos
+                try:
+                    _result = self.__chars__('\\')
+                    _result = self.__chars__('w')
+                    _result = ( set([chr(c) for c in range(ord('a'), ord('z')+1)] + [chr(c) for c in range(ord('A'), ord('Z')+1)] + [chr(c) for c in range(ord('0'), ord('9')+1)] + ['_']) )
+                    break
+                except BacktrackException, _exc:
+                    _error = self._combine_errors(_error, _exc.error)
+                    self._pos = _choice2
+                _choice3 = self._pos
+                try:
+                    _result = self.__chars__('\\')
+                    _result = self.__chars__('D')
+                    _result = ( set([chr(c) for c in range(256)]) - set([chr(c) for c in range(ord('0'), ord('9')+1)]) )
+                    break
+                except BacktrackException, _exc:
+                    _error = self._combine_errors(_error, _exc.error)
+                    self._pos = _choice3
+                _choice4 = self._pos
+                try:
+                    _result = self.__chars__('\\')
+                    _result = self.__chars__('S')
+                    _result = ( set([chr(c) for c in range(256)]) - set(['\t', '\n', '\f', '\r', ' ']) )
+                    break
+                except BacktrackException, _exc:
+                    _error = self._combine_errors(_error, _exc.error)
+                    self._pos = _choice4
+                _choice5 = self._pos
+                try:
+                    _result = self.__chars__('\\')
+                    _result = self.__chars__('W')
+                    _result = ( set([chr(c) for c in range(256)]) - set([chr(c) for c in range(ord('a'), ord('z')+1)] + [chr(c) for c in range(ord('A'), ord('Z')+1)] + [chr(c) for c in range(ord('0'), ord('9')+1)] + ['_']))
+                    break
+                except BacktrackException, _exc:
+                    _error = self._combine_errors(_error, _exc.error)
+                    self._pos = _choice5
+                    raise BacktrackException(_error)
+                _result = self.__chars__('\\')
+                _result = self.__chars__('W')
+                _result = ( set([chr(c) for c in range(256)]) - set([chr(c) for c in range(ord('a'), ord('z')+1)] + [chr(c) for c in range(ord('A'), ord('Z')+1)] + [chr(c) for c in range(ord('0'), ord('9')+1)] + ['_']))
+                break
+            assert _status.status != _status.LEFTRECURSION
+            _status.status = _status.NORMAL
+            _status.pos = self._pos
+            _status.result = _result
+            _status.error = _error
+            return _status
+        except BacktrackException, _exc:
+            _status.pos = -1
+            _status.result = None
+            _error = self._combine_errors(_error, _exc.error)
+            _status.error = _error
+            _status.status = _status.ERROR
+            raise BacktrackException(_error)
     def NUM(self):
         return self._NUM().result
     def _NUM(self):
@@ -1366,6 +1557,7 @@ class Parser(object):
         self._dict_rangeelement = {}
         self._dict_numrange = {}
         self._dict_clippednumrange = {}
+        self._dict_charclass = {}
         self._dict_NUM = {}
         self._pos = 0
         self._inputstream = inputstream
@@ -1636,6 +1828,13 @@ for key, value in Parser.__dict__.iteritems():
         setattr(RegexParser, key, value)
 RegexParser.init_parser = Parser.__init__.im_func
 # generated code between this line and its other occurence
+
+
+
+
+
+
+
 
 
 
