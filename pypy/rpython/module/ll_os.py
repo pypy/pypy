@@ -32,7 +32,7 @@ if not sys.platform.startswith('win'):
     # XXX many of these includes are not portable at all
     includes += ['dirent.h', 'sys/stat.h',
                  'sys/times.h', 'utime.h', 'sys/types.h', 'unistd.h',
-                 'signal.h', 'sys/wait.h']
+                 'signal.h', 'sys/wait.h', 'fcntl.h']
 else:
     includes += ['sys/utime.h']
 
