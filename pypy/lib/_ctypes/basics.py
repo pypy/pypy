@@ -47,18 +47,21 @@ class _CDataMeta(type):
         # interested only in value anyway
         return cobj._get_buffer_value()
 
-    def _CData_output(self, resarray, base=None, index=-1, needs_free=False):
-        assert isinstance(resarray, _rawffi.ArrayInstance)
+    def _CData_output(self, resbuffer, base=None, index=-1, needs_free=False):
+        assert isinstance(resbuffer, _rawffi.ArrayInstance)
         """Used when data exits ctypes and goes into user code.
-        'resarray' is a _rawffi array of length 1 containing the value,
+        'resbuffer' is a _rawffi array of length 1 containing the value,
         and this returns a general Python object that corresponds.
         """
         res = self.__new__(self)
-        res.__dict__['_buffer'] = resarray
+        res.__dict__['_buffer'] = resbuffer
         res.__dict__['_base'] = base
         res.__dict__['_index'] = index
         res.__dict__['_needs_free'] = needs_free
         return res.__ctypes_from_outparam__()
+
+    def _CData_retval(self, resbuffer):
+        return self._CData_output(resbuffer, needs_free=True)
 
     def __mul__(self, other):
         from _ctypes.array import create_array_type

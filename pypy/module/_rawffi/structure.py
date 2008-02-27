@@ -11,9 +11,10 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.module._rawffi.interp_rawffi import segfault_exception
-from pypy.module._rawffi.interp_rawffi import W_DataInstance
+from pypy.module._rawffi.interp_rawffi import W_DataShape, W_DataInstance
 from pypy.module._rawffi.interp_rawffi import wrap_value, unwrap_value
 from pypy.module._rawffi.interp_rawffi import unpack_typecode
+from pypy.rlib import libffi
 from pypy.rlib.rarithmetic import intmask, r_uint
 
 def unpack_fields(space, w_fields):
@@ -45,7 +46,7 @@ def size_alignment_pos(fields):
     return size, alignment, pos
 
 
-class W_Structure(Wrappable):
+class W_Structure(W_DataShape):
     def __init__(self, space, w_fields):
         fields = unpack_fields(space, w_fields)
         name_to_index = {}
@@ -62,6 +63,12 @@ class W_Structure(Wrappable):
         self.fields = fields
         self.name_to_index = name_to_index
 
+    def allocate(self, space, length, autofree=False):
+        # length is ignored!
+        if autofree:
+            return W_StructureInstanceAutoFree(space, self)
+        return W_StructureInstance(space, self, 0)
+
     def getindex(self, space, attr):
         try:
             return self.name_to_index[attr]
@@ -70,9 +77,7 @@ class W_Structure(Wrappable):
                 "C Structure has no attribute %s" % attr))
 
     def descr_call(self, space, autofree=False):
-        if autofree:
-            return space.wrap(W_StructureInstanceAutoFree(space, self))
-        return space.wrap(W_StructureInstance(space, self, 0))
+        return space.wrap(self.allocate(space, 1, autofree))
     descr_call.unwrap_spec = ['self', ObjSpace, int]
 
     def descr_repr(self, space):
@@ -95,6 +100,21 @@ class W_Structure(Wrappable):
         return space.newtuple([space.wrap(self.size),
                                space.wrap(self.alignment)])
     descr_gettypecode.unwrap_spec = ['self', ObjSpace]
+
+    # get the corresponding ffi_type
+    ffi_type = lltype.nullptr(libffi.FFI_TYPE_P.TO)
+
+    def get_ffi_type(self):
+        if not self.ffi_type:
+            self.ffi_type = libffi.make_struct_ffitype(self.size,
+                                                       self.alignment)
+        return self.ffi_type
+    
+    def __del__(self):
+        if self.ffi_type:
+            lltype.free(self.ffi_type, flavor='raw')
+    
+
 
 def descr_new_structure(space, w_type, w_fields):
     return space.wrap(W_Structure(space, w_fields))

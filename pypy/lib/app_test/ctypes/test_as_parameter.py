@@ -164,7 +164,6 @@ class BasicTestWrap(BaseCTypesTestChecker):
         assert got == expected
 
     def test_struct_return_2H(self):
-        py.test.skip("Structure by value")
         class S2H(Structure):
             _fields_ = [("x", c_short),
                         ("y", c_short)]
@@ -175,7 +174,6 @@ class BasicTestWrap(BaseCTypesTestChecker):
         assert (s2h.x, s2h.y) == (99*2, 88*3)
 
     def test_struct_return_8H(self):
-        py.test.skip("Structure by value")
         class S8I(Structure):
             _fields_ = [("a", c_int),
                         ("b", c_int),

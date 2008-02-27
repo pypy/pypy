@@ -231,3 +231,78 @@ class TestDLOperations:
         del lib
 
         assert not ALLOCATED
+
+    def test_ret_struct_val(self):
+        from pypy.translator.tool.cbuild import compile_c_module, \
+             ExternalCompilationInfo
+        from pypy.tool.udir import udir
+
+        c_file = udir.ensure("test_libffi", dir=1).join("xlib.c")
+        c_file.write(py.code.Source('''
+        #include <stdlib.h>
+        #include <stdio.h>
+
+        struct s2h {
+            short x;
+            short y;
+        };
+
+        struct s2h give(short x, short y) {
+            struct s2h out;
+            out.x = x;
+            out.y = y;
+            return out;
+        }
+
+        struct s2h perturb(struct s2h inp) {
+            inp.x *= 2;
+            inp.y *= 3;
+            return inp;
+        }
+        
+        '''))
+        lib_name = compile_c_module([c_file], 'x', ExternalCompilationInfo())
+
+        lib = CDLL(lib_name)
+
+        size = ffi_type_sshort.c_size*2
+        alignment = ffi_type_sshort.c_alignment
+        tp = make_struct_ffitype(size, alignment)
+
+        give  = lib.getrawpointer('give', [ffi_type_sshort, ffi_type_sshort],
+                                  tp)
+        inbuffer = lltype.malloc(rffi.SHORTP.TO, 2, flavor='raw')
+        inbuffer[0] = rffi.cast(rffi.SHORT, 40)
+        inbuffer[1] = rffi.cast(rffi.SHORT, 72)
+
+        outbuffer = lltype.malloc(rffi.SHORTP.TO, 2, flavor='raw')
+
+        give.call([rffi.cast(rffi.VOIDP, inbuffer),
+                   rffi.cast(rffi.VOIDP, rffi.ptradd(inbuffer, 1))],
+                   rffi.cast(rffi.VOIDP, outbuffer))
+
+        assert outbuffer[0] == 40
+        assert outbuffer[1] == 72
+
+        perturb  = lib.getrawpointer('perturb', [tp], tp)
+
+        inbuffer[0] = rffi.cast(rffi.SHORT, 7)
+        inbuffer[1] = rffi.cast(rffi.SHORT, 11)
+
+        perturb.call([rffi.cast(rffi.VOIDP, inbuffer)],
+                     rffi.cast(rffi.VOIDP, outbuffer))
+
+        assert inbuffer[0] == 7
+        assert inbuffer[1] == 11
+
+        assert outbuffer[0] == 14
+        assert outbuffer[1] == 33
+
+        lltype.free(outbuffer, flavor='raw')
+        lltype.free(inbuffer, flavor='raw')
+        del give
+        del perturb
+        lltype.free(tp, flavor='raw')
+        del lib
+
+        assert not ALLOCATED

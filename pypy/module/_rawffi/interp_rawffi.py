@@ -108,6 +108,7 @@ class W_CDLL(Wrappable):
         self.w_cache = space.newdict()
         self.space = space
 
+    # xxx refactor away !
     def get_arg_type(self, letter, argsize, argalignment):
         space = self.space
         if letter == 'V': # xxx leaks
@@ -123,15 +124,28 @@ class W_CDLL(Wrappable):
         """ Get a pointer for function name with provided argtypes
         and restype
         """
+        # xxx refactor
         if space.is_w(w_restype, space.w_None):
-            restype = 'v'
+            resshape = None
             ffi_restype = ffi_type_void
+        elif space.is_true(space.isinstance(w_restype, space.w_str)):
+            tp_letter = space.str_w(w_restype)
+            if tp_letter == 'v':
+                resshape = None
+                ffi_restype = ffi_type_void
+            else:
+                from pypy.module._rawffi.array import get_array_cache
+                cache = get_array_cache(space)
+                resshape = cache.get_array_type(letter2tp(space, tp_letter))
+                ffi_restype = self.get_type(tp_letter)
         else:
-            restype = space.str_w(w_restype)
-            ffi_restype = self.get_type(restype)
+            from pypy.module._rawffi.structure import W_Structure
+            resshape = space.interp_w(W_Structure, w_restype)
+            ffi_restype = resshape.get_ffi_type()
+                
         w = space.wrap
         w_argtypes = space.newtuple(space.unpackiterable(w_argtypes))
-        w_key = space.newtuple([w(name), w_argtypes, w(restype)])
+        w_key = space.newtuple([w(name), w_argtypes, w(resshape)])
         try:
             return space.getitem(self.w_cache, w_key)
         except OperationError, e:
@@ -146,7 +160,7 @@ class W_CDLL(Wrappable):
                                                     in argtypes]
         try:
             ptr = self.cdll.getrawpointer(name, ffi_argtypes, ffi_restype)
-            w_funcptr = W_FuncPtr(space, ptr, argtypes, restype)
+            w_funcptr = W_FuncPtr(space, ptr, argtypes, resshape)
             space.setitem(self.w_cache, w_key, w_funcptr)
             return w_funcptr
         except KeyError:
@@ -187,7 +201,7 @@ lib.ptr(func_name, argtype_list, restype)
 where argtype_list is a list of single characters and restype is a single
 character. The character meanings are more or less the same as in the struct
 module, except that s has trailing \x00 added, while p is considered a raw
-buffer."""
+buffer.""" # xxx fix doc
 )
 
 unroll_letters_for_numbers = unrolling_iterable("bBhHiIlLqQ")
@@ -197,6 +211,10 @@ def segfault_exception(space, reason):
     w_exception = space.getattr(w_mod, space.wrap("SegfaultException"))
     return OperationError(w_exception, space.wrap(reason))
 
+class W_DataShape(Wrappable):
+    
+    def allocate(self, space, length, autofree=False):
+        raise NotImplementedError
 
 class W_DataInstance(Wrappable):
     def __init__(self, space, size, address=r_uint(0)):
@@ -305,14 +323,9 @@ def wrap_value(space, func, add_arg, argdesc, tp):
 wrap_value._annspecialcase_ = 'specialize:arg(1)'
 
 class W_FuncPtr(Wrappable):
-    def __init__(self, space, ptr, argtypes, restype):
-        from pypy.module._rawffi.array import get_array_cache
+    def __init__(self, space, ptr, argtypes, resshape):
         self.ptr = ptr
-        if restype != 'v':
-            cache = get_array_cache(space)
-            self.resarray = cache.get_array_type(letter2tp(space, restype))
-        else:
-            self.resarray = None
+        self.resshape = resshape
         self.argtypes = argtypes
 
     def call(self, space, args_w):
@@ -352,8 +365,8 @@ class W_FuncPtr(Wrappable):
                         raise OperationError(space.w_TypeError, space.wrap(msg))
             args_ll.append(arg.ll_buffer)
             # XXX we could avoid the intermediate list args_ll
-        if self.resarray is not None:
-            result = self.resarray.allocate(space, 1)
+        if self.resshape is not None:
+            result = self.resshape.allocate(space, 1)
             self.ptr.call(args_ll, result.ll_buffer)
             return space.wrap(result)
         else:

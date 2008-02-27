@@ -120,6 +120,24 @@ class AppTestFfi:
         long sum_x_y(struct x_y s) {
             return s.x + s.y;
         }
+
+        struct s2h {
+            short x;
+            short y;
+        };
+
+        struct s2h give(short x, short y) {
+            struct s2h out;
+            out.x = x;
+            out.y = y;
+            return out;
+        }
+
+        struct s2h perturb(struct s2h inp) {
+            inp.x *= 2;
+            inp.y *= 3;
+            return inp;
+        }
         
         '''))
         return compile_c_module([c_file], 'x', ExternalCompilationInfo())
@@ -632,6 +650,40 @@ class AppTestFfi:
         res = sum_x_y(x_y)
         assert res[0] == 420
         x_y.free()
+        res.free()
+
+    def test_ret_struct(self):
+        import _rawffi
+        S2H = _rawffi.Structure([('x', 'h'), ('y', 'h')])
+        s2h = S2H()
+        lib = _rawffi.CDLL(self.lib_name)
+        give = lib.ptr('give', ['h', 'h'], S2H)
+        a1 = _rawffi.Array('h')(1)
+        a2 = _rawffi.Array('h')(1)
+        a1[0] = 13
+        a2[0] = 17
+        res = give(a1, a2)
+        assert isinstance(res, _rawffi.StructureInstance)
+        assert res.shape is S2H
+        assert res.x == 13
+        assert res.y == 17
+        res.free()
+        a1.free()
+        a2.free()
+
+        s2h.x = 7
+        s2h.y = 11
+        perturb = lib.ptr('perturb', [S2H.gettypecode()], S2H)
+        res = perturb(s2h)
+        assert isinstance(res, _rawffi.StructureInstance)
+        assert res.shape is S2H
+        assert res.x == 14
+        assert res.y == 33
+        assert s2h.x == 7
+        assert s2h.y == 11
+        res.free()
+        
+        s2h.free()
 
 
 class AppTestAutoFree:

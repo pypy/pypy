@@ -155,6 +155,14 @@ class StructureMeta(_CDataMeta):
         res.__dict__['_base'] = base
         res.__dict__['_index'] = index
         return res.__ctypes_from_outparam__()
+    
+    def _CData_retval(self, resbuffer):
+        res = self.__new__(self)
+        res.__dict__['_buffer'] = resbuffer
+        res.__dict__['_base'] = None
+        res.__dict__['_index'] = -1
+        res.__dict__['_needs_free'] = True
+        return res.__ctypes_from_outparam__()
 
 class Structure(_CData):
     __metaclass__ = StructureMeta

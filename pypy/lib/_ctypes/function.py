@@ -80,18 +80,22 @@ class CFuncPtr(_CData):
         restype = self._restype_
         funcptr = self._getfuncptr(argtypes, restype)
         args = self._wrap_args(argtypes, args)
-        resarray = funcptr(*[arg._buffer for obj, arg in args])
+        resbuffer = funcptr(*[arg._buffer for obj, arg in args])
         if restype is not None:
-            return restype._CData_output(resarray, needs_free=True)
+            return restype._CData_retval(resbuffer)
         else:
-            resarray.free()
+            resbuffer.free()
 
     def _getfuncptr(self, argtypes, restype):
         if restype is None:
             import ctypes
             restype = ctypes.c_int
         argshapes = [arg._ffiargshape for arg in argtypes]
-        return self.dll._handle.ptr(self.name, argshapes, restype._ffiletter)
+        if isinstance(restype._ffiargshape, str): # xxx refactor
+            resshape = restype._ffiargshape
+        else:
+            resshape = restype._ffistruct
+        return self.dll._handle.ptr(self.name, argshapes, resshape)
 
     def _guess_argtypes(self, args):
         from _ctypes import _CData

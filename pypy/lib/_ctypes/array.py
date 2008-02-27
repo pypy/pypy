@@ -85,6 +85,9 @@ class ArrayMeta(_CDataMeta):
         res._index = index
         return res.__ctypes_from_outparam__()
 
+    def _CData_retval(self, resbuffer):
+        raise NotImplementedError
+
     def _CData_value(self, value):
         # array accepts very strange parameters as part of structure
         # or function argument...

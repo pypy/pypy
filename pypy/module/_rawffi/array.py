@@ -10,7 +10,7 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrpropert
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.module._rawffi.interp_rawffi import segfault_exception
-from pypy.module._rawffi.interp_rawffi import W_DataInstance
+from pypy.module._rawffi.interp_rawffi import W_DataShape, W_DataInstance
 from pypy.module._rawffi.interp_rawffi import unwrap_value, wrap_value
 from pypy.module._rawffi.interp_rawffi import unpack_typecode, letter2tp
 from pypy.rlib.rarithmetic import intmask, r_uint
@@ -26,7 +26,7 @@ def get_elem(ll_array, pos, ll_t):
     return ll_array[pos]
 get_elem._annspecialcase_ = 'specialize:arg(2)'
 
-class W_Array(Wrappable):
+class W_Array(W_DataShape):
     def __init__(self, space, itemtp):
         assert isinstance(itemtp, tuple)
         self.space = space
