@@ -146,6 +146,7 @@ else:
     INCLUDES = ['sys/types.h', 'sys/stat.h', 'unistd.h']
 
 compilation_info = ExternalCompilationInfo(
+    pre_include_lines = ['#define _FILE_OFFSET_BITS 64'],
     includes = INCLUDES
 )
 

@@ -1,6 +1,7 @@
 import py
 import sys, os
 
+from pypy.rlib.rarithmetic import r_longlong
 from pypy.translator.translator import TranslationContext
 from pypy.translator.backendopt import all
 from pypy.translator.c.genc import CStandaloneBuilder
@@ -164,3 +165,28 @@ def test_profopt():
     exe = t.compile()
     out = py.process.cmdexec("%s 500" % exe)
     assert int(out) == 500*501/2
+
+def test_standalone_large_files():
+    from pypy.module.posix.test.test_posix2 import need_sparse_files
+    need_sparse_files()
+    filename = str(udir.join('test_standalone_largefile'))
+    r4800000000 = r_longlong(4800000000L)
+    def entry_point(argv):
+        fd = os.open(filename, os.O_RDWR | os.O_CREAT, 0644)
+        os.lseek(fd, r4800000000, 0)
+        os.write(fd, "$")
+        newpos = os.lseek(fd, 0, 1)
+        if newpos == r4800000000 + 1:
+            print "OK"
+        else:
+            print "BAD POS"
+        os.close(fd)
+        return 0
+    t = TranslationContext()
+    t.buildannotator().build_types(entry_point, [s_list_of_strings])
+    t.buildrtyper().specialize()
+    cbuilder = CStandaloneBuilder(t, entry_point, t.config)
+    cbuilder.generate_source()
+    cbuilder.compile()
+    data = cbuilder.cmdexec('hi there')
+    assert data.strip() == "OK"

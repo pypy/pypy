@@ -1,6 +1,7 @@
 import py
 import os
 from pypy.rlib import streamio
+from pypy.rlib.rarithmetic import r_longlong
 from pypy.module._file.interp_stream import W_AbstractStream
 from pypy.module._file.interp_stream import StreamErrors, wrap_streamerror
 from pypy.interpreter.error import OperationError
@@ -177,7 +178,7 @@ class W_File(W_AbstractStream):
         if w_size is None or space.is_w(w_size, space.w_None):
             size = stream.tell()
         else:
-            size = space.int_w(w_size)
+            size = space.r_longlong_w(w_size)
         stream.truncate(size)
 
     def direct_write(self, data):
@@ -309,7 +310,7 @@ The optional size argument, if given, is an approximate bound on the
 total number of bytes in the lines returned.""",
         wrapresult = "wrap_list_of_str(space, result)")
 
-    _decl(locals(), "seek", ['self', int, int],
+    _decl(locals(), "seek", ['self', r_longlong, int],
         """seek(offset[, whence]) -> None.  Move to new file position.
 
 Argument offset is a byte count.  Optional argument whence defaults to

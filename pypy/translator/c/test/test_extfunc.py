@@ -111,12 +111,10 @@ def test_ftruncate():
     os.unlink(filename)
 
 def test_largefile():
-    if sys.platform == 'darwin':
-        skip("no sparse files on default Mac OS X file system")    
     if not hasattr(os, 'ftruncate'):
         py.test.skip("this os has no ftruncate :-(")
-    if os.name == 'nt':
-        py.test.skip("no sparse files on Windows")
+    from pypy.module.posix.test.test_posix2 import need_sparse_files
+    need_sparse_files()
     filename = str(udir.join('test_largefile'))
     r4800000000  = r_longlong(4800000000L)
     r4900000000  = r_longlong(4900000000L)

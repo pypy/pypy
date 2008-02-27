@@ -29,7 +29,16 @@ an outout-buffering stream.
 
 """
 
+#
+# File offsets are all 'r_longlong', but a single read or write cannot
+# transfer more data that fits in an RPython 'int' (because that would not
+# fit in a single string anyway).  This module needs to be careful about
+# where r_longlong values end up: as argument to seek() and truncate() and
+# return value of tell(), but not as argument to read().
+#
+
 import os, sys
+from pypy.rlib.rarithmetic import r_longlong, intmask
 
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC
 O_BINARY = getattr(os, "O_BINARY", 0)
@@ -226,10 +235,10 @@ class DiskFile(Stream):
         os.lseek(self.fd, offset, whence)
 
     def tell(self):
-        #XXX we really want r_longlong
-        return int(os.lseek(self.fd, 0, 1))
+        return os.lseek(self.fd, 0, 1)
 
     def read(self, n):
+        assert isinstance(n, int)
         return os.read(self.fd, n)
 
     def write(self, data):
@@ -298,6 +307,7 @@ class MMapFile(Stream):
         return data
 
     def read(self, n):
+        assert isinstance(n, int)
         end = self.pos + n
         data = self.mm[self.pos:end]
         if not data:
@@ -356,10 +366,10 @@ STREAM_METHODS = dict([
     ("read", [int]),
     ("write", [str]),
     ("tell", []),
-    ("seek", ["index", int]),
+    ("seek", [r_longlong, int]),
     ("readall", []),
     ("readline", []),
-    ("truncate", [int]),
+    ("truncate", [r_longlong]),
     ("flush", []),
     ("flushable", []),
     ("close", []),
@@ -388,6 +398,14 @@ def PassThrough(meth_name, flush_buffers):
     exec code % (meth_name, args, meth_name, args) in d
     return d[meth_name]
 
+
+def offset2int(offset):
+    intoffset = intmask(offset)
+    if intoffset != offset:
+        raise StreamError("seek() from a non-seekable source:"
+                          " this would read and discard more"
+                          " than sys.maxint bytes")
+    return intoffset
 
 class BufferingInputStream(Stream):
 
@@ -450,22 +468,25 @@ class BufferingInputStream(Stream):
             while self.lines:
                 line = self.lines[0]
                 if offset <= len(line):
-                    assert offset >= 0
-                    self.lines[0] = line[offset:]
+                    intoffset = intmask(offset)
+                    assert intoffset >= 0
+                    self.lines[0] = line[intoffset:]
                     return
                 offset -= len(self.lines[0]) - 1
                 del self.lines[0]
             assert not self.lines
             if offset <= len(self.buf):
-                assert offset >= 0
-                self.buf = self.buf[offset:]
+                intoffset = intmask(offset)
+                assert intoffset >= 0
+                self.buf = self.buf[intoffset:]
                 return
             offset -= len(self.buf)
             self.buf = ""
             try:
                 self.do_seek(offset, 1)
             except NotImplementedError:
-                self.read(offset)
+                intoffset = offset2int(offset)
+                self.read(intoffset)
             return
         if whence == 2:
             try:
@@ -478,6 +499,7 @@ class BufferingInputStream(Stream):
                 return
             # Skip relative to EOF by reading and saving only just as
             # much as needed
+            intoffset = offset2int(offset)
             data = "\n".join(self.lines + [self.buf])
             total = len(data)
             buffers = [data]
@@ -489,10 +511,10 @@ class BufferingInputStream(Stream):
                     break
                 buffers.append(data)
                 total += len(data)
-                while buffers and total >= len(buffers[0]) - offset:
+                while buffers and total >= len(buffers[0]) - intoffset:
                     total -= len(buffers[0])
                     del buffers[0]
-            cutoff = total + offset
+            cutoff = total + intoffset
             if cutoff < 0:
                 raise StreamError("cannot seek back")
             if buffers:
@@ -517,6 +539,7 @@ class BufferingInputStream(Stream):
         return "".join(more)
 
     def read(self, n):
+        assert isinstance(n, int)
         assert n >= 0
         if self.lines:
             # See if this can be satisfied from self.lines[0]

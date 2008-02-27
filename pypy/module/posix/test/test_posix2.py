@@ -19,6 +19,12 @@ def setup_module(mod):
     pdir.join('another_longer_file_name').write("test3")
     mod.pdir = pdir
 
+def need_sparse_files():
+    if sys.platform == 'darwin':
+        py.test.skip("no sparse files on default Mac OS X file system")
+    if os.name == 'nt':
+        py.test.skip("no sparse files on Windows")
+
 class AppTestPosix: 
     def setup_class(cls): 
         cls.space = space 
@@ -31,6 +37,10 @@ class AppTestPosix:
             cls.w_geteuid = space.wrap(os.geteuid())
         if hasattr(os, 'getgid'):
             cls.w_getgid = space.wrap(os.getgid())
+
+    def setup_method(self, meth):
+        if getattr(meth, 'need_sparse_files', False):
+            need_sparse_files()
     
     def test_posix_is_pypy_s(self): 
         assert self.posix.__file__ 
@@ -296,11 +306,6 @@ class AppTestPosix:
 
     def test_largefile(self):
         os = self.posix
-        import sys
-        if sys.platform == 'darwin':
-            skip("no sparse files on default Mac OS X file system")
-        if os.__name__ == 'nt':
-            skip("no sparse files on Windows")
         fd = os.open(self.path2, os.O_RDWR | os.O_CREAT, 0666)
         os.ftruncate(fd, 10000000000L)
         res = os.lseek(fd, 9900000000L, 0)
@@ -313,6 +318,7 @@ class AppTestPosix:
 
         st = os.stat(self.path2)
         assert st.st_size == 10000000000L
+    test_largefile.need_sparse_files = True
 
 class AppTestEnvironment(object):
     def setup_class(cls): 
