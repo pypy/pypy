@@ -76,9 +76,6 @@ class TestRCliGenop(AbstractRGenOpTests):
     def test_from_random_5_direct(self):
         py.test.skip('mono crash')
 
-    def test_genzeroconst(self):
-        py.test.skip('fixme')
-
     def test_ovfcheck_adder_direct(self):
         py.test.skip('fixme')
 

@@ -206,6 +206,13 @@ class RCliGenOp(AbstractRGenOp):
             assert False, "XXX not implemented"
 
     @staticmethod
+    def genzeroconst(kind):
+        if kind == '<Signed>':
+            return IntConst(0)
+        else:
+            return zero_const # ???
+
+    @staticmethod
     @specialize.memo()
     def sigToken(FUNCTYPE):
         """Return a token describing the signature of FUNCTYPE."""
@@ -406,3 +413,4 @@ class BranchBuilder(Builder):
 
 global_rgenop = RCliGenOp()
 RCliGenOp.constPrebuiltGlobal = global_rgenop.genconst
+zero_const = ObjectConst(ootype.null(ootype.ROOT))
