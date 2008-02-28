@@ -360,6 +360,11 @@ def box(x):
             return CLR.System.Char(x)
         else:
             return CLR.System.String(x)
+    elif isinstance(x, ootype._class):
+        name = '%s.%s' % (x._INSTANCE._namespace, x._INSTANCE._classname)
+        t = CLR.System.Type.GetType(name)
+        assert t is not None
+        return t
     elif isinstance(x, PythonNet.System.Object):
         return x
     elif x is None:
@@ -554,6 +559,12 @@ def typeof(cliClass_or_type):
         cliClass = cliClass_or_type
     TYPE = cliClass._INSTANCE
     return PythonNet.System.Type.GetType(TYPE._assembly_qualified_name)
+
+
+def classof(cliClass):
+    assert isinstance(cliClass, CliClass)
+    TYPE = cliClass._INSTANCE
+    return ootype._class(TYPE)
 
 class Entry(ExtRegistryEntry):
     _about_ = typeof

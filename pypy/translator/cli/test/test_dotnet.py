@@ -8,7 +8,7 @@ from pypy.translator.cli.test.runtest import CliTest
 from pypy.translator.cli.dotnet import SomeCliClass, SomeCliStaticMethod,\
      NativeInstance, CLR, box, unbox, OverloadingResolver, NativeException,\
      native_exc, new_array, init_array, typeof, eventhandler, clidowncast,\
-     fieldinfo_for_const
+     fieldinfo_for_const, classof
 
 System = CLR.System
 ArrayList = CLR.System.Collections.ArrayList
@@ -603,6 +603,14 @@ class TestDotnetRtyping(CliTest):
             return unbox(x_value, ootype.Signed)
         res = self.interpret(fn, [])
         assert res == 42
+
+    def test_classof(self):
+        int32_class = classof(System.Int32)
+        def fn():
+            int32_obj = box(int32_class)
+            int32_type = clidowncast(int32_obj, System.Type)
+            return int32_type.get_Name()
+        assert self.interpret(fn, []) == 'Int32'
 
 class TestPythonnet(TestDotnetRtyping):
     # don't interpreter functions but execute them directly through pythonnet
