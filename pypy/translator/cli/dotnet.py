@@ -564,7 +564,7 @@ def typeof(cliClass_or_type):
 def classof(cliClass):
     assert isinstance(cliClass, CliClass)
     TYPE = cliClass._INSTANCE
-    return ootype._class(TYPE)
+    return ootype.runtimeClass(TYPE)
 
 class Entry(ExtRegistryEntry):
     _about_ = typeof

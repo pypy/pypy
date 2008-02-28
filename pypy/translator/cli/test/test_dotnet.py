@@ -612,6 +612,13 @@ class TestDotnetRtyping(CliTest):
             return int32_type.get_Name()
         assert self.interpret(fn, []) == 'Int32'
 
+    def test_classof_compare(self):
+        int32_a = classof(System.Int32)
+        int32_b = classof(System.Int32)
+        def fn():
+            return int32_a is int32_b
+        assert self.interpret(fn, [])
+
 class TestPythonnet(TestDotnetRtyping):
     # don't interpreter functions but execute them directly through pythonnet
     def interpret(self, f, args, backendopt='ignored'):
