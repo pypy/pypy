@@ -27,7 +27,7 @@ def test_gc_offsets():
     i5 = (res // 1) % 100
     assert i1 % 4 == 0
     assert 12 <= i1 <= 24
-    assert 8 <= i2 <= i1 - 4
+    assert 4 <= i2 <= i1 - 8
     assert 4 <= i3 <= 12
     assert i4 == i5
     assert i3 + 4 <= i5
