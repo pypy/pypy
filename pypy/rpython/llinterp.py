@@ -1012,6 +1012,7 @@ class LLFrame(object):
     # read frame var support
 
     def op_get_frame_base(self):
+        self._obj0 = self        # hack
         return llmemory.fakeaddress(self)
 
     def op_frame_info(self, *vars):
