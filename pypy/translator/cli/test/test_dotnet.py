@@ -510,11 +510,11 @@ class TestDotnetRtyping(CliTest):
         assert res == 42
 
     def test_static_fields(self):
-        Constants = CLR.pypy.runtime.Constants
+        DummyClass = CLR.pypy.test.DummyClass
         def fn():
             obj = System.Object()
-            Constants.const1 = obj
-            return Constants.const1 is obj
+            DummyClass.myfield = obj
+            return DummyClass.myfield is obj
         res = self.interpret(fn, [])
         assert res
 

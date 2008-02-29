@@ -361,13 +361,15 @@ def box(x):
         else:
             return CLR.System.String(x)
     elif isinstance(x, ootype._class):
-        TYPE = x._INSTANCE
-        if isinstance(TYPE, ootype.StaticMethod):
+        if hasattr(x, '_FUNC'):
+            TYPE = x._FUNC
+            assert isinstance(TYPE, ootype.StaticMethod)
             return typeof(TYPE)
-        name = '%s.%s' % (x._INSTANCE._namespace, x._INSTANCE._classname)
-        t = CLR.System.Type.GetType(name)
-        assert t is not None
-        return t
+        else:
+            name = '%s.%s' % (x._INSTANCE._namespace, x._INSTANCE._classname)
+            t = CLR.System.Type.GetType(name)
+            assert t is not None
+            return t
     elif isinstance(x, PythonNet.System.Object):
         return x
     elif x is None:
