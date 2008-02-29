@@ -337,7 +337,7 @@ class GraphFunction(OOFunction, Function):
 
         for pyexccls, jexcty in translation_table:
             for llexitcase in llexitcases:
-                assert issubclass(llexitcase, py.builtin.BaseException)
+                # llexitcase is an exception class, like ZeroDivisionError
                 if issubclass(llexitcase, pyexccls):
                     # Generate some converter code like:
                     #   try { ... }
