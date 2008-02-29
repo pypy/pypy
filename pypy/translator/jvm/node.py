@@ -34,6 +34,7 @@ from pypy.translator.oosupport.function import \
 from pypy.translator.oosupport.constant import \
      push_constant
 
+import py
 import pypy.translator.jvm.generator as jvmgen
 import pypy.translator.jvm.typesystem as jvmtype
 from pypy.translator.jvm.log import log
@@ -336,7 +337,7 @@ class GraphFunction(OOFunction, Function):
 
         for pyexccls, jexcty in translation_table:
             for llexitcase in llexitcases:
-                assert issubclass(llexitcase, BaseException)
+                assert issubclass(llexitcase, py.builtin.BaseException)
                 if issubclass(llexitcase, pyexccls):
                     # Generate some converter code like:
                     #   try { ... }
