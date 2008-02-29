@@ -18,6 +18,10 @@ rpyexc_occured = _c.pypy_rpyexc_occured
 rpyexc_occured.argtypes = []
 rpyexc_occured.restype = ctypes.c_byte
 
+rpyexc_clear = _c.pypy_rpyexc_clear
+rpyexc_clear.argtypes = []
+rpyexc_clear.restype = None
+
 rpyexc_fetch_type = _c.pypy_rpyexc_fetch_type
 rpyexc_fetch_type.argtypes = []
 rpyexc_fetch_type.restype = ctypes.c_void_p
@@ -39,6 +43,8 @@ def entrypoint(*args):
         if not startup_code():
             raise Exception("Failed to startup")
         _setup = True
+    else:
+        rpyexc_clear()
     args = [f(a) for a, f in zip(args, to_llargs)]
     result = __entrypoint__(*args)
     if rpyexc_occured():
