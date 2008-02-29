@@ -619,6 +619,17 @@ class TestDotnetRtyping(CliTest):
             return int32_a is int32_b
         assert self.interpret(fn, [])
 
+    def test_classof_functype(self):
+        # this test is overridden in TestPythonnet
+        c = classof(FUNCTYPE)
+        def fn():
+            obj = box(c)
+            t = clidowncast(obj, System.Type)
+            return t.get_Name()
+        res = self.interpret(fn, [])
+        assert res.startswith('StaticMethod__')
+
+
 class TestPythonnet(TestDotnetRtyping):
     # don't interpreter functions but execute them directly through pythonnet
     def interpret(self, f, args, backendopt='ignored'):
@@ -633,6 +644,16 @@ class TestPythonnet(TestDotnetRtyping):
     def test_typeof_functype(self):
         def fn():
             t = typeof(FUNCTYPE)
+            return t.get_Name()
+        res = self.interpret(fn, [])
+        assert res == 'DelegateType_int__int_2'
+
+    def test_classof_functype(self):
+        # this test is overridden in TestPythonnet
+        c = classof(FUNCTYPE)
+        def fn():
+            obj = box(c)
+            t = clidowncast(obj, System.Type)
             return t.get_Name()
         res = self.interpret(fn, [])
         assert res == 'DelegateType_int__int_2'

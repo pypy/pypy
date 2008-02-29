@@ -341,7 +341,7 @@ class CLIClassConst(CLIBaseConstMixin, ClassConst):
     def push_inline(self, gen, EXPECTED_TYPE):
         if not self.is_null():
             INSTANCE = self.value._INSTANCE
-            gen.ilasm.opcode('ldtoken', self.db.class_name(INSTANCE))
+            gen.ilasm.opcode('ldtoken', self.db.class_or_delegate_name(INSTANCE))
             gen.ilasm.call('class [mscorlib]System.Type class [mscorlib]System.Type::GetTypeFromHandle(valuetype [mscorlib]System.RuntimeTypeHandle)')
             return
         super(CLIClassConst, self).push_inline(gen, EXPECTED_TYPE)

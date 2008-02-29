@@ -361,6 +361,9 @@ def box(x):
         else:
             return CLR.System.String(x)
     elif isinstance(x, ootype._class):
+        TYPE = x._INSTANCE
+        if isinstance(TYPE, ootype.StaticMethod):
+            return typeof(TYPE)
         name = '%s.%s' % (x._INSTANCE._namespace, x._INSTANCE._classname)
         t = CLR.System.Type.GetType(name)
         assert t is not None
@@ -560,11 +563,19 @@ def typeof(cliClass_or_type):
     TYPE = cliClass._INSTANCE
     return PythonNet.System.Type.GetType(TYPE._assembly_qualified_name)
 
-
-def classof(cliClass):
-    assert isinstance(cliClass, CliClass)
-    TYPE = cliClass._INSTANCE
-    return ootype.runtimeClass(TYPE)
+def classof(cliClass_or_type):
+    if isinstance(cliClass_or_type, ootype.StaticMethod):
+        try:
+            FUNC = cliClass_or_type
+            return known_delegates_class[FUNC]
+        except KeyError:
+            cls = ootype._class(FUNC)
+            known_delegates_class[FUNC] = cls
+            return cls
+    else:
+        assert isinstance(cliClass_or_type, CliClass)
+        TYPE = cliClass_or_type._INSTANCE
+        return ootype.runtimeClass(TYPE)
 
 class Entry(ExtRegistryEntry):
     _about_ = typeof
@@ -657,3 +668,5 @@ known_delegates = {
     ootype.StaticMethod([ootype.Signed] * 27, ootype.Signed):   CLR.pypy.test.DelegateType_int__int_27,
     ootype.StaticMethod([ootype.Signed] * 100, ootype.Signed): CLR.pypy.test.DelegateType_int__int_100
     }
+
+known_delegates_class = {}
