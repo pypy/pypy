@@ -8,7 +8,7 @@ from pypy.interpreter.typedef import interp_attrproperty
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped, interp2app, Arguments
 from pypy.rlib.streamio import Stream
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask, r_longlong
 import sys
 
 class CConfig:
@@ -272,7 +272,7 @@ class ReadBZ2Filter(Stream):
         self.space = space
         self.stream = stream
         self.decompressor = W_BZ2Decompressor(space)
-        self.readlength = 0
+        self.readlength = r_longlong(0)
         self.buffer = ""
         self.finished = False
         if buffering < 1024:
@@ -286,29 +286,40 @@ class ReadBZ2Filter(Stream):
         return self.readlength
 
     def seek(self, offset, whence):
+        READMAX = 2**18   # 256KB
         if whence == 1:
             if offset >= 0:
-                read = 0
+                read = r_longlong(0)
                 while read < offset:
-                    read += len(self.read(offset - read))
+                    count = offset - read
+                    if count < READMAX:
+                        count = intmask(count)
+                    else:
+                        count = READMAX
+                    read += len(self.read(count))
             else:
                 pos = self.readlength + offset
                 self.seek(pos, 0)
         elif whence == 0:
             self.stream.seek(0, 0)
             self.decompressor = W_BZ2Decompressor(self.space)
-            self.readlength = 0
+            self.readlength = r_longlong(0)
             self.buffer = ""
             self.finished = False
             read = 0
             while read < offset:
-                length = len(self.read(offset - read))
+                count = offset - read
+                if count < READMAX:
+                    count = intmask(count)
+                else:
+                    count = READMAX
+                length = len(self.read(count))
                 read += length
                 if not length:
                     break
         else:
             # first measure the length by reading everything left
-            while len(self.read(65536)) > 0:
+            while len(self.read(READMAX)) > 0:
                 pass
             pos = self.readlength + offset
             self.seek(pos, 0)
