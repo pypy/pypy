@@ -133,19 +133,19 @@ class Return(Operation):
 class Call(Operation):
 
     def __init__(self, builder, sigtoken, gv_fnptr, args_gv):
-        from pypy.jit.codegen.cli.rgenop import token2clitype
+        from pypy.jit.codegen.cli.rgenop import class2type
         self.builder = builder
         self.sigtoken = sigtoken
         self.gv_fnptr = gv_fnptr
         self.args_gv = args_gv
-        self._restype = token2clitype(sigtoken[1])
+        self._restype = class2type(sigtoken.res)
 
     def restype(self):
         return self._restype
 
     def emit(self):
-        from pypy.jit.codegen.cli.rgenop import sigtoken2clitype
-        delegate_type = sigtoken2clitype(self.sigtoken)
+        from pypy.jit.codegen.cli.rgenop import class2type
+        delegate_type = class2type(self.sigtoken.funcclass)
         meth_invoke = delegate_type.GetMethod('Invoke')
         self.gv_fnptr.load(self.builder)
         self.builder.il.Emit(OpCodes.Castclass, delegate_type)

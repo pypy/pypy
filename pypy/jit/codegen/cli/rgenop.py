@@ -5,7 +5,7 @@ from pypy.jit.codegen.model import AbstractRGenOp, GenBuilder, GenLabel
 from pypy.jit.codegen.model import GenVarOrConst, GenVar, GenConst, CodeGenSwitch
 from pypy.jit.codegen.cli import operation as ops
 from pypy.jit.codegen.cli.dumpgenerator import DumpGenerator
-from pypy.translator.cli.dotnet import CLR, typeof, new_array, box, unbox
+from pypy.translator.cli.dotnet import CLR, typeof, new_array, box, unbox, clidowncast, classof
 System = CLR.System
 Utils = CLR.pypy.runtime.Utils
 DelegateHolder = CLR.pypy.runtime.DelegateHolder
@@ -14,34 +14,19 @@ OpCodes = System.Reflection.Emit.OpCodes
 DUMP_IL = False
 DEBUG = False
 
-SM_INT__INT_1 = ootype.StaticMethod([ootype.Signed], ootype.Signed)
-SM_INT__INT_2 = ootype.StaticMethod([ootype.Signed] * 2, ootype.Signed)
-SM_INT__INT_3 = ootype.StaticMethod([ootype.Signed] * 3, ootype.Signed)
-SM_INT__INT_5 = ootype.StaticMethod([ootype.Signed] * 5, ootype.Signed)
-SM_INT__INT_27 = ootype.StaticMethod([ootype.Signed] * 27, ootype.Signed)
-SM_INT__INT_100 = ootype.StaticMethod([ootype.Signed] * 100, ootype.Signed)
+cInt32 = classof(System.Int32)
+cBoolean = classof(System.Boolean)
+cObject = classof(System.Object)
 
-def token2clitype(tok):
-    if tok == '<Signed>':
-        return typeof(System.Int32)
-    else:
-        assert False
+class SigToken:
+    def __init__(self, args, res, funcclass):
+        self.args = args
+        self.res = res
+        self.funcclass = funcclass
 
-def sigtoken2clitype(tok):
-    if tok == (['<Signed>'], '<Signed>'):
-        return typeof(SM_INT__INT_1)
-    elif tok == (['<Signed>', '<Signed>'], '<Signed>'):
-        return typeof(SM_INT__INT_2)
-    elif tok == (['<Signed>'] * 3, '<Signed>'):
-        return typeof(SM_INT__INT_3)
-    elif tok == (['<Signed>'] * 5, '<Signed>'):
-        return typeof(SM_INT__INT_5)
-    elif tok == (['<Signed>'] * 27, '<Signed>'):
-        return typeof(SM_INT__INT_27)
-    elif tok == (['<Signed>'] * 100, '<Signed>'):
-        return typeof(SM_INT__INT_100)
-    else:
-        assert False
+def class2type(cls):
+    'Cast a PBC of type ootype.Class into a System.Type instance'
+    return clidowncast(box(cls), System.Type)
 
 class __extend__(GenVarOrConst):
     __metaclass__ = extendabletype
@@ -207,7 +192,7 @@ class RCliGenOp(AbstractRGenOp):
 
     @staticmethod
     def genzeroconst(kind):
-        if kind == '<Signed>':
+        if kind is cInt32:
             return IntConst(0)
         else:
             return zero_const # ???
@@ -220,20 +205,28 @@ class RCliGenOp(AbstractRGenOp):
         # represent typeof(t) as a pbc
         args = [RCliGenOp.kindToken(T) for T in FUNCTYPE.ARGS]
         res = RCliGenOp.kindToken(FUNCTYPE.RESULT)
-        return args, res
+        funcclass = classof(FUNCTYPE)
+        return SigToken(args, res, funcclass)
 
     @staticmethod
     @specialize.memo()
     def kindToken(T):
-        return repr(T)
+        if T is ootype.Signed:
+            return cInt32
+        elif T is ootype.Bool:
+            return cBoolean
+        elif isinstance(T, ootype.Instance):
+            return cObject # XXX?
+        else:
+            assert False
 
     def newgraph(self, sigtoken, name):
-        argtoks, restok = sigtoken
-        args = new_array(System.Type, len(argtoks)+1)
+        argsclass = sigtoken.args
+        args = new_array(System.Type, len(argsclass)+1)
         args[0] = System.Type.GetType("System.Object[]")
-        for i in range(len(argtoks)):
-            args[i+1] = token2clitype(argtoks[i])
-        res = token2clitype(restok)
+        for i in range(len(argsclass)):
+            args[i+1] = class2type(argsclass[i])
+        res = class2type(sigtoken.res)
         builder = Builder(self, name, res, args, sigtoken)
         return builder, builder.gv_entrypoint, builder.inputargs_gv[:]
 
@@ -250,7 +243,7 @@ class Builder(GenBuilder):
         # we start from 1 because the 1st arg is an Object[] containing the genconsts
         for i in range(1, len(args)):
             self.inputargs_gv.append(GenArgVar(i, args[i]))
-        self.delegatetype = sigtoken2clitype(sigtoken)
+        self.delegatetype = class2type(sigtoken.funcclass)
         self.gv_entrypoint = FunctionConst(self.delegatetype)
         self.isOpen = False
         self.operations = []
