@@ -469,7 +469,7 @@ class HintRTyper(RPythonTyper):
         ARGS = []
         for r_arg in args_r:
             ARGS += r_arg.residual_argtypes()
-        return lltype.FuncType(ARGS, RESTYPE)
+        return self.rtyper.type_system.getcallabletype(ARGS, RESTYPE)
 
     def make_new_lloplist(self, block):
         return HintLowLevelOpList(self)

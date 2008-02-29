@@ -14,6 +14,7 @@ from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.rclass import fishllattr
 from pypy.rpython.lltypesystem.lloperation import llop
+from pypy.translator.simplify import get_funcobj
 
 def _from_opaque(opq):
     return opq._obj.externalobj
@@ -42,6 +43,13 @@ def from_opaque_string(s):
         return OOSupport.from_rstr(s)
     else:
         return LLSupport.from_rstr(s)
+
+def functionptr_general(TYPE, name, **attrs):
+    if isinstance(TYPE, lltype.FuncType):
+        return functionptr(TYPE, name, **attrs)
+    else:
+        assert isinstance(TYPE, ootype.StaticMethod)
+        return ootype.static_meth(TYPE, name, **attrs)
 
 def newgraph(gv_FUNCTYPE, name):
     FUNCTYPE = _from_opaque(gv_FUNCTYPE).value
@@ -74,12 +82,12 @@ def newgraph(gv_FUNCTYPE, name):
     casting_link(graph.prereturnblock, [v1], graph.returnblock)
     substartblock = flowmodel.Block(erasedinputargs)
     casting_link(graph.startblock, inputargs, substartblock)
-    fptr = lltype.functionptr(FUNCTYPE, name,
-                              graph=graph)
+    fptr = functionptr_general(FUNCTYPE, name,
+                               graph=graph)
     return genconst(fptr)
 
 def _getgraph(gv_func):
-     graph = _from_opaque(gv_func).value._obj.graph
+     graph = get_funcobj(_from_opaque(gv_func).value).graph
      return graph
 
 def end(gv_func):

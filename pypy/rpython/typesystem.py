@@ -45,6 +45,10 @@ class TypeSystem(object):
     def null_callable(self, T):
         """null callable object of type T"""
         raise NotImplementedError()
+
+    def getcallabletype(self, ARGS, RESTYPE):
+        cls = self.callable_trait[0]
+        return cls(ARGS, RESTYPE)
         
     def getcallable(self, graph, getconcretetype=None):
         """Return callable given a Python function."""
