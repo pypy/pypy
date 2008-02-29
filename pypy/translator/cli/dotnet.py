@@ -569,7 +569,8 @@ def classof(cliClass_or_type):
             FUNC = cliClass_or_type
             return known_delegates_class[FUNC]
         except KeyError:
-            cls = ootype._class(FUNC)
+            cls = ootype._class(ootype.ROOT)
+            cls._FUNC = FUNC
             known_delegates_class[FUNC] = cls
             return cls
     else:

@@ -629,6 +629,18 @@ class TestDotnetRtyping(CliTest):
         res = self.interpret(fn, [])
         assert res.startswith('StaticMethod__')
 
+    def test_mix_classof(self):
+        a = classof(System.Int32)
+        b = classof(FUNCTYPE)
+        def fn(flag):
+            if flag:
+                x = a
+            else:
+                x = b
+            return clidowncast(box(x), System.Type).get_Name()
+        res = self.interpret(fn, [True])
+        assert res == 'Int32'
+
 
 class TestPythonnet(TestDotnetRtyping):
     # don't interpreter functions but execute them directly through pythonnet

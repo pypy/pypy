@@ -150,9 +150,3 @@ class LowLevelDatabase(OODatabase):
             self.delegates[TYPE] = name
             self.pending_node(Delegate(self, TYPE, name))
             return name
-
-    def class_or_delegate_name(self, TYPE):
-        if isinstance(TYPE, ootype.StaticMethod):
-            return self.record_delegate(TYPE)
-        else:
-            return self.class_name(TYPE)
