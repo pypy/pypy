@@ -465,6 +465,7 @@ class Entry(ExtRegistryEntry):
             return hop.genop('cliunbox', [v_obj, c_type], hop.r_result.lowleveltype)
 
 
+
 native_exc_cache = {}
 def NativeException(cliClass):
     try:
@@ -631,6 +632,71 @@ class Entry(ExtRegistryEntry):
         assert isinstance(hop.args_s[0], annmodel.SomeOOInstance)
         v_inst = hop.inputarg(hop.args_r[0], arg=0)
         return hop.genop('oodowncast', [v_inst], resulttype = hop.r_result.lowleveltype)
+
+class _record_view(object):
+    
+    def __init__(self, record):
+        self._record = record
+        self._TYPE = CLR.System.Object._INSTANCE
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def __eq__(self, other):
+        if isinstance(other, ootype._record):
+            return self._record == other
+        assert isinstance(other, _record_view)
+        return self._record == other._record
+
+    def __hash__(self):
+        return hash(self._record)
+
+    def __nonzero__(self):
+        return bool(self._record)
+
+
+def cast_record_to_object(record):
+    T = ootype.typeOf(record)
+    assert isinstance(T, ootype.Record)
+    return _record_view(record)
+
+def cast_object_to_record(T, obj):
+    assert isinstance(T, ootype.Record)
+    assert isinstance(obj, _record_view)
+    record = obj._record
+    assert ootype.typeOf(record) == T
+    return record
+
+class Entry(ExtRegistryEntry):
+    _about_ = cast_record_to_object
+
+    def compute_result_annotation(self, s_value):
+        T = s_value.ootype
+        assert isinstance(T, ootype.Record)
+        can_be_None = getattr(s_value, 'can_be_None', False)
+        return SomeOOInstance(CLR.System.Object._INSTANCE, can_be_None=can_be_None)
+
+    def specialize_call(self, hop):
+        assert isinstance(hop.args_s[0], annmodel.SomeOOInstance)
+        v_obj, = hop.inputargs(*hop.args_r)
+        hop.exception_cannot_occur()
+        return hop.genop('ooupcast', [v_obj], hop.r_result.lowleveltype)
+
+class Entry(ExtRegistryEntry):
+    _about_ = cast_object_to_record
+
+    def compute_result_annotation(self, s_type, s_value):
+        assert s_type.is_constant()
+        T = s_type.const
+        assert isinstance(T, ootype.Record)
+        can_be_None = getattr(s_value, 'can_be_None', False)
+        return SomeOOInstance(T, can_be_None)
+
+    def specialize_call(self, hop):
+        assert hop.args_s[0].is_constant()
+        TYPE = hop.args_s[0].const
+        v_obj = hop.inputarg(hop.args_r[1], arg=1)
+        return hop.genop('oodowncast', [v_obj], hop.r_result.lowleveltype)
 
 class _fieldinfo(object):
     def __init__(self, llvalue):

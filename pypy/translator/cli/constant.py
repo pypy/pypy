@@ -84,11 +84,19 @@ class CLIBaseConstGenerator(BaseConstantGenerator):
         type = self.cts.lltype_to_cts(EXPECTED_TYPE)
         gen.ilasm.opcode('castclass', type)
 
+    def _get_key_for_const(self, value):
+        from pypy.translator.cli.dotnet import _record_view
+        if isinstance(value, _record_view):
+            return value._record
+        return BaseConstantGenerator._get_key_for_const(self, value)
+
     def _create_complex_const(self, value):
-        from pypy.translator.cli.dotnet import _fieldinfo
+        from pypy.translator.cli.dotnet import _fieldinfo, _record_view
         if isinstance(value, _fieldinfo):
             uniq = self.db.unique()
             return CLIFieldInfoConst(self.db, value.llvalue, uniq)
+        elif isinstance(value, _record_view):
+            return self.record_const(value._record)
         else:
             return BaseConstantGenerator._create_complex_const(self, value)
 

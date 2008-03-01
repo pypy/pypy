@@ -159,7 +159,10 @@ class BaseConstantGenerator(object):
         constant will be stored in the field of a singleton object.
         """
         pass
-        
+
+    def _get_key_for_const(self, value):
+        return value
+    
     # _________________________________________________________________
     # Constant Object Creation
     #
@@ -175,7 +178,8 @@ class BaseConstantGenerator(object):
         if value in self.cache:
             return self.cache[value]
         const = self._create_complex_const(value)
-        self.cache[value] = const
+        key = self._get_key_for_const(value)
+        self.cache[key] = const
         self._init_constant(const)
         const.record_dependencies()
         return const

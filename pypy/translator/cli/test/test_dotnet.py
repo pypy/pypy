@@ -8,7 +8,7 @@ from pypy.translator.cli.test.runtest import CliTest
 from pypy.translator.cli.dotnet import SomeCliClass, SomeCliStaticMethod,\
      NativeInstance, CLR, box, unbox, OverloadingResolver, NativeException,\
      native_exc, new_array, init_array, typeof, eventhandler, clidowncast,\
-     fieldinfo_for_const, classof
+     fieldinfo_for_const, classof, cast_record_to_object, cast_object_to_record
 
 System = CLR.System
 ArrayList = CLR.System.Collections.ArrayList
@@ -641,6 +641,29 @@ class TestDotnetRtyping(CliTest):
         res = self.interpret(fn, [True])
         assert res == 'Int32'
 
+    def test_mix_record_and_object(self):
+        T = ootype.Record({'x': ootype.Signed})
+        record = ootype.new(T)
+        def fn(flag):
+            if flag:
+                obj = cast_record_to_object(record)
+            else:
+                obj = System.Object()
+            record2 = cast_object_to_record(T, obj)
+            return record is record2
+        res = self.interpret(fn, [True])
+        assert res
+
+    def test_cast_record_pbc(self):
+        T = ootype.Record({'x': ootype.Signed})
+        record = ootype.new(T)
+        record.x = 42
+        obj = cast_record_to_object(record)
+        def fn():
+            record2 = cast_object_to_record(T, obj)
+            return record is record2
+        res = self.interpret(fn, [])
+        assert res
 
 class TestPythonnet(TestDotnetRtyping):
     # don't interpreter functions but execute them directly through pythonnet
