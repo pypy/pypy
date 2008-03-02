@@ -155,15 +155,13 @@ def PyString_DecodeEscape(space, s, unicode, recode_encoding):
             lis.append('\013') # VT
         elif ch == 'a':
             lis.append('\007') # BEL, not classic C
-        elif '0' <= ch <= '7':
-            c = ord(s[ps - 1]) - ord('0')
-            if ps < end and '0' <= s[ps] <= '7':
-                c = (c << 3) + ord(s[ps]) - ord('0')
-                ps += 1
-                if ps < end and '0' <= s[ps] <= '7':
-                    c = (c << 3) + ord(s[ps]) - ord('0')
-                    ps += 1
-            lis.append(chr(c))
+        elif ch in '01234567':
+            # Look for up to two more octal digits
+            span = ps
+            span += (span < end) and (s[span] in '01234567')
+            span += (span < end) and (s[span] in '01234567')
+            lis.append(chr(int(s[ps - 1 : span], 8)))
+            ps = span
         elif ch == 'x':
             if ps+2 <= end and isxdigit(s[ps]) and isxdigit(s[ps + 1]):
                 lis.append(chr(int(s[ps : ps + 2], 16)))

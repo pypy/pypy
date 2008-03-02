@@ -9,72 +9,59 @@ import string
 set = py.builtin.set
 
 ESCAPES = {
-    "\\a": "\a",
-    "\\b": "\b",
-    "\\e": "\x1b",
-    "\\f": "\f",
-    "\\n": "\n",
-    "\\r": "\r",
-    "\\t": "\t",
-    "\\v": "\v",
-    "\\":  "\\"
+    "a": "\a",
+    "b": "\b",
+    "e": "\x1b",
+    "f": "\f",
+    "n": "\n",
+    "r": "\r",
+    "t": "\t",
+    "v": "\v",
 }
 
 for i in range(256):
-    if chr(i) not in 'x01234567sSwWdD':
-        # 'x' and numbers are reserved for hexadecimal/octal escapes
-        escaped = "\\" + chr(i)
-        if escaped not in ESCAPES:
-            ESCAPES[escaped] = chr(i)
-
-    # Three digit octals
-    escaped = "\\%03o" % i
-    if escaped not in ESCAPES:
-        ESCAPES[escaped] = chr(i)
-
-    if 0 <= i <= 077:
-        # Two digit octal digs are ok too
-        escaped = "\\%02o" % i
-        if escaped not in ESCAPES:
-            ESCAPES[escaped] = chr(i)
-    
     # Add the ctrl-x types:
     #   Rule, according to PCRE:
     #     if x is a lower case letter, it is converted to upper case. 
     #     Then bit 6 of the character (hex 40) is inverted.   
-    #     Thus, \cz => 0x1A, but \c{ => 0x3B, while \c; => 0x7B.
-    escaped = "\\c%s" % chr(i)
-    if escaped not in ESCAPES:
-        ESCAPES[escaped] = chr(ord(chr(i).upper()) ^ 0x40)
+    #     Thus, \cz => 0x1A, \c{ => 0x3B, \c; => 0x7B.
+    escaped = "c%s" % chr(i)
+    ESCAPES[escaped] = chr(ord(chr(i).upper()) ^ 0x40)
+
+def unescape_muncher(string):
+    """Return a tuple, representing the first character of the string
+    (appropriately unescaped) and the rest of the string that wasn't
+    handled."""
+    if string[0] != '\\':
+        # Not an escape character
+        return string[0], string[1:]
+    if string[1] == 'x':
+        # Hex char, must have two hex digits
+        char = chr(int(string[2:4], 16))
+        return char, string[4:]
+    if string[1] in '01234567':
+        # Octal number, up to three digits long
+        span = 2
+        span += (span < len(string)) and (string[span] in '01234567')
+        span += (span < len(string)) and (string[span] in '01234567')
+        char = chr(int(string[1:span], 8))
+        return char, string[span:]
+    if string[1] == 'c':
+        # Special \cx types
+        return ESCAPES['c'+string[2]], string[3:]
+    if string[1] in ESCAPES:
+        # Special escapes are in ESCAPE
+        return ESCAPES[string[1]], string[2:]
+    # Otherwise, it's just the character it's meant to be (e.g., '\.')
+    return string[1], string[2:]
     
-
-for a in "0123456789ABCDEFabcdef":
-    for b in "0123456789ABCDEFabcdef":
-        escaped = "\\x%s%s" % (a, b)
-        if escaped not in ESCAPES:
-            ESCAPES[escaped] = chr(int("%s%s" % (a, b), 16))
-
+        
 def unescape(s):
+    """Unescape a whole string."""
     result = []
-    i = 0
-    while i < len(s):
-        if s[i] != "\\":
-            result.append(s[i])
-            i += 1
-            continue
-        if s[i + 1] == "x":
-            escaped = s[i: i + 4]
-            i += 4
-        elif s[i + 1] in "01234567":
-            escaped = s[i: i + 4]
-            i += 4
-        else:
-            escaped = s[i: i + 2]
-            i += 2
-        if escaped not in ESCAPES:
-            raise ValueError("escape %r unknown" % (escaped, ))
-        else:
-            result.append(ESCAPES[escaped])
+    while s:
+        char, s = unescape_muncher(s)
+        result.append(char)
     return "".join(result)
 
 syntax =  r"""
@@ -184,20 +171,15 @@ clippednumrange:
 charclass:
     '\' 'd'
     return { set([chr(c) for c in range(ord('0'), ord('9')+1)]) }
-  | '\' 
-    's'
+  | '\' 's'
     return { set(['\t', '\n', '\f', '\r', ' ']) }
-  | '\' 
-    'w'
+  | '\' 'w'
     return { set([chr(c) for c in range(ord('a'), ord('z')+1)] + [chr(c) for c in range(ord('A'), ord('Z')+1)] + [chr(c) for c in range(ord('0'), ord('9')+1)] + ['_']) }
-  | '\' 
-    'D'
+  | '\' 'D'
     return { set([chr(c) for c in range(256)]) - set([chr(c) for c in range(ord('0'), ord('9')+1)]) }
-  | '\' 
-    'S'
+  | '\' 'S'
     return { set([chr(c) for c in range(256)]) - set(['\t', '\n', '\f', '\r', ' ']) }
-  | '\' 
-    'W'
+  | '\' 'W'
     return { set([chr(c) for c in range(256)]) - set([chr(c) for c in range(ord('a'), ord('z')+1)] + [chr(c) for c in range(ord('A'), ord('Z')+1)] + [chr(c) for c in range(ord('0'), ord('9')+1)] + ['_'])};
 
 NUM:
@@ -1828,6 +1810,9 @@ for key, value in Parser.__dict__.iteritems():
         setattr(RegexParser, key, value)
 RegexParser.init_parser = Parser.__init__.im_func
 # generated code between this line and its other occurence
+
+
+
 
 
 
