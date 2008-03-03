@@ -354,6 +354,7 @@ class CStandaloneBuilder(CBuilder):
         assert self.config.translation.gcrootfinder != "llvmgc"
         cfiles = []
         ofiles = []
+        gcmapfiles = []
         for fn in compiler.cfilenames:
             fn = py.path.local(fn)
             if fn.dirpath() == targetdir:
@@ -364,6 +365,7 @@ class CStandaloneBuilder(CBuilder):
             cfiles.append(name)
             if self.config.translation.gcrootfinder == "asmgcc":
                 ofiles.append(name[:-2] + '.s')
+                gcmapfiles.append(name[:-2] + '.gcmap')
             else:
                 ofiles.append(name[:-2] + '.o')
 
@@ -387,8 +389,10 @@ class CStandaloneBuilder(CBuilder):
         print >> f
         if self.config.translation.gcrootfinder == "asmgcc":
             write_list(ofiles, 'ASMFILES =')
+            write_list(gcmapfiles, 'GCMAPFILES =')
             print >> f, 'OBJECTS = $(ASMFILES) gcmaptable.s'
         else:
+            print >> f, 'GCMAPFILES ='
             write_list(ofiles, 'OBJECTS =')
         print >> f
         def makerel(path):
@@ -835,11 +839,14 @@ $(TARGET): $(OBJECTS)
 %.s: %.c
 \t$(CC) $(CFLAGS) -o $@ -S $< $(INCLUDEDIRS)
 
-gcmaptable.s: $(ASMFILES)
-\t$(PYPYDIR)/translator/c/gcc/trackgcroot.py $(ASMFILES) > $@ || (rm -f $@ && exit 1)
+%.gcmap: %.s
+\t$(PYPYDIR)/translator/c/gcc/trackgcroot.py -t $< > $@ || (rm -f $@ && exit 1)
+
+gcmaptable.s: $(GCMAPFILES)
+\t$(PYPYDIR)/translator/c/gcc/trackgcroot.py $(GCMAPFILES) > $@ || (rm -f $@ && exit 1)
 
 clean:
-\trm -f $(OBJECTS) $(TARGET)
+\trm -f $(OBJECTS) $(TARGET) $(GCMAPFILES)
 
 debug:
 \t$(MAKE) CFLAGS="-g -DRPY_ASSERT"
@@ -868,6 +875,6 @@ profile:
 profopt:
 \t$(MAKE) CFLAGS="-fprofile-generate $(CFLAGS)" LDFLAGS="-fprofile-generate $(LDFLAGS)"
 \tcd $(PYPYDIR)/translator/goal && $(abspath $(TARGET)) $(PROFOPT)
-\trm -f $(OBJECTS) $(TARGET)
+\t$(MAKE) clean
 \t$(MAKE) CFLAGS="-fprofile-use $(CFLAGS)" LDFLAGS="-fprofile-use $(LDFLAGS)"
 '''

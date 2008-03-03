@@ -27,11 +27,28 @@ r_localvar_ebp  = re.compile(r"(-?\d*)[(]%ebp[)]")
 class GcRootTracker(object):
 
     def __init__(self, verbose=0, shuffle=False):
-        self.gcmaptable = []
         self.verbose = verbose
+        self.shuffle = shuffle     # to debug the sorting logic in asmgcroot.py
+        self.clear()
+
+    def clear(self):
+        self.gcmaptable = []
         self.seen_main = False
         self.files_seen = 0
-        self.shuffle = shuffle     # to debug the sorting logic in asmgcroot.py
+
+    def dump_raw_table(self, output):
+        print >> output, "seen_main = %d" % (self.seen_main,)
+        for entry in self.gcmaptable:
+            print >> output, entry
+
+    def reload_raw_table(self, input):
+        firstline = input.readline()
+        assert firstline.startswith("seen_main = ")
+        self.seen_main |= bool(int(firstline[len("seen_main = "):].strip()))
+        for line in input:
+            entry = eval(line)
+            assert type(entry) is tuple
+            self.gcmaptable.append(entry)
 
     def dump(self, output):
         assert self.seen_main
@@ -975,6 +992,7 @@ def decompress_callshape(bytes):
 if __name__ == '__main__':
     verbose = 1
     shuffle = False
+    output_raw_table = False
     while len(sys.argv) > 1:
         if sys.argv[1] == '-v':
             del sys.argv[1]
@@ -982,16 +1000,29 @@ if __name__ == '__main__':
         elif sys.argv[1] == '-r':
             del sys.argv[1]
             shuffle = True
+        elif sys.argv[1] == '-t':
+            del sys.argv[1]
+            output_raw_table = True
         else:
             break
     tracker = GcRootTracker(verbose=verbose, shuffle=shuffle)
     for fn in sys.argv[1:]:
         tmpfn = fn + '.TMP'
         f = open(fn, 'r')
-        g = open(tmpfn, 'w')
-        tracker.process(f, g, filename=fn)
-        f.close()
-        g.close()
-        os.unlink(fn)
-        os.rename(tmpfn, fn)
-    tracker.dump(sys.stdout)
+        firstline = f.readline()
+        f.seek(0)
+        if firstline.startswith('seen_main = '):
+            tracker.reload_raw_table(f)
+            f.close()
+        else:
+            g = open(tmpfn, 'w')
+            tracker.process(f, g, filename=fn)
+            f.close()
+            g.close()
+            os.unlink(fn)
+            os.rename(tmpfn, fn)
+            if output_raw_table:
+                tracker.dump_raw_table(sys.stdout)
+                tracker.clear()
+    if not output_raw_table:
+        tracker.dump(sys.stdout)
