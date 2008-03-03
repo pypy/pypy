@@ -7,7 +7,8 @@ main:
 	cmovge	20(%esp), %ebx
 	movl	24(%esp), %eax
 	cmovs	%eax, %ebx
-	call	foobar
+	;; and an indirect call while we're at it
+	call	*(%eax)
 	;; expected {4(%esp) | (%esp), %esi, %edi, %ebp | %ebx}
 #APP
 	/* GCROOT %ebx */
