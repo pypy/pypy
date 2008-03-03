@@ -687,3 +687,15 @@ class AppTestOldstyle(object):
 
         assert X() != 5
         assert Y() != X()
+
+    def test_assignment_to_del(self):
+        import warnings
+        
+        class X:
+            pass
+
+        warnings.simplefilter('error', RuntimeWarning)
+        try:
+            raises(RuntimeWarning, "X.__del__ = lambda self: None")
+        finally:
+            warnings.simplefilter('default', RuntimeWarning)

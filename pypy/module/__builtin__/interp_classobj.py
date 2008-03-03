@@ -2,7 +2,7 @@ import new
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped, applevel
 from pypy.interpreter.gateway import interp2app, ObjSpace
-from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
+from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.rlib.rarithmetic import r_uint, intmask
@@ -14,6 +14,14 @@ def raise_type_err(space, argument, expected, w_obj):
         argument, expected, type_name))
     raise OperationError(space.w_TypeError,
                          w_error)
+
+def unwrap_attr(space, w_attr):
+    try:
+        return space.str_w(w_attr)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        return ""
 
 def descr_classobj_new(space, w_subtype, w_name, w_bases, w_dict):
     if not space.is_true(space.isinstance(w_bases, space.w_tuple)):
@@ -55,37 +63,14 @@ class W_ClassObject(Wrappable):
                 space.wrap("__dict__ must be a dictionary object"))
         self.w_dict = w_dict
 
-    def fget_dict(space, self):
-        return self.w_dict
-
-    def fset_dict(space, self, w_dict):
-        self.setdict(space, w_dict)
-
-    def fdel_dict(space, self):
-        raise OperationError(
-            space.w_TypeError,
-            space.wrap("__dict__ must be a dictionary object"))
-
-    def fget_name(space, self):
-        return space.wrap(self.name)
-
-    def fset_name(space, self, w_newname):
+    def setname(self, space, w_newname):
         if not space.is_true(space.isinstance(w_newname, space.w_str)):
             raise OperationError(
                     space.w_TypeError,
                     space.wrap("__name__ must be a string object"))
         self.name = space.str_w(w_newname)
 
-    def fdel_name(space, self):
-        raise OperationError(
-                space.w_TypeError,
-                space.wrap("__name__ must be a string object"))
-
-
-    def fget_bases(space, self):
-        return space.newtuple(self.bases_w)
-
-    def fset_bases(space, self, w_bases):
+    def setbases(self, space, w_bases):
         # XXX in theory, this misses a check against inheritance cycles
         # although on pypy we don't get a segfault for infinite
         # recursion anyway 
@@ -99,11 +84,6 @@ class W_ClassObject(Wrappable):
                 raise OperationError(space.w_TypeError,
                                      space.wrap("__bases__ items must be classes"))
         self.bases_w = bases_w
-
-    def fdel_bases(space, self):
-        raise OperationError(
-                space.w_TypeError,
-                space.wrap("__bases__ must be a tuple object"))
 
     def lookup(self, space, w_attr):
         # returns w_value or interplevel None
@@ -119,12 +99,8 @@ class W_ClassObject(Wrappable):
         return None
 
     def descr_getattribute(self, space, w_attr):
-        try:
-            name = space.str_w(w_attr)
-        except OperationError, e:
-            if not e.match(space, space.w_TypeError):
-                raise
-        else:
+        name = unwrap_attr(space, w_attr)
+        if name and name[0] == "_":
             if name == "__dict__":
                 return self.w_dict
             elif name == "__name__":
@@ -142,7 +118,42 @@ class W_ClassObject(Wrappable):
         if w_descr_get is None:
             return w_value
         return space.call_function(w_descr_get, w_value, space.w_None, self)
-        
+
+    def descr_setattr(self, space, w_attr, w_value):
+        name = unwrap_attr(space, w_attr)
+        if name and name[0] == "_":
+            if name == "__dict__":
+                self.setdict(space, w_value)
+                return
+            elif name == "__name__":
+                self.setname(space, w_value)
+                return
+            elif name == "__bases__":
+                self.setbases(space, w_value)
+                return
+            elif name == "__del__":
+                if self.lookup(space, space.wrap('__del__')) is None:
+                    msg = ("a __del__ method added to an existing class "
+                           "will not be called")
+                    space.warn(msg, space.w_RuntimeWarning)
+        space.setitem(self.w_dict, w_attr, w_value)
+
+    def descr_delattr(self, space, w_attr):
+        name = unwrap_attr(space, w_attr)
+        if name in ("__dict__", "__name__", "__bases__"):
+            raise OperationError(
+                space.w_TypeError,
+                space.wrap("cannot delete attribute %s" % (name,)))
+        try:
+            space.delitem(self.w_dict, w_attr)
+        except OperationError, e:
+            if not e.match(space, space.w_KeyError):
+                raise
+            raise OperationError(
+                space.w_AttributeError,
+                space.wrap("class %s has no attribute %s" % (
+                    self.name, space.str_w(space.str(w_attr)))))
+
     def descr_call(self, space, __args__):
         if self.lookup(space, space.wrap('__del__')) is not None:
             w_inst = W_InstanceObjectWithDel(space, self)
@@ -185,13 +196,6 @@ class W_ClassObject(Wrappable):
 
 W_ClassObject.typedef = TypeDef("classobj",
     __new__ = interp2app(descr_classobj_new),
-    __dict__ = GetSetProperty(W_ClassObject.fget_dict, W_ClassObject.fset_dict,
-                              W_ClassObject.fdel_dict),
-    __name__ = GetSetProperty(W_ClassObject.fget_name, W_ClassObject.fset_name,
-                              W_ClassObject.fdel_name),
-    __bases__ = GetSetProperty(W_ClassObject.fget_bases,
-                               W_ClassObject.fset_bases,
-                               W_ClassObject.fdel_bases),
     __repr__ = interp2app(W_ClassObject.descr_repr,
                           unwrap_spec=['self', ObjSpace]),
     __str__ = interp2app(W_ClassObject.descr_str,
@@ -199,6 +203,10 @@ W_ClassObject.typedef = TypeDef("classobj",
     __call__ = interp2app(W_ClassObject.descr_call,
                           unwrap_spec=['self', ObjSpace, Arguments]),
     __getattribute__ = interp2app(W_ClassObject.descr_getattribute,
+                             unwrap_spec=['self', ObjSpace, W_Root]),
+    __setattr__ = interp2app(W_ClassObject.descr_setattr,
+                             unwrap_spec=['self', ObjSpace, W_Root, W_Root]),
+    __delattr__ = interp2app(W_ClassObject.descr_delattr,
                              unwrap_spec=['self', ObjSpace, W_Root]),
 )
 W_ClassObject.typedef.acceptable_as_base_class = False
