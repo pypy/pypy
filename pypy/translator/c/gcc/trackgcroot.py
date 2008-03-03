@@ -62,11 +62,6 @@ class GcRootTracker(object):
             ret
         .size pypy_asm_stackwalk_init, .-pypy_asm_stackwalk_init
         """
-        # XXX the two gcmap tables are a bit largish.  They could easily
-        # be compressed by a factor of 4 or more.  I suspect they also
-        # produce large linker tables which could be seriously reduced
-        # as well.  A key observation is that in practice most functions
-        # seem to use exactly the same call shape for each call they contain.
         print >> output, '\t.data'
         print >> output, '\t.align\t4'
         print >> output, '\t.globl\t__gcmapstart'
