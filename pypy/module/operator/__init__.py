@@ -18,19 +18,19 @@ class Module(MixedModule):
     appleveldefs = {} 
     
     app_names = ['__delslice__', '__getslice__', '__repeat__', '__setslice__',
-                 'attrgetter', 'countOf', 'delslice', 'getslice', 'indexOf',
+                 'countOf', 'delslice', 'getslice', 'indexOf',
                  'isMappingType', 'isNumberType', 'isSequenceType',
-                 'itemgetter','repeat', 'setslice',
+                 'repeat', 'setslice',
              ]
 
     for name in app_names:
         appleveldefs[name] = 'app_operator.%s' % name
 
-    interp_names = ['index', 'abs', 'add',
-                    'and_', 'concat', 'contains', 'delitem', 'div', 'eq', 'floordiv',
+    interp_names = ['index', 'abs', 'add', 'and_', 'attrgetter',
+                    'concat', 'contains', 'delitem', 'div', 'eq', 'floordiv',
                     'ge', 'getitem', 'gt', 'inv',
-                    'invert', 'is_', 'is_not', 'isCallable', 'le',
-                    'lshift', 'lt', 'mod', 'mul',
+                    'invert', 'is_', 'is_not', 'isCallable', 'itemgetter',
+                    'le', 'lshift', 'lt', 'mod', 'mul',
                     'ne', 'neg', 'not_', 'or_',
                     'pos', 'pow', 'rshift', 'setitem', 'sequenceIncludes',
                     'sub', 'truediv', 'truth', 'xor']

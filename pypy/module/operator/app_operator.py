@@ -5,11 +5,6 @@ This module exports a set of operators as functions. E.g. operator.add(x,y) is
 equivalent to x+y.
 '''
 
-def attrgetter(attr):
-    def f(obj):
-        return getattr(obj, attr)
-    return f
-
 def countOf(a,b): 
     'countOf(a, b) -- Return the number of times b occurs in a.'
     count = 0
@@ -54,11 +49,6 @@ def isNumberType(obj,):
 def isSequenceType(obj,):
     'isSequenceType(a) -- Return True if a has a sequence type, False otherwise.'
     return hasattr(obj, '__getitem__')
-
-def itemgetter(idx):
-    def f(obj):
-        return obj[idx]
-    return f
 
 def repeat(obj, num):
     'repeat(a, b) -- Return a * b, where a is a sequence, and b is an integer.'
