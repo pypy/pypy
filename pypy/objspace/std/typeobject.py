@@ -551,6 +551,9 @@ def setattr__Type_ANY_ANY(space, w_type, w_name, w_value):
     if not w_type.is_heaptype():
         msg = "can't set attributes on type object '%s'" %(w_type.name,)
         raise OperationError(space.w_TypeError, space.wrap(msg))
+    if name == "__del__" and name not in w_type.dict_w:
+        msg = "a __del__ method added to an existing type will not be called"
+        space.warn(msg, space.w_RuntimeWarning)
     w_type.dict_w[name] = w_value
 
 def delattr__Type_ANY(space, w_type, w_name):

@@ -916,6 +916,12 @@ class ObjSpace(object):
                                  self.wrap('cannot convert negative integer '
                                            'to unsigned int'))
 
+    def warn(self, msg, w_warningcls):
+        self.appexec([self.wrap(msg), w_warningcls], """(msg, warningcls):
+            import warnings
+            warnings.warn(msg, warningcls, stacklevel=2)
+        """)
+
 
 class AppExecCache(SpaceCache):
     def build(cache, source):

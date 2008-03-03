@@ -76,6 +76,39 @@ class TestTypeObject:
             raises(TypeError, type, 'sub', (stufftype,), {})
         """)
 
+    def test_del_warning(self):
+        warnings = []
+        def my_warn(msg, warningscls):
+            warnings.append(msg)
+            prev_warn(msg, warningscls)
+        space = self.space
+        prev_warn = space.warn
+        try:
+            space.warn = my_warn
+            space.appexec([], """():
+                class X(object):
+                    pass
+                X.__del__ = 5
+                X.__del__ = 6
+                X.__del__ = 7
+                class Y(object):
+                    pass
+                Y.__del__ = 8
+                Y.__del__ = 9
+                Y.__del__ = 0
+                class Z(object):
+                    pass
+                Z._foobar_ = 3
+                Z._foobar_ = 4
+                class U(object):
+                    def __del__(self):
+                        pass
+                U.__del__ = lambda self: 42     # no warning here
+            """)
+        finally:
+            space.warn = prev_warn
+        assert len(warnings) == 2
+
 
 class AppTestTypeObject:
     def test_bases(self):
