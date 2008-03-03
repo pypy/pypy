@@ -53,6 +53,9 @@ class TimeshiftingTests(object):
     small = True
     type_system = 'lltype' # because a lot of tests inherits from this class
 
+    def Ptr(self, T):
+        return lltype.Ptr(T)
+
     def setup_class(cls):
         from pypy.jit.timeshifter.test.conftest import option
         cls.on_llgraph = cls.RGenOp is LLRGenOp
@@ -1795,9 +1798,6 @@ class BaseTestTimeshift(TimeshiftingTests):
 
 class TestLLType(BaseTestTimeshift):
     type_system = 'lltype'
-
-    def Ptr(self, T):
-        return lltype.Ptr(T)
 
 passing_ootype_tests = set([
     'test_very_simple',
