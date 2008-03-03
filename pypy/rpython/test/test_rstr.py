@@ -265,8 +265,9 @@ class AbstractTestRstr(BaseRtypingTest):
         def fn(i, j):
             assert i >= 0
             assert j >= 0
-            return const('ababcabc').find(const('abc'), i, j)
-        for (i, j) in [(1,7), (2,6), (3,7), (3,8)]:
+            return (const('ababcabc').find(const('abc'), i, j) +
+                    const('ababcabc').find('b', i, j) * 100)
+        for (i, j) in [(1,7), (2,6), (3,7), (3,8), (4,99), (7, 99)]:
             res = self.interpret(fn, [i, j])
             assert res == fn(i, j)
 
@@ -287,9 +288,18 @@ class AbstractTestRstr(BaseRtypingTest):
     def test_rfind(self):
         const = self.const
         def fn():
-            return const('aaa').rfind(const('a')) + const('aaa').rfind(const('a'), 1) + const('aaa').rfind(const('a'), 1, 2)
+            # string-searching versions
+            return (const('aaa').rfind(const('aa')) +
+                    const('aaa').rfind(const('aa'), 1) * 10 +
+                    const('aaa').rfind(const('aa'), 1, 2) * 100 +
+                    const('aaa').rfind(const('aa'), 3, 42) * 1000 +
+            # char-searching versions
+                    const('aaa').rfind('a') * 10000 +
+                    const('aaa').rfind('a', 1) * 100000 +
+                    const('aaa').rfind('a', 1, 2) * 1000000 +
+                    const('aaa').rfind('a', 3, 42) * 10000000)
         res = self.interpret(fn, [])
-        assert res == 2 + 2 + 1
+        assert res == fn()
 
     def test_rfind_empty_string(self):
         const = self.const
@@ -680,9 +690,9 @@ class AbstractTestRstr(BaseRtypingTest):
         def fn(i):
             s = const("").join([const("abcasd")] * i)
             return s.count(const("a")) + s.count(const("a"), 2) + \
-                   s.count(const("b"), 1, 6)
+                   s.count(const("b"), 1, 6) + s.count(const("a"), 5, 99)
         res = self.interpret(fn, [4])
-        assert res == 8 + 7 + 1
+        assert res == 8 + 7 + 1 + 6
 
     def test_count(self):
         const = self.const
@@ -690,9 +700,10 @@ class AbstractTestRstr(BaseRtypingTest):
             s = const("").join([const("abcabsd")] * i)
             one = i / i # confuse the annotator
             return (s.count(const("abc")) + const("abcde").count(const("")) +
-                    const("abcda").count(const("a") * one))
+                    const("abcda").count(const("a") * one) +
+                    s.count(const("ab"), 0, 999))
         res = self.interpret(fn, [4])
-        assert res == 4 + 6 + 2
+        assert res == 4 + 6 + 2 + 8
 
     def test_count_overlapping_occurences(self):
         const = self.const
