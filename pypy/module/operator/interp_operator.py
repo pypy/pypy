@@ -162,6 +162,7 @@ def xor(space, w_a, w_b):
 # attrgetter and itergetter
 
 from pypy.interpreter import eval, function
+from pypy.interpreter.error import OperationError
 
 class SimpleClosureBuiltinFunction(function.BuiltinFunction):
 
