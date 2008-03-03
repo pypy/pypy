@@ -46,7 +46,7 @@ def from_opaque_string(s):
 
 def functionptr_general(TYPE, name, **attrs):
     if isinstance(TYPE, lltype.FuncType):
-        return functionptr(TYPE, name, **attrs)
+        return lltype.functionptr(TYPE, name, **attrs)
     else:
         assert isinstance(TYPE, ootype.StaticMethod)
         return ootype.static_meth(TYPE, name, **attrs)
