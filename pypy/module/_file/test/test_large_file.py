@@ -1,12 +1,14 @@
 import py
 
 from pypy.conftest import gettestobjspace
+from pypy.module._file.test.test_file import getfile
 
 class AppTestLargeFile(object):
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=("_file", ))
         cls.w_temppath = cls.space.wrap(
             str(py.test.ensuretemp("fileimpl").join("large.data")))
+        cls.w_file = getfile(cls.space)
 
     def setup_method(self, meth):
         if getattr(meth, 'need_sparse_files', False):
@@ -14,9 +16,8 @@ class AppTestLargeFile(object):
             need_sparse_files()
 
     def test_large_seek_offsets(self):
-        import _file
         FAR = 0x122223333
-        f = _file.file(self.temppath, "w+b")
+        f = self.file(self.temppath, "w+b")
         f.write("hello world")
         f.seek(FAR)
         assert f.tell() == FAR
@@ -31,9 +32,8 @@ class AppTestLargeFile(object):
         f.close()
 
     def test_large_sparse(self):
-        import _file
         FAR = 0x122223333
-        f = _file.file(self.temppath, "w+b")
+        f = self.file(self.temppath, "w+b")
         f.seek(FAR)
         f.write('end')
         f.seek(0)

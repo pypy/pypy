@@ -2,18 +2,27 @@ import py
 
 from pypy.conftest import gettestobjspace, option
 
+def getfile(space):
+    return space.appexec([], """():
+        try:
+            import _file
+            return _file.file
+        except ImportError:     # when running with py.test -A
+            return file
+    """)
+
 class AppTestFile(object):
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=("_file", ))
         cls.w_temppath = cls.space.wrap(
             str(py.test.ensuretemp("fileimpl").join("foo.txt")))
+        cls.w_file = getfile(cls.space)
 
     def test_simple(self):
-        import _file
-        f = _file.file(self.temppath, "w")
+        f = self.file(self.temppath, "w")
         f.write("foo")
         f.close()
-        f = _file.file(self.temppath, "r")
+        f = self.file(self.temppath, "r")
         raises(TypeError, f.read, None)
         try:
             s = f.read()
@@ -22,13 +31,12 @@ class AppTestFile(object):
             f.close()
 
     def test_readline(self):
-        import _file
-        f = _file.file(self.temppath, "w")
+        f = self.file(self.temppath, "w")
         try:
             f.write("foo\nbar\n")
         finally:
             f.close()
-        f = _file.file(self.temppath, "r")
+        f = self.file(self.temppath, "r")
         raises(TypeError, f.readline, None)
         try:
             s = f.readline()
@@ -39,13 +47,12 @@ class AppTestFile(object):
             f.close()
 
     def test_readlines(self):
-        import _file
-        f = _file.file(self.temppath, "w")
+        f = self.file(self.temppath, "w")
         try:
             f.write("foo\nbar\n")
         finally:
             f.close()
-        f = _file.file(self.temppath, "r")
+        f = self.file(self.temppath, "r")
         raises(TypeError, f.readlines, None)
         try:
             s = f.readlines()
@@ -55,19 +62,23 @@ class AppTestFile(object):
 
 
     def test_fdopen(self):
-        import _file, os
-        f = _file.file(self.temppath, "w")
+        import os
+        f = self.file(self.temppath, "w")
         try:
             f.write("foo")
         finally:
             f.close()
+        try:
+            fdopen = self.file.fdopen
+        except AttributeError:
+            fdopen = os.fdopen      # when running with -A
         fd = os.open(self.temppath, os.O_WRONLY | os.O_CREAT)
-        f2 = _file.file.fdopen(fd, "a")
+        f2 = fdopen(fd, "a")
         f2.seek(0, 2)
         f2.write("bar")
         f2.close()
         # don't close fd, will get a whining __del__
-        f = _file.file(self.temppath, "r")
+        f = self.file(self.temppath, "r")
         try:
             s = f.read()
             assert s == "foobar"
@@ -75,16 +86,14 @@ class AppTestFile(object):
             f.close()
 
     def test_badmode(self):
-        import _file
-        raises(IOError, _file.file, "foo", "bar")
+        raises(IOError, self.file, "foo", "bar")
 
     def test_wraposerror(self):
-        import _file
-        raises(IOError, _file.file, "hopefully/not/existant.bar")
+        raises(IOError, self.file, "hopefully/not/existant.bar")
 
     def test_correct_file_mode(self):
-        import _file, os
-        f = _file.file(self.temppath, "w")
+        import os
+        f = self.file(self.temppath, "w")
         umask = os.umask(18)
         os.umask(umask)
         try:
@@ -94,22 +103,22 @@ class AppTestFile(object):
         assert oct(os.stat(self.temppath).st_mode & 0777 | umask) == oct(0666)
 
     def test_newlines(self):
-        import _file, os
-        f = _file.file(self.temppath, "wb")
+        import os
+        f = self.file(self.temppath, "wb")
         f.write("\r\n")
         assert f.newlines is None
         f.close()
-        f = _file.file(self.temppath, "rU")
+        f = self.file(self.temppath, "rU")
         res = f.read()
         assert res == "\n"
         assert f.newlines == "\r\n"
 
     def test_unicode(self):
-        import _file, os
-        f = _file.file(self.temppath, "w")
+        import os
+        f = self.file(self.temppath, "w")
         f.write(u"hello\n")
         f.close()
-        f = _file.file(self.temppath, "r")
+        f = self.file(self.temppath, "r")
         res = f.read()
         assert res == "hello\n"
         assert type(res) is str
@@ -125,11 +134,12 @@ class AppTestConcurrency(object):
         cls.space = gettestobjspace(usemodules=("_file", "thread"))
         cls.w_temppath = cls.space.wrap(
             str(py.test.ensuretemp("fileimpl").join("concurrency.txt")))
+        cls.w_file = getfile(cls.space)
 
     def test_concurrent_writes(self):
         # check that f.write() is atomic
-        import thread, _file, time
-        f = _file.file(self.temppath, "w+b")
+        import thread, time
+        f = self.file(self.temppath, "w+b")
         def writer(i):
             for j in range(150):
                 f.write('%3d %3d\n' % (i, j))
@@ -156,10 +166,15 @@ class AppTestConcurrency(object):
         # http://bugs.python.org/issue1164
         # It also deadlocks on py.py because the space GIL is not
         # released.
-        import thread, sys, os, _file
+        import thread, sys, os
+        try:
+            fdopen = self.file.fdopen
+        except AttributeError:
+            # when running with -A
+            skip("deadlocks on top of CPython")
         read_fd, write_fd = os.pipe()
-        fread = _file.file.fdopen(read_fd, 'rb', 200)
-        fwrite = _file.file.fdopen(write_fd, 'wb', 200)
+        fread = fdopen(read_fd, 'rb', 200)
+        fwrite = fdopen(write_fd, 'wb', 200)
         run = True
         readers_done = [0]
 
