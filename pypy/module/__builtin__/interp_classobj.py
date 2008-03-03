@@ -132,7 +132,7 @@ class W_ClassObject(Wrappable):
                 self.setbases(space, w_value)
                 return
             elif name == "__del__":
-                if self.lookup(space, space.wrap('__del__')) is None:
+                if self.lookup(space, w_attr) is None:
                     msg = ("a __del__ method added to an existing class "
                            "will not be called")
                     space.warn(msg, space.w_RuntimeWarning)
@@ -349,32 +349,42 @@ class W_InstanceObject(Wrappable):
             raise
 
     def descr_setattr(self, space, w_name, w_value):
-        name = space.str_w(w_name)
-        if name == '__dict__':
-            self.setdict(space, w_value)
-        elif name == '__class__':
-            self.setclass(space, w_value)
+        name = unwrap_attr(space, w_name)
+        w_meth = self.getattr(space, space.wrap('__setattr__'), False)
+        if name and name[0] == "_":
+            if name == '__dict__':
+                self.setdict(space, w_value)
+                return
+            if name == '__class__':
+                self.setclass(space, w_value)
+                return
+            if name == '__del__' and w_meth is None:
+                if (not isinstance(self, W_InstanceObjectWithDel)
+                    and space.finditem(self.w_dict, w_name) is None):
+                    msg = ("a __del__ method added to an instance "
+                           "with no __del__ in the class will not be called")
+                    space.warn(msg, space.w_RuntimeWarning)
+        if w_meth is not None:
+            space.call_function(w_meth, w_name, w_value)
         else:
-            w_meth = self.getattr(space, space.wrap('__setattr__'), False)
-            if w_meth is not None:
-                space.call_function(w_meth, w_name, w_value)
-            else:
-                self.setdictvalue(space, w_name, w_value)
+            self.setdictvalue(space, w_name, w_value)
 
     def descr_delattr(self, space, w_name):
-        name = space.str_w(w_name)
-        if name == '__dict__':
-            # use setdict to raise the error
-            self.setdict(space, None)
-        elif name == '__class__':
-            # use setclass to raise the error
-            self.setclass(space, None)
+        name = unwrap_attr(space, w_name)
+        if name and name[0] == "_":
+            if name == '__dict__':
+                # use setdict to raise the error
+                self.setdict(space, None)
+                return
+            elif name == '__class__':
+                # use setclass to raise the error
+                self.setclass(space, None)
+                return
+        w_meth = self.getattr(space, space.wrap('__delattr__'), False)
+        if w_meth is not None:
+            space.call_function(w_meth, w_name)
         else:
-            w_meth = self.getattr(space, space.wrap('__delattr__'), False)
-            if w_meth is not None:
-                space.call_function(w_meth, w_name)
-            else:
-                self.deldictvalue(space, w_name)
+            self.deldictvalue(space, w_name)
 
     def descr_repr(self, space):
         w_meth = self.getattr(space, space.wrap('__repr__'), False)

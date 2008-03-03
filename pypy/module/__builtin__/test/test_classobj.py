@@ -691,11 +691,18 @@ class AppTestOldstyle(object):
     def test_assignment_to_del(self):
         import warnings
         
-        class X:
-            pass
-
         warnings.simplefilter('error', RuntimeWarning)
         try:
+            class X:
+                pass
             raises(RuntimeWarning, "X.__del__ = lambda self: None")
+            class Y:
+                pass
+            raises(RuntimeWarning, "Y().__del__ = lambda self: None")
+            # but the following works
+            class Z:
+                def __del__(self):
+                    pass
+            Z().__del__ = lambda self: None
         finally:
             warnings.simplefilter('default', RuntimeWarning)
