@@ -130,6 +130,7 @@ def PyString_DecodeEscape(space, s, unicode, recode_encoding):
         ps += 1
         if ps == end:
             raise_app_valueerror(space, 'Trailing \\ in string')
+        prevps = ps
         ch = s[ps]
         ps += 1
         # XXX This assumes ASCII!
@@ -160,7 +161,7 @@ def PyString_DecodeEscape(space, s, unicode, recode_encoding):
             span = ps
             span += (span < end) and (s[span] in '01234567')
             span += (span < end) and (s[span] in '01234567')
-            lis.append(chr(int(s[ps - 1 : span], 8)))
+            lis.append(chr(int(s[prevps : span], 8)))
             ps = span
         elif ch == 'x':
             if ps+2 <= end and isxdigit(s[ps]) and isxdigit(s[ps + 1]):
