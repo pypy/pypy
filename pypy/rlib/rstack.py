@@ -38,7 +38,8 @@ compilation_info = ExternalCompilationInfo(includes=['src/stack.h'])
 stack_too_big = rffi.llexternal('LL_stack_too_big', [], rffi.INT,
                                 compilation_info=compilation_info,
                                 _nowrapper=True,
-                                _callable=lambda: 0)
+                                _callable=lambda: 0,
+                                sandboxsafe=True)
 
 def stack_check():
     if rffi.cast(lltype.Signed, stack_too_big()):
