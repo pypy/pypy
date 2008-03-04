@@ -77,7 +77,7 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['execv'] = 'interp_posix.execv'
     if hasattr(os, 'execve'):
         interpleveldefs['execve'] = 'interp_posix.execve'
-    if False and hasattr(os, 'uname'):
+    if hasattr(os, 'uname'):
         interpleveldefs['uname'] = 'interp_posix.uname'
     if hasattr(os, 'ttyname'):
         interpleveldefs['ttyname'] = 'interp_posix.ttyname'
