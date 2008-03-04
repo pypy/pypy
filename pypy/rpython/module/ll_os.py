@@ -416,6 +416,14 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([], (str, str, str, str, str),
                       "ll_os.ll_uname", llimpl=uname_llimpl)
 
+    @registering_if(os, 'sysconf')
+    def register_os_sysconf(self):
+        c_sysconf = self.llexternal('sysconf', [rffi.INT], rffi.LONG)
+
+        def sysconf_llimpl(i):
+            return c_sysconf(i)
+        return extdef([int], int, "ll_os.ll_sysconf", llimpl=sysconf_llimpl)
+
     @registering_if(os, 'getuid')
     def register_os_getuid(self):
         return self.extdef_for_os_function_returning_int('getuid')

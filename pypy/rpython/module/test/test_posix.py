@@ -130,7 +130,11 @@ class BaseTestPosix(BaseRtypingTest):
                 return os.getuid()
             assert self.interpret(f, []) == f()
 
-
+    if hasattr(os, 'sysconf'):
+        def test_os_sysconf(self):
+            def f(i):
+                return os.sysconf(i)
+            assert self.interpret(f, [13]) == f(13)
 
     def test_os_wstar(self):
         from pypy.rpython.module.ll_os import RegisterOs
@@ -143,7 +147,6 @@ class BaseTestPosix(BaseRtypingTest):
             for value in [0, 1, 127, 128, 255]:
                 res = self.interpret(fun, [value])
                 assert res == fun(value)
-
 
 class TestLLtype(BaseTestPosix, LLRtypeMixin):
     pass
