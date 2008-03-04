@@ -266,7 +266,7 @@ class AbstractTestRstr(BaseRtypingTest):
             assert i >= 0
             assert j >= 0
             return (const('ababcabc').find(const('abc'), i, j) +
-                    const('ababcabc').find('b', i, j) * 100)
+                    const('ababcabc').find(const('b'), i, j) * 100)
         for (i, j) in [(1,7), (2,6), (3,7), (3,8), (4,99), (7, 99)]:
             res = self.interpret(fn, [i, j])
             assert res == fn(i, j)
@@ -294,10 +294,10 @@ class AbstractTestRstr(BaseRtypingTest):
                     const('aaa').rfind(const('aa'), 1, 2) * 100 +
                     const('aaa').rfind(const('aa'), 3, 42) * 1000 +
             # char-searching versions
-                    const('aaa').rfind('a') * 10000 +
-                    const('aaa').rfind('a', 1) * 100000 +
-                    const('aaa').rfind('a', 1, 2) * 1000000 +
-                    const('aaa').rfind('a', 3, 42) * 10000000)
+                    const('aaa').rfind(const('a')) * 10000 +
+                    const('aaa').rfind(const('a'), 1) * 100000 +
+                    const('aaa').rfind(const('a'), 1, 2) * 1000000 +
+                    const('aaa').rfind(const('a'), 3, 42) * 10000000)
         res = self.interpret(fn, [])
         assert res == fn()
 
