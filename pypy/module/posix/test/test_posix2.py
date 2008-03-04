@@ -37,6 +37,11 @@ class AppTestPosix:
             cls.w_geteuid = space.wrap(os.geteuid())
         if hasattr(os, 'getgid'):
             cls.w_getgid = space.wrap(os.getgid())
+        if hasattr(os, 'sysconf'):
+            sysconf_name = os.sysconf_names.keys()[0]
+            cls.w_sysconf_name = space.wrap(sysconf_name)
+            cls.w_sysconf_value = space.wrap(os.sysconf_names[sysconf_name])
+            cls.w_sysconf_result = space.wrap(os.sysconf(sysconf_name))
 
     def setup_method(self, meth):
         if getattr(meth, 'need_sparse_files', False):
@@ -302,6 +307,13 @@ class AppTestPosix:
         def test_os_getgid(self):
             os = self.posix
             assert os.getgid() == self.getgid
+
+    if hasattr(os, 'sysconf'):
+        def test_os_sysconf(self):
+            os = self.posix
+            assert os.sysconf(self.sysconf_value) == self.sysconf_result
+            assert os.sysconf(self.sysconf_name) == self.sysconf_result
+            assert os.sysconf_names[self.sysconf_name] == self.sysconf_value
 
     def test_largefile(self):
         os = self.posix

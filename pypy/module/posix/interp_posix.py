@@ -609,3 +609,11 @@ def ttyname(space, fd):
     except OSError, e:
         raise wrap_oserror(space, e)
 ttyname.unwrap_spec = [ObjSpace, int]
+
+def sysconf(space, w_num_or_name):
+    if space.is_true(space.isinstance(w_num_or_name, space.w_basestring)):
+        num = os.sysconf_names[space.str_w(w_num_or_name)]
+    else:
+        num = space.int_w(w_num_or_name)
+    return space.wrap(os.sysconf(num))
+sysconf.unwrap_spec = [ObjSpace, W_Root]
