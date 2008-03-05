@@ -388,24 +388,24 @@ class SocketIOSandboxedProc(SimpleIOSandboxedProc):
         host, port = name[6:].split(":")
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect((host, int(port)))
-        return 3
+        return 13
 
     def do_ll_os__ll_os_read(self, fd, lgt):
-        if fd == 3:
+        if fd == 13:
             if self.sock is None:
                 raise OSError("Socket not opened")
             return self.sock.recv(lgt)
         return SimpleIOSandboxedProc.do_ll_os__ll_os_read(self, fd, lgt)
 
     def do_ll_os__ll_os_write(self, fd, data):
-        if fd == 3:
+        if fd == 13:
             if self.sock is None:
                 raise OSError("Socket not opened")
             return self.sock.send(data)
         return SimpleIOSandboxedProc.do_ll_os__ll_os_write(self, fd, data)
 
     def do_ll_os__ll_os_close(self, fd):
-        if fd == 3:
+        if fd == 13:
             self.sock.close()
             self.sock = None
         else:
