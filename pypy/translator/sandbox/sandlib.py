@@ -377,40 +377,6 @@ class SimpleIOSandboxedProc(SandboxedProc):
             starttime = self.starttime = time.time()
         return time.time() - starttime
 
-class SocketIOSandboxedProc(SimpleIOSandboxedProc):
-    sock = None
-    
-    def do_ll_os__ll_os_open(self, name, flags, mode):
-        if not name.startswith("tcp://"):
-            raise OSError("Wrong filename, should start with tcp://")
-        # XXX don't care about details of error reporting
-        import socket
-        host, port = name[6:].split(":")
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect((host, int(port)))
-        return 13
-
-    def do_ll_os__ll_os_read(self, fd, lgt):
-        if fd == 13:
-            if self.sock is None:
-                raise OSError("Socket not opened")
-            return self.sock.recv(lgt)
-        return SimpleIOSandboxedProc.do_ll_os__ll_os_read(self, fd, lgt)
-
-    def do_ll_os__ll_os_write(self, fd, data):
-        if fd == 13:
-            if self.sock is None:
-                raise OSError("Socket not opened")
-            return self.sock.send(data)
-        return SimpleIOSandboxedProc.do_ll_os__ll_os_write(self, fd, data)
-
-    def do_ll_os__ll_os_close(self, fd):
-        if fd == 13:
-            self.sock.close()
-            self.sock = None
-        else:
-            raise OSError("Wrong fd %d" % (fd,))
-
 class VirtualizedSandboxedProc(SandboxedProc):
     """Control a virtualized sandboxed process, which is given a custom
     view on the filesystem and a custom environment.
@@ -520,3 +486,37 @@ class VirtualizedSandboxedProc(SandboxedProc):
     def do_ll_os__ll_os_listdir(self, vpathname):
         node = self.get_node(vpathname)
         return node.keys()
+
+
+class VirtualizedSocketProc(VirtualizedSandboxedProc):
+    """ Extends VirtualizedSandboxProc with socket
+    options, ie tcp://host:port as args to os.open
+    """
+    def __init__(self, *args, **kwds):
+        super(VirtualizedSocketProc, self).__init__(*args, **kwds)
+        self.sockets = {}
+    
+    def do_ll_os__ll_os_open(self, name, flags, mode):
+        if not name.startswith("tcp://"):
+            return super(VirtualizedSocketProc, self).do_ll_os__ll_os_open(
+                name, flags, mode)
+        import socket
+        host, port = name[6:].split(":")
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((host, int(port)))
+        fd = self.allocate_fd(sock)
+        self.sockets[fd] = True
+        return fd
+
+    def do_ll_os__ll_os_read(self, fd, size):
+        if fd in self.sockets:
+            return self.open_fds[fd].recv(size)
+        return super(VirtualizedSocketProc, self).do_ll_os__ll_os_read(
+            fd, size)
+
+    def do_ll_os__ll_os_write(self, fd, data):
+        if fd in self.sockets:
+            return self.open_fds[fd].send(data)
+        return super(VirtualizedSocketProc, self).do_ll_os__ll_os_write(
+            fd, data)
+            
