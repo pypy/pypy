@@ -794,6 +794,8 @@ def sandbox_transform(fnobj, db):
     return [FunctionCodeGenerator(graph, db)]
 
 def select_function_code_generators(fnobj, db, functionname):
+    # XXX this logic is completely broken nowadays
+    #     _external_name does not mean that this is done oldstyle
     sandbox = db.need_sandboxing(fnobj)
     if hasattr(fnobj, '_external_name'):
         if sandbox:
