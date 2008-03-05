@@ -377,6 +377,39 @@ class SimpleIOSandboxedProc(SandboxedProc):
             starttime = self.starttime = time.time()
         return time.time() - starttime
 
+class SocketIOSandboxedProc(SimpleIOSandboxedProc):
+    sock = None
+    
+    def do_ll_os__ll_os_open(self, name, flags, mode):
+        if not name.startswith("tcp://"):
+            raise OSError("Wrong filename, should start with tcp://")
+        # XXX don't care about details of error reporting
+        import socket
+        host, port = name[6:].split(":")
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.connect((host, int(port)))
+        return 3
+
+    def do_ll_os__ll_os_read(self, fd, lgt):
+        if fd == 3:
+            if self.sock is None:
+                raise OSError("Socket not opened")
+            return self.sock.recv(lgt)
+        return SimpleIOSandboxedProc.do_ll_os__ll_os_read(self, fd, lgt)
+
+    def do_ll_os__ll_os_write(self, fd, data):
+        if fd == 3:
+            if self.sock is None:
+                raise OSError("Socket not opened")
+            return self.sock.send(data)
+        return SimpleIOSandboxedProc.do_ll_os__ll_os_write(self, fd, data)
+
+    def do_ll_os__ll_os_close(self, fd):
+        if fd == 3:
+            self.sock.close()
+            self.sock = None
+        else:
+            raise OSError("Wrong fd %d" % (fd,))
 
 class VirtualizedSandboxedProc(SandboxedProc):
     """Control a virtualized sandboxed process, which is given a custom

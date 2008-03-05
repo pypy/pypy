@@ -4,6 +4,7 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.lltypesystem import rffi
 from pypy.translator.sandbox.sandlib import SandboxedProc
 from pypy.translator.sandbox.sandlib import SimpleIOSandboxedProc
+from pypy.translator.sandbox.sandlib import SocketIOSandboxedProc
 from pypy.translator.interactive import Translation
 
 
@@ -98,6 +99,26 @@ def test_simpleio():
     output, error = proc.communicate("21\n")
     assert output == "Please enter a number:\nThe double is: 42\n"
     assert error == ""
+
+def test_socketio():
+    def entry_point(argv):
+        try:
+            os.open("stuff", os.O_RDONLY, 0777)
+        except OSError:
+            pass
+        else:
+            print "Not working"
+            return 1
+        fd = os.open("tcp://google.com:80", os.O_RDONLY, 0777)
+        os.write(fd, 'GET /\n')
+        print os.read(fd, 30)
+        return 0
+    t = Translation(entry_point, backend='c', standalone=True, sandbox=True)
+    exe = t.compile()
+
+    proc = SocketIOSandboxedProc([exe])
+    output, error = proc.communicate("")
+    assert output.startswith('<HTML><HEAD>')
 
 def test_oserror():
     def entry_point(argv):
