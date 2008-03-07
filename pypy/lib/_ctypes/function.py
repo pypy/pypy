@@ -83,8 +83,6 @@ class CFuncPtr(_CData):
         resbuffer = funcptr(*[arg._buffer for obj, arg in args])
         if restype is not None:
             return restype._CData_retval(resbuffer)
-        else:
-            resbuffer.free()
 
     def _getfuncptr(self, argtypes, restype):
         if restype is None:

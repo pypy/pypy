@@ -26,8 +26,7 @@ class UnionMeta(_CDataMeta):
                 raise TypeError("Cannot instantiate union, has no type")
             # malloc size
             size = self.__class__._sizeofinstances()
-            self.__dict__['_buffer'] = _rawffi.Array('c')(size)
-            self.__dict__['_needs_free'] = True
+            self.__dict__['_buffer'] = _rawffi.Array('c')(size, autofree=True)
         res.__init__ = __init__
         return res
 
@@ -66,7 +65,6 @@ class UnionMeta(_CDataMeta):
 
 class Union(_CData):
     __metaclass__ = UnionMeta
-    _needs_free = False
 
     def __getattr__(self, name):
         try:
@@ -83,9 +81,3 @@ class Union(_CData):
             raise AttributeError(name)
         buf = self._ffiarrays[name].fromaddress(self._buffer.buffer, 1)
         buf[0] = fieldtype._CData_value(value)
-
-    def __del__(self):
-        if self._needs_free:
-            self._buffer.free()
-            self.__dict__['_buffer'] = None
-            self.__dict__['_needs_free'] = False

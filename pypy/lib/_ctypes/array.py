@@ -1,8 +1,8 @@
 
 import _rawffi
 
-from _ctypes.basics import _CData, cdata_from_address, _CDataMeta, sizeof,\
-     keepalive_key, store_reference, CArgObject
+from _ctypes.basics import _CData, cdata_from_address, _CDataMeta, sizeof
+from _ctypes.basics import keepalive_key, store_reference, CArgObject
 from _ctypes.builtin import _string_at_addr, _wstring_at_addr
 
 def _create_unicode(buffer, maxlength):
@@ -129,11 +129,9 @@ def array_slice_getitem(self, index):
 class Array(_CData):
     __metaclass__ = ArrayMeta
     _ffiargshape = _ffiletter = 'P'
-    _needs_free = False
 
     def __init__(self, *args):
-        self._buffer = self._ffiarray(self._length_)
-        self._needs_free = True
+        self._buffer = self._ffiarray(self._length_, autofree=True)
         self._objects = {}
         for i, arg in enumerate(args):
             self[i] = arg
@@ -186,12 +184,6 @@ class Array(_CData):
 
     def _get_buffer_value(self):
         return self._buffer.buffer
-
-    def __del__(self):
-        if self._needs_free:
-            self._buffer.free()
-            self._buffer = None
-            self._needs_free = False
 
 ARRAY_CACHE = {}
 

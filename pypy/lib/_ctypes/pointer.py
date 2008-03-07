@@ -55,8 +55,7 @@ class PointerType(_CDataMeta):
     def set_type(self, TP):
         ffiarray = _rawffi.Array('P')
         def __init__(self, value=None):
-            self._buffer = ffiarray(1)
-            self._needs_free = True
+            self._buffer = ffiarray(1, autofree=True)
             if value is not None:
                 self.contents = value
         self._ffiarray = ffiarray
@@ -67,7 +66,6 @@ class PointerType(_CDataMeta):
 
 class _Pointer(_CData):
     __metaclass__ = PointerType
-    _needs_free = False
 
     def getcontents(self):
         addr = self._buffer[0]
@@ -106,12 +104,6 @@ class _Pointer(_CData):
     def __nonzero__(self):
         return self._buffer[0] != 0
 
-    def __del__(self):
-        if self._needs_free:
-            self._buffer.free()
-            self._needs_free = False
-            self._buffer = None
-
     contents = property(getcontents, setcontents)
 
 
@@ -121,9 +113,8 @@ def _cast_addr(obj, _, tp):
                         % (tp,))
     if isinstance(obj, Array):
         ptr = tp.__new__(tp)
-        ptr._buffer = tp._ffiarray(1)
+        ptr._buffer = tp._ffiarray(1, autofree=True)
         ptr._buffer[0] = obj._buffer
-        ptr._needs_free = True
         return ptr
     if isinstance(obj, (int, long)):
         result = tp()
@@ -134,5 +125,4 @@ def _cast_addr(obj, _, tp):
                         % (type(obj),))
     result = tp()
     result._buffer[0] = obj._buffer[0]
-    result._needs_free = True
     return result

@@ -198,11 +198,9 @@ class SimpleType(_CDataMeta):
 class _SimpleCData(_CData):
     __metaclass__ = SimpleType
     _type_ = 'i'
-    _needs_free = False
 
     def __init__(self, value=DEFAULT_VALUE):
-        self._needs_free = True
-        self._buffer = self._ffiarray(1)
+        self._buffer = self._ffiarray(1, autofree=True)
         if value is not DEFAULT_VALUE:
             self.value = value
 
@@ -222,9 +220,3 @@ class _SimpleCData(_CData):
 
     def __nonzero__(self):
         return self._buffer[0] not in (0, '\x00')
-
-    def __del__(self):
-        if self._needs_free:
-            self._needs_free = False
-            self._buffer.free()
-            self._buffer = None

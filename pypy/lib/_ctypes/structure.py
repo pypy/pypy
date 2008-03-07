@@ -110,8 +110,7 @@ class StructureMeta(_CDataMeta):
         def __init__(self, *args, **kwds):
             if not hasattr(self, '_ffistruct'):
                 raise TypeError("Cannot instantiate structure, has no _fields_")
-            self.__dict__['_buffer'] = self._ffistruct()
-            self.__dict__['_needs_free'] = True
+            self.__dict__['_buffer'] = self._ffistruct(autofree=True)
             self.__dict__['_objects'] = {}
             if len(args) > len(self._names):
                 raise TypeError("too many arguments")
@@ -161,12 +160,10 @@ class StructureMeta(_CDataMeta):
         res.__dict__['_buffer'] = resbuffer
         res.__dict__['_base'] = None
         res.__dict__['_index'] = -1
-        res.__dict__['_needs_free'] = True
         return res.__ctypes_from_outparam__()
 
 class Structure(_CData):
     __metaclass__ = StructureMeta
-    _needs_free = False
 
     def _subarray(self, fieldtype, name):
         """Return a _rawffi array of length 1 whose address is the same as
@@ -207,9 +204,3 @@ class Structure(_CData):
 
     def _get_buffer_value(self):
         return self._buffer.buffer
-
-    def __del__(self):
-        if self._needs_free:
-            self._buffer.free()
-            self.__dict__['_buffer'] = None
-            self.__dict__['_needs_free'] = False
