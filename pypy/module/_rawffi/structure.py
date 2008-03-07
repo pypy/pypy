@@ -13,7 +13,7 @@ from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.module._rawffi.interp_rawffi import segfault_exception
 from pypy.module._rawffi.interp_rawffi import W_DataShape, W_DataInstance
 from pypy.module._rawffi.interp_rawffi import wrap_value, unwrap_value
-from pypy.module._rawffi.interp_rawffi import unpack_typecode
+from pypy.module._rawffi.interp_rawffi import unpack_to_size_alignment
 from pypy.rlib import libffi
 from pypy.rlib.rarithmetic import intmask, r_uint
 
@@ -26,7 +26,7 @@ def unpack_fields(space, w_fields):
             raise OperationError(space.w_ValueError, space.wrap(
                 "Expected list of 2-size tuples"))
         name = space.str_w(l_w[0])
-        tp = unpack_typecode(space, l_w[1])
+        tp = unpack_to_size_alignment(space, l_w[1])
         fields.append((name, tp))
     return fields
 
@@ -47,20 +47,23 @@ def size_alignment_pos(fields):
 
 
 class W_Structure(W_DataShape):
-    def __init__(self, space, w_fields):
-        fields = unpack_fields(space, w_fields)
+    def __init__(self, space, fields, size, alignment):
         name_to_index = {}
-        for i in range(len(fields)):
-            name, tp = fields[i]
-            if name in name_to_index:
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "duplicate field name %s" % (name, )))
-            name_to_index[name] = i
-        size, alignment, pos = size_alignment_pos(fields)
-        self.size = size
-        self.alignment = alignment
-        self.ll_positions = pos
+        if fields is not None:
+            for i in range(len(fields)):
+                name, tp = fields[i]
+                if name in name_to_index:
+                    raise OperationError(space.w_ValueError, space.wrap(
+                        "duplicate field name %s" % (name, )))
+                name_to_index[name] = i
+            size, alignment, pos = size_alignment_pos(fields)
+        else: # opaque case
+            fields = []
+            pos = []
         self.fields = fields
+        self.size = size
+        self.alignment = alignment                
+        self.ll_positions = pos
         self.name_to_index = name_to_index
 
     def allocate(self, space, length, autofree=False):
@@ -96,10 +99,8 @@ class W_Structure(W_DataShape):
         return space.wrap(self.ll_positions[index])
     descr_fieldoffset.unwrap_spec = ['self', ObjSpace, str]
 
-    def descr_gettypecode(self, space):
-        return space.newtuple([space.wrap(self.size),
-                               space.wrap(self.alignment)])
-    descr_gettypecode.unwrap_spec = ['self', ObjSpace]
+    def _size_alignment(self):
+        return self.size, self.alignment
 
     # get the corresponding ffi_type
     ffi_type = lltype.nullptr(libffi.FFI_TYPE_P.TO)
@@ -116,8 +117,15 @@ class W_Structure(W_DataShape):
     
 
 
-def descr_new_structure(space, w_type, w_fields):
-    return space.wrap(W_Structure(space, w_fields))
+def descr_new_structure(space, w_type, w_shapeinfo):
+    if space.is_true(space.isinstance(w_shapeinfo, space.w_tuple)):
+        w_size, w_alignment = space.unpacktuple(w_shapeinfo, expected_length=2)
+        S = W_Structure(space, None, space.int_w(w_size),
+                                     space.int_w(w_alignment))
+    else:
+        fields = unpack_fields(space, w_shapeinfo)
+        S = W_Structure(space, fields, 0, 0)
+    return space.wrap(S)
 
 W_Structure.typedef = TypeDef(
     'Structure',
@@ -128,7 +136,7 @@ W_Structure.typedef = TypeDef(
     size        = interp_attrproperty('size', W_Structure),
     alignment   = interp_attrproperty('alignment', W_Structure),
     fieldoffset = interp2app(W_Structure.descr_fieldoffset),
-    gettypecode = interp2app(W_Structure.descr_gettypecode),
+    size_alignment = interp2app(W_Structure.descr_size_alignment)
 )
 W_Structure.typedef.acceptable_as_base_class = False
 

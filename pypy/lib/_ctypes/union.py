@@ -6,6 +6,19 @@ from _ctypes.structure import round_up, names_and_fields, struct_getattr,\
      struct_setattr
 import inspect
 
+
+def _set_shape(tp):
+    size = tp._sizeofinstances()
+    alignment = tp._alignmentofinstances()
+    tp._ffiopaque = _rawffi.Structure((size, alignment)) # opaque
+    tp._ffiargshape = tp._ffishape = (tp._ffiopaque, 1)
+    tp._fficompositesize = tp._ffiopaque.size
+    # we need to create an array of size one for each
+    # of our elements
+    tp._ffiarrays = {}
+    for name, field in tp._fieldtypes.iteritems():
+        tp._ffiarrays[name] = _rawffi.Array(field.ctype._ffishape)
+        
 class UnionMeta(_CDataMeta):
     def __new__(self, name, cls, typedict):
         res = type.__new__(self, name, cls, typedict)
@@ -13,20 +26,14 @@ class UnionMeta(_CDataMeta):
             res._names, rawfields, res._fieldtypes = names_and_fields(
                 typedict['_fields_'], cls[0], True,
                 typedict.get('_anonymous_', None))
-            res._ffishape = (res._sizeofinstances(),
-                             res._alignmentofinstances())
-            res._ffiargshape = res._ffishape
-            # we need to create an array of size one for each
-            # of our elements
-            res._ffiarrays = {}
-            for name, field in res._fieldtypes.iteritems():
-                res._ffiarrays[name] = _rawffi.Array(field.ctype._ffishape)
+            _set_shape(res)
+
         def __init__(self): # don't allow arguments by now
             if not hasattr(self, '_ffiarrays'):
                 raise TypeError("Cannot instantiate union, has no type")
             # malloc size
             size = self.__class__._sizeofinstances()
-            self.__dict__['_buffer'] = _rawffi.Array('c')(size, autofree=True)
+            self.__dict__['_buffer'] = self._ffiopaque(autofree=True)
         res.__init__ = __init__
         return res
 
@@ -54,13 +61,8 @@ class UnionMeta(_CDataMeta):
             self._names, rawfields, self._fieldtypes = names_and_fields(
                 value, self.__bases__[0], True,
                 self.__dict__.get('_anonymous_', None))
-            self._ffiarrays = {}
-            for name, field in self._fieldtypes.iteritems():
-                self._ffiarrays[name] = _rawffi.Array(field.ctype._ffishape)
             _CDataMeta.__setattr__(self, '_fields_', value)
-            self._ffiargshape = self._ffishape = (self._sizeofinstances(),
-                                                  self._alignmentofinstances())
-            return
+            _set_shape(self)
         _CDataMeta.__setattr__(self, name, value)
 
 class Union(_CData):

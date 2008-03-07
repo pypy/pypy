@@ -12,7 +12,8 @@ from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.module._rawffi.interp_rawffi import segfault_exception
 from pypy.module._rawffi.interp_rawffi import W_DataShape, W_DataInstance
 from pypy.module._rawffi.interp_rawffi import unwrap_value, wrap_value
-from pypy.module._rawffi.interp_rawffi import unpack_typecode, letter2tp
+from pypy.module._rawffi.interp_rawffi import letter2tp
+from pypy.module._rawffi.interp_rawffi import unpack_to_size_alignment
 from pypy.rlib.rarithmetic import intmask, r_uint
 
 def push_elem(ll_array, pos, value):
@@ -60,11 +61,9 @@ class W_Array(W_DataShape):
         return space.wrap(W_ArrayInstance(space, self, length, address))
     fromaddress.unwrap_spec = ['self', ObjSpace, r_uint, int]
 
-    def descr_gettypecode(self, space, length):
+    def _size_alignment(self):
         _, itemsize, alignment = self.itemtp
-        return space.newtuple([space.wrap(itemsize * length),
-                               space.wrap(alignment)])
-    descr_gettypecode.unwrap_spec = ['self', ObjSpace, int]
+        return itemsize, alignment
 
 class ArrayCache:
     def __init__(self, space):
@@ -83,8 +82,8 @@ class ArrayCache:
 def get_array_cache(space):
     return space.fromcache(ArrayCache)
 
-def descr_new_array(space, w_type, w_itemtp):
-    itemtp = unpack_typecode(space, w_itemtp)
+def descr_new_array(space, w_type, w_shape):
+    itemtp = unpack_to_size_alignment(space, w_shape)
     array_type = get_array_cache(space).get_array_type(itemtp)
     return space.wrap(array_type)
 
@@ -96,7 +95,7 @@ W_Array.typedef = TypeDef(
                           unwrap_spec=['self', ObjSpace, int, W_Root, int]),
     __repr__ = interp2app(W_Array.descr_repr),
     fromaddress = interp2app(W_Array.fromaddress),
-    gettypecode = interp2app(W_Array.descr_gettypecode),
+    size_alignment = interp2app(W_Array.descr_size_alignment)
 )
 W_Array.typedef.acceptable_as_base_class = False
 

@@ -22,26 +22,6 @@ def size_alignment_pos(fields):
     size = round_up(size, alignment)
     return size, alignment, pos
 
-def struct_getattr(self, name):
-    if hasattr(self, '_fieldtypes') and name in self._fieldtypes:
-        return self._fieldtypes[name]
-    return _CDataMeta.__getattribute__(self, name)
-
-def struct_setattr(self, name, value):
-    if name == '_fields_':
-        if self.__dict__.get('_fields_', None):
-            raise AttributeError("_fields_ is final")
-        if self in [v for k, v in value]:
-            raise AttributeError("Structure or union cannot contain itself")
-        self._names, rawfields, self._fieldtypes = names_and_fields(
-            value, self.__bases__[0], False,
-            self.__dict__.get('_anonymous_', None))
-        self._ffistruct = _rawffi.Structure(rawfields)
-        _CDataMeta.__setattr__(self, '_fields_', value)
-        self._ffiargshape = self._ffishape = self._ffistruct.gettypecode()
-        return
-    _CDataMeta.__setattr__(self, name, value)
-
 def names_and_fields(_fields_, superclass, zero_offset=False, anon=None):
     if isinstance(_fields_, tuple):
         _fields_ = list(_fields_)
@@ -91,6 +71,32 @@ class Field(object):
         return "<Field '%s' offset=%d size=%d>" % (self.name, self.offset,
                                                    self.size)
 
+# ________________________________________________________________
+
+def _set_shape(tp, rawfields):
+    tp._ffistruct = _rawffi.Structure(rawfields)
+    tp._ffiargshape = tp._ffishape = (tp._ffistruct, 1)
+    tp._fficompositesize = tp._ffistruct.size
+
+def struct_getattr(self, name):
+    if hasattr(self, '_fieldtypes') and name in self._fieldtypes:
+        return self._fieldtypes[name]
+    return _CDataMeta.__getattribute__(self, name)
+
+def struct_setattr(self, name, value):
+    if name == '_fields_':
+        if self.__dict__.get('_fields_', None):
+            raise AttributeError("_fields_ is final")
+        if self in [v for k, v in value]:
+            raise AttributeError("Structure or union cannot contain itself")
+        self._names, rawfields, self._fieldtypes = names_and_fields(
+            value, self.__bases__[0], False,
+            self.__dict__.get('_anonymous_', None))
+        _CDataMeta.__setattr__(self, '_fields_', value)
+        _set_shape(self, rawfields)
+        return
+    _CDataMeta.__setattr__(self, name, value)
+
 class StructureMeta(_CDataMeta):
     def __new__(self, name, cls, typedict):
         res = type.__new__(self, name, cls, typedict)
@@ -103,9 +109,7 @@ class StructureMeta(_CDataMeta):
             res._names, rawfields, res._fieldtypes = names_and_fields(
                 typedict['_fields_'], cls[0], False,
                 typedict.get('_anonymous_', None))
-            res._ffistruct = _rawffi.Structure(rawfields)
-            res._ffishape = res._ffistruct.gettypecode()
-            res._ffiargshape = res._ffishape
+            _set_shape(res, rawfields)
 
         def __init__(self, *args, **kwds):
             if not hasattr(self, '_ffistruct'):
@@ -181,10 +185,10 @@ class Structure(_CData):
             key = keepalive_key(getattr(self.__class__, name).offset)
             store_reference(self, key, value._objects)
         arg = fieldtype._CData_value(value)
-        if isinstance(fieldtype._ffishape, tuple):
+        if fieldtype._fficompositesize is not None:
             from ctypes import memmove
             dest = self._buffer.fieldaddress(name)
-            memmove(dest, arg._buffer.buffer, fieldtype._ffishape[0])
+            memmove(dest, arg._buffer.buffer, fieldtype._fficompositesize)
         else:
             self._buffer.__setattr__(name, arg)
 

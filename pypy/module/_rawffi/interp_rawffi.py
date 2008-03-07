@@ -51,9 +51,10 @@ TYPEMAP = {
 }
 TYPEMAP_PTR_LETTERS = "POszZ"
 
-UNPACKED_TYPECODES = dict([(code, (code,
-                                   intmask(field_desc.c_size),
-                                   intmask(field_desc.c_alignment)))
+def size_alignment(ffi_type):
+    return intmask(ffi_type.c_size), intmask(ffi_type.c_alignment)
+
+UNPACKED_TYPECODES = dict([(code, (code,) + size_alignment(field_desc))
                            for code, field_desc in TYPEMAP.items()])
 
 LL_TYPEMAP = {
@@ -86,20 +87,42 @@ def letter2tp(space, key):
         raise OperationError(space.w_ValueError, space.wrap(
             "Unknown type letter %s" % (key,)))
 
-def unpack_typecode(space, w_typecode):
-    if space.is_true(space.isinstance(w_typecode, space.w_str)):
-        letter = space.str_w(w_typecode)
-        return letter2tp(space, letter)
-    else:
-        w_size, w_align = space.unpacktuple(w_typecode, expected_length=2)
-        return ('V', space.int_w(w_size), space.int_w(w_align)) # value object
-
 def _get_type_(space, key):
     try:
         return TYPEMAP[key]
     except KeyError:
         raise OperationError(space.w_ValueError, space.wrap(
             "Unknown type letter %s" % (key,)))
+    
+def unpack_to_ffi_type(space, w_shape, allow_void=False, shape=False):
+    resshape = None
+    if space.is_true(space.isinstance(w_shape, space.w_str)):
+        letter = space.str_w(w_shape)
+        if allow_void and letter == 'v':
+            return 'v', ffi_type_void, None
+        ffi_type = _get_type_(space, letter)
+        if shape:
+            from pypy.module._rawffi.array import get_array_cache
+            cache = get_array_cache(space)
+            resshape = cache.get_array_type(letter2tp(space, letter))
+    else:
+        letter = 'V'
+        w_shapetype, w_length = space.unpacktuple(w_shape, expected_length=2)
+        from pypy.module._rawffi.structure import W_Structure
+        resshape = space.interp_w(W_Structure, w_shapetype)
+        ffi_type = resshape.get_ffi_type()
+    return letter, ffi_type, resshape
+
+def unpack_to_size_alignment(space, w_shape):
+    if space.is_true(space.isinstance(w_shape, space.w_str)):
+        letter = space.str_w(w_shape)
+        return letter2tp(space, letter)
+    else:
+        w_shapetype, w_length = space.unpacktuple(w_shape, expected_length=2)
+        resshape = space.interp_w(W_DataShape, w_shapetype)
+        length = space.int_w(w_length)
+        size, alignment = resshape._size_alignment()
+        return ('V', length*size, alignment) # value object
 
 class W_CDLL(Wrappable):
     def __init__(self, space, name):
@@ -107,18 +130,6 @@ class W_CDLL(Wrappable):
         self.name = name
         self.w_cache = space.newdict()
         self.space = space
-
-    # xxx refactor away !
-    def get_arg_type(self, letter, argsize, argalignment):
-        space = self.space
-        if letter == 'V': # xxx leaks
-            return make_struct_ffitype(argsize, argalignment)
-        else:
-            return _get_type_(space, letter)
-
-    def get_type(self, key):
-        space = self.space
-        return _get_type_(space, key)
 
     def ptr(self, space, name, w_argtypes, w_restype):
         """ Get a pointer for function name with provided argtypes
@@ -128,23 +139,14 @@ class W_CDLL(Wrappable):
         if space.is_w(w_restype, space.w_None):
             resshape = None
             ffi_restype = ffi_type_void
-        elif space.is_true(space.isinstance(w_restype, space.w_str)):
-            tp_letter = space.str_w(w_restype)
-            if tp_letter == 'v':
-                resshape = None
-                ffi_restype = ffi_type_void
-            else:
-                from pypy.module._rawffi.array import get_array_cache
-                cache = get_array_cache(space)
-                resshape = cache.get_array_type(letter2tp(space, tp_letter))
-                ffi_restype = self.get_type(tp_letter)
         else:
-            from pypy.module._rawffi.structure import W_Structure
-            resshape = space.interp_w(W_Structure, w_restype)
-            ffi_restype = resshape.get_ffi_type()
-                
+            tp_letter, ffi_restype, resshape = unpack_to_ffi_type(space,
+                                                        w_restype,
+                                                        allow_void=True,
+                                                        shape=True)
         w = space.wrap
-        w_argtypes = space.newtuple(space.unpackiterable(w_argtypes))
+        argtypes_w = space.unpackiterable(w_argtypes)
+        w_argtypes = space.newtuple(argtypes_w)
         w_key = space.newtuple([w(name), w_argtypes, w(resshape)])
         try:
             return space.getitem(self.w_cache, w_key)
@@ -153,14 +155,16 @@ class W_CDLL(Wrappable):
                 pass
             else:
                 raise
-        argtypes_w = space.unpackiterable(w_argtypes)
-        argtypes = [unpack_typecode(space, w_arg) for w_arg in argtypes_w]
-        ffi_argtypes = [self.get_arg_type(letter, argsize, argalignment)
-                                               for letter, argsize, argalignment
-                                                    in argtypes]
+        argletters = []
+        ffi_argtypes = []
+        for w_arg in argtypes_w:
+            argletter, ffi_argtype, _ = unpack_to_ffi_type(space, w_arg)
+            argletters.append(argletter)
+            ffi_argtypes.append(ffi_argtype)
+
         try:
             ptr = self.cdll.getrawpointer(name, ffi_argtypes, ffi_restype)
-            w_funcptr = W_FuncPtr(space, ptr, argtypes, resshape)
+            w_funcptr = W_FuncPtr(space, ptr, argletters, resshape)
             space.setitem(self.w_cache, w_key, w_funcptr)
             return w_funcptr
         except KeyError:
@@ -215,6 +219,16 @@ class W_DataShape(Wrappable):
     
     def allocate(self, space, length, autofree=False):
         raise NotImplementedError
+
+    def _size_alignment(self):
+        raise NotImplementedError
+    
+    def descr_size_alignment(self, space, n=1):
+        size, alignment = self._size_alignment()
+        return space.newtuple([space.wrap(size * n),
+                               space.wrap(alignment)])
+    descr_size_alignment.unwrap_spec = ['self', ObjSpace, int]
+    
 
 class W_DataInstance(Wrappable):
     def __init__(self, space, size, address=r_uint(0)):
@@ -323,31 +337,32 @@ def wrap_value(space, func, add_arg, argdesc, tp):
 wrap_value._annspecialcase_ = 'specialize:arg(1)'
 
 class W_FuncPtr(Wrappable):
-    def __init__(self, space, ptr, argtypes, resshape):
+    def __init__(self, space, ptr, argletters, resshape):
         self.ptr = ptr
+        self.argletters = argletters
         self.resshape = resshape
-        self.argtypes = argtypes
 
     def call(self, space, args_w):
         from pypy.module._rawffi.array import W_ArrayInstance
         from pypy.module._rawffi.structure import W_StructureInstance
         argnum = len(args_w)
-        if argnum != len(self.argtypes):
+        if argnum != len(self.argletters):
             msg = "Wrong number of argument: expected %d, got %d" % (
-                len(self.argtypes), argnum)
+                len(self.argletters), argnum)
             raise OperationError(space.w_TypeError, space.wrap(msg))
         args_ll = []
         for i in range(argnum):
-            argtype_letter, argtype_size, argtype_alignment = self.argtypes[i]
+            argletter = self.argletters[i]
             w_arg = args_w[i]
-            if argtype_letter == 'V': # by value object
+            if argletter == 'V': # by value object
                 arg = space.interp_w(W_StructureInstance, w_arg)
-                if (arg.shape.size != argtype_size or
-                    arg.shape.alignment != argtype_alignment):
+                xsize, xalignment = size_alignment(self.ptr.argtypes[i])
+                if (arg.shape.size != xsize or
+                    arg.shape.alignment != xalignment):
                     msg = ("Argument %d should be a structure of size %d and "
                            "alignment %d, "
                            "got instead size %d and alignment %d" %
-                           (i+1, argtype_size, argtype_alignment,
+                           (i+1, xsize, xalignment,
                             arg.shape.size, arg.shape.alignment))
                     raise OperationError(space.w_TypeError, space.wrap(msg))
             else:
@@ -357,11 +372,11 @@ class W_FuncPtr(Wrappable):
                            "got length %d" % (i+1, arg.length))
                     raise OperationError(space.w_TypeError, space.wrap(msg))
                 letter = arg.shape.itemtp[0]
-                if letter != argtype_letter:
-                    if not (argtype_letter in TYPEMAP_PTR_LETTERS and
+                if letter != argletter:
+                    if not (argletter in TYPEMAP_PTR_LETTERS and
                             letter in TYPEMAP_PTR_LETTERS):
                         msg = "Argument %d should be typecode %s, got %s" % (
-                            i+1, argtype_letter, letter)
+                            i+1, argletter, letter)
                         raise OperationError(space.w_TypeError, space.wrap(msg))
             args_ll.append(arg.ll_buffer)
             # XXX we could avoid the intermediate list args_ll

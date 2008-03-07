@@ -14,8 +14,8 @@ class PointerType(_CDataMeta):
             align      = _rawffi.alignment('P'),
             length     = 1,
             _ffiargshape = 'P',
-            _ffiletter = 'P',
             _ffishape  = 'P',
+            _fficompositesize = None
         )
         # XXX check if typedict['_type_'] is any sane
         # XXX remember about paramfunc

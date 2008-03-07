@@ -57,7 +57,8 @@ class ArrayMeta(_CDataMeta):
                 res.value = property(getvalue, setvalue)
                 
             if '_length_' in typedict:
-                res._ffishape = ffiarray.gettypecode(typedict['_length_'])
+                res._ffishape = (ffiarray, typedict['_length_'])
+                res._fficompositesize = res._sizeofinstances()
         else:
             res._ffiarray = None
         return res
@@ -65,7 +66,7 @@ class ArrayMeta(_CDataMeta):
     from_address = cdata_from_address
 
     def _sizeofinstances(self):
-        size, alignment = self._ffiarray.gettypecode(self._length_)
+        size, alignment = self._ffiarray.size_alignment(self._length_)
         return size
 
     def _alignmentofinstances(self):
@@ -128,7 +129,7 @@ def array_slice_getitem(self, index):
 
 class Array(_CData):
     __metaclass__ = ArrayMeta
-    _ffiargshape = _ffiletter = 'P'
+    _ffiargshape = 'P'
 
     def __init__(self, *args):
         self._buffer = self._ffiarray(self._length_, autofree=True)
@@ -162,13 +163,13 @@ class Array(_CData):
         if getattr(value, '_objects', None):
             store_reference(self, index, value._objects)
         arg = self._type_._CData_value(value)
-        if not isinstance(self._type_._ffishape, tuple):
+        if self._type_._fficompositesize is None:
             self._buffer[index] = arg
             # something more sophisticated, cannot set field directly
         else:
             from ctypes import memmove
             dest = self._buffer.itemaddress(index)
-            memmove(dest, arg, self._type_._ffishape[0])
+            memmove(dest, arg, self._type_._fficompositesize)
 
     def __getitem__(self, index):
         if isinstance(index, slice):

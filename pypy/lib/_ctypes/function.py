@@ -17,8 +17,9 @@ class CFuncPtr(_CData):
 
     _argtypes_ = None
     _restype_ = None
-    _ffiargshape = _ffiletter = 'P'
+    _ffiargshape = 'P'
     _ffishape = 'P'
+    _fficompositesize = None
     _needs_free = False
 
     def _getargtypes(self):
@@ -48,7 +49,7 @@ class CFuncPtr(_CData):
         elif callable(argument):
             self.callable = argument
             argtypes = [arg._ffiargshape for arg in self._argtypes_]
-            restype = self._restype_._ffiletter
+            restype = self._restype_._ffiargshape
             self._ptr = _rawffi.CallbackPtr(argument, argtypes, restype)
             self._needs_free = True
             self._buffer = self._ptr.byptr()
@@ -89,10 +90,7 @@ class CFuncPtr(_CData):
             import ctypes
             restype = ctypes.c_int
         argshapes = [arg._ffiargshape for arg in argtypes]
-        if isinstance(restype._ffiargshape, str): # xxx refactor
-            resshape = restype._ffiargshape
-        else:
-            resshape = restype._ffistruct
+        resshape = restype._ffiargshape
         return self.dll._handle.ptr(self.name, argshapes, resshape)
 
     def _guess_argtypes(self, args):
