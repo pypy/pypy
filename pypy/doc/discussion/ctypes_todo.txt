@@ -15,14 +15,13 @@ Few ctypes-related todo points:
   - there are features, which we don't support like buffer() and
     array() protocols.
 
-  - started refactoring (on the rawffi-shape-cleanup) to use rawffi types
-    instead of size, aligment tuples to describe members and arguments.
-    Rawffi composite types should be able to create corresponding ffi_types.
+  - no tests for passing a union by value, missing tests about nesting unions
+    and keep-alive logic for unions
 
-  - no tests for passing a union by value
-
-  - for some ABIs we will need completely filled ffitypes to do the right thing for passing
-    structures by value
+  - for some ABIs we will need completely filled ffitypes to do the
+    right thing for passing structures by value, we are now passing enough
+    information to rawffi that it should be possible to construct such precise
+    ffitypes in most cases
 
   - bitfields are not implemented
 
