@@ -51,6 +51,8 @@ def build_op_map(block):
         var_to_op[op.result] = i, op
         for v in op.args:
             inc(v)
+    if block.exitswitch is not None:
+        inc(block.exitswitch)
     for link in block.exits:
         for v in link.args:
             inc(v)
