@@ -75,7 +75,7 @@ class InputStreamWrapper extends FileWrapper
             int n = stream.read(buf, 0, count);
             if (n == -1)
                 return ""; // XXX: is it right?
-            return new String(buf, 0, n);
+            return ll_os.bytes2string(buf, n);
         }
         catch(IOException e) {
             os.throwOSError(PyPy.EIO, e.getMessage());
@@ -136,7 +136,7 @@ class RandomAccessFileWrapper extends FileWrapper
             if (n == -1)
                 return ""; // XXX: is it right?
             else
-                return new String(buffer, 0, n);
+                return ll_os.bytes2string(buffer, n);
         }
         catch(IOException e) {
             os.throwOSError(PyPy.EIO, e.getMessage());
@@ -216,6 +216,19 @@ public class ll_os implements Constants {
         FileDescriptors.put(1, new PrintStreamWrapper(System.out, this));
         FileDescriptors.put(2, new PrintStreamWrapper(System.err, this));
         fdcount = 2;
+    }
+
+    public static final String bytes2string(byte[] buf, int n)
+    {
+        // careful: use this char set (ISO-8859-1) because it basically
+        // passes all bytes through unhindered.
+        try {
+            return new String(buf, 0, n, "ISO-8859-1");
+        } catch (UnsupportedEncodingException e) {
+            // this should not happen, all Java impl are required
+            // to support ISO-8859-1.
+            throw new RuntimeException(e);
+        }
     }
 
     public static final boolean STRACE = false;
