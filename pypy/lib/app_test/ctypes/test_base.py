@@ -1,9 +1,10 @@
+from support import WhiteBoxTests
 
 from ctypes import *
 
 # WhiteBoxTests
 
-class TestCTypesBase:
+class TestCTypesBase(WhiteBoxTests):
     def test_pointer(self):
         p = pointer(pointer(c_int(2)))
         x = p[0]

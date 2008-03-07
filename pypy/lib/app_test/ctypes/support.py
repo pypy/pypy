@@ -1,3 +1,16 @@
+import py
+import ctypes
+
+if ctypes.__version__ < "1.0.2":
+    py.test.skip("we expect a ctypes implementation with ver >= 1.0.2")
+
+class WhiteBoxTests:
+
+    def setup_class(cls):
+        try:
+             import _rawffi
+        except ImportError:
+            py.test.skip("these tests are white-box tests for pypy _rawffi based ctypes impl")
 
 class BaseCTypesTestChecker:
     def setup_class(cls):
