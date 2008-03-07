@@ -366,7 +366,7 @@ class W_FuncPtr(Wrappable):
             args_ll.append(arg.ll_buffer)
             # XXX we could avoid the intermediate list args_ll
         if self.resshape is not None:
-            result = self.resshape.allocate(space, 1)
+            result = self.resshape.allocate(space, 1, autofree=True)
             self.ptr.call(args_ll, result.ll_buffer)
             return space.wrap(result)
         else:

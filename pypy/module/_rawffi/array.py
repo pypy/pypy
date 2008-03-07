@@ -167,3 +167,14 @@ class W_ArrayInstanceAutoFree(W_ArrayInstance):
         if self.ll_buffer:
             self._free()
 
+W_ArrayInstanceAutoFree.typedef = TypeDef(
+    'ArrayInstanceWithFree',
+    __repr__    = interp2app(W_ArrayInstance.descr_repr),
+    __setitem__ = interp2app(W_ArrayInstance.setitem),
+    __getitem__ = interp2app(W_ArrayInstance.getitem),
+    __len__     = interp2app(W_ArrayInstance.getlength),
+    buffer      = GetSetProperty(W_ArrayInstance.getbuffer),
+    shape       = interp_attrproperty('shape', W_ArrayInstance),
+    byptr       = interp2app(W_ArrayInstance.byptr),
+    itemaddress = interp2app(W_ArrayInstance.descr_itemaddress),
+)

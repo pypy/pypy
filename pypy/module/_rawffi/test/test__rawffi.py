@@ -176,7 +176,6 @@ class AppTestFfi:
             intptr[0] = i
             res = get_char(dupaptr, intptr)
             assert res[0] == 'dupa'[i]
-            res.free()
             intptr.free()
         dupaptr.free()
         dupa.free()
@@ -197,13 +196,11 @@ class AppTestFfi:
         a = A(6, 'xx\x00\x00xx')
         assert _rawffi.charp2string(a.buffer) == 'xx'
         assert _rawffi.charp2rawstring(a.buffer, 4) == 'xx\x00\x00'
-        res.free()
         arg1[0] = 'x'
         arg2[0] = 'y'
         res = char_check(arg1, arg2)
         assert res[0] == 0
         assert _rawffi.charp2string(res[0]) is None
-        res.free()
         arg1.free()
         arg2.free()
 
@@ -218,7 +215,6 @@ class AppTestFfi:
         arg2[0] = 2
         res = short_add(arg1, arg2)
         assert res[0] == 3
-        res.free()
         arg1.free()
         arg2.free()
 
@@ -234,7 +230,6 @@ class AppTestFfi:
         arg2[0] = 2.0
         res = pow(arg1, arg2)
         assert res[0] == 9.0
-        res.free()
         arg1.free()
         arg2.free()
 
@@ -246,7 +241,6 @@ class AppTestFfi:
         arg[0] = 0
         res = time(arg)
         assert res[0] != 0
-        res.free()
         arg.free()
 
     def test_gettimeofday(self):
@@ -260,13 +254,11 @@ class AppTestFfi:
         arg2 = _rawffi.Array('P')(1)
         res = gettimeofday(arg1, arg2)
         assert res[0] == 0
-        res.free()
 
         struct2 = struct_type()
         arg1[0] = struct2
         res = gettimeofday(arg1, arg2)
         assert res[0] == 0
-        res.free()
 
         assert structure.tv_usec != struct2.tv_usec
         assert (structure.tv_sec == struct2.tv_sec) or (structure.tv_sec == struct2.tv_sec - 1)
@@ -296,7 +288,6 @@ class AppTestFfi:
         arg = x.byptr()
         res = gmtime(arg)
         t = Tm.fromaddress(res[0])
-        res.free()
         arg.free()
         assert t.tm_year == 70
         assert t.tm_sec == 1
@@ -325,7 +316,6 @@ class AppTestFfi:
         assert X.fromaddress(x.next).x2 == 3
         free_double_struct = lib.ptr("free_double_struct", ['P'], None)
         free_double_struct(res)
-        res.free()
 
     def test_array(self):
         import _rawffi
@@ -342,7 +332,6 @@ class AppTestFfi:
             arg2[0] = i
             res = get_array_elem(arg1, arg2)
             assert res[0] == expected
-            res.free()
         arg1.free()
         arg2.free()
         assert a[3] == 0
@@ -362,12 +351,10 @@ class AppTestFfi:
         arg2 = _rawffi.Array('i')(1)
         res = get_array_elem_s(arg1, arg2)
         assert res[0] == 0
-        res.free()
         arg2[0] = 1
         res = get_array_elem_s(arg1, arg2)
         assert X.fromaddress(res[0]).x2 == 3
         assert res[0] == x.buffer
-        res.free()
         arg1.free()
         arg2.free()
         x.free()
@@ -392,17 +379,14 @@ class AppTestFfi:
         some_huge_value = lib.ptr('some_huge_value', [], 'q')
         res = some_huge_value()
         assert res[0] == 1<<42
-        res.free()
         some_huge_uvalue = lib.ptr('some_huge_uvalue', [], 'Q')
         res = some_huge_uvalue()
         assert res[0] == 1<<42
-        res.free()
         pass_ll = lib.ptr('pass_ll', ['q'], 'q')
         arg1 = _rawffi.Array('q')(1)
         arg1[0] = 1<<42
         res = pass_ll(arg1)
         assert res[0] == 1<<42
-        res.free()
         arg1.free()
     
     def test_callback(self):
@@ -449,7 +433,6 @@ class AppTestFfi:
         a1 = cb.byptr()
         res = runcallback(a1)
         assert res[0] == 1<<42
-        res.free()
         a1.free()
         del cb
 
@@ -480,7 +463,6 @@ class AppTestFfi:
         A = _rawffi.Array('i')
         res = alloc()
         a = A.fromaddress(res[0], 1)
-        res.free()
         assert a[0] == 3
         assert A.fromaddress(a.buffer, 1)[0] == 3
 
@@ -515,7 +497,6 @@ class AppTestFfi:
         arg2 = _rawffi.Array('i')(1)
         res = get_array_elem(arg1, arg2)
         assert res[0] == 3
-        res.free()
         arg1.free()
         arg2.free()
         a.free()
@@ -650,7 +631,6 @@ class AppTestFfi:
         res = sum_x_y(x_y)
         assert res[0] == 420
         x_y.free()
-        res.free()
 
     def test_ret_struct(self):
         import _rawffi
@@ -663,11 +643,10 @@ class AppTestFfi:
         a1[0] = 13
         a2[0] = 17
         res = give(a1, a2)
-        assert isinstance(res, _rawffi.StructureInstance)
+        assert isinstance(res, _rawffi.StructureInstanceAutoFree)
         assert res.shape is S2H
         assert res.x == 13
         assert res.y == 17
-        res.free()
         a1.free()
         a2.free()
 
@@ -675,13 +654,12 @@ class AppTestFfi:
         s2h.y = 11
         perturb = lib.ptr('perturb', [S2H.gettypecode()], S2H)
         res = perturb(s2h)
-        assert isinstance(res, _rawffi.StructureInstance)
+        assert isinstance(res, _rawffi.StructureInstanceAutoFree)
         assert res.shape is S2H
         assert res.x == 14
         assert res.y == 33
         assert s2h.x == 7
         assert s2h.y == 11
-        res.free()
         
         s2h.free()
 

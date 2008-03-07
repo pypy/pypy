@@ -198,4 +198,15 @@ class W_StructureInstanceAutoFree(W_StructureInstance):
     def __del__(self):
         if self.ll_buffer:
             self._free()
+        
+W_StructureInstanceAutoFree.typedef = TypeDef(
+    'StructureInstanceAutoFree',
+    __repr__    = interp2app(W_StructureInstance.descr_repr),
+    __getattr__ = interp2app(W_StructureInstance.getattr),
+    __setattr__ = interp2app(W_StructureInstance.setattr),
+    buffer      = GetSetProperty(W_StructureInstance.getbuffer),
+    shape       = interp_attrproperty('shape', W_StructureInstance),
+    byptr       = interp2app(W_StructureInstance.byptr),
+    fieldaddress= interp2app(W_StructureInstance.descr_fieldaddress),
+)
 
