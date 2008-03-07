@@ -166,9 +166,9 @@ class JvmGeneratedSource(object):
                 yield chunk
 
         for files in split_list(self.jasmin_files):
-            print "Invoking jasmin on %s" % files
+            #print "Invoking jasmin on %s" % files
             self._invoke(jascmd + files, False)
-            print "... completed!"
+            #print "... completed!"
                            
         self.compiled = True
         self._compile_helper()

@@ -14,6 +14,29 @@ class BaseTestBuiltin(BaseTestRbuiltin):
             return os.O_CREAT
         assert self.interpret(fn, []) == NT_OS['O_CREAT']
 
+    def test_os_read_hibytes(self):
+        """
+        Test that we read in characters with the high bit set correctly
+        This can be a problem on JVM or CLI, where we use unicode strings to
+        encode byte arrays!
+        """
+        tmpfile = str(udir.udir.join("os_read_hibytes.txt"))
+        def chrs2int(b):
+            assert len(b) == 4
+            first = ord(b[0]) # big endian
+            if first & 0x80 != 0:
+                first = first - 0x100
+            return first << 24 | ord(b[1]) << 16 | ord(b[2]) << 8 | ord(b[3])
+        def fn():
+            fd = os.open(tmpfile, os.O_RDONLY|os.O_BINARY, 0666)
+            res = os.read(fd, 4)
+            os.close(fd)
+            return chrs2int(res)
+        f = file(tmpfile, 'w')
+        f.write("".join([chr(x) for x in [0x06, 0x64, 0x90, 0x00]]))
+        f.close()
+        assert self.interpret(fn, []) == fn()
+        
     def test_os_read_binary_crlf(self):
         tmpfile = str(udir.udir.join("os_read_test"))
         def fn(flag):
