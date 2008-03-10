@@ -8,6 +8,11 @@ from test import test_support
 #from weakref import proxy
 import array, cStringIO, math
 
+# XXX as we use the struct module we get struct.error when trying to push
+# objects of invalid types or out of range into an array.  If this issue
+# is fixed, remove all mentions of struct.error in the sequel.
+import struct
+
 tests = [] # list to accumulate all tests
 typecodes = "cubBhHiIlLfd"
 
@@ -57,7 +62,7 @@ class BaseTest(unittest.TestCase):
         bi = a.buffer_info()
         self.assert_(isinstance(bi, tuple))
         self.assertEqual(len(bi), 2)
-        self.assert_(isinstance(bi[0], int))
+        self.assert_(isinstance(bi[0], (int, long)))
         self.assert_(isinstance(bi[1], int))
         self.assertEqual(bi[1], len(a))
 
@@ -88,7 +93,7 @@ class BaseTest(unittest.TestCase):
         self.assertEqual(a[0], a[1])
         self.assertRaises(TypeError, a.insert)
         self.assertRaises(TypeError, a.insert, None)
-        self.assertRaises(TypeError, a.insert, 0, None)
+        self.assertRaises((TypeError, struct.error), a.insert, 0, None)
 
         a = array.array(self.typecode, self.example)
         a.insert(-1, self.example[0])
@@ -148,7 +153,7 @@ class BaseTest(unittest.TestCase):
         self.assertRaises(TypeError, a.tolist, 42)
         self.assertRaises(TypeError, b.fromlist)
         self.assertRaises(TypeError, b.fromlist, 42)
-        self.assertRaises(TypeError, b.fromlist, [None])
+        self.assertRaises((TypeError, struct.error), b.fromlist, [None])
         b.fromlist(a.tolist())
         self.assertEqual(a, b)
 
@@ -333,7 +338,7 @@ class BaseTest(unittest.TestCase):
 
         self.assertRaises(TypeError, a.__setitem__)
         self.assertRaises(TypeError, a.__setitem__, None)
-        self.assertRaises(TypeError, a.__setitem__, 0, None)
+        self.assertRaises((TypeError, struct.error), a.__setitem__, 0, None)
         self.assertRaises(
             IndexError,
             a.__setitem__,
@@ -660,7 +665,7 @@ class StringTest(BaseTest):
     def test_setitem(self):
         super(StringTest, self).test_setitem()
         a = array.array(self.typecode, self.example)
-        self.assertRaises(TypeError, a.__setitem__, 0, self.example[:2])
+        self.assertRaises((TypeError, struct.error), a.__setitem__, 0, self.example[:2])
 
 class CharacterTest(StringTest):
     typecode = 'c'
@@ -711,7 +716,7 @@ if test_support.have_unicode:
         minitemsize = 2
 
         def test_unicode(self):
-            self.assertRaises(TypeError, array.array, 'b', unicode('foo', 'ascii'))
+            self.assertRaises((TypeError, struct.error), array.array, 'b', unicode('foo', 'ascii'))
 
             a = array.array('u', unicode(r'\xa0\xc2\u1234', 'unicode-escape'))
             a.fromunicode(unicode(' ', 'ascii'))
@@ -805,14 +810,14 @@ class NumberTest(BaseTest):
         a = array.array(self.typecode, [lower])
         a[0] = lower
         # should overflow assigning less than lower limit
-        self.assertRaises(OverflowError, array.array, self.typecode, [lower-1])
-        self.assertRaises(OverflowError, a.__setitem__, 0, lower-1)
+        self.assertRaises((OverflowError, struct.error, ValueError), array.array, self.typecode, [lower-1])
+        self.assertRaises((OverflowError, struct.error, ValueError), a.__setitem__, 0, lower-1)
         # should not overflow assigning upper limit
         a = array.array(self.typecode, [upper])
         a[0] = upper
         # should overflow assigning more than upper limit
-        self.assertRaises(OverflowError, array.array, self.typecode, [upper+1])
-        self.assertRaises(OverflowError, a.__setitem__, 0, upper+1)
+        self.assertRaises((OverflowError, struct.error), array.array, self.typecode, [upper+1])
+        self.assertRaises((OverflowError, struct.error), a.__setitem__, 0, upper+1)
 
     def test_subclassing(self):
         typecode = self.typecode

@@ -189,6 +189,7 @@ Table = [
     ('set',             set),
     ('delete',          delete),
     ('userdel',         userdel),
+    ('buffer',          buffer),
     # --- operations added by graph transformations ---
     ('neg_ovf',         neg_ovf),
     ('abs_ovf',         abs_ovf),

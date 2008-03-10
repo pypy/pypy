@@ -25,3 +25,42 @@ class AppTestBuffer:
         b = buffer(array.array("B", [1, 2, 3]))
         assert len(b) == 3
         assert b[0:3] == "\x01\x02\x03"
+
+    def test_nonzero(self):
+        assert buffer('\x00')
+        assert not buffer('')
+        import array
+        assert buffer(array.array("B", [0]))
+        assert not buffer(array.array("B", []))
+
+    def test_str(self):
+        assert str(buffer('hello')) == 'hello'
+
+    def test_add(self):
+        assert buffer('abc') + 'def' == 'abcdef'
+        import array
+        assert buffer('abc') + array.array('c', 'def') == 'abcdef'
+
+    def test_cmp(self):
+        assert buffer('ab') != 'ab'
+        assert not ('ab' == buffer('ab'))
+        assert buffer('ab') == buffer('ab')
+        assert not (buffer('ab') != buffer('ab'))
+        assert not (buffer('ab') <  buffer('ab'))
+        assert buffer('ab') <= buffer('ab')
+        assert not (buffer('ab') >  buffer('ab'))
+        assert buffer('ab') >= buffer('ab')
+        assert buffer('ab') != buffer('abc')
+        assert buffer('ab') <  buffer('abc')
+        assert buffer('ab') <= buffer('ab')
+        assert buffer('ab') >  buffer('aa')
+        assert buffer('ab') >= buffer('ab')
+
+    def test_hash(self):
+        assert hash(buffer('hello')) == hash('hello')
+
+    def test_mul(self):
+        assert buffer('ab') * 5 == 'ababababab'
+        assert buffer('ab') * (-2) == ''
+        assert 5 * buffer('ab') == 'ababababab'
+        assert (-2) * buffer('ab') == ''

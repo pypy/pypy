@@ -952,6 +952,10 @@ def str_encode__String_ANY_ANY(space, w_string, w_encoding=None, w_errors=None):
 def mod__String_ANY(space, w_format, w_values):
     return mod_format(space, w_format, w_values, do_unicode=False)
 
+def buffer__String(space, w_string):
+    from pypy.interpreter.buffer import StringBuffer
+    return space.wrap(StringBuffer(w_string._value))
+
 # register all methods
 from pypy.objspace.std import stringtype
 register_all(vars(), stringtype)

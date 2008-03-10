@@ -394,8 +394,8 @@ class AppTestSocket:
         assert s.getsockname() == s2.getsockname()
     
 
-    def test_buffer(self):
-        # Test that send/sendall/sendto accept a buffer as argument
+    def test_buffer_or_unicode(self):
+        # Test that send/sendall/sendto accept a buffer or a unicode as arg
         import _socket, os
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
         # XXX temporarily we use codespeak to test, will have more robust tests in
@@ -404,6 +404,9 @@ class AppTestSocket:
         s.connect(("codespeak.net", 80))
         s.send(buffer(''))
         s.sendall(buffer(''))
+        s.send(u'')
+        s.sendall(u'')
+        raises(UnicodeEncodeError, s.send, u'\xe9')
         s.close()
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM, 0)
         s.sendto(buffer(''), ('localhost', 9)) # Send to discard port.
@@ -471,6 +474,39 @@ class AppTestSocketTCP:
             self.serv.settimeout(0.0)
             foo = self.serv.accept()
         raises(error, raise_error)
+
+    def test_recv_send_timeout(self):
+        from _socket import socket, timeout
+        cli = socket()
+        cli.connect(self.serv.getsockname())
+        t, addr = self.serv.accept()
+        cli.settimeout(1.0)
+        # test recv() timeout
+        t.send('*')
+        buf = cli.recv(100)
+        assert buf == '*'
+        raises(timeout, cli.recv, 100)
+        # test that send() works
+        count = cli.send('!')
+        assert count == 1
+        buf = t.recv(1)
+        assert buf == '!'
+        # test that sendall() works
+        cli.sendall('?')
+        assert count == 1
+        buf = t.recv(1)
+        assert buf == '?'
+        # test send() timeout
+        try:
+            while 1:
+                cli.send('foobar' * 70)
+        except timeout:
+            pass
+        # test sendall() timeout
+        raises(timeout, cli.sendall, 'foobar' * 70)
+        # done
+        cli.close()
+        t.close()
     
 
 class AppTestErrno:

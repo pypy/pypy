@@ -178,3 +178,27 @@ class AppTestZlib(object):
             assert s1 == self.expanded[i:i+10]
             data = d.unconsumed_tail
         assert not data
+
+
+    def test_buffer(self):
+        """
+        We should be able to pass buffer objects instead of strings.
+        """
+        assert self.zlib.crc32(buffer('hello, world.')) == -936931198
+        assert self.zlib.adler32(buffer('hello, world.')) == 571147447
+
+        compressor = self.zlib.compressobj()
+        bytes = compressor.compress(buffer(self.expanded))
+        bytes += compressor.flush()
+        assert bytes == self.compressed
+
+        decompressor = self.zlib.decompressobj()
+        bytes = decompressor.decompress(buffer(self.compressed))
+        bytes += decompressor.flush()
+        assert bytes == self.expanded
+
+        bytes = self.zlib.compress(buffer(self.expanded))
+        assert bytes == self.compressed
+
+        bytes = self.zlib.decompress(buffer(self.compressed))
+        assert bytes == self.expanded

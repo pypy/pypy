@@ -8,6 +8,7 @@ class Module(MixedModule):
 
     interpleveldefs = {
         'internal_repr'             : 'interp_magic.internal_repr',
+        'bytebuffer'                : 'bytebuffer.bytebuffer',
     }
 
     def setup_after_space_initialization(self):

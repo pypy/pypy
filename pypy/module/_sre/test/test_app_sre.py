@@ -194,6 +194,10 @@ class AppTestSreMatch:
         m = re.match('hel+', a)
         assert m.end() == 4
 
+    def test_match_typeerror(self):
+        import re
+        raises(TypeError, re.match, 'hel+', list('hello'))
+
     def test_group_bugs(self):
         import re
         r = re.compile(r"""

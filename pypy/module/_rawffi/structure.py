@@ -185,12 +185,16 @@ class W_StructureInstance(W_DataInstance):
         return space.wrap(rffi.cast(lltype.Unsigned, ptr))
     descr_fieldaddress.unwrap_spec = ['self', ObjSpace, str]
 
+    def getrawsize(self):
+        return self.shape.size
+
 
 W_StructureInstance.typedef = TypeDef(
     'StructureInstance',
     __repr__    = interp2app(W_StructureInstance.descr_repr),
     __getattr__ = interp2app(W_StructureInstance.getattr),
     __setattr__ = interp2app(W_StructureInstance.setattr),
+    __buffer__  = interp2app(W_StructureInstance.descr_buffer),
     buffer      = GetSetProperty(W_StructureInstance.getbuffer),
     free        = interp2app(W_StructureInstance.free),
     shape       = interp_attrproperty('shape', W_StructureInstance),
@@ -212,6 +216,7 @@ W_StructureInstanceAutoFree.typedef = TypeDef(
     __repr__    = interp2app(W_StructureInstance.descr_repr),
     __getattr__ = interp2app(W_StructureInstance.getattr),
     __setattr__ = interp2app(W_StructureInstance.setattr),
+    __buffer__  = interp2app(W_StructureInstance.descr_buffer),
     buffer      = GetSetProperty(W_StructureInstance.getbuffer),
     shape       = interp_attrproperty('shape', W_StructureInstance),
     byptr       = interp2app(W_StructureInstance.byptr),

@@ -265,6 +265,11 @@ class W_DataInstance(Wrappable):
         lltype.free(self.ll_buffer, flavor='raw')
         self.ll_buffer = lltype.nullptr(rffi.VOIDP.TO)
 
+    def descr_buffer(self, space):
+        from pypy.module._rawffi.buffer import RawFFIBuffer
+        return space.wrap(RawFFIBuffer(self))
+    descr_buffer.unwrap_spec = ['self', ObjSpace]
+
 def unwrap_truncate_int(TP, space, w_arg):
     if space.is_true(space.isinstance(w_arg, space.w_int)):
         return rffi.cast(TP, space.int_w(w_arg))
@@ -299,7 +304,7 @@ def unwrap_value(space, push_func, add_arg, argdesc, tp, w_arg):
         s = space.unicode_w(w_arg)
         if len(s) != 1:
             raise OperationError(space.w_TypeError, w(
-                "Expected unicode string og length one as wide character"))
+                "Expected unicode string of length one as wide character"))
         val = s[0]
         push_func(add_arg, argdesc, val)
     else:

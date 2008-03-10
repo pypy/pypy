@@ -507,7 +507,7 @@ class W_BZ2Compressor(Wrappable):
             lltype.free(in_buf, flavor='raw')
             lltype.free(out_buf, flavor='raw')
 
-    compress.unwrap_spec = ['self', str]
+    compress.unwrap_spec = ['self', 'bufferstr']
     
     def flush(self):
         if not self.running:
@@ -670,7 +670,7 @@ class W_BZ2Decompressor(Wrappable):
             lltype.free(in_buf, flavor='raw')
             lltype.free(out_buf, flavor='raw')
 
-    decompress.unwrap_spec = ['self', str]
+    decompress.unwrap_spec = ['self', 'bufferstr']
 
 
 W_BZ2Decompressor.typedef = TypeDef("BZ2Decompressor",
@@ -751,7 +751,7 @@ def compress(space, data, compresslevel=9):
         lltype.free(bzs, flavor='raw')
         lltype.free(in_buf, flavor='raw')
         lltype.free(out_buf, flavor='raw')
-compress.unwrap_spec = [ObjSpace, str, int]
+compress.unwrap_spec = [ObjSpace, 'bufferstr', int]
 
 def decompress(space, data):
     """decompress(data) -> decompressed data
@@ -822,4 +822,4 @@ def decompress(space, data):
         lltype.free(bzs, flavor='raw')
         lltype.free(out_buf, flavor='raw')
         lltype.free(in_buf, flavor='raw')
-decompress.unwrap_spec = [ObjSpace, str]
+decompress.unwrap_spec = [ObjSpace, 'bufferstr']

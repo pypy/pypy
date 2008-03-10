@@ -330,7 +330,7 @@ Note that not all file objects are seekable.""")
 
 Size defaults to the current file position, as returned by tell().""")
 
-    _decl(locals(), "write", ['self', str],
+    _decl(locals(), "write", ['self', 'bufferstr'],
         """write(str) -> None.  Write string str to file.
 
 Note that due to buffering, flush() or close() may be needed before
@@ -361,24 +361,15 @@ optimizations previously implemented in the xreadlines module.""")
         return self.getrepr(self.space, info)
     file__repr__.unwrap_spec = ['self']
 
-    def file_readinto(self, w_array):
+    def file_readinto(self, w_rwbuffer):
         """readinto() -> Undocumented.  Don't use this; it may go away."""
-        # completely inefficient and incomplete for now
+        # XXX not the most efficient solution as it doesn't avoid the copying
         space = self.space
-        w_len = space.appexec([space.wrap(self), w_array], """(self, a):
-            from array import array
-            if not isinstance(a, array):
-                raise TypeError('Can only read into array objects')
-            length = len(a)
-            data = self.read(length)
-            n = len(data)
-            if n < length:
-                data += a.tostring()[len(data):]
-            del a[:]
-            a.fromstring(data)
-            return n
-        """)
-        return w_len
+        rwbuffer = space.rwbuffer_w(w_rwbuffer)
+        w_data = self.file_read(rwbuffer.getlength())
+        data = space.str_w(w_data)
+        rwbuffer.setslice(0, data)
+        return space.wrap(len(data))
     file_readinto.unwrap_spec = ['self', W_Root]
 
 

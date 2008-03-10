@@ -8,19 +8,6 @@ from pypy.rlib.rsocket import SocketError, SocketErrorWithErrno
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway
 
-class State(object):
-    "Cache the lookup of the buffer type"
-    def __init__(self, space):
-        w__builtin__ = space.getbuiltinmodule('__builtin__')
-        self.w_buffer = space.getattr(w__builtin__, space.wrap('buffer'))
-        
-def coerce_to_str_w(space, w_obj):
-    "Accept an applevel string or buffer and return a string."
-    w_buffer = space.fromcache(State).w_buffer
-    if space.is_true(space.isinstance(w_obj, w_buffer)):
-        w_obj = space.str(w_obj)
-    return space.str_w(w_obj)
-
 class W_RSocket(Wrappable, RSocket):
     def __del__(self):
         self.clear_all_weakrefs()
@@ -218,22 +205,21 @@ class W_RSocket(Wrappable, RSocket):
             raise converted_error(space, e)
     recvfrom_w.unwrap_spec = ['self', ObjSpace, int, int]
 
-    def send_w(self, space, w_data, flags=0):
+    def send_w(self, space, data, flags=0):
         """send(data[, flags]) -> count
 
         Send a data string to the socket.  For the optional flags
         argument, see the Unix manual.  Return the number of bytes
         sent; this may be less than len(data) if the network is busy.
         """
-        data = coerce_to_str_w(space, w_data)
         try:
             count = self.send(data, flags)
         except SocketError, e:
             raise converted_error(space, e)
         return space.wrap(count)
-    send_w.unwrap_spec = ['self', ObjSpace, W_Root, int]
+    send_w.unwrap_spec = ['self', ObjSpace, 'bufferstr', int]
 
-    def sendall_w(self, space, w_data, flags=0):
+    def sendall_w(self, space, data, flags=0):
         """sendall(data[, flags])
 
         Send a data string to the socket.  For the optional flags
@@ -241,20 +227,18 @@ class W_RSocket(Wrappable, RSocket):
         until all data is sent.  If an error occurs, it's impossible
         to tell how much data has been sent.
         """
-        data = coerce_to_str_w(space, w_data)
         try:
             count = self.sendall(data, flags)
         except SocketError, e:
             raise converted_error(space, e)
-    sendall_w.unwrap_spec = ['self', ObjSpace, W_Root, int]
+    sendall_w.unwrap_spec = ['self', ObjSpace, 'bufferstr', int]
 
-    def sendto_w(self, space, w_data, w_param2, w_param3=NoneNotWrapped):
+    def sendto_w(self, space, data, w_param2, w_param3=NoneNotWrapped):
         """sendto(data[, flags], address) -> count
 
         Like send(data, flags) but allows specifying the destination address.
         For IP sockets, the address is a pair (hostaddr, port).
         """
-        data = coerce_to_str_w(space, w_data)
         if w_param3 is None:
             # 2 args version
             flags = 0
@@ -269,7 +253,7 @@ class W_RSocket(Wrappable, RSocket):
         except SocketError, e:
             raise converted_error(space, e)
         return space.wrap(count)
-    sendto_w.unwrap_spec = ['self', ObjSpace, W_Root, W_Root, W_Root]
+    sendto_w.unwrap_spec = ['self', ObjSpace, 'bufferstr', W_Root, W_Root]
 
     def setblocking_w(self, space, flag):
         """setblocking(flag)

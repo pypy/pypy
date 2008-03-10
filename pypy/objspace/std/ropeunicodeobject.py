@@ -909,6 +909,18 @@ def repr__RopeUnicode(space, w_unicode):
 def mod__RopeUnicode_ANY(space, w_format, w_values):
     return mod_format(space, w_format, w_values, do_unicode=True)
 
+def buffer__RopeUnicode(space, w_unicode):
+    # xxx this is a slightly strange thing...
+    from pypy.module.struct.unichar import pack_unichar
+    charlist = []
+    node = w_unicode._node
+    iter = rope.ItemIterator(node)
+    for idx in range(node.length()):
+        unich = unichr(iter.nextint())
+        pack_unichar(unich, charlist)
+    from pypy.interpreter.buffer import StringBuffer
+    return space.wrap(StringBuffer(''.join(charlist)))
+
 
 # methods of the iterator
 

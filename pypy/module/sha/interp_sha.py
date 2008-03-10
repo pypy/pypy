@@ -41,8 +41,9 @@ def W_SHA___new__(space, w_subtype, initialdata=''):
 
 W_SHA.typedef = TypeDef(
     'SHAType',
-    __new__   = interp2app(W_SHA___new__, unwrap_spec=[ObjSpace, W_Root, str]),
-    update    = interp2app(W_SHA.update_w, unwrap_spec=['self', str]),
+    __new__   = interp2app(W_SHA___new__, unwrap_spec=[ObjSpace, W_Root,
+                                                       'bufferstr']),
+    update    = interp2app(W_SHA.update_w, unwrap_spec=['self', 'bufferstr']),
     digest    = interp2app(W_SHA.digest_w, unwrap_spec=['self']),
     hexdigest = interp2app(W_SHA.hexdigest_w, unwrap_spec=['self']),
     copy      = interp2app(W_SHA.copy_w, unwrap_spec=['self']),

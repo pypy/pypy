@@ -39,7 +39,7 @@ class W_MMap(Wrappable):
 
     def find(self, tofind, start=0):
         return self.space.wrap(self.mmap.find(tofind, start))
-    find.unwrap_spec = ['self', str, int]
+    find.unwrap_spec = ['self', 'bufferstr', int]
 
     def seek(self, pos, whence=0):
         try:
@@ -64,7 +64,7 @@ class W_MMap(Wrappable):
         except RValueError, v:
             raise OperationError(self.space.w_ValueError,
                                  self.space.wrap(v.message))
-    write.unwrap_spec = ['self', str]
+    write.unwrap_spec = ['self', 'bufferstr']
     
     def write_byte(self, byte):
         try:
@@ -138,10 +138,7 @@ class W_MMap(Wrappable):
         if step == 0:  # index only
             return space.wrap(self.mmap.getitem(start))
         elif step == 1:
-            if 0 <= start <= stop:
-                res = "".join([self.mmap.getitem(i) for i in range(start, stop)])
-            else:
-                res = ''
+            res = "".join([self.mmap.getitem(i) for i in range(start, stop)])
             return space.wrap(res)
         else:
             raise OperationError(space.w_ValueError,
@@ -163,8 +160,6 @@ class W_MMap(Wrappable):
             self.mmap.setitem(start, value)
         elif step == 1:
             length = stop - start
-            if start < 0 or length < 0:
-                length = 0
             if len(value) != length:
                 raise OperationError(space.w_ValueError,
                           space.wrap("mmap slice assignment is wrong size"))
@@ -173,7 +168,14 @@ class W_MMap(Wrappable):
         else:
             raise OperationError(space.w_ValueError,
                 space.wrap("mmap object does not support slicing with a step"))
-    descr_setitem.unwrap_spec = ['self', W_Root, str]
+    descr_setitem.unwrap_spec = ['self', W_Root, 'bufferstr']
+
+    def descr_buffer(self):
+        # XXX improve to work directly on the low-level address
+        from pypy.interpreter.buffer import StringLikeBuffer
+        space = self.space
+        return space.wrap(StringLikeBuffer(space, space.wrap(self)))
+    descr_buffer.unwrap_spec = ['self']
 
 W_MMap.typedef = TypeDef("mmap",
     close = interp2app(W_MMap.close),
@@ -194,6 +196,7 @@ W_MMap.typedef = TypeDef("mmap",
     __len__ = interp2app(W_MMap.__len__),
     __getitem__ = interp2app(W_MMap.descr_getitem),
     __setitem__ = interp2app(W_MMap.descr_setitem),
+    __buffer__ = interp2app(W_MMap.descr_buffer),
 )
 
 def _check_map_size(space, size):

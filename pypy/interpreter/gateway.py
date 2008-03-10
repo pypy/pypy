@@ -119,6 +119,9 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def visit_index(self, index, app_sig):
         self.checked_space_method(index, app_sig)
 
+    def visit_bufferstr(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
     def visit__Wrappable(self, el, app_sig):
         name = el.__name__
         argname = self.orig_arg()
@@ -216,6 +219,9 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
     def visit_index(self, typ):
         self.run_args.append("space.getindex_w(%s, space.w_OverflowError)"
                              % (self.scopenext(), ))
+
+    def visit_bufferstr(self, typ):
+        self.run_args.append("space.bufferstr_w(%s)" % (self.scopenext(),))
 
     def _make_unwrap_activation_class(self, unwrap_spec, cache={}):
         try:
@@ -328,6 +334,9 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
     def visit_index(self, typ):
         self.unwrap.append("space.getindex_w(%s, space.w_OverflowError)"
                            % (self.nextarg()), )
+
+    def visit_bufferstr(self, typ):
+        self.unwrap.append("space.bufferstr_w(%s)" % (self.nextarg(),))
 
     def make_fastfunc(unwrap_spec, func):
         unwrap_info = UnwrapSpec_FastFunc_Unwrap()

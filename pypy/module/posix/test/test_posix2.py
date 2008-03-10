@@ -12,6 +12,7 @@ def setup_module(mod):
     mod.path = udir.join('posixtestfile.txt') 
     mod.path.write("this is a test")
     mod.path2 = udir.join('posixtestlargefile')
+    mod.path3 = udir.join('posixtestwritebuffer')
     pdir = udir.ensure('posixtestdir', dir=True)
     pdir.join('file1').write("test1")
     os.chmod(str(pdir.join('file1')), 0600)
@@ -31,6 +32,7 @@ class AppTestPosix:
         cls.w_posix = space.appexec([], "(): import %s as m ; return m" % os.name)
         cls.w_path = space.wrap(str(path))
         cls.w_path2 = space.wrap(str(path2))
+        cls.w_path3 = space.wrap(str(path3))
         cls.w_pdir = space.wrap(str(pdir))
         if hasattr(os, 'getuid'):
             cls.w_getuid = space.wrap(os.getuid())
@@ -330,6 +332,37 @@ class AppTestPosix:
         st = os.stat(self.path2)
         assert st.st_size == 10000000000L
     test_largefile.need_sparse_files = True
+
+    def test_write_buffer(self):
+        os = self.posix
+        fd = os.open(self.path3, os.O_RDWR | os.O_CREAT, 0666)
+        def writeall(s):
+            while s:
+                count = os.write(fd, s)
+                assert count > 0
+                s = s[count:]
+        writeall('hello, ')
+        writeall(buffer('world!\n'))
+        res = os.lseek(fd, 0, 0)
+        assert res == 0
+        data = ''
+        while True:
+            s = os.read(fd, 100)
+            if not s:
+                break
+            data += s
+        assert data == 'hello, world!\n'
+        os.close(fd)
+
+    def test_write_unicode(self):
+        os = self.posix
+        fd = os.open(self.path3, os.O_RDWR | os.O_CREAT, 0666)
+        os.write(fd, u'X')
+        raises(UnicodeEncodeError, os.write, fd, u'\xe9')
+        os.lseek(fd, 0, 0)
+        data = os.read(fd, 2)
+        assert data == 'X'
+        os.close(fd)
 
 class AppTestEnvironment(object):
     def setup_class(cls): 

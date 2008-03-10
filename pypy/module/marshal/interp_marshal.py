@@ -503,12 +503,12 @@ class StringUnmarshaller(Unmarshaller):
     def __init__(self, space, w_str):
         Unmarshaller.__init__(self, space, None)
         try:
-            self.bufstr = space.str_w(w_str)
+            self.bufstr = space.bufferstr_w(w_str)
         except OperationError, e:
             if not e.match(space, space.w_TypeError):
                 raise
             raise OperationError(space.w_TypeError, space.wrap(
-                'marshal.loads() arg must be string'))
+                'marshal.loads() arg must be string or buffer'))
         self.bufpos = 0
         self.limit = len(self.bufstr)
 

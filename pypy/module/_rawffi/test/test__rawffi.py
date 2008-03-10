@@ -180,6 +180,17 @@ class AppTestFfi:
         dupaptr.free()
         dupa.free()
 
+    def test_chararray_as_bytebuffer(self):
+        # a useful extension to arrays of shape 'c': buffer-like slicing
+        import _rawffi
+        A = _rawffi.Array('c')
+        buf = A(10, autofree=True)
+        buf[0] = '*'
+        assert buf[1:5] == '\x00' * 4
+        buf[7:] = 'abc'
+        assert buf[9] == 'c'
+        assert buf[:8] == '*' + '\x00'*6 + 'a'
+
     def test_returning_str(self):
         import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
@@ -666,6 +677,28 @@ class AppTestFfi:
         assert s2h.y == 11
         
         s2h.free()
+
+    def test_buffer(self):
+        import _rawffi
+        S = _rawffi.Structure((40, 1))
+        s = S(autofree=True)
+        b = buffer(s)
+        assert len(b) == 40
+        b[4] = 'X'
+        b[:3] = 'ABC'
+        assert b[:6] == 'ABC\x00X\x00'
+
+        A = _rawffi.Array('c')
+        a = A(10, autofree=True)
+        a[3] = 'x'
+        b = buffer(a)
+        assert len(b) == 10
+        assert b[3] == 'x'
+        b[6] = 'y'
+        assert a[6] == 'y'
+        b[3:5] = 'zt'
+        assert a[3] == 'z'
+        assert a[4] == 't'
 
 
 class AppTestAutoFree:

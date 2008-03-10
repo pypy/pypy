@@ -1,6 +1,7 @@
 import os, random, sys
 import pypy.tool.udir
 import py
+from pypy.conftest import gettestobjspace
 
 udir = pypy.tool.udir.udir.ensure('test_file_extra', dir=1)
 
@@ -348,6 +349,9 @@ class AppTestLargeBufferUniversal(AppTestUniversalNewlines):
 #  A few extra tests
 
 class AppTestAFewExtra:
+
+    def setup_class(cls):
+        cls.space = gettestobjspace(usemodules=['array'])
 
     def setup_method(self, method):
         fn = str(udir.join('temptestfile'))

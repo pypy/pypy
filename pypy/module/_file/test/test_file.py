@@ -117,6 +117,7 @@ class AppTestFile(object):
         import os
         f = self.file(self.temppath, "w")
         f.write(u"hello\n")
+        raises(UnicodeEncodeError, f.write, u'\xe9')
         f.close()
         f = self.file(self.temppath, "r")
         res = f.read()

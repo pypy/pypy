@@ -25,7 +25,7 @@ def crc32(space, string, start = rzlib.CRC32_DEFAULT_START):
     checksum = intmask(checksum)
 
     return space.wrap(checksum)
-crc32.unwrap_spec = [ObjSpace, str, int]
+crc32.unwrap_spec = [ObjSpace, 'bufferstr', int]
 
 
 def adler32(space, string, start = rzlib.ADLER32_DEFAULT_START):
@@ -44,7 +44,7 @@ def adler32(space, string, start = rzlib.ADLER32_DEFAULT_START):
     checksum = intmask(checksum)
 
     return space.wrap(checksum)
-adler32.unwrap_spec = [ObjSpace, str, int]
+adler32.unwrap_spec = [ObjSpace, 'bufferstr', int]
 
 
 def zlib_error(space, msg):
@@ -71,7 +71,7 @@ def compress(space, string, level=rzlib.Z_DEFAULT_COMPRESSION):
     except rzlib.RZlibError, e:
         raise zlib_error(space, e.msg)
     return space.wrap(result)
-compress.unwrap_spec = [ObjSpace, str, int]
+compress.unwrap_spec = [ObjSpace, 'bufferstr', int]
 
 
 def decompress(space, string, wbits=rzlib.MAX_WBITS, bufsize=0):
@@ -93,7 +93,7 @@ def decompress(space, string, wbits=rzlib.MAX_WBITS, bufsize=0):
     except rzlib.RZlibError, e:
         raise zlib_error(space, e.msg)
     return space.wrap(result)
-decompress.unwrap_spec = [ObjSpace, str, int, int]
+decompress.unwrap_spec = [ObjSpace, 'bufferstr', int, int]
 
 
 class ZLibObject(Wrappable):
@@ -166,7 +166,7 @@ class Compress(ZLibObject):
         except rzlib.RZlibError, e:
             raise zlib_error(self.space, e.msg)
         return self.space.wrap(result)
-    compress.unwrap_spec = ['self', str]
+    compress.unwrap_spec = ['self', 'bufferstr']
 
 
     def flush(self, mode=rzlib.Z_FINISH):
@@ -293,7 +293,7 @@ class Decompress(ZLibObject):
         else:
             self.unconsumed_tail = tail
         return self.space.wrap(string)
-    decompress.unwrap_spec = ['self', str, int]
+    decompress.unwrap_spec = ['self', 'bufferstr', int]
 
 
     def flush(self, length=0):

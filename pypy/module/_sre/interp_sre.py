@@ -9,7 +9,7 @@ from pypy.rlib.rarithmetic import intmask
 #
 # * THREE_VERSIONS_OF_CORE=True: you get three copies of the whole
 #   regexp searching and matching code: for strings, for unicode strings,
-#   and for generic wrapped objects (like mmap.mmap or array.array).
+#   and for generic buffer objects (like mmap.mmap or array.array).
 #
 # * THREE_VERSIONS_OF_CORE=False: there is only one copy of the code,
 #   at the cost of an indirect method call to fetch each character.
@@ -162,19 +162,11 @@ class W_GenericState(W_State):
         rsre.insert_sre_methods(locals(), 'generic')
 
     def unwrap_object(self):
-        # cannot unwrap in the general case
-        space = self.space
-        # some type-checking
-        if (space.lookup(self.w_string, '__getitem__') is None or
-            space.lookup(self.w_string, 'keys') is not None):
-            msg = "string or sequence of characters expected"
-            raise OperationError(space.w_TypeError, space.wrap(msg))
-        return space.int_w(space.len(self.w_string))
+        self.buffer = self.space.buffer_w(self.w_string)
+        return self.buffer.getlength()
 
     def get_char_ord(self, p):
-        space = self.space
-        w_char = space.getitem(self.w_string, space.wrap(p))
-        return space.int_w(space.ord(w_char))
+        return ord(self.buffer.getitem(p))
 
 
 def w_search(space, w_state, w_pattern_codes):

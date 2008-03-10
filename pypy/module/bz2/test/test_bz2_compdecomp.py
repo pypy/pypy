@@ -27,10 +27,6 @@ def setup_module(mod):
     mod.DATA = DATA
     mod.decompress = decompress
 
-def teardown_module(mod):
-    if os.path.exists("foo"):
-        os.unlink("foo")
-
 class AppTestBZ2Compressor(CheckAllocation):
     def setup_class(cls):
         space = gettestobjspace(usemodules=('bz2',))
@@ -81,6 +77,13 @@ class AppTestBZ2Compressor(CheckAllocation):
                 break
             data = "%s%s" % (data, bz2c.compress(temp))
             n += 1
+        data = "%s%s" % (data, bz2c.flush())
+        assert self.decompress(data) == self.TEXT
+
+    def test_buffer(self):
+        from bz2 import BZ2Compressor
+        bz2c = BZ2Compressor()
+        data = bz2c.compress(buffer(self.TEXT))
         data = "%s%s" % (data, bz2c.flush())
         assert self.decompress(data) == self.TEXT
 
@@ -144,6 +147,12 @@ class AppTestBZ2Decompressor(CheckAllocation):
         bz2d.decompress(self.DATA)
         raises(EOFError, bz2d.decompress, "foo")
 
+    def test_buffer(self):
+        from bz2 import BZ2Decompressor
+        bz2d = BZ2Decompressor()
+        decompressed_data = bz2d.decompress(buffer(self.DATA))
+        assert decompressed_data == self.TEXT
+
 class AppTestBZ2ModuleFunctions(CheckAllocation):
     def setup_class(cls):
         space = gettestobjspace(usemodules=('bz2',))
@@ -185,3 +194,9 @@ class AppTestBZ2ModuleFunctions(CheckAllocation):
         import bz2
 
         raises(ValueError, bz2.decompress, self.DATA[:-10])
+
+    def test_buffer(self):
+        import bz2
+        data = bz2.compress(buffer(self.TEXT))
+        result = bz2.decompress(buffer(data))
+        assert result == self.TEXT

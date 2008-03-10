@@ -82,7 +82,8 @@ def _get_module_object(space, obj_name):
 def _conv_descriptor(space, w_f):
     w_conv_descriptor = _get_module_object(space, "_conv_descriptor")
     w_fd = space.call_function(w_conv_descriptor, w_f)
-    return space.int_w(w_fd)
+    fd = space.int_w(w_fd)
+    return rffi.cast(rffi.INT, fd)     # C long => C int
 
 def _check_flock_op(space, op):
 
@@ -107,24 +108,33 @@ def fcntl(space, w_fd, op, w_arg=0):
     available from the fcntl module.  The argument arg is optional, and
     defaults to 0; it may be an int or a string. If arg is given as a string,
     the return value of fcntl is a string of that length, containing the
-    resulting value put in the arg buffer by the operating system. The length
-    of the arg string is not allowed to exceed 1024 bytes. If the arg given
-    is an integer or if none is specified, the result value is an integer
-    corresponding to the return value of the fcntl call in the C code."""
+    resulting value put in the arg buffer by the operating system. If the
+    arg given is an integer or if none is specified, the result value is an
+    integer corresponding to the return value of the fcntl call in the C code.
+    """
 
     fd = _conv_descriptor(space, w_fd)
-    
-    if space.is_w(space.type(w_arg), space.w_int):
-        rv = fcntl_int(fd, op, space.int_w(w_arg))
+    op = rffi.cast(rffi.INT, op)        # C long => C int
+
+    try:
+        intarg = space.int_w(w_arg)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+    else:
+        intarg = rffi.cast(rffi.INT, intarg)   # C long => C int
+        rv = fcntl_int(fd, op, intarg)
         if rv < 0:
             raise OperationError(space.w_IOError,
                 space.wrap(_get_error_msg()))
         return space.wrap(rv)
-    elif space.is_w(space.type(w_arg), space.w_str):
-        arg = space.str_w(w_arg)
-        if len(arg) > 1024:   # XXX probably makes no sense for PyPy
-            raise OperationError(space.w_ValueError,
-                space.wrap("fcntl string arg too long"))
+
+    try:
+        arg = space.bufferstr_w(w_arg)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+    else:
         ll_arg = rffi.str2charp(arg)
         rv = fcntl_str(fd, op, ll_arg)
         arg = rffi.charpsize2str(ll_arg, len(arg))
@@ -133,9 +143,9 @@ def fcntl(space, w_fd, op, w_arg=0):
             raise OperationError(space.w_IOError,
                 space.wrap(_get_error_msg()))
         return space.wrap(arg)
-    else:
-        raise OperationError(space.w_TypeError,
-            space.wrap("int or string required"))
+
+    raise OperationError(space.w_TypeError,
+                         space.wrap("int or string or buffer required"))
 fcntl.unwrap_spec = [ObjSpace, W_Root, int, W_Root]
 
 def flock(space, w_fd, op):
@@ -158,6 +168,7 @@ def flock(space, w_fd, op):
         rffi.setintfield(l, 'c_l_start', 0)
         rffi.setintfield(l, 'c_l_len', 0)
         op = [F_SETLKW, F_SETLK][op & LOCK_NB]
+        op = rffi.cast(rffi.INT, op)        # C long => C int
         fcntl_flock(fd, op, l)
         lltype.free(l, flavor='raw')
 flock.unwrap_spec = [ObjSpace, W_Root, int]
@@ -207,60 +218,63 @@ def lockf(space, w_fd, op, length=0, start=0, whence=0):
         except IndexError:
             raise OperationError(space.w_ValueError,
                                  space.wrap("invalid value for operation"))
+        op = rffi.cast(rffi.INT, op)        # C long => C int
         fcntl_flock(fd, op, l)
     finally:
         lltype.free(l, flavor='raw')
 lockf.unwrap_spec = [ObjSpace, W_Root, int, int, int, int]
 
-def ioctl(space, w_fd, op, w_arg=0, mutate_flag=True):
+def ioctl(space, w_fd, op, w_arg=0, mutate_flag=-1):
     """ioctl(fd, opt[, arg[, mutate_flag]])
 
     Perform the requested operation on file descriptor fd.  The operation is
     defined by opt and is operating system dependent.  Typically these codes
     are retrieved from the fcntl or termios library modules.
+    """
+    # removed the largish docstring because it is not in sync with the
+    # documentation any more (even in CPython's docstring is out of date)
 
-    The argument arg is optional, and defaults to 0; it may be an int or a
-    buffer containing character data (most likely a string or an array).
-
-    If the argument is a mutable buffer (such as an array) and if the
-    mutate_flag argument (which is only allowed in this case) is true then the
-    buffer is (in effect) passed to the operating system and changes made by
-    the OS will be reflected in the contents of the buffer after the call has
-    returned.  The return value is the integer returned by the ioctl system
-    call.
-
-    If the argument is a mutable buffer and the mutable_flag argument is not
-    passed or is false, the behavior is as if a string had been passed.  This
-    behavior will change in future releases of Python.
-
-    If the argument is an immutable buffer (most likely a string) then a copy
-    of the buffer is passed to the operating system and the return value is a
-    string of the same length containing whatever the operating system put in
-    the buffer.  The length of the arg buffer in this case is not allowed to
-    exceed 1024 bytes.
-
-    If the arg given is an integer or if none is specified, the result value
-    is an integer corresponding to the return value of the ioctl call in the
-    C code."""
+    # XXX this function's interface is a mess.
+    # We try to emulate the behavior of Python >= 2.5 w.r.t. mutate_flag
+    
     fd = _conv_descriptor(space, w_fd)
-    # Python turns number > sys.maxint into long, we need the signed C value
-    op = rffi.cast(rffi.INT, op)
+    op = rffi.cast(rffi.INT, op)        # C long => C int
 
-    IOCTL_BUFSZ = 1024
-    
-    if space.is_w(space.type(w_arg), space.w_int):
-        arg = space.int_w(w_arg)
-        rv = ioctl_int(fd, op, arg)
-        if rv < 0:
-            raise OperationError(space.w_IOError,
-                space.wrap(_get_error_msg()))
-        return space.wrap(rv)
-    elif space.is_w(space.type(w_arg), space.w_str): # immutable
-        arg = space.str_w(w_arg)
-        if len(arg) > IOCTL_BUFSZ:
-            raise OperationError(space.w_ValueError,
-                space.wrap("ioctl string arg too long"))
-    
+    if mutate_flag != 0:
+        try:
+            rwbuffer = space.rwbuffer_w(w_arg)
+        except OperationError, e:
+            if not e.match(space, space.w_TypeError):
+                raise
+            if mutate_flag > 0:
+                raise
+        else:
+            arg = rwbuffer.as_str()
+            ll_arg = rffi.str2charp(arg)
+            rv = ioctl_str(fd, op, ll_arg)
+            arg = rffi.charpsize2str(ll_arg, len(arg))
+            lltype.free(ll_arg, flavor='raw')
+            if rv < 0:
+                raise OperationError(space.w_IOError,
+                    space.wrap(_get_error_msg()))
+            rwbuffer.setslice(0, arg)
+            return space.wrap(rv)
+
+    try:
+        intarg = space.int_w(w_arg)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+    else:
+        intarg = rffi.cast(rffi.INT, intarg)   # C long => C int
+        rv = ioctl_int(fd, op, intarg)
+
+    try:
+        arg = space.bufferstr_w(w_arg)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+    else:
         ll_arg = rffi.str2charp(arg)
         rv = ioctl_str(fd, op, ll_arg)
         arg = rffi.charpsize2str(ll_arg, len(arg))
@@ -269,29 +283,7 @@ def ioctl(space, w_fd, op, w_arg=0, mutate_flag=True):
             raise OperationError(space.w_IOError,
                 space.wrap(_get_error_msg()))
         return space.wrap(arg)
-    else:
-        raise OperationError(space.w_TypeError,
-                space.wrap("an integer or a buffer required"))
-        # try:
-        #     # array.array instances
-        #     arg = space.call_method(w_arg, "tostring")
-        #     buf = create_string_buffer(len(arg))
-        # except:
-        #     raise OperationError(space.w_TypeError,
-        #         space.wrap("an integer or a buffer required"))
-        # 
-        # if not mutate_flag:
-        #     if len(arg) > IOCTL_BUFSZ:
-        #         raise OperationError(space.w_ValueError,
-        #             space.wrap("ioctl string arg too long"))
-        # 
-        # rv = ioctl_str(fd, op, buf)
-        # if rv < 0:
-        #     raise OperationError(space.w_IOError,
-        #         space.wrap(_get_error_msg()))
-        # 
-        # if mutate_flag:
-        #     return space.wrap(rv)
-        # else:
-        #     return space.wrap(buf.value)
+
+    raise OperationError(space.w_TypeError,
+                         space.wrap("int or string or buffer required"))
 ioctl.unwrap_spec = [ObjSpace, W_Root, int, W_Root, int]

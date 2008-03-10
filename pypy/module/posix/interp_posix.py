@@ -60,7 +60,7 @@ actually written, which may be smaller than len(data)."""
         raise wrap_oserror(space, e) 
     else: 
         return space.wrap(res) 
-write.unwrap_spec = [ObjSpace, int, str]
+write.unwrap_spec = [ObjSpace, int, 'bufferstr']
 
 def close(space, fd):
     """Close a file descriptor (for low level IO)."""

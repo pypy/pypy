@@ -285,7 +285,7 @@ def pack(fmt,*args):
                 raise StructError,"arg for string format not a string"
 
         else:
-            if len(args) == 0:
+            if len(args) < num:
                 raise StructError,"insufficient arguments to pack"
             for var in args[:num]:
                 result += [format['pack'](var,format['size'],endianness)]
@@ -337,3 +337,15 @@ def unpack(fmt,data):
                 j += format['size']
 
     return tuple(result)
+
+def pack_into(fmt, buf, offset, *args):
+    data = pack(fmt, *args)
+    buffer(buf)[offset:offset+len(data)] = data
+
+def unpack_from(fmt, buf, offset=0):
+    size = calcsize(fmt)
+    data = buffer(buf)[offset:offset+size]
+    if len(data) != size:
+        raise error("unpack_from requires a buffer of at least %d bytes"
+                    % (size,))
+    return unpack(fmt, data)

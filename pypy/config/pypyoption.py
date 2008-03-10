@@ -15,7 +15,7 @@ essential_modules = dict.fromkeys(
 
 default_modules = essential_modules.copy()
 default_modules.update(dict.fromkeys(
-    ["_codecs", "gc", "_weakref", "array", "marshal", "errno",
+    ["_codecs", "gc", "_weakref", "marshal", "errno",
      "math", "_sre", "_pickle_support", "operator",
      "recparser", "symbol", "_random", "__pypy__"]))
 

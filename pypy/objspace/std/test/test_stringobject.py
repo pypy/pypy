@@ -657,6 +657,15 @@ class AppTestStringObject:
         assert hash('hello') & 0x7fffffff == 0x347697fd
         assert hash('hello world!') & 0x7fffffff == 0x2f0bb411
 
+    def test_buffer(self):
+        x = "he"
+        x += "llo"
+        b = buffer(x)
+        assert len(b) == 5
+        assert b[-1] == "o"
+        assert b[:] == "hello"
+        raises(TypeError, "b[3] = 'x'")
+
     def test_getnewargs(self):
         assert  "foo".__getnewargs__() == ("foo",)
 

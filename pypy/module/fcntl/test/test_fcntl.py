@@ -1,5 +1,6 @@
 from pypy.conftest import gettestobjspace
 import os
+from pypy.tool.udir import udir
 
 if os.name == "nt":
     from py.test import skip
@@ -12,13 +13,17 @@ def teardown_module(mod):
 
 class AppTestFcntl:
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('fcntl',))
+        space = gettestobjspace(usemodules=('fcntl', 'array'))
         cls.space = space
+        tmpprefix = str(udir.ensure('test_fcntl', dir=1).join('tmp_'))
+        cls.w_tmp = space.wrap(tmpprefix)
 
     def test_conv_descriptor(self):
         import fcntl
+        if not hasattr(fcntl, '_conv_descriptor'):
+            skip("PyPy only")
         
-        f = open("a", "w+")
+        f = open(self.tmp + "a", "w+")
         
         raises(TypeError, fcntl._conv_descriptor, "foo")
         raises(TypeError, fcntl._conv_descriptor, 2.0)
@@ -37,15 +42,16 @@ class AppTestFcntl:
         import sys
         import struct
         
-        f = open("b", "w+")
+        f = open(self.tmp + "b", "w+")
         
         fcntl.fcntl(f, 1, 0)
         fcntl.fcntl(f, 1)
         raises(TypeError, fcntl.fcntl, "foo")
         raises(TypeError, fcntl.fcntl, f, "foo")
-        raises(IOError, fcntl.fcntl, -1, 1, 0)
+        raises((IOError, ValueError), fcntl.fcntl, -1, 1, 0)
         assert fcntl.fcntl(f, 1, 0) == 0
         assert fcntl.fcntl(f, 2, "foo") == "foo"
+        assert fcntl.fcntl(f, 2, buffer("foo")) == "foo"
         
         try:
             os.O_LARGEFILE
@@ -119,7 +125,7 @@ class AppTestFcntl:
         import fcntl
         import sys
         
-        f = open("c", "w+")
+        f = open(self.tmp + "c", "w+")
         
         raises(TypeError, fcntl.flock, "foo")
         raises(TypeError, fcntl.flock, f, "foo")
@@ -134,12 +140,12 @@ class AppTestFcntl:
     def test_lockf(self):
         import fcntl
         
-        f = open("d", "w+")
+        f = open(self.tmp + "d", "w+")
         
         raises(TypeError, fcntl.lockf, f, "foo")
         raises(TypeError, fcntl.lockf, f, fcntl.LOCK_UN, "foo")
-        raises(ValueError, fcntl.lockf, f, -1)
-        raises(ValueError, fcntl.lockf, f, 255)
+        raises(ValueError, fcntl.lockf, f, -256)
+        raises(ValueError, fcntl.lockf, f, 256)
         
         fcntl.lockf(f, fcntl.LOCK_SH)
         fcntl.lockf(f, fcntl.LOCK_UN)
@@ -149,23 +155,39 @@ class AppTestFcntl:
     def test_ioctl(self):
         import fcntl
         import array
-        import sys
-        
-        f = open("e", "w+")
-        
+        import sys, os
+
         if "linux" in sys.platform:
             TIOCGPGRP = 0x540f
         elif "darwin" in sys.platform or "freebsd6" == sys.platform:
             TIOCGPGRP = 0x40047477
+        else:
+            skip("don't know how to test ioctl() on this platform")
         
         raises(TypeError, fcntl.ioctl, "foo")
-        raises(TypeError, fcntl.ioctl, f, "foo")
-        raises(TypeError, fcntl.ioctl, f, TIOCGPGRP, float(0))
-        raises(TypeError, fcntl.ioctl, f, TIOCGPGRP, 1, "foo")
+        raises(TypeError, fcntl.ioctl, 0, "foo")
+        #raises(TypeError, fcntl.ioctl, 0, TIOCGPGRP, float(0))
+        raises(TypeError, fcntl.ioctl, 0, TIOCGPGRP, 1, "foo")
 
-        # buf = array.array('h', [0])
-        # fcntl.ioctl(0, TIOCGPGRP, buf, True)
-        # buf = array.array('c', "a"*1025)
-        # py.test.raises(ValueError, cfcntl.ioctl, 0, termios.TIOCGPGRP, buf, 0)
-        # py.test.raises(ValueError, cfcntl.ioctl, 0, termios.TIOCGPGRP,
-        #                "a"*1025, 0)
+        if not os.isatty(0):
+            skip("stdin is not a tty")
+
+        buf = array.array('h', [0])
+        res = fcntl.ioctl(0, TIOCGPGRP, buf, True)
+        assert res == 0
+        assert buf[0] != 0
+        expected = buf.tostring()
+
+        if '__pypy__' in sys.builtin_module_names or sys.version_info >= (2,5):
+            buf = array.array('h', [0])
+            res = fcntl.ioctl(0, TIOCGPGRP, buf)
+            assert res == 0
+            assert buf.tostring() == expected
+
+        res = fcntl.ioctl(0, TIOCGPGRP, buf, False)
+        assert res == expected
+
+        raises(TypeError, fcntl.ioctl, 0, TIOCGPGRP, "\x00\x00", True)
+
+        res = fcntl.ioctl(0, TIOCGPGRP, "\x00\x00")
+        assert res == expected

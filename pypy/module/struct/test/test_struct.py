@@ -322,3 +322,56 @@ class AppTestStruct(object):
         assert pack("!B", -1.1) == '\xff'
         assert pack("!h", 0xa000) == '\xa0\x00'
         assert pack("!H", -2.2) == '\xff\xfe'
+
+
+    def test_unicode(self):
+        """
+        A PyPy extension: accepts the 'u' format character in native mode,
+        just like the array module does.  (This is actually used in the
+        implementation of our interp-level array module.)
+        """
+        data = self.struct.pack("uuu", u'X', u'Y', u'Z')
+        assert data == str(buffer(u'XYZ'))
+        assert self.struct.unpack("uuu", data) == (u'X', u'Y', u'Z')
+
+
+    def test_unpack_buffer(self):
+        """
+        Buffer objects can be passed to struct.unpack().
+        """
+        b = buffer(self.struct.pack("ii", 62, 12))
+        assert self.struct.unpack("ii", b) == (62, 12)
+        raises(self.struct.error, self.struct.unpack, "i", b)
+
+
+class AppTestStructBuffer(object):
+
+    def setup_class(cls):
+        """
+        Create a space with the struct and __pypy__ modules.
+        """
+        cls.space = gettestobjspace(usemodules=['struct', '__pypy__'])
+        cls.w_struct = cls.space.appexec([], """():
+            import struct
+            return struct
+        """)
+        cls.w_bytebuffer = cls.space.appexec([], """():
+            import __pypy__
+            return __pypy__.bytebuffer
+        """)
+
+    def test_pack_into(self):
+        b = self.bytebuffer(19)
+        sz = self.struct.calcsize("ii")
+        self.struct.pack_into("ii", b, 2, 17, 42)
+        assert b[:] == ('\x00' * 2 +
+                        self.struct.pack("ii", 17, 42) +
+                        '\x00' * (19-sz-2))
+
+    def test_unpack_from(self):
+        b = self.bytebuffer(19)
+        sz = self.struct.calcsize("ii")
+        b[2:2+sz] = self.struct.pack("ii", 17, 42)
+        assert self.struct.unpack_from("ii", b, 2) == (17, 42)
+        b[:sz] = self.struct.pack("ii", 18, 43)
+        assert self.struct.unpack_from("ii", b) == (18, 43)

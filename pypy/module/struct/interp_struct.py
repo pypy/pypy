@@ -34,4 +34,4 @@ def unpack(space, format, input):
     except StructError, e:
         raise e.at_applevel(space)
     return space.newtuple(fmtiter.result_w)
-unpack.unwrap_spec = [ObjSpace, str, str]
+unpack.unwrap_spec = [ObjSpace, str, 'bufferstr']

@@ -53,4 +53,6 @@ The variable struct.error is an exception raised on errors."""
 
     appleveldefs = {
         'error': 'app_struct.error',
+        'pack_into': 'app_struct.pack_into',
+        'unpack_from': 'app_struct.unpack_from',
         }

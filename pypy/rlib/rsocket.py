@@ -856,7 +856,7 @@ class RSocket(object):
     def send_raw(self, dataptr, length, flags=0):
         """Send data from a CCHARP buffer."""
         res = -1
-        timeout = self._select(False)
+        timeout = self._select(True)
         if timeout == 1:
             raise SocketTimeout
         elif timeout == 0:
@@ -895,7 +895,7 @@ class RSocket(object):
         """Like send(data, flags) but allows specifying the destination
         address.  (Note that 'flags' is mandatory here.)"""
         res = -1
-        timeout = self._select(False)
+        timeout = self._select(True)
         if timeout == 1:
             raise SocketTimeout
         elif timeout == 0:

@@ -853,6 +853,11 @@ class ObjSpace(object):
             if step == 0:
                 raise OperationError(self.w_ValueError,
                                      self.wrap("slice step cannot be zero"))
+            if start < 0:
+                start = 0
+            if stop < start:
+                stop = start
+            assert stop <= seqlength
         else:
             start = self.int_w(w_index_or_slice)
             if start < 0:
@@ -915,6 +920,38 @@ class ObjSpace(object):
             raise OperationError(self.w_ValueError,
                                  self.wrap('cannot convert negative integer '
                                            'to unsigned int'))
+
+    def buffer_w(self, w_obj):
+        # returns a Buffer instance
+        from pypy.interpreter.buffer import Buffer
+        w_buffer = self.buffer(w_obj)
+        return self.interp_w(Buffer, w_buffer)
+
+    def rwbuffer_w(self, w_obj):
+        # returns a RWBuffer instance
+        from pypy.interpreter.buffer import RWBuffer
+        buffer = self.buffer_w(w_obj)
+        if not isinstance(buffer, RWBuffer):
+            raise OperationError(self.w_TypeError,
+                                 self.wrap('read-write buffer expected'))
+        return buffer
+
+    def bufferstr_w(self, w_obj):
+        # Directly returns an interp-level str.  Note that if w_obj is a
+        # unicode string, this is different from str_w(buffer(w_obj)):
+        # indeed, the latter returns a string with the raw bytes from
+        # the underlying unicode buffer, but bufferstr_w() just converts
+        # the unicode to an ascii string.  This inconsistency is kind of
+        # needed because CPython has the same issue.  (Well, it's
+        # unclear if there is any use at all for getting the bytes in
+        # the unicode buffer.)
+        try:
+            return self.str_w(w_obj)
+        except OperationError, e:
+            if not e.match(self, self.w_TypeError):
+                raise
+            buffer = self.buffer_w(w_obj)
+            return buffer.as_str()
 
     def warn(self, msg, w_warningcls):
         self.appexec([self.wrap(msg), w_warningcls], """(msg, warningcls):
@@ -1020,6 +1057,7 @@ ObjSpace.MethodTable = [
     ('set',             'set',       3, ['__set__']),
     ('delete',          'delete',    2, ['__delete__']),
     ('userdel',         'del',       1, ['__del__']),
+    ('buffer',          'buffer',    1, ['__buffer__']),   # see buffer.py
     ]
 
 ObjSpace.BuiltinModuleTable = [

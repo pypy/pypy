@@ -104,6 +104,9 @@ class _CData(object):
     def _get_buffer_value(self):
         return self._buffer[0]
 
+    def __buffer__(self):
+        return buffer(self._buffer)
+
 def sizeof(tp):
     if not isinstance(tp, _CDataMeta):
         if isinstance(tp, _CData):

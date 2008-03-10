@@ -842,6 +842,11 @@ def str_encode__Rope_ANY_ANY(space, w_string, w_encoding=None, w_errors=None):
     encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
     return encode_object(space, w_string, encoding, errors)
 
+def buffer__Rope(space, w_string):
+    from pypy.interpreter.buffer import StringBuffer
+    value = w_string._node.flatten_string()      # XXX inefficient
+    return space.wrap(StringBuffer(value))
+
 
 # methods of the iterator
 

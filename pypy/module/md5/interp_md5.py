@@ -41,8 +41,9 @@ def W_MD5___new__(space, w_subtype, initialdata=''):
 
 W_MD5.typedef = TypeDef(
     'MD5Type',
-    __new__   = interp2app(W_MD5___new__, unwrap_spec=[ObjSpace, W_Root, str]),
-    update    = interp2app(W_MD5.update_w, unwrap_spec=['self', str]),
+    __new__   = interp2app(W_MD5___new__, unwrap_spec=[ObjSpace, W_Root,
+                                                       'bufferstr']),
+    update    = interp2app(W_MD5.update_w, unwrap_spec=['self', 'bufferstr']),
     digest    = interp2app(W_MD5.digest_w, unwrap_spec=['self']),
     hexdigest = interp2app(W_MD5.hexdigest_w, unwrap_spec=['self']),
     copy      = interp2app(W_MD5.copy_w, unwrap_spec=['self']),

@@ -297,7 +297,7 @@ class SSLObject(Wrappable):
             errstr, errval = _ssl_seterror(self.space, self, num_bytes)
             raise OperationError(self.space.w_Exception,
                 self.space.wrap("%s: %d" % (errstr, errval)))
-    write.unwrap_spec = ['self', str]
+    write.unwrap_spec = ['self', 'bufferstr']
     
     def read(self, num_bytes=1024):
         """read([len]) -> string

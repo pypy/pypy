@@ -547,3 +547,10 @@ class AppTestUnicodeString:
 
     def test_swapcase(self):
         assert u'\xe4\xc4\xdf'.swapcase() == u'\xc4\xe4\xdf'
+
+    def test_buffer(self):
+        buf = buffer(u'XY')
+        assert str(buf) in ['X\x00Y\x00',
+                            '\x00X\x00Y',
+                            'X\x00\x00\x00Y\x00\x00\x00',
+                            '\x00\x00\x00X\x00\x00\x00Y']
