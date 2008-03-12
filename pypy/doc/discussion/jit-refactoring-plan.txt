@@ -27,8 +27,10 @@ Rainbow Interpreter
       linked lists of frames anyway already
 
 
-"Plan B" Control Flow
----------------------
+"Hot Paths Only" Control Flow
+-----------------------------
+
+*Update: this is work in progress in the* ``jit-hotpath`` *branch*
 
 A few notes about a refactoring that I was thinking about for after the
 rainbow interpreter works nicely.  Let's use the Python interpreter as a
@@ -50,15 +52,16 @@ Hints
 ++++++++++++++++
 
 We'd replace portals and global merge points with the following variant:
-two hints, "can_enter_jit" and "global_merge_point", which are where the
-execution can go from interpreter to JITted and back.  As before,
-"global_merge_point" is present at the beginning of the main interpreter
+two hints, "can_enter_jit" and "jit_merge_point", which are where the
+execution can go from interpreter to JITted and back.
+Very similar to the older "global_merge_point", the
+"jit_merge_point" is present at the beginning of the main interpreter
 loop; in this model it has the additional meaning of being where the
 JIT can be *left* in order to go back to regular interpretation.
 
 The other hint, "can_enter_jit", is the place where some lightweight
 profiling occurs in order to know if we should enter the JIT.  It's
-important to not have one "can_enter_jit" for each opcode -- that's a
+important to not execute one "can_enter_jit" for each opcode -- that's a
 too heavy slow-down for regularly interpreted code (but it would be
 correct too).  A probably reasonable idea is to put it in the opcodes
 that close loops (JUMP_ABSOLUTE, CONTINUE).  This would make the regular
@@ -66,28 +69,87 @@ Python interpreter try to start JITting the Python-level loops that are
 often executed.  (In time, the JIT should follow calls too, so that
 means that the functions called by loops also get JITted.)
 
-If the profiling in "can_enter_jit" finds out we should start JITting,
-it calls the JIT, which compiles and executes some machine code, which
-makes the current function frame progress, maybe to its end or not, but
-at least to an opcode boundary; so when the call done by "can_enter_jit"
-returns the regular interpreter can simply continue from the new next
-opcode.  For this reason it's necessary to put "can_enter_jit" and
-"global_merge_point" next to each other, control-flow-wise --
-i.e. "can_enter_jit" should be at the end of JUMP_ABSOLUTE and CONTINUE,
-so that they are immediately followed by the "global_merge_point".
+The "can_enter_jit" is transformed into a call to a helper function,
+``maybe_enter_jit()``, with the following logic:
 
-Note that "can_enter_jit", in the regular interpreter, has another goal
-too: it should quickly check if machine code was already emitted for the
-next opcode, and if so, jump to it -- i.e. do a call to it.  As above
-the call to the machine code will make the current function execution
-progress and when it returns we can go on interpreting it.
+- If we have not seen this point often enough, return and continue
+  running normally in the regular interpreter.
+
+- The first time we reach the threshold, call the JIT to compile some
+  machine code.
+
+- Execute the machine code.
+
+Note that to make things easier the JIT compilation really starts at the
+unique "jit_merge_point".  So the "can_enter_jit" hints should all be
+put just before the "jit_merge_point", control-flow-wise --
+i.e. "can_enter_jit" should be at the end of JUMP_ABSOLUTE and CONTINUE,
+so that they are immediately followed by the "jit_merge_point" which is
+at the start of the next iteration of the interpreter main loop.
+
+The machine code makes the current Python frame progress, maybe to its
+end or not, but at least up to an opcode boundary (as explained later).
+To simplify things, in all cases the machine code raises an exception
+when it is done.  The reasoning is that the current Python frame has
+progressed, so that the original caller of ``maybe_enter_jit()`` now
+contains out of sync local variables.  Getting out with an exception
+gets rid of these.  There are three kinds of exception that can be
+raised here:
+
+- DoneWithThisFrame;
+- ContinueRunningNormally;
+- any other exception (corresponding to a regular exception raised by
+  the original Python interpreter).
+
+The DoneWithThisFrame exception is raised to mean that the machine code
+completed the execution of this frame (it carries the return value
+computed by the machine code).  The ContinueRunningNormally exception is
+raised when we want to switch back from machine code to regular
+non-JITted interpretation, which can only occur at a Python opcode
+boundary (this exception carries the new values needed to resume the
+regular interpreter, like the opcode position).
+
+To catch and handle these two special exceptions, we need to transform
+the graph of the regular interpreter -- we split it and insert a small
+wrapper.  Say the original interpreter is::
+
+       def my_interpreter(..):
+           stuff
+           while 1:
+               jit_merge_point(*live_vars)
+               more stuff
+
+We (automatically) mutate it so that it becomes::
+
+       def my_interpreter(..):
+           stuff
+           return portal_runner(*live_vars)
+
+       def portal_runner(*args):
+           """Small wrapper to handle the special JIT exceptions"""
+           while 1:
+               try:
+                   return portal(*args)
+               except ContinueRunningNormally, e:
+                   args = e.new_args
+                   continue
+               except DoneWithThisFrame, e:
+                   return e.result
+
+       def portal(*live_vars):
+           while 1:
+               more stuff
+
+++++++++++++++
+
+A few extra random notes:
 
 PyPy contains some custom logic to virtualize the frame and the value
 stack; in this new model it should go somewhere related to
 "can_enter_jit".
 
 The "can_enter_jit" hint becomes nothing in the rainbow interpreter's
-bytecode.  Conversely, the "global_merge_point" hint becomes nothing in
+bytecode.  Conversely, the "jit_merge_point" hint becomes nothing in
 the regular interpreter, but an important bytecode in the rainbow
 bytecode.
 
@@ -121,7 +183,7 @@ We would identify two kinds of red splits: the ones that just correspond
 to "simple if-then-else" patterns; and the "complicated" ones.  We can
 be more clever about simple if-then-else patterns, but for all other red
 splits, we would just stop emitting machine code.  The JIT puts in the
-machine code a jump to a special "fall-back rainbow interpreter".  This
+machine code a jump to a special "fallback rainbow interpreter".  This
 interpreter is a variant that considers everything as green and just
 interprets everything normally.  The idea is that when execution reaches
 the red split, in the middle of the rainbow bytecode of whatever
@@ -129,14 +191,14 @@ function of the Python interpreter, we only want to produce more machine
 code for the hot path; so we have to do something to continue executing
 when we don't want to generate more code immediately.
 
-The "something" in question, the fall-back rainbow interpreter, is quite
+The "something" in question, the fallback rainbow interpreter, is quite
 slow, but only runs until the end of the current opcode and can directly
 perform all nested calls instead of interpreting them.  When it reaches
-the "global_merge_point", it then returns; as described in the "hints"
-section this should be a return from the initial call to the JIT or the
-machine code -- a call which was in "can_enter_jit" in the regular
-interpreter.  So the control flow is now in the regular interpreter,
-which can go on interpreting at its normal speed from there.
+the "jit_merge_point", it raises ContinueRunningNormally; as described
+in the Hints_ section this should go all the way back to the
+``portal_runner()`` wrapper and cause the control flow to come back
+to the regular interpreter main loop, in ``portal()``.  The regular
+interpreter goes on interpreting at its normal speed from there.
 
 All in all I guess that there is a chance that the fallback rainbow
 interpreter is not too much of an overhead.  The important point is that
@@ -144,7 +206,7 @@ whenever we use the fallback rainbow interpreter, we also update
 counters, and when enough executions have been seen, we compile the hot
 path (and only the hot path, unless we find out quickly that the other
 path is hot enough too).  So after the compilation converges overall,
-the fallback rainbow interpreter is only ever executed on the cold
+the fallback rainbow interpreter is no longer executed except on the cold
 paths.
 
 As noted above, we can (later) be clever about simple if-then-else
@@ -161,8 +223,8 @@ directly compile machine code like::
         x += 1
     do_more_stuff
 
-Promotions are similar to red splits -- go to the fall-back rainbow
-interpreter, which update counters, and later resumes compilation for
+Promotions are similar to red splits -- update counters and go to the
+fallback rainbow interpreter, and later resume compilation for
 the values that seem to be hot.  For further improvements, this also
 makes it easy to decide, looking at the counters, that a site is
 "megamorphic", i.e. receives tons of different values with no clear
@@ -188,7 +250,7 @@ maintain (and linearly scan through) more than one state per green key.
 Random improvement ideas
 ++++++++++++++++++++++++++++++++
 
-- in the "global_merge_point", so far we'd
+- in the "jit_merge_point", so far we'd
   record one state snapshot for each opcode; instead, we can
   use the idea implemented in the flow object space of only
   recording the state at the beginning of an opcode that actually
