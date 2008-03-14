@@ -241,6 +241,8 @@ class AppTestInterpObjectPickling:
         assert mod is result
     
     def test_pickle_buffer(self):
+        skip("Can't pickle buffer objects on top of CPython either.  "
+             "Do we really need it?")
         import pickle
         a = buffer('ABCDEF')
         pckl     = pickle.dumps(a)
