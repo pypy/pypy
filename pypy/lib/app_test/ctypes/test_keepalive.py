@@ -176,7 +176,6 @@ class TestKeepalive:
         assert s._objects == {'1': {}, '0:1': {'1': stuff}}
 
     def test_union_within_union(self):
-        py.test.skip("WIP")        
         class R(Union):
             _fields_ = [('p', POINTER(c_int))]
         

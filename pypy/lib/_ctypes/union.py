@@ -101,6 +101,15 @@ class Union(_CData):
             raise AttributeError(name)
         if getattr(value, '_objects', None) is not None:
             key = keepalive_key(getattr(self.__class__, name).num)
-            store_reference(self, key, value._objects)        
-        buf = self._ffiarrays[name].fromaddress(self._buffer.buffer, 1)
-        buf[0] = fieldtype._CData_value(value)
+            store_reference(self, key, value._objects)
+        arg = fieldtype._CData_value(value)
+        if fieldtype._fficompositesize is not None:
+            from ctypes import memmove
+            dest = self._buffer.buffer
+            memmove(dest, arg, fieldtype._fficompositesize)
+        else:
+            buf = self._ffiarrays[name].fromaddress(self._buffer.buffer, 1)
+            buf[0] = arg
+
+    def _get_buffer_value(self):
+        return self._buffer.buffer
