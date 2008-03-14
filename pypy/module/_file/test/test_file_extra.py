@@ -350,9 +350,6 @@ class AppTestLargeBufferUniversal(AppTestUniversalNewlines):
 
 class AppTestAFewExtra:
 
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['array'])
-
     def setup_method(self, method):
         fn = str(udir.join('temptestfile'))
         self.w_temptestfile = self.space.wrap(fn)
