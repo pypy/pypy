@@ -158,7 +158,6 @@ class TestKeepalive:
         assert s._objects == {'1:1': {'1': stuff}}
 
     def test_struct_within_struct(self):
-        py.test.skip("WIP")
         class R(Structure):
             _fields_ = [('p', POINTER(c_int))]
         

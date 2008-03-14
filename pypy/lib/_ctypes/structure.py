@@ -148,7 +148,7 @@ class StructureMeta(_CDataMeta):
 
     def _CData_value(self, value):
         if isinstance(value, tuple):
-            return self(*value)
+            value = self(*value)
         return _CDataMeta._CData_value(self, value)
 
     def _CData_output(self, resarray, base=None, index=-1):
@@ -188,7 +188,7 @@ class Structure(_CData):
         if fieldtype._fficompositesize is not None:
             from ctypes import memmove
             dest = self._buffer.fieldaddress(name)
-            memmove(dest, arg._buffer.buffer, fieldtype._fficompositesize)
+            memmove(dest, arg, fieldtype._fficompositesize)
         else:
             self._buffer.__setattr__(name, arg)
 

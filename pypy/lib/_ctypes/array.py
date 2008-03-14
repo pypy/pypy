@@ -97,12 +97,12 @@ class ArrayMeta(_CDataMeta):
             if isinstance(value, basestring):
                 if len(value) > self._length_:
                     raise ValueError("Invalid length")
-                return self(*value)
+                value = self(*value)
         else:
             if isinstance(value, tuple):
                 if len(value) > self._length_:
                     raise RuntimeError("Invalid length")
-                return self(*value)
+                value = self(*value)
         return _CDataMeta._CData_value(self, value)
 
 def array_get_slice_params(self, index):
