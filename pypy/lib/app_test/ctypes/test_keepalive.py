@@ -47,7 +47,6 @@ class TestKeepalive:
         assert n._objects is not None
 
     def test_union_with_pointers(self):
-        py.test.skip("WIP")
         class X(Union):
             _fields_ = [('x', POINTER(c_int)),
                         ('y', POINTER(c_int))]
@@ -123,7 +122,6 @@ class TestKeepalive:
         assert a._objects['0:3']['1'] is s
 
     def test_array_of_union_with_pointer(self):
-        py.test.skip("WIP")
         class S(Structure):
             _fields_ = [('x', c_int)]
         PS = POINTER(S)
@@ -150,7 +148,6 @@ class TestKeepalive:
         assert s._objects == {'1:1': {'1': stuff}}
 
     def test_union_with_inlined_array(self):
-        py.test.skip("WIP")
         class S(Union):
             _fields_ = [('b', c_int),
                         ('a', POINTER(c_int) * 2)]

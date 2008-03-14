@@ -1,7 +1,7 @@
 
 
 import _rawffi
-from _ctypes.basics import _CData, _CDataMeta
+from _ctypes.basics import _CData, _CDataMeta, store_reference, keepalive_key
 from _ctypes.structure import round_up, names_and_fields, struct_getattr,\
      struct_setattr
 import inspect
@@ -33,6 +33,7 @@ class UnionMeta(_CDataMeta):
                 raise TypeError("Cannot instantiate union, has no type")
             # malloc size
             size = self.__class__._sizeofinstances()
+            self.__dict__['_objects'] = {}
             self.__dict__['_buffer'] = self._ffiopaque(autofree=True)
         res.__init__ = __init__
         return res
@@ -65,6 +66,22 @@ class UnionMeta(_CDataMeta):
             _set_shape(self)
         _CDataMeta.__setattr__(self, name, value)
 
+    #def _CData_output(self, resarray, base=None, index=-1):
+    #    res = self.__new__(self)
+    #    ffistruct = self._ffiopaque.fromaddress(resarray.buffer)
+    #    res.__dict__['_buffer'] = ffistruct
+    #    res.__dict__['_base'] = base
+    #    res.__dict__['_index'] = index
+    #    return res.__ctypes_from_outparam__()
+    
+    #def _CData_retval(self, resbuffer):
+    #    res = self.__new__(self)
+    #    res.__dict__['_buffer'] = resbuffer
+    #    res.__dict__['_base'] = None
+    #    res.__dict__['_index'] = -1
+    #    return res.__ctypes_from_outparam__()
+
+
 class Union(_CData):
     __metaclass__ = UnionMeta
 
@@ -74,12 +91,16 @@ class Union(_CData):
         except KeyError:
             raise AttributeError(name)
         val = self._ffiarrays[name].fromaddress(self._buffer.buffer, 1)
-        return fieldtype._CData_output(val)
+        offset = self.__class__._fieldtypes[name].num        
+        return fieldtype._CData_output(val, self, offset)
 
     def __setattr__(self, name, value):
         try:
             fieldtype = self._fieldtypes[name].ctype
         except KeyError:
             raise AttributeError(name)
+        if getattr(value, '_objects', None) is not None:
+            key = keepalive_key(getattr(self.__class__, name).num)
+            store_reference(self, key, value._objects)        
         buf = self._ffiarrays[name].fromaddress(self._buffer.buffer, 1)
         buf[0] = fieldtype._CData_value(value)
