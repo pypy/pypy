@@ -64,3 +64,91 @@ class AppTestBuffer:
         assert buffer('ab') * (-2) == ''
         assert 5 * buffer('ab') == 'ababababab'
         assert (-2) * buffer('ab') == ''
+
+    def test_offset_size(self):
+        b = buffer('hello world', 6)
+        assert len(b) == 5
+        assert b[0] == 'w'
+        assert b[:] == 'world'
+        raises(IndexError, 'b[5]')
+        b = buffer(b, 2)
+        assert len(b) == 3
+        assert b[0] == 'r'
+        assert b[:] == 'rld'
+        raises(IndexError, 'b[3]')
+        b = buffer('hello world', 1, 8)
+        assert len(b) == 8
+        assert b[0] == 'e'
+        assert b[:] == 'ello wor'
+        raises(IndexError, 'b[8]')
+        b = buffer(b, 2, 3)
+        assert len(b) == 3
+        assert b[2] == ' '
+        assert b[:] == 'lo '
+        raises(IndexError, 'b[3]')
+        b = buffer('hello world', 55)
+        assert len(b) == 0
+        assert b[:] == ''
+        b = buffer('hello world', 6, 999)
+        assert len(b) == 5
+        assert b[:] == 'world'
+
+        raises(ValueError, buffer, "abc", -1)
+        raises(ValueError, buffer, "abc", 0, -2)
+
+    def test_rw_offset_size(self):
+        import array
+
+        a = array.array("c", 'hello world')
+        b = buffer(a, 6)
+        assert len(b) == 5
+        assert b[0] == 'w'
+        assert b[:] == 'world'
+        raises(IndexError, 'b[5]')
+        b[0] = 'W'
+        assert str(b) == 'World'
+        assert a.tostring() == 'hello World'
+        b[:] = '12345'
+        assert a.tostring() == 'hello 12345'
+        raises(IndexError, 'b[5] = "."')
+
+        b = buffer(b, 2)
+        assert len(b) == 3
+        assert b[0] == '3'
+        assert b[:] == '345'
+        raises(IndexError, 'b[3]')
+        b[1] = 'X'
+        assert a.tostring() == 'hello 123X5'
+        raises(IndexError, 'b[3] = "."')
+
+        a = array.array("c", 'hello world')
+        b = buffer(a, 1, 8)
+        assert len(b) == 8
+        assert b[0] == 'e'
+        assert b[:] == 'ello wor'
+        raises(IndexError, 'b[8]')
+        b[0] = 'E'
+        assert str(b) == 'Ello wor'
+        assert a.tostring() == 'hEllo world'
+        b[:] = '12345678'
+        assert a.tostring() == 'h12345678ld'
+        raises(IndexError, 'b[8] = "."')
+
+        b = buffer(b, 2, 3)
+        assert len(b) == 3
+        assert b[2] == '5'
+        assert b[:] == '345'
+        raises(IndexError, 'b[3]')
+        b[1] = 'X'
+        assert a.tostring() == 'h123X5678ld'
+        raises(IndexError, 'b[3] = "."')
+
+        b = buffer(a, 55)
+        assert len(b) == 0
+        assert b[:] == ''
+        b = buffer(a, 6, 999)
+        assert len(b) == 5
+        assert b[:] == '678ld'
+
+        raises(ValueError, buffer, a, -1)
+        raises(ValueError, buffer, a, 0, -2)

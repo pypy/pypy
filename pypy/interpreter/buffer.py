@@ -151,15 +151,28 @@ class RWBuffer(Buffer):
             self.setitem(start + i, string[i])
 
 
-def descr_buffer__new__(space, w_subtype, w_object):  #, offset, size
+def descr_buffer__new__(space, w_subtype, w_object, offset=0, size=-1):
     # w_subtype can only be exactly 'buffer' for now
     if not space.is_w(w_subtype, space.gettypefor(Buffer)):
         raise OperationError(space.w_TypeError,
                              space.wrap("argument 1 must be 'buffer'"))
     w_buffer = space.buffer(w_object)
-    space.interp_w(Buffer, w_buffer)    # type-check
-    return w_buffer
-descr_buffer__new__.unwrap_spec = [ObjSpace, W_Root, W_Root]
+    buffer = space.interp_w(Buffer, w_buffer)    # type-check
+    if offset == 0 and size == -1:
+        return w_buffer
+    # handle buffer slices
+    if offset < 0:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("offset must be zero or positive"))
+    if size < -1:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("size must be zero or positive"))
+    if isinstance(buffer, RWBuffer):
+        buffer = RWSubBuffer(buffer, offset, size)
+    else:
+        buffer = SubBuffer(buffer, offset, size)
+    return space.wrap(buffer)
+descr_buffer__new__.unwrap_spec = [ObjSpace, W_Root, W_Root, int, int]
 
 
 Buffer.typedef = TypeDef(
@@ -241,3 +254,45 @@ class StringLikeBuffer(Buffer):
         s = space.str_w(space.getslice(self.w_obj, space.wrap(start),
                                                    space.wrap(stop)))
         return s
+
+# ____________________________________________________________
+
+class SubBufferMixin(object):
+    _mixin_ = True
+
+    def __init__(self, buffer, offset, size):
+        self.buffer = buffer
+        self.offset = offset
+        self.size = size
+
+    def getlength(self):
+        at_most = self.buffer.getlength() - self.offset
+        if 0 <= self.size <= at_most:
+            return self.size
+        elif at_most >= 0:
+            return at_most
+        else:
+            return 0
+
+    def getitem(self, index):
+        return self.buffer.getitem(self.offset + index)
+
+    def getslice(self, start, stop):
+        if start == stop:
+            return ''     # otherwise, adding self.offset might make them
+                          # out of bounds
+        return self.buffer.getslice(self.offset + start, self.offset + stop)
+
+class SubBuffer(SubBufferMixin, Buffer):
+    pass
+
+class RWSubBuffer(SubBufferMixin, RWBuffer):
+
+    def setitem(self, index, char):
+        self.buffer.setitem(self.offset + index, char)
+
+    def setslice(self, start, string):
+        if len(string) == 0:
+            return        # otherwise, adding self.offset might make 'start'
+                          # out of bounds
+        self.buffer.setslice(self.offset + start, string)
