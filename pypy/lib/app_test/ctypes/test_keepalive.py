@@ -37,9 +37,9 @@ class TestKeepalive:
         x.y = q
         assert p._objects == {'1': u}
         assert q._objects == {'1': w}
-        py.test.skip("impl discrepancy")
         assert x._objects == {'0': p._objects, '1': q._objects}
 
+        py.test.skip("and now we go for a real bug")
         n = POINTER(c_int)()
         x.x = n
         x.y = n

@@ -182,7 +182,7 @@ class Structure(_CData):
         except KeyError:
             raise AttributeError(name)
         if getattr(value, '_objects', None):
-            key = keepalive_key(getattr(self.__class__, name).offset)
+            key = keepalive_key(getattr(self.__class__, name).num)
             store_reference(self, key, value._objects)
         arg = fieldtype._CData_value(value)
         if fieldtype._fficompositesize is not None:
