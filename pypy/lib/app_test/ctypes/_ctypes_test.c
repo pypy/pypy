@@ -508,3 +508,14 @@ EXPORT (HRESULT) KeepObject(IUnknown *punk)
 }
 
 #endif
+
+typedef union {
+	short x;
+	long y;
+} UN;
+
+EXPORT(UN) ret_un_func(UN inp)
+{
+	inp.y = inp.x * 10000;
+	return inp;
+}

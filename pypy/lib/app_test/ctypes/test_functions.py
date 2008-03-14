@@ -403,3 +403,15 @@ class TestFunctions(BaseCTypesTestChecker):
         callback = proto(callback)
         raises(ArgumentError, lambda: callback((1, 2, 3, 4), POINT()))
 
+    def test_union_as_passed_value(self):
+        py.test.skip("WIP")
+        class UN(Union):
+            _fields_ = [("x", c_short),
+                        ("y", c_long)]
+        dll.ret_un_func.restype = UN
+        dll.ret_un_func.argtypes = [UN]
+        A = UN * 2
+        a = A()
+        a[1].x = 33
+        u = dll.ret_un_func(a[1])
+        assert u.y == 33*10000
