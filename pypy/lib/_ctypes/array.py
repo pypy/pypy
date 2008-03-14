@@ -160,7 +160,7 @@ class Array(_CData):
             self._slice_setitem(index, value)
             return
         index = self._fix_index(index)
-        if getattr(value, '_objects', None):
+        if getattr(value, '_objects', None) is not None:
             store_reference(self, index, value._objects)
         arg = self._type_._CData_value(value)
         if self._type_._fficompositesize is None:

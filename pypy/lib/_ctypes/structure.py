@@ -181,7 +181,7 @@ class Structure(_CData):
             fieldtype = self._fieldtypes[name].ctype
         except KeyError:
             raise AttributeError(name)
-        if getattr(value, '_objects', None):
+        if getattr(value, '_objects', None) is not None:
             key = keepalive_key(getattr(self.__class__, name).num)
             store_reference(self, key, value._objects)
         arg = fieldtype._CData_value(value)

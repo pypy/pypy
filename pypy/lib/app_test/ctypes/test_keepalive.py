@@ -39,11 +39,12 @@ class TestKeepalive:
         assert q._objects == {'1': w}
         assert x._objects == {'0': p._objects, '1': q._objects}
 
-        py.test.skip("and now we go for a real bug")
         n = POINTER(c_int)()
         x.x = n
         x.y = n
         assert x._objects == {'0': n._objects, '1': n._objects}
+        assert x._objects['0'] is n._objects
+        assert n._objects is not None
 
     def test_union_with_pointers(self):
         py.test.skip("WIP")
@@ -71,7 +72,9 @@ class TestKeepalive:
         x.x = n
         x.y = n
         assert x._objects == {'0': n._objects, '1': n._objects}
-
+        assert x._objects['0'] is n._objects
+        assert n._objects is not None
+        
     def test_pointer_setitem(self):
         x = c_int(2)
         y = c_int(3)
