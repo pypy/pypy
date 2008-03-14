@@ -404,7 +404,6 @@ class TestFunctions(BaseCTypesTestChecker):
         raises(ArgumentError, lambda: callback((1, 2, 3, 4), POINT()))
 
     def test_union_as_passed_value(self):
-        py.test.skip("WIP")
         class UN(Union):
             _fields_ = [("x", c_short),
                         ("y", c_long)]

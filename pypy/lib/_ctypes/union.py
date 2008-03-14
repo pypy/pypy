@@ -66,20 +66,20 @@ class UnionMeta(_CDataMeta):
             _set_shape(self)
         _CDataMeta.__setattr__(self, name, value)
 
-    #def _CData_output(self, resarray, base=None, index=-1):
-    #    res = self.__new__(self)
-    #    ffistruct = self._ffiopaque.fromaddress(resarray.buffer)
-    #    res.__dict__['_buffer'] = ffistruct
-    #    res.__dict__['_base'] = base
-    #    res.__dict__['_index'] = index
-    #    return res.__ctypes_from_outparam__()
+    def _CData_output(self, resarray, base=None, index=-1):
+        res = self.__new__(self)
+        ffiopaque = self._ffiopaque.fromaddress(resarray.buffer)
+        res.__dict__['_buffer'] = ffiopaque
+        res.__dict__['_base'] = base
+        res.__dict__['_index'] = index
+        return res.__ctypes_from_outparam__()
     
-    #def _CData_retval(self, resbuffer):
-    #    res = self.__new__(self)
-    #    res.__dict__['_buffer'] = resbuffer
-    #    res.__dict__['_base'] = None
-    #    res.__dict__['_index'] = -1
-    #    return res.__ctypes_from_outparam__()
+    def _CData_retval(self, resbuffer):
+        res = self.__new__(self)
+        res.__dict__['_buffer'] = resbuffer
+        res.__dict__['_base'] = None
+        res.__dict__['_index'] = -1
+        return res.__ctypes_from_outparam__()
 
 
 class Union(_CData):
