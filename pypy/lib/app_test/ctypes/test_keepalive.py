@@ -21,7 +21,8 @@ class TestKeepalive:
 
     def test_structure_with_pointers(self):
         class X(Structure):
-            _fields_ = [('x', POINTER(c_int))]
+            _fields_ = [('x', POINTER(c_int)),
+                        ('y', POINTER(c_int))]
 
         x = X()
         u = c_int(3)
@@ -30,6 +31,46 @@ class TestKeepalive:
         assert x.x._objects is None
         assert p._objects == {'1': u}
         assert x._objects == {'0': p._objects}
+
+        w = c_int(4)
+        q = pointer(w)
+        x.y = q
+        assert p._objects == {'1': u}
+        assert q._objects == {'1': w}
+        py.test.skip("impl discrepancy")
+        assert x._objects == {'0': p._objects, '1': q._objects}
+
+        n = POINTER(c_int)()
+        x.x = n
+        x.y = n
+        assert x._objects == {'0': n._objects, '1': n._objects}
+
+    def test_union_with_pointers(self):
+        py.test.skip("WIP")
+        class X(Union):
+            _fields_ = [('x', POINTER(c_int)),
+                        ('y', POINTER(c_int))]
+
+        x = X()
+        u = c_int(3)
+        p = pointer(u)
+        x.x = p
+        assert x.x._objects is None
+        assert p._objects == {'1': u}
+        assert x._objects == {'0': p._objects}
+
+        # unions works just like structures it seems
+        w = c_int(4)
+        q = pointer(w)
+        x.y = q
+        assert p._objects == {'1': u}
+        assert q._objects == {'1': w}
+        assert x._objects == {'0': p._objects, '1': q._objects}
+
+        n = POINTER(c_int)()
+        x.x = n
+        x.y = n
+        assert x._objects == {'0': n._objects, '1': n._objects}
 
     def test_pointer_setitem(self):
         x = c_int(2)
@@ -78,8 +119,36 @@ class TestKeepalive:
 
         assert a._objects['0:3']['1'] is s
 
+    def test_array_of_union_with_pointer(self):
+        py.test.skip("WIP")
+        class S(Structure):
+            _fields_ = [('x', c_int)]
+        PS = POINTER(S)
+
+        class Q(Union):
+            _fields_ = [('p', PS), ('x', c_int)]
+
+        A = Q*10
+        a=A()
+        s=S()
+        s.x=3
+        a[3].p = pointer(s)
+
+        assert a._objects['0:3']['1'] is s        
+
     def test_struct_with_inlined_array(self):
         class S(Structure):
+            _fields_ = [('b', c_int),
+                        ('a', POINTER(c_int) * 2)]
+
+        s = S()
+        stuff = c_int(2)
+        s.a[1] = pointer(stuff)
+        assert s._objects == {'1:1': {'1': stuff}}
+
+    def test_union_with_inlined_array(self):
+        py.test.skip("WIP")
+        class S(Union):
             _fields_ = [('b', c_int),
                         ('a', POINTER(c_int) * 2)]
 
