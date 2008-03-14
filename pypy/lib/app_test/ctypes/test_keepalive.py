@@ -156,3 +156,41 @@ class TestKeepalive:
         stuff = c_int(2)
         s.a[1] = pointer(stuff)
         assert s._objects == {'1:1': {'1': stuff}}
+
+    def test_struct_within_struct(self):
+        py.test.skip("WIP")
+        class R(Structure):
+            _fields_ = [('p', POINTER(c_int))]
+        
+        class S(Structure):
+            _fields_ = [('b', c_int),
+                        ('r', R)]
+
+        s = S()
+        stuff = c_int(2)
+        s.r.p = pointer(stuff)
+        assert s._objects == {'0:1': {'1': stuff}}
+
+        r = R()
+        s.r = r
+        # obscure
+        assert s._objects == {'1': {}, '0:1': {'1': stuff}}
+
+    def test_union_within_union(self):
+        py.test.skip("WIP")        
+        class R(Union):
+            _fields_ = [('p', POINTER(c_int))]
+        
+        class S(Union):
+            _fields_ = [('b', c_int),
+                        ('r', R)]
+
+        s = S()
+        stuff = c_int(2)
+        s.r.p = pointer(stuff)
+        assert s._objects == {'0:1': {'1': stuff}}
+        
+        r = R()
+        s.r = r
+        # obscure        
+        assert s._objects == {'1': {}, '0:1': {'1': stuff}}
