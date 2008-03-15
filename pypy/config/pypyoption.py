@@ -278,6 +278,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
 #                             ("objspace.std.withfastslice", True),
                              ("objspace.std.withprebuiltchar", True),
                              ("objspace.std.optimized_int_add", True),
+                             ("translation.list_comprehension_operations",True),
                              ],
                    cmdline="--allopts --faassen", negation=False),
 
