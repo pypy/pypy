@@ -42,6 +42,9 @@ class TestArrayOnTopOfCPython(BaseArrayTests):
         execfile(str(path), myarraymodule.__dict__)
         cls.array = myarraymodule
 
+    def test_unicode(self):
+        py.test.skip("no 'u' type code in CPython's struct module")
+
 
 class AppTestArray(BaseArrayTests):
     usemodules = ['struct']
