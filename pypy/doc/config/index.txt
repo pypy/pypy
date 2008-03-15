@@ -44,9 +44,9 @@ with which other PyPy features:
 .. image:: ../image/compat-matrix.png
 
 .. _`configuration`: ../configuration.html
-.. _`objspace options`: commandline.html#overwiew-of-command-line-options-for-objspace
-.. _`object space options`: commandline.html#overwiew-of-command-line-options-for-objspace
-.. _`translation options`: commandline.html#overwiew-of-command-line-options-for-translation
+.. _`objspace options`: commandline.html#overview-of-command-line-options-for-objspace
+.. _`object space options`: commandline.html#overview-of-command-line-options-for-objspace
+.. _`translation options`: commandline.html#overview-of-command-line-options-for-translation
 .. _`overview`: commandline.html
 .. _`Standard Interpreter Optimizations`: ../interpreter-optimizations.html
 .. _`What PyPy can do for your objects`: ../objspace-proxies.html
