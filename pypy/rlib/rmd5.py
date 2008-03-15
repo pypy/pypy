@@ -66,19 +66,17 @@ def _state2hexstring(a, b, c, d):
         hx[(d>>20)&0xF], hx[(d>>16)&0xF], hx[(d>>28)&0xF], hx[(d>>24)&0xF],
         ])
 
-def _string2uintlist(s, start=0, count=16):
+def _string2uintlist(s, start, count, result):
     """Build a list of count r_uint's by unpacking the string
     s[start:start+4*count] in little-endian order.
     """
-    result = []
     for i in range(count):
         p = start + i * 4
         x = r_uint(ord(s[p]))
         x |= r_uint(ord(s[p+1])) << 8
         x |= r_uint(ord(s[p+2])) << 16
         x |= r_uint(ord(s[p+3])) << 24
-        result.append(x)
-    return result
+        result[i] = x
 
 
 # ======================================================================
@@ -136,6 +134,7 @@ class RMD5(object):
         """
         self.count = r_ulonglong(0)   # total number of bytes
         self.input = ""   # pending unprocessed data, < 64 bytes
+        self.uintbuffer = [r_uint(0)] * 16
 
         # Load magic initialization constants.
         self.A = r_uint(0x67452301L)
@@ -269,12 +268,12 @@ class RMD5(object):
 
         # Append length (before padding).
         assert len(self.input) == 56
-        bits = _string2uintlist(self.input, 0, 56 // 4)
+        W = self.uintbuffer
+        _string2uintlist(self.input, 0, 14, W)
         length_in_bits = count << 3
-        bits.append(r_uint(length_in_bits))
-        bits.append(r_uint(length_in_bits >> 32))
-
-        self._transform(bits)
+        W[14] = r_uint(length_in_bits)
+        W[15] = r_uint(length_in_bits >> 32)
+        self._transform(W)
 
         # Store state in digest.
         digest = digestfunc(self.A, self.B, self.C, self.D)
@@ -315,11 +314,14 @@ class RMD5(object):
         assert partLen > 0
 
         if leninBuf >= partLen:
+            W = self.uintbuffer
             self.input = self.input + inBuf[:partLen]
-            self._transform(_string2uintlist(self.input))
+            _string2uintlist(self.input, 0, 16, W)
+            self._transform(W)
             i = partLen
             while i + 64 <= leninBuf:
-                self._transform(_string2uintlist(inBuf, i))
+                _string2uintlist(inBuf, i, 16, W)
+                self._transform(W)
                 i = i + 64
             else:
                 self.input = inBuf[i:leninBuf]
