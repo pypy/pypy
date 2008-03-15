@@ -220,6 +220,30 @@ def test_detect_list_comprehension():
         'hint': 2,
         }
 
+def test_detect_list_comprehension_with_exc():
+    def g(x):
+        return x * 17
+    def free_some_stuff():
+        pass
+    def f1(l):
+        try:
+            return [g(x) for x in l]
+        finally:
+            free_some_stuff()
+
+    t = TranslationContext(list_comprehension_operations=True)
+    graph = t.buildflowgraph(f1)
+    if conftest.option.view:
+        graph.show()
+    assert summary(graph) == {
+        'newlist': 1,
+        'iter': 1,
+        'next': 1,
+        'getattr': 1,
+        'simple_call': 4,
+        'hint': 2,
+        }
+
 class TestLLSpecializeListComprehension:
     typesystem = 'lltype'
 

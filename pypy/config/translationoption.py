@@ -135,7 +135,7 @@ translation_optiondescription = OptionDescription(
                "operations that results from a list comprehension and "
                "attempt to pre-allocate the list",
                default=False,
-               cmdline=None),
+               cmdline='--listcompr'),
     ChoiceOption("fork_before",
                  "(UNIX) Create restartable checkpoint before step",
                  ["annotate", "rtype", "backendopt", "database", "source",

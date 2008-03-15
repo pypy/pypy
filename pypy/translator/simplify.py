@@ -744,12 +744,12 @@ def detect_list_comprehension(graph):
         if (len(block.operations) == 1 and
             block.operations[0].opname == 'next' and
             block.exitswitch == c_last_exception and
-            len(block.exits) == 2 and
-            block.exits[1].exitcase is StopIteration and
-            block.exits[0].exitcase is None):
-            # it's a straightforward loop start block
-            loopnextblocks.append((block, block.operations[0].args[0]))
-            continue
+            len(block.exits) >= 2):
+            cases = [link.exitcase for link in block.exits]
+            if None in cases and StopIteration in cases:
+                # it's a straightforward loop start block
+                loopnextblocks.append((block, block.operations[0].args[0]))
+                continue
         for op in block.operations:
             if op.opname == 'newlist' and not op.args:
                 vlist = variable_families.find_rep(op.result)
@@ -958,9 +958,13 @@ class ListComprehensionDetector(object):
 
             # ... and when the iterator is exhausted, we should no longer
             # reach 'append' at all.
-            assert loopnextblock.exits[1].exitcase is StopIteration
-            stopblock = loopnextblock.exits[1].target
-            if self.reachable(stopblock, appendblock, avoid=newlistblock):
+            stopblocks = [link.target for link in loopnextblock.exits
+                                      if link.exitcase is not None]
+            accepted = True
+            for stopblock1 in stopblocks:
+                if self.reachable(stopblock1, appendblock, avoid=newlistblock):
+                    accepted = False
+            if not accepted:
                 continue
 
             # now explicitly find the "loop body" blocks: they are the ones
@@ -1000,7 +1004,8 @@ class ListComprehensionDetector(object):
         # Found a suitable loop, let's patch the graph:
         assert iterblock not in loopbody
         assert loopnextblock in loopbody
-        assert stopblock not in loopbody
+        for stopblock1 in stopblocks:
+            assert stopblock1 not in loopbody
 
         # at StopIteration, the new list is exactly of the same length as
         # the one we iterate over if it's not possible to skip the appendblock
@@ -1040,7 +1045,7 @@ class ListComprehensionDetector(object):
                         continue  # list not passed along this link anyway
                     hints = {'fence': True}
                     if (exactlength and block is loopnextblock and
-                        link.target is stopblock):
+                        link.target in stopblocks):
                         hints['exactlength'] = True
                     chints = Constant(hints)
                     newblock = insert_empty_block(None, link)
