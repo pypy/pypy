@@ -202,47 +202,63 @@ def test_transform_dead_op_vars_bug():
     e = py.test.raises(LLException, 'interp.eval_graph(graph, [])')
     assert 'ValueError' in str(e)
 
-def test_detect_list_comprehension():
-    def f1(l):
-        return [x*17 for x in l]
+class TestDetectListComprehension:
+    def check(self, f1, expected):
+        t = TranslationContext(list_comprehension_operations=True)
+        graph = t.buildflowgraph(f1)
+        if conftest.option.view:
+            graph.show()
+        assert summary(graph) == expected
 
-    t = TranslationContext(list_comprehension_operations=True)
-    graph = t.buildflowgraph(f1)
-    if conftest.option.view:
-        graph.show()
-    assert summary(graph) == {
-        'newlist': 1,
-        'iter': 1,
-        'next': 1,
-        'mul':  1,
-        'getattr': 1,
-        'simple_call': 1,
-        'hint': 2,
-        }
+    def test_simple(self):
+        def f1(l):
+            return [x*17 for x in l]
+        self.check(f1, {
+            'newlist': 1,
+            'iter': 1,
+            'next': 1,
+            'mul':  1,
+            'getattr': 1,
+            'simple_call': 1,
+            'hint': 2,
+            })
 
-def test_detect_list_comprehension_with_exc():
-    def g(x):
-        return x * 17
-    def free_some_stuff():
-        pass
-    def f1(l):
-        try:
-            return [g(x) for x in l]
-        finally:
-            free_some_stuff()
+    def test_with_exc(self):
+        def g(x):
+            return x * 17
+        def free_some_stuff():
+            pass
+        def f1(l):
+            try:
+                return [g(x) for x in l]
+            finally:
+                free_some_stuff()
+        self.check(f1, {
+            'newlist': 1,
+            'iter': 1,
+            'next': 1,
+            'getattr': 1,
+            'simple_call': 4,
+            'hint': 2,
+            })
 
-    t = TranslationContext(list_comprehension_operations=True)
-    graph = t.buildflowgraph(f1)
-    if conftest.option.view:
-        graph.show()
-    assert summary(graph) == {
-        'newlist': 1,
-        'iter': 1,
-        'next': 1,
-        'getattr': 1,
-        'simple_call': 4,
-        'hint': 2,
-        }
+    def test_canraise_before_iter(self):
+        def g(l):
+            return l
+        def f1(l):
+            try:
+                return [x*17 for x in g(l)]
+            except ValueError:
+                return []
+        self.check(f1, {
+            'newlist': 2,
+            'iter': 1,
+            'next': 1,
+            'mul':  1,
+            'getattr': 1,
+            'simple_call': 2,
+            'hint': 2,
+            })
 
 class TestLLSpecializeListComprehension:
     typesystem = 'lltype'

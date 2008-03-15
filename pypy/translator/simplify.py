@@ -812,12 +812,14 @@ class ListComprehensionDetector(object):
         self.variable_families = variable_families
         self.reachable_cache = {}
 
-    def enum_blocks_from(self, fromblock, avoid):
+    def enum_blocks_with_vlist_from(self, fromblock, avoid):
         found = {avoid: True}
         pending = [fromblock]
         while pending:
             block = pending.pop()
             if block in found:
+                continue
+            if not self.vlist_alive(block):
                 continue
             yield block
             found[block] = True
@@ -986,8 +988,9 @@ class ListComprehensionDetector(object):
 
             # This candidate loop is acceptable if the list is not escaping
             # too early, i.e. in the loop header or in the loop body.
-            loopheader = list(self.enum_blocks_from(newlistblock,
+            loopheader = list(self.enum_blocks_with_vlist_from(newlistblock,
                                                     avoid=loopnextblock))
+            assert loopheader[0] is newlistblock
             escapes = False
             for block in loopheader + loopbody.keys():
                 assert self.vlist_alive(block)
