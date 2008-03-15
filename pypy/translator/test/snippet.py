@@ -626,6 +626,12 @@ def t_issubclass(x, y):
 def t_neg_long():
     return -132L
 
+def t_attrerror(x):
+    try:
+        return x.foobar
+    except AttributeError:
+        return 567
+
 
 # --------------------(Currently) Non runnable Functions ---------------------
 
