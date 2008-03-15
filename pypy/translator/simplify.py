@@ -772,8 +772,8 @@ def detect_list_comprehension(graph):
     if not newlist_v or not loops:
         return
 
-    # XXX works with Python 2.4 only: find calls to append encoded as
-    # getattr/simple_call pairs
+    # XXX works with Python >= 2.4 only: find calls to append encoded as
+    # getattr/simple_call pairs, as produced by the LIST_APPEND bytecode.
     for block in graph.iterblocks():
         for i in range(len(block.operations)-1):
             op = block.operations[i]
