@@ -284,3 +284,7 @@ class TestGenRpyTestCase:
         result = fn("abc")
         assert result == u"abc" and type(result) is unicode
 
+    def test_attributeerror(self):
+        fn = self.build_interpfunc(snippet.t_attrerror)
+        result = fn(42)
+        assert result == 567

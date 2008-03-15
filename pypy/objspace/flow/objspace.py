@@ -449,6 +449,14 @@ class FlowObjSpace(ObjSpace):
         return w_res
 
     def handle_implicit_exceptions(self, exceptions):
+        if not exceptions:
+            return
+        if not self.config.translation.builtins_can_raise_exceptions:
+            # clean up 'exceptions' by removing the non-RPythonic exceptions
+            # which might be listed for geninterp.
+            exceptions = [exc for exc in exceptions
+                              if exc is not TypeError and
+                                 exc is not AttributeError]
         if exceptions:
             # catch possible exceptions implicitly.  If the OperationError
             # below is not caught in the same function, it will produce an
