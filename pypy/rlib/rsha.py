@@ -62,6 +62,9 @@ def _string2uintlist(s, start, count, result):
 #
 # ======================================================================
 
+UNROLL_ALL = True    # this algorithm should be fastest & biggest
+
+
 def f0_19(B, C, D):
     return (B & C) | ((~ B) & D)
 
@@ -86,6 +89,8 @@ K = [
     ]
 
 unroll_f_K = unrolling_iterable(zip(f, K))
+if UNROLL_ALL:
+    unroll_range_20 = unrolling_iterable(range(20))
 
 class RSHA(object):
     """RPython-level SHA object.
@@ -134,8 +139,12 @@ class RSHA(object):
         """
         t0 = 0
         for f, K in unroll_f_K:
-            for t in range(t0, t0+20):
-                TEMP = _rotateLeft(A, 5) + f(B, C, D) + E + W[t] + K
+            if UNROLL_ALL:
+                rng20 = unroll_range_20
+            else:
+                rng20 = range(20)
+            for t in rng20:
+                TEMP = _rotateLeft(A, 5) + f(B, C, D) + E + W[t0+t] + K
                 E = D
                 D = C
                 C = _rotateLeft(B, 30)
