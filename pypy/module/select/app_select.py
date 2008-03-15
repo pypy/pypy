@@ -59,7 +59,7 @@ On Windows, only sockets are supported; on Unix, all file descriptors.
         if (not hasattr(timeout, '__int__') and
             not hasattr(timeout, '__float__')):
             raise TypeError('timeout must be a float or None')
-        ret = dict(p.poll(int(float(timeout) * 1000)))
+        ret = dict(p.poll(float(timeout) * 1000.0))
     else:
         ret = dict(p.poll())
 

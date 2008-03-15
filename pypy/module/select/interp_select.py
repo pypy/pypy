@@ -1,3 +1,4 @@
+import math
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import W_Root, ObjSpace, interp2app
@@ -53,7 +54,14 @@ class Poll(Wrappable):
         if space.is_w(w_timeout, space.w_None):
             timeout = -1
         else:
-            timeout = space.int_w(w_timeout)
+            timeout = space.float_w(w_timeout)
+            # round non-integral floats upwards (in theory, with timeout=2.5
+            # we should wait at least 2.5ms, so 2ms is not enough)
+            try:
+                timeout = int(math.ceil(timeout))
+            except (OverflowError, ValueError):
+                raise OperationError(space.w_ValueError,
+                                     space.wrap("math range error"))
 
         try:
             retval = rpoll.poll(self.fddict, timeout)
