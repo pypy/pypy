@@ -180,7 +180,7 @@ def _get_section_header(cmdline, fullpath, subdescr):
 
 def make_cmdline_overview(descr):
     content = Rest(
-        Title("Overwiew of Command Line Options for '%s'" % (descr._name, ),
+        Title("Overview of Command Line Options for '%s'" % (descr._name, ),
               abovechar="=", belowchar="="))
     cmdlines = []
     config = Config(descr)
