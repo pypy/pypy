@@ -406,20 +406,28 @@ class array(object):
                                 " to array slice")
             seqlength = len(self)
             start, stop, step = i.indices(seqlength)
-            if start < 0:
-                start = 0
-            if stop < start:
-                stop = start
-            assert stop <= seqlength
-            asslength = stop - start
-            if step != 1 or len(x) != asslength:
+            if step != 1:
                 sublist = self.tolist()    # fall-back
                 sublist[i] = x.tolist()
                 self._clear()
                 self.fromlist(sublist)
                 return
-            self._data[start * self.itemsize :
-                       stop * self.itemsize] = x._data
+            if start < 0:
+                start = 0
+            if stop < start:
+                stop = start
+            assert stop <= seqlength
+            boundary1 = start * self.itemsize
+            boundary2 = stop * self.itemsize
+            boundary2new = boundary1 + len(x._data)
+            if boundary2 == boundary2new:
+                self._data[boundary1:boundary2] = x._data
+            else:
+                newdata = bytebuffer(len(self._data) + boundary2new-boundary2)
+                newdata[:boundary1] = self._data[:boundary1]
+                newdata[boundary1:boundary2new] = x._data
+                newdata[boundary2new:] = self._data[boundary2:]
+                self._data = newdata
         else:
             seqlength = len(self)
             if i < 0:
