@@ -87,9 +87,9 @@ void pypysig_default(int signum)
 
 static void signal_setflag_handler(int signum)
 {
-  pypysig_occurred = 1;
   if (0 <= signum && signum < NSIG)
     pypysig_flags[signum] = 1;
+  pypysig_occurred = 1;
 }
 
 void pypysig_setflag(int signum)
