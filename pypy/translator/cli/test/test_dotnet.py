@@ -641,7 +641,7 @@ class TestDotnetRtyping(CliTest):
         res = self.interpret(fn, [True])
         assert res == 'Int32'
 
-    def test_mix_record_and_object(self):
+    def test_cast_record(self):
         T = ootype.Record({'x': ootype.Signed})
         record = ootype.new(T)
         def fn(flag):
@@ -664,6 +664,14 @@ class TestDotnetRtyping(CliTest):
             return record is record2
         res = self.interpret(fn, [])
         assert res
+
+    def test_cast_record_mix_object(self):
+        T = ootype.Record({'x': ootype.Signed})
+        NULL = ootype.null(System.Object._INSTANCE)
+        record = cast_record_to_object(ootype.new(T))
+        assert record != NULL
+        assert NULL != record
+        
 
 class TestPythonnet(TestDotnetRtyping):
     # don't interpreter functions but execute them directly through pythonnet

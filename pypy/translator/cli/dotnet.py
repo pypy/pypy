@@ -633,37 +633,16 @@ class Entry(ExtRegistryEntry):
         v_inst = hop.inputarg(hop.args_r[0], arg=0)
         return hop.genop('oodowncast', [v_inst], resulttype = hop.r_result.lowleveltype)
 
-class _record_view(object):
-    
-    def __init__(self, record):
-        self._record = record
-        self._TYPE = CLR.System.Object._INSTANCE
-
-    def __ne__(self, other):
-        return not (self == other)
-
-    def __eq__(self, other):
-        if isinstance(other, ootype._record):
-            return self._record == other
-        assert isinstance(other, _record_view)
-        return self._record == other._record
-
-    def __hash__(self):
-        return hash(self._record)
-
-    def __nonzero__(self):
-        return bool(self._record)
-
-
 def cast_record_to_object(record):
     T = ootype.typeOf(record)
     assert isinstance(T, ootype.Record)
-    return _record_view(record)
+    return ootype._view(CLR.System.Object._INSTANCE, record)
 
 def cast_object_to_record(T, obj):
     assert isinstance(T, ootype.Record)
-    assert isinstance(obj, _record_view)
-    record = obj._record
+    assert isinstance(obj, ootype._view)
+    assert isinstance(obj._inst, ootype._record)
+    record = obj._inst
     assert ootype.typeOf(record) == T
     return record
 
