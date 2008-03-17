@@ -4,6 +4,7 @@ from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std import listtype
+from pypy.objspace.std import iterobject
 
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway, baseobjspace
@@ -100,7 +101,6 @@ def getitem__RangeList_Slice(space, w_rangelist, w_slice):
     return W_RangeListObject(rangestart, rangestep, slicelength)
 
 def iter__RangeList(space, w_rangelist):
-    from pypy.objspace.std import iterobject
     return W_RangeIterObject(w_rangelist)
 
 def repr__RangeList(space, w_rangelist):
@@ -163,25 +163,24 @@ def list_sort__RangeList_None_None_ANY(space, w_rangelist, w_cmp,
         w_rangelist.step = -w_rangelist.step
     return space.w_None
 
-class W_RangeIterObject(W_Object):
-    from pypy.objspace.std.itertype import iter_typedef as typedef
 
-    def __init__(w_self, w_rangelist, index=0):
-        w_self.w_rangelist = w_rangelist
-        w_self.index = index
+class W_RangeIterObject(iterobject.W_AbstractSeqIterObject):
+    pass
 
 def iter__RangeIter(space, w_rangeiter):
     return w_rangeiter
 
 def next__RangeIter(space, w_rangeiter):
-    if w_rangeiter.w_rangelist is None:
+    w_rangelist = w_rangeiter.w_seq
+    if w_rangelist is None:
         raise OperationError(space.w_StopIteration, space.w_None)
-    if w_rangeiter.w_rangelist.w_list is not None:
+    assert isinstance(w_rangelist, W_RangeListObject)
+    if w_rangelist.w_list is not None:
         try:
-            w_item = space.getitem(w_rangeiter.w_rangelist.w_list,
+            w_item = space.getitem(w_rangelist.w_list,
                                    wrapint(space, w_rangeiter.index))
         except OperationError, e:
-            w_rangeiter.w_rangelist = None
+            w_rangeiter.w_seq = None
             if not e.match(space, space.w_IndexError):
                 raise
             raise OperationError(space.w_StopIteration, space.w_None)
@@ -189,18 +188,18 @@ def next__RangeIter(space, w_rangeiter):
         try:
             w_item = wrapint(
                 space,
-                w_rangeiter.w_rangelist.getitem(w_rangeiter.index))
+                w_rangelist.getitem(w_rangeiter.index))
         except IndexError:
-            w_rangeiter.w_rangelist = None
+            w_rangeiter.w_seq = None
             raise OperationError(space.w_StopIteration, space.w_None)
     w_rangeiter.index += 1
     return w_item
 
 def len__RangeIter(space,  w_rangeiter):
-    if w_rangeiter.w_rangelist is None:
+    if w_rangeiter.w_seq is None:
         return wrapint(space, 0)
     index = w_rangeiter.index
-    w_length = space.len(w_rangeiter.w_rangelist)
+    w_length = space.len(w_rangeiter.w_seq)
     w_len = space.sub(w_length, wrapint(space, index))
     if space.is_true(space.lt(w_len, wrapint(space, 0))):
         w_len = wrapint(space, 0)

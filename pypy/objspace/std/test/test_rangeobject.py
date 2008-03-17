@@ -105,3 +105,18 @@ class AppTestRangeListObject(object):
         assert not self.not_forced(r)
         assert r == [1, 2, 5, 6, 7]
        
+    def test_reduce(self):
+        it = iter(range(10))
+        assert it.next() == 0
+        assert it.next() == 1
+        assert it.next() == 2
+        assert it.next() == 3
+        seqiter_new, args = it.__reduce__()
+        assert it.next() == 4
+        assert it.next() == 5
+        it2 = seqiter_new(*args)
+        assert it2.next() == 4
+        assert it2.next() == 5
+        it3 = seqiter_new(*args)
+        assert it3.next() == 4
+        assert it3.next() == 5
