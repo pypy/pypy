@@ -15,8 +15,7 @@ Few ctypes-related todo points:
   - there are features, which we don't support like buffer() and
     array() protocols.
 
-  - no tests for passing a union by value, missing tests about nesting unions
-    and keep-alive logic for unions
+  - are the _CData_value return lifetime/gc sematics correct?
 
   - for some ABIs we will need completely filled ffitypes to do the
     right thing for passing structures by value, we are now passing enough
