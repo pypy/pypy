@@ -13,6 +13,7 @@ from pypy.rpython.lltypesystem.lltype import Struct, Array, FixedSizeArray
 from pypy.rpython.lltypesystem.lltype import ForwardReference, FuncType
 from pypy.rpython.lltypesystem.llmemory import Address
 from pypy.translator.backendopt.ssa import SSI_to_SSA
+from pypy.translator.backendopt.innerloop import find_inner_loops
 
 PyObjPtr = Ptr(PyObject)
 LOCALVAR = 'l_%s'
@@ -32,8 +33,8 @@ class FunctionCodeGenerator(object):
                        vars
                        lltypes
                        functionname
-                       currentblock
                        blocknum
+                       innerloops
                        oldgraph""".split()
 
     def __init__(self, graph, db, exception_policy=None, functionname=None):
@@ -127,6 +128,9 @@ class FunctionCodeGenerator(object):
             typename = db.gettype(T)
             lltypes[id(v)] = T, typename
         self.lltypes = lltypes
+        self.innerloops = {}    # maps the loop's header block to a Loop()
+        for loop in find_inner_loops(self.graph, Bool):
+            self.innerloops[loop.headblock] = loop
 
     def graphs_to_patch(self):
         yield self.graph
@@ -135,7 +139,7 @@ class FunctionCodeGenerator(object):
         self.lltypes = None
         self.vars = None
         self.blocknum = None
-        self.currentblock = None
+        self.innerloops = None
         self.graph = self.oldgraph
         del self.oldgraph
 
@@ -205,7 +209,6 @@ class FunctionCodeGenerator(object):
 
         # generate the body of each block
         for block in graph.iterblocks():
-            self.currentblock = block
             myblocknum = self.blocknum[block]
             yield ''
             yield 'block%d:' % myblocknum
@@ -231,6 +234,9 @@ class FunctionCodeGenerator(object):
                 assert len(block.exits) == 1
                 for op in self.gen_link(block.exits[0]):
                     yield op
+            elif block in self.innerloops:
+                for line in self.gen_while_loop_hack(block):
+                    yield line
             else:
                 assert block.exitswitch != c_last_exception
                 # block ending in a switch on a value
@@ -303,7 +309,12 @@ class FunctionCodeGenerator(object):
             assignments.append((a2typename, dest, src))
         for line in gen_assignments(assignments):
             yield line
-        yield 'goto block%d;' % self.blocknum[link.target]
+        label = 'block%d' % self.blocknum[link.target]
+        if link.target in self.innerloops:
+            loop = self.innerloops[link.target]
+            if link is loop.links[-1]:   # link that ends a loop
+                label += '_back'
+        yield 'goto %s;' % label
 
     def gen_op(self, op):
         macro = 'OP_%s' % op.opname.upper()
@@ -324,6 +335,52 @@ class FunctionCodeGenerator(object):
         else:
             for line in line.splitlines():
                 yield line
+
+    def gen_while_loop_hack(self, headblock):
+        # a GCC optimization hack: generate 'while' statement in the
+        # source to convince the C compiler that it is really dealing
+        # with loops.  For the head of a loop (i.e. the block where the
+        # decision is) we produce code like this:
+        #
+        #             headblock:
+        #               ...headblock operations...
+        #               while (cond) {
+        #                   goto firstbodyblock;
+        #                 headblock_back:
+        #                   ...headblock operations...
+        #               }
+        #
+        # The real body of the loop is not syntactically within the
+        # scope of { }, but apparently this doesn't matter to GCC as
+        # long as it is within the { } via the chain of goto's starting
+        # at firstbodyblock: and ending at headblock_back:.  We need to
+        # duplicate the operations of headblock, though, because the
+        # chain of gotos entering the loop must arrive outside the
+        # while() at the headblock: label and the chain of goto's that
+        # close the loop must arrive inside the while() at the
+        # headblock_back: label.
+
+        looplinks = self.innerloops[headblock].links
+        enterlink = looplinks[0]
+        assert len(headblock.exits) == 2
+        assert isinstance(headblock.exits[0].exitcase, bool)
+        assert isinstance(headblock.exits[1].exitcase, bool)
+        i = list(headblock.exits).index(enterlink)
+        exitlink = headblock.exits[1 - i]
+
+        expr = self.expr(headblock.exitswitch)
+        if enterlink.exitcase == False:
+            expr = '!' + expr
+        yield 'while (%s) {' % expr
+        for op in self.gen_link(enterlink):
+            yield '\t' + op
+        yield '\t  block%d_back:' % self.blocknum[headblock]
+        for i, op in enumerate(headblock.operations):
+            for line in self.gen_op(op):
+                yield '\t' + line
+        yield '}'
+        for op in self.gen_link(exitlink):
+            yield op
 
     # ____________________________________________________________
 
