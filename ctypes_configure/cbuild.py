@@ -1,6 +1,7 @@
 
 import os, sys, inspect, re, imp, py
 from ctypes_configure import stdoutcapture
+import distutils
 
 debug = 0
 
@@ -183,6 +184,16 @@ def ensure_correct_math():
         opt += '/Op'
     gcv['OPT'] = opt
 
+
+def try_compile(c_files, eci):
+    try:
+        build_executable(c_files, eci)
+        result = True
+    except (distutils.errors.CompileError,
+            distutils.errors.LinkError):
+        result = False
+    return result
+
 def compile_c_module(cfiles, modbasename, eci, tmpdir=None):
     #try:
     #    from distutils.log import set_threshold
@@ -315,7 +326,8 @@ def import_module_from_directory(dir, modname):
 
 def log_spawned_cmd(spawn):
     def spawn_and_log(cmd, *args, **kwds):
-        log.execute(' '.join(cmd))
+        if debug:
+            log.execute(' '.join(cmd))
         return spawn(cmd, *args, **kwds)
     return spawn_and_log
 

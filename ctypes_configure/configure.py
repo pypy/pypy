@@ -2,9 +2,8 @@
 
 import os, py, sys
 import ctypes
-from ctypes_configure.cbuild import build_executable, configdir
+from ctypes_configure.cbuild import build_executable, configdir, try_compile
 from ctypes_configure.cbuild import ExternalCompilationInfo
-from ctypes_configure.gcc_cache import build_executable_cache, try_compile_cache
 import distutils
 
 # ____________________________________________________________
@@ -149,7 +148,7 @@ class _CWriter(object):
         self.f.write(question + "\n")
         self.close()
         eci = self.config._compilation_info_
-        return try_compile_cache([self.path], eci)
+        return try_compile([self.path], eci)
 
         
 def configure(CConfig):
