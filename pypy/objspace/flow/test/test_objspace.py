@@ -297,45 +297,6 @@ class TestFlowObjSpace(Base):
         assert d == {None: True, OSError: True, Exception: True}
 
     #__________________________________________________________
-    def reraiseAttributeError(v):
-        try:
-            x = getattr(v, "y")
-        except AttributeError:
-            raise
-
-    def test_reraiseAttributeError(self):
-        x = self.codetest(self.reraiseAttributeError)
-        simplify_graph(x)
-        self.show(x)
-        found_AttributeError = []
-        def only_raise_AttributeError(link):
-            if isinstance(link, Link):
-                if link.target is x.exceptblock:
-                    assert link.args[0] == Constant(AttributeError)
-                    found_AttributeError.append(link)
-        traverse(only_raise_AttributeError, x)
-        assert found_AttributeError
-
-    def reraiseTypeError(dic):
-        try:
-            x = dic[5]
-        except TypeError:
-            raise
-
-    def test_reraiseTypeError(self):
-        x = self.codetest(self.reraiseTypeError)
-        simplify_graph(x)
-        self.show(x)
-        found = []
-        def can_reach_exceptblock(link):
-            if isinstance(link, Link):
-                if link.target is x.exceptblock:
-                    found.append(link)                
-        traverse(can_reach_exceptblock, x)
-        assert found
-
-
-    #__________________________________________________________
     def reraiseAnythingDicCase(dic):
         try:
             dic[5]
@@ -865,6 +826,56 @@ class TestFlowObjSpaceDelay(Base):
         def f():
             from some.unknown.module import stuff
         g = self.codetest(f)
+
+
+class TestGenInterpStyle(Base):
+    def setup_class(cls):
+        cls.space = FlowObjSpace()
+        cls.space.config.translation.builtins_can_raise_exceptions = True
+
+    def reraiseAttributeError(v):
+        try:
+            x = getattr(v, "y")
+        except AttributeError:
+            raise
+
+    def test_reraiseAttributeError(self):
+        x = self.codetest(self.reraiseAttributeError)
+        simplify_graph(x)
+        self.show(x)
+        excfound = []
+        def check(link):
+            if isinstance(link, Link):
+                if link.target is x.exceptblock:
+                    excfound.append(link.exitcase)
+        traverse(check, x)
+        assert len(excfound) == 2
+        excfound.sort()
+        expected = [Exception, AttributeError]
+        expected.sort()
+        assert excfound == expected
+
+    def reraiseTypeError(dic):
+        try:
+            x = dic[5]
+        except TypeError:
+            raise
+
+    def test_reraiseTypeError(self):
+        x = self.codetest(self.reraiseTypeError)
+        simplify_graph(x)
+        self.show(x)
+        excfound = []
+        def check(link):
+            if isinstance(link, Link):
+                if link.target is x.exceptblock:
+                    excfound.append(link.exitcase)
+        traverse(check, x)
+        assert len(excfound) == 2
+        excfound.sort()
+        expected = [Exception, TypeError]
+        expected.sort()
+        assert excfound == expected
 
 
 DATA = {'x': 5,
