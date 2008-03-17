@@ -1,9 +1,7 @@
 import py, sys, struct
 from ctypes_configure import configure
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.tool.udir import udir
+from ctypes_configure.cbuild import ExternalCompilationInfo
 import ctypes
-
 
 def test_dirent():
     dirent = configure.getstruct("struct dirent",
@@ -106,7 +104,8 @@ def test_defined():
     assert res
 
 def test_configure():
-    test_h = udir.join('test_ctypes_platform.h')
+    configdir = configure.configdir
+    test_h = configdir.join('test_ctypes_platform.h')
     test_h.write('#define XYZZY 42\n')
 
     class CConfig:
@@ -114,7 +113,7 @@ def test_configure():
             pre_include_lines = ["/* a C comment */",
                                  "#include <stdio.h>",
                                  "#include <test_ctypes_platform.h>"],
-            include_dirs = [str(udir)]
+            include_dirs = [str(configdir)]
         )
 
         FILE = configure.Struct('FILE', [])

@@ -2,10 +2,9 @@
 
 import os, py, sys
 import ctypes
-from pypy.translator.tool.cbuild import build_executable
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.tool.udir import udir
-from pypy.tool.gcc_cache import build_executable_cache, try_compile_cache
+from ctypes_configure.cbuild import build_executable, configdir
+from ctypes_configure.cbuild import ExternalCompilationInfo
+from ctypes_configure.gcc_cache import build_executable_cache, try_compile_cache
 import distutils
 
 # ____________________________________________________________
@@ -478,30 +477,6 @@ class SizeOf(CConfigEntry):
     def build_result(self, info, config_result):
         return info['size']
 
-class Library(CConfigEntry):
-    """The loaded CTypes library object.
-    """
-    def __init__(self, name):
-        self.name = name
-
-    def prepare_code(self):
-        # XXX should check that we can link against the lib
-        return []
-
-    def build_result(self, info, config_result):
-        from pypy.rpython.rctypes.tool import util
-        path = util.find_library(self.name)
-        mylib = ctypes.cdll.LoadLibrary(path)
-
-        class _FuncPtr(ctypes._CFuncPtr):
-            _flags_ = ctypes._FUNCFLAG_CDECL
-            _restype_ = ctypes.c_int # default, can be overridden in instances
-            includes = tuple(config_result.CConfig._includes_)
-            libraries = (self.name,)
-        
-        mylib._FuncPtr = _FuncPtr
-        return mylib
-
 # ____________________________________________________________
 #
 # internal helpers
@@ -516,7 +491,7 @@ def ctype_alignment(c_type):
 def uniquefilepath(LAST=[0]):
     i = LAST[0]
     LAST[0] += 1
-    return udir.join('ctypesplatcheck_%d.c' % i)
+    return configdir.join('ctypesplatcheck_%d.c' % i)
 
 alignment_types = [
     ctypes.c_short,
