@@ -14,9 +14,11 @@ of structures etc. It replaces in this regard code generator (h2py).
 installation
 ============
 
-``easy_install ctypes_platform``
+``easy_install ctypes_configure``
 
 usage
 =====
 
-sample.py explains in details how to use it.
+`sample.py`_ explains in details how to use it.
+
+.. _`sample.py`: http://codespeak.net/svn/pypy/dist/ctypes_configure/doc/sample.py
