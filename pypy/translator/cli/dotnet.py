@@ -446,13 +446,15 @@ class Entry(ExtRegistryEntry):
             # can_be_None == True because it can always return None, if it fails
             classdef = self.bookkeeper.getuniqueclassdef(TYPE)
             return SomeInstance(classdef, can_be_None=True)
+        elif TYPE in BOXABLE_TYPES:
+            return OverloadingResolver.lltype_to_annotation(TYPE)
         elif isinstance(TYPE, ootype.StaticMethod):
             return SomeOOStaticMeth(TYPE)
         elif isinstance(TYPE, ootype.OOType):
             return SomeOOInstance(TYPE)
         else:
-            assert TYPE in BOXABLE_TYPES
-            return OverloadingResolver.lltype_to_annotation(TYPE)
+            assert False
+            
 
     def specialize_call(self, hop):
         assert hop.args_s[1].is_constant()
