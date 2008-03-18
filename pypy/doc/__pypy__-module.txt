@@ -14,6 +14,9 @@ Generally available functionality
 
  - ``internal_repr(obj)``: return the interpreter-level representation of an
    object.
+ - ``bytebuffer(length)``: return a new read-write buffer of the given length.
+   It works like a simplified array of characters (actually, depending on the
+   configuration the ``array`` module internally uses this).
 
 Thunk Object Space Functionality
 ================================
