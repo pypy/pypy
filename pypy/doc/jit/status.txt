@@ -140,4 +140,4 @@ app-level handlers.
 
 .. _Psyco: http://psyco.sourceforge.net
 
-.. include:: ../_ref.txt
+.. include:: _ref.txt

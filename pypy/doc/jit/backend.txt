@@ -17,4 +17,4 @@ The interface (which is not yet completely stable) is documented in
 
 
 
-.. include:: ../_ref.txt
+.. include:: _ref.txt

@@ -275,4 +275,4 @@ access from JIT'ed code.
            Verona, Italy.
            http://psyco.sourceforge.net/psyco-pepm-a.ps.gz
 
-.. include:: ../_ref.txt
+.. include:: _ref.txt

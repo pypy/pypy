@@ -937,4 +937,4 @@ Related work
 .. _`PyPy Standard Interpreter`: ../architecture.html#standard-interpreter
 .. _`exception transformer`: ../translation.html#making-exception-handling-explicit
 
-.. include:: ../_ref.txt
+.. include:: _ref.txt

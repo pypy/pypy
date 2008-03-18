@@ -1,0 +1,8 @@
+.. _`demo/jit/`: ../../../demo/jit
+.. _`demo/jit/f1.py`: ../../../demo/jit/f1.py
+.. _`pypy/jit/codegen/model.py`: ../../../pypy/jit/codegen/model.py
+.. _`pypy/jit/timeshifter/rvalue.py`: ../../../pypy/jit/timeshifter/rvalue.py
+.. _`pypy/jit/tl/targettiny1.py`: ../../../pypy/jit/tl/targettiny1.py
+.. _`pypy/jit/tl/tiny1.py`: ../../../pypy/jit/tl/tiny1.py
+.. _`pypy/jit/tl/tiny2.py`: ../../../pypy/jit/tl/tiny2.py
+.. _`rpython/rlist.py`: ../../../pypy/rpython/rlist.py
