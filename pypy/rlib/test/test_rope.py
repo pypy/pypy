@@ -686,7 +686,7 @@ def test_power():
     for i in range(0, 60, 13):
         print i
         for j in range(1, 10000, 7):
-            assert intmask(i ** j) == masked_power(i, j)
+            assert intmask(i * (1000003**j)) == masked_mul_by_1000003_pow(i, j)
 
 
 def test_seekable_bug():

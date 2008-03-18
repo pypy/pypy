@@ -1,6 +1,7 @@
 import py
 import sys
 from pypy.rlib.rarithmetic import intmask, _hash_string, ovfcheck
+from pypy.rlib.rarithmetic import r_uint, LONG_BIT
 from pypy.rlib.objectmodel import we_are_translated
 import math
 
@@ -25,30 +26,19 @@ def find_fib_index(l):
         a, b = b, a + b
         i += 1
 
-def masked_power(a, b):
-    if b == 0:
-        return 1
-    if b == 1:
-        return a
-    if a == 0:
-        return 0
-    if a == 1:
-        return 1
-    num_bits = 2
-    mask = b >> 2
-    while mask:
-        num_bits += 1
-        mask >>= 1
-    result = a
-    mask = 1 << (num_bits - 2)
-    #import pdb; pdb.set_trace()
-    for i in range(num_bits - 1):
-        if mask & b:
-            result = intmask(result * result * a)
-        else:
-            result = intmask(result * result)
-        mask >>= 1
-    return result
+mul_by_1000003_pow_table = [intmask(pow(1000003, 2**_i, 2**LONG_BIT))
+                            for _i in range(LONG_BIT)]
+
+def masked_mul_by_1000003_pow(a, b):
+    """Computes intmask(a * (1000003**b))."""
+    index = 0
+    b = r_uint(b)
+    while b:
+        if b & 1:
+            a = intmask(a * mul_by_1000003_pow_table[index])
+        b >>= 1
+        index += 1
+    return a
 
 
 class GlobalRopeInfo(object):
@@ -65,7 +55,7 @@ class GlobalRopeInfo(object):
         result.charbitmask = self.charbitmask | other.charbitmask
         h1 = self.hash
         h2 = other.hash
-        x = intmask(h2 + h1 * (masked_power(1000003, rightlength)))
+        x = intmask(h2 + masked_mul_by_1000003_pow(h1, rightlength))
         x |= HIGHEST_BIT_SET
         result.hash = x
         result.is_ascii = self.is_ascii and other.is_ascii
