@@ -1979,9 +1979,12 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         RGenOp = self.RGenOp
         gv = RGenOp.genzeroconst(RGenOp.kindToken(lltype.Signed))
         assert gv.revealconst(lltype.Signed) == 0
-        P = self.T.Ptr(lltype.Struct('S'))
+        P = self.T.Ptr(self.T.Struct('S'))
         gv = RGenOp.genzeroconst(RGenOp.kindToken(P))
-        assert gv.revealconst(llmemory.Address) == llmemory.NULL
+        if self.T.__name__ == 'LLType':
+            assert gv.revealconst(llmemory.Address) == llmemory.NULL
+        else:
+            assert gv.revealconst(ootype.ROOT) == ootype.null(ootype.ROOT)
 
     def test_ovfcheck_adder_direct(self):
         rgenop = self.RGenOp()

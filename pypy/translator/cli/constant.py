@@ -96,6 +96,7 @@ class CLIBaseConstGenerator(BaseConstantGenerator):
             uniq = self.db.unique()
             return CLIFieldInfoConst(self.db, value.llvalue, uniq)
         elif isinstance(value, ootype._view) and isinstance(value._inst, ootype._record):
+            self.db.cts.lltype_to_cts(value._inst._TYPE) # record the type of the record
             return self.record_const(value._inst)
         else:
             return BaseConstantGenerator._create_complex_const(self, value)

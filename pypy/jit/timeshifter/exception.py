@@ -33,7 +33,7 @@ class ExceptionDesc:
             # XXX: think more about exceptions
             self.null_exc_type_box = rvalue.PtrRedBox(self.exc_type_kind,
                                                       RGenOp.constPrebuiltGlobal(llmemory.NULL))
-            self.null_exc_value_box = rvalue.IntRedBox(self.exc_value_kind,
+            self.null_exc_value_box = rvalue.PtrRedBox(self.exc_value_kind,
                                                        RGenOp.constPrebuiltGlobal(llmemory.NULL))
             
         self.lazy_exception_path = lazy_exception_path
@@ -70,6 +70,9 @@ class ExceptionDesc:
         builder = jitstate.curbuilder
         etypebox = jitstate.exc_type_box
         if etypebox.is_constant():
+            # we should really use LL_EXC_TYPE instead of Address, but at the moment it crashes with ootype
+            #LL_EXC_TYPE = self.etrafo.lltype_of_exception_type
+            #ll_etype = rvalue.ll_getvalue(etypebox, LL_EXC_TYPE)
             ll_etype = rvalue.ll_getvalue(etypebox, llmemory.Address)
             if not ll_etype:
                 return       # we know there is no exception set

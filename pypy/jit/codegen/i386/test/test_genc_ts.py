@@ -13,7 +13,7 @@ class I386TimeshiftingTestMixin(object):
     RGenOp = RI386GenOp
 
     SEPLINE = 'running residual graph...\n'
-    
+
     def annotate_interface_functions(self):
         annhelper = self.hrtyper.annhelper
         RGenOp = self.RGenOp
@@ -95,12 +95,18 @@ class I386TimeshiftingTestMixin(object):
         annhelper.getgraph(ll_main, [s_list_of_strings],
                            annmodel.SomeInteger())
         annhelper.finish()
+        self.compile(ll_main)
+        
+    def compile(self, ll_main):
         t = self.rtyper.annotator.translator
         t.config.translation.gc = 'boehm'
         cbuilder = CStandaloneBuilder(t, ll_main, config=t.config)
         cbuilder.generate_source()
         cbuilder.compile()
         self.main_cbuilder= cbuilder
+
+    def cmdexec(self, args):
+        return self.main_cbuilder.cmdexec(args)
         
     def timeshift(self, ll_function, values, opt_consts=[], *args, **kwds):
         self.ll_function = ll_function
@@ -119,7 +125,7 @@ class I386TimeshiftingTestMixin(object):
 
         mainargs = ' '.join([str(arg) for arg in mainargs])
 
-        output = self.main_cbuilder.cmdexec(mainargs)
+        output = self.cmdexec(mainargs)
         lines = output.splitlines()
         assert lines[0] == self.SEPLINE[:-1]
         if (lines[1].startswith('{') and

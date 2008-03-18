@@ -109,6 +109,7 @@ class OOStaticMethRepr(Repr):
         vlist = hop.inputargs(*hop.args_r)
         cgraphs = hop.inputconst(ootype.Void, None)
         vlist.append(cgraphs)
+        hop.exception_is_here()
         return hop.genop("indirect_call", vlist, resulttype = hop.r_result.lowleveltype)
 
     def rtype_call_args(self, hop):

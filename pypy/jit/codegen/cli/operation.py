@@ -154,7 +154,14 @@ class Call(Operation):
         self.builder.il.EmitCall(OpCodes.Callvirt, meth_invoke, None)
         self.storeResult()
 
-        
+
+class GetField(Operation):
+
+    def __init__(self, builder, gv_obj, fieldname):
+        self.builder = builder
+        self.gv_obj = gv_obj
+        self.fieldname = fieldname
+
 
 def opcode2attrname(opcode):
     if opcode == 'ldc.r8 0':

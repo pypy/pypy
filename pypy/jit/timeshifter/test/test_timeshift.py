@@ -1799,29 +1799,30 @@ class BaseTestTimeshift(TimeshiftingTests):
 class TestLLType(BaseTestTimeshift):
     type_system = 'lltype'
 
-passing_ootype_tests = set([
-    'test_very_simple',
-    'test_convert_const_to_redbox',
-    'test_simple_opt_const_propagation1',
-    'test_simple_opt_const_propagation2',
-    'test_loop_folding',
-    'test_loop_merging',
-    'test_two_loops_merging',
-    'test_convert_greenvar_to_redvar',
-    'test_green_across_split',
-    'test_merge_const_before_return',
-    'test_merge_3_redconsts_before_return',
-    'test_merge_const_at_return',
-    'test_arith_plus_minus',
-    ])
 class TestOOType(BaseTestTimeshift):
     type_system = 'ootype'
+
+    passing_ootype_tests = set([
+        'test_very_simple',
+        'test_convert_const_to_redbox',
+        'test_simple_opt_const_propagation1',
+        'test_simple_opt_const_propagation2',
+        'test_loop_folding',
+        'test_loop_merging',
+        'test_two_loops_merging',
+        'test_convert_greenvar_to_redvar',
+        'test_green_across_split',
+        'test_merge_const_before_return',
+        'test_merge_3_redconsts_before_return',
+        'test_merge_const_at_return',
+        'test_arith_plus_minus',
+        ])
 
     def Ptr(self, T):
         return T
 
     def __getattribute__(self, name):
-        if name.startswith('test_') and name not in passing_ootype_tests:
+        if name.startswith('test_') and name not in self.passing_ootype_tests:
             def fn():
                 py.test.skip("doesn't work yet")
             return fn

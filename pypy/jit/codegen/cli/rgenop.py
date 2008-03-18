@@ -1,11 +1,13 @@
 from pypy.tool.pairtype import extendabletype
 from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rlib.objectmodel import specialize
 from pypy.jit.codegen.model import AbstractRGenOp, GenBuilder, GenLabel
 from pypy.jit.codegen.model import GenVarOrConst, GenVar, GenConst, CodeGenSwitch
 from pypy.jit.codegen.cli import operation as ops
 from pypy.jit.codegen.cli.dumpgenerator import DumpGenerator
 from pypy.translator.cli.dotnet import CLR, typeof, new_array, box, unbox, clidowncast, classof
+from pypy.translator.cli.dotnet import cast_record_to_object, cast_object_to_record
 System = CLR.System
 Utils = CLR.pypy.runtime.Utils
 DelegateHolder = CLR.pypy.runtime.DelegateHolder
@@ -133,15 +135,24 @@ class ObjectConst(BaseConst):
 
     def load(self, builder):
         index = self._get_index(builder)
-        t = self.obj.GetType()
+        if self.obj is None:
+            t = typeof(System.Object)
+        else:
+            t = self.obj.GetType()
         self._load_from_array(builder, index, t)
 
     @specialize.arg(1)
     def revealconst(self, T):
-        assert isinstance(T, ootype.OOType)
-        return unbox(self.obj, T)
+        if T is llmemory.Address:
+            return unbox(self.obj, ootype.ROOT) # XXX
+        elif isinstance(T, ootype.Record):
+            return cast_object_to_record(T, self.obj)
+        else:
+            assert isinstance(T, ootype.OOType)
+            return unbox(self.obj, T)
 
 
+OBJECT = System.Object._INSTANCE
 class FunctionConst(BaseConst):
 
     def __init__(self, delegatetype):
@@ -149,7 +160,8 @@ class FunctionConst(BaseConst):
         self.delegatetype = delegatetype
 
     def getobj(self):
-        return self.holder
+        # XXX: should the conversion be done automatically?
+        return ootype.ooupcast(OBJECT, self.holder)
 
     def load(self, builder):
         holdertype = box(self.holder).GetType()
@@ -185,8 +197,15 @@ class RCliGenOp(AbstractRGenOp):
             return IntConst(llvalue)
         elif T is ootype.Bool:
             return IntConst(int(llvalue))
+        elif T is llmemory.Address:
+            assert llvalue is llmemory.NULL
+            return zero_const
+        elif isinstance(T, ootype.Record):
+            obj = cast_record_to_object(llvalue)
+            return ObjectConst(obj)
         elif isinstance(T, ootype.OOType):
-            return ObjectConst(box(llvalue))
+            obj = box(llvalue)
+            return ObjectConst(obj)
         else:
             assert False, "XXX not implemented"
 
@@ -219,6 +238,15 @@ class RCliGenOp(AbstractRGenOp):
             return cObject # XXX?
         else:
             assert False
+
+    @staticmethod
+    @specialize.memo()
+    def fieldToken(T, name):
+        _, FIELD = T._lookup_field(name)
+        return name #, RCliGenOp.kindToken(FIELD)
+
+    def check_no_open_mc(self):
+        pass
 
     def newgraph(self, sigtoken, name):
         argsclass = sigtoken.args
@@ -295,7 +323,13 @@ class Builder(GenBuilder):
         op = ops.SameAs(self, gv_x)
         self.emit(op)
         return op.gv_res()
-        
+
+    def genop_getfield(self, fieldtoken, gv_ptr):
+        pass
+
+    def genop_setfield(self, fieldtoken, gv_ptr, gv_value):
+        pass
+
     def emit(self, op):
         op.emit()
 
@@ -406,4 +440,5 @@ class BranchBuilder(Builder):
 
 global_rgenop = RCliGenOp()
 RCliGenOp.constPrebuiltGlobal = global_rgenop.genconst
-zero_const = ObjectConst(ootype.null(ootype.ROOT))
+NULL = ootype.null(System.Object._INSTANCE)
+zero_const = ObjectConst(NULL)
