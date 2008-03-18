@@ -17,7 +17,7 @@
 Content
 ------------------------------------------------------------
 
-- Motivation_: introduction and rough overview
+- Overview_: motivation, introduction and rough overview
 
 - Status_: using a pypy-c with a JIT
 
@@ -33,7 +33,7 @@ Content
 
 ------------------------------------------------------------
 
-.. _Motivation: overview.html
+.. _Overview: overview.html
 .. _Status: status.html
 .. _`How-to`: howto.html
 .. _Theory: theory.html

@@ -1,10 +1,6 @@
 Rainbow Interpreter
 ============================================================
 
-.. raw:: html
-
-    <div class="innermenu"><a href="index.html#content">JIT index</a></div>
-
 in-progress
 -----------
 

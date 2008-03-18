@@ -2,10 +2,6 @@
                      Make your own JIT compiler
 ------------------------------------------------------------------------
 
-.. raw:: html
-
-    <div class="innermenu"><a href="index.html#content">JIT index</a></div>
-
 .. contents::
 .. sectnum::
 
