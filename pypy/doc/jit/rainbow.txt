@@ -1,5 +1,12 @@
 Rainbow Interpreter
-===================
+============================================================
+
+.. raw:: html
+
+    <div class="innermenu"><a href="index.html#content">JIT index</a></div>
+
+in-progress
+-----------
 
     - bytecode: linearize hintannotated low-level exceptionstransformed graphs
       into a datastructure containing a bytecode string (the opcodes) and

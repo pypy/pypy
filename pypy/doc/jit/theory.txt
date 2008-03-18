@@ -2,6 +2,10 @@
                         JIT Generation in PyPy
 ========================================================================
 
+.. raw:: html
+
+    <div class="innermenu"><a href="index.html#content">JIT index</a></div>
+
 .. contents::
 .. sectnum::
 
@@ -375,6 +379,11 @@ Undocumented yet.  Not implemented in the timeshifter, so not used so far.
 
 Timeshifting: transforming interpreter into compilers
 ======================================================
+
+    Warning: much of what is described below is now being supersceded
+    by the Rainbow_ interpreter.
+
+    .. _Rainbow: rainbow.html
 
 Once binding times (colors) have been assigned to all variables in a
 family of control flow graphs, the next step is to mutate the graphs

@@ -1089,3 +1089,7 @@ div.abstract {
 div.abstract p.topic-title {
   font-weight: bold ;
   text-align: center }
+
+div.innermenu {
+  font: 109% Verdana, Helvetica, Arial, sans-serif;
+  float: right }

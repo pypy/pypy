@@ -151,7 +151,7 @@ functions doing integer arithmetic (60 times faster than CPython,
 i.e. within 20% of recoding the function in C and compiling with ``gcc``
 without optimizations).
 
-.. _`manually enabled`: jit.html
+.. _`manually enabled`: jit/status.html
 
 
 .. _`prolog and javascript`:

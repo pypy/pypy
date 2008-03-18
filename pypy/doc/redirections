@@ -3,5 +3,6 @@
     'proxy.html': 'objspace-proxies.html#tproxy',
     'news.html': 'home.html',
     'contact.html': 'home.html',
+    'jit.html': 'jit/index.html',
 }
 

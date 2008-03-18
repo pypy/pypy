@@ -1,0 +1,41 @@
+========================================================================
+                       JIT Compiler Generation
+========================================================================
+
+:abstract:
+
+    When PyPy is translated into an executable like ``pypy-c``, the
+    executable contains a full virtual machine that can optionally
+    include a Just-In-Time compiler.  This JIT compiler is **generated
+    automatically from the interpreter** that we wrote in RPython.
+
+    This JIT Compiler Generator can be applied on interpreters for any
+    language, as long as the interpreter itself is written in RPython
+    and contains a few hints to guide the JIT Compiler Generator.
+
+
+Content
+------------------------------------------------------------
+
+- Motivation_: introduction and rough overview
+
+- Status_: using a pypy-c with a JIT
+
+- `How-to`_: make your own JIT compilers, with examples for tiny languages
+
+- Theory_: partial evaluation
+
+- How it all works: the Rainbow_ interpreter
+
+- Machine code Backends_
+
+*(work and documentation in progress!)*
+
+------------------------------------------------------------
+
+.. _Motivation: overview.html
+.. _Status: status.html
+.. _`How-to`: howto.html
+.. _Theory: theory.html
+.. _Rainbow: rainbow.html
+.. _Backends: backend.html

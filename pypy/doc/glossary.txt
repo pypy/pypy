@@ -218,8 +218,8 @@ links to more information.
 
 .. _applevel: coding-guide.html#application-level
 .. _`target language`: getting-started.html#trying-out-the-translator
-.. _`just in time compiler`: jit.html
-.. _`the jit docs`: jit.html
+.. _`just in time compiler`: jit/index.html
+.. _`the jit docs`: jit/index.html
 .. _`type inference article on Wikipedia`: http://en.wikipedia.org/wiki/Type_inference
 .. _`annotator pass`: translation.html#the-annotation-pass
 .. _`The RPython Typer`: translation.html#the-rpython-typer
