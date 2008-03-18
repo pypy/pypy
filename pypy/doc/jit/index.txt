@@ -1,5 +1,5 @@
 ========================================================================
-                       JIT Compiler Generation
+                          JIT documentation
 ========================================================================
 
 :abstract:
@@ -17,7 +17,7 @@
 Content
 ------------------------------------------------------------
 
-- Overview_: motivation, introduction and rough overview
+- Overview_: motivating our approach
 
 - Status_: using a pypy-c with a JIT
 
