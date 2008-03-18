@@ -8,7 +8,14 @@ try:
 except ImportError:
     import py; py.test.skip("no zlib module on this host Python")
 
+from pypy.module.zlib import interp_zlib
 from pypy.conftest import gettestobjspace
+
+def test_unsigned_to_signed_32bit():
+    assert interp_zlib.unsigned_to_signed_32bit(123) == 123
+    assert interp_zlib.unsigned_to_signed_32bit(2**31) == -2**31
+    assert interp_zlib.unsigned_to_signed_32bit(2**32-1) == -1
+
 
 class AppTestZlib(object):
     def setup_class(cls):
@@ -38,7 +45,8 @@ class AppTestZlib(object):
     def test_crc32(self):
         """
         When called with a string, zlib.crc32 should compute its CRC32 and
-        return it as a signed 32 bit integer.
+        return it as a signed 32 bit integer.  On 64-bit machines too
+        (it is a bug in CPython < 2.6 to return unsigned values in this case).
         """
         assert self.zlib.crc32('') == 0
         assert self.zlib.crc32('\0') == -771559539
@@ -64,6 +72,8 @@ class AppTestZlib(object):
         """
         When called with a string, zlib.crc32 should compute its adler 32
         checksum and return it as a signed 32 bit integer.
+        On 64-bit machines too
+        (it is a bug in CPython < 2.6 to return unsigned values in this case).
         """
         assert self.zlib.adler32('') == 1
         assert self.zlib.adler32('\0') == 65537
