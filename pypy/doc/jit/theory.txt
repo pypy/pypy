@@ -909,16 +909,9 @@ Virtualizables
 Backends
 ====================
 
-The compilers produced by the timeshifter are linked with one of our
-backends, which are written by hand in RPython.  We currently have a
-backend for producing IA32/i386 machine code in memory, PowerPC machine
-code in memory, or (for testing) further low-level control flow graphs.
+See Backends_.
 
-The Backend interface
------------------------
-
-The interface (which is not yet completely stable) is documented in
-`pypy/jit/codegen/model.py`_.
+.. _Backends: backend.html
 
 
 Results
