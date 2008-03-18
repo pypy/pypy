@@ -813,8 +813,8 @@ class _view(object):
 
     def __init__(self, INSTANCE, inst):
         self.__dict__['_TYPE'] = INSTANCE
-        assert isinstance(inst, _instance)
-        assert isSubclass(inst._TYPE, INSTANCE)
+        assert isinstance(inst, (_instance, _record))
+        assert isinstance(inst._TYPE, Record) or isSubclass(inst._TYPE, INSTANCE)
         self.__dict__['_inst'] = inst
 
     def __repr__(self):
@@ -828,7 +828,9 @@ class _view(object):
 
     def __eq__(self, other):
         assert isinstance(other, _view)
-        return self._inst == other._inst
+        a = self._inst
+        b = other._inst
+        return a.__class__ == b.__class__ and a == b
 
     def __hash__(self):
         return hash(self._inst)
