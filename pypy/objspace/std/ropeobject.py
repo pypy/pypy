@@ -18,7 +18,8 @@ class W_RopeObject(W_Object):
     from pypy.objspace.std.stringtype import str_typedef as typedef
 
     def __init__(w_self, node):
-        assert node.is_bytestring()
+        if not we_are_translated():
+            assert node.is_bytestring()
         w_self._node = node
 
     def __repr__(w_self):
