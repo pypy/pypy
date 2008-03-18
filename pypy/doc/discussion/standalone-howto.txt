@@ -100,8 +100,8 @@ Now we can sum with different kinds of lists, eg.
 ``sum([1,2,3])`` and ``sum([1.0,2.0,3.0])``.
 
     
-.. _`FAQ Entries`: faq.html#pypy-translation-tool-chain
-.. _`RPython`: coding-guide.html#restricted-python
-.. _`Annotator`: dynamic-language-translation.html#annotator
-.. _`RTyper`: dynamic-language-translation.html#rtyper
+.. _`FAQ Entries`: ../faq.html#pypy-translation-tool-chain
+.. _`RPython`: ../coding-guide.html#restricted-python
+.. _`Annotator`: ../dynamic-language-translation.html#annotator
+.. _`RTyper`: ../dynamic-language-translation.html#rtyper
 
