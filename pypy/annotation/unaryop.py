@@ -731,11 +731,16 @@ class __extend__(SomeOOBoundMeth):
             return lltype_to_annotation(METH.RESULT)
 
 class __extend__(SomeOOStaticMeth):
-    def simple_call(m, *args_s):
-        llargs = [annotation_to_lltype(arg_s)._example() for arg_s in args_s]
-        smeth = m.method._example()
-        v = smeth(*llargs)
+
+    def call(m, args):
+        args_s, kwds_s = args.unpack()
+        if kwds_s:
+            raise Exception("keyword arguments to call to a low-level static method")
+        info = 'argument to ll static method call'
+        llargs = [annotation_to_lltype(s_arg, info)._defl() for s_arg in args_s]
+        v = m.method._example()(*llargs)
         return ll_to_annotation(v)
+
 
 #_________________________________________
 # weakrefs

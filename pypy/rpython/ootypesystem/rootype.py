@@ -111,6 +111,13 @@ class OOStaticMethRepr(Repr):
         vlist.append(cgraphs)
         return hop.genop("indirect_call", vlist, resulttype = hop.r_result.lowleveltype)
 
+    def rtype_call_args(self, hop):
+        from pypy.rpython.rbuiltin import call_args_expand
+        hop, _ = call_args_expand(hop, takes_kwds=False)
+        hop.swap_fst_snd_args()
+        hop.r_s_popfirstarg()
+        return self.rtype_simple_call(hop)
+
 
 class __extend__(pairtype(OOInstanceRepr, OOBoundMethRepr)):
 

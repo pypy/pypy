@@ -536,11 +536,14 @@ class TestDotnetRtyping(CliTest):
             il.Emit(OpCodes.Ret)
             myfunc = meth.CreateDelegate(typeof(FUNCTYPE))
             return myfunc
-        
-        def fn():
+
+        def fn(x, y):
             myfunc = unbox(build_fn(), FUNCTYPE)
-            return myfunc(30, 12)
-        res = self.interpret(fn, [])
+            a = myfunc(x, y)
+            mytuple = (x, y)
+            b = myfunc(*mytuple)
+            return a+b
+        res = self.interpret(fn, [10, 11])
         assert res == 42
 
     def test_bound_delegate(self):
