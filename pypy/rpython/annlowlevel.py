@@ -382,8 +382,8 @@ class LLHelperEntry(extregistry.ExtRegistryEntry):
 # ____________________________________________________________
 
 def hlstr(ll_s):
-    if hasattr(ll_s, 'items'):
-        return ''.join(ll_s.items)
+    if hasattr(ll_s, 'chars'):
+        return ''.join(ll_s.chars)
     else:
         return ll_s._str
 
