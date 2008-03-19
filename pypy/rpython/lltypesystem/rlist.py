@@ -19,7 +19,7 @@ from pypy.rpython import robject
 from pypy.rlib.debug import ll_assert
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.lltypesystem.llmemory import cast_ptr_to_adr, raw_memclear,\
-     raw_memcopy, sizeof, itemoffsetof
+     raw_memcopy, sizeof, itemoffsetof, offsetof
 from pypy.rpython.lltypesystem import rffi
 
 # ____________________________________________________________
@@ -309,12 +309,13 @@ def _ll_list_resize_really(l, newsize):
         p = before_len - 1
     else:
         p = new_allocated - 1
-    while p >= 0:
-        newitems[p] = items[p]
-        ITEM = typeOf(l).TO.ITEM
-        if isinstance(ITEM, Ptr):
-            items[p] = nullptr(ITEM.TO)
-        p -= 1
+    ITEM = typeOf(l).TO.ITEM
+    source = cast_ptr_to_adr(items) + itemoffsetof(typeOf(l.items).TO, 0)
+    dest = cast_ptr_to_adr(newitems) + itemoffsetof(typeOf(l.items).TO, 0)
+    s = p + 1
+    raw_memcopy(source, dest, sizeof(ITEM) * s)
+    if isinstance(ITEM, Ptr):
+        raw_memclear(source, sizeof(ITEM) * s)
     l.length = newsize
     l.items = newitems
 _ll_list_resize_really._annenforceargs_ = (None, int)

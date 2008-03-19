@@ -1311,6 +1311,7 @@ class _parentable(_container):
         self._parent_type = typeOf(parent)
         self._parent_index = parentindex
         if (isinstance(self._parent_type, Struct)
+            and self._parent_type._names
             and parentindex in (self._parent_type._names[0], 0)
             and self._TYPE._gckind == typeOf(parent)._gckind):
             # keep strong reference to parent, we share the same allocation
