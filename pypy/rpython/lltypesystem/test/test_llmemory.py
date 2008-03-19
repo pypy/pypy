@@ -570,3 +570,11 @@ def test_generic_gcarray_of_ptr():
     adr += gcarrayofptr_itemsoffset + 2 * gcarrayofptr_singleitemoffset
     adr = adr.address[0]    # => s2[1][2]
     assert (adr + FieldOffset(S1, 'x')).signed[0] == -33
+
+def test_raw_memclear_on_empty_array():
+    py.test.skip("Fails")
+    A = lltype.FixedSizeArray(lltype.Signed, 0)
+    a = lltype.malloc(A, flavor='raw')
+    src = cast_ptr_to_adr(a) + itemoffsetof(A, 0)
+    raw_memclear(src, sizeof(lltype.Signed) * 0)
+    
