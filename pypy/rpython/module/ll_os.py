@@ -486,8 +486,7 @@ class RegisterOs(BaseLazyRegistering):
                 raise OSError(errno.EINVAL, None)
             inbuf = lltype.malloc(rffi.CCHARP.TO, count, flavor='raw')
             try:
-                got = rffi.cast(lltype.Signed, os_read(rffi.cast(rffi.INT, fd),
-                                inbuf, rffi.cast(rffi.SIZE_T, count)))
+                got = rffi.cast(lltype.Signed, os_read(fd, inbuf, count))
                 if got < 0:
                     raise OSError(rposix.get_errno(), "os_read failed")
                 s = mallocstr(got)
