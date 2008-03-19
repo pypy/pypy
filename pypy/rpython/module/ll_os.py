@@ -19,6 +19,11 @@ from pypy.rpython.tool import rffi_platform as platform
 from pypy.rlib import rposix
 from pypy.tool.udir import udir
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.rpython.lltypesystem.rstr import mallocstr
+from pypy.rpython.annlowlevel import hlstr
+from pypy.rpython.lltypesystem.llmemory import raw_memcopy, sizeof,\
+     itemoffsetof, cast_ptr_to_adr, offsetof
+from pypy.rpython.lltypesystem.rstr import STR
 
 posix = __import__(os.name)
 
@@ -474,20 +479,28 @@ class RegisterOs(BaseLazyRegistering):
                                   [rffi.INT, rffi.VOIDP, rffi.SIZE_T],
                                   rffi.SIZE_T)
 
+        offset = offsetof(STR, 'chars') + itemoffsetof(STR.chars, 0)
+
         def os_read_llimpl(fd, count):
             if count < 0:
                 raise OSError(errno.EINVAL, None)
             inbuf = lltype.malloc(rffi.CCHARP.TO, count, flavor='raw')
-            try:
-                got = rffi.cast(lltype.Signed, os_read(rffi.cast(rffi.INT, fd),
-                                inbuf, rffi.cast(rffi.SIZE_T, count)))
-                if got < 0:
-                    raise OSError(rposix.get_errno(), "os_read failed")
-                # XXX too many copies of the data!
-                l = [inbuf[i] for i in range(got)]
-            finally:
+            #try:
+            got = rffi.cast(lltype.Signed, os_read(rffi.cast(rffi.INT, fd),
+                            inbuf, rffi.cast(rffi.SIZE_T, count)))
+            if got < 0:
                 lltype.free(inbuf, flavor='raw')
-            return ''.join(l)
+                raise OSError(rposix.get_errno(), "os_read failed")
+            s = mallocstr(got)
+            source = cast_ptr_to_adr(inbuf) + \
+                     itemoffsetof(lltype.typeOf(inbuf).TO, 0)
+            dest = cast_ptr_to_adr(s) + offset
+            raw_memcopy(source, dest, sizeof(lltype.Char) * got)
+            lltype.free(inbuf, flavor='raw')
+            #for i in range(got):
+            #    s.chars[i] = inbuf[i]
+            #finally:
+            return hlstr(s)
 
         def os_read_oofakeimpl(fd, count):
             return OOSupport.to_rstr(os.read(fd, count))
