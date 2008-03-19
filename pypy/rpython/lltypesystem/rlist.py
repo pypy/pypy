@@ -320,6 +320,7 @@ def _ll_list_resize_really(l, newsize):
         dest = cast_ptr_to_adr(newitems) + itemoffsetof(typeOf(l.items).TO, 0)
         s = p + 1
         raw_memcopy(source, dest, sizeof(ITEM) * s)
+        keepalive_until_here(items)
     l.length = newsize
     l.items = newitems
 _ll_list_resize_really._annenforceargs_ = (None, int)
