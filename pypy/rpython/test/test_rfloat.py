@@ -2,7 +2,8 @@ import sys
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.test import snippet
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-from pypy.rlib.rarithmetic import r_uint, r_longlong, r_singlefloat
+from pypy.rlib.rarithmetic import r_uint, r_longlong, r_singlefloat,\
+     isnan, isinf
 
 class TestSnippet(object):
 
@@ -42,6 +43,16 @@ class BaseTestRfloat(BaseRtypingTest):
 
         res = self.interpret(fn, [1.5])
         assert float(self.ll_to_string(res)) == 1.5
+        res = self.interpret(fn, [-1.5])
+        assert float(self.ll_to_string(res)) == -1.5
+        inf = 1e200 * 1e200
+        nan = inf/inf
+        res = self.interpret(fn, [inf])
+        assert self.ll_to_string(res) == 'inf'
+        res = self.interpret(fn, [-inf])
+        assert self.ll_to_string(res) == '-inf'
+        res = self.interpret(fn, [nan])
+        assert self.ll_to_string(res) == 'nan'
 
     def test_string_mod_float(self):
         def fn(f):
