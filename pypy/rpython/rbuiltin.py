@@ -521,6 +521,7 @@ def rtype_raw_free(hop):
 
 def rtype_raw_memcopy(hop):
     v_list = hop.inputargs(llmemory.Address, llmemory.Address, lltype.Signed)
+    hop.exception_cannot_occur()
     return hop.genop('raw_memcopy', v_list)
 
 def rtype_raw_memclear(hop):

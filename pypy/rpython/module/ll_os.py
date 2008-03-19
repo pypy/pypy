@@ -485,21 +485,18 @@ class RegisterOs(BaseLazyRegistering):
             if count < 0:
                 raise OSError(errno.EINVAL, None)
             inbuf = lltype.malloc(rffi.CCHARP.TO, count, flavor='raw')
-            #try:
-            got = rffi.cast(lltype.Signed, os_read(rffi.cast(rffi.INT, fd),
-                            inbuf, rffi.cast(rffi.SIZE_T, count)))
-            if got < 0:
+            try:
+                got = rffi.cast(lltype.Signed, os_read(rffi.cast(rffi.INT, fd),
+                                inbuf, rffi.cast(rffi.SIZE_T, count)))
+                if got < 0:
+                    raise OSError(rposix.get_errno(), "os_read failed")
+                s = mallocstr(got)
+                source = cast_ptr_to_adr(inbuf) + \
+                         itemoffsetof(lltype.typeOf(inbuf).TO, 0)
+                dest = cast_ptr_to_adr(s) + offset
+                raw_memcopy(source, dest, sizeof(lltype.Char) * got)
+            finally:
                 lltype.free(inbuf, flavor='raw')
-                raise OSError(rposix.get_errno(), "os_read failed")
-            s = mallocstr(got)
-            source = cast_ptr_to_adr(inbuf) + \
-                     itemoffsetof(lltype.typeOf(inbuf).TO, 0)
-            dest = cast_ptr_to_adr(s) + offset
-            raw_memcopy(source, dest, sizeof(lltype.Char) * got)
-            lltype.free(inbuf, flavor='raw')
-            #for i in range(got):
-            #    s.chars[i] = inbuf[i]
-            #finally:
             return hlstr(s)
 
         def os_read_oofakeimpl(fd, count):
