@@ -21,6 +21,7 @@ from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.lltypesystem.llmemory import cast_ptr_to_adr, raw_memclear,\
      raw_memcopy, sizeof, itemoffsetof, offsetof
 from pypy.rpython.lltypesystem import rffi
+from pypy.rlib.objectmodel import keepalive_until_here
 
 # ____________________________________________________________
 #
