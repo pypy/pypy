@@ -1,0 +1,53 @@
+
+========================================
+PyPy's ctypes implementation document
+========================================
+
+* application level code - code written in full python
+
+* interpreter level code - code written in RPython, compiled
+  to something else, say C, part of the interpreter.
+
+PyPy's ctypes implementation is right now mostly proof of concept,
+based on idea of quick prototyping. The main idea was to use libffi
+(same as CPython's ctypes implementation), but try to keep as much
+as possible in Python, not RPython. In cpython's situation, it would
+be to write as few as possible code in C.
+
+Low-level part (called \_rawffi)
+================================
+
+We implemented direct bindings to libffi in RPython, allowing to create
+simple types (arrays, structures), leaving in C world, managed by hand.
+This part contains no special code to keep stuff alive and is kept
+to minimum possible. 
+
+High-level part (lib/\_ctypes)
+===============================
+
+This part implements the same interface as \_ctypes module in CPython,
+but it's writte in full python. This approach allowed us to experiment
+quickly and provide working implementation in 2 months of real time.
+
+Reuse of the highest level (lib/ctypes)
+========================================
+
+We just reused the part which is application level in CPython as well.
+
+Ctypes-platform
+===============
+
+We released `ctypes-configure`_, which is a package trying to overcome
+portability of ctypes-based code.
+
+.. _`ctypes-configure`: http://codespeak.net/~fijal/configure.html
+
+Future
+======
+
+Ctypes implementation in PyPy is pretty much working and can run for example
+pyglet. Because it's written in pure-python, it's rather slow. As a next
+step we'll measure what so costly and try to move certain parts from
+app-level to interp-level to improve speed. Still, we will try to keep
+interp-level part as simple as possible, not to loose robustness.
+
