@@ -108,7 +108,7 @@ def send_error(io, e):
         pass
 
 def spawn_handler():
-    gsvar = os.environ.get('GRAPHSERVER')
+    gsvar = os.environ.get('GRAPHSERVER')      # deprecated
     if not gsvar:
         try:
             return spawn_sshgraphserver_handler()
