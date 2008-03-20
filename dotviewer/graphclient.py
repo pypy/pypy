@@ -145,6 +145,9 @@ def spawn_sshgraphserver_handler():
     tmpdir = tempfile.gettempdir()
     user = getpass.getuser()
     fn = os.path.join(tmpdir, 'dotviewer-sshgraphsrv-%s' % user)
+    st = os.stat(fn)
+    if st.st_uid != os.getuid():
+        raise OSError("wrong owner on " + fn)
     f = open(fn, 'r')
     port = int(f.readline().rstrip())
     f.close()
