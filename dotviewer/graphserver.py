@@ -144,7 +144,7 @@ class Server(object):
         }
 
 
-def listen_server(local_address):
+def listen_server(local_address, s1=None):
     import socket, graphclient, thread
     if isinstance(local_address, str):
         if ':' in local_address:
@@ -152,8 +152,9 @@ def listen_server(local_address):
         else:
             interface, port = '', local_address
         local_address = interface, int(port)
-    s1 = socket.socket()
-    s1.bind(local_address)
+    if s1 is None:
+        s1 = socket.socket()
+        s1.bind(local_address)
     s1.listen(5)
     print 'listening on %r...' % (s1.getsockname(),)
     while True:

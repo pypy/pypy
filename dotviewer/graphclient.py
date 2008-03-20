@@ -110,7 +110,10 @@ def send_error(io, e):
 def spawn_handler():
     gsvar = os.environ.get('GRAPHSERVER')
     if not gsvar:
-        return spawn_local_handler()
+        try:
+            return spawn_sshgraphserver_handler()
+        except Exception, e:
+            return spawn_local_handler()
     else:
         try:
             host, port = gsvar.split(':')
@@ -119,10 +122,7 @@ def spawn_handler():
         except ValueError:
             raise ValueError("$GRAPHSERVER must be set to HOST:PORT, got %r" %
                              (gvvar,))
-        import socket
-        s = socket.socket()
-        s.connect((host, port))
-        return msgstruct.SocketIO(s)
+        return spawn_graphserver_handler((host, port))
 
 def spawn_local_handler():
     if hasattr(sys, 'pypy_objspaceclass'):
@@ -133,3 +133,19 @@ def spawn_local_handler():
     child_in, child_out = os.popen2(cmdline, 'tb')
     io = msgstruct.FileIO(child_out, child_in)
     return io
+
+def spawn_graphserver_handler(address):
+    import socket
+    s = socket.socket()
+    s.connect(address)
+    return msgstruct.SocketIO(s)
+
+def spawn_sshgraphserver_handler():
+    import tempfile, getpass
+    tmpdir = tempfile.gettempdir()
+    user = getpass.getuser()
+    fn = os.path.join(tmpdir, 'dotviewer-sshgraphsrv-%s' % user)
+    f = open(fn, 'r')
+    port = int(f.readline().rstrip())
+    f.close()
+    return spawn_graphserver_handler(('127.0.0.1', port))
