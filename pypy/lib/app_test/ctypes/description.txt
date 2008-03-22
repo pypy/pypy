@@ -6,7 +6,6 @@ test_init.py      # obscure
 test_internals.py # uses gc.getrefcounts
 test_keeprefs.py  # implementation details: ._objects
 test_libc.py
-test_loading.py
 test_macholib.py  # OS X specific
 test_objects.py
 test_parameters.py
