@@ -89,7 +89,7 @@ class TestCallbacks(BaseCTypesTestChecker):
 ##        self.check_type(c_char_p, "def")
 
     def test_unsupported_restype_1(self):
-        py.test.skip("I don't understand this limitation")
+        py.test.skip("WIP")
         # Only "fundamental" result types are supported for callback
         # functions, the type must have a non-NULL stgdict->setfunc.
         # POINTER(c_double), for example, is not supported.
@@ -134,3 +134,30 @@ class TestSampleCallbacks(BaseCTypesTestChecker):
 
 ################################################################
 
+class TestMoreCallbacks(BaseCTypesTestChecker):
+
+    def test_callback_with_struct_argument(self):
+        py.test.skip("WIP")
+        class RECT(Structure):
+            _fields_ = [("left", c_int), ("top", c_int),
+                        ("right", c_int), ("bottom", c_int)]
+
+        proto = CFUNCTYPE(c_int, RECT)
+        def callback(point):
+            return point.left+point.top+point.right+point.bottom
+
+        cbp = proto(callback)
+
+        rect = RECT(1000,100,10,1)
+
+        res = cbp(rect)
+
+        assert res == 1111
+
+    def test_callback_unsupported_return_struct(self):
+        class RECT(Structure):
+            _fields_ = [("left", c_int), ("top", c_int),
+                        ("right", c_int), ("bottom", c_int)]
+        
+        proto = CFUNCTYPE(RECT, c_int)
+        raises(TypeError, proto, lambda r: 0)
