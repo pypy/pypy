@@ -9,11 +9,10 @@ test_libc.py
 test_macholib.py  # OS X specific
 test_objects.py   # implementation details: ._objects
 test_parameters.py
-test_prototypes.py
 test_python_api.py # CPython specific
 test_random_things.py
 test_refcounts.py  # CPython specific
-test_repr.py
+test_repr.py       # not implemented
 test_returnfuncptrs.py
 test_simplesubclasses.py
 test_slicing.py

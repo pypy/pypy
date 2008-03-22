@@ -47,7 +47,15 @@ def generic_xxx_p_from_param(self, value):
 
 class SimpleType(_CDataMeta):
     def __new__(self, name, bases, dct):
-        tp = dct['_type_']
+        try:
+            tp = dct['_type_']
+        except KeyError:
+            for base in bases:
+                if hasattr(base, '_type_'):
+                    tp = base._type_
+                    break
+            else:
+                raise AttributeError("cannot find _type_ attribute")
         if (not isinstance(tp, str) or
             not len(tp) == 1 or
             tp not in SIMPLE_TYPE_CHARS):
