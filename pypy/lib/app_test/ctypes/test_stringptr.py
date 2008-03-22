@@ -7,6 +7,7 @@ def setup_module(mod):
     _ctypes_test = str(conftest.sofile)
     mod.lib = CDLL(_ctypes_test)
 
+
 class TestStringPtr(BaseCTypesTestChecker):
 
     def test__POINTER_c_char(self):
