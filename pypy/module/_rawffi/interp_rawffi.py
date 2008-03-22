@@ -270,6 +270,9 @@ class W_DataInstance(Wrappable):
         return space.wrap(RawFFIBuffer(self))
     descr_buffer.unwrap_spec = ['self', ObjSpace]
 
+    def getrawsize(self):
+        raise NotImplementedError("abstract base class")
+
 def unwrap_truncate_int(TP, space, w_arg):
     if space.is_true(space.isinstance(w_arg, space.w_int)):
         return rffi.cast(TP, space.int_w(w_arg))
