@@ -7,7 +7,7 @@ test_internals.py # uses gc.getrefcounts
 test_keeprefs.py  # implementation details: ._objects
 test_libc.py
 test_macholib.py  # OS X specific
-test_objects.py
+test_objects.py   # implementation details: ._objects
 test_parameters.py
 test_prototypes.py
 test_python_api.py # CPython specific

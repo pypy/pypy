@@ -49,7 +49,11 @@ class CFuncPtr(_CData):
         elif callable(argument):
             self.callable = argument
             argtypes = [arg._ffiargshape for arg in self._argtypes_]
-            restype = self._restype_._ffiargshape
+            restype = self._restype_
+            if restype is not None:
+                restype = restype._ffiargshape
+            else:
+                restype = 'O' # void
             self._ptr = _rawffi.CallbackPtr(argument, argtypes, restype)
             self._needs_free = True
             self._buffer = self._ptr.byptr()
