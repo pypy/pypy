@@ -1,0 +1,26 @@
+test_bitfields.py # bitfields not supported
+test_byteswap.py  # __ctype_be__ and __ctypes_le__ not implemented
+test_checkretval.py
+test_errcheck.py  # empty
+test_init.py      # obscure
+test_internals.py # uses gc.getrefcounts
+test_keeprefs.py
+test_libc.py
+test_loading.py
+test_macholib.py  # OS X specific
+test_objects.py
+test_parameters.py
+test_prototypes.py
+test_python_api.py # CPython specific
+test_random_things.py
+test_refcounts.py  # CPython specific
+test_repr.py
+test_returnfuncptrs.py
+test_simplesubclasses.py
+test_slicing.py
+test_stringptr.py
+test_struct_fields.py
+test_unaligned_structures.py
+test_values.py
+test_varsize_struct.py
+test_win32.py # Windows specific
