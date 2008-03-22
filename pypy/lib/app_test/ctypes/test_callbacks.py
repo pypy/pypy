@@ -161,3 +161,34 @@ class TestMoreCallbacks(BaseCTypesTestChecker):
         
         proto = CFUNCTYPE(RECT, c_int)
         raises(TypeError, proto, lambda r: 0)
+
+
+    def test_qsort(self):
+        py.test.skip("WIP")
+        import conftest
+        _ctypes_test = str(conftest.sofile)
+        dll = CDLL(_ctypes_test)
+
+        PI = POINTER(c_int)
+        A = c_int*5
+        a = A()
+        for i in range(5):
+            a[i] = 5-i
+
+        assert a[0] == 5 # sanity
+        
+        def comp(a, b):
+            print a,b
+            a = a.contents.value
+            b = b.contents.value
+            return cmp(a,b)
+        qs = dll.my_qsort
+        qs.restype = None
+        CMP = CFUNCTYPE(c_int, PI, PI)
+        qs.argtypes = (PI, c_size_t, c_size_t, CMP)
+
+        qs(cast(a, PI), 5, sizeof(c_int), CMP(comp))
+
+        res = list(a)
+
+        assert res == [1,2,3,4,5]
