@@ -1,3 +1,5 @@
+import py
+
 from ctypes import *
 
 def setup_module(mod):
