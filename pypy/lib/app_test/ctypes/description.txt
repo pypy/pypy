@@ -5,7 +5,6 @@ test_errcheck.py  # empty
 test_init.py      # obscure
 test_internals.py # uses gc.getrefcounts
 test_keeprefs.py  # implementation details: ._objects
-test_libc.py
 test_macholib.py  # OS X specific
 test_objects.py   # implementation details: ._objects
 test_python_api.py # CPython specific
