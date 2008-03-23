@@ -277,6 +277,7 @@ class RawFuncPtr(AbstractFuncPtr):
             "%d instead of %d" % (self.name, len(args_ll), len(self.argtypes)))
         ll_args = lltype.malloc(rffi.VOIDPP.TO, len(args_ll), flavor='raw')
         for i in range(len(args_ll)):
+            assert args_ll[i] # none should be NULL
             ll_args[i] = args_ll[i]
         c_ffi_call(self.ll_cif, self.funcsym, ll_result, ll_args)
         lltype.free(ll_args, flavor='raw')
