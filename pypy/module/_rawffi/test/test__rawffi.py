@@ -121,10 +121,6 @@ class AppTestFfi:
             return s.x + s.y;
         }
 
-        long run_on_x_y(struct x_y s, long (*f)(struct x_y)) {
-            return f(s);
-        }
-
         struct s2h {
             short x;
             short y;
@@ -681,26 +677,6 @@ class AppTestFfi:
         assert s2h.y == 11
         
         s2h.free()
-
-    def test_callback_taking_struct(self):
-        import _rawffi
-        X_Y = _rawffi.Structure([('x', 'l'), ('y', 'l')])
-        x_y = X_Y()
-        lib = _rawffi.CDLL(self.lib_name)
-        runo_on_x_y = lib.ptr('run_on_x_y', [(X_Y, 1), 'P'], 'l')
-        x_y.x = 201
-        x_y.y = 222
-        def add(s):
-            return s.x+s.y
-        cb = _rawffi.CallbackPtr(add, [(X_Y, 1)], 'l')
-        ap = cb.byptr()
-
-        res = run_on_x_y(x_y, ap)
-        assert res == 423 
-
-        ap.free()
-        x_y.free()
-        del cb
 
     def test_buffer(self):
         import _rawffi
