@@ -7,7 +7,6 @@ test_keeprefs.py  # implementation details: ._objects
 test_macholib.py  # OS X specific
 test_objects.py   # implementation details: ._objects
 test_python_api.py # CPython specific
-test_random_things.py
 test_refcounts.py  # CPython specific
 test_repr.py       # not implemented
 test_unaligned_structures.py # _pack_ not implemented
