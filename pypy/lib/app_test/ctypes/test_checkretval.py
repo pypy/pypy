@@ -1,3 +1,4 @@
+import py
 import sys
 
 from ctypes import *
@@ -15,7 +16,7 @@ class CHECKED(c_int):
 class TestRetval:
 
     def test_checkretval(self):
-        py.test.skip("subclassing problems?")
+        py.test.skip("restype being a function not implemented")
 
         assert 42 == dll._testfunc_p_p(42)
 
