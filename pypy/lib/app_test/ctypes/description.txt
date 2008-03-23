@@ -14,9 +14,8 @@ test_random_things.py
 test_refcounts.py  # CPython specific
 test_repr.py       # not implemented
 test_returnfuncptrs.py
-test_simplesubclasses.py
 test_struct_fields.py
 test_unaligned_structures.py
 test_values.py     # some strange stuff
-test_varsize_struct.py
+test_varsize_struct.py # resize not implemented
 test_win32.py # Windows specific

@@ -189,6 +189,8 @@ class Array(_CData):
 ARRAY_CACHE = {}
 
 def create_array_type(base, length):
+    if length < 0:
+        raise ValueError("Array length must be >= 0")
     key = (base, length)
     try:
         return ARRAY_CACHE[key]
