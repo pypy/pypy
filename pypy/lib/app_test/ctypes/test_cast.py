@@ -31,7 +31,7 @@ class TestCast(BaseCTypesTestChecker):
         assert [ptr[i] for i in range(3)] == [42, 17, 2]
 
     def test_p2a_objects(self):
-        py.test.skip("We don't keep alive strings")
+        py.test.skip("we make copies of strings")
         array = (c_char_p * 5)()
         assert array._objects is None
         array[0] = "foo bar"
