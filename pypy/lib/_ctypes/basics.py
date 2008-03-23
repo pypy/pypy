@@ -4,18 +4,24 @@ import sys
 
 keepalive_key = str # XXX fix this when provided with test
 
+def ensure_objects(where):
+    try:
+        ensure = where._ensure_objects
+    except AttributeError:
+        return None
+    return ensure()
+
 def store_reference(where, base_key, target):
-    #self.__dict__['_objects'][key] = value._objects
-    if '_objects' in where.__dict__:
+    if '_index' not in where.__dict__:
         # shortcut
-        where.__dict__['_objects'][str(base_key)] = target
+        where._ensure_objects()[str(base_key)] = target
         return
     key = [base_key]
-    while not '_objects' in where.__dict__:
+    while '_index' in where.__dict__:
         key.append(where.__dict__['_index'])
         where = where.__dict__['_base']
     real_key = ":".join([str(i) for i in key])
-    where.__dict__['_objects'][real_key] = target
+    where._ensure_objects()[real_key] = target
 
 class ArgumentError(Exception):
     pass
@@ -94,6 +100,13 @@ class _CData(object):
 
     def __init__(self, *args, **kwds):
         raise TypeError("%s has no type" % (type(self),))
+
+    def _ensure_objects(self):
+        if '_objects' not in self.__dict__:
+            if '_index' in self.__dict__:
+                return None
+            self.__dict__['_objects'] = {}
+        return self._objects
 
     def __ctypes_from_outparam__(self):
         return self

@@ -1,8 +1,6 @@
 import py
 from ctypes import *
 
-py.test.skip("tests implementation details")
-
 class TestSimple:
     def test_cint(self):
         x = c_int()
@@ -13,6 +11,7 @@ class TestSimple:
         assert x._objects == None
 
     def test_ccharp(self):
+        py.test.skip("we make copies of strings")
         x = c_char_p()
         assert x._objects == None
         x.value = "abc"
@@ -33,6 +32,7 @@ class TestStructure:
         assert x._objects == None
 
     def test_ccharp_struct(self):
+        py.test.skip("we make copies of strings")        
         class X(Structure):
             _fields_ = [("a", c_char_p),
                         ("b", c_char_p)]

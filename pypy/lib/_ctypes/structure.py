@@ -1,7 +1,7 @@
 
 import _rawffi
 from _ctypes.basics import _CData, _CDataMeta, keepalive_key,\
-     store_reference, CArgObject
+     store_reference, ensure_objects, CArgObject
 import inspect
 
 def round_up(size, alignment):
@@ -115,7 +115,6 @@ class StructureMeta(_CDataMeta):
             if not hasattr(self, '_ffistruct'):
                 raise TypeError("Cannot instantiate structure, has no _fields_")
             self.__dict__['_buffer'] = self._ffistruct(autofree=True)
-            self.__dict__['_objects'] = {}
             if len(args) > len(self._names):
                 raise TypeError("too many arguments")
             for name, arg in zip(self._names, args):
@@ -181,7 +180,7 @@ class Structure(_CData):
             fieldtype = self._fieldtypes[name].ctype
         except KeyError:
             raise AttributeError(name)
-        if getattr(value, '_objects', None) is not None:
+        if ensure_objects(value) is not None:
             key = keepalive_key(getattr(self.__class__, name).num)
             store_reference(self, key, value._objects)
         arg = fieldtype._CData_value(value)

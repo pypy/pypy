@@ -83,7 +83,7 @@ class SimpleType(_CDataMeta):
                     if isinstance(value, unicode):
                         value = value.encode(ConvMode.encoding,
                                              ConvMode.errors)
-                    self._objects = value
+                    #self._objects = value
                     array = _rawffi.Array('c')(len(value)+1, value)
                     value = array.buffer
                     self._objects = {'0': CArgObject(array)}
@@ -106,7 +106,7 @@ class SimpleType(_CDataMeta):
                     if isinstance(value, str):
                         value = value.decode(ConvMode.encoding,
                                              ConvMode.errors)
-                    self._objects = value
+                    #self._objects = value
                     array = _rawffi.Array('u')(len(value)+1, value)
                     value = array.buffer
                     self._objects = {'0': CArgObject(array)}
@@ -211,6 +211,9 @@ class _SimpleCData(_CData):
         self._buffer = self._ffiarray(1, autofree=True)
         if value is not DEFAULT_VALUE:
             self.value = value
+
+    def _ensure_objects(self):
+        return None
 
     def _getvalue(self):
         return self._buffer[0]

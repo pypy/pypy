@@ -19,6 +19,19 @@ class TestKeepalive:
         assert p._objects == {'1':l}
         assert a._objects == {'3':{'1':l}}
 
+    def test_simple_structure_and_pointer(self):
+        class X(Structure):
+            _fields_ = [('x', POINTER(c_int))]
+
+        x = X()
+        p = POINTER(c_int)()
+        assert x._objects is None
+        assert p._objects is None
+        x.x = p
+        assert p._objects == {}
+        assert len(x._objects) == 1
+        assert x._objects['0'] is p._objects
+        
     def test_structure_with_pointers(self):
         class X(Structure):
             _fields_ = [('x', POINTER(c_int)),

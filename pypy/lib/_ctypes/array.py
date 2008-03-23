@@ -2,7 +2,8 @@
 import _rawffi
 
 from _ctypes.basics import _CData, cdata_from_address, _CDataMeta, sizeof
-from _ctypes.basics import keepalive_key, store_reference, CArgObject
+from _ctypes.basics import keepalive_key, store_reference, ensure_objects
+from _ctypes.basics import CArgObject
 from _ctypes.builtin import _string_at_addr, _wstring_at_addr
 
 def _create_unicode(buffer, maxlength):
@@ -133,7 +134,6 @@ class Array(_CData):
 
     def __init__(self, *args):
         self._buffer = self._ffiarray(self._length_, autofree=True)
-        self._objects = {}
         for i, arg in enumerate(args):
             self[i] = arg
 
@@ -160,7 +160,7 @@ class Array(_CData):
             self._slice_setitem(index, value)
             return
         index = self._fix_index(index)
-        if getattr(value, '_objects', None) is not None:
+        if ensure_objects(value) is not None:
             store_reference(self, index, value._objects)
         arg = self._type_._CData_value(value)
         if self._type_._fficompositesize is None:

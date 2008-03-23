@@ -2,6 +2,7 @@
 
 import _rawffi
 from _ctypes.basics import _CData, _CDataMeta, store_reference, keepalive_key
+from _ctypes.basics import ensure_objects
 from _ctypes.structure import round_up, names_and_fields, struct_getattr,\
      struct_setattr
 import inspect
@@ -99,7 +100,7 @@ class Union(_CData):
             fieldtype = self._fieldtypes[name].ctype
         except KeyError:
             raise AttributeError(name)
-        if getattr(value, '_objects', None) is not None:
+        if ensure_objects(value) is not None:
             key = keepalive_key(getattr(self.__class__, name).num)
             store_reference(self, key, value._objects)
         arg = fieldtype._CData_value(value)
