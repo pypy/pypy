@@ -1,6 +1,5 @@
 test_bitfields.py # bitfields not supported
 test_byteswap.py  # __ctype_be__ and __ctypes_le__ not implemented
-test_checkretval.py
 test_errcheck.py  # empty
 test_init.py      # obscure
 test_internals.py # uses gc.getrefcounts
