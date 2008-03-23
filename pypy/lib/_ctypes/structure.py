@@ -85,7 +85,7 @@ def struct_getattr(self, name):
 
 def struct_setattr(self, name, value):
     if name == '_fields_':
-        if self.__dict__.get('_fields_', None):
+        if self.__dict__.get('_fields_', None) is not None:
             raise AttributeError("_fields_ is final")
         if self in [v for k, v in value]:
             raise AttributeError("Structure or union cannot contain itself")
