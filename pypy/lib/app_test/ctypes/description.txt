@@ -8,7 +8,6 @@ test_keeprefs.py  # implementation details: ._objects
 test_libc.py
 test_macholib.py  # OS X specific
 test_objects.py   # implementation details: ._objects
-test_parameters.py
 test_python_api.py # CPython specific
 test_random_things.py
 test_refcounts.py  # CPython specific
