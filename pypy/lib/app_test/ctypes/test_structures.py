@@ -358,7 +358,7 @@ class TestStructure(BaseCTypesTestChecker):
         assert p.age == 6
 
     def test_subclassing_field_is_a_tuple(self):
-        py.test.skip("this leaks")
+        py.test.skip("suclassing not supported")
         class Person(Structure):
             _fields_ = (("name", c_char*6),
                         ("age", c_int))
