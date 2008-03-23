@@ -361,7 +361,7 @@ class Entry(ExtRegistryEntry):
     def compute_result_annotation(self, s_sizehint):
         return self.bookkeeper.newlist()
 
-    def specialize_call(self, orig_hop, i_sizehint):
+    def specialize_call(self, orig_hop, i_sizehint=None):
         from pypy.rpython.rlist import rtype_newlist
         from pypy.rpython.lltypesystem import lltype
         # fish a bit hop
