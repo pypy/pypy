@@ -78,13 +78,13 @@ class TestNumber(BaseCTypesTestChecker):
     def test_from_param(self):
         # the from_param class method attribute always
         # returns PyCArgObject instances
-        py.test.skip("bogus test")
+        py.test.skip("testing implementation internals")
         for t in signed_types + unsigned_types + float_types:
             assert ArgType == type(t.from_param(0))
 
     def test_byref(self):
         # calling byref returns also a PyCArgObject instance
-        py.test.skip("bogus test")
+        py.test.skip("testing implementation internals")
         for t in signed_types + unsigned_types + float_types:
             parm = byref(t())
             assert ArgType == type(parm)

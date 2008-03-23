@@ -393,7 +393,7 @@ class TestFunctions(BaseCTypesTestChecker):
         assert result == "bcd"
 
     def test_sf1651235(self):
-        py.test.skip("???")
+        py.test.skip("XXX parameter checking for callbacks should be stricter")
         # see http://www.python.org/sf/1651235
 
         proto = CFUNCTYPE(c_int, RECT, POINT)

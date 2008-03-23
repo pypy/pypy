@@ -332,7 +332,7 @@ class TestStructure(BaseCTypesTestChecker):
 ##                             (AttributeError, "class must define a '_fields_' attribute"))
 
     def test_abstract_class(self):
-        py.test.skip("What is _abstract_?")
+        py.test.skip("_abstract_ not implemented")
         class X(Structure):
             _abstract_ = "something"
         # try 'X()'
@@ -429,7 +429,7 @@ class TestRecursiveStructure(BaseCTypesTestChecker):
 
 
     def test_vice_versa(self):
-        py.test.skip("I don't understand this test at all")
+        py.test.skip("XXX mutually dependent lazily defined structures")
         class First(Structure):
             pass
         class Second(Structure):

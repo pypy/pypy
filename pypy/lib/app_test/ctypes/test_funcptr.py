@@ -48,7 +48,7 @@ class TestCFuncPtr:
             raises(TypeError, s, 1, 2, 3)
 
     def test_structures(self):
-        py.test.skip("XXX no clue")
+        py.test.skip("win32 related")
         WNDPROC = WINFUNCTYPE(c_long, c_int, c_int, c_int, c_int)
 
         def wndproc(hwnd, msg, wParam, lParam):
