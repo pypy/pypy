@@ -282,3 +282,32 @@ Random improvement ideas
   "continue" statement was in a try:finally:.  This is not
   necessarily a problem, just a note that we have to allow
   this hint to be in some subfunction, potentially.
+
+- the previous pypy-c-jit used SomeInstance annotations with a
+  special flag "access_directly" for frame objects at some
+  point, with the goal of making the regular (non-JITing)
+  interpretation access the frame directly without going
+  through the overhead of checking if it was virtualized.  I
+  don't quite see how to keep this approach now.  Let's try to
+  think about a "safe" way to detect when the overhead can be
+  removed.
+  
+  Here is a vague plan (draft to be expanded): let's try to
+  add a data flow pass that follows local variables and
+  function call arguments only.  An object can be virtualized
+  only in two cases: if it is passed as an argument to a
+  residual call by the JIT, or if it is read out of a heap
+  data structure.  We can easily record which functions are
+  residually callable during the generation of the JIT
+  bytecode, but not really before, so we need to remove
+  the overhead in an extra backendopt-style pass.
+  
+  Conversely, an object cannot be virtualized if we can see it
+  going from its creation point to its usage point via local
+  vars and args (without entering a residually callable
+  function).  It cannot be virtualized either if we can see it
+  going from the 'jit_merge_point' hint to its usage point
+  (without entering a residually callable function): indeed,
+  if we cross 'jit_merge_point' but stay in the non-JITing
+  path, then we are sure that all the local vars are
+  non-virtualized.
