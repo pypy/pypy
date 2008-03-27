@@ -18,8 +18,7 @@ def callback(ll_args, ll_res, ll_userdata):
     res = rffi.cast(rffi.VOIDPP, ll_res)
     argtypes = callback_ptr.args
     space = callback_ptr.space
-    w_args = space.newlist([wrap_value(space, get_elem, ll_args[i], 0,
-                                       letter2tp(space, argtypes[i]))
+    w_args = space.newlist([space.wrap(rffi.cast(rffi.UINT, ll_args[i]))
                             for i in range(len(argtypes))])
     w_res = space.call(w_callable, w_args)
     unwrap_value(space, push_elem, ll_res, 0,
