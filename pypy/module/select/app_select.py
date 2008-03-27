@@ -36,6 +36,9 @@ that are ready.
 *** IMPORTANT NOTICE ***
 On Windows, only sockets are supported; on Unix, all file descriptors.
 """
+    iwtd = tuple(iwtd)
+    owtd = tuple(owtd)
+    ewtd = tuple(ewtd)
     from select import poll, POLLIN, POLLOUT, POLLPRI, POLLERR, POLLHUP
     fddict = {}
     polldict = {}

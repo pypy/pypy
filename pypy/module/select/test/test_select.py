@@ -20,6 +20,15 @@ class _AppTestSelect:
             readend.close()
             writeend.close()
 
+    def test_list_tuple(self):
+        import time, select
+        readend, writeend = getpair()
+        try:
+            iwtd, owtd, ewtd = select.select([readend], (), (), 0)
+        finally:
+            readend.close()
+            writeend.close()
+
     def test_readable(self):
         """
         select.select returns elements from the "read list" (the first
