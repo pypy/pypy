@@ -1,6 +1,6 @@
 
 from ctypes import *
-from ctypes.support import standard_c_lib, get_errno, set_errno
+from ctypes_support import standard_c_lib, get_errno, set_errno
 
 def test_stdlib_and_errno():
     write = standard_c_lib.write
