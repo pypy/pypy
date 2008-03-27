@@ -41,7 +41,7 @@ def generic_xxx_p_from_param(self, value):
     if isinstance(value, basestring):
         return self(value)
     if isinstance(value, _SimpleCData) and \
-           type(value)._type_ in 'zP':
+           type(value)._type_ in 'zZP':
         return value
     return None # eventually raise
 

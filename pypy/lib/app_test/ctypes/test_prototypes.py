@@ -97,7 +97,6 @@ class TestCharPointers(BaseCTypesTestChecker):
         assert "a" == func(byref(ca))[0]
 
     def test_c_void_p_arg(self):
-        py.test.skip("XXX fails")
         func = testdll._testfunc_p_p
         func.restype = c_char_p
         func.argtypes = c_void_p,
