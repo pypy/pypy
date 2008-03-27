@@ -14,6 +14,8 @@ Types = {} # TypeName -> ClassDesc
 Namespaces = set()
 mscorlib = 'mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'
 pypylib = 'pypylib, Version=0.0.0.0, Culture=neutral'
+pypylib2 = 'pypylib, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null' # this is for mono 1.9
+
 
 #_______________________________________________________________________________
 # This is the public interface of query.py
@@ -147,7 +149,7 @@ class ClassDesc(object):
 
         if self.Assembly == mscorlib:
             assembly = '[mscorlib]'
-        elif self.Assembly == pypylib:
+        elif self.Assembly in (pypylib, pypylib2):
             assembly = '[pypylib]'
         else:
             assert False, 'TODO: support external assemblies'
