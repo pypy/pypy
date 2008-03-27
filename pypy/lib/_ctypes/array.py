@@ -115,6 +115,8 @@ def array_get_slice_params(self, index):
 
 def array_slice_setitem(self, index, value):
     start, stop = self._get_slice_params(index)
+    if stop - start != len(value):
+        raise ValueError("Can only assign slices of the same length")
     for i in range(start, stop):
         self[i] = value[i - start]
 

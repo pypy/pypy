@@ -21,7 +21,6 @@ class TestSlices(BaseCTypesTestChecker):
         assert a[0:5] == range(5, 10)
 
     def test_setslice_cint(self):
-        py.test.skip("XXX bugs")
         a = (c_int * 100)(*xrange(1100, 1200))
         b = range(1100, 1200)
 
