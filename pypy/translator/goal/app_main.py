@@ -286,6 +286,10 @@ def entry_point(executable, argv, nanos):
         signal.signal(signal.SIGINT, signal.default_int_handler)
         if hasattr(signal, "SIGPIPE"):
             signal.signal(signal.SIGPIPE, signal.SIG_IGN)
+        if hasattr(signal, 'SIGXFZ'):
+            signal.signal(signal.SIGXFZ, signal.SIG_IGN)
+        if hasattr(signal, 'SIGXFZS'):
+            signal.signal(signal.SIGXFZS, signal.SIG_IGN)
 
     def is_interactive():
         return go_interactive or os.getenv('PYTHONINSPECT')
