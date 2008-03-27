@@ -2,7 +2,7 @@ from ctypes import *
 import py
 from support import BaseCTypesTestChecker
 
-class TestCallbacks:#(BaseCTypesTestChecker):
+class TestCallbacks(BaseCTypesTestChecker):
     functype = CFUNCTYPE
 
 ##    def tearDown(self):
@@ -108,7 +108,7 @@ else:
 
 ################################################################
 
-class TestSampleCallbacks:#(BaseCTypesTestChecker):
+class TestSampleCallbacks(BaseCTypesTestChecker):
 
     def test_integrate(self):
         # Derived from some then non-working code, posted by David Foster
@@ -134,7 +134,7 @@ class TestSampleCallbacks:#(BaseCTypesTestChecker):
 
 ################################################################
 
-class TestMoreCallbacks:#(BaseCTypesTestChecker):
+class TestMoreCallbacks(BaseCTypesTestChecker):
 
     def test_callback_with_struct_argument(self):
         py.test.skip("WIP")
@@ -191,5 +191,3 @@ class TestMoreCallbacks:#(BaseCTypesTestChecker):
 
         assert res == [1,2,3,4,5]
 
-def test_last():
-    py.test.skip("XXX don't forget about leaks")

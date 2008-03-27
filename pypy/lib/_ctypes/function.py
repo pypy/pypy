@@ -54,7 +54,8 @@ class CFuncPtr(_CData):
                 restype = restype._ffiargshape
             else:
                 restype = 'O' # void
-            self._ptr = _rawffi.CallbackPtr(self._wrap_callable(argument),
+            self._ptr = _rawffi.CallbackPtr(self._wrap_callable(argument,
+                                                                self.argtypes),
                                             argtypes, restype)
             self._needs_free = True
             self._buffer = self._ptr.byptr()
@@ -70,11 +71,11 @@ class CFuncPtr(_CData):
         else:
             raise TypeError("Unknown constructor %s" % (argument,))
 
-    def _wrap_callable(self, to_call):
+    def _wrap_callable(self, to_call, argtypes):
         def f(*args):
-            if self.argtypes:
+            if argtypes:
                 args = [argtype._CData_retval(argtype.from_address(arg)._buffer)
-                        for argtype, arg in zip(self.argtypes, args)]
+                        for argtype, arg in zip(argtypes, args)]
             return to_call(*args)
         return f
     
