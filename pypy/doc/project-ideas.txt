@@ -96,7 +96,7 @@ ideas might be:
 * Write down better object layer over DOM in RPython to make writing applications
   easier
 
- - Anto proposed to make the javascript backendopt more useful by
+ - Anto proposed to make the javascript backend more useful by
    turning it into something more frameworkish. I am sceptical of the
    viability of the task, it would need a very clever student and
    probably a lot of work too.
