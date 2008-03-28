@@ -6,6 +6,7 @@
 
 import autopath
 import os
+import py
 
 from py.path import local 
 
@@ -17,7 +18,7 @@ def svn_info(url):
         return basename.split('/')[-2]
 
 try:
-    basename = '-' + svn_info(py.path.svnwc.info().url) + '-'
+    basename = '-' + svn_info(py.path.svnwc().info().url) + '-'
 except:
     basename = '-'
 
