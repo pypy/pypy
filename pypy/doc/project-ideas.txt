@@ -76,6 +76,25 @@ Python code (should be relatively easy on top of transparent proxy).
 Another example would be to implement a multi-CPU extension that internally
 uses several processes and uses transparent proxies to share object views.
 
+
+Improving the automated test framework
+--------------------------------------
+
+Every night, various kinds of PyPy tests run automatically on a
+variety of different systems.  Each set of tests displays its own
+result on a different web page; for example, here are the results of
+our `unit tests`_, `translation tests and benchmarks`_ and `pypy-c
+compliance tests`_.
+
+.. _`unit tests`: http://wyvern.cs.uni-duesseldorf.de/pypytest/summary.html
+.. _`translation tests and benchmarks`: http://tuatara.cs.uni-duesseldorf.de/benchmark.html
+.. _`pypy-c compliance tests`:  http://www.strakt.com/~pedronis/pypy-c-test/allworkingmodules/summary.html
+
+A possible project is to improve our testing infrastructure and build
+a service that aggregates and displays the results of all the nightly
+tests.
+
+
 Various Ideas
 -------------
 
@@ -87,10 +106,6 @@ Various Ideas
 - revive the logic object space, which tried to bring unification-like
   features to Python
 
-- a unified testing infrastructure to collect the results of nightly
-  automated py.test runs in a single summary page, improving on this__
-
-.. __: http://wyvern.cs.uni-duesseldorf.de/pypytest/summary.html
 
 
 Or else...
