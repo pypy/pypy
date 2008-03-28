@@ -15,61 +15,66 @@ network or the pypy-dev mailing list (see the home_ page).
 
 .. contents::
 
-Experiment with optimizations
------------------------------
 
-Although PyPy's Python interpreter is very compatible with CPython, it is not
-yet as fast.  There are several approaches to making it faster, including the
-on-going Just-In-Time compilation efforts and improving the compilation tool
-chain, but probably the most suited to being divided into reasonably sized
-chunks is to play with alternate implementations of key data structures or
-algorithms used by the interpreter.  PyPy's structure is designed to make this
-straightforward, so it is easy to provide a different implementation of, say,
-dictionaries or lists without disturbing any other code.
 
-As examples, we've got working implementations of things like:
+Improve one of the JIT back-ends
+--------------------------------
 
-* lazy string slices (slicing a string gives an object that references a part
-  of the original string).
+- PyPy's Just-In-Time compiler relies on two assembler backends for actual
+  code generation, one for PowerPC and the other for i386.  A good project
+  would be to give the 386 backend a good refactoring, simplifying it, then
+  add support for missing features like floating-point arithmetic.  Another
+  idea would be start a new backend for e.g. AMD64 (Intel IA-64) or even a
+  mobile device.
 
-* lazily concatenated strings (repeated additions and joins are done
-  incrementally).
+- Another idea in a similar vein (but requiring some more interaction with the
+  rest of the JIT code) would be to use LLVM to re-compile functions that are
+  executed particularly frequently (LLVM cannot be used for *all* code
+  generation, since it can only work on a whole function at a time).
 
-* dictionaries specialized for string-only keys.
 
-* dictionaries which use a different strategy when very small.
+CTypes
+------
 
-* caching the lookups of builtin names (by special forms of
-  dictionaries that can invalidate the caches when they are written to)
+- support ctypes on more backends.  Right now ctypes is supported only when
+  compiling PyPy to C.  A nice project would be to support it when compiling
+  to .NET or the JVM. That's not too hard, the only thing needed is to port a
+  small module that does the actual invocation of external libraries (a
+  related project would be to port this module to Jython or IronPython to get
+  support for ctypes there).
 
-Things we've thought about but not yet implemented include:
+More Interpreter Features
+-------------------------
 
-* create multiple representations of Unicode string that store the character
-  data in narrower arrays when they can.
+- support some of the more recent features of CPython. A nice project would be
+  to support all of the remaining Python 2.5 language features.
+   
+- another thing to do on our Python interpreter would be to port over the
+  changes to the standard library (which includes re-writing some of the
+  C-coded modules in RPython or pure Python) that happened in 2.5 or that we
+  are still missing in 2.4.
 
-Experiments of this kind are really experiments in the sense that we do not know
-whether they will work well or not and the only way to find out is to try.  A
-project of this nature should provide benchmark results (both timing and memory
-usage) as much as code.
 
-Some ideas on concrete steps for benchmarking:
+.. _distribution:
+.. _persistence:
 
-* find a set of real-world applications that can be used as benchmarks
-  for pypy (ideas: docutils, http://hachoir.org/, moinmoin, ...?)
+Experiment with distribution and persistence
+--------------------------------------------
 
-* do benchmark runs to see how much speedup the currently written
-  optimizations give
-* profile pypy-c and its variants with these benchmarks, identify slow areas
+One of the advantages of PyPy's implementation is that the Python-level type
+of an object and its implementation are completely independent.  This should
+allow a much more intuitive interface to, for example, objects that are backed
+by a persistent store.
 
-* try to come up with optimized implementations for these slow areas
+The `transparent proxy`_ objects are a key step in this
+direction; now all that remains is to implement the interesting bits :-)
 
-Start or improve a back-end
----------------------------
+An example project might be to implement functionality akin to the `ZODB's
+Persistent class`_, without the need for the _p_changed hacks, and in pure
+Python code (should be relatively easy on top of transparent proxy).
 
-PyPy has complete, or nearly so, back-ends for C, LLVM, CLI/.NET and
-JVM. It would be an interesting project to improve either of these
-partial backends, or start one for another platform (Objective C comes
-to mind as one that should not be too terribly hard).
+Another example would be to implement a multi-CPU extension that internally
+uses several processes and uses transparent proxies to share object views.
 
 Improve JavaScript backend
 --------------------------
@@ -91,93 +96,13 @@ ideas might be:
 * Write down better object layer over DOM in RPython to make writing applications
   easier
 
-Improve one of the JIT back-ends
---------------------------------
-
-PyPy's Just-In-Time compiler relies on two assembler backends for actual code
-generation, one for PowerPC and the other for i386. Idea would be start a new backend
-for ie. mobile device.
-
-Another idea in a similar vein would be to use LLVM to re-compile functions that
-are executed particularly frequently (LLVM cannot be used for *all* code
-generation, since it can only work on function at a time).
-
-Write a new front end
----------------------
-
-Write an interpreter for **another dynamic language** in the PyPy framework.
-For example, a Scheme interpreter would be suitable (and it would even be
-interesting from a semi-academic point of view to see if ``call/cc`` can be
-implemented on top of the primitives the stackless transform provides).  Ruby
-too (though the latter is probably more than two months of work), or Lua, or ...
-
-We already have a somewhat usable `Prolog interpreter`_ and the beginnings of a
-`JavaScript interpreter`_.
-
-.. _security:
-
-Investigate restricted execution models
----------------------------------------
-
-Revive **rexec**\ : implement security checks, sandboxing, or some similar
-model within PyPy (which, if I may venture an opinion, makes more sense and is
-more robust than trying to do it in CPython).
-
-There are multiple approaches that can be discussed and tried.  One of them is
-about safely executing limited snippets of untrusted RPython code (see
-http://codespeak.net/pipermail/pypy-dev/2006q2/003131.html).  More general
-approaches, to execute general but untrusted Python code on top of PyPy,
-require more design.  The object space model of PyPy will easily allow
-objects to be tagged and tracked.  The translation of PyPy would also be a
-good place to insert e.g. systematic checks around all system calls.
-
-.. _distribution:
-.. _persistence:
-
-Experiment with distribution and persistence
---------------------------------------------
-
-One of the advantages of PyPy's implementation is that the Python-level type
-of an object and its implementation are completely independent.  This should
-allow a much more intuitive interface to, for example, objects that are backed
-by a persistent store.
-
-The `transparent proxy`_ objects are a key step in this
-direction; now all that remains is to implement the interesting bits :-)
-
-An example project might be to implement functionality akin to the `ZODB's
-Persistent class`_, without the need for the _p_changed hacks, and in pure
-Python code (should be relatively easy on top of transparent proxy).
-
-Numeric/NumPy/numarray support
-------------------------------
-
-At the EuroPython sprint, some work was done on making RPython's annotator
-recognise Numeric arrays, with the goal of allowing programs using them to be
-efficiently translated.  It would be a reasonably sized project to finish this
-work, i.e. allow RPython programs to use some Numeric facilities.
-Additionally, these facilities could be exposed to applications interpreted by
-the translated PyPy interpreter.
-
-Extend py.execnet to a peer-to-peer model
------------------------------------------
-
-* Work on a P2P model of distributed execution (extending `py.execnet`_) 
-  that allows `py.test`_ and other upcoming utilities to make use of a 
-  network of computers executing python tasks (e.g. tests or PyPy build tasks). 
-
-* Make a client tool and according libraries to instantiate a (dynamic) network
-  of computers executing centrally managed tasks (e.g. build or test ones). 
-  (This may make use of a P2P model or not, both is likely feasible). 
+ - Anto proposed to make the javascript backendopt more useful by
+   turning it into something more frameworkish. I am sceptical of the
+   viability of the task, it would need a very clever student and
+   probably a lot of work too.
 
 Or else...
 ----------
-
-* Constraint programming: `efficient propagators for specialized
-  finite domains`_ (like numbers, sets, intervals).
-
-* A `code templating solution`_ for Python code, allowing to extend
-  the language syntax, control flow operators, etc.
 
 ...or whatever else interests you!
 
