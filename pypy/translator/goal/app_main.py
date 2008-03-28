@@ -288,8 +288,8 @@ def entry_point(executable, argv, nanos):
             signal.signal(signal.SIGPIPE, signal.SIG_IGN)
         if hasattr(signal, 'SIGXFZ'):
             signal.signal(signal.SIGXFZ, signal.SIG_IGN)
-        if hasattr(signal, 'SIGXFZS'):
-            signal.signal(signal.SIGXFZS, signal.SIG_IGN)
+        if hasattr(signal, 'SIGXFSZ'):
+            signal.signal(signal.SIGXFSZ, signal.SIG_IGN)
 
     def is_interactive():
         return go_interactive or os.getenv('PYTHONINSPECT')
