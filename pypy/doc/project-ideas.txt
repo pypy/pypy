@@ -76,30 +76,22 @@ Python code (should be relatively easy on top of transparent proxy).
 Another example would be to implement a multi-CPU extension that internally
 uses several processes and uses transparent proxies to share object views.
 
-Improve JavaScript backend
---------------------------
+Various Ideas
+-------------
 
-The JavaScript backend is somehow different from other pypy's backends because
-it does not try to support all of PyPy (where it might be run then?), but rather
-to compile RPython programs into code that runs in a browser.  Some documents
-are in `what is PyPy.js`_ file and `using the JavaScript backend`_. Some project
-ideas might be:
+- work on and improve the JavaScript backend
 
-* Write some examples to show different possibilities of using the backend.
+- improve one of the existing interpreters (e.g. the Prolog, the Scheme or
+  the JavaScript interpreter or the Smalltalk VM)
 
-* Improve the facilities for testing RPython intended to be translated to
-  JavaScript on top of CPython, mostly by improving existing DOM interface.
+- revive the logic object space, which tried to bring unification-like
+  features to Python
 
-* Write down the mochikit bindings (or any other interesting JS effects library),
-  including tests
+- a unified testing infrastructure to collect the results of nightly
+  automated py.test runs in a single summary page, improving on this__
 
-* Write down better object layer over DOM in RPython to make writing applications
-  easier
+.. __: http://wyvern.cs.uni-duesseldorf.de/pypytest/summary.html
 
- - Anto proposed to make the javascript backend more useful by
-   turning it into something more frameworkish. I am sceptical of the
-   viability of the task, it would need a very clever student and
-   probably a lot of work too.
 
 Or else...
 ----------
@@ -107,7 +99,8 @@ Or else...
 ...or whatever else interests you!
 
 Feel free to mention your interest and discuss these ideas on the `pypy-dev
-mailing list`_.  You can also have a look around our documentation_.
+mailing list`_ or on the #pypy channel on irc.freenode.net.
+You can also have a look around our documentation_.
 
 
 .. _`efficient propagators for specialized finite domains`: http://codespeak.net/svn/pypy/extradoc/soc-2006/constraints.txt
