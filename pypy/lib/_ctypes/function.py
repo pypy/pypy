@@ -32,12 +32,15 @@ class CFuncPtr(_CData):
     def _getargtypes(self):
         return self._argtypes_
     def _setargtypes(self, argtypes):
+        self._ptr = None
         self._argtypes_ = argtypes    
     argtypes = property(_getargtypes, _setargtypes)
 
     def _getrestype(self):
         return self._restype_
     def _setrestype(self, restype):
+        self._ptr = None
+        from ctypes import c_char_p
         if restype is int:
             from ctypes import c_int
             restype = c_int
