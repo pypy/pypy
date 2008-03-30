@@ -8,7 +8,7 @@ import os
 import sys
 
 try:
-    import cProfile
+    import profile as cProfile
 except ImportError:
     raise SystemExit("This script requires cProfile from Python 2.5")
 

@@ -18,7 +18,7 @@ def svn_info(url):
         return basename.split('/')[-2]
 
 try:
-    basename = '-' + svn_info(py.path.svnwc(py.magic.autopath()).info().url) + '-'
+    basename = '-' + svn_info(py.path.svnwc(py.magic.autopath().dirpath()).info().url) + '-'
 except:
     basename = '-'
 
