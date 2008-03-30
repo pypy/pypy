@@ -15,7 +15,8 @@ class Tracker(object):
         self.alloced[address] = None
 
     def trace_free(self, address):
-        del self.alloced[address]
+        if address in self.alloced:
+            del self.alloced[address]
 
 # single, global, static object to keep all tracker info
 tracker = Tracker()

@@ -369,6 +369,10 @@ class W_FuncPtr(Wrappable):
         array_of_ptr = get_array_cache(space).array_of_ptr
         array = array_of_ptr.allocate(space, 1)
         array.setitem(space, 0, self._getbuffer(space))
+        if tracker.DO_TRACING:
+            # XXX this is needed, because functions tend to live forever
+            #     hence our testing is not performing that well
+            del tracker.alloced[rffi.cast(lltype.Unsigned, array.ll_buffer)]
         return space.wrap(array)
     byptr.unwrap_spec = ['self', ObjSpace]
 
