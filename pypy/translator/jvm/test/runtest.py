@@ -118,11 +118,11 @@ class JvmTest(BaseRtypingTest, OORtypeMixin):
             return JvmGeneratedSourceWrapper(self._jvm_src)
 
     def _skip_win(self, reason):
-        if platform.system() == 'Windows':
+        if hasattr(platform, 'system') and platform.system() == 'Windows':
             py.test.skip('Windows --> %s' % reason)
             
     def _skip_powerpc(self, reason):
-        if platform.processor() == 'powerpc':
+        if hasattr(platform, 'processor') and platform.processor() == 'powerpc':
             py.test.skip('PowerPC --> %s' % reason)
 
     def _skip_llinterpreter(self, reason, skipLL=True, skipOO=True):

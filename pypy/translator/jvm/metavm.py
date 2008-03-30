@@ -4,6 +4,7 @@ from pypy.translator.jvm.typesystem import JvmScalarType, JvmClassType
 import pypy.translator.jvm.generator as jvmgen
 import pypy.translator.jvm.typesystem as jvmtype
 from pypy.translator.jvm.builtin import JvmBuiltInType
+from pypy.translator.jvm import cmpopcodes
 
 class _IndirectCall(MicroInstruction):
     def render(self, gen, op):
@@ -110,3 +111,16 @@ class _PushPyPy(MicroInstruction):
     def render(self, generator, op):
         generator.push_pypy()
 PushPyPy = _PushPyPy()
+
+class _PushComparisonResult(MicroInstruction):
+    def render(self, generator, op):
+        assert cmpopcodes.can_branch_directly(op.opname)
+        truelbl = generator.unique_label('load_comparision_result_true')
+        endlbl = generator.unique_label('load_comparision_result_end')
+        cmpopcodes.branch_if(generator, op.opname, truelbl)
+        generator.emit(jvmgen.ICONST, 0)
+        generator.goto(endlbl)
+        generator.mark(truelbl)
+        generator.emit(jvmgen.ICONST, 1)
+        generator.mark(endlbl)
+PushComparisonResult = _PushComparisonResult()

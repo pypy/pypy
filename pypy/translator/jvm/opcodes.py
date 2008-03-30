@@ -11,8 +11,9 @@ from pypy.translator.oosupport.metavm import \
      CastTo, PushPrimitive
 from pypy.translator.jvm.metavm import \
      IndirectCall, JvmCallMethod, NewCustomDict, \
-     CastPrimitive, PushPyPy
+     CastPrimitive, PushPyPy, PushComparisonResult
 from pypy.rpython.ootypesystem import ootype
+from pypy.translator.jvm.cmpopcodes import cmp_opname
 
 import pypy.translator.jvm.generator as jvmgen
 import pypy.translator.jvm.typesystem as jvmtype
@@ -39,11 +40,17 @@ def _proc(val):
 def _proc_dict(original):
     
     """ Function which is used to post-process each entry in the
-    opcodes table."""
+    opcodes table.  It also adds the entries for comparison operations
+    from the cmpopcodes module. """
 
     res = {}
-    for key, val in original.items():
-        res[key] = _proc(val)
+    
+    for opname, val in original.items():
+        res[opname] = _proc(val)
+
+    for opname in cmp_opname.keys():
+        res[opname] = _proc(PushComparisonResult)
+        
     return res
 
 def _check_zer(op):
@@ -70,8 +77,6 @@ opcodes = _proc_dict({
     'oosend':                   [JvmCallMethod, StoreResult],
     'ooupcast':                 DoNothing,
     'oodowncast':               [DownCast, StoreResult],
-    'oois':                     'ref_is_eq',
-    'oononnull':                'is_not_null',
     'instanceof':               [CastTo, StoreResult],
     'subclassof':               [PushAllArgs, jvmgen.SWAP, jvmgen.CLASSISASSIGNABLEFROM, StoreResult],
     'ooidentityhash':           [PushAllArgs, jvmgen.OBJHASHCODE, StoreResult], 
@@ -95,17 +100,6 @@ opcodes = _proc_dict({
 
     'bool_not':                 'logical_not',
 
-    'char_lt':                  'less_than',
-    'char_le':                  'less_equals',
-    'char_eq':                  'equals',
-    'char_ne':                  'not_equals',
-    'char_gt':                  'greater_than',
-    'char_ge':                  'greater_equals',
-
-    'unichar_eq':               'equals',
-    'unichar_ne':               'not_equals',
-
-    'int_is_true':              'not_equals_zero',
     'int_neg':                  jvmgen.INEG,
     'int_neg_ovf':              jvmgen.INEGOVF,
     'int_abs':                  'iabs',
@@ -118,12 +112,6 @@ opcodes = _proc_dict({
     'int_floordiv':             jvmgen.IDIV,
     'int_floordiv_zer':         _check_zer(jvmgen.IDIV),
     'int_mod':                  jvmgen.IREM,
-    'int_lt':                   'less_than',
-    'int_le':                   'less_equals',
-    'int_eq':                   'equals',
-    'int_ne':                   'not_equals',
-    'int_gt':                   'greater_than',
-    'int_ge':                   'greater_equals',
     'int_and':                  jvmgen.IAND,
     'int_or':                   jvmgen.IOR,
     'int_lshift':               jvmgen.ISHL,
@@ -136,12 +124,6 @@ opcodes = _proc_dict({
     'int_floordiv_ovf':         jvmgen.IDIV, # these can't overflow!
     'int_mod_zer':              _check_zer(jvmgen.IREM),
     'int_mod_ovf':              jvmgen.IREMOVF,
-    'int_lt_ovf':               'less_than',
-    'int_le_ovf':               'less_equals',
-    'int_eq_ovf':               'equals',
-    'int_ne_ovf':               'not_equals',
-    'int_gt_ovf':               'greater_than',
-    'int_ge_ovf':               'greater_equals',
     'int_and_ovf':              jvmgen.IAND,
     'int_or_ovf':               jvmgen.IOR,
 
@@ -153,7 +135,6 @@ opcodes = _proc_dict({
     'int_floordiv_ovf_zer':     _check_zer(jvmgen.IDIV),
     'int_mod_ovf_zer':          _check_zer(jvmgen.IREMOVF),
 
-    'uint_is_true':             'not_equals_zero',
     'uint_invert':              'bitwise_negate',
 
     'uint_add':                 jvmgen.IADD,
@@ -163,19 +144,12 @@ opcodes = _proc_dict({
     'uint_truediv':             None,    # TODO
     'uint_floordiv':            jvmgen.PYPYUINTDIV,
     'uint_mod':                 jvmgen.PYPYUINTMOD,
-    'uint_lt':                  'u_less_than',
-    'uint_le':                  'u_less_equals',
-    'uint_eq':                  'u_equals',
-    'uint_ne':                  'u_not_equals',
-    'uint_gt':                  'u_greater_than',
-    'uint_ge':                  'u_greater_equals',
     'uint_and':                 jvmgen.IAND,
     'uint_or':                  jvmgen.IOR,
     'uint_lshift':              jvmgen.ISHL,
     'uint_rshift':              jvmgen.IUSHR,
     'uint_xor':                 jvmgen.IXOR,
 
-    'float_is_true':            [PushAllArgs, jvmgen.DCONST_0, 'dbl_not_equals', StoreResult],
     'float_neg':                jvmgen.DNEG,
     'float_abs':                'dbl_abs',
 
@@ -183,14 +157,7 @@ opcodes = _proc_dict({
     'float_sub':                jvmgen.DSUB,
     'float_mul':                jvmgen.DMUL,
     'float_truediv':            jvmgen.DDIV,
-    'float_lt':                 'dbl_less_than',     
-    'float_le':                 'dbl_less_equals',   
-    'float_eq':                 'dbl_equals',        
-    'float_ne':                 'dbl_not_equals',    
-    'float_gt':                 'dbl_greater_than',  
-    'float_ge':                 'dbl_greater_equals',
 
-    'llong_is_true':            [PushAllArgs, jvmgen.LCONST_0, 'long_not_equals', StoreResult],
     'llong_neg':                jvmgen.LNEG,
     'llong_neg_ovf':            jvmgen.LNEGOVF,
     'llong_abs':                jvmgen.MATHLABS,
@@ -206,12 +173,6 @@ opcodes = _proc_dict({
     'llong_floordiv_zer':       _check_zer(jvmgen.LDIV),
     'llong_mod':                jvmgen.LREM,
     'llong_mod_zer':            _check_zer(jvmgen.LREM),
-    'llong_lt':                 'long_less_than',     
-    'llong_le':                 'long_less_equals',   
-    'llong_eq':                 'long_equals',        
-    'llong_ne':                 'long_not_equals',    
-    'llong_gt':                 'long_greater_than',  
-    'llong_ge':                 'long_greater_equals',
     'llong_and':                jvmgen.LAND,
     'llong_or':                 jvmgen.LOR,
     'llong_lshift':             [PushAllArgs, jvmgen.L2I, jvmgen.LSHL, StoreResult], # XXX - do we care about shifts of >(1<<32) bits??
@@ -221,7 +182,6 @@ opcodes = _proc_dict({
     'llong_mod_ovf':            jvmgen.LREMOVF,
     'llong_lshift_ovf':         jvmgen.LSHLOVF,
 
-    'ullong_is_true':           [PushAllArgs, jvmgen.LCONST_0, 'long_not_equals', StoreResult],
     'ullong_invert':            jvmgen.PYPYLONGBITWISENEGATE,
 
     'ullong_add':               jvmgen.LADD,
@@ -231,12 +191,6 @@ opcodes = _proc_dict({
     'ullong_truediv':           None, # TODO
     'ullong_floordiv':          jvmgen.LDIV, # valid?
     'ullong_mod':               jvmgen.PYPYULONGMOD,
-    'ullong_lt':                'ulong_less_than',     
-    'ullong_le':                'ulong_less_equals',   
-    'ullong_eq':                'ulong_equals',        
-    'ullong_ne':                'ulong_not_equals',    
-    'ullong_gt':                'ulong_greater_than',  
-    'ullong_ge':                'ulong_greater_equals',
     'ullong_lshift':            [PushAllArgs, jvmgen.L2I, jvmgen.LSHL, StoreResult],
     'ullong_rshift':            [PushAllArgs, jvmgen.L2I, jvmgen.LUSHR, StoreResult],
     'ullong_mod_zer':           jvmgen.PYPYULONGMOD,

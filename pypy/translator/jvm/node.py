@@ -28,11 +28,16 @@ from pypy.translator.jvm.opcodes import \
 from pypy.translator.jvm.option import \
      getoption
 from pypy.translator.jvm.methods import \
-     BaseDumpMethod, InstanceDumpMethod, RecordDumpMethod, ConstantStringDumpMethod
+     BaseDumpMethod, InstanceDumpMethod, RecordDumpMethod, \
+     ConstantStringDumpMethod
 from pypy.translator.oosupport.function import \
      Function as OOFunction
 from pypy.translator.oosupport.constant import \
      push_constant
+from pypy.translator.oosupport.treebuilder import \
+     SubOperation
+from pypy.translator.jvm.cmpopcodes import \
+     can_branch_directly, branch_if
 
 import py
 import pypy.translator.jvm.generator as jvmgen
@@ -389,6 +394,77 @@ class GraphFunction(OOFunction, Function):
             else:
                 self.ilasm.store(link.last_exc_value)
             self._setup_link(link)
+
+    def render_normal_block(self, block):
+        """
+        Overload OOFunction.render_normal_block: we intercept blocks where the
+        exitcase tests a bool variable with one use so as to generate more
+        efficient code.  For example, the naive code generation for a test
+        like 'if x < y' yields something like:
+        
+           push x
+           push y
+           jump_if_less_than true
+        false:
+           push 0
+           jump done
+        true:
+           push 1
+        done:
+           store_into_local_var
+           load_from_local_var
+           jump_if_true true_destination
+           jump false_destination
+
+        when it could (should) be
+
+           push x
+           push y
+           jump_if_less_than true_destination
+           jump false_destination
+        """
+
+        def not_in_link_args(v):
+            for link in block.exits:
+                if v in link.args: return False
+            return True
+
+        def true_false_exits():
+            if block.exits[0].exitcase:
+                return block.exits[0], block.exits[1]
+            return block.exits[1], block.exits[0]
+
+        if block.operations:
+            # Look for a case where the block switches on a bool variable
+            # which is produced by the last operation and not used
+            # anywhere else, and where the last operation is a comparison.
+
+            # Watch out for a last operation like:
+            #   v1 = same_as([int_lt(i, j)])
+            last_op = block.operations[-1]
+            while (last_op.opname == "same_as" and
+                   isinstance(last_op.args[0], SubOperation)):
+                last_op = last_op.args[0].op
+            
+            if (block.exitswitch is not None and
+                block.exitswitch.concretetype is ootype.Bool and
+                block.operations[-1].result is block.exitswitch and
+                can_branch_directly(last_op.opname) and
+                not_in_link_args(block.exitswitch)):
+
+                for op in block.operations[:-1]:
+                    self._render_op(op)
+                for arg in last_op.args:
+                    self.ilasm.load(arg)
+                truelink, falselink = true_false_exits()
+                true_label = self.next_label('link_true')
+                branch_if(self.ilasm, last_op.opname, true_label)
+                self._follow_link(falselink)
+                self.set_label(true_label)
+                self._follow_link(truelink)
+                return
+
+        return OOFunction.render_normal_block(self, block)
 
     def render_numeric_switch(self, block):
         if block.exitswitch.concretetype in (ootype.SignedLongLong, ootype.UnsignedLongLong):

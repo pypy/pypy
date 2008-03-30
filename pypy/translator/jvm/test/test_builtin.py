@@ -3,15 +3,10 @@ import py
 from pypy.translator.oosupport.test_template.builtin import BaseTestBuiltin, BaseTestTime
 from pypy.translator.jvm.test.runtest import JvmTest
 
-def skip_win():
-    import platform
-    if platform.system() == 'Windows':
-        py.test.skip("Doesn't work on Windows, yet")
-
 class TestJavaBuiltin(JvmTest, BaseTestBuiltin):
 
     def test_os_write_magic(self):
-        skip_win()
+        self._skip_win('os_write_magic not on windows')
         BaseTestBuiltin.test_os_write_magic(self)
 
     def test_os_path_exists(self):

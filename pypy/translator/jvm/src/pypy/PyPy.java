@@ -256,9 +256,18 @@ public class PyPy implements Constants {
 
     public double str_to_double(String s) {
         try {
-            return Double.parseDouble(s);
+            s = s.trim();
+            if (s.equalsIgnoreCase("inf"))
+                return Double.POSITIVE_INFINITY;
+            else if (s.equalsIgnoreCase("-inf"))
+                return Double.NEGATIVE_INFINITY;
+            else if (s.equalsIgnoreCase("nan"))
+                return Double.NaN;
+            else
+                return Double.parseDouble(s);
         } catch (NumberFormatException ex) {
-            throw new RuntimeException(ex);
+            interlink.throwValueError();
+            return 0.0;
         }
     }
 
@@ -621,6 +630,15 @@ public class PyPy implements Constants {
     // ----------------------------------------------------------------------
     // String
 
+    private static String substring(String str, int start, int end) {
+        if (end >= str.length())
+            if (start == 0)
+                return str;
+            else
+                end = str.length();
+        return str.substring(start, end);
+    }
+
     public static String ll_strconcat(String str1, String str2) {
         return str1 + str2;
     }
@@ -636,23 +654,23 @@ public class PyPy implements Constants {
         if (start > haystack.length())
             return -1;
 
-        int res = haystack.indexOf(needle, start);
-        if (res + needle.length() > end) 
-            return -1;
-        return res;
+        haystack = substring(haystack, start, end);
+        int res = haystack.indexOf(needle);
+        if (res == -1) return res;
+        return res + start;
     }
 
     public static int ll_rfind(String haystack, String needle, 
                                int start, int end) {
-        int res = haystack.lastIndexOf(needle, end-1);
-        if (res >= start) 
-            return res;
-        return -1;
+        haystack = substring(haystack, start, end);
+        int res = haystack.lastIndexOf(needle);
+        if (res == -1) return res;
+        return res + start;
     }
 
     public static int ll_count(String haystack, String needle, 
                                int start, int end) {
-        haystack = haystack.substring(start, end);
+        haystack = substring(haystack, start, end);
 
         if (needle.length() == 0) {
             return haystack.length()+1;
@@ -669,27 +687,26 @@ public class PyPy implements Constants {
 
     public static int ll_find_char(String haystack, char needle, 
                                    int start, int end) {
-        // see ll_find
+        // see ll_find for why this if is needed
         if (start > haystack.length())
             return -1;
-
-        int res = haystack.indexOf(needle, start);
-        if (res >= end) 
-            return -1;
-        return res;
+        haystack = substring(haystack, start, end);
+        int res = haystack.indexOf(needle);
+        if (res == -1) return res;
+        return res + start;
     }
 
     public static int ll_rfind_char(String haystack, char needle, 
                                     int start, int end) {
-        int res = haystack.lastIndexOf(needle, end-1);
-        if (res >= start) 
-            return res;
-        return -1;
+        haystack = substring(haystack, start, end);
+        int res = haystack.lastIndexOf(needle);
+        if (res == -1) return res;
+        return res + start;
     }
 
     public static int ll_count_char(String haystack, char needle, 
                                     int start, int end) {
-        haystack = haystack.substring(start, end);
+        haystack = substring(haystack, start, end);
         int cnt = 0;
         int idx = -1;
         while ((idx = haystack.indexOf(needle, idx+1)) != -1) {
@@ -808,7 +825,14 @@ public class PyPy implements Constants {
     }
 
     public String oostring(double d, int base_) {
-        return new Double(d).toString();
+        if (d == Double.POSITIVE_INFINITY)
+            return "inf";
+        else if (d == Double.NEGATIVE_INFINITY)
+            return "-inf";
+        else if (Double.isNaN(d)) 
+            return "nan";
+        else
+            return Double.toString(d);
     }
 
     public String oostring(Object obj, int base_)
@@ -822,7 +846,7 @@ public class PyPy implements Constants {
 
     public String oostring(char ch, int base_)
     {
-        return new Character(ch).toString();
+        return Character.toString(ch);
     }
 
     public byte[] oostring(byte[] s, int base_)

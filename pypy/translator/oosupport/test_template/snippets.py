@@ -68,3 +68,12 @@ class BaseTestSnippets(object):
         res = self.interpret(fn, [])
         expected = fn()
         assert res == expected
+
+    def test_branch(self):
+        def fn(i, j):
+            if i < j:
+                return "foo"
+            else:
+                return "bar"
+        assert self.interpret(fn, [1, 2]) == "foo"
+        assert self.interpret(fn, [2, 1]) == "bar"
