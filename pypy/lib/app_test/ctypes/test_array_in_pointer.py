@@ -8,14 +8,7 @@ def dump(obj):
     # helper function to dump memory contents in hex, with a hyphen
     # between the bytes.
     # cast it to the raw buffer
-    try:
-        import _rawffi
-    except ImportError:
-        h = hexlify(buffer(obj))
-    else:
-        size = sizeof(obj)
-        a = _rawffi.Array('c').fromaddress(obj._buffer.buffer, size)
-        h = hexlify([a[i] for i in range(len(a))])
+    h = hexlify(buffer(obj))
     return re.sub(r"(..)", r"\1-", h)[:-1]
 
 class Value(Structure):
