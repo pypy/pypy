@@ -9,7 +9,6 @@ def setup_module(mod):
 class TestReturnFuncPtr:
 
     def test_with_prototype(self):
-        py.test.skip("returning functions doesn't work")
         # The _ctypes_test shared lib/dll exports quite some functions for testing.
         # The get_strchr function returns a *pointer* to the C strchr function.
         get_strchr = dll.get_strchr
@@ -21,7 +20,6 @@ class TestReturnFuncPtr:
         raises(TypeError, strchr, "abcdef")
 
     def test_without_prototype(self):
-        py.test.skip("constructing functions from address doesn't work")
         get_strchr = dll.get_strchr
         # the default 'c_int' would not work on systems where sizeof(int) != sizeof(void *)
         get_strchr.restype = c_void_p

@@ -15,7 +15,6 @@ class Test(BaseCTypesTestChecker):
         assert not MyInt(42) == MyInt(43)
 
     def test_ignore_retval(self):
-        py.test.skip("XXX different callback behavior")
         # Test if the return value of a callback is ignored
         # if restype is None
         proto = CFUNCTYPE(None)
@@ -27,7 +26,7 @@ class Test(BaseCTypesTestChecker):
 
 
     def test_int_callback(self):
-        py.test.skip("XXX different callback behavior")
+        py.test.skip("XXX subclassing not implemented")
         args = []
         def func(arg):
             args.append(arg)

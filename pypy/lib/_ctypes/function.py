@@ -1,7 +1,8 @@
 
-import types
 from _ctypes.basics import _CData, _CDataMeta, ArgumentError, keepalive_key
 import _rawffi
+
+# XXX this file needs huge refactoring I fear
 
 class CFuncPtrType(_CDataMeta):
     # XXX write down here defaults and such things
@@ -24,6 +25,9 @@ class CFuncPtr(_CData):
     _ffishape = 'P'
     _fficompositesize = None
     _needs_free = False
+    callable = None
+    _ptr = None
+    _buffer = None
 
     def _getargtypes(self):
         return self._argtypes_
@@ -37,30 +41,34 @@ class CFuncPtr(_CData):
         if restype is int:
             from ctypes import c_int
             restype = c_int
-        if not isinstance(restype, _CDataMeta) and not restype is None:
+        if not isinstance(restype, _CDataMeta) and not restype is None and \
+               not callable(restype):
             raise TypeError("Expected ctypes type, got %s" % (restype,))
         self._restype_ = restype
-    restype = property(_getrestype, _setrestype)    
+    restype = property(_getrestype, _setrestype)
+
+    def _ffishapes(self, args, restype):
+        argtypes = [arg._ffiargshape for arg in args]
+        if restype is not None:
+            restype = restype._ffiargshape
+        else:
+            restype = 'O' # void
+        return argtypes, restype
 
     def __init__(self, argument=None):
-        self.callable = None
         self.name = None
         self._objects = {keepalive_key(0):self}
-        if isinstance(argument, int):
-            self._buffer = _rawffi.Array('P').fromaddress(argument, 1)
-            # XXX finish this one, we need to be able to jump there somehow
+        self._needs_free = True
+        if isinstance(argument, (int, long)):
+            ffiargs, ffires = self._ffishapes(self._argtypes_, self._restype_)
+            self._ptr = _rawffi.FuncPtr(argument, ffiargs, ffires)
+            self._buffer = self._ptr.byptr()
         elif callable(argument):
             self.callable = argument
-            argtypes = [arg._ffiargshape for arg in self._argtypes_]
-            restype = self._restype_
-            if restype is not None:
-                restype = restype._ffiargshape
-            else:
-                restype = 'O' # void
+            ffiargs, ffires = self._ffishapes(self._argtypes_, self._restype_)
             self._ptr = _rawffi.CallbackPtr(self._wrap_callable(argument,
                                                                 self.argtypes),
-                                            argtypes, restype)
-            self._needs_free = True
+                                            ffiargs, ffires)
             self._buffer = self._ptr.byptr()
         elif isinstance(argument, tuple) and len(argument) == 2:
             import ctypes
@@ -68,11 +76,12 @@ class CFuncPtr(_CData):
             if isinstance(self.dll, str):
                 self.dll = ctypes.CDLL(self.dll)
             # we need to check dll anyway
-            self._getfuncptr([], ctypes.c_int)
+            ptr = self._getfuncptr([], ctypes.c_int)
+            self._buffer = ptr.byptr()
         elif argument is None:
+            # this is needed for casts
             self._buffer = _rawffi.Array('P')(1)
-            self._needs_free = True
-            return # needed for test..
+            return
         else:
             raise TypeError("Unknown constructor %s" % (argument,))
 
@@ -86,7 +95,10 @@ class CFuncPtr(_CData):
     
     def __call__(self, *args):
         if self.callable is not None:
-            return self.callable(*args)
+            res = self.callable(*args)
+            if self._restype_ is not None:
+                return res
+            return
         argtypes = self._argtypes_
         if argtypes is None:
             argtypes = self._guess_argtypes(args)
@@ -102,14 +114,21 @@ class CFuncPtr(_CData):
         args = self._wrap_args(argtypes, args)
         resbuffer = funcptr(*[arg._buffer for obj, arg in args])
         if restype is not None:
+            if not isinstance(restype, _CDataMeta):
+                return restype(resbuffer[0])
             return restype._CData_retval(resbuffer)
 
     def _getfuncptr(self, argtypes, restype):
-        if restype is None:
+        if self._ptr is not None:
+            return self._ptr
+        if restype is None or not isinstance(restype, _CDataMeta):
             import ctypes
             restype = ctypes.c_int
         argshapes = [arg._ffiargshape for arg in argtypes]
         resshape = restype._ffiargshape
+        if self._buffer is not None:
+            self._ptr = _rawffi.FuncPtr(self._buffer[0], argshapes, resshape)
+            return self._ptr
         return self.dll._handle.ptr(self.name, argshapes, resshape)
 
     def _guess_argtypes(self, args):
@@ -144,7 +163,7 @@ class CFuncPtr(_CData):
         if self._needs_free:
             self._buffer.free()
             self._buffer = None
-            if hasattr(self, '_ptr'):
+            if isinstance(self._ptr, _rawffi.CallbackPtr):
                 self._ptr.free()
                 self._ptr = None
-                self._needs_free = False
+            self._needs_free = False

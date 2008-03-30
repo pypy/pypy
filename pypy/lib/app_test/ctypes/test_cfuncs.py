@@ -163,7 +163,6 @@ class TestCFunctions(BaseCTypesTestChecker):
         assert self.S() == 42
 
     def test_callwithresult(self):
-        py.test.skip("function as restype unsupported")
         def process_result(result):
             return result * 2
         self._dll.tf_i.restype = process_result

@@ -2,6 +2,10 @@ from ctypes import *
 import sys, py
 from support import BaseCTypesTestChecker
 
+def setup_module(mod):
+    import conftest
+    mod.lib = CDLL(str(conftest.sofile))
+
 class TestCast(BaseCTypesTestChecker):
 
     def test_array2pointer(self):
@@ -77,5 +81,7 @@ class TestCast(BaseCTypesTestChecker):
 
     def test_cast_functype(self):
         # make sure we can cast function type
-        P = CFUNCTYPE(c_int)
-        cast(1, P)
+        my_sqrt = lib.my_sqrt
+        sqrt = cast(cast(my_sqrt, c_void_p), CFUNCTYPE(c_double, c_double))
+        assert sqrt(4.0) == 2.0
+        

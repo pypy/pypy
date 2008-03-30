@@ -26,7 +26,7 @@ class TestValues(BaseCTypesTestChecker):
 class TestWin_Values(BaseCTypesTestChecker):
     """This test only works when python itself is a dll/shared library"""
     def setup_class(cls):
-        py.test.skip("not implemented")
+        py.test.skip("only when cpython itself is a dll")
 
     def test_optimizeflag(self):
         # This test accesses the Py_OptimizeFlag intger, which is
