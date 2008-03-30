@@ -124,6 +124,26 @@ def unpack_to_size_alignment(space, w_shape):
         size, alignment = resshape._size_alignment()
         return ('V', length*size, alignment) # value object
 
+def unpack_resshape(space, w_restype):
+    if space.is_w(w_restype, space.w_None):
+        resshape = None
+        ffi_restype = ffi_type_void
+    else:
+        tp_letter, ffi_restype, resshape = unpack_to_ffi_type(space,
+                                                    w_restype,
+                                                    allow_void=True,
+                                                    shape=True)
+    return ffi_restype, resshape
+
+def unpack_argshapes(space, w_argtypes):
+    argletters = []
+    ffi_argtypes = []
+    for w_arg in space.unpackiterable(w_argtypes):
+        argletter, ffi_argtype, _ = unpack_to_ffi_type(space, w_arg)
+        argletters.append(argletter)
+        ffi_argtypes.append(ffi_argtype)
+    return ffi_argtypes, argletters
+
 class W_CDLL(Wrappable):
     def __init__(self, space, name):
         self.cdll = CDLL(name)
@@ -135,15 +155,7 @@ class W_CDLL(Wrappable):
         """ Get a pointer for function name with provided argtypes
         and restype
         """
-        # xxx refactor
-        if space.is_w(w_restype, space.w_None):
-            resshape = None
-            ffi_restype = ffi_type_void
-        else:
-            tp_letter, ffi_restype, resshape = unpack_to_ffi_type(space,
-                                                        w_restype,
-                                                        allow_void=True,
-                                                        shape=True)
+        ffi_restype, resshape = unpack_resshape(space, w_restype)
         w = space.wrap
         argtypes_w = space.unpackiterable(w_argtypes)
         w_argtypes = space.newtuple(argtypes_w)
@@ -155,13 +167,7 @@ class W_CDLL(Wrappable):
                 pass
             else:
                 raise
-        argletters = []
-        ffi_argtypes = []
-        for w_arg in argtypes_w:
-            argletter, ffi_argtype, _ = unpack_to_ffi_type(space, w_arg)
-            argletters.append(argletter)
-            ffi_argtypes.append(ffi_argtype)
-
+        ffi_argtypes, argletters = unpack_argshapes(space, w_argtypes)
         try:
             ptr = self.cdll.getrawpointer(name, ffi_argtypes, ffi_restype)
             w_funcptr = W_FuncPtr(space, ptr, argletters, resshape)
@@ -397,10 +403,19 @@ class W_FuncPtr(Wrappable):
             return space.w_None
     call.unwrap_spec = ['self', ObjSpace, 'args_w']
 
+def descr_new_funcptr(space, w_tp, addr, w_args, w_res):
+    ffi_args, args = unpack_argshapes(space, w_args)
+    ffi_res, res = unpack_resshape(space, w_res)
+    ptr = RawFuncPtr('???', ffi_args, ffi_res, rffi.cast(rffi.VOIDP, addr))
+    return space.wrap(W_FuncPtr(space, ptr, args, res))
+descr_new_funcptr.unwrap_spec = [ObjSpace, W_Root, r_uint, W_Root, W_Root]
+
 W_FuncPtr.typedef = TypeDef(
     'FuncPtr',
+    __new__  = interp2app(descr_new_funcptr),
     __call__ = interp2app(W_FuncPtr.call)
 )
+W_FuncPtr.typedef.acceptable_as_base_class = False
 
 def _create_new_accessor(func_name, name):
     def accessor(space, tp_letter):

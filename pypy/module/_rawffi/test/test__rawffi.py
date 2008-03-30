@@ -63,6 +63,11 @@ class AppTestFfi:
            return one + two;
         }
 
+        void* get_raw_pointer()
+        {
+           return (void*)add_shorts;
+        }
+
         char get_char(char* s, unsigned short num)
         {
            return s[num];
@@ -212,6 +217,22 @@ class AppTestFfi:
         res = char_check(arg1, arg2)
         assert res[0] == 0
         assert _rawffi.charp2string(res[0]) is None
+        arg1.free()
+        arg2.free()
+
+    def test_raw_callable(self):
+        import _rawffi
+        lib = _rawffi.CDLL(self.lib_name)
+        get_raw_pointer = lib.ptr('get_raw_pointer', [], 'P')
+        ptr = get_raw_pointer()
+        rawcall = _rawffi.FuncPtr(ptr[0], ['h', 'h'], 'H')
+        A = _rawffi.Array('h')
+        arg1 = A(1)
+        arg2 = A(1)
+        arg1[0] = 1
+        arg2[0] = 2
+        res = rawcall(arg1, arg2)
+        assert res[0] == 3
         arg1.free()
         arg2.free()
 
@@ -699,7 +720,6 @@ class AppTestFfi:
         b[3:5] = 'zt'
         assert a[3] == 'z'
         assert a[4] == 't'
-
 
 class AppTestAutoFree:
     def setup_class(cls):
