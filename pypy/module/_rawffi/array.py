@@ -252,3 +252,4 @@ W_ArrayInstanceAutoFree.typedef = TypeDef(
     byptr       = interp2app(W_ArrayInstance.byptr),
     itemaddress = interp2app(W_ArrayInstance.descr_itemaddress),
 )
+W_ArrayInstanceAutoFree.typedef.acceptable_as_base_class = False

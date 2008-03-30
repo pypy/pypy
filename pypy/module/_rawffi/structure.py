@@ -222,4 +222,4 @@ W_StructureInstanceAutoFree.typedef = TypeDef(
     byptr       = interp2app(W_StructureInstance.byptr),
     fieldaddress= interp2app(W_StructureInstance.descr_fieldaddress),
 )
-
+W_StructureInstanceAutoFree.typedef.acceptable_as_base_class = False
