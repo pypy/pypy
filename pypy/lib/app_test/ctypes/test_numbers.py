@@ -122,7 +122,6 @@ class TestNumber(BaseCTypesTestChecker):
             assert (code, alignment(t())) == (code, align)
 
     def test_int_from_address(self):
-        py.test.skip("Unsupported")
         from array import array
         for t in signed_types + unsigned_types:
             # the array module doesn't suppport all format codes
@@ -144,7 +143,6 @@ class TestNumber(BaseCTypesTestChecker):
 
 
     def test_float_from_address(self):
-        py.test.skip("Unsupported")
         from array import array
         for t in float_types:
             a = array(t._type_, [3.14])
@@ -156,7 +154,6 @@ class TestNumber(BaseCTypesTestChecker):
             assert type(v) is t
 
     def test_char_from_address(self):
-        py.test.skip("Unsupported")
         from ctypes import c_char
         from array import array
 
