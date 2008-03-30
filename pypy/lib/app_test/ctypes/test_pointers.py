@@ -59,7 +59,6 @@ class TestPointers(BaseCTypesTestChecker):
         assert i.value == 54345
 
     def test_callbacks_with_pointers(self):
-        py.test.skip("This test looks bogus (never checks anything)")
         # a function type receiving a pointer
         PROTOTYPE = CFUNCTYPE(c_int, POINTER(c_int))
 
@@ -113,7 +112,6 @@ class TestPointers(BaseCTypesTestChecker):
         assert p1.contents.value == 42
 
     def test_from_address(self):
-        py.test.skip("It cannot work")
         from array import array
         a = array('i', [100, 200, 300, 400, 500])
         addr = a.buffer_info()[0]
