@@ -12,6 +12,9 @@ class CFuncPtrType(_CDataMeta):
     def _alignmentofinstances(self):
         return _rawffi.alignment('P')
 
+    def _is_pointer_like(self):
+        return True
+
 class CFuncPtr(_CData):
     __metaclass__ = CFuncPtrType
 
@@ -67,6 +70,8 @@ class CFuncPtr(_CData):
             # we need to check dll anyway
             self._getfuncptr([], ctypes.c_int)
         elif argument is None:
+            self._buffer = _rawffi.Array('P')(1)
+            self._needs_free = True
             return # needed for test..
         else:
             raise TypeError("Unknown constructor %s" % (argument,))
@@ -139,6 +144,7 @@ class CFuncPtr(_CData):
         if self._needs_free:
             self._buffer.free()
             self._buffer = None
-            self._ptr.free()
-            self._ptr = None
-            self._needs_free = False
+            if hasattr(self, '_ptr'):
+                self._ptr.free()
+                self._ptr = None
+                self._needs_free = False

@@ -74,3 +74,8 @@ class TestCast(BaseCTypesTestChecker):
             s = c_wchar_p("hiho")
             assert cast(cast(s, c_void_p), c_wchar_p).value == (
                                  "hiho")
+
+    def test_cast_functype(self):
+        # make sure we can cast function type
+        P = CFUNCTYPE(c_int)
+        cast(1, P)
