@@ -356,6 +356,22 @@ class W_FuncPtr(Wrappable):
         self.argletters = argletters
         self.resshape = resshape
 
+    def getbuffer(space, self):
+        return space.wrap(rffi.cast(lltype.Unsigned, self.ptr.funcsym))
+
+    # XXX exactly the same as previous one, but arguments are suitable
+    #     for calling with python
+    def _getbuffer(self, space):
+        return space.wrap(rffi.cast(lltype.Unsigned, self.ptr.funcsym))
+
+    def byptr(self, space):
+        from pypy.module._rawffi.array import get_array_cache
+        array_of_ptr = get_array_cache(space).array_of_ptr
+        array = array_of_ptr.allocate(space, 1)
+        array.setitem(space, 0, self._getbuffer(space))
+        return space.wrap(array)
+    byptr.unwrap_spec = ['self', ObjSpace]
+
     def call(self, space, args_w):
         from pypy.module._rawffi.array import W_ArrayInstance
         from pypy.module._rawffi.structure import W_StructureInstance
@@ -413,7 +429,9 @@ descr_new_funcptr.unwrap_spec = [ObjSpace, W_Root, r_uint, W_Root, W_Root]
 W_FuncPtr.typedef = TypeDef(
     'FuncPtr',
     __new__  = interp2app(descr_new_funcptr),
-    __call__ = interp2app(W_FuncPtr.call)
+    __call__ = interp2app(W_FuncPtr.call),
+    buffer   = GetSetProperty(W_FuncPtr.getbuffer),
+    byptr    = interp2app(W_FuncPtr.byptr),
 )
 W_FuncPtr.typedef.acceptable_as_base_class = False
 

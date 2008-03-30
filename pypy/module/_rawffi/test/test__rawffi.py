@@ -235,6 +235,10 @@ class AppTestFfi:
         assert res[0] == 3
         arg1.free()
         arg2.free()
+        assert rawcall.buffer == ptr[0]
+        ptr = rawcall.byptr()
+        assert ptr[0] == rawcall.buffer
+        ptr.free()
 
     def test_short_addition(self):
         import _rawffi
