@@ -372,7 +372,7 @@ class W_FuncPtr(Wrappable):
         if tracker.DO_TRACING:
             # XXX this is needed, because functions tend to live forever
             #     hence our testing is not performing that well
-            del tracker.alloced[rffi.cast(lltype.Unsigned, array.ll_buffer)]
+            del tracker.alloced[rffi.cast(rffi.INT, array.ll_buffer)]
         return space.wrap(array)
     byptr.unwrap_spec = ['self', ObjSpace]
 
