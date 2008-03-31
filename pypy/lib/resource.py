@@ -2,11 +2,15 @@ from ctypes_support import standard_c_lib as libc
 from ctypes_support import get_errno
 from ctypes import Structure, c_int, c_long, byref
 from errno import EINVAL, EPERM
-from ctypes_configure.configure import configure, ExternalCompilationInfo, ConstantInteger, SimpleType
+from ctypes_configure.configure import (configure,
+    ExternalCompilationInfo, ConstantInteger, DefinedConstantInteger,
+    SimpleType)
 
 _CONSTANTS = (
     'RLIM_INFINITY',
     'RLIM_NLIMITS',
+)
+_OPTIONAL_CONSTANTS = (
     'RLIMIT_CPU',
     'RLIMIT_FSIZE',
     'RLIMIT_DATA',
@@ -23,10 +27,11 @@ _CONSTANTS = (
     'RLIMIT_MSGQUEUE',
     'RLIMIT_NICE',
     'RLIMIT_RTPRIO',
-#    'RLIMIT_VMEM',
+    'RLIMIT_VMEM',
+
+    'RUSAGE_BOTH',
     'RUSAGE_SELF',
     'RUSAGE_CHILDREN',
-#    'RUSAGE_BOTH',
 )
 
 # Read required libc functions
@@ -42,15 +47,20 @@ except AttributeError:
 # Setup our configure
 class ResourceConfigure:
     _compilation_info_ = ExternalCompilationInfo(includes=['sys/resource.h'])
-    rlim_t = SimpleType('rlim_t', c_int)
+    rlim_t = SimpleType('rlim_t')
 for key in _CONSTANTS:
     setattr(ResourceConfigure, key, ConstantInteger(key))
+for key in _OPTIONAL_CONSTANTS:
+    setattr(ResourceConfigure, key, DefinedConstantInteger(key))
 
 # Configure constants and types
 config = configure(ResourceConfigure)
 rlim_t = config['rlim_t']
 for key in _CONSTANTS:
     globals()[key] = config[key]
+for key in _OPTIONAL_CONSTANTS:
+    if config[key] is not None:
+        globals()[key] = config[key]
 del config
 
 class ResourceError(OSError):
@@ -160,7 +170,7 @@ def getpagesize():
             # Irix 5.3 has _SC_PAGESIZE, but not _SC_PAGE_SIZE
             return sysconf("SC_PAGESIZE")
 
-__all__ = _CONSTANTS + (
+__all__ = _CONSTANTS + _OPTIONAL_CONSTANTS + (
     'ResourceError', 'timeval', 'struct_rusage', 'rlimit',
     'getrusage', 'getrlimit', 'setrlimit', 'getpagesize',
 )
