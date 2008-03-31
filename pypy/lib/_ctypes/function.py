@@ -164,6 +164,9 @@ class CFuncPtr(_CData):
 
     def __del__(self):
         if self._needs_free:
+            # XXX we need to find a bad guy here
+            if self._buffer is None:
+                return
             self._buffer.free()
             self._buffer = None
             if isinstance(self._ptr, _rawffi.CallbackPtr):
