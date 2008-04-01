@@ -6,6 +6,7 @@ from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
 from pypy.rlib.objectmodel import free_non_gc_object
 from pypy.rlib.debug import ll_assert
 from pypy.rpython.lltypesystem.lloperation import llop
+from pypy.rlib.nonconst import NonConstant
 
 # The following flag is never set on young objects, i.e. the ones living
 # in the nursery.  It is initially set on all prebuilt and old objects,
@@ -500,7 +501,8 @@ elif sys.platform == 'darwin':
                 size = rffi.sizeof(rffi.LONGLONG)
                 l2cache_p[0] = rffi.cast(rffi.LONGLONG, 0)
                 len_p[0] = rffi.cast(rffi.SIZE_T, size)
-                result = sysctlbyname("hw.l2cachesize",
+                # XXX a hack for llhelper not being robust-enough
+                result = sysctlbyname(NonConstant("hw.l2cachesize"),
                                       rffi.cast(rffi.VOIDP, l2cache_p),
                                       len_p,
                                       lltype.nullptr(rffi.VOIDP.TO), 
