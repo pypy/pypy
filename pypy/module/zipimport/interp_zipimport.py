@@ -25,11 +25,15 @@ ENUMERATE_EXTS = unrolling_iterable(
      (False, False, '.py')])
 
 class W_ZipImporter(Wrappable):
-    def __init__(self, space, name, w_dir, w_zipfile):
+    def __init__(self, space, name, w_dir, w_zipfile, prefix):
         self.space = space
         self.name = name
         self.w_dir = w_dir
         self.w_zipfile = w_zipfile
+        self.prefix = prefix
+
+    def getprefix(space, self):
+        return space.wrap(self.prefix)
 
     def import_py_file(self, space, modname, filename, w_buf, pkgpath):
         buf = space.str_w(w_buf)
@@ -220,6 +224,10 @@ def descr_new_zipimporter(space, w_type, name):
     if not ok:
         raise OperationError(space.w_ImportError, space.wrap(
             "Did not find %s to be a valid zippath" % (name,)))
+    last_elem = filename.split(os.path.sep)[-1]
+    stop = len(filename)-len(last_elem)
+    assert stop > 0
+    prefix = filename[:stop]
     w_import = space.builtin.get('__import__')
     w_zipfile = space.call(w_import, space.newlist([
         space.wrap('zipfile'),
@@ -232,7 +240,7 @@ def descr_new_zipimporter(space, w_type, name):
     except OperationError, e: # we catch everything as this function
         raise OperationError(space.w_ImportError, space.wrap(
             "%s seems not to be a zipfile" % (filename,)))
-    w_result = space.wrap(W_ZipImporter(space, name, w_dir, w_zipfile))
+    w_result = space.wrap(W_ZipImporter(space, name, w_dir, w_zipfile, prefix))
     space.setitem(w_zip_cache, space.wrap(name), w_result)
     return w_result
     
@@ -248,4 +256,5 @@ W_ZipImporter.typedef = TypeDef(
     is_package  = interp2app(W_ZipImporter.is_package),
     load_module = interp2app(W_ZipImporter.load_module),
     archive     = GetSetProperty(W_ZipImporter.getarchive),
+    prefix      = GetSetProperty(W_ZipImporter.getprefix),
 )

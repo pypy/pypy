@@ -227,7 +227,10 @@ class AppTestZipimport:
         # value.  Not sure why it doesn't the assertion uses import.archive
         # directly. -exarkun
         archive = importer.archive
+        allbutlast = self.zipfile.split(os.path.sep)[:-1]
+        prefix = os.path.sep.join(allbutlast + [''])
         assert archive == self.zipfile
+        assert importer.prefix == prefix
 
 
 class AppTestZipimportDeflated(AppTestZipimport):
