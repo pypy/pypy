@@ -71,10 +71,33 @@ You need a translation with ``--withmod-_rawffi`` in order to run any
 ctypes code. For most examples ``--allworkingmodules`` translation option
 also makes sense. Known applications to run are `pysqlite-ctypes`_ and
 `pyglet`_. As of March 2008, from pysqlite all tests passes except one
-that relies on __del__ being called immediately. From pyglet, known
-examples to work are ones that does not require PIL (for example 
-examples/opengl.py) as well as `stress tests`_ from Johnathan Hartley.
+that relies on __del__ being called immediately. From pyglet, the following
+examples work:
+  
+  - opengl.py
+  - multiple_windows.py
+  - events.py
+  - window_platform_event.py
+  - fixed_resolution.py
 
-.. _`pysqlite-ctypes`:: XXX link
-.. _`pyglet`:: http://pyglet.org/
-.. _`stress tests`:: http://tartley.com/?p=264
+The following don't work:
+
+  - fixed_resolution.py needs PIL
+  - image_convert.py needs PIL
+  - image_display.py needs PIL
+  - astraea/astraea.py needs PIL
+  - video.py (but didn't work for me on CPython either)
+  - soundscape needs avbin
+  
+XXX the following all show a bug ctypes (all the same, somewhere in the font
+stuff of pyglet), should be fixed:
+
+  - html_label.py
+  - media_player.py
+  - timer.py
+
+The `stress tests`_ of Johnathan Hartley is also working.
+
+.. _`pysqlite-ctypes`: XXX link
+.. _`pyglet`: http://pyglet.org/
+.. _`stress tests`: http://tartley.com/?p=264
