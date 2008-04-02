@@ -45,12 +45,36 @@ portability of ctypes-based code.
 
 .. _`ctypes-configure`: http://codespeak.net/~fijal/configure.html
 
-Future
-======
+Limitations
+===========
 
-The Ctypes implementation in PyPy is pretty much working and can run for example
-pyglet. Because it's written in pure python, it's rather slow. As a next
-step we'll measure which parts are costly and try to move certain parts from
-app-level to interp-level to improve speed. Still, we will try to keep
-interp-level part as simple as possible, to not loose robustness.
+* No support for PyXxx functions from libpython, for obvious reasons.
 
+* Subclassing works differently (ie it follows python subclassing scheme
+  instead of ctypes subclassing scheme, which does not do
+  inheritance)
+
+* It's not supposed to work on other platform than linux
+
+* ...
+
+Speed
+=====
+
+Our ctypes implementation was created without putting to much effort into
+making it fast. XXX finish improvement part
+
+Running example code
+====================
+
+You need a translation with ``--withmod-_rawffi`` in order to run any
+ctypes code. For most examples ``--allworkingmodules`` translation option
+also makes sense. Known applications to run are `pysqlite-ctypes`_ and
+`pyglet`_. As of March 2008, from pysqlite all tests passes except one
+that relies on __del__ being called immediately. From pyglet, known
+examples to work are ones that does not require PIL (for example 
+examples/opengl.py) as well as `stress tests`_ from Johnathan Hartley.
+
+.. _`pysqlite-ctypes`:: XXX link
+.. _`pyglet`:: http://pyglet.org/
+.. _`stress tests`:: http://tartley.com/?p=264
