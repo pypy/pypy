@@ -56,13 +56,35 @@ Limitations
 
 * It's not supposed to work on other platform than linux
 
-* ...
+* We copy strings instead of having pointers to raw buffers, which
+  changes keepalive logic a bit
+
+* Custom alignment is not supported
+
+* Callbacks with structures and arrays by-value are unsupported
+
+Minor unsupported features:
+===========================
+
+* \_check\_retval\_ is not supported
+
+* \_abstract\_ is not supported
+
+* reprs are different
 
 Speed
 =====
 
 Our ctypes implementation was created without putting to much effort into
-making it fast. XXX finish improvement part
+making it fast. First of all most of it is written as pure-python code which
+makes it slow. Obvious optimization would be to reimplement certain parts
+of it at interp-level. Other, also very important, issue is that pypy's I/O
+operations are generally slow. This is mostly due to model in which
+unmanaged memory (outside of gc scope) must be the only one that goes to C
+level. This is a huge simplifaction which allowed us to not worry about
+that when developing moving gcs. At some point we will improve C-level
+operations by either introducing pinning or by some other, yet undecided
+means.
 
 Running example code
 ====================
