@@ -1,0 +1,6238 @@
+(lp0
+(lp1
+S'abc'
+p2
+aS''
+p3
+a(lp4
+(S'abc'
+p5
+S' 0: abc'
+p6
+tp7
+aaa(lp8
+S'ab*c'
+p9
+ag3
+a(lp10
+(S'abc'
+p11
+S' 0: abc'
+p12
+tp13
+a(S'abbbbc'
+p14
+S' 0: abbbbc'
+p15
+tp16
+a(S'ac'
+p17
+S' 0: ac'
+p18
+tp19
+aaa(lp20
+S'ab+c'
+p21
+ag3
+a(lp22
+(S'abc'
+p23
+S' 0: abc'
+p24
+tp25
+a(S'abbbbbbc'
+p26
+S' 0: abbbbbbc'
+p27
+tp28
+a(S'*** Failers'
+p29
+S'No match'
+p30
+tp31
+a(S'ac'
+p32
+S'No match'
+p33
+tp34
+a(S'ab'
+p35
+S'No match'
+p36
+tp37
+aaa(lp38
+S'a*'
+p39
+ag3
+a(lp40
+(S'a'
+p41
+S' 0: a'
+p42
+tp43
+a(S'aaaaaaaaaaaaaaaaa'
+p44
+S' 0: aaaaaaaaaaaaaaaaa'
+p45
+tp46
+a(S'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+p47
+S' 0: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+p48
+tp49
+a(S'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaF'
+p50
+S' 0: '
+p51
+tp52
+aaa(lp53
+S'(a|abcd|african)'
+p54
+ag3
+a(lp55
+(g41
+S' 0: a'
+p56
+tp57
+a(S'abcd'
+p58
+S' 0: abcd'
+p59
+tp60
+a(S'african'
+p61
+S' 0: african'
+p62
+tp63
+aaa(lp64
+S'^abc'
+p65
+ag3
+a(lp66
+(S'abcdef'
+p67
+S' 0: abc'
+p68
+tp69
+a(S'*** Failers'
+p70
+S'No match'
+p71
+tp72
+a(S'xyzabc'
+p73
+S'No match'
+p74
+tp75
+a(S'xyz\nabc'
+p76
+S'No match'
+p77
+tp78
+aaa(lp79
+S'\\Aabc'
+p80
+ag3
+a(lp81
+(S'abcdef'
+p82
+S' 0: abc'
+p83
+tp84
+a(S'*** Failers'
+p85
+S'No match'
+p86
+tp87
+a(S'xyzabc'
+p88
+S'No match'
+p89
+tp90
+a(S'xyz\nabc'
+p91
+S'No match'
+p92
+tp93
+aaa(lp94
+S'\\Gabc'
+p95
+ag3
+a(lp96
+(S'abcdef'
+p97
+S' 0: abc'
+p98
+tp99
+a(S'xyzabc>3'
+p100
+S' 0: abc'
+p101
+tp102
+a(S'*** Failers'
+p103
+S'No match'
+p104
+tp105
+a(S'xyzabc'
+p106
+S'No match'
+p107
+tp108
+a(S'xyzabc>2'
+p109
+S'No match'
+p110
+tp111
+aaa(lp112
+S'x\\dy\\Dz'
+p113
+ag3
+a(lp114
+(S'x9yzz'
+p115
+S' 0: x9yzz'
+p116
+tp117
+a(S'x0y+z'
+p118
+S' 0: x0y+z'
+p119
+tp120
+a(S'*** Failers'
+p121
+S'No match'
+p122
+tp123
+a(S'xyz'
+p124
+S'No match'
+p125
+tp126
+a(S'xxy0z'
+p127
+S'No match'
+p128
+tp129
+aaa(lp130
+S'x\\sy\\Sz'
+p131
+ag3
+a(lp132
+(S'x yzz'
+p133
+S' 0: x yzz'
+p134
+tp135
+a(S'x y+z'
+p136
+S' 0: x y+z'
+p137
+tp138
+a(S'*** Failers'
+p139
+S'No match'
+p140
+tp141
+a(S'xyz'
+p142
+S'No match'
+p143
+tp144
+a(S'xxyyz'
+p145
+S'No match'
+p146
+tp147
+aaa(lp148
+S'x\\wy\\Wz'
+p149
+ag3
+a(lp150
+(S'xxy+z'
+p151
+S' 0: xxy+z'
+p152
+tp153
+a(S'*** Failers'
+p154
+S'No match'
+p155
+tp156
+a(S'xxy0z'
+p157
+S'No match'
+p158
+tp159
+a(S'x+y+z'
+p160
+S'No match'
+p161
+tp162
+aaa(lp163
+S'x.y'
+p164
+ag3
+a(lp165
+(S'x+y'
+p166
+S' 0: x+y'
+p167
+tp168
+a(S'x-y'
+p169
+S' 0: x-y'
+p170
+tp171
+a(S'*** Failers'
+p172
+S'No match'
+p173
+tp174
+a(S'x\ny'
+p175
+S'No match'
+p176
+tp177
+aaa(lp178
+S'a\\d\\z'
+p179
+ag3
+a(lp180
+(S'ba0'
+p181
+S' 0: a0'
+p182
+tp183
+a(S'*** Failers'
+p184
+S'No match'
+p185
+tp186
+a(S'ba0\n'
+p187
+S'No match'
+p188
+tp189
+a(S'ba0\ncd'
+p190
+S'No match'
+p191
+tp192
+aaa(lp193
+S'a\\d\\Z'
+p194
+ag3
+a(lp195
+(S'ba0'
+p196
+S' 0: a0'
+p197
+tp198
+a(S'ba0\n'
+p199
+S' 0: a0'
+p200
+tp201
+a(S'*** Failers'
+p202
+S'No match'
+p203
+tp204
+a(S'ba0\ncd'
+p205
+S'No match'
+p206
+tp207
+aaa(lp208
+S'a\\d$'
+p209
+ag3
+a(lp210
+(S'ba0'
+p211
+S' 0: a0'
+p212
+tp213
+a(S'ba0\n'
+p214
+S' 0: a0'
+p215
+tp216
+a(S'*** Failers'
+p217
+S'No match'
+p218
+tp219
+a(S'ba0\ncd'
+p220
+S'No match'
+p221
+tp222
+aaa(lp223
+S'[^a]'
+p224
+ag3
+a(lp225
+(S'abcd'
+p226
+S' 0: b'
+p227
+tp228
+aaa(lp229
+S'ab?\\w'
+p230
+ag3
+a(lp231
+(S'abz'
+p232
+S' 0: abz'
+p233
+tp234
+a(S'abbz'
+p235
+S' 0: abb'
+p236
+tp237
+a(S'azz'
+p238
+S' 0: az'
+p239
+tp240
+aaa(lp241
+S'x{0,3}yz'
+p242
+ag3
+a(lp243
+(S'ayzq'
+p244
+S' 0: yz'
+p245
+tp246
+a(S'axyzq'
+p247
+S' 0: xyz'
+p248
+tp249
+a(S'axxyz'
+p250
+S' 0: xxyz'
+p251
+tp252
+a(S'axxxyzq'
+p253
+S' 0: xxxyz'
+p254
+tp255
+a(S'axxxxyzq'
+p256
+S' 0: xxxyz'
+p257
+tp258
+a(S'*** Failers'
+p259
+S'No match'
+p260
+tp261
+a(S'ax'
+p262
+S'No match'
+p263
+tp264
+a(S'axx'
+p265
+S'No match'
+p266
+tp267
+aaa(lp268
+S'x{3}yz'
+p269
+ag3
+a(lp270
+(S'axxxyzq'
+p271
+S' 0: xxxyz'
+p272
+tp273
+a(S'axxxxyzq'
+p274
+S' 0: xxxyz'
+p275
+tp276
+a(S'*** Failers'
+p277
+S'No match'
+p278
+tp279
+a(S'ax'
+p280
+S'No match'
+p281
+tp282
+a(S'axx'
+p283
+S'No match'
+p284
+tp285
+a(S'ayzq'
+p286
+S'No match'
+p287
+tp288
+a(S'axyzq'
+p289
+S'No match'
+p290
+tp291
+a(S'axxyz'
+p292
+S'No match'
+p293
+tp294
+aaa(lp295
+S'x{2,3}yz'
+p296
+ag3
+a(lp297
+(S'axxyz'
+p298
+S' 0: xxyz'
+p299
+tp300
+a(S'axxxyzq'
+p301
+S' 0: xxxyz'
+p302
+tp303
+a(S'axxxxyzq'
+p304
+S' 0: xxxyz'
+p305
+tp306
+a(S'*** Failers'
+p307
+S'No match'
+p308
+tp309
+a(S'ax'
+p310
+S'No match'
+p311
+tp312
+a(S'axx'
+p313
+S'No match'
+p314
+tp315
+a(S'ayzq'
+p316
+S'No match'
+p317
+tp318
+a(S'axyzq'
+p319
+S'No match'
+p320
+tp321
+aaa(lp322
+S'[^a]+'
+p323
+ag3
+a(lp324
+(S'bac'
+p325
+S' 0: b'
+p326
+tp327
+a(S'bcdefax'
+p328
+S' 0: bcdef'
+p329
+tp330
+a(S'*** Failers'
+p331
+S' 0: *** F'
+p332
+tp333
+a(S'aaaaa'
+p334
+S'No match'
+p335
+tp336
+aaa(lp337
+S'[^a]*'
+p338
+ag3
+a(lp339
+(S'bac'
+p340
+S' 0: b'
+p341
+tp342
+a(S'bcdefax'
+p343
+S' 0: bcdef'
+p344
+tp345
+a(S'*** Failers'
+p346
+S' 0: *** F'
+p347
+tp348
+a(S'aaaaa'
+p349
+S' 0: '
+p350
+tp351
+aaa(lp352
+S'[^a]{3,5}'
+p353
+ag3
+a(lp354
+(S'xyz'
+p355
+S' 0: xyz'
+p356
+tp357
+a(S'awxyza'
+p358
+S' 0: wxyz'
+p359
+tp360
+a(S'abcdefa'
+p361
+S' 0: bcdef'
+p362
+tp363
+a(S'abcdefghijk'
+p364
+S' 0: bcdef'
+p365
+tp366
+a(S'*** Failers'
+p367
+S' 0: *** F'
+p368
+tp369
+a(S'axya'
+p370
+S'No match'
+p371
+tp372
+a(S'axa'
+p373
+S'No match'
+p374
+tp375
+a(S'aaaaa'
+p376
+S'No match'
+p377
+tp378
+aaa(lp379
+S'\\d*'
+p380
+ag3
+a(lp381
+(S'1234b567'
+p382
+S' 0: 1234'
+p383
+tp384
+a(S'xyz'
+p385
+S' 0: '
+p386
+tp387
+aaa(lp388
+S'\\D*'
+p389
+ag3
+a(lp390
+(S'a1234b567'
+p391
+S' 0: a'
+p392
+tp393
+a(S'xyz'
+p394
+S' 0: xyz'
+p395
+tp396
+aaa(lp397
+S'\\d+'
+p398
+ag3
+a(lp399
+(S'ab1234c56'
+p400
+S' 0: 1234'
+p401
+tp402
+a(S'*** Failers'
+p403
+S'No match'
+p404
+tp405
+a(S'xyz'
+p406
+S'No match'
+p407
+tp408
+aaa(lp409
+S'\\D+'
+p410
+ag3
+a(lp411
+(S'ab123c56'
+p412
+S' 0: ab'
+p413
+tp414
+a(S'*** Failers'
+p415
+S' 0: *** Failers'
+p416
+tp417
+a(S'789'
+p418
+S'No match'
+p419
+tp420
+aaa(lp421
+S'\\d?A'
+p422
+ag3
+a(lp423
+(S'045ABC'
+p424
+S' 0: 5A'
+p425
+tp426
+a(S'ABC'
+p427
+S' 0: A'
+p428
+tp429
+a(S'*** Failers'
+p430
+S'No match'
+p431
+tp432
+a(S'XYZ'
+p433
+S'No match'
+p434
+tp435
+aaa(lp436
+S'\\D?A'
+p437
+ag3
+a(lp438
+(S'ABC'
+p439
+S' 0: A'
+p440
+tp441
+a(S'BAC'
+p442
+S' 0: BA'
+p443
+tp444
+a(S'9ABC'
+p445
+S' 0: A'
+p446
+tp447
+a(S'*** Failers'
+p448
+S'No match'
+p449
+tp450
+aaa(lp451
+S'a+'
+p452
+ag3
+a(lp453
+(S'aaaa'
+p454
+S' 0: aaaa'
+p455
+tp456
+aaa(lp457
+S'^.*xyz'
+p458
+ag3
+a(lp459
+(S'xyz'
+p460
+S' 0: xyz'
+p461
+tp462
+a(S'ggggggggxyz'
+p463
+S' 0: ggggggggxyz'
+p464
+tp465
+aaa(lp466
+S'^.+xyz'
+p467
+ag3
+a(lp468
+(S'abcdxyz'
+p469
+S' 0: abcdxyz'
+p470
+tp471
+a(S'axyz'
+p472
+S' 0: axyz'
+p473
+tp474
+a(S'*** Failers'
+p475
+S'No match'
+p476
+tp477
+a(S'xyz'
+p478
+S'No match'
+p479
+tp480
+aaa(lp481
+S'^.?xyz'
+p482
+ag3
+a(lp483
+(S'xyz'
+p484
+S' 0: xyz'
+p485
+tp486
+a(S'cxyz'
+p487
+S' 0: cxyz'
+p488
+tp489
+aaa(lp490
+S'^\\d{2,3}X'
+p491
+ag3
+a(lp492
+(S'12X'
+p493
+S' 0: 12X'
+p494
+tp495
+a(S'123X'
+p496
+S' 0: 123X'
+p497
+tp498
+a(S'*** Failers'
+p499
+S'No match'
+p500
+tp501
+a(S'X'
+p502
+S'No match'
+p503
+tp504
+a(S'1X'
+p505
+S'No match'
+p506
+tp507
+a(S'1234X'
+p508
+S'No match'
+p509
+tp510
+aaa(lp511
+S'^[abcd]\\d'
+p512
+ag3
+a(lp513
+(S'a45'
+p514
+S' 0: a4'
+p515
+tp516
+a(S'b93'
+p517
+S' 0: b9'
+p518
+tp519
+a(S'c99z'
+p520
+S' 0: c9'
+p521
+tp522
+a(S'd04'
+p523
+S' 0: d0'
+p524
+tp525
+a(S'*** Failers'
+p526
+S'No match'
+p527
+tp528
+a(S'e45'
+p529
+S'No match'
+p530
+tp531
+a(S'abcd'
+p532
+S'No match'
+p533
+tp534
+a(S'abcd1234'
+p535
+S'No match'
+p536
+tp537
+a(S'1234'
+p538
+S'No match'
+p539
+tp540
+aaa(lp541
+S'^[abcd]*\\d'
+p542
+ag3
+a(lp543
+(S'a45'
+p544
+S' 0: a4'
+p545
+tp546
+a(S'b93'
+p547
+S' 0: b9'
+p548
+tp549
+a(S'c99z'
+p550
+S' 0: c9'
+p551
+tp552
+a(S'd04'
+p553
+S' 0: d0'
+p554
+tp555
+a(S'abcd1234'
+p556
+S' 0: abcd1'
+p557
+tp558
+a(S'1234'
+p559
+S' 0: 1'
+p560
+tp561
+a(S'*** Failers'
+p562
+S'No match'
+p563
+tp564
+a(S'e45'
+p565
+S'No match'
+p566
+tp567
+a(S'abcd'
+p568
+S'No match'
+p569
+tp570
+aaa(lp571
+S'^[abcd]+\\d'
+p572
+ag3
+a(lp573
+(S'a45'
+p574
+S' 0: a4'
+p575
+tp576
+a(S'b93'
+p577
+S' 0: b9'
+p578
+tp579
+a(S'c99z'
+p580
+S' 0: c9'
+p581
+tp582
+a(S'd04'
+p583
+S' 0: d0'
+p584
+tp585
+a(S'abcd1234'
+p586
+S' 0: abcd1'
+p587
+tp588
+a(S'*** Failers'
+p589
+S'No match'
+p590
+tp591
+a(S'1234'
+p592
+S'No match'
+p593
+tp594
+a(S'e45'
+p595
+S'No match'
+p596
+tp597
+a(S'abcd'
+p598
+S'No match'
+p599
+tp600
+aaa(lp601
+S'^a+X'
+p602
+ag3
+a(lp603
+(S'aX'
+p604
+S' 0: aX'
+p605
+tp606
+a(S'aaX'
+p607
+S' 0: aaX'
+p608
+tp609
+aaa(lp610
+S'^[abcd]?\\d'
+p611
+ag3
+a(lp612
+(S'a45'
+p613
+S' 0: a4'
+p614
+tp615
+a(S'b93'
+p616
+S' 0: b9'
+p617
+tp618
+a(S'c99z'
+p619
+S' 0: c9'
+p620
+tp621
+a(S'd04'
+p622
+S' 0: d0'
+p623
+tp624
+a(S'1234'
+p625
+S' 0: 1'
+p626
+tp627
+a(S'*** Failers'
+p628
+S'No match'
+p629
+tp630
+a(S'abcd1234'
+p631
+S'No match'
+p632
+tp633
+a(S'e45'
+p634
+S'No match'
+p635
+tp636
+aaa(lp637
+S'^[abcd]{2,3}\\d'
+p638
+ag3
+a(lp639
+(S'ab45'
+p640
+S' 0: ab4'
+p641
+tp642
+a(S'bcd93'
+p643
+S' 0: bcd9'
+p644
+tp645
+a(S'*** Failers'
+p646
+S'No match'
+p647
+tp648
+a(S'1234'
+p649
+S'No match'
+p650
+tp651
+a(S'a36'
+p652
+S'No match'
+p653
+tp654
+a(S'abcd1234'
+p655
+S'No match'
+p656
+tp657
+a(S'ee45'
+p658
+S'No match'
+p659
+tp660
+aaa(lp661
+S'^(abc)*\\d'
+p662
+ag3
+a(lp663
+(S'abc45'
+p664
+S' 0: abc4'
+p665
+tp666
+a(S'abcabcabc45'
+p667
+S' 0: abcabcabc4'
+p668
+tp669
+a(S'42xyz'
+p670
+S' 0: 4'
+p671
+tp672
+a(S'*** Failers'
+p673
+S'No match'
+p674
+tp675
+aaa(lp676
+S'^(abc)+\\d'
+p677
+ag3
+a(lp678
+(S'abc45'
+p679
+S' 0: abc4'
+p680
+tp681
+a(S'abcabcabc45'
+p682
+S' 0: abcabcabc4'
+p683
+tp684
+a(S'*** Failers'
+p685
+S'No match'
+p686
+tp687
+a(S'42xyz'
+p688
+S'No match'
+p689
+tp690
+aaa(lp691
+S'^(abc)?\\d'
+p692
+ag3
+a(lp693
+(S'abc45'
+p694
+S' 0: abc4'
+p695
+tp696
+a(S'42xyz'
+p697
+S' 0: 4'
+p698
+tp699
+a(S'*** Failers'
+p700
+S'No match'
+p701
+tp702
+a(S'abcabcabc45'
+p703
+S'No match'
+p704
+tp705
+aaa(lp706
+S'^(abc){2,3}\\d'
+p707
+ag3
+a(lp708
+(S'abcabc45'
+p709
+S' 0: abcabc4'
+p710
+tp711
+a(S'abcabcabc45'
+p712
+S' 0: abcabcabc4'
+p713
+tp714
+a(S'*** Failers'
+p715
+S'No match'
+p716
+tp717
+a(S'abcabcabcabc45'
+p718
+S'No match'
+p719
+tp720
+a(S'abc45'
+p721
+S'No match'
+p722
+tp723
+a(S'42xyz'
+p724
+S'No match'
+p725
+tp726
+aaa(lp727
+S'^(a*\\w|ab)=(a*\\w|ab)'
+p728
+ag3
+a(lp729
+(S'ab=ab'
+p730
+S' 0: ab=ab'
+p731
+tp732
+aaa(lp733
+S'^abc'
+p734
+ag3
+a(lp735
+(S'abcdef'
+p736
+S' 0: abc'
+p737
+tp738
+a(S'*** Failers'
+p739
+S'No match'
+p740
+tp741
+a(S'abcdefB'
+p742
+S'No match'
+p743
+tp744
+aaa(lp745
+S'^(a*|xyz)'
+p746
+ag3
+a(lp747
+(S'bcd'
+p748
+S' 0: '
+p749
+tp750
+a(S'aaabcd'
+p751
+S' 0: aaa'
+p752
+tp753
+a(S'xyz'
+p754
+S' 0: xyz'
+p755
+tp756
+a(S'xyzN'
+p757
+S' 0: xyz'
+p758
+tp759
+a(S'*** Failers'
+p760
+S' 0: '
+p761
+tp762
+a(S'bcdN'
+p763
+S'No match'
+p764
+tp765
+aaa(lp766
+S'xyz$'
+p767
+ag3
+a(lp768
+(S'xyz'
+p769
+S' 0: xyz'
+p770
+tp771
+a(S'xyz\n'
+p772
+S' 0: xyz'
+p773
+tp774
+a(S'*** Failers'
+p775
+S'No match'
+p776
+tp777
+a(S'xyzZ'
+p778
+S'No match'
+p779
+tp780
+a(S'xyz\nZ'
+p781
+S'No match'
+p782
+tp783
+aaa(lp784
+S'\\Gabc'
+p785
+ag3
+a(lp786
+(S'abcdef'
+p787
+S' 0: abc'
+p788
+tp789
+a(S'defabcxyz>3'
+p790
+S' 0: abc'
+p791
+tp792
+a(S'*** Failers'
+p793
+S'No match'
+p794
+tp795
+a(S'defabcxyz'
+p796
+S'No match'
+p797
+tp798
+aaa(lp799
+S'^abcdef'
+p800
+ag3
+a(lp801
+(S'abP'
+p802
+S' 0: abcdef'
+p803
+tp804
+a(S'*** Failers'
+p805
+S'No match'
+p806
+tp807
+a(S'abxP'
+p808
+S'No match'
+p809
+tp810
+aaa(lp811
+S'^a{2,4}\\d+z'
+p812
+ag3
+a(lp813
+(S'aP'
+p814
+S' 0: aa0z'
+p815
+tp816
+a(S'aaaa4444444444444zP'
+p817
+S' 0: aaaa4444444444444z'
+p818
+tp819
+a(S'*** Failers'
+p820
+S'No match'
+p821
+tp822
+a(S'azP'
+p823
+S'No match'
+p824
+tp825
+a(S'aaaaaP'
+p826
+S'No match'
+p827
+tp828
+a(S'a56P'
+p829
+S'No match'
+p830
+tp831
+aaa(lp832
+S'^abcdef'
+p833
+ag3
+a(lp834
+(S'abcP'
+p835
+S' 0: def'
+p836
+tp837
+aaa(lp838
+S'(ab*(cd|ef))+X'
+p839
+ag3
+a(lp840
+(S'adfadadaklhlkalkajhlkjahdfasdfasdfladsfjkjPZ'
+p841
+S'No match'
+p842
+tp843
+a(S'lkjhlkjhlkjhlkjhabbbbbbcdaefabbbbbbbefaPBZ'
+p844
+S' 0: bbbbbbbbbbbbcdX'
+p845
+tp846
+aaa(lp847
+S'the quick brown fox'
+p848
+ag3
+a(lp849
+(S'the quick brown fox'
+p850
+S' 0: the quick brown fox'
+p851
+tp852
+a(S'The quick brown FOX'
+p853
+S'No match'
+p854
+tp855
+a(S'What do you know about the quick brown fox?'
+p856
+S' 0: the quick brown fox'
+p857
+tp858
+a(S'What do you know about THE QUICK BROWN FOX?'
+p859
+S'No match'
+p860
+tp861
+aaa(lp862
+S'abcd\\t\\n\\r\\f\\a\\e\\071\\x3b\\$\\\\\\?caxyz'
+p863
+ag3
+a(lp864
+(S'abcd\t\n\r\x0c\x07\x1b9;$\\?caxyz'
+p865
+S' 0: abcd\t\n\r\x0c\x07\x1b9;$\\?caxyz'
+p866
+tp867
+aaa(lp868
+S'a*abc?xyz+pqr{3}ab{2,}xy{4,5}pq{0,6}AB{0,}zz'
+p869
+ag3
+a(lp870
+(S'abxyzpqrrrabbxyyyypqAzz'
+p871
+S' 0: abxyzpqrrrabbxyyyypqAzz'
+p872
+tp873
+a(S'abxyzpqrrrabbxyyyypqAzz'
+p874
+S' 0: abxyzpqrrrabbxyyyypqAzz'
+p875
+tp876
+a(S'aabxyzpqrrrabbxyyyypqAzz'
+p877
+S' 0: aabxyzpqrrrabbxyyyypqAzz'
+p878
+tp879
+a(S'aaabxyzpqrrrabbxyyyypqAzz'
+p880
+S' 0: aaabxyzpqrrrabbxyyyypqAzz'
+p881
+tp882
+a(S'aaaabxyzpqrrrabbxyyyypqAzz'
+p883
+S' 0: aaaabxyzpqrrrabbxyyyypqAzz'
+p884
+tp885
+a(S'abcxyzpqrrrabbxyyyypqAzz'
+p886
+S' 0: abcxyzpqrrrabbxyyyypqAzz'
+p887
+tp888
+a(S'aabcxyzpqrrrabbxyyyypqAzz'
+p889
+S' 0: aabcxyzpqrrrabbxyyyypqAzz'
+p890
+tp891
+a(S'aaabcxyzpqrrrabbxyyyypAzz'
+p892
+S' 0: aaabcxyzpqrrrabbxyyyypAzz'
+p893
+tp894
+a(S'aaabcxyzpqrrrabbxyyyypqAzz'
+p895
+S' 0: aaabcxyzpqrrrabbxyyyypqAzz'
+p896
+tp897
+a(S'aaabcxyzpqrrrabbxyyyypqqAzz'
+p898
+S' 0: aaabcxyzpqrrrabbxyyyypqqAzz'
+p899
+tp900
+a(S'aaabcxyzpqrrrabbxyyyypqqqAzz'
+p901
+S' 0: aaabcxyzpqrrrabbxyyyypqqqAzz'
+p902
+tp903
+a(S'aaabcxyzpqrrrabbxyyyypqqqqAzz'
+p904
+S' 0: aaabcxyzpqrrrabbxyyyypqqqqAzz'
+p905
+tp906
+a(S'aaabcxyzpqrrrabbxyyyypqqqqqAzz'
+p907
+S' 0: aaabcxyzpqrrrabbxyyyypqqqqqAzz'
+p908
+tp909
+a(S'aaabcxyzpqrrrabbxyyyypqqqqqqAzz'
+p910
+S' 0: aaabcxyzpqrrrabbxyyyypqqqqqqAzz'
+p911
+tp912
+a(S'aaaabcxyzpqrrrabbxyyyypqAzz'
+p913
+S' 0: aaaabcxyzpqrrrabbxyyyypqAzz'
+p914
+tp915
+a(S'abxyzzpqrrrabbxyyyypqAzz'
+p916
+S' 0: abxyzzpqrrrabbxyyyypqAzz'
+p917
+tp918
+a(S'aabxyzzzpqrrrabbxyyyypqAzz'
+p919
+S' 0: aabxyzzzpqrrrabbxyyyypqAzz'
+p920
+tp921
+a(S'aaabxyzzzzpqrrrabbxyyyypqAzz'
+p922
+S' 0: aaabxyzzzzpqrrrabbxyyyypqAzz'
+p923
+tp924
+a(S'aaaabxyzzzzpqrrrabbxyyyypqAzz'
+p925
+S' 0: aaaabxyzzzzpqrrrabbxyyyypqAzz'
+p926
+tp927
+a(S'abcxyzzpqrrrabbxyyyypqAzz'
+p928
+S' 0: abcxyzzpqrrrabbxyyyypqAzz'
+p929
+tp930
+a(S'aabcxyzzzpqrrrabbxyyyypqAzz'
+p931
+S' 0: aabcxyzzzpqrrrabbxyyyypqAzz'
+p932
+tp933
+a(S'aaabcxyzzzzpqrrrabbxyyyypqAzz'
+p934
+S' 0: aaabcxyzzzzpqrrrabbxyyyypqAzz'
+p935
+tp936
+a(S'aaaabcxyzzzzpqrrrabbxyyyypqAzz'
+p937
+S' 0: aaaabcxyzzzzpqrrrabbxyyyypqAzz'
+p938
+tp939
+a(S'aaaabcxyzzzzpqrrrabbbxyyyypqAzz'
+p940
+S' 0: aaaabcxyzzzzpqrrrabbbxyyyypqAzz'
+p941
+tp942
+a(S'aaaabcxyzzzzpqrrrabbbxyyyyypqAzz'
+p943
+S' 0: aaaabcxyzzzzpqrrrabbbxyyyyypqAzz'
+p944
+tp945
+a(S'aaabcxyzpqrrrabbxyyyypABzz'
+p946
+S' 0: aaabcxyzpqrrrabbxyyyypABzz'
+p947
+tp948
+a(S'aaabcxyzpqrrrabbxyyyypABBzz'
+p949
+S' 0: aaabcxyzpqrrrabbxyyyypABBzz'
+p950
+tp951
+a(S'>>>aaabxyzpqrrrabbxyyyypqAzz'
+p952
+S' 0: aaabxyzpqrrrabbxyyyypqAzz'
+p953
+tp954
+a(S'>aaaabxyzpqrrrabbxyyyypqAzz'
+p955
+S' 0: aaaabxyzpqrrrabbxyyyypqAzz'
+p956
+tp957
+a(S'>>>>abcxyzpqrrrabbxyyyypqAzz'
+p958
+S' 0: abcxyzpqrrrabbxyyyypqAzz'
+p959
+tp960
+a(S'*** Failers'
+p961
+S'No match'
+p962
+tp963
+a(S'abxyzpqrrabbxyyyypqAzz'
+p964
+S'No match'
+p965
+tp966
+a(S'abxyzpqrrrrabbxyyyypqAzz'
+p967
+S'No match'
+p968
+tp969
+a(S'abxyzpqrrrabxyyyypqAzz'
+p970
+S'No match'
+p971
+tp972
+a(S'aaaabcxyzzzzpqrrrabbbxyyyyyypqAzz'
+p973
+S'No match'
+p974
+tp975
+a(S'aaaabcxyzzzzpqrrrabbbxyyypqAzz'
+p976
+S'No match'
+p977
+tp978
+a(S'aaabcxyzpqrrrabbxyyyypqqqqqqqAzz'
+p979
+S'No match'
+p980
+tp981
+aaa(lp982
+S'^(abc){1,2}zz'
+p983
+ag3
+a(lp984
+(S'abczz'
+p985
+S' 0: abczz'
+p986
+tp987
+a(S'abcabczz'
+p988
+S' 0: abcabczz'
+p989
+tp990
+a(S'*** Failers'
+p991
+S'No match'
+p992
+tp993
+a(S'zz'
+p994
+S'No match'
+p995
+tp996
+a(S'abcabcabczz'
+p997
+S'No match'
+p998
+tp999
+a(S'>>abczz'
+p1000
+S'No match'
+p1001
+tp1002
+aaa(lp1003
+S'^(b+|a){1,2}c'
+p1004
+ag3
+a(lp1005
+(S'bc'
+p1006
+S' 0: bc'
+p1007
+tp1008
+a(S'bbc'
+p1009
+S' 0: bbc'
+p1010
+tp1011
+a(S'bbbc'
+p1012
+S' 0: bbbc'
+p1013
+tp1014
+a(S'bac'
+p1015
+S' 0: bac'
+p1016
+tp1017
+a(S'bbac'
+p1018
+S' 0: bbac'
+p1019
+tp1020
+a(S'aac'
+p1021
+S' 0: aac'
+p1022
+tp1023
+a(S'abbbbbbbbbbbc'
+p1024
+S' 0: abbbbbbbbbbbc'
+p1025
+tp1026
+a(S'bbbbbbbbbbbac'
+p1027
+S' 0: bbbbbbbbbbbac'
+p1028
+tp1029
+a(S'*** Failers'
+p1030
+S'No match'
+p1031
+tp1032
+a(S'aaac'
+p1033
+S'No match'
+p1034
+tp1035
+a(S'abbbbbbbbbbbac'
+p1036
+S'No match'
+p1037
+tp1038
+aaa(lp1039
+S'^\\ca\\cA\\c[\\c{\\c:'
+p1040
+ag3
+a(lp1041
+(S'\x01\x01\x1b;z'
+p1042
+S' 0: \x01\x01\x1b;z'
+p1043
+tp1044
+aaa(lp1045
+S'^[ab\\]cde]'
+p1046
+ag3
+a(lp1047
+(S'athing'
+p1048
+S' 0: a'
+p1049
+tp1050
+a(S'bthing'
+p1051
+S' 0: b'
+p1052
+tp1053
+a(S']thing'
+p1054
+S' 0: ]'
+p1055
+tp1056
+a(S'cthing'
+p1057
+S' 0: c'
+p1058
+tp1059
+a(S'dthing'
+p1060
+S' 0: d'
+p1061
+tp1062
+a(S'ething'
+p1063
+S' 0: e'
+p1064
+tp1065
+a(S'*** Failers'
+p1066
+S'No match'
+p1067
+tp1068
+a(S'fthing'
+p1069
+S'No match'
+p1070
+tp1071
+a(S'[thing'
+p1072
+S'No match'
+p1073
+tp1074
+a(S'\\thing'
+p1075
+S'No match'
+p1076
+tp1077
+aaa(lp1078
+S'^[]cde]'
+p1079
+ag3
+a(lp1080
+(S']thing'
+p1081
+S' 0: ]'
+p1082
+tp1083
+a(S'cthing'
+p1084
+S' 0: c'
+p1085
+tp1086
+a(S'dthing'
+p1087
+S' 0: d'
+p1088
+tp1089
+a(S'ething'
+p1090
+S' 0: e'
+p1091
+tp1092
+a(S'*** Failers'
+p1093
+S'No match'
+p1094
+tp1095
+a(S'athing'
+p1096
+S'No match'
+p1097
+tp1098
+a(S'fthing'
+p1099
+S'No match'
+p1100
+tp1101
+aaa(lp1102
+S'^[^ab\\]cde]'
+p1103
+ag3
+a(lp1104
+(S'fthing'
+p1105
+S' 0: f'
+p1106
+tp1107
+a(S'[thing'
+p1108
+S' 0: ['
+p1109
+tp1110
+a(S'\\thing'
+p1111
+S' 0: \\'
+p1112
+tp1113
+a(S'*** Failers'
+p1114
+S' 0: *'
+p1115
+tp1116
+a(S'athing'
+p1117
+S'No match'
+p1118
+tp1119
+a(S'bthing'
+p1120
+S'No match'
+p1121
+tp1122
+a(S']thing'
+p1123
+S'No match'
+p1124
+tp1125
+a(S'cthing'
+p1126
+S'No match'
+p1127
+tp1128
+a(S'dthing'
+p1129
+S'No match'
+p1130
+tp1131
+a(S'ething'
+p1132
+S'No match'
+p1133
+tp1134
+aaa(lp1135
+S'^[^]cde]'
+p1136
+ag3
+a(lp1137
+(S'athing'
+p1138
+S' 0: a'
+p1139
+tp1140
+a(S'fthing'
+p1141
+S' 0: f'
+p1142
+tp1143
+a(S'*** Failers'
+p1144
+S' 0: *'
+p1145
+tp1146
+a(S']thing'
+p1147
+S'No match'
+p1148
+tp1149
+a(S'cthing'
+p1150
+S'No match'
+p1151
+tp1152
+a(S'dthing'
+p1153
+S'No match'
+p1154
+tp1155
+a(S'ething'
+p1156
+S'No match'
+p1157
+tp1158
+aaa(lp1159
+S'^\\\x81'
+p1160
+ag3
+a(lp1161
+(S'\x81'
+p1162
+S' 0: \x81'
+p1163
+tp1164
+aaa(lp1165
+S'^\xff'
+p1166
+ag3
+a(lp1167
+(S'\xff'
+p1168
+S' 0: \xff'
+p1169
+tp1170
+aaa(lp1171
+S'^[0-9]+$'
+p1172
+ag3
+a(lp1173
+(S'0'
+p1174
+S' 0: 0'
+p1175
+tp1176
+a(S'1'
+p1177
+S' 0: 1'
+p1178
+tp1179
+a(S'2'
+p1180
+S' 0: 2'
+p1181
+tp1182
+a(S'3'
+p1183
+S' 0: 3'
+p1184
+tp1185
+a(S'4'
+p1186
+S' 0: 4'
+p1187
+tp1188
+a(S'5'
+p1189
+S' 0: 5'
+p1190
+tp1191
+a(S'6'
+p1192
+S' 0: 6'
+p1193
+tp1194
+a(S'7'
+p1195
+S' 0: 7'
+p1196
+tp1197
+a(S'8'
+p1198
+S' 0: 8'
+p1199
+tp1200
+a(S'9'
+p1201
+S' 0: 9'
+p1202
+tp1203
+a(S'10'
+p1204
+S' 0: 10'
+p1205
+tp1206
+a(S'100'
+p1207
+S' 0: 100'
+p1208
+tp1209
+a(S'*** Failers'
+p1210
+S'No match'
+p1211
+tp1212
+a(S'abc'
+p1213
+S'No match'
+p1214
+tp1215
+aaa(lp1216
+S'^.*nter'
+p1217
+ag3
+a(lp1218
+(S'enter'
+p1219
+S' 0: enter'
+p1220
+tp1221
+a(S'inter'
+p1222
+S' 0: inter'
+p1223
+tp1224
+a(S'uponter'
+p1225
+S' 0: uponter'
+p1226
+tp1227
+aaa(lp1228
+S'^xxx[0-9]+$'
+p1229
+ag3
+a(lp1230
+(S'xxx0'
+p1231
+S' 0: xxx0'
+p1232
+tp1233
+a(S'xxx1234'
+p1234
+S' 0: xxx1234'
+p1235
+tp1236
+a(S'*** Failers'
+p1237
+S'No match'
+p1238
+tp1239
+a(S'xxx'
+p1240
+S'No match'
+p1241
+tp1242
+aaa(lp1243
+S'^.+[0-9][0-9][0-9]$'
+p1244
+ag3
+a(lp1245
+(S'x123'
+p1246
+S' 0: x123'
+p1247
+tp1248
+a(S'xx123'
+p1249
+S' 0: xx123'
+p1250
+tp1251
+a(S'123456'
+p1252
+S' 0: 123456'
+p1253
+tp1254
+a(S'*** Failers'
+p1255
+S'No match'
+p1256
+tp1257
+a(S'123'
+p1258
+S'No match'
+p1259
+tp1260
+a(S'x1234'
+p1261
+S' 0: x1234'
+p1262
+tp1263
+aaa(lp1264
+S'^([^!]+)!(.+)=apquxz\\.ixr\\.zzz\\.ac\\.uk$'
+p1265
+ag3
+a(lp1266
+(S'abc!pqr=apquxz.ixr.zzz.ac.uk'
+p1267
+S' 0: abc!pqr=apquxz.ixr.zzz.ac.uk'
+p1268
+tp1269
+a(S'*** Failers'
+p1270
+S'No match'
+p1271
+tp1272
+a(S'!pqr=apquxz.ixr.zzz.ac.uk'
+p1273
+S'No match'
+p1274
+tp1275
+a(S'abc!=apquxz.ixr.zzz.ac.uk'
+p1276
+S'No match'
+p1277
+tp1278
+a(S'abc!pqr=apquxz:ixr.zzz.ac.uk'
+p1279
+S'No match'
+p1280
+tp1281
+a(S'abc!pqr=apquxz.ixr.zzz.ac.ukk'
+p1282
+S'No match'
+p1283
+tp1284
+aaa(lp1285
+S':'
+p1286
+ag3
+a(lp1287
+(S'Well, we need a colon: somewhere'
+p1288
+S' 0: :'
+p1289
+tp1290
+a(S"*** Fail if we don't"
+p1291
+S'No match'
+p1292
+tp1293
+aaa(lp1294
+S'^.*\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})$'
+p1295
+ag3
+a(lp1296
+(S'.1.2.3'
+p1297
+S' 0: .1.2.3'
+p1298
+tp1299
+a(S'A.12.123.0'
+p1300
+S' 0: A.12.123.0'
+p1301
+tp1302
+a(S'*** Failers'
+p1303
+S'No match'
+p1304
+tp1305
+a(S'.1.2.3333'
+p1306
+S'No match'
+p1307
+tp1308
+a(S'1.2.3'
+p1309
+S'No match'
+p1310
+tp1311
+a(S'1234.2.3'
+p1312
+S'No match'
+p1313
+tp1314
+aaa(lp1315
+S'^(\\d+)\\s+IN\\s+SOA\\s+(\\S+)\\s+(\\S+)\\s*\\(\\s*$'
+p1316
+ag3
+a(lp1317
+(S'1 IN SOA non-sp1 non-sp2('
+p1318
+S' 0: 1 IN SOA non-sp1 non-sp2('
+p1319
+tp1320
+a(S'1    IN    SOA    non-sp1    non-sp2   ('
+p1321
+S' 0: 1    IN    SOA    non-sp1    non-sp2   ('
+p1322
+tp1323
+a(S'*** Failers'
+p1324
+S'No match'
+p1325
+tp1326
+a(S'1IN SOA non-sp1 non-sp2('
+p1327
+S'No match'
+p1328
+tp1329
+aaa(lp1330
+S'^[a-zA-Z\\d][a-zA-Z\\d\\-]*(\\.[a-zA-Z\\d][a-zA-z\\d\\-]*)*\\.$'
+p1331
+ag3
+a(lp1332
+(S'a.'
+p1333
+S' 0: a.'
+p1334
+tp1335
+a(S'Z.'
+p1336
+S' 0: Z.'
+p1337
+tp1338
+a(S'2.'
+p1339
+S' 0: 2.'
+p1340
+tp1341
+a(S'ab-c.pq-r.'
+p1342
+S' 0: ab-c.pq-r.'
+p1343
+tp1344
+a(S'sxk.zzz.ac.uk.'
+p1345
+S' 0: sxk.zzz.ac.uk.'
+p1346
+tp1347
+a(S'x-.y-.'
+p1348
+S' 0: x-.y-.'
+p1349
+tp1350
+a(S'*** Failers'
+p1351
+S'No match'
+p1352
+tp1353
+a(S'-abc.peq.'
+p1354
+S'No match'
+p1355
+tp1356
+aaa(lp1357
+S'^\\*\\.[a-z]([a-z\\-\\d]*[a-z\\d]+)?(\\.[a-z]([a-z\\-\\d]*[a-z\\d]+)?)*$'
+p1358
+ag3
+a(lp1359
+(S'*.a'
+p1360
+S' 0: *.a'
+p1361
+tp1362
+a(S'*.b0-a'
+p1363
+S' 0: *.b0-a'
+p1364
+tp1365
+a(S'*.c3-b.c'
+p1366
+S' 0: *.c3-b.c'
+p1367
+tp1368
+a(S'*.c-a.b-c'
+p1369
+S' 0: *.c-a.b-c'
+p1370
+tp1371
+a(S'*** Failers'
+p1372
+S'No match'
+p1373
+tp1374
+a(S'*.0'
+p1375
+S'No match'
+p1376
+tp1377
+a(S'*.a-'
+p1378
+S'No match'
+p1379
+tp1380
+a(S'*.a-b.c-'
+p1381
+S'No match'
+p1382
+tp1383
+a(S'*.c-a.0-c'
+p1384
+S'No match'
+p1385
+tp1386
+aaa(lp1387
+S'^\\".*\\"\\s*(;.*)?$'
+p1388
+ag3
+a(lp1389
+(S'"1234"'
+p1390
+S' 0: "1234"'
+p1391
+tp1392
+a(S'"abcd" ;'
+p1393
+S' 0: "abcd" ;'
+p1394
+tp1395
+a(S'"" ; rhubarb'
+p1396
+S' 0: "" ; rhubarb'
+p1397
+tp1398
+a(S'*** Failers'
+p1399
+S'No match'
+p1400
+tp1401
+a(S'"1234" : things'
+p1402
+S'No match'
+p1403
+tp1404
+aaa(lp1405
+S'^$'
+p1406
+ag3
+a(lp1407
+(g3
+S' 0: '
+p1408
+tp1409
+a(S'*** Failers'
+p1410
+S'No match'
+p1411
+tp1412
+aaa(lp1413
+S'^(a(b(c)))(d(e(f)))(h(i(j)))(k(l(m)))$'
+p1414
+ag3
+a(lp1415
+(S'abcdefhijklm'
+p1416
+S' 0: abcdefhijklm'
+p1417
+tp1418
+aaa(lp1419
+S'^[\\w][\\W][\\s][\\S][\\d][\\D][\\b][\\n][\\c]][\\022]'
+p1420
+ag3
+a(lp1421
+(S'a+ Z0+\x08\n\x1d\x12'
+p1422
+S' 0: a+ Z0+\x08\n\x1d\x12'
+p1423
+tp1424
+aaa(lp1425
+S'^a*\\w'
+p1426
+ag3
+a(lp1427
+(S'z'
+p1428
+S' 0: z'
+p1429
+tp1430
+a(S'az'
+p1431
+S' 0: az'
+p1432
+tp1433
+a(S'aaaz'
+p1434
+S' 0: aaaz'
+p1435
+tp1436
+a(g41
+S' 0: a'
+p1437
+tp1438
+a(S'aa'
+p1439
+S' 0: aa'
+p1440
+tp1441
+a(S'aaaa'
+p1442
+S' 0: aaaa'
+p1443
+tp1444
+a(S'a+'
+p1445
+S' 0: a'
+p1446
+tp1447
+a(S'aa+'
+p1448
+S' 0: aa'
+p1449
+tp1450
+aaa(lp1451
+S'^a+\\w'
+p1452
+ag3
+a(lp1453
+(S'az'
+p1454
+S' 0: az'
+p1455
+tp1456
+a(S'aaaz'
+p1457
+S' 0: aaaz'
+p1458
+tp1459
+a(S'aa'
+p1460
+S' 0: aa'
+p1461
+tp1462
+a(S'aaaa'
+p1463
+S' 0: aaaa'
+p1464
+tp1465
+a(S'aa+'
+p1466
+S' 0: aa'
+p1467
+tp1468
+aaa(lp1469
+S'^\\d{8}\\w{2,}'
+p1470
+ag3
+a(lp1471
+(S'1234567890'
+p1472
+S' 0: 1234567890'
+p1473
+tp1474
+a(S'12345678ab'
+p1475
+S' 0: 12345678ab'
+p1476
+tp1477
+a(S'12345678__'
+p1478
+S' 0: 12345678__'
+p1479
+tp1480
+a(S'*** Failers'
+p1481
+S'No match'
+p1482
+tp1483
+a(S'1234567'
+p1484
+S'No match'
+p1485
+tp1486
+aaa(lp1487
+S'^[aeiou\\d]{4,5}$'
+p1488
+ag3
+a(lp1489
+(S'uoie'
+p1490
+S' 0: uoie'
+p1491
+tp1492
+a(S'1234'
+p1493
+S' 0: 1234'
+p1494
+tp1495
+a(S'12345'
+p1496
+S' 0: 12345'
+p1497
+tp1498
+a(S'aaaaa'
+p1499
+S' 0: aaaaa'
+p1500
+tp1501
+a(S'*** Failers'
+p1502
+S'No match'
+p1503
+tp1504
+a(S'123456'
+p1505
+S'No match'
+p1506
+tp1507
+aaa(lp1508
+S'^From +([^ ]+) +[a-zA-Z][a-zA-Z][a-zA-Z] +[a-zA-Z][a-zA-Z][a-zA-Z] +[0-9]?[0-9] +[0-9][0-9]:[0-9][0-9]'
+p1509
+ag3
+a(lp1510
+(S'From abcd  Mon Sep 01 12:33:02 1997'
+p1511
+S' 0: From abcd  Mon Sep 01 12:33'
+p1512
+tp1513
+aaa(lp1514
+S'^From\\s+\\S+\\s+([a-zA-Z]{3}\\s+){2}\\d{1,2}\\s+\\d\\d:\\d\\d'
+p1515
+ag3
+a(lp1516
+(S'From abcd  Mon Sep 01 12:33:02 1997'
+p1517
+S' 0: From abcd  Mon Sep 01 12:33'
+p1518
+tp1519
+a(S'From abcd  Mon Sep  1 12:33:02 1997'
+p1520
+S' 0: From abcd  Mon Sep  1 12:33'
+p1521
+tp1522
+a(S'*** Failers'
+p1523
+S'No match'
+p1524
+tp1525
+a(S'From abcd  Sep 01 12:33:02 1997'
+p1526
+S'No match'
+p1527
+tp1528
+aaa(lp1529
+S'^[ab]{1,3}(ab*|b)'
+p1530
+ag3
+a(lp1531
+(S'aabbbbb'
+p1532
+S' 0: aabbbbb'
+p1533
+tp1534
+aaa(lp1535
+S'abc\\0def\\00pqr\\000xyz\\0000AB'
+p1536
+ag3
+a(lp1537
+(S'abc\x00def\x00pqr\x00xyz\x000AB'
+p1538
+S' 0: abc\x00def\x00pqr\x00xyz\x000AB'
+p1539
+tp1540
+a(S'abc456 abc\x00def\x00pqr\x00xyz\x000ABCDE'
+p1541
+S' 0: abc\x00def\x00pqr\x00xyz\x000AB'
+p1542
+tp1543
+aaa(lp1544
+S'abc\\x0def\\x00pqr\\x000xyz\\x0000AB'
+p1545
+ag3
+a(lp1546
+(S'abc\ref\x00pqr\x000xyz\x0000AB'
+p1547
+S' 0: abc\ref\x00pqr\x000xyz\x0000AB'
+p1548
+tp1549
+a(S'abc456 abc\ref\x00pqr\x000xyz\x0000ABCDE'
+p1550
+S' 0: abc\ref\x00pqr\x000xyz\x0000AB'
+p1551
+tp1552
+aaa(lp1553
+S'^[\\000-\\037]'
+p1554
+ag3
+a(lp1555
+(S'\x00A'
+p1556
+S' 0: \x00'
+p1557
+tp1558
+a(S'\x01B'
+p1559
+S' 0: \x01'
+p1560
+tp1561
+a(S'\x1fC'
+p1562
+S' 0: \x1f'
+p1563
+tp1564
+aaa(lp1565
+S'\\0*'
+p1566
+ag3
+a(lp1567
+(S'\x00\x00\x00\x00'
+p1568
+S' 0: \x00\x00\x00\x00'
+p1569
+tp1570
+aaa(lp1571
+S'A\\x00{2,3}Z'
+p1572
+ag3
+a(lp1573
+(S'The A\x00\x00Z'
+p1574
+S' 0: A\x00\x00Z'
+p1575
+tp1576
+a(S'An A\x00\x00\x00Z'
+p1577
+S' 0: A\x00\x00\x00Z'
+p1578
+tp1579
+a(S'*** Failers'
+p1580
+S'No match'
+p1581
+tp1582
+a(S'A\x00Z'
+p1583
+S'No match'
+p1584
+tp1585
+a(S'A\x00\x00\x00\x00Z'
+p1586
+S'No match'
+p1587
+tp1588
+aaa(lp1589
+S'^\\s'
+p1590
+ag3
+a(lp1591
+(S' abc'
+p1592
+S' 0:  '
+p1593
+tp1594
+a(S'\x0cabc'
+p1595
+S' 0: \x0c'
+p1596
+tp1597
+a(S'\nabc'
+p1598
+S' 0: \n'
+p1599
+tp1600
+a(S'\rabc'
+p1601
+S' 0: \r'
+p1602
+tp1603
+a(S'\tabc'
+p1604
+S' 0: \t'
+p1605
+tp1606
+a(S'*** Failers'
+p1607
+S'No match'
+p1608
+tp1609
+a(S'abc'
+p1610
+S'No match'
+p1611
+tp1612
+aaa(lp1613
+S'ab{1,3}bc'
+p1614
+ag3
+a(lp1615
+(S'abbbbc'
+p1616
+S' 0: abbbbc'
+p1617
+tp1618
+a(S'abbbc'
+p1619
+S' 0: abbbc'
+p1620
+tp1621
+a(S'abbc'
+p1622
+S' 0: abbc'
+p1623
+tp1624
+a(S'*** Failers'
+p1625
+S'No match'
+p1626
+tp1627
+a(S'abc'
+p1628
+S'No match'
+p1629
+tp1630
+a(S'abbbbbc'
+p1631
+S'No match'
+p1632
+tp1633
+aaa(lp1634
+S'([^.]*)\\.([^:]*):[T ]+(.*)'
+p1635
+ag3
+a(lp1636
+(S'track1.title:TBlah blah blah'
+p1637
+S' 0: track1.title:TBlah blah blah'
+p1638
+tp1639
+aaa(lp1640
+S'^[W-c]+$'
+p1641
+ag3
+a(lp1642
+(S'WXY_^abc'
+p1643
+S' 0: WXY_^abc'
+p1644
+tp1645
+a(S'*** Failers'
+p1646
+S'No match'
+p1647
+tp1648
+a(S'wxy'
+p1649
+S'No match'
+p1650
+tp1651
+aaa(lp1652
+S'^abc$'
+p1653
+ag3
+a(lp1654
+(S'abc'
+p1655
+S' 0: abc'
+p1656
+tp1657
+a(S'*** Failers'
+p1658
+S'No match'
+p1659
+tp1660
+a(S'qqq\nabc'
+p1661
+S'No match'
+p1662
+tp1663
+a(S'abc\nzzz'
+p1664
+S'No match'
+p1665
+tp1666
+a(S'qqq\nabc\nzzz'
+p1667
+S'No match'
+p1668
+tp1669
+aaa(lp1670
+S'[-az]+'
+p1671
+ag3
+a(lp1672
+(S'az-'
+p1673
+S' 0: az-'
+p1674
+tp1675
+a(S'*** Failers'
+p1676
+S' 0: a'
+p1677
+tp1678
+a(S'b'
+p1679
+S'No match'
+p1680
+tp1681
+aaa(lp1682
+S'[az-]+'
+p1683
+ag3
+a(lp1684
+(S'za-'
+p1685
+S' 0: za-'
+p1686
+tp1687
+a(S'*** Failers'
+p1688
+S' 0: a'
+p1689
+tp1690
+a(g1679
+S'No match'
+p1691
+tp1692
+aaa(lp1693
+S'[a\\-z]+'
+p1694
+ag3
+a(lp1695
+(S'a-z'
+p1696
+S' 0: a-z'
+p1697
+tp1698
+a(S'*** Failers'
+p1699
+S' 0: a'
+p1700
+tp1701
+a(g1679
+S'No match'
+p1702
+tp1703
+aaa(lp1704
+S'[a-z]+'
+p1705
+ag3
+a(lp1706
+(S'abcdxyz'
+p1707
+S' 0: abcdxyz'
+p1708
+tp1709
+aaa(lp1710
+S'[\\d-]+'
+p1711
+ag3
+a(lp1712
+(S'12-34'
+p1713
+S' 0: 12-34'
+p1714
+tp1715
+a(S'*** Failers'
+p1716
+S'No match'
+p1717
+tp1718
+a(S'aaa'
+p1719
+S'No match'
+p1720
+tp1721
+aaa(lp1722
+S'[\\d-z]+'
+p1723
+ag3
+a(lp1724
+(S'12-34z'
+p1725
+S' 0: 12-34z'
+p1726
+tp1727
+a(S'*** Failers'
+p1728
+S'No match'
+p1729
+tp1730
+a(S'aaa'
+p1731
+S'No match'
+p1732
+tp1733
+aaa(lp1734
+S'\\x5c'
+p1735
+ag3
+a(lp1736
+(S'\\'
+p1737
+S' 0: \\'
+p1738
+tp1739
+aaa(lp1740
+S'\\x20Z'
+p1741
+ag3
+a(lp1742
+(S'the Zoo'
+p1743
+S' 0:  Z'
+p1744
+tp1745
+a(S'*** Failers'
+p1746
+S'No match'
+p1747
+tp1748
+a(S'Zulu'
+p1749
+S'No match'
+p1750
+tp1751
+aaa(lp1752
+S'ab{3cd'
+p1753
+ag3
+a(lp1754
+(S'ab{3cd'
+p1755
+S' 0: ab{3cd'
+p1756
+tp1757
+aaa(lp1758
+S'ab{3,cd'
+p1759
+ag3
+a(lp1760
+(S'ab{3,cd'
+p1761
+S' 0: ab{3,cd'
+p1762
+tp1763
+aaa(lp1764
+S'ab{3,4a}cd'
+p1765
+ag3
+a(lp1766
+(S'ab{3,4a}cd'
+p1767
+S' 0: ab{3,4a}cd'
+p1768
+tp1769
+aaa(lp1770
+S'{4,5a}bc'
+p1771
+ag3
+a(lp1772
+(S'{4,5a}bc'
+p1773
+S' 0: {4,5a}bc'
+p1774
+tp1775
+aaa(lp1776
+S'abc$'
+p1777
+ag3
+a(lp1778
+(S'abc'
+p1779
+S' 0: abc'
+p1780
+tp1781
+a(S'abc\n'
+p1782
+S' 0: abc'
+p1783
+tp1784
+a(S'*** Failers'
+p1785
+S'No match'
+p1786
+tp1787
+a(S'abc\ndef'
+p1788
+S'No match'
+p1789
+tp1790
+aaa(lp1791
+S'(abc)\\223'
+p1792
+ag3
+a(lp1793
+(S'abc\x93'
+p1794
+S' 0: abc\x93'
+p1795
+tp1796
+aaa(lp1797
+S'(abc)\\323'
+p1798
+ag3
+a(lp1799
+(S'abc\xd3'
+p1800
+S' 0: abc\xd3'
+p1801
+tp1802
+aaa(lp1803
+S'abc\\81'
+p1804
+ag3
+a(lp1805
+(S'abc\x0081'
+p1806
+S' 0: abc\x0081'
+p1807
+tp1808
+a(S'abc\x0081'
+p1809
+S' 0: abc\x0081'
+p1810
+tp1811
+aaa(lp1812
+S'abc\\91'
+p1813
+ag3
+a(lp1814
+(S'abc\x0091'
+p1815
+S' 0: abc\x0091'
+p1816
+tp1817
+a(S'abc\x0091'
+p1818
+S' 0: abc\x0091'
+p1819
+tp1820
+aaa(lp1821
+S'ab\\idef'
+p1822
+ag3
+a(lp1823
+(S'abidef'
+p1824
+S' 0: abidef'
+p1825
+tp1826
+aaa(lp1827
+S'a{0}bc'
+p1828
+ag3
+a(lp1829
+(S'bc'
+p1830
+S' 0: bc'
+p1831
+tp1832
+aaa(lp1833
+S'abc[\\10]de'
+p1834
+ag3
+a(lp1835
+(S'abc\x08de'
+p1836
+S' 0: abc\x08de'
+p1837
+tp1838
+aaa(lp1839
+S'abc[\\1]de'
+p1840
+ag3
+a(lp1841
+(S'abc\x01de'
+p1842
+S' 0: abc\x01de'
+p1843
+tp1844
+aaa(lp1845
+S'^([^a])([^\\b])([^c]*)([^d]{3,4})'
+p1846
+ag3
+a(lp1847
+(S'baNOTccccd'
+p1848
+S' 0: baNOTcccc'
+p1849
+tp1850
+a(S'baNOTcccd'
+p1851
+S' 0: baNOTccc'
+p1852
+tp1853
+a(S'baNOTccd'
+p1854
+S' 0: baNOTcc'
+p1855
+tp1856
+a(S'bacccd'
+p1857
+S' 0: baccc'
+p1858
+tp1859
+a(S'*** Failers'
+p1860
+S' 0: *** Failers'
+p1861
+tp1862
+a(S'anything'
+p1863
+S'No match'
+p1864
+tp1865
+a(S'b\x08c'
+p1866
+S'No match'
+p1867
+tp1868
+a(S'baccd'
+p1869
+S'No match'
+p1870
+tp1871
+aaa(lp1872
+S'[^a]'
+p1873
+ag3
+a(lp1874
+(S'Abc'
+p1875
+S' 0: A'
+p1876
+tp1877
+aaa(lp1878
+S'[^a]+'
+p1879
+ag3
+a(lp1880
+(S'AAAaAbc'
+p1881
+S' 0: AAA'
+p1882
+tp1883
+aaa(lp1884
+S'[^a]+'
+p1885
+ag3
+a(lp1886
+(S'bbb\nccc'
+p1887
+S' 0: bbb\nccc'
+p1888
+tp1889
+aaa(lp1890
+S'[^k]$'
+p1891
+ag3
+a(lp1892
+(S'abc'
+p1893
+S' 0: c'
+p1894
+tp1895
+a(S'*** Failers'
+p1896
+S' 0: s'
+p1897
+tp1898
+a(S'abk'
+p1899
+S'No match'
+p1900
+tp1901
+aaa(lp1902
+S'[^k]{2,3}$'
+p1903
+ag3
+a(lp1904
+(S'abc'
+p1905
+S' 0: abc'
+p1906
+tp1907
+a(S'kbc'
+p1908
+S' 0: bc'
+p1909
+tp1910
+a(S'kabc'
+p1911
+S' 0: abc'
+p1912
+tp1913
+a(S'*** Failers'
+p1914
+S' 0: ers'
+p1915
+tp1916
+a(S'abk'
+p1917
+S'No match'
+p1918
+tp1919
+a(S'akb'
+p1920
+S'No match'
+p1921
+tp1922
+a(S'akk'
+p1923
+S'No match'
+p1924
+tp1925
+aaa(lp1926
+S'^\\d{8,}\\@.+[^k]$'
+p1927
+ag3
+a(lp1928
+(S'12345678@a.b.c.d'
+p1929
+S' 0: 12345678@a.b.c.d'
+p1930
+tp1931
+a(S'123456789@x.y.z'
+p1932
+S' 0: 123456789@x.y.z'
+p1933
+tp1934
+a(S'*** Failers'
+p1935
+S'No match'
+p1936
+tp1937
+a(S'12345678@x.y.uk'
+p1938
+S'No match'
+p1939
+tp1940
+a(S'1234567@a.b.c.d'
+p1941
+S'No match'
+p1942
+tp1943
+aaa(lp1944
+S'[^a]'
+p1945
+ag3
+a(lp1946
+(S'aaaabcd'
+p1947
+S' 0: b'
+p1948
+tp1949
+a(S'aaAabcd'
+p1950
+S' 0: A'
+p1951
+tp1952
+aaa(lp1953
+S'[^az]'
+p1954
+ag3
+a(lp1955
+(S'aaaabcd'
+p1956
+S' 0: b'
+p1957
+tp1958
+a(S'aaAabcd'
+p1959
+S' 0: A'
+p1960
+tp1961
+aaa(lp1962
+S'\\000\\001\\002\\003\\004\\005\\006\\007\\010\\011\\012\\013\\014\\015\\016\\017\\020\\021\\022\\023\\024\\025\\026\\027\\030\\031\\032\\033\\034\\035\\036\\037\\040\\041\\042\\043\\044\\045\\046\\047\\050\\051\\052\\053\\054\\055\\056\\057\\060\\061\\062\\063\\064\\065\\066\\067\\070\\071\\072\\073\\074\\075\\076\\077\\100\\101\\102\\103\\104\\105\\106\\107\\110\\111\\112\\113\\114\\115\\116\\117\\120\\121\\122\\123\\124\\125\\126\\127\\130\\131\\132\\133\\134\\135\\136\\137\\140\\141\\142\\143\\144\\145\\146\\147\\150\\151\\152\\153\\154\\155\\156\\157\\160\\161\\162\\163\\164\\165\\166\\167\\170\\171\\172\\173\\174\\175\\176\\177\\200\\201\\202\\203\\204\\205\\206\\207\\210\\211\\212\\213\\214\\215\\216\\217\\220\\221\\222\\223\\224\\225\\226\\227\\230\\231\\232\\233\\234\\235\\236\\237\\240\\241\\242\\243\\244\\245\\246\\247\\250\\251\\252\\253\\254\\255\\256\\257\\260\\261\\262\\263\\264\\265\\266\\267\\270\\271\\272\\273\\274\\275\\276\\277\\300\\301\\302\\303\\304\\305\\306\\307\\310\\311\\312\\313\\314\\315\\316\\317\\320\\321\\322\\323\\324\\325\\326\\327\\330\\331\\332\\333\\334\\335\\336\\337\\340\\341\\342\\343\\344\\345\\346\\347\\350\\351\\352\\353\\354\\355\\356\\357\\360\\361\\362\\363\\364\\365\\366\\367\\370\\371\\372\\373\\374\\375\\376\\377'
+p1963
+ag3
+a(lp1964
+(S'\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff'
+p1965
+S' 0: \x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff'
+p1966
+tp1967
+aaa(lp1968
+S'(\\.\\d\\d[1-9]?)\\d+'
+p1969
+ag3
+a(lp1970
+(S'1.230003938'
+p1971
+S' 0: .230003938'
+p1972
+tp1973
+a(S'1.875000282'
+p1974
+S' 0: .875000282'
+p1975
+tp1976
+a(S'1.235'
+p1977
+S' 0: .235'
+p1978
+tp1979
+aaa(lp1980
+S'foo(.*)bar'
+p1981
+ag3
+a(lp1982
+(S'The food is under the bar in the barn.'
+p1983
+S' 0: food is under the bar in the bar'
+p1984
+tp1985
+aaa(lp1986
+S'(.*)(\\d*)'
+p1987
+ag3
+a(lp1988
+(S'I have 2 numbers: 53147'
+p1989
+S' 0: I have 2 numbers: 53147'
+p1990
+tp1991
+aaa(lp1992
+S'(.*)(\\d+)'
+p1993
+ag3
+a(lp1994
+(S'I have 2 numbers: 53147'
+p1995
+S' 0: I have 2 numbers: 53147'
+p1996
+tp1997
+aaa(lp1998
+S'(.*)(\\d+)$'
+p1999
+ag3
+a(lp2000
+(S'I have 2 numbers: 53147'
+p2001
+S' 0: I have 2 numbers: 53147'
+p2002
+tp2003
+aaa(lp2004
+S'(.*)\\b(\\d+)$'
+p2005
+ag3
+a(lp2006
+(S'I have 2 numbers: 53147'
+p2007
+S' 0: I have 2 numbers: 53147'
+p2008
+tp2009
+aaa(lp2010
+S'(.*\\D)(\\d+)$'
+p2011
+ag3
+a(lp2012
+(S'I have 2 numbers: 53147'
+p2013
+S' 0: I have 2 numbers: 53147'
+p2014
+tp2015
+aaa(lp2016
+S'^[W-]46]'
+p2017
+ag3
+a(lp2018
+(S'W46]789'
+p2019
+S' 0: W46]'
+p2020
+tp2021
+a(S'-46]789'
+p2022
+S' 0: -46]'
+p2023
+tp2024
+a(S'*** Failers'
+p2025
+S'No match'
+p2026
+tp2027
+a(S'Wall'
+p2028
+S'No match'
+p2029
+tp2030
+a(S'Zebra'
+p2031
+S'No match'
+p2032
+tp2033
+a(S'42'
+p2034
+S'No match'
+p2035
+tp2036
+a(S'[abcd]'
+p2037
+S'No match'
+p2038
+tp2039
+a(S']abcd['
+p2040
+S'No match'
+p2041
+tp2042
+aaa(lp2043
+S'^[W-\\]46]'
+p2044
+ag3
+a(lp2045
+(S'W46]789'
+p2046
+S' 0: W'
+p2047
+tp2048
+a(S'Wall'
+p2049
+S' 0: W'
+p2050
+tp2051
+a(S'Zebra'
+p2052
+S' 0: Z'
+p2053
+tp2054
+a(S'Xylophone'
+p2055
+S' 0: X'
+p2056
+tp2057
+a(S'42'
+p2058
+S' 0: 4'
+p2059
+tp2060
+a(S'[abcd]'
+p2061
+S' 0: ['
+p2062
+tp2063
+a(S']abcd['
+p2064
+S' 0: ]'
+p2065
+tp2066
+a(S'\\backslash'
+p2067
+S' 0: \\'
+p2068
+tp2069
+a(S'*** Failers'
+p2070
+S'No match'
+p2071
+tp2072
+a(S'-46]789'
+p2073
+S'No match'
+p2074
+tp2075
+a(S'well'
+p2076
+S'No match'
+p2077
+tp2078
+aaa(lp2079
+S'\\d\\d\\/\\d\\d\\/\\d\\d\\d\\d'
+p2080
+ag3
+a(lp2081
+(S'01/01/2000'
+p2082
+S' 0: 01/01/2000'
+p2083
+tp2084
+aaa(lp2085
+S'^(a){0,0}'
+p2086
+ag3
+a(lp2087
+(S'bcd'
+p2088
+S' 0: '
+p2089
+tp2090
+a(S'abc'
+p2091
+S' 0: '
+p2092
+tp2093
+a(S'aab'
+p2094
+S' 0: '
+p2095
+tp2096
+aaa(lp2097
+S'^(a){0,1}'
+p2098
+ag3
+a(lp2099
+(S'bcd'
+p2100
+S' 0: '
+p2101
+tp2102
+a(S'abc'
+p2103
+S' 0: a'
+p2104
+tp2105
+a(S'aab'
+p2106
+S' 0: a'
+p2107
+tp2108
+aaa(lp2109
+S'^(a){0,2}'
+p2110
+ag3
+a(lp2111
+(S'bcd'
+p2112
+S' 0: '
+p2113
+tp2114
+a(S'abc'
+p2115
+S' 0: a'
+p2116
+tp2117
+a(S'aab'
+p2118
+S' 0: aa'
+p2119
+tp2120
+aaa(lp2121
+S'^(a){0,3}'
+p2122
+ag3
+a(lp2123
+(S'bcd'
+p2124
+S' 0: '
+p2125
+tp2126
+a(S'abc'
+p2127
+S' 0: a'
+p2128
+tp2129
+a(S'aab'
+p2130
+S' 0: aa'
+p2131
+tp2132
+a(S'aaa'
+p2133
+S' 0: aaa'
+p2134
+tp2135
+aaa(lp2136
+S'^(a){0,}'
+p2137
+ag3
+a(lp2138
+(S'bcd'
+p2139
+S' 0: '
+p2140
+tp2141
+a(S'abc'
+p2142
+S' 0: a'
+p2143
+tp2144
+a(S'aab'
+p2145
+S' 0: aa'
+p2146
+tp2147
+a(S'aaa'
+p2148
+S' 0: aaa'
+p2149
+tp2150
+a(S'aaaaaaaa'
+p2151
+S' 0: aaaaaaaa'
+p2152
+tp2153
+aaa(lp2154
+S'^(a){1,1}'
+p2155
+ag3
+a(lp2156
+(S'bcd'
+p2157
+S'No match'
+p2158
+tp2159
+a(S'abc'
+p2160
+S' 0: a'
+p2161
+tp2162
+a(S'aab'
+p2163
+S' 0: a'
+p2164
+tp2165
+aaa(lp2166
+S'^(a){1,2}'
+p2167
+ag3
+a(lp2168
+(S'bcd'
+p2169
+S'No match'
+p2170
+tp2171
+a(S'abc'
+p2172
+S' 0: a'
+p2173
+tp2174
+a(S'aab'
+p2175
+S' 0: aa'
+p2176
+tp2177
+aaa(lp2178
+S'^(a){1,3}'
+p2179
+ag3
+a(lp2180
+(S'bcd'
+p2181
+S'No match'
+p2182
+tp2183
+a(S'abc'
+p2184
+S' 0: a'
+p2185
+tp2186
+a(S'aab'
+p2187
+S' 0: aa'
+p2188
+tp2189
+a(S'aaa'
+p2190
+S' 0: aaa'
+p2191
+tp2192
+aaa(lp2193
+S'^(a){1,}'
+p2194
+ag3
+a(lp2195
+(S'bcd'
+p2196
+S'No match'
+p2197
+tp2198
+a(S'abc'
+p2199
+S' 0: a'
+p2200
+tp2201
+a(S'aab'
+p2202
+S' 0: aa'
+p2203
+tp2204
+a(S'aaa'
+p2205
+S' 0: aaa'
+p2206
+tp2207
+a(S'aaaaaaaa'
+p2208
+S' 0: aaaaaaaa'
+p2209
+tp2210
+aaa(lp2211
+S'.*\\.gif'
+p2212
+ag3
+a(lp2213
+(S'borfle\nbib.gif\nno'
+p2214
+S' 0: bib.gif'
+p2215
+tp2216
+aaa(lp2217
+S'.{0,}\\.gif'
+p2218
+ag3
+a(lp2219
+(S'borfle\nbib.gif\nno'
+p2220
+S' 0: bib.gif'
+p2221
+tp2222
+aaa(lp2223
+S'.*$'
+p2224
+ag3
+a(lp2225
+(S'borfle\nbib.gif\nno'
+p2226
+S' 0: no'
+p2227
+tp2228
+aaa(lp2229
+S'.*$'
+p2230
+ag3
+a(lp2231
+(S'borfle\nbib.gif\nno\n'
+p2232
+S' 0: no'
+p2233
+tp2234
+aaa(lp2235
+S'^.*B'
+p2236
+ag3
+a(lp2237
+(S'**** Failers'
+p2238
+S'No match'
+p2239
+tp2240
+a(S'abc\nB'
+p2241
+S'No match'
+p2242
+tp2243
+aaa(lp2244
+S'^[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
+p2245
+ag3
+a(lp2246
+(S'123456654321'
+p2247
+S' 0: 123456654321'
+p2248
+tp2249
+aaa(lp2250
+S'^\\d\\d\\d\\d\\d\\d\\d\\d\\d\\d\\d\\d'
+p2251
+ag3
+a(lp2252
+(S'123456654321'
+p2253
+S' 0: 123456654321'
+p2254
+tp2255
+aaa(lp2256
+S'^[\\d][\\d][\\d][\\d][\\d][\\d][\\d][\\d][\\d][\\d][\\d][\\d]'
+p2257
+ag3
+a(lp2258
+(S'123456654321'
+p2259
+S' 0: 123456654321'
+p2260
+tp2261
+aaa(lp2262
+S'^[abc]{12}'
+p2263
+ag3
+a(lp2264
+(S'abcabcabcabc'
+p2265
+S' 0: abcabcabcabc'
+p2266
+tp2267
+aaa(lp2268
+S'^[a-c]{12}'
+p2269
+ag3
+a(lp2270
+(S'abcabcabcabc'
+p2271
+S' 0: abcabcabcabc'
+p2272
+tp2273
+aaa(lp2274
+S'^(a|b|c){12}'
+p2275
+ag3
+a(lp2276
+(S'abcabcabcabc'
+p2277
+S' 0: abcabcabcabc'
+p2278
+tp2279
+aaa(lp2280
+S'^[abcdefghijklmnopqrstuvwxy0123456789]'
+p2281
+ag3
+a(lp2282
+(S'n'
+p2283
+S' 0: n'
+p2284
+tp2285
+a(S'*** Failers'
+p2286
+S'No match'
+p2287
+tp2288
+a(g1428
+S'No match'
+p2289
+tp2290
+aaa(lp2291
+S'abcde{0,0}'
+p2292
+ag3
+a(lp2293
+(S'abcd'
+p2294
+S' 0: abcd'
+p2295
+tp2296
+a(S'*** Failers'
+p2297
+S'No match'
+p2298
+tp2299
+a(S'abce'
+p2300
+S'No match'
+p2301
+tp2302
+aaa(lp2303
+S'ab[cd]{0,0}e'
+p2304
+ag3
+a(lp2305
+(S'abe'
+p2306
+S' 0: abe'
+p2307
+tp2308
+a(S'*** Failers'
+p2309
+S'No match'
+p2310
+tp2311
+a(S'abcde'
+p2312
+S'No match'
+p2313
+tp2314
+aaa(lp2315
+S'ab(c){0,0}d'
+p2316
+ag3
+a(lp2317
+(S'abd'
+p2318
+S' 0: abd'
+p2319
+tp2320
+a(S'*** Failers'
+p2321
+S'No match'
+p2322
+tp2323
+a(S'abcd'
+p2324
+S'No match'
+p2325
+tp2326
+aaa(lp2327
+S'a(b*)'
+p2328
+ag3
+a(lp2329
+(g41
+S' 0: a'
+p2330
+tp2331
+a(S'ab'
+p2332
+S' 0: ab'
+p2333
+tp2334
+a(S'abbbb'
+p2335
+S' 0: abbbb'
+p2336
+tp2337
+a(S'*** Failers'
+p2338
+S' 0: a'
+p2339
+tp2340
+a(S'bbbbb'
+p2341
+S'No match'
+p2342
+tp2343
+aaa(lp2344
+S'ab\\d{0}e'
+p2345
+ag3
+a(lp2346
+(S'abe'
+p2347
+S' 0: abe'
+p2348
+tp2349
+a(S'*** Failers'
+p2350
+S'No match'
+p2351
+tp2352
+a(S'ab1e'
+p2353
+S'No match'
+p2354
+tp2355
+aaa(lp2356
+S'"([^\\\\"]+|\\\\.)*"'
+p2357
+ag3
+a(lp2358
+(S'the "quick" brown fox'
+p2359
+S' 0: "quick"'
+p2360
+tp2361
+a(S'"the \\"quick\\" brown fox"'
+p2362
+S' 0: "the \\"quick\\" brown fox"'
+p2363
+tp2364
+aaa(lp2365
+S'a[^a]b'
+p2366
+ag3
+a(lp2367
+(S'acb'
+p2368
+S' 0: acb'
+p2369
+tp2370
+a(S'a\nb'
+p2371
+S' 0: a\nb'
+p2372
+tp2373
+aaa(lp2374
+S'a.b'
+p2375
+ag3
+a(lp2376
+(S'acb'
+p2377
+S' 0: acb'
+p2378
+tp2379
+a(S'*** Failers'
+p2380
+S'No match'
+p2381
+tp2382
+a(S'a\nb'
+p2383
+S'No match'
+p2384
+tp2385
+aaa(lp2386
+S'\\x00{ab}'
+p2387
+ag3
+a(lp2388
+(S'\x00{ab}'
+p2389
+S' 0: \x00{ab}'
+p2390
+tp2391
+aaa(lp2392
+S'(A|B)*CD'
+p2393
+ag3
+a(lp2394
+(S'CD'
+p2395
+S' 0: CD'
+p2396
+tp2397
+aaa(lp2398
+S'(\\d+)(\\w)'
+p2399
+ag3
+a(lp2400
+(S'12345a'
+p2401
+S' 0: 12345a'
+p2402
+tp2403
+a(S'12345+'
+p2404
+S' 0: 12345'
+p2405
+tp2406
+aaa(lp2407
+S'(a+|b+|c+)*c'
+p2408
+ag3
+a(lp2409
+(S'aaabbbbccccd'
+p2410
+S' 0: aaabbbbcccc'
+p2411
+tp2412
+aaa(lp2413
+S'(abc|)+'
+p2414
+ag3
+a(lp2415
+(S'abc'
+p2416
+S' 0: abc'
+p2417
+tp2418
+a(S'abcabc'
+p2419
+S' 0: abcabc'
+p2420
+tp2421
+a(S'abcabcabc'
+p2422
+S' 0: abcabcabc'
+p2423
+tp2424
+a(S'xyz'
+p2425
+S' 0: '
+p2426
+tp2427
+aaa(lp2428
+S'([a]*)*'
+p2429
+ag3
+a(lp2430
+(g41
+S' 0: a'
+p2431
+tp2432
+a(S'aaaaa'
+p2433
+S' 0: aaaaa'
+p2434
+tp2435
+aaa(lp2436
+S'([ab]*)*'
+p2437
+ag3
+a(lp2438
+(g41
+S' 0: a'
+p2439
+tp2440
+a(g1679
+S' 0: b'
+p2441
+tp2442
+a(S'ababab'
+p2443
+S' 0: ababab'
+p2444
+tp2445
+a(S'aaaabcde'
+p2446
+S' 0: aaaab'
+p2447
+tp2448
+a(S'bbbb'
+p2449
+S' 0: bbbb'
+p2450
+tp2451
+aaa(lp2452
+S'([^a]*)*'
+p2453
+ag3
+a(lp2454
+(g1679
+S' 0: b'
+p2455
+tp2456
+a(S'bbbb'
+p2457
+S' 0: bbbb'
+p2458
+tp2459
+a(S'aaa'
+p2460
+S' 0: '
+p2461
+tp2462
+aaa(lp2463
+S'([^ab]*)*'
+p2464
+ag3
+a(lp2465
+(S'cccc'
+p2466
+S' 0: cccc'
+p2467
+tp2468
+a(S'abab'
+p2469
+S' 0: '
+p2470
+tp2471
+aaa(lp2472
+S'The following tests are taken from the Perl 5.005 test suite; some of them'
+p2473
+ag3
+a(lp2474
+(S"/are compatible with 5.004, but I'd rather not have to sort them out./"
+p2475
+S'No match'
+p2476
+tp2477
+aaa(lp2478
+S'abc'
+p2479
+ag3
+a(lp2480
+(S'abc'
+p2481
+S' 0: abc'
+p2482
+tp2483
+a(S'xabcy'
+p2484
+S' 0: abc'
+p2485
+tp2486
+a(S'ababc'
+p2487
+S' 0: abc'
+p2488
+tp2489
+a(S'*** Failers'
+p2490
+S'No match'
+p2491
+tp2492
+a(S'xbc'
+p2493
+S'No match'
+p2494
+tp2495
+a(S'axc'
+p2496
+S'No match'
+p2497
+tp2498
+a(S'abx'
+p2499
+S'No match'
+p2500
+tp2501
+aaa(lp2502
+S'ab*c'
+p2503
+ag3
+a(lp2504
+(S'abc'
+p2505
+S' 0: abc'
+p2506
+tp2507
+aaa(lp2508
+S'ab*bc'
+p2509
+ag3
+a(lp2510
+(S'abc'
+p2511
+S' 0: abc'
+p2512
+tp2513
+a(S'abbc'
+p2514
+S' 0: abbc'
+p2515
+tp2516
+a(S'abbbbc'
+p2517
+S' 0: abbbbc'
+p2518
+tp2519
+aaa(lp2520
+S'.{1}'
+p2521
+ag3
+a(lp2522
+(S'abbbbc'
+p2523
+S' 0: a'
+p2524
+tp2525
+aaa(lp2526
+S'.{3,4}'
+p2527
+ag3
+a(lp2528
+(S'abbbbc'
+p2529
+S' 0: abbb'
+p2530
+tp2531
+aaa(lp2532
+S'ab{0,}bc'
+p2533
+ag3
+a(lp2534
+(S'abbbbc'
+p2535
+S' 0: abbbbc'
+p2536
+tp2537
+aaa(lp2538
+S'ab+bc'
+p2539
+ag3
+a(lp2540
+(S'abbc'
+p2541
+S' 0: abbc'
+p2542
+tp2543
+a(S'*** Failers'
+p2544
+S'No match'
+p2545
+tp2546
+a(S'abc'
+p2547
+S'No match'
+p2548
+tp2549
+a(S'abq'
+p2550
+S'No match'
+p2551
+tp2552
+aaa(lp2553
+S'ab{1,}bc'
+p2554
+ag3
+a(lp2555
+aa(lp2556
+S'ab+bc'
+p2557
+ag3
+a(lp2558
+(S'abbbbc'
+p2559
+S' 0: abbbbc'
+p2560
+tp2561
+aaa(lp2562
+S'ab{1,}bc'
+p2563
+ag3
+a(lp2564
+(S'abbbbc'
+p2565
+S' 0: abbbbc'
+p2566
+tp2567
+aaa(lp2568
+S'ab{1,3}bc'
+p2569
+ag3
+a(lp2570
+(S'abbbbc'
+p2571
+S' 0: abbbbc'
+p2572
+tp2573
+aaa(lp2574
+S'ab{3,4}bc'
+p2575
+ag3
+a(lp2576
+(S'abbbbc'
+p2577
+S' 0: abbbbc'
+p2578
+tp2579
+aaa(lp2580
+S'ab{4,5}bc'
+p2581
+ag3
+a(lp2582
+(S'*** Failers'
+p2583
+S'No match'
+p2584
+tp2585
+a(S'abq'
+p2586
+S'No match'
+p2587
+tp2588
+a(S'abbbbc'
+p2589
+S'No match'
+p2590
+tp2591
+aaa(lp2592
+S'ab?bc'
+p2593
+ag3
+a(lp2594
+(S'abbc'
+p2595
+S' 0: abbc'
+p2596
+tp2597
+a(S'abc'
+p2598
+S' 0: abc'
+p2599
+tp2600
+aaa(lp2601
+S'ab{0,1}bc'
+p2602
+ag3
+a(lp2603
+(S'abc'
+p2604
+S' 0: abc'
+p2605
+tp2606
+aaa(lp2607
+S'ab?bc'
+p2608
+ag3
+a(lp2609
+aa(lp2610
+S'ab?c'
+p2611
+ag3
+a(lp2612
+(S'abc'
+p2613
+S' 0: abc'
+p2614
+tp2615
+aaa(lp2616
+S'ab{0,1}c'
+p2617
+ag3
+a(lp2618
+(S'abc'
+p2619
+S' 0: abc'
+p2620
+tp2621
+aaa(lp2622
+S'^abc$'
+p2623
+ag3
+a(lp2624
+(S'abc'
+p2625
+S' 0: abc'
+p2626
+tp2627
+a(S'*** Failers'
+p2628
+S'No match'
+p2629
+tp2630
+a(S'abbbbc'
+p2631
+S'No match'
+p2632
+tp2633
+a(S'abcc'
+p2634
+S'No match'
+p2635
+tp2636
+aaa(lp2637
+S'^abc'
+p2638
+ag3
+a(lp2639
+(S'abcc'
+p2640
+S' 0: abc'
+p2641
+tp2642
+aaa(lp2643
+S'^abc$'
+p2644
+ag3
+a(lp2645
+aa(lp2646
+S'abc$'
+p2647
+ag3
+a(lp2648
+(S'aabc'
+p2649
+S' 0: abc'
+p2650
+tp2651
+a(S'*** Failers'
+p2652
+S'No match'
+p2653
+tp2654
+a(S'aabc'
+p2655
+S' 0: abc'
+p2656
+tp2657
+a(S'aabcd'
+p2658
+S'No match'
+p2659
+tp2660
+aaa(lp2661
+S'^'
+p2662
+ag3
+a(lp2663
+(S'abc'
+p2664
+S' 0: '
+p2665
+tp2666
+aaa(lp2667
+S'$'
+p2668
+ag3
+a(lp2669
+(S'abc'
+p2670
+S' 0: '
+p2671
+tp2672
+aaa(lp2673
+S'a.c'
+p2674
+ag3
+a(lp2675
+(S'abc'
+p2676
+S' 0: abc'
+p2677
+tp2678
+a(S'axc'
+p2679
+S' 0: axc'
+p2680
+tp2681
+aaa(lp2682
+S'a.*c'
+p2683
+ag3
+a(lp2684
+(S'axyzc'
+p2685
+S' 0: axyzc'
+p2686
+tp2687
+aaa(lp2688
+S'a[bc]d'
+p2689
+ag3
+a(lp2690
+(S'abd'
+p2691
+S' 0: abd'
+p2692
+tp2693
+a(S'*** Failers'
+p2694
+S'No match'
+p2695
+tp2696
+a(S'axyzd'
+p2697
+S'No match'
+p2698
+tp2699
+a(S'abc'
+p2700
+S'No match'
+p2701
+tp2702
+aaa(lp2703
+S'a[b-d]e'
+p2704
+ag3
+a(lp2705
+(S'ace'
+p2706
+S' 0: ace'
+p2707
+tp2708
+aaa(lp2709
+S'a[b-d]'
+p2710
+ag3
+a(lp2711
+(S'aac'
+p2712
+S' 0: ac'
+p2713
+tp2714
+aaa(lp2715
+S'a[-b]'
+p2716
+ag3
+a(lp2717
+(S'a-'
+p2718
+S' 0: a-'
+p2719
+tp2720
+aaa(lp2721
+S'a[b-]'
+p2722
+ag3
+a(lp2723
+(S'a-'
+p2724
+S' 0: a-'
+p2725
+tp2726
+aaa(lp2727
+S'a]'
+p2728
+ag3
+a(lp2729
+(S'a]'
+p2730
+S' 0: a]'
+p2731
+tp2732
+aaa(lp2733
+S'a[]]b'
+p2734
+ag3
+a(lp2735
+(S'a]b'
+p2736
+S' 0: a]b'
+p2737
+tp2738
+aaa(lp2739
+S'a[^bc]d'
+p2740
+ag3
+a(lp2741
+(S'aed'
+p2742
+S' 0: aed'
+p2743
+tp2744
+a(S'*** Failers'
+p2745
+S'No match'
+p2746
+tp2747
+a(S'abd'
+p2748
+S'No match'
+p2749
+tp2750
+a(S'abd'
+p2751
+S'No match'
+p2752
+tp2753
+aaa(lp2754
+S'a[^-b]c'
+p2755
+ag3
+a(lp2756
+(S'adc'
+p2757
+S' 0: adc'
+p2758
+tp2759
+aaa(lp2760
+S'a[^]b]c'
+p2761
+ag3
+a(lp2762
+(S'adc'
+p2763
+S' 0: adc'
+p2764
+tp2765
+a(S'*** Failers'
+p2766
+S'No match'
+p2767
+tp2768
+a(S'a-c'
+p2769
+S' 0: a-c'
+p2770
+tp2771
+a(S'a]c'
+p2772
+S'No match'
+p2773
+tp2774
+aaa(lp2775
+S'\\ba\\b'
+p2776
+ag3
+a(lp2777
+(S'a-'
+p2778
+S' 0: a'
+p2779
+tp2780
+a(S'-a'
+p2781
+S' 0: a'
+p2782
+tp2783
+a(S'-a-'
+p2784
+S' 0: a'
+p2785
+tp2786
+aaa(lp2787
+S'\\by\\b'
+p2788
+ag3
+a(lp2789
+(S'*** Failers'
+p2790
+S'No match'
+p2791
+tp2792
+a(S'xy'
+p2793
+S'No match'
+p2794
+tp2795
+a(S'yz'
+p2796
+S'No match'
+p2797
+tp2798
+a(S'xyz'
+p2799
+S'No match'
+p2800
+tp2801
+aaa(lp2802
+S'\\Ba\\B'
+p2803
+ag3
+a(lp2804
+(S'*** Failers'
+p2805
+S' 0: a'
+p2806
+tp2807
+a(S'a-'
+p2808
+S'No match'
+p2809
+tp2810
+a(S'-a'
+p2811
+S'No match'
+p2812
+tp2813
+a(S'-a-'
+p2814
+S'No match'
+p2815
+tp2816
+aaa(lp2817
+S'\\By\\b'
+p2818
+ag3
+a(lp2819
+(S'xy'
+p2820
+S' 0: y'
+p2821
+tp2822
+aaa(lp2823
+S'\\by\\B'
+p2824
+ag3
+a(lp2825
+(S'yz'
+p2826
+S' 0: y'
+p2827
+tp2828
+aaa(lp2829
+S'\\By\\B'
+p2830
+ag3
+a(lp2831
+(S'xyz'
+p2832
+S' 0: y'
+p2833
+tp2834
+aaa(lp2835
+S'\\w'
+p2836
+ag3
+a(lp2837
+(g41
+S' 0: a'
+p2838
+tp2839
+aaa(lp2840
+S'\\W'
+p2841
+ag3
+a(lp2842
+(S'-'
+p2843
+S' 0: -'
+p2844
+tp2845
+a(S'*** Failers'
+p2846
+S' 0: *'
+p2847
+tp2848
+a(g2843
+S' 0: -'
+p2849
+tp2850
+a(g41
+S'No match'
+p2851
+tp2852
+aaa(lp2853
+S'a\\sb'
+p2854
+ag3
+a(lp2855
+(S'a b'
+p2856
+S' 0: a b'
+p2857
+tp2858
+aaa(lp2859
+S'a\\Sb'
+p2860
+ag3
+a(lp2861
+(S'a-b'
+p2862
+S' 0: a-b'
+p2863
+tp2864
+a(S'*** Failers'
+p2865
+S'No match'
+p2866
+tp2867
+a(S'a-b'
+p2868
+S' 0: a-b'
+p2869
+tp2870
+a(S'a b'
+p2871
+S'No match'
+p2872
+tp2873
+aaa(lp2874
+S'\\d'
+p2875
+ag3
+a(lp2876
+(g1177
+S' 0: 1'
+p2877
+tp2878
+aaa(lp2879
+S'\\D'
+p2880
+ag3
+a(lp2881
+(g2843
+S' 0: -'
+p2882
+tp2883
+a(S'*** Failers'
+p2884
+S' 0: *'
+p2885
+tp2886
+a(g2843
+S' 0: -'
+p2887
+tp2888
+a(g1177
+S'No match'
+p2889
+tp2890
+aaa(lp2891
+S'[\\w]'
+p2892
+ag3
+a(lp2893
+(g41
+S' 0: a'
+p2894
+tp2895
+aaa(lp2896
+S'[\\W]'
+p2897
+ag3
+a(lp2898
+(g2843
+S' 0: -'
+p2899
+tp2900
+a(S'*** Failers'
+p2901
+S' 0: *'
+p2902
+tp2903
+a(g2843
+S' 0: -'
+p2904
+tp2905
+a(g41
+S'No match'
+p2906
+tp2907
+aaa(lp2908
+S'a[\\s]b'
+p2909
+ag3
+a(lp2910
+(S'a b'
+p2911
+S' 0: a b'
+p2912
+tp2913
+aaa(lp2914
+S'a[\\S]b'
+p2915
+ag3
+a(lp2916
+(S'a-b'
+p2917
+S' 0: a-b'
+p2918
+tp2919
+a(S'*** Failers'
+p2920
+S'No match'
+p2921
+tp2922
+a(S'a-b'
+p2923
+S' 0: a-b'
+p2924
+tp2925
+a(S'a b'
+p2926
+S'No match'
+p2927
+tp2928
+aaa(lp2929
+S'[\\d]'
+p2930
+ag3
+a(lp2931
+(g1177
+S' 0: 1'
+p2932
+tp2933
+aaa(lp2934
+S'[\\D]'
+p2935
+ag3
+a(lp2936
+(g2843
+S' 0: -'
+p2937
+tp2938
+a(S'*** Failers'
+p2939
+S' 0: *'
+p2940
+tp2941
+a(g2843
+S' 0: -'
+p2942
+tp2943
+a(g1177
+S'No match'
+p2944
+tp2945
+aaa(lp2946
+S'ab|cd'
+p2947
+ag3
+a(lp2948
+(S'abc'
+p2949
+S' 0: ab'
+p2950
+tp2951
+a(S'abcd'
+p2952
+S' 0: ab'
+p2953
+tp2954
+aaa(lp2955
+S'()ef'
+p2956
+ag3
+a(lp2957
+(S'def'
+p2958
+S' 0: ef'
+p2959
+tp2960
+aaa(lp2961
+S'$b'
+p2962
+ag3
+a(lp2963
+aa(lp2964
+S'a\\(b'
+p2965
+ag3
+a(lp2966
+(S'a(b'
+p2967
+S' 0: a(b'
+p2968
+tp2969
+aaa(lp2970
+S'a\\(*b'
+p2971
+ag3
+a(lp2972
+(S'ab'
+p2973
+S' 0: ab'
+p2974
+tp2975
+a(S'a((b'
+p2976
+S' 0: a((b'
+p2977
+tp2978
+aaa(lp2979
+S'a\\\\b'
+p2980
+ag3
+a(lp2981
+(S'a\x08'
+p2982
+S'No match'
+p2983
+tp2984
+aaa(lp2985
+S'((a))'
+p2986
+ag3
+a(lp2987
+(S'abc'
+p2988
+S' 0: a'
+p2989
+tp2990
+aaa(lp2991
+S'(a)b(c)'
+p2992
+ag3
+a(lp2993
+(S'abc'
+p2994
+S' 0: abc'
+p2995
+tp2996
+aaa(lp2997
+S'a+b+c'
+p2998
+ag3
+a(lp2999
+(S'aabbabc'
+p3000
+S' 0: abc'
+p3001
+tp3002
+aaa(lp3003
+S'a{1,}b{1,}c'
+p3004
+ag3
+a(lp3005
+(S'aabbabc'
+p3006
+S' 0: abc'
+p3007
+tp3008
+aaa(lp3009
+S'(a+|b)*'
+p3010
+ag3
+a(lp3011
+(S'ab'
+p3012
+S' 0: ab'
+p3013
+tp3014
+aaa(lp3015
+S'(a+|b){0,}'
+p3016
+ag3
+a(lp3017
+(S'ab'
+p3018
+S' 0: ab'
+p3019
+tp3020
+aaa(lp3021
+S'(a+|b)+'
+p3022
+ag3
+a(lp3023
+(S'ab'
+p3024
+S' 0: ab'
+p3025
+tp3026
+aaa(lp3027
+S'(a+|b){1,}'
+p3028
+ag3
+a(lp3029
+(S'ab'
+p3030
+S' 0: ab'
+p3031
+tp3032
+aaa(lp3033
+S'(a+|b)?'
+p3034
+ag3
+a(lp3035
+(S'ab'
+p3036
+S' 0: a'
+p3037
+tp3038
+aaa(lp3039
+S'(a+|b){0,1}'
+p3040
+ag3
+a(lp3041
+(S'ab'
+p3042
+S' 0: a'
+p3043
+tp3044
+aaa(lp3045
+S'[^ab]*'
+p3046
+ag3
+a(lp3047
+(S'cde'
+p3048
+S' 0: cde'
+p3049
+tp3050
+aaa(lp3051
+S'abc'
+p3052
+ag3
+a(lp3053
+(S'*** Failers'
+p3054
+S'No match'
+p3055
+tp3056
+a(g1679
+S'No match'
+p3057
+tp3058
+aaa(lp3059
+S'a*'
+p3060
+ag3
+a(lp3061
+aa(lp3062
+S'([abc])*d'
+p3063
+ag3
+a(lp3064
+(S'abbbcd'
+p3065
+S' 0: abbbcd'
+p3066
+tp3067
+aaa(lp3068
+S'([abc])*bcd'
+p3069
+ag3
+a(lp3070
+(S'abcd'
+p3071
+S' 0: abcd'
+p3072
+tp3073
+aaa(lp3074
+S'a|b|c|d|e'
+p3075
+ag3
+a(lp3076
+(S'e'
+p3077
+S' 0: e'
+p3078
+tp3079
+aaa(lp3080
+S'(a|b|c|d|e)f'
+p3081
+ag3
+a(lp3082
+(S'ef'
+p3083
+S' 0: ef'
+p3084
+tp3085
+aaa(lp3086
+S'abcd*efg'
+p3087
+ag3
+a(lp3088
+(S'abcdefg'
+p3089
+S' 0: abcdefg'
+p3090
+tp3091
+aaa(lp3092
+S'ab*'
+p3093
+ag3
+a(lp3094
+(S'xabyabbbz'
+p3095
+S' 0: ab'
+p3096
+tp3097
+a(S'xayabbbz'
+p3098
+S' 0: a'
+p3099
+tp3100
+aaa(lp3101
+S'(ab|cd)e'
+p3102
+ag3
+a(lp3103
+(S'abcde'
+p3104
+S' 0: cde'
+p3105
+tp3106
+aaa(lp3107
+S'[abhgefdc]ij'
+p3108
+ag3
+a(lp3109
+(S'hij'
+p3110
+S' 0: hij'
+p3111
+tp3112
+aaa(lp3113
+S'^(ab|cd)e'
+p3114
+ag3
+a(lp3115
+aa(lp3116
+S'(abc|)ef'
+p3117
+ag3
+a(lp3118
+(S'abcdef'
+p3119
+S' 0: ef'
+p3120
+tp3121
+aaa(lp3122
+S'(a|b)c*d'
+p3123
+ag3
+a(lp3124
+(S'abcd'
+p3125
+S' 0: bcd'
+p3126
+tp3127
+aaa(lp3128
+S'(ab|ab*)bc'
+p3129
+ag3
+a(lp3130
+(S'abc'
+p3131
+S' 0: abc'
+p3132
+tp3133
+aaa(lp3134
+S'a([bc]*)c*'
+p3135
+ag3
+a(lp3136
+(S'abc'
+p3137
+S' 0: abc'
+p3138
+tp3139
+aaa(lp3140
+S'a([bc]*)(c*d)'
+p3141
+ag3
+a(lp3142
+(S'abcd'
+p3143
+S' 0: abcd'
+p3144
+tp3145
+aaa(lp3146
+S'a([bc]+)(c*d)'
+p3147
+ag3
+a(lp3148
+(S'abcd'
+p3149
+S' 0: abcd'
+p3150
+tp3151
+aaa(lp3152
+S'a([bc]*)(c+d)'
+p3153
+ag3
+a(lp3154
+(S'abcd'
+p3155
+S' 0: abcd'
+p3156
+tp3157
+aaa(lp3158
+S'a[bcd]*dcdcde'
+p3159
+ag3
+a(lp3160
+(S'adcdcde'
+p3161
+S' 0: adcdcde'
+p3162
+tp3163
+aaa(lp3164
+S'a[bcd]+dcdcde'
+p3165
+ag3
+a(lp3166
+(S'*** Failers'
+p3167
+S'No match'
+p3168
+tp3169
+a(S'abcde'
+p3170
+S'No match'
+p3171
+tp3172
+a(S'adcdcde'
+p3173
+S'No match'
+p3174
+tp3175
+aaa(lp3176
+S'(ab|a)b*c'
+p3177
+ag3
+a(lp3178
+(S'abc'
+p3179
+S' 0: abc'
+p3180
+tp3181
+aaa(lp3182
+S'((a)(b)c)(d)'
+p3183
+ag3
+a(lp3184
+(S'abcd'
+p3185
+S' 0: abcd'
+p3186
+tp3187
+aaa(lp3188
+S'[a-zA-Z_][a-zA-Z0-9_]*'
+p3189
+ag3
+a(lp3190
+(S'alpha'
+p3191
+S' 0: alpha'
+p3192
+tp3193
+aaa(lp3194
+S'^a(bc+|b[eh])g|.h$'
+p3195
+ag3
+a(lp3196
+(S'abh'
+p3197
+S' 0: bh'
+p3198
+tp3199
+aaa(lp3200
+S'(bc+d$|ef*g.|h?i(j|k))'
+p3201
+ag3
+a(lp3202
+(S'effgz'
+p3203
+S' 0: effgz'
+p3204
+tp3205
+a(S'ij'
+p3206
+S' 0: ij'
+p3207
+tp3208
+a(S'reffgz'
+p3209
+S' 0: effgz'
+p3210
+tp3211
+a(S'*** Failers'
+p3212
+S'No match'
+p3213
+tp3214
+a(S'effg'
+p3215
+S'No match'
+p3216
+tp3217
+a(S'bcdd'
+p3218
+S'No match'
+p3219
+tp3220
+aaa(lp3221
+S'((((((((((a))))))))))'
+p3222
+ag3
+a(lp3223
+(g41
+S' 0: a'
+p3224
+tp3225
+aaa(lp3226
+S'(((((((((a)))))))))'
+p3227
+ag3
+a(lp3228
+(g41
+S' 0: a'
+p3229
+tp3230
+aaa(lp3231
+S'multiple words of text'
+p3232
+ag3
+a(lp3233
+(S'*** Failers'
+p3234
+S'No match'
+p3235
+tp3236
+a(S'aa'
+p3237
+S'No match'
+p3238
+tp3239
+a(S'uh-uh'
+p3240
+S'No match'
+p3241
+tp3242
+aaa(lp3243
+S'multiple words'
+p3244
+ag3
+a(lp3245
+(S'multiple words, yeah'
+p3246
+S' 0: multiple words'
+p3247
+tp3248
+aaa(lp3249
+S'(.*)c(.*)'
+p3250
+ag3
+a(lp3251
+(S'abcde'
+p3252
+S' 0: abcde'
+p3253
+tp3254
+aaa(lp3255
+S'\\((.*), (.*)\\)'
+p3256
+ag3
+a(lp3257
+(S'(a, b)'
+p3258
+S' 0: (a, b)'
+p3259
+tp3260
+aaa(lp3261
+S'[k]'
+p3262
+ag3
+a(lp3263
+aa(lp3264
+S'abcd'
+p3265
+ag3
+a(lp3266
+(S'abcd'
+p3267
+S' 0: abcd'
+p3268
+tp3269
+aaa(lp3270
+S'a(bc)d'
+p3271
+ag3
+a(lp3272
+(S'abcd'
+p3273
+S' 0: abcd'
+p3274
+tp3275
+aaa(lp3276
+S'a[-]?c'
+p3277
+ag3
+a(lp3278
+(S'ac'
+p3279
+S' 0: ac'
+p3280
+tp3281
+aaa(lp3282
+S'((foo)|(bar))*'
+p3283
+ag3
+a(lp3284
+(S'foobar'
+p3285
+S' 0: foobar'
+p3286
+tp3287
+aaa(lp3288
+S'^(.+)?B'
+p3289
+ag3
+a(lp3290
+(S'AB'
+p3291
+S' 0: AB'
+p3292
+tp3293
+aaa(lp3294
+S'^([^a-z])|(\\^)$'
+p3295
+ag3
+a(lp3296
+(S'.'
+p3297
+S' 0: .'
+p3298
+tp3299
+aaa(lp3300
+S'^[<>]&'
+p3301
+ag3
+a(lp3302
+(S'<&OUT'
+p3303
+S' 0: <&'
+p3304
+tp3305
+aaa(lp3306
+S'^(){3,5}'
+p3307
+ag3
+a(lp3308
+(S'abc'
+p3309
+S' 0: '
+p3310
+tp3311
+aaa(lp3312
+S'^(a+)*ax'
+p3313
+ag3
+a(lp3314
+(S'aax'
+p3315
+S' 0: aax'
+p3316
+tp3317
+aaa(lp3318
+S'^((a|b)+)*ax'
+p3319
+ag3
+a(lp3320
+(S'aax'
+p3321
+S' 0: aax'
+p3322
+tp3323
+aaa(lp3324
+S'^((a|bc)+)*ax'
+p3325
+ag3
+a(lp3326
+(S'aax'
+p3327
+S' 0: aax'
+p3328
+tp3329
+aaa(lp3330
+S'(a|x)*ab'
+p3331
+ag3
+a(lp3332
+(S'cab'
+p3333
+S' 0: ab'
+p3334
+tp3335
+aaa(lp3336
+S'(a)*ab'
+p3337
+ag3
+a(lp3338
+(S'cab'
+p3339
+S' 0: ab'
+p3340
+tp3341
+aaa(lp3342
+S'foo\\w*\\d{4}baz'
+p3343
+ag3
+a(lp3344
+(S'foobar1234baz'
+p3345
+S' 0: foobar1234baz'
+p3346
+tp3347
+aaa(lp3348
+S'^b'
+p3349
+ag3
+a(lp3350
+aa(lp3351
+S'(\\w+:)+'
+p3352
+ag3
+a(lp3353
+(S'one:'
+p3354
+S' 0: one:'
+p3355
+tp3356
+aaa(lp3357
+S'([\\w:]+::)?(\\w+)$'
+p3358
+ag3
+a(lp3359
+(S'abcd'
+p3360
+S' 0: abcd'
+p3361
+tp3362
+a(S'xy:z:::abcd'
+p3363
+S' 0: xy:z:::abcd'
+p3364
+tp3365
+aaa(lp3366
+S'^[^bcd]*(c+)'
+p3367
+ag3
+a(lp3368
+(S'aexycd'
+p3369
+S' 0: aexyc'
+p3370
+tp3371
+aaa(lp3372
+S'(a*)b+'
+p3373
+ag3
+a(lp3374
+(S'caab'
+p3375
+S' 0: aab'
+p3376
+tp3377
+aaa(lp3378
+S'([\\w:]+::)?(\\w+)$'
+p3379
+ag3
+a(lp3380
+(S'abcd'
+p3381
+S' 0: abcd'
+p3382
+tp3383
+a(S'xy:z:::abcd'
+p3384
+S' 0: xy:z:::abcd'
+p3385
+tp3386
+a(S'*** Failers'
+p3387
+S' 0: Failers'
+p3388
+tp3389
+a(S'abcd:'
+p3390
+S'No match'
+p3391
+tp3392
+a(S'abcd:'
+p3393
+S'No match'
+p3394
+tp3395
+aaa(lp3396
+S'^[^bcd]*(c+)'
+p3397
+ag3
+a(lp3398
+(S'aexycd'
+p3399
+S' 0: aexyc'
+p3400
+tp3401
+aaa(lp3402
+S'(>a+)ab'
+p3403
+ag3
+a(lp3404
+aa(lp3405
+S'([[:]+)'
+p3406
+ag3
+a(lp3407
+(S'a:[b]:'
+p3408
+S' 0: :['
+p3409
+tp3410
+aaa(lp3411
+S'([[=]+)'
+p3412
+ag3
+a(lp3413
+(S'a=[b]='
+p3414
+S' 0: =['
+p3415
+tp3416
+aaa(lp3417
+S'([[.]+)'
+p3418
+ag3
+a(lp3419
+(S'a.[b].'
+p3420
+S' 0: .['
+p3421
+tp3422
+aaa(lp3423
+S'a\\Z'
+p3424
+ag3
+a(lp3425
+(S'*** Failers'
+p3426
+S'No match'
+p3427
+tp3428
+a(S'aaab'
+p3429
+S'No match'
+p3430
+tp3431
+a(S'a\nb\n'
+p3432
+S'No match'
+p3433
+tp3434
+aaa(lp3435
+S'b\\Z'
+p3436
+ag3
+a(lp3437
+(S'a\nb\n'
+p3438
+S' 0: b'
+p3439
+tp3440
+aaa(lp3441
+S'b\\z'
+p3442
+ag3
+a(lp3443
+aa(lp3444
+S'b\\Z'
+p3445
+ag3
+a(lp3446
+(S'a\nb'
+p3447
+S' 0: b'
+p3448
+tp3449
+aaa(lp3450
+S'b\\z'
+p3451
+ag3
+a(lp3452
+(S'a\nb'
+p3453
+S' 0: b'
+p3454
+tp3455
+a(S'*** Failers'
+p3456
+S'No match'
+p3457
+tp3458
+aaa(lp3459
+S'((Z)+|A)*'
+p3460
+ag3
+a(lp3461
+(S'ZABCDEFG'
+p3462
+S' 0: ZA'
+p3463
+tp3464
+aaa(lp3465
+S'(Z()|A)*'
+p3466
+ag3
+a(lp3467
+(S'ZABCDEFG'
+p3468
+S' 0: ZA'
+p3469
+tp3470
+aaa(lp3471
+S'(Z(())|A)*'
+p3472
+ag3
+a(lp3473
+(S'ZABCDEFG'
+p3474
+S' 0: ZA'
+p3475
+tp3476
+aaa(lp3477
+S'^[a-\\d]'
+p3478
+ag3
+a(lp3479
+(S'abcde'
+p3480
+S' 0: a'
+p3481
+tp3482
+a(S'-things'
+p3483
+S' 0: -'
+p3484
+tp3485
+a(S'0digit'
+p3486
+S' 0: 0'
+p3487
+tp3488
+a(S'*** Failers'
+p3489
+S'No match'
+p3490
+tp3491
+a(S'bcdef'
+p3492
+S'No match'
+p3493
+tp3494
+aaa(lp3495
+S'^[\\d-a]'
+p3496
+ag3
+a(lp3497
+(S'abcde'
+p3498
+S' 0: a'
+p3499
+tp3500
+a(S'-things'
+p3501
+S' 0: -'
+p3502
+tp3503
+a(S'0digit'
+p3504
+S' 0: 0'
+p3505
+tp3506
+a(S'*** Failers'
+p3507
+S'No match'
+p3508
+tp3509
+a(S'bcdef'
+p3510
+S'No match'
+p3511
+tp3512
+aaa(lp3513
+S'[[:space:]]+'
+p3514
+ag3
+a(lp3515
+(S'> \t\n\x0c\r\x0b<'
+p3516
+S' 0:  \t\n\x0c\r\x0b'
+p3517
+tp3518
+aaa(lp3519
+S'[[:blank:]]+'
+p3520
+ag3
+a(lp3521
+(S'> \t\n\x0c\r\x0b<'
+p3522
+S' 0:  \t'
+p3523
+tp3524
+aaa(lp3525
+S'[\\s]+'
+p3526
+ag3
+a(lp3527
+(S'> \t\n\x0c\r\x0b<'
+p3528
+S' 0:  \t\n\x0c\r'
+p3529
+tp3530
+aaa(lp3531
+S'\\s+'
+p3532
+ag3
+a(lp3533
+(S'> \t\n\x0c\r\x0b<'
+p3534
+S' 0:  \t\n\x0c\r'
+p3535
+tp3536
+aaa(lp3537
+S'\\Gabc'
+p3538
+ag3
+a(lp3539
+(S'abc'
+p3540
+S' 0: abc'
+p3541
+tp3542
+a(S'*** Failers'
+p3543
+S'No match'
+p3544
+tp3545
+a(S'xyzabc'
+p3546
+S'No match'
+p3547
+tp3548
+aaa(lp3549
+S'[\\z\\C]'
+p3550
+ag3
+a(lp3551
+(g1428
+S' 0: z'
+p3552
+tp3553
+a(S'C'
+p3554
+S' 0: C'
+p3555
+tp3556
+aaa(lp3557
+S'\\M'
+p3558
+ag3
+a(lp3559
+(S'M'
+p3560
+S' 0: M'
+p3561
+tp3562
+aaa(lp3563
+S'(a+)*b'
+p3564
+ag3
+a(lp3565
+(S'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+p3566
+S'No match'
+p3567
+tp3568
+aaa(lp3569
+S'\xc5\xe6\xe5\xe4[\xe0-\xff\xc0-\xdf]+'
+p3570
+ag3
+a(lp3571
+(S'\xc5\xe6\xe5\xe4\xe0'
+p3572
+S' 0: \xc5\xe6\xe5\xe4\xe0'
+p3573
+tp3574
+a(S'\xc5\xe6\xe5\xe4\xff'
+p3575
+S' 0: \xc5\xe6\xe5\xe4\xff'
+p3576
+tp3577
+a(S'\xc5\xe6\xe5\xe4\xc0'
+p3578
+S' 0: \xc5\xe6\xe5\xe4\xc0'
+p3579
+tp3580
+a(S'\xc5\xe6\xe5\xe4\xdf'
+p3581
+S' 0: \xc5\xe6\xe5\xe4\xdf'
+p3582
+tp3583
+aaa(lp3584
+S'line\\nbreak'
+p3585
+ag3
+a(lp3586
+(S'this is a line\nbreak'
+p3587
+S' 0: line\nbreak'
+p3588
+tp3589
+a(S'line one\nthis is a line\nbreak in the second line'
+p3590
+S' 0: line\nbreak'
+p3591
+tp3592
+aaa(lp3593
+S'1234'
+p3594
+ag3
+a(lp3595
+(S'123P'
+p3596
+S'No match'
+p3597
+tp3598
+aaa(lp3599
+S'1234'
+p3600
+ag3
+a(lp3601
+(S'123P'
+p3602
+S' 0: 4'
+p3603
+tp3604
+aaa(lp3605
+S'Content-Type\\x3A[^\\r\\n]{6,}'
+p3606
+ag3
+a(lp3607
+(S'Content-Type:xxxxxyyy'
+p3608
+S' 0: Content-Type:xxxxxyyy'
+p3609
+tp3610
+aaa(lp3611
+S'Content-Type\\x3A[^\\r\\n]{6,}z'
+p3612
+ag3
+a(lp3613
+(S'Content-Type:xxxxxyyyz'
+p3614
+S' 0: Content-Type:xxxxxyyyz'
+p3615
+tp3616
+aaa(lp3617
+S'Content-Type\\x3A[^a]{6,}'
+p3618
+ag3
+a(lp3619
+(S'Content-Type:xxxyyy'
+p3620
+S' 0: Content-Type:xxxyyy'
+p3621
+tp3622
+aaa(lp3623
+S'Content-Type\\x3A[^a]{6,}z'
+p3624
+ag3
+a(lp3625
+(S'Content-Type:xxxyyyz'
+p3626
+S' 0: Content-Type:xxxyyyz'
+p3627
+tp3628
+aaa(lp3629
+S'^\\w+=.*(\\\\\\n.*)*'
+p3630
+ag3
+a(lp3631
+(S'abc=xyz\\\npqr'
+p3632
+S' 0: abc=xyz\\\npqr'
+p3633
+tp3634
+aaa(lp3635
+S'^(a()*)*'
+p3636
+ag3
+a(lp3637
+(S'aaaa'
+p3638
+S' 0: aaaa'
+p3639
+tp3640
+aaa(lp3641
+S'^(a()+)+'
+p3642
+ag3
+a(lp3643
+(S'aaaa'
+p3644
+S' 0: aaaa'
+p3645
+tp3646
+aaa(lp3647
+S'(a|)*\\d'
+p3648
+ag3
+a(lp3649
+(S'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+p3650
+S'No match'
+p3651
+tp3652
+a(S'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4'
+p3653
+S' 0: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4'
+p3654
+tp3655
+aaa(lp3656
+S'.+foo'
+p3657
+ag3
+a(lp3658
+(S'afoo'
+p3659
+S' 0: afoo'
+p3660
+tp3661
+a(S'** Failers'
+p3662
+S'No match'
+p3663
+tp3664
+a(S'\r\nfoo'
+p3665
+S'No match'
+p3666
+tp3667
+a(S'\nfoo'
+p3668
+S'No match'
+p3669
+tp3670
+aaa(lp3671
+S'\\H\\h\\V\\v'
+p3672
+ag3
+a(lp3673
+(S'X X\n'
+p3674
+S' 0: X X\n'
+p3675
+tp3676
+a(S'X\tX\x0b'
+p3677
+S' 0: X\tX\x0b'
+p3678
+tp3679
+a(S'** Failers'
+p3680
+S'No match'
+p3681
+tp3682
+a(S'\xa0 X\n'
+p3683
+S'No match'
+p3684
+tp3685
+aaa(lp3686
+S'\\H{3,4}'
+p3687
+ag3
+a(lp3688
+(S'XY  ABCDE'
+p3689
+S' 0: ABCD'
+p3690
+tp3691
+a(S'XY  PQR ST'
+p3692
+S' 0: PQR'
+p3693
+tp3694
+aaa(lp3695
+S'.\\h{3,4}.'
+p3696
+ag3
+a(lp3697
+(S'XY  AB    PQRS'
+p3698
+S' 0: B    P'
+p3699
+tp3700
+aaa(lp3701
+S'\\h*X\\h?\\H+Y\\H?Z'
+p3702
+ag3
+a(lp3703
+(S'>XNNNYZ'
+p3704
+S' 0: XNNNYZ'
+p3705
+tp3706
+a(S'>  X NYQZ'
+p3707
+S' 0:   X NYQZ'
+p3708
+tp3709
+a(S'** Failers'
+p3710
+S'No match'
+p3711
+tp3712
+a(S'>XYZ'
+p3713
+S'No match'
+p3714
+tp3715
+a(S'>  X NY Z'
+p3716
+S'No match'
+p3717
+tp3718
+aaa(lp3719
+S'\\v*X\\v?Y\\v+Z\\V*\\x0a\\V+\\x0b\\V{2,3}\\x0c'
+p3720
+ag3
+a(lp3721
+(S'>XY\nZ\nA\x0bNN\x0c'
+p3722
+S' 0: XY\nZ\nA\x0bNN\x0c'
+p3723
+tp3724
+a(S'>\n\rX\nY\n\x0bZZZ\nAAA\x0bNNN\x0c'
+p3725
+S' 0: \n\rX\nY\n\x0bZZZ\nAAA\x0bNNN\x0c'
+p3726
+tp3727
+aaa(lp3728
+S' End of testinput7 '
+p3729
+ag3
+a(lp3730
+aa.

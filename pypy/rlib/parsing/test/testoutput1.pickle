@@ -2318,632 +2318,632 @@ S' 0: no'
 p1389
 tp1390
 aaa(lp1391
-S'(.*X|^B)'
+S'^.*B'
 p1392
 ag3
 a(lp1393
-(S'abcde\n1234Xyz'
+(S'**** Failers'
 p1394
-S' 0: 1234X'
+S'No match'
 p1395
 tp1396
-a(S'BarFoo'
+a(S'abc\nB'
 p1397
-S' 0: B'
+S'No match'
 p1398
 tp1399
-a(S'*** Failers'
-p1400
-S'No match'
+aaa(lp1400
+S'^[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
 p1401
-tp1402
-a(S'abcde\nBar'
+ag3
+a(lp1402
+(S'123456654321'
 p1403
-S'No match'
+S' 0: 123456654321'
 p1404
 tp1405
 aaa(lp1406
-S'^.*B'
+S'^\\d\\d\\d\\d\\d\\d\\d\\d\\d\\d\\d\\d'
 p1407
 ag3
 a(lp1408
-(S'**** Failers'
+(S'123456654321'
 p1409
-S'No match'
+S' 0: 123456654321'
 p1410
 tp1411
-a(S'abc\nB'
-p1412
-S'No match'
-p1413
-tp1414
-aaa(lp1415
-S'^[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
-p1416
-ag3
-a(lp1417
-(S'123456654321'
-p1418
-S' 0: 123456654321'
-p1419
-tp1420
-aaa(lp1421
-S'^\\d\\d\\d\\d\\d\\d\\d\\d\\d\\d\\d\\d'
-p1422
-ag3
-a(lp1423
-(S'123456654321'
-p1424
-S' 0: 123456654321'
-p1425
-tp1426
-aaa(lp1427
+aaa(lp1412
 S'^[\\d][\\d][\\d][\\d][\\d][\\d][\\d][\\d][\\d][\\d][\\d][\\d]'
-p1428
+p1413
 ag3
-a(lp1429
+a(lp1414
 (S'123456654321'
-p1430
+p1415
 S' 0: 123456654321'
-p1431
-tp1432
-aaa(lp1433
+p1416
+tp1417
+aaa(lp1418
 S'^[abc]{12}'
-p1434
+p1419
 ag3
-a(lp1435
+a(lp1420
 (S'abcabcabcabc'
-p1436
+p1421
 S' 0: abcabcabcabc'
-p1437
-tp1438
-aaa(lp1439
+p1422
+tp1423
+aaa(lp1424
 S'^[a-c]{12}'
-p1440
+p1425
 ag3
-a(lp1441
+a(lp1426
 (S'abcabcabcabc'
-p1442
+p1427
 S' 0: abcabcabcabc'
+p1428
+tp1429
+aaa(lp1430
+S'^(a|b|c){12}'
+p1431
+ag3
+a(lp1432
+(S'abcabcabcabc'
+p1433
+S' 0: abcabcabcabc'
+p1434
+tp1435
+aaa(lp1436
+S'^[abcdefghijklmnopqrstuvwxy0123456789]'
+p1437
+ag3
+a(lp1438
+(S'n'
+p1439
+S' 0: n'
+p1440
+tp1441
+a(S'*** Failers'
+p1442
+S'No match'
 p1443
 tp1444
-aaa(lp1445
-S'^(a|b|c){12}'
-p1446
-ag3
-a(lp1447
-(S'abcabcabcabc'
-p1448
-S' 0: abcabcabcabc'
-p1449
-tp1450
-aaa(lp1451
-S'^[abcdefghijklmnopqrstuvwxy0123456789]'
-p1452
-ag3
-a(lp1453
-(S'n'
-p1454
-S' 0: n'
-p1455
-tp1456
-a(S'*** Failers'
-p1457
-S'No match'
-p1458
-tp1459
 a(g583
 S'No match'
-p1460
-tp1461
-aaa(lp1462
+p1445
+tp1446
+aaa(lp1447
 S'abcde{0,0}'
-p1463
+p1448
 ag3
-a(lp1464
+a(lp1449
 (S'abcd'
-p1465
+p1450
 S' 0: abcd'
+p1451
+tp1452
+a(S'*** Failers'
+p1453
+S'No match'
+p1454
+tp1455
+a(S'abce'
+p1456
+S'No match'
+p1457
+tp1458
+aaa(lp1459
+S'ab[cd]{0,0}e'
+p1460
+ag3
+a(lp1461
+(S'abe'
+p1462
+S' 0: abe'
+p1463
+tp1464
+a(S'*** Failers'
+p1465
+S'No match'
 p1466
 tp1467
-a(S'*** Failers'
+a(S'abcde'
 p1468
 S'No match'
 p1469
 tp1470
-a(S'abce'
-p1471
-S'No match'
+aaa(lp1471
+S'ab(c){0,0}d'
 p1472
-tp1473
-aaa(lp1474
-S'ab[cd]{0,0}e'
-p1475
 ag3
-a(lp1476
-(S'abe'
+a(lp1473
+(S'abd'
+p1474
+S' 0: abd'
+p1475
+tp1476
+a(S'*** Failers'
 p1477
-S' 0: abe'
+S'No match'
 p1478
 tp1479
-a(S'*** Failers'
+a(S'abcd'
 p1480
 S'No match'
 p1481
 tp1482
-a(S'abcde'
-p1483
-S'No match'
-p1484
-tp1485
-aaa(lp1486
-S'ab(c){0,0}d'
-p1487
-ag3
-a(lp1488
-(S'abd'
-p1489
-S' 0: abd'
-p1490
-tp1491
-a(S'*** Failers'
-p1492
-S'No match'
-p1493
-tp1494
-a(S'abcd'
-p1495
-S'No match'
-p1496
-tp1497
-aaa(lp1498
+aaa(lp1483
 S'a(b*)'
-p1499
+p1484
 ag3
-a(lp1500
+a(lp1485
 (g592
 S' 0: a'
-p1501
-tp1502
+p1486
+tp1487
 a(S'ab'
-p1503
+p1488
 S' 0: ab'
+p1489
+tp1490
+a(S'abbbb'
+p1491
+S' 0: abbbb'
+p1492
+tp1493
+a(S'*** Failers'
+p1494
+S' 0: a'
+p1495
+tp1496
+a(S'bbbbb'
+p1497
+S'No match'
+p1498
+tp1499
+aaa(lp1500
+S'ab\\d{0}e'
+p1501
+ag3
+a(lp1502
+(S'abe'
+p1503
+S' 0: abe'
 p1504
 tp1505
-a(S'abbbb'
+a(S'*** Failers'
 p1506
-S' 0: abbbb'
+S'No match'
 p1507
 tp1508
-a(S'*** Failers'
+a(S'ab1e'
 p1509
-S' 0: a'
+S'No match'
 p1510
 tp1511
-a(S'bbbbb'
-p1512
-S'No match'
+aaa(lp1512
+S'"([^\\\\"]+|\\\\.)*"'
 p1513
-tp1514
-aaa(lp1515
-S'ab\\d{0}e'
-p1516
 ag3
-a(lp1517
-(S'abe'
+a(lp1514
+(S'the "quick" brown fox'
+p1515
+S' 0: "quick"'
+p1516
+tp1517
+a(S'"the \\"quick\\" brown fox"'
 p1518
-S' 0: abe'
+S' 0: "the \\"quick\\" brown fox"'
 p1519
 tp1520
-a(S'*** Failers'
-p1521
-S'No match'
+aaa(lp1521
+S'a[^a]b'
 p1522
-tp1523
-a(S'ab1e'
+ag3
+a(lp1523
+(S'acb'
 p1524
-S'No match'
+S' 0: acb'
 p1525
 tp1526
-aaa(lp1527
-S'"([^\\\\"]+|\\\\.)*"'
+a(S'a\nb'
+p1527
+S' 0: a\nb'
 p1528
-ag3
-a(lp1529
-(S'the "quick" brown fox'
-p1530
-S' 0: "quick"'
+tp1529
+aaa(lp1530
+S'a.b'
 p1531
-tp1532
-a(S'"the \\"quick\\" brown fox"'
+ag3
+a(lp1532
+(S'acb'
 p1533
-S' 0: "the \\"quick\\" brown fox"'
+S' 0: acb'
 p1534
 tp1535
-aaa(lp1536
-S'a[^a]b'
+a(S'*** Failers'
+p1536
+S'No match'
 p1537
-ag3
-a(lp1538
-(S'acb'
+tp1538
+a(S'a\nb'
 p1539
-S' 0: acb'
+S'No match'
 p1540
 tp1541
-a(S'a\nb'
-p1542
-S' 0: a\nb'
+aaa(lp1542
+S'\\\\x00{ab}'
 p1543
-tp1544
-aaa(lp1545
-S'a.b'
-p1546
 ag3
-a(lp1547
-(S'acb'
-p1548
-S' 0: acb'
+a(lp1544
+(S'\x00{ab}'
+p1545
+S' 0: \x00{ab}'
+p1546
+tp1547
+aaa(lp1548
+S'(A|B)*CD'
 p1549
-tp1550
-a(S'*** Failers'
+ag3
+a(lp1550
+(S'CD'
 p1551
-S'No match'
+S' 0: CD'
 p1552
 tp1553
-a(S'a\nb'
-p1554
-S'No match'
+aaa(lp1554
+S'(\\d+)(\\w)'
 p1555
-tp1556
-aaa(lp1557
-S'\\x0{ab}'
-p1558
 ag3
-a(lp1559
-(S'\x00{ab}'
+a(lp1556
+(S'12345a'
+p1557
+S' 0: 12345a'
+p1558
+tp1559
+a(S'12345+'
 p1560
-S' 0: \x00{ab}'
+S' 0: 12345'
 p1561
 tp1562
 aaa(lp1563
-S'(A|B)*CD'
+S'(abc|)+'
 p1564
 ag3
 a(lp1565
-(S'CD'
+(S'abc'
 p1566
-S' 0: CD'
+S' 0: abc'
 p1567
 tp1568
-aaa(lp1569
-S'(\\d+)(\\w)'
+a(S'abcabc'
+p1569
+S' 0: abcabc'
 p1570
-ag3
-a(lp1571
-(S'12345a'
+tp1571
+a(S'abcabcabc'
 p1572
-S' 0: 12345a'
+S' 0: abcabcabc'
 p1573
 tp1574
-a(S'12345+'
+a(S'xyz'
 p1575
-S' 0: 12345'
+S' 0: '
 p1576
 tp1577
 aaa(lp1578
-S'(abc|)+'
+S'([a]*)*'
 p1579
 ag3
 a(lp1580
-(S'abc'
+(g592
+S' 0: a'
 p1581
-S' 0: abc'
-p1582
-tp1583
-a(S'abcabc'
-p1584
-S' 0: abcabc'
-p1585
-tp1586
-a(S'abcabcabc'
-p1587
-S' 0: abcabcabc'
-p1588
-tp1589
-a(S'xyz'
-p1590
-S' 0: '
-p1591
-tp1592
-aaa(lp1593
-S'([a]*)*'
-p1594
-ag3
-a(lp1595
-(g592
-S' 0: a'
-p1596
-tp1597
+tp1582
 a(S'aaaaa'
-p1598
+p1583
 S' 0: aaaaa'
-p1599
-tp1600
-aaa(lp1601
+p1584
+tp1585
+aaa(lp1586
 S'([ab]*)*'
-p1602
+p1587
 ag3
-a(lp1603
+a(lp1588
 (g592
 S' 0: a'
-p1604
-tp1605
+p1589
+tp1590
 a(g835
 S' 0: b'
-p1606
-tp1607
+p1591
+tp1592
 a(S'ababab'
-p1608
+p1593
 S' 0: ababab'
-p1609
-tp1610
+p1594
+tp1595
 a(S'aaaabcde'
-p1611
+p1596
 S' 0: aaaab'
-p1612
-tp1613
+p1597
+tp1598
 a(S'bbbb'
-p1614
+p1599
 S' 0: bbbb'
-p1615
-tp1616
-aaa(lp1617
+p1600
+tp1601
+aaa(lp1602
 S'([^a]*)*'
-p1618
+p1603
 ag3
-a(lp1619
+a(lp1604
 (g835
 S' 0: b'
+p1605
+tp1606
+a(S'bbbb'
+p1607
+S' 0: bbbb'
+p1608
+tp1609
+a(S'aaa'
+p1610
+S' 0: '
+p1611
+tp1612
+aaa(lp1613
+S'([^ab]*)*'
+p1614
+ag3
+a(lp1615
+(S'cccc'
+p1616
+S' 0: cccc'
+p1617
+tp1618
+a(S'abab'
+p1619
+S' 0: '
 p1620
 tp1621
-a(S'bbbb'
-p1622
-S' 0: bbbb'
+aaa(lp1622
+S'The case of aaaaaa is missed out below because I think Perl 5.005_02 gets'
 p1623
-tp1624
-a(S'aaa'
+ag3
+a(lp1624
+(S'/it wrong; it sets $1 to aaa rather than aa. Compare the following test,/'
 p1625
-S' 0: '
+S'No match'
 p1626
 tp1627
-aaa(lp1628
-S'([^ab]*)*'
+a(S'/where it does set $1 to aa when matching aaaaaa./'
+p1628
+S'No match'
 p1629
-ag3
-a(lp1630
-(S'cccc'
-p1631
-S' 0: cccc'
+tp1630
+aaa(lp1631
+S'The following tests are taken from the Perl 5.005 test suite; some of them'
 p1632
-tp1633
-a(S'abab'
+ag3
+a(lp1633
+(S"/are compatible with 5.004, but I'd rather not have to sort them out./"
 p1634
-S' 0: '
+S'No match'
 p1635
 tp1636
 aaa(lp1637
-S'The case of aaaaaa is missed out below because I think Perl 5.005_02 gets'
+S'abc'
 p1638
 ag3
 a(lp1639
-(S'/it wrong; it sets $1 to aaa rather than aa. Compare the following test,/'
+(S'abc'
 p1640
-S'No match'
+S' 0: abc'
 p1641
 tp1642
-a(S'/where it does set $1 to aa when matching aaaaaa./'
+a(S'xabcy'
 p1643
-S'No match'
+S' 0: abc'
 p1644
 tp1645
-aaa(lp1646
-S'The following tests are taken from the Perl 5.005 test suite; some of them'
+a(S'ababc'
+p1646
+S' 0: abc'
 p1647
-ag3
-a(lp1648
-(S"/are compatible with 5.004, but I'd rather not have to sort them out./"
+tp1648
+a(S'*** Failers'
 p1649
 S'No match'
 p1650
 tp1651
-aaa(lp1652
-S'abc'
+a(S'xbc'
+p1652
+S'No match'
 p1653
-ag3
-a(lp1654
-(S'abc'
+tp1654
+a(S'axc'
 p1655
-S' 0: abc'
+S'No match'
 p1656
 tp1657
-a(S'xabcy'
+a(S'abx'
 p1658
-S' 0: abc'
+S'No match'
 p1659
 tp1660
-a(S'ababc'
-p1661
-S' 0: abc'
+aaa(lp1661
+S'ab*c'
 p1662
-tp1663
-a(S'*** Failers'
+ag3
+a(lp1663
+(S'abc'
 p1664
-S'No match'
+S' 0: abc'
 p1665
 tp1666
-a(S'xbc'
-p1667
-S'No match'
+aaa(lp1667
+S'ab*bc'
 p1668
-tp1669
-a(S'axc'
+ag3
+a(lp1669
+(S'abc'
 p1670
-S'No match'
+S' 0: abc'
 p1671
 tp1672
-a(S'abx'
+a(S'abbc'
 p1673
-S'No match'
+S' 0: abbc'
 p1674
 tp1675
-aaa(lp1676
-S'ab*c'
+a(S'abbbbc'
+p1676
+S' 0: abbbbc'
 p1677
-ag3
-a(lp1678
-(S'abc'
-p1679
-S' 0: abc'
+tp1678
+aaa(lp1679
+S'.{1}'
 p1680
-tp1681
-aaa(lp1682
-S'ab*bc'
-p1683
 ag3
-a(lp1684
-(S'abc'
-p1685
-S' 0: abc'
+a(lp1681
+(S'abbbbc'
+p1682
+S' 0: a'
+p1683
+tp1684
+aaa(lp1685
+S'.{3,4}'
 p1686
-tp1687
-a(S'abbc'
+ag3
+a(lp1687
+(S'abbbbc'
 p1688
-S' 0: abbc'
+S' 0: abbb'
 p1689
 tp1690
-a(S'abbbbc'
-p1691
-S' 0: abbbbc'
+aaa(lp1691
+S'ab{0,}bc'
 p1692
-tp1693
-aaa(lp1694
-S'.{1}'
+ag3
+a(lp1693
+(S'abbbbc'
+p1694
+S' 0: abbbbc'
 p1695
-ag3
-a(lp1696
-(S'abbbbc'
-p1697
-S' 0: a'
+tp1696
+aaa(lp1697
+S'ab+bc'
 p1698
-tp1699
-aaa(lp1700
-S'.{3,4}'
-p1701
 ag3
-a(lp1702
-(S'abbbbc'
+a(lp1699
+(S'abbc'
+p1700
+S' 0: abbc'
+p1701
+tp1702
+a(S'*** Failers'
 p1703
-S' 0: abbb'
+S'No match'
 p1704
 tp1705
-aaa(lp1706
-S'ab{0,}bc'
+a(S'abc'
+p1706
+S'No match'
 p1707
-ag3
-a(lp1708
-(S'abbbbc'
+tp1708
+a(S'abq'
 p1709
-S' 0: abbbbc'
+S'No match'
 p1710
 tp1711
 aaa(lp1712
-S'ab+bc'
+S'ab{1,}bc'
 p1713
 ag3
 a(lp1714
-(S'abbc'
-p1715
-S' 0: abbc'
+aa(lp1715
+S'ab+bc'
 p1716
-tp1717
-a(S'*** Failers'
+ag3
+a(lp1717
+(S'abbbbc'
 p1718
-S'No match'
+S' 0: abbbbc'
 p1719
 tp1720
-a(S'abc'
-p1721
-S'No match'
+aaa(lp1721
+S'ab{1,}bc'
 p1722
-tp1723
-a(S'abq'
+ag3
+a(lp1723
+(S'abbbbc'
 p1724
-S'No match'
+S' 0: abbbbc'
 p1725
 tp1726
 aaa(lp1727
-S'ab{1,}bc'
+S'ab{1,3}bc'
 p1728
 ag3
 a(lp1729
-aa(lp1730
-S'ab+bc'
+(S'abbbbc'
+p1730
+S' 0: abbbbc'
 p1731
-ag3
-a(lp1732
-(S'abbbbc'
-p1733
-S' 0: abbbbc'
+tp1732
+aaa(lp1733
+S'ab{3,4}bc'
 p1734
-tp1735
-aaa(lp1736
-S'ab{1,}bc'
+ag3
+a(lp1735
+(S'abbbbc'
+p1736
+S' 0: abbbbc'
 p1737
-ag3
-a(lp1738
-(S'abbbbc'
-p1739
-S' 0: abbbbc'
+tp1738
+aaa(lp1739
+S'ab{4,5}bc'
 p1740
-tp1741
-aaa(lp1742
-S'ab{1,3}bc'
-p1743
 ag3
-a(lp1744
-(S'abbbbc'
+a(lp1741
+(S'*** Failers'
+p1742
+S'No match'
+p1743
+tp1744
+a(S'abq'
 p1745
-S' 0: abbbbc'
+S'No match'
 p1746
 tp1747
-aaa(lp1748
-S'ab{3,4}bc'
-p1749
-ag3
-a(lp1750
-(S'abbbbc'
-p1751
-S' 0: abbbbc'
-p1752
-tp1753
-aaa(lp1754
-S'ab{4,5}bc'
-p1755
-ag3
-a(lp1756
-(S'*** Failers'
-p1757
+a(S'abbbbc'
+p1748
 S'No match'
+p1749
+tp1750
+aaa(lp1751
+S'ab?bc'
+p1752
+ag3
+a(lp1753
+(S'abbc'
+p1754
+S' 0: abbc'
+p1755
+tp1756
+a(S'abc'
+p1757
+S' 0: abc'
 p1758
 tp1759
-a(S'abq'
-p1760
-S'No match'
+aaa(lp1760
+S'ab{0,1}bc'
 p1761
-tp1762
-a(S'abbbbc'
+ag3
+a(lp1762
+(S'abc'
 p1763
-S'No match'
+S' 0: abc'
 p1764
 tp1765
 aaa(lp1766
@@ -2951,18 +2951,18 @@ S'ab?bc'
 p1767
 ag3
 a(lp1768
-(S'abbc'
-p1769
-S' 0: abbc'
+aa(lp1769
+S'ab?c'
 p1770
-tp1771
-a(S'abc'
+ag3
+a(lp1771
+(S'abc'
 p1772
 S' 0: abc'
 p1773
 tp1774
 aaa(lp1775
-S'ab{0,1}bc'
+S'ab{0,1}c'
 p1776
 ag3
 a(lp1777
@@ -2972,2109 +2972,1852 @@ S' 0: abc'
 p1779
 tp1780
 aaa(lp1781
-S'ab?bc'
+S'^abc$'
 p1782
 ag3
 a(lp1783
-aa(lp1784
-S'ab?c'
-p1785
-ag3
-a(lp1786
 (S'abc'
-p1787
+p1784
 S' 0: abc'
+p1785
+tp1786
+a(S'*** Failers'
+p1787
+S'No match'
 p1788
 tp1789
-aaa(lp1790
-S'ab{0,1}c'
+a(S'abbbbc'
+p1790
+S'No match'
 p1791
-ag3
-a(lp1792
-(S'abc'
+tp1792
+a(S'abcc'
 p1793
-S' 0: abc'
+S'No match'
 p1794
 tp1795
 aaa(lp1796
-S'^abc$'
+S'^abc'
 p1797
 ag3
 a(lp1798
-(S'abc'
+(S'abcc'
 p1799
 S' 0: abc'
 p1800
 tp1801
-a(S'*** Failers'
-p1802
-S'No match'
+aaa(lp1802
+S'^abc$'
 p1803
-tp1804
-a(S'abbbbc'
-p1805
-S'No match'
+ag3
+a(lp1804
+aa(lp1805
+S'abc$'
 p1806
-tp1807
-a(S'abcc'
+ag3
+a(lp1807
+(S'aabc'
 p1808
-S'No match'
+S' 0: abc'
 p1809
 tp1810
-aaa(lp1811
-S'^abc'
+a(S'*** Failers'
+p1811
+S'No match'
 p1812
-ag3
-a(lp1813
-(S'abcc'
+tp1813
+a(S'aabc'
 p1814
 S' 0: abc'
 p1815
 tp1816
-aaa(lp1817
-S'^abc$'
+a(S'aabcd'
+p1817
+S'No match'
 p1818
-ag3
-a(lp1819
-aa(lp1820
-S'abc$'
+tp1819
+aaa(lp1820
+S'^'
 p1821
 ag3
 a(lp1822
-(S'aabc'
+(S'abc'
 p1823
-S' 0: abc'
+S' 0: '
 p1824
 tp1825
-a(S'*** Failers'
-p1826
-S'No match'
+aaa(lp1826
+S'$'
 p1827
-tp1828
-a(S'aabc'
+ag3
+a(lp1828
+(S'abc'
 p1829
-S' 0: abc'
+S' 0: '
 p1830
 tp1831
-a(S'aabcd'
-p1832
-S'No match'
+aaa(lp1832
+S'a.c'
 p1833
-tp1834
-aaa(lp1835
-S'^'
-p1836
 ag3
-a(lp1837
+a(lp1834
 (S'abc'
+p1835
+S' 0: abc'
+p1836
+tp1837
+a(S'axc'
 p1838
-S' 0: '
+S' 0: axc'
 p1839
 tp1840
 aaa(lp1841
-S'$'
+S'a.*c'
 p1842
 ag3
 a(lp1843
-(S'abc'
+(S'axyzc'
 p1844
-S' 0: '
+S' 0: axyzc'
 p1845
 tp1846
 aaa(lp1847
-S'a.c'
+S'a[bc]d'
 p1848
 ag3
 a(lp1849
-(S'abc'
+(S'abd'
 p1850
-S' 0: abc'
+S' 0: abd'
 p1851
 tp1852
-a(S'axc'
+a(S'*** Failers'
 p1853
-S' 0: axc'
+S'No match'
 p1854
 tp1855
-aaa(lp1856
-S'a.*c'
+a(S'axyzd'
+p1856
+S'No match'
 p1857
-ag3
-a(lp1858
-(S'axyzc'
+tp1858
+a(S'abc'
 p1859
-S' 0: axyzc'
+S'No match'
 p1860
 tp1861
 aaa(lp1862
-S'a[bc]d'
+S'a[b-d]e'
 p1863
 ag3
 a(lp1864
-(S'abd'
+(S'ace'
 p1865
-S' 0: abd'
+S' 0: ace'
 p1866
 tp1867
-a(S'*** Failers'
-p1868
-S'No match'
+aaa(lp1868
+S'a[b-d]'
 p1869
-tp1870
-a(S'axyzd'
+ag3
+a(lp1870
+(S'aac'
 p1871
-S'No match'
+S' 0: ac'
 p1872
 tp1873
-a(S'abc'
-p1874
-S'No match'
-p1875
-tp1876
-aaa(lp1877
-S'a[b-d]e'
-p1878
-ag3
-a(lp1879
-(S'ace'
-p1880
-S' 0: ace'
-p1881
-tp1882
-aaa(lp1883
-S'a[b-d]'
-p1884
-ag3
-a(lp1885
-(S'aac'
-p1886
-S' 0: ac'
-p1887
-tp1888
-aaa(lp1889
+aaa(lp1874
 S'a[-b]'
-p1890
+p1875
 ag3
-a(lp1891
+a(lp1876
 (S'a-'
-p1892
+p1877
 S' 0: a-'
-p1893
-tp1894
-aaa(lp1895
+p1878
+tp1879
+aaa(lp1880
 S'a[b-]'
-p1896
+p1881
 ag3
-a(lp1897
+a(lp1882
 (S'a-'
-p1898
+p1883
 S' 0: a-'
-p1899
-tp1900
-aaa(lp1901
+p1884
+tp1885
+aaa(lp1886
 S'a]'
-p1902
+p1887
 ag3
-a(lp1903
+a(lp1888
 (S'a]'
-p1904
+p1889
 S' 0: a]'
+p1890
+tp1891
+aaa(lp1892
+S'a[]]b'
+p1893
+ag3
+a(lp1894
+(S'a]b'
+p1895
+S' 0: a]b'
+p1896
+tp1897
+aaa(lp1898
+S'a[^bc]d'
+p1899
+ag3
+a(lp1900
+(S'aed'
+p1901
+S' 0: aed'
+p1902
+tp1903
+a(S'*** Failers'
+p1904
+S'No match'
 p1905
 tp1906
-aaa(lp1907
-S'a[]]b'
+a(S'abd'
+p1907
+S'No match'
 p1908
-ag3
-a(lp1909
-(S'a]b'
+tp1909
+a(S'abd'
 p1910
-S' 0: a]b'
+S'No match'
 p1911
 tp1912
 aaa(lp1913
-S'a[^bc]d'
+S'a[^-b]c'
 p1914
 ag3
 a(lp1915
-(S'aed'
+(S'adc'
 p1916
-S' 0: aed'
+S' 0: adc'
 p1917
 tp1918
-a(S'*** Failers'
-p1919
-S'No match'
+aaa(lp1919
+S'a[^]b]c'
 p1920
-tp1921
-a(S'abd'
+ag3
+a(lp1921
+(S'adc'
 p1922
-S'No match'
+S' 0: adc'
 p1923
 tp1924
-a(S'abd'
+a(S'*** Failers'
 p1925
 S'No match'
 p1926
 tp1927
-aaa(lp1928
-S'a[^-b]c'
+a(S'a-c'
+p1928
+S' 0: a-c'
 p1929
-ag3
-a(lp1930
-(S'adc'
+tp1930
+a(S'a]c'
 p1931
-S' 0: adc'
+S'No match'
 p1932
 tp1933
 aaa(lp1934
-S'a[^]b]c'
+S'\\ba\\b'
 p1935
 ag3
 a(lp1936
-(S'adc'
+(S'a-'
 p1937
-S' 0: adc'
+S' 0: a'
 p1938
 tp1939
-a(S'*** Failers'
+a(S'-a'
 p1940
-S'No match'
+S' 0: a'
 p1941
 tp1942
-a(S'a-c'
+a(S'-a-'
 p1943
-S' 0: a-c'
+S' 0: a'
 p1944
 tp1945
-a(S'a]c'
-p1946
-S'No match'
+aaa(lp1946
+S'\\by\\b'
 p1947
-tp1948
-aaa(lp1949
-S'\\ba\\b'
-p1950
 ag3
-a(lp1951
-(S'a-'
+a(lp1948
+(S'*** Failers'
+p1949
+S'No match'
+p1950
+tp1951
+a(S'xy'
 p1952
-S' 0: a'
+S'No match'
 p1953
 tp1954
-a(S'-a'
+a(S'yz'
 p1955
-S' 0: a'
+S'No match'
 p1956
 tp1957
-a(S'-a-'
+a(S'xyz'
 p1958
-S' 0: a'
+S'No match'
 p1959
 tp1960
 aaa(lp1961
-S'\\by\\b'
+S'\\Ba\\B'
 p1962
 ag3
 a(lp1963
 (S'*** Failers'
 p1964
-S'No match'
+S' 0: a'
 p1965
 tp1966
-a(S'xy'
+a(S'a-'
 p1967
 S'No match'
 p1968
 tp1969
-a(S'yz'
+a(S'-a'
 p1970
 S'No match'
 p1971
 tp1972
-a(S'xyz'
+a(S'-a-'
 p1973
 S'No match'
 p1974
 tp1975
 aaa(lp1976
-S'\\Ba\\B'
+S'\\By\\b'
 p1977
 ag3
 a(lp1978
-(S'*** Failers'
+(S'xy'
 p1979
-S' 0: a'
+S' 0: y'
 p1980
 tp1981
-a(S'a-'
-p1982
-S'No match'
+aaa(lp1982
+S'\\by\\B'
 p1983
-tp1984
-a(S'-a'
+ag3
+a(lp1984
+(S'yz'
 p1985
-S'No match'
+S' 0: y'
 p1986
 tp1987
-a(S'-a-'
-p1988
-S'No match'
-p1989
-tp1990
-aaa(lp1991
-S'\\By\\b'
-p1992
-ag3
-a(lp1993
-(S'xy'
-p1994
-S' 0: y'
-p1995
-tp1996
-aaa(lp1997
-S'\\by\\B'
-p1998
-ag3
-a(lp1999
-(S'yz'
-p2000
-S' 0: y'
-p2001
-tp2002
-aaa(lp2003
+aaa(lp1988
 S'\\By\\B'
-p2004
+p1989
 ag3
-a(lp2005
+a(lp1990
 (S'xyz'
-p2006
+p1991
 S' 0: y'
-p2007
-tp2008
-aaa(lp2009
+p1992
+tp1993
+aaa(lp1994
 S'\\w'
-p2010
+p1995
 ag3
-a(lp2011
+a(lp1996
 (g592
 S' 0: a'
-p2012
-tp2013
-aaa(lp2014
+p1997
+tp1998
+aaa(lp1999
 S'\\W'
-p2015
+p2000
 ag3
-a(lp2016
+a(lp2001
 (S'-'
-p2017
+p2002
 S' 0: -'
-p2018
-tp2019
+p2003
+tp2004
 a(S'*** Failers'
-p2020
+p2005
 S' 0: *'
-p2021
-tp2022
-a(g2017
+p2006
+tp2007
+a(g2002
 S' 0: -'
-p2023
-tp2024
+p2008
+tp2009
 a(g592
+S'No match'
+p2010
+tp2011
+aaa(lp2012
+S'a\\sb'
+p2013
+ag3
+a(lp2014
+(S'a b'
+p2015
+S' 0: a b'
+p2016
+tp2017
+aaa(lp2018
+S'a\\Sb'
+p2019
+ag3
+a(lp2020
+(S'a-b'
+p2021
+S' 0: a-b'
+p2022
+tp2023
+a(S'*** Failers'
+p2024
 S'No match'
 p2025
 tp2026
-aaa(lp2027
-S'a\\sb'
+a(S'a-b'
+p2027
+S' 0: a-b'
 p2028
-ag3
-a(lp2029
-(S'a b'
+tp2029
+a(S'a b'
 p2030
-S' 0: a b'
+S'No match'
 p2031
 tp2032
 aaa(lp2033
-S'a\\Sb'
+S'\\d'
 p2034
 ag3
 a(lp2035
-(S'a-b'
-p2036
-S' 0: a-b'
-p2037
-tp2038
-a(S'*** Failers'
-p2039
-S'No match'
-p2040
-tp2041
-a(S'a-b'
-p2042
-S' 0: a-b'
-p2043
-tp2044
-a(S'a b'
-p2045
-S'No match'
-p2046
-tp2047
-aaa(lp2048
-S'\\d'
-p2049
-ag3
-a(lp2050
 (g332
 S' 0: 1'
-p2051
-tp2052
-aaa(lp2053
+p2036
+tp2037
+aaa(lp2038
 S'\\D'
-p2054
+p2039
 ag3
-a(lp2055
-(g2017
+a(lp2040
+(g2002
 S' 0: -'
-p2056
-tp2057
+p2041
+tp2042
 a(S'*** Failers'
-p2058
+p2043
 S' 0: *'
-p2059
-tp2060
-a(g2017
+p2044
+tp2045
+a(g2002
 S' 0: -'
-p2061
-tp2062
+p2046
+tp2047
 a(g332
 S'No match'
-p2063
-tp2064
-aaa(lp2065
+p2048
+tp2049
+aaa(lp2050
 S'[\\w]'
-p2066
+p2051
 ag3
-a(lp2067
+a(lp2052
 (g592
 S' 0: a'
-p2068
-tp2069
-aaa(lp2070
+p2053
+tp2054
+aaa(lp2055
 S'[\\W]'
-p2071
+p2056
 ag3
-a(lp2072
-(g2017
+a(lp2057
+(g2002
 S' 0: -'
-p2073
-tp2074
+p2058
+tp2059
 a(S'*** Failers'
-p2075
+p2060
 S' 0: *'
-p2076
-tp2077
-a(g2017
+p2061
+tp2062
+a(g2002
 S' 0: -'
-p2078
-tp2079
+p2063
+tp2064
 a(g592
+S'No match'
+p2065
+tp2066
+aaa(lp2067
+S'a[\\s]b'
+p2068
+ag3
+a(lp2069
+(S'a b'
+p2070
+S' 0: a b'
+p2071
+tp2072
+aaa(lp2073
+S'a[\\S]b'
+p2074
+ag3
+a(lp2075
+(S'a-b'
+p2076
+S' 0: a-b'
+p2077
+tp2078
+a(S'*** Failers'
+p2079
 S'No match'
 p2080
 tp2081
-aaa(lp2082
-S'a[\\s]b'
+a(S'a-b'
+p2082
+S' 0: a-b'
 p2083
-ag3
-a(lp2084
-(S'a b'
+tp2084
+a(S'a b'
 p2085
-S' 0: a b'
+S'No match'
 p2086
 tp2087
 aaa(lp2088
-S'a[\\S]b'
+S'[\\d]'
 p2089
 ag3
 a(lp2090
-(S'a-b'
-p2091
-S' 0: a-b'
-p2092
-tp2093
-a(S'*** Failers'
-p2094
-S'No match'
-p2095
-tp2096
-a(S'a-b'
-p2097
-S' 0: a-b'
-p2098
-tp2099
-a(S'a b'
-p2100
-S'No match'
-p2101
-tp2102
-aaa(lp2103
-S'[\\d]'
-p2104
-ag3
-a(lp2105
 (g332
 S' 0: 1'
-p2106
-tp2107
-aaa(lp2108
+p2091
+tp2092
+aaa(lp2093
 S'[\\D]'
-p2109
+p2094
 ag3
-a(lp2110
-(g2017
+a(lp2095
+(g2002
 S' 0: -'
-p2111
-tp2112
+p2096
+tp2097
 a(S'*** Failers'
-p2113
+p2098
 S' 0: *'
-p2114
-tp2115
-a(g2017
+p2099
+tp2100
+a(g2002
 S' 0: -'
-p2116
-tp2117
+p2101
+tp2102
 a(g332
 S'No match'
+p2103
+tp2104
+aaa(lp2105
+S'ab|cd'
+p2106
+ag3
+a(lp2107
+(S'abc'
+p2108
+S' 0: ab'
+p2109
+tp2110
+a(S'abcd'
+p2111
+S' 0: ab'
+p2112
+tp2113
+aaa(lp2114
+S'()ef'
+p2115
+ag3
+a(lp2116
+(S'def'
+p2117
+S' 0: ef'
 p2118
 tp2119
 aaa(lp2120
-S'ab|cd'
+S'$b'
 p2121
 ag3
 a(lp2122
-(S'abc'
-p2123
-S' 0: ab'
+aa(lp2123
+S'a\\(b'
 p2124
-tp2125
-a(S'abcd'
+ag3
+a(lp2125
+(S'a(b'
 p2126
-S' 0: ab'
+S' 0: a(b'
 p2127
 tp2128
 aaa(lp2129
-S'()ef'
+S'a\\(*b'
 p2130
 ag3
 a(lp2131
-(S'def'
+(S'ab'
 p2132
-S' 0: ef'
+S' 0: ab'
 p2133
 tp2134
-aaa(lp2135
-S'$b'
+a(S'a((b'
+p2135
+S' 0: a((b'
 p2136
-ag3
-a(lp2137
-aa(lp2138
-S'a\\(b'
+tp2137
+aaa(lp2138
+S'a\\\\b'
 p2139
 ag3
 a(lp2140
-(S'a(b'
+(S'a\x08'
 p2141
-S' 0: a(b'
+S'No match'
 p2142
 tp2143
 aaa(lp2144
-S'a\\(*b'
+S'((a))'
 p2145
 ag3
 a(lp2146
-(S'ab'
+(S'abc'
 p2147
-S' 0: ab'
+S' 0: a'
 p2148
 tp2149
-a(S'a((b'
-p2150
-S' 0: a((b'
-p2151
-tp2152
-aaa(lp2153
-S'a\\\\b'
-p2154
-ag3
-a(lp2155
-(S'a\x08'
-p2156
-S'No match'
-p2157
-tp2158
-aaa(lp2159
-S'((a))'
-p2160
-ag3
-a(lp2161
-(S'abc'
-p2162
-S' 0: a'
-p2163
-tp2164
-aaa(lp2165
+aaa(lp2150
 S'(a)b(c)'
-p2166
+p2151
 ag3
-a(lp2167
+a(lp2152
 (S'abc'
-p2168
+p2153
 S' 0: abc'
-p2169
-tp2170
-aaa(lp2171
+p2154
+tp2155
+aaa(lp2156
 S'a+b+c'
-p2172
+p2157
 ag3
-a(lp2173
+a(lp2158
 (S'aabbabc'
-p2174
+p2159
 S' 0: abc'
-p2175
-tp2176
-aaa(lp2177
+p2160
+tp2161
+aaa(lp2162
 S'a{1,}b{1,}c'
-p2178
+p2163
 ag3
-a(lp2179
+a(lp2164
 (S'aabbabc'
-p2180
+p2165
 S' 0: abc'
-p2181
-tp2182
-aaa(lp2183
+p2166
+tp2167
+aaa(lp2168
 S'(a+|b)*'
-p2184
+p2169
 ag3
-a(lp2185
+a(lp2170
 (S'ab'
-p2186
+p2171
 S' 0: ab'
-p2187
-tp2188
-aaa(lp2189
+p2172
+tp2173
+aaa(lp2174
 S'(a+|b){0,}'
-p2190
+p2175
 ag3
-a(lp2191
+a(lp2176
 (S'ab'
-p2192
+p2177
 S' 0: ab'
-p2193
-tp2194
-aaa(lp2195
+p2178
+tp2179
+aaa(lp2180
 S'(a+|b)+'
-p2196
+p2181
 ag3
-a(lp2197
+a(lp2182
 (S'ab'
-p2198
+p2183
 S' 0: ab'
-p2199
-tp2200
-aaa(lp2201
+p2184
+tp2185
+aaa(lp2186
 S'(a+|b){1,}'
-p2202
+p2187
 ag3
-a(lp2203
+a(lp2188
 (S'ab'
-p2204
+p2189
 S' 0: ab'
-p2205
-tp2206
-aaa(lp2207
+p2190
+tp2191
+aaa(lp2192
 S'(a+|b)?'
-p2208
+p2193
 ag3
-a(lp2209
+a(lp2194
 (S'ab'
-p2210
+p2195
 S' 0: a'
-p2211
-tp2212
-aaa(lp2213
+p2196
+tp2197
+aaa(lp2198
 S'(a+|b){0,1}'
-p2214
+p2199
 ag3
-a(lp2215
+a(lp2200
 (S'ab'
-p2216
+p2201
 S' 0: a'
-p2217
-tp2218
-aaa(lp2219
+p2202
+tp2203
+aaa(lp2204
 S'[^ab]*'
-p2220
+p2205
 ag3
-a(lp2221
+a(lp2206
 (S'cde'
-p2222
+p2207
 S' 0: cde'
-p2223
-tp2224
-aaa(lp2225
+p2208
+tp2209
+aaa(lp2210
 S'abc'
-p2226
+p2211
 ag3
-a(lp2227
+a(lp2212
 (S'*** Failers'
-p2228
+p2213
 S'No match'
-p2229
-tp2230
+p2214
+tp2215
 a(g835
 S'No match'
+p2216
+tp2217
+aaa(lp2218
+S'a*'
+p2219
+ag3
+a(lp2220
+aa(lp2221
+S'([abc])*d'
+p2222
+ag3
+a(lp2223
+(S'abbbcd'
+p2224
+S' 0: abbbcd'
+p2225
+tp2226
+aaa(lp2227
+S'([abc])*bcd'
+p2228
+ag3
+a(lp2229
+(S'abcd'
+p2230
+S' 0: abcd'
 p2231
 tp2232
 aaa(lp2233
-S'a*'
+S'a|b|c|d|e'
 p2234
 ag3
 a(lp2235
-aa(lp2236
-S'([abc])*d'
-p2237
-ag3
-a(lp2238
-(S'abbbcd'
-p2239
-S' 0: abbbcd'
-p2240
-tp2241
-aaa(lp2242
-S'([abc])*bcd'
-p2243
-ag3
-a(lp2244
-(S'abcd'
-p2245
-S' 0: abcd'
-p2246
-tp2247
-aaa(lp2248
-S'a|b|c|d|e'
-p2249
-ag3
-a(lp2250
 (S'e'
-p2251
+p2236
 S' 0: e'
-p2252
-tp2253
-aaa(lp2254
+p2237
+tp2238
+aaa(lp2239
 S'(a|b|c|d|e)f'
-p2255
+p2240
 ag3
-a(lp2256
+a(lp2241
 (S'ef'
-p2257
+p2242
 S' 0: ef'
+p2243
+tp2244
+aaa(lp2245
+S'abcd*efg'
+p2246
+ag3
+a(lp2247
+(S'abcdefg'
+p2248
+S' 0: abcdefg'
+p2249
+tp2250
+aaa(lp2251
+S'ab*'
+p2252
+ag3
+a(lp2253
+(S'xabyabbbz'
+p2254
+S' 0: ab'
+p2255
+tp2256
+a(S'xayabbbz'
+p2257
+S' 0: a'
 p2258
 tp2259
 aaa(lp2260
-S'abcd*efg'
+S'(ab|cd)e'
 p2261
 ag3
 a(lp2262
-(S'abcdefg'
+(S'abcde'
 p2263
-S' 0: abcdefg'
+S' 0: cde'
 p2264
 tp2265
 aaa(lp2266
-S'ab*'
+S'[abhgefdc]ij'
 p2267
 ag3
 a(lp2268
-(S'xabyabbbz'
+(S'hij'
 p2269
-S' 0: ab'
+S' 0: hij'
 p2270
 tp2271
-a(S'xayabbbz'
-p2272
-S' 0: a'
+aaa(lp2272
+S'^(ab|cd)e'
 p2273
-tp2274
-aaa(lp2275
-S'(ab|cd)e'
+ag3
+a(lp2274
+aa(lp2275
+S'(abc|)ef'
 p2276
 ag3
 a(lp2277
-(S'abcde'
+(S'abcdef'
 p2278
-S' 0: cde'
+S' 0: ef'
 p2279
 tp2280
 aaa(lp2281
-S'[abhgefdc]ij'
+S'(a|b)c*d'
 p2282
 ag3
 a(lp2283
-(S'hij'
+(S'abcd'
 p2284
-S' 0: hij'
+S' 0: bcd'
 p2285
 tp2286
 aaa(lp2287
-S'^(ab|cd)e'
+S'(ab|ab*)bc'
 p2288
 ag3
 a(lp2289
-aa(lp2290
-S'(abc|)ef'
+(S'abc'
+p2290
+S' 0: abc'
 p2291
-ag3
-a(lp2292
-(S'abcdef'
-p2293
-S' 0: ef'
-p2294
-tp2295
-aaa(lp2296
-S'(a|b)c*d'
-p2297
-ag3
-a(lp2298
-(S'abcd'
-p2299
-S' 0: bcd'
-p2300
-tp2301
-aaa(lp2302
-S'(ab|ab*)bc'
-p2303
-ag3
-a(lp2304
-(S'abc'
-p2305
-S' 0: abc'
-p2306
-tp2307
-aaa(lp2308
+tp2292
+aaa(lp2293
 S'a([bc]*)c*'
-p2309
+p2294
 ag3
-a(lp2310
+a(lp2295
 (S'abc'
-p2311
+p2296
 S' 0: abc'
-p2312
-tp2313
-aaa(lp2314
+p2297
+tp2298
+aaa(lp2299
 S'a([bc]*)(c*d)'
-p2315
+p2300
 ag3
-a(lp2316
+a(lp2301
 (S'abcd'
-p2317
+p2302
 S' 0: abcd'
-p2318
-tp2319
-aaa(lp2320
+p2303
+tp2304
+aaa(lp2305
 S'a([bc]+)(c*d)'
-p2321
+p2306
 ag3
-a(lp2322
+a(lp2307
 (S'abcd'
-p2323
+p2308
 S' 0: abcd'
-p2324
-tp2325
-aaa(lp2326
+p2309
+tp2310
+aaa(lp2311
 S'a([bc]*)(c+d)'
-p2327
+p2312
 ag3
-a(lp2328
+a(lp2313
 (S'abcd'
-p2329
+p2314
 S' 0: abcd'
+p2315
+tp2316
+aaa(lp2317
+S'a[bcd]*dcdcde'
+p2318
+ag3
+a(lp2319
+(S'adcdcde'
+p2320
+S' 0: adcdcde'
+p2321
+tp2322
+aaa(lp2323
+S'a[bcd]+dcdcde'
+p2324
+ag3
+a(lp2325
+(S'*** Failers'
+p2326
+S'No match'
+p2327
+tp2328
+a(S'abcde'
+p2329
+S'No match'
 p2330
 tp2331
-aaa(lp2332
-S'a[bcd]*dcdcde'
+a(S'adcdcde'
+p2332
+S'No match'
 p2333
-ag3
-a(lp2334
-(S'adcdcde'
-p2335
-S' 0: adcdcde'
+tp2334
+aaa(lp2335
+S'(ab|a)b*c'
 p2336
-tp2337
-aaa(lp2338
-S'a[bcd]+dcdcde'
-p2339
 ag3
-a(lp2340
-(S'*** Failers'
-p2341
-S'No match'
+a(lp2337
+(S'abc'
+p2338
+S' 0: abc'
+p2339
+tp2340
+aaa(lp2341
+S'((a)(b)c)(d)'
 p2342
-tp2343
-a(S'abcde'
+ag3
+a(lp2343
+(S'abcd'
 p2344
-S'No match'
+S' 0: abcd'
 p2345
 tp2346
-a(S'adcdcde'
-p2347
-S'No match'
-p2348
-tp2349
-aaa(lp2350
-S'(ab|a)b*c'
-p2351
-ag3
-a(lp2352
-(S'abc'
-p2353
-S' 0: abc'
-p2354
-tp2355
-aaa(lp2356
-S'((a)(b)c)(d)'
-p2357
-ag3
-a(lp2358
-(S'abcd'
-p2359
-S' 0: abcd'
-p2360
-tp2361
-aaa(lp2362
+aaa(lp2347
 S'[a-zA-Z_][a-zA-Z0-9_]*'
-p2363
+p2348
 ag3
-a(lp2364
+a(lp2349
 (S'alpha'
-p2365
+p2350
 S' 0: alpha'
+p2351
+tp2352
+aaa(lp2353
+S'^a(bc+|b[eh])g|.h$'
+p2354
+ag3
+a(lp2355
+(S'abh'
+p2356
+S' 0: bh'
+p2357
+tp2358
+aaa(lp2359
+S'(bc+d$|ef*g.|h?i(j|k))'
+p2360
+ag3
+a(lp2361
+(S'effgz'
+p2362
+S' 0: effgz'
+p2363
+tp2364
+a(S'ij'
+p2365
+S' 0: ij'
 p2366
 tp2367
-aaa(lp2368
-S'^a(bc+|b[eh])g|.h$'
+a(S'reffgz'
+p2368
+S' 0: effgz'
 p2369
-ag3
-a(lp2370
-(S'abh'
+tp2370
+a(S'*** Failers'
 p2371
-S' 0: bh'
+S'No match'
 p2372
 tp2373
-aaa(lp2374
-S'(bc+d$|ef*g.|h?i(j|k))'
+a(S'effg'
+p2374
+S'No match'
 p2375
-ag3
-a(lp2376
-(S'effgz'
+tp2376
+a(S'bcdd'
 p2377
-S' 0: effgz'
+S'No match'
 p2378
 tp2379
-a(S'ij'
-p2380
-S' 0: ij'
-p2381
-tp2382
-a(S'reffgz'
-p2383
-S' 0: effgz'
-p2384
-tp2385
-a(S'*** Failers'
-p2386
-S'No match'
-p2387
-tp2388
-a(S'effg'
-p2389
-S'No match'
-p2390
-tp2391
-a(S'bcdd'
-p2392
-S'No match'
-p2393
-tp2394
-aaa(lp2395
+aaa(lp2380
 S'((((((((((a))))))))))'
-p2396
+p2381
 ag3
-a(lp2397
+a(lp2382
 (g592
 S' 0: a'
-p2398
-tp2399
-aaa(lp2400
+p2383
+tp2384
+aaa(lp2385
 S'(((((((((a)))))))))'
-p2401
+p2386
 ag3
-a(lp2402
+a(lp2387
 (g592
 S' 0: a'
-p2403
-tp2404
-aaa(lp2405
+p2388
+tp2389
+aaa(lp2390
 S'multiple words of text'
-p2406
+p2391
 ag3
-a(lp2407
+a(lp2392
 (S'*** Failers'
-p2408
+p2393
 S'No match'
-p2409
-tp2410
+p2394
+tp2395
 a(S'aa'
-p2411
+p2396
 S'No match'
+p2397
+tp2398
+a(S'uh-uh'
+p2399
+S'No match'
+p2400
+tp2401
+aaa(lp2402
+S'multiple words'
+p2403
+ag3
+a(lp2404
+(S'multiple words, yeah'
+p2405
+S' 0: multiple words'
+p2406
+tp2407
+aaa(lp2408
+S'(.*)c(.*)'
+p2409
+ag3
+a(lp2410
+(S'abcde'
+p2411
+S' 0: abcde'
 p2412
 tp2413
-a(S'uh-uh'
-p2414
-S'No match'
+aaa(lp2414
+S'\\((.*), (.*)\\)'
 p2415
-tp2416
-aaa(lp2417
-S'multiple words'
-p2418
 ag3
-a(lp2419
-(S'multiple words, yeah'
-p2420
-S' 0: multiple words'
+a(lp2416
+(S'(a, b)'
+p2417
+S' 0: (a, b)'
+p2418
+tp2419
+aaa(lp2420
+S'[k]'
 p2421
-tp2422
-aaa(lp2423
-S'(.*)c(.*)'
+ag3
+a(lp2422
+aa(lp2423
+S'abcd'
 p2424
 ag3
 a(lp2425
-(S'abcde'
+(S'abcd'
 p2426
-S' 0: abcde'
+S' 0: abcd'
 p2427
 tp2428
 aaa(lp2429
-S'\\((.*), (.*)\\)'
+S'a(bc)d'
 p2430
 ag3
 a(lp2431
-(S'(a, b)'
+(S'abcd'
 p2432
-S' 0: (a, b)'
+S' 0: abcd'
 p2433
 tp2434
 aaa(lp2435
-S'[k]'
+S'a[-]?c'
 p2436
 ag3
 a(lp2437
-aa(lp2438
-S'abcd'
-p2439
-ag3
-a(lp2440
-(S'abcd'
-p2441
-S' 0: abcd'
-p2442
-tp2443
-aaa(lp2444
-S'a(bc)d'
-p2445
-ag3
-a(lp2446
-(S'abcd'
-p2447
-S' 0: abcd'
-p2448
-tp2449
-aaa(lp2450
-S'a[-]?c'
-p2451
-ag3
-a(lp2452
 (S'ac'
-p2453
+p2438
 S' 0: ac'
-p2454
-tp2455
-aaa(lp2456
+p2439
+tp2440
+aaa(lp2441
 S'((\\3|b)\\2(a)x)+'
-p2457
+p2442
 ag3
-a(lp2458
+a(lp2443
 (S'aaaxabaxbaaxbbax'
-p2459
+p2444
 S' 0: bbax'
-p2460
-tp2461
-aaa(lp2462
+p2445
+tp2446
+aaa(lp2447
 S'((\\3|b)\\2(a)){2,}'
-p2463
+p2448
 ag3
-a(lp2464
+a(lp2449
 (S'bbaababbabaaaaabbaaaabba'
-p2465
+p2450
 S' 0: bbaaaabba'
-p2466
-tp2467
-aaa(lp2468
+p2451
+tp2452
+aaa(lp2453
 S'((foo)|(bar))*'
-p2469
+p2454
 ag3
-a(lp2470
+a(lp2455
 (S'foobar'
-p2471
+p2456
 S' 0: foobar'
-p2472
-tp2473
-aaa(lp2474
+p2457
+tp2458
+aaa(lp2459
 S'^(.+)?B'
-p2475
+p2460
 ag3
-a(lp2476
+a(lp2461
 (S'AB'
-p2477
+p2462
 S' 0: AB'
-p2478
-tp2479
-aaa(lp2480
+p2463
+tp2464
+aaa(lp2465
 S'^([^a-z])|(\\^)$'
-p2481
+p2466
 ag3
-a(lp2482
+a(lp2467
 (S'.'
-p2483
+p2468
 S' 0: .'
-p2484
-tp2485
-aaa(lp2486
+p2469
+tp2470
+aaa(lp2471
 S'^[<>]&'
-p2487
+p2472
 ag3
-a(lp2488
+a(lp2473
 (S'<&OUT'
-p2489
+p2474
 S' 0: <&'
-p2490
-tp2491
-aaa(lp2492
+p2475
+tp2476
+aaa(lp2477
 S'^(){3,5}'
-p2493
+p2478
 ag3
-a(lp2494
+a(lp2479
 (S'abc'
-p2495
+p2480
 S' 0: '
-p2496
-tp2497
-aaa(lp2498
+p2481
+tp2482
+aaa(lp2483
 S'^(a+)*ax'
-p2499
+p2484
 ag3
-a(lp2500
+a(lp2485
 (S'aax'
-p2501
+p2486
 S' 0: aax'
-p2502
-tp2503
-aaa(lp2504
+p2487
+tp2488
+aaa(lp2489
 S'^((a|b)+)*ax'
-p2505
+p2490
 ag3
-a(lp2506
+a(lp2491
 (S'aax'
-p2507
+p2492
 S' 0: aax'
-p2508
-tp2509
-aaa(lp2510
+p2493
+tp2494
+aaa(lp2495
 S'^((a|bc)+)*ax'
-p2511
+p2496
 ag3
-a(lp2512
+a(lp2497
 (S'aax'
-p2513
+p2498
 S' 0: aax'
-p2514
-tp2515
-aaa(lp2516
+p2499
+tp2500
+aaa(lp2501
 S'(a|x)*ab'
-p2517
+p2502
 ag3
-a(lp2518
+a(lp2503
 (S'cab'
-p2519
+p2504
 S' 0: ab'
-p2520
-tp2521
-aaa(lp2522
+p2505
+tp2506
+aaa(lp2507
 S'(a)*ab'
+p2508
+ag3
+a(lp2509
+(S'cab'
+p2510
+S' 0: ab'
+p2511
+tp2512
+aaa(lp2513
+S'foo\\w*\\d{4}baz'
+p2514
+ag3
+a(lp2515
+(S'foobar1234baz'
+p2516
+S' 0: foobar1234baz'
+p2517
+tp2518
+aaa(lp2519
+S'^b'
+p2520
+ag3
+a(lp2521
+aa(lp2522
+S'(\\w+:)+'
 p2523
 ag3
 a(lp2524
-(S'cab'
+(S'one:'
 p2525
-S' 0: ab'
+S' 0: one:'
 p2526
 tp2527
 aaa(lp2528
-S'foo\\w*\\d{4}baz'
+S'([\\w:]+::)?(\\w+)$'
 p2529
 ag3
 a(lp2530
-(S'foobar1234baz'
+(S'abcd'
 p2531
-S' 0: foobar1234baz'
+S' 0: abcd'
 p2532
 tp2533
-aaa(lp2534
-S'^b'
+a(S'xy:z:::abcd'
+p2534
+S' 0: xy:z:::abcd'
 p2535
-ag3
-a(lp2536
-aa(lp2537
-S'()^b'
+tp2536
+aaa(lp2537
+S'^[^bcd]*(c+)'
 p2538
 ag3
 a(lp2539
-(S'*** Failers'
+(S'aexycd'
 p2540
-S'No match'
+S' 0: aexyc'
 p2541
 tp2542
-a(S'a\nb\nc\n'
-p2543
-S'No match'
+aaa(lp2543
+S'(a*)b+'
 p2544
-tp2545
-a(S'a\nb\nc\n'
+ag3
+a(lp2545
+(S'caab'
 p2546
-S'No match'
+S' 0: aab'
 p2547
 tp2548
 aaa(lp2549
-S'(\\w+:)+'
+S'([\\w:]+::)?(\\w+)$'
 p2550
 ag3
 a(lp2551
-(S'one:'
+(S'abcd'
 p2552
-S' 0: one:'
+S' 0: abcd'
 p2553
 tp2554
-aaa(lp2555
-S'([\\w:]+::)?(\\w+)$'
+a(S'xy:z:::abcd'
+p2555
+S' 0: xy:z:::abcd'
 p2556
-ag3
-a(lp2557
-(S'abcd'
+tp2557
+a(S'*** Failers'
 p2558
-S' 0: abcd'
+S' 0: Failers'
 p2559
 tp2560
-a(S'xy:z:::abcd'
+a(S'abcd:'
 p2561
-S' 0: xy:z:::abcd'
+S'No match'
 p2562
 tp2563
-aaa(lp2564
-S'^[^bcd]*(c+)'
+a(S'abcd:'
+p2564
+S'No match'
 p2565
-ag3
-a(lp2566
-(S'aexycd'
-p2567
-S' 0: aexyc'
+tp2566
+aaa(lp2567
+S'^[^bcd]*(c+)'
 p2568
-tp2569
-aaa(lp2570
-S'(a*)b+'
-p2571
 ag3
-a(lp2572
-(S'caab'
-p2573
-S' 0: aab'
+a(lp2569
+(S'aexycd'
+p2570
+S' 0: aexyc'
+p2571
+tp2572
+aaa(lp2573
+S'(>a+)ab'
 p2574
-tp2575
-aaa(lp2576
-S'([\\w:]+::)?(\\w+)$'
+ag3
+a(lp2575
+aa(lp2576
+S'([[:]+)'
 p2577
 ag3
 a(lp2578
-(S'abcd'
+(S'a:[b]:'
 p2579
-S' 0: abcd'
+S' 0: :['
 p2580
 tp2581
-a(S'xy:z:::abcd'
-p2582
-S' 0: xy:z:::abcd'
+aaa(lp2582
+S'([[=]+)'
 p2583
-tp2584
-a(S'*** Failers'
+ag3
+a(lp2584
+(S'a=[b]='
 p2585
-S' 0: Failers'
+S' 0: =['
 p2586
 tp2587
-a(S'abcd:'
-p2588
-S'No match'
+aaa(lp2588
+S'([[.]+)'
 p2589
-tp2590
-a(S'abcd:'
+ag3
+a(lp2590
+(S'a.[b].'
 p2591
-S'No match'
+S' 0: .['
 p2592
 tp2593
 aaa(lp2594
-S'^[^bcd]*(c+)'
+S'a\\Z'
 p2595
 ag3
 a(lp2596
-(S'aexycd'
+(S'*** Failers'
 p2597
-S' 0: aexyc'
+S'No match'
 p2598
 tp2599
-aaa(lp2600
-S'(>a+)ab'
+a(S'aaab'
+p2600
+S'No match'
 p2601
-ag3
-a(lp2602
-aa(lp2603
-S'([[:]+)'
+tp2602
+a(S'a\nb\n'
+p2603
+S'No match'
 p2604
-ag3
-a(lp2605
-(S'a:[b]:'
-p2606
-S' 0: :['
+tp2605
+aaa(lp2606
+S'b\\Z'
 p2607
-tp2608
-aaa(lp2609
-S'([[=]+)'
-p2610
 ag3
-a(lp2611
-(S'a=[b]='
-p2612
-S' 0: =['
+a(lp2608
+(S'a\nb\n'
+p2609
+S' 0: b'
+p2610
+tp2611
+aaa(lp2612
+S'b\\z'
 p2613
-tp2614
-aaa(lp2615
-S'([[.]+)'
+ag3
+a(lp2614
+aa(lp2615
+S'b\\Z'
 p2616
 ag3
 a(lp2617
-(S'a.[b].'
+(S'a\nb'
 p2618
-S' 0: .['
+S' 0: b'
 p2619
 tp2620
 aaa(lp2621
-S'a\\Z'
+S'b\\z'
 p2622
 ag3
 a(lp2623
-(S'*** Failers'
+(S'a\nb'
 p2624
-S'No match'
+S' 0: b'
 p2625
 tp2626
-a(S'aaab'
+a(S'*** Failers'
 p2627
 S'No match'
 p2628
 tp2629
-a(S'a\nb\n'
-p2630
-S'No match'
+aaa(lp2630
+S'((Z)+|A)*'
 p2631
-tp2632
-aaa(lp2633
-S'b\\Z'
+ag3
+a(lp2632
+(S'ZABCDEFG'
+p2633
+S' 0: ZA'
 p2634
-ag3
-a(lp2635
-(S'a\nb\n'
-p2636
-S' 0: b'
+tp2635
+aaa(lp2636
+S'(Z()|A)*'
 p2637
-tp2638
-aaa(lp2639
-S'b\\z'
-p2640
 ag3
-a(lp2641
-aa(lp2642
-S'b\\Z'
+a(lp2638
+(S'ZABCDEFG'
+p2639
+S' 0: ZA'
+p2640
+tp2641
+aaa(lp2642
+S'(Z(())|A)*'
 p2643
 ag3
 a(lp2644
-(S'a\nb'
+(S'ZABCDEFG'
 p2645
-S' 0: b'
+S' 0: ZA'
 p2646
 tp2647
 aaa(lp2648
-S'b\\z'
+S'^[a-\\d]'
 p2649
 ag3
 a(lp2650
-(S'a\nb'
+(S'abcde'
 p2651
-S' 0: b'
+S' 0: a'
 p2652
 tp2653
-a(S'*** Failers'
+a(S'-things'
 p2654
-S'No match'
+S' 0: -'
 p2655
 tp2656
-aaa(lp2657
-S'((Z)+|A)*'
+a(S'0digit'
+p2657
+S' 0: 0'
 p2658
-ag3
-a(lp2659
-(S'ZABCDEFG'
+tp2659
+a(S'*** Failers'
 p2660
-S' 0: ZA'
+S'No match'
 p2661
 tp2662
-aaa(lp2663
-S'(Z()|A)*'
+a(S'bcdef'
+p2663
+S'No match'
 p2664
-ag3
-a(lp2665
-(S'ZABCDEFG'
-p2666
-S' 0: ZA'
+tp2665
+aaa(lp2666
+S'^[\\d-a]'
 p2667
-tp2668
-aaa(lp2669
-S'(Z(())|A)*'
-p2670
 ag3
-a(lp2671
-(S'ZABCDEFG'
+a(lp2668
+(S'abcde'
+p2669
+S' 0: a'
+p2670
+tp2671
+a(S'-things'
 p2672
-S' 0: ZA'
+S' 0: -'
 p2673
 tp2674
-aaa(lp2675
-S'^[a-\\d]'
+a(S'0digit'
+p2675
+S' 0: 0'
 p2676
-ag3
-a(lp2677
-(S'abcde'
+tp2677
+a(S'*** Failers'
 p2678
-S' 0: a'
+S'No match'
 p2679
 tp2680
-a(S'-things'
+a(S'bcdef'
 p2681
-S' 0: -'
+S'No match'
 p2682
 tp2683
-a(S'0digit'
-p2684
-S' 0: 0'
+aaa(lp2684
+S'[[:space:]]+'
 p2685
-tp2686
-a(S'*** Failers'
+ag3
+a(lp2686
+(S'> \t\n\x0c\r\x0b<'
 p2687
-S'No match'
+S' 0:  \t\n\x0c\r\x0b'
 p2688
 tp2689
-a(S'bcdef'
-p2690
-S'No match'
+aaa(lp2690
+S'[[:blank:]]+'
 p2691
-tp2692
-aaa(lp2693
-S'^[\\d-a]'
-p2694
 ag3
-a(lp2695
-(S'abcde'
-p2696
-S' 0: a'
+a(lp2692
+(S'> \t\n\x0c\r\x0b<'
+p2693
+S' 0:  \t'
+p2694
+tp2695
+aaa(lp2696
+S'[\\s]+'
 p2697
-tp2698
-a(S'-things'
+ag3
+a(lp2698
+(S'> \t\n\x0c\r\x0b<'
 p2699
-S' 0: -'
+S' 0:  \t\n\x0c\r'
 p2700
 tp2701
-a(S'0digit'
-p2702
-S' 0: 0'
+aaa(lp2702
+S'\\s+'
 p2703
-tp2704
-a(S'*** Failers'
+ag3
+a(lp2704
+(S'> \t\n\x0c\r\x0b<'
 p2705
-S'No match'
+S' 0:  \t\n\x0c\r'
 p2706
 tp2707
-a(S'bcdef'
-p2708
-S'No match'
+aaa(lp2708
+S'\\Gabc'
 p2709
-tp2710
-aaa(lp2711
-S'[[:space:]]+'
-p2712
 ag3
-a(lp2713
-(S'> \t\n\x0c\r\x0b<'
+a(lp2710
+(S'abc'
+p2711
+S' 0: abc'
+p2712
+tp2713
+a(S'*** Failers'
 p2714
-S' 0:  \t\n\x0c\r\x0b'
+S'No match'
 p2715
 tp2716
-aaa(lp2717
-S'[[:blank:]]+'
-p2718
-ag3
-a(lp2719
-(S'> \t\n\x0c\r\x0b<'
-p2720
-S' 0:  \t'
-p2721
-tp2722
-aaa(lp2723
-S'[\\s]+'
-p2724
-ag3
-a(lp2725
-(S'> \t\n\x0c\r\x0b<'
-p2726
-S' 0:  \t\n\x0c\r'
-p2727
-tp2728
-aaa(lp2729
-S'\\s+'
-p2730
-ag3
-a(lp2731
-(S'> \t\n\x0c\r\x0b<'
-p2732
-S' 0:  \t\n\x0c\r'
-p2733
-tp2734
-aaa(lp2735
-S'abc\\Qabc\\Eabc'
-p2736
-ag3
-a(lp2737
-(S'abcabcabc'
-p2738
-S' 0: abcabcabc'
-p2739
-tp2740
-aaa(lp2741
-S'abc\\Q(*+|\\Eabc'
-p2742
-ag3
-a(lp2743
-(S'abc(*+|abc'
-p2744
-S' 0: abc(*+|abc'
-p2745
-tp2746
-aaa(lp2747
-S'\\Qabc\\$xyz\\E'
-p2748
-ag3
-a(lp2749
-(S'abc\\$xyz'
-p2750
-S' 0: abc\\$xyz'
-p2751
-tp2752
-aaa(lp2753
-S'\\Qabc\\E\\$\\Qxyz\\E'
-p2754
-ag3
-a(lp2755
-(S'abc$xyz'
-p2756
-S' 0: abc$xyz'
-p2757
-tp2758
-aaa(lp2759
-S'\\Gabc'
-p2760
-ag3
-a(lp2761
-(S'abc'
-p2762
-S' 0: abc'
-p2763
-tp2764
-a(S'*** Failers'
-p2765
-S'No match'
-p2766
-tp2767
 a(S'xyzabc'
-p2768
+p2717
 S'No match'
-p2769
-tp2770
-aaa(lp2771
-S'-- This tests for an IPv6 address in the form where it can have up to --'
-p2772
+p2718
+tp2719
+aaa(lp2720
+S'[\\z\\C]'
+p2721
 ag3
-a(lp2773
-(S'/-- eight components, one and only one of which is empty. This must be --/'
-p2774
-S'No match'
-p2775
-tp2776
-a(S'/-- an internal component. --/'
-p2777
-S'No match'
-p2778
-tp2779
-aaa(lp2780
-S'[z\\Qa-d]\\E]'
-p2781
-ag3
-a(lp2782
+a(lp2722
 (g583
 S' 0: z'
-p2783
-tp2784
+p2723
+tp2724
+a(S'C'
+p2725
+S' 0: C'
+p2726
+tp2727
+aaa(lp2728
+S'\\M'
+p2729
+ag3
+a(lp2730
+(S'M'
+p2731
+S' 0: M'
+p2732
+tp2733
+aaa(lp2734
+S'(a+)*b'
+p2735
+ag3
+a(lp2736
+(S'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+p2737
+S'No match'
+p2738
+tp2739
+aaa(lp2740
+S'\xc5\xe6\xe5\xe4[\xe0-\xff\xc0-\xdf]+'
+p2741
+ag3
+a(lp2742
+(S'\xc5\xe6\xe5\xe4\xe0'
+p2743
+S' 0: \xc5\xe6\xe5\xe4\xe0'
+p2744
+tp2745
+a(S'\xc5\xe6\xe5\xe4\xff'
+p2746
+S' 0: \xc5\xe6\xe5\xe4\xff'
+p2747
+tp2748
+a(S'\xc5\xe6\xe5\xe4\xc0'
+p2749
+S' 0: \xc5\xe6\xe5\xe4\xc0'
+p2750
+tp2751
+a(S'\xc5\xe6\xe5\xe4\xdf'
+p2752
+S' 0: \xc5\xe6\xe5\xe4\xdf'
+p2753
+tp2754
+aaa(lp2755
+S'[[,abc,]+]'
+p2756
+ag3
+a(lp2757
+(S'abc]'
+p2758
+S' 0: abc]'
+p2759
+tp2760
+a(S'a,b]'
+p2761
+S' 0: a,b]'
+p2762
+tp2763
+a(S'[a,b,c]'
+p2764
+S' 0: [a,b,c]'
+p2765
+tp2766
+aaa(lp2767
+S'a*b*\\w'
+p2768
+ag3
+a(lp2769
+(S'aaabbbb'
+p2770
+S' 0: aaabbbb'
+p2771
+tp2772
+a(S'aaaa'
+p2773
+S' 0: aaaa'
+p2774
+tp2775
 a(g592
 S' 0: a'
+p2776
+tp2777
+aaa(lp2778
+S'a*b?\\w'
+p2779
+ag3
+a(lp2780
+(S'aaabbbb'
+p2781
+S' 0: aaabb'
+p2782
+tp2783
+a(S'aaaa'
+p2784
+S' 0: aaaa'
 p2785
 tp2786
-a(g2017
-S' 0: -'
+a(g592
+S' 0: a'
 p2787
 tp2788
-a(S'd'
-p2789
-S' 0: d'
+aaa(lp2789
+S'a*b{0,4}\\w'
 p2790
-tp2791
-a(S']'
+ag3
+a(lp2791
+(S'aaabbbb'
 p2792
-S' 0: ]'
+S' 0: aaabbbb'
 p2793
 tp2794
-a(S'*** Failers'
+a(S'aaaa'
 p2795
-S' 0: a'
+S' 0: aaaa'
 p2796
 tp2797
-a(g835
-S'No match'
+a(g592
+S' 0: a'
 p2798
 tp2799
 aaa(lp2800
-S'[\\z\\C]'
+S'a*b{0,}\\w'
 p2801
 ag3
 a(lp2802
-(g583
-S' 0: z'
-p2803
-tp2804
-a(S'C'
-p2805
-S' 0: C'
-p2806
-tp2807
-aaa(lp2808
-S'\\M'
-p2809
-ag3
-a(lp2810
-(S'M'
-p2811
-S' 0: M'
-p2812
-tp2813
-aaa(lp2814
-S'(a+)*b'
-p2815
-ag3
-a(lp2816
-(S'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
-p2817
-S'No match'
-p2818
-tp2819
-aaa(lp2820
-S'\xc5\xe6\xe5\xe4[\xe0-\xff\xc0-\xdf]+'
-p2821
-ag3
-a(lp2822
-(S'\xc5\xe6\xe5\xe4\xe0'
-p2823
-S' 0: \xc5\xe6\xe5\xe4\xe0'
-p2824
-tp2825
-a(S'\xc5\xe6\xe5\xe4\xff'
-p2826
-S' 0: \xc5\xe6\xe5\xe4\xff'
-p2827
-tp2828
-a(S'\xc5\xe6\xe5\xe4\xc0'
-p2829
-S' 0: \xc5\xe6\xe5\xe4\xc0'
-p2830
-tp2831
-a(S'\xc5\xe6\xe5\xe4\xdf'
-p2832
-S' 0: \xc5\xe6\xe5\xe4\xdf'
-p2833
-tp2834
-aaa(lp2835
-S'[[,abc,]+]'
-p2836
-ag3
-a(lp2837
-(S'abc]'
-p2838
-S' 0: abc]'
-p2839
-tp2840
-a(S'a,b]'
-p2841
-S' 0: a,b]'
-p2842
-tp2843
-a(S'[a,b,c]'
-p2844
-S' 0: [a,b,c]'
-p2845
-tp2846
-aaa(lp2847
-S'a*b*\\w'
-p2848
-ag3
-a(lp2849
 (S'aaabbbb'
-p2850
+p2803
 S' 0: aaabbbb'
-p2851
-tp2852
+p2804
+tp2805
 a(S'aaaa'
-p2853
+p2806
 S' 0: aaaa'
-p2854
-tp2855
+p2807
+tp2808
 a(g592
 S' 0: a'
+p2809
+tp2810
+aaa(lp2811
+S'a*\\d*\\w'
+p2812
+ag3
+a(lp2813
+(S'0a'
+p2814
+S' 0: 0a'
+p2815
+tp2816
+a(g592
+S' 0: a'
+p2817
+tp2818
+aaa(lp2819
+S'^\\w+=.*(\\\\\\n.*)*'
+p2820
+ag3
+a(lp2821
+(S'abc=xyz\\\npqr'
+p2822
+S' 0: abc=xyz\\'
+p2823
+tp2824
+aaa(lp2825
+S'^(a()*)*'
+p2826
+ag3
+a(lp2827
+(S'aaaa'
+p2828
+S' 0: aaaa'
+p2829
+tp2830
+aaa(lp2831
+S'^(a()+)+'
+p2832
+ag3
+a(lp2833
+(S'aaaa'
+p2834
+S' 0: aaaa'
+p2835
+tp2836
+aaa(lp2837
+S'(a|)*\\d'
+p2838
+ag3
+a(lp2839
+(S'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+p2840
+S'No match'
+p2841
+tp2842
+a(S'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4'
+p2843
+S' 0: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4'
+p2844
+tp2845
+aaa(lp2846
+S'(.*(.)?)*'
+p2847
+ag3
+a(lp2848
+(S'abcd'
+p2849
+S' 0: abcd'
+p2850
+tp2851
+aaa(lp2852
+S'[[:abcd:xyz]]'
+p2853
+ag3
+a(lp2854
+(S'a]'
+p2855
+S' 0: a]'
 p2856
 tp2857
-aaa(lp2858
-S'a*b?\\w'
+a(S':]'
+p2858
+S' 0: :]'
 p2859
-ag3
-a(lp2860
-(S'aaabbbb'
-p2861
-S' 0: aaabb'
+tp2860
+aaa(lp2861
+S'[abc[:x\\]pqr]'
 p2862
-tp2863
-a(S'aaaa'
-p2864
-S' 0: aaaa'
-p2865
-tp2866
-a(g592
+ag3
+a(lp2863
+(g592
 S' 0: a'
+p2864
+tp2865
+a(S'['
+p2866
+S' 0: ['
 p2867
 tp2868
-aaa(lp2869
-S'a*b{0,4}\\w'
-p2870
-ag3
-a(lp2871
-(S'aaabbbb'
-p2872
-S' 0: aaabbbb'
-p2873
-tp2874
-a(S'aaaa'
-p2875
-S' 0: aaaa'
-p2876
-tp2877
-a(g592
-S' 0: a'
-p2878
-tp2879
-aaa(lp2880
-S'a*b{0,}\\w'
-p2881
-ag3
-a(lp2882
-(S'aaabbbb'
-p2883
-S' 0: aaabbbb'
-p2884
-tp2885
-a(S'aaaa'
-p2886
-S' 0: aaaa'
-p2887
-tp2888
-a(g592
-S' 0: a'
-p2889
-tp2890
-aaa(lp2891
-S'a*\\d*\\w'
-p2892
-ag3
-a(lp2893
-(S'0a'
-p2894
-S' 0: 0a'
-p2895
-tp2896
-a(g592
-S' 0: a'
-p2897
-tp2898
-aaa(lp2899
-S'^\\w+=.*(\\\\\\n.*)*'
-p2900
-ag3
-a(lp2901
-(S'abc=xyz\\\npqr'
-p2902
-S' 0: abc=xyz\\'
-p2903
-tp2904
-aaa(lp2905
-S'^\\Eabc'
-p2906
-ag3
-a(lp2907
-(S'abc'
-p2908
-S' 0: abc'
-p2909
-tp2910
-aaa(lp2911
-S'^[\\Eabc]'
-p2912
-ag3
-a(lp2913
-(g592
-S' 0: a'
-p2914
-tp2915
-a(S'** Failers'
-p2916
-S'No match'
-p2917
-tp2918
-a(S'E'
-p2919
-S'No match'
-p2920
-tp2921
-aaa(lp2922
-S'^[a-\\Ec]'
-p2923
-ag3
-a(lp2924
-(g835
-S' 0: b'
-p2925
-tp2926
-a(S'** Failers'
-p2927
-S'No match'
-p2928
-tp2929
-a(g2017
-S'No match'
-p2930
-tp2931
-a(g2919
-S'No match'
-p2932
-tp2933
-aaa(lp2934
-S'^[a\\E\\E-\\Ec]'
-p2935
-ag3
-a(lp2936
-(g835
-S' 0: b'
-p2937
-tp2938
-a(S'** Failers'
-p2939
-S'No match'
-p2940
-tp2941
-a(g2017
-S'No match'
-p2942
-tp2943
-a(g2919
-S'No match'
-p2944
-tp2945
-aaa(lp2946
-S'^[\\E\\Qa\\E-\\Qz\\E]+'
-p2947
-ag3
-a(lp2948
-(g835
-S' 0: b'
-p2949
-tp2950
-a(S'** Failers'
-p2951
-S'No match'
-p2952
-tp2953
-a(g2017
-S'No match'
-p2954
-tp2955
-aaa(lp2956
-S'^[a\\Q]bc\\E]'
-p2957
-ag3
-a(lp2958
-(g592
-S' 0: a'
-p2959
-tp2960
-a(g2792
-S' 0: ]'
-p2961
-tp2962
-a(S'c'
-p2963
-S' 0: c'
-p2964
-tp2965
-aaa(lp2966
-S'^[a-\\Q\\E]'
-p2967
-ag3
-a(lp2968
-(g592
-S' 0: a'
-p2969
-tp2970
-a(g2017
-S' 0: -'
-p2971
-tp2972
-aaa(lp2973
-S'^(a()*)*'
-p2974
-ag3
-a(lp2975
-(S'aaaa'
-p2976
-S' 0: aaaa'
-p2977
-tp2978
-aaa(lp2979
-S'^(a()+)+'
-p2980
-ag3
-a(lp2981
-(S'aaaa'
-p2982
-S' 0: aaaa'
-p2983
-tp2984
-aaa(lp2985
-S'(a|)*\\d'
-p2986
-ag3
-a(lp2987
-(S'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
-p2988
-S'No match'
-p2989
-tp2990
-a(S'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4'
-p2991
-S' 0: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4'
-p2992
-tp2993
-aaa(lp2994
-S'(.*(.)?)*'
-p2995
-ag3
-a(lp2996
-(S'abcd'
-p2997
-S' 0: abcd'
-p2998
-tp2999
-aaa(lp3000
-S'[[:abcd:xyz]]'
-p3001
-ag3
-a(lp3002
-(S'a]'
-p3003
-S' 0: a]'
-p3004
-tp3005
-a(S':]'
-p3006
-S' 0: :]'
-p3007
-tp3008
-aaa(lp3009
-S'[abc[:x\\]pqr]'
-p3010
-ag3
-a(lp3011
-(g592
-S' 0: a'
-p3012
-tp3013
-a(S'['
-p3014
-S' 0: ['
-p3015
-tp3016
 a(g441
 S' 0: :'
-p3017
-tp3018
-a(g2792
+p2869
+tp2870
+a(S']'
+p2871
 S' 0: ]'
-p3019
-tp3020
+p2872
+tp2873
 a(S'p'
-p3021
+p2874
 S' 0: p'
-p3022
-tp3023
-aaa(lp3024
+p2875
+tp2876
+aaa(lp2877
 S' End of testinput1 '
-p3025
+p2878
 ag3
-a(lp3026
+a(lp2879
 aa.
