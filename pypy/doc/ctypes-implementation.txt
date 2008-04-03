@@ -79,6 +79,9 @@ examples work:
   - events.py
   - window_platform_event.py
   - fixed_resolution.py
+  - html_label.py
+  - media_player.py
+  - timer.py
 
 The following don't work:
 
@@ -88,13 +91,6 @@ The following don't work:
   - astraea/astraea.py needs PIL
   - video.py (but didn't work for me on CPython either)
   - soundscape needs avbin
-  
-XXX the following all show a bug ctypes (all the same, somewhere in the font
-stuff of pyglet), should be fixed:
-
-  - html_label.py
-  - media_player.py
-  - timer.py
 
 The `stress tests`_ of Johnathan Hartley is also working.
 
