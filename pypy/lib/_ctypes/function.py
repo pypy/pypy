@@ -114,8 +114,8 @@ class CFuncPtr(_CData):
                 argtypes = argtypes[:] + self._guess_argtypes(args[cut:])
         restype = self._restype_
         funcptr = self._getfuncptr(argtypes, restype)
-        args = self._wrap_args(argtypes, args)
-        resbuffer = funcptr(*[arg._buffer for obj, arg in args])
+        argsandobjs = self._wrap_args(argtypes, args)
+        resbuffer = funcptr(*[arg._buffer for _, arg in argsandobjs])
         if restype is not None:
             if not isinstance(restype, _CDataMeta):
                 return restype(resbuffer[0])
@@ -147,8 +147,8 @@ class CFuncPtr(_CData):
                 res.append(type(arg))
             elif arg is None:
                 res.append(c_void_p)
-            elif arg == 0:
-                res.append(c_void_p)
+            #elif arg == 0:
+            #    res.append(c_void_p)
             elif isinstance(arg, (int, long)):
                 res.append(c_int)
             else:
