@@ -16,7 +16,7 @@ behavior for PyPy as ctypes for CPython.
 
 PyPy's implementation internally uses `libffi`_ like CPython's ctypes.
 In our implementation as much as possible of the code is written in
-full Python, not RPython, In CPython's situation, the equivalent would
+full Python, not RPython. In CPython's situation, the equivalent would
 be to write as little as possible code in C.  We essentially favored
 rapid experimentation over worrying about speed for this first trial
 implementation. This allowed to provide a working implementation with
@@ -110,7 +110,7 @@ some tests.
 To run the test suite a compiled pypy-c is required with the proper configuration. To build the required pypy-c  one should inside the checkout::
 
    $ cd pypy/translator/goal
-   $ ./translate.py --text --batch --gc=generation targetpypystandalone.py --witmod-_rawffi 
+   $ ./translate.py --text --batch --gc=generation targetpypystandalone.py --withmod-_rawffi 
 
 this should produce a pypy-c executable in the ``goal`` directory.
 
@@ -161,7 +161,7 @@ The `stress tests`_ of Johnathan Hartley is also working.
 ctypes configure
 =================
 
-We also released `ctypes-configure`_, which is a package trying to overcome
-the portability issues of ctypes-based code.
+We also released `ctypes-configure`_, which is an experimental package trying to
+approach the portability issues of ctypes-based code.
 
 .. _`ctypes-configure`: http://codespeak.net/~fijal/configure.html
