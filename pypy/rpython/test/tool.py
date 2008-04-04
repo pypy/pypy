@@ -107,7 +107,9 @@ class OORtypeMixin(object):
         return OOSupport.to_runicode(u)
 
     def ll_to_list(self, l):
-        return l._list[:]
+        if hasattr(l, '_list'):
+            return l._list[:]
+        return l._array[:]
 
     def ll_unpack_tuple(self, t, length):
         return tuple([getattr(t, 'item%d' % i) for i in range(length)])

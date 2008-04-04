@@ -417,3 +417,31 @@ class CLIBaseGenerator(Generator):
 
     def dup(self, TYPE):
         self.ilasm.opcode('dup')
+
+    def oonewarray(self, TYPE, length):
+        if TYPE.ITEM is ootype.Void:
+            self.new(TYPE)
+            self.ilasm.opcode('dup')
+            self.load(length)
+            self.ilasm.call_method('void [pypylib]pypy.runtime.ListOfVoid::_ll_resize(int32)', virtual=False)
+        else:
+            clitype = self.cts.lltype_to_cts(TYPE)
+            self.load(length)
+            self.ilasm.opcode('newarr', clitype.itemtype.typename())
+    
+    def _array_suffix(self, ARRAY, erase_unsigned=False):
+        from pypy.translator.cli.metavm import OOTYPE_TO_MNEMONIC
+        suffix = OOTYPE_TO_MNEMONIC.get(ARRAY.ITEM, 'ref')
+        if erase_unsigned:
+            suffix = suffix.replace('u', 'i')
+        return suffix
+
+    def array_setitem(self, ARRAY):
+        suffix = self._array_suffix(ARRAY, erase_unsigned=True)
+        self.ilasm.opcode('stelem.%s' % suffix)
+
+    def array_getitem(self, ARRAY):
+        self.ilasm.opcode('ldelem.%s' % self._array_suffix(ARRAY))
+
+    def array_length(self, ARRAY):
+        self.ilasm.opcode('ldlen')

@@ -214,6 +214,13 @@ class Generator(object):
         Stack: ... -> newobj, ... """
         raise NotImplementedError
 
+    def oonewarray(self, TYPE, length):
+        """ Creates a new array of the given type with the given length.
+
+        Stack: ... -> newobj, ... """
+        raise NotImplementedError
+
+
     def push_null(self, TYPE):
         """ Push a NULL value onto the stack (the NULL value represents
         a pointer to an instance of OOType TYPE, if it matters to you). """
@@ -413,6 +420,14 @@ class _New(MicroInstruction):
                 return
             generator.new(op.args[0].value)
 
+
+class _OONewArray(MicroInstruction):
+    def render(self, generator, op):
+        if op.args[0].value is ootype.Void:
+            return
+        generator.oonewarray(op.args[0].value, op.args[1])
+
+
 class BranchUnconditionally(MicroInstruction):
     def __init__(self, label):
         self.label = label
@@ -497,6 +512,7 @@ class _CastTo(MicroInstruction):
         generator.isinstance(class_name)
 
 New = _New()
+OONewArray = _OONewArray()
 
 PushAllArgs = _PushAllArgs()
 StoreResult = _StoreResult()

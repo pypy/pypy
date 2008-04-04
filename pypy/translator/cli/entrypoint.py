@@ -9,7 +9,7 @@ def get_entrypoint(graph):
         ARG0 = graph.getargs()[0].concretetype
     except IndexError:
         ARG0 = None
-    if isinstance(ARG0, ootype.List) and ARG0._ITEMTYPE is ootype.String:
+    if isinstance(ARG0, ootype.List) and ARG0.ITEM is ootype.String:
         return StandaloneEntryPoint(graph)
     else:
         return TestEntryPoint(graph)
@@ -45,7 +45,7 @@ class StandaloneEntryPoint(BaseEntryPoint):
             ARG0 = self.graph.getargs()[0].concretetype
         except IndexError:
             ARG0 = None
-        assert isinstance(ARG0, ootype.List) and ARG0._ITEMTYPE is ootype.String,\
+        assert isinstance(ARG0, ootype.List) and ARG0.ITEM is ootype.String,\
                'Wrong entry point signature: List(String) expected'
 
         ilasm.begin_function('main', [('string[]', 'argv')], 'void', True, 'static')

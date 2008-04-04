@@ -4,7 +4,7 @@ from pypy.translator.cli.metavm import  Call, CallMethod, \
      TypeOf, CastPrimitive, EventHandler, GetStaticField, SetStaticField,\
      FieldInfoForConst
 from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult, InstructionList,\
-    New, RuntimeNew, CastTo, PushPrimitive, OOString, OOUnicode
+    New, RuntimeNew, CastTo, PushPrimitive, OOString, OOUnicode, OONewArray
 from pypy.translator.cli.cts import WEAKREF
 from pypy.rpython.ootypesystem import ootype
 
@@ -58,6 +58,7 @@ misc_ops = {
     'ooparse_int':              [PushAllArgs, 'call int32 [pypylib]pypy.runtime.Utils::OOParseInt(string, int32)'],
     'ooparse_float':            [PushAllArgs, 'call float64 [pypylib]pypy.runtime.Utils::OOParseFloat(string)'],
     'oonewcustomdict':          [NewCustomDict],
+    'oonewarray':               [OONewArray, StoreResult],
     
     'hint':                     [PushArg(0), StoreResult],
     'direct_call':              [Call],

@@ -227,6 +227,8 @@ class AbstractConst(object):
             return InstanceConst(db, const, static_type)
         elif isinstance(const, ootype._list):
             return ListConst(db, const)
+        elif isinstance(const, ootype._array):
+            return ListConst(db, const)
         elif isinstance(const, ootype._record):
             return RecordConst(db, const)
         elif isinstance(const, ootype._string):
@@ -355,6 +357,13 @@ class RecordConst(AbstractConst):
 
 class ListConst(AbstractConst):
     
+    def _get_list(self):
+        if isinstance(self.const, ootype._list):
+            return self.const._list
+        else:
+            return self.const._array
+
+
     def get_name(self):
         return "const_list"
     
@@ -368,7 +377,7 @@ class ListConst(AbstractConst):
         if not self.const:
             return
         
-        for i in self.const._list:
+        for i in self._get_list():
             name = self.db.record_const(i, None, 'const')
             if name is not None:
                 self.depends.add(name)
@@ -381,9 +390,10 @@ class ListConst(AbstractConst):
         if not self.const:
             return
         
-        for i in xrange(len(self.const._list)):
+        l = self._get_list()
+        for i in xrange(len(l)):
             ilasm.load_str("%s.%s"%(const_var.name, name))
-            el = self.const._list[i]
+            el = l[i]
             self.db.load_const(typeOf(el), el, ilasm)
             self.db.load_const(typeOf(i), i, ilasm)
             ilasm.list_setitem()

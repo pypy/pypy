@@ -43,6 +43,8 @@ class JTS(object):
             return self.escape_name(t._name)
         elif isinstance(t, ootype.List):
             return "Array"
+        elif isinstance(t, ootype.Array):
+            return "Array"
         elif isinstance(t, lltype.Primitive):
             return "var"
         elif isinstance(t, ootype.Record):
@@ -135,7 +137,7 @@ class JTS(object):
 ##        elif isinstance(t, ootype.StaticMethod):
 ##            return 'void' # TODO: is it correct to ignore StaticMethod?
 ##        elif isinstance(t, ootype.List):
-##            item_type = self.lltype_to_cts(t._ITEMTYPE)
+##            item_type = self.lltype_to_cts(t.ITEM)
 ##            return self.__class(PYPY_LIST % item_type, include_class)
 ##        elif isinstance(t, ootype.Dict):
 ##            key_type = self.lltype_to_cts(t._KEYTYPE)

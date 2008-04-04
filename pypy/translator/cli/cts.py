@@ -95,6 +95,14 @@ class CliSpecializedType(CliReferenceType):
         arglist = ', '.join([arg.typename() for arg in self.arg_types])
         return '[%s]%s`%d<%s>' % (assembly, name, numparam, arglist)
 
+class CliArrayType(CliType):
+
+    def __init__(self, itemtype):
+        self.itemtype = itemtype
+
+    def typename(self):
+        return '%s[]' % self.itemtype.typename()
+
 
 T = CliPrimitiveType
 class types:
@@ -249,8 +257,13 @@ class CTS(object):
         elif isinstance(t, ootype.StaticMethod):
             delegate = self.db.record_delegate(t)
             return CliClassType(None, delegate)
+        elif isinstance(t, ootype.Array):
+            item_type = self.lltype_to_cts(t.ITEM)
+            if item_type == types.void: # special case: Array of Void
+                return types.list_of_void
+            return CliArrayType(item_type)
         elif isinstance(t, ootype.List):
-            item_type = self.lltype_to_cts(t._ITEMTYPE)
+            item_type = self.lltype_to_cts(t.ITEM)
             if item_type == types.void: # special case: List of Void
                 return types.list_of_void
             return types.list.specialize(item_type)

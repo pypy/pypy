@@ -465,6 +465,7 @@ LL_OPERATIONS = {
     'new':                  LLOp(oo=True, canraise=(Exception,)),
     'runtimenew':           LLOp(oo=True, canraise=(Exception,)),
     'oonewcustomdict':      LLOp(oo=True, canraise=(Exception,)),
+    'oonewarray':           LLOp(oo=True, canraise=(Exception,)),
     'oosetfield':           LLOp(oo=True),
     'oogetfield':           LLOp(oo=True, sideeffects=False),
     'oosend':               LLOp(oo=True, canraise=(Exception,)),

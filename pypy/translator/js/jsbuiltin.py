@@ -59,6 +59,11 @@ class _Builtins(object):
                 '_ll_resize_le' : list_resize,
                 'll_length' : _GetPredefinedField('length'),
             },
+            ootype.Array: {
+                'll_setitem_fast' : ListSetitem,
+                'll_getitem_fast' : ListGetitem,
+                'll_length' : _GetPredefinedField('length'),
+            },
             ootype.Dict: {
                 'll_get' : ListGetitem,
                 'll_set' : ListSetitem,

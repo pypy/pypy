@@ -12,6 +12,13 @@ def rtype_new(hop):
     return hop.genop('new', vlist,
                      resulttype = hop.r_result.lowleveltype)
 
+def rtype_oonewarray(hop):
+    assert hop.args_s[0].is_constant()
+    vlist = hop.inputarg(ootype.Void, arg=0)
+    vlength = hop.inputarg(ootype.Signed, arg=1)
+    return hop.genop('oonewarray', [vlist, vlength],
+                     resulttype = hop.r_result.lowleveltype)
+
 def rtype_null(hop):
     assert hop.args_s[0].is_constant()
     TYPE = hop.args_s[0].const
@@ -105,6 +112,7 @@ def ll_instantiate(INST, C):
 
 BUILTIN_TYPER = {}
 BUILTIN_TYPER[ootype.new] = rtype_new
+BUILTIN_TYPER[ootype.oonewarray] = rtype_oonewarray
 BUILTIN_TYPER[ootype.null] = rtype_null
 BUILTIN_TYPER[ootype.classof] = rtype_classof
 BUILTIN_TYPER[ootype.subclassof] = rtype_subclassof

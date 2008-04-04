@@ -323,7 +323,7 @@ def ll_dict_setdefault(d, key, default):
 
 def ll_dict_kvi(d, LIST, func):
     length = d.ll_length()
-    result = ll_newlist(LIST, length)
+    result = LIST.ll_newlist(length)
     it = d.ll_get_items_iterator()
     i = 0
     while it.ll_go_next():
@@ -332,7 +332,7 @@ def ll_dict_kvi(d, LIST, func):
         elif func is dum_values:
             result.ll_setitem_fast(i, it.ll_current_value())
         if func is dum_items:
-            r = ootype.new(LIST._ITEMTYPE)
+            r = ootype.new(LIST.ITEM)
             r.item0 = it.ll_current_key()   # TODO: do we need casting?
             r.item1 = it.ll_current_value()
             result.ll_setitem_fast(i, r)

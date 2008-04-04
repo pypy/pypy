@@ -2,7 +2,8 @@
 """
 
 from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult,\
-    InstructionList, New, GetField, MicroInstruction, RuntimeNew, PushPrimitive
+    InstructionList, New, GetField, MicroInstruction, RuntimeNew, PushPrimitive,\
+    OONewArray
      
 from pypy.translator.oosupport.metavm import _GetFieldDispatcher, _SetFieldDispatcher, \
     _CallDispatcher, _MethodDispatcher, SetField
@@ -119,6 +120,7 @@ opcodes = {'int_mul': '*',
     'indirect_call' : [IndirectCall],
     'same_as' : CopyName,
     'new' : [New],
+    'oonewarray' : [OONewArray],
     'runtimenew' : [RuntimeNew],
     'instanceof' : [IsInstance],
     #'subclassof' : [IsSubclassOf],

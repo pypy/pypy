@@ -516,6 +516,10 @@ def new(I):
     r = SomeOOInstance(ootype.typeOf(i))
     return r
 
+def oonewarray(s_type, length):
+    assert s_type.is_constant()
+    return SomeOOInstance(s_type.const)
+
 def null(I_OR_SM):
     assert I_OR_SM.is_constant()
     null = ootype.null(I_OR_SM.const)
@@ -563,6 +567,7 @@ def oodowncast(I, i):
 
 BUILTIN_ANALYZERS[ootype.instanceof] = instanceof
 BUILTIN_ANALYZERS[ootype.new] = new
+BUILTIN_ANALYZERS[ootype.oonewarray] = oonewarray
 BUILTIN_ANALYZERS[ootype.null] = null
 BUILTIN_ANALYZERS[ootype.runtimenew] = runtimenew
 BUILTIN_ANALYZERS[ootype.classof] = classof

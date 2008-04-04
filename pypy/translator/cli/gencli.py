@@ -31,6 +31,7 @@ class GenCli(GenOO):
     RecordConst = constant.CLIRecordConst
     ClassConst = constant.CLIClassConst
     ListConst = constant.CLIListConst
+    ArrayConst = constant.CLIArrayConst
     StaticMethodConst = constant.CLIStaticMethodConst
     CustomDictConst = constant.CLICustomDictConst
     DictConst = constant.CLIDictConst

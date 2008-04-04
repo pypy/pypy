@@ -1,6 +1,6 @@
 from pypy.tool.pairtype import pairtype
 from pypy.rpython.rlist import AbstractBaseListRepr, AbstractListRepr, \
-        AbstractListIteratorRepr, rtype_newlist, rtype_alloc_and_set
+        AbstractListIteratorRepr, AbstractFixedSizeListRepr, rtype_newlist, rtype_alloc_and_set
 from pypy.rpython.rmodel import Repr, IntegerRepr
 from pypy.rpython.rmodel import inputconst, externalvsinternal
 from pypy.rpython.lltypesystem.lltype import Signed, Void
@@ -21,15 +21,12 @@ class BaseListRepr(AbstractBaseListRepr):
         else:
             self.external_item_repr, self.item_repr = \
                     externalvsinternal(rtyper, item_repr)
-        self.LIST = ootype.List()
+        self.LIST = self._make_empty_type()
         self.lowleveltype = self.LIST
         self.listitem = listitem
         self.list_cache = {}
         # setup() needs to be called to finish this initialization
 
-    def _externalvsinternal(self, rtyper, item_repr):
-        return item_repr, item_repr
-    
     def _setup_repr(self):
         if 'item_repr' not in self.__dict__:
             self.external_item_repr, self.item_repr = \
@@ -37,13 +34,9 @@ class BaseListRepr(AbstractBaseListRepr):
         if not ootype.hasItemType(self.lowleveltype):
             ootype.setItemType(self.lowleveltype, self.item_repr.lowleveltype)
 
-    def null_const(self):
-        return self.LIST._null
-
-    def prepare_const(self, n):
-        result = self.LIST.ll_newlist(n)
-        return result
-
+    def _externalvsinternal(self, rtyper, item_repr):
+        return item_repr, item_repr
+    
     def send_message(self, hop, message, can_raise=False, v_args=None):
         if v_args is None:
             v_args = hop.inputargs(self, *hop.args_r[1:])
@@ -55,9 +48,6 @@ class BaseListRepr(AbstractBaseListRepr):
 
     def get_eqfunc(self):
         return inputconst(Void, self.item_repr.get_ll_eq_function())
-
-    def make_iterator_repr(self):
-        return ListIteratorRepr(self)
 
     def rtype_hint(self, hop):
         hints = hop.args_s[-1].const
@@ -71,10 +61,26 @@ class BaseListRepr(AbstractBaseListRepr):
 
 
 class ListRepr(AbstractListRepr, BaseListRepr):
+    def null_const(self):
+        return self.LIST._null
 
-    pass
+    def prepare_const(self, n):
+        result = self.LIST.ll_newlist(n)
+        return result
+        
+    def make_iterator_repr(self):
+        return ListIteratorRepr(self)
 
-FixedSizeListRepr = ListRepr
+    def _make_empty_type(self):
+        return ootype.List()
+
+    def _generate_newlist(self, llops, items_v, v_sizehint):
+        c_list = inputconst(ootype.Void, self.lowleveltype)
+        v_result = llops.genop("new", [c_list], resulttype=self.lowleveltype)
+        c_resize = inputconst(ootype.Void, "_ll_resize")
+        c_length = inputconst(ootype.Signed, len(items_v))
+        llops.genop("oosend", [c_resize, v_result, c_length], resulttype=ootype.Void)
+        return v_result
 
 class __extend__(pairtype(BaseListRepr, BaseListRepr)):
 
@@ -87,11 +93,7 @@ class __extend__(pairtype(BaseListRepr, BaseListRepr)):
 
 def newlist(llops, r_list, items_v, v_sizehint=None):
     # XXX do something about v_sizehint
-    c_list = inputconst(ootype.Void, r_list.lowleveltype)
-    v_result = llops.genop("new", [c_list], resulttype=r_list.lowleveltype)
-    c_resize = inputconst(ootype.Void, "_ll_resize")
-    c_length = inputconst(ootype.Signed, len(items_v))
-    llops.genop("oosend", [c_resize, v_result, c_length], resulttype=ootype.Void)
+    v_result = r_list._generate_newlist(llops, items_v, v_sizehint)
 
     c_setitem = inputconst(ootype.Void, "ll_setitem_fast")
     for i, v_item in enumerate(items_v):
@@ -104,6 +106,31 @@ def ll_newlist(LIST, length):
     lst._ll_resize(length)
     return lst
 
+# Fixed-size list 
+class FixedSizeListRepr(AbstractFixedSizeListRepr, BaseListRepr):
+    def compact_repr(self):
+        return 'FixedSizeListR %s' % (self.item_repr.compact_repr(),)
+
+    def _make_empty_type(self):
+        return ootype.Array()
+        
+    def null_const(self):
+        return self.LIST._null
+
+    def prepare_const(self, n):
+        return ll_newarray(self.LIST, n)
+
+    def make_iterator_repr(self):
+        return ListIteratorRepr(self)
+
+    def _generate_newlist(self, llops, items_v, v_sizehint):
+        c_array = inputconst(ootype.Void, self.lowleveltype)
+        c_length = inputconst(ootype.Signed, len(items_v))
+        v_result = llops.genop("oonewarray", [c_array, c_length], resulttype=self.lowleveltype)
+        return v_result
+
+def ll_newarray(ARRAY, length):
+    return ootype.oonewarray(ARRAY, length)
 
 # ____________________________________________________________
 #

@@ -36,13 +36,19 @@ class TupleRepr(AbstractTupleRepr):
     def rtype_bltn_list(self, hop):
         from pypy.rpython.ootypesystem import rlist
         v_tup = hop.inputarg(self, 0)
-        LIST = hop.r_result.lowleveltype
-        c_list = inputconst(ootype.Void, LIST)
-        v_list = hop.genop('new', [c_list], resulttype=LIST)
-        c_resize = inputconst(ootype.Void, '_ll_resize')
-        c_setitem = inputconst(ootype.Void, 'll_setitem_fast')
+        RESULT = hop.r_result.lowleveltype
+        c_resulttype = inputconst(ootype.Void, RESULT)
         c_length = inputconst(ootype.Signed, len(self.items_r))
-        hop.genop('oosend', [c_resize, v_list, c_length], resulttype=ootype.Void)
+        if isinstance(RESULT, ootype.Array):
+            v_list = hop.genop('oonewarray', [c_resulttype, c_length], resulttype=RESULT)
+        else:
+            assert isinstance(RESULT, ootype.List)
+            v_list = hop.genop('new', [c_resulttype], resulttype=RESULT)
+            c_resize = inputconst(ootype.Void, '_ll_resize')
+            hop.genop('oosend', [c_resize, v_list, c_length], resulttype=ootype.Void)
+
+        c_setitem = inputconst(ootype.Void, 'll_setitem_fast')
+        
         for index in range(len(self.items_r)):
             name = self.fieldnames[index]
             r_item = self.items_r[index]
@@ -51,6 +57,7 @@ class TupleRepr(AbstractTupleRepr):
             v_item = hop.llops.convertvar(v_item, r_item, hop.r_result.item_repr)
             c_index = inputconst(ootype.Signed, index)
             hop.genop('oosend', [c_setitem, v_list, c_index, v_item], resulttype=ootype.Void)
+            
         return v_list
 
 

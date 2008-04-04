@@ -28,7 +28,7 @@ The CLI implementation is broken into three sections:
 from pypy.translator.oosupport.constant import \
      push_constant, WeakRefConst, StaticMethodConst, CustomDictConst, \
      ListConst, ClassConst, InstanceConst, RecordConst, DictConst, \
-     BaseConstantGenerator, AbstractConst
+     BaseConstantGenerator, AbstractConst, ArrayConst
 from pypy.translator.cli.ilgenerator import CLIBaseGenerator
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.cli.comparer import EqualityComparer
@@ -373,9 +373,25 @@ class CLIListConst(CLIBaseConstMixin, ListConst):
     
     def create_pointer(self, gen):
         self.db.const_count.inc('List')
-        self.db.const_count.inc('List', self.value._TYPE._ITEMTYPE)
+        self.db.const_count.inc('List', self.value._TYPE.ITEM)
         self.db.const_count.inc('List', len(self.value._list))
-        super(CLIListConst, self).create_pointer(gen)        
+        super(CLIListConst, self).create_pointer(gen)
+
+
+class CLIArrayConst(CLIBaseConstMixin, ArrayConst):
+
+    def _do_not_initialize(self):
+        # Check if it is an array of all zeroes:
+        try:
+            if self.value._list == [0] * len(self.value._list):
+                return True
+        except:
+            pass
+        return super(CLIArrayConst, self)._do_not_initialize()
+
+    def _setitem(self, SELFTYPE, gen):
+        gen.array_setitem(SELFTYPE)
+
 
 class CLIDictConst(CLIDictMixin, DictConst):
     def create_pointer(self, gen):

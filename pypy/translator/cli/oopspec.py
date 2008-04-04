@@ -31,9 +31,9 @@ def get_method_name(graph, op):
 
 def get_method(TYPE, name):
     try:
-        # special case: when having List of Void, look at the concrete
-        # methods, not the generic ones
-        if isinstance(TYPE, ootype.List) and TYPE._ITEMTYPE is ootype.Void:
+        # special case: when having List of Void, or an Array, look at
+        # the concrete methods, not the generic ones
+        if isinstance(TYPE, ootype.Array) or (isinstance(TYPE, ootype.List) and TYPE.ITEM is ootype.Void):
             return TYPE._METHODS[name]
         else:
             return TYPE._GENERIC_METHODS[name]

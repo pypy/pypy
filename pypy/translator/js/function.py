@@ -73,6 +73,9 @@ class BaseGenerator(object):
     def new(self, obj):
         self.ilasm.new(self.cts.obj_name(obj))
 
+    def oonewarray(self, obj, length):
+        self.ilasm.oonewarray(self.cts.obj_name(obj), length)
+
     def set_field(self, obj, name):
         self.ilasm.set_field(obj, name)
         #self.ilasm.set_field(self.field_name(obj,name))

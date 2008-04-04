@@ -6,7 +6,7 @@ come from the oosupport directory.
 """
 
 from pypy.translator.oosupport.metavm import \
-     PushArg, PushAllArgs, StoreResult, InstructionList, New, DoNothing, Call,\
+     PushArg, PushAllArgs, StoreResult, InstructionList, New, OONewArray, DoNothing, Call,\
      SetField, GetField, DownCast, RuntimeNew, OOString, OOUnicode, \
      CastTo, PushPrimitive
 from pypy.translator.jvm.metavm import \
@@ -15,19 +15,18 @@ from pypy.translator.jvm.metavm import \
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.jvm.cmpopcodes import cmp_opname
 
-import pypy.translator.jvm.generator as jvmgen
-import pypy.translator.jvm.typesystem as jvmtype
+import pypy.translator.jvm.typesystem as jvm
 
 def _proc(val):
     if isinstance(val, list):
         # Lists of instructions we leave alone:
         return InstructionList(val)
-    elif isinstance(val, jvmgen.Method) and not val.is_static():
+    elif isinstance(val, jvm.Method) and not val.is_static():
         # For virtual methods, we first push an instance of the relevant
         # class, then the arguments, and then invoke the method.  Note
         # that we only allow virtual methods of certain pre-designated
         # classes to be in the table.
-        if val.class_name == jvmtype.jPyPy.name:
+        if val.class_name == jvm.jPyPy.name:
             return InstructionList(
                 (PushPyPy, PushAllArgs, val, StoreResult))
         else:
@@ -71,6 +70,7 @@ Ignore = []
 opcodes = _proc_dict({
     # __________ object oriented operations __________
     'new':                      [New, StoreResult],
+    'oonewarray':               [OONewArray, StoreResult],
     'runtimenew':               [RuntimeNew, StoreResult],
     'oosetfield':               [SetField],
     'oogetfield':               [GetField, StoreResult],
@@ -78,19 +78,19 @@ opcodes = _proc_dict({
     'ooupcast':                 DoNothing,
     'oodowncast':               [DownCast, StoreResult],
     'instanceof':               [CastTo, StoreResult],
-    'subclassof':               [PushAllArgs, jvmgen.SWAP, jvmgen.CLASSISASSIGNABLEFROM, StoreResult],
-    'ooidentityhash':           [PushAllArgs, jvmgen.OBJHASHCODE, StoreResult], 
-    'oohash':                   [PushAllArgs, jvmgen.OBJHASHCODE, StoreResult], 
+    'subclassof':               [PushAllArgs, jvm.SWAP, jvm.CLASSISASSIGNABLEFROM, StoreResult],
+    'ooidentityhash':           [PushAllArgs, jvm.OBJHASHCODE, StoreResult], 
+    'oohash':                   [PushAllArgs, jvm.OBJHASHCODE, StoreResult], 
     'oostring':                 [OOString, StoreResult],
     'oounicode':                [OOUnicode, StoreResult],
-    'ooparse_float':            jvmgen.PYPYOOPARSEFLOAT,
+    'ooparse_float':            jvm.PYPYOOPARSEFLOAT,
     'oonewcustomdict':          [NewCustomDict, StoreResult],
     'same_as':                  DoNothing,
     'hint':                     [PushArg(0), StoreResult],
     'direct_call':              [Call, StoreResult],
     'indirect_call':            [PushAllArgs, IndirectCall, StoreResult],
 
-    'gc__collect':              jvmgen.SYSTEMGC,
+    'gc__collect':              jvm.SYSTEMGC,
     'gc_set_max_heap_size':     Ignore,
     'resume_point':             Ignore,
 
@@ -100,100 +100,100 @@ opcodes = _proc_dict({
 
     'bool_not':                 'logical_not',
 
-    'int_neg':                  jvmgen.INEG,
-    'int_neg_ovf':              jvmgen.INEGOVF,
+    'int_neg':                  jvm.INEG,
+    'int_neg_ovf':              jvm.INEGOVF,
     'int_abs':                  'iabs',
-    'int_abs_ovf':              jvmgen.IABSOVF,
+    'int_abs_ovf':              jvm.IABSOVF,
     'int_invert':               'bitwise_negate',
 
-    'int_add':                  jvmgen.IADD,
-    'int_sub':                  jvmgen.ISUB,
-    'int_mul':                  jvmgen.IMUL,
-    'int_floordiv':             jvmgen.IDIV,
-    'int_floordiv_zer':         _check_zer(jvmgen.IDIV),
-    'int_mod':                  jvmgen.IREM,
-    'int_and':                  jvmgen.IAND,
-    'int_or':                   jvmgen.IOR,
-    'int_lshift':               jvmgen.ISHL,
-    'int_rshift':               jvmgen.ISHR,
-    'int_xor':                  jvmgen.IXOR,
-    'int_add_ovf':              jvmgen.IADDOVF,
-    'int_add_nonneg_ovf':       jvmgen.IADDOVF,
-    'int_sub_ovf':              jvmgen.ISUBOVF,
-    'int_mul_ovf':              jvmgen.IMULOVF,
-    'int_floordiv_ovf':         jvmgen.IDIV, # these can't overflow!
-    'int_mod_zer':              _check_zer(jvmgen.IREM),
-    'int_mod_ovf':              jvmgen.IREMOVF,
-    'int_and_ovf':              jvmgen.IAND,
-    'int_or_ovf':               jvmgen.IOR,
+    'int_add':                  jvm.IADD,
+    'int_sub':                  jvm.ISUB,
+    'int_mul':                  jvm.IMUL,
+    'int_floordiv':             jvm.IDIV,
+    'int_floordiv_zer':         _check_zer(jvm.IDIV),
+    'int_mod':                  jvm.IREM,
+    'int_and':                  jvm.IAND,
+    'int_or':                   jvm.IOR,
+    'int_lshift':               jvm.ISHL,
+    'int_rshift':               jvm.ISHR,
+    'int_xor':                  jvm.IXOR,
+    'int_add_ovf':              jvm.IADDOVF,
+    'int_add_nonneg_ovf':       jvm.IADDOVF,
+    'int_sub_ovf':              jvm.ISUBOVF,
+    'int_mul_ovf':              jvm.IMULOVF,
+    'int_floordiv_ovf':         jvm.IDIV, # these can't overflow!
+    'int_mod_zer':              _check_zer(jvm.IREM),
+    'int_mod_ovf':              jvm.IREMOVF,
+    'int_and_ovf':              jvm.IAND,
+    'int_or_ovf':               jvm.IOR,
 
-    'int_lshift_ovf':           jvmgen.ISHLOVF,
-    'int_lshift_ovf_val':       jvmgen.ISHLOVF, # VAL... what is val used for??
+    'int_lshift_ovf':           jvm.ISHLOVF,
+    'int_lshift_ovf_val':       jvm.ISHLOVF, # VAL... what is val used for??
 
-    'int_rshift_ovf':           jvmgen.ISHR, # these can't overflow!
-    'int_xor_ovf':              jvmgen.IXOR,
-    'int_floordiv_ovf_zer':     _check_zer(jvmgen.IDIV),
-    'int_mod_ovf_zer':          _check_zer(jvmgen.IREMOVF),
+    'int_rshift_ovf':           jvm.ISHR, # these can't overflow!
+    'int_xor_ovf':              jvm.IXOR,
+    'int_floordiv_ovf_zer':     _check_zer(jvm.IDIV),
+    'int_mod_ovf_zer':          _check_zer(jvm.IREMOVF),
 
     'uint_invert':              'bitwise_negate',
 
-    'uint_add':                 jvmgen.IADD,
-    'uint_sub':                 jvmgen.ISUB,
-    'uint_mul':                 jvmgen.PYPYUINTMUL,
-    'uint_div':                 jvmgen.PYPYUINTDIV,
+    'uint_add':                 jvm.IADD,
+    'uint_sub':                 jvm.ISUB,
+    'uint_mul':                 jvm.PYPYUINTMUL,
+    'uint_div':                 jvm.PYPYUINTDIV,
     'uint_truediv':             None,    # TODO
-    'uint_floordiv':            jvmgen.PYPYUINTDIV,
-    'uint_mod':                 jvmgen.PYPYUINTMOD,
-    'uint_and':                 jvmgen.IAND,
-    'uint_or':                  jvmgen.IOR,
-    'uint_lshift':              jvmgen.ISHL,
-    'uint_rshift':              jvmgen.IUSHR,
-    'uint_xor':                 jvmgen.IXOR,
+    'uint_floordiv':            jvm.PYPYUINTDIV,
+    'uint_mod':                 jvm.PYPYUINTMOD,
+    'uint_and':                 jvm.IAND,
+    'uint_or':                  jvm.IOR,
+    'uint_lshift':              jvm.ISHL,
+    'uint_rshift':              jvm.IUSHR,
+    'uint_xor':                 jvm.IXOR,
 
-    'float_neg':                jvmgen.DNEG,
+    'float_neg':                jvm.DNEG,
     'float_abs':                'dbl_abs',
 
-    'float_add':                jvmgen.DADD,
-    'float_sub':                jvmgen.DSUB,
-    'float_mul':                jvmgen.DMUL,
-    'float_truediv':            jvmgen.DDIV,
+    'float_add':                jvm.DADD,
+    'float_sub':                jvm.DSUB,
+    'float_mul':                jvm.DMUL,
+    'float_truediv':            jvm.DDIV,
 
-    'llong_neg':                jvmgen.LNEG,
-    'llong_neg_ovf':            jvmgen.LNEGOVF,
-    'llong_abs':                jvmgen.MATHLABS,
-    'llong_abs_ovf':            jvmgen.LABSOVF,
-    'llong_invert':             jvmgen.PYPYLONGBITWISENEGATE,
+    'llong_neg':                jvm.LNEG,
+    'llong_neg_ovf':            jvm.LNEGOVF,
+    'llong_abs':                jvm.MATHLABS,
+    'llong_abs_ovf':            jvm.LABSOVF,
+    'llong_invert':             jvm.PYPYLONGBITWISENEGATE,
 
-    'llong_add':                jvmgen.LADD,
-    'llong_sub':                jvmgen.LSUB,
-    'llong_mul':                jvmgen.LMUL,
-    'llong_div':                jvmgen.LDIV,
+    'llong_add':                jvm.LADD,
+    'llong_sub':                jvm.LSUB,
+    'llong_mul':                jvm.LMUL,
+    'llong_div':                jvm.LDIV,
     'llong_truediv':            None, # TODO
-    'llong_floordiv':           jvmgen.LDIV,
-    'llong_floordiv_zer':       _check_zer(jvmgen.LDIV),
-    'llong_mod':                jvmgen.LREM,
-    'llong_mod_zer':            _check_zer(jvmgen.LREM),
-    'llong_and':                jvmgen.LAND,
-    'llong_or':                 jvmgen.LOR,
-    'llong_lshift':             [PushAllArgs, jvmgen.L2I, jvmgen.LSHL, StoreResult], # XXX - do we care about shifts of >(1<<32) bits??
-    'llong_rshift':             [PushAllArgs, jvmgen.L2I, jvmgen.LSHR, StoreResult],
-    'llong_xor':                jvmgen.LXOR,
-    'llong_floordiv_ovf':       jvmgen.LDIV, # these can't overflow!
-    'llong_mod_ovf':            jvmgen.LREMOVF,
-    'llong_lshift_ovf':         jvmgen.LSHLOVF,
+    'llong_floordiv':           jvm.LDIV,
+    'llong_floordiv_zer':       _check_zer(jvm.LDIV),
+    'llong_mod':                jvm.LREM,
+    'llong_mod_zer':            _check_zer(jvm.LREM),
+    'llong_and':                jvm.LAND,
+    'llong_or':                 jvm.LOR,
+    'llong_lshift':             [PushAllArgs, jvm.L2I, jvm.LSHL, StoreResult],
+    'llong_rshift':             [PushAllArgs, jvm.L2I, jvm.LSHR, StoreResult],
+    'llong_xor':                jvm.LXOR,
+    'llong_floordiv_ovf':       jvm.LDIV, # these can't overflow!
+    'llong_mod_ovf':            jvm.LREMOVF,
+    'llong_lshift_ovf':         jvm.LSHLOVF,
 
-    'ullong_invert':            jvmgen.PYPYLONGBITWISENEGATE,
+    'ullong_invert':            jvm.PYPYLONGBITWISENEGATE,
 
-    'ullong_add':               jvmgen.LADD,
-    'ullong_sub':               jvmgen.LSUB,
-    'ullong_mul':               jvmgen.LMUL,
-    'ullong_div':               jvmgen.LDIV, # valid?
+    'ullong_add':               jvm.LADD,
+    'ullong_sub':               jvm.LSUB,
+    'ullong_mul':               jvm.LMUL,
+    'ullong_div':               jvm.LDIV, # valid?
     'ullong_truediv':           None, # TODO
-    'ullong_floordiv':          jvmgen.LDIV, # valid?
-    'ullong_mod':               jvmgen.PYPYULONGMOD,
-    'ullong_lshift':            [PushAllArgs, jvmgen.L2I, jvmgen.LSHL, StoreResult],
-    'ullong_rshift':            [PushAllArgs, jvmgen.L2I, jvmgen.LUSHR, StoreResult],
-    'ullong_mod_zer':           jvmgen.PYPYULONGMOD,
+    'ullong_floordiv':          jvm.LDIV, # valid?
+    'ullong_mod':               jvm.PYPYULONGMOD,
+    'ullong_lshift':            [PushAllArgs, jvm.L2I, jvm.LSHL, StoreResult],
+    'ullong_rshift':            [PushAllArgs, jvm.L2I, jvm.LUSHR, StoreResult],
+    'ullong_mod_zer':           jvm.PYPYULONGMOD,
 
     # when casting from bool we want that every truth value is casted
     # to 1: we can't simply DoNothing, because the CLI stack could
@@ -201,21 +201,21 @@ opcodes = _proc_dict({
     # trick. #THIS COMMENT NEEDS TO BE VALIDATED AND UPDATED
     'cast_bool_to_int':         DoNothing,
     'cast_bool_to_uint':        DoNothing,
-    'cast_bool_to_float':       jvmgen.PYPYBOOLTODOUBLE, #PAUL, inefficient    
+    'cast_bool_to_float':       jvm.PYPYBOOLTODOUBLE, #PAUL, inefficient    
     'cast_char_to_int':         DoNothing,
     'cast_unichar_to_int':      DoNothing,
     'cast_int_to_char':         DoNothing,
     'cast_int_to_unichar':      DoNothing,
     'cast_int_to_uint':         DoNothing,
-    'cast_int_to_float':        jvmgen.I2D,
-    'cast_int_to_longlong':     jvmgen.I2L,
+    'cast_int_to_float':        jvm.I2D,
+    'cast_int_to_longlong':     jvm.I2L,
     'cast_uint_to_int':         DoNothing,
-    'cast_uint_to_float':       jvmgen.PYPYUINTTODOUBLE, 
-    'cast_float_to_int':        jvmgen.D2I,
-    'cast_float_to_longlong':   jvmgen.PYPYDOUBLETOLONG, #PAUL
-    'cast_float_to_uint':       jvmgen.PYPYDOUBLETOUINT,
-    'truncate_longlong_to_int': jvmgen.L2I,
-    'cast_longlong_to_float':   jvmgen.L2D,
+    'cast_uint_to_float':       jvm.PYPYUINTTODOUBLE, 
+    'cast_float_to_int':        jvm.D2I,
+    'cast_float_to_longlong':   jvm.PYPYDOUBLETOLONG, #PAUL
+    'cast_float_to_uint':       jvm.PYPYDOUBLETOUINT,
+    'truncate_longlong_to_int': jvm.L2I,
+    'cast_longlong_to_float':   jvm.L2D,
     'cast_primitive':           [PushAllArgs, CastPrimitive, StoreResult],
     'is_early_constant':        [PushPrimitive(ootype.Bool, False), StoreResult]
     

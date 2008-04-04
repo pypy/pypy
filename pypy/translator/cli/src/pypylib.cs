@@ -35,8 +35,26 @@ namespace pypy.test
         public static string ToPython(object x) {
             if (x == null)
                 return "None";
+            else if (x is Array)
+                return ArrayToPython((Array)x);
             else
                 return x.ToString();
+        }
+
+        private static string ArrayToPython(Array array)
+        {
+            string res = "[";
+            foreach(object item in array) {
+                if (item != null && item.GetType() == typeof(string)) {
+                    object tmp = (object)item;
+                    res += ToPython((string)tmp) + ",";
+                }
+                else
+                    res += ToPython(item) + ",";
+                
+            }
+            res += "]";
+            return res;
         }
 
         public static string InstanceToPython(object obj) 
@@ -373,11 +391,9 @@ namespace pypy.runtime
             return s.Substring(start, count);
         }
 
-        public static List<string> ll_split_chr(string s, char ch)
+        public static string[] ll_split_chr(string s, char ch)
         {
-            List<string> res = new List<string>();
-            res.AddRange(s.Split(ch));
-            return res;
+            return s.Split(ch);
         }
 
         public static bool ll_contains(string s, char ch)
@@ -417,7 +433,7 @@ namespace pypy.runtime
                     res += pypy.test.Result.ToPython((string)tmp) + ",";
                 }
                 else
-                    res += item.ToString() + ","; // XXX: doesn't work for chars
+                    res += pypy.test.Result.ToPython(item) + ",";
             }
             res += "]";
             return res;

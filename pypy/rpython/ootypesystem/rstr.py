@@ -170,7 +170,7 @@ class LLHelpers(AbstractLLHelpers):
         return buf.ll_build()
 
     def ll_join_chars(length_dummy, lst):
-        if typeOf(lst)._ITEMTYPE == Char:
+        if typeOf(lst).ITEM == Char:
             buf = ootype.new(ootype.StringBuilder)
         else:
             buf = ootype.new(ootype.UnicodeBuilder)
@@ -183,7 +183,7 @@ class LLHelpers(AbstractLLHelpers):
         return buf.ll_build()
 
     def ll_join_strs(length_dummy, lst):
-        if typeOf(lst)._ITEMTYPE == ootype.String:
+        if typeOf(lst).ITEM == ootype.String:
             buf = ootype.new(ootype.StringBuilder)
         else:
             buf = ootype.new(ootype.UnicodeBuilder)
@@ -209,8 +209,8 @@ class LLHelpers(AbstractLLHelpers):
     def ll_stringslice_minusone(s):
         return s.ll_substring(0, s.ll_strlen()-1)
 
-    def ll_split_chr(LIST, s, c):
-        return s.ll_split_chr(c)
+    def ll_split_chr(RESULT, s, c):
+        return RESULT.ll_convert_from_array(s.ll_split_chr(c))
 
     def ll_int(s, base):
         if not 2 <= base <= 36:

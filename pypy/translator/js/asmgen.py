@@ -219,6 +219,9 @@ class AsmGen(object):
     def runtimenew(self):
         self.right_hand.append("new %s()" % self.right_hand.pop())
     
+    def oonewarray(self, obj, length):
+        self.right_hand.append("new %s(%s)" % (obj, length))
+
     def load_self(self):
         self.right_hand.append("this")
     

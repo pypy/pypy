@@ -498,7 +498,6 @@ class BaseTestRlist(BaseRtypingTest):
         assert self.class_name(res) == 'A'
         #''.join(res.super.typeptr.name) == 'A\00'
         
-
     def test_reverse(self):
         def dummyfn():
             l = [5, 3, 2]
@@ -517,15 +516,15 @@ class BaseTestRlist(BaseRtypingTest):
         assert res == 235
 
     def test_prebuilt_list(self):
-        klist = ['a', 'd', 'z', 'k']
+        klist = [6, 7, 8, 9]
         def dummyfn(n):
             return klist[n]
         res = self.interpret(dummyfn, [0])
-        assert res == 'a'
+        assert res == 6
         res = self.interpret(dummyfn, [3])
-        assert res == 'k'
+        assert res == 9
         res = self.interpret(dummyfn, [-2])
-        assert res == 'z'
+        assert res == 8
 
         klist = ['a', 'd', 'z']
         def mkdummyfn():

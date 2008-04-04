@@ -68,6 +68,17 @@ class _CallMethod(_Call):
             arg_list = ', '.join(arg_types)
             signature = '%s %s::%s(%s)' % (ret_type, STRING_HELPER_CLASS, method_name, arg_list)
             generator.call_signature(signature)
+        elif isinstance(this.concretetype, ootype.Array) and this.concretetype.ITEM is not ootype.Void:
+            v_array = args[0]
+            ARRAY = v_array.concretetype
+            if method_name == 'll_setitem_fast':
+                generator.array_setitem(ARRAY)
+            elif method_name == 'll_getitem_fast':
+                generator.array_getitem(ARRAY)
+            elif method_name == 'll_length':
+                generator.array_length(ARRAY)
+            else:
+                assert False
         else:
             generator.call_method(this.concretetype, method_name)
             
@@ -251,10 +262,14 @@ class _FieldInfoForConst(MicroInstruction):
 
 
 OOTYPE_TO_MNEMONIC = {
+    ootype.Bool: 'i1', 
+    ootype.Char: 'i2',
+    ootype.UniChar: 'i2',
     ootype.Signed: 'i4',
     ootype.SignedLongLong: 'i8',
     ootype.Unsigned: 'u4',
     ootype.UnsignedLongLong: 'u8',
+    ootype.Float: 'r8',
     }
 
 class _CastPrimitive(MicroInstruction):

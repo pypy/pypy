@@ -22,6 +22,7 @@ class GenOO(object):
     RecordConst = ooconst.RecordConst
     ClassConst = ooconst.ClassConst
     ListConst = ooconst.ListConst
+    ArrayConst = ooconst.ArrayConst
     StaticMethodConst = ooconst.StaticMethodConst
     CustomDictConst = ooconst.CustomDictConst
     DictConst = ooconst.DictConst

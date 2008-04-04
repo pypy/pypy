@@ -1,8 +1,7 @@
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.oosupport.metavm import MicroInstruction
 from pypy.translator.jvm.typesystem import JvmScalarType, JvmClassType
-import pypy.translator.jvm.generator as jvmgen
-import pypy.translator.jvm.typesystem as jvmtype
+import pypy.translator.jvm.typesystem as jvm
 from pypy.translator.jvm.builtin import JvmBuiltInType
 from pypy.translator.jvm import cmpopcodes
 
@@ -86,13 +85,13 @@ class _NewCustomDict(MicroInstruction):
     def render(self, generator, op):
         self._load_func(generator, *op.args[1:4])
         self._load_func(generator, *op.args[4:7])
-        generator.emit(jvmgen.CUSTOMDICTMAKE)
+        generator.emit(jvm.CUSTOMDICTMAKE)
 NewCustomDict = _NewCustomDict()
 
 CASTS = {
 #   FROM                      TO
-    (ootype.Signed,           ootype.UnsignedLongLong): jvmgen.I2L,
-    (ootype.SignedLongLong,   ootype.Signed):           jvmgen.L2I,
+    (ootype.Signed,           ootype.UnsignedLongLong): jvm.I2L,
+    (ootype.SignedLongLong,   ootype.Signed):           jvm.L2I,
     (ootype.UnsignedLongLong, ootype.SignedLongLong):   None,
     }
 
@@ -118,9 +117,9 @@ class _PushComparisonResult(MicroInstruction):
         truelbl = generator.unique_label('load_comparision_result_true')
         endlbl = generator.unique_label('load_comparision_result_end')
         cmpopcodes.branch_if(generator, op.opname, truelbl)
-        generator.emit(jvmgen.ICONST, 0)
+        generator.emit(jvm.ICONST, 0)
         generator.goto(endlbl)
         generator.mark(truelbl)
-        generator.emit(jvmgen.ICONST, 1)
+        generator.emit(jvm.ICONST, 1)
         generator.mark(endlbl)
 PushComparisonResult = _PushComparisonResult()

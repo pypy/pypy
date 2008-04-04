@@ -1035,6 +1035,11 @@ class LLFrame(object):
     def op_new(self, INST):
         assert isinstance(INST, (ootype.Instance, ootype.BuiltinType))
         return ootype.new(INST)
+        
+    def op_oonewarray(self, ARRAY, length):
+        assert isinstance(ARRAY, ootype.Array)
+        assert isinstance(length, int)
+        return ootype.oonewarray(ARRAY, length)
 
     def op_runtimenew(self, class_):
         return ootype.runtimenew(class_)

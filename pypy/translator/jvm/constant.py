@@ -1,15 +1,14 @@
 from pypy.rpython.ootypesystem import ootype
 from pypy.objspace.flow import model as flowmodel
-from pypy.translator.jvm.generator import \
-     Field, Method, CUSTOMDICTMAKE
+import pypy.translator.jvm.typesystem as jvm
+from pypy.translator.jvm.typesystem import \
+     jVoid, Method, Field
 from pypy.translator.oosupport.constant import \
      BaseConstantGenerator, RecordConst, InstanceConst, ClassConst, \
      StaticMethodConst, CustomDictConst, WeakRefConst, push_constant, \
      MAX_CONST_PER_STEP
-from pypy.translator.jvm.typesystem import \
-     jObject, jVoid, jPyPyWeakRef, JvmClassType
 
-jPyPyConstantInit = JvmClassType('pypy.ConstantInit')
+jPyPyConstantInit = jvm.JvmClassType('pypy.ConstantInit')
 jPyPyConstantInitMethod = Method.s(jPyPyConstantInit, 'init', [], jVoid)
 
 # ___________________________________________________________________________
@@ -51,7 +50,7 @@ class JVMConstantGenerator(BaseConstantGenerator):
         # This prevents any one class from getting too big.
         if (self.num_constants % MAX_CONST_PER_STEP) == 0:
             cc_num = len(self.ccs)
-            self.ccs.append(JvmClassType('pypy.Constant_%d' % cc_num))
+            self.ccs.append(jvm.JvmClassType('pypy.Constant_%d' % cc_num))
         self.num_constants += 1
 
         const.fieldobj = Field(self.ccs[-1].name, const.name, jfieldty, True)
@@ -99,7 +98,7 @@ class JVMConstantGenerator(BaseConstantGenerator):
             except KeyError:
                 constants_by_cls[const.fieldobj.class_name] = [const]
         for cc in self.ccs:
-            ilasm.begin_class(cc, jObject)
+            ilasm.begin_class(cc, jvm.jObject)
             for const in constants_by_cls[cc.name]:
                 ilasm.add_field(const.fieldobj)
             ilasm.end_class()
@@ -122,8 +121,9 @@ class JVMConstantGenerator(BaseConstantGenerator):
             self._push_constant_during_init(gen, const)
 
     def _declare_step(self, gen, stepnum):
-        self.step_classes.append(JvmClassType('pypy.ConstantInit_%d' % stepnum))
-        gen.begin_class(self.step_classes[-1], jObject)
+        self.step_classes.append(jvm.JvmClassType(
+            'pypy.ConstantInit_%d' % stepnum))
+        gen.begin_class(self.step_classes[-1], jvm.jObject)
         gen.begin_function('constant_init', [], [], jVoid, True)
 
     def _close_step(self, gen, stepnum):
@@ -132,7 +132,7 @@ class JVMConstantGenerator(BaseConstantGenerator):
         gen.end_class()       # end pypy.ConstantInit_NNN
     
     def _end_gen_constants(self, gen, numsteps):
-        gen.begin_class(jPyPyConstantInit, jObject)
+        gen.begin_class(jPyPyConstantInit, jvm.jObject)
         gen.begin_j_function(jPyPyConstantInit, jPyPyConstantInitMethod)
         for cls in self.step_classes:
             m = Method.s(cls, "constant_init", [], jVoid)
@@ -156,7 +156,7 @@ class JVMStaticMethodConst(StaticMethodConst):
         if self.delegate_impl:
             gen.new_with_jtype(self.delegate_impl)
         else:
-            gen.push_null(jObject)
+            gen.push_null(jvm.jObject)
 
     def initialize_data(self, constgen, gen):
         return
@@ -180,7 +180,7 @@ class JVMCustomDictConst(CustomDictConst):
     def create_pointer(self, gen):
         gen.new_with_jtype(self.eq_jcls)
         gen.new_with_jtype(self.hash_jcls)
-        gen.emit(CUSTOMDICTMAKE)
+        gen.emit(jvm.CUSTOMDICTMAKE)
         
 class JVMWeakRefConst(WeakRefConst):
 
@@ -188,7 +188,7 @@ class JVMWeakRefConst(WeakRefConst):
     PRIORITY = 200
 
     def jtype(self):
-        return jPyPyWeakRef
+        return jvm.jPyPyWeakRef
 
     def create_pointer(self, gen):        
         if not self.value:

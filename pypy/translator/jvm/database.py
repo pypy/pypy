@@ -7,21 +7,15 @@ from cStringIO import StringIO
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype, rclass
 from pypy.rpython.ootypesystem.module import ll_os
-from pypy.translator.jvm import typesystem as jvmtype
 from pypy.translator.jvm import node, methods
 from pypy.translator.jvm.option import getoption
-import pypy.translator.jvm.generator as jvmgen
-from pypy.translator.jvm.generator import Method, Property, Field
-import pypy.translator.jvm.constant as jvmconst
-from pypy.translator.jvm.typesystem import \
-     jStringBuilder, jInt, jVoid, jString, jChar, jObject, \
-     jThrowable, JvmNativeClass, jPyPy, JvmClassType
 from pypy.translator.jvm.builtin import JvmBuiltInType
-
 from pypy.translator.oosupport.database import Database as OODatabase
 from pypy.rpython.ootypesystem.bltregistry import ExternalType
 from pypy.annotation.signature import annotation
 from pypy.annotation.model import annotation_to_lltype
+import pypy.translator.jvm.constant as jvmconst
+import pypy.translator.jvm.typesystem as jvm
 
 # ______________________________________________________________________
 # Database object
@@ -34,7 +28,7 @@ class Database(OODatabase):
         self._jasmin_files = [] # list of strings --- .j files we made
         self._classes = {} # Maps ootype class objects to node.Class objects,
                            # and JvmType objects as well
-        self._functions = {}      # graph -> jvmgen.Method
+        self._functions = {}      # graph -> jvm.Method
 
         # (jargtypes, jrettype) -> node.StaticMethodInterface
         self._delegates = {}
@@ -44,7 +38,7 @@ class Database(OODatabase):
 
         self._function_names = {} # graph --> function_name
 
-        self._constants = {}      # flowmodel.Variable --> jvmgen.Const
+        self._constants = {}      # flowmodel.Variable --> jvm.Const
 
         # Special fields for the Object class, see _translate_Object
         self._object_interf = None
@@ -65,11 +59,11 @@ class Database(OODatabase):
         #
         #    These are public attributes that are referenced from
         #    elsewhere in the code using
-        #    jvmgen.Generator.push_interlink() and .push_pypy().
-        self.jPyPyMain = JvmClassType(self._pkg('Main'))
-        self.pypy_field = jvmgen.Field.s(self.jPyPyMain, 'pypy', jPyPy)
-        self.interlink_field = jvmgen.Field.s(self.jPyPyMain, 'ilink',
-                                              jvmtype.jPyPyInterlink)
+        #    jvm.Generator.push_interlink() and .push_pypy().
+        self.jPyPyMain = jvm.JvmClassType(self._pkg('Main'))
+        self.pypy_field = jvm.Field.s(self.jPyPyMain, 'pypy', jvm.jPyPy)
+        self.interlink_field = jvm.Field.s(self.jPyPyMain, 'ilink',
+                                           jvm.jPyPyInterlink)
 
     # _________________________________________________________________
     # Java String vs Byte Array
@@ -93,7 +87,7 @@ class Database(OODatabase):
 
     def class_name(self, TYPE):
         jtype = self.lltype_to_cts(TYPE)
-        assert isinstance(jtype, jvmtype.JvmClassType)
+        assert isinstance(jtype, jvm.JvmClassType)
         return jtype.name
 
     def add_jasmin_file(self, jfile):
@@ -120,14 +114,14 @@ class Database(OODatabase):
         like.
 
         The 'methods' argument should be a dictionary whose keys are
-        method names and whose entries are jvmgen.Method objects which
+        method names and whose entries are jvm.Method objects which
         the corresponding method should invoke. """
 
         nm = self._pkg(self._uniq('InterlinkImplementation'))
-        cls = node.Class(nm, supercls=jObject)
+        cls = node.Class(nm, supercls=jvm.jObject)
         for method_name, helper in methods.items():
             cls.add_method(node.InterlinkFunction(cls, method_name, helper))
-        cls.add_interface(jvmtype.jPyPyInterlink)
+        cls.add_interface(jvm.jPyPyInterlink)
         self.jInterlinkImplementation = cls
         self.pending_node(cls)
 
@@ -169,7 +163,7 @@ class Database(OODatabase):
 
         # Create the class object first
         clsnm = self._pkg(self._uniq('Record'))
-        clsobj = node.Class(clsnm, jObject)
+        clsobj = node.Class(clsnm, jvm.jObject)
         self._classes[OOTYPE] = clsobj
 
         # Add fields:
@@ -205,8 +199,8 @@ class Database(OODatabase):
         def gen_name(): return self._pkg(self._uniq(OBJ._name))
         internm, implnm, exc_implnm = gen_name(), gen_name(), gen_name()
         self._object_interf = node.Interface(internm)
-        self._object_impl = node.Class(implnm, supercls=jObject)
-        self._object_exc_impl = node.Class(exc_implnm, supercls=jThrowable)
+        self._object_impl = node.Class(implnm, supercls=jvm.jObject)
+        self._object_exc_impl = node.Class(exc_implnm, supercls=jvm.jThrowable)
         self._object_impl.add_interface(self._object_interf)
         self._object_exc_impl.add_interface(self._object_interf)
 
@@ -220,12 +214,12 @@ class Database(OODatabase):
             methodnm = "_jvm_"+fieldnm
 
             def getter_method_obj(node):
-                return Method.v(node, methodnm+"_g", [], fieldty)
+                return jvm.Method.v(node, methodnm+"_g", [], fieldty)
             def putter_method_obj(node):
-                return Method.v(node, methodnm+"_p", [fieldty], jVoid)
+                return jvm.Method.v(node, methodnm+"_p", [fieldty], jvm.jVoid)
             
             # Add get/put methods to the interface:
-            prop = Property(
+            prop = jvm.Property(
                 fieldnm, 
                 getter_method_obj(self._object_interf),
                 putter_method_obj(self._object_interf),
@@ -235,7 +229,7 @@ class Database(OODatabase):
             # Generate implementations:
             def generate_impl(clsobj):
                 clsnm = clsobj.name
-                fieldobj = Field(clsnm, fieldnm, fieldty, False, FIELDOOTY)
+                fieldobj = jvm.Field(clsnm, fieldnm, fieldty, False, FIELDOOTY)
                 clsobj.add_field(fieldobj, fielddef)
                 clsobj.add_method(node.GetterFunction(
                     self, clsobj, getter_method_obj(clsobj), fieldobj))
@@ -296,7 +290,7 @@ class Database(OODatabase):
                 arglist = [self.lltype_to_cts(ARG) for ARG in METH.ARGS
                            if ARG is not ootype.Void]
                 returntype = self.lltype_to_cts(METH.RESULT)
-                clsobj.add_abstract_method(jvmgen.Method.v(
+                clsobj.add_abstract_method(jvm.Method.v(
                     clsobj, mname, arglist, returntype))
             else:
                 # if the first argument's type is not a supertype of
@@ -323,7 +317,7 @@ class Database(OODatabase):
             if FIELDOOTY is ootype.Void: continue
             fieldty = self.lltype_to_cts(FIELDOOTY)
             clsobj.add_field(
-                jvmgen.Field(clsobj.name, fieldnm, fieldty, False, FIELDOOTY),
+                jvm.Field(clsobj.name, fieldnm, fieldty, False, FIELDOOTY),
                 fielddef)
 
     def pending_class(self, OOTYPE):
@@ -334,7 +328,7 @@ class Database(OODatabase):
         This is invoked when a standalone function is to be compiled.
         It creates a class named after the function with a single
         method, invoke().  This class is added to the worklist.
-        Returns a jvmgen.Method object that allows this function to be
+        Returns a jvm.Method object that allows this function to be
         invoked.
         """
         if graph in self._functions:
@@ -366,7 +360,7 @@ class Database(OODatabase):
         """
         Like record_delegate, but the signature is in terms of java
         types.  jargs is a list of JvmTypes, one for each argument,
-        and jret is a JvmType.  Note that jargs does NOT include an
+        and jret is a Jvm.  Note that jargs does NOT include an
         entry for the this pointer of the resulting object.  
         """
         key = (jargs, jret)
@@ -424,17 +418,17 @@ class Database(OODatabase):
     # any type.
     
     _toString_methods = {
-        ootype.Signed:jvmgen.INTTOSTRINGI,
-        ootype.Unsigned:jvmgen.PYPYSERIALIZEUINT,
-        ootype.SignedLongLong:jvmgen.LONGTOSTRINGL,
-        ootype.UnsignedLongLong: jvmgen.PYPYSERIALIZEULONG,
-        ootype.Float:jvmgen.DOUBLETOSTRINGD,
-        ootype.Bool:jvmgen.PYPYSERIALIZEBOOLEAN,
-        ootype.Void:jvmgen.PYPYSERIALIZEVOID,
-        ootype.Char:jvmgen.PYPYESCAPEDCHAR,
-        ootype.UniChar:jvmgen.PYPYESCAPEDUNICHAR,
-        ootype.String:jvmgen.PYPYESCAPEDSTRING,
-        ootype.Unicode:jvmgen.PYPYESCAPEDUNICODE,
+        ootype.Signed:jvm.INTTOSTRINGI,
+        ootype.Unsigned:jvm.PYPYSERIALIZEUINT,
+        ootype.SignedLongLong:jvm.LONGTOSTRINGL,
+        ootype.UnsignedLongLong: jvm.PYPYSERIALIZEULONG,
+        ootype.Float:jvm.DOUBLETOSTRINGD,
+        ootype.Bool:jvm.PYPYSERIALIZEBOOLEAN,
+        ootype.Void:jvm.PYPYSERIALIZEVOID,
+        ootype.Char:jvm.PYPYESCAPEDCHAR,
+        ootype.UniChar:jvm.PYPYESCAPEDUNICHAR,
+        ootype.String:jvm.PYPYESCAPEDSTRING,
+        ootype.Unicode:jvm.PYPYESCAPEDUNICODE,
         }
 
     def toString_method_for_ootype(self, OOTYPE):
@@ -451,7 +445,7 @@ class Database(OODatabase):
 
         to print the value of 'var'.
         """
-        return self._toString_methods.get(OOTYPE, jvmgen.PYPYSERIALIZEOBJECT)
+        return self._toString_methods.get(OOTYPE, jvm.PYPYSERIALIZEOBJECT)
 
     # _________________________________________________________________
     # Type translation functions
@@ -471,46 +465,51 @@ class Database(OODatabase):
     # Dictionary for scalar types; in this case, if we see the key, we
     # will return the value
     ootype_to_scalar = {
-        ootype.Void:             jvmtype.jVoid,
-        ootype.Signed:           jvmtype.jInt,
-        ootype.Unsigned:         jvmtype.jInt,
-        ootype.SignedLongLong:   jvmtype.jLong,
-        ootype.UnsignedLongLong: jvmtype.jLong,
-        ootype.Bool:             jvmtype.jBool,
-        ootype.Float:            jvmtype.jDouble,
-        ootype.Char:             jvmtype.jChar,    # byte would be sufficient, but harder
-        ootype.UniChar:          jvmtype.jChar,
-        ootype.Class:            jvmtype.jClass,
-        ootype.ROOT:             jvmtype.jObject,  # treat like a scalar
+        ootype.Void:             jvm.jVoid,
+        ootype.Signed:           jvm.jInt,
+        ootype.Unsigned:         jvm.jInt,
+        ootype.SignedLongLong:   jvm.jLong,
+        ootype.UnsignedLongLong: jvm.jLong,
+        ootype.Bool:             jvm.jBool,
+        ootype.Float:            jvm.jDouble,
+        ootype.Char:             jvm.jChar,    # byte would be sufficient, but harder
+        ootype.UniChar:          jvm.jChar,
+        ootype.Class:            jvm.jClass,
+        ootype.ROOT:             jvm.jObject,  # treat like a scalar
     }
 
     # Dictionary for non-scalar types; in this case, if we see the key, we
     # will return a JvmBuiltInType based on the value
     ootype_to_builtin = {
-        ootype.String:           jvmtype.jString,
-        ootype.Unicode:          jvmtype.jString,
-        ootype.StringBuilder:    jvmtype.jStringBuilder,
-        ootype.UnicodeBuilder:   jvmtype.jStringBuilder,
-        ootype.List:             jvmtype.jArrayList,
-        ootype.Dict:             jvmtype.jHashMap,
-        ootype.DictItemsIterator:jvmtype.jPyPyDictItemsIterator,
-        ootype.CustomDict:       jvmtype.jPyPyCustomDict,
-        ootype.WeakReference:    jvmtype.jPyPyWeakRef,
-        ll_os.STAT_RESULT:       jvmtype.jPyPyStatResult,
+        ootype.String:           jvm.jString,
+        ootype.Unicode:          jvm.jString,
+        ootype.StringBuilder:    jvm.jStringBuilder,
+        ootype.UnicodeBuilder:   jvm.jStringBuilder,
+        ootype.List:             jvm.jArrayList,
+        ootype.Dict:             jvm.jHashMap,
+        ootype.DictItemsIterator:jvm.jPyPyDictItemsIterator,
+        ootype.CustomDict:       jvm.jPyPyCustomDict,
+        ootype.WeakReference:    jvm.jPyPyWeakRef,
+        ll_os.STAT_RESULT:       jvm.jPyPyStatResult,
 
         # These are some configured records that are generated by Java
         # code.  
         #ootype.Record({"item0": ootype.Signed, "item1": ootype.Signed}):
-        #jvmtype.jPyPyRecordSignedSigned,
+        #jvm.jPyPyRecordSignedSigned,
         #ootype.Record({"item0": ootype.Float, "item1": ootype.Signed}):
-        #jvmtype.jPyPyRecordFloatSigned,
+        #jvm.jPyPyRecordFloatSigned,
         #ootype.Record({"item0": ootype.Float, "item1": ootype.Float}):
-        #jvmtype.jPyPyRecordFloatFloat,
+        #jvm.jPyPyRecordFloatFloat,
         #ootype.Record({"item0": ootype.String, "item1": ootype.String}):
-        #jvmtype.jPyPyRecordStringString,        
+        #jvm.jPyPyRecordStringString,        
         }
 
     def lltype_to_cts(self, OOT):
+        import sys
+        res = self._lltype_to_cts(OOT)
+        return res
+
+    def _lltype_to_cts(self, OOT):
         """ Returns an instance of JvmType corresponding to
         the given OOType """
 
@@ -519,9 +518,11 @@ class Database(OODatabase):
             return self.ootype_to_scalar[OOT]
         if (isinstance(OOT, lltype.Ptr) and
             isinstance(OOT.TO, lltype.OpaqueType)):
-            return jObject
+            return jvm.jObject
         if OOT in self.ootype_to_builtin:
             return JvmBuiltInType(self, self.ootype_to_builtin[OOT], OOT)
+        if isinstance(OOT, ootype.Array):
+            return self._array_type(OOT.ITEM)
         if OOT.__class__ in self.ootype_to_builtin:
             return JvmBuiltInType(
                 self, self.ootype_to_builtin[OOT.__class__], OOT)
@@ -538,9 +539,25 @@ class Database(OODatabase):
 
         # handle externals
         if isinstance(OOT, ExternalType):
-            return JvmNativeClass(self, OOT)
+            return jvm.JvmNativeClass(self, OOT)
         
         assert False, "Untranslatable type %s!" % OOT
+
+    ooitemtype_to_array = {
+        ootype.Signed   : jvm.jIntArray,
+        ootype.Unsigned : jvm.jIntArray,
+        ootype.Char     : jvm.jCharArray,
+        ootype.Bool     : jvm.jBoolArray,
+        ootype.UniChar  : jvm.jCharArray,
+        ootype.String   : jvm.jStringArray,
+        ootype.Float    : jvm.jDoubleArray,
+        ootype.Void     : jvm.jVoidArray,
+    }
+
+    def _array_type(self, ITEM):
+        if ITEM in self.ooitemtype_to_array:
+            return self.ooitemtype_to_array[ITEM]
+        return jvm.jObjectArray
 
     def annotation_to_cts(self, _tp):
         s_tp = annotation(_tp)

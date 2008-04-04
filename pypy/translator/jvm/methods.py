@@ -7,8 +7,7 @@ only requirement is that they must have a render(self, gen) method.
 
 """
 
-import pypy.translator.jvm.generator as jvmgen
-import pypy.translator.jvm.typesystem as jvmtype
+import pypy.translator.jvm.typesystem as jvm
 from pypy.rpython.ootypesystem import ootype, rclass
 
 class BaseDumpMethod(object):
@@ -19,7 +18,7 @@ class BaseDumpMethod(object):
         self.clsobj = clsobj
         self.name = "toString"
         self.jargtypes = [clsobj]
-        self.jrettype = jvmtype.jString
+        self.jrettype = jvm.jString
 
     def _print_field_value(self, fieldnm, FIELDOOTY):
         self.gen.load_this_ptr()
@@ -27,21 +26,21 @@ class BaseDumpMethod(object):
         fieldobj.load(self.gen)
         dumpmethod = self.db.toString_method_for_ootype(FIELDOOTY)
         self.gen.emit(dumpmethod)
-        self.gen.emit(jvmgen.STRINGBUILDERAPPEND)
+        self.gen.emit(jvm.STRINGBUILDERAPPEND)
 
     def _print(self, str):
         self.gen.load_string(str)
-        self.gen.emit(jvmgen.STRINGBUILDERAPPEND)
+        self.gen.emit(jvm.STRINGBUILDERAPPEND)
 
     def render(self, gen):
         self.gen = gen
         gen.begin_function(
             self.name, (), self.jargtypes, self.jrettype, static=False)
 
-        gen.new_with_jtype(jvmtype.jStringBuilder)
+        gen.new_with_jtype(jvm.jStringBuilder)
         self._render_guts(gen)
-        gen.emit(jvmgen.OBJTOSTRING)
-        gen.emit(jvmgen.RETURN.for_type(jvmtype.jString))
+        gen.emit(jvm.OBJTOSTRING)
+        gen.emit(jvm.RETURN.for_type(jvm.jString))
         gen.end_function()
         self.gen = None
 
@@ -117,8 +116,8 @@ class DeepEqualsMethod(object):
         self.OOCLASS = OOCLASS
         self.clsobj = clsobj
         self.name = "equals"
-        self.jargtypes = [clsobj, jvmtype.jObject]
-        self.jrettype = jvmtype.jBool
+        self.jargtypes = [clsobj, jvm.jObject]
+        self.jrettype = jvm.jBool
 
     def render(self, gen):
         self.gen = gen
@@ -156,10 +155,10 @@ class DeepEqualsMethod(object):
 
         # Return true or false as appropriate
         gen.push_primitive_constant(ootype.Bool, True)
-        gen.return_val(jvmtype.jBool)
+        gen.return_val(jvm.jBool)
         gen.mark(unequal_lbl)
         gen.push_primitive_constant(ootype.Bool, False)
-        gen.return_val(jvmtype.jBool)
+        gen.return_val(jvm.jBool)
 
         gen.end_function()
 
@@ -171,7 +170,7 @@ class DeepHashMethod(object):
         self.clsobj = clsobj
         self.name = "hashCode"
         self.jargtypes = [clsobj]
-        self.jrettype = jvmtype.jInt
+        self.jrettype = jvm.jInt
 
     def render(self, gen):
         self.gen = gen
@@ -194,10 +193,10 @@ class DeepHashMethod(object):
             gen.hash_value(FIELDOOTY)
 
             # XOR that with the main hash
-            gen.emit(jvmgen.IXOR)
+            gen.emit(jvm.IXOR)
 
         # Return the final hash
-        gen.return_val(jvmtype.jInt)
+        gen.return_val(jvm.jInt)
 
         gen.end_function()
 

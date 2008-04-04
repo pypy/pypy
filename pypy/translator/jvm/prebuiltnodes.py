@@ -57,7 +57,7 @@ def recordSignedSigned(a, b):
 
 def create_interlink_node(db):
     """ Translates the create_interlink_impl() function and returns
-    a jvmgen.Method object that allows it to be called. """
+    a jvm.Method object that allows it to be called. """
     translator = db.genoo.translator
 
     for func, type_list in HELPERS.items():
