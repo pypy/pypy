@@ -99,7 +99,8 @@ def create_pcre_pickle(file, picklefile):
     greedy_ops = re.compile(no_escape + r'[*?+}\(]\?')  # Look for *? +? }? (?
     back_refs  = re.compile(no_escape + r'\(.*' + no_escape + r'\\1') # find a \1
     caret_in_middle = re.compile(no_escape + r'[^\[\\]\^')
-    substr_quotes = re.compile(no_escape + r'(\\Q|\\E)')   # PCRE allows \Q.....\E to quote substrings, we dont.
+    posix_char_classes = re.compile(no_escape + r'\[[^]]*\[:[^]]+:\][^]]*\]')    # like [[:digit:]]
+    bad_backslashes = re.compile(no_escape + r'(\\Q|\\E|\\G|\\P|\\8|\\9|\\A|\\Z|\\F|\\R|\\B|\\b|\\h|\\H|\\v|\\V|\\z|\\N)')   # PCRE allows \Q.....\E to quote substrings, we dont.
     
     # Perl allows single-digit hex escapes. Change \x0 -> \x00, for example
     expand_perl_hex = re.compile(r'\\x([0-9a-fA-F]{1})(?=[^0-9a-fA-F]|$)')
@@ -139,7 +140,11 @@ def create_pcre_pickle(file, picklefile):
         flags = matches[0][-1] # Get the flags for the regex
 
         regex = expand_perl_hex.sub(lambda m: r'\x0'+m.group(1), regex)
-
+        if regex.startswith('\\A'):
+            regex = '^' + regex[2:] # We treat \A like ^
+        if regex.startswith('\\Z'):
+            regex = regex[:-2] + '$' # We treat \Z like $
+            
         tests = []
         if greedy_ops.search(regex) or back_refs.search(regex):
             # Suppress complex features we can't do
@@ -147,9 +152,11 @@ def create_pcre_pickle(file, picklefile):
         elif flags:
             # Suppress any test that requires PCRE flags
             pass
+        elif posix_char_classes.search(regex):
+            pass
         elif caret_in_middle.search(regex):
             pass
-        elif substr_quotes.search(regex):
+        elif bad_backslashes.search(regex):
             pass
         else:
             # In any other case, we're going to add the test
@@ -166,10 +173,15 @@ def create_pcre_pickle(file, picklefile):
                 if not test.endswith('\\\\'): # Two \'s means a real \
                     test = test[:-1]
             test = expand_perl_hex.sub(lambda m: r'\x0'+m.group(1), test)
+
+            disqualify_test = bad_backslashes.search(test)
+
             try:
                 test = unescape(test)
             except Exception:
+                disqualify_test = True
                 print "Warning: could not unescape %r" % test
+                
 
             # Third line in the OUTPUT is the result, either:
             # ' 0: ...' for a match (but this is ONLY escaped by \x__ types)
@@ -178,7 +190,7 @@ def create_pcre_pickle(file, picklefile):
             while lines:
                 match = lines.pop(0).rstrip('\r\n')
                 match = re.sub(r'\\x([0-9a-fA-F]{2})', lambda m: chr(int(m.group(1),16)), match)
-                if match.startswith('No match') or match.startswith('Error'):
+                if match.startswith('No match') or match.startswith('Error') or match.startswith('Partial'):
                     break
                 elif match.startswith(' 0:'):
                     # Now we need to eat any further lines like:
@@ -193,7 +205,8 @@ def create_pcre_pickle(file, picklefile):
                 elif not match:
                     print " *** %r ***" % match
                     raise Exception("Lost sync in output.")
-            tests.append((test,match))
+            if not disqualify_test:
+                tests.append((test,match))
     pickle.dump(suite, picklefile)
 
 def get_pcre_pickle(file):
@@ -220,6 +233,7 @@ def run_individual_test(regex, tests):
     runner = make_runner(regex_to_use)
     # Now run the test expressions against the Regex
     for test, match in tests:
+        print "/%r/%r/"%(test, match)
         expect_match = (match != 'No match')
         
         # Create possible subsequences that we should test
@@ -232,7 +246,7 @@ def run_individual_test(regex, tests):
             subseq_gen = ( (start, len(test)) for start in start_range )
         else:
             # Go backwards to simulate greediness
-            subseq_gen = ( (start, end) for start in start_range for end in range(len(test)+1, start, -1) )
+            subseq_gen = ( (start, end) for start in start_range for end in range(len(test)+1, start-1, -1) )
 
         # Search the possibilities for a match...
         for start, end in subseq_gen:
