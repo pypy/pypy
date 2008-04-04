@@ -6,6 +6,7 @@ testoutput1, but that was PCRE matching, which was inconsistent with
 our matching on strings like "[ab]{1,3}(ab*|b)" against 'aabbbb'.
 """
 
+pcre_license = """
 # The PCRE library is distributed under the BSD license. We have borrowed some
 # of the regression tests (the ones that fit under the DFA scope) in order to
 # exercise our regex implementation. Those tests are distributed under PCRE's
@@ -77,6 +78,8 @@ our matching on strings like "[ab]{1,3}(ab*|b)" against 'aabbbb'.
 #        
 #        End
 
+"""
+
 import py
 from pypy.rlib.parsing.regexparse import make_runner, unescape
 import string
@@ -84,14 +87,43 @@ import re
 
 py.test.skip("Still in progress")
 
-def create_pcre_pickle(file, picklefile):
+class Dumper(object):
+    def __init__(self, file):
+        pass
+    def dump(self, tests):
+        pass
+
+class PickleDumper(Dumper):
+    import pickle
+    def __init__(self, fileobj):
+        self.file = fileobj
+    def dump(self, tests):
+        pickle.dump(suite, self.file)
+    def load(self):
+        suite = pickle.load(file)
+        return suite
+        
+class PythonDumper(Dumper):
+    def __init__(self, fileobj):
+        self.file = fileobj
+    def dump(self, tests):
+        self.file.write('# Auto-generated file of regular expressions from PCRE library\n')
+        self.file.write(pcre_license)
+        self.file.write('suite = []\n')
+        for test in tests:
+            self.file.write('suite.append(%r)\n' % test)
+    def load(self):
+        d = {}
+        text = self.file.read()
+        exec text in d
+        return d['suite']
+
+def create_pcre_pickle(file, dumper):
     """Create a filtered PCRE test file for the test. 
     
     The pickle file was created by:
        create_pcre_pickle(open('testoutput1','r'), open('testoutput1.pickle','w')) 
     """
-    import pickle
-
     lines = [line for line in file.readlines()]
     
     # Look for things to skip...
@@ -139,11 +171,8 @@ def create_pcre_pickle(file, picklefile):
         regex += matches[0][-2] # Add the backslash, if we gotta
         flags = matches[0][-1] # Get the flags for the regex
 
+        # Gotta tolerate Perl's short hexes
         regex = expand_perl_hex.sub(lambda m: r'\x0'+m.group(1), regex)
-        if regex.startswith('\\A'):
-            regex = '^' + regex[2:] # We treat \A like ^
-        if regex.startswith('\\Z'):
-            regex = regex[:-2] + '$' # We treat \Z like $
             
         tests = []
         if greedy_ops.search(regex) or back_refs.search(regex):
@@ -191,6 +220,7 @@ def create_pcre_pickle(file, picklefile):
                 match = lines.pop(0).rstrip('\r\n')
                 match = re.sub(r'\\x([0-9a-fA-F]{2})', lambda m: chr(int(m.group(1),16)), match)
                 if match.startswith('No match') or match.startswith('Error') or match.startswith('Partial'):
+                    match = None
                     break
                 elif match.startswith(' 0:'):
                     # Now we need to eat any further lines like:
@@ -207,12 +237,7 @@ def create_pcre_pickle(file, picklefile):
                     raise Exception("Lost sync in output.")
             if not disqualify_test:
                 tests.append((test,match))
-    pickle.dump(suite, picklefile)
-
-def get_pcre_pickle(file):
-    import pickle
-    suite = pickle.load(file)
-    return suite
+    dumper.dump(suite)
 
 def run_individual_test(regex, tests):
     regex_to_use = regex
@@ -234,7 +259,6 @@ def run_individual_test(regex, tests):
     # Now run the test expressions against the Regex
     for test, match in tests:
         print "/%r/%r/"%(test, match)
-        expect_match = (match != 'No match')
         
         # Create possible subsequences that we should test
         if anchor_left:
@@ -252,10 +276,10 @@ def run_individual_test(regex, tests):
         for start, end in subseq_gen:
             attempt = test[start:end]
             if runner.recognize(attempt):
-                assert expect_match and attempt==match[4:]
+                assert match and attempt==match[4:]
                 break
         else:
-            assert not expect_match
+            assert not match
 
 def run_pcre_tests(suite):
     """Run PCRE tests as given in suite."""
@@ -264,13 +288,13 @@ def run_pcre_tests(suite):
         yield run_individual_test, regex, tests
 
 def test_output7():
-    suite = get_pcre_pickle(open('testoutput7.pickle','r'))
+    suite = PythonDumper(open('pcre_test_7.py','r')).load()
     for test in run_pcre_tests(suite):
         yield test
 
 def generate_output7():
     """Create the testoutput1.pickle file from the PCRE file testoutput1"""
-    create_pcre_pickle(open('testoutput7','r'), open('testoutput7.pickle','w'))
+    create_pcre_pickle(open('testoutput7','r'), PythonDumper(open('pcre_test_7.py','w')))
         
 if __name__=="__main__":
     for fcn, regex, tests in test_output7():
