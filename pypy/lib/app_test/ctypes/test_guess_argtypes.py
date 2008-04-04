@@ -8,7 +8,7 @@ from ctypes import *
 
 def test_wrap_args():
     if not hasattr(sys, 'pypy_translation_info'):
-        py.test.skip("whitebox test")
+        py.test.skip("pypy white-box test")
     from _ctypes.function import CFuncPtr
 
     guess = CFuncPtr._guess_argtypes

@@ -98,7 +98,7 @@ class TestKeepalive:
 
     def test_primitive(self):
         if not hasattr(sys, 'pypy_translation_info'):
-            py.test.skip("whitebox test")
+            py.test.skip("pypy white-box test")
         assert c_char_p("abc")._objects['0']._buffer[0] == "a"
         assert c_int(3)._objects is None
 
