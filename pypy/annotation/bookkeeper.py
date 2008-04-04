@@ -415,7 +415,7 @@ class Bookkeeper:
             result = SomeOOClass(x._INSTANCE)   # NB. can be None
         elif isinstance(x, ootype.instance_impl): # XXX
             result = SomeOOInstance(ootype.typeOf(x))
-        elif isinstance(x, ootype._record):
+        elif isinstance(x, (ootype._record, ootype._string)):
             result = SomeOOInstance(ootype.typeOf(x))
         elif callable(x):
             if hasattr(x, '__self__') and x.__self__ is not None:

@@ -54,6 +54,8 @@ class OOSupport:
     _mixin_ = True
 
     def to_rstr(s):
+        if s is None:
+            return ootype.null(ootype.String)
         return ootype.oostring(s, -1)
     to_rstr = staticmethod(to_rstr)
 

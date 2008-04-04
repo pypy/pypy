@@ -806,6 +806,20 @@ class AbstractTestRstr(BaseRtypingTest):
         res = self.interpret(f, [self.string_to_ll(const("abba"))])
         assert res
 
+    def test_prebuilt_ll_strings(self):
+        llstr0 = self.string_to_ll(None)
+        assert not llstr0
+        llstr1 = self.string_to_ll("hello")
+        def f(i):
+            if i == 0:
+                return llstr0
+            else:
+                return llstr1
+        res = self.interpret(f, [0])
+        assert res == self.string_to_ll(None)
+        res = self.interpret(f, [1])
+        assert self.ll_to_string(res) == "hello"
+
 def FIXME_test_str_to_pystringobj():
     def f(n):
         if n >= 0:
