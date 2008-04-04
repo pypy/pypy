@@ -91,10 +91,40 @@ current implementation:
 Getting the code and test suites
 =================================
 
-...
+A stable revision of PyPy containing the ctypes implementation can be checked out with subversion from: 
+
+http://codespeak.net/svn/pypy/branch/ctypes-stable XXX make the branch
+
+The various tests can be run on Linux.
+
+If one goes inside the checkout it is possible to run ``_rawffi`` tests with::
+
+    $ cd pypy
+    $ python test_all.py module/_rawffi/
+
+The ctypes implementation test suite is derived from the tests for
+ctypes 1.0.2, we have skipped some tests corresponding to not
+implemented features or implementation details, we have also added
+some tests.
+
+To run the test suite a compiled pypy-c is required with the proper configuration. To build the required pypy-c  one should inside the checkout::
+
+   $ cd pypy/translator/goal
+   $ ./translate.py --text --batch --gc=generation targetpypystandalone.py --witmod-_rawffi 
+
+this should produce a pypy-c executable in the ``goal`` directory.
+
+To run the tests then::
+
+   $ cd ../.. # back to pypy/
+   $ ./translator/goal/pypy-c test_all.py lib/app_test/ctypes_tests
+
+There should be 255 passed and 36 skipped tests.
 
 Running example code
 =====================
+
+XXX not reviewed or tried yet
 
 You need a translation with ``--withmod-_rawffi`` in order to run any
 ctypes code. For most examples ``--allworkingmodules`` translation option
