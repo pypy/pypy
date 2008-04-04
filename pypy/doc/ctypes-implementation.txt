@@ -1,93 +1,100 @@
 
-========================================
-PyPy's ctypes implementation document
-========================================
+=============================
+PyPy's ctypes implementation 
+=============================
 
-* application level code - code written in full python
+terminology:
+
+* application level code - code written in full Python
 
 * interpreter level code - code written in RPython, compiled
   to something else, say C, part of the interpreter.
 
-PyPy's ctypes implementation is right now mostly a proof of concept,
-based on the idea of quick prototyping. The main idea was to use libffi
-(same as CPython's ctypes implementation), but try to keep as much
-code as possible in Python, not RPython. In CPython's situation,
-the equivalent would be to write as little as possible code in C.
+PyPy's ctypes implementation in its current state proves the
+feasibility of implementing a module with the same interface and
+behavior for PyPy as ctypes for CPython.
 
-Low-level part (called \_rawffi)
-================================
+PyPy's implementation internally uses `libffi`_ like CPython's ctypes.
+In our implementation as much as possible of the code is written in
+full Python, not RPython, In CPython's situation, the equivalent would
+be to write as little as possible code in C.  We essentially favored
+rapid experimentation over worrying about speed for this first trial
+implementation. This allowed to provide a working implementation with
+a large part of ctypes features in 2 months real time.
 
-We implemented direct bindings to libffi in RPython, allowing to create simple
-types (arrays, structures), living in C world, managed by hand. It also
-supports calling C functions.
-This part contains no special code to keep objects alive and is kept very minimal.
-We tried to keep this as small as possible to allow porting our ctypes
-implementation to other platforms easily. It's also thinkable that Jython uses
-our ctypes implementation by writing their version of _rawffi.
+We reused the ``ctypes`` package as-is from CPython. We implemented
+``_ctypes`` which is a C module in CPython mostly in pure Python based on
+a lower-level layer extension module ``_rawffi``.
 
-High-level part (lib/\_ctypes)
-===============================
+.. _`libffi`: http://sources.redhat.com/libffi/
 
-This part implements the same interface as the \_ctypes module in CPython,
-but it's written in full python. This approach allowed us to experiment
-quickly and provide a working implementation in 2 months of real time.
+Low-level part: ``_rawffi``
+============================
 
-Reuse of the highest level (lib/ctypes)
-========================================
+This PyPy extension module (``pypy/module/_rawffi``) exposes a simple interface
+to create C objects (arrays and structures) and calling functions
+in dynamic libraries through libffi. Freeing objects in most cases and making
+sure that objects referring to each other are kept alive is responsibility of the higher levels.
 
-We just reused the part which is application level in CPython as well.
+This module uses bindings to libffi which are defined in ``pypy/rlib/libffi.py``.
 
-Ctypes-platform
-===============
+We tried to keep this module as small as possible. It is conceivable
+that other implementations (e.g. Jython) could use our ctypes
+implementation by writing their version of ``_rawffi``.
 
-We released `ctypes-configure`_, which is a package trying to overcome
-portability of ctypes-based code.
+High-level parts
+=================
 
-.. _`ctypes-configure`: http://codespeak.net/~fijal/configure.html
+The reused ``ctypes`` package lives in ``pypy/lib/ctypes``. ``_ctypes``
+implementing the same interface as ``_ctypes`` in CPython is in
+``pypy/lib/_ctypes``.
 
-Limitations
-===========
+Discussion and limitations
+=============================
 
-* No support for PyXxx functions from libpython, for obvious reasons.
+Reimplementing ctypes features was in general possible. PyPy supports
+pluggable garbage collectors, some of them are moving collectors, this
+means that the strategy of passing direct references inside Python
+objects to an external library is not feasible (unless the GCs
+support pinning, which not the case right now).  The consequence of
+this is that sometimes copying instead of sharing is required, this
+may result in some semantics differences. C objects created with
+_rawffi itself are allocated outside of the GC heap, so they can be
+passed to external functions without worries.
 
-* Subclassing works differently (ie it follows python subclassing scheme
-  instead of ctypes subclassing scheme, which does not do
-  inheritance)
+Porting the implementation to interpreter-level should likely improve
+its speed, Further the current layering and the current _rawffi
+interface require more object allocations and copying than strictly
+necessary, this too could be improved.
 
-* It's not supposed to work on other platform than linux
+The implementation was developed and has only been tested on Linux.
 
-* We copy strings instead of having pointers to raw buffers, which
-  changes keepalive logic a bit
+Here is a list of the limitations and missing features of the
+current implementation:
 
-* Custom alignment is not supported
+* No support for ``PyXxx`` functions from ``libpython``, for obvious reasons.
 
-* Callbacks with structures and arrays by-value are unsupported
+* We copy Python strings instead of having pointers to raw buffers
 
-Minor unsupported features:
-===========================
+* Features we did not get to implement:
 
-* \_check\_retval\_ is not supported
+  - custom alignment and bit-fields
 
-* \_abstract\_ is not supported
+  - resizing (``resize()`` function)
 
-* reprs are different
+  - non-native byte-order objects
 
-Speed
-=====
+  - callbacks accepting by-value structures
 
-Our ctypes implementation was created without putting to much effort into
-making it fast. First of all most of it is written as pure-python code which
-makes it slow. Obvious optimization would be to reimplement certain parts
-of it at interp-level. Other, also very important, issue is that pypy's I/O
-operations are generally slow. This is mostly due to model in which
-unmanaged memory (outside of gc scope) must be the only one that goes to C
-level. This is a huge simplifaction which allowed us to not worry about
-that when developing moving gcs. At some point we will improve C-level
-operations by either introducing pinning or by some other, yet undecided
-means.
+  - expected semantics when ctypes types are subclassed
+
+Getting the code and test suites
+=================================
+
+...
 
 Running example code
-====================
+=====================
 
 You need a translation with ``--withmod-_rawffi`` in order to run any
 ctypes code. For most examples ``--allworkingmodules`` translation option
@@ -116,6 +123,15 @@ The following don't work:
 
 The `stress tests`_ of Johnathan Hartley is also working.
 
-.. _`pysqlite-ctypes`: XXX link
+.. _`pysqlite-ctypes`: http://XXX-link
 .. _`pyglet`: http://pyglet.org/
 .. _`stress tests`: http://tartley.com/?p=264
+
+
+ctypes configure
+=================
+
+We also released `ctypes-configure`_, which is a package trying to overcome
+the portability issues of ctypes-based code.
+
+.. _`ctypes-configure`: http://codespeak.net/~fijal/configure.html
