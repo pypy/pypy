@@ -11,7 +11,6 @@ def setup_module(mod):
 class TestStringPtr(BaseCTypesTestChecker):
 
     def test__POINTER_c_char(self):
-        py.test.skip("uses getrefcount")
         class X(Structure):
             _fields_ = [("str", POINTER(c_char))]
         x = X()
@@ -19,20 +18,22 @@ class TestStringPtr(BaseCTypesTestChecker):
         # NULL pointer access
         raises(ValueError, getattr, x.str, "contents")
         b = c_buffer("Hello, World")
-        from sys import getrefcount as grc
-        assert grc(b) == 2
+        #from sys import getrefcount as grc
+        #assert grc(b) == 2
         x.str = b
-        assert grc(b) == 3
+        #assert grc(b) == 3
 
         # POINTER(c_char) and Python string is NOT compatible
         # POINTER(c_char) and c_buffer() is compatible
         for i in range(len(b)):
             assert b[i] == x.str[i]
 
-        raises(TypeError, setattr, x, "str", "Hello, World")
+        # XXX pypy  modified:
+        #raises(TypeError, setattr, x, "str", "Hello, World")
+        x = b = None
+        py.test.skip("test passes! but modified to avoid getrefcount and detail issues")
 
     def test__c_char_p(self):
-        py.test.skip("XXX not implemented")
         class X(Structure):
             _fields_ = [("str", c_char_p)]
         x = X()
@@ -42,8 +43,11 @@ class TestStringPtr(BaseCTypesTestChecker):
         assert x.str == None
         x.str = "Hello, World"
         assert x.str == "Hello, World"
-        b = c_buffer("Hello, World")
-        raises(TypeError, setattr, x, "str", b)
+        # XXX pypy  modified:
+        #b = c_buffer("Hello, World")
+        #raises(TypeError, setattr, x, "str", b)
+        x = None
+        py.test.skip("test passes! but modified to avoid detail issues")
 
 
     def test_functions(self):

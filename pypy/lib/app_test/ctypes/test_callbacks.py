@@ -89,7 +89,7 @@ class TestCallbacks(BaseCTypesTestChecker):
 ##        self.check_type(c_char_p, "def")
 
     def test_unsupported_restype_1(self):
-        py.test.skip("WIP")
+        py.test.skip("we are less strict about callback return type sanity")
         # Only "fundamental" result types are supported for callback
         # functions, the type must have a non-NULL stgdict->setfunc.
         # POINTER(c_double), for example, is not supported.
@@ -137,7 +137,7 @@ class TestSampleCallbacks(BaseCTypesTestChecker):
 class TestMoreCallbacks(BaseCTypesTestChecker):
 
     def test_callback_with_struct_argument(self):
-        py.test.skip("WIP")
+        py.test.skip("callbacks with struct arguments not implemented yet")
         class RECT(Structure):
             _fields_ = [("left", c_int), ("top", c_int),
                         ("right", c_int), ("bottom", c_int)]

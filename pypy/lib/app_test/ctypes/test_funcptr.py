@@ -42,7 +42,7 @@ class TestCFuncPtr:
         # The following no longer raises a TypeError - it is now
         # possible, as in C, to call cdecl functions with more parameters.
         #self.assertRaises(TypeError, c, 1, 2, 3)
-        py.test.skip("PyPy's CTypes doesn't implement this")
+        py.test.skip("cdecl funcptrs ignoring extra args is not implemented")
         assert c(1, 2, 3, 4, 5, 6) == 3
         if not WINFUNCTYPE is CFUNCTYPE and os.name != "ce":
             raises(TypeError, s, 1, 2, 3)

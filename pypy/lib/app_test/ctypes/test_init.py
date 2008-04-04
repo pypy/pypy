@@ -1,7 +1,7 @@
 import py
 from ctypes import *
 
-py.test.skip("XXX subclassing behavior and implementation details tests")
+py.test.skip("subclassing semantics and implementation details not implemented")
 
 class X(Structure):
     _fields_ = [("a", c_int),

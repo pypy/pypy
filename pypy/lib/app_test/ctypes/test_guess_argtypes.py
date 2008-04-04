@@ -1,8 +1,11 @@
 
 """ This test checks whether args wrapping behavior is correct
 """
+import py
 
 import sys
+
+py.test.skip("FIXME")
 
 from ctypes import *
 

@@ -26,14 +26,14 @@ class TestStructFields(BaseCTypesTestChecker):
         raises(AttributeError, setattr, X, "_fields_", [])
 
     def test_2(self):
-        py.test.skip("no _fields_ unsupported")
+        py.test.skip("absent _fields_ semantics not implemented")
         class X(Structure):
             pass
         X()
         raises(AttributeError, setattr, X, "_fields_", [])
 
     def test_3(self):
-        py.test.skip("fails: no _fields_ and subclassing")
+        py.test.skip("subclassing semantics not implemented")
         class X(Structure):
             pass
         class Y(Structure):
@@ -41,7 +41,7 @@ class TestStructFields(BaseCTypesTestChecker):
         raises(AttributeError, setattr, X, "_fields_", [])
 
     def test_4(self):
-        py.test.skip("fails: no _fields_ and subclassing")
+        py.test.skip("subclassing semantics not implemented")
         class X(Structure):
             pass
         class Y(X):

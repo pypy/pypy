@@ -22,7 +22,7 @@ class TestSimpleTypes:
 
 
     def test_subclasses(self):
-        py.test.skip("XXX subclassing problem")
+        py.test.skip("subclassing semantics not implemented")
         from ctypes import c_void_p, c_char_p
         # ctypes 0.9.5 and before did overwrite from_param in SimpleType_new
         class CVOIDP(c_void_p):
@@ -52,7 +52,7 @@ class TestSimpleTypes:
 
     # XXX Replace by c_char_p tests
     def test_cstrings(self):
-        py.test.skip("Implementation specific IMO")
+        py.test.skip("testing implementation internals")
         from ctypes import c_char_p, byref
 
         # c_char_p.from_param on a Python String packs the string
@@ -151,7 +151,7 @@ class TestSimpleTypes:
 ##        check_perf()
 
     def test_noctypes_argtype(self):
-        py.test.skip("We implement details differently")
+        py.test.skip("we implement details differently")
         from ctypes import CDLL, c_void_p, ArgumentError
         import conftest
         dll = CDLL(str(conftest.sofile))

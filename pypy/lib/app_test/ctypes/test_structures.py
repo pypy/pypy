@@ -161,7 +161,7 @@ class TestStructure(BaseCTypesTestChecker):
         # offset is always relative to the class...
 
     def test_packed(self):
-        py.test.skip("Custom alignment not supported")
+        py.test.skip("custom alignment not supported")
         class X(Structure):
             _fields_ = [("a", c_byte),
                         ("b", c_longlong)]
@@ -284,7 +284,7 @@ class TestStructure(BaseCTypesTestChecker):
         raises(ValueError, PersonW, u"1234567890123")
 
     def test_init_errors(self):
-        py.test.skip("Very fragile errors")
+        py.test.skip("not implemented error details")
         class Phone(Structure):
             _fields_ = [("areacode", c_char*6),
                         ("number", c_char*12)]
@@ -332,7 +332,7 @@ class TestStructure(BaseCTypesTestChecker):
 ##                             (AttributeError, "class must define a '_fields_' attribute"))
 
     def test_abstract_class(self):
-        py.test.skip("_abstract_ not implemented")
+        py.test.skip("_abstract_ semantics not implemented")
         class X(Structure):
             _abstract_ = "something"
         # try 'X()'
@@ -358,7 +358,7 @@ class TestStructure(BaseCTypesTestChecker):
         assert p.age == 6
 
     def test_subclassing_field_is_a_tuple(self):
-        py.test.skip("suclassing not supported")
+        py.test.skip("subclassing semantics not implemented")
         class Person(Structure):
             _fields_ = (("name", c_char*6),
                         ("age", c_int))
@@ -429,7 +429,7 @@ class TestRecursiveStructure(BaseCTypesTestChecker):
 
 
     def test_vice_versa(self):
-        py.test.skip("XXX mutually dependent lazily defined structures")
+        py.test.skip("mutually dependent lazily defined structures error semantics")
         class First(Structure):
             pass
         class Second(Structure):

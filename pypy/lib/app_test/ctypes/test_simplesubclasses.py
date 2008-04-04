@@ -26,7 +26,7 @@ class Test(BaseCTypesTestChecker):
 
 
     def test_int_callback(self):
-        py.test.skip("XXX subclassing not implemented")
+        py.test.skip("subclassing semantics and implementation details not implemented")
         args = []
         def func(arg):
             args.append(arg)
@@ -43,7 +43,7 @@ class Test(BaseCTypesTestChecker):
         assert type(args[-1]) == int
 
     def test_int_struct(self):
-        py.test.skip("XXX wrong behaviour")
+        py.test.skip("subclassing semantics and implementation details not implemented")
         class X(Structure):
             _fields_ = [("x", MyInt)]
 
