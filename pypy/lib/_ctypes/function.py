@@ -134,7 +134,8 @@ class CFuncPtr(_CData):
             return self._ptr
         return self.dll._handle.ptr(self.name, argshapes, resshape)
 
-    def _guess_argtypes(self, args):
+    @staticmethod
+    def _guess_argtypes(args):
         from _ctypes import _CData
         from ctypes import c_char_p, c_void_p, c_int, Array, Structure
         res = []
