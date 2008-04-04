@@ -93,7 +93,7 @@ Getting the code and test suites
 
 A stable revision of PyPy containing the ctypes implementation can be checked out with subversion from: 
 
-http://codespeak.net/svn/pypy/branch/ctypes-stable XXX make the branch
+http://codespeak.net/svn/pypy/tag/ctypes-stable XXX make the tag
 
 The various tests can be run on Linux.
 
