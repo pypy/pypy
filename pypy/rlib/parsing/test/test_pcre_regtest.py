@@ -87,11 +87,14 @@ import re
 
 py.test.skip("Still in progress")
 
+# Dumper's are objects that can dump/load the suite
 class Dumper(object):
     def __init__(self, file):
         pass
     def dump(self, tests):
         pass
+    def load(self):
+        return []
 
 class PickleDumper(Dumper):
     import pickle
@@ -118,12 +121,12 @@ class PythonDumper(Dumper):
         exec text in d
         return d['suite']
 
+def generate_output7():
+    """Create the testoutput7.py file from the PCRE file testoutput7"""
+    create_pcre_pickle(open('testoutput7','r'), PythonDumper(open('pcre_test_7.py','w')))
+
 def create_pcre_pickle(file, dumper):
-    """Create a filtered PCRE test file for the test. 
-    
-    The pickle file was created by:
-       create_pcre_pickle(open('testoutput1','r'), open('testoutput1.pickle','w')) 
-    """
+    """Create a filtered PCRE test file for the test."""
     lines = [line for line in file.readlines()]
     
     # Look for things to skip...
@@ -225,6 +228,7 @@ def create_pcre_pickle(file, dumper):
                 elif match.startswith(' 0:'):
                     # Now we need to eat any further lines like:
                     # ' 1: ....' a subgroup match
+                    match = match[4:]
                     while lines[0].strip():
                         # ' 0+ ...' is also possible here
                         if lines[0][2] in [':','+']:
@@ -237,9 +241,17 @@ def create_pcre_pickle(file, dumper):
                     raise Exception("Lost sync in output.")
             if not disqualify_test:
                 tests.append((test,match))
+    
+    # Last step, if there are regex's that dont have any tests,
+    # might as well strip them out
+    suite = [test for test in suite if test[2]]
+
     dumper.dump(suite)
 
 def run_individual_test(regex, tests):
+    """Run a test from the PCRE suite."""
+    
+    # Process the regex and make it ready for make_runner
     regex_to_use = regex
 
     anchor_left = regex_to_use.startswith('^')
@@ -256,9 +268,10 @@ def run_individual_test(regex, tests):
     print "%s:" % regex_to_use
     
     runner = make_runner(regex_to_use)
+    
     # Now run the test expressions against the Regex
     for test, match in tests:
-        print "/%r/%r/"%(test, match)
+        print "/%r/%r/" % (test, match)
         
         # Create possible subsequences that we should test
         if anchor_left:
@@ -276,26 +289,17 @@ def run_individual_test(regex, tests):
         for start, end in subseq_gen:
             attempt = test[start:end]
             if runner.recognize(attempt):
-                assert match and attempt==match[4:]
+                assert attempt==match
                 break
         else:
-            assert not match
+            assert match is None
 
-def run_pcre_tests(suite):
-    """Run PCRE tests as given in suite."""
+def test_output7():
+    suite = PythonDumper(open('pcre_test_7.py','r')).load()
     while suite:
         regex, flags, tests = suite.pop(0)
         yield run_individual_test, regex, tests
 
-def test_output7():
-    suite = PythonDumper(open('pcre_test_7.py','r')).load()
-    for test in run_pcre_tests(suite):
-        yield test
-
-def generate_output7():
-    """Create the testoutput1.pickle file from the PCRE file testoutput1"""
-    create_pcre_pickle(open('testoutput7','r'), PythonDumper(open('pcre_test_7.py','w')))
-        
 if __name__=="__main__":
     for fcn, regex, tests in test_output7():
         fcn(regex,tests)
