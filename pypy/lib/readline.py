@@ -70,8 +70,7 @@ class _ReadlineWrapper(object):
         if self.startup_hook is not None:
             self.startup_hook()
         reader.ps1 = prompt
-        result = reader.readline()
-        return result + '\n'
+        return reader.readline()
 
     def parse_and_bind(self, string):
         pass  # XXX we don't support parsing GNU-readline-style init files
