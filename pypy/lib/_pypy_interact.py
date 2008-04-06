@@ -59,6 +59,10 @@ def run_multiline_interactive_console(console):
                 statement = multiline_input(more_lines, ps1, ps2)
             except EOFError:
                 break
+            # XXX with Alt-Enter we can actually enter more than one
+            # statement, and compile() ignores everything after the
+            # first statement in 'single' mode...  We should either
+            # find some obscure workaround or tweak PyPy's compiler.
             more = console.push(statement)
             assert not more
         except KeyboardInterrupt:
