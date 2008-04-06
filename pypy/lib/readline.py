@@ -45,6 +45,38 @@ class _ReaderMixin(object):
             cut = 0
         return self.history[cut:]
 
+    # --- simplified support for reading multiline Python statements ---
+
+    # This duplicates small parts of pyrepl.python_reader.  I'm not
+    # reusing the PythonicReader class directly for two reasons.  One is
+    # to try to keep as close as possible to CPython's prompt.  The
+    # other is that it is the readline module that we are ultimately
+    # implementing here, and I don't want the built-in raw_input() to
+    # start trying to read multiline inputs just because what the user
+    # typed look like valid but incomplete Python code.  So we get the
+    # multiline feature only when using the multiline_input() function
+    # directly (see _pypy_interact.py).
+
+    more_lines = None
+
+    def collect_keymap(self):
+        return super(_ReaderMixin, self).collect_keymap() + (
+            (r'\n', 'maybe-accept'),)
+
+    def __init__(self, console):
+        super(_ReaderMixin, self).__init__(console)
+        from pyrepl import commands
+        class maybe_accept(commands.Command):
+            def do(self):
+                r = self.reader
+                text = r.get_unicode()
+                if r.more_lines is not None and r.more_lines(text):
+                    r.insert("\n")
+                else:
+                    self.finish = 1
+        self.commands['maybe_accept'] = maybe_accept
+        self.commands['maybe-accept'] = maybe_accept
+
 # ____________________________________________________________
 
 class _ReadlineWrapper(object):
@@ -71,6 +103,27 @@ class _ReadlineWrapper(object):
             self.startup_hook()
         reader.ps1 = prompt
         return reader.readline()
+
+    def multiline_input(self, more_lines, ps1, ps2):
+        """Read an input on possibly multiple lines, asking for more
+        lines as long as 'more_lines(unicodetext)' returns an object whose
+        boolean value is true.
+        """
+        reader = self.get_reader()
+        saved = reader.more_lines
+        try:
+            reader.more_lines = more_lines
+            reader.ps1 = reader.ps2 = ps1
+            reader.ps3 = reader.ps4 = ps2
+            return reader.readline()
+        finally:
+            reader.more_lines = saved
+
+    def compiler(self, textstring):
+        if self.pyconsole is None:
+            return True
+        else:
+            return self.pyconsole.compile(textstring, '<input>', 'single')
 
     def parse_and_bind(self, string):
         pass  # XXX we don't support parsing GNU-readline-style init files
@@ -172,6 +225,9 @@ replace_history_item = _wrapper.replace_history_item
 add_history = _wrapper.add_history
 set_startup_hook = _wrapper.set_startup_hook
 
+# Extension
+multiline_input = _wrapper.multiline_input
+
 # ____________________________________________________________
 # Stubs
 
@@ -225,11 +281,3 @@ def _setup():
         __builtin__.raw_input = _wrapper.raw_input
 
 _setup()
-
-if __name__ == '__main__':    # for testing
-    import __main__
-    sys.modules['readline'] = __main__
-    if os.getenv('PYTHONSTARTUP'):
-        execfile(os.getenv('PYTHONSTARTUP'))
-    import code
-    code.interact()

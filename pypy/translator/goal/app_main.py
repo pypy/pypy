@@ -337,6 +337,7 @@ def entry_point(executable, argv, nanos):
             success = run_toplevel(execfile, sys.argv[0], mainmodule.__dict__)
             
         if is_interactive():
+            from _pypy_interact import interactive_console
             success = run_toplevel(interactive_console, mainmodule)
     except SystemExit, e:
         return e.code
@@ -362,35 +363,6 @@ def print_banner():
     print 'Python %s on %s' % (sys.version, sys.platform)
     print ('Type "help", "copyright", "credits" or '
            '"license" for more information.')
-
-def interactive_console(mainmodule):
-    # some parts of code.py are copied here because it seems to be impossible
-    # to start an interactive console without printing at least one line
-    # of banner
-    import code
-    console = code.InteractiveConsole(mainmodule.__dict__)
-    try:
-        import readline
-    except ImportError:
-        pass
-    more = 0
-    while 1:
-        try:
-            if more:
-                prompt = sys.ps2
-            else:
-                prompt = sys.ps1
-            try:
-                line = raw_input(prompt)
-            except EOFError:
-                console.write("\n")
-                break
-            else:
-                more = console.push(line)
-        except KeyboardInterrupt:
-            console.write("\nKeyboardInterrupt\n")
-            console.resetbuffer()
-            more = 0
 
 
 if __name__ == '__main__':
