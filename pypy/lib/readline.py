@@ -69,8 +69,12 @@ class _ReaderMixin(object):
         class maybe_accept(commands.Command):
             def do(self):
                 r = self.reader
+                # if there are already several lines and the cursor
+                # is not on the last one, always insert a new \n.
                 text = r.get_unicode()
-                if r.more_lines is not None and r.more_lines(text):
+                if "\n" in r.buffer[r.pos:]:
+                    r.insert("\n")
+                elif r.more_lines is not None and r.more_lines(text):
                     r.insert("\n")
                 else:
                     self.finish = 1
