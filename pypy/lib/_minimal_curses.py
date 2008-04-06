@@ -4,6 +4,9 @@ which is not meant to be used directly.
 Based on ctypes.  It's too incomplete to be really called '_curses', so
 to use it, you have to import it and stick it in sys.modules['_curses']
 manually.
+
+Note that there is also a built-in module _minimal_curses which will
+hide this one if compiled in.
 """
 
 import ctypes, ctypes.util
