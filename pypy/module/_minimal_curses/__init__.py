@@ -1,7 +1,7 @@
 
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.module._curses import fficurses
-from pypy.module._curses import interp_curses
+from pypy.module._minimal_curses import fficurses
+from pypy.module._minimal_curses import interp_curses
 from pypy.rlib.nonconst import NonConstant
 import _curses
 
