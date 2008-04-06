@@ -119,12 +119,6 @@ class _ReadlineWrapper(object):
         finally:
             reader.more_lines = saved
 
-    def compiler(self, textstring):
-        if self.pyconsole is None:
-            return True
-        else:
-            return self.pyconsole.compile(textstring, '<input>', 'single')
-
     def parse_and_bind(self, string):
         pass  # XXX we don't support parsing GNU-readline-style init files
 
