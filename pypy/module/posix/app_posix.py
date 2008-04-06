@@ -113,7 +113,7 @@ def popen(command, mode='r', bufsize=-1):
                 else:
                     os.dup2(read_end, 0)
                     os.close(write_end)
-                for i in range(3, MAXFD):
+                for i in range(3, MAXFD):    # XXX this loop can be slow
                     try_close(i)
                 cmd = ['/bin/sh', '-c', command]
                 os.execvp(cmd[0], cmd)
