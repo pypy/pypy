@@ -234,10 +234,10 @@ class AppTestPosix:
 
     if hasattr(__import__(os.name), 'popen'):
         def test_popen(self):
-            skip("Not implemented")
             os = self.posix
-            stream = os.popen('echo 1')
-            assert stream.read() == '1\n'
+            for i in range(5):
+                stream = os.popen('echo 1')
+                assert stream.read() == '1\n'
 
     if hasattr(__import__(os.name), '_getfullpathname'):
         def test__getfullpathname(self):
