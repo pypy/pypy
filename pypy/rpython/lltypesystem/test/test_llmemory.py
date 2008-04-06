@@ -15,6 +15,18 @@ def test_simple():
     b.signed[0] = 234
     assert s.x == 234
 
+def test_simple_float():
+    S = lltype.GcStruct("S", ("x", lltype.Float), ("y", lltype.Float))
+    s = lltype.malloc(S)
+    s.x = 123.2
+    s.y = 456.2
+    a = fakeaddress(s)
+    assert a.ref() == s
+    b = a + FieldOffset(S, 'x')
+    assert b.float[0] == 123.2
+    b.float[0] = 234.1
+    assert s.x == 234.1
+
 def test_composite():
     S1 = lltype.GcStruct("S1", ("x", lltype.Signed), ("y", lltype.Signed))
     S2 = lltype.GcStruct("S2", ("s", S1))

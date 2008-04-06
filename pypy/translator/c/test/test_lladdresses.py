@@ -33,6 +33,24 @@ def test_memory_access():
     res = fc(1)
     assert res == 1
     
+def test_memory_float():
+    S = lltype.GcStruct("S", ("x", lltype.Float), ("y", lltype.Float))
+    offset = FieldOffset(S, 'x')
+    offsety = FieldOffset(S, 'y')
+    def f(value):
+        s = lltype.malloc(S)
+        s.x = 123.2
+        a = cast_ptr_to_adr(s)
+        b = a + offset
+        assert b.float[0] == 123.2
+        b.float[0] = 234.1
+        (a + offsety).float[0] = value
+        assert s.x == 234.1
+        return s.x + value
+    fc = compile(f, [float])
+    res = fc(42.42)
+    assert res == f(42.42)
+
 def test_pointer_arithmetic():
     def f(offset, char):
         addr = raw_malloc(10000)
