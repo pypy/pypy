@@ -23,7 +23,7 @@ default_modules.update(dict.fromkeys(
 working_modules = default_modules.copy()
 working_modules.update(dict.fromkeys(
     ["_socket", "unicodedata", "mmap", "fcntl", "rctime", "select",
-     "crypt", "signal", "dyngram", "readline", "termios", "zlib",
+     "crypt", "signal", "dyngram", "_rawffi", "termios", "zlib",
      "struct", "md5", "sha", "bz2",
     ]
 ))
@@ -33,6 +33,7 @@ if sys.platform == "win32":
     del working_modules["readline"]
     del working_modules["crypt"]
     del working_modules["termios"]
+    del working_modules["_rawffi"]
 
 
 module_dependencies = {}
