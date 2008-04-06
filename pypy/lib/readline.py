@@ -153,10 +153,23 @@ class _ReadlineWrapper(object):
         return len(self.get_reader().history)
 
     def read_history_file(self, filename='~/.history'):
+        # multiline extension (really a hack) for the end of lines that
+        # are actually continuations inside a single multiline_input()
+        # history item: we use \r\n instead of just \n.  If the history
+        # file is passed to GNU readline, the extra \r are just ignored.
         history = self.get_reader().history
         f = open(os.path.expanduser(filename), 'r')
+        buffer = []
         for line in f:
-            history.append(self._histline(line))
+            if line.endswith('\r\n'):
+                buffer.append(line)
+            else:
+                line = self._histline(line)
+                if buffer:
+                    line = ''.join(buffer).replace('\r', '') + line
+                    del buffer[:]
+                if line:
+                    history.append(line)
         f.close()
 
     def write_history_file(self, filename='~/.history'):
@@ -166,6 +179,7 @@ class _ReadlineWrapper(object):
         for entry in history:
             if isinstance(entry, unicode):
                 entry = entry.encode(ENCODING)
+            entry = entry.replace('\n', '\r\n')   # multiline history support
             f.write(entry + '\n')
         f.close()
 
