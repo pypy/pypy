@@ -17,9 +17,11 @@ def svn_info(url):
     else:
         return basename.split('/')[-2]
 
-try:
-    basename = '-' + svn_info(py.path.svnwc(py.magic.autopath().dirpath()).info().url) + '-'
-except:
-    basename = '-'
+basename = os.environ.get('PYPY_USESSION_BASENAME')
+if not basename:
+    try:
+        basename = '-' + svn_info(py.path.svnwc(py.magic.autopath().dirpath()).info().url) + '-'
+    except:
+        basename = '-'
 
 udir = local.make_numbered_dir(prefix='usession' + basename, keep=3)
