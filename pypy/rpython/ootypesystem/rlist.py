@@ -51,12 +51,9 @@ class BaseListRepr(AbstractBaseListRepr):
 
     def rtype_hint(self, hop):
         hints = hop.args_s[-1].const
-        if 'maxlength' in hints:
-            v_list = hop.inputarg(self, arg=0)
-            # XXX give a hint to pre-allocate the list (see lltypesystem/rlist)
-            return v_list
-        if 'fence' in hints:
-            return hop.inputarg(self, arg=0)
+        if 'maxlength' in hints or 'fence' in hints:
+            # see doc/discussion/list_comprehension_ootype.txt
+            assert False, 'TODO'
         return AbstractBaseListRepr.rtype_hint(self, hop)
 
 

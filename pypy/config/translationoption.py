@@ -21,6 +21,7 @@ translation_optiondescription = OptionDescription(
                                 ("translation.backendopt.constfold", False),
                                 ("translation.backendopt.heap2stack", False),
                                 ("translation.backendopt.clever_malloc_removal", False),
+                                ("translation.list_comprehension_operations", False),
                                 ]
                      }),
     ChoiceOption("backend", "Backend to use for code generation",
