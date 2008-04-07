@@ -3,6 +3,7 @@ on top of pyrepl.  Not all functionalities are supported.
 """
 
 import sys, os
+import pyrepl.curses    # check to give an early ImportError
 
 ENCODING = 'latin1'     # XXX hard-coded
 
@@ -265,15 +266,6 @@ for _name, _ret in [
 # ____________________________________________________________
 
 def _setup():
-    try:
-        import _curses
-    except ImportError:
-        try:
-            import _minimal_curses
-        except ImportError:
-            raise ImportError("readline.py needs a minimal curses module")
-        sys.modules['_curses'] = _minimal_curses
-
     try:
         f_in = sys.stdin.fileno()
         f_out = sys.stdout.fileno()

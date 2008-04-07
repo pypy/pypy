@@ -52,6 +52,3 @@ def tparm(str, i1=0, i2=0, i3=0, i4=0, i5=0, i6=0, i7=0, i8=0, i9=0):
     if result is None:
         raise error("tparm() returned NULL")
     return result
-
-def has_key(*args):
-    XXX
