@@ -95,7 +95,8 @@ A stable revision of PyPy containing the ctypes implementation can be checked ou
 
 http://codespeak.net/svn/pypy/tag/ctypes-stable XXX make the tag
 
-The various tests can be run on Linux.
+The various tests and later examples can be run on x86-32 Linux. We tried them
+on an up-to-date Ubuntu 7.10 x86-32 system.
 
 If one goes inside the checkout it is possible to run ``_rawffi`` tests with::
 
@@ -110,7 +111,7 @@ some tests.
 To run the test suite a compiled pypy-c is required with the proper configuration. To build the required pypy-c  one should inside the checkout::
 
    $ cd pypy/translator/goal
-   $ ./translate.py --text --batch --gc=generation targetpypystandalone.py --withmod-_rawffi 
+   $ ./translate.py --text --batch --gc=generation targetpypystandalone.py --withmod-_rawffi --allworkingmodules
 
 this should produce a pypy-c executable in the ``goal`` directory.
 
@@ -121,41 +122,51 @@ To run the tests then::
 
 There should be 255 passed and 36 skipped tests.
 
-Running example code
-=====================
+Running application examples
+==============================
 
-XXX not reviewed or tried yet
+`pyglet`_ is known to run. We had some success also with pygame-ctypes and a snapshot of the experimental pysqlite-ctypes, both of these are not actively maintained. We will only describe how to run the pyglet examples.
 
-You need a translation with ``--withmod-_rawffi`` in order to run any
-ctypes code. For most examples ``--allworkingmodules`` translation option
-also makes sense. Known applications to run are `pysqlite-ctypes`_ and
-`pyglet`_. As of March 2008, from pysqlite all tests passes except one
-that relies on __del__ being called immediately. From pyglet, the following
-examples work:
+pyglet
+-------
+
+We tried pyglet checking it out from its repository at revision 1984.
+For convenience a tarball of the checkout can also be found at:
+
+http://codespeak.net/~pedronis/pyglet-r1984.tgz
+
+From pyglet, the following examples are known to work:
   
   - opengl.py
   - multiple_windows.py
   - events.py
+  - html_label.py
+  - timer.py
   - window_platform_event.py
   - fixed_resolution.py
-  - html_label.py
-  - media_player.py
-  - timer.py
 
-The following don't work:
+The pypy-c translated to run the ctypes tests can be used to run the pyglet examples as well. They can be run like e.g.::
 
-  - fixed_resolution.py needs PIL
+    $ cd pyglet/
+    $ PYTHONPATH=. ../ctypes-stable/pypy/translator/goal/pypy-c examples/opengl.py
+
+
+they usually should be terminated with ctrl-c. Refer to the their doc strings for details about how they should behave.
+
+The following examples don't work for reasons independent from ctypes:
+
   - image_convert.py needs PIL
   - image_display.py needs PIL
   - astraea/astraea.py needs PIL
-  - video.py (but didn't work for me on CPython either)
+
+We did not try the following examples:
+
+  - media_player.py needs avbin or at least a proper sound card setup for
+    .wav files
+  - video.py needs avbin
   - soundscape needs avbin
 
-The `stress tests`_ of Johnathan Hartley is also working.
-
-.. _`pysqlite-ctypes`: http://XXX-link
 .. _`pyglet`: http://pyglet.org/
-.. _`stress tests`: http://tartley.com/?p=264
 
 
 ctypes configure
