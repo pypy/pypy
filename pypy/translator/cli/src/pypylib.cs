@@ -68,6 +68,20 @@ namespace pypy.test
         }
     }
 
+    public class Convert {
+        public static double ToDouble(string s)
+        {
+            if (s == "inf")
+                return Double.PositiveInfinity;
+            else if (s == "-inf")
+                return Double.NegativeInfinity;
+            else if (s == "nan")
+                return Double.NaN;
+            else
+                return System.Convert.ToDouble(s);
+        }
+    }
+
     public delegate int DelegateType_int__int_1(int a);
     public delegate int DelegateType_int__int_2(int a, int b);
     public delegate int DelegateType_int__int_3(int a, int b, int c);

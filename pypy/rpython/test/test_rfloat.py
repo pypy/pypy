@@ -36,7 +36,11 @@ class TestSnippet(object):
             print 'BINARY_OPERATIONS:', opname
 
 class BaseTestRfloat(BaseRtypingTest):
-    
+
+    inf = 'inf'
+    minus_inf = '-inf'
+    nan = 'nan'
+
     def test_float2str(self):
         def fn(f):
             return str(f)
@@ -48,11 +52,11 @@ class BaseTestRfloat(BaseRtypingTest):
         inf = 1e200 * 1e200
         nan = inf/inf
         res = self.interpret(fn, [inf])
-        assert self.ll_to_string(res) == 'inf'
+        assert self.ll_to_string(res) == self.inf
         res = self.interpret(fn, [-inf])
-        assert self.ll_to_string(res) == '-inf'
+        assert self.ll_to_string(res) == self.minus_inf
         res = self.interpret(fn, [nan])
-        assert self.ll_to_string(res) == 'nan'
+        assert self.ll_to_string(res) == self.nan
 
     def test_string_mod_float(self):
         def fn(f):

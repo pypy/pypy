@@ -70,8 +70,7 @@ class TestEntryPoint(BaseEntryPoint):
             ilasm.opcode('ldc.i4 %d' % i)
             ilasm.opcode('ldelem.ref')
             arg_type, arg_var = self.cts.llvar_to_cts(arg)
-            ilasm.call('%s class [mscorlib]System.Convert::%s(string)' %
-                       (arg_type, self.__convert_method(arg_type)))
+            self.__call_convert_method(ilasm, arg_type)
 
         # call the function and convert the result to a string containing a valid python expression
         ilasm.call(self.cts.graph_to_signature(self.graph))
@@ -118,6 +117,13 @@ class TestEntryPoint(BaseEntryPoint):
         ilasm.end_function()
         self.db.pending_function(self.graph)
 
+    def __call_convert_method(self, ilasm, arg_type):
+        if arg_type == CTS.types.float64:
+            ilasm.call('float64 class [pypylib]pypy.test.Convert::ToDouble(string)')
+        else:
+            ilasm.call('%s class [mscorlib]System.Convert::%s(string)' %
+                       (arg_type, self.__convert_method(arg_type)))
+
     def __convert_method(self, arg_type):
         _conv = {
             CTS.types.int32: 'ToInt32',
@@ -125,7 +131,6 @@ class TestEntryPoint(BaseEntryPoint):
             CTS.types.int64: 'ToInt64',
             CTS.types.uint64: 'ToUInt64',
             CTS.types.bool: 'ToBoolean',
-            CTS.types.float64: 'ToDouble',
             CTS.types.char: 'ToChar',
             }
 
