@@ -67,7 +67,7 @@ its speed, Further the current layering and the current _rawffi
 interface require more object allocations and copying than strictly
 necessary, this too could be improved.
 
-The implementation was developed and has only been tested on Linux.
+The implementation was developed and has only been tested on x86-32 Linux.
 
 Here is a list of the limitations and missing features of the
 current implementation:
