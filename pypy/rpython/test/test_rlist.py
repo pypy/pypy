@@ -188,47 +188,6 @@ class Freezing:
     def _freeze_(self):
         return True
 
-##def test_list_builder():
-##    def fixed_size_case():
-##        return [42]
-##    def variable_size_case():
-##        lst = []
-##        lst.append(42)
-##        return lst
-
-##    from pypy.rpython.rtyper import LowLevelOpList
-
-##    for fn in [fixed_size_case, variable_size_case]:
-##        t = TranslationContext()
-##        t.buildannotator().build_types(fn, [])
-##        t.buildrtyper().specialize()
-##        LIST = t.graphs[0].getreturnvar().concretetype.TO
-##        llop = LowLevelOpList(None)
-##        v0 = Constant(42)
-##        v0.concretetype = Signed
-##        v1 = Variable()
-##        v1.concretetype = Signed
-##        vr = LIST.list_builder.build(llop, [v0, v1])
-##        assert len(llop) == 3
-##        assert llop[0].opname == 'direct_call'
-##        assert len(llop[0].args) == 3
-##        assert llop[0].args[1].concretetype == Void
-##        assert llop[0].args[1].value == LIST
-##        assert llop[0].args[2].concretetype == Signed
-##        assert llop[0].args[2].value == 2
-##        assert llop[0].result is vr
-##        for op, i, vi in [(llop[1], 0, v0), (llop[2], 1, v1)]:
-##            assert op.opname == 'direct_call'
-##            assert len(op.args) == 5
-##            assert op.args[1].value is dum_nocheck
-##            assert op.args[2] is vr
-##            assert op.args[3].concretetype == Signed
-##            assert op.args[3].value == i
-##            assert op.args[4] is vi
-##            assert op.result.concretetype is Void
-
-
-
 
 class BaseTestRlist(BaseRtypingTest):
 

@@ -56,10 +56,6 @@ class BaseListRepr(AbstractBaseListRepr):
         self.listitem = listitem
         self.list_cache = {}
         # setup() needs to be called to finish this initialization
-##        self.list_builder = ListBuilder(self)
-
-##    def _setup_repr_final(self):
-##        self.list_builder.setup()
 
     def null_const(self):
         return nullptr(self.LIST)
@@ -79,92 +75,11 @@ class BaseListRepr(AbstractBaseListRepr):
                                  "ll_newemptylist": ll_fixed_newemptylist,
                                  "ll_length": ll_fixed_length,
                                  "ll_items": ll_fixed_items,
-                                 ##"list_builder": self.list_builder,
                                  "ITEM": ITEM,
                                  "ll_getitem_fast": ll_fixed_getitem_fast,
                                  "ll_setitem_fast": ll_fixed_setitem_fast,
                             }))
         return ITEMARRAY
-
-##class ListBuilder(object):
-##    """Interface to allow lazy list building by the JIT."""
-
-##    def __init__(self, list_repr):
-##        # This should not keep a reference to the RTyper, even indirectly via
-##        # the list_repr.  So tmp_list_repr is replaced by None in setup().
-##        self.tmp_list_repr = list_repr
-
-##    def setup(self):
-##        # Precompute the c_newitem and c_setitem_nonneg function pointers,
-##        # needed below.
-##        list_repr = self.tmp_list_repr
-##        if list_repr is None:
-##            return     # already set up
-##        self.tmp_list_repr = None
-##        if list_repr.rtyper is None:
-##            return     # only for test_rlist, which doesn't need this anyway
-        
-##        LIST = list_repr.LIST
-##        LISTPTR = list_repr.lowleveltype
-##        ITEM = list_repr.item_repr.lowleveltype
-##        self.LIST = LIST
-##        self.LISTPTR = LISTPTR
-
-##        argtypes = [Signed]
-##        newlist_ptr = list_repr.rtyper.annotate_helper_fn(LIST.ll_newlist,
-##                                                          argtypes)
-
-##        bk = list_repr.rtyper.annotator.bookkeeper
-##        argtypes = [bk.immutablevalue(dum_nocheck), LISTPTR, Signed, ITEM]
-##        setitem_nonneg_ptr = list_repr.rtyper.annotate_helper_fn(
-##            ll_setitem_nonneg, argtypes)
-##        #self.c_dum_nocheck = inputconst(Void, dum_nocheck)
-##        #self.c_LIST = inputconst(Void, self.LIST)
-
-##        def build_newlist(llops, length):
-##            c_newlist = llops.genconst(newlist_ptr)
-##            c_len     = llops.genconst(length)
-##            c_LIST    = llops.genvoidconst(LIST)
-##            return llops.genop('direct_call',
-##                               [c_newlist, c_LIST, c_len],
-##                               llops.constTYPE(LISTPTR))
-
-##        def build_setitem(llops, v_list, index, v_item):
-##            c_setitem_nonneg = llops.genconst(setitem_nonneg_ptr)
-##            c_i = llops.genconst(index)
-##            llops.genop('direct_call', [c_setitem_nonneg,
-##                                        llops.genvoidconst(dum_nocheck),
-##                                        v_list, c_i, v_item])
-
-##        self.build_newlist = build_newlist
-##        self.build_setitem = build_setitem
-
-##    def build(self, llops, items_v):
-##        """Make the operations that would build a list containing the
-##        provided items."""
-##        v_list = self.build_newlist(llops, len(items_v))
-##        for i, v in enumerate(items_v):
-##            self.build_setitem(llops, v_list, i, v)
-##        return v_list
-
-##    def getlistptr(self):
-##        list_repr = self.tmp_list_repr
-##        if list_repr is not None:
-##            list_repr.setup()
-##            return list_repr.lowleveltype
-##        else:
-##            return self.LISTPTR
-
-##    def __eq__(self, other):
-##        if not isinstance(other, ListBuilder):
-##            return False
-##        return self.getlistptr() == other.getlistptr()
-
-##    def __ne__(self, other):
-##        return not (self == other)
-
-##    def __hash__(self):
-##        return 1 # bad but not used alone
 
 
 class __extend__(pairtype(BaseListRepr, BaseListRepr)):
@@ -194,7 +109,6 @@ class ListRepr(AbstractListRepr, BaseListRepr):
                                           "ll_newemptylist": ll_newemptylist,
                                           "ll_length": ll_length,
                                           "ll_items": ll_items,
-                                          ##"list_builder": self.list_builder,
                                           "ITEM": ITEM,
                                           "ll_getitem_fast": ll_getitem_fast,
                                           "ll_setitem_fast": ll_setitem_fast,
