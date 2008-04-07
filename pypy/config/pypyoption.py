@@ -30,7 +30,6 @@ working_modules.update(dict.fromkeys(
 
 if sys.platform == "win32":
     del working_modules["fcntl"]
-    del working_modules["readline"]
     del working_modules["crypt"]
     del working_modules["termios"]
     del working_modules["_rawffi"]
