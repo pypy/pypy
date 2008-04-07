@@ -91,7 +91,7 @@ current implementation:
 Getting the code and test suites
 =================================
 
-A stable revision of PyPy containing the ctypes implementation can be checked out with subversion from: 
+A stable revision of PyPy containing the ctypes implementation can be checked out with subversion from the tag: 
 
 http://codespeak.net/svn/pypy/tag/ctypes-stable XXX make the tag
 
