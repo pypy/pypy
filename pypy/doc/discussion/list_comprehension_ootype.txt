@@ -1,0 +1,58 @@
+<antocuni> I think it's nearly impossible to implement the hint "fence" efficiently
+<arigato> ouch
+<antocuni> that's why test_simplify is failing at the moment
+<arigato> what is the problem btw?
+<arigato> even in lltype, the implementation is along the lines of
+<arigato> make a fixed list of length 'fence'
+<arigato> and at the end if less items have been added
+<arigato> make a copy of the list
+<arigato> I think 'fence' also means 'I promize no one else has seen this list yet'
+<antocuni> arigato: I was referring mainly to ll_list2fixed_exact, which doesn't do any copy
+* arigato tries to remember
+* antocuni tries to understand :-)
+<arigato> lltype gets good results using a subtle interplay of hints and the backendopt malloc removal
+<cfbolz> in other words, a hack
+<arigato> roughly speaking yes
+<arigato> while the list is being built, it is varsized, so it is a GcStruct pointing to a GcArray
+<arigato> but malloc removal gets rid of the GcStruct
+<arigato> so all that's left is the GcArray that is pre-allocated for exactly the right size
+<arigato> and when it escapes the loop, turning this GcArray into a fixed-sized list is a no-op
+<antocuni> ah
+<arigato> for now, on ootype you'll have to keep the varsized list, I suppose
+<arigato> then, exactlength or not, the fence operation needs to copy it into a fixedsized array
+<arigato> looks a bit wasteful :-(
+<antocuni> are we sure this is an optimization?
+<arigato> no
+<antocuni> I think that for now the simplest thing to do is to disable detect_list_comprehension for ootype
+<arigato> not completely nice
+<arigato> in theory this is an annotation phase, so it comes before we chose lltype vs ootype
+<antocuni> the problem is that the result of hint is annotated as a fixed size list, so the corresponding repr will be chosen
+<antocuni> and then we need a way to convert from ootype.List to ootype.Array, which is not cheap
+<arigato> yes
+<arigato> if we want good results, we could try to mimic the lltype behavior
+<arigato> we could somehow flag the annotation of the temporary varsized-list
+<arigato> so that ootype can pick a 3rd kind of repr for it
+<arigato> which would be a bit like ootype: a Record of an ootype.Array and a current length
+<arigato> this is not so horrible because it needs only to support the append() method, nothing else
+<arigato> (plus of course the hints added by simplify.py)
+<antocuni> I see
+<arigato> and it's an append_noresize() method
+<arigato> i.e. we are sure that there is still enough space in the ootype.Array
+<antocuni> right
+<antocuni> so it's even easy to implement
+<antocuni> and cheap
+<arigato> yes, probably
+<antocuni> how much speed did we gain with that optimization on lltype?
+<arigato> I think it's not really useful for PyPy
+<arigato> but I wrote it when we were working on the jit
+<arigato> because rtimeshifter.py & co. create small lists all the time
+<arigato> I didn't measure anything though
+<arigato> (so, it was a quite un-scientific experiment :-)
+<antocuni> so, I guess we could mark is as TODO
+<antocuni> I don't really feel like doing it now, especially if it won't bring any speed improvement :-)
+<arigato> fine :-)
+<arigato> ah, it seems that there is even already a flag on the varsized list annotation
+<arigato> yes, it's used by lltypesystem.rlist to choose if the append() method can be implemented with ll_append_noresize or not
+<arigato> so in ootypesystem.rlist it could be used to choose this special repr
+<antocuni> arigato: you mean hint_maxlength?
+<arigato> yes
