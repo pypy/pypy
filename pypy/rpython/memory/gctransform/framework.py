@@ -217,6 +217,10 @@ class FrameworkGCTransformer(GCTransformer):
             + [annmodel.SomeBool(), annmodel.SomeBool()], s_gcref)
         self.collect_ptr = getfn(GCClass.collect.im_func,
             [s_gc], annmodel.s_None)
+        self.disable_finalizers_ptr = getfn(GCClass.disable_finalizers.im_func,
+            [s_gc], annmodel.s_None)
+        self.enable_finalizers_ptr = getfn(GCClass.enable_finalizers.im_func,
+            [s_gc], annmodel.s_None)
 
         # in some GCs we can inline the common case of
         # malloc_fixedsize(typeid, size, True, False, False)
@@ -523,6 +527,21 @@ class FrameworkGCTransformer(GCTransformer):
         op = hop.spaceop
         livevars = self.push_roots(hop)
         hop.genop("direct_call", [self.collect_ptr, self.c_const_gc],
+                  resultvar=op.result)
+        self.pop_roots(hop, livevars)
+
+    def gct_gc__disable_finalizers(self, hop):
+        # cannot collect()
+        op = hop.spaceop
+        hop.genop("direct_call", [self.disable_finalizers_ptr,
+                                  self.c_const_gc],
+                  resultvar=op.result)
+
+    def gct_gc__enable_finalizers(self, hop):
+        # can collect() because it typically calls pending finalizers
+        op = hop.spaceop
+        livevars = self.push_roots(hop)
+        hop.genop("direct_call", [self.enable_finalizers_ptr, self.c_const_gc],
                   resultvar=op.result)
         self.pop_roots(hop, livevars)
 

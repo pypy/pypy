@@ -131,20 +131,29 @@ if GC integration has happened and this junk is still here, please delete it :)
 	else								   \
 		GC_GENERAL_REGISTER_DISAPPEARING_LINK(link, obj)
 
+extern int boehm_gc_finalizer_lock;
 void boehm_gc_startup_code(void);
+void boehm_gc_finalizer_notifier(void);
+
+#define OP_GC__DISABLE_FINALIZERS(r)  boehm_gc_finalizer_lock++
+#define OP_GC__ENABLE_FINALIZERS(r)   (boehm_gc_finalizer_lock--,	\
+				       boehm_gc_finalizer_notifier())
 
 #ifndef PYPY_NOT_MAIN_FILE
-static void boehm_gc_finalizer_notifier(void)
+int boehm_gc_finalizer_lock = 0;
+void boehm_gc_finalizer_notifier(void)
 {
-	static int recursing = 0;
-	if (recursing)
-		return;  /* GC_invoke_finalizers() will be done by the
-			    boehm_gc_finalizer_notifier() that is
-			    currently in the C stack, when we return there */
-	recursing = 1;
-	while (GC_should_invoke_finalizers())
+	boehm_gc_finalizer_lock++;
+	while (GC_should_invoke_finalizers()) {
+		if (boehm_gc_finalizer_lock > 1) {
+			/* GC_invoke_finalizers() will be done by the
+			   boehm_gc_finalizer_notifier() that is
+			   currently in the C stack, when we return there */
+			break;
+		}
 		GC_invoke_finalizers();
-	recursing = 0;
+	}
+	boehm_gc_finalizer_lock--;
 }
 void boehm_gc_startup_code(void)
 {

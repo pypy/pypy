@@ -524,17 +524,18 @@ class SemiSpaceGC(MovingGCBase):
         self.run_finalizers = new_run_finalizer
 
     def execute_finalizers(self):
-        if self.finalizer_lock_count > 0:
-            return    # the outer invocation of execute_finalizers() will do it
-        self.finalizer_lock_count = 1
+        self.finalizer_lock_count += 1
         try:
             while self.run_finalizers.non_empty():
                 #print "finalizer"
+                if self.finalizer_lock_count > 1:
+                    # the outer invocation of execute_finalizers() will do it
+                    break
                 obj = self.run_finalizers.popleft()
                 finalizer = self.getfinalizer(self.get_type_id(obj))
                 finalizer(obj)
         finally:
-            self.finalizer_lock_count = 0
+            self.finalizer_lock_count -= 1
 
     STATISTICS_NUMBERS = 0
 

@@ -753,6 +753,12 @@ class LLFrame(object):
     def op_gc__collect(self):
         self.heap.collect()
 
+    def op_gc__disable_finalizers(self):
+        self.heap.disable_finalizers()
+
+    def op_gc__enable_finalizers(self):
+        self.heap.enable_finalizers()
+
     def op_gc_free(self, addr):
         # what can you do?
         pass
@@ -836,7 +842,7 @@ class LLFrame(object):
 
     def op_raw_malloc(self, size):
         assert lltype.typeOf(size) == lltype.Signed
-        return self.heap.raw_malloc(size)
+        return llmemory.raw_malloc(size)
 
     op_boehm_malloc = op_boehm_malloc_atomic = op_raw_malloc
 
@@ -848,20 +854,20 @@ class LLFrame(object):
 
     def op_raw_malloc_usage(self, size):
         assert lltype.typeOf(size) == lltype.Signed
-        return self.heap.raw_malloc_usage(size)
+        return llmemory.raw_malloc_usage(size)
 
     def op_raw_free(self, addr):
         checkadr(addr) 
-        self.heap.raw_free(addr)
+        llmemory.raw_free(addr)
 
     def op_raw_memclear(self, addr, size):
         checkadr(addr)
-        self.heap.raw_memclear(addr, size)
+        llmemory.raw_memclear(addr, size)
 
     def op_raw_memcopy(self, fromaddr, toaddr, size):
         checkadr(fromaddr)
         checkadr(toaddr)
-        self.heap.raw_memcopy(fromaddr, toaddr, size)
+        llmemory.raw_memcopy(fromaddr, toaddr, size)
 
     def op_raw_load(self, addr, typ, offset):
         checkadr(addr)

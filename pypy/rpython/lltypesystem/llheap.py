@@ -1,14 +1,11 @@
 # only for the LLInterpreter.  Don't use directly.
 
 from pypy.rpython.lltypesystem.lltype import pyobjectptr, malloc, free, typeOf
-from pypy.rpython.lltypesystem.llmemory import raw_malloc, raw_free
-from pypy.rpython.lltypesystem.llmemory import raw_memclear, raw_memcopy
-from pypy.rpython.lltypesystem.llmemory import raw_malloc_usage, \
-    weakref_create, weakref_deref
+from pypy.rpython.lltypesystem.llmemory import weakref_create, weakref_deref
 
 setfield = setattr
 from operator import setitem as setarrayitem
-from gc import collect
+from pypy.rlib.rgc import collect, disable_finalizers, enable_finalizers
 
 def setinterior(toplevelcontainer, inneraddr, INNERTYPE, newvalue):
     assert typeOf(newvalue) == INNERTYPE

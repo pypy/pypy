@@ -134,6 +134,12 @@ class RefcountingGcPolicy(BasicGcPolicy):
     def OP_GC__COLLECT(self, funcgen, op):
         return ''
 
+    def OP_GC__DISABLE_FINALIZERS(self, funcgen, op):
+        return ''
+
+    def OP_GC__ENABLE_FINALIZERS(self, funcgen, op):
+        return ''
+
 
 class RefcountingRuntimeTypeInfo_OpaqueNode(ContainerNode):
     nodekind = 'refcnt rtti'

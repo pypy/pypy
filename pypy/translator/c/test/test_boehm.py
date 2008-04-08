@@ -1,6 +1,7 @@
 import py
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.memory.test import snippet
 from pypy.translator.tool.cbuild import check_boehm_presence
 from pypy.translator.c.genc import CExtModuleBuilder
 from pypy import conftest
@@ -365,3 +366,16 @@ class TestUsingBoehm(AbstractGCTestClass):
         c_fn = self.getcompiled(fn, [int])
         res = c_fn(10000)
         assert res == 0
+
+    # reusing some tests from pypy.rpython.memory.test.snippet
+    large_tests_ok = True
+
+    def run_ok(self, f):
+        def wrapper():
+            return int(f() == 'ok')
+        c_fn = self.getcompiled(wrapper, [])
+        res = c_fn()
+        assert res == 1
+
+    test_disable_finalizers = (
+        snippet.SemiSpaceGCTests.test_disable_finalizers.im_func)

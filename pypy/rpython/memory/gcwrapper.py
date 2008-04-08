@@ -81,6 +81,12 @@ class GCManagedHeap(object):
     def collect(self):
         self.gc.collect()
 
+    def disable_finalizers(self):
+        self.gc.disable_finalizers()
+
+    def enable_finalizers(self):
+        self.gc.enable_finalizers()
+
     def weakref_create_getlazy(self, objgetter):
         # we have to be lazy in reading the llinterp variable containing
         # the 'obj' pointer, because the gc.malloc() call below could

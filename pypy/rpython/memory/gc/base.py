@@ -114,6 +114,12 @@ class GCBase(object):
     def x_clone(self, clonedata):
         raise RuntimeError("no support for x_clone in the GC")
 
+    def disable_finalizers(self):
+        pass     # xxx this should really be implemented by all subclasses
+
+    def enable_finalizers(self):
+        pass     # xxx this should really be implemented by all subclasses
+
     def trace(self, obj, callback, arg):
         """Enumerate the locations inside the given obj that can contain
         GC pointers.  For each such location, callback(pointer, arg) is

@@ -387,6 +387,8 @@ LL_OPERATIONS = {
     # __________ GC operations __________
 
     'gc__collect':          LLOp(canunwindgc=True),
+    'gc__disable_finalizers': LLOp(),
+    'gc__enable_finalizers':  LLOp(canunwindgc=True),
     'gc_free':              LLOp(),
     'gc_fetch_exception':   LLOp(),
     'gc_restore_exception': LLOp(),
