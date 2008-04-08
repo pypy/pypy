@@ -17,19 +17,18 @@ from pypy.rpython.memory.gctypelayout import ll_weakref_deref, WEAKREF
 from pypy.rpython.memory.gctypelayout import convert_weakref_to, WEAKREFPTR
 from pypy.rpython.memory.gctransform.log import log
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.rpython.lltypesystem.lloperation import llop
+from pypy.rpython.lltypesystem.lloperation import llop, LL_OPERATIONS
 import sys
 
 
 class CollectAnalyzer(graphanalyze.GraphAnalyzer):
     def operation_is_true(self, op):
-        if op.opname == 'gc__collect':
-            return True
         if op.opname in ('malloc', 'malloc_varsize'):
             flags = op.args[1].value
             return flags['flavor'] == 'gc' and not flags.get('nocollect', False)
-        if op.opname in ('coalloc', 'coalloc_varsize'):
-            return True
+        else:
+            return (op.opname in LL_OPERATIONS and
+                    LL_OPERATIONS[op.opname].canunwindgc)
 
 def find_initializing_stores(collect_analyzer, graph):
     from pypy.objspace.flow.model import mkentrymap
