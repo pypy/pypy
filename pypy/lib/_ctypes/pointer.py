@@ -106,12 +106,6 @@ class _Pointer(_CData):
 
     contents = property(getcontents, setcontents)
 
-    def __eq__(self, other):
-        return self._buffer[0] == other
-
-    def __ne__(self, other):
-        return not self == other
-
 def _cast_addr(obj, _, tp):
     if not (isinstance(tp, _CDataMeta) and tp._is_pointer_like()):
         raise TypeError("cast() argument 2 must be a pointer type, not %s"

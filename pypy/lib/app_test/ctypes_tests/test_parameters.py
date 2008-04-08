@@ -100,7 +100,7 @@ class TestSimpleTypes:
         assert x.contents.value == 42
         assert LPINT(c_int(42)).contents.value == 42
 
-        assert LPINT.from_param(None) == 0
+        assert not LPINT.from_param(None)
 
         if c_int != c_long:
             raises(TypeError, LPINT.from_param, pointer(c_long(42)))

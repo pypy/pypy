@@ -49,6 +49,8 @@ class CConfig:
                                                  ('type', rffi.USHORT),
                                                  ('elements', FFI_TYPE_PP)])
 
+    ffi_closure = rffi_platform.Struct('ffi_closure', [])
+
 def add_simple_type(type_name):
     for name in ['size', 'alignment', 'type']:
         setattr(CConfig, type_name + '_' + name,
@@ -119,8 +121,7 @@ FFI_TYPE_STRUCT = rffi.cast(rffi.USHORT, cConfig.FFI_TYPE_STRUCT)
 FFI_CIFP = rffi.COpaquePtr('ffi_cif', compilation_info=CConfig.
                            _compilation_info_)
 
-FFI_CLOSUREP = rffi.COpaquePtr('ffi_closure', compilation_info=CConfig.
-                               _compilation_info_)
+FFI_CLOSUREP = lltype.Ptr(cConfig.ffi_closure)
 
 VOIDPP = rffi.CArrayPtr(rffi.VOIDP)
 
@@ -209,6 +210,39 @@ def ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     userdata = rffi.cast(USERDATA_P, ll_userdata)
     userdata.callback(ll_args, ll_res, userdata)
 
+# heap for closures
+from pypy.jit.codegen.i386 import codebuf_posix
+
+CHUNK = 4096
+CLOSURES = rffi.CArrayPtr(FFI_CLOSUREP.TO)
+
+class ClosureHeap(object):
+
+    def __init__(self):
+        self.free_list = lltype.nullptr(rffi.VOIDP.TO)
+
+    def _more(self):
+        chunk = rffi.cast(CLOSURES, codebuf_posix.alloc(CHUNK))
+        count = CHUNK//rffi.sizeof(FFI_CLOSUREP.TO)
+        for i in range(count):
+            rffi.cast(rffi.VOIDPP, chunk)[0] = self.free_list
+            self.free_list = rffi.cast(rffi.VOIDP, chunk)
+            chunk = rffi.ptradd(chunk, 1)
+
+    def alloc(self):
+        if not self.free_list:
+            self._more()
+        p = self.free_list
+        self.free_list = rffi.cast(rffi.VOIDPP, p)[0]
+        return rffi.cast(FFI_CLOSUREP, p)
+
+    def free(self, p):
+        rffi.cast(rffi.VOIDPP, p)[0] = self.free_list
+        self.free_list = rffi.cast(rffi.VOIDP, p)
+
+closureHeap = ClosureHeap()
+    
+
 class AbstractFuncPtr(object):
     ll_cif = lltype.nullptr(FFI_CIFP.TO)
     ll_argtypes = lltype.nullptr(FFI_TYPE_PP.TO)
@@ -246,7 +280,7 @@ class CallbackFuncPtr(AbstractFuncPtr):
     # it cannot be any kind of movable gc reference
     def __init__(self, argtypes, restype, func, additional_arg=0):
         AbstractFuncPtr.__init__(self, "callback", argtypes, restype)
-        self.ll_closure = lltype.malloc(FFI_CLOSUREP.TO, flavor='raw')
+        self.ll_closure = closureHeap.alloc()
         self.ll_userdata = lltype.malloc(USERDATA_P.TO, flavor='raw')
         self.ll_userdata.callback = rffi.llhelper(CALLBACK_TP, func)
         self.ll_userdata.addarg = additional_arg
@@ -259,7 +293,7 @@ class CallbackFuncPtr(AbstractFuncPtr):
     def __del__(self):
         AbstractFuncPtr.__del__(self)
         if self.ll_closure:
-            lltype.free(self.ll_closure, flavor='raw')
+            closureHeap.free(self.ll_closure)
             self.ll_closure = lltype.nullptr(FFI_CLOSUREP.TO)
         if self.ll_userdata:
             lltype.free(self.ll_userdata, flavor='raw')

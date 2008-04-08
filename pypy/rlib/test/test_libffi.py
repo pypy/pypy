@@ -109,6 +109,36 @@ class TestDLOperations:
         del libc
         assert not ALLOCATED
 
+    def test_closure_heap(self):
+        ch = ClosureHeap()
+
+        assert not ch.free_list
+        a = ch.alloc()
+        assert ch.free_list        
+        b = ch.alloc()
+        
+        chunks = [a, b]
+        p = ch.free_list
+        while p:
+            chunks.append(p)
+            p = rffi.cast(rffi.VOIDPP, p)[0]
+        closure_size = rffi.sizeof(FFI_CLOSUREP.TO)
+        assert len(chunks) == CHUNK//closure_size
+        for i in range(len(chunks) -1 ):
+            s = rffi.cast(rffi.UINT, chunks[i+1])
+            e = rffi.cast(rffi.UINT, chunks[i])
+            assert (e-s) >= rffi.sizeof(FFI_CLOSUREP.TO)
+
+        ch.free(a)
+        assert ch.free_list == rffi.cast(rffi.VOIDP, a)
+        snd = rffi.cast(rffi.VOIDPP, a)[0]
+        assert snd == chunks[2]
+
+        ch.free(b)
+        assert ch.free_list == rffi.cast(rffi.VOIDP, b)
+        snd = rffi.cast(rffi.VOIDPP, b)[0]
+        assert snd == rffi.cast(rffi.VOIDP, a)
+        
     def test_callback(self):
         libc = CDLL('libc.so.6')
         qsort = libc.getpointer('qsort', [ffi_type_pointer, ffi_type_slong,
