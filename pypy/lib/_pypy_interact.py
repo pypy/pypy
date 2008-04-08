@@ -4,18 +4,18 @@ import sys
 
 
 def interactive_console(mainmodule=None):
+    try:
+        from pyrepl.simple_interact import run_multiline_interactive_console
+    except ImportError:
+        run_simple_interactive_console(mainmodule)
+    else:
+        run_multiline_interactive_console(mainmodule)
+
+def run_simple_interactive_console(mainmodule):
     import code
     if mainmodule is None:
         import __main__ as mainmodule
     console = code.InteractiveConsole(mainmodule.__dict__)
-    try:
-        from readline import multiline_input
-    except ImportError:
-        run_simple_interactive_console(console)
-    else:
-        run_multiline_interactive_console(console)
-
-def run_simple_interactive_console(console):
     # some parts of code.py are copied here because it seems to be impossible
     # to start an interactive console without printing at least one line
     # of banner
@@ -37,37 +37,6 @@ def run_simple_interactive_console(console):
             console.write("\nKeyboardInterrupt\n")
             console.resetbuffer()
             more = 0
-
-def run_multiline_interactive_console(console):
-    from readline import multiline_input
-
-    def more_lines(unicodetext):
-        # ooh, look at the hack:
-        src = "#coding:utf-8\n"+unicodetext.encode('utf-8')
-        try:
-            code = console.compile(src, '<input>', 'single')
-        except (OverflowError, SyntaxError, ValueError):
-            return False
-        else:
-            return code is None
-
-    while 1:
-        try:
-            ps1 = getattr(sys, 'ps1', '>>> ')
-            ps2 = getattr(sys, 'ps2', '... ')
-            try:
-                statement = multiline_input(more_lines, ps1, ps2)
-            except EOFError:
-                break
-            # XXX with Alt-Enter we can actually enter more than one
-            # statement, and compile() ignores everything after the
-            # first statement in 'single' mode...  We should either
-            # find some obscure workaround or tweak PyPy's compiler.
-            more = console.push(statement)
-            assert not more
-        except KeyboardInterrupt:
-            console.write("\nKeyboardInterrupt\n")
-            console.resetbuffer()
 
 # ____________________________________________________________
 
