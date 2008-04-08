@@ -7,6 +7,30 @@ import pyrepl.curses    # check to give an early ImportError
 
 ENCODING = 'latin1'     # XXX hard-coded
 
+__all__ = ['add_history',
+           'clear_history',
+           'get_begidx',
+           'get_completer',
+           'get_completer_delims',
+           'get_current_history_length',
+           'get_endidx',
+           'get_history_item',
+           'get_history_length',
+           'get_line_buffer',
+           'insert_text',
+           'parse_and_bind',
+           'read_history_file',
+           'read_init_file',
+           'redisplay',
+           'remove_history_item',
+           'replace_history_item',
+           'set_completer',
+           'set_completer_delims',
+           'set_history_length',
+           'set_pre_input_hook',
+           'set_startup_hook',
+           'write_history_file']
+
 # ____________________________________________________________
 
 class _ReaderMixin(object):
