@@ -90,10 +90,6 @@ current implementation:
     between its primitive types and user subclasses
     of its primitive types
 
-  - on Linux systems where heap memory is by default not
-    executable, callbacks segfault at the moment.  This
-    should be fixed soon.
-
 Getting the code and test suites
 =================================
 
