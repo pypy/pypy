@@ -1,7 +1,7 @@
 
 from pypy.translator.c.test.test_genc import compile
-from pypy.module._curses import interp_curses
-from pypy.module._curses import fficurses        
+from pypy.module._minimal_curses import interp_curses
+from pypy.module._minimal_curses import fficurses        
 from pypy.conftest import gettestobjspace
 from pypy.tool.autopath import pypydir
 from pypy.tool.udir import udir
@@ -38,39 +38,39 @@ class TestCurses(object):
 
     def test_setupterm(self):
         source = py.code.Source("""
-        import _curses
+        import _minimal_curses
         try:
-            _curses.tigetstr('cup')
-        except _curses.error:
+            _minimal_curses.tigetstr('cup')
+        except _minimal_curses.error:
             print 'ok!'
         """)
         f = udir.join("test_setupterm.py")
         f.write(source)
-        child = self.spawn(['--withmod-_curses', str(f)])
+        child = self.spawn(['--withmod-_minimal_curses', str(f)])
         child.expect('ok!')
 
     def test_tigetstr(self):
         source = py.code.Source("""
-        import _curses
-        _curses.setupterm()
-        assert _curses.tigetstr('cup') == '\x1b[%i%p1%d;%p2%dH'
+        import _minimal_curses
+        _minimal_curses.setupterm()
+        assert _minimal_curses.tigetstr('cup') == '\x1b[%i%p1%d;%p2%dH'
         print 'ok!'
         """)
         f = udir.join("test_tigetstr.py")
         f.write(source)
-        child = self.spawn(['--withmod-_curses', str(f)])
+        child = self.spawn(['--withmod-_minimal_curses', str(f)])
         child.expect('ok!')
 
     def test_tparm(self):
         source = py.code.Source("""
-        import _curses
-        _curses.setupterm()
-        assert _curses.tparm(_curses.tigetstr('cup'), 5, 3) == '\033[6;4H'
+        import _minimal_curses
+        _minimal_curses.setupterm()
+        assert _minimal_curses.tparm(_minimal_curses.tigetstr('cup'), 5, 3) == '\033[6;4H'
         print 'ok!'
         """)
         f = udir.join("test_tparm.py")
         f.write(source)
-        child = self.spawn(['--withmod-_curses', str(f)])
+        child = self.spawn(['--withmod-_minimal_curses', str(f)])
         child.expect('ok!')
         
 
@@ -79,7 +79,7 @@ class ExpectTestCCurses(object):
     """
     def test_csetupterm(self):
         from pypy.translator.c.test.test_genc import compile
-        from pypy.module._curses import interp_curses
+        from pypy.module._minimal_curses import interp_curses
         def runs_setupterm():
             interp_curses._curses_setupterm_null(1)
 
@@ -88,7 +88,7 @@ class ExpectTestCCurses(object):
 
     def test_ctgetstr(self):
         from pypy.translator.c.test.test_genc import compile
-        from pypy.module._curses import interp_curses
+        from pypy.module._minimal_curses import interp_curses
         def runs_ctgetstr():
             interp_curses._curses_setupterm("xterm", 1)
             return interp_curses._curses_tigetstr('cup')
@@ -99,7 +99,7 @@ class ExpectTestCCurses(object):
 
     def test_ctparm(self):
         from pypy.translator.c.test.test_genc import compile
-        from pypy.module._curses import interp_curses
+        from pypy.module._minimal_curses import interp_curses
         def runs_tparm():
             interp_curses._curses_setupterm("xterm", 1)
             cup = interp_curses._curses_tigetstr('cup')
