@@ -91,7 +91,7 @@ def popen(command, mode='r', bufsize=-1):
     Open a pipe to/from a command returning a file object."""
 
     from popen2 import MAXFD
-    import os
+    import os, gc
 
     def try_close(fd):
         try:
@@ -103,22 +103,26 @@ def popen(command, mode='r', bufsize=-1):
         raise ValueError("invalid mode %r" % (mode,))
     read_end, write_end = os.pipe()
     try:
-        childpid = os.fork()
-        if childpid == 0:
-            # in the child
-            try:
-                if mode.startswith('r'):
-                    os.dup2(write_end, 1)
-                    os.close(read_end)
-                else:
-                    os.dup2(read_end, 0)
-                    os.close(write_end)
-                for i in range(3, MAXFD):    # XXX this loop can be slow
-                    try_close(i)
-                cmd = ['/bin/sh', '-c', command]
-                os.execvp(cmd[0], cmd)
-            finally:
-                os._exit(1)
+        gc.disable_finalizers()
+        try:
+            childpid = os.fork()
+            if childpid == 0:
+                # in the child
+                try:
+                    if mode.startswith('r'):
+                        os.dup2(write_end, 1)
+                        os.close(read_end)
+                    else:
+                        os.dup2(read_end, 0)
+                        os.close(write_end)
+                    for i in range(3, MAXFD):    # XXX this loop can be slow
+                        try_close(i)
+                    cmd = ['/bin/sh', '-c', command]
+                    os.execvp(cmd[0], cmd)
+                finally:
+                    os._exit(1)
+        finally:
+            gc.enable_finalizers()
 
         if mode.startswith('r'):
             os.close(write_end)
