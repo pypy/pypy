@@ -1,8 +1,0 @@
-make
-python reine.py 8
-
-or
-LD_LIBRARY_PATH=. ./reine 10
-
-(need to get ctypes, and gecode library)
-apt-get install libgecode0-dev 
