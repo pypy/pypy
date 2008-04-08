@@ -93,7 +93,7 @@ Getting the code and test suites
 
 A stable revision of PyPy containing the ctypes implementation can be checked out with subversion from the tag: 
 
-http://codespeak.net/svn/pypy/tag/ctypes-stable XXX make the tag
+http://codespeak.net/svn/pypy/tag/ctypes-stable
 
 The various tests and later examples can be run on x86-32 Linux. We tried them
 on an up-to-date Ubuntu 7.10 x86-32 system.
