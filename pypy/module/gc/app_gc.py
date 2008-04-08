@@ -1,6 +1,6 @@
 
 def isenabled():
-    "Not implemented."
+    return True
 
 def enable():
     "Not implemented."

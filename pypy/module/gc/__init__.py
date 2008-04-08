@@ -8,5 +8,7 @@ class Module(MixedModule):
     }
     interpleveldefs = {
         'collect': 'interp_gc.collect',
+        'enable_finalizers': 'interp_gc.enable_finalizers',
+        'disable_finalizers': 'interp_gc.disable_finalizers',
         'estimate_heap_size': 'interp_gc.estimate_heap_size',
     }

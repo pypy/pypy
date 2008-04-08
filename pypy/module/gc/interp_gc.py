@@ -1,13 +1,35 @@
 from pypy.interpreter.gateway import ObjSpace
 from pypy.interpreter.error import OperationError
-from pypy.rlib import rgc # Force registration of gc.collect
-import gc
+from pypy.rlib import rgc
 
 def collect(space):
     "Run a full collection."
-    gc.collect()
+    rgc.collect()
     
 collect.unwrap_spec = [ObjSpace]
+
+class State: 
+    def __init__(self, space):
+        self.finalizers_lock_count = 0
+def getstate(space):
+    return space.fromcache(State)
+
+def enable_finalizers(space):
+    state = getstate(space)
+    if state.finalizers_lock_count == 0:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("finalizers are already enabled"))
+    state.finalizers_lock_count -= 1
+    rgc.enable_finalizers()
+enable_finalizers.unwrap_spec = [ObjSpace]
+
+def disable_finalizers(space):
+    state = getstate(space)
+    rgc.disable_finalizers()
+    state.finalizers_lock_count += 1
+disable_finalizers.unwrap_spec = [ObjSpace]
+
+# ____________________________________________________________
 
 import sys
 platform = sys.platform
