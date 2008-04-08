@@ -56,16 +56,16 @@ Reimplementing ctypes features was in general possible. PyPy supports
 pluggable garbage collectors, some of them are moving collectors, this
 means that the strategy of passing direct references inside Python
 objects to an external library is not feasible (unless the GCs
-support pinning, which not the case right now).  The consequence of
+support pinning, which is not the case right now).  The consequence of
 this is that sometimes copying instead of sharing is required, this
 may result in some semantics differences. C objects created with
 _rawffi itself are allocated outside of the GC heap, so they can be
 passed to external functions without worries.
 
 Porting the implementation to interpreter-level should likely improve
-its speed, Further the current layering and the current _rawffi
+its speed.  Furthermore the current layering and the current _rawffi
 interface require more object allocations and copying than strictly
-necessary, this too could be improved.
+necessary; this too could be improved.
 
 The implementation was developed and has only been tested on x86-32 Linux.
 
@@ -86,7 +86,13 @@ current implementation:
 
   - callbacks accepting by-value structures
 
-  - expected semantics when ctypes types are subclassed
+  - slight semantic differences that ctypes makes
+    between its primitive types and user subclasses
+    of its primitive types
+
+  - on Linux systems where heap memory is by default not
+    executable, callbacks segfault at the moment.  This
+    should be fixed soon.
 
 Getting the code and test suites
 =================================
