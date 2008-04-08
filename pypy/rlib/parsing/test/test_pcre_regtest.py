@@ -85,7 +85,7 @@ from pypy.rlib.parsing.regexparse import make_runner, unescape
 import string
 import re
 
-py.test.skip("Still in progress")
+#py.test.skip("Still in progress")
 
 # Dumper's are objects that can dump/load the suite
 class Dumper(object):
