@@ -120,7 +120,7 @@ To run the tests then::
    $ cd ../.. # back to pypy/
    $ ./translator/goal/pypy-c test_all.py lib/app_test/ctypes_tests
 
-There should be 255 passed and 36 skipped tests.
+There should be 36 skipped tests and all other tests should pass.
 
 Running application examples
 ==============================
