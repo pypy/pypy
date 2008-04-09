@@ -681,7 +681,7 @@ testmap = [
 
     RegrTest('test_struct.py', enabled=True, dumbtest=1, usemodules='struct'),
     RegrTest('test_structseq.py', enabled=False, dumbtest=1),
-    RegrTest('test_subprocess.py', enabled=False),
+    RegrTest('test_subprocess.py', enabled=False, usemodules='signal'),
     RegrTest('test_sunaudiodev.py', enabled=False, dumbtest=1),
     RegrTest('test_sundry.py', enabled=False, dumbtest=1),
     # test_support is not a test
