@@ -6,6 +6,7 @@ from pypy.rpython.module.ll_os import RegisterOs
 import os
 import py
 import sys
+import signal
 
 def setup_module(mod): 
     mod.space = gettestobjspace(usemodules=['posix'])
@@ -42,6 +43,7 @@ class AppTestPosix:
             cls.w_sysconf_name = space.wrap(sysconf_name)
             cls.w_sysconf_value = space.wrap(os.sysconf_names[sysconf_name])
             cls.w_sysconf_result = space.wrap(os.sysconf(sysconf_name))
+        cls.w_SIGABRT = space.wrap(signal.SIGABRT)
 
     def setup_method(self, meth):
         if getattr(meth, 'need_sparse_files', False):
@@ -189,7 +191,8 @@ class AppTestPosix:
                 os._exit(4)
             pid1, status1 = os.waitpid(pid, 0)
             assert pid1 == pid
-            # XXX check status1
+            assert os.WIFEXITED(status1)
+            assert os.WEXITSTATUS(status1) == 4
         pass # <- please, inspect.getsource(), don't crash
 
     if hasattr(__import__(os.name), "execv"):
@@ -361,6 +364,19 @@ class AppTestPosix:
         data = os.read(fd, 2)
         assert data == 'X'
         os.close(fd)
+
+    if hasattr(__import__(os.name), "fork"):
+        def test_abort(self):
+            os = self.posix
+            pid = os.fork()
+            if pid == 0:
+                os.abort()
+            pid1, status1 = os.waitpid(pid, 0)
+            assert pid1 == pid
+            assert os.WIFSIGNALED(status1)
+            assert os.WTERMSIG(status1) == self.SIGABRT
+        pass # <- please, inspect.getsource(), don't crash
+
 
 class AppTestEnvironment(object):
     def setup_class(cls): 

@@ -60,6 +60,7 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['unsetenv'] = 'interp_posix.unsetenv'
     if hasattr(os, 'kill'):
         interpleveldefs['kill'] = 'interp_posix.kill'
+        interpleveldefs['abort'] = 'interp_posix.abort'
     if hasattr(os, 'getpid'):
         interpleveldefs['getpid'] = 'interp_posix.getpid'
     if hasattr(os, 'link'):
