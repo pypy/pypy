@@ -157,6 +157,7 @@ class CollectEntry(ExtRegistryEntry):
         return annmodel.s_None
 
     def specialize_call(self, hop):
+        hop.exception_cannot_occur()
         return hop.genop('gc__collect', [], resulttype=hop.r_result)
     
 class SetMaxHeapSizeEntry(ExtRegistryEntry):
@@ -169,6 +170,7 @@ class SetMaxHeapSizeEntry(ExtRegistryEntry):
     def specialize_call(self, hop):
         from pypy.rpython.lltypesystem import lltype
         [v_nbytes] = hop.inputargs(lltype.Signed)
+        hop.exception_cannot_occur()
         return hop.genop('gc_set_max_heap_size', [v_nbytes],
                          resulttype=lltype.Void)
 
@@ -181,4 +183,5 @@ class CollectEntry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         opname = 'gc__' + self.instance.__name__
+        hop.exception_cannot_occur()
         return hop.genop(opname, [], resulttype=hop.r_result)
