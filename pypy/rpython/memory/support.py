@@ -110,6 +110,20 @@ def get_address_stack(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
                 cur = next
             free_non_gc_object(self)
 
+        def foreach(self, callback, arg):
+            """Invoke 'callback(address, arg)' for all addresses in the stack.
+            Typically, 'callback' is a bound method and 'arg' can be None.
+            """
+            chunk = self.chunk
+            count = self.used_in_last_chunk
+            while chunk:
+                while count > 0:
+                    count -= 1
+                    callback(chunk.items[count], arg)
+                chunk = chunk.next
+                count = chunk_size
+        foreach._annspecialcase_ = 'specialize:arg(1)'
+
     cache[chunk_size] = AddressStack
     return AddressStack
 

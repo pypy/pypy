@@ -61,6 +61,23 @@ class TestAddressStack(object):
         for addr in addrs:
             raw_free(addr)
 
+    def test_foreach(self):
+        AddressStack = get_address_stack()
+        addrs = [raw_malloc(llmemory.sizeof(lltype.Signed))
+                 for i in range(3000)]
+        ll = AddressStack()
+        for i in range(3000):
+            ll.append(addrs[i])
+
+        seen = []
+
+        def callback(addr, fortytwo):
+            assert fortytwo == 42
+            seen.append(addr)
+
+        ll.foreach(callback, 42)
+        assert seen == addrs or seen[::-1] == addrs   # order not guaranteed
+
 
 class TestAddressDeque:
     def test_big_access(self):
