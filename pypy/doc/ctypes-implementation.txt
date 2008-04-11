@@ -3,7 +3,10 @@
 PyPy's ctypes implementation 
 =============================
 
-terminology:
+Summary
+========
+
+Terminology:
 
 * application level code - code written in full Python
 
@@ -22,9 +25,9 @@ rapid experimentation over worrying about speed for this first trial
 implementation. This allowed to provide a working implementation with
 a large part of ctypes features in 2 months real time.
 
-We reused the ``ctypes`` package as-is from CPython. We implemented
-``_ctypes`` which is a C module in CPython mostly in pure Python based on
-a lower-level layer extension module ``_rawffi``.
+We reused the ``ctypes`` package version 1.0.2 as-is from CPython. We
+implemented ``_ctypes`` which is a C module in CPython mostly in pure
+Python based on a lower-level layer extension module ``_rawffi``.
 
 .. _`libffi`: http://sources.redhat.com/libffi/
 
@@ -59,7 +62,7 @@ objects to an external library is not feasible (unless the GCs
 support pinning, which is not the case right now).  The consequence of
 this is that sometimes copying instead of sharing is required, this
 may result in some semantics differences. C objects created with
-_rawffi itself are allocated outside of the GC heap, so they can be
+_rawffi itself are allocated outside of the GC heap, such that they can be
 passed to external functions without worries.
 
 Porting the implementation to interpreter-level should likely improve
@@ -113,7 +116,8 @@ some tests.
 To run the test suite a compiled pypy-c is required with the proper configuration. To build the required pypy-c  one should inside the checkout::
 
    $ cd pypy/translator/goal
-   $ ./translate.py --text --batch --gc=generation targetpypystandalone.py --withmod-_rawffi --allworkingmodules
+   $ ./translate.py --text --batch --gc=generation targetpypystandalone.py 
+     --withmod-_rawffi --allworkingmodules
 
 this should produce a pypy-c executable in the ``goal`` directory.
 
