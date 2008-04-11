@@ -121,7 +121,7 @@ class GenerationGC(SemiSpaceGC):
     def malloc_fixedsize_clear(self, typeid, size, can_collect,
                                has_finalizer=False, contains_weakptr=False):
         if (has_finalizer or not can_collect or
-            (raw_malloc_usage(size) > self.lb_young_var_basesize and
+            (raw_malloc_usage(size) > self.lb_young_fixedsize and
              raw_malloc_usage(size) > self.largest_young_fixedsize)):
             # ^^^ we do two size comparisons; the first one appears redundant,
             #     but it can be constant-folded if 'size' is a constant; then
