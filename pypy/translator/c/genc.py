@@ -846,7 +846,7 @@ gcmaptable.s: $(GCMAPFILES)
 \t$(PYPYDIR)/translator/c/gcc/trackgcroot.py $(GCMAPFILES) > $@ || (rm -f $@ && exit 1)
 
 clean:
-\trm -f $(OBJECTS) $(TARGET) $(GCMAPFILES)
+\trm -f $(OBJECTS) $(TARGET) $(GCMAPFILES) *.gc??
 
 debug:
 \t$(MAKE) CFLAGS="-g -DRPY_ASSERT"
