@@ -1,6 +1,6 @@
 import py
 from pypy.config.pypyoption import get_pypy_config
-from pypy.config.config import Config
+from pypy.config.config import Config, ConfigError
 
 thisdir = py.magic.autopath().dirpath()
 
@@ -14,7 +14,7 @@ def test_required():
     assert not conf.objspace.std.withprebuiltint
     conf = get_pypy_config()
     conf.objspace.std.withprebuiltint = True
-    py.test.raises(ValueError, "conf.objspace.std.withsmallint = True")
+    py.test.raises(ConfigError, "conf.objspace.std.withsmallint = True")
 
 def test_stacklessgc_required():
     conf = get_pypy_config()
@@ -25,7 +25,7 @@ def test_stacklessgc_required():
     assert conf.translation.gc == "generation"
     conf = get_pypy_config()
     conf.translation.gc = "boehm"
-    py.test.raises(ValueError, "conf.translation.gcrootfinder = 'stackless'")
+    py.test.raises(ConfigError, "conf.translation.gcrootfinder = 'stackless'")
 
 
 def test_frameworkgc():

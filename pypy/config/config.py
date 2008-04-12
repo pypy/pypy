@@ -10,6 +10,9 @@ class AmbigousOptionError(Exception):
 class NoMatchingOptionFound(AttributeError):
     pass
 
+class ConfigError(Exception):
+    pass
+
 class Config(object):
     _cfgimpl_frozen = False
     
@@ -18,6 +21,7 @@ class Config(object):
         self._cfgimpl_value_owners = {}
         self._cfgimpl_parent = parent
         self._cfgimpl_values = {}
+        self._cfgimpl_warnings = []
         self._cfgimpl_build(overrides)
 
     def _cfgimpl_build(self, overrides):
@@ -95,7 +99,7 @@ class Config(object):
         if oldvalue != value and oldowner not in ("default", "suggested"):
             if who in ("default", "suggested"):
                 return
-            raise ValueError('cannot override value to %s for option %s' %
+            raise ConfigError('cannot override value to %s for option %s' %
                                 (value, name))
         child.setoption(self, value, who)
         self._cfgimpl_value_owners[name] = who
@@ -127,6 +131,12 @@ class Config(object):
         while self._cfgimpl_parent is not None:
             self = self._cfgimpl_parent
         return self
+
+    def add_warning(self, warning):
+        self._cfgimpl_get_toplevel()._cfgimpl_warnings.append(warning)
+
+    def get_warnings(self):
+        return self._cfgimpl_get_toplevel()._cfgimpl_warnings
 
     def _freeze_(self):
         self.__dict__['_cfgimpl_frozen'] = True
@@ -197,7 +207,7 @@ class Option(object):
         if who == "default" and value is None:
             pass
         elif not self.validate(value):
-            raise ValueError('invalid value %s for option %s' % (value, name))
+            raise ConfigError('invalid value %s for option %s' % (value, name))
         config._cfgimpl_values[name] = value
 
     def getkey(self, value):
@@ -240,7 +250,7 @@ class ChoiceOption(Option):
             homeconfig, name = toplevel._cfgimpl_get_home_by_path(path)
             try:
                 homeconfig.setoption(name, reqvalue, "suggested")
-            except ValueError:
+            except ConfigError:
                 # setting didn't work, but that is fine, since it is
                 # suggested only
                 pass
@@ -262,19 +272,23 @@ def _getnegation(optname):
 
 class BoolOption(Option):
     def __init__(self, name, doc, default=None, requires=None,
-                 suggests=None,
+                 suggests=None, validator=None,
                  cmdline=DEFAULT_OPTION_NAME, negation=True):
         super(BoolOption, self).__init__(name, doc, cmdline=cmdline)
         self._requires = requires
         self._suggests = suggests
         self.default = default
         self.negation = negation
+        self._validator = validator
 
     def validate(self, value):
         return isinstance(value, bool)
 
     def setoption(self, config, value, who):
         name = self._name
+        if value and self._validator is not None:
+            toplevel = config._cfgimpl_get_toplevel()
+            self._validator(toplevel)
         if value and self._requires is not None:
             for path, reqvalue in self._requires:
                 toplevel = config._cfgimpl_get_toplevel()
@@ -286,7 +300,7 @@ class BoolOption(Option):
                 homeconfig, name = toplevel._cfgimpl_get_home_by_path(path)
                 try:
                     homeconfig.setoption(name, reqvalue, "suggested")
-                except ValueError:
+                except ConfigError:
                     # setting didn't work, but that is fine, since it is
                     # suggested
                     pass
@@ -330,7 +344,7 @@ class IntOption(Option):
         try:
             super(IntOption, self).setoption(config, int(value), who)
         except TypeError, e:
-            raise ValueError(*e.args)
+            raise ConfigError(*e.args)
 
 
 class FloatOption(Option):
@@ -351,7 +365,7 @@ class FloatOption(Option):
         try:
             super(FloatOption, self).setoption(config, float(value), who)
         except TypeError, e:
-            raise ValueError(*e.args)
+            raise ConfigError(*e.args)
 
 
 class StrOption(Option):
@@ -368,7 +382,7 @@ class StrOption(Option):
         try:
             super(StrOption, self).setoption(config, value, who)
         except TypeError, e:
-            raise ValueError(*e.args)
+            raise ConfigError(*e.args)
 
 
 class ArbitraryOption(Option):
@@ -505,7 +519,7 @@ class ConfigUpdate(object):
         try:
             value = self.convert_from_cmdline(value)
             self.config.setoption(self.option._name, value, who='cmdline')
-        except ValueError, e:
+        except ConfigError, e:
             raise optparse.OptionValueError(e.args[0])
 
     def help_default(self):

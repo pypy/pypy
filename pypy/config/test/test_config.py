@@ -50,17 +50,17 @@ def test_base_config():
     config.str = "def"
     assert config.str == "def"
 
-    py.test.raises(ValueError, 'config.objspace = "foo"')
-    py.test.raises(ValueError, 'config.gc.name = "foo"')
+    py.test.raises(ConfigError, 'config.objspace = "foo"')
+    py.test.raises(ConfigError, 'config.gc.name = "foo"')
     py.test.raises(AttributeError, 'config.gc.foo = "bar"')
-    py.test.raises(ValueError, 'config.bool = 123')
-    py.test.raises(ValueError, 'config.int = "hello"')
-    py.test.raises(ValueError, 'config.gc.float = None')
+    py.test.raises(ConfigError, 'config.bool = 123')
+    py.test.raises(ConfigError, 'config.int = "hello"')
+    py.test.raises(ConfigError, 'config.gc.float = None')
 
     config = Config(descr, bool=False)
     assert config.gc.name == 'ref'
     config.wantframework = True
-    py.test.raises(ValueError, 'config.gc.name = "ref"')
+    py.test.raises(ConfigError, 'config.gc.name = "ref"')
     config.gc.name = "framework"
 
 def test_arbitrary_option():
@@ -439,7 +439,7 @@ def test_copy():
     assert not c2.s1.a
     c2.s1.a = True
     assert c2.s1.a
-    py.test.raises(ValueError, "c2.int = 44")
+    py.test.raises(ConfigError, "c2.int = 44")
     c2 = c1.copy(as_default=True)
     assert c2.int == 43
     assert not c2.s1.a
@@ -542,3 +542,32 @@ def test_delattr():
     assert c.int == 42
     c.int = 45
     assert c.int == 45
+
+def test_validator():
+    def my_validator_1(config):
+        assert config is c
+
+    def my_validator_2(config):
+        assert config is c
+        raise ConfigError
+
+    descr = OptionDescription("opt", "", [
+        BoolOption('booloption1', 'option test1', default=False,
+                   validator=my_validator_1),
+        BoolOption('booloption2', 'option test2', default=False,
+                   validator=my_validator_2),
+        BoolOption('booloption3', 'option test3', default=False,
+                   requires=[("booloption2", True)]),
+        BoolOption('booloption4', 'option test4', default=False,
+                   suggests=[("booloption2", True)]),
+        ])
+    c = Config(descr)
+    c.booloption1 = True
+    py.test.raises(ConfigError, "c.booloption2 = True")
+    assert c.booloption2 is False
+    py.test.raises(ConfigError, "c.booloption3 = True")
+    assert c.booloption2 is False
+    c.booloption4 = True
+    assert c.booloption2 is False
+    c.booloption2 = False
+    assert c.booloption2 is False

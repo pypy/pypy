@@ -3,6 +3,7 @@ import py, os
 import sys
 from pypy.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption
 from pypy.config.config import ChoiceOption, StrOption, to_optparse, Config
+from pypy.config.config import ConfigError
 
 modulepath = py.magic.autopath().dirpath().dirpath().join("module")
 all_modules = [p.basename for p in modulepath.listdir()
@@ -43,6 +44,29 @@ module_suggests = {    # the reason you want _rawffi is for ctypes, which
                        }
 if os.name == "posix":
     module_dependencies['rctime'] = [("objspace.usemodules.select", True),]
+
+module_import_dependencies = {
+    # no _rawffi if importing pypy.rlib.libffi raises ImportError
+    "_rawffi": ["pypy.rlib.libffi"],
+    }
+
+def get_module_validator(modname):
+    if modname in module_import_dependencies:
+        modlist = module_import_dependencies[modname]
+        def validator(config):
+            try:
+                for name in modlist:
+                    __import__(name)
+            except ImportError, e:
+                err = "%s: %s" % (e.__class__.__name__, e)
+                config.add_warning(
+                    "The module %r is disabled\n" % (modname,) +
+                    "because importing %s raised\n" % (name,) +
+                    err)
+                raise ConfigError("--withmod-%s: %s" % (modname, err))
+        return validator
+    else:
+        return None
 
 
 pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
@@ -89,7 +113,8 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    cmdline="--withmod-%s" % (modname, ),
                    requires=module_dependencies.get(modname, []),
                    suggests=module_suggests.get(modname, []),
-                   negation=modname not in essential_modules)
+                   negation=modname not in essential_modules,
+                   validator=get_module_validator(modname))
         for modname in all_modules]),
 
     BoolOption("allworkingmodules", "use as many working modules as possible",

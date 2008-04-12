@@ -193,6 +193,8 @@ def log_options(options, header="options in effect"):
 def log_config(config, header="config used"):
     log('%s:' % header)
     log(str(config))
+    for warning in config.get_warnings():
+        log.WARNING(warning)
 
 def main():
     targetspec_dic, translateconfig, config, args = parse_options_and_load_target()

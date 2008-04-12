@@ -51,6 +51,9 @@ class CConfig:
 
     ffi_closure = rffi_platform.Struct('ffi_closure', [])
 
+if not rffi_platform.check_eci(CConfig._compilation_info_):
+    raise ImportError("cannot find an installed 'libffi' library")
+
 def add_simple_type(type_name):
     for name in ['size', 'alignment', 'type']:
         setattr(CConfig, type_name + '_' + name,
