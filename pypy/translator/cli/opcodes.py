@@ -67,6 +67,8 @@ misc_ops = {
     'cast_ptr_to_weakadr':      [PushAllArgs, 'newobj instance void class %s::.ctor(object)' % WEAKREF],
     'gc__collect':              'call void class [mscorlib]System.GC::Collect()',
     'gc_set_max_heap_size':     Ignore,
+    'gc__enable_finalizers':    Ignore,
+    'gc__disable_finalizers':    Ignore,
     'resume_point':             Ignore,
     'debug_assert':             Ignore,
     'keepalive':                Ignore,
