@@ -21,7 +21,6 @@ extern char __gcmapstart;
 extern char __gcmapend;
 extern char __gccallshapes;
 
-#define PYPY_GCROOT(p)  asm ("/* GCROOT %0 */" : "=g" (p) : "0" (p) : "memory")
 #define pypy_asm_gcroot(p) ({void*_r; \
                asm ("/* GCROOT %0 */" : "=g" (_r) : "0" (p) : "memory"); \
                _r; })

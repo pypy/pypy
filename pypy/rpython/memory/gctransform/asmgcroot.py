@@ -28,15 +28,10 @@ class AsmGcRootFrameworkGCTransformer(FrameworkGCTransformer):
             return
         # mark the values as gc roots
         for var in livevars:
-            if 0:
-                # uses direct support in genc - more compact code,
-                # but it's probably not changing anything
-                hop.genop("asm_gcroot", [var])
-            else:
-                v_adr = gen_cast(hop.llops, llmemory.Address, var)
-                v_newaddr = hop.genop("direct_call", [c_asm_gcroot, v_adr],
-                                      resulttype=llmemory.Address)
-                hop.genop("gc_reload_possibly_moved", [v_newaddr, var])
+            v_adr = gen_cast(hop.llops, llmemory.Address, var)
+            v_newaddr = hop.genop("direct_call", [c_asm_gcroot, v_adr],
+                                  resulttype=llmemory.Address)
+            hop.genop("gc_reload_possibly_moved", [v_newaddr, var])
 
     def build_root_walker(self):
         return AsmStackRootWalker(self)
