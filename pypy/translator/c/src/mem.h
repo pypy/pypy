@@ -20,9 +20,27 @@ struct rpy_memory_alignment_test2 {
 extern char __gcmapstart;
 extern char __gcmapend;
 extern char __gccallshapes;
+extern char __gcnoreorderhack;
 
+/* The following pseudo-instruction is used by --gcrootfinder=asmgcc
+   just after a call to tell gcc to put a GCROOT mark on each gc-pointer
+   local variable.  All such local variables need to go through a "v =
+   pypy_asm_gcroot(v)".  The old value should not be used any more by
+   the C code; this prevents the following case from occurring: gcc
+   could make two copies of the local variable (e.g. one in the stack
+   and one in a register), pass one to GCROOT, and later use the other
+   one.  In practice the pypy_asm_gcroot() is often a no-op in the final
+   machine code and doesn't prevent most optimizations.  Getting the
+   asm() right was tricky, though.  The asm() is not volatile so that
+   gcc is free to delete it if the output variable is not used at all.
+   We need to prevent gcc from moving the asm() *before* the call that
+   could cause a collection; this is the purpose of the (unused)
+   __gcnoreorderhack input argument.  Any memory input argument would
+   have this effect: as far as gcc knows the call instruction can modify
+   arbitrary memory, thus creating the order dependency that we want. */
 #define pypy_asm_gcroot(p) ({void*_r; \
-               asm ("/* GCROOT %0 */" : "=g" (_r) : "0" (p) : "memory"); \
+               asm ("/* GCROOT %0 */" : "=g" (_r) : \
+                    "0" (p), "m" (__gcnoreorderhack)); \
                _r; })
 
 #define OP_LLVM_GCMAPSTART(r)	r = &__gcmapstart
