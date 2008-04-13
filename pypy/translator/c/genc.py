@@ -306,11 +306,7 @@ class CStandaloneBuilder(CBuilder):
         compiler = self.getccompiler()
         if self.config.translation.gcrootfinder == "asmgcc":
             # as we are gcc-only anyway, let's just use the Makefile.
-            if compiler.profbased:
-                target = 'profopt'
-            else:
-                target = ''   # default target
-            cmdline = "make -C '%s' %s" % (self.targetdir, target)
+            cmdline = "make -C '%s'" % (self.targetdir,)
             err = os.system(cmdline)
             if err != 0:
                 raise OSError("failed (see output): " + cmdline)
@@ -375,8 +371,10 @@ class CStandaloneBuilder(CBuilder):
             cc = 'gcc'
         if self.config.translation.profopt:
             profopt = self.config.translation.profopt
+            default_target = 'profopt'
         else:
             profopt = ''
+            default_target = '$(TARGET)'
 
         f = targetdir.join('Makefile').open('w')
         print >> f, '# automatically generated Makefile'
@@ -384,6 +382,8 @@ class CStandaloneBuilder(CBuilder):
         print >> f, 'PYPYDIR =', autopath.pypydir
         print >> f
         print >> f, 'TARGET =', py.path.local(compiler.outputfilename).basename
+        print >> f
+        print >> f, 'DEFAULT_TARGET =', default_target
         print >> f
         write_list(cfiles, 'SOURCES =')
         print >> f
@@ -830,6 +830,8 @@ setup(name="%(modulename)s",
 
 MAKEFILE = '''
 
+all: $(DEFAULT_TARGET)
+
 $(TARGET): $(OBJECTS)
 \t$(CC) $(LDFLAGS) $(TFLAGS) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS)
 
@@ -849,32 +851,32 @@ clean:
 \trm -f $(OBJECTS) $(TARGET) $(GCMAPFILES) *.gc??
 
 debug:
-\t$(MAKE) CFLAGS="-g -DRPY_ASSERT"
+\t$(MAKE) CFLAGS="-g -DRPY_ASSERT" $(TARGET)
 
 debug_exc:
-\t$(MAKE) CFLAGS="-g -DRPY_ASSERT -DDO_LOG_EXC"
+\t$(MAKE) CFLAGS="-g -DRPY_ASSERT -DDO_LOG_EXC" $(TARGET)
 
 debug_mem:
-\t$(MAKE) CFLAGS="-g -DRPY_ASSERT -DTRIVIAL_MALLOC_DEBUG"
+\t$(MAKE) CFLAGS="-g -DRPY_ASSERT -DTRIVIAL_MALLOC_DEBUG" $(TARGET)
 
 no_obmalloc:
-\t$(MAKE) CFLAGS="-g -DRPY_ASSERT -DNO_OBMALLOC"
+\t$(MAKE) CFLAGS="-g -DRPY_ASSERT -DNO_OBMALLOC" $(TARGET)
 
 linuxmemchk:
-\t$(MAKE) CFLAGS="-g -DRPY_ASSERT -DLINUXMEMCHK"
+\t$(MAKE) CFLAGS="-g -DRPY_ASSERT -DLINUXMEMCHK" $(TARGET)
 
 llsafer:
-\t$(MAKE) CFLAGS="-O2 -DRPY_LL_ASSERT"
+\t$(MAKE) CFLAGS="-O2 -DRPY_LL_ASSERT" $(TARGET)
 
 lldebug:
-\t$(MAKE) CFLAGS="-g -DRPY_ASSERT -DRPY_LL_ASSERT"
+\t$(MAKE) CFLAGS="-g -DRPY_ASSERT -DRPY_LL_ASSERT" $(TARGET)
 
 profile:
-\t$(MAKE) CFLAGS="-g -pg $(CFLAGS)" LDFLAGS="-pg $(LDFLAGS)"
+\t$(MAKE) CFLAGS="-g -pg $(CFLAGS)" LDFLAGS="-pg $(LDFLAGS)" $(TARGET)
 
 profopt:
-\t$(MAKE) CFLAGS="-fprofile-generate $(CFLAGS)" LDFLAGS="-fprofile-generate $(LDFLAGS)"
+\t$(MAKE) CFLAGS="-fprofile-generate $(CFLAGS)" LDFLAGS="-fprofile-generate $(LDFLAGS)" $(TARGET)
 \tcd $(PYPYDIR)/translator/goal && $(abspath $(TARGET)) $(PROFOPT)
 \t$(MAKE) clean
-\t$(MAKE) CFLAGS="-fprofile-use $(CFLAGS)" LDFLAGS="-fprofile-use $(LDFLAGS)"
+\t$(MAKE) CFLAGS="-fprofile-use $(CFLAGS)" LDFLAGS="-fprofile-use $(LDFLAGS)" $(TARGET)
 '''
