@@ -41,7 +41,7 @@ translation_optiondescription = OptionDescription(
                requires=[("translation.backend", "llvm")]),
     ChoiceOption("gc", "Garbage Collection Strategy",
                  ["boehm", "ref", "marksweep", "semispace", "statistics",
-                  "generation", "none"],
+                  "generation", "hybrid", "none"],
                   "ref", requires={
                      "ref": [("translation.rweakref", False), # XXX
                              ("translation.gctransformer", "ref")],
@@ -51,6 +51,7 @@ translation_optiondescription = OptionDescription(
                      "marksweep": [("translation.gctransformer", "framework")],
                      "statistics": [("translation.gctransformer", "framework")],
                      "generation": [("translation.gctransformer", "framework")],
+                     "hybrid": [("translation.gctransformer", "framework")],
                      "boehm": [("translation.gctransformer", "boehm")],
                      },
                   cmdline="--gc"),

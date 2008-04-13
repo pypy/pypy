@@ -921,3 +921,14 @@ class TestGenerationalNoFullCollectGC(GCTest):
         run = self.runner(f, nbargs=0)
         res = run([])
         assert res == 40 * 5
+
+class TestHybridGC(TestGenerationGC):
+    gcname = "hybrid"
+
+    class gcpolicy(gc.FrameworkGcPolicy):
+        class transformerclass(framework.FrameworkGCTransformer):
+            from pypy.rpython.memory.gc.hybrid import HybridGC as GCClass
+            GC_PARAMS = {'space_size': 2048,
+                         'nursery_size': 128,
+                         'large_object': 32}
+            root_stack_depth = 200

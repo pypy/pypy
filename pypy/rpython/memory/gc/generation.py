@@ -1,5 +1,6 @@
 import sys
-from pypy.rpython.memory.gc.semispace import SemiSpaceGC, GCFLAG_IMMORTAL
+from pypy.rpython.memory.gc.semispace import SemiSpaceGC
+from pypy.rpython.memory.gc.semispace import GCFLAG_EXTERNAL, GCFLAG_FORWARDED
 from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena
 from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
@@ -225,6 +226,12 @@ class GenerationGC(SemiSpaceGC):
     def init_gc_object_immortal(self, addr, typeid,
                                 flags=GCFLAG_NO_YOUNG_PTRS|GCFLAG_NO_HEAP_PTRS):
         SemiSpaceGC.init_gc_object_immortal(self, addr, typeid, flags)
+
+    # flags exposed for the HybridGC subclass
+    GCFLAGS_FOR_NEW_YOUNG_OBJECTS = 0   # NO_YOUNG_PTRS never set on young objs
+    GCFLAGS_FOR_NEW_EXTERNAL_OBJECTS = (GCFLAG_EXTERNAL | GCFLAG_FORWARDED |
+                                        GCFLAG_NO_YOUNG_PTRS)
+
 
     def semispace_collect(self, size_changing=False):
         self.reset_young_gcflags() # we are doing a full collection anyway

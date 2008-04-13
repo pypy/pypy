@@ -16,7 +16,9 @@ import sys, os
 TYPEID_MASK = 0xffff
 first_gcflag = 1 << 16
 GCFLAG_FORWARDED = first_gcflag
-GCFLAG_IMMORTAL = first_gcflag << 1
+# GCFLAG_EXTERNAL is set on objects not living in the semispace:
+# either immortal objects or (for HybridGC) externally raw_malloc'ed
+GCFLAG_EXTERNAL = first_gcflag << 1
 GCFLAG_FINALIZATION_ORDERING = first_gcflag << 2
 
 DEBUG_PRINT = False
@@ -218,6 +220,7 @@ class SemiSpaceGC(MovingGCBase):
         self.tospace = tospace
         self.top_of_space = tospace + self.space_size
         scan = self.free = tospace
+        self.starting_full_collect()
         self.collect_roots()
         if self.run_finalizers.non_empty():
             self.update_run_finalizers()
@@ -226,6 +229,7 @@ class SemiSpaceGC(MovingGCBase):
             scan = self.deal_with_objects_with_finalizers(scan)
         if self.objects_with_weakrefs.non_empty():
             self.invalidate_weakrefs()
+        self.finished_full_collect()
         self.notify_objects_just_moved()
         if not size_changing:
             llarena.arena_reset(fromspace, self.space_size, True)
@@ -267,6 +271,12 @@ class SemiSpaceGC(MovingGCBase):
                              ct * 100.0 / total_program_time, "%")
             llop.debug_print(lltype.Void,
                              "`----------------------------------------------")
+
+    def starting_full_collect(self):
+        pass    # hook for the HybridGC
+
+    def finished_full_collect(self):
+        pass    # hook for the HybridGC
 
     def record_red_zone(self):
         # red zone: if the space is more than 80% full, the next collection
@@ -330,11 +340,16 @@ class SemiSpaceGC(MovingGCBase):
 
     def get_forwarding_address(self, obj):
         tid = self.header(obj).tid
-        if tid & GCFLAG_IMMORTAL:
-            return obj      # prebuilt objects are "forwarded" to themselves
+        if tid & GCFLAG_EXTERNAL:
+            self.visit_external_object(obj)
+            return obj      # external or prebuilt objects are "forwarded"
+                            # to themselves
         else:
             stub = llmemory.cast_adr_to_ptr(obj, self.FORWARDSTUBPTR)
             return stub.forw
+
+    def visit_external_object(self, obj):
+        pass    # hook for the HybridGC
 
     def set_forwarding_address(self, obj, newobj, objsize):
         # To mark an object as forwarded, we set the GCFLAG_FORWARDED and
@@ -344,7 +359,7 @@ class SemiSpaceGC(MovingGCBase):
         size_gc_header = self.size_gc_header()
         stubsize = llmemory.sizeof(self.FORWARDSTUB)
         tid = self.header(obj).tid
-        ll_assert(tid & GCFLAG_IMMORTAL == 0,  "unexpected GCFLAG_IMMORTAL")
+        ll_assert(tid & GCFLAG_EXTERNAL == 0,  "unexpected GCFLAG_EXTERNAL")
         ll_assert(tid & GCFLAG_FORWARDED == 0, "unexpected GCFLAG_FORWARDED")
         # replace the object at 'obj' with a FORWARDSTUB.
         hdraddr = obj - size_gc_header
@@ -371,7 +386,7 @@ class SemiSpaceGC(MovingGCBase):
 
     def get_type_id(self, addr):
         tid = self.header(addr).tid
-        ll_assert(tid & (GCFLAG_FORWARDED|GCFLAG_IMMORTAL) != GCFLAG_FORWARDED,
+        ll_assert(tid & (GCFLAG_FORWARDED|GCFLAG_EXTERNAL) != GCFLAG_FORWARDED,
                   "get_type_id on forwarded obj")
         # Non-prebuilt forwarded objects are overwritten with a FORWARDSTUB.
         # Although calling get_type_id() on a forwarded object works by itself,
@@ -385,7 +400,7 @@ class SemiSpaceGC(MovingGCBase):
 
     def init_gc_object_immortal(self, addr, typeid, flags=0):
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
-        hdr.tid = typeid | flags | GCFLAG_IMMORTAL | GCFLAG_FORWARDED
+        hdr.tid = typeid | flags | GCFLAG_EXTERNAL | GCFLAG_FORWARDED
         # immortal objects always have GCFLAG_FORWARDED set;
         # see get_forwarding_address().
 

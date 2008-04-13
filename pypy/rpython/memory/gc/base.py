@@ -281,13 +281,19 @@ def choose_gc_from_config(config):
         GC_PARAMS = {'space_size': 8*1024*1024} # XXX adjust
         from pypy.rpython.memory.gc.semispace import SemiSpaceGC
         return SemiSpaceGC, GC_PARAMS
-    elif config.translation.gc == "generation":
+    elif config.translation.gc in ("generation", "hybrid"):
         GC_PARAMS = {'space_size': 8*1024*1024, # XXX adjust
                      'nursery_size': 896*1024,
                      'min_nursery_size': 48*1024,
                      'auto_nursery_size': True}
-        from pypy.rpython.memory.gc.generation import GenerationGC
-        return GenerationGC, GC_PARAMS
+        if config.translation.gc == "generation":
+            from pypy.rpython.memory.gc.generation import GenerationGC
+            return GenerationGC, GC_PARAMS
+        else:
+            GC_PARAMS['large_object'] = 1024    # XXX adjust
+            GC_PARAMS['large_object_gcptrs'] = 8192    # XXX adjust
+            from pypy.rpython.memory.gc.hybrid import HybridGC
+            return HybridGC, GC_PARAMS
     else:
         raise ValueError("unknown value for translation.gc: %r" % (
             config.translation.gc,))

@@ -414,3 +414,17 @@ class TestGenerationalGC(TestSemiSpaceGC):
             return 0
         res = self.interpret(malloc_a_lot, [], backendopt=True, coalloc=True)
         assert res == 0
+
+class TestHybridGC(TestGenerationalGC):
+    from pypy.rpython.memory.gc.hybrid import HybridGC as GCClass
+
+    def test_ref_from_rawmalloced_to_regular(self):
+        import gc
+        def concat(j):
+            lst = []
+            for i in range(j):
+                lst.append(str(i))
+            gc.collect()
+            return len("".join(lst))
+        res = self.interpret(concat, [100])
+        assert res == concat(100)
