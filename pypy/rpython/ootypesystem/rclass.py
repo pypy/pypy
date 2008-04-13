@@ -380,6 +380,8 @@ class InstanceRepr(AbstractInstanceRepr):
         return ll_inst_hash
 
     def rtype_getattr(self, hop):
+        if hop.s_result.is_constant():
+            return hop.inputconst(hop.r_result, hop.s_result.const)
         v_inst, _ = hop.inputargs(self, ootype.Void)
         s_inst = hop.args_s[0]
         attr = hop.args_s[1].const
