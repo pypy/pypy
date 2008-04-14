@@ -64,6 +64,7 @@ class RStringIO(object):
             self.strings[i] = ''
         self.numstrings = 0
         self.numbigstrings = 0
+        return self.bigbuffer
 
     def reduce(self):
         """Reduce the number of (non-empty) strings in self.strings."""
@@ -106,22 +107,22 @@ class RStringIO(object):
             else:
                 # slow path: collect all data into self.bigbuffer and
                 # handle the various cases
-                self.copy_into_bigbuffer()
-                fitting = len(self.bigbuffer) - p
+                bigbuffer = self.copy_into_bigbuffer()
+                fitting = len(bigbuffer) - p
                 if fitting > 0:
                     # the write starts before the end of the data
                     fitting = min(len(buffer), fitting)
                     for i in range(fitting):
-                        self.bigbuffer[p+i] = buffer[i]
+                        bigbuffer[p+i] = buffer[i]
                     if len(buffer) > fitting:
                         # the write extends beyond the end of the data
-                        self.bigbuffer += buffer[fitting:]
+                        bigbuffer += buffer[fitting:]
                         endp = AT_END
                     self.pos = endp
                     return
                 else:
                     # the write starts at or beyond the end of the data
-                    self.bigbuffer += '\x00' * (-fitting)
+                    bigbuffer += '\x00' * (-fitting)
                     self.pos = AT_END      # fall-through to the fast path
         # Fast path.
         # See comments in reduce().
@@ -158,8 +159,8 @@ class RStringIO(object):
             return self.getvalue()     # reading everything
         if p == AT_END:
             return ''
-        self.copy_into_bigbuffer()
-        mysize = len(self.bigbuffer)
+        bigbuffer = self.copy_into_bigbuffer()
+        mysize = len(bigbuffer)
         count = mysize - p
         if n >= 0:
             count = min(n, count)
@@ -167,7 +168,23 @@ class RStringIO(object):
             return ''
         if p == 0 and count == mysize:
             self.pos = AT_END
-            return ''.join(self.bigbuffer)
+            return ''.join(bigbuffer)
         else:
             self.pos = p + count
-            return ''.join(self.bigbuffer[p:p+count])
+            return ''.join(bigbuffer[p:p+count])
+
+    def truncate(self, size):
+        assert size >= 0
+        self.pos = self.tell()     # in case it was AT_END
+        if size > len(self.bigbuffer):
+            self.copy_into_bigbuffer()
+        else:
+            # we can drop all extra strings
+            for i in range(0, self.numstrings):
+                self.strings[i] = ''
+            self.numstrings = 0
+            self.numbigstrings = 0
+        if size <= len(self.bigbuffer):
+            del self.bigbuffer[size:]
+        else:
+            self.bigbuffer += '\x00' * (size - len(self.bigbuffer))

@@ -92,16 +92,14 @@ class AppTestcStringIO:
         assert f.tell() == 15
 
     def test_reset(self):
-        from cStringIO import StringIO
-        f = StringIO()
+        f = self.StringIO()
         f.write('foobar')
         f.reset()
         res = f.read()
         assert res == 'foobar'
 
     def test_close(self):
-        from cStringIO import StringIO
-        f = StringIO()
+        f = self.StringIO()
         assert not f.closed
         f.close()
         raises(ValueError, f.write, 'hello')
@@ -111,3 +109,52 @@ class AppTestcStringIO:
         assert f.closed
         f.close()
         assert f.closed
+
+    def test_readline(self):
+        f = self.StringIO()
+        f.write('foo\nbar\nbaz')
+        f.seek(0)
+        assert f.readline() == 'foo\n'
+        assert f.readline(2) == 'ba'
+        assert f.readline() == 'r\n'
+        assert f.readline() == 'baz'
+        assert f.readline() == ''
+        f.seek(0)
+        assert iter(f) is f
+        assert list(f) == ['foo\n', 'bar\n', 'baz']
+        f.write('\n')
+        f.seek(0)
+        assert iter(f) is f
+        assert list(f) == ['foo\n', 'bar\n', 'baz\n']
+        f.seek(0)
+        assert f.readlines() == ['foo\n', 'bar\n', 'baz\n']
+        f.seek(0)
+        assert f.readlines(2) == ['foo\n']
+
+    def test_misc(self):
+        f = self.StringIO()
+        f.flush()
+        assert f.isatty() is False
+
+    def test_truncate(self):
+        f = self.StringIO()
+        f.truncate(20)
+        assert f.getvalue() == '\x00' * 20
+        assert f.tell() == 0
+        f.seek(0, 2)
+        f.write('hello')
+        f.write(' world')
+        f.truncate(30)
+        assert f.getvalue() == '\x00' * 20 + 'hello worl'
+        f.truncate(25)
+        assert f.getvalue() == '\x00' * 20 + 'hello'
+        f.write('baz')
+        f.write('egg')
+        f.truncate(3)
+        assert f.getvalue() == '\x00' * 3
+        raises(IOError, f.truncate, -1)
+
+    def test_writelines(self):
+        f = self.StringIO()
+        f.writelines(['foo', 'bar', 'baz'])
+        assert f.getvalue() == 'foobarbaz'

@@ -77,6 +77,23 @@ def test_read():
     assert f.read(2) == ''
     assert f.tell() == 15
 
+def test_truncate():
+    f = RStringIO()
+    f.truncate(20)
+    assert f.getvalue() == '\x00' * 20
+    assert f.tell() == 0
+    f.seek(0, 2)
+    f.write('hello')
+    f.write(' world')
+    f.truncate(30)
+    assert f.getvalue() == '\x00' * 20 + 'hello worl'
+    f.truncate(25)
+    assert f.getvalue() == '\x00' * 20 + 'hello'
+    f.write('baz')
+    f.write('egg')
+    f.truncate(3)
+    assert f.getvalue() == '\x00' * 3
+
 def test_stress():
     import cStringIO, random
     f = RStringIO()
