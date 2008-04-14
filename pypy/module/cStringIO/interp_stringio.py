@@ -108,6 +108,8 @@ class W_InputType(W_InputOutputType):
         count = len(self.string) - p
         if n >= 0:
             count = min(n, count)
+        if count <= 0:
+            return ''
         self.pos = p + count
         if count == len(self.string):
             return self.string
@@ -207,7 +209,6 @@ def descr_setsoftspace(space, self, w_newvalue):
 common_descrs = {
     '__iter__':     interp2app(W_InputOutputType.descr___iter__),
     'close':        interp2app(W_InputOutputType.descr_close),
-    'closed':       GetSetProperty(descr_closed, cls=W_InputOutputType),
     'flush':        interp2app(W_InputOutputType.descr_flush),
     'getvalue':     interp2app(W_InputOutputType.descr_getvalue),
     'isatty':       interp2app(W_InputOutputType.descr_isatty),
@@ -217,15 +218,16 @@ common_descrs = {
     'readlines':    interp2app(W_InputOutputType.descr_readlines),
     'reset':        interp2app(W_InputOutputType.descr_reset),
     'seek':         interp2app(W_InputOutputType.descr_seek),
-    'softspace':    GetSetProperty(descr_softspace,
-                                   descr_setsoftspace,
-                                   cls=W_InputOutputType),
     'tell':         interp2app(W_InputOutputType.descr_tell),
 }
 
 W_InputType.typedef = TypeDef(
     "cStringIO.StringI",
     __doc__      = "Simple type for treating strings as input file streams",
+    closed       = GetSetProperty(descr_closed, cls=W_InputType),
+    softspace    = GetSetProperty(descr_softspace,
+                                  descr_setsoftspace,
+                                  cls=W_InputType),
     **common_descrs
     # XXX CPython has the truncate() method here too, which is a bit strange
     )
@@ -236,6 +238,10 @@ W_OutputType.typedef = TypeDef(
     truncate     = interp2app(W_OutputType.descr_truncate),
     write        = interp2app(W_OutputType.descr_write),
     writelines   = interp2app(W_OutputType.descr_writelines),
+    closed       = GetSetProperty(descr_closed, cls=W_OutputType),
+    softspace    = GetSetProperty(descr_softspace,
+                                  descr_setsoftspace,
+                                  cls=W_OutputType),
     **common_descrs
     )
 

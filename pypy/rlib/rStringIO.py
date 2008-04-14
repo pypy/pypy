@@ -97,6 +97,7 @@ class RStringIO(object):
         # used to handle the more complicated cases.
         p = self.pos
         if p != AT_END:    # slow or semi-fast paths
+            assert p >= 0
             endp = p + len(buffer)
             if len(self.bigbuffer) >= endp:
                 # semi-fast path: the write is entirely inside self.bigbuffer
@@ -148,9 +149,11 @@ class RStringIO(object):
 
     def tell(self):
         if self.pos == AT_END:
-            return self.getsize()
+            result = self.getsize()
         else:
-            return self.pos
+            result = self.pos
+        assert result >= 0
+        return result
 
     def read(self, n=-1):
         p = self.pos
@@ -159,6 +162,7 @@ class RStringIO(object):
             return self.getvalue()     # reading everything
         if p == AT_END:
             return ''
+        assert p >= 0
         bigbuffer = self.copy_into_bigbuffer()
         mysize = len(bigbuffer)
         count = mysize - p
