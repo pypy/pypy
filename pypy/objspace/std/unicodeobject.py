@@ -71,13 +71,14 @@ def delegate_String2Unicode(space, w_str):
     return w_uni
 
 def str_w__Unicode(space, w_uni):
-    return space.str_w(space.str(w_uni))
+    return space.str_w(str__Unicode(space, w_uni))
 
 def unicode_w__Unicode(space, w_uni):
     return w_uni._value
 
 def str__Unicode(space, w_uni):
-    return space.call_method(w_uni, 'encode')
+    from pypy.objspace.std.unicodetype import encode_object
+    return encode_object(space, w_uni, None, None)
 
 def eq__Unicode_Unicode(space, w_left, w_right):
     return space.newbool(w_left._value == w_right._value)
@@ -752,11 +753,9 @@ def unicode_encode__Unicode_ANY_ANY(space, w_unistr,
                                     w_encoding=None,
                                     w_errors=None):
 
-    from pypy.objspace.std.unicodetype import getdefaultencoding, \
-        _get_encoding_and_errors, encode_object
+    from pypy.objspace.std.unicodetype import _get_encoding_and_errors
+    from pypy.objspace.std.unicodetype import encode_object
     encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
-    if encoding is None:
-        encoding = getdefaultencoding(space)
     w_retval = encode_object(space, w_unistr, encoding, errors)
     return w_retval
 

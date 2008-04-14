@@ -8,6 +8,7 @@ class Module(MixedModule):
         super(Module, self).__init__(space, w_name) 
         self.checkinterval = 100
         self.recursionlimit = 100
+        self.w_default_encoder = None
         self.defaultencoding = "ascii"
         
     interpleveldefs = {
@@ -126,3 +127,13 @@ class Module(MixedModule):
             else:
                 return space.wrap(operror.application_traceback)
         return None 
+
+    def get_w_default_encoder(self):
+        if self.w_default_encoder is not None:
+            # XXX is this level of caching ok?  CPython has some shortcuts
+            # for common encodings, but as far as I can see it has no general
+            # cache.
+            return self.w_default_encoder
+        else:
+            from pypy.module.sys.interp_encoding import get_w_default_encoder
+            return get_w_default_encoder(self.space)

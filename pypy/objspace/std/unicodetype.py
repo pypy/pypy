@@ -165,15 +165,19 @@ def _get_encoding_and_errors(space, w_encoding, w_errors):
     return encoding, errors
 
 def encode_object(space, w_object, encoding, errors):
-    w_codecs = space.getbuiltinmodule("_codecs")
-    w_encode = space.getattr(w_codecs, space.wrap("encode"))
     if encoding is None:
-        encoding = getdefaultencoding(space)
-    if errors is None:
-        w_retval = space.call_function(w_encode, w_object, space.wrap(encoding))
+        # Get the encoder functions as a wrapped object.
+        # This lookup is cached.
+        w_encoder = space.sys.get_w_default_encoder()
     else:
-        w_retval = space.call_function(w_encode, w_object, space.wrap(encoding),
-                                       space.wrap(errors))
+        from pypy.module._codecs.interp_codecs import lookup_codec
+        w_encoder = space.getitem(lookup_codec(space, encoding), space.wrap(0))
+    if errors is None:
+        w_errors = space.wrap('strict')
+    else:
+        w_errors = space.wrap(errors)
+    w_restuple = space.call_function(w_encoder, w_object, w_errors)
+    w_retval = space.getitem(w_restuple, space.wrap(0))
     if not space.is_true(space.isinstance(w_retval, space.w_str)):
         raise OperationError(
             space.w_TypeError,
