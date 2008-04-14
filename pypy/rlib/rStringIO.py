@@ -174,8 +174,10 @@ class RStringIO(object):
             return ''.join(bigbuffer[p:p+count])
 
     def truncate(self, size):
+        # NB. 'size' is mandatory.  This has the same un-Posix-y semantics
+        # than CPython: it never grows the buffer, and it sets the current
+        # position to the end.
         assert size >= 0
-        self.pos = self.tell()     # in case it was AT_END
         if size > len(self.bigbuffer):
             self.copy_into_bigbuffer()
         else:
@@ -184,7 +186,6 @@ class RStringIO(object):
                 self.strings[i] = ''
             self.numstrings = 0
             self.numbigstrings = 0
-        if size <= len(self.bigbuffer):
+        if size < len(self.bigbuffer):
             del self.bigbuffer[size:]
-        else:
-            self.bigbuffer += '\x00' * (size - len(self.bigbuffer))
+        self.pos = AT_END

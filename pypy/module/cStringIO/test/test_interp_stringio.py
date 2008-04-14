@@ -139,9 +139,9 @@ class AppTestcStringIO:
     def test_truncate(self):
         f = self.StringIO()
         f.truncate(20)
-        assert f.getvalue() == '\x00' * 20
+        assert f.getvalue() == ''
         assert f.tell() == 0
-        f.seek(0, 2)
+        f.write('\x00' * 20)
         f.write('hello')
         f.write(' world')
         f.truncate(30)
@@ -151,6 +151,7 @@ class AppTestcStringIO:
         f.write('baz')
         f.write('egg')
         f.truncate(3)
+        assert f.tell() == 3
         assert f.getvalue() == '\x00' * 3
         raises(IOError, f.truncate, -1)
 

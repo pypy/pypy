@@ -671,7 +671,7 @@ testmap = [
 
     RegrTest('test_strftime.py', enabled=False, dumbtest=1),
     RegrTest('test_string.py', enabled=True, core=True),
-    RegrTest('test_StringIO.py', enabled=True, core=True),
+    RegrTest('test_StringIO.py', enabled=True, core=True, usemodules='cStringIO'),
     RegrTest('test_stringprep.py', enabled=True, dumbtest=1),
     RegrTest('test_strop.py', enabled=False),
         #rev 10840: ImportError: strop

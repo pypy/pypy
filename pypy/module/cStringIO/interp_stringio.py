@@ -227,6 +227,7 @@ W_InputType.typedef = TypeDef(
     "cStringIO.StringI",
     __doc__      = "Simple type for treating strings as input file streams",
     **common_descrs
+    # XXX CPython has the truncate() method here too, which is a bit strange
     )
 
 W_OutputType.typedef = TypeDef(

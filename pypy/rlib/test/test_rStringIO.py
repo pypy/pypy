@@ -80,9 +80,9 @@ def test_read():
 def test_truncate():
     f = RStringIO()
     f.truncate(20)
-    assert f.getvalue() == '\x00' * 20
+    assert f.getvalue() == ''
     assert f.tell() == 0
-    f.seek(0, 2)
+    f.write('\x00' * 20)
     f.write('hello')
     f.write(' world')
     f.truncate(30)
@@ -93,6 +93,7 @@ def test_truncate():
     f.write('egg')
     f.truncate(3)
     assert f.getvalue() == '\x00' * 3
+    assert f.tell() == 3
 
 def test_stress():
     import cStringIO, random
