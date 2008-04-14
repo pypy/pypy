@@ -389,7 +389,7 @@ def unicode_encode_ucs1_helper(p, size, errors,
                 collend += 1
             r, pos = errorhandler(errors, encoding, reason, p,
                                   collstart, collend)
-            result.append(r)
+            result += r   # extend 'result' as a list of characters
     
     return "".join(result)
 
