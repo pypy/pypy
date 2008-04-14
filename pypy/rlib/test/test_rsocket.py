@@ -256,12 +256,12 @@ def test_getaddrinfo_http():
     assert found, lst
     py.test.raises(GAIError, getaddrinfo, 'www.very-invalidaddress.com', None)
 
-def test_getaddrinfo_snake():
-    lst = getaddrinfo('snake.cs.uni-duesseldorf.de', None)
+def test_getaddrinfo_codespeak():
+    lst = getaddrinfo('codespeak.net', None)
     assert isinstance(lst, list)
     found = False
     for family, socktype, protocol, canonname, addr in lst:
-        if addr.get_host() == '134.99.112.214':
+        if addr.get_host() == '213.239.226.252':
             found = True
     assert found, lst
 
