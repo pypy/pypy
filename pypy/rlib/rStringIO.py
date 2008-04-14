@@ -28,6 +28,15 @@ class RStringIO(object):
         self.bigbuffer = []
         self.pos = AT_END
 
+    def close(self):
+        self.strings = None
+        self.numstrings = 0
+        self.numbigstrings = 0
+        self.bigbuffer = None
+
+    def is_closed(self):
+        return self.strings is None
+
     def getvalue(self):
         """If self.strings contains more than 1 string, join all the
         strings together.  Return the final single string."""
