@@ -8,6 +8,6 @@ class Module(MixedModule):
 
     interpleveldefs = {
         'StringIO':    'interp_stringio.StringIO',
-        #'InputType':   'interp_stringio.W_InputType',
+        'InputType':   'interp_stringio.W_InputType',
         'OutputType':  'interp_stringio.W_OutputType',
     }

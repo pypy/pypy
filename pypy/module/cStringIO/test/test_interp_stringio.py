@@ -158,3 +158,49 @@ class AppTestcStringIO:
         f = self.StringIO()
         f.writelines(['foo', 'bar', 'baz'])
         assert f.getvalue() == 'foobarbaz'
+
+    def test_stringi(self):
+        f = self.StringIO('hello world\nspam\n')
+        assert not hasattr(f, 'write')      # it's a StringI
+        f.seek(3)
+        assert f.tell() == 3
+        f.seek(50, 1)
+        assert f.tell() == 53
+        f.seek(-3, 2)
+        assert f.tell() == 14
+        assert f.read() == 'am\n'
+        f.seek(0)
+        assert f.readline() == 'hello world\n'
+        assert f.readline(4) == 'spam'
+        assert f.readline(400) == '\n'
+        f.reset()
+        assert f.readlines() == ['hello world\n', 'spam\n']
+        f.seek(0, 0)
+        assert f.readlines(5) == ['hello world\n']
+        f.seek(0)
+        assert list(f) == ['hello world\n', 'spam\n']
+
+        f.flush()
+        assert f.getvalue() == 'hello world\nspam\n'
+        assert f.isatty() is False
+
+        assert not f.closed
+        f.close()
+        assert f.closed
+        raises(ValueError, f.flush)
+        raises(ValueError, f.getvalue)
+        raises(ValueError, f.isatty)
+        raises(ValueError, f.read)
+        raises(ValueError, f.readline)
+        raises(ValueError, f.readlines)
+        raises(ValueError, f.reset)
+        raises(ValueError, f.tell)
+        raises(ValueError, f.seek, 5)
+        assert f.closed
+        f.close()
+        assert f.closed
+
+    def test_types(self):
+        import cStringIO
+        assert type(cStringIO.StringIO()) is cStringIO.OutputType
+        assert type(cStringIO.StringIO('')) is cStringIO.InputType

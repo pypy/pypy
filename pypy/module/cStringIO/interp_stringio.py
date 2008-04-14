@@ -2,19 +2,12 @@ import sys
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.gateway import interp2app, W_Root
+from pypy.interpreter.gateway import interp2app, W_Root, ObjSpace
 from pypy.rlib.rStringIO import RStringIO
 
 
-PIECES = 80
-BIGPIECES = 32
-
-
-class W_OutputType(Wrappable, RStringIO):
-    def __init__(self, space):
-        RStringIO.__init__(self)
-        self.space = space
-        self.softspace = 0    # part of the file object API
+class W_InputOutputType(Wrappable):
+    softspace = 0    # part of the file object API
 
     def descr___iter__(self):
         self.check_closed()
@@ -58,22 +51,6 @@ class W_OutputType(Wrappable, RStringIO):
         return self.space.wrap(self.read(n))
     descr_read.unwrap_spec = ['self', int]
 
-    def readline(self, size=-1):
-        p = self.tell()
-        bigbuffer = self.copy_into_bigbuffer()
-        end = len(bigbuffer)
-        if size >= 0:
-            end = min(end, p + size)
-        assert p >= 0
-        i = p
-        while i < end:
-            finished = bigbuffer[i] == '\n'
-            i += 1
-            if finished:
-                break
-        self.seek(i)
-        return ''.join(bigbuffer[p:i])
-
     def descr_readline(self, size=-1):
         self.check_closed()
         return self.space.wrap(self.readline(size))
@@ -109,6 +86,82 @@ class W_OutputType(Wrappable, RStringIO):
         return self.space.wrap(self.tell())
     descr_tell.unwrap_spec = ['self']
 
+# ____________________________________________________________
+
+class W_InputType(W_InputOutputType):
+    def __init__(self, space, string):
+        self.space = space
+        self.string = string
+        self.pos = 0
+
+    def close(self):
+        self.string = None
+
+    def is_closed(self):
+        return self.string is None
+
+    def getvalue(self):
+        return self.string
+
+    def read(self, n=-1):
+        p = self.pos
+        count = len(self.string) - p
+        if n >= 0:
+            count = min(n, count)
+        self.pos = p + count
+        if count == len(self.string):
+            return self.string
+        else:
+            return self.string[p:p+count]
+
+    def readline(self, size=-1):
+        p = self.pos
+        end = len(self.string)
+        if size >= 0 and size < end - p:
+            end = p + size
+        lastp = self.string.find('\n', p, end)
+        if lastp < 0:
+            endp = end
+        else:
+            endp = lastp + 1
+        self.pos = endp
+        return self.string[p:endp]
+
+    def seek(self, position, mode=0):
+        if mode == 1:
+            position += self.pos
+        elif mode == 2:
+            position += len(self.string)
+        if position < 0:
+            position = 0
+        self.pos = position
+
+    def tell(self):
+        return self.pos
+
+# ____________________________________________________________
+
+class W_OutputType(W_InputOutputType, RStringIO):
+    def __init__(self, space):
+        RStringIO.__init__(self)
+        self.space = space
+
+    def readline(self, size=-1):
+        p = self.tell()
+        bigbuffer = self.copy_into_bigbuffer()
+        end = len(bigbuffer)
+        if size >= 0 and size < end - p:
+            end = p + size
+        assert p >= 0
+        i = p
+        while i < end:
+            finished = bigbuffer[i] == '\n'
+            i += 1
+            if finished:
+                break
+        self.seek(i)
+        return ''.join(bigbuffer[p:i])
+
     def descr_truncate(self, w_size=None):  # note: a wrapped size!
         self.check_closed()
         space = self.space
@@ -127,6 +180,7 @@ class W_OutputType(Wrappable, RStringIO):
     descr_write.unwrap_spec = ['self', 'bufferstr']
 
     def descr_writelines(self, w_lines):
+        self.check_closed()
         space = self.space
         w_iterator = space.iter(w_lines)
         while True:
@@ -142,7 +196,7 @@ class W_OutputType(Wrappable, RStringIO):
 # ____________________________________________________________
 
 def descr_closed(space, self):
-    return space.wrap(self.strings is None)
+    return space.wrap(self.is_closed())
 
 def descr_softspace(space, self):
     return space.wrap(self.softspace)
@@ -150,31 +204,46 @@ def descr_softspace(space, self):
 def descr_setsoftspace(space, self, w_newvalue):
     self.softspace = space.int_w(w_newvalue)
 
+common_descrs = {
+    '__iter__':     interp2app(W_InputOutputType.descr___iter__),
+    'close':        interp2app(W_InputOutputType.descr_close),
+    'closed':       GetSetProperty(descr_closed, cls=W_InputOutputType),
+    'flush':        interp2app(W_InputOutputType.descr_flush),
+    'getvalue':     interp2app(W_InputOutputType.descr_getvalue),
+    'isatty':       interp2app(W_InputOutputType.descr_isatty),
+    'next':         interp2app(W_InputOutputType.descr_next),
+    'read':         interp2app(W_InputOutputType.descr_read),
+    'readline':     interp2app(W_InputOutputType.descr_readline),
+    'readlines':    interp2app(W_InputOutputType.descr_readlines),
+    'reset':        interp2app(W_InputOutputType.descr_reset),
+    'seek':         interp2app(W_InputOutputType.descr_seek),
+    'softspace':    GetSetProperty(descr_softspace,
+                                   descr_setsoftspace,
+                                   cls=W_InputOutputType),
+    'tell':         interp2app(W_InputOutputType.descr_tell),
+}
+
+W_InputType.typedef = TypeDef(
+    "cStringIO.StringI",
+    __doc__      = "Simple type for treating strings as input file streams",
+    **common_descrs
+    )
+
 W_OutputType.typedef = TypeDef(
     "cStringIO.StringO",
     __doc__      = "Simple type for output to strings.",
-    __iter__     = interp2app(W_OutputType.descr___iter__),
-    close        = interp2app(W_OutputType.descr_close),
-    closed       = GetSetProperty(descr_closed, cls=W_OutputType),
-    flush        = interp2app(W_OutputType.descr_flush),
-    getvalue     = interp2app(W_OutputType.descr_getvalue),
-    isatty       = interp2app(W_OutputType.descr_isatty),
-    next         = interp2app(W_OutputType.descr_next),
-    read         = interp2app(W_OutputType.descr_read),
-    readline     = interp2app(W_OutputType.descr_readline),
-    readlines    = interp2app(W_OutputType.descr_readlines),
-    reset        = interp2app(W_OutputType.descr_reset),
-    seek         = interp2app(W_OutputType.descr_seek),
-    softspace    = GetSetProperty(descr_softspace,
-                                  descr_setsoftspace,
-                                  cls=W_OutputType),
-    tell         = interp2app(W_OutputType.descr_tell),
     truncate     = interp2app(W_OutputType.descr_truncate),
     write        = interp2app(W_OutputType.descr_write),
     writelines   = interp2app(W_OutputType.descr_writelines),
+    **common_descrs
     )
 
 # ____________________________________________________________
 
-def StringIO(space):
-    return space.wrap(W_OutputType(space))
+def StringIO(space, w_string=None):
+    if space.is_w(w_string, space.w_None):
+        return space.wrap(W_OutputType(space))
+    else:
+        string = space.bufferstr_w(w_string)
+        return space.wrap(W_InputType(space, string))
+StringIO.unwrap_spec = [ObjSpace, W_Root]
