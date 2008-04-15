@@ -6,6 +6,7 @@ from pypy.rlib.rarithmetic import ovfcheck, formatd_overflow, isnan, isinf
 from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.debug import check_annotation
+from pypy.rlib.objectmodel import newlist
 
 class BaseStringFormatter(object):
     def __init__(self, space, values_w, w_valuedict):
@@ -256,7 +257,7 @@ def make_formatter_subclass(do_unicode):
             return result
 
         def format(self):
-            result = []      # list of characters or unichars
+            result = newlist(sizehint=100)      # list of characters or unichars
             self.result = result
             while True:
                 # fast path: consume as many characters as possible
