@@ -9,6 +9,14 @@ class SomeStringBuilder(annmodel.SomeObject):
     def __init__(self, initial_space=0):
         self.initial_space = initial_space
 
+    def method_append(self, s_item):
+        if not isinstance(s_item, annmodel.SomeString):
+            raise TypeError("Can only append strings or characters to string builder")
+        return annmodel.SomeImpossibleValue()
+
+    def method_build(self):
+        return annmodel.SomeString()
+
 class StringBuilderEntry(ExtRegistryEntry):
     _about_ = builder
 
