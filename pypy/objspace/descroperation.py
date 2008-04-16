@@ -474,9 +474,6 @@ def _make_comparison_impl(symbol, specialnames):
     left, right = specialnames
     op = getattr(operator, left)
     def comparison_impl(space, w_obj1, w_obj2):
-        #from pypy.objspace.std.tlistobject import W_TransparentList
-        #if isinstance(w_obj1, W_TransparentList):
-        #    import pdb;pdb.set_trace()
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
         w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, left)
