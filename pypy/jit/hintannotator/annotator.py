@@ -31,12 +31,13 @@ class HintAnnotator(RPythonAnnotator):
 
     def consider_op_new(self, hs_TYPE):
         TYPE = hs_TYPE.const
-        if self.policy.novirtualcontainer:
-            return hintmodel.SomeLLAbstractVariable(TYPE)
-        else:
-            # XXX: ootype
-            vstructdef = self.bookkeeper.getvirtualcontainerdef(TYPE)
-            return hintmodel.SomeLLAbstractContainer(vstructdef)        
+        assert self.policy.novirtualcontainer, 'not supported by ootype'
+        return hintmodel.SomeLLAbstractVariable(TYPE)
+
+    def consider_op_oonewarray(self, hs_TYPE, hs_size):
+        TYPE = hs_TYPE.const
+        assert self.policy.novirtualcontainer, 'not supported by ootype'
+        return hintmodel.SomeLLAbstractVariable(TYPE)
 
     def consider_op_malloc(self, hs_TYPE, hs_flags):
         TYPE = hs_TYPE.const
