@@ -76,10 +76,7 @@ class _CDataMeta(type):
         return False
 
     def in_dll(self, dll, name):
-        buffer = dll._handle.getprimitive(self._ffishape, name)
-        val = self.__new__(self)
-        val._buffer = buffer
-        return val
+        return self.from_address(dll._handle.getaddressindll(name))
 
 class CArgObject(object):
     """ simple wrapper around buffer, just for the case of freeing

@@ -636,15 +636,18 @@ class AppTestFfi:
         assert a[0] == maxptr - 1
         a.free()
 
-    def test_getprimitive(self):
+    def test_getaddressindll(self):
         import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
-        a = lib.getprimitive("l", "static_int")
+        def getprimitive(typecode, name):
+            addr = lib.getaddressindll(name)
+            return _rawffi.Array(typecode).fromaddress(addr, 1)
+        a = getprimitive("l", "static_int")
         assert a[0] == 42
-        a = lib.getprimitive("d", "static_double")
+        a = getprimitive("d", "static_double")
         assert a[0] == 42.42
-        raises(ValueError, lib.getprimitive, 'z', 'ddddddd')
-        raises(ValueError, lib.getprimitive, 'zzz', 'static_int')
+        raises(ValueError, getprimitive, 'z', 'ddddddd')
+        raises(ValueError, getprimitive, 'zzz', 'static_int')
 
     def test_segfault_exception(self):
         import _rawffi

@@ -243,6 +243,13 @@ EXPORT(int) get_an_integer(void)
 	return an_integer;
 }
 
+EXPORT(char) a_string[16] = "0123456789abcdef";
+
+EXPORT(int) get_a_string_char(int index)
+{
+	return a_string[index];
+}
+
 EXPORT(double)
 integrate(double a, double b, double (*f)(double), long nstep)
 {

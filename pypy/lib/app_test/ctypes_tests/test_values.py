@@ -20,6 +20,12 @@ class TestValues(BaseCTypesTestChecker):
         an_integer.value *= 2
         assert x*2 == ctdll.get_an_integer()
 
+    def test_a_string(self):
+        a_string = (c_char * 16).in_dll(ctdll, "a_string")
+        assert a_string.raw == "0123456789abcdef"
+        a_string[15] = '$'
+        assert ctdll.get_a_string_char(15) == ord('$')
+
     def test_undefined(self):
         raises(ValueError, c_int.in_dll, ctdll, "Undefined_Symbol")
 
