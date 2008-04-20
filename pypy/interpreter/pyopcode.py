@@ -818,15 +818,16 @@ class __extend__(pyframe.PyFrame):
         raise BytecodeCorruption, "old opcode, no longer in use"
 
     def SETUP_LOOP(f, offsettoend, next_instr, *ignored):
-        block = LoopBlock(f, next_instr + offsettoend)
+        #block = LoopBlock(f, next_instr + offsettoend)
+        block = FrameBlock(LOOP, f, next_instr + offsettoend)
         f.blockstack.append(block)
 
     def SETUP_EXCEPT(f, offsettoend, next_instr, *ignored):
-        block = ExceptBlock(f, next_instr + offsettoend)
+        block = FrameBlock(EXCEPT, f, next_instr + offsettoend)
         f.blockstack.append(block)
 
     def SETUP_FINALLY(f, offsettoend, next_instr, *ignored):
-        block = FinallyBlock(f, next_instr + offsettoend)
+        block = FrameBlock(FINALLY, f, next_instr + offsettoend)
         f.blockstack.append(block)
 
     def WITH_CLEANUP(f, *ignored):
@@ -1066,15 +1067,23 @@ class SContinueLoop(SuspendedUnroller):
         return SContinueLoop(space.int_w(w_jump_to))
     state_pack_variables = staticmethod(state_pack_variables)
 
+LOOP = 0
+EXCEPT = 1
+FINALLY = 2
+
+HANDLING_MASKS = [SBreakLoop.kind | SContinueLoop.kind,
+                  SApplicationException.kind, -1]
 
 class FrameBlock:
 
     """Abstract base class for frame blocks from the blockstack,
     used by the SETUP_XXX and POP_BLOCK opcodes."""
 
-    def __init__(self, frame, handlerposition):
+    def __init__(self, tp, frame, handlerposition):
+        self.tp = tp
         self.handlerposition = handlerposition
         self.valuestackdepth = frame.valuestackdepth
+        self.handling_mask = HANDLING_MASKS[tp]
 
     def __eq__(self, other):
         return (self.__class__ is other.__class__ and
@@ -1093,6 +1102,9 @@ class FrameBlock:
     def cleanup(self, frame):
         "Clean up a frame when we normally exit the block."
         self.cleanupstack(frame)
+        if self.tp == FINALLY:
+            frame.pushvalue(frame.space.w_None)
+            frame.pushvalue(frame.space.w_None)
 
     # internal pickling interface, not using the standard protocol
     def _get_state_(self, space):
@@ -1105,9 +1117,46 @@ class FrameBlock:
         return hint(next_instr, promote=True)
 
     def really_handle(self, frame, unroller):
-        """ Purely abstract method
-        """
-        raise NotImplementedError
+        if self.tp == LOOP:
+            if isinstance(unroller, SContinueLoop):
+                # re-push the loop block without cleaning up the value stack,
+                # and jump to the beginning of the loop, stored in the
+                # exception's argument
+                frame.blockstack.append(self)
+                return unroller.jump_to
+            else:
+                # jump to the end of the loop
+                self.cleanupstack(frame)
+                return self.handlerposition
+        elif self.tp == EXCEPT:
+            # push the exception to the value stack for inspection by the
+            # exception handler (the code after the except:)
+            self.cleanupstack(frame)
+            assert isinstance(unroller, SApplicationException)
+            operationerr = unroller.operr
+            if frame.space.full_exceptions:
+                operationerr.normalize_exception(frame.space)
+            # the stack setup is slightly different than in CPython:
+            # instead of the traceback, we store the unroller object,
+            # wrapped.
+            frame.pushvalue(frame.space.wrap(unroller))
+            frame.pushvalue(operationerr.w_value)
+            frame.pushvalue(operationerr.w_type)
+            return self.handlerposition   # jump to the handler
+        else:
+            # any abnormal reason for unrolling a finally: triggers the end of
+            # the block unrolling and the entering the finally: handler.
+            # see comments in cleanup().
+            self.cleanupstack(frame)
+            frame.pushvalue(frame.space.wrap(unroller))
+            frame.pushvalue(frame.space.w_None)
+            frame.pushvalue(frame.space.w_None)
+            return self.handlerposition   # jump to the handler            
+
+    #def really_handle(self, frame, unroller):
+    #    """ Purely abstract method
+    #    """
+    #    raise NotImplementedError
 
 class LoopBlock(FrameBlock):
     """A loop block.  Stores the end-of-loop pointer in case of 'break'."""
