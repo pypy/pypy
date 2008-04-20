@@ -850,6 +850,9 @@ gcmaptable.s: $(GCMAPFILES)
 clean:
 \trm -f $(OBJECTS) $(TARGET) $(GCMAPFILES) *.gc??
 
+clean_noprof:
+\trm -f $(OBJECTS) $(TARGET) $(GCMAPFILES)
+
 debug:
 \t$(MAKE) CFLAGS="-g -DRPY_ASSERT" $(TARGET)
 
@@ -877,6 +880,6 @@ profile:
 profopt:
 \t$(MAKE) CFLAGS="-fprofile-generate $(CFLAGS)" LDFLAGS="-fprofile-generate $(LDFLAGS)" $(TARGET)
 \tcd $(PYPYDIR)/translator/goal && $(abspath $(TARGET)) $(PROFOPT)
-\t$(MAKE) clean
+\t$(MAKE) clean_noprof
 \t$(MAKE) CFLAGS="-fprofile-use $(CFLAGS)" LDFLAGS="-fprofile-use $(LDFLAGS)" $(TARGET)
 '''
