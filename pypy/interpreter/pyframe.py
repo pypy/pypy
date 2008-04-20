@@ -10,7 +10,7 @@ import opcode
 from pypy.rlib.objectmodel import we_are_translated, instantiate
 from pypy.rlib.jit import we_are_jitted, hint
 from pypy.rlib import rstack # for resume points
-
+from pypy.rlib.objectmodel import newlist
 
 # Define some opcodes used
 g = globals()
@@ -54,7 +54,7 @@ class PyFrame(eval.Frame):
         eval.Frame.__init__(self, space, w_globals, code.co_nlocals)
         self.valuestack_w = [None] * code.co_stacksize
         self.valuestackdepth = 0
-        self.blockstack = []
+        self.blockstack = newlist(sizehint=20)
         if space.config.objspace.honor__builtins__:
             self.builtin = space.builtin.pick_builtin(w_globals)
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
