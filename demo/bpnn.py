@@ -2,11 +2,17 @@
 """
     Translator Demo
 
-    Run this file -- over regular Python! -- to analyse and type-annotate
-    the functions and class defined in this module, starting from the
-    entry point function demo().
+    To analyse and type-annotate the functions and class defined in
+    this module, starting from the entry point function demo(),
+    use the following command line:
 
-    Requires Pygame.
+        ../pypy/translator/goal/translate.py bpnn.py
+
+    Insert '--help' before 'bpnn.py' for a list of translation options,
+    or see the Overview of Command Line Options for translation at
+    http://codespeak.net/pypy/dist/pypy/doc/config/commandline.html
+
+    Use '--text' before 'bpnn.py' if you don't have Pygame installed.
 """
 # Back-Propagation Neural Networks
 # 
@@ -17,7 +23,7 @@
 # Modifications to the original (Armin Rigo):
 #   * import random from PyPy's lib, which is Python 2.2's plain
 #     Python implementation
-#   * starts the Translator instead of the demo by default.
+#   * print a doc about how to start the Translator
 
 import sys
 import math
@@ -162,7 +168,7 @@ class NN:
                 self.update(inputs)
                 error = error + self.backPropagate(targets, N, M)
             if PRINT_IT and i % 100 == 0:
-                print 'error %f' % error
+                print 'error', error
 
 
 def demo():
@@ -182,33 +188,24 @@ def demo():
     n.test(pat)
 
 
+# __________  Entry point for stand-alone builds __________
+
+import time
+
+def entry_point(argv):
+    N = 200
+    T = time.time()
+    for i in range(N):
+        demo()
+    t1 = time.time() - T
+    print "%d iterations, %s milliseconds per iteration" % (N, 1000.0*t1/N)
+    return 0
+
+# _____ Define and setup target ___
+
+def target(*args):
+    return entry_point, None
 
 if __name__ == '__main__':
-    print 'Loading...'
-    from pypy.translator.interactive import Translation
-    t = Translation(demo)
-    
-    print 'Annotating...'
-    t.annotate([])
-    t.viewcg()
-
-    print 'Specializing...'
-    t.rtype()   # enable this to see (some) lower-level Cish operations
-    
-    print 'Compiling...'
-    f = t.compile_c()
-
-    print 'Running...'
-    T = time.time()
-    for i in range(10):
-        f()
-    t1 = time.time() - T
-    print "that took", t1
-
-    T = time.time()
-    for i in range(10):
-        demo()
-    t2 = time.time() - T
-    print "compared to", t2
-    print "a speed-up of", t2/t1
-    
+    #demo()
+    print __doc__
