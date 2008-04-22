@@ -55,13 +55,13 @@ Cons
 Only pure-python code (slow), problems with platform-dependency (although
 we partially solve those). PyPy implementation is now very slow.
 
-_`CPython ctypes`: XXX link
+_`CPython ctypes`: http://python.net/crew/theller/ctypes/
 
 LibFFI
 ======
 
 Mostly in order to be able to write a ctypes module, we developed a very
-low-level libffi_ bindings. (libffi is a C-level library for dynamic calling,
+low-level libffi bindings. (libffi is a C-level library for dynamic calling,
 which is used by CPython ctypes). This library provides stable and usable API,
 although it's API is a very low-level one. It does not contain any
 magic.
@@ -77,8 +77,6 @@ Cons
 ----
 
 Slow. CPython-incompatible API, very rough and low-level
-
-.. _libffi: XXX link
 
 Mixed Modules
 =============
@@ -99,7 +97,7 @@ It has some serious disadvantages:
 
 Some document is available `here`_
 
-.. _`here`:: rffi.html
+.. _`here`: rffi.html
 
 XXX we should provide detailed docs about lltype and rffi, especially if we
     want people to follow that way.
