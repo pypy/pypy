@@ -287,11 +287,12 @@ class DescrOperation:
                                      space.wrap("unhashable type"))
             return default_identity_hash(space, w_obj)
         w_result = space.get_and_call_function(w_hash, w_obj)
-        if space.is_true(space.isinstance(w_result, space.w_int)): 
+        if (space.is_true(space.isinstance(w_result, space.w_int)) or
+            space.is_true(space.isinstance(w_result, space.w_long))): 
             return w_result 
         else: 
             raise OperationError(space.w_TypeError, 
-                     space.wrap("__hash__() should return an int"))
+                     space.wrap("__hash__() should return an int or long"))
 
     def userdel(space, w_obj):
         w_del = space.lookup(w_obj, '__del__')

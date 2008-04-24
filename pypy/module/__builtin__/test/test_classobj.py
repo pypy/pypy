@@ -484,6 +484,11 @@ class AppTestOldstyle(object):
                 return 1
         a = A()
         raises(TypeError, hash, a)
+        class A: # can return long 
+            def __hash__(self):
+                return long(1)
+        a = A()
+        assert hash(a) == long(1)
 
     def test_index(self):
         import sys

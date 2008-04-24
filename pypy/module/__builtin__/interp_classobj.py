@@ -541,10 +541,11 @@ class W_InstanceObject(Wrappable):
             else:
                 return space.wrap(hash(self))
         w_ret = space.call_function(w_func)
-        if not space.is_true(space.isinstance(w_ret, space.w_int)):
+        if (not space.is_true(space.isinstance(w_ret, space.w_int)) and
+            not space.is_true(space.isinstance(w_ret, space.w_long))):
             raise OperationError(
                 space.w_TypeError,
-                space.wrap("__hash__ must return int"))
+                space.wrap("__hash__ must return int or long"))
         return w_ret
 
     def descr_index(self, space):
