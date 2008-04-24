@@ -71,3 +71,7 @@ class TestDesciprtorOnStd:
             def __hash__(self): 
                 return "something"
         raises(TypeError, hash, E())
+        class F: # can return long
+            def __hash__(self):
+                return long(1)
+        assert hash(F()) == long(1)
