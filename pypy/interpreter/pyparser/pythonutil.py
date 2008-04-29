@@ -31,7 +31,7 @@ def get_grammar_file(version):
         _ver = PYTHON_VERSION
     elif version == "stable":
         _ver = "_stablecompiler"
-    elif version in ("2.3","2.4","2.5a"):
+    elif version in ("2.3","2.4","2.5a","2.5"):
         _ver = version
     else:
         raise ValueError('no such grammar version: %s' % version)
