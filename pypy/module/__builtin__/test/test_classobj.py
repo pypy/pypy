@@ -486,9 +486,9 @@ class AppTestOldstyle(object):
         raises(TypeError, hash, a)
         class A: # can return long 
             def __hash__(self):
-                return long(1)
+                return long(2**31)
         a = A()
-        assert hash(a) == long(1)
+        assert hash(a) == -2147483648
 
     def test_index(self):
         import sys
