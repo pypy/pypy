@@ -73,8 +73,8 @@ class TestDesciprtorOnStd:
         raises(TypeError, hash, E())
         class F: # can return long
             def __hash__(self):
-                return long(2**31)
-        assert hash(F()) == -2147483648 # 2.5 behavior
+                return long(2**33)
+        assert hash(F()) == 2 # 2.5 behavior
 
         class G:
             def __hash__(self):

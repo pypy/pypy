@@ -287,21 +287,13 @@ class DescrOperation:
                                      space.wrap("unhashable type"))
             return default_identity_hash(space, w_obj)
         w_result = space.get_and_call_function(w_hash, w_obj)
-        if (space.is_true(space.isinstance(w_result, space.w_int)) or
-            space.is_true(space.isinstance(w_result, space.w_long))): 
-            try:
-                space.int_w(w_result)
-                return space.int(w_result)
-            except OperationError, e:
-                if not e.match(space, space.w_OverflowError):
-                    raise
-                from sys import maxint
-                w_result = space.mod(w_result, space.wrap(maxint+1))
-                w_result = space.sub(w_result, space.wrap(maxint+1))
-            return space.int(w_result)
+        if space.is_true(space.isinstance(w_result, space.w_int)):
+            return w_result
+        elif space.is_true(space.isinstance(w_result, space.w_long)): 
+            return space.hash(w_result)
         else: 
             raise OperationError(space.w_TypeError, 
-                     space.wrap("__hash__() should return an int or long"))
+                    space.wrap("__hash__() should return an int or long"))
 
     def userdel(space, w_obj):
         w_del = space.lookup(w_obj, '__del__')
