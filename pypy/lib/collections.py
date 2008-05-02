@@ -308,4 +308,45 @@ class deque_iterator(object):
 
     def __len__(self):
         return self.counter
-        
+
+class defaultdict(dict):
+    
+    def __init__(self, *args, **kwds):
+        self.default_factory = None
+        if 'default_factory' in kwds:
+            self.default_factory = kwds.pop('default_factory')
+        elif len(args) > 0 and callable(args[0]):
+            self.default_factory = args[0]
+            args = args[1:]
+        super(defaultdict, self).__init__(*args, **kwds)
+ 
+    def __missing__(self, key):
+        # from defaultdict docs
+        if self.default_factory is None: 
+            raise KeyError((key,))
+        self[key] = value = self.default_factory()
+        return value
+
+    def __repr__(self):
+        return "defaultdict(%s, %s)" % (repr(self.default_factory), super(defaultdict, self).__repr__())
+
+    def copy(self):
+        return type(self)(self, default_factory=self.default_factory)
+    
+    def __copy__(self):
+        return self.copy()
+
+    def __reduce__(self):
+        """
+        __reduce__ must return a 5-tuple as follows:
+
+           - factory function
+           - tuple of args for the factory function
+           - additional state (here None)
+           - sequence iterator (here None)
+           - dictionary iterator (yielding successive (key, value) pairs
+
+           This API is used by pickle.py and copy.py.
+        """
+        return (type(self), (self.default_factory,), None, None, self.iteritems())
+
