@@ -361,6 +361,9 @@ one_stmt_funcdefs = [
 
 one_stmt_classdefs = [
     "class Pdb(bdb.Bdb, cmd.Cmd): pass",
+    "class A(): pass",
+    "class A: pass",
+    "class A)(: x",
     ]
 
 docstrings = [

@@ -632,16 +632,19 @@ def build_funcdef(builder, nb):
 
 
 def build_classdef(builder, nb):
-    """classdef: 'class' NAME ['(' testlist ')'] ':' suite"""
+    """classdef: 'class' NAME ['(' [testlist] ')'] ':' suite"""
     atoms = get_atoms(builder, nb)
     lineno = atoms[0].lineno
     l = len(atoms)
     classname_token = atoms[1]
     assert isinstance(classname_token, TokenObject)
     classname = classname_token.get_value()
-    if l == 4:
+    if l == 4: # class NAME:
         basenames = []
         body = atoms[3]
+    elif l == 6: # class NAME():  # 2.5
+        basenames = []
+        body = atoms[5]
     else:
         assert l == 7
         basenames = []
