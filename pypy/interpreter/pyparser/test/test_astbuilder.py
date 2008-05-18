@@ -14,7 +14,7 @@ import py.test
 from pypy.interpreter.astcompiler import ast
 
 from fakes import FakeSpace
-from expressions import TESTS, SINGLE_INPUTS, EXEC_INPUTS
+from expressions import TESTS, SINGLE_INPUTS, EXEC_INPUTS, CHANGES_25_INPUTS
 
 def arglist_equal(left,right):
     """needs special case because we handle the argumentlist differently"""
@@ -168,6 +168,9 @@ EXPECTED = {
     "a[100, 1:]": "Module(None, Stmt([Discard(Subscript(Name('a'), 2, Tuple([Const(100), Sliceobj([Const(1), Const(None)])])))]))",
     "a[100, :2,]": "Module(None, Stmt([Discard(Subscript(Name('a'), 2, Tuple([Const(100), Sliceobj([Const(None), Const(2)])])))]))",
     "a[100, :]": "Module(None, Stmt([Discard(Subscript(Name('a'), 2, Tuple([Const(100), Sliceobj([Const(None), Const(None)])])))]))",
+    
+    # stablecompiler can't produce AST for 2.5 syntax (yet)
+    "class A(): pass": "Module(None, Stmt([Class('A', [], None, Stmt([Pass()]))]))",
 
     # stablecompiler produces a Pass statement which does not seem very consistent
     # (a module should only have a Stmt child)
@@ -181,15 +184,14 @@ def tuple_parse_expr(expr, target='single'):
     t = Transformer("dummyfile")
     return ast_from_input(expr, target, t, stable_parser)
 
-def source2ast(source, mode, space=FakeSpace()):
-    version = '2.4'
+def source2ast(source, mode, space=FakeSpace(), version='2.4'):
     python_parser = pythonparse.make_pyparser(version)
     builder = AstBuilder(python_parser, version, space=space)
     python_parser.parse_source(source, mode, builder)
     return builder.rule_stack[-1]
 
-def check_expression(expr, mode='single'):
-    pypy_ast = source2ast(expr, mode)
+def check_expression(expr, mode='single', version='2.4'):
+    pypy_ast = source2ast(expr, mode, version=version)
     try:
         python_ast = EXPECTED[expr]
     except KeyError:
@@ -219,6 +221,10 @@ def test_exec_inputs():
         for expr in family:
             yield check_expression, expr, 'exec'
 
+def test_changes_25():
+    for family in CHANGES_25_INPUTS:
+        for expr in family:
+            yield check_expression, expr, 'exec', '2.5'
 
 NEW_GRAMMAR_SNIPPETS = [
     'snippet_with_1.py',
@@ -266,7 +272,7 @@ LIBSTUFF = [
     ]
 
 def test_snippets():
-    for snippet_name in SNIPPETS: # + NEW_GRAMMAR_SNIPPETS: # Disabled 2.5 syntax
+    for snippet_name in SNIPPETS: # + NEW_GRAMMAR_SNIPPETS:
         filepath = os.path.join(os.path.dirname(__file__), 'samples', snippet_name)
         source = file(filepath).read()
         # To avoid using the stable compiler we pull an explicit AST out of the snippet

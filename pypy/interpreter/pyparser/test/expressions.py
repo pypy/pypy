@@ -361,9 +361,7 @@ one_stmt_funcdefs = [
 
 one_stmt_classdefs = [
     "class Pdb(bdb.Bdb, cmd.Cmd): pass",
-    "class A(): pass",
     "class A: pass",
-    "class A)(: x",
     ]
 
 docstrings = [
@@ -483,6 +481,10 @@ TESTS = PY23_TESTS + OPTIONAL_TESTS
 ## TESTS = [
 ##     ["l = [i for i in range(10) if i%2 == 0 or i%2 == 1]"],
 ##     ]
+
+CHANGES_25_INPUTS = [
+    ["class A(): pass"],
+    ]
 
 EXEC_INPUTS = [
     one_stmt_classdefs,
