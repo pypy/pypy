@@ -1,6 +1,28 @@
 import py
 import sys
 
+from pypy.objspace.std.objspace import *
+from pypy.objspace.std.stdtypedef import *
+
+class TestUnicodeObject:
+    def test_comparison_warning(self):
+        warnings = []
+        def my_warn(msg, warningscls):
+            warnings.append(msg)
+            prev_warn(msg, warningscls)
+        space = self.space
+        prev_warn = space.warn
+        try:
+            space.warn = my_warn
+            space.appexec([], """():
+                chr(128) == unichr(128)
+                chr(128) != unichr(128)
+                chr(127) == unichr(127) # no warnings
+            """)
+        finally:
+            space.warn = prev_warn
+        assert len(warnings) == 2
+
 
 class AppTestUnicodeStringStdOnly:
     def test_compares(self):
@@ -13,6 +35,9 @@ class AppTestUnicodeStringStdOnly:
         assert not (u'a' == 5)
         assert u'a' != 5
         assert u'a' < 5 or u'a' > 5
+        assert not chr(128) == unichr(128) # UnicodeWarning
+        assert chr(128) != unichr(128)
+
 
 class AppTestUnicodeString:
     def test_addition(self):

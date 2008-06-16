@@ -83,6 +83,30 @@ def str__Unicode(space, w_uni):
 def eq__Unicode_Unicode(space, w_left, w_right):
     return space.newbool(w_left._value == w_right._value)
 
+def eq__Unicode_String(space, w_left, w_right):
+    from pypy.objspace.std.unicodetype import unicode_from_string
+    try:
+        w_uni = unicode_from_string(space, w_right)
+    except OperationError, e:
+        if e.match(space, space.w_UnicodeDecodeError):
+            msg = "Unicode equal comparison failed to convert both arguments to Unicode - interpreting them as being unequal"
+            space.warn(msg, space.w_UnicodeWarning)
+            return space.w_False
+        raise
+    return space.newbool(w_left._value == w_uni._value)
+
+def ne__Unicode_String(space, w_left, w_right):
+    from pypy.objspace.std.unicodetype import unicode_from_string
+    try:
+        w_uni = unicode_from_string(space, w_right)
+    except OperationError, e:
+        if e.match(space, space.w_UnicodeDecodeError):
+            msg = "Unicode unequal comparison failed to convert both arguments to Unicode - interpreting them as being unequal"
+            space.warn(msg, space.w_UnicodeWarning)
+            return space.w_True
+        raise
+    return space.newbool(w_left._value != w_uni._value)
+
 def lt__Unicode_Unicode(space, w_left, w_right):
     left = w_left._value
     right = w_right._value
