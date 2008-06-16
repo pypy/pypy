@@ -95,6 +95,8 @@ def eq__Unicode_String(space, w_left, w_right):
         raise
     return space.newbool(w_left._value == w_uni._value)
 
+eq__Unicode_Rope = eq__Unicode_String
+
 def ne__Unicode_String(space, w_left, w_right):
     from pypy.objspace.std.unicodetype import unicode_from_string
     try:
@@ -106,6 +108,8 @@ def ne__Unicode_String(space, w_left, w_right):
             return space.w_True
         raise
     return space.newbool(w_left._value != w_uni._value)
+
+ne__Unicode_Rope = ne__Unicode_String
 
 def lt__Unicode_Unicode(space, w_left, w_right):
     left = w_left._value

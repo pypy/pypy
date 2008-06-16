@@ -177,7 +177,29 @@ def _eq(w_str1, w_str2):
 def eq__RopeUnicode_RopeUnicode(space, w_str1, w_str2):
     return space.newbool(_eq(w_str1, w_str2))
 
+def eq__RopeUnicode_Rope(space, w_str1, w_str2):
+    try:
+        w_uni = unicode_from_string(space, w_str2)
+    except OperationError, e:
+        if e.match(space, space.w_UnicodeDecodeError):
+            msg = "Unicode equal comparison failed to convert both arguments to Unicode - interpreting them as being unequal"
+            space.warn(msg, space.w_UnicodeWarning)
+            return space.w_False
+        raise
+    return space.newbool(_eq(w_str1, w_str2))
+
 def ne__RopeUnicode_RopeUnicode(space, w_str1, w_str2):
+    return space.newbool(not _eq(w_str1, w_str2))
+
+def ne__RopeUnicode_Rope(space, w_str1, w_str2):
+    try:
+        w_uni = unicode_from_string(space, w_str2)
+    except OperationError, e:
+        if e.match(space, space.w_UnicodeDecodeError):
+            msg = "Unicode unequal comparison failed to convert both arguments to Unicode - interpreting them as being unequal"
+            space.warn(msg, space.w_UnicodeWarning)
+            return space.w_True
+        raise
     return space.newbool(not _eq(w_str1, w_str2))
 
 def gt__RopeUnicode_RopeUnicode(space, w_str1, w_str2):

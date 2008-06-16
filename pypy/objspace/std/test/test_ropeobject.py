@@ -63,6 +63,13 @@ class AppTestRopeUnicode(object):
         d = {u'abcdefg': 2}
         assert d['abcdefg'] == 2
 
+
+class TestUnicodeRopeObject(test_unicodeobject.TestUnicodeObject):
+
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.std.withrope": True})
+
+
 class AppTestUnicodeRopeStdOnly(test_unicodeobject.AppTestUnicodeStringStdOnly):
 
     def setup_class(cls):

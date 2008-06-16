@@ -1,10 +1,8 @@
 import py
 import sys
 
-from pypy.objspace.std.objspace import *
-from pypy.objspace.std.stdtypedef import *
-
 class TestUnicodeObject:
+
     def test_comparison_warning(self):
         warnings = []
         def my_warn(msg, warningscls):
@@ -21,6 +19,7 @@ class TestUnicodeObject:
             """)
         finally:
             space.warn = prev_warn
+        print self.space.config.objspace.std.withrope
         assert len(warnings) == 2
 
 
