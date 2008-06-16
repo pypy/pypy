@@ -177,30 +177,24 @@ def _eq(w_str1, w_str2):
 def eq__RopeUnicode_RopeUnicode(space, w_str1, w_str2):
     return space.newbool(_eq(w_str1, w_str2))
 
-def eq__RopeUnicode_Rope(space, w_str1, w_str2):
-    try:
-        w_uni = unicode_from_string(space, w_str2)
-    except OperationError, e:
-        if e.match(space, space.w_UnicodeDecodeError):
-            msg = "Unicode equal comparison failed to convert both arguments to Unicode - interpreting them as being unequal"
-            space.warn(msg, space.w_UnicodeWarning)
-            return space.w_False
-        raise
-    return space.newbool(_eq(w_str1, w_str2))
+def eq__RopeUnicode_Rope(space, w_runi, w_rope):
+    from pypy.objspace.std.unicodeobject import check_unicode_from_string
+    msg = "Unicode equal comparison failed to convert both arguments to Unicode - interpreting them as being unequal"
+    w_runi2 = check_unicode_from_string(space, w_rope, msg, unicode_from_string)
+    if w_runi2 is None:
+        return space.w_False
+    return space.newbool(_eq(w_runi, w_runi2))
 
 def ne__RopeUnicode_RopeUnicode(space, w_str1, w_str2):
     return space.newbool(not _eq(w_str1, w_str2))
 
-def ne__RopeUnicode_Rope(space, w_str1, w_str2):
-    try:
-        w_uni = unicode_from_string(space, w_str2)
-    except OperationError, e:
-        if e.match(space, space.w_UnicodeDecodeError):
-            msg = "Unicode unequal comparison failed to convert both arguments to Unicode - interpreting them as being unequal"
-            space.warn(msg, space.w_UnicodeWarning)
-            return space.w_True
-        raise
-    return space.newbool(not _eq(w_str1, w_str2))
+def ne__RopeUnicode_Rope(space, w_runi, w_rope):
+    from pypy.objspace.std.unicodeobject import check_unicode_from_string
+    msg = "Unicode unequal comparison failed to convert both arguments to Unicode - interpreting them as being unequal"
+    w_runi2 = check_unicode_from_string(space, w_rope, msg, unicode_from_string)
+    if w_runi2 is None:
+        return space.w_True
+    return space.newbool(not _eq(w_runi, w_runi2))
 
 def gt__RopeUnicode_RopeUnicode(space, w_str1, w_str2):
     n1 = w_str1._node

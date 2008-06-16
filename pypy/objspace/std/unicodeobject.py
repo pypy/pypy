@@ -70,6 +70,17 @@ def delegate_String2Unicode(space, w_str):
     assert isinstance(w_uni, W_UnicodeObject) # help the annotator!
     return w_uni
 
+# checks if should trigger an unicode warning
+def check_unicode_from_string(space, w_str, msg, unicode_from_string):
+    try:
+        w_uni2 = unicode_from_string(space, w_str)
+    except OperationError, e:
+        if e.match(space, space.w_UnicodeDecodeError):
+            space.warn(msg, space.w_UnicodeWarning)
+            return None
+        raise
+    return w_uni2
+
 def str_w__Unicode(space, w_uni):
     return space.str_w(str__Unicode(space, w_uni))
 
@@ -83,31 +94,23 @@ def str__Unicode(space, w_uni):
 def eq__Unicode_Unicode(space, w_left, w_right):
     return space.newbool(w_left._value == w_right._value)
 
-def eq__Unicode_String(space, w_left, w_right):
+def eq__Unicode_String(space, w_uni, w_str):
     from pypy.objspace.std.unicodetype import unicode_from_string
-    try:
-        w_uni = unicode_from_string(space, w_right)
-    except OperationError, e:
-        if e.match(space, space.w_UnicodeDecodeError):
-            msg = "Unicode equal comparison failed to convert both arguments to Unicode - interpreting them as being unequal"
-            space.warn(msg, space.w_UnicodeWarning)
-            return space.w_False
-        raise
-    return space.newbool(w_left._value == w_uni._value)
+    msg = "Unicode equal comparison failed to convert both arguments to Unicode - interpreting them as being unequal"
+    w_uni2 = check_unicode_from_string(space, w_str, msg, unicode_from_string)
+    if w_uni2 is None:
+        return space.w_False
+    return space.newbool(w_uni._value == w_uni2._value)
 
 eq__Unicode_Rope = eq__Unicode_String
 
-def ne__Unicode_String(space, w_left, w_right):
+def ne__Unicode_String(space, w_uni, w_str):
     from pypy.objspace.std.unicodetype import unicode_from_string
-    try:
-        w_uni = unicode_from_string(space, w_right)
-    except OperationError, e:
-        if e.match(space, space.w_UnicodeDecodeError):
-            msg = "Unicode unequal comparison failed to convert both arguments to Unicode - interpreting them as being unequal"
-            space.warn(msg, space.w_UnicodeWarning)
-            return space.w_True
-        raise
-    return space.newbool(w_left._value != w_uni._value)
+    msg = "Unicode unequal comparison failed to convert both arguments to Unicode - interpreting them as being unequal"
+    w_uni2 = check_unicode_from_string(space, w_str, msg, unicode_from_string)
+    if w_uni2 is None:
+        return space.w_True
+    return space.newbool(w_uni._value != w_uni2._value)
 
 ne__Unicode_Rope = ne__Unicode_String
 
