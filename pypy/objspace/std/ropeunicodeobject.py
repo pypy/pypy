@@ -178,17 +178,17 @@ def eq__RopeUnicode_RopeUnicode(space, w_str1, w_str2):
     return space.newbool(_eq(w_str1, w_str2))
 
 def eq__RopeUnicode_Rope(space, w_runi, w_rope):
-    from pypy.objspace.std.unicodeobject import check_unicode_from_string
-    return check_unicode_from_string(space, w_runi, w_rope, 
-                    space.w_False,  unicode_from_string)
+    from pypy.objspace.std.unicodeobject import _unicode_string_comparison
+    return _unicode_string_comparison(space, w_runi, w_rope, 
+                    False,  unicode_from_string)
 
 def ne__RopeUnicode_RopeUnicode(space, w_str1, w_str2):
     return space.newbool(not _eq(w_str1, w_str2))
 
 def ne__RopeUnicode_Rope(space, w_runi, w_rope):
-    from pypy.objspace.std.unicodeobject import check_unicode_from_string
-    return check_unicode_from_string(space, w_runi, w_rope, 
-                    space.w_True, unicode_from_string)
+    from pypy.objspace.std.unicodeobject import _unicode_string_comparison
+    return _unicode_string_comparison(space, w_runi, w_rope, 
+                    True, unicode_from_string)
 
 def gt__RopeUnicode_RopeUnicode(space, w_str1, w_str2):
     n1 = w_str1._node
