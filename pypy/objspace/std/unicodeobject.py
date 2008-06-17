@@ -76,15 +76,19 @@ def _unicode_string_comparison(space, w_uni, w_str, inverse, uni_from_str):
         w_uni2 = uni_from_str(space, w_str)
     except OperationError, e:
         if e.match(space, space.w_UnicodeDecodeError):
-            word = "unequal" if inverse else "equal"
+            if inverse:
+                word = "unequal" 
+            else :
+                word = "equal"
             msg = "Unicode %s comparison failed to convert both arguments\
                     to Unicode - interpreting them as being unequal" % word
             space.warn(msg, space.w_UnicodeWarning)
             return space.newbool(inverse)
         raise
-    if inverse: 
-        return space.not_(space.eq(w_uni, w_uni2))
-    return space.eq(w_uni, w_uni2)
+    result = space.eq(w_uni, w_uni2)
+    if inverse:
+        return space.not_(result)
+    return result
 
 def str_w__Unicode(space, w_uni):
     return space.str_w(str__Unicode(space, w_uni))

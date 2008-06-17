@@ -84,7 +84,8 @@ Exception
       +-- SyntaxWarning
       +-- OverflowWarning
       +-- RuntimeWarning
-      +-- FutureWarning"""
+      +-- FutureWarning
+      +-- UnicodeWarning"""
 
 class Exception:
     """Common base class for all exceptions."""
@@ -382,6 +383,10 @@ class UserWarning(Warning):
 
 class SyntaxWarning(Warning):
     """Base class for warnings about dubious syntax."""
+
+class UnicodeWarning(Warning):
+    """Base class for warnings about Unicode related problems, mostly
+    related to conversion problems."""
 
 class MemoryError(StandardError):
     """Out of memory."""
