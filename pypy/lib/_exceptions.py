@@ -85,7 +85,8 @@ Exception
       +-- OverflowWarning
       +-- RuntimeWarning
       +-- FutureWarning
-      +-- UnicodeWarning"""
+      +-- UnicodeWarning
+      +-- ImportWarning"""
 
 class Exception:
     """Common base class for all exceptions."""
@@ -387,6 +388,9 @@ class SyntaxWarning(Warning):
 class UnicodeWarning(Warning):
     """Base class for warnings about Unicode related problems, mostly
     related to conversion problems."""
+
+class ImportWarning(Warning):
+    """Base class for warnings about probable mistakes in module imports"""
 
 class MemoryError(StandardError):
     """Out of memory."""

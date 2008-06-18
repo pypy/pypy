@@ -112,6 +112,18 @@ class AppTestImport:
             import notapackage
         raises(ImportError, imp)
 
+    def test_import_bare_dir_warns(self):
+        def imp():
+            import notapackage
+
+        import warnings
+        
+        warnings.simplefilter('error', ImportWarning)
+        try:
+            raises(ImportWarning, imp)
+        finally:
+            warnings.simplefilter('default', RuntimeWarning)
+
     def test_import_sys(self):
         import sys
 

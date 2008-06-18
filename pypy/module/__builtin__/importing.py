@@ -285,6 +285,10 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
                                            pkgdir=dir)
                     if w_mod is not None:
                         return w_mod
+                    else:
+                        msg = "Not importing directory " +\
+                                "'%s' missing __init__.py" % dir
+                        space.warn(msg, space.w_ImportWarning)
                 fn = os.path.join(space.str_w(path), partname)
                 w_mod = try_import_mod(space, w_modulename, fn, w_parent,
                                        w(partname))

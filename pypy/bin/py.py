@@ -37,6 +37,10 @@ cmdline_optiondescr = OptionDescription("interactive", "the options of py.py", [
     StrOption("runcommand",
               "program passed in as CMD (terminates option list)",
               default=None, cmdline="-c"),
+    StrOption("warn",
+              "warning control (arg is action:message:category:module:lineno)",
+              default=None, cmdline="-W"),
+ 
     ])
 
 pypy_init = gateway.applevel('''
@@ -75,6 +79,13 @@ def main_(argv=None):
     space._starttime = starttime
     space.setitem(space.sys.w_dict, space.wrap('executable'),
                   space.wrap(argv[0]))
+
+    # set warning control options (if any)
+    warn_arg = interactiveconfig.warn
+    if warn_arg is not None:
+        space.appexec([space.wrap(warn_arg)], """(arg): 
+        import sys
+        sys.warnoptions.append(arg)""")
 
     # store the command-line arguments into sys.argv
     go_interactive = interactiveconfig.interactive
