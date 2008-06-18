@@ -87,7 +87,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                  cmdline='--compiler'),
 
     ChoiceOption("pyversion", "which grammar to use for app-level code",
-                 ["2.3", "2.4", "2.5a", "2.5"], "2.4",
+                 ["2.3", "2.4", "2.5"], "2.5",
                  cmdline='--pyversion'),
 
     OptionDescription("opcodes", "opcodes to enable in the interpreter", [
