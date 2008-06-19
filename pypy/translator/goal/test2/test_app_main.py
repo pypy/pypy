@@ -331,6 +331,20 @@ class TestNonInteractive:
         assert 'NameError' in data
         assert 'Goodbye2' not in data
 
+    def test_option_W(self):
+        data = self.run('-W d -c "print 42"')
+        assert '42' in data
+        data = self.run('-Wd -c "print 42"')
+        assert '42' in data
+
+    def test_option_W_crashing(self):
+        data = self.run('-W')
+        assert 'Argument expected for the -W option' in data
+
+    def test_option_W_arg_ignored(self):
+        data = self.run('-Wc')
+        assert "Invalid -W option ignored: invalid action: 'c'" in data
+
     def test_option_c(self):
         data = self.run('-c "print 6**5"')
         assert '7776' in data

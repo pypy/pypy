@@ -12,6 +12,7 @@ options:
   -m             library module to be run as a script (terminates option list)
   -k, --oldstyle use old-style classes instead of newstyle classes
                  everywhere %(oldstyle)s
+  -W arg         warning control (arg is action:message:category:module:lineno)
   --version      print the PyPy version
   --info         print translation information about this PyPy executable
 """
@@ -206,6 +207,7 @@ def entry_point(executable, argv, nanos):
     i = 0
     run_module = False
     run_stdin = False
+    warnoptions = []
     oldstyle_classes = False
     while i < len(argv):
         arg = argv[i]
@@ -246,9 +248,18 @@ def entry_point(executable, argv, nanos):
             break
         elif arg in ('-k', '--oldstyle'):
             oldstyle_classes = True
+        elif arg.startswith('-W'):
+            arg = arg.replace("-W", "")
+            if not arg:
+                i += 1
+                if i >= len(argv):
+                    print_error('Argument expected for the -W option')
+                    return 2
+                arg = argv[i]
+            warnoptions = arg
         elif arg == '--':
             i += 1
-            break     # terminates option list
+            break     # terminates option list    
         else:
             print_error('unrecognized option %r' % (arg,))
             return 2
@@ -275,6 +286,10 @@ def entry_point(executable, argv, nanos):
         except:
             print >> sys.stderr, "'import site' failed"
 
+    if warnoptions:
+        sys.warnoptions.append(warnoptions)
+        from warnings import _processoptions
+        _processoptions(sys.warnoptions)
 
     # set up the Ctrl-C => KeyboardInterrupt signal handler, if the
     # signal module is available
