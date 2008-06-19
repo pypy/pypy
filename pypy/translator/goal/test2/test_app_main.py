@@ -345,6 +345,10 @@ class TestNonInteractive:
         data = self.run('-Wc')
         assert "Invalid -W option ignored: invalid action: 'c'" in data
 
+    def test_option_W_arg_ignored2(self):
+        data = self.run('-W-W')
+        assert "Invalid -W option ignored: invalid action:" in data
+
     def test_option_c(self):
         data = self.run('-c "print 6**5"')
         assert '7776' in data
