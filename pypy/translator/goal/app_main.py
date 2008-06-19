@@ -249,7 +249,7 @@ def entry_point(executable, argv, nanos):
         elif arg in ('-k', '--oldstyle'):
             oldstyle_classes = True
         elif arg.startswith('-W'):
-            arg = arg.replace("-W", "")
+            arg = arg[2:]
             if not arg:
                 i += 1
                 if i >= len(argv):
