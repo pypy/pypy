@@ -22,7 +22,7 @@ def grammar_grammar():
       
       alternative: sequence ( '|' sequence )+
       star: '*' | '+'
-      sequence: (SYMBOL star? | STRING | option | group )+
+      sequence: (SYMBOL star? | STRING star? | option | group )+
       option: '[' alternative ']'
       group: '(' alternative ')' star?
     """
@@ -55,8 +55,8 @@ def grammar_grammar():
     # group: '(' alternative ')'
     group         = p.Sequence_n(    "group",  [p.Token_n('TOK_LPAR', '('), alternative, p.Token_n('TOK_RPAR', ')'), star_opt] )
 
-    # sequence: (SYMBOL | STRING | option | group )+
-    string = p.Token_n('TOK_STRING')
+    # sequence: (SYMBOL star? | STRING star? | option | group )+
+    string        = p.Sequence_n(    "string", [p.Token_n('TOK_STRING'), star_opt] )
     alt           = p.Alternative_n( "sequence_alt", [symbol, string, option, group] )
     sequence.args = [ alt ]
 
