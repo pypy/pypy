@@ -175,8 +175,8 @@ class OperationError(Exception):
 
         elif space.full_exceptions and space.is_w(space.type(w_type),
                                                   space.w_str):
-            # XXX warn -- deprecated
-            pass
+            space.warn("raising a string exception is deprecated", 
+                       space.w_DeprecationWarning)
         else:
 
             # raise X: we assume that X is an already-built instance

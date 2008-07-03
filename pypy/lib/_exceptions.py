@@ -19,77 +19,62 @@ inserted into both the exceptions module and the `built-in' module.  It is
 recommended that user defined class based exceptions be derived from the
 `Exception' class, although this is currently not enforced.
 
-Exception
- |
+BaseException
  +-- SystemExit
- +-- StopIteration
- +-- StandardError
- |    |
- |    +-- KeyboardInterrupt
- |    +-- ImportError
- |    +-- EnvironmentError
- |    |    |
- |    |    +-- IOError
- |    |    +-- OSError
- |    |         |
- |    |         +-- WindowsError
- |    |         +-- VMSError
- |    |
- |    +-- EOFError
- |    +-- RuntimeError
- |    |    |
- |    |    +-- NotImplementedError
- |    |
- |    +-- NameError
- |    |    |
- |    |    +-- UnboundLocalError
- |    |
- |    +-- AttributeError
- |    +-- SyntaxError
- |    |    |
- |    |    +-- IndentationError
- |    |         |
- |    |         +-- TabError
- |    |
- |    +-- TypeError
- |    +-- AssertionError
- |    +-- LookupError
- |    |    |
- |    |    +-- IndexError
- |    |    +-- KeyError
- |    |
- |    +-- ArithmeticError
- |    |    |
- |    |    +-- OverflowError
- |    |    +-- ZeroDivisionError
- |    |    +-- FloatingPointError
- |    |
- |    +-- ValueError
- |    |    |
- |    |    +-- UnicodeError
- |    |        |
- |    |        +-- UnicodeEncodeError
- |    |        +-- UnicodeDecodeError
- |    |        +-- UnicodeTranslateError
- |    |
- |    +-- ReferenceError
- |    +-- SystemError
- |    +-- MemoryError
- |
- +---Warning
-      |
-      +-- UserWarning
-      +-- DeprecationWarning
-      +-- PendingDeprecationWarning
-      +-- SyntaxWarning
-      +-- OverflowWarning
-      +-- RuntimeWarning
-      +-- FutureWarning
-      +-- UnicodeWarning
-      +-- ImportWarning"""
+ +-- KeyboardInterrupt
+ +-- Exception
+      +-- GeneratorExit
+      +-- StopIteration
+      +-- StandardError
+      |    +-- ArithmeticError
+      |    |    +-- FloatingPointError
+      |    |    +-- OverflowError
+      |    |    +-- ZeroDivisionError
+      |    +-- AssertionError
+      |    +-- AttributeError
+      |    +-- EnvironmentError
+      |    |    +-- IOError
+      |    |    +-- OSError
+      |    |         +-- WindowsError (Windows)
+      |    |         +-- VMSError (VMS)
+      |    +-- EOFError
+      |    +-- ImportError
+      |    +-- LookupError
+      |    |    +-- IndexError
+      |    |    +-- KeyError
+      |    +-- MemoryError
+      |    +-- NameError
+      |    |    +-- UnboundLocalError
+      |    +-- ReferenceError
+      |    +-- RuntimeError
+      |    |    +-- NotImplementedError
+      |    +-- SyntaxError
+      |    |    +-- IndentationError
+      |    |         +-- TabError
+      |    +-- SystemError
+      |    +-- TypeError
+      |    +-- ValueError
+      |    |    +-- UnicodeError
+      |    |         +-- UnicodeDecodeError
+      |    |         +-- UnicodeEncodeError
+      |    |         +-- UnicodeTranslateError
+      +-- Warning
+           +-- DeprecationWarning
+           +-- PendingDeprecationWarning
+           +-- RuntimeWarning
+           +-- SyntaxWarning
+           +-- UserWarning
+           +-- FutureWarning
+	   +-- ImportWarning
+	   +-- UnicodeWarning
+"""
 
-class Exception:
-    """Common base class for all exceptions."""
+class BaseException(object):
+    """Superclass representing the base of the exception hierarchy.
+
+    The __getitem__ method is provided for backwards-compatibility
+    and will be deprecated at some point. 
+    """
 
     def __getitem__(self, idx):
         return self.args[idx]
@@ -106,6 +91,17 @@ class Exception:
             return str(args[0])
         else:
             return str(args)
+
+    def __repr__(self):
+        if self.args:
+            func_args = repr(self.args)
+        else:
+            func_args = "()"
+        return self.__class__.__name__ + func_args
+
+
+class Exception(BaseException):
+    """Common base class for all non-exit exceptions."""
 
 class StandardError(Exception):
     """Base class for all standard Python exceptions."""
@@ -293,7 +289,7 @@ class SyntaxError(StandardError):
 class FutureWarning(Warning):
     """Base class for warnings about constructs that will change semantically in the future."""
 
-class SystemExit(Exception):
+class SystemExit(BaseException):
     """Request to exit from the interpreter."""
 
     def __init__(self, *args):
@@ -376,7 +372,7 @@ class IndexError(LookupError):
 class RuntimeWarning(Warning):
     """Base class for warnings about dubious runtime behavior."""
 
-class KeyboardInterrupt(StandardError):
+class KeyboardInterrupt(BaseException):
     """Program interrupted by user."""
 
 class UserWarning(Warning):
