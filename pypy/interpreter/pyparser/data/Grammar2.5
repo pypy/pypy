@@ -134,7 +134,8 @@ classdef: 'class' NAME ['(' [testlist] ')'] ':' suite
 
 # arglist: (argument ',')* (argument [',']| '*' test [',' '**' test] | '**' test)
 arglist: (argument ',')* ( '*' test [',' '**' test] | '**' test | argument | [argument ','] )
-argument: test [gen_for] | test '=' test  # Really [keyword '='] test
+#argument: test [gen_for] | test '=' test  # Really [keyword '='] test
+argument: [test '='] test [gen_for] # Really [keyword '='] test
 
 list_iter: list_for | list_if
 list_for: 'for' exprlist 'in' testlist_safe [list_iter]
