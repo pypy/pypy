@@ -50,8 +50,8 @@ expr_stmt: testlist (augassign (yield_expr|testlist) |
 augassign: ('+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' | '^=' |
             '<<=' | '>>=' | '**=' | '//=')
 # For normal assignments, additional restrictions enforced by the interpreter
-print_stmt: 'print' ( [ test (',' test)* [','] ] |
-                      '>>' test [ (',' test)+ [','] ] )
+# print_stmt: 'print' ( [ test (',' test)* [','] ] |
+print_stmt: 'print' ( '>>' test [ (',' test)+ [','] ] | [ test (',' test)* [','] ] )
 del_stmt: 'del' exprlist
 pass_stmt: 'pass'
 flow_stmt: break_stmt | continue_stmt | return_stmt | raise_stmt | yield_stmt
@@ -102,7 +102,8 @@ or_test: and_test ('or' and_test)*
 and_test: not_test ('and' not_test)*
 not_test: 'not' not_test | comparison
 comparison: expr (comp_op expr)*
-comp_op: '<'|'>'|'=='|'>='|'<='|'<>'|'!='|'in'|'not' 'in'|'is'|'is' 'not'
+# comp_op: '<'|'>'|'=='|'>='|'<='|'<>'|'!='|'in'|'not' 'in'|'is'|'is' 'not'
+comp_op: '<'|'>'|'=='|'>='|'<='|'<>'|'!='|'in'|'not' 'in'|'is' 'not'|'is'
 expr: xor_expr ('|' xor_expr)*
 xor_expr: and_expr ('^' and_expr)*
 and_expr: shift_expr ('&' shift_expr)*
@@ -119,9 +120,11 @@ atom: ('(' [yield_expr|testlist_gexp] ')' |
 listmaker: test ( list_for | (',' test)* [','] )
 testlist_gexp: test ( gen_for | (',' test)* [','] )
 lambdef: 'lambda' [varargslist] ':' test
-trailer: '(' [arglist] ')' | '[' subscriptlist ']' | '.' NAME
+# trailer: '(' [arglist] ')' | '[' subscriptlist ']' | '.' NAME
+trailer: '(' ')' | '(' arglist ')' | '[' subscriptlist ']' | '.' NAME
 subscriptlist: subscript (',' subscript)* [',']
-subscript: '.' '.' '.' | test | [test] ':' [test] [sliceop]
+# subscript: '.' '.' '.' | test | [test] ':' [test] [sliceop]
+subscript: '.' '.' '.' | [test] ':' [test] [sliceop] | test
 sliceop: ':' [test]
 exprlist: expr (',' expr)* [',']
 testlist: test (',' test)* [',']
@@ -129,7 +132,8 @@ dictmaker: test ':' test (',' test ':' test)* [',']
 
 classdef: 'class' NAME ['(' [testlist] ')'] ':' suite
 
-arglist: (argument ',')* (argument [',']| '*' test [',' '**' test] | '**' test)
+# arglist: (argument ',')* (argument [',']| '*' test [',' '**' test] | '**' test)
+arglist: (argument ',')* ( '*' test [',' '**' test] | '**' test | argument | [argument ','] )
 argument: test [gen_for] | test '=' test  # Really [keyword '='] test
 
 list_iter: list_for | list_if
