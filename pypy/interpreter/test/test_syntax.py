@@ -259,7 +259,7 @@ def checkinvalid(space, s):
 
 class Py25AppTest:
     def setup_class(self):
-        self.space = gettestobjspace(pyversion='2.5a')
+        self.space = gettestobjspace(pyversion='2.5')
         return
 
 class AppTestCondExpr(Py25AppTest):
@@ -268,6 +268,14 @@ class AppTestCondExpr(Py25AppTest):
                             ("x = 1 if False else 2", 2)]:
             exec s
             assert x == expected
+
+    def test_condexpr_no_warning(self):
+        import warnings
+
+        warnings.simplefilter('error', SyntaxWarning)
+        1 if True else 2
+        warnings.simplefilter('default', SyntaxWarning)
+
 
 class AppTestWith(Py25AppTest):
     def test_with_simple(self):

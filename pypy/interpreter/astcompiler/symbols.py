@@ -572,8 +572,6 @@ class SymbolVisitor(ast.ASTVisitor):
             node.value.accept(self)
 
     def visitCondExpr(self, node):
-        issue_warning(self.space, "conditional expression",
-                      node.filename, node.lineno)
         ast.ASTVisitor.visitCondExpr(self, node)
 
 def sort(l):
