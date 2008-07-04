@@ -78,7 +78,7 @@ class W_File(W_AbstractStream):
     def direct___enter__(self):
         return self
 
-    def direct___exit__(self, excinfo):
+    def direct___exit__(self, __args__):
         self.direct_close()
         # can't return close() value
         return None
@@ -271,10 +271,10 @@ class W_File(W_AbstractStream):
     _decl(locals(), "__init__", ['self', str, str, int],
           """Opens a file.""")
 
-    _decl(locals(), "__enter__", ['self'], """enter__() -> self.""")
+    _decl(locals(), "__enter__", ['self'], """__enter__() -> self.""")
 
     _decl(locals(), "__exit__", ['self', Arguments], 
-        """exit__(*excinfo) -> None. Closes the file.""")
+        """__exit__(*excinfo) -> None. Closes the file.""")
 
     _decl(locals(), "close", ['self'],
         """close() -> None or (perhaps) an integer.  Close the file.
