@@ -75,6 +75,14 @@ class W_File(W_AbstractStream):
         fd = stream.try_to_find_file_descriptor()
         self.fdopenstream(stream, fd, mode, name)
 
+    def direct___enter__(self):
+        return self
+
+    def direct___exit__(self, excinfo):
+        self.direct_close()
+        # can't return close() value
+        return None
+
     def direct_fdopen(self, fd, mode='r', buffering=-1):
         self.direct_close()
         self.check_mode_ok(mode)
@@ -262,6 +270,11 @@ class W_File(W_AbstractStream):
 
     _decl(locals(), "__init__", ['self', str, str, int],
           """Opens a file.""")
+
+    _decl(locals(), "__enter__", ['self'], """enter__() -> self.""")
+
+    _decl(locals(), "__exit__", ['self', Arguments], 
+        """exit__(*excinfo) -> None. Closes the file.""")
 
     _decl(locals(), "close", ['self'],
         """close() -> None or (perhaps) an integer.  Close the file.

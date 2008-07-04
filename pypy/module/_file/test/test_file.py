@@ -222,6 +222,40 @@ class AppTestConcurrency(object):
         print 'Passed.'
 
 
+class AppTestFile25:
+    def setup_class(cls):
+        cls.space = gettestobjspace(usemodules=("_file", ), pyversion="2.5")
+        cls.w_temppath = cls.space.wrap(
+            str(py.test.ensuretemp("fileimpl").join("foo.txt")))
+        cls.w_file = getfile(cls.space)
+
+    def test___enter__(self):
+        f = self.file(self.temppath, 'w')
+        assert f.__enter__() is f
+
+    def test___exit__(self):
+        f = self.file(self.temppath, 'w')
+        assert f.__exit__() is None
+        assert f.closed
+
+    def test_file_and_with_statement(self):
+        s1 = """from __future__ import with_statement
+with self.file(self.temppath, 'w') as f:
+    f.write('foo')
+"""
+        exec s1
+        assert f.closed
+        
+        s2 = """from __future__ import with_statement
+with self.file(self.temppath, 'r') as f:
+    s = f.readline()
+"""
+    
+        exec s2
+        assert s == "foo"
+        assert f.closed
+
+
 def test_flush_at_exit():
     from pypy import conftest
     from pypy.tool.option import make_config, make_objspace
