@@ -1,6 +1,17 @@
 
 
 class AppTestRaise:
+    def test_arg_as_string(self):
+        def f():
+            raise "test"
+
+        import warnings
+        warnings.simplefilter('error', DeprecationWarning)
+        try:
+            raises(DeprecationWarning, f)
+        finally:
+            warnings.simplefilter('default', DeprecationWarning)
+        
     def test_control_flow(self):
         try:
             raise Exception
