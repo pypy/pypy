@@ -122,7 +122,7 @@ class AppTestImport:
         try:
             raises(ImportWarning, imp)
         finally:
-            warnings.simplefilter('default', RuntimeWarning)
+            warnings.simplefilter('default', ImportWarning)
 
     def test_import_sys(self):
         import sys
