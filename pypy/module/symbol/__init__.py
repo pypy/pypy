@@ -38,6 +38,3 @@ def _init_symbols(grammar_version):
             Module.interpleveldefs[name] = 'space.wrap(%d)' % val
             sym_name[val] = name
     Module.interpleveldefs['sym_name'] = 'space.wrap(%r)' % (sym_name,)
-
-# This is very evil
-_init_symbols('2.4')
