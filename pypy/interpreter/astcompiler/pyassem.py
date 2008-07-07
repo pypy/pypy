@@ -519,7 +519,7 @@ def setup_stack_depth_tracker():
         'PRINT_ITEM_TO': -2,
         'PRINT_NEWLINE': 0,
         'PRINT_NEWLINE_TO': -1,
-        'YIELD_VALUE': -1,
+        'YIELD_VALUE': 0,
         'EXEC_STMT': -3,
         'BUILD_CLASS': -2,
         'STORE_NAME': -1,

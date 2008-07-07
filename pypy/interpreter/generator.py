@@ -28,18 +28,26 @@ class GeneratorIterator(Wrappable):
         """x.__iter__() <==> iter(x)"""
         return self.space.wrap(self)
 
-    def descr_next(self):
-        """x.next() -> the next value, or raise StopIteration"""
+    def descr_send(self, w_arg=None):
+        """send(arg) -> send 'arg' into generator,
+return next yielded value or raise StopIteration."""
         space = self.space
         if self.running:
             raise OperationError(space.w_ValueError,
                                  space.wrap('generator already executing'))
         if self.frame.frame_finished_execution:
-            raise OperationError(space.w_StopIteration, space.w_None) 
+            raise OperationError(space.w_StopIteration, space.w_None)
+        if self.frame.last_instr == -1:
+            if w_arg and not space.is_w(w_arg, space.w_None):
+                msg = "can't send non-None value to a just-started generator"
+                raise OperationError(space.w_TypeError, space.wrap(msg))
+        else:
+            if not w_arg:
+                w_arg = space.w_None
         self.running = True
         try:
             try:
-                w_result = self.frame.execute_generator_frame(space.w_None)
+                w_result = self.frame.execute_generator_frame(w_arg)
             except OperationError:
                 # errors finish a frame
                 self.frame.frame_finished_execution = True
@@ -52,3 +60,9 @@ class GeneratorIterator(Wrappable):
         finally:
             self.frame.f_back = None
             self.running = False
+
+    def descr_next(self):
+        """x.next() -> the next value, or raise StopIteration"""
+        return self.descr_send()
+ 
+

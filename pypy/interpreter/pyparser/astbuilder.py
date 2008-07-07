@@ -880,6 +880,11 @@ def build_import_from(builder, nb):
 
 def build_yield_stmt(builder, nb):
     atoms = get_atoms(builder, nb)
+    lineno = atoms[0].lineno
+    builder.push(ast.Discard(ast.Yield(atoms[1], lineno), lineno))
+
+def build_yield_expr(builder, nb):
+    atoms = get_atoms(builder, nb)
     builder.push(ast.Yield(atoms[1], atoms[0].lineno))
 
 def build_continue_stmt(builder, nb):
@@ -1038,6 +1043,7 @@ ASTRULES_Template = {
     'import_name' : build_import_name,
     'import_from' : build_import_from,
     'yield_stmt' : build_yield_stmt,
+    'yield_expr' : build_yield_expr,
     'continue_stmt' : build_continue_stmt,
     'del_stmt' : build_del_stmt,
     'assert_stmt' : build_assert_stmt,

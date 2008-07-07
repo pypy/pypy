@@ -26,6 +26,14 @@ class AppTestGenerator:
         g = f()
         assert [x for x in g] == [1]
 
+    def test_generator5(self):
+        def f():
+            v = (yield )
+            yield v
+        g = f()
+        g.next()
+        assert g.send(42) == 42
+
     def test_generator_explicit_stopiteration(self):
         def f():
             yield 1

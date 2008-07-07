@@ -695,6 +695,7 @@ class CodeGenerator(ast.ASTVisitor):
 
         node.expr.accept( self )
         self.emit('YIELD_VALUE')
+        self.emit('POP_TOP')
 
         for start, cont, anchor in stack:
             if cont:
