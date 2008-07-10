@@ -34,6 +34,12 @@ class AppTestGenerator:
         g.next()
         assert g.send(42) == 42
 
+    def test_generator_raises_typeerror(self):
+        def f():
+            yield 1
+        g = f()
+        raises(TypeError, g.send, 1)
+
     def test_generator_explicit_stopiteration(self):
         def f():
             yield 1
