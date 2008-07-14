@@ -34,6 +34,113 @@ class AppTestGenerator:
         g.next()
         assert g.send(42) == 42
 
+    def test_throw1(self):
+        def f():
+            yield 2
+        g = f()
+        raises(NameError, g.throw, NameError, "Error")
+
+    def test_throw2(self):
+        def f():
+            yield 2
+        g = f()
+        raises(NameError, g.throw, NameError("Error"))
+
+    def test_throw3(self):
+        def f():
+            try:
+                yield 1
+                yield 2
+            except:
+                yield 3
+        g = f()
+        assert g.next() == 1
+        assert g.throw(NameError("Error")) == 3
+        raises(StopIteration, g.next)
+
+    def test_throw3(self):
+        def f():
+            try:
+                yield 1
+                v = (yield 2)
+            except:
+                yield 3
+        g = f()
+        assert g.next() == 1
+        assert g.next() == 2
+        assert g.throw(NameError("Error")) == 3
+        raises(StopIteration, g.next)
+
+    def test_throw4(self):
+        def f():
+            try:
+                yield 1
+            except:
+                x = 3
+            try:
+                yield x
+            except:
+                pass
+        g = f()
+        g.next()
+        # String exceptions are allowed (with DeprecationWarning)
+        assert g.throw("Error") == 3
+        raises(StopIteration, g.throw, "Error")
+    
+    def test_throw_fail(self):
+        def f():
+            yield 1
+        g = f()
+        raises(TypeError, g.throw, NameError("Error"), "error")
+
+    def test_throw_fail2(self):
+        def f():
+            yield 1
+        g = f()
+        raises(TypeError, g.throw, list())
+ 
+    def test_throw_fail3(self):
+        def f():
+            yield 1
+        g = f()
+        raises(TypeError, g.throw, NameError("Error"), None, "not tb object")
+
+    def test_close(self):
+        def f():
+            yield 1
+        g = f()
+        assert g.close() is None
+
+    def test_close2(self):
+        def f():
+            try:
+                yield 1
+            except GeneratorExit:
+                raise StopIteration
+        g = f()
+        g.next()
+        assert g.close() is None
+
+    def test_close3(self):
+        def f():
+            try:
+                yield 1
+            except GeneratorExit:
+                raise NameError
+        g = f()
+        g.next()
+        raises(NameError, g.close)
+ 
+    def test_close_fail(self):
+        def f():
+            try:
+                yield 1
+            except GeneratorExit:
+                yield 2
+        g = f()
+        g.next()
+        raises(RuntimeError, g.close)
+
     def test_generator_raises_typeerror(self):
         def f():
             yield 1

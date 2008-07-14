@@ -31,6 +31,9 @@ class GeneratorIterator(Wrappable):
     def descr_send(self, w_arg=None):
         """send(arg) -> send 'arg' into generator,
 return next yielded value or raise StopIteration."""
+        return self.send_ex(w_arg)
+
+    def send_ex(self, w_arg, exc=False):
         space = self.space
         if self.running:
             raise OperationError(space.w_ValueError,
@@ -47,7 +50,7 @@ return next yielded value or raise StopIteration."""
         self.running = True
         try:
             try:
-                w_result = self.frame.execute_generator_frame(w_arg)
+                w_result = self.frame.execute_generator_frame(w_arg, exc)
             except OperationError:
                 # errors finish a frame
                 self.frame.frame_finished_execution = True
@@ -61,8 +64,64 @@ return next yielded value or raise StopIteration."""
             self.frame.f_back = None
             self.running = False
 
-    def descr_next(self):
-        """x.next() -> the next value, or raise StopIteration"""
-        return self.descr_send()
- 
+    def descr_throw(self, w_type, w_val=None, w_tb=None):
+        """throw(typ[,val[,tb]]) -> raise exception in generator,
+return next yielded value or raise StopIteration."""
+        from pypy.interpreter.typedef import PyTraceback
+        space = self.space
+        
+        if space.is_w(w_tb, space.w_None):
+            w_tb = None
 
+        if w_val is None:
+            w_val = space.w_None
+
+        if w_tb is not None:
+            if not space.is_true(space.isinstance(w_tb, 
+                    space.gettypeobject(PyTraceback.typedef))):
+                msg = "throw() third argument must be a traceback object"
+                raise OperationError(space.w_TypeError, space.wrap(msg))
+
+        if space.is_true(space.abstract_isclass(w_type)) and \
+           space.is_true(space.issubtype(w_type, space.w_BaseException)):
+            exception = OperationError(w_type, w_val, w_tb)
+
+        elif space.is_true(space.isinstance(w_type, space.w_BaseException)):
+            if not space.is_w(w_val, space.w_None):
+                msg = "instance exception may not have a separate value"
+                raise OperationError(space.w_TypeError, space.wrap(msg))
+            else:
+                exception = OperationError(w_type.getclass(space), w_val, w_tb)
+
+        else:
+            if not space.is_true(space.isinstance(w_type, space.w_str)):
+                msg = "exceptions must be classes, or instances, not %s" % (
+                        w_type.typedef.name)
+                raise OperationError(space.w_TypeError, space.wrap(msg))
+            else:
+                exception = OperationError(w_type, w_val)
+        
+        ec = space.getexecutioncontext()
+        next_instr = self.frame.handle_operation_error(ec, exception)
+        self.frame.last_instr = next_instr - 1
+
+        return self.send_ex(space.w_None, True)
+             
+    def descr_next(self):
+        """next() -> the next value, or raise StopIteration"""
+        return self.send_ex(self.space.w_None)
+ 
+    def descr_close(self):
+        """close(arg) -> raise GeneratorExit inside generator."""
+        space = self.space
+        try:
+            w_retval = self.descr_throw(space.w_GeneratorExit)
+        except OperationError, e:
+            if e.match(space, space.w_StopIteration) or \
+                    e.match(space, space.w_GeneratorExit):
+                return space.w_None
+            raise
+        
+        if w_retval is not None or not space.is_w(w_retval, space.None):
+            msg = "generator ignored GeneratorExit"
+            raise OperationError(space.w_RuntimeError, space.wrap(msg))

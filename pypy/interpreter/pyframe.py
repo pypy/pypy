@@ -19,7 +19,6 @@ POP_BLOCK END_FINALLY'''.split():
     g[op] = opcode.opmap[op]
 HAVE_ARGUMENT = opcode.HAVE_ARGUMENT
 
-
 class PyFrame(eval.Frame):
     """Represents a frame for a regular Python function
     that needs to be interpreted.
@@ -92,11 +91,11 @@ class PyFrame(eval.Frame):
         else:
             return self.execute_frame()
 
-    def execute_generator_frame(self, w_inputvalue):
+    def execute_generator_frame(self, w_inputvalue, ex=False):
         # opcode semantic change in CPython 2.5: we must pass an input value
         # when resuming a generator, which goes into the value stack.
-        # (it's always w_None for now - not implemented in generator.py)
-        if self.pycode.magic >= 0xa0df294 and self.last_instr != -1:
+        # It's not working because the value of magic must be changed in PyCode
+        if self.pycode.magic >= 0xa0df294 and self.last_instr != -1 and not ex:
             self.pushvalue(w_inputvalue)
         return self.execute_frame()
 
