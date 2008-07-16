@@ -582,10 +582,6 @@ def test():
         assert space.float_w(w_result) == 0
 
 
-class TestECCompiler(BaseTestCompiler):
-    def setup_method(self, method):
-        self.compiler = self.space.getexecutioncontext().compiler
-
 class TestPyCCompiler(BaseTestCompiler):
     def setup_method(self, method):
         self.compiler = CPythonCompiler(self.space)
@@ -600,16 +596,15 @@ class TestPyCCompiler(BaseTestCompiler):
         def skip_on_2_4(self):
             py.test.skip("syntax not supported by the CPython 2.4 compiler")
         test_continue_in_nested_finally = skip_on_2_4
+    elif sys.version_info > (2, 4):
+        def skip_on_2_5(self):
+            py.test.skip("syntax changed in CPython 2.5 compiler")
+        test_yield_in_finally = skip_on_2_5
+            
 
-
-class TestPythonAstCompiler(BaseTestCompiler):
+class TestPythonAstCompiler_25_grammar(BaseTestCompiler):
     def setup_method(self, method):
-        self.compiler = PythonAstCompiler(self.space, "2.4")
-
-
-class TestPythonAstCompiler_25_grammar:
-    def setup_method(self, method):
-        self.compiler = PythonAstCompiler(self.space, "2.5a")
+        self.compiler = PythonAstCompiler(self.space, "2.5")
 
     def test_from_future_import(self):
         source = """from __future__ import with_statement
@@ -625,6 +620,22 @@ with somtehing as stuff:
         code = self.compiler.compile(source, '<filename2>', 'exec', 0)
         assert isinstance(code, PyCode)
         assert code.co_filename == '<filename2>'
+
+    def test_yield_in_finally(self): # behavior changed in 2.5
+        code ='def f():\n try:\n  yield 19\n finally:\n  pass\n'
+        self.compiler.compile(code, '', 'single', 0)
+
+
+class TestECCompiler(BaseTestCompiler):
+    def setup_method(self, method):
+        self.space.config.objspace.pyversion = "2.4"
+        self.compiler = self.space.getexecutioncontext().compiler
+
+
+class TestPythonAstCompiler(BaseTestCompiler):
+    def setup_method(self, method):
+        self.space.config.objspace.pyversion = "2.4"
+        self.compiler = PythonAstCompiler(self.space, "2.4")
 
 
 class AppTestOptimizer:

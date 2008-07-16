@@ -837,7 +837,7 @@ def build_import_from(builder, nb):
     """
     import_from: 'from' dotted_name 'import' ('*' | '(' import_as_names [','] ')' | import_as_names)
 
-    import_as_names: import_as_name (',' import_as_name)*
+    import_as_names: import_as_name (',' import_as_name)* [',']
     import_as_name: NAME [NAME NAME]
     """
     atoms = get_atoms(builder, nb)
@@ -855,6 +855,10 @@ def build_import_from(builder, nb):
             tokens = slicecut( atoms, index+1, -1 )
         else:
             tokens = atoms[index:]
+            if tokens[-1].name == builder.parser.tokens['COMMA']:
+                raise SyntaxError, "trailing comma not allowed without" \
+                        "surrounding parentheses"
+
         index = 0
         l = len(tokens)
         names = []

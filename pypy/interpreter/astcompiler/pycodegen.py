@@ -333,18 +333,21 @@ class CodeGenerator(ast.ASTVisitor):
         self.set_lineno(node)
         for default in node.defaults:
             default.accept( self )
+        self._makeClosure(gen, len(node.defaults))
+        for i in range(ndecorators):
+            self.emitop_int('CALL_FUNCTION', 1)
+
+    def _makeClosure(self, gen, args):
         frees = gen.scope.get_free_vars_in_parent()
         if frees:
             for name in frees:
                 self.emitop('LOAD_CLOSURE', name)
+            self.emitop_int('BUILD_TUPLE', len(frees))
             self.emitop_code('LOAD_CONST', gen)
-            self.emitop_int('MAKE_CLOSURE', len(node.defaults))
+            self.emitop_int('MAKE_CLOSURE', args)
         else:
             self.emitop_code('LOAD_CONST', gen)
-            self.emitop_int('MAKE_FUNCTION', len(node.defaults))
-
-        for i in range(ndecorators):
-            self.emitop_int('CALL_FUNCTION', 1)
+            self.emitop_int('MAKE_FUNCTION', args)
 
     def visitClass(self, node):
         gen = ClassCodeGenerator(self.space, node,
@@ -356,15 +359,7 @@ class CodeGenerator(ast.ASTVisitor):
         for base in node.bases:
             base.accept( self )
         self.emitop_int('BUILD_TUPLE', len(node.bases))
-        frees = gen.scope.get_free_vars_in_parent()
-        if frees:
-            for name in frees:
-                self.emitop('LOAD_CLOSURE', name)
-            self.emitop_code('LOAD_CONST', gen)
-            self.emitop_int('MAKE_CLOSURE', 0)
-        else:
-            self.emitop_code('LOAD_CONST', gen)
-            self.emitop_int('MAKE_FUNCTION', 0)
+        self._makeClosure(gen, 0)
         self.emitop_int('CALL_FUNCTION', 0)
         self.emit('BUILD_CLASS')
         self.storeName(node.name, node.lineno)
@@ -658,16 +653,7 @@ class CodeGenerator(ast.ASTVisitor):
         inner.accept( gen )
         gen.finish()
         self.set_lineno(node)
-        frees = gen.scope.get_free_vars_in_parent()
-        if frees:
-            for name in frees:
-                self.emitop('LOAD_CLOSURE', name)
-            self.emitop_code('LOAD_CONST', gen)
-            self.emitop_int('MAKE_CLOSURE', 0)
-        else:
-            self.emitop_code('LOAD_CONST', gen)
-            self.emitop_int('MAKE_FUNCTION', 0)
-
+        self._makeClosure(gen, 0)
         # precomputation of outmost iterable
         qual0 = inner.quals[0]
         assert isinstance(qual0, ast.GenExprFor)
@@ -1167,10 +1153,11 @@ class CodeGenerator(ast.ASTVisitor):
         self.emit('RETURN_VALUE')
 
     def visitYield(self, node):
-        if len(self.setups):
-            kind, block = self.setups[-1]
-            if kind  == TRY_FINALLY:
-                raise SyntaxError("'yield' not allowed in a 'try' block "
+        if self.space.config.objspace.pyversion < '2.5':
+            if len(self.setups):
+                kind, block = self.setups[-1]
+                if kind  == TRY_FINALLY:
+                    raise SyntaxError("'yield' not allowed in a 'try' block "
                                   "with a 'finally' clause",
                                   node.lineno)
         self.set_lineno(node)
