@@ -1,5 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.gateway import NoneNotWrapped
 
 
 class GeneratorIterator(Wrappable):
@@ -64,22 +65,16 @@ return next yielded value or raise StopIteration."""
             self.frame.f_back = None
             self.running = False
 
-    def descr_throw(self, w_type, w_val=None, w_tb=None):
+    def descr_throw(self, w_type, w_val=None, w_tb=NoneNotWrapped):
         """throw(typ[,val[,tb]]) -> raise exception in generator,
 return next yielded value or raise StopIteration."""
         return self.throw(w_type, w_val, w_tb)
 
 
-    def throw(self, w_type, w_val=None, w_tb=None):
+    def throw(self, w_type, w_val, w_tb):
         from pypy.interpreter.typedef import PyTraceback
         space = self.space
        
-        if space.is_w(w_tb, space.w_None):
-            w_tb = None
-
-        if w_val is None:
-            w_val = space.w_None
-
         if w_tb is not None:
             if not space.is_true(space.isinstance(w_tb, 
                     space.gettypeobject(PyTraceback.typedef))):
@@ -119,7 +114,7 @@ return next yielded value or raise StopIteration."""
         """close(arg) -> raise GeneratorExit inside generator."""
         space = self.space
         try:
-            w_retval = self.throw(space.w_GeneratorExit)
+            w_retval = self.throw(space.w_GeneratorExit, space.w_None, None)
         except OperationError, e:
             if e.match(space, space.w_StopIteration) or \
                     e.match(space, space.w_GeneratorExit):
