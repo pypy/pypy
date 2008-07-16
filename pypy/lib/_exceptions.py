@@ -103,6 +103,9 @@ class BaseException(object):
 class Exception(BaseException):
     """Common base class for all non-exit exceptions."""
 
+class GeneratorExit(Exception):
+    """Request that a generator exit."""
+
 class StandardError(Exception):
     """Base class for all standard Python exceptions."""
 
