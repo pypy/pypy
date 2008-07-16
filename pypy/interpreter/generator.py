@@ -67,9 +67,13 @@ return next yielded value or raise StopIteration."""
     def descr_throw(self, w_type, w_val=None, w_tb=None):
         """throw(typ[,val[,tb]]) -> raise exception in generator,
 return next yielded value or raise StopIteration."""
+        return self.throw(w_type, w_val, w_tb)
+
+
+    def throw(self, w_type, w_val=None, w_tb=None):
         from pypy.interpreter.typedef import PyTraceback
         space = self.space
-        
+       
         if space.is_w(w_tb, space.w_None):
             w_tb = None
 
@@ -99,7 +103,7 @@ return next yielded value or raise StopIteration."""
                         w_type.typedef.name)
                 raise OperationError(space.w_TypeError, space.wrap(msg))
             else:
-                exception = OperationError(w_type, w_val)
+                exception = OperationError(w_type, w_val, w_tb)
         
         ec = space.getexecutioncontext()
         next_instr = self.frame.handle_operation_error(ec, exception)
@@ -115,7 +119,7 @@ return next yielded value or raise StopIteration."""
         """close(arg) -> raise GeneratorExit inside generator."""
         space = self.space
         try:
-            w_retval = self.descr_throw(space.w_GeneratorExit)
+            w_retval = self.throw(space.w_GeneratorExit)
         except OperationError, e:
             if e.match(space, space.w_StopIteration) or \
                     e.match(space, space.w_GeneratorExit):
