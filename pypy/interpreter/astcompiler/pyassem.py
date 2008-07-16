@@ -534,7 +534,7 @@ def setup_stack_depth_tracker():
         'STORE_FAST': -1,
         'DELETE_FAST': 0,
         'IMPORT_STAR': -1,
-        'IMPORT_NAME': 0,
+        'IMPORT_NAME': -1,
         'IMPORT_FROM': 1,
         'LOAD_ATTR': 0, # unlike other loads
         'GET_ITER': 0,

@@ -866,6 +866,7 @@ class CodeGenerator(ast.ASTVisitor):
     def visitImport(self, node):
         self.set_lineno(node)
         for name, alias in node.names:
+            self.emitop_obj('LOAD_CONST', self.space.wrap(-1)) # 2.5 flag
             self.emitop_obj('LOAD_CONST', self.space.w_None)
             self.emitop('IMPORT_NAME', name)
             mod = name.split(".")[0]
@@ -878,6 +879,7 @@ class CodeGenerator(ast.ASTVisitor):
     def visitFrom(self, node):
         self.set_lineno(node)
         fromlist = [ self.space.wrap(name) for name,alias in node.names ]
+        self.emitop_obj('LOAD_CONST', self.space.wrap(-1)) # 2.5 flag
         self.emitop_obj('LOAD_CONST', self.space.newtuple(fromlist))
         self.emitop('IMPORT_NAME', node.modname)
         for name, alias in node.names:

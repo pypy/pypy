@@ -56,7 +56,7 @@ class PyCode(eval.Code):
     def __init__(self, space,  argcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
                      name, firstlineno, lnotab, freevars, cellvars,
-                     hidden_applevel=False, magic = 62061 | 0x0a0d0000): # value for Python 2.4.1
+                     hidden_applevel=False, magic = 62131 | 0x0a0d0000): # value for Python 2.5c2
         """Initialize a new code object from parameters given by
         the pypy compiler"""
         self.space = space

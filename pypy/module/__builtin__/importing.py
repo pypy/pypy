@@ -395,8 +395,8 @@ def getimportlock(space):
 #  * CALL_LIKELY_BUILTIN    +2
 #  * CALL_METHOD            +4
 #
-#
-MAGIC = 1024 | (ord('\r')<<16) | (ord('\n')<<24)
+# 
+MAGIC = 1034 | (ord('\r')<<16) | (ord('\n')<<24)
 MARSHAL_VERSION_FOR_PYC = 2
 
 def get_pyc_magic(space):
