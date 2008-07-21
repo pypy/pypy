@@ -169,8 +169,11 @@ EXPECTED = {
     "a[100, :2,]": "Module(None, Stmt([Discard(Subscript(Name('a'), 2, Tuple([Const(100), Sliceobj([Const(None), Const(2)])])))]))",
     "a[100, :]": "Module(None, Stmt([Discard(Subscript(Name('a'), 2, Tuple([Const(100), Sliceobj([Const(None), Const(None)])])))]))",
     
-    # stablecompiler can't produce AST for 2.5 syntax (yet)
+    # stablecompiler can't produce AST for 2.5 syntax
     "class A(): pass": "Module(None, Stmt([Class('A', [], None, Stmt([Pass()]))]))",
+
+    # yield changed in 2.5, so we can not trust the stablecompiler
+    "def f(n):\n    for i in range(n):\n        yield n\n": "Module(None, Stmt([Function(None, 'f', [AssName('n', 0)], [], 0, None, Stmt([For(AssName('i', 0), CallFunc(Name('range'), [Name('n')], None, None), Stmt([Discard(Yield(Name('n')))]), None)]))]))",
 
     # stablecompiler produces a Pass statement which does not seem very consistent
     # (a module should only have a Stmt child)
