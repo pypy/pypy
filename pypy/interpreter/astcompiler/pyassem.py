@@ -311,25 +311,11 @@ class PyFlowGraph(object):
             except KeyError:
                 pass
             else:
-                if opcode == pythonopcode.opmap['MAKE_CLOSURE']:
-                    # only supports "LOAD_CONST co / MAKE_CLOSURE n"
-                    if just_loaded_const is None:
-                        raise InternalCompilerError("MAKE_CLOSURE not "
-                                                    "following LOAD_CONST")
-                    codeobj = self.space.interp_w(PyCode, just_loaded_const)
-                    nfreevars = len(codeobj.co_freevars)
-                    effect = - nfreevars - oparg
-                else:
-                    effect = tracker(oparg)
+                effect = tracker(oparg)
                 curstackdepth += effect
                 if i in finally_targets:
                     curstackdepth += 2  # see pyopcode.FinallyBlock.cleanup()
                 self._setdepth(i, curstackdepth)
-
-            if opcode == pythonopcode.opmap['LOAD_CONST']:
-                just_loaded_const = consts_w[oparg]
-            else:
-                just_loaded_const = None
 
         self.stacksize = largestsize
 
@@ -481,8 +467,7 @@ def depth_CALL_LIKELY_BUILTIN(argc):
 def depth_MAKE_FUNCTION(argc):
     return -argc
 def depth_MAKE_CLOSURE(argc):
-    raise InternalCompilerError("must special-case this in order to account"
-                                " for the free variables")
+    return -argc
 def depth_BUILD_SLICE(argc):
     if argc == 2:
         return -1
