@@ -841,8 +841,11 @@ def build_import_from(builder, nb):
     import_as_name: NAME [NAME NAME]
     """
     atoms = get_atoms(builder, nb)
-
-    index = 1
+    index = 1 # skip from
+    level = 0
+    while atoms[index].name == builder.parser.tokens['DOT']:
+        level += 1
+        index += 1
     incr, from_name = parse_dotted_names(atoms[index:], builder)
     index += (incr + 1) # skip 'import'
     token = atoms[index]
@@ -879,7 +882,9 @@ def build_import_from(builder, nb):
             names.append((name, as_name))
             if index < l: # case ','
                 index += 1
-    builder.push(ast.From(from_name, names, atoms[0].lineno))
+    if level == 0:
+        level = -1
+    builder.push(ast.From(from_name, names, level, atoms[0].lineno))
 
 
 def build_yield_stmt(builder, nb):

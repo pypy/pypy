@@ -25,7 +25,7 @@ the "in" comparisons with explicit numeric comparisons.
 """
 
 from pypy.interpreter.astcompiler.consts import CO_GENERATOR_ALLOWED, \
-    CO_FUTURE_DIVISION, CO_FUTURE_WITH_STATEMENT
+    CO_FUTURE_DIVISION, CO_FUTURE_WITH_STATEMENT, CO_FUTURE_ABSIMPORT
             
 def getFutures(futureFlags, source):
     futures = FutureAutomaton(futureFlags, source)
@@ -53,7 +53,7 @@ class FutureAutomaton(object):
         * other future statements.
 
     The features recognized by Python 2.5 are "generators",
-    "division", "nested_scopes" and "with_statement".
+    "division", "nested_scopes" and "with_statement", "absolute_import".
     "generators", "division" and "nested_scopes" are redundant
     in 2.5 because they are always enabled.
 

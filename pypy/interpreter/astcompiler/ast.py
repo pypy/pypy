@@ -2477,10 +2477,11 @@ For.typedef = TypeDef('For', Node.typedef,
 For.typedef.acceptable_as_base_class = False
 
 class From(Node):
-    def __init__(self, modname, names, lineno=-1):
+    def __init__(self, modname, names, level, lineno=-1):
         Node.__init__(self, lineno)
         self.modname = modname
         self.names = names
+        self.level = level
 
     def getChildren(self):
         "NOT_RPYTHON"

@@ -152,13 +152,13 @@ def check_sys_modules(space, w_modulename):
     return None
 
 def importhook(space, modulename, w_globals=None,
-               w_locals=None, w_fromlist=None):
+               w_locals=None, w_fromlist=None, w_level=-1):
     if not modulename:
         raise OperationError(
             space.w_ValueError,
             space.wrap("Empty module name"))
     w = space.wrap
-
+    
     ctxt_name = None
     if w_globals is not None and not space.is_w(w_globals, space.w_None):
         ctxt_w_name = try_getitem(space, w_globals, w('__name__'))
@@ -200,7 +200,7 @@ def importhook(space, modulename, w_globals=None,
         space.setitem(space.sys.get('modules'), w(rel_modulename),space.w_None)
     return w_mod
 #
-importhook.unwrap_spec = [ObjSpace,str,W_Root,W_Root,W_Root]
+importhook.unwrap_spec = [ObjSpace,str,W_Root,W_Root,W_Root,W_Root]
 
 def absolute_import(space, modulename, baselevel, w_fromlist, tentative):
     lock = getimportlock(space)

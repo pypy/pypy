@@ -10,7 +10,7 @@ from pypy.interpreter.astcompiler.consts import SC_LOCAL, SC_GLOBAL, \
     SC_FREE, SC_CELL, SC_DEFAULT, OP_APPLY, OP_ASSIGN, OP_DELETE, OP_NONE
 from pypy.interpreter.astcompiler.consts import CO_VARARGS, CO_VARKEYWORDS, \
     CO_NEWLOCALS, CO_NESTED, CO_GENERATOR, CO_GENERATOR_ALLOWED, \
-    CO_FUTURE_DIVISION, CO_FUTURE_WITH_STATEMENT
+    CO_FUTURE_DIVISION, CO_FUTURE_WITH_STATEMENT, CO_FUTURE_ABSIMPORT
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.interpreter.astcompiler.opt import is_constant_false
 from pypy.interpreter.astcompiler.opt import is_constant_true
@@ -150,6 +150,8 @@ class CodeGenerator(ast.ASTVisitor):
                 self.graph.setFlag(CO_GENERATOR_ALLOWED)
             elif feature == "with_statement":
                 self.graph.setFlag(CO_FUTURE_WITH_STATEMENT)
+            elif feature == "absolute_import":
+                self.graph.setFlag(CO_FUTURE_ABSIMPORT)
 
     def emit(self, inst ):
         return self.graph.emit( inst )
@@ -865,7 +867,7 @@ class CodeGenerator(ast.ASTVisitor):
     def visitFrom(self, node):
         self.set_lineno(node)
         fromlist = [ self.space.wrap(name) for name,alias in node.names ]
-        self.emitop_obj('LOAD_CONST', self.space.wrap(-1)) # 2.5 flag
+        self.emitop_obj('LOAD_CONST', self.space.wrap(node.level)) # 2.5 flag
         self.emitop_obj('LOAD_CONST', self.space.newtuple(fromlist))
         self.emitop('IMPORT_NAME', node.modname)
         for name, alias in node.names:
