@@ -845,7 +845,12 @@ def build_import_from(builder, nb):
     while atoms[index].name == builder.parser.tokens['DOT']:
         index += 1
     level = index - 1
-    incr, from_name = parse_dotted_names(atoms[index:], builder)
+    if atoms[index].value == 'import': 
+        # from . import x
+        from_name =  ""
+        incr = 0
+    else:
+        incr, from_name = parse_dotted_names(atoms[index:], builder)
     index += (incr + 1) # skip 'import'
     token = atoms[index]
     assert isinstance(token, TokenObject) # XXX

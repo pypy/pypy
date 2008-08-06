@@ -42,8 +42,14 @@ def setup_directory_structure(space):
              abs_x_y    = "import x.y",
              string     = "inpackage = 1",
              absolute   = "from __future__ import absolute_import\nimport string",
+             relative_b = "from __future__ import absolute_import\nfrom . import string",
+             relative_c = "from __future__ import absolute_import\nfrom .string import inpackage",
              )
-    setuppkg("pkg.pkg1", a='')
+    setuppkg("pkg.pkg1", 
+             a          = '',
+             relative_d = "from __future__ import absolute_import\nfrom ..string import inpackage",
+             relative_e = "from __future__ import absolute_import\nfrom .. import string",
+             )
     setuppkg("pkg.pkg2", a='', b='')
     setuppkg("pkg_r", inpkg = "import x.y")
     setuppkg("pkg_r.x")
@@ -276,6 +282,27 @@ class AppTestImport:
             from pkg import absolute
             absolute.string.inpackage
         raises(AttributeError, imp)
+
+    def test_future_relative_import_without_from_name(self):
+        from pkg import relative_b
+        assert relative_b.string.inpackage == 1
+
+    def test_future_relative_import_level_1(self):
+        from pkg import relative_c
+        assert relative_c.inpackage == 1
+    
+    def test_future_relative_import_level_2(self):
+        from pkg.pkg1 import relative_d
+        assert relative_d.inpackage == 1
+
+    def test_future_relative_import_level_2_without_from_name(self):
+        from pkg.pkg1 import relative_e
+        assert relative_e.string.inpackage == 1
+
+    def test_future_relative_import_error_when_in_non_package(self):
+        def imp():
+            from .string import inpackage
+        raises(ValueError, imp)
 
 
 def _getlong(data):

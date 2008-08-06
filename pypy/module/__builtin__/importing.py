@@ -153,13 +153,13 @@ def check_sys_modules(space, w_modulename):
 
 def importhook(space, modulename, w_globals=None,
                w_locals=None, w_fromlist=None, w_level=-1):
-    if not modulename:
+    level = space.int_w(w_level)
+    if not modulename and level < 0: 
         raise OperationError(
             space.w_ValueError,
             space.wrap("Empty module name"))
     w = space.wrap
 
-    level = space.int_w(w_level)
 
     ctxt_name = None
     if w_globals is not None and not space.is_w(w_globals, space.w_None):
@@ -182,7 +182,12 @@ def importhook(space, modulename, w_globals=None,
         else:
             ctxt_name_prefix_parts = ctxt_name.split('.')
             if ctxt_w_path is None: # context is a plain module
-                ctxt_name_prefix_parts = ctxt_name_prefix_parts[:-1]
+                if level < 0:
+                    ctxt_name_prefix_parts = ctxt_name_prefix_parts[:-1]
+                else:
+                    cnpp = ctxt_name_prefix_parts
+                    ctxt_name_prefix_parts = [ ctxt_name_prefix_parts[i] 
+                                               for i in range(len(cnpp)-level) ]
                 if ctxt_name_prefix_parts:
                     rel_modulename = '.'.join(ctxt_name_prefix_parts+[modulename])
             else: # context is a package module
@@ -200,7 +205,9 @@ def importhook(space, modulename, w_globals=None,
                     return w_mod
             else:
                 rel_modulename = None
-
+    if level > 0:
+        msg = "Attempted relative import in non-package"
+        raise OperationError(space.w_ValueError, w(msg))
     w_mod = absolute_import(space, modulename, 0, w_fromlist, tentative=0)
     if rel_modulename is not None:
         space.setitem(space.sys.get('modules'), w(rel_modulename),space.w_None)
