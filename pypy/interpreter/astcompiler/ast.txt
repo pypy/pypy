@@ -31,7 +31,7 @@ With: expr, body, var&
 While: test, body, else_&
 If: tests!, else_&
 Exec: expr, locals&, globals&
-From: modname*str, names*
+From: modname*str, names*, level*int
 Import: names*
 Raise: expr1&, expr2&, expr3&
 TryFinally: body, final

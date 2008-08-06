@@ -40,6 +40,8 @@ def setup_directory_structure(space):
              relative_a = "import a",
              abs_b      = "import b",
              abs_x_y    = "import x.y",
+             string     = "inpackage = 1",
+             absolute   = "from __future__ import absolute_import\nimport string",
              )
     setuppkg("pkg.pkg1", a='')
     setuppkg("pkg.pkg2", a='', b='')
@@ -268,6 +270,13 @@ class AppTestImport:
         exec "__name__ = None; import sys" in glob
         import sys
         assert glob['sys'] is sys
+
+    def test_future_absolute_import(self):
+        def imp():
+            from pkg import absolute
+            absolute.string.inpackage
+        raises(AttributeError, imp)
+
 
 def _getlong(data):
     x = marshal.dumps(data)

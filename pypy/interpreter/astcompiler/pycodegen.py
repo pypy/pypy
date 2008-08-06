@@ -670,7 +670,7 @@ class CodeGenerator(ast.ASTVisitor):
         stack = []
         i = 0
         for for_ in node.quals:
-            assert isinstance(for_, ast.GenExprFor)            
+            assert isinstance(for_, ast.GenExprFor)
             start, anchor = self._visitGenExprFor(for_)
             self.genexpr_cont_stack.append( None )
             for if_ in for_.ifs:
@@ -853,8 +853,12 @@ class CodeGenerator(ast.ASTVisitor):
 
     def visitImport(self, node):
         self.set_lineno(node)
+        if self.graph.checkFlag(CO_FUTURE_ABSIMPORT):
+            level = 0
+        else:
+            level = -1
         for name, alias in node.names:
-            self.emitop_obj('LOAD_CONST', self.space.wrap(-1)) # 2.5 flag
+            self.emitop_obj('LOAD_CONST', self.space.wrap(level)) # 2.5 flag
             self.emitop_obj('LOAD_CONST', self.space.w_None)
             self.emitop('IMPORT_NAME', name)
             mod = name.split(".")[0]
@@ -866,8 +870,11 @@ class CodeGenerator(ast.ASTVisitor):
 
     def visitFrom(self, node):
         self.set_lineno(node)
+        level = node.level
+        if level == 0 and not self.graph.checkFlag(CO_FUTURE_ABSIMPORT):
+            level = -1
         fromlist = [ self.space.wrap(name) for name,alias in node.names ]
-        self.emitop_obj('LOAD_CONST', self.space.wrap(node.level)) # 2.5 flag
+        self.emitop_obj('LOAD_CONST', self.space.wrap(level)) # 2.5 flag
         self.emitop_obj('LOAD_CONST', self.space.newtuple(fromlist))
         self.emitop('IMPORT_NAME', node.modname)
         for name, alias in node.names:
