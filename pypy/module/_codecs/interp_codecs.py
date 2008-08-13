@@ -96,7 +96,7 @@ def lookup_codec(space, encoding):
         w_result = space.call_function(w_search,
                                        space.wrap(normalized_encoding))
         if not space.is_w(w_result, space.w_None):
-            if not (space.is_true(space.is_(space.type(w_result),
+            if not (space.is_true(space.isinstance(w_result,  
                                             space.w_tuple)) and
                     space.int_w(space.len(w_result)) == 4):
                 raise OperationError(
