@@ -4,7 +4,7 @@ Version numbers exposed by PyPy through the 'sys' module.
 import os
 
 
-CPYTHON_VERSION            = (2, 4, 1, "alpha", 42)
+CPYTHON_VERSION            = (2, 5, 1, "alpha", 42)
 CPYTHON_API_VERSION        = 1012
 
 PYPY_VERSION               = (1, 0, 0, "alpha", '?')
