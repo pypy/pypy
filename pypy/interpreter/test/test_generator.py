@@ -58,7 +58,7 @@ class AppTestGenerator:
         assert g.throw(NameError("Error")) == 3
         raises(StopIteration, g.next)
 
-    def test_throw3(self):
+    def test_throw4(self):
         def f():
             try:
                 yield 1
@@ -71,7 +71,7 @@ class AppTestGenerator:
         assert g.throw(NameError("Error")) == 3
         raises(StopIteration, g.next)
 
-    def test_throw4(self):
+    def test_throw5(self):
         def f():
             try:
                 yield 1

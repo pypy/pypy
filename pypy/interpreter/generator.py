@@ -72,25 +72,22 @@ return next yielded value or raise StopIteration."""
 
 
     def throw(self, w_type, w_val, w_tb):
-        from pypy.interpreter.typedef import PyTraceback
+        from pypy.interpreter.pytraceback import check_traceback
         space = self.space
+        
+        msg = "throw() third argument must be a traceback object"
+        tb = check_traceback(space, w_tb, msg)
        
-        if w_tb is not None:
-            if not space.is_true(space.isinstance(w_tb, 
-                    space.gettypeobject(PyTraceback.typedef))):
-                msg = "throw() third argument must be a traceback object"
-                raise OperationError(space.w_TypeError, space.wrap(msg))
-
         if space.is_true(space.abstract_isclass(w_type)) and \
            space.is_true(space.issubtype(w_type, space.w_BaseException)):
-            exception = OperationError(w_type, w_val, w_tb)
+            exception = OperationError(w_type, w_val, tb)
 
         elif space.is_true(space.isinstance(w_type, space.w_BaseException)):
             if not space.is_w(w_val, space.w_None):
                 msg = "instance exception may not have a separate value"
                 raise OperationError(space.w_TypeError, space.wrap(msg))
             else:
-                exception = OperationError(w_type.getclass(space), w_val, w_tb)
+                exception = OperationError(w_type.getclass(space), w_val, tb)
 
         else:
             if not space.is_true(space.isinstance(w_type, space.w_str)):
@@ -98,7 +95,7 @@ return next yielded value or raise StopIteration."""
                         w_type.typedef.name)
                 raise OperationError(space.w_TypeError, space.wrap(msg))
             else:
-                exception = OperationError(w_type, w_val, w_tb)
+                exception = OperationError(w_type, w_val, tb)
         
         ec = space.getexecutioncontext()
         next_instr = self.frame.handle_operation_error(ec, exception)

@@ -1,4 +1,5 @@
 from pypy.interpreter import baseobjspace
+from pypy.interpreter.error import OperationError
 
 
 class PyTraceback(baseobjspace.Wrappable):
@@ -62,3 +63,15 @@ def offset2lineno(c, stopat):
             break
         line = line + ord(tab[i+1])
     return line
+
+def check_traceback(space, w_tb, msg):
+    from pypy.interpreter.typedef import PyTraceback
+    if w_tb is not None:
+        tb = space.interpclass_w(w_tb)
+        if tb is None or not space.is_true(space.isinstance(tb, 
+                space.gettypeobject(PyTraceback.typedef))):
+            raise OperationError(space.w_TypeError, space.wrap(msg))
+    else:
+        tb = None
+    return tb
+

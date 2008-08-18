@@ -522,11 +522,9 @@ class __extend__(pyframe.PyFrame):
             # common case
             raise operror
         else:
-            tb = space.interpclass_w(w_traceback)
-            if tb is None or not space.is_true(space.isinstance(tb, 
-                space.gettypeobject(pytraceback.PyTraceback.typedef))):
-                raise OperationError(space.w_TypeError,
-                      space.wrap("raise: arg 3 must be a traceback or None"))
+            from pypy.interpreter.pytraceback import check_traceback
+            msg = "raise: arg 3 must be a traceback or None"
+            tb = check_traceback(space, w_traceback, msg)
             operror.application_traceback = tb
             # re-raise, no new traceback obj will be attached
             f.last_exception = operror
