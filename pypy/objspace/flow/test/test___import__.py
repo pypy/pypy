@@ -8,5 +8,5 @@ def test___import_():
     assert __import__(mod, None).__name__ == os.name
     assert __import__(mod, None, None).__name__ == os.name
     assert __import__(mod, None, None, None).__name__ == os.name
-    raises(TypeError, __import__, (mod, None, None, None, None))
-    # XXX this will have to be adjusted for Python 2.5 pretty soon-ish :-)
+    assert __import__(mod, None, None, None, -1).__name__ == os.name
+    raises(TypeError, __import__, (mod, None, None, None, None, None))
