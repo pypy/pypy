@@ -2,7 +2,7 @@
 
 def load_module():
     import py
-    module_path = py.path.local(__file__).dirpath().dirpath().dirpath('lib-python/modified-2.4.1/__future__.py')
+    module_path = py.path.local(__file__).dirpath().dirpath().dirpath('lib-python/2.5.1/__future__.py')
     execfile(str(module_path), globals())
 
 load_module()
