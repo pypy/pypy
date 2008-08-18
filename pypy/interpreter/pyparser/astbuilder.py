@@ -842,10 +842,18 @@ def build_import_from(builder, nb):
     """
     atoms = get_atoms(builder, nb)
     index = 1 # skip from
-    while atoms[index].name == builder.parser.tokens['DOT']:
+    
+    atom = atoms[index]
+    assert isinstance(atom,  TokenObject)
+    while atom.name == builder.parser.tokens['DOT']:
         index += 1
+        atom = atoms[index]
+        assert isinstance(atom, TokenObject)
+        
     level = index - 1
-    if atoms[index].value == 'import': 
+    atom = atoms[index]
+    assert isinstance(atom, TokenObject)
+    if atom.value == 'import': 
         # from . import x
         from_name =  ""
         incr = 0
