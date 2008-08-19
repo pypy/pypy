@@ -870,7 +870,9 @@ def build_import_from(builder, nb):
             tokens = slicecut( atoms, index+1, -1 )
         else:
             tokens = atoms[index:]
-            if tokens[-1].name == builder.parser.tokens['COMMA']:
+            token = tokens[-1]
+            assert isinstance(token, TokenObject) # XXX
+            if token.name == builder.parser.tokens['COMMA']:
                 raise SyntaxError, "trailing comma not allowed without" \
                         "surrounding parentheses"
 
