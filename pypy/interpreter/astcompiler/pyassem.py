@@ -51,8 +51,7 @@ class PyFlowGraph(object):
             self.argcount = self.argcount - 1
 
     def checkFlag(self, flag):
-        if self.flags & flag:
-            return 1
+        return self.flags & flag
 
     def setFreeVars(self, names):
         self.freevars = list(names)
