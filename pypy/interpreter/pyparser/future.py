@@ -25,7 +25,7 @@ the "in" comparisons with explicit numeric comparisons.
 """
 
 from pypy.interpreter.astcompiler.consts import CO_GENERATOR_ALLOWED, \
-    CO_FUTURE_DIVISION, CO_FUTURE_WITH_STATEMENT, CO_FUTURE_ABSIMPORT
+    CO_FUTURE_DIVISION, CO_FUTURE_WITH_STATEMENT, CO_FUTURE_ABSOLUTE_IMPORT
             
 def getFutures(futureFlags, source):
     futures = FutureAutomaton(futureFlags, source)

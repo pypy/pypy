@@ -10,7 +10,7 @@ from pypy.interpreter.astcompiler.consts import SC_LOCAL, SC_GLOBAL, \
     SC_FREE, SC_CELL, SC_DEFAULT, OP_APPLY, OP_ASSIGN, OP_DELETE, OP_NONE
 from pypy.interpreter.astcompiler.consts import CO_VARARGS, CO_VARKEYWORDS, \
     CO_NEWLOCALS, CO_NESTED, CO_GENERATOR, CO_GENERATOR_ALLOWED, \
-    CO_FUTURE_DIVISION, CO_FUTURE_WITH_STATEMENT, CO_FUTURE_ABSIMPORT
+    CO_FUTURE_DIVISION, CO_FUTURE_WITH_STATEMENT, CO_FUTURE_ABSOLUTE_IMPORT
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.interpreter.astcompiler.opt import is_constant_false
 from pypy.interpreter.astcompiler.opt import is_constant_true
@@ -151,7 +151,7 @@ class CodeGenerator(ast.ASTVisitor):
             elif feature == "with_statement":
                 self.graph.setFlag(CO_FUTURE_WITH_STATEMENT)
             elif feature == "absolute_import":
-                self.graph.setFlag(CO_FUTURE_ABSIMPORT)
+                self.graph.setFlag(CO_FUTURE_ABSOLUTE_IMPORT)
 
     def emit(self, inst ):
         return self.graph.emit( inst )
@@ -853,7 +853,7 @@ class CodeGenerator(ast.ASTVisitor):
 
     def visitImport(self, node):
         self.set_lineno(node)
-        if self.graph.checkFlag(CO_FUTURE_ABSIMPORT):
+        if self.graph.checkFlag(CO_FUTURE_ABSOLUTE_IMPORT):
             level = 0
         else:
             level = -1
@@ -871,7 +871,7 @@ class CodeGenerator(ast.ASTVisitor):
     def visitFrom(self, node):
         self.set_lineno(node)
         level = node.level
-        if level == 0 and not self.graph.checkFlag(CO_FUTURE_ABSIMPORT):
+        if level == 0 and not self.graph.checkFlag(CO_FUTURE_ABSOLUTE_IMPORT):
             level = -1
         fromlist = [ self.space.wrap(name) for name,alias in node.names ]
         self.emitop_obj('LOAD_CONST', self.space.wrap(level)) # 2.5 flag

@@ -145,6 +145,6 @@ def test_from_import_abs_import():
     s = 'from  __future__ import absolute_import\n'
     f = run(s)
     assert f.pos == len(s)
-    assert f.flags == fut.CO_FUTURE_ABSIMPORT
+    assert f.flags == fut.CO_FUTURE_ABSOLUTE_IMPORT
 
 
