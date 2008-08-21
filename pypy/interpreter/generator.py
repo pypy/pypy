@@ -118,6 +118,6 @@ return next yielded value or raise StopIteration."""
                 return space.w_None
             raise
         
-        if w_retval is not None or not space.is_w(w_retval, space.None):
+        if w_retval is not None:
             msg = "generator ignored GeneratorExit"
             raise OperationError(space.w_RuntimeError, space.wrap(msg))
