@@ -1,6 +1,7 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import NoneNotWrapped
+from pypy.rlib.rarithmetic import intmask
 
 
 class GeneratorIterator(Wrappable):
@@ -99,7 +100,7 @@ return next yielded value or raise StopIteration."""
         
         ec = space.getexecutioncontext()
         next_instr = self.frame.handle_operation_error(ec, exception)
-        self.frame.last_instr = next_instr - 1
+        self.frame.last_instr = intmask(next_instr - 1)
 
         return self.send_ex(space.w_None, True)
              
