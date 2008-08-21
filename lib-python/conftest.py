@@ -448,6 +448,7 @@ testmap = [
     RegrTest('test_complex.py', enabled=True, core=True),
 
     RegrTest('test_contains.py', enabled=True, dumbtest=1, core=True),
+    RegrTest('test_contextlib.py', enabled=True, core=True),
     RegrTest('test_cookie.py', enabled=False),
     RegrTest('test_cookielib.py', enabled=False),
     RegrTest('test_copy.py', enabled=True, core=True),
@@ -462,6 +463,7 @@ testmap = [
     RegrTest('test_dbm.py', enabled=False, dumbtest=1),
     RegrTest('test_decimal.py', enabled=True),
     RegrTest('test_decorators.py', enabled=True, core=True),
+    RegrTest('test_defaultdict.py', enabled=True),
     RegrTest('test_deque.py', enabled=True, core=True),
     RegrTest('test_descr.py', enabled=True, core=True, oldstyle=True, usemodules='_weakref'),
     RegrTest('test_descrtut.py', enabled=True, core=True, oldstyle=True),
@@ -600,6 +602,7 @@ testmap = [
         #     seems to be the only one that invokes run_unittest 
         #     and is an unittest 
     RegrTest('test_pep292.py', enabled=True),
+    RegrTest('test_pep352.py', enabled=True),
     RegrTest('test_pickle.py', enabled=True, core=True),
     RegrTest('test_pickletools.py', enabled=True, dumbtest=1, core=False),
     RegrTest('test_pkg.py', enabled=True, core=True),
@@ -743,6 +746,7 @@ testmap = [
     RegrTest('test_userlist.py', enabled=True, core=True),
     RegrTest('test_userstring.py', enabled=True, core=True),
     RegrTest('test_uu.py', enabled=False),
+    RegrTest('test_uuid.py', enabled=True),
         #rev 10840: 1 of 9 test fails
 
     RegrTest('test_warnings.py', enabled=True, core=True),
@@ -752,6 +756,10 @@ testmap = [
     RegrTest('test_whichdb.py', enabled=True),
     RegrTest('test_winreg.py', enabled=False),
     RegrTest('test_winsound.py', enabled=False),
+    RegrTest('test_with.py', enabled=True),
+    RegrTest('test_wsgiref.py', enabled=True),
+    RegrTest('test_xdrlib.py', enabled=True),
+    RegrTest('test_xml_etree.py', enabled=True),
     RegrTest('test_xmllib.py', enabled=False),
     RegrTest('test_xmlrpc.py', enabled=False),
         #rev 10840: 2 of 5 tests fail
@@ -759,6 +767,7 @@ testmap = [
     RegrTest('test_xpickle.py', enabled=False),
     RegrTest('test_xrange.py', enabled=True, core=True),
     RegrTest('test_zipfile.py', enabled=False, dumbtest=1),
+    RegrTest('test_zipfile64.py', enabled=False, dumbtest=1),
     RegrTest('test_zipimport.py', enabled=True, usemodules='zlib zipimport'),
     RegrTest('test_zlib.py', enabled=True, usemodules='zlib'),
 ]
