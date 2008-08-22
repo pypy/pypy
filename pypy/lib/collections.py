@@ -323,7 +323,7 @@ class defaultdict(dict):
     def __missing__(self, key):
         # from defaultdict docs
         if self.default_factory is None: 
-            raise KeyError((key,))
+            raise KeyError(key)
         self[key] = value = self.default_factory()
         return value
 
