@@ -150,8 +150,9 @@ class OperationError(Exception):
         if space.full_exceptions:
             while space.is_true(space.isinstance(w_type, space.w_tuple)):
                 w_type = space.getitem(w_type, space.wrap(0))
-
-        if space.is_true(space.abstract_isclass(w_type)):
+        if space.full_exceptions and (
+                space.is_true(space.abstract_isclass(w_type)) and 
+                space.is_true(space.issubtype(w_type, space.w_BaseException))):
             if space.is_w(w_value, space.w_None):
                 # raise Type: we assume we have to instantiate Type
                 w_value = space.call_function(w_type)
@@ -177,25 +178,22 @@ class OperationError(Exception):
                                                   space.w_str):
             space.warn("raising a string exception is deprecated", 
                        space.w_DeprecationWarning)
-        else:
 
-            # raise X: we assume that X is an already-built instance
+        elif space.full_exceptions and space.is_true(space.isinstance(w_type, 
+                                                     space.w_BaseException)):
             if not space.is_w(w_value, space.w_None):
                 raise OperationError(space.w_TypeError,
                                      space.wrap("instance exception may not "
                                                 "have a separate value"))
             w_value = w_type
             w_type = space.abstract_getclass(w_value)
+
+        else:
             if space.full_exceptions:
-                # for the sake of language consistency we should not allow
-                # things like 'raise 1', but it is probably fine (i.e.
-                # not ambiguous) to allow them in the explicit form
-                # 'raise int, 1'
-                if (space.findattr(w_value, space.wrap('__dict__')) is None and
-                    space.findattr(w_value, space.wrap('__slots__')) is None):
-                    msg = ("raising built-in objects can be ambiguous, "
-                           "use 'raise type, value' instead")
-                    raise OperationError(space.w_TypeError, space.wrap(msg))
+                msg = ("exceptions must be classes, or instances,"
+                    "or strings (deprecated) not %s" % (w_type.typedef.name))
+                raise OperationError(space.w_TypeError, space.wrap(msg))
+
         self.w_type  = w_type
         self.w_value = w_value
 

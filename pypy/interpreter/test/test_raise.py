@@ -1,4 +1,4 @@
-
+import py.test
 
 class AppTestRaise:
     def test_arg_as_string(self):
@@ -107,32 +107,25 @@ class AppTestRaise:
         raises(StopIteration, f)
 
     def test_userclass(self):
+        # PyPy classes are new-style so can't be raised
+
         class A:
             def __init__(self, x=None):
                 self.x = x
-        class B(A):
-            pass
-        try:
-            raise A
-        except A, a:
-            assert a.x == None
-        try:
-            raise A(42)
-        except A, a:
-            assert a.x == 42
-        try:
-            raise A, 42
-        except A, a:
-            assert a.x == 42
-        try:
-            raise B
-        except A, b:
-            assert b.__class__ == B
-        try:
-            raise A, B(42)
-        except B, b:
-            assert b.__class__ == B
-            assert b.x == 42
+        
+        def f():
+            try:
+                raise A
+            except A, a:
+                assert a.x == None
+        raises(TypeError, f)
+
+        def f():
+            try:
+                raise A(42)
+            except A, a:
+                assert a.x == 42
+        raises(TypeError, f)
 
     def test_it(self):
         C = _classobj('C', (), {})

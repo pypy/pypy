@@ -81,6 +81,10 @@ class BaseException(object):
 
     def __init__(self, *args):
         self.args = args
+        if len(args) == 1:
+            self.message = args[0]
+        else:
+            self.message = ""
 
     def __str__(self):
         args = self.args
@@ -125,6 +129,7 @@ class UnicodeTranslateError(UnicodeError):
     """Unicode translation error."""
 
     def __init__(self, *args):
+        BaseException.__init__(self, *args)
         argc = len(args)
         self.args = args # modified: always assign args, no error check
         if argc == 4:
@@ -186,6 +191,7 @@ class EnvironmentError(StandardError):
     """Base class for I/O related errors."""
 
     def __init__(self, *args):
+        BaseException.__init__(self, *args)
         argc = len(args)
         self.args = args
         self.errno = None
@@ -232,9 +238,6 @@ class ReferenceError(StandardError):
 class NameError(StandardError):
     """Name not found globally."""
 
-class OverflowWarning(Warning):
-    """Base class for warnings about numeric overflow.  Won't exist in Python 2.5."""
-
 class IOError(EnvironmentError):
     """I/O operation failed."""
 
@@ -248,6 +251,7 @@ class SyntaxError(StandardError):
     text = None
 
     def __init__(self, *args):
+        BaseException.__init__(self, *args)
         argc = len(args)
         self.args = args
         if argc >= 1:
@@ -296,6 +300,7 @@ class SystemExit(BaseException):
     """Request to exit from the interpreter."""
 
     def __init__(self, *args):
+        BaseException.__init__(self, *args)
         argc = len(args)
         if argc == 0:
             self.code = None
