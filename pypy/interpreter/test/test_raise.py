@@ -107,24 +107,19 @@ class AppTestRaise:
         raises(StopIteration, f)
 
     def test_userclass(self):
-        # PyPy classes are new-style so can't be raised
+        # new-style classes can't be raised unless they inherit from
+        # BaseException
 
-        class A:
+        class A(object):
             def __init__(self, x=None):
                 self.x = x
         
         def f():
-            try:
-                raise A
-            except A, a:
-                assert a.x == None
+            raise A
         raises(TypeError, f)
 
         def f():
-            try:
-                raise A(42)
-            except A, a:
-                assert a.x == 42
+            raise A(42)
         raises(TypeError, f)
 
     def test_it(self):
@@ -132,5 +127,51 @@ class AppTestRaise:
         # this used to explode in the exception normalization step:
         try:
             {}[C]
+        except KeyError:
+            pass
+
+    def test_oldstyle_userclass(self):
+        class A:
+            __metaclass__ = _classobj
+            def __init__(self, val=None):
+                self.val = val
+        class Sub(A):
+            pass
+
+        try:
+            raise Sub
+        except IndexError:
+            assert 0
+        except A, a:
+            assert a.__class__ is Sub
+
+        sub = Sub()
+        try:
+            raise sub
+        except IndexError:
+            assert 0
+        except A, a:
+            assert a is sub
+
+        try:
+            raise A, sub
+        except IndexError:
+            assert 0
+        except A, a:
+            assert a is sub
+            assert sub.val is None
+
+        try:
+            raise Sub, 42
+        except IndexError:
+            assert 0
+        except A, a:
+            assert a.__class__ is Sub
+            assert a.val == 42
+
+        try:
+            {}[5]
+        except A, a:
+            assert 0
         except KeyError:
             pass

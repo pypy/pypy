@@ -145,14 +145,39 @@ class OperationError(Exception):
         """Normalize the OperationError.  In other words, fix w_type and/or
         w_value to make sure that the __class__ of w_value is exactly w_type.
         """
+        #
+        # This method covers all ways in which the Python statement
+        # "raise X, Y" can produce a valid exception type and instance.
+        #
+        # In the following table, 'Class' means a subclass of BaseException
+        # and 'inst' is an instance of either 'Class' or a subclass of it.
+        # Or 'Class' can also be an old-style class and 'inst' an old-style
+        # instance of it.
+        #
+        # Note that 'space.full_exceptions' is set to False by the flow
+        # object space; in this case we must assume that we are in a
+        # non-advanced case, and ignore the advanced cases.  Old-style
+        # classes and instances *are* advanced.
+        #
+        #  input (w_type, w_value)... becomes...                advanced case?
+        # ---------------------------------------------------------------------
+        #  (tuple, w_value)           (tuple[0], w_value)             yes
+        #  (Class, None)              (Class, Class())                no
+        #  (Class, inst)              (inst.__class__, inst)          no
+        #  (Class, tuple)             (Class, Class(*tuple))          yes
+        #  (Class, x)                 (Class, Class(x))               no
+        #  ("string", ...)            ("string", ...)              deprecated
+        #  (inst, None)               (inst.__class__, inst)          no
+        #
         w_type  = self.w_type
         w_value = self.w_value
         if space.full_exceptions:
             while space.is_true(space.isinstance(w_type, space.w_tuple)):
                 w_type = space.getitem(w_type, space.wrap(0))
-        if space.full_exceptions and (
-                space.is_true(space.abstract_isclass(w_type)) and 
-                space.is_true(space.issubtype(w_type, space.w_BaseException))):
+
+        if (space.is_true(space.abstract_isclass(w_type)) and
+            is_valid_exception_class(space, w_type)):
+            # this is for all cases of the form (Class, something)
             if space.is_w(w_value, space.w_None):
                 # raise Type: we assume we have to instantiate Type
                 w_value = space.call_function(w_type)
@@ -179,20 +204,22 @@ class OperationError(Exception):
             space.warn("raising a string exception is deprecated", 
                        space.w_DeprecationWarning)
 
-        elif space.full_exceptions and space.is_true(space.isinstance(w_type, 
-                                                     space.w_BaseException)):
+        else:
+            # the only case left here is (inst, None), from a 'raise inst'.
+            w_inst = w_type
+            w_instclass = space.abstract_getclass(w_inst)
+            if not is_valid_exception_class(space, w_instclass):
+                instclassname = w_instclass.getname(space, '?')
+                msg = ("exceptions must be classes, or instances,"
+                       "or strings (deprecated) not %s" % (instclassname,))
+                raise OperationError(space.w_TypeError, space.wrap(msg))
+
             if not space.is_w(w_value, space.w_None):
                 raise OperationError(space.w_TypeError,
                                      space.wrap("instance exception may not "
                                                 "have a separate value"))
-            w_value = w_type
-            w_type = space.abstract_getclass(w_value)
-
-        else:
-            if space.full_exceptions:
-                msg = ("exceptions must be classes, or instances,"
-                    "or strings (deprecated) not %s" % (w_type.typedef.name))
-                raise OperationError(space.w_TypeError, space.wrap(msg))
+            w_value = w_inst
+            w_type = w_instclass
 
         self.w_type  = w_type
         self.w_value = w_value
@@ -211,6 +238,22 @@ class OperationError(Exception):
             space.call_method(space.sys.get('stderr'), 'write', space.wrap(msg))
         except OperationError:
             pass   # ignored
+
+
+def is_valid_exception_class(space, w_type):
+    """Assuming that 'w_type' is a new-style or old-style class, is it
+    correct to use it as the class of an exception?  The answer is no
+    if it is a new-style class that doesn't inherit from BaseException.
+    """
+    if not space.full_exceptions:
+        return True         # always, for the flow space
+    try:
+        return space.is_true(
+            space.issubtype(w_type, space.w_BaseException))
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        return True         # assuming w_type is an old-style class
 
 
 # Utilities
