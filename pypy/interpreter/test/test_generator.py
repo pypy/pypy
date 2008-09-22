@@ -27,11 +27,18 @@ class AppTestGenerator:
         assert [x for x in g] == [1]
 
     def test_generator5(self):
+        import sys
+        if sys.version_info < (2, 5):
+            skip("yield as an expression works only on Python >= 2.5")
+        d = {}
+        exec """if 1:
         def f():
             v = (yield )
             yield v
         g = f()
         g.next()
+        """ in d
+        d = d['g']
         assert g.send(42) == 42
 
     def test_throw1(self):
@@ -59,6 +66,11 @@ class AppTestGenerator:
         raises(StopIteration, g.next)
 
     def test_throw4(self):
+        import sys
+        if sys.version_info < (2, 5):
+            skip("yield as an expression works only on Python >= 2.5")
+        d = {}
+        exec """if 1:
         def f():
             try:
                 yield 1
@@ -66,6 +78,8 @@ class AppTestGenerator:
             except:
                 yield 3
         g = f()
+        """ in d
+        g = d['g']
         assert g.next() == 1
         assert g.next() == 2
         assert g.throw(NameError("Error")) == 3
