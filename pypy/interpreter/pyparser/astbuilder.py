@@ -906,7 +906,10 @@ def build_yield_stmt(builder, nb):
 
 def build_yield_expr(builder, nb):
     atoms = get_atoms(builder, nb)
-    builder.push(ast.Yield(atoms[1], atoms[0].lineno))
+    if len(atoms) == 1:
+        builder.push(ast.Yield(ast.Const(builder.wrap_none()), atoms[0].lineno))
+    else:
+        builder.push(ast.Yield(atoms[1], atoms[0].lineno))
 
 def build_continue_stmt(builder, nb):
     atoms = get_atoms(builder, nb)

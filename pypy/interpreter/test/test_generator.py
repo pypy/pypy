@@ -35,7 +35,7 @@ class AppTestGenerator:
         g = f()
         g.next()
         """ in d
-        d = d['g']
+        g = d['g']
         assert g.send(42) == 42
 
     def test_throw1(self):
