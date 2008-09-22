@@ -740,8 +740,13 @@ class __extend__(pyframe.PyFrame):
             w_locals = space.w_None
         w_modulename = space.wrap(modulename)
         w_globals = f.w_globals
-        w_obj = space.call_function(w_import, w_modulename, w_globals,
-                                    w_locals, w_fromlist, w_flag)
+        if w_flag is None:
+            w_obj = space.call_function(w_import, w_modulename, w_globals,
+                                        w_locals, w_fromlist)
+        else:
+            w_obj = space.call_function(w_import, w_modulename, w_globals,
+                                        w_locals, w_fromlist, w_flag)
+
         f.pushvalue(w_obj)
 
     def IMPORT_STAR(f, *ignored):
