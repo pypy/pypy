@@ -93,7 +93,6 @@ def unicode_escape_decode( data, errors='strict'):
 def charmap_encode(obj, errors='strict', mapping='latin-1'):
     """None
     """
-
     res = PyUnicode_EncodeCharmap(obj, len(obj), mapping, errors)
     res = ''.join(res)
     return res, len(res)
@@ -600,13 +599,6 @@ def unicodeescape_string(s, size, quotes):
         p += p[1]
     return p
 
-
-def PyUnicode_DecodeMBCS(s, size, errors):
-    pass
-
-def PyUnicode_EncodeMBCS(p, size, errors):
-    pass
-
 def unicode_call_errorhandler(errors,  encoding, 
                 reason, input, startinpos, endinpos, decode=True):
     
@@ -951,3 +943,13 @@ def PyUnicode_DecodeRawUnicodeEscape(s, size, errors):
                     pos += count
 
     return p
+
+def charmap_build(somestring):
+    m = {}
+    num = 0
+    for elem in somestring:
+        m[ord(elem)] = num
+        num += 1
+    return m
+
+    

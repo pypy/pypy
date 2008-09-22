@@ -76,7 +76,6 @@ def lookup_codec(space, encoding):
     Looks up a codec tuple in the Python codec registry and returns
     a tuple of functions.
     """
-    #import pdb; pdb.set_trace()
     state = space.fromcache(CodecState)
     normalized_encoding = encoding.replace(" ", "-").lower()    
     w_result = state.codec_search_cache.get(normalized_encoding, None)

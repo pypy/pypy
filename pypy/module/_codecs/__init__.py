@@ -21,6 +21,7 @@ class Module(MixedModule):
          'utf_7_decode' :  'app_codecs.utf_7_decode',
          'utf_7_encode' :  'app_codecs.utf_7_encode',
          '_register_existing_errors': 'app_codecs._register_existing_errors',
+         'charmap_build' : 'app_codecs.charmap_build'
     }
     interpleveldefs = {
          'encode':         'interp_codecs.encode',
