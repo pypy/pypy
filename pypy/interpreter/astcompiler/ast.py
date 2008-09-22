@@ -2508,7 +2508,7 @@ class From(Node):
     
 
     def __repr__(self):
-        return "From(%s, %s)" % (self.modname.__repr__(), self.names.__repr__())
+        return "From(%s, %s, %d)" % (self.modname.__repr__(), self.names.__repr__(), self.level)
 
     def accept(self, visitor):
         return visitor.visitFrom(self)
