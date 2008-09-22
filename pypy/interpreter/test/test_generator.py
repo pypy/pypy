@@ -27,9 +27,6 @@ class AppTestGenerator:
         assert [x for x in g] == [1]
 
     def test_generator5(self):
-        import sys
-        if sys.version_info < (2, 5):
-            skip("yield as an expression works only on Python >= 2.5")
         d = {}
         exec """if 1:
         def f():
@@ -66,9 +63,6 @@ class AppTestGenerator:
         raises(StopIteration, g.next)
 
     def test_throw4(self):
-        import sys
-        if sys.version_info < (2, 5):
-            skip("yield as an expression works only on Python >= 2.5")
         d = {}
         exec """if 1:
         def f():
@@ -183,16 +177,10 @@ class AppTestGenerator:
         raises(ValueError, me.next)
 
     def test_generator_expression(self):
-        import sys
-        if sys.version_info < (2, 4):
-            skip("generator expressions only work on Python >= 2.4")
         exec "res = sum(i*i for i in range(5))"
         assert res == 30
 
     def test_generator_expression_2(self):
-        import sys
-        if sys.version_info < (2, 4):
-            skip("generator expressions only work on Python >= 2.4")
         d = {}
         exec """
 def f():
