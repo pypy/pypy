@@ -68,7 +68,8 @@ def gettimeout():
         return seconds 
     return float(timeout) 
 
-def callex(space, func, *args, **kwargs): 
+def callex(space, func, *args, **kwargs):
+    from py.__.test.outcome import Failed
     try: 
         return func(*args, **kwargs) 
     except OperationError, e: 
@@ -79,8 +80,8 @@ def callex(space, func, *args, **kwargs):
         if appexcinfo.traceback: 
             print "appexcinfo.traceback:"
             py.std.pprint.pprint(appexcinfo.traceback)
-            raise py.test.collect.Item.Failed(excinfo=appexcinfo) 
-        raise py.test.collect.Item.Failed(excinfo=ilevelinfo) 
+            raise Failed(excinfo=appexcinfo) 
+        raise Failed(excinfo=ilevelinfo) 
 
 #
 # compliance modules where we invoke test_main() usually call into 
@@ -425,17 +426,18 @@ testmap = [
     RegrTest('test_class.py', enabled=True, oldstyle=True, core=True),
     RegrTest('test_cmath.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_codeccallbacks.py', enabled=True, core=True),
-    RegrTest('test_codecencodings_cn.py', enabled=False),
-    RegrTest('test_codecencodings_hk.py', enabled=False),
-    RegrTest('test_codecencodings_jp.py', enabled=False),
-    RegrTest('test_codecencodings_kr.py', enabled=False),
-    RegrTest('test_codecencodings_tw.py', enabled=False),
+    RegrTest('test_coding.py', enabled=True),
+    RegrTest('test_codecencodings_cn.py', enabled=True),
+    RegrTest('test_codecencodings_hk.py', enabled=True),
+    RegrTest('test_codecencodings_jp.py', enabled=True),
+    RegrTest('test_codecencodings_kr.py', enabled=True),
+    RegrTest('test_codecencodings_tw.py', enabled=True),
 
-    RegrTest('test_codecmaps_cn.py', enabled=False),
-    RegrTest('test_codecmaps_hk.py', enabled=False),
-    RegrTest('test_codecmaps_jp.py', enabled=False),
-    RegrTest('test_codecmaps_kr.py', enabled=False),
-    RegrTest('test_codecmaps_tw.py', enabled=False),
+    RegrTest('test_codecmaps_cn.py', enabled=True),
+    RegrTest('test_codecmaps_hk.py', enabled=True),
+    RegrTest('test_codecmaps_jp.py', enabled=True),
+    RegrTest('test_codecmaps_kr.py', enabled=True),
+    RegrTest('test_codecmaps_tw.py', enabled=True),
     RegrTest('test_codecs.py', enabled=True, core=True),
     RegrTest('test_codeop.py', enabled=True, core=True),
     RegrTest('test_coercion.py', enabled=True, oldstyle=True, core=True),
