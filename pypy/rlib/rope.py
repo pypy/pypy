@@ -735,7 +735,6 @@ def find_int(node, what, start=0, stop=-1):
         return -1
     # invariant: stack should only contain nodes that can contain the int what
     stack = [node]
-    #import pdb; pdb.set_trace()
     i = 0
     while stack:
         curr = stack.pop()

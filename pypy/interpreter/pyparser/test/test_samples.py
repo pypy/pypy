@@ -11,7 +11,7 @@ from pypy.interpreter.pyparser import grammar
 from pypy.interpreter.pyparser.pythonlexer import TokenError
 grammar.DEBUG = False
 
-_, PYPY_VERSION = get_grammar_file("2.4")
+_, PYPY_VERSION = get_grammar_file("2.5")
 # these samples are skipped if the native version of Python does not match
 # the version of the grammar we use
 GRAMMAR_MISMATCH = PYTHON_VERSION != PYPY_VERSION
