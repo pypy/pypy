@@ -174,6 +174,7 @@ EXPECTED = {
 
     # yield changed in 2.5, so we can not trust the stablecompiler
     "def f(n):\n    for i in range(n):\n        yield n\n": "Module(None, Stmt([Function(None, 'f', [AssName('n', 0)], [], 0, None, Stmt([For(AssName('i', 0), CallFunc(Name('range'), [Name('n')], None, None), Stmt([Discard(Yield(Name('n')))]), None)]))]))",
+    "def f(): x = yield 3": "Module(None, Stmt([Function(None, 'f', [], [], 0, None, Stmt([Assign([AssName('x', 0)], Yield(Const(3)))]))]))",
 
     # stablecompiler produces a Pass statement which does not seem very consistent
     # (a module should only have a Stmt child)

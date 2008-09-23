@@ -484,6 +484,7 @@ TESTS = PY23_TESTS + OPTIONAL_TESTS
 
 CHANGES_25_INPUTS = [
     ["class A(): pass"],
+    ["def f(): x = yield 3"]
     ]
 
 EXEC_INPUTS = [
