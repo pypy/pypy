@@ -217,19 +217,6 @@ class FlowObjSpace(ObjSpace):
                 return ecls
         return None
 
-
-    def abstract_issubclass(self, w_obj, w_cls, failhard=False):
-        return self.issubtype(w_obj, w_cls)
-
-    def abstract_isinstance(self, w_obj, w_cls):
-        return self.isinstance(w_obj, w_cls)
-
-    def abstract_isclass(self, w_obj):
-        return self.isinstance(w_obj, self.w_type)
-
-    def abstract_getclass(self, w_obj):
-        return self.type(w_obj)
-
     def build_flow(self, func, constargs={}):
         """
         """

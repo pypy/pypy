@@ -806,7 +806,6 @@ class ObjSpace(object):
         # module when it is loaded.
         return self.type(w_obj)
 
-
     def eval(self, expression, w_globals, w_locals):
         "NOT_RPYTHON: For internal debugging."
         import types

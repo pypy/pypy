@@ -175,7 +175,7 @@ class OperationError(Exception):
             while space.is_true(space.isinstance(w_type, space.w_tuple)):
                 w_type = space.getitem(w_type, space.wrap(0))
 
-        if (space.is_true(space.abstract_isclass(w_type)) and
+        if (space.abstract_isclass_w(w_type) and
             is_valid_exception_class(space, w_type)):
             # this is for all cases of the form (Class, something)
             if space.is_w(w_value, space.w_None):
