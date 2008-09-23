@@ -51,7 +51,8 @@ class PyFlowGraph(object):
             self.argcount = self.argcount - 1
 
     def checkFlag(self, flag):
-        return self.flags & flag
+        if self.flags & flag:
+            return 1
 
     def setFreeVars(self, names):
         self.freevars = list(names)
@@ -257,6 +258,8 @@ class PyFlowGraph(object):
             depths[i] = stackdepth
         else:
             if previous_value != stackdepth:
+                import pdb
+                pdb.set_trace()
                 raise InternalCompilerError("inconsistent stack depth")
 
     def computeStackDepth(self):
@@ -264,6 +267,7 @@ class PyFlowGraph(object):
         co_code = self.co_code
         self._stackdepths = [UNREACHABLE] * len(co_code)
         self._stackdepths[0] = 0
+        just_loaded_const = None
         consts_w = self.getConsts()
         finally_targets = {}
         largestsize = 0
@@ -291,6 +295,7 @@ class PyFlowGraph(object):
                 i += 1
 
             if curstackdepth == UNREACHABLE:
+                just_loaded_const = None
                 continue    # ignore unreachable instructions
 
             if opcode in DEPTH_OP_EFFECT_ALONG_JUMP:
@@ -308,11 +313,27 @@ class PyFlowGraph(object):
             except KeyError:
                 pass
             else:
-                effect = tracker(oparg)
+                if opcode == pythonopcode.opmap['MAKE_CLOSURE']:
+                    # only supports "LOAD_CONST co / MAKE_CLOSURE n"
+                    if just_loaded_const is None:
+                        raise InternalCompilerError("MAKE_CLOSURE not "
+                                                    "following LOAD_CONST")
+                    codeobj = self.space.interp_w(PyCode, just_loaded_const)
+                    nfreevars = len(codeobj.co_freevars)
+                    effect = - nfreevars - oparg
+                else:
+                    effect = tracker(oparg)
+
                 curstackdepth += effect
                 if i in finally_targets:
                     curstackdepth += 2  # see pyopcode.FinallyBlock.cleanup()
                 self._setdepth(i, curstackdepth)
+
+            if opcode == pythonopcode.opmap['LOAD_CONST']:
+                just_loaded_const = consts_w[oparg]
+            else:
+                just_loaded_const = None
+
 
         self.stacksize = largestsize
 
@@ -464,9 +485,8 @@ def depth_CALL_LIKELY_BUILTIN(argc):
 def depth_MAKE_FUNCTION(argc):
     return -argc
 def depth_MAKE_CLOSURE(argc):
-    if argc == 0:
-        return -1
-    return -argc
+    raise InternalCompilerError("must special-case this in order to account"
+                                " for the free variables")
 def depth_BUILD_SLICE(argc):
     if argc == 2:
         return -1
