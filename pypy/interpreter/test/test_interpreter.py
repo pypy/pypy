@@ -280,3 +280,14 @@ class AppTestInterpreter:
         def f(x): return x
         assert f(666) == 666
 
+    def test_stack_bug(self):
+        x = """class A:
+            def initialize(self):
+                # install all the MultiMethods into the space instance
+                if isinstance(mm, object):
+                    def make_boundmethod(func=func):
+                        def boundmethod(*args):
+                            return func(self, *args)
+        """
+        exec x in {}
+        # assert did not crash

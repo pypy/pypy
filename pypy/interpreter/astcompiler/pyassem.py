@@ -464,9 +464,7 @@ def depth_CALL_LIKELY_BUILTIN(argc):
 def depth_MAKE_FUNCTION(argc):
     return -argc
 def depth_MAKE_CLOSURE(argc):
-    if argc == 0:
-        return -1
-    return -argc
+    return -argc-1
 def depth_BUILD_SLICE(argc):
     if argc == 2:
         return -1
