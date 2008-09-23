@@ -606,3 +606,17 @@ class TestCompiler:
         """)
         decl = str(decl) + '\n'
         yield self.simple_test, decl + 'r = test_read(X())', 'r', 42
+
+    def test_stack_depth_bug(self):
+        decl = py.code.Source("""
+        class A:
+            def initialize(self):
+                # install all the MultiMethods into the space instance
+                if isinstance(mm, object):
+                    def make_boundmethod(func=func):
+                        def boundmethod(*args):
+                            return func(self, *args)
+        """)
+        decl = str(decl) + '\n'
+        yield self.simple_test, decl, 'r', None
+        
