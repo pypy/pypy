@@ -6,25 +6,6 @@ import sys, os, re
 import autopath
 from pypy.tool.udir import udir
 
-DEMO_SCRIPT = """
-print 'hello'
-print 'Name:', __name__
-print 'File:', __file__
-import sys
-print 'Exec:', sys.executable
-print 'Argv:', sys.argv
-print 'goodbye'
-myvalue = 6*7
-"""
-
-CRASHING_DEMO_SCRIPT = """
-print 'Hello2'
-myvalue2 = 11
-ooups
-myvalue2 = 22
-print 'Goodbye2'   # should not be reached
-"""
-
 banner = sys.version.splitlines()[0]
 
 def relpath(path):
@@ -43,13 +24,33 @@ def relpath(path):
 app_main = os.path.join(autopath.this_dir, os.pardir, 'app_main.py')
 app_main = os.path.abspath(app_main)
 
-demo_script_p = udir.join('demo_test_app_main.py')
-demo_script_p.write(DEMO_SCRIPT)
-demo_script = relpath(demo_script_p)
+_counter = 0
+def getscript(source):
+    global _counter
+    p = udir.join('demo_test_app_main_%d.py' % (_counter,))
+    _counter += 1
+    p.write(str(py.code.Source(source)))
+    return relpath(p)
 
-crashing_demo_script_p = udir.join('crashing_demo_test_app_main.py')
-crashing_demo_script_p.write(CRASHING_DEMO_SCRIPT)
-crashing_demo_script = relpath(crashing_demo_script_p)
+
+demo_script = getscript("""
+    print 'hello'
+    print 'Name:', __name__
+    print 'File:', __file__
+    import sys
+    print 'Exec:', sys.executable
+    print 'Argv:', sys.argv
+    print 'goodbye'
+    myvalue = 6*7
+    """)
+
+crashing_demo_script = getscript("""
+    print 'Hello2'
+    myvalue2 = 11
+    ooups
+    myvalue2 = 22
+    print 'Goodbye2'   # should not be reached
+    """)
 
 
 class TestInteraction:
@@ -265,22 +266,6 @@ class TestInteraction:
         data = os.read(pipe.stdout.fileno(), 1024)
         assert data.startswith('Python')
 
-    def test_options_u_PYTHONINSPECT(self):
-        if sys.platform == "win32":
-            skip("close_fds is not supported on Windows platforms")
-        import subprocess, select, os
-        python = sys.executable
-        pipe = subprocess.Popen([python, app_main, "-u"],
-                                stdout=subprocess.PIPE,
-                                stdin=subprocess.PIPE,
-                                stderr=subprocess.STDOUT,
-                                bufsize=0, close_fds=True,
-                                env={'PYTHONINSPECT': '1'})
-        iwtd, owtd, ewtd = select.select([pipe.stdout], [], [], 5)
-        assert iwtd    # else we timed out
-        data = os.read(pipe.stdout.fileno(), 1024)
-        assert data.startswith('Python')
-
     def test_paste_several_lines_doesnt_mess_prompt(self):
         py.test.skip("this can only work if readline is enabled")
         child = self.spawn([])
@@ -291,18 +276,72 @@ class TestInteraction:
         child.expect('42')
         child.expect('>>> ')
 
+    def test_pythoninspect(self):
+        old = os.environ.get('PYTHONINSPECT', '')
+        try:
+            os.environ['PYTHONINSPECT'] = '1'
+            path = getscript("""
+                print 6*7
+                """)
+            child = self.spawn([path])
+            child.expect('42')
+            child.expect('>>> ')
+        finally:
+            os.environ['PYTHONINSPECT'] = old
+
+    def test_set_pythoninspect(self):
+        path = getscript("""
+            import os
+            os.environ['PYTHONINSPECT'] = '1'
+            print 6*7
+            """)
+        child = self.spawn([path])
+        child.expect('42')
+        child.expect('>>> ')
+
+    def test_clear_pythoninspect(self):
+        py.test.skip("obscure difference with CPython -- do we care?")
+        old = os.environ.get('PYTHONINSPECT', '')
+        try:
+            path = getscript("""
+                import os
+                del os.environ['PYTHONINSPECT']
+                """)
+            child = self.spawn([path])
+            xxx  # do we expect a prompt or not?  CPython gives one
+        finally:
+            os.environ['PYTHONINSPECT'] = old
+
+    def test_stdout_flushes_before_stdin_blocks(self):
+        # This doesn't really test app_main.py, but a behavior that
+        # can only be checked on top of py.py with pexpect.
+        path = getscript("""
+            import sys
+            sys.stdout.write('Are you suggesting coconuts migrate? ')
+            line = sys.stdin.readline()
+            assert line.rstrip() == 'Not at all. They could be carried.'
+            print 'A five ounce bird could not carry a one pound coconut.'
+            """)
+        py_py = os.path.join(autopath.pypydir, 'bin', 'py.py')
+        child = self._spawn(sys.executable, [py_py, path])
+        child.expect('Are you suggesting coconuts migrate?', timeout=120)
+        child.sendline('Not at all. They could be carried.')
+        child.expect('A five ounce bird could not carry a one pound coconut.')
+
 
 class TestNonInteractive:
 
-    def run(self, cmdline):
+    def run(self, cmdline, senddata='', expect_prompt=False,
+            expect_banner=False):
         cmdline = '%s "%s" %s' % (sys.executable, app_main, cmdline)
         print 'POPEN:', cmdline
         child_in, child_out_err = os.popen4(cmdline)
+        child_in.write(senddata)
         child_in.close()
         data = child_out_err.read()
         child_out_err.close()
-        assert banner not in data          # no banner
-        assert '>>> ' not in data          # no prompt
+        assert (banner in data) == expect_banner   # no banner unless expected
+        assert ('>>> ' in data) == expect_prompt   # no prompt unless expected
         return data
 
     def test_script_on_stdin(self):
@@ -374,3 +413,45 @@ class TestNonInteractive:
         # concerning drive letters right now.
         assert ('File: ' + p) in data
         assert ('Argv: ' + repr([p, 'extra'])) in data
+
+    def test_pythoninspect_doesnt_override_isatty(self):
+        old = os.environ.get('PYTHONINSPECT', '')
+        try:
+            os.environ['PYTHONINSPECT'] = '1'
+            data = self.run('', senddata='6*7\nprint 2+3\n')
+            assert data == '5\n'
+        finally:
+            os.environ['PYTHONINSPECT'] = old
+
+    def test_i_flag_overrides_isatty(self):
+        data = self.run('-i', senddata='6*7\nraise SystemExit\n',
+                              expect_prompt=True, expect_banner=True)
+        assert '42\n' in data
+        # if a file name is passed, the banner is never printed but
+        # we get a prompt anyway
+        cmdline = '-i %s' % getscript("""
+            print 'hello world'
+            """)
+        data = self.run(cmdline, senddata='6*7\nraise SystemExit\n',
+                                 expect_prompt=True, expect_banner=False)
+        assert 'hello world\n' in data
+        assert '42\n' in data
+
+    def test_non_interactive_stdout_fully_buffered(self):
+        path = getscript(r"""
+            import sys, time
+            sys.stdout.write('\x00(STDOUT)\n\x00')   # stays in buffers
+            time.sleep(1)
+            sys.stderr.write('\x00[STDERR]\n\x00')
+            time.sleep(1)
+            # stdout flushed automatically here
+            """)
+        cmdline = '%s -u "%s" %s' % (sys.executable, app_main, path)
+        print 'POPEN:', cmdline
+        child_in, child_out_err = os.popen4(cmdline)
+        data = child_out_err.read(11)
+        assert data == '\x00[STDERR]\n\x00'    # from stderr
+        child_in.close()
+        data = child_out_err.read(11)
+        assert data == '\x00(STDOUT)\n\x00'    # from stdout
+        child_out_err.close()

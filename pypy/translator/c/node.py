@@ -261,7 +261,9 @@ class ArrayDefNode:
             yield '\tlong length;'
         line = '%s;' % cdecl(self.itemtypename, 'items[%d]'% self.varlength)
         if self.ARRAY.OF is Void:    # strange
-            line = '/* %s */' % line
+            line = '/* array of void */'
+            if self.ARRAY._hints.get('nolength', False):
+                line = 'char _dummy; ' + line
         yield '\t' + line
         yield '};'
 

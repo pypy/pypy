@@ -656,18 +656,6 @@ class TestTypedTestCase(CompilationTestCase):
         for args in [2, 7, 0], [7, 2, 0], [10, 50, 7], [50, -10, -3]:
             assert f(*args) == intmask(fn(*args))
 
-    def test_recursion_detection(self):
-        def f(n, accum):
-            if n == 0:
-                return accum
-            else:
-                return f(n-1, accum*n)
-        fn = self.getcompiled(f, [int, int])
-        assert fn(7, 1) == 5040
-        assert fn(7, 1) == 5040    # detection must work several times, too
-        assert fn(7, 1) == 5040
-        py.test.raises(RuntimeError, fn, -1, 0)
-
     def test_list_len_is_true(self):
 
         class X(object):
@@ -695,10 +683,22 @@ class TestTypedTestCase(CompilationTestCase):
         fn = self.getcompiled(f)
         assert fn() == 1
 
+    def test_recursion_detection(self):
+        def f(n):
+            if n == 0:
+                return 1
+            else:
+                return n*f(n-1)
+        fn = self.getcompiled(f, [int])
+        assert fn(7) == 5040
+        assert fn(7) == 5040    # detection must work several times, too
+        assert fn(7) == 5040
+        py.test.raises(RuntimeError, fn, -1)
+
     def test_infinite_recursion(self):
         def f(x):
             if x:
-                return f(x)
+                return 1+f(x)
             return 1
         def g(x):
             try:

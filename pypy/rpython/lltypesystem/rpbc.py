@@ -16,6 +16,8 @@ from pypy.rpython.rpbc import samesig,\
      SingleFrozenPBCRepr, none_frozen_pbc_repr, get_concrete_calltable
 from pypy.rpython.lltypesystem import rclass, llmemory
 from pypy.tool.sourcetools import has_varargs
+from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.debug import ll_assert
 
 from pypy.rpython import callparse
 
@@ -132,6 +134,7 @@ class SmallFunctionSetPBCRepr(Repr):
         self.lowleveltype = Char
         self.pointer_repr = FunctionsPBCRepr(rtyper, s_pbc)
         self._conversion_tables = {}
+        self._compression_function = None
         self._dispatch_cache = {}
 
     def _setup_repr(self):
@@ -269,11 +272,31 @@ class __extend__(pairtype(SmallFunctionSetPBCRepr, FunctionsPBCRepr)):
             return llops.genop('getarrayitem', [r_set.c_pointer_table, v_int],
                                resulttype=r_ptr.lowleveltype)
 
+def compression_function(r_set):
+    if r_set._compression_function is None:
+        table = []
+        for i, p in enumerate(r_set.c_pointer_table.value):
+            table.append((chr(i), p))
+        last_c, last_p = table[-1]
+        unroll_table = unrolling_iterable(table[:-1])
+        def ll_compress(fnptr):
+            for c, p in unroll_table:
+                if fnptr == p:
+                    return c
+            else:
+                ll_assert(fnptr == last_p, "unexpected function pointer")
+                return last_c
+        r_set._compression_function = ll_compress
+    return r_set._compression_function
+
 class __extend__(pairtype(FunctionsPBCRepr, SmallFunctionSetPBCRepr)):
     def convert_from_to((r_ptr, r_set), v, llops):
-        assert r_ptr.lowleveltype is Void
-        desc, = r_ptr.s_pbc.descriptions
-        return inputconst(Char, r_set.convert_desc(desc))
+        if r_ptr.lowleveltype is Void:
+            desc, = r_ptr.s_pbc.descriptions
+            return inputconst(Char, r_set.convert_desc(desc))
+        else:
+            ll_compress = compression_function(r_set)
+            return llops.gendirectcall(ll_compress, v)
 
 def conversion_table(r_from, r_to):
     if r_to in r_from._conversion_tables:
@@ -373,6 +396,8 @@ class ClassesPBCRepr(AbstractClassesPBCRepr):
         v_inst1 = hop.gendirectcall(ll_instantiate, vtypeptr)
         return hop.genop('cast_pointer', [v_inst1], resulttype = r_instance)
 
+    def getlowleveltype(self):
+        return rclass.CLASSTYPE
 
 
 # ____________________________________________________________

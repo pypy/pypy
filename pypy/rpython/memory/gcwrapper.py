@@ -10,6 +10,7 @@ class GCManagedHeap(object):
     def __init__(self, llinterp, flowgraphs, gc_class, GC_PARAMS={}):
         self.gc = gc_class(chunk_size = 10, **GC_PARAMS)
         self.gc.set_root_walker(LLInterpRootWalker(self))
+        self.gc.DEBUG = True
         self.llinterp = llinterp
         self.prepare_graphs(flowgraphs)
         self.gc.setup()
@@ -24,8 +25,9 @@ class GCManagedHeap(object):
             TYPE = lltype.typeOf(obj)
             layoutbuilder.consider_constant(TYPE, obj, self.gc)
 
-        self.constantroots = list(layoutbuilder.addresses_of_static_ptrs)
+        self.constantroots = layoutbuilder.addresses_of_static_ptrs
         self.constantrootsnongc = layoutbuilder.addresses_of_static_ptrs_in_nongc
+        self._all_prebuilt_gc = layoutbuilder.all_prebuilt_gc
 
     # ____________________________________________________________
     #
@@ -42,20 +44,41 @@ class GCManagedHeap(object):
         else:
             return lltype.malloc(TYPE, n, flavor=flavor, zero=zero)
 
+    def malloc_nonmovable(self, TYPE, n=None, zero=False):
+        typeid = self.get_type_id(TYPE)
+        if not self.gc.can_malloc_nonmovable():
+            return lltype.nullptr(TYPE)
+        addr = self.gc.malloc_nonmovable(typeid, n, zero=zero)
+        result = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(TYPE))
+        if not self.gc.malloc_zero_filled:
+            gctypelayout.zero_gc_pointers(result)
+        return result
+
+    def malloc_resizable_buffer(self, TYPE, n):
+        typeid = self.get_type_id(TYPE)
+        addr = self.gc.malloc(typeid, n)
+        result = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(TYPE))
+        if not self.gc.malloc_zero_filled:
+            gctypelayout.zero_gc_pointers(result)
+        return result
+
+    def resize_buffer(self, obj, old_size, new_size):
+        T = lltype.typeOf(obj).TO
+        buf = self.malloc_resizable_buffer(T, new_size)
+        # copy contents
+        arrayfld = T._arrayfld
+        new_arr = getattr(buf, arrayfld)
+        old_arr = getattr(obj, arrayfld)
+        for i in range(old_size):
+            new_arr[i] = old_arr[i]
+        return buf
+
+    def finish_building_buffer(self, obj, size):
+        return obj
+
     def free(self, TYPE, flavor='gc'):
         assert flavor != 'gc'
         return lltype.free(TYPE, flavor=flavor)
-
-    def coalloc(self, TYPE, coallocator, size=None, zero=False):
-        if hasattr(self.gc, "coalloc_fixedsize_clear"):
-            typeid = self.get_type_id(TYPE)
-            addr = self.gc.malloc(typeid, size, zero=zero,
-                                  coallocator=coallocator)
-            result = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(TYPE))
-            if not self.gc.malloc_zero_filled:
-                gctypelayout.zero_gc_pointers(result)
-            return result
-        return self.malloc(TYPE, size, 'gc', zero)
 
     def setfield(self, obj, fieldname, fieldvalue):
         STRUCT = lltype.typeOf(obj).TO
@@ -72,20 +95,15 @@ class GCManagedHeap(object):
     def setinterior(self, toplevelcontainer, inneraddr, INNERTYPE, newvalue):
         if (lltype.typeOf(toplevelcontainer).TO._gckind == 'gc' and
             isinstance(INNERTYPE, lltype.Ptr) and INNERTYPE.TO._gckind == 'gc'):
-            oldvalue = inneraddr.address[0]
-            self.gc.write_barrier(oldvalue,
-                                  llmemory.cast_ptr_to_adr(newvalue),
+            self.gc.write_barrier(llmemory.cast_ptr_to_adr(newvalue),
                                   llmemory.cast_ptr_to_adr(toplevelcontainer))
         llheap.setinterior(toplevelcontainer, inneraddr, INNERTYPE, newvalue)
 
     def collect(self):
         self.gc.collect()
 
-    def disable_finalizers(self):
-        self.gc.disable_finalizers()
-
-    def enable_finalizers(self):
-        self.gc.enable_finalizers()
+    def can_move(self, addr):
+        return self.gc.can_move(addr)
 
     def weakref_create_getlazy(self, objgetter):
         # we have to be lazy in reading the llinterp variable containing
@@ -114,9 +132,6 @@ class LLInterpRootWalker:
     def __init__(self, gcheap):
         self.gcheap = gcheap
 
-    def append_static_root(self, pointer):
-        self.gcheap.constantroots.append(pointer)
-
     def walk_roots(self, collect_stack_root,
                    collect_static_in_prebuilt_nongc,
                    collect_static_in_prebuilt_gc):
@@ -134,6 +149,10 @@ class LLInterpRootWalker:
             for addrofaddr in gcheap.llinterp.find_roots():
                 if addrofaddr.address[0]:
                     collect_stack_root(gc, addrofaddr)
+
+    def _walk_prebuilt_gc(self, collect):    # debugging only!  not RPython
+        for obj in self.gcheap._all_prebuilt_gc:
+            collect(llmemory.cast_ptr_to_adr(obj._as_ptr()))
 
 
 class DirectRunLayoutBuilder(gctypelayout.TypeLayoutBuilder):

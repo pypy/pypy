@@ -111,9 +111,9 @@ def test_configure():
 
     class CConfig:
         _compilation_info_ = ExternalCompilationInfo(
-            pre_include_lines = ["/* a C comment */",
-                                 "#include <stdio.h>",
-                                 "#include <test_ctypes_platform.h>"],
+            pre_include_bits = ["/* a C comment */",
+                                "#include <stdio.h>",
+                                "#include <test_ctypes_platform.h>"],
             include_dirs = [str(udir)]
         )
 
@@ -130,13 +130,15 @@ def test_configure():
 def test_ifdef():
     class CConfig:
         _compilation_info_ = ExternalCompilationInfo(
-            post_include_lines = ['/* a C comment */',
-                                  '#define XYZZY 42',
-                                  'typedef int foo;',
-                                  'struct s {',
-                                  'int i;',
-                                  'double f;'
-                                  '};'])
+            post_include_bits = ['/* a C comment */',
+                                 '#define XYZZY 42',
+                                 'typedef int foo;',
+                                 '''
+                                 struct s {
+                                   int i;
+                                   double f;
+                                 };
+                                 '''])
 
         s = rffi_platform.Struct('struct s', [('i', rffi.INT)],
                                    ifdef='XYZZY')
@@ -155,7 +157,7 @@ def test_ifdef():
 def test_nested_structs():
     class CConfig:
         _compilation_info_ = ExternalCompilationInfo(
-            post_include_lines="""
+            post_include_bits=["""
             struct x {
             int foo;
             unsigned long bar;
@@ -164,7 +166,7 @@ def test_nested_structs():
             char c;
             struct x x;
             };
-            """.split("\n"))
+            """])
         x = rffi_platform.Struct("struct x", [("bar", rffi.SHORT)])
         y = rffi_platform.Struct("struct y", [("x", x)])
 
@@ -174,6 +176,29 @@ def test_nested_structs():
     assert isinstance(c_x, lltype.Struct)
     assert isinstance(c_y, lltype.Struct)
     assert c_y.c_x is c_x
+
+def test_nested_structs_in_the_opposite_order():
+    class CConfig:
+        _compilation_info_ = ExternalCompilationInfo(
+            post_include_bits=["""
+            struct y {
+            int foo;
+            unsigned long bar;
+            };
+            struct x {
+            char c;
+            struct y y;
+            };
+            """])
+        y = rffi_platform.Struct("struct y", [("bar", rffi.SHORT)])
+        x = rffi_platform.Struct("struct x", [("y", y)])
+
+    res = rffi_platform.configure(CConfig)
+    c_x = res["x"]
+    c_y = res["y"]
+    assert isinstance(c_x, lltype.Struct)
+    assert isinstance(c_y, lltype.Struct)
+    assert c_x.c_y is c_y
 
 def test_array():
     dirent = rffi_platform.getstruct("struct dirent",
@@ -195,11 +220,12 @@ def test_has():
     # has() should also not crash if it is given an invalid #include
     assert not rffi_platform.has("x", "#include <some/path/which/cannot/exist>")
 
-def test_check_eci():
+def test_verify_eci():
     eci = ExternalCompilationInfo()
-    assert rffi_platform.check_eci(eci)
+    rffi_platform.verify_eci(eci)
     eci = ExternalCompilationInfo(libraries=['some_name_that_doesnt_exist_'])
-    assert not rffi_platform.check_eci(eci)
+    py.test.raises(rffi_platform.CompilationError,
+                   rffi_platform.verify_eci, eci)
 
 def test_sizeof():
     assert rffi_platform.sizeof("char", ExternalCompilationInfo()) == 1

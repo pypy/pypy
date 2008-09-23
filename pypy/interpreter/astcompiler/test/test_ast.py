@@ -1,6 +1,5 @@
 from pypy.interpreter.astcompiler import ast#_temp as ast
-from pypy.module.recparser.pyparser import source2ast
-from pypy.interpreter.pyparser.test.test_astbuilder import FakeSpace
+from pypy.interpreter.pyparser.test.test_astbuilder import source2ast
 
 class BaseVisitor(ast.ASTVisitor):
     def default(self, node):
@@ -25,7 +24,7 @@ class TestMutate:
 if a:
     b
         '''
-        ast = source2ast(FakeSpace(), src)
+        ast = source2ast(src, 'exec')
         ast.mutate(BaseVisitor())
         src = '''
 try:
@@ -33,20 +32,20 @@ try:
 except Exception:
     pass
         '''
-        ast = source2ast(FakeSpace(), src)
+        ast = source2ast(src, 'exec')
         ast.mutate(BaseVisitor())
         src = '{1:2}'
-        ast = source2ast(FakeSpace(), src)
+        ast = source2ast(src, 'exec')
         ast.mutate(BaseVisitor())
         src = '1 > 3'
-        ast = source2ast(FakeSpace(), src)
+        ast = source2ast(src, 'exec')
         ast.mutate(BaseVisitor())
 
     def test_mutate_elision(self):
         class ConstRemover(BaseVisitor):
             def visitConst(self, const):
                 return None
-        listast = source2ast(FakeSpace(), "[1, 2]")
+        listast = source2ast("[1, 2]", 'exec')
         listast = listast.mutate(ConstRemover())
         listnode = listast.node.nodes[0].expr
         assert isinstance(listnode, ast.List)

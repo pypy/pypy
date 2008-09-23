@@ -4,11 +4,12 @@ from pypy.rpython.rpbc import AbstractClassesPBCRepr, AbstractMethodsPBCRepr, \
         AbstractFunctionsPBCRepr, AbstractMultipleUnrelatedFrozenPBCRepr, \
         none_frozen_pbc_repr
 from pypy.rpython.rclass import rtype_new_instance, getinstancerepr
+from pypy.rpython.rclass import getclassrepr, get_type_repr
 from pypy.rpython.rpbc import get_concrete_calltable
 from pypy.rpython import callparse
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.rclass import ClassRepr, InstanceRepr 
-from pypy.rpython.ootypesystem.rclass import mangle
+from pypy.rpython.ootypesystem.rclass import mangle, META
 from pypy.annotation import model as annmodel
 from pypy.annotation import description
 from pypy.tool.pairtype import pairtype
@@ -42,17 +43,24 @@ class FunctionsPBCRepr(AbstractFunctionsPBCRepr):
         
 class ClassesPBCRepr(AbstractClassesPBCRepr):
     
-    def _instantiate_runtime_class(self, hop, v_meta, r_instance):
+    def _instantiate_runtime_class(self, hop, v_class, r_instance):
         classdef = hop.s_result.classdef            
-        c_class_ = hop.inputconst(ootype.Void, "class_")
-        v_class = hop.genop('oogetfield', [v_meta, c_class_],
-                resulttype=ootype.Class)
         resulttype = getinstancerepr(hop.rtyper, classdef).lowleveltype
-        v_instance = hop.genop('runtimenew', [v_class], resulttype=resulttype)
-        c_meta = hop.inputconst(ootype.Void, "meta")
-        hop.genop('oosetfield', [v_instance, c_meta, v_meta],
-                resulttype=ootype.Void)
-        return v_instance
+        # convert v_class from META to ootype.Class if necessary:
+        v_class = get_type_repr(hop.rtyper).fromclasstype(v_class, hop.llops)
+        return hop.genop('runtimenew', [v_class], resulttype=resulttype)
+
+    def getlowleveltype(self):
+        classdescs = self.s_pbc.descriptions.keys()
+        # if any of the classdefs get the lowleveltype ootype.Class,
+        # we can only pick ootype.Class for us too.  Otherwise META.
+        for classdesc in classdescs:
+            for classdef in classdesc.getallclassdefs():
+                r_class = getclassrepr(self.rtyper, classdef)
+                if r_class.lowleveltype == ootype.Class:
+                    return ootype.Class
+        else:
+            return META
 
 
 def row_method_name(methodname, rowname):

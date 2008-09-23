@@ -1,14 +1,15 @@
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, W_Root
+from pypy.interpreter.typedef import TypeDef
 from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib.rbigint import rbigint
 
-class W_Type(W_Root):
-    pass
+#class W_Type(W_Root):
+#    _attrs_ = ()
 
 class W_Object(W_Root):
-    pass
-W_Object.typedef = W_Type()
+    _attrs_ = ()
+W_Object.typedef = TypeDef('foobar')
 
 def make_dummy(a=W_Object(), b=W_Object()):
     def fn(*args):
@@ -48,6 +49,7 @@ class FakeObjSpace(ObjSpace):
     
     def initialize(self):
         self.config.objspace.geninterp = False
+        self.config.objspace.disable_call_speedhacks = True
         self.wrap_cache = {}
         self.make_builtins()
 

@@ -23,7 +23,7 @@ except NameError:
     this_dir = os.path.dirname(sys.argv[0])
 
 microbenches = []
-for fname in os.listdir('.'):
+for fname in os.listdir(this_dir):
     if not fname.startswith('test_') or not fname.endswith('.py'):
         continue
     microbench = fname[:-3]
@@ -38,7 +38,7 @@ def run(test_cases, fmt):
         for k in [s for s in testmoddict if s.startswith('test_')] :
             if test_cases:
                 for tc in test_cases:
-                    if k.startswith(tc):
+                    if k.startswith(tc) or microbench.startswith(tc):
                         break
                 else:
                     continue
@@ -74,7 +74,9 @@ if __name__ == '__main__':
 
     for n, exe in enumerate(executables):
         print 'exe:', exe
-        data = [s for s in os.popen(exe + ' microbench.py -Fr %s 2>&1' % limit).readlines() if not s.startswith('debug:')]
+        data = [s for s in os.popen('%s %s -Fr %s 2>&1' %
+            (exe, os.path.join(this_dir, 'microbench.py'), limit)).readlines()
+                if not s.startswith('debug:')]
         benchdata = {}
         for d in data:
             try:

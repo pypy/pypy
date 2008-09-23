@@ -2,18 +2,24 @@ import py
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem import ll2ctypes
+from pypy.rpython.lltypesystem.llmemory import cast_adr_to_ptr, cast_ptr_to_adr
+from pypy.rpython.lltypesystem.llmemory import itemoffsetof, offsetof, raw_memcopy
 from pypy.annotation.model import lltype_to_annotation
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.objectmodel import Symbolic, CDefinedIntSymbolic
-from pypy.rlib import rarithmetic
+from pypy.rlib.objectmodel import keepalive_until_here
+from pypy.rlib import rarithmetic, rgc
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.tool.rfficache import platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.backendopt.canraise import RaiseAnalyzer
-from pypy.rpython.annlowlevel import llhelper
-import os
+from pypy.rpython.annlowlevel import llhelper, llstr, hlstr
+from pypy.rpython.lltypesystem.rstr import STR
+from pypy.rlib.objectmodel import we_are_translated
+from pypy.rpython.lltypesystem import llmemory
+import os, sys
 
 class UnhandledRPythonException(Exception):
     pass
@@ -95,6 +101,43 @@ def llexternal(name, args, result, _callable=None,
         # sandboxsafe is a hint for "too-small-ness" (e.g. math functions).
         invoke_around_handlers = not sandboxsafe
 
+    if invoke_around_handlers:
+        # The around-handlers are releasing the GIL in a threaded pypy.
+        # We need tons of care to ensure that no GC operation and no
+        # exception checking occurs while the GIL is released.
+
+        # The actual call is done by this small piece of non-inlinable
+        # generated code in order to avoid seeing any GC pointer:
+        # neither '*args' nor the GC objects originally passed in as
+        # argument to wrapper(), if any (e.g. RPython strings).
+
+        argnames = ', '.join(['a%d' % i for i in range(len(args))])
+        source = py.code.Source("""
+            def call_external_function(%(argnames)s):
+                before = aroundstate.before
+                after = aroundstate.after
+                if before: before()
+                # NB. it is essential that no exception checking occurs here!
+                res = funcptr(%(argnames)s)
+                if after: after()
+                return res
+        """ % locals())
+        miniglobals = {'aroundstate': aroundstate,
+                       'funcptr':     funcptr,
+                       }
+        exec source.compile() in miniglobals
+        call_external_function = miniglobals['call_external_function']
+        call_external_function._dont_inline_ = True
+        call_external_function._annspecialcase_ = 'specialize:ll'
+        call_external_function = func_with_new_name(call_external_function,
+                                                    'ccall_' + name)
+        # don't inline, as a hack to guarantee that no GC pointer is alive
+        # anywhere in call_external_function
+    else:
+        # if we don't have to invoke the aroundstate, we can just call
+        # the low-level function pointer carelessly
+        call_external_function = funcptr
+
     unrolling_arg_tps = unrolling_iterable(enumerate(args))
     def wrapper(*args):
         # XXX the next line is a workaround for the annotation bug
@@ -134,15 +177,7 @@ def llexternal(name, args, result, _callable=None,
                         arg = cast(TARGET, arg)
             real_args = real_args + (arg,)
             to_free = to_free + (freeme,)
-        if invoke_around_handlers:
-            before = aroundstate.before
-            after = aroundstate.after
-            if before: before()
-            # NB. it is essential that no exception checking occurs after
-            # the call to before(), because we don't have the GIL any more!
-        res = funcptr(*real_args)
-        if invoke_around_handlers:
-            if after: after()
+        res = call_external_function(*real_args)
         for i, TARGET in unrolling_arg_tps:
             if to_free[i]:
                 lltype.free(to_free[i], flavor='raw')
@@ -167,16 +202,16 @@ def _make_wrapper_for(TP, callable, aroundstate=None):
         errorcode = callable._errorcode_
     else:
         errorcode = TP.TO.RESULT._example()
-    if aroundstate is not None:
-        before = aroundstate.before
-        after = aroundstate.after
-    else:
-        before = None
-        after = None
     callable_name = getattr(callable, '__name__', '?')
     args = ', '.join(['a%d' % i for i in range(len(TP.TO.ARGS))])
     source = py.code.Source(r"""
         def wrapper(%s):    # no *args - no GIL for mallocing the tuple
+            if aroundstate is not None:
+                before = aroundstate.before
+                after = aroundstate.after
+            else:
+                before = None
+                after = None
             if after:
                 after()
             # from now on we hold the GIL
@@ -186,6 +221,9 @@ def _make_wrapper_for(TP, callable, aroundstate=None):
                 os.write(2,
                     "Warning: uncaught exception in callback: %%s %%s\n" %%
                     (callable_name, str(e)))
+                if not we_are_translated():
+                    import traceback
+                    traceback.print_exc()
                 result = errorcode
             if before:
                 before()
@@ -197,6 +235,7 @@ def _make_wrapper_for(TP, callable, aroundstate=None):
     miniglobals = locals().copy()
     miniglobals['Exception'] = Exception
     miniglobals['os'] = os
+    miniglobals['we_are_translated'] = we_are_translated
     exec source.compile() in miniglobals
     return miniglobals['wrapper']
 _make_wrapper_for._annspecialcase_ = 'specialize:memo'
@@ -267,7 +306,8 @@ for _name in 'short int long'.split():
     for name in (_name, 'unsigned ' + _name):
         TYPES.append(name)
 TYPES += ['signed char', 'unsigned char',
-          'long long', 'unsigned long long', 'size_t']
+          'long long', 'unsigned long long',
+          'size_t', 'time_t']
 if os.name != 'nt':
     TYPES.append('mode_t')
     TYPES.append('pid_t')
@@ -312,6 +352,7 @@ platform.numbertype_to_rclass[lltype.Signed] = int     # avoid "r_long" for comm
 #        LONGLONG       r_longlong
 #        ULONGLONG      r_ulonglong
 #        SIZE_T         r_size_t
+#        TIME_T         r_time_t
 # --------------------------------------------------------------------
 # Note that rffi.r_int is not necessarily the same as
 # rarithmetic.r_int, etc!  rffi.INT/r_int correspond to the C-level
@@ -360,10 +401,14 @@ def COpaque(name, hints=None, compilation_info=None):
         hints = hints.copy()
     hints['external'] = 'C'
     hints['c_name'] = name
-    def lazy_getsize():
+    def lazy_getsize(cache={}):
         from pypy.rpython.tool import rffi_platform
-        k = {}
-        return rffi_platform.sizeof(name, compilation_info)
+        try:
+            return cache[name]
+        except KeyError:
+            val = rffi_platform.sizeof(name, compilation_info)
+            cache[name] = val
+            return val
     
     hints['getsize'] = lazy_getsize
     return lltype.OpaqueType(name, hints)
@@ -372,7 +417,7 @@ def COpaquePtr(*args, **kwds):
     return lltype.Ptr(COpaque(*args, **kwds))
 
 def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
-                    sandboxsafe=False):
+                    sandboxsafe=False, _nowrapper=False):
     """Return a pair of functions - a getter and a setter - to access
     the given global C variable.
     """
@@ -399,19 +444,22 @@ def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
     c_setter = "void %(setter_name)s (%(c_type)s v) { %(name)s = v; }" % locals()
 
     lines = ["#include <%s>" % i for i in eci.includes]
-    lines.append('extern %s %s;' % (c_type, name))
+    if sys.platform != 'win32':
+        lines.append('extern %s %s;' % (c_type, name))
     lines.append(c_getter)
     lines.append(c_setter)
     sources = ('\n'.join(lines),)
     new_eci = eci.merge(ExternalCompilationInfo(
         separate_module_sources = sources,
-        post_include_lines = [getter_prototype, setter_prototype],
+        post_include_bits = [getter_prototype, setter_prototype],
+        export_symbols = [getter_name, setter_name],
     ))
 
     getter = llexternal(getter_name, [], TYPE, compilation_info=new_eci,
-                        sandboxsafe=sandboxsafe)
+                        sandboxsafe=sandboxsafe, _nowrapper=_nowrapper)
     setter = llexternal(setter_name, [TYPE], lltype.Void,
-                        compilation_info=new_eci, sandboxsafe=sandboxsafe)
+                        compilation_info=new_eci, sandboxsafe=sandboxsafe,
+                        _nowrapper=_nowrapper)
     return getter, setter
 
 # char, represented as a Python character
@@ -454,6 +502,7 @@ def str2charp(s):
         array[i] = s[i]
     array[len(s)] = '\x00'
     return array
+str2charp._annenforceargs_ = [str]
 
 def free_charp(cp):
     lltype.free(cp, flavor='raw')
@@ -467,6 +516,95 @@ def charp2str(cp):
         l.append(cp[i])
         i += 1
     return "".join(l)
+    
+# str -> char*
+def get_nonmovingbuffer(data):
+    """
+    Either returns a non-moving copy or performs neccessary pointer arithmetic
+    to return a pointer to the characters of a string if the string is already
+    nonmovable.
+    Must be followed by a free_nonmovingbuffer call.
+    """
+    if rgc.can_move(data):
+        count = len(data)
+        buf = lltype.malloc(CCHARP.TO, count, flavor='raw')
+        for i in range(count):
+            buf[i] = data[i]
+        return buf
+    else:
+        data_start = cast_ptr_to_adr(llstr(data)) + \
+            offsetof(STR, 'chars') + itemoffsetof(STR.chars, 0)
+        return cast(CCHARP, data_start)
+
+# (str, char*) -> None
+def free_nonmovingbuffer(data, buf):
+    """
+    Either free a non-moving buffer or keep the original storage alive.
+    """
+    if rgc.can_move(data):
+        lltype.free(buf, flavor='raw')
+    else:
+        keepalive_until_here(data)
+
+# int -> (char*, str)
+def alloc_buffer(count):
+    """
+    Returns a (raw_buffer, gc_buffer) pair, allocated with count bytes.
+    The raw_buffer can be safely passed to a native function which expects it
+    to not move. Call str_from_buffer with the returned values to get a safe
+    high-level string. When the garbage collector cooperates, this allows for
+    the process to be performed without an extra copy.
+    Make sure to call keep_buffer_alive_until_here on the returned values.
+    """
+    str_chars_offset = offsetof(STR, 'chars') + itemoffsetof(STR.chars, 0)
+    gc_buf = rgc.malloc_nonmovable(STR, count)
+    if gc_buf:
+        realbuf = cast_ptr_to_adr(gc_buf) + str_chars_offset
+        raw_buf = cast(CCHARP, realbuf)
+        return raw_buf, gc_buf
+    else:
+        raw_buf = lltype.malloc(CCHARP.TO, count, flavor='raw')
+        return raw_buf, lltype.nullptr(STR)
+alloc_buffer._always_inline_ = True     # to get rid of the returned tuple obj
+
+# (char*, str, int, int) -> None
+def str_from_buffer(raw_buf, gc_buf, allocated_size, needed_size):
+    """
+    Converts from a pair returned by alloc_buffer to a high-level string.
+    The returned string will be truncated to needed_size.
+    """
+    assert allocated_size >= needed_size
+    
+    if gc_buf and (allocated_size == needed_size):
+        return hlstr(gc_buf)
+    
+    new_buf = lltype.malloc(STR, needed_size)
+    try:
+        str_chars_offset = offsetof(STR, 'chars') + itemoffsetof(STR.chars, 0)
+        if gc_buf:
+            src = cast_ptr_to_adr(gc_buf) + str_chars_offset
+        else:
+            src = cast_ptr_to_adr(raw_buf) + itemoffsetof(CCHARP.TO, 0)
+        dest = cast_ptr_to_adr(new_buf) + str_chars_offset
+        ## FIXME: This is bad, because dest could potentially move
+        ## if there are threads involved.
+        raw_memcopy(src, dest,
+                    llmemory.sizeof(lltype.Char) * needed_size)
+        return hlstr(new_buf)
+    finally:
+        keepalive_until_here(new_buf)
+
+# (char*, str) -> None
+def keep_buffer_alive_until_here(raw_buf, gc_buf):
+    """
+    Keeps buffers alive or frees temporary buffers created by alloc_buffer.
+    This must be called after a call to alloc_buffer, usually in a try/finally
+    block.
+    """
+    if gc_buf:
+        keepalive_until_here(gc_buf)
+    elif raw_buf:
+        lltype.free(raw_buf, flavor='raw')
 
 # char* -> str, with an upper bound on the length in case there is no \x00
 def charp2strn(cp, maxlen):
@@ -597,9 +735,9 @@ class MakeEntry(ExtRegistryEntry):
         vlist = [hop.inputarg(lltype.Void, arg=0)]
         flags = {'flavor':'raw'}
         vlist.append(hop.inputconst(lltype.Void, flags))
-        v_ptr = hop.genop('malloc', vlist, resulttype=hop.r_result.lowleveltype)
         hop.has_implicit_exception(MemoryError)   # record that we know about it
         hop.exception_is_here()
+        v_ptr = hop.genop('malloc', vlist, resulttype=hop.r_result.lowleveltype)
         for name, i in fields.items():
             name = name[2:]
             v_arg = hop.inputarg(hop.args_r[i], arg=i)

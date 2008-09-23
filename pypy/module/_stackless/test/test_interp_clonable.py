@@ -1,6 +1,7 @@
 """
 testing cloning
 """
+import py; py.test.skip("clonable coroutines not really maintained any more")
 
 from pypy import conftest; conftest.translation_test_so_skip_if_appdirect()
 from pypy.translator.c import gc

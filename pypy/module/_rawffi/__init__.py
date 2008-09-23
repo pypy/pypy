@@ -25,8 +25,26 @@ class Module(MixedModule):
         'charp2rawstring'    : 'interp_rawffi.charp2rawstring',
         'CallbackPtr'        : 'callback.W_CallbackPtr',
         '_num_of_allocated_objects' : 'tracker.num_of_allocated_objects',
+        'get_libc'           : 'interp_rawffi.get_libc',
     }
 
     appleveldefs = {
         'SegfaultException'  : 'error.SegfaultException',
     }
+
+    def buildloaders(cls):
+        from pypy.module._rawffi import interp_rawffi
+
+        if hasattr(interp_rawffi, 'FormatError'):
+            Module.interpleveldefs['FormatError'] = 'interp_rawffi.FormatError'
+        if hasattr(interp_rawffi, 'check_HRESULT'):
+            Module.interpleveldefs['check_HRESULT'] = 'interp_rawffi.check_HRESULT'
+
+        from pypy.rlib import libffi
+        for name in ['FUNCFLAG_STDCALL', 'FUNCFLAG_CDECL', 'FUNCFLAG_PYTHONAPI',
+                     ]:
+            if hasattr(libffi, name):
+                Module.interpleveldefs[name] = "space.wrap(%r)" % getattr(libffi, name)
+                
+        super(Module, cls).buildloaders()
+    buildloaders = classmethod(buildloaders)

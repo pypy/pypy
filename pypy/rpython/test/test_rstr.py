@@ -281,9 +281,9 @@ class AbstractTestRstr(BaseRtypingTest):
             x+= s.find(const(''), i, i)*100
             x+= s.find(const(''), i, i+1)*1000
             return x
-        for i in range(5):
+        for i, expected in enumerate([0, 1110, 2220, 3330, -1110, -1110]):
             res = self.interpret(f, [i])
-            assert res == f(i)
+            assert res == expected
             
     def test_rfind(self):
         const = self.const
@@ -306,14 +306,14 @@ class AbstractTestRstr(BaseRtypingTest):
         def f(i):
             assert i >= 0
             s = const("abc")
-            x = s.find(const(''))
-            x+= s.find(const(''), i)*10
-            x+= s.find(const(''), i, i)*100
-            x+= s.find(const(''), i, i+1)*1000
+            x = s.rfind(const(''))
+            x+= s.rfind(const(''), i)*10
+            x+= s.rfind(const(''), i, i)*100
+            x+= s.rfind(const(''), i, i+1)*1000
             return x
-        for i in range(5):
+        for i, expected in enumerate([1033, 2133, 3233, 3333, 3-1110, 3-1110]):
             res = self.interpret(f, [i])
-            assert res == f(i)
+            assert res == expected
 
     def test_find_char(self):
         const = self.const
@@ -816,7 +816,7 @@ class AbstractTestRstr(BaseRtypingTest):
             else:
                 return llstr1
         res = self.interpret(f, [0])
-        assert res == self.string_to_ll(None)
+        assert self.ll_to_string(res) is None
         res = self.interpret(f, [1])
         assert self.ll_to_string(res) == "hello"
 

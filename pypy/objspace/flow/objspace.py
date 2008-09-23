@@ -51,8 +51,7 @@ class FlowObjSpace(ObjSpace):
         self.w_tuple    = Constant(tuple)
         self.concrete_mode = 0
         for exc in [KeyError, ValueError, IndexError, StopIteration,
-                    AssertionError, TypeError, AttributeError, ImportError,
-                    RuntimeError]:
+                    AssertionError, TypeError, AttributeError, ImportError]:
             clsname = exc.__name__
             setattr(self, 'w_'+clsname, Constant(exc))
         # the following exceptions are the ones that should not show up
@@ -203,7 +202,7 @@ class FlowObjSpace(ObjSpace):
             # the simple case
             return ObjSpace.exception_match(self, w_exc_type, w_check_class)
         # checking a tuple of classes
-        for w_klass in self.unpacktuple(w_check_class):
+        for w_klass in self.viewiterable(w_check_class):
             if ObjSpace.exception_match(self, w_exc_type, w_klass):
                 return True
         return False
@@ -217,18 +216,6 @@ class FlowObjSpace(ObjSpace):
             if isinstance(ecls, (type, types.ClassType)):
                 return ecls
         return None
-
-    def abstract_issubclass(self, w_obj, w_cls, failhard=False):
-        return self.issubtype(w_obj, w_cls)
-
-    def abstract_isinstance(self, w_obj, w_cls):
-        return self.isinstance(w_obj, w_cls)
-
-    def abstract_isclass(self, w_obj):
-        return self.isinstance(w_obj, self.w_type)
-
-    def abstract_getclass(self, w_obj):
-        return self.type(w_obj)
 
 
     def build_flow(self, func, constargs={}):
@@ -277,12 +264,7 @@ class FlowObjSpace(ObjSpace):
         checkgraph(graph)
         return graph
 
-    def unpacktuple(self, w_tuple, expected_length=None):
-##        # special case to accept either Constant tuples
-##        # or real tuples of Variables/Constants
-##        if isinstance(w_tuple, tuple):
-##            result = w_tuple
-##        else:
+    def viewiterable(self, w_tuple, expected_length=None):
         unwrapped = self.unwrap(w_tuple)
         result = tuple([Constant(x) for x in unwrapped])
         if expected_length is not None and len(result) != expected_length:
@@ -299,26 +281,6 @@ class FlowObjSpace(ObjSpace):
         if isinstance(w_iterable, Variable) and expected_length is None:
             raise UnwrapException, ("cannot unpack a Variable iterable"
                                     "without knowing its length")
-##            # XXX TEMPORARY HACK XXX TEMPORARY HACK XXX TEMPORARY HACK
-##            print ("*** cannot unpack a Variable iterable "
-##                   "without knowing its length,")
-##            print "    assuming a list or tuple with up to 7 items"
-##            items = []
-##            w_len = self.len(w_iterable)
-##            i = 0
-##            while True:
-##                w_i = self.wrap(i)
-##                w_cond = self.eq(w_len, w_i)
-##                if self.is_true(w_cond):
-##                    break  # done
-##                if i == 7:
-##                    # too many values
-##                    raise OperationError(self.w_AssertionError, self.w_None)
-##                w_item = self.do_operation('getitem', w_iterable, w_i)
-##                items.append(w_item)
-##                i += 1
-##            return items
-##            # XXX TEMPORARY HACK XXX TEMPORARY HACK XXX TEMPORARY HACK
         elif expected_length is not None:
             w_len = self.len(w_iterable)
             w_correct = self.eq(w_len, self.wrap(expected_length))
@@ -386,7 +348,7 @@ class FlowObjSpace(ObjSpace):
         if outcome is StopIteration:
             raise OperationError(self.w_StopIteration, w_exc_value)
         elif outcome is RuntimeError:
-            raise flowcontext.ImplicitOperationError(self.w_RuntimeError,
+            raise flowcontext.ImplicitOperationError(Constant(RuntimeError),
                                                      w_exc_value)
         else:
             return w_item
@@ -483,6 +445,12 @@ class FlowObjSpace(ObjSpace):
         # have w_KeyboardInterrupt, which is not very helpful
         raise KeyboardInterrupt
     w_KeyboardInterrupt = property(w_KeyboardInterrupt)
+
+    def w_RuntimeError(self):
+        # XXX same as w_KeyboardInterrupt()
+        raise RuntimeError("the interpreter raises RuntimeError during "
+                           "flow graph construction")
+    w_RuntimeError = property(w_RuntimeError)
 
 # the following gives us easy access to declare more for applications:
 NOT_REALLY_CONST = {

@@ -31,7 +31,10 @@ class Timer(object):
         self.tk = now
 
     def ttime(self):
-        return self.tk - self.t0
+        try:
+            return self.tk - self.t0
+        except AttributeError:
+            return 0.0
 
     def pprint(self):
         """ Pretty print

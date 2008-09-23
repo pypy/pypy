@@ -1,3 +1,6 @@
+# Note that PyPy contains also a built-in module 'itertools' which will
+# hide this one if compiled in.
+
 """Functional tools for creating and using iterators.
 
 Infinite iterators:
@@ -47,24 +50,15 @@ class chain:
         return self
     
     def next(self):
-        try:
-            next_elt = self._cur_iterable_iter.next()
-        except StopIteration:
-            # The current list's iterator is exhausted, switch to next one
-            self._cur_iterable_iter = iter(self._iterables_iter.next())
+        while True:
             try:
-                next_elt = self._cur_iterable_iter.next()
+                return self._cur_iterable_iter.next()
+            except StopIteration:
+                self._cur_iterable_iter = self._iterables_iter.next()
             except AttributeError:
                 # CPython raises a TypeError when next() is not defined
                 raise TypeError('%s has no next() method' % \
                                 (self._cur_iterable_iter))
-        except AttributeError:
-            # CPython raises a TypeError when next() is not defined
-            raise TypeError('%s has no next() method' % \
-                            (self._cur_iterable_iter))
-            
-        return next_elt
-            
 
 class count:
     """Make an iterator that returns consecutive integers starting
@@ -377,14 +371,14 @@ class islice:
                 self.donext = self.it.next
             except AttributeError:
                 raise TypeError
-        while self.cnt < self.start:
-            self.donext()
+        nextindex = self.start
+        if self.stop is not None and nextindex >= self.stop:
+            raise StopIteration
+        while self.cnt <= nextindex:
+            nextitem = self.donext()
             self.cnt += 1
-        if self.stop is None or self.cnt < self.stop:
-            self.start += self.step 
-            self.cnt += 1
-            return self.donext()
-        raise StopIteration 
+        self.start += self.step 
+        return nextitem
 
 class izip:
     """Make an iterator that aggregates elements from each of the

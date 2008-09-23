@@ -5,8 +5,7 @@ from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.rarithmetic import ovfcheck, formatd_overflow, isnan, isinf
 from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib.debug import check_annotation
-from pypy.rlib.objectmodel import newlist
+from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
 
 class BaseStringFormatter(object):
     def __init__(self, space, values_w, w_valuedict):
@@ -257,7 +256,11 @@ def make_formatter_subclass(do_unicode):
             return result
 
         def format(self):
-            result = newlist(sizehint=100)      # list of characters or unichars
+            lgt = len(self.fmt) + 4 * len(self.values_w) + 10
+            if do_unicode:
+                result = UnicodeBuilder(lgt)
+            else:
+                result = StringBuilder(lgt)
             self.result = result
             while True:
                 # fast path: consume as many characters as possible
@@ -268,9 +271,9 @@ def make_formatter_subclass(do_unicode):
                         break
                     i += 1
                 else:
-                    result += const(fmt[i0:])
-                    break     # end of 'fmt' string 
-                result += const(fmt[i0:i])
+                    result.append_slice(fmt, i0, len(fmt))
+                    break     # end of 'fmt' string
+                result.append_slice(fmt, i0, i)
                 self.fmtpos = i + 1
 
                 # interpret the next formatter
@@ -296,7 +299,7 @@ def make_formatter_subclass(do_unicode):
                     self.unknown_fmtchar()
 
             self.checkconsumed()
-            return result
+            return result.build()
 
         def unknown_fmtchar(self):
             space = self.space
@@ -317,22 +320,28 @@ def make_formatter_subclass(do_unicode):
 
         def std_wp(self, r):
             length = len(r)
+            if do_unicode and isinstance(r, str):
+                # convert string to unicode explicitely here
+                r = unicode(r)
             prec = self.prec
             if prec == -1 and self.width == 0:
                 # fast path
-                self.result += const(r)
+                self.result.append(const(r))
                 return
             if prec >= 0 and prec < length:
                 length = prec   # ignore the end of the string if too long
             result = self.result
             padding = self.width - length
+            if padding < 0:
+                padding = 0
+            assert padding >= 0
             if not self.f_ljust and padding > 0:
-                result += const(' ') * padding
+                result.append_multiple_char(const(' '), padding)
                 # add any padding at the left of 'r'
                 padding = 0
-            result += const(r[:length])       # add 'r' itself
+            result.append_slice(r, 0, length)       # add 'r' itself
             if padding > 0:
-                result += const(' ') * padding
+                result.append_multiple_char(const(' '), padding)
             # add any remaining padding at the right
         std_wp._annspecialcase_ = 'specialize:argtype(1)'
 
@@ -351,6 +360,8 @@ def make_formatter_subclass(do_unicode):
             # by pushing the pad character into self.result
             result = self.result
             padding = self.width - len(r) - len(prefix)
+            if padding <= 0:
+                padding = 0
 
             if self.f_ljust:
                 padnumber = '<'
@@ -359,16 +370,20 @@ def make_formatter_subclass(do_unicode):
             else:
                 padnumber = '>'
 
+            assert padding >= 0
             if padnumber == '>':
-                result += const(' ') * padding    # pad with spaces on the left
+                result.append_multiple_char(const(' '), padding)
+                # pad with spaces on the left
             if sign:
-                result += const(r[0])        # the sign
-            result += const(prefix)               # the prefix
+                result.append(const(r[0]))        # the sign
+            result.append(const(prefix))               # the prefix
             if padnumber == '0':
-                result += const('0') * padding    # pad with zeroes
-            result += const(r[int(sign):])        # the rest of the number
+                result.append_multiple_char(const('0'), padding)
+                # pad with zeroes
+            result.append_slice(const(r), int(sign), len(r))
+            # the rest of the number
             if padnumber == '<':           # spaces on the right
-                result += const(' ') * padding
+                result.append_multiple_char(const(' '), padding)
 
         def fmt_s(self, w_value):
             space = self.space
@@ -455,14 +470,12 @@ def format(space, w_fmt, values_w, w_valuedict=None, do_unicode=False):
             # fall through to the unicode case
             fmt = unicode(fmt)
         else:
-            check_annotation(result, is_list_of_chars_or_unichars)
-            return space.wrap(''.join(result))
+            return space.wrap(result)
     else:
         fmt = space.unicode_w(w_fmt)
     formatter = UnicodeFormatter(space, fmt, values_w, w_valuedict)
     result = formatter.format()
-    check_annotation(result, is_list_of_chars_or_unichars)
-    return space.wrap(u''.join(result))
+    return space.wrap(result)
 
 def mod_format(space, w_format, w_values, do_unicode=False):
     if space.is_true(space.isinstance(w_values, space.w_tuple)):

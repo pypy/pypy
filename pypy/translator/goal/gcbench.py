@@ -45,8 +45,9 @@
 #                 check for proper locking
 import os, time
 
-def println(s):
-    os.write(1, s+"\n")
+USAGE = """gcbench [num_repetitions] [--depths=N,N,N..] [--threads=N]"""
+ENABLE_THREADS = True
+
 
 class Node(object):
 
@@ -92,36 +93,54 @@ def print_diagnostics():
 
 def time_construction(depth):
     niters = num_iters(depth)
-    println("Creating %d trees of depth %d" % (niters, depth))
+    print "Creating %d trees of depth %d" % (niters, depth)
     t_start = time.time()
     for i in range(niters):
         temp_tree = Node()
         populate(depth, temp_tree)
         temp_tree = None
     t_finish = time.time()
-    println("\tTop down constrution took %f ms" % ((t_finish-t_start)*1000.))
+    print "\tTop down constrution took %f ms" % ((t_finish-t_start)*1000.)
     t_start = time.time()
     for i in range(niters):
         temp_tree = make_tree(depth)
         temp_tree = None
     t_finish = time.time()
-    println("\tBottom up constrution took %f ms" % ((t_finish-t_start)*1000.))
+    print "\tBottom up constrution took %f ms" % ((t_finish-t_start)*1000.)
 
-def main(depths=range(kMinTreeDepth, kMaxTreeDepth+1, 2)):
-    println("Garbage Collector Test")
-    println(" Stretching memory with a binary tree of depth %d" % kStretchTreeDepth)
+DEFAULT_DEPTHS = range(kMinTreeDepth, kMaxTreeDepth+1, 2)
+
+def time_constructions(depths):
+    for d in depths:
+        time_construction(d)
+
+def time_parallel_constructions(depths, nthreads):
+    import threading
+    threadlist = []
+    print "Starting %d parallel threads..." % (nthreads,)
+    for n in range(nthreads):
+        t = threading.Thread(target=time_constructions, args=(depths,))
+        t.start()
+        threadlist.append(t)
+    for t in threadlist:
+        t.join()
+    print "All %d threads finished" % (nthreads,)
+
+def main(depths=DEFAULT_DEPTHS, threads=0):
+    print "Garbage Collector Test"
+    print " Stretching memory with a binary tree of depth %d" % kStretchTreeDepth
     print_diagnostics()
     t_start = time.time()
     temp_tree = make_tree(kStretchTreeDepth)
     temp_tree = None
 
     # Create a long lived object
-    println(" Creating a long-lived binary tree of depth %d" % kLongLivedTreeDepth)
+    print " Creating a long-lived binary tree of depth %d" % kLongLivedTreeDepth
     long_lived_tree = Node()
     populate(kLongLivedTreeDepth, long_lived_tree)
 
     # Create long-lived array, filling half of it
-    println(" Creating a long-lived array of %d doubles" % kArraySize)
+    print " Creating a long-lived array of %d doubles" % kArraySize
     array = [0.0] * kArraySize
     i = 1
     while i < kArraySize/2:
@@ -129,17 +148,57 @@ def main(depths=range(kMinTreeDepth, kMaxTreeDepth+1, 2)):
         i += 1
     print_diagnostics()
 
-    for d in depths:
-        time_construction(d)
+    if threads:
+        time_parallel_constructions(depths, threads)
+    else:
+        time_constructions(depths)
 
-    if long_lived_tree is None or array[1000] != 1.0/1000:
-        println("FAILED")
-        return
+    if long_lived_tree is None or array[1024] != 1.0/1024:
+        raise Failed
 
     t_finish = time.time()
     print_diagnostics()
-    println("Completed in %f ms." % ((t_finish-t_start)*1000.))
+    print "Completed in %f ms." % ((t_finish-t_start)*1000.)
+
+class Failed(Exception):
+    pass
+
+
+def argerror():
+    print "Usage:"
+    print "   ", USAGE
+    return 2
+
+def entry_point(argv):
+    depths = DEFAULT_DEPTHS
+    threads = 0
+    repeatcount = 1
+    for arg in argv[1:]:
+        if arg.startswith('--threads='):
+            arg = arg[len('--threads='):]
+            if not ENABLE_THREADS:
+                print "threads disabled (they cannot be translated)"
+                return 1
+            try:
+                threads = int(arg)
+            except ValueError:
+                return argerror()
+        elif arg.startswith('--depths='):
+            arg = arg[len('--depths='):].split(',')
+            try:
+                depths = [int(s) for s in arg]
+            except ValueError:
+                return argerror()
+        else:
+            try:
+                repeatcount = int(arg)
+            except ValueError:
+                return argerror()
+    for i in range(repeatcount):
+        main(depths, threads)
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    import sys
+    sys.exit(entry_point(sys.argv))

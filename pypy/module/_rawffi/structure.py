@@ -119,7 +119,7 @@ class W_Structure(W_DataShape):
 
 def descr_new_structure(space, w_type, w_shapeinfo):
     if space.is_true(space.isinstance(w_shapeinfo, space.w_tuple)):
-        w_size, w_alignment = space.unpacktuple(w_shapeinfo, expected_length=2)
+        w_size, w_alignment = space.viewiterable(w_shapeinfo, expected_length=2)
         S = W_Structure(space, None, space.int_w(w_size),
                                      space.int_w(w_alignment))
     else:

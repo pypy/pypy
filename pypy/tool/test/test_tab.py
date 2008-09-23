@@ -23,7 +23,7 @@ def test_no_tabs():
                 data = f.read()
                 f.close()
                 assert '\t' not in data, "%r contains tabs!" % (reldir,)
-        elif os.path.isdir(path):
+        elif os.path.isdir(path) and not os.path.islink(path):
             for entry in os.listdir(path):
                 if not entry.startswith('.'):
                     walk('%s/%s' % (reldir, entry))

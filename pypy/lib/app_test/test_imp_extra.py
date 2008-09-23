@@ -44,15 +44,12 @@ def _py_file():
     return fn
 
 def _pyc_file():
-    # XXX quick hack
-    # (that's the bytecode for the module containing only 'marker=42')
+    import marshal
+    co = compile("marker=42", "x.py", "exec")
     f = open('@TEST.pyc', 'wb')
-    f.write('m\xf2\r\n\xd6\x85\x0cCc\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00'
-            '\x00\x00@\x00\x00\x00s\n\x00\x00\x00d\x00\x00Z\x00\x00d\x01\x00'
-            'S(\x02\x00\x00\x00i*\x00\x00\x00N(\x01\x00\x00\x00t\x06\x00\x00'
-            '\x00marker(\x01\x00\x00\x00R\x00\x00\x00\x00(\x00\x00\x00\x00('
-            '\x00\x00\x00\x00t\x04\x00\x00\x00x.pyt\x01\x00\x00\x00?\x01\x00'
-            '\x00\x00s\x00\x00\x00\x00')
+    f.write(imp.get_magic())
+    f.write('\x00\x00\x00\x00')
+    marshal.dump(co, f)
     f.close()
     return '@TEST.pyc'
 

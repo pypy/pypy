@@ -400,6 +400,28 @@ class HLStrEntry(extregistry.ExtRegistryEntry):
         return hop.genop('same_as', [v_ll_str],
                          resulttype = hop.r_result.lowleveltype)
 
+def llstr(s):
+    from pypy.rpython.lltypesystem.rstr import mallocstr
+    # XXX not sure what to do with ootypesystem
+    ll_s = mallocstr(len(s))
+    for i, c in enumerate(s):
+        ll_s.chars[i] = c
+    return ll_s
+
+class LLStrEntry(extregistry.ExtRegistryEntry):
+    _about_ = llstr
+
+    def compute_result_annotation(self, s_str):
+        from pypy.rpython.lltypesystem.rstr import STR
+        return annmodel.lltype_to_annotation(lltype.Ptr(STR))
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        assert hop.args_r[0].lowleveltype == hop.r_result.lowleveltype
+        v_ll_str, = hop.inputargs(*hop.args_r)
+        return hop.genop('same_as', [v_ll_str],
+                         resulttype = hop.r_result.lowleveltype)        
+
 # ____________________________________________________________
 
 def cast_object_to_ptr(PTR, object):

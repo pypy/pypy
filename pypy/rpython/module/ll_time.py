@@ -25,7 +25,6 @@ class CConfig:
     CLOCK_T = platform.SimpleType('clock_t', rffi.INT)
     TIMEVAL = platform.Struct('struct timeval', [('tv_sec', rffi.INT),
                                                  ('tv_usec', rffi.INT)])
-    TIME_T = platform.SimpleType('time_t', rffi.INT)
     HAVE_GETTIMEOFDAY = platform.Has('gettimeofday')
     HAVE_FTIME = platform.Has('ftime')
 
@@ -78,7 +77,7 @@ class RegisterTime(BaseLazyRegistering):
         else:
             c_ftime = None    # to not confuse the flow space
 
-        c_time = self.llexternal('time', [rffi.VOIDP], self.TIME_T,
+        c_time = self.llexternal('time', [rffi.VOIDP], rffi.TIME_T,
                                  _nowrapper=True, threadsafe=False)
 
         def time_time_llimpl():

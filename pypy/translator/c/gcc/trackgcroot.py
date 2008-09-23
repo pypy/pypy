@@ -429,9 +429,10 @@ class FunctionGcRootTracker(object):
 
     IGNORE_OPS_WITH_PREFIXES = dict.fromkeys([
         'cmp', 'test', 'set', 'sahf', 'cltd', 'cld', 'std',
-        'rep', 'movs', 'lods', 'stos', 'scas', 'cwtl',
+        'rep', 'movs', 'lods', 'stos', 'scas', 'cwtl', 'prefetch',
         # floating-point operations cannot produce GC pointers
         'f',
+        'cvt',  # sse2
         # arithmetic operations should not produce GC pointers
         'inc', 'dec', 'not', 'neg', 'or', 'and', 'sbb', 'adc',
         'shl', 'shr', 'sal', 'sar', 'rol', 'ror', 'mul', 'imul', 'div', 'idiv',

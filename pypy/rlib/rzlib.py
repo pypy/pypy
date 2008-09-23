@@ -4,7 +4,11 @@ from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 includes = ['zlib.h']
-libraries = ['z']
+if sys.platform == "win32":
+    libraries = ['zlib']
+else:
+    libraries = ['z']
+
 
 constantnames = '''
     Z_OK  Z_STREAM_ERROR  Z_BUF_ERROR  Z_MEM_ERROR  Z_STREAM_END
@@ -154,9 +158,11 @@ def crc32(string, start=CRC32_DEFAULT_START):
     Compute the CRC32 checksum of the string, possibly with the given
     start value, and return it as a unsigned 32 bit integer.
     """
-    bytes = rffi.str2charp(string)
-    checksum = _crc32(start, rffi.cast(Bytefp, bytes), len(string))
-    rffi.free_charp(bytes)
+    bytes = rffi.get_nonmovingbuffer(string)
+    try:
+        checksum = _crc32(start, rffi.cast(Bytefp, bytes), len(string))
+    finally:
+        rffi.free_nonmovingbuffer(string, bytes)
     return checksum
 
 
@@ -167,9 +173,11 @@ def adler32(string, start=ADLER32_DEFAULT_START):
     Compute the Adler-32 checksum of the string, possibly with the given
     start value, and return it as a unsigned 32 bit integer.
     """
-    bytes = rffi.str2charp(string)
-    checksum = _adler32(start, rffi.cast(Bytefp, bytes), len(string))
-    rffi.free_charp(bytes)
+    bytes = rffi.get_nonmovingbuffer(string)
+    try:
+        checksum = _adler32(start, rffi.cast(Bytefp, bytes), len(string))
+    finally:
+        rffi.free_nonmovingbuffer(string, bytes)
     return checksum
 
 # ____________________________________________________________

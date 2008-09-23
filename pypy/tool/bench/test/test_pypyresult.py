@@ -12,8 +12,8 @@ def gettestpickle(cache=[]):
         return cache[0]
     pp = tmpdir.join("testpickle")
     f = pp.open("wb")
-    pickle.dump({'./pypy-llvm-39474-faassen-c_richards': 5}, f)
-    pickle.dump({'./pypy-llvm-39474-faassen-c_richards': 42.0}, f)
+    pickle.dump({'./pypy-llvm-39474-O3-c_richards': 5}, f)
+    pickle.dump({'./pypy-llvm-39474-O3-c_richards': 42.0}, f)
     f.close()
     cache.append(pp)
     return pp
@@ -38,9 +38,9 @@ def test_BenchResult_cpython():
     assert res.besttime == 2.0
 
 def test_BenchResult_pypy():
-    res = BenchResult("pypy-llvm-39474-faassen-c_richards",
+    res = BenchResult("pypy-llvm-39474-O3-c_richards",
                       besttime=2.0, numruns=3)
-    assert res.executable == "pypy-llvm-39474-faassen-c"
+    assert res.executable == "pypy-llvm-39474-O3-c"
     assert res.revision == 39474
     assert res.name == "richards"
     assert res.numruns == 3

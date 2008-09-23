@@ -119,6 +119,9 @@ def _cast_addr(obj, _, tp):
         result = tp()
         result._buffer[0] = obj
         return result
+    if obj is None:
+        result = tp()
+        return result
     if not (isinstance(obj, _CData) and type(obj)._is_pointer_like()):
         raise TypeError("cast() argument 1 must be a pointer, not %s"
                         % (type(obj),))

@@ -26,7 +26,13 @@ def dirname(filename):
 
 
 def get_grammar_file(version):
-    """returns the python grammar corresponding to our CPython version"""
+    """NOT_RPYTHON
+       Returns the python grammar corresponding to our CPython version."""
+    # building parsers at run-time kind of works, but the logic to load
+    # the grammar file from pypy/interpreter/pyparser/data/, moreover with
+    # a hard-coded absolute path, makes little sense in a translated PyPy.
+    # This is why this function is marked as NOT_RPYTHON.
+
     if version == "native":
         _ver = PYTHON_VERSION
     elif version == "stable":

@@ -9,7 +9,7 @@ class AppTestSocklayer:
                                        "usemodules":("_stackless","_socket", "select")})
     
     def test_socklayer(self):
-        class X:
+        class X(object):
             z = 3
 
         x = X()

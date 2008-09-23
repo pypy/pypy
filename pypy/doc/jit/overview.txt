@@ -57,8 +57,8 @@ far: even though CPython is a simple interpreter, its Java and .NET
 re-implementations are not faster (and cannot run all existing Python
 applications).
 
-Partical results
-----------------
+Practical results
+-----------------
 
 The JIT compilers that we generate use some techniques that are not in
 widespread use so far, but they are not exactly new either.  The point
@@ -146,7 +146,7 @@ More recently, several larger projects have started in the JIT area.  For
 instance, Sun Microsystems is investing in JRuby, which aims to use the Java
 Hotspot JIT to improve the performance of Ruby. However, this requires a lot of
 hand crafting and will only provide speedups for one language on one platform.
-Some issues are delicate, e.g., how to remove the overhead of constant boxing
+Some issues are delicate, e.g., how to remove the overhead of constantly boxing
 and unboxing, typical in dynamic languages.  An advantage compared to PyPy is
 that there are some hand optimizations that can be performed, that do not fit
 in the metaprogramming approach.  But metaprogramming makes the PyPy JIT

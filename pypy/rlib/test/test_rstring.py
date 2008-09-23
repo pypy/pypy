@@ -1,27 +1,20 @@
 
-from pypy.translator.translator import TranslationContext
-from pypy.rlib import rstring
-from pypy.annotation import model as annmodel
+from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
 
-class TestAnnotationStringBuilder:
-    def annotate(self, func, args):
-        t = TranslationContext()
-        res = t.buildannotator().build_types(func, args)
-        return t, res
+def test_string_builder():
+    s = StringBuilder()
+    s.append("a")
+    s.append("abc")
+    s.append("a")
+    s.append_slice("abc", 1, 2)
+    s.append_multiple_char('d', 4)
+    assert s.build() == "aabcabdddd"
 
-    def test_builder(self):
-        def f():
-            return rstring.builder()
-        
-        t, res = self.annotate(f, [])
-        assert isinstance(res, rstring.SomeStringBuilder)
-
-    def test_methods(self):
-        def f(x):
-            b = rstring.builder()
-            for i in range(x):
-                b.append("abc")
-            return b.build()
-
-        t, res = self.annotate(f, [int])
-        assert isinstance(res, annmodel.SomeString)
+def test_unicode_builder():
+    s = UnicodeBuilder()
+    s.append(u'a')
+    s.append(u'abc')
+    s.append_slice(u'abcdef', 1, 2)
+    s.append_multiple_char('d', 4)
+    assert s.build() == 'aabcbdddd'
+    assert isinstance(s.build(), unicode)

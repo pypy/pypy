@@ -1,0 +1,12 @@
+#!/usr/bin/env malbolge
+# --relaxed
+#
+# copy, written by Lou Scheffer
+#
+# copies input to output
+#
+# This application depends on a bug in the original Malbolge
+# interpreter. It may stop functioning, if the bug is fixed
+# and may not work when run on other interpreters.
+
+D'BA@?>=<;:9876543210/.-,+*)('&%$#"!~}|{zyxwvutsrqponmlkjihgfedcba`_^]\[ZYXWVUTSRQPONMLKJIHGFEDCBA@?>=<;:9876543210/.-,+*)('&%$#"!~}|{zyxwvutsrqponmlkjihgfedcba`_^]\[ZYXWVUTSRQPONMLKJIHGFEDC&_十十十十十十十十十十十十十十十十十十篏十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十篏十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十十

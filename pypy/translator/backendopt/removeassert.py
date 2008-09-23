@@ -9,9 +9,9 @@ from pypy.translator.backendopt.support import log
 
 def remove_asserts(translator, graphs):
     rtyper = translator.rtyper
+    excdata = rtyper.exceptiondata
     clsdef = translator.annotator.bookkeeper.getuniqueclassdef(AssertionError)
-    r_AssertionError = rclass.getclassrepr(rtyper, clsdef)
-    ll_AssertionError = r_AssertionError.convert_const(AssertionError)
+    ll_AssertionError = excdata.get_standard_ll_exc_instance(rtyper, clsdef)
     total_count = [0, 0]
 
     for graph in graphs:
@@ -23,8 +23,8 @@ def remove_asserts(translator, graphs):
             join_blocks(graph)
             for link in graph.iterlinks():
                 if (link.target is graph.exceptblock
-                    and isinstance(link.args[0], Constant)
-                    and link.args[0].value == ll_AssertionError):
+                    and isinstance(link.args[1], Constant)
+                    and link.args[1].value == ll_AssertionError):
                     if kill_assertion_link(graph, link):
                         count += 1
                         morework = True

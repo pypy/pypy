@@ -5,8 +5,12 @@ from pypy.objspace.std.objspace import FailedToImplement
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib.rbigint import rbigint
+from pypy.conftest import gettestobjspace
 
 class TestW_LongObject:
+
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.nofaking": True})
 
     def test_bigint_w(self):
         space = self.space
@@ -18,6 +22,22 @@ class TestW_LongObject:
         space.raises_w(space.w_TypeError, space.bigint_w, w_obj)
         w_obj = space.wrap(123.456)
         space.raises_w(space.w_TypeError, space.bigint_w, w_obj)
+
+    def test_rint_variants(self):
+        py.test.skip("XXX broken!")
+        from pypy.rpython.tool.rfficache import platform
+        space = self.space
+        for r in platform.numbertype_to_rclass.values():
+            if r is int:
+                continue
+            print r
+            values = [0, -1, r.MASK>>1, -(r.MASK>>1)-1]
+            for x in values:
+                if not r.SIGNED:
+                    x &= r.MASK
+                w_obj = space.wrap(r(x))
+                assert space.bigint_w(w_obj).eq(rbigint.fromint(x))
+
 
 class AppTestLong:
     def test_add(self):
@@ -38,6 +58,39 @@ class AppTestLong:
     def test_floordiv(self):
         a = 31415926L // 10000000L
         assert a == 3L
+
+    def test_compare(self):
+        BIG = 1L << 9999
+        assert 0 == 0L
+        assert not (0 != 0L)
+        assert 0L == 0
+        assert not (0L != 0)
+        assert not (0 == BIG)
+        assert 0 != BIG
+        assert not (BIG == 0)
+        assert BIG != 0
+        assert not (0L == BIG)
+        assert 0L != BIG
+        assert 0 <= 0L
+        assert not (0 < 0L)
+        assert 0 <= BIG
+        assert 0 < BIG
+        assert not (BIG <= 0)
+        assert not (BIG < 0)
+        assert 0L <= 0L
+        assert not (0L < 0L)
+        assert 0L <= BIG
+        assert 0L < BIG
+        assert not (BIG <= 0L)
+        assert not (BIG < 0L)
+        assert not (0 <= -BIG)
+        assert not (0 < -BIG)
+        assert -BIG <= 0
+        assert -BIG < 0
+        assert not (0L <= -BIG)
+        assert not (0L < -BIG)
+        assert -BIG <= 0L
+        assert -BIG < 0L
 
     def test_conversion(self):
         class long2(long):
@@ -77,7 +130,6 @@ class AppTestLong:
                 assert y < r <= 0
         for x in [-1L, 0L, 1L, 2L ** 100 - 1, -2L ** 100 - 1]:
             for y in [-105566530L, -1L, 1L, 1034522340L]:
-                continue
                 print "checking division for %s, %s" % (x, y)
                 check_division(x, y)
         # special case from python tests:

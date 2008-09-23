@@ -75,7 +75,7 @@ struct RPyOpaque_ThreadLock {
 /* prototypes */
 
 long RPyThreadGetIdent(void);
-long RPyThreadStart(void (*func)(void *), void *arg);
+long RPyThreadStart(void (*func)(void));
 int RPyThreadLockInit(struct RPyOpaque_ThreadLock *lock);
 void RPyOpaqueDealloc_ThreadLock(struct RPyOpaque_ThreadLock *lock);
 int RPyThreadAcquireLock(struct RPyOpaque_ThreadLock *lock, int waitflag);
@@ -105,7 +105,13 @@ long RPyThreadGetIdent(void)
 #endif
 }
 
-long RPyThreadStart(void (*func)(void *), void *arg)
+static void *bootstrap_pthread(void *func)
+{
+  ((void(*)(void))func)();
+  return NULL;
+}
+
+long RPyThreadStart(void (*func)(void))
 {
 	pthread_t th;
 	int status;
@@ -129,8 +135,8 @@ long RPyThreadStart(void (*func)(void *), void *arg)
 #else
 				 (pthread_attr_t*)NULL,
 #endif
-				 (void* (*)(void *))func,
-				 (void *)arg
+				 bootstrap_pthread,
+				 (void *)func
 				 );
 
 #if defined(THREAD_STACK_SIZE) || defined(PTHREAD_SYSTEM_SCHED_SUPPORTED)

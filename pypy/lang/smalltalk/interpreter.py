@@ -1,9 +1,10 @@
 import py
+from pypy.lang.smalltalk.shadow import ContextPartShadow, MethodContextShadow, BlockContextShadow
 from pypy.lang.smalltalk import model, constants, primitives
-from pypy.lang.smalltalk import objtable
-from pypy.lang.smalltalk.model import W_ContextPart
+from pypy.lang.smalltalk.shadow import ContextPartShadow
 from pypy.lang.smalltalk.conftest import option
 from pypy.rlib import objectmodel, unroll
+from pypy.lang.smalltalk import wrapper
 
 
 class MissingBytecode(Exception):
@@ -15,20 +16,24 @@ class MissingBytecode(Exception):
 class IllegalStoreError(Exception):
     """Illegal Store."""
 
-class Interpreter:
-
-    TRUE = objtable.w_true
-    FALSE = objtable.w_false
-    NIL = objtable.w_nil
-    MINUS_ONE = objtable.w_minus_one
-    ZERO = objtable.w_zero
-    ONE = objtable.w_one
-    TWO = objtable.w_two
+class Interpreter(object):
 
     _w_last_active_context = None
     
-    def __init__(self):
-        self.w_active_context = None
+    def __init__(self, space):
+        self._w_active_context = None
+        self.space = space
+        self.cnt = 0
+
+    def w_active_context(self):
+        return self._w_active_context
+
+    def store_w_active_context(self, w_context):
+        assert isinstance(w_context, model.W_PointersObject)
+        self._w_active_context = w_context
+
+    def s_active_context(self):
+        return self.w_active_context().as_context_get_shadow(self.space)
 
     def interpret(self):
         try:
@@ -41,30 +46,35 @@ class Interpreter:
         return (not objectmodel.we_are_translated()) and option.bc_trace
 
     def step(self):
-        next = self.w_active_context.getNextBytecode()
+        next = self.s_active_context().getNextBytecode()
         # we_are_translated returns false on top of CPython and true when
         # translating the interpreter
         if not objectmodel.we_are_translated():
             bytecodeimpl = BYTECODE_TABLE[next]
-            if self._w_last_active_context != self.w_active_context:
-                cnt = 0
-                p = self.w_active_context
-                # AK make method
-                while p is not None:
-                    cnt += 1
-                    p = p.w_sender
-                self._last_indent = "  " * cnt
-                self._w_last_active_context = self.w_active_context
+
             if self.should_trace():
-                
+                if self._w_last_active_context != self.w_active_context():
+                    cnt = 0
+                    p = self.w_active_context()
+                    # AK make method
+                    while p is not self.space.w_nil:
+                        cnt += 1
+                                                  # Do not update the context
+                                                  # for this action.
+                        p = p.as_context_get_shadow(self.space).w_sender()
+                    self._last_indent = "  " * cnt
+                    self._w_last_active_context = self.w_active_context()
+
                 print "%sStack=%s" % (
                     self._last_indent,
-                    repr(self.w_active_context.stack),)
+                    repr(self.s_active_context().stack()),)
                 print "%sBytecode at %d (%d:%s):" % (
                     self._last_indent,
-                    self.w_active_context.pc,
+                    self.s_active_context().pc(),
                     next, bytecodeimpl.__name__,)
-            bytecodeimpl(self.w_active_context, self)
+
+            bytecodeimpl(self.s_active_context(), self)
+
         else:
             # this is a performance optimization: when translating the
             # interpreter, the bytecode dispatching is not implemented as a
@@ -72,7 +82,7 @@ class Interpreter:
             # below produces the switch (by being unrolled).
             for code, bytecodeimpl in unrolling_bytecode_table:
                 if code == next:
-                    bytecodeimpl(self.w_active_context, self)
+                    bytecodeimpl(self.s_active_context(), self)
                     break
 
         
@@ -83,14 +93,14 @@ class ReturnFromTopLevel(Exception):
 # ___________________________________________________________________________
 # Bytecode Implementations:
 #
-# "self" is always a W_ContextPart instance.  
+# "self" is always a ContextPartShadow instance.  
 
-# __extend__ adds new methods to the W_ContextPart class
-class __extend__(W_ContextPart):
+# __extend__ adds new methods to the ContextPartShadow class
+class __extend__(ContextPartShadow):
     # push bytecodes
     def pushReceiverVariableBytecode(self, interp):
         index = self.currentBytecode & 15
-        self.push(self.receiver().fetch(index))
+        self.push(self.w_receiver().fetch(self.space, index))
 
     def pushTemporaryVariableBytecode(self, interp):
         index = self.currentBytecode & 15
@@ -105,14 +115,13 @@ class __extend__(W_ContextPart):
         # which is an object with two named vars, and fetches the second
         # named var (the value).
         index = self.currentBytecode & 31
-        association = self.w_method().getliteral(index)
-        assert isinstance(association, model.W_PointersObject)
-        assert association.size() == 2
-        self.push(association.fetch(constants.ASSOCIATION_VALUE_INDEX))
+        w_association = self.w_method().getliteral(index)
+        association = wrapper.AssociationWrapper(self.space, w_association)
+        self.push(association.value())
 
     def storeAndPopReceiverVariableBytecode(self, interp):
         index = self.currentBytecode & 7
-        self.receiver().store(index, self.pop())
+        self.w_receiver().store(self.space, index, self.pop())
 
     def storeAndPopTemporaryVariableBytecode(self, interp):
         index = self.currentBytecode & 7
@@ -120,31 +129,31 @@ class __extend__(W_ContextPart):
 
     # push bytecodes
     def pushReceiverBytecode(self, interp):
-        self.push(self.receiver())
+        self.push(self.w_receiver())
 
     def pushConstantTrueBytecode(self, interp):
-        self.push(interp.TRUE)
+        self.push(interp.space.w_true)
 
     def pushConstantFalseBytecode(self, interp):
-        self.push(interp.FALSE)
+        self.push(interp.space.w_false)
 
     def pushConstantNilBytecode(self, interp):
-        self.push(interp.NIL)
+        self.push(interp.space.w_nil)
 
     def pushConstantMinusOneBytecode(self, interp):
-        self.push(interp.MINUS_ONE)
+        self.push(interp.space.w_minus_one)
 
     def pushConstantZeroBytecode(self, interp):
-        self.push(interp.ZERO)
+        self.push(interp.space.w_zero)
 
     def pushConstantOneBytecode(self, interp):
-        self.push(interp.ONE)
+        self.push(interp.space.w_one)
 
     def pushConstantTwoBytecode(self, interp):
-        self.push(interp.TWO)
+        self.push(interp.space.w_two)
 
     def pushActiveContextBytecode(self, interp):
-        self.push(self)
+        self.push(self.w_self())
 
     def duplicateTopBytecode(self, interp):
         self.push(self.top())
@@ -158,19 +167,21 @@ class __extend__(W_ContextPart):
     def _sendSelfSelector(self, selector, argcount, interp):
         receiver = self.peek(argcount)
         self._sendSelector(selector, argcount, interp,
-                           receiver, receiver.shadow_of_my_class())             
+                           receiver, receiver.shadow_of_my_class(self.space))
 
     def _sendSuperSelector(self, selector, argcount, interp):
-        s_compiledin = self.w_method().compiledin().as_class_get_shadow()
-        self._sendSelector(selector, argcount, interp, self.receiver(),
-                           s_compiledin.s_superclass)
+        w_compiledin = self.w_method().compiledin()
+        assert isinstance(w_compiledin, model.W_PointersObject)
+        s_compiledin = w_compiledin.as_class_get_shadow(self.space)
+        self._sendSelector(selector, argcount, interp, self.w_receiver(),
+                           s_compiledin.s_superclass())
 
     def _sendSelector(self, selector, argcount, interp,
                       receiver, receiverclassshadow):
         if interp.should_trace():
             print "%sSending selector %r to %r with: %r" % (
                 interp._last_indent, selector, receiver,
-                [self.stack[i-argcount] for i in range(argcount)])
+                [self.peek(argcount-1-i) for i in range(argcount)])
             pass
         assert argcount >= 0
         method = receiverclassshadow.lookup(selector)
@@ -199,36 +210,36 @@ class __extend__(W_ContextPart):
                     if interp.should_trace():
                         print "PRIMITIVE FAILED: %d %s" % (method.primitive, selector,)
                     pass # ignore this error and fall back to the Smalltalk version
-        start = len(self.stack) - argcount
-        assert start >= 0  # XXX check in the Blue Book what to do in this case
-        arguments = self.stack[start:]
-        interp.w_active_context = method.create_frame(receiver, arguments, self) 
-        self.pop_n(argcount + 1) 
+        arguments = self.pop_and_return_n(argcount)
+        frame = method.create_frame(self.space, receiver, arguments,
+                                    self.w_self())
+        interp.store_w_active_context(frame)
+        self.pop()
 
     def _return(self, object, interp, w_return_to):
         # for tests, when returning from the top-level context
-        if w_return_to is None:
+        if w_return_to is self.space.w_nil:
             raise ReturnFromTopLevel(object)
-        w_return_to.push(object)
-        interp.w_active_context = w_return_to
+        w_return_to.as_context_get_shadow(self.space).push(object)
+        interp.store_w_active_context(w_return_to)
 
     def returnReceiver(self, interp):
-        self._return(self.receiver(), interp, self.w_home.w_sender)
+        self._return(self.w_receiver(), interp, self.s_home().w_sender())
 
     def returnTrue(self, interp):
-        self._return(interp.TRUE, interp, self.w_home.w_sender)
+        self._return(interp.space.w_true, interp, self.s_home().w_sender())
 
     def returnFalse(self, interp):
-        self._return(interp.FALSE, interp, self.w_home.w_sender)
+        self._return(interp.space.w_false, interp, self.s_home().w_sender())
 
     def returnNil(self, interp):
-        self._return(interp.NIL, interp, self.w_home.w_sender)
+        self._return(interp.space.w_nil, interp, self.s_home().w_sender())
 
     def returnTopFromMethod(self, interp):
-        self._return(self.top(), interp, self.w_home.w_sender)
+        self._return(self.top(), interp, self.s_home().w_sender())
 
     def returnTopFromBlock(self, interp):
-        self._return(self.top(), interp, self.w_sender)
+        self._return(self.top(), interp, self.w_sender())
 
     def unknownBytecode(self, interp):
         raise MissingBytecode("unknownBytecode")
@@ -241,30 +252,30 @@ class __extend__(W_ContextPart):
     def extendedPushBytecode(self, interp):
         variableType, variableIndex = self.extendedVariableTypeAndIndex()
         if variableType == 0:
-            self.push(self.receiver().fetch(variableIndex))
+            self.push(self.w_receiver().fetch(self.space, variableIndex))
         elif variableType == 1:
             self.push(self.gettemp(variableIndex))
         elif variableType == 2:
             self.push(self.w_method().getliteral(variableIndex))
         elif variableType == 3:
-            association = self.w_method().getliteral(variableIndex)
-            assert isinstance(association, model.W_PointersObject)
-            self.push(association.fetch(constants.ASSOCIATION_VALUE_INDEX))
+            w_association = self.w_method().getliteral(variableIndex)
+            association = wrapper.AssociationWrapper(self.space, w_association)
+            self.push(association.value())
         else:
             assert 0
         
     def extendedStoreBytecode(self, interp):
         variableType, variableIndex = self.extendedVariableTypeAndIndex()
         if variableType == 0:
-            self.receiver().store(variableIndex, self.top())
+            self.w_receiver().store(self.space, variableIndex, self.top())
         elif variableType == 1:
             self.settemp(variableIndex, self.top())
         elif variableType == 2:
             raise IllegalStoreError
         elif variableType == 3:
-            association = self.w_method().getliteral(variableIndex)
-            assert isinstance(association, model.W_PointersObject)
-            association.store(constants.ASSOCIATION_VALUE_INDEX, self.top())
+            w_association = self.w_method().getliteral(variableIndex)
+            association = wrapper.AssociationWrapper(self.space, w_association)
+            association.store_value(self.top())
 
     def extendedStoreAndPopBytecode(self, interp):
         self.extendedStoreBytecode(interp)
@@ -293,23 +304,23 @@ class __extend__(W_ContextPart):
                                     second & 31, interp)
         elif opType == 2:
             # pushReceiver
-            self.push(self.receiver().fetch(third))
+            self.push(self.w_receiver().fetch(self.space, third))
         elif opType == 3:
             # pushLiteralConstant
             self.push(self.w_method().getliteral(third))
         elif opType == 4:
             # pushLiteralVariable
-            association = self.w_method().getliteral(third)
-            assert isinstance(association, model.W_PointersObject)
-            self.push(association.fetch(constants.ASSOCIATION_VALUE_INDEX))
+            w_association = self.w_method().getliteral(third)
+            association = wrapper.AssociationWrapper(self.space, w_association)
+            self.push(association.value())
         elif opType == 5:
-            self.receiver().store(third, self.top())
+            self.w_receiver().store(self.space, third, self.top())
         elif opType == 6:
-            self.receiver().store(third, self.pop())
+            self.w_receiver().store(self.space, third, self.pop())
         elif opType == 7:
-            association = self.w_method().getliteral(third)
-            assert isinstance(association, model.W_PointersObject)
-            association.store(constants.ASSOCIATION_VALUE_INDEX, self.top())
+            w_association = self.w_method().getliteral(third)
+            association = wrapper.AssociationWrapper(self.space, w_association)
+            association.store_value(self.top())
 
     def singleExtendedSuperBytecode(self, interp):
         selector, argcount = self.getExtendedSelectorArgcount()
@@ -328,7 +339,7 @@ class __extend__(W_ContextPart):
         raise MissingBytecode("experimentalBytecode")
 
     def jump(self,offset):
-        self.pc = self.pc + offset
+        self.store_pc(self.pc() + offset)
 
     def jumpConditional(self,bool,position):
         if self.top() == bool:
@@ -342,7 +353,7 @@ class __extend__(W_ContextPart):
         self.jump(self.shortJumpPosition())
 
     def shortConditionalJump(self, interp):
-        self.jumpConditional(interp.FALSE,self.shortJumpPosition())
+        self.jumpConditional(interp.space.w_false, self.shortJumpPosition())
 
     def longUnconditionalJump(self, interp):
         self.jump((((self.currentBytecode & 7) - 4) << 8) + self.getbytecode())
@@ -351,10 +362,10 @@ class __extend__(W_ContextPart):
         return ((self.currentBytecode & 3) << 8) + self.getbytecode()
 
     def longJumpIfTrue(self, interp):
-        self.jumpConditional(interp.TRUE,self.longJumpPosition())
+        self.jumpConditional(interp.space.w_true, self.longJumpPosition())
 
     def longJumpIfFalse(self, interp):
-        self.jumpConditional(interp.FALSE,self.longJumpPosition())
+        self.jumpConditional(interp.space.w_false, self.longJumpPosition())
 
     # RPython trick: specialize the following function on its second argument
     # this makes sure that the primitive call is a direct one
@@ -430,7 +441,7 @@ class __extend__(W_ContextPart):
         self.callPrimitive(primitives.MOD, "\\\\", 1, interp)
 
     def bytecodePrimMakePoint(self, interp):
-        raise MissingBytecode("bytecodePrimMakePoint")
+        self.callPrimitive(primitives.MAKE_POINT, "@", 1, interp)
 
     def bytecodePrimBitShift(self, interp):
         self.callPrimitive(primitives.BIT_SHIFT, "bitShift:", 1, interp)
@@ -512,77 +523,77 @@ class __extend__(W_ContextPart):
 
 
 BYTECODE_RANGES = [
-            (  0,  15, W_ContextPart.pushReceiverVariableBytecode),
-            ( 16,  31, W_ContextPart.pushTemporaryVariableBytecode),
-            ( 32,  63, W_ContextPart.pushLiteralConstantBytecode),
-            ( 64,  95, W_ContextPart.pushLiteralVariableBytecode),
-            ( 96, 103, W_ContextPart.storeAndPopReceiverVariableBytecode),
-            (104, 111, W_ContextPart.storeAndPopTemporaryVariableBytecode),
-            (112, W_ContextPart.pushReceiverBytecode),
-            (113, W_ContextPart.pushConstantTrueBytecode),
-            (114, W_ContextPart.pushConstantFalseBytecode),
-            (115, W_ContextPart.pushConstantNilBytecode),
-            (116, W_ContextPart.pushConstantMinusOneBytecode),
-            (117, W_ContextPart.pushConstantZeroBytecode),
-            (118, W_ContextPart.pushConstantOneBytecode),
-            (119, W_ContextPart.pushConstantTwoBytecode),
-            (120, W_ContextPart.returnReceiver),
-            (121, W_ContextPart.returnTrue),
-            (122, W_ContextPart.returnFalse),
-            (123, W_ContextPart.returnNil),
-            (124, W_ContextPart.returnTopFromMethod),
-            (125, W_ContextPart.returnTopFromBlock),
-            (126, W_ContextPart.unknownBytecode),
-            (127, W_ContextPart.unknownBytecode),
-            (128, W_ContextPart.extendedPushBytecode),
-            (129, W_ContextPart.extendedStoreBytecode),
-            (130, W_ContextPart.extendedStoreAndPopBytecode),
-            (131, W_ContextPart.singleExtendedSendBytecode),
-            (132, W_ContextPart.doubleExtendedDoAnythingBytecode),
-            (133, W_ContextPart.singleExtendedSuperBytecode),
-            (134, W_ContextPart.secondExtendedSendBytecode),
-            (135, W_ContextPart.popStackBytecode),
-            (136, W_ContextPart.duplicateTopBytecode),
-            (137, W_ContextPart.pushActiveContextBytecode),
-            (138, 143, W_ContextPart.experimentalBytecode),
-            (144, 151, W_ContextPart.shortUnconditionalJump),
-            (152, 159, W_ContextPart.shortConditionalJump),
-            (160, 167, W_ContextPart.longUnconditionalJump),
-            (168, 171, W_ContextPart.longJumpIfTrue),
-            (172, 175, W_ContextPart.longJumpIfFalse),
-            (176, W_ContextPart.bytecodePrimAdd),
-            (177, W_ContextPart.bytecodePrimSubtract),
-            (178, W_ContextPart.bytecodePrimLessThan),
-            (179, W_ContextPart.bytecodePrimGreaterThan),
-            (180, W_ContextPart.bytecodePrimLessOrEqual),
-            (181, W_ContextPart.bytecodePrimGreaterOrEqual),
-            (182, W_ContextPart.bytecodePrimEqual),
-            (183, W_ContextPart.bytecodePrimNotEqual),
-            (184, W_ContextPart.bytecodePrimMultiply),
-            (185, W_ContextPart.bytecodePrimDivide),
-            (186, W_ContextPart.bytecodePrimMod),
-            (187, W_ContextPart.bytecodePrimMakePoint),
-            (188, W_ContextPart.bytecodePrimBitShift),
-            (189, W_ContextPart.bytecodePrimDiv),
-            (190, W_ContextPart.bytecodePrimBitAnd),
-            (191, W_ContextPart.bytecodePrimBitOr),
-            (192, W_ContextPart.bytecodePrimAt),
-            (193, W_ContextPart.bytecodePrimAtPut),
-            (194, W_ContextPart.bytecodePrimSize),
-            (195, W_ContextPart.bytecodePrimNext),
-            (196, W_ContextPart.bytecodePrimNextPut),
-            (197, W_ContextPart.bytecodePrimAtEnd),
-            (198, W_ContextPart.bytecodePrimEquivalent),
-            (199, W_ContextPart.bytecodePrimClass),
-            (200, W_ContextPart.bytecodePrimBlockCopy),
-            (201, W_ContextPart.bytecodePrimValue),
-            (202, W_ContextPart.bytecodePrimValueWithArg),
-            (203, W_ContextPart.bytecodePrimDo),
-            (204, W_ContextPart.bytecodePrimNew),
-            (205, W_ContextPart.bytecodePrimNewWithArg),
-            (206, W_ContextPart.bytecodePrimPointX),
-            (207, W_ContextPart.bytecodePrimPointY),
-            (208, 255, W_ContextPart.sendLiteralSelectorBytecode),
+            (  0,  15, ContextPartShadow.pushReceiverVariableBytecode),
+            ( 16,  31, ContextPartShadow.pushTemporaryVariableBytecode),
+            ( 32,  63, ContextPartShadow.pushLiteralConstantBytecode),
+            ( 64,  95, ContextPartShadow.pushLiteralVariableBytecode),
+            ( 96, 103, ContextPartShadow.storeAndPopReceiverVariableBytecode),
+            (104, 111, ContextPartShadow.storeAndPopTemporaryVariableBytecode),
+            (112, ContextPartShadow.pushReceiverBytecode),
+            (113, ContextPartShadow.pushConstantTrueBytecode),
+            (114, ContextPartShadow.pushConstantFalseBytecode),
+            (115, ContextPartShadow.pushConstantNilBytecode),
+            (116, ContextPartShadow.pushConstantMinusOneBytecode),
+            (117, ContextPartShadow.pushConstantZeroBytecode),
+            (118, ContextPartShadow.pushConstantOneBytecode),
+            (119, ContextPartShadow.pushConstantTwoBytecode),
+            (120, ContextPartShadow.returnReceiver),
+            (121, ContextPartShadow.returnTrue),
+            (122, ContextPartShadow.returnFalse),
+            (123, ContextPartShadow.returnNil),
+            (124, ContextPartShadow.returnTopFromMethod),
+            (125, ContextPartShadow.returnTopFromBlock),
+            (126, ContextPartShadow.unknownBytecode),
+            (127, ContextPartShadow.unknownBytecode),
+            (128, ContextPartShadow.extendedPushBytecode),
+            (129, ContextPartShadow.extendedStoreBytecode),
+            (130, ContextPartShadow.extendedStoreAndPopBytecode),
+            (131, ContextPartShadow.singleExtendedSendBytecode),
+            (132, ContextPartShadow.doubleExtendedDoAnythingBytecode),
+            (133, ContextPartShadow.singleExtendedSuperBytecode),
+            (134, ContextPartShadow.secondExtendedSendBytecode),
+            (135, ContextPartShadow.popStackBytecode),
+            (136, ContextPartShadow.duplicateTopBytecode),
+            (137, ContextPartShadow.pushActiveContextBytecode),
+            (138, 143, ContextPartShadow.experimentalBytecode),
+            (144, 151, ContextPartShadow.shortUnconditionalJump),
+            (152, 159, ContextPartShadow.shortConditionalJump),
+            (160, 167, ContextPartShadow.longUnconditionalJump),
+            (168, 171, ContextPartShadow.longJumpIfTrue),
+            (172, 175, ContextPartShadow.longJumpIfFalse),
+            (176, ContextPartShadow.bytecodePrimAdd),
+            (177, ContextPartShadow.bytecodePrimSubtract),
+            (178, ContextPartShadow.bytecodePrimLessThan),
+            (179, ContextPartShadow.bytecodePrimGreaterThan),
+            (180, ContextPartShadow.bytecodePrimLessOrEqual),
+            (181, ContextPartShadow.bytecodePrimGreaterOrEqual),
+            (182, ContextPartShadow.bytecodePrimEqual),
+            (183, ContextPartShadow.bytecodePrimNotEqual),
+            (184, ContextPartShadow.bytecodePrimMultiply),
+            (185, ContextPartShadow.bytecodePrimDivide),
+            (186, ContextPartShadow.bytecodePrimMod),
+            (187, ContextPartShadow.bytecodePrimMakePoint),
+            (188, ContextPartShadow.bytecodePrimBitShift),
+            (189, ContextPartShadow.bytecodePrimDiv),
+            (190, ContextPartShadow.bytecodePrimBitAnd),
+            (191, ContextPartShadow.bytecodePrimBitOr),
+            (192, ContextPartShadow.bytecodePrimAt),
+            (193, ContextPartShadow.bytecodePrimAtPut),
+            (194, ContextPartShadow.bytecodePrimSize),
+            (195, ContextPartShadow.bytecodePrimNext),
+            (196, ContextPartShadow.bytecodePrimNextPut),
+            (197, ContextPartShadow.bytecodePrimAtEnd),
+            (198, ContextPartShadow.bytecodePrimEquivalent),
+            (199, ContextPartShadow.bytecodePrimClass),
+            (200, ContextPartShadow.bytecodePrimBlockCopy),
+            (201, ContextPartShadow.bytecodePrimValue),
+            (202, ContextPartShadow.bytecodePrimValueWithArg),
+            (203, ContextPartShadow.bytecodePrimDo),
+            (204, ContextPartShadow.bytecodePrimNew),
+            (205, ContextPartShadow.bytecodePrimNewWithArg),
+            (206, ContextPartShadow.bytecodePrimPointX),
+            (207, ContextPartShadow.bytecodePrimPointY),
+            (208, 255, ContextPartShadow.sendLiteralSelectorBytecode),
             ]
 
 

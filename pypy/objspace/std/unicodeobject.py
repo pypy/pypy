@@ -134,14 +134,28 @@ def add__Unicode_Unicode(space, w_left, w_right):
     return W_UnicodeObject(w_left._value + w_right._value)
 
 def add__String_Unicode(space, w_left, w_right):
+    # this function is needed to make 'abc'.__add__(u'def') return
+    # u'abcdef' instead of NotImplemented.  This is what occurs on
+    # top of CPython.
     from pypy.objspace.std.unicodetype import unicode_from_string
+    # XXX fragile implementation detail: for "string + unicode subclass",
+    # if the unicode subclass overrides __radd__(), then it will be
+    # called (see test_str_unicode_concat_overrides).  This occurs as a
+    # result of the following call to space.add() in which the first
+    # argument is a unicode and the second argument a subclass of unicode
+    # (and thus the usual logic about calling __radd__() first applies).
     return space.add(unicode_from_string(space, w_left) , w_right)
 
 add__Rope_Unicode = add__String_Unicode
 
 def add__Unicode_String(space, w_left, w_right):
+    # this function is needed to make 'abc'.__radd__(u'def') return
+    # u'defabc', although it's completely unclear if that's necessary
+    # given that CPython doesn't even have a method str.__radd__().
     from pypy.objspace.std.unicodetype import unicode_from_string
     return space.add(w_left, unicode_from_string(space, w_right))
+    # Note about "unicode + string subclass": look for
+    # "cpython bug compatibility" in descroperation.py
 
 add__Unicode_Rope = add__Unicode_String
 
@@ -494,7 +508,7 @@ def unicode_startswith__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start
 def unicode_startswith__Unicode_Tuple_ANY_ANY(space, w_unistr, w_prefixes,
                                               w_start, w_end):
     unistr, start, end = _convert_idx_params(space, w_unistr, w_start, w_end)
-    for w_prefix in space.unpacktuple(w_prefixes):
+    for w_prefix in space.viewiterable(w_prefixes):
         prefix = space.unicode_w(w_prefix)
         if _check_startswith_substring(unistr, prefix, start, end):
             return space.w_True
@@ -503,7 +517,7 @@ def unicode_startswith__Unicode_Tuple_ANY_ANY(space, w_unistr, w_prefixes,
 def unicode_endswith__Unicode_Tuple_ANY_ANY(space, w_unistr, w_suffixes,
                                             w_start, w_end):
     unistr, start, end = _convert_idx_params(space, w_unistr, w_start, w_end)
-    for w_suffix in space.unpacktuple(w_suffixes):
+    for w_suffix in space.viewiterable(w_suffixes):
         suffix = space.unicode_w(w_suffix)
         if _check_endswith_substring(unistr, suffix, start, end):
             return space.w_True
@@ -978,8 +992,7 @@ def mod__Unicode_ANY(space, w_format, w_values):
     return mod_format(space, w_format, w_values, do_unicode=True)
 
 def buffer__Unicode(space, w_unicode):
-    # xxx this is a slightly strange thing...
-    from pypy.module.struct.unichar import pack_unichar
+    from pypy.rlib.rstruct.unichar import pack_unichar
     charlist = []
     for unich in w_unicode._value:
         pack_unichar(unich, charlist)

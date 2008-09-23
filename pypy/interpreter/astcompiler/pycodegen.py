@@ -599,8 +599,8 @@ class CodeGenerator(ast.ASTVisitor):
     def visitListComp(self, node):
         self.set_lineno(node)
         # setup list
-        tmpname = "_[%d]" % self.__list_count
         self.__list_count = self.__list_count + 1
+        tmpname = "_[%d]" % self.__list_count
         self.emitop_int('BUILD_LIST', 0)
         self.emit('DUP_TOP')
         self._implicitNameOp('STORE', tmpname)

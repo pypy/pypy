@@ -1,3 +1,5 @@
+import py; py.test.skip("clonable coroutines not really maintained any more")
+
 from pypy.rlib.rcoroutine import AbstractThunk
 from pypy.module._stackless.rclonable import InterpClonableCoroutine as ClonableCoroutine
 

@@ -434,15 +434,25 @@ class TestTranslatable(object):
 
     def test_args_from_rarith_int(self):
         from pypy.rpython.test.test_llinterp import interpret
-        def fn(x):
-            n1 = rbigint.fromrarith_int(x)
-            n2 = rbigint.fromrarith_int(r_uint(x))
-            return '%s %s' % (n1.str(), n2.str())
-        res = interpret(fn, [0])
-        assert ''.join(res.chars) == '0 0'
-        res = interpret(fn, [sys.maxint])
-        assert ''.join(res.chars) == '%d %d' % (sys.maxint, sys.maxint)
-        res = interpret(fn, [-sys.maxint-1])
-        assert ''.join(res.chars) == '%d %d' % (-sys.maxint-1, sys.maxint+1)
-        res = interpret(fn, [-17])
-        assert ''.join(res.chars) == '%d %d' % (-17, 2*sys.maxint+2-17)
+        from pypy.rpython.tool.rfficache import platform
+        classlist = platform.numbertype_to_rclass.values()
+        fnlist = []
+        for r in classlist:
+            if r is int:
+                mask = sys.maxint*2+1
+                signed = True
+            else:
+                mask = r.MASK
+                signed = r.SIGNED
+            values = [0, -1, mask>>1, -(mask>>1)-1]
+            if not signed:
+                values = [x & mask for x in values]
+            values = [r(x) for x in values]
+
+            def fn(i):
+                n = rbigint.fromrarith_int(values[i])
+                return n.str()
+
+            for i in range(len(values)):
+                res = interpret(fn, [i])
+                assert ''.join(res.chars) == str(long(values[i]))

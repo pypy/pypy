@@ -87,35 +87,48 @@ def str__Float(space, w_float):
     s = formatd("%.12g", x)
     return space.wrap(should_not_look_like_an_int(s))
 
-def lt__Float_Float(space, w_float1, w_float2):
-    i = w_float1.floatval
-    j = w_float2.floatval
-    return space.newbool( i < j )
 
-def le__Float_Float(space, w_float1, w_float2):
-    i = w_float1.floatval
-    j = w_float2.floatval
-    return space.newbool( i <= j )
+def declare_new_float_comparison(opname):
+    import operator
+    from pypy.tool.sourcetools import func_with_new_name
+    op = getattr(operator, opname)
+    def f(space, w_int1, w_int2):
+        i = w_int1.floatval
+        j = w_int2.floatval
+        return space.newbool(op(i, j))
+    name = opname + "__Float_Float"
+    return func_with_new_name(f, name), name
 
-def eq__Float_Float(space, w_float1, w_float2):
-    i = w_float1.floatval
-    j = w_float2.floatval
-    return space.newbool( i == j )
+def declare_new_int_float_comparison(opname):
+    import operator
+    from pypy.tool.sourcetools import func_with_new_name
+    op = getattr(operator, opname)
+    def f(space, w_int1, w_float2):
+        i = w_int1.intval
+        j = w_float2.floatval
+        return space.newbool(op(float(i), j))
+    name = opname + "__Int_Float"
+    return func_with_new_name(f, name), name
 
-def ne__Float_Float(space, w_float1, w_float2):
-    i = w_float1.floatval
-    j = w_float2.floatval
-    return space.newbool( i != j )
+def declare_new_float_int_comparison(opname):
+    import operator
+    from pypy.tool.sourcetools import func_with_new_name
+    op = getattr(operator, opname)
+    def f(space, w_float1, w_int2):
+        i = w_float1.floatval
+        j = w_int2.intval
+        return space.newbool(op(i, float(j)))
+    name = opname + "__Float_Int"
+    return func_with_new_name(f, name), name
 
-def gt__Float_Float(space, w_float1, w_float2):
-    i = w_float1.floatval
-    j = w_float2.floatval
-    return space.newbool( i > j )
-
-def ge__Float_Float(space, w_float1, w_float2):
-    i = w_float1.floatval
-    j = w_float2.floatval
-    return space.newbool( i >= j )
+for op in ['lt', 'le', 'eq', 'ne', 'gt', 'ge']:
+    func, name = declare_new_float_comparison(op)
+    globals()[name] = func
+    # XXX shortcuts disabled: see r54171 and issue #384.
+    #func, name = declare_new_int_float_comparison(op)
+    #globals()[name] = func
+    #func, name = declare_new_float_int_comparison(op)
+    #globals()[name] = func
 
 # for overflowing comparisons between longs and floats
 # XXX we might have to worry (later) about eq__Float_Int, for the case
@@ -337,8 +350,13 @@ def divmod__Float_Float(space, w_float1, w_float2):
 def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
     # XXX it makes sense to do more here than in the backend
     # about sorting out errors!
+
+    # This raises FailedToImplement in cases like overflow where a
+    # (purely theoretical) big-precision float implementation would have
+    # a chance to give a result, and directly OperationError for errors
+    # that we want to force to be reported to the user.
     if not space.is_w(thirdArg, space.w_None):
-        raise FailedToImplement(space.w_TypeError, space.wrap(
+        raise OperationError(space.w_TypeError, space.wrap(
             "pow() 3rd argument not allowed unless all arguments are integers"))
     x = w_float1.floatval
     y = w_float2.floatval
@@ -347,13 +365,13 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
         z = 1.0
     elif x == 0.0:
         if y < 0.0:
-            raise FailedToImplement(space.w_ZeroDivisionError,
+            raise OperationError(space.w_ZeroDivisionError,
                                     space.wrap("0.0 cannot be raised to a negative power"))
         z = 0.0
     else:
         if x < 0.0:
             if math.floor(y) != y:
-                raise FailedToImplement(space.w_ValueError,
+                raise OperationError(space.w_ValueError,
                                         space.wrap("negative number "
                                                    "cannot be raised to a fractional power"))
             if x == -1.0:

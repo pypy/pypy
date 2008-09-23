@@ -111,6 +111,20 @@ class TestTypeObject:
 
 
 class AppTestTypeObject:
+
+    def test_call_type(self):
+        assert type(42) is int
+        C = type('C', (object,), {'x': lambda: 42})
+        unbound_meth = C.x
+        raises(TypeError, unbound_meth)
+        assert unbound_meth.im_func() == 42
+        raises(TypeError, type)
+        raises(TypeError, type, 'test', (object,))
+        raises(TypeError, type, 'test', (object,), {}, 42)
+        raises(TypeError, type, 42, (object,), {})
+        raises(TypeError, type, 'test', 42, {})
+        raises(TypeError, type, 'test', (object,), 42)
+
     def test_bases(self):
         assert int.__bases__ == (object,)
         class X:
@@ -215,15 +229,9 @@ class AppTestTypeObject:
             assert 0, "shouldn't be able to create inheritance cycles"
 
         # let's throw a classic class into the mix:
-        try:
-            class Classic:
-                __metaclass__ = _classobj
-                def meth2(self):
-                    return 3
-        except NameError:
-            class Classic:
-                def meth2(self):
-                    return 3
+        class Classic:
+            def meth2(self):
+                return 3
 
         D.__bases__ = (C, Classic)
 
@@ -319,6 +327,108 @@ class AppTestTypeObject:
         else:
             raise TestFailed, "didn't catch MRO conflict"
 
+    def test_mutable_bases_versus_nonheap_types(self):
+        class A(int):
+            pass
+        class B(int):
+            __slots__ = ['b']
+        class C(int):
+            pass
+        raises(TypeError, 'C.__bases__ = (A,)')
+        raises(TypeError, 'C.__bases__ = (B,)')
+        raises(TypeError, 'C.__bases__ = (C,)')
+        raises(TypeError, 'int.__bases__ = (object,)')
+        C.__bases__ = (int,)
+        #--- the following raises on CPython but works on PyPy.
+        #--- I don't see an obvious reason why it should fail...
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            skip("works on PyPy only")
+        class MostlyLikeInt(int):
+            __slots__ = []
+        C.__bases__ = (MostlyLikeInt,)
+
+    def test_mutable_bases_versus_slots(self):
+        class A(object):
+            __slots__ = ['a']
+        class B(A):
+            __slots__ = ['b1', 'b2']
+        class C(B):
+            pass
+        raises(TypeError, 'C.__bases__ = (A,)')
+
+    def test_mutable_bases_versus_weakref(self):
+        class A(object):
+            __slots__ = ['a']
+        class B(A):
+            __slots__ = ['__weakref__']
+        class C(B):
+            pass
+        raises(TypeError, 'C.__bases__ = (A,)')
+
+    def test_mutable_bases_same_slots(self):
+        class A(object):
+            __slots__ = ['a']
+        class B(A):
+            __slots__ = []
+        class C(B):
+            pass
+        c = C()
+        c.a = 42
+        assert C.__mro__ == (C, B, A, object)
+        C.__bases__ = (A,)
+        assert C.__mro__ == (C, A, object)
+        assert c.a == 42
+
+    def test_mutable_bases_versus_slots_2(self):
+        class A(object):
+            __slots__ = ['a']
+        class B(A):
+            __slots__ = ['b1', 'b2']
+        class C(B):
+            __slots__ = ['c']
+        raises(TypeError, 'C.__bases__ = (A,)')
+
+    def test_mutable_bases_keeping_slots(self):
+        class A(object):
+            __slots__ = ['a']
+        class B(A):
+            __slots__ = []
+        class C(B):
+            __slots__ = ['c']
+        c = C()
+        c.a = 42
+        c.c = 85
+        assert C.__mro__ == (C, B, A, object)
+        C.__bases__ = (A,)
+        assert C.__mro__ == (C, A, object)
+        assert c.a == 42
+        assert c.c == 85
+
+        class D(A):
+            __slots__ = []
+        C.__bases__ = (B, D)
+        assert C.__mro__ == (C, B, D, A, object)
+        assert c.a == 42
+        assert c.c == 85
+        raises(TypeError, 'C.__bases__ = (B, D, B)')
+
+        class E(A):
+            __slots__ = ['e']
+        raises(TypeError, 'C.__bases__ = (B, E)')
+        raises(TypeError, 'C.__bases__ = (E, B)')
+        raises(TypeError, 'C.__bases__ = (E,)')
+
+    def test_compatible_slot_layout(self):
+        class A(object):
+            __slots__ = ['a']
+        class B(A):
+            __slots__ = ['b1', 'b2']
+        class C(A):
+            pass
+        class D(B, C):    # assert does not raise TypeError
+            pass
+
     def test_builtin_add(self):
         x = 5
         assert x.__add__(6) == 11
@@ -369,27 +479,14 @@ class AppTestTypeObject:
         assert type(HasInnerMetaclass) == HasInnerMetaclass.__metaclass__
 
     def test_implicit_metaclass(self):
-        global __metaclass__
-        try:
-            old_metaclass = __metaclass__
-            has_old_metaclass = True
-        except NameError:
-            has_old_metaclass = False
-            
         class __metaclass__(type):
             pass
 
-        class HasImplicitMetaclass:
-            pass
+        g = {'__metaclass__': __metaclass__}
+        exec "class HasImplicitMetaclass: pass\n" in g
 
-        try:
-            assert type(HasImplicitMetaclass) == __metaclass__
-        finally:
-            if has_old_metaclass:
-                __metaclass__ = old_metaclass
-            else:
-                del __metaclass__
-
+        HasImplicitMetaclass = g['HasImplicitMetaclass']
+        assert type(HasImplicitMetaclass) == __metaclass__
 
     def test_mro(self):
         class A_mro(object):
@@ -408,10 +505,12 @@ class AppTestTypeObject:
         assert B_mro().b == 1
         assert getattr(B_mro, 'a', None) == None
         assert getattr(B_mro(), 'a', None) == None
+        # also check what the built-in mro() method would return for 'B_mro'
+        assert type.mro(B_mro) == [B_mro, A_mro, object]
 
     def test_abstract_mro(self):
-        class A1:
-            __metaclass__ = _classobj
+        class A1:    # old-style class
+            pass
         class B1(A1):
             pass
         class C1(A1):
@@ -550,6 +649,53 @@ class AppTestTypeObject:
         assert a.__ == 4
         assert a.__dict__ == {}
 
+    def test_slots_multiple_inheritance(self):
+        class A(object):
+            __slots__ = ['a']
+        class B(A):
+            __slots__ = []
+        class E(A):
+            __slots__ = ['e']
+        class C(B, E):
+            pass
+        c = C()
+        c.a = 42
+        c.e = 85
+        assert c.a == 42
+        assert c.e == 85
+
+    def test_base_attr(self):
+        # check the '__base__'
+        class A(object):
+            __slots__ = ['a']
+        class B(A):
+            __slots__ = []
+        class E(A):
+            __slots__ = ['e']
+        class C(B, E):
+            pass
+        class D(A):
+            __slots__ = []
+        class F(B, D):
+            pass
+        assert C.__base__ is E
+        assert F.__base__ is B
+        assert bool.__base__ is int
+        assert int.__base__ is object
+        assert object.__base__ is None
+
+    def test_cannot_subclass(self):
+        raises(TypeError, type, 'A', (bool,), {})
+
+    def test_slot_conflict(self):
+        class A(object):
+            __slots__ = ['a']
+        class B(A):
+            __slots__ = ['b']
+        class E(A):
+            __slots__ = ['e']
+        raises(TypeError, type, 'C', (B, E), {})
+
     def test_repr(self):
         globals()['__name__'] = 'a'
         class A(object):
@@ -595,7 +741,7 @@ class AppTestTypeObject:
 
     def test_only_classic_bases_fails(self):
         class C:
-            __metaclass__ = _classobj
+            pass
         raises(TypeError, type, 'D', (C,), {})
 
     def test_set___class__(self):

@@ -22,10 +22,25 @@ class TestBasic:
         compiler = ccompiler.new_compiler()
         c_file = udir.join('rffilib.c')
         c_file.write(c_source)
-        compiler.compile([str(c_file)], output_dir='/')
-        compiler.link_shared_lib([str(udir.join('rffilib.o'))],
-                                  'rffi', output_dir=str(udir))
-        cls.lib = ctypes.CDLL(str(udir.join('librffi.so')))
+
+        if sys.platform == 'win32':
+            ccflags = []
+            o_file = 'rffilib.obj'
+            so_file = 'rffi.dll'
+        else:
+            ccflags = ['-fPIC']
+            o_file = 'rffilib.o' 
+            so_file = 'librffi.so'
+
+        rootdir = os.path.splitdrive(str(udir))[0] + '/'
+        compiler.compile([str(c_file)], output_dir=rootdir,
+                         extra_preargs=ccflags)
+
+        compiler.link_shared_lib([str(udir.join(o_file))],
+                                 'rffi', output_dir=str(udir),
+                                 export_symbols = ['int_int_to_struct_p',
+                                                   'int_to_void_p'])
+        cls.lib = ctypes.CDLL(str(udir.join(so_file)))
 
     def test_basic(self):
         assert self.lib

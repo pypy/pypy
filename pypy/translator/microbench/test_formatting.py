@@ -2,8 +2,9 @@ iterations = 100000
 
 def test_simple_formatting():
     i = 0
+    tup = ('foo', 'bar', 'baz')
     while i < iterations:
-        '%s - %s - %s' % ('foo', 'bar', 'baz')
+        '%s - %s - %s' % tup
         i += 1
 
 def test_dict_formatting():
@@ -15,8 +16,9 @@ def test_dict_formatting():
 
 def test_number_formatting():
     i = 0
+    tup = (10, 10.1234, 10.1234)
     while i < iterations:
-        '%04d %g %2f' % (10, 10.1234, 10.1234)
+        '%04d %g %2f' % tup
         i += 1
 
 def test_repr_formatting():
@@ -28,12 +30,14 @@ def test_repr_formatting():
 
 def test_format_unicode():
     i = 0
+    tup = (u'foo', u'bar')
     while i < iterations:
-        '%s %s' % (u'foo', u'bar')
+        '%s %s' % tup
         i += 1
 
 def test_format_long():
     i = 0
+    tup = (100000000000L,)
     while i < iterations:
-        '%d' % (100000000000L,)
+        '%d' % tup
         i += 1

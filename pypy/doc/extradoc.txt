@@ -89,7 +89,7 @@ Talks in 2004
 .. _`py lib slides`: http://codespeak.net/pypy/extradoc/talk/2005-pycon-py.pdf
 .. _`PyCon 2005`: http://codespeak.net/pypy/extradoc/talk/pypy-talk-pycon2005/README.html
 .. _`Trouble in Paradise`: http://codespeak.net/pypy/extradoc/talk/agile2006/during-oss-sprints_talk.pdf
-.. _`Sprint Driven Development`: http://codespeak.net/pypy/extradoc/talk/during-xp2006-sprints.pdf
+.. _`Sprint Driven Development`: http://codespeak.net/pypy/extradoc/talk/xp2006/during-xp2006-sprints.pdf
 .. _`Kill -1`: http://codespeak.net/pypy/extradoc/talk/ep2006/kill_1_agiletalk.pdf
 .. _`Open Source, EU-Funding and Agile Methods`: http://codespeak.net/pypy/extradoc/talk/22c3/agility.pdf
 .. _`PyPy Status`: http://codespeak.net/pypy/extradoc/talk/vancouver/talk.html

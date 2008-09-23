@@ -11,9 +11,15 @@ from _ctypes.builtin import _memmove_addr, _string_at_addr, _memset_addr,\
      set_conversion_mode, _wstring_at_addr
 from _ctypes.union import Union
 
+import os as _os
+
+if _os.name in ("nt", "ce"):
+    from _rawffi import FormatError
+    from _rawffi import check_HRESULT as _check_HRESULT
+
+from _rawffi import FUNCFLAG_STDCALL, FUNCFLAG_CDECL, FUNCFLAG_PYTHONAPI
+
 __version__ = '1.0.2'
 #XXX platform dependant?
 RTLD_LOCAL = 0
 RTLD_GLOBAL = 256
-FUNCFLAG_CDECL = 1
-FUNCFLAG_PYTHONAPI = 4

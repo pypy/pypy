@@ -1,20 +1,11 @@
 import os, sys
 from pypy.translator.goal import gcbench
 
-def entry_point(argv):
-    if len(argv) > 1:
-        n = int(argv[1])
-    else:
-        n = 1
-    while n > 0:
-        gcbench.main()
-        n -= 1
-    return 0
-
 # _____ Define and setup target ___
 
 def target(*args):
-    return entry_point, None
+    gcbench.ENABLE_THREADS = False    # not RPython
+    return gcbench.entry_point, None
 
 """
 Why is this a stand-alone target?

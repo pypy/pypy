@@ -153,8 +153,7 @@ def makeipaddr(name, result=None):
                            flags=AI_PASSIVE,
                            address_to_fill=result)
         if len(info) > 1:
-            raise RSocketError("wildcard resolved to "
-                               "multiple addresses")
+            raise RSocketError("wildcard resolved to multiple addresses")
         return info[0][4]
 
     # IPv4 also supports the special name "<broadcast>".
@@ -588,10 +587,10 @@ class RSocket(object):
             rffi.setintfield(tv, 'c_tv_sec', int(timeout))
             rffi.setintfield(tv, 'c_tv_usec', int((timeout-int(timeout))
                                                   * 1000000))
-            fds = rffi.make(_c.fd_set)
-            rffi.setintfield(fds, 'c_fd_count', 1)
-            fds.c_fd_array[0] = rffi.cast(_c.socketfd_type, self.fd)
-            null = lltype.nullptr(_c.fd_set)
+            fds = lltype.malloc(_c.fd_set.TO, flavor='raw')
+            _c.FD_ZERO(fds)
+            _c.FD_SET(self.fd, fds)
+            null = lltype.nullptr(_c.fd_set.TO)
             if for_writing:
                 n = _c.select(self.fd + 1, null, fds, null, tv)
             else:
@@ -791,7 +790,7 @@ class RSocket(object):
 
     def gettimeout(self):
         """Return the timeout of the socket. A timeout < 0 means that
-        timeouts are dissabled in the socket."""
+        timeouts are disabled in the socket."""
         return self.timeout
     
     def listen(self, backlog):
@@ -814,14 +813,13 @@ class RSocket(object):
         if timeout == 1:
             raise SocketTimeout
         elif timeout == 0:
-            buf = mallocbuf(buffersize)
+            raw_buf, gc_buf = rffi.alloc_buffer(buffersize)
             try:
-                read_bytes = _c.socketrecv(self.fd, buf, buffersize, flags)
+                read_bytes = _c.socketrecv(self.fd, raw_buf, buffersize, flags)
                 if read_bytes >= 0:
-                    assert read_bytes <= buffersize
-                    return ''.join([buf[i] for i in range(read_bytes)])
+                    return rffi.str_from_buffer(raw_buf, gc_buf, buffersize, read_bytes)
             finally:
-                lltype.free(buf, flavor='raw')
+                rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
         raise self.error_handler()
 
     def recvfrom(self, buffersize, flags=0):
@@ -832,11 +830,11 @@ class RSocket(object):
         if timeout == 1:
             raise SocketTimeout
         elif timeout == 0:
-            buf = mallocbuf(buffersize)
+            raw_buf, gc_buf = rffi.alloc_buffer(buffersize)
             try:
                 address, addr_p, addrlen_p = self._addrbuf()
                 try:
-                    read_bytes = _c.recvfrom(self.fd, buf, buffersize, flags,
+                    read_bytes = _c.recvfrom(self.fd, raw_buf, buffersize, flags,
                                              addr_p, addrlen_p)
                     addrlen = rffi.cast(lltype.Signed, addrlen_p[0])
                 finally:
@@ -847,10 +845,10 @@ class RSocket(object):
                         address.addrlen = addrlen
                     else:
                         address = None
-                    data = ''.join([buf[i] for i in range(read_bytes)])
+                    data = rffi.str_from_buffer(raw_buf, gc_buf, buffersize, read_bytes)
                     return (data, address)
             finally:
-                lltype.free(buf, flavor='raw')
+                rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
         raise self.error_handler()
 
     def send_raw(self, dataptr, length, flags=0):
@@ -869,18 +867,18 @@ class RSocket(object):
         """Send a data string to the socket.  For the optional flags
         argument, see the Unix manual.  Return the number of bytes
         sent; this may be less than len(data) if the network is busy."""
-        dataptr = rffi.str2charp(data)
+        dataptr = rffi.get_nonmovingbuffer(data)
         try:
             return self.send_raw(dataptr, len(data), flags)
         finally:
-            rffi.free_charp(dataptr)
+            rffi.free_nonmovingbuffer(data, dataptr)
 
     def sendall(self, data, flags=0):
         """Send a data string to the socket.  For the optional flags
         argument, see the Unix manual.  This calls send() repeatedly
         until all data is sent.  If an error occurs, it's impossible
         to tell how much data has been sent."""
-        dataptr = rffi.str2charp(data)
+        dataptr = rffi.get_nonmovingbuffer(data)
         try:
             remaining = len(data)
             p = dataptr
@@ -889,7 +887,7 @@ class RSocket(object):
                 p = rffi.ptradd(p, res)
                 remaining -= res
         finally:
-            rffi.free_charp(dataptr)
+            rffi.free_nonmovingbuffer(data, dataptr)
 
     def sendto(self, data, flags, address):
         """Like send(data, flags) but allows specifying the destination
@@ -1265,7 +1263,7 @@ if hasattr(_c, 'inet_ntop'):
             raise RSocketError("unknown address family")
         if len(packed) != srcsize:
             raise ValueError("packed IP wrong length for inet_ntop")
-        srcbuf = rffi.str2charp(packed)
+        srcbuf = rffi.get_nonmovingbuffer(packed)
         try:
             dstbuf = mallocbuf(dstsize)
             try:
@@ -1276,7 +1274,7 @@ if hasattr(_c, 'inet_ntop'):
             finally:
                 lltype.free(dstbuf, flavor='raw')
         finally:
-            lltype.free(srcbuf, flavor='raw')
+            rffi.free_nonmovingbuffer(packed, srcbuf)
 
 def setdefaulttimeout(timeout):
     if timeout < 0.0:

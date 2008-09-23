@@ -4,6 +4,13 @@ The essential objects are tasklets and channels.
 Please refer to their documentation.
 """
 
+DEBUG = True
+
+def dprint(*args):
+    for arg in args:
+        print arg,
+    print
+
 import traceback
 import sys
 try:
@@ -209,6 +216,48 @@ class channel(object):
     is resumed. If there is no waiting receiver, the sender is suspended.
     By receiving from a channel, a tasklet that is waiting to send
     is resumed. If there is no waiting sender, the receiver is suspended.
+
+    Attributes:
+
+    preference
+    ----------
+    -1: prefer receiver
+     0: don't prefer anything
+     1: prefer sender
+
+    Pseudocode that shows in what situation a schedule happens:
+
+    def send(arg):
+        if !receiver:
+            schedule()
+        elif schedule_all:
+            schedule()
+        else:
+            if (prefer receiver):
+                schedule()
+            else (don't prefer anything, prefer sender):
+                pass
+
+        NOW THE INTERESTING STUFF HAPPENS
+
+    def receive():
+        if !sender:
+            schedule()
+        elif schedule_all:
+            schedule()
+        else:
+            if (prefer sender):
+                schedule()
+            else (don't prefer anything, prefer receiver):
+                pass
+
+        NOW THE INTERESTING STUFF HAPPENS
+
+    schedule_all
+    ------------
+    True: overwrite preference. This means that the current tasklet always
+          schedules before returning from send/receive (it always blocks).
+          (see Stackless/module/channelobject.c)
     """
 
     def __init__(self, label=''):
@@ -216,6 +265,8 @@ class channel(object):
         self.closing = False
         self.queue = deque()
         self.label = label
+        self.preference = -1
+        self.schedule_all = False
 
     def __str__(self):
         return 'channel[%s](%s,%s)' % (self.label, self.balance, self.queue)
@@ -239,6 +290,63 @@ class channel(object):
         """
         self.closing = False
 
+    def _channel_action(self, arg, d):
+        """
+        d == -1 : receive
+        d ==  1 : send
+
+        the original CStackless has an argument 'stackl' which is not used
+        here.
+
+        'target' is the peer tasklet to the current one
+        """
+        do_schedule=False
+        assert abs(d) == 1
+        source = getcurrent()
+        source.tempval = arg
+        if d > 0:
+            cando = self.balance < 0
+            dir = d
+        else:
+            cando = self.balance > 0
+            dir = 0
+
+        if _channel_callback is not None:
+            _channel_callback(self, source, dir, not cando)
+        self.balance += d
+        if cando:
+            # communication 1): there is somebody waiting
+            target = self.queue.popleft()
+            source.tempval, target.tempval = target.tempval, source.tempval
+            target.blocked = 0
+            if self.schedule_all:
+                # always schedule 
+                _scheduler_append(target)
+                do_schedule = True
+            elif self.preference == -d:
+                _scheduler_append(target, False)
+                do_schedule = True
+            else:
+                _scheduler_append(target)
+        else:
+            # communication 2): there is nobody waiting
+#            if source.block_trap:
+#                raise RuntimeError("this tasklet does not like to be blocked")
+#            if self.closing:
+#                raise StopIteration()
+            source.blocked = d
+            self.queue.append(source)
+            _scheduler_remove(getcurrent())
+            do_schedule = True
+
+        if do_schedule:
+            schedule()
+
+        retval = source.tempval
+        if isinstance(retval, bomb):
+            retval.raise_()
+        return retval
+
     def receive(self):
         """
         channel.receive() -- receive a value over the channel.
@@ -247,32 +355,9 @@ class channel(object):
         continue immediately, and the sender is put at the end of
         the runnables list.
         The above policy can be changed by setting channel flags.
-        XXX channel flags are not implemented, yet.
         """
-        receiver = getcurrent()
-        willblock = not self.balance > 0
-        if _channel_callback is not None:
-            _channel_callback(self, receiver, 0, willblock)
-        if self.balance > 0: # somebody is already sending
-            self.balance -= 1
-            sender = self.queue.popleft()
-            sender.blocked = False
-            receiver.tempval = sender.tempval
-            _scheduler_append(sender)
-        else: # nobody is waiting
-            self.balance -= 1
-            self.queue.append(receiver)
-            receiver.blocked = True
-            _scheduler_remove(getcurrent())
-            schedule()
-            assert not receiver.blocked
-          
-        # XXX wrong. This check should happen on every context switch, not here.  
-        msg = receiver.tempval
-        if isinstance(msg, bomb):
-            msg.raise_()
-        return msg
-        
+        return self._channel_action(None, -1)
+
     register_stackless_primitive(receive, retval_expr='receiver.tempval')
 
     def send_exception(self, exp_type, msg):
@@ -290,25 +375,7 @@ class channel(object):
         be activated immediately, and the sender is put at the end of
         the runnables list.
         """
-        sender = getcurrent()
-        sender.tempval = msg
-        willblock = not self.balance < 0
-        if _channel_callback is not None:
-            _channel_callback(self, sender, 1, willblock)
-        if self.balance < 0: # somebody is already waiting
-            receiver = self.queue.popleft()
-            receiver.blocked = False
-            self.balance += 1
-            receiver.tempval = msg
-            _scheduler_append(receiver, False)
-            schedule()
-        else: # nobody is waiting
-            self.queue.append(sender)
-            sender.blocked = True
-            self.balance += 1
-            _scheduler_remove(getcurrent())
-            schedule()
-            assert not sender.blocked
+        return self._channel_action(msg, 1)
             
     register_stackless_primitive(send)
             

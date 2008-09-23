@@ -15,29 +15,15 @@ from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer("translation")
 py.log.setconsumer("translation", ansi_log)
 
-DEFAULTS = {
-  'translation.gc': 'ref',
-  'translation.cc': None,
-  'translation.profopt': None,
 
-  'translation.thread': False, # influences GC policy
-
-  'translation.stackless': False,
-  'translation.debug': True,
-  'translation.insist': False,
-  'translation.backend': 'c',
-  'translation.fork_before': None,
-  'translation.backendopt.raisingop2direct_call' : False,
-  'translation.backendopt.merge_if_blocks': True,
-}
-
-
-def taskdef(taskfunc, deps, title, new_state=None, expected_states=[], idemp=False):
+def taskdef(taskfunc, deps, title, new_state=None, expected_states=[],
+            idemp=False, earlycheck=None):
     taskfunc.task_deps = deps
     taskfunc.task_title = title
     taskfunc.task_newstate = None
     taskfunc.task_expected_states = expected_states
     taskfunc.task_idempotent = idemp
+    taskfunc.task_earlycheck = earlycheck
     return taskfunc
 
 # TODO:
@@ -91,7 +77,7 @@ class TranslationDriver(SimpleTaskEngine):
 
         if config is None:
             from pypy.config.pypyoption import get_pypy_config
-            config = get_pypy_config(DEFAULTS, translating=True)
+            config = get_pypy_config(translating=True)
         self.config = config
         if overrides is not None:
             self.config.override(overrides)
@@ -129,7 +115,7 @@ class TranslationDriver(SimpleTaskEngine):
             explicit_task = task
             parts = task.split('_')
             if len(parts) == 1:
-                if task in ('annotate'):
+                if task in ('annotate',):
                     expose_task(task)
             else:
                 task, postfix = parts
@@ -379,6 +365,7 @@ class TranslationDriver(SimpleTaskEngine):
         "Backendopt before Hint-annotate")
 
     def task_hintannotate_lltype(self):
+        raise NotImplementedError("JIT is not implemented on trunk, look at oo-jit branch instead")
         from pypy.jit.hintannotator.annotator import HintAnnotator
         from pypy.jit.hintannotator.model import OriginFlags
         from pypy.jit.hintannotator.model import SomeLLAbstractConstant
@@ -407,6 +394,8 @@ class TranslationDriver(SimpleTaskEngine):
                                        "Hint-annotate")
 
     def task_timeshift_lltype(self):
+        raise NotImplementedError("JIT is not implemented on trunk, look at oo-jit branch instead")
+
         from pypy.jit.timeshifter.hrtyper import HintRTyper
         from pypy.jit.codegen import detect_cpu
         cpu = detect_cpu.autodetect()
@@ -460,6 +449,16 @@ class TranslationDriver(SimpleTaskEngine):
         "inserting stack checks")
     STACKCHECKINSERTION = 'stackcheckinsertion_lltype'
 
+    def possibly_check_for_boehm(self):
+        if self.config.translation.gc == "boehm":
+            from pypy.translator.tool.cbuild import check_boehm_presence
+            from pypy.translator.tool.cbuild import CompilationError
+            try:
+                check_boehm_presence(noerr=False)
+            except CompilationError, e:
+                i = 'Boehm GC not installed.  Try e.g. "translate.py --gc=hybrid"'
+                raise CompilationError('%s\n--------------------\n%s' % (e, i))
+
     def task_database_c(self):
         translator = self.translator
         if translator.annotator is not None:
@@ -483,7 +482,8 @@ class TranslationDriver(SimpleTaskEngine):
     #
     task_database_c = taskdef(task_database_c,
                             [STACKCHECKINSERTION, '?'+BACKENDOPT, RTYPE, '?annotate'], 
-                            "Creating database for generating c source")
+                            "Creating database for generating c source",
+                            earlycheck = possibly_check_for_boehm)
     
     def task_source_c(self):  # xxx messy
         translator = self.translator
@@ -666,8 +666,13 @@ class TranslationDriver(SimpleTaskEngine):
         f = file(newexename, 'w')
         f.write("""#!/bin/bash
 LEDIT=`type -p ledit`
+EXE=`readlink $0`
+if [ -z $EXE ]
+then
+    EXE=$0
+fi
 if  uname -s | grep -iq Cygwin ; then MONO=; else MONO=mono; fi
-$LEDIT $MONO "$(dirname $0)/$(basename $0)-data/%s" "$@" # XXX doesn't work if it's placed in PATH
+$LEDIT $MONO "$(dirname $EXE)/$(basename $EXE)-data/%s" "$@" # XXX doesn't work if it's placed in PATH
 """ % main_exe_name)
         f.close()
         os.chmod(newexename, 0755)
@@ -738,7 +743,12 @@ $LEDIT $MONO "$(dirname $0)/$(basename $0)-data/%s" "$@" # XXX doesn't work if i
         f = file(newexename, 'w')
         f.write("""#!/bin/bash
 LEDIT=`type -p ledit`
-$LEDIT java -Xmx256m -jar $0.jar "$@"
+EXE=`readlink $0`
+if [ -z $EXE ]
+then
+    EXE=$0
+fi
+$LEDIT java -Xmx256m -jar $EXE.jar "$@"
 """)
         f.close()
         os.chmod(newexename, 0755)
@@ -828,6 +838,8 @@ $LEDIT java -Xmx256m -jar $0.jar "$@"
 
     # checkpointing support
     def _event(self, kind, goal, func):
+        if kind == 'planned' and func.task_earlycheck:
+            func.task_earlycheck(self)
         if kind == 'pre':
             fork_before = self.config.translation.fork_before
             if fork_before:

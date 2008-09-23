@@ -160,6 +160,11 @@ EXPORT(int) _testfunc_callback_with_pointer(int (*func)(int *))
 	return (*func)(table);
 }
 
+EXPORT(int) _testfunc_callback_opaque(int (*func)(void*), void* arg)
+{
+  return (*func)(arg);
+}
+
 #ifdef HAVE_LONG_LONG
 EXPORT(LONG_LONG) _testfunc_q_bhilfdq(signed char b, short h, int i, long l, float f,
 				     double d, LONG_LONG q)
@@ -526,3 +531,4 @@ EXPORT(UN) ret_un_func(UN inp)
 	inp.y = inp.x * 10000;
 	return inp;
 }
+

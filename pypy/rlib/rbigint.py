@@ -1,5 +1,5 @@
 from pypy.rlib.rarithmetic import LONG_BIT, intmask, r_uint, r_ulonglong
-from pypy.rlib.rarithmetic import ovfcheck, r_longlong
+from pypy.rlib.rarithmetic import ovfcheck, r_longlong, widen
 
 import math, sys
 
@@ -613,7 +613,7 @@ def digits_for_most_neg_long(l):
     return digits
 digits_for_most_neg_long._annspecialcase_ = "specialize:argtype(0)"
 
-def args_from_rarith_int(x):
+def args_from_rarith_int1(x):
     if x > 0:
         return digits_from_nonneg_long(x), 1
     elif x == 0:
@@ -631,6 +631,10 @@ def args_from_rarith_int(x):
         else:
             # the most negative integer! hacks needed...
             return digits_for_most_neg_long(x), -1
+args_from_rarith_int1._annspecialcase_ = "specialize:argtype(0)"
+
+def args_from_rarith_int(x):
+    return args_from_rarith_int1(widen(x))
 args_from_rarith_int._annspecialcase_ = "specialize:argtype(0)"
 # ^^^ specialized by the precise type of 'x', which is typically a r_xxx
 #     instance from rlib.rarithmetic

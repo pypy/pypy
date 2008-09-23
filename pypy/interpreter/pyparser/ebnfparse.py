@@ -29,6 +29,8 @@ def is_py_name( name ):
 
 class NameToken(Token):
     """A token that is not a keyword"""
+    isKeyword = False
+
     def __init__(self, parser):
         Token.__init__(self, parser, parser.tokens['NAME'])
 
@@ -56,8 +58,7 @@ class NameToken(Token):
 
 
     def match_token(self, builder, other):
-        """special case of match token for tokens which are really keywords
-        """
+        # Historical stuff.  Might be useful for debugging.
         if not isinstance(other, Token):
             raise RuntimeError("Unexpected token type")
         if other is self.parser.EmptyToken:

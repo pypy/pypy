@@ -306,10 +306,20 @@ class AppTestPosix:
             assert os.getuid() == self.getuid
             assert os.geteuid() == self.geteuid
 
+    if hasattr(os, 'setuid'):
+        def test_os_setuid_error(self):
+            os = self.posix
+            raises(OSError, os.setuid, -100000)
+
     if hasattr(os, 'getgid'):
         def test_os_getgid(self):
             os = self.posix
             assert os.getgid() == self.getgid
+
+    if hasattr(os, 'setgid'):
+        def test_os_setgid_error(self):
+            os = self.posix
+            raises(OSError, os.setgid, -100000)
 
     if hasattr(os, 'sysconf'):
         def test_os_sysconf(self):
@@ -317,6 +327,10 @@ class AppTestPosix:
             assert os.sysconf(self.sysconf_value) == self.sysconf_result
             assert os.sysconf(self.sysconf_name) == self.sysconf_result
             assert os.sysconf_names[self.sysconf_name] == self.sysconf_value
+
+        def test_os_sysconf_error(self):
+            os = self.posix
+            raises(ValueError, os.sysconf, "!@#$%!#$!@#")
 
     def test_largefile(self):
         os = self.posix
@@ -376,6 +390,23 @@ class AppTestPosix:
             assert os.WIFSIGNALED(status1)
             assert os.WTERMSIG(status1) == self.SIGABRT
         pass # <- please, inspect.getsource(), don't crash
+
+    def test_closerange(self):
+        os = self.posix
+        if not hasattr(os, 'closerange'):
+            skip("missing os.closerange()")
+        fds = [os.open(self.path + str(i), os.O_CREAT|os.O_WRONLY, 0777)
+               for i in range(15)]
+        fds.sort()
+        start = fds.pop()
+        stop = start + 1
+        while len(fds) > 3 and fds[-1] == start - 1:
+            start = fds.pop()
+        os.closerange(start, stop)
+        for fd in fds:
+            os.close(fd)     # should not have been closed
+        for fd in range(start, stop):
+            raises(OSError, os.fstat, fd)   # should have been closed
 
 
 class AppTestEnvironment(object):

@@ -1,3 +1,5 @@
+import py; py.test.skip("clonable coroutines not really maintained any more")
+
 from pypy.conftest import gettestobjspace, option
 import py, sys
 

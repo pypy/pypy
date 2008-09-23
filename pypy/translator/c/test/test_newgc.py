@@ -2,6 +2,7 @@ import autopath
 import sys
 import py
 from py.test import raises
+import os
 
 from pypy.objspace.flow.model import summary
 from pypy.translator.translator import TranslationContext
@@ -10,19 +11,23 @@ from pypy.translator.c import genc, gc
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.memory.test import snippet
+from pypy.rlib.objectmodel import keepalive_until_here
+from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
 from pypy import conftest
+from pypy.tool.udir import udir
 
 def compile_func(fn, inputtypes, t=None, gcpolicy="ref"):
     from pypy.config.pypyoption import get_pypy_config
     config = get_pypy_config(translating=True)
     config.translation.gc = gcpolicy
+    config.translation.countmallocs = True
     if t is None:
         t = TranslationContext(config=config)
     if inputtypes is not None:
         t.buildannotator().build_types(fn, inputtypes)
         t.buildrtyper().specialize()
     builder = genc.CExtModuleBuilder(t, fn, config=config)
-    builder.generate_source(defines={'COUNT_OP_MALLOCS': 1})
+    builder.generate_source()
     builder.compile()
     if conftest.option.view:
         t.view()
@@ -281,6 +286,8 @@ from pypy.translator.c.test.test_boehm import AbstractGCTestClass
 class TestUsingFramework(AbstractGCTestClass):
     gcpolicy = "marksweep"
     should_be_moving = False
+    GC_CAN_MOVE = False
+    GC_CANNOT_MALLOC_NONMOVABLE = False
 
     # interface for snippet.py
     large_tests_ok = True
@@ -813,28 +820,51 @@ class TestUsingFramework(AbstractGCTestClass):
         c_fn = self.getcompiled(f)
         assert c_fn() == 0
 
+    def test_open_read_write_seek_close(self):
+        filename = str(udir.join('test_open_read_write_close.txt'))
+        def does_stuff():
+            fd = os.open(filename, os.O_WRONLY | os.O_CREAT, 0777)
+            count = os.write(fd, "hello world\n")
+            assert count == len("hello world\n")
+            os.close(fd)
+            fd = os.open(filename, os.O_RDONLY, 0777)
+            result = os.lseek(fd, 1, 0)
+            assert result == 1
+            data = os.read(fd, 500)
+            assert data == "ello world\n"
+            os.close(fd)
+
+        f1 = self.getcompiled(does_stuff)
+        f1()
+        assert open(filename, 'r').read() == "hello world\n"
+        os.unlink(filename)
+
     def test_callback_with_collect(self):
-        py.test.skip("Segfaults")
-        from pypy.rlib.libffi import ffi_type_pointer, ffi_type_slong,\
+        from pypy.rlib.libffi import ffi_type_pointer, cast_type_to_ffitype,\
              CDLL, ffi_type_void, CallbackFuncPtr, ffi_type_sint
-        from pypy.rpython.lltypesystem import rffi
+        from pypy.rpython.lltypesystem import rffi, ll2ctypes
         from pypy.rlib import rgc
         import gc
+        slong = cast_type_to_ffitype(rffi.LONG)
+
+        from pypy.rpython.lltypesystem.ll2ctypes import libc_name
 
         def callback(ll_args, ll_res, stuff):
-            a1 = rffi.cast(rffi.INTP, rffi.cast(rffi.VOIDPP, ll_args[0])[0])[0]
-            a2 = rffi.cast(rffi.INTP, rffi.cast(rffi.VOIDPP, ll_args[0])[1])[0]
+            gc.collect()
+            p_a1 = rffi.cast(rffi.VOIDPP, ll_args[0])[0]
+            p_a2 = rffi.cast(rffi.VOIDPP, ll_args[1])[0]
+            a1 = rffi.cast(rffi.INTP, p_a1)[0]
+            a2 = rffi.cast(rffi.INTP, p_a2)[0]
             res = rffi.cast(rffi.INTP, ll_res)
             if a1 > a2:
                 res[0] = 1
             else:
                 res[0] = -1
-            gc.collect()
 
         def f():
-            libc = CDLL('libc.so.6')
-            qsort = libc.getpointer('qsort', [ffi_type_pointer, ffi_type_slong,
-                                              ffi_type_slong, ffi_type_pointer],
+            libc = CDLL(libc_name)
+            qsort = libc.getpointer('qsort', [ffi_type_pointer, slong,
+                                              slong, ffi_type_pointer],
                                 ffi_type_void)
 
             ptr = CallbackFuncPtr([ffi_type_pointer, ffi_type_pointer],
@@ -853,40 +883,59 @@ class TestUsingFramework(AbstractGCTestClass):
             qsort.call(lltype.Void)
             result = [to_sort[i] for i in range(4)] == [1,2,3,4]
             lltype.free(to_sort, flavor='raw')
+            keepalive_until_here(ptr)
             return int(result)
 
         c_fn = self.getcompiled(f)
         assert c_fn() == 1
+    
+    def test_can_move(self):
+        from pypy.rlib import rgc
+        class A:
+            pass
+        def fn():
+            return rgc.can_move(A())
 
-class TestUsingStacklessFramework(TestUsingFramework):
+        c_fn = self.getcompiled(fn)
+        assert c_fn() == self.GC_CAN_MOVE
 
-    def getcompiled(self, f):
-        # XXX quick hack
-        from pypy.translator.c.test.test_stackless import StacklessTest
-        runner = StacklessTest()
-        runner.gcpolicy = self.gcpolicy
-        runner.stacklessgc = True
-        try:
-            res = runner.wrap_stackless_function(f)
-        except py.process.cmdexec.Error, e:
-            if 'Fatal RPython error: MemoryError' in e.err:
-                res = MemoryError
-            else:
-                raise
-        self.t = runner.t
-        def compiled():
-            if res is MemoryError:
-                raise MemoryError
-            else:
-                return res
-        return compiled
+    def test_malloc_nonmovable(self):
+        TP = lltype.GcArray(lltype.Char)
+        def func():
+            try:
+                from pypy.rlib import rgc
+                a = rgc.malloc_nonmovable(TP, 3)
+                rgc.collect()
+                if a:
+                    assert not rgc.can_move(a)
+                    return 0
+                return 1
+            except Exception, e:
+                return 2
 
-    def test_weakref(self):
-        py.test.skip("fails for some reason I couldn't figure out yet :-(")
+        run = self.getcompiled(func)
+        assert run() == self.GC_CANNOT_MALLOC_NONMOVABLE
+
+    def test_resizable_buffer(self):
+        from pypy.rpython.lltypesystem.rstr import STR
+        from pypy.rpython.annlowlevel import hlstr
+        from pypy.rlib import rgc
+
+        def f():
+            ptr = rgc.resizable_buffer_of_shape(STR, 2)
+            ptr.chars[0] = 'a'
+            ptr = rgc.resize_buffer(ptr, 1, 200)
+            ptr.chars[1] = 'b'
+            return hlstr(rgc.finish_building_buffer(ptr, 2)) == "ab"
+
+        run = self.getcompiled(f)
+        assert run() == True
 
 class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTests):
     gcpolicy = "semispace"
     should_be_moving = True
+    GC_CAN_MOVE = True
+    GC_CANNOT_MALLOC_NONMOVABLE = True
 
     def test_many_ids(self):
         from pypy.rlib.objectmodel import compute_unique_id
@@ -938,7 +987,35 @@ class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTests):
         c_fn = self.getcompiled(fn)
         res = c_fn()
         assert res == 2
-
+        
+    def test_string_builder(self):
+        def fn():
+            s = StringBuilder()
+            s.append("a")
+            s.append("abc")
+            s.append_slice("abc", 1, 2)
+            s.append_multiple_char('d', 4)
+            return s.build()
+        c_fn = self.getcompiled(fn)
+        res = c_fn()
+        assert res == "aabcbdddd"
+    
+    def test_string_builder_over_allocation(self):
+        import gc
+        def fn():
+            s = StringBuilder(4)
+            s.append("abcd")
+            s.append("defg")
+            s.append("rty")
+            s.append_multiple_char('y', 1000)
+            gc.collect()
+            s.append_multiple_char('y', 1000)
+            res = s.build()
+            gc.collect()
+            return res
+        c_fn = self.getcompiled(fn)
+        res = c_fn()
+        assert res[1000] == 'y'
 
 class TestGenerationalGC(TestSemiSpaceGC):
     gcpolicy = "generation"
@@ -947,6 +1024,7 @@ class TestGenerationalGC(TestSemiSpaceGC):
 class TestHybridGC(TestGenerationalGC):
     gcpolicy = "hybrid"
     should_be_moving = True
+    GC_CANNOT_MALLOC_NONMOVABLE = False
 
     def test_gc_set_max_heap_size(self):
         py.test.skip("not implemented")

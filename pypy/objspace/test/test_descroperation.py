@@ -15,6 +15,11 @@ class Test_DescrOperation:
 
 
 class AppTest_Descroperation:
+    OPTIONS = {}
+
+    def setup_class(cls):
+        from pypy import conftest
+        cls.space = conftest.gettestobjspace(**cls.OPTIONS)
 
     def test_special_methods(self):
         class A(object):
@@ -312,3 +317,36 @@ class AppTest_Descroperation:
         a3 = A()
         a4 = A()
         assert (a1 < a3) == (a1 < a4) == (a2 < a3) == (a2 < a4)
+
+    def test_setattrweakref(self):
+        skip("fails, works in cpython")
+        # The issue is that in CPython, none of the built-in types have
+        # a __weakref__ descriptor, even if their instances are weakrefable.
+        # Should we emulate this?
+        class P(object):
+            pass
+
+        setattr(P, "__weakref__", 0)
+
+    def test_subclass_comparison(self):
+        l = []
+        class A(object):
+            def __eq__(self, other):
+                l.append(self.__class__)
+                l.append(other.__class__)
+                return False
+
+            def __lt__(self, other):
+                l.append(self.__class__)
+                l.append(other.__class__)
+                return False
+
+        class B(A):
+            pass
+
+        A() == B()
+        A() < B()
+        assert l == [B, A, A, B]
+
+class AppTestWithBuiltinShortcut(AppTest_Descroperation):
+    OPTIONS = {'objspace.std.builtinshortcut': True}

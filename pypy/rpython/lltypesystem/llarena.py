@@ -245,6 +245,9 @@ class RoundedUpForAllocation(llmemory.AddressOffset):
     def __repr__(self):
         return '< RoundedUpForAllocation %r >' % (self.basesize,)
 
+    def known_nonneg(self):
+        return self.basesize.known_nonneg()
+
     def ref(self, ptr):
         return self.basesize.ref(ptr)
 
@@ -388,7 +391,7 @@ register_external(arena_reserve, [llmemory.Address, int], None,
                   sandboxsafe=True)
 
 llimpl_round_up_for_allocation = rffi.llexternal('ROUND_UP_FOR_ALLOCATION',
-                                                 [rffi.INT], rffi.INT,
+                                                 [lltype.Signed], lltype.Signed,
                                                  sandboxsafe=True,
                                                  _nowrapper=True)
 register_external(round_up_for_allocation, [int], int,

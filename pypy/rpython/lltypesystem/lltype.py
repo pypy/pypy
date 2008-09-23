@@ -905,6 +905,8 @@ def normalizeptr(p):
         return p      # primitive
     if not p:
         return None   # null pointer
+    if type(p._obj0) is int:
+        return p      # a pointer obtained by cast_int_to_ptr
     container = p._obj._normalizedcontainer()
     if container is not p._obj:
         p = _ptr(Ptr(typeOf(container)), container, p._solid)
@@ -985,7 +987,7 @@ class _abstract_ptr(object):
     _obj = property(_getobj)
 
     def _was_freed(self):
-        return (self._obj0 is not None and
+        return (type(self._obj0) not in (type(None), int) and
                 self._getobj(check=False)._was_freed())
 
     def __getattr__(self, field_name): # ! can only return basic or ptr !
@@ -1512,9 +1514,16 @@ class _subarray(_parentable):     # only for direct_fieldptr()
     def __init__(self, TYPE, parent, baseoffset_or_fieldname):
         _parentable.__init__(self, TYPE)
         self._setparentstructure(parent, baseoffset_or_fieldname)
+        # Keep the parent array alive, we share the same allocation.
+        # Don't do it if we are inside a GC object, though -- it's someone
+        # else's job to keep the GC object alive
+        if typeOf(top_container(parent))._gckind == 'raw':
+            self._keepparent = parent
 
     def __repr__(self):
-        
+        parent = self._wrparent()
+        if parent is None:
+            return '<_subarray at %s in already freed>' % (self._parent_index,)
         return '<_subarray at %r in %r>' % (self._parent_index,
                                             self._parentstructure(check=False))
 

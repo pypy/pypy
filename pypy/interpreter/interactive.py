@@ -73,7 +73,7 @@ class Completer:
         words = self.get_words(w_clz)
         try:                
             w_bases = s.getattr(w_clz, s.wrap("__bases__"))             
-            bases_w = s.unpacktuple(w_bases)
+            bases_w = s.viewiterable(w_bases)
 
         except error.OperationError:
             return words

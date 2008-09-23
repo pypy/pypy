@@ -95,6 +95,15 @@ def test_truncate():
     assert f.getvalue() == '\x00' * 3
     assert f.tell() == 3
 
+def test_bug():
+    f = RStringIO()
+    f.write('0')
+    f.write('1')
+    f.write('2')
+    assert f.getvalue() == '012'
+    f.write('3')
+    assert f.getvalue() == '0123'
+
 def test_stress():
     import cStringIO, random
     f = RStringIO()

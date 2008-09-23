@@ -240,30 +240,29 @@ def insert_stackcheck(ann):
 def insert_ll_stackcheck(translator):
     from pypy.translator.backendopt.support import find_calls_from
     from pypy.rlib.rstack import stack_check
-    from pypy.tool.algo.graphlib import Edge, make_edge_dict, break_cycles
+    from pypy.tool.algo.graphlib import Edge, make_edge_dict, break_cycles_v
     rtyper = translator.rtyper
     graph = rtyper.annotate_helper(stack_check, [])
     rtyper.specialize_more_blocks()
     stack_check_ptr = rtyper.getcallable(graph)
     stack_check_ptr_const = Constant(stack_check_ptr, lltype.typeOf(stack_check_ptr))
-    edges = []
-    graphs_to_patch = {}
-    insert_in = {}
+    edges = set()
+    insert_in = set()
     for caller in translator.graphs:
         for block, callee in find_calls_from(translator, caller):
             if getattr(getattr(callee, 'func', None),
                        'insert_stack_check_here', False):
-                insert_in[callee.startblock] = True
+                insert_in.add(callee.startblock)
                 continue
-            edge = Edge(caller, callee)
-            edge.block = block
-            edges.append(edge)
+            if block is not caller.startblock:
+                edges.add((caller.startblock, block))
+            edges.add((block, callee.startblock))
 
-    edgedict = make_edge_dict(edges)
-    for edge in break_cycles(edgedict, edgedict):
-        block = edge.block
-        insert_in[block] = True
-        
+    edgelist = [Edge(block1, block2) for (block1, block2) in edges]
+    edgedict = make_edge_dict(edgelist)
+    for block in break_cycles_v(edgedict, edgedict):
+        insert_in.add(block)
+
     for block in insert_in:
         v = Variable()
         v.concretetype = lltype.Void

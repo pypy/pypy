@@ -3,6 +3,7 @@ from pypy.rpython.lltypesystem.llmemory import raw_memcopy, raw_memclear
 from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
 from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
 from pypy.rpython.memory.support import get_address_stack, get_address_deque
+from pypy.rpython.memory.support import AddressDict
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena
 from pypy.rlib.objectmodel import free_non_gc_object
@@ -38,6 +39,10 @@ class SemiSpaceGC(MovingGCBase):
                                   ('forw', llmemory.Address))
     FORWARDSTUBPTR = lltype.Ptr(FORWARDSTUB)
 
+    # the following values override the default arguments of __init__ when
+    # translating to a real backend.
+    TRANSLATION_PARAMS = {'space_size': 8*1024*1024} # XXX adjust
+
     def __init__(self, chunk_size=DEFAULT_CHUNK_SIZE, space_size=4096,
                  max_space_size=sys.maxint//2+1):
         MovingGCBase.__init__(self)
@@ -46,8 +51,11 @@ class SemiSpaceGC(MovingGCBase):
         self.gcheaderbuilder = GCHeaderBuilder(self.HDR)
         self.AddressStack = get_address_stack(chunk_size)
         self.AddressDeque = get_address_deque(chunk_size)
+        self.AddressDict = AddressDict
         self.finalizer_lock_count = 0
         self.red_zone = 0
+        self.id_free_list = self.AddressStack()
+        self.next_free_id = 1
 
     def setup(self):
         if DEBUG_PRINT:
@@ -62,14 +70,7 @@ class SemiSpaceGC(MovingGCBase):
         self.objects_with_finalizers = self.AddressDeque()
         self.run_finalizers = self.AddressDeque()
         self.objects_with_weakrefs = self.AddressStack()
-
-    def disable_finalizers(self):
-        self.finalizer_lock_count += 1
-
-    def enable_finalizers(self):
-        self.finalizer_lock_count -= 1
-        if self.run_finalizers.non_empty():
-            self.execute_finalizers()
+        self.objects_with_id = self.AddressDict()
 
     # This class only defines the malloc_{fixed,var}size_clear() methods
     # because the spaces are filled with zeroes in advance.
@@ -198,9 +199,11 @@ class SemiSpaceGC(MovingGCBase):
         self.max_space_size = size
 
     def collect(self):
+        self.debug_check_consistency()
         self.semispace_collect()
         # the indirection is required by the fact that collect() is referred
         # to by the gc transformer, and the default argument would crash
+        # (this is also a hook for the HybridGC)
 
     def semispace_collect(self, size_changing=False):
         if DEBUG_PRINT:
@@ -229,8 +232,9 @@ class SemiSpaceGC(MovingGCBase):
             scan = self.deal_with_objects_with_finalizers(scan)
         if self.objects_with_weakrefs.non_empty():
             self.invalidate_weakrefs()
+        self.update_objects_with_id()
         self.finished_full_collect()
-        self.notify_objects_just_moved()
+        self.debug_check_consistency()
         if not size_changing:
             llarena.arena_reset(fromspace, self.space_size, True)
             self.record_red_zone()
@@ -310,22 +314,28 @@ class SemiSpaceGC(MovingGCBase):
         root.address[0] = self.copy(root.address[0])
 
     def copy(self, obj):
+        if self.DEBUG:
+            self.debug_check_can_copy(obj)
         if self.is_forwarded(obj):
             #llop.debug_print(lltype.Void, obj, "already copied to", self.get_forwarding_address(obj))
             return self.get_forwarding_address(obj)
         else:
-            newaddr = self.free
             objsize = self.get_size(obj)
-            totalsize = self.size_gc_header() + objsize
-            llarena.arena_reserve(newaddr, totalsize)
-            raw_memcopy(obj - self.size_gc_header(), newaddr, totalsize)
-            self.free += totalsize
-            newobj = newaddr + self.size_gc_header()
+            newobj = self.make_a_copy(obj, objsize)
             #llop.debug_print(lltype.Void, obj, "copied to", newobj,
             #                 "tid", self.header(obj).tid,
             #                 "size", totalsize)
             self.set_forwarding_address(obj, newobj, objsize)
             return newobj
+
+    def make_a_copy(self, obj, objsize):
+        totalsize = self.size_gc_header() + objsize
+        newaddr = self.free
+        self.free += totalsize
+        llarena.arena_reserve(newaddr, totalsize)
+        raw_memcopy(obj - self.size_gc_header(), newaddr, totalsize)
+        newobj = newaddr + self.size_gc_header()
+        return newobj
 
     def trace_and_copy(self, obj):
         self.trace(obj, self._trace_copy, None)
@@ -333,6 +343,14 @@ class SemiSpaceGC(MovingGCBase):
     def _trace_copy(self, pointer, ignored):
         if pointer.address[0] != NULL:
             pointer.address[0] = self.copy(pointer.address[0])
+
+    def surviving(self, obj):
+        # To use during a collection.  Check if the object is currently
+        # marked as surviving the collection.  This is equivalent to
+        # self.is_forwarded() for all objects except the nonmoving objects
+        # created by the HybridGC subclass.  In all cases, if an object
+        # survives, self.get_forwarding_address() returns its new address.
+        return self.is_forwarded(obj)
 
     def is_forwarded(self, obj):
         return self.header(obj).tid & GCFLAG_FORWARDED != 0
@@ -419,7 +437,7 @@ class SemiSpaceGC(MovingGCBase):
             x = self.objects_with_finalizers.popleft()
             ll_assert(self._finalization_state(x) != 1, 
                       "bad finalization state 1")
-            if self.is_forwarded(x):
+            if self.surviving(x):
                 new_with_finalizer.append(self.get_forwarding_address(x))
                 continue
             marked.append(x)
@@ -462,7 +480,7 @@ class SemiSpaceGC(MovingGCBase):
     _append_if_nonnull = staticmethod(_append_if_nonnull)
 
     def _finalization_state(self, obj):
-        if self.is_forwarded(obj):
+        if self.surviving(obj):
             newobj = self.get_forwarding_address(obj)
             hdr = self.header(newobj)
             if hdr.tid & GCFLAG_FINALIZATION_ORDERING:
@@ -512,14 +530,14 @@ class SemiSpaceGC(MovingGCBase):
         new_with_weakref = self.AddressStack()
         while self.objects_with_weakrefs.non_empty():
             obj = self.objects_with_weakrefs.pop()
-            if not self.is_forwarded(obj):
+            if not self.surviving(obj):
                 continue # weakref itself dies
             obj = self.get_forwarding_address(obj)
             offset = self.weakpointer_offset(self.get_type_id(obj))
             pointing_to = (obj + offset).address[0]
             # XXX I think that pointing_to cannot be NULL here
             if pointing_to:
-                if self.is_forwarded(pointing_to):
+                if self.surviving(pointing_to):
                     (obj + offset).address[0] = self.get_forwarding_address(
                         pointing_to)
                     new_with_weakref.append(obj)
@@ -551,6 +569,81 @@ class SemiSpaceGC(MovingGCBase):
                 finalizer(obj)
         finally:
             self.finalizer_lock_count -= 1
+
+    def id(self, ptr):
+        obj = llmemory.cast_ptr_to_adr(ptr)
+        if self.header(obj).tid & GCFLAG_EXTERNAL:
+            result = self._compute_id_for_external(obj)
+        else:
+            result = self._compute_id(obj)
+        return llmemory.cast_adr_to_int(result)
+
+    def _next_id(self):
+        # return an id not currently in use (as an address instead of an int)
+        if self.id_free_list.non_empty():
+            result = self.id_free_list.pop()    # reuse a dead id
+        else:
+            # make up a fresh id number
+            result = llmemory.cast_int_to_adr(self.next_free_id)
+            self.next_free_id += 2    # only odd numbers, to make lltype
+                                      # and llmemory happy and to avoid
+                                      # clashes with real addresses
+        return result
+
+    def _compute_id(self, obj):
+        # look if the object is listed in objects_with_id
+        result = self.objects_with_id.get(obj)
+        if not result:
+            result = self._next_id()
+            self.objects_with_id.setitem(obj, result)
+        return result
+
+    def _compute_id_for_external(self, obj):
+        # For prebuilt objects, we can simply return their address.
+        # This method is overriden by the HybridGC.
+        return obj
+
+    def update_objects_with_id(self):
+        old = self.objects_with_id
+        new_objects_with_id = self.AddressDict(old.length())
+        old.foreach(self._update_object_id_FAST, new_objects_with_id)
+        old.delete()
+        self.objects_with_id = new_objects_with_id
+
+    def _update_object_id(self, obj, id, new_objects_with_id):
+        # safe version (used by subclasses)
+        if self.surviving(obj):
+            newobj = self.get_forwarding_address(obj)
+            new_objects_with_id.setitem(newobj, id)
+        else:
+            self.id_free_list.append(id)
+
+    def _update_object_id_FAST(self, obj, id, new_objects_with_id):
+        # unsafe version, assumes that the new_objects_with_id is large enough
+        if self.surviving(obj):
+            newobj = self.get_forwarding_address(obj)
+            new_objects_with_id.insertclean(newobj, id)
+        else:
+            self.id_free_list.append(id)
+
+    def debug_check_object(self, obj):
+        """Check the invariants about 'obj' that should be true
+        between collections."""
+        tid = self.header(obj).tid
+        if tid & GCFLAG_EXTERNAL:
+            ll_assert(tid & GCFLAG_FORWARDED, "bug: external+!forwarded")
+            ll_assert(not (self.tospace <= obj < self.free),
+                      "external flag but object inside the semispaces")
+        else:
+            ll_assert(not (tid & GCFLAG_FORWARDED), "bug: !external+forwarded")
+            ll_assert(self.tospace <= obj < self.free,
+                      "!external flag but object outside the semispaces")
+        ll_assert(not (tid & GCFLAG_FINALIZATION_ORDERING),
+                  "unexpected GCFLAG_FINALIZATION_ORDERING")
+
+    def debug_check_can_copy(self, obj):
+        ll_assert(not (self.tospace <= obj < self.free),
+                  "copy() on already-copied object")
 
     STATISTICS_NUMBERS = 0
 

@@ -1,22 +1,28 @@
 
 
 class AppTestUserObject:
+    OPTIONS = {}    # for test_builtinshortcut.py
+
+    def setup_class(cls):
+        from pypy import conftest
+        cls.space = conftest.gettestobjspace(**cls.OPTIONS)
+
     def test_emptyclass(self):
-        class empty: pass
+        class empty(object): pass
         inst = empty()
         assert isinstance(inst, empty)
-        inst.attr=23
-        assert inst.attr ==23
+        inst.attr = 23
+        assert inst.attr == 23
 
     def test_method(self):
-        class A:
+        class A(object):
             def f(self, v):
                 return v*42
         a = A()
         assert a.f('?') == '??????????????????????????????????????????'
 
     def test_unboundmethod(self):
-        class A:
+        class A(object):
             def f(self, v):
                 return v*17
         a = A()
@@ -40,7 +46,7 @@ class AppTestUserObject:
         assert len(result) ==3
 
     def test_subsubclass(self):
-        class base:
+        class base(object):
             baseattr = 12
         class derived(base):
             derivedattr = 34
@@ -50,7 +56,7 @@ class AppTestUserObject:
         assert inst.derivedattr ==34
 
     def test_descr_get(self):
-        class C:
+        class C(object):
             class desc(object):
                 def __get__(self, ob, cls=None):
                     return 42
@@ -80,21 +86,21 @@ class AppTestUserObject:
         assert c.wibble == 22
 
     def test_class_setattr(self):
-        class C:
+        class C(object):
             pass
         C.a = 1
         assert hasattr(C, 'a')
         assert C.a == 1
 
     def test_add(self):
-        class C:
+        class C(object):
             def __add__(self, other):
                 return self, other
         c1 = C()
         assert c1+3 == (c1, 3)
 
     def test_call(self):
-        class C:
+        class C(object):
             def __call__(self, *args):
                 return args
         c1 = C()
@@ -112,7 +118,7 @@ class AppTestUserObject:
         assert c1.a == '->a'
 
     def test_getattr(self):
-        class C:
+        class C(object):
             def __getattr__(self, name):
                 return '->' + name
         c1 = C()
@@ -182,3 +188,42 @@ class AppTestUserObject:
         c.m = lambda: "instance"
         res = c.m()
         assert res == "instance"
+
+    def test_override_builtin_methods(self):
+        class myint(int):
+            def __add__(self, other):
+                return 'add'
+            def __rsub__(self, other):
+                return 'rsub'
+        assert myint(3) + 5 == 'add'
+        assert 5 + myint(3) == 8
+        assert myint(3) - 5 == -2
+        assert 5 - myint(3) == 'rsub'
+
+    def test_repr(self):
+        class Foo(object):
+            pass
+        Foo.__module__ = 'a.b.c'
+        s = repr(Foo())
+        assert s.startswith('<a.b.c.Foo object at ')
+
+class AppTestWithMultiMethodVersion2(AppTestUserObject):
+    OPTIONS = {}    # for test_builtinshortcut.py
+
+    def setup_class(cls):
+        from pypy import conftest
+        from pypy.objspace.std import multimethod
+
+        cls.prev_installer = multimethod.Installer
+        multimethod.Installer = multimethod.InstallerVersion2
+        config = conftest.make_config(conftest.option, **cls.OPTIONS)
+        cls.space = conftest.maketestobjspace(config)
+
+    def teardown_class(cls):
+        from pypy.objspace.std import multimethod
+        multimethod.Installer = cls.prev_installer
+
+
+class AppTestWithGetAttributeShortcut(AppTestUserObject):
+    OPTIONS = {"objspace.std.getattributeshortcut": True}
+

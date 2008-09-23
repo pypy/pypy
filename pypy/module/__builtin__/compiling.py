@@ -67,9 +67,9 @@ If only globals is given, locals defaults to it.
                              "<string>", "eval")
         except OperationError, e:
             if e.match(space, space.w_SyntaxError):
-                e_value_w = space.unpacktuple(e.w_value)
+                e_value_w = space.viewiterable(e.w_value)
                 if len(e_value_w) == 2:
-                    e_loc_w = space.unpacktuple(e_value_w[1])
+                    e_loc_w = space.viewiterable(e_value_w[1])
                     e.w_value = space.newtuple([e_value_w[0],
                                                 space.newtuple([space.w_None]+
                                                                e_loc_w[1:])])

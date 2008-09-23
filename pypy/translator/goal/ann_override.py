@@ -13,7 +13,7 @@ def isidentifier(s):
     s = s.replace('_', 'x')
     return s[0].isalpha() and s.isalnum()
 
-# patch - mostly for debugging, to enfore some signatures
+# patch - mostly for debugging, to enforce some signatures
 baseobjspace.ObjSpace.newbool.im_func._annenforceargs_ = Sig(lambda s1,s2: s1,
                                                              bool)
 

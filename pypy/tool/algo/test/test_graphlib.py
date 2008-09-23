@@ -57,6 +57,30 @@ class TestSimple:
                 edges['B'][1] in result or
                 edges['E'][0] in result)
 
+    def test_break_cycles_v(self):
+        edges = copy_edges(self.edges)
+        edges['R'] = [Edge('R', 'B')]
+        saved = copy_edges(edges)
+        result = list(break_cycles_v(edges, edges))
+        assert edges == saved
+        assert len(result) == 2
+        result.sort()
+        assert ''.join(result) == 'AD'
+        # the answers 'BD' and 'DE' are correct too, but 'AD' should
+        # be picked because 'A' is the cycle's node that is the further
+        # from the root 'R'.
+
+    def test_find_roots(self):
+        roots = list(find_roots(self.edges, self.edges))
+        roots.sort()
+        assert ''.join(roots) in ('AG', 'BG', 'EG')
+
+        edges = copy_edges(self.edges)
+        edges['R'] = [Edge('R', 'B')]
+        roots = list(find_roots(edges, edges))
+        roots.sort()
+        assert ''.join(roots) == 'GR'
+
 
 class TestLoops:
     # a graph with 20 loops of length 10 each, plus an edge from each loop to
@@ -75,10 +99,14 @@ class TestLoops:
         edges = self.edges
         result = list(strong_components(self.vertices, edges))
         assert len(result) == 20
-        result.sort()
-        for i in range(20):
-            comp = list(result[i])
+        result2 = []
+        for comp in result:
+            comp = list(comp)
             comp.sort()
+            result2.append(comp)
+        result2.sort()
+        for i in range(20):
+            comp = result2[i]
             assert comp == range(i*10, (i+1)*10)
 
     def test_break_cycles(self, edges=None):
@@ -95,6 +123,18 @@ class TestLoops:
         edges = copy_edges(self.edges)
         edges[190].append(Edge(190, 5))
         self.test_break_cycles(edges)
+
+    def test_find_roots(self):
+        roots = find_roots(self.vertices, self.edges)
+        assert len(roots) == 1
+        v = list(roots)[0]
+        assert v in range(10)
+
+    def test_find_roots_2(self):
+        edges = copy_edges(self.edges)
+        edges[190].append(Edge(190, 5))
+        roots = find_roots(self.vertices, edges)
+        assert len(roots) == 1
 
 
 class TestTree:
@@ -117,6 +157,12 @@ class TestTree:
     def test_break_cycles(self):
         result = list(break_cycles(self.edges, self.edges))
         assert not result
+
+    def test_find_roots(self):
+        roots = find_roots(self.edges, self.edges)
+        assert len(roots) == 1
+        v = list(roots)[0]
+        assert v == 0
 
 
 class TestChainAndLoop:
@@ -153,7 +199,13 @@ class TestBadCase:
 
     def test_break_cycles(self):
         result = list(break_cycles(self.edges, self.edges))
+        print len(result)
         assert result
+
+    def test_find_roots(self):
+        roots = find_roots(self.edges, self.edges)
+        assert len(roots) == 1
+        assert list(roots)[0] in self.edges
 
 
 class TestRandom:
@@ -169,3 +221,20 @@ class TestRandom:
         expected = self.edges.keys()
         expected.sort()
         assert vertices == expected
+
+    def test_break_cycles(self):
+        list(break_cycles(self.edges, self.edges))
+        # assert is_acyclic(): included in break_cycles() itself
+
+    def test_break_cycles_v(self):
+        result = list(break_cycles_v(self.edges, self.edges))
+        # assert is_acyclic(): included in break_cycles_v() itself
+        print len(result), 'vertices removed'
+
+    def test_find_roots(self):
+        roots = find_roots(self.edges, self.edges)
+        reachable = set()
+        for root in roots:
+            reachable |= set(vertices_reachable_from(root, self.edges,
+                                                     self.edges))
+        assert reachable == set(self.edges)

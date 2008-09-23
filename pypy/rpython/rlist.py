@@ -312,7 +312,7 @@ class __extend__(pairtype(AbstractBaseListRepr, AbstractBaseListRepr)):
         return hop.genop('bool_not', [flag], resulttype=Bool)
 
 
-def rtype_newlist(hop, v_sizehint=None):
+def rtype_newlist(hop):
     nb_args = hop.nb_args
     r_list = hop.r_result
     if r_list == robject.pyobj_repr: # special case: SomeObject lists!
@@ -326,8 +326,7 @@ def rtype_newlist(hop, v_sizehint=None):
         return v_result
     r_listitem = r_list.item_repr
     items_v = [hop.inputarg(r_listitem, arg=i) for i in range(nb_args)]
-    return hop.rtyper.type_system.rlist.newlist(hop.llops, r_list, items_v,
-                                                v_sizehint=v_sizehint)
+    return hop.rtyper.type_system.rlist.newlist(hop.llops, r_list, items_v)
 
 def rtype_alloc_and_set(hop):
     r_list = hop.r_result

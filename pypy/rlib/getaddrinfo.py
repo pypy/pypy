@@ -228,7 +228,7 @@ def get_addr(hostname, socktype, protocol, port, address_to_fill):
     for address in address_list:
         if address.family == _c.AF_INET:
             a = address.lock(_c.sockaddr_in)
-            rffi.setintfield(a, 'c_sin_port', port & 0xffff)
+            rffi.setintfield(a, 'c_sin_port', r_uint(port) & 0xffff)
             address.unlock()
         a = address.lock()
         addr = make_address(a, address.addrlen, address_to_fill)

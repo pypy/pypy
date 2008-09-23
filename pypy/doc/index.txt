@@ -75,7 +75,7 @@ Status
 ===================================
 
 PyPy can be used to run Python programs on Linux, OS/X,
-Windows, on top of .NET, and (recently) on top of Java.
+Windows, on top of .NET, and on top of Java.
 It is recommended to try out the current Subversion HEAD,
 which contains `major improvements`__ since the last release.
 
@@ -83,10 +83,8 @@ which contains `major improvements`__ since the last release.
 
 PyPy is mainly developed on Linux and Mac OS X.  Windows is supported,
 but platform-specific bugs tend to take longer before we notice and fix
-them.  About 64-bit machines: although support is mostly present, we
-decided to stop tracking and fixing the remaining issues for a while, as
-an attempt to keep some focus.  So PyPy requires a 32-bit machine or OS
-for now.
+them.  Linux 64-bit machines are supported (though it may also take some
+time before we notice and fix bugs).
 
 PyPy's own tests, daily updated, `on Linux`_, `on Windows`_
  and `on built pypy-c`_.
@@ -95,8 +93,7 @@ PyPy's own tests, daily updated, `on Linux`_, `on Windows`_
 
 `Nightly compliance test runs for compiled pypy-c`_.
 
-`compliance test status`_ shows outcomes of compliance test runs
-against PyPy on top of CPython.
+information dating from early 2007: 
 
 `PyPy LOC statistics`_ shows LOC statistics about PyPy.
 
@@ -135,6 +132,9 @@ of the `EU reports`_.
 `translation aspects`_ describes how we weave different
 properties into our interpreter during the translation
 process. This document is also part of the `EU reports`_.
+
+`garbage collector`_ strategies that can be used by the virtual
+machines produced by the translation process.
 
 `parser`_ contains (outdated, unfinished) documentation about
 the parser.
@@ -221,15 +221,6 @@ Directory                      explanation/links
 
 `jit/`_                        the `just-in-time compiler generator`_
 
-`jit/codegen/`_                `jit backends`_ for different architectures
-
-`jit/hintannotator/`_          the `hint-annotator`_ that analyzes an interpreter
-
-`jit/timeshifter/`_            the `timeshifter`_ that turns an interpreter into a JIT compiler
-
-`jit/tl/`_                     interpreters for toy languages, with which we test the
-                               JIT generator
-
 `lang/`_                       interpreters for non-Python languages, written in RPython_
 
 `lang/js/`_                    a JavaScript interpreter (in-progress)
@@ -271,7 +262,7 @@ Directory                      explanation/links
 
 `rpython/ootypesystem/`_       the `object-oriented type system`_ for OO backends
 
-`rpython/memory/`_             the garbage collector construction framework
+`rpython/memory/`_             the `garbage collector`_ construction framework
 
 `tool/`_                       various utilities and hacks used from various places 
 
@@ -346,6 +337,7 @@ Directory                      explanation/links
 .. _rtyper: rtyper.html
 .. _`low-level type system`: rtyper.html#low-level-type
 .. _`object-oriented type system`: rtyper.html#oo-type
+.. _`garbage collector`: garbage_collection.html
 .. _`Stackless Transform`: translation.html#the-stackless-transform
 .. _`PyPy Prolog Interpreter`: prolog-interpreter.html
 .. _`Prolog Interpreter`: prolog-interpreter.html

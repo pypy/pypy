@@ -6,8 +6,10 @@ class AppTestCallMethod:
     # The exec hacking is needed to have the code snippets compiled
     # by our own compiler, not CPython's
 
+    OPTIONS = {"objspace.opcodes.CALL_METHOD": True}
+
     def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.opcodes.CALL_METHOD": True})
+        cls.space = gettestobjspace(**cls.OPTIONS)
 
     def test_call_method(self):
         exec """if 1:
@@ -104,6 +106,11 @@ class AppTestCallMethod:
             else:
                 raise Exception("did not raise?")
         """
+
+
+class AppTestCallMethodWithGetattributeShortcut(AppTestCallMethod):
+    OPTIONS = AppTestCallMethod.OPTIONS.copy()
+    OPTIONS["objspace.std.getattributeshortcut"] = True
 
 
 class TestCallMethod:

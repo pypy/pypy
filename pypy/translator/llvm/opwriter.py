@@ -139,6 +139,8 @@ class OpWriter(object):
                 self.cast_int_to_ptr(opr)
             else:
                 self.cast_primitive(opr)
+        elif op.opname == 'force_cast':
+            self.cast_primitive(opr)
         else:
             meth = getattr(self, op.opname, None)
             if not meth:

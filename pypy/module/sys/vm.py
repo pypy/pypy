@@ -2,6 +2,7 @@
 Implementation of interpreter-level 'sys' routines.
 """
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import ObjSpace
 import sys
 
 # ____________________________________________________________
@@ -57,15 +58,23 @@ def getrecursionlimit(space):
 
     return space.wrap(space.sys.recursionlimit)
 
-def setcheckinterval(space, w_interval):
+def setcheckinterval(space, interval):
     """Tell the Python interpreter to check for asynchronous events every
     n instructions.  This also affects how often thread switches occur."""
-    space.sys.checkinterval = space.int_w(w_interval) 
-    space.getexecutioncontext().ticker = 0
+    space.actionflag.setcheckinterval(space, interval)
+setcheckinterval.unwrap_spec = [ObjSpace, int]
 
 def getcheckinterval(space):
     """Return the current check interval; see setcheckinterval()."""
-    return space.wrap(space.sys.checkinterval)
+    # xxx to make tests and possibly some obscure apps happy, if the
+    # checkinterval is set to the minimum possible value (which is 1) we
+    # return 0.  The idea is that according to the CPython docs, <= 0
+    # means "check every virtual instruction, maximizing responsiveness
+    # as well as overhead".
+    result = space.sys.checkinterval
+    if result <= 1:
+        result = 0
+    return space.wrap(result)
 
 def exc_info(space):
     """Return the (type, value, traceback) of the most recent exception

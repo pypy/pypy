@@ -29,7 +29,11 @@ Content
 
 - Machine code Backends_
 
+- Current work and prototype in Prolog (!): see `this blog post`__.
+
 *(work and documentation in progress!)*
+
+.. __: http://morepypy.blogspot.com/2008/06/hi-all-some-news-from-jit-front.html
 
 ------------------------------------------------------------
 

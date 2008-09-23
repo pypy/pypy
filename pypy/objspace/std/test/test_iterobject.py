@@ -38,7 +38,7 @@ class TestW_IterObject:
 
 class AppTestW_IterObjectApp:
     def test_user_iter(self):
-        class C:
+        class C(object):
             def next(self):
                 raise StopIteration
             def __iter__(self):
@@ -46,13 +46,13 @@ class AppTestW_IterObjectApp:
         assert list(C()) == []
 
     def test_iter_getitem(self):
-        class C:
+        class C(object):
             def __getitem__(self, i):
                 return range(2)[i]
         assert list(C()) == range(2)
 
     def test_iter_fail_noseq(self):
-        class C:
+        class C(object):
             pass
         raises(TypeError,
                           iter,

@@ -28,6 +28,11 @@ def test_gcc_exec():
     assert build_executable_cache([f], eci) == "3\n"
     eci2 = ExternalCompilationInfo(include_dirs=[str(dir2)])
     assert build_executable_cache([f], eci2) == "42\n"
+    f.write("#error BOOM\n")
+    err = py.test.raises(CompilationError, build_executable_cache, [f], eci2)
+    print '<<<'
+    print err
+    print '>>>'
 
 def test_gcc_ask():
     f = udir.join("y.c")
@@ -53,4 +58,7 @@ def test_gcc_ask():
     assert try_compile_cache([f], eci)
     assert build_executable_cache([f], eci) == "hello\n"
     eci2 = ExternalCompilationInfo(include_dirs=[str(dir2)])
-    assert not try_compile_cache([f], eci2)
+    err = py.test.raises(CompilationError, try_compile_cache, [f], eci2)
+    print '<<<'
+    print err
+    print '>>>'

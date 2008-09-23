@@ -54,14 +54,14 @@ class TestObjSpace:
         raises(ValueError, self.space.unpackiterable, w_l, 3)
         raises(ValueError, self.space.unpackiterable, w_l, 5)
 
-    def test_unpacktuple(self):
+    def test_viewiterable(self):
         w = self.space.wrap
         l = [w(1), w(2), w(3), w(4)]
         w_l = self.space.newtuple(l)
-        assert self.space.unpacktuple(w_l) == l
-        assert self.space.unpacktuple(w_l, 4) == l
-        raises(ValueError, self.space.unpacktuple, w_l, 3)
-        raises(ValueError, self.space.unpacktuple, w_l, 5)
+        assert self.space.viewiterable(w_l) == l
+        assert self.space.viewiterable(w_l, 4) == l
+        raises(ValueError, self.space.viewiterable, w_l, 3)
+        raises(ValueError, self.space.viewiterable, w_l, 5)
 
     def test_exception_match(self):
         assert self.space.exception_match(self.space.w_ValueError,
@@ -108,7 +108,7 @@ class TestObjSpace:
 
         w_oldstyle = self.space.appexec([], """():
             class NoCall:
-                __metaclass__ = _classobj
+                pass
             return NoCall()""")
         assert not is_callable(w_oldstyle)
         self.space.setattr(w_oldstyle, self.space.wrap("__call__"), w_func)
@@ -179,6 +179,36 @@ class TestObjSpace:
         space.raises_w(space.w_TypeError, space.r_ulonglong_w, w_obj)
         w_obj = space.wrap(-12)
         space.raises_w(space.w_ValueError, space.r_ulonglong_w, w_obj)
+
+    def test_call_obj_args(self):
+        from pypy.interpreter.argument import Arguments
+        
+        space = self.space
+
+        w_f = space.appexec([], """():
+    def f(x, y):
+        return (x, y)
+    return f
+""")
+
+        w_a = space.appexec([], """():
+    class A(object):
+        def __call__(self, x):
+            return x
+    return A()
+""")
+
+        w_9 = space.wrap(9)
+        w_1 = space.wrap(1)
+
+        w_res = space.call_obj_args(w_f, w_9, Arguments(space, [w_1]))
+
+        w_x, w_y = space.viewiterable(w_res, 2)
+        assert w_x is w_9
+        assert w_y is w_1
+
+        w_res = space.call_obj_args(w_a, w_9, Arguments(space, []))        
+        assert w_res is w_9
 
 
 class TestModuleMinimal: 

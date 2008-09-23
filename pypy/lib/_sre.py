@@ -1,4 +1,8 @@
 # NOT_RPYTHON
+
+# Note that PyPy contains also a built-in module '_sre' which will hide
+# this one if compiled in.
+
 """
 A pure Python reimplementation of the _sre module from CPython 2.4
 Copyright 2005 Nik Haldimann, licensed under the MIT license

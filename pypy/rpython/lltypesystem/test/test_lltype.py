@@ -727,3 +727,11 @@ def test_name_clash():
         setattr(s, word, i)
     for i, word in enumerate(words):
         assert getattr(s, word) == i
+
+def test_subarray_keeps_array_alive():
+    A = Array(Signed)
+    ptr = malloc(A, 10, immortal=True)
+    ptr2 = direct_arrayitems(ptr)
+    del ptr
+    import gc; gc.collect(); gc.collect()
+    ptr2[0] = 5    # crashes if the array was deallocated

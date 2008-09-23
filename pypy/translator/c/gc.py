@@ -5,7 +5,7 @@ from pypy.rpython.lltypesystem.lltype import \
      typeOf, Ptr, ContainerType, RttiStruct, \
      RuntimeTypeInfo, getRuntimeTypeInfo, top_container
 from pypy.rpython.memory.gctransform import \
-     refcounting, boehm, framework, stacklessframework, llvmgcroot, asmgcroot
+     refcounting, boehm, framework, llvmgcroot, asmgcroot
 from pypy.rpython.lltypesystem import lltype, llmemory
 
 class BasicGcPolicy(object):
@@ -70,6 +70,15 @@ class BasicGcPolicy(object):
         return 'Py_XDECREF(%s);' % expr
 
     def OP_GC_SET_MAX_HEAP_SIZE(self, funcgen, op):
+        return ''
+
+    def OP_GC_THREAD_PREPARE(self, funcgen, op):
+        return ''
+
+    def OP_GC_THREAD_RUN(self, funcgen, op):
+        return ''
+
+    def OP_GC_THREAD_DIE(self, funcgen, op):
         return ''
 
 
@@ -305,10 +314,6 @@ class FrameworkGcPolicy(BasicGcPolicy):
         o = top_container(defnode.obj)
         return defnode.db.gctransformer.gc_field_values_for(o)
 
-class StacklessFrameworkGcPolicy(FrameworkGcPolicy):
-    transformerclass = stacklessframework.StacklessFrameworkGCTransformer
-    requires_stackless = True
-
 class LLVMGcRootFrameworkGcPolicy(FrameworkGcPolicy):
     transformerclass = llvmgcroot.LLVMGcRootFrameworkGCTransformer
 
@@ -321,7 +326,6 @@ name_to_gcpolicy = {
     'ref': RefcountingGcPolicy,
     'none': NoneGcPolicy,
     'framework': FrameworkGcPolicy,
-    'framework+stacklessgc': StacklessFrameworkGcPolicy,
     'framework+llvmgcroot': LLVMGcRootFrameworkGcPolicy,
     'framework+asmgcroot': AsmGcRootFrameworkGcPolicy,
 }

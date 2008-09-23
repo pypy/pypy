@@ -51,7 +51,7 @@ from copy_reg import _HEAPTYPE
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.objspace.flow.model import c_last_exception, checkgraph
 from pypy.interpreter.pycode import CO_VARARGS, CO_VARKEYWORDS
-from types import FunctionType, CodeType, ModuleType
+from types import FunctionType, CodeType, ModuleType, MethodType
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
 from pypy.translator.backendopt.ssa import SSI_to_SSA
@@ -802,6 +802,9 @@ else:
 ##                 if isinstance(value, FunctionType) and value not in self.translator.flowgraphs and self.translator.frozen:
 ##                     log.WARNING("skipped function: %s" % value)
 ##                     continue
+                if isinstance(value, MethodType) and value.im_self is cls:
+                    log.WARNING("skipped classmethod: %s" % value)
+                    continue
                     
                 yield 'space.setattr(%s, %s, %s)' % (
                     name, self.nameof(key), self.nameof(value))

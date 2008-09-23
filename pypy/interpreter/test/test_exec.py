@@ -119,7 +119,7 @@ class AppTestExecStmt:
     def test_nested_names_are_not_confused(self):
         def get_nested_class():
             method_and_var = "var"
-            class Test:
+            class Test(object):
                 def method_and_var(self):
                     return "method"
                 def test(self):

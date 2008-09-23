@@ -145,6 +145,11 @@ if sys.platform.startswith('darwin'):
         )
     def os_get_environ():
         return _os_NSGetEnviron()[0]
+elif sys.platform.startswith('win'):
+    os_get_environ, _os_set_environ = rffi.CExternVariable(
+        rffi.CCHARPP,
+        '_environ',
+        ExternalCompilationInfo(includes=['stdlib.h']))
 else:
     os_get_environ, _os_set_environ = rffi.CExternVariable(rffi.CCHARPP,
                                                            'environ',

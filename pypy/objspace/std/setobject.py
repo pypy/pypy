@@ -3,6 +3,8 @@ from pypy.objspace.std.objspace import registerimplementation, register_all
 from pypy.rlib.objectmodel import r_dict
 from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.interpreter import gateway
+from pypy.objspace.std.settype import set_typedef as settypedef
+from pypy.objspace.std.frozensettype import frozenset_typedef as frozensettypedef
 
 class W_BaseSetObject(W_Object):
 
@@ -119,11 +121,11 @@ def _is_frozenset_exact(w_obj):
     else:
         return False
 
-def _is_eq(w_left, w_right):
-    if len(w_left.setdata) != len(w_right.setdata):
+def _is_eq(ld, rd):
+    if len(ld) != len(rd):
         return False
-    for w_key in w_left.setdata:
-        if w_key not in w_right.setdata:
+    for w_key in ld:
+        if w_key not in rd:
             return False
     return True
 
@@ -191,6 +193,7 @@ def _symmetric_difference_dict(ldict, rdict, isupdate):
 #end helper functions
 
 def set_update__Set_Set(space, w_left, w_other):
+    # optimization only (the general case works too)
     ld, rd = w_left.setdata, w_other.setdata
     new_ld, rd = _union_dict(ld, rd, True)
     return space.w_None
@@ -231,6 +234,7 @@ def set_clear__Set(space, w_left):
     return space.w_None
 
 def set_difference__Set_Set(space, w_left, w_other):
+    # optimization only (the general case works too)
     ld, rd = w_left.setdata, w_other.setdata
     new_ld, rd = _difference_dict(ld, rd, False)
     return w_left._newobj(space, new_ld)
@@ -252,6 +256,7 @@ frozenset_difference__Frozenset_ANY = set_difference__Set_ANY
 
 
 def set_difference_update__Set_Set(space, w_left, w_other):
+    # optimization only (the general case works too)
     ld, rd = w_left.setdata, w_other.setdata
     new_ld, rd = _difference_dict(ld, rd, True)
     return space.w_None
@@ -270,22 +275,50 @@ def inplace_sub__Set_Set(space, w_left, w_other):
 inplace_sub__Set_Frozenset = inplace_sub__Set_Set
 
 def eq__Set_Set(space, w_left, w_other):
-    return space.wrap(_is_eq(w_left, w_other))
+    # optimization only (the general case is eq__Set_settypedef)
+    return space.wrap(_is_eq(w_left.setdata, w_other.setdata))
 
 eq__Set_Frozenset = eq__Set_Set
 eq__Frozenset_Frozenset = eq__Set_Set
 eq__Frozenset_Set = eq__Set_Set
 
+def eq__Set_settypedef(space, w_left, w_other):
+    rd = make_setdata_from_w_iterable(space, w_other)
+    return space.wrap(_is_eq(w_left.setdata, rd))
+
+eq__Set_frozensettypedef = eq__Set_settypedef
+eq__Frozenset_settypedef = eq__Set_settypedef
+eq__Frozenset_frozensettypedef = eq__Set_settypedef
+
 def eq__Set_ANY(space, w_left, w_other):
+    # workaround to have "set() == 42" return False instead of falling
+    # back to cmp(set(), 42) because the latter raises a TypeError
     return space.w_False
 
 eq__Frozenset_ANY = eq__Set_ANY
 
+def ne__Set_ANY(space, w_left, w_other):
+    # more workarounds
+    return space.w_True
+
+ne__Frozenset_ANY = ne__Set_ANY
+
 def contains__Set_Set(space, w_left, w_other):
+    # optimization only (for the case __Set_settypedef)
     w_f = space.newfrozenset(w_other.setdata)
     return space.newbool(w_f in w_left.setdata)
 
 contains__Frozenset_Set = contains__Set_Set
+
+def contains__Set_settypedef(space, w_left, w_other):
+    # This is the general case to handle 'set in set' or 'set in
+    # frozenset'.  We need this in case w_other is of type 'set' but the
+    # case 'contains__Set_Set' is not selected by the multimethod logic,
+    # which can occur (see test_builtinshortcut).
+    w_f = space.newfrozenset(make_setdata_from_w_iterable(space, w_other))
+    return space.newbool(w_f in w_left.setdata)
+
+contains__Frozenset_settypedef = contains__Set_settypedef
 
 def contains__Set_ANY(space, w_left, w_other):
     return space.newbool(w_other in w_left.setdata)
@@ -293,6 +326,7 @@ def contains__Set_ANY(space, w_left, w_other):
 contains__Frozenset_ANY = contains__Set_ANY
 
 def set_issubset__Set_Set(space, w_left, w_other):
+    # optimization only (the general case works too)
     if space.is_w(w_left, w_other):
         return space.w_True
     ld, rd = w_left.setdata, w_other.setdata
@@ -325,9 +359,11 @@ frozenset_issubset__Frozenset_ANY = set_issubset__Set_ANY
 
 le__Set_Set = set_issubset__Set_Set
 le__Set_Frozenset = set_issubset__Set_Set
+le__Frozenset_Set = set_issubset__Set_Set
 le__Frozenset_Frozenset = set_issubset__Set_Set
 
 def set_issuperset__Set_Set(space, w_left, w_other):
+    # optimization only (the general case works too)
     if space.is_w(w_left, w_other):
         return space.w_True
 
@@ -361,10 +397,40 @@ frozenset_issuperset__Frozenset_ANY = set_issuperset__Set_ANY
 
 ge__Set_Set = set_issuperset__Set_Set
 ge__Set_Frozenset = set_issuperset__Set_Set
+ge__Frozenset_Set = set_issuperset__Set_Set
 ge__Frozenset_Frozenset = set_issuperset__Set_Set
 
+# automatic registration of "lt(x, y)" as "not ge(y, x)" would not give the
+# correct answer here!
+def lt__Set_Set(space, w_left, w_other):
+    if _is_eq(w_left.setdata, w_other.setdata):
+        return space.w_False
+    else:
+        return le__Set_Set(space, w_left, w_other)
+
+lt__Set_Frozenset = lt__Set_Set
+lt__Frozenset_Set = lt__Set_Set
+lt__Frozenset_Frozenset = lt__Set_Set
+
+def gt__Set_Set(space, w_left, w_other):
+    if _is_eq(w_left.setdata, w_other.setdata):
+        return space.w_False
+    else:
+        return ge__Set_Set(space, w_left, w_other)
+
+gt__Set_Frozenset = gt__Set_Set
+gt__Frozenset_Set = gt__Set_Set
+gt__Frozenset_Frozenset = gt__Set_Set
+
+
 def set_discard__Set_Set(space, w_left, w_item):
+    # optimization only (the general case is set_discard__Set_settypedef)
     w_f = space.newfrozenset(w_item.setdata)
+    if w_f in w_left.setdata:
+        del w_left.setdata[w_f]
+
+def set_discard__Set_settypedef(space, w_left, w_item):
+    w_f = space.newfrozenset(make_setdata_from_w_iterable(space, w_item))
     if w_f in w_left.setdata:
         del w_left.setdata[w_f]
 
@@ -373,7 +439,16 @@ def set_discard__Set_ANY(space, w_left, w_item):
         del w_left.setdata[w_item]
 
 def set_remove__Set_Set(space, w_left, w_item):
+    # optimization only (the general case is set_remove__Set_settypedef)
     w_f = space.newfrozenset(w_item.setdata)
+    try:
+        del w_left.setdata[w_f]
+    except KeyError:
+        raise OperationError(space.w_KeyError,
+                space.call_method(w_item,'__repr__'))
+
+def set_remove__Set_settypedef(space, w_left, w_item):
+    w_f = space.newfrozenset(make_setdata_from_w_iterable(space, w_item))
     try:
         del w_left.setdata[w_f]
     except KeyError:
@@ -416,6 +491,7 @@ def set_pop__Set(space, w_left):
     return w_value
 
 def set_intersection__Set_Set(space, w_left, w_other):
+    # optimization only (the general case works too)
     ld, rd = w_left.setdata, w_other.setdata
     new_ld, rd = _intersection_dict(ld, rd, False)
     return w_left._newobj(space,new_ld)
@@ -437,6 +513,7 @@ and__Frozenset_Set = set_intersection__Set_Set
 and__Frozenset_Frozenset = set_intersection__Set_Set
 
 def set_intersection_update__Set_Set(space, w_left, w_other):
+    # optimization only (the general case works too)
     ld, rd = w_left.setdata, w_other.setdata
     new_ld, rd = _intersection_dict(ld, rd, True)
     return space.w_None
@@ -455,6 +532,7 @@ def inplace_and__Set_Set(space, w_left, w_other):
 inplace_and__Set_Frozenset = inplace_and__Set_Set
 
 def set_symmetric_difference__Set_Set(space, w_left, w_other):
+    # optimization only (the general case works too)
     ld, rd = w_left.setdata, w_other.setdata
     new_ld, rd = _symmetric_difference_dict(ld, rd, False)
     return w_left._newobj(space, new_ld)
@@ -479,6 +557,7 @@ frozenset_symmetric_difference__Frozenset_ANY = \
         set_symmetric_difference__Set_ANY
 
 def set_symmetric_difference_update__Set_Set(space, w_left, w_other):
+    # optimization only (the general case works too)
     ld, rd = w_left.setdata, w_other.setdata
     new_ld, rd = _symmetric_difference_dict(ld, rd, True)
     return space.w_None
@@ -498,6 +577,7 @@ def inplace_xor__Set_Set(space, w_left, w_other):
 inplace_xor__Set_Frozenset = inplace_xor__Set_Set
 
 def set_union__Set_Set(space, w_left, w_other):
+    # optimization only (the general case works too)
     ld, rd = w_left.setdata, w_other.setdata
     new_ld, rd = _union_dict(ld, rd, False)
     return w_left._newobj(space, new_ld)
@@ -528,13 +608,14 @@ def iter__Set(space, w_left):
 
 iter__Frozenset = iter__Set
 
-def cmp__Set_Set(space, w_left, w_other):
+def cmp__Set_settypedef(space, w_left, w_other):
+    # hack hack until we get the expected result
     raise OperationError(space.w_TypeError,
             space.wrap('cannot compare sets using cmp()'))
 
-cmp__Set_Frozenset = cmp__Set_Set
-cmp__Frozenset_Frozenset = cmp__Set_Set
-cmp__Frozenset_Set = cmp__Set_Set
+cmp__Set_frozensettypedef = cmp__Set_settypedef
+cmp__Frozenset_settypedef = cmp__Set_settypedef
+cmp__Frozenset_frozensettypedef = cmp__Set_settypedef
 
 def init__Set(space, w_set, __args__):
     w_iterable, = __args__.parse('set',
@@ -551,15 +632,6 @@ def init__Frozenset(space, w_set, __args__):
         hash__Frozenset(space, w_set)
 
 app = gateway.applevel("""
-    def ne__Set_ANY(s, o):
-        return not s == o
-
-    def gt__Set_Set(s, o):
-        return s != o and s.issuperset(o)
-
-    def lt__Set_Set(s, o):
-        return s != o and s.issubset(o)
-
     def repr__Set(s):
         return '%s(%s)' % (s.__class__.__name__, [x for x in s])
 
@@ -568,19 +640,6 @@ app = gateway.applevel("""
         return (s.__class__, (tuple(s),), dict)
 
 """, filename=__file__)
-
-ne__Set_ANY = app.interphook("ne__Set_ANY")
-ne__Frozenset_ANY = ne__Set_ANY
-
-gt__Set_Set = app.interphook("gt__Set_Set")
-gt__Set_Frozenset = gt__Set_Set
-gt__Frozenset_Set = gt__Set_Set
-gt__Frozenset_Frozenset = gt__Set_Set
-
-lt__Set_Set = app.interphook("lt__Set_Set")
-lt__Set_Frozenset = lt__Set_Set
-lt__Frozenset_Set = lt__Set_Set
-lt__Frozenset_Frozenset = lt__Set_Set
 
 repr__Set = app.interphook('repr__Set')
 repr__Frozenset = app.interphook('repr__Set')

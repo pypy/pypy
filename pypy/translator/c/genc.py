@@ -92,9 +92,7 @@ class CBuilder(object):
     def get_gcpolicyclass(self):
         if self.gcpolicy is None:
             name = self.config.translation.gctransformer
-            if self.config.translation.gcrootfinder == "stackless":
-                name = "%s+stacklessgc" % (name,)
-            elif self.config.translation.gcrootfinder == "llvmgc":
+            if self.config.translation.gcrootfinder == "llvmgc":
                 name = "%s+llvmgcroot" % (name,)
             elif self.config.translation.gcrootfinder == "asmgcc":
                 name = "%s+asmgcroot" % (name,)
@@ -183,7 +181,10 @@ class ModuleWithCleanup(object):
 
     def __del__(self):
         import sys
-        from _ctypes import dlclose
+        if sys.platform == "win32":
+            from _ctypes import FreeLibrary as dlclose
+        else:
+            from _ctypes import dlclose
         # XXX fish fish fish
         mod = self.__dict__['mod']
         dlclose(mod._lib._handle)
@@ -206,6 +207,13 @@ class CExtModuleBuilder(CBuilder):
     def compile(self):
         assert self.c_source_filename 
         assert not self._compiled
+        export_symbols = [self.db.get(self.getentrypointptr()),
+                          'RPython_StartupCode',
+                          ]
+        if self.config.translation.countmallocs:
+            export_symbols.append('malloc_counters')
+        extsymeci = ExternalCompilationInfo(export_symbols=export_symbols)
+        self.eci = self.eci.merge(extsymeci)
         compile_c_module([self.c_source_filename] + self.extrafiles,
                          self.c_source_filename.purebasename, self.eci,
                          tmpdir=self.c_source_filename.dirpath())
@@ -221,7 +229,7 @@ class CExtModuleBuilder(CBuilder):
         CODE = """
 import ctypes
 
-_lib = ctypes.PyDLL("%(so_name)s")
+_lib = ctypes.PyDLL(r"%(so_name)s")
 
 _entry_point = getattr(_lib, "%(c_entrypoint_name)s")
 _entry_point.restype = ctypes.py_object
@@ -280,25 +288,45 @@ class CStandaloneBuilder(CBuilder):
     standalone = True
     executable_name = None
 
+    def getprofbased(self):
+        profbased = None
+        if self.config.translation.instrumentctl is not None:
+            profbased = self.config.translation.instrumentctl
+        else:
+            # xxx handling config.translation.profopt is a bit messy, because
+            # it could be an empty string (not to be confused with None) and
+            # because noprofopt can be used as an override.
+            profopt = self.config.translation.profopt
+            if profopt is not None and not self.config.translation.noprofopt:
+                profbased = (ProfOpt, profopt)
+        return profbased
+
+    def has_profopt(self):
+        profbased = self.getprofbased()
+        return (profbased and isinstance(profbased, tuple)
+                and profbased[0] is ProfOpt)
+
     def getentrypointptr(self):
         # XXX check that the entrypoint has the correct
         # signature:  list-of-strings -> int
         bk = self.translator.annotator.bookkeeper
         return getfunctionptr(bk.getdesc(self.entrypoint).getuniquegraph())
 
-    def getccompiler(self):            
+    def getccompiler(self):
         cc = self.config.translation.cc
-        profbased = None
-        if self.config.translation.instrumentctl is not None:
-            profbased = self.config.translation.instrumentctl
-        else:
-            profopt = self.config.translation.profopt
-            if profopt is not None and not self.config.translation.noprofopt:
-                profbased = (ProfOpt, profopt)
+        # Copy extrafiles to target directory, if needed
+        extrafiles = []
+        for fn in self.extrafiles:
+            fn = py.path.local(fn)
+            if not fn.relto(udir):
+                newname = self.targetdir.join(fn.basename)
+                fn.copy(newname)
+                fn = newname
+            extrafiles.append(fn)
 
         return CCompiler(
-            [self.c_source_filename] + self.extrafiles,
-            self.eci, compiler_exe = cc, profbased = profbased)
+            [self.c_source_filename] + extrafiles,
+            self.eci, compiler_exe = cc, profbased = self.getprofbased())
 
     def compile(self):
         assert self.c_source_filename
@@ -313,12 +341,7 @@ class CStandaloneBuilder(CBuilder):
         else:
             eci = self.eci.merge(ExternalCompilationInfo(includes=
                                                          [str(self.targetdir)]))
-            if sys.platform == 'darwin':
-                compiler.compile_extra.append('-mdynamic-no-pic')
-            if self.config.translation.compilerflags:
-                compiler.compile_extra.append(self.config.translation.compilerflags)
-            if self.config.translation.linkerflags:
-                compiler.link_extra.append(self.config.translation.linkerflags)
+            self.adaptflags(compiler)
             compiler.build()
         self.executable_name = str(compiler.outputfilename)
         self._compiled = True
@@ -327,6 +350,16 @@ class CStandaloneBuilder(CBuilder):
     def cmdexec(self, args=''):
         assert self._compiled
         return py.process.cmdexec('"%s" %s' % (self.executable_name, args))
+
+    def adaptflags(self, compiler):
+        if sys.platform == 'darwin':
+            compiler.compile_extra.append('-mdynamic-no-pic')
+        if sys.platform == 'sunos5':
+            compiler.link_extra.append("-lrt")
+        if self.config.translation.compilerflags:
+            compiler.compile_extra.append(self.config.translation.compilerflags)
+        if self.config.translation.linkerflags:
+            compiler.link_extra.append(self.config.translation.linkerflags)
 
     def gen_makefile(self, targetdir):
         def write_list(lst, prefix):
@@ -341,12 +374,8 @@ class CStandaloneBuilder(CBuilder):
         self.eci = self.eci.merge(ExternalCompilationInfo(
             includes=['.', str(self.targetdir)]))
         compiler = self.getccompiler()
-        if sys.platform == 'darwin':
-            compiler.compile_extra.append('-mdynamic-no-pic')
-        if self.config.translation.compilerflags:
-            compiler.compile_extra.append(self.config.translation.compilerflags)
-        if self.config.translation.linkerflags:
-            compiler.link_extra.append(self.config.translation.linkerflags)
+       
+        self.adaptflags(compiler)
         assert self.config.translation.gcrootfinder != "llvmgc"
         cfiles = []
         ofiles = []
@@ -358,6 +387,8 @@ class CStandaloneBuilder(CBuilder):
             else:
                 assert fn.dirpath().dirpath() == udir
                 name = '../' + fn.relto(udir)
+                
+            name = name.replace("\\", "/")
             cfiles.append(name)
             if self.config.translation.gcrootfinder == "asmgcc":
                 ofiles.append(name[:-2] + '.s')
@@ -368,10 +399,23 @@ class CStandaloneBuilder(CBuilder):
         if self.config.translation.cc:
             cc = self.config.translation.cc
         else:
-            cc = 'gcc'
-        if self.config.translation.profopt:
+            cc = self.eci.platform.get_compiler()
+            if cc is None:
+                cc = 'gcc'
+        make_no_prof = ''
+        if self.has_profopt():
             profopt = self.config.translation.profopt
             default_target = 'profopt'
+            # XXX horrible workaround for a bug of profiling in gcc on
+            # OS X with functions containing a direct call to fork()
+            non_profilable = []
+            assert len(compiler.cfilenames) == len(ofiles)
+            for fn, oname in zip(compiler.cfilenames, ofiles):
+                fn = py.path.local(fn)
+                if '/*--no-profiling-for-this-file!--*/' in fn.read():
+                    non_profilable.append(oname)
+            if non_profilable:
+                make_no_prof = '$(MAKE) %s' % (' '.join(non_profilable),)
         else:
             profopt = ''
             default_target = '$(TARGET)'
@@ -415,6 +459,7 @@ class CStandaloneBuilder(CBuilder):
         else:
             print >> f, 'TFLAGS  = ' + ''
         print >> f, 'PROFOPT = ' + profopt
+        print >> f, 'MAKENOPROF = ' + make_no_prof
         print >> f, 'CC      = ' + cc
         print >> f
         print >> f, MAKEFILE.strip()
@@ -835,11 +880,13 @@ all: $(DEFAULT_TARGET)
 $(TARGET): $(OBJECTS)
 \t$(CC) $(LDFLAGS) $(TFLAGS) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS)
 
+# -frandom-seed is only to try to be as reproducable as possible
+
 %.o: %.c
-\t$(CC) $(CFLAGS) -o $@ -c $< $(INCLUDEDIRS)
+\t$(CC) $(CFLAGS) -frandom-seed=$< -o $@ -c $< $(INCLUDEDIRS)
 
 %.s: %.c
-\t$(CC) $(CFLAGS) -o $@ -S $< $(INCLUDEDIRS)
+\t$(CC) $(CFLAGS) -frandom-seed=$< -o $@ -S $< $(INCLUDEDIRS)
 
 %.gcmap: %.s
 \t$(PYPYDIR)/translator/c/gcc/trackgcroot.py -t $< > $@ || (rm -f $@ && exit 1)
@@ -848,7 +895,7 @@ gcmaptable.s: $(GCMAPFILES)
 \t$(PYPYDIR)/translator/c/gcc/trackgcroot.py $(GCMAPFILES) > $@ || (rm -f $@ && exit 1)
 
 clean:
-\trm -f $(OBJECTS) $(TARGET) $(GCMAPFILES) *.gc??
+\trm -f $(OBJECTS) $(TARGET) $(GCMAPFILES) *.gc?? ../module_cache/*.gc??
 
 clean_noprof:
 \trm -f $(OBJECTS) $(TARGET) $(GCMAPFILES)
@@ -877,9 +924,13 @@ lldebug:
 profile:
 \t$(MAKE) CFLAGS="-g -pg $(CFLAGS)" LDFLAGS="-pg $(LDFLAGS)" $(TARGET)
 
+# it seems that GNU Make < 3.81 has no function $(abspath)
+ABS_TARGET = $(shell python -c "import sys,os; print os.path.abspath(sys.argv[1])" $(TARGET))
+
 profopt:
+\t$(MAKENOPROF)    # these files must be compiled without profiling
 \t$(MAKE) CFLAGS="-fprofile-generate $(CFLAGS)" LDFLAGS="-fprofile-generate $(LDFLAGS)" $(TARGET)
-\tcd $(PYPYDIR)/translator/goal && $(abspath $(TARGET)) $(PROFOPT)
+\tcd $(PYPYDIR)/translator/goal && $(ABS_TARGET) $(PROFOPT)
 \t$(MAKE) clean_noprof
 \t$(MAKE) CFLAGS="-fprofile-use $(CFLAGS)" LDFLAGS="-fprofile-use $(LDFLAGS)" $(TARGET)
 '''

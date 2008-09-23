@@ -55,30 +55,22 @@ def reverseseqiter_new(space, w_seq, w_index):
     w_len = space.len(w_seq)
     index = space.int_w(w_index) - space.int_w(w_len)
     return W_ReverseSeqIterObject(space, w_seq, index)
-    
-def frame_new(space, __args__):
-    args_w, kwds_w = __args__.unpack()
-    w_pycode, = args_w
-    pycode = space.interp_w(PyCode, w_pycode)
-    w = space.wrap
+
+def frame_new(space):
     new_frame = instantiate(space.FrameClass)   # XXX fish
     return space.wrap(new_frame)
-frame_new.unwrap_spec = [ObjSpace, Arguments]
+frame_new.unwrap_spec = [ObjSpace]
 
 def traceback_new(space):
     tb = instantiate(PyTraceback)
     return space.wrap(tb)
 traceback_new.unwrap_spec = [ObjSpace]
 
-def generator_new(space, __args__):
-    args_w, kwds_w = __args__.unpack()  #stolen from std/fake.py
-    w_frame, w_running = args_w
-    frame = space.interp_w(PyFrame, w_frame)
-    running = space.int_w(w_running)
+def generator_new(space, frame, running):
     new_generator = GeneratorIterator(frame)
     new_generator.running = running
     return space.wrap(new_generator)
-generator_new.unwrap_spec = [ObjSpace, Arguments]
+generator_new.unwrap_spec = [ObjSpace, PyFrame, int]
 
 def xrangeiter_new(space, current, remaining, step):
     from pypy.module.__builtin__.functional import W_XRangeIterator
@@ -96,15 +88,18 @@ def slp_into_tuple_with_nulls(space, seq_w):
     create a tuple with the object and store
     a tuple with the positions of NULLs as first element.
     """
-    nulls = []
-    tup = [space.w_None]
+    tup = [None] * (len(seq_w) + 1)
     w = space.wrap
-
+    num = 1
+    nulls = [None for i in seq_w if i is None]
+    null_num = 0
     for w_obj in seq_w:
         if w_obj is None:
-            nulls.append(w(len(tup)-1))
+            nulls[null_num] = w(num - 1)
+            null_num += 1
             w_obj = space.w_None
-        tup.append(w_obj)
+        tup[num] = w_obj
+        num += 1
     tup[0] = space.newtuple(nulls)
     return space.newtuple(tup)
 

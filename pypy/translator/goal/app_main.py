@@ -10,8 +10,6 @@ options:
   -u             unbuffered binary stdout and stderr
   -h, --help     show this help message and exit
   -m             library module to be run as a script (terminates option list)
-  -k, --oldstyle use old-style classes instead of newstyle classes
-                 everywhere %(oldstyle)s
   -W arg         warning control (arg is action:message:category:module:lineno)
   --version      print the PyPy version
   --info         print translation information about this PyPy executable
@@ -124,10 +122,7 @@ def print_info():
 
 def print_help():
     print 'usage: %s [options]' % (sys.executable,)
-    details = {'oldstyle': ''}
-    if sys.pypy_translation_info['objspace.std.oldstyle']:
-        details['oldstyle'] = '[default]'
-    print __doc__ % details
+    print __doc__
 
 def print_error(msg):
     print >> sys.stderr, msg
@@ -141,6 +136,9 @@ def set_unbuffered_io():
     sys.stdin  = sys.__stdin__  = os.fdopen(0, 'rb', 0)
     sys.stdout = sys.__stdout__ = os.fdopen(1, 'wb', 0)
     sys.stderr = sys.__stderr__ = os.fdopen(2, 'wb', 0)
+
+def set_fully_buffered_io():
+    sys.stdout = sys.__stdout__ = os.fdopen(1, 'w')
 
 # ____________________________________________________________
 # Main entry point
@@ -191,6 +189,7 @@ def entry_point(executable, argv, nanos):
             # not found!  let's hope that the compiled-in path is ok
             print >> sys.stderr, ('debug: WARNING: library path not found, '
                                   'using compiled-in sys.path')
+            newpath = sys.path[:]
             break
         newpath = sys.pypy_initial_path(dirname)
         if newpath is None:
@@ -198,9 +197,20 @@ def entry_point(executable, argv, nanos):
             if newpath is None:
                 search = dirname    # walk to the parent directory
                 continue
-        sys.path = newpath      # found!
-        break
-    
+        break      # found!
+    path = os.getenv('PYTHONPATH')
+    if path:
+        newpath = path.split(os.pathsep) + newpath
+    newpath.insert(0, '')
+    # remove duplicates
+    _seen = {}
+    sys.path = []
+    for dir in newpath:
+        if dir not in _seen:
+            sys.path.append(dir)
+            _seen[dir] = True
+    del newpath, _seen
+
     go_interactive = False
     run_command = False
     import_site = True
@@ -208,7 +218,7 @@ def entry_point(executable, argv, nanos):
     run_module = False
     run_stdin = False
     warnoptions = []
-    oldstyle_classes = False
+    unbuffered = False
     while i < len(argv):
         arg = argv[i]
         if not arg.startswith('-'):
@@ -222,7 +232,7 @@ def entry_point(executable, argv, nanos):
             run_command = True
             break
         elif arg == '-u':
-            set_unbuffered_io()
+            unbuffered = True
         elif arg == '-O':
             pass
         elif arg == '--version':
@@ -246,8 +256,6 @@ def entry_point(executable, argv, nanos):
                 return 2
             run_module = True
             break
-        elif arg in ('-k', '--oldstyle'):
-            oldstyle_classes = True
         elif arg.startswith('-W'):
             arg = arg[2:]
             if not arg:
@@ -273,12 +281,14 @@ def entry_point(executable, argv, nanos):
     # but we need more in the translated PyPy for the compiler package 
     sys.setrecursionlimit(5000)
 
+    if unbuffered:
+        set_unbuffered_io()
+    elif not sys.stdout.isatty():
+        set_fully_buffered_io()
+
+
     mainmodule = type(sys)('__main__')
     sys.modules['__main__'] = mainmodule
-
-    if oldstyle_classes:
-        import __builtin__
-        __builtin__.__metaclass__ = __builtin__._classobj
 
     if import_site:
         try:
@@ -306,24 +316,38 @@ def entry_point(executable, argv, nanos):
         if hasattr(signal, 'SIGXFSZ'):
             signal.signal(signal.SIGXFSZ, signal.SIG_IGN)
 
-    def is_interactive():
-        return go_interactive or os.getenv('PYTHONINSPECT')
+    def inspect_requested():
+        # We get an interactive prompt in one of the following two cases:
+        #
+        #     * go_interactive=True, either from the "-i" option or
+        #       from the fact that we printed the banner;
+        # or
+        #     * PYTHONINSPECT is set and stdin is a tty.
+        #
+        return (go_interactive or
+                (os.getenv('PYTHONINSPECT') and sys.stdin.isatty()))
 
     success = True
 
     try:
         if run_command:
+            # handle the "-c" command
             cmd = sys.argv.pop(1)
             def run_it():
                 exec cmd in mainmodule.__dict__
             success = run_toplevel(run_it)
         elif run_module:
+            # handle the "-m" command
             def run_it():
                 import runpy
                 runpy.run_module(sys.argv[0], None, '__main__', True)
             success = run_toplevel(run_it)
         elif run_stdin:
-            if is_interactive() or sys.stdin.isatty():
+            # handle the case where no command/filename/module is specified
+            # on the command-line.
+            if go_interactive or sys.stdin.isatty():
+                # If stdin is a tty or if "-i" is specified, we print
+                # a banner and run $PYTHONSTARTUP.
                 print_banner()
                 python_startup = os.getenv('PYTHONSTARTUP')
                 if python_startup:
@@ -338,20 +362,25 @@ def entry_point(executable, argv, nanos):
                                                         'exec')
                             exec co_python_startup in mainmodule.__dict__
                         run_toplevel(run_it)
+                # Then we need a prompt.
                 go_interactive = True
             else:
+                # If not interactive, just read and execute stdin normally.
                 def run_it():
                     co_stdin = compile(sys.stdin.read(), '<stdin>', 'exec')
                     exec co_stdin in mainmodule.__dict__
                 mainmodule.__file__ = '<stdin>'
                 success = run_toplevel(run_it)
         else:
+            # handle the common case where a filename is specified
+            # on the command-line.
             mainmodule.__file__ = sys.argv[0]
             scriptdir = resolvedirof(sys.argv[0])
             sys.path.insert(0, scriptdir)
             success = run_toplevel(execfile, sys.argv[0], mainmodule.__dict__)
-            
-        if is_interactive():
+
+        # start a prompt if requested
+        if inspect_requested():
             from _pypy_interact import interactive_console
             success = run_toplevel(interactive_console, mainmodule)
     except SystemExit, e:

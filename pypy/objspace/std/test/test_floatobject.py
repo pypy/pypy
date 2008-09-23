@@ -4,14 +4,6 @@ import py
 
 class TestW_FloatObject:
 
-    def _unwrap_nonimpl(self, func, *args, **kwds):
-        """ make sure that the expected exception occurs, and unwrap it """
-        try:
-            res = func(*args, **kwds)
-            raise Exception, "should have failed but returned '%s'!" %repr(res)
-        except FailedToImplement, arg:
-            return arg.w_type
-
     def test_pow_fff(self):
         x = 10.0
         y = 2.0
@@ -19,9 +11,9 @@ class TestW_FloatObject:
         f1 = fobj.W_FloatObject(x)
         f2 = fobj.W_FloatObject(y)
         f3 = fobj.W_FloatObject(z)
-        assert self.space.w_TypeError == (
-                          self._unwrap_nonimpl(fobj.pow__Float_Float_ANY,
-                                               self.space, f1, f2, f3))
+        self.space.raises_w(self.space.w_TypeError,
+                            fobj.pow__Float_Float_ANY,
+                            self.space, f1, f2, f3)
 
     def test_pow_ffn(self):
         x = 10.0
@@ -32,10 +24,10 @@ class TestW_FloatObject:
         assert v.floatval == x ** y
         f1 = fobj.W_FloatObject(-1.23)
         f2 = fobj.W_FloatObject(-4.56)
-        assert self.space.w_ValueError == (
-                          self._unwrap_nonimpl(fobj.pow__Float_Float_ANY,
-                                               self.space, f1, f2,
-                                               self.space.w_None))
+        self.space.raises_w(self.space.w_ValueError,
+                            fobj.pow__Float_Float_ANY,
+                            self.space, f1, f2,
+                            self.space.w_None)
         x = -10
         y = 2.0
         f1 = fobj.W_FloatObject(x)
@@ -99,7 +91,7 @@ class AppTestAppFloatTest:
         assert 0.0 == round(22.22222, -2)
 
     def test_special_float_method(self):
-        class a:
+        class a(object):
             def __float__(self): 
                 self.ar = True 
                 return None
@@ -107,7 +99,7 @@ class AppTestAppFloatTest:
         raises(TypeError, float, inst) 
         assert inst.ar 
 
-        class b: 
+        class b(object): 
             pass 
         raises((AttributeError, TypeError), float, b()) 
 
@@ -157,6 +149,16 @@ class AppTestAppFloatTest:
         assert 13.01 > 13L
         assert 13.0 >= 13L
         assert 13.01 >= 13L
+        assert 12.0 == 12
+        assert 12.1 != 12
+        assert infinite != 123456789
+        assert 12.9 < 13
+        assert -infinite < -13
+        assert 12.9 <= 13
+        assert 13.0 <= 13
+        assert 13.01 > 13
+        assert 13.0 >= 13
+        assert 13.01 >= 13
         assert infinite > verylonglong
         assert infinite >= verylonglong
         assert 1234.56 < verylonglong
@@ -177,3 +179,15 @@ class AppTestAppFloatTest:
         assert verylonglong <= infinite
         assert verylonglong > 1234.56
         assert verylonglong >= 1234.56
+        assert 13 >= 12.9
+        assert 13 >= 13.0
+        assert 13 < 13.01
+        assert 13 <= 13.0
+        assert 13 <= 13.01
+
+    def test_multimethod_slice(self):
+        assert 5 .__add__(3.14) is NotImplemented
+        assert 3.25 .__add__(5) == 8.25
+        if hasattr(int, '__eq__'):  # for py.test -A: CPython is inconsistent
+            assert 5 .__eq__(3.14) is NotImplemented
+            assert 3.14 .__eq__(5) is False

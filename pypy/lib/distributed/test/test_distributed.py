@@ -78,7 +78,7 @@ class AppTestDistributed(object):
         assert fun(2, 3) == 5
 
     def test_local_obj(self):
-        class A:
+        class A(object):
             def __init__(self, x):
                 self.x = x
             
@@ -137,7 +137,7 @@ class AppTestDistributedTasklets(object):
         assert d == xd
         
     def test_remote_obj(self):
-        class A:
+        class A(object):
             def __init__(self, x):
                 self.x = x
             
@@ -151,7 +151,7 @@ class AppTestDistributedTasklets(object):
         assert len(xa) == 11
     
     def test_remote_doc_and_callback(self):
-        class A:
+        class A(object):
             """xxx"""
             def __init__(self):
                 pass
@@ -170,14 +170,14 @@ class AppTestDistributedTasklets(object):
         assert xa.meth(x) == 4
 
     def test_double_reference(self):
-        class A:
+        class A(object):
             def meth(self, one):
                 self.one = one
             
             def perform(self):
                 return 1 + len(self.one())
         
-        class B:
+        class B(object):
             def __call__(self):
                 return [1,2,3]
         
@@ -212,7 +212,7 @@ class AppTestDistributedTasklets(object):
             raise AssertionError("Did not raise")
 
     def test_remote_classmethod(self):
-        class A:
+        class A(object):
             z = 8
 
             @classmethod
@@ -226,7 +226,7 @@ class AppTestDistributedTasklets(object):
         assert res == 8
 
     def test_types_reverse_mapping(self):
-        class A:
+        class A(object):
             def m(self, tp):
                 assert type(self) is tp
 
@@ -237,7 +237,7 @@ class AppTestDistributedTasklets(object):
         xa.m(xA)
 
     def test_instantiate_remote_type(self):
-        class C:
+        class C(object):
             def __init__(self, y):
                 self.y = y
             

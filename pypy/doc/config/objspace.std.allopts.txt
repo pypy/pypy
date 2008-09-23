@@ -1,2 +1,0 @@
-This tries to enable a set of options that makes the resulting pypy-c as fast as
-possible.

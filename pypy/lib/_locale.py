@@ -1,27 +1,60 @@
-"""Support for POSIX locales."""
+# ctypes implementation of _locale module by Victor Stinner, 2008-03-27
+"""
+Support for POSIX locales.
+"""
+
+raise ImportError("_locale.py is still incomplete")
+
 from ctypes import (Structure, POINTER, create_string_buffer,
     c_ubyte, c_int, c_char_p, c_wchar_p)
 from ctypes_support import standard_c_lib as libc
 from ctypes_support import get_errno
+from ctypes_configure.configure import (configure, ExternalCompilationInfo,
+    ConstantInteger, DefinedConstantInteger, SimpleType)
 
 size_t = c_int
-nl_item = c_int
 
-# Ubuntu Gusty i386 constants
-LC_CTYPE = 0
-LC_NUMERIC = 1
-LC_TIME = 2
-LC_COLLATE = 3
-LC_MONETARY = 4
-LC_MESSAGES = 5
-LC_ALL = 6
-LC_PAPER = 7
-LC_NAME = 8
-LC_ADDRESS = 9
-LC_TELEPHONE = 10
-LC_MEASUREMENT = 11
-LC_IDENTIFICATION = 12
+# XXX check where this comes from
 CHAR_MAX = 127
+
+_CONSTANTS = (
+    'LC_CTYPE',
+    'LC_NUMERIC',
+    'LC_TIME',
+    'LC_COLLATE',
+    'LC_MONETARY',
+    'LC_MESSAGES',
+    'LC_ALL',
+    'LC_PAPER',
+    'LC_NAME',
+    'LC_ADDRESS',
+    'LC_TELEPHONE',
+    'LC_MEASUREMENT',
+    'LC_IDENTIFICATION',
+)
+
+class LocaleConfigure:
+    _compilation_info_ = ExternalCompilationInfo(includes=['locale.h'])
+for key in _CONSTANTS:
+    setattr(LocaleConfigure, key, ConstantInteger(key))
+
+config = configure(LocaleConfigure)
+for key in _CONSTANTS:
+    globals()[key] = config[key]
+del LocaleConfigure
+del config
+
+try:
+    class LanginfoConfigure:
+        _compilation_info_ = ExternalCompilationInfo(includes=['langinfo.h'])
+        nl_item = SimpleType('nl_item')
+    config = configure(LanginfoConfigure)
+    nl_item = config['nl_item']
+    del LanginfoConfigure
+    del config
+    HAS_LANGINFO = True
+except:
+    HAS_LANGINFO = False
 
 # Ubuntu Gusty i386 structure
 class lconv(Structure):
@@ -104,13 +137,6 @@ _wcscoll.restype = c_int
 _strxfrm = libc.strxfrm
 _strxfrm.argtypes = (c_char_p, c_char_p, size_t)
 _strxfrm.restype = size_t
-
-try:
-    _nl_langinfo = libc.nl_langinfo
-    _nl_langinfo.argtypes = (nl_item,)
-    _nl_langinfo.restype = c_char_p
-except AttributeError:
-    _nl_langinfo = None
 
 _gettext = libc.gettext
 _gettext.argtypes = (c_char_p,)
@@ -266,7 +292,11 @@ def getdefaultlocale():
     # TODO: Port code from CPython for Windows and Mac OS
     raise NotImplementedError()
 
-if _nl_langinfo:
+if HAS_LANGINFO:
+    _nl_langinfo = libc.nl_langinfo
+    _nl_langinfo.argtypes = (nl_item,)
+    _nl_langinfo.restype = c_char_p
+
     def _NL_ITEM(category, index):
         return (category << 16) | index
 
@@ -384,4 +414,15 @@ if _bind_textdomain_codeset:
         if codeset:
             return codeset
         return None
+
+__all__ = (
+    'Error',
+    'setlocale', 'localeconv', 'strxfrm', 'strcoll',
+    'gettext', 'dgettext', 'dcgettext', 'textdomain',
+    'bindtextdomain', 'CHAR_MAX',
+) + _CONSTANTS
+if _bind_textdomain_codeset:
+    __all__ += ('bind_textdomain_codeset',)
+if HAS_LANGINFO:
+    __all__ += ('nl_langinfo',)
 

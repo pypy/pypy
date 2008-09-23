@@ -1,0 +1,23 @@
+Implement primitives:
+[ ] VM_PARAMETER = 254
+[ ] PRIM_PATH_NAME_DELIMITER = 161
+[ ] SET_INTERRUPT_KEY = 133
+[ ] SPECIAL_OBJECTS_ARRAY = 129
+[ ] LOW_SPACE_SEMAPHORE = 124
+[ ] INTERRUPT_SEMAPHORE = 134
+[ ] SIGNAL_AT_BYTES_LEFT = 125
+[ ] IMAGE_NAME = 121
+[ ] BE_CURSOR  = 101
+[ ] BE_DISPLAY = 102
+
+Interpreter:
+[ ] Replace hardcoded fallback selectors with selectors from SpecialSelectorsArray
+[ ] Wrapper for SpecialSelectorsArray
+[ ] Wrapper for SpecialObjectTable as replacement for classtable and objecttable
+[ ] Implement context rewinding
+
+Squeakimage:
+[ ] Implement image writer
+
+Shadows:
+[ ] Fix invalidation of methoddictshadow when the w_self of its values array changes

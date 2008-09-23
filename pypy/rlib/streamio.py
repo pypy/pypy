@@ -154,6 +154,8 @@ class StreamError(Exception):
     def __init__(self, message):
         self.message = message
 
+StreamErrors = (OSError, StreamError)     # errors that can generally be raised
+
 
 class Stream(object):
 
@@ -466,14 +468,14 @@ class BufferingInputStream(Stream):
                 self.buf = ""
                 return
             while self.lines:
-                line = self.lines[0]
+                line = self.lines[-1]
                 if offset <= len(line):
                     intoffset = intmask(offset)
                     assert intoffset >= 0
-                    self.lines[0] = line[intoffset:]
+                    self.lines[-1] = line[intoffset:]
                     return
-                offset -= len(self.lines[0]) - 1
-                del self.lines[0]
+                offset -= len(self.lines[-1]) - 1
+                self.lines.pop()
             assert not self.lines
             if offset <= len(self.buf):
                 intoffset = intmask(offset)
@@ -500,6 +502,7 @@ class BufferingInputStream(Stream):
             # Skip relative to EOF by reading and saving only just as
             # much as needed
             intoffset = offset2int(offset)
+            self.lines.reverse()
             data = "\n".join(self.lines + [self.buf])
             total = len(data)
             buffers = [data]
@@ -525,6 +528,7 @@ class BufferingInputStream(Stream):
         raise StreamError("whence should be 0, 1 or 2")
 
     def readall(self):
+        self.lines.reverse()
         self.lines.append(self.buf)
         more = ["\n".join(self.lines)]
         self.lines = []
@@ -543,31 +547,33 @@ class BufferingInputStream(Stream):
         assert n >= 0
         if self.lines:
             # See if this can be satisfied from self.lines[0]
-            line = self.lines[0]
+            line = self.lines[-1]
             if len(line) >= n:
-                self.lines[0] = line[n:]
+                self.lines[-1] = line[n:]
                 return line[:n]
 
             # See if this can be satisfied *without exhausting* self.lines
             k = 0
             i = 0
-            for line in self.lines:
+            lgt = len(self.lines)
+            for linenum in range(lgt-1,-1,-1):
+                line = self.lines[linenum]
                 k += len(line)
                 if k >= n:
-                    lines = self.lines[:i]
-                    data = self.lines[i]
+                    lines = self.lines[linenum + 1:]
+                    data = self.lines[linenum]
                     cutoff = len(data) - (k-n)
                     assert cutoff >= 0
                     lines.append(data[:cutoff])
-                    del self.lines[:i]
-                    self.lines[0] = data[cutoff:]
+                    del self.lines[linenum:]
+                    self.lines.append(data[cutoff:])
                     return "\n".join(lines)
                 k += 1
-                i += 1
 
             # See if this can be satisfied from self.lines plus self.buf
             if k + len(self.buf) >= n:
                 lines = self.lines
+                lines.reverse()
                 self.lines = []
                 cutoff = n - k
                 assert cutoff >= 0
@@ -587,6 +593,7 @@ class BufferingInputStream(Stream):
                 return data[:cutoff]
 
         lines = self.lines
+        lines.reverse()
         self.lines = []
         lines.append(self.buf)
         self.buf = ""
@@ -608,16 +615,39 @@ class BufferingInputStream(Stream):
             more[-1] = data[:cutoff]
         return "".join(more)
 
+    # read_next_bunch is generally this, version below is slightly faster
+    #def _read_next_bunch(self):
+    #    self.lines = self.buf.split("\n")
+    #    self.buf = self.lines.pop()
+    #    self.lines.reverse()
+
+    def _read_next_bunch(self):
+        numlines = self.buf.count("\n")
+        self.lines = [None] * numlines
+        last = -1
+        num = numlines - 1
+        while True:
+            start = last + 1
+            assert start >= 0
+            next = self.buf.find("\n", start)
+            if next == -1:
+                if last != -1:
+                    self.buf = self.buf[start:]
+                break
+            assert next >= 0
+            self.lines[num] = self.buf[start:next]
+            last = next
+            num -= 1
+
     def readline(self):
         if self.lines:
-            return self.lines.pop(0) + "\n"
+            return self.lines.pop() + "\n"
 
         # This block is needed because read() can leave self.buf
         # containing newlines
-        self.lines = self.buf.split("\n")
-        self.buf = self.lines.pop()
+        self._read_next_bunch()
         if self.lines:
-            return self.lines.pop(0) + "\n"
+            return self.lines.pop() + "\n"
 
         if self.buf:
             buf = [self.buf]
@@ -625,10 +655,9 @@ class BufferingInputStream(Stream):
             buf = []
         while 1:
             self.buf = self.do_read(self.bufsize)
-            self.lines = self.buf.split("\n")
-            self.buf = self.lines.pop()
+            self._read_next_bunch()
             if self.lines:
-                buf.append(self.lines.pop(0))
+                buf.append(self.lines.pop())
                 buf.append("\n")
                 break
             if not self.buf:
@@ -639,7 +668,7 @@ class BufferingInputStream(Stream):
 
     def peek(self):
         if self.lines:
-            return self.lines[0] + "\n"
+            return self.lines[-1] + "\n"
         else:
             return self.buf
 
@@ -916,6 +945,32 @@ class TextOutputFilter(Stream):
     try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
                                               flush_buffers=False)
 
+
+class CallbackReadFilter(Stream):
+    """Pseudo read filter that invokes a callback before blocking on a read.
+    """
+
+    def __init__(self, base, callback):
+        self.base = base
+        self.callback = callback
+
+    def flush_buffers(self):
+        self.callback()
+
+    tell       = PassThrough("tell",      flush_buffers=False)
+    seek       = PassThrough("seek",      flush_buffers=False)
+    read       = PassThrough("read",      flush_buffers=True)
+    readall    = PassThrough("readall",   flush_buffers=True)
+    readline   = PassThrough("readline",  flush_buffers=True)
+    peek       = PassThrough("peek",      flush_buffers=False)
+    flush      = PassThrough("flush",     flush_buffers=False)
+    flushable  = PassThrough("flushable", flush_buffers=False)
+    close      = PassThrough("close",     flush_buffers=False)
+    write      = PassThrough("write",     flush_buffers=False)
+    truncate   = PassThrough("truncate",  flush_buffers=False)
+    getnewlines= PassThrough("getnewlines",flush_buffers=False)
+    try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
+                                              flush_buffers=False)
 
 # _________________________________________________
 # The following functions are _not_ RPython!

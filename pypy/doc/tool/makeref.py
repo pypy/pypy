@@ -4,8 +4,18 @@ py.magic.autopath()
 import pypy
 pypydir = py.path.local(pypy.__file__).dirpath()
 distdir = pypydir.dirpath() 
-dist_url = 'http://codespeak.net/svn/pypy/dist/' 
 issue_url = 'http://codespeak.net/issue/pypy-dev/' 
+
+import urllib2, posixpath
+
+
+possible_start_dirs = [
+    distdir,
+    distdir.join('pypy'),
+    # for now, let the jit links point to the oo-jit branch
+    'http://codespeak.net/svn/pypy/branch/oo-jit',
+    'http://codespeak.net/svn/pypy/branch/oo-jit/pypy',
+    ]
 
 def makeref(docdir):
     reffile = docdir.join('_ref.txt') 
@@ -25,19 +35,27 @@ def makeref(docdir):
             continue
         for linkname in linkrex.findall(textfile.read()): 
             if '/' in linkname: 
-                for startloc in ('', 'pypy'): 
-                    cand = distdir.join(startloc, linkname)
-                    if cand.check(): 
-                        rel = cand.relto(distdir)
-                        assert docdir.relto(distdir)
+                for startdir in possible_start_dirs:
+                    if isinstance(startdir, str):
+                        assert startdir.startswith('http://')
+                        target = posixpath.join(startdir, linkname)
+                        try:
+                            urllib2.urlopen(target).close()
+                        except urllib2.HTTPError:
+                            continue
+                    else:
+                        cand = startdir.join(linkname)
+                        if not cand.check():
+                            continue
+                        assert cand.relto(distdir)
                         dotdots = 0
                         p = docdir
                         while p != distdir:
                             p = p.dirpath()
                             dotdots += 1
                         target = '../' * dotdots + cand.relto(distdir)
-                        addlink(linkname, target) 
-                        break
+                    addlink(linkname, target) 
+                    break
                 else: 
                     print "WARNING %s: link %r may be bogus" %(textfile, linkname) 
             elif linkname.startswith('issue'): 
@@ -53,6 +71,7 @@ def makeref(docdir):
             lines.append(".. _`%s`:" % linkname)
         lines.append(".. _`%s`: %s" %(linknamelist[-1], linktarget))
 
+    lines.append('')
     reffile.write("\n".join(lines))
     print "wrote %d references to %r" %(len(lines), reffile)
     #print "last ten lines"

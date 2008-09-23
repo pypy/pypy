@@ -84,6 +84,8 @@ import py
 from pypy.rlib.parsing.regexparse import make_runner, unescape
 import string
 import re
+import autopath
+this_dir = py.path.local(autopath.this_dir)
 
 #py.test.skip("Still in progress")
 
@@ -123,7 +125,8 @@ class PythonDumper(Dumper):
 
 def generate_output7():
     """Create the testoutput7.py file from the PCRE file testoutput7"""
-    create_pcre_pickle(open('testoutput7','r'), PythonDumper(open('pcre_test_7.py','w')))
+    create_pcre_pickle(this_dir.join('testoutput7').open(),
+                       PythonDumper(this_dir.join('pcre_test_7.py').open('w')))
 
 def create_pcre_pickle(file, dumper):
     """Create a filtered PCRE test file for the test."""
@@ -295,7 +298,7 @@ def run_individual_test(regex, tests):
             assert match is None
 
 def test_output7():
-    suite = PythonDumper(open('pcre_test_7.py','r')).load()
+    suite = PythonDumper(this_dir.join('pcre_test_7.py').open()).load()
     while suite:
         regex, flags, tests = suite.pop(0)
         yield run_individual_test, regex, tests

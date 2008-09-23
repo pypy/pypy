@@ -84,4 +84,5 @@ Create a slice object.  This is used for extended slicing (e.g. a[0:10:2]).''',
     stop  = slicewprop('w_stop'),
     step  = slicewprop('w_step'),
     )
+slice_typedef.acceptable_as_base_class = False
 slice_typedef.registermethods(globals())

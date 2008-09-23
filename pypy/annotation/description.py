@@ -466,6 +466,9 @@ class ClassDesc(Desc):
         for name, value in cls.__dict__.items():
             self.add_source_attribute(name, value, mixin)
 
+    def getallclassdefs(self):
+        return self._classdefs.values()
+
     def getclassdef(self, key):
         try:
             return self._classdefs[key]

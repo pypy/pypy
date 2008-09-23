@@ -1561,8 +1561,10 @@ class datetime(date):
         "Convert to formal string, for repr()."
         L = [self.__year, self.__month, self.__day, # These are never zero
              self.__hour, self.__minute, self.__second, self.__microsecond]
-        while L[-1] == 0:
+        if L[-1] == 0:
             del L[-1]
+        if L[-1] == 0:
+            del L[-1]            
         s = ", ".join(map(str, L))
         s = "%s(%s)" % ('datetime.' + self.__class__.__name__, s)
         if self._tzinfo is not None:

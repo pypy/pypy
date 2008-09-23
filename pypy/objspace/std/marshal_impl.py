@@ -18,7 +18,7 @@ from pypy.objspace.std.objspace import StdObjSpace
 from pypy.interpreter.special import Ellipsis
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter import gateway
-from pypy.module.struct import ieee
+from pypy.rlib.rstruct import ieee
 
 from pypy.objspace.std.boolobject    import W_BoolObject
 from pypy.objspace.std.complexobject import W_ComplexObject
@@ -87,8 +87,7 @@ put_short(int)              puts a short integer
 put_int(int)                puts an integer
 put_pascal(s)               puts a short string
 put_w_obj(w_obj)            puts a wrapped object
-put_list_w(list_w, lng)     puts a list of lng wrapped objects
-
+put_tuple_w(TYPE, tuple_w)  puts tuple_w, an unwrapped list of wrapped objects
 """
 
 handled_by_any = []
@@ -314,19 +313,17 @@ def unmarshal_stringref(space, u, tc):
 register(TYPE_STRINGREF, unmarshal_stringref)
 
 def marshal_w__Tuple(space, w_tuple, m):
-    m.start(TYPE_TUPLE)
     items = w_tuple.wrappeditems
-    m.put_list_w(items, len(items))
+    m.put_tuple_w(TYPE_TUPLE, items)
 
 def unmarshal_Tuple(space, u, tc):
-    items_w = u.get_list_w()
+    items_w = u.get_tuple_w()
     return space.newtuple(items_w)
 register(TYPE_TUPLE, unmarshal_Tuple)
 
 def marshal_w__List(space, w_list, m):
-    m.start(TYPE_LIST)
-    items = w_list.wrappeditems
-    m.put_list_w(items, len(items))
+    items = w_list.wrappeditems[:]
+    m.put_tuple_w(TYPE_LIST, items)
 
 def unmarshal_List(space, u, tc):
     items_w = u.get_list_w()
@@ -346,7 +343,7 @@ def marshal_w__Dict(space, w_dict, m):
 def marshal_w__DictMulti(space, w_dict, m):
     m.start(TYPE_DICT)
     for w_tuple in w_dict.implementation.items():
-        w_key, w_value = space.unpacktuple(w_tuple, 2)
+        w_key, w_value = space.viewiterable(w_tuple, 2)
         m.put_w_obj(w_key)
         m.put_w_obj(w_value)
     m.atom(TYPE_NULL)
@@ -379,8 +376,7 @@ def marshal_w_pycode(space, w_pycode, m):
     m.put_int(x.co_stacksize)
     m.put_int(x.co_flags)
     m.atom_str(TYPE_STRING, x.co_code)
-    m.start(TYPE_TUPLE)
-    m.put_list_w(x.co_consts_w, len(x.co_consts_w))
+    m.put_tuple_w(TYPE_TUPLE, x.co_consts_w)
     m.atom_strlist(TYPE_TUPLE, TYPE_INTERNED, [space.str_w(w_name) for w_name in x.co_names_w])
     m.atom_strlist(TYPE_TUPLE, TYPE_INTERNED, x.co_varnames)
     m.atom_strlist(TYPE_TUPLE, TYPE_INTERNED, x.co_freevars)
@@ -423,7 +419,8 @@ def unmarshal_pycode(space, u, tc):
     flags       = u.get_int()
     code        = unmarshal_str(u)
     u.start(TYPE_TUPLE)
-    consts_w    = u.get_list_w()
+    consts_w    = u.get_tuple_w()
+    # copy in order not to merge it with anything else
     names       = unmarshal_strlist(u, TYPE_TUPLE)
     varnames    = unmarshal_strlist(u, TYPE_TUPLE)
     freevars    = unmarshal_strlist(u, TYPE_TUPLE)
@@ -459,66 +456,39 @@ def unmarshal_Unicode(space, u, tc):
     return PyUnicode_DecodeUTF8(space, space.wrap(u.get_str()))
 register(TYPE_UNICODE, unmarshal_Unicode)
 
-# not directly supported:
-def marshal_w_buffer(space, w_buffer, m):
-    s = space.str_w(space.str(w_buffer))
-    m.atom_str(TYPE_UNKNOWN, s)
-
-handled_by_any.append( ('buffer', marshal_w_buffer) )
-
 app = gateway.applevel(r'''
-    def string_to_buffer(s):
-        return buffer(s)
-''')
-
-string_to_buffer = app.interphook('string_to_buffer')
-
-def unmarshal_buffer(space, u, tc):
-    w_s = space.wrap(u.get_str())
-    return string_to_buffer(space, w_s)
-register(TYPE_UNKNOWN, unmarshal_buffer)
-
-app = gateway.applevel(r'''
-    def set_to_list(theset):
-        return [item for item in theset]
-
-    def list_to_set(datalist, frozen=False):
+    def tuple_to_set(datalist, frozen=False):
         if frozen:
             return frozenset(datalist)
         return set(datalist)
 ''')
 
-set_to_list = app.interphook('set_to_list')
-list_to_set = app.interphook('list_to_set')
+tuple_to_set = app.interphook('tuple_to_set')
 
 # not directly supported:
 def marshal_w_set(space, w_set, m):
-    w_lis = set_to_list(space, w_set)
     # cannot access this list directly, because it's
     # type is not exactly known through applevel.
-    lis_w = space.unpackiterable(w_lis)
-    m.start(TYPE_SET)
-    m.put_list_w(lis_w, len(lis_w))
+    lis_w = space.viewiterable(w_set)
+    m.put_tuple_w(TYPE_SET, lis_w)
 
 handled_by_any.append( ('set', marshal_w_set) )
 
 # not directly supported:
 def marshal_w_frozenset(space, w_frozenset, m):
-    w_lis = set_to_list(space, w_frozenset)
-    lis_w = space.unpackiterable(w_lis)
-    m.start(TYPE_FROZENSET)
-    m.put_list_w(lis_w, len(lis_w))
+    lis_w = space.viewiterable(w_frozenset)
+    m.put_tuple_w(TYPE_FROZENSET, lis_w)
 
 handled_by_any.append( ('frozenset', marshal_w_frozenset) )
 
 def unmarshal_set_frozenset(space, u, tc):
-    items_w = u.get_list_w()
+    items_w = u.get_tuple_w()
     if tc == TYPE_SET:
         w_frozen = space.w_False
     else:
         w_frozen = space.w_True
-    w_lis = space.newlist(items_w)
-    return list_to_set(space, w_lis, w_frozen)
+    w_tup = space.newtuple(items_w)
+    return tuple_to_set(space, w_tup, w_frozen)
 register(TYPE_SET + TYPE_FROZENSET, unmarshal_set_frozenset)
 
 # dispatching for all not directly dispatched types
@@ -528,8 +498,19 @@ def marshal_w__ANY(space, w_obj, m):
         w_t = space.builtin.get(name)
         if space.is_true(space.issubtype(w_type, w_t)):
             func(space, w_obj, m)
-            break
+            return
+
+    # any unknown object implementing the buffer protocol is
+    # accepted and encoded as a plain string
+    try:
+        s = space.bufferstr_w(w_obj)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
     else:
-        raise_exception(space, "unmarshallable object")
+        m.atom_str(TYPE_STRING, s)
+        return
+
+    raise_exception(space, "unmarshallable object")
 
 register_all(vars())

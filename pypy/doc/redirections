@@ -4,5 +4,6 @@
     'news.html': 'home.html',
     'contact.html': 'home.html',
     'jit.html': 'jit/index.html',
+    'standalone-howto.html': 'faq.html#pypy-translation-tool-chain',
 }
 

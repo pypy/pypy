@@ -227,7 +227,7 @@ class PythonAstCompiler(PyCodeCompiler):
         self.compiler_flags = self.futureFlags.allowed_flags
 
     def compile(self, source, filename, mode, flags):
-        from pyparser.error import SyntaxError
+        from pypy.interpreter.pyparser.error import SyntaxError
         from pypy.interpreter import astcompiler
         from pypy.interpreter.astcompiler.pycodegen import ModuleCodeGenerator
         from pypy.interpreter.astcompiler.pycodegen import InteractiveCodeGenerator
@@ -284,6 +284,17 @@ class PythonAstCompiler(PyCodeCompiler):
             raise OperationError(space.w_SystemError, space.wrap(str(e)))
         assert isinstance(c, PyCode)
         return c
+
+    # interface for pypy.module.recparser
+    def get_parser(self):
+        return self.parser
+
+    def source2ast(self, source, mode='exec'):
+        from pypy.interpreter.pyparser.astbuilder import AstBuilder
+        builder = AstBuilder(self.parser, self.grammar_version,
+                             space=self.space)
+        self.parser.parse_source(source, mode, builder)
+        return builder.rule_stack[-1]
 
 
 def install_compiler_hook(space, w_callable):

@@ -175,6 +175,6 @@ def test_make_nice_charset_repr():
     nice = make_nice_charset_repr(string.printable)
     chunks = ['A-Z','a-z','0-9','\\t','\\x0b','\\n','\\r','\\x0c','\\\\','\\-']
     chunks += list('! #"%$\'&)(+*,/.;:=<?>@[]_^`{}|~')
-    assert all([chunk in nice for chunk in chunks])  # make sure every unit is in there, in some order
+    for chunk in chunks:
+        assert chunk in nice  # make sure every unit is in there, in some order
     assert len(''.join(chunks))==len(nice)  # make sure that's all that's in there
-    

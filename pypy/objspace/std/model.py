@@ -103,7 +103,8 @@ class StdTypeModel:
             longobject.W_LongObject: [],
             noneobject.W_NoneObject: [],
             iterobject.W_SeqIterObject: [],
-            iterobject.W_FastSeqIterObject: [],
+            iterobject.W_FastListIterObject: [],
+            iterobject.W_FastTupleIterObject: [],
             iterobject.W_ReverseSeqIterObject: [],
             unicodeobject.W_UnicodeObject: [],
             dictproxyobject.W_DictProxyObject: [],
@@ -120,6 +121,7 @@ class StdTypeModel:
             dictobject.W_DictIterObject: True,
             listobject.W_ListObject: True,
             stringobject.W_StringObject: True,
+            tupleobject.W_TupleObject: True,
         }
         for option, value in config.objspace.std:
             if option.startswith("with") and option in option_to_typename:
@@ -228,6 +230,8 @@ class StdTypeModel:
                 self.typeorder[type].append((type.typedef.any, None))
             self.typeorder[type].append((W_Root, None))
 
+        self._typeorder_with_empty_usersubcls = None
+
         # ____________________________________________________________
         # Prebuilt common integer values
 
@@ -242,6 +246,27 @@ class StdTypeModel:
 
         # ____________________________________________________________
 
+    def get_typeorder_with_empty_usersubcls(self):
+        if self._typeorder_with_empty_usersubcls is None:
+            from pypy.interpreter.typedef import enum_interplevel_subclasses
+            from pypy.objspace.std import stdtypedef
+            result = self.typeorder.copy()
+            for cls in self.typeorder:
+                if (hasattr(cls, 'typedef') and
+                    cls.typedef.acceptable_as_base_class):
+                    subclslist = enum_interplevel_subclasses(cls)
+                    for subcls in subclslist:
+                        if cls in subcls.__bases__:   # only direct subclasses
+                            # for user subclasses we only accept "generic"
+                            # matches: "typedef.any" is the applevel-type-based
+                            # matching, and "W_Root" is ANY.
+                            matches = []
+                            if isinstance(cls.typedef, stdtypedef.StdTypeDef):
+                                matches.append((cls.typedef.any, None))
+                            matches.append((W_Root, None))
+                            result[subcls] = matches
+            self._typeorder_with_empty_usersubcls = result
+        return self._typeorder_with_empty_usersubcls
 
 # ____________________________________________________________
 

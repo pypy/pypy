@@ -9,7 +9,7 @@ class _AppTestSelect:
         to report that no results are available.
         """
         import time, select
-        readend, writeend = getpair()
+        readend, writeend = self.getpair()
         try:
             start = time.time()
             iwtd, owtd, ewtd = select.select([readend], [], [], 0.3)
@@ -22,9 +22,9 @@ class _AppTestSelect:
 
     def test_list_tuple(self):
         import time, select
-        readend, writeend = getpair()
+        readend, writeend = self.getpair()
         try:
-            iwtd, owtd, ewtd = select.select([readend], (), (), 0)
+            iwtd, owtd, ewtd = select.select([readend], (), (), .3)
         finally:
             readend.close()
             writeend.close()
@@ -35,7 +35,7 @@ class _AppTestSelect:
         parameter) which may have data available to be read.
         """
         import select
-        readend, writeend = getpair()
+        readend, writeend = self.getpair()
         try:
             iwtd, owtd, ewtd = select.select([readend], [], [], 0)
             assert iwtd == owtd == ewtd == []
@@ -53,7 +53,7 @@ class _AppTestSelect:
         parameter) on which a write/send may be possible.
         """
         import select
-        readend, writeend = getpair()
+        readend, writeend = self.getpair()
         try:
             iwtd, owtd, ewtd = select.select([], [writeend], [], 0)
             assert iwtd == ewtd == []
@@ -71,7 +71,7 @@ class _AppTestSelect:
         overlaps significantly with test_readable. -exarkun)
         """
         import select
-        readend, writeend = getpair()
+        readend, writeend = self.getpair()
         try:
             total_out = 0
             while True:
@@ -103,7 +103,7 @@ class _AppTestSelect:
         parameter) which have no data to be read but which have been closed.
         """
         import select, sys
-        readend, writeend = getpair()
+        readend, writeend = self.getpair()
         try:
             try:
                 total_out = writeend.send('x' * 512)
@@ -137,7 +137,7 @@ class _AppTestSelect:
         pipe).
         """
         import select
-        readend, writeend = getpair()
+        readend, writeend = self.getpair()
         try:
             readend.close()
             iwtd, owtd, ewtd = select.select([writeend], [], [], 0)
@@ -157,7 +157,7 @@ class _AppTestSelect:
         writeends = []
         try:
             for i in range(10):
-                fd1, fd2 = getpair()
+                fd1, fd2 = self.getpair()
                 readends.append(fd1)
                 writeends.append(fd2)
             iwtd, owtd, ewtd = select.select(readends, [], [], 0)
@@ -184,7 +184,7 @@ class _AppTestSelect:
         write end non-writable before testing its selectability. -exarkun)
         """
         import select
-        readend, writeend = getpair()
+        readend, writeend = self.getpair()
         readend.close()
         try:
             iwtd, owtd, ewtd = select.select([], [writeend], [])
@@ -192,6 +192,21 @@ class _AppTestSelect:
             assert iwtd == ewtd == []
         finally:
             writeend.close()
+
+    def test_select_bug(self):
+        import select, os
+        read, write = os.pipe()
+        pid = os.fork()
+        if pid == 0:
+            os._exit(0)
+        else:
+            os.close(read)
+        os.waitpid(pid, 0)
+        res = select.select([write], [write], [write])
+        assert len(res[0]) == 1
+        assert len(res[1]) == 1
+        assert len(res[2]) == 0
+        assert res[0][0] == res[1][0]
 
 class AppTestSelectWithPipes(_AppTestSelect):
     "Use a pipe to get pairs of file descriptors"
@@ -202,7 +217,7 @@ class AppTestSelectWithPipes(_AppTestSelect):
         cls.space = space
 
         # Wraps a file descriptor in an socket-like object
-        space.exec_('''if 1:
+        cls.w_getpair = space.appexec([], '''():
         import os
         class FileAsSocket:
             def __init__(self, fd):
@@ -217,19 +232,18 @@ class AppTestSelectWithPipes(_AppTestSelect):
                 return os.close(self.fd)
         def getpair():
             s1, s2 = os.pipe()
-            return FileAsSocket(s1), FileAsSocket(s2)''',
-                    space.builtin.w_dict, space.builtin.w_dict)
+            return FileAsSocket(s1), FileAsSocket(s2)
+        return getpair''')
 
 class AppTestSelectWithSockets(_AppTestSelect):
     """Same tests with connected sockets.
     socket.socketpair() does not exists on win32,
     so we start our own server."""
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('select',))
+        space = gettestobjspace(usemodules=('select','_socket'))
         cls.space = space
 
-        space.setitem(space.builtin.w_dict, space.wrap('getpair'),
-                      space.wrap(cls.getsocketpair))
+        cls.w_getpair = space.wrap(cls.getsocketpair)
 
         import socket
         cls.sock = socket.socket()
@@ -259,3 +273,4 @@ class AppTestSelectWithSockets(_AppTestSelect):
         s1, addr2 = cls.sock.accept()
 
         return s1, s2
+

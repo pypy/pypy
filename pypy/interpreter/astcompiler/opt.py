@@ -75,7 +75,7 @@ else:
         __metaclass__ = extendabletype
         is_and = True
 
-    class __extend__(ast.Or):
+    class __extend__(ast.AbstractTest):
         __metaclass__ = extendabletype
         is_and = False
 
@@ -231,11 +231,13 @@ else:
             return self._visitAbstractTest(node, False)
 
         def visitTuple(self, node):
-            consts_w = []
-            for subnode in node.nodes:
+            nodes = node.nodes
+            consts_w = [None] * len(nodes)
+            for i in range(len(nodes)):
+                subnode = nodes[i]
                 if not isinstance(subnode, ast.Const):
                     return node     # not all constants
-                consts_w.append(subnode.value)
+                consts_w[i] = subnode.value
             return ast.Const(self.space.newtuple(consts_w))
 
         def visitFor(self, node):

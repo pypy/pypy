@@ -1,4 +1,4 @@
-import pdb
+import pdb, bdb
 import types
 import code
 import sys
@@ -11,7 +11,10 @@ class PdbPlusShow(pdb.Pdb):
 
     def __init__(self, translator):
         pdb.Pdb.__init__(self)
-        self.prompt = "(Pdb+) "
+        if self.prompt == "(Pdb) ":
+            self.prompt = "(Pdb+) "
+        else:
+            self.prompt = self.prompt.replace("(", "(Pdb+ on ", 1)
         self.translator = translator
         self.exposed = {}
 
@@ -379,6 +382,12 @@ show class hierarchy graph"""
         from pypy.translator.tool import graphpage           
         self._show(graphpage.ClassHierarchyPage(self.translator))
 
+    def do_callgraph(self, arg):
+        """callgraph
+show the program's call graph"""
+        from pypy.translator.tool import graphpage
+        self._show(graphpage.TranslatorPage(self.translator, 100))
+
     def do_interact(self, arg):
         """invoke a code.py sub prompt"""
         ns = self.curframe.f_globals.copy()
@@ -386,7 +395,7 @@ show class hierarchy graph"""
         code.interact("*interactive*", local=ns)
 
     def help_graphs(self):
-        print "graph commands are: showg, flowg, callg, classhier, enable_graphic"
+        print "graph commands are: callgraph, showg, flowg, callg, classhier"
 
     def help_ann_other(self):
         print "other annotation related commands are: find, finddescs, attrs, attrsann, readpos"
@@ -407,7 +416,7 @@ show class hierarchy graph"""
             locals().update(self.exposed)
             fn(*args)
             pass # for debugger to land
-        except pdb.bdb.BdbQuit:
+        except bdb.BdbQuit:
             pass    
 
 

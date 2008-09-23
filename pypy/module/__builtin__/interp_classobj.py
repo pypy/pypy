@@ -35,7 +35,7 @@ def descr_classobj_new(space, w_subtype, w_name, w_bases, w_dict):
 
     # XXX missing: lengthy and obscure logic about "__module__"
         
-    bases_w = space.unpackiterable(w_bases)
+    bases_w = space.viewiterable(w_bases)
     for w_base in bases_w:
         if not isinstance(w_base, W_ClassObject):
             w_metaclass = space.type(w_base)
@@ -78,12 +78,22 @@ class W_ClassObject(Wrappable):
             raise OperationError(
                     space.w_TypeError,
                     space.wrap("__bases__ must be a tuple object"))
-        bases_w = space.unpackiterable(w_bases)
+        bases_w = space.viewiterable(w_bases)
         for w_base in bases_w:
             if not isinstance(w_base, W_ClassObject):
                 raise OperationError(space.w_TypeError,
                                      space.wrap("__bases__ items must be classes"))
         self.bases_w = bases_w
+
+    def is_subclass_of(self, other):
+        assert isinstance(other, W_ClassObject)
+        if self is other:
+            return True
+        for base in self.bases_w:
+            assert isinstance(base, W_ClassObject)
+            if base.is_subclass_of(other):
+                return True
+        return False
 
     def lookup(self, space, w_attr):
         # returns w_value or interplevel None
@@ -225,6 +235,7 @@ def make_binary_returning_notimplemented_instance_method(name):
         except OperationError, e:
             if e.match(space, space.w_AttributeError):
                 return space.w_NotImplemented
+            raise
         else:
             if w_meth is None:
                 return space.w_NotImplemented
@@ -269,7 +280,7 @@ def _coerce_helper(space, w_self, w_other):
         if not e.match(space, space.w_TypeError):
             raise
         return [None, None]
-    return space.unpacktuple(w_tup, 2)
+    return space.viewiterable(w_tup, 2)
 
 def descr_instance_new(space, w_type, w_class, w_dict=None):
     # w_type is not used at all
@@ -314,11 +325,6 @@ class W_InstanceObject(Wrappable):
 
 
     def getattr(self, space, w_name, exc=True):
-        name = space.str_w(w_name)
-        if name == "__dict__":
-            return self.w_dict
-        elif name == "__class__":
-            return self.w_class
         w_result = space.finditem(self.w_dict, w_name)
         if w_result is not None:
             return w_result
@@ -328,7 +334,7 @@ class W_InstanceObject(Wrappable):
                 raise OperationError(
                     space.w_AttributeError,
                     space.wrap("%s instance has no attribute %s" % (
-                        self.w_class.name, name)))
+                        self.w_class.name, space.str_w(w_name))))
             else:
                 return None
         w_descr_get = space.lookup(w_value, '__get__')
@@ -337,7 +343,12 @@ class W_InstanceObject(Wrappable):
         return space.call_function(w_descr_get, w_value, self, self.w_class)
 
     def descr_getattribute(self, space, w_attr):
-        #import pdb; pdb.set_trace()
+        name = space.str_w(w_attr)
+        if len(name) >= 8 and name[0] == '_':
+            if name == "__dict__":
+                return self.w_dict
+            elif name == "__class__":
+                return self.w_class
         try:
             return self.getattr(space, w_attr)
         except OperationError, e:
@@ -620,6 +631,13 @@ class W_InstanceObject(Wrappable):
                                  space.wrap("instance has no next() method"))
         return space.call_function(w_func)
 
+    def descr_del(self, space):
+        # Note that this is called from executioncontext.UserDelAction
+        # via the space.userdel() method.
+        w_func = self.getattr(space, space.wrap('__del__'), False)
+        if w_func is not None:
+            space.call_function(w_func)
+
 rawdict = {}
 
 # unary operations
@@ -709,20 +727,11 @@ W_InstanceObject.typedef = TypeDef("instance",
     next = interp2app(W_InstanceObject.descr_next,
                       unwrap_spec=['self', ObjSpace]),
     __weakref__ = make_weakref_descr(W_InstanceObject),
+    __del__ = interp2app(W_InstanceObject.descr_del,
+                         unwrap_spec=['self', ObjSpace]),
     **rawdict
 )
 
 class W_InstanceObjectWithDel(W_InstanceObject):
     def __del__(self):
-        self.clear_all_weakrefs()
-        try:
-            self.descr_del()
-        except OperationError, e:
-            e.write_unraisable(self.space, 'method __del__ of ', self)
-            e.clear(self.space)   # break up reference cycles
-
-    def descr_del(self):
-        space = self.space
-        w_func = self.getattr(space, space.wrap('__del__'), False)
-        if w_func is not None:
-            space.call_function(w_func)
+        self._enqueue_for_destruction(self.space)

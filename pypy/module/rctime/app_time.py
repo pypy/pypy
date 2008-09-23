@@ -1,9 +1,6 @@
 # NOT_RPYTHON
 
-import os
 from _structseq import structseqtype, structseqfield
-
-_POSIX = os.name == "posix"
 
 class struct_time:
     __metaclass__ = structseqtype

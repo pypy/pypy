@@ -9,7 +9,7 @@ class AppTestVars:
         raises(TypeError, vars,  0, 1)
 
     def test_vars_correct_arguments(self):
-        class a:
+        class a(object):
             def __init__(self):
                 self.res = 42
         assert vars(a) == a.__dict__

@@ -167,29 +167,3 @@ class ThreadLocals:
 
     def getmainthreadvalue(self):
         return self._value
-
-    def getGIL(self):
-        return None    # XXX temporary hack!
-
-
-class Action(object):
-    """Abstract base class for actions that must be performed regularly,
-    every Nth bytecode (as selected by sys.setcheckinterval())."""
-
-    # set repeat to True for actions that must be kept around and
-    # re-performed regularly
-    repeat = False
-
-    def perform(self):
-        """To be overridden."""
-
-    def perform_actions(actionlist):
-        i = 0
-        while i < len(actionlist):
-            a = actionlist[i]
-            if a.repeat:
-                i += 1     # keep action
-            else:
-                del actionlist[i]
-            a.perform()
-    perform_actions = staticmethod(perform_actions)

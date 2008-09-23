@@ -7,11 +7,11 @@ from pypy.rlib.rposix import get_errno as geterrno
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 from pypy.rlib.rarithmetic import intmask, r_uint
-import os
+import os,sys
 
 _POSIX = os.name == "posix"
 _MS_WINDOWS = os.name == "nt"
-
+_SOLARIS = sys.platform == "sunos5"
 
 if _POSIX:
     includes = ('sys/types.h',
@@ -19,6 +19,7 @@ if _POSIX:
                 'sys/un.h',
                 'sys/poll.h',
                 'sys/select.h',
+                'sys/types.h',
                 'netinet/in.h',
                 'netinet/tcp.h',
                 'unistd.h',
@@ -35,6 +36,10 @@ if _POSIX:
     HEADER = ''.join(['#include <%s>\n' % filename for filename in includes])
     COND_HEADER = ''.join(['#ifdef %s\n#include <%s>\n#endif\n' % cond_include
                           for cond_include in cond_includes])
+
+if _SOLARIS:
+    libraries = libraries + ('socket', 'nsl')
+
 if _MS_WINDOWS:
     includes = ()
     libraries = ('ws2_32',)
@@ -52,9 +57,35 @@ if _MS_WINDOWS:
     COND_HEADER = ''
 constants = {}
 
+sources = ["""
+    void pypy_macro_wrapper_FD_SET(int fd, fd_set *set)
+    {
+        FD_SET(fd, set);
+    }
+    void pypy_macro_wrapper_FD_ZERO(fd_set *set)
+    {
+        FD_ZERO(set);
+    }
+    void pypy_macro_wrapper_FD_CLR(int fd, fd_set *set)
+    {
+        FD_CLR(fd, set);
+    }
+    int pypy_macro_wrapper_FD_ISSET(int fd, fd_set *set)
+    {
+        return FD_ISSET(fd, set);
+    }
+    """]
+
 eci = ExternalCompilationInfo(
-    pre_include_lines = (HEADER + COND_HEADER).split("\n"),
-    includes = includes
+    post_include_bits = [HEADER, COND_HEADER],
+    includes = includes,
+    libraries = libraries,
+    separate_module_sources = sources,
+    export_symbols = ['pypy_macro_wrapper_FD_ZERO',
+                      'pypy_macro_wrapper_FD_SET',
+                      'pypy_macro_wrapper_FD_CLR',
+                      'pypy_macro_wrapper_FD_ISSET',
+                      ],
 )
 
 class CConfig:
@@ -182,6 +213,7 @@ constants_w_defaults = [('SOL_IP', 0),
                         ('POLLOUT', 4),
                         ('POLLERR', 8),
                         ('POLLHUP', 16),
+                        ('FD_SETSIZE', 64),
                         ]
 for name, default in constants_w_defaults:
     setattr(CConfig, name, platform.DefinedConstantInteger(name))
@@ -278,11 +310,7 @@ CConfig.timeval = platform.Struct('struct timeval',
                                          [('tv_sec', rffi.LONG),
                                           ('tv_usec', rffi.LONG)])
 
-if _MS_WINDOWS:
-    CConfig.fd_set = platform.Struct('struct fd_set',
-                                   [('fd_count', rffi.UINT),
-                                   # XXX use FD_SETSIZE
-                                   ('fd_array', rffi.CFixedArray(socketfd_type, 64))])
+fd_set = rffi.COpaquePtr('fd_set', compilation_info=eci)
 
 if _MS_WINDOWS:
     CConfig.WSAData = platform.Struct('struct WSAData',
@@ -372,20 +400,22 @@ if MS_WINDOWS:
     WSAEVENT = cConfig.WSAEVENT
     WSANETWORKEVENTS = cConfig.WSANETWORKEVENTS
 timeval = cConfig.timeval
-if MS_WINDOWS:
-    fd_set = cConfig.fd_set
 
-
-if _POSIX:
-    includes = list(includes)
-    for _name, _header in cond_includes:
-        if getattr(cConfig, _name) is not None:
-            includes.append(_header)
-    eci = ExternalCompilationInfo(includes=includes, libraries=libraries)
+#if _POSIX:
+#    includes = list(includes)
+#    for _name, _header in cond_includes:
+#        if getattr(cConfig, _name) is not None:
+#            includes.append(_header)
+#    eci = ExternalCompilationInfo(includes=includes, libraries=libraries,
+#                                  separate_module_sources=sources)
 
 def external(name, args, result):
     return rffi.llexternal(name, args, result, compilation_info=eci,
                            calling_conv=calling_conv)
+
+def external_c(name, args, result):
+    return rffi.llexternal(name, args, result, compilation_info=eci,
+                           calling_conv='c')
 
 if _POSIX:
     dup = external('dup', [socketfd_type], socketfd_type)
@@ -475,15 +505,22 @@ if _MS_WINDOWS:
                            [socketfd_type, rffi.LONG, rffi.ULONGP],
                            rffi.INT)
 
+select = external('select',
+                  [rffi.INT, fd_set, fd_set,
+                   fd_set, lltype.Ptr(timeval)],
+                  rffi.INT)
+
+FD_CLR = external_c('pypy_macro_wrapper_FD_CLR', [rffi.INT, fd_set], lltype.Void)
+FD_ISSET = external_c('pypy_macro_wrapper_FD_ISSET', [rffi.INT, fd_set], rffi.INT)
+FD_SET = external_c('pypy_macro_wrapper_FD_SET', [rffi.INT, fd_set], lltype.Void)
+FD_ZERO = external_c('pypy_macro_wrapper_FD_ZERO', [fd_set], lltype.Void)
+
 if _POSIX:
     pollfdarray = rffi.CArray(pollfd)
     poll = external('poll', [lltype.Ptr(pollfdarray), nfds_t, rffi.INT],
                     rffi.INT)
+    
 elif MS_WINDOWS:
-    select = external('select',
-                      [rffi.INT, lltype.Ptr(fd_set), lltype.Ptr(fd_set),
-                       lltype.Ptr(fd_set), lltype.Ptr(timeval)],
-                      rffi.INT)
     #
     # The following is for pypy.rlib.rpoll
     #

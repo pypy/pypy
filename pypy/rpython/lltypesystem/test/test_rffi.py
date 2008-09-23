@@ -1,14 +1,17 @@
 
 import py
+import sys
 from pypy.rpython.lltypesystem.rffi import *
 from pypy.rpython.lltypesystem.rffi import _keeper_for_type # crap
 from pypy.rlib.rposix import get_errno, set_errno
 from pypy.translator.c.test.test_genc import compile as compile_c
 from pypy.translator.llvm.test.runtest import compile_function as compile_llvm
 from pypy.rpython.lltypesystem.lltype import Signed, Ptr, Char, malloc
+from pypy.rpython.lltypesystem.rstr import STR
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.udir import udir
 from pypy.rpython.test.test_llinterp import interpret, MallocMismatch
+from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.translator.backendopt.all import backend_optimizations
@@ -68,6 +71,12 @@ class BaseTestRffi:
         assert xf() == 3
     
     def test_string_reverse(self):
+        # XXX This test crashes with a debug build
+        # (when python is built WITH_PYMALLOC and PYMALLOC_DEBUG):
+        # lltype.free calls OP_RAW_FREE() == PyObject_Free(),
+        # but the buffer comes from a malloc()
+        if sys.platform == 'win32' and 'python_d' in sys.executable:
+            py.test.skip("Crash with a debug build")
         c_source = py.code.Source("""
         #include <string.h>
     
@@ -347,7 +356,8 @@ class BaseTestRffi:
 
         eci = ExternalCompilationInfo(includes=['callback.h'],
                                       include_dirs=[str(udir)],
-                                      separate_module_sources=[c_source])
+                                      separate_module_sources=[c_source],
+                                      export_symbols=['eating_callback'])
 
         args = [INT, CCallback([INT], INT)]
         eating_callback = llexternal('eating_callback', args, INT,
@@ -429,6 +439,58 @@ class BaseTestRffi:
         unregister_keepalive(pos, TP)
         assert res == 8
 
+    def test_nonmoving(self):
+        d = 'non-moving data stuff'
+        def f():
+            raw_buf, gc_buf = alloc_buffer(len(d))
+            try:
+                for i in range(len(d)):
+                    raw_buf[i] = d[i]
+                return str_from_buffer(raw_buf, gc_buf, len(d), len(d)-1)
+            finally:
+                keep_buffer_alive_until_here(raw_buf, gc_buf)
+        assert f() == d[:-1]
+        fn = self.compile(f, [], gcpolicy='ref')
+        assert fn() == d[:-1]
+    
+
+    def test_nonmovingbuffer(self):
+        d = 'some cool data that should not move'
+        def f():
+            buf = get_nonmovingbuffer(d)
+            try:
+                counter = 0
+                for i in range(len(d)):
+                    if buf[i] == d[i]:
+                        counter += 1
+                return counter
+            finally:
+                free_nonmovingbuffer(d, buf)
+        assert f() == len(d)
+        fn = self.compile(f, [], gcpolicy='ref')
+        assert fn() == len(d)
+
+    def test_nonmovingbuffer_semispace(self):
+        d = 'cool data'
+        def f():
+            counter = 0
+            for n in range(32):
+                buf = get_nonmovingbuffer(d)
+                try:
+                    for i in range(len(d)):
+                        if buf[i] == d[i]:
+                            counter += 1
+                finally:
+                    free_nonmovingbuffer(d, buf)
+            return counter
+        fn = self.compile(f, [], gcpolicy='semispace')
+        # The semispace gc uses raw_malloc for its internal data structs
+        # but hopefully less than 30 times.  So we should get < 30 leaks
+        # unless the get_nonmovingbuffer()/free_nonmovingbuffer() pair
+        # leaks at each iteration.  This is what the following line checks.
+        res = fn(expected_extra_mallocs=range(30))
+        assert res == 32 * len(d)
+
 class TestRffiInternals:
     def test_struct_create(self):
         X = CStruct('xx', ('one', INT))
@@ -464,8 +526,21 @@ class TestRffiInternals:
         res = interpret(f, [])
         assert res == 123
     
+    def test_make_annotation(self):
+        X = CStruct('xx', ('one', INT))
+        def f():
+            p = make(X)
+            try:
+                q = make(X)
+                lltype.free(q, flavor='raw')
+            finally:
+                lltype.free(p, flavor='raw')
+            return 3
+        assert interpret(f, []) == 3
+    
     def test_implicit_cast(self):
-        z = llexternal('z', [USHORT, ULONG, USHORT, DOUBLE], USHORT)
+        z = llexternal('z', [USHORT, ULONG, USHORT, DOUBLE], USHORT,
+                       sandboxsafe=True)   # to allow the wrapper to be inlined
     
         def f(x, y, xx, yy):
             return z(x, y, xx, yy)
@@ -481,8 +556,7 @@ class TestRffiInternals:
         graph = graphof(a.translator, f)
         s = summary(graph)
         # there should be not too many operations here by now
-        expected = {'cast_int_to_uint': 1, 'direct_call': 1,
-                    'cast_primitive': 2, 'cast_int_to_float': 1}
+        expected = {'force_cast': 3, 'cast_int_to_float': 1, 'direct_call': 1}
         for k, v in expected.items():
             assert s[k] == v
     
@@ -518,6 +592,8 @@ class TestRffiInternals:
         assert interpret(f, [], backendopt=True) == 43    
     
     def test_around_extcall(self):
+        if sys.platform == "win32":
+            py.test.skip('No pipes on windows')
         import os
         from pypy.annotation import model as annmodel
         from pypy.rlib.objectmodel import invoke_around_extcall
@@ -634,7 +710,6 @@ def test_ptradd():
 def test_ptradd_interpret():
     interpret(test_ptradd, [])
 
-
 class TestCRffi(BaseTestRffi):
     def compile(self, func, args, **kwds):
         return compile_c(func, args, **kwds)
@@ -650,5 +725,29 @@ class TestLLVMRffi(BaseTestRffi):
             del kwds['backendopt']
         return compile_llvm(func, args, **kwds)
 
+    def test_nonmovingbuffer(self):
+        py.test.skip("Somewhat buggy...")
+
+    test_nonmoving = test_nonmovingbuffer
+
+    def test_nonmovingbuffer_semispace(self):
+        py.test.skip("LLVM backend error - unsupported operator")
+
     def test_hashdefine(self):
         py.test.skip("Macros cannot be called as llexternals by design, rffi does not have any special support for them")
+
+
+def test_enforced_args():
+    from pypy.annotation.model import s_None
+    from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
+    from pypy.translator.interactive import Translation
+    def f1():
+        str2charp("hello")
+    def f2():
+        str2charp("world")
+    t = Translation(f1, [])
+    t.rtype()
+    mixann = MixLevelHelperAnnotator(t.context.rtyper)
+    mixann.getgraph(f2, [], s_None)
+    mixann.finish()
+

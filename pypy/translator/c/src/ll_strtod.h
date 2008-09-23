@@ -82,6 +82,10 @@ double LL_strtod_parts_to_float(
 char buffer[120]; /* this should be enough, from PyString_Format code */
 int buflen = 120;
 
+#ifdef _MSC_VER
+#define snprintf _snprintf
+#endif
+
 char* LL_strtod_formatd(char *fmt, double x) {
 	int res;
 	res = snprintf(buffer, buflen, fmt, x);

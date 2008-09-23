@@ -13,6 +13,7 @@ def setup_module(mod):
 class AbstractGCTestClass(object):
     gcpolicy = "boehm"
     stacklessgc = False
+    use_threads = False
    
     # deal with cleanups
     def setup_method(self, meth):
@@ -27,6 +28,7 @@ class AbstractGCTestClass(object):
         from pypy.config.pypyoption import get_pypy_config
         config = get_pypy_config(translating=True)
         config.translation.gc = self.gcpolicy
+        config.translation.thread = self.use_threads
         if self.stacklessgc:
             config.translation.gcrootfinder = "stackless"
         config.translation.simplifying = True
@@ -367,6 +369,48 @@ class TestUsingBoehm(AbstractGCTestClass):
         res = c_fn(10000)
         assert res == 0
 
+    def test_can_move(self):
+        from pypy.rlib import rgc
+        class A:
+            pass
+        def fn():
+            return rgc.can_move(A())
+
+        c_fn = self.getcompiled(fn, [])
+        assert c_fn() == False
+
+    def test_malloc_nonmovable(self):
+        TP = lltype.GcArray(lltype.Char)
+        def func():
+            try:
+                from pypy.rlib import rgc
+                a = rgc.malloc_nonmovable(TP, 3)
+                rgc.collect()
+                if a:
+                    assert not rgc.can_move(a)
+                    return 0
+                return 1
+            except Exception, e:
+                return 2
+
+        run = self.getcompiled(func)
+        assert run() == 0
+
+    def test_resizable_buffer(self):
+        from pypy.rpython.lltypesystem.rstr import STR
+        from pypy.rpython.annlowlevel import hlstr
+        from pypy.rlib import rgc
+
+        def f():
+            ptr = rgc.resizable_buffer_of_shape(STR, 2)
+            ptr.chars[0] = 'a'
+            ptr = rgc.resize_buffer(ptr, 1, 200)
+            ptr.chars[1] = 'b'
+            return hlstr(rgc.finish_building_buffer(ptr, 2)) == "ab"
+
+        run = self.getcompiled(f)
+        assert run() == True
+
     # reusing some tests from pypy.rpython.memory.test.snippet
     large_tests_ok = True
 
@@ -376,6 +420,3 @@ class TestUsingBoehm(AbstractGCTestClass):
         c_fn = self.getcompiled(wrapper, [])
         res = c_fn()
         assert res == 1
-
-    test_disable_finalizers = (
-        snippet.SemiSpaceGCTests.test_disable_finalizers.im_func)

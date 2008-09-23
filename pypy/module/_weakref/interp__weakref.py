@@ -150,7 +150,10 @@ def descr__new__weakref(space, w_subtype, w_obj, w_callable=None):
         w_obj.setweakref(space, lifeline)
     return lifeline.get_or_make_weakref(space, w_subtype, w_obj, w_callable)
 
-def descr__eq__(space, ref1, ref2):
+def descr__eq__(space, ref1, w_ref2):
+    if not isinstance(w_ref2, W_Weakref):
+        return space.w_NotImplemented
+    ref2 = w_ref2
     w_obj1 = ref1.dereference()
     w_obj2 = ref2.dereference()
     if (w_obj1 is None or
@@ -158,8 +161,23 @@ def descr__eq__(space, ref1, ref2):
         return space.is_(ref1, ref2)
     return space.eq(w_obj1, w_obj2)
 
-def descr__ne__(space, ref1, ref2):
-    return space.not_(space.eq(ref1, ref2))
+def descr__ne__(space, ref1, w_ref2):
+    return space.not_(space.eq(ref1, w_ref2))
+
+def descr__repr__(space, ref):
+    w_obj = ref.dereference()
+    if w_obj is None:
+        state = '; dead'
+    else:
+        typename = space.type(w_obj).getname(space, '?')
+        objname = w_obj.getname(space, '')
+        if objname:
+            state = "; to '%s' (%s)" % (typename, objname)
+        else:
+            state = "; to '%s'" % (typename,)
+    return ref.getrepr(space, ref.typedef.name, state)
+
+reprdescr = interp2app(descr__repr__, unwrap_spec=[ObjSpace, W_WeakrefBase])
 
 W_Weakref.typedef = TypeDef("weakref",
     __doc__ = """A weak reference to an object 'obj'.  A 'callback' can given,
@@ -167,10 +185,11 @@ which is called with the weak reference as an argument when 'obj'
 is about to be finalized.""",
     __new__ = interp2app(descr__new__weakref),
     __eq__ = interp2app(descr__eq__,
-                        unwrap_spec=[ObjSpace, W_Weakref, W_Weakref]),
+                        unwrap_spec=[ObjSpace, W_Weakref, W_Root]),
     __ne__ = interp2app(descr__ne__,
-                        unwrap_spec=[ObjSpace, W_Weakref, W_Weakref]),
+                        unwrap_spec=[ObjSpace, W_Weakref, W_Root]),
     __hash__ = interp2app(W_Weakref.descr_hash, unwrap_spec=['self']),
+    __repr__ = reprdescr,
     __call__ = interp2app(W_Weakref.descr_call, unwrap_spec=['self'])
 )
 
@@ -267,12 +286,14 @@ for opname, _, arity, special_methods in ObjSpace.MethodTable:
 W_Proxy.typedef = TypeDef("weakproxy",
     __new__ = interp2app(descr__new__proxy),
     __hash__ = interp2app(W_Proxy.descr__hash__, unwrap_spec=['self', ObjSpace]),
+    __repr__ = reprdescr,
     **proxy_typedef_dict)
 W_Proxy.typedef.acceptable_as_base_class = False
 
 W_CallableProxy.typedef = TypeDef("weakcallableproxy",
     __new__ = interp2app(descr__new__callableproxy),
     __hash__ = interp2app(W_Proxy.descr__hash__, unwrap_spec=['self', ObjSpace]),
+    __repr__ = reprdescr,
     __call__ = interp2app(W_CallableProxy.descr__call__,
                           unwrap_spec=['self', ObjSpace, Arguments]), 
     **callable_proxy_typedef_dict)

@@ -5,6 +5,17 @@ import sys
 
 def interactive_console(mainmodule=None):
     try:
+        from _pypy_irc_topic import some_topic
+        text = "And now for something completely different: ``%s''" % (
+            some_topic(),)
+        if len(text) >= 80:
+            i = text[:80].rfind(' ')
+            print text[:i]
+            text = text[i+1:]
+        print text
+    except ImportError:
+        pass
+    try:
         from pyrepl.simple_interact import run_multiline_interactive_console
     except ImportError:
         run_simple_interactive_console(mainmodule)

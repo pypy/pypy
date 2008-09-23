@@ -6,121 +6,96 @@ from pypy.rpython.extfunc import genericcallable
 from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.lltypesystem import llmemory
-import thread, py
+import py, os
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem.lltype import typeOf
 from pypy.rlib.debug import ll_assert
+from pypy.rlib.objectmodel import we_are_translated
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.tool import autopath
 from distutils import sysconfig
 python_inc = sysconfig.get_python_inc()
 
-error = thread.error
+class error(Exception):
+    pass
 
 eci = ExternalCompilationInfo(
-    includes = ['unistd.h', 'src/thread.h'],
-    separate_module_sources=['''
-    #include <Python.h>
-    #include <src/exception.h>
-    #include <src/thread.h>
-    '''],
+    includes = ['src/thread.h'],
+    separate_module_sources = [''],
     include_dirs = [str(py.path.local(autopath.pypydir).join('translator', 'c')),
-                    python_inc]
+                    python_inc],
+    export_symbols = ['RPyThreadGetIdent', 'RPyThreadLockInit',
+                      'RPyThreadAcquireLock', 'RPyThreadReleaseLock',
+                      'RPyThreadYield']
 )
 
 def llexternal(name, args, result, **kwds):
+    kwds.setdefault('sandboxsafe', True)
     return rffi.llexternal(name, args, result, compilation_info=eci,
                            **kwds)
 
-CALLBACK = lltype.Ptr(lltype.FuncType([rffi.VOIDP], rffi.VOIDP))
-c_thread_start = llexternal('RPyThreadStart', [CALLBACK, rffi.VOIDP], rffi.INT)
-c_thread_get_ident = llexternal('RPyThreadGetIdent', [], rffi.INT)
+def _emulated_start_new_thread(func):
+    "NOT_RPYTHON"
+    import thread
+    try:
+        ident = thread.start_new_thread(func, ())
+    except thread.error:
+        ident = -1
+    return rffi.cast(rffi.INT, ident)
+
+CALLBACK = lltype.Ptr(lltype.FuncType([], lltype.Void))
+c_thread_start = llexternal('RPyThreadStart', [CALLBACK], rffi.INT,
+                            _callable=_emulated_start_new_thread,
+                            threadsafe=True)  # release the GIL, but most
+                                              # importantly, reacquire it
+                                              # around the callback
+c_thread_get_ident = llexternal('RPyThreadGetIdent', [], rffi.INT,
+                                _nowrapper=True)    # always call directly
 
 TLOCKP = rffi.COpaquePtr('struct RPyOpaque_ThreadLock',
                           compilation_info=eci)
 
 c_thread_lock_init = llexternal('RPyThreadLockInit', [TLOCKP], lltype.Void)
 c_thread_acquirelock = llexternal('RPyThreadAcquireLock', [TLOCKP, rffi.INT],
-                                  rffi.INT)
-c_thread_releaselock = llexternal('RPyThreadReleaseLock', [TLOCKP], lltype.Void)
+                                  rffi.INT,
+                                  threadsafe=True)    # release the GIL
+c_thread_releaselock = llexternal('RPyThreadReleaseLock', [TLOCKP], lltype.Void,
+                                  threadsafe=True)    # release the GIL
 
 # another set of functions, this time in versions that don't cause the
 # GIL to be released.  To use to handle the GIL lock itself.
 c_thread_acquirelock_NOAUTO = llexternal('RPyThreadAcquireLock',
                                          [TLOCKP, rffi.INT], rffi.INT,
-                                         threadsafe=False)
+                                         _nowrapper=True)
 c_thread_releaselock_NOAUTO = llexternal('RPyThreadReleaseLock',
                                          [TLOCKP], lltype.Void,
-                                         threadsafe=False)
-c_thread_fused_releaseacquirelock_NOAUTO = llexternal(
-     'RPyThreadFusedReleaseAcquireLock', [TLOCKP], lltype.Void,
-                                         threadsafe=False)
+                                         _nowrapper=True)
+
+# this function does nothing apart from releasing the GIL temporarily.
+yield_thread = llexternal('RPyThreadYield', [], lltype.Void, threadsafe=True)
 
 def allocate_lock():
-    ll_lock = lltype.malloc(TLOCKP.TO, flavor='raw')
-    res = c_thread_lock_init(ll_lock)
-    if res == -1:
-        lltype.free(ll_lock, flavor='raw')
-        raise error("out of resources")
-    return Lock(ll_lock)
+    return Lock(allocate_ll_lock())
 
-def allocate_lock_NOAUTO():
-    ll_lock = lltype.malloc(TLOCKP.TO, flavor='raw')
-    res = c_thread_lock_init(ll_lock)
-    if res == -1:
-        lltype.free(ll_lock, flavor='raw')
-        raise error("out of resources")
-    return Lock_NOAUTO(ll_lock)
-
-def _start_new_thread(x, y):
-    return thread.start_new_thread(x, (y,))
-
-def ll_start_new_thread(l_func, arg):
-    l_arg = cast_instance_to_base_ptr(arg)
-    l_arg = rffi.cast(rffi.VOIDP, l_arg)
-    ident = c_thread_start(l_func, l_arg)
+def ll_start_new_thread(func):
+    ident = c_thread_start(func)
     if ident == -1:
         raise error("can't start new thread")
     return ident
 
-class LLStartNewThread(ExtRegistryEntry):
-    _about_ = _start_new_thread
-    
-    def compute_result_annotation(self, s_func, s_arg):
-        bookkeeper = self.bookkeeper
-        s_result = bookkeeper.emulate_pbc_call(bookkeeper.position_key,
-                                               s_func, [s_arg])
-        assert annmodel.s_None.contains(s_result)
-        return annmodel.SomeInteger()
-    
-    def specialize_call(self, hop):
-        rtyper = hop.rtyper
-        bk = rtyper.annotator.bookkeeper
-        r_result = rtyper.getrepr(hop.s_result)
-        hop.exception_is_here()
-        args_r = [rtyper.getrepr(s_arg) for s_arg in hop.args_s]
-        _callable = hop.args_s[0].const
-        funcptr = lltype.functionptr(CALLBACK.TO, _callable.func_name,
-                                     _callable=_callable)
-        func_s = bk.immutablevalue(funcptr)
-        s_args = [func_s, hop.args_s[1]]
-        obj = rtyper.getannmixlevel().delayedfunction(
-            ll_start_new_thread, s_args, annmodel.SomeInteger())
-        bootstrap = rtyper.getannmixlevel().delayedfunction(
-            _callable, [hop.args_s[1]], annmodel.s_None)
-        vlist = [hop.inputconst(typeOf(obj), obj),
-                 hop.inputconst(typeOf(bootstrap), bootstrap),
-                 #hop.inputarg(args_r[0], 0),
-                 hop.inputarg(args_r[1], 1)]
-        return hop.genop('direct_call', vlist, r_result)
-
 # wrappers...
 
 def get_ident():
-    return c_thread_get_ident()
+    return rffi.cast(lltype.Signed, c_thread_get_ident())
 
 def start_new_thread(x, y):
-    return _start_new_thread(x, y[0])
+    """In RPython, no argument can be passed.  You have to use global
+    variables to pass information to the new thread.  That's not very
+    nice, but at least it avoids some levels of GC issues.
+    """
+    assert len(y) == 0
+    return rffi.cast(lltype.Signed, ll_start_new_thread(x))
 
 class Lock(object):
     """ Container for low-level implementation
@@ -130,7 +105,9 @@ class Lock(object):
         self._lock = ll_lock
 
     def acquire(self, flag):
-        return bool(c_thread_acquirelock(self._lock, int(flag)))
+        res = c_thread_acquirelock(self._lock, int(flag))
+        res = rffi.cast(lltype.Signed, res)
+        return bool(res)
 
     def release(self):
         # Sanity check: the lock must be locked
@@ -143,23 +120,58 @@ class Lock(object):
     def __del__(self):
         lltype.free(self._lock, flavor='raw')
 
-class Lock_NOAUTO(object):
-    """A special lock that doesn't cause the GIL to be released when
-    we try to acquire it.  Used for the GIL itself."""
+# ____________________________________________________________
+#
+# GIL support wrappers
 
-    def __init__(self, ll_lock):
-        self._lock = ll_lock
+null_ll_lock = lltype.nullptr(TLOCKP.TO)
 
-    def acquire(self, flag):
-        return bool(c_thread_acquirelock_NOAUTO(self._lock, int(flag)))
+def allocate_ll_lock():
+    ll_lock = lltype.malloc(TLOCKP.TO, flavor='raw')
+    res = c_thread_lock_init(ll_lock)
+    if res == -1:
+        lltype.free(ll_lock, flavor='raw')
+        raise error("out of resources")
+    return ll_lock
 
-    def release(self):
-        ll_assert(not self.acquire(False), "Lock_NOAUTO was not held!")
-        c_thread_releaselock_NOAUTO(self._lock)
+def acquire_NOAUTO(ll_lock, flag):
+    flag = rffi.cast(rffi.INT, int(flag))
+    res = c_thread_acquirelock_NOAUTO(ll_lock, flag)
+    res = rffi.cast(lltype.Signed, res)
+    return bool(res)
 
-    def fused_release_acquire(self):
-        ll_assert(not self.acquire(False), "Lock_NOAUTO was not held!")
-        c_thread_fused_releaseacquirelock_NOAUTO(self._lock)
+def release_NOAUTO(ll_lock):
+    if not we_are_translated():
+        ll_assert(not acquire_NOAUTO(ll_lock, False), "NOAUTO lock not held!")
+    c_thread_releaselock_NOAUTO(ll_lock)
 
-    def __del__(self):
-        lltype.free(self._lock, flavor='raw')
+# ____________________________________________________________
+#
+# Thread integration.
+# These are three completely ad-hoc operations at the moment.
+
+def gc_thread_prepare():
+    """To call just before thread.start_new_thread().  This
+    allocates a new shadow stack to be used by the future
+    thread.  If memory runs out, this raises a MemoryError
+    (which can be handled by the caller instead of just getting
+    ignored if it was raised in the newly starting thread).
+    """
+    if we_are_translated():
+        llop.gc_thread_prepare(lltype.Void)
+
+def gc_thread_run():
+    """To call whenever the current thread (re-)acquired the GIL.
+    """
+    if we_are_translated():
+        llop.gc_thread_run(lltype.Void)
+gc_thread_run._always_inline_ = True
+
+def gc_thread_die():
+    """To call just before the final GIL release done by a dying
+    thread.  After a thread_die(), no more gc operation should
+    occur in this thread.
+    """
+    if we_are_translated():
+        llop.gc_thread_die(lltype.Void)
+gc_thread_die._always_inline_ = True

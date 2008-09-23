@@ -14,7 +14,7 @@ class AppTestReduce:
        assert reduce(lambda x, y: x-y, [2, 8], 10) == 0
 
    def test_from_cpython(self):
-      class SequenceClass:
+      class SequenceClass(object):
          def __init__(self, n):
             self.n = n
          def __getitem__(self, i):

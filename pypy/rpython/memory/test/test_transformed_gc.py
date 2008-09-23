@@ -5,12 +5,12 @@ from pypy.translator.c import gc
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.memory.gctransform import framework
-from pypy.rpython.memory.gctransform import stacklessframework
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.memory.gc.marksweep import X_CLONE, X_POOL, X_POOL_PTR
 from pypy.rlib.objectmodel import compute_unique_id
 from pypy.rlib.debug import ll_assert
 from pypy import conftest
+from pypy.rlib.rstring import StringBuilder
 
 INT_SIZE = struct.calcsize("i")   # only for estimates
 
@@ -37,6 +37,8 @@ def rtype(func, inputtypes, specialize=True, gcname='ref', stacklessgc=False,
 class GCTest(object):
     gcpolicy = None
     stacklessgc = False
+    GC_CAN_MOVE = False
+    GC_CANNOT_MALLOC_NONMOVABLE = False
 
     def runner(self, f, nbargs=0, statistics=False, transformer=False,
                **extraconfigopts):
@@ -447,8 +449,86 @@ class GenericGCTests(GCTest):
         res = run([])
         assert res == 0
 
+    def test_can_move(self):
+        TP = lltype.GcArray(lltype.Float)
+        def func():
+            from pypy.rlib import rgc
+            return rgc.can_move(lltype.malloc(TP, 1))
+        run = self.runner(func)
+        res = run([])
+        assert res == self.GC_CAN_MOVE
+
+    def test_malloc_nonmovable(self):
+        TP = lltype.GcArray(lltype.Char)
+        def func():
+            #try:
+            from pypy.rlib import rgc
+            a = rgc.malloc_nonmovable(TP, 3)
+            rgc.collect()
+            if a:
+                assert not rgc.can_move(a)
+                return 0
+            return 1
+            #except Exception, e:
+            #    return 2
+
+        run = self.runner(func)
+        assert int(self.GC_CANNOT_MALLOC_NONMOVABLE) == run([])
+
+    def test_malloc_nonmovable_fixsize(self):
+        S = lltype.GcStruct('S', ('x', lltype.Float))
+        TP = lltype.GcStruct('T', ('s', lltype.Ptr(S)))
+        def func():
+            try:
+                from pypy.rlib import rgc
+                a = rgc.malloc_nonmovable(TP)
+                rgc.collect()
+                if a:
+                    assert not rgc.can_move(a)
+                    return 0
+                return 1
+            except Exception, e:
+                return 2
+
+        run = self.runner(func)
+        assert run([]) == int(self.GC_CANNOT_MALLOC_NONMOVABLE)
+
+    def test_resizable_buffer(self):
+        from pypy.rpython.lltypesystem.rstr import STR
+        from pypy.rpython.annlowlevel import hlstr
+        from pypy.rlib import rgc
+
+        def f():
+            ptr = rgc.resizable_buffer_of_shape(STR, 2)
+            ptr.chars[0] = 'a'
+            ptr = rgc.resize_buffer(ptr, 1, 200)
+            ptr.chars[1] = 'b'
+            return hlstr(rgc.finish_building_buffer(ptr, 2)) == "ab"
+
+        run = self.runner(f)
+        assert run([]) == 1
+
+    def test_string_builder_over_allocation(self):
+        import gc
+        def fn():
+            s = StringBuilder(4)
+            s.append("abcd")
+            s.append("defg")
+            s.append("rty")
+            s.append_multiple_char('y', 1000)
+            gc.collect()
+            s.append_multiple_char('y', 1000)
+            res = s.build()[1000]
+            gc.collect()
+            return res
+        fn = self.runner(fn)
+        res = fn([])
+        assert res == 'y'
 
 class GenericMovingGCTests(GenericGCTests):
+    GC_CAN_MOVE = True
+    GC_CANNOT_MALLOC_NONMOVABLE = True
+
     def test_many_ids(self):
         py.test.skip("fails for bad reasons in lltype.py :-(")
         class A(object):
@@ -476,7 +556,6 @@ class GenericMovingGCTests(GenericGCTests):
             lltype.free(idarray, flavor='raw')
         run = self.runner(f)
         run([])
-
 
 class TestMarkSweepGC(GenericGCTests):
     gcname = "marksweep"
@@ -700,35 +779,6 @@ class TestMarkSweepGC(GenericGCTests):
         res = run([3, 0])
         assert res == 1
 
-    def test_coalloc(self):
-        def malloc_a_lot():
-            i = 0
-            while i < 10:
-                i += 1
-                a = [1] * 10
-                j = 0
-                while j < 30:
-                    j += 1
-                    a.append(j)
-            return 0
-        run, statistics = self.runner(malloc_a_lot, statistics=True,
-                                      backendopt=True, coalloc=True)
-        run([])
-
-
-
-class TestStacklessMarkSweepGC(TestMarkSweepGC):
-    gcname = "marksweep"
-
-    stacklessgc = True
-    class gcpolicy(gc.StacklessFrameworkGcPolicy):
-        class transformerclass(stacklessframework.StacklessFrameworkGCTransformer):
-            GC_PARAMS = {'start_heap_size': 4096 }
-            root_stack_depth = 200
-
-    def test_instances(self):
-        py.test.skip("fails for a stupid reasons")
-
 
 class TestPrintingGC(GenericGCTests):
     gcname = "statistics"
@@ -870,9 +920,11 @@ class TestGenerationGC(GenericMovingGCTests):
 
         run, transformer = self.runner(f, nbargs=2, transformer=True)
         run([1, 4])
-        assert len(transformer.layoutbuilder.addresses_of_static_ptrs) == 0
-        assert transformer.layoutbuilder.additional_roots_sources >= 4
-        # NB. Remember that additional_roots_sources does not count
+        if not transformer.GCClass.prebuilt_gc_objects_are_static_roots:
+            assert len(transformer.layoutbuilder.addresses_of_static_ptrs) == 0
+        else:
+            assert len(transformer.layoutbuilder.addresses_of_static_ptrs) >= 4
+        # NB. Remember that the number above does not count
         # the number of prebuilt GC objects, but the number of locations
         # within prebuilt GC objects that are of type Ptr(Gc).
         # At the moment we get additional_roots_sources == 6:
@@ -924,6 +976,7 @@ class TestGenerationalNoFullCollectGC(GCTest):
 
 class TestHybridGC(TestGenerationGC):
     gcname = "hybrid"
+    GC_CANNOT_MALLOC_NONMOVABLE = False
 
     class gcpolicy(gc.FrameworkGcPolicy):
         class transformerclass(framework.FrameworkGCTransformer):
@@ -932,3 +985,28 @@ class TestHybridGC(TestGenerationGC):
                          'nursery_size': 128,
                          'large_object': 32}
             root_stack_depth = 200
+
+    def test_ref_from_rawmalloced_to_regular(self):
+        import gc
+        S = lltype.GcStruct('S', ('x', lltype.Signed))
+        A = lltype.GcStruct('A', ('p', lltype.Ptr(S)),
+                                 ('a', lltype.Array(lltype.Char)))
+        def setup(j):
+            p = lltype.malloc(S)
+            p.x = j*2
+            lst = lltype.malloc(A, j)
+            # the following line generates a write_barrier call at the moment,
+            # which is important because the 'lst' can be allocated directly
+            # in generation 2.  This can only occur with varsized mallocs.
+            lst.p = p
+            return lst
+        def f(i, j):
+            lst = setup(j)
+            gc.collect()
+            return lst.p.x
+        run = self.runner(f, nbargs=2)
+        res = run([100, 100])
+        assert res == 200
+
+    def test_malloc_nonmovable_fixsize(self):
+        py.test.skip("not supported")

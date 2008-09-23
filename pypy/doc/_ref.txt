@@ -10,6 +10,7 @@
 .. _`pypy/annotation/model.py`: ../../pypy/annotation/model.py
 .. _`bin/`: ../../pypy/bin
 .. _`config/`: ../../pypy/config
+.. _`pypy/config/pypyoption.py`: ../../pypy/config/pypyoption.py
 .. _`doc/`: ../../pypy/doc
 .. _`doc/config/`: ../../pypy/doc/config
 .. _`doc/discussion/`: ../../pypy/doc/discussion
@@ -30,11 +31,6 @@
 .. _`interpreter/pyparser/`:
 .. _`pypy/interpreter/pyparser`: ../../pypy/interpreter/pyparser
 .. _`pypy/interpreter/typedef.py`: ../../pypy/interpreter/typedef.py
-.. _`jit/`: ../../pypy/jit
-.. _`jit/codegen/`: ../../pypy/jit/codegen
-.. _`jit/hintannotator/`: ../../pypy/jit/hintannotator
-.. _`jit/timeshifter/`: ../../pypy/jit/timeshifter
-.. _`jit/tl/`: ../../pypy/jit/tl
 .. _`lang/`: ../../pypy/lang
 .. _`lang/js/`: ../../pypy/lang/js
 .. _`lang/prolog/`: ../../pypy/lang/prolog
@@ -75,6 +71,10 @@
 .. _`pypy/rpython/lltypesystem/lltype.py`:
 .. _`rpython/lltypesystem/lltype.py`: ../../pypy/rpython/lltypesystem/lltype.py
 .. _`rpython/memory/`: ../../pypy/rpython/memory
+.. _`rpython/memory/gc/generation.py`: ../../pypy/rpython/memory/gc/generation.py
+.. _`rpython/memory/gc/hybrid.py`: ../../pypy/rpython/memory/gc/hybrid.py
+.. _`rpython/memory/gc/marksweep.py`: ../../pypy/rpython/memory/gc/marksweep.py
+.. _`rpython/memory/gc/semispace.py`: ../../pypy/rpython/memory/gc/semispace.py
 .. _`rpython/ootypesystem/`: ../../pypy/rpython/ootypesystem
 .. _`rpython/ootypesystem/ootype.py`: ../../pypy/rpython/ootypesystem/ootype.py
 .. _`rpython/rint.py`: ../../pypy/rpython/rint.py
@@ -99,3 +99,4 @@
 .. _`translator/llvm/`: ../../pypy/translator/llvm
 .. _`translator/stackless/`: ../../pypy/translator/stackless
 .. _`translator/tool/`: ../../pypy/translator/tool
+.. _`jit/`: http://codespeak.net/svn/pypy/branch/oo-jit/pypy/jit/

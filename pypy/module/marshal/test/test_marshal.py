@@ -481,44 +481,6 @@ class AppTestMarshal:
         x = marshal.load(f)
         assert x == case and type(x) is type(case)
 
-    def test_buffer_brace_hello_ecarb_(self):
-        import sys
-        hello = "he"
-        hello += "llo"
-        def func(x):
-            return lambda y: x+y
-        scopefunc = func(42)
-        import marshal, StringIO
-        case = buffer(hello)
-        print "case: %-30s   func=buffer_brace_hello_ecarb_" % (case, )
-        s = marshal.dumps(case)
-        x = marshal.loads(s)
-        assert x == case and type(x) is type(case)
-        f = StringIO.StringIO()
-        marshal.dump(case, f)
-        f.seek(0)
-        x = marshal.load(f)
-        assert x == case and type(x) is type(case)
-
-    def test_buffer_brace_u_quote_unicode_comma__too_quote__ecarb_(self):
-        import sys
-        hello = "he"
-        hello += "llo"
-        def func(x):
-            return lambda y: x+y
-        scopefunc = func(42)
-        import marshal, StringIO
-        case = buffer(u'unicode, too')
-        print "case: %-30s   func=buffer_brace_u_quote_unicode_comma__too_quote__ecarb_" % (case, )
-        s = marshal.dumps(case)
-        x = marshal.loads(s)
-        assert x == case and type(x) is type(case)
-        f = StringIO.StringIO()
-        marshal.dump(case, f)
-        f.seek(0)
-        x = marshal.load(f)
-        assert x == case and type(x) is type(case)
-
     def test_set_brace__ecarb_(self):
         import sys
         hello = "he"

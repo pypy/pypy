@@ -672,6 +672,9 @@ public class PyPy implements Constants {
 
     public static int ll_rfind(String haystack, String needle, 
                                int start, int end) {
+        if (start > haystack.length())
+            return -1;
+
         haystack = substring(haystack, start, end);
         int res = haystack.lastIndexOf(needle);
         if (res == -1) return res;

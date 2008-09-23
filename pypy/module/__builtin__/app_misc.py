@@ -24,6 +24,7 @@ def find_module(fullname,  path):
             importer = importer_cache.get(p)
         else:
             importer_cache[p] = None
+            importer = None
             for hook in path_hooks:
                 try:
                     importer = hook(p)

@@ -11,6 +11,11 @@ class Code(Wrappable):
     Abstract base class."""
     hidden_applevel = False
 
+    # n >= 0 : arity
+    # -n: special cases
+    # -99: hopeless    
+    fast_natural_arity = -99
+
     def __init__(self, co_name):
         self.co_name = co_name
 
@@ -55,18 +60,8 @@ class Code(Wrappable):
         frame.setfastscope(scope_w)
         return frame.run()
 
-        
-    # a performance hack (see gateway.BuiltinCode1/2/3 and pycode.PyCode)
-    def fastcall_0(self, space, func):
-        return None
-    def fastcall_1(self, space, func, w1):
-        return None
-    def fastcall_2(self, space, func, w1, w2):
-        return None
-    def fastcall_3(self, space, func, w1, w2, w3):
-        return None
-    def fastcall_4(self, space, func, w1, w2, w3, w4):
-        return None
+    def funcrun_obj(self, func, w_obj, args):
+        return self.funcrun(func, args.prepend(w_obj))
 
 class Frame(Wrappable):
     """A frame is an environment supporting the execution of a code object.

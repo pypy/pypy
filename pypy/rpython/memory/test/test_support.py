@@ -78,6 +78,22 @@ class TestAddressStack(object):
         ll.foreach(callback, 42)
         assert seen == addrs or seen[::-1] == addrs   # order not guaranteed
 
+    def test_remove(self):
+        AddressStack = get_address_stack()
+        addrs = [raw_malloc(llmemory.sizeof(lltype.Signed))
+                 for i in range(2200)]
+        ll = AddressStack()
+        for i in range(2200):
+            ll.append(addrs[i])
+        ll.remove(addrs[-400])
+        expected = range(2200)
+        del expected[-400]
+        expected.reverse()
+        for i in expected:
+            a = ll.pop()
+            assert a == addrs[i]
+        assert not ll.non_empty()
+
 
 class TestAddressDeque:
     def test_big_access(self):

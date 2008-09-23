@@ -10,32 +10,19 @@ from pypy.lang.smalltalk import constants
 
 mockclass = classtable.bootstrap_class
 
-def new_interpreter(bytes):
-    assert isinstance(bytes, str)
-    w_method = model.W_CompiledMethod(0, bytes=bytes)
-    w_frame = w_method.create_frame(objtable.w_nil, [])
-    interp = interpreter.Interpreter()
-    interp.w_active_context = w_frame
-    return interp
-
-
-
 def tinyBenchmarks(image):
     interp = interpreter.Interpreter()
 
     w_object = model.W_SmallInteger(0)
 
     # Should get this from w_object
-    w_smallint_class = image.special(constants.SO_SMALLINTEGER_CLASS)
     s_class = w_object.shadow_of_my_class()
     w_method = s_class.lookup("tinyBenchmarks")
 
     assert w_method
     w_frame = w_method.create_frame(w_object, [])
-    interp.w_active_context = w_frame
+    interp.store_w_active_context(w_frame)
 
-    print w_method
-    print "Going to execute %d toplevel bytecodes" % (len(w_method.bytes),)
     counter = 0
 
     from pypy.lang.smalltalk.interpreter import BYTECODE_TABLE

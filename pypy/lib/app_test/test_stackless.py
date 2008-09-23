@@ -44,7 +44,21 @@ class Test_Stackless:
         assert rlist == 'm g f m'.split()
 
     def test_with_channel(self):
+        pref = {}
+        pref[-1] = ['s0', 'r0', 's1', 'r1', 's2', 'r2', 
+                    's3', 'r3', 's4', 'r4', 's5', 'r5', 
+                    's6', 'r6', 's7', 'r7', 's8', 'r8', 
+                    's9', 'r9']
+        pref[0] =  ['s0', 'r0', 's1', 's2', 'r1', 'r2', 
+                    's3', 's4', 'r3', 'r4', 's5', 's6', 
+                    'r5', 'r6', 's7', 's8', 'r7', 'r8', 
+                    's9', 'r9']
+        pref[1] =  ['s0', 's1', 'r0', 's2', 'r1', 's3', 
+                    'r2', 's4', 'r3', 's5', 'r4', 's6', 
+                    'r5', 's7', 'r6', 's8', 'r7', 's9', 
+                    'r8', 'r9']
         rlist = []
+
         def f(outchan):
             for i in range(10):
                 rlist.append('s%s' % i)
@@ -58,17 +72,17 @@ class Test_Stackless:
                     break
                 rlist.append('r%s' % val)
 
-        ch = stackless.channel()
-        t1 = stackless.tasklet(f)(ch)
-        t2 = stackless.tasklet(g)(ch)
+        for preference in [-1, 0, 1]:
+            rlist = []
+            ch = stackless.channel()
+            ch.preference = preference
+            t1 = stackless.tasklet(f)(ch)
+            t2 = stackless.tasklet(g)(ch)
 
-        stackless.run()
+            stackless.run()
 
-        assert len(rlist) == 20
-        for i in range(10):
-            (s,r), rlist = rlist[:2], rlist[2:]
-            assert s == 's%s' % i
-            assert r == 'r%s' % i
+            assert len(rlist) == 20
+            assert rlist == pref[preference]
 
     def test_send_counter(self):
         import random

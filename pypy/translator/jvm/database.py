@@ -40,11 +40,11 @@ class Database(OODatabase):
 
         self._constants = {}      # flowmodel.Variable --> jvm.Const
 
-        # Special fields for the Object class, see _translate_Object
-        self._object_interf = None
-        self._object_impl = None
-        self._object_exc_impl = None
-
+#        # Special fields for the Object class, see _translate_Object
+#        self._object_interf = None
+#        self._object_impl = None
+#        self._object_exc_impl = None
+#
         # Create information about the Main class we will build:
         #
         #    It will have two static fields, 'ilink' and 'pypy'.  The
@@ -182,67 +182,6 @@ class Database(OODatabase):
         self.pending_node(clsobj)
         return clsobj
 
-    def _translate_Object(self, OBJ):
-        """
-        We handle the class 'Object' quite specially: we translate it
-        into an interface with two implementations.  One
-        implementation serves as the root of most objects, and the
-        other as the root for all exceptions.
-        """
-        assert self.is_Object(OBJ)
-        assert OBJ._superclass == ootype.ROOT
-
-        # Have we already translated Object?
-        if self._object_interf: return self._object_interf
-
-        # Create the interface and two implementations:
-        def gen_name(): return self._pkg(self._uniq(OBJ._name))
-        internm, implnm, exc_implnm = gen_name(), gen_name(), gen_name()
-        self._object_interf = node.Interface(internm)
-        self._object_impl = node.Class(implnm, supercls=jvm.jObject)
-        self._object_exc_impl = node.Class(exc_implnm, supercls=jvm.jThrowable)
-        self._object_impl.add_interface(self._object_interf)
-        self._object_exc_impl.add_interface(self._object_interf)
-
-        # Translate the fields into properties on the interface,
-        # and into actual fields on the implementations.
-        for fieldnm, (FIELDOOTY, fielddef) in OBJ._fields.iteritems():
-            if FIELDOOTY is ootype.Void: continue
-            fieldty = self.lltype_to_cts(FIELDOOTY)
-
-            # Currently use hacky convention of _jvm_FieldName for the name
-            methodnm = "_jvm_"+fieldnm
-
-            def getter_method_obj(node):
-                return jvm.Method.v(node, methodnm+"_g", [], fieldty)
-            def putter_method_obj(node):
-                return jvm.Method.v(node, methodnm+"_p", [fieldty], jvm.jVoid)
-            
-            # Add get/put methods to the interface:
-            prop = jvm.Property(
-                fieldnm, 
-                getter_method_obj(self._object_interf),
-                putter_method_obj(self._object_interf),
-                OOTYPE=FIELDOOTY)
-            self._object_interf.add_property(prop)
-
-            # Generate implementations:
-            def generate_impl(clsobj):
-                clsnm = clsobj.name
-                fieldobj = jvm.Field(clsnm, fieldnm, fieldty, False, FIELDOOTY)
-                clsobj.add_field(fieldobj, fielddef)
-                clsobj.add_method(node.GetterFunction(
-                    self, clsobj, getter_method_obj(clsobj), fieldobj))
-                clsobj.add_method(node.PutterFunction(
-                    self, clsobj, putter_method_obj(clsobj), fieldobj))
-            generate_impl(self._object_impl)
-            generate_impl(self._object_exc_impl)
-
-        # Ensure that we generate all three classes.
-        self.pending_node(self._object_interf)
-        self.pending_node(self._object_impl)
-        self.pending_node(self._object_exc_impl)
-
     def _translate_superclass_of(self, OOSUB):
         """
         Invoked to translate OOSUB's super class.  Normally just invokes
@@ -250,12 +189,9 @@ class Database(OODatabase):
         make all exceptions descend from Throwable.
         """
         OOSUPER = OOSUB._superclass
-        if not self.is_Object(OOSUPER):
-            return self.pending_class(OOSUPER)
-        self._translate_Object(OOSUPER)          # ensure this has been done
         if OOSUB._name == "exceptions.Exception":
-            return self._object_exc_impl
-        return self._object_impl        
+            return jvm.jPyPyThrowable
+        return self.pending_class(OOSUPER)
 
     def _translate_instance(self, OOTYPE):
         assert isinstance(OOTYPE, ootype.Instance)
@@ -563,15 +499,6 @@ class Database(OODatabase):
         s_tp = annotation(_tp)
         TP = annotation_to_lltype(s_tp)
         return self.lltype_to_cts(TP)
-
-    def exception_root_object(self):
-        """
-        Returns a JvmType representing the version of Object that
-        serves as the root of all exceptions.
-        """
-        self.lltype_to_cts(rclass.OBJECT)
-        assert self._object_interf
-        return self._object_exc_impl
 
     # _________________________________________________________________
     # Uh....

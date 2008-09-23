@@ -234,24 +234,16 @@ class Marshaller(_Base):
             self._overflow()
         self.nesting -= 1
 
-    # this function is inlined below
-    def put_list_w(self, list_w, lng):
+    def put_tuple_w(self, typecode, lst_w):
         self.nesting += 1
-        self.put_int(lng)
-        idx = 0
-        while idx < lng:
-            self.put_w_obj(list_w[idx])
-            idx += 1
-        self.nesting -= 1
-
-    def put_list_w(self, list_w, lng):
-        self.nesting += 1
+        self.start(typecode)
+        lng = len(lst_w)
         self.put_int(lng)
         idx = 0
         space = self.space
         if self.nesting < MAX_MARSHAL_DEPTH:
             while idx < lng:
-                w_obj = list_w[idx]
+                w_obj = lst_w[idx]
                 self.space.marshal_w(w_obj, self)
                 idx += 1
         else:
@@ -443,18 +435,6 @@ class Unmarshaller(_Base):
         lng = self.get_lng()
         return self.get(lng)
 
-    # this function is inlined below
-    def get_list_w(self):
-        self.nesting += 1
-        lng = self.get_lng()
-        res_w = [None] * lng
-        idx = 0
-        while idx < lng:
-            res_w[idx] = self.get_w_obj(False)
-            idx += 1
-        self.nesting -= 1
-        return res_w
-
     def get_w_obj(self, allow_null):
         self.nesting += 1
         space = self.space
@@ -471,7 +451,7 @@ class Unmarshaller(_Base):
         return w_ret
 
     # inlined version to save a nesting level
-    def get_list_w(self):
+    def get_tuple_w(self):
         self.nesting += 1
         lng = self.get_lng()
         res_w = [None] * lng
@@ -493,6 +473,9 @@ class Unmarshaller(_Base):
                 'NULL object in marshal data'))
         self.nesting -= 1
         return res_w
+
+    def get_list_w(self):
+        return self.get_tuple_w()[:]
 
     def _overflow(self):
         self.raise_exc('object too deeply nested to unmarshal')

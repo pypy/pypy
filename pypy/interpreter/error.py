@@ -184,8 +184,7 @@ class OperationError(Exception):
                 w_type = space.abstract_getclass(w_value)
             else:
                 w_valuetype = space.abstract_getclass(w_value)
-                if space.is_true(space.abstract_issubclass(w_valuetype,
-                                                           w_type)):
+                if space.abstract_issubclass_w(w_valuetype, w_type):
                     # raise Type, Instance: let etype be the exact type of value
                     w_type = w_valuetype
                 else:

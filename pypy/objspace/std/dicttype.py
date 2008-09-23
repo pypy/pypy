@@ -57,13 +57,18 @@ def dict_reversed__ANY(space, w_dict):
 # gateway is imported in the stdtypedef module
 app = gateway.applevel('''
 
+    # in the following functions we use dict.__setitem__ instead of
+    # d[k]=...  because when a subclass of dict override __setitem__,
+    # CPython does not call it when doing builtin operations.  The
+    # same for other operations.
+
     def update1(d, o):
         if hasattr(o, 'keys'):
             for k in o.keys():
-                d[k] = o[k]
+                dict.__setitem__(d, k, o[k])
         else:
             for k,v in o:
-                d[k] = v
+                dict.__setitem__(d, k, v)
 
     def update(d, *args, **kwargs):
         len_args = len(args)
@@ -75,25 +80,25 @@ app = gateway.applevel('''
             update1(d, kwargs)
 
     def popitem(d):
-        k = d.keys()
-        if not k:
+        for k in dict.iterkeys(d):
+            break
+        else:
             raise KeyError("popitem(): dictionary is empty")
-        k = k[0]
-        v = d[k]
-        del d[k]
+        v = dict.__getitem__(d, k)
+        dict.__delitem__(d, k)
         return k, v
 
     def get(d, k, v=None):
         if k in d:
-            return d[k]
+            return dict.__getitem__(d, k)
         else:
             return v
 
     def setdefault(d, k, v=None):
         if k in d:
-            return d[k]
+            return dict.__getitem__(d, k)
         else:
-            d[k] = v
+            dict.__setitem__(d, k, v)
             return v
 
     def pop(d, k, defaults):     # XXX defaults is actually *defaults
@@ -101,8 +106,8 @@ app = gateway.applevel('''
             raise TypeError, "pop expected at most 2 arguments, got %d" % (
                 1 + len(defaults))
         try:
-            v = d[k]
-            del d[k]
+            v = dict.__getitem__(d, k)
+            dict.__delitem__(d, k)
         except KeyError, e:
             if defaults:
                 return defaults[0]
@@ -111,13 +116,13 @@ app = gateway.applevel('''
         return v
 
     def iteritems(d):
-        return iter(d.items())
+        return iter(dict.items(d))
 
     def iterkeys(d):
-        return iter(d.keys())
+        return iter(dict.keys(d))
 
     def itervalues(d):
-        return iter(d.values())
+        return iter(dict.values(d))
 ''', filename=__file__)
 #XXX what about dict.fromkeys()?
 

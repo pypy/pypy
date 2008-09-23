@@ -95,11 +95,10 @@ class W_State(Wrappable):
         """Creates a tuple of index pairs representing matched groups, a format
         that's convenient for SRE_Match."""
         space = self.space
-        lst = []
-        for value1, value2 in self.create_regs(group_count):
-            lst.append(space.newtuple([space.wrap(value1),
-                                       space.wrap(value2)]))
-        return space.newtuple(lst)
+        return space.newtuple([
+            space.newtuple([space.wrap(value1),
+                            space.wrap(value2)])
+            for value1, value2 in self.create_regs(group_count)])
     w_create_regs.unwrap_spec = ['self', int]
 
     def fget_start(space, self):

@@ -71,7 +71,6 @@ class BaseListRepr(AbstractBaseListRepr):
         ITEMARRAY = GcArray(ITEM,
                             adtmeths = ADTIFixedList({
                                  "ll_newlist": ll_fixed_newlist,
-                                 "ll_newlist_hint": ll_fixed_newlist,
                                  "ll_newemptylist": ll_fixed_newemptylist,
                                  "ll_length": ll_fixed_length,
                                  "ll_items": ll_fixed_items,
@@ -105,7 +104,6 @@ class ListRepr(AbstractListRepr, BaseListRepr):
                                               ("items", Ptr(ITEMARRAY)),
                                       adtmeths = ADTIList({
                                           "ll_newlist": ll_newlist,
-                                          "ll_newlist_hint": ll_newlist_hint,
                                           "ll_newemptylist": ll_newemptylist,
                                           "ll_length": ll_length,
                                           "ll_items": ll_items,
@@ -290,15 +288,6 @@ def ll_newlist(LIST, length):
 ll_newlist = typeMethod(ll_newlist)
 ll_newlist.oopspec = 'newlist(length)'
 
-def ll_newlist_hint(LIST, lengthhint):
-    ll_assert(lengthhint >= 0, "negative list length")
-    l = malloc(LIST)
-    l.length = 0
-    l.items = malloc(LIST.items.TO, lengthhint)
-    return l
-ll_newlist_hint = typeMethod(ll_newlist_hint)
-ll_newlist_hint.oopspec = 'newlist(length)'
-
 # should empty lists start with no allocated memory, or with a preallocated
 # minimal number of entries?  XXX compare memory usage versus speed, and
 # check how many always-empty lists there are in a typical pypy-c run...
@@ -360,13 +349,10 @@ def ll_fixed_setitem_fast(l, index, item):
     ll_assert(index < len(l), "fixed setitem out of bounds")
     l[index] = item
 
-def newlist(llops, r_list, items_v, v_sizehint=None):
+def newlist(llops, r_list, items_v):
     LIST = r_list.LIST
     if len(items_v) == 0:
-        if v_sizehint is None:
-            v_result = llops.gendirectcall(LIST.ll_newemptylist)
-        else:
-            v_result = llops.gendirectcall(LIST.ll_newlist_hint, v_sizehint)
+        v_result = llops.gendirectcall(LIST.ll_newemptylist)
     else:
         cno = inputconst(Signed, len(items_v))
         v_result = llops.gendirectcall(LIST.ll_newlist, cno)

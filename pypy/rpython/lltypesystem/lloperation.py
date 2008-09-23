@@ -317,13 +317,17 @@ LL_OPERATIONS = {
     'cast_float_to_uint':   LLOp(canfold=True),    # XXX need OverflowError?
     'cast_float_to_longlong':LLOp(canfold=True),
     'truncate_longlong_to_int':LLOp(canfold=True),
+    'force_cast':           LLOp(sideeffects=False),    # only for rffi.cast()
 
     # __________ pointer operations __________
 
     'malloc':               LLOp(canraise=(MemoryError,), canunwindgc=True),
     'malloc_varsize':       LLOp(canraise=(MemoryError,), canunwindgc=True),
-    'coalloc':              LLOp(canraise=(MemoryError,), canunwindgc=True),
-    'coalloc_varsize':      LLOp(canraise=(MemoryError,), canunwindgc=True),
+    'malloc_nonmovable':    LLOp(canraise=(MemoryError,), canunwindgc=True),
+    'malloc_nonmovable_varsize':LLOp(canraise=(MemoryError,),canunwindgc=True),
+    'malloc_resizable_buffer': LLOp(canraise=(MemoryError,),canunwindgc=True),
+    'resize_buffer':        LLOp(canraise=(MemoryError,), canunwindgc=True),
+    'finish_building_buffer' : LLOp(canraise=(MemoryError,), canunwindgc=True),
     'zero_gc_pointers_inside': LLOp(),
     'free':                 LLOp(),
     'getfield':             LLOp(sideeffects=False, canrun=True),
@@ -358,6 +362,8 @@ LL_OPERATIONS = {
     'boehm_register_finalizer': LLOp(),
     'boehm_disappearing_link': LLOp(),
     'raw_malloc':           LLOp(),
+    'raw_realloc_grow':     LLOp(),
+    'raw_realloc_shrink':   LLOp(),
     'raw_malloc_usage':     LLOp(sideeffects=False),
     'raw_free':             LLOp(),
     'raw_memclear':         LLOp(),
@@ -387,8 +393,6 @@ LL_OPERATIONS = {
     # __________ GC operations __________
 
     'gc__collect':          LLOp(canunwindgc=True),
-    'gc__disable_finalizers': LLOp(),
-    'gc__enable_finalizers':  LLOp(canunwindgc=True),
     'gc_free':              LLOp(),
     'gc_fetch_exception':   LLOp(),
     'gc_restore_exception': LLOp(),
@@ -399,6 +403,10 @@ LL_OPERATIONS = {
     'gc_reload_possibly_moved': LLOp(),
     'gc_id':                LLOp(canraise=(MemoryError,), sideeffects=False),
     'gc_set_max_heap_size': LLOp(),
+    'gc_can_move'         : LLOp(sideeffects=False),
+    'gc_thread_prepare'   : LLOp(canraise=(MemoryError,)),
+    'gc_thread_run'       : LLOp(),
+    'gc_thread_die'       : LLOp(),
     # experimental operations in support of thread cloning, only
     # implemented by the Mark&Sweep GC
     'gc_x_swap_pool':       LLOp(canraise=(MemoryError,), canunwindgc=True),

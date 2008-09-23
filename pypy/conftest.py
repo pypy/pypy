@@ -90,8 +90,6 @@ class TinyObjSpace(object):
                                          "module %r required" % (modname,))
                 continue
             if info is None:
-                if key == 'objspace.std.oldstyle' and value:
-                    continue    # fine on CPython
                 py.test.skip("cannot runappdirect this test on top of CPython")
             has = info.get(key, None)
             if has != value:
@@ -481,3 +479,8 @@ class Directory(py.test.collect.Directory):
             py.test.skip("These are the original ctypes tests.\n"
                          "You can try to run them with 'pypy-c runtests.py'.")
         return py.test.collect.Directory.run(self)
+
+    def recfilter(self, path):
+        # disable recursion in symlinked subdirectories
+        return (py.test.collect.Directory.recfilter(self, path)
+                and path.check(link=0))

@@ -45,6 +45,8 @@ class RStringIO(object):
             return ''.join(self.bigbuffer)
         if self.numstrings > 1:
             result = self.strings[0] = ''.join(self.strings)
+            for i in range(1, self.numstrings):
+                self.strings[i] = ''
             self.numstrings = 1
             self.numbigstrings = 1
         else:

@@ -20,10 +20,13 @@ from pypy.rlib import rposix
 from pypy.tool.udir import udir
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.lltypesystem.rstr import mallocstr
-from pypy.rpython.annlowlevel import hlstr
-from pypy.rpython.lltypesystem.llmemory import raw_memcopy, sizeof,\
-     itemoffsetof, cast_ptr_to_adr, offsetof
+from pypy.rpython.annlowlevel import llstr
+from pypy.rpython.lltypesystem.llmemory import sizeof,\
+     itemoffsetof, cast_ptr_to_adr, cast_adr_to_ptr, offsetof
 from pypy.rpython.lltypesystem.rstr import STR
+from pypy.rpython.annlowlevel import llstr
+from pypy.rlib import rgc
+from pypy.rlib.objectmodel import keepalive_until_here
 
 posix = __import__(os.name)
 
@@ -94,14 +97,13 @@ class RegisterOs(BaseLazyRegistering):
             defs = []
             for name in self.w_star:
                 data = {'ret_type': 'int', 'name': name}
-                decls.append(decl_snippet % data)
-                defs.append(def_snippet % data)
-            h_source = decls + defs
+                decls.append((decl_snippet % data).strip())
+                defs.append((def_snippet % data).strip())
 
             self.compilation_info = self.compilation_info.merge(
                 ExternalCompilationInfo(
-                post_include_lines = decls,
-                separate_module_sources = ["\n".join(h_source)]
+                post_include_bits = decls,
+                separate_module_sources = ["\n".join(defs)]
             ))
 
     # a simple, yet usefull factory
@@ -131,8 +133,12 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'execv')
     def register_os_execv(self):
-        os_execv = self.llexternal('execv', [rffi.CCHARP, rffi.CCHARPP],
-                                   rffi.INT)
+        eci = self.gcc_profiling_bug_workaround(
+            'int _noprof_execv(char *path, char *argv[])',
+            'return execv(path, argv);')
+        os_execv = self.llexternal('_noprof_execv',
+                                   [rffi.CCHARP, rffi.CCHARPP],
+                                   rffi.INT, compilation_info = eci)
 
         def execv_llimpl(path, args):
             l_args = rffi.liststr2charpp(args)
@@ -146,8 +152,12 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'execve')
     def register_os_execve(self):
+        eci = self.gcc_profiling_bug_workaround(
+            'int _noprof_execve(char *filename, char *argv[], char *envp[])',
+            'return execve(filename, argv, envp);')
         os_execve = self.llexternal(
-            'execve', [rffi.CCHARP, rffi.CCHARPP, rffi.CCHARPP], rffi.INT)
+            '_noprof_execve', [rffi.CCHARP, rffi.CCHARPP, rffi.CCHARPP],
+            rffi.INT, compilation_info = eci)
 
         def execve_llimpl(path, args, env):
             # XXX Check path, args, env for \0 and raise TypeErrors as
@@ -259,8 +269,8 @@ class RegisterOs(BaseLazyRegistering):
             # we only have utime(), which does not allow sub-second resolution
             def os_utime_platform(path, actime, modtime):
                 l_utimbuf = lltype.malloc(UTIMBUFP.TO, flavor='raw')
-                l_utimbuf.c_actime  = int(actime)
-                l_utimbuf.c_modtime = int(modtime)
+                l_utimbuf.c_actime  = rffi.r_time_t(actime)
+                l_utimbuf.c_modtime = rffi.r_time_t(modtime)
                 error = os_utime(path, l_utimbuf)
                 lltype.free(l_utimbuf, flavor='raw')
                 return error
@@ -384,6 +394,17 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([], int, export_name="ll_os.ll_os_setsid",
                       llimpl=setsid_llimpl)
 
+    @registering_if(os, 'chroot')
+    def register_os_chroot(self):
+        os_chroot = self.llexternal('chroot', [rffi.CCHARP], rffi.INT)
+        def chroot_llimpl(arg):
+            result = os_chroot(arg)
+            if result == -1:
+                raise OSError(rposix.get_errno(), "os_chroot failed")
+
+        return extdef([str], None, export_name="ll_os.ll_os_chroot",
+                      llimpl=chroot_llimpl)
+
     @registering_if(os, 'uname')
     def register_os_uname(self):
         CHARARRAY = lltype.FixedSizeArray(lltype.Char, 1)
@@ -441,9 +462,17 @@ class RegisterOs(BaseLazyRegistering):
     def register_os_setuid(self):
         return self.extdef_for_function_int_to_int('setuid')
 
+    @registering_if(os, 'seteuid')
+    def register_os_seteuid(self):
+        return self.extdef_for_function_int_to_int('seteuid')
+
     @registering_if(os, 'setgid')
     def register_os_setgid(self):
         return self.extdef_for_function_int_to_int('setgid')
+
+    @registering_if(os, 'setegid')
+    def register_os_setegid(self):
+        return self.extdef_for_function_int_to_int('setegid')
 
     @registering_if(os, 'getpid')
     def register_os_getpid(self):
@@ -452,6 +481,11 @@ class RegisterOs(BaseLazyRegistering):
     @registering_if(os, 'getgid')
     def register_os_getgid(self):
         return self.extdef_for_os_function_returning_int('getgid')
+
+    @registering_if(os, 'getegid')
+    def register_os_getegid(self):
+        return self.extdef_for_os_function_returning_int('getegid')
+    
 
     @registering(os.open)
     def register_os_open(self):
@@ -484,20 +518,16 @@ class RegisterOs(BaseLazyRegistering):
         def os_read_llimpl(fd, count):
             if count < 0:
                 raise OSError(errno.EINVAL, None)
-            inbuf = lltype.malloc(rffi.CCHARP.TO, count, flavor='raw')
+            raw_buf, gc_buf = rffi.alloc_buffer(count)
             try:
-                got = rffi.cast(lltype.Signed, os_read(fd, inbuf, count))
+                void_buf = rffi.cast(rffi.VOIDP, raw_buf)
+                got = rffi.cast(lltype.Signed, os_read(fd, void_buf, count))
                 if got < 0:
                     raise OSError(rposix.get_errno(), "os_read failed")
-                s = mallocstr(got)
-                source = cast_ptr_to_adr(inbuf) + \
-                         itemoffsetof(lltype.typeOf(inbuf).TO, 0)
-                dest = cast_ptr_to_adr(s) + offset
-                raw_memcopy(source, dest, sizeof(lltype.Char) * got)
+                return rffi.str_from_buffer(raw_buf, gc_buf, count, got)
             finally:
-                lltype.free(inbuf, flavor='raw')
-            return hlstr(s)
-
+                rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
+            
         def os_read_oofakeimpl(fd, count):
             return OOSupport.to_rstr(os.read(fd, count))
 
@@ -512,17 +542,15 @@ class RegisterOs(BaseLazyRegistering):
 
         def os_write_llimpl(fd, data):
             count = len(data)
-            outbuf = lltype.malloc(rffi.CCHARP.TO, count, flavor='raw')
+            buf = rffi.get_nonmovingbuffer(data)
             try:
-                for i in range(count):
-                    outbuf[i] = data[i]
                 written = rffi.cast(lltype.Signed, os_write(
                     rffi.cast(rffi.INT, fd),
-                    outbuf, rffi.cast(rffi.SIZE_T, count)))
+                    buf, rffi.cast(rffi.SIZE_T, count)))
                 if written < 0:
                     raise OSError(rposix.get_errno(), "os_write failed")
             finally:
-                lltype.free(outbuf, flavor='raw')
+                rffi.free_nonmovingbuffer(data, buf)
             return written
 
         def os_write_oofakeimpl(fd, data):
@@ -613,9 +641,16 @@ class RegisterOs(BaseLazyRegistering):
                                     [rffi.CCHARP, rffi.INT],
                                     rffi.INT)
 
-        def access_llimpl(path, mode):
-            error = rffi.cast(lltype.Signed, os_access(path, mode))
-            return error == 0
+        if sys.platform.startswith('win'):
+            # All files are executable on Windows
+            def access_llimpl(path, mode):
+                mode = mode & ~os.X_OK
+                error = rffi.cast(lltype.Signed, os_access(path, mode))
+                return error == 0
+        else:
+            def access_llimpl(path, mode):
+                error = rffi.cast(lltype.Signed, os_access(path, mode))
+                return error == 0
 
         def os_access_oofakeimpl(path, mode):
             return os.access(OOSupport.from_rstr(path), mode)
@@ -1118,7 +1153,10 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'fork')
     def register_os_fork(self):
-        os_fork = self.llexternal('fork', [], rffi.PID_T)
+        eci = self.gcc_profiling_bug_workaround('pid_t _noprof_fork(void)',
+                                                'return fork();')
+        os_fork = self.llexternal('_noprof_fork', [], rffi.PID_T,
+                                  compilation_info = eci)
 
         def fork_llimpl():
             childpid = rffi.cast(lltype.Signed, os_fork())
@@ -1207,6 +1245,19 @@ class RegisterOs(BaseLazyRegistering):
 
         return extdef([int], str, "ll_os.ttyname",
                       llimpl=ttyname_llimpl)
+
+    # ____________________________________________________________
+    # XXX horrible workaround for a bug of profiling in gcc on
+    # OS X with functions containing a direct call to some system calls
+    # like fork(), execv(), execve()
+    def gcc_profiling_bug_workaround(self, decl, body):
+        body = ('/*--no-profiling-for-this-file!--*/\n'
+                '%s {\n'
+                '\t%s\n'
+                '}\n' % (decl, body,))
+        return ExternalCompilationInfo(
+            post_include_bits = [decl + ';'],
+            separate_module_sources = [body])
 
 # ____________________________________________________________
 # Support for os.environ

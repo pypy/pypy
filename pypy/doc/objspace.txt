@@ -403,9 +403,13 @@ Multimethods
 ------------
 
 The Standard Object Space allows multiple object implementations per
-Python type - this is based on multimethods_, although the more precise
-picture spans several levels in order to emulate the exact Python
-semantics.
+Python type - this is based on multimethods_.  For a description of the
+multimethod variant that we implemented and which features it supports,
+see the comment at the start of the source__.  However, multimethods
+alone are not enough for the Standard Object Space: the complete picture
+spans several levels in order to emulate the exact Python semantics.
+
+.. __: ../objspace/std/multimethod.py
 
 Consider the example of the ``space.getitem(w_a, w_b)`` operation,
 corresponding to the application-level syntax ``a[b]``.  The Standard

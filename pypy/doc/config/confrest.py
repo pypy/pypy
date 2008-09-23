@@ -30,12 +30,13 @@ class Project(Project):
 
     def get_content(self, txtpath, encoding):
         if txtpath.basename == "commandline.txt":
-            result = [".. contents::"]
-            for descr in all_optiondescrs:
-                result.append(".. %s_:\n" % (descr._name, ))
-                result.append(make_cmdline_overview(descr).text())
-                result.append("")
-            result.append(txtpath.read())
+            result = []
+            for line in txtpath.read().splitlines():
+                if line.startswith('.. GENERATE:'):
+                    start = line[len('.. GENERATE:'):].strip()
+                    descr = start_to_descr[start]
+                    line = make_cmdline_overview(descr, title=False).text()
+                result.append(line)
             return "\n".join(result)
         fullpath = txtpath.purebasename
         start = fullpath.split(".")[0]

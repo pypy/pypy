@@ -6,6 +6,7 @@ from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem import llmemory
 from pypy.tool.gcc_cache import build_executable_cache, try_compile_cache
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.translator.tool.cbuild import CompilationError
 from pypy.tool.udir import udir
 import distutils
 
@@ -15,7 +16,7 @@ import distutils
 
 def eci_from_header(c_header_source):
     return ExternalCompilationInfo(
-        pre_include_lines=c_header_source.split("\n")
+        pre_include_bits=[c_header_source]
     )
 
 def getstruct(name, c_header_source, interesting_fields):
@@ -48,12 +49,13 @@ def has(name, c_header_source):
         HAS = Has(name)
     return configure(CConfig)['HAS']
 
-def check_eci(eci):
-    """Check if a given ExternalCompilationInfo compiles and links."""
+def verify_eci(eci):
+    """Check if a given ExternalCompilationInfo compiles and links.
+    If not, raises CompilationError."""
     class CConfig:
         _compilation_info_ = eci
         WORKS = Works()
-    return configure(CConfig)['WORKS']
+    configure(CConfig)
 
 def sizeof(name, eci, **kwds):
     class CConfig:
@@ -100,6 +102,7 @@ class ConfigResult:
         name = self.entries[entry]
         info = self.info[name]
         self.result[entry] = entry.build_result(info, self)
+        return self.result[entry]
 
     def get_result(self):
         return dict([(name, self.result[entry])
@@ -149,8 +152,8 @@ class _CWriter(object):
         self.f.write(question + "\n")
         self.close()
         eci = self.config._compilation_info_
-        return try_compile_cache([self.path], eci)
-        
+        try_compile_cache([self.path], eci)
+
 def configure(CConfig):
     """Examine the local system by running the C compiler.
     The CConfig class contains CConfigEntry attribues that describe
@@ -444,11 +447,15 @@ class Has(CConfigSingleEntry):
         self.name = name
     
     def question(self, ask_gcc):
-        return ask_gcc(self.name + ';')
+        try:
+            ask_gcc(self.name + ';')
+            return True
+        except CompilationError:
+            return False
 
 class Works(CConfigSingleEntry):
     def question(self, ask_gcc):
-        return ask_gcc("")
+        ask_gcc("")
 
 class SizeOf(CConfigEntry):
     """An entry in a CConfig class that stands for
@@ -530,7 +537,9 @@ void dump(char* key, int value) {
 """
 
 def run_example_code(filepath, eci):
-    output = build_executable_cache([filepath], eci)
+    eci = eci.convert_sources_to_files(being_main=True)
+    files = [filepath] + [py.path.local(f) for f in eci.separate_module_files]
+    output = build_executable_cache(files, eci)
     section = None
     for line in output.splitlines():
         line = line.strip()

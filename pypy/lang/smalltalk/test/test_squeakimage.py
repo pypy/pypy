@@ -1,6 +1,9 @@
 import py
 from pypy.lang.smalltalk import squeakimage
 from pypy.lang.smalltalk.squeakimage import chrs2int
+from pypy.lang.smalltalk import objspace
+
+space = objspace.ObjSpace()
 
 # ----- helpers ----------------------------------------------
 
@@ -19,7 +22,7 @@ def imagereader_mock(string):
     import StringIO
     f = StringIO.StringIO(string)
     stream = squeakimage.Stream(f)
-    return squeakimage.ImageReader(stream)
+    return squeakimage.ImageReader(space, stream)
 
 
 # ----- tests ------------------------------------------------
@@ -91,31 +94,31 @@ def test_freeblock():
 def test_1wordobjectheader():
     s = ints2str(joinbits([3, 1, 2, 3, 4], [2,6,4,5,12]))
     r = imagereader_mock(s)
-    assert (squeakimage.ImageChunk(1, 2, 3, 4), 0) == r.read_1wordobjectheader()
+    assert (squeakimage.ImageChunk(space, 1, 2, 3, 4), 0) == r.read_1wordobjectheader()
 
 def test_1wordobjectheader2():
     s = ints2str(joinbits([3, 1, 2, 3, 4], [2,6,4,5,12]))
     r = imagereader_mock(s * 3)
-    assert (squeakimage.ImageChunk(1, 2, 3, 4), 0) == r.read_1wordobjectheader()
-    assert (squeakimage.ImageChunk(1, 2, 3, 4), 4) == r.read_1wordobjectheader()
-    assert (squeakimage.ImageChunk(1, 2, 3, 4), 8) == r.read_1wordobjectheader()
+    assert (squeakimage.ImageChunk(space, 1, 2, 3, 4), 0) == r.read_1wordobjectheader()
+    assert (squeakimage.ImageChunk(space, 1, 2, 3, 4), 4) == r.read_1wordobjectheader()
+    assert (squeakimage.ImageChunk(space, 1, 2, 3, 4), 8) == r.read_1wordobjectheader()
 
 def test_2wordobjectheader():
     s = ints2str(4200 + 1, joinbits([1, 1, 2, 3, 4], [2,6,4,5,12]))
     r = imagereader_mock(s)
-    assert (squeakimage.ImageChunk(1, 2, 4200, 4), 4) == r.read_2wordobjectheader()
+    assert (squeakimage.ImageChunk(space, 1, 2, 4200, 4), 4) == r.read_2wordobjectheader()
 
 def test_3wordobjectheader():
     s = ints2str(1701 << 2, 4200 + 0, joinbits([0, 1, 2, 3, 4], [2,6,4,5,12]))
     r = imagereader_mock(s)
-    assert (squeakimage.ImageChunk(1701, 2, 4200, 4), 8) == r.read_3wordobjectheader()
+    assert (squeakimage.ImageChunk(space, 1701, 2, 4200, 4), 8) == r.read_3wordobjectheader()
     
 def test_read3wordheaderobject():
     size = 42
     s = ints2str(size << 2, 4200 + 0, joinbits([0, 1, 2, 3, 4], [2,6,4,5,12]))
     r = imagereader_mock(s + '\x00\x00\x19\x66' * (size - 1))
     chunk, pos = r.read_object()
-    chunk0 = squeakimage.ImageChunk(size, 2, 4200, 4)
+    chunk0 = squeakimage.ImageChunk(space, size, 2, 4200, 4)
     chunk0.data = [6502] * (size - 1)
     assert pos == 8
     assert chunk0 == chunk

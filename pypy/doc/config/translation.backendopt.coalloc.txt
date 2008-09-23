@@ -1,4 +1,0 @@
-turn allocations into coallocations when appropriate. Requires the use of a
-generational GC. See the paper `Finding your Cronies`_.
-
-.. _`Finding your Cronies`: http://www.cs.utexas.edu/~sammy/cronies-oopsla-2004.pdf

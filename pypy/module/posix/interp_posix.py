@@ -1,4 +1,5 @@
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
+from pypy.rlib import rposix
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import OperationError, wrap_oserror
@@ -70,6 +71,11 @@ def close(space, fd):
         raise wrap_oserror(space, e) 
 close.unwrap_spec = [ObjSpace, int]
 
+def closerange(fd_low, fd_high):
+    """Closes all file descriptors in [fd_low, fd_high), ignoring errors."""
+    rposix.closerange(fd_low, fd_high)
+closerange.unwrap_spec = [int, int]
+
 def ftruncate(space, fd, length):
     """Truncate a file to a specified length."""
     try:
@@ -91,7 +97,7 @@ def build_stat_result(space, st):
         FIELDS = PORTABLE_STAT_FIELDS
     else:
         FIELDS = STAT_FIELDS    # also when not translating at all
-    lst = []
+    lst = [None] * ll_os_stat.N_INDEXABLE_FIELDS
     w_keywords = space.newdict()
     for i, (name, TYPE) in FIELDS:
         value = getattr(st, name)
@@ -99,7 +105,7 @@ def build_stat_result(space, st):
         #    value = int(value)   # rounded to an integer for indexed access
         w_value = space.wrap(value)
         if i < ll_os_stat.N_INDEXABLE_FIELDS:
-            lst.append(w_value)
+            lst[i] = w_value
         else:
             space.setitem(w_keywords, space.wrap(name), w_value)
 
@@ -566,18 +572,60 @@ def setuid(space, arg):
 
     Set the current process's user id.
     """
-    os.setuid(arg)
+    try:
+        os.setuid(arg)
+    except OSError, e:
+        raise wrap_oserror(space, e)
     return space.w_None
 setuid.unwrap_spec = [ObjSpace, int]
+
+def seteuid(space, arg):
+    """ seteuid(uid)
+
+    Set the current process's effective user id.
+    """
+    try:
+        os.seteuid(arg)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.w_None
+seteuid.unwrap_spec = [ObjSpace, int]
 
 def setgid(space, arg):
     """ setgid(gid)
 
     Set the current process's group id.
     """
-    os.setgid(arg)
+    try:
+        os.setgid(arg)
+    except OSError, e:
+        raise wrap_oserror(space, e)
     return space.w_None
 setgid.unwrap_spec = [ObjSpace, int]
+
+def setegid(space, arg):
+    """ setegid(gid)
+
+    Set the current process's effective group id.
+    """
+    try:
+        os.setegid(arg)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.w_None
+setegid.unwrap_spec = [ObjSpace, int]
+
+def chroot(space, path):
+    """ chroot(path)
+
+    Change root directory to path.
+    """
+    try:
+        os.chroot(path)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.w_None
+chroot.unwrap_spec = [ObjSpace, str]
 
 def getgid(space):
     """ getgid() -> gid
@@ -585,6 +633,14 @@ def getgid(space):
     Return the current process's group id.
     """
     return space.wrap(os.getgid())
+getgid.unwrap_spec = [ObjSpace]
+
+def getegid(space):
+    """ getegid() -> gid
+    
+    Return the current process's effective group id.
+    """
+    return space.wrap(os.getegid())
 getgid.unwrap_spec = [ObjSpace]
 
 def geteuid(space):
@@ -618,8 +674,13 @@ def ttyname(space, fd):
 ttyname.unwrap_spec = [ObjSpace, int]
 
 def sysconf(space, w_num_or_name):
+    # XXX slightly non-nice, reuses the sysconf of the underlying os module
     if space.is_true(space.isinstance(w_num_or_name, space.w_basestring)):
-        num = os.sysconf_names[space.str_w(w_num_or_name)]
+        try:
+            num = os.sysconf_names[space.str_w(w_num_or_name)]
+        except KeyError:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("unrecognized configuration name"))
     else:
         num = space.int_w(w_num_or_name)
     return space.wrap(os.sysconf(num))

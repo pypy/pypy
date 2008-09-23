@@ -79,6 +79,7 @@ opcodes = _proc_dict({
     'oodowncast':               [DownCast, StoreResult],
     'instanceof':               [CastTo, StoreResult],
     'subclassof':               [PushAllArgs, jvm.SWAP, jvm.CLASSISASSIGNABLEFROM, StoreResult],
+    'classof':                  [PushAllArgs, jvm.OBJECTGETCLASS, StoreResult],
     'ooidentityhash':           [PushAllArgs, jvm.OBJHASHCODE, StoreResult], 
     'oohash':                   [PushAllArgs, jvm.OBJHASHCODE, StoreResult], 
     'oostring':                 [OOString, StoreResult],

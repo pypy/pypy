@@ -16,7 +16,7 @@ progs = [('pystone', ['-c', 'from test import pystone; pystone.main()']),
          ('richards', ['richards.py']),
          ('docutils', ['rst2html.py', '../../doc/coding-guide.txt', 'foo.html']),
          ('translate', ['translate.py', '--backendopt', '--no-compile', '--batch',
-                        '--text', 'targetrpystonedalone.py'])
+                        'targetrpystonedalone.py'])
          ]
 
 EXE = sys.argv[1]

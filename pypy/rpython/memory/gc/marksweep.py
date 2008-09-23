@@ -39,6 +39,10 @@ class MarkSweepGC(GCBase):
     POOLNODE.become(lltype.Struct('gc_pool_node', ('linkedlist', HDRPTR),
                                                   ('nextnode', POOLNODEPTR)))
 
+    # the following values override the default arguments of __init__ when
+    # translating to a real backend.
+    TRANSLATION_PARAMS = {'start_heap_size': 8*1024*1024} # XXX adjust
+
     def __init__(self, chunk_size=DEFAULT_CHUNK_SIZE, start_heap_size=4096):
         self.heap_usage = 0          # at the end of the latest collection
         self.bytes_malloced = 0      # since the latest collection

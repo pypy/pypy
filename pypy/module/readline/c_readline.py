@@ -8,15 +8,18 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 # we also need to link with some variant of curses or libtermcap.
 # We follow the logic of CPython below.
 def try_with_lib(extralibs, **kwds):
+    global most_recent_error
     # at least on Gentoo Linux, readline.h doesn't compile if stdio.h is not
     # included before
     eci = ExternalCompilationInfo(
         includes = ["stdio.h", "readline/readline.h", "readline/history.h"],
         libraries = extralibs + ['readline'],
         )
-    if platform.check_eci(eci):
+    try:
+        platform.verify_eci(eci)
         return eci
-    else:
+    except platform.CompilationError, e:
+        most_recent_error = e
         return None
 
 eci = (try_with_lib([]) or
@@ -25,7 +28,7 @@ eci = (try_with_lib([]) or
        try_with_lib(['curses']) or
        try_with_lib(['termcap'], library_dirs=['/usr/lib/termcap']))
 if eci is None:
-    raise Exception("cannot find how to link to the readline library")
+    raise most_recent_error
 
 # ____________________________________________________________
 

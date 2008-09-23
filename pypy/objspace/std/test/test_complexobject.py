@@ -59,6 +59,8 @@ class TestW_ComplexObject:
 
 class AppTestAppComplexTest:
     def setup_class(cls):
+        # XXX these tests probably copied directly from CPython
+        # please port them to pypy style :-/
         cls.w_helper = cls.space.appexec([], """
             ():
                 import sys

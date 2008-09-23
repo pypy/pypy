@@ -63,11 +63,10 @@ class BaseMallocRemover(object):
     def inline_type(self, TYPE):
         raise NotImplementedError
 
-    def flowin(self, block, count, var, newvarsmap):
+    def flowin(self, block, count, vars, newvarsmap):
         # in this 'block', follow where the 'var' goes to and replace
         # it by a flattened-out family of variables.  This family is given
         # by newvarsmap, whose keys are the 'flatnames'.
-        vars = {var: True}
         self.last_removed_access = None
 
         def list_newvars():
@@ -82,7 +81,6 @@ class BaseMallocRemover(object):
                 self.flowin_op(op, vars, newvarsmap)
             elif op.result in vars:
                 assert op.opname == self.MALLOC_OP
-                assert vars == {var: True}
                 progress = True
                 # drop the "malloc" operation
                 newvarsmap = self.flatconstants.copy()   # zero initial values
@@ -106,10 +104,13 @@ class BaseMallocRemover(object):
         assert block.exitswitch not in vars
 
         for link in block.exits:
+            appended = False
             newargs = []
             for arg in link.args:
                 if arg in vars:
-                    newargs += list_newvars()
+                    if not appended:
+                        newargs += list_newvars()
+                        appended = True
                 else:
                     newargs.append(arg)
             link.args[:] = newargs
@@ -271,20 +272,24 @@ class BaseMallocRemover(object):
         for block, vars in variables_by_block.items():
 
             # look for variables arriving from outside the block
-            for var in vars:
-                if var in block.inputargs:
-                    i = block.inputargs.index(var)
-                    newinputargs = block.inputargs[:i]
-                    newvarsmap = {}
-                    for key in self.flatnames:
-                        newvar = Variable()
-                        newvar.concretetype = self.newvarstype[key]
-                        newvarsmap[key] = newvar
-                        newinputargs.append(newvar)
-                    newinputargs += block.inputargs[i+1:]
-                    block.inputargs[:] = newinputargs
-                    assert var not in block.inputargs
-                    self.flowin(block, count, var, newvarsmap)
+            newvarsmap = None
+            newinputargs = []
+            inputvars = {}
+            for var in block.inputargs:
+                if var in vars:
+                    inputvars[var] = None
+                    if newvarsmap is None:
+                        newvarsmap = {}
+                        for key in self.flatnames:
+                            newvar = Variable()
+                            newvar.concretetype = self.newvarstype[key]
+                            newvarsmap[key] = newvar
+                            newinputargs.append(newvar)
+                else:
+                    newinputargs.append(var)
+            block.inputargs[:] = newinputargs
+            if inputvars:
+                self.flowin(block, count, inputvars, newvarsmap)
 
             # look for variables created inside the block by a malloc
             vars_created_here = []
@@ -292,7 +297,7 @@ class BaseMallocRemover(object):
                 if self.check_malloc(op) and op.result in vars:
                     vars_created_here.append(op.result)
             for var in vars_created_here:
-                self.flowin(block, count, var, newvarsmap=None)
+                self.flowin(block, count, {var: True}, newvarsmap=None)
 
         return count[0]
 
@@ -486,7 +491,6 @@ class LLTypeMallocRemover(BaseMallocRemover):
                 newvarsmap[key] = op.args[2]
                 self.last_removed_access = len(self.newops)
         elif op.opname in ("same_as", "cast_pointer"):
-            assert op.result not in vars
             vars[op.result] = True
             # Consider the two pointers (input and result) as
             # equivalent.  We can, and indeed must, use the same
@@ -605,7 +609,6 @@ class OOTypeMallocRemover(BaseMallocRemover):
             newvarsmap[key] = op.args[2]
             last_removed_access = len(self.newops)
         elif op.opname in ("same_as", "oodowncast", "ooupcast"):
-            assert op.result not in vars
             vars[op.result] = True
             # Consider the two pointers (input and result) as
             # equivalent.  We can, and indeed must, use the same

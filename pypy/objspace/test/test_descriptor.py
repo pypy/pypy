@@ -32,7 +32,7 @@ class AppTest_Descriptor:
         raises(AttributeError, X.v.__delete__, x)
 
     def test_special_methods_returning_strings(self): 
-        class A: 
+        class A(object): 
             seen = []
             def __str__(self): 
                 self.seen.append(1) 
@@ -50,24 +50,25 @@ class AppTest_Descriptor:
         raises(TypeError, hex, inst) 
         assert A.seen == [1,2,3,4]
 
-class TestDesciprtorOnStd: 
     def test_hash(self): 
-        class A:
+        class A(object):
             pass 
         hash(A()) 
-        class B: 
+
+        # as in CPython, for new-style classes we don't check if
+        # __eq__ is overridden without __hash__ being overridden,
+        # and so hash(B()) always just works (but gives a slightly
+        # useless result).
+        class B(object):
             def __eq__(self, other): pass 
-        raises(TypeError, hash, B()) 
-        class C: 
+        hash(B())
+
+        # same as above for __cmp__
+        class C(object):
             def __cmp__(self, other): pass 
-        raises(TypeError, "hash(C())")
+        hash(C())
 
-        #class D: 
-        #    def __hash__(self): 
-        #        return 23L
-        #raises(TypeError, hash, D())
-
-        class E: 
+        class E(object):
             def __hash__(self): 
                 return "something"
         raises(TypeError, hash, E())

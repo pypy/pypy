@@ -1,7 +1,7 @@
 import new
 import py
 from pypy.objspace.flow.model import Constant, Block, Link, Variable, traverse
-from pypy.objspace.flow.model import flatten
+from pypy.objspace.flow.model import flatten, mkentrymap
 from pypy.interpreter.argument import Arguments
 from pypy.translator.simplify import simplify_graph
 from pypy.objspace.flow.objspace import FlowObjSpace 
@@ -337,6 +337,19 @@ class TestFlowObjSpace(Base):
         traverse(find_exceptions, x)
         assert found == {ValueError: True, ZeroDivisionError: True, OverflowError: True}
 
+    def loop_in_bare_except_bug(lst):
+        try:
+            for x in lst:
+                pass
+        except:
+            lst.append(5)
+            raise
+
+    def test_loop_in_bare_except_bug(self):
+        x = self.codetest(self.loop_in_bare_except_bug)
+        simplify_graph(x)
+        self.show(x)
+
     #__________________________________________________________
     def freevar(self, x):
         def adder(y):
@@ -414,6 +427,27 @@ class TestFlowObjSpace(Base):
     
     def test_catch_simple_call(self):
         x = self.codetest(self.catch_simple_call)
+
+    #__________________________________________________________
+    def multiple_catch_simple_call():
+        try:
+            user_defined_function()
+        except (IndexError, OSError):
+            return -1
+        return 0
+    
+    def test_multiple_catch_simple_call(self):
+        graph = self.codetest(self.multiple_catch_simple_call)
+        simplify_graph(graph)
+        assert self.all_operations(graph) == {'simple_call': 1}
+        entrymap = mkentrymap(graph)
+        links = entrymap[graph.returnblock]
+        assert len(links) == 3
+        assert (dict.fromkeys([link.exitcase for link in links]) ==
+                dict.fromkeys([None, IndexError, OSError]))
+        links = entrymap[graph.exceptblock]
+        assert len(links) == 1
+        assert links[0].exitcase is Exception
 
     #__________________________________________________________
     def dellocal():

@@ -730,6 +730,12 @@ class BaseTestRlist(BaseRtypingTest):
         res = self.interpret(fn, [])
         assert self.ll_to_string(res) == fn()
 
+        def fn():
+            return str([1.25])
+
+        res = self.interpret(fn, [])
+        assert eval(self.ll_to_string(res)) == [1.25]
+
     def test_list_or_None(self):
         empty_list = []
         nonempty_list = [1, 2]
@@ -1347,19 +1353,6 @@ class TestLLtype(BaseTestRlist, LLRtypeMixin):
         for i in range(3):
             lis = self.interpret(fnpop, [i])
             assert list_is_clear(lis, 3-i)
-
-    def test_hints(self):
-        from pypy.rlib.objectmodel import newlist
-        from pypy.rpython.annlowlevel import hlstr
-        
-        def f(z):
-            z = hlstr(z)
-            x = newlist(sizehint=13)
-            x += z
-            return ''.join(x)
-
-        res = self.interpret(f, [self.string_to_ll('abc')])
-        assert self.ll_to_string(res) == 'abc'
 
 class TestOOtype(BaseTestRlist, OORtypeMixin):
     rlist = oo_rlist

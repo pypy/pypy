@@ -176,7 +176,7 @@ class RPythonCallsSpace:
             if (expected_length is not None and
                 expected_length != len(items)):
                 raise ValueError
-            return items
+            return list(items)
         raise CallPatternTooComplex, "'*' argument must be a tuple"
 
     def is_w(self, one, other):

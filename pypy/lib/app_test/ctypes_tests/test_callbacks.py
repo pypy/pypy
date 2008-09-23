@@ -191,3 +191,18 @@ class TestMoreCallbacks(BaseCTypesTestChecker):
 
         assert res == [1,2,3,4,5]
 
+    def test_pyobject_as_opaque(self):
+        import conftest
+        _ctypes_test = str(conftest.sofile)
+        dll = CDLL(_ctypes_test)
+
+        def callback(arg):
+            return arg()
+
+        CTP = CFUNCTYPE(c_int, py_object)
+        cfunc = dll._testfunc_callback_opaque
+        cfunc.argtypes = [CTP, py_object]
+        cfunc.restype = c_int
+        res = cfunc(CTP(callback), lambda : 3)
+        assert res == 3
+        

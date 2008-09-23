@@ -52,3 +52,19 @@ class AppTest_ModuleObject:
             skip("need PyPy for sys.__file__ checking")
         assert sys.__file__ 
         assert os.path.basename(sys.__file__) == 'sys'
+
+    def test_repr(self):
+        import sys
+        r = repr(sys)
+        assert r == "<module 'sys' (built-in)>"
+        
+        import _exceptions # known to be in pypy/lib
+        r = repr(_exceptions)
+        assert r.startswith("<module '_exceptions' from ") and \
+               'pypy/lib/_exceptions.py' in r and \
+               r.endswith('>')
+        nofile = type(_exceptions)('nofile', 'foo')
+        assert repr(nofile) == "<module 'nofile' from ?>"
+
+        m = type(_exceptions).__new__(type(_exceptions))
+        assert repr(m).startswith("<module '?'")

@@ -6,7 +6,7 @@ Purpose
 -------
 
 This document describes an FFI for RPython language, concentrating
-only (right now) on low-level backends like C or LLVM. It describes
+on low-level backends like C or LLVM. It describes
 how to declare and call low-level (C) functions from RPython level.
 
 Declaring low-level external function
@@ -68,6 +68,7 @@ functions, passing llimpl as an argument and eventually llfakeimpl
 as a fake low-level implementation for tests performed by an llinterp.
 
 .. _`extfunc.py`: http://codespeak.net/svn/pypy/dist/pypy/rpython/extfunc.py
+
 
 OO backends
 -----------

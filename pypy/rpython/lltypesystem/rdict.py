@@ -76,6 +76,8 @@ class DictRepr(AbstractDictRepr):
             # compute the shape of the DICTENTRY structure
             entryfields = []
             entrymeths = {
+                'allocate': lltype.typeMethod(_ll_malloc_entries),
+                'delete': _ll_free_entries,
                 'must_clear_key':   (isinstance(self.DICTKEY, lltype.Ptr)
                                      and self.DICTKEY._needsgc()),
                 'must_clear_value': (isinstance(self.DICTVALUE, lltype.Ptr)
@@ -189,6 +191,7 @@ class DictRepr(AbstractDictRepr):
                     }
             adtmeths['KEY']   = self.DICTKEY
             adtmeths['VALUE'] = self.DICTVALUE
+            adtmeths['allocate'] = lltype.typeMethod(_ll_malloc_dict)
             self.DICT.become(lltype.GcStruct("dicttable", adtmeths=adtmeths,
                                              *fields))
 
@@ -485,7 +488,7 @@ def ll_dict_resize(d):
     new_size = old_size * 2
     while new_size > DICT_INITSIZE and d.num_items < new_size / 4:
         new_size /= 2
-    d.entries = lltype.malloc(lltype.typeOf(old_entries).TO, new_size, zero=True)
+    d.entries = lltype.typeOf(old_entries).TO.allocate(new_size)
     d.num_items = 0
     d.num_pristine_entries = new_size
     i = 0
@@ -495,6 +498,7 @@ def ll_dict_resize(d):
             entry = old_entries[i]
             ll_dict_insertclean(d, entry.key, entry.value, hash)
         i += 1
+    old_entries.delete()
 
 # ------- a port of CPython's dictobject.c's lookdict implementation -------
 PERTURB_SHIFT = 5
@@ -582,8 +586,8 @@ def ll_dict_lookup_clean(d, hash):
 DICT_INITSIZE = 8
 
 def ll_newdict(DICT):
-    d = lltype.malloc(DICT)
-    d.entries = lltype.malloc(DICT.entries.TO, DICT_INITSIZE, zero=True)
+    d = DICT.allocate()
+    d.entries = DICT.entries.TO.allocate(DICT_INITSIZE)
     d.num_items = 0
     d.num_pristine_entries = DICT_INITSIZE
     return d
@@ -594,12 +598,22 @@ def ll_newdict_size(DICT, length_estimate):
     n = DICT_INITSIZE
     while n < length_estimate:
         n *= 2
-    d = lltype.malloc(DICT)
-    d.entries = lltype.malloc(DICT.entries.TO, n, zero=True)
+    d = DICT.allocate()
+    d.entries = DICT.entries.TO.allocate(n)
     d.num_items = 0
-    d.num_pristine_entries = DICT_INITSIZE
+    d.num_pristine_entries = n
     return d
 ll_newdict_size.oopspec = 'newdict()'
+
+# pypy.rpython.memory.lldict uses a dict based on Struct and Array
+# instead of GcStruct and GcArray, which is done by using different
+# 'allocate' and 'delete' adtmethod implementations than the ones below
+def _ll_malloc_dict(DICT):
+    return lltype.malloc(DICT)
+def _ll_malloc_entries(ENTRIES, n):
+    return lltype.malloc(ENTRIES, n, zero=True)
+def _ll_free_entries(entries):
+    pass
 
 
 def rtype_r_dict(hop):
@@ -691,8 +705,8 @@ def ll_setdefault(dict, key, default):
 def ll_copy(dict):
     DICT = lltype.typeOf(dict).TO
     dictsize = len(dict.entries)
-    d = lltype.malloc(DICT)
-    d.entries = lltype.malloc(DICT.entries.TO, dictsize, zero=True)
+    d = DICT.allocate()
+    d.entries = DICT.entries.TO.allocate(dictsize)
     d.num_items = dict.num_items
     d.num_pristine_entries = dict.num_pristine_entries
     if hasattr(DICT, 'fnkeyeq'):   d.fnkeyeq   = dict.fnkeyeq
@@ -713,10 +727,11 @@ def ll_copy(dict):
 def ll_clear(d):
     if len(d.entries) == d.num_pristine_entries == DICT_INITSIZE:
         return
-    DICT = lltype.typeOf(d).TO
-    d.entries = lltype.malloc(DICT.entries.TO, DICT_INITSIZE, zero=True)
+    old_entries = d.entries
+    d.entries = lltype.typeOf(old_entries).TO.allocate(DICT_INITSIZE)
     d.num_items = 0
     d.num_pristine_entries = DICT_INITSIZE
+    old_entries.delete()
 
 def ll_update(dic1, dic2):
     entries = dic2.entries

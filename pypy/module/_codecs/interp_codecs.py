@@ -35,7 +35,7 @@ class CodecState(object):
                     space.wrap("encoding error handler must return "
                                "(unicode, int) tuple, not %s" % (
                                    space.str_w(space.repr(w_res)))))
-            w_replace, w_newpos = space.unpacktuple(w_res, 2)
+            w_replace, w_newpos = space.viewiterable(w_res, 2)
             newpos = space.int_w(w_newpos)
             if (newpos < 0):
                 newpos = len(input) + newpos

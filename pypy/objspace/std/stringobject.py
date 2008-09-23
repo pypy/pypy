@@ -10,6 +10,7 @@ from pypy.objspace.std import slicetype
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.tupleobject import W_TupleObject
+from pypy.rlib.rstring import StringBuilder
 
 from pypy.objspace.std.stringtype import sliced, joined, wrapstr, wrapchar, \
      stringendswith, stringstartswith, joined2
@@ -592,7 +593,7 @@ def str_endswith__String_String_ANY_ANY(space, w_self, w_suffix, w_start, w_end)
 def str_endswith__String_Tuple_ANY_ANY(space, w_self, w_suffixes, w_start, w_end):
     (u_self, _, start, end) = _convert_idx_params(space, w_self,
                                                   space.wrap(''), w_start, w_end)
-    for w_suffix in space.unpacktuple(w_suffixes):
+    for w_suffix in space.viewiterable(w_suffixes):
         if space.is_true(space.isinstance(w_suffix, space.w_unicode)):
             w_u = space.call_function(space.w_unicode, w_self)
             return space.call_method(w_u, "endswith", w_suffixes, w_start,
@@ -610,7 +611,7 @@ def str_startswith__String_String_ANY_ANY(space, w_self, w_prefix, w_start, w_en
 def str_startswith__String_Tuple_ANY_ANY(space, w_self, w_prefixes, w_start, w_end):
     (u_self, _, start, end) = _convert_idx_params(space, w_self, space.wrap(''),
                                                   w_start, w_end)
-    for w_prefix in space.unpacktuple(w_prefixes):
+    for w_prefix in space.viewiterable(w_prefixes):
         if space.is_true(space.isinstance(w_prefix, space.w_unicode)):
             w_u = space.call_function(space.w_unicode, w_self)
             return space.call_method(w_u, "startswith", w_prefixes, w_start,
@@ -860,17 +861,17 @@ def getnewargs__String(space, w_str):
 def repr__String(space, w_str):
     s = w_str._value
 
-    i = 0
-    buf = [' '] * (len(s) * 4 + 2) # safely overallocate
+    buf = StringBuilder(50)
 
     quote = "'"
     if quote in s and '"' not in s:
         quote = '"'
 
-    buf[i] = quote
+    buf.append(quote)
+    startslice = 0
 
-    for c in s:
-        i += 1
+    for i in range(len(s)):
+        c = s[i]
         use_bs_char = False # character quoted by backspace
 
         if c == '\\' or c == quote:
@@ -887,25 +888,26 @@ def repr__String(space, w_str):
             use_bs_char = True
         elif not '\x20' <= c < '\x7f':
             n = ord(c)
-            buf[i] = '\\'
-            i += 1
-            buf[i] = 'x'
-            i += 1
-            buf[i] = "0123456789abcdef"[n>>4]
-            i += 1
-            buf[i] = "0123456789abcdef"[n&0xF]
-        else:
-            buf[i] = c
+            if i != startslice:
+                buf.append_slice(s, startslice, i)
+            startslice = i + 1
+            buf.append('\\x')
+            buf.append("0123456789abcdef"[n>>4])
+            buf.append("0123456789abcdef"[n&0xF])
 
         if use_bs_char:
-            buf[i] = '\\'
-            i += 1
-            buf[i] = bs_char
+            if i != startslice:
+                buf.append_slice(s, startslice, i)
+            startslice = i + 1
+            buf.append('\\')
+            buf.append(bs_char)
 
-    i += 1
-    buf[i] = quote
+    if len(s) != startslice:
+        buf.append_slice(s, startslice, len(s))
 
-    return space.wrap("".join(buf[:i+1])) # buffer was overallocated, so slice
+    buf.append(quote)
+
+    return space.wrap(buf.build())
 
    
 def str_translate__String_ANY_ANY(space, w_string, w_table, w_deletechars=''):
@@ -940,7 +942,6 @@ def str_decode__String_ANY_ANY(space, w_string, w_encoding=None, w_errors=None):
     return decode_object(space, w_string, encoding, errors)
 
 def str_encode__String_ANY_ANY(space, w_string, w_encoding=None, w_errors=None):
-    #import pdb; pdb.set_trace()
     from pypy.objspace.std.unicodetype import _get_encoding_and_errors, \
         encode_object
     encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)

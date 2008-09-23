@@ -1,4 +1,5 @@
 from pypy.rpython.lltypesystem.lltype import GcArray, Array, Char, malloc
+from pypy.rpython.annlowlevel import llstr
 from pypy.rlib.rarithmetic import r_uint, formatd
 
 CHAR_ARRAY = GcArray(Char)
@@ -115,5 +116,5 @@ def ll_int2oct(i, addPrefix):
     return result
 
 def ll_float_str(repr, f):
-    return formatd("%f", f)
+    return llstr(formatd("%f", f))
 

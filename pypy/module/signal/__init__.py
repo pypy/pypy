@@ -25,7 +25,13 @@ class Module(MixedModule):
 
     def __init__(self, space, *args):
         "NOT_RPYTHON"
-        from pypy.module.signal.interp_signal import CheckSignalAction
+        from pypy.module.signal import interp_signal
         MixedModule.__init__(self, space, *args)
         # add the signal-checking callback as an action on the space
-        space.pending_actions.append(CheckSignalAction(space))
+        space.check_signal_action = interp_signal.CheckSignalAction(space)
+        space.actionflag.register_action(space.check_signal_action)
+        # use the C-level pypysig_occurred variable as the action flag
+        # (the result is that the C-level signal handler will directly
+        # set the flag for the CheckSignalAction)
+        space.actionflag.__class__ = interp_signal.SignalActionFlag
+        # xxx yes I know the previous line is a hack

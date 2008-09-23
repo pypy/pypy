@@ -111,11 +111,11 @@ def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
 
 def interpret(func, values, view='auto', viewbefore='auto', policy=None,
               someobjects=False, type_system="lltype", backendopt=False,
-              config=None, malloc_check=True):
+              config=None, malloc_check=True, **kwargs):
     interp, graph = get_interpreter(func, values, view, viewbefore, policy,
                                     someobjects, type_system=type_system,
                                     backendopt=backendopt, config=config,
-                                    malloc_check=malloc_check)
+                                    malloc_check=malloc_check, **kwargs)
     result = interp.eval_graph(graph, values)
     if malloc_check and interp.mallocs:
         raise MallocMismatch(interp.mallocs)

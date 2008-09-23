@@ -4,7 +4,7 @@ Tests for the struct module implemented at interp-level in pypy/module/struct.
 
 import py
 from pypy.conftest import gettestobjspace
-from pypy.module.struct.nativefmttable import native_is_bigendian
+from pypy.rlib.rstruct.nativefmttable import native_is_bigendian
 
 
 class AppTestStruct(object):

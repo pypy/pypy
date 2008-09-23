@@ -22,6 +22,23 @@ class AddressOffset(Symbolic):
             return NotImplemented
         return CompositeOffset(self, other)
 
+    # special-casing: only for '>= 0' and '< 0' and only when the
+    # symbolic offset is known to be non-negative
+    def __ge__(self, other):
+        if self is other:
+            return True
+        elif (isinstance(other, (int, long)) and other == 0 and
+            self.known_nonneg()):
+            return True
+        else:
+            raise TypeError("Symbolics can not be compared!")
+
+    def __lt__(self, other):
+        return not self.__ge__(other)
+
+    def known_nonneg(self):
+        return False
+
     def _raw_malloc(self, rest, zero):
         raise NotImplementedError("_raw_malloc(%r, %r)" % (self, rest))
 
@@ -47,6 +64,9 @@ class ItemOffset(AddressOffset):
 
     def __neg__(self):
         return ItemOffset(self.TYPE, -self.repeat)
+
+    def known_nonneg(self):
+        return self.repeat >= 0
 
     def ref(self, firstitemptr):
         A = lltype.typeOf(firstitemptr).TO
@@ -138,6 +158,9 @@ class FieldOffset(AddressOffset):
     def __repr__(self):
         return "<FieldOffset %r %r>" % (self.TYPE, self.fldname)
 
+    def known_nonneg(self):
+        return True
+
     def ref(self, struct):
         if lltype.typeOf(struct).TO != self.TYPE:
             struct = lltype.cast_pointer(lltype.Ptr(self.TYPE), struct)
@@ -195,6 +218,12 @@ class CompositeOffset(AddressOffset):
         ofs.reverse()
         return CompositeOffset(*ofs)
 
+    def known_nonneg(self):
+        for item in self.offsets:
+            if not item.known_nonneg():
+                return False
+        return True
+
     def ref(self, ptr):
         for item in self.offsets:
             ptr = item.ref(ptr)
@@ -220,10 +249,14 @@ class ArrayItemsOffset(AddressOffset):
     def __repr__(self):
         return '< ArrayItemsOffset %r >' % (self.TYPE,)
 
+    def known_nonneg(self):
+        return True
+
     def ref(self, arrayptr):
         assert array_type_match(lltype.typeOf(arrayptr).TO, self.TYPE)
         if isinstance(self.TYPE.OF, lltype.ContainerType):
             # XXX this doesn't support empty arrays
+            # XXX it's also missing 'solid' support, probably
             o = arrayptr._obj.getitem(0)
             return o._as_ptr()
         else:
@@ -255,6 +288,9 @@ class ArrayLengthOffset(AddressOffset):
     def __repr__(self):
         return '< ArrayLengthOffset %r >' % (self.TYPE,)
 
+    def known_nonneg(self):
+        return True
+
     def ref(self, arrayptr):
         assert array_type_match(lltype.typeOf(arrayptr).TO, self.TYPE)
         return lltype._arraylenref._makeptr(arrayptr._obj, arrayptr._solid)
@@ -269,6 +305,9 @@ class GCHeaderOffset(AddressOffset):
 
     def __neg__(self):
         return GCHeaderAntiOffset(self.gcheaderbuilder)
+
+    def known_nonneg(self):
+        return True
 
     def ref(self, headerptr):
         gcptr = self.gcheaderbuilder.object_from_header(headerptr)
@@ -544,8 +583,10 @@ def cast_adr_to_ptr(adr, EXPECTED_TYPE):
 def cast_adr_to_int(adr):
     return adr._cast_to_int()
 
+_NONGCREF = lltype.Ptr(lltype.OpaqueType('NONGCREF'))
 def cast_int_to_adr(int):
-    raise NotImplementedError("cast_int_to_adr")
+    ptr = lltype.cast_int_to_ptr(_NONGCREF, int)
+    return cast_ptr_to_adr(ptr)
 
 # ____________________________________________________________
 # Weakrefs.
@@ -652,6 +693,18 @@ def raw_malloc(size):
         raise NotImplementedError(size)
     return size._raw_malloc([], zero=False)
 
+def raw_realloc_grow(addr, old_size, size):
+    new_area = size._raw_malloc([], zero=False)
+    raw_memcopy(addr, new_area, old_size)
+    raw_free(addr)
+    return new_area
+
+def raw_realloc_shrink(addr, old_size, size):
+    new_area = size._raw_malloc([], zero=False)
+    raw_memcopy(addr, new_area, size)
+    raw_free(addr)
+    return new_area
+
 def raw_free(adr):
     # try to free the whole object if 'adr' is the address of the header
     from pypy.rpython.memory.gcheader import GCHeaderBuilder
@@ -706,9 +759,11 @@ def _reccopy(source, dest):
     T = lltype.typeOf(source).TO
     assert T == lltype.typeOf(dest).TO
     if isinstance(T, (lltype.Array, lltype.FixedSizeArray)):
-        assert source._obj.getlength() == dest._obj.getlength()
+        sourcelgt = source._obj.getlength()
+        destlgt = dest._obj.getlength()
+        lgt = min(sourcelgt, destlgt)
         ITEMTYPE = T.OF
-        for i in range(source._obj.getlength()):
+        for i in range(lgt):
             if isinstance(ITEMTYPE, lltype.ContainerType):
                 subsrc = source._obj.getitem(i)._as_ptr()
                 subdst = dest._obj.getitem(i)._as_ptr()

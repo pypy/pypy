@@ -386,7 +386,7 @@ class AppTestInt:
         assert (j(100) >> 2,  type(j(100) >> 2)) == (      25, int)
 
     def test_special_int(self):
-        class a:
+        class a(object):
             def __int__(self): 
                 self.ar = True 
                 return None
@@ -394,12 +394,12 @@ class AppTestInt:
         raises(TypeError, int, inst) 
         assert inst.ar == True 
 
-        class b: 
+        class b(object): 
             pass 
         raises((AttributeError,TypeError), int, b()) 
 
     def test_special_long(self):
-        class a:
+        class a(object):
             def __long__(self): 
                 self.ar = True 
                 return None
@@ -407,14 +407,29 @@ class AppTestInt:
         raises(TypeError, long, inst) 
         assert inst.ar == True 
 
-        class b: 
+        class b(object): 
             pass 
         raises((AttributeError,TypeError), long, b()) 
 
     def test_getnewargs(self):
         assert  0 .__getnewargs__() == (0,)
 
+    def test_cmp(self):
+        skip("This is a 'wont fix' case")
+        # We don't have __cmp__, we consistently have __eq__ & the others
+        # instead.  In CPython some types have __cmp__ and some types have
+        # __eq__ & the others.
+        assert 1 .__cmp__
+        assert int .__cmp__
+
+
 class AppTestIntOptimizedAdd(AppTestInt):
     def setup_class(cls):
         from pypy.conftest import gettestobjspace
         cls.space = gettestobjspace(**{"objspace.std.optimized_int_add": True})
+
+class AppTestIntOptimizedComp(AppTestInt):
+    def setup_class(cls):
+        from pypy.conftest import gettestobjspace
+        cls.space = gettestobjspace(**{"objspace.std.optimized_comparison_op": True})
+        

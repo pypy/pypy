@@ -384,6 +384,6 @@ improvement is over 20%.
 
 .. waffles about ropes
 
-You can build a pypy with all generally useful optimizations turned on by using
-the :config:`objspace.std.allopts` option.  Such a build is between 1.5 and 2.5
-times faster than the default, depending on the benchmark.
+When building pypy, all generally useful optimizations are turned on by default
+unless you explicitly lower the translation optimization level with the
+``--opt`` option.

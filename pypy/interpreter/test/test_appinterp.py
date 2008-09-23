@@ -86,7 +86,7 @@ def test_applevelinterp_functions(space):
 
 def test_applevel_class(space, applevel_temp = applevel_temp):
     app = applevel_temp('''
-        class C: 
+        class C(object):
             clsattr = 42 
             def __init__(self, x=13): 
                 self.attr = x 
@@ -111,9 +111,9 @@ class AppTestMethods:
 
 class TestMixedModule: 
     def test_accesses(self): 
-        space = self.space 
-        import mixedmodule 
-        w_module = mixedmodule.Module(space, space.wrap('mixedmodule'))
+        space = self.space
+        import demomixedmod 
+        w_module = demomixedmod.Module(space, space.wrap('mixedmodule'))
         space.appexec([w_module], """
             (module): 
                 assert module.value is None 
@@ -132,3 +132,30 @@ class TestMixedModule:
                     assert name in module.__dict__
         """)
         assert space.is_true(w_module.call('somefunc'))
+
+    def test_whacking_at_loaders(self):
+        """Some MixedModules change 'self.loaders' in __init__(), but doing
+        so they incorrectly mutated a class attribute.  'loaders' is now a
+        per-instance attribute, holding a fresh copy of the dictionary.
+        """
+        from pypy.interpreter.mixedmodule import MixedModule
+        from pypy.conftest import maketestobjspace
+
+        class MyModule(MixedModule):
+            interpleveldefs = {}
+            appleveldefs = {}
+            def __init__(self, space, w_name):
+                def loader(myspace):
+                    assert myspace is space
+                    return myspace.wrap("hello")
+                MixedModule.__init__(self, space, w_name)
+                self.loaders["hi"] = loader
+
+        space1 = self.space
+        w_mymod1 = MyModule(space1, space1.wrap('mymod'))
+
+        space2 = maketestobjspace()
+        w_mymod2 = MyModule(space2, space2.wrap('mymod'))
+
+        w_str = space1.getattr(w_mymod1, space1.wrap("hi"))
+        assert space1.str_w(w_str) == "hello"

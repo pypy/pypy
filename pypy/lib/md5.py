@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
+# Note that PyPy contains also a built-in module 'md5' which will hide
+# this one if compiled in.
+
 """A sample implementation of MD5 in pure Python.
 
 This is an implementation of the MD5 hash function, as specified by

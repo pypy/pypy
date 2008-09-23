@@ -1927,10 +1927,6 @@ class TestLLtypeSmallFuncSets(TestLLtype):
         kwds['config'] = self.config
         return TestLLtype.interpret(self, fn, args, **kwds)
 
-    def test_shrink_pbc_set(self):
-        # fails with config.translation.withsmallfuncsets == 3
-        py.test.skip("XXX not implemented")
-
 def test_smallfuncsets_basic():
     from pypy.translator.translator import TranslationContext, graphof
     from pypy.config.pypyoption import get_pypy_config

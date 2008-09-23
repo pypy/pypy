@@ -12,8 +12,10 @@ from pypy.translator.llvm.externs2ll import get_incdirs
 def llvm_is_on_path():
     if py.path.local.sysfind("llvm-as") is None or \
        py.path.local.sysfind("llvm-gcc") is None:
-        return False 
+        return False
     return True
+
+CFLAGS = os.getenv("CFLAGS") or "-O3"
 
 def exe_version(exe, cache={}):
     try:
@@ -40,7 +42,7 @@ llvm_gcc_version = lambda: exe_version2('llvm-gcc')
 def have_boehm():
     import distutils.sysconfig
     from os.path import exists
-    libdir = distutils.sysconfig.EXEC_PREFIX + "/lib"  
+    libdir = distutils.sysconfig.EXEC_PREFIX + "/lib"
     return exists(libdir + '/libgc.so') or exists(libdir + '/libgc.a')
 
 def postfix():
@@ -84,12 +86,12 @@ class Builder(object):
         use_gcc = self.genllvm.config.translation.llvm_via_c
         if use_gcc:
             self.cmds.append("llc %s.bc -march=c -f -o %s.c" % (base, base))
-            self.cmds.append("gcc %s.c -c -O3 -fomit-frame-pointer" % base)
+            self.cmds.append("gcc %s.c -c %s -fomit-frame-pointer" % (base, CFLAGS))
         else:
             model = ''
             if not standalone:
                 model = ' -relocation-model=pic'
-                
+
             self.cmds.append("llc %s %s.bc -f -o %s.s" % (model, base, base))
             self.cmds.append("as %s.s -o %s.o" % (base, base))
 
@@ -103,22 +105,22 @@ class Builder(object):
             assert filename.endswith(".c")
             objname = filename[:-2] + ".o"
             libraries.add(objname)
-            self.cmds.append("gcc %s -c %s -O3 -o %s" % (filename, include_opts, objname))
+            self.cmds.append("gcc %s -c %s %s -o %s" % (filename, include_opts, CFLAGS, objname))
 
         attrs = self.genllvm.eci._copy_attributes()
-        attrs['libraries'] = tuple(libraries) + attrs['libraries'] 
+        attrs['libraries'] = tuple(libraries) + attrs['libraries']
         self.genllvm.eci = ExternalCompilationInfo(**attrs)
 
 # XXX support profile?
 #             if (self.genllvm.config.translation.profopt is not None and
 #                 not self.genllvm.config.translation.noprofopt):
-#                 cmd = "gcc -fprofile-generate %s.c -c -O3 -pipe -o %s.o" % (base, base)
+#                 cmd = "gcc -fprofile-generate %s.c -c %s -pipe -o %s.o" % (base, CFLAGS, base)
 #                 self.cmds.append(cmd)
 #                 cmd = "gcc -fprofile-generate %s.o %s %s -lm -pipe -o %s_gen" % \
 #                       (base, gc_libs_path, gc_libs, exename)
 #                 self.cmds.append(cmd)
 #                 self.cmds.append("./%s_gen %s" % (exename, self.genllvm.config.translation.profopt))
-#                 cmd = "gcc -fprofile-use %s.c -c -O3 -pipe -o %s.o" % (b, b)
+#                 cmd = "gcc -fprofile-use %s.c -c %s -pipe -o %s.o" % (b, CFLAGS, b)
 #                 self.cmds.append(cmd)
 #                 cmd = "gcc -fprofile-use %s.o %s %s -lm -pipe -o %s" % \
 #                       (b, gc_libs_path, gc_libs, exename)
@@ -134,7 +136,7 @@ class Builder(object):
         self.dirpath.chdir()
 
         return self.genllvm.entry_name
- 
+
     def setup_linker_command(self, base, exename=None):
         eci = self.genllvm.eci
         library_files = self.genllvm.db.gcpolicy.gc_libraries()
@@ -167,7 +169,7 @@ class Builder(object):
         out = base + ".so"
         if exename:
             out = exename
-        self.cmds.append("gcc -O3 %s.o %s -o %s" % (base, " ".join(compiler_opts), out))
+        self.cmds.append("gcc %s %s.o %s -o %s" % (CFLAGS, base, " ".join(compiler_opts), out))
 
     def make_module(self):
         base = self.setup()

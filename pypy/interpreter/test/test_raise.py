@@ -101,6 +101,75 @@ class AppTestRaise:
         assert exc_val ==exc_val2
         assert exc_tb ==exc_tb2
 
+    def test_reraise(self):
+        # some collection of funny code
+        import sys
+        raises(ValueError, """
+            import sys
+            try:
+                raise ValueError
+            except:
+                try:
+                    raise IndexError
+                finally:
+                    assert sys.exc_info()[0] is ValueError
+                    raise
+        """)
+        raises(ValueError, """
+            def foo():
+                import sys
+                assert sys.exc_info()[0] is ValueError
+                raise
+            try:
+                raise ValueError
+            except:
+                try:
+                    raise IndexError
+                finally:
+                    foo()
+        """)
+        raises(IndexError, """
+            def spam():
+                import sys
+                try:
+                    raise KeyError
+                except KeyError:
+                    pass
+                assert sys._getframe().f_exc_type is ValueError
+            try:
+                raise ValueError
+            except:
+                try:
+                    raise IndexError
+                finally:
+                    spam()
+        """)
+
+        try:
+            raise ValueError
+        except:
+            try:
+                raise KeyError
+            except:
+                ok = sys.exc_info()[0] is KeyError
+        assert ok
+
+        raises(IndexError, """
+            import sys
+            try:
+                raise ValueError
+            except:
+                some_traceback = sys.exc_info()[2]
+            try:
+                raise KeyError
+            except:
+                try:
+                    raise IndexError, IndexError(), some_traceback
+                finally:
+                    assert sys.exc_info()[0] is KeyError
+                    assert sys.exc_info()[2] is not some_traceback
+        """)
+
     def test_tuple_type(self):
         def f():
             raise ((StopIteration, 123), 456, 789)
@@ -169,6 +238,13 @@ class AppTestRaise:
             assert a.__class__ is Sub
             assert a.val == 42
 
+<<<<<<< .working
+=======
+    def test_it(self):
+        class C:
+            pass
+        # this used to explode in the exception normalization step:
+>>>>>>> .merge-right.r58379
         try:
             {}[5]
         except A, a:

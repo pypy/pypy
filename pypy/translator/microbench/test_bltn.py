@@ -21,7 +21,7 @@ def test_call_fabs():
         x = fabs(x)
         c += 1
 
-class foo:
+class foo(object):
     pass
 
 class bar(foo):
@@ -54,4 +54,34 @@ def test_isinstance3():
         isinstance(b2, (bar, baz))
         isinstance(b2, (bar, baz))
         isinstance(b2, (bar, baz))
+
+# old-style
+
+class Foo:
+    pass
+
+class Bar(Foo):
+    pass
+
+class Baz(Bar):
+    pass
+
+def test_isinstance1_old_style():
+    f = Foo()
+    b1 = Bar()
+    b2 = Baz()
+    for x in xrange(100000):
+        isinstance(b1, Foo)
+        isinstance(b1, Baz)
+        isinstance(f, Bar)
+        isinstance(b2, Foo)
+
+def test_isinstance3_old_style():
+    b2 = Baz()
+    for x in xrange(100000):
+        isinstance(b2, (Bar, Baz))
+        isinstance(b2, (Bar, Baz))
+        isinstance(b2, (Bar, Baz))
+        isinstance(b2, (Bar, Baz))
+        isinstance(b2, (Bar, Baz))
 

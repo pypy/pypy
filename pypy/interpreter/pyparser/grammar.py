@@ -183,7 +183,16 @@ class BaseGrammarBuilder(AbstractBuilder):
 class GrammarElement(Wrappable):
     """Base parser class"""
 
+    _trace = False
+    first_set = None
+    emptytoken_in_first_set = False
+    _match_cache = None
+    args = []
+
     symbols = {} # dirty trick to provide a symbols mapping while printing (and not putting it in every object)
+
+    _attrs_ = ['parser', 'codename', 'args',
+               'first_set', 'emptytoken_in_first_set', '_match_cache']
 
     def __init__(self, parser, codename):
         # the rule name
@@ -191,9 +200,6 @@ class GrammarElement(Wrappable):
         self.parser = parser
         # integer mapping to either a token value or rule symbol value
         self.codename = codename 
-        self.args = []
-        self.first_set = []
-        self._trace = False
 
     def is_root(self):
         """This is a root node of the grammar, that is one that will
@@ -223,9 +229,9 @@ class GrammarElement(Wrappable):
         token = source.peek()
         if self._trace:
             pos1 = source.get_pos()
-        in_first_set = self.match_first_set(builder, token)
-        if not in_first_set: # and not EmptyToken in self.first_set:
-            if self.parser.EmptyToken in self.first_set:
+        in_first_set = self.match_first_set(token)
+        if not in_first_set:
+            if self.emptytoken_in_first_set:
                 ret = builder.sequence(self, source, 0 )
                 if self._trace:
                     self._debug_display(token, level, 'eee' )
@@ -255,7 +261,7 @@ class GrammarElement(Wrappable):
         prefix = '%s%s' % (' ' * level, prefix)
         print prefix, " RULE =", self
         print prefix, " TOKEN =", token
-        print prefix, " FIRST SET =", self.first_set
+        print prefix, " FIRST SET =", getattr(self, 'first_set', 'none')
 
     def _match(self, source, builder, level=0):
         """Try to match a grammar rule
@@ -312,20 +318,65 @@ class GrammarElement(Wrappable):
         """returns the list of possible next tokens
         *must* be implemented in subclasses
         """
-        # XXX: first_set could probably be implemented with sets
-        return []
+        pass
 
-    def match_first_set(self, builder, other):
-        """matching is not equality:
-        token('NAME','x') matches token('NAME',None)
+    def get_first_set(self):
+        if self.first_set is None:
+            self.initialize_first_set()
+        return self.first_set
+
+    def initialize_first_set(self):
+        self.first_set = {}
+
+    def optimize_first_set(self):
+        """Precompute a data structure that optimizes match_first_set().
+        The first_set attribute should no longer be needed after this.
         """
+        self.emptytoken_in_first_set = self.parser.EmptyToken in self.first_set
+        # see match_first_set() for the way this _match_cache is supposed
+        # to be used
+        self._match_cache = [GrammarElement._EMPTY_CODENAME_SET,  # share empty
+                             GrammarElement._EMPTY_CODENAME_SET]  #       dicts
         for tk in self.first_set:
-            if tk.match_token(builder, other):
-                return True
-        return False
+            if tk is not self.parser.EmptyToken:
+                cache = self._match_cache[tk.isKeyword]
+                if not cache:
+                    cache = self._match_cache[tk.isKeyword] = {}   # new dict
+                if tk.value is None:
+                    cache[tk.codename] = None    # match any value
+                else:
+                    values = cache.setdefault(tk.codename, {})
+                    if values is None:
+                        pass    # already seen another tk matching any value
+                    else:
+                        values[tk.value] = None    # add tk.value to the set
 
-    def in_first_set(self, other):
-        return other in self.first_set
+    _EMPTY_CODENAME_SET = {}
+    _EMPTY_VALUES_SET = {}
+
+    def match_first_set(self, other):
+        """matching is not equality:
+        token('NAME','x') matches token('NAME',None).
+
+        More precisely, for a match, we need to find a tk in self.first_set
+        for which all the following is true:
+          - other is not EmptyToken
+          - other.isKeyword == tk.isKeyword
+          - other.codename == tk.codename
+          - other.value == tk.value or tk.value is None
+        """
+        cachelist = self._match_cache
+        if cachelist is None:
+            return True        # not computed yet
+        cache = cachelist[other.isKeyword]
+        values = cache.get(other.codename, GrammarElement._EMPTY_VALUES_SET)
+        if values is None:
+            return True          # 'None' means 'matches anything'
+        elif other.value is None:
+            return False         # because tk.value != None (for all tk)
+        else:
+            return other.value in values  # otherwise, ok only if in the set
+            # XXX "None in dict" crashes after translation - needs to be fixed
 
     def reorder_rule(self):
         """Called after the computation of first set to allow rules to be
@@ -377,7 +428,7 @@ class Alternative(GrammarElement):
         # to see if this solve our problems with infinite recursion
         for rule in self.args:
             if USE_LOOKAHEAD:
-                if not rule.match_first_set(builder, tok) and self.parser.EmptyToken not in rule.first_set:
+                if not rule.match_first_set(tok) and not rule.emptytoken_in_first_set:
                     if self._trace:
                         print "Skipping impossible rule: %s" % (rule,)
                     continue
@@ -405,10 +456,8 @@ class Alternative(GrammarElement):
         """
         # do this to avoid problems on indirect recursive rules
         for rule in self.args:
-            for t in rule.first_set:
-                if t not in self.first_set:
-                    self.first_set.append(t)
-                # self.first_set[t] = 1
+            for t in rule.get_first_set():
+                self.first_set[t] = None
 
     def reorder_rule(self):
         # take the opportunity to reorder rules in alternatives
@@ -505,17 +554,13 @@ class Sequence(GrammarElement):
             LAH(S) = LAH(A)
         """
         for rule in self.args:
-            if not rule.first_set:
+            if not rule.get_first_set():
                 break
             if self.parser.EmptyToken in self.first_set:
-                self.first_set.remove( self.parser.EmptyToken )
-
-                # del self.first_set[self.parser.EmptyToken]
+                del self.first_set[self.parser.EmptyToken]
             # while we're in this loop, keep agregating possible tokens
             for t in rule.first_set:
-                if t not in self.first_set:
-                    self.first_set.append(t)
-                # self.first_set[t] = 1
+                self.first_set[t] = None
             if self.parser.EmptyToken not in rule.first_set:
                 break
 
@@ -544,9 +589,11 @@ class KleeneStar(GrammarElement):
             raise ValueError("KleeneStar needs max==-1 or max>1")
         self.max = _max
         self.star = "x"
+
+    def initialize_first_set(self):
+        GrammarElement.initialize_first_set(self)
         if self.min == 0:
-            self.first_set.append( self.parser.EmptyToken )
-            # self.first_set[self.parser.EmptyToken] = 1
+            self.first_set[self.parser.EmptyToken] = None
 
     def _match(self, source, builder, level=0):
         """matches a number of times self.args[0]. the number must be
@@ -607,11 +654,9 @@ class KleeneStar(GrammarElement):
             LAH(S) = LAH(A)
         """
         rule = self.args[0]
-        self.first_set = rule.first_set[:]
-        # self.first_set = dict(rule.first_set)
-        if self.min == 0 and self.parser.EmptyToken not in self.first_set:
-            self.first_set.append(self.parser.EmptyToken)
-            # self.first_set[self.parser.EmptyToken] = 1
+        self.first_set = rule.get_first_set().copy()
+        if self.min == 0:
+            self.first_set[self.parser.EmptyToken] = None
 
     def validate( self, syntax_node ):
         """validate a syntax tree/subtree from this grammar node"""
@@ -631,11 +676,14 @@ class KleeneStar(GrammarElement):
 class Token(GrammarElement):
     """Represents a Token in a grammar rule (a lexer token)"""
     isKeyword = True
+    _attrs_ = ['isKeyword', 'value']
+
     def __init__(self, parser, codename, value=None):
         GrammarElement.__init__(self, parser, codename)
         self.value = value
-        self.first_set = [self]
-        # self.first_set = {self: 1}
+
+    def initialize_first_set(self):
+        self.first_set = {self: None}
 
     def match(self, source, builder, level=0):
         """Matches a token.
@@ -675,13 +723,7 @@ class Token(GrammarElement):
             return "<%s>=='%s'" % (name, self.value)
 
     def match_token(self, builder, other):
-        """convenience '==' implementation, this is *not* a *real* equality test
-        a Token instance can be compared to:
-         - another Token instance in which case all fields (name and value)
-           must be equal
-         - a tuple, such as those yielded by the Python lexer, in which case
-           the comparison algorithm is similar to the one in match()
-        """
+        # Historical stuff.  Might be useful for debugging.
         if not isinstance(other, Token):
             raise RuntimeError("Unexpected token type")
         if other is self.parser.EmptyToken:
@@ -689,8 +731,15 @@ class Token(GrammarElement):
         res = other.isKeyword and other.codename == self.codename and self.value in [None, other.value]
         return res
 
-    def __eq__(self, other):
+    #def __eq__(self, other):
+    #    XXX disabled to avoid strange differences between Python and RPython.
+    #    XXX (moreover, only implementing __eq__ without __ne__ and __hash__
+    #    XXX is a bit fragile)
+    #    return self.codename == other.codename and self.value == other.value
+
+    def eq(self, other):
         return self.codename == other.codename and self.value == other.value
+        # XXX probably also "and self.isKeyword == other.isKeyword"
 
     def calc_first_set(self):
         """computes the list of possible next tokens
@@ -787,6 +836,8 @@ class Parser(object):
         full first sets.
         """
         rules = self.all_rules
+        for r in rules:
+            r.initialize_first_set()
         changed = True
         while changed:
             # loop while one first set is changed
@@ -801,6 +852,8 @@ class Parser(object):
         for r in rules:
             assert len(r.first_set) > 0, "Error: ot Empty firstset for %s" % r
             r.reorder_rule()
+        for r in rules:
+            r.optimize_first_set()
 
 
     def build_alternative( self, name_id, args ):

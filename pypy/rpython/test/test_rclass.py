@@ -97,16 +97,31 @@ class BaseTestRclass(BaseRtypingTest):
         assert res == 4
 
     def test_runtime_exception(self):
+        class MyExc(Exception):
+            pass
+        class Sub1(MyExc):
+            pass
+        class Sub2(MyExc):
+            pass
         def pick(flag):
             if flag:
-                return TypeError
+                return Sub1
             else:
-                return ValueError
-        def f(flag):
+                return Sub2
+        def g(flag):
             ex = pick(flag)
             raise ex()
-        self.interpret_raises(TypeError, f, [True])
-        self.interpret_raises(ValueError, f, [False])
+        def f(flag):
+            try:
+                g(flag)
+            except Sub1:
+                return 1
+            except Sub2:
+                return 2
+            else:
+                return 3
+        assert self.interpret(f, [True]) == 1
+        assert self.interpret(f, [False]) == 2
 
     def test_classattr_as_defaults(self):
         def dummyfn():
@@ -412,7 +427,21 @@ class BaseTestRclass(BaseRtypingTest):
         # relevant on top of the ootypesystem though.
         assert res.item2 == hash(c)
         assert res.item3 == hash(d)
-        
+
+    def test_circular_hash_initialization(self):
+        class B:
+            pass
+        class C(B):
+            pass
+        c1 = C()
+        c1.somedict = {c1: True, C(): False}
+        def f():
+            B().somedict = {}      # force the attribute up
+            c1.somedict[c1] = 123
+            return len(c1.somedict)
+        res = self.interpret(f, [])
+        assert res == 2
+
     def test_type(self):
         class A:
             pass
@@ -801,8 +830,8 @@ class TestOOtype(BaseTestRclass, OORtypeMixin):
         t.buildrtyper(type_system=self.type_system).specialize()
         graph = graphof(t, f)
         TYPEA = graph.startblock.operations[0].args[0].value
-        TYPEB = graph.startblock.operations[2].args[0].value
-        TYPEC = graph.startblock.operations[4].args[0].value
+        TYPEB = graph.startblock.operations[1].args[0].value
+        TYPEC = graph.startblock.operations[2].args[0].value
         _, destra = TYPEA._lookup("o__del__")
         _, destrb = TYPEB._lookup("o__del__")
         _, destrc = TYPEC._lookup("o__del__")

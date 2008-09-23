@@ -1,0 +1,35 @@
+How to run PyPy on top of maemo platform
+========================================
+
+This is a short introduction how to install correct environment and
+cross-compile pypy to maemo platform emulator under qemu. Note that this
+is work-in-progress.
+
+Installing `scratchbox`_
+------------------------
+
+I had no success with installing scratchbox 2.0, but theoretically it
+should work. Follow these `installation instructions`_,
+make sure that you install cpu-transparency modules, otherwise emulation will
+not be available. Preferred toolchain is cs2005q3.2-glibc2.5-arm.
+
+Follow instructions, running sb-menu and selecting cpu-transparency
+method (qemu-arm), devkits (debian-lenny, cpu-transparency) and install files
+(and not a rootstrap).
+
+I had to manually edit /scratchbox/devkits/debian-etch/etc/environment 
+to add ARCH=armel, otherwise things did not work
+
+Translating pypy
+----------------
+
+Run::
+  ./translate.py --platform=maemo --opt=mem targetpypystandalone --no-allworkingmodules
+
+This should create pypy-c which is able to run on top of scratchbox. To run it
+you need to copy pypy-c, together with libraries to a place accessible
+from inside scratchbox. Default is /scratchbox/users/<user>/home/<user> where
+<user> is your user id.
+
+.. _`installation instructions`: http://www.scratchbox.org/documentation/user/scratchbox-1.0/html/installdoc.html
+.. _`scratchbox`: http://scratchbox.org

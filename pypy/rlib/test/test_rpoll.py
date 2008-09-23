@@ -1,6 +1,7 @@
 import thread
 from pypy.rlib.rsocket import *
 from pypy.rlib.rpoll import *
+from pypy.rpython.test.test_llinterp import interpret
 
 def setup_module(mod):
     rsocket_startup()
@@ -33,7 +34,8 @@ def test_simple():
     assert events[0][1] & POLLOUT
 
     err = cli.connect_ex(servaddr)
-    assert err == 0
+    # win32 oddity: returns WSAEISCONN when the connection finally succeed.
+    assert err == 0 or err == 10056
 
     events = poll({servconn.fileno(): POLLIN,
                    cli.fileno(): POLLIN}, timeout=100)
@@ -46,3 +48,28 @@ def test_simple():
     cli.close()
     servconn.close()
     serv.close()
+
+def test_select():
+    def f():
+        readend, writeend = os.pipe()
+        try:
+            iwtd, owtd, ewtd = select([readend], [], [], 0.0)
+            assert iwtd == owtd == ewtd == []
+            os.write(writeend, 'X')
+            iwtd, owtd, ewtd = select([readend], [], [])
+            assert iwtd == [readend]
+            assert owtd == ewtd == []
+        finally:
+            os.close(readend)
+            os.close(writeend)
+
+    f()
+    interpret(f, [])
+
+def test_translate():
+    from pypy.translator.c.test.test_genc import compile
+
+    def func():
+        poll({})
+
+    compile(func, [])

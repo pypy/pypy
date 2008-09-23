@@ -1,6 +1,5 @@
 from pypy.objspace.std.objspace import *
 from pypy.interpreter.function import Function, StaticMethod
-from pypy.interpreter.argument import Arguments
 from pypy.interpreter import gateway
 from pypy.interpreter.typedef import weakref_descr
 from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef, Member
@@ -49,6 +48,11 @@ class W_TypeObject(W_Object):
     from pypy.objspace.std.typetype import type_typedef as typedef
 
     lazyloaders = {} # can be overridden by specific instances
+    version_tag = None
+
+    uses_object_getattribute = False
+    # ^^^ for config.objspace.std.getattributeshortcut
+    # (False is a conservative default, fixed during real usage)
 
     def __init__(w_self, space, name, bases_w, dict_w,
                  overridetypedef=None):
@@ -56,171 +60,33 @@ class W_TypeObject(W_Object):
         w_self.name = name
         w_self.bases_w = bases_w
         w_self.dict_w = dict_w
-        w_self.ensure_static__new__()
         w_self.nslots = 0
+        w_self.hasdict = False
         w_self.needsdel = False
-        w_self.w_bestbase = None
+        w_self.weakrefable = False
+        w_self.w_same_layout_as = None
         w_self.weak_subclasses = []
-
-        # make sure there is a __doc__ in dict_w
-        if '__doc__' not in dict_w:
-            dict_w['__doc__'] = space.w_None
+        w_self.__flags__ = 0           # or _HEAPTYPE
+        w_self.instancetypedef = overridetypedef
 
         if overridetypedef is not None:
-            w_self.instancetypedef = overridetypedef
-            w_self.hasdict = overridetypedef.hasdict
-            w_self.weakrefable = overridetypedef.weakrefable
-            w_self.__flags__ = 0 # not a heaptype
-            if overridetypedef.base is not None:
-                w_self.w_bestbase = space.gettypeobject(overridetypedef.base)
+            setup_builtin_type(w_self)
+            custom_metaclass = False
         else:
-            w_self.__flags__ = _HEAPTYPE
-            # initialize __module__ in the dict
-            if '__module__' not in dict_w:
-                try:
-                    caller = space.getexecutioncontext().framestack.top()
-                except IndexError:
-                    w_globals = w_locals = space.newdict()
-                else:
-                    w_globals = caller.w_globals
-                    w_str_name = space.wrap('__name__')
-                    w_name = space.finditem(w_globals, w_str_name)
-                    if w_name is not None:
-                        dict_w['__module__'] = w_name
-            # find the most specific typedef
-            instancetypedef = object_typedef
-            for w_base in bases_w:
-                if not isinstance(w_base, W_TypeObject):
-                    continue
-                if issubtypedef(w_base.instancetypedef, instancetypedef):
-                    if instancetypedef is not w_base.instancetypedef:
-                        instancetypedef = w_base.instancetypedef
-                        w_self.w_bestbase = w_base
-                elif not issubtypedef(instancetypedef, w_base.instancetypedef):
-                    raise OperationError(space.w_TypeError,
-                                space.wrap("instance layout conflicts in "
-                                                    "multiple inheritance"))
-            if not instancetypedef.acceptable_as_base_class:
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("type '%s' is not an "
-                                                "acceptable base class" %
-                                                instancetypedef.name))
-            w_self.instancetypedef = instancetypedef
-            w_self.hasdict = False
-            w_self.weakrefable = False
-            hasoldstylebase = False
-            w_most_derived_base_with_slots = None
-            w_newstyle = None
-            for w_base in bases_w:
-                if not isinstance(w_base, W_TypeObject):
-                    hasoldstylebase = True
-                    continue
-                if not w_newstyle:
-                    w_newstyle = w_base
-                if w_base.nslots != 0:
-                    if w_most_derived_base_with_slots is None:
-                        w_most_derived_base_with_slots = w_base
-                    else:
-                        if space.is_true(space.issubtype(w_base, w_most_derived_base_with_slots)):
-                            w_most_derived_base_with_slots = w_base
-                        elif not space.is_true(space.issubtype(w_most_derived_base_with_slots, w_base)):
-                            raise OperationError(space.w_TypeError,
-                                                 space.wrap("instance layout conflicts in "
-                                                            "multiple inheritance"))
-                w_self.hasdict = w_self.hasdict or w_base.hasdict
-                w_self.needsdel = w_self.needsdel or w_base.needsdel
-                w_self.weakrefable = w_self.weakrefable or w_base.weakrefable
-            if not w_newstyle: # only classic bases
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("a new-style class can't have only classic bases"))
+            setup_user_defined_type(w_self)
+            custom_metaclass = not space.is_w(space.type(w_self), space.w_type)
 
-            if w_most_derived_base_with_slots:
-                nslots = w_most_derived_base_with_slots.nslots
-                w_self.w_bestbase = w_most_derived_base_with_slots
-            else:
-                nslots = 0
-
-            if w_self.w_bestbase is None:
-                w_self.w_bestbase = w_newstyle
-
-            wantdict = True
-            wantweakref = True
-            if '__slots__' in dict_w:
-                wantdict = False
-                wantweakref = False
-
-                w_slots = dict_w['__slots__']
-                if space.is_true(space.isinstance(w_slots, space.w_str)):
-                    if space.int_w(space.len(w_slots)) == 0:
-                        raise OperationError(space.w_TypeError,
-                                             space.wrap('__slots__ must be identifiers'))
-                    slot_names_w = [w_slots]
-                else:
-                    slot_names_w = space.unpackiterable(w_slots)
-                for w_slot_name in slot_names_w:
-                    slot_name = space.str_w(w_slot_name)
-                    # slot_name should be a valid identifier
-                    if len(slot_name) == 0:
-                        raise OperationError(space.w_TypeError,
-                                             space.wrap('__slots__ must be identifiers'))
-                    first_char = slot_name[0]
-                    if not first_char.isalpha() and first_char != '_':
-                        raise OperationError(space.w_TypeError,
-                                             space.wrap('__slots__ must be identifiers'))                        
-                    for c in slot_name:
-                        if not c.isalnum() and c!= '_':
-                            raise OperationError(space.w_TypeError,
-                                                 space.wrap('__slots__ must be identifiers'))
-                    if slot_name == '__dict__':
-                        if wantdict or w_self.hasdict:
-                            raise OperationError(space.w_TypeError,
-                                                 space.wrap("__dict__ slot disallowed: we already got one"))
-                        wantdict = True
-                    elif slot_name == '__weakref__':
-                        if wantweakref or w_self.weakrefable:
-                            raise OperationError(space.w_TypeError,
-                                                 space.wrap("__weakref__ slot disallowed: we already got one"))
-                                                
-                        wantweakref = True
-                    else:
-                        # create member
-                        slot_name = _mangle(slot_name, name)
-                        # Force interning of slot names.
-                        slot_name = space.str_w(space.new_interned_str(slot_name))
-                        w_self.dict_w[slot_name] = space.wrap(Member(nslots, slot_name, w_self))
-                        nslots += 1
-
-            w_self.nslots = nslots
-                        
-            wantdict = wantdict or hasoldstylebase
-
-            if wantdict and not w_self.hasdict:
-                w_self.dict_w['__dict__'] = space.wrap(std_dict_descr)
-                w_self.hasdict = True
-            if '__del__' in dict_w:
-                w_self.needsdel = True
-            if wantweakref and not w_self.weakrefable:
-                w_self.dict_w['__weakref__'] = space.wrap(weakref_descr)
-                w_self.weakrefable = True
-            w_type = space.type(w_self)
-            if not space.is_w(w_type, space.w_type):
-                if space.config.objspace.std.withtypeversion:
-                    w_self.version_tag = None
-                w_self.mro_w = []
-                mro_func = space.lookup(w_self, 'mro')
-                mro_func_args = Arguments(space, [w_self])
-                w_mro = space.call_args(mro_func, mro_func_args)
-                w_self.mro_w = space.unpackiterable(w_mro)
-                return
-        w_self.mro_w = w_self.compute_mro()
         if space.config.objspace.std.withtypeversion:
-            if w_self.instancetypedef.hasdict:
-                w_self.version_tag = None
+            if w_self.instancetypedef.hasdict or custom_metaclass:
+                pass
             else:
                 w_self.version_tag = VersionTag()
 
     def mutated(w_self):
         space = w_self.space
+        if space.config.objspace.std.getattributeshortcut:
+            w_self.uses_object_getattribute = False
+            # ^^^ conservative default, fixed during real usage
         if not space.config.objspace.std.withtypeversion:
             return
         # Invariant: version_tag is None if and only if
@@ -243,32 +109,13 @@ class W_TypeObject(W_Object):
                 continue
             w_base.add_subclass(w_self)
 
-    # compute the most parent class with the same layout as us
-    def get_layout(w_self):
-        w_bestbase = w_self.w_bestbase
-        if w_bestbase is None: # object
-            return w_self
-        if w_self.instancetypedef is not w_bestbase.instancetypedef:
-            return w_self
-        if w_self.nslots == w_bestbase.nslots:
-            return w_bestbase.get_layout()
-        return w_self
-
     # compute a tuple that fully describes the instance layout
     def get_full_instance_layout(w_self):
-        w_layout = w_self.get_layout()
+        w_layout = w_self.w_same_layout_as or w_self
         return (w_layout, w_self.hasdict, w_self.needsdel, w_self.weakrefable)
 
-    def compute_mro(w_self):
+    def compute_default_mro(w_self):
         return compute_C3_mro(w_self.space, w_self)
-
-    def ensure_static__new__(w_self):
-        # special-case __new__, as in CPython:
-        # if it is a Function, turn it into a static method
-        if '__new__' in w_self.dict_w:
-            w_new = w_self.dict_w['__new__']
-            if isinstance(w_new, Function):
-                w_self.dict_w['__new__'] = StaticMethod(w_new)
 
     def getdictvalue(w_self, space, w_attr):
         return w_self.getdictvalue_w(space, space.str_w(w_attr))
@@ -338,7 +185,6 @@ class W_TypeObject(W_Object):
     def lookup_where_with_method_cache(w_self, name):
         space = w_self.space
         assert space.config.objspace.std.withmethodcache
-        ec = space.getexecutioncontext()
         version_tag = w_self.version_tag
         if version_tag is None:
             tup = w_self._lookup_where(name)
@@ -352,23 +198,23 @@ class W_TypeObject(W_Object):
         # the time - so using the fast current_object_addr_as_int() instead
         # of a slower solution like hash() is still a good trade-off.
         method_hash = r_uint(intmask(version_tag_as_int * hash(name))) >> SHIFT
-        cached_version_tag = ec.method_cache_versions[method_hash]
+        cached_version_tag = space.method_cache_versions[method_hash]
         if cached_version_tag is version_tag:
-            cached_name = ec.method_cache_names[method_hash]
+            cached_name = space.method_cache_names[method_hash]
             if cached_name is name:
-                tup = ec.method_cache_lookup_where[method_hash]
+                tup = space.method_cache_lookup_where[method_hash]
                 if space.config.objspace.std.withmethodcachecounter:
-                    ec.method_cache_hits[name] = \
-                            ec.method_cache_hits.get(name, 0) + 1
+                    space.method_cache_hits[name] = \
+                            space.method_cache_hits.get(name, 0) + 1
 #                print "hit", w_self, name
                 return tup
         tup = w_self._lookup_where(name)
-        ec.method_cache_versions[method_hash] = version_tag
-        ec.method_cache_names[method_hash] = name
-        ec.method_cache_lookup_where[method_hash] = tup
+        space.method_cache_versions[method_hash] = version_tag
+        space.method_cache_names[method_hash] = name
+        space.method_cache_lookup_where[method_hash] = tup
         if space.config.objspace.std.withmethodcachecounter:
-            ec.method_cache_misses[name] = \
-                    ec.method_cache_misses.get(name, 0) + 1
+            space.method_cache_misses[name] = \
+                    space.method_cache_misses.get(name, 0) + 1
 #        print "miss", w_self, name
         return tup
 
@@ -481,6 +327,230 @@ class W_TypeObject(W_Object):
     def setweakref(self, space, weakreflifeline):
         self._lifeline_ = weakreflifeline
 
+# ____________________________________________________________
+# Initialization of type objects
+
+def get_parent_layout(w_type):
+    """Compute the most parent class of 'w_type' whose layout
+       is the same as 'w_type', or None if all parents of 'w_type'
+       have a different layout than 'w_type'.
+    """
+    w_starttype = w_type
+    while len(w_type.bases_w) > 0:
+        w_bestbase = find_best_base(w_type.space, w_type.bases_w)
+        if w_type.instancetypedef is not w_bestbase.instancetypedef:
+            break
+        if w_type.nslots != w_bestbase.nslots:
+            break
+        w_type = w_bestbase
+    if w_type is not w_starttype:
+        return w_type
+    else:
+        return None
+
+def issublayout(w_layout1, w_layout2):
+    space = w_layout2.space
+    while w_layout1 is not w_layout2:
+        w_layout1 = find_best_base(space, w_layout1.bases_w)
+        if w_layout1 is None:
+            return False
+        w_layout1 = w_layout1.w_same_layout_as or w_layout1
+    return True
+
+def find_best_base(space, bases_w):
+    """The best base is one of the bases in the given list: the one
+       whose layout a new type should use as a starting point.
+    """
+    w_bestbase = None
+    for w_candidate in bases_w:
+        if not isinstance(w_candidate, W_TypeObject):
+            continue
+        if w_bestbase is None:
+            w_bestbase = w_candidate   # for now
+            continue
+        candtypedef = w_candidate.instancetypedef
+        besttypedef = w_bestbase.instancetypedef
+        if candtypedef is besttypedef:
+            # two candidates with the same typedef are equivalent unless
+            # one has extra slots over the other
+            if w_candidate.nslots > w_bestbase.nslots:
+                w_bestbase = w_candidate
+        elif issubtypedef(candtypedef, besttypedef):
+            w_bestbase = w_candidate
+    return w_bestbase
+
+def check_and_find_best_base(space, bases_w):
+    """The best base is one of the bases in the given list: the one
+       whose layout a new type should use as a starting point.
+       This version checks that bases_w is an acceptable tuple of bases.
+    """
+    w_bestbase = find_best_base(space, bases_w)
+    if w_bestbase is None:
+        raise OperationError(space.w_TypeError,
+                             space.wrap("a new-style class can't have "
+                                        "only classic bases"))
+    if not w_bestbase.instancetypedef.acceptable_as_base_class:
+        raise OperationError(space.w_TypeError,
+                             space.wrap("type '%s' is not an "
+                                        "acceptable base class" %
+                                        w_bestbase.instancetypedef.name))
+
+    # check that all other bases' layouts are superclasses of the bestbase
+    w_bestlayout = w_bestbase.w_same_layout_as or w_bestbase
+    for w_base in bases_w:
+        if isinstance(w_base, W_TypeObject):
+            w_layout = w_base.w_same_layout_as or w_base
+            if not issublayout(w_bestlayout, w_layout):
+                raise OperationError(space.w_TypeError,
+                                     space.wrap("instance layout conflicts in "
+                                                "multiple inheritance"))
+    return w_bestbase
+
+def copy_flags_from_bases(w_self, w_bestbase):
+    hasoldstylebase = False
+    for w_base in w_self.bases_w:
+        if not isinstance(w_base, W_TypeObject):
+            hasoldstylebase = True
+            continue
+        w_self.hasdict = w_self.hasdict or w_base.hasdict
+        w_self.needsdel = w_self.needsdel or w_base.needsdel
+        w_self.weakrefable = w_self.weakrefable or w_base.weakrefable
+    w_self.nslots = w_bestbase.nslots
+    return hasoldstylebase
+
+def create_all_slots(w_self, hasoldstylebase):
+    space = w_self.space
+    dict_w = w_self.dict_w
+    if '__slots__' not in dict_w:
+        wantdict = True
+        wantweakref = True
+    else:
+        wantdict = False
+        wantweakref = False
+        w_slots = dict_w['__slots__']
+        if space.is_true(space.isinstance(w_slots, space.w_str)):
+            slot_names_w = [w_slots]
+        else:
+            slot_names_w = space.unpackiterable(w_slots)
+        for w_slot_name in slot_names_w:
+            slot_name = space.str_w(w_slot_name)
+            if slot_name == '__dict__':
+                if wantdict or w_self.hasdict:
+                    raise OperationError(space.w_TypeError,
+                            space.wrap("__dict__ slot disallowed: "
+                                       "we already got one"))
+                wantdict = True
+            elif slot_name == '__weakref__':
+                if wantweakref or w_self.weakrefable:
+                    raise OperationError(space.w_TypeError,
+                            space.wrap("__weakref__ slot disallowed: "
+                                       "we already got one"))
+                wantweakref = True
+            else:
+                create_slot(w_self, slot_name)
+    wantdict = wantdict or hasoldstylebase
+    if wantdict: create_dict_slot(w_self)
+    if wantweakref: create_weakref_slot(w_self)
+    if '__del__' in dict_w: w_self.needsdel = True
+
+def create_slot(w_self, slot_name):
+    space = w_self.space
+    if not valid_slot_name(slot_name):
+        raise OperationError(space.w_TypeError,
+                             space.wrap('__slots__ must be identifiers'))
+    # create member
+    slot_name = _mangle(slot_name, w_self.name)
+    # Force interning of slot names.
+    slot_name = space.str_w(space.new_interned_str(slot_name))
+    member = Member(w_self.nslots, slot_name, w_self)
+    w_self.dict_w[slot_name] = space.wrap(member)
+    w_self.nslots += 1
+
+def create_dict_slot(w_self):
+    if not w_self.hasdict:
+        w_self.dict_w['__dict__'] = w_self.space.wrap(std_dict_descr)
+        w_self.hasdict = True
+
+def create_weakref_slot(w_self):
+    if not w_self.weakrefable:
+        w_self.dict_w['__weakref__'] = w_self.space.wrap(weakref_descr)
+        w_self.weakrefable = True
+
+def valid_slot_name(slot_name):
+    if len(slot_name) == 0 or slot_name[0].isdigit():
+        return False
+    for c in slot_name:
+        if not c.isalnum() and c != '_':
+            return False
+    return True
+
+def setup_user_defined_type(w_self):
+    if len(w_self.bases_w) == 0:
+        w_self.bases_w = [w_self.space.w_object]
+    w_bestbase = check_and_find_best_base(w_self.space, w_self.bases_w)
+    w_self.instancetypedef = w_bestbase.instancetypedef
+    w_self.__flags__ = _HEAPTYPE
+
+    hasoldstylebase = copy_flags_from_bases(w_self, w_bestbase)
+    create_all_slots(w_self, hasoldstylebase)
+
+    w_self.w_same_layout_as = get_parent_layout(w_self)
+    ensure_common_attributes(w_self)
+
+def setup_builtin_type(w_self):
+    w_self.hasdict = w_self.instancetypedef.hasdict
+    w_self.weakrefable = w_self.instancetypedef.weakrefable
+    ensure_common_attributes(w_self)
+
+def ensure_common_attributes(w_self):
+    ensure_static_new(w_self)
+    ensure_doc_attr(w_self)
+    if w_self.is_heaptype():
+        ensure_module_attr(w_self)
+    w_self.mro_w = []      # temporarily
+    compute_mro(w_self)
+
+def ensure_static_new(w_self):
+    # special-case __new__, as in CPython:
+    # if it is a Function, turn it into a static method
+    if '__new__' in w_self.dict_w:
+        w_new = w_self.dict_w['__new__']
+        if isinstance(w_new, Function):
+            w_self.dict_w['__new__'] = StaticMethod(w_new)
+
+def ensure_doc_attr(w_self):
+    # make sure there is a __doc__ in dict_w
+    w_self.dict_w.setdefault('__doc__', w_self.space.w_None)
+
+def ensure_module_attr(w_self):
+    # initialize __module__ in the dict (user-defined types only)
+    if '__module__' not in w_self.dict_w:
+        space = w_self.space
+        try:
+            caller = space.getexecutioncontext().framestack.top()
+        except IndexError:
+            pass
+        else:
+            w_globals = caller.w_globals
+            w_name = space.finditem(w_globals, space.wrap('__name__'))
+            if w_name is not None:
+                w_self.dict_w['__module__'] = w_name
+
+def compute_mro(w_self):
+    if w_self.is_heaptype():
+        space = w_self.space
+        w_metaclass = space.type(w_self)
+        w_where, w_mro_func = space.lookup_in_type_where(w_metaclass, 'mro')
+        assert w_mro_func is not None      # because there is one in 'type'
+        if not space.is_w(w_where, space.w_type):
+            w_mro_meth = space.get(w_mro_func, w_self)
+            w_mro = space.call_function(w_mro_meth)
+            w_self.mro_w = space.viewiterable(w_mro)
+            # do some checking here
+            return    # done
+    w_self.mro_w = w_self.compute_default_mro()[:]
+
+# ____________________________________________________________
 
 def call__Type(space, w_type, __args__):
     # special case for type(x)
@@ -493,7 +563,7 @@ def call__Type(space, w_type, __args__):
             return space.type(w_obj)
     # invoke the __new__ of the type
     w_newfunc = space.getattr(w_type, space.wrap('__new__'))
-    w_newobject = space.call_args(w_newfunc, __args__.prepend(w_type))
+    w_newobject = space.call_obj_args(w_newfunc, w_type, __args__)
     # maybe invoke the __init__ of the type
     if space.is_true(space.isinstance(w_newobject, w_type)):
         w_descr = space.lookup(w_newobject, '__init__')

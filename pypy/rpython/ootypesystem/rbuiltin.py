@@ -75,15 +75,14 @@ def rtype_builtin_isinstance(hop):
 
     v_obj, v_cls = hop.inputargs(instance_repr, class_repr)
     if isinstance(v_cls, Constant):
-        c_cls = hop.inputconst(ootype.Void, v_cls.value.class_._INSTANCE)
+        c_cls = hop.inputconst(ootype.Void, v_cls.value._INSTANCE)
         return hop.genop('instanceof', [v_obj, c_cls], resulttype=ootype.Bool)
     else:
         return hop.gendirectcall(ll_isinstance, v_obj, v_cls)
 
-def ll_isinstance(inst, meta):
-    c1 = inst.meta.class_
-    c2 = meta.class_
-    return ootype.subclassof(c1, c2)
+def ll_isinstance(inst, class_):
+    c1 = ootype.classof(inst)
+    return ootype.subclassof(c1, class_)
 
 def rtype_instantiate(hop):
     if hop.args_s[0].is_constant():
@@ -99,16 +98,11 @@ def rtype_instantiate(hop):
     else:
         r_instance = hop.s_result.rtyper_makerepr(hop.rtyper)
         INSTANCE = r_instance.lowleveltype
-        c_instance = hop.inputconst(ootype.Void, INSTANCE)
-        v_cls = hop.inputarg(hop.args_r[0], arg=0)
-        v_obj = hop.gendirectcall(ll_instantiate, c_instance, v_cls)
+        class_repr = rclass.get_type_repr(hop.rtyper)
+        v_cls = hop.inputarg(class_repr, arg=0)
+        v_obj = hop.genop('runtimenew', [v_cls], resulttype=ootype.ROOT)
         v_instance = hop.genop('oodowncast', [v_obj], resulttype=hop.r_result.lowleveltype)
-        c_meta = hop.inputconst(ootype.Void, "meta")
-        hop.genop("oosetfield", [v_instance, c_meta, v_cls], resulttype=ootype.Void)
         return v_instance
-
-def ll_instantiate(INST, C):
-    return ootype.runtimenew(C.class_)
 
 BUILTIN_TYPER = {}
 BUILTIN_TYPER[ootype.new] = rtype_new

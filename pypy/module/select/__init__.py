@@ -5,11 +5,11 @@ import sys
 class Module(MixedModule):
     appleveldefs = {
         'error': 'app_select.error',
-        'select': 'app_select.select',
     }
 
     interpleveldefs = {
         'poll'  :  'interp_select.poll',
+        'select': 'interp_select.select',
     }
 
     def buildloaders(cls):

@@ -32,10 +32,25 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
     w_obj = f.popvalue()
     w_name = f.getname_w(nameindex)
     w_value = None
-    w_getattribute = space.lookup(w_obj, '__getattribute__')
-    if w_getattribute is object_getattribute(space):
+
+    if space.config.objspace.std.getattributeshortcut:
+        w_type = space.type(w_obj)
+        fastpath = w_type.uses_object_getattribute
+        # conservatively, 'uses_object_getattribute' can be False
+        # even if __getattribute__ was not overridden.  In this
+        # case, the code below calls space.getattr(), which will
+        # set 'uses_object_getattribute' to True for the next time.
+    else:
+        w_getattribute = space.lookup(w_obj, '__getattribute__')
+        if w_getattribute is object_getattribute(space):
+            w_type = space.type(w_obj)
+            fastpath = True
+        else:
+            fastpath = False
+
+    if fastpath:
         name = space.str_w(w_name)
-        w_descr = space.lookup(w_obj, name)
+        w_descr = w_type.lookup(name)
         if w_descr is None:
             # this handles directly the common case
             #   module.function(args..)

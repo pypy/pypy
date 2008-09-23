@@ -20,3 +20,19 @@ class AppTestRecparser:
         import parser
         parser.suite("a = 3").totuple()
 
+class AppTestRecparserErrors: 
+    def setup_class(cls):
+        cls.space = space
+
+    def test_sequence2st_bug1(self):
+        import parser
+        raises(parser.ParserError, parser.sequence2st, ())
+
+    def test_sequence2st_bug1(self):
+        import parser
+        raises(parser.ParserError, parser.sequence2st, (True,))
+
+    def test_source2ast_bug1(self):
+        import parser
+        raises(SyntaxError, parser.source2ast, "\xDE\xDA")
+

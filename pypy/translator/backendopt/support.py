@@ -182,7 +182,7 @@ def find_loop_blocks(graph):
     return loop
 
 def md5digest(translator):
-    import md5
+    from pypy.tool.compat import md5
     graph2digest = {}
     for graph in translator.graphs:
         m = md5.new()

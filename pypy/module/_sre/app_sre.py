@@ -79,7 +79,9 @@ class SRE_Pattern(object):
             filter = sre._subx(self, repl)
         state = _sre._State(string, 0, sys.maxint, self.flags)
         sublist = []
-        
+
+        need_unicode = (isinstance(string, unicode) or
+                        isinstance(self.pattern, unicode))
         n = last_pos = 0
         while not count or n < count:
             state.reset()
@@ -91,9 +93,12 @@ class SRE_Pattern(object):
                                 last_pos == state.string_position and n > 0):
                 # the above ignores empty matches on latest position
                 if callable(filter):
-                    sublist.append(filter(SRE_Match(self, state)))
+                    to_app = filter(SRE_Match(self, state))
                 else:
-                    sublist.append(filter)
+                    to_app = filter
+                if isinstance(to_app, unicode):
+                    need_unicode = True
+                sublist.append(to_app)
                 last_pos = state.string_position
                 n += 1
             if state.string_position == state.start:
@@ -103,7 +108,10 @@ class SRE_Pattern(object):
 
         if last_pos < state.end:
             sublist.append(string[last_pos:state.end])
-        item = "".join(sublist)
+        if need_unicode:
+            item = u"".join(sublist)
+        else:
+            item = "".join(sublist)
         return item, n
 
     def sub(self, repl, string, count=0):

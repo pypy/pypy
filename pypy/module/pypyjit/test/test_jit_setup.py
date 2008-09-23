@@ -1,3 +1,5 @@
+import py
+py.test.skip("JIT disabled for now")
 from pypy.conftest import gettestobjspace
 
 class AppTestPyPyJIT:

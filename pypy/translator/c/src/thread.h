@@ -3,7 +3,13 @@
 
 #ifndef __PYPY_THREAD_H
 #define __PYPY_THREAD_H
-#include "Python.h"
+#include <assert.h>
+
+#ifdef _WIN32
+#include "thread_nt.h"
+#else
+
+#include <unistd.h>
 
 #ifndef _POSIX_THREADS
 /* This means pthreads are not implemented in libc headers, hence the macro
@@ -18,9 +24,7 @@
 #include "thread_pthread.h"
 #endif
 
-#ifdef NT_THREADS
-#include "thread_nt.h"
-#endif
+#endif /* !_WIN32 */
 
 #ifdef USE___THREAD
 
@@ -40,17 +44,13 @@
 
 #endif
 
-/* common helper: this is a single external function so that we are
-   sure that nothing occurs between the release and the acquire,
-   e.g. no GC operation. */
-
-void RPyThreadFusedReleaseAcquireLock(struct RPyOpaque_ThreadLock *lock);
+/* common helper: this does nothing, but is called with the GIL released.
+   This gives other threads a chance to grab the GIL and run. */
+void RPyThreadYield(void);
 
 #ifndef PYPY_NOT_MAIN_FILE
-void RPyThreadFusedReleaseAcquireLock(struct RPyOpaque_ThreadLock *lock)
+void RPyThreadYield(void)
 {
-	RPyThreadReleaseLock(lock);
-	RPyThreadAcquireLock(lock, 1);
 }
 #endif
 

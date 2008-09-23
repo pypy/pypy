@@ -179,6 +179,10 @@ class AppTestSreMatch:
         assert ("rbd\nbr\n", 2) == re.subn("a(.)", r"b\1\n", "radar")
         assert ("bbbba", 2) == re.subn("a", "b", "ababa", 2)
 
+    def test_sub_unicode(self):
+        import re
+        assert isinstance(re.sub(u"a", u"b", u""), unicode)
+
     def test_sub_callable(self):
         import re
         def call_me(match):

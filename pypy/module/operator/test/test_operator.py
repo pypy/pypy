@@ -6,7 +6,7 @@ class AppTestOperator:
 
     def test_getters_are_not_regular_functions(self):
         import operator
-        class A:
+        class A(object):
             getx = operator.attrgetter('x')
             get3 = operator.itemgetter(3)
         a = A()

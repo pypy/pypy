@@ -1,9 +1,6 @@
-import os
-from pypy.lang.smalltalk import model, interpreter, primitives, shadow
-from pypy.lang.smalltalk import objtable
-from pypy.lang.smalltalk.utility import wrap_int
-from pypy.lang.smalltalk import classtable
-from pypy.lang.smalltalk.tool.analyseimage import *
+import os, sys
+from pypy.lang.smalltalk import model, interpreter, primitives, shadow, constants
+from pypy.lang.smalltalk.tool.analyseimage import create_squeakimage
 
 # This loads the whole mini.image in advance.  At run-time,
 # it executes the tinyBenchmark.  In this way we get an RPython
@@ -18,22 +15,22 @@ sys.setrecursionlimit(100000)
 
 
 def tinyBenchmarks():
-    image = create_squeakimage()
-    interp = interpreter.Interpreter()
+    from pypy.lang.smalltalk import objspace
+    space = objspace.ObjSpace()
+    image = create_squeakimage(space)
+    interp = interpreter.Interpreter(space)
 
     w_object = model.W_SmallInteger(0)
 
     # Should get this from w_object
     w_smallint_class = image.special(constants.SO_SMALLINTEGER_CLASS)
-    s_class = w_object.shadow_of_my_class()
+    s_class = w_object.shadow_of_my_class(space)
     w_method = s_class.lookup("tinyBenchmarks")
 
     assert w_method
-    w_frame = w_method.create_frame(w_object, [])
-    interp.w_active_context = w_frame
+    w_frame = w_method.create_frame(space, w_object, [])
+    interp.store_w_active_context(w_frame)
 
-    print w_method
-    print "Going to execute %d toplevel bytecodes" % (len(w_method.bytes),)
     counter = 0
 
     from pypy.lang.smalltalk.interpreter import BYTECODE_TABLE

@@ -12,6 +12,7 @@ class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
         includes = ['src/ll_strtod.h'],
         separate_module_sources = ['#include <src/ll_strtod.h>'],
+        export_symbols = ['LL_strtod_formatd', 'LL_strtod_parts_to_float'],
     )
 
 class RegisterStrtod(BaseLazyRegistering):

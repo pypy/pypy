@@ -87,3 +87,56 @@ for methodname in 'register unregister poll'.split():
     assert method.im_func.func_code.co_argcount == len(method.unwrap_spec), methodname
     pollmethods[methodname] = interp2app(method, unwrap_spec=method.unwrap_spec)
 Poll.typedef = TypeDef('select.poll', **pollmethods)
+
+def select(space, w_iwtd, w_owtd, w_ewtd, w_timeout=None):
+    """Wait until one or more file descriptors are ready for some kind of I/O.
+The first three arguments are sequences of file descriptors to be waited for:
+rlist -- wait until ready for reading
+wlist -- wait until ready for writing
+xlist -- wait for an ``exceptional condition''
+If only one kind of condition is required, pass [] for the other lists.
+A file descriptor is either a socket or file object, or a small integer
+gotten from a fileno() method call on one of those.
+
+The optional 4th argument specifies a timeout in seconds; it may be
+a floating point number to specify fractions of seconds.  If it is absent
+or None, the call will never time out.
+
+The return value is a tuple of three lists corresponding to the first three
+arguments; each contains the subset of the corresponding file descriptors
+that are ready.
+
+*** IMPORTANT NOTICE ***
+On Windows, only sockets are supported; on Unix, all file descriptors.
+"""
+
+    iwtd_w = space.unpackiterable(w_iwtd)
+    owtd_w = space.unpackiterable(w_owtd)
+    ewtd_w = space.unpackiterable(w_ewtd)
+    iwtd = [as_fd_w(space, w_f) for w_f in iwtd_w]
+    owtd = [as_fd_w(space, w_f) for w_f in owtd_w]
+    ewtd = [as_fd_w(space, w_f) for w_f in ewtd_w]
+    iwtd_d = {}
+    owtd_d = {}
+    ewtd_d = {}
+    for i in range(len(iwtd)):
+        iwtd_d[iwtd[i]] = iwtd_w[i]
+    for i in range(len(owtd)):
+        owtd_d[owtd[i]] = owtd_w[i]
+    for i in range(len(ewtd)):
+        ewtd_d[ewtd[i]] = ewtd_w[i]
+    try:
+        if space.is_w(w_timeout, space.w_None):
+            iwtd, owtd, ewtd = rpoll.select(iwtd, owtd, ewtd)
+        else:
+            iwtd, owtd, ewtd = rpoll.select(iwtd, owtd, ewtd, space.float_w(w_timeout))
+    except rpoll.SelectError, s:
+        w_module = space.getbuiltinmodule('select')
+        w_errortype = space.getattr(w_module, space.wrap('error'))
+        raise OperationError(w_errortype, space.newtuple([
+            space.wrap(s.errno), space.wrap(s.get_msg())]))
+    
+    return space.newtuple([
+        space.newlist([iwtd_d[i] for i in iwtd]),
+        space.newlist([owtd_d[i] for i in owtd]),
+        space.newlist([ewtd_d[i] for i in ewtd])])

@@ -24,7 +24,7 @@ def _getservicename(sin_port, flags):
     if sp:
         serv = rffi.charp2str(sp.c_s_name)
     else:
-        serv = "%d" % _c.ntohs(sin_port)
+        serv = "%d" % r_uint(_c.ntohs(sin_port))
 
     return serv
     

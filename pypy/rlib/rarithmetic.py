@@ -21,6 +21,11 @@ r_longlong
          like r_int but double word size
 r_ulonglong
          like r_uint but double word size
+widen(x)
+         if x is of a type smaller than lltype.Signed or
+         lltype.Unsigned, widen it to lltype.Signed.
+         Useful because the translator doesn't support
+         arithmetic on the smaller types.
 
 These are meant to be erased by translation, r_uint
 in the process should mark unsigned values, ovfcheck should
@@ -67,6 +72,25 @@ def intmask(n):
     if n >= LONG_TEST:
         n -= 2*LONG_TEST
     return int(n)
+
+def widen(n):
+    from pypy.rpython.lltypesystem import lltype
+    if _should_widen_type(lltype.typeOf(n)):
+        return int(n)
+    else:
+        return n
+widen._annspecialcase_ = 'specialize:argtype(0)'
+
+def _should_widen_type(tp):
+    from pypy.rpython.lltypesystem import lltype, rffi
+    if tp is lltype.Bool:
+        return True
+    if tp is lltype.Signed:
+        return False
+    r_class = rffi.platform.numbertype_to_rclass[tp]
+    assert issubclass(r_class, base_int)
+    return r_class.BITS < LONG_BIT
+_should_widen_type._annspecialcase_ = 'specialize:memo'
 
 del _bits, _itest, _Ltest
 

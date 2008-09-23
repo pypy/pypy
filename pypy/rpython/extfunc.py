@@ -257,7 +257,7 @@ def register_external(function, args, result=None, export_name=None,
         if llimpl:
             lltypeimpl = staticmethod(llimpl)
         if ooimpl:
-            ootypeimpl = staticmethd(ooimpl)
+            ootypeimpl = staticmethod(ooimpl)
         if llfakeimpl:
             lltypefakeimpl = staticmethod(llfakeimpl)
         if oofakeimpl:

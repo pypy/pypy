@@ -24,15 +24,13 @@ def method_cache_counter(space, name):
     """Return a tuple (method_cache_hits, method_cache_misses) for calls to
     methods with the name."""
     assert space.config.objspace.std.withmethodcachecounter
-    ec = space.getexecutioncontext()
-    return space.newtuple([space.newint(ec.method_cache_hits.get(name, 0)),
-                           space.newint(ec.method_cache_misses.get(name, 0)),])
+    return space.newtuple([space.newint(space.method_cache_hits.get(name, 0)),
+                           space.newint(space.method_cache_misses.get(name, 0)),])
 method_cache_counter.unwrap_spec = [ObjSpace, str]
 
 def reset_method_cache_counter(space):
     """Reset the method cache counter to zero for all method names."""
     assert space.config.objspace.std.withmethodcachecounter
-    ec = space.getexecutioncontext()
-    ec.method_cache_misses = {}
-    ec.method_cache_hits = {}
+    space.method_cache_misses = {}
+    space.method_cache_hits = {}
 

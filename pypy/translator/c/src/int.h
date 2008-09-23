@@ -72,7 +72,13 @@
 
 #define OP_INT_MUL(x,y,r)     r = (x) * (y)
 
-#ifndef HAVE_LONG_LONG
+#if defined(HAVE_LONG_LONG) && SIZE_OF_LONG_LONG < SIZE_OF_LONG
+#  define OP_INT_MUL_OVF_LL      1
+#lse
+#  define OP_INT_MUL_OVF_LL      0
+#endif
+
+#if !OP_INT_MUL_OVF_LL
 
 #define OP_INT_MUL_OVF(x,y,r) \
 	if (op_int_mul_ovf(x,y,&r)); \
@@ -230,12 +236,12 @@
 
 /* _________________ certain implementations __________________ */
 
-#ifndef HAVE_LONG_LONG
+#if !OP_INT_MUL_OVF_LL
 /* adjusted from intobject.c, Python 2.3.3 */
 
 /* prototypes */
 
-op_int_mul_ovf(long a, long b, long *longprod);
+int op_int_mul_ovf(long a, long b, long *longprod);
 
 /* implementations */
 
@@ -276,7 +282,7 @@ op_int_mul_ovf(long a, long b, long *longprod)
 
 #endif /* PYPY_NOT_MAIN_FILE */
 
-#endif /* HAVE_LONG_LONG */
+#endif /* !OP_INT_MUL_OVF_LL */
 
 /* implementations */
 

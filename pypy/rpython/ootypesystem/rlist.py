@@ -71,7 +71,7 @@ class ListRepr(AbstractListRepr, BaseListRepr):
     def _make_empty_type(self):
         return ootype.List()
 
-    def _generate_newlist(self, llops, items_v, v_sizehint):
+    def _generate_newlist(self, llops, items_v):
         c_list = inputconst(ootype.Void, self.lowleveltype)
         v_result = llops.genop("new", [c_list], resulttype=self.lowleveltype)
         c_resize = inputconst(ootype.Void, "_ll_resize")
@@ -88,9 +88,8 @@ class __extend__(pairtype(BaseListRepr, BaseListRepr)):
 
 
 
-def newlist(llops, r_list, items_v, v_sizehint=None):
-    # XXX do something about v_sizehint
-    v_result = r_list._generate_newlist(llops, items_v, v_sizehint)
+def newlist(llops, r_list, items_v):
+    v_result = r_list._generate_newlist(llops, items_v)
 
     c_setitem = inputconst(ootype.Void, "ll_setitem_fast")
     for i, v_item in enumerate(items_v):
@@ -120,7 +119,7 @@ class FixedSizeListRepr(AbstractFixedSizeListRepr, BaseListRepr):
     def make_iterator_repr(self):
         return ListIteratorRepr(self)
 
-    def _generate_newlist(self, llops, items_v, v_sizehint):
+    def _generate_newlist(self, llops, items_v):
         c_array = inputconst(ootype.Void, self.lowleveltype)
         c_length = inputconst(ootype.Signed, len(items_v))
         v_result = llops.genop("oonewarray", [c_array, c_length], resulttype=self.lowleveltype)

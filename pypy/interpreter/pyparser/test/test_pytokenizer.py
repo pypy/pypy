@@ -53,29 +53,38 @@ BAD_NUMBERS = [
     'j', '0xg', '0xj', '0xJ',
     ]
 
+def listeq(lst1, lst2):
+    if len(lst1) != len(lst2):
+        return False
+    for tk1, tk2 in zip(lst1, lst2):
+        if not tk1.eq(tk2):
+            return False
+    return True
+
 def test_several_lines_list():
     """tests list definition on several lines"""
     s = """['a'
     ]"""
     tokens = parse_source(s)
-    assert tokens[:4] == [Token(P, LSQB, None), Token(P, STRING, "'a'"),
-                          Token(P, RSQB, None), Token(P, NEWLINE, '')]
+    assert listeq(tokens[:4], [Token(P, LSQB, None), Token(P, STRING, "'a'"),
+                               Token(P, RSQB, None), Token(P, NEWLINE, '')])
 
 def test_numbers():
     """make sure all kind of numbers are correctly parsed"""
     for number in NUMBERS:
-        assert parse_source(number)[0] == Token(P, NUMBER, number)
+        assert parse_source(number)[0].eq(Token(P, NUMBER, number))
         neg = '-%s' % number
-        assert parse_source(neg)[:2] == [Token(P, MINUS, None), 
-                                         Token(P, NUMBER, number)]
+        assert listeq(parse_source(neg)[:2], [Token(P, MINUS, None), 
+                                              Token(P, NUMBER, number)])
     for number in BAD_NUMBERS:
-        assert parse_source(number)[0] != Token(P, NUMBER, number)
+        assert not parse_source(number)[0].eq(Token(P, NUMBER, number))
 
 def test_hex_number():
     """basic pasrse"""
     tokens = parse_source("a = 0x12L")
-    assert tokens[:4] == [Token(P, NAME, 'a'), Token(P, EQUAL, None),
-                          Token(P, NUMBER, '0x12L'), Token(P, NEWLINE, '')]
+    assert listeq(tokens[:4], [Token(P, NAME, 'a'), Token(P, EQUAL, None),
+                               Token(P, NUMBER, '0x12L'),
+                               Token(P, NEWLINE, '')])
 
 def test_punct():
     """make sure each punctuation is correctly parsed"""

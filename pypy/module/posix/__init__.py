@@ -27,6 +27,7 @@ corresponding Unix manual entries for more information on calls."""
     'isatty'    : 'interp_posix.isatty',
     'read'      : 'interp_posix.read',
     'close'     : 'interp_posix.close',
+    'closerange': 'interp_posix.closerange',
     'fstat'     : 'interp_posix.fstat',
     'stat'      : 'interp_posix.stat',
     'lstat'     : 'interp_posix.lstat',
@@ -92,13 +93,21 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['geteuid'] = 'interp_posix.geteuid'
     if hasattr(os, 'getgid'):
         interpleveldefs['getgid'] = 'interp_posix.getgid'
+    if hasattr(os, 'getegid'):
+        interpleveldefs['getegid'] = 'interp_posix.getegid'
     if hasattr(os, 'setuid'):
         interpleveldefs['setuid'] = 'interp_posix.setuid'
+    if hasattr(os, 'seteuid'):
+        interpleveldefs['seteuid'] = 'interp_posix.seteuid'
     if hasattr(os, 'setgid'):
         interpleveldefs['setgid'] = 'interp_posix.setgid'
+    if hasattr(os, 'setegid'):
+        interpleveldefs['setegid'] = 'interp_posix.setegid'
     # not visible via os, inconsistency in nt:
     if hasattr(posix, '_getfullpathname'):
         interpleveldefs['_getfullpathname'] = 'interp_posix._getfullpathname'
+    if hasattr(os, 'chroot'):
+        interpleveldefs['chroot'] = 'interp_posix.chroot'
     
     for name in RegisterOs.w_star:
         if hasattr(os, name):
@@ -108,10 +117,6 @@ corresponding Unix manual entries for more information on calls."""
         """NOT_RPYTHON"""
         space = self.space
         config = space.config
-        # XXX execve does not work under ootypesystem yet :-(
-        # YYY nor does it anywhere else
-        #if config.translating and config.translation.type_system != "lltype":
-        #    space.delattr(self, space.wrap("execve"))
         if config.translating and config.translation.backend == "llvm":
             space.delattr(self, space.wrap("execv"))
 

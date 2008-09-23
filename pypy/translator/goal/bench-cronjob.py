@@ -119,7 +119,7 @@ def compile(backend):
     features = '--'.join([normalize(f) for f in features.split('--')])
 
     os.chdir(homedir + '/projects/pypy-dist/pypy/translator/goal')
-    run('/usr/local/bin/python translate.py --backend=%(backend)s%(featureoptions)s%(translateoptions)s --text --batch targetpypystandalone.py %(targetoptions)s 2>&1' % locals())
+    run('/usr/local/bin/python translate.py --backend=%(backend)s%(featureoptions)s%(translateoptions)s --batch targetpypystandalone.py %(targetoptions)s 2>&1' % locals())
     if backend == 'llvm':
         run('mv %s/entry_point.ll %s/pypy.ll' % (tmpdir, tmpdir))
 
@@ -180,16 +180,16 @@ def benchmark():
 def main(backends=[]):
     if backends == []:  #_ prefix means target specific option, # prefix to outcomment
         backends = [backend.strip() for backend in """
-            c
-            c--stackless--_faassen
-            c--_faassen--_allworkingmodules
-            c--thread
-            c--gc=marksweep--_faassen
-            c--gc=semispace--_faassen
-            c--gc=generation--_faassen
-            c--_objspace-std-withrope
-            cli--_faassen
-            jvm--_faassen
+            c--opt=0--_no-allworkingmodules
+            c--stackless--gc=boehm--opt=3--_no-allworkingmodules
+            c--gc=boehm--opt=3
+            c--thread--gc=hybrid--opt=3--_no-allworkingmodules
+            c--gc=semispace--opt=3--_no-allworkingmodules
+            c--gc=generation--opt=3--_no-allworkingmodules
+            c--gc=hybrid--opt=3--_no-allworkingmodules
+            cli--opt=3--_no-allworkingmodules
+            jvm--opt=3--_no-allworkingmodules
+            jvm--inline-threshold=0--opt=3--_no-allworkingmodules
             """.split('\n') if backend.strip() and not backend.strip().startswith('#')]
     print time.ctime()
     for backend in backends:

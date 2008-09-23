@@ -2,6 +2,7 @@ import py
 import time, gc
 from pypy.conftest import gettestobjspace, option
 from pypy.interpreter.gateway import ObjSpace, W_Root, interp2app_temp
+from pypy.module.thread import gil
 
 
 NORMAL_TIMEOUT = 300.0   # 5 minutes
@@ -10,10 +11,9 @@ def waitfor(space, w_condition, delay=1):
     adaptivedelay = 0.04
     limit = time.time() + delay * NORMAL_TIMEOUT
     while time.time() <= limit:
-        GIL = space.threadlocals.GIL
-        GIL.release()
+        gil.before_external_call()
         time.sleep(adaptivedelay)
-        GIL.acquire(True)
+        gil.after_external_call()
         gc.collect()
         if space.is_true(space.call_function(w_condition)):
             return

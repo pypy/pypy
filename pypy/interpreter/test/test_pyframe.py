@@ -73,7 +73,54 @@ class AppTestPyFrame:
             raise OuterException
         except:
             g(sys.exc_info())
-        
+
+    def test_trace_basic(self):
+        import sys
+        l = []
+        class Tracer:
+            def __init__(self, i):
+                self.i = i
+            def trace(self, frame, event, arg):
+                l.append((self.i, frame.f_code.co_name, event, arg))
+                if frame.f_code.co_name == 'g2':
+                    return None    # don't trace g2
+                return Tracer(self.i+1).trace
+        def g3(n):
+            n -= 5
+            return n
+        def g2(n):
+            n += g3(2)
+            n += g3(7)
+            return n
+        def g(n):
+            n += g2(3)
+            return n
+        def f(n):
+            n = g(n)
+            return n * 7
+        sys.settrace(Tracer(0).trace)
+        x = f(4)
+        sys.settrace(None)
+        assert x == 42
+        print l
+        assert l == [(0, 'f', 'call', None),
+                     (1, 'f', 'line', None),
+                         (0, 'g', 'call', None),
+                         (1, 'g', 'line', None),
+                             (0, 'g2', 'call', None),
+                                 (0, 'g3', 'call', None),
+                                 (1, 'g3', 'line', None),
+                                 (2, 'g3', 'line', None),
+                                 (3, 'g3', 'return', -3),
+                                 (0, 'g3', 'call', None),
+                                 (1, 'g3', 'line', None),
+                                 (2, 'g3', 'line', None),
+                                 (3, 'g3', 'return', 2),
+                         (2, 'g', 'line', None),
+                         (3, 'g', 'return', 6),
+                     (2, 'f', 'line', None),
+                     (3, 'f', 'return', 42)]
+
     def test_trace_exc(self):
         import sys
         l = []

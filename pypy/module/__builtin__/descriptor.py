@@ -10,10 +10,9 @@ from pypy.interpreter.typedef import GetSetProperty, descr_get_dict, \
      descr_set_dict, interp_attrproperty_w
 
 class W_Super(Wrappable):
-    def __init__(self, space, w_selftype, w_starttype, w_type, w_self):
-        self.w_selftype = w_selftype
+    def __init__(self, space, w_starttype, w_objtype, w_self):
         self.w_starttype = w_starttype
-        self.w_type = w_type
+        self.w_objtype = w_objtype
         self.w_self = w_self
 
     def get(self, space, w_obj, w_type=None):
@@ -21,38 +20,38 @@ class W_Super(Wrappable):
         if self.w_self is None or space.is_w(w_obj, space.w_None):
             return w(self)
         else:
-            return space.call_function(self.w_selftype, self.w_starttype, w_obj
-                                       )
+            # if type(self) is W_Super:
+            #     XXX write a fast path for this common case
+            w_selftype = space.type(w(self))
+            return space.call_function(w_selftype, self.w_starttype, w_obj)
     get.unwrap_spec = ['self', ObjSpace, W_Root, W_Root]
 
     def getattribute(self, space, name):
         w = space.wrap
-        if name == '__class__':
-            return self.w_selftype
-        if self.w_type is None:
-            return space.call_function(object_getattribute(space),
-                                       w(self), w(name))
-            
-        w_value = space.lookup_in_type_starting_at(self.w_type,
-                                                   self.w_starttype,
-                                                   name)
-        if w_value is None:
-            return space.getattr(w(self), w(name))
-
-        try:
-            w_get = space.getattr(w_value, space.wrap('__get__'))
-            if space.is_w(self.w_self, self.w_type):
-                w_self = space.w_None
-            else:
-                w_self = self.w_self
-        except OperationError, o:
-            if not o.match(space, space.w_AttributeError):
-                raise
-            return w_value
-        return space.call_function(w_get, w_self, self.w_type)
+        # only use a special logic for bound super objects and not for
+        # getting the __class__ of the super object itself.
+        if self.w_objtype is not None and name != '__class__':
+            w_value = space.lookup_in_type_starting_at(self.w_objtype,
+                                                       self.w_starttype,
+                                                       name)
+            if w_value is not None:
+                w_get = space.lookup(w_value, '__get__')
+                if w_get is None:
+                    return w_value
+                # Only pass 'obj' param if this is instance-mode super
+                # (see CPython sourceforge id #743627)
+                if self.w_self is self.w_objtype:
+                    w_obj = space.w_None
+                else:
+                    w_obj = self.w_self
+                return space.get_and_call_function(w_get, w_value,
+                                                   w_obj, self.w_objtype)
+        # fallback to object.__getattribute__()
+        return space.call_function(object_getattribute(space),
+                                   w(self), w(name))
     getattribute.unwrap_spec = ['self', ObjSpace, str]
 
-def descr_new_super(space, w_self, w_starttype, w_obj_or_type=None):
+def descr_new_super(space, w_subtype, w_starttype, w_obj_or_type=None):
     if space.is_w(w_obj_or_type, space.w_None):
         w_type = None  # unbound super object
     else:
@@ -73,7 +72,11 @@ def descr_new_super(space, w_self, w_starttype, w_obj_or_type=None):
                 raise OperationError(space.w_TypeError,
                     space.wrap("super(type, obj): "
                                "obj must be an instance or subtype of type"))
-    return space.wrap(W_Super(space, w_self, w_starttype, w_type, w_obj_or_type))
+    # XXX the details of how allocate_instance() should be used are not
+    # really well defined
+    w_result = space.allocate_instance(W_Super, w_subtype)
+    W_Super.__init__(w_result, space, w_starttype, w_type, w_obj_or_type)
+    return w_result
 descr_new_super.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root]
 
 W_Super.typedef = TypeDef(
@@ -99,8 +102,10 @@ class W_Property(Wrappable):
         self.w_fdel = w_fdel
         self.w_doc = w_doc
 
-    def new(space, w_type, w_fget=None, w_fset=None, w_fdel=None, w_doc=None):
-        return W_Property(space, w_fget, w_fset, w_fdel, w_doc)
+    def new(space, w_subtype, w_fget=None, w_fset=None, w_fdel=None, w_doc=None):
+        w_result = space.allocate_instance(W_Property, w_subtype)
+        W_Property.__init__(w_result, space, w_fget, w_fset, w_fdel, w_doc)
+        return w_result
     new.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root, W_Root, W_Root]
 
     def get(self, space, w_obj, w_objtype=None):
@@ -129,6 +134,9 @@ class W_Property(Wrappable):
     delete.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def getattribute(self, space, attr):
+        # XXX fixme: this is a workaround.  It's hard but not impossible
+        # to have both a __doc__ on the 'property' type, and a __doc__
+        # descriptor that can read the docstring of 'property' instances.
         if attr == '__doc__':
             return self.w_doc
         # shortcuts
@@ -137,6 +145,9 @@ class W_Property(Wrappable):
     getattribute.unwrap_spec = ['self', ObjSpace, str]
 
     def setattr(self, space, attr, w_value):
+        # XXX kill me?  This is mostly to make tests happy, raising
+        # a TypeError instead of an AttributeError and using "readonly"
+        # instead of "read-only" in the error message :-/
         raise OperationError(space.w_TypeError, space.wrap(
             "Trying to set readonly attribute %s on property" % (attr,)))
     setattr.unwrap_spec = ['self', ObjSpace, str, W_Root]

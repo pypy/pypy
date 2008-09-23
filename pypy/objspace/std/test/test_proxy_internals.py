@@ -129,29 +129,3 @@ class AppTestProxyTracebackController(AppProxy):
             pass
 
         t = tproxy(file, f)
-
-class DONTAppTestProxyType(AppProxy):
-    def test_filetype(self):
-        f = self.get_proxy(file)
-        f("/tmp/sth", "w").write("aaa")
-        assert open("/tmp/sth").read() == "aaa"
-
-    def test_fileobject(self):
-        f = open("/tmp/sth", "w")
-        fp = self.get_proxy(f)
-        fp.write("aaa")
-        fp.close()
-        assert open("/tmp/sth").read() == "aaa"
-
-    def test_isinstance(self):
-        class A:
-            pass
-
-        a = A()
-        Ap = self.get_proxy(A)
-        ap = self.get_proxy(a)
-        assert isinstance(a, A)
-        assert isinstance(a, Ap)
-        assert isinstance(ap, A)
-        assert isinstance(ap, Ap)
-        assert type(a) is type(ap)

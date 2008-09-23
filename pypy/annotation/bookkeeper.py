@@ -737,7 +737,7 @@ class RPythonCallsSpace:
             if (expected_length is not None and
                 expected_length != len(s_obj.items)):
                 raise ValueError
-            return s_obj.items
+            return list(s_obj.items)
         if (s_obj.__class__ is SomeObject and
             getattr(s_obj, 'from_ellipsis', False)):    # see newtuple()
             return [Ellipsis]

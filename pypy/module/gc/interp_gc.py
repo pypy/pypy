@@ -5,28 +5,20 @@ from pypy.rlib import rgc
 def collect(space):
     "Run a full collection."
     rgc.collect()
+    return space.wrap(0)
     
 collect.unwrap_spec = [ObjSpace]
 
-class State: 
-    def __init__(self, space):
-        self.finalizers_lock_count = 0
-def getstate(space):
-    return space.fromcache(State)
-
 def enable_finalizers(space):
-    state = getstate(space)
-    if state.finalizers_lock_count == 0:
+    if space.user_del_action.finalizers_lock_count == 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("finalizers are already enabled"))
-    state.finalizers_lock_count -= 1
-    rgc.enable_finalizers()
+    space.user_del_action.finalizers_lock_count -= 1
+    space.user_del_action.fire()
 enable_finalizers.unwrap_spec = [ObjSpace]
 
 def disable_finalizers(space):
-    state = getstate(space)
-    rgc.disable_finalizers()
-    state.finalizers_lock_count += 1
+    space.user_del_action.finalizers_lock_count += 1
 disable_finalizers.unwrap_spec = [ObjSpace]
 
 # ____________________________________________________________

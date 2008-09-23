@@ -17,9 +17,10 @@ class Terminal(StackElement):
 
     def as_w_tuple(self, space, lineno=False):
         num, value, lineno = self.nodes[0]
-        content = [space.wrap(num), space.wrap(value)]
         if lineno:
-            content.append(space.wrap(lineno))
+            content = [space.wrap(num), space.wrap(value), space.wrap(lineno)]
+        else:
+            content = [space.wrap(num), space.wrap(value)]
         return space.newtuple(content)
 
 
@@ -34,8 +35,8 @@ class NonTerminal(StackElement):
         return tuple(l)
 
     def as_w_tuple(self, space, lineno=False):
-        l = [space.wrap(self.num)]
-        l += [node.as_w_tuple(space, lineno) for node in self.nodes]
+        l = ([space.wrap(self.num)] +
+             [node.as_w_tuple(space, lineno) for node in self.nodes])
         return space.newtuple(l)
 
 

@@ -191,6 +191,18 @@ class TestGenRpyTestCase:
         multiple_inheritance = self.build_interpfunc(snippet.multiple_inheritance)
         assert multiple_inheritance() == 1+2+3+4
 
+    def test_call_star_args0(self):
+        call_star_args = self.build_interpfunc(snippet.call_star_args0)
+        assert call_star_args(42) == 21
+
+    def test_call_star_args1(self):
+        call_star_args = self.build_interpfunc(snippet.call_star_args1)
+        assert call_star_args(30) == 40
+
+    def test_call_star_args1def(self):
+        call_star_args = self.build_interpfunc(snippet.call_star_args1def)
+        assert call_star_args(7) == 45
+
     def test_call_star_args(self):
         call_star_args = self.build_interpfunc(snippet.call_star_args)
         assert call_star_args(42) == 52

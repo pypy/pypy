@@ -1,4 +1,4 @@
-
+from pypy.conftest import gettestobjspace
 from pypy.interpreter import gateway
 from pypy.interpreter import argument
 import py
@@ -154,6 +154,16 @@ class TestGateway:
         assert self.space.eq_w(
             space.call_function(w_app_g3, w('foo'), w('bar')),
             w('foobar'))
+
+    def test_interp2app_unwrap_spec_bool(self):
+        space = self.space
+        w = space.wrap
+        def g(space, b):
+            return space.wrap(b)
+        app_g = gateway.interp2app(g, unwrap_spec=[gateway.ObjSpace, bool])
+        w_app_g = space.wrap(app_g)
+        assert self.space.eq_w(space.call_function(w_app_g, space.wrap(True)),
+                               space.wrap(True))
 
     def test_interp2app_unwrap_spec_args_w(self):
         space = self.space
@@ -378,3 +388,250 @@ class TestGateway:
         w_app_g_run = space.wrap(app_g_run)
         w_bound = space.get(w_app_g_run, w("hello"), space.w_str)
         assert space.eq_w(space.call_function(w_bound), w(42))
+
+    def test_interp2app_fastcall(self):
+        space = self.space
+        w = space.wrap
+        w_3 = w(3)
+
+        def f(space):
+            return w_3
+        app_f = gateway.interp2app_temp(f, unwrap_spec=[gateway.ObjSpace])
+        w_app_f = w(app_f)
+
+        # sanity
+        assert isinstance(w_app_f.code, gateway.BuiltinCode0)
+
+        called = []
+        fastcall_0 = w_app_f.code.fastcall_0
+        def witness_fastcall_0(space, w_func):
+            called.append(w_func)
+            return fastcall_0(space, w_func)
+
+        w_app_f.code.fastcall_0 = witness_fastcall_0
+
+        w_3 = space.newint(3)
+        w_res = space.call_function(w_app_f)
+
+        assert w_res is w_3
+        assert called == [w_app_f]
+
+        called = []
+
+        w_res = space.appexec([w_app_f], """(f):
+        return f()
+        """)
+
+        assert w_res is w_3
+        assert called == [w_app_f]
+
+    def test_interp2app_fastcall_method(self):
+        space = self.space
+        w = space.wrap
+        w_3 = w(3)
+
+        def f(space, w_self, w_x):
+            return w_x
+        app_f = gateway.interp2app_temp(f, unwrap_spec=[gateway.ObjSpace,
+                                                        gateway.W_Root,
+                                                        gateway.W_Root])
+        w_app_f = w(app_f)
+
+        # sanity
+        assert isinstance(w_app_f.code, gateway.BuiltinCode2)
+
+        called = []
+        fastcall_2 = w_app_f.code.fastcall_2
+        def witness_fastcall_2(space, w_func, w_a, w_b):
+            called.append(w_func)
+            return fastcall_2(space, w_func, w_a, w_b)
+
+        w_app_f.code.fastcall_2 = witness_fastcall_2    
+    
+        w_res = space.appexec([w_app_f, w_3], """(f, x):
+        class A(object):
+           m = f # not a builtin function, so works as method
+        y = A().m(x)
+        b = A().m
+        z = b(x)
+        return y is x and z is x
+        """)
+
+        assert space.is_true(w_res)
+        assert called == [w_app_f, w_app_f]       
+        
+    def test_plain(self):
+        space = self.space
+
+        def g(space, w_a, w_x):
+            return space.newtuple([space.wrap('g'), w_a, w_x])
+
+        w_g = space.wrap(gateway.interp2app_temp(g,
+                         unwrap_spec=[gateway.ObjSpace,
+                                      gateway.W_Root,
+                                      gateway.W_Root]))
+
+        args = argument.Arguments(space, [space.wrap(-1), space.wrap(0)])
+
+        w_res = space.call_args(w_g, args)
+        assert space.is_true(space.eq(w_res, space.wrap(('g', -1, 0))))
+        
+        w_self = space.wrap('self')
+
+        args0 = argument.Arguments(space, [space.wrap(0)])
+        args = args0.prepend(w_self)
+
+        w_res = space.call_args(w_g, args)
+        assert space.is_true(space.eq(w_res, space.wrap(('g', 'self', 0))))
+
+        args3 = argument.Arguments(space, [space.wrap(3)])
+        w_res = space.call_obj_args(w_g, w_self, args3)
+        assert space.is_true(space.eq(w_res, space.wrap(('g', 'self', 3))))
+
+
+class TestPassThroughArguments:
+    
+    def test_pass_trough_arguments0(self):
+        space = self.space
+
+        called = []
+        
+        def f(space, __args__):
+            called.append(__args__)
+            a_w, _ = __args__.unpack()
+            return space.newtuple([space.wrap('f')]+a_w)
+
+        w_f = space.wrap(gateway.interp2app_temp(f,
+                         unwrap_spec=[gateway.ObjSpace,
+                                      gateway.Arguments]))
+
+        args = argument.Arguments(space, [space.wrap(7)])
+
+        w_res = space.call_args(w_f, args)
+        assert space.is_true(space.eq(w_res, space.wrap(('f', 7))))
+        
+        # white-box check for opt
+        assert called[0] is args
+
+    def test_pass_trough_arguments1(self):
+        space = self.space
+
+        called = []
+        
+        def g(space, w_self, __args__):
+            called.append(__args__)
+            a_w, _ = __args__.unpack()
+            return space.newtuple([space.wrap('g'), w_self, ]+a_w)
+
+        w_g = space.wrap(gateway.interp2app_temp(g,
+                         unwrap_spec=[gateway.ObjSpace,
+                                      gateway.W_Root,
+                                      gateway.Arguments]))
+
+        old_funcrun = w_g.code.funcrun
+        def funcrun_witness(func, args):
+            called.append('funcrun')
+            return old_funcrun(func, args)
+
+        w_g.code.funcrun = funcrun_witness
+
+        w_self = space.wrap('self')
+
+        args3 = argument.Arguments(space, [space.wrap(3)])
+        w_res = space.call_obj_args(w_g, w_self, args3)
+        assert space.is_true(space.eq(w_res, space.wrap(('g', 'self', 3))))
+        # white-box check for opt
+        assert len(called) == 1
+        assert called[0] is args3
+
+        called = []
+        args0 = argument.Arguments(space, [space.wrap(0)])
+        args = args0.prepend(w_self)
+
+        w_res = space.call_args(w_g, args)
+        assert space.is_true(space.eq(w_res, space.wrap(('g', 'self', 0))))
+        # no opt in this case
+        assert len(called) == 2      
+        assert called[0] == 'funcrun'
+        called = []
+
+        # higher level interfaces
+
+        w_res = space.call_function(w_g, w_self)
+        assert space.is_true(space.eq(w_res, space.wrap(('g', 'self'))))
+        assert len(called) == 1
+        assert isinstance(called[0], argument.AbstractArguments)        
+        called = []
+        
+        w_res = space.appexec([w_g], """(g):
+        return g('self', 11)
+        """)
+        assert space.is_true(space.eq(w_res, space.wrap(('g', 'self', 11))))
+        assert len(called) == 1
+        assert isinstance(called[0], argument.AbstractArguments)                
+        called = []
+
+        w_res = space.appexec([w_g], """(g):
+        class A(object):
+           m = g # not a builtin function, so works as method
+        d = {'A': A}
+        exec \"\"\"
+# own compiler
+a = A()
+y = a.m(33)
+\"\"\" in d
+        return d['y'] == ('g', d['a'], 33)
+        """)
+        assert space.is_true(w_res)
+        assert len(called) == 1
+        assert isinstance(called[0], argument.AbstractArguments)
+
+class TestPassThroughArguments_CALL_METHOD(TestPassThroughArguments):
+
+    def setup_class(cls):
+        space = gettestobjspace(usemodules=('_stackless',), **{
+            "objspace.opcodes.CALL_METHOD": True
+            })
+        cls.space = space
+
+class AppTestKeywordsToBuiltinSanity(object):
+
+    def test_type(self):
+        class X(object):
+            def __init__(self, **kw):
+                pass
+        clash = type.__call__.func_code.co_varnames[0]
+
+        X(**{clash: 33})
+        type.__call__(X, **{clash: 33})
+
+    def test_object_new(self):
+        class X(object):
+            def __init__(self, **kw):
+                pass
+        clash = object.__new__.func_code.co_varnames[0]
+
+        X(**{clash: 33})
+        object.__new__(X, **{clash: 33})
+
+
+    def test_dict_new(self):
+        clash = dict.__new__.func_code.co_varnames[0]
+
+        dict(**{clash: 33})
+        dict.__new__(dict, **{clash: 33})        
+
+    def test_dict_init(self):
+        d = {}
+        clash = dict.__init__.func_code.co_varnames[0]
+
+        d.__init__(**{clash: 33})
+        dict.__init__(d, **{clash: 33})
+
+    def test_dict_update(self):
+        d = {}
+        clash = dict.update.func_code.co_varnames[0]
+
+        d.update(**{clash: 33})
+        dict.update(d, **{clash: 33})        
+        

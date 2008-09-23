@@ -12,7 +12,7 @@ from pypy.translator.js.metavm import IsInstance, Call, CallMethod,\
      CopyName, CastString, _Prefix, _CastFun, _NotImplemented, CallBuiltin,\
      CallBuiltinObject, GetBuiltinField, SetBuiltinField, IndirectCall,\
      CallExternalObject, SetExternalField, _CastMethod, _LoadConst,\
-     DiscardStack, CheckLength, fix_opcodes
+     DiscardStack, CheckLength, fix_opcodes, _GetPredefinedField
 
 from pypy.translator.js.jsbuiltin import Builtins
 from pypy.rpython.ootypesystem import ootype
@@ -153,6 +153,8 @@ opcodes = {'int_mul': '*',
     'cast_float_to_uint':       [PushAllArgs,_CastFun("Math.floor",1)],
     'cast_float_to_longlong':   [PushAllArgs,_CastFun("Math.floor",1)],
     'truncate_longlong_to_int': CopyName,
+
+    'classof' : [_GetPredefinedField('_class', 0)],
     
     'debug_assert' : DoNothing,
     'resume_point' : DoNothing,

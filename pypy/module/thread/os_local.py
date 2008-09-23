@@ -29,7 +29,7 @@ class Local(Wrappable):
                 w_self = space.wrap(self)
                 w_type = space.type(w_self)
                 w_init = space.getattr(w_type, space.wrap("__init__"))
-                space.call_args(w_init, self.initargs.prepend(w_self))
+                space.call_obj_args(w_init, w_self, self.initargs)
             except:
                 # failed, forget w_dict and propagate the exception
                 del self.dicts[ident]

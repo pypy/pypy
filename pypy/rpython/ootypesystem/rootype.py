@@ -32,6 +32,11 @@ class __extend__(annmodel.SomeOOStaticMeth):
 
 class OOClassRepr(Repr):
     lowleveltype = Class
+
+    def rtype_is_true(self, hop):
+        vlist = hop.inputargs(self)
+        return hop.genop('oononnull', vlist, resulttype=ootype.Bool)
+    
 ooclass_repr = OOClassRepr()
 
 class OOInstanceRepr(Repr):

@@ -11,15 +11,6 @@ def set_max_heap_size(nbytes):
     """
     pass
 
-def disable_finalizers():
-    """Prevent __del__ methods from running.
-    Calls to disable_finalizers/enable_finalizers can be nested.
-    """
-    gc.disable()     # rough approximation on top of CPython
-
-def enable_finalizers():
-    gc.enable()     # rough approximation on top of CPython
-
 # ____________________________________________________________
 # Framework GC features
 
@@ -174,14 +165,138 @@ class SetMaxHeapSizeEntry(ExtRegistryEntry):
         return hop.genop('gc_set_max_heap_size', [v_nbytes],
                          resulttype=lltype.Void)
 
-class CollectEntry(ExtRegistryEntry):
-    _about_ = (disable_finalizers, enable_finalizers)
+def can_move(p):
+    return True
 
-    def compute_result_annotation(self):
+class CanMoveEntry(ExtRegistryEntry):
+    _about_ = can_move
+
+    def compute_result_annotation(self, s_p):
         from pypy.annotation import model as annmodel
-        return annmodel.s_None
+        return annmodel.SomeBool()
 
     def specialize_call(self, hop):
-        opname = 'gc__' + self.instance.__name__
+        from pypy.rpython.lltypesystem import lltype
         hop.exception_cannot_occur()
-        return hop.genop(opname, [], resulttype=hop.r_result)
+        return hop.genop('gc_can_move', hop.args_v, resulttype=hop.r_result)
+
+def malloc_nonmovable(TP, n=None):
+    """ Allocate a non-moving buffer or return nullptr.
+    When running directly, will pretend that gc is always
+    moving (might be configurable in a future)
+    """
+    from pypy.rpython.lltypesystem import lltype
+    return lltype.nullptr(TP)
+
+class MallocNonMovingEntry(ExtRegistryEntry):
+    _about_ = malloc_nonmovable
+
+    def compute_result_annotation(self, s_TP, s_n=None):
+        # basically return the same as malloc
+        from pypy.annotation.builtin import malloc
+        return malloc(s_TP, s_n)
+
+    def specialize_call(self, hop):
+        from pypy.rpython.lltypesystem import lltype
+        # XXX assume flavor and zero to be None by now
+        assert hop.args_s[0].is_constant()
+        vlist = [hop.inputarg(lltype.Void, arg=0)]
+        opname = 'malloc_nonmovable'
+        flags = {'flavor': 'gc'}
+        vlist.append(hop.inputconst(lltype.Void, flags))
+
+        if hop.nb_args == 2:
+            vlist.append(hop.inputarg(lltype.Signed, arg=1))
+            opname += '_varsize'
+
+        hop.exception_cannot_occur()
+        return hop.genop(opname, vlist, resulttype = hop.r_result.lowleveltype)
+
+def resizable_buffer_of_shape(T, init_size):
+    """ Pre-allocates structure of type T (varsized) with possibility
+    to reallocate it further by resize_buffer.
+    """
+    from pypy.rpython.lltypesystem import lltype
+    return lltype.malloc(T, init_size)
+
+class ResizableBufferOfShapeEntry(ExtRegistryEntry):
+    _about_ = resizable_buffer_of_shape
+
+    def compute_result_annotation(self, s_T, s_init_size):
+        from pypy.annotation import model as annmodel
+        from pypy.rpython.lltypesystem import rffi, lltype
+        assert s_T.is_constant()
+        assert isinstance(s_init_size, annmodel.SomeInteger)
+        T = s_T.const
+        # limit ourselves to structs and to a fact that var-sized element
+        # does not contain pointers.
+        assert isinstance(T, lltype.Struct)
+        assert isinstance(getattr(T, T._arrayfld).OF, lltype.Primitive)
+        return annmodel.SomePtr(lltype.Ptr(T))
+
+    def specialize_call(self, hop):
+        from pypy.rpython.lltypesystem import lltype
+        flags = {'flavor': 'gc'}
+        vlist = [hop.inputarg(lltype.Void, 0),
+                 hop.inputconst(lltype.Void, flags),
+                 hop.inputarg(lltype.Signed, 1)]
+        hop.exception_is_here()
+        return hop.genop('malloc_resizable_buffer', vlist,
+                         resulttype=hop.r_result.lowleveltype)
+
+def resize_buffer(ptr, old_size, new_size):
+    """ Resize raw buffer returned by resizable_buffer_of_shape to new size
+    """
+    from pypy.rpython.lltypesystem import lltype
+    T = lltype.typeOf(ptr).TO
+    arrayfld = T._arrayfld
+    arr = getattr(ptr, arrayfld)
+    # we don't have any realloc on top of cpython
+    new_ptr = lltype.malloc(T, new_size)
+    new_ar = getattr(new_ptr, arrayfld)
+    for i in range(old_size):
+        new_ar[i] = arr[i]
+    return new_ptr
+
+class ResizeBufferEntry(ExtRegistryEntry):
+    _about_ = resize_buffer
+
+    def compute_result_annotation(self, s_ptr, s_old_size, s_new_size):
+        from pypy.annotation import model as annmodel
+        from pypy.rpython.lltypesystem import rffi
+        assert isinstance(s_ptr, annmodel.SomePtr)
+        assert isinstance(s_new_size, annmodel.SomeInteger)
+        assert isinstance(s_old_size, annmodel.SomeInteger)
+        return s_ptr
+
+    def specialize_call(self, hop):
+        from pypy.rpython.lltypesystem import lltype
+        vlist = [hop.inputarg(hop.args_r[0], 0),
+                 hop.inputarg(lltype.Signed, 1),
+                 hop.inputarg(lltype.Signed, 2)]
+        hop.exception_is_here()
+        return hop.genop('resize_buffer', vlist,
+                         resulttype=hop.r_result.lowleveltype)
+
+def finish_building_buffer(ptr, final_size):
+    """ Finish building resizable buffer returned by resizable_buffer_of_shape
+    """
+    return ptr
+
+class FinishBuildingBufferEntry(ExtRegistryEntry):
+    _about_ = finish_building_buffer
+
+    def compute_result_annotation(self, s_arr, s_final_size):
+        from pypy.annotation.model import SomePtr, s_ImpossibleValue,\
+             SomeInteger
+        assert isinstance(s_arr, SomePtr)
+        assert isinstance(s_final_size, SomeInteger)
+        return s_arr
+
+    def specialize_call(self, hop):
+        from pypy.rpython.lltypesystem import lltype
+        vlist = [hop.inputarg(hop.args_r[0], 0),
+                 hop.inputarg(hop.args_r[1], 1)]
+        hop.exception_cannot_occur()
+        return hop.genop('finish_building_buffer', vlist,
+                         resulttype=hop.r_result.lowleveltype)

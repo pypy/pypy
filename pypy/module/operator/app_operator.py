@@ -63,3 +63,20 @@ def setslice(a, b, c, d):
     a[b:c] = d 
 __setslice__ = setslice
 
+class attrgetter(object):
+
+    def __init__(self, name):
+        self.name = name
+
+    def __call__(self, obj):
+        return getattr(obj, self.name)
+    
+class itemgetter(object):
+
+    def __init__(self, index):
+        self.index = index
+
+    def __call__(self, obj):
+        return obj[self.index]
+
+    

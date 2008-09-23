@@ -23,6 +23,7 @@ SKIP_IF_NOT_NATIVE = [
 SKIP_ALWAYS = [
     "snippet_with_1.py",
     "snippet_with_2.py",
+    "snippet_decorators_2.py",
 ]
 REAL_EXPECTED_OUTPUT = {
     # for snippets that show bugs of Python's compiler package
@@ -79,11 +80,11 @@ def test_samples():
         for path in sample_paths:
             fname = path.basename 
             if fname in SKIP_ALWAYS:
-                yield lambda: py.test.skip(
+                yield lambda fname=fname: py.test.skip(
                     "%r is set to always skip." % (fname,))
                 continue
             if GRAMMAR_MISMATCH and fname in SKIP_IF_NOT_NATIVE:
-                yield lambda: py.test.skip(
+                yield lambda fname=fname: py.test.skip(
                     "Grammar mismatch and %s is not native" % (fname,))
                 continue
             yield check_parse, str(path)

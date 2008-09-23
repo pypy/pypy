@@ -1,5 +1,6 @@
+import os
 from pypy.rpython.lltypesystem.rffi import CConstant, CExternVariable, INT
-from pypy.rpython.lltypesystem import lltype, ll2ctypes
+from pypy.rpython.lltypesystem import lltype, ll2ctypes, rffi
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rlib.rarithmetic import intmask
 
@@ -21,8 +22,23 @@ errno_eci = ExternalCompilationInfo(
     includes=['errno.h']
 )
 
-_get_errno, set_errno = CExternVariable(INT, 'errno', errno_eci,
-                                        CConstantErrno, sandboxsafe=True)
+_get_errno, _set_errno = CExternVariable(INT, 'errno', errno_eci,
+                                         CConstantErrno, sandboxsafe=True,
+                                         _nowrapper=True)
+# the default wrapper for set_errno is not suitable for use in critical places
+# like around GIL handling logic, so we provide our own wrappers.
 
 def get_errno():
     return intmask(_get_errno())
+
+def set_errno(errno):
+    _set_errno(rffi.cast(INT, errno))
+
+
+def closerange(fd_low, fd_high):
+    # this behaves like os.closerange() from Python 2.6.
+    for fd in xrange(fd_low, fd_high):
+        try:
+            os.close(fd)
+        except OSError:
+            pass

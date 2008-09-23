@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1
 
+# Note that PyPy contains also a built-in module 'sha' which will hide
+# this one if compiled in.
+
 """A sample implementation of SHA-1 in pure Python.
 
    Framework adapted from Dinu Gherman's MD5 implementation by

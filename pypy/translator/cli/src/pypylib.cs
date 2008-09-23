@@ -356,6 +356,8 @@ namespace pypy.runtime
             int count = stop-start;
             if (start > s1.Length)
                 return -1;
+            if (s2 == "")
+              return stop;
             return s1.LastIndexOf(s2, stop-1, count);
         }
 

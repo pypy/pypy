@@ -86,6 +86,15 @@ class W_InputOutputType(Wrappable):
         return self.space.wrap(self.tell())
     descr_tell.unwrap_spec = ['self']
 
+    # abstract methods
+    def close(self):                  assert False, "abstract"
+    def is_closed(self):              assert False, "abstract"
+    def getvalue(self):               assert False, "abstract"
+    def read(self, n=-1):             assert False, "abstract"
+    def readline(self, size=-1):      assert False, "abstract"
+    def seek(self, position, mode=0): assert False, "abstract"
+    def tell(self):                   assert False, "abstract"
+
 # ____________________________________________________________
 
 class W_InputType(W_InputOutputType):
@@ -143,7 +152,7 @@ class W_InputType(W_InputOutputType):
 
 # ____________________________________________________________
 
-class W_OutputType(W_InputOutputType, RStringIO):
+class W_OutputType(RStringIO, W_InputOutputType):
     def __init__(self, space):
         RStringIO.__init__(self)
         self.space = space

@@ -1,4 +1,5 @@
 from pypy.interpreter import typedef
+from pypy.tool.udir import udir
 
 # this test isn't so much to test that the objspace interface *works*
 # -- it's more to test that it's *there*
@@ -130,3 +131,27 @@ class TestTypeDef:
         for cls, set in subclasses.items():
             assert len(set) <= 6, "%s has %d subclasses:\n%r" % (
                 cls, len(set), [subcls.__name__ for subcls in set])
+
+
+class AppTestTypeDef:
+
+    def setup_class(cls):
+        path = udir.join('AppTestTypeDef.txt')
+        path.write('hello world\n')
+        cls.w_path = cls.space.wrap(str(path))
+
+    def test_destructor(self):
+        import gc, os
+        seen = []
+        class MyFile(file):
+            def __del__(self):
+                seen.append(10)
+                seen.append(os.lseek(self.fileno(), 2, 0))
+        f = MyFile(self.path, 'r')
+        fd = f.fileno()
+        seen.append(os.lseek(fd, 5, 0))
+        del f
+        gc.collect(); gc.collect(); gc.collect()
+        lst = seen[:]
+        assert lst == [5, 10, 2]
+        raises(OSError, os.lseek, fd, 7, 0)

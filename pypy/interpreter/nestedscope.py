@@ -202,7 +202,7 @@ class __extend__(pyframe.PyFrame):
         if codeobj.magic >= 0xa0df281:    # CPython 2.5 AST branch merge
             w_freevarstuple = f.popvalue()
             freevars = [f.space.interp_w(Cell, cell)
-                        for cell in f.space.unpacktuple(w_freevarstuple)]
+                        for cell in f.space.viewiterable(w_freevarstuple)]
         else:
             nfreevars = len(codeobj.co_freevars)
             freevars = [f.space.interp_w(Cell, f.popvalue())

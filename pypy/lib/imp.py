@@ -19,9 +19,16 @@ PY_CODERESOURCE = 8
 import new
 import sys, os
 
-def get_magic():
-    """Return the magic number for .pyc or .pyo files."""
-    return 'm\xf2\r\n'     # XXX hard-coded: the magic of Python 2.4.1
+# PyPy-specific interface
+try:
+    from sys import _magic as _get_magic_as_int
+    def get_magic():
+        """Return the magic number for .pyc or .pyo files."""
+        import struct
+        return struct.pack('<i', _get_magic_as_int())
+except ImportError:
+    # XXX CPython testing hack: delegate to the real imp.get_magic
+    get_magic = __import__('imp').get_magic
 
 def get_suffixes():
     """Return a list of (suffix, mode, type) tuples describing the files
@@ -76,6 +83,9 @@ def load_module(name, file, filename, description):
     if type == PY_COMPILED:
        return  load_compiled(name, filename, file)
     raise ValueError, 'invalid description argument: %r' % (description,)
+
+def load_dynamic(name, *args, **kwds):
+    raise ImportError(name)
 
 def load_source(name, pathname, file=None):
     autoopen = file is None

@@ -1,6 +1,29 @@
 
 from pypy.tool.sourcetools import compile2
 
+# This provide two compatible implementations of "multimethods".  A
+# multimethod is a callable object which chooses and calls a real
+# function from a table of pre-registered functions.  The choice depends
+# on the '__class__' of all arguments.  For example usages see
+# test_multimethod.
+
+# These multimethods support delegation: for each class A we must
+# provide a "typeorder", which is list of pairs (B, converter) where B
+# is a class and 'converter' is a function that can convert from an
+# instance of A to an instance of B.  If 'converter' is None it is
+# assumed that the instance needs no conversion.  The first entry in the
+# typeorder of a class A must almost always be (A, None).
+
+# A slightly non-standard feature of PyPy's multimethods is the way in
+# which they interact with normal subclassing.  Basically, they don't.
+# Suppose that A is a parent class of B.  Then a function registered for
+# an argument class A only accepts an instance whose __class__ is A, not
+# B.  To make it accept an instance of B, the typeorder for B must
+# contain (A, None).  An exception to this strict rule is if C is
+# another subclass of A which is not mentioned at all in the typeorder;
+# in this case C is considered to be equivalent to A.
+
+
 class FailedToImplement(Exception):
     def __init__(self, w_type=None, w_value=None):
         self.w_type  = w_type
@@ -121,6 +144,7 @@ class InstallerVersion1:
         self.prefix = prefix
         self.prefix_memo[prefix] = 1
         self.list_of_typeorders = list_of_typeorders
+        self.check_typeorders()
         self.subtree_cache = {}
         self.to_install = []
         self.non_empty = self.build_tree([], multimethod.dispatch_tree)
@@ -135,6 +159,18 @@ class InstallerVersion1:
         self.perform_call = self.build_function(None, prefix+'_perform_call',
                                                 None, perform)
 
+    def check_typeorders(self):
+        # xxx we use a '__'-separated list of the '__name__' of the types
+        # in build_single_method(), so types with the same __name__ or
+        # with '__' in them would obscurely break this logic
+        for typeorder in self.list_of_typeorders:
+            for type in typeorder:
+                assert '__' not in type.__name__, (
+                    "avoid '__' in the name of %r" % (type,))
+            names = dict.fromkeys([type.__name__ for type in typeorder])
+            assert len(names) == len(typeorder), (
+                "duplicate type.__name__ in %r" % (typeorder,))
+
     def is_empty(self):
         return not self.non_empty
 
@@ -143,9 +179,31 @@ class InstallerVersion1:
         #print >> f, '_'*60
         #import pprint
         #pprint.pprint(self.list_of_typeorders, f)
+
+        def class_key(cls):
+            "Returns an object such that class_key(subcls) > class_key(cls)."
+            return len(cls.__mro__)
+
+        # Sort 'to_install' so that base classes come first, which is
+        # necessary for the 'parentfunc' logic in the loop below to work.
+        # Moreover, 'to_install' can contain two functions with the same
+        # name for the root class: the default fallback one and the real
+        # one.  So we have to sort the real one just after the default one
+        # so that the default one gets overridden.
+        def key(target, funcname, func, source, fallback):
+            if target is None:
+                return ()
+            return (class_key(target), not fallback)
+        self.to_install.sort(lambda a, b: cmp(key(*a), key(*b)))
+
         for target, funcname, func, source, fallback in self.to_install:
             if target is not None:
-                if hasattr(target, funcname) and fallback:
+                # If the parent class provides a method of the same
+                # name which is actually the same 'func', we don't need
+                # to install it again.  Useful with fallback functions.
+                parentfunc = getattr(target, funcname, None)
+                parentfunc = getattr(parentfunc, 'im_func', None)
+                if parentfunc is func:
                     continue
                 #print >> f, target.__name__, funcname
                 #if source:
@@ -194,13 +252,10 @@ class InstallerVersion1:
                     if func is not None:
                         things_to_call.append((conversion, func, None))
 
-        if things_to_call:
-            funcname = intern(funcname)
-            self.build_function(next_type, funcname, len(types_so_far),
-                                things_to_call)
-            return True
-        else:
-            return False
+        funcname = intern(funcname)
+        self.build_function(next_type, funcname, len(types_so_far),
+                            things_to_call)
+        return bool(things_to_call)
 
     def build_function(self, target, funcname, func_selfarg_index,
                        things_to_call):
@@ -244,7 +299,9 @@ class InstallerVersion1:
             miniglobals['raiseFailedToImplement'] = raiseFailedToImplement
             bodylines = ['return raiseFailedToImplement()']
             fallback = True
-
+            # NB. make sure that there is only one fallback function object,
+            # i.e. the key used in the mmfunccache below is always the same
+            # for all functions with the same name and an empty bodylines.
 
         # protect all lines apart from the last one by a try:except:
         for i in range(len(bodylines)-2, -1, -1):
@@ -291,10 +348,10 @@ class InstallerVersion1:
 
 class MMDispatcher(object):
     """NOT_RPYTHON
-    Explicit dispatcher class.  This is not used in normal execution, which
-    uses the complex Installer below to install single-dispatch methods to
-    achieve the same result.  The MMDispatcher is only used by
-    rpython.lltypesystem.rmultimethod.  It is also nice for documentation.
+    Explicit dispatcher class.  The __call__ and dispatch() methods
+    are only present for documentation purposes.  The InstallerVersion2
+    uses the expressions() method to precompute fast RPython-friendly
+    dispatch tables.
     """
     _revcache = None
 
@@ -323,6 +380,9 @@ class MMDispatcher(object):
                 return v.function(*[expr(w) for w in v.arguments])
             else:
                 return v
+        # XXX this is incomplete: for each type in argtypes but not
+        # in the typeorder, we should look for the first base class
+        # that is in the typeorder.
         e = None
         for v in self.expressions(argtypes, prefixargs, args, suffixargs):
             try:
@@ -464,13 +524,29 @@ class MRDTable(object):
         for t1, num in self.typenum.items():
             setattr(t1, self.attrname, num)
         self.indexarray = CompressedArray(0)
-        self.strict_subclasses = {}
-        for cls1 in list_of_types:
-            lst = []
-            for cls2 in list_of_types:
-                if cls1 is not cls2 and issubclass(cls2, cls1):
-                    lst.append(cls2)
-            self.strict_subclasses[cls1] = lst
+
+    def get_typenum(self, cls):
+        return self.typenum[cls]
+
+    def is_anti_range(self, typenums):
+        # NB. typenums should be sorted.  Returns (a, b) if typenums contains
+        # at least half of all typenums and its complement is range(a, b).
+        # Returns (None, None) otherwise.  Returns (0, 0) if typenums contains
+        # everything.
+        n = len(self.list_of_types)
+        if len(typenums) <= n // 2:
+            return (None, None)
+        typenums = dict.fromkeys(typenums)
+        complement = [typenum for typenum in range(n)
+                              if typenum not in typenums]
+        if not complement:
+            return (0, 0)
+        a = min(complement)
+        b = max(complement) + 1
+        if complement == range(a, b):
+            return (a, b)
+        else:
+            return (None, None)
 
     def normalize_length(self, next_array):
         # make sure that the indexarray is not smaller than any funcarray
@@ -540,15 +616,21 @@ class FuncEntry(object):
             return self._function
         name = self.get_function_name()
         self.compress_typechecks(mrdtable)
-        checklines = self.generate_typechecks(fnargs[nbargs_before:])
+        checklines = self.generate_typechecks(mrdtable, fnargs[nbargs_before:])
         if not checklines:
             body = self.body
         else:
             checklines.append(self.body)
             body = '\n    '.join(checklines)
         source = 'def %s(%s):\n    %s\n' % (name, ', '.join(fnargs), body)
+        self.debug_dump(source)
+        exec compile2(source) in self.miniglobals
+        self._function = self.miniglobals[name]
+        return self._function
 
+    def debug_dump(self, source):
         if 0:    # for debugging the generated mm sources
+            name = self.get_function_name()
             f = open('/tmp/mm-source/%s' % name, 'a')
             for possiblename in self.possiblenames:
                 print >> f, '#',
@@ -558,10 +640,6 @@ class FuncEntry(object):
             print >> f
             print >> f, source
             f.close()
-
-        exec compile2(source) in self.miniglobals
-        self._function = self.miniglobals[name]
-        return self._function
 
     def register_valid_types(self, types):
         node = self.typetree
@@ -587,59 +665,114 @@ class FuncEntry(object):
                     fulls += 1
             if fulls == types_total:
                 return 1
-
-            # a word about subclasses: we are using isinstance() to do
-            # the checks in generate_typechecks(), which is a
-            # compromize.  In theory we should check the type ids
-            # instead.  But using isinstance() is better because the
-            # annotator can deduce information from that.  It is still
-            # correct to use isinstance() instead of type ids in
-            # "reasonable" cases, though -- where "reasonable" means
-            # that classes always have a delegate to their superclasses,
-            # e.g. W_IntObject delegates to W_Root.  If this is true
-            # then both kind of checks are good enough to spot
-            # mismatches caused by the compression table.
-
-            # Based on this reasoning, we can compress the typechecks a
-            # bit more - if we accept W_Root, for example, then we
-            # don't have to specifically accept W_IntObject too.
-            for cls, subnode in node.items():
-                for cls2 in mrdtable.strict_subclasses[cls]:
-                    if cls2 in node and node[cls2] == subnode:
-                        del node[cls2]
-
             return 0
 
         types_total = len(mrdtable.list_of_types)
         if full(self.typetree):
             self.typetree = True
 
-    def generate_typechecks(self, args):
+    def generate_typechecks(self, mrdtable, args):
+        attrname = mrdtable.attrname
+        possibletypes = [{} for _ in args]
+        any_type_is_ok = [False for _ in args]
+
         def generate(node, level=0):
+            # this generates type-checking code like the following:
+            #
+            #     _argtypenum = arg1.__typenum
+            #     if _argtypenum == 5:
+            #         ...
+            #     elif _argtypenum == 6 or _argtypenum == 8:
+            #         ...
+            #     else:
+            #         _failedtoimplement = True
+            #
+            # or, in the common particular case of an "anti-range", we optimize it to:
+            #
+            #     _argtypenum = arg1.__typenum
+            #     if _argtypenum < 5 or _argtypenum >= 10:
+            #         ...
+            #     else:
+            #         _failedtoimplement = True
+            #
+            result = []
             indent = '    '*level
             if node is True:
+                for i in range(level, len(args)):
+                    any_type_is_ok[i] = True
                 result.append('%s_failedtoimplement = False' % (indent,))
-                return
+                return result
             if not node:
                 result.append('%s_failedtoimplement = True' % (indent,))
-                return
-            keyword = 'if'
+                return result
+            result.append('%s_argtypenum = %s.%s' % (indent, args[level],
+                                                     attrname))
+            cases = {}
             for key, subnode in node.items():
-                typename = invent_name(self.miniglobals, key)
-                result.append('%s%s isinstance(%s, %s):' % (indent, keyword,
-                                                            args[level],
-                                                            typename))
-                generate(subnode, level+1)
+                possibletypes[level][key] = True
+                casebody = tuple(generate(subnode, level+1))
+                typenum = mrdtable.get_typenum(key)
+                cases.setdefault(casebody, []).append(typenum)
+            for casebody, typenums in cases.items():
+                typenums.sort()
+            cases = [(typenums, casebody)
+                     for (casebody, typenums) in cases.items()]
+            cases.sort()
+            if len(cases) == 1:
+                typenums, casebody = cases[0]
+                a, b = mrdtable.is_anti_range(typenums)
+            else:
+                a, b = None, None
+            keyword = 'if'
+            for typenums, casebody in cases:
+                if a is not None:
+                    if b - a == 1:
+                        condition = '_argtypenum != %d' % a
+                    elif b == a:
+                        condition = 'True'
+                    else:
+                        condition = '_argtypenum < %d or _argtypenum >= %d' % (
+                            a, b)
+                else:
+                    conditions = ['_argtypenum == %d' % typenum
+                                  for typenum in typenums]
+                    condition = ' or '.join(conditions)
+                result.append('%s%s %s:' % (indent, keyword, condition))
+                result.extend(casebody)
                 keyword = 'elif'
             result.append('%selse:' % (indent,))
             result.append('%s    _failedtoimplement = True' % (indent,))
+            return result
 
         result = []
         if self.typetree is not True:
-            generate(self.typetree)
+            result.extend(generate(self.typetree))
             result.append('if _failedtoimplement:')
             result.append('    raise FailedToImplement')
+            for level in range(len(args)):
+                if not any_type_is_ok[level]:
+                    cls = commonbase(possibletypes[level].keys())
+                    clsname = invent_name(self.miniglobals, cls)
+                    result.append('assert isinstance(%s, %s)' % (args[level],
+                                                                 clsname))
         return result
+
+
+def commonbase(classlist):
+    def baseclasses(cls):
+        result = set([cls])
+        for base in cls.__bases__:
+            if '_mixin_' not in base.__dict__:
+                result |= baseclasses(base)
+        return result
+    
+    bag = baseclasses(classlist[0])
+    for cls in classlist[1:]:
+        bag &= baseclasses(cls)
+    _, candidate = max([(len(cls.__mro__), cls) for cls in bag])
+    for cls in bag:
+        assert issubclass(candidate, cls)
+    return candidate
 
 
 class InstallerVersion2(object):
@@ -668,7 +801,9 @@ class InstallerVersion2(object):
                 assert t1 in base_typeorder
 
         lst = list(base_typeorder)
-        lst.sort()
+        def clskey(cls):
+            return cls.__mro__[::-1]
+        lst.sort(lambda cls1, cls2: cmp(clskey(cls1), clskey(cls2)))
         key = tuple(lst)
         try:
             self.mrdtable = self.mrdtables[key]
@@ -769,6 +904,7 @@ class InstallerVersion2(object):
         else:
             assert entry.body.startswith('return ')
             expr = entry.body[len('return '):]
+            entry.debug_dump(entry.body)
             return self.fnargs, expr, entry.miniglobals, entry.fallback
 
     def build_funcentry(self, funcnameparts, calllist, **extranames):

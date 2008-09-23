@@ -202,7 +202,7 @@ app = gateway.applevel('''
                 # XXX for now, we cannot use iteritems() at app-level because
                 #     we want a reasonable result instead of a RuntimeError
                 #     even if the dict is mutated by the repr() in the loop.
-                for k, v in d.items():
+                for k, v in dict.items(d):
                     items.append(repr(k) + ": " + repr(v))
                 return "{" +  ', '.join(items) + "}"
             finally:

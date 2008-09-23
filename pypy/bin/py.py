@@ -16,6 +16,7 @@ from py.compat.optparse import make_option
 from pypy.interpreter import main, interactive, error, gateway
 from pypy.config.config import OptionDescription, BoolOption, StrOption
 from pypy.config.config import Config, to_optparse
+from pypy.config import pypyoption
 import os, sys
 import time
 
@@ -53,15 +54,6 @@ def pypy_init(import_site):
             print >> sys.stderr, "import site\' failed"
 ''').interphook('pypy_init')
 
-def getenv_w(space, name):
-    w_os = space.getbuiltinmodule('os')
-    w_environ = space.getattr(w_os, space.wrap('environ'))
-    w_v = space.call_method(w_environ, 'get', space.wrap(name))
-    try:
-        return space.str_w(w_v)
-    except:
-        return None
-
 
 def main_(argv=None):
     starttime = time.time()
@@ -71,6 +63,10 @@ def main_(argv=None):
     args = option.process_options(parser, argv[1:])
     if interactiveconfig.verbose:
         error.RECORD_INTERPLEVEL_TRACEBACK = True
+    # --allworkingmodules takes really long to start up, but can be forced on
+    config.objspace.suggest(allworkingmodules=False)
+    if config.objspace.allworkingmodules:
+        pypyoption.enable_allworkingmodules(config)
 
     # create the object space
 
@@ -86,6 +82,16 @@ def main_(argv=None):
         space.appexec([space.wrap(warn_arg)], """(arg): 
         import sys
         sys.warnoptions.append(arg)""")
+
+    w_path = space.sys.get('path')
+    path = os.getenv('PYTHONPATH')
+    if path:
+        path = path.split(os.pathsep)
+    else:
+        path = []
+    path.insert(0, '')
+    for i, dir in enumerate(path):
+        space.call_method(w_path, 'insert', space.wrap(i), space.wrap(dir))
 
     # store the command-line arguments into sys.argv
     go_interactive = interactiveconfig.interactive
@@ -129,7 +135,7 @@ def main_(argv=None):
                 exit_status = 1
 
             # start the interactive console
-            if go_interactive or getenv_w(space, 'PYTHONINSPECT'):
+            if go_interactive or os.getenv('PYTHONINSPECT'):
                 try:
                     import readline
                 except:

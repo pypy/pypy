@@ -10,6 +10,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from pypy.interpreter.eval import Code
 from pypy.rlib import streamio
+from pypy.rlib.streamio import StreamErrors
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import we_are_translated
 
@@ -17,55 +18,34 @@ NOFILE = 0
 PYFILE = 1
 PYCFILE = 2
 
-def info_modtype(space, filepart):
+def find_modtype(space, filepart):
+    """Check which kind of module to import for the given filepart,
+    which is a path without extension.  Returns PYFILE, PYCFILE or
+    NOFILE.
     """
-    calculate whether the .py file exists, the .pyc file exists
-    and whether the .pyc file has the correct mtime entry.
-    The latter is only true if the .py file exists.
-    The .pyc file is only considered existing if it has a valid
-    magic number.
-    """
+    # check the .py file
     pyfile = filepart + ".py"
-    pyfile_exist = False
     if os.path.exists(pyfile):
         pyfile_ts = os.stat(pyfile)[stat.ST_MTIME]
-        pyfile_exist = True
+        pyfile_exists = True
     else:
+        # The .py file does not exist.  By default on PyPy, lonepycfiles
+        # is False: if a .py file does not exist, we don't even try to
+        # look for a lone .pyc file.
+        if not space.config.objspace.lonepycfiles:
+            return NOFILE
         pyfile_ts = 0
-        pyfile_exist = False
-    
-    pycfile = filepart + ".pyc"    
-    if space.config.objspace.usepycfiles and os.path.exists(pycfile):
-        pyc_state = check_compiled_module(space, pyfile, pyfile_ts, pycfile)
-        pycfile_exists = pyc_state >= 0
-        pycfile_ts_valid = pyc_state > 0 or (pyc_state == 0 and not pyfile_exist)
-    else:
-        pycfile_exists = False
-        pycfile_ts_valid = False
-        
-    return pyfile_exist, pycfile_exists, pycfile_ts_valid
+        pyfile_exists = False
 
-def find_modtype(space, filepart):
-    """ This is the way pypy does it.  A pyc is only used if the py file exists AND
-    the pyc file contains the timestamp of the py. """
-    pyfile_exist, pycfile_exists, pycfile_ts_valid = info_modtype(space, filepart)
-    if pycfile_ts_valid:
-        return PYCFILE
-    elif pyfile_exist:
+    # check the .pyc file
+    if space.config.objspace.usepycfiles:
+        pycfile = filepart + ".pyc"    
+        if check_compiled_module(space, pycfile, pyfile_ts):
+            return PYCFILE     # existing and up-to-date .pyc file
+
+    # no .pyc file, use the .py file if it exists
+    if pyfile_exists:
         return PYFILE
-    else:
-        return NOFILE
-    
-def find_modtype_cpython(space, filepart):
-    """ This is the way cpython does it (where the py file doesnt exist but there
-    is a valid pyc file. """  
-    pyfile_exist, pycfile_exists, pycfile_ts_valid = info_modtype(space, filepart)
-    if pycfile_ts_valid:
-        return PYCFILE
-    elif pyfile_exist:
-        return PYFILE
-    elif pycfile_exists:
-        return PYCFILE
     else:
         return NOFILE
 
@@ -88,38 +68,40 @@ def try_import_mod(space, w_modulename, filepart, w_parent, w_name, pkgdir=None)
     w = space.wrap
     w_mod = w(Module(space, w_modulename))
 
-    e = None
-    if modtype == PYFILE:
-        filename = filepart + ".py"
-        stream = streamio.open_file_as_stream(filename, "r")
-    else:
-        assert modtype == PYCFILE
-        filename = filepart + ".pyc"
-        stream = streamio.open_file_as_stream(filename, "rb")
-
-    _prepare_module(space, w_mod, filename, pkgdir)
     try:
+        if modtype == PYFILE:
+            filename = filepart + ".py"
+            stream = streamio.open_file_as_stream(filename, "rU")
+        else:
+            assert modtype == PYCFILE
+            filename = filepart + ".pyc"
+            stream = streamio.open_file_as_stream(filename, "rb")
+
         try:
-            if modtype == PYFILE:
-                load_source_module(space, w_modulename, w_mod, filename, stream.readall())
-            else:
-                magic = _r_long(stream)
-                timestamp = _r_long(stream)
-                load_compiled_module(space, w_modulename, w_mod, filename,
-                                     magic, timestamp, stream.readall())
+            _prepare_module(space, w_mod, filename, pkgdir)
+            try:
+                if modtype == PYFILE:
+                    load_source_module(space, w_modulename, w_mod, filename,
+                                       stream.readall())
+                else:
+                    magic = _r_long(stream)
+                    timestamp = _r_long(stream)
+                    load_compiled_module(space, w_modulename, w_mod, filename,
+                                         magic, timestamp, stream.readall())
+
+            except OperationError, e:
+                w_mods = space.sys.get('modules')
+                space.call_method(w_mods,'pop', w_modulename, space.w_None)
+                raise
         finally:
             stream.close()
-            
-    except OperationError, e:
-         w_mods = space.sys.get('modules')
-         space.call_method(w_mods,'pop', w_modulename, space.w_None)
-         raise
-             
+
+    except StreamErrors:
+        return None
+
     w_mod = check_sys_modules(space, w_modulename)
     if w_mod is not None and w_parent is not None:
         space.setattr(w_parent, w_name, w_mod)
-    if e:
-        raise e
     return w_mod
 
 def try_getattr(space, w_obj, w_name):
@@ -432,39 +414,42 @@ def load_source_module(space, w_modulename, w_mod, pathname, source,
     Load a source module from a given file and return its module
     object.
     """
-    w = space.wrap
     pycode = parse_source_module(space, pathname, source)
-
-    w_dict = space.getattr(w_mod, w('__dict__'))
-    space.call_method(w_dict, 'setdefault',
-                      w('__builtins__'),
-                      w(space.builtin))
-    pycode.exec_code(space, w_dict, w_dict)
 
     if space.config.objspace.usepycfiles and write_pyc:
         mtime = os.stat(pathname)[stat.ST_MTIME]
         cpathname = pathname + 'c'
         write_compiled_module(space, pycode, cpathname, mtime)
 
+    w = space.wrap
+    w_dict = space.getattr(w_mod, w('__dict__'))
+    space.call_method(w_dict, 'setdefault',
+                      w('__builtins__'),
+                      w(space.builtin))
+    pycode.exec_code(space, w_dict, w_dict)
+
     return w_mod
 
 def _get_long(s):
-    if len(s) < 4:
-        return -1   # good enough for our purposes
     a = ord(s[0])
     b = ord(s[1])
     c = ord(s[2])
     d = ord(s[3])
-    x = a | (b<<8) | (c<<16) | (d<<24)
-    if _r_correction and d & 0x80 and x > 0:
-        x -= _r_correction
-    return int(x)    
+    if d >= 0x80:
+        d -= 0x100
+    return a | (b<<8) | (c<<16) | (d<<24)
 
-# helper, to avoid exposing internals of marshal and the
-# difficulties of using it though applevel.
-_r_correction = intmask(1L<<32)    # == 0 on 32-bit machines
+def _read_n(stream, n):
+    buf = ''
+    while len(buf) < n:
+        data = stream.read(n - len(buf))
+        if not data:
+            raise streamio.StreamError("end of file")
+        buf += data
+    return buf
+
 def _r_long(stream):
-    s = stream.read(4) # XXX XXX could return smaller string
+    s = _read_n(stream, 4)
     return _get_long(s)
 
 def _w_long(stream, x):
@@ -477,27 +462,25 @@ def _w_long(stream, x):
     d = x & 0xff
     stream.write(chr(a) + chr(b) + chr(c) + chr(d))
 
-def check_compiled_module(space, pathname, mtime, cpathname):
+def check_compiled_module(space, pycfilename, expected_mtime=0):
     """
-    Given a pathname for a Python source file, its time of last
-    modification, and a pathname for a compiled file, check whether the
-    compiled file represents the same version of the source.  If so,
-    return a FILE pointer for the compiled file, positioned just after
-    the header; if not, return NULL.
-    Doesn't set an exception.
+    Check if a pyc file's magic number and (optionally) mtime match.
     """
-    w_marshal = space.getbuiltinmodule('marshal')
-    stream = streamio.open_file_as_stream(cpathname, "rb")
-    magic = _r_long(stream)
     try:
-        if magic != get_pyc_magic(space):
-            return -1
-        pyc_mtime = _r_long(stream)
-        if pyc_mtime != mtime:
-            return 0
-    finally:
-        stream.close()
-    return 1
+        stream = streamio.open_file_as_stream(pycfilename, "rb")
+        try:
+            magic = _r_long(stream)
+            if magic != get_pyc_magic(space):
+                return False
+            if expected_mtime != 0:
+                pyc_mtime = _r_long(stream)
+                if pyc_mtime != expected_mtime:
+                    return False
+        finally:
+            stream.close()
+    except StreamErrors:
+        return False
+    return True
 
 def read_compiled_module(space, cpathname, strbuf):
     """ Read a code object from a file and check it for validity """
@@ -556,7 +539,7 @@ def write_compiled_module(space, co, cpathname, mtime):
     #
     try:
         stream = streamio.open_file_as_stream(cpathname, "wb")
-    except OSError:
+    except StreamErrors:
         return    # cannot create file
     try:
         try:
@@ -572,7 +555,7 @@ def write_compiled_module(space, co, cpathname, mtime):
             _w_long(stream, mtime)
         finally:
             stream.close()
-    except OSError:
+    except StreamErrors:
         try:
             os.unlink(cpathname)
         except OSError:
@@ -606,6 +589,7 @@ def find_module(fullname,  path):
             importer = importer_cache.get(p)
         else:
             importer_cache[p] = None
+            importer = None
             for hook in path_hooks:
                 try:
                     importer = hook(p)

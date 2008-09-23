@@ -5,6 +5,8 @@ from pypy.translator.benchmark.result import BenchmarkResultSet
 from pypy.translator.benchmark.benchmarks import BENCHMARKS
 import os, sys, time, pickle, re, py
 
+SPLIT_TABLE = True      # useful when executable names are very long
+
 def get_executables(args):  #sorted by revision number (highest first)
     exes = sorted(args, key=os.path.getmtime)
     r = []
@@ -52,17 +54,29 @@ def main(options, args):
 
         pickle.dump(benchmark_result, open(options.picklefile, 'wb'))
 
-        stats = ['stat:st_mtime', 'exe_name', 'pypy_rev']
+        exe_stats = ['stat:st_mtime', 'exe_name', 'pypy_rev']
+        if not SPLIT_TABLE:
+            stats = exe_stats[:]
+        else:
+            stats = ['exe']
         for b in benchmarks:
             stats.append('bench:'+b.name)
         if options.relto:
             relto = options.relto
         else:
             relto = full_pythons[0]
-        for row in benchmark_result.txt_summary(stats,
-                                                relto=relto,
-                                                filteron=lambda r: r.exe_name in exes):
+        kwds = {'relto': relto,
+                'filteron' :lambda r: r.exe_name in exes,
+                }
+        for row in benchmark_result.txt_summary(stats, **kwds):
             print row
+        if SPLIT_TABLE:
+            print
+            print 'Reference:'
+            for row in benchmark_result.txt_summary(['exe'] + exe_stats,
+                                                    **kwds):
+                print row
+            print
 
 if __name__ == '__main__':
     from optparse import OptionParser

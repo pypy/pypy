@@ -68,37 +68,43 @@ def map(function, *collections):
         else:
             return res
 
+def filterstring(function, collection, str_type):
+    if function is None and type(collection) is str_type:
+        return collection
+    res = []
+    for i in xrange(len(collection)):
+        c = collection[i]
+        if function is None or function(c):
+            if not isinstance(c, str_type):
+                raise TypeError("can't filter %s to %s: __getitem__ returned different type", str_type.__name__, str_type.__name__)
+            res.append(c)
+    return str_type().join(res)
+
+def filtertuple(function, collection):
+    if function is None:
+        function = bool
+    res = []
+    for i in xrange(len(collection)):
+        c = collection[i]
+        if function(c):
+            res.append(c)
+    return tuple(res)
+
 def filter(function, collection):
     """construct a list of those elements of collection for which function
        is True.  If function is None, then return the items in the sequence
        which are True."""
-    str_type = None
     if isinstance(collection, str):
-        str_type = str
+        return filterstring(function, collection, str)
     elif isinstance(collection, unicode):
-        str_type = unicode
+        return filterstring(function, collection, unicode)
+    elif isinstance(collection, tuple):
+        return filtertuple(function, collection)
 
-    if str_type is not None:
-        if function is None and type(collection) is str_type:
-            return collection
-        res = []
-        for i in xrange(len(collection)):
-            c = collection[i]
-            if function is None or function(c):
-                if not isinstance(c, str_type):
-                    raise TypeError("can't filter %s to %s: __getitem__ returned different type", str_type.__name__, str_type.__name__)
-                res.append(c)
-        return str_type('').join(res) #added '' to make the annotator happy
-        
     if function is None:
-        res = [item for item in collection if item]
+        return [item for item in collection if item]
     else:
-        res = [item for item in collection if function(item)]
-
-    if isinstance(collection, tuple):
-       return tuple(res)
-    else:
-       return res
+        return [item for item in collection if function(item)]
 
 def zip(*collections):
     """return a list of tuples, where the nth tuple contains every

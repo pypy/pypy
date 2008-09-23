@@ -30,4 +30,5 @@ class Module(MixedModule):
         MixedModule.__init__(self, space, *args)
         prev = space.threadlocals.getvalue()
         space.threadlocals = gil.GILThreadLocals()
+        space.threadlocals.initialize(space)
         space.threadlocals.setvalue(prev)

@@ -50,12 +50,7 @@ def getinitialpath(srcdir):
     pypy_lib = os.path.join(pypydir, 'lib')
     checkdir(pypy_lib)
 
-    importlist = ['']
-    pythonpath = os.environ.get('PYTHONPATH')
-    if pythonpath:
-        for p in pythonpath.split(os.pathsep):
-            if p:
-                importlist.append(p)
+    importlist = []
     importlist.append(pypy_lib)
     importlist.append(python_std_lib_modified)
     importlist.append(python_std_lib)
@@ -93,6 +88,8 @@ class IOState:
         stderr.file_fdopen(2, "w", 0)
         stderr.name = '<stderr>'
         self.w_stderr = space.wrap(stderr)
+
+        stdin._when_reading_first_flush(stdout)
 
 def getio(space):
     return space.fromcache(IOState)

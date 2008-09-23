@@ -5,7 +5,7 @@
 from pypy.objspace.std.objspace import *
 from pypy.objspace.std.proxy_helpers import register_type
 from pypy.interpreter.error import OperationError
-from pypy.interpreter import baseobjspace
+from pypy.interpreter import baseobjspace, argument
 
 #class W_Transparent(W_Object):
 #    def __init__(self, w_controller):
@@ -22,8 +22,10 @@ def transparent_class(name, BaseCls):
             self.space = space
     
         def descr_call_mismatch(self, space, name, reqcls, args):
-            _, args = args.popfirst()
-            args = args.prepend(space.wrap(name))
+            args_w, kwds_w = args.unpack()
+            args_w = args_w[:]
+            args_w[0] = space.wrap(name)
+            args = argument.Arguments(space, args_w,  kwds_w)
             return space.call_args(self.w_controller, args)
     
         def getclass(self, space):

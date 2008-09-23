@@ -211,10 +211,6 @@ class BaseTestRUnicode(AbstractTestRstr):
     test_float = unsupported
     test_hlstr = unsupported
 
-    def test_find_empty_string(self):
-        py.test.skip("We should think how to solve this problem")
-    test_rfind_empty_string = test_find_empty_string
-
 class TestLLtype(BaseTestRUnicode, LLRtypeMixin):
     EMPTY_STRING_HASH = -1
 

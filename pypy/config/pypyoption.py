@@ -3,7 +3,7 @@ import py, os
 import sys
 from pypy.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption
 from pypy.config.config import ChoiceOption, StrOption, to_optparse, Config
-from pypy.config.config import ConfigError
+from pypy.config.config import ConflictConfigError
 
 modulepath = py.magic.autopath().dirpath().dirpath().join("module")
 all_modules = [p.basename for p in modulepath.listdir()
@@ -21,19 +21,36 @@ default_modules.update(dict.fromkeys(
      "recparser", "symbol", "_random", "__pypy__"]))
 
 
+# --allworkingmodules
 working_modules = default_modules.copy()
 working_modules.update(dict.fromkeys(
-    ["_socket", "unicodedata", "mmap", "fcntl", "rctime", "select",
+    ["_socket", "unicodedata", "mmap", "fcntl",
+      "rctime" , "select", "zipimport", "_lsprof",
      "crypt", "signal", "dyngram", "_rawffi", "termios", "zlib",
      "struct", "md5", "sha", "bz2", "_minimal_curses", "cStringIO",
-    ]
+     "thread", "itertools"]
+))
+
+working_oo_modules = default_modules.copy()
+working_oo_modules.update(dict.fromkeys(
+    ["md5", "sha", "cStringIO", "itertools"]
 ))
 
 if sys.platform == "win32":
-    del working_modules["fcntl"]
+    # unix only modules
     del working_modules["crypt"]
+    del working_modules["fcntl"]
     del working_modules["termios"]
-    del working_modules["_rawffi"]
+    del working_modules["_minimal_curses"]
+
+if sys.platform == "sunos5":
+    del working_modules['mmap']   # depend on ctypes, can'T get at c-level 'errono'
+    del working_modules['rctime'] # depend on ctypes, missing tm_zone/tm_gmtoff
+    del working_modules['signal'] # depend on ctypes, can'T get at c-level 'errono'
+    del working_modules['fcntl']  # LOCK_NB not defined
+    del working_modules["_minimal_curses"]
+    del working_modules["termios"]
+
 
 
 module_dependencies = {}
@@ -42,11 +59,10 @@ module_suggests = {    # the reason you want _rawffi is for ctypes, which
                        # because 'P' is missing from the app-level one
                        '_rawffi': [("objspace.usemodules.struct", True)],
                        }
-if os.name == "posix":
-    module_dependencies['rctime'] = [("objspace.usemodules.select", True),]
 
 module_import_dependencies = {
     # no _rawffi if importing pypy.rlib.libffi raises ImportError
+    # or CompilationError
     "_rawffi": ["pypy.rlib.libffi"],
     }
 
@@ -54,16 +70,18 @@ def get_module_validator(modname):
     if modname in module_import_dependencies:
         modlist = module_import_dependencies[modname]
         def validator(config):
+            from pypy.rpython.tool.rffi_platform import CompilationError
             try:
                 for name in modlist:
                     __import__(name)
-            except ImportError, e:
-                err = "%s: %s" % (e.__class__.__name__, e)
+            except (ImportError, CompilationError), e:
+                errcls = e.__class__.__name__
                 config.add_warning(
                     "The module %r is disabled\n" % (modname,) +
-                    "because importing %s raised\n" % (name,) +
-                    err)
-                raise ConfigError("--withmod-%s: %s" % (modname, err))
+                    "because importing %s raised %s\n" % (name, errcls) +
+                    str(e))
+                raise ConflictConfigError("--withmod-%s: %s" % (modname,
+                                                                errcls))
         return validator
     else:
         return None
@@ -118,12 +136,14 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         for modname in all_modules]),
 
     BoolOption("allworkingmodules", "use as many working modules as possible",
-               default=False,
+               # NB. defaults to True, but in py.py this is overridden by
+               # a False suggestion because it takes a while to start up.
+               # Actual module enabling only occurs if
+               # enable_allworkingmodules() is called, and it depends
+               # on the selected backend.
+               default=True,
                cmdline="--allworkingmodules",
-               suggests=[("objspace.usemodules.%s" % (modname, ), True)
-                             for modname in working_modules
-                             if modname in all_modules],
-               negation=False),
+               negation=True),
 
     BoolOption("geninterp", "specify whether geninterp should be used",
                cmdline=None,
@@ -135,7 +155,11 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
 
     BoolOption("usepycfiles", "Write and read pyc files when importing",
                default=True),
-   
+
+    BoolOption("lonepycfiles", "Import pyc files with no matching py file",
+               default=False,
+               requires=[("objspace.usepycfiles", True)]),
+
     BoolOption("honor__builtins__",
                "Honor the __builtins__ key of a module dictionary",
                default=False),
@@ -150,11 +174,11 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
 
         BoolOption("withsmallint", "use tagged integers",
                    default=False,
-                   requires=[("translation.gc", "boehm")]),
+                   requires=[("translation.gc", "boehm"),
+                             ("objspace.std.withprebuiltint", False)]),
 
         BoolOption("withprebuiltint", "prebuild commonly used int objects",
-                   default=False,
-                   requires=[("objspace.std.withsmallint", False)]),
+                   default=False),
 
         IntOption("prebuiltintfrom", "lowest integer which is prebuilt",
                   default=-5, cmdline="--prebuiltintfrom"),
@@ -272,54 +296,27 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("optimized_int_add",
                    "special case the addition of two integers in BINARY_ADD",
                    default=False),
+        BoolOption("optimized_comparison_op",
+                   "special case the comparison of integers",
+                   default=False),
         BoolOption("optimized_list_getitem",
                    "special case the 'list[integer]' expressions",
                    default=False),
-
-        BoolOption("oldstyle",
-                   "specify whether the default metaclass should be classobj",
-                   default=False, cmdline="-k --oldstyle"),
+        BoolOption("builtinshortcut",
+                   "a shortcut for operations between built-in types",
+                   default=False),
+        BoolOption("getattributeshortcut",
+                   "track types that override __getattribute__",
+                   default=False),
 
         BoolOption("logspaceoptypes",
                    "a instrumentation option: before exit, print the types seen by "
                    "certain simpler bytecodes",
                    default=False),
-
-        BoolOption("allopts",
-                   "enable all thought-to-be-working optimizations",
-                   default=False,
-                   suggests=[("objspace.opcodes.CALL_LIKELY_BUILTIN", True),
-                             ("objspace.opcodes.CALL_METHOD", True),
-                             ("translation.withsmallfuncsets", 5),
-                             ("translation.profopt",
-                              "-c 'from richards import main;main(); from test import pystone; pystone.main()'"),
-                             ("objspace.std.withmultidict", True),
-#                             ("objspace.std.withstrjoin", True),
-                             ("objspace.std.withshadowtracking", True),
-#                             ("objspace.std.withstrslice", True),
-#                             ("objspace.std.withsmallint", True),
-                             ("objspace.std.withrangelist", True),
-                             ("objspace.std.withmethodcache", True),
-#                             ("objspace.std.withfastslice", True),
-                             ("objspace.std.withprebuiltchar", True),
-                             ("objspace.std.optimized_int_add", True),
-                             ("translation.list_comprehension_operations",True),
-                             ],
-                   cmdline="--allopts --faassen", negation=False),
-
-##         BoolOption("llvmallopts",
-##                    "enable all optimizations, and use llvm compiled via C",
-##                    default=False,
-##                    requires=[("objspace.std.allopts", True),
-##                              ("translation.llvm_via_c", True),
-##                              ("translation.backend", "llvm")],
-##                    cmdline="--llvm-faassen", negation=False),
+        ChoiceOption("multimethods", "the multimethod implementation to use",
+                     ["doubledispatch", "mrd"],
+                     default="mrd"),
      ]),
-    #BoolOption("lowmem", "Try to use less memory during translation",
-    #           default=False, cmdline="--lowmem",
-    #           requires=[("objspace.geninterp", False)]),
-
-
 ])
 
 def get_pypy_config(overrides=None, translating=False):
@@ -327,6 +324,62 @@ def get_pypy_config(overrides=None, translating=False):
     return get_combined_translation_config(
             pypy_optiondescription, overrides=overrides,
             translating=translating)
+
+def set_pypy_opt_level(config, level):
+    """Apply PyPy-specific optimization suggestions on the 'config'.
+    The optimizations depend on the selected level and possibly on the backend.
+    """
+    # warning: during some tests, the type_system and the backend may be
+    # unspecified and we get None.  It shouldn't occur in translate.py though.
+    type_system = config.translation.type_system
+    backend = config.translation.backend
+
+    # all the good optimizations for PyPy should be listed here
+    if level in ['2', '3']:
+        config.objspace.opcodes.suggest(CALL_LIKELY_BUILTIN=True)
+        config.objspace.opcodes.suggest(CALL_METHOD=True)
+        config.objspace.std.suggest(withmultidict=True)
+        config.objspace.std.suggest(withshadowtracking=True)
+        config.objspace.std.suggest(withrangelist=True)
+        config.objspace.std.suggest(withmethodcache=True)
+        config.objspace.std.suggest(withprebuiltchar=True)
+        config.objspace.std.suggest(builtinshortcut=True)
+        config.objspace.std.suggest(optimized_list_getitem=True)
+        config.objspace.std.suggest(getattributeshortcut=True)
+
+    # extra costly optimizations only go in level 3
+    if level == '3':
+        config.translation.suggest(profopt=
+            "-c 'from richards import main;main(); "
+                "from test import pystone; pystone.main()'")
+
+    # memory-saving optimizations
+    if level == 'mem':
+        config.objspace.std.suggest(withprebuiltint=True)
+        config.objspace.std.suggest(withrangelist=True)
+        config.objspace.std.suggest(withprebuiltchar=True)
+        config.objspace.std.suggest(withsharingdict=True)
+        # xxx other options? ropes maybe?
+
+    # completely disable geninterp in a level 0 translation
+    if level == '0':
+        config.objspace.suggest(geninterp=False)
+
+    # some optimizations have different effects depending on the typesystem
+    if type_system == 'ootype':
+        config.objspace.std.suggest(multimethods="doubledispatch")
+
+
+def enable_allworkingmodules(config):
+    if config.translation.type_system == 'ootype':
+        modules = working_oo_modules
+    else:
+        modules = working_modules
+    # ignore names from 'essential_modules', notably 'exceptions', which
+    # may not be present in config.objspace.usemodules at all
+    modules = [name for name in modules if name not in essential_modules]
+    config.objspace.usemodules.suggest(**dict.fromkeys(modules, True))
+
 
 if __name__ == '__main__':
     config = get_pypy_config()

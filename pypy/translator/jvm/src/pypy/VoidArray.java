@@ -1,6 +1,6 @@
 package pypy;
 
-class VoidArray {
+public class VoidArray {
     public final int length;
 
     public VoidArray(int length) {

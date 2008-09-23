@@ -128,3 +128,6 @@ class AppTestTermios(object):
         import termios
         raises(termios.error, "termios.tcgetattr(334)")
         
+    def test_error_tcsetattr(self):
+        import termios
+        raises(TypeError, termios.tcsetattr, 0, 1, (1, 2))

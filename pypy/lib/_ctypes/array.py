@@ -191,6 +191,8 @@ class Array(_CData):
 ARRAY_CACHE = {}
 
 def create_array_type(base, length):
+    if not isinstance(length, (int, long)):
+        raise TypeError("Can't multiply a ctypes type by a non-integer")
     if length < 0:
         raise ValueError("Array length must be >= 0")
     key = (base, length)

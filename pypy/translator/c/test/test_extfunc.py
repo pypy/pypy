@@ -657,9 +657,8 @@ if hasattr(os, 'fork'):
 elif hasattr(os, 'waitpid'):
     # windows has no fork but some waitpid to be emulated
     def test_waitpid():
+        prog = str(sys.executable)
         def does_stuff():
-            prog = sys.executable
-            prog = str(prog)
             args = [prog]
 #            args = [prog, '-c', '"import os;os._exit(4)"']
 #           note that the above variant creates a bad array

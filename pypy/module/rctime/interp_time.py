@@ -24,8 +24,6 @@ class CConfig:
     )
     CLOCKS_PER_SEC = platform.ConstantInteger("CLOCKS_PER_SEC")
     clock_t = platform.SimpleType("clock_t", rffi.ULONG)
-    time_t = platform.SimpleType("time_t", rffi.LONG)
-    size_t = platform.SimpleType("size_t", rffi.LONG)
     has_gettimeofday = platform.Has('gettimeofday')
     
 if _POSIX:
@@ -64,26 +62,23 @@ if _POSIX:
 
 CLOCKS_PER_SEC = cConfig.CLOCKS_PER_SEC
 clock_t = cConfig.clock_t
-time_t = cConfig.time_t
-size_t = cConfig.size_t
 tm = cConfig.tm
 glob_buf = lltype.malloc(tm, flavor='raw', zero=True)
 
 if cConfig.has_gettimeofday:
     c_gettimeofday = external('gettimeofday', [rffi.VOIDP, rffi.VOIDP], rffi.INT)
-TIME_TP = rffi.CArrayPtr(time_t)
 TM_P = lltype.Ptr(tm)
-c_clock = external('clock', [TIME_TP], clock_t)
-c_time = external('time', [TIME_TP], time_t)
-c_ctime = external('ctime', [TIME_TP], rffi.CCHARP)
-c_gmtime = external('gmtime', [TIME_TP], TM_P)
-c_mktime = external('mktime', [TM_P], time_t)
+c_clock = external('clock', [rffi.TIME_TP], clock_t)
+c_time = external('time', [rffi.TIME_TP], rffi.TIME_T)
+c_ctime = external('ctime', [rffi.TIME_TP], rffi.CCHARP)
+c_gmtime = external('gmtime', [rffi.TIME_TP], TM_P)
+c_mktime = external('mktime', [TM_P], rffi.TIME_T)
 c_asctime = external('asctime', [TM_P], rffi.CCHARP)
-c_localtime = external('localtime', [TIME_TP], TM_P)
+c_localtime = external('localtime', [rffi.TIME_TP], TM_P)
 if _POSIX:
     c_tzset = external('tzset', [], lltype.Void)
-c_strftime = external('strftime', [rffi.CCHARP, size_t, rffi.CCHARP, TM_P],
-                      size_t)
+c_strftime = external('strftime', [rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, TM_P],
+                      rffi.SIZE_T)
 
 def _init_accept2dyear():
     return (1, 0)[bool(os.getenv("PYTHONY2K"))]
@@ -109,9 +104,9 @@ def _init_timezone():
     if _POSIX:
         YEAR = (365 * 24 + 6) * 3600
 
-        t = (((c_time(lltype.nullptr(TIME_TP.TO))) / YEAR) * YEAR)
+        t = (((c_time(lltype.nullptr(rffi.TIME_TP.TO))) / YEAR) * YEAR)
         # we cannot have reference to stack variable, put it on the heap
-        t_ref = lltype.malloc(TIME_TP.TO, 1, flavor='raw')
+        t_ref = lltype.malloc(rffi.TIME_TP.TO, 1, flavor='raw')
         t_ref[0] = t
         p = c_localtime(t_ref)
         janzone = -p.c_tm_gmtoff
@@ -164,23 +159,23 @@ def _get_inttime(space, w_seconds):
     else:
         seconds = space.float_w(w_seconds)
     try:
-        return ovfcheck_float_to_int(seconds)
+        ovfcheck_float_to_int(seconds)
     except OverflowError:
         raise OperationError(space.w_ValueError,
                              space.wrap("time argument too large"))
+    return rffi.r_time_t(seconds)
 
 def _tm_to_tuple(space, t):
-    time_tuple = []
-
-    time_tuple.append(space.wrap(rffi.getintfield(t, 'c_tm_year') + 1900))
-    time_tuple.append(space.wrap(rffi.getintfield(t, 'c_tm_mon') + 1)) # want january == 1
-    time_tuple.append(space.wrap(rffi.getintfield(t, 'c_tm_mday')) )
-    time_tuple.append(space.wrap(rffi.getintfield(t, 'c_tm_hour')) )
-    time_tuple.append(space.wrap(rffi.getintfield(t, 'c_tm_min')) )
-    time_tuple.append(space.wrap(rffi.getintfield(t, 'c_tm_sec')) )
-    time_tuple.append(space.wrap((rffi.getintfield(t, 'c_tm_wday') + 6) % 7)) # want monday == 0
-    time_tuple.append(space.wrap(rffi.getintfield(t, 'c_tm_yday') + 1)) # want january, 1 == 1
-    time_tuple.append(space.wrap(rffi.getintfield(t, 'c_tm_isdst')) )
+    time_tuple = [
+        space.wrap(rffi.getintfield(t, 'c_tm_year') + 1900),
+        space.wrap(rffi.getintfield(t, 'c_tm_mon') + 1), # want january == 1
+        space.wrap(rffi.getintfield(t, 'c_tm_mday')),
+        space.wrap(rffi.getintfield(t, 'c_tm_hour')),
+        space.wrap(rffi.getintfield(t, 'c_tm_min')),
+        space.wrap(rffi.getintfield(t, 'c_tm_sec')),
+        space.wrap((rffi.getintfield(t, 'c_tm_wday') + 6) % 7), # want monday == 0
+        space.wrap(rffi.getintfield(t, 'c_tm_yday') + 1), # want january, 1 == 1
+        space.wrap(rffi.getintfield(t, 'c_tm_isdst'))]
     
     w_struct_time = _get_module_object(space, 'struct_time')
     w_time_tuple = space.newtuple(time_tuple)
@@ -189,8 +184,8 @@ def _tm_to_tuple(space, t):
 def _gettmarg(space, w_tup, allowNone=True):
     if allowNone and space.is_w(w_tup, space.w_None):
         # default to the current local time
-        tt = int(pytime.time())
-        t_ref = lltype.malloc(TIME_TP.TO, 1, flavor='raw')
+        tt = rffi.r_time_t(pytime.time())
+        t_ref = lltype.malloc(rffi.TIME_TP.TO, 1, flavor='raw')
         t_ref[0] = tt
         pbuf = c_localtime(t_ref)
         lltype.free(t_ref, flavor='raw')
@@ -283,7 +278,7 @@ def ctime(space, w_seconds=None):
 
     seconds = _get_inttime(space, w_seconds)
     
-    t_ref = lltype.malloc(TIME_TP.TO, 1, flavor='raw')
+    t_ref = lltype.malloc(rffi.TIME_TP.TO, 1, flavor='raw')
     t_ref[0] = seconds
     p = c_ctime(t_ref)
     lltype.free(t_ref, flavor='raw')
@@ -322,7 +317,7 @@ def gmtime(space, w_seconds=None):
     # rpython does not support that a variable has two incompatible builtins
     # as value so we have to duplicate the code. NOT GOOD! see localtime() too
     seconds = _get_inttime(space, w_seconds)
-    t_ref = lltype.malloc(TIME_TP.TO, 1, flavor='raw')
+    t_ref = lltype.malloc(rffi.TIME_TP.TO, 1, flavor='raw')
     t_ref[0] = seconds
     p = c_gmtime(t_ref)
     lltype.free(t_ref, flavor='raw')
@@ -340,7 +335,7 @@ def localtime(space, w_seconds=None):
     When 'seconds' is not passed in, convert the current time instead."""
 
     seconds = _get_inttime(space, w_seconds)
-    t_ref = lltype.malloc(TIME_TP.TO, 1, flavor='raw')
+    t_ref = lltype.malloc(rffi.TIME_TP.TO, 1, flavor='raw')
     t_ref[0] = seconds
     p = c_localtime(t_ref)
     lltype.free(t_ref, flavor='raw')

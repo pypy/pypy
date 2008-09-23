@@ -154,7 +154,8 @@ class EmptyDictImplementation(DictImplementation):
 
     def get(self, w_lookup):
         space = self.space
-        if not _is_str(space, w_lookup) and not _is_sane_hash(space, w_lookup):
+        if not _is_str(space, w_lookup) and not _is_sane_hash(space,
+                                                        space.type(w_lookup)):
             # give hash a chance to raise an exception
             space.hash(w_lookup)
         return None
@@ -177,7 +178,8 @@ class EmptyDictImplementation(DictImplementation):
 
     def delitem(self, w_key):
         space = self.space
-        if not _is_str(space, w_key) and not _is_sane_hash(space, w_key):
+        if not _is_str(space, w_key) and not _is_sane_hash(space,
+                                                           space.type(w_key)):
             # count hash
             space.hash(w_key)
         raise KeyError
@@ -1256,32 +1258,8 @@ def dict_pop__DictMulti_ANY(space, w_dict, w_key, w_defaults):
         w_dict.implementation.delitem(w_key)
         return w_item
 
-app = gateway.applevel('''
-    def dictrepr(currently_in_repr, d):
-        # Now we only handle one implementation of dicts, this one.
-        # The fix is to move this to dicttype.py, and do a
-        # multimethod lookup mapping str to StdObjSpace.str
-        # This cannot happen until multimethods are fixed. See dicttype.py
-            dict_id = id(d)
-            if dict_id in currently_in_repr:
-                return '{...}'
-            currently_in_repr[dict_id] = 1
-            try:
-                items = []
-                # XXX for now, we cannot use iteritems() at app-level because
-                #     we want a reasonable result instead of a RuntimeError
-                #     even if the dict is mutated by the repr() in the loop.
-                for k, v in d.items():
-                    items.append(repr(k) + ": " + repr(v))
-                return "{" +  ', '.join(items) + "}"
-            finally:
-                try:
-                    del currently_in_repr[dict_id]
-                except:
-                    pass
-''', filename=__file__)
 
-dictrepr = app.interphook("dictrepr")
+from pypy.objspace.std.dictobject import dictrepr
 
 def repr__DictMulti(space, w_dict):
     if w_dict.implementation.length() == 0:

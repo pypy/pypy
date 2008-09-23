@@ -334,6 +334,17 @@ class TestLLTypeMallocRemoval(BaseMallocRemovalTest):
         [link] = entrymap[graph.returnblock]
         assert link.prevblock.operations[-1].opname == 'keepalive'
 
+    def test_nested_struct(self):
+        S = lltype.GcStruct("S", ('x', lltype.Signed))
+        T = lltype.GcStruct("T", ('s', S))
+        def f(x):
+            t = lltype.malloc(T)
+            s = t.s
+            if x:
+                s.x = x
+            return t.s.x + s.x
+        graph = self.check(f, [int], [42], 2 * 42)
+
     def test_interior_ptr(self):
         py.test.skip("fails")
         S = lltype.Struct("S", ('x', lltype.Signed))

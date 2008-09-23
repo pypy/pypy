@@ -11,10 +11,10 @@ What is PyPy ?
 ==============
 
 PyPy is an implementation of the Python_ programming language written in
-Python itself, flexible and easy to experiment with.  Our long-term goals are
-to target a large variety of platforms, small and large, by providing a
+Python itself, flexible and easy to experiment with.
+We target a large variety of platforms, small and large, by providing a
 compiler toolsuite that can produce custom Python versions.  Platform, memory
-and threading models are to become aspects of the translation process - as
+and threading models are aspects of the translation process - as
 opposed to encoding low level details into the language implementation itself.
 Eventually, dynamic optimization techniques - implemented as another
 translation aspect - should become robust against language changes. `more...`_
@@ -26,56 +26,22 @@ Just the facts
 ============== 
 
 .. _gettingpypy: 
-
-Downloading & running the PyPy 1.0 release 
---------------------------------------------
-
-Download one of the following release files: 
-
-*pypy-1.0*
-    
-    * `pypy-1.0.0.tar.bz2`_ (sources, unix line endings) or
-    * `pypy-1.0.0.tar.gz`_ (sources, unix line endings) or
-    * `pypy-1.0.0.zip`_ (sources, windows line-endings) or
-    * `pypy-1.0.0-win32.zip`_ (precompiled executables for windows)
-    * or get the `latest stable version via subversion`_.
- 
-After unpacking the source downloads you can change to the
-``pypy-1.0.0`` directory and execute the following command line::
-
-    python pypy/bin/py.py 
-
-This will give you a PyPy prompt, i.e. a very compliant Python
-interpreter implemented in Python.  PyPy passes around `98% of
-CPythons core language regression tests`_.  Because this invocation of
-PyPy still runs on top of CPython, it runs around 2000 times slower
-than the original CPython.
-
-However, since the 0.7.0 release it is possible to use PyPy to `translate
-itself to lower level languages`_ after which it runs standalone, is not
-dependant on CPython anymore and becomes faster.
-
-If you are using the precompiled Windows executables, please look
-at the included ``README.txt`` on how to start already translated
-interpreters.  Note that the examples in the html documentation generally 
-assume that you have a py.py; with precompiled binaries, you need to 
-pick one with the matching features compiled in.
-
-.. _`98% of CPythons core language regression tests`: http://www2.openend.se/~pedronis/pypy-c-test/allworkingmodules/summary.html
-.. _`pypy-1.0.0.tar.bz2`: http://codespeak.net/download/pypy/pypy-1.0.0.tar.bz2
-.. _`pypy-1.0.0.zip`: http://codespeak.net/download/pypy/pypy-1.0.0.zip
-.. _`pypy-1.0.0.tar.gz`: http://codespeak.net/download/pypy/pypy-1.0.0.tar.gz
-.. _`pypy-1.0.0-win32.zip`: http://codespeak.net/download/pypy/pypy-1.0.0-win32.zip
-
 .. _`latest stable version via subversion`:   
+.. _`get via Subversion`:
 
 Svn-check out & run the latest PyPy as a two-liner
 --------------------------------------------------
 
 If you want to play with the stable development PyPy version 
-you can check it out from the repository using subversion. Download 
-and install subversion_ if you don't already have it. Then you can
-issue on the command line (DOS box or terminal)::
+you can check it out from the repository using subversion.
+(Here are `old links`_ to the PyPy release 1.0 -- but don't
+use it, it is too far out of date.)
+
+.. _`old links`: download.html
+
+Download and install subversion_ if you don't already have it.  We have
+some `help on installing subversion`_ for PyPy.  Then you can issue on
+the command line (DOS box or terminal)::
 
     svn co http://codespeak.net/svn/pypy/dist pypy-dist 
 
@@ -88,8 +54,24 @@ After checkout you can get a PyPy interpreter via::
     python pypy-dist/pypy/bin/py.py
 
 have fun :-) 
+Note that you will need a C compiler that is supported by CPython's distutils.
+This gives you a PyPy prompt, i.e. a very compliant Python
+interpreter implemented in Python.  PyPy passes around `98% of
+CPythons core language regression tests`_.  Because this invocation of
+PyPy still runs on top of CPython, it runs around 2000 times slower
+than the original CPython.
+Many extension modules are not enabled by default; to use them you need
+to pass ``--withmod-NAME`` arguments (for example, ``--withmod-_rawffi``
+is required to import our version of ctypes).
 
-We have some `help on installing subversion`_ for PyPy.
+This is probably not something you want to play with for too long,
+though, as it is really slow.  Instead, you should use PyPy to `translate
+itself to lower level languages`_ after which it runs standalone, is not
+dependant on CPython anymore and becomes faster (within the same speed
+magnitude as CPython itself).
+
+.. _`98% of CPythons core language regression tests`: http://www2.openend.se/~pedronis/pypy-c-test/allworkingmodules/summary.html
+
 Have a look at `interesting starting points`_ 
 for some guidance on how to continue. 
 
@@ -144,11 +126,14 @@ more detailed information on specific features of the tracker.
 Interesting Starting Points in PyPy 
 ===================================
 
-The following assumes that you have successfully downloaded and extracted the
-PyPy release or have checked out PyPy using svn. It assumes that you are in
-the top level directory of the PyPy source tree, e.g. pypy-x.x (if you
-got a release) or pypy-dist (if you checked out the most recent version using
-subversion).
+*The following assumes that you have successfully checked out PyPy using
+svn.  Some of the following examples don't work in the release 1.0.*
+
+To get started with PyPy, you can either play with `the py.py
+interpreter`_ and the `special PyPy features`_, or directly proceed to
+`translating the PyPy Python interpreter`_.  This allows you to try out
+real Python applications in a fast version of PyPy, compiled via C,
+LLVM, .NET or Java, with or without special features included.
 
 Main entry point  
 ------------------------------------------
@@ -156,7 +141,8 @@ Main entry point
 The py.py interpreter
 +++++++++++++++++++++
 
-To start interpreting Python with PyPy, use Python 2.4 or greater::
+To start interpreting Python with PyPy, install a C compiler that is
+supported by distutils and use Python 2.4 or greater to run PyPy::
 
     cd pypy
     python bin/py.py
@@ -176,7 +162,7 @@ in pystones::
 The parameter is the number of loops to run through the test. The
 default is 50000, which is far too many to run in a non-translated
 PyPy version (i.e. when PyPy's interpreter itself is being interpreted 
-by CPython). 
+by CPython).
 
 py.py options
 +++++++++++++
@@ -358,12 +344,9 @@ should):
 
   * Download and install Pygame_.
 
-  * Download and install `Dot Graphviz`_.
-
-or:
-
-  * Have an internet connection. The flowgraph viewer connects to
-    codespeak.net and lets it convert the flowgraph by a graphviz server.
+  * Download and install `Dot Graphviz`_ (optional if you have an internet
+    connection: the flowgraph viewer then connects to
+    codespeak.net and lets it convert the flowgraph by a graphviz server).
 
 To start the interactive translator shell do::
 
@@ -562,69 +545,63 @@ Windows, see the `windows document`_)
 
 .. _`windows document`: windows.html
 
-Not for the faint of heart nor the owner of a very old machine: you can
-translate the PyPy's whole of Python interpreter to low level C code. This is
-the largest and
-ultimate example of source that our translation toolchain can process::
+You can translate the whole of PyPy's Python interpreter to low level C
+code.  (This is the largest and ultimate example of RPython program that
+our translation toolchain can process.)
 
-    cd pypy/translator/goal
-    python translate.py --run targetpypystandalone.py
+1. Install dependencies.  You need (these are Debian package names,
+   adapt as needed):
 
-By default the translation process will try to use the
-`Boehm-Demers-Weiser garbage collector`_ for the translated interpreter.  Use
-``--gc=generation`` to use our own exact generational implementation which
-is now faster and doesn't have external dependencies.  Otherwise, be
-sure to install Boehm before starting the translation (e.g. by running
-``apt-get install libgc-dev`` on Debian or Ubuntu).
+   * gcc
+   * ``python-dev``
+   * ``python-ctypes``
+   * ``libffi-dev``
+   * ``libz-dev`` (for the optional ``zlib`` module)
+   * ``libbz2-dev`` (for the optional ``bz2`` module)
+   * ``libncurses-dev`` (for the optional ``_minimal_curses`` module)
+   * ``libgc-dev`` (only when translating with `--opt=0, 1` or `size`)
 
-This whole process will take some time and quite a lot of memory (although it
-might just work on a machine with 512MB of RAM). If the translation is
-finished running and after you closed the graph you will be greeted
-(because of ``--run`` option) by the friendly prompt of a PyPy
-executable that is not running on top of CPython any more::
+2. Be warned that translation is time-consuming (30 min to
+   over one hour) and extremely RAM-hungry (kill it if it
+   starts swapping heavily).  If you have less than 1.5 GB of
+   RAM (or a slow machine) you might want to pick the
+   `optimization level`_ `1` in the next step.  A level of
+   `2` or `3` gives much better results, though.
 
-    [translation:info] created: ./pypy-c
-    [translation:info] Running compiled c source...
-    debug: entry point starting
-    debug:  argv -> ./pypy-c
-    debug: importing code
-    debug: calling code.interact()
-    Python 2.4.1 (pypy 0.7.1 build 18929) on linux2
-    Type "help", "copyright", "credits" or "license" for more information.
-    (InteractiveConsole)
-    >>>> 1 + 1
-    2
-    >>>> 
+3. Run::
 
-With the default options, you can find the produced executable under the
-name ``pypy-c``.  Type ``pypy-c --help`` to see the options it supports --
-mainly the same basic options as CPython.  In addition, ``pypy-c --info``
-prints the translation options that where used to produce this particular
-executable.  This executable contains a lot of things that are hard-coded
-for your particular system, so it's not really meant to
-be installed or redistributed at the moment.
+     cd pypy/translator/goal
+     python translate.py --opt=3 targetpypystandalone.py
 
-If you exit the interpreter you get a pygame window with all the flow graphs
-plus a pdb prompt. Moving around in the resulting flow graph is difficult
-because of the sheer size of the result. For this reason, the debugger prompt
-you get at the end has been enhanced with commands to facilitate locating
-functions and classes. Type ``help graphs`` for a list of the new commands.
-Help is also available on each of these new commands.
+   possibly replacing ``--opt=3`` with ``--opt=1`` or another
+   `optimization level`_ of your choice.
 
-The ``translate.py`` script itself takes a number of options controlling
+   On Linux 32-bit Intel machines, if you don't need threads, you
+   can get some extra speed (and extra translation time) by adding
+   ``--gcrootfinder=asmgcc`` just after the ``--opt`` option.
+
+.. _`optimization level`: config/opt.html
+
+If everything works correctly this will create an executable
+``pypy-c`` in the current directory.  Type ``pypy-c --help``
+to see the options it supports -- mainly the same basic
+options as CPython.  In addition, ``pypy-c --info`` prints the
+translation options that where used to produce this particular
+executable.  This executable can be moved around or copied on
+other machines; see Installation_ below.
+
+The ``translate.py`` script takes a very large number of options controlling
 what to translate and how.  See ``translate.py -h``. Some of the more
 interesting options are:
-
-   * ``--text``: don't show the flow graph after the translation is
-     done. This is useful if you don't have pygame installed.
 
    * ``--stackless``: this produces a pypy-c that includes features
      inspired by `Stackless Python <http://www.stackless.com>`__.
 
-   * ``--gc=boehm|ref|marknsweep|semispace|generation``: choose between using
+   * ``--gc=boehm|ref|marknsweep|semispace|generation|hybrid``:
+     choose between using
      the `Boehm-Demers-Weiser garbage collector`_, our reference
-     counting implementation or three of own collector implementations
-     (as we have seen Boehm's collector is the default).
+     counting implementation or four of own collector implementations
+     (Boehm's collector is the default).
 
 Find a more detailed description of the various options in our `configuration
 sections`_.
@@ -661,14 +638,14 @@ Translating using the LLVM backend
 To create a standalone executable using the experimental LLVM_ compiler
 infrastructure::
 
-    ./translate.py --text --batch --backend=llvm targetpypystandalone.py
+    ./translate.py --batch --backend=llvm targetpypystandalone.py
 
 Translating using the CLI backend
 +++++++++++++++++++++++++++++++++
 
 To create a standalone .NET executable using the `CLI backend`_::
 
-    ./translate.py --text --batch --backend=cli targetpypystandalone.py
+    ./translate.py --batch --backend=cli targetpypystandalone.py
 
 The executable and all its dependecies will be stored in the
 ./pypy-cli-data directory. To run pypy.NET, you can run
@@ -732,6 +709,34 @@ At the moment the only way to load a .NET class is to explicitly use
 ``clr.load_cli_class``; in the future they will be automatically
 loaded when accessing .NET namespaces as they were Python modules, as
 IronPython does.
+
+Installation
+++++++++++++
+
+A prebuilt ``pypy-c`` can be installed in a standard location like
+``/usr/local/bin``, although some details of this process are still in
+flux.  It can also be copied to other machines as long as their system
+is "similar enough": some details of the system on which the translation
+occurred might be hard-coded in the executable.
+
+For installation purposes, note that the executable needs to be able to
+find its version of the Python standard library in the following three
+directories: ``lib-python/2.4.1``, ``lib-python/modified-2.4.1`` and
+``pypy/lib``.  They are located by "looking around" starting from the
+directory in which the executable resides.  The current logic is to try
+to find a ``PREFIX`` from which the directories
+``PREFIX/lib-python/2.4.1`` and ``PREFIX/lib-python/modified.2.4.1`` and
+``PREFIX/pypy/lib`` can all be found.  The prefixes that are tried are::
+
+    .
+    ./share/pypy-1.0
+    ..
+    ../share/pypy-1.0
+    ../..
+    ../../share/pypy-1.0
+    ../../..
+    etc.
+
 
 .. _`start reading sources`: 
 

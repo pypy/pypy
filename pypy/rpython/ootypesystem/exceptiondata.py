@@ -26,8 +26,8 @@ class ExceptionData(AbstractExceptionData):
         self.fn_raise_OSError    = self.make_raise_OSError(rtyper)        
 
     def make_exception_matcher(self, rtyper):
-        # ll_exception_matcher(real_exception_meta, match_exception_meta)
-        s_classtype = annmodel.SomeOOInstance(self.lltype_of_exception_type)
+        # ll_exception_matcher(real_exception_class, match_exception_class)
+        s_classtype = annmodel.SomeOOClass(ootype.ROOT)
         helper_fn = rtyper.annotate_helper_fn(rclass.ll_issubclass, [s_classtype, s_classtype])
         return helper_fn
 
@@ -63,7 +63,6 @@ class ExceptionData(AbstractExceptionData):
         r_class = rclass.getclassrepr(rtyper, None)
         r_class.setup()
         default_excinst = ootype.new(self.lltype_of_exception_value)
-        default_excinst.meta = r_class.get_meta_instance()
 
         # build the table in order base classes first, subclasses last
         sortedtable = []

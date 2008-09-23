@@ -204,7 +204,11 @@ def convert_struct(container, cstruct=None):
             return
         # regular case: allocate a new ctypes Structure of the proper type
         cls = get_ctypes_type(STRUCT)
-        cstruct = cls._malloc()
+        if STRUCT._arrayfld:
+            n = len(getattr(container, STRUCT._arrayfld).items)
+        else:
+            n = None
+        cstruct = cls._malloc(n)
     add_storage(container, _struct_mixin, cstruct)
     for field_name in STRUCT._names:
         FIELDTYPE = getattr(STRUCT, field_name)
@@ -218,7 +222,9 @@ def convert_struct(container, cstruct=None):
                 csubstruct = getattr(cstruct, field_name)
                 convert_struct(field_value, csubstruct)
             else:
-                raise NotImplementedError('inlined field', FIELDTYPE)
+                csubarray = getattr(cstruct, field_name)
+                convert_array(field_value, csubarray)
+                #raise NotImplementedError('inlined field', FIELDTYPE)
     remove_regular_struct_content(container)
 
 def remove_regular_struct_content(container):
@@ -228,15 +234,19 @@ def remove_regular_struct_content(container):
         if not isinstance(FIELDTYPE, lltype.ContainerType):
             delattr(container, field_name)
 
-def convert_array(container):
+def convert_array(container, carray=None):
     ARRAY = container._TYPE
     cls = get_ctypes_type(ARRAY)
-    carray = cls._malloc(container.getlength())
+    if carray is None:
+        carray = cls._malloc(container.getlength())
     add_storage(container, _array_mixin, carray)
     if not isinstance(ARRAY.OF, lltype.ContainerType):
+        # fish that we have enough space
+        ctypes_array = ctypes.cast(carray.items,
+                                   ctypes.POINTER(carray.items._type_))
         for i in range(container.getlength()):
             item_value = container.items[i]    # fish fish
-            carray.items[i] = lltype2ctypes(item_value)
+            ctypes_array[i] = lltype2ctypes(item_value)
         remove_regular_array_content(container)
     else:
         assert isinstance(ARRAY.OF, lltype.Struct)
@@ -255,7 +265,10 @@ def struct_use_ctypes_storage(container, ctypes_storage):
     remove_regular_struct_content(container)
     for field_name in STRUCT._names:
         FIELDTYPE = getattr(STRUCT, field_name)
-        if isinstance(FIELDTYPE, lltype.ContainerType):
+        if isinstance(FIELDTYPE, lltype.Array):
+            convert_array(getattr(container, field_name),
+                          getattr(ctypes_storage, field_name))
+        elif isinstance(FIELDTYPE, lltype.ContainerType):
             struct_use_ctypes_storage(getattr(container, field_name),
                                       getattr(ctypes_storage, field_name))
 
@@ -375,6 +388,22 @@ class _array_of_unknown_length(_parentable_mixin, lltype._parentable):
 
 # ____________________________________________________________
 
+def _find_parent(llobj):
+    parent, parentindex = lltype.parentlink(llobj)
+    if parent is None:
+        return llobj, 0
+    next_p, next_i = _find_parent(parent)
+    if isinstance(parentindex, int):
+        c_tp = get_ctypes_type(lltype.typeOf(parent))
+        sizeof = ctypes.sizeof(get_ctypes_type(lltype.typeOf(parent).OF))
+        ofs = c_tp.items.offset + parentindex * sizeof
+        return next_p, next_i + ofs
+    else:
+        c_tp = get_ctypes_type(lltype.typeOf(parent))
+        ofs = getattr(c_tp, parentindex).offset
+        return next_p, next_i + ofs
+
+
 # XXX THIS IS A HACK XXX
 # ctypes does not keep callback arguments alive. So we do. Forever
 # we need to think deeper how to approach this problem
@@ -418,6 +447,11 @@ def lltype2ctypes(llobj, normalize=True):
         if T.TO._gckind != 'raw' and not T.TO._hints.get('callback', None):
             raise Exception("can only pass 'raw' data structures to C, not %r"
                             % (T.TO._gckind,))
+
+        index = 0
+        if isinstance(container, lltype._subarray):
+            topmost, index = _find_parent(container)
+            container = topmost
         if container._storage is None:
             raise RuntimeError("attempting to pass a freed structure to C")
         if container._storage is True:
@@ -434,7 +468,17 @@ def lltype2ctypes(llobj, normalize=True):
             container._ctypes_storage_was_allocated()
         storage = container._storage
         p = ctypes.pointer(storage)
-        if normalize and hasattr(storage, '_normalized_ctype'):
+        if index:
+            p = ctypes.cast(p, ctypes.c_void_p)
+            p = ctypes.c_void_p(p.value + index)
+            c_tp = get_ctypes_type(T.TO)
+            storage._normalized_ctype = c_tp
+        if normalize and getattr(T.TO, '_arrayfld', None):
+            # XXX doesn't cache
+            c_tp = build_ctypes_struct(T.TO, [],
+                         len(getattr(storage, T.TO._arrayfld).items))
+            p = ctypes.cast(p, ctypes.POINTER(c_tp))
+        elif normalize and hasattr(storage, '_normalized_ctype'):
             p = ctypes.cast(p, ctypes.POINTER(storage._normalized_ctype))
         return p
 
@@ -449,7 +493,6 @@ def lltype2ctypes(llobj, normalize=True):
 
     if T is lltype.SingleFloat:
         return ctypes.c_float(float(llobj))
-
     return llobj
 
 def ctypes2lltype(T, cobj):
@@ -461,8 +504,10 @@ def ctypes2lltype(T, cobj):
             return lltype.nullptr(T.TO)
         if isinstance(T.TO, lltype.Struct):
             if T.TO._arrayfld is not None:
-                raise NotImplementedError("XXX var-sized structs")
-            container = lltype._struct(T.TO)
+                lgt = getattr(cobj.contents, T.TO._arrayfld).length
+                container = lltype._struct(T.TO, lgt)
+            else:
+                container = lltype._struct(T.TO)
             struct_use_ctypes_storage(container, cobj.contents)
         elif isinstance(T.TO, lltype.Array):
             if T.TO._hints.get('nolength', False):
@@ -518,16 +563,34 @@ def uninitialized2ctypes(T):
 # __________ the standard C library __________
 
 if ctypes:
-    if sys.platform == 'win32':
-        # trying to guess the correct libc... only a few tests fail if there
-        # is a mismatch between the one used by python2x.dll and the one
-        # loaded here
-        if sys.version_info < (2, 4):
-            standard_c_lib = ctypes.cdll.LoadLibrary('msvcrt.dll')
+    def get_libc_name():
+        if sys.platform == 'win32':
+            # Parses sys.version and deduces the version of the compiler
+            import distutils.msvccompiler
+            version = distutils.msvccompiler.get_build_version()
+            if version is None:
+                # This logic works with official builds of Python.
+                if sys.version_info < (2, 4):
+                    clibname = 'msvcrt'
+                else:
+                    clibname = 'msvcr71'
+            else:
+                if version <= 6:
+                    clibname = 'msvcrt'
+                else:
+                    clibname = 'msvcr%d' % (version * 10)
+
+            # If python was built with in debug mode
+            import imp
+            if imp.get_suffixes()[0][0] == '_d.pyd':
+                clibname += 'd'
+
+            return clibname+'.dll'
         else:
-            standard_c_lib = ctypes.cdll.LoadLibrary('msvcr71.dll')
-    else:
-        standard_c_lib = ctypes.cdll.LoadLibrary(ctypes.util.find_library('c'))
+            return ctypes.util.find_library('c')
+        
+    libc_name = get_libc_name()     # Make sure the name is determined during import, not at runtime
+    standard_c_lib = ctypes.cdll.LoadLibrary(get_libc_name())
 
 # ____________________________________________
 
@@ -552,7 +615,7 @@ def get_ctypes_callable(funcptr, calling_conv):
         eci = old_eci.compile_shared_lib()
         _eci_cache[old_eci] = eci
 
-    libraries = list(eci.libraries)
+    libraries = list(eci.libraries + eci.frameworks)
 
     FUNCTYPE = lltype.typeOf(funcptr).TO
     if not libraries:
@@ -630,6 +693,8 @@ def force_cast(RESTYPE, value):
     """Cast a value to a result type, trying to use the same rules as C."""
     if not isinstance(RESTYPE, lltype.LowLevelType):
         raise TypeError("rffi.cast() first arg should be a TYPE")
+    if isinstance(value, llmemory.fakeaddress):
+        value = value.ptr
     TYPE1 = lltype.typeOf(value)
     cvalue = lltype2ctypes(value)
     cresulttype = get_ctypes_type(RESTYPE)
@@ -665,14 +730,12 @@ class ForceCastEntry(ExtRegistryEntry):
         return annmodel.lltype_to_annotation(RESTYPE)
 
     def specialize_call(self, hop):
-        from pypy.rpython.rbuiltin import gen_cast
         hop.exception_cannot_occur()
         s_RESTYPE = hop.args_s[0]
         assert s_RESTYPE.is_constant()
         RESTYPE = s_RESTYPE.const
         v_arg = hop.inputarg(hop.args_r[1], arg=1)
-        TYPE1 = v_arg.concretetype
-        return gen_cast(hop.llops, RESTYPE, v_arg)
+        return hop.genop('force_cast', [v_arg], resulttype = RESTYPE)
 
 def typecheck_ptradd(T):
     # --- ptradd() is only for pointers to non-GC, no-length arrays.

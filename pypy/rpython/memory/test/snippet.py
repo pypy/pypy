@@ -1,4 +1,4 @@
-import os
+import os, py
 from pypy.tool.udir import udir
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.lloperation import llop
@@ -125,53 +125,3 @@ class SemiSpaceGCTests:
             print summary
             print msg
             py.test.fail(msg)
-
-    def test_disable_finalizers(self):
-        from pypy.rlib import rgc
-        if self.large_tests_ok:
-            MULTIPLY = 50
-        else:
-            MULTIPLY = 1
-
-        tmpfilepath = udir.join('test_disable_finalizers')
-
-        class State:
-            pass
-        state = State()
-        state.tmpfilename = str(tmpfilepath)
-        state.fd = -1
-
-        class X(object):
-            def __init__(self, x):
-                self.x = str(x)
-            def __del__(self):
-                if state.fd >= 0:
-                    os.write(state.fd, self.x)
-
-        def do_stuff():
-            lst = [X(n) for n in range(7*MULTIPLY)]
-            return len(lst)
-
-        def f():
-            fd = os.open(state.tmpfilename,
-                         os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
-                         0644)
-            state.fd = fd
-            for i in range(10*MULTIPLY):
-                do_stuff()
-                rgc.disable_finalizers()
-                os.write(fd, '-')
-                do_stuff()
-                os.write(fd, '+')
-                rgc.enable_finalizers()
-            state.fd = -1
-            os.close(fd)
-            return 'ok'
-
-        self.run_ok(f)
-        buf = tmpfilepath.read()
-        assert buf.count('-') == buf.count('+')
-        assert buf.count('-') + buf.count('+') < len(buf)
-        for i in range(len(buf)):
-            if buf[i] == '-':
-                assert buf[i+1] == '+'

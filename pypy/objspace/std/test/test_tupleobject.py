@@ -2,8 +2,6 @@
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.interpreter.error import OperationError
 
-
-
 class TestW_TupleObject:
 
     def test_is_true(self):
@@ -234,6 +232,78 @@ class TestW_TupleObject:
 
 class AppTestW_TupleObject:
 
+    def test_is_true(self):
+        assert not ()
+        assert (5,)
+        assert (5,3)
+
+    def test_len(self):
+        assert len(()) == 0
+        assert len((5,)) == 1
+        assert len((5,3,99,1,2,3,4,5,6)) == 9 
+
+    def test_getitem(self):
+        assert (5,3)[0] == 5
+        assert (5,3)[1] == 3
+        assert (5,3)[-1] == 3
+        assert (5,3)[-2] == 5
+        raises(IndexError, "(5,3)[2]")
+        raises(IndexError, "(5,)[1]")
+        raises(IndexError, "()[0]")
+
+    def test_iter(self):
+        t = (5,3,99)
+        i = iter(t)
+        assert i.next() == 5
+        assert i.next() == 3
+        assert i.next() == 99
+        raises(StopIteration, i.next)
+
+    def test_contains(self):
+        t = (5,3,99)
+        assert 5 in t
+        assert 99 in t
+        assert not 11 in t
+        assert not t in t
+
+    def test_add(self):
+        t0 = ()
+        t1 = (5,3,99)
+        assert t0 + t0 == t0
+        assert t1 + t0 == t1
+        assert t1 + t1 == (5,3,99,5,3,99)
+
+    def test_mul(self):
+        assert () * 10 == ()
+        assert (5,) * 3 == (5,5,5)
+        assert (5,2) * 2 == (5,2,5,2)
+
+    def test_getslice(self):
+        assert (5,2,3)[1:2] == (2,)
+
+    def test_eq(self):
+        t0 = ()
+        t1 = (5,3,99)
+        t2 = (5,3,99)
+        t3 = (5,3,99,-1)
+        t4 = (5,3,9,1)
+        assert not t0 == t1
+        assert t0 != t1
+        assert t1 == t2
+        assert t2 == t1
+        assert t3 != t2
+        assert not t3 == t2
+        assert not t2 == t3
+        assert t3 > t4
+        assert t2 > t4
+        assert t3 > t2
+        assert t1 > t0
+        assert t0 <= t0
+        assert not t0 < t0
+        assert t4 >= t0
+        assert t3 >= t2
+        assert t2 <= t3
+
     def test_hash(self):
         # check that hash behaves as in 2.4 for at least 31 bits
         assert hash(()) & 0x7fffffff == 0x35d373
@@ -242,3 +312,9 @@ class AppTestW_TupleObject:
 
     def test_getnewargs(self):
         assert  () .__getnewargs__() == ((),)
+
+    def test_repr(self):
+        assert repr((1,)) == '(1,)'
+        assert repr(()) == '()'
+        assert repr((1,2,3)) == '(1, 2, 3)'
+        

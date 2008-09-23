@@ -314,7 +314,7 @@ class AppTest_DictObject:
         assert str(d) == '{0: {...}}'
 
         # Mutating while repr'ing
-        class Machiavelli:
+        class Machiavelli(object):
             def __repr__(self):
                 d.clear()
                 return "42"
@@ -354,6 +354,69 @@ class AppTest_DictObject:
                 return 'hi'
         assert repr(D()) == 'hi'
         assert str(D()) == 'hi'
+
+    def test_overridden_setitem(self):
+        class D(dict):
+            def __setitem__(self, key, value):
+                dict.__setitem__(self, key, 42)
+        d = D([('x', 'foo')], y = 'bar')
+        assert d['x'] == 'foo'
+        assert d['y'] == 'bar'
+
+        d.setdefault('z', 'baz')
+        assert d['z'] == 'baz'
+
+        d['foo'] = 'bar'
+        assert d['foo'] == 42
+
+        d.update({'w': 'foobar'})
+        assert d['w'] == 'foobar'
+
+        d = d.copy()
+        assert d['x'] == 'foo'
+
+        d3 = D.fromkeys(['x', 'y'], 'foo')
+        assert d3['x'] == 42
+        assert d3['y'] == 42
+
+    def test_overridden_setitem_customkey(self):        
+        class D(dict):
+            def __setitem__(self, key, value):
+                dict.__setitem__(self, key, 42)
+        class Foo(object):
+            pass
+
+        d = D()
+        key = Foo()
+        d[key] = 'bar'
+        assert d[key] == 42
+
+    def test_repr_with_overridden_items(self):
+        class D(dict):
+            def items(self):
+                return []
+
+        d = D([("foo", "foobar")])
+        assert repr(d) == "{'foo': 'foobar'}"
+
+    def test_popitem_with_overridden_delitem(self):
+        class D(dict):
+            def __delitem__(self, key):
+                assert False
+        d = D()
+        d['a'] = 42
+        item = d.popitem()
+        assert item == ('a', 42)
+
+    def test_dict_update_overridden_getitem(self):
+        class D(dict):
+            def __getitem__(self, key):
+                return 42
+        d1 = {}
+        d2 = D(a='foo')
+        d1.update(d2)
+        assert d1['a'] == 42 # fails on CPython, d1['a'] == 'foo'
+
 
 # the minimal 'space' needed to use a W_DictObject
 class FakeSpace:

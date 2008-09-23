@@ -28,17 +28,18 @@ c_tparm = rffi.llexternal('tparm', [rffi.CCHARP, INT, INT, INT, INT, INT,
                                     INT, INT, INT, INT, INT], rffi.CCHARP,
                           compilation_info=eci)
 
-ERR = rffi.CConstant('ERR', INT)
-OK = rffi.CConstant('OK', INT)
+ERR = rffi.CConstant('ERR', lltype.Signed)
+OK = rffi.CConstant('OK', lltype.Signed)
 
 def curses_setupterm(term, fd):
     intp = lltype.malloc(INTP.TO, 1, flavor='raw')
-    err = c_setupterm(term, fd, intp)
+    err = rffi.cast(lltype.Signed, c_setupterm(term, fd, intp))
     try:
         if err == ERR:
-            if intp[0] == 0:
+            errret = rffi.cast(lltype.Signed, intp[0])
+            if errret == 0:
                 msg = "setupterm: could not find terminal"
-            elif intp[0] == -1:
+            elif errret == -1:
                 msg = "setupterm: could not find terminfo database"
             else:
                 msg = "setupterm: unknown error"

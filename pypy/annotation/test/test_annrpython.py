@@ -10,7 +10,7 @@ from pypy.annotation.annrpython import RPythonAnnotator as _RPythonAnnotator
 from pypy.translator.translator import graphof as tgraphof
 from pypy.annotation import policy
 from pypy.annotation import specialize
-from pypy.annotation.listdef import ListDef
+from pypy.annotation.listdef import ListDef, TooLateForChange
 from pypy.annotation.dictdef import DictDef
 from pypy.objspace.flow.model import *
 from pypy.rlib.rarithmetic import r_uint, base_int, r_longlong, r_ulonglong
@@ -3039,6 +3039,66 @@ class TestAnnotateTestCase:
             return x[:-1]
 
         a.build_types(f, [str])
+
+    def test_listitem_no_mutating(self):
+        from pypy.rlib.debug import check_annotation
+        called = []
+
+        def checker(ann, bk):
+            called.append(True)
+            assert not ann.listdef.listitem.mutated
+            ann.listdef.never_resize()
+        
+        def f():
+            l = [1,2,3]
+            check_annotation(l, checker)
+            return l
+
+        def g():
+            l = f()
+            l.append(4)
+
+        a = self.RPythonAnnotator()
+        py.test.raises(TooLateForChange, a.build_types, g, [])
+        assert called
+
+    def test_listitem_no_mutating2(self):
+        from pypy.rlib.debug import make_sure_not_resized
+        
+        def f():
+            return make_sure_not_resized([1,2,3])
+
+        def g():
+            l = [1,2,3]
+            l.append(4)
+            return l
+
+        def fn(i):
+            if i:
+                func = f
+            else:
+                func = g
+            return func()
+
+        a = self.RPythonAnnotator()
+        a.translator.config.translation.list_comprehension_operations = True
+        py.test.raises(TooLateForChange, a.build_types, fn, [int])
+            
+
+    def test_listitem_never_resize(self):
+        from pypy.rlib.debug import check_annotation
+
+        def checker(ann, bk):
+            ann.listdef.never_resize()
+
+        def f():
+            l = [1,2,3]
+            l.append(4)
+            check_annotation(l, checker)
+
+        a = self.RPythonAnnotator()
+        py.test.raises(TooLateForChange, a.build_types, f, [])
+        
 
 def g(n):
     return [0,1,2,n]

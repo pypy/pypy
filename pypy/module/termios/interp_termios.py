@@ -28,34 +28,31 @@ def convert_error(space, error):
     return OperationError(w_exception_class, w_exception)
 
 def tcsetattr(space, fd, when, w_attributes):
+    from pypy.interpreter.baseobjspace import UnpackValueError
     try:
-        w_cc = space.getitem(w_attributes, space.wrap(-1))
-        tup_w = space.getitem(w_attributes, space.newslice(
-            space.wrap(0), space.wrap(-1), space.wrap(1)))
-        w_iflag, w_oflag, w_cflag, w_lflag, w_ispeed, w_ospeed = \
-                 space.unpackiterable(tup_w)
-        w_builtin = space.getbuiltinmodule('__builtin__')
-        cc = []
-        for w_c in space.unpackiterable(w_cc):
-            if space.is_true(space.isinstance(w_c, space.w_int)):
-                ch = space.call_function(space.getattr(w_builtin,
-                                              space.wrap('chr')), w_c)
-                cc.append(space.str_w(ch))
-            else:
-                cc.append(space.str_w(w_c))
-        tup = (space.int_w(w_iflag), space.int_w(w_oflag),
-               space.int_w(w_cflag), space.int_w(w_lflag),
-               space.int_w(w_ispeed), space.int_w(w_ospeed), cc)
-        try:
-            rtermios.tcsetattr(fd, when, tup)
-        except termios.error, e:
-            e.errno = e.args[0]
-            raise convert_error(space, e)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        msg = "tcsetattr must be called with int, int and 7-arg tuple"
-        raise OperationError(space.w_TypeError, space.wrap(str(msg)))
+        w_iflag, w_oflag, w_cflag, w_lflag, w_ispeed, w_ospeed, w_cc = \
+                 space.unpackiterable(w_attributes, expected_length=7)
+    except UnpackValueError, e:
+        raise OperationError(
+            space.w_TypeError,
+            space.wrap("tcsetattr, arg 3: must be 7 element list"))
+    w_builtin = space.getbuiltinmodule('__builtin__')
+    cc = []
+    for w_c in space.unpackiterable(w_cc):
+        if space.is_true(space.isinstance(w_c, space.w_int)):
+            ch = space.call_function(space.getattr(w_builtin,
+                                          space.wrap('chr')), w_c)
+            cc.append(space.str_w(ch))
+        else:
+            cc.append(space.str_w(w_c))
+    tup = (space.int_w(w_iflag), space.int_w(w_oflag),
+           space.int_w(w_cflag), space.int_w(w_lflag),
+           space.int_w(w_ispeed), space.int_w(w_ospeed), cc)
+    try:
+        rtermios.tcsetattr(fd, when, tup)
+    except termios.error, e:
+        e.errno = e.args[0]
+        raise convert_error(space, e)
 tcsetattr.unwrap_spec = [ObjSpace, int, int, W_Root]
 
 def tcgetattr(space, fd):

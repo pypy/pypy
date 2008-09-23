@@ -47,7 +47,10 @@ class Class(OOType):
 
     def _defl(self):
         return nullruntimeclass
-    
+
+    def _example(self):
+        return _class(ROOT)
+
 Class = Class()
 
 class Instance(OOType):
@@ -780,6 +783,7 @@ class _class(object):
         self._INSTANCE = INSTANCE
 
 nullruntimeclass = _class(None)
+Class._null = nullruntimeclass
 
 class _instance(object):
     
@@ -1238,10 +1242,14 @@ class _string(_builtin_type):
 
     def ll_find(self, s, start, end):
         # NOT_RPYTHON
+        if start > len(self._str):  # workaround to cope with corner case
+            return -1               # bugs in CPython 2.4 unicode.find('')
         return self._str.find(s._str, start, end)
 
     def ll_rfind(self, s, start, end):
         # NOT_RPYTHON
+        if start > len(self._str):  # workaround to cope with corner case
+            return -1               # bugs in CPython 2.4 unicode.rfind('')
         return self._str.rfind(s._str, start, end)
 
     def ll_count(self, s, start, end):

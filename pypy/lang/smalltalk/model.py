@@ -1,84 +1,148 @@
+"""
+Squeak model.
+
+    W_Object
+        W_SmallInteger        
+        W_Float
+        W_AbstractObjectWithIdentityHash
+            W_AbstractObjectWithClassReference
+                W_PointersObject 
+                W_BytesObject
+                W_WordsObject
+            W_CompiledMethod
+
+W_BlockContext and W_MethodContext classes have been replaced by functions
+that create W_PointersObjects of correct size with attached shadows.
+"""
 import sys
-from pypy.rlib import rrandom
+from pypy.rlib import rrandom, objectmodel
 from pypy.rlib.rarithmetic import intmask
-from pypy.lang.smalltalk import constants
+from pypy.lang.smalltalk import constants, error
 from pypy.tool.pairtype import extendabletype
 from pypy.rlib.objectmodel import instantiate
 from pypy.lang.smalltalk.tool.bitmanipulation import splitter
 
 class W_Object(object):
+    """Root of Squeak model, abstract."""
     __slots__ = ()    # no RPython-level instance variables allowed in W_Object
 
     def size(self):
+        """Return bytesize that conforms to Blue Book.
+        
+        The reported size may differ from the actual size in Spy's object
+        space, as memory representation varies depending on PyPy translation."""
         return 0
 
-    def varsize(self):
+    def varsize(self, space):
+        """Return bytesize of variable-sized part.
+
+        Variable sized objects are those created with #new:."""
+        return self.size(space)
+
+    def primsize(self, space):
+        # TODO remove this method
         return self.size()
 
-    def primsize(self):
-        return self.size()
-
-    def getclass(self):
-        raise NotImplementedError
+    def getclass(self, space):
+        """Return Squeak class."""
+        raise NotImplementedError()
 
     def gethash(self):
-        raise NotImplementedError
+        """Return 31-bit hash value."""
+        raise NotImplementedError()
 
-    def at0(self, index0):
-        raise NotImplementedError
+    def at0(self, space, index0):
+        """Access variable-sized part, as by Object>>at:.
 
-    def atput0(self, index0, w_value):
-        raise NotImplementedError
+        Return value depends on layout of instance. Byte objects return bytes,
+        word objects return words, pointer objects return pointers. Compiled method are
+        treated special, if index0 within the literalsize returns pointer to literal,
+        otherwise returns byte (ie byte code indexing starts at literalsize)."""
+        raise NotImplementedError()
 
-    def fetch(self, n0):
-        raise NotImplementedError
+    def atput0(self, space, index0, w_value):
+        """Access variable-sized part, as by Object>>at:put:.
+
+        Semantics depend on layout of instance. Byte objects set bytes,
+        word objects set words, pointer objects set pointers. Compiled method are
+        treated special, if index0 within the literalsize sets pointer to literal,
+        otherwise patches bytecode (ie byte code indexing starts at literalsize)."""
+        raise NotImplementedError()
+
+    def fetch(self, space, n0):
+        """Access fixed-size part, maybe also variable-sized part (we have to
+        consult the Blue Book)."""
+        # TODO check the Blue Book
+        raise NotImplementedError()
         
-    def store(self, n0, w_value):    
-        raise NotImplementedError
+    def store(self, space, n0, w_value):    
+        """Access fixed-size part, maybe also variable-sized part (we have to
+        consult the Blue Book)."""
+        raise NotImplementedError()
 
     def invariant(self):
         return True
 
-    def shadow_of_my_class(self):
-        return self.getclass().as_class_get_shadow()
+    def shadow_of_my_class(self, space):
+        """Return internal representation of Squeak class."""
+        return self.getclass(space).as_class_get_shadow(space)
 
-    def shallow_equals(self,other):
-        return self == other
+    def is_same_object(self, other):
+        """Compare object identity"""
+        return self is other
 
-    def equals(self, other):
-        return self.shallow_equals(other)
+    def become(self, other):
+        """Become swaps two objects.
+           False means swapping failed"""
+        return False
 
 class W_SmallInteger(W_Object):
+    """Boxed integer value"""
+    # TODO can we tell pypy that its never larger then 31-bit?
     __slots__ = ('value',)     # the only allowed slot here
 
     def __init__(self, value):
         self.value = value
 
-    def getclass(self):
-        from pypy.lang.smalltalk.classtable import w_SmallInteger
-        return w_SmallInteger
+    def getclass(self, space):
+        """Return SmallInteger from special objects array."""
+        return space.w_SmallInteger
 
     def gethash(self):
         return self.value
 
     def invariant(self):
-        return isinstance(self.value, int)
+        return isinstance(self.value, int) and self.value < 0x8000
 
     def __repr__(self):
         return "W_SmallInteger(%d)" % self.value
 
-    def shallow_equals(self, other):
+    def is_same_object(self, other):
+        # TODO what is correct terminology to say that identity is by value?
         if not isinstance(other, W_SmallInteger):
             return False
         return self.value == other.value
 
+    def __eq__(self, other):
+        if not isinstance(other, W_SmallInteger):
+            return False
+        return self.value == other.value
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __hash__(self):
+        return self.value
+
+
 class W_Float(W_Object):
+    """Boxed float value."""
     def __init__(self, value):
         self.value = value
 
-    def getclass(self):
-        from pypy.lang.smalltalk.classtable import w_Float
-        return w_Float
+    def getclass(self, space):
+        """Return Float from special objects array."""
+        return space.w_Float
 
     def gethash(self):
         return 41    # XXX check this
@@ -89,17 +153,34 @@ class W_Float(W_Object):
     def __repr__(self):
         return "W_Float(%f)" % self.value
 
-    def shallow_equals(self, other):
+    def is_same_object(self, other):
+        if not isinstance(other, W_Float):
+            return False
+        # TODO is that correct in Squeak?
+        return self.value == other.value
+
+    def __eq__(self, other):
         if not isinstance(other, W_Float):
             return False
         return self.value == other.value
 
+    def __ne__(self, other):
+        return not self == other
+
+    def __hash__(self):
+        return hash(self.value)
+
 class W_AbstractObjectWithIdentityHash(W_Object):
+    """Object with explicit hash (ie all except small
+    ints and floats)."""
     #XXX maybe this is too extreme, but it's very random
     hash_generator = rrandom.Random()
     UNASSIGNED_HASH = sys.maxint
 
     hash = UNASSIGNED_HASH # default value
+
+    def setchar(self, n0, character):
+        raise NotImplementedError()
 
     def gethash(self):
         if self.hash == self.UNASSIGNED_HASH:
@@ -110,15 +191,23 @@ class W_AbstractObjectWithIdentityHash(W_Object):
     def invariant(self):
         return isinstance(self.hash, int)
 
+    def become(self, w_other):
+        if not isinstance(w_other, W_AbstractObjectWithIdentityHash):
+            return False
+        self.hash, w_other.hash = w_other.hash, self.hash
+        return True
+
 class W_AbstractObjectWithClassReference(W_AbstractObjectWithIdentityHash):
-    """ The base class of objects that store 'w_class' explicitly. """
+    """Objects with arbitrary class (ie not CompiledMethod, SmallInteger or
+    Float)."""
 
     def __init__(self, w_class):
         if w_class is not None:     # it's None only for testing
             assert isinstance(w_class, W_PointersObject)
         self.w_class = w_class
 
-    def getclass(self):
+    def getclass(self, space):
+        assert self.w_class is not None
         return self.w_class
 
     def __repr__(self):
@@ -126,93 +215,148 @@ class W_AbstractObjectWithClassReference(W_AbstractObjectWithIdentityHash):
 
     def __str__(self):
         if isinstance(self, W_PointersObject) and self._shadow is not None:
-            return "%s class" % (self.as_class_get_shadow().name or '?',)
+            return self._shadow.getname()
         else:
-            return "a %s" % (self.shadow_of_my_class().name or '?',)
+            name = None
+            if self.w_class._shadow is not None:
+                name = self.w_class._shadow.name
+            return "a %s" % (name or '?',)
 
     def invariant(self):
         return (W_AbstractObjectWithIdentityHash.invariant(self) and
                 isinstance(self.w_class, W_PointersObject))
 
+    def become(self, w_other):
+        if not isinstance(w_other, W_AbstractObjectWithClassReference):
+            return False
+        self.w_class, w_other.w_class = w_other.w_class, self.w_class
+        return W_AbstractObjectWithIdentityHash.become(self, w_other)
+        
 
 class W_PointersObject(W_AbstractObjectWithClassReference):
-    """ The normal object """
+    """Common object."""
     
     _shadow = None # Default value
 
     def __init__(self, w_class, size):
+        """Create new object with size = fixed + variable size."""
         W_AbstractObjectWithClassReference.__init__(self, w_class)
         self._vars = [w_nil] * size
 
-    def at0(self, index0):
-        return self.fetch(index0)
+    def at0(self, space, index0):
+        # To test, at0 = in varsize part
+        return self.fetch(space, index0+self.instsize(space))
 
-    def atput0(self, index0, w_value):
-        self.store(index0, w_value)
+    def atput0(self, space, index0, w_value):
+        # To test, at0 = in varsize part
+        self.store(space, index0 + self.instsize(space), w_value)
 
-    def fetch(self, n0):
+    def fetch(self, space, n0):
+        if self._shadow is not None:
+            return self._shadow.fetch(n0)
+        return self._fetch(n0)
+
+    def _fetch(self, n0):
         return self._vars[n0]
         
-    def store(self, n0, w_value):    
+    def store(self, space, n0, w_value):    
         if self._shadow is not None:
-            self._shadow.invalidate()
+            return self._shadow.store(n0, w_value)
+        return self._store(n0, w_value)
+
+    def _store(self, n0, w_value):
         self._vars[n0] = w_value
 
-    def fetchvarpointer(self, idx):
-        return self._vars[idx+self.instsize()]
 
-    def storevarpointer(self, idx, value):
-        self._vars[idx+self.instsize()] = value
+    def varsize(self, space):
+        return self.size() - self.instsize(space)
 
-    def varsize(self):
-        return self.size() - self.shadow_of_my_class().instsize()
+    def instsize(self, space):
+        return self.shadow_of_my_class(space).instsize()
 
-    def instsize(self):
-        return self.getclass().as_class_get_shadow().instsize()
-
-    def primsize(self):
-        return self.varsize()
+    def primsize(self, space):
+        return self.varsize(space)
 
     def size(self):
+        if self._shadow is not None:
+            return self._shadow.size()
+        return self._size()
+
+    def _size(self):
         return len(self._vars)
 
     def invariant(self):
         return (W_AbstractObjectWithClassReference.invariant(self) and
                 isinstance(self._vars, list))
 
-    def as_class_get_shadow(self):
-        from pypy.lang.smalltalk.shadow import ClassShadow
-        shadow = self._shadow
-        if shadow is None:
-            self._shadow = shadow = ClassShadow(self)
-        assert isinstance(shadow, ClassShadow)      # for now, the only kind
-        shadow.check_for_updates()
+    def store_shadow(self, shadow):
+        self._shadow = shadow
+
+    @objectmodel.specialize.arg(2)
+    def attach_shadow_of_class(self, space, TheClass):
+        shadow = TheClass(space, self)
+        self._shadow = shadow
+        shadow.attach_shadow()
         return shadow
 
-    def equals(self, other):
-        if not isinstance(other, W_PointersObject):
+    @objectmodel.specialize.arg(2)
+    def as_special_get_shadow(self, space, TheClass):
+        shadow = self._shadow
+        if shadow is None:
+            shadow = self.attach_shadow_of_class(space, TheClass)
+        elif not isinstance(shadow, TheClass):
+            shadow.detach_shadow()
+            shadow = self.attach_shadow_of_class(space, TheClass)
+        shadow.sync_shadow()
+        return shadow
+
+    def get_shadow(self, space):
+        from pypy.lang.smalltalk.shadow import AbstractShadow
+        return self.as_special_get_shadow(space, AbstractShadow)
+
+    def as_class_get_shadow(self, space):
+        from pypy.lang.smalltalk.shadow import ClassShadow
+        return self.as_special_get_shadow(space, ClassShadow)
+
+    def as_blockcontext_get_shadow(self, space):
+        from pypy.lang.smalltalk.shadow import BlockContextShadow
+        return self.as_special_get_shadow(space, BlockContextShadow)
+
+    def as_methodcontext_get_shadow(self, space):
+        from pypy.lang.smalltalk.shadow import MethodContextShadow
+        return self.as_special_get_shadow(space, MethodContextShadow)
+
+    def as_context_get_shadow(self, space):
+        from pypy.lang.smalltalk.shadow import ContextPartShadow
+        # XXX TODO should figure out itself if its method or block context
+        if self._shadow is None:
+            if ContextPartShadow.is_block_context(self, space):
+                return self.as_blockcontext_get_shadow(space)
+            return self.as_methodcontext_get_shadow(space)
+        return self.as_special_get_shadow(space, ContextPartShadow)
+
+    def as_methoddict_get_shadow(self, space):
+        from pypy.lang.smalltalk.shadow import MethodDictionaryShadow
+        return self.as_special_get_shadow(space, MethodDictionaryShadow)
+
+    def become(self, w_other):
+        if not isinstance(w_other, W_PointersObject):
             return False
-        if not other.getclass() == self.getclass():
-            return False
-        if not other.size() == self.size():
-            return False
-        for i in range(self.size()):
-            if not other.fetch(i).shallow_equals(self.fetch(i)):
-                return False
-        return True
+        self._vars, w_other._vars = w_other._vars, self._vars
+        self._shadow, w_other._shadow = w_other._shadow, self._shadow
+        return W_AbstractObjectWithClassReference.become(self, w_other)
+        
 
 class W_BytesObject(W_AbstractObjectWithClassReference):
     def __init__(self, w_class, size):
         W_AbstractObjectWithClassReference.__init__(self, w_class)
         self.bytes = ['\x00'] * size
 
-    def at0(self, index0):
-        from pypy.lang.smalltalk import utility
-        return utility.wrap_int(ord(self.getchar(index0)))
+    def at0(self, space, index0):
+        return space.wrap_int(ord(self.getchar(index0)))
        
-    def atput0(self, index0, w_value):
-        from pypy.lang.smalltalk import utility
-        self.setchar(index0, chr(utility.unwrap_int(w_value)))
+    def atput0(self, space, index0, w_value):
+        self.setchar(index0, chr(space.unwrap_int(w_value)))
 
     def getchar(self, n0):
         return self.bytes[n0]
@@ -241,8 +385,8 @@ class W_BytesObject(W_AbstractObjectWithClassReference):
                 return False
         return True
 
-    def shallow_equals(self, other):
-        if not isinstance(other,W_BytesObject):
+    def is_same_object(self, other):
+        if not isinstance(other, W_BytesObject):
             return False
         return self.bytes == other.bytes
 
@@ -251,13 +395,29 @@ class W_WordsObject(W_AbstractObjectWithClassReference):
         W_AbstractObjectWithClassReference.__init__(self, w_class)
         self.words = [0] * size
         
-    def at0(self, index0):
-        from pypy.lang.smalltalk import utility
-        return utility.wrap_int(self.getword(index0))
-       
-    def atput0(self, index0, w_value):
-        from pypy.lang.smalltalk import utility
-        self.setword(index0, utility.unwrap_int(w_value))
+    def at0(self, space, index0):
+        val = self.getword(index0)
+        if val & (3 << 30) == 0:
+            return space.wrap_int(val)
+        else:
+            w_result = W_BytesObject(space.classtable['w_LargePositiveInteger'], 4)
+            for i in range(4):
+                w_result.setchar(i, chr((val >> i*8) & 255))
+            return w_result
+ 
+    def atput0(self, space, index0, w_value):
+        if isinstance(w_value, W_BytesObject):
+            # XXX Probably we want to allow all subclasses
+            if not (w_value.getclass(self).is_same_object(
+                    space.classtable['w_LargePositiveInteger']) and
+                    w_value.size() == 4):
+                raise UnwrappingError("Failed to convert bytes to word")
+            word = 0
+            for i in range(4):
+                word += ord(w_value.getchar(i)) << 8*i
+        else:
+            word = space.unwrap_int(w_value)
+        self.setword(index0, word)
 
     def getword(self, n):
         return self.words[n]
@@ -272,11 +432,8 @@ class W_WordsObject(W_AbstractObjectWithClassReference):
         return (W_AbstractObjectWithClassReference.invariant(self) and
                 isinstance(self.words, list))
 
-    def shallow_equals(self, other):
-        if not isinstance(other,W_WordsObject):
-            return False
-        return self.words == other.words
-
+# XXX Shouldn't compiledmethod have class reference for subclassed compiled
+# methods?
 class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
     """My instances are methods suitable for interpretation by the virtual machine.  This is the only class in the system whose instances intermix both indexable pointer fields and indexable integer fields.
 
@@ -285,20 +442,17 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
         header (4 bytes)
         literals (4 bytes each)
         bytecodes  (variable)
-        trailer (variable)
-
-    The header is a 30-bit integer with the following format:
-
-    (index 0)   9 bits: main part of primitive number   (#primitive)
-    (index 9)   8 bits: number of literals (#numLiterals)
-    (index 17)  1 bit:  whether a large frame size is needed (#frameSize)
-    (index 18)  6 bits: number of temporary variables (#numTemps)
-    (index 24)  4 bits: number of arguments to the method (#numArgs)
-    (index 28)  1 bit:  high-bit of primitive number (#primitive)
-    (index 29)  1 bit:  flag bit, ignored by the VM  (#flag)
-
-    The trailer has two variant formats.  In the first variant, the last byte is at least 252 and the last four bytes represent a source pointer into one of the sources files (see #sourcePointer).  In the second variant, the last byte is less than 252, and the last several bytes are a compressed version of the names of the method's temporary variables.  The number of bytes used for this purpose is the value of the last byte in the method.
     """
+
+### Extension from Squeak 3.9 doc, which we do not implement:
+###        trailer (variable)
+###    The trailer has two variant formats.  In the first variant, the last
+###    byte is at least 252 and the last four bytes represent a source pointer
+###    into one of the sources files (see #sourcePointer).  In the second
+###    variant, the last byte is less than 252, and the last several bytes
+###    are a compressed version of the names of the method's temporary
+###    variables.  The number of bytes used for this purpose is the value of
+###    the last byte in the method.
 
     def __init__(self, bytecount=0, header=0):
         self.setheader(header)
@@ -306,17 +460,20 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
 
     def compiledin(self):  
         if self.w_compiledin is None:
-            # (Blue book, p 607) All CompiledMethods that contain extended-super bytecodes have the clain which they are found as their last literal variable.   
+            from pypy.lang.smalltalk import wrapper
+            # (Blue book, p 607) All CompiledMethods that contain
+            # extended-super bytecodes have the clain which they are found as
+            # their last literal variable.   
             # Last of the literals is an association with compiledin
             # as a class
-            association = self.literals[-1]
-            assert isinstance(association, W_PointersObject)
-            self.w_compiledin = association.fetch(constants.ASSOCIATION_VALUE_INDEX)
+            w_association = self.literals[-1]
+            # XXX XXX XXX where to get a space from here
+            association = wrapper.AssociationWrapper(None, w_association)
+            self.w_compiledin = association.value()
         return self.w_compiledin
 
-    def getclass(self):
-        from pypy.lang.smalltalk.classtable import w_CompiledMethod
-        return w_CompiledMethod
+    def getclass(self, space):
+        return space.w_CompiledMethod
 
     def getliteral(self, index):
                                     # We changed this part
@@ -327,15 +484,21 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
         assert isinstance(w_literal, W_BytesObject)
         return w_literal.as_string()    # XXX performance issue here
 
-    def create_frame(self, receiver, arguments, sender = None):
+    def create_frame(self, space, receiver, arguments, sender = None):
+        from pypy.lang.smalltalk import shadow
         assert len(arguments) == self.argsize
-        return W_MethodContext(self, receiver, arguments, sender)
+        w_new = shadow.MethodContextShadow.make_context(
+                space, self, receiver, arguments, sender)
+        return w_new
 
     def __str__(self):
         from pypy.lang.smalltalk.interpreter import BYTECODE_TABLE
-        return ("\n\nBytecode:\n---------------------\n" +
-                "\n".join([BYTECODE_TABLE[ord(i)].__name__ + " " + str(ord(i)) for i in self.bytes]) +
-                "\n---------------------\n")
+        j = 1
+        retval = "\n\nBytecode:\n---------------------\n"
+        for i in self.bytes:
+            retval += str(j) + ": " + BYTECODE_TABLE[ord(i)].__name__ + " " + str(ord(i)) + "\n"
+            j += 1
+        return retval + "\n---------------------\n"
 
     def invariant(self):
         return (W_Object.invariant(self) and
@@ -351,10 +514,13 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
                 self.primitive is not None)       
 
     def size(self):
-        return self.getliteralsize() + len(self.bytes) + self.headersize()
+        return self.headersize() + self.getliteralsize() + len(self.bytes) 
 
     def getliteralsize(self):
         return self.literalsize * constants.BYTES_PER_WORD
+
+    def bytecodeoffset(self):
+        return self.getliteralsize() + self.headersize()
 
     def headersize(self):
         return constants.BYTES_PER_WORD
@@ -363,13 +529,16 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
         return self.header
 
     def setheader(self, header):
-        #(index 0)  9 bits: main part of primitive number   (#primitive)
-        #(index 9)  8 bits: number of literals (#numLiterals)
-        #(index 17) 1 bit:  whether a large frame size is needed (#frameSize)
-        #(index 18) 6 bits: number of temporary variables (#numTemps)
-        #(index 24) 4 bits: number of arguments to the method (#numArgs)
-        #(index 28) 1 bit:  high-bit of primitive number (#primitive)
-        #(index 29) 1 bit:  flag bit, ignored by the VM  (#flag)
+        """Decode 30-bit method header and apply new format.
+
+        (index 0)  9 bits: main part of primitive number   (#primitive)
+        (index 9)  8 bits: number of literals (#numLiterals)
+        (index 17) 1 bit:  whether a large frame size is needed (#frameSize)
+        (index 18) 6 bits: number of temporary variables (#numTemps)
+        (index 24) 4 bits: number of arguments to the method (#numArgs)
+        (index 28) 1 bit:  high-bit of primitive number (#primitive)
+        (index 29) 1 bit:  flag bit, ignored by the VM  (#flag)
+        """
         primitive, literalsize, islarge, tempsize, numargs, highbit = (
             splitter[9,8,1,6,4,1](header))
         primitive = primitive + (highbit << 10) ##XXX todo, check this
@@ -378,224 +547,57 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
         self.header = header
         self.argsize = numargs
         self.tempsize = tempsize
+        assert self.tempsize >= self.argsize
         self.primitive = primitive
         self.w_compiledin = None
+        self.islarge = islarge
 
-    def literalat0(self, index0):
+    def literalat0(self, space, index0):
         if index0 == 0:
-            from pypy.lang.smalltalk import utility
-            return utility.wrap_int(self.getheader())
+            return space.wrap_int(self.getheader())
         else:
             return self.literals[index0-1]
 
-    def literalatput0(self, index0, w_value):
+    def literalatput0(self, space, index0, w_value):
         if index0 == 0:
-            from pypy.lang.smalltalk import utility
-            header = utility.unwrap_int(w_value)
+            header = space.unwrap_int(w_value)
             self.setheader(header)
         else:
             self.literals[index0-1] = w_value
 
-    def at0(self, index0):
-        from pypy.lang.smalltalk import utility
-        if index0 < self.getliteralsize():
-            self.literalat0(index0)
+    def store(self, space, index0, w_v):
+        self.atput0(space, index0, w_v)
+
+    def at0(self, space, index0):
+        if index0 <= self.getliteralsize():
+            return self.literalat0(space, index0 / constants.BYTES_PER_WORD)
         else:
-            index0 = index0 - self.getliteralsize()
-            return utility.wrap_int(ord(self.bytes[index0]))
+            # From blue book:
+            # The literal count indicates the size of the
+            # CompiledMethod's literal frame.
+            # This, in turn, indicates where the 
+            # CompiledMethod's bytecodes start. 
+            index0 = index0 - self.getliteralsize() - self.headersize()
+            assert index0 < len(self.bytes)
+            return space.wrap_int(ord(self.bytes[index0]))
         
-    def atput0(self, index0, w_value):
-        from pypy.lang.smalltalk import utility
-        if index0 < self.getliteralsize():
-            self.literalatput0(index0, w_value)
+    def atput0(self, space, index0, w_value):
+        if index0 <= self.getliteralsize():
+            self.literalatput0(space, index0 / constants.BYTES_PER_WORD, w_value)
         else:
             # XXX use to-be-written unwrap_char
-            index0 = index0 - self.getliteralsize()
-            self.setchar(index0, chr(utility.unwrap_int(w_value)))
+            index0 = index0 - self.getliteralsize() - self.headersize()
+            assert index0 < len(self.bytes)
+            self.setchar(index0, chr(space.unwrap_int(w_value)))
 
     def setchar(self, index0, character):
         assert index0 >= 0
         self.bytes = (self.bytes[:index0] + character +
                       self.bytes[index0 + 1:])
 
-class W_ContextPart(W_AbstractObjectWithIdentityHash):
-
-    __metaclass__ = extendabletype
-    
-    def __init__(self, w_home, w_sender):
-        self.stack = []
-        self.pc = 0
-        assert isinstance(w_home, W_MethodContext)
-        self.w_home = w_home
-        assert w_sender is None or isinstance(w_sender, W_ContextPart)
-        self.w_sender = w_sender
-
-    def receiver(self):
-        " Return self of the method, or the method that contains the block "
-        return self.w_home.w_receiver
-    
-    # ______________________________________________________________________
-    # Imitate the primitive accessors
-    
-    def fetch(self, index):
-        from pypy.lang.smalltalk import utility, objtable
-        if index == constants.CTXPART_SENDER_INDEX:
-            if self.w_sender:
-                return self.w_sender
-            else:
-                return objtable.w_nil
-        elif index == constants.CTXPART_PC_INDEX:
-            return utility.wrap_int(self.pc)
-        elif index == constants.CTXPART_STACKP_INDEX:
-            return utility.wrap_int(len(self.stack))
-        
-        # Invalid!
-        raise IndexError
-
-    def store(self, index, value):
-        raise NotImplementedError
-
-    # ______________________________________________________________________
-    # Method that contains the bytecode for this method/block context
-
-    def w_method(self):
-        return self.w_home._w_method
-
-    def getbytecode(self):
-        bytecode = self.w_method().bytes[self.pc]
-        currentBytecode = ord(bytecode)
-        self.pc = self.pc + 1
-        return currentBytecode
-
-    def getNextBytecode(self):
-        self.currentBytecode = self.getbytecode()
-        return self.currentBytecode
-
-    # ______________________________________________________________________
-    # Temporary Variables
-    #
-    # Are always fetched relative to the home method context.
-    
-    def gettemp(self, index):
-        return self.w_home.temps[index]
-
-    def settemp(self, index, w_value):
-        self.w_home.temps[index] = w_value
-
-    # ______________________________________________________________________
-    # Stack Manipulation
-
-    def pop(self):
-        return self.stack.pop()
-
-    def push(self, w_v):
-        assert w_v
-        self.stack.append(w_v)
-
-    def push_all(self, lst):
-        " Equivalent to 'for x in lst: self.push(x)' where x is a lst "
-        assert None not in lst
-        self.stack += lst
-
-    def top(self):
-        return self.peek(0)
-        
-    def peek(self, idx):
-        return self.stack[-(idx+1)]
-
-    def pop_n(self, n):
-        assert n >= 0
-        start = len(self.stack) - n
-        assert start >= 0          # XXX what if this fails?
-        del self.stack[start:]
-
-    def pop_and_return_n(self, n):
-        assert n >= 0
-        start = len(self.stack) - n
-        assert start >= 0          # XXX what if this fails?
-        res = self.stack[start:]
-        del self.stack[start:]
-        return res
-    
-class W_BlockContext(W_ContextPart):
-
-    def __init__(self, w_home, w_sender, argcnt, initialip):
-        W_ContextPart.__init__(self, w_home, w_sender)
-        self.argcnt = argcnt
-        self.initialip = initialip
-
-    def expected_argument_count(self):
-        return self.argcnt
-        
-    def getclass(self):
-        from pypy.lang.smalltalk.classtable import w_BlockContext
-        return w_BlockContext
-    
-    def fetch(self, index):
-        from pypy.lang.smalltalk import utility
-        if index == constants.BLKCTX_BLOCK_ARGUMENT_COUNT_INDEX:
-            return utility.wrap_int(self.argcnt)
-        elif index == constants.BLKCTX_INITIAL_IP_INDEX:
-            return utility.wrap_int(self.initialip)
-        elif index == constants.BLKCTX_HOME_INDEX:
-            return self.w_home
-        elif index >= constants.BLKCTX_TEMP_FRAME_START:
-            stack_index = len(self.stack) - index - 1
-            return self.stack[stack_index]
-        else:
-            return W_ContextPart.fetch(self, index)
-
-    def store(self, index, value):
-        # THIS IS ALL UNTESTED CODE and we're a bit unhappy about it
-        # because it crashd the translation N+4 times :-(
-        from pypy.lang.smalltalk import utility
-        if index == constants.BLKCTX_BLOCK_ARGUMENT_COUNT_INDEX:
-            self.argcnt = utility.unwrap_int(value)
-        elif index == constants.BLKCTX_INITIAL_IP_INDEX:
-            self.pc = utility.unwrap_int(value)
-        elif index == constants.BLKCTX_HOME_INDEX:
-            assert isinstance(value, W_MethodContext)
-            self.w_home = value
-        elif index >= constants.BLKCTX_TEMP_FRAME_START:
-            stack_index = len(self.stack) - index - 1
-            self.stack[stack_index] = value
-        else:
-            W_ContextPart.store(self, index, value)
-
-class W_MethodContext(W_ContextPart):
-    def __init__(self, w_method, w_receiver,
-                 arguments, w_sender=None):
-        W_ContextPart.__init__(self, self, w_sender)
-        self._w_method = w_method
-        self.w_receiver = w_receiver
-        self.temps = arguments + [w_nil] * w_method.tempsize
-
-    def getclass(self):
-        from pypy.lang.smalltalk.classtable import w_MethodContext
-        return w_MethodContext
-
-    def fetch(self, index):
-        if index == constants.MTHDCTX_METHOD:
-            return self.w_method()
-        elif index == constants.MTHDCTX_RECEIVER_MAP: # what is this thing?
-            return w_nil
-        elif index == constants.MTHDCTX_RECEIVER:
-            return self.w_receiver
-        elif index >= constants.MTHDCTX_TEMP_FRAME_START:
-            # First set of indices are temporary variables:
-            offset = index - constants.MTHDCTX_TEMP_FRAME_START
-            if offset < len(self.temps):
-                return self.temps[offset]
-
-            # After that comes the stack:
-            offset -= len(self.temps)
-            stack_index = len(self.stack) - offset - 1
-            return self.stack[stack_index]
-        else:
-            return W_ContextPart.fetch(self, index)
-
 # Use black magic to create w_nil without running the constructor,
 # thus allowing it to be used even in the constructor of its own
-# class.  Note that we patch its class in objtable.
+# class.  Note that we patch its class in the space
+# YYY there should be no global w_nil
 w_nil = instantiate(W_PointersObject)
 w_nil._vars = []

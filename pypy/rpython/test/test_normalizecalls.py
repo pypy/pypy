@@ -219,6 +219,7 @@ class TestNormalizeAfterTheFact(TestNormalize):
     def test_add_more_subclasses(self):
         from pypy.rpython import rclass
         from pypy.rpython.lltypesystem.rclass import ll_issubclass
+        from pypy.rpython.lltypesystem.rclass import CLASSTYPE
         class Sub3(PBase):
             def newmethod(self):
                 return 3
@@ -232,9 +233,9 @@ class TestNormalizeAfterTheFact(TestNormalize):
             bk = translator.annotator.bookkeeper
             rtyper = translator.rtyper
             base_classdef = bk.getuniqueclassdef(PBase)
-            base_vtable = rclass.getclassrepr(rtyper, base_classdef).getruntime()
+            base_vtable = rclass.getclassrepr(rtyper, base_classdef).getruntime(CLASSTYPE)
             sub3_classdef = bk.getuniqueclassdef(Sub3)
-            sub3_vtable = rclass.getclassrepr(rtyper, sub3_classdef).getruntime()
+            sub3_vtable = rclass.getclassrepr(rtyper, sub3_classdef).getruntime(CLASSTYPE)
             assert ll_issubclass(sub3_vtable, base_vtable)
             assert not ll_issubclass(base_vtable, sub3_vtable)
 

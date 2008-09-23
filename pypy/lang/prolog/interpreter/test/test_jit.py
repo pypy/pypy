@@ -1,4 +1,5 @@
 import py
+py.test.skip("JIT disabled for now")
 from pypy.jit.timeshifter.test.test_portal import PortalTest, P_NOVIRTUAL
 from pypy.lang.prolog.interpreter import portal
 from pypy.lang.prolog.interpreter import engine, term

@@ -75,16 +75,16 @@ class AppTestBuiltinApp:
         def nosp(x): return [y for y in x if y[0]!='_']
         assert f() == []
         assert g() == ['a', 'b', 'c']
-        class X: pass
+        class X(object): pass
         assert nosp(dir(X)) == []
-        class X:
+        class X(object):
             a = 23
             c = 45
             b = 67
         assert nosp(dir(X)) == ['a', 'b', 'c']
 
     def test_dir_in_broken_locals(self):
-        class C:
+        class C(object):
             def __getitem__(self, item):
                 raise KeyError(item)
             def keys(self):
@@ -100,7 +100,7 @@ class AppTestBuiltinApp:
         assert g() == {'a':0, 'b':0, 'c':0}
 
     def test_getattr(self):
-        class a:
+        class a(object):
             i = 5
         assert getattr(a, 'i') == 5
         raises(AttributeError, getattr, a, 'k')
@@ -282,7 +282,7 @@ class AppTestBuiltinApp:
 
     def test_reversed_custom_objects(self):
         """make sure __reversed__ is called when defined"""
-        class SomeClass:
+        class SomeClass(object):
             def __reversed__(self):
                 return 42
         obj = SomeClass()
@@ -297,7 +297,7 @@ class AppTestBuiltinApp:
         assert cmp(u"abc", 12) != 0
 
     def test_cmp_more(self):
-        class C:
+        class C(object):
             def __eq__(self, other):
                 return True
             def __cmp__(self, other):
@@ -332,7 +332,7 @@ class AppTestBuiltinApp:
         raises(TypeError,coerce, u'a' , 'a')
 
     def test_return_None(self):
-        class X: pass
+        class X(object): pass
         x = X()
         assert setattr(x, 'x', 11) == None
         assert delattr(x, 'x') == None
@@ -343,7 +343,7 @@ class AppTestBuiltinApp:
         assert divmod(15,10) ==(1,5)
 
     def test_callable(self):
-        class Call:
+        class Call(object):
             def __call__(self, a):
                 return a+2
         assert callable(Call()), (
@@ -351,10 +351,6 @@ class AppTestBuiltinApp:
         assert callable(int), (
                     "Builtin function 'callable' misreads int")
         class Call:
-            try:
-                __metaclass__ = _classobj
-            except NameError: # not running on PyPy, assuming oldstyle implicitely 
-                pass
             def __call__(self, a):
                 return a+2
         assert callable(Call())
@@ -374,10 +370,7 @@ class AppTestBuiltinApp:
         assert not callable(a), (
                     "Builtin function 'callable' tricked by instance-__call__")
         class NoCall:
-            try:
-                __metaclass__ = _classobj
-            except NameError: # not running on PyPy, assuming oldstyle implicitely 
-                pass
+            pass
         assert not callable(NoCall())
 
     def test_hash(self):
@@ -435,7 +428,7 @@ class AppTestBuiltinApp:
         raises(TypeError, issubclass, int, (float, 6))
 
     def test_staticmethod(self):
-        class X:
+        class X(object):
             def f(*args, **kwds): return args, kwds
             f = staticmethod(f)
         assert X.f() == ((), {})
@@ -444,7 +437,7 @@ class AppTestBuiltinApp:
         assert X().f(42, x=43) == ((42,), {'x': 43})
 
     def test_classmethod(self):
-        class X:
+        class X(object):
             def f(*args, **kwds): return args, kwds
             f = classmethod(f)
         class Y(X):
@@ -509,6 +502,28 @@ class AppTestBuiltinOptimized(object):
     def test_delete_from_builtins(self):
         s = """ """
         # XXX write this test!
+
+    def test_shadow_case_bound_method(self):
+        s = """def test(l):
+        n = len(l)
+        old_len = len
+        class A(object):
+            x = 5
+            def length(self, o):
+                return self.x*old_len(o)
+        import __builtin__
+        __builtin__.len = A().length
+        try:
+            m = len(l)
+        finally:
+            __builtin__.len = old_len
+        return n+m
+        """
+        ns = {}
+        exec s in ns
+        res = ns["test"]([2,3,4])
+        assert res == 18
+        
 
 class TestInternal:
 

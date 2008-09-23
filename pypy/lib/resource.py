@@ -58,9 +58,11 @@ config = configure(ResourceConfigure)
 rlim_t = config['rlim_t']
 for key in _CONSTANTS:
     globals()[key] = config[key]
+optional_constants = []
 for key in _OPTIONAL_CONSTANTS:
     if config[key] is not None:
         globals()[key] = config[key]
+        optional_constants.append(key)
 del config
 
 class ResourceError(OSError):
@@ -170,8 +172,10 @@ def getpagesize():
             # Irix 5.3 has _SC_PAGESIZE, but not _SC_PAGE_SIZE
             return sysconf("SC_PAGESIZE")
 
-__all__ = _CONSTANTS + _OPTIONAL_CONSTANTS + (
+__all__ = _CONSTANTS + tuple(optional_constants) + (
     'ResourceError', 'timeval', 'struct_rusage', 'rlimit',
     'getrusage', 'getrlimit', 'setrlimit', 'getpagesize',
 )
+
+del optional_constants
 

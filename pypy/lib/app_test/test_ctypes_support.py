@@ -1,6 +1,10 @@
 
 from ctypes import *
-from ctypes_support import standard_c_lib, get_errno, set_errno
+try:
+    from ctypes_support import standard_c_lib, get_errno, set_errno
+except ImportError:    # on top of cpython
+    from pypy.lib.ctypes_support import standard_c_lib, get_errno, set_errno
+
 
 def test_stdlib_and_errno():
     write = standard_c_lib.write

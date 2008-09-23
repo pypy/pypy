@@ -7,8 +7,6 @@ def callback_func(arg):
     42 / arg
     raise ValueError, arg
 
-py.test.skip("implementation details are different on pypy")
-
 class TestCallbackTraceback:
     # When an exception is raised in a ctypes callback function, the C
     # code prints a traceback.
@@ -53,7 +51,7 @@ class TestCallbackTraceback:
     def test_TypeErrorDivisionError(self):
         cb = CFUNCTYPE(c_int, c_char_p)(callback_func)
         out = self.capture_stderr(cb, "spam")
-        assert out.splitlines()[-1] == (
+        assert out.splitlines()[-1].startswith(
                              "TypeError: "
-                             "unsupported operand type(s) for /: 'int' and 'str'")
+                             "unsupported operand type(s) for")
 

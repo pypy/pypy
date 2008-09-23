@@ -289,8 +289,7 @@ def op_cast_int_to_longlong(b):
 
 def op_truncate_longlong_to_int(b):
     assert type(b) is r_longlong
-    assert -sys.maxint-1 <= b <= sys.maxint
-    return int(b)
+    return intmask(b)
 
 def op_cast_pointer(RESTYPE, obj):
     checkptr(obj)
@@ -384,7 +383,8 @@ def op_getarrayitem(p, index):
 
 def op_debug_print(*args):
     for arg in args:
-        print arg
+        print arg,
+    print
 
 # ____________________________________________________________
 

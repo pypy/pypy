@@ -14,6 +14,7 @@ def register_all(module_dict, *alt_ns):
     """
     from pypy.objspace.std.objspace import StdObjSpace
     from pypy.objspace.std.model import W_ANY, W_Object
+    from pypy.objspace.std.stdtypedef import StdTypeDef
     namespaces = list(alt_ns) + [StdObjSpace.MM, StdObjSpace]
 
     for name, obj in module_dict.items():
@@ -31,6 +32,10 @@ def register_all(module_dict, *alt_ns):
             else:
                 icls = (module_dict.get('W_%s' % i) or
                         module_dict.get('W_%sObject' % i))
+                if icls is None:
+                    x = module_dict.get(i)
+                    if isinstance(x, StdTypeDef):
+                        icls = x.any
                 if icls is None:
                     raise ValueError, \
                           "no W_%s or W_%sObject for the definition of %s" % (

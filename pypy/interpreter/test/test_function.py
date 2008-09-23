@@ -11,6 +11,8 @@ class AppTestFunctionIntrospection:
         def f(): pass
         assert hasattr(f, 'func_code')
         assert f.func_defaults == None
+        f.func_defaults = None
+        assert f.func_defaults == None
         assert f.func_dict == {}
         assert type(f.func_globals) == dict
         #self.assertEquals(f.func_closure, None)  XXX
@@ -82,10 +84,18 @@ class AppTestFunction:
         assert res[0] == 23
         assert res[1] == (42,)
 
+        res = func(23, *(42,))
+        assert res[0] == 23
+        assert res[1] == (42,)        
+
     def test_simple_kwargs(self):
         def func(arg1, **kwargs):
             return arg1, kwargs
         res = func(23, value=42)
+        assert res[0] == 23
+        assert res[1] == {'value': 42}
+
+        res = func(23, **{'value': 42})
         assert res[0] == 23
         assert res[1] == {'value': 42}
 
@@ -144,6 +154,25 @@ class AppTestFunction:
             return arg1, kw
         raises(TypeError, func, 42, **{'arg1': 23})
 
+    def test_kwargs_bound_blind(self):
+        class A(object):
+            def func(self, **kw):
+                return self, kw
+        func = A().func
+
+        # don't want the extra argument passing of raises
+        try:
+            func(self=23)
+            assert False
+        except TypeError:
+            pass
+
+        try:
+            func(**{'self': 23})
+            assert False
+        except TypeError:
+            pass        
+
     def test_kwargs_confusing_name(self):
         def func(self):    # 'self' conflicts with the interp-level
             return self*7  # argument to call_function()
@@ -175,6 +204,55 @@ class AppTestFunction:
         assert type(f.__doc__) is unicode
 
 class AppTestMethod: 
+    def test_simple_call(self):
+        class A(object):
+            def func(self, arg2):
+                return self, arg2
+        a = A()
+        res = a.func(42)
+        assert res[0] is a
+        assert res[1] == 42
+
+    def test_simple_varargs(self):
+        class A(object):
+            def func(self, *args):
+                return self, args
+        a = A()
+        res = a.func(42)
+        assert res[0] is a
+        assert res[1] == (42,)
+
+        res = a.func(*(42,))
+        assert res[0] is a
+        assert res[1] == (42,)        
+
+    def test_obscure_varargs(self):
+        class A(object):
+            def func(*args):
+                return args
+        a = A()
+        res = a.func(42)
+        assert res[0] is a
+        assert res[1] == 42
+
+        res = a.func(*(42,))
+        assert res[0] is a
+        assert res[1] == 42        
+
+    def test_simple_kwargs(self):
+        class A(object):
+            def func(self, **kwargs):
+                return self, kwargs
+        a = A()
+            
+        res = a.func(value=42)
+        assert res[0] is a
+        assert res[1] == {'value': 42}
+
+        res = a.func(**{'value': 42})
+        assert res[0] is a
+        assert res[1] == {'value': 42}
+
     def test_get(self):
         def func(self): return self
         class Object(object): pass
@@ -189,7 +267,7 @@ class AppTestMethod:
     def test_get_get(self):
         # sanxiyn's test from email
         def m(self): return self
-        class C: pass
+        class C(object): pass
         class D(C): pass
         C.m = m
         D.m = C.m
@@ -199,7 +277,7 @@ class AppTestMethod:
         assert d.m() == d
 
     def test_method_eq(self):
-        class C:
+        class C(object):
             def m(): pass
         c = C()
         assert C.m == C.m
@@ -227,10 +305,6 @@ class AppTestMethod:
         assert repr(A.f) == "<unbound method A.f>"
         assert repr(A().f).startswith("<bound method A.f of <") 
         class B:
-            try:
-                __metaclass__ = _classobj
-            except NameError: # non-pypy, assuming oldstyle implicitely
-                pass
             def f(self):
                 pass
         assert repr(B.f) == "<unbound method B.f>"
@@ -238,13 +312,13 @@ class AppTestMethod:
 
 
     def test_method_call(self):
-        class C:
+        class C(object):
             def __init__(self, **kw):
                 pass
         c = C(type='test')
 
     def test_method_w_callable(self):
-        class A:
+        class A(object):
             def __call__(self, x):
                 return x
         import new
@@ -252,7 +326,7 @@ class AppTestMethod:
         assert im() == 3
 
     def test_method_w_callable_call_function(self):
-        class A:
+        class A(object):
             def __call__(self, x, y):
                 return x+y
         import new
@@ -281,6 +355,46 @@ class AppTestMethod:
         class Fun:
             __metaclass__ = A().foo
         assert Fun[:2] == ('Fun', ())
+
+    def test_unbound_abstract_typecheck(self):
+        import new
+        def f(*args):
+            return args
+        m = new.instancemethod(f, None, "foobar")
+        raises(TypeError, m)
+        raises(TypeError, m, None)
+        raises(TypeError, m, "egg")
+
+        m = new.instancemethod(f, None, (str, int))     # really obscure...
+        assert m(4) == (4,)
+        assert m("uh") == ("uh",)
+        raises(TypeError, m, [])
+
+        class MyBaseInst(object):
+            pass
+        class MyInst(MyBaseInst):
+            def __init__(self, myclass):
+                self.myclass = myclass
+            def __class__(self):
+                if self.myclass is None:
+                    raise AttributeError
+                return self.myclass
+            __class__ = property(__class__)
+        class MyClass(object):
+            pass
+        BBase = MyClass()
+        BSub1 = MyClass()
+        BSub2 = MyClass()
+        BBase.__bases__ = ()
+        BSub1.__bases__ = (BBase,)
+        BSub2.__bases__ = (BBase,)
+        x = MyInst(BSub1)
+        m = new.instancemethod(f, None, BSub1)
+        assert m(x) == (x,)
+        raises(TypeError, m, MyInst(BBase))
+        raises(TypeError, m, MyInst(BSub2))
+        raises(TypeError, m, MyInst(None))
+        raises(TypeError, m, MyInst(42))
 
 
 class TestMethod: 
@@ -342,3 +456,92 @@ class TestMethod:
         # --- with an incompatible class
         w_meth5 = meth3.descr_method_get(space.wrap('hello'), space.w_str)
         assert space.is_w(w_meth5, w_meth3)
+
+class TestShortcuts(object):
+
+    def test_call_function(self):
+        space = self.space
+        
+        d = {}
+        for i in range(10):
+            args = "(" + ''.join(["a%d," % a for a in range(i)]) + ")"
+            exec """
+def f%s:
+    return %s
+""" % (args, args) in d
+            f = d['f']
+            res = f(*range(i))
+            code = PyCode._from_code(self.space, f.func_code)
+            fn = Function(self.space, code, self.space.newdict())
+
+            assert fn.code.fast_natural_arity == i|PyCode.FLATPYCALL
+            if i < 5:
+
+                 def bomb(*args):
+                     assert False, "shortcutting should have avoided this"
+
+                 code.funcrun = bomb
+                 code.funcrun_obj = bomb
+
+            args_w = map(space.wrap, range(i))            
+            w_res = space.call_function(fn, *args_w)
+            check = space.is_true(space.eq(w_res, space.wrap(res)))
+            assert check
+
+    def test_flatcall(self):
+        space = self.space
+        
+        def f(a):
+            return a
+        code = PyCode._from_code(self.space, f.func_code)
+        fn = Function(self.space, code, self.space.newdict())
+
+        assert fn.code.fast_natural_arity == 1|PyCode.FLATPYCALL
+
+        def bomb(*args):
+            assert False, "shortcutting should have avoided this"
+
+        code.funcrun = bomb
+        code.funcrun_obj = bomb
+
+        w_3 = space.newint(3)
+        w_res = space.call_function(fn, w_3)
+
+        assert w_res is w_3
+
+        w_res = space.appexec([fn, w_3], """(f, x):
+        return f(x)
+        """)
+
+        assert w_res is w_3
+
+    def test_flatcall_method(self):
+        space = self.space
+        
+        def f(self, a):
+            return a
+        code = PyCode._from_code(self.space, f.func_code)
+        fn = Function(self.space, code, self.space.newdict())
+
+        assert fn.code.fast_natural_arity == 2|PyCode.FLATPYCALL
+
+        def bomb(*args):
+            assert False, "shortcutting should have avoided this"
+
+        code.funcrun = bomb
+        code.funcrun_obj = bomb
+
+        w_3 = space.newint(3)
+        w_res = space.appexec([fn, w_3], """(f, x):
+        class A(object):
+           m = f
+        y = A().m(x)
+        b = A().m
+        z = b(x)
+        return y is x and z is x
+        """)
+
+        assert space.is_true(w_res)
+
+        
+        

@@ -394,7 +394,7 @@ class PyFlowGraph(object):
         l_w = [None] * len(keys_w)
         for w_key in keys_w:
             index = space.int_w(space.getitem(self.w_consts, w_key))
-            w_v = space.unpacktuple(w_key)[0]
+            w_v = space.viewiterable(w_key)[0]
             l_w[index] = w_v
         return l_w
 

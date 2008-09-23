@@ -25,3 +25,15 @@ class AppTestMarshalMore:
         import marshal
         z = marshal.loads(buffer('i\x02\x00\x00\x00???'))
         assert z == 2
+
+    def test_marshal_buffer_object(self):
+        import marshal
+        s = marshal.dumps(buffer('foobar'))
+        t = marshal.loads(s)
+        assert type(t) is str and t == 'foobar'
+
+    def test_marshal_bufferlike_object(self):
+        import marshal, array
+        s = marshal.dumps(array.array('c', 'asd'))
+        t = marshal.loads(s)
+        assert type(t) is str and t == 'asd'

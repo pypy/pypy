@@ -1,6 +1,6 @@
 from pypy.interpreter.gateway import ObjSpace
 from pypy.interpreter.error import OperationError
-from pypy.module.struct.error import StructError
+from pypy.rlib.rstruct.error import StructError
 from pypy.module.struct.formatiterator import CalcSizeFormatIterator
 from pypy.module.struct.formatiterator import PackFormatIterator
 from pypy.module.struct.formatiterator import UnpackFormatIterator
@@ -33,5 +33,5 @@ def unpack(space, format, input):
         fmtiter.interpret(format)
     except StructError, e:
         raise e.at_applevel(space)
-    return space.newtuple(fmtiter.result_w)
+    return space.newtuple(fmtiter.result_w[:])
 unpack.unwrap_spec = [ObjSpace, str, 'bufferstr']

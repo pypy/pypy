@@ -11,7 +11,7 @@ def descr__new__(space, w_typetype, w_name, w_bases, w_dict):
 
     w_typetype = _precheck_for_new(space, w_typetype)
     
-    bases_w = space.unpackiterable(w_bases)
+    bases_w = space.viewiterable(w_bases)
 
     w_winner = w_typetype
     for base in bases_w:
@@ -56,6 +56,8 @@ def _precheck_for_new(space, w_type):
                                      (space.type(w_type).getname(space, '?'))))
     return w_type
 
+# ____________________________________________________________
+
 def _check(space, w_type, msg=None):
     from pypy.objspace.std.typeobject import W_TypeObject
     if not isinstance(w_type, W_TypeObject):
@@ -78,138 +80,94 @@ def descr_set__name__(space, w_type, w_value):
 
 def descr_get__mro__(space, w_type):
     w_type = _check(space, w_type)
-    # XXX this should be inside typeobject.py
     return space.newtuple(w_type.mro_w)
 
 def descr_mro(space, w_type):
     """Return a type's method resolution order."""
     w_type = _check(space, w_type,"expected type")
-    return space.newlist(w_type.compute_mro())
+    return space.newlist(w_type.compute_default_mro())
 
 def descr_get__bases__(space, w_type):
     w_type = _check(space, w_type)
     return space.newtuple(w_type.bases_w)
 
 def mro_subclasses(space, w_type, temp):
-    from pypy.objspace.std.typeobject import W_TypeObject
+    from pypy.objspace.std.typeobject import W_TypeObject, compute_mro
+    temp.append((w_type, w_type.mro_w))
+    compute_mro(w_type)
     for w_sc in w_type.get_subclasses():
         assert isinstance(w_sc, W_TypeObject)
-        temp.append((w_sc, w_sc.mro_w))
-        mro_internal(space, w_sc)
         mro_subclasses(space, w_sc, temp)
 
-# should be a W_TypeObject method i guess
-def mro_internal(space, w_type):
-    if not space.is_w(space.type(w_type), space.w_type):
-        #w_type.mro_w = []
-        mro_func = space.lookup(w_type, 'mro')
-        mro_func_args = Arguments(space, [w_type])
-        w_mro = space.call_args(mro_func, mro_func_args)
-        w_type.mro_w = space.unpackiterable(w_mro)
-        # do some checking here
-    else:
-        w_type.mro_w = w_type.compute_mro()
-
-def best_base(space, newstyle_bases_w):
-    if not newstyle_bases_w:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("a new-style class can't have only classic bases"))
-    w_bestbase = None
-    w_winner = None
-    for w_base in newstyle_bases_w:
-        w_candidate = w_base.get_layout()
-        if w_winner is None:
-            w_winner = w_candidate
-            w_bestbase = w_base
-        elif space.is_true(space.issubtype(w_winner, w_candidate)):
-            pass
-        elif space.is_true(space.issubtype(w_candidate, w_winner)):
-            w_winner = w_candidate
-            w_bestbase = w_base
-        else:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("multiple bases have instance lay-out conflict"))
-    return w_bestbase
-
 def descr_set__bases__(space, w_type, w_value):
-    from pypy.objspace.std.typeobject import W_TypeObject
     # this assumes all app-level type objects are W_TypeObject
+    from pypy.objspace.std.typeobject import W_TypeObject
+    from pypy.objspace.std.typeobject import check_and_find_best_base
+    from pypy.objspace.std.typeobject import get_parent_layout
     w_type = _check(space, w_type)
     if not w_type.is_heaptype():
         raise OperationError(space.w_TypeError,
                              space.wrap("can't set %s.__bases__" %
-                                        w_type.name))
+                                        (w_type.name,)))
     if not space.is_true(space.isinstance(w_value, space.w_tuple)):
         raise OperationError(space.w_TypeError,
                              space.wrap("can only assign tuple"
                                         " to %s.__bases__, not %s"%
-                                     (w_type.name,
-                                      space.type(w_value).getname(space, '?'))))
-    if space.int_w(space.len(w_value)) == 0:
+                                    (w_type.name,
+                                     space.type(w_value).getname(space, '?'))))
+    newbases_w = space.viewiterable(w_value)
+    if len(newbases_w) == 0:
         raise OperationError(space.w_TypeError,
-                             space.wrap("can only assign non-empty tuple to %s.__bases__, not ()"%
-                                        w_type.name))
-    new_newstyle_bases = []
-    for w_base in space.unpackiterable(w_value):
-        if not isinstance(w_base, W_TypeObject):
-            w_typ = space.type(w_base)
-            if not space.is_w(w_typ, space.w_classobj):
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("%s.__bases__ must be tuple "
-                                                "of old- or new-style classes"
-                                                ", not '%s'"%
-                                                (w_type.name,
-                                                 w_typ.getname(space, '?'))))
-        else:
-            new_newstyle_bases.append(w_base)
-            if space.is_true(space.issubtype(w_base, w_type)):
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("a __bases__ item causes an inheritance cycle"))
+                             space.wrap("can only assign non-empty tuple"
+                                        " to %s.__bases__, not ()"%
+                                        (w_type.name,)))
 
-    new_base = best_base(space, new_newstyle_bases)
+    for w_newbase in newbases_w:
+        if isinstance(w_newbase, W_TypeObject):
+            if w_type in w_newbase.compute_default_mro():
+                raise OperationError(space.w_TypeError,
+                                     space.wrap("a __bases__ item causes"
+                                                " an inheritance cycle"))
 
-    if w_type.w_bestbase.get_full_instance_layout() != new_base.get_full_instance_layout():
+    w_oldbestbase = check_and_find_best_base(space, w_type.bases_w)
+    w_newbestbase = check_and_find_best_base(space, newbases_w)
+    oldlayout = w_oldbestbase.get_full_instance_layout()
+    newlayout = w_newbestbase.get_full_instance_layout()
+
+    if oldlayout != newlayout:
         raise OperationError(space.w_TypeError,
-                             space.wrap("__bases__ assignment: '%s' object layout differs from '%s'" %
-                                        (w_type.getname(space, '?'), new_base.getname(space, '?'))))
+                space.wrap("__bases__ assignment: '%s' object layout"
+                           " differs from '%s'" %
+                           (w_newbestbase.getname(space, '?'),
+                            w_oldbestbase.getname(space, '?'))))
 
     # invalidate the version_tag of all the current subclasses
     w_type.mutated()
 
-    saved_bases = w_type.bases_w
-    saved_base = w_type.w_bestbase
-    saved_mro = w_type.mro_w
-
-    w_type.bases_w = space.unpackiterable(w_value)
-    w_type.w_bestbase = new_base
-
+    # now we can go ahead and change 'w_type.bases_w'
+    saved_bases_w = w_type.bases_w
     temp = []
     try:
-        mro_internal(space, w_type)
-
+        for w_oldbase in saved_bases_w:
+            if isinstance(w_oldbase, W_TypeObject):
+                w_oldbase.remove_subclass(w_type)
+        w_type.bases_w = newbases_w
+        for w_newbase in newbases_w:
+            if isinstance(w_newbase, W_TypeObject):
+                w_newbase.add_subclass(w_type)
+        # try to recompute all MROs
         mro_subclasses(space, w_type, temp)
-
-        for old_base in saved_bases:
-            if isinstance(old_base, W_TypeObject):
-                old_base.remove_subclass(w_type)
-        for new_base in new_newstyle_bases:
-            new_base.add_subclass(w_type)
     except:
         for cls, old_mro in temp:
             cls.mro_w = old_mro
-        w_type.bases_w = saved_bases
-        w_type.w_bestbase = saved_base
-        w_type.mro_w = saved_mro
+        w_type.bases_w = saved_bases_w
         raise
-    
+    assert w_type.w_same_layout_as is get_parent_layout(w_type)  # invariant
+
 def descr__base(space, w_type):
+    from pypy.objspace.std.typeobject import find_best_base
     w_type = _check(space, w_type)
-    if w_type.w_bestbase is not None:
-        return w_type.w_bestbase
-    elif w_type is not space.w_object:
-        return space.w_object
-    else:
-        return space.w_None
+    return find_best_base(space, w_type.bases_w)
 
 def descr__doc(space, w_type):
     if space.is_w(w_type, space.w_type):

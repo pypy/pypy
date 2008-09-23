@@ -86,6 +86,8 @@ def test_execute():
     def trace(goals):
         t = []
         for goal in goals:
+            t.append(('planned', goal))
+        for goal in goals:
             t.extend([('pre', goal), goal, ('post', goal)])
         return t
 

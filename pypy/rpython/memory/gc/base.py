@@ -7,6 +7,16 @@ class GCBase(object):
     needs_write_barrier = False
     malloc_zero_filled = False
     prebuilt_gc_objects_are_static_roots = True
+    can_realloc = False
+
+    def can_malloc_nonmovable(self):
+        return not self.moving_gc
+
+    # The following flag enables costly consistency checks after each
+    # collection.  It is automatically set to True by test_gc.py.  The
+    # checking logic is translatable, so the flag can be set to True
+    # here before translation.
+    DEBUG = False
 
     def set_query_functions(self, is_varsize, has_gcptr_in_varsize,
                             is_gcarrayofgcptr,
@@ -32,7 +42,7 @@ class GCBase(object):
     def set_root_walker(self, root_walker):
         self.root_walker = root_walker
 
-    def write_barrier(self, oldvalue, newvalue, addr_struct):
+    def write_barrier(self, newvalue, addr_struct):
         pass
 
     def setup(self):
@@ -44,66 +54,48 @@ class GCBase(object):
     def size_gc_header(self, typeid=0):
         return self.gcheaderbuilder.size_gc_header
 
-    def malloc(self, typeid, length=0, zero=False, coallocator=None):
+    def malloc(self, typeid, length=0, zero=False):
         """For testing.  The interface used by the gctransformer is
         the four malloc_[fixed,var]size[_clear]() functions.
-        And (if they exist) to the coalloc_[fixed,var]size_clear functions
         """
         # Rules about fallbacks in case of missing malloc methods:
         #  * malloc_fixedsize_clear() and malloc_varsize_clear() are mandatory
         #  * malloc_fixedsize() and malloc_varsize() fallback to the above
-        #  * coalloc_fixedsize_clear() and coalloc_varsize_clear() are optional
-        # There is no non-clear version of coalloc for now.
         # XXX: as of r49360, gctransformer.framework never inserts calls
         # to malloc_varsize(), but always uses malloc_varsize_clear()
 
         size = self.fixed_size(typeid)
         needs_finalizer = bool(self.getfinalizer(typeid))
-        weakptr_offset = self.weakpointer_offset(typeid)
-        #XXX cannot compare weakptr_offset with -1
-        #contains_weakptr = weakpointer_offset. != -1
-        if isinstance(weakptr_offset, int):
-            assert weakptr_offset == -1
-            contains_weakptr = False
-        else:
-            contains_weakptr = True
+        contains_weakptr = self.weakpointer_offset(typeid) >= 0
         assert not (needs_finalizer and contains_weakptr)
         if self.is_varsize(typeid):
             assert not contains_weakptr
             itemsize = self.varsize_item_sizes(typeid)
             offset_to_length = self.varsize_offset_to_length(typeid)
-            if (coallocator is not None and
-                hasattr(self, "coalloc_varsize_clear")):
-                assert not needs_finalizer
-                coallocator = llmemory.cast_ptr_to_adr(coallocator)
-                ref = self.coalloc_varsize_clear(coallocator, typeid,
-                                                 length, size,
-                                                 itemsize, offset_to_length)
+            if zero or not hasattr(self, 'malloc_varsize'):
+                malloc_varsize = self.malloc_varsize_clear
             else:
-                if zero or not hasattr(self, 'malloc_varsize'):
-                    malloc_varsize = self.malloc_varsize_clear
-                else:
-                    malloc_varsize = self.malloc_varsize
-                ref = malloc_varsize(typeid, length, size, itemsize,
-                                     offset_to_length, True, needs_finalizer)
+                malloc_varsize = self.malloc_varsize
+            ref = malloc_varsize(typeid, length, size, itemsize,
+                                 offset_to_length, True, needs_finalizer)
         else:
-            if (coallocator is not None and
-                hasattr(self, "coalloc_fixedsize_clear")):
-                assert not needs_finalizer
-                coallocator = llmemory.cast_ptr_to_adr(coallocator)
-                ref = self.coalloc_fixedsize_clear(coallocator, typeid, size)
+            if zero or not hasattr(self, 'malloc_fixedsize'):
+                malloc_fixedsize = self.malloc_fixedsize_clear
             else:
-                if zero or not hasattr(self, 'malloc_fixedsize'):
-                    malloc_fixedsize = self.malloc_fixedsize_clear
-                else:
-                    malloc_fixedsize = self.malloc_fixedsize
-                ref = malloc_fixedsize(typeid, size, True, needs_finalizer,
-                                       contains_weakptr)
+                malloc_fixedsize = self.malloc_fixedsize
+            ref = malloc_fixedsize(typeid, size, True, needs_finalizer,
+                                   contains_weakptr)
         # lots of cast and reverse-cast around...
         return llmemory.cast_ptr_to_adr(ref)
 
+    def malloc_nonmovable(self, typeid, length=0, zero=False):
+        return self.malloc(typeid, length, zero)
+
     def id(self, ptr):
         return lltype.cast_ptr_to_int(ptr)
+
+    def can_move(self, addr):
+        return False
 
     def set_max_heap_size(self, size):
         pass
@@ -113,12 +105,6 @@ class GCBase(object):
 
     def x_clone(self, clonedata):
         raise RuntimeError("no support for x_clone in the GC")
-
-    def disable_finalizers(self):
-        pass     # xxx this should really be implemented by all subclasses
-
-    def enable_finalizers(self):
-        pass     # xxx this should really be implemented by all subclasses
 
     def trace(self, obj, callback, arg):
         """Enumerate the locations inside the given obj that can contain
@@ -155,145 +141,71 @@ class GCBase(object):
                 length -= 1
     trace._annspecialcase_ = 'specialize:arg(2)'
 
+    def debug_check_consistency(self):
+        """To use after a collection.  If self.DEBUG is set, this
+        enumerates all roots and traces all objects to check if we didn't
+        accidentally free a reachable object or forgot to update a pointer
+        to an object that moved.
+        """
+        if self.DEBUG:
+            from pypy.rlib.objectmodel import we_are_translated
+            from pypy.rpython.memory.support import AddressDict
+            self._debug_seen = AddressDict()
+            self._debug_pending = self.AddressStack()
+            if not we_are_translated():
+                self.root_walker._walk_prebuilt_gc(self._debug_record)
+            callback = GCBase._debug_callback
+            self.root_walker.walk_roots(callback, callback, callback)
+            pending = self._debug_pending
+            while pending.non_empty():
+                obj = pending.pop()
+                self.debug_check_object(obj)
+                self.trace(obj, self._debug_callback2, None)
+            self._debug_seen.delete()
+            self._debug_pending.delete()
+
+    def _debug_record(self, obj):
+        seen = self._debug_seen
+        if not seen.contains(obj):
+            seen.add(obj)
+            self._debug_pending.append(obj)
+    def _debug_callback(self, root):
+        obj = root.address[0]
+        ll_assert(bool(obj), "NULL address from walk_roots()")
+        self._debug_record(obj)
+    def _debug_callback2(self, pointer, ignored):
+        obj = pointer.address[0]
+        if obj:
+            self._debug_record(obj)
+
+    def debug_check_object(self, obj):
+        pass
+
 
 class MovingGCBase(GCBase):
     moving_gc = True
 
-    def __init__(self):
-        # WaRnInG!  Putting GC objects as fields of the GC itself is
-        # basically *not* working in general!  When running tests with
-        # the gcwrapper, there is no way they can be returned from
-        # get_roots_from_llinterp().  When the whole GC goes through the
-        # gctransformer, though, it works if the fields are read-only
-        # (and thus only ever reference a prebuilt list or dict).  These
-        # prebuilt lists or dicts themselves can be mutated and point to
-        # more non-prebuild GC objects; this is fine because the
-        # internal GC ptr in the prebuilt list or dict is found by
-        # gctypelayout and listed in addresses_of_static_ptrs.
-
-        # XXX I'm not sure any more about the warning above.  The fields
-        # of 'self' are found by gctypelayout and added to
-        # addresses_of_static_ptrs_in_nongc, so in principle they could
-        # be mutated and still be found by collect().
-
-        self.wr_to_objects_with_id = []
-        self.object_id_dict = {}
-        self.object_id_dict_ends_at = 0
-
-    def id(self, ptr):
-        self.disable_finalizers()
-        try:
-            return self._compute_id(ptr)
-        finally:
-            self.enable_finalizers()
-
-    def _compute_id(self, ptr):
-        # XXX this may explode if --no-translation-rweakref is specified
-        # ----------------------------------------------------------------
-        # Basic logic: the list item wr_to_objects_with_id[i] contains a
-        # weakref to the object whose id is i + 1.  The object_id_dict is
-        # an optimization that tries to reduce the number of linear
-        # searches in this list.
-        # ----------------------------------------------------------------
-        # Invariant: if object_id_dict_ends_at >= 0, then object_id_dict
-        # contains all pairs {address: id}, for the addresses
-        # of all objects that are the targets of the weakrefs of the
-        # following slice: wr_to_objects_with_id[:object_id_dict_ends_at].
-        # ----------------------------------------------------------------
-        # Essential: as long as notify_objects_just_moved() is not called,
-        # we assume that the objects' addresses did not change.  We also
-        # assume that the address of a live object cannot be reused for
-        # another object without an intervening notify_objects_just_moved()
-        # call, but this could be fixed easily if needed.
-        # ----------------------------------------------------------------
-        # First check the dictionary
-        i = self.object_id_dict_ends_at
-        if i < 0:
-            self.object_id_dict.clear()      # dictionary invalid
-            self.object_id_dict_ends_at = 0
-            i = 0
-        else:
-            adr = llmemory.cast_ptr_to_adr(ptr)
-            try:
-                i = self.object_id_dict[adr]
-            except KeyError:
-                pass
-            else:
-                # double-check that the answer we got is correct
-                lst = self.wr_to_objects_with_id
-                target = llmemory.weakref_deref(llmemory.GCREF, lst[i])
-                ll_assert(target == ptr, "bogus object_id_dict")
-                return i + 1     # found via the dict
-        # Walk the tail of the list, where entries are not also in the dict
-        lst = self.wr_to_objects_with_id
-        end = len(lst)
-        freeentry = -1
-        while i < end:
-            target = llmemory.weakref_deref(llmemory.GCREF, lst[i])
-            if not target:
-                freeentry = i
-            else:
-                ll_assert(self.get_type_id(llmemory.cast_ptr_to_adr(target))
-                             > 0, "bogus weakref in compute_id()")
-                # record this entry in the dict
-                adr = llmemory.cast_ptr_to_adr(target)
-                self.object_id_dict[adr] = i
-                if target == ptr:
-                    break               # found
-            i += 1
-        else:
-            # not found
-            wr = llmemory.weakref_create(ptr)
-            if freeentry < 0:
-                ll_assert(end == len(lst), "unexpected lst growth in gc_id")
-                i = end
-                lst.append(wr)
-            else:
-                i = freeentry       # reuse the id() of a dead object
-                lst[i] = wr
-            adr = llmemory.cast_ptr_to_adr(ptr)
-            self.object_id_dict[adr] = i
-        # all entries up to and including index 'i' are now valid in the dict
-        # unless a collection occurred while we were working, in which case
-        # the object_id_dict is bogus anyway
-        if self.object_id_dict_ends_at >= 0:
-            self.object_id_dict_ends_at = i + 1
-        return i + 1       # this produces id() values 1, 2, 3, 4...
-
-    def notify_objects_just_moved(self):
-        self.object_id_dict_ends_at = -1
-
+    def can_move(self, addr):
+        return True
 
 def choose_gc_from_config(config):
     """Return a (GCClass, GC_PARAMS) from the given config object.
     """
     if config.translation.gctransformer != "framework":   # for tests
         config.translation.gc = "marksweep"     # crash if inconsistent
-    if config.translation.gc == "marksweep":
-        GC_PARAMS = {'start_heap_size': 8*1024*1024} # XXX adjust
-        from pypy.rpython.memory.gc.marksweep import MarkSweepGC
-        return MarkSweepGC, GC_PARAMS
-    if config.translation.gc == "statistics":
-        GC_PARAMS = {'start_heap_size': 8*1024*1024} # XXX adjust
-        from pypy.rpython.memory.gc.marksweep import PrintingMarkSweepGC
-        return PrintingMarkSweepGC, GC_PARAMS
-    elif config.translation.gc == "semispace":
-        GC_PARAMS = {'space_size': 8*1024*1024} # XXX adjust
-        from pypy.rpython.memory.gc.semispace import SemiSpaceGC
-        return SemiSpaceGC, GC_PARAMS
-    elif config.translation.gc in ("generation", "hybrid"):
-        GC_PARAMS = {'space_size': 8*1024*1024, # XXX adjust
-                     'nursery_size': 896*1024,
-                     'min_nursery_size': 48*1024,
-                     'auto_nursery_size': True}
-        if config.translation.gc == "generation":
-            from pypy.rpython.memory.gc.generation import GenerationGC
-            return GenerationGC, GC_PARAMS
-        else:
-            GC_PARAMS['large_object'] = 1024    # XXX adjust
-            GC_PARAMS['large_object_gcptrs'] = 8192    # XXX adjust
-            from pypy.rpython.memory.gc.hybrid import HybridGC
-            return HybridGC, GC_PARAMS
-    else:
+
+    classes = {"marksweep": "marksweep.MarkSweepGC",
+               "statistics": "marksweep.PrintingMarkSweepGC",
+               "semispace": "semispace.SemiSpaceGC",
+               "generation": "generation.GenerationGC",
+               "hybrid": "hybrid.HybridGC",
+               }
+    try:
+        modulename, classname = classes[config.translation.gc].split('.')
+    except KeyError:
         raise ValueError("unknown value for translation.gc: %r" % (
             config.translation.gc,))
+    module = __import__("pypy.rpython.memory.gc." + modulename,
+                        globals(), locals(), [classname])
+    GCClass = getattr(module, classname)
+    return GCClass, GCClass.TRANSLATION_PARAMS

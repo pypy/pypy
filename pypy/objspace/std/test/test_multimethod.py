@@ -119,6 +119,68 @@ class TestMultiMethod1:
         raises(FailedToImplement, "add2(space, w_b2, w_s)")
         raises(FailedToImplement, "add2(space, w_s, w_b1)")
 
+    def test_forbidden_subclasses(self):
+        mul = multimethod.MultiMethodTable(2, root_class=W_Root,
+                                           argnames_before=['space'])
+        class UserW_StringObject(W_StringObject):
+            pass
+        def mul__Int_String(space, w_x, w_y):
+            assert space == 'space'
+            assert isinstance(w_x, W_IntObject)
+            assert isinstance(w_y, W_StringObject)
+            return 'fine'
+        mul.register(mul__Int_String, W_IntObject, W_StringObject)
+
+        mul1 = mul.install('__mul1', [self.typeorder, self.typeorder])
+        assert mul1('space', W_IntObject(), W_StringObject()) == 'fine'
+        assert mul1('space', W_IntObject(), UserW_StringObject()) == 'fine'
+
+        ext_typeorder = self.typeorder.copy()
+        ext_typeorder[UserW_StringObject] = []
+        mul2 = mul.install('__mul2', [ext_typeorder, ext_typeorder])
+        assert mul2('space', W_IntObject(), W_StringObject()) == 'fine'
+        raises(FailedToImplement,
+               mul2, 'baz', W_IntObject(), UserW_StringObject())
+
+    def test_more_forbidden_subclasses(self):
+        mul = multimethod.MultiMethodTable(2, root_class=W_Root,
+                                           argnames_before=['space'])
+        class UserW_StringObject(W_StringObject):
+            pass
+        def mul__String_String(space, w_x, w_y):
+            assert space == 'space'
+            assert isinstance(w_x, W_StringObject)
+            assert isinstance(w_y, W_StringObject)
+            return 'fine'
+        mul.register(mul__String_String, W_StringObject, W_StringObject)
+
+        ext_typeorder = {W_StringObject: [(W_StringObject, None)],
+                         UserW_StringObject: []}
+        mul2 = mul.install('__mul2', [ext_typeorder, ext_typeorder])
+        assert mul2('space', W_StringObject(), W_StringObject()) == 'fine'
+        raises(FailedToImplement,
+               mul2, 'baz', W_StringObject(), UserW_StringObject())
+        raises(FailedToImplement,
+               mul2, 'baz', UserW_StringObject(), W_StringObject())
+        raises(FailedToImplement,
+               mul2, 'baz', UserW_StringObject(), UserW_StringObject())
+
+    def test_ANY(self):
+        setattr = multimethod.MultiMethodTable(3, root_class=W_Root,
+                                           argnames_before=['space'])
+        def setattr__Int_ANY_ANY(space, w_x, w_y, w_z):
+            assert space == 'space'
+            assert isinstance(w_x, W_IntObject)
+            assert isinstance(w_y, W_Root)
+            assert isinstance(w_z, W_Root)
+            return w_y.__class__.__name__ + w_z.__class__.__name__
+        setattr.register(setattr__Int_ANY_ANY, W_IntObject, W_Root, W_Root)
+        setattr1 = setattr.install('__setattr1', [self.typeorder]*3)
+        for cls1 in self.typeorder:
+            for cls2 in self.typeorder:
+                assert setattr1('space', W_IntObject(), cls1(), cls2()) == (
+                    cls1.__name__ + cls2.__name__)
+
     def test_all_cases(self):
         import random
         space = 'space'

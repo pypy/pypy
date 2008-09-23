@@ -416,11 +416,12 @@ def build_testlist_gexp(builder, nb):
     if l == 1:
         builder.push(atoms[0])
         return
-    items = []
     token = atoms[1]
     if isinstance(token, TokenObject) and token.name == builder.parser.tokens['COMMA']:
+        items = []
         for i in range(0, l, 2): # this is atoms not 1
             items.append(atoms[i])
+        builder.push(ast.Tuple(items, lineno))
     else:
         # genfor: 'i for i in j'
         # GenExpr(GenExprInner(Name('i'), [GenExprFor(AssName('i', 'OP_ASSIGN'), Name('j'), [])])))]))
@@ -428,20 +429,6 @@ def build_testlist_gexp(builder, nb):
         genexpr_for = parse_genexpr_for(atoms[1:])
         genexpr_for[0].is_outmost = True
         builder.push(ast.GenExpr(ast.GenExprInner(expr, genexpr_for, lineno), lineno))
-        return
-    isConst = True
-    values = []
-    for item in items:
-        if isinstance(item, ast.Const):
-            values.append(item.value)
-        else:
-            isConst = False
-            break
-    if isConst:
-        builder.push(ast.Const(builder.space.newtuple(values), lineno))
-    else:
-        builder.push(ast.Tuple(items, lineno))
-    return
 
 def build_lambdef(builder, nb):
     """lambdef: 'lambda' [varargslist] ':' test"""
@@ -580,18 +567,23 @@ def build_listmaker(builder, nb):
 def build_decorator(builder, nb):
     """decorator: '@' dotted_name [ '(' [arglist] ')' ] NEWLINE"""
     atoms = get_atoms(builder, nb)
-    nodes = []
-    # remove '@', '(' and ')' from atoms and use parse_attraccess
-    for token in atoms[1:]:
-        if isinstance(token, TokenObject) and (
-               token.name == builder.parser.tokens['LPAR']
-               or token.name == builder.parser.tokens['RPAR']
-               or token.name == builder.parser.tokens['NEWLINE']):
-            # skip those ones
-            continue
-        else:
-            nodes.append(token)
-    obj = parse_attraccess(nodes, builder)
+    # collect all nodes up to '(' or NEWLINE
+    end = 1
+    while True:
+        token = atoms[end]
+        if isinstance(token, TokenObject):
+            if token.name == builder.parser.tokens['NEWLINE']:
+                arglist = None
+                break
+            if token.name == builder.parser.tokens['LPAR']:
+                arglist = atoms[end+1]
+                if not isinstance(arglist, ArglistObject):  # because it's RPAR
+                    arglist = ArglistObject([], None, None, token.lineno)
+                break
+        end += 1
+    obj = parse_attraccess(atoms[1:end], builder)
+    if arglist is not None:
+        obj = reduce_callfunc(obj, arglist)
     builder.push(obj)
 
 def build_funcdef(builder, nb):
@@ -737,21 +729,8 @@ def build_exprlist(builder, nb):
     if len(atoms) <= 2:
         builder.push(atoms[0])
     else:
-        names = []
-        values = []
-        isConst = True
-        for index in range(0, len(atoms), 2):
-            item = atoms[index]
-            names.append(item)
-            if isinstance(item, ast.Const):
-                values.append(item)
-            else:
-                isConst = False
-        if isConst:
-            builder.push(ast.Const(builder.space.newtuple(values), atoms[0].lineno))
-        else:
-            builder.push(ast.Tuple(names, atoms[0].lineno))
-
+        items = [atoms[index] for index in range(0, len(atoms), 2)]
+        builder.push(ast.Tuple(items, atoms[0].lineno))
 
 def build_while_stmt(builder, nb):
     """while_stmt: 'while' test ':' suite ['else' ':' suite]"""

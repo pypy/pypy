@@ -178,10 +178,12 @@ def _get_section_header(cmdline, fullpath, subdescr):
         return "Internal Options"
     return ""
 
-def make_cmdline_overview(descr):
-    content = Rest(
-        Title("Overview of Command Line Options for '%s'" % (descr._name, ),
-              abovechar="=", belowchar="="))
+def make_cmdline_overview(descr, title=True):
+    content = Rest()
+    if title:
+        content.add(
+            Title("Overview of Command Line Options for '%s'" % (descr._name, ),
+                  abovechar="=", belowchar="="))
     cmdlines = []
     config = Config(descr)
     for path in config.getpaths(include_groups=False):

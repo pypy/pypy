@@ -25,8 +25,6 @@ TESTCASES = """\
     func.func_code
     scopefunc.func_code
     u'hello'
-    buffer(hello)
-    buffer(u'unicode, too')
     set()
     set([1, 2])
     frozenset()

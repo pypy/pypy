@@ -2,6 +2,13 @@
 Download one of the following release files: 
 =============================================
 
+:warning:
+
+    the 1.0 release is out of date.  We strongly recommend that you
+    use the latest stable version.  See `getting started`_.
+
+.. _`getting started`: getting-started.html#get-via-subversion
+
 PyPy 1.0 Sources:
 -----------------
 

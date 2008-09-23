@@ -72,6 +72,8 @@ class _CDataMeta(type):
         from _ctypes.array import create_array_type
         return create_array_type(self, other)
 
+    __rmul__ = __mul__
+
     def _is_pointer_like(self):
         return False
 

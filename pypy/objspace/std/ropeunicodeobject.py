@@ -495,7 +495,7 @@ def unicode_startswith__RopeUnicode_RopeUnicode_ANY_ANY(space, w_self, w_substr,
 def unicode_startswith__RopeUnicode_Tuple_ANY_ANY(space, w_unistr, w_prefixes,
                                               w_start, w_end):
     unistr, start, end = _convert_idx_params(space, w_unistr, w_start, w_end)
-    for w_prefix in space.unpacktuple(w_prefixes):
+    for w_prefix in space.viewiterable(w_prefixes):
         prefix = ropeunicode_w(space, w_prefix)
         if rope.startswith(unistr, prefix, start, end):
             return space.w_True
@@ -504,7 +504,7 @@ def unicode_startswith__RopeUnicode_Tuple_ANY_ANY(space, w_unistr, w_prefixes,
 def unicode_endswith__RopeUnicode_Tuple_ANY_ANY(space, w_unistr, w_suffixes,
                                             w_start, w_end):
     unistr, start, end = _convert_idx_params(space, w_unistr, w_start, w_end)
-    for w_suffix in space.unpacktuple(w_suffixes):
+    for w_suffix in space.viewiterable(w_suffixes):
         suffix = ropeunicode_w(space, w_suffix)
         if rope.endswith(unistr, suffix, start, end):
             return space.w_True
@@ -920,8 +920,7 @@ def mod__RopeUnicode_ANY(space, w_format, w_values):
     return mod_format(space, w_format, w_values, do_unicode=True)
 
 def buffer__RopeUnicode(space, w_unicode):
-    # xxx this is a slightly strange thing...
-    from pypy.module.struct.unichar import pack_unichar
+    from pypy.rlib.rstruct.unichar import pack_unichar
     charlist = []
     node = w_unicode._node
     iter = rope.ItemIterator(node)

@@ -89,6 +89,13 @@ class AppTestFilter:
 
    def test_function(self):
        assert filter(lambda x: x != "a", "a small text") == " smll text"
+       assert filter(lambda x: x < 20, [3, 33, 5, 55]) == [3, 5]
+
+   def test_filter_tuple_calls_getitem(self):
+       class T(tuple):
+           def __getitem__(self, i):
+               return i * 10
+       assert filter(lambda x: x != 20, T("abcd")) == (0, 10, 30)
 
 class AppTestXRange:
    def test_xrange(self):
@@ -149,10 +156,10 @@ class AppTestAllAny:
 
     def test_all(self):
 
-        class TestFailingBool:
+        class TestFailingBool(object):
             def __nonzero__(self):
                 raise RuntimeError
-        class TestFailingIter:
+        class TestFailingIter(object):
             def __iter__(self):
                 raise RuntimeError
 
@@ -171,10 +178,10 @@ class AppTestAllAny:
 
     def test_any(self):
 
-        class TestFailingBool:
+        class TestFailingBool(object):
             def __nonzero__(self):
                 raise RuntimeError
-        class TestFailingIter:
+        class TestFailingIter(object):
             def __iter__(self):
                 raise RuntimeError
 

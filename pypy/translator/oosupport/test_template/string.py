@@ -33,6 +33,3 @@ class BaseTestString(BaseTestRstr):
         def fn(answer):
             return 'the answer is %s' % answer
         assert self.ll_to_string(self.interpret(fn, [42])) == 'the answer is 42'
-
-    def test_prebuilt_ll_strings(self):
-        py.test.skip("The testing framework doesn't support returning low level strings")

@@ -1,10 +1,10 @@
 
 from pypy.tool.autopath import pypydir
-from pypy.translator.tool.cbuild import build_executable, ExternalCompilationInfo
-import md5
+from pypy.translator.tool.cbuild import build_executable
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.translator.tool.cbuild import CompilationError
+from pypy.tool.compat import md5
 import py
-import distutils
-import distutils.errors
 
 cache_dir_root = py.path.local(pypydir).join('_cache').ensure(dir=1)
 
@@ -20,20 +20,26 @@ def build_executable_cache(c_files, eci):
     try:
         return path.read()
     except py.error.Error:
-        result = py.process.cmdexec(build_executable(c_files, eci))
+        result = eci.platform.execute(build_executable(c_files, eci))
         path.write(result)
         return result
 
 def try_compile_cache(c_files, eci):
     path = cache_file_path(c_files, eci, 'try_compile_cache')
     try:
-        return eval(path.read())
+        data = path.read()
     except py.error.Error:
+        data = ''
+    if not (data.startswith('True') or data.startswith('FAIL\n')):
         try:
             build_executable(c_files, eci)
-            result = True
-        except (distutils.errors.CompileError,
-                distutils.errors.LinkError):
-            result = False
-        path.write(repr(result))
-        return result
+            data = 'True'
+        except CompilationError, e:
+            data = 'FAIL\n%s\n' % (e,)
+        path.write(data)
+    if data.startswith('True'):
+        return True
+    else:
+        assert data.startswith('FAIL\n')
+        msg = data[len('FAIL\n'):]
+        raise CompilationError(msg.strip())

@@ -68,6 +68,7 @@ class BenchmarkResultSet(object):
         return concretetable
 
 class BenchmarkResult(object):
+    IDS = {}
 
     def __init__(self, exe, max_results=10):
         self.max_results = max_results
@@ -116,6 +117,10 @@ class BenchmarkResult(object):
             return_default = True
         if hasattr(self, stat):
             return getattr(self, stat)
+        if stat == 'exe':
+            myid = len(BenchmarkResult.IDS)
+            myid = BenchmarkResult.IDS.setdefault(self, myid)
+            return '[%s]' % myid
         statkind, statdetail = stat.split(':')
         if statkind == 'stat':
             return getattr(self.exe_stat, statdetail)

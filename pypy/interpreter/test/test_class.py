@@ -46,28 +46,28 @@ class AppTestClass:
         assert c.__class__ == C
 
     def test_method(self):
-        class C:
+        class C(object):
             def meth(self):
                 return 1
         c = C()
         assert c.meth() == 1
 
     def test_method_exc(self):
-        class C:
+        class C(object):
             def meth(self):
                 raise RuntimeError
         c = C()
         raises(RuntimeError, c.meth)
 
     def test_class_attr(self):
-        class C:
+        class C(object):
             a = 42
         c = C()
         assert c.a == 42
         assert C.a == 42
 
     def test_class_attr_inherited(self):
-        class C:
+        class C(object):
             a = 42
         class D(C):
             pass
@@ -110,7 +110,7 @@ class AppTestClass:
         assert float(x) == 5.5
 
     def test_meth_doc(self):
-        class C:
+        class C(object):
             def meth_no_doc(self):
                 pass
             def meth_doc(self):

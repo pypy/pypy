@@ -2,12 +2,10 @@ from pypy.objspace.std.objspace import *
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.listtype import get_list_index
 from pypy.objspace.std.sliceobject import W_SliceObject
-from pypy.objspace.std.tupleobject import W_TupleObject
 
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway, baseobjspace
 from pypy.rlib.listsort import TimSort
-
 
 class W_ListObject(W_Object):
     from pypy.objspace.std.listtype import list_typedef as typedef
@@ -25,7 +23,6 @@ class W_ListObject(W_Object):
 
     def append(w_list, w_item):
         w_list.wrappeditems.append(w_item)
-
 
 registerimplementation(W_ListObject)
 
@@ -95,7 +92,7 @@ def contains__List_ANY(space, w_list, w_obj):
 
 def iter__List(space, w_list):
     from pypy.objspace.std import iterobject
-    return iterobject.W_FastSeqIterObject(w_list, w_list.wrappeditems)
+    return iterobject.W_FastListIterObject(w_list, w_list.wrappeditems)
 
 def add__List_List(space, w_list1, w_list2):
     return W_ListObject(w_list1.wrappeditems + w_list2.wrappeditems)
@@ -252,10 +249,6 @@ def setitem__List_ANY_ANY(space, w_list, w_index, w_any):
 def setitem__List_Slice_List(space, w_list, w_slice, w_list2):
     l = w_list2.wrappeditems
     return _setitem_slice_helper(space, w_list, w_slice, l, len(l))
-
-def setitem__List_Slice_Tuple(space, w_list, w_slice, w_tuple):
-    t = w_tuple.wrappeditems
-    return _setitem_slice_helper(space, w_list, w_slice, t, len(t))
 
 def setitem__List_Slice_ANY(space, w_list, w_slice, w_iterable):
     l = space.unpackiterable(w_iterable)

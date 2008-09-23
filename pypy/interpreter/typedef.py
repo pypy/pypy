@@ -144,6 +144,21 @@ def get_unique_interplevel_subclass(cls, hasdict, wants_slots, needsdel=False,
 get_unique_interplevel_subclass._annspecialcase_ = "specialize:memo"
 _subclass_cache = {}
 
+def enum_interplevel_subclasses(cls):
+    """Return a list of all the extra interp-level subclasses of 'cls' that
+    can be built by get_unique_interplevel_subclass()."""
+    result = []
+    for flag1 in (False, True):
+        for flag2 in (False, True):
+            for flag3 in (False, True):
+                for flag4 in (False, True):
+                    result.append(get_unique_interplevel_subclass(cls, flag1,
+                                                                  flag2, flag3,
+                                                                  flag4))
+    result = dict.fromkeys(result)
+    assert len(result) <= 6
+    return result.keys()
+
 def _getusercls(cls, wants_dict, wants_slots, wants_del, weakrefable):
     typedef = cls.typedef
     if wants_dict and typedef.hasdict:
@@ -232,17 +247,18 @@ def _builduserclswithfeature(supercls, *features):
         add(Proto)
 
     if "del" in features:
-        parent_destructor = getattr(supercls, '__del__', None)
         class Proto(object):
             def __del__(self):
-                self.clear_all_weakrefs()
-                try:
-                    self.space.userdel(self)
-                except OperationError, e:
-                    e.write_unraisable(self.space, 'method __del__ of ', self)
-                    e.clear(self.space)   # break up reference cycles
-                if parent_destructor is not None:
-                    parent_destructor(self)
+                self._enqueue_for_destruction(self.space)
+        # if the base class needs its own interp-level __del__,
+        # we override the _call_builtin_destructor() method to invoke it
+        # after the app-level destructor.
+        parent_destructor = getattr(supercls, '__del__', None)
+        if parent_destructor is not None:
+            def _call_builtin_destructor(self):
+                parent_destructor(self)
+            Proto._call_builtin_destructor = _call_builtin_destructor
+
         add(Proto)
 
     if "slots" in features:
@@ -263,13 +279,7 @@ def _builduserclswithfeature(supercls, *features):
                 return self.w__dict__
             
             def setdict(self, space, w_dict):
-                if not space.is_true(space.isinstance(w_dict, space.w_dict)):
-                    raise OperationError(space.w_TypeError,
-                            space.wrap("setting dictionary to a non-dict"))
-                if space.config.objspace.std.withmultidict:
-                    from pypy.objspace.std import dictmultiobject
-                    assert isinstance(w_dict, dictmultiobject.W_DictMultiObject)
-                self.w__dict__ = w_dict
+                self.w__dict__ = check_new_dictionary(space, w_dict)
             
             def user_setup(self, space, w_subtype):
                 self.space = space
@@ -306,6 +316,20 @@ def _builduserclswithfeature(supercls, *features):
     subcls = type(name, (supercls,), body)
     _allusersubcls_cache[subcls] = True
     return subcls
+
+# a couple of helpers for the Proto classes above, factored out to reduce
+# the translated code size
+def check_new_dictionary(space, w_dict):
+    if not space.is_true(space.isinstance(w_dict, space.w_dict)):
+        raise OperationError(space.w_TypeError,
+                space.wrap("setting dictionary to a non-dict"))
+    if space.config.objspace.std.withmultidict:
+        from pypy.objspace.std import dictmultiobject
+        assert isinstance(w_dict, dictmultiobject.W_DictMultiObject)
+    return w_dict
+check_new_dictionary._dont_inline_ = True
+
+# ____________________________________________________________
 
 def make_descr_typecheck_wrapper(func, extraargs=(), cls=None):
     if func is None:
@@ -639,6 +663,7 @@ PyCode.typedef = TypeDef('code',
     __hash__ = interp2app(PyCode.descr_code__hash__),
     __reduce__   = interp2app(PyCode.descr__reduce__,
                               unwrap_spec=['self', ObjSpace]),
+    __repr__ = interp2app(PyCode.repr),
     co_argcount = interp_attrproperty('co_argcount', cls=PyCode),
     co_nlocals = interp_attrproperty('co_nlocals', cls=PyCode),
     co_stacksize = interp_attrproperty('co_stacksize', cls=PyCode),
@@ -676,6 +701,8 @@ Module.typedef = TypeDef("module",
     __new__ = interp2app(Module.descr_module__new__.im_func,
                          unwrap_spec=[ObjSpace, W_Root, Arguments]),
     __init__ = interp2app(Module.descr_module__init__),
+    __repr__ = interp2app(Module.descr_module__repr__,
+                          unwrap_spec=['self', ObjSpace]),
     __reduce__ = interp2app(Module.descr__reduce__,
                             unwrap_spec=['self', ObjSpace]),
     __dict__ = GetSetProperty(descr_get_dict, cls=Module), # module dictionaries are readonly attributes
@@ -844,12 +871,14 @@ Cell.typedef = TypeDef("cell",
 Ellipsis.typedef = TypeDef("Ellipsis",
     __repr__   = interp2app(Ellipsis.descr__repr__),
 )
+Ellipsis.acceptable_as_base_class = False
 
 NotImplemented.typedef = TypeDef("NotImplemented",
     __repr__   = interp2app(NotImplemented.descr__repr__),
 )
 
 SuspendedUnroller.typedef = TypeDef("SuspendedUnroller")
+SuspendedUnroller.acceptable_as_base_class = False
 
 
 interptypes = [ val.typedef for name,val in globals().items() if hasattr(val,'__bases__') and hasattr(val,'typedef')  ]

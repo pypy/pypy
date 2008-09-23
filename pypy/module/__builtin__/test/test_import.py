@@ -1,6 +1,7 @@
 import py
 from pypy.interpreter.module import Module
 from pypy.interpreter import gateway
+from pypy.interpreter.error import OperationError
 import pypy.interpreter.pycode
 from pypy.tool.udir import udir
 from pypy.rlib import streamio
@@ -64,6 +65,9 @@ def setup_directory_structure(space):
                         "sys.modules[__name__] = pkg_substituted")
     setuppkg("pkg_substituted", mod='')
     p = setuppkg("readonly", x='')
+    p = setuppkg("pkg_univnewlines")
+    p.join('__init__.py').write('a=5\nb=6\rc="""hello\r\nworld"""\r')
+    p.join('mod.py').write('a=15\nb=16\rc="""foo\r\nbar"""\r')
 
     # create compiled/x.py and a corresponding pyc file
     p = setuppkg("compiled", x = "x = 84")
@@ -82,6 +86,9 @@ def setup_directory_structure(space):
                                          stream.readall())
         finally:
             stream.close()
+        if space.config.objspace.usepycfiles:
+            # also create a lone .pyc file
+            p.join('lone.pyc').write(p.join('x.pyc').read())
 
     return str(root)
 
@@ -304,6 +311,15 @@ class AppTestImport:
             from .string import inpackage
         raises(ValueError, imp)
 
+    def test_universal_newlines(self):
+        import pkg_univnewlines
+        assert pkg_univnewlines.a == 5
+        assert pkg_univnewlines.b == 6
+        assert pkg_univnewlines.c == "hello\nworld"
+        from pkg_univnewlines import mod
+        assert mod.a == 15
+        assert mod.b == 16
+        assert mod.c == "foo\nbar"
 
 def _getlong(data):
     x = marshal.dumps(data)
@@ -319,10 +335,10 @@ def _testfile(magic, mtime, co=None):
     f.close()
     return cpathname
 
-def _testfilesource():
+def _testfilesource(source="x=42"):
     pathname = str(udir.join('test.py'))
     f = file(pathname, "wb")
-    f.write("x=42")
+    f.write(source)
     f.close()
     return pathname
 
@@ -331,48 +347,42 @@ class TestPycStuff:
 
     def test_check_compiled_module(self):
         space = self.space
-        pathname = "whatever"
         mtime = 12345
         cpathname = _testfile(importing.get_pyc_magic(space), mtime)
         ret = importing.check_compiled_module(space,
-                                              pathname,
-                                              mtime,
-                                              cpathname)
-        assert ret == 1
+                                              cpathname,
+                                              mtime)
+        assert ret is True
 
         # check for wrong mtime
         ret = importing.check_compiled_module(space,
-                                              pathname,
-                                              mtime+1,
-                                              cpathname)
-        assert ret == 0
+                                              cpathname,
+                                              mtime+1)
+        assert ret is False
         os.remove(cpathname)
 
         # check for wrong version
         cpathname = _testfile(importing.get_pyc_magic(space)+1, mtime)
         ret = importing.check_compiled_module(space,
-                                              pathname,
-                                              mtime,
-                                              cpathname)
-        assert ret == -1
+                                              cpathname,
+                                              mtime)
+        assert ret is False
 
         # check for empty .pyc file
         f = open(cpathname, 'wb')
         f.close()
         ret = importing.check_compiled_module(space,
-                                              pathname,
-                                              mtime,
-                                              cpathname)
-        assert ret == -1
+                                              cpathname,
+                                              mtime)
+        assert ret is False
         os.remove(cpathname)
 
     def test_read_compiled_module(self):
         space = self.space
-        pathname = "whatever"
         mtime = 12345
         co = compile('x = 42', '?', 'exec')
         cpathname = _testfile(importing.get_pyc_magic(space), mtime, co)
-        stream = streamio.open_file_as_stream(cpathname, "r")
+        stream = streamio.open_file_as_stream(cpathname, "rb")
         try:
             stream.seek(8, 0)
             w_code = importing.read_compiled_module(
@@ -389,12 +399,11 @@ class TestPycStuff:
 
     def test_load_compiled_module(self):
         space = self.space
-        pathname = "whatever"
         mtime = 12345
         co = compile('x = 42', '?', 'exec')
         cpathname = _testfile(importing.get_pyc_magic(space), mtime, co)
         w_modulename = space.wrap('somemodule')
-        stream = streamio.open_file_as_stream(cpathname, "r")
+        stream = streamio.open_file_as_stream(cpathname, "rb")
         try:
             w_mod = space.wrap(Module(space, w_modulename))
             magic = importing._r_long(stream)
@@ -440,7 +449,7 @@ class TestPycStuff:
             importing._w_long(stream, 128397198)
         finally:
             stream.close()
-        stream = streamio.open_file_as_stream(pathname, "r")
+        stream = streamio.open_file_as_stream(pathname, "rb")
         try:
             res = importing._r_long(stream)
             assert res == 42
@@ -470,7 +479,70 @@ class TestPycStuff:
         ret = space.int_w(w_ret)
         assert ret == 42
 
-        #XXX Note tested while no writing
+        cpathname = udir.join('test.pyc')
+        assert cpathname.check()
+        cpathname.remove()
+
+    def test_load_source_module_nowrite(self):
+        space = self.space
+        w_modulename = space.wrap('somemodule')
+        w_mod = space.wrap(Module(space, w_modulename))
+        pathname = _testfilesource()
+        stream = streamio.open_file_as_stream(pathname, "r")
+        try:
+            w_ret = importing.load_source_module(space,
+                                                 w_modulename,
+                                                 w_mod,
+                                                 pathname,
+                                                 stream.readall(),
+                                                 write_pyc=False)
+        finally:
+            stream.close()
+        cpathname = udir.join('test.pyc')
+        assert not cpathname.check()
+
+    def test_load_source_module_syntaxerror(self):
+        # No .pyc file on SyntaxError
+        space = self.space
+        w_modulename = space.wrap('somemodule')
+        w_mod = space.wrap(Module(space, w_modulename))
+        pathname = _testfilesource(source="<Syntax Error>")
+        stream = streamio.open_file_as_stream(pathname, "r")
+        try:
+            w_ret = importing.load_source_module(space,
+                                                 w_modulename,
+                                                 w_mod,
+                                                 pathname,
+                                                 stream.readall())
+        except OperationError:
+            # OperationError("Syntax Error")
+            pass
+        stream.close()
+
+        cpathname = udir.join('test.pyc')
+        assert not cpathname.check()
+        
+    def test_load_source_module_importerror(self):
+        # the .pyc file is created before executing the module
+        space = self.space
+        w_modulename = space.wrap('somemodule')
+        w_mod = space.wrap(Module(space, w_modulename))
+        pathname = _testfilesource(source="a = unknown_name")
+        stream = streamio.open_file_as_stream(pathname, "r")
+        try:
+            w_ret = importing.load_source_module(space,
+                                                 w_modulename,
+                                                 w_mod,
+                                                 pathname,
+                                                 stream.readall())
+        except OperationError:
+            # OperationError("NameError", "global name 'unknown_name' is not defined")
+            pass
+        stream.close()
+
+        # And the .pyc has been generated
+        cpathname = udir.join('test.pyc')
+        assert cpathname.check()
 
     def test_write_compiled_module(self):
         space = self.space
@@ -493,15 +565,13 @@ class TestPycStuff:
                                         mtime)
 
         # check
-        pathname = str(udir.join('cpathname.py'))
         ret = importing.check_compiled_module(space,
-                                              pathname,
-                                              mtime,
-                                              cpathname)
-        assert ret == 1
+                                              cpathname,
+                                              mtime)
+        assert ret is True
 
-        # read compile module
-        stream = streamio.open_file_as_stream(cpathname, "r")
+        # read compiled module
+        stream = streamio.open_file_as_stream(cpathname, "rb")
         try:
             stream.seek(8, 0)
             w_code = importing.read_compiled_module(space, cpathname,
@@ -535,7 +605,7 @@ class TestPycStuff:
                 cpathname = _testfile(importing.get_pyc_magic(space1),
                                       mtime, co)
                 w_modulename = space2.wrap('somemodule')
-                stream = streamio.open_file_as_stream(cpathname, "r")
+                stream = streamio.open_file_as_stream(cpathname, "rb")
                 try:
                     w_mod = space2.wrap(Module(space2, w_modulename))
                     magic = importing._r_long(stream)
@@ -584,3 +654,70 @@ class AppTestImportHooks(object):
             tried_imports[0][0] == "datetime"
         finally:
             sys.meta_path.pop()
+
+    def test_path_hooks_leaking(self):
+        class Importer(object):
+            def find_module(self, fullname, path=None):
+                if fullname == "a":
+                    return self
+
+            def load_module(self, name):
+                return sys
+        
+        def importer_for_path(path):
+            if path == "xxx":
+                return Importer()
+            raise ImportError()
+        import sys
+        try:
+            sys.path_hooks.append(importer_for_path)
+            sys.path.insert(0, "yyy")
+            sys.path.insert(0, "xxx")
+            import a
+            try:
+                import b
+            except ImportError:
+                pass
+            assert sys.path_importer_cache['yyy'] is None
+        finally:
+            sys.path.pop(0)
+            sys.path.pop(0)
+            sys.path_hooks.pop()
+
+class AppTestNoPycFile(object):
+    usepycfiles = False
+    lonepycfiles = False
+
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{
+            "objspace.usepycfiles": cls.usepycfiles,
+            "objspace.lonepycfiles": cls.lonepycfiles,
+            })
+        cls.w_usepycfiles = cls.space.wrap(cls.usepycfiles)
+        cls.w_lonepycfiles = cls.space.wrap(cls.lonepycfiles)
+        cls.saved_modules = _setup(cls.space)
+
+    def teardown_class(cls):
+        _teardown(cls.space, cls.saved_modules)
+
+    def test_import_possibly_from_pyc(self):
+        from compiled import x
+        if self.usepycfiles:
+            assert x.__file__.endswith('x.pyc')
+        else:
+            assert x.__file__.endswith('x.py')
+        try:
+            from compiled import lone
+        except ImportError:
+            assert not self.lonepycfiles, "should have found 'lone.pyc'"
+        else:
+            assert self.lonepycfiles, "should not have found 'lone.pyc'"
+            assert lone.__file__.endswith('lone.pyc')
+
+class AppTestNoLonePycFile(AppTestNoPycFile):
+    usepycfiles = True
+    lonepycfiles = False
+
+class AppTestLonePycFile(AppTestNoPycFile):
+    usepycfiles = True
+    lonepycfiles = True

@@ -81,9 +81,9 @@ class AppTestZipimport:
         space.appexec([space.wrap(self)], """(self):
         self.write_files = []
         """)
-        space.setattr(space.getbuiltinmodule('zipimport'),
-                      space.wrap('_zip_directory_cache'),
-                      space.newdict({}))
+        w_cache = space.getattr(space.getbuiltinmodule('zipimport'),
+                                space.wrap('_zip_directory_cache'))
+        space.call_function(space.getattr(w_cache, space.wrap('clear')))
 
     def teardown_method(self, meth):
         space = self.space
@@ -135,6 +135,7 @@ class AppTestZipimport:
     def test_pyc(self):
         import sys, os
         self.writefile(self, "uuu.pyc", self.test_pyc)
+        self.writefile(self, "uuu.py", "def f(x): return x")
         mod = __import__('uuu', globals(), locals(), [])
         expected = {
             '__doc__' : None,
@@ -202,7 +203,7 @@ class AppTestZipimport:
         self.writefile(self, "yy.py", "3")
         self.writefile(self, 'uu.pyc', self.test_pyc)
         z = zipimport.zipimporter(self.zipfile)
-        assert z.get_data("xxx") == data
+        assert z.get_data(self.zipfile + os.sep + "xxx") == data
         assert z.is_package("xx")
         assert not z.is_package("yy")
         assert z.get_source("yy") == '3'
@@ -228,10 +229,20 @@ class AppTestZipimport:
         # directly. -exarkun
         archive = importer.archive
         allbutlast = self.zipfile.split(os.path.sep)[:-1]
-        prefix = os.path.sep.join(allbutlast + [''])
+        prefix = 'directory'
         assert archive == self.zipfile
         assert importer.prefix == prefix
 
+    def test_zip_directory_cache(self):
+        """ Check full dictionary interface
+        """
+        import os
+        import zipimport
+        self.writefile(
+            self, os.sep.join(("directory", "package", "__init__.py")), "")
+        importer = zipimport.zipimporter(self.zipfile + "/directory")
+        l = [i for i in zipimport._zip_directory_cache]
+        assert len(l)
 
 class AppTestZipimportDeflated(AppTestZipimport):
     compression = ZIP_DEFLATED
