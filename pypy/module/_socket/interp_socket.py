@@ -304,6 +304,34 @@ class W_RSocket(Wrappable, RSocket):
                                      space.wrap('Timeout value out of range'))
         self.settimeout(timeout)
     settimeout_w.unwrap_spec = ['self', ObjSpace, W_Root]
+
+    def recv_into_w(self, space, w_buffer, nbytes=0, flags=0):
+        rwbuffer = space.rwbuffer_w(w_buffer)
+        lgt = rwbuffer.getlength()
+        if nbytes == 0 or nbytes > lgt:
+            nbytes = lgt
+        try:
+            return space.wrap(self.recvinto(rwbuffer, nbytes, flags))
+        except SocketError, e:
+            raise converted_error(space, e)
+
+    recv_into_w.unwrap_spec = ['self', ObjSpace, W_Root, int, int]
+
+    def recvfrom_into_w(self, space, w_buffer, nbytes=0, flags=0):
+        rwbuffer = space.rwbuffer_w(w_buffer)
+        lgt = rwbuffer.getlength()
+        if nbytes == 0 or nbytes > lgt:
+            nbytes = lgt
+        try:
+            readlgt, addr = self.recvfrom_into(rwbuffer, nbytes, flags)
+            if addr:
+                w_addr = addr.as_object(space)
+            else:
+                w_addr = space.w_None
+            return space.newtuple([space.wrap(readlgt), w_addr])
+        except SocketError, e:
+            raise converted_error(space, e)        
+    recvfrom_into_w.unwrap_spec = ['self', ObjSpace, W_Root, int, int]
     
     def shutdown_w(self, space, how):
         """shutdown(flag)
@@ -390,7 +418,7 @@ socketmethodnames = """
 accept bind close connect connect_ex dup fileno
 getpeername getsockname getsockopt gettimeout listen makefile
 recv recvfrom send sendall sendto setblocking
-setsockopt settimeout shutdown _reuse _drop
+setsockopt settimeout shutdown _reuse _drop recv_into recvfrom_into
 """.split()
 # Remove non-implemented methods
 for name in ('dup',):

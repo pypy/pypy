@@ -507,7 +507,36 @@ class AppTestSocketTCP:
         # done
         cli.close()
         t.close()
-    
+
+    def test_recv_into(self):
+        import socket
+        import array
+        MSG = 'dupa was here\n'
+        cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        cli.connect(self.serv.getsockname())
+        conn, addr = self.serv.accept()
+        buf = buffer(MSG)
+        conn.send(buf)
+        buf = array.array('c', ' '*1024)
+        nbytes = cli.recv_into(buf)
+        assert nbytes == len(MSG)
+        msg = buf.tostring()[:len(MSG)]
+        assert msg == MSG
+
+    def test_recvfrom_into(self):
+        import socket
+        import array
+        MSG = 'dupa was here\n'
+        cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        cli.connect(self.serv.getsockname())
+        conn, addr = self.serv.accept()
+        buf = buffer(MSG)
+        conn.send(buf)
+        buf = array.array('c', ' '*1024)
+        nbytes, addr = cli.recvfrom_into(buf)
+        assert nbytes == len(MSG)
+        msg = buf.tostring()[:len(MSG)]
+        assert msg == MSG
 
 class AppTestErrno:
     def setup_class(cls):
@@ -526,4 +555,5 @@ class AppTestErrno:
             # error is EINVAL, or WSAEINVAL on Windows
             assert errno.errorcode[e.args[0]].endswith("EINVAL")
             assert isinstance(e.args[1], str)
+
 
