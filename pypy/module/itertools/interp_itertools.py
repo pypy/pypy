@@ -23,6 +23,10 @@ class W_Count(Wrappable):
 
         return self.space.wrap(c)
 
+    def repr_w(self):
+        s = 'count(%d)' % (self.c,)
+        return self.space.wrap(s)
+
 
 def W_Count___new__(space, w_subtype, firstval=0):
     return space.wrap(W_Count(space, firstval))
@@ -32,6 +36,7 @@ W_Count.typedef = TypeDef(
         __new__ = interp2app(W_Count___new__, unwrap_spec=[ObjSpace, W_Root, int]),
         __iter__ = interp2app(W_Count.iter_w, unwrap_spec=['self']),
         next = interp2app(W_Count.next_w, unwrap_spec=['self']),
+        __repr__ = interp2app(W_Count.repr_w, unwrap_spec=['self']),
         __doc__ = """Make an iterator that returns consecutive integers starting
     with n.  If not specified n defaults to zero. Does not currently
     support python long integers. Often used as an argument to imap()
@@ -72,6 +77,14 @@ class W_Repeat(Wrappable):
     def iter_w(self):
         return self.space.wrap(self)
 
+    def repr_w(self):
+        objrepr = self.space.str_w(self.space.repr(self.w_obj))
+        if self.counting:
+            s = 'repeat(%s, %d)' % (objrepr, self.count)
+        else:
+            s = 'repeat(%s)' % (objrepr,)
+        return self.space.wrap(s)
+
 def W_Repeat___new__(space, w_subtype, w_obj, w_times=None):
     return space.wrap(W_Repeat(space, w_obj, w_times))
 
@@ -80,6 +93,7 @@ W_Repeat.typedef = TypeDef(
         __new__  = interp2app(W_Repeat___new__, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root]),
         __iter__ = interp2app(W_Repeat.iter_w, unwrap_spec=['self']),
         next     = interp2app(W_Repeat.next_w, unwrap_spec=['self']),
+        __repr__ = interp2app(W_Repeat.repr_w, unwrap_spec=['self']),
         __doc__  = """Make an iterator that returns object over and over again.
     Runs indefinitely unless the times argument is specified.  Used
     as argument to imap() for invariant parameters to the called

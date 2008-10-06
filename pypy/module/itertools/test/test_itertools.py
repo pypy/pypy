@@ -29,6 +29,14 @@ class AppTestItertools:
 
         raises(OverflowError, itertools.count, sys.maxint + 1)
 
+    def test_count_repr(self):
+        import itertools
+
+        it = itertools.count(123)
+        assert repr(it) == 'count(123)'
+        it.next()
+        assert repr(it) == 'count(124)'
+
     def test_repeat(self):
         import itertools
 
@@ -65,6 +73,21 @@ class AppTestItertools:
         import sys
 
         raises(OverflowError, itertools.repeat, None, sys.maxint + 1)
+
+    def test_repeat_repr(self):
+        import itertools
+
+        it = itertools.repeat('foobar')
+        assert repr(it) == "repeat('foobar')"
+        it.next()
+        assert repr(it) == "repeat('foobar')"
+
+        it = itertools.repeat('foobar', 10)
+        assert repr(it) == "repeat('foobar', 10)"
+        it.next()
+        assert repr(it) == "repeat('foobar', 9)"
+        list(it)
+        assert repr(it) == "repeat('foobar', 0)"
 
     def test_takewhile(self):
         import itertools
