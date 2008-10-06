@@ -63,10 +63,6 @@ def tuple2hex(ver):
             d[ver[3]] << 4 |
             subver)
 
-def _magic(space):
-    from pypy.module.__builtin__.importing import get_pyc_magic
-    return space.wrap(get_pyc_magic(space))
-
 def svn_revision():
     "Return the last-changed svn revision number."
     # NB. we hack the number directly out of the .svn directory to avoid

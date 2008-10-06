@@ -26,6 +26,12 @@ CO_VARKEYWORDS  = 0x0008
 CO_NESTED       = 0x0010
 CO_GENERATOR    = 0x0020
 
+# Magic numbers for the bytecode version in code objects.
+# See comments in pypy/module/__builtin__/importing.
+cpython_magic, = struct.unpack("<i", imp.get_magic())   # host magic number
+default_magic = (62131+2) | 0x0a0d0000                  # this PyPy's magic
+                                                        # (62131=CPython 2.5.1)
+
 # cpython_code_signature helper
 def cpython_code_signature(code):
     "([list-of-arg-names], vararg-name-or-None, kwarg-name-or-None)."
@@ -44,16 +50,13 @@ def cpython_code_signature(code):
         kwargname = None
     return argnames, varargname, kwargname
 
-cpython_magic, = struct.unpack("<i", imp.get_magic())
-default_magic = 62061 | 0x0a0d0000 # value for Python 2.4.1
-
 class PyCode(eval.Code):
     "CPython-style code objects."
 
     def __init__(self, space,  argcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
                      name, firstlineno, lnotab, freevars, cellvars,
-                     hidden_applevel=False, magic = 62131 | 0x0a0d0000): # value for Python 2.5c2
+                     hidden_applevel=False, magic = default_magic):
         """Initialize a new code object from parameters given by
         the pypy compiler"""
         self.space = space

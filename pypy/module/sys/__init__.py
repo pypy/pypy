@@ -68,8 +68,6 @@ class Module(MixedModule):
         
         'getdefaultencoding'    : 'interp_encoding.getdefaultencoding', 
         'setdefaultencoding'    : 'interp_encoding.setdefaultencoding',
-        # XXX hack
-        '_magic'                : 'version._magic',
 }
     appleveldefs = {
         #'displayhook'           : 'app.displayhook', 

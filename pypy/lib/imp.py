@@ -21,11 +21,11 @@ import sys, os
 
 # PyPy-specific interface
 try:
-    from sys import _magic as _get_magic_as_int
+    import __pypy__
     def get_magic():
         """Return the magic number for .pyc or .pyo files."""
         import struct
-        return struct.pack('<i', _get_magic_as_int())
+        return struct.pack('<i', __pypy__.PYC_MAGIC)
 except ImportError:
     # XXX CPython testing hack: delegate to the real imp.get_magic
     get_magic = __import__('imp').get_magic

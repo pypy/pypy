@@ -380,25 +380,33 @@ def getimportlock(space):
 
 """
 
-# we decided to use our own magic number starting from 1024
-# and we have 10 potential bits for different opcodes free.
+# XXX picking a magic number is a mess.  So far it works because we
+# have only two extra opcodes, which bump the magic number by +1 and
+# +2 respectively, and CPython leaves a gap of 10 when it increases
+# its own magic number.  To avoid assigning exactly the same numbers
+# as CPython we always add a +2.  We'll have to think again when we
+# get at the fourth new opcode :-(
 #
-# The presence of special bytecodes bumps the
-# magic number:
+#  * CALL_LIKELY_BUILTIN    +1
+#  * CALL_METHOD            +2
 #
-#  * CALL_LIKELY_BUILTIN    +2
-#  * CALL_METHOD            +4
+# In other words:
 #
-# 
-MAGIC = 1034 | (ord('\r')<<16) | (ord('\n')<<24)
+#     default_magic        -- used by CPython without the -U option
+#     default_magic + 1    -- used by CPython with the -U option
+#     default_magic + 2    -- used by PyPy without any extra opcode
+#     ...
+#     default_magic + 5    -- used by PyPy with both extra opcodes
+#
+from pypy.interpreter.pycode import default_magic
 MARSHAL_VERSION_FOR_PYC = 2
 
 def get_pyc_magic(space):
-    result = MAGIC
+    result = default_magic
     if space.config.objspace.opcodes.CALL_LIKELY_BUILTIN:
-        result += 2
+        result += 1
     if space.config.objspace.opcodes.CALL_METHOD:
-        result += 4
+        result += 2
     return result
 
 
