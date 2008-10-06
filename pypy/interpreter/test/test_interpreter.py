@@ -249,6 +249,17 @@ class TestInterpreter:
         '''
         assert self.codetest(code, 'f', [])[0] == '_[1]'
 
+    def test_import_statement(self):
+        for x in range(10):
+            import os
+        code = '''
+            def f():
+                for x in range(10):
+                    import os
+                return os.name
+            '''
+        assert self.codetest(code, 'f', []) == os.name
+
 
 class TestPyPyInterpreter(TestInterpreter):
     """Runs the previous test with the pypy parser"""
