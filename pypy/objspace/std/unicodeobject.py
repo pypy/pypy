@@ -933,7 +933,7 @@ def repr__Unicode(space, w_unicode):
                 code2 = ord(ch2)
                 if code2 >= 0xDC00 and code2 <= 0xDFFF:
                     code = (((code & 0x03FF) << 10) | (code2 & 0x03FF)) + 0x00010000
-                    result.extend(["U",
+                    result.extend(['\\', "U",
                                    hexdigits[(code >> 28) & 0xf],
                                    hexdigits[(code >> 24) & 0xf],
                                    hexdigits[(code >> 20) & 0xf],
