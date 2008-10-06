@@ -825,6 +825,7 @@ class RSocket(object):
     def recvinto(self, rwbuffer, nbytes, flags=0):
         buf = self.recv(nbytes, flags)
         rwbuffer.setslice(0, buf)
+        return len(buf)
 
     def recvfrom(self, buffersize, flags=0):
         """Like recv(buffersize, flags) but also return the sender's
@@ -854,6 +855,11 @@ class RSocket(object):
             finally:
                 rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
         raise self.error_handler()
+
+    def recvfrom_into(self, rwbuffer, nbytes, flags=0):
+        buf, addr = self.recvfrom(nbytes, flags)
+        rwbuffer.setslice(0, buf)
+        return len(buf), addr        
 
     def send_raw(self, dataptr, length, flags=0):
         """Send data from a CCHARP buffer."""
