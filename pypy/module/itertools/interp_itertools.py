@@ -678,9 +678,16 @@ def tee(space, w_iterable, n=2):
     """
     if n < 0:
         raise OperationError(space.w_ValueError, space.wrap("n must be >= 0"))
-    
-    tee_state = TeeState(space, w_iterable)
-    iterators_w = [space.wrap(W_TeeIterable(space, tee_state)) for x in range(n)]
+
+    myiter = space.interpclass_w(w_iterable)
+    if isinstance(myiter, W_TeeIterable):     # optimization only
+        tee_state = myiter.tee_state
+        iterators_w = [w_iterable] * n
+        for i in range(1, n):
+            iterators_w[i] = space.wrap(W_TeeIterable(space, tee_state))
+    else:
+        tee_state = TeeState(space, w_iterable)
+        iterators_w = [space.wrap(W_TeeIterable(space, tee_state)) for x in range(n)]
     return space.newtuple(iterators_w)
 tee.unwrap_spec = [ObjSpace, W_Root, int]
 

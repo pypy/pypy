@@ -439,6 +439,22 @@ class AppTestItertools:
         raises(ValueError, itertools.tee, [], -1)
         raises(TypeError, itertools.tee, [], None)
 
+    def test_tee_optimization(self):
+        import itertools
+
+        a, b = itertools.tee(iter('foobar'))
+        c, d = itertools.tee(b)
+        assert c is b
+        assert a is not c
+        assert a is not d
+        assert c is not d
+        res = list(a)
+        assert res == list('foobar')
+        res = list(c)
+        assert res == list('foobar')
+        res = list(d)
+        assert res == list('foobar')
+
     def test_groupby(self):
         import itertools
         
