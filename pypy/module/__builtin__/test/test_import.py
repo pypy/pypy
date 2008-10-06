@@ -307,8 +307,9 @@ class AppTestImport:
         assert relative_e.string.inpackage == 1
 
     def test_future_relative_import_error_when_in_non_package(self):
-        def imp():
-            from .string import inpackage
+        exec """def imp():
+                    from .string import inpackage
+        """
         raises(ValueError, imp)
 
     def test_universal_newlines(self):
