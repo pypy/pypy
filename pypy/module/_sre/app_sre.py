@@ -75,8 +75,8 @@ class SRE_Pattern(object):
         filter = repl
         if not callable(repl) and "\\" in repl:
             # handle non-literal strings ; hand it over to the template compiler
-            import sre
-            filter = sre._subx(self, repl)
+            import re
+            filter = re._subx(self, repl)
         state = _sre._State(string, 0, sys.maxint, self.flags)
         sublist = []
 
@@ -242,8 +242,8 @@ class SRE_Match(object):
     def expand(self, template):
         """Return the string obtained by doing backslash substitution and
         resolving group references on template."""
-        import sre
-        return sre._expand(self.re, self, template)
+        import re
+        return re._expand(self.re, self, template)
         
     def groups(self, default=None):
         """Returns a tuple containing all the subgroups of the match. The
