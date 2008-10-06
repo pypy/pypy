@@ -299,7 +299,6 @@ class AppTestPartialEvaluation:
         raises(TypeError, "\\uyyyy".decode, "raw-unicode-escape", "test.baddecodereturn1")
 
     def test_cpy_bug1175396(self):
-        skip('utf-7 decoder bug')
         import codecs, StringIO
         s = [
             '<%!--===================================================\r\n',

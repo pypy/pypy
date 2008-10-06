@@ -66,14 +66,14 @@ def raw_unicode_escape_decode( data, errors='strict'):
     """
     res = PyUnicode_DecodeRawUnicodeEscape(data, len(data), errors)
     res = u''.join(res)
-    return res, len(res)
+    return res, len(data)
 
 def utf_7_decode( data, errors='strict'):
     """None
     """
     res = PyUnicode_DecodeUTF7(data, len(data), errors)
     res = u''.join(res)
-    return res, len(res)
+    return res, len(data)
 
 def unicode_escape_encode( obj, errors='strict'):
     """None
@@ -87,7 +87,7 @@ def unicode_escape_decode( data, errors='strict'):
     """
     res = PyUnicode_DecodeUnicodeEscape(data, len(data), errors)
     res = u''.join(res)
-    return res, len(res)
+    return res, len(data)
 
 
 def charmap_encode(obj, errors='strict', mapping='latin-1'):
@@ -147,7 +147,7 @@ def unicode_internal_decode( unistr, errors='strict'):
             i += unicode_bytes
             p += unichr(t)
         res = u''.join(p)
-        return res, len(res)
+        return res, len(unistr)
 
 # XXX needs error messages when the input is invalid
 def escape_decode(data, errors='strict'):
@@ -197,7 +197,7 @@ def escape_decode(data, errors='strict'):
             res += data[i]
         i += 1
     res = ''.join(res)    
-    return res, len(res)
+    return res, len(data)
 
 def charbuffer_encode( obj, errors='strict'):
     """None
@@ -211,7 +211,7 @@ def charmap_decode( data, errors='strict', mapping=None):
     """
     res = PyUnicode_DecodeCharmap(data, len(data), mapping, errors)
     res = ''.join(res)
-    return res, len(res)
+    return res, len(data)
 
 
 def utf_7_encode( obj, errors='strict'):
