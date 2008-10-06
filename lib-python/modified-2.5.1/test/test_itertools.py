@@ -283,14 +283,12 @@ class TestBasicOps(unittest.TestCase):
         self.assertRaises(ValueError, islice, xrange(10), 1, -5, -1)
         self.assertRaises(ValueError, islice, xrange(10), 1, 10, -1)
         self.assertRaises(ValueError, islice, xrange(10), 1, 10, 0)
-        self.assertRaises(ValueError, islice, xrange(10), 'a')
-        self.assertRaises(ValueError, islice, xrange(10), 'a', 1)
-        self.assertRaises(ValueError, islice, xrange(10), 1, 'a')
-        self.assertRaises(ValueError, islice, xrange(10), 'a', 1, 1)
-        self.assertRaises(ValueError, islice, xrange(10), 1, 'a', 1)
-        # too slow to test on pypy, weakened...:
-        # self.assertEqual(len(list(islice(count(), 1, 10, sys.maxint))), 1)
-        self.assertEqual(len(list(islice(count(), 1, 10, 99))), 1)
+        self.assertRaises((TypeError, ValueError), islice, xrange(10), 'a')
+        self.assertRaises((TypeError, ValueError), islice, xrange(10), 'a', 1)
+        self.assertRaises((TypeError, ValueError), islice, xrange(10), 1, 'a')
+        self.assertRaises((TypeError, ValueError), islice, xrange(10), 'a', 1, 1)
+        self.assertRaises((TypeError, ValueError), islice, xrange(10), 1, 'a', 1)
+        self.assertEqual(len(list(islice(count(), 1, 10, sys.maxint))), 1)
 
     def test_takewhile(self):
         data = [1, 3, 5, 20, 2, 4, 6, 8]
@@ -318,7 +316,7 @@ class TestBasicOps(unittest.TestCase):
         self.assertRaises(ValueError, dropwhile(errfunc, [(4,5)]).next)
 
     def test_tee(self):
-        n = 20
+        n = 200
         def irange(n):
             for i in xrange(n):
                 yield i
@@ -335,16 +333,16 @@ class TestBasicOps(unittest.TestCase):
         self.assertEqual(list(b), range(n))
 
         a, b = tee(irange(n)) # test dealloc of leading iterator
-        for i in xrange(n // 2):
+        for i in xrange(100):
             self.assertEqual(a.next(), i)
         del a
         self.assertEqual(list(b), range(n))
 
         a, b = tee(irange(n)) # test dealloc of trailing iterator
-        for i in xrange(n // 2):
+        for i in xrange(100):
             self.assertEqual(a.next(), i)
         del b
-        self.assertEqual(list(a), range(n // 2, n))
+        self.assertEqual(list(a), range(100, n))
 
         for j in xrange(5):   # test randomly interleaved
             order = [0]*n + [1]*n
@@ -364,18 +362,20 @@ class TestBasicOps(unittest.TestCase):
         self.assertRaises(TypeError, tee, [1,2], 3, 'x')
 
         # tee object should be instantiable
-        a, b = tee('abc')
-        c = type(a)('def')
-        self.assertEqual(list(c), list('def'))
+        # XXX why?? the following test would pass too if type(a)('def')
+        #     just returned iter('abc')...
+        #a, b = tee('abc')
+        #c = type(a)('def')
+        #self.assertEqual(list(c), list('def'))
 
         # test long-lagged and multi-way split
-        a, b, c = tee(xrange(n), 3)
-        for i in xrange(n // 2):
+        a, b, c = tee(xrange(2000), 3)
+        for i in xrange(100):
             self.assertEqual(a.next(), i)
-        self.assertEqual(list(b), range(n))
+        self.assertEqual(list(b), range(2000))
         self.assertEqual([c.next(), c.next()], range(2))
-        self.assertEqual(list(a), range(n // 2, n))
-        self.assertEqual(list(c), range(2, n))
+        self.assertEqual(list(a), range(100,2000))
+        self.assertEqual(list(c), range(2,2000))
 
         # test values of n
         self.assertRaises(TypeError, tee, 'abc', 'invalid')
@@ -399,13 +399,12 @@ class TestBasicOps(unittest.TestCase):
         t3 = tnew(t1)
         self.assert_(list(t1) == list(t2) == list(t3) == list('abc'))
 
-        # Commented out until weakref support is implemented.
-#        # test that tee objects are weak referencable
-#        a, b = tee(xrange(10))
-#        p = proxy(a)
-#        self.assertEqual(getattr(p, '__class__'), type(b))
-#        del a
-#        self.assertRaises(ReferenceError, getattr, p, '__class__')
+        # test that tee objects are weak referencable
+        a, b = tee(xrange(10))
+        p = proxy(a)
+        self.assertEqual(getattr(p, '__class__'), type(b))
+        del a
+        self.assertRaises(ReferenceError, getattr, p, '__class__')
 
     def test_StopIteration(self):
         self.assertRaises(StopIteration, izip().next)
@@ -565,7 +564,7 @@ def L(seqn):
 class TestVariousIteratorArgs(unittest.TestCase):
 
     def test_chain(self):
-        for s in ("123", "", range(10), ('do', 1.2), xrange(2000,2030,5)):
+        for s in ("123", "", range(1000), ('do', 1.2), xrange(2000,2200,5)):
             for g in (G, I, Ig, S, L, R):
                 self.assertEqual(list(chain(g(s))), list(g(s)))
                 self.assertEqual(list(chain(g(s), g(s))), list(g(s))+list(g(s)))
@@ -574,7 +573,7 @@ class TestVariousIteratorArgs(unittest.TestCase):
             self.assertRaises(ZeroDivisionError, list, chain(E(s)))
 
     def test_cycle(self):
-        for s in ("123", "", range(10), ('do', 1.2), xrange(2000,2030,5)):
+        for s in ("123", "", range(1000), ('do', 1.2), xrange(2000,2200,5)):
             for g in (G, I, Ig, S, L, R):
                 tgtlen = len(s) * 3
                 expected = list(g(s))*3
@@ -585,7 +584,7 @@ class TestVariousIteratorArgs(unittest.TestCase):
             self.assertRaises(ZeroDivisionError, list, cycle(E(s)))
 
     def test_groupby(self):
-        for s in (range(10), range(0), range(10), (7,11), xrange(2000,2030,5)):
+        for s in (range(10), range(0), range(1000), (7,11), xrange(2000,2200,5)):
             for g in (G, I, Ig, S, L, R):
                 self.assertEqual([k for k, sb in groupby(g(s))], list(g(s)))
             self.assertRaises(TypeError, groupby, X(s))
@@ -593,7 +592,7 @@ class TestVariousIteratorArgs(unittest.TestCase):
             self.assertRaises(ZeroDivisionError, list, groupby(E(s)))
 
     def test_ifilter(self):
-        for s in (range(10), range(0), range(10), (7,11), xrange(2000,2030,5)):
+        for s in (range(10), range(0), range(1000), (7,11), xrange(2000,2200,5)):
             for g in (G, I, Ig, S, L, R):
                 self.assertEqual(list(ifilter(isEven, g(s))), filter(isEven, g(s)))
             self.assertRaises(TypeError, ifilter, isEven, X(s))
@@ -601,7 +600,7 @@ class TestVariousIteratorArgs(unittest.TestCase):
             self.assertRaises(ZeroDivisionError, list, ifilter(isEven, E(s)))
 
     def test_ifilterfalse(self):
-        for s in (range(10), range(0), range(10), (7,11), xrange(2000,2030,5)):
+        for s in (range(10), range(0), range(1000), (7,11), xrange(2000,2200,5)):
             for g in (G, I, Ig, S, L, R):
                 self.assertEqual(list(ifilterfalse(isEven, g(s))), filter(isOdd, g(s)))
             self.assertRaises(TypeError, ifilterfalse, isEven, X(s))
@@ -609,7 +608,7 @@ class TestVariousIteratorArgs(unittest.TestCase):
             self.assertRaises(ZeroDivisionError, list, ifilterfalse(isEven, E(s)))
 
     def test_izip(self):
-        for s in ("123", "", range(10), ('do', 1.2), xrange(2000,2030,5)):
+        for s in ("123", "", range(1000), ('do', 1.2), xrange(2000,2200,5)):
             for g in (G, I, Ig, S, L, R):
                 self.assertEqual(list(izip(g(s))), zip(g(s)))
                 self.assertEqual(list(izip(g(s), g(s))), zip(g(s), g(s)))
@@ -627,7 +626,7 @@ class TestVariousIteratorArgs(unittest.TestCase):
             self.assertRaises(ZeroDivisionError, list, imap(onearg, E(s)))
 
     def test_islice(self):
-        for s in ("12345", "", range(10), ('do', 1.2), xrange(2000,2030,5)):
+        for s in ("12345", "", range(1000), ('do', 1.2), xrange(2000,2200,5)):
             for g in (G, I, Ig, S, L, R):
                 self.assertEqual(list(islice(g(s),1,None,2)), list(g(s))[1::2])
             self.assertRaises(TypeError, islice, X(s), 10)
@@ -644,7 +643,7 @@ class TestVariousIteratorArgs(unittest.TestCase):
             self.assertRaises(ZeroDivisionError, list, starmap(operator.pow, E(ss)))
 
     def test_takewhile(self):
-        for s in (range(10), range(0), range(10), (7,11), xrange(2000,2030,5)):
+        for s in (range(10), range(0), range(1000), (7,11), xrange(2000,2200,5)):
             for g in (G, I, Ig, S, L, R):
                 tgt = []
                 for elem in g(s):
@@ -656,7 +655,7 @@ class TestVariousIteratorArgs(unittest.TestCase):
             self.assertRaises(ZeroDivisionError, list, takewhile(isEven, E(s)))
 
     def test_dropwhile(self):
-        for s in (range(10), range(0), range(10), (7,11), xrange(2000,2030,5)):
+        for s in (range(10), range(0), range(1000), (7,11), xrange(2000,2200,5)):
             for g in (G, I, Ig, S, L, R):
                 tgt = []
                 for elem in g(s):
@@ -668,7 +667,7 @@ class TestVariousIteratorArgs(unittest.TestCase):
             self.assertRaises(ZeroDivisionError, list, dropwhile(isOdd, E(s)))
 
     def test_tee(self):
-        for s in ("123", "", range(10), ('do', 1.2), xrange(2000,2030,5)):
+        for s in ("123", "", range(1000), ('do', 1.2), xrange(2000,2200,5)):
             for g in (G, I, Ig, S, L, R):
                 it1, it2 = tee(g(s))
                 self.assertEqual(list(it1), list(g(s)))
