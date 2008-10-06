@@ -757,6 +757,6 @@ class AppTestOldstyle(object):
             class Z:
                 def __del__(self):
                     pass
-            Z().__del__ = lambda self: None
+            Z().__del__ = lambda : None
         finally:
             warnings.simplefilter('default', RuntimeWarning)
