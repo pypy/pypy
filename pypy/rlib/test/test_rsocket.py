@@ -103,6 +103,29 @@ def test_socketpair():
     s1.close()
     s2.close()
 
+def test_socketpair_recvinto():
+    class Buffer:
+        def setslice(self, start, string):
+            self.x = string
+
+        def as_str(self):
+            return self.x
+    
+    if sys.platform == "win32":
+        py.test.skip('No socketpair on Windows')
+    s1, s2 = socketpair()
+    buf = Buffer()
+    s1.sendall('?')
+    s2.recvinto(buf, 1)
+    assert buf.as_str() == '?'
+    count = s2.send('x'*99)
+    assert 1 <= count <= 99
+    s1.recvinto(buf, 100)
+    assert buf.as_str() == 'x'*count
+    s1.close()
+    s2.close()
+
+
 def test_simple_tcp():
     import thread
     sock = RSocket()

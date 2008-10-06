@@ -822,6 +822,10 @@ class RSocket(object):
                 rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
         raise self.error_handler()
 
+    def recvinto(self, rwbuffer, nbytes, flags=0):
+        buf = self.recv(nbytes, flags)
+        rwbuffer.setslice(0, buf)
+
     def recvfrom(self, buffersize, flags=0):
         """Like recv(buffersize, flags) but also return the sender's
         address."""
