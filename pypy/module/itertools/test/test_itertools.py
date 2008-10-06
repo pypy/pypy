@@ -565,38 +565,3 @@ class AppTestItertools:
             ]
         for method in methods:
             assert method.__doc__
-    
-    def test_subclassing(self):
-        import itertools
-        # Although (mostly) implemented as classes, the itertools functions
-        # should probably not be subclassable.  They are in CPython but
-        # subclassing them is insane if you ask me (and really forbidden
-        # by the docs, that pretend that they are functions).
-        import sys
-        if '__pypy__' not in sys.builtin_module_names:
-            skip("itertools types are subclassable in CPython")
-        iterables = [
-            itertools.chain,
-            itertools.count,
-            itertools.cycle,
-            itertools.dropwhile,
-            itertools.groupby,
-            itertools.ifilter,
-            itertools.ifilterfalse,
-            itertools.imap,
-            itertools.islice,
-            itertools.izip,
-            itertools.repeat,
-            itertools.starmap,
-            itertools.takewhile,
-            itertools.tee,
-            ]
-        for cls in iterables:
-            try:
-                class A(cls):
-                    pass
-            except TypeError:
-                pass
-            else:
-                assert False, "Subclassing should fail."
-

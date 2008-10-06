@@ -47,7 +47,6 @@ W_Count.typedef = TypeDef(
             yield n
             n += 1
     """)
-W_Count.typedef.acceptable_as_base_class = False
 
 
 class W_Repeat(Wrappable):
@@ -97,7 +96,6 @@ W_Repeat.typedef = TypeDef(
             for i in xrange(times):
                 yield object
     """)
-W_Repeat.typedef.acceptable_as_base_class = False
 
 class W_TakeWhile(Wrappable):
 
@@ -143,7 +141,6 @@ W_TakeWhile.typedef = TypeDef(
             else:
                 break
     """)
-W_TakeWhile.typedef.acceptable_as_base_class = False
 
 class W_DropWhile(Wrappable):
 
@@ -194,7 +191,6 @@ W_DropWhile.typedef = TypeDef(
         for x in iterable:
             yield x
     """)
-W_DropWhile.typedef.acceptable_as_base_class = False
 
 class _IFilterBase(Wrappable):
 
@@ -246,7 +242,6 @@ W_IFilter.typedef = TypeDef(
             if predicate(x):
                 yield x
     """)
-W_IFilter.typedef.acceptable_as_base_class = False
 
 class W_IFilterFalse(_IFilterBase):
     reverse = True
@@ -272,7 +267,6 @@ W_IFilterFalse.typedef = TypeDef(
             if not predicate(x):
                 yield x
     """)
-W_IFilterFalse.typedef.acceptable_as_base_class = False
 
 class W_ISlice(Wrappable):
     def __init__(self, space, w_iterable, w_startstop, args_w):
@@ -360,7 +354,6 @@ W_ISlice.typedef = TypeDef(
     internal structure has been flattened (for example, a multi-line
     report may list a name field on every third line).
     """)
-W_ISlice.typedef.acceptable_as_base_class = False
 
 
 class W_Chain(Wrappable):
@@ -433,7 +426,6 @@ W_Chain.typedef = TypeDef(
             for element in it:
                 yield element
     """)
-W_Chain.typedef.acceptable_as_base_class = False
 
 class W_IMap(Wrappable):
     _error_name = "imap"
@@ -503,7 +495,6 @@ W_IMap.typedef = TypeDef(
                 yield function(*args)
     
     """)
-W_IMap.typedef.acceptable_as_base_class = False
 
 
 class W_IZip(W_IMap):
@@ -538,7 +529,6 @@ W_IZip.typedef = TypeDef(
             result = [i.next() for i in iterables]
             yield tuple(result)
     """)
-W_IZip.typedef.acceptable_as_base_class = False
 
 
 class W_Cycle(Wrappable):
@@ -604,7 +594,6 @@ W_Cycle.typedef = TypeDef(
             for element in saved:
                 yield element    
     """)
-W_Cycle.typedef.acceptable_as_base_class = False
 
 class W_StarMap(Wrappable):
 
@@ -645,7 +634,6 @@ W_StarMap.typedef = TypeDef(
         while True:
             yield function(*iterable.next())    
     """)
-W_StarMap.typedef.acceptable_as_base_class = False
 
 
 def tee(space, w_iterable, n=2):
@@ -832,7 +820,6 @@ W_GroupBy.typedef = TypeDef(
            groups.append(list(g))      # Store group iterator as a list
            uniquekeys.append(k)
     """)
-W_GroupBy.typedef.acceptable_as_base_class = False
 
 class W_GroupByIterator(Wrappable):
     def __init__(self, space, index, groupby):
