@@ -34,20 +34,6 @@ END_FINALLY = 4
 
 from pypy.module.__builtin__.__init__ import BUILTIN_TO_INDEX
 
-def compileFile(filename, display=0):
-    f = open(filename, 'U')
-    buf = f.read()
-    f.close()
-    mod = Module(buf, filename)
-    try:
-        mod.compile(display)
-    except SyntaxError:
-        raise
-    else:
-        f = open(filename + "c", "wb")
-        mod.dump(f)
-        f.close()
-
 def compile(source, filename, mode, flags=None, dont_inherit=None):
     """Replacement for builtin compile() function"""
     if flags is not None or dont_inherit is not None:
@@ -109,21 +95,6 @@ class Module(AbstractCompileMode):
             import pprint
             print pprint.pprint(tree)
         self.code = gen.getCode()
-
-    def dump(self, f):
-        f.write(self.getPycHeader())
-        marshal.dump(self.code, f)
-
-    MAGIC = imp.get_magic()
-
-    def getPycHeader(self):
-        # compile.c uses marshal to write a long directly, with
-        # calling the interface that would also generate a 1-byte code
-        # to indicate the type of the value.  simplest way to get the
-        # same effect is to call marshal and then skip the code.
-        mtime = os.path.getmtime(self.filename)
-        mtime = struct.pack('<i', mtime)
-        return self.MAGIC + mtime
 
 class CodeGenerator(ast.ASTVisitor):
     """Defines basic code generator for Python bytecode
@@ -1592,7 +1563,3 @@ class AugStoreVisitor(ast.ASTVisitor):
     def visitSubscript(self, node):
         self.main.emit('ROT_THREE')
         self.main.emit('STORE_SUBSCR')
-
-if __name__ == "__main__":
-    for file in sys.argv[1:]:
-        compileFile(file)
