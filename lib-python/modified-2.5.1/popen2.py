@@ -8,6 +8,7 @@ and popen3(cmd) which return two or three pipes to the spawned command.
 
 import os
 import sys
+import gc
 
 __all__ = ["popen2", "popen3", "popen4"]
 
