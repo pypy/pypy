@@ -604,3 +604,10 @@ class AppTestItertools:
             ]
         for method in methods:
             assert method.__doc__
+
+    def test_tee_weakrefable(self):
+        import itertools, weakref
+
+        a, b = itertools.tee(iter('abc'))
+        ref = weakref.ref(b)
+        assert ref() is b

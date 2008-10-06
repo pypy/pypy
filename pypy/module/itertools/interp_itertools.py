@@ -1,6 +1,6 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
 from pypy.rlib.rarithmetic import ovfcheck
 
@@ -726,7 +726,9 @@ class W_TeeIterable(Wrappable):
 W_TeeIterable.typedef = TypeDef(
         '_tee',
         __iter__ = interp2app(W_TeeIterable.iter_w, unwrap_spec=['self']),
-        next     = interp2app(W_TeeIterable.next_w, unwrap_spec=['self']))
+        next     = interp2app(W_TeeIterable.next_w, unwrap_spec=['self']),
+        __weakref__ = make_weakref_descr(W_TeeIterable),
+        )
 W_TeeIterable.typedef.acceptable_as_base_class = False
 
 
