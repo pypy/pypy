@@ -297,3 +297,44 @@ class AppTestPartialEvaluation:
         raises(TypeError, "\\x0y".decode, "unicode-escape", "test.baddecodereturn1")
         raises(TypeError, "\\Uffffeeee".decode, "unicode-escape", "test.baddecodereturn1")
         raises(TypeError, "\\uyyyy".decode, "raw-unicode-escape", "test.baddecodereturn1")
+
+    def test_cpy_bug1175396(self):
+        py.test.skip('utf-7 decoder bug')
+        import codecs, StringIO
+        s = [
+            '<%!--===================================================\r\n',
+            '    BLOG index page: show recent articles,\r\n',
+            '    today\'s articles, or articles of a specific date.\r\n',
+            '========================================================--%>\r\n',
+            '<%@inputencoding="ISO-8859-1"%>\r\n',
+            '<%@pagetemplate=TEMPLATE.y%>\r\n',
+            '<%@import=import frog.util, frog%>\r\n',
+            '<%@import=import frog.objects%>\r\n',
+            '<%@import=from frog.storageerrors import StorageError%>\r\n',
+            '<%\r\n',
+            '\r\n',
+            'import logging\r\n',
+            'log=logging.getLogger("Snakelets.logger")\r\n',
+            '\r\n',
+            '\r\n',
+            'user=self.SessionCtx.user\r\n',
+            'storageEngine=self.SessionCtx.storageEngine\r\n',
+            '\r\n',
+            '\r\n',
+            'def readArticlesFromDate(date, count=None):\r\n',
+            '    entryids=storageEngine.listBlogEntries(date)\r\n',
+            '    entryids.reverse() # descending\r\n',
+            '    if count:\r\n',
+            '        entryids=entryids[:count]\r\n',
+            '    try:\r\n',
+            '        return [ frog.objects.BlogEntry.load(storageEngine, date, Id) for Id in entryids ]\r\n',
+            '    except StorageError,x:\r\n',
+            '        log.error("Error loading articles: "+str(x))\r\n',
+            '        self.abort("cannot load articles")\r\n',
+        ]
+        stream = StringIO.StringIO("".join(s).encode("utf7"))
+        assert "aborrt" not in stream.getvalue()
+        reader = codecs.getreader("utf7")(stream)
+        for (i, line) in enumerate(reader):
+            assert line == s[i]
+
