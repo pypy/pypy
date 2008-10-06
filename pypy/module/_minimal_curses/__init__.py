@@ -1,9 +1,13 @@
+try:
+    import _curses
+except ImportError:
+    import _minimal_curses as _curses   # when running on top of pypy-c
 
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.module._minimal_curses import fficurses
 from pypy.module._minimal_curses import interp_curses
 from pypy.rlib.nonconst import NonConstant
-import _curses
+
 
 class Module(MixedModule):
     """ Low-level interface for curses module,
@@ -21,7 +25,6 @@ class Module(MixedModule):
         'tparm'          : 'interp_curses.tparm',
     }
 
-import _curses
 for i in dir(_curses):
     val = getattr(_curses, i)
     if i.isupper() and type(val) is int:

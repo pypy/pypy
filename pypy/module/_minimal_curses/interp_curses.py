@@ -1,8 +1,7 @@
 
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError
-
-import _curses
+from pypy.module._minimal_curses import _curses
 
 class ModuleInfo:
     def __init__(self):
