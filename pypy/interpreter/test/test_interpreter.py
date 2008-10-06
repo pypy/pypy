@@ -231,6 +231,17 @@ class TestInterpreter:
         assert self.codetest(code, 'g', [12, {}]) ==    ()
         assert self.codetest(code, 'g', [12, {3:1}]) == (3,)
 
+    def test_closure(self):
+        code = '''
+            def f(x, y):
+                def g(u, v):
+                    return u - v + 7*x
+                return g
+            def callme(x, u, v):
+                return f(x, 123)(u, v)
+            '''
+        assert self.codetest(code, 'callme', [1, 2, 3]) == 6
+
     def test_list_comprehension(self):
         code = '''
             def f():
