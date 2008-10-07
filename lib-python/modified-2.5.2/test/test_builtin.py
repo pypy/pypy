@@ -1438,10 +1438,13 @@ class BuiltinTest(unittest.TestCase):
         self.assertRaises(ValueError, range, 1, 2, 0)
         self.assertRaises(ValueError, range, a, a + 1, long(0))
 
-        class badzero(int):
-            def __cmp__(self, other):
-                raise RuntimeError
-        self.assertRaises(RuntimeError, range, a, a + 1, badzero(1))
+        # XXX the following seems to test a complete implementation
+        #     detail (it is probably checking a specific error path
+        #     in the C code)
+        #class badzero(int):
+        #    def __cmp__(self, other):
+        #        raise RuntimeError
+        #self.assertRaises(RuntimeError, range, a, a + 1, badzero(1))
 
         # Reject floats when it would require PyLongs to represent.
         # (smaller floats still accepted, but deprecated)
