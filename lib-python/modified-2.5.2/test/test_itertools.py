@@ -407,6 +407,7 @@ class TestBasicOps(unittest.TestCase):
         p = proxy(a)
         self.assertEqual(getattr(p, '__class__'), type(b))
         del a
+        import gc; gc.collect(); gc.collect(); gc.collect()
         self.assertRaises(ReferenceError, getattr, p, '__class__')
 
     def test_StopIteration(self):
