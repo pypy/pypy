@@ -10,8 +10,8 @@ from py.__.test.outcome import ExceptionFailure
 
 class AppCode(object):
     def __init__(self, space, pycode):
-        self.code = space.unwrap(space.getattr(pycode, space.wrap('co_code')))
-        self.raw = self.code
+        self.code = pycode
+        self.raw = pycode
         self.w_file = space.getattr(pycode, space.wrap('co_filename'))
         self.name = space.getattr(pycode, space.wrap('co_name'))
         self.firstlineno = space.unwrap(space.getattr(pycode, space.wrap('co_firstlineno')))
@@ -28,6 +28,9 @@ class AppCode(object):
         except AttributeError:
             return py.code.Source(self.path.read(mode="rU"))
     fullsource = property(fullsource, None, None, "Full source of AppCode")
+
+    def getargs(self):
+        return self.raw.co_varnames[:self.raw.co_argcount]
 
 class AppFrame(py.code.Frame):
 
@@ -59,6 +62,15 @@ class AppFrame(py.code.Frame):
 
     def is_true(self, w_value):
         return self.space.is_true(w_value)
+
+    def getargs(self):
+        space = self.space
+        retval = []
+        for arg in self.code.getargs():
+            w_val = space.getitem(self.w_locals, space.wrap(arg))
+            retval.append((arg, w_val))
+        return retval
+
 
 class AppExceptionInfo(py.code.ExceptionInfo):
     """An ExceptionInfo object representing an app-level exception."""

@@ -1,6 +1,5 @@
 import py
-from py.__.doc.conftest import Directory, DoctestText, ReSTChecker
-from py.__.rest.directive import register_linkrole
+from py.__.doc.conftest import Directory, DoctestText, DocfileTests
 
 thisdir = py.magic.autopath().dirpath()
 
@@ -15,43 +14,34 @@ option = py.test.config.addoptions("pypy-doc options",
     )
 
 class PyPyDoctestText(DoctestText): 
-
-    def run(self): 
+    def runtest(self):
         if not option.doctests: 
             py.test.skip("specify --enable-doctests to run doctests") 
-        # XXX refine doctest support with respect to scoping 
-        return super(PyPyDoctestText, self).run()
-        
-    def execute(self, module, docstring): 
+        super(PyPyDoctestText, self).runtest()
+
+    def getcontent(self):
         # XXX execute PyPy prompts as well 
+        #     but for now just get rid of those lines
         l = []
-        for line in docstring.split('\n'): 
+        for line in super(PyPyDoctestText, self).getcontent().split('\n'):
             if line.find('>>>>') != -1: 
                 line = "" 
             l.append(line) 
-        text = "\n".join(l) 
-        super(PyPyDoctestText, self).execute(module, text) 
+        return "\n".join(l) 
 
-        #mod = py.std.types.ModuleType(self.fspath.basename, text) 
-        #self.mergescopes(mod, scopes) 
-        #failed, tot = py.std.doctest.testmod(mod, verbose=1)
-        #if failed:
-        #    py.test.fail("doctest %s: %s failed out of %s" %(
-        #                 self.fspath, failed, tot))
-
-class PyPyReSTChecker(ReSTChecker): 
+class PyPyDocfileTests(DocfileTests):
     DoctestText = PyPyDoctestText 
     
 class Directory(Directory): 
-    ReSTChecker = PyPyReSTChecker 
-    def run(self):
-        l = super(Directory, self).run()
-        if 'statistic' in l:
-            l.remove('statistic')
-        return l
+    DocfileTests = PyPyDocfileTests
+    def recfilter(self, path):
+        if path.basename == "statistic":
+            return False
+        return super(Directory, self).recfilter(path)
 
 try:
     from docutils.parsers.rst import directives, states, roles
+    from py.__.rest.directive import register_linkrole
 except ImportError:
     pass
 else:

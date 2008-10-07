@@ -22,5 +22,9 @@ def app_test_raises_wrong2():
     raises(SyntaxError, int, "hello") 
 
 def app_test_raises_doesnt():
-    raises(ValueError, int, 3) 
+    raises(ValueError, int, 3)
+
+def app_test_skip():
+    skip("skipped test")
+    
     

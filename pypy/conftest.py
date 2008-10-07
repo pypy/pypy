@@ -29,8 +29,9 @@ option = py.test.config.addoptions("pypy options",
                help="run applevel tests directly on python interpreter (not through PyPy)"),
         Option('--direct', action="store_true",
                default=False, dest="rundirect",
-               help="run pexpect tests directly")
+               help="run pexpect tests directly"),
     )
+
 
 _SPACECACHE={}
 def gettestobjspace(name=None, **kwds):
@@ -267,6 +268,11 @@ class LazyObjSpaceGetter(object):
         return space
 
 
+class AppError(Exception):
+
+    def __init__(self, excinfo):
+        self.excinfo = excinfo
+
 class PyPyTestFunction(py.test.collect.Function):
     # All PyPy test items catch and display OperationErrors specially.
     #
@@ -274,13 +280,18 @@ class PyPyTestFunction(py.test.collect.Function):
         try:
             target(*args)
         except OperationError, e:
+            tb = sys.exc_info()[2]
             if e.match(space, space.w_KeyboardInterrupt):
-                tb = sys.exc_info()[2]
                 raise OpErrKeyboardInterrupt, OpErrKeyboardInterrupt(), tb
             appexcinfo = appsupport.AppExceptionInfo(space, e) 
             if appexcinfo.traceback: 
-                raise Failed(excinfo=appsupport.AppExceptionInfo(space, e))
-            raise 
+                raise AppError, AppError(appexcinfo), tb
+            raise
+
+    def repr_failure(self, excinfo, outerr):
+        if excinfo.errisinstance(AppError):
+            excinfo = excinfo.value.excinfo
+        return super(PyPyTestFunction, self).repr_failure(excinfo, outerr)
 
 _pygame_imported = False
 
@@ -473,12 +484,11 @@ class ExpectClassCollector(py.test.collect.Class):
 
 
 class Directory(py.test.collect.Directory):
-    def run(self):
-        # hack to exclude lib/ctypes/
-        if self.fspath == rootdir.join('lib', 'ctypes', 'test'):
+    def consider_dir(self, path, usefilters=True):
+        if path == rootdir.join("lib", "ctypes", "test"):
             py.test.skip("These are the original ctypes tests.\n"
                          "You can try to run them with 'pypy-c runtests.py'.")
-        return py.test.collect.Directory.run(self)
+        return super(Directory, self).consider_dir(path, usefilters=usefilters)
 
     def recfilter(self, path):
         # disable recursion in symlinked subdirectories

@@ -8,9 +8,14 @@ class AppTestCodeIntrospection:
         space = gettestobjspace()
         cls.space = space
         if py.test.config.option.runappdirect:
-            cls.w_file = space.wrap(__file__[:-1])
+            filename = __file__
         else:
-            cls.w_file = space.wrap("None<%s" % gateway.__file__[:-1])
+            filename = gateway.__file__
+
+        if filename[-3:] != '.py':
+            filename = filename[:-1]
+
+        cls.w_file = space.wrap(filename)
 
     def test_attributes(self):
         def f(): pass

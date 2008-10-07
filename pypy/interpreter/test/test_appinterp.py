@@ -22,7 +22,7 @@ def test_execwith_compile_error(space):
     (): 
         y y 
     """)
-    assert str(excinfo).find('y y') != -1 
+    assert str(excinfo.value).find('y y') != -1 
 
 def test_simple_applevel(space):
     app = appdef("""app(x,y): 

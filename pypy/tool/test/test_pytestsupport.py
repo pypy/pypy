@@ -117,7 +117,7 @@ def test_expectcollect():
     tdir = udir.ensure("t", dir=True)
     dest = tdir.join("test_expect.py")
     dest.write(source)
-    col = conftest.Module(dest)
+    col = conftest.Module(dest, config="dummy")
     result = col.run()
     assert len(result) == 1
 
@@ -138,7 +138,7 @@ def test_safe_filename():
     dest = udir.join("test_expect_safefilename.py")
     dest.write(source)
     from pypy import conftest
-    col = conftest.Module(dest)
+    col = conftest.Module(dest, config="dummy")
     methcol = col.join('ExpectTestOne').join('()').join('test_one')
     name = 'test_expect_safefilename_ExpectTestOne_paren_test_one.py'
     assert methcol.safe_filename() == name

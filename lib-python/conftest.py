@@ -20,9 +20,6 @@ from test import pystone
 from pypy.tool.pytest import appsupport 
 from pypy.tool.pytest.confpath import pypydir, libpythondir, \
                                       regrtestdir, modregrtestdir, testresultdir
-from pypy.tool.pytest.result import Result, ResultFromMime
-
-pypyexecpath = pypydir.join('bin', 'pypy-c')
 
 dist_rsync_roots = ['.', '../pypy', '../py']
     
@@ -30,32 +27,15 @@ dist_rsync_roots = ['.', '../pypy', '../py']
 # Interfacing/Integrating with py.test's collection process 
 #
 
-# XXX no nice way to implement a --listpassing py.test option?! 
-#option = py.test.addoptions("compliance testing options", 
-#    py.test.Option('-L', '--listpassing', action="store", default=None, 
-#                   type="string", dest="listpassing", 
-#                   help="just display the list of expected-to-pass tests.")
-
 Option = py.test.config.Option 
 option = py.test.config.addoptions("compliance testing options", 
-    Option('-C', '--compiled', action="store_true", 
-           default=False, dest="use_compiled", 
-           help="use a compiled version of pypy"),
-    Option('--compiled-pypy', action="store", type="string", dest="pypy_executable",
-           default=str(pypyexecpath),
-           help="to use together with -C to specify the path to the "
-                "compiled version of pypy, by default expected in pypy/bin/pypy-c"),
-    Option('-E', '--extracttests', action="store_true", 
-           default=False, dest="extracttests", 
-           help="try to extract single tests and run them via py.test/PyPy"), 
     Option('-T', '--timeout', action="store", type="string", 
            default="100mp", dest="timeout", 
            help="fail a test module after the given timeout. "
                 "specify in seconds or 'NUMmp' aka Mega-Pystones"),
-    Option('--resultdir', action="store", type="string", 
-           default=None, dest="resultdir", 
-           help="directory under which to store results in USER@HOST subdirs",
-           ),
+    Option('--pypy', action="store", type="string",
+           dest="pypy",  help="use given pypy executable to run lib-python tests. "
+                              "This will run the tests directly (i.e. not through py.py)")
     )
 
 def gettimeout(): 
@@ -68,228 +48,6 @@ def gettimeout():
         return seconds 
     return float(timeout) 
 
-def callex(space, func, *args, **kwargs):
-    from py.__.test.outcome import Failed
-    try: 
-        return func(*args, **kwargs) 
-    except OperationError, e: 
-        ilevelinfo = py.code.ExceptionInfo()
-        if e.match(space, space.w_KeyboardInterrupt): 
-            raise KeyboardInterrupt 
-        appexcinfo = appsupport.AppExceptionInfo(space, e) 
-        if appexcinfo.traceback: 
-            print "appexcinfo.traceback:"
-            py.std.pprint.pprint(appexcinfo.traceback)
-            raise Failed(excinfo=appexcinfo) 
-        raise Failed(excinfo=ilevelinfo) 
-
-#
-# compliance modules where we invoke test_main() usually call into 
-# test_support.(run_suite|run_doctests) 
-# we intercept those calls and use the provided information 
-# for our collection process.  This allows us to run all the 
-# tests one by one. 
-#
-
-app = ApplevelClass('''
-    #NOT_RPYTHON  
-
-    import unittest 
-    from test import test_support   
-    import sys
-
-    def getmethods(suite_or_class): 
-        """ flatten out suites down to TestCase instances/methods. """ 
-        if isinstance(suite_or_class, unittest.TestCase): 
-            res = [suite_or_class]
-        elif isinstance(suite_or_class, unittest.TestSuite): 
-            res = []
-            for x in suite_or_class._tests: 
-                res.extend(getmethods(x))
-        elif isinstance(suite_or_class, list): 
-            res = []
-            for x in suite_or_class: 
-                res.extend(getmethods(x))
-        else: 
-            raise TypeError, "expected TestSuite or TestClass, got %r"  %(suite_or_class) 
-        return res 
-
-    #
-    # exported API 
-    #
-
-    def intercept_test_support(): 
-        """ intercept calls to test_support.run_doctest and run_suite. 
-            Return doctestmodules, suites which will hold collected
-            items from these test_support invocations. 
-        """
-        suites = []
-        doctestmodules = []
-        def hack_run_doctest(module, verbose=None): 
-            doctestmodules.append(module) 
-        test_support.run_doctest = hack_run_doctest 
-
-        def hack_run_suite(suite, testclass=None): 
-            suites.append(suite) 
-        test_support.run_suite = hack_run_suite 
-        return suites, doctestmodules 
-
-    def collect_intercepted(suites, doctestmodules): 
-        namemethodlist = []
-        for method in getmethods(suites): 
-            name = (method.__class__.__name__ + '.' + 
-                    method._TestCase__testMethodName)
-            namemethodlist.append((name, method))
-        doctestlist = []
-        for mod in doctestmodules: 
-            doctestlist.append((mod.__name__, mod))
-        return namemethodlist, doctestlist 
-
-    def run_testcase_method(method): 
-        result = method.defaultTestResult() 
-        method.run(result)
-        if result.errors:
-            assert len(result.errors)
-            print result.errors[0][1]
-        if result.failures:
-            assert len(result.failures)
-            print result.failures[0][1]
-        if result.failures or result.errors:
-            return 1
-
-    def set_argv(filename): 
-        sys.argv[:] = ['python', filename]
-''') 
-
-intercept_test_support = app.interphook('intercept_test_support')
-collect_intercepted = app.interphook('collect_intercepted')
-run_testcase_method = app.interphook('run_testcase_method')
-set_argv = app.interphook('set_argv')
-
-def start_intercept(space): 
-    w_suites, w_doctestmodules = space.unpacktuple(intercept_test_support(space))
-    return w_suites, w_doctestmodules 
-
-def collect_intercept(space, w_suites, w_doctestmodules): 
-    w_result = callex(space, collect_intercepted, space, w_suites, w_doctestmodules)
-    w_namemethods, w_doctestlist = space.unpacktuple(w_result) 
-    return w_namemethods, w_doctestlist 
-
-class SimpleRunItem(py.test.collect.Item): 
-    """ Run a module file and compare its output 
-        to the expected output in the output/ directory. 
-    """ 
-    def call_capture(self, space, func, *args): 
-        regrtest = self.parent.regrtest 
-        oldsysout = sys.stdout 
-        sys.stdout = capturesysout = py.std.cStringIO.StringIO() 
-        try: 
-            try: 
-                res = regrtest.run_file(space) 
-            except: 
-                print capturesysout.getvalue()
-                raise 
-            else: 
-                return res, capturesysout.getvalue()
-        finally: 
-            sys.stdout = oldsysout 
-        
-    def run(self): 
-        # XXX integrate this into InterceptedRunModule
-        #     but we want a py.test refactoring towards
-        #     more autonomy of colitems regarding 
-        #     their representations 
-        regrtest = self.parent.regrtest
-        space = gettestobjspace(usemodules=[])
-        res, output = self.call_capture(space, regrtest.run_file, space)
-
-        outputpath = regrtest.getoutputpath() 
-        if outputpath: 
-            # we want to compare outputs 
-            # regrtest itself prepends the test_name to the captured output
-            result = outputpath.purebasename + "\n" + output 
-            expected = outputpath.read(mode='r') 
-            if result != expected: 
-                reportdiff(expected, result) 
-                py.test.fail("output check failed: %s" % (self.fspath.basename,))
-        if output: 
-            print output, 
-
-#
-class InterceptedRunModule(py.test.collect.Module): 
-    """ special handling for tests with a proper 'def test_main(): '
-        definition invoking test_support.run_suite or run_unittest 
-        (XXX add support for test_support.run_doctest). 
-    """ 
-    def __init__(self, name, parent, regrtest): 
-        super(InterceptedRunModule, self).__init__(name, parent)
-        self.regrtest = regrtest
-        self.fspath = regrtest.getfspath()
-
-    def _prepare(self): 
-        if hasattr(self, 'name2item'): 
-            return
-        self.name2item = {}
-        space = gettestobjspace(usemodules=self.regrtest.usemodules)
-        if self.regrtest.dumbtest or self.regrtest.getoutputpath(): 
-            self.name2item['output'] = SimpleRunItem('output', self) 
-            return 
-
-        tup = start_intercept(space) 
-        self.regrtest.run_file(space)
-        w_namemethods, w_doctestlist = collect_intercept(space, *tup) 
-
-        # setup {name -> wrapped testcase method}
-        for w_item in space.unpackiterable(w_namemethods): 
-            w_name, w_method = space.unpacktuple(w_item) 
-            name = space.str_w(w_name) 
-            testitem = AppTestCaseMethod(name, parent=self, w_method=w_method) 
-            self.name2item[name] = testitem
-
-        # setup {name -> wrapped doctest module}
-        for w_item in space.unpackiterable(w_doctestlist): 
-            w_name, w_module = space.unpacktuple(w_item) 
-            name = space.str_w(w_name) 
-            testitem = AppDocTestModule(name, parent=self, w_module=w_module)
-            self.name2item[name] = testitem 
-       
-    def run(self): 
-        self._prepare() 
-        keys = self.name2item.keys()
-        keys.sort(lambda x,y: cmp(x.lower(), y.lower()))
-        return keys 
-
-    def join(self, name): 
-        self._prepare() 
-        try: 
-            return self.name2item[name]
-        except KeyError: 
-            pass
-
-class AppDocTestModule(py.test.collect.Item): 
-    def __init__(self, name, parent, w_module): 
-        super(AppDocTestModule, self).__init__(name, parent) 
-        self.w_module = w_module 
-
-    def run(self): 
-        py.test.skip("application level doctest modules not supported yet.")
-    
-class AppTestCaseMethod(py.test.collect.Item): 
-    def __init__(self, name, parent, w_method): 
-        super(AppTestCaseMethod, self).__init__(name, parent) 
-        self.space = gettestobjspace() 
-        self.w_method = w_method 
-
-    def run(self):      
-        space = self.space
-        filename = str(self.fspath) 
-        callex(space, set_argv, space, space.wrap(filename))
-        #space.call_function(self.w_method)
-        w_res = callex(space, run_testcase_method, space, self.w_method) 
-        if space.is_true(w_res):
-            raise AssertionError(
-        "testcase instance invociation raised errors, see stdoudt")
-
 # ________________________________________________________________________
 #
 # classification of all tests files (this is ongoing work) 
@@ -298,23 +56,15 @@ class AppTestCaseMethod(py.test.collect.Item):
 class RegrTest: 
     """ Regression Test Declaration.""" 
     def __init__(self, basename, enabled=False, dumbtest=False,
-                                 oldstyle=False, core=False,
+                                 core=False,
                                  compiler=None, 
                                  usemodules = ''): 
         self.basename = basename 
         self.enabled = enabled 
         self.dumbtest = dumbtest 
-        # we have to determine the value of oldstyle
-        # lazily because at RegrTest() call time the command
-        # line options haven't been parsed!
-        self._oldstyle = oldstyle 
         self._usemodules = usemodules.split()
         self._compiler = compiler 
         self.core = core
-
-    def oldstyle(self): 
-        return self._oldstyle #or pypy_option.oldstyle 
-    oldstyle = property(oldstyle)
 
     def usemodules(self):
         return self._usemodules #+ pypy_option.usemodules
@@ -326,7 +76,7 @@ class RegrTest:
 
     def getoptions(self): 
         l = []
-        for name in 'oldstyle', 'core': 
+        for name in ['core']:
             if getattr(self, name): 
                 l.append(name)
         for name in self.usemodules: 
@@ -366,18 +116,13 @@ class RegrTest:
         self._prepare(space)
         fspath = self.getfspath()
         assert fspath.check()
-        if self.oldstyle: 
-            space.enable_old_style_classes_as_default_metaclass() 
-        try: 
-            modname = fspath.purebasename 
-            space.appexec([], '''():
-                from test import %(modname)s
-                m = %(modname)s
-                if hasattr(m, 'test_main'):
-                    m.test_main()
-            ''' % locals())
-        finally: 
-            space.enable_new_style_classes_as_default_metaclass() 
+        modname = fspath.purebasename 
+        space.appexec([], '''():
+            from test import %(modname)s
+            m = %(modname)s
+            if hasattr(m, 'test_main'):
+                m.test_main()
+        ''' % locals())
 
 testmap = [
     RegrTest('test___all__.py', enabled=True, core=True),
@@ -423,34 +168,32 @@ testmap = [
     RegrTest('test_cgi.py', enabled=True),
     RegrTest('test_charmapcodec.py', enabled=True, core=True),
     RegrTest('test_cl.py', enabled=False, dumbtest=1),
-    RegrTest('test_class.py', enabled=True, oldstyle=True, core=True),
+    RegrTest('test_class.py', enabled=True, core=True),
     RegrTest('test_cmath.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_codeccallbacks.py', enabled=True, core=True),
-    RegrTest('test_coding.py', enabled=True),
-    RegrTest('test_codecencodings_cn.py', enabled=True),
-    RegrTest('test_codecencodings_hk.py', enabled=True),
-    RegrTest('test_codecencodings_jp.py', enabled=True),
-    RegrTest('test_codecencodings_kr.py', enabled=True),
-    RegrTest('test_codecencodings_tw.py', enabled=True),
+    RegrTest('test_codecencodings_cn.py', enabled=False),
+    RegrTest('test_codecencodings_hk.py', enabled=False),
+    RegrTest('test_codecencodings_jp.py', enabled=False),
+    RegrTest('test_codecencodings_kr.py', enabled=False),
+    RegrTest('test_codecencodings_tw.py', enabled=False),
 
-    RegrTest('test_codecmaps_cn.py', enabled=True),
-    RegrTest('test_codecmaps_hk.py', enabled=True),
-    RegrTest('test_codecmaps_jp.py', enabled=True),
-    RegrTest('test_codecmaps_kr.py', enabled=True),
-    RegrTest('test_codecmaps_tw.py', enabled=True),
+    RegrTest('test_codecmaps_cn.py', enabled=False),
+    RegrTest('test_codecmaps_hk.py', enabled=False),
+    RegrTest('test_codecmaps_jp.py', enabled=False),
+    RegrTest('test_codecmaps_kr.py', enabled=False),
+    RegrTest('test_codecmaps_tw.py', enabled=False),
     RegrTest('test_codecs.py', enabled=True, core=True),
     RegrTest('test_codeop.py', enabled=True, core=True),
-    RegrTest('test_coercion.py', enabled=True, oldstyle=True, core=True),
+    RegrTest('test_coercion.py', enabled=True, core=True),
     
     RegrTest('test_colorsys.py', enabled=True),
     RegrTest('test_commands.py', enabled=True),
-    RegrTest('test_compare.py', enabled=True, oldstyle=True, core=True),
+    RegrTest('test_compare.py', enabled=True, core=True),
     RegrTest('test_compile.py', enabled=True, core=True),
     RegrTest('test_compiler.py', enabled=True, core=False), # this test tests the compiler package from stdlib
     RegrTest('test_complex.py', enabled=True, core=True),
 
     RegrTest('test_contains.py', enabled=True, dumbtest=1, core=True),
-    RegrTest('test_contextlib.py', enabled=True, core=True),
     RegrTest('test_cookie.py', enabled=False),
     RegrTest('test_cookielib.py', enabled=False),
     RegrTest('test_copy.py', enabled=True, core=True),
@@ -465,10 +208,9 @@ testmap = [
     RegrTest('test_dbm.py', enabled=False, dumbtest=1),
     RegrTest('test_decimal.py', enabled=True),
     RegrTest('test_decorators.py', enabled=True, core=True),
-    RegrTest('test_defaultdict.py', enabled=True),
     RegrTest('test_deque.py', enabled=True, core=True),
-    RegrTest('test_descr.py', enabled=True, core=True, oldstyle=True, usemodules='_weakref'),
-    RegrTest('test_descrtut.py', enabled=True, core=True, oldstyle=True),
+    RegrTest('test_descr.py', enabled=True, core=True, usemodules='_weakref'),
+    RegrTest('test_descrtut.py', enabled=True, core=True),
     RegrTest('test_dict.py', enabled=True, core=True),
 
     RegrTest('test_difflib.py', enabled=True, dumbtest=1),
@@ -520,13 +262,16 @@ testmap = [
 
     RegrTest('test_gl.py', enabled=False, dumbtest=1),
     RegrTest('test_glob.py', enabled=True, core=True),
-    RegrTest('test_global.py', enabled=True, core=True, compiler='ast'),
+    RegrTest('test_global.py', enabled=True, core=True),
     RegrTest('test_grammar.py', enabled=True, core=True),
     RegrTest('test_grp.py', enabled=False),
         #rev 10840: ImportError: grp
 
     RegrTest('test_gzip.py', enabled=False, dumbtest=1),
     RegrTest('test_hash.py', enabled=True, core=True),
+    RegrTest('test_hashlib.py', enabled=True, core=True),
+        # test_hashlib comes from 2.5 
+    
     RegrTest('test_heapq.py', enabled=True, core=True),
     RegrTest('test_hexoct.py', enabled=True, core=True),
     RegrTest('test_hmac.py', enabled=True),
@@ -578,7 +323,7 @@ testmap = [
     RegrTest('test_multifile.py', enabled=True),
     RegrTest('test_mutants.py', enabled=True, dumbtest=1, core="possibly"),
     RegrTest('test_netrc.py', enabled=True),
-    RegrTest('test_new.py', enabled=True, core=True, oldstyle=True),
+    RegrTest('test_new.py', enabled=True, core=True),
     RegrTest('test_nis.py', enabled=False),
     RegrTest('test_normalization.py', enabled=False),
     RegrTest('test_ntpath.py', enabled=True, dumbtest=1),
@@ -604,7 +349,6 @@ testmap = [
         #     seems to be the only one that invokes run_unittest 
         #     and is an unittest 
     RegrTest('test_pep292.py', enabled=True),
-    RegrTest('test_pep352.py', enabled=True),
     RegrTest('test_pickle.py', enabled=True, core=True),
     RegrTest('test_pickletools.py', enabled=True, dumbtest=1, core=False),
     RegrTest('test_pkg.py', enabled=True, core=True),
@@ -637,7 +381,7 @@ testmap = [
     RegrTest('test_re.py', enabled=True, core=True),
 
     RegrTest('test_regex.py', enabled=False),
-    RegrTest('test_repr.py', enabled=True, oldstyle=True, core=True),
+    RegrTest('test_repr.py', enabled=True, core=True),
         #rev 10840: 6 of 12 tests fail. Always minor stuff like
         #'<function object at 0x40db3e0c>' != '<built-in function hash>'
 
@@ -748,7 +492,6 @@ testmap = [
     RegrTest('test_userlist.py', enabled=True, core=True),
     RegrTest('test_userstring.py', enabled=True, core=True),
     RegrTest('test_uu.py', enabled=False),
-    RegrTest('test_uuid.py', enabled=True),
         #rev 10840: 1 of 9 test fails
 
     RegrTest('test_warnings.py', enabled=True, core=True),
@@ -758,10 +501,6 @@ testmap = [
     RegrTest('test_whichdb.py', enabled=True),
     RegrTest('test_winreg.py', enabled=False),
     RegrTest('test_winsound.py', enabled=False),
-    RegrTest('test_with.py', enabled=True),
-    RegrTest('test_wsgiref.py', enabled=True),
-    RegrTest('test_xdrlib.py', enabled=True),
-    RegrTest('test_xml_etree.py', enabled=True),
     RegrTest('test_xmllib.py', enabled=False),
     RegrTest('test_xmlrpc.py', enabled=False),
         #rev 10840: 2 of 5 tests fail
@@ -769,7 +508,6 @@ testmap = [
     RegrTest('test_xpickle.py', enabled=False),
     RegrTest('test_xrange.py', enabled=True, core=True),
     RegrTest('test_zipfile.py', enabled=False, dumbtest=1),
-    RegrTest('test_zipfile64.py', enabled=False, dumbtest=1),
     RegrTest('test_zipimport.py', enabled=True, usemodules='zlib zipimport'),
     RegrTest('test_zlib.py', enabled=True, usemodules='zlib'),
 ]
@@ -787,48 +525,19 @@ class RegrDirectory(py.test.collect.Directory):
                 cache[x.basename] = x
         return cache.get(name, None)
         
-    def run(self): 
-        return [x.basename for x in testmap]
-
-    def join(self, name): 
-        regrtest = self.get(name) 
-        if regrtest is not None: 
-            if not option.extracttests:  
-                return RunFileExternal(name, parent=self, regrtest=regrtest) 
-            else: 
-                return InterceptedRunModule(name, self, regrtest) 
+    def collect(self): 
+        l = []
+        for x in testmap:
+            name = x.basename
+            regrtest = self.get(name)
+            if regrtest is not None: 
+                #if option.extracttests:  
+                #    l.append(InterceptedRunModule(name, self, regrtest))
+                #else:
+                l.append(RunFileExternal(name, parent=self, regrtest=regrtest))
+        return l 
 
 Directory = RegrDirectory
-
-
-def getrev(path): 
-    try: 
-        return py.path.svnwc(pypydir).info().rev
-    except (KeyboardInterrupt, SystemExit):
-        raise
-    except:
-        # on windows people not always have 'svn' in their path
-        # but there are also other kinds of problems that
-        # could occur and we just default to revision
-        # "unknown" for them
-        return 'unknown'  
-
-def getexecutable(_cache={}):
-    execpath = py.path.local(option.pypy_executable)
-    if not _cache:
-        text = execpath.sysexec('-c', 
-            'import sys; '
-            'print sys.version; '
-            'print sys.pypy_svn_url; '
-            'print sys.pypy_translation_info; ')
-        lines = [line.strip() for line in text.split('\n')]
-        assert len(lines) == 4 and lines[3] == ''
-        assert lines[2].startswith('{') and lines[2].endswith('}')
-        info = eval(lines[2])
-        info['version'] = lines[0]
-        info['rev'] = eval(lines[1])[1]
-        _cache.update(info)
-    return execpath, _cache
 
 class RunFileExternal(py.test.collect.Module): 
     def __init__(self, name, parent, regrtest): 
@@ -836,40 +545,12 @@ class RunFileExternal(py.test.collect.Module):
         self.regrtest = regrtest 
         self.fspath = regrtest.getfspath()
 
-    def tryiter(self, stopitems=()): 
-        # shortcut pre-counting of items 
-        return []
-
-    def run(self): 
+    def collect(self): 
         if self.regrtest.ismodified(): 
-            return ['modified']
-        return ['unmodified']
-
-    def join(self, name): 
-        return ReallyRunFileExternal(name, parent=self) 
-
-
-def ensuretestresultdir():
-    resultdir = option.resultdir
-    default_place = False
-    if resultdir is not None:
-        resultdir = py.path.local(option.resultdir)
-    else:
-        if option.use_compiled:
-            return None
-        default_place = True
-        resultdir = testresultdir
-        
-    if not resultdir.check(dir=1):
-        if default_place:
-            py.test.skip("""'testresult' directory not found.
-                 To run tests in reporting mode (without -E), you first have to
-                 check it out as follows: 
-                 svn co http://codespeak.net/svn/pypy/testresult %s""" % (
-                testresultdir, ))
+            name = 'modified'
         else:
-            py.test.skip("'%s' test result dir not found" % resultdir)
-    return resultdir 
+            name = 'unmodified'
+        return [ReallyRunFileExternal(name, parent=self)] 
 
 #
 # testmethod: 
@@ -881,23 +562,6 @@ import socket
 import getpass
 
 class ReallyRunFileExternal(py.test.collect.Item): 
-    _resultcache = None
-    def _haskeyword(self, keyword): 
-        if keyword == 'core': 
-            return self.parent.regrtest.core 
-        if keyword not in ('error', 'ok', 'timeout'): 
-            return super(ReallyRunFileExternal, self).haskeyword(keyword)
-        if self._resultcache is None: 
-            from pypy.tool.pytest.overview import ResultCache
-            self.__class__._resultcache = rc = ResultCache() 
-            rc.parselatest()
-        result = self._resultcache.getlatestrelevant(self.fspath.purebasename)
-        if not result: return False
-        if keyword == 'timeout': return result.istimeout()
-        if keyword == 'error': return result.iserror()
-        if keyword == 'ok': return result.isok()
-        assert False, "should not be there" 
-
     def getinvocation(self, regrtest): 
         fspath = regrtest.getfspath() 
         python = sys.executable 
@@ -908,16 +572,7 @@ class ReallyRunFileExternal(py.test.collect.Item):
         regr_script = pypydir.join('tool', 'pytest', 
                                    'run-script', 'regrverbose.py')
         
-        if option.use_compiled:
-            execpath, info = getexecutable()        
         pypy_options = []
-        if regrtest.oldstyle: 
-            if (option.use_compiled and
-                not info.get('objspace.std.oldstyle', False)):
-                py.test.skip("old-style classes not available with this pypy-c")
-            pypy_options.append('--oldstyle') 
-        if regrtest.compiler:
-            pypy_options.append('--compiler=%s' % regrtest.compiler)
         pypy_options.extend(
             ['--withmod-%s' % mod for mod in regrtest.usemodules])
         sopt = " ".join(pypy_options) 
@@ -934,7 +589,12 @@ class ReallyRunFileExternal(py.test.collect.Item):
             regrrun_verbosity = '0'
         
         TIMEOUT = gettimeout()
-        if option.use_compiled:
+        if option.pypy:
+            execpath = py.path.local(option.pypy)
+            if not execpath.check():
+                execpath = py.path.local.sysfind(option.pypy)
+            if not execpath:
+                raise LookupError("could not find executable %r" %(option.pypy,))
             cmd = "%s %s %s %s" %(
                 execpath, 
                 regrrun, regrrun_verbosity, fspath.purebasename)
@@ -949,7 +609,7 @@ class ReallyRunFileExternal(py.test.collect.Item):
                 regrrun, regrrun_verbosity, fspath.purebasename)
         return cmd 
 
-    def run(self): 
+    def runtest(self): 
         """ invoke a subprocess running the test file via PyPy. 
             record its output into the 'result/user@host' subdirectory. 
             (we might want to create subdirectories for 
@@ -958,84 +618,37 @@ class ReallyRunFileExternal(py.test.collect.Item):
             i am afraid. 
         """ 
         regrtest = self.parent.regrtest
-        result = self.getresult(regrtest) 
-        testresultdir = ensuretestresultdir()
-        if testresultdir is not None:
-            resultdir = testresultdir.join(result['userhost'])
-            assert resultdir.ensure(dir=1)
-
-            fn = resultdir.join(regrtest.basename).new(ext='.txt') 
-            if result.istimeout(): 
-                if fn.check(file=1): 
-                    try: 
-                        oldresult = ResultFromMime(fn)
-                    except TypeError: 
-                        pass
-                    else: 
-                        if not oldresult.istimeout(): 
-                            py.test.skip("timed out, not overwriting "
-                                         "more interesting non-timeout outcome")
-            
-            fn.write(result.repr_mimemessage().as_string(unixfrom=False))
-            
-        if result['exit-status']:  
+        exit_status, test_stdout, test_stderr = self.getresult(regrtest) 
+        if exit_status:
              time.sleep(0.5)   # time for a Ctrl-C to reach us :-)
-             print >>sys.stdout, result.getnamedtext('stdout') 
-             print >>sys.stderr, result.getnamedtext('stderr') 
+             print >>sys.stdout, test_stdout
+             print >>sys.stderr, test_stderr
              py.test.fail("running test failed, see stderr output below") 
 
     def getstatusouterr(self, cmd): 
-        tempdir = py.path.local.mkdtemp() 
-        try: 
-            stdout = tempdir.join(self.fspath.basename) + '.out'
-            stderr = tempdir.join(self.fspath.basename) + '.err'
-            if sys.platform == 'win32':
-                status = os.system("%s >%s 2>%s" %(cmd, stdout, stderr))
-                if status>=0:
-                    status = status
-                else:
-                    status = 'abnormal termination 0x%x' % status
+        tempdir = py.test.ensuretemp(self.fspath.basename)
+        stdout = tempdir.join(self.fspath.basename) + '.out'
+        stderr = tempdir.join(self.fspath.basename) + '.err'
+        if sys.platform == 'win32':
+            status = os.system("%s >%s 2>%s" %(cmd, stdout, stderr))
+            if status>=0:
+                status = status
             else:
-                status = os.system("%s >>%s 2>>%s" %(cmd, stdout, stderr))
-                if os.WIFEXITED(status):
-                    status = os.WEXITSTATUS(status)
-                else:
-                    status = 'abnormal termination 0x%x' % status
-            return status, stdout.read(mode='rU'), stderr.read(mode='rU')
-        finally: 
-            tempdir.remove()
+                status = 'abnormal termination 0x%x' % status
+        else:
+            status = os.system("%s >>%s 2>>%s" %(cmd, stdout, stderr))
+            if os.WIFEXITED(status):
+                status = os.WEXITSTATUS(status)
+            else:
+                status = 'abnormal termination 0x%x' % status
+        return status, stdout.read(mode='rU'), stderr.read(mode='rU')
 
     def getresult(self, regrtest): 
         cmd = self.getinvocation(regrtest) 
-        result = Result()
-        fspath = regrtest.getfspath() 
-        result['fspath'] = str(fspath) 
-        result['pypy-revision'] = getrev(pypydir) 
-        if option.use_compiled:
-            execpath, info = getexecutable()
-            result['pypy-revision'] = info['rev']
-            result['executable'] = execpath.basename
-            for key, value in info.items():
-                if key == 'rev':
-                    continue
-                result['executable-%s' % key] = str(value)
-        else:
-            result['executable'] = 'py.py'
-        result['options'] = regrtest.getoptions() 
-        result['timeout'] = gettimeout()
-        result['startdate'] = time.ctime()
-        starttime = time.time() 
-
-        # really run the test in a sub process
         exit_status, test_stdout, test_stderr = self.getstatusouterr(cmd) 
-
         timedout = test_stderr.rfind(26*"=" + "timedout" + 26*"=") != -1 
         if not timedout: 
             timedout = test_stderr.rfind("KeyboardInterrupt") != -1
-        result['execution-time'] = time.time() - starttime
-        result.addnamedtext('stdout', test_stdout)
-        result.addnamedtext('stderr', test_stderr)
-
         outcome = 'OK'
         expectedpath = regrtest.getoutputpath()
         if not exit_status: 
@@ -1046,19 +659,17 @@ class ReallyRunFileExternal(py.test.collect.Item):
                     exit_status = 2  
                     res, out, err = py.io.StdCapture.call(reportdiff, expected, test_stdout)
                     outcome = 'ERROUT' 
-                    result.addnamedtext('reportdiff', out)
+                    test_stderr += ("-" * 80 + "\n") + out
             else:
                 if 'FAIL' in test_stdout or 'ERROR' in test_stderr:
                     outcome = 'FAIL'
+                    exit_status = 2  
         elif timedout: 
             outcome = "T/O"    
         else: 
             outcome = "ERR"
         
-        result['exit-status'] = exit_status 
-        result['outcome'] = outcome 
-        return result
-
+        return exit_status, test_stdout, test_stderr
 
 #
 # Sanity check  (could be done more nicely too)

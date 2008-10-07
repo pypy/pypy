@@ -4,7 +4,7 @@ A color print.
 
 import sys
 
-from py.__.misc.terminal_helper import ansi_print
+from py.__.io.terminalwriter import ansi_print
 from pypy.tool.ansi_mandelbrot import Driver
 
 class AnsiLog:

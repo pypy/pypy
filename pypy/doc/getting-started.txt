@@ -198,6 +198,7 @@ usual CPython console.  You can then access internal objects of PyPy
 (e.g. the object space) and any variables you have created on the PyPy
 prompt with the prefix ``w_``:: 
 
+    .. >>> import py ; py.test.skip("skipchunk")
     >>>> a = 123
     >>>> <Ctrl-C>
     *** Entering interpreter-level console ***
