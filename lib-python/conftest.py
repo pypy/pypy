@@ -65,6 +65,7 @@ class RegrTest:
         self._usemodules = usemodules.split()
         self._compiler = compiler 
         self.core = core
+        assert self.getfspath().check(), "%r not found!" % (basename,)
 
     def usemodules(self):
         return self._usemodules #+ pypy_option.usemodules
@@ -371,7 +372,6 @@ testmap = [
 
     RegrTest('test_re.py', enabled=True, core=True),
 
-    RegrTest('test_regex.py', enabled=False),
     RegrTest('test_repr.py', enabled=True, core=True),
         #rev 10840: 6 of 12 tests fail. Always minor stuff like
         #'<function object at 0x40db3e0c>' != '<built-in function hash>'
@@ -452,7 +452,6 @@ testmap = [
     RegrTest('test_timeout.py', enabled=False),
         #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
 
-    RegrTest('test_timing.py', enabled=False, dumbtest=1),
     RegrTest('test_tokenize.py', enabled=False),
     RegrTest('test_trace.py', enabled=True, core=True),
     RegrTest('test_traceback.py', enabled=True, core=True),
