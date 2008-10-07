@@ -1,3 +1,4 @@
+import py
 import sys
 from pypy.objspace.std import intobject as iobj
 from pypy.objspace.std.objspace import FailedToImplement
@@ -320,6 +321,14 @@ class AppTestInt:
         assert 42 == int('42', 10)
         raises(TypeError, int, 1, 10)
         raises(TypeError, int, '5', '9')
+
+    def test_int_largenums(self):
+        py.test.skip("in-progress")
+        import sys
+        for x in [-sys.maxint-1, -1, sys.maxint]:
+            y = int(str(x))
+            assert y == x
+            assert type(y) is int
 
     def test_shift_zeros(self):
         assert (1 << 0) == 1

@@ -91,6 +91,13 @@ class TestStrUtil:
         raises(ParseStringOverflowError, string_to_int,
                str(sys.maxint*17))
 
+    def test_string_to_int_not_overflow(self):
+        py.test.skip("in-progress")
+        import sys
+        for x in [-sys.maxint-1, sys.maxint]:
+            y = string_to_int(str(x))
+            assert y == x
+
     def test_string_to_int_base_error(self):
         space = self.space
         cases = [('1', 1),
