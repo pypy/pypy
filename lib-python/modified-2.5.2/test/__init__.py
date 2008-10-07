@@ -4,7 +4,7 @@ It uses the 'official' hack to include the rest of the standard
 'test' package from CPython.
 
 This assumes that sys.path is configured to contain 
-'lib-python/modified-2.5.1' before 'lib-python/2.5.1'.
+'lib-python/modified-2.5.2' before 'lib-python/2.5.2'.
 """
 
 from pkgutil import extend_path
