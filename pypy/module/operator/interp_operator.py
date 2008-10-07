@@ -1,3 +1,5 @@
+from pypy.interpreter.error import OperationError
+
 def index(space, w_a):
     return space.index(w_a)
 
@@ -15,8 +17,11 @@ def and_(space, w_obj1, w_obj2):
 
 def concat(space, w_obj1, w_obj2):
     'concat(a, b) -- Same as a a + b, for a and b sequences.'
-    return space.add(w_obj1, w_obj2) # XXX cPython only works on types with sequence api
-                                     # we support any with __add__
+    if space.findattr(w_obj1, space.wrap('__getitem__')) is None or \
+            space.findattr(w_obj2, space.wrap('__getitem__')) is None:
+        raise OperationError(space.w_TypeError, space.w_None)
+
+    return space.add(w_obj1, w_obj2)
 
 def contains(space, w_obj1, w_obj2):
     'contains(a, b) -- Same as b in a (note reversed operands).'

@@ -35,3 +35,42 @@ class AppTestOperator:
         assert operator.itemgetter(2,10,5)(data) == ('2', '10', '5')
         raises(TypeError, operator.itemgetter(2, 'x', 5), data)
 
+    def test_concat(self):
+        class Seq1:
+            def __init__(self, lst):
+                self.lst = lst
+            def __len__(self):
+                return len(self.lst)
+            def __getitem__(self, i):
+                return self.lst[i]
+            def __add__(self, other):
+                return self.lst + other.lst
+            def __mul__(self, other):
+                return self.lst * other
+            def __rmul__(self, other):
+                return other * self.lst
+
+        class Seq2(object):
+            def __init__(self, lst):
+                self.lst = lst
+            def __len__(self):
+                return len(self.lst)
+            def __getitem__(self, i):
+                return self.lst[i]
+            def __add__(self, other):
+                return self.lst + other.lst
+            def __mul__(self, other):
+                return self.lst * other
+            def __rmul__(self, other):
+                return other * self.lst
+
+        import operator
+
+        raises(TypeError, operator.concat)
+        raises(TypeError, operator.concat, None, None)
+        assert operator.concat('py', 'thon') == 'python'
+        assert operator.concat([1, 2], [3, 4]) == [1, 2, 3, 4]
+        assert operator.concat(Seq1([5, 6]), Seq1([7])) == [5, 6, 7]
+        assert operator.concat(Seq2([5, 6]), Seq2([7])) == [5, 6, 7]
+        raises(TypeError, operator.concat, 13, 29)
+
