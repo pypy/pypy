@@ -246,10 +246,10 @@ class BuiltinTest(unittest.TestCase):
         self.assertRaises(TypeError, compile)
         self.assertRaises(ValueError, compile, 'print 42\n', '<string>', 'badmode')
         self.assertRaises(ValueError, compile, 'print 42\n', '<string>', 'single', 0xff)
-        self.assertRaises(TypeError, compile, chr(0), 'f', 'exec')
+        self.assertRaises((TypeError, SyntaxError), compile, chr(0), 'f', 'exec')
         if have_unicode:
             compile(unicode('print u"\xc3\xa5"\n', 'utf8'), '', 'exec')
-            self.assertRaises(TypeError, compile, unichr(0), 'f', 'exec')
+            self.assertRaises((TypeError, SyntaxError), compile, unichr(0), 'f', 'exec')
             self.assertRaises(ValueError, compile, unicode('a = 1'), 'f', 'bad')
 
     def test_delattr(self):
@@ -432,9 +432,9 @@ class BuiltinTest(unittest.TestCase):
         execfile(TESTFN, globals, locals)
         self.assertEqual(locals['z'], 2)
 
-        unlink(TESTFN)
         self.assertRaises(TypeError, execfile)
         self.assertRaises(TypeError, execfile, TESTFN, {}, ())
+        unlink(TESTFN)
         import os
         self.assertRaises(IOError, execfile, os.curdir)
         self.assertRaises(IOError, execfile, "I_dont_exist")
@@ -560,8 +560,12 @@ class BuiltinTest(unittest.TestCase):
         if have_unicode:
             self.assertEqual(float(unicode("  3.14  ")), 3.14)
             self.assertEqual(float(unicode("  \u0663.\u0661\u0664  ",'raw-unicode-escape')), 3.14)
-            # Implementation limitation in PyFloat_FromString()
-            self.assertRaises(ValueError, float, unicode("1"*10000))
+            try:
+                value = float(unicode("1"*10000))
+            except ValueError:
+                pass    # Implementation limitation in PyFloat_FromString()
+            else:
+                self.assert_(value > 1e300)   # infinite
 
     @run_with_locale('LC_NUMERIC', 'fr_FR', 'de_DE')
     def test_float_with_comma(self):
