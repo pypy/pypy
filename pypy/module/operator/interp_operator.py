@@ -8,15 +8,15 @@ def abs(space, w_obj):
     return space.abs(w_obj)
 
 def add(space, w_obj1, w_obj2):
-    'add(a, b) -- Same as a a + b'
+    'add(a, b) -- Same as a + b'
     return space.add(w_obj1, w_obj2)
 
 def and_(space, w_obj1, w_obj2):
-    'and_(a, b) -- Same as a a & b'
+    'and_(a, b) -- Same as a & b'
     return space.and_(w_obj1, w_obj2)
 
 def concat(space, w_obj1, w_obj2):
-    'concat(a, b) -- Same as a a + b, for a and b sequences.'
+    'concat(a, b) -- Same as a + b, for a and b sequences.'
     if space.findattr(w_obj1, space.wrap('__getitem__')) is None or \
             space.findattr(w_obj2, space.wrap('__getitem__')) is None:
         raise OperationError(space.w_TypeError, space.w_None)
@@ -162,3 +162,73 @@ def truth(space, w_a,):
 def xor(space, w_a, w_b):
     'xor(a, b) -- Same as a ^ b.'
     return space.xor(w_a, w_b)
+
+# in-place operations
+
+def iadd(space, w_obj1, w_obj2):
+    'iadd(a, b) -- Same as a += b.'
+    return space.inplace_add(w_obj1, w_obj2)
+
+def iand(space, w_obj1, w_obj2):
+    'iand(a, b) -- Same as a =& b'
+    return space.inplace_and(w_obj1, w_obj2)
+
+def idiv(space, w_a, w_b):
+    'idiv(a, b) -- Same as a /= b when __future__.division is no in effect'
+    return space.inplace_div(w_a, w_b)
+
+def ifloordiv(space, w_a, w_b):
+    'ifloordiv(a, b) -- Same as a //= b.'
+    return space.inplace_floordiv(w_a, w_b)
+
+def ilshift(space, w_a, w_b):
+    'ilshift(a, b) -- Same as a <<= b.'
+    return space.inplace_lshift(w_a, w_b) 
+
+def imod(space, w_a, w_b):
+    'imod(a, b) -- Same as a %= b.'
+    return space.inplace_mod(w_a, w_b)
+
+def imul(space, w_a, w_b):
+    'imul(a, b) -- Same as a *= b.'
+    return space.inplace_mul(w_a, w_b)
+
+def ior(space, w_a, w_b):
+    'ior(a, b) -- Same as a |= b.'
+    return space.inplace_or(w_a, w_b)
+
+def ipow(space, w_a, w_b):
+    'ipow(a, b) -- Same as a **= b.'
+    return space.inplace_pow(w_a, w_b)
+
+def irshift(space, w_a, w_b):
+    'irshift(a, b) -- Same as a >>= b.'
+    return space.inplace_rshift(w_a, w_b) 
+
+def isub(space, w_a, w_b):
+    'isub(a, b) -- Same as a -= b.'
+    return space.inplace_sub(w_a, w_b) 
+
+def itruediv(space, w_a, w_b):
+    'itruediv(a, b) -- Same as a /= b when __future__.division is in effect.'
+    return space.inplace_truediv(w_a, w_b)
+
+def ixor(space, w_a, w_b):
+    'ixor(a, b) -- Same as a ^= b.'
+    return space.inplace_xor(w_a, w_b)
+
+def iconcat(space, w_obj1, w_obj2):
+    'iconcat(a, b) -- Same as a += b, for a and b sequences.'
+    if space.findattr(w_obj1, space.wrap('__getitem__')) is None or \
+            space.findattr(w_obj2, space.wrap('__getitem__')) is None:
+        raise OperationError(space.w_TypeError, space.w_None)
+
+    return space.inplace_add(w_obj1, w_obj2)
+
+def irepeat(space, w_obj1, w_obj2):
+    'irepeat(a, b) -- Same as a *= b, for a and b sequences.'
+    if space.findattr(w_obj1, space.wrap('__getitem__')) is None:
+        raise OperationError(space.w_TypeError, space.w_None)
+
+    return space.inplace_mul(w_obj1, w_obj2)
+

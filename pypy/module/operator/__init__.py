@@ -34,7 +34,11 @@ class Module(MixedModule):
                     'le', 'lshift', 'lt', 'mod', 'mul',
                     'ne', 'neg', 'not_', 'or_',
                     'pos', 'pow', 'rshift', 'setitem', 'sequenceIncludes',
-                    'sub', 'truediv', 'truth', 'xor']
+                    'sub', 'truediv', 'truth', 'xor',
+                    'iadd', 'iand', 'iconcat', 'idiv', 'ifloordiv',
+                    'ilshift', 'imod', 'imul', 'ior', 'ipow', 'irepeat',
+                    'irshift', 'isub', 'itruediv', 'ixor']
+
     interpleveldefs = {}
 
     for name in interp_names:
@@ -72,4 +76,21 @@ class Module(MixedModule):
     '__sub__' : 'sub',
     '__truediv__' : 'truediv',
     '__xor__' : 'xor',
+    # in-place
+    '__iadd__' : 'iadd',
+    '__iand__' : 'iand',
+    '__iconcat__' : 'iconcat',
+    '__idiv__' : 'idiv',
+    '__ifloordiv__' : 'ifloordiv',
+    '__ilshift__' : 'ilshift',
+    '__imod__' : 'imod',
+    '__imul__' : 'imul',
+    '__ior__' : 'ior',
+    '__ipow__' : 'ipow',
+    '__irepeat__' : 'irepeat',
+    '__irshift__' : 'irshift',
+    '__isub__' : 'isub',
+    '__itruediv__' : 'itruediv',
+    '__ixor__' : 'ixor',
     }
+

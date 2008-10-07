@@ -141,3 +141,14 @@ class AppTestOperator:
         class Dict(dict): pass
         assert not operator.isSequenceType(Dict())
 
+    def test_inplace(self):
+        import operator
+
+        list = []
+        assert operator.iadd(list, [1, 2]) is list
+        assert list == [1, 2]
+
+        list = [1, 2]
+        assert operator.imul(list, 2) is list
+        assert list == [1, 2, 1, 2]
+
