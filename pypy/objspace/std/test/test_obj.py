@@ -25,3 +25,10 @@ class AppTestObject:
         x = X()
         assert (hash(x) & sys.maxint) == (id(x) & sys.maxint)
         assert hash(x) == object.__hash__(x)
+
+    def test_reduce_recursion_bug(self):
+        class X(object):
+            def __reduce__(self):
+                return object.__reduce__(self) + (':-)',)
+        s = X().__reduce__()
+        assert s[-1] == ':-)'
