@@ -8,7 +8,7 @@ def descr__new__(space, w_longtype, w_x=0, w_base=NoneNotWrapped):
     w_value = w_x     # 'x' is the keyword argument name in CPython
     if w_base is None:
         # check for easy cases
-        if isinstance(w_value, W_LongObject):
+        if type(w_value) is W_LongObject:
             pass
         elif space.is_true(space.isinstance(w_value, space.w_str)):
             try:

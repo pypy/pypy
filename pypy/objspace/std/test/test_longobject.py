@@ -194,3 +194,12 @@ class AppTestLong:
         raises(OverflowError, float, huge)
         raises(OverflowError, operator.truediv, huge, 3)
         raises(OverflowError, operator.truediv, huge, 3L)
+
+    def test_override___long__(self):
+        class mylong(long):
+            def __long__(self):
+                return 42L
+        assert long(mylong(21)) == 42L
+        class myotherlong(long):
+            pass
+        assert long(myotherlong(21)) == 21L
