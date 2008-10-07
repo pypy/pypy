@@ -31,10 +31,10 @@ class Pickler(PythonPickler):
     def getvalue(self):
         return self.__f and self.__f.getvalue()
 
-def dump(obj, file, protocol=None, bin=None):
-    Pickler(file, protocol, bin).dump(obj)
+def dump(obj, file, protocol=None):
+    Pickler(file, protocol).dump(obj)
 
-def dumps(obj, protocol=None, bin=None):
+def dumps(obj, protocol=None):
     file = StringIO()
-    Pickler(file, protocol, bin).dump(obj)
+    Pickler(file, protocol).dump(obj)
     return file.getvalue()
