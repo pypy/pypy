@@ -541,8 +541,8 @@ def impl_detail(f):
     else:
         def _skip_check_impl_detail(*args, **kwds):
             if verbose:
-                sys.stderr.write("Skipping %s because of memory "
-                                 "constraint\n" % (f.__name__,))
+                sys.stderr.write("Skipping %s checking CPython-specific "
+                                 "implementation details\n" % (f.__name__,))
             return
         return skip_check_impl_detail
 
