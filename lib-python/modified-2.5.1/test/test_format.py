@@ -53,8 +53,7 @@ testboth("%#.*g", (110, -1.e+49/3.))
 testboth("%#.*g", (110, -1.e+100/3.))
 
 # test some ridiculously large precision, expect overflow
-#Too slow on PyPy
-#testboth('%12.*f', (123456, 1.0))
+testboth('%12.*f', (123456, 1.0))
 
 # Formatting of long integers. Overflow is not ok
 overflowok = 0
