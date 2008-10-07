@@ -632,16 +632,37 @@ def init__Frozenset(space, w_set, __args__):
         hash__Frozenset(space, w_set)
 
 app = gateway.applevel("""
-    def repr__Set(s):
-        return '%s(%s)' % (s.__class__.__name__, [x for x in s])
+    def setrepr(currently_in_repr, s):
+        'The app-level part of repr().'
+        set_id = id(s)
+        if set_id in currently_in_repr:
+            return 'set(...)'
+        currently_in_repr[set_id] = 1
+        try:
+            return '%s(%s)' % (s.__class__.__name__, [x for x in s])
+        finally:
+            try:
+                del currently_in_repr[set_id]
+            except:
+                pass
+""", filename=__file__) 
 
+setrepr = app.interphook("setrepr")
+
+def repr__Set(space, w_set):
+    ec = space.getexecutioncontext()
+    w_currently_in_repr = ec._py_repr
+    if w_currently_in_repr is None:
+        w_currently_in_repr = ec._py_repr = space.newdict()
+    return setrepr(space, w_currently_in_repr, w_set)
+
+app = gateway.applevel("""
     def reduce__Set(s):
         dict = getattr(s,'__dict__', None)
         return (s.__class__, (tuple(s),), dict)
 
 """, filename=__file__)
 
-repr__Set = app.interphook('repr__Set')
 repr__Frozenset = app.interphook('repr__Set')
 
 set_reduce__Set = app.interphook('reduce__Set')

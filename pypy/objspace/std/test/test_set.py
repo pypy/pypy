@@ -71,3 +71,15 @@ class AppTestAppSetTest:
         assert set('abc') > frozenset('ab')
         assert not (set('abc') < frozenset('abc'))
         assert not (set('abc') > frozenset('abc'))
+
+    def test_recursive_repr(self):
+        class A(object):
+            def __init__(self, s):
+                self.s = s
+            def __repr__(self):
+                return repr(self.s)
+        
+        s = set([1, 2, 3])
+        s.add(A(s))
+        assert repr(s) == "set([1, 2, 3, set(...)])"
+
