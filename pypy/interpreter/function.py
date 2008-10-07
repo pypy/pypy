@@ -438,7 +438,7 @@ class Method(Wrappable):
         else:
             if other.w_instance is None:
                 return space.w_False
-            if not space.is_w(self.w_instance, other.w_instance):
+            if not space.eq_w(self.w_instance, other.w_instance):
                 return space.w_False
         return space.eq(self.w_function, other.w_function)
 
