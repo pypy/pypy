@@ -48,7 +48,7 @@ def isNumberType(obj,):
 
 def isSequenceType(obj,):
     'isSequenceType(a) -- Return True if a has a sequence type, False otherwise.'
-    return hasattr(obj, '__getitem__')
+    return hasattr(obj, '__getitem__') and not hasattr(obj, 'keys')
 
 def repeat(obj, num):
     'repeat(a, b) -- Return a * b, where a is a sequence, and b is an integer.'

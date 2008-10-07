@@ -129,3 +129,15 @@ class AppTestOperator:
         assert operator.repeat(a, 0) == []
         raises(TypeError, operator.repeat, 6, 7)
 
+    def test_isSequenceType(self):
+        import operator
+
+        raises(TypeError, operator.isSequenceType)
+        assert operator.isSequenceType(dir())
+        assert operator.isSequenceType(())
+        assert operator.isSequenceType(xrange(10))
+        assert operator.isSequenceType('yeahbuddy')
+        assert not operator.isSequenceType(3)
+        class Dict(dict): pass
+        assert not operator.isSequenceType(Dict())
+
