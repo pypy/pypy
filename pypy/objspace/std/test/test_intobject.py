@@ -417,7 +417,16 @@ class AppTestInt:
 
         class b(object): 
             pass 
-        raises((AttributeError,TypeError), long, b()) 
+        raises((AttributeError,TypeError), long, b())
+
+    def test_override___int__(self):
+        class myint(int):
+            def __int__(self):
+                return 42
+        assert int(myint(21)) == 42
+        class myotherint(int):
+            pass
+        assert int(myotherint(21)) == 21
 
     def test_getnewargs(self):
         assert  0 .__getnewargs__() == (0,)

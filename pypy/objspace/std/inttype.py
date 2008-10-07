@@ -55,7 +55,7 @@ def descr__new__(space, w_inttype, w_x=0, w_base=NoneNotWrapped):
     value = 0
     if w_base is None:
         # check for easy cases
-        if isinstance(w_value, W_IntObject):
+        if type(w_value) is W_IntObject:
             value = w_value.intval
         elif space.is_true(space.isinstance(w_value, space.w_str)):
             try:
