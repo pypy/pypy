@@ -2,6 +2,7 @@
 
 import autopath
 import py
+from py.test import raises
 import struct
 from pypy.conftest import gettestobjspace
 
@@ -31,12 +32,43 @@ class BaseArrayTests:
         assert a.tolist() == [unichr(9999)]
 
     def test_pickle(self):
+        import sys
+        if sys.version_info < (2, 5):
+            py.test.skip("array.array not picklable before python 2.5")
         import pickle
+
         for content in [[56, -12, 34], []]:
             a = self.array.array('i', content)
             a2 = pickle.loads(pickle.dumps(a))
             assert type(a2) is self.array.array
             assert list(a2) == content
+
+    def test_init_vs_new(self):
+        import sys
+        if sys.version_info < (2, 5):
+            py.test.skip("array.array constructor changed in 2.5")
+        class A(self.array.array):
+            def __init__(self, *args, **kwds):
+                self.args = args
+                self.kwds = kwds
+
+        a = A('c', foo='bar')
+        assert a.args == ('c',)
+        assert a.kwds == {'foo': 'bar'}
+        a = A('i', range(10), some=42)
+        assert a.args == ('i', range(10))
+        assert a.kwds == {'some': 42}
+        raises(TypeError, A)
+        raises(TypeError, A, 42)
+        raises(TypeError, A, 'i', [], [])
+        raises(TypeError, self.array.array, 'i', [], foo='bar')
+
+
+class TestCPythonsOwnArray(BaseArrayTests):
+
+    def setup_class(cls):
+        import array
+        cls.array = array
 
 
 class TestArrayOnTopOfCPython(BaseArrayTests):

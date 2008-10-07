@@ -91,8 +91,10 @@ class array(object):
     """
     __slots__ = ["typecode", "itemsize", "_data", "_descriptor", "__weakref__"]
 
-    def __new__(cls, typecode, initializer=[]):
+    def __new__(cls, typecode, initializer=[], **extrakwds):
         self = object.__new__(cls)
+        if cls is array and extrakwds:
+            raise TypeError("array() does not take keyword arguments")
         if not isinstance(typecode, str) or len(typecode) != 1:
             raise TypeError(
                      "array() argument 1 must be char, not %s" % type(typecode))
