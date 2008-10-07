@@ -363,9 +363,17 @@ class TestBasicOps(unittest.TestCase):
         self.assertRaises(TypeError, tee, [1,2], 3, 'x')
 
         # tee object should be instantiable
-        a, b = tee('abc')
-        c = type(a)('def')
-        self.assertEqual(list(c), list('def'))
+        if test_support.check_impl_detail:
+            # XXX I (arigo) would argue that 'type(a)(iterable)' has
+            # ill-defined semantics: it always return a fresh tee object,
+            # but depending on whether 'iterable' is itself a tee object
+            # or not, it is ok or not to continue using 'iterable' after
+            # the call.  I cannot imagine why 'type(a)(non_tee_object)'
+            # would be useful, as 'iter(non_tee_obect)' is equivalent
+            # as far as I can see.
+            a, b = tee('abc')
+            c = type(a)('def')
+            self.assertEqual(list(c), list('def'))
 
         # test long-lagged and multi-way split
         a, b, c = tee(xrange(2000), 3)
