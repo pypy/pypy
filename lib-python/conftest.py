@@ -74,15 +74,6 @@ class RegrTest:
         return self._compiler #or pypy_option.compiler 
     compiler = property(compiler)
 
-    def getoptions(self): 
-        l = []
-        for name in ['core']:
-            if getattr(self, name): 
-                l.append(name)
-        for name in self.usemodules: 
-            l.append(name)
-        return l 
-
     def ismodified(self): 
         return modregrtestdir.join(self.basename).check() 
 
@@ -670,6 +661,13 @@ class ReallyRunFileExternal(py.test.collect.Item):
             outcome = "ERR"
         
         return exit_status, test_stdout, test_stderr
+
+    def _keywords(self):
+        lst = list(py.test.collect.Item._keywords(self))
+        regrtest = self.parent.regrtest
+        if regrtest.core:
+            lst.append('core')
+        return lst
 
 #
 # Sanity check  (could be done more nicely too)
