@@ -553,6 +553,9 @@ import socket
 import getpass
 
 class ReallyRunFileExternal(py.test.collect.Item): 
+    class ExternalFailure(Exception):
+        """Failure in running subprocess"""
+
     def getinvocation(self, regrtest): 
         fspath = regrtest.getfspath() 
         python = sys.executable 
@@ -611,10 +614,13 @@ class ReallyRunFileExternal(py.test.collect.Item):
         regrtest = self.parent.regrtest
         exit_status, test_stdout, test_stderr = self.getresult(regrtest) 
         if exit_status:
-             time.sleep(0.5)   # time for a Ctrl-C to reach us :-)
-             print >>sys.stdout, test_stdout
-             print >>sys.stderr, test_stderr
-             py.test.fail("running test failed, see stderr output below") 
+            raise self.ExternalFailure(test_stdout, test_stderr)
+
+    def repr_failure(self, excinfo, outerr):
+        if not excinfo.errisinstance(self.ExternalFailure):
+            return super(ReallyRunFileExternal, self).repr_failure(excinfo, outerr)
+        out, err = excinfo.value.args
+        return out + err
 
     def getstatusouterr(self, cmd): 
         tempdir = py.test.ensuretemp(self.fspath.basename)
