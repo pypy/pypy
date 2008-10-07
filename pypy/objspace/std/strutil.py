@@ -101,12 +101,11 @@ def string_to_int(s, base=10):
     while True:
         digit = p.next_digit()
         if digit == -1:
-            try:
-                result =  ovfcheck(p.sign * result)
-            except OverflowError:
-                raise ParseStringOverflowError(p)
-            else:
-                return result
+            return result
+
+        if p.sign == -1:
+            digit = -digit
+
         try:
             result = ovfcheck(result * base)
             result = ovfcheck(result + digit)

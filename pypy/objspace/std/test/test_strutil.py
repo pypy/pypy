@@ -92,7 +92,6 @@ class TestStrUtil:
                str(sys.maxint*17))
 
     def test_string_to_int_not_overflow(self):
-        py.test.skip("in-progress")
         import sys
         for x in [-sys.maxint-1, sys.maxint]:
             y = string_to_int(str(x))

@@ -323,7 +323,6 @@ class AppTestInt:
         raises(TypeError, int, '5', '9')
 
     def test_int_largenums(self):
-        py.test.skip("in-progress")
         import sys
         for x in [-sys.maxint-1, -1, sys.maxint]:
             y = int(str(x))
