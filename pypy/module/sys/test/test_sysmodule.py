@@ -377,3 +377,9 @@ class AppTestSysModulePortedFromCPython:
 
     def test_allattributes(self):
         sys.__dict__   # check that we don't crash initializing any attribute
+
+    def test_subversion(self):
+        project, svnbranch, revision = sys.subversion
+        assert project == 'PyPy'
+        assert svnbranch == svnbranch.strip('/')
+        assert revision.isdigit()

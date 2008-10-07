@@ -10,6 +10,7 @@ CPYTHON_API_VERSION        = 1012
 PYPY_VERSION               = (1, 0, 0, "alpha", '?')
 # the last item is replaced by the svn revision ^^^
 
+SVN_URL_HEAD = 'http://codespeak.net/svn/pypy/'
 SVN_URL = "$HeadURL$"[10:-28]
 
 REV = "$LastChangedRevision$"[22:-2]
@@ -47,6 +48,13 @@ def get_pypy_version_info(space):
 
 def get_svn_url(space):
     return space.wrap((SVN_URL, svn_revision()))
+
+def get_subversion_info(space):
+    assert SVN_URL.startswith(SVN_URL_HEAD)
+    svnbranch = SVN_URL[len(SVN_URL_HEAD):].strip('/')
+    return space.newtuple([space.wrap('PyPy'),
+                           space.wrap(svnbranch),
+                           space.wrap(str(svn_revision()))])
 
 def tuple2hex(ver):
     d = {'alpha':     0xA,

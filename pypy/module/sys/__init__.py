@@ -55,6 +55,7 @@ class Module(MixedModule):
         'version'               : 'version.get_version(space)',
         'pypy_version_info'     : 'version.get_pypy_version_info(space)',
         'pypy_svn_url'          : 'version.get_svn_url(space)',
+        'subversion'            : 'version.get_subversion_info(space)',
         'hexversion'            : 'version.get_hexversion(space)',
         'ps1'                   : 'space.wrap(">>>> ")', 
         'ps2'                   : 'space.wrap(".... ")', 
@@ -64,7 +65,6 @@ class Module(MixedModule):
         'meta_path'             : 'space.wrap([])',
         'path_hooks'            : 'space.wrap([])',
         'path_importer_cache'   : 'space.wrap({})',
-        #'subversion'           : added in Python 2.5
         
         'getdefaultencoding'    : 'interp_encoding.getdefaultencoding', 
         'setdefaultencoding'    : 'interp_encoding.setdefaultencoding',
