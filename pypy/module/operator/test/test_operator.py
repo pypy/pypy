@@ -103,6 +103,8 @@ class AppTestOperator:
             def __rmul__(self, other):
                 return other * self.lst
 
+        import operator
+
         a = range(3)
         raises(TypeError, operator.repeat)
         raises(TypeError, operator.repeat, a, None)
@@ -125,5 +127,5 @@ class AppTestOperator:
         assert operator.repeat(a, 2) == [4, 5, 6, 4, 5, 6]
         assert operator.repeat(a, 1) == [4, 5, 6]
         assert operator.repeat(a, 0) == []
-        raises(TypeError, operator.repeat, 6, 7
+        raises(TypeError, operator.repeat, 6, 7)
 
