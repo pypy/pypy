@@ -195,11 +195,10 @@ class TestBasicOps(unittest.TestCase):
                          zip('abc', 'def'))
         self.assertEqual([pair for pair in izip('abc', 'def')],
                          zip('abc', 'def'))
-        # the following test deals with a specific implementation detail,
-        # that izip "reuses" the SAME tuple object each time when it can;
-        # it does not apply correctly to pypy, so I'm commenting it -- AM
-        # ids = map(id, izip('abc', 'def'))
-        # self.assertEqual(min(ids), max(ids))
+        if test_support.check_impl_detail:
+            # izip "reuses" the same tuple object each time when it can
+            ids = map(id, izip('abc', 'def'))
+            self.assertEqual(min(ids), max(ids))
         ids = map(id, list(izip('abc', 'def')))
         self.assertEqual(len(dict.fromkeys(ids)), len(ids))
 
@@ -364,11 +363,9 @@ class TestBasicOps(unittest.TestCase):
         self.assertRaises(TypeError, tee, [1,2], 3, 'x')
 
         # tee object should be instantiable
-        # XXX why?? the following test would pass too if type(a)('def')
-        #     just returned iter('abc')...
-        #a, b = tee('abc')
-        #c = type(a)('def')
-        #self.assertEqual(list(c), list('def'))
+        a, b = tee('abc')
+        c = type(a)('def')
+        self.assertEqual(list(c), list('def'))
 
         # test long-lagged and multi-way split
         a, b, c = tee(xrange(2000), 3)
@@ -394,20 +391,19 @@ class TestBasicOps(unittest.TestCase):
         self.assert_(a is c)
 
         # test tee_new
-        # XXX the same "why??" as above
-        #t1, t2 = tee('abc')
-        #tnew = type(t1)
-        #self.assertRaises(TypeError, tnew)
-        #self.assertRaises(TypeError, tnew, 10)
-        #t3 = tnew(t1)
-        #self.assert_(list(t1) == list(t2) == list(t3) == list('abc'))
+        t1, t2 = tee('abc')
+        tnew = type(t1)
+        self.assertRaises(TypeError, tnew)
+        self.assertRaises(TypeError, tnew, 10)
+        t3 = tnew(t1)
+        self.assert_(list(t1) == list(t2) == list(t3) == list('abc'))
 
         # test that tee objects are weak referencable
         a, b = tee(xrange(10))
         p = proxy(a)
         self.assertEqual(getattr(p, '__class__'), type(b))
         del a
-        import gc; gc.collect(); gc.collect(); gc.collect()
+        test_support.gc_collect()
         self.assertRaises(ReferenceError, getattr, p, '__class__')
 
     def test_StopIteration(self):
