@@ -105,3 +105,41 @@ class AppTestAppSetTest:
         f.add(s)
         f.discard(s)
 
+    def test_autoconvert_to_frozen__contains(self):
+        s = set([frozenset([1,2])])
+
+        assert set([1,2]) in s
+
+    def test_autoconvert_to_frozen_remove(self):
+        s = set([frozenset([1,2])])
+
+        s.remove(set([1,2]))
+        assert len(s) == 0
+        raises(KeyError, s.remove, set([1,2]))
+
+    def test_autoconvert_to_frozen_discard(self):
+        s = set([frozenset([1,2])])
+
+        s.discard(set([1,2]))
+        assert len(s) == 0
+        s.discard(set([1,2]))
+
+    def test_autoconvert_to_frozen_onlyon_type_error(self):
+        class A(set):
+            def __hash__(self):
+                return id(self)
+
+        s = A([1, 2, 3])
+        s2 = set([2, 3, s])
+        assert A() not in s2
+        s2.add(frozenset())
+        assert A() not in s2
+        raises(KeyError, s2.remove, A())
+
+    def test_autoconvert_key_error(self):
+        s = set([frozenset([1, 2]), frozenset([3, 4])])
+        try:
+            s.remove(set([2, 3]))
+        except KeyError, e:
+            assert isinstance(e.args[0], frozenset)
+            assert e.args[0] == frozenset([2, 3])

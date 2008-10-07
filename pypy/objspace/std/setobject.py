@@ -113,6 +113,12 @@ def _initialize_set(space, w_obj, w_iterable=None):
     if w_iterable is not None:
         w_obj.setdata.update(make_setdata_from_w_iterable(space, w_iterable))
 
+def _convert_set_to_frozenset(space, w_obj):
+    if space.is_true(space.isinstance(w_obj, space.w_set)):
+        return space.newfrozenset(make_setdata_from_w_iterable(space, w_obj))
+    else:
+        return None
+
 # helper functions for set operation on dicts
 
 def _is_frozenset_exact(w_obj):
@@ -303,25 +309,18 @@ def ne__Set_ANY(space, w_left, w_other):
 
 ne__Frozenset_ANY = ne__Set_ANY
 
-def contains__Set_Set(space, w_left, w_other):
-    # optimization only (for the case __Set_settypedef)
-    w_f = space.newfrozenset(w_other.setdata)
-    return space.newbool(w_f in w_left.setdata)
-
-contains__Frozenset_Set = contains__Set_Set
-
-def contains__Set_settypedef(space, w_left, w_other):
-    # This is the general case to handle 'set in set' or 'set in
-    # frozenset'.  We need this in case w_other is of type 'set' but the
-    # case 'contains__Set_Set' is not selected by the multimethod logic,
-    # which can occur (see test_builtinshortcut).
-    w_f = space.newfrozenset(make_setdata_from_w_iterable(space, w_other))
-    return space.newbool(w_f in w_left.setdata)
-
-contains__Frozenset_settypedef = contains__Set_settypedef
-
 def contains__Set_ANY(space, w_left, w_other):
-    return space.newbool(w_other in w_left.setdata)
+    try:
+        return space.newbool(w_other in w_left.setdata)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+
+    w_f = _convert_set_to_frozenset(space, w_other)
+    if w_f is not None:
+        return space.newbool(w_f in w_left.setdata)
+    else:
+        return space.w_False
 
 contains__Frozenset_ANY = contains__Set_ANY
 
@@ -422,42 +421,43 @@ gt__Set_Frozenset = gt__Set_Set
 gt__Frozenset_Set = gt__Set_Set
 gt__Frozenset_Frozenset = gt__Set_Set
 
+def _discard_from_set(space, w_left, w_item):
+    """
+    Discard an element from a set, with automatic conversion to
+    frozenset if the argument is a set.
 
-def set_discard__Set_Set(space, w_left, w_item):
-    # optimization only (the general case is set_discard__Set_settypedef)
-    w_f = space.newfrozenset(w_item.setdata)
-    if w_f in w_left.setdata:
-        del w_left.setdata[w_f]
-
-def set_discard__Set_settypedef(space, w_left, w_item):
-    w_f = space.newfrozenset(make_setdata_from_w_iterable(space, w_item))
-    if w_f in w_left.setdata:
-        del w_left.setdata[w_f]
-
-def set_discard__Set_ANY(space, w_left, w_item):
-    if w_item in w_left.setdata:
+    Returns None if successfully removed, otherwise the object that
+    wasn't there is returned.
+    """
+    try:
         del w_left.setdata[w_item]
-
-def set_remove__Set_Set(space, w_left, w_item):
-    # optimization only (the general case is set_remove__Set_settypedef)
-    w_f = space.newfrozenset(w_item.setdata)
+        return None
+    except KeyError:
+        return w_item
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        
+    w_f = _convert_set_to_frozenset(space, w_item)
+    if w_f is None:
+        return w_item
     try:
         del w_left.setdata[w_f]
+        return None
     except KeyError:
-        raise OperationError(space.w_KeyError, w_item)
-
-def set_remove__Set_settypedef(space, w_left, w_item):
-    w_f = space.newfrozenset(make_setdata_from_w_iterable(space, w_item))
-    try:
-        del w_left.setdata[w_f]
-    except KeyError:
-        raise OperationError(space.w_KeyError, w_item)
+        return w_f
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        return w_f
+    
+def set_discard__Set_ANY(space, w_left, w_item):
+    _discard_from_set(space, w_left, w_item)
 
 def set_remove__Set_ANY(space, w_left, w_item):
-    try:
-        del w_left.setdata[w_item]
-    except KeyError:
-        raise OperationError(space.w_KeyError, w_item)
+    w_f = _discard_from_set(space, w_left, w_item)
+    if w_f is not None:
+        raise OperationError(space.w_KeyError, w_f)
 
 def hash__Frozenset(space, w_set):
     multi = r_uint(1822399083) + r_uint(1822399083) + 1
