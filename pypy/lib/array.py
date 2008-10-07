@@ -289,6 +289,15 @@ class array(object):
         else:
             return self.tolist() >= other.tolist()
 
+    def __reduce__(self):
+        dict = getattr(self, '__dict__', None)
+        data = self.tostring()
+        if data:
+            initargs = (self.typecode, data)
+        else:
+            initargs = (self.typecode,)
+        return (type(self), initargs, dict)
+
     ##### list methods
     
     def append(self, x):

@@ -30,6 +30,14 @@ class BaseArrayTests:
         assert len(a) == 1
         assert a.tolist() == [unichr(9999)]
 
+    def test_pickle(self):
+        import pickle
+        for content in [[56, -12, 34], []]:
+            a = self.array.array('i', content)
+            a2 = pickle.loads(pickle.dumps(a))
+            assert type(a2) is self.array.array
+            assert list(a2) == content
+
 
 class TestArrayOnTopOfCPython(BaseArrayTests):
 
@@ -44,6 +52,9 @@ class TestArrayOnTopOfCPython(BaseArrayTests):
 
     def test_unicode(self):
         py.test.skip("no 'u' type code in CPython's struct module")
+
+    def test_pickle(self):
+        py.test.skip("pickle getting confused by the hack in setup_class()")
 
 
 class AppTestArray(BaseArrayTests):
