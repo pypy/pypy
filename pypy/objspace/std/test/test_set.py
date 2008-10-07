@@ -91,3 +91,17 @@ class AppTestAppSetTest:
             assert e.args[0] == 1
         else:
             assert 0, "should raise"
+
+    def test_subclass_with_hash(self):
+        # Bug #1257731
+        class H(set):
+            def __hash__(self):
+                return int(id(self) & 0x7fffffff)
+        s = H()
+        f = set([s])
+        print f
+        assert s in f
+        f.remove(s)
+        f.add(s)
+        f.discard(s)
+
