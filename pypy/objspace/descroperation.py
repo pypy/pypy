@@ -293,10 +293,18 @@ class DescrOperation:
         # XXX CPython has a special case for types with "__hash__ = None"
         # to produce a nicer error message, namely "unhashable type: 'X'".
         w_result = space.get_and_call_function(w_hash, w_obj)
-        if space.is_true(space.isinstance(w_result, space.w_int)):
+        w_resulttype = space.type(w_result)
+        if space.is_w(w_resulttype, space.w_int):
             return w_result
-        elif space.is_true(space.isinstance(w_result, space.w_long)): 
+        elif space.is_w(w_resulttype, space.w_long):
             return space.hash(w_result)
+        elif space.is_true(space.isinstance(w_result, space.w_int)):
+            # be careful about subclasses of 'int'...
+            return space.wrap(space.int_w(w_result))
+        elif space.is_true(space.isinstance(w_result, space.w_long)):
+            # be careful about subclasses of 'long'...
+            bigint = space.bigint_w(w_result)
+            return space.wrap(bigint.hash())
         else: 
             raise OperationError(space.w_TypeError, 
                     space.wrap("__hash__() should return an int or long"))

@@ -81,3 +81,22 @@ class AppTest_Descriptor:
             def __hash__(self):
                 return 1
         assert isinstance(hash(G()), int)
+
+        # __hash__ can return a subclass of long, but the fact that it's
+        # a subclass is ignored
+        class mylong(long):
+            def __hash__(self):
+                return 0
+        class H(object):
+            def __hash__(self):
+                return mylong(42)
+        assert hash(H()) == hash(42L)
+
+        # don't return a subclass of int, either
+        class myint(int):
+            pass
+        class I(object):
+            def __hash__(self):
+                return myint(15)
+        assert hash(I()) == 15
+        assert type(hash(I())) is int
