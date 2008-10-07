@@ -500,7 +500,54 @@ testmap = [
     RegrTest('test_zipfile.py', enabled=False, dumbtest=1),
     RegrTest('test_zipimport.py', enabled=True, usemodules='zlib zipimport'),
     RegrTest('test_zlib.py', enabled=True, usemodules='zlib'),
+
+    # new test files from 2.5
+    RegrTest('test_ast.py', enabled=True),
+    RegrTest('test_bigaddrspace.py', enabled=True),
+    RegrTest('test_bigmem.py', enabled=True),
+    RegrTest('test_cProfile.py', enabled=True),
+    RegrTest('test_cmd_line.py', enabled=True),
+    RegrTest('test_code.py', enabled=True),
+    RegrTest('test_coding.py', enabled=True),
+    RegrTest('test_complex_args.py', enabled=True),
+    RegrTest('test_contextlib.py', enabled=True),
+    RegrTest('test_ctypes.py', enabled=True),
+    RegrTest('test_defaultdict.py', enabled=True),
+    RegrTest('test_email_renamed.py', enabled=True),
+    RegrTest('test_exception_variations.py', enabled=True),
+    RegrTest('test_float.py', enabled=True),
+    RegrTest('test_functools.py', enabled=True),
+    RegrTest('test_index.py', enabled=True),
+    RegrTest('test_old_mailbox.py', enabled=True),
+    RegrTest('test_pep352.py', enabled=True),
+    RegrTest('test_platform.py', enabled=True),
+    RegrTest('test_runpy.py', enabled=True),
+    RegrTest('test_sqlite.py', enabled=True),
+    RegrTest('test_startfile.py', enabled=True),
+    RegrTest('test_structmembers.py', enabled=True),
+    RegrTest('test_urllib2_localnet.py', enabled=True),
+    RegrTest('test_uuid.py', enabled=True),
+    RegrTest('test_wait3.py', enabled=True),
+    RegrTest('test_wait4.py', enabled=True),
+    RegrTest('test_with.py', enabled=True),
+    RegrTest('test_wsgiref.py', enabled=True),
+    RegrTest('test_xdrlib.py', enabled=True),
+    RegrTest('test_xml_etree.py', enabled=True),
+    RegrTest('test_xml_etree_c.py', enabled=True),
+    RegrTest('test_zipfile64.py', enabled=True),
 ]
+
+def check_testmap_complete():
+    listed_names = dict.fromkeys([regrtest.basename for regrtest in testmap])
+    listed_names['test_support.py'] = True     # ignore this
+    missing = []
+    for path in regrtestdir.listdir(fil='test_*.py'):
+        name = path.basename
+        if name not in listed_names:
+            missing.append('    RegrTest(%r, enabled=True),' % (name,))
+    missing.sort()
+    assert not missing, "non-listed tests:\n%s" % ('\n'.join(missing),)
+check_testmap_complete()
 
 class RegrDirectory(py.test.collect.Directory): 
     """ The central hub for gathering CPython's compliance tests
