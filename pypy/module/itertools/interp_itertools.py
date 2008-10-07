@@ -723,8 +723,21 @@ class W_TeeIterable(Wrappable):
         finally:
             self.index += 1
 
+def W_TeeIterable___new__(space, w_subtype, w_iterable):
+    # Obscure and undocumented function.  PyPy only supports w_iterable
+    # being a W_TeeIterable, because the case where it is a general
+    # iterable is useless and confusing as far as I can tell (as the
+    # semantics are then slightly different; see the XXX in lib-python's
+    # test_itertools).
+    myiter = space.interp_w(W_TeeIterable, w_iterable)
+    tee_state = myiter.tee_state
+    return space.wrap(W_TeeIterable(space, tee_state))
+
 W_TeeIterable.typedef = TypeDef(
         '_tee',
+        __new__ = interp2app(W_TeeIterable___new__, unwrap_spec=[ObjSpace,
+                                                                 W_Root,
+                                                                 W_Root]),
         __iter__ = interp2app(W_TeeIterable.iter_w, unwrap_spec=['self']),
         next     = interp2app(W_TeeIterable.next_w, unwrap_spec=['self']),
         __weakref__ = make_weakref_descr(W_TeeIterable),

@@ -455,6 +455,21 @@ class AppTestItertools:
         res = list(d)
         assert res == list('foobar')
 
+    def test_tee_instantiate(self):
+        import itertools
+
+        a, b = itertools.tee(iter('foobar'))
+        c = type(a)(a)
+        assert a is not b
+        assert a is not c
+        assert b is not c
+        res = list(a)
+        assert res == list('foobar')
+        res = list(b)
+        assert res == list('foobar')
+        res = list(c)
+        assert res == list('foobar')
+
     def test_groupby(self):
         import itertools
         
