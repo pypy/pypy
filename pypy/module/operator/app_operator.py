@@ -54,8 +54,11 @@ def repeat(obj, num):
     'repeat(a, b) -- Return a * b, where a is a sequence, and b is an integer.'
     if not isinstance(num, (int, long)):
         raise TypeError, 'an integer is required'
-    return obj * num   # XXX cPython only supports objects with the sequence
-                       # protocol. We support any with a __mul__
+    if not isSequenceType(obj):
+        raise TypeError, "non-sequence object can't be repeated"
+
+    return obj * num
+
 __repeat__ = repeat
 
 def setslice(a, b, c, d):

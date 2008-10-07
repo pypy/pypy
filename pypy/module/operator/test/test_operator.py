@@ -74,3 +74,56 @@ class AppTestOperator:
         assert operator.concat(Seq2([5, 6]), Seq2([7])) == [5, 6, 7]
         raises(TypeError, operator.concat, 13, 29)
 
+    def test_repeat(self):
+        class Seq1:
+            def __init__(self, lst):
+                self.lst = lst
+            def __len__(self):
+                return len(self.lst)
+            def __getitem__(self, i):
+                return self.lst[i]
+            def __add__(self, other):
+                return self.lst + other.lst
+            def __mul__(self, other):
+                return self.lst * other
+            def __rmul__(self, other):
+                return other * self.lst
+
+        class Seq2(object):
+            def __init__(self, lst):
+                self.lst = lst
+            def __len__(self):
+                return len(self.lst)
+            def __getitem__(self, i):
+                return self.lst[i]
+            def __add__(self, other):
+                return self.lst + other.lst
+            def __mul__(self, other):
+                return self.lst * other
+            def __rmul__(self, other):
+                return other * self.lst
+
+        a = range(3)
+        raises(TypeError, operator.repeat)
+        raises(TypeError, operator.repeat, a, None)
+        assert operator.repeat(a, 2) == a+a
+        assert operator.repeat(a, 1) == a
+        assert operator.repeat(a, 0) == []
+        a = (1, 2, 3)
+        assert operator.repeat(a, 2) == a+a
+        assert operator.repeat(a, 1) == a
+        assert operator.repeat(a, 0) == ()
+        a = '123'
+        assert operator.repeat(a, 2) == a+a
+        assert operator.repeat(a, 1) == a
+        assert operator.repeat(a, 0) == ''
+        a = Seq1([4, 5, 6])
+        assert operator.repeat(a, 2) == [4, 5, 6, 4, 5, 6]
+        assert operator.repeat(a, 1) == [4, 5, 6]
+        assert operator.repeat(a, 0) == []
+        a = Seq2([4, 5, 6])
+        assert operator.repeat(a, 2) == [4, 5, 6, 4, 5, 6]
+        assert operator.repeat(a, 1) == [4, 5, 6]
+        assert operator.repeat(a, 0) == []
+        raises(TypeError, operator.repeat, 6, 7
+
