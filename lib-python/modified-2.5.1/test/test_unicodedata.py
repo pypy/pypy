@@ -214,6 +214,10 @@ class UnicodeMiscTest(UnicodeDatabaseTest):
                 count += 1
         self.assert_(count >= 10) # should have tested at least the ASCII digits
 
+    def test_bug_1704793(self):
+        if sys.maxunicode == 65535:
+            self.assertRaises(KeyError, self.db.lookup, "GOTHIC LETTER FAIHU")
+
 def test_main():
     test.test_support.run_unittest(
         UnicodeMiscTest,

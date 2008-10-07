@@ -27,7 +27,7 @@ class Queue(object):
 class ReadTest(unittest.TestCase):
     def check_partial(self, input, partialresults):
         # get a StreamReader for the encoding and feed the bytestring version
-        # of input to the reader byte by byte. Read every available from
+        # of input to the reader byte by byte. Read everything available from
         # the StreamReader and check that the results equal the appropriate
         # entries from partialresults.
         q = Queue()
@@ -429,6 +429,55 @@ class UTF8SigTest(ReadTest):
     def test_bug1601501(self):
         # SF bug #1601501: check that the codec works with a buffer
         unicode("\xef\xbb\xbf", "utf-8-sig")
+
+    def test_bom(self):
+        d = codecs.getincrementaldecoder("utf-8-sig")()
+        s = u"spam"
+        self.assertEqual(d.decode(s.encode("utf-8-sig")), s)
+
+    def test_stream_bom(self):
+        unistring = u"ABC\u00A1\u2200XYZ"
+        bytestring = codecs.BOM_UTF8 + "ABC\xC2\xA1\xE2\x88\x80XYZ"
+
+        reader = codecs.getreader("utf-8-sig")
+        for sizehint in [None] + range(1, 11) + \
+                        [64, 128, 256, 512, 1024]:
+            istream = reader(StringIO.StringIO(bytestring))
+            ostream = StringIO.StringIO()
+            while 1:
+                if sizehint is not None:
+                    data = istream.read(sizehint)
+                else:
+                    data = istream.read()
+
+                if not data:
+                    break
+                ostream.write(data)
+
+            got = ostream.getvalue()
+            self.assertEqual(got, unistring)
+
+    def test_stream_bare(self):
+        unistring = u"ABC\u00A1\u2200XYZ"
+        bytestring = "ABC\xC2\xA1\xE2\x88\x80XYZ"
+
+        reader = codecs.getreader("utf-8-sig")
+        for sizehint in [None] + range(1, 11) + \
+                        [64, 128, 256, 512, 1024]:
+            istream = reader(StringIO.StringIO(bytestring))
+            ostream = StringIO.StringIO()
+            while 1:
+                if sizehint is not None:
+                    data = istream.read(sizehint)
+                else:
+                    data = istream.read()
+
+                if not data:
+                    break
+                ostream.write(data)
+
+            got = ostream.getvalue()
+            self.assertEqual(got, unistring)
 
 class EscapeDecodeTest(unittest.TestCase):
     def test_empty(self):
@@ -916,7 +965,7 @@ class StreamReaderTest(unittest.TestCase):
         self.assertEquals(f.readlines(), [u'\ud55c\n', u'\uae00'])
 
 class EncodedFileTest(unittest.TestCase):
-    
+
     def test_basic(self):
         f = StringIO.StringIO('\xed\x95\x9c\n\xea\xb8\x80')
         ef = codecs.EncodedFile(f, 'utf-16-le', 'utf-8')

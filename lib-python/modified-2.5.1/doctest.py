@@ -209,7 +209,10 @@ def _load_testfile(filename, package, module_relative):
         filename = _module_relative_path(package, filename)
         if hasattr(package, '__loader__'):
             if hasattr(package.__loader__, 'get_data'):
-                return package.__loader__.get_data(filename), filename
+                file_contents = package.__loader__.get_data(filename)
+                # get_data() opens files as 'rb', so one must do the equivalent
+                # conversion as universal newlines would do.
+                return file_contents.replace(os.linesep, '\n'), filename
     return open(filename).read(), filename
 
 def _indent(s, indent=4):
@@ -317,7 +320,20 @@ class _OutputRedirectingPdb(pdb.Pdb):
     """
     def __init__(self, out):
         self.__out = out
+        self.__debugger_used = False
         pdb.Pdb.__init__(self, stdout=out)
+
+    def set_trace(self, frame=None):
+        self.__debugger_used = True
+        if frame is None:
+            frame = sys._getframe().f_back
+        pdb.Pdb.set_trace(self, frame)
+
+    def set_continue(self):
+        # Calling set_continue unconditionally would break unit test
+        # coverage reporting, as Bdb.set_continue calls sys.settrace(None).
+        if self.__debugger_used:
+            pdb.Pdb.set_continue(self)
 
     def trace_dispatch(self, *args):
         # Redirect stdout to the given stream.
