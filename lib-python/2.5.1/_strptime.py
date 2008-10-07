@@ -253,7 +253,7 @@ class TimeRE(dict):
         regex_chars = re_compile(r"([\\.^$*+?\(\){}\[\]|])")
         format = regex_chars.sub(r"\\\1", format)
         whitespace_replacement = re_compile('\s+')
-        format = whitespace_replacement.sub('\s*', format)
+        format = whitespace_replacement.sub('\s+', format)
         while '%' in format:
             directive_index = format.index('%')+1
             processed_format = "%s%s%s" % (processed_format,
@@ -299,17 +299,16 @@ def strptime(data_string, format="%a %b %d %H:%M:%S %Y"):
     global _TimeRE_cache, _regex_cache
     _cache_lock.acquire()
     try:
-        time_re = _TimeRE_cache
-        locale_time = time_re.locale_time
-        if _getlang() != locale_time.lang:
+        if _getlang() != _TimeRE_cache.locale_time.lang:
             _TimeRE_cache = TimeRE()
-            _regex_cache = {}
+            _regex_cache.clear()
         if len(_regex_cache) > _CACHE_MAX_SIZE:
             _regex_cache.clear()
+        locale_time = _TimeRE_cache.locale_time
         format_regex = _regex_cache.get(format)
         if not format_regex:
             try:
-                format_regex = time_re.compile(format)
+                format_regex = _TimeRE_cache.compile(format)
             # KeyError raised when a bad format is found; can be specified as
             # \\, in which case it was a stray % but with a space after it
             except KeyError, err:

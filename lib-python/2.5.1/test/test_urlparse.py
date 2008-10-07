@@ -287,6 +287,21 @@ class UrlParseTestCase(unittest.TestCase):
         self.assertEqual(p.port, None)
         self.assertEqual(p.geturl(), uri)
 
+    def test_caching(self):
+        # Test case for bug #1313119
+        uri = "http://example.com/doc/"
+        unicode_uri = unicode(uri)
+
+        urlparse.urlparse(unicode_uri)
+        p = urlparse.urlparse(uri)
+        self.assertEqual(type(p.scheme), type(uri))
+        self.assertEqual(type(p.hostname), type(uri))
+        self.assertEqual(type(p.path), type(uri))
+
+    def test_noslash(self):
+        # Issue 1637: http://foo.com?query is legal
+        self.assertEqual(urlparse.urlparse("http://example.com?blahblah=/foo"),
+                         ('http', 'example.com', '', '', 'blahblah=/foo', ''))
 
 def test_main():
     test_support.run_unittest(UrlParseTestCase)

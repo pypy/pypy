@@ -55,7 +55,10 @@ import urllib2
 
 # set up authentication info
 authinfo = urllib2.HTTPBasicAuthHandler()
-authinfo.add_password('realm', 'host', 'username', 'password')
+authinfo.add_password(realm='PDQ Application',
+                      uri='https://mahler:8092/site-updates.py',
+                      user='klem',
+                      passwd='geheim$parole')
 
 proxy_support = urllib2.ProxyHandler({"http" : "http://ahad-haam:3128"})
 
@@ -295,6 +298,10 @@ class OpenerDirector:
         self.process_request = {}
 
     def add_handler(self, handler):
+        if not hasattr(handler, "add_parent"):
+            raise TypeError("expected BaseHandler instance, got %r" %
+                            type(handler))
+
         added = False
         for meth in dir(handler):
             if meth in ["redirect_request", "do_open", "proxy_open"]:
@@ -945,7 +952,7 @@ class AbstractDigestAuthHandler:
             respdig = KD(H(A1), "%s:%s" % (nonce, H(A2)))
         else:
             # XXX handle auth-int.
-            pass
+            raise URLError("qop '%s' is not supported." % qop)
 
         # XXX should the partial digests be encoded too?
 

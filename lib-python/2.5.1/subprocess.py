@@ -340,7 +340,7 @@ p = Popen(["mycmd", "myarg"], bufsize=bufsize,
           stdin=PIPE, stdout=PIPE, close_fds=True)
 (child_stdout, child_stdin) = (p.stdout, p.stdin)
 
-The popen2.Popen3 and popen3.Popen4 basically works as subprocess.Popen,
+The popen2.Popen3 and popen2.Popen4 basically works as subprocess.Popen,
 except that:
 
 * subprocess.Popen raises an exception if the execution fails
@@ -358,6 +358,7 @@ mswindows = (sys.platform == "win32")
 import os
 import types
 import traceback
+import gc
 
 # Exception classes used by this module.
 class CalledProcessError(Exception):
@@ -596,7 +597,7 @@ class Popen(object):
         # either have to redirect all three or none. If the subprocess
         # user has only redirected one or two handles, we are
         # automatically creating PIPEs for the rest. We should close
-        # these after the process is started. See bug #1124861. 
+        # these after the process is started. See bug #1124861.
         if mswindows:
             if stdin is None and p2cwrite is not None:
                 os.close(p2cwrite)
@@ -628,7 +629,7 @@ class Popen(object):
         return data
 
 
-    def __del__(self):
+    def __del__(self, sys=sys):
         if not self._child_created:
             # We didn't get to successfully create a child process.
             return
@@ -1002,7 +1003,16 @@ class Popen(object):
             errpipe_read, errpipe_write = os.pipe()
             self._set_cloexec_flag(errpipe_write)
 
-            self.pid = os.fork()
+            gc_was_enabled = gc.isenabled()
+            # Disable gc to avoid bug where gc -> file_dealloc ->
+            # write to stderr -> hang.  http://bugs.python.org/issue1336
+            gc.disable()
+            try:
+                self.pid = os.fork()
+            except:
+                if gc_was_enabled:
+                    gc.enable()
+                raise
             self._child_created = True
             if self.pid == 0:
                 # Child
@@ -1062,6 +1072,8 @@ class Popen(object):
                 os._exit(255)
 
             # Parent
+            if gc_was_enabled:
+                gc.enable()
             os.close(errpipe_write)
             if p2cread and p2cwrite:
                 os.close(p2cread)
@@ -1142,7 +1154,7 @@ class Popen(object):
                     # we can write up to PIPE_BUF bytes without risk
                     # blocking.  POSIX defines PIPE_BUF >= 512
                     bytes_written = os.write(self.stdin.fileno(), buffer(input, input_offset, 512))
-                    input_offset += bytes_written 
+                    input_offset += bytes_written
                     if input_offset >= len(input):
                         self.stdin.close()
                         write_set.remove(self.stdin)

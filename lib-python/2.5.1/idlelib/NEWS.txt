@@ -1,3 +1,38 @@
+What's New in IDLE 1.2.2?
+=========================
+
+*Release date: 21-FEB-2008*
+
+What's New in IDLE 1.2.2c1?
+=========================
+
+*Release date: 14-FEB-2008*
+
+- There was an error on exit if no sys.exitfunc was defined. Issue 1647.
+  (backport r60227)
+
+- Could not open files in .idlerc directory if latter was hidden on Windows.  
+  Issue 1743, Issue 1862. (backport r60225, r60745)
+
+- format_paragraph_event wasn't returning a 'break' (backport r59453)
+
+- Corrected some bugs in AutoComplete.  Also, Page Up/Down in ACW implemented;                                                                               
+  mouse and cursor selection in ACWindow implemented; double Tab inserts      
+  current selection and closes ACW (similar to double-click and Return); scroll                                                                              
+  wheel now works in ACW.  Added AutoComplete instructions to IDLE Help.
+  (backport r53679)
+
+- Avoid hang when encountering a duplicate in a completion list. Bug 1571112.
+  (backport r53042)
+
+- Some syntax errors were being caught by tokenize during the tabnanny        
+  check, resulting in obscure error messages.  Do the syntax check            
+  first.  Bug 1562716, 1562719  (backport r52083)
+
+- Patch 1693258: Fix for duplicate "preferences" menu-OS X. (backport r56204)
+
+- OSX: Avoid crash for those versions of Tcl/Tk which don't have a console
+
 What's New in IDLE 1.2.1?
 =========================
 
@@ -7,6 +42,15 @@ What's New in IDLE 1.2.1c1?
 ===========================
 
 *Release date: 05-APR-2007*
+
+- Bug in idlelib.MultiCall: Options dialog was crashing IDLE if there was an
+  option in config-extensions w/o a value. Patch #1672481, Tal Einat
+  (backport from rev. 54156)
+
+- Honor the "Cancel" action in the save dialog (Debian bug #299092).
+
+- Bug #813342: Start the IDLE subprocess with -Qnew if the parent
+  is started with that option. (backport from rev. 52295)
 
 What's New in IDLE 1.2?
 =======================
@@ -48,6 +92,13 @@ What's New in IDLE 1.2b3?
 
 *Release date: 03-AUG-2006*
 
+- Bug #1525817: Don't truncate short lines in IDLE's tool tips.
+
+- Bug #1517990: IDLE keybindings on MacOS X now work correctly
+
+- Bug #1517996: IDLE no longer shows the default Tk menu when a
+  path browser, class browser or debugger is the frontmost window on MacOS X
+
 - EditorWindow.test() was failing.  Bug 1417598
 
 - EditorWindow failed when used stand-alone if sys.ps1 not set.
@@ -83,6 +134,8 @@ What's New in IDLE 1.2a1?
 =========================
 
 *Release date: 05-APR-2006*
+
+- Patch #1162825: Support non-ASCII characters in IDLE window titles.
 
 - Source file f.flush() after writing; trying to avoid lossage if user
   kills GUI.

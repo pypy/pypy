@@ -823,8 +823,15 @@ try:
 except NameError:
     (True, False) = (1, 0)
 
-def isbasestring(x):
-    return isinstance(x, types.StringType) or isinstance(x, types.UnicodeType)
+try:
+    basestring
+except NameError:
+    def isbasestring(x):
+        return isinstance(x, (types.StringType, types.UnicodeType))
+else:
+    def isbasestring(x):
+        return isinstance(x, basestring)
+
 
 class Values:
 

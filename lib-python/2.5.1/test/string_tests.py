@@ -2,7 +2,7 @@
 Common tests shared by test_str, test_unicode, test_userstring and test_string.
 """
 
-import unittest, string, sys
+import unittest, string, sys, struct
 from test import test_support
 from UserList import UserList
 
@@ -247,8 +247,13 @@ class CommonTest(unittest.TestCase):
         self.checkequal('abc\rab      def\ng       hi', 'abc\rab\tdef\ng\thi', 'expandtabs')
         self.checkequal('abc\rab      def\ng       hi', 'abc\rab\tdef\ng\thi', 'expandtabs', 8)
         self.checkequal('abc\r\nab\r\ndef\ng\r\nhi', 'abc\r\nab\r\ndef\ng\r\nhi', 'expandtabs', 4)
+        self.checkequal('  a\n b', ' \ta\n\tb', 'expandtabs', 1)
 
         self.checkraises(TypeError, 'hello', 'expandtabs', 42, 42)
+        # This test is only valid when sizeof(int) == sizeof(void*) == 4.
+        if sys.maxint < (1 << 32) and struct.calcsize('P') == 4:
+            self.checkraises(OverflowError,
+                             '\ta\n\tb', 'expandtabs', sys.maxint)
 
     def test_split(self):
         self.checkequal(['this', 'is', 'the', 'split', 'function'],
@@ -671,7 +676,7 @@ class CommonTest(unittest.TestCase):
 
     def test_replace_overflow(self):
         # Check for overflow checking on 32 bit machines
-        if sys.maxint != 2147483647:
+        if sys.maxint != 2147483647 or struct.calcsize("P") > 4:
             return
         A2_16 = "A" * (2**16)
         self.checkraises(OverflowError, A2_16, "replace", "", A2_16)

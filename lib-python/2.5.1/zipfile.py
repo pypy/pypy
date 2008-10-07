@@ -32,9 +32,9 @@ ZIP_DEFLATED = 8
 # Other ZIP compression methods not supported
 
 # Here are some struct module formats for reading headers
-structEndArchive = "<4s4H2lH"     # 9 items, end of archive, 22 bytes
+structEndArchive = "<4s4H2LH"     # 9 items, end of archive, 22 bytes
 stringEndArchive = "PK\005\006"   # magic number for end of archive record
-structCentralDir = "<4s4B4HlLL5HLl"# 19 items, central directory, 46 bytes
+structCentralDir = "<4s4B4HlLL5HLL"# 19 items, central directory, 46 bytes
 stringCentralDir = "PK\001\002"   # magic number for central directory
 structFileHeader = "<4s2B4HlLL2H"  # 12 items, file header record, 30 bytes
 stringFileHeader = "PK\003\004"   # magic number for file header
@@ -445,7 +445,7 @@ class ZipFile:
         """Print a table of contents for the zip file."""
         print "%-46s %19s %12s" % ("File Name", "Modified    ", "Size")
         for zinfo in self.filelist:
-            date = "%d-%02d-%02d %02d:%02d:%02d" % zinfo.date_time
+            date = "%d-%02d-%02d %02d:%02d:%02d" % zinfo.date_time[:6]
             print "%-46s %s %12d" % (zinfo.filename, date, zinfo.file_size)
 
     def testzip(self):
@@ -606,7 +606,7 @@ class ZipFile:
         the name of the file in the archive."""
         if not isinstance(zinfo_or_arcname, ZipInfo):
             zinfo = ZipInfo(filename=zinfo_or_arcname,
-                            date_time=time.localtime(time.time()))
+                            date_time=time.localtime(time.time())[:6])
             zinfo.compress_type = self.compression
         else:
             zinfo = zinfo_or_arcname

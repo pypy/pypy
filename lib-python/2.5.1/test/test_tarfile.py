@@ -26,7 +26,7 @@ def path(path):
 testtar = path("testtar.tar")
 tempdir = os.path.join(tempfile.gettempdir(), "testtar" + os.extsep + "dir")
 tempname = test_support.TESTFN
-membercount = 12
+membercount = 13
 
 def tarname(comp=""):
     if not comp:
@@ -191,6 +191,47 @@ class ReadTest(BaseTest):
             except:
                 pass
 
+    def test_dirtype(self):
+        for tarinfo in self.tar:
+            if tarinfo.isdir():
+                self.assert_(tarinfo.name.endswith("/"))
+                self.assert_(not tarinfo.name[:-1].endswith("/"))
+
+    def test_extractall(self):
+        # Test if extractall() correctly restores directory permissions
+        # and times (see issue1735).
+        if sys.platform == "win32":
+            # Win32 has no support for utime() on directories or
+            # fine grained permissions.
+            return
+
+        fobj = StringIO.StringIO()
+        tar = tarfile.open(fileobj=fobj, mode="w:")
+        for name in ("foo", "foo/bar"):
+            tarinfo = tarfile.TarInfo(name)
+            tarinfo.type = tarfile.DIRTYPE
+            tarinfo.mtime = 07606136617
+            tarinfo.mode = 0755
+            tar.addfile(tarinfo)
+        tar.close()
+        fobj.seek(0)
+
+        TEMPDIR = os.path.join(dirname(), "extract-test")
+        tar = tarfile.open(fileobj=fobj)
+        tar.extractall(TEMPDIR)
+        for tarinfo in tar.getmembers():
+            path = os.path.join(TEMPDIR, tarinfo.name)
+            self.assertEqual(tarinfo.mode, os.stat(path).st_mode & 0777)
+            self.assertEqual(tarinfo.mtime, os.path.getmtime(path))
+        tar.close()
+
+    def test_star(self):
+        try:
+            self.tar.getmember("7-STAR")
+        except KeyError:
+            self.fail("finding 7-STAR member failed (mangled prefix?)")
+
+
 class ReadStreamTest(ReadTest):
     sep = "|"
 
@@ -252,6 +293,38 @@ class ReadStreamAsteriskTest(ReadStreamTest):
     def setUp(self):
         mode = self.mode + self.sep + "*"
         self.tar = tarfile.open(tarname(self.comp), mode)
+
+class ReadFileobjTest(BaseTest):
+
+    def test_fileobj_with_offset(self):
+        # Skip the first member and store values from the second member
+        # of the testtar.
+        self.tar.next()
+        t = self.tar.next()
+        name = t.name
+        offset = t.offset
+        data = self.tar.extractfile(t).read()
+        self.tar.close()
+
+        # Open the testtar and seek to the offset of the second member.
+        if self.comp == "gz":
+            _open = gzip.GzipFile
+        elif self.comp == "bz2":
+            _open = bz2.BZ2File
+        else:
+            _open = open
+        fobj = _open(tarname(self.comp), "rb")
+        fobj.seek(offset)
+
+        # Test if the tarfile starts with the second member.
+        self.tar = tarfile.open(tarname(self.comp), "r:", fileobj=fobj)
+        t = self.tar.next()
+        self.assertEqual(t.name, name)
+        # Read to the end of fileobj and test if seeking back to the
+        # beginning works.
+        self.tar.getmembers()
+        self.assertEqual(self.tar.extractfile(t).read(), data,
+                "seek back did not work")
 
 class WriteTest(BaseTest):
     mode = 'w'
@@ -617,6 +690,8 @@ class ReadAsteriskTestGzip(ReadAsteriskTest):
     comp = "gz"
 class ReadStreamAsteriskTestGzip(ReadStreamAsteriskTest):
     comp = "gz"
+class ReadFileobjTestGzip(ReadFileobjTest):
+    comp = "gz"
 
 # Filemode test cases
 
@@ -626,14 +701,34 @@ class FileModeTest(unittest.TestCase):
         self.assertEqual(tarfile.filemode(07111), '---s--s--t')
 
 class OpenFileobjTest(BaseTest):
-    # Test for SF bug #1496501.
 
     def test_opener(self):
+        # Test for SF bug #1496501.
         fobj = StringIO.StringIO("foo\n")
         try:
-            tarfile.open("", "r", fileobj=fobj)
+            tarfile.open("", mode="r", fileobj=fobj)
         except tarfile.ReadError:
             self.assertEqual(fobj.tell(), 0, "fileobj's position has moved")
+
+    def test_no_name_argument(self):
+        fobj = open(testtar, "rb")
+        tar = tarfile.open(fileobj=fobj, mode="r")
+        self.assertEqual(tar.name, os.path.abspath(fobj.name))
+
+    def test_no_name_attribute(self):
+        data = open(testtar, "rb").read()
+        fobj = StringIO.StringIO(data)
+        self.assertRaises(AttributeError, getattr, fobj, "name")
+        tar = tarfile.open(fileobj=fobj, mode="r")
+        self.assertEqual(tar.name, None)
+
+    def test_empty_name_attribute(self):
+        data = open(testtar, "rb").read()
+        fobj = StringIO.StringIO(data)
+        fobj.name = ""
+        tar = tarfile.open(fileobj=fobj, mode="r")
+        self.assertEqual(tar.name, None)
+
 
 if bz2:
     # Bzip2 TestCases
@@ -652,6 +747,8 @@ if bz2:
     class ReadAsteriskTestBzip2(ReadAsteriskTest):
         comp = "bz2"
     class ReadStreamAsteriskTestBzip2(ReadStreamAsteriskTest):
+        comp = "bz2"
+    class ReadFileobjTestBzip2(ReadFileobjTest):
         comp = "bz2"
 
 # If importing gzip failed, discard the Gzip TestCases.
@@ -686,6 +783,7 @@ def test_main():
         ReadDetectFileobjTest,
         ReadAsteriskTest,
         ReadStreamAsteriskTest,
+        ReadFileobjTest,
         WriteTest,
         Write100Test,
         WriteSize0Test,
@@ -703,7 +801,8 @@ def test_main():
             ReadTestGzip, ReadStreamTestGzip,
             WriteTestGzip, WriteStreamTestGzip,
             ReadDetectTestGzip, ReadDetectFileobjTestGzip,
-            ReadAsteriskTestGzip, ReadStreamAsteriskTestGzip
+            ReadAsteriskTestGzip, ReadStreamAsteriskTestGzip,
+            ReadFileobjTestGzip
         ])
 
     if bz2:
@@ -711,7 +810,8 @@ def test_main():
             ReadTestBzip2, ReadStreamTestBzip2,
             WriteTestBzip2, WriteStreamTestBzip2,
             ReadDetectTestBzip2, ReadDetectFileobjTestBzip2,
-            ReadAsteriskTestBzip2, ReadStreamAsteriskTestBzip2
+            ReadAsteriskTestBzip2, ReadStreamAsteriskTestBzip2,
+            ReadFileobjTestBzip2
         ])
     try:
         test_support.run_unittest(*tests)

@@ -315,7 +315,10 @@ class Maildir(Mailbox):
         subpath = self._lookup(key)
         f = open(os.path.join(self._path, subpath), 'r')
         try:
-            msg = MaildirMessage(f)
+            if self._factory:
+                msg = self._factory(f)
+            else:
+                msg = MaildirMessage(f)
         finally:
             f.close()
         subdir, name = os.path.split(subpath)
@@ -459,7 +462,11 @@ class Maildir(Mailbox):
         """Update table of contents mapping."""
         self._toc = {}
         for subdir in ('new', 'cur'):
-            for entry in os.listdir(os.path.join(self._path, subdir)):
+            subdir_path = os.path.join(self._path, subdir)
+            for entry in os.listdir(subdir_path):
+                p = os.path.join(subdir_path, entry)
+                if os.path.isdir(p):
+                    continue
                 uniq = entry.split(self.colon)[0]
                 self._toc[uniq] = os.path.join(subdir, entry)
 

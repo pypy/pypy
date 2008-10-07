@@ -99,6 +99,19 @@ class IEEEFormatTestCase(unittest.TestCase):
                               ('<f', LE_FLOAT_NAN)]:
                 struct.unpack(fmt, data)
 
+    if float.__getformat__("double").startswith("IEEE"):
+        def test_negative_zero(self):
+            import math
+            def pos_pos():
+                return 0.0, math.atan2(0.0, -1)
+            def pos_neg():
+                return 0.0, math.atan2(-0.0, -1)
+            def neg_pos():
+                return -0.0, math.atan2(0.0, -1)
+            def neg_neg():
+                return -0.0, math.atan2(-0.0, -1)
+            self.assertEquals(pos_pos(), neg_pos())
+            self.assertEquals(pos_neg(), neg_neg())
 
 def test_main():
     test_support.run_unittest(

@@ -10,13 +10,14 @@ HIDE_SEQUENCES = ("<FocusOut>", "<ButtonPress>")
 KEYPRESS_VIRTUAL_EVENT_NAME = "<<autocompletewindow-keypress>>"
 # We need to bind event beyond <Key> so that the function will be called
 # before the default specific IDLE function
-KEYPRESS_SEQUENCES = ("<Key>", "<Key-BackSpace>", "<Key-Return>",
-                      "<Key-Up>", "<Key-Down>", "<Key-Home>", "<Key-End>")
+KEYPRESS_SEQUENCES = ("<Key>", "<Key-BackSpace>", "<Key-Return>", "<Key-Tab>",
+                      "<Key-Up>", "<Key-Down>", "<Key-Home>", "<Key-End>",
+                      "<Key-Prior>", "<Key-Next>")
 KEYRELEASE_VIRTUAL_EVENT_NAME = "<<autocompletewindow-keyrelease>>"
 KEYRELEASE_SEQUENCE = "<KeyRelease>"
-LISTUPDATE_SEQUENCE = "<ButtonRelease>"
+LISTUPDATE_SEQUENCE = "<B1-ButtonRelease>"
 WINCONFIG_SEQUENCE = "<Configure>"
-DOUBLECLICK_SEQUENCE = "<Double-ButtonRelease>"
+DOUBLECLICK_SEQUENCE = "<B1-Double-ButtonRelease>"
 
 class AutoCompleteWindow:
 
@@ -49,6 +50,8 @@ class AutoCompleteWindow:
         # event ids
         self.hideid = self.keypressid = self.listupdateid = self.winconfigid \
         = self.keyreleaseid = self.doubleclickid                         = None
+        # Flag set if last keypress was a tab
+        self.lastkey_was_tab = False
 
     def _change_start(self, newstart):
         i = 0
@@ -117,8 +120,6 @@ class AutoCompleteWindow:
         else:
             i = 0
             while i < len(lts) and i < len(selstart) and lts[i] == selstart[i]:
-                i += 1
-            while cursel > 0 and selstart[:i] <= self.completions[cursel-1]:
                 i += 1
             newstart = selstart[:i]
         self._change_start(newstart)
@@ -203,7 +204,7 @@ class AutoCompleteWindow:
                                              self.keyrelease_event)
         self.widget.event_add(KEYRELEASE_VIRTUAL_EVENT_NAME,KEYRELEASE_SEQUENCE)
         self.listupdateid = listbox.bind(LISTUPDATE_SEQUENCE,
-                                         self.listupdate_event)
+                                         self.listselect_event)
         self.winconfigid = acw.bind(WINCONFIG_SEQUENCE, self.winconfig_event)
         self.doubleclickid = listbox.bind(DOUBLECLICK_SEQUENCE,
                                           self.doubleclick_event)
@@ -225,11 +226,12 @@ class AutoCompleteWindow:
             return
         self.hide_window()
 
-    def listupdate_event(self, event):
+    def listselect_event(self, event):
         if not self.is_active():
             return
         self.userwantswindow = True
-        self._selection_changed()
+        cursel = int(self.listbox.curselection()[0])
+        self._change_start(self.completions[cursel])
 
     def doubleclick_event(self, event):
         # Put the selected completion in the text, and close the list
@@ -245,7 +247,8 @@ class AutoCompleteWindow:
             state = event.mc_state
         else:
             state = 0
-
+        if keysym != "Tab":
+            self.lastkey_was_tab = False
         if (len(keysym) == 1 or keysym in ("underscore", "BackSpace")
             or (self.mode==AutoComplete.COMPLETE_FILES and keysym in
                 ("period", "minus"))) \
@@ -271,20 +274,9 @@ class AutoCompleteWindow:
             self._selection_changed()
             return "break"
 
-        elif keysym == "Return" and not state:
-            # If start is a prefix of the selection, or there was an indication
-            # that the user used the completion window, put the selected
-            # completion in the text, and close the list.
-            # Otherwise, close the window and let the event through.
-            cursel = int(self.listbox.curselection()[0])
-            if self.completions[cursel][:len(self.start)] == self.start or \
-               self.userwantswindow:
-                self._change_start(self.completions[cursel])
-                self.hide_window()
-                return "break"
-            else:
-                self.hide_window()
-                return
+        elif keysym == "Return":
+            self.hide_window()
+            return
 
         elif (self.mode == AutoComplete.COMPLETE_ATTRIBUTES and keysym in
               ("period", "space", "parenleft", "parenright", "bracketleft",
@@ -327,13 +319,21 @@ class AutoCompleteWindow:
             self.listbox.select_clear(cursel)
             self.listbox.select_set(newsel)
             self._selection_changed()
+            self._change_start(self.completions[newsel])
             return "break"
 
         elif (keysym == "Tab" and not state):
-            # The user wants a completion, but it is handled by AutoComplete
-            # (not AutoCompleteWindow), so ignore.
-            self.userwantswindow = True
-            return
+            if self.lastkey_was_tab:
+                # two tabs in a row; insert current selection and close acw
+                cursel = int(self.listbox.curselection()[0])
+                self._change_start(self.completions[cursel])
+                self.hide_window()
+                return "break"
+            else:
+                # first tab; let AutoComplete handle the completion
+                self.userwantswindow = True
+                self.lastkey_was_tab = True
+                return
 
         elif reduce(lambda x, y: x or y,
                     [keysym.find(s) != -1 for s in ("Shift", "Control", "Alt",

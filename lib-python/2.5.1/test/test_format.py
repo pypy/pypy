@@ -1,5 +1,7 @@
 from test.test_support import verbose, have_unicode, TestFailed
 import sys
+from test.test_support import MAX_Py_ssize_t
+maxsize = MAX_Py_ssize_t
 
 # test string formatting operator (I am not sure if this is being tested
 # elsewhere but, surely, some of the given cases are *not* tested because
@@ -7,6 +9,7 @@ import sys
 # test on unicode strings as well
 
 overflowok = 1
+overflowrequired = 0
 
 def testformat(formatstr, args, output=None):
     if verbose:
@@ -23,11 +26,16 @@ def testformat(formatstr, args, output=None):
         if verbose:
             print 'overflow (this is fine)'
     else:
-        if output and result != output:
+        if overflowrequired:
             if verbose:
                 print 'no'
-            print "%s %% %s == %s != %s" %\
-                (repr(formatstr), repr(args), repr(result), repr(output))
+            print "overflow expected on %s %% %s" % \
+                  (repr(formatstr), repr(args))
+        elif output and result != output:
+            if verbose:
+                print 'no'
+            print "%s %% %s == %s != %s" % \
+                  (repr(formatstr), repr(args), repr(result), repr(output))
         else:
             if verbose:
                 print 'yes'
@@ -54,6 +62,14 @@ testboth("%#.*g", (110, -1.e+100/3.))
 
 # test some ridiculously large precision, expect overflow
 testboth('%12.*f', (123456, 1.0))
+
+# check for internal overflow validation on length of precision
+overflowrequired = 1
+testboth("%#.*g", (110, -1.e+100/3.))
+testboth("%#.*G", (110, -1.e+100/3.))
+testboth("%#.*f", (110, -1.e+100/3.))
+testboth("%#.*F", (110, -1.e+100/3.))
+overflowrequired = 0
 
 # Formatting of long integers. Overflow is not ok
 overflowok = 0
@@ -238,11 +254,11 @@ class Foobar(long):
 test_exc('%o', Foobar(), TypeError,
          "expected string or Unicode object, long found")
 
-if sys.maxint == 2**31-1:
+if maxsize == 2**31-1:
     # crashes 2.2.1 and earlier:
     try:
-        "%*d"%(sys.maxint, -127)
+        "%*d"%(maxsize, -127)
     except MemoryError:
         pass
     else:
-        raise TestFailed, '"%*d"%(sys.maxint, -127) should fail'
+        raise TestFailed, '"%*d"%(maxsize, -127) should fail'
