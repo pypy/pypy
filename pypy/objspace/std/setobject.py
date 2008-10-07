@@ -444,23 +444,20 @@ def set_remove__Set_Set(space, w_left, w_item):
     try:
         del w_left.setdata[w_f]
     except KeyError:
-        raise OperationError(space.w_KeyError,
-                space.call_method(w_item,'__repr__'))
+        raise OperationError(space.w_KeyError, w_item)
 
 def set_remove__Set_settypedef(space, w_left, w_item):
     w_f = space.newfrozenset(make_setdata_from_w_iterable(space, w_item))
     try:
         del w_left.setdata[w_f]
     except KeyError:
-        raise OperationError(space.w_KeyError,
-                space.call_method(w_item,'__repr__'))
+        raise OperationError(space.w_KeyError, w_item)
 
 def set_remove__Set_ANY(space, w_left, w_item):
     try:
         del w_left.setdata[w_item]
     except KeyError:
-        raise OperationError(space.w_KeyError,
-                space.call_method(w_item,'__repr__'))
+        raise OperationError(space.w_KeyError, w_item)
 
 def hash__Frozenset(space, w_set):
     multi = r_uint(1822399083) + r_uint(1822399083) + 1

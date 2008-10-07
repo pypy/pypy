@@ -83,3 +83,11 @@ class AppTestAppSetTest:
         s.add(A(s))
         assert repr(s) == "set([1, 2, 3, set(...)])"
 
+    def test_keyerror_has_key(self):
+        s = set()
+        try:
+            s.remove(1)
+        except KeyError, e:
+            assert e.args[0] == 1
+        else:
+            assert 0, "should raise"
