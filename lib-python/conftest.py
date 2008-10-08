@@ -67,6 +67,11 @@ class RegrTest:
         self.core = core
         assert self.getfspath().check(), "%r not found!" % (basename,)
 
+    def setup(self):
+        pass
+    def teardown(self):
+        pass
+
     def usemodules(self):
         return self._usemodules #+ pypy_option.usemodules
     usemodules = property(usemodules)
