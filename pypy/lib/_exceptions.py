@@ -264,11 +264,11 @@ class SyntaxError(StandardError):
             if args[1][1] is None or type(args[1][1]) == int:
                 self.lineno = args[1][1]
             else:
-                raise TypeError('argument 2 must be str, not %s'%type(args[1][1]))
+                raise TypeError('argument 2 must be int, not %s'%type(args[1][1]))
             if args[1][2] is None or type(args[1][2]) == int:
                 self.offset = args[1][2]
             else:
-                raise TypeError('argument 3 must be str, not %s'%type(args[1][2]))
+                raise TypeError('argument 3 must be int, not %s'%type(args[1][2]))
             if args[1][3] is None or type(args[1][3]) == str:
                 self.text = args[1][3]
             else:
