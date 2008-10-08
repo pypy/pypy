@@ -20,8 +20,8 @@ BLOCKSIZ = n+2
 
 class deque(object):
 
-    def __new__(cls, iterable=()):
-        self = super(deque, cls).__new__(cls)
+    def __new__(cls, iterable=(), *args, **kw):
+        self = super(deque, cls).__new__(cls, *args, **kw)
         self.clear()
         return self
 
