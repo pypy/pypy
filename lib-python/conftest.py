@@ -58,13 +58,15 @@ class RegrTest:
     def __init__(self, basename, enabled=False, dumbtest=False,
                                  core=False,
                                  compiler=None, 
-                                 usemodules = ''): 
+                                 usemodules = '',
+                                 skip=None): 
         self.basename = basename 
         self.enabled = enabled 
         self.dumbtest = dumbtest 
         self._usemodules = usemodules.split()
         self._compiler = compiler 
         self.core = core
+        self.skip = skip
         assert self.getfspath().check(), "%r not found!" % (basename,)
 
     def usemodules(self):
@@ -122,7 +124,7 @@ testmap = [
     RegrTest('test___future__.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test__locale.py', enabled=True),
     RegrTest('test_aepack.py', enabled=False),
-    RegrTest('test_al.py', enabled=False, dumbtest=1),
+    RegrTest('test_al.py', enabled=False, dumbtest=1, skip=True),
     RegrTest('test_anydbm.py', enabled=True),
     RegrTest('test_applesingle.py', enabled=False),
     RegrTest('test_array.py', enabled=True, core=True, usemodules='struct'),
@@ -658,6 +660,12 @@ class ReallyRunFileExternal(py.test.collect.Item):
             i am afraid. 
         """ 
         regrtest = self.parent.regrtest
+        if regrtest.skip:
+            if regrtest.skip is True:
+                msg = "obsolete or unsupported platform"
+            else:
+                msg = regrtest.skip
+            py.test.skip(msg)
         exit_status, test_stdout, test_stderr = self.getresult(regrtest) 
         if exit_status:
             raise self.ExternalFailure(test_stdout, test_stderr)
