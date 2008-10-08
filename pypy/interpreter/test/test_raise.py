@@ -192,7 +192,8 @@ class AppTestRaise:
         raises(TypeError, f)
 
     def test_it(self):
-        C = _classobj('C', (), {})
+        class C:
+            pass
         # this used to explode in the exception normalization step:
         try:
             {}[C]
@@ -201,7 +202,6 @@ class AppTestRaise:
 
     def test_oldstyle_userclass(self):
         class A:
-            __metaclass__ = _classobj
             def __init__(self, val=None):
                 self.val = val
         class Sub(A):
@@ -237,3 +237,10 @@ class AppTestRaise:
         except A, a:
             assert a.__class__ is Sub
             assert a.val == 42
+
+        try:
+            {}[5]
+        except A, a:
+            assert 0
+        except KeyError:
+            pass
