@@ -152,3 +152,22 @@ class AppTestOperator:
         assert operator.imul(list, 2) is list
         assert list == [1, 2, 1, 2]
 
+    def test_irepeat(self):
+        import operator
+        import py
+
+        class X(object):
+            def __index__(self):
+                return 5
+
+        a = range(3)
+        raises(TypeError, operator.irepeat)
+        raises(TypeError, operator.irepeat, a, None)
+        raises(TypeError, operator.irepeat, a, [])
+        raises(TypeError, operator.irepeat, a, X())
+        raises(TypeError, operator.irepeat, 6, 7)
+        assert operator.irepeat(a, 2L) is a
+        assert a == [0, 1, 2, 0, 1, 2]
+        assert operator.irepeat(a, 1) is a
+        assert a == [0, 1, 2, 0, 1, 2]
+
