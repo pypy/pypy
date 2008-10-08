@@ -298,7 +298,7 @@ class OtherFileTests(unittest.TestCase):
             testline = testlines.pop(0)
             try:
                 line = f.read(len(testline))
-            except ValueErrori
+            except ValueError:
                 self.fail("read() after next() with supposedly empty "
                           "iteration-buffer failed anyway")
             if line != testline:
