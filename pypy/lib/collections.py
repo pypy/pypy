@@ -112,7 +112,17 @@ class deque(object):
         return x
 
     def remove(self, value):
-        del self[operator.indexOf(self, value)]
+        # Need to be defensive for mutating comparisons
+        i = 0
+        while i < len(self):
+            if self[i] == value:
+                if i < len(self):
+                    del self[i]
+                    return
+                else:
+                    raise IndexError("deque mutated during remove()")
+            i += 1
+        raise ValueError("deque.remove(x): x not in deque")
 
     def rotate(self, n=1):
         length = len(self)
