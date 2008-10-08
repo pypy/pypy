@@ -6,7 +6,7 @@ import unittest
 import warnings
 import pickle, cPickle
 
-from test.test_support import TESTFN, unlink, run_unittest
+from test.test_support import TESTFN, unlink, run_unittest, check_impl_details
 
 # XXX This is not really enough, each *operation* should be tested!
 
@@ -241,13 +241,6 @@ class ExceptionTests(unittest.TestCase):
                                       'offsetStr', 'textStr')),
                  'print_file_and_line' : None, 'msg' : 'msgStr',
                  'filename' : 'filenameStr', 'lineno' : 'linenoStr'}),
-            (SyntaxError, ('msgStr', 'filenameStr', 'linenoStr', 'offsetStr',
-                           'textStr', 'print_file_and_lineStr'),
-                {'message' : '', 'text' : None,
-                 'args' : ('msgStr', 'filenameStr', 'linenoStr', 'offsetStr',
-                           'textStr', 'print_file_and_lineStr'),
-                 'print_file_and_line' : None, 'msg' : 'msgStr',
-                 'filename' : None, 'lineno' : None, 'offset' : None}),
             (UnicodeError, (), {'message' : '', 'args' : (),}),
             (UnicodeEncodeError, ('ascii', u'a', 0, 1, 'ordinal not in range'),
                 {'message' : '', 'args' : ('ascii', u'a', 0, 1,
@@ -264,6 +257,17 @@ class ExceptionTests(unittest.TestCase):
                  'object' : u'\u3042', 'reason' : 'ouch',
                  'start' : 0, 'end' : 1}),
         ]
+        if check_impl_details:
+            exceptionList.append(
+            (SyntaxError, ('msgStr', 'filenameStr', 'linenoStr', 'offsetStr',
+                           'textStr', 'print_file_and_lineStr'),
+                {'message' : '', 'text' : None,
+                 'args' : ('msgStr', 'filenameStr', 'linenoStr', 'offsetStr',
+                           'textStr', 'print_file_and_lineStr'),
+                 'print_file_and_line' : None, 'msg' : 'msgStr',
+                 'filename' : None, 'lineno' : None, 'offset' : None})
+            )
+                
         try:
             exceptionList.append(
                 (WindowsError, (1, 'strErrorStr', 'filenameStr'),
