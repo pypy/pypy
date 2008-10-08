@@ -86,6 +86,10 @@ class W_File(W_AbstractStream):
         self.fdopenstream(stream, fd, mode, name)
 
     def direct___enter__(self):
+        if self.stream is None:
+            space = self.space
+            raise OperationError(space.w_ValueError,
+                                 space.wrap('I/O operation on closed file'))
         return self
 
     def direct___exit__(self, __args__):

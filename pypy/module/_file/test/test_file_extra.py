@@ -561,6 +561,7 @@ class AppTestAFewExtra:
         raises(ValueError, f.writelines, [])
         raises(ValueError, iter, f)
         raises(ValueError, f.xreadlines)
+        raises(ValueError, f.__enter__)
         f.close()     # accepted as a no-op
 
     def test_docstrings(self):
