@@ -86,7 +86,7 @@ class AppTestFile(object):
             f.close()
 
     def test_badmode(self):
-        raises(IOError, self.file, "foo", "bar")
+        raises(ValueError, self.file, "foo", "bar")
 
     def test_wraposerror(self):
         raises(IOError, self.file, "hopefully/not/existant.bar")
