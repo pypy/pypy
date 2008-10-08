@@ -67,11 +67,6 @@ class RegrTest:
         self.core = core
         assert self.getfspath().check(), "%r not found!" % (basename,)
 
-    def setup(self):
-        pass
-    def teardown(self):
-        pass
-
     def usemodules(self):
         return self._usemodules #+ pypy_option.usemodules
     usemodules = property(usemodules)
@@ -581,7 +576,7 @@ class RegrDirectory(py.test.collect.Directory):
 
 Directory = RegrDirectory
 
-class RunFileExternal(py.test.collect.Module): 
+class RunFileExternal(py.test.collect.File):
     def __init__(self, name, parent, regrtest): 
         super(RunFileExternal, self).__init__(name, parent) 
         self.regrtest = regrtest 
