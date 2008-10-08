@@ -337,8 +337,14 @@ class defaultdict(dict):
         self[key] = value = self.default_factory()
         return value
 
-    def __repr__(self):
-        return "defaultdict(%s, %s)" % (repr(self.default_factory), super(defaultdict, self).__repr__())
+    def __repr__(self, recurse=[]):
+        if recurse:
+            return "defaultdict(...)"
+        try:
+            recurse.append(True)
+            return "defaultdict(%s, %s)" % (repr(self.default_factory), super(defaultdict, self).__repr__())
+        finally:
+            recurse.pop()
 
     def copy(self):
         return type(self)(self, default_factory=self.default_factory)

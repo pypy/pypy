@@ -68,6 +68,17 @@ class Test_defaultdict:
         d3[13]
         assert repr(d3), "defaultdict(%s, {13: 43})" % repr(foo)
 
+    def test_recursive_repr(self):
+        # Issue2045: stack overflow when default_factory is a bound method
+        class sub(defaultdict):
+            def __init__(self):
+                self.default_factory = self._factory
+            def _factory(self):
+                return []
+        d = sub()
+        assert repr(d).startswith(
+            "defaultdict(<bound method sub._factory of defaultdict(...")
+
     def test_copy(self):
         d1 = defaultdict()
         d2 = d1.copy()
