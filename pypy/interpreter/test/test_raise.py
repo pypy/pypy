@@ -237,17 +237,3 @@ class AppTestRaise:
         except A, a:
             assert a.__class__ is Sub
             assert a.val == 42
-
-<<<<<<< .working
-=======
-    def test_it(self):
-        class C:
-            pass
-        # this used to explode in the exception normalization step:
->>>>>>> .merge-right.r58379
-        try:
-            {}[5]
-        except A, a:
-            assert 0
-        except KeyError:
-            pass
