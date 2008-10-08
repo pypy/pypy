@@ -61,12 +61,15 @@ class Test_defaultdict:
         d2 = defaultdict(int)
         assert d2.default_factory == int
         d2[12] = 42
-        assert repr(d2), "defaultdict(<type 'int'>, {12: 42})"
+        assert repr(d2) == "defaultdict(<type 'int'>, {12: 42})"
         def foo(): return 43
         d3 = defaultdict(foo)
         assert d3.default_factory is foo
         d3[13]
-        assert repr(d3), "defaultdict(%s, {13: 43})" % repr(foo)
+        assert repr(d3) == "defaultdict(%s, {13: 43})" % repr(foo)
+        d4 = defaultdict(int)
+        d4[14] = defaultdict()
+        assert repr(d4) == "defaultdict(%s, {14: defaultdict(None, {})})" % repr(int)
 
     def test_recursive_repr(self):
         # Issue2045: stack overflow when default_factory is a bound method
