@@ -566,3 +566,9 @@ class AppTestAFewExtra:
 
     def test_docstrings(self):
         assert file.closed.__doc__ == 'True if the file is closed'
+
+    def test_repr_unicode_filename(self):
+        f = open(unicode(self.temptestfile), 'w')
+        assert repr(f).startswith("<open file u'" + self.temptestfile)
+        f.close()
+

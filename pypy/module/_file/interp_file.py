@@ -8,6 +8,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace, W_Root, Arguments
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.typedef import interp_attrproperty, make_weakref_descr
+from pypy.interpreter.typedef import interp_attrproperty_w
 from pypy.interpreter.gateway import interp2app
 
 
@@ -37,9 +38,9 @@ class W_File(W_AbstractStream):
         self.clear_all_weakrefs()
         self.direct_close()
 
-    def fdopenstream(self, stream, fd, mode, name):
+    def fdopenstream(self, stream, fd, mode, w_name):
         self.fd = fd
-        self.name = name
+        self.w_name = w_name
         self.softspace = 0    # Required according to file object docs
         self.encoding = None  # This is not used internally by file objects
         self.mode = mode
@@ -78,12 +79,13 @@ class W_File(W_AbstractStream):
     # The 'direct_' methods assume that the caller already acquired the
     # file lock.  They don't convert StreamErrors to OperationErrors, too.
 
-    def direct___init__(self, name, mode='r', buffering=-1):
+    def direct___init__(self, w_name, mode='r', buffering=-1):
+        name = self.space.str_w(w_name)
         self.direct_close()
         self.check_mode_ok(mode)
         stream = streamio.open_file_as_stream(name, mode, buffering)
         fd = stream.try_to_find_file_descriptor()
-        self.fdopenstream(stream, fd, mode, name)
+        self.fdopenstream(stream, fd, mode, w_name)
 
     def direct___enter__(self):
         if self.stream is None:
@@ -101,7 +103,7 @@ class W_File(W_AbstractStream):
         self.direct_close()
         self.check_mode_ok(mode)
         stream = streamio.fdopen_as_stream(fd, mode, buffering)
-        self.fdopenstream(stream, fd, mode, '<fdopen>')
+        self.fdopenstream(stream, fd, mode, self.space.wrap('<fdopen>'))
 
     def direct_close(self):
         space = self.space
@@ -282,7 +284,7 @@ class W_File(W_AbstractStream):
         class_scope['_exposed_method_names'].append(name)
 
 
-    _decl(locals(), "__init__", ['self', str, str, int],
+    _decl(locals(), "__init__", ['self', W_Root, str, int],
           """Opens a file.""")
 
     _decl(locals(), "__enter__", ['self'], """__enter__() -> self.""")
@@ -384,7 +386,8 @@ optimizations previously implemented in the xreadlines module.""")
             head = "closed"
         else:
             head = "open"
-        info = "%s file '%s', mode '%s'" % (head, self.name, self.mode)
+        repr_filename = self.space.str_w(self.space.repr(self.w_name))
+        info = "%s file %s, mode '%s'" % (head, repr_filename, self.mode)
         return self.getrepr(self.space, info)
     file__repr__.unwrap_spec = ['self']
 
@@ -467,7 +470,7 @@ Note:  open() is an alias for file().
 """,
     __new__  = interp2app(descr_file__new__),
     fdopen   = interp2app(descr_file_fdopen, as_classmethod=True),
-    name     = interp_attrproperty('name', cls=W_File, doc="file name"),
+    name     = interp_attrproperty_w('w_name', cls=W_File, doc="file name"),
     mode     = interp_attrproperty('mode', cls=W_File,
                               doc = "file mode ('r', 'U', 'w', 'a', "
                                     "possibly with 'b' or '+' added)"),

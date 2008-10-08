@@ -6,6 +6,7 @@ from array import array
 from weakref import proxy
 
 from test.test_support import TESTFN, findfile, run_unittest
+from test.test_support import gc_collect, impl_detail
 from UserList import UserList
 
 class AutoFileTests(unittest.TestCase):
@@ -26,6 +27,7 @@ class AutoFileTests(unittest.TestCase):
         self.assertEquals(self.f.name, p.name)
         self.f.close()
         self.f = None
+        gc_collect()
         self.assertRaises(ReferenceError, getattr, p, 'name')
 
     def testAttributes(self):
@@ -218,6 +220,7 @@ class OtherFileTests(unittest.TestCase):
         finally:
             os.unlink(TESTFN)
 
+    @impl_detail
     def testIteration(self):
         # Test the complex interaction when mixing file-iteration and the
         # various read* methods. Ostensibly, the mixture could just be tested
