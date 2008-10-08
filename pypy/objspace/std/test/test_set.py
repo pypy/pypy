@@ -83,6 +83,15 @@ class AppTestAppSetTest:
         s.add(A(s))
         assert repr(s) == "set([1, 2, 3, set(...)])"
 
+    def test_recursive_repr_frozenset(self):
+        class A(object):
+            def __repr__(self):
+                return repr(self.s)
+        a = A()
+        s = frozenset([1, 2, 3, a])
+        a.s = s
+        assert repr(s) == "frozenset([1, 2, 3, frozenset(...)])"
+        
     def test_keyerror_has_key(self):
         s = set()
         try:
@@ -143,3 +152,44 @@ class AppTestAppSetTest:
         except KeyError, e:
             assert isinstance(e.args[0], frozenset)
             assert e.args[0] == frozenset([2, 3])
+
+    def test_contains(self):
+        letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        word = 'teleledningsanka'
+        s = set(word)
+        for c in letters:
+            assert (c in s) == (c in word)
+        raises(TypeError, s.__contains__, [])
+
+    def test_remove(self):
+        s = set('abc')
+        s.remove('a')
+        assert 'a' not in s
+        raises(KeyError, s.remove, 'a')
+        raises(TypeError, s.remove, [])
+        s.add(frozenset('def'))
+        assert set('def') in s
+        s.remove(set('def'))
+        assert set('def') not in s
+        raises(KeyError, s.remove, set('def'))
+
+    def test_remove_keyerror_unpacking(self):
+        # bug:  www.python.org/sf/1576657
+        s = set()
+        for v1 in ['Q', (1,)]:
+            try:
+                s.remove(v1)
+            except KeyError, e:
+                v2 = e.args[0]
+                assert v1 == v2
+            else:
+                assert False, 'Expected KeyError'
+        
+    def test_singleton_empty_frozenset(self):
+        class Frozenset(frozenset):
+            pass
+        f = frozenset()
+        F = Frozenset()
+        efs = [f, Frozenset(f)]
+        # All empty frozenset subclass instances should have different ids
+        assert len(set(map(id, efs))) == len(efs)

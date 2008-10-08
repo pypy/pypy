@@ -417,6 +417,39 @@ class AppTest_DictObject:
         d1.update(d2)
         assert d1['a'] == 42 # fails on CPython, d1['a'] == 'foo'
 
+    def test_index_keyerror_unpacking(self):
+        d = {}
+        for v1 in ['Q', (1,)]:
+            try:
+                d[v1]
+            except KeyError, e:
+                v2 = e.args[0]
+                assert v1 == v2
+            else:
+                assert False, 'Expected KeyError'
+        
+    def test_del_keyerror_unpacking(self):
+        d = {}
+        for v1 in ['Q', (1,)]:
+            try:
+                del d[v1]
+            except KeyError, e:
+                v2 = e.args[0]
+                assert v1 == v2
+            else:
+                assert False, 'Expected KeyError'
+
+    def test_pop_keyerror_unpacking(self):
+        d = {}
+        for v1 in ['Q', (1,)]:
+            try:
+                d.pop(v1)
+            except KeyError, e:
+                v2 = e.args[0]
+                assert v1 == v2
+            else:
+                assert False, 'Expected KeyError'
+
 
 # the minimal 'space' needed to use a W_DictObject
 class FakeSpace:

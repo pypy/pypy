@@ -78,7 +78,7 @@ def getitem__Dict_ANY(space, w_dict, w_lookup):
     except KeyError:
         w_missing_item = w_dict.missing_method(space, w_lookup)
         if w_missing_item is None:
-            raise OperationError(space.w_KeyError, w_lookup)
+            space.raise_key_error(w_lookup)
         else:
             return w_missing_item
 
@@ -89,7 +89,7 @@ def delitem__Dict_ANY(space, w_dict, w_lookup):
     try:
         del w_dict.content[w_lookup]
     except KeyError:
-        raise OperationError(space.w_KeyError, w_lookup)
+        space.raise_key_error(w_lookup)
     
 def len__Dict(space, w_dict):
     return space.wrap(len(w_dict.content))

@@ -1124,7 +1124,7 @@ def getitem__DictMulti_ANY(space, w_dict, w_lookup):
     if w_missing_item is not None:
         return w_missing_item
 
-    raise OperationError(space.w_KeyError, w_lookup)
+    space.raise_key_error(w_lookup)
 
 def setitem__DictMulti_ANY_ANY(space, w_dict, w_newkey, w_newvalue):
     w_dict.implementation = w_dict.implementation.setitem(w_newkey, w_newvalue)
@@ -1133,7 +1133,7 @@ def delitem__DictMulti_ANY(space, w_dict, w_lookup):
     try:
         w_dict.implementation = w_dict.implementation.delitem(w_lookup)
     except KeyError:
-        raise OperationError(space.w_KeyError, w_lookup)
+        space.raise_key_error(w_lookup)
     
 def len__DictMulti(space, w_dict):
     return space.wrap(w_dict.implementation.length())
@@ -1253,7 +1253,7 @@ def dict_pop__DictMulti_ANY(space, w_dict, w_key, w_defaults):
         if len_defaults > 0:
             return defaults[0]
         else:
-            raise OperationError(space.w_KeyError, w_key)
+            space.raise_key_error(w_key)
     else:
         w_dict.implementation.delitem(w_key)
         return w_item

@@ -791,6 +791,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
         else:
             ObjSpace.delslice(self, w_obj, w_start, w_stop)
 
+    def raise_key_error(self, w_key):
+        e = self.call_function(self.w_KeyError, w_key)
+        raise OperationError(self.w_KeyError, e)
+
     class MM:
         "Container for multimethods."
         call    = StdObjSpaceMultiMethod('call', 1, ['__call__'], general__args__=True)

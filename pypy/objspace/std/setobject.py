@@ -313,14 +313,11 @@ def contains__Set_ANY(space, w_left, w_other):
     try:
         return space.newbool(w_other in w_left.setdata)
     except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-
-    w_f = _convert_set_to_frozenset(space, w_other)
-    if w_f is not None:
-        return space.newbool(w_f in w_left.setdata)
-    else:
-        return space.w_False
+        if e.match(space, space.w_TypeError):
+            w_f = _convert_set_to_frozenset(space, w_other)
+            if w_f is not None:
+                return space.newbool(w_f in w_left.setdata)
+        raise
 
 contains__Frozenset_ANY = contains__Set_ANY
 
@@ -437,10 +434,10 @@ def _discard_from_set(space, w_left, w_item):
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
+        w_f = _convert_set_to_frozenset(space, w_item)
+        if w_f is None:
+            raise
         
-    w_f = _convert_set_to_frozenset(space, w_item)
-    if w_f is None:
-        return w_item
     try:
         del w_left.setdata[w_f]
         return None
@@ -457,7 +454,7 @@ def set_discard__Set_ANY(space, w_left, w_item):
 def set_remove__Set_ANY(space, w_left, w_item):
     w_f = _discard_from_set(space, w_left, w_item)
     if w_f is not None:
-        raise OperationError(space.w_KeyError, w_f)
+        space.raise_key_error(w_f)
 
 def hash__Frozenset(space, w_set):
     multi = r_uint(1822399083) + r_uint(1822399083) + 1
@@ -633,7 +630,7 @@ app = gateway.applevel("""
         'The app-level part of repr().'
         set_id = id(s)
         if set_id in currently_in_repr:
-            return 'set(...)'
+            return '%s(...)' % (s.__class__.__name__,)
         currently_in_repr[set_id] = 1
         try:
             return '%s(%s)' % (s.__class__.__name__, [x for x in s])
@@ -653,14 +650,14 @@ def repr__Set(space, w_set):
         w_currently_in_repr = ec._py_repr = space.newdict()
     return setrepr(space, w_currently_in_repr, w_set)
 
+repr__Frozenset = repr__Set
+
 app = gateway.applevel("""
     def reduce__Set(s):
         dict = getattr(s,'__dict__', None)
         return (s.__class__, (tuple(s),), dict)
 
 """, filename=__file__)
-
-repr__Frozenset = app.interphook('repr__Set')
 
 set_reduce__Set = app.interphook('reduce__Set')
 frozenset_reduce__Frozenset = app.interphook('reduce__Set')

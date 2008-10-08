@@ -278,6 +278,7 @@ class TestJointOps(unittest.TestCase):
             fo.close()
             os.remove(test_support.TESTFN)
 
+    @test_support.impl_detail
     def test_do_not_rehash_dict_keys(self):
         n = 10
         d = dict.fromkeys(map(HashCountingInt, xrange(n)))
@@ -514,6 +515,7 @@ class TestFrozenSet(TestJointOps):
         s.__init__(self.otherword)
         self.assertEqual(s, set(self.word))
 
+    @test_support.impl_detail
     def test_singleton_empty_frozenset(self):
         f = frozenset()
         efs = [frozenset(), frozenset([]), frozenset(()), frozenset(''),
@@ -683,8 +685,12 @@ class TestBasicOps(unittest.TestCase):
         for v in self.set:
             self.assert_(v in self.values)
         setiter = iter(self.set)
+
+    @test_support.impl_detail
+    def test__length_hint(self):
         # note: __length_hint__ is an internal undocumented API,
         # don't rely on it in your own programs
+        setiter = iter(self.set)
         self.assertEqual(setiter.__length_hint__(), len(self.set))
 
     def test_pickling(self):
