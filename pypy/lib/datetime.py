@@ -1576,6 +1576,11 @@ class datetime(date):
         "Convert to string, for str()."
         return self.isoformat(sep=' ')
 
+    @classmethod
+    def strptime(cls, date_string, format):
+        'string, format -> new datetime parsed from a string (like time.strptime()).'
+        return cls(*_time.strptime(date_string, format)[0:6])
+
     def utcoffset(self):
         """Return the timezone offset in minutes east of UTC (negative west of
         UTC)."""
