@@ -539,7 +539,7 @@ check_impl_detail = (hasattr(sys, 'subversion') and
 def impl_detail(f):
     """A decorator to skip a whole function if not running on top of CPython.
     """
-    if check_impl_details:
+    if check_impl_detail:
         return f
     else:
         def _skip_check_impl_detail(*args, **kwds):
@@ -547,7 +547,7 @@ def impl_detail(f):
                 sys.stderr.write("Skipping %s checking CPython-specific "
                                  "implementation details\n" % (f.__name__,))
             return
-        return skip_check_impl_detail
+        return _skip_check_impl_detail
 
 def gc_collect():
     """Force as many objects as possible to be collected.
