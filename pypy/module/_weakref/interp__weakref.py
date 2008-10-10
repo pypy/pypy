@@ -143,7 +143,12 @@ class W_Weakref(W_WeakrefBase):
         return w_obj
         
 
-def descr__new__weakref(space, w_subtype, w_obj, w_callable=None):
+def descr__new__weakref(space, w_subtype, w_obj, __args__):
+    args_w, kw_w = __args__.unpack()
+    if args_w:
+        w_callable = args_w[0]
+    else:
+        w_callable = space.w_None
     lifeline = w_obj.getweakref()
     if lifeline is None:
         lifeline = WeakrefLifeline(space)
@@ -183,7 +188,8 @@ W_Weakref.typedef = TypeDef("weakref",
     __doc__ = """A weak reference to an object 'obj'.  A 'callback' can given,
 which is called with the weak reference as an argument when 'obj'
 is about to be finalized.""",
-    __new__ = interp2app(descr__new__weakref),
+    __new__ = interp2app(descr__new__weakref,
+                         unwrap_spec=[ObjSpace, W_Root, W_Root, Arguments]),
     __eq__ = interp2app(descr__eq__,
                         unwrap_spec=[ObjSpace, W_Weakref, W_Root]),
     __ne__ = interp2app(descr__ne__,
