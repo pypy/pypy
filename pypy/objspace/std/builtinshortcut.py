@@ -22,6 +22,7 @@ METHODS_WITH_SHORTCUT = dict.fromkeys(
      'len', 'nonzero', 'repr', 'str', 'hash',
      'neg', 'invert', 'index', 'iter', 'next', 'buffer',
      'getitem', 'setitem', 'int',
+     'getslice', 'setslice',
      # in-place
      'inplace_add', 'inplace_sub', 'inplace_mul', 'inplace_truediv',
      'inplace_floordiv', 'inplace_div', 'inplace_mod', 'inplace_pow',
@@ -32,7 +33,8 @@ METHODS_WITH_SHORTCUT = dict.fromkeys(
 KNOWN_MISSING = ['getattr',   # mostly non-builtins or optimized by CALL_METHOD
                  'setattr', 'delattr', 'userdel',  # mostly for non-builtins
                  'get', 'set', 'delete',   # uncommon (except on functions)
-                 'delitem', 'abs', 'hex', 'oct',  # rare stuff?
+                 'delitem', 'delslice',           # rare stuff?
+                 'abs', 'hex', 'oct',             # rare stuff?
                  'pos', 'divmod', 'cmp',          # rare stuff?
                  'float', 'long', 'coerce',       # rare stuff?
                  ]

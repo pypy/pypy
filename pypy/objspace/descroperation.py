@@ -228,6 +228,30 @@ class DescrOperation:
                    space.wrap("cannot delete items from object"))
         return space.get_and_call_function(w_descr, w_obj, w_key)
 
+    def getslice(space, w_obj, w_start, w_stop):
+        w_descr = space.lookup(w_obj, '__getslice__')
+        if w_descr is None:
+            w_slice = space.newslice(w_start, w_stop, space.w_None)
+            return space.getitem(w_obj, w_slice)
+        w_start, w_stop = old_slice_range(space, w_obj, w_start, w_stop)
+        return space.get_and_call_function(w_descr, w_obj, w_start, w_stop)
+
+    def setslice(space, w_obj, w_start, w_stop, w_sequence):
+        w_descr = space.lookup(w_obj, '__setslice__')
+        if w_descr is None:
+            w_slice = space.newslice(w_start, w_stop, space.w_None)
+            return space.setitem(w_obj, w_slice, w_sequence)
+        w_start, w_stop = old_slice_range(space, w_obj, w_start, w_stop)
+        return space.get_and_call_function(w_descr, w_obj, w_start, w_stop, w_sequence)
+
+    def delslice(space, w_obj, w_start, w_stop):
+        w_descr = space.lookup(w_obj, '__delslice__')
+        if w_descr is None:
+            w_slice = space.newslice(w_start, w_stop, space.w_None)
+            return space.delitem(w_obj, w_slice)
+        w_start, w_stop = old_slice_range(space, w_obj, w_start, w_stop)
+        return space.get_and_call_function(w_descr, w_obj, w_start, w_stop)
+
     def pow(space, w_obj1, w_obj2, w_obj3):
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
@@ -453,6 +477,35 @@ def number_check(space, w_obj):
     return (space.lookup(w_obj, '__int__') is not None or
             space.lookup(w_obj, '__float__') is not None)
 
+
+
+# what is the maximum value slices can get on CPython?
+# we need to stick to that value, because fake.py etc.
+class Temp:
+    def __getslice__(self, i, j):
+        return j
+slice_max = Temp()[:]
+del Temp
+
+def old_slice_range(space, w_obj, w_start, w_stop):
+    """Only for backward compatibility for __getslice__()&co methods."""
+    if space.is_w(w_start, space.w_None):
+        w_start = space.wrap(0)
+    else:
+        w_start = space.wrap(space.getindex_w(w_start, None))
+        if space.is_true(space.lt(w_start, space.wrap(0))):
+            w_start = space.add(w_start, space.len(w_obj))
+            # NB. the language ref is inconsistent with the new-style class
+            # behavior when w_obj doesn't implement __len__(), so we just
+            # ignore this case.
+    if space.is_w(w_stop, space.w_None):
+        w_stop = space.wrap(slice_max)
+    else:
+        w_stop = space.wrap(space.getindex_w(w_stop, None))
+        if space.is_true(space.lt(w_stop, space.wrap(0))):
+            w_stop = space.add(w_stop, space.len(w_obj))
+    return w_start, w_stop
+
 # regular methods def helpers
 
 def _make_binop_impl(symbol, specialnames):
@@ -649,5 +702,3 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
                            'ord', 'unichr', 'unicode']:
             raise Exception, "missing def for operation %s" % _name
             
-            
-

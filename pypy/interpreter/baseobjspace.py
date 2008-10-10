@@ -588,17 +588,6 @@ class ObjSpace(object):
         w_s = self.interned_strings[s] = self.wrap(s)
         return w_s
 
-    # support for the deprecated __getslice__, __setslice__, __delslice__
-    def getslice(self, w_obj, w_start, w_stop):
-        w_slice = self.newslice(w_start, w_stop, self.w_None)
-        return self.getitem(w_obj, w_slice)
-    def setslice(self, w_obj, w_start, w_stop, w_sequence):
-        w_slice = self.newslice(w_start, w_stop, self.w_None)
-        self.setitem(w_obj, w_slice, w_sequence)
-    def delslice(self, w_obj, w_start, w_stop):
-        w_slice = self.newslice(w_start, w_stop, self.w_None)
-        self.delitem(w_obj, w_slice)
-
     def interpclass_w(space, w_obj):
         """
          If w_obj is a wrapped internal interpreter class instance unwrap to it,
@@ -1011,6 +1000,9 @@ ObjSpace.MethodTable = [
     ('getitem',         'getitem',   2, ['__getitem__']),
     ('setitem',         'setitem',   3, ['__setitem__']),
     ('delitem',         'delitem',   2, ['__delitem__']),
+    ('getslice',        'getslice',  3, ['__getslice__']),
+    ('setslice',        'setslice',  4, ['__setslice__']),
+    ('delslice',        'delslice',  3, ['__delslice__']),
     ('pos',             'pos',       1, ['__pos__']),
     ('neg',             'neg',       1, ['__neg__']),
     ('nonzero',         'truth',     1, ['__nonzero__']),

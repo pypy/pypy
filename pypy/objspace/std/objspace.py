@@ -764,33 +764,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
         else:
             return ObjSpace.call_method(self, w_obj, methname, *arg_w)
 
-    # support for the deprecated __getslice__, __setslice__, __delslice__
-
-    def getslice(self, w_obj, w_start, w_stop):
-        w_descr = self.lookup(w_obj, '__getslice__')
-        if w_descr is not None:
-            w_start, w_stop = old_slice_range(self, w_obj, w_start, w_stop)
-            return self.get_and_call_function(w_descr, w_obj, w_start, w_stop)
-        else:
-            return ObjSpace.getslice(self, w_obj, w_start, w_stop)
-
-    def setslice(self, w_obj, w_start, w_stop, w_sequence):
-        w_descr = self.lookup(w_obj, '__setslice__')
-        if w_descr is not None:
-            w_start, w_stop = old_slice_range(self, w_obj, w_start, w_stop)
-            self.get_and_call_function(w_descr, w_obj, w_start, w_stop,
-                                       w_sequence)
-        else:
-            ObjSpace.setslice(self, w_obj, w_start, w_stop, w_sequence)
-
-    def delslice(self, w_obj, w_start, w_stop):
-        w_descr = self.lookup(w_obj, '__delslice__')
-        if w_descr is not None:
-            w_start, w_stop = old_slice_range(self, w_obj, w_start, w_stop)
-            self.get_and_call_function(w_descr, w_obj, w_start, w_stop)
-        else:
-            ObjSpace.delslice(self, w_obj, w_start, w_stop)
-
     def raise_key_error(self, w_key):
         e = self.call_function(self.w_KeyError, w_key)
         raise OperationError(self.w_KeyError, e)
@@ -820,32 +793,3 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 del mm
 
         pow.extras['defaults'] = (None,)
-
-
-# what is the maximum value slices can get on CPython?
-# we need to stick to that value, because fake.py etc.
-class Temp:
-    def __getslice__(self, i, j):
-        return j
-slice_max = Temp()[:]
-del Temp
-
-
-def old_slice_range(space, w_obj, w_start, w_stop):
-    """Only for backward compatibility for __getslice__()&co methods."""
-    if space.is_w(w_start, space.w_None):
-        w_start = space.wrap(0)
-    else:
-        w_start = space.wrap(space.getindex_w(w_start, None))
-        if space.is_true(space.lt(w_start, space.wrap(0))):
-            w_start = space.add(w_start, space.len(w_obj))
-            # NB. the language ref is inconsistent with the new-style class
-            # behavior when w_obj doesn't implement __len__(), so we just
-            # ignore this case.
-    if space.is_w(w_stop, space.w_None):
-        w_stop = space.wrap(slice_max)
-    else:
-        w_stop = space.wrap(space.getindex_w(w_stop, None))
-        if space.is_true(space.lt(w_stop, space.wrap(0))):
-            w_stop = space.add(w_stop, space.len(w_obj))
-    return w_start, w_stop

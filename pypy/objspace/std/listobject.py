@@ -80,6 +80,30 @@ def getitem__List_Slice(space, w_list, w_slice):
         start += step
     return w_res
 
+def normalize_slice(space, w_list, w_start, w_stop):
+    start = space.int_w(w_start)
+    stop = space.int_w(w_stop)
+    length = len(w_list.wrappeditems)
+    if start < 0:
+        start = 0
+    if stop > length:
+        stop = length
+    if stop < start:
+        stop = start
+    return start, stop
+
+def getslice__List_ANY_ANY(space, w_list, w_start, w_stop):
+    start, stop = normalize_slice(space, w_list, w_start, w_stop)
+    return W_ListObject(w_list.wrappeditems[start:stop])
+
+def setslice__List_ANY_ANY_ANY(space, w_list, w_start, w_stop, w_sequence):
+    start, stop = normalize_slice(space, w_list, w_start, w_stop)
+    _setitem_slice_helper(space, w_list, start, 1, stop-start, w_sequence)
+
+def delslice__List_ANY_ANY(space, w_list, w_start, w_stop):
+    start, stop = normalize_slice(space, w_list, w_start, w_stop)
+    _delitem_slice_helper(space, w_list, start, 1, stop-start)
+
 def contains__List_ANY(space, w_list, w_obj):
     # needs to be safe against eq_w() mutating the w_list behind our back
     i = 0
@@ -190,30 +214,28 @@ def delitem__List_ANY(space, w_list, w_idx):
                              space.wrap("list deletion index out of range"))
     return space.w_None
 
+
 def delitem__List_Slice(space, w_list, w_slice):
     start, stop, step, slicelength = w_slice.indices4(space,
                                                       len(w_list.wrappeditems))
+    _delitem_slice_helper(space, w_list, start, step, slicelength)
 
+def _delitem_slice_helper(space, w_list, start, step, slicelength):
     if slicelength==0:
         return
 
     if step < 0:
         start = start + step * (slicelength-1)
         step = -step
-        # stop is invalid
         
     if step == 1:
-        _del_slice(w_list, start, start+slicelength)
+        assert start >= 0
+        assert slicelength >= 0
+        del w_list.wrappeditems[start:start+slicelength]
     else:
         items = w_list.wrappeditems
         n = len(items)
-
-        recycle = [None] * slicelength
         i = start
-
-        # keep a reference to the objects to be removed,
-        # preventing side effects during destruction
-        recycle[0] = items[i]
 
         for discard in range(1, slicelength):
             j = i+1
@@ -221,7 +243,6 @@ def delitem__List_Slice(space, w_list, w_slice):
             while j < i:
                 items[j-discard] = items[j]
                 j += 1
-            recycle[discard] = items[i]
 
         j = i+1
         while j < n:
@@ -229,13 +250,7 @@ def delitem__List_Slice(space, w_list, w_slice):
             j += 1
         start = n - slicelength
         assert start >= 0 # annotator hint
-        # XXX allow negative indices in rlist
         del items[start:]
-        # now we can destruct recycle safely, regardless of
-        # side-effects to the list
-        del recycle[:]
-
-    return space.w_None
 
 def setitem__List_ANY_ANY(space, w_list, w_index, w_any):
     idx = get_list_index(space, w_index)
@@ -246,23 +261,25 @@ def setitem__List_ANY_ANY(space, w_list, w_index, w_any):
                              space.wrap("list index out of range"))
     return space.w_None
 
-def setitem__List_Slice_List(space, w_list, w_slice, w_list2):
-    l = w_list2.wrappeditems
-    return _setitem_slice_helper(space, w_list, w_slice, l, len(l))
-
 def setitem__List_Slice_ANY(space, w_list, w_slice, w_iterable):
-    l = space.unpackiterable(w_iterable)
-    return _setitem_slice_helper(space, w_list, w_slice, l, len(l))
-
-def _setitem_slice_helper(space, w_list, w_slice, sequence2, len2):
     oldsize = len(w_list.wrappeditems)
     start, stop, step, slicelength = w_slice.indices4(space, oldsize)
+    _setitem_slice_helper(space, w_list, start, step, slicelength, w_iterable)
+
+def _setitem_slice_helper(space, w_list, start, step, slicelength, w_iterable):
+    if isinstance(w_iterable, W_ListObject):
+        sequence2 = w_iterable.wrappeditems
+    else:
+        sequence2 = space.unpackiterable(w_iterable)
+
     assert slicelength >= 0
     items = w_list.wrappeditems
-
+    oldsize = len(items)
+    len2 = len(sequence2)
     if step == 1:  # Support list resizing for non-extended slices
-        delta = len2 - slicelength
-        if delta >= 0:
+        delta = slicelength - len2
+        if delta < 0:
+            delta = -delta
             newsize = oldsize + delta
             # XXX support this in rlist!
             items += [None] * delta
@@ -271,9 +288,10 @@ def _setitem_slice_helper(space, w_list, w_slice, sequence2, len2):
             while i >= lim:
                 items[i] = items[i-delta]
                 i -= 1
+        elif start >= 0:
+            del items[start:start+delta]
         else:
-            # shrinking requires the careful memory management of _del_slice()
-            _del_slice(w_list, start, start-delta)
+            assert delta==0
     elif len2 != slicelength:  # No resize for extended slices
         raise OperationError(space.w_ValueError, space.wrap("attempt to "
               "assign sequence of size %d to extended slice of size %d" %
@@ -290,14 +308,13 @@ def _setitem_slice_helper(space, w_list, w_slice, sequence2, len2):
                 items[start] = sequence2[i]
                 start -= step
                 i -= 1
-            return space.w_None
+            return
         else:
             # Make a shallow copy to more easily handle the reversal case
             sequence2 = list(sequence2)
     for i in range(len2):
         items[start] = sequence2[i]
         start += step
-    return space.w_None
 
 app = gateway.applevel("""
     def listrepr(currently_in_repr, l):
@@ -349,26 +366,6 @@ def list_extend__List_List(space, w_list, w_other):
 def list_extend__List_ANY(space, w_list, w_any):
     w_list.wrappeditems += space.unpackiterable(w_any)
     return space.w_None
-
-def _del_slice(w_list, ilow, ihigh):
-    """ similar to the deletion part of list_ass_slice in CPython """
-    items = w_list.wrappeditems
-    n = len(items)
-    if ilow < 0:
-        ilow = 0
-    elif ilow > n:
-        ilow = n
-    if ihigh < ilow:
-        ihigh = ilow
-    elif ihigh > n:
-        ihigh = n
-    # keep a reference to the objects to be removed,
-    # preventing side effects during destruction
-    recycle = items[ilow:ihigh]
-    del items[ilow:ihigh]
-    # now we can destruct recycle safely, regardless of
-    # side-effects to the list
-    del recycle[:]
 
 # note that the default value will come back wrapped!!!
 def list_pop__List_ANY(space, w_list, w_idx=-1):
