@@ -183,7 +183,7 @@ class W_BZ2File(W_File):
         stream = open_bz2file_as_stream(self.space, name, mode,
                                         buffering, compresslevel)
         fd = stream.try_to_find_file_descriptor()
-        self.fdopenstream(stream, fd, mode, name)
+        self.fdopenstream(stream, fd, mode, space.wrap(name))
 
     _exposed_method_names = []
     W_File._decl.im_func(locals(), "bz2__init__", ['self', str, str, int, int],
