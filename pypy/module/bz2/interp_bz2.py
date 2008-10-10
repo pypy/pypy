@@ -205,7 +205,7 @@ class W_BZ2File(W_File):
 
 def descr_bz2file__new__(space, w_subtype, args):
     bz2file = space.allocate_instance(W_BZ2File, w_subtype)
-    W_BZ2File.__init__(space.wrap(bz2file), space)
+    W_BZ2File.__init__(bz2file, space)
     return space.wrap(bz2file)
 descr_bz2file__new__.unwrap_spec = [ObjSpace, W_Root, Arguments]
 
