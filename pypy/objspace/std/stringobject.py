@@ -260,16 +260,9 @@ def str_split__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
 
     return space.newlist(res_w)
 
-
-def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
-    maxsplit = space.int_w(w_maxsplit)
+def _split_helper(space, value, sep, maxsplit):
     res_w = []
     start = 0
-    value = w_self._value
-    by = w_by._value
-    bylen = len(by)
-    if bylen == 0:
-        raise OperationError(space.w_ValueError, space.wrap("empty separator"))
 
     while maxsplit != 0:
         next = value.find(by, start)
@@ -278,9 +271,18 @@ def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
         res_w.append(sliced(space, value, start, next))
         start = next + bylen
         maxsplit -= 1   # NB. if it's already < 0, it stays < 0
-
+    
     res_w.append(sliced(space, value, start, len(value)))
 
+def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
+    maxsplit = space.int_w(w_maxsplit)
+    value = w_self._value
+    by = w_by._value
+    bylen = len(by)
+    if bylen == 0:
+        raise OperationError(space.w_ValueError, space.wrap("empty separator"))
+
+    res_w = _split_helper(space, value, by, maxsplit)
     return space.newlist(res_w)
 
 def str_rsplit__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
@@ -485,22 +487,24 @@ def str_replace__String_String_String_ANY(space, w_self, w_sub, w_by, w_maxsplit
         if maxsplit > 0 and maxsplit < upper + 2:
             upper = maxsplit - 1
             assert upper >= 0
-        substrings = [""]
+        substrings_w = [""]
         for i in range(upper):
             c = input[i]
-            substrings.append(c)
-        substrings.append(input[upper:])
-        return space.wrap(by.join(substrings))
-    startidx = 0
-    substrings = []
-    foundidx = input.find(sub, startidx)
-    while foundidx >= 0 and maxsplit != 0:
-        substrings.append(input[startidx:foundidx])
-        startidx = foundidx + len(sub)        
-        foundidx = input.find(sub, startidx)
-        maxsplit = maxsplit - 1
-    substrings.append(input[startidx:])
-    return space.wrap(by.join(substrings))
+            substrings_w.append(c)
+        substrings_w.append(input[upper:])
+    else:
+        substrings_w = _split_helper(space, input, sub, maxsplit)
+        
+    try:
+        # XXX conservative estimate. If your strings are that close
+        # to overflowing, bad luck.
+        ovfcheck(len(substrings_w) * len(by) + len(input))
+    except OverflowError:
+        raise OperationError(
+            space.w_OverflowError, 
+            space.wrap("replace string is too long"))
+    
+    return space.wrap(by.join(substrings_w))
 
 def _strip(space, w_self, w_chars, left, right):
     "internal function called by str_xstrip methods"

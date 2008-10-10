@@ -714,6 +714,13 @@ class AppTestStringObject:
                 assert x.rstrip(y) == ''
                 assert x.lstrip(y) == ''
 
+    def test_replace_overflow(self):
+        import sys
+        if sys.maxint > 2**31-1:
+            skip("Wrong platform")
+        s = "a" * (2**16)
+        raises(OverflowError, s.replace, "", s)
+
 class AppTestPrebuilt(AppTestStringObject):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withprebuiltchar": True})
