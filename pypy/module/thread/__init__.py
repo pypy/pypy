@@ -7,6 +7,7 @@ class Module(MixedModule):
         'exit':                   'app_thread.exit',
         'exit_thread':            'app_thread.exit',   # obsolete synonym
         'error':                  'app_thread.error',
+        'stack_size':             'app_thread.stack_size',
     }
 
     interpleveldefs = {
