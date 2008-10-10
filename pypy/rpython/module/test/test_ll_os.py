@@ -64,41 +64,62 @@ def test_system():
 
 
 EXECVE_ENV = {"foo": "bar", "baz": "quux"}
-execve_tests = str(local(__file__).dirpath().join('execve_tests.py'))
 
 def test_execve():
     if os.name != 'posix':
         py.test.skip('posix specific function')
-    base = " ".join([
-        sys.executable,
-       execve_tests,
-       str(local(pypy.__file__).join('..', '..')),
-       ''])
+
+    ll_execve = getllimpl(os.execve)
+
+    def run_execve(program, env):
+        # we cannot directly call ll_execve() because it replaces the
+        # current process.
+        fd_read, fd_write = os.pipe()
+        childpid = os.fork()
+        if childpid == 0:
+            # in the child
+            os.close(fd_read)
+            os.dup2(fd_write, 1)     # stdout
+            os.close(fd_write)
+            ll_execve(program, [program], env)
+            assert 0, "should not arrive here"
+        else:
+            # in the parent
+            os.close(fd_write)
+            child_stdout = []
+            while True:
+                data = os.read(fd_read, 4096)
+                if not data: break     # closed
+                child_stdout.append(data)
+            pid, status = os.waitpid(childpid, 0)
+            os.close(fd_read)
+            return status, ''.join(child_stdout)
 
     # Test exit status and code
-    result = os.system(base + "execve_true")
+    result, child_stdout = run_execve("/bin/true", {})
     assert os.WIFEXITED(result)
     assert os.WEXITSTATUS(result) == 0
-    result = os.system(base + "execve_false")
+    result, child_stdout = run_execve("/bin/false", {})
     assert os.WIFEXITED(result)
     assert os.WEXITSTATUS(result) == 1
 
     # Test environment
-    result = os.popen(base + "execve_env").read()
-    assert dict([line.split('=') for line in result.splitlines()]) == EXECVE_ENV
+    result, child_stdout = run_execve("/usr/bin/env", EXECVE_ENV)
+    assert os.WIFEXITED(result)
+    assert os.WEXITSTATUS(result) == 0
+    assert dict([line.split('=') for line in child_stdout.splitlines()]) == EXECVE_ENV
 
-    # These won't actually execute anything, so they don't need a child process
-    # helper.
-    execve = getllimpl(os.execve)
+    # The following won't actually execute anything, so they don't need
+    # a child process helper.
 
     # If the target does not exist, an OSError should result
     info = py.test.raises(
-        OSError, execve, execve_tests + "-non-existent", [], {})
+        OSError, ll_execve, "this/file/is/non/existent", [], {})
     assert info.value.errno == errno.ENOENT
 
     # If the target is not executable, an OSError should result
     info = py.test.raises(
-        OSError, execve, execve_tests, [], {})
+        OSError, ll_execve, "/etc/passwd", [], {})
     assert info.value.errno == errno.EACCES
 
 
