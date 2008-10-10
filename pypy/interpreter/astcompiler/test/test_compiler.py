@@ -616,6 +616,7 @@ class TestCompiler:
                     def make_boundmethod(func=func):
                         def boundmethod(*args):
                             return func(self, *args)
+        r = None
         """)
         decl = str(decl) + '\n'
         yield self.simple_test, decl, 'r', None
