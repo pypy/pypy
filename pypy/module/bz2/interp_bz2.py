@@ -173,20 +173,20 @@ from pypy.module._file.interp_file import W_File
 
 class W_BZ2File(W_File):
 
-    def direct_bz2__init__(self, name, mode='r', buffering=-1,
+    def direct_bz2__init__(self, w_name, mode='r', buffering=-1,
                            compresslevel=9):
         self.direct_close()
         # the stream should always be opened in binary mode
         if "b" not in mode:
             mode = mode + "b"
         self.check_mode_ok(mode)
-        stream = open_bz2file_as_stream(self.space, name, mode,
+        stream = open_bz2file_as_stream(self.space, w_name, mode,
                                         buffering, compresslevel)
         fd = stream.try_to_find_file_descriptor()
-        self.fdopenstream(stream, fd, mode, space.wrap(name))
+        self.fdopenstream(stream, fd, mode, w_name)
 
     _exposed_method_names = []
-    W_File._decl.im_func(locals(), "bz2__init__", ['self', str, str, int, int],
+    W_File._decl.im_func(locals(), "bz2__init__", ['self', W_Root, str, int, int],
           """Opens a BZ2-compressed file.""")
     # XXX ^^^ hacking hacking... can't just use the name "__init__" again
     # because the RTyper is confused about the two direct__init__() with
@@ -205,7 +205,7 @@ class W_BZ2File(W_File):
 
 def descr_bz2file__new__(space, w_subtype, args):
     bz2file = space.allocate_instance(W_BZ2File, w_subtype)
-    W_BZ2File.__init__(bz2file, space)
+    W_BZ2File.__init__(space.wrap(bz2file), space)
     return space.wrap(bz2file)
 descr_bz2file__new__.unwrap_spec = [ObjSpace, W_Root, Arguments]
 
@@ -240,7 +240,7 @@ newlines are available only when reading.""",
 
 # ____________________________________________________________
 
-def open_bz2file_as_stream(space, path, mode="r", buffering=-1,
+def open_bz2file_as_stream(space, w_path, mode="r", buffering=-1,
                            compresslevel=9):
     from pypy.rlib.streamio import decode_mode, open_path_helper
     from pypy.rlib.streamio import construct_stream_tower
@@ -251,7 +251,7 @@ def open_bz2file_as_stream(space, path, mode="r", buffering=-1,
     if basemode == "a":
         raise OperationError(space.w_ValueError,
                              space.wrap("cannot append to bz2 file"))
-    stream = open_path_helper(path, os_flags, False)
+    stream = open_path_helper(space.str_w(w_path), os_flags, False)
     if reading:
         bz2stream = ReadBZ2Filter(space, stream, buffering)
         buffering = 0     # by construction, the ReadBZ2Filter acts like

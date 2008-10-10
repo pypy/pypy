@@ -64,7 +64,7 @@ class AppTestBZ2File: #(CheckAllocation):
         from bz2 import BZ2File
         
         raises(ValueError, BZ2File, self.temppath, mode='w', compresslevel=10)
-        raises(IOError, BZ2File, self.temppath, mode='XYZ')
+        raises(ValueError, BZ2File, self.temppath, mode='XYZ')
         # XXX the following is fine, currently:
         #raises(ValueError, BZ2File, self.temppath, mode='ww')
         
