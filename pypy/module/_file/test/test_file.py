@@ -94,13 +94,13 @@ class AppTestFile(object):
     def test_correct_file_mode(self):
         import os
         f = self.file(self.temppath, "w")
-        umask = os.umask(18)
+        umask = os.umask(0)
         os.umask(umask)
         try:
             f.write("foo")
         finally:
             f.close()
-        assert oct(os.stat(self.temppath).st_mode & 0777 | umask) == oct(0666)
+        assert oct(os.stat(self.temppath).st_mode & 0777) == oct(0666 & ~umask)
 
     def test_newlines(self):
         import os
