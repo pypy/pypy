@@ -263,13 +263,14 @@ def str_split__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
 def _split_helper(space, value, sep, maxsplit):
     res_w = []
     start = 0
+    seplen = len(sep)
 
     while maxsplit != 0:
-        next = value.find(by, start)
+        next = value.find(sep, start)
         if next < 0:
             break
         res_w.append(sliced(space, value, start, next))
-        start = next + bylen
+        start = next + seplen
         maxsplit -= 1   # NB. if it's already < 0, it stays < 0
     
     res_w.append(sliced(space, value, start, len(value)))
