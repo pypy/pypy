@@ -1,5 +1,5 @@
 
-import datetime
+from pypy.lib import datetime
 
 def test_repr():
     print datetime
