@@ -1,12 +1,14 @@
 # defaultdict Tests
 # from CPython2.5
 
-import copy
+import sys
+if sys.version_info < (2, 5):
+    import py
+    # the app-level defaultdict relies on the interp-level dict
+    # calling __missing__()
+    py.test.skip("these tests only run on top of CPython 2.5")
 
-# for passing the test on top of 2.3
-from py.builtin import reversed
-import pypy.lib.collections
-pypy.lib.collections.reversed = reversed
+import copy
 
 from pypy.lib.collections import defaultdict
 
