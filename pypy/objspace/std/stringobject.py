@@ -260,21 +260,6 @@ def str_split__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
 
     return space.newlist(res_w)
 
-def _split_helper(space, value, sep, maxsplit):
-    res_w = []
-    start = 0
-    seplen = len(sep)
-
-    while maxsplit != 0:
-        next = value.find(sep, start)
-        if next < 0:
-            break
-        res_w.append(sliced(space, value, start, next))
-        start = next + seplen
-        maxsplit -= 1   # NB. if it's already < 0, it stays < 0
-    
-    res_w.append(sliced(space, value, start, len(value)))
-
 def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
     maxsplit = space.int_w(w_maxsplit)
     value = w_self._value
@@ -283,7 +268,17 @@ def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
     if bylen == 0:
         raise OperationError(space.w_ValueError, space.wrap("empty separator"))
 
-    res_w = _split_helper(space, value, by, maxsplit)
+    res_w = []
+    start = 0
+    while maxsplit != 0:
+        next = value.find(by, start)
+        if next < 0:
+            break
+        res_w.append(sliced(space, value, start, next))
+        start = next + bylen
+        maxsplit -= 1   # NB. if it's already < 0, it stays < 0
+    
+    res_w.append(sliced(space, value, start, len(value)))
     return space.newlist(res_w)
 
 def str_rsplit__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
@@ -494,8 +489,20 @@ def str_replace__String_String_String_ANY(space, w_self, w_sub, w_by, w_maxsplit
             substrings_w.append(c)
         substrings_w.append(input[upper:])
     else:
-        substrings_w = _split_helper(space, input, sub, maxsplit)
-        
+        start = 0
+        sublen = len(sub)
+        substrings_w = []
+
+        while maxsplit != 0:
+            next = input.find(sub, start)
+            if next < 0:
+                break
+            substrings_w.append(input[start:next])
+            start = next + sublen
+            maxsplit -= 1   # NB. if it's already < 0, it stays < 0
+            
+        substrings_w.append(input[start:])
+
     try:
         # XXX conservative estimate. If your strings are that close
         # to overflowing, bad luck.
