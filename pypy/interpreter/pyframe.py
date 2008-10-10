@@ -43,6 +43,7 @@ class PyFrame(eval.Frame):
     instr_lb                 = 0
     instr_ub                 = -1
     instr_prev               = -1
+    is_being_profiled        = False
 
     def __init__(self, space, code, w_globals, closure):
         self = hint(self, access_directly=True)

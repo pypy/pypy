@@ -33,7 +33,8 @@ class Function(Wrappable):
     def __repr__(self):
         # return "function %s.%s" % (self.space, self.name)
         # maybe we want this shorter:
-        return "<Function %s>" % getattr(self, 'name', '?')
+        name = getattr(self, 'name', '?')
+        return "<%s %s>" % (self.__class__.__name__, name)
 
     def call_args(self, args):
         # delegate activation to code        
@@ -519,3 +520,13 @@ class BuiltinFunction(Function):
 
     def descr_function_repr(self):
         return self.space.wrap('<built-in function %s>' % (self.name,))
+
+def is_builtin_code(w_func):
+    from pypy.interpreter.gateway import BuiltinCode
+    if isinstance(w_func, Method):
+        w_func = w_func.w_function
+    if isinstance(w_func, Function):
+        code = w_func.getcode()
+    else:
+        code = None
+    return isinstance(code, BuiltinCode)
