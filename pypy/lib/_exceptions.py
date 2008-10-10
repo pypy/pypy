@@ -65,8 +65,8 @@ BaseException
            +-- SyntaxWarning
            +-- UserWarning
            +-- FutureWarning
-	   +-- ImportWarning
-	   +-- UnicodeWarning
+           +-- ImportWarning
+           +-- UnicodeWarning
 """
 
 class BaseException(object):
