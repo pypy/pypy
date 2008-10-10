@@ -273,7 +273,7 @@ class AppTestCondExpr(Py25AppTest):
         import warnings
 
         warnings.simplefilter('error', SyntaxWarning)
-        1 if True else 2
+        exec "1 if True else 2"
         warnings.simplefilter('default', SyntaxWarning)
 
 
