@@ -877,18 +877,18 @@ def build_import_from(builder, nb):
                 index += 1
     builder.push(ast.From(from_name, names, level, atoms[0].lineno))
 
-
-def build_yield_stmt(builder, nb):
-    atoms = get_atoms(builder, nb)
-    lineno = atoms[0].lineno
-    builder.push(ast.Discard(ast.Yield(atoms[1], lineno), lineno))
-
-def build_yield_expr(builder, nb):
+def _make_yield_tree(builder, nb):
     atoms = get_atoms(builder, nb)
     if len(atoms) == 1:
-        builder.push(ast.Yield(ast.Const(builder.wrap_none()), atoms[0].lineno))
+        return ast.Yield(ast.Const(builder.wrap_none()), atoms[0].lineno)
     else:
-        builder.push(ast.Yield(atoms[1], atoms[0].lineno))
+        return ast.Yield(atoms[1], atoms[0].lineno)
+
+def build_yield_stmt(builder, nb):
+    builder.push(ast.Discard(_make_yield_tree(builder, nb)))
+
+def build_yield_expr(builder, nb):
+    builder.push(_make_yield_tree(builder, nb))
 
 def build_continue_stmt(builder, nb):
     atoms = get_atoms(builder, nb)

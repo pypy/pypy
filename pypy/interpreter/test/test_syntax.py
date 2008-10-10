@@ -276,6 +276,11 @@ class AppTestCondExpr(Py25AppTest):
         exec "1 if True else 2"
         warnings.simplefilter('default', SyntaxWarning)
 
+class AppTestYield(Py25AppTest):
+    def test_bare_yield(self):
+        s = "def f():\n    yield"
+
+        exec s
 
 class AppTestWith(Py25AppTest):
     def test_with_simple(self):
