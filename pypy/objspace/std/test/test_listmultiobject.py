@@ -39,15 +39,6 @@ class BaseAppTest_ListMultiObject(test_listobject.AppTestW_ListObject):
         # These few here ^ would have failed before, but for good coverage,
         # all the list methods etc. should be tested also...
 
-    def test___getslice__(self):
-        skip("don't care for now")
-
-    def test___setslice__(self):
-        skip("don't care for now")
-        
-    def test___delslice__(self):
-        skip("don't care for now")
-
 class AppTest_ListMultiObject(BaseAppTest_ListMultiObject):
     def setup_class(cls):
         BaseAppTest_ListMultiObject.setup_class(cls)

@@ -1,6 +1,5 @@
 from pypy.objspace.std.test import test_userobject
 from pypy.objspace.std.test import test_set
-from pypy.objspace.std.test import test_stringobject
 
 WITH_BUILTINSHORTCUT = {'objspace.std.builtinshortcut': True}
 
@@ -36,11 +35,6 @@ class AppTestBug:
 
 class AppTestSet(test_set.AppTestAppSetTest):
     # this tests tons of funny comparison combinations that can easily go wrong
-    def setup_class(cls):
-        from pypy import conftest
-        cls.space = conftest.gettestobjspace(**WITH_BUILTINSHORTCUT)
-
-class AppTestString(test_stringobject.AppTestStringObject):
     def setup_class(cls):
         from pypy import conftest
         cls.space = conftest.gettestobjspace(**WITH_BUILTINSHORTCUT)

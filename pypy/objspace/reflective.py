@@ -89,14 +89,6 @@ def make_space_access_method(name, wrappedfn, parentfn):
                     return parentfn(w_arg1, w_arg2, w_arg3)
                 finally:
                     reset_reflective_space(space, w_old_reflectivespace)
-        elif args == 4:
-            def func(self, space, w_arg1, w_arg2, w_arg3, w_arg4):
-                w_old_reflectivespace = get_reflective_space(space)
-                set_reflectivespace(space, self.w_reflectivespace)
-                try:
-                    return parentfn(w_arg1, w_arg2, w_arg3, w_arg4)
-                finally:
-                    reset_reflective_space(space, w_old_reflectivespace)
         else:
             raise NotImplementedError
         unwrap_spec = ["self", ObjSpace] + [W_Root] * args

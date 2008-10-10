@@ -754,18 +754,3 @@ class AppTestW_ListObject:
             A()
             while lst:
                 keepalive.append(lst[:])
-
-    def test___getslice__(self):
-        l = [1,2,3,4]
-        res = l.__getslice__(0, 2)
-        assert res == [1, 2]
-
-    def test___setslice__(self):
-        l = [1,2,3,4]
-        l.__setslice__(0, 2, [5, 6])
-        assert l == [5, 6, 3, 4]
-
-    def test___delslice__(self):
-        l = [1,2,3,4]
-        l.__delslice__(0, 2)
-        assert l == [3, 4]
