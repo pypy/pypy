@@ -113,15 +113,10 @@ class deque(object):
 
     def remove(self, value):
         # Need to be defensive for mutating comparisons
-        i = 0
-        while i < len(self):
+        for i in range(len(self)):
             if self[i] == value:
-                if i < len(self):
-                    del self[i]
-                    return
-                else:
-                    raise IndexError("deque mutated during remove()")
-            i += 1
+                del self[i]
+                return
         raise ValueError("deque.remove(x): x not in deque")
 
     def rotate(self, n=1):
@@ -315,9 +310,6 @@ class deque_iterator(object):
 
     def __iter__(self):
         return self
-
-    def __len__(self):
-        return self.counter
 
 class defaultdict(dict):
     
