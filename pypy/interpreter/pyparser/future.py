@@ -39,6 +39,7 @@ class DoneException(Exception):
     pass
 
 whitespace = ' \t\f'
+whitespace_or_newline = whitespace + '\n\r'
 letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYabcdefghijklmnopqrstuvwxyz_'
 alphanumerics = letters + '1234567890'
 
@@ -79,7 +80,7 @@ class FutureAutomaton(object):
         c = self.getc()
         if c in ["'", '"'] and not self.docstringConsumed:
             self.consumeDocstring()
-        elif c in whitespace:
+        elif c in whitespace_or_newline:
             self.consumeEmptyLine()
         elif c == '#':
             self.consumeComment()

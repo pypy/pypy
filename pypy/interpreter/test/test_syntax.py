@@ -305,6 +305,27 @@ if 1:
 
         assert acontext.calls == '__enter__ __exit__'.split()
 
+    def test_start_with_blank_line(self):
+        s = """
+from __future__ import with_statement
+if 1:
+        class Context:
+            def __init__(self):
+                self.calls = list()
+
+            def __enter__(self):
+                self.calls.append('__enter__')
+
+            def __exit__(self, exc_type, exc_value, exc_tb):
+                self.calls.append('__exit__')
+
+        acontext = Context()
+        with acontext:
+            pass
+"""
+        exec s
+        assert acontext.calls == '__enter__ __exit__'.split()
+
     def test_with_as_var(self):
 
         s = """from __future__ import with_statement
