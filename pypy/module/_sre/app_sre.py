@@ -106,6 +106,9 @@ class SRE_Pattern(object):
             else:
                 state.start = state.string_position
 
+        if n == 0:       # not just an optimization -- see test_sub_unicode
+            return string, n
+
         if last_pos < state.end:
             sublist.append(string[last_pos:state.end])
         if need_unicode:

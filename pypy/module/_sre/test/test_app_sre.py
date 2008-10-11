@@ -182,6 +182,11 @@ class AppTestSreMatch:
     def test_sub_unicode(self):
         import re
         assert isinstance(re.sub(u"a", u"b", u""), unicode)
+        # the input is returned unmodified if no substitution is performed,
+        # which (if interpreted literally, as CPython does) gives the
+        # following strangeish rules:
+        assert isinstance(re.sub(u"a", u"b", "diwoiioamoi"), unicode)
+        assert isinstance(re.sub(u"a", u"b", "diwoiiobmoi"), str)
 
     def test_sub_callable(self):
         import re
