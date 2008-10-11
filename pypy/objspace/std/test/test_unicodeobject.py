@@ -547,11 +547,6 @@ class AppTestUnicodeString:
         raises(TypeError, u'abcdefghijklmn'.rindex, u'abc', 0, 0.0)
         raises(TypeError, u'abcdefghijklmn'.rindex, u'abc', -10.0, 30)
 
-    def test_len_iter(self):
-        assert len(iter(u"abcdef\uffff")) == 7
-        for i in range(10):
-            assert len(iter(unicode(i))) == 1
-
     def test_rfind(self):
         assert u'abcdefghiabc'.rfind(u'abc') == 9
         assert u'abcdefghiabc'.rfind(u'') == 12
