@@ -537,6 +537,22 @@ if 1:
 
         exec "from __future__ import with_statement\nimport sys as foo"
 
+    def test_missing_as_SyntaxError(self):
+        snippets = [
+            "import os.path a bar ",
+            "from os import path a bar",
+            """from __future__ import with_statement
+with foo a bar:
+    pass
+"""]
+        for snippet in snippets:
+            try:
+                exec snippet
+            except SyntaxError:
+                pass
+            else:
+                assert False, "%s: did not raise SyntaxError" % snippet
+
 
     def test_with_propagate_compileflag(self):
         s = """from __future__ import with_statement

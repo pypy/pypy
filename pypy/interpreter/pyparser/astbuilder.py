@@ -760,6 +760,9 @@ def build_with_stmt(builder, nb):
     else:
         token = atoms[2]
         assert isinstance(token, TokenObject)
+        assert token.name == builder.parser.tokens['NAME']
+        if token.get_value() != 'as':
+            raise SyntaxError("invalid syntax", token.lineno, token.col)
         varexpr = atoms[3]
         var = to_lvalue(varexpr, consts.OP_ASSIGN)
         body = atoms[5]
@@ -791,11 +794,15 @@ def build_import_name(builder, nb):
         if index < l:
             token = atoms[index]
             assert isinstance(token, TokenObject)
-            if token.get_value() == 'as':
-                token = atoms[index+1]
-                assert isinstance(token, TokenObject)
-                as_name = token.get_value()
-                index += 2
+            if token.name == builder.parser.tokens['NAME']:
+                if token.get_value() == 'as':
+                    token = atoms[index+1]
+                    assert isinstance(token, TokenObject)
+                    as_name = token.get_value()
+                    index += 2
+                else:
+                    raise SyntaxError("invalid syntax", token.lineno, token.col)
+
         names.append((name, as_name))
         # move forward until next ','
         # XXX: what is it supposed to do ?
@@ -867,11 +874,14 @@ def build_import_from(builder, nb):
             if index < l:
                 token = tokens[index]
                 assert isinstance(token, TokenObject)
-                if token.get_value() == 'as':
-                    token = tokens[index+1]
-                    assert isinstance(token, TokenObject)
-                    as_name = token.get_value()
-                    index += 2
+                if token.name == builder.parser.tokens['NAME']:
+                    if token.get_value() == 'as':
+                        token = tokens[index+1]
+                        assert isinstance(token, TokenObject)
+                        as_name = token.get_value()
+                        index += 2
+                    else:
+                        raise SyntaxError("invalid syntax", token.lineno, token.col)
             names.append((name, as_name))
             if index < l: # case ','
                 index += 1
