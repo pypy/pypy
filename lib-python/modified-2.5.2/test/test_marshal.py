@@ -7,9 +7,9 @@ import sys
 import unittest
 import os
 
-def dump_and_load(obj):
+def dump_and_load(obj, *extra_args):
     f = file(test_support.TESTFN, "wb")
-    marshal.dump(obj, f)
+    marshal.dump(obj, f, *extra_args)
     f.close()
     f = file(test_support.TESTFN, "rb")
     got = marshal.load(f)
@@ -79,7 +79,7 @@ class FloatTestCase(unittest.TestCase):
             n /= 123.4567
 
         f = 0.0
-        s = marshal.dumps(f)
+        s = marshal.dumps(f, 2)
         got = marshal.loads(s)
         self.assertEqual(f, got)
         # and with version <= 1 (floats marshalled differently then)
@@ -91,10 +91,19 @@ class FloatTestCase(unittest.TestCase):
         while n < small:
             for expected in (-n, n):
                 f = float(expected)
+
                 s = marshal.dumps(f)
                 got = marshal.loads(s)
                 self.assertEqual(f, got)
+
+                s = marshal.dumps(f, 1)
+                got = marshal.loads(s)
+                self.assertEqual(f, got)
+
                 got = dump_and_load(f)
+                self.assertEqual(f, got)
+
+                got = dump_and_load(f, 1)
                 self.assertEqual(f, got)
             n *= 123.4567
         os.unlink(test_support.TESTFN)
