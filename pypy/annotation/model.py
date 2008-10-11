@@ -253,25 +253,6 @@ class SomeList(SomeObject):
     def can_be_none(self):
         return True
 
-class SomeSlice(SomeObject):
-    knowntype = slice
-    immutable = True
-    def __init__(self, start, stop, step):
-        self.start = start
-        self.stop = stop
-        self.step = step
-
-    def constant_indices(self):
-        if (self.start.is_immutable_constant() and
-            self.stop .is_immutable_constant() and
-            self.step .is_immutable_constant()):
-            return self.start.const, self.stop.const, self.step.const
-        else:
-            raise Exception("need constant indices for this slice")
-
-    def can_be_none(self):
-        return False
-
 class SomeTuple(SomeObject):
     "Stands for a tuple of known length."
     knowntype = tuple

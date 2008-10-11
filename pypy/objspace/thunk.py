@@ -193,6 +193,13 @@ def proxymaker(space, opname, parentfn):
             w2 = force(space, w2)
             w3 = force(space, w3)
             return parentfn(w1, w2, w3, *extra)
+    elif nb_args == 4:
+        def proxy(w1, w2, w3, w4, *extra):
+            w1 = force(space, w1)
+            w2 = force(space, w2)
+            w3 = force(space, w3)
+            w4 = force(space, w4)
+            return parentfn(w1, w2, w3, w4, *extra)
     else:
         raise NotImplementedError("operation %r has arity %d" %
                                   (opname, nb_args))

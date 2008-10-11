@@ -721,9 +721,23 @@ class AppTestStringObject:
         s = "a" * (2**16)
         raises(OverflowError, s.replace, "", s)
 
+    def test_getslice(self):
+        assert "foobar".__getslice__(4, 4321) == "ar"
+        s = "abc"
+        assert s[:] == "abc"
+        assert s[1:] == "bc"
+        assert s[:2] == "ab"
+        assert s[1:2] == "b"
+        assert s[-2:] == "bc"
+        assert s[:-1] == "ab"
+        assert s[-2:2] == "b"
+        assert s[1:-1] == "b"
+        assert s[-2:-1] == "b"
+
     def test_no_len_on_str_iter(self):
         iterable = "hello"
         raises(TypeError, len, iter(iterable))
+
 
 class AppTestPrebuilt(AppTestStringObject):
     def setup_class(cls):

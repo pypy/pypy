@@ -640,9 +640,7 @@ class LLHelpers(AbstractLLHelpers):
         s1.copy_contents(s1, newstr, start, 0, lgt)
         return newstr
 
-    def ll_stringslice(s1, slice):
-        start = slice.start
-        stop = slice.stop
+    def ll_stringslice_startstop(s1, start, stop):
         if stop >= len(s1.chars):
             if start == 0:
                 return s1

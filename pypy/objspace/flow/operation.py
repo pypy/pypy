@@ -134,6 +134,16 @@ def mod_ovf(x, y):
 def lshift_ovf(x, y):
     return ovfcheck_lshift(x, y)
 
+# slicing: operator.{get,set,del}slice() don't support b=None or c=None
+def do_getslice(a, b, c):
+    return a[b:c]
+
+def do_setslice(a, b, c, d):
+    a[b:c] = d
+
+def do_delslice(a, b, c):
+    del a[b:c]
+
 # ____________________________________________________________
 
 # The following table can list several times the same operation name,
@@ -190,6 +200,9 @@ Table = [
     ('delete',          delete),
     ('userdel',         userdel),
     ('buffer',          buffer),
+    ('getslice',        do_getslice),
+    ('setslice',        do_setslice),
+    ('delslice',        do_delslice),
     # --- operations added by graph transformations ---
     ('neg_ovf',         neg_ovf),
     ('abs_ovf',         abs_ovf),

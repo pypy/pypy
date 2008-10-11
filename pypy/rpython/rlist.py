@@ -3,7 +3,6 @@ from pypy.objspace.flow.model import Constant
 from pypy.annotation import model as annmodel
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, IteratorRepr, IntegerRepr, inputconst
-from pypy.rpython.rslice import AbstractSliceRepr
 from pypy.rpython.rstr import AbstractStringRepr, AbstractCharRepr
 from pypy.rpython.lltypesystem.lltype import typeOf, Ptr, Void, Signed, Bool
 from pypy.rpython.lltypesystem.lltype import nullptr, Char, UniChar
@@ -371,24 +370,14 @@ class __extend__(pairtype(AbstractListRepr, AbstractStringRepr)):
         if r_lst1.item_repr.lowleveltype not in (Char, UniChar):
             raise TyperError('"lst += string" only supported with a list '
                              'of chars or unichars')
-        rs = r_lst1.rtyper.type_system.rslice
         string_repr = r_lst1.rtyper.type_system.rstr.string_repr
+        v_lst1 = hop.inputarg(r_lst1, arg=0)
+        v_str2 = hop.inputarg(string_repr, arg=3)
+        kind, vlist = hop.decompose_slice_args()
         c_strlen  = hop.inputconst(Void, string_repr.ll.ll_strlen)
         c_stritem = hop.inputconst(Void, string_repr.ll.ll_stritem_nonneg)
-        r_slic = hop.args_r[2]
-        v_lst1, v_str2, v_slice = hop.inputargs(r_lst1, string_repr, r_slic)
-        if r_slic == rs.startonly_slice_repr:
-            hop.gendirectcall(ll_extend_with_str_slice_startonly,
-                              v_lst1, v_str2, c_strlen, c_stritem, v_slice)
-        elif r_slic == rs.startstop_slice_repr:
-            hop.gendirectcall(ll_extend_with_str_slice,
-                              v_lst1, v_str2, c_strlen, c_stritem, v_slice)
-        elif r_slic == rs.minusone_slice_repr:
-            hop.gendirectcall(ll_extend_with_str_slice_minusone,
-                              v_lst1, v_str2, c_strlen, c_stritem)
-        else:
-            raise TyperError('lst += str[:] does not support slices with %r' %
-                             (r_slic,))
+        ll_fn = globals()['ll_extend_with_str_slice_%s' % kind]
+        hop.gendirectcall(ll_fn, v_lst1, v_str2, c_strlen, c_stritem, *vlist)
         return v_lst1
 
 class __extend__(pairtype(AbstractListRepr, AbstractCharRepr)):
@@ -403,47 +392,30 @@ class __extend__(pairtype(AbstractListRepr, AbstractCharRepr)):
         return v_lst1
 
 
-class __extend__(pairtype(AbstractBaseListRepr, AbstractSliceRepr)):
+class __extend__(AbstractBaseListRepr):
 
-    def rtype_getitem((r_lst, r_slic), hop):
-        rs = r_lst.rtyper.type_system.rslice
+    def rtype_getslice(r_lst, hop):
         cRESLIST = hop.inputconst(Void, hop.r_result.LIST)
-        if r_slic == rs.startonly_slice_repr:
-            v_lst, v_start = hop.inputargs(r_lst, rs.startonly_slice_repr)
-            return hop.gendirectcall(ll_listslice_startonly, cRESLIST, v_lst, v_start)
-        if r_slic == rs.startstop_slice_repr:
-            v_lst, v_slice = hop.inputargs(r_lst, rs.startstop_slice_repr)
-            return hop.gendirectcall(ll_listslice, cRESLIST, v_lst, v_slice)
-        if r_slic == rs.minusone_slice_repr:
-            v_lst, v_ignored = hop.inputargs(r_lst, rs.minusone_slice_repr)
-            return hop.gendirectcall(ll_listslice_minusone, cRESLIST, v_lst)
-        raise TyperError('getitem does not support slices with %r' % (r_slic,))
+        v_lst = hop.inputarg(r_lst, arg=0)
+        kind, vlist = hop.decompose_slice_args()
+        ll_listslice = globals()['ll_listslice_%s' % kind]
+        return hop.gendirectcall(ll_listslice, cRESLIST, v_lst, *vlist)
 
-    def rtype_setitem((r_lst, r_slic), hop):
-        #if r_slic == startonly_slice_repr:
-        #    not implemented
-        rs = r_lst.rtyper.type_system.rslice        
-        if r_slic == rs.startstop_slice_repr:
-            v_lst, v_slice, v_lst2 = hop.inputargs(r_lst, rs.startstop_slice_repr,
-                                                   hop.args_r[2])
-            hop.gendirectcall(ll_listsetslice, v_lst, v_slice, v_lst2)
-            return
-        raise TyperError('setitem does not support slices with %r' % (r_slic,))
+    def rtype_setslice(r_lst, hop):
+        v_lst = hop.inputarg(r_lst, arg=0)
+        kind, vlist = hop.decompose_slice_args()
+        if kind != 'startstop':
+            raise TyperError('list.setitem does not support %r slices' % (
+                kind,))
+        v_start, v_stop = vlist
+        v_lst2 = hop.inputarg(hop.args_r[3], arg=3)
+        hop.gendirectcall(ll_listsetslice, v_lst, v_start, v_stop, v_lst2)
 
-
-class __extend__(pairtype(AbstractListRepr, AbstractSliceRepr)):
-
-    def rtype_delitem((r_lst, r_slic), hop):
-        rs = r_lst.rtyper.type_system.rslice        
-        if r_slic == rs.startonly_slice_repr:
-            v_lst, v_start = hop.inputargs(r_lst, rs.startonly_slice_repr)
-            hop.gendirectcall(ll_listdelslice_startonly, v_lst, v_start)
-            return
-        if r_slic == rs.startstop_slice_repr:
-            v_lst, v_slice = hop.inputargs(r_lst, rs.startstop_slice_repr)
-            hop.gendirectcall(ll_listdelslice, v_lst, v_slice)
-            return
-        raise TyperError('delitem does not support slices with %r' % (r_slic,))
+    def rtype_delslice(r_lst, hop):
+        v_lst = hop.inputarg(r_lst, arg=0)
+        kind, vlist = hop.decompose_slice_args()
+        ll_listdelslice = globals()['ll_listdelslice_%s' % kind]
+        return hop.gendirectcall(ll_listdelslice, v_lst, *vlist)
 
 
 # ____________________________________________________________
@@ -793,9 +765,8 @@ def ll_extend_with_str_slice_startonly(lst, s, getstrlen, getstritem, start):
         i += 1
         j += 1
 
-def ll_extend_with_str_slice(lst, s, getstrlen, getstritem, slice):
-    start = slice.start
-    stop = slice.stop
+def ll_extend_with_str_slice_startstop(lst, s, getstrlen, getstritem,
+                                       start, stop):
     len1 = lst.ll_length()
     len2 = getstrlen(s)
     ll_assert(start >= 0, "unexpectedly negative str slice start")
@@ -868,9 +839,7 @@ def ll_listslice_startonly(RESLIST, l1, start):
         j += 1
     return l
 
-def ll_listslice(RESLIST, l1, slice):
-    start = slice.start
-    stop = slice.stop
+def ll_listslice_startstop(RESLIST, l1, start, stop):
     length = l1.ll_length()
     ll_assert(start >= 0, "unexpectedly negative list slice start")
     ll_assert(start <= length, "list slice start larger than list length")
@@ -909,9 +878,7 @@ def ll_listdelslice_startonly(l, start):
             j -= 1
     l._ll_resize_le(newlength)
 
-def ll_listdelslice(l, slice):
-    start = slice.start
-    stop = slice.stop
+def ll_listdelslice_startstop(l, start, stop):
     length = l.ll_length()
     ll_assert(start >= 0, "del l[start:x] with unexpectedly negative start")
     ll_assert(start <= length, "del l[start:x] with start > len(l)")
@@ -933,12 +900,11 @@ def ll_listdelslice(l, slice):
             j -= 1
     l._ll_resize_le(newlength)
 
-def ll_listsetslice(l1, slice, l2):
+def ll_listsetslice(l1, start, stop, l2):
     count = l2.ll_length()
-    start = slice.start
     ll_assert(start >= 0, "l[start:x] = l with unexpectedly negative start")
     ll_assert(start <= l1.ll_length(), "l[start:x] = l with start > len(l)")
-    ll_assert(count == slice.stop - start,
+    ll_assert(count == stop - start,
                  "setslice cannot resize lists in RPython")
     # XXX but it should be easy enough to support, soon
     j = start

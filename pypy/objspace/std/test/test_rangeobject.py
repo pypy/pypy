@@ -29,6 +29,14 @@ class AppTestRangeListObject(object):
     def test_getitem_slice(self):
         result = []
         r = range(1, 100, 2)
+        for i in r[10:15]:
+            result.append(i)
+        assert result == [21, 23, 25, 27, 29]
+        assert self.not_forced(r)
+
+    def test_getitem_extended_slice(self):
+        result = []
+        r = range(1, 100, 2)
         for i in r[40:30:-2]:
             result.append(i)
         assert result == [81, 77, 73, 69, 65]

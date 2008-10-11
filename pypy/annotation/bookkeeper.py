@@ -68,9 +68,6 @@ class Stats:
     def consider_generic(self, *args):
         return tuple([self.typerepr(x) for x in args])
 
-    def consider_newslice(self, s_start, s_stop, s_step):
-        return ':'.join([self.indexrepr(s_start), self.indexrepr(s_stop), self.steprepr(s_step)])
-
     def consider_list_list_eq(self, obj1, obj2):
         return obj1, obj2
 

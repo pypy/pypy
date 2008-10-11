@@ -198,9 +198,7 @@ class LLHelpers(AbstractLLHelpers):
     def ll_stringslice_startonly(s, start):
         return s.ll_substring(start, s.ll_strlen() - start)
 
-    def ll_stringslice(s, slice):
-        start = slice.start
-        stop = slice.stop
+    def ll_stringslice_startstop(s, start, stop):
         length = s.ll_strlen()        
         if stop > length:
             stop = length

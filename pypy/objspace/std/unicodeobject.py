@@ -3,7 +3,7 @@ from pypy.interpreter import gateway
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.ropeobject import W_RopeObject
 from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.objspace.std.sliceobject import W_SliceObject
+from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.rlib.rarithmetic import intmask, ovfcheck
@@ -246,6 +246,11 @@ def getitem__Unicode_Slice(space, w_uni, w_slice):
     else:
         r = u"".join([uni[start + i*step] for i in range(sl)])
     return W_UnicodeObject(r)
+
+def getslice__Unicode_ANY_ANY(space, w_uni, w_start, w_stop):
+    uni = w_uni._value
+    start, stop = normalize_simple_slice(space, len(uni), w_start, w_stop)
+    return W_UnicodeObject(uni[start:stop])
 
 def mul__Unicode_ANY(space, w_uni, w_times):
     try:

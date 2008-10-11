@@ -636,6 +636,19 @@ class AppTestUnicodeString:
 
         assert unicode(Y()).__class__ is X
     
+    def test_getslice(self):
+        assert u'123456'.__getslice__(1, 5) == u'2345'
+        s = u"abc"
+        assert s[:] == "abc"
+        assert s[1:] == "bc"
+        assert s[:2] == "ab"
+        assert s[1:2] == "b"
+        assert s[-2:] == "bc"
+        assert s[:-1] == "ab"
+        assert s[-2:2] == "b"
+        assert s[1:-1] == "b"
+        assert s[-2:-1] == "b"
+
     def test_no_len_on_str_iter(self):
         iterable = u"hello"
         raises(TypeError, len, iter(iterable))

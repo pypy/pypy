@@ -5,8 +5,6 @@ from pypy.rpython.rmodel import Repr, IntegerRepr
 from pypy.rpython.rmodel import inputconst, externalvsinternal
 from pypy.rpython.lltypesystem.lltype import Signed, Void
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.ootypesystem.rslice import SliceRepr, \
-     startstop_slice_repr, startonly_slice_repr, minusone_slice_repr
 from pypy.rpython.ootypesystem import rstr
 
 

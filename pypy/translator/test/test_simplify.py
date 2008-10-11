@@ -200,7 +200,7 @@ def test_transform_dead_op_vars_bug():
     transform_dead_op_vars(graph, t)
     interp = LLInterpreter(t.rtyper)
     e = py.test.raises(LLException, 'interp.eval_graph(graph, [])')
-    assert 'ValueError' in str(e)
+    assert 'ValueError' in str(e.value)
 
 class TestDetectListComprehension:
     def check(self, f1, expected):

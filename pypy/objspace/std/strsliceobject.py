@@ -1,7 +1,7 @@
 from pypy.objspace.std.objspace import *
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.unicodeobject import delegate_String2Unicode
-from pypy.objspace.std.sliceobject import W_SliceObject
+from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.objspace.std import slicetype
 from pypy.objspace.std.inttype import wrapint
@@ -193,6 +193,18 @@ def getitem__StringSlice_Slice(space, w_str, w_slice):
         else:
             str = "".join([s[start + i*step] for i in range(sl)])
     return wrapstr(space, str)
+
+def getslice__StringSlice_ANY_ANY(space, w_str, w_start, w_stop):
+    length = w_str.stop - w_str.start
+    start, stop = normalize_simple_slice(space, length, w_start, w_stop)
+    sl = stop - start
+    if sl == 0:
+        return W_StringObject.EMPTY
+    else:
+        s = w_str.str
+        start = w_str.start + start
+        stop = w_str.start + stop
+        return W_StringSliceObject(s, start, stop)
 
 def len__StringSlice(space, w_str):
     return space.wrap(w_str.stop - w_str.start)

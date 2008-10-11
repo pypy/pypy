@@ -622,6 +622,10 @@ def make_op(name, symbol, arity, specialnames):
                     # annotator a lot.
                     if arithmetic and type(result) is long:
                         pass
+                    # don't constant-fold getslice on lists, either
+                    elif name == 'getslice' and type(result) is list:
+                        pass
+                    # otherwise, fine
                     else:
                         try:
                             return self.wrap(result)

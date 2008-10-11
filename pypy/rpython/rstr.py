@@ -5,7 +5,6 @@ from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import IntegerRepr, IteratorRepr
 from pypy.rpython.rmodel import inputconst, Repr
 from pypy.rpython.rtuple import AbstractTupleRepr
-from pypy.rpython.rslice import AbstractSliceRepr
 from pypy.rpython import rint
 from pypy.rpython.lltypesystem.lltype import Signed, Bool, Void, UniChar,\
      cast_primitive
@@ -331,22 +330,14 @@ class __extend__(pairtype(AbstractStringRepr, IntegerRepr)):
     rtype_getitem_idx_key = rtype_getitem_idx
 
 
-class __extend__(pairtype(AbstractStringRepr, AbstractSliceRepr)):
+class __extend__(AbstractStringRepr):
 
-    def rtype_getitem((r_str, r_slic), hop):
+    def rtype_getslice(r_str, hop):
         string_repr = r_str.repr
-        rslice = hop.rtyper.type_system.rslice
-
-        if r_slic == rslice.startonly_slice_repr:
-            v_str, v_start = hop.inputargs(string_repr, rslice.startonly_slice_repr)
-            return hop.gendirectcall(r_str.ll.ll_stringslice_startonly, v_str, v_start)
-        if r_slic == rslice.startstop_slice_repr:
-            v_str, v_slice = hop.inputargs(string_repr, rslice.startstop_slice_repr)
-            return hop.gendirectcall(r_str.ll.ll_stringslice, v_str, v_slice)
-        if r_slic == rslice.minusone_slice_repr:
-            v_str, v_ignored = hop.inputargs(string_repr, rslice.minusone_slice_repr)
-            return hop.gendirectcall(r_str.ll.ll_stringslice_minusone, v_str)
-        raise TyperError(r_slic)
+        v_str = hop.inputarg(string_repr, arg=0)
+        kind, vlist = hop.decompose_slice_args()
+        ll_fn = getattr(r_str.ll, 'll_stringslice_%s' % (kind,))
+        return hop.gendirectcall(ll_fn, v_str, *vlist)
 
 class __extend__(pairtype(AbstractStringRepr, AbstractStringRepr)):
     def rtype_add((r_str1, r_str2), hop):

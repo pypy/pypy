@@ -4,7 +4,7 @@ Built-in functions.
 
 import sys
 from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
-from pypy.annotation.model import SomeString, SomeTuple, SomeSlice, s_Bool
+from pypy.annotation.model import SomeString, SomeTuple, s_Bool
 from pypy.annotation.model import SomeUnicodeCodePoint, SomeAddress
 from pypy.annotation.model import SomeFloat, unionof, SomeUnicodeString
 from pypy.annotation.model import SomePBC, SomeInstance, SomeDict
@@ -249,19 +249,19 @@ def builtin_apply(*stuff):
     getbookkeeper().warning("ignoring apply%r" % (stuff,))
     return SomeObject()
 
-def builtin_slice(*args):
-    bk = getbookkeeper()
-    if len(args) == 1:
-        return SomeSlice(
-            bk.immutablevalue(None), args[0], bk.immutablevalue(None))
-    elif len(args) == 2:
-        return SomeSlice(
-            args[0], args[1], bk.immutablevalue(None))
-    elif len(args) == 3:
-        return SomeSlice(
-            args[0], args[1], args[2])
-    else:
-        raise Exception, "bogus call to slice()"
+##def builtin_slice(*args):
+##    bk = getbookkeeper()
+##    if len(args) == 1:
+##        return SomeSlice(
+##            bk.immutablevalue(None), args[0], bk.immutablevalue(None))
+##    elif len(args) == 2:
+##        return SomeSlice(
+##            args[0], args[1], bk.immutablevalue(None))
+##    elif len(args) == 3:
+##        return SomeSlice(
+##            args[0], args[1], args[2])
+##    else:
+##        raise Exception, "bogus call to slice()"
 
 
 def OSError_init(s_self, *args):

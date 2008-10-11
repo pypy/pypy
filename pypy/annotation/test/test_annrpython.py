@@ -425,16 +425,6 @@ class TestAnnotateTestCase:
             s_meth = s_example.getattr(iv(methname))
             assert isinstance(s_constmeth, annmodel.SomeBuiltin)
 
-    def test_simple_slicing0(self):
-        a = self.RPythonAnnotator()
-        a.build_types(snippet.simple_slice, [list])
-        g = graphof(a, snippet.simple_slice)
-        for block in g.iterblocks():
-            for op in block.operations:
-                if op.opname == "newslice":
-                    assert isinstance(a.binding(op.result),
-                                      annmodel.SomeSlice)
-
     def test_simple_slicing(self):
         a = self.RPythonAnnotator()
         s = a.build_types(snippet.simple_slice, [list])
@@ -569,11 +559,6 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(operation_always_raising, [int])
         assert s == a.bookkeeper.immutablevalue(24)
-
-    def test_slice_union(self):
-        a = self.RPythonAnnotator()
-        s = a.build_types(snippet.slice_union, [int])
-        assert isinstance(s, annmodel.SomeSlice)
 
     def test_bltin_code_frame_confusion(self):
         a = self.RPythonAnnotator()
@@ -3039,6 +3024,28 @@ class TestAnnotateTestCase:
             return x[:-1]
 
         a.build_types(f, [str])
+
+    def test_setslice(self):
+        def f():
+            lst = [2, 5, 7]
+            lst[1:2] = [4]
+            return lst
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeList)
+        assert not s.listdef.listitem.resized
+
+    def test_delslice(self):
+        def f():
+            lst = [2, 5, 7]
+            del lst[1:2]
+            return lst
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeList)
+        assert s.listdef.listitem.resized
 
     def test_listitem_no_mutating(self):
         from pypy.rlib.debug import check_annotation

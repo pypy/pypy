@@ -10,7 +10,7 @@ from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
 from pypy.annotation.model import SomeUnicodeCodePoint
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue, s_ImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeIterator
-from pypy.annotation.model import SomePBC, SomeSlice, SomeFloat, s_None
+from pypy.annotation.model import SomePBC, SomeFloat, s_None
 from pypy.annotation.model import SomeExternalObject, SomeWeakRef
 from pypy.annotation.model import SomeAddress, SomeTypedAddressAccess
 from pypy.annotation.model import SomeSingleFloat
@@ -564,14 +564,6 @@ class __extend__(pairtype(SomeDict, SomeObject)):
     delitem.can_only_throw = _can_only_throw
 
 
-class __extend__(pairtype(SomeSlice, SomeSlice)):
-
-    def union((slic1, slic2)):
-        return SomeSlice(unioncheck(slic1.start, slic2.start),
-                         unioncheck(slic1.stop, slic2.stop),
-                         unioncheck(slic1.step, slic2.step))
-
-
 class __extend__(pairtype(SomeTuple, SomeInteger)):
     
     def getitem((tup1, int2)):
@@ -584,13 +576,6 @@ class __extend__(pairtype(SomeTuple, SomeInteger)):
             getbookkeeper().count("tuple_random_getitem", tup1)
             return unionof(*tup1.items)
     getitem.can_only_throw = [IndexError]
-
-class __extend__(pairtype(SomeTuple, SomeSlice)):
-
-    def getitem((tup, slic)):
-        start, stop, step = slic.constant_indices()
-        return SomeTuple(tup.items[start:stop:step])
-    getitem.can_only_throw = []
 
 
 class __extend__(pairtype(SomeList, SomeInteger)):
@@ -622,40 +607,6 @@ class __extend__(pairtype(SomeList, SomeInteger)):
         getbookkeeper().count("list_delitem", int2)        
         lst1.listdef.resize()
     delitem.can_only_throw = [IndexError]
-
-def check_negative_slice(s_slice):
-    if isinstance(s_slice.start, SomeInteger) and not s_slice.start.nonneg:
-        raise TypeError("%s not proven to have non-negative start" % s_slice)
-    if isinstance(s_slice.stop, SomeInteger) and not s_slice.stop.nonneg and\
-           getattr(s_slice.stop, 'const', 0) != -1:
-        raise TypeError("%s not proven to have non-negative stop" % s_slice)
-
-class __extend__(pairtype(SomeList, SomeSlice)):
-
-    def getitem((lst, slic)):
-        check_negative_slice(slic)
-        return lst.listdef.offspring()
-    getitem.can_only_throw = []
-
-    def setitem((lst, slic), s_iterable):
-        check_negative_slice(slic)
-        # we need the same unifying effect as the extend() method for
-        # the case lst1[x:y] = lst2.
-        lst.method_extend(s_iterable)
-    setitem.can_only_throw = []
-
-    def delitem((lst1, slic)):
-        check_negative_slice(slic)
-        lst1.listdef.resize()
-    delitem.can_only_throw = []
-
-class __extend__(pairtype(SomeString, SomeSlice),
-                 pairtype(SomeUnicodeString, SomeSlice)):
-
-    def getitem((str1, slic)):
-        check_negative_slice(slic)
-        return str1.basestringclass()
-    getitem.can_only_throw = []
 
 class __extend__(pairtype(SomeString, SomeInteger)):
 

@@ -7,7 +7,6 @@ from pypy.rpython.rlist import *
 from pypy.rpython.lltypesystem.rlist import ListRepr, FixedSizeListRepr, ll_newlist, ll_fixed_newlist
 from pypy.rpython.lltypesystem import rlist as ll_rlist
 from pypy.rpython.ootypesystem import rlist as oo_rlist
-from pypy.rpython.lltypesystem.rslice import ll_newslice
 from pypy.rpython.rint import signed_repr
 from pypy.translator.translator import TranslationContext
 from pypy.objspace.flow.model import Constant, Variable
@@ -58,8 +57,8 @@ class BaseTestListImpl:
         self.check_list(ll_listslice_startonly(LIST, l, 4), [])
         for start in range(5):
             for stop in range(start, 8):
-                s = ll_newslice(start, stop)
-                self.check_list(ll_listslice(LIST, l, s), [42, 43, 44, 45][start:stop])
+                self.check_list(ll_listslice_startstop(LIST, l, start, stop),
+                                [42, 43, 44, 45][start:stop])
 
     def test_rlist_setslice(self):
         n = 100
@@ -72,9 +71,8 @@ class BaseTestListImpl:
                     expected[i] = n
                     ll_setitem(l2, i, n)
                     n += 1
-                s = ll_newslice(start, stop)
-                l2 = ll_listslice(typeOf(l2).TO, l2, s)
-                ll_listsetslice(l1, s, l2)
+                l2 = ll_listslice_startstop(typeOf(l2).TO, l2, start, stop)
+                ll_listsetslice(l1, start, stop, l2)
                 self.check_list(l1, expected)
 
 
@@ -129,8 +127,7 @@ class TestListImpl(BaseTestListImpl):
         for start in range(5):
             for stop in range(start, 8):
                 l = self.sample_list()
-                s = ll_newslice(start, stop)
-                ll_listdelslice(l, s)
+                ll_listdelslice_startstop(l, start, stop)
                 expected = [42, 43, 44, 45]
                 del expected[start:stop]
                 self.check_list(l, expected)
@@ -327,6 +324,19 @@ class BaseTestRlist(BaseRtypingTest):
         assert self.ll_to_list(res.item1) == [6, 7, 8]
         assert self.ll_to_list(res.item2) == [8, 9]
 
+    def test_getslice_not_constant_folded(self):
+        l = list('abcdef')
+
+        def dummyfn():
+            result = []
+            for i in range(3):
+                l2 = l[2:]
+                result.append(l2.pop())
+            return result
+
+        res = self.interpret(dummyfn, [])
+        assert self.ll_to_list(res) == ['f', 'f', 'f']
+
     def test_set_del_item(self):
         def dummyfn():
             l = [5, 6, 7]
@@ -379,6 +389,25 @@ class BaseTestRlist(BaseRtypingTest):
         assert res.item1 == 5
         assert res.item2 == 8
         assert res.item3 == 7
+
+    def test_delslice(self):
+        def dummyfn():
+            l = [10, 9, 8, 7]
+            del l[:2]
+            return len(l), l[0], l[1]
+        res = self.interpret(dummyfn, ())
+        assert res.item0 == 2
+        assert res.item1 == 8
+        assert res.item2 == 7
+
+        def dummyfn():
+            l = [10, 9, 8, 7]
+            del l[2:]
+            return len(l), l[0], l[1]
+        res = self.interpret(dummyfn, ())
+        assert res.item0 == 2
+        assert res.item1 == 10
+        assert res.item2 == 9
 
     def test_bltn_list(self):
         def dummyfn():

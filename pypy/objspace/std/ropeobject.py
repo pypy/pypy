@@ -2,7 +2,7 @@ from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.objspace.std.inttype import wrapint
-from pypy.objspace.std.sliceobject import W_SliceObject
+from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.noneobject import W_NoneObject
@@ -692,6 +692,15 @@ def getitem__Rope_Slice(space, w_str, w_slice):
     if sl == 0:
         return W_RopeObject.EMPTY
     return W_RopeObject(rope.getslice(node, start, stop, step, sl))
+
+def getslice__Rope_ANY_ANY(space, w_str, w_start, w_stop):
+    node = w_str._node
+    length = node.length()
+    start, stop = normalize_simple_slice(space, length, w_start, w_stop)
+    sl = stop - start
+    if sl == 0:
+        return W_RopeObject.EMPTY
+    return W_RopeObject(rope.getslice(node, start, stop, 1, sl))
 
 def mul_string_times(space, w_str, w_times):
     try:

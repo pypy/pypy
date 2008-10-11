@@ -5,7 +5,7 @@ from pypy.interpreter import gateway
 from pypy.rlib.rarithmetic import ovfcheck, _hash_string
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.objspace.std.inttype import wrapint
-from pypy.objspace.std.sliceobject import W_SliceObject
+from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.noneobject import W_NoneObject
@@ -814,6 +814,14 @@ def getitem__String_Slice(space, w_str, w_slice):
     else:
         str = "".join([s[start + i*step] for i in range(sl)])
     return wrapstr(space, str)
+
+def getslice__String_ANY_ANY(space, w_str, w_start, w_stop):
+    s = w_str._value
+    start, stop = normalize_simple_slice(space, len(s), w_start, w_stop)
+    if start == stop:
+        return W_StringObject.EMPTY
+    else:
+        return sliced(space, s, start, stop)
 
 def mul_string_times(space, w_str, w_times):
     try:

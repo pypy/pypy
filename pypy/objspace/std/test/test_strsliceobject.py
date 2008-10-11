@@ -133,3 +133,16 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         assert s.count("X") == 100
         assert s.count("Y") == 100
         assert self.not_forced(s)
+
+    def test_extended_slice(self):
+        import __pypy__
+        def slice1(s): return (s*3)[len(s):-len(s)]
+        s = slice1('0123456789' * 20)
+        assert len(s) == 200
+        assert self.not_forced(s)
+        t = s[::-1]
+        assert t == '9876543210' * 20
+        assert not self.not_forced(t)
+        u = s[slice(10, 20)]
+        assert self.not_forced(u)
+        assert u == '0123456789'

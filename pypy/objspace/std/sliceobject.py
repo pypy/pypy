@@ -79,6 +79,19 @@ class W_SliceObject(W_Object):
 registerimplementation(W_SliceObject)
 
 
+def normalize_simple_slice(space, length, w_start, w_stop):
+    """Helper for the {get,set,del}slice multimethod implementations."""
+    start = space.int_w(w_start)
+    stop = space.int_w(w_stop)
+    if start < 0:
+        start = 0
+    if stop > length:
+        stop = length
+    if stop < start:
+        stop = start
+    return start, stop
+
+
 repr__Slice = gateway.applevel("""
     def repr__Slice(aslice):
         return 'slice(%r, %r, %r)' % (aslice.start, aslice.stop, aslice.step)

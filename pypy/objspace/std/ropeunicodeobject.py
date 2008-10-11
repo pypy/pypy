@@ -5,7 +5,7 @@ from pypy.objspace.std.unicodeobject import _normalize_index
 from pypy.objspace.std.ropeobject import W_RopeObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.rlib import rope
-from pypy.objspace.std.sliceobject import W_SliceObject
+from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.rlib.rarithmetic import intmask, ovfcheck
@@ -286,6 +286,15 @@ def getitem__RopeUnicode_Slice(space, w_uni, w_slice):
     if sl == 0:
         return W_RopeUnicodeObject.EMPTY
     return W_RopeUnicodeObject(rope.getslice(node, start, stop, step, sl))
+
+def getslice__RopeUnicode_ANY_ANY(space, w_uni, w_start, w_stop):
+    node = w_uni._node
+    length = node.length()
+    start, stop = normalize_simple_slice(space, length, w_start, w_stop)
+    sl = stop - start
+    if sl == 0:
+        return W_RopeUnicodeObject.EMPTY
+    return W_RopeUnicodeObject(rope.getslice(node, start, stop, 1, sl))
 
 def mul__RopeUnicode_ANY(space, w_uni, w_times):
     try:

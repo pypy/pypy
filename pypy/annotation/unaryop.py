@@ -24,6 +24,7 @@ UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr', 'delattr', 'hash
                         'iter', 'next', 'invert', 'type', 'issubtype',
                         'pos', 'neg', 'nonzero', 'abs', 'hex', 'oct',
                         'ord', 'int', 'float', 'long', 'id',
+                        'getslice', 'setslice', 'delslice',
                         'neg_ovf', 'abs_ovf', 'hint', 'unicode', 'unichr'])
 
 for opname in UNARY_OPERATIONS:
@@ -274,6 +275,12 @@ class __extend__(SomeTuple):
             s_item.hash()    # record that we need the hash of each item
         return SomeInteger()
 
+    def getslice(tup, s_start, s_stop):
+        assert s_start.is_immutable_constant(),"tuple slicing: needs constants"
+        assert s_stop.is_immutable_constant(), "tuple slicing: needs constants"
+        items = tup.items[s_start.const:s_stop.const]
+        return SomeTuple(items)
+
 
 class __extend__(SomeList):
 
@@ -337,6 +344,28 @@ class __extend__(SomeList):
         elif 'fence' in hints:
             lst = lst.listdef.offspring()
         return lst
+
+    def getslice(lst, s_start, s_stop):
+        check_negative_slice(s_start, s_stop)
+        return lst.listdef.offspring()
+
+    def setslice(lst, s_start, s_stop, s_iterable):
+        check_negative_slice(s_start, s_stop)
+        if not isinstance(s_iterable, SomeList):
+            raise Exception("list[start:stop] = x: x must be a list")
+        lst.listdef.agree(s_iterable.listdef)
+        # note that setslice is not allowed to resize a list in RPython
+
+    def delslice(lst, s_start, s_stop):
+        check_negative_slice(s_start, s_stop)
+        lst.listdef.resize()
+
+def check_negative_slice(s_start, s_stop):
+    if isinstance(s_start, SomeInteger) and not s_start.nonneg:
+        raise TypeError("slicing: not proven to have non-negative start")
+    if isinstance(s_stop, SomeInteger) and not s_stop.nonneg and \
+           getattr(s_stop, 'const', 0) != -1:
+        raise TypeError("slicing: not proven to have non-negative stop")
 
 
 class __extend__(SomeDict):
@@ -461,6 +490,10 @@ class __extend__(SomeString,
         return getbookkeeper().newlist(str.basestringclass())
 
     def method_replace(str, s1, s2):
+        return str.basestringclass()
+
+    def getslice(str, s_start, s_stop):
+        check_negative_slice(s_start, s_stop)
         return str.basestringclass()
 
 class __extend__(SomeUnicodeString):

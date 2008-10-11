@@ -760,10 +760,6 @@ class RPythonAnnotator(object):
     def consider_op_newdict(self):
         return self.bookkeeper.newdict()
 
-    def consider_op_newslice(self, start, stop, step):
-        self.bookkeeper.count('newslice', start, stop, step)
-        return annmodel.SomeSlice(start, stop, step)
-
 
     def _registeroperations(cls, model):
         # All unary operations

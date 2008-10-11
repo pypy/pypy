@@ -6,7 +6,6 @@ from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
 from pypy.rpython.rmodel import IteratorRepr
 from pypy.rpython.rmodel import externalvsinternal
-from pypy.rpython.rslice import AbstractSliceRepr
 from pypy.rpython.lltypesystem.lltype import Void, Signed, Bool
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.unroll import unrolling_iterable
@@ -242,15 +241,19 @@ class __extend__(pairtype(AbstractTupleRepr, IntegerRepr)):
         index = v_index.value
         return r_tup.getitem(hop.llops, v_tuple, index)
 
-class __extend__(pairtype(AbstractTupleRepr, AbstractSliceRepr)):
+class __extend__(AbstractTupleRepr):
 
-    def rtype_getitem((r_tup, r_slice), hop):
-        v_tup = hop.inputarg(r_tup, arg=0)
-        s_slice = hop.args_s[1]
-        start, stop, step = s_slice.constant_indices()
-        indices = range(len(r_tup.items_r))[start:stop:step]
+    def rtype_getslice(r_tup, hop):
+        s_start = hop.args_s[1]
+        s_stop = hop.args_s[2]
+        assert s_start.is_immutable_constant(),"tuple slicing: needs constants"
+        assert s_stop.is_immutable_constant(), "tuple slicing: needs constants"
+        start = s_start.const
+        stop = s_stop.const
+        indices = range(len(r_tup.items_r))[start:stop]
         assert len(indices) == len(hop.r_result.items_r)
 
+        v_tup = hop.inputarg(r_tup, arg=0)
         items_v = [r_tup.getitem_internal(hop.llops, v_tup, i)
                    for i in indices]
         return hop.r_result.newtuple(hop.llops, hop.r_result, items_v)

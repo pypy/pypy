@@ -57,10 +57,10 @@ def transform_allocate(self, block_subset):
 
 # lst += string[x:y]
 # -->
-# b = getitem(string, slice)
+# b = getslice(string, x, y)
 # c = inplace_add(lst, b)
 # -->
-# c = extend_with_str_slice(lst, string, slice)
+# c = extend_with_str_slice(lst, x, y, string)
 
 def transform_extend_with_str_slice(self, block_subset):
     """Transforms lst += string[x:y] to extend_with_str_slice"""
@@ -68,16 +68,15 @@ def transform_extend_with_str_slice(self, block_subset):
         slice_sources = {}    # maps b to [string, slice] in the above notation
         for i in range(len(block.operations)):
             op = block.operations[i]
-            if (op.opname == 'getitem' and
-                self.gettype(op.args[0]) is str and
-                self.gettype(op.args[1]) is slice):
+            if (op.opname == 'getslice' and
+                self.gettype(op.args[0]) is str):
                 slice_sources[op.result] = op.args
             elif (op.opname == 'inplace_add' and
                   op.args[1] in slice_sources and
                   self.gettype(op.args[0]) is list):
-                v_string, v_slice = slice_sources[op.args[1]]
+                v_string, v_x, v_y = slice_sources[op.args[1]]
                 new_op = SpaceOperation('extend_with_str_slice',
-                                        [op.args[0], v_string, v_slice],
+                                        [op.args[0], v_x, v_y, v_string],
                                         op.result)
                 block.operations[i] = new_op
 
@@ -111,30 +110,6 @@ def transform_extend_with_char_count(self, block_subset):
                                         [op.args[0], v_char, v_count],
                                         op.result)
                 block.operations[i] = new_op
-
-# a[b:c]
-# -->
-# d = newslice(b, c, None)
-# e = getitem(a, d)
-# -->
-# e = getslice(a, b, c)
-
-##def transform_slice(self, block_subset):              -- not used any more --
-##    """Transforms a[b:c] to getslice(a, b, c)."""
-##    for block in block_subset:
-##        operations = block.operations[:]
-##        n_op = len(operations)
-##        for i in range(0, n_op-1):
-##            op1 = operations[i]
-##            op2 = operations[i+1]
-##            if (op1.opname == 'newslice' and
-##                self.gettype(op1.args[2]) is types.NoneType and
-##                op2.opname == 'getitem' and
-##                op1.result is op2.args[1]):
-##                new_op = SpaceOperation('getslice',
-##                                        (op2.args[0], op1.args[0], op1.args[1]),
-##                                        op2.result)
-##                block.operations[i+1:i+2] = [new_op]
 
 
 def transform_dead_op_vars(self, block_subset):

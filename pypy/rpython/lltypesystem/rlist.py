@@ -7,9 +7,6 @@ from pypy.rpython.rlist import AbstractBaseListRepr, AbstractListRepr, \
         AbstractFixedSizeListRepr, AbstractListIteratorRepr, rtype_newlist, \
         rtype_alloc_and_set, ll_setitem_nonneg, ADTIList, ADTIFixedList
 from pypy.rpython.rlist import dum_nocheck, dum_checkidx
-from pypy.rpython.lltypesystem.rslice import SliceRepr
-from pypy.rpython.lltypesystem.rslice import startstop_slice_repr, startonly_slice_repr
-from pypy.rpython.lltypesystem.rslice import minusone_slice_repr
 from pypy.rpython.lltypesystem.lltype import \
      GcForwardReference, Ptr, GcArray, GcStruct, \
      Void, Signed, malloc, typeOf, Primitive, \

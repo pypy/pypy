@@ -32,10 +32,16 @@ METHODS_WITH_SHORTCUT = dict.fromkeys(
 KNOWN_MISSING = ['getattr',   # mostly non-builtins or optimized by CALL_METHOD
                  'setattr', 'delattr', 'userdel',  # mostly for non-builtins
                  'get', 'set', 'delete',   # uncommon (except on functions)
-                 'delitem', 'abs', 'hex', 'oct',  # rare stuff?
+                 'getslice', 'setslice', 'delslice',  # see below
+                 'delitem',                       # rare stuff?
+                 'abs', 'hex', 'oct',             # rare stuff?
                  'pos', 'divmod', 'cmp',          # rare stuff?
                  'float', 'long', 'coerce',       # rare stuff?
                  ]
+# We cannot support {get,set,del}slice right now because
+# DescrOperation.{get,set,del}slice do a bit more work than just call
+# the special methods: they call old_slice_range().  See e.g.
+# test_builtinshortcut.AppTestString.
 
 for _name, _, _, _specialmethods in ObjSpace.MethodTable:
     if _specialmethods:
