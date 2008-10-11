@@ -450,6 +450,14 @@ class AppTest_DictObject:
             else:
                 assert False, 'Expected KeyError'
 
+    def test_no_len_on_dict_iter(self):
+        iterable = {1: 2, 3: 4}
+        raises(TypeError, len, iter(iterable))
+        iterable = {"1": 2, "3": 4}
+        raises(TypeError, len, iter(iterable))
+        iterable = {}
+        raises(TypeError, len, iter(iterable))
+
 
 # the minimal 'space' needed to use a W_DictObject
 class FakeSpace:

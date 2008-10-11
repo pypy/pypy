@@ -867,15 +867,16 @@ def next__RopeIter(space, w_ropeiter):
     w_ropeiter.index += 1 
     return w_item
 
-def len__RopeIter(space,  w_ropeiter):
-    if w_ropeiter.node is None:
-        return wrapint(space, 0)
-    index = w_ropeiter.index
-    length = w_ropeiter.node.length()
-    result = length - index
-    if result < 0:
-        return wrapint(space, 0)
-    return wrapint(space, result)
+# XXX __length_hint__()
+##def len__RopeIter(space,  w_ropeiter):
+##    if w_ropeiter.node is None:
+##        return wrapint(space, 0)
+##    index = w_ropeiter.index
+##    length = w_ropeiter.node.length()
+##    result = length - index
+##    if result < 0:
+##        return wrapint(space, 0)
+##    return wrapint(space, result)
 
 # register all methods
 from pypy.objspace.std import stringtype

@@ -59,117 +59,42 @@ class AppTestW_IterObjectApp:
                           C())
 
 class AppTest_IterObject(object):
-    def setup_method(self,method):
+    def test_no_len_on_list_iter(self):
+        iterable = [1,2,3,4]
+        raises(TypeError, len, iter(iterable))
+
+    def test_no_len_on_tuple_iter(self):
+        iterable = (1,2,3,4)
+        raises(TypeError, len, iter(iterable))
         
-        self.iterable = ''
-    
-    def test_len(self):#,iterable):
-        self.iterable = (1,2,3,4)
-        it = iter(self.iterable)
-        for i in reversed(range(len(it))):
-            assert len(it) == i+1
-            x = it.next()
-        raises(StopIteration, it.next)
-        assert len(it) == 0
-    
-    
-class AppTest_lenTuple(AppTest_IterObject):
-    
-    def setup_method(self,method):
-        self.iterable = (1,2,3,4)
-        
-    def test_iter_len_deque(self):
+    def test_no_len_on_deque_iter(self):
         from collections import deque
+        iterable = deque([1,2,3,4])
+        raises(TypeError, len, iter(iterable))
 
-        iterable = deque((1,2,3,4))
-        it = iter(iterable)
-        for i in reversed(range(len(it))):
-            assert len(it) == i+1
-            x = it.next()
-            
-        raises(StopIteration, it.next)
-        assert len(it) == 0
+    def test_no_len_on_reversed(self):
+        it = reversed("foobar")
+        raises(TypeError, len, it)
 
-    def test_iter_len_reversed(self):
-        iterable = reversed((1,2,3,4))
-        it = iter(iterable)
-        for i in reversed(range(len(it))):
-            assert len(it) == i+1
-            x = it.next()
-        raises(StopIteration, it.next)
-        assert len(it) == 0
-
-    def test_len_reversed_seqiter(self):
+    def test_no_len_on_reversed_seqiter(self):
+        # this one fails on CPython.  See http://bugs.python.org/issue3689
         it = reversed([5,6,7])
-        assert iter(it) is it
-        assert len(it) == 3
-        assert it.next() == 7
-        assert len(it) == 2
-        assert it.next() == 6
-        assert len(it) == 1
-        assert it.next() == 5
-        assert len(it) == 0
-        raises(StopIteration, it.next)
-        assert len(it) == 0
+        raises(TypeError, len, it)
 
-    def test_mutation_list(self):
-        n = 5
-        d = range(n)
-        it = iter(d)
-        it.next()
-        it.next()
-        assert len(it) == n-2
-        d.append(n)
-        assert len(it) == n-1  # grow with append
-        d[1:] = []
-        assert len(it) == 0
-        assert list(it) == []
-        d.extend(xrange(20))
-        assert len(it) == 0
-
-    def test_mutation_list_reversed(self):
-        n = 5
-        d = range(n)
-        it = reversed(d)
-        it.next()
-        it.next()
-        assert len(it) == n-2
-        d.append(n)
-        assert len(it) == n-2  # Ignore append
-        d[1:] = []
-        assert len(it) == 0
-        assert list(it) == []
-        d.extend(xrange(20))
-        assert len(it) == 0
-
-    def test_mutation_seqiter(self):
+    def test_no_len_on_UserList_iter(self):
         from UserList import UserList
-        n = 5
-        d = UserList(range(n))
-        it = iter(d)
-        it.next()
-        it.next()
-        assert len(it) == n-2
-        d.append(n)
-        assert len(it) == n-1  # grow with append
-        d[1:] = []
-        assert len(it) == 0
-        assert list(it) == []
-        d.extend(xrange(20))
-        assert len(it) == 0
+        iterable = UserList([1,2,3,4])
+        raises(TypeError, len, iter(iterable))
 
-    def test_mutation_seqiter_reversed(self):
+    def test_no_len_on_UserList_reversed(self):
         from UserList import UserList
-        n = 5
-        d = UserList(range(n))
-        it = reversed(d)
-        it.next()
-        it.next()
-        assert len(it) == n-2
-        d.append(n)
-        assert len(it) == n-2  # ignore append
-        d[1:] = []
-        assert len(it) == 0
-        assert list(it) == []
-        d.extend(xrange(20))
-        assert len(it) == 0
+        iterable = UserList([1,2,3,4])
+        raises(TypeError, len, reversed(iterable))
+
+    def test_no_len_on_set_iter(self):
+        iterable = set([1,2,3,4])
+        raises(TypeError, len, iter(iterable))
+
+    def test_no_len_on_xrange(self):
+        iterable = xrange(10)
+        raises(TypeError, len, iter(iterable))

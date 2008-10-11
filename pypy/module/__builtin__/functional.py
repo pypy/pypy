@@ -259,7 +259,8 @@ class W_XRangeIterator(Wrappable):
 
 W_XRangeIterator.typedef = TypeDef("rangeiterator",
     __iter__        = interp2app(W_XRangeIterator.descr_iter),
-    __len__         = interp2app(W_XRangeIterator.descr_len),
+# XXX __length_hint__()
+##    __len__         = interp2app(W_XRangeIterator.descr_len),
     next            = interp2app(W_XRangeIterator.descr_next),
     __reduce__      = interp2app(W_XRangeIterator.descr_reduce),
 )

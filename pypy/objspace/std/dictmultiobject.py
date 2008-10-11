@@ -1294,9 +1294,10 @@ def next__DictMultiIterObject(space, w_dictiter):
         return w_result
     raise OperationError(space.w_StopIteration, space.w_None)
 
-def len__DictMultiIterObject(space, w_dictiter):
-    iteratorimplementation = w_dictiter.iteratorimplementation
-    return space.wrap(iteratorimplementation.length())
+# XXX __length_hint__()
+##def len__DictMultiIterObject(space, w_dictiter):
+##    iteratorimplementation = w_dictiter.iteratorimplementation
+##    return space.wrap(iteratorimplementation.length())
 
 # ____________________________________________________________
 

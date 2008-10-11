@@ -86,11 +86,12 @@ def next__SetIterObject(space, w_setiter):
         w_setiter.content = None
     raise OperationError(space.w_StopIteration, space.w_None)
 
-def len__SetIterObject(space, w_setiter):
-    content = w_setiter.content
-    if content is None or w_setiter.len == -1:
-        return space.wrap(0)
-    return space.wrap(w_setiter.len - w_setiter.pos)
+# XXX __length_hint__()
+##def len__SetIterObject(space, w_setiter):
+##    content = w_setiter.content
+##    if content is None or w_setiter.len == -1:
+##        return space.wrap(0)
+##    return space.wrap(w_setiter.len - w_setiter.pos)
 
 # some helper functions
 

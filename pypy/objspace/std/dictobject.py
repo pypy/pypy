@@ -234,7 +234,7 @@ class W_DictIterObject(W_Object):
         w_self.space = space
         w_self.content = content = w_dictobject.content
         w_self.len = len(content)
-        w_self.pos = 0
+        w_self.pos = 0    # XXX only for dicttype.descr_dictiter__reduce__()
         w_self.setup_iterator()
     
     def setup_iterator(w_self):
@@ -300,11 +300,12 @@ def next__DictIterObject(space, w_dictiter):
         w_dictiter.content = None
     raise OperationError(space.w_StopIteration, space.w_None)
 
-def len__DictIterObject(space, w_dictiter):
-    content = w_dictiter.content
-    if content is None or w_dictiter.len == -1:
-        return space.wrap(0)
-    return space.wrap(w_dictiter.len - w_dictiter.pos)
+# XXX __length_hint__()
+##def len__DictIterObject(space, w_dictiter):
+##    content = w_dictiter.content
+##    if content is None or w_dictiter.len == -1:
+##        return space.wrap(0)
+##    return space.wrap(w_dictiter.len - w_dictiter.pos)
 
 # ____________________________________________________________
 

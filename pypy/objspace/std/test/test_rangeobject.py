@@ -120,3 +120,7 @@ class AppTestRangeListObject(object):
         it3 = seqiter_new(*args)
         assert it3.next() == 4
         assert it3.next() == 5
+
+    def test_no_len_on_range_iter(self):
+        iterable = range(10)
+        raises(TypeError, len, iter(iterable))

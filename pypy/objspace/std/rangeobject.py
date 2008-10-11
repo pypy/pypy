@@ -195,15 +195,16 @@ def next__RangeIter(space, w_rangeiter):
     w_rangeiter.index += 1
     return w_item
 
-def len__RangeIter(space,  w_rangeiter):
-    if w_rangeiter.w_seq is None:
-        return wrapint(space, 0)
-    index = w_rangeiter.index
-    w_length = space.len(w_rangeiter.w_seq)
-    w_len = space.sub(w_length, wrapint(space, index))
-    if space.is_true(space.lt(w_len, wrapint(space, 0))):
-        w_len = wrapint(space, 0)
-    return w_len
+# XXX __length_hint__()
+##def len__RangeIter(space,  w_rangeiter):
+##    if w_rangeiter.w_seq is None:
+##        return wrapint(space, 0)
+##    index = w_rangeiter.index
+##    w_length = space.len(w_rangeiter.w_seq)
+##    w_len = space.sub(w_length, wrapint(space, index))
+##    if space.is_true(space.lt(w_len, wrapint(space, 0))):
+##        w_len = wrapint(space, 0)
+##    return w_len
 
 registerimplementation(W_RangeListObject)
 registerimplementation(W_RangeIterObject)

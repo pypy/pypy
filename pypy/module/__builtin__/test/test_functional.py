@@ -110,15 +110,10 @@ class AppTestXRange:
       x = xrange(2, 9, 3)
       it = iter(x)
       assert iter(it) is it
-      assert len(it) == 3
       assert it.next() == 2
-      assert len(it) == 2
       assert it.next() == 5
-      assert len(it) == 1
       assert it.next() == 8
-      assert len(it) == 0
       raises(StopIteration, it.next)
-      assert len(it) == 0
       # test again, to make sure that xrange() is not its own iterator
       assert iter(x).next() == 2
 
@@ -126,16 +121,12 @@ class AppTestReversed:
    def test_reversed(self):
       r = reversed("hello")
       assert iter(r) is r
-      assert len(r) == 5
       assert r.next() == "o"
       assert r.next() == "l"
       assert r.next() == "l"
       assert r.next() == "e"
-      assert len(r) == 1
       assert r.next() == "h"
-      assert len(r) == 0
       raises(StopIteration, r.next)
-      assert len(r) == 0
       assert list(reversed(list(reversed("hello")))) == ['h','e','l','l','o']
       raises(TypeError, reversed, reversed("hello"))
 

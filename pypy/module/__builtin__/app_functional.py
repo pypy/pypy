@@ -317,10 +317,11 @@ class reversed_iterator(object):
             return item
         raise StopIteration
 
-    def __len__(self):
-        if self.remaining > len(self.seq):
-            self.remaining = 0
-        return self.remaining
+# XXX __length_hint__()
+##    def __len__(self):
+##        if self.remaining > len(self.seq):
+##            self.remaining = 0
+##        return self.remaining
 
     def __reduce__(self):
         tup = (self.seq, self.remaining)

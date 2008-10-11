@@ -721,6 +721,10 @@ class AppTestStringObject:
         s = "a" * (2**16)
         raises(OverflowError, s.replace, "", s)
 
+    def test_no_len_on_str_iter(self):
+        iterable = "hello"
+        raises(TypeError, len, iter(iterable))
+
 class AppTestPrebuilt(AppTestStringObject):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withprebuiltchar": True})

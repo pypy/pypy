@@ -641,3 +641,6 @@ class AppTestUnicodeString:
 
         assert unicode(Y()).__class__ is X
     
+    def test_no_len_on_str_iter(self):
+        iterable = u"hello"
+        raises(TypeError, len, iter(iterable))

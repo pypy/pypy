@@ -949,15 +949,16 @@ def next__RopeUnicodeIter(space, w_ropeiter):
     w_ropeiter.index += 1 
     return w_item
 
-def len__RopeUnicodeIter(space,  w_ropeiter):
-    if w_ropeiter.node is None:
-        return space.wrap(0)
-    index = w_ropeiter.index
-    length = w_ropeiter.node.length()
-    result = length - index
-    if result < 0:
-        return space.wrap(0)
-    return space.wrap(result)
+# XXX __length_hint__()
+##def len__RopeUnicodeIter(space,  w_ropeiter):
+##    if w_ropeiter.node is None:
+##        return space.wrap(0)
+##    index = w_ropeiter.index
+##    length = w_ropeiter.node.length()
+##    result = length - index
+##    if result < 0:
+##        return space.wrap(0)
+##    return space.wrap(result)
 
 import unicodetype
 register_all(vars(), unicodetype)
