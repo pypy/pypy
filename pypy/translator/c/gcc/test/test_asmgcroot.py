@@ -82,6 +82,32 @@ class AbstractTestAsmGCRoot:
         f.writelines(lines)
         f.close()
 
+    def test_some_unidentified_bug(self):
+        py.test.skip("XXX FIX ME")
+        class Element:
+            pass
+        elements = [Element() for ii in range(10000)]
+        l = elements[:]
+
+        def dostuff():
+            reverse = {}
+            for ii in elements:
+                reverse[ii] = ii
+            for jj in range(100):
+                assert len(l) >= 1
+                e = l[-1]
+                del reverse[e]
+                l.remove(e)
+
+        def f():
+            for ii in range(100):
+                dostuff()
+            return 0
+
+        fn = self.getcompiled(f)
+        res = fn()
+        assert res == 0
+
 
 class TestAsmGCRootWithSemiSpaceGC(AbstractTestAsmGCRoot,
                                    test_newgc.TestSemiSpaceGC):
