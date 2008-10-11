@@ -1,14 +1,14 @@
 from collections import deque
 import unittest
 from test import test_support, seq_tests
-#from weakref import proxy
+from weakref import proxy
 import copy
 import cPickle as pickle
 from cStringIO import StringIO
 import random
 import os
 
-BIG = 10
+BIG = 100000
 
 def fail():
     raise SyntaxError
@@ -81,7 +81,7 @@ class TestBasic(unittest.TestCase):
         self.assertRaises(SyntaxError, d.extendleft, fail())
 
     def test_getitem(self):
-        n = 10
+        n = 200
         d = deque(xrange(n))
         l = range(n)
         for i in xrange(n):
@@ -101,7 +101,7 @@ class TestBasic(unittest.TestCase):
         self.assertRaises(IndexError, d.__getitem__, -1)
 
     def test_setitem(self):
-        n = 10
+        n = 200
         d = deque(xrange(n))
         for i in xrange(n):
             d[i] = 10 * i
@@ -113,7 +113,7 @@ class TestBasic(unittest.TestCase):
         self.assertEqual(list(d), l)
 
     def test_delitem(self):
-        n = 10         # O(n**2) test, don't make this too big
+        n = 500         # O(n**2) test, don't make this too big
         d = deque(xrange(n))
         self.assertRaises(IndexError, d.__delitem__, -n-1)
         self.assertRaises(IndexError, d.__delitem__, n)
@@ -261,7 +261,7 @@ class TestBasic(unittest.TestCase):
         self.assertRaises(TypeError, hash, deque('abc'))
 
     def test_long_steadystate_queue_popleft(self):
-        for size in (0, 1, 2, 9):
+        for size in (0, 1, 2, 100, 1000):
             d = deque(xrange(size))
             append, pop = d.append, d.popleft
             for i in xrange(size, BIG):
@@ -272,7 +272,7 @@ class TestBasic(unittest.TestCase):
             self.assertEqual(list(d), range(BIG-size, BIG))
 
     def test_long_steadystate_queue_popright(self):
-        for size in (0, 1, 2, 9):
+        for size in (0, 1, 2, 100, 1000):
             d = deque(reversed(xrange(size)))
             append, pop = d.appendleft, d.pop
             for i in xrange(size, BIG):
@@ -366,7 +366,7 @@ class TestBasic(unittest.TestCase):
         self.assertEqual(list(d), list(e))
 
     def test_reversed(self):
-        for s in ('abcd', xrange(200)):
+        for s in ('abcd', xrange(2000)):
             self.assertEqual(list(reversed(deque(s))), list(reversed(s)))
 
     def test_gc_doesnt_blowup(self):
@@ -470,12 +470,13 @@ class TestSubclass(unittest.TestCase):
         d = DequeWithBadIter('abc')
         self.assertRaises(TypeError, pickle.dumps, d)
 
-#    def test_weakref(self):
-#        d = deque('gallahad')
-#        p = proxy(d)
-#        self.assertEqual(str(p), str(d))
-#        d = None
-#        self.assertRaises(ReferenceError, str, p)
+    def test_weakref(self):
+        d = deque('gallahad')
+        p = proxy(d)
+        self.assertEqual(str(p), str(d))
+        d = None
+        test_support.gc_collect()
+        self.assertRaises(ReferenceError, str, p)
 
     def test_strange_subclass(self):
         class X(deque):
