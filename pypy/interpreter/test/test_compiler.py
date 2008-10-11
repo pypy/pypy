@@ -581,6 +581,15 @@ def test():
         """)
         assert space.float_w(w_result) == 0
 
+    def test_filename_in_syntaxerror(self):
+        e = py.test.raises(OperationError, self.compiler.compile, """if 1:
+            'unmatched_quote
+            """, 'hello_world', 'exec', 0)
+        ex = e.value
+        space = self.space
+        assert ex.match(space, space.w_SyntaxError)
+        assert 'hello_world' in space.str_w(space.str(ex.w_value))
+
 
 class TestPyCCompiler(BaseTestCompiler):
     def setup_method(self, method):

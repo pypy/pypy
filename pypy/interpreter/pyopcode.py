@@ -1348,15 +1348,7 @@ app = gateway.applevel(r'''
                 else:
                     raise TypeError("exec: arg 1 must be a string, file, "
                                     "or code object")
-            try:
-                prog = compile(prog, filename, 'exec', compile_flags, 1)
-            except SyntaxError, e: # exec SyntaxErrors have filename==None
-               if len(e.args) == 2:
-                   msg, loc = e.args
-                   loc1 = (None,) + loc[1:]
-                   e.args = msg, loc1
-                   e.filename = None
-               raise e
+            prog = compile(prog, filename, 'exec', compile_flags, 1)
         return (prog, globals, locals)
 ''', filename=__file__)
 

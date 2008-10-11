@@ -60,22 +60,10 @@ If only globals is given, locals defaults to it.
 
     if (space.is_true(space.isinstance(w_code, space.w_str)) or
         space.is_true(space.isinstance(w_code, space.w_unicode))):
-        try:
-            w_code = compile(space,
-                             space.call_method(w_code, 'lstrip',
-                                               space.wrap(' \t')),
-                             "<string>", "eval")
-        except OperationError, e:
-            if e.match(space, space.w_SyntaxError):
-                e_value_w = space.viewiterable(e.w_value)
-                if len(e_value_w) == 2:
-                    e_loc_w = space.viewiterable(e_value_w[1])
-                    e.w_value = space.newtuple([e_value_w[0],
-                                                space.newtuple([space.w_None]+
-                                                               e_loc_w[1:])])
-                raise e
-            else:
-                raise
+        w_code = compile(space,
+                         space.call_method(w_code, 'lstrip',
+                                           space.wrap(' \t')),
+                         "<string>", "eval")
 
     codeobj = space.interpclass_w(w_code)
     if not isinstance(codeobj, PyCode):

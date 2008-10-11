@@ -192,3 +192,12 @@ class AppTestExecStmt:
         exec "y=n" in m   # NOTE: this doesn't work in CPython 2.4
         assert m.result == {'x': 'm', 'y': 'n'}
 
+    def test_filename(self):
+        try:
+            exec "'unmatched_quote"
+        except SyntaxError, msg:
+            assert msg.filename == '<string>'
+        try:
+            eval("'unmatched_quote")
+        except SyntaxError, msg:
+            assert msg.filename == '<string>'
