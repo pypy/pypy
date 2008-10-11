@@ -6,7 +6,7 @@
 
 """#"
 import unittest, test.test_support
-import hashlib
+import hashlib, sys
 
 encoding = 'utf-8'
 
