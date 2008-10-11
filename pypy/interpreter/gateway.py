@@ -572,6 +572,8 @@ class BuiltinCode0(BuiltinCode):
             raise OperationError(space.w_KeyboardInterrupt, space.w_None) 
         except MemoryError: 
             raise OperationError(space.w_MemoryError, space.w_None)
+        except NotImplementedError, e:
+            raise
         except (RuntimeError, DescrMismatch), e: 
             raise OperationError(space.w_RuntimeError, 
                                  space.wrap("internal error: " + str(e))) 
