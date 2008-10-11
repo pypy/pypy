@@ -238,8 +238,20 @@ class BugsTestCase(unittest.TestCase):
         self.assertEqual(len(new_head[0]), len(head[0]))
         self.assertEqual(len(new_head[-1]), len(head[-1]))
 
+        # Marshalling objects deeper than MAX_MARSHAL_STACK_DEPTH
+        # should not crash the interpreter, but can raise ValueError
         last.append([0])
-        self.assertRaises(ValueError, marshal.dumps, head)
+        try:
+            marshal.dumps(head)
+        except ValueError:
+            pass
+
+    def test_cyclic_objects(self):
+        # Marshalling cyclic objects should trigger an infinite recursion,
+        # eventually resulting in a ValueError (or possibly RuntimeError).
+        cycle = []
+        cycle.append(cycle)
+        self.assertRaises((ValueError, RuntimeError), marshal.dumps, cycle)
 
 def test_main():
     test_support.run_unittest(IntTestCase,
