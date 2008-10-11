@@ -3,8 +3,6 @@
 Support for POSIX locales.
 """
 
-raise ImportError("_locale.py is still incomplete")
-
 from ctypes import (Structure, POINTER, create_string_buffer,
     c_ubyte, c_int, c_char_p, c_wchar_p)
 from ctypes_support import standard_c_lib as libc
@@ -44,17 +42,14 @@ for key in _CONSTANTS:
 del LocaleConfigure
 del config
 
-try:
-    class LanginfoConfigure:
-        _compilation_info_ = ExternalCompilationInfo(includes=['langinfo.h'])
-        nl_item = SimpleType('nl_item')
-    config = configure(LanginfoConfigure)
-    nl_item = config['nl_item']
-    del LanginfoConfigure
-    del config
-    HAS_LANGINFO = True
-except:
-    HAS_LANGINFO = False
+class LanginfoConfigure:
+    _compilation_info_ = ExternalCompilationInfo(includes=['langinfo.h'])
+    nl_item = SimpleType('nl_item')
+config = configure(LanginfoConfigure)
+nl_item = config['nl_item']
+del LanginfoConfigure
+del config
+HAS_LANGINFO = True
 
 # Ubuntu Gusty i386 structure
 class lconv(Structure):
