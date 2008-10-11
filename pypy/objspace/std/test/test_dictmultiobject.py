@@ -14,20 +14,6 @@ class AppTest_DictMultiObject(test_dictobject.AppTest_DictObject):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withmultidict": True})
 
-    def test_len_iter(self):
-        d = {1: 2, 3: 4}
-        i = iter(d)
-        assert len(i) == 2
-        x = i.next()
-        assert len(i) == 1
-        y = i.next()
-        assert len(i) == 0
-        l = [x, y]
-        l.sort()
-        assert l == [1, 3]
-        raises(StopIteration, i.next)
-        raises(StopIteration, i.next)
-
     def test_emptydict_unhashable(self):
         raises(TypeError, "{}[['x']]")
 
