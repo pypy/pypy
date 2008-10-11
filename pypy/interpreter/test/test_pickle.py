@@ -320,7 +320,7 @@ class AppTestInterpObjectPickling:
         liter.next()
         result.next()
         assert type(liter) is type(result)
-        assert len(liter) == 6
+        raises(TypeError, len, liter)
         assert list(liter) == list(result)
 
     def test_pickle_reversesequenceiter(self):
@@ -332,7 +332,7 @@ class AppTestInterpObjectPickling:
         liter.next()
         result.next()
         assert type(liter) is type(result)
-        assert len(liter) == 6
+        raises(TypeError, len, liter)
         assert list(liter) == list(result)
 
     def test_pickle_dictiter(self):
@@ -342,7 +342,7 @@ class AppTestInterpObjectPickling:
         diter.next()
         pckl   = pickle.dumps(diter)
         result = pickle.loads(pckl)
-        assert len(diter) == 2
+        raises(TypeError, len, diter)
         assert list(diter) == list(result)
     
     def test_pickle_enum(self):
