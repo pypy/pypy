@@ -857,14 +857,20 @@ def unicode_expandtabs__Unicode_ANY(space, w_self, w_tabsize):
     parts = _split_with(self, u'\t')
     result = [parts[0]]
     prevsize = 0
+    totalsize = 0
     for ch in parts[0]:
         prevsize += 1
         if ch == u"\n" or ch ==  u"\r":
             prevsize = 0
+            
     for i in range(1, len(parts)):
         pad = tabsize - prevsize % tabsize
-        result.append(u' ' * pad)
         nextpart = parts[i]
+        try:
+            totalsize = ovfcheck(totalsize + pad + len(nextpart))
+            result.append(u' ' * pad)
+        except (OverflowError, MemoryError):
+            raise OperationError(space.w_OverflowError, space.wrap('new string is too long'))
         result.append(nextpart)
         prevsize = 0
         for ch in nextpart:

@@ -399,6 +399,12 @@ class AppTestUnicodeString:
         assert u'xy'.expandtabs() =='xy'
         assert u''.expandtabs() ==''
 
+    def test_expandtabs_overflows_gracefully(self):
+        import sys
+        if sys.maxint > (1 << 32):
+            skip("Wrong platform")
+        raises(OverflowError, u't\tt\t'.expandtabs, sys.maxint)
+        
     def test_translate(self):
         assert u'bbbc' == u'abababc'.translate({ord('a'):None})
         assert u'iiic' == u'abababc'.translate({ord('a'):None, ord('b'):ord('i')})
