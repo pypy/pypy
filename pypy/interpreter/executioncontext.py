@@ -71,7 +71,8 @@ class ExecutionContext:
         def leave(self, ec):
             self.framestack = ec.framestack
             self.w_tracefunc = ec.w_tracefunc
-            self.setllprofile(ec.profilefunc, ec.w_profilefuncarg)
+            self.profilefunc = ec.profilefunc
+            self.w_profilefuncarg = ec.w_profilefuncarg 
             self.is_tracing = ec.is_tracing
 
         # the following interface is for pickling and unpickling
