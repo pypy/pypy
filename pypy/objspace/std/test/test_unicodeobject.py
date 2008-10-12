@@ -674,3 +674,31 @@ class AppTestUnicodeString:
         buf = buffer('character buffers are decoded to unicode')
         u = unicode(buf, 'utf-8', 'strict')
         assert u == u'character buffers are decoded to unicode'
+
+    def test_formatting_unicode__str__(self):
+        skip('fixme!')
+        class A:
+            def __str__(self):
+                return u'\u1234'
+
+        s = '%s' % A()
+        assert type(s) is unicode
+        assert s == u'\u1234'
+
+    def test_formatting_unicode__str__2(self):
+        skip('XXX: do we really want to have such behaviour? CPython has not tests for that')
+        class A:
+            def __str__(self):
+                return u'baz'
+
+        class B:
+            def __str__(self):
+                return 'foo'
+
+            def __unicode__(self):
+                return u'bar'
+    
+        a = A()
+        b = B()
+        s = '%s %s' % (b, a)
+        assert s == u'foo baz'
