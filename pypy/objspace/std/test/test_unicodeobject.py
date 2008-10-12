@@ -247,6 +247,13 @@ class AppTestUnicodeString:
         assert u'123123'.replace('123', u'') == u''
         assert u'123x123'.replace(u'123', u'') == u'x'
 
+    def test_replace_overflow(self):
+        import sys
+        if sys.maxint > 2**31-1:
+            skip("Wrong platform")
+        s = u"a" * (2**16)
+        raises(OverflowError, s.replace, u"", s)
+
     def test_strip(self):
         s = u" a b "
         assert s.strip() == u"a b"

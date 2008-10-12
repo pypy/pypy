@@ -799,6 +799,14 @@ def unicode_replace__Unicode_Unicode_Unicode_ANY(space, w_self, w_old,
         self = w_self._value
         maxsplit = space.int_w(w_maxsplit)
         parts = _split_into_chars(self, maxsplit)
+
+    try:
+        ovfcheck(len(parts) * len(w_new._value) + len(w_self._value))
+    except OverflowError:
+        raise OperationError(
+            space.w_OverflowError, 
+            space.wrap("replace string is too long"))
+
     return W_UnicodeObject(w_new._value.join(parts))
     
 
