@@ -222,7 +222,7 @@ def make_decoder_wrapper(name):
         result, consumed = func(string, len(string), errors,
                                 final, state.decode_error_handler)
         return space.newtuple([space.wrap(result), space.wrap(consumed)])
-    wrap_decoder.unwrap_spec = [ObjSpace, str, str, W_Root]
+    wrap_decoder.unwrap_spec = [ObjSpace, 'bufferstr', str, W_Root]
     globals()[name] = wrap_decoder
 
 for encoders in [

@@ -663,3 +663,8 @@ class AppTestUnicodeString:
     def test_encode_raw_unicode_escape(self):
         u = unicode('\\', 'raw_unicode_escape')
         assert u == u'\\'
+
+    def test_decode_from_buffer(self):
+        buf = buffer('character buffers are decoded to unicode')
+        u = unicode(buf, 'utf-8', 'strict')
+        assert u == u'character buffers are decoded to unicode'
