@@ -892,6 +892,10 @@ def PyUnicode_DecodeRawUnicodeEscape(s, size, errors):
                 break
             p += unichr(ord(s[pos]))
             pos += 1
+
+        # we have a backlash at the end of the string, stop here
+        if pos >= size:
+            break
     
         if (((pos - bs) & 1) == 0 or
             pos >= size or

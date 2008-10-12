@@ -659,3 +659,7 @@ class AppTestUnicodeString:
     def test_no_len_on_str_iter(self):
         iterable = u"hello"
         raises(TypeError, len, iter(iterable))
+
+    def test_encode_raw_unicode_escape(self):
+        u = unicode('\\', 'raw_unicode_escape')
+        assert u == u'\\'
