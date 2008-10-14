@@ -49,6 +49,10 @@ namespace pypy.test
                     object tmp = (object)item;
                     res += ToPython((string)tmp) + ",";
                 }
+                else if (item.GetType() == typeof(char)) {
+                    object tmp = (object)item;
+                    res += pypy.test.Result.ToPython((char)tmp) + ",";
+                } 
                 else
                     res += ToPython(item) + ",";
                 
@@ -448,6 +452,10 @@ namespace pypy.runtime
                     object tmp = (object)item;
                     res += pypy.test.Result.ToPython((string)tmp) + ",";
                 }
+                else if (item.GetType() == typeof(char)) {
+                    object tmp = (object)item;
+                    res += pypy.test.Result.ToPython((char)tmp) + ",";
+                }                  
                 else
                     res += pypy.test.Result.ToPython(item) + ",";
             }

@@ -417,6 +417,8 @@ public class PyPy implements Constants {
             sb.append("]");
             return sb.toString();
         }
+        if (o instanceof Character)
+            return escaped_char(((Character)o).charValue());
         if (o instanceof String) {
             return escaped_string((String)o);
         }

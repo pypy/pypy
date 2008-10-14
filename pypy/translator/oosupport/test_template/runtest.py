@@ -73,3 +73,10 @@ class BaseTestRunTest:
                 return None
         assert self.interpret(fn, [False]) is None
         
+    def test_list_of_chars(self):
+        def fn():
+            return ['a', 'b', 'c']
+        res = self.interpret(fn, [])
+        res = self.ll_to_list(res)
+        assert res == ['a', 'b', 'c']
+    
