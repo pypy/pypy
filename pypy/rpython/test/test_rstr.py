@@ -396,22 +396,25 @@ class AbstractTestRstr(BaseRtypingTest):
 
     def test_str_slice(self):
         const = self.const
-        def fn():
-            s = const('hello')
+        def fn(n):
+            s = [const('hello'), const('world')][n]   # non-constant
             s1 = s[:3]
             s2 = s[3:]
             s3 = s[3:10]
             return s1+s2 == s and s2+s1 == const('lohel') and s1+s3 == s
-        res = self.interpret(fn, ())
+        res = self.interpret(fn, [0])
         assert res
 
     def test_str_slice_minusone(self):
         const = self.const
-        def fn():
+        def fn(n):
             s = const('hello')
             z = const('h')
+            lst = [s, z]     # uncontantify s and z
+            s = lst[n]
+            z = lst[n+1]
             return s[:-1]+z[:-1]
-        res = self.interpret(fn, ())
+        res = self.interpret(fn, [0])
         assert self.ll_to_string(res) == const('hell')
 
     def test_strformat(self):
