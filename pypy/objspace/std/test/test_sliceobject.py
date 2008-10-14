@@ -1,3 +1,4 @@
+from pypy.objspace.std.sliceobject import normalize_simple_slice
 
 
 class TestW_SliceObject:
@@ -19,6 +20,27 @@ class TestW_SliceObject:
         w_None = space.w_None
         w_slice = space.newslice(w_None, w_None, w(0))
         self.space.raises_w(space.w_ValueError, w_slice.indices3, space, 10)
+
+    def test_normalize_simple_slice(self):
+        space = self.space
+        w = space.wrap
+
+        def getslice(length, start, stop):
+            # returns range(length)[start:stop] but without special
+            # support for negative start or stop
+            return [i for i in range(length) if start <= i < stop]
+
+        assert getslice(10, 2, 5) == [2, 3, 4]
+
+        for length in range(5):
+            for start in range(-2*length-2, 2*length+3):
+                for stop in range(-2*length-2, 2*length+3):
+                    mystart, mystop = normalize_simple_slice(space, length,
+                                                             w(start), w(stop))
+                    assert 0 <= mystart <= length
+                    assert mystart <= mystop
+                    assert (getslice(length, start, stop) ==
+                            getslice(length, mystart, mystop))
 
 
 class AppTest_SliceObject:
