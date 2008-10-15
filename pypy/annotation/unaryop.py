@@ -182,6 +182,7 @@ class __extend__(SomeObject):
 
     def op_contains(obj, s_element):
         return s_Bool
+    op_contains.can_only_throw = []
 
     def hint(self, *args_s):
         return self
@@ -331,6 +332,7 @@ class __extend__(SomeList):
     def op_contains(lst, s_element):
         lst.listdef.generalize(s_element)
         return s_Bool
+    op_contains.can_only_throw = []
 
     def hint(lst, *args_s):
         hints = args_s[-1].const
@@ -431,9 +433,15 @@ class __extend__(SomeDict):
     def method_clear(dct):
         pass
 
+    def _can_only_throw(dic, *ignore):
+        if dic1.dictdef.dictkey.custom_eq_hash:
+            return None    # r_dict: can throw anything
+        return []          # else: no possible exception
+
     def op_contains(dct, s_element):
         dct.dictdef.generalize_key(s_element)
         return s_Bool
+    op_contains.can_only_throw = _can_only_throw
 
 
 class __extend__(SomeString,

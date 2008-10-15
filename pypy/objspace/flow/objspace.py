@@ -493,7 +493,8 @@ implicit_exceptions = {
     # the annotator tests
     'getitem': [IndexError, KeyError, Exception],
     'setitem': [IndexError, KeyError, Exception],
-    'delitem': [IndexError, KeyError, Exception],    
+    'delitem': [IndexError, KeyError, Exception],
+    'contains': [Exception],    # from an r_dict
     }
 
 def _add_exceptions(names, exc):

@@ -331,6 +331,7 @@ class __extend__(pairtype(DictRepr, rmodel.Repr)):
 
     def rtype_contains((r_dict, r_key), hop):
         v_dict, v_key = hop.inputargs(r_dict, r_dict.key_repr)
+        hop.exception_is_here()
         return hop.gendirectcall(ll_contains, v_dict, v_key)
         
 class __extend__(pairtype(DictRepr, DictRepr)):

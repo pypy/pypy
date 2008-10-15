@@ -593,7 +593,9 @@ class RPythonAnnotator(object):
                 can_only_throw = annmodel.read_can_only_throw(binop, arg1, arg2)
             elif op.opname in annmodel.UNARY_OPERATIONS:
                 arg1 = self.binding(op.args[0])
-                unop = getattr(arg1, op.opname, None)
+                opname = op.opname
+                if opname == 'contains': opname = 'op_contains'
+                unop = getattr(arg1, opname, None)
                 can_only_throw = annmodel.read_can_only_throw(unop, arg1)
             else:
                 can_only_throw = None

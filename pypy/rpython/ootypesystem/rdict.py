@@ -227,7 +227,7 @@ class __extend__(pairtype(DictRepr, rmodel.Repr)):
 
     def rtype_contains((r_dict, r_key), hop):
         vlist = hop.inputargs(r_dict, r_dict.key_repr)
-        hop.exception_cannot_occur()
+        hop.exception_is_here()
         return r_dict.send_message(hop, 'll_contains', v_args=vlist)
 
 def _get_call_vars(hop, r_func, arg, params_annotation):
