@@ -37,8 +37,7 @@ class TestW_SliceObject:
                 for stop in range(-2*length-2, 2*length+3):
                     mystart, mystop = normalize_simple_slice(space, length,
                                                              w(start), w(stop))
-                    assert 0 <= mystart <= length
-                    assert mystart <= mystop
+                    assert 0 <= mystart <= mystop <= length
                     assert (getslice(length, start, stop) ==
                             getslice(length, mystart, mystop))
 

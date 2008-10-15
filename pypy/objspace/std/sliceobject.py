@@ -82,18 +82,18 @@ registerimplementation(W_SliceObject)
 def normalize_simple_slice(space, length, w_start, w_stop):
     """Helper for the {get,set,del}slice multimethod implementations."""
     # this returns a pair (start, stop) which is usable for slicing
-    # a sequence of the given length in an RPython-friendly way, i.e.
-    # guaranteeing that:
-    #   * 0 <= start <= length
-    #   * start <= stop
+    # a sequence of the given length in the most friendly way, i.e.
+    # guaranteeing that 0 <= start <= stop <= length.
     start = space.int_w(w_start)
     stop = space.int_w(w_stop)
-    if start > length:
-        start = length
     if start < 0:
         start = 0
     if stop < start:
         stop = start
+    if stop > length:
+        stop = length
+        if start > length:
+            start = length
     return start, stop
 
 
