@@ -722,7 +722,11 @@ def unicode_replace__RopeUnicode_RopeUnicode_RopeUnicode_ANY(
     oldlength = old.length()
     if not oldlength:
         parts = _split_into_chars(self, maxsplit)
-        return W_RopeUnicodeObject(rope.join(w_new._node, parts))
+        try:
+            return W_RopeUnicodeObject(rope.join(w_new._node, parts))
+        except OverflowError:
+            raise OperationError(space.w_OverflowError,
+                                 space.wrap("string too long"))
     substrings = rope.split(self, old, maxsplit)
     if not substrings:
         return w_self.create_if_subclassed()
@@ -790,7 +794,11 @@ def unicode_expandtabs__RopeUnicode_ANY(space, w_self, w_tabsize):
                                       _tabindent(last, tabsize)))
         last = splitted[i]
         expanded.append(last)
-    return W_RopeUnicodeObject(rope.rebalance(expanded))
+    try:
+        return W_RopeUnicodeObject(rope.rebalance(expanded))
+    except OverflowError:
+        raise OperationError(space.w_OverflowError,
+                             space.wrap("string too long"))
 
 def unicode_translate__RopeUnicode_ANY(space, w_self, w_table):
     self = w_self._node

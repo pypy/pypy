@@ -665,7 +665,7 @@ def str_expandtabs__String_ANY(space, w_self, w_tabsize):
     
     u_expanded = ""
     if u_self:
-        split = u_self.split("\t") #XXX use pypy split
+        split = u_self.split("\t")
         u_expanded =oldtoken = split.pop(0)
 
         for token in split:  
