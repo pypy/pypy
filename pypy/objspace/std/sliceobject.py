@@ -86,6 +86,7 @@ def normalize_simple_slice(space, length, w_start, w_stop):
     # guaranteeing that 0 <= start <= stop <= length.
     start = space.int_w(w_start)
     stop = space.int_w(w_stop)
+    assert length >= 0
     if start < 0:
         start = 0
     if stop < start:
