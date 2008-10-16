@@ -59,6 +59,7 @@ class dbm(object):
         value = self.get(key)
         if value is None:
             raise KeyError
+        return value
 
     def _set(self, key, value):
         if not self._aobj: 
