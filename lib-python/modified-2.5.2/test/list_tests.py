@@ -513,6 +513,7 @@ class CommonTest(seq_tests.CommonTest):
         a[::2] = tuple(range(5))
         self.assertEqual(a, self.type2test([0, 1, 1, 3, 2, 5, 3, 7, 4, 9]))
 
+    @impl_detail
     def test_constructor_exception_handling(self):
         # Bug #1242657
         class F(object):
