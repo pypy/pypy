@@ -159,8 +159,8 @@ def lsprof_call(space, w_self, frame, event, w_arg):
     elif event == 'return':
         w_self._enter_return(frame.getcode())
     else:
-        raise NotImplementedError("Call to %s" % event)
-    # we don't support builtin calls here...
+        # we don't support builtin calls here, let's ignore them
+        pass
 
 class W_Profiler(Wrappable):
     def __init__(self, space, w_callable, time_unit, subcalls, builtins):
