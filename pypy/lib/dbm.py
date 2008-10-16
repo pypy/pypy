@@ -1,6 +1,6 @@
 from ctypes import *
 import ctypes.util
-import os
+import os, sys
 
 _singleton = 'one'
 
@@ -146,9 +146,13 @@ _normal_funcs = {
     'delete': 'dbm_delete',
 }
 
-try:
+if sys.platform != 'darwin':
     libpath = ctypes.util.find_library('db')
-    if not libpath: raise
+    if not libpath:
+        # XXX this is hopeless...
+        libpath = ctypes.util.find_library('db-4.5')
+        if not libpath:
+            raise Exception("Cannot find dbm library")
     lib = CDLL(libpath) # Linux
     _platform = 'bdb'
     lib.__db_ndbm_open.argtypes = [c_char_p, c_int, c_int]
@@ -158,7 +162,7 @@ try:
     lib.__db_ndbm_fetch.restype = datum
     lib.__db_ndbm_store.restype = c_int
     funcs = _bdb_funcs
-except:
+else:
     lib = CDLL("/usr/lib/libdbm.dylib") # OS X
     _platform = 'osx'
     lib.dbm_open.argtypes = [c_char_p, c_int, c_int]
