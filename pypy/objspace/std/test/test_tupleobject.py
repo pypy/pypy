@@ -83,6 +83,9 @@ class TestW_TupleObject:
         # commute
         w_res = self.space.mul(w(n), w_tup)
         assert self.space.eq_w(w_tup3, w_res)
+        # check tuple*1 is identity (optimisation tested by CPython tests)
+        w_res = self.space.mul(w_tup, w(1))
+        assert w_res is w_tup
 
     def test_getslice(self):
         w = self.space.wrap
@@ -277,6 +280,8 @@ class AppTestW_TupleObject:
         assert () * 10 == ()
         assert (5,) * 3 == (5,5,5)
         assert (5,2) * 2 == (5,2,5,2)
+        t = (1,2,3)
+        assert (t * 1) is t
 
     def test_getslice(self):
         assert (5,2,3)[1:2] == (2,)

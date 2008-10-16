@@ -79,7 +79,9 @@ def mul_tuple_times(space, w_tuple, w_times):
     except OperationError, e:
         if e.match(space, space.w_TypeError):
             raise FailedToImplement
-        raise    
+        raise
+    if times == 1:
+        return w_tuple
     items = w_tuple.wrappeditems
     return W_TupleObject(items * times)    
 
