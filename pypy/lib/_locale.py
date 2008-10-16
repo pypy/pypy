@@ -36,20 +36,32 @@ class LocaleConfigure:
 for key in _CONSTANTS:
     setattr(LocaleConfigure, key, ConstantInteger(key))
 
-config = configure(LocaleConfigure)
+locale_config = configure(LocaleConfigure)
+
 for key in _CONSTANTS:
-    globals()[key] = config[key]
+    globals()[key] = locale_config[key]
 del LocaleConfigure
-del config
+del locale_config
+
+_LANGINFO_CONSTANTS = (
+    'RADIXCHAR',
+    'THOUSEP',
+)
 
 class LanginfoConfigure:
     _compilation_info_ = ExternalCompilationInfo(includes=['langinfo.h'])
     nl_item = SimpleType('nl_item')
+for key in _LANGINFO_CONSTANTS:
+    setattr(LanginfoConfigure, key, ConstantInteger(key))
+
 config = configure(LanginfoConfigure)
 nl_item = config['nl_item']
+for key in _LANGINFO_CONSTANTS:
+    globals()[key] = config[key]
 del LanginfoConfigure
 del config
 HAS_LANGINFO = True
+
 
 # Ubuntu Gusty i386 structure
 class lconv(Structure):
@@ -415,7 +427,7 @@ __all__ = (
     'setlocale', 'localeconv', 'strxfrm', 'strcoll',
     'gettext', 'dgettext', 'dcgettext', 'textdomain',
     'bindtextdomain', 'CHAR_MAX',
-) + _CONSTANTS
+) + _CONSTANTS + _LANGINFO_CONSTANTS
 if _bind_textdomain_codeset:
     __all__ += ('bind_textdomain_codeset',)
 if HAS_LANGINFO:
