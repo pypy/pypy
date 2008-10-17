@@ -126,7 +126,7 @@ testmap = [
     RegrTest('test_array.py', core=True, usemodules='struct'),
     RegrTest('test_asynchat.py', usemodules='thread'),
     RegrTest('test_atexit.py', core=True),
-    RegrTest('test_audioop.py'),
+    RegrTest('test_audioop.py', skip=True),
     RegrTest('test_augassign.py', core=True),
     RegrTest('test_base64.py'),
     RegrTest('test_bastion.py'),
