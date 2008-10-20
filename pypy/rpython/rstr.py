@@ -387,6 +387,7 @@ class __extend__(pairtype(AbstractStringRepr, AbstractStringRepr)):
         v_end = hop.gendirectcall(r_str1.ll.ll_strlen, v_str1)
         vres = hop.gendirectcall(r_str1.ll.ll_find, v_str1, v_str2,
                                  hop.inputconst(Signed, 0), v_end)
+        hop.exception_cannot_occur()
         return hop.genop('int_ne', [vres, hop.inputconst(Signed, -1)],
                          resulttype=Bool)
 
@@ -397,6 +398,7 @@ class __extend__(pairtype(AbstractStringRepr, AbstractCharRepr),
         string_repr = r_str.repr
         char_repr = r_chr.char_repr
         v_str, v_chr = hop.inputargs(string_repr, char_repr)
+        hop.exception_cannot_occur()
         return hop.gendirectcall(r_str.ll.ll_contains, v_str, v_chr)
 
 class __extend__(pairtype(AbstractStringRepr, AbstractTupleRepr)):

@@ -212,6 +212,7 @@ class __extend__(pairtype(AbstractBaseListRepr, Repr)):
 
     def rtype_contains((r_lst, _), hop):
         v_lst, v_any = hop.inputargs(r_lst, r_lst.item_repr)
+        hop.exception_cannot_occur()
         return hop.gendirectcall(ll_listcontains, v_lst, v_any, r_lst.get_eqfunc())
 
 class __extend__(pairtype(AbstractBaseListRepr, IntegerRepr)):
