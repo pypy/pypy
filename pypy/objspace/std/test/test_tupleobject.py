@@ -283,6 +283,12 @@ class AppTestW_TupleObject:
         t = (1,2,3)
         assert (t * 1) is t
 
+    def test_mul_subtype(self):
+        class T(tuple): pass
+        t = T([1,2,3])
+        assert (t * 1) is not t
+        assert (t * 1) == t
+
     def test_getslice(self):
         assert (5,2,3)[1:2] == (2,)
 
