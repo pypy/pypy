@@ -124,6 +124,7 @@ def llexternal(name, args, result, _callable=None,
         """ % locals())
         miniglobals = {'aroundstate': aroundstate,
                        'funcptr':     funcptr,
+                       '__name__':    __name__, # for module name propagation
                        }
         exec source.compile() in miniglobals
         call_external_function = miniglobals['call_external_function']

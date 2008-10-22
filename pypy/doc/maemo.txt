@@ -1,15 +1,139 @@
 How to run PyPy on top of maemo platform
 ========================================
 
+XXX this document needs cleanup, contains duplicate information, will need cleanup 
+    after experiments yielded the best way to do pypy-c translations. 
+
 This is a short introduction how to install correct environment and
 cross-compile pypy to maemo platform emulator under qemu. Note that this
 is work-in-progress.
 
-Installing `scratchbox`_
-------------------------
+
+Variant 0: cross-compiling pypy-c 
+------------------------------------------
+
+The basic idea is to install a scratchbox environment that emulates
+a real ARM-based N810 device.  One can then login to this virtual 
+environment and execute ARM binaries.  Scratchbox also provides 
+compiler toolchains that allow to drive a compiler from the outside. 
+This is what we want for building pypy-c because most work happens 
+independently from the platform and we want this work to execute natively. 
+For all platform relevant details we need to consult the target environment 
+and use the cross-compiler.  So now let's move on to install such an environment
+and compiler.  
+
+Note: the 
+
+    http://repository.maemo.org/stable/diablo/maemo-scratchbox-install_4.1.1.sh
+
+script is provided by the maemo team and would automate installation. 
+Unfortuantely it does not provide a working cross-compiler (XXX 
+mail to maintainers and see if there is an easy fix). 
+
+creating a /scratchbox environment 
++++++++++++++++++++++++++++++++++++++++++
+
+The basic idea is to follow 
+
+    http://www.scratchbox.org/documentation/user/scratchbox-1.0/html/tutorial.htm#
+
+with tarballs that work for the N810/Maemo target. 
+
+make yourself an empty ``work`` directory and get a 
+working set of tarballs, e.g. like this::
+
+    export GET='wget -c'
+    export URL='http://www.scratchbox.org/download/files/sbox-releases/apophis/tarball'
+    $GET $URL/scratchbox-core-1.0.11-i386.tar.gz
+    $GET $URL/scratchbox-libs-1.0.11-i386.tar.gz
+    $GET $URL/scratchbox-toolchain-cs2007q3-glibc2.5-arm7-1.0.8-6-i386.tar.gz
+    $GET $URL/scratchbox-devkit-cputransp-1.0.7-i386.tar.gz
+    $GET $URL/scratchbox-devkit-perl-1.0.4-i386.tar.gz # for autoconf
+    $GET $URL/scratchbox-devkit-svn-1.0-i386.tar.gz    # for being able to checkout
+    #$GET $URL/scratchbox-devkit-debian-1.0.10-i386.tar.gz # to eventually get debian working
+
+unpack all those tarballs, e.g. like this::
+
+    for x in *.tar.gz ; do sudo tar zxvf $x; done 
+
+now you should have a ``work/scratchbox`` directory containing your basic uninitialized 
+scratchbox environment. 
+
+make a symlink to have scratchbox at the canonical location::
+
+    ln -s /path/to/work/sandbox /sandbox 
+
+initilaize the scratchbox install (you should be fine with using default answers to any questions)::
+
+    /scratchbox/run_me_first.sh 
+
+NOTE, that this will implicitely start some services that generally are controlled via::
+
+    /scratchbox/sbin/sbox_ctrl stop|start
+
+So if you later want to play with multiple different scratchbox installations you should stop the services before moving them away.  You can also try to link this script into your ``/etc/init.d/`` so that it automatically runs after a reboot. 
+
+Now create a user::
+
+    /scratchbox/sbin/sbox_adduser USER yes   
+
+the 'yes' means that the USER gets added to the sbox unix group, neccessary to login into the virtual environment. 
+
+
+Creating an target emulating N810/Maemo environment
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Now we instruct scratchbox to define a target suitable for emulating the
+N810/Maemo device:
+
+Login to the virtual environment and invoke::
+
+    /scratchbox/login 
+    sb-menu 
+
+this brings up an interactive menu, you need to *setup* a new target,
+you may name it "ARMEL" and then you need to select::
+
+    compiler:  cs2007q3-glibc2.5-arm7
+    devkits:   cputransp, perl, svn 
+    cputransp: (select 'qemu-arm-0.8.2-sb2' when it asks later on) 
+   
+In theory, you should also be able to execute the following cmdline::
+
+    sb-conf setup armel --compiler=cs2007q3-glibc2.5-arm7 \
+                        --devkit=cputransp:perl:svn \
+                        --cputransp=qemu-arm-0.8.2-sb2
+
+but this did not provide a complete environment for me (XXX try to fix). 
+
+Congrats!  If all worked well you should now be able to cross-compile C programs via:
+
+    /scratchbox/compilers/cs2007q3-glibc2.5-arm7/bin/arm-none-linux-gnueabi-gcc
+
+and copy the binary result to the N810/Maemo device. You can also login to
+the virtual environment and execute the ARM binary there. 
+
+XXX [fijal] remember to update that it uses inside gcc these days
+
+PyPy's translation tool chain tries to use this cross-compiler when 
+you specify ``--platform=maemo`` to the translate.py script. 
+
+So you can now get yourself a copy of pypy (in the hosting, not the
+virtual environment of course!) and do: 
+
+    python translate.py --batch --platform=maemo --opt=mem \
+           targetpypystandalone.py --no-allworkingmodules 
+
+copy the result to the device and run it. 
+
+ 
+variant 1: Installing `scratchbox`_
+-------------------------------------------
 
 I had no success with installing scratchbox 2.0, but theoretically it
-should work. Follow these `installation instructions`_,
+should work. 
+
+Follow these `installation instructions`_ for 1.0,
 make sure that you install cpu-transparency modules, otherwise emulation will
 not be available. Preferred toolchain is cs2005q3.2-glibc2.5-arm.
 
@@ -18,10 +142,21 @@ method (qemu-arm), devkits (debian-lenny, cpu-transparency) and install files
 (and not a rootstrap).
 
 I had to manually edit /scratchbox/devkits/debian-etch/etc/environment 
-to add ARCH=armel, otherwise things did not work
+to add ARCH=armel, otherwise apt-get did not work.  I also edited
+/etc/apt/sources.list to contain::
+    
+    deb     ftp://ftp.fi.debian.org/debian/ lenny  main contrib non-free
+    deb-src ftp://ftp.fi.debian.org/debian/ lenny  main contrib non-free
 
-Translating pypy
-----------------
+Then run ``apt-get update``, get an error, ignore it, and run
+``fakeroot apt-get install python-dev``.  Doesn't work out of
+the box for me; I have actually to install a few pieces at a
+time, starting from libc6, sometimes with and sometimes
+without the ``fakeroot``.  It's quite a mess but in the end I
+get a ``python2.5``.
+
+cross-compiling pypy 
++++++++++++++++++++++++++++
 
 Run::
   ./translate.py --platform=maemo --opt=mem targetpypystandalone --no-allworkingmodules
@@ -31,5 +166,106 @@ you need to copy pypy-c, together with libraries to a place accessible
 from inside scratchbox. Default is /scratchbox/users/<user>/home/<user> where
 <user> is your user id.
 
+
+variant 2: using official maemo-installs 
+----------------------------------------------------------------
+
+the following taken mostly from 
+
+    http://yankandpaste.blogspot.com/2008/08/maemo-diablo-sdk-install-on-ubuntu-804.html
+
+1. On ubuntu linux edit /etc/sysctl.conf to contain::
+
+    XXX [fijal] since it might freeze your machine, I suggest to add a
+        non-permanent way of doing it (echo 0 > /proc/sys/vm/vdso_enabled)
+
+    XXX [fijal] on my machine vdso_enbled = 0 freezed machine and made in
+        unbootable without editing file first. It seems not to be needed
+        though.
+
+    vm.vdso_enabled = 0
+    vm.mmap_min_addr = 4096
+
+   and activate via "sysctl -p".  (on some linuxes this might crash your computer) 
+   This step is neccessary for getting a working scratchbox installation. 
+
+2. Grab http://repository.maemo.org/stable/diablo/maemo-scratchbox-install_4.1.1.sh
+   and run it as root with "sh maemo-scratchbox-install_4.1.1.sh -u USERNAME"
+   so that you automatically get an account created within the virtual scratchbox 
+   environment.  After this step you should be able to perform ``/scratchbox/login``
+   and get a funny prompt. 
+
+3. Grab http://repository.maemo.org/stable/diablo/maemo-sdk-install_4.1.1.sh
+   and run it.  For me only selecting "[x] runtime environment" worked whereas 
+   installing the dev packages failed but that might have been a (reproducible 
+   though) local download problem. After this step you should be able 
+   to perform ``/scratchbox/login`` and land in a DIABLO_ARM target environment, 
+   the code name for current Maemo. You should be able to execute "python2.5"
+   within the scratchbox environment. 
+
+4. It might not be neccessary in your installation but in order to get 
+   the scratchbox and python to work without strange warnings i found 
+   a note that it helps to setup the newest qemu-arm compiler. 
+   For this you need to svn-checkout 
+
+    http://qemu-arm-eabi.svn.sourceforge.net/svnroot/qemu-arm-eabi/trunk
+
+   and follow the README. (a number of steps). 
+
+Compiling within scratchbox
+++++++++++++++++++++++++++++++++
+
+After switching to the virtual environment via ``/scratchbox/login`` 
+and commands like this::
+
+    svn co http://codespeak.net/svn/pypy/dist pypy-dist 
+    cd pypy-dist/pypy/translator/goal
+    python translate.py --batch --opt=mem targetpypystandalone.py --no-allworkingmodules
+
+one will get (after around 10 hours on a medium intel machine) a working pypy-c. 
+You can transfer this binary to a real device an compile it there. 
+
+cross-compiling (using scratchbox)
+++++++++++++++++++++++++++++++++++++++++++++
+
+XXX under investigation.  might turn out that a different installation
+method suffices.  the above is still good for getting a maemo simulation
+environment - not much missing to also get a simulated graphical environment
+from it. 
+
+
+
 .. _`installation instructions`: http://www.scratchbox.org/documentation/user/scratchbox-1.0/html/installdoc.html
 .. _`scratchbox`: http://scratchbox.org
+
+debian
+++++++
+
+in theory we don't need to install debian under scratchbox. in practice though,
+if we want to run pypy-c with allworkingmodules we need to a way to install
+correct libraries and include files. For example we should use etch and not
+lenny, since libffi is in correct version there (4 vs 5). On the other
+hand I had no luck installing python on etch..
+
+To be able to run debian correctly you need to:
+
+1. Manually edit /scratchbox/devkits/debian-etch/etc/environment 
+   to add ARCH=arm (instead of ARCH=...),
+   otherwise apt-get did not work.
+
+2. Go inside scratchbox and make /etc/apt/sources.list to contain:
+    
+    deb     ftp://ftp.fi.debian.org/debian/ lenny  main contrib non-free
+    deb-src ftp://ftp.fi.debian.org/debian/ lenny  main contrib non-free
+
+3. Run apt-get update && fakeroot apt-get install libc6 && fakeroot apt-get install python2.5-dev
+
+5. In order to have pypy-c with all working modules you also need following
+   packages:
+
+   * libffi-dev
+
+   * zlib1g-dev
+
+   * libbz2-dev
+

@@ -30,7 +30,7 @@ class FunctionCodeGenerator(object):
         __slots__ = """graph db gcpolicy
                        exception_policy
                        more_ll_values
-                       vars
+                       vars all_cached_consts 
                        lltypes
                        functionname
                        blocknum
@@ -73,6 +73,7 @@ class FunctionCodeGenerator(object):
         #
         # NOTE: cannot use dictionaries with Constants as keys, because
         #       Constants may hash and compare equal but have different lltypes
+        self.all_cached_consts = None # will be filled after implementation_end
         mix = [self.graph.getreturnvar()]
         self.more_ll_values = []
         for block in self.graph.iterblocks():
@@ -136,6 +137,7 @@ class FunctionCodeGenerator(object):
         yield self.graph
 
     def implementation_end(self):
+        self.all_cached_consts = list(self.allconstantvalues())
         self.lltypes = None
         self.vars = None
         self.blocknum = None

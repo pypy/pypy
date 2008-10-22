@@ -895,6 +895,8 @@ class LLFrame(object):
         checkadr(toaddr)
         llmemory.raw_memcopy(fromaddr, toaddr, size)
 
+    op_raw_memmove = op_raw_memcopy # this is essentially the same here
+
     def op_raw_load(self, addr, typ, offset):
         checkadr(addr)
         value = getattr(addr, str(typ).lower())[offset]

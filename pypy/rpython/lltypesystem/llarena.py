@@ -264,6 +264,9 @@ class RoundedUpForAllocation(llmemory.AddressOffset):
 # work with fakearenaaddresses on which arbitrary arithmetic is
 # possible even on top of the llinterpreter.
 
+# arena_new_view(ptr) is a no-op when translated, returns fresh view
+# on previous arena when run on top of llinterp
+
 def arena_malloc(nbytes, zero):
     """Allocate and return a new arena, optionally zero-initialized."""
     return Arena(nbytes, zero).getaddr(0)
@@ -298,6 +301,11 @@ def round_up_for_allocation(size):
     """Round up the size in order to preserve alignment of objects
     following an object.  For arenas containing heterogenous objects."""
     return RoundedUpForAllocation(size)
+
+def arena_new_view(ptr):
+    """Return a fresh memory view on an arena
+    """
+    return Arena(ptr.arena.nbytes, False).getaddr(0)
 
 # ____________________________________________________________
 #
@@ -399,3 +407,9 @@ register_external(round_up_for_allocation, [int], int,
                   llimpl=llimpl_round_up_for_allocation,
                   llfakeimpl=round_up_for_allocation,
                   sandboxsafe=True)
+
+def llimpl_arena_new_view(addr):
+    return addr
+register_external(arena_new_view, [llmemory.Address], llmemory.Address,
+                  'll_arena.arena_new_view', llimpl=llimpl_arena_new_view,
+                  llfakeimpl=arena_new_view, sandboxsafe=True)

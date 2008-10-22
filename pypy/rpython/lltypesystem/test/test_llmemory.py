@@ -504,6 +504,18 @@ def test_raw_memcopy():
     raw_memcopy(at1, at2, sizeof(T))
     assert t2.x == 1
 
+def test_raw_memmove():
+    T = lltype.GcStruct('T', ('x', lltype.Signed))
+    t1 = lltype.malloc(T)
+    t2 = lltype.malloc(T)
+    t1.x = 1
+    t2.x = 2
+    at1 = cast_ptr_to_adr(t1)
+    at2 = cast_ptr_to_adr(t2)
+    raw_memmove(at1, at2, sizeof(T))
+    assert t2.x == 1
+    py.test.raises(RuntimeError, "t1.x")
+
 def test_raw_memcopy_nonrec():
     T = lltype.GcStruct('T', ('x', lltype.Signed))
     A = lltype.FixedSizeArray(lltype.Ptr(T), 1)

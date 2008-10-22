@@ -1,5 +1,8 @@
-
+import py
 from pypy.conftest import gettestobjspace
+
+def setup_module(mod):
+    py.test.importorskip("pygreen")   # found e.g. in py/trunk/contrib 
 
 # XXX think how to close the socket
 
@@ -18,9 +21,9 @@ class AppTestSocklayer:
             import py
         except ImportError:
             skip("pylib not importable")
-        from py.__.green.pipe.gsocket import GreenSocket
+        from pygreen.pipe.gsocke import GreenSocket
         from distributed.socklayer import socket_loop, connect
-        from py.__.green.greensock2 import oneof, allof
+        from pygreen.greensock2 import oneof, allof
 
         def one():
             socket_loop(('127.0.0.1', 21211), {'x':x}, socket=GreenSocket)

@@ -1,4 +1,6 @@
 import operator
+from pypy.lang.gameboy import cpu
+import pdb
 
 DEBUG = True
 DEBUG_PRINT_LOGS = True
@@ -86,16 +88,18 @@ CHECKED_OP_CODES += [
 
 CHECKED_OP_CODES       = [0x00]
 CHECKED_FETCH_OP_CODES = []
+BAR_WIDTH = 79
+PRINT_OPCODE=True
 
 def log(opCode, is_fetch_execute=False):
     global COUNT, op_codes, fetch_execute_op_codes
     if DEBUG_PRINT_LOGS:
-        print "="*40
+        print "=" * BAR_WIDTH
         if is_fetch_execute:
-            print COUNT[0], "  FETCH EXEC: %i | %s" % (opCode, hex(opCode))
+            print COUNT[0], "  FETCH EXEC: %i | %s  | %s" % (opCode, hex(opCode), resolve_fetch_opcode_name(opCode))
         else:
-            print COUNT[0], "  EXEC: %i | %s" % (opCode, hex(opCode))
-        print "-"*40
+            print COUNT[0], "  EXEC: %i | %s | %s" % (opCode, hex(opCode), resolve_opcode_name(opCode))
+        print "-" * BAR_WIDTH
     
     if is_fetch_execute:
         fetch_execute_op_codes[opCode ]+= 1
@@ -105,21 +109,43 @@ def log(opCode, is_fetch_execute=False):
     #if COUNT % 1000 == 0:
     #    print "."
         
-        
+def resolve_opcode_name(opcode):
+    method = cpu.OP_CODES[opcode].__name__
+    if method == "<lambda>":
+        try:
+            functions = "[ "
+            for func_closure in cpu.OP_CODES[opcode].func_closure:
+                functions += func_closure.cell_contents.im_func.__name__+ ", ";
+            return functions + "]";
+        except:
+            return cpu.OP_CODES[opcode].func_code.co_names;
+    else:
+        return method;
+	
+def resolve_fetch_opcode_name(opcode):
+    method = cpu.OP_CODES[opcode].__name__
+    if method == "<lambda>":
+        pdb.set_trace()
+    else:
+        return method;
+    
+
 def print_results():
     global COUNT, op_codes, fetch_execute_op_codes
     
-    codes = zip(map(lambda x: "%4s" % hex(x), range(len(op_codes))), op_codes)
+    print_function = (lambda x: "%4s" % hex(x))
+    codes = zip(map( print_function, range(len(op_codes))), op_codes)
     
-    fetch_exec_keys = map(lambda x: "%4s %4s" % (hex(x[0]), hex(x[1])), 
-                            zip([0x83]*len(fetch_execute_op_codes),
-                                range(len(fetch_execute_op_codes))))
-    
+    print_function = (lambda x:  "%4s %4s" % (hex(x[0]), hex(x[1])))
+    opcode_range = range(len(fetch_execute_op_codes))
+    arguments = zip([0x83]  * len(fetch_execute_op_codes), opcode_range)
+    fetch_exec_keys = map( print_function, opcode_range, arguments )
+	# Append the fetchexecuted opcodes to the list
     codes.extend(zip(fetch_exec_keys, fetch_execute_op_codes))
     
     codes = sorted(codes, key=operator.itemgetter(1))
     for code in codes:
         if code[1] != 0:
-            print "%8s : %s" % (code[0], code[1])
+            print "%8s \t %s" % (code[0], code[1])
 
     

@@ -8,49 +8,94 @@ from pypy.lang.gameboy.ram import iMemory
 from pypy.lang.gameboy.interrupt import Interrupt
 from pypy.lang.gameboy.profiling.profiling_cpu import ProfilingCPU
 
-
-
+PRINT_OPCODE_LABEL=False
 
 def entry_point(argv=None):
     typical = False
     count = 100
     if argv is not None and len(argv) >= 1:
-        typical = argv[1] == "1"
         if len(argv) >= 2:
             count = int(argv[2])
-        
-    if typical:
-        op_codes = TYPICAL_LIST
-        print "Running Typical Set"
+        if argv[1] == "0":
+            run_all(count)
+        elif argv[1] == "1":
+            run_typical(count)
+        elif argv[1] == "2":
+            run_each(count)
+        elif argv[1] == "3":
+            run_all_first_order(count)
+        elif argv[1] == "4":
+            run_all_second_order(count)
     else:
-        op_codes = FULL_LIST
-        print "Running Normal Set"
-        
-    cpu = ProfilingCPU(Interrupt(), iMemory())
+        run_all(count)
+    return 1
     
+    
+def run_typical(count):
+    print run(TYPICAL_LIST, count)
+    
+def run_all(count):
+    print run(FULL_LIST, count)
+    
+def run_each(count):
+    run_each_first_order(count)
+    run_each_second_order(count)
+    
+def run_each_first_order(count):
+    forbidden = [0xCB, 211]
+    op_codes = [0x00]*2
+    for i in range(0xFF):
+        if i not in forbidden and OP_CODES[i] is not None:
+            op_codes[0] = i
+            if PRINT_OPCODE_LABEL:
+                print i, ":", run(op_codes, count)
+            else:
+                print  run(op_codes, count)
+    
+def run_each_second_order(count):
+    op_codes = [0xCB]*2
+    for i in range(0xFF):
+        op_codes[1] = i
+        if PRINT_OPCODE_LABEL:
+            print  "0xCB :", i, ":" , run(op_codes, count)
+        else:
+            print  run(op_codes, count)
+    
+def run_all_first_order(count):
+    print run(FIRST_ORDER_LIST, count)
+    
+def run_all_second_order(count):
+    print run(SECOND_ORDER_LIST, count)
+    
+    
+def run(op_codes, count):
+    cpu = ProfilingCPU(Interrupt(), iMemory())
     
     start_time = time.time()
     for i in range(count):
         cpu.run(op_codes)
     end_time = time.time()
-    print end_time - start_time
-    return 1
-    
-    
-def create_all_op_codes():
+    return end_time - start_time
+
+
+def create_all_first_order():
     list = []
     forbidden = [0xCB, 211]
     for i in range(0xFF):
         if i not in forbidden and OP_CODES[i] is not None:
             list.append(i)
-    
-    forbidden = [] 
+    return list
+
+def create_all_second_order():
+    list = []
+    forbidden = []
     for i in range(0xFF):
         if i not in forbidden:
             list.append(0xCB)
             list.append(i)
         
     return list
+
 
 def create_typical_op_codes():
     list = []
@@ -91,7 +136,12 @@ def append_to_opcode_list(list, op_code, count):
         list.append(op_code)
     
 TYPICAL_LIST = create_typical_op_codes()
-FULL_LIST = create_all_op_codes()
+
+FIRST_ORDER_LIST = create_all_first_order()
+SECOND_ORDER_LIST = create_all_second_order()
+FULL_LIST = []
+FULL_LIST.extend(FIRST_ORDER_LIST)
+FULL_LIST.extend(SECOND_ORDER_LIST)
 
 # _____ Define and setup target ___
 

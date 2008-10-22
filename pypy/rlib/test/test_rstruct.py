@@ -1,6 +1,6 @@
 
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-from pypy.rlib.rstruct import runpack
+from pypy.rlib.rstruct.runpack import runpack
 import struct
 
 class BaseTestRStruct(BaseRtypingTest):

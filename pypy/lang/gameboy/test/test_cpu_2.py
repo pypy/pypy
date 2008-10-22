@@ -30,6 +30,8 @@ def get_cpu(new=False):
     TEST_CPU.reset()
     return TEST_CPU
 
+# -----------------------------------------------------------------------------
+
 def assert_default_registers(cpu, a=constants.RESET_A, bc=constants.RESET_BC,\
                              de=constants.RESET_DE, f=constants.RESET_F,\
                              hl=constants.RESET_HL, sp=constants.RESET_SP,\
@@ -38,19 +40,26 @@ def assert_default_registers(cpu, a=constants.RESET_A, bc=constants.RESET_BC,\
 
 def assert_registers(cpu, a=None, bc=None, de=None, f=None, hl=None, sp=None, pc=None):
     if a is not None:
-        assert cpu.a.get() == a, "Register a  is %s but should be %s" % (hex(cpu.a.get()), hex(a))
+        assert cpu.a.get() == a, \
+        "Register a  is %s but should be %s" % (hex(cpu.a.get()), hex(a))
     if bc is not None:
-        assert cpu.bc.get() == bc, "Register bc  is %s but should be %s" % (hex(cpu.bc.get()), hex(bc))
+        assert cpu.bc.get() == bc, \
+        "Register bc  is %s but should be %s" % (hex(cpu.bc.get()), hex(bc))
     if de is not None:
-        assert cpu.de.get() == de, "Register de is %s but should be %s" % (hex(cpu.de.get()),hex(de))
+        assert cpu.de.get() == de, \
+        "Register de is %s but should be %s" % (hex(cpu.de.get()),hex(de))
     if f is not None:
-        assert cpu.flag.get() == f, "Register f is %s but should be %s" % (hex(cpu.flag.get()),hex(f))
+        assert cpu.flag.get() == f, \
+        "Register f is %s but should be %s" % (hex(cpu.flag.get()),hex(f))
     if hl is not None:
-        assert cpu.hl.get() == hl, "Register hl is %s but should be %s" % (hex(cpu.hl.get()), hex(hl))
+        assert cpu.hl.get() == hl, \
+        "Register hl is %s but should be %s" % (hex(cpu.hl.get()), hex(hl))
     if sp is not None:
-        assert cpu.sp.get() == sp, "Register sp is %s but should be %s" % (hex(cpu.sp.get()), hex(sp))
+        assert cpu.sp.get() == sp, \
+        "Register sp is %s but should be %s" % (hex(cpu.sp.get()), hex(sp))
     if pc is not None:
-        assert cpu.pc.get() == pc, "Register pc is %s but should be %s" % (hex(cpu.pc.get()), hex(pc))
+        assert cpu.pc.get() == pc, \
+        "Register pc is %s but should be %s" % (hex(cpu.pc.get()), hex(pc))
         
 
 def assert_defaults(cpu, z=True, n=False, h=False, c=False, p=False, s=False):        
@@ -58,17 +67,23 @@ def assert_defaults(cpu, z=True, n=False, h=False, c=False, p=False, s=False):
 
 def assert_flags(cpu, z=None, n=None, h=None, c=None, p=None, s=None):
     if z is not None:
-        assert cpu.flag.is_zero == z, "Z-Flag is %s but should be %s" % (cpu.flag.is_zero, z)
+        assert cpu.flag.is_zero == z, \
+        "Z-Flag is %s but should be %s" % (cpu.flag.is_zero, z)
     if n is not None:
-        assert cpu.flag.is_subtraction == n, "N-Flag is %s but should be %s" % (cpu.flag.is_subtraction, n)
+        assert cpu.flag.is_subtraction == n, \
+        "N-Flag is %s but should be %s" % (cpu.flag.is_subtraction, n)
     if h is not None:
-        assert cpu.flag.is_half_carry == h,  "H-Flag is %s but should be %s" % (cpu.flag.is_half_carry, h)
+        assert cpu.flag.is_half_carry == h,  \
+        "H-Flag is %s but should be %s" % (cpu.flag.is_half_carry, h)
     if c is not None:
-        assert cpu.flag.is_carry == c,  "C-Flag is %s but should be %s" % (cpu.flag.is_carry, c)
+        assert cpu.flag.is_carry == c,  \
+        "C-Flag is %s but should be %s" % (cpu.flag.is_carry, c)
     if p is not None:
-        assert cpu.flag.p_flag == p,  "P-Flag is %s but should be %s" % (cpu.flag.p_flag, p)
+        assert cpu.flag.p_flag == p,  \
+        "P-Flag is %s but should be %s" % (cpu.flag.p_flag, p)
     if s is not None:
-        assert cpu.flag.s_flag == s,  "S-Flag is %s but should be %s" % (cpu.flag.s_flag, s)
+        assert cpu.flag.s_flag == s,  \
+        "S-Flag is %s but should be %s" % (cpu.flag.s_flag, s)
 
 def prepare_for_double_fetch(cpu, value):
     prepare_for_fetch(cpu, (value & 0xFF00) >> 8, value & 0x00FF)
@@ -662,15 +677,15 @@ def test_conditional_jump():
     assert cpu.flag.get()  == 0xFF
     assert cpu.pc.get() == 0x1234+2
     
-def test_process_2_complement():
-    assert process_2_complement(0x00) == 0
-    assert process_2_complement(0xFF) == -1
+def test_process_2s_complement():
+    assert process_2s_complement(0x00) == 0
+    assert process_2s_complement(0xFF) == -1
     
     for i in range(0x7E):
-        assert process_2_complement(i) == i
+        assert process_2s_complement(i) == i
         
     for i in range(1, 0x7E):
-        assert process_2_complement(0xFF - i+1) == -i
+        assert process_2s_complement(0xFF - i+1) == -i
     
 def test_relative_jump():
     cpu = get_cpu()

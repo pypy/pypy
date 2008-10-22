@@ -189,6 +189,7 @@ class ExtFuncEntry(ExtRegistryEntry):
                 d = {'original_impl': impl,
                      's_result': s_result,
                      'fakeimpl': fakeimpl,
+                     '__name__': __name__,
                      }
                 exec py.code.compile("""
                     from pypy.rlib.objectmodel import running_on_llinterp

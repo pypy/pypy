@@ -6,7 +6,7 @@ class Module(MixedModule):
     interpleveldefs = {
         'unidata_version' : 'space.wrap(interp_ucd.ucd.version)',
         'ucd_3_2_0'       : 'space.wrap(interp_ucd.ucd_3_2_0)',
-        #'ucd_4_1_0'       : 'space.wrap(interp_ucd.ucd_4_1_0)',
+        'ucd_4_1_0'       : 'space.wrap(interp_ucd.ucd_4_1_0)',
         #'ucd_5_0_0'       : 'space.wrap(interp_ucd.ucd_5_0_0)',
         'ucd'             : 'space.wrap(interp_ucd.ucd)',
         '__doc__'         : "space.wrap('unicode character database')",

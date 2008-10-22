@@ -146,21 +146,8 @@ class Timer(iMemory):
         if self.timer_counter == 0x00:
             self.timer_counter = self.timer_modulo
             self.timer_interrupt_flag.set_pending()
-    
-    #def emulate_timer(self,  ticks):
-    #    if (self.timer_control & 0x04) == 0:
-    #        return
-    #    self.timer_cycles -= ticks
-    #    if self.timer_cycles > 0: return
-    #    count = int(math.ceil(-self.timer_cycles / self.timer_clock)) + 1
-    #    self.timer_cycles += self.timer_clock*count
-    #    # check for zero pass
-    #    if (self.timer_counter + count) > 0xFF:
-    #        self.interrupt.raise_interrupt(constants.TIMER)
-    #        zero_passes = math.ceil(self.timer_counter / count)
-    #        self.timer_counter = (self.timer_modulo + count - zero_passes ) % (0xFF +1)
-    #    else:
-    #        self.timer_counter = (self.timer_counter + count) % (0xFF +1)
+
+
 # CLOCK DRIVER -----------------------------------------------------------------
 
 class Clock(object):

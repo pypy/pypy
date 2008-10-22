@@ -1,7 +1,6 @@
 import sys
 from pypy.rpython.memory.gc.semispace import SemiSpaceGC
 from pypy.rpython.memory.gc.semispace import GCFLAG_EXTERNAL, GCFLAG_FORWARDED
-from pypy.rpython.memory.gc.semispace import DEBUG_PRINT
 from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena
 from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
@@ -42,13 +41,13 @@ class GenerationGC(SemiSpaceGC):
                           'min_nursery_size': 48*1024,
                           'auto_nursery_size': True}
 
-    def __init__(self, chunk_size=DEFAULT_CHUNK_SIZE,
+    def __init__(self, config, chunk_size=DEFAULT_CHUNK_SIZE,
                  nursery_size=128,
                  min_nursery_size=128,
                  auto_nursery_size=False,
                  space_size=4096,
                  max_space_size=sys.maxint//2+1):
-        SemiSpaceGC.__init__(self, chunk_size = chunk_size,
+        SemiSpaceGC.__init__(self, config, chunk_size = chunk_size,
                              space_size = space_size,
                              max_space_size = max_space_size)
         assert min_nursery_size <= nursery_size <= space_size // 2
@@ -81,7 +80,8 @@ class GenerationGC(SemiSpaceGC):
         if self.auto_nursery_size:
             newsize = nursery_size_from_env()
             if newsize <= 0:
-                newsize = estimate_best_nursery_size()
+                newsize = estimate_best_nursery_size(
+                    self.config.gcconfig.debugprint)
             if newsize > 0:
                 self.set_nursery_size(newsize)
 
@@ -105,7 +105,7 @@ class GenerationGC(SemiSpaceGC):
         while (self.min_nursery_size << (scale+1)) <= newsize:
             scale += 1
         self.nursery_scale = scale
-        if DEBUG_PRINT:
+        if self.config.gcconfig.debugprint:
             llop.debug_print(lltype.Void, "SSS  nursery_size =", newsize)
             llop.debug_print(lltype.Void, "SSS  largest_young_fixedsize =",
                              self.largest_young_fixedsize)
@@ -228,10 +228,10 @@ class GenerationGC(SemiSpaceGC):
         self.weakrefs_grow_older()
         self.ids_grow_older()
         self.reset_nursery()
-        if DEBUG_PRINT:
+        if self.config.gcconfig.debugprint:
             llop.debug_print(lltype.Void, "major collect, size changing", size_changing)
         SemiSpaceGC.semispace_collect(self, size_changing)
-        if DEBUG_PRINT and not size_changing:
+        if self.config.gcconfig.debugprint and not size_changing:
             llop.debug_print(lltype.Void, "percent survived", float(self.free - self.tospace) / self.space_size)
 
     def make_a_copy(self, obj, objsize):
@@ -310,7 +310,7 @@ class GenerationGC(SemiSpaceGC):
             ll_assert(self.nursery_size <= self.top_of_space - self.free,
                          "obtain_free_space failed to do its job")
         if self.nursery:
-            if DEBUG_PRINT:
+            if self.config.gcconfig.debugprint:
                 llop.debug_print(lltype.Void, "minor collect")
             # a nursery-only collection
             scan = beginning = self.free
@@ -325,7 +325,7 @@ class GenerationGC(SemiSpaceGC):
                 self.update_young_objects_with_id()
             # mark the nursery as free and fill it with zeroes again
             llarena.arena_reset(self.nursery, self.nursery_size, True)
-            if DEBUG_PRINT:
+            if self.config.gcconfig.debugprint:
                 llop.debug_print(lltype.Void, "percent survived:", float(scan - beginning) / self.nursery_size)
             #self.debug_check_consistency()   # -- quite expensive
         else:
@@ -352,7 +352,7 @@ class GenerationGC(SemiSpaceGC):
             hdr = self.header(obj)
             hdr.tid |= GCFLAG_NO_YOUNG_PTRS
             self.trace_and_drag_out_of_nursery(obj)
-        if DEBUG_PRINT:
+        if self.config.gcconfig.debugprint:
             llop.debug_print(lltype.Void, "collect_oldrefs_to_nursery", count)
 
     def collect_roots_in_nursery(self):
@@ -529,8 +529,8 @@ def nursery_size_from_env():
             pass
     return -1
 
-def best_nursery_size_for_L2cache(L2cache):
-    if DEBUG_PRINT:
+def best_nursery_size_for_L2cache(L2cache, debugprint=False):
+    if debugprint:
         llop.debug_print(lltype.Void, "CCC  L2cache =", L2cache)
     # Heuristically, the best nursery size to choose is about half
     # of the L2 cache.  XXX benchmark some more.
@@ -538,7 +538,7 @@ def best_nursery_size_for_L2cache(L2cache):
 
 
 if sys.platform == 'linux2':
-    def estimate_best_nursery_size():
+    def estimate_best_nursery_size(debugprint=False):
         """Try to estimate the best nursery size at run-time, depending
         on the machine we are running on.
         """
@@ -590,7 +590,7 @@ if sys.platform == 'linux2':
                     L2cache = number
 
         if L2cache < sys.maxint:
-            return best_nursery_size_for_L2cache(L2cache)
+            return best_nursery_size_for_L2cache(L2cache, debugprint)
         else:
             # Print a warning even in non-debug builds
             llop.debug_print(lltype.Void,
@@ -617,7 +617,7 @@ elif sys.platform == 'darwin':
                                    rffi.INT,
                                    sandboxsafe=True)
 
-    def estimate_best_nursery_size():
+    def estimate_best_nursery_size(debugprint=False):
         """Try to estimate the best nursery size at run-time, depending
         on the machine we are running on.
         """
@@ -645,7 +645,7 @@ elif sys.platform == 'darwin':
         finally:
             lltype.free(l2cache_p, flavor='raw')
         if L2cache > 0:
-            return best_nursery_size_for_L2cache(L2cache)
+            return best_nursery_size_for_L2cache(L2cache, debugprint)
         else:
             # Print a warning even in non-debug builds
             llop.debug_print(lltype.Void,
@@ -653,5 +653,5 @@ elif sys.platform == 'darwin':
             return -1
 
 else:
-    def estimate_best_nursery_size():
+    def estimate_best_nursery_size(debugprint=False):
         return -1     # XXX implement me for other platforms

@@ -1,7 +1,7 @@
 
 from zipfile import ZIP_STORED, ZIP_DEFLATED
 from pypy.rlib.streamio import open_file_as_stream
-from pypy.rlib.rstruct import runpack
+from pypy.rlib.rstruct.runpack import runpack
 import os
 from pypy.rlib import rzlib
 from pypy.rlib.rarithmetic import r_uint, intmask

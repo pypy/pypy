@@ -242,6 +242,7 @@ class PythonAstCompiler(PyCodeCompiler):
 
 ##         flags |= stdlib___future__.generators.compiler_flag   # always on (2.2 compat)
         space = self.space
+        space.timer.start("PythonAST compile")
         try:
             builder = AstBuilder(self.parser, self.grammar_version, space=space)
             for rulename, buildfunc in self.additional_rules.iteritems():
@@ -283,6 +284,7 @@ class PythonAstCompiler(PyCodeCompiler):
         except (ValueError, TypeError), e:
             raise OperationError(space.w_SystemError, space.wrap(str(e)))
         assert isinstance(c, PyCode)
+        space.timer.stop("PythonAST compile")
         return c
 
     # interface for pypy.module.recparser

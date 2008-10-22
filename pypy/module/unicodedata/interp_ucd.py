@@ -289,5 +289,5 @@ UCD.typedef = TypeDef("unicodedata.UCD",
 ucd_3_2_0 = UCD(unicodedb_3_2_0)
 ucd_4_1_0 = UCD(unicodedb_4_1_0)
 ucd_5_0_0 = UCD(unicodedb_5_0_0)
-ucd = ucd_3_2_0
+ucd = ucd_4_1_0
 

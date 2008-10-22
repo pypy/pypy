@@ -4,7 +4,7 @@ from pypy.rpython.lltypesystem.llmemory import cast_adr_to_ptr
 from pypy.rpython.lltypesystem.llarena import arena_malloc, arena_reset
 from pypy.rpython.lltypesystem.llarena import arena_reserve, arena_free
 from pypy.rpython.lltypesystem.llarena import round_up_for_allocation
-from pypy.rpython.lltypesystem.llarena import ArenaError
+from pypy.rpython.lltypesystem.llarena import ArenaError, arena_new_view
 
 def test_arena():
     S = lltype.Struct('S', ('x',lltype.Signed))
@@ -149,6 +149,13 @@ def test_look_inside_object():
     assert llmemory.cast_adr_to_ptr(b, SPTR).x == 0
     arena_free(a)
     return 42
+
+def test_arena_new_view():
+    a = arena_malloc(50, False)
+    arena_reserve(a, precomputed_size)
+    # we can now allocate the same space in new view
+    b = arena_new_view(a)
+    arena_reserve(b, precomputed_size)
 
 def test_partial_arena_reset():
     a = arena_malloc(50, False)

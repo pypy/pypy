@@ -31,6 +31,7 @@ def create_entry_point(space, w_dict):
     w_os = setup_nanos(space)
 
     def entry_point(argv):
+        space.timer.start("Entrypoint")
         #debug("entry point starting") 
         #for arg in argv: 
         #    debug(" argv -> " + arg)
@@ -45,10 +46,14 @@ def create_entry_point(space, w_dict):
             argv = argv[:1] + argv[3:]
         try:
             try:
+                space.timer.start("space.startup")
                 space.call_function(w_run_toplevel, w_call_startup_gateway)
+                space.timer.stop("space.startup")
                 w_executable = space.wrap(argv[0])
                 w_argv = space.newlist([space.wrap(s) for s in argv[1:]])
+                space.timer.start("w_entry_point")
                 w_exitcode = space.call_function(w_entry_point, w_executable, w_argv, w_os)
+                space.timer.stop("w_entry_point")
                 exitcode = space.int_w(w_exitcode)
                 # try to pull it all in
             ##    from pypy.interpreter import main, interactive, error
@@ -61,12 +66,16 @@ def create_entry_point(space, w_dict):
                 return 1
         finally:
             try:
+                space.timer.start("space.finish")
                 space.call_function(w_run_toplevel, w_call_finish_gateway)
+                space.timer.stop("space.finish")
             except OperationError, e:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space, '?'))
                 debug(" operror-value: " + space.str_w(space.str(e.w_value)))
                 return 1
+        space.timer.stop("Entrypoint")
+        space.timer.dump()
         return exitcode
     return entry_point
 

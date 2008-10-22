@@ -1028,3 +1028,13 @@ class TestHybridGC(TestGenerationalGC):
 
     def test_gc_set_max_heap_size(self):
         py.test.skip("not implemented")
+
+class TestMarkCompactGC(TestSemiSpaceGC):
+    gcpolicy = "markcompact"
+    should_be_moving = True
+
+    def test_gc_set_max_heap_size(self):
+        py.test.skip("not implemented")
+
+    def test_finalizer_order(self):
+        py.test.skip("not implemented")

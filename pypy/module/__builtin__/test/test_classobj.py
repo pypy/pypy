@@ -1,3 +1,6 @@
+from pypy.conftest import gettestobjspace
+from pypy.interpreter import gateway
+
 
 class AppTestOldstyle(object):
 
@@ -760,3 +763,22 @@ class AppTestOldstyle(object):
             Z().__del__ = lambda : None
         finally:
             warnings.simplefilter('default', RuntimeWarning)
+
+class AppTestOldStyleSharing(AppTestOldstyle):
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.std.withsharingdict": True})
+        def is_sharing(space, w_inst):
+            from pypy.objspace.std.dictmultiobject import SharedDictImplementation, W_DictMultiObject
+            w_d = w_inst.getdict()
+            return space.wrap(isinstance(w_d, W_DictMultiObject) and
+                              isinstance(w_d.implementation, SharedDictImplementation))
+        cls.w_is_sharing = cls.space.wrap(gateway.interp2app(is_sharing))
+
+
+    def test_real_sharing(self):
+        class A:
+            def __init__(self):
+                self.x = 42
+        A1, A2, A3 = A(), A(), A()
+        assert self.is_sharing(A3)
+        assert self.is_sharing(A2)

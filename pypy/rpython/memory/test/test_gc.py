@@ -9,7 +9,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.rstr import STR
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.objectmodel import compute_unique_id
+from pypy.rlib.objectmodel import compute_unique_id, keepalive_until_here
 
 
 def stdout_ignore_ll_functions(msg):
@@ -263,10 +263,6 @@ class GCTest(object):
         assert res
 
     def test_id(self):
-        py.test.skip("the MovingGCBase.id() logic can't be directly run")
-        # XXX ^^^ the problem is that the MovingGCBase instance holds
-        # references to GC objects - a list of weakrefs and a dict - and
-        # there is no way we can return these from get_roots_from_llinterp().
         class A(object):
             pass
         a1 = A()
@@ -317,6 +313,44 @@ class GCTest(object):
             return b.num_deleted + len(all)
         res = self.interpret(f, [500])
         assert res == 1 + 500
+
+
+    def test_collect_during_collect(self):
+        class B(object):
+            pass
+        b = B()
+        b.nextid = 1
+        b.num_deleted = 0
+        b.num_deleted_c = 0
+        class A(object):
+            def __init__(self):
+                self.id = b.nextid
+                b.nextid += 1
+            def __del__(self):
+                llop.gc__collect(lltype.Void)
+                b.num_deleted += 1
+                C()
+                C()
+        class C(A):
+            def __del__(self):
+                b.num_deleted += 1
+                b.num_deleted_c += 1
+        def f(x, y):
+            persistent_a1 = A()
+            persistent_a2 = A()
+            i = 0
+            while i < x:
+                i += 1
+                a = A()
+            persistent_a3 = A()
+            persistent_a4 = A()
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            b.bla = persistent_a1.id + persistent_a2.id + persistent_a3.id + persistent_a4.id
+            print b.num_deleted_c
+            return b.num_deleted
+        res = self.interpret(f, [4, 42])
+        assert res == 12
 
     def test_weakref_across_minor_collection(self):
         import weakref
@@ -454,6 +488,15 @@ class TestGrowingSemiSpaceGC(TestSemiSpaceGC):
 
 class TestGenerationalGC(TestSemiSpaceGC):
     from pypy.rpython.memory.gc.generation import GenerationGC as GCClass
+
+class TestMarkCompactGC(TestSemiSpaceGC):
+    from pypy.rpython.memory.gc.markcompact import MarkCompactGC as GCClass
+
+    def test_finalizer_order(self):
+        py.test.skip("Not implemented yet")
+
+class TestMarkCompactGCGrowing(TestMarkCompactGC):
+    GC_PARAMS = {'space_size': 64}
 
 class TestHybridGC(TestGenerationalGC):
     from pypy.rpython.memory.gc.hybrid import HybridGC as GCClass

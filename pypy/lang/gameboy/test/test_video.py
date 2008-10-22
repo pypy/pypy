@@ -79,6 +79,15 @@ def test_read_write_properties():
         assert video.read(address) == value
         counted_value = (counted_value + 1 ) % 0xFF
         
+def test_video_read_write_oam():
+    video = get_video()
+    value = 0
+    for i in range(constants.OAM_ADDR, constants.OAM_ADDR + constants.OAM_SIZE):
+        video.write(i, value)
+        assert video.read(i) == value
+        value = (value + 1) & 0xFF
+ 
+ 
 def test_read_write_control():
     video = get_video()
     value = 0x2

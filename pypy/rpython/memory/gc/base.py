@@ -1,5 +1,10 @@
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lltype, llmemory, llarena
 from pypy.rlib.debug import ll_assert
+from pypy.rpython.memory.gcheader import GCHeaderBuilder
+from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
+from pypy.rpython.memory.support import get_address_stack, get_address_deque
+from pypy.rpython.memory.support import AddressDict
+from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
 
 class GCBase(object):
     _alloc_flavor_ = "raw"
@@ -8,6 +13,14 @@ class GCBase(object):
     malloc_zero_filled = False
     prebuilt_gc_objects_are_static_roots = True
     can_realloc = False
+
+    def __init__(self, config, chunk_size=DEFAULT_CHUNK_SIZE):
+        self.gcheaderbuilder = GCHeaderBuilder(self.HDR)
+        self.AddressStack = get_address_stack(chunk_size)
+        self.AddressDeque = get_address_deque(chunk_size)
+        self.AddressDict = AddressDict
+        self.finalizer_lock_count = 0
+        self.config = config
 
     def can_malloc_nonmovable(self):
         return not self.moving_gc
@@ -46,13 +59,30 @@ class GCBase(object):
         pass
 
     def setup(self):
-        pass
+        self.run_finalizers = self.AddressDeque()
 
     def statistics(self, index):
         return -1
 
     def size_gc_header(self, typeid=0):
         return self.gcheaderbuilder.size_gc_header
+
+    def header(self, addr):
+        addr -= self.gcheaderbuilder.size_gc_header
+        return llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
+
+    def get_size(self, obj):
+        typeid = self.get_type_id(obj)
+        size = self.fixed_size(typeid)
+        if self.is_varsize(typeid):
+            lenaddr = obj + self.varsize_offset_to_length(typeid)
+            length = lenaddr.signed[0]
+            size += length * self.varsize_item_sizes(typeid)
+            size = llarena.round_up_for_allocation(size)
+            # XXX maybe we should parametrize round_up_for_allocation()
+            # per GC; if we do, we also need to fix the call in
+            # gctypelayout.encode_type_shape()
+        return size
 
     def malloc(self, typeid, length=0, zero=False):
         """For testing.  The interface used by the gctransformer is
@@ -181,12 +211,85 @@ class GCBase(object):
     def debug_check_object(self, obj):
         pass
 
+    def execute_finalizers(self):
+        self.finalizer_lock_count += 1
+        try:
+            while self.run_finalizers.non_empty():
+                if self.finalizer_lock_count > 1:
+                    # the outer invocation of execute_finalizers() will do it
+                    break
+                obj = self.run_finalizers.popleft()
+                finalizer = self.getfinalizer(self.get_type_id(obj))
+                finalizer(obj)
+        finally:
+            self.finalizer_lock_count -= 1
+
 
 class MovingGCBase(GCBase):
     moving_gc = True
 
+    def setup(self):
+        GCBase.setup(self)
+        self.objects_with_id = self.AddressDict()
+        self.id_free_list = self.AddressStack()
+        self.next_free_id = 1
+
     def can_move(self, addr):
         return True
+
+    def id(self, ptr):
+        # Default implementation for id(), assuming that "external" objects
+        # never move.  Overriden in the HybridGC.
+        obj = llmemory.cast_ptr_to_adr(ptr)
+        if self._is_external(obj):
+            result = obj
+        else:
+            result = self._compute_id(obj)
+        return llmemory.cast_adr_to_int(result)
+
+    def _next_id(self):
+        # return an id not currently in use (as an address instead of an int)
+        if self.id_free_list.non_empty():
+            result = self.id_free_list.pop()    # reuse a dead id
+        else:
+            # make up a fresh id number
+            result = llmemory.cast_int_to_adr(self.next_free_id)
+            self.next_free_id += 2    # only odd numbers, to make lltype
+                                      # and llmemory happy and to avoid
+                                      # clashes with real addresses
+        return result
+
+    def _compute_id(self, obj):
+        # look if the object is listed in objects_with_id
+        result = self.objects_with_id.get(obj)
+        if not result:
+            result = self._next_id()
+            self.objects_with_id.setitem(obj, result)
+        return result
+
+    def update_objects_with_id(self):
+        old = self.objects_with_id
+        new_objects_with_id = self.AddressDict(old.length())
+        old.foreach(self._update_object_id_FAST, new_objects_with_id)
+        old.delete()
+        self.objects_with_id = new_objects_with_id
+
+    def _update_object_id(self, obj, id, new_objects_with_id):
+        # safe version (used by subclasses)
+        if self.surviving(obj):
+            newobj = self.get_forwarding_address(obj)
+            new_objects_with_id.setitem(newobj, id)
+        else:
+            self.id_free_list.append(id)
+
+    def _update_object_id_FAST(self, obj, id, new_objects_with_id):
+        # unsafe version, assumes that the new_objects_with_id is large enough
+        if self.surviving(obj):
+            newobj = self.get_forwarding_address(obj)
+            new_objects_with_id.insertclean(newobj, id)
+        else:
+            self.id_free_list.append(id)
+
 
 def choose_gc_from_config(config):
     """Return a (GCClass, GC_PARAMS) from the given config object.
@@ -199,6 +302,7 @@ def choose_gc_from_config(config):
                "semispace": "semispace.SemiSpaceGC",
                "generation": "generation.GenerationGC",
                "hybrid": "hybrid.HybridGC",
+               "markcompact" : "markcompact.MarkCompactGC",
                }
     try:
         modulename, classname = classes[config.translation.gc].split('.')

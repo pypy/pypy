@@ -176,7 +176,7 @@ class ExternalCompilationInfo(object):
         for attr in self._ATTRIBUTES:
             val = getattr(self, attr)
             info.append("%s=%s" % (attr, repr(val)))
-        info.append("platform=%s" % self.platform.__class__.__name__)
+        info.append("platform=%s" % repr(self.platform))
         return "<ExternalCompilationInfo (%s)>" % ", ".join(info)
 
     def merge(self, *others):

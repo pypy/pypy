@@ -1,5 +1,5 @@
 from pypy.lang.gameboy import constants
-from pypy.lang.gameboy.video import Sprite
+from pypy.lang.gameboy.video_sprite import Sprite
 from pypy.lang.gameboy.video import Video
 from pypy.lang.gameboy.test.test_video import get_video
 import py
@@ -21,7 +21,7 @@ def test_standard_values(sprite=None):
     assert sprite.object_behind_background == False
     assert sprite.x_flipped == False
     assert sprite.y_flipped == False
-    assert sprite.palette_number == 0
+    assert sprite.tile_number == 0
     
     
 def test_reset():
@@ -54,6 +54,24 @@ def test_reset():
     sprite.reset()
     test_standard_values(sprite)
 
+def test_video_sprite_read_write():
+    sprite = get_sprite()
+    for i in range(0xFF):
+        sprite.set_data(byte0=i)
+        assert sprite.get_data()[0] == i
+        
+    for i in range(0xFF):
+        sprite.set_data(byte1=i)
+        assert sprite.get_data()[1] == i
+        
+    for i in range(0xFF):
+        sprite.set_data(byte2=i)
+        assert sprite.get_data()[2] == i
+        
+    for i in range(0xFF):
+        sprite.set_data(byte3=i)
+        assert sprite.get_data()[3] == i
+        
 def test_size():
     sprite = get_sprite()
     sprite.big_size = False

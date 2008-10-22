@@ -1,8 +1,7 @@
 import sys
 from pypy.rpython.memory.gc.semispace import SemiSpaceGC
-from pypy.rpython.memory.gc.semispace import DEBUG_PRINT
-from pypy.rpython.memory.gc.generation import GenerationGC, GCFLAG_FORWARDED
-from pypy.rpython.memory.gc.semispace import GCFLAG_EXTERNAL
+from pypy.rpython.memory.gc.generation import GenerationGC
+from pypy.rpython.memory.gc.semispace import GCFLAG_EXTERNAL, GCFLAG_FORWARDED
 from pypy.rpython.memory.gc.generation import GCFLAG_NO_YOUNG_PTRS
 from pypy.rpython.memory.gc.generation import GCFLAG_NO_HEAP_PTRS
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena
@@ -115,7 +114,7 @@ class HybridGC(GenerationGC):
         assert self.nonlarge_gcptrs_max <= self.lb_young_var_basesize
         assert self.nonlarge_max <= self.nonlarge_gcptrs_max
         self.large_objects_collect_trigger = self.space_size
-        if DEBUG_PRINT:
+        if self.config.gcconfig.debugprint:
             self._initial_trigger = self.large_objects_collect_trigger
         self.rawmalloced_objects_to_trace = self.AddressStack()
         self.count_semispaceonly_collects = 0
@@ -270,7 +269,7 @@ class HybridGC(GenerationGC):
     def _check_rawsize_alloced(self, size_estimate, can_collect=True):
         self.large_objects_collect_trigger -= size_estimate
         if can_collect and self.large_objects_collect_trigger < 0:
-            if DEBUG_PRINT:
+            if self.config.gcconfig.debugprint:
                 llop.debug_print(lltype.Void, "allocated",
                                  self._initial_trigger -
                                      self.large_objects_collect_trigger,
@@ -339,7 +338,7 @@ class HybridGC(GenerationGC):
                                                   None)
         ll_assert(not self.rawmalloced_objects_to_trace.non_empty(),
                   "rawmalloced_objects_to_trace should be empty at start")
-        if DEBUG_PRINT:
+        if self.config.gcconfig.debugprint:
             self._nonmoving_copy_count = 0
             self._nonmoving_copy_size = 0
 
@@ -414,7 +413,7 @@ class HybridGC(GenerationGC):
         newaddr = self.allocate_external_object(totalsize)
         if not newaddr:
             return llmemory.NULL   # can't raise MemoryError during a collect()
-        if DEBUG_PRINT:
+        if self.config.gcconfig.debugprint:
             self._nonmoving_copy_count += 1
             self._nonmoving_copy_size += raw_malloc_usage(totalsize)
 
@@ -450,7 +449,7 @@ class HybridGC(GenerationGC):
     def finished_full_collect(self):
         ll_assert(not self.rawmalloced_objects_to_trace.non_empty(),
                   "rawmalloced_objects_to_trace should be empty at end")
-        if DEBUG_PRINT:
+        if self.config.gcconfig.debugprint:
             llop.debug_print(lltype.Void,
                              "| [hybrid] made nonmoving:         ",
                              self._nonmoving_copy_size, "bytes in",
@@ -465,7 +464,7 @@ class HybridGC(GenerationGC):
         self.large_objects_collect_trigger = self.space_size
         if self.is_collecting_gen3():
             self.count_semispaceonly_collects = 0
-        if DEBUG_PRINT:
+        if self.config.gcconfig.debugprint:
             self._initial_trigger = self.large_objects_collect_trigger
 
     def sweep_rawmalloced_objects(self, generation):
@@ -497,19 +496,21 @@ class HybridGC(GenerationGC):
             objects = self.gen2_resizable_objects
 
         surviving_objects = self.AddressStack()
-        if DEBUG_PRINT: alive_count = alive_size = 0
-        if DEBUG_PRINT: dead_count = dead_size = 0
+        # Help the flow space
+        alive_count = alive_size = dead_count = dead_size = 0
         while objects.non_empty():
             obj = objects.pop()
             tid = self.header(obj).tid
             if tid & GCFLAG_UNVISITED:
-                if DEBUG_PRINT:dead_count+=1
-                if DEBUG_PRINT:dead_size+=raw_malloc_usage(self.get_size(obj))
+                if self.config.gcconfig.debugprint:
+                    dead_count+=1
+                    dead_size+=raw_malloc_usage(self.get_size(obj))
                 addr = obj - self.gcheaderbuilder.size_gc_header
                 llmemory.raw_free(addr)
             else:
-                if DEBUG_PRINT:alive_count+=1
-                if DEBUG_PRINT:alive_size+=raw_malloc_usage(self.get_size(obj))
+                if self.config.gcconfig.debugprint:
+                    alive_count+=1
+                    alive_size+=raw_malloc_usage(self.get_size(obj))
                 if generation == 3:
                     surviving_objects.append(obj)
                 elif generation == 2:
@@ -538,7 +539,7 @@ class HybridGC(GenerationGC):
             self.gen3_rawmalloced_objects = surviving_objects
         elif generation == -2:
             self.gen2_resizable_objects = surviving_objects
-        if DEBUG_PRINT:
+        if self.config.gcconfig.debugprint:
             llop.debug_print(lltype.Void,
                              "| [hyb] gen", generation,
                              "nonmoving now alive: ",
@@ -550,19 +551,23 @@ class HybridGC(GenerationGC):
                              dead_size, "bytes in",
                              dead_count, "objs")
 
-    def _compute_id_for_external(self, obj):
-        # the base classes make the assumption that all external objects
-        # have an id equal to their address.  This is wrong if the object
-        # is a generation 3 rawmalloced object that initially lived in
-        # the semispaces.
-        if self.is_last_generation(obj):
-            # in this case, we still need to check if the object had its
-            # id taken before.  If not, we can use its address as its id.
-            return self.objects_with_id.get(obj, obj)
+    def id(self, ptr):
+        obj = llmemory.cast_ptr_to_adr(ptr)
+        if self._is_external(obj):
+            # a prebuilt or rawmalloced object
+            if self.is_last_generation(obj):
+                # a generation 3 object may be one that used to live in
+                # the semispace.  So we still need to check if the object had
+                # its id taken before.  If not, we can use its address as its
+                # id as it is not going to move any more.
+                result = self.objects_with_id.get(obj, obj)
+            else:
+                # a generation 2 external object was never non-external in
+                # the past, so it cannot be listed in self.objects_with_id.
+                result = obj
         else:
-            # a generation 2 external object was never non-external in
-            # the past, so it cannot be listed in self.objects_with_id.
-            return obj
+            result = self._compute_id(obj)     # common case
+        return llmemory.cast_adr_to_int(result)
         # XXX a possible optimization would be to use three dicts, one
         # for each generation, instead of mixing gen2 and gen3 objects.
 

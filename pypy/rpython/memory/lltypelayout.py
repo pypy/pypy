@@ -22,7 +22,11 @@ primitive_to_fmt = {lltype.Signed:          "l",
 def get_layout(TYPE):
     layout = {}
     if isinstance(TYPE, lltype.Primitive):
-        return primitive_to_fmt[TYPE]
+        try:
+            return primitive_to_fmt[TYPE]
+        except KeyError:
+            from pypy.rpython.lltypesystem import rffi
+            return rffi.sizeof(TYPE)
     elif isinstance(TYPE, lltype.Ptr):
         return "P"
     elif isinstance(TYPE, lltype.Struct):
@@ -47,7 +51,11 @@ def get_fixed_size(TYPE):
     if isinstance(TYPE, lltype.Primitive):
         if TYPE == lltype.Void:
             return 0
-        return struct.calcsize(primitive_to_fmt[TYPE])
+        try:
+            return struct.calcsize(primitive_to_fmt[TYPE])
+        except KeyError:
+            from pypy.rpython.lltypesystem import rffi
+            return rffi.sizeof(TYPE)
     elif isinstance(TYPE, lltype.Ptr):
         return struct.calcsize("P")
     elif isinstance(TYPE, lltype.Struct):

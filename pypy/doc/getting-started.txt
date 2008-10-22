@@ -102,11 +102,10 @@ testing tool that we are using and enhancing for PyPy.
 **Note that running all the tests takes a very long time, and
 enormous amounts of memory if you are trying to run them all
 in the same process; test_all.py is only suitable to run a
-subset of them at a time.**  To run them all we have an
-`autotest driver`_ that executes the tests directory by
-directory and produces pages like the following one:
+subset of them at a time.**  To run them all daily we have a BuildBot based
+setup, a summary of its results can be seen at:
 
-    http://wyvern.cs.uni-duesseldorf.de/pypytest/summary.html
+    http://codespeak.net:8099/summary
 
 .. _`if PyPy works on your machine/platform`: index.html#status
 .. _`autotest driver`: http://codespeak.net/pipermail/pypy-dev/2006q3/003273.html

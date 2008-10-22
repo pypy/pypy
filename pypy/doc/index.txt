@@ -86,8 +86,7 @@ but platform-specific bugs tend to take longer before we notice and fix
 them.  Linux 64-bit machines are supported (though it may also take some
 time before we notice and fix bugs).
 
-PyPy's own tests, daily updated, `on Linux`_, `on Windows`_
- and `on built pypy-c`_.
+PyPy's own tests `summary`_, daily updated, run through BuildBot infrastructure.
 
 `Nightly builds and benchmarks`_ of PyPy to C, CLI and LLVM (PowerPC machine).
 
@@ -179,9 +178,7 @@ from our Python interpreter.
 .. _`bytecode interpreter`: interpreter.html 
 .. _`EU reports`: index-report.html
 .. _`Technical reports`: index-report.html
-.. _`on Linux`: http://wyvern.cs.uni-duesseldorf.de/pypytest/summary.html
-.. _`on Windows`: http://scottdial.com/pypytest/summary.html
-.. _`on built pypy-c`: http://wyvern.cs.uni-duesseldorf.de/~fijal/pypy-c-tests/
+.. _`summary`: http://codespeak.net:8099/summary
 .. _`ideas for PyPy related projects`: project-ideas.html
 .. _`Nightly builds and benchmarks`: http://tuatara.cs.uni-duesseldorf.de/benchmark.html
 .. _`directory reference`: 

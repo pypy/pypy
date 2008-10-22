@@ -45,7 +45,7 @@ translation_optiondescription = OptionDescription(
     # gc
     ChoiceOption("gc", "Garbage Collection Strategy",
                  ["boehm", "ref", "marksweep", "semispace", "statistics",
-                  "generation", "hybrid", "none"],
+                  "generation", "hybrid", "markcompact", "none"],
                   "ref", requires={
                      "ref": [("translation.rweakref", False), # XXX
                              ("translation.gctransformer", "ref")],
@@ -57,6 +57,7 @@ translation_optiondescription = OptionDescription(
                      "generation": [("translation.gctransformer", "framework")],
                      "hybrid": [("translation.gctransformer", "framework")],
                      "boehm": [("translation.gctransformer", "boehm")],
+                     "markcompact": [("translation.gctransformer", "framework")],
                      },
                   cmdline="--gc"),
     ChoiceOption("gctransformer", "GC transformer that is used - internal",
@@ -67,6 +68,10 @@ translation_optiondescription = OptionDescription(
                      "ref": [("translation.gcrootfinder", "n/a")],
                      "none": [("translation.gcrootfinder", "n/a")],
                  }),
+    OptionDescription("gcconfig", "Configure garbage collectors", [
+        BoolOption("debugprint", "Turn on debug printing for the GC",
+                   default=False)
+        ]),
     ChoiceOption("gcrootfinder",
                  "Strategy for finding GC Roots (framework GCs only)",
                  ["n/a", "shadowstack", "llvmgc", "asmgcc"],
@@ -120,6 +125,10 @@ translation_optiondescription = OptionDescription(
     ArbitraryOption("instrumentctl", "internal",
                default=None),
     StrOption("output", "Output file name", cmdline="--output"),
+
+    BoolOption("dump_static_data_info", "Dump static data info",
+               cmdline="--dump_static_data_info",
+               default=False, requires=[("translation.backend", "c")]),
 
     # portability options
     BoolOption("vanilla",
@@ -299,7 +308,7 @@ OPT_TABLE = {
     '0':    'boehm       nobackendopt',
     '1':    'boehm       lowinline',
     'size': 'boehm       lowinline     remove_asserts',
-    'mem':  'marksweep   lowinline     remove_asserts',
+    'mem':  'markcompact lowinline     remove_asserts',
     '2':    'hybrid      extraopts',
     '3':    'hybrid      extraopts     remove_asserts',
     }
@@ -334,9 +343,11 @@ def set_opt_level(config, level):
             config.translation.backendopt.suggest(remove_asserts=True)
         elif word == 'extraopts':
             config.translation.suggest(withsmallfuncsets=5)
-            config.translation.suggest(list_comprehension_operations=True)
         else:
             raise ValueError(word)
+
+    hasbackendopts = 'nobackendopt' not in words
+    config.translation.suggest(list_comprehension_operations=hasbackendopts)
 
 # ----------------------------------------------------------------
 
@@ -346,19 +357,15 @@ PLATFORMS = [
 ]
 
 def set_platform(config, platform):
-    from pypy.rlib.pyplatform import Platform, Maemo, OverloadCompilerPlatform
+    from pypy.rlib.pyplatform import Platform, Maemo
     from pypy.rlib import pyplatform
     from pypy.translator.tool.cbuild import ExternalCompilationInfo
     if isinstance(platform, str):
         if platform == 'maemo':
-            platform = Maemo()
+            platform = Maemo(cc=config.translation.cc or None)
         elif platform == 'host':
             return
         else:
             raise NotImplementedError('Platform = %s' % (platform,))
     assert isinstance(platform, Platform)
     pyplatform.platform = platform
-    if config.translation.cc:
-        pyplatform.platform = OverloadCompilerPlatform(platform,
-                                                       config.translation.cc)
-

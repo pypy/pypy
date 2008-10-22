@@ -142,7 +142,7 @@ class FrameworkGCTransformer(GCTransformer):
         self.gcdata = gcdata
         self.malloc_fnptr_cache = {}
 
-        gcdata.gc = GCClass(**GC_PARAMS)
+        gcdata.gc = GCClass(translator.config.translation, **GC_PARAMS)
         root_walker = self.build_root_walker()
         gcdata.set_query_functions(gcdata.gc)
         gcdata.gc.set_root_walker(root_walker)

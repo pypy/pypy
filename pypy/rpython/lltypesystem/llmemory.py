@@ -736,6 +736,12 @@ def raw_memcopy(source, dest, size):
     assert lltype.typeOf(dest)   == Address
     size.raw_memcopy(source, dest)
 
+def raw_memmove(source, dest, size):
+    # for now let's assume that raw_memmove is the same as raw_memcopy,
+    # when run on top of fake addresses, but we _free the source object
+    raw_memcopy(source, dest, size)
+    source.ptr._as_obj()._free()
+
 def cast_any_ptr(EXPECTED_TYPE, ptr):
     # this is a generalization of the various cast_xxx_ptr() functions.
     PTRTYPE = lltype.typeOf(ptr)
@@ -785,3 +791,19 @@ def _reccopy(source, dest):
                 setattr(dest._obj, name, llvalue)
     else:
         raise TypeError(T)
+
+from pypy.rpython.extregistry import ExtRegistryEntry
+
+class RawMemmoveEntry(ExtRegistryEntry):
+    _about_ = raw_memmove
+
+    def compute_result_annotation(self, s_from, s_to, s_size):
+        from pypy.annotation.model import SomeAddress, SomeInteger
+        assert isinstance(s_from, SomeAddress)
+        assert isinstance(s_to, SomeAddress)
+        assert isinstance(s_size, SomeInteger)
+    
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        v_list = hop.inputargs(Address, Address, lltype.Signed)
+        return hop.genop('raw_memmove', v_list)

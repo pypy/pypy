@@ -30,25 +30,26 @@ class GameBoyImplementation(GameBoy):
         self.joypad_driver = JoypadDriverImplementation()
         self.video_driver  = VideoDriverImplementation()
         self.sound_driver  = SoundDriverImplementation()
-   
     
     def mainLoop(self):
         self.reset()
         self.is_running = True
         try:
             while self.is_running:
-                self.handle_events()
-                self.emulate(constants.GAMEBOY_CLOCK >> 2)
-                RSDL.Delay(1)
-        except :
-            self.is_running = False 
-            lltype.free(self.event, flavor='raw')
-            RSDL.Quit()
-            self.handle_execution_error()
+            	self.emulate_cycle()
+        except Exception, error:
+            self.is_running = False
+            self.handle_execution_error(error)
         return 0
     
-    def handle_execution_error(self):
-        pass
+    def emulate_cycle(self):
+    	self.handle_events()
+    	self.emulate(constants.GAMEBOY_CLOCK >> 2)
+    	RSDL.Delay(1)
+    
+    def handle_execution_error(self, error): 
+    	lltype.free(self.event, flavor='raw')
+    	RSDL.Quit()
     
     def handle_events(self):
         self.poll_event()

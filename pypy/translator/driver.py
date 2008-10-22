@@ -1,4 +1,6 @@
 import sys, os
+import os.path
+import shutil
 
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.tool.taskengine import SimpleTaskEngine
@@ -491,18 +493,25 @@ class TranslationDriver(SimpleTaskEngine):
         database = self.database
         c_source_filename = cbuilder.generate_source(database)
         self.log.info("written: %s" % (c_source_filename,))
+        if self.config.translation.dump_static_data_info:
+            from pypy.translator.tool.staticsizereport import dump_static_data_info
+            targetdir = cbuilder.targetdir
+            fname = dump_static_data_info(self.log, database, targetdir)
+            shutil.copy(str(fname), self.compute_exe_name() + '.staticdata.info')
+
     #
     task_source_c = taskdef(task_source_c, ['database_c'], "Generating c source")
 
+    def compute_exe_name(self):
+        newexename = self.exe_name % self.get_info()
+        if '/' not in newexename and '\\' not in newexename:
+            newexename = './' + newexename
+        return mkexename(newexename)
+
     def create_exe(self):
         if self.exe_name is not None:
-            import shutil
             exename = mkexename(self.c_entryp)
-            info = {'backend': self.config.translation.backend}
-            newexename = self.exe_name % self.get_info()
-            if '/' not in newexename and '\\' not in newexename:
-                newexename = './' + newexename
-            newexename = mkexename(newexename)
+            newexename = self.compute_exe_name()
             shutil.copy(exename, newexename)
             self.c_entryp = newexename
         self.log.info("created: %s" % (self.c_entryp,))
@@ -645,8 +654,6 @@ class TranslationDriver(SimpleTaskEngine):
 
     def copy_cli_exe(self):
         # XXX messy
-        import os.path
-        import shutil
         main_exe = self.c_entryp._exe
         usession_path, main_exe_name = os.path.split(main_exe)
         pypylib_dll = os.path.join(usession_path, 'pypylib.dll')
@@ -678,8 +685,6 @@ $LEDIT $MONO "$(dirname $EXE)/$(basename $EXE)-data/%s" "$@" # XXX doesn't work 
         os.chmod(newexename, 0755)
 
     def copy_cli_dll(self):
-        import os.path
-        import shutil
         dllname = self.gen.outfile
         usession_path, dll_name = os.path.split(dllname)
         pypylib_dll = os.path.join(usession_path, 'pypylib.dll')

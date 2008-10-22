@@ -289,7 +289,7 @@ def descr_instance_new(space, w_type, w_class, w_dict=None):
             space.w_TypeError,
             space.wrap("instance() first arg must be class"))
     if space.is_w(w_dict, space.w_None):
-        w_dict = space.newdict()
+        w_dict = None
     elif not space.is_true(space.isinstance(w_dict, space.w_dict)):
         raise OperationError(
             space.w_TypeError,
@@ -299,7 +299,12 @@ def descr_instance_new(space, w_type, w_class, w_dict=None):
 class W_InstanceObject(Wrappable):
     def __init__(self, space, w_class, w_dict=None):
         if w_dict is None:
-            w_dict = space.newdict()
+            if space.config.objspace.std.withsharingdict:
+                from pypy.objspace.std import dictmultiobject
+                w_dict = dictmultiobject.W_DictMultiObject(space,
+                            sharing=True)
+            else:
+                w_dict = space.newdict()
         assert isinstance(w_class, W_ClassObject)
         self.w_class = w_class
         self.w_dict = w_dict

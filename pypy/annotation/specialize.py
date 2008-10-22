@@ -415,14 +415,14 @@ def cartesian_product(lstlst):
 ##    return funcdesc.cachedgraph(s1_type, alt_name='memo_%s' % funcdesc.name, 
 ##                                         builder=builder)
 
-def make_constgraphbuilder(n, v=None, factory=None):
+def make_constgraphbuilder(n, v=None, factory=None, srcmodule=None):
     def constgraphbuilder(translator, ignore):
         args = ','.join(["arg%d" % i for i in range(n)])
         if factory is not None:
             computed_v = factory()
         else:
             computed_v = v
-        miniglobals = {'v': computed_v}
+        miniglobals = {'v': computed_v, '__name__': srcmodule}
         exec "constf = lambda %s: v" % args in miniglobals
         return translator.buildflowgraph(miniglobals['constf'])
     return constgraphbuilder

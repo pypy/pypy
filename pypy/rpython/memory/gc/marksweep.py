@@ -19,11 +19,8 @@ X_CLONE = lltype.GcStruct('CloneData', ('gcobjectptr', llmemory.GCREF),
                                        ('pool',        X_POOL_PTR))
 X_CLONE_PTR = lltype.Ptr(X_CLONE)
 
-DEBUG_PRINT = False
 memoryError = MemoryError()
 class MarkSweepGC(GCBase):
-    _alloc_flavor_ = "raw"
-
     HDR = lltype.ForwardReference()
     HDRPTR = lltype.Ptr(HDR)
     # need to maintain a linked list of malloced objects, since we used the
@@ -43,18 +40,17 @@ class MarkSweepGC(GCBase):
     # translating to a real backend.
     TRANSLATION_PARAMS = {'start_heap_size': 8*1024*1024} # XXX adjust
 
-    def __init__(self, chunk_size=DEFAULT_CHUNK_SIZE, start_heap_size=4096):
+    def __init__(self, config, chunk_size=DEFAULT_CHUNK_SIZE, start_heap_size=4096):
+        GCBase.__init__(self, config, chunk_size)
         self.heap_usage = 0          # at the end of the latest collection
         self.bytes_malloced = 0      # since the latest collection
         self.bytes_malloced_threshold = start_heap_size
         self.total_collection_time = 0.0
-        self.AddressStack = get_address_stack(chunk_size)
         self.malloced_objects = lltype.nullptr(self.HDR)
         self.malloced_objects_with_finalizer = lltype.nullptr(self.HDR)
         # these are usually only the small bits of memory that make a
         # weakref object
         self.objects_with_weak_pointers = lltype.nullptr(self.HDR)
-        self.gcheaderbuilder = GCHeaderBuilder(self.HDR)
         # pools, for x_swap_pool():
         #   'curpool' is the current pool, lazily allocated (i.e. NULL means
         #   the current POOL object is not yet malloc'ed).  POOL objects are
@@ -236,7 +232,7 @@ class MarkSweepGC(GCBase):
         #    call __del__, move the object to the list of object-without-del
         import time
         from pypy.rpython.lltypesystem.lloperation import llop
-        if DEBUG_PRINT:
+        if self.config.gcconfig.debugprint:
             llop.debug_print(lltype.Void, 'collecting...')
         start_time = time.time()
         self.collect_in_progress = True
@@ -401,7 +397,7 @@ class MarkSweepGC(GCBase):
                                             256 * 1024 * 1024)
         self.total_collection_time += collect_time
         self.prev_collect_end_time = end_time
-        if DEBUG_PRINT:
+        if self.config.gcconfig.debugprint:
             llop.debug_print(lltype.Void,
                              "  malloced since previous collection:",
                              old_malloced, "bytes")

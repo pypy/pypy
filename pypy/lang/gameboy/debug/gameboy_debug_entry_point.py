@@ -8,14 +8,16 @@ import pdb
 
 # ------------------------------------------------------------------------------
 
-from AppKit import NSApplication
-NSApplication.sharedApplication()
+if sys.platform == 'darwin':
+	from AppKit import NSApplication
+	NSApplication.sharedApplication()
+	
 # ------------------------------------------------------------------------------
 
 ROM_PATH    = str(py.magic.autopath().dirpath().dirpath())+"/rom"
 filename    = "/Users/cami/Ausbildung/08_UNIBE_FS/bachelor/docs/roms/DieMaus.gb"
 filename    = ROM_PATH + "/rom9/rom9.gb"
-SOCKET_PORT = 55686
+SOCKET_PORT = 55687
 skipExecs   = 22545
 skipExecs   = 0
 
@@ -36,24 +38,27 @@ def start_python_version():
     gameBoy = GameBoyDebugImplementation(SOCKET_PORT, skipExecs, DebugRpcXmlMemory)
     try:
         gameBoy.load_cartridge_file(str(filename))
-    except:
+    except Exception, error:
         gameBoy.load_cartridge_file(str(filename), verify=False)
         print "Cartridge is Corrupted!"
     try:
         gameBoy.mainLoop()
-    except:
+    except Exception, error:
         print "stopped"
+        print error
+        pdb.set_trace()
 
-   
+# ------------------------------------------------------------------------------ 
     
 JMARIO_DIR =  str(py.magic.autopath().dirpath().dirpath()\
                         .dirpath().dirpath()\
                         .dirpath().dirpath()) + "/jmario"
-JAVA_CLASSPATH =[JMARIO_DIR+"/bin/", 
-                JMARIO_DIR+"/lib/xmlrpc-client-3.1.jar",
-                JMARIO_DIR+"/lib/xmlrpc-common-3.1.jar",
-                JMARIO_DIR+"/lib/ws-commons-util-1.0.2.jar",
-                JMARIO_DIR+"/lib/commons-logging-1.1.jar"];
+
+JAVA_CLASSPATH =[ JMARIO_DIR + "/bin/", JMARIO_DIR+"/build/", 
+                  JMARIO_DIR + "/lib/xmlrpc-client-3.1.jar",
+                  JMARIO_DIR + "/lib/xmlrpc-common-3.1.jar",
+                  JMARIO_DIR + "/lib/ws-commons-util-1.0.2.jar",
+                  JMARIO_DIR + "/lib/commons-logging-1.1.jar"];
                         
 def start_java_version():
     global filename
@@ -73,7 +78,7 @@ def start_java_version():
     
 # START ========================================================================
 parse_file_name()
-threading.Timer(1, start_java_version).start()
-start_python_version()
+threading.Timer(1, start_java_version    ).start()
+threading.Timer(0, start_python_version()).start()
 
 

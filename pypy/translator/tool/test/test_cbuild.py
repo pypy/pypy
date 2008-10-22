@@ -4,6 +4,7 @@ from pypy.tool.udir import udir
 from pypy.translator.tool.cbuild import build_executable, \
      ExternalCompilationInfo, compile_c_module
 from subprocess import Popen, PIPE, STDOUT
+from pypy.rlib.pyplatform import Maemo
 
 def test_simple_executable(): 
     print udir
@@ -157,16 +158,6 @@ class TestEci:
                        ExternalCompilationInfo.from_config_tool,
                        'dxowqbncpqympqhe-config')
 
-    def test_platforms(self):
-        from pypy.rlib.pyplatform import Maemo
-        eci = ExternalCompilationInfo(platform=Maemo())
-        eci2 = ExternalCompilationInfo()
-        assert eci != eci2
-        assert hash(eci) != hash(eci2)
-        assert repr(eci) != repr(eci2)
-        py.test.raises(Exception, eci2.merge, eci)
-        assert eci.merge(eci).platform == Maemo()
-
     def test_platform(self):
         from pypy.rlib.pyplatform import Platform
         class Expected(Exception):
@@ -200,11 +191,13 @@ class TestEci:
         assert Y(3) == Y(3)
         assert Y(2) != Y(3)
 
-    def test_standalone_maemo(self):
-        from pypy.rlib.pyplatform import Maemo
-        # XXX skip if there is no scratchbox
+    def checkscratchbox(self):
         if not py.path.local('/scratchbox/login').check():
             py.test.skip("No scratchbox detected")
+
+    def test_standalone_maemo(self):
+        self.checkscratchbox()
+        # XXX skip if there is no scratchbox
         tmpdir = self.tmpdir
         c_file = tmpdir.join('stand1.c')
         c_file.write('''
@@ -226,3 +219,16 @@ class TestEci:
         result = eci.platform.execute(output)
         assert result.startswith('4.0')
 
+    def test_platforms(self):
+        self.checkscratchbox()
+        eci = ExternalCompilationInfo(platform=Maemo())
+        eci2 = ExternalCompilationInfo()
+        assert eci != eci2
+        assert hash(eci) != hash(eci2)
+        assert repr(eci) != repr(eci2)
+        py.test.raises(Exception, eci2.merge, eci)
+        assert eci.merge(eci).platform == Maemo()
+        assert (ExternalCompilationInfo(platform=Maemo(cc='xxx')) !=
+                ExternalCompilationInfo(platform=Maemo(cc='yyy')))
+        assert (repr(ExternalCompilationInfo(platform=Maemo(cc='xxx'))) !=
+                repr(ExternalCompilationInfo(platform=Maemo(cc='yyy'))))

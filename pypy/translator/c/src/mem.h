@@ -90,6 +90,7 @@ extern char __gcnoreorderhack;
     if (r != NULL) memset((void*) r, 0, size);
     
 #define OP_RAW_MEMCOPY(x,y,size,r) memcpy(y,x,size);
+#define OP_RAW_MEMMOVE(x,y,size,r) memmove(y,x,size);
 
 /************************************************************/
 
@@ -176,11 +177,17 @@ void boehm_gc_finalizer_notifier(void)
 	}
 	boehm_gc_finalizer_lock--;
 }
+
+static void mem_boehm_ignore(char *msg, GC_word arg)
+{
+}
+
 void boehm_gc_startup_code(void)
 {
 	GC_init();
 	GC_finalizer_notifier = &boehm_gc_finalizer_notifier;
 	GC_finalize_on_demand = 1;
+  GC_set_warn_proc(mem_boehm_ignore);
 }
 #endif /* PYPY_NOT_MAIN_FILE */
 

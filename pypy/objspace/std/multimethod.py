@@ -261,7 +261,7 @@ class InstallerVersion1:
                        things_to_call):
         # support for inventing names for the entries in things_to_call
         # which are real function objects instead of strings
-        miniglobals = {'FailedToImplement': FailedToImplement}
+        miniglobals = {'FailedToImplement': FailedToImplement, '__name__': __name__}
         def invent_name(obj):
             if isinstance(obj, str):
                 return obj
@@ -932,6 +932,7 @@ class InstallerVersion2(object):
 
         from pypy.rlib.jit import hint
         miniglobals['hint'] = hint
+        miniglobals['__name__'] = __name__
         entry = FuncEntry(bodylines, miniglobals, fallback)
         key = entry.key()
         try:

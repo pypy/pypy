@@ -61,8 +61,10 @@ class DirectGCTest(object):
     GC_PARAMS = {}
 
     def setup_method(self, meth):
+        from pypy.config.pypyoption import get_pypy_config
+        config = get_pypy_config(translating=True).translation
         self.stackroots = []
-        self.gc = self.GCClass(**self.GC_PARAMS)
+        self.gc = self.GCClass(config, **self.GC_PARAMS)
         self.gc.DEBUG = True
         self.rootwalker = DirectRootWalker(self)
         self.gc.set_root_walker(self.rootwalker)
@@ -279,3 +281,7 @@ class TestHybridGC(TestGenerationGC):
                  'large_object_gcptrs': 12,
                  'generation3_collect_threshold': 5,
                  }
+
+class TestMarkCompactGC(DirectGCTest):
+    from pypy.rpython.memory.gc.markcompact import MarkCompactGC as GCClass
+

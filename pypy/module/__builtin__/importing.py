@@ -135,6 +135,8 @@ def check_sys_modules(space, w_modulename):
 
 def importhook(space, modulename, w_globals=None,
                w_locals=None, w_fromlist=None, level=-1):
+    timername = "importhook " + modulename
+    space.timer.start(timername)
     if not modulename and level < 0: 
         raise OperationError(
             space.w_ValueError,
@@ -183,6 +185,7 @@ def importhook(space, modulename, w_globals=None,
                                         baselevel,
                                         w_fromlist, tentative=1)
                 if w_mod is not None:
+                    space.timer.stop(timername)
                     return w_mod
             else:
                 rel_modulename = None
@@ -192,6 +195,7 @@ def importhook(space, modulename, w_globals=None,
     w_mod = absolute_import(space, modulename, 0, w_fromlist, tentative=0)
     if rel_modulename is not None:
         space.setitem(space.sys.get('modules'), w(rel_modulename),space.w_None)
+    space.timer.stop(timername)
     return w_mod
 #
 importhook.unwrap_spec = [ObjSpace, str, W_Root, W_Root, W_Root, int]

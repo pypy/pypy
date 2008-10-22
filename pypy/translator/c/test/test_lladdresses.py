@@ -96,6 +96,19 @@ def test_raw_memcopy():
     res = fc()
     assert res
 
+def test_raw_memmove():
+    def f():
+        addr = raw_malloc(100)
+        addr.signed[0] = 12
+        (addr + 10).signed[0] = 42
+        raw_memmove(addr, addr + 4, 96)
+        result = (addr + 4).signed[0] + (addr + 14).signed[0]
+        raw_free(addr)
+        return result
+    fc = compile(f, [])
+    res = fc()
+    assert res
+
 def test_pointer_comparison():
     def f():
         result = 0
