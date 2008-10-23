@@ -1,129 +1,117 @@
-arigo@wyvern ~/svn/pypy/branch/2.5-merge/lib-python/modified-2.5.2/test $ py.test --pypy=/home/arigo/pypysrc/compiled/pypy-c-58675-2.5-O1 -k core --tb=no
-inserting into sys.path: /home/arigo/svn/pypy/branch/2.5-merge
-================================================================ test session starts ================================================================
-HOSTUP: localhost-0 linux2 /usr/bin/python - Python 2.4.4-final-0
-
-test___all__.py .
-../../2.5.2/test/test___future__.py .
-test_array.py .
-../../2.5.2/test/test_atexit.py .
-../../2.5.2/test/test_augassign.py .
-../../2.5.2/test/test_binop.py .
-../../2.5.2/test/test_bisect.py .
-../../2.5.2/test/test_bool.py .
-test_bufio.py .
-test_builtin.py .
-../../2.5.2/test/test_call.py .
-../../2.5.2/test/test_charmapcodec.py .
-test_class.py .
-../../2.5.2/test/test_cmath.py .
-../../2.5.2/test/test_codeccallbacks.py F
-test_codecs.py F
-test_codeop.py .
-../../2.5.2/test/test_coercion.py F
-../../2.5.2/test/test_compare.py .
-test_compile.py F
-test_complex.py .
-../../2.5.2/test/test_contains.py .
-test_copy.py .
-../../2.5.2/test/test_copy_reg.py .
-test_cpickle.py F
-../../2.5.2/test/test_decorators.py .
-test_deque.py F
-test_descr.py F
-test_descrtut.py .
-test_dict.py F
-../../2.5.2/test/test_dircache.py .
-../../2.5.2/test/test_dummy_thread.py .
-../../2.5.2/test/test_dummy_threading.py .
-test_enumerate.py .
-../../2.5.2/test/test_eof.py F
-test_exceptions.py F
-../../2.5.2/test/test_extcall.py F
-test_file.py F
-../../2.5.2/test/test_filecmp.py .
-../../2.5.2/test/test_fileinput.py .
-../../2.5.2/test/test_fnmatch.py .
-test_format.py F
-../../2.5.2/test/test_fpformat.py .
-test_funcattrs.py F
-../../2.5.2/test/test_future.py .
-../../2.5.2/test/test_future1.py .
-../../2.5.2/test/test_future2.py .
-../../2.5.2/test/test_future3.py .
-test_generators.py F
-test_genexps.py F
-../../2.5.2/test/test_getopt.py f
-../../2.5.2/test/test_glob.py .
-../../2.5.2/test/test_global.py .
-../../2.5.2/test/test_grammar.py F
-../../2.5.2/test/test_hash.py .
-../../2.5.2/test/test_hashlib.py f
-../../2.5.2/test/test_heapq.py .
-../../2.5.2/test/test_hexoct.py .
-../../2.5.2/test/test_imp.py .
-../../2.5.2/test/test_import.py f
-../../2.5.2/test/test_importhooks.py F
-../../2.5.2/test/test_isinstance.py F
-test_iter.py .
-../../2.5.2/test/test_iterlen.py F
-test_itertools.py F
-../../2.5.2/test/test_list.py F
-../../2.5.2/test/test_long.py F
-../../2.5.2/test/test_long_future.py .
-../../2.5.2/test/test_longexp.py .
-test_marshal.py F
-../../2.5.2/test/test_math.py .
-test_module.py .
-../../2.5.2/test/test_multibytecodec_support.py .
-test_mutants.py .
-../../2.5.2/test/test_new.py F
-../../2.5.2/test/test_opcodes.py .
-test_operations.py .
-../../2.5.2/test/test_operator.py F
-test_os.py .
-test_parser.py F
-../../2.5.2/test/test_pickle.py F
-../../2.5.2/test/test_pkg.py .
-../../2.5.2/test/test_pkgimport.py .
-../../2.5.2/test/test_pow.py .
-../../2.5.2/test/test_pprint.py .
-../../2.5.2/test/test_profilehooks.py .
-test_re.py F
-test_repr.py F
-../../2.5.2/test/test_richcmp.py .
-test_scope.py .
-test_set.py F
-test_slice.py .
-../../2.5.2/test/test_softspace.py .
-test_sort.py F
-../../2.5.2/test/test_str.py F
-../../2.5.2/test/test_string.py F
-../../2.5.2/test/test_StringIO.py .
-../../2.5.2/test/test_syntax.py F
-test_sys.py F
-../../2.5.2/test/test_thread.py F
-../../2.5.2/test/test_threaded_import.py F
-../../2.5.2/test/test_threading.py F
-../../2.5.2/test/test_threading_local.py F
-../../2.5.2/test/test_time.py F
-test_trace.py F
-test_traceback.py F
-../../2.5.2/test/test_transformer.py .
-../../2.5.2/test/test_tuple.py F
-../../2.5.2/test/test_types.py .
-../../2.5.2/test/test_unary.py .
-../../2.5.2/test/test_unicode.py F
-../../2.5.2/test/test_unittest.py .
-../../2.5.2/test/test_univnewlines.py f
-test_unpack.py F
-../../2.5.2/test/test_userdict.py .
-../../2.5.2/test/test_userlist.py F
-test_userstring.py F
-../../2.5.2/test/test_warnings.py .
-test_weakref.py F
-test_xrange.py .
-
-========================================================== 174 tests deselected by 'core' ===========================================================
-===================================================== 65/120 passed + 0 skips in 459.34 seconds =====================================================
-=================================================================== failures: 55 ====================================================================
+test name           !=must fix      guess at failure cause or difficulty
+-------------------------------------------------------------------------------------------
+test__locale                     
+test_ast                         
+test_bigmem                      
+test_binascii                    
+test_builtin                     
+test_cProfile                    
+test_capi                        
+test_cmd_line                    
+test_code                        
+test_codeccallbacks              
+test_codecs                      
+test_coding                      
+test_coercion                    
+test_commands                    
+test_compile                     
+test_compiler                    
+test_contextlib                  
+test_ctypes                      
+test_datetime                    
+test_decimal                     
+test_descr                       
+test_descrtut                    
+test_dis                         
+test_distutils                   
+test_doctest                     
+test_dumbdbm                     
+test_email                       
+test_email_codecs                
+test_email_renamed               
+test_enumerate                   
+test_exception_variations        
+test_exceptions                  
+test_file                        
+test_float                       
+test_fork1                       
+test_format                      
+test_funcattrs                   
+test_functools                   
+test_gc                          
+test_generators                  
+test_genexps                     
+test_gettext                     
+test_grammar                     
+test_hmac                        
+test_import                      
+test_importhooks                 
+test_inspect                     
+test_ioctl                       
+test_isinstance                  
+test_iterlen                     
+test_itertools                   
+test_logging                     
+test_long                        
+test_mailbox                     
+test_multibytecodec              
+test_mutants                     
+test_new                         
+test_normalization               
+test_optparse                    
+test_parser                      
+test_peepholer                   
+test_pep277                      
+test_platform                    
+test_plistlib                    
+test_poll                        
+test_profile                     
+test_pyclbr                      
+test_pyexpat                     
+test_quopri                      
+test_random                      
+test_re                          
+test_repr                        
+test_sax                         
+test_sets                        
+test_shelve                      
+test_signal                      
+test_site                        
+test_socket                      
+test_socketserver                
+test_sort                        
+test_sqlite                      
+test_startfile                   what is os.startfile?
+test_str                     !   segfault :-(
+test_string                  !   segfault :-(
+test_struct                  !   struct.pack() range checking sometimes less strict in CPython
+test_structmembers               CPython-only
+test_subprocess              !   missing resource.error.  no clue about os.fpathconf().
+test_syntax                      more small hacking here and there in the ast compiler
+test_sys                         missing sys._current_frames()
+test_tarfile                 !   timeout?
+test_thread                      the docs say it's ok to raise thread.error here, but maybe we need to have thread.stack_size() implemented anyway (no hurry I'd say)
+test_threading                   the failure should be marked as CPython-only
+test_time                    !   easy fix (either bogus test or bogus time.strftime())
+test_timeout                     skipped test
+test_trace                       probably all acceptable differences
+test_traceback               !   don't care about '__members__', but check the other tests
+test_tuple                   !   might be fixed now, check again
+test_unicode                 !   segfault :-(
+test_unicode_file                skipped test
+test_unicodedata                 unknown to me (but xorAxAx and fijal have a better clue)
+test_urllib2_localnet            bogus test?
+test_urllib2net                  skipped test
+test_urllibnet                   skipped test
+test_userstring              !   unknown
+test_uu                      !   unknown
+test_wait3                       no os.wait3()
+test_wait4                       no os.wait4()
+test_weakref                     probably missing some gc.collect()
+test_with                        minor hacking in the ast compiler
+test_xml_etree_c                 import _elementtree
+test_xmlrpc                      sys.setdefaultencoding missing
+test_zipfile                 !   see test_struct
+test_zipfile64                   skipped test
+test_zipimport                   many failures.  the test itself seems not to run correctly
+test_zlib                    !   easy to fix
