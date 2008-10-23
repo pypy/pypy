@@ -93,7 +93,6 @@ class MarkCompactGC(MovingGCBase):
         MovingGCBase.setup(self)
         self.objects_with_finalizers = self.AddressDeque()
         self.objects_with_weakrefs = self.AddressStack()
-        self.tid_backup_stack = self.AddressStack()
         self.tid_backup = lltype.nullptr(self.TID_BACKUP)
 
     # flags = 1 to make lltype & llmemory happy about odd/even pointers
@@ -233,15 +232,12 @@ class MarkCompactGC(MovingGCBase):
         self.free         = finaladdr
         self.top_of_space = toaddr + self.next_collect_after
         self.debug_check_consistency()
+        lltype.free(self.tid_backup, flavor='raw')
+        self.tid_backup = lltype.nullptr(self.TID_BACKUP)
         if self.run_finalizers.non_empty():
             self.execute_finalizers()
         self.debug_collect_finish(start_time)
-        lltype.free(self.tid_backup, flavor='raw')
-        if self.tid_backup_stack.non_empty():
-            self.tid_backup = llmemory.cast_adr_to_ptr(self.tid_backup_stack.pop(), lltype.Ptr(self.TID_BACKUP))
-        else:
-            self.tid_backup = lltype.nullptr(self.TID_BACKUP)
-
+        
     def collect_weakref_offsets(self):
         weakrefs = self.objects_with_weakrefs
         new_weakrefs = self.AddressStack()
@@ -255,6 +251,7 @@ class MarkCompactGC(MovingGCBase):
             new_weakrefs.append(obj)
             i += 1
         self.objects_with_weakrefs = new_weakrefs
+        weakrefs.delete()
         return weakref_offsets
 
     def debug_collect_start(self):
@@ -346,8 +343,6 @@ class MarkCompactGC(MovingGCBase):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         # XXX one can adjust this not to keep word per object, but instead
         #     just number of used bits
-        if self.tid_backup:
-            self.tid_backup_stack.append(llmemory.cast_ptr_to_adr(self.tid_backup))
         self.tid_backup = lltype.malloc(self.TID_BACKUP, num_of_alive_objs,
                                    flavor='raw')
         i = 0
