@@ -117,8 +117,10 @@ Translating PyPy for the Maemo platform
 +++++++++++++++++++++++++++++++++++++++
 
 Afterwards, you are ready for the translation of RPython programs.
-The hosting operating system runs a Python interpreter (at least
-2.4) that uses the scratchbox automatically. This is achieved by running
+Like in a normal PyPy translation run, your Python interpreter on
+the hosting operation system runs the translator. And the translator
+itself uses the Scratchbox environment to obtain native target
+binaries. This is achieved by running
 the following command line in the ``pypy/translator/goal`` directory::
 
      python translate.py --platform=maemo --opt=mem
