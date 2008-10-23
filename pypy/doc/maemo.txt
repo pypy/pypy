@@ -4,33 +4,134 @@ How to run PyPy on top of maemo platform
 XXX this document needs cleanup, contains duplicate information, will need cleanup 
     after experiments yielded the best way to do pypy-c translations. 
 
-This is a short introduction how to install correct environment and
-cross-compile pypy to maemo platform emulator under qemu. Note that this
-is work-in-progress.
+This is a short introduction that explains how to obtain a cross-compiled binary
+of PyPy for the Maemo platform.
+
+Cross compilation means that a certain environment will produce an
+executable binary which can then be copied to the target environment
+and be run without any dependency problems.
+In order to provide a usable cross compilation framework for PyPy,
+Scratchbox and the Maemo SDK are required. While the former provides
+a framework for reproducibly building software packages through
+the definition of target profiles and so called devkits, the latter
+one provides a set of targets and rootstraps for the compilation
+of applications that work on Maemo powered devices.
+
+The Maemo SDK can be downloaded on http://maemo.org/development/sdks/
+You can find all relevant downloads on the referenced pages.
+
+Before you can start the installation, you need to decide which Maemo
+version you need. This mostly depends on the installed version on the
+device. We assume that you are running Maemo 4.1. URLs referring to files
+in this document will therefore hardcode this version. Just as an example,
+the Nokia n810 is shipped with a Maemo 4.0 installation, so 4.1 will not fit.
+
+In order to get a working SDK environment, you need the file
+INSTALL.txt which explains the installation of the Maemo
+development environment. You can find the one for Maemo 4.1 here:
+http://tablets-dev.nokia.com/4.1/INSTALL.txt
+
+This document only refers to sections in INSTALL.txt but does not reproduce
+all details.
 
 
-Variant 0: cross-compiling pypy-c 
+Doing it sanely
+-----------------------------------
+
+Installing Scratchbox
++++++++++++++++++++++
+
+First of all, Scratchbox needs to be installed. This is done as ``root``.
+The installation can be done using an installer script, packages supplied
+by the particular linux distribution or manually. Details can be found in section 1
+of the file INSTALL.txt. The URL of the installer is::
+
+    http://tablets-dev.nokia.com/4.1/maemo-scratchbox-install_4.1.sh
+
+The script will automatically select the necessary devkits and toolchains
+and even automatically use Debian packages on Debian based machines.
+
+Additional important steps include fixing the mmap and vdso settings
+of the kernel (cf. section 1.3),
+and the addition of your user account to a special group
+(by supplying ``-u YOURUSERNAME`` to the installation script).
+
+Note that the usage of the Debian devkits and related manually
+engineered target profiles is neither sufficient nor useful to provide
+applications for Maemo based devices compared to using the automatic
+target profile setup provided by the Maemo SDK. Therefore it is
+necessary to also install the Maemo SDK as explained next.
+
+
+Installing the Maemo SDK
+++++++++++++++++++++++++
+
+Afterwards, the Maemo SDK needs to be installed. This is done as a
+normal system user (the one that you added to the ``sbox`` group
+explained above). One obvious result is that every system user
+has his own set of Scratchbox targets.
+
+It is strongly recommended to do the installation by executing the
+script as explained in section 2.1. The URL of the script is::
+
+    http://tablets-dev.nokia.com/4.1/maemo-sdk-install_4.1.sh
+
+It will create two new targets and preselect
+the target for ARM compilation. This nearly results in a scratchbox environment
+that is usable for cross compilation of PyPy.
+
+The remaining parts of INSTALL.txt describe closed source binaries
+and X11 support, we do not need those.
+
+
+Customizing the default targets for PyPy
+++++++++++++++++++++++++++++++++++++++++
+
+As PyPy does not yet provide a debian package description
+file for use on Maemo, we have to install the dependencies manually
+in our Scratchbox. The following steps are necessary to accomplish this:
+
+1. Go into your scratchbox by executing ``/scratchbox/login``
+
+1. Add these lines to ``/etc/apt/sources.list``::
+
+    deb http://repository.maemo.org/extras/ chinook free non-free
+    deb http://repository.maemo.org/extras-devel/ chinook free non-free
+
+1. Install these packages to gain full support for extension modules::
+
+       python-dev, libffi4-dev, libgc-dev, libbz2-dev, zlib1g-dev, libgc-dev XXX check
+
+   This can be done by running ``apt-get update`` and ``apt-get install``
+   accordingly.
+
+1. Leave the scratchbox shell again.
+
+
+Translating PyPy for the Maemo platform
++++++++++++++++++++++++++++++++++++++++
+
+Afterwards, you are ready for the translation of RPython programs.
+The hosting operating system runs a Python interpreter (at least
+2.4) that uses the scratchbox automatically. This is achieved by running
+the following command line in the ``pypy/translator/goal`` directory::
+
+     python translate.py --platform=maemo --opt=mem
+
+When this step is finished, the ``goal`` directory will contain a binary called
+``pypy-c`` which is runnable on the Maemo device. Copy it over to your device
+together with ``lib-python`` and the ``pypy/lib`` directory (while preserving
+correct paths) and you can start it there.
+
+
+
+Variant 0: manual scratchbox
 ------------------------------------------
 
-The basic idea is to install a scratchbox environment that emulates
-a real ARM-based N810 device.  One can then login to this virtual 
-environment and execute ARM binaries.  Scratchbox also provides 
-compiler toolchains that allow to drive a compiler from the outside. 
-This is what we want for building pypy-c because most work happens 
-independently from the platform and we want this work to execute natively. 
-For all platform relevant details we need to consult the target environment 
-and use the cross-compiler.  So now let's move on to install such an environment
-and compiler.  
+The stuff below here can be removed in my opinion. -- xoraxax
 
-Note: the 
 
-    http://repository.maemo.org/stable/diablo/maemo-scratchbox-install_4.1.1.sh
-
-script is provided by the maemo team and would automate installation. 
-Unfortuantely it does not provide a working cross-compiler (XXX 
-mail to maintainers and see if there is an easy fix). 
-
-creating a /scratchbox environment 
+Installing scratchbox
 +++++++++++++++++++++++++++++++++++++++++
 
 The basic idea is to follow 
@@ -80,91 +181,6 @@ Now create a user::
 the 'yes' means that the USER gets added to the sbox unix group, neccessary to login into the virtual environment. 
 
 
-Creating an target emulating N810/Maemo environment
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-Now we instruct scratchbox to define a target suitable for emulating the
-N810/Maemo device:
-
-Login to the virtual environment and invoke::
-
-    /scratchbox/login 
-    sb-menu 
-
-this brings up an interactive menu, you need to *setup* a new target,
-you may name it "ARMEL" and then you need to select::
-
-    compiler:  cs2007q3-glibc2.5-arm7
-    devkits:   cputransp, perl, svn 
-    cputransp: (select 'qemu-arm-0.8.2-sb2' when it asks later on) 
-   
-In theory, you should also be able to execute the following cmdline::
-
-    sb-conf setup armel --compiler=cs2007q3-glibc2.5-arm7 \
-                        --devkit=cputransp:perl:svn \
-                        --cputransp=qemu-arm-0.8.2-sb2
-
-but this did not provide a complete environment for me (XXX try to fix). 
-
-Congrats!  If all worked well you should now be able to cross-compile C programs via:
-
-    /scratchbox/compilers/cs2007q3-glibc2.5-arm7/bin/arm-none-linux-gnueabi-gcc
-
-and copy the binary result to the N810/Maemo device. You can also login to
-the virtual environment and execute the ARM binary there. 
-
-XXX [fijal] remember to update that it uses inside gcc these days
-
-PyPy's translation tool chain tries to use this cross-compiler when 
-you specify ``--platform=maemo`` to the translate.py script. 
-
-So you can now get yourself a copy of pypy (in the hosting, not the
-virtual environment of course!) and do: 
-
-    python translate.py --batch --platform=maemo --opt=mem \
-           targetpypystandalone.py --no-allworkingmodules 
-
-copy the result to the device and run it. 
-
- 
-variant 1: Installing `scratchbox`_
--------------------------------------------
-
-I had no success with installing scratchbox 2.0, but theoretically it
-should work. 
-
-Follow these `installation instructions`_ for 1.0,
-make sure that you install cpu-transparency modules, otherwise emulation will
-not be available. Preferred toolchain is cs2005q3.2-glibc2.5-arm.
-
-Follow instructions, running sb-menu and selecting cpu-transparency
-method (qemu-arm), devkits (debian-lenny, cpu-transparency) and install files
-(and not a rootstrap).
-
-I had to manually edit /scratchbox/devkits/debian-etch/etc/environment 
-to add ARCH=armel, otherwise apt-get did not work.  I also edited
-/etc/apt/sources.list to contain::
-    
-    deb     ftp://ftp.fi.debian.org/debian/ lenny  main contrib non-free
-    deb-src ftp://ftp.fi.debian.org/debian/ lenny  main contrib non-free
-
-Then run ``apt-get update``, get an error, ignore it, and run
-``fakeroot apt-get install python-dev``.  Doesn't work out of
-the box for me; I have actually to install a few pieces at a
-time, starting from libc6, sometimes with and sometimes
-without the ``fakeroot``.  It's quite a mess but in the end I
-get a ``python2.5``.
-
-cross-compiling pypy 
-+++++++++++++++++++++++++++
-
-Run::
-  ./translate.py --platform=maemo --opt=mem targetpypystandalone --no-allworkingmodules
-
-This should create pypy-c which is able to run on top of scratchbox. To run it
-you need to copy pypy-c, together with libraries to a place accessible
-from inside scratchbox. Default is /scratchbox/users/<user>/home/<user> where
-<user> is your user id.
 
 
 variant 2: using official maemo-installs 
@@ -212,34 +228,13 @@ the following taken mostly from
 
    and follow the README. (a number of steps). 
 
-Compiling within scratchbox
-++++++++++++++++++++++++++++++++
-
-After switching to the virtual environment via ``/scratchbox/login`` 
-and commands like this::
-
-    svn co http://codespeak.net/svn/pypy/dist pypy-dist 
-    cd pypy-dist/pypy/translator/goal
-    python translate.py --batch --opt=mem targetpypystandalone.py --no-allworkingmodules
-
-one will get (after around 10 hours on a medium intel machine) a working pypy-c. 
-You can transfer this binary to a real device an compile it there. 
-
-cross-compiling (using scratchbox)
-++++++++++++++++++++++++++++++++++++++++++++
-
-XXX under investigation.  might turn out that a different installation
-method suffices.  the above is still good for getting a maemo simulation
-environment - not much missing to also get a simulated graphical environment
-from it. 
-
-
 
 .. _`installation instructions`: http://www.scratchbox.org/documentation/user/scratchbox-1.0/html/installdoc.html
 .. _`scratchbox`: http://scratchbox.org
 
-debian
-++++++
+
+Using a debian target (not recommended, does not work!)
++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 in theory we don't need to install debian under scratchbox. in practice though,
 if we want to run pypy-c with allworkingmodules we need to a way to install
