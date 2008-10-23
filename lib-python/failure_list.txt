@@ -1,86 +1,86 @@
 test name           !=must fix      guess at failure cause or difficulty
 -------------------------------------------------------------------------------------------
-test__locale                     
-test_ast                         
-test_bigmem                      
-test_binascii                    
-test_builtin                     
-test_cProfile                    
-test_capi                        
-test_cmd_line                    
-test_code                        
-test_codeccallbacks              
-test_codecs                      
-test_coding                      
-test_coercion                    
-test_commands                    
-test_compile                     
-test_compiler                    
-test_contextlib                  
-test_ctypes                      
-test_datetime                    
-test_decimal                     
-test_descr                       
-test_descrtut                    
-test_dis                         
-test_distutils                   
-test_doctest                     
-test_dumbdbm                     
-test_email                       
-test_email_codecs                
-test_email_renamed               
-test_enumerate                   
-test_exception_variations        
-test_exceptions                  
-test_file                        
-test_float                       
-test_fork1                       
-test_format                      
-test_funcattrs                   
-test_functools                   
-test_gc                          
-test_generators                  
-test_genexps                     
-test_gettext                     
-test_grammar                     
-test_hmac                        
-test_import                      
-test_importhooks                 
-test_inspect                     
-test_ioctl                       
-test_isinstance                  
-test_iterlen                     
-test_itertools                   
-test_logging                     
-test_long                        
-test_mailbox                     
-test_multibytecodec              
-test_mutants                     
-test_new                         
-test_normalization               
-test_optparse                    
-test_parser                      
-test_peepholer                   
-test_pep277                      
-test_platform                    
-test_plistlib                    
-test_poll                        
-test_profile                     
-test_pyclbr                      
-test_pyexpat                     
-test_quopri                      
-test_random                      
-test_re                          
-test_repr                        
-test_sax                         
-test_sets                        
-test_shelve                      
-test_signal                      
-test_site                        
-test_socket                      
-test_socketserver                
-test_sort                        
-test_sqlite                      
+test__locale                 !   unknown
+test_ast                         import _ast
+test_bigmem                  !   one looks like bug, the others like impl details
+test_binascii                !   looks like a bug
+test_builtin                     this is our issue383
+test_cProfile                !   unknown (do we still need to fix module/cProfile?)
+test_capi                        CPython only
+test_cmd_line                !   implement "pypy-c -V"
+test_code                        obscure differences in code objects produced by compiler
+test_codeccallbacks          !   unknown
+test_codecs                  !   unknown
+test_coding                  !   hah.  fix buildbot :-/
+test_coercion                !   look at test_prefix_binops, the other is probably too obscure
+test_commands                !   unknown
+test_compile                 !   test_leading_newlines: impl detail; the rest: not good
+test_compiler                !   unknown
+test_contextlib              !   should be fixed, probably not too hard
+test_ctypes                  !   implementation details but also some real crashes
+test_datetime                !   the two test_negative_*() look like real bugs
+test_decimal                     missing decimal.ROUND_05UP
+test_descr                   !   typo in modified/test_descr?
+test_descrtut                    implementation detail only
+test_dis                         probably not worth the pain of whacking at the compiler
+test_distutils                   this is our issue367
+test_doctest                 !   unknown
+test_dumbdbm                 !   oups? looks unexpected
+test_email                   !   annoying failures, look at me
+test_email_codecs                test skipped
+test_email_renamed           !   same as test_email
+test_enumerate                   same as test_iterlen
+test_exception_variations    !   uh?
+test_exceptions              !   typo in modified/test_exceptions
+test_file                        some more exceptions should be raised
+test_float                       float.__getformat__() exists mainly only for tests
+test_fork1                   !   why did this fail just once?
+test_format                      test checking for exact exception messages
+test_funcattrs               !   easy to add this new attribute
+test_functools               !   missing gc.collect(); some impl details; del p.__dict__?
+test_gc                          internal stuff, we may want to provide placeholders
+test_generators              !   I really hate our bytecode compiler :-(
+test_genexps                 !   Fatal RPython error: InternalCompilerError :-(
+test_gettext                 !   check this use of unicode()
+test_grammar                     implementation detail
+test_hmac                    !   looks bad!
+test_import                      importing from pyc-files-without-py-file disabled by default
+test_importhooks             !   unknown
+test_inspect                 !   test_wrapped_decorator: try to fix;  isbuiltin([].append): cry and maaaybe try to fix
+test_ioctl                       missing os.getpgrp()
+test_isinstance              !   mark the recursion limit tests as CPython-specific
+test_iterlen                     somehow implementation detail (missing __length_hint__())
+test_itertools                   same as test_iterlen
+test_logging                 !   shallow.  let's just fix the __repr__ of types
+test_long                    !   easy fixes
+test_mailbox                 !   look at me
+test_multibytecodec          !   unknown
+test_mutants                     the test is probably too precise in the failure it expects
+test_new                         new.instancemethod(x, None) should fail, but no hurry
+test_normalization               test skipped
+test_optparse                !   test needs some fixes, but still, some failures are strange
+test_parser                      missing parser.compilest().  I don't think we care for now
+test_peepholer                   implementation detail (might be useful to look, though)
+test_pep277                      NT only
+test_platform                !   we should ensure that our sys.version is compatible enough do that the unmodified _sys_version_parser regexp recognizes it
+test_plistlib                    plistlib seems to be Mac only
+test_poll                        easy fix, I suppose
+test_profile                 !   why is the "profile.py" module not found??
+test_pyclbr                  !   this import should find test/pyclbr_input.py
+test_pyexpat                     is that an implementation detail?
+test_quopri                  !   check if test_script{en,de}code() shows a real bug
+test_random                      should probably be fixed, but no hurry i guess
+test_re                          obscure, looks like yet another case not covered by test_sub_unicode in pypy/module/_sre/
+test_repr                        implementation detail
+test_sax                     !   unknown
+test_sets                    !   is this another CPython implementation detail test?
+test_shelve                  !   unknown
+test_signal                  !   missing signal.alarm(), probably easy to add
+test_site                    !   fix me
+test_socket                  !   uh?
+test_socketserver                test skipped
+test_sort                        implementation detail
+test_sqlite                  !   why no sqlite available?
 test_startfile                   what is os.startfile?
 test_str                     !   segfault :-(
 test_string                  !   segfault :-(
