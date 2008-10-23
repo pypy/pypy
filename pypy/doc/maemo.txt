@@ -76,7 +76,10 @@ script as explained in section 2.1. The URL of the script is::
 
     http://tablets-dev.nokia.com/4.1/maemo-sdk-install_4.1.sh
 
-It will create two new targets and preselect
+It is useful to select the debug packages when being asked (this is
+the default). Closed source nokia binaries are not necessary.
+
+The SDK installation will create two new targets and preselect
 the target for ARM compilation. This nearly results in a scratchbox environment
 that is usable for cross compilation of PyPy.
 
@@ -93,17 +96,19 @@ in our Scratchbox. The following steps are necessary to accomplish this:
 
 1. Go into your scratchbox by executing ``/scratchbox/login``
 
-1. Add these lines to ``/etc/apt/sources.list``::
+1. Add these lines to ``/etc/apt/sources.list`` and replace DIST
+   by the appropriate name of your Maemo version (chinook or diablo)::
 
-    deb http://repository.maemo.org/extras/ chinook free non-free
-    deb http://repository.maemo.org/extras-devel/ chinook free non-free
+    deb http://repository.maemo.org/extras/ DIST free non-free
+    deb http://repository.maemo.org/extras-devel/ DIST free non-free
 
 1. Install these packages to gain full support for extension modules::
 
-       python-dev, libffi4-dev, libgc-dev, libbz2-dev, zlib1g-dev, libgc-dev XXX check
+       python2.5-dev libffi4-dev libgc-dev
 
    This can be done by running ``apt-get update`` and ``apt-get install``
-   accordingly.
+   accordingly. The latter is only needed if you decide to use the Boehm
+   garbage collector (in fact, it is only available starting from Diablo).
 
 1. Leave the scratchbox shell again.
 
@@ -178,6 +183,7 @@ Now create a user::
 
     /scratchbox/sbin/sbox_adduser USER yes   
 
+the 'yes' means that the USER gets added to the sbox unix group, neccessary to login into the virtual environment. 
 the 'yes' means that the USER gets added to the sbox unix group, neccessary to login into the virtual environment. 
 
 
