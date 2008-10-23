@@ -12,10 +12,9 @@ from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.objectmodel import we_are_translated
 
-TYPEID_MASK = 0xffff
-first_gcflag = 1 << 16
+TYPEID_MASK = 0xffff0000
+first_gcflag = 2
 GCFLAG_MARKBIT = first_gcflag << 0
-GCFLAG_EXTERNAL = first_gcflag << 1
 
 memoryError = MemoryError()
 
@@ -51,6 +50,11 @@ memoryError = MemoryError()
 # we bump next_collect_after which is a marker where to start each collection.
 # It should be exponential (but less than 2) from the size occupied by objects
 
+# field optimization - we don't need forward pointer and flags at the same
+# time. Instead we copy list of tids when we know how many objects are alive
+# and store forward pointer there.
+
+
 # in case we need to grow space, we use
 # current_space_size * FREE_SPACE_MULTIPLIER / FREE_SPACE_DIVIDER + needed
 FREE_SPACE_MULTIPLIER = 3
@@ -60,8 +64,10 @@ FREE_SPACE_ADD = 256
 GC_CLEARANCE = 32*1024
 
 class MarkCompactGC(MovingGCBase):
-    HDR = lltype.Struct('header', ('tid', lltype.Signed),
-                        ('forward_ptr', llmemory.Address))
+    HDR = lltype.Struct('header', ('forward_ptr', llmemory.Address))
+    TID_BACKUP = lltype.Array(lltype.Signed)
+    WEAKREF_OFFSETS = lltype.Array(lltype.Signed)
+
 
     TRANSLATION_PARAMS = {'space_size': 8*1024*1024} # XXX adjust
 
@@ -87,29 +93,28 @@ class MarkCompactGC(MovingGCBase):
         MovingGCBase.setup(self)
         self.objects_with_finalizers = self.AddressDeque()
         self.objects_with_weakrefs = self.AddressStack()
+        self.tid_backup_stack = self.AddressStack()
+        self.tid_backup = lltype.nullptr(self.TID_BACKUP)
 
-    def init_gc_object(self, addr, typeid, flags=0):
-        hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
-        hdr.tid = typeid | flags
-        hdr.forward_ptr = NULL
+    # flags = 1 to make lltype & llmemory happy about odd/even pointers
 
-    def init_gc_object_immortal(self, addr, typeid, flags=0):
+    def init_gc_object(self, addr, typeid, flags=1):
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
-        hdr.tid = typeid | flags | GCFLAG_EXTERNAL
-        hdr.forward_ptr = NULL
+        hdr.forward_ptr = llmemory.cast_int_to_adr((typeid << 16) | flags)
+
+    def init_gc_object_immortal(self, addr, typeid, flags=1):
+        hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
+        hdr.forward_ptr = llmemory.cast_int_to_adr((typeid << 16) | flags)
         # XXX we can store forward_ptr to itself, if we fix C backend
         # so that get_forwarding_address(obj) returns
         # obj itself if obj is a prebuilt object
 
     def malloc_fixedsize_clear(self, typeid, size, can_collect,
                                has_finalizer=False, contains_weakptr=False):
-        ll_assert(can_collect, "can collect is False")
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size
         result = self.free
         if raw_malloc_usage(totalsize) > self.top_of_space - result:
-            if not can_collect:
-                raise memoryError
             result = self.obtain_free_space(totalsize)
         llarena.arena_reserve(result, totalsize)
         self.init_gc_object(result, typeid)
@@ -123,7 +128,6 @@ class MarkCompactGC(MovingGCBase):
     def malloc_varsize_clear(self, typeid, length, size, itemsize,
                              offset_to_length, can_collect,
                              has_finalizer=False):
-        ll_assert(can_collect, "can collect is False")
         size_gc_header = self.gcheaderbuilder.size_gc_header
         nonvarsize = size_gc_header + size
         try:
@@ -133,8 +137,6 @@ class MarkCompactGC(MovingGCBase):
             raise memoryError
         result = self.free
         if raw_malloc_usage(totalsize) > self.top_of_space - result:
-            if not can_collect:
-                raise memoryError
             result = self.obtain_free_space(totalsize)
         llarena.arena_reserve(result, totalsize)
         self.init_gc_object(result, typeid)
@@ -170,9 +172,10 @@ class MarkCompactGC(MovingGCBase):
         toaddr = llarena.arena_malloc(self.space_size, True)
         return toaddr
 
-    def compute_size_of_alive_objects(self):
+    def compute_alive_objects(self):
         fromaddr = self.space
         totalsize = 0
+        num = 1
         while fromaddr < self.free:
             size_gc_header = self.gcheaderbuilder.size_gc_header
             hdr = llmemory.cast_adr_to_ptr(fromaddr, lltype.Ptr(self.HDR))
@@ -181,11 +184,14 @@ class MarkCompactGC(MovingGCBase):
             objtotalsize = size_gc_header + objsize
             if self.marked(obj):
                 totalsize += raw_malloc_usage(objtotalsize)
+            num += 1
             fromaddr += objtotalsize
-        return totalsize
+        self.totalsize_of_objs = totalsize
+        return num
 
     def collect(self):
         self.markcompactcollect()
+    
     def markcompactcollect(self, needed=0):
         start_time = self.debug_collect_start()
         self.debug_check_consistency()
@@ -196,8 +202,9 @@ class MarkCompactGC(MovingGCBase):
             self.mark_objects_with_finalizers()
             self._trace_and_mark()
         self.to_see.delete()
-        totalsize = self.new_space_size(self.compute_size_of_alive_objects(),
-                                        needed)
+        num_of_alive_objs = self.compute_alive_objects()
+        size_of_alive_objs = self.totalsize_of_objs
+        totalsize = self.new_space_size(size_of_alive_objs, needed)
         if totalsize >= self.space_size:
             toaddr = self.double_space_size(totalsize)
             resizing = True
@@ -205,12 +212,13 @@ class MarkCompactGC(MovingGCBase):
             toaddr = llarena.arena_new_view(self.space)
             resizing = False
         self.next_collect_after = totalsize
-        finaladdr = self.update_forward_pointers(toaddr)
+        weakref_offsets = self.collect_weakref_offsets()
+        finaladdr = self.update_forward_pointers(toaddr, num_of_alive_objs)
         if (self.run_finalizers.non_empty() or
             self.objects_with_finalizers.non_empty()):
             self.update_run_finalizers()
         if self.objects_with_weakrefs.non_empty():
-            self.invalidate_weakrefs()
+            self.invalidate_weakrefs(weakref_offsets)
         self.update_objects_with_id()
         self.compact(resizing)
         if not resizing:
@@ -228,6 +236,26 @@ class MarkCompactGC(MovingGCBase):
         if self.run_finalizers.non_empty():
             self.execute_finalizers()
         self.debug_collect_finish(start_time)
+        lltype.free(self.tid_backup, flavor='raw')
+        if self.tid_backup_stack.non_empty():
+            self.tid_backup = llmemory.cast_adr_to_ptr(self.tid_backup_stack.pop(), lltype.Ptr(self.TID_BACKUP))
+        else:
+            self.tid_backup = lltype.nullptr(self.TID_BACKUP)
+
+    def collect_weakref_offsets(self):
+        weakrefs = self.objects_with_weakrefs
+        new_weakrefs = self.AddressStack()
+        weakref_offsets = lltype.malloc(self.WEAKREF_OFFSETS,
+                                        weakrefs.length(), flavor='raw')
+        i = 0
+        while weakrefs.non_empty():
+            obj = weakrefs.pop()
+            offset = self.weakpointer_offset(self.get_type_id(obj))
+            weakref_offsets[i] = offset
+            new_weakrefs.append(obj)
+            i += 1
+        self.objects_with_weakrefs = new_weakrefs
+        return weakref_offsets
 
     def debug_collect_start(self):
         if self.config.gcconfig.debugprint:
@@ -276,8 +304,11 @@ class MarkCompactGC(MovingGCBase):
         self.objects_with_finalizers.delete()
         self.objects_with_finalizers = objects_with_finalizers
 
+    def get_tid(self, addr):
+        return llmemory.cast_adr_to_int(self.header(addr).forward_ptr)
+
     def get_type_id(self, addr):
-        return self.header(addr).tid & TYPEID_MASK
+        return self.get_tid(addr) >> 16
 
     def mark_roots_recursively(self):
         self.root_walker.walk_roots(
@@ -304,25 +335,35 @@ class MarkCompactGC(MovingGCBase):
         self.to_see.append(root.address[0])
 
     def mark(self, obj):
-        self.header(obj).tid |= GCFLAG_MARKBIT
+        previous = self.get_tid(obj)
+        self.header(obj).forward_ptr = llmemory.cast_int_to_adr(previous | GCFLAG_MARKBIT)
 
     def marked(self, obj):
-        return self.header(obj).tid & GCFLAG_MARKBIT
+        return self.get_tid(obj) & GCFLAG_MARKBIT
 
-    def update_forward_pointers(self, toaddr):
+    def update_forward_pointers(self, toaddr, num_of_alive_objs):
         fromaddr = self.space
         size_gc_header = self.gcheaderbuilder.size_gc_header
+        # XXX one can adjust this not to keep word per object, but instead
+        #     just number of used bits
+        if self.tid_backup:
+            self.tid_backup_stack.append(llmemory.cast_ptr_to_adr(self.tid_backup))
+        self.tid_backup = lltype.malloc(self.TID_BACKUP, num_of_alive_objs,
+                                   flavor='raw')
+        i = 0
         while fromaddr < self.free:
             hdr = llmemory.cast_adr_to_ptr(fromaddr, lltype.Ptr(self.HDR))
             obj = fromaddr + size_gc_header
             objsize = self.get_size(obj)
             totalsize = size_gc_header + objsize
             if not self.marked(obj):
-                pass
+                self.set_forwarding_address(obj, NULL, i)
+                hdr.forward_ptr = NULL
             else:
                 llarena.arena_reserve(toaddr, totalsize)
-                self.set_forwarding_address(obj, toaddr)
+                self.set_forwarding_address(obj, toaddr, i)
                 toaddr += totalsize
+            i += 1
             fromaddr += totalsize
 
         # now update references
@@ -331,17 +372,54 @@ class MarkCompactGC(MovingGCBase):
             MarkCompactGC._update_root,  # static in prebuilt non-gc structures
             MarkCompactGC._update_root)  # static in prebuilt gc objects
         fromaddr = self.space
+        i = 0
         while fromaddr < self.free:
             hdr = llmemory.cast_adr_to_ptr(fromaddr, lltype.Ptr(self.HDR))
             obj = fromaddr + size_gc_header
-            objsize = self.get_size(obj)
+            objsize = self.get_size_from_backup(obj, i)
             totalsize = size_gc_header + objsize
-            if not self.marked(obj):
+            if not self.surviving(obj):
                 pass
             else:
-                self.trace(obj, self._update_ref, None)
+                self.trace_with_backup(obj, self._update_ref, i)
             fromaddr += totalsize
+            i += 1
         return toaddr
+
+    def trace_with_backup(self, obj, callback, arg):
+        """Enumerate the locations inside the given obj that can contain
+        GC pointers.  For each such location, callback(pointer, arg) is
+        called, where 'pointer' is an address inside the object.
+        Typically, 'callback' is a bound method and 'arg' can be None.
+        """
+        typeid = self.get_typeid_from_backup(arg)
+        if self.is_gcarrayofgcptr(typeid):
+            # a performance shortcut for GcArray(gcptr)
+            length = (obj + llmemory.gcarrayofptr_lengthoffset).signed[0]
+            item = obj + llmemory.gcarrayofptr_itemsoffset
+            while length > 0:
+                callback(item, arg)
+                item += llmemory.gcarrayofptr_singleitemoffset
+                length -= 1
+            return
+        offsets = self.offsets_to_gc_pointers(typeid)
+        i = 0
+        while i < len(offsets):
+            callback(obj + offsets[i], arg)
+            i += 1
+        if self.has_gcptr_in_varsize(typeid):
+            item = obj + self.varsize_offset_to_variable_part(typeid)
+            length = (obj + self.varsize_offset_to_length(typeid)).signed[0]
+            offsets = self.varsize_offsets_to_gcpointers_in_var_part(typeid)
+            itemlength = self.varsize_item_sizes(typeid)
+            while length > 0:
+                j = 0
+                while j < len(offsets):
+                    callback(item + offsets[j], arg)
+                    j += 1
+                item += itemlength
+                length -= 1
+    trace_with_backup._annspecialcase_ = 'specialize:arg(2)'
 
     def _update_root(self, pointer):
         if pointer.address[0] != NULL:
@@ -355,29 +433,49 @@ class MarkCompactGC(MovingGCBase):
         return self.header(addr).forward_ptr != NULL
 
     def _is_external(self, obj):
-        # XXX might change
-        return self.header(obj).tid & GCFLAG_EXTERNAL
+        return not (obj >= self.space and obj < self.free)
 
     def get_forwarding_address(self, obj):
         if self._is_external(obj):
             return obj
         return self.header(obj).forward_ptr + self.size_gc_header()
 
-    def set_forwarding_address(self, obj, newaddr):
+    def set_forwarding_address(self, obj, newaddr, num):
+        self.backup_typeid(num, obj)
         self.header(obj).forward_ptr = newaddr
 
     def surviving(self, obj):
         return self.header(obj).forward_ptr != NULL
+
+    def backup_typeid(self, num, obj):
+        self.tid_backup[num] = self.get_type_id(obj)
+
+    def get_typeid_from_backup(self, num):
+        return self.tid_backup[num]
+
+    def get_size_from_backup(self, obj, num):
+        typeid = self.get_typeid_from_backup(num)
+        size = self.fixed_size(typeid)
+        if self.is_varsize(typeid):
+            lenaddr = obj + self.varsize_offset_to_length(typeid)
+            length = lenaddr.signed[0]
+            size += length * self.varsize_item_sizes(typeid)
+            size = llarena.round_up_for_allocation(size)
+            # XXX maybe we should parametrize round_up_for_allocation()
+            # per GC; if we do, we also need to fix the call in
+            # gctypelayout.encode_type_shape()
+        return size
 
     def compact(self, resizing):
         fromaddr = self.space
         size_gc_header = self.gcheaderbuilder.size_gc_header
         start = fromaddr
         end = fromaddr
+        num = 0
         while fromaddr < self.free:
-            hdr = llmemory.cast_adr_to_ptr(fromaddr, lltype.Ptr(self.HDR))
             obj = fromaddr + size_gc_header
-            objsize = self.get_size(obj)
+            hdr = llmemory.cast_adr_to_ptr(fromaddr, lltype.Ptr(self.HDR))
+            objsize = self.get_size_from_backup(obj, num)
             totalsize = size_gc_header + objsize
             if not self.surviving(obj): 
                 # this object dies. Following line is a noop in C,
@@ -388,8 +486,8 @@ class MarkCompactGC(MovingGCBase):
                 forward_ptr = hdr.forward_ptr
                 if resizing:
                     end = fromaddr
-                hdr.forward_ptr = NULL
-                hdr.tid &= ~GCFLAG_MARKBIT
+                val = (self.get_typeid_from_backup(num) << 16) + 1
+                hdr.forward_ptr = llmemory.cast_int_to_adr(val)
                 if fromaddr != forward_ptr:
                     #llop.debug_print(lltype.Void, "Copying from to",
                     #                 fromaddr, forward_ptr, totalsize)
@@ -405,14 +503,12 @@ class MarkCompactGC(MovingGCBase):
                         #                 here in case of test_gc
                         llarena.arena_reset(start, diff, True)
                     start += diff
-
+            num += 1
             fromaddr += totalsize
 
     def debug_check_object(self, obj):
         # not sure what to check here
-        if not self._is_external(obj):
-            ll_assert(not self.marked(obj), "Marked")
-            ll_assert(not self.surviving(obj), "forward_ptr set")
+        pass
 
     def mark_objects_with_finalizers(self):
         new_with_finalizers = self.AddressDeque()
@@ -436,17 +532,18 @@ class MarkCompactGC(MovingGCBase):
         self.objects_with_finalizers.delete()
         self.objects_with_finalizers = new_with_finalizers
 
-    def invalidate_weakrefs(self):
+    def invalidate_weakrefs(self, weakref_offsets):
         # walk over list of objects that contain weakrefs
         # if the object it references survives then update the weakref
         # otherwise invalidate the weakref
         new_with_weakref = self.AddressStack()
+        i = 0
         while self.objects_with_weakrefs.non_empty():
             obj = self.objects_with_weakrefs.pop()
             if not self.surviving(obj):
                 continue # weakref itself dies
             newobj = self.get_forwarding_address(obj)
-            offset = self.weakpointer_offset(self.get_type_id(obj))
+            offset = weakref_offsets[i]
             pointing_to = (obj + offset).address[0]
             # XXX I think that pointing_to cannot be NULL here
             if pointing_to:
@@ -456,5 +553,7 @@ class MarkCompactGC(MovingGCBase):
                     new_with_weakref.append(newobj)
                 else:
                     (obj + offset).address[0] = NULL
+            i += 1
         self.objects_with_weakrefs.delete()
         self.objects_with_weakrefs = new_with_weakref
+        lltype.free(weakref_offsets, flavor='raw')
