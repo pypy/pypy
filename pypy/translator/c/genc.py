@@ -6,10 +6,7 @@ from pypy.translator.c.database import LowLevelDatabase
 from pypy.translator.c.extfunc import pre_include_code_lines
 from pypy.translator.llsupport.wrapper import new_wrapper
 from pypy.translator.gensupp import uniquemodulename, NameManager
-from pypy.translator.tool.cbuild import so_ext, ExternalCompilationInfo
-from pypy.translator.tool.cbuild import compile_c_module
-from pypy.translator.tool.cbuild import CCompiler, ProfOpt
-from pypy.translator.tool.cbuild import import_module_from_directory
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.tool.cbuild import check_under_under_thread
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.udir import udir
@@ -18,6 +15,89 @@ from pypy.translator.c.support import log, c_string_constant
 from pypy.rpython.typesystem import getfunctionptr
 from pypy.translator.c import gc
 
+def import_module_from_directory(dir, modname):
+    file, pathname, description = imp.find_module(modname, [str(dir)])
+    try:
+        mod = imp.load_module(modname, file, pathname, description)
+    finally:
+        if file:
+            file.close()
+    return mod
+
+class ProfOpt(object):
+    #XXX assuming gcc style flags for now
+    name = "profopt"
+
+    def __init__(self, compiler):
+        self.compiler = compiler
+
+    def first(self):
+        platform = self.compiler.platform
+        if platform.name == 'darwin':
+            # XXX incredible hack for darwin
+            cfiles = self.compiler.cfiles
+            STR = '/*--no-profiling-for-this-file!--*/'
+            no_prof = []
+            prof = []
+            for cfile in self.compiler.cfiles:
+                if STR in cfile.read():
+                    no_prof.append(cfile)
+                else:
+                    prof.append(cfile)
+            p_eci = self.compiler.eci.merge(
+                ExternalCompilationInfo(compile_extra=['-fprofile-generate'],
+                                        link_extra=['-fprofile-generate']))
+            ofiles = platform._compile_o_files(prof, p_eci)
+            _, eci = self.compiler.eci.get_module_files()
+            ofiles += platform._compile_o_files(no_prof, eci)
+            return platform._finish_linking(ofiles, p_eci, None, True)
+        else:
+            return self.build('-fprofile-generate')
+
+    def probe(self, exe, args):
+        # 'args' is a single string typically containing spaces
+        # and quotes, which represents several arguments.
+        self.compiler.platform.execute(exe, args)
+
+    def after(self):
+        return self.build('-fprofile-use')
+
+    def build(self, option):
+        eci = ExternalCompilationInfo(compile_extra=[option],
+                                      link_extra=[option])
+        return self.compiler._build(eci)
+
+class CCompilerDriver(object):
+    def __init__(self, platform, cfiles, eci, outputfilename=None,
+                 profbased=False):
+        # XXX config might contain additional link and compile options.
+        #     We need to fish for it somehow.
+        self.platform = platform
+        self.cfiles = cfiles
+        self.eci = eci
+        self.outputfilename = outputfilename
+        self.profbased = profbased
+
+    def _build(self, eci=ExternalCompilationInfo()):
+        return self.platform.compile(self.cfiles, self.eci.merge(eci),
+                                     outputfilename=self.outputfilename)
+
+    def build(self):
+        if self.profbased:
+            return self._do_profbased()
+        return self._build()
+
+    def _do_profbased(self):
+        ProfDriver, args = self.profbased
+        profdrv = ProfDriver(self)
+        dolog = getattr(log, profdrv.name)
+        dolog(args)
+        exename = profdrv.first()
+        dolog('Gathering profile data from: %s %s' % (
+            str(exename), args))
+        profdrv.probe(exename, args)
+        return profdrv.after()
+    
 class CBuilder(object):
     c_source_filename = None
     _compiled = False
@@ -32,7 +112,16 @@ class CBuilder(object):
         self.gcpolicy = gcpolicy    # for tests only, e.g. rpython/memory/
         if gcpolicy is not None and gcpolicy.requires_stackless:
             config.translation.stackless = True
-        self.eci = ExternalCompilationInfo()
+        self.eci = self.get_eci()
+
+    def get_eci(self):
+        from distutils import sysconfig
+        python_inc = sysconfig.get_python_inc() # XXX refactor remaining dependencies
+                                                # like obmalloc into separately compilable
+                                                # modules etc.
+        pypy_include_dir = py.path.local(autopath.pypydir).join('translator', 'c')
+        include_dirs = [python_inc, pypy_include_dir]
+        return ExternalCompilationInfo(include_dirs=include_dirs)
 
     def build_database(self):
         translator = self.translator
@@ -104,6 +193,19 @@ class CBuilder(object):
     DEBUG_DEFINES = {'RPY_ASSERT': 1,
                      'RPY_LL_ASSERT': 1}
 
+    def generate_graphs_for_llinterp(self, db=None):
+        # prepare the graphs as when the source is generated, but without
+        # actually generating the source.
+        if db is None:
+            db = self.build_database()
+        graphs = db.all_graphs()
+        db.gctransformer.prepare_inline_helpers(graphs)
+        for node in db.containerlist:
+            if isinstance(node, FuncNode):
+                for funcgen in node.funcgens:
+                    funcgen.patch_graph(copy_graph=False)
+        return db
+
     def generate_source(self, db=None, defines={}):
         assert self.c_source_filename is None
         translator = self.translator
@@ -124,48 +226,38 @@ class CBuilder(object):
         if self.config.translation.sandbox:
             defines['RPY_SANDBOXED'] = 1
         if CBuilder.have___thread is None:
-            CBuilder.have___thread = check_under_under_thread()
+            CBuilder.have___thread = self.translator.platform.check___thread()
         if not self.standalone:
             assert not self.config.translation.instrument
-            cfile, extra = gen_source(db, modulename, targetdir, self.eci,
-                                      defines = defines)
+            self.eci, cfile, extra = gen_source(db, modulename, targetdir,
+                                                self.eci,
+                                                defines = defines)
         else:
             if self.config.translation.instrument:
                 defines['INSTRUMENT'] = 1
             if CBuilder.have___thread:
                 if not self.config.translation.no__thread:
                     defines['USE___THREAD'] = 1
-            # explicitely include python.h and exceptions.h
-            # XXX for now, we always include Python.h
-            from distutils import sysconfig
-            python_inc = sysconfig.get_python_inc()
-            pypy_include_dir = autopath.this_dir
-            self.eci = self.eci.merge(ExternalCompilationInfo(
-                include_dirs=[python_inc, pypy_include_dir],
-            ))
-            cfile, extra = gen_source_standalone(db, modulename, targetdir,
+            self.eci, cfile, extra = gen_source_standalone(db, modulename,
+                                                 targetdir,
                                                  self.eci,
                                                  entrypointname = pfname,
                                                  defines = defines)
         self.c_source_filename = py.path.local(cfile)
-        self.extrafiles = extra
-        if self.standalone:
-            self.gen_makefile(targetdir)
+        self.extrafiles = self.eventually_copy(extra)
+        self.gen_makefile(targetdir)
         return cfile
 
-    def generate_graphs_for_llinterp(self, db=None):
-        # prepare the graphs as when the source is generated, but without
-        # actually generating the source.
-        if db is None:
-            db = self.build_database()
-        graphs = db.all_graphs()
-        db.gctransformer.prepare_inline_helpers(graphs)
-        for node in db.containerlist:
-            if isinstance(node, FuncNode):
-                for funcgen in node.funcgens:
-                    funcgen.patch_graph(copy_graph=False)
-        return db
-
+    def eventually_copy(self, cfiles):
+        extrafiles = []
+        for fn in cfiles:
+            fn = py.path.local(fn)
+            if not fn.relto(udir):
+                newname = self.targetdir.join(fn.basename)
+                fn.copy(newname)
+                fn = newname
+            extrafiles.append(fn)
+        return extrafiles
 
 class ModuleWithCleanup(object):
     def __init__(self, mod):
@@ -173,7 +265,18 @@ class ModuleWithCleanup(object):
 
     def __getattr__(self, name):
         mod = self.__dict__['mod']
-        return getattr(mod, name)
+        obj = getattr(mod, name)
+        if callable(obj) and getattr(obj, '__module__', None) == mod.__name__:
+            # The module must be kept alive with the function.
+            # This wrapper avoids creating a cycle.
+            class Wrapper:
+                def __init__(self, obj):
+                    self.mod = mod
+                    self.func = obj
+                def __call__(self, *args, **kwargs):
+                    return self.func(*args, **kwargs)
+            obj = Wrapper(obj)
+        return obj
 
     def __setattr__(self, name, val):
         mod = self.__dict__['mod']
@@ -214,9 +317,8 @@ class CExtModuleBuilder(CBuilder):
             export_symbols.append('malloc_counters')
         extsymeci = ExternalCompilationInfo(export_symbols=export_symbols)
         self.eci = self.eci.merge(extsymeci)
-        compile_c_module([self.c_source_filename] + self.extrafiles,
-                         self.c_source_filename.purebasename, self.eci,
-                         tmpdir=self.c_source_filename.dirpath())
+        files = [self.c_source_filename] + self.extrafiles
+        self.translator.platform.compile(files, self.eci, standalone=False)
         self._compiled = True
 
     def _make_wrapper_module(self):
@@ -251,7 +353,7 @@ else:
 
 _rpython_startup = _lib.RPython_StartupCode
 _rpython_startup()
-""" % {'so_name': self.c_source_filename.new(ext=so_ext),
+""" % {'so_name': self.c_source_filename.new(ext=self.translator.platform.so_ext),
        'c_entrypoint_name': wrapped_entrypoint_c_name,
        'nargs': len(lltype.typeOf(entrypoint_ptr).TO.ARGS)}
         modfile.write(CODE)
@@ -284,6 +386,9 @@ _rpython_startup()
         if isinstance(self._module, isolate.Isolate):
             isolate.close_isolate(self._module)
 
+    def gen_makefile(self, targetdir):
+        pass
+
 class CStandaloneBuilder(CBuilder):
     standalone = True
     executable_name = None
@@ -312,159 +417,75 @@ class CStandaloneBuilder(CBuilder):
         bk = self.translator.annotator.bookkeeper
         return getfunctionptr(bk.getdesc(self.entrypoint).getuniquegraph())
 
-    def getccompiler(self):
-        cc = self.config.translation.cc
-        # Copy extrafiles to target directory, if needed
-        extrafiles = []
-        for fn in self.extrafiles:
-            fn = py.path.local(fn)
-            if not fn.relto(udir):
-                newname = self.targetdir.join(fn.basename)
-                fn.copy(newname)
-                fn = newname
-            extrafiles.append(fn)
-
-        return CCompiler(
-            [self.c_source_filename] + extrafiles,
-            self.eci, compiler_exe = cc, profbased = self.getprofbased())
+    def cmdexec(self, args=''):
+        assert self._compiled
+        res = self.translator.platform.execute(self.executable_name, args)
+        if res.returncode != 0:
+            raise Exception("Returned %d" % (res.returncode,))
+        return res.out
 
     def compile(self):
         assert self.c_source_filename
         assert not self._compiled
-        compiler = self.getccompiler()
         if self.config.translation.gcrootfinder == "asmgcc":
-            # as we are gcc-only anyway, let's just use the Makefile.
-            cmdline = "make -C '%s'" % (self.targetdir,)
-            err = os.system(cmdline)
-            if err != 0:
-                raise OSError("failed (see output): " + cmdline)
+            self.translator.platform.execute_makefile(self.targetdir)
         else:
-            eci = self.eci.merge(ExternalCompilationInfo(includes=
-                                                         [str(self.targetdir)]))
-            self.adaptflags(compiler)
-            compiler.build()
-        self.executable_name = str(compiler.outputfilename)
+            compiler = CCompilerDriver(self.translator.platform,
+                                       [self.c_source_filename] + self.extrafiles,
+                                       self.eci, profbased=self.getprofbased())
+            self.executable_name = compiler.build()
+            assert self.executable_name
         self._compiled = True
         return self.executable_name
 
-    def cmdexec(self, args=''):
-        assert self._compiled
-        return py.process.cmdexec('"%s" %s' % (self.executable_name, args))
-
-    def adaptflags(self, compiler):
-        if sys.platform == 'darwin':
-            compiler.compile_extra.append('-mdynamic-no-pic')
-        if sys.platform == 'sunos5':
-            compiler.link_extra.append("-lrt")
-        if self.config.translation.compilerflags:
-            compiler.compile_extra.append(self.config.translation.compilerflags)
-        if self.config.translation.linkerflags:
-            compiler.link_extra.append(self.config.translation.linkerflags)
-
     def gen_makefile(self, targetdir):
-        def write_list(lst, prefix):
-            for i, fn in enumerate(lst):
-                print >> f, prefix, fn,
-                if i < len(lst)-1:
-                    print >> f, '\\'
-                else:
-                    print >> f
-                prefix = ' ' * len(prefix)
-
-        self.eci = self.eci.merge(ExternalCompilationInfo(
-            includes=['.', str(self.targetdir)]))
-        compiler = self.getccompiler()
-       
-        self.adaptflags(compiler)
-        assert self.config.translation.gcrootfinder != "llvmgc"
-        cfiles = []
-        ofiles = []
-        gcmapfiles = []
-        for fn in compiler.cfilenames:
-            fn = py.path.local(fn)
-            if fn.dirpath() == targetdir:
-                name = fn.basename
-            else:
-                assert fn.dirpath().dirpath() == udir
-                name = '../' + fn.relto(udir)
-                
-            name = name.replace("\\", "/")
-            cfiles.append(name)
-            if self.config.translation.gcrootfinder == "asmgcc":
-                ofiles.append(name[:-2] + '.s')
-                gcmapfiles.append(name[:-2] + '.gcmap')
-            else:
-                ofiles.append(name[:-2] + '.o')
-
-        if self.config.translation.cc:
-            cc = self.config.translation.cc
-        else:
-            cc = self.eci.platform.get_compiler()
-            if cc is None:
-                cc = 'gcc'
-        make_no_prof = ''
+        cfiles = [self.c_source_filename] + self.extrafiles
+        mk = self.translator.platform.gen_makefile(cfiles, self.eci,
+                                                   path=targetdir)
         if self.has_profopt():
             profopt = self.config.translation.profopt
-            default_target = 'profopt'
-            # XXX horrible workaround for a bug of profiling in gcc on
-            # OS X with functions containing a direct call to fork()
-            non_profilable = []
-            assert len(compiler.cfilenames) == len(ofiles)
-            for fn, oname in zip(compiler.cfilenames, ofiles):
-                fn = py.path.local(fn)
-                if '/*--no-profiling-for-this-file!--*/' in fn.read():
-                    non_profilable.append(oname)
-            if non_profilable:
-                make_no_prof = '$(MAKE) %s' % (' '.join(non_profilable),)
-        else:
-            profopt = ''
-            default_target = '$(TARGET)'
+            mk.definition('ABS_TARGET', '$(shell python -c "import sys,os; print os.path.abspath(sys.argv[1])" $(TARGET))')
+            mk.definition('DEFAULT_TARGET', 'profopt')
+            mk.definition('PROFOPT', profopt)
 
-        f = targetdir.join('Makefile').open('w')
-        print >> f, '# automatically generated Makefile'
-        print >> f
-        print >> f, 'PYPYDIR =', autopath.pypydir
-        print >> f
-        print >> f, 'TARGET =', py.path.local(compiler.outputfilename).basename
-        print >> f
-        print >> f, 'DEFAULT_TARGET =', default_target
-        print >> f
-        write_list(cfiles, 'SOURCES =')
-        print >> f
-        if self.config.translation.gcrootfinder == "asmgcc":
-            write_list(ofiles, 'ASMFILES =')
-            write_list(gcmapfiles, 'GCMAPFILES =')
-            print >> f, 'OBJECTS = $(ASMFILES) gcmaptable.s'
-        else:
-            print >> f, 'GCMAPFILES ='
-            write_list(ofiles, 'OBJECTS =')
-        print >> f
-        def makerel(path):
-            rel = py.path.local(path).relto(py.path.local(autopath.pypydir))
-            if rel:
-                return os.path.join('$(PYPYDIR)', rel)
-            else:
-                return path
-        args = ['-l'+libname for libname in self.eci.libraries]
-        print >> f, 'LIBS =', ' '.join(args)
-        args = ['-L'+makerel(path) for path in self.eci.library_dirs]
-        print >> f, 'LIBDIRS =', ' '.join(args)
-        args = ['-I'+makerel(path) for path in self.eci.include_dirs]
-        write_list(args, 'INCLUDEDIRS =')
-        print >> f
-        print >> f, 'CFLAGS  =', ' '.join(compiler.compile_extra)
-        print >> f, 'LDFLAGS =', ' '.join(compiler.link_extra)
-        if self.config.translation.thread:
-            print >> f, 'TFLAGS  = ' + '-pthread'
-        else:
-            print >> f, 'TFLAGS  = ' + ''
-        print >> f, 'PROFOPT = ' + profopt
-        print >> f, 'MAKENOPROF = ' + make_no_prof
-        print >> f, 'CC      = ' + cc
-        print >> f
-        print >> f, MAKEFILE.strip()
-        f.close()
+        rules = [
+            ('clean', '', 'rm -f $(OBJECTS) $(TARGET) $(GCMAPFILES) *.gc?? ../module_cache/*.gc??'),
+            ('clean_noprof', '', 'rm -f $(OBJECTS) $(TARGET) $(GCMAPFILES)'),
+            ('debug', '', '$(MAKE) CFLAGS="-g -DRPY_ASSERT" $(TARGET)'),
+            ('debug_exc', '', '$(MAKE) CFLAGS="-g -DRPY_ASSERT -DDO_LOG_EXC" $(TARGET)'),
+            ('debug_mem', '', '$(MAKE) CFLAGS="-g -DRPY_ASSERT -DTRIVIAL_MALLOC_DEBUG" $(TARGET)'),
+            ('no_obmalloc', '', '$(MAKE) CFLAGS="-g -DRPY_ASSERT -DNO_OBMALLOC" $(TARGET)'),
+            ('linuxmemchk', '', '$(MAKE) CFLAGS="-g -DRPY_ASSERT -DLINUXMEMCHK" $(TARGET)'),
+            ('llsafer', '', '$(MAKE) CFLAGS="-O2 -DRPY_LL_ASSERT" $(TARGET)'),
+            ('lldebug', '', '$(MAKE) CFLAGS="-g -DRPY_ASSERT -DRPY_LL_ASSERT" $(TARGET)'),
+            ('profile', '', '$(MAKE) CFLAGS="-g -pg $(CFLAGS)" LDFLAGS="-pg $(LDFLAGS)" $(TARGET)'),
+            ]
+        if self.has_profopt():
+            rules.append(
+                ('profopt', '', [
+                '$(MAKENOPROF)',
+                '$(MAKE) CFLAGS="-fprofile-generate $(CFLAGS)" LDFLAGS="-fprofile-generate $(LDFLAGS)" $(TARGET)',
+                'cd $(PYPYDIR)/translator/goal && $(ABS_TARGET) $(PROFOPT)',
+                '$(MAKE) clean_noprof',
+                '$(MAKE) CFLAGS="-fprofile-use $(CFLAGS)" LDFLAGS="-fprofile-use $(LDFLAGS)" $(TARGET)']))
+        for rule in rules:
+            mk.rule(*rule)
 
+        if self.config.translation.gcrootfinder == 'asmgcc':
+            ofiles = ['%s.s' % (cfile[:-2],) for cfile in mk.cfiles]
+            gcmapfiles = ['%s.gcmap' % (cfile[:-2],) for cfile in mk.cfiles]
+            mk.definition('ASMFILES', ofiles)
+            mk.definition('GCMAPFILES', gcmapfiles)
+            mk.definition('OBJECTS', '$(ASMFILES) gcmaptable.s')
+            mk.rule('%.s', '%.c', '$(CC) $(CFLAGS) -frandom-seed=$< -o $@ -S $< $(INCLUDEDIRS)')
+            mk.rule('%.gcmap', '%.s', '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -t $< > $@ || (rm -f $@ && exit 1)')
+            mk.rule('gcmaptable.s', '$(GCMAPFILES)', '$(PYPYDIR)/translator/c/gcc/trackgcroot.py $(GCMAPFILES) > $@ || (rm -f $@ && exit 1)')
+
+        mk.write()
+        #self.translator.platform,
+        #                           ,
+        #                           self.eci, profbased=self.getprofbased()
+        self.executable_name = mk.exe_name
 
 # ____________________________________________________________
 
@@ -788,8 +809,8 @@ def gen_source_standalone(database, modulename, targetdir, eci,
         fi.close()
 
     eci = eci.convert_sources_to_files(being_main=True)
-    return filename, sg.getextrafiles() + list(eci.separate_module_files)
-
+    files, eci = eci.get_module_files()
+    return eci, filename, sg.getextrafiles() + list(files)
 
 def gen_source(database, modulename, targetdir, eci, defines={}):
     assert not database.standalone
@@ -837,100 +858,6 @@ def gen_source(database, modulename, targetdir, eci, defines={}):
     gen_startupcode(f, database)
     f.close()
 
-    #
-    # Generate a setup.py while we're at it
-    #
-    pypy_include_dir = autopath.this_dir
-    f = targetdir.join('setup.py').open('w')
-    include_dirs = eci.include_dirs
-    library_dirs = eci.library_dirs
-    libraries = eci.libraries
-    f.write(SETUP_PY % locals())
-    f.close()
     eci = eci.convert_sources_to_files(being_main=True)
-
-    return filename, sg.getextrafiles() + list(eci.separate_module_files)
-
-
-SETUP_PY = '''
-from distutils.core import setup
-from distutils.extension import Extension
-from distutils.ccompiler import get_default_compiler
-
-PYPY_INCLUDE_DIR = %(pypy_include_dir)r
-
-extra_compile_args = []
-if get_default_compiler() == "unix":
-    extra_compile_args.extend(["-Wno-unused-label",
-                               "-Wno-unused-variable"])
-
-setup(name="%(modulename)s",
-      ext_modules = [Extension(name = "%(modulename)s",
-                            sources = ["%(modulename)s.c"],
-                 extra_compile_args = extra_compile_args,
-                       include_dirs = (PYPY_INCLUDE_DIR,) + %(include_dirs)r,
-                       library_dirs = %(library_dirs)r,
-                          libraries = %(libraries)r)])
-'''
-
-MAKEFILE = '''
-
-all: $(DEFAULT_TARGET)
-
-$(TARGET): $(OBJECTS)
-\t$(CC) $(LDFLAGS) $(TFLAGS) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS)
-
-# -frandom-seed is only to try to be as reproducable as possible
-
-%.o: %.c
-\t$(CC) $(CFLAGS) -frandom-seed=$< -o $@ -c $< $(INCLUDEDIRS)
-
-%.s: %.c
-\t$(CC) $(CFLAGS) -frandom-seed=$< -o $@ -S $< $(INCLUDEDIRS)
-
-%.gcmap: %.s
-\t$(PYPYDIR)/translator/c/gcc/trackgcroot.py -t $< > $@ || (rm -f $@ && exit 1)
-
-gcmaptable.s: $(GCMAPFILES)
-\t$(PYPYDIR)/translator/c/gcc/trackgcroot.py $(GCMAPFILES) > $@ || (rm -f $@ && exit 1)
-
-clean:
-\trm -f $(OBJECTS) $(TARGET) $(GCMAPFILES) *.gc?? ../module_cache/*.gc??
-
-clean_noprof:
-\trm -f $(OBJECTS) $(TARGET) $(GCMAPFILES)
-
-debug:
-\t$(MAKE) CFLAGS="-g -DRPY_ASSERT" $(TARGET)
-
-debug_exc:
-\t$(MAKE) CFLAGS="-g -DRPY_ASSERT -DDO_LOG_EXC" $(TARGET)
-
-debug_mem:
-\t$(MAKE) CFLAGS="-g -DRPY_ASSERT -DTRIVIAL_MALLOC_DEBUG" $(TARGET)
-
-no_obmalloc:
-\t$(MAKE) CFLAGS="-g -DRPY_ASSERT -DNO_OBMALLOC" $(TARGET)
-
-linuxmemchk:
-\t$(MAKE) CFLAGS="-g -DRPY_ASSERT -DLINUXMEMCHK" $(TARGET)
-
-llsafer:
-\t$(MAKE) CFLAGS="-O2 -DRPY_LL_ASSERT" $(TARGET)
-
-lldebug:
-\t$(MAKE) CFLAGS="-g -DRPY_ASSERT -DRPY_LL_ASSERT" $(TARGET)
-
-profile:
-\t$(MAKE) CFLAGS="-g -pg $(CFLAGS)" LDFLAGS="-pg $(LDFLAGS)" $(TARGET)
-
-# it seems that GNU Make < 3.81 has no function $(abspath)
-ABS_TARGET = $(shell python -c "import sys,os; print os.path.abspath(sys.argv[1])" $(TARGET))
-
-profopt:
-\t$(MAKENOPROF)    # these files must be compiled without profiling
-\t$(MAKE) CFLAGS="-fprofile-generate $(CFLAGS)" LDFLAGS="-fprofile-generate $(LDFLAGS)" $(TARGET)
-\tcd $(PYPYDIR)/translator/goal && $(ABS_TARGET) $(PROFOPT)
-\t$(MAKE) clean_noprof
-\t$(MAKE) CFLAGS="-fprofile-use $(CFLAGS)" LDFLAGS="-fprofile-use $(LDFLAGS)" $(TARGET)
-'''
+    files, eci = eci.get_module_files()
+    return eci, filename, sg.getextrafiles() + list(files)

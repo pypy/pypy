@@ -20,6 +20,13 @@ dist_rsync_ignore = ['_cache']
 #
 Option = py.test.config.Option
 
+def _set_platform(opt, opt_str, value, parser):
+    from pypy.config.translationoption import PLATFORMS
+    from pypy.translator.platform import set_platform
+    value = parser.rargs.pop(0)
+    if value not in PLATFORMS:
+        raise ValueError("%s not in %s" % (value, PLATFORMS))
+    set_platform(value, None)
 
 option = py.test.config.addoptions("pypy options",
         Option('--view', action="store_true", dest="view", default=False,
@@ -30,6 +37,9 @@ option = py.test.config.addoptions("pypy options",
         Option('--direct', action="store_true",
                default=False, dest="rundirect",
                help="run pexpect tests directly"),
+        Option('-P', '--platform', action="callback",
+               default="host", callback=_set_platform,
+               help="set up tests to use specified platform as compile/run target"),
     )
 
 
@@ -167,7 +177,7 @@ class Module(py.test.collect.Module):
     """ we take care of collecting classes both at app level 
         and at interp-level (because we need to stick a space 
         at the class) ourselves. 
-    """
+    """    
     def __init__(self, *args, **kwargs):
         if hasattr(sys, 'pypy_objspaceclass'):
             option.conf_iocapture = "sys" # pypy cannot do FD-based

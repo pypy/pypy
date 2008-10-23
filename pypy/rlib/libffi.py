@@ -16,26 +16,21 @@ import sys
 import ctypes.util
 
 DEBUG = False # writes dlerror() messages to stderr
+# XXX this need solving rather than hacking. We need to raise something else
+#     than OSError, something capable of delivering a message
 
-_MS_WINDOWS = os.name == "nt"
-_MAC_OS = sys.platform == "darwin"
+from pypy.translator.platform import platform
+
+# maaaybe isinstance here would be better. Think
+_MS_WINDOWS = platform.name == "win32"
+_MAC_OS = platform.name == "darwin"
 
 if _MS_WINDOWS:
     from pypy.rlib import rwin32
 
 if not _MS_WINDOWS:
     includes = ['dlfcn.h', 'ffi.h']
-    include_dirs = []
-    if _MAC_OS:
-        pot_incl = py.path.local('/usr/include/ffi') 
-    else:
-        pot_incl = py.path.local('/usr/include/libffi') 
-    if pot_incl.check():
-        include_dirs.append(str(pot_incl))
-    lib_dirs = []
-    pot_lib = py.path.local('/usr/lib/libffi')
-    if pot_lib.check():
-        lib_dirs.append(str(pot_lib))
+    include_dirs = platform.include_dirs_for_libffi()
 
     if _MAC_OS:
         pre_include_bits = ['#define MACOSX']
@@ -45,8 +40,8 @@ if not _MS_WINDOWS:
         pre_include_bits = pre_include_bits,
         includes = includes,
         libraries = ['ffi', 'dl'],
-        include_dirs = include_dirs,
-        library_dirs = lib_dirs,
+        include_dirs = platform.include_dirs_for_libffi(),
+        library_dirs = platform.library_dirs_for_libffi(),
     )
 else:
     libffidir = py.path.local(pypydir).join('translator', 'c', 'src', 'libffi_msvc')

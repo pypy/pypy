@@ -53,13 +53,12 @@ class ProfInstrument(object):
         self.compiler = compiler
 
     def first(self):
-        self.compiler._build()
+        return self.compiler._build()
 
     def probe(self, exe, args):
-        from py.compat import subprocess
         env = os.environ.copy()
         env['_INSTRUMENT_COUNTERS'] = str(self.datafile)
-        subprocess.call("'%s' %s" % (exe, args), env=env, shell=True)
+        self.compiler.platform.execute(exe, args, env=env)
         
     def after(self):
         # xxx
@@ -276,7 +275,12 @@ class TranslationDriver(SimpleTaskEngine):
                 self.proceed('compile')
                 assert False, 'we should not get here'
         finally:
-            self.timer.end_event(goal)
+            try:
+                self.timer.end_event(goal)
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except:
+                pass
         return res
 
     def task_annotate(self):
@@ -453,13 +457,10 @@ class TranslationDriver(SimpleTaskEngine):
 
     def possibly_check_for_boehm(self):
         if self.config.translation.gc == "boehm":
-            from pypy.translator.tool.cbuild import check_boehm_presence
-            from pypy.translator.tool.cbuild import CompilationError
-            try:
-                check_boehm_presence(noerr=False)
-            except CompilationError, e:
+            from pypy.rpython.tool.rffi_platform import check_boehm
+            if not check_boehm(self.translator.platform):
                 i = 'Boehm GC not installed.  Try e.g. "translate.py --gc=hybrid"'
-                raise CompilationError('%s\n--------------------\n%s' % (e, i))
+                raise Exception(i)
 
     def task_database_c(self):
         translator = self.translator
@@ -506,13 +507,13 @@ class TranslationDriver(SimpleTaskEngine):
         newexename = self.exe_name % self.get_info()
         if '/' not in newexename and '\\' not in newexename:
             newexename = './' + newexename
-        return mkexename(newexename)
+        return mkexename(py.path.local(newexename))
 
     def create_exe(self):
         if self.exe_name is not None:
             exename = mkexename(self.c_entryp)
             newexename = self.compute_exe_name()
-            shutil.copy(exename, newexename)
+            shutil.copy(str(exename), str(newexename))
             self.c_entryp = newexename
         self.log.info("created: %s" % (self.c_entryp,))
 
@@ -858,5 +859,5 @@ $LEDIT java -Xmx256m -jar $EXE.jar "$@"
 
 def mkexename(name):
     if sys.platform == 'win32':
-        name = os.path.normpath(name + '.exe')
+        name = name.new(ext='exe')
     return name

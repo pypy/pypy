@@ -4,7 +4,21 @@
 #ifndef _PYPY_SIGNALS_H
 #define _PYPY_SIGNALS_H
 
-#include "Python.h"   /* XXX  for LONG_MIN */
+#include <limits.h>
+
+#ifndef LONG_MAX
+#if SIZEOF_LONG == 4
+#define LONG_MAX 0X7FFFFFFFL
+#elif SIZEOF_LONG == 8
+#define LONG_MAX 0X7FFFFFFFFFFFFFFFL
+#else
+#error "could not set LONG_MAX in pyport.h"
+#endif
+#endif
+
+#ifndef LONG_MIN
+#define LONG_MIN (-LONG_MAX-1)
+#endif
 
 #include <stdlib.h>
 

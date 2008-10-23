@@ -13,6 +13,7 @@ from pypy.tool.ansi_print import ansi_log
 from pypy.tool.sourcetools import nice_repr_for_func
 from pypy.config.pypyoption import pypy_optiondescription
 from pypy.config.translationoption import get_combined_translation_config
+from pypy.config.translationoption import get_platform
 import py
 log = py.log.Producer("flowgraph")
 py.log.setconsumer("flowgraph", ansi_log)
@@ -36,6 +37,7 @@ class TranslationContext(object):
             if attr in flowing_flags:
                 setattr(config.translation, attr, flowing_flags[attr])
         self.config = config
+        self.platform = get_platform(config)
         self.create_flowspace_config()
         self.annotator = None
         self.rtyper = None

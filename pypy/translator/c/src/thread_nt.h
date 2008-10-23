@@ -234,6 +234,7 @@ void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 
 /* Thread-local storage */
 #define RPyThreadTLS	DWORD
+#define __thread __declspec(thread)
 
 char *RPyThreadTLS_Create(RPyThreadTLS *result)
 {

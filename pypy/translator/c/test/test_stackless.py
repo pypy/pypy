@@ -20,8 +20,8 @@ class StacklessTest(object):
             import py
             py.test.skip("stackless + refcounting doesn't work any more for now")
         elif cls.gcpolicy == "boehm":
-            from pypy.translator.tool.cbuild import check_boehm_presence
-            if not check_boehm_presence():
+            from pypy.rpython.tool.rffi_platform import check_boehm
+            if not check_boehm():
                 py.test.skip("Boehm GC not present")
 
     def wrap_stackless_function(self, fn):

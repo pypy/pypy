@@ -1,5 +1,5 @@
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.translator.tool.cbuild import CompilationError
+from pypy.translator.platform import CompilationError
 import py
 import sys
 

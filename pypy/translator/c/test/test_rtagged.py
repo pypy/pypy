@@ -69,7 +69,7 @@ from pypy import conftest
 def test_tagged_boehm():
     t = Translation(entry_point, standalone=True, gc='boehm')
     try:
-        exename = t.compile_c()
+        exename = str(t.compile_c())
     finally:
         if conftest.option.view:
             t.view()

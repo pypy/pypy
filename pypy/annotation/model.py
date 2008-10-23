@@ -37,7 +37,7 @@ from pypy.rlib.rarithmetic import r_uint, r_ulonglong, base_int
 from pypy.rlib.rarithmetic import r_singlefloat
 import inspect, weakref
 
-DEBUG = True    # set to False to disable recording of debugging information
+DEBUG = False    # set to False to disable recording of debugging information
 TLS = tlsobject()
 
 class SomeObject:

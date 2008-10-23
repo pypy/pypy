@@ -5,6 +5,7 @@ from pypy.translator.tool.cbuild import compile_c_module, \
      ExternalCompilationInfo
 from pypy.module._rawffi.interp_rawffi import TYPEMAP
 from pypy.module._rawffi.tracker import Tracker
+from pypy.translator.platform import platform
 
 import os, sys, py
 
@@ -154,7 +155,7 @@ class AppTestFfi:
                      give perturb
                   """.split()
         eci = ExternalCompilationInfo(export_symbols=symbols)
-        return compile_c_module([c_file], 'x', eci)
+        return str(platform.compile([c_file], eci, 'x', standalone=False))
     prepare_c_example = staticmethod(prepare_c_example)
     
     def setup_class(cls):

@@ -60,6 +60,7 @@
 #endif
 
 #ifdef PYPY_STANDALONE
+#  include "src/allocator.h"
 #  include "src/main.h"
 #endif
 

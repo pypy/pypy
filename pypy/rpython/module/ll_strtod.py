@@ -7,10 +7,12 @@ from pypy.tool.autopath import pypydir
 from pypy.rpython.ootypesystem import ootype
 from pypy.rlib import rposix
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.tool.autopath import pypydir
 
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
         includes = ['src/ll_strtod.h'],
+        include_dirs = [str(py.path.local(pypydir).join('translator', 'c'))],
         separate_module_sources = ['#include <src/ll_strtod.h>'],
         export_symbols = ['LL_strtod_formatd', 'LL_strtod_parts_to_float'],
     )

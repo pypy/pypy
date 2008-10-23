@@ -11,6 +11,12 @@ DEFL_PROF_BASED_INLINE_THRESHOLD = 32.4
 DEFL_CLEVER_MALLOC_REMOVAL_INLINE_THRESHOLD = 32.4
 DEFL_LOW_INLINE_THRESHOLD = DEFL_INLINE_THRESHOLD / 2.0
 
+PLATFORMS = [
+    'maemo',
+    'host',
+    'distutils',
+]
+
 translation_optiondescription = OptionDescription(
         "translation", "Translation Options", [
     BoolOption("stackless", "enable stackless features during compilation",
@@ -255,6 +261,10 @@ translation_optiondescription = OptionDescription(
                    cmdline="--cli-trace-calls"),
         BoolOption("exception_transformer", "Use exception transformer", default=False),
     ]),
+    ChoiceOption("platform",
+                 "target platform", ['host'] + PLATFORMS, default='host',
+                 cmdline='--platform'),
+
 ])
 
 def get_combined_translation_config(other_optdescr=None,
@@ -351,21 +361,12 @@ def set_opt_level(config, level):
 
 # ----------------------------------------------------------------
 
-PLATFORMS = [
-    'host',
-    'maemo',
-]
+def set_platform(config):
+    from pypy.translator.platform import set_platform
+    set_platform(config.translation.platform, config.translation.cc)
 
-def set_platform(config, platform):
-    from pypy.rlib.pyplatform import Platform, Maemo
-    from pypy.rlib import pyplatform
-    from pypy.translator.tool.cbuild import ExternalCompilationInfo
-    if isinstance(platform, str):
-        if platform == 'maemo':
-            platform = Maemo(cc=config.translation.cc or None)
-        elif platform == 'host':
-            return
-        else:
-            raise NotImplementedError('Platform = %s' % (platform,))
-    assert isinstance(platform, Platform)
-    pyplatform.platform = platform
+def get_platform(config):
+    from pypy.translator.platform import pick_platform    
+    opt = config.translation.platform
+    cc = config.translation.cc
+    return pick_platform(opt, cc)

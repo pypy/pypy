@@ -2,12 +2,12 @@ import py
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.memory.test import snippet
-from pypy.translator.tool.cbuild import check_boehm_presence
+from pypy.rpython.tool.rffi_platform import check_boehm
 from pypy.translator.c.genc import CExtModuleBuilder
 from pypy import conftest
 
 def setup_module(mod):
-    if not check_boehm_presence():
+    if not check_boehm():
         py.test.skip("Boehm GC not present")
 
 class AbstractGCTestClass(object):

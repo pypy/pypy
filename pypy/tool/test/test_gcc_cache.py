@@ -24,7 +24,8 @@ def test_gcc_exec():
     path = cache_file_path([f], eci, 'build_executable_cache')
     if path.check():
         path.remove()
-    assert build_executable_cache([f], eci) == "3\n"
+    res = build_executable_cache([f], eci)
+    assert res == "3\n"
     assert build_executable_cache([f], eci) == "3\n"
     eci2 = ExternalCompilationInfo(include_dirs=[str(dir2)])
     assert build_executable_cache([f], eci2) == "42\n"

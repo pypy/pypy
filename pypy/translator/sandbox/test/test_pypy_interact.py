@@ -66,7 +66,7 @@ def mini_pypy_like_entry_point(argv):
 def setup_module(mod):
     t = Translation(mini_pypy_like_entry_point, backend='c',
                     standalone=True, sandbox=True)
-    mod.executable = t.compile()
+    mod.executable = str(t.compile())
 
 
 def test_run():

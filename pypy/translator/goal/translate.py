@@ -52,9 +52,6 @@ translate_optiondescr = OptionDescription("translate", "XXX", [
     ChoiceOption("opt",
                  "optimization level", OPT_LEVELS, default=DEFAULT_OPT_LEVEL,
                  cmdline="--opt -O"),
-    ChoiceOption("platform",
-                 "target platform", ['host'] + PLATFORMS, default='host',
-                 cmdline='--platform'),
     BoolOption("profile",
                "cProfile (to debug the speed of the translation process)",
                default=False,
@@ -163,7 +160,7 @@ def parse_options_and_load_target():
                 translating=True)
 
     # apply the platform settings
-    set_platform(config, translateconfig.platform)
+    set_platform(config)
 
     # apply the optimization level settings
     set_opt_level(config, translateconfig.opt)

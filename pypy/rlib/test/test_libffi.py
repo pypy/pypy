@@ -229,8 +229,8 @@ class TestDLOperations:
         lltype.free(tp, flavor='raw')
 
     def test_struct_by_val(self):
-        from pypy.translator.tool.cbuild import compile_c_module, \
-             ExternalCompilationInfo
+        from pypy.translator.tool.cbuild import ExternalCompilationInfo
+        from pypy.translator.platform import platform
         from pypy.tool.udir import udir
 
         c_file = udir.ensure("test_libffi", dir=1).join("xlib.c")
@@ -253,7 +253,7 @@ class TestDLOperations:
         
         '''))
         eci = ExternalCompilationInfo(export_symbols=['sum_x_y'])
-        lib_name = compile_c_module([c_file], 'x', eci)
+        lib_name = str(platform.compile([c_file], eci, 'x', standalone=False))
 
         lib = CDLL(lib_name)
 
@@ -280,8 +280,8 @@ class TestDLOperations:
         assert not ALLOCATED
 
     def test_ret_struct_val(self):
-        from pypy.translator.tool.cbuild import compile_c_module, \
-             ExternalCompilationInfo
+        from pypy.translator.tool.cbuild import ExternalCompilationInfo
+        from pypy.translator.platform import platform
         from pypy.tool.udir import udir
 
         c_file = udir.ensure("test_libffi", dir=1).join("xlib.c")
@@ -309,7 +309,7 @@ class TestDLOperations:
         
         '''))
         eci = ExternalCompilationInfo(export_symbols=['give', 'perturb'])
-        lib_name = compile_c_module([c_file], 'x', eci)
+        lib_name = str(platform.compile([c_file], eci, 'x', standalone=False))
 
         lib = CDLL(lib_name)
 

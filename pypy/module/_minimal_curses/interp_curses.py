@@ -21,7 +21,7 @@ FORCE_ATTRIBUTES_INTO_CLASSES[curses_error] = {'msg': SomeString()}
 
 def convert_error(space, error):
     msg = error.msg
-    w_module = space.getbuiltinmodule('_curses')
+    w_module = space.getbuiltinmodule('_minimal_curses')
     w_exception_class = space.getattr(w_module, space.wrap('error'))
     w_exception = space.call_function(w_exception_class, space.wrap(msg))
     return OperationError(w_exception_class, w_exception)

@@ -47,7 +47,7 @@ def test_lib():
         os.close(fd)
         return 0
     t = Translation(entry_point, backend='c', standalone=True, sandbox=True)
-    exe = t.compile()
+    exe = str(t.compile())
 
     proc = MySandboxedProc([exe, 'x1', 'y2'], expected = [
         ("open", ("/tmp/foobar", os.O_RDONLY, 0777), 77),
@@ -69,7 +69,7 @@ def test_foobar():
         s = rffi.str2charp(argv[n]); n = foobar(s); rffi.free_charp(s)
         return n
     t = Translation(entry_point, backend='c', standalone=True, sandbox=True)
-    exe = t.compile()
+    exe = str(t.compile())
 
     proc = MySandboxedProc([exe, 'spam', 'egg'], expected = [
         ("foobar", ("spam",), 2),
@@ -93,7 +93,7 @@ def test_simpleio():
         print "The double is:", num * 2
         return 0
     t = Translation(entry_point, backend='c', standalone=True, sandbox=True)
-    exe = t.compile()
+    exe = str(t.compile())
 
     proc = SimpleIOSandboxedProc([exe, 'x1', 'y2'])
     output, error = proc.communicate("21\n")
@@ -111,7 +111,7 @@ def test_socketio():
         print os.read(fd, 30)
         return 0
     t = Translation(entry_point, backend='c', standalone=True, sandbox=True)
-    exe = t.compile()
+    exe = str(t.compile())
 
     proc = SocketProc([exe])
     output, error = proc.communicate("")
@@ -125,7 +125,7 @@ def test_oserror():
             os.close(e.errno)    # nonsense, just to see outside
         return 0
     t = Translation(entry_point, backend='c', standalone=True, sandbox=True)
-    exe = t.compile()
+    exe = str(t.compile())
 
     proc = MySandboxedProc([exe], expected = [
         ("open", ("/tmp/foobar", os.O_RDONLY, 0777), OSError(-42, "baz")),

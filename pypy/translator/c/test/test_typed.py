@@ -10,11 +10,6 @@ from pypy.translator.test import snippet
 from pypy.translator.translator import TranslationContext
 from pypy.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, intmask
 
-# XXX this tries to make compiling faster for full-scale testing
-from pypy.translator.tool import cbuild
-cbuild.enable_fast_compilation()
-
-
 class CompilationTestCase:
 
     def annotatefunc(self, func, argtypes=None):

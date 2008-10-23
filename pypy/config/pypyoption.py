@@ -36,12 +36,16 @@ working_oo_modules.update(dict.fromkeys(
     ["md5", "sha", "cStringIO", "itertools"]
 ))
 
+# XXX this should move somewhere else, maybe to platform ("is this posixish"
+#     check or something)
 if sys.platform == "win32":
     # unix only modules
     del working_modules["crypt"]
     del working_modules["fcntl"]
     del working_modules["termios"]
     del working_modules["_minimal_curses"]
+    # XXX this is temporary, hopefully
+    del working_modules["bz2"]
 
 if sys.platform == "sunos5":
     del working_modules['mmap']   # depend on ctypes, can'T get at c-level 'errono'

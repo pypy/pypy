@@ -1,8 +1,7 @@
 
 from pypy.tool.autopath import pypydir
-from pypy.translator.tool.cbuild import build_executable
+from pypy.translator.platform import platform, CompilationError
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.translator.tool.cbuild import CompilationError
 from pypy.tool.compat import md5
 import py
 
@@ -20,9 +19,9 @@ def build_executable_cache(c_files, eci):
     try:
         return path.read()
     except py.error.Error:
-        result = eci.platform.execute(build_executable(c_files, eci))
-        path.write(result)
-        return result
+        result = platform.execute(platform.compile(c_files, eci))
+        path.write(result.out)
+        return result.out
 
 def try_compile_cache(c_files, eci):
     path = cache_file_path(c_files, eci, 'try_compile_cache')
@@ -32,7 +31,7 @@ def try_compile_cache(c_files, eci):
         data = ''
     if not (data.startswith('True') or data.startswith('FAIL\n')):
         try:
-            build_executable(c_files, eci)
+            platform.compile(c_files, eci)
             data = 'True'
         except CompilationError, e:
             data = 'FAIL\n%s\n' % (e,)
@@ -42,4 +41,4 @@ def try_compile_cache(c_files, eci):
     else:
         assert data.startswith('FAIL\n')
         msg = data[len('FAIL\n'):]
-        raise CompilationError(msg.strip())
+        raise CompilationError(msg.strip(), '')
