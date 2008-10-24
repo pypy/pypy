@@ -21,8 +21,6 @@ This module always provides these attributes:
 
 """
 
-import py
-
 def __dirinfo(part):
     """ return (partdir, this_dir) and insert parent of partdir
     into sys.path.  If the parent directories don't have the part
@@ -129,6 +127,7 @@ _myname = 'autopath.py'
 # set guaranteed attributes
 
 pypydir, this_dir = __dirinfo('pypy')
+import py
 libpythondir = str(py.path.local(pypydir).dirpath().join('lib-python', '2.5.2'))
 libpythonmodifieddir = str(py.path.local(libpythondir).dirpath().join('modified-2.5.2'))
 
