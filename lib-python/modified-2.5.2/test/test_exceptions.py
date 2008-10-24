@@ -6,7 +6,7 @@ import unittest
 import warnings
 import pickle, cPickle
 
-from test.test_support import TESTFN, unlink, run_unittest, check_impl_details
+from test.test_support import TESTFN, unlink, run_unittest, check_impl_detail
 
 # XXX This is not really enough, each *operation* should be tested!
 
@@ -257,7 +257,7 @@ class ExceptionTests(unittest.TestCase):
                  'object' : u'\u3042', 'reason' : 'ouch',
                  'start' : 0, 'end' : 1}),
         ]
-        if check_impl_details:
+        if check_impl_detail:
             exceptionList.append(
             (SyntaxError, ('msgStr', 'filenameStr', 'linenoStr', 'offsetStr',
                            'textStr', 'print_file_and_lineStr'),
