@@ -73,7 +73,7 @@ class AppTestAppComplexTest:
         h = self.helper
         from random import random
         # XXX this test passed but took waaaaay to long
-        # look at dist/lib-python/modified-2.4.1/test/test_complex.py
+        # look at dist/lib-python/modified-2.5.2/test/test_complex.py
         #simple_real = [float(i) for i in xrange(-5, 6)]
         simple_real = [-2.0, 0.0, 1.0]
         simple_complex = [complex(x, y) for x in simple_real for y in simple_real]

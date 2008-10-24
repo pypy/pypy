@@ -1,7 +1,7 @@
 """
 The main test for the set implementation is located
 at:
-    pypy-dist/lib-python/modified-2.4.1/test/test_set.py
+    pypy-dist/lib-python/modified-2.5.2/test/test_set.py
     go there and invoke
     ../../../pypy/bin/py.py test_set.py
 This file just contains some basic tests that make sure, the implementation

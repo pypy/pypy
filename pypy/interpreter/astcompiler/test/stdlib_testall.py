@@ -1,4 +1,4 @@
-import pypy 
+from pypy.toolautopath import libpythondir
 import py
 from pypy.interpreter.astcompiler.test.test_compiler import \
         compile_with_astcompiler
@@ -12,8 +12,7 @@ class TestStdlib:
         compile_with_astcompiler(source, mode='exec', space=space)
 
     def test_all(self):
-        p = py.path.local(pypy.__file__).dirpath().dirpath('lib-python',
-                                                           '2.4.1')
+        p = py.path.local(libpythondir)
         files = p.listdir("*.py")
         files.sort()
         for s in files:

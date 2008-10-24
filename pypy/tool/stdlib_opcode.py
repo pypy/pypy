@@ -6,7 +6,7 @@ __all__ = ['opmap', 'opname', 'HAVE_ARGUMENT',
 
 def load_opcode():
     import py
-    opcode_path = py.path.local(__file__).dirpath().dirpath().dirpath('lib-python/modified-2.4.1/opcode.py')
+    opcode_path = py.path.local(__file__).dirpath().dirpath().dirpath('lib-python/modified-2.5.2/opcode.py')
     d = {}
     execfile(str(opcode_path), d)
     return d

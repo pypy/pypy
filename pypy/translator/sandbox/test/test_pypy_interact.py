@@ -3,8 +3,7 @@ import os, sys, stat, errno
 from pypy.translator.sandbox.pypy_interact import PyPySandboxedProc
 from pypy.translator.interactive import Translation
 
-SITE_PY_CONTENT = open(os.path.join(autopath.pypydir, os.pardir,
-                                    'lib-python', 'modified-2.4.1', 'site.py'),
+SITE_PY_CONTENT = open(os.path.join(autopath.libpythonmodifieddir, 'site.py'),
                        'rb').read()
 ERROR_TEXT = os.strerror(errno.ENOENT)
 
@@ -25,7 +24,7 @@ def mini_pypy_like_entry_point(argv):
     assert_(argv[0] == '/bin/pypy-c', "bad argv[0]")
     st = os.lstat('/bin/pypy-c')
     assert_(stat.S_ISREG(st.st_mode), "bad st_mode for /bin/pypy-c")
-    for dirname in ['/bin/lib-python/2.4.1', '/bin/pypy/lib']:
+    for dirname in ['/bin/lib-python/2.5.2', '/bin/pypy/lib']:
         st = os.stat(dirname)
         assert_(stat.S_ISDIR(st.st_mode), "bad st_mode for " + dirname)
     assert_(os.environ.get('PYTHONPATH') is None, "unexpected $PYTHONPATH")
@@ -35,9 +34,9 @@ def mini_pypy_like_entry_point(argv):
         pass
     else:
         assert_(False, "os.stat('site') should have failed")
-    st = os.stat('/bin/lib-python/modified-2.4.1/site.py')
+    st = os.stat('/bin/lib-python/modified-2.5.2/site.py')
     assert_(stat.S_ISREG(st.st_mode), "bad st_mode for .../site.py")
-    fd = os.open('/bin/lib-python/modified-2.4.1/site.py', os.O_RDONLY, 0666)
+    fd = os.open('/bin/lib-python/modified-2.5.2/site.py', os.O_RDONLY, 0666)
     length = 8192
     ofs = 0
     while True:

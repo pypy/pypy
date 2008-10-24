@@ -1,5 +1,5 @@
 """Tests some behaviour of the buffer type that is not tested in
-lib-python/2.4.1/test/test_types.py where the stdlib buffer tests live."""
+lib-python/2.5.2/test/test_types.py where the stdlib buffer tests live."""
 import autopath
 
 class AppTestBuffer:
