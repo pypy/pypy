@@ -127,12 +127,16 @@ the following command line in the ``pypy/translator/goal`` directory::
 
 XXX IMO this needs either a) cleaner explanation b) a script that does that
 XXX [creates correct directory to be copied]. "Together with correct path
-XXX sounds a bit vague [fijal]
+XXX sounds a bit vague [fijal]  -- Yes, a kind of "install" script,
+XXX which is, like the inherent problem, completely platform invariant.
+XXX -- xoraxax :-)
 
 When this step is finished, the ``goal`` directory will contain a binary called
-``pypy-c`` which is runnable on the Maemo device. Copy it over to your device
-together with ``lib-python`` and the ``pypy/lib`` directory (while preserving
-correct paths) and you can start it there.
+``pypy-c`` which is runnable on the Maemo device. Copy the working directory
+of PyPy over to your device. In the directory tree, you only need the newly built file
+``pypy/translator/goal/pypy-c`` together with ``lib-python`` and the ``pypy/lib`` directory.
+Other files and directories are not necessary.
+Finally, you can start it on your Maemo device.
 
 
 
