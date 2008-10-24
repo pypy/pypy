@@ -36,20 +36,20 @@ class GameBoyImplementation(GameBoy):
         self.is_running = True
         try:
             while self.is_running:
-            	self.emulate_cycle()
+                self.emulate_cycle()
         except Exception, error:
             self.is_running = False
             self.handle_execution_error(error)
         return 0
     
     def emulate_cycle(self):
-    	self.handle_events()
-    	self.emulate(constants.GAMEBOY_CLOCK >> 2)
-    	RSDL.Delay(1)
+        self.handle_events()
+        self.emulate(constants.GAMEBOY_CLOCK >> 2)
+        RSDL.Delay(1)
     
     def handle_execution_error(self, error): 
-    	lltype.free(self.event, flavor='raw')
-    	RSDL.Quit()
+        lltype.free(self.event, flavor='raw')
+        RSDL.Quit()
     
     def handle_events(self):
         self.poll_event()
