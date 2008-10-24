@@ -104,7 +104,7 @@ in our Scratchbox. The following steps are necessary to accomplish this:
 
 1. Install these packages to gain full support for extension modules::
 
-       python2.5-dev libffi4-dev libgc-dev
+       python2.5-dev libffi4-dev libgc-dev zlib1g-dev libbz2-dev
 
    This can be done by running ``apt-get update`` and ``apt-get install``
    accordingly. The latter is only needed if you decide to use the Boehm
