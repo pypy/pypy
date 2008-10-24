@@ -128,7 +128,8 @@ class Platform(object):
         exe_name = py.path.local(os.path.join(str(ofiles[0].dirpath()),
                                               outputfilename))
         if standalone:
-            exe_name += '.' + self.exe_ext
+            if self.exe_ext:
+                exe_name += '.' + self.exe_ext
         else:
             exe_name += '.' + self.so_ext
         return self._link(self.cc, ofiles, self._link_args_from_eci(eci),
