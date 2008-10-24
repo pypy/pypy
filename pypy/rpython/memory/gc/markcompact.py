@@ -11,6 +11,7 @@ from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rpython.lltypesystem import rffi
 
 TYPEID_MASK = 0xffff0000
 first_gcflag = 2
@@ -63,9 +64,12 @@ FREE_SPACE_ADD = 256
 # XXX adjust
 GC_CLEARANCE = 32*1024
 
+TID_TYPE = rffi.USHORT
+BYTES_PER_TID = rffi.sizeof(TID_TYPE)
+
 class MarkCompactGC(MovingGCBase):
     HDR = lltype.Struct('header', ('forward_ptr', llmemory.Address))
-    TID_BACKUP = lltype.Array(lltype.Signed)
+    TID_BACKUP = lltype.Array(TID_TYPE, hints={'nolength':True})
     WEAKREF_OFFSETS = lltype.Array(lltype.Signed)
 
 
@@ -162,8 +166,10 @@ class MarkCompactGC(MovingGCBase):
                 return True
 
     def new_space_size(self, occupied, needed):
-        return (occupied * FREE_SPACE_MULTIPLIER /
-                FREE_SPACE_DIVIDER + FREE_SPACE_ADD + needed)
+        res = (occupied * FREE_SPACE_MULTIPLIER /
+               FREE_SPACE_DIVIDER + FREE_SPACE_ADD + needed)
+        # align it to 4096, which is somewhat around page size
+        return ((res/4096) + 1) * 4096
 
     def double_space_size(self, minimal_size):
         while self.space_size <= minimal_size:
@@ -203,12 +209,23 @@ class MarkCompactGC(MovingGCBase):
         self.to_see.delete()
         num_of_alive_objs = self.compute_alive_objects()
         size_of_alive_objs = self.totalsize_of_objs
-        totalsize = self.new_space_size(size_of_alive_objs, needed)
+        totalsize = self.new_space_size(size_of_alive_objs, needed +
+                                        num_of_alive_objs * BYTES_PER_TID)
+        tid_backup_size = (llmemory.sizeof(self.TID_BACKUP, 0) +
+                           llmemory.sizeof(TID_TYPE) * num_of_alive_objs)
         if totalsize >= self.space_size:
             toaddr = self.double_space_size(totalsize)
+            llarena.arena_reserve(toaddr + size_of_alive_objs, tid_backup_size)
+            self.tid_backup = llmemory.cast_adr_to_ptr(
+                toaddr + size_of_alive_objs,
+                lltype.Ptr(self.TID_BACKUP))
             resizing = True
         else:
             toaddr = llarena.arena_new_view(self.space)
+            llarena.arena_reserve(self.top_of_space, tid_backup_size)
+            self.tid_backup = llmemory.cast_adr_to_ptr(
+                self.top_of_space,
+                lltype.Ptr(self.TID_BACKUP))
             resizing = False
         self.next_collect_after = totalsize
         weakref_offsets = self.collect_weakref_offsets()
@@ -228,11 +245,12 @@ class MarkCompactGC(MovingGCBase):
                 # because we free stuff already in raw_memmove, we
                 # would get double free here. Let's free it anyway
                 llarena.arena_free(self.space)
+            llarena.arena_reset(toaddr + size_of_alive_objs, tid_backup_size,
+                                True)
         self.space        = toaddr
         self.free         = finaladdr
         self.top_of_space = toaddr + self.next_collect_after
         self.debug_check_consistency()
-        lltype.free(self.tid_backup, flavor='raw')
         self.tid_backup = lltype.nullptr(self.TID_BACKUP)
         if self.run_finalizers.non_empty():
             self.execute_finalizers()
@@ -341,10 +359,6 @@ class MarkCompactGC(MovingGCBase):
     def update_forward_pointers(self, toaddr, num_of_alive_objs):
         fromaddr = self.space
         size_gc_header = self.gcheaderbuilder.size_gc_header
-        # XXX one can adjust this not to keep word per object, but instead
-        #     just number of used bits
-        self.tid_backup = lltype.malloc(self.TID_BACKUP, num_of_alive_objs,
-                                   flavor='raw')
         i = 0
         while fromaddr < self.free:
             hdr = llmemory.cast_adr_to_ptr(fromaddr, lltype.Ptr(self.HDR))
@@ -443,10 +457,10 @@ class MarkCompactGC(MovingGCBase):
         return self.header(obj).forward_ptr != NULL
 
     def backup_typeid(self, num, obj):
-        self.tid_backup[num] = self.get_type_id(obj)
+        self.tid_backup[num] = rffi.cast(rffi.USHORT, self.get_type_id(obj))
 
     def get_typeid_from_backup(self, num):
-        return self.tid_backup[num]
+        return rffi.cast(lltype.Signed, self.tid_backup[num])
 
     def get_size_from_backup(self, obj, num):
         typeid = self.get_typeid_from_backup(num)
