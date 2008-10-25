@@ -17,6 +17,7 @@ from pypy.rpython.lltypesystem.lltype import \
 from pypy.rpython.rmodel import Repr
 from pypy.rpython.lltypesystem import llmemory
 from pypy.tool.sourcetools import func_with_new_name
+from pypy.rlib.rarithmetic import ovfcheck
 
 # ____________________________________________________________
 #
@@ -595,7 +596,11 @@ class LLHelpers(AbstractLLHelpers):
         itemslen = 0
         i = 0
         while i < num_items:
-            itemslen += len(items[i].chars)
+            lgt = len(items[i].chars)
+            try:
+                itemslen = ovfcheck(itemslen + lgt)
+            except OverflowError:
+                raise
             i += 1
         if typeOf(items).TO.OF.TO == STR:
             malloc = mallocstr
