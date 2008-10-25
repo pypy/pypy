@@ -71,7 +71,7 @@ def with_warning_restore(func):
 def deprecated_err(func, *args):
     try:
         func(*args)
-    except (struct.error, TypeError):
+    except (struct.error, TypeError, ValueError, OverflowError):
         pass
     except DeprecationWarning:
         if not PY_STRUCT_OVERFLOW_MASKING:
