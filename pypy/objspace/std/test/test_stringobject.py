@@ -744,6 +744,9 @@ class AppTestStringObject:
         iterable = "hello"
         raises(TypeError, len, iter(iterable))
 
+    def test_overflow_replace(self):
+        x = "A" * (2**16)
+        raises(OverflowError, x.replace, '', x)
 
 class AppTestPrebuilt(AppTestStringObject):
     def setup_class(cls):

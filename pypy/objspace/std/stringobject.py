@@ -506,7 +506,8 @@ def str_replace__String_String_String_ANY(space, w_self, w_sub, w_by, w_maxsplit
     try:
         # XXX conservative estimate. If your strings are that close
         # to overflowing, bad luck.
-        ovfcheck(len(substrings_w) * len(by) + len(input))
+        one = ovfcheck(len(substrings_w) * len(by))
+        ovfcheck(one + len(input))
     except OverflowError:
         raise OperationError(
             space.w_OverflowError, 

@@ -801,7 +801,8 @@ def unicode_replace__Unicode_Unicode_Unicode_ANY(space, w_self, w_old,
         parts = _split_into_chars(self, maxsplit)
 
     try:
-        ovfcheck(len(parts) * len(w_new._value) + len(w_self._value))
+        one = ovfcheck(len(parts) * len(w_new._value))
+        ovfcheck(one + len(w_self._value))
     except OverflowError:
         raise OperationError(
             space.w_OverflowError, 
@@ -867,7 +868,8 @@ def unicode_expandtabs__Unicode_ANY(space, w_self, w_tabsize):
         pad = tabsize - prevsize % tabsize
         nextpart = parts[i]
         try:
-            totalsize = ovfcheck(totalsize + pad + len(nextpart))
+            totalsize = ovfcheck(totalsize + pad)
+            totalsize = ovfcheck(totalsize + len(nextpart))
             result.append(u' ' * pad)
         except (OverflowError, MemoryError):
             raise OperationError(space.w_OverflowError, space.wrap('new string is too long'))
