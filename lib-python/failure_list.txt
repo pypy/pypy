@@ -1,11 +1,10 @@
 test name           !=must fix      guess at failure cause or difficulty
 -------------------------------------------------------------------------------------------
-test__locale                 !   unknown
+test__locale                 !   wrong locale installation on wyvern
 test_ast                         import _ast
 test_bigmem                  !   one looks like bug, the others like impl details
-test_binascii                !   looks like a bug
 test_builtin                     this is our issue383
-test_cProfile                !   unknown (do we still need to fix module/cProfile?)
+test_cProfile                !   we still need to fix module/cProfile to respect builtin calls
 test_capi                        CPython only
 test_cmd_line                !   implement "pypy-c -V"
 test_code                        obscure differences in code objects produced by compiler
@@ -20,7 +19,7 @@ test_contextlib              !   should be fixed, probably not too hard
 test_ctypes                  !   implementation details but also some real crashes
 test_datetime                !   the two test_negative_*() look like real bugs
 test_decimal                     missing decimal.ROUND_05UP
-test_descr                   !   typo in modified/test_descr?
+test_descr                   !   needs deciding what is impl details and what's not
 test_descrtut                    implementation detail only
 test_dis                         probably not worth the pain of whacking at the compiler
 test_distutils                   this is our issue367
@@ -31,7 +30,6 @@ test_email_codecs                test skipped
 test_email_renamed           !   same as test_email
 test_enumerate                   same as test_iterlen
 test_exception_variations    !   uh?
-test_exceptions              !   typo in modified/test_exceptions
 test_file                        some more exceptions should be raised
 test_float                       float.__getformat__() exists mainly only for tests
 test_fork1                   !   why did this fail just once?
@@ -82,9 +80,8 @@ test_socketserver                test skipped
 test_sort                        implementation detail
 test_sqlite                  !   why no sqlite available?
 test_startfile                   what is os.startfile?
-test_str                     !   segfault :-(
+test_str                     !   Overflow problem in string builder
 test_string                  !   segfault :-(
-test_struct                  !   struct.pack() range checking sometimes less strict in CPython
 test_structmembers               CPython-only
 test_subprocess              !   missing resource.error.  no clue about os.fpathconf().
 test_syntax                      more small hacking here and there in the ast compiler
@@ -114,4 +111,4 @@ test_xmlrpc                      sys.setdefaultencoding missing
 test_zipfile                 !   see test_struct
 test_zipfile64                   skipped test
 test_zipimport                   many failures.  the test itself seems not to run correctly
-test_zlib                    !   easy to fix
+
