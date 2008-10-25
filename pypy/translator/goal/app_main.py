@@ -235,7 +235,7 @@ def entry_point(executable, argv, nanos):
             unbuffered = True
         elif arg == '-O':
             pass
-        elif arg == '--version':
+        elif arg == '--version' or arg == '-V':
             print sys.version
             return 0
         elif arg == '--info':
