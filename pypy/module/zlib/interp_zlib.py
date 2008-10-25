@@ -3,7 +3,7 @@ from pypy.interpreter.gateway import ObjSpace, W_Root, interp2app
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.error import OperationError
-from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.rlib.objectmodel import keepalive_until_here
 
 from pypy.rlib import rzlib
@@ -37,7 +37,7 @@ def crc32(space, string, start = rzlib.CRC32_DEFAULT_START):
     checksum = unsigned_to_signed_32bit(checksum)
 
     return space.wrap(checksum)
-crc32.unwrap_spec = [ObjSpace, 'bufferstr', int]
+crc32.unwrap_spec = [ObjSpace, 'bufferstr', r_uint]
 
 
 def adler32(space, string, start = rzlib.ADLER32_DEFAULT_START):
@@ -52,7 +52,7 @@ def adler32(space, string, start = rzlib.ADLER32_DEFAULT_START):
     checksum = unsigned_to_signed_32bit(checksum)
 
     return space.wrap(checksum)
-adler32.unwrap_spec = [ObjSpace, 'bufferstr', int]
+adler32.unwrap_spec = [ObjSpace, 'bufferstr', r_uint]
 
 
 def zlib_error(space, msg):
