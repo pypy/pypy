@@ -363,6 +363,7 @@ class UnicodeDecodeError(UnicodeError):
                 raise TypeError('argument 4 must be str, not %s'%type(args[4]))
         else:
             raise TypeError('function takes exactly 5 arguments (%d given)'%argc)
+        self.message = ""
 
     def __str__(self):
         if self.end == self.start + 1:
@@ -440,6 +441,7 @@ class UnicodeEncodeError(UnicodeError):
                 raise TypeError('argument 4 must be str, not %s'%type(args[4]))
         else:
             raise TypeError('function takes exactly 5 arguments (%d given)'%argc)
+        self.message = ""
 
     def __str__(self):
         if self.end == self.start + 1:
