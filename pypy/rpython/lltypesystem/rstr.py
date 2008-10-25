@@ -354,10 +354,17 @@ class LLHelpers(AbstractLLHelpers):
             return s.empty()
         itemslen = 0
         i = 0
-        while i < num_items:
-            itemslen += len(items[i].chars)
-            i += 1
-        result = s.malloc(itemslen + s_len * (num_items - 1))
+        try:
+            while i < num_items:
+                lgt = len(items[i].chars)
+                itemslen = ovfcheck(itemslen + lgt)
+                i += 1
+            num_items_1 = num_items - 1
+            totalmalloc = ovfcheck(s_len * num_items_1)
+            totalmalloc = ovfcheck(itemslen + totalmalloc)
+        except OverflowError:
+            raise
+        result = s.malloc(totalmalloc)
         res_index = len(items[0].chars)
         s.copy_contents(items[0], result, 0, 0, res_index)
         i = 1
