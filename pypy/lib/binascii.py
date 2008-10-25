@@ -228,28 +228,37 @@ def b2a_base64(s):
     return ''.join(result) + snippet + '\n'
 
 def a2b_qp(s, header=False):
-    parts = s.rstrip('\t ')
-    if header:
-        parts = ' '.join(parts.split('_'))
-    parts = parts.split('=')
-    # Change the parts in-place
-    for index, part in enumerate(parts[1:]):
-        if len(part) and part[0] == '\n':
-            parts[index + 1] = part[1:]
-            continue
-        if len(part) > 1 and part[0] == '\r' and part[1] == '\n':
-            parts[index + 1] = part[2:]
-            continue
-        if len(part) > 1 and part[0] in hex_numbers and part[1] in hex_numbers:
-            parts[index + 1] = chr(strhex_to_int(part[0:2])) + part[2:]
-            if parts[index + 1] == '_' and header:
-                parts[index + 1] = ' '
-        elif index == len(parts) - 2 and len(part) < 2:
-            parts[index + 1] = ''
+    inp = 0
+    odata = []
+    while inp < len(s):
+        if s[inp] == '=':
+            inp += 1
+            if inp >= len(s):
+                break
+            # Soft line breaks
+            if (s[inp] == '\n') or (s[inp] == '\r'):
+                if s[inp] != '\n':
+                    while inp < len(s) and s[inp] != '\n':
+                        inp += 1
+                if inp < len(s):
+                    inp += 1
+            elif s[inp] == '=':
+                # broken case from broken python qp
+                odata.append('=')
+                inp += 1
+            elif s[inp] in hex_numbers and s[inp + 1] in hex_numbers:
+                ch = chr(int(s[inp:inp+2], 16))
+                inp += 2
+                odata.append(ch)
+            else:
+                odata.append('=')
+        elif header and s[inp] == '_':
+            odata.append(' ')
+            inp += 1
         else:
-            parts[index + 1] = '=' + parts[index + 1]
-            
-    return ''.join(parts)
+            odata.append(s[inp])
+            inp += 1
+    return ''.join(odata)
 
 def b2a_qp(s, quotetabs=False, istext=True, header=False):
     """quotetabs=True means that tab and space characters are always
