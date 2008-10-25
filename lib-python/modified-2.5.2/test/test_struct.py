@@ -597,8 +597,8 @@ def test_pack_into():
 
     # Go beyond boundaries.
     small_buf = array.array('c', ' '*10)
-    assertRaises(struct.error, s.pack_into, small_buf, 0, test_string)
-    assertRaises(struct.error, s.pack_into, small_buf, 2, test_string)
+    assertRaises((struct.error, ValueError), s.pack_into, small_buf, 0, test_string)
+    assertRaises((struct.error, ValueError), s.pack_into, small_buf, 2, test_string)
 
 def test_pack_into_fn():
     test_string = 'Reykjavik rocks, eow!'
@@ -618,8 +618,8 @@ def test_pack_into_fn():
 
     # Go beyond boundaries.
     small_buf = array.array('c', ' '*10)
-    assertRaises(struct.error, pack_into, small_buf, 0, test_string)
-    assertRaises(struct.error, pack_into, small_buf, 2, test_string)
+    assertRaises((struct.error, ValueError), pack_into, small_buf, 0, test_string)
+    assertRaises((struct.error, ValueError), pack_into, small_buf, 2, test_string)
 
 def test_unpack_with_buffer():
     # SF bug 1563759: struct.unpack doens't support buffer protocol objects
