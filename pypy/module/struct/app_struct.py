@@ -35,7 +35,7 @@ class Struct(object):
         return struct.unpack(self.format, s)
 
     def pack_into(self, buffer, offset, *args):
-        return pack_info(self.format, buffer, offset, *args)
+        return pack_into(self.format, buffer, offset, *args)
 
     def unpack_from(self, buffer, offset=0):
         return unpack_from(self.format, buffer, offset)
