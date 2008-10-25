@@ -234,13 +234,6 @@ class ExceptionTests(unittest.TestCase):
                 {'message' : 'msgStr', 'args' : ('msgStr',), 'text' : None,
                  'print_file_and_line' : None, 'msg' : 'msgStr',
                  'filename' : None, 'lineno' : None, 'offset' : None}),
-            (SyntaxError, ('msgStr', ('filenameStr', 'linenoStr', 'offsetStr',
-                           'textStr')),
-                {'message' : '', 'offset' : 'offsetStr', 'text' : 'textStr',
-                 'args' : ('msgStr', ('filenameStr', 'linenoStr',
-                                      'offsetStr', 'textStr')),
-                 'print_file_and_line' : None, 'msg' : 'msgStr',
-                 'filename' : 'filenameStr', 'lineno' : 'linenoStr'}),
             (UnicodeError, (), {'message' : '', 'args' : (),}),
             (UnicodeEncodeError, ('ascii', u'a', 0, 1, 'ordinal not in range'),
                 {'message' : '', 'args' : ('ascii', u'a', 0, 1,
@@ -267,6 +260,13 @@ class ExceptionTests(unittest.TestCase):
                  'print_file_and_line' : None, 'msg' : 'msgStr',
                  'filename' : None, 'lineno' : None, 'offset' : None})
             )
+            exceptionList.append(SyntaxError, ('msgStr', ('filenameStr', 'linenoStr', 'offsetStr',
+                           'textStr')),
+                {'message' : '', 'offset' : 'offsetStr', 'text' : 'textStr',
+                 'args' : ('msgStr', ('filenameStr', 'linenoStr',
+                                      'offsetStr', 'textStr')),
+                 'print_file_and_line' : None, 'msg' : 'msgStr',
+                 'filename' : 'filenameStr', 'lineno' : 'linenoStr'})
                 
         try:
             exceptionList.append(
