@@ -801,13 +801,14 @@ def unicode_replace__Unicode_Unicode_Unicode_ANY(space, w_self, w_old,
         parts = _split_into_chars(self, maxsplit)
 
     try:
-        # XXX for some obscure reasons CPython can raise here OverflowError
-        #     *or* MemoryError, depends
-        return W_UnicodeObject(w_new._value.join(parts))
-    except (MemoryError, OverflowError):
+        ovfcheck(len(parts) * len(w_new._value) + len(w_self._value))
+    except OverflowError:
         raise OperationError(
             space.w_OverflowError, 
-            space.wrap("replace string is too long"))    
+            space.wrap("replace string is too long"))
+
+    return W_UnicodeObject(w_new._value.join(parts))
+    
 
 def unicode_encode__Unicode_ANY_ANY(space, w_unistr,
                                     w_encoding=None,

@@ -504,11 +504,15 @@ def str_replace__String_String_String_ANY(space, w_self, w_sub, w_by, w_maxsplit
         substrings_w.append(input[start:])
 
     try:
-        return space.wrap(by.join(substrings_w))
+        # XXX conservative estimate. If your strings are that close
+        # to overflowing, bad luck.
+        ovfcheck(len(substrings_w) * len(by) + len(input))
     except OverflowError:
         raise OperationError(
             space.w_OverflowError, 
-            space.wrap("replace string is too long"))        
+            space.wrap("replace string is too long"))
+    
+    return space.wrap(by.join(substrings_w))
 
 def _strip(space, w_self, w_chars, left, right):
     "internal function called by str_xstrip methods"
