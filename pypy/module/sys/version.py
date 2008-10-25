@@ -29,7 +29,7 @@ def get_version_info(space):
     return space.wrap(CPYTHON_VERSION)
 
 def get_version(space):
-    return space.wrap("%d.%d.%d (pypy %d.%d.%d build %d)" % (
+    return space.wrap("Python %d.%d.%d (pypy %d.%d.%d build %d)" % (
         CPYTHON_VERSION[0],
         CPYTHON_VERSION[1],
         CPYTHON_VERSION[2],
