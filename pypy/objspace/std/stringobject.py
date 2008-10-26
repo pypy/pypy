@@ -585,7 +585,7 @@ def str_center__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
 
     d = u_arg - len(u_self) 
     if d>0:
-        offset = d//2
+        offset = d//2 + (d & u_arg & 1)
         fillchar = fillchar[0]    # annotator hint: it's a single character
         u_centered = offset * fillchar + u_self + (d - offset) * fillchar
     else:

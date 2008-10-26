@@ -301,7 +301,7 @@ class AppTestStringObject:
         assert 'abc'.center(2) == 'abc'
         assert 'abc'.center(5, '*') == '*abc*'     # Python 2.4
         raises(TypeError, 'abc'.center, 4, 'cba')
-
+        assert ' abc'.center(7) == '   abc '
         
     def test_count(self):
         assert "".count("x") ==0
