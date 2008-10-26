@@ -6,7 +6,7 @@ import unittest
 import warnings
 import pickle, cPickle
 
-from test.test_support import TESTFN, unlink, run_unittest, check_impl_detail
+from test.test_support import TESTFN, unlink, run_unittest
 
 # XXX This is not really enough, each *operation* should be tested!
 
@@ -202,6 +202,8 @@ class ExceptionTests(unittest.TestCase):
 
     def testAttributes(self):
         # test that exception attributes are happy
+        lineno = 42
+        offset = 27
 
         exceptionList = [
             (BaseException, (), {'message' : '', 'args' : ()}),
@@ -234,6 +236,20 @@ class ExceptionTests(unittest.TestCase):
                 {'message' : 'msgStr', 'args' : ('msgStr',), 'text' : None,
                  'print_file_and_line' : None, 'msg' : 'msgStr',
                  'filename' : None, 'lineno' : None, 'offset' : None}),
+            (SyntaxError, ('msgStr', ('filenameStr', lineno, offset,
+                           'textStr')),
+                {'message' : '', 'offset' : offset, 'text' : 'textStr',
+                 'args' : ('msgStr', ('filenameStr', lineno,
+                                      offset, 'textStr')),
+                 'print_file_and_line' : None, 'msg' : 'msgStr',
+                 'filename' : 'filenameStr', 'lineno' : lineno}),
+            (SyntaxError, ('msgStr', 'filenameStr', 'linenoStr', 'offsetStr',
+                           'textStr', 'print_file_and_lineStr'),
+                {'message' : '', 'text' : None,
+                 'args' : ('msgStr', 'filenameStr', 'linenoStr', 'offsetStr',
+                           'textStr', 'print_file_and_lineStr'),
+                 'print_file_and_line' : None, 'msg' : 'msgStr',
+                 'filename' : None, 'lineno' : None, 'offset' : None}),
             (UnicodeError, (), {'message' : '', 'args' : (),}),
             (UnicodeEncodeError, ('ascii', u'a', 0, 1, 'ordinal not in range'),
                 {'message' : '', 'args' : ('ascii', u'a', 0, 1,
@@ -250,24 +266,6 @@ class ExceptionTests(unittest.TestCase):
                  'object' : u'\u3042', 'reason' : 'ouch',
                  'start' : 0, 'end' : 1}),
         ]
-        if check_impl_detail:
-            exceptionList.append(
-            (SyntaxError, ('msgStr', 'filenameStr', 'linenoStr', 'offsetStr',
-                           'textStr', 'print_file_and_lineStr'),
-                {'message' : '', 'text' : None,
-                 'args' : ('msgStr', 'filenameStr', 'linenoStr', 'offsetStr',
-                           'textStr', 'print_file_and_lineStr'),
-                 'print_file_and_line' : None, 'msg' : 'msgStr',
-                 'filename' : None, 'lineno' : None, 'offset' : None})
-            )
-            exceptionList.append(SyntaxError, ('msgStr', ('filenameStr', 'linenoStr', 'offsetStr',
-                           'textStr')),
-                {'message' : '', 'offset' : 'offsetStr', 'text' : 'textStr',
-                 'args' : ('msgStr', ('filenameStr', 'linenoStr',
-                                      'offsetStr', 'textStr')),
-                 'print_file_and_line' : None, 'msg' : 'msgStr',
-                 'filename' : 'filenameStr', 'lineno' : 'linenoStr'})
-                
         try:
             exceptionList.append(
                 (WindowsError, (1, 'strErrorStr', 'filenameStr'),
