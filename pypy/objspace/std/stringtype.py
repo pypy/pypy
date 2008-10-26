@@ -39,10 +39,12 @@ def wrapchar(space, c):
             return W_RopeObject(rope.LiteralStringNode(c))
         return W_StringObject(c)
 
-def sliced(space, s, start, stop):
+def sliced(space, s, start, stop, orig_obj):
     assert start >= 0
     assert stop >= 0 
     assert not space.config.objspace.std.withrope
+    if start == 0 and stop == len(s) and space.is_w(space.type(orig_obj), space.w_str):
+        return orig_obj
     if space.config.objspace.std.withstrslice:
         from pypy.objspace.std.strsliceobject import W_StringSliceObject
         # XXX heuristic, should be improved!

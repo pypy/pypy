@@ -253,7 +253,7 @@ def str_split__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
             maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
         # the word is value[i:j]
-        res_w.append(sliced(space, value, i, j))
+        res_w.append(sliced(space, value, i, j, w_self))
 
         # continue to look from the character following the space after the word
         i = j + 1
@@ -274,11 +274,11 @@ def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
         next = value.find(by, start)
         if next < 0:
             break
-        res_w.append(sliced(space, value, start, next))
+        res_w.append(sliced(space, value, start, next, w_self))
         start = next + bylen
         maxsplit -= 1   # NB. if it's already < 0, it stays < 0
     
-    res_w.append(sliced(space, value, start, len(value)))
+    res_w.append(sliced(space, value, start, len(value), w_self))
     return space.newlist(res_w)
 
 def str_rsplit__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
@@ -308,7 +308,7 @@ def str_rsplit__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
         # the word is value[j+1:i+1]
         j1 = j + 1
         assert j1 >= 0
-        res_w.append(sliced(space, value, j1, i+1))
+        res_w.append(sliced(space, value, j1, i+1, w_self))
 
         # continue to look from the character before the space before the word
         i = j - 1
@@ -330,11 +330,11 @@ def str_rsplit__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
         next = value.rfind(by, 0, end)
         if next < 0:
             break
-        res_w.append(sliced(space, value, next+bylen, end))
+        res_w.append(sliced(space, value, next+bylen, end, w_self))
         end = next
         maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
-    res_w.append(sliced(space, value, 0, end))
+    res_w.append(sliced(space, value, 0, end, w_self))
     res_w.reverse()
     return space.newlist(res_w)
 
@@ -429,9 +429,10 @@ def str_partition__String_String(space, w_self, w_sub):
     if pos == -1:
         return space.newtuple([w_self, space.wrap(''), space.wrap('')])
     else:
-        return space.newtuple([sliced(space, self, 0, pos),
+        return space.newtuple([sliced(space, self, 0, pos, w_self),
                                w_sub,
-                               sliced(space, self, pos+len(sub), len(self))])
+                               sliced(space, self, pos+len(sub), len(self),
+                                      w_self)])
 
 def str_rpartition__String_String(space, w_self, w_sub):
     self = w_self._value
@@ -443,9 +444,9 @@ def str_rpartition__String_String(space, w_self, w_sub):
     if pos == -1:
         return space.newtuple([space.wrap(''), space.wrap(''), w_self])
     else:
-        return space.newtuple([sliced(space, self, 0, pos),
+        return space.newtuple([sliced(space, self, 0, pos, w_self),
                                w_sub,
-                               sliced(space, self, pos+len(sub), len(self))])
+                               sliced(space, self, pos+len(sub), len(self), w_self)])
 
 
 def str_index__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
@@ -533,7 +534,7 @@ def _strip(space, w_self, w_chars, left, right):
            rpos -= 1
        
     assert rpos >= lpos    # annotator hint, don't remove
-    return sliced(space, u_self, lpos, rpos)
+    return sliced(space, u_self, lpos, rpos, w_self)
 
 def _strip_none(space, w_self, left, right):
     "internal function called by str_xstrip methods"
@@ -552,7 +553,7 @@ def _strip_none(space, w_self, left, right):
            rpos -= 1
        
     assert rpos >= lpos    # annotator hint, don't remove
-    return sliced(space, u_self, lpos, rpos)
+    return sliced(space, u_self, lpos, rpos, w_self)
 
 def str_strip__String_String(space, w_self, w_chars):
     return _strip(space, w_self, w_chars, left=1, right=1)
@@ -695,11 +696,11 @@ def str_splitlines__String_ANY(space, w_self, w_keepends):
             i += 1
         if u_keepends:
             eol = i
-        strs_w.append(sliced(space, data, j, eol))
+        strs_w.append(sliced(space, data, j, eol, w_self))
         j = i
 
     if j < selflen:
-        strs_w.append(sliced(space, data, j, len(data)))
+        strs_w.append(sliced(space, data, j, len(data), w_self))
 
     return space.newlist(strs_w)
 
@@ -811,7 +812,7 @@ def getitem__String_Slice(space, w_str, w_slice):
         return W_StringObject.EMPTY
     elif step == 1:
         assert start >= 0 and stop >= 0
-        return sliced(space, s, start, stop)
+        return sliced(space, s, start, stop, w_str)
     else:
         str = "".join([s[start + i*step] for i in range(sl)])
     return wrapstr(space, str)
@@ -822,7 +823,7 @@ def getslice__String_ANY_ANY(space, w_str, w_start, w_stop):
     if start == stop:
         return W_StringObject.EMPTY
     else:
-        return sliced(space, s, start, stop)
+        return sliced(space, s, start, stop, w_str)
 
 def mul_string_times(space, w_str, w_times):
     try:
