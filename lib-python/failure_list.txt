@@ -1,17 +1,20 @@
 test name           !=must fix      guess at failure cause or difficulty
 -------------------------------------------------------------------------------------------
-test__locale                 !   wrong locale installation on wyvern
+test__locale             arigo   wrong locale installation on wyvern
+                                 install correct locale on wyvern :-)
+
 test_ast                         import _ast
 test_bigmem                  !   one looks like bug, the others like impl details
 test_builtin                     this is our issue383
 test_cProfile                !   we still need to fix module/cProfile to respect builtin calls
 test_capi                        CPython only
-test_cmd_line                !   implement "pypy-c -V"
 test_code                        obscure differences in code objects produced by compiler
 test_codeccallbacks          !   unknown
 test_codecs                  !   unknown
 test_coding                  !   hah.  fix buildbot :-/
-test_coercion                !   look at test_prefix_binops, the other is probably too obscure
+test_coercion            arigo   look at test_prefix_binops, the other is probably too obscure
+                                 problem with prebuilt objects being equal in result list creation
+
 test_commands                !   unknown
 test_compile                 !   test_leading_newlines: impl detail; the rest: not good
 test_compiler                !   unknown
@@ -80,8 +83,8 @@ test_socketserver                test skipped
 test_sort                        implementation detail
 test_sqlite                  !   why no sqlite available?
 test_startfile                   what is os.startfile?
-test_str                     !   Overflow problem in string builder
-test_string                  !   segfault :-(
+test_str                 arigo   probably skip, investigate
+test_string                  !   some failures, look deeper
 test_structmembers               CPython-only
 test_subprocess              !   missing resource.error.  no clue about os.fpathconf().
 test_syntax                      more small hacking here and there in the ast compiler
@@ -94,7 +97,7 @@ test_timeout                     skipped test
 test_trace                       probably all acceptable differences
 test_traceback               !   don't care about '__members__', but check the other tests
 test_tuple                   !   might be fixed now, check again
-test_unicode                 !   segfault :-(
+test_unicode                 !   some failures, look deeper
 test_unicode_file                skipped test
 test_unicodedata                 unknown to me (but xorAxAx and fijal have a better clue)
 test_urllib2_localnet            bogus test?
