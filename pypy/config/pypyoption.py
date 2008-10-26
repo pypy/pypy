@@ -367,6 +367,8 @@ def set_pypy_opt_level(config, level):
         config.objspace.std.suggest(withrangelist=True)
         config.objspace.std.suggest(withprebuiltchar=True)
         config.objspace.std.suggest(withsharingdict=True)
+        config.objspace.std.suggest(withstrslice=True)
+        config.objspace.std.suggest(withstrjoin=True)
         # xxx other options? ropes maybe?
 
     # completely disable geninterp in a level 0 translation
