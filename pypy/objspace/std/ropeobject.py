@@ -496,7 +496,7 @@ def str_center__Rope_ANY_ANY(space, w_self, w_arg, w_fillchar):
 
     d = arg - length
     if d>0:
-        offset = d//2
+        offset = d//2 + (d & arg & 1)
         fillcharnode = rope.LiteralStringNode.PREBUILT[ord(fillchar)]
         pre = rope.multiply(fillcharnode, offset)
         post = rope.multiply(fillcharnode, (d - offset))
