@@ -885,8 +885,8 @@ class BuiltinTest(unittest.TestCase):
         # call intern internally, e.g. PyObject_SetAttr().
         s = S("abc")
         setattr(s, s, s)
-        # XXX I think this is too implementation specific
-        #self.assertEqual(getattr(s, s), s)
+        # see pypy issue #383
+        self.assertEqual(getattr(s, s), s)
 
     def test_iter(self):
         self.assertRaises(TypeError, iter)
