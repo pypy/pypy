@@ -77,7 +77,11 @@ def new_unary_math_function(name):
     return func_with_new_name(ll_math, 'll_math_' + name)
 
 def new_binary_math_function(name):
-    c_func = rffi.llexternal(name, [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE,
+    if sys.platform == 'win32' and name in ('hypot',):
+        cname = '_' + name
+    else:
+        cname = name
+    c_func = rffi.llexternal(cname, [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE,
                              compilation_info=eci, sandboxsafe=True)
 
     def ll_math(x, y):
