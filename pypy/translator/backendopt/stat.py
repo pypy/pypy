@@ -39,7 +39,7 @@ def get_statistics(graph, translator, save_per_graph_details=None, ignore_stack_
                 code = graph.func.func_code.co_code
             except AttributeError:
                 code = "None"
-            hash = md5.new(code).hexdigest()
+            hash = md5(code).hexdigest()
             details.append((hash, graph.name, nblocks, nops))
         details.sort()
         f = open(save_per_graph_details, "w")

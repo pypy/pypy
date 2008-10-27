@@ -185,7 +185,7 @@ def md5digest(translator):
     from pypy.tool.compat import md5
     graph2digest = {}
     for graph in translator.graphs:
-        m = md5.new()
+        m = md5()
         for op in graph_operations(graph):
             m.update(op.opname + str(op.result))
             for a in op.args:

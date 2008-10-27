@@ -889,7 +889,7 @@ class PyPyCacheDir:
 
         from pypy.translator.geninterplevel import translate_as_module
         import marshal
-        scramble = md5.new(cls.seed)
+        scramble = md5(cls.seed)
         scramble.update(marshal.dumps(self.code))
         key = scramble.hexdigest()
         initfunc = cls.known_code.get(key)
@@ -952,7 +952,7 @@ if __name__ == "__main__":
         except ImportError:
             GI_VERSION_RENDERED = 0
         from pypy.translator.geninterplevel import GI_VERSION
-        cls.seed = md5.new(str(GI_VERSION)).digest()
+        cls.seed = md5(str(GI_VERSION)).digest()
         if GI_VERSION != GI_VERSION_RENDERED or GI_VERSION is None:
             for pth in p.listdir():
                 if pth.check(file=1):
