@@ -28,8 +28,8 @@ class PyFlowGraph(object):
         if newlocals:
             self.flags |= CO_NEWLOCALS
 
-        # we need to build an app-level dict here
-        self.w_consts = space.newdict()
+        self.w_const2index = space.newdict() # {w_key: wrap(index in consts_w)}
+        self.consts_w = []
         self.names = []
         # Free variables found by the symbol table scan, including
         # variables used only in nested scopes, are included here.
@@ -95,27 +95,41 @@ class PyFlowGraph(object):
     # Instructions with an object argument (LOAD_CONST)
 
     def emitop_obj(self, opname, w_obj):
-        index = self._lookupConst(w_obj, self.w_consts)
+        index = self._lookupConst(w_obj)
         self.emitop_int(opname, index)
 
-    def _lookupConst(self, w_obj, w_dict):
-        space = self.space
+    def _lookupConst(self, w_obj):
         # insert the docstring first, if necessary
-        if not space.is_true(w_dict):
-            w_obj_type = space.type(self.w_docstring)
-            w_key = space.newtuple([self.w_docstring, w_obj_type])
-            space.setitem(w_dict, w_key, space.wrap(0))
-        # normal logic follows
-        w_obj_type = space.type(w_obj)
-        w_key = space.newtuple([w_obj, w_obj_type])
-        try:
-            w_result = space.getitem(w_dict, w_key)
-        except OperationError, operr:
-            if not operr.match(space, space.w_KeyError):
-                raise
-            w_result = space.len(w_dict)
-            space.setitem(w_dict, w_key, w_result)
-        return space.int_w(w_result)
+        if len(self.consts_w) == 0:
+            index = self._lookupConstInternal(self.w_docstring)
+            assert index == 0
+        return self._lookupConstInternal(w_obj)
+
+    def _lookupConstInternal(self, w_obj):
+        # Some types of object can be shared if equal values appear
+        # several times in the consts_w.
+        space = self.space
+        if (space.is_w(w_obj, space.w_None) or
+            space.is_w(w_obj, space.w_Ellipsis)):
+            is_atomic_type = True
+        else:
+            w_type = space.type(w_obj)
+            is_atomic_type = (space.is_w(w_type, space.w_int) or
+                              space.is_w(w_type, space.w_bool) or
+                              space.is_w(w_type, space.w_long) or
+                              space.is_w(w_type, space.w_float) or
+                              space.is_w(w_type, space.w_complex) or
+                              space.is_w(w_type, space.w_str) or
+                              space.is_w(w_type, space.w_unicode))
+        if is_atomic_type:
+            w_index = space.finditem(self.w_const2index, w_obj)
+            if w_index is not None:
+                return space.int_w(w_index)
+        result = len(self.consts_w)
+        self.consts_w.append(w_obj)
+        if is_atomic_type:
+            space.setitem(self.w_const2index, w_obj, space.wrap(result))
+        return result
 
     # ____________________________________________________________
     # Instructions with a name argument
@@ -365,17 +379,10 @@ class PyFlowGraph(object):
         """Return a tuple for the const slot of the code object
         """
         # sanity-check
-        index = self._lookupConst(self.w_docstring, self.w_consts)
+        index = self._lookupConst(self.w_docstring)
         if index != 0:
             raise InternalCompilerError("setDocstring() called too late")
-        space = self.space
-        keys_w = space.unpackiterable(self.w_consts)
-        l_w = [None] * len(keys_w)
-        for w_key in keys_w:
-            index = space.int_w(space.getitem(self.w_consts, w_key))
-            w_v = space.viewiterable(w_key)[0]
-            l_w[index] = w_v
-        return l_w
+        return self.consts_w[:]
 
 # ____________________________________________________________
 

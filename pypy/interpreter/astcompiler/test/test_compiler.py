@@ -443,6 +443,10 @@ class TestCompiler:
             x = [lineno for addr, lineno in dis.findlinestarts(co)]
         """, 'x', [3, 4]
 
+    def test_type_of_constants(self):
+        yield self.simple_test, "x=[(1,0), (1,0L)]", 'type(x[1][1])', long
+        yield self.simple_test, "x=['2?-', '2?-']", 'id(x[0])==id(x[1])', True
+
     def test_pprint(self):
         # a larger example that showed a bug with jumps
         # over more than 256 bytes
