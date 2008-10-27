@@ -1397,6 +1397,10 @@ class datetime(date):
             converter = _time.localtime
         else:
             converter = _time.gmtime
+        if 1 - (t % 1.0) < 0.000001:
+            t = float(int(t)) + 1
+        if t < 0:
+            t -= 1
         y, m, d, hh, mm, ss, weekday, jday, dst = converter(t)
         us = int((t % 1.0) * 1000000)
         ss = min(ss, 59)    # clamp out leap seconds if the platform has them
@@ -1408,6 +1412,10 @@ class datetime(date):
 
     def utcfromtimestamp(cls, t):
         "Construct a UTC datetime from a POSIX timestamp (like time.time())."
+        if 1 - (t % 1.0) < 0.000001:
+            t = float(int(t)) + 1
+        if t < 0:
+            t -= 1
         y, m, d, hh, mm, ss, weekday, jday, dst = _time.gmtime(t)
         us = int((t % 1.0) * 1000000)
         ss = min(ss, 59)    # clamp out leap seconds if the platform has them
