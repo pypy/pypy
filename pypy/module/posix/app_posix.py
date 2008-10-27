@@ -82,7 +82,8 @@ class popenfile(file):
         pid = self._childpid
         if pid is not None:
             self._childpid = None
-            os.waitpid(pid, 0)
+            return os.waitpid(pid, 0)[1]
+        return 0
     __del__ = close     # as in CPython, __del__ may call os.waitpid()
 
 def popen(command, mode='r', bufsize=-1):
