@@ -260,7 +260,7 @@ def break_cycles_v(vertices, edges):
             v_depths = compute_depths(roots, vertices, edges)
             assert len(v_depths) == len(vertices)  # ...so far.  We remove
             # from v_depths the vertices at which we choose to break cycles
-        print '%d inital roots' % (len(roots,))
+        #print '%d inital roots' % (len(roots,))
         progress = False
         for root in roots:
             if root in roots_finished:
@@ -269,7 +269,7 @@ def break_cycles_v(vertices, edges):
             if not cycles:
                 roots_finished.add(root)
                 continue
-            print 'from root %r: %d cycles' % (root, len(cycles))
+            #print 'from root %r: %d cycles' % (root, len(cycles))
             # compute the "depth" of each cycles: how far it goes from any root
             allcycles = []
             for cycle in cycles:
