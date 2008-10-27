@@ -82,9 +82,10 @@ def str_partition__StringSlice_String(space, w_self, w_sub):
     if pos == -1:
         return space.newtuple([w_self, space.wrap(''), space.wrap('')])
     else:
-        return space.newtuple([sliced(space, self, w_self.start, pos),
+        return space.newtuple([sliced(space, self, w_self.start, pos, w_self),
                                w_sub,
-                               sliced(space, self, pos+len(sub), w_self.stop)])
+                               sliced(space, self, pos+len(sub), w_self.stop,
+                                      w_self)])
 
 def str_rpartition__StringSlice_String(space, w_self, w_sub):
     self = w_self.str
@@ -96,9 +97,10 @@ def str_rpartition__StringSlice_String(space, w_self, w_sub):
     if pos == -1:
         return space.newtuple([space.wrap(''), space.wrap(''), w_self])
     else:
-        return space.newtuple([sliced(space, self, w_self.start, pos),
+        return space.newtuple([sliced(space, self, w_self.start, pos, w_self),
                                w_sub,
-                               sliced(space, self, pos+len(sub), w_self.stop)])
+                               sliced(space, self, pos+len(sub), w_self.stop,
+                                      w_self)])
 
 
 def str_count__StringSlice_String_ANY_ANY(space, w_self, w_arg, w_start, w_end): 
