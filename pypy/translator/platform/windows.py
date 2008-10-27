@@ -101,7 +101,7 @@ class Windows(Platform):
 
     def _link(self, cc, ofiles, link_args, standalone, exe_name):
         args = ['/nologo'] + [str(ofile) for ofile in ofiles] + link_args
-        args += ['/out:%s' % (exe_name,)]
+        args += ['/out:%s' % (exe_name,), '/incremental:no']
         if not standalone:
             args = self._args_for_shared(args)
         self._execute_c_compiler(self.link, args, exe_name)
