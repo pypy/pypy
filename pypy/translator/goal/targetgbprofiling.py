@@ -51,6 +51,8 @@ def run_each_first_order(count):
                 print i, ":", run(op_codes, count)
             else:
                 print  run(op_codes, count)
+        else:
+            print -1
     
 def run_each_second_order(count):
     op_codes = [0xCB]*2
@@ -93,7 +95,6 @@ def create_all_second_order():
         if i not in forbidden:
             list.append(0xCB)
             list.append(i)
-        
     return list
 
 
