@@ -1168,16 +1168,16 @@ class AstBuilder(BaseGrammarBuilder):
         elif value.startswith("0"):
             base = 8
         if value.endswith('l') or value.endswith('L'):
-            l = space.builtin.get('long')
+            l = space.w_long
             return space.call_function(l, space.wrap(value), space.wrap(base))
         if value.endswith('j') or value.endswith('J'):
-            c = space.builtin.get('complex')
+            c = space.w_complex
             return space.call_function(c, space.wrap(value))
         try:
-            i = space.builtin.get('int')
+            i = space.w_int
             return space.call_function(i, space.wrap(value), space.wrap(base))
         except:
-            f = space.builtin.get('float')
+            f = space.w_float
             return space.call_function(f, space.wrap(value))
 
     def is_basestring_const(self, expr):
