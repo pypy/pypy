@@ -5,6 +5,7 @@ from errno import EINVAL, EPERM
 from ctypes_configure.configure import (configure,
     ExternalCompilationInfo, ConstantInteger, DefinedConstantInteger,
     SimpleType)
+import _structseq
 
 _CONSTANTS = (
     'RLIM_INFINITY',
@@ -101,23 +102,24 @@ class _struct_rusage(Structure):
     )
 
 class struct_rusage:
-    def __init__(self, ru):
-        self.ru_utime = float(ru.ru_utime)
-        self.ru_stime = float(ru.ru_stime)
-        self.ru_maxrss = ru.ru_maxrss
-        self.ru_ixrss = ru.ru_ixrss
-        self.ru_idrss = ru.ru_idrss
-        self.ru_isrss = ru.ru_isrss
-        self.ru_minflt = ru.ru_minflt
-        self.ru_majflt = ru.ru_majflt
-        self.ru_nswap = ru.ru_nswap
-        self.ru_inblock = ru.ru_inblock
-        self.ru_oublock = ru.ru_oublock
-        self.ru_msgsnd = ru.ru_msgsnd
-        self.ru_msgrcv = ru.ru_msgrcv
-        self.ru_nsignals = ru.ru_nsignals
-        self.ru_nvcsw = ru.ru_nvcsw
-        self.ru_nivcsw = ru.ru_nivcsw
+    __metaclass__ = _structseq.structseqtype
+
+    ru_utime = _structseq.structseqfield(0)
+    ru_stime = _structseq.structseqfield(1)
+    ru_maxrss = _structseq.structseqfield(2)
+    ru_ixrss = _structseq.structseqfield(3)
+    ru_idrss = _structseq.structseqfield(4)
+    ru_isrss = _structseq.structseqfield(5)
+    ru_minflt = _structseq.structseqfield(6)
+    ru_majflt = _structseq.structseqfield(7)
+    ru_nswap = _structseq.structseqfield(8)
+    ru_inblock = _structseq.structseqfield(9)
+    ru_oublock = _structseq.structseqfield(10)
+    ru_msgsnd = _structseq.structseqfield(11)
+    ru_msgrcv = _structseq.structseqfield(12)
+    ru_nsignals = _structseq.structseqfield(13)
+    ru_nvcsw = _structseq.structseqfield(14)
+    ru_nivcsw = _structseq.structseqfield(15)
 
 class rlimit(Structure):
     _fields_ = (
@@ -133,7 +135,24 @@ def getrusage(who):
         if errno == EINVAL:
             raise ValueError("invalid who parameter")
         raise ResourceError(errno)
-    return struct_rusage(ru)
+    return struct_rusage((
+        float(ru.ru_utime),
+        float(ru.ru_stime),
+        ru.ru_maxrss,
+        ru.ru_ixrss,
+        ru.ru_idrss,
+        ru.ru_isrss,
+        ru.ru_minflt,
+        ru.ru_majflt,
+        ru.ru_nswap,
+        ru.ru_inblock,
+        ru.ru_oublock,
+        ru.ru_msgsnd,
+        ru.ru_msgrcv,
+        ru.ru_nsignals,
+        ru.ru_nvcsw,
+        ru.ru_nivcsw,
+        ))
 
 def getrlimit(resource):
     if not(0 <= resource < RLIM_NLIMITS):
