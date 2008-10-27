@@ -445,10 +445,13 @@ class AppTestStringObject:
         raises(TypeError, 'abcdefghijklmn'.index, 'abc', -10.0, 30)
 
     def test_rfind(self):
+        assert 'abc'.rfind('', 4) == -1
         assert 'abcdefghiabc'.rfind('abc') == 9
         assert 'abcdefghiabc'.rfind('') == 12
         assert 'abcdefghiabc'.rfind('abcd') == 0
         assert 'abcdefghiabc'.rfind('abcz') == -1
+        assert 'abc'.rfind('', 0) == 3
+        assert 'abc'.rfind('', 3) == 3
 
     def test_rindex(self):
         from sys import maxint

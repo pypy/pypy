@@ -411,11 +411,15 @@ def contains__String_String(space, w_self, w_sub):
 
 def str_find__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
     (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
+    if space.int_w(w_start) > len(self):
+        return space.wrap(-1)
     res = self.find(sub, start, end)
     return space.wrap(res)
 
 def str_rfind__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
     (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
+    if space.int_w(w_start) > len(self):
+        return space.wrap(-1)
     res = self.rfind(sub, start, end)
     return space.wrap(res)
 
