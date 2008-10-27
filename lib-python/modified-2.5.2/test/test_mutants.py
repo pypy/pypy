@@ -137,10 +137,15 @@ def test_one(n):
     while dict1 and len(dict1) == len(dict2):
         if verbose:
             print ".",
-        if random.random() < 0.5:
-            c = cmp(dict1, dict2)
-        else:
-            c = dict1 == dict2
+        try:
+            if random.random() < 0.5:
+                c = cmp(dict1, dict2)
+            else:
+                c = dict1 == dict2
+        except RuntimeError:
+            # it's fine to complain when dictionary size changed
+            # I think
+            pass
     if verbose:
         print
 
@@ -157,7 +162,7 @@ def test(n):
         test_one(random.randrange(1, 100))
 
 # See last comment block for clues about good values for n.
-test(20)
+test(100)
 
 ##########################################################################
 # Another segfault bug, distilled by Michael Hudson from a c.l.py post.
