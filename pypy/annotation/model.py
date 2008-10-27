@@ -113,7 +113,13 @@ class SomeObject:
     # for debugging, record where each instance comes from
     # this is disabled if DEBUG is set to False
     def __new__(cls, *args, **kw):
-        self = super(SomeObject, cls).__new__(cls, *args, **kw)
+        new = super(SomeObject, cls).__new__
+        if new is object.__new__:
+            # Since python 2.6, object.__new__ warns
+            # when parameters are passed
+            self = new(cls)
+        else:
+            self = new(cls, *args, **kw)
         if DEBUG:
             try:
                 bookkeeper = pypy.annotation.bookkeeper.getbookkeeper()
