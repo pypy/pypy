@@ -34,8 +34,12 @@ def ask_gcc(question, add_source=""):
     return build_executable_cache([c_file], eci)
 
 def sizeof_c_type(c_typename, **kwds):
-    question = 'printf("%%d", sizeof(%s));' % (c_typename,);
-    return int(ask_gcc(question, **kwds))
+    question = 'printf("sizeof %s=%%d", sizeof(%s));' % (c_typename,
+                                                         c_typename)
+    answer = ask_gcc(question, **kwds).split('=')
+    assert answer[0] == "sizeof " + c_typename, "wrong program: " \
+           "sizeof %s expected, got %s" % (c_typename, answer[0])
+    return int(answer[1])
 
 class Platform:
     def __init__(self):
