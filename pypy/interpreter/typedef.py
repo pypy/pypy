@@ -877,6 +877,7 @@ Cell.typedef = TypeDef("cell",
                               unwrap_spec=['self', ObjSpace]),
     __setstate__ = interp2app(Cell.descr__setstate__,
                               unwrap_spec=['self', ObjSpace, W_Root]),
+    cell_contents= GetSetProperty(Cell.descr__cell_contents, cls=Cell),
 )
 Cell.acceptable_as_base_class = False
 

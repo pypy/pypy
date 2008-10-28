@@ -57,6 +57,13 @@ class Cell(Wrappable):
         return "<%s(%s) at 0x%x>" % (self.__class__.__name__,
                                      content, uid(self))
 
+    def descr__cell_contents(space, self):
+        try:
+            return self.get()
+        except ValueError:
+            raise OperationError(space.w_ValueError, space.wrap("Cell is empty"))
+
+
 
 super_initialize_frame_scopes = pyframe.PyFrame.initialize_frame_scopes
 super_fast2locals             = pyframe.PyFrame.fast2locals

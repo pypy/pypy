@@ -59,3 +59,23 @@ class AppTestNestedScope:
 
     def test_lambda_in_genexpr(self):
         assert eval('map(apply, (lambda: t for t in range(10)))') == range(10)
+
+    def test_cell_contents(self):
+        def f(x):
+            def f(y):
+                return x + y
+            return f
+
+        g = f(10)
+        assert g.func_closure[0].cell_contents == 10
+
+    def test_empty_cell_contents(self):
+
+        def f():
+            def f(y):
+                  return x + y
+            return f
+            x = 1
+
+        g = f()
+        raises(ValueError, "g.func_closure[0].cell_contents")
