@@ -66,12 +66,8 @@ def offset2lineno(c, stopat):
 
 def check_traceback(space, w_tb, msg):
     from pypy.interpreter.typedef import PyTraceback
-    if w_tb is not None:
-        tb = space.interpclass_w(w_tb)
-        if tb is None or not space.is_true(space.isinstance(tb, 
-                space.gettypeobject(PyTraceback.typedef))):
-            raise OperationError(space.w_TypeError, space.wrap(msg))
-    else:
-        tb = None
+    tb = space.interpclass_w(w_tb)
+    if tb is None or not space.is_true(space.isinstance(tb, 
+            space.gettypeobject(PyTraceback.typedef))):
+        raise OperationError(space.w_TypeError, space.wrap(msg))
     return tb
-

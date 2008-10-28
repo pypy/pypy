@@ -66,7 +66,7 @@ return next yielded value or raise StopIteration."""
             self.frame.f_back = None
             self.running = False
 
-    def descr_throw(self, w_type, w_val=None, w_tb=NoneNotWrapped):
+    def descr_throw(self, w_type, w_val=None, w_tb=None):
         """throw(typ[,val[,tb]]) -> raise exception in generator,
 return next yielded value or raise StopIteration."""
         return self.throw(w_type, w_val, w_tb)
@@ -77,7 +77,10 @@ return next yielded value or raise StopIteration."""
         space = self.space
         
         msg = "throw() third argument must be a traceback object"
-        tb = check_traceback(space, w_tb, msg)
+        if space.is_w(w_tb, space.w_None):
+            tb = None
+        else:
+            tb = check_traceback(space, w_tb, msg)
        
         operr = OperationError(w_type, w_val, tb)
         operr.normalize_exception(space)
@@ -96,7 +99,8 @@ return next yielded value or raise StopIteration."""
         """close(arg) -> raise GeneratorExit inside generator."""
         space = self.space
         try:
-            w_retval = self.throw(space.w_GeneratorExit, space.w_None, None)
+            w_retval = self.throw(space.w_GeneratorExit, space.w_None,
+                                  space.w_None)
         except OperationError, e:
             if e.match(space, space.w_StopIteration) or \
                     e.match(space, space.w_GeneratorExit):

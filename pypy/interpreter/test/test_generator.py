@@ -94,6 +94,13 @@ class AppTestGenerator:
         # String exceptions are allowed (with DeprecationWarning)
         assert g.throw("Error") == 3
         raises(StopIteration, g.throw, "Error")
+
+    def test_throw6(self):
+        def f():
+            yield 2
+        g = f()
+        raises(NameError, g.throw, NameError, "Error", None)
+
     
     def test_throw_fail(self):
         def f():
