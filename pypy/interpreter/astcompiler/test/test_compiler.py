@@ -444,6 +444,7 @@ class TestCompiler:
         """, 'x', [3, 4]
 
     def test_type_of_constants(self):
+        yield self.simple_test, "x=[0, 0L]", 'type(x[1])', long
         yield self.simple_test, "x=[(1,0), (1,0L)]", 'type(x[1][1])', long
         yield self.simple_test, "x=['2?-', '2?-']", 'id(x[0])==id(x[1])', True
 

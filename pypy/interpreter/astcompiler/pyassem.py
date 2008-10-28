@@ -28,7 +28,18 @@ class PyFlowGraph(object):
         if newlocals:
             self.flags |= CO_NEWLOCALS
 
-        self.w_const2index = space.newdict() # {w_key: wrap(index in consts_w)}
+        self.atomic_types = [space.type(space.w_None),
+                             space.w_int,
+                             space.w_str,
+                             space.w_unicode,
+                             space.w_bool,
+                             space.w_float,
+                             space.w_long,
+                             space.w_complex,
+                             space.type(space.w_Ellipsis),
+                             ]
+        self.const2index = [None] * len(self.atomic_types)
+        # ^^^ each item is a wrapped dict {w_key: wrap(index in consts_w)}
         self.consts_w = []
         self.names = []
         # Free variables found by the symbol table scan, including
@@ -109,26 +120,22 @@ class PyFlowGraph(object):
         # Some types of object can be shared if equal values appear
         # several times in the consts_w.
         space = self.space
-        if (space.is_w(w_obj, space.w_None) or
-            space.is_w(w_obj, space.w_Ellipsis)):
-            is_atomic_type = True
-        else:
-            w_type = space.type(w_obj)
-            is_atomic_type = (space.is_w(w_type, space.w_int) or
-                              space.is_w(w_type, space.w_bool) or
-                              space.is_w(w_type, space.w_long) or
-                              space.is_w(w_type, space.w_float) or
-                              space.is_w(w_type, space.w_complex) or
-                              space.is_w(w_type, space.w_str) or
-                              space.is_w(w_type, space.w_unicode))
-        if is_atomic_type:
-            w_index = space.finditem(self.w_const2index, w_obj)
-            if w_index is not None:
-                return space.int_w(w_index)
+        w_type = space.type(w_obj)
+        w_const2index = None
+        for i in range(len(self.atomic_types)):
+            if space.is_w(w_type, self.atomic_types[i]):
+                w_const2index = self.const2index[i]
+                if w_const2index is None:
+                    w_const2index = self.const2index[i] = space.newdict()
+                else:
+                    w_index = space.finditem(w_const2index, w_obj)
+                    if w_index is not None:
+                        return space.int_w(w_index)
+                break
         result = len(self.consts_w)
         self.consts_w.append(w_obj)
-        if is_atomic_type:
-            space.setitem(self.w_const2index, w_obj, space.wrap(result))
+        if w_const2index is not None:
+            space.setitem(w_const2index, w_obj, space.wrap(result))
         return result
 
     # ____________________________________________________________
