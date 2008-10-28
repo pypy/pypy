@@ -142,15 +142,6 @@ class AppTestCodeIntrospection:
         assert d1['f'].func_code == d2['f'].func_code
         assert hash(d1['f'].func_code) == hash(d2['f'].func_code)
 
-    def test_inspect(self):
-        if not hasattr(len, 'func_code'):
-            skip("Cannot run this test if builtins have no func_code")
-        import inspect
-        args, varargs, varkw = inspect.getargs(len.func_code)
-        assert args == ['obj']
-        assert varargs is None
-        assert varkw is None
-
     def test_repr(self):
         def f():
             xxx
@@ -160,4 +151,3 @@ class AppTestCodeIntrospection:
                     'line']
         for i in expected:
             assert i in res
-

@@ -1,6 +1,29 @@
 import py
 from pypy import conftest
 
+class AppTestSlow:    
+    def setup_class(cls):
+        space = gettestobjspace()
+        cls.space = space
+        if py.test.config.option.runappdirect:
+            filename = __file__
+        else:
+            filename = gateway.__file__
+
+        if filename[-3:] != '.py':
+            filename = filename[:-1]
+
+        cls.w_file = space.wrap(filename)
+
+    def test_inspect(self):
+        if not hasattr(len, 'func_code'):
+            skip("Cannot run this test if builtins have no func_code")
+        import inspect
+        args, varargs, varkw = inspect.getargs(len.func_code)
+        assert args == ['obj']
+        assert varargs is None
+        assert varkw is None
+
 def _attach_helpers(space):
     from pypy.interpreter import pytraceback
     def hide_top_frame(space, w_frame):
