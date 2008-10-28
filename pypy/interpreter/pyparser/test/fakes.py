@@ -4,6 +4,9 @@ class FakeSpace:
     w_str = str
     w_basestring = basestring
     w_int = int
+    w_long = long
+    w_float = float
+    w_complex = complex
 
     def wrap(self, obj):
         return obj
@@ -37,5 +40,3 @@ class FakeSpace:
 
     def call_function(self, func, *args):
         return func(*args)
-
-    builtin = dict(int=int, long=long, float=float, complex=complex)
