@@ -1,6 +1,7 @@
 # Test enhancements related to descriptors and new-style classes
 
 from test.test_support import verify, vereq, verbose, TestFailed, TESTFN, get_original_stdout
+from test.test_support import check_impl_detail
 from copy import deepcopy
 import warnings
 import types
@@ -168,7 +169,10 @@ def lists():
 
 def dicts():
     if verbose: print "Testing dict operations..."
-    testbinop({1:2}, {2:1}, -1, "cmp(a,b)", "__cmp__")
+    testbinop({1:2}, {2:1}, False, "a == b", "__eq__")
+    testbinop({1:2}, {2:1}, True, "a != b", "__ne__")
+    if hasattr(dict, '__cmp__'):      # PyPy has only rich comparison on dicts
+        testbinop({1:2}, {2:1}, -1, "cmp(a,b)", "__cmp__")
     testbinop({1:2,3:4}, 1, 1, "b in a", "__contains__")
     testbinop({1:2,3:4}, 2, 0, "b in a", "__contains__")
     testbinop({1:2,3:4}, 1, 2, "a[b]", "__getitem__")
@@ -376,7 +380,9 @@ def test_dir():
 
     # Two essentially featureless objects, just inheriting stuff from
     # object.
-    vereq(dir(None), dir(Ellipsis))
+    vereq(dir(NotImplemented), dir(Ellipsis))
+    if check_impl_detail:   # None might differ: it can have __nonzero__
+        vereq(dir(None), dir(Ellipsis))
 
     # Nasty test case for proxied objects
     class Wrapper(object):
