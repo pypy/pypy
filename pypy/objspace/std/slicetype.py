@@ -24,6 +24,15 @@ def _Eval_SliceIndex(space, w_int):
                              space.wrap("slice indices must be integers or "
                                         "None or have an __index__ method"))
 
+def adapt_lower_bound(space, size, w_index):
+    index = _Eval_SliceIndex(space, w_index)
+    if index < 0:
+        index = index + size
+        if index < 0:
+            index = 0
+    assert index >= 0
+    return index
+
 def adapt_bound(space, size, w_index):
     index = _Eval_SliceIndex(space, w_index)
     if index < 0:
@@ -32,6 +41,7 @@ def adapt_bound(space, size, w_index):
             index = 0
     if index > size:
         index = size
+    assert index >= 0
     return index
 
 register_all(vars(), globals())

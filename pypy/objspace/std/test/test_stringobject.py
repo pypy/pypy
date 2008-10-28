@@ -429,6 +429,7 @@ class AppTestStringObject:
         assert 'abcdefghiabc'.find('abc') == 0
         assert 'abcdefghiabc'.find('abc', 1) == 9
         assert 'abcdefghiabc'.find('def', 4) == -1
+        assert 'abcdef'.find('', 13) == -1
 
     def test_index(self):
         from sys import maxint

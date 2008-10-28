@@ -393,16 +393,17 @@ def str_ljust__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
         
     return space.wrap(u_self)
 
-def _convert_idx_params(space, w_self, w_sub, w_start, w_end):
+def _convert_idx_params(space, w_self, w_sub, w_start, w_end, upper_bound=False):
     self = w_self._value
     sub = w_sub._value
-    start = slicetype.adapt_bound(space, len(self), w_start)
-    end = slicetype.adapt_bound(space, len(self), w_end)
-
-    assert start >= 0
-    assert end >= 0
-
+    if upper_bound:
+        start = slicetype.adapt_bound(space, len(self), w_start)
+        end = slicetype.adapt_bound(space, len(self), w_end)
+    else:
+        start = slicetype.adapt_lower_bound(space, len(self), w_start)
+        end = slicetype.adapt_lower_bound(space, len(self), w_end)
     return (self, sub, start, end)
+_convert_idx_params.annspecialcase = 'specialize:arg(5)'
 
 def contains__String_String(space, w_self, w_sub):
     self = w_self._value
@@ -411,15 +412,11 @@ def contains__String_String(space, w_self, w_sub):
 
 def str_find__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
     (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
-    if space.int_w(w_start) > len(self):
-        return space.wrap(-1)
     res = self.find(sub, start, end)
     return space.wrap(res)
 
 def str_rfind__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
     (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
-    if space.int_w(w_start) > len(self):
-        return space.wrap(-1)
     res = self.rfind(sub, start, end)
     return space.wrap(res)
 
@@ -605,12 +602,14 @@ def str_count__String_String_ANY_ANY(space, w_self, w_arg, w_start, w_end):
 
 def str_endswith__String_String_ANY_ANY(space, w_self, w_suffix, w_start, w_end):
     (u_self, suffix, start, end) = _convert_idx_params(space, w_self,
-                                                       w_suffix, w_start, w_end)
+                                                       w_suffix, w_start,
+                                                       w_end, True)
     return space.newbool(stringendswith(u_self, suffix, start, end))
 
 def str_endswith__String_Tuple_ANY_ANY(space, w_self, w_suffixes, w_start, w_end):
     (u_self, _, start, end) = _convert_idx_params(space, w_self,
-                                                  space.wrap(''), w_start, w_end)
+                                                  space.wrap(''), w_start,
+                                                  w_end, True)
     for w_suffix in space.viewiterable(w_suffixes):
         if space.is_true(space.isinstance(w_suffix, space.w_unicode)):
             w_u = space.call_function(space.w_unicode, w_self)
@@ -623,12 +622,13 @@ def str_endswith__String_Tuple_ANY_ANY(space, w_self, w_suffixes, w_start, w_end
 
 def str_startswith__String_String_ANY_ANY(space, w_self, w_prefix, w_start, w_end):
     (u_self, prefix, start, end) = _convert_idx_params(space, w_self,
-                                                       w_prefix, w_start, w_end)
+                                                       w_prefix, w_start,
+                                                       w_end, True)
     return space.newbool(stringstartswith(u_self, prefix, start, end))
 
 def str_startswith__String_Tuple_ANY_ANY(space, w_self, w_prefixes, w_start, w_end):
     (u_self, _, start, end) = _convert_idx_params(space, w_self, space.wrap(''),
-                                                  w_start, w_end)
+                                                  w_start, w_end, True)
     for w_prefix in space.viewiterable(w_prefixes):
         if space.is_true(space.isinstance(w_prefix, space.w_unicode)):
             w_u = space.call_function(space.w_unicode, w_self)
