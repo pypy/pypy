@@ -103,6 +103,11 @@ class Address(object):
         return rffi.cast(lltype.Ptr(TYPE), self.addr_p)
     lock._annspecialcase_ = 'specialize:ll'
 
+    def lock_in_addr(self):
+        """ Purely abstract
+        """
+        raise NotImplementedError
+
     def unlock(self):
         """To call after we're done with the pointer returned by lock().
         Note that locking and unlocking costs nothing at run-time.
@@ -192,11 +197,6 @@ class IPAddress(Address):
         # (with variable size numbers).
         host, serv = getnameinfo(self, NI_NUMERICHOST | NI_NUMERICSERV)
         return host
-
-    def lock_in_addr(self):
-        """ Purely abstract
-        """
-        raise NotImplementedError
 
 # ____________________________________________________________
 
