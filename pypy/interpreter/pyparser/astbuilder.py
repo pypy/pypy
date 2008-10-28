@@ -1015,7 +1015,7 @@ def build_try_stmt(builder, nb):
             assert isinstance(token, TokenObject)
             if token.get_value() == 'else':
                 else_ = atoms[index+2] # skip ':'
-                index += 2
+                index += 3
             if index < l:
                 token = atoms[index]
                 assert isinstance(token, TokenObject)

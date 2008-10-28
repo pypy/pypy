@@ -152,6 +152,18 @@ class BaseTestCompiler:
                return 3
         """)
         self.compiler.compile(str(s), '', 'exec', 0)
+        s = py.code.Source("""
+        def f():
+            try:
+                1/0
+            except:
+                pass
+            else:
+                pass
+            finally:
+                return 2
+        """)
+        self.compiler.compile(str(s), '', 'exec', 0)
 
     def test_toplevel_docstring(self):
         space = self.space
