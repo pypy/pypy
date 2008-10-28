@@ -1321,15 +1321,18 @@ def slots():
 
     # Test lookup leaks [SF bug 572567]
     import sys,gc
-    class G(object):
-        def __cmp__(self, other):
-            return 0
-    g = G()
-    orig_objects = len(gc.get_objects())
-    for i in xrange(10):
-        g==g
-    new_objects = len(gc.get_objects())
-    vereq(orig_objects, new_objects)
+    if check_impl_detail:    # no gc.get_objects() on non-CPython
+                             # implementations, but no leaks either :-)
+        class G(object):
+            def __cmp__(self, other):
+                return 0
+        g = G()
+        orig_objects = len(gc.get_objects())
+        for i in xrange(10):
+            g==g
+        new_objects = len(gc.get_objects())
+        vereq(orig_objects, new_objects)
+
     class H(object):
         __slots__ = ['a', 'b']
         def __init__(self):
