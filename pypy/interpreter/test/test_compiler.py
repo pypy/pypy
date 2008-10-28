@@ -629,11 +629,11 @@ class TestPyCCompiler(BaseTestCompiler):
         def skip_on_2_4(self):
             py.test.skip("syntax not supported by the CPython 2.4 compiler")
         test_continue_in_nested_finally = skip_on_2_4
+        test_try_except_finally = skip_on_2_4
     elif sys.version_info > (2, 4):
         def skip_on_2_5(self):
             py.test.skip("syntax changed in CPython 2.5 compiler")
         test_yield_in_finally = skip_on_2_5
-            
 
 class TestPythonAstCompiler_25_grammar(BaseTestCompiler):
     def setup_method(self, method):

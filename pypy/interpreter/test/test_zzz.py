@@ -1,5 +1,7 @@
 import py
 from pypy import conftest
+from pypy.conftest import gettestobjspace
+from pypy.interpreter import gateway
 
 class AppTestSlow:    
     def setup_class(cls):
