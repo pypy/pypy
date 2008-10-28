@@ -986,6 +986,15 @@ class ObjSpace(object):
         # This is here mostly just for gateway.int_unwrapping_space_method().
         return bool(self.int_w(w_obj))
 
+    def nonnegint_w(self, w_obj):
+        # Like space.int_w(), but raises an app-level ValueError if
+        # the integer is negative.  Mostly here for gateway.py.
+        value = self.int_w(w_obj)
+        if value < 0:
+            raise OperationError(self.w_ValueError,
+                                 self.wrap("expected a non-negative integer"))
+        return value
+
     def warn(self, msg, w_warningcls):
         self.appexec([self.wrap(msg), w_warningcls], """(msg, warningcls):
             import warnings

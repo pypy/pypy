@@ -165,6 +165,21 @@ class TestGateway:
         assert self.space.eq_w(space.call_function(w_app_g, space.wrap(True)),
                                space.wrap(True))
 
+    def test_interp2app_unwrap_spec_nonnegint(self):
+        space = self.space
+        w = space.wrap
+        def g(space, x):
+            return space.wrap(x * 6)
+        app_g = gateway.interp2app(g, unwrap_spec=[gateway.ObjSpace,
+                                                   'nonnegint'])
+        w_app_g = space.wrap(app_g)
+        assert self.space.eq_w(space.call_function(w_app_g, space.wrap(7)),
+                               space.wrap(42))
+        assert self.space.eq_w(space.call_function(w_app_g, space.wrap(0)),
+                               space.wrap(0))
+        space.raises_w(space.w_ValueError,
+                       space.call_function, w_app_g, space.wrap(-1))
+
     def test_interp2app_unwrap_spec_args_w(self):
         space = self.space
         w = space.wrap
