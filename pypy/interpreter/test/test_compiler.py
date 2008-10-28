@@ -141,6 +141,19 @@ class BaseTestCompiler:
         ex = e.value
         assert ex.match(self.space, self.space.w_SyntaxError)
 
+    def test_try_except_finally(self):
+        py.test.skip("FAILS!")
+        s = py.code.Source("""
+        def f():
+            try:
+               1/0
+            except ZeroDivisionError:
+               pass
+            finally:
+               return 3
+        """)
+        self.compiler.compile(str(s), '', 'exec', 0)
+
     def test_toplevel_docstring(self):
         space = self.space
         code = self.compiler.compile('"spam"; "bar"; x=5', '<hello>', 'exec', 0)
