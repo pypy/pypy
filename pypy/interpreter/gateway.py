@@ -374,8 +374,6 @@ def int_unwrapping_space_method(typ):
         return 'r_longlong_w'
     elif typ is r_uint:
         return 'uint_w'
-    elif typ is bool:
-        return 'is_true'
     else:
         return typ.__name__ + '_w'
 

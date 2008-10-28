@@ -981,6 +981,11 @@ class ObjSpace(object):
             buffer = self.buffer_w(w_obj)
             return buffer.as_str()
 
+    def bool_w(self, w_obj):
+        # Unwraps a bool, also accepting an int for compatibility.
+        # This is here mostly just for gateway.int_unwrapping_space_method().
+        return bool(self.int_w(w_obj))
+
     def warn(self, msg, w_warningcls):
         self.appexec([self.wrap(msg), w_warningcls], """(msg, warningcls):
             import warnings
