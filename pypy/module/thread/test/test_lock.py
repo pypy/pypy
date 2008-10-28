@@ -29,6 +29,25 @@ class AppTestLock(GenericTestThread):
         assert lock.locked() is True
         assert feedback == [42]
 
+    def test_lock_in_with(self):
+        import thread
+        lock = thread.allocate_lock()
+        feedback = []
+        lock.acquire()
+        def f():
+            self.busywait(0.25)
+            feedback.append(42)
+            lock.release()
+        assert lock.locked() is True
+        thread.start_new_thread(f, ())
+        exec """
+from __future__ import with_statement
+if 1:
+        with lock:
+            assert lock.locked() is True
+            assert feedback == [42]
+""" in {"lock": lock, "feedback": feedback}
+        assert lock.locked() is False
 
 def test_compile_lock():
     from pypy.rlib import rgc

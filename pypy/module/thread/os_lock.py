@@ -5,7 +5,7 @@ Python locks, based on true threading locks provided by the OS.
 from pypy.module.thread import ll_thread as thread
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.gateway import ObjSpace, interp2app
+from pypy.interpreter.gateway import ObjSpace, interp2app, Arguments
 from pypy.interpreter.typedef import TypeDef
 
 # Force the declaration of the type 'thread.LockType' for RPython
@@ -63,6 +63,12 @@ but it needn't be locked by the same thread that unlocks it."""
         else:
             return space.w_True
 
+    def descr__enter__(self, space):
+        self.descr_lock_acquire(space)
+        return self
+
+    def descr__exit__(self, space, __args__):
+        self.descr_lock_release(space)
 
 descr_acquire = interp2app(Lock.descr_lock_acquire,
                            unwrap_spec=['self', ObjSpace, int])
@@ -70,6 +76,11 @@ descr_release = interp2app(Lock.descr_lock_release,
                            unwrap_spec=['self', ObjSpace])
 descr_locked  = interp2app(Lock.descr_lock_locked,
                            unwrap_spec=['self', ObjSpace])
+descr__enter__ = interp2app(Lock.descr__enter__,
+                            unwrap_spec=['self', ObjSpace])
+descr__exit__ = interp2app(Lock.descr__exit__,
+                            unwrap_spec=['self', ObjSpace, Arguments])
+
 
 Lock.typedef = TypeDef("thread.lock",
     __doc__ = """\
@@ -86,6 +97,8 @@ will block until another thread unlocks it.  Deadlocks may ensue.""",
     acquire = descr_acquire,
     release = descr_release,
     locked  = descr_locked,
+    __enter__ = descr__enter__,
+    __exit__ = descr__exit__,
     # Obsolete synonyms
     acquire_lock = descr_acquire,
     release_lock = descr_release,
