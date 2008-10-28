@@ -25,7 +25,7 @@ test_contextlib              !   should be fixed, probably not too hard
 test_ctypes                  !   implementation details but also some real crashes
 test_datetime                !   the two test_negative_*() look like real bugs
 test_decimal                     missing decimal.ROUND_05UP
-test_descr                   !   needs deciding what is impl details and what's not
+test_descr               arigo   needs deciding what is impl details and what's not
 test_descrtut                    implementation detail only
 test_dis                         probably not worth the pain of whacking at the compiler
 test_distutils                   this is our issue367
