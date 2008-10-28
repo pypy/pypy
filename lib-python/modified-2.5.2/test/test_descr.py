@@ -532,7 +532,11 @@ def complexes():
 
 def spamlists():
     if verbose: print "Testing spamlist operations..."
-    import copy, xxsubtype as spam
+    try:
+        import copy, xxsubtype as spam
+    except ImportError, e:
+        if verbose: print "Skipped:", e
+        return
     def spamlist(l, memo=None):
         import xxsubtype as spam
         return spam.spamlist(l)
@@ -568,7 +572,11 @@ def spamlists():
 
 def spamdicts():
     if verbose: print "Testing spamdict operations..."
-    import copy, xxsubtype as spam
+    try:
+        import copy, xxsubtype as spam
+    except ImportError, e:
+        if verbose: print "Skipped:", e
+        return
     def spamdict(d, memo=None):
         import xxsubtype as spam
         sd = spam.spamdict()
@@ -1100,7 +1108,8 @@ def mro_disagreement():
         try:
             callable(*args)
         except exc, msg:
-            if not str(msg).startswith(expected):
+            # the exact msg is generally considered an implementation detail
+            if check_impl_detail and not str(msg).startswith(expected):
                 raise TestFailed, "Message %r, expected %r" % (str(msg),
                                                                expected)
         else:
@@ -1555,7 +1564,11 @@ def classmethods():
 
 def classmethods_in_c():
     if verbose: print "Testing C-based class methods..."
-    import xxsubtype as spam
+    try:
+        import xxsubtype as spam
+    except ImportError, e:
+        if verbose: print "Skipped:", e
+        return
     a = (1, 2, 3)
     d = {'abc': 123}
     x, a1, d1 = spam.spamlist.classmeth(*a, **d)
@@ -1586,7 +1599,11 @@ def staticmethods():
 
 def staticmethods_in_c():
     if verbose: print "Testing C-based static methods..."
-    import xxsubtype as spam
+    try:
+        import xxsubtype as spam
+    except ImportError, e:
+        if verbose: print "Skipped:", e
+        return
     a = (1, 2, 3)
     d = {"abc": 123}
     x, a1, d1 = spam.spamlist.staticmeth(*a, **d)
