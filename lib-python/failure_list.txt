@@ -7,7 +7,6 @@ test__locale                 !   wrong locale installation on wyvern
                                  on pypy-c, so surely there is another problem?
 
 test_ast                         import _ast
-test_bigmem                  !   one looks like bug, the others like impl details
 test_builtin                     this is our issue383
 test_cProfile                !   we still need to fix module/cProfile to respect builtin calls
 test_capi                        CPython only
