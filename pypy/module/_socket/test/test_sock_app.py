@@ -538,6 +538,11 @@ class AppTestSocketTCP:
         msg = buf.tostring()[:len(MSG)]
         assert msg == MSG
 
+    def test_family(self):
+        import socket
+        cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        assert cli.family == socket.AF_INET
+
 class AppTestErrno:
     def setup_class(cls):
         cls.space = space
@@ -555,5 +560,4 @@ class AppTestErrno:
             # error is EINVAL, or WSAEINVAL on Windows
             assert errno.errorcode[e.args[0]].endswith("EINVAL")
             assert isinstance(e.args[1], str)
-
 

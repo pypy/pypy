@@ -1,5 +1,6 @@
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.typedef import TypeDef, make_weakref_descr
+from pypy.interpreter.typedef import TypeDef, make_weakref_descr,\
+     interp_attrproperty
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 from pypy.interpreter.gateway import interp2app
 from pypy.rlib.rarithmetic import intmask
@@ -187,7 +188,7 @@ class W_RSocket(Wrappable, RSocket):
         except SocketError, e:
             raise converted_error(space, e)
         return space.wrap(data)
-    recv_w.unwrap_spec = ['self', ObjSpace, int, int]
+    recv_w.unwrap_spec = ['self', ObjSpace, 'nonnegint', int]
 
     def recvfrom_w(self, space, buffersize, flags=0):
         """recvfrom(buffersize[, flags]) -> (data, address info)
@@ -203,7 +204,7 @@ class W_RSocket(Wrappable, RSocket):
             return space.newtuple([space.wrap(data), w_addr])
         except SocketError, e:
             raise converted_error(space, e)
-    recvfrom_w.unwrap_spec = ['self', ObjSpace, int, int]
+    recvfrom_w.unwrap_spec = ['self', ObjSpace, 'nonnegint', int]
 
     def send_w(self, space, data, flags=0):
         """send(data[, flags]) -> count
@@ -472,5 +473,6 @@ shutdown(how) -- shut down traffic in one or both directions
  [*] not available on all platforms!""",
     __new__ = descr_socket_new,
     __weakref__ = make_weakref_descr(W_RSocket),
+    family = interp_attrproperty('family', W_RSocket),
     ** socketmethods
     )
