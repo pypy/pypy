@@ -515,8 +515,9 @@ def _string_replace(space, input, sub, by, maxsplit):
     
 
 def str_replace__String_ANY_ANY_ANY(space, w_self, w_sub, w_by, w_maxsplit):
-    return _string_replace(space, w_self._value, space.buffer_w(w_sub).value,
-                           space.buffer_w(w_by).value, space.int_w(w_maxsplit))
+    return _string_replace(space, w_self._value, space.buffer_w(w_sub).as_str(),
+                           space.buffer_w(w_by).as_str(),
+                           space.int_w(w_maxsplit))
 
 def str_replace__String_String_String_ANY(space, w_self, w_sub, w_by, w_maxsplit=-1):
     input = w_self._value
