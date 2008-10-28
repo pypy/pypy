@@ -1,7 +1,7 @@
 # Test enhancements related to descriptors and new-style classes
 
 from test.test_support import verify, vereq, verbose, TestFailed, TESTFN, get_original_stdout
-from test.test_support import check_impl_detail
+from test.test_support import check_impl_detail, gc_collect
 from copy import deepcopy
 import warnings
 import types
@@ -1286,6 +1286,7 @@ def slots():
     x.c = Counted()
     vereq(Counted.counter, 3)
     del x
+    gc_collect()
     vereq(Counted.counter, 0)
     class D(C):
         pass
@@ -1294,6 +1295,7 @@ def slots():
     x.z = Counted()
     vereq(Counted.counter, 2)
     del x
+    gc_collect()
     vereq(Counted.counter, 0)
     class E(D):
         __slots__ = ['e']
@@ -1303,6 +1305,7 @@ def slots():
     x.e = Counted()
     vereq(Counted.counter, 3)
     del x
+    gc_collect()
     vereq(Counted.counter, 0)
 
     # Test cyclical leaks [SF bug 519621]
@@ -1313,8 +1316,7 @@ def slots():
     s.a = [Counted(), s]
     vereq(Counted.counter, 1)
     s = None
-    import gc
-    gc.collect()
+    gc_collect()
     vereq(Counted.counter, 0)
 
     # Test lookup leaks [SF bug 572567]
