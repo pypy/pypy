@@ -11,6 +11,7 @@ from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.rlib.rstring import StringBuilder
+from pypy.interpreter.buffer import StringBuffer
 
 from pypy.objspace.std.stringtype import sliced, joined, wrapstr, wrapchar, \
      stringendswith, stringstartswith, joined2
@@ -469,12 +470,7 @@ def str_rindex__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
 
     return space.wrap(res)
 
-
-def str_replace__String_String_String_ANY(space, w_self, w_sub, w_by, w_maxsplit=-1):
-    input = w_self._value
-    sub = w_sub._value
-    by = w_by._value
-    maxsplit = space.int_w(w_maxsplit)
+def _string_replace(space, input, sub, by, maxsplit):
     if maxsplit == 0:
         return space.wrap(input)
 
@@ -516,6 +512,18 @@ def str_replace__String_String_String_ANY(space, w_self, w_sub, w_by, w_maxsplit
             space.wrap("replace string is too long"))
     
     return space.wrap(by.join(substrings_w))
+    
+
+def str_replace__String_ANY_ANY_ANY(space, w_self, w_sub, w_by, w_maxsplit):
+    return _string_replace(space, w_self._value, space.buffer_w(w_sub).value,
+                           space.buffer_w(w_by).value, space.int_w(w_maxsplit))
+
+def str_replace__String_String_String_ANY(space, w_self, w_sub, w_by, w_maxsplit=-1):
+    input = w_self._value
+    sub = w_sub._value
+    by = w_by._value
+    maxsplit = space.int_w(w_maxsplit)
+    return _string_replace(space, input, sub, by, maxsplit)
 
 def _strip(space, w_self, w_chars, left, right):
     "internal function called by str_xstrip methods"

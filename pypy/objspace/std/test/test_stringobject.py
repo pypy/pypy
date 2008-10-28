@@ -259,6 +259,9 @@ class AppTestStringObject:
         assert '123123'.replace('123', '') == ''
         assert '123x123'.replace('123', '') == 'x'
 
+    def test_replace_buffer(self):
+        assert 'one'.replace(buffer('o'), buffer('n'), 1) == 'nne'
+        assert 'one'.replace(buffer('o'), buffer('n')) == 'nne'
 
     def test_strip(self):
         s = " a b "
