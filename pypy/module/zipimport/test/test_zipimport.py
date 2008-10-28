@@ -84,6 +84,8 @@ class AppTestZipimport:
         w_cache = space.getattr(space.getbuiltinmodule('zipimport'),
                                 space.wrap('_zip_directory_cache'))
         space.call_function(space.getattr(w_cache, space.wrap('clear')))
+        self.w_modules = space.getattr(space.getbuiltinmodule('sys'),
+                                       space.wrap('modules'))
 
     def teardown_method(self, meth):
         space = self.space
@@ -92,6 +94,8 @@ class AppTestZipimport:
         while sys.path[0].endswith('.zip'):
             sys.path.pop(0)
         """)
+        space.setattr(space.getbuiltinmodule('sys'),
+                      space.wrap('modules'), self.w_modules)
 
     def test_cache(self):
         self.writefile(self, 'x.py', 'y')
@@ -130,7 +134,6 @@ class AppTestZipimport:
         for key, val in expected.items():
             assert mod.__dict__[key] == val
         assert mod.__file__.endswith('.zip'+os.sep+'uuu.py')
-        del sys.modules['uuu']
     
     def test_pyc(self):
         import sys, os
@@ -148,7 +151,6 @@ class AppTestZipimport:
         assert mod.__file__.endswith('.zip'+os.sep+'uuu.pyc')
         assert mod.get_file() == mod.__file__
         assert mod.get_name() == mod.__name__
-        del sys.modules['uuu']
                                 
     def test_bad_pyc(self):
         import zipimport
@@ -169,7 +171,6 @@ class AppTestZipimport:
         self.writefile(self, "uu.py", "def f(x): return x")
         mod = __import__("uu", globals(), locals(), [])
         assert mod.f(3) == 3
-        del sys.modules['uu']
 
     def test_sys_modules(self):
         m0 = ord(self.test_pyc[0])
@@ -182,7 +183,6 @@ class AppTestZipimport:
         sys.modules['uuu'] = lambda x : x + 1
         mod = z.load_module('uuu')
         assert mod(3) == 4
-        del sys.modules['uuu']
 
     def test_package(self):
         import os, sys
@@ -191,8 +191,6 @@ class AppTestZipimport:
         mod = __import__("xxuuu", globals(), locals(), ['yy'])
         assert mod.__path__
         assert mod.yy.f(3) == 3
-        del sys.modules['xxuuu']
-        del sys.modules['xxuuu.yy']
 
     def test_functions(self):
         import os
@@ -207,6 +205,7 @@ class AppTestZipimport:
         assert z.is_package("xx")
         assert not z.is_package("yy")
         assert z.get_source("yy") == '3'
+        assert z.get_source('uu') is None
         raises(ImportError, "z.get_source('zz')")
         #assert z.get_code('yy') == py.code.Source('3').compile()
         #assert z.get_code('uu') == self.co

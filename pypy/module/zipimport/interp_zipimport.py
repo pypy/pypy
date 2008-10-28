@@ -282,11 +282,16 @@ class W_ZipImporter(Wrappable):
 
     def get_source(self, space, fullname):
         filename = self.mangle(fullname)
+        found = False
         for compiled, _, ext in ENUMERATE_EXTS:
-            if not compiled:
-                fname = filename + ext
-                if self.have_modulefile(space, fname):
+            fname = filename + ext
+            if self.have_modulefile(space, fname):
+                if not compiled:
                     return self.get_data(space, fname)
+                else:
+                    found = True
+        if found:
+            return space.w_None
         raise OperationError(self.w_ZipImportError, space.wrap(
             "Cannot find source for %s in %s" % (filename, self.name)))
     get_source.unwrap_spec = ['self', ObjSpace, str]
