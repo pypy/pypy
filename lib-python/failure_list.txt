@@ -38,7 +38,6 @@ test_file                        some more exceptions should be raised
 test_float                       float.__getformat__() exists mainly only for tests
 test_fork1                   !   why did this fail just once?
 test_format                      test checking for exact exception messages
-test_funcattrs               !   easy to add this new attribute
 test_functools               !   missing gc.collect(); some impl details; del p.__dict__?
 test_gc                          internal stuff, we may want to provide placeholders
 test_generators              !   I really hate our bytecode compiler :-(
