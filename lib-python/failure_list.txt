@@ -1,7 +1,10 @@
 test name           !=must fix      guess at failure cause or difficulty
 -------------------------------------------------------------------------------------------
-test__locale             arigo   wrong locale installation on wyvern
+test__locale                 !   wrong locale installation on wyvern
                                  install correct locale on wyvern :-)
+                                 <arigo> I don't understand the above comment:
+                                 test__locale passes on python2.5 but fails
+                                 on pypy-c, so surely there is another problem?
 
 test_ast                         import _ast
 test_bigmem                  !   one looks like bug, the others like impl details
