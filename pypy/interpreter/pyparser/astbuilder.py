@@ -982,8 +982,10 @@ def build_raise_stmt(builder, nb):
 
 def build_try_stmt(builder, nb):
     """
+    
     try_stmt: ('try' ':' suite (except_clause ':' suite)+ #diagram:break
-               ['else' ':' suite] | 'try' ':' suite 'finally' ':' suite)
+               ['else' ':' suite] ['finally' ':' suite]
+               | 'try' ':' suite 'finally' ':' suite)
     # NB compile.c makes sure that the default except clause is last
     except_clause: 'except' [test [',' test]]
 
@@ -1011,8 +1013,19 @@ def build_try_stmt(builder, nb):
         if index < l:
             token = atoms[index]
             assert isinstance(token, TokenObject)
-            assert token.get_value() == 'else'
-            else_ = atoms[index+2] # skip ':'
+            if token.get_value() == 'else':
+                else_ = atoms[index+2] # skip ':'
+                index += 2
+            if index < l:
+                token = atoms[index]
+                assert isinstance(token, TokenObject)
+                if token.get_value() != 'finally':
+                    raise SyntaxError("Finally expected, got %s" % token.get_value())
+                body1 = ast.TryExcept(body, handlers, else_, atoms[0].lineno)
+                res = ast.TryFinally(body1, atoms[index + 2],
+                                           atoms[0].lineno)
+                builder.push(res)
+                return
         builder.push(ast.TryExcept(body, handlers, else_, atoms[0].lineno))
 
 ASTRULES_Template = {

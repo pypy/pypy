@@ -142,7 +142,6 @@ class BaseTestCompiler:
         assert ex.match(self.space, self.space.w_SyntaxError)
 
     def test_try_except_finally(self):
-        py.test.skip("FAILS!")
         s = py.code.Source("""
         def f():
             try:
@@ -659,6 +658,8 @@ class TestPythonAstCompiler(BaseTestCompiler):
         self.space.config.objspace.pyversion = "2.4"
         self.compiler = PythonAstCompiler(self.space, "2.4")
 
+    def test_try_except_finally(self):
+        py.test.skip("unsupported")
 
 class AppTestOptimizer:
     def test_constant_fold_add(self):

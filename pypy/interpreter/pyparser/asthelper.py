@@ -15,7 +15,8 @@ def parse_except_clause(tokens):
     while clause_length < len(tokens):
         token = tokens[clause_length]
         if isinstance(token, TokenObject) and \
-           (token.get_value() == 'except' or token.get_value() == 'else'):
+           (token.get_value() == 'except' or token.get_value() == 'else'
+            or token.get_value() == 'finally'):
             break
         clause_length += 1
     if clause_length == 3:
