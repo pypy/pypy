@@ -96,7 +96,6 @@ test_time                    !   easy fix (either bogus test or bogus time.strft
 test_timeout                     skipped test
 test_trace                       probably all acceptable differences
 test_traceback               !   don't care about '__members__', but check the other tests
-test_tuple                   !   might be fixed now, check again
 test_unicode                 !   some failures, look deeper
 test_unicode_file                skipped test
 test_unicodedata                 unknown to me (but xorAxAx and fijal have a better clue)
