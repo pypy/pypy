@@ -203,6 +203,13 @@ class AppTestFunction:
         assert f.__doc__ == u"hi"
         assert type(f.__doc__) is unicode
 
+    def test_subclassing(self):
+        # cannot subclass 'function' or 'builtin_function'
+        def f():
+            pass
+        raises(TypeError, type, 'Foo', (type(f),), {})
+        raises(TypeError, type, 'Foo', (type(len),), {})
+
 class AppTestMethod: 
     def test_simple_call(self):
         class A(object):
@@ -542,6 +549,3 @@ def f%s:
         """)
 
         assert space.is_true(w_res)
-
-        
-        

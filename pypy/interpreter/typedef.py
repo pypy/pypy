@@ -134,6 +134,7 @@ no_hash_descr = interp2app(descr__hash__unhashable)
 def get_unique_interplevel_subclass(cls, hasdict, wants_slots, needsdel=False,
                                     weakrefable=False):
     "NOT_RPYTHON: initialization-time only"    
+    assert cls.typedef.acceptable_as_base_class
     key = cls, hasdict, wants_slots, needsdel, weakrefable
     try:
         return _subclass_cache[key]
@@ -499,7 +500,7 @@ GetSetProperty.typedef = TypeDef(
     __objclass__ = GetSetProperty(GetSetProperty.descr_get_objclass),
     __doc__ = interp_attrproperty('doc', cls=GetSetProperty),
     )
-GetSetProperty.acceptable_as_base_class = False
+GetSetProperty.typedef.acceptable_as_base_class = False
 
 
 class Member(Wrappable):
@@ -560,7 +561,7 @@ Member.typedef = TypeDef(
     __name__ = interp_attrproperty('name', cls=Member),
     __objclass__ = interp_attrproperty_w('w_cls', cls=Member),
     )
-Member.acceptable_as_base_class = False
+Member.typedef.acceptable_as_base_class = False
 
 # ____________________________________________________________
 #
@@ -651,14 +652,14 @@ Code.typedef = TypeDef('internal-code',
     co_flags = GetSetProperty(fget_co_flags, cls=Code),
     co_consts = GetSetProperty(fget_co_consts, cls=Code),
     )
-Code.acceptable_as_base_class = False
+Code.typedef.acceptable_as_base_class = False
 
 Frame.typedef = TypeDef('internal-frame',
     f_code = GetSetProperty(Frame.fget_code),
     f_locals = GetSetProperty(Frame.fget_getdictscope),
     f_globals = interp_attrproperty_w('w_globals', cls=Frame),
     )
-Frame.acceptable_as_base_class = False
+Frame.typedef.acceptable_as_base_class = False
 
 PyCode.typedef = TypeDef('code',
     __new__ = interp2app(PyCode.descr_code__new__.im_func),
@@ -683,7 +684,7 @@ PyCode.typedef = TypeDef('code',
     co_firstlineno = interp_attrproperty('co_firstlineno', cls=PyCode),
     co_lnotab = interp_attrproperty('co_lnotab', cls=PyCode),
     )
-PyCode.acceptable_as_base_class = False
+PyCode.typedef.acceptable_as_base_class = False
 
 PyFrame.typedef = TypeDef('frame',
     __reduce__   = interp2app(PyFrame.descr__reduce__,
@@ -701,7 +702,7 @@ PyFrame.typedef = TypeDef('frame',
     f_exc_traceback = GetSetProperty(PyFrame.fget_f_exc_traceback),
     f_restricted = GetSetProperty(PyFrame.fget_f_restricted),
     **Frame.typedef.rawdict)
-PyFrame.acceptable_as_base_class = False
+PyFrame.typedef.acceptable_as_base_class = False
 
 Module.typedef = TypeDef("module",
     __new__ = interp2app(Module.descr_module__new__.im_func,
@@ -762,7 +763,7 @@ Function.typedef = TypeDef("function",
     __module__ = getset___module__,
     __weakref__ = make_weakref_descr(Function),
     )
-Function.acceptable_as_base_class = False
+Function.typedef.acceptable_as_base_class = False
 
 Method.typedef = TypeDef("method",
     __new__ = interp2app(Method.descr_method__new__.im_func),
@@ -781,7 +782,7 @@ Method.typedef = TypeDef("method",
                             unwrap_spec=['self', ObjSpace]),
     __weakref__ = make_weakref_descr(Method),
     )
-Method.acceptable_as_base_class = False
+Method.typedef.acceptable_as_base_class = False
 
 StaticMethod.typedef = TypeDef("staticmethod",
     __doc__ = """staticmethod(function) -> static method
@@ -835,7 +836,7 @@ BuiltinFunction.typedef.rawdict.update({
     '__repr__': interp2app(BuiltinFunction.descr_function_repr),
     })
 del BuiltinFunction.typedef.rawdict['__get__']
-BuiltinFunction.acceptable_as_base_class = False
+BuiltinFunction.typedef.acceptable_as_base_class = False
 
 PyTraceback.typedef = TypeDef("traceback",
     __reduce__   = interp2app(PyTraceback.descr__reduce__,
@@ -847,7 +848,7 @@ PyTraceback.typedef = TypeDef("traceback",
     tb_lineno = interp_attrproperty('lineno', cls=PyTraceback),
     tb_next   = interp_attrproperty('next', cls=PyTraceback),
     )
-PyTraceback.acceptable_as_base_class = False
+PyTraceback.typedef.acceptable_as_base_class = False
 
 GeneratorIterator.typedef = TypeDef("generator",
     __reduce__   = interp2app(GeneratorIterator.descr__reduce__,
@@ -866,7 +867,7 @@ GeneratorIterator.typedef = TypeDef("generator",
     gi_frame   = interp_attrproperty('frame', cls=GeneratorIterator),
     __weakref__ = make_weakref_descr(GeneratorIterator),
 )
-GeneratorIterator.acceptable_as_base_class = False
+GeneratorIterator.typedef.acceptable_as_base_class = False
 
 Cell.typedef = TypeDef("cell",
     __eq__       = interp2app(Cell.descr__eq__,
@@ -879,20 +880,20 @@ Cell.typedef = TypeDef("cell",
                               unwrap_spec=['self', ObjSpace, W_Root]),
     cell_contents= GetSetProperty(Cell.descr__cell_contents, cls=Cell),
 )
-Cell.acceptable_as_base_class = False
+Cell.typedef.acceptable_as_base_class = False
 
 Ellipsis.typedef = TypeDef("Ellipsis",
     __repr__   = interp2app(Ellipsis.descr__repr__),
 )
-Ellipsis.acceptable_as_base_class = False
+Ellipsis.typedef.acceptable_as_base_class = False
 
 NotImplemented.typedef = TypeDef("NotImplemented",
     __repr__   = interp2app(NotImplemented.descr__repr__),
 )
-NotImplemented.acceptable_as_base_class = False
+NotImplemented.typedef.acceptable_as_base_class = False
 
 SuspendedUnroller.typedef = TypeDef("SuspendedUnroller")
-SuspendedUnroller.acceptable_as_base_class = False
+SuspendedUnroller.typedef.acceptable_as_base_class = False
 
 
 interptypes = [ val.typedef for name,val in globals().items() if hasattr(val,'__bases__') and hasattr(val,'typedef')  ]
