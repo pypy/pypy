@@ -585,6 +585,17 @@ if 1:
 
 class AppTestSyntaxError:
 
+    def test_tokenizer_error_location(self):
+        line4 = "if ?: pass\n"
+        try:
+            exec "print\nprint\nprint\n" + line4
+        except SyntaxError, e:
+            assert e.lineno == 4
+            assert e.text == line4
+            assert e.offset == e.text.index('?') + 1
+        else:
+            raise Exception("no SyntaxError??")
+
     def test_grammar_error_location(self):
         try:
             exec """if 1:
@@ -601,14 +612,12 @@ class AppTestSyntaxError:
             raise Exception("no SyntaxError??")
 
     def test_astbuilder_error_location(self):
-        skip("in-progress")
         program = "(1, 2) += (3, 4)\n"
         try:
             exec program
         except SyntaxError, e:
             assert e.lineno == 1
             assert e.text is None
-            assert e.offset is None
         else:
             raise Exception("no SyntaxError??")
 

@@ -382,20 +382,20 @@ def to_lvalue(ast_node, flags):
     else:
         if isinstance(ast_node, ast.GenExpr):
             raise SyntaxError("assign to generator expression not possible",
-                             lineno, 0, '')
+                             lineno)
         elif isinstance(ast_node, ast.ListComp):
             raise SyntaxError("can't assign to list comprehension",
-                             lineno, 0, '')
+                             lineno)
         elif isinstance(ast_node, ast.CallFunc):
             if flags == consts.OP_DELETE:
                 raise SyntaxError("can't delete function call",
-                                 lineno, 0, '')
+                                 lineno)
             else:
                 raise SyntaxError("can't assign to function call",
-                                 lineno, 0, '')
+                                 lineno)
         else:
             raise SyntaxError("can't assign to non-lvalue",
-                             lineno, 0, '')
+                             lineno)
 
 def is_augassign( ast_node ):
     if ( isinstance( ast_node, ast.Name ) or

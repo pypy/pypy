@@ -326,8 +326,9 @@ def build_expr_stmt(builder, nb):
         assert l==3
         lvalue = atoms[0]
         if isinstance(lvalue, ast.GenExpr) or isinstance(lvalue, ast.Tuple):
-            raise SyntaxError("augmented assign to tuple literal or generator expression not possible",
-                             lineno, 0, "")
+            raise SyntaxError("augmented assign to tuple literal or "
+                              "generator expression not possible",
+                              lineno)
         assert isinstance(op, TokenObject)
         builder.push(ast.AugAssign(lvalue, op.get_name(), atoms[2], lineno))
 
@@ -859,8 +860,9 @@ def build_import_from(builder, nb):
             token = tokens[-1]
             assert isinstance(token, TokenObject) # XXX
             if token.name == builder.parser.tokens['COMMA']:
-                raise SyntaxError, "trailing comma not allowed without" \
-                        "surrounding parentheses"
+                raise SyntaxError("trailing comma not allowed without "
+                                  "surrounding parentheses",
+                                  token.lineno, token.col)
 
         index = 0
         l = len(tokens)
@@ -1020,7 +1022,9 @@ def build_try_stmt(builder, nb):
                 token = atoms[index]
                 assert isinstance(token, TokenObject)
                 if token.get_value() != 'finally':
-                    raise SyntaxError("Finally expected, got %s" % token.get_value())
+                    raise SyntaxError("Finally expected, got %s" %
+                                          token.get_value(),
+                                      token.lineno, token.col)
                 body1 = ast.TryExcept(body, handlers, else_, atoms[0].lineno)
                 res = ast.TryFinally(body1, atoms[index + 2],
                                            atoms[0].lineno)

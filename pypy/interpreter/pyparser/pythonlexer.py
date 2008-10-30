@@ -59,7 +59,8 @@ class TokenError(SyntaxError):
     """Raised for lexer errors, e.g. when EOF is found prematurely"""
     def __init__(self, msg, line, strstart, token_stack):
         lineno, offset = strstart
-        SyntaxError.__init__(self, msg, lineno, offset, line)
+        # offset is zero-based here, but should be 1-based on the SyntaxError
+        SyntaxError.__init__(self, msg, lineno, offset + 1, line)
         self.token_stack = token_stack
 
 def generate_tokens( parser, lines, flags, keywords):

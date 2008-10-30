@@ -65,10 +65,10 @@ class Scope:
         return prevrole
 
     def add_return(self, node):
-        raise SyntaxError("'return' outside function")
+        raise SyntaxError("'return' outside function", node.lineno)
 
-    def add_yield(self):
-        raise SyntaxError("'yield' outside function")
+    def add_yield(self, node):
+        raise SyntaxError("'yield' outside function", node.lineno)
 
     def DEBUG(self):
         print >> sys.stderr, self
@@ -100,7 +100,7 @@ class Scope:
                     msg = self.parent.get_ambiguous_name_msg(
                         "it contains a nested function using the "
                         "variable '%s'" % (name,))
-                    raise SyntaxError(msg)
+                    raise SyntaxError(msg)    # XXX lineno!!!!!!!!!!!!!!
                 if name in names_from_enclosing_funcs:
                     enclosingscope = names_from_enclosing_funcs[name]
                     if enclosingscope is None:
@@ -111,7 +111,7 @@ class Scope:
                             msg = self.get_ambiguous_name_msg(
                                 "it is a nested function, so the origin of "
                                 "the variable '%s' is ambiguous" % (name,))
-                            raise SyntaxError(msg)
+                            raise SyntaxError(msg)    # XXX lineno!!!!!!!!!!!!
                         enclosingscope.varscopes[name] = SC_CELL
                         parent = self.parent
                         while parent is not enclosingscope:
@@ -223,7 +223,7 @@ class FunctionScope(Scope):
         name = self.mangle(name)
         if name in self.varroles:
             msg = "duplicate argument '%s' in function definition" % (name,)
-            raise SyntaxError(msg)
+            raise SyntaxError(msg)    # XXX lineno!!!!!!!!!!!!!!
         self.varroles[name] = ROLE_PARAM
 
     def add_return(self, node):
@@ -232,7 +232,7 @@ class FunctionScope(Scope):
             if self.return_with_arg is None:
                 self.return_with_arg = node
 
-    def add_yield(self):
+    def add_yield(self, node):
         self.generator = True
 
     def export_names_to_children(self, names_from_enclosing_funcs, newnames):
@@ -259,9 +259,11 @@ class FunctionScope(Scope):
             if self.bare_exec:
                 raise SyntaxError("for CPython compatibility, an unqualified "
                                   "exec is not allowed here")
+                # XXX lineno!!!!!!!!!!!!!!
             if self.import_star:
                 raise SyntaxError("for CPython compatibility, import * "
                                   "is not allowed here")
+                # XXX lineno!!!!!!!!!!!!!!
 
     def _is_nested_function(self):
         scope = self.parent
@@ -493,7 +495,7 @@ class SymbolVisitor(ast.ASTVisitor):
             prevrole = scope.add_global(name)
             if prevrole == ROLE_PARAM:
                 msg = "name '%s' is a function parameter and declared global"
-                raise SyntaxError(msg % (name,))
+                raise SyntaxError(msg % (name,), node.lineno)
             elif prevrole == ROLE_DEFINED:
                 msg = "name '%s' is assigned to before global declaration"
                 issue_warning(self.space, msg % (name,),
@@ -562,7 +564,7 @@ class SymbolVisitor(ast.ASTVisitor):
 
     def visitYield(self, node ):
         scope = self.cur_scope()
-        scope.add_yield()
+        scope.add_yield(node)
         node.value.accept( self )
         
     def visitReturn(self, node):
