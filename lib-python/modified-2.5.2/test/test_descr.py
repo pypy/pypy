@@ -4222,8 +4222,14 @@ def methodwrapper():
     verify(l.__add__ != [5].__add__)
     verify(l.__add__ != l.__mul__)
     verify(l.__add__.__name__ == '__add__')
-    verify(l.__add__.__self__ is l)
-    verify(l.__add__.__objclass__ is list)
+    if hasattr(l.__add__, '__self__'):
+        # CPython
+        verify(l.__add__.__self__ is l)
+        verify(l.__add__.__objclass__ is list)
+    else:
+        # Python implementations where [].__add__ is a normal bound method
+        verify(l.__add__.im_self is l)
+        verify(l.__add__.im_class is list)
     vereq(l.__add__.__doc__, list.__add__.__doc__)
     try:
         hash(l.__add__)
