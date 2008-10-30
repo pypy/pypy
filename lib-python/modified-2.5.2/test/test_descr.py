@@ -1724,7 +1724,7 @@ def altmro():
                     return [self, dict, object]
         # In CPython, the class creation above already raises
         # TypeError, as a protection against the fact that
-        # instances of X would segfault it.  In other PyPy
+        # instances of X would segfault it.  In other Python
         # implementations it would be ok to let the class X
         # be created, but instead get a clean TypeError on the
         # __setitem__ below.
