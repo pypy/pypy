@@ -3370,6 +3370,7 @@ def delhook():
     c = C()
     vereq(log, [])
     del c
+    gc_collect()
     vereq(log, [1])
 
     class D(object): pass
