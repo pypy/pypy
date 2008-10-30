@@ -536,18 +536,21 @@ def reap_children():
 check_impl_detail = (hasattr(sys, 'subversion') and
                      sys.subversion[0] == 'CPython')
 
-def impl_detail(f):
+def impl_detail(reason="CPython-specific implementation detail"):
     """A decorator to skip a whole function if not running on top of CPython.
     """
-    if check_impl_detail:
-        return f
-    else:
-        def _skip_check_impl_detail(*args, **kwds):
-            if verbose:
-                sys.stderr.write("Skipping %s checking CPython-specific "
-                                 "implementation details\n" % (f.__name__,))
-            return
-        return _skip_check_impl_detail
+    assert isinstance(reason, basestring)
+    def decorator(f):
+        if check_impl_detail:
+            return f
+        else:
+            def _skip_check_impl_detail(*args, **kwds):
+                if verbose:
+                    sys.stderr.write("Skipping %s: %s\n" % (f.__name__,
+                                                            reason))
+                return
+            return _skip_check_impl_detail
+    return decorator
 
 def gc_collect():
     """Force as many objects as possible to be collected.

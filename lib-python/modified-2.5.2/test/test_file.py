@@ -220,7 +220,7 @@ class OtherFileTests(unittest.TestCase):
         finally:
             os.unlink(TESTFN)
 
-    @impl_detail
+    @impl_detail()
     def testIteration(self):
         # Test the complex interaction when mixing file-iteration and the
         # various read* methods. Ostensibly, the mixture could just be tested

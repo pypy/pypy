@@ -528,7 +528,7 @@ class ReferencesTestCase(TestBase):
         del c1, c2, C, D
         gc.collect()
 
-    @test_support.impl_detail
+    @test_support.impl_detail("details of weakref behavior")
     def test_callback_in_cycle_resurrection(self):
         # We can't guarrantee the behaviour tested with our
         # current weakref implementations.
@@ -579,7 +579,7 @@ class ReferencesTestCase(TestBase):
         gc.collect()
         self.assertEqual(alist, [])
 
-    @test_support.impl_detail
+    @test_support.impl_detail("details of weakref behavior")
     def test_callbacks_on_callback(self):
         # See test_callback_in_cycle_resurrection above
         import gc

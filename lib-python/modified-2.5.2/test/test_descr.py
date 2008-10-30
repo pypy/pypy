@@ -4006,7 +4006,7 @@ def dict_type_with_metaclass():
         __metaclass__ = M
     veris(type(C.__dict__), type(B.__dict__))
 
-@impl_detail
+@impl_detail("testing an internal kind of method object")
 def meth_class_get():
     # Full coverage of descrobject.c::classmethod_get()
     if verbose:
