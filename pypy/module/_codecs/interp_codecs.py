@@ -60,7 +60,6 @@ def register_codec(space, w_search_function):
     one argument, the encoding name in all lower case letters, and return
     a tuple of functions (encoder, decoder, stream_reader, stream_writer).
     """
-    #import pdb; pdb.set_trace()
     state = space.fromcache(CodecState)
     if space.is_true(space.callable(w_search_function)):
         state.codec_search_path.append(w_search_function)
@@ -138,7 +137,6 @@ def encode(space, w_obj, w_encoding=NoneNotWrapped, errors='strict'):
     'xmlcharrefreplace' as well as any other name registered with
     codecs.register_error that can handle ValueErrors.
     """
-    #import pdb; pdb.set_trace()
     if w_encoding is None:
         encoding = space.sys.defaultencoding
     else:
