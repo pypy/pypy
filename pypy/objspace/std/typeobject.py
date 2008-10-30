@@ -578,9 +578,9 @@ def call__Type(space, w_type, __args__):
     if space.is_true(space.isinstance(w_newobject, w_type)):
         w_descr = space.lookup(w_newobject, '__init__')
         w_result = space.get_and_call_args(w_descr, w_newobject, __args__)
-##         if not space.is_w(w_result, space.w_None):
-##             raise OperationError(space.w_TypeError,
-##                                  space.wrap("__init__() should return None"))
+        if not space.is_w(w_result, space.w_None):
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("__init__() should return None"))
     return w_newobject
 
 def issubtype__Type_Type(space, w_type1, w_type2):

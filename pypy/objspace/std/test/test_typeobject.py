@@ -916,3 +916,10 @@ class AppTestTypeObject:
             def mro(self):
                 return [self, X(), object]
         raises(TypeError, mymeta2, "Foo", (object,), {})
+
+    def test_init_must_return_none(self):
+        class X(object):
+            def __init__(self):
+                return 0
+        raises(TypeError, X)
+
