@@ -128,7 +128,7 @@ def test_qp():
         pass
     else:
         fail("binascii.a2b_qp(**{1:1}) didn't raise TypeError")
-    assert binascii.a2b_qp("= ") == ""
+    assert binascii.a2b_qp("= ") == "= "
     assert binascii.a2b_qp("==") == "="
     assert binascii.a2b_qp("=AX") == "=AX"
     raises(TypeError, binascii.b2a_qp, foo="bar")
