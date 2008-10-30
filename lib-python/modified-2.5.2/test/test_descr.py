@@ -1722,6 +1722,14 @@ def altmro():
             class __metaclass__(type):
                 def mro(self):
                     return [self, dict, object]
+        # In CPython, the class creation above already raises
+        # TypeError, as a protection against the fact that
+        # instances of X would segfault it.  In other PyPy
+        # implementations it would be ok to let the class X
+        # be created, but instead get a clean TypeError on the
+        # __setitem__ below.
+        x = object.__new__(X)
+        x[5] = 6
     except TypeError:
         pass
     else:
