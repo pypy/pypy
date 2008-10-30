@@ -29,12 +29,10 @@ test_email                   !   annoying failures, look at me
 test_email_codecs                test skipped
 test_email_renamed           !   same as test_email
 test_enumerate                   same as test_iterlen
-test_exception_variations    !   uh?
 test_file                        some more exceptions should be raised
 test_float                       float.__getformat__() exists mainly only for tests
 test_fork1                   !   why did this fail just once?
 test_format                      test checking for exact exception messages
-test_functools               !   missing gc.collect(); some impl details; del p.__dict__?
 test_gc                          internal stuff, we may want to provide placeholders
 test_generators              !   I really hate our bytecode compiler :-(
 test_genexps                 !   Fatal RPython error: InternalCompilerError :-(
@@ -97,7 +95,6 @@ test_unicodedata                 unknown to me (but xorAxAx and fijal have a bet
 test_urllib2_localnet            bogus test?
 test_urllib2net                  skipped test
 test_urllibnet                   skipped test
-test_userstring              !   unknown
 test_uu                      !   unknown
 test_wait3                       no os.wait3()
 test_wait4                       no os.wait4()
