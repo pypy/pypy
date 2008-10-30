@@ -18,7 +18,6 @@ test_commands                !   unknown
 test_compile                 !   test_leading_newlines: impl detail; the rest: not good
 test_compiler                !   unknown
 test_ctypes                  !   implementation details but also some real crashes
-test_datetime                !   the two test_negative_*() look like real bugs
 test_decimal                     missing decimal.ROUND_05UP
 test_descr               arigo   needs deciding what is impl details and what's not
 test_descrtut                    implementation detail only
@@ -75,13 +74,12 @@ test_sets                    !   is this another CPython implementation detail t
 test_shelve                  !   unknown
 test_signal                  !   missing signal.alarm(), probably easy to add
 test_site                    !   fix me
-test_socket                  !   uh?
+test_socket                  !   some failures, look
 test_socketserver                test skipped
 test_sort                        implementation detail
 test_sqlite                  !   why no sqlite available?
 test_startfile                   what is os.startfile?
 test_str                 arigo   probably skip, investigate
-test_string                  !   some failures, look deeper
 test_structmembers               CPython-only
 test_subprocess              !   missing resource.error.  no clue about os.fpathconf().
 test_syntax                      more small hacking here and there in the ast compiler
@@ -107,7 +105,5 @@ test_weakref                     probably missing some gc.collect()
 test_with                        minor hacking in the ast compiler
 test_xml_etree_c                 import _elementtree
 test_xmlrpc                      sys.setdefaultencoding missing
-test_zipfile                 !   see test_struct
 test_zipfile64                   skipped test
-test_zipimport                   many failures.  the test itself seems not to run correctly
 
