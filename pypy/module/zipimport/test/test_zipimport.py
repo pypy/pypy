@@ -84,8 +84,9 @@ class AppTestZipimport:
         w_cache = space.getattr(space.getbuiltinmodule('zipimport'),
                                 space.wrap('_zip_directory_cache'))
         space.call_function(space.getattr(w_cache, space.wrap('clear')))
-        self.w_modules = space.getattr(space.getbuiltinmodule('sys'),
-                                       space.wrap('modules'))
+        self.w_modules = space.call_method(
+            space.getattr(space.getbuiltinmodule('sys'),
+                          space.wrap('modules')), 'copy')
 
     def teardown_method(self, meth):
         space = self.space
@@ -96,7 +97,7 @@ class AppTestZipimport:
         """)
         space.appexec([self.w_modules], """(modules):
         import sys
-        for module in sys.modules:
+        for module in sys.modules.copy():
             if module not in modules:
                 del sys.modules[module]
         """)
@@ -139,7 +140,6 @@ class AppTestZipimport:
         for key, val in expected.items():
             assert mod.__dict__[key] == val
         assert mod.__file__.endswith('.zip'+os.sep+'uuu.py')
-        del sys.modules['uuu']
     
     def test_pyc(self):
         import sys, os
