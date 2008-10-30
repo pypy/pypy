@@ -1967,6 +1967,9 @@ def specials():
     verify(10 not in p10)
     # Safety test for __cmp__
     def unsafecmp(a, b):
+        if not hasattr(a, '__cmp__'):
+            return   # some types don't have a __cmp__ any more in CPython,
+                     # or never had e.g. in PyPy
         try:
             a.__class__.__cmp__(a, b)
         except TypeError:
