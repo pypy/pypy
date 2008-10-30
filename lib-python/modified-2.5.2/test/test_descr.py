@@ -3654,10 +3654,14 @@ def subtype_resurrection():
     # If that didn't blow up, it's also interesting to see whether clearing
     # the last container slot works:  that will attempt to delete c again,
     # which will cause c to get appended back to the container again "during"
-    # the del.
-    del C.container[-1]
+    # the del.  On non-CPython implementations, however, __del__ is not
+    # called again.
+    gc_collect()
     vereq(len(C.container), 1)
-    vereq(C.container[-1].attr, 42)
+    del C.container[-1]
+    if check_impl_detail:
+        vereq(len(C.container), 1)
+        vereq(C.container[-1].attr, 42)
 
     # Make c mortal again, so that the test framework with -l doesn't report
     # it as a leak.
