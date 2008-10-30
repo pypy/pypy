@@ -2945,7 +2945,8 @@ def setdict():
         except (TypeError, AttributeError):
             pass
         else:
-            raise TestFaied, "%r's __dict__ can be deleted" % e
+            raise TestFailed, "%s instance __dict__ can be deleted" % (
+                ExceptionType,)
 
 
 def pickles():
