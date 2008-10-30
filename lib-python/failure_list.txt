@@ -14,9 +14,6 @@ test_code                        obscure differences in code objects produced by
 test_codeccallbacks          !   unknown
 test_codecs                  !   unknown
 test_coding                  !   hah.  fix buildbot :-/
-test_coercion            arigo   look at test_prefix_binops, the other is probably too obscure
-                                 problem with prebuilt objects being equal in result list creation
-
 test_commands                !   unknown
 test_compile                 !   test_leading_newlines: impl detail; the rest: not good
 test_compiler                !   unknown
