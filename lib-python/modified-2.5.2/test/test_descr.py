@@ -2017,6 +2017,7 @@ def weakrefs():
     r = weakref.ref(c)
     verify(r() is c)
     del c
+    gc_collect()
     verify(r() is None)
     del r
     class NoWeak(object):
@@ -2034,6 +2035,7 @@ def weakrefs():
     r = weakref.ref(yes)
     verify(r() is yes)
     del yes
+    gc_collect()
     verify(r() is None)
     del r
 
