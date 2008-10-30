@@ -268,6 +268,7 @@ class AppTestStruct(object):
         and PyPy might disagree on the specific exception raised in a
         specific situation, e.g. struct.error/TypeError/OverflowError.
         """
+        import sys
         calcsize = self.struct.calcsize
         pack = self.struct.pack
         unpack = self.struct.unpack
@@ -287,10 +288,8 @@ class AppTestStruct(object):
             pack("0p")                  # bad '0p' in struct format
         except error:                   # (but ignored on CPython)
             pass
-        try:
-            unpack("0p", "")            # bad '0p' in struct format
-        except error:                   # (but ignored on CPython)
-            pass
+        if '__pypy__' in sys.builtin_module_names:
+            raises(error, unpack, "0p", "")   # segfaults on CPython 2.5.2!
         raises(error, pack, "b", 150)   # argument out of range
         # XXX the accepted ranges still differs between PyPy and CPython
 
@@ -330,6 +329,9 @@ class AppTestStruct(object):
         just like the array module does.  (This is actually used in the
         implementation of our interp-level array module.)
         """
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            skip("PyPy extension")
         data = self.struct.pack("uuu", u'X', u'Y', u'Z')
         assert data == str(buffer(u'XYZ'))
         assert self.struct.unpack("uuu", data) == (u'X', u'Y', u'Z')

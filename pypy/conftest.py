@@ -99,6 +99,9 @@ class TinyObjSpace(object):
                         if not ok:
                             py.test.skip("cannot runappdirect test: "
                                          "module %r required" % (modname,))
+                else:
+                    if '__pypy__' in value:
+                        py.test.skip("no module __pypy__ on top of CPython")
                 continue
             if info is None:
                 py.test.skip("cannot runappdirect this test on top of CPython")
@@ -369,7 +372,7 @@ class AppTestMethod(AppTestFunction):
                     # if the value is a function living on the class,
                     # don't turn it into a bound method here
                     obj = getwithoutbinding(instance, name)
-                    setattr(w_instance, name[2:], obj)
+                    setattr(instance, name[2:], obj)
                 else:
                     space.setattr(w_instance, space.wrap(name[2:]), 
                                   getattr(instance, name)) 
