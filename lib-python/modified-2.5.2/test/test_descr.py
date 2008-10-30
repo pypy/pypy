@@ -3688,7 +3688,8 @@ def slotmultipleinheritance():
         pass
     class C(A,B) :
         __slots__=()
-    vereq(C.__basicsize__, B.__basicsize__)
+    if check_impl_detail:
+        vereq(C.__basicsize__, B.__basicsize__)
     verify(hasattr(C, '__dict__'))
     verify(hasattr(C, '__weakref__'))
     C().x = 2
