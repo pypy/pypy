@@ -237,6 +237,11 @@ class AppTestBuiltinApp:
         A.x = property(lambda x: x, lambda x, y: x, lambda x:x, 'xxx')
         assert A.x.__doc__ == 'xxx'
 
+        # new in 2.5:
+        def foo(x):
+            "my docstring"
+        assert property(foo).__doc__ == "my docstring"
+
     def test_property(self):
         class C(object):
             def getx(self):

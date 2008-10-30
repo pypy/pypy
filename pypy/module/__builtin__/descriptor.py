@@ -101,6 +101,11 @@ class W_Property(Wrappable):
         self.w_fset = w_fset
         self.w_fdel = w_fdel
         self.w_doc = w_doc
+        # our __doc__ comes from the getter if we don't have an explicit one
+        if space.is_w(self.w_doc, space.w_None):
+            w_getter_doc = space.findattr(self.w_fget, space.wrap("__doc__"))
+            if w_getter_doc is not None:
+                self.w_doc = w_getter_doc
 
     def new(space, w_subtype, w_fget=None, w_fset=None, w_fdel=None, w_doc=None):
         w_result = space.allocate_instance(W_Property, w_subtype)
