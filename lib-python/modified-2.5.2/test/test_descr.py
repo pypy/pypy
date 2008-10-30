@@ -169,10 +169,10 @@ def lists():
 
 def dicts():
     if verbose: print "Testing dict operations..."
-    testbinop({1:2}, {2:1}, False, "a == b", "__eq__")
-    testbinop({1:2}, {2:1}, True, "a != b", "__ne__")
     if hasattr(dict, '__cmp__'):      # PyPy has only rich comparison on dicts
         testbinop({1:2}, {2:1}, -1, "cmp(a,b)", "__cmp__")
+    else:
+        testbinop({1:2}, {2:1}, True, "a < b", "__lt__")
     testbinop({1:2,3:4}, 1, 1, "b in a", "__contains__")
     testbinop({1:2,3:4}, 2, 0, "b in a", "__contains__")
     testbinop({1:2,3:4}, 1, 2, "a[b]", "__getitem__")
