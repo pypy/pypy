@@ -59,7 +59,7 @@ class AppTestZipimport:
             import time
             from zipfile import ZipFile, ZipInfo
             z = ZipFile(self.zipfile, 'w')
-            write_files = getattr(self, 'write_files', [])
+            write_files = self.write_files
             write_files.append((filename, data))
             for filename, data in write_files:
                 zinfo = ZipInfo(filename, time.localtime(self.now))
@@ -78,9 +78,7 @@ class AppTestZipimport:
         space = self.space
         name = "test_%s_%s.zip" % (self.__class__.__name__, meth.__name__)
         self.w_zipfile = space.wrap(str(self.tmpdir.join(name)))
-        space.appexec([space.wrap(self)], """(self):
-        self.write_files = []
-        """)
+        self.w_write_files = space.newlist([])
         w_cache = space.getattr(space.getbuiltinmodule('zipimport'),
                                 space.wrap('_zip_directory_cache'))
         space.call_function(space.getattr(w_cache, space.wrap('clear')))
@@ -243,8 +241,8 @@ class AppTestZipimport:
         """
         import os
         import zipimport
-        self.writefile(
-            self, os.sep.join(("directory", "package", "__init__.py")), "")
+        self.writefile(self,
+                     os.sep.join(("directory", "package", "__init__.py")), "")
         importer = zipimport.zipimporter(self.zipfile + "/directory")
         l = [i for i in zipimport._zip_directory_cache]
         assert len(l)
