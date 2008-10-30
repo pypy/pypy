@@ -212,22 +212,16 @@ def unicode_from_encoded_object(space, w_obj, encoding, errors):
     return w_retval
 
 def unicode_from_object(space, w_obj):
-    if space.is_true(space.isinstance(w_obj, space.w_str)):
+    if space.is_w(space.type(w_obj), space.w_str):
         w_res = w_obj
     else:
-        try:
-            # XXX should we have a space.unicode so we can go through
-            # descroperation?
-            w_unicode_method = space.getattr(w_obj, space.wrap("__unicode__"))
-        except OperationError, e:
-            if e.match(space, space.w_AttributeError):
-                w_res = space.str(w_obj)
-            else:
-                raise
+        w_unicode_method = space.lookup(w_obj, "__unicode__")
+        if w_unicode_method is not None:
+            w_res = space.get_and_call_function(w_unicode_method, w_obj)
         else:
-            w_res = space.call_function(w_unicode_method)
-    if space.is_true(space.isinstance(w_res, space.w_unicode)):
-        return w_res
+            w_res = space.str(w_obj)
+        if space.is_true(space.isinstance(w_res, space.w_unicode)):
+            return w_res
     return unicode_from_encoded_object(space, w_res, None, "strict")
 
 def unicode_from_string(space, w_str):
@@ -267,10 +261,7 @@ def descr_new_(space, w_unicodetype, w_string='', w_encoding=None, w_errors=None
         w_value = w_obj
     else:
         if encoding is None and errors is None:
-            if space.is_true(space.isinstance(w_obj, space.w_str)):
-                w_value = unicode_from_string(space, w_obj)
-            else:
-                w_value = unicode_from_object(space, w_obj)
+            w_value = unicode_from_object(space, w_obj)
         else:
             w_value = unicode_from_encoded_object(space, w_obj,
                                                   encoding, errors)

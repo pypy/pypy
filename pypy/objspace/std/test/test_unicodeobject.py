@@ -702,3 +702,9 @@ class AppTestUnicodeString:
         b = B()
         s = '%s %s' % (b, a)
         assert s == u'foo baz'
+
+    def test_str_subclass(self):
+        class Foo9(str):
+            def __unicode__(self):
+                return u"world"
+        assert unicode(Foo9("hello")) == u"world"
