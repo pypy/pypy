@@ -94,8 +94,13 @@ class AppTestZipimport:
         while sys.path[0].endswith('.zip'):
             sys.path.pop(0)
         """)
-        space.setattr(space.getbuiltinmodule('sys'),
-                      space.wrap('modules'), self.w_modules)
+        space.appexec([self.w_modules], """(modules):
+        import sys
+        for module in sys.modules:
+            if module not in modules:
+                del sys.modules[module]
+        """)
+        self.w_modules = []
 
     def test_cache(self):
         self.writefile(self, 'x.py', 'y')
@@ -134,6 +139,7 @@ class AppTestZipimport:
         for key, val in expected.items():
             assert mod.__dict__[key] == val
         assert mod.__file__.endswith('.zip'+os.sep+'uuu.py')
+        del sys.modules['uuu']
     
     def test_pyc(self):
         import sys, os
