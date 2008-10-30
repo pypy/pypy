@@ -583,6 +583,35 @@ if 1:
         """
         exec s
 
+class AppTestSyntaxError:
+
+    def test_grammar_error_location(self):
+        try:
+            exec """if 1:
+                class Foo:
+                    bla
+                    a b c d e
+                    bar
+            """
+        except SyntaxError, e:
+            assert e.lineno == 4
+            assert e.text.endswith('a b c d e\n')
+        else:
+            raise Exception("no SyntaxError??")
+
+    def test_astbuilder_error_location(self):
+        skip("in-progress")
+        program = "(1, 2) += (3, 4)\n"
+        try:
+            exec program
+        except SyntaxError, e:
+            assert e.lineno == 1
+            assert e.text is None
+            assert e.offset is None
+        else:
+            raise Exception("no SyntaxError??")
+
+
 if __name__ == '__main__':
     # only to check on top of CPython (you need 2.4)
     from py.test import raises

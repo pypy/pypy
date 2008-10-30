@@ -310,8 +310,9 @@ class PythonSource(TokenSource):
             raise StopIteration
         tok, line, lnum, pos = self.token_stack[self.stack_pos]
         self.stack_pos += 1
-        self._current_line = line
-        self._lineno = max(self._lineno, lnum)
+        if lnum > self._lineno:
+            self._current_line = line
+            self._lineno = lnum
         self._token_lnum = lnum
         self._offset = pos
         return tok
