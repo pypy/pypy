@@ -426,6 +426,11 @@ if __name__ == '__main__':
         except OSError:
             return None
 
+    # stick the current sys.path into $PYTHONPATH, so that CPython still
+    # finds its own extension modules :-/
+    import os
+    os.environ['PYTHONPATH'] = ':'.join(sys.path)
+
     from pypy.module.sys.version import PYPY_VERSION
     sys.pypy_version_info = PYPY_VERSION
     sys.pypy_initial_path = pypy_initial_path
