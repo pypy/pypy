@@ -1149,9 +1149,10 @@ class MixinStrUnicodeTest:
         self.assert_(s1 is not s2)
         self.assert_(type(s2) is t)
 
-        s1 = t("abcd")
-        s2 = t().join([s1])
-        self.assert_(s1 is s2)
+        if test_support.check_impl_detail:
+            s1 = t("abcd")
+            s2 = t().join([s1])
+            self.assert_(s1 is s2)
 
         # Should also test mixed-type join.
         if t is unicode:
