@@ -2932,6 +2932,16 @@ def setdict():
         mod.__dict__["spam"] = "eggs"
 
     # Exception's __dict__ can be replaced, but not deleted
+    # (at least not any more than regular exception's __dict__ can
+    # be deleted; on CPython it is not the case, whereas on PyPy they
+    # can, just like any other new-style instance's __dict__.)
+    def can_delete_dict(e):
+        try:
+            del e.__dict__
+        except (TypeError, AttributeError):
+            return False
+        else:
+            return True
     class Exception1(Exception, Base):
         pass
     class Exception2(Base, Exception):
@@ -2940,13 +2950,7 @@ def setdict():
         e = ExceptionType()
         e.__dict__ = {"a": 1}
         vereq(e.a, 1)
-        try:
-            del e.__dict__
-        except (TypeError, AttributeError):
-            pass
-        else:
-            raise TestFailed, "%s instance __dict__ can be deleted" % (
-                ExceptionType,)
+        assert can_delete_dict(e) == can_delete_dict(ValueError())
 
 
 def pickles():
