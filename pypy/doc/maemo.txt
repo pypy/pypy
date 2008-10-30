@@ -7,7 +7,7 @@ the Maemo_ platform.  This howto should work well for getting
 a usable Python Interpreter for Nokia's N810_ device. 
 
 .. _N810: http://en.wikipedia.org/wiki/Nokia_N810
-.. _`Internet-Tabel-OS`: _http://en.wikipedia.org/wiki/Internet_Tablet_OS
+.. _`Internet-Tablet-OS`: http://en.wikipedia.org/wiki/Internet_Tablet_OS
 .. _Maemo: http://www.maemo.org 
 .. _Scratchbox: http://www.scratchbox.org 
 .. _`INSTALL.txt`: http://tablets-dev.nokia.com/4.1/INSTALL.txt
@@ -94,7 +94,7 @@ and execute it with user priviliges::
 When being asked select the default "Runtime + Dev" packages.  You do not need 
 Closed source Nokia binaries for PyPy.  This installation
 script will download "rootstraps" and create so called
-"targets" and preselect the "DIABLO_ARMEL" target for ARM_
+"targets" and preselect the "DIABLO_ARMEL" target for ARM
 compilation.  Within the targets a large number of packages
 will be pre-installed resulting in a base scratchbox
 environment that is usable for cross compilation of PyPy.  
@@ -162,7 +162,7 @@ device - however, only these should be needed::
 It is neccessary that the ``pypy-c`` can find a "lib-python" and "pypy/lib" directory
 if you want to successfully startup the interpreter on the device. 
 
-Start ``pypy-c`` on the device and you should see something like::
+Start ``pypy-c`` on the device. 
 
     
 
