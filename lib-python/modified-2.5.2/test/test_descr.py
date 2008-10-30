@@ -3466,7 +3466,7 @@ def modules():
     vereq(hasattr(m, "__name__"), 0)
     vereq(hasattr(m, "__file__"), 0)
     vereq(hasattr(m, "foo"), 0)
-    vereq(m.__dict__, None)
+    assert not m.__dict__     # None or {} are both reasonable answers
     m.foo = 1
     vereq(m.__dict__, {"foo": 1})
 
