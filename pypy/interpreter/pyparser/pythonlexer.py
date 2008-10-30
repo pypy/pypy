@@ -298,32 +298,37 @@ class PythonSource(TokenSource):
         self.input = strings
         tokens = generate_tokens( parser, strings, flags, keywords)
         self.token_stack = tokens
-        self._current_line = '' # the current line (as a string)
-        self._lineno = -1
         self._token_lnum = 0
-        self._offset = 0
         self.stack_pos = 0
+        self._stack_pos_max_seen = -1
 
     def next(self):
         """Returns the next parsed token"""
         if self.stack_pos >= len(self.token_stack):
             raise StopIteration
+        if self.stack_pos > self._stack_pos_max_seen:
+            self._stack_pos_max_seen = self.stack_pos
         tok, line, lnum, pos = self.token_stack[self.stack_pos]
         self.stack_pos += 1
-        if lnum > self._lineno:
-            self._current_line = line
-            self._lineno = lnum
         self._token_lnum = lnum
-        self._offset = pos
         return tok
+
+    def most_recent_token(self):
+        index = self._stack_pos_max_seen
+        if index >= 0:
+            return self.token_stack[index]
+        else:
+            return None, '', 0, 0
 
     def current_linesource(self):
         """Returns the current line being parsed"""
-        return self._current_line
+        tok, line, lnum, pos = self.most_recent_token()
+        return line
 
     def current_lineno(self):
         """Returns the current lineno"""
-        return self._lineno
+        tok, line, lnum, pos = self.most_recent_token()
+        return lnum
 
     def context(self):
         """Returns an opaque context object for later restore"""
@@ -341,24 +346,8 @@ class PythonSource(TokenSource):
         self.restore(ctx)
         return token
 
-    #### methods below have to be translated 
-    def offset(self, ctx=None):
-        if ctx is None:
-            return self.stack_pos
-        else:
-            assert type(ctx) == int
-            return ctx
-
     def get_pos(self):
         return self.stack_pos
 
-    def get_source_text(self, p0, p1):
-        "We get passed two token stack positions."
-        return "XXX this got left behind in a refactoring. Stack positions are %d and %d" % (p0, p1)
-        
-    def debug(self):
-        """return context for debug information"""
-        return (self._current_line, self._lineno)
 
 Source = PythonSource
-

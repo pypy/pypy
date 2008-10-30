@@ -125,9 +125,8 @@ class PythonParser(grammar.Parser):
         src = Source(self, lines, keywords, flags)
 
         if not target.match(src, builder):
-            line, lineno = src.debug()
-            # XXX needs better error messages
-            raise SyntaxError("invalid syntax", lineno, -1, line)
+            tok, line, lnum, pos = src.most_recent_token()
+            raise SyntaxError("invalid syntax", lnum, pos, line)
             # return None
         return builder
 
