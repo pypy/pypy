@@ -3788,7 +3788,7 @@ def test_mutable_bases():
 
     try:
         del D.__bases__
-    except TypeError:
+    except (TypeError, AttributeError):
         pass
     else:
         raise TestFailed, "shouldn't be able to delete .__bases__"
