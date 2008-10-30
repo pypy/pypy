@@ -1984,28 +1984,29 @@ def specials():
     unsafecmp(1, 1L)
     unsafecmp(1L, 1)
 
-    class Letter(str):
-        def __new__(cls, letter):
-            if letter == 'EPS':
-                return str.__new__(cls)
-            return str.__new__(cls, letter)
-        def __str__(self):
-            if not self:
-                return 'EPS'
-            return self
+    if check_impl_detail:
+        class Letter(str):
+            def __new__(cls, letter):
+                if letter == 'EPS':
+                    return str.__new__(cls)
+                return str.__new__(cls, letter)
+            def __str__(self):
+                if not self:
+                    return 'EPS'
+                return self
 
-    # sys.stdout needs to be the original to trigger the recursion bug
-    import sys
-    test_stdout = sys.stdout
-    sys.stdout = get_original_stdout()
-    try:
-        # nothing should actually be printed, this should raise an exception
-        print Letter('w')
-    except RuntimeError:
-        pass
-    else:
-        raise TestFailed, "expected a RuntimeError for print recursion"
-    sys.stdout = test_stdout
+        # sys.stdout needs to be the original to trigger the recursion bug
+        import sys
+        test_stdout = sys.stdout
+        sys.stdout = get_original_stdout()
+        try:
+            # nothing should actually be printed, this should raise an exception
+            print Letter('w')
+        except RuntimeError:
+            pass
+        else:
+            raise TestFailed, "expected a RuntimeError for print recursion"
+        sys.stdout = test_stdout
 
 def weakrefs():
     if verbose: print "Testing weak references..."
