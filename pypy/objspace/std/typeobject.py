@@ -545,10 +545,20 @@ def compute_mro(w_self):
         if not space.is_w(w_where, space.w_type):
             w_mro_meth = space.get(w_mro_func, w_self)
             w_mro = space.call_function(w_mro_meth)
-            w_self.mro_w = space.viewiterable(w_mro)
-            # do some checking here
+            mro_w = space.viewiterable(w_mro)
+            w_self.mro_w = validate_custom_mro(space, mro_w)
             return    # done
     w_self.mro_w = w_self.compute_default_mro()[:]
+
+def validate_custom_mro(space, mro_w):
+    # do some checking here.  Note that unlike CPython, strange MROs
+    # cannot really segfault PyPy.  At a minimum, we check that all
+    # the elements in the mro seem to be (old- or new-style) classes.
+    for w_class in mro_w:
+        if not space.abstract_isclass_w(w_class):
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("mro() returned a non-class"))
+    return mro_w
 
 # ____________________________________________________________
 

@@ -901,3 +901,18 @@ class AppTestTypeObject:
         raises(TypeError, setattr, list, 'foobar', 42)
         raises(TypeError, delattr, dict, 'keys')
         
+    def test_nontype_in_mro(self):
+        class OldStyle:
+            pass
+        class X(object):
+            pass
+
+        class mymeta1(type):
+            def mro(self):
+                return [self, OldStyle, object]
+        mymeta1("Foo1", (object,), {})      # works
+
+        class mymeta2(type):
+            def mro(self):
+                return [self, X(), object]
+        raises(TypeError, mymeta2, "Foo", (object,), {})
