@@ -2843,7 +2843,7 @@ def setclass():
             raise TestFailed, "shouldn't allow %r.__class__ = %r" % (x, C)
         try:
             delattr(x, "__class__")
-        except TypeError:
+        except (TypeError, AttributeError):
             pass
         else:
             raise TestFailed, "shouldn't allow del %r.__class__" % x
