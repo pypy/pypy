@@ -243,7 +243,7 @@ testmap = [
     RegrTest('test_glob.py', core=True),
     RegrTest('test_global.py', core=True),
     RegrTest('test_grammar.py', core=True),
-    RegrTest('test_grp.py', skip="unsupported extension module"),
+    RegrTest('test_grp.py'),
 
     RegrTest('test_gzip.py'),
     RegrTest('test_hash.py', core=True),
@@ -331,7 +331,7 @@ testmap = [
     RegrTest('test_profile.py'),
     RegrTest('test_profilehooks.py', core=True),
     RegrTest('test_pty.py', skip="unsupported extension module"),
-    RegrTest('test_pwd.py', skip="unsupported extension module"),
+    RegrTest('test_pwd.py'),
 
     RegrTest('test_pyclbr.py'),
     RegrTest('test_pyexpat.py'),
