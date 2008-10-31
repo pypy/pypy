@@ -19,7 +19,6 @@ test_compile                 !   test_leading_newlines: impl detail; the rest: n
 test_compiler                !   unknown
 test_ctypes                  !   implementation details but also some real crashes
 test_decimal                     missing decimal.ROUND_05UP
-test_descr               arigo   needs deciding what is impl details and what's not
 test_descrtut                    implementation detail only
 test_dis                         probably not worth the pain of whacking at the compiler
 test_distutils                   this is our issue367
