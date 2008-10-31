@@ -6,18 +6,11 @@ Python Interpreter to an `Internet-Tablet-OS`_, more specifically
 the Maemo_ platform.  This howto should work well for getting
 a usable Python Interpreter for Nokia's N810_ device. 
 
-.. _N810: http://en.wikipedia.org/wiki/Nokia_N810
-.. _`Internet-Tablet-OS`: http://en.wikipedia.org/wiki/Internet_Tablet_OS
-.. _Maemo: http://www.maemo.org 
-.. _Scratchbox: http://www.scratchbox.org 
-.. _`INSTALL.txt`: http://tablets-dev.nokia.com/4.1/INSTALL.txt
-
 setup cross-compilation environment
 -------------------------------------
 
-The main steps are to install scratchbox and the Maemo SDK.  Most of the
-information from this section is taken from Nokia's `INSTALL.txt`_ which
-provides more detail. 
+The main steps are to install scratchbox and the Maemo SDK.  Please refer 
+to Nokia's `INSTALL.txt`_ for more detail. 
 
 Adjust linux kernel settings
 +++++++++++++++++++++++++++++++++
@@ -25,7 +18,7 @@ Adjust linux kernel settings
 In order to install and run scratchbox you will need to adjust
 your Linux kernel settings.  Note that the VDSO setting may
 crash your computer - if that is the case, try running without
-this setting.
+this setting. You can try it like this::
 
    $ echo 4096 | sudo tee /proc/sys/vm/mmap_min_addr
    $ echo 0 | sudo tee /proc/sys/vm/vdso_enabled 
@@ -49,11 +42,12 @@ and run this script as root::
 
 The script will automatically download Debian packages or tarballs 
 and pre-configure a scratchbox environment with so called "devkits" 
-and "toolchains" for performing cross-compilation. 
+and "toolchains" for performing cross-compilation.  It's fine
+and recommended to use your linux account name as a scratchbox 
+ACCOUNTNAME. 
 
-It also sets up an "sbox" group on your system and makes the
-the user "ACCOUNTNAME" a member of that group.  Members of the group
-have the right to log into a scratchbox environment. 
+It also sets up an "sbox" group on your system and makes you
+a member - giving the right to login to a scratchbox environment. 
 
 testing that scratchbox environment works
 +++++++++++++++++++++++++++++++++++++++++++++++
@@ -67,8 +61,8 @@ This should warn you with something like "sb-conf: no current
 target" because we have not yet created a cross-compilation
 target.  
 
-Note that Scratchbox starts services in the background 
-which can be started and stopped via::
+Note that Scratchbox starts daemon services which 
+can be controlled via::
 
     /scratchbox/sbin/sbox_ctl start|stop
 
@@ -109,10 +103,15 @@ into our Scratchbox target environment.
 1. Go into your scratchbox by executing ``/scratchbox/login``
    (this should bring you to a shell with the DIABLO_ARMEL target) 
 
-2. Add these lines to ``/etc/apt/sources.list``
+2. Add these lines to ``/etc/apt/sources.list``::
 
     deb http://repository.maemo.org/extras/ diablo free non-free
     deb http://repository.maemo.org/extras-devel/ diablo free non-free
+
+   NOTE: if you have an older version of Maemo on your device you 
+   can try substitute "chinook" for "diablo" in the above lines 
+   and/or update your firmware.  You can probably see which version
+   you are using by looking at the other content of the ``sources.list``. 
 
 3. Perform ``apt-get update``.
 
@@ -142,7 +141,7 @@ Change to the ``pypy-trunk/pypy/translator/goal`` directory and execute::
 
     python translate.py --platform=maemo --opt=mem
 
-This will last a some 30-60 minutes on most machines.  For compiling 
+This will last some 30-60 minutes on most machines.  For compiling 
 the C source code PyPy's tool chain will use our scratchbox/Maemo 
 cross-compilation environment.  
 
@@ -165,5 +164,10 @@ if you want to successfully startup the interpreter on the device.
 Start ``pypy-c`` on the device. 
 
     
+.. _N810: http://en.wikipedia.org/wiki/Nokia_N810
+.. _`Internet-Tablet-OS`: http://en.wikipedia.org/wiki/Internet_Tablet_OS
+.. _Maemo: http://www.maemo.org 
+.. _Scratchbox: http://www.scratchbox.org 
+.. _`INSTALL.txt`: http://tablets-dev.nokia.com/4.1/INSTALL.txt
 
 
