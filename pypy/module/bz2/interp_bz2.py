@@ -648,9 +648,9 @@ class W_BZ2Decompressor(Wrappable):
                     break
                 elif rffi.getintfield(self.bzs, 'c_avail_out') == 0:
                     total_out = _bzs_total_out(self.bzs)
+                    assert out_bufsize >= total_out
                     data = "".join([out_buf[i] for i in range(total_out)])
                     temp.append(data)
-
                     lltype.free(out_buf, flavor='raw')
                     out_bufsize = _new_buffer_size(out_bufsize)
                     out_buf = lltype.malloc(rffi.CCHARP.TO, out_bufsize, flavor='raw')
