@@ -16,6 +16,7 @@ from pypy.rpython.lltypesystem import rffi
 TYPEID_MASK = 0xffff0000
 first_gcflag = 2
 GCFLAG_MARKBIT = first_gcflag << 0
+GCFLAG_EXTERNAL = first_gcflag << 1
 
 memoryError = MemoryError()
 
@@ -107,6 +108,7 @@ class MarkCompactGC(MovingGCBase):
 
     def init_gc_object_immortal(self, addr, typeid, flags=1):
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
+        flags |= GCFLAG_EXTERNAL
         hdr.forward_ptr = llmemory.cast_int_to_adr((typeid << 16) | flags)
         # XXX we can store forward_ptr to itself, if we fix C backend
         # so that get_forwarding_address(obj) returns
@@ -442,7 +444,8 @@ class MarkCompactGC(MovingGCBase):
         return self.header(addr).forward_ptr != NULL
 
     def _is_external(self, obj):
-        return not (obj >= self.space and obj < self.free)
+        tid = self.get_tid(obj)
+        return (tid & 1) and (tid & GCFLAG_EXTERNAL)
 
     def get_forwarding_address(self, obj):
         if self._is_external(obj):
