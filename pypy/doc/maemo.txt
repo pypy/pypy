@@ -162,8 +162,11 @@ It is neccessary that the ``pypy-c`` can find a "lib-python" and "pypy/lib" dire
 if you want to successfully startup the interpreter on the device. 
 
 Start ``pypy-c`` on the device. If you see an error like "setupterm: could not find terminal" 
-you probably need to perform ``sudo apt-get install ncurses-bases`` on the device. 
-Otherwise you should see something like::
+you probably need to perform this install on the device::
+
+    apt-get install ncurses-base
+
+Eventually you should see something like::
 
     Nokia-N810-51-3:~/pypy/trunk# ./pypy-c
     Python Python 2.5.2 (pypy 1.0.0 build 59527) on linux2
