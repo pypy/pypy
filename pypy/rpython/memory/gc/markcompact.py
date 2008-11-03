@@ -215,7 +215,8 @@ class MarkCompactGC(MovingGCBase):
                                         num_of_alive_objs * BYTES_PER_TID)
         tid_backup_size = (llmemory.sizeof(self.TID_BACKUP, 0) +
                            llmemory.sizeof(TID_TYPE) * num_of_alive_objs)
-        if totalsize >= self.space_size:
+        used_space_now = self.next_collect_after + raw_malloc_usage(tid_backup_size)
+        if totalsize >= self.space_size or used_space_now >= self.space_size:
             toaddr = self.double_space_size(totalsize)
             llarena.arena_reserve(toaddr + size_of_alive_objs, tid_backup_size)
             self.tid_backup = llmemory.cast_adr_to_ptr(
@@ -457,7 +458,7 @@ class MarkCompactGC(MovingGCBase):
         self.header(obj).forward_ptr = newaddr
 
     def surviving(self, obj):
-        return self.header(obj).forward_ptr != NULL
+        return self._is_external(obj) or self.header(obj).forward_ptr != NULL
 
     def backup_typeid(self, num, obj):
         self.tid_backup[num] = rffi.cast(rffi.USHORT, self.get_type_id(obj))
