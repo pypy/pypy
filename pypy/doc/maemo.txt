@@ -117,7 +117,7 @@ into our Scratchbox target environment.
 
 4. Install some neccessary packages::
 
-     apt-get install python2.5-dev libffi4-dev zlib1g-dev libbz2-dev libgc-dev libncurses5-dev
+     apt-get install python2.5-dev libffi4-dev zlib1g-dev libbz2-dev libgc-dev libncurses5-dev 
 
    The "libgc-dev" package is only needed if you want to use the Boehm
    garbage collector. 
@@ -161,7 +161,15 @@ device - however, only these should be needed::
 It is neccessary that the ``pypy-c`` can find a "lib-python" and "pypy/lib" directory
 if you want to successfully startup the interpreter on the device. 
 
-Start ``pypy-c`` on the device. 
+Start ``pypy-c`` on the device. If you see an error like "setupterm: could not find terminal" 
+you probably need to perform ``sudo apt-get install ncurses-bases`` on the device. 
+Otherwise you should see something like::
+
+    Nokia-N810-51-3:~/pypy/trunk# ./pypy-c
+    Python Python 2.5.2 (pypy 1.0.0 build 59527) on linux2
+    Type "help", "copyright", "credits" or "license" for more information.
+    And now for something completely different: ``E09 2K @CAA:85?''
+    >>>> 
 
     
 .. _N810: http://en.wikipedia.org/wiki/Nokia_N810
