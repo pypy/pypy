@@ -1,7 +1,7 @@
 .. _`demo/`: ../../demo
 .. _`demo/pickle_coroutine.py`: ../../demo/pickle_coroutine.py
 .. _`lib-python/`: ../../lib-python
-.. _`lib-python/2.4.1/dis.py`: ../../lib-python/2.4.1/dis.py
+.. _`lib-python/2.5.2/dis.py`: ../../lib-python/2.5.2/dis.py
 .. _`annotation/`:
 .. _`pypy/annotation`: ../../pypy/annotation
 .. _`pypy/annotation/annrpython.py`: ../../pypy/annotation/annrpython.py
