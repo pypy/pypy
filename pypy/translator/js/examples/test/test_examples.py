@@ -2,6 +2,7 @@
 """ Various build tests
 """
 import py
+py.test.importorskip("pygreen")
 from pypy.translator.js.main import rpython2javascript
 
 def test_console_build():

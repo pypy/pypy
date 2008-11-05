@@ -1,5 +1,6 @@
 
 import py
+py.test.importorskip("pygreen")
 
 def test_line_skip():
     from pypy.translator.js.examples.console.console import line_split

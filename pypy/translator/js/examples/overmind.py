@@ -10,7 +10,7 @@ from pypy.translator.js.lib.support import callback
 from pypy.rpython.ootypesystem.bltregistry import described
 from pypy.translator.js.main import rpython2javascript
 from pypy.translator.js.examples.console import console
-from py.__.green.server.httpserver import GreenHTTPServer
+from pygreen.server.httpserver import GreenHTTPServer
 
 import os
 import py

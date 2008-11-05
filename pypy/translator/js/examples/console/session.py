@@ -14,9 +14,9 @@ after TIMEOUT
 import py
 import subprocess
 from Queue import Queue
-from py.__.green.greensock2 import autogreenlet, Timer, Interrupted,\
+from pygreen.greensock2 import autogreenlet, Timer, Interrupted,\
      meetingpoint
-from py.__.green.pipe.fd import FDInput
+from pygreen.pipe.fd import FDInput
 from py.magic import greenlet
 import time
 

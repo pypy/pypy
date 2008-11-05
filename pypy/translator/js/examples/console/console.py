@@ -6,8 +6,8 @@ from pypy.translator.js.lib.support import callback
 from pypy.translator.js import commproxy
 from pypy.translator.js.examples.console.session import Interpreter, Killed
 from pypy.translator.js.examples.console.docloader import DocLoader
-from py.__.green.server.httpserver import GreenHTTPServer
-from py.__.green.greensock2 import ConnexionClosed
+from pygreen.server.httpserver import GreenHTTPServer
+from pygreen.greensock2 import ConnexionClosed
 
 commproxy.USE_MOCHIKIT = True
 
