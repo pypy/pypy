@@ -173,7 +173,7 @@ performed, which makes use of the restrictions defined in RPython. This
 enables the code generator to emit efficient machine level replacements
 for pure integer objects, for instance.
 
-.. _`pyopcode.py`: http://codespeak.net/svn/pypy/dist/pypy/interpreter/pyopcode.py
+.. _`pyopcode.py`: http://codespeak.net/svn/pypy/trunk/pypy/interpreter/pyopcode.py
 
 Restricted Python
 =================
@@ -861,11 +861,11 @@ Committing & Branching to the repository
   allows checkin/checkout in native line-ending format.
 
 - branching (aka "svn copy") of source code should usually
-  happen at ``svn/pypy/dist`` level in order to have a full
+  happen at ``svn/pypy/trunk`` level in order to have a full
   self-contained pypy checkout for each branch.   For branching
   a ``try1`` branch you would for example do::
 
-    svn cp http://codespeak.net/svn/pypy/dist \
+    svn cp http://codespeak.net/svn/pypy/trunk \
            http://codespeak.net/svn/pypy/branch/try1
 
   This allows to checkout the ``try1`` branch and receive a

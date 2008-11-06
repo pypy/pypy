@@ -2288,14 +2288,14 @@ See also
 Main references:
 
 .. [ARCH] Architecture Overview, PyPy documentation.
-          http://codespeak.net/pypy/dist/pypy/doc/architecture.html
+          http://codespeak.net/pypy/trunk/pypy/doc/architecture.html
 
 .. [TR] Translation, PyPy documentation.
-        http://codespeak.net/pypy/dist/pypy/doc/translation.html
+        http://codespeak.net/pypy/trunk/pypy/doc/translation.html
 
 .. [LLA] Encapsulating low-level implementation aspects, PyPy
          documentation.
-         http://codespeak.net/pypy/dist/pypy/doc/low-level-encapsulation.html
+         http://codespeak.net/pypy/trunk/pypy/doc/low-level-encapsulation.html
 
 .. [Psyco] Home page: http://psyco.sourceforge.net.  Paper:
            Representation-Based Just-In-Time Specialization and the
@@ -2323,7 +2323,7 @@ Glossary and links mentioned in the text:
 
 * Low-level Types: see [TR]_.
 
-* Object Space: http://codespeak.net/pypy/dist/pypy/doc/objspace.html
+* Object Space: http://codespeak.net/pypy/trunk/pypy/doc/objspace.html
 
 * Perl 6 compiler mailing list post: http://www.nntp.perl.org/group/perl.perl6.compiler/1107
 

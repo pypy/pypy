@@ -43,7 +43,7 @@ Download and install subversion_ if you don't already have it.  We have
 some `help on installing subversion`_ for PyPy.  Then you can issue on
 the command line (DOS box or terminal)::
 
-    svn co http://codespeak.net/svn/pypy/dist pypy-dist 
+    svn co http://codespeak.net/svn/pypy/trunk pypy-dist 
 
 This will create a directory named ``pypy-dist``, and will get you the PyPy
 source in ``pypy-dist/pypy`` and documentation files in
@@ -847,7 +847,7 @@ separately announced and often happen around Python conferences such
 as EuroPython or Pycon. Take a look at the list of upcoming events_ to
 plan where to meet with us.
 
-.. _events: http://codespeak.net/pypy/dist/pypy/doc/news.html
+.. _events: http://codespeak.net/pypy/trunk/pypy/doc/news.html
 .. _`pypy-dev mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
 .. _`contact possibilities`: home.html
 
@@ -868,15 +868,15 @@ plan where to meet with us.
 
 .. _`Dot Graphviz`:           http://www.graphviz.org/
 .. _Pygame:                 http://www.pygame.org/
-.. _pyopcode.py:            http://codespeak.net/svn/pypy/dist/pypy/interpreter/pyopcode.py
-.. _eval.py:                http://codespeak.net/svn/pypy/dist/pypy/interpreter/eval.py
-.. _pyframe.py:             http://codespeak.net/svn/pypy/dist/pypy/interpreter/pyframe.py
-.. _function.py:            http://codespeak.net/svn/pypy/dist/pypy/interpreter/function.py
-.. _argument.py:            http://codespeak.net/svn/pypy/dist/pypy/interpreter/argument.py
-.. _baseobjspace.py:        http://codespeak.net/svn/pypy/dist/pypy/interpreter/baseobjspace.py
-.. _module.py:              http://codespeak.net/svn/pypy/dist/pypy/interpreter/module.py
-.. _mixedmodule.py:          http://codespeak.net/svn/pypy/dist/pypy/interpreter/mixedmodule.py
-.. _typedef.py:             http://codespeak.net/svn/pypy/dist/pypy/interpreter/typedef.py
+.. _pyopcode.py:            http://codespeak.net/svn/pypy/trunk/pypy/interpreter/pyopcode.py
+.. _eval.py:                http://codespeak.net/svn/pypy/trunk/pypy/interpreter/eval.py
+.. _pyframe.py:             http://codespeak.net/svn/pypy/trunk/pypy/interpreter/pyframe.py
+.. _function.py:            http://codespeak.net/svn/pypy/trunk/pypy/interpreter/function.py
+.. _argument.py:            http://codespeak.net/svn/pypy/trunk/pypy/interpreter/argument.py
+.. _baseobjspace.py:        http://codespeak.net/svn/pypy/trunk/pypy/interpreter/baseobjspace.py
+.. _module.py:              http://codespeak.net/svn/pypy/trunk/pypy/interpreter/module.py
+.. _mixedmodule.py:          http://codespeak.net/svn/pypy/trunk/pypy/interpreter/mixedmodule.py
+.. _typedef.py:             http://codespeak.net/svn/pypy/trunk/pypy/interpreter/typedef.py
 .. _Standard object space:  objspace.html#the-standard-object-space
 .. _objspace.py:            ../../pypy/objspace/std/objspace.py
 .. _thunk:                  ../../pypy/objspace/thunk.py

@@ -392,7 +392,7 @@ parent class.
 The RPython Typer
 =================
 
-http://codespeak.net/pypy/dist/pypy/rpython/
+http://codespeak.net/pypy/trunk/pypy/rpython/
 
 The RTyper is the first place where the choice of backend makes a
 difference; as outlined above we are assuming that ANSI C is the target.
@@ -666,7 +666,7 @@ You can choose which garbage collection strategy to use with
 The C Back-End
 ==============
 
-http://codespeak.net/pypy/dist/pypy/translator/c/
+http://codespeak.net/pypy/trunk/pypy/translator/c/
 
 GenC is not really documented at the moment.  The basic principle of creating
 code from flow graphs is similar to the `Python back-end`_.  See also
@@ -706,7 +706,7 @@ Use the :config:`translation.backend` option to choose which backend to use.
 The LLVM Back-End
 -----------------
 
-http://codespeak.net/pypy/dist/pypy/translator/llvm/
+http://codespeak.net/pypy/trunk/pypy/translator/llvm/
 
 For information on getting started on the LLVM (`low level virtual machine`_)
 backend - please see `here`_. 
@@ -820,7 +820,7 @@ a `using document`_.
 The Interpreter-Level backend
 -----------------------------
 
-http://codespeak.net/pypy/dist/pypy/translator/geninterplevel.py
+http://codespeak.net/pypy/trunk/pypy/translator/geninterplevel.py
 
 Above, this backend was described as a "special case in several ways".  One of
 these ways is that the job it does is specific to PyPy's standard interpreter,

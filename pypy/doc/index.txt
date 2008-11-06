@@ -162,7 +162,7 @@ from our Python interpreter.
 .. _`Nightly compliance test runs for compiled pypy-c`: http://www2.openend.se/~pedronis/pypy-c-test/
 .. _`compliance test status`: http://codespeak.net/~hpk/pypy-testresult/
 .. _`PyPy LOC statistics`: http://codespeak.net/~hpk/pypy-stat/
-.. _`PyPy statistics`: http://codespeak.net/pypy/dist/pypy/doc/statistic
+.. _`PyPy statistics`: http://codespeak.net/pypy/trunk/pypy/doc/statistic
 .. _`object spaces`: objspace.html 
 .. _`interpreter optimizations`: interpreter-optimizations.html 
 .. _`translation`: translation.html 

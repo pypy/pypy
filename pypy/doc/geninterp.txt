@@ -1,7 +1,7 @@
 The Interpreter-Level backend
 -----------------------------
 
-http://codespeak.net/pypy/dist/pypy/translator/geninterplevel.py
+http://codespeak.net/pypy/trunk/pypy/translator/geninterplevel.py
 
 Motivation
 ++++++++++

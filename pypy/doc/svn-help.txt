@@ -40,17 +40,15 @@ People using Debian *stable* first need to add the following line to ``/etc/apt/
 
   deb http://fs.cs.fhm.edu/mirror/backports.org/debian stable subversion
 
-Note that you can always go look at the files online_ with your browser, located at: http://codespeak.net/svn/pypy/dist
+Note that you can always go look at the files online_ with your browser, located at: http://codespeak.net/svn/pypy/trunk
 But, you'll want to check out your own local copies to work on.
 
 Check out and Check in
 ----------------------------
 
-There are currently two directories you'll want to check out: /src and /doc
 In order to get the sourcecode and docs downloaded onto your drive, open a shell or commandline and type::
 
-  $ svn co http://codespeak.net/svn/pypy/dist
-  $ svn co http://codespeak.net/svn/pypy/extradoc
+  $ svn co http://codespeak.net/svn/pypy/trunk
 
 If you are behind a dump proxy this may or may not work; see below.
 
@@ -151,5 +149,5 @@ In your home directory edit .subversion/config and comment in ::
 .. _Win: http://www.microsoft.com/downloads/details.aspx?displaylang=en&FamilyID=4B6140F9-2D36-4977-8FA1-6F8A0F5DCA8F
 .. _guide: http://svnbook.red-bean.com/book.html#svn-ch-1
 .. _backports: http://www.backports.org
-.. _online: http://codespeak.net/svn/pypy/dist/
+.. _online: http://codespeak.net/svn/pypy/trunk/
 .. _coding-guide: coding-guide.html
