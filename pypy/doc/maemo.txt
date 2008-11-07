@@ -38,7 +38,7 @@ Download
 
 and run this script as root::
 
-  $ sh maemo-scratchbox-install_4.1.1.sh -u ACCOUNTNAME 
+  $ sh maemo-scratchbox-install_4.1.1.sh -s /scratchbox -u ACCOUNTNAME 
 
 The script will automatically download Debian packages or tarballs 
 and pre-configure a scratchbox environment with so called "devkits" 
@@ -133,7 +133,7 @@ to compile pypy.  The scratchbox and its DIABLO_ARMEL target contains
 its own copies of GCC, various C libraries and header files
 which pypy needs for successful cross-compilation.  
 
-Now perform a subversion checkout of PyPy::
+Now, on the host system, perform a subversion checkout of PyPy::
 
     svn co https://codespeak.net/svn/pypy/trunk pypy-trunk
 
