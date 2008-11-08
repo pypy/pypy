@@ -3105,7 +3105,22 @@ class TestAnnotateTestCase:
 
         a = self.RPythonAnnotator()
         py.test.raises(TooLateForChange, a.build_types, f, [])
-        
+
+
+    def test_len_of_empty_list(self):
+        class X:
+            pass
+        def f(n):
+            x = X()
+            x.lst = None
+            if n < 0:   # to showcase a failure of the famous "assert contains"
+                return len(x.lst)
+            x.lst = []
+            return len(x.lst)
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert s.const == 0
+
 
 def g(n):
     return [0,1,2,n]

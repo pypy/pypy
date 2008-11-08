@@ -668,6 +668,14 @@ class __extend__(SomePBC):
         elif not pbc.can_be_None:
             s.const = True
 
+    def len(pbc):
+        if pbc.isNone():
+            # this None could later be generalized into an empty list,
+            # whose length is the constant 0; so let's tentatively answer 0.
+            return immutablevalue(0)
+        else:
+            return SomeObject()    # len() on a pbc? no chance
+
 class __extend__(SomeGenericCallable):
     def call(self, args):
         bookkeeper = getbookkeeper()
