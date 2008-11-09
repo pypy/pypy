@@ -621,7 +621,7 @@ Modules in PyPy
 
 Modules visible from application programs are imported from
 interpreter or application level files.  PyPy reuses almost all python
-modules of CPython's standard library, currently from version 2.4.1.  We
+modules of CPython's standard library, currently from version 2.5.2.  We
 sometimes need to `modify modules`_ and - more often - regression tests
 because they rely on implementation details of CPython.
 
@@ -650,15 +650,15 @@ here are examples for the possible locations::
     >>>> operator.__file__
     '/home/hpk/pypy-dist/pypy/lib/operator.py'
 
-    >>>> import types
-    >>>> types.__file__
-    '/home/hpk/pypy-dist/lib-python/modified-2.4.1/types.py'
+    >>>> import opcode
+    >>>> opcode.__file__
+    '/home/hpk/pypy-dist/lib-python/modified-2.5.2/opcode.py'
 
     >>>> import os
     faking <type 'posix.stat_result'>
     faking <type 'posix.statvfs_result'>
     >>>> os.__file__
-    '/home/hpk/pypy-dist/lib-python/2.4.1/os.py'
+    '/home/hpk/pypy-dist/lib-python/2.5.2/os.py'
     >>>>
 
 Module directories / Import order
@@ -681,11 +681,11 @@ Here is the order in which PyPy looks up Python modules:
 
     contains pure Python reimplementation of modules.
 
-*lib-python/modified-2.4.1/*
+*lib-python/modified-2.5.2/*
 
     The files and tests that we have modified from the CPython library.
 
-*lib-python/2.4.1/*
+*lib-python/2.5.2/*
 
     The unmodified CPython library. **Never ever check anything in there**.
 
@@ -700,14 +700,14 @@ often due to the fact that PyPy works with all new-style classes
 by default and CPython has a number of places where it relies
 on some classes being old-style.
 
-If you want to change a module or test contained in ``lib-python/2.4.1``
-then make sure that you copy the file to our ``lib-python/modified-2.4.1``
+If you want to change a module or test contained in ``lib-python/2.5.2``
+then make sure that you copy the file to our ``lib-python/modified-2.5.2``
 directory first.  In subversion commandline terms this reads::
 
-    svn cp lib-python/2.4.1/somemodule.py lib-python/modified-2.4.1/
+    svn cp lib-python/2.5.2/somemodule.py lib-python/modified-2.5.2/
 
 and subsequently you edit and commit
-``lib-python/modified-2.4.1/somemodule.py``.  This copying operation is
+``lib-python/modified-2.5.2/somemodule.py``.  This copying operation is
 important because it keeps the original CPython tree clean and makes it
 obvious what we had to change.
 

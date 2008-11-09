@@ -180,7 +180,7 @@ As an example of using PyPy from the command line, you could type::
 Alternatively, as with regular Python, you can simply give a
 script name on the command line::
 
-    python py.py ../../lib-python/2.4.1/test/pystone.py 10
+    python py.py ../../lib-python/2.5.2/test/pystone.py 10
 
 See our  `configuration sections`_ for details about what all the commandline
 options do.
@@ -312,14 +312,14 @@ run all tests below the current directory.
 Finally, there are the CPython regression tests which you can 
 run like this (this will take hours and hours and hours)::
 
-    cd lib-python/2.4.1/test 
+    cd lib-python/2.5.2/test 
     python ../../../pypy/test_all.py
 
 or if you have `installed py.test`_ then you simply say::
 
     py.test -E
 
-from the lib-python/2.4.1/test directory. Running one of the above
+from the lib-python/2.5.2/test directory. Running one of the above
 commands tells you how to proceed.
 
 .. _`installed py.test`: https://codespeak.net/py/current/doc/download.html
@@ -657,7 +657,7 @@ the convenience ./pypy-cli script::
   debug:  argv ->
   debug: importing code
   debug: calling code.interact()
-  Python 2.4.1 (pypy 0.9.0 build 38134) on linux2
+  Python 2.5.2 (pypy 1.0.0 build 5xxxx) on linux2
   Type "help", "copyright", "credits" or "license" for more information.
   (InteractiveConsole)
    >>>> 1 + 1
@@ -721,11 +721,11 @@ occurred might be hard-coded in the executable.
 
 For installation purposes, note that the executable needs to be able to
 find its version of the Python standard library in the following three
-directories: ``lib-python/2.4.1``, ``lib-python/modified-2.4.1`` and
+directories: ``lib-python/2.5.2``, ``lib-python/modified-2.5.2`` and
 ``pypy/lib``.  They are located by "looking around" starting from the
 directory in which the executable resides.  The current logic is to try
 to find a ``PREFIX`` from which the directories
-``PREFIX/lib-python/2.4.1`` and ``PREFIX/lib-python/modified.2.4.1`` and
+``PREFIX/lib-python/2.5.2`` and ``PREFIX/lib-python/modified.2.5.2`` and
 ``PREFIX/pypy/lib`` can all be found.  The prefixes that are tried are::
 
     .
