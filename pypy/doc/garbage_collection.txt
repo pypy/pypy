@@ -86,4 +86,42 @@ division of the generations is slightly more complicated than just
 nursery / semispace / external; see the diagram at the start of the
 source code, in `rpython/memory/gc/hybrid.py`_.
 
+Mark & Compact GC
+-----------------
+
+Inspired, at least partially, by Squeak's garbage collector, this is a
+single-arena GC in which collection compacts the objects in-place.  The
+main point of this GC is to save as much memory as possible (to be not
+worse than the Semispace), but without the peaks of double memory usage
+during collection.
+
+Unlike the Semispace GC, collection requires a number of passes over the
+data.  This makes collection quite slower.  Future improvements could be
+to add a nursery to Mark & Compact in order to mitigate this issue.
+
+During a collection, we reuse the space in-place if it is still large
+enough.  If not, we need to allocate a new, larger space, and move the
+objects there; however, this move is done chunk by chunk, and chunks are
+cleared (i.e. returned to the OS) as soon as they have been moved away.
+This means that (from the point of view of the OS) a collection will
+never cause an important temporary growth of total memory usage.
+
+More precisely, a collection is triggered when the space contains more
+than N*M bytes, where N is the number of bytes alive after the previous
+collection and M is a constant factor, by default 1.5.  This guarantees
+that the total memory usage of the program never exceeds 1.5 times the
+total size of its live objects.
+
+The objects themselves are quite compact: they are allocated next to
+each other in the heap, separated by a GC header of only one word (4
+bytes on 32-bit platforms) and possibly followed by up to 3 bytes of
+padding for non-word-sized objects (e.g. strings).  There is a small
+extra memory usage during collection: an array containing 2 bytes per
+surviving object is needed to make a backup of (half of) the surviving
+objects' header, in order to let the collector store temporary relation
+information in the regular headers.
+
+More details are available as comments at the start of the source
+in `rpython/memory/gc/markcompact.py`_.
+
 .. include:: _ref.txt

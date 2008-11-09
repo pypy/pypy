@@ -73,6 +73,7 @@
 .. _`rpython/memory/`: ../../pypy/rpython/memory
 .. _`rpython/memory/gc/generation.py`: ../../pypy/rpython/memory/gc/generation.py
 .. _`rpython/memory/gc/hybrid.py`: ../../pypy/rpython/memory/gc/hybrid.py
+.. _`rpython/memory/gc/markcompact.py`: ../../pypy/rpython/memory/gc/markcompact.py
 .. _`rpython/memory/gc/marksweep.py`: ../../pypy/rpython/memory/gc/marksweep.py
 .. _`rpython/memory/gc/semispace.py`: ../../pypy/rpython/memory/gc/semispace.py
 .. _`rpython/ootypesystem/`: ../../pypy/rpython/ootypesystem
