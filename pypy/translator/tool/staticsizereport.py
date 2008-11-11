@@ -212,11 +212,12 @@ def print_report(filename,
     info = pickle.load(f)
     f.close()
     reports = getattr(info, kind)
-
+    globalsize = 0
     for report in reports:
         if report.totalsize == 0:
             continue
         size = format_size(report.totalsize, human_readable)
+        globalsize += report.totalsize
         if summary:
             print "%d\t%s" % (size, report.modulename)
         else:
@@ -225,6 +226,8 @@ def print_report(filename,
             for typereport in report.typereports:
                 print format_typereport(typereport, human_readable)
             print
+    print
+    print 'Total size:', format_size(globalsize, human_readable)
 
     if show_unknown_graphs:
         print
