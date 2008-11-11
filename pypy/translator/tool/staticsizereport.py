@@ -159,13 +159,25 @@ def aggregate_values_by_module_and_type(database, count_modules_separately=False
 
     # report sizes per module
     seen = set()
+    reachables = set()
     for modulename, nodes in modules:
         if count_modules_separately:
             seen = set()
         if not nodes:
             continue
         size, typereports = make_report_static_size(database, nodes, by_lltype, seen)
+        reachables.update(seen)
         reports.append(ModuleReport(modulename, size, typereports))
+
+    
+    allnodes = set([node for node in database.globalcontainers() if node.nodekind != "func"])
+    unreachables = allnodes-reachables
+    if count_modules_separately:
+        seen = set()
+    size, typereports = make_report_static_size(database, unreachables, by_lltype, seen)
+    reports.append(ModuleReport('<unreachable nodes>', size, typereports))
+
+
     reports.sort()
     reports.reverse()
     return reports
