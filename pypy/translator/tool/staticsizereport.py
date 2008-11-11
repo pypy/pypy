@@ -131,7 +131,8 @@ def get_unknown_graphs_names(database):
     return [getattr(graph, 'name', '???') for graph in get_unknown_graphs(database)]
 
 def aggregate_values_by_type(database):
-    size, typereports = make_report_static_size(database, database.globalcontainers(), by_lltype)
+    nodes = [node for node in database.globalcontainers() if node.nodekind != "func"]
+    size, typereports = make_report_static_size(database, nodes, by_lltype)
     return [ModuleReport('<global>', size, typereports)]
 
 def aggregate_values_by_module_and_type(database, count_modules_separately=False):
@@ -186,10 +187,10 @@ def dump_static_data_info(log, database, targetdir):
 ## Functions used by the reportstaticdata.py script
 def format_typereport(rep, human_readable=True):
     size = format_size(rep.size, human_readable)
-    return format_line(rep.typename[:50], size, rep.numobjects)
+    return format_line(rep.typename[:65], size, rep.numobjects)
 
 def format_line(a, b, c):
-    return '    %50s %10s %6s' % (a, b, c)
+    return '    %65s %10s %6s' % (a, b, c)
 
 def format_size(size, human_readable=False):
     KB = 1024.0
@@ -206,7 +207,7 @@ def print_report(filename,
                  kind='by_module_with_duplicates',
                  summary=False,
                  show_unknown_graphs=False,
-                 human_readable=True):
+                 human_readable=False):
     f = open(filename)
     info = pickle.load(f)
     f.close()
