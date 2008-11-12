@@ -492,14 +492,15 @@ class TranslationDriver(SimpleTaskEngine):
         translator = self.translator
         cbuilder = self.cbuilder
         database = self.database
-        c_source_filename = cbuilder.generate_source(database)
-        self.log.info("written: %s" % (c_source_filename,))
         if self.config.translation.dump_static_data_info:
             from pypy.translator.tool.staticsizereport import dump_static_data_info
             targetdir = cbuilder.targetdir
             fname = dump_static_data_info(self.log, database, targetdir)
             dstname = self.compute_exe_name() + '.staticdata.info'
             shutil.copy(str(fname), str(dstname))
+            self.log.info('Static data info written to %s' % dstname)
+        c_source_filename = cbuilder.generate_source(database)
+        self.log.info("written: %s" % (c_source_filename,))
 
     #
     task_source_c = taskdef(task_source_c, ['database_c'], "Generating c source")
