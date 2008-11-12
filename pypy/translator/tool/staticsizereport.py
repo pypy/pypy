@@ -107,6 +107,15 @@ def group_static_size(database, nodes, grouper=by_lltype, recursive=None):
     return totalsize, numobjects
 
 def make_report_static_size(database, nodes, grouper, recursive=None):
+    from pypy.rpython.lltypesystem import lltype
+    # sort structs that belongs to user-defined RPython classes first
+    def nodekey(node):
+        if isinstance(node.T, lltype.Struct) and node.T._name.startswith('pypy.'):
+            return (0, node)
+        else:
+            return (1, node)
+
+    nodes = sorted(nodes, key=nodekey)
     totalsize, numobjects = group_static_size(database, nodes, grouper, recursive)
     l = [(size, key) for key, size in totalsize.iteritems()]
     l.sort()
