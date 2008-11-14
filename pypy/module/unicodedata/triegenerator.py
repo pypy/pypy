@@ -183,9 +183,6 @@ def build_compression_tree(outfile, ucdata):
         
     print >> outfile, ")"
 
-    print >> outfile, "_dbg_stringidx = ",
-    pprint.pprint(stringidx,stream=outfile)
-    
     assert stridx < (1<<STRIDXBITS), "Too many strings, > %d chars" % (
         ((1<<STRIDXBITS) - 1))
 
