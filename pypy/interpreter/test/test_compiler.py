@@ -654,6 +654,21 @@ with somtehing as stuff:
         assert isinstance(code, PyCode)
         assert code.co_filename == '<filename2>'
 
+    def test_with_empty_tuple(self):
+        source = py.code.Source("""
+        from __future__ import with_statement
+
+        with x as ():
+            pass
+        """)
+        try:
+            self.compiler.compile(str(source), '<filename>', 'exec', 0)
+        except OperationError, e:
+            if not e.match(self.space, self.space.w_SyntaxError):
+                raise
+        else:
+            py.test.fail("Did not raise")
+
     def test_yield_in_finally(self): # behavior changed in 2.5
         code ='def f():\n try:\n  yield 19\n finally:\n  pass\n'
         self.compiler.compile(code, '', 'single', 0)
