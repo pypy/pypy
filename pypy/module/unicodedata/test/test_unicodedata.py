@@ -1,29 +1,9 @@
-from py.test import raises
+from py.test import raises, skip
 from pypy.conftest import gettestobjspace
 
-class AppTestUnicodeData:
-    def setup_class(cls):
-        import random, unicodedata
-        seed = random.getrandbits(32)
-        print "random seed: ", seed
-        random.seed(seed)
-        space = gettestobjspace(usemodules=('unicodedata',))
-        cls.space = space
-        charlist_w = []
-        nocharlist_w = []
-        while len(charlist_w) < 1000 or len(nocharlist_w) < 1000:
-            chr = unichr(random.randrange(65536))
-            try:
-                w_tup = space.newtuple([
-                    space.wrap(chr), 
-                    space.wrap(unicodedata.name(chr))
-                    ])
-                charlist_w.append(w_tup)
-            except ValueError:
-                nocharlist_w.append(space.wrap(chr))
-        cls.w_charlist = space.newlist(charlist_w)
-        cls.w_nocharlist = space.newlist(nocharlist_w)
+from pypy.module.unicodedata import unicodedb_4_1_0
 
+class AppTestUnicodeData:
     def test_hangul_syllables(self):
         import unicodedata
         # Test all leading, vowel and trailing jamo
@@ -89,13 +69,83 @@ class AppTestUnicodeData:
                     pass
                 raises(KeyError, unicodedata.lookup, charname)
 
+class TestUnicodeData(object):
+    def setup_class(cls):
+        import random, unicodedata
+        if unicodedata.unidata_version != '4.1.0':
+            skip('Needs python with unicode 4.1.0 database.')
+
+        seed = random.getrandbits(32)
+        print "random seed: ", seed
+        random.seed(seed)
+        cls.charlist = charlist = []
+        cls.nocharlist = nocharlist = []
+        while len(charlist) < 1000 or len(nocharlist) < 1000:
+            chr = unichr(random.randrange(65536))
+            try:
+                charlist.append((chr, unicodedata.name(chr)))
+            except ValueError:
+                nocharlist.append(chr)
+
     def test_random_charnames(self):
-        import unicodedata
         for chr, name in self.charlist:
-            assert unicodedata.name(chr) == name
-            assert unicodedata.lookup(name) == chr
+            assert unicodedb_4_1_0.name(ord(chr)) == name
+            assert unicodedb_4_1_0.lookup(name) == ord(chr)
 
     def test_random_missing_chars(self):
-        import unicodedata
         for chr in self.nocharlist:
-            raises(ValueError, unicodedata.name, chr)
+            raises(KeyError, unicodedb_4_1_0.name, ord(chr))
+
+    diff_numeric = set([0x3405, 0x3483, 0x382a, 0x3b4d, 0x4e00, 0x4e03,
+                        0x4e07, 0x4e09, 0x4e5d, 0x4e8c, 0x4e94, 0x4e96,
+                        0x4ebf, 0x4ec0, 0x4edf, 0x4ee8, 0x4f0d, 0x4f70,
+                        0x5104, 0x5146, 0x5169, 0x516b, 0x516d, 0x5341,
+                        0x5343, 0x5344, 0x5345, 0x534c, 0x53c1, 0x53c2,
+                        0x53c3, 0x53c4, 0x56db, 0x58f1, 0x58f9, 0x5e7a,
+                        0x5efe, 0x5eff, 0x5f0c, 0x5f0d, 0x5f0e, 0x5f10,
+                        0x62fe, 0x634c, 0x67d2, 0x7396, 0x767e, 0x8086,
+                        0x842c, 0x8cae, 0x8cb3, 0x8d30, 0x9646, 0x964c,
+                        0x9678, 0x96f6])
+
+    diff_title = set([0x01c5, 0x01c8, 0x01cb, 0x01f2])
+
+    diff_isspace = set([0x180e, 0x200b])
+    
+    def test_compare_functions(self):
+        import unicodedata # CPython implementation
+
+        def getX(fun, code):
+            if fun == 'numeric' and code in self.diff_numeric:
+                return -1
+            try:
+                return getattr(unicodedb_4_1_0, fun)(code)
+            except KeyError:
+                return -1
+        
+        for code in range(0x10000):
+            char = unichr(code)
+            assert unicodedata.digit(char, -1) == getX('digit', code)
+            assert unicodedata.numeric(char, -1) == getX('numeric', code)
+            assert unicodedata.decimal(char, -1) == getX('decimal', code)
+            assert unicodedata.category(char) == unicodedb_4_1_0.category(code)
+            assert unicodedata.bidirectional(char) == unicodedb_4_1_0.bidirectional(code)
+            assert unicodedata.decomposition(char) == unicodedb_4_1_0.decomposition(code)
+            assert unicodedata.mirrored(char) == unicodedb_4_1_0.mirrored(code)
+            assert unicodedata.combining(char) == unicodedb_4_1_0.combining(code)
+
+    def test_compare_methods(self):
+        for code in range(0x10000):
+            char = unichr(code)
+            assert char.isalnum() == unicodedb_4_1_0.isalnum(code)
+            assert char.isalpha() == unicodedb_4_1_0.isalpha(code)
+            assert char.isdecimal() == unicodedb_4_1_0.isdecimal(code)
+            assert char.isdigit() == unicodedb_4_1_0.isdigit(code)
+            assert char.islower() == unicodedb_4_1_0.islower(code)
+            assert (code in self.diff_numeric or char.isnumeric()) == unicodedb_4_1_0.isnumeric(code)
+            assert code in self.diff_isspace or char.isspace() == unicodedb_4_1_0.isspace(code), hex(code)
+            assert char.istitle() == (unicodedb_4_1_0.isupper(code) or unicodedb_4_1_0.istitle(code)), code
+            assert char.isupper() == unicodedb_4_1_0.isupper(code)
+
+            assert char.lower() == unichr(unicodedb_4_1_0.tolower(code))
+            assert char.upper() == unichr(unicodedb_4_1_0.toupper(code))
+            assert code in self.diff_title or char.title() == unichr(unicodedb_4_1_0.totitle(code)), hex(code)
