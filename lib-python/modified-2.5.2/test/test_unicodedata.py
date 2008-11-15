@@ -75,7 +75,7 @@ class UnicodeDatabaseTest(unittest.TestCase):
 class UnicodeFunctionsTest(UnicodeDatabaseTest):
 
     # update this, if the database changes
-    expectedchecksum = 'c05cbc8b0d87b2f102fba8d832e21aca3ad6df2f'
+    expectedchecksum = 'e5eaebf2eba2221e8b8ad0201edc179516fd322f'
 
     def test_function_checksum(self):
         data = []
