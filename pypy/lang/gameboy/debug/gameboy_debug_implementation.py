@@ -4,7 +4,7 @@ from __future__ import generators
 from pypy.lang.gameboy.gameboy_implementation import *
 from pypy.lang.gameboy.debug.debug_cpu import DebugCPU
 from pypy.lang.gameboy.debug import debug
-from pypy.lang.gameboy.debug.debug_socket_memory import *
+from pypy.lang.gameboy.debug.debug_socket_debug_connection import *
 import time
 import pdb
 
@@ -12,15 +12,28 @@ import pdb
 
 class GameBoyDebugImplementation(GameBoyImplementation):
     
-    def __init__(self, debuggerPort, skipExecs=0, memory_class=DebugSocketMemory):
+    def __init__(self, debugger_port, skip_execs=0, debug_connection_class=None):
         GameBoyImplementation.__init__(self)
         self.cpu = DebugCPU(self.interrupt, self)
-        self.init_sdl()
-        self.memory = memory_class(self, debuggerPort, skipExecs)
+        self.debug_connection = debug_connection_class(self, debugger_port, skip_execs)
+        self.create_comparators()
         
+     # ------------------------------------------------------------------------   
+    def create_comparators(self):
+        self.gameboy_comparator = GameboyComparator(self.debug_connection, self)
+        self.rom_comparator = ROMComparator(self, self.debug_connection, self)
+    
+    def compare_rom(data):
+         self.rom_comparator.compare(data)
+         
+    def compare_system(data):
+        self.gameboy_comparator.compare(data)
+        
+    # ------------------------------------------------------------------------
+    
     def init_sdl(self):
         pass;
-    
+        
     def create_drivers(self):
         # make sure only the debug drivers are implemented
         self.clock = Clock()
@@ -33,17 +46,17 @@ class GameBoyDebugImplementation(GameBoyImplementation):
    
     def handle_execution_error(self, error):
     	print error
-        print "closing socket connections"
+        print "closing socket debug_connections"
         pdb.set_trace()
         self.is_running = False
         debug.print_results()
-        self.memory.close()
+        self.debug_connection.close()
     
     def handle_executed_op_code(self, is_fetch_execute=True):
-        self.memory.handle_executed_op_code(is_fetch_execute)
+        self.debug_connection.handle_executed_op_code(is_fetch_execute)
         
     def mainLoop(self):
-        self.memory.start_debug_session()
+        self.debug_connection.start_debug_session()
         GameBoyImplementation.mainLoop(self)
         
     

@@ -1,3 +1,6 @@
+
+dont_import_rsdl = True
+
 from pypy.lang.gameboy.debug.gameboy_debug_implementation import *
 from pypy.lang.gameboy.debug.debug_rpc_xml_memory import *
 import py
@@ -15,11 +18,10 @@ if sys.platform == 'darwin':
 # ------------------------------------------------------------------------------
 
 ROM_PATH    = str(py.magic.autopath().dirpath().dirpath())+"/rom"
-filename    = "/Users/cami/Ausbildung/08_UNIBE_FS/bachelor/docs/roms/DieMaus.gb"
 filename    = ROM_PATH + "/rom9/rom9.gb"
-SOCKET_PORT = 55687
+SOCKET_PORT = 55691
 skipExecs   = 22545
-skipExecs   = 0
+skipExecs   = 1000000
 
 # ------------------------------------------------------------------------------
 
@@ -54,7 +56,7 @@ JMARIO_DIR =  str(py.magic.autopath().dirpath().dirpath()\
                         .dirpath().dirpath()\
                         .dirpath().dirpath()) + "/jmario"
 
-JAVA_CLASSPATH =[ JMARIO_DIR + "/bin/", JMARIO_DIR+"/build/", 
+JAVA_CLASSPATH =[ JMARIO_DIR+"/build/", 
                   JMARIO_DIR + "/lib/xmlrpc-client-3.1.jar",
                   JMARIO_DIR + "/lib/xmlrpc-common-3.1.jar",
                   JMARIO_DIR + "/lib/ws-commons-util-1.0.2.jar",
@@ -68,6 +70,7 @@ def start_java_version():
               filename + " " + \
               str(SOCKET_PORT) + " " + \
               str(skipExecs)
+    print command
     #command = "java" + \
     #          " -classpath "+ (':'.join(JAVA_CLASSPATH)) +\
     #          " gameboy.platform.j2se.Main " + \
