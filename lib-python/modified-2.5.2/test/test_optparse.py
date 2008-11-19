@@ -393,7 +393,8 @@ class TestOptionParser(BaseTest):
     def test_remove_nonexistent(self):
         self.assertRaises(self.parser.remove_option, ('foo',), None,
                           ValueError, "no such option 'foo'")
-
+        
+    @test_support.impl_detail("refcounting")
     def test_refleak(self):
         # If an OptionParser is carrying around a reference to a large
         # object, various cycles can prevent it from being GC'd in
