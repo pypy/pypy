@@ -50,7 +50,6 @@ class Comparator:
         print "python:", str(part), "expected:", str(expected), "got:", str(got)
         
         
-          
 # -----------------------------------------------------------------------------
 
 class GameboyComparator(Comparator):
