@@ -68,11 +68,11 @@ class GameboyComparator(Comparator):
         self.ram_comparator = RAMComparator(debug_connection, self.gameboy)
     
     def compare(self, data):
-        self.compare_cycles(data["cycles"])
         self.cpu_comparator.compare(data["cpu"])
+        self.video_comparator.compare(data["video"])
+        self.compare_cycles(data["cycles"])
         self.timer_comparator.compare(data["timer"])
         self.interrupt_comparator.compare(data["interrupt"])
-        self.video_comparator.compare(data["video"])
         self.ram_comparator.compare(data["ram"])
     
     @printframe("comparing cycles")        
@@ -94,7 +94,7 @@ class ROMComparator(Comparator):
         Comparator.__init__(self, debug_connection)
         self.gameboy = gameboy
         self.cartridgeComparator = CartridgeComparator(debug_connection, 
-                                        self.gameboy_debug.cartridge_manager)
+                                        self.gameboy.cartridge_manager)
    
     @printframe("checking ROM")     
     def compare(self, data):
@@ -106,7 +106,7 @@ class ROMComparator(Comparator):
 
 class CartridgeComparator(Comparator):
     
-    def __init__(self, debug_connection, catridge_manager):
+    def __init__(self, debug_connection, cartridge_manager):
         Comparator.__init__(self, debug_connection)
         self.cartridge_manager = cartridge_manager
         

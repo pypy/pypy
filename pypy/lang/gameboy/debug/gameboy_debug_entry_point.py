@@ -19,7 +19,7 @@ if sys.platform == 'darwin':
 
 ROM_PATH    = str(py.magic.autopath().dirpath().dirpath())+"/rom"
 filename    = ROM_PATH + "/rom9/rom9.gb"
-SOCKET_PORT = 55691
+SOCKET_PORT = 55680
 skipExecs   = 22545
 skipExecs   = 1000000
 

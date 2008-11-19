@@ -22,7 +22,7 @@ class GameBoyDebugImplementation(GameBoyImplementation):
      # ------------------------------------------------------------------------   
     def create_comparators(self):
         self.gameboy_comparator = GameboyComparator(self.debug_connection, self)
-        self.rom_comparator = ROMComparator(self, self.debug_connection, self)
+        self.rom_comparator = ROMComparator(self.debug_connection, self)
     
     def compare_rom(data):
          self.rom_comparator.compare(data)
