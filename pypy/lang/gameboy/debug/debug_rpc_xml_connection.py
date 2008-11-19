@@ -51,7 +51,7 @@ class DebugRpcXmlConnection(SimpleXMLRPCServer, threading.Thread):
         self.register_functions()
         self.start()
         
-   def ini_fields():
+    def ini_fields(self):
         self.pending = False
         self.started = False
         self.rom_checked = False

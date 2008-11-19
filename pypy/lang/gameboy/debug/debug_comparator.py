@@ -24,7 +24,7 @@ class printframe(object):
     
 # -----------------------------------------------------------------------------
 
-class Comparator():
+class Comparator:
 
     def __init__(self, debug_connection):
         self.debug_connection = debug_connection
@@ -88,7 +88,7 @@ class GameboyComparator(Comparator):
         #self.print_check("cycles sound", #self.gameboy_debug.sound.cycles, 
         #                    0, data["sound"])   
 
-class ROMComparator():
+class ROMComparator(Comparator):
     
     def __init__(self, debug_connection, gameboy):
         Comparator.__init__(self, debug_connection)

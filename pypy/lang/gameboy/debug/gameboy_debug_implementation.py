@@ -4,7 +4,8 @@ from __future__ import generators
 from pypy.lang.gameboy.gameboy_implementation import *
 from pypy.lang.gameboy.debug.debug_cpu import DebugCPU
 from pypy.lang.gameboy.debug import debug
-from pypy.lang.gameboy.debug.debug_socket_debug_connection import *
+from pypy.lang.gameboy.debug.debug_rpc_xml_connection import *
+from pypy.lang.gameboy.debug.debug_comparator import *
 import time
 import pdb
 
