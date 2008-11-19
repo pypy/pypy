@@ -44,6 +44,7 @@ def encode(in_file, out_file, name=None, mode=None):
     #
     # If in_file is a pathname open it and change defaults
     #
+    close_files = []
     if in_file == '-':
         in_file = sys.stdin
     elif isinstance(in_file, basestring):
@@ -55,6 +56,7 @@ def encode(in_file, out_file, name=None, mode=None):
             except AttributeError:
                 pass
         in_file = open(in_file, 'rb')
+        close_files.append(in_file)
     #
     # Open out_file if it is a pathname
     #
@@ -62,6 +64,7 @@ def encode(in_file, out_file, name=None, mode=None):
         out_file = sys.stdout
     elif isinstance(out_file, basestring):
         out_file = open(out_file, 'w')
+        close_files.append(out_file)
     #
     # Set defaults for name and mode
     #
@@ -78,7 +81,8 @@ def encode(in_file, out_file, name=None, mode=None):
         out_file.write(binascii.b2a_uu(data))
         data = in_file.read(45)
     out_file.write(' \nend\n')
-
+    for f in close_files:
+        f.close()
 
 def decode(in_file, out_file=None, mode=None, quiet=0):
     """Decode uuencoded file"""
