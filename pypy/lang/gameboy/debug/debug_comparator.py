@@ -58,9 +58,9 @@ class GameboyComparator(Comparator):
     def __init__(self, debug_connection, gameboy):
         Comparator.__init__(self, debug_connection)
         self.gameboy = gameboy
-        self.create_part_comparators()
+        self.create_part_comparators(debug_connection)
         
-    def create_part_comparators(debug_connection):
+    def create_part_comparators(self, debug_connection):
         self.cpu_comparator = CPUComparator(debug_connection, self.gameboy.cpu)
         self.timer_comparator = TimerComparator(debug_connection, self.gameboy.timer)
         self.interrupt_comparator = InterruptComparator(debug_connection, self.gameboy)
@@ -76,7 +76,7 @@ class GameboyComparator(Comparator):
         self.ram_comparator.compare(data["ram"])
     
     @printframe("comparing cycles")        
-    def compare_cycles(data):
+    def compare_cycles(self, data):
         self.print_check("cycles video", self.video.cycles, data["video"])
         self.print_check("cycles cpu", 
                 self.gameboy_debug.cpu.cycles, data["cpu"])
@@ -161,14 +161,14 @@ class CPUComparator(Comparator):
         self.compare_registers(data)
    
     @printframe("comparing op codes")     
-    def compare_opcodes(data):
+    def compare_opcodes(self, data):
         self.print_check("last opCode" , self.cpu.last_op_code, 
                          data["last_op_code"])
         self.print_check("last opCode" , self.cpu.last_fetch_execute_op_code,
                          data["last_fetch_exec_op_code"])
         
     @printframe("comparing registers")
-    def compare_registers(data):
+    def compare_registers(self, data):
         registers = data["registers"]
         display_results = []
         mapping =  [("a",  self.cpu.a.get()),  ("f",  self.cpu.flag.get()),
@@ -264,7 +264,7 @@ class VideoComparator(Comparator):
         self.compare_registers(video)
        
     @printframe("comparing memory")  
-    def compare_memory(data):
+    def compare_memory(self, data):
         self.compare_memory("video vram", self.video.vram,
                             data["vram"])
         self.compare_memory("video object attribute memory oam",
@@ -277,7 +277,7 @@ class VideoComparator(Comparator):
                             data["palette"])        
     
     @printframe("comparing registers")    
-    def compare_registers(data):
+    def compare_registers(self, data):
         self.print_check("video dirty", \
                 self.video.dirty, data["dirty"])
         self.print_check("video display", \
