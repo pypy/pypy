@@ -1,4 +1,4 @@
-from test.test_support import verbose, have_unicode, TestFailed
+from test.test_support import verbose, have_unicode, TestFailed, check_impl_detail
 import sys
 from test.test_support import MAX_Py_ssize_t
 maxsize = MAX_Py_ssize_t
@@ -251,8 +251,9 @@ class Foobar(long):
         # Returning a non-string should not blow up.
         return self + 1
 
-test_exc('%o', Foobar(), TypeError,
-         "expected string or Unicode object, long found")
+if check_impl_detail:
+    test_exc('%o', Foobar(), TypeError,
+             "expected string or Unicode object, long found")
 
 if maxsize == 2**31-1:
     # crashes 2.2.1 and earlier:
