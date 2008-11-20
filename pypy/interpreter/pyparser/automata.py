@@ -33,9 +33,10 @@ class DFA:
     # ____________________________________________________________
     def recognize (self, inVec, pos = 0): # greedy = True
         crntState = self.start
-        i = pos
         lastAccept = False
-        for item in inVec[pos:]:
+        i = pos
+        for i in range(pos, len(inVec)):
+            item = inVec[i]
             # arcMap, accept = self.states[crntState]
             arcMap = self.states[crntState]
             accept = self.accepts[crntState]
@@ -52,12 +53,11 @@ class DFA:
             else:
                 return -1
             lastAccept = accept
-            i += 1
         # if self.states[crntState][1]:
         if self.accepts[crntState]:
-            return i
+            return i + 1
         elif lastAccept:
-            return i - 1
+            return i
         else:
             return -1
 
