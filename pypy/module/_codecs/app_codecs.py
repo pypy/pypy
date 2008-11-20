@@ -210,7 +210,7 @@ def charmap_decode( data, errors='strict', mapping=None):
     """None
     """
     res = PyUnicode_DecodeCharmap(data, len(data), mapping, errors)
-    res = ''.join(res)
+    res = u''.join(res)
     return res, len(data)
 
 
