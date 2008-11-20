@@ -267,7 +267,7 @@ testmap = [
     RegrTest('test_ioctl.py'),
     RegrTest('test_isinstance.py', core=True),
     RegrTest('test_iter.py', core=True),
-    RegrTest('test_iterlen.py', core=True),
+    RegrTest('test_iterlen.py', skip="undocumented internal API behavior __length_hint__"),
     RegrTest('test_itertools.py', core=True),
 
     RegrTest('test_largefile.py'),
