@@ -167,8 +167,16 @@ class Edge:
     def arrowhead(self):
         result = self.cachedarrowhead
         if result is None:
-            bottom_up = self.points[0][1] > self.points[-1][1]
-            if (self.tail.y > self.head.y) != bottom_up:   # reversed edge
+            # we don't know if the list of points is in the right order
+            # or not :-(  try to guess...
+            def dist(node, pt):
+                return abs(node.x - pt[0]) + abs(node.y - pt[1])
+
+            error_if_direct = (dist(self.head, self.points[-1]) +
+                               dist(self.tail, self.points[0]))
+            error_if_reversed = (dist(self.tail, self.points[-1]) +
+                                 dist(self.head, self.points[0]))
+            if error_if_direct > error_if_reversed:   # reversed edge
                 head = 0
                 dir = 1
             else:
