@@ -103,7 +103,8 @@ class EnumerateTestCase(unittest.TestCase):
         self.assertRaises(TypeError, self.enum, 'abc', 2) # too many arguments
 
     #Don't test this in PyPy, since the tuple can't be reused
-    def DONOT_test_tuple_reuse(self):
+    @test_support.impl_detail()
+    def test_tuple_reuse(self):
         # Tests an implementation detail where tuple is reused
         # whenever nothing else holds a reference to it
         self.assertEqual(len(set(map(id, list(enumerate(self.seq))))), len(self.seq))
@@ -121,12 +122,9 @@ class TestEmpty(EnumerateTestCase):
     seq, res = '', []
 
 class TestBig(EnumerateTestCase):
-    ##original test (takes too long in PyPy):
-    #seq = range(10,20000, 2)
-    #res = zip(range(20000), seq)
 
-    seq = range(10, 200, 2)
-    res = zip(range(200), seq)
+    seq = range(10,20000,2)
+    res = zip(range(20000), seq)
 
 class TestReversed(unittest.TestCase):
 
@@ -142,11 +140,12 @@ class TestReversed(unittest.TestCase):
             self.assertEqual(list(data)[::-1], list(reversed(data)))
         self.assertRaises(TypeError, reversed, {})
 
-# Implementation detail
-#    def test_xrange_optimization(self):
-#        x = xrange(1)
-#        self.assertEqual(type(reversed(x)), type(iter(x)))
+    @test_support.impl_detail()
+    def test_xrange_optimization(self):
+        x = xrange(1)
+        self.assertEqual(type(reversed(x)), type(iter(x)))
 
+    @test_support.impl_detail()
     def test_len(self):
         # This is an implementation detail, not an interface requirement
         from test.test_iterlen import len
