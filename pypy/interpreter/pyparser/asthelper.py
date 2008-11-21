@@ -94,7 +94,7 @@ def parse_argument(tokens, builder):
             dstararg_token = tokens[index]
             break
         elif cur_token.get_value() == 'for':
-            if building_kw:
+            if kw_built:
                 raise SyntaxError("invalid syntax", cur_token.lineno,
                                   cur_token.col)
             if len(arguments) != 1:
