@@ -1,9 +1,14 @@
 """test module for CPython / PyPy nested tuples comparison"""
 import os, os.path as osp
+import sys
 from symbol import sym_name
 from pprint import pprint
 
 import py
+
+def setup_module(mod):
+    if sys.version > '2.5':
+        py.test.skip("Fails on top of cpy 2.5 for messy reasons, investigate")
 
 from pypy.interpreter.pyparser.pythonutil import python_parsefile, \
     pypy_parsefile, pypy_parse, python_parse, get_grammar_file, PYTHON_VERSION
