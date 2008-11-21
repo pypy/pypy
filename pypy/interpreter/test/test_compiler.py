@@ -683,6 +683,16 @@ with somtehing as stuff:
         else:
             py.test.fail("Did not raise")
 
+    def test_invalid_genexp(self):
+        code = 'dict(a = i for i in xrange(10))'
+        try:
+            self.compiler.compile(code, '', 'single', 0)
+        except OperationError, e:
+            if not e.match(self.space, self.space.w_SyntaxError):
+                raise
+        else:
+            py.test.fail("Did not raise")
+
 class TestECCompiler(BaseTestCompiler):
     def setup_method(self, method):
         self.space.config.objspace.pyversion = "2.4"
