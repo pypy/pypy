@@ -1533,6 +1533,8 @@ class AugLoadVisitor(ast.ASTVisitor):
     def visitSubscript(self, node):
         self.main._visitSubscript(node, True)
 
+    def visitYield(self, node):
+        raise SyntaxError("augmented assignment to yield expression not possible")
 
 class AugStoreVisitor(ast.ASTVisitor):
     def __init__(self, main_visitor):

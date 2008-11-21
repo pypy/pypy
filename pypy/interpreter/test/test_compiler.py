@@ -673,6 +673,15 @@ with somtehing as stuff:
         code ='def f():\n try:\n  yield 19\n finally:\n  pass\n'
         self.compiler.compile(code, '', 'single', 0)
 
+    def test_assign_to_yield(self):
+        code = 'def f(): (yield bar) += y'
+        try:
+            self.compiler.compile(code, '', 'single', 0)
+        except OperationError, e:
+            if not e.match(self.space, self.space.w_SyntaxError):
+                raise
+        else:
+            py.test.fail("Did not raise")
 
 class TestECCompiler(BaseTestCompiler):
     def setup_method(self, method):
