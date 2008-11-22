@@ -305,6 +305,13 @@ class AppTest_OverflowTestCase:
         assert x[self.neg:self.pos] == (-1, maxint)
         assert x[self.neg:self.pos:1].indices(maxint) == (0, maxint, 1)
 
+    def test_getslice_nolength(self):
+        class X(object):
+            def __getslice__(self, i, j):
+                return (i, j)
+
+        assert X()[-2:1] == (-2, 1)
+
     def test_getitem_classic(self):
         from sys import maxint
         class Empty: pass

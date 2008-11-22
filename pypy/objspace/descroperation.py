@@ -494,10 +494,17 @@ def old_slice_range(space, w_obj, w_start, w_stop):
     else:
         w_start = space.wrap(space.getindex_w(w_start, None))
         if space.is_true(space.lt(w_start, space.wrap(0))):
-            w_start = space.add(w_start, space.len(w_obj))
+            try:
+                w_start = space.add(w_start, space.len(w_obj))
+            except OperationError, e:
+                if not ((e.match(space, space.w_AttributeError) or
+                         e.match(space, space.w_TypeError))):
+                    raise
             # NB. the language ref is inconsistent with the new-style class
             # behavior when w_obj doesn't implement __len__(), so we just
-            # ignore this case.
+            # follow cpython. Also note that CPython slots make it easier
+            # to check for object implementing it or not. We just catch errors
+            # so this behavior is slightly different
     if space.is_w(w_stop, space.w_None):
         w_stop = space.wrap(slice_max)
     else:
