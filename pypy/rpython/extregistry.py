@@ -6,7 +6,7 @@ from pypy.tool.uid import Hashable
 class AutoRegisteringType(type):
 
     def __init__(selfcls, name, bases, dict):
-        super(AutoRegisteringType, selfcls).__init__(selfcls, name, bases, dict)
+        type.__init__(selfcls, name, bases, dict)
         if '_about_' in dict:
             selfcls._register_value(dict['_about_'])
             del selfcls._about_   # avoid keeping a ref
