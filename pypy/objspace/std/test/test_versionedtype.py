@@ -89,20 +89,16 @@ class TestVersionedType(test_typeobject.TestTypeObject):
                 pass
             class MODULE(type(sys)):
                 pass
-            def f(x): pass
-            class FUNCTION(type(f)):
-                pass
             class OBJECT(object):
                 pass
-            return [LIST, DICT, TYPE, MODULE, FUNCTION, OBJECT]
+            return [LIST, DICT, TYPE, MODULE, OBJECT]
         """)
-        (w_LIST, w_DICT, w_TYPE, w_MODULE, w_FUNCTION,
+        (w_LIST, w_DICT, w_TYPE, w_MODULE,
                  w_OBJECT) = space.unpackiterable(w_types)
         assert w_LIST.version_tag is not None
         assert w_DICT.version_tag is not None
         assert w_TYPE.version_tag is None
         assert w_MODULE.version_tag is None
-        assert w_FUNCTION.version_tag is None
         assert w_OBJECT.version_tag is not None
 
 class AppTestVersionedType(test_typeobject.AppTestTypeObject):
