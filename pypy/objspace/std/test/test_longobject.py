@@ -147,7 +147,7 @@ class AppTestLong:
     def test_format(self):
         assert repr(12345678901234567890) == '12345678901234567890L'
         assert str(12345678901234567890) == '12345678901234567890'
-        assert hex(0x1234567890ABCDEFL) == '0x1234567890ABCDEFL'
+        assert hex(0x1234567890ABCDEFL) == '0x1234567890abcdefL'
         assert oct(01234567012345670L) == '01234567012345670L'
 
     def test_bits(self):

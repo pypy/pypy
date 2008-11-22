@@ -308,7 +308,7 @@ class Test_rbigint(object):
         x = rbigint.fromlong(-18471379832321)
         assert x.str() == '-18471379832321'
         assert x.repr() == '-18471379832321L'
-        assert x.hex() == '-0x10CCB4088E01L'
+        assert x.hex() == '-0x10ccb4088e01L'
         assert x.oct() == '-0414626402107001L'
         assert x.format('.!') == (
             '-!....!!..!!..!.!!.!......!...!...!!!........!')

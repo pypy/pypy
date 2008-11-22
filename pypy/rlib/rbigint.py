@@ -1336,7 +1336,7 @@ def _bigint_true_divide(a, b):
 
 BASE8  = '01234567'
 BASE10 = '0123456789'
-BASE16 = '0123456789ABCDEF'
+BASE16 = '0123456789abcdef'
 
 def _format(a, digits, prefix='', suffix=''):
     """
