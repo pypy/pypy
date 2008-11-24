@@ -30,7 +30,7 @@ class ResourceDenied(TestSkipped):
     """
 
 verbose = 1              # Flag set to 0 by regrtest.py
-use_resources = ['urlfetch']     # Flag set to [] by regrtest.py
+use_resources = None     # Flag set to [] by regrtest.py
 max_memuse = 0           # Disable bigmem tests (they will still be run with
                          # small sizes, to make sure they work.)
 
