@@ -451,14 +451,14 @@ class CStandaloneBuilder(CBuilder):
         rules = [
             ('clean', '', 'rm -f $(OBJECTS) $(TARGET) $(GCMAPFILES) *.gc?? ../module_cache/*.gc??'),
             ('clean_noprof', '', 'rm -f $(OBJECTS) $(TARGET) $(GCMAPFILES)'),
-            ('debug', '', '$(MAKE) CFLAGS="-g -DRPY_ASSERT" $(TARGET)'),
-            ('debug_exc', '', '$(MAKE) CFLAGS="-g -DRPY_ASSERT -DDO_LOG_EXC" $(TARGET)'),
-            ('debug_mem', '', '$(MAKE) CFLAGS="-g -DRPY_ASSERT -DTRIVIAL_MALLOC_DEBUG" $(TARGET)'),
-            ('no_obmalloc', '', '$(MAKE) CFLAGS="-g -DRPY_ASSERT -DNO_OBMALLOC" $(TARGET)'),
-            ('linuxmemchk', '', '$(MAKE) CFLAGS="-g -DRPY_ASSERT -DLINUXMEMCHK" $(TARGET)'),
+            ('debug', '', '$(MAKE) CFLAGS="-g -O1 -DRPY_ASSERT" $(TARGET)'),
+            ('debug_exc', '', '$(MAKE) CFLAGS="-g -O1 -DRPY_ASSERT -DDO_LOG_EXC" $(TARGET)'),
+            ('debug_mem', '', '$(MAKE) CFLAGS="-g -O1 -DRPY_ASSERT -DTRIVIAL_MALLOC_DEBUG" $(TARGET)'),
+            ('no_obmalloc', '', '$(MAKE) CFLAGS="-g -O1 -DRPY_ASSERT -DNO_OBMALLOC" $(TARGET)'),
+            ('linuxmemchk', '', '$(MAKE) CFLAGS="-g -O1 -DRPY_ASSERT -DLINUXMEMCHK" $(TARGET)'),
             ('llsafer', '', '$(MAKE) CFLAGS="-O2 -DRPY_LL_ASSERT" $(TARGET)'),
-            ('lldebug', '', '$(MAKE) CFLAGS="-g -DRPY_ASSERT -DRPY_LL_ASSERT" $(TARGET)'),
-            ('profile', '', '$(MAKE) CFLAGS="-g -pg $(CFLAGS)" LDFLAGS="-pg $(LDFLAGS)" $(TARGET)'),
+            ('lldebug', '', '$(MAKE) CFLAGS="-g -O1 -DRPY_ASSERT -DRPY_LL_ASSERT" $(TARGET)'),
+            ('profile', '', '$(MAKE) CFLAGS="-g -O1 -pg $(CFLAGS)" LDFLAGS="-pg $(LDFLAGS)" $(TARGET)'),
             ]
         if self.has_profopt():
             rules.append(
