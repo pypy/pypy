@@ -1114,6 +1114,8 @@ True
 >>> o is o2
 True
 >>> del o, o2
+>>> gc.collect()
+0
 >>> print r()
 None
 
@@ -1151,7 +1153,7 @@ None
 True
 
 
->>> import weakref
+>>> import weakref, gc
 >>> _id2obj_dict = weakref.WeakValueDictionary()
 >>> def remember(obj):
 ...     oid = id(obj)
@@ -1166,6 +1168,8 @@ True
 >>> id2obj(a_id) is a
 True
 >>> del a
+>>> gc.collect()
+0
 >>> try:
 ...     id2obj(a_id)
 ... except KeyError:
