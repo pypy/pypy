@@ -33,7 +33,7 @@ class GameBoyDebugImplementation(GameBoyImplementation):
     # ------------------------------------------------------------------------
     
     def init_sdl(self):
-        pass;
+        pass
         
     def create_drivers(self):
         # make sure only the debug drivers are implemented
@@ -43,10 +43,10 @@ class GameBoyDebugImplementation(GameBoyImplementation):
         self.sound_driver  = SoundDriverImplementation()
         
     def emulate_cycle(self):
-       	self.emulate(constants.GAMEBOY_CLOCK >> 2)
+        self.emulate(constants.GAMEBOY_CLOCK >> 2)
    
     def handle_execution_error(self, error):
-    	print error
+        print error
         print "closing socket debug_connections"
         pdb.set_trace()
         self.is_running = False
@@ -86,7 +86,7 @@ class JoypadDriverDebugImplementation(JoypadDriver):
         JoypadDriver.__init__(self)
       
     def update(self, event):
-      	pass;  
+        pass
         
         
 # SOUND DRIVER -----------------------------------------------------------------

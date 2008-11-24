@@ -84,7 +84,7 @@ class DebugRpcXmlConnection(SimpleXMLRPCServer, threading.Thread):
     #  ===================================================================
         
     def close(self):
-    	pdb.set_trace()
+        pdb.set_trace()
         if not self.is_closed:
             print "python: called close"
             self.server_close()
@@ -165,7 +165,7 @@ class DebugRpcXmlConnection(SimpleXMLRPCServer, threading.Thread):
             if int(read) > 0:
                 self.pending_steps = int(read)
             if read == "pdb":
-            	pdb.set_trace()
+                pdb.set_trace()
         except Exception:
             if ("stop" in read) or ("exit" in read) or (read is "Q"):
                 raise Exception("Debug mode Stopped by User")

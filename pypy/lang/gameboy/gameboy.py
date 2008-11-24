@@ -126,7 +126,6 @@ class GameBoy(object):
         receiver = self.get_receiver(address)
         if receiver is None:
             raise Exception("invalid read address given")
-        	#return
         receiver.write(address, data)
         if address == constants.STAT or address == 0xFFFF:
             self.cpu.handle_pending_interrupts()
@@ -135,7 +134,7 @@ class GameBoy(object):
         receiver = self.get_receiver(address)
         if receiver is None:
            # raise Exception("invalid read address given")
-        	return 0xFF
+            return 0xFF
         return receiver.read(address)
 
     def print_receiver_msg(self, address, name):

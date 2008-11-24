@@ -46,7 +46,7 @@ def resolve_opcode_name(opcode):
             return cpu.OP_CODES[opcode].func_code.co_names;
     else:
         return method;
-	
+
 def resolve_fetch_opcode_name(opcode):
     method = cpu.OP_CODES[opcode].__name__
     if method == "<lambda>":
@@ -65,7 +65,7 @@ def print_results():
     opcode_range = range(len(fetch_execute_op_codes))
     arguments = zip([0x83]  * len(fetch_execute_op_codes), opcode_range)
     fetch_exec_keys = map( print_function, opcode_range, arguments )
-	# Append the fetchexecuted opcodes to the list
+    # Append the fetchexecuted opcodes to the list
     codes.extend(zip(fetch_exec_keys, fetch_execute_op_codes))
     
     codes = sorted(codes, key=operator.itemgetter(1))
