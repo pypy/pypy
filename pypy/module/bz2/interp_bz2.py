@@ -631,6 +631,8 @@ class W_BZ2Decompressor(Wrappable):
             rffi.setintfield(self.bzs, 'c_avail_in', in_bufsize)
             self.bzs.c_next_out = out_buf
             rffi.setintfield(self.bzs, 'c_avail_out', out_bufsize)
+
+            total_out = _bzs_total_out(self.bzs)
         
             temp = []
             while True:
@@ -647,9 +649,11 @@ class W_BZ2Decompressor(Wrappable):
                 if rffi.getintfield(self.bzs, 'c_avail_in') == 0:
                     break
                 elif rffi.getintfield(self.bzs, 'c_avail_out') == 0:
-                    total_out = _bzs_total_out(self.bzs)
-                    assert out_bufsize >= total_out
-                    data = "".join([out_buf[i] for i in range(total_out)])
+                    new_total_out = _bzs_total_out(self.bzs)
+                    extra_out = new_total_out - total_out
+                    assert out_bufsize >= extra_out
+                    total_out = new_total_out
+                    data = "".join([out_buf[i] for i in range(extra_out)])
                     temp.append(data)
                     lltype.free(out_buf, flavor='raw')
                     out_bufsize = _new_buffer_size(out_bufsize)
@@ -657,14 +661,15 @@ class W_BZ2Decompressor(Wrappable):
                     self.bzs.c_next_out = out_buf
                     rffi.setintfield(self.bzs, 'c_avail_out', out_bufsize)
                 
+            new_total_out = _bzs_total_out(self.bzs)
+            extra_out = new_total_out - total_out
+
             if temp:
-                total_out = _bzs_total_out(self.bzs)
-                data = "".join([out_buf[i] for i in range(total_out - len(temp[0]))])
+                data = "".join([out_buf[i] for i in range(extra_out)])
                 temp.append(data)
                 return self.space.wrap("".join(temp))
 
-            total_out = _bzs_total_out(self.bzs)
-            res = "".join([out_buf[i] for i in range(total_out) if out_buf[i] != '\x00'])
+            res = "".join([out_buf[i] for i in range(extra_out)])
             return self.space.wrap(res)
         finally:
             lltype.free(in_buf, flavor='raw')
