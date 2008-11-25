@@ -259,8 +259,7 @@ class RPythonTyper(object):
             if minimize and isinstance(err, BrokenReprTyperError): 
                 bc += 1
                 continue
-            block, position = err.where
-            graph = self.annotator.annotated.get(block, None)
+            graph, block, position = err.where
             errmsg = ("TyperError-%d: %s\n" % (c, graph) +
                       str(err) +
                       "\n")
@@ -525,7 +524,8 @@ class RPythonTyper(object):
         """Record a TyperError without crashing immediately.
         Put a 'TyperError' operation in the graph instead.
         """
-        e.where = (block, position)
+        graph = self.annotator.annotated.get(block)
+        e.where = (graph, block, position)
         self.typererror_count += 1
         if self.crash_on_first_typeerror:
             raise
