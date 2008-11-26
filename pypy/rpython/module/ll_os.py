@@ -368,13 +368,18 @@ class RegisterOs(BaseLazyRegistering):
             l_tmsbuf = lltype.malloc(TMSP.TO, flavor='raw')
             try:
                 result = os_times(l_tmsbuf)
-                if result == rffi.cast(self.CLOCK_T, -1):
+                result = rffi.cast(lltype.Signed, result)
+                if result == -1:
                     raise OSError(rposix.get_errno(), "times failed")
                 return (
-                    l_tmsbuf.c_tms_utime / CLOCK_TICKS_PER_SECOND,
-                    l_tmsbuf.c_tms_stime / CLOCK_TICKS_PER_SECOND,
-                    l_tmsbuf.c_tms_cutime / CLOCK_TICKS_PER_SECOND,
-                    l_tmsbuf.c_tms_cstime / CLOCK_TICKS_PER_SECOND,
+                    rffi.cast(lltype.Signed, l_tmsbuf.c_tms_utime)
+                                                   / CLOCK_TICKS_PER_SECOND,
+                    rffi.cast(lltype.Signed, l_tmsbuf.c_tms_stime)
+                                                   / CLOCK_TICKS_PER_SECOND,
+                    rffi.cast(lltype.Signed, l_tmsbuf.c_tms_cutime)
+                                                   / CLOCK_TICKS_PER_SECOND,
+                    rffi.cast(lltype.Signed, l_tmsbuf.c_tms_cstime)
+                                                   / CLOCK_TICKS_PER_SECOND,
                     result / CLOCK_TICKS_PER_SECOND)
             finally:
                 lltype.free(l_tmsbuf, flavor='raw')
