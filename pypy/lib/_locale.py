@@ -36,7 +36,12 @@ class LocaleConfigure:
 for key in _CONSTANTS:
     setattr(LocaleConfigure, key, ConstantInteger(key))
 
-locale_config = configure(LocaleConfigure)
+try:
+    locale_config = configure(LocaleConfigure)
+except Exception, e:
+    # should probably be moved into configure()
+    # as an optional feature
+    raise ImportError("%s: %s" % (e.__class__, e))
 
 for key in _CONSTANTS:
     globals()[key] = locale_config[key]
