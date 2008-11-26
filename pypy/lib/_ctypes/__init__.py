@@ -19,7 +19,7 @@ if _os.name in ("nt", "ce"):
 
 from _rawffi import FUNCFLAG_STDCALL, FUNCFLAG_CDECL, FUNCFLAG_PYTHONAPI
 
-__version__ = '1.0.2'
+__version__ = '1.0.3'
 #XXX platform dependant?
 RTLD_LOCAL = 0
 RTLD_GLOBAL = 256
