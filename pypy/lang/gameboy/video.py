@@ -666,8 +666,8 @@ class Video(iMemory):
                 color = (self.object_palette_1 >> ((((pattern >> 4) & 0x02) +\
                         ((pattern >> 1) & 0x01)) << 1)) & 0x03
             index = ((pattern & 0x30) << 4) + (pattern & 0x0F)
-            self.palette[index] = constants.COLOR_MAP[color]
-            #self.palette[index] = color
+            #self.palette[index] = constants.COLOR_MAP[color]
+            self.palette[index] = color
         self.dirty = False
 
 # ------------------------------------------------------------------------------
