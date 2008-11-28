@@ -1,8 +1,9 @@
+#!/usr/bin/env python
 
 dont_import_rsdl = True
 
 from pypy.lang.gameboy.debug.gameboy_debug_implementation import *
-from pypy.lang.gameboy.debug.debug_rpc_xml_memory import *
+from pypy.lang.gameboy.debug.debug_rpc_xml_connection import *
 import py
 import sys
 import os
@@ -38,7 +39,7 @@ def parse_file_name():
 
 def start_python_version():
     global filename, skipExecs
-    gameBoy = GameBoyDebugImplementation(SOCKET_PORT, skipExecs, DebugRpcXmlMemory)
+    gameBoy = GameBoyDebugImplementation(SOCKET_PORT, skipExecs, DebugRpcXmlConnection)
     try:
         gameBoy.load_cartridge_file(str(filename))
     except Exception, error:

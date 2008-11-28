@@ -45,6 +45,7 @@ class DebugRpcXmlConnection(SimpleXMLRPCServer, threading.Thread):
         self.skipExecs            = skipExecs;
         self.debuggerPort         = debuggerPort
         self.gameboy_debug        = gameboy_debug
+        self.cpu                  = gameboy_debug.cpu
         self.ini_fields()
         #self.rpc_paths.append("/pygirl")
         self.register_introspection_functions()
@@ -66,7 +67,7 @@ class DebugRpcXmlConnection(SimpleXMLRPCServer, threading.Thread):
         
     def register_functions(self):
         for fn in [(self.start_debug,       "start"),
-                   (self.compare_rom,       "check_rom"),
+                   (self.check_rom,         "check_rom"),
                    (self.close,             "close"),
                    (self.compare_system,    "compare"),
                    (self.has_next,          "has_next"),
