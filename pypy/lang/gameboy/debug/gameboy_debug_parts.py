@@ -94,6 +94,5 @@ class DebugMode3(Mode3):
         Mode3.__init__(self, debug_video)    
        
     def emulate_transfer(self):
-        self.video.emulate_transfer = True
+        self.video.emulated_transfer = True
         Mode3.emulate_transfer(self)
-                    

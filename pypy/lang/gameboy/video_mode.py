@@ -217,8 +217,8 @@ class Mode3(Mode):
         if self.video.transfer:
             if self.video.display:
                 self.video.draw_line()
-                #print "mode 3 ", self.video.status.get_mode() 
             self.set_end()
+                #print "mode 3 ", self.video.status.get_mode() 
         else:
             self.video.status.set_mode(0)
         

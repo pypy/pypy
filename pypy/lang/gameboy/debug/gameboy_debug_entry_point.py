@@ -23,7 +23,7 @@ filename    = ROM_PATH + "/rom9/rom9.gb"
 SOCKET_PORT = 55680
 skipExecs   = 22545
 skipExecs   = 2700
-skipExecs   = 0
+# skipExecs   = 0
 
 # ------------------------------------------------------------------------------
 
@@ -77,7 +77,7 @@ def start_java_version():
     #           " -classpath "+ (':'.join(JAVA_CLASSPATH)) +\
     #           " gameboy.platform.j2se.Main " + \
     #           filename + " "
-    # os.system(command)
+    os.system(command)
 
     
     

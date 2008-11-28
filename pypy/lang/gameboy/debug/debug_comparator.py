@@ -42,14 +42,14 @@ class Comparator:
             self.print_compare(name+" value at "+hex(address), \
                     expected[address], new[address])
     
-    def print_compare(self, msg, expected, got, output=False):
-        if expected != got:
+    def print_compare(self, msg, python, java, output=False):
+        if java != python:
             self.compare_failed = True
-            print "python: !!", msg, "expected:", expected, "got:", got, "!!"
+            print "python: !!", msg, "java:", java, "python:", python, "!!"
             
     
-    def print_mismatch(self, part, expected, got):
-        print "python:", str(part), "expected:", str(expected), "got:", str(got)
+    def print_mismatch(self, part, python, java):
+        print "python:", str(part), "java:", str(java), "python:", str(python)
         
         
     def compare_set(self, set, data, label=""):
@@ -133,9 +133,9 @@ class CartridgeComparator(Comparator):
     def compare(self, data):
         cmp = [
             ("ROM size",
-                    self.cartridge_manager.get_rom_size(), "ramSize"),
+                    self.cartridge_manager.get_rom_size(), "romSize"),
             ("RAM size", 
-                    self.cartridge_manager.get_ram_size(), "romSize"),
+                    self.cartridge_manager.get_ram_size(), "ramSize"),
             ("Memory Bank Type", 
                     self.cartridge_manager.get_memory_bank_type(), "type"),
             ("checksum", 
@@ -200,8 +200,8 @@ class CPUComparator(Comparator):
         self.print_registers(mapping, display_results)
             
     def print_registers(self, mapping, display_results):
+	    line = ""
 	    for i in range(len(display_results)):
-	        line = ""
 	        line += mapping[i][0].rjust(2) + ": "
 	        line += str(display_results[i][0]).rjust(3) + " | "
 	    print line
@@ -265,6 +265,7 @@ class VideoComparator(Comparator):
      
     @printframe("comparing video")   
     def compare(self, data):
+        print "Java video-mode:", data["stat"] & 3, "python:", self.video.status.get_mode()
         self.compare_video_memory(data)
         self.compare_registers(data)
         self.compare_other(data)
@@ -272,7 +273,7 @@ class VideoComparator(Comparator):
     @printframe("comparing memory")  
     def compare_video_memory(self, data):
         cmp = [
-            (" vram",   self.video.vram,    "vram"),
+            ("vram",    self.video.vram,    "vram"),
             ("oam",     self.video.oam,     "oam"),
             ("line",    self.video.line,    "line"),
             ("objects", self.video.objects, "objects"),
@@ -311,15 +312,15 @@ class VideoComparator(Comparator):
                     self.video.last_read_address, "last_read_address"),
             ("Last Write Address", 
                     self.video.last_write_address, "last_write_address"),
-            ("Last eritten Data", 
+            ("Last written Data", 
                     self.video.last_write_data, "last_write_data"),
-            ("Check wether emulated HBlank", 
+            ("Check whether emulated HBlank", 
                     self.video.emulated_hblank, "emulated_hblank"),
-            ("Check wether emulated OAM", 
+            ("Check whether emulated OAM", 
                     self.video.emulated_oam, "emulated_oam"),
-            ("Check wether emulated Transfer", 
+            ("Check whether emulated Transfer", 
                     self.video.emulated_transfer, "emulated_transfer"),
-            ("Check wether emulated VBLank", 
+            ("Check whether emulated VBLank", 
                     self.video.emulated_vblank, "emulated_vblank"),
         ]
         self.compare_set(cmp, data, label="video")
