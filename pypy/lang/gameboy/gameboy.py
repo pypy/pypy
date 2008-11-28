@@ -218,3 +218,12 @@ class GameBoy(object):
             self.video.write(0x9924 + tile, tile + 13)
         self.video.write(0x9904 + 12, 25)
 
+
+if __name__ == '__main__':
+    import sys
+    from pypy.lang.gameboy.gameboy_implementation import GameBoyImplementation
+    gameboy = GameBoyImplementation()
+    rom = sys.argv[1]
+    print rom
+    gameboy.load_cartridge_file(rom, verify=True)
+    gameboy.mainLoop()

@@ -28,6 +28,8 @@ class DebugSocketMemory(object):
     def start_debug_session(self):
         self.compare_rom()
         
-    def compare_rom(self):
+    def compare_rom(self, data):
+        print "Shouldn't be used!"
+        exit()
         pass
             

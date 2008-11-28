@@ -50,6 +50,7 @@ class DebugRpcXmlConnection(SimpleXMLRPCServer, threading.Thread):
         #self.rpc_paths.append("/pygirl")
         self.register_introspection_functions()
         self.register_functions()
+        self.allow_none = True
         self.start()
         
     def ini_fields(self):
@@ -67,7 +68,7 @@ class DebugRpcXmlConnection(SimpleXMLRPCServer, threading.Thread):
         
     def register_functions(self):
         for fn in [(self.start_debug,       "start"),
-                   (self.check_rom,         "check_rom"),
+                   (self.compare_rom,       "compare_rom"),
                    (self.close,             "close"),
                    (self.compare_system,    "compare"),
                    (self.has_next,          "has_next"),
@@ -76,11 +77,15 @@ class DebugRpcXmlConnection(SimpleXMLRPCServer, threading.Thread):
     
     #  ===================================================================
     
-    def check_rom(self, data):
+    def compare_rom(self, data):
         self.gameboy_debug.compare_rom(data)
+        self.rom_checked = True
+        return "checkedRom"
     
     def compare_system(self, data):
         self.gameboy_debug.compare_system(data)
+        self.pending = False
+        return "checked"
 
     #  ===================================================================
         

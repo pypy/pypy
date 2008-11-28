@@ -1,3 +1,5 @@
+from pypy.lang.gameboy.debug.debug_util import *
+from pypy.lang.gameboy import constants
 
 class printframe(object):
     open = 0
@@ -52,13 +54,13 @@ class Comparator:
         
     def compare_set(self, set, data, label=""):
         for compare_value in set:
-            self.print_check(label+": "+compare_value[0], 
+            self.print_compare(label+": "+compare_value[0], 
                              compare_value[1], 
                              data[compare_value[2]]);
             
     def compare_memory_set(self, set, data, label=""):
         for compare_value in set:
-            self.compare_memory(label+": "++compare_value[0], 
+            self.compare_memory(label+": "+compare_value[0], 
                                 compare_value[1], 
                                 data[compare_value[2]]);
         
@@ -94,22 +96,23 @@ class GameboyComparator(Comparator):
     @printframe("comparing cycles")        
     def compare_cycles(self, data):
         cmp = [
-                ("video",  self.video.cycles,                "data"),
-                ("cpu",    self.gameboy_debug.cpu.cycles,    "cpu"),
-                ("serial", self.gameboy_debug.serial.cycles, "serial"),
-                ("joypad", self.gameboy_debug.joypad.cycles, "joypad")
+                ("video",  self.gameboy.video.cycles,  "video"),
+                ("cpu",    self.gameboy.cpu.cycles,    "cpu"),
+                ("serial", self.gameboy.serial.cycles, "serial"),
+                ("joypad", self.gameboy.joypad.cycles, "joypad")
         ]
         self.compare_set(cmp, data, label="cycles")  
         #sound not yet implemented so no  use for checking cycles here
-        #self.print_check("cycles sound", #self.gameboy_debug.sound.cycles, 
+        #self.print_compare("cycles sound", #self.gameboy_debug.sound.cycles, 
         #                    0, data["sound"])   
 
 class ROMComparator(Comparator):
     def __init__(self, debug_connection, gameboy):
         Comparator.__init__(self, debug_connection)
         self.gameboy = gameboy
-        self.cartridgeComparator = CartridgeComparator(debug_connection, 
+        self.cartridge_comparator = CartridgeComparator(debug_connection, 
                                         self.gameboy.cartridge_manager)
+        self.rom = self.gameboy.rom
    
     @printframe("checking ROM")     
     def compare(self, data):
@@ -117,8 +120,8 @@ class ROMComparator(Comparator):
             ("ROM", self.rom, "rom"),
             ("Registered Bitmap", constants.REGISTERED_BITMAP, "registeredBitmap")
         ]
-        self.compare_set(cmp, data)
-        self.compare_cartridge(data)
+        self.compare_memory_set(cmp, data)
+        self.cartridge_comparator.compare(data)
         
 
 class CartridgeComparator(Comparator):
@@ -166,7 +169,7 @@ class CPUComparator(Comparator):
         
     @printframe("comparing CPU")    
     def compare(self, data):
-        self.print_check("instruction count",
+        self.print_compare("instruction count",
                          self.cpu.instruction_counter, 
                          data["instruction_count"])
         self.compare_opcodes(data)
@@ -182,7 +185,7 @@ class CPUComparator(Comparator):
         self.compare_set(cmp, data)
         
     @printframe("comparing registers")
-    def compare_registers(self, data):
+    def compare_registers(self, registers):
         display_results = []
         mapping =  [
             ("a",  self.cpu.a.get()),  ("f",  self.cpu.flag.get()),
@@ -193,20 +196,20 @@ class CPUComparator(Comparator):
         ];
         for reg in mapping:
             display_results.append((reg[1], registers[reg[0]]))
-            self.print_check("register %s" % reg[0], reg[1], registers[reg[0]], output=True)
-        self.print_register(mapping, display_results)
+            self.print_compare("register %s" % reg[0], reg[1], registers[reg[0]], output=True)
+        self.print_registers(mapping, display_results)
             
     def print_registers(self, mapping, display_results):
 	    for i in range(len(display_results)):
 	        line = ""
 	        line += mapping[i][0].rjust(2) + ": "
 	        line += str(display_results[i][0]).rjust(3) + " | "
-	        print line
-	        line =""
-	        for i in range(len(display_results)):
-	            line += "    " + str(display_results[i][0]).rjust(3) + " | "
-	        print line
-	        self.print_cpu_fetch()
+	    print line
+	    line =""
+	    for i in range(len(display_results)):
+	        line += "    " + str(display_results[i][0]).rjust(3) + " | "
+	    print line
+	    self.print_cpu_fetch()
         
     def print_cpu_fetch(self):
         pc = self.cpu.pc.get(use_cycles=False)
@@ -240,7 +243,7 @@ class RAMComparator(Comparator):
     
     @printframe("comparing RAM")   
     def compare(self, data):
-        cpm = [
+        cmp = [
             ("wram",              self.gameboy_debug.ram.work_ram,   "wram"),
             ("hram",              self.gameboy_debug.ram.hi_ram,     "hram"),
             ("catridge external", self.get_external_cartridge_ram(), "ext")
@@ -262,12 +265,12 @@ class VideoComparator(Comparator):
      
     @printframe("comparing video")   
     def compare(self, data):
-        self.compare_memory(data)
+        self.compare_video_memory(data)
         self.compare_registers(data)
         self.compare_other(data)
        
     @printframe("comparing memory")  
-    def compare_memory(self, data):
+    def compare_video_memory(self, data):
         cmp = [
             (" vram",   self.video.vram,    "vram"),
             ("oam",     self.video.oam,     "oam"),
@@ -305,19 +308,19 @@ class VideoComparator(Comparator):
     def compare_other(self, data):
         cmp = [
             ("Last Read Address",
-                    self.video.lastReadAddress, "lastReadAddress"),
+                    self.video.last_read_address, "last_read_address"),
             ("Last Write Address", 
-                    self.video.lastWriteAddress, "lastWriteAddress"),
+                    self.video.last_write_address, "last_write_address"),
             ("Last eritten Data", 
-                    self.video.lastWriteData, "lastWriteData"),
+                    self.video.last_write_data, "last_write_data"),
             ("Check wether emulated HBlank", 
-                    self.video.emulateHBlank, "emulateHBlank"),
+                    self.video.emulated_hblank, "emulated_hblank"),
             ("Check wether emulated OAM", 
-                    self.video.emulateOAM, "emulateOAM"),
+                    self.video.emulated_oam, "emulated_oam"),
             ("Check wether emulated Transfer", 
-                    self.video.emulateTransfer, "emulateTransfer"),
+                    self.video.emulated_transfer, "emulated_transfer"),
             ("Check wether emulated VBLank", 
-                    self.video.emulateVBlank, "emulateVBlank"),
+                    self.video.emulated_vblank, "emulated_vblank"),
         ]
         self.compare_set(cmp, data, label="video")
          

@@ -30,7 +30,7 @@ class DebugVideo(Video):
         self.last_write_data = 0
         self.reset_emulate_tracking_fields()
         
-    def reset_emulate_tracking_fields():
+    def reset_emulate_tracking_fields(self):
         self.emulated_hblank   = False
         self.emulated_vblank   = False
         self.emulated_oam      = False
@@ -52,7 +52,7 @@ class DebugVideo(Video):
         
 class DebugStatusRegister(StatusRegister):
     def __init__(self, debug_video):
-        DebugStatusRegister.__init__(self, debug_video)
+        StatusRegister.__init__(self, debug_video)
         
     def create_modes(self, video):
         self.mode0 = DebugMode0(video)

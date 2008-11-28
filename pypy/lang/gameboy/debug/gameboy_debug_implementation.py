@@ -14,6 +14,8 @@ class GameBoyDebugImplementation(GameBoyImplementation):
     def __init__(self, debugger_port, skip_execs=0, debug_connection_class=None):
         GameBoyImplementation.__init__(self)
         self.cpu = DebugCPU(self.interrupt, self)
+        self.video = DebugVideo(self.video_driver, self.interrupt, self)
+        self.rom = self.cpu.rom
         self.debug_connection = debug_connection_class(self, debugger_port, skip_execs)
         self.create_comparators()
         
@@ -22,10 +24,10 @@ class GameBoyDebugImplementation(GameBoyImplementation):
         self.gameboy_comparator = GameboyComparator(self.debug_connection, self)
         self.rom_comparator = ROMComparator(self.debug_connection, self)
     
-    def compare_rom(data):
+    def compare_rom(self, data):
          self.rom_comparator.compare(data)
          
-    def compare_system(data):
+    def compare_system(self, data):
         self.gameboy_comparator.compare(data)
         
     # ------------------------------------------------------------------------

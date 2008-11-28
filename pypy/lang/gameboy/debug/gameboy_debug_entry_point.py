@@ -73,11 +73,11 @@ def start_java_version():
               str(SOCKET_PORT) + " " + \
               str(skipExecs)
     print command
-    #command = "java" + \
-    #          " -classpath "+ (':'.join(JAVA_CLASSPATH)) +\
-    #          " gameboy.platform.j2se.Main " + \
-    #          filename + " "
-    os.system(command)
+    # command = "java" + \
+    #           " -classpath "+ (':'.join(JAVA_CLASSPATH)) +\
+    #           " gameboy.platform.j2se.Main " + \
+    #           filename + " "
+    # os.system(command)
 
     
     
