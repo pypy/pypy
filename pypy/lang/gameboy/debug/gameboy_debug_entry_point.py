@@ -21,7 +21,8 @@ ROM_PATH    = str(py.magic.autopath().dirpath().dirpath())+"/rom"
 filename    = ROM_PATH + "/rom9/rom9.gb"
 SOCKET_PORT = 55680
 skipExecs   = 22545
-skipExecs   = 1000000
+skipExecs   = 2700
+skipExecs   = 0
 
 # ------------------------------------------------------------------------------
 

@@ -332,6 +332,7 @@ class Video(iMemory):
         screen).
         """
         self.dma = data
+        # copy the memory region
         for index in range(constants.OAM_SIZE):
             self.oam[index] = self.memory.read((self.dma << 8) + index)
         self.update_all_sprites()
@@ -498,6 +499,7 @@ class Video(iMemory):
         1. order by x -coordinates, lower first
         2. order by id, lower first
         """
+        #XXX 
         return sprites.sort(key=operator.itemgetter("x"))
     
     

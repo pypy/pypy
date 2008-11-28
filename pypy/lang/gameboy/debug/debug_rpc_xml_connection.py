@@ -187,8 +187,8 @@ class DebugRpcXmlConnection(SimpleXMLRPCServer, threading.Thread):
     def handle_executed_op_code(self, is_fetch_execute=False):
         if self.cpu.instruction_counter > self.skipExecs:
             self.pending = True
-        self.wait_for_user_input()
         self.wait_until_checked()
+        self.wait_for_user_input()
         #if self.cpu.instruction_counter == 6154:
             #pdb.set_trace()
     

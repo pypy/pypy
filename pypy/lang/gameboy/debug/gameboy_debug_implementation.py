@@ -2,7 +2,7 @@
 from __future__ import generators
         
 from pypy.lang.gameboy.gameboy_implementation import *
-from pypy.lang.gameboy.debug.debug_cpu import DebugCPU
+from pypy.lang.gameboy.debug.gameboy_debug_parts import *
 from pypy.lang.gameboy.debug import debug
 from pypy.lang.gameboy.debug.debug_rpc_xml_connection import *
 from pypy.lang.gameboy.debug.debug_comparator import *
@@ -10,9 +10,7 @@ import time
 import pdb
 
 # GAMEBOY ----------------------------------------------------------------------
-
 class GameBoyDebugImplementation(GameBoyImplementation):
-    
     def __init__(self, debugger_port, skip_execs=0, debug_connection_class=None):
         GameBoyImplementation.__init__(self)
         self.cpu = DebugCPU(self.interrupt, self)
@@ -61,13 +59,8 @@ class GameBoyDebugImplementation(GameBoyImplementation):
         GameBoyImplementation.mainLoop(self)
         
     
-    
-        
 # VIDEO DRIVER -----------------------------------------------------------------
-
 class VideoDriverDebugImplementation(VideoDriver):
-    
-    
     def __init__(self):
         # do not initialize any libsdl stuff
         VideoDriver.__init__(self)
@@ -76,12 +69,9 @@ class VideoDriverDebugImplementation(VideoDriver):
         # dont update the display, we're here only for testing
         pass
     
-             
         
 # JOYPAD DRIVER ----------------------------------------------------------------
-
 class JoypadDriverDebugImplementation(JoypadDriver):
-    
     def __init__(self):
         JoypadDriver.__init__(self)
       
@@ -90,7 +80,6 @@ class JoypadDriverDebugImplementation(JoypadDriver):
         
         
 # SOUND DRIVER -----------------------------------------------------------------
-
 class SoundDriverDebugImplementation(SoundDriverImplementation):
     pass
     
