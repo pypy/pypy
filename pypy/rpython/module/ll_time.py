@@ -28,8 +28,17 @@ class CConfig:
     HAVE_GETTIMEOFDAY = platform.Has('gettimeofday')
     HAVE_FTIME = platform.Has('ftime')
 
+
+if sys.platform == 'freebsd7':
+    libraries = ['compat']
+else:
+    libraries = []
+
 class CConfigForFTime:
-    _compilation_info_ = ExternalCompilationInfo(includes=['sys/timeb.h'])
+    _compilation_info_ = ExternalCompilationInfo(
+        includes=['sys/time.h', 'sys/timeb.h'],
+        libraries=libraries
+    )
     TIMEB = platform.Struct('struct timeb', [('time', rffi.INT),
                                              ('millitm', rffi.INT)])
 

@@ -24,6 +24,7 @@ from pypy.translator.platform import platform
 # maaaybe isinstance here would be better. Think
 _MS_WINDOWS = platform.name == "win32"
 _MAC_OS = platform.name == "darwin"
+_FREEBSD_7 = platform.name == "freebsd7"
 
 if _MS_WINDOWS:
     from pypy.rlib import rwin32
@@ -36,10 +37,16 @@ if not _MS_WINDOWS:
         pre_include_bits = ['#define MACOSX']
     else: 
         pre_include_bits = []
+
+    if _FREEBSD_7:
+        libraries = ['ffi']
+    else:
+        libraries = ['ffi', 'dl']
+
     eci = ExternalCompilationInfo(
         pre_include_bits = pre_include_bits,
         includes = includes,
-        libraries = ['ffi', 'dl'],
+        libraries = libraries,
         include_dirs = platform.include_dirs_for_libffi(),
         library_dirs = platform.library_dirs_for_libffi(),
     )

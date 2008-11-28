@@ -157,6 +157,13 @@ if sys.platform == 'linux2':
 elif sys.platform == 'darwin':
     from pypy.translator.platform.darwin import Darwin
     host = Darwin()
+elif sys.platform == 'freebsd7':
+    from pypy.translator.platform.freebsd7 import Freebsd7, Freebsd7_64
+    import platform
+    if platform.architecture()[0] == '32bit':
+        host = Freebsd7()
+    else:
+        host = Freebsd7_64()
 elif os.name == 'nt':
     from pypy.translator.platform.windows import Windows
     host = Windows()
