@@ -125,6 +125,6 @@ class ControlRegister(object):
     
     def get_selected_tile_data_space(self):
         if self.window.upper_tile_map_selected:
-            return constants.VRAM_DATA_A
+            return constants.VRAM_DATA_B
         else:
-            return  constants.VRAM_DATA_B
+            return constants.VRAM_DATA_A

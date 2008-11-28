@@ -571,6 +571,7 @@ class Video(iMemory):
         while x < GAMEBOY_SCREEN_WIDTH+SPRITE_SIZE:
             if self.control.background_and_window_lower_tile_data_selected:
                 tile = self.vram[tile_map]
+                assert tile == (tile & 0xFF)
             else:
                 tile = (self.vram[tile_map] ^ 0x80) & 0xFF
             self.draw_tile(x, tile_data + (tile << 4))
@@ -583,7 +584,7 @@ class Video(iMemory):
             self.line[x + i] = (pattern >> (7-i)) & 0x0101
                    
     def get_pattern(self, address):
-        return self.vram[address] +(self.vram[address + 1]) << 8
+        return self.vram[address] + (self.vram[address + 1] << 8)
 
 
     def draw_object_tile(self, x, address, flags):
