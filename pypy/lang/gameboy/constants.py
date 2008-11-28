@@ -147,7 +147,9 @@ OBJECTS_PER_LINE   = 10
  
 # LCD Color Palette
 COLOR_MAP =[
- 0x9CB916, 0x8CAA14, 0x306430, 0x103F10
+ #0x9CB916, 0x8CAA14, 0x306430, 0x103F10
+ 0, 1, 2, 3 # These are indices in the COLOR_MAP provided by the
+            # implementation...
  # 0xE0F8D0, 0x88C070, 0x386850, 0x081820
  # 0xFFFFFF, 0xAAAAAA, 0x555555, 0x000000
  ]
