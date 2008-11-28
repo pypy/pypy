@@ -35,10 +35,10 @@ def test_video_control_get_selected_tile_data_space():
     control = get_control_register()
     
     control.window.upper_tile_map_selected = True
-    assert control.get_selected_tile_data_space() == constants.VRAM_DATA_A
+    assert control.get_selected_tile_data_space() == constants.VRAM_DATA_B
     
     control.window.upper_tile_map_selected = False
-    assert control.get_selected_tile_data_space() == constants.VRAM_DATA_B
+    assert control.get_selected_tile_data_space() == constants.VRAM_DATA_A
     
 # StatusRegister ---------------------------------------------------------------
 
