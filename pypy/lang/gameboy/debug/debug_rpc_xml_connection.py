@@ -43,6 +43,7 @@ class DebugRpcXmlConnection(SimpleXMLRPCServer, threading.Thread):
         SimpleXMLRPCServer.__init__(self, ("localhost", debuggerPort))
         print "python: DEBUGGER PORT:", debuggerPort
         self.skipExecs            = skipExecs;
+        self.in_between_test      = 1000
         self.debuggerPort         = debuggerPort
         self.gameboy_debug        = gameboy_debug
         self.cpu                  = gameboy_debug.cpu
@@ -77,11 +78,13 @@ class DebugRpcXmlConnection(SimpleXMLRPCServer, threading.Thread):
     
     #  ===================================================================
     
+    @printframe("checking rom")
     def compare_rom(self, data):
         self.gameboy_debug.compare_rom(data)
         self.rom_checked = True
         return "checkedRom"
     
+    @printframe("checking system")
     def compare_system(self, data):
         self.gameboy_debug.compare_system(data)
         self.pending = False
@@ -101,26 +104,21 @@ class DebugRpcXmlConnection(SimpleXMLRPCServer, threading.Thread):
         print "python: called start"
         self.started = True
         return "started"
-    
-    @printframe("checking rom")
-    def check_rom(self, data):
-        # XXX
-        self.rom_checked = True
-        return "checkedRom"
-    
-    @printframe("compare elements")
-    def compare(self, last_op_code, last_fetch_exec_op_code, instruction_count,
-                registers, interrupts, ram, video, timer, cycles):
-        self.compare_op_codes(last_op_code, last_fetch_exec_op_code)
-        self.compare_registers(registers)
-        self.compare_interrupts(interrupts)
-        self.compare_ram(ram)
-        self.compare_video(video)
-        self.compare_timer(timer)
-        self.compare_cycles(cycles)
-        self.pending = False
-        return "checked"
-    
+     
+    @printframe("waiting for client to start")
+    def start_debug_session(self):
+        self.wait_for_client_start()
+        self.wait_for_rom_check()
+
+    @printframe("handle_executed_op_code")
+    def handle_executed_op_code(self, is_fetch_execute=False):
+        if self.cpu.instruction_counter > self.skipExecs:
+            self.pending = True
+        if self.cpu.instruction_counter % self.in_between_test == 0:
+            self.pending = True
+        self.wait_until_checked()
+        self.wait_for_user_input()
+            
     @printframe("waiting for next")
     def next(self):
         self.wait_for_next_op_code()
@@ -157,11 +155,19 @@ class DebugRpcXmlConnection(SimpleXMLRPCServer, threading.Thread):
         if self.compare_failed:
             self.compare_failed = False
             self.handle_compare_failed()
+            self.prompt_for_user_input()
         if self.pending_steps > 0:
             self.pending_steps -= 1
             return
-        self.prompt_for_user_input()
-        
+        else:
+            self.prompt_for_user_input()
+
+    def handle_compare_failed(self):
+        for i in range(3):
+            time.sleep(1)
+            print '\a'
+        self.pending_steps = 0
+                    
     def prompt_for_user_input(self):
         if self.showed_skip_message_count < 2:
             print ">>  enter skip, default is 0:"
@@ -175,26 +181,8 @@ class DebugRpcXmlConnection(SimpleXMLRPCServer, threading.Thread):
         except Exception:
             if ("stop" in read) or ("exit" in read) or (read is "Q"):
                 raise Exception("Debug mode Stopped by User")
-    
-    def handle_compare_failed(self):
-        for i in range(3):
-            time.sleep(1)
-            print '\a'
-        self.pending_steps = 0
-            
-    # ==========================================================================
+                
+     def has_error(self):
+        return self.compare_failed
    
-    @printframe("waiting for client to start")
-    def start_debug_session(self):
-        self.wait_for_client_start()
-        self.wait_for_rom_check()
-        
-    @printframe("handle_executed_op_code")
-    def handle_executed_op_code(self, is_fetch_execute=False):
-        if self.cpu.instruction_counter > self.skipExecs:
-            self.pending = True
-        self.wait_until_checked()
-        self.wait_for_user_input()
-        #if self.cpu.instruction_counter == 6154:
-            #pdb.set_trace()
     

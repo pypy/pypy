@@ -60,6 +60,9 @@ class GameBoyDebugImplementation(GameBoyImplementation):
         self.debug_connection.start_debug_session()
         GameBoyImplementation.mainLoop(self)
         
+    def has_error(self):
+        return self.debug_connection.has_error()
+        
     
 # VIDEO DRIVER -----------------------------------------------------------------
 class VideoDriverDebugImplementation(VideoDriver):

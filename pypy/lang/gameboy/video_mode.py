@@ -21,7 +21,7 @@ class Mode(object):
     def __init__(self, video):
         self.video = video
         self.reset()
-        
+         
     def reset(self):
         raise Exception("unimplemented method")
                         
@@ -113,8 +113,11 @@ class Mode1(Mode):
     def set_begin(self):
         self.video.cycles += constants.MODE_1_BEGIN_TICKS
     
-    def set_between(self):
+    def set_between_begin(self):
         self.video.cycles += constants.MODE_1_TICKS - constants.MODE_1_BEGIN_TICKS
+
+    def set_between_end(self):
+        self.video.cycles += constants.MODE_1_TICKS - constants.MODE_1_END_TICKS
         
     def set_end(self):
         self.video.cycles += constants.MODE_1_END_TICKS
@@ -132,7 +135,7 @@ class Mode1(Mode):
  
     def emulate_v_blank_v_blank(self):
         self.video.v_blank  = False
-        self.set_between()
+        self.set_between_begin()
         self.v_blank_interrupt_check()
                   
     def v_blank_interrupt_check(self):
@@ -146,7 +149,7 @@ class Mode1(Mode):
         else:
             self.video.line_y        = 0
             self.video.window.line_y = 0
-            self.set_between()
+            self.set_between_end()
         self.emulate_hblank_line_y_compare() 
                 
     def emulate_v_blank_mode_1(self):

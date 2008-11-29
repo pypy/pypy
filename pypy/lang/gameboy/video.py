@@ -225,15 +225,16 @@ class Video(iMemory):
         return self.control.read()
 
     def set_control(self, data):
-        if self.control.lcd_enabled != bool(data & 0x80):
-            self.reset_control(data)
+        value = data & 0x80
+        if self.control.lcd_enabled != bool(value):
+            self.reset_control(value)
         self.window.update_line_y(data)
         self.control.write(data)
 
-    def reset_control(self, data):
+    def reset_control(self, value):
         # NOTE: do not reset LY=LYC flag (bit 2) of the STAT register (Mr. Do!)
         self.line_y  = 0
-        if (data & 0x80) != 0:
+        if value != 0:
             self.status.set_mode(0x02)
             self.cycles  = constants.MODE_2_TICKS
             self.display = False

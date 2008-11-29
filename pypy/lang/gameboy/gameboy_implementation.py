@@ -77,37 +77,47 @@ class VideoDriverImplementation(VideoDriver):
     
     COLOR_MAP = [0xFFFFFF, 0xCCCCCC, 0x666666, 0x000000]
     
-    def __init__(self):
+    def __init__(self, use_rsdl=False):
         VideoDriver.__init__(self)
+        self.use_rsdl = use_rsdl
         self.create_screen()
         self.map = []
     
     def create_screen(self):
-        self.screen = RSDL.SetVideoMode(self.width, self.height, 32, 0)
+        if self.use_rsdl:
+            self.screen = RSDL.SetVideoMode(self.width, self.height, 32, 0)
         
     def update_display(self):
-        RSDL.LockSurface(self.screen)
-        self.draw_pixels()
-        RSDL.UnlockSurface(self.screen)
-        RSDL.Flip(self.screen)
+        if self.use_rsdl:
+            RSDL.LockSurface(self.screen)
+            self.draw_pixels()
+            RSDL.UnlockSurface(self.screen)
+            RSDL.Flip(self.screen)
+        else:
+            self.draw_ascii_pixels()
             
     def draw_pixels(self):
-        #pass
         str = ""
         for y in range(self.height):
-           # str += "\n"
+            str += "\n"
             for x in range(self.width):
-                #if y%2 == 0 or True:
-                #    px = self.get_pixel_color(x, y)
-                #    str += ["#", "%", "+", " ", " "][px]
-                #RSDL_helper.set_pixel(self.screen, x, y, self.get_pixel_color(x, y))
-                pass
-        #print str;
+                color = COLOR_MAP[self.get_pixel_color(x, y)]
+                RSDL_helper.set_pixel(self.screen, x, y, color)
+        
+    def draw_ascii_pixels(self):
+            str = ""
+            for y in range(self.height):
+                str += "\n"
+                for x in range(self.width):
+                    if y%2 == 0 or True:
+                        str += self.get_pixel_color(x, y, string=True)
+                    pass
+            print str;     
              
     @specialize.arg(3)   
     def get_pixel_color(self, x, y, string=False):
         if string:
-            return self.pixels[x+self.width*y]
+            return ["#", "%", "+", " ", " "][self.get_pixel_color(x, y)]
         else:
             return self.pixels[x+self.width*y]
     
@@ -198,3 +208,11 @@ class SoundDriverImplementation(SoundDriver):
     
     
 # ==============================================================================
+
+if __name__ == '__main__':
+    import sys
+    gameboy = GameBoyImplementation()
+    rom = sys.argv[1]
+    print rom
+    gameboy.load_cartridge_file(rom, verify=True)
+    gameboy.mainLoop()
