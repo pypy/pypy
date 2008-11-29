@@ -30,6 +30,7 @@ class Comparator:
 
     def __init__(self, debug_connection):
         self.debug_connection = debug_connection
+        self.memory_check_skip = 5
         
     
     def compare(self, data):
@@ -38,7 +39,7 @@ class Comparator:
     def compare_memory(self, name, expected, new):
         self.print_compare(name+" length", len(expected), len(new))
         if len(expected) != len(new): return
-        for address in range(0, len(expected), 1):
+        for address in range(0, len(expected), self.memory_check_skip):
             self.print_compare(name+" value at "+hex(address), \
                     expected[address], new[address])
     
@@ -277,7 +278,7 @@ class VideoComparator(Comparator):
             ("oam",     self.video.oam,     "oam"),
             ("line",    self.video.line,    "line"),
             ("objects", self.video.objects, "objects"),
-            ("palette", self.video.palette, "palette")
+            #("palette", self.video.palette, "palette")
         ]
         self.compare_memory_set(cmp, data, label="video");
     
