@@ -38,11 +38,11 @@ class printframe(object):
 class DebugRpcXmlConnection(SimpleXMLRPCServer, threading.Thread):
     
     
-    def __init__(self, gameboy_debug, debuggerPort, skipExecs):
+    def __init__(self, gameboy_debug, debuggerPort):
         threading.Thread.__init__(self)
         SimpleXMLRPCServer.__init__(self, ("localhost", debuggerPort))
         print "python: DEBUGGER PORT:", debuggerPort
-        self.skipExecs            = skipExecs;
+        self.skipExecs            = 0;
         self.in_between_test      = 1000
         self.debuggerPort         = debuggerPort
         self.gameboy_debug        = gameboy_debug
@@ -70,6 +70,8 @@ class DebugRpcXmlConnection(SimpleXMLRPCServer, threading.Thread):
     def register_functions(self):
         for fn in [(self.start_debug,       "start"),
                    (self.compare_rom,       "compare_rom"),
+                   (self.get_in_between_test, "in_between_test"),
+                   (self.get_skip_count,    "skip_count"),
                    (self.close,             "close"),
                    (self.compare_system,    "compare"),
                    (self.has_next,          "has_next"),
@@ -91,15 +93,13 @@ class DebugRpcXmlConnection(SimpleXMLRPCServer, threading.Thread):
         return "checked"
 
     #  ===================================================================
-        
-    def close(self):
-        pdb.set_trace()
-        if not self.is_closed:
-            print "python: called close"
-            self.server_close()
-            self.is_closed = True
-            raise Exception("CLOSED CONNECTION")
     
+    def get_skip_count(self):
+        return self.skip_count
+        
+    def get_in_between_test(self):
+        return self.in_between_test
+        
     def start_debug(self):
         print "python: called start"
         self.started = True
@@ -128,6 +128,14 @@ class DebugRpcXmlConnection(SimpleXMLRPCServer, threading.Thread):
         print "python: called has_next"
         return self.pending
 
+    def close(self):
+        pdb.set_trace()
+        if not self.is_closed:
+            print "python: called close"
+            self.server_close()
+            self.is_closed = True
+            raise Exception("CLOSED CONNECTION")
+    
     # ==========================================================================
 
     def wait_for_client_start(self):
@@ -182,7 +190,7 @@ class DebugRpcXmlConnection(SimpleXMLRPCServer, threading.Thread):
             if ("stop" in read) or ("exit" in read) or (read is "Q"):
                 raise Exception("Debug mode Stopped by User")
                 
-     def has_error(self):
+    def has_error(self):
         return self.compare_failed
    
     
