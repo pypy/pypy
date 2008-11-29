@@ -29,6 +29,7 @@ def parse_file_name():
     print "loading rom: ", str(filename)
     
 def ask_for_skip_count():
+    global skip_count
     print ">> enter initial skip amount:"
     read = sys.stdin.readline()
     try:
