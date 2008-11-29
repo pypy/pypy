@@ -14,10 +14,10 @@ if sys.platform == 'darwin':
 ROM_PATH    = str(py.magic.autopath().dirpath().dirpath())+"/rom"
 filename    = ROM_PATH + "/rom9/rom9.gb"
 SOCKET_PORT = 55682
-skipExecs   = 999999
-#skipExecs   = 22545
-#skipExecs   = 2700
-# skipExecs   = 0
+skip_count   = 6150
+#skip_count   = 22545
+#skip_count   = 2700
+# skip_count   = 0
 
 # ------------------------------------------------------------------------------
 
@@ -28,12 +28,21 @@ def parse_file_name():
         filename = ROM_PATH+"/rom"+pos+"/rom"+pos+".gb"
     print "loading rom: ", str(filename)
     
+def ask_for_skip_count():
+    print ">> enter initial skip amount:"
+    read = sys.stdin.readline()
+    try:
+        if int(read) > 0:
+            skip_count = int(read)
+    except Exception:
+        skip_count = 0
+        
 # ------------------------------------------------------------------------------
    
 
 def start_python_version():
-    global filename, skipExecs
-    gameBoy = GameBoyDebugImplementation(SOCKET_PORT, skipExecs, DebugRpcXmlConnection)
+    global filename, skip_count
+    gameBoy = GameBoyDebugImplementation(SOCKET_PORT, skip_count, DebugRpcXmlConnection)
     try:
         gameBoy.load_cartridge_file(str(filename))
     except Exception, error:
@@ -65,7 +74,7 @@ def start_java_version():
               " gameboy.platform.debug.MainDebug " + \
               filename + " " + \
               str(SOCKET_PORT) + " " + \
-              str(skipExecs)
+              str(skip_count)
     print command
     # command = "java" + \
     #           " -classpath "+ (':'.join(JAVA_CLASSPATH)) +\
@@ -77,6 +86,7 @@ def start_java_version():
     
 # START ========================================================================
 parse_file_name()
+ask_for_skip_count()
 threading.Timer(1, start_java_version    ).start()
 threading.Timer(0, start_python_version()).start()
 
