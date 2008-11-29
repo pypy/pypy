@@ -3,7 +3,7 @@ from __future__ import generators
         
 from pypy.lang.gameboy.gameboy_implementation import *
 from pypy.lang.gameboy.debug.gameboy_debug_parts import *
-from pypy.lang.gameboy.debug import debug
+from pypy.lang.gameboy.debug import debug_util
 from pypy.lang.gameboy.debug.debug_rpc_xml_connection import *
 from pypy.lang.gameboy.debug.debug_comparator import *
 import time
@@ -50,7 +50,7 @@ class GameBoyDebugImplementation(GameBoyImplementation):
         print "closing socket debug_connections"
         pdb.set_trace()
         self.is_running = False
-        debug.print_results()
+        debug_util.print_results()
         self.debug_connection.close()
     
     def handle_executed_op_code(self, is_fetch_execute=True):

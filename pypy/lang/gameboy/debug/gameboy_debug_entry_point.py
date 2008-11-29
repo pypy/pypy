@@ -1,14 +1,7 @@
 #!/usr/bin/env python
-
-dont_import_rsdl = True
-
+import py, sys, os, threading
 from pypy.lang.gameboy.debug.gameboy_debug_implementation import *
 from pypy.lang.gameboy.debug.debug_rpc_xml_connection import *
-import py
-import sys
-import os
-import threading
-import pdb
 
 # ------------------------------------------------------------------------------
 
