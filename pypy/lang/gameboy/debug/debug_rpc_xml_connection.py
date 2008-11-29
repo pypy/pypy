@@ -42,7 +42,7 @@ class DebugRpcXmlConnection(SimpleXMLRPCServer, threading.Thread):
         threading.Thread.__init__(self)
         SimpleXMLRPCServer.__init__(self, ("localhost", debuggerPort))
         print "python: DEBUGGER PORT:", debuggerPort
-        self.skipExecs            = 0;
+        self.skip_count            = 0;
         self.in_between_test      = 1000
         self.debuggerPort         = debuggerPort
         self.gameboy_debug        = gameboy_debug
@@ -112,7 +112,7 @@ class DebugRpcXmlConnection(SimpleXMLRPCServer, threading.Thread):
 
     @printframe("handle_executed_op_code")
     def handle_executed_op_code(self, is_fetch_execute=False):
-        if self.cpu.instruction_counter > self.skipExecs:
+        if self.cpu.instruction_counter > self.skip_count:
             self.pending = True
         if self.cpu.instruction_counter % self.in_between_test == 0:
             self.pending = True
@@ -177,10 +177,14 @@ class DebugRpcXmlConnection(SimpleXMLRPCServer, threading.Thread):
         self.pending_steps = 0
                     
     def prompt_for_user_input(self):
+        if self.cpu.instruction_counter < self.skip_count:
+            return
         if self.showed_skip_message_count < 2:
             print ">>  enter skip, default is 0:"
             self.showed_skip_message_count += 1
-        read = sys.stdin.readline()
+        self.parse_user_input(sys.stdin.readline())
+        
+    def parse_user_input(self, read):
         try:
             if int(read) > 0:
                 self.pending_steps = int(read)
