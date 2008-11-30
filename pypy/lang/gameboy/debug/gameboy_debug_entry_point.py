@@ -45,7 +45,7 @@ def ask_for_in_between_skip():
     read = sys.stdin.readline()
     try:
         if int(read) > 0:
-            skip_count = int(read)
+            in_between_skip = int(read)
     except Exception:
         in_between_skip = 1000
         
