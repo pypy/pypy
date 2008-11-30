@@ -30,13 +30,23 @@ def parse_file_name():
     
 def ask_for_skip_count():
     global skip_count
-    print ">> enter initial skip amount:"
+    print ">> enter initial skip amount: ",
     read = sys.stdin.readline()
     try:
         if int(read) > 0:
             skip_count = int(read)
     except Exception:
         skip_count = 0
+        
+def ask_for_in_between_skip():
+    global in_between_skip
+    print ">> enter initial in_between_skip amount: ",
+    read = sys.stdin.readline()
+    try:
+        if int(read) > 0:
+            skip_count = int(read)
+    except Exception:
+        in_between_skip = 1000
         
 # ------------------------------------------------------------------------------
    
@@ -87,7 +97,10 @@ def start_java_version():
     
 # START ========================================================================
 parse_file_name()
+
 ask_for_skip_count()
+ask_for_in_between_skip()
+
 threading.Timer(1, start_java_version    ).start()
 threading.Timer(0, start_python_version()).start()
 

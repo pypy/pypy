@@ -181,7 +181,7 @@ class DebugRpcXmlConnection(SimpleXMLRPCServer, threading.Thread):
            self.cpu.instruction_counter % self.in_between_test != 0:
             return
         if self.showed_skip_message_count < 2:
-            print ">>  enter skip, default is 0:"
+            print ">>  enter skip, default is 0: ",
             self.showed_skip_message_count += 1
         self.parse_user_input(sys.stdin.readline())
         
