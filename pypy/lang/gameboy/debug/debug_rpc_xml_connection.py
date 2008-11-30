@@ -177,7 +177,7 @@ class DebugRpcXmlConnection(SimpleXMLRPCServer, threading.Thread):
         self.pending_steps = 0
                     
     def prompt_for_user_input(self):
-        if self.cpu.instruction_counter < self.skip_count and
+        if self.cpu.instruction_counter < self.skip_count and \
            self.cpu.instruction_counter % self.in_between_test != 0:
             return
         if self.showed_skip_message_count < 2:
