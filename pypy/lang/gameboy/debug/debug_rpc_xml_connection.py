@@ -38,12 +38,13 @@ class printframe(object):
 class DebugRpcXmlConnection(SimpleXMLRPCServer, threading.Thread):
     
     
-    def __init__(self, gameboy_debug, debuggerPort, skip_count):
+    def __init__(self, gameboy_debug, debuggerPort, skip_count, 
+                 in_between_skip):
         threading.Thread.__init__(self)
         SimpleXMLRPCServer.__init__(self, ("localhost", debuggerPort))
         print "python: DEBUGGER PORT:", debuggerPort
         self.skip_count            = skip_count;
-        self.in_between_test      = 1000
+        self.in_between_test      = in_between_skip
         self.debuggerPort         = debuggerPort
         self.gameboy_debug        = gameboy_debug
         self.cpu                  = gameboy_debug.cpu

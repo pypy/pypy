@@ -11,12 +11,15 @@ import pdb
 
 # GAMEBOY ----------------------------------------------------------------------
 class GameBoyDebugImplementation(GameBoyImplementation):
-    def __init__(self, debugger_port, skip_execs=0, debug_connection_class=None):
+    def __init__(self, debugger_port, debug_connection_class=None,
+                 skip_execs=0, in_between_skip=1000):
         GameBoyImplementation.__init__(self)
         self.cpu = DebugCPU(self.interrupt, self)
         self.video = DebugVideo(self.video_driver, self.interrupt, self)
         self.rom = self.cpu.rom
-        self.debug_connection = debug_connection_class(self, debugger_port, skip_execs)
+        self.debug_connection = debug_connection_class(self, debugger_port, 
+                                                       skip_execs, 
+                                                       in_between_skip)
         self.create_comparators()
         
      # ------------------------------------------------------------------------   

@@ -15,6 +15,7 @@ ROM_PATH    = str(py.magic.autopath().dirpath().dirpath())+"/rom"
 filename    = ROM_PATH + "/rom9/rom9.gb"
 SOCKET_PORT = 55682
 skip_count   = 6150
+in_between_skip = 1000
 #skip_count   = 22545
 #skip_count   = 2700
 # skip_count   = 0
@@ -52,8 +53,9 @@ def ask_for_in_between_skip():
    
 
 def start_python_version():
-    global filename, skip_count
-    gameBoy = GameBoyDebugImplementation(SOCKET_PORT, skip_count, DebugRpcXmlConnection)
+    global filename, skip_count, in_between_skip
+    gameBoy = GameBoyDebugImplementation(SOCKET_PORT, DebugRpcXmlConnection, 
+                                         skip_count, in_between_skip)
     try:
         gameBoy.load_cartridge_file(str(filename))
     except Exception, error:
