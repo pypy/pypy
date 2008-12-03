@@ -201,6 +201,7 @@ def _ll_list_resize_really(l, newsize):
     if newsize <= 0:
         ll_assert(newsize == 0, "negative list length")
         new_allocated = 0
+        # XXX why not use _ll_prebuilt_empty_array here?
     else:
         if newsize < 9:
             some = 3
