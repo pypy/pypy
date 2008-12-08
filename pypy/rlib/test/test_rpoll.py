@@ -50,6 +50,7 @@ def test_simple():
     serv.close()
 
 def test_select():
+    from time import time
     def f():
         readend, writeend = os.pipe()
         try:
@@ -59,9 +60,16 @@ def test_select():
             iwtd, owtd, ewtd = select([readend], [], [])
             assert iwtd == [readend]
             assert owtd == ewtd == []
+
         finally:
             os.close(readend)
             os.close(writeend)
+
+        # once there was a bug where the sleeping time was doubled
+        a = time()
+        iwtd, owtd, ewtd = select([], [], [], 1.0)
+        diff = time() - a
+        assert 0.9 < diff < 1.1
 
     f()
     interpret(f, [])
