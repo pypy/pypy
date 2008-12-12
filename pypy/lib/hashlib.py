@@ -60,6 +60,9 @@ def __get_builtin_constructor(name):
     elif name in ('MD5', 'md5'):
         import md5
         return md5.new
+    elif name in ('SHA256', 'sha256'):
+        import _sha256
+        return _sha256.sha256
     raise ValueError, "unsupported hash type"
 
 def __hash_new(name, string=''):
