@@ -630,15 +630,15 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         fn()
 
     def test_prebuilt_nolength_char_array(self):
-        py.test.skip("fails on the trunk too")
         for lastchar in ('\x00', 'X'):
             A = Array(Char, hints={'nolength': True})
-            a = malloc(A, 5, immortal=True)
+            a = malloc(A, 6, immortal=True)
             a[0] = '8'
             a[1] = '5'
             a[2] = '?'
             a[3] = '!'
             a[4] = lastchar
+            a[5] = '\x00'
             def llf():
                 s = ''
                 for i in range(5):
@@ -657,3 +657,6 @@ class TestLowLevelType(test_typed.CompilationTestCase):
             y = rffi.cast(TYPE, 0)
         fn = self.getcompiled(llf)
         fn()
+
+
+        
