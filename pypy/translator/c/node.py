@@ -595,7 +595,10 @@ class ArrayNode(ContainerNode):
             yield '\t%s' % length.rstrip(', ')
             yield '}'
         elif self.T.OF == Char:
-            s = ''.join(self.obj.items)
+            if len(self.obj.items) and self.obj.items[0] is None:
+                s = ''.join([self.obj.getitem(i) for i in range(len(self.obj.items))])
+            else:
+                s = ''.join(self.obj.items)
             yield '\t%s%s' % (length, c_char_array_constant(s))
             yield '}'
         else:

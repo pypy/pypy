@@ -386,6 +386,19 @@ class _array_of_unknown_length(_parentable_mixin, lltype._parentable):
     def setitem(self, index, value):
         self._storage._setitem(index, value, boundscheck=False)
 
+    def getitems(self):
+        _items = []
+        i = 0
+        while 1:
+            nextitem = self.getitem(i)
+            if nextitem == '\x00':
+                _items.append('\x00')
+                return _items
+            _items.append(nextitem)
+            i += 1
+        
+    items = property(getitems)
+
 # ____________________________________________________________
 
 def _find_parent(llobj):

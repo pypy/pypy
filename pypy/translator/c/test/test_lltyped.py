@@ -650,6 +650,49 @@ class TestLowLevelType(test_typed.CompilationTestCase):
             fn = self.getcompiled(llf)
             fn()
 
+    def test_prebuilt_ll2ctypes_array(self):
+        from pypy.rpython.lltypesystem import rffi, ll2ctypes
+        A = rffi.CArray(Char)
+        a = malloc(A, 6, flavor='raw')
+        a[0] = 'a'
+        a[1] = 'b'
+        a[2] = 'c'
+        a[3] = 'd'
+        a[4] = '\x00'
+        a[5] = '\x00'
+        # side effects when converting to c structure
+        ll2ctypes.lltype2ctypes(a)
+        def llf():
+            s = ''
+            for i in range(4):
+                s += a[i]
+            return 'abcd' == s
+
+        fn = self.getcompiled(llf)
+        assert fn()
+
+    def test_ll2ctypes_array_from_c(self):
+        from pypy.rpython.lltypesystem import rffi, ll2ctypes
+        A = rffi.CArray(Char)
+        a = malloc(A, 6, flavor='raw')
+        a[0] = 'a'
+        a[1] = 'b'
+        a[2] = 'c'
+        a[3] = 'd'
+        a[4] = '\x00'
+        a[5] = '\x00'
+        # side effects when converting to c structure
+        c = ll2ctypes.lltype2ctypes(a)
+        a = ll2ctypes.ctypes2lltype(Ptr(A), c)
+        def llf():
+            s = ''
+            for i in range(4):
+                s += a[i]
+            print s
+            return s == 'abcd'
+        fn = self.getcompiled(llf)
+        assert fn()
+
     def test_cast_to_void_array(self):
         from pypy.rpython.lltypesystem import rffi
         def llf():
