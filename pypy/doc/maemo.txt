@@ -137,13 +137,18 @@ Now, on the host system, perform a subversion checkout of PyPy::
 
     svn co https://codespeak.net/svn/pypy/trunk pypy-trunk
 
+Several svn revisions since the 60000's are known to work and
+the last manually tested one is currently 65011.  You may
+also look at http://test.pypy.org where integration 
+of automatic maemo builds and tests should soon appear. 
+
 Change to the ``pypy-trunk/pypy/translator/goal`` directory and execute::
 
-    python translate.py --platform=maemo --opt=mem
+    python translate.py --platform=maemo --opt=3
 
 You need to run translate.py using Python 2.5.  This will last some 30-60
 minutes on most machines.  For compiling the C source code PyPy's tool chain
-will use our scratchbox/Maemo cross-compilation environment.
+will use our scratchbox/Maemo cross-compilation environment. 
 
 When this step succeeds, your ``goal`` directory will contain a binary called
 ``pypy-c`` which is executable on the Maemo device. To run this binary
