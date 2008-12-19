@@ -52,7 +52,7 @@ class Windows(Platform):
     cc = 'cl.exe'
     link = 'link.exe'
 
-    cflags = ['/MD']
+    cflags = ['/MD', '/O2']
     link_flags = []
     standalone_only = []
     shared_only = []
@@ -62,7 +62,7 @@ class Windows(Platform):
 
         # Install debug options only when interpreter is in debug mode
         if sys.executable.lower().endswith('_d.exe'):
-            self.cflags = ['/MDd', '/Z7']
+            self.cflags = ['/MDd', '/Z7', '/Od']
             self.link_flags = ['/debug']
 
         self.add_cpython_dirs = True
