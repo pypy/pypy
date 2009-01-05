@@ -43,3 +43,5 @@ class TestJsDict(JsTest, BaseTestRdict):
     def test_specific_obscure_bug(self):
         py.test.skip("rdict not implemented")
 
+    def test_r_dict(self):
+        py.test.skip("rdict not implemented")

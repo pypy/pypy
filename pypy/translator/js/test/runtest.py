@@ -190,6 +190,8 @@ class JsTest(BaseRtypingTest, OORtypeMixin):
         #    assert False, 'function did raise no exception at all'
 
     def ll_to_string(self, s):
+        if str(s) == 'None':
+            return None
         return str(s)
 
     def ll_to_list(self, l):
