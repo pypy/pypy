@@ -898,7 +898,7 @@ PyObject_Free(void *p)
 void Py_FatalError(const char *msg)
 {
   fprintf(stderr, "Py_FatalError() called in obmalloc!\n%s\n", msg);
-  exit(1);
+  abort();
 }
 #define PyOS_snprintf snprintf
 /* end of XXX */

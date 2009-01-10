@@ -41,7 +41,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Fatal RPython error: %s\n",
                 RPyFetchExceptionType()->ov_name->items);
 #endif
-        exitcode = 1;
+        abort();
     }
     return exitcode;
 
@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
 #ifndef AVR
     fprintf(stderr, "Fatal error during initialization: %s\n", errmsg);
 #endif
-    return 1;
+    abort();
 }
 
 #endif /* PYPY_NOT_MAIN_FILE */
