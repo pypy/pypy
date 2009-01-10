@@ -103,7 +103,8 @@ translation_optiondescription = OptionDescription(
                default=False, cmdline="--thread"),
     BoolOption("sandbox", "Produce a fully-sandboxed executable",
                default=False, cmdline="--sandbox",
-               requires=[("translation.thread", False)]),
+               requires=[("translation.thread", False)],
+               suggests=[("translation.gc", "generation")]),
     BoolOption("rweakref", "The backend supports RPython-level weakrefs",
                default=True),
 
@@ -340,6 +341,8 @@ def set_opt_level(config, level):
     gc = words.pop(0)
 
     # set the GC (only meaningful with lltype)
+    if config.translation.sandbox and gc == 'hybrid':
+        gc = 'generation'
     config.translation.suggest(gc=gc)
 
     # set the backendopts

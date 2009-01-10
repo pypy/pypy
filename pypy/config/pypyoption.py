@@ -385,6 +385,8 @@ def enable_allworkingmodules(config):
         modules = working_oo_modules
     else:
         modules = working_modules
+    if config.translation.sandbox:
+        modules = default_modules
     # ignore names from 'essential_modules', notably 'exceptions', which
     # may not be present in config.objspace.usemodules at all
     modules = [name for name in modules if name not in essential_modules]
