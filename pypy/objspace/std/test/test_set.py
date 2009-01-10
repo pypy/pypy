@@ -82,7 +82,7 @@ class AppTestAppSetTest:
         s = set([1, 2, 3])
         s.add(A(s))
         # xxx this seems to have order dependency issues
-        # "set([set(...), 1, 2, 3])"  have been spotted too
+        # "set([set(...), 1, 2, 3])"  has been spotted too
         assert repr(s) == "set([1, 2, 3, set(...)])"
 
     def test_recursive_repr_frozenset(self):
@@ -93,7 +93,7 @@ class AppTestAppSetTest:
         s = frozenset([1, 2, 3, a])
         a.s = s
         # xxx this seems to have order dependency issues
-        # "frozenset([frozenset(...), 1, 2, 3])"  have been spotted too        
+        # "frozenset([frozenset(...), 1, 2, 3])"  has been spotted too        
         assert repr(s) == "frozenset([1, 2, 3, frozenset(...)])"
         
     def test_keyerror_has_key(self):
