@@ -2,6 +2,7 @@ import unittest
 import warnings
 import sys
 from test import test_support
+from test.test_support import check_impl_detail
 
 class TestSpecifics(unittest.TestCase):
 
@@ -76,12 +77,13 @@ class TestSpecifics(unittest.TestCase):
         self.assertEqual(m.results, ('z', g))
         exec 'z = locals()' in g, m
         self.assertEqual(m.results, ('z', m))
-        try:
-            exec 'z = b' in m
-        except NameError:
-            pass
-        else:
-            self.fail('PyPy should accept not real dict globals ')
+        if check_impl_detail:
+            try:
+                exec 'z = b' in m
+            except TypeError:
+                pass
+            else:
+                self.fail('Did not validate globals as a real dict')
 
         class A:
             "Non-mapping"
