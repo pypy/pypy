@@ -143,6 +143,12 @@ class TinyObjSpace(object):
     def call_method(self, obj, name, *args, **kwds):
         return getattr(obj, name)(*args, **kwds)
 
+    def getattr(self, obj, name):
+        return getattr(obj, name)
+
+    def setattr(self, obj, name, value):
+        setattr(obj, name, value)
+
 def translation_test_so_skip_if_appdirect():
     if option.runappdirect:
         py.test.skip("translation test, skipped for appdirect")
