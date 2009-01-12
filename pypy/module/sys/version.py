@@ -20,6 +20,12 @@ import pypy
 pypydir = os.path.dirname(os.path.abspath(pypy.__file__))
 del pypy
 
+import time as t
+gmtime = t.gmtime()
+date = t.strftime("%b %d %Y", gmtime)
+time = t.strftime("%H:%M:%S", gmtime)
+del t
+
 # ____________________________________________________________
 
 def get_api_version(space):
@@ -29,14 +35,16 @@ def get_version_info(space):
     return space.wrap(CPYTHON_VERSION)
 
 def get_version(space):
-    return space.wrap("Python %d.%d.%d (pypy %d.%d.%d build %d)" % (
+        return space.wrap("%d.%d.%d (%d, %s, %s) \n[PyPy %d.%d.%d]" % (
         CPYTHON_VERSION[0],
         CPYTHON_VERSION[1],
         CPYTHON_VERSION[2],
+        svn_revision(),
+        date,
+        time,
         PYPY_VERSION[0],
         PYPY_VERSION[1],
-        PYPY_VERSION[2],
-        svn_revision()))
+        PYPY_VERSION[2]))
 
 def get_hexversion(space):
     return space.wrap(tuple2hex(CPYTHON_VERSION))
