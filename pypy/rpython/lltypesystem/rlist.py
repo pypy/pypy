@@ -200,8 +200,9 @@ def _ll_list_resize_really(l, newsize):
     # The growth pattern is:  0, 4, 8, 16, 25, 35, 46, 58, 72, 88, ...
     if newsize <= 0:
         ll_assert(newsize == 0, "negative list length")
-        new_allocated = 0
-        # XXX why not use _ll_prebuilt_empty_array here?
+        l.length = 0
+        l.items = _ll_new_empty_item_array(typeOf(l).TO)
+        return
     else:
         if newsize < 9:
             some = 3
@@ -295,13 +296,16 @@ def _ll_prebuilt_empty_array(LISTITEM):
     return malloc(LISTITEM, 0)
 _ll_prebuilt_empty_array._annspecialcase_ = 'specialize:memo'
 
+def _ll_new_empty_item_array(LIST):
+    if INITIAL_EMPTY_LIST_ALLOCATION > 0:
+        return malloc(LIST.items.TO, INITIAL_EMPTY_LIST_ALLOCATION)
+    else:
+        return _ll_prebuilt_empty_array(LIST.items.TO)
+
 def ll_newemptylist(LIST):
     l = malloc(LIST)
     l.length = 0
-    if INITIAL_EMPTY_LIST_ALLOCATION > 0:
-        l.items = malloc(LIST.items.TO, INITIAL_EMPTY_LIST_ALLOCATION)
-    else:
-        l.items = _ll_prebuilt_empty_array(LIST.items.TO)
+    l.items = _ll_new_empty_item_array(LIST)
     return l
 ll_newemptylist = typeMethod(ll_newemptylist)
 ll_newemptylist.oopspec = 'newlist(0)'
