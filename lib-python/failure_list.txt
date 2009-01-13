@@ -37,7 +37,7 @@ test_generators              !   I really hate our bytecode compiler :-(
 test_genexps                 !   Fatal RPython error: InternalCompilerError :-(
 test_gettext                 !   check this use of unicode()
 test_grammar                     implementation detail
-test_hmac                    !   looks bad!
+test_hmac                    !   looks bad!                 SHOULD BE FIXED NOW, check the nightly tests
 test_import                      importing from pyc-files-without-py-file disabled by default
 test_importhooks             !   unknown
 test_inspect                 !   test_wrapped_decorator: try to fix;  isbuiltin([].append): cry and maaaybe try to fix
