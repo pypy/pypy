@@ -3,9 +3,7 @@ from pypy.lang.prolog.interpreter.term import Var, Term, Rule, Atom, debug_print
 from pypy.lang.prolog.interpreter.error import UnificationFailed, FunctionNotFound, \
     CutException
 from pypy.lang.prolog.interpreter import error
-from pypy.rlib.jit import hint, we_are_jitted, _is_early_constant, purefunction
-from pypy.rlib.objectmodel import specialize
-from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.jit import purefunction
 
 DEBUG = False
 
@@ -90,11 +88,8 @@ class LinkedRules(object):
         #import pdb;pdb.set_trace()
         while self:
             uh = self.rule.unify_hash
-            hint(uh, concrete=True)
-            uh = hint(uh, deepfreeze=True)
             j = 0
             while j < len(uh):
-                hint(j, concrete=True)
                 hash1 = uh[j]
                 hash2 = uh2[j]
                 if hash1 != 0 and hash2 * (hash2 - hash1) != 0:
@@ -139,9 +134,6 @@ class Engine(object):
         self.signature2function = {}
         self.parser = None
         self.operations = None
-        #XXX circular imports hack
-        from pypy.lang.prolog.builtin import builtins_list
-        globals()['unrolling_builtins'] = unrolling_iterable(builtins_list) 
 
     def add_rule(self, rule, end=True):
         from pypy.lang.prolog import builtin
@@ -162,11 +154,8 @@ class Engine(object):
         if signature in builtin.builtins:
             error.throw_permission_error(
                 "modify", "static_procedure", rule.head.get_prolog_signature())
-        function = self.signature2function.get(signature, None)
-        if function is not None:
-            self.signature2function[signature].add_rule(rule, end)
-        else:
-            self.signature2function[signature] = Function(rule)
+        function = self._lookup(signature)
+        function.add_rule(rule, end)
 
     def run(self, query, continuation=DONOTHING):
         if not isinstance(query, Callable):
@@ -197,16 +186,6 @@ class Engine(object):
         return self.main_loop(CALL, query, continuation)
 
     def _call(self, query, continuation):
-        signature = query.signature
-        from pypy.lang.prolog.builtin import builtins
-        builtins = hint(builtins, deepfreeze=True)
-        signature = hint(signature, promote=True)
-        for bsig, builtin in unrolling_builtins:
-            if signature == bsig:
-                return builtin.call(self, query, continuation)
-        return self.user_call(query, continuation, choice_point=False)
-
-    def _opaque_call(self, query, continuation):
         from pypy.lang.prolog.builtin import builtins
         signature = query.signature
         builtin = builtins.get(signature, None)
@@ -217,32 +196,27 @@ class Engine(object):
 
     def main_loop(self, where, query, continuation, rule=None):
         next = (DONE, None, None, None)
-        hint(where, concrete=True)
-        hint(rule, concrete=True)
         while 1:
             if where == DONE:
                 return next
             next = self.dispatch_bytecode(where, query, continuation, rule)
             where, query, continuation, rule = next
-            where = hint(where, promote=True)
 
     def dispatch_bytecode(self, where, query, continuation, rule):
         if where == CALL:
             next = self._call(query, continuation)
         elif where == TRY_RULE:
-            rule = hint(rule, promote=True)
             next = self._try_rule(rule, query, continuation)
         elif where == USER_CALL:
             next = self._user_call(query, continuation)
         elif where == CONTINUATION:
-            hint(continuation.__class__, promote=True)
             next = continuation._call(self)
         else:
             raise Exception("unknown bytecode")
         return next
 
     @purefunction
-    def _jit_lookup(self, signature):
+    def _lookup(self, signature):
         signature2function = self.signature2function
         function = signature2function.get(signature, None)
         if function is None:
@@ -255,10 +229,9 @@ class Engine(object):
         return self.main_loop(USER_CALL, query, continuation)
 
     def _user_call(self, query, continuation):
-        signature = hint(query.signature, promote=True)
-        function = self._jit_lookup(signature)
+        signature = query.signature
+        function = self._lookup(signature)
         startrulechain = function.rulechain
-        startrulechain = hint(startrulechain, promote=True)
         if startrulechain is None:
             error.throw_existence_error(
                 "procedure", query.get_prolog_signature())
@@ -277,7 +250,6 @@ class Engine(object):
                 choice_point = rulechain is not None
             else:
                 choice_point = False
-            hint(rule, concrete=True)
             if rule.contains_cut:
                 continuation = LimitedScopeContinuation(continuation)
                 try:
@@ -292,13 +264,11 @@ class Engine(object):
                                                        continuation)
                     raise
             else:
-                inline = rule.body is None # inline facts
                 try:
                     # for the last rule (rulechain is None), this will always
-                    # return, because choice_point is False
+                    # return immediately, because choice_point is False
                     result = self.try_rule(rule, query, continuation,
-                                           choice_point=choice_point,
-                                           inline=inline)
+                                           choice_point=choice_point)
                     self.heap.discard(oldstate)
                     return result
                 except UnificationFailed:
@@ -307,48 +277,12 @@ class Engine(object):
             rule = rulechain.rule
             rulechain = rulechain.next
 
-    def try_rule(self, rule, query, continuation=DONOTHING, choice_point=True,
-                 inline=False):
+    def try_rule(self, rule, query, continuation=DONOTHING, choice_point=True):
         if not choice_point:
             return (TRY_RULE, query, continuation, rule)
-        if not we_are_jitted():
-            return self.portal_try_rule(rule, query, continuation, choice_point)
-        if inline:
-            return self.main_loop(TRY_RULE, query, continuation, rule)
-        #if _is_early_constant(rule):
-        #    rule = hint(rule, promote=True)
-        #    return self.portal_try_rule(rule, query, continuation, choice_point)
-        return self._opaque_try_rule(rule, query, continuation, choice_point)
-
-    def _opaque_try_rule(self, rule, query, continuation, choice_point):
-        return self.portal_try_rule(rule, query, continuation, choice_point)
-
-    def portal_try_rule(self, rule, query, continuation, choice_point):
-        hint(None, global_merge_point=True)
-        hint(choice_point, concrete=True)
-        if not choice_point:
-            return self._try_rule(rule, query, continuation)
-        where = TRY_RULE
-        next = (DONE, None, None, None)
-        hint(where, concrete=True)
-        hint(rule, concrete=True)
-        signature = hint(query.signature, promote=True)
-        while 1:
-            hint(None, global_merge_point=True)
-            if where == DONE:
-                return next
-            if rule is not None:
-                assert rule.signature == signature
-            next = self.dispatch_bytecode(where, query, continuation, rule)
-            where, query, continuation, rule = next
-            rule = hint(rule, promote=True)
-            if query is not None:
-                signature = hint(query.signature, promote=True)
-            where = hint(where, promote=True)
+        return self.main_loop(TRY_RULE, query, continuation, rule)
 
     def _try_rule(self, rule, query, continuation):
-        rule = hint(rule, deepfreeze=True)
-        hint(self, concrete=True)
         # standardizing apart
         nextcall = rule.clone_and_unify_head(self.heap, query)
         if nextcall is not None:

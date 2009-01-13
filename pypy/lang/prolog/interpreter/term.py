@@ -4,9 +4,7 @@ from pypy.rlib.objectmodel import compute_unique_id
 from pypy.rlib.rarithmetic import intmask
 from pypy.lang.prolog.interpreter.error import UnificationFailed, UncatchableError
 from pypy.lang.prolog.interpreter import error
-from pypy.rlib.jit import hint
 from pypy.rlib.objectmodel import specialize
-from pypy.rlib.jit import we_are_jitted, hint, purefunction
 
 DEBUG = False
 
@@ -116,7 +114,6 @@ class Var(PrologObject):
         self.binding = value
 
     def copy(self, heap, memo):
-        hint(self, concrete=True)
         try:
             return memo[self]
         except KeyError:
@@ -124,8 +121,6 @@ class Var(PrologObject):
             return newvar
 
     def copy_and_unify(self, other, heap, memo):
-        hint(self, concrete=True)
-        self = hint(self, deepfreeze=True)
         try:
             seen_value = memo[self]
         except KeyError:
@@ -242,7 +237,6 @@ class Atom(Callable):
         return self
 
     def copy_and_basic_unify(self, other, heap, memo):
-        hint(self, concrete=True)
         if isinstance(other, Atom) and (self is other or
                                         other.name == self.name):
             return self
@@ -250,8 +244,7 @@ class Atom(Callable):
             raise UnificationFailed
 
     def get_unify_hash(self, heap):
-        name = hint(self.name, promote=True)
-        return intmask(hash(name) << TAGBITS | self.TAG)
+        return intmask(hash(self.name) << TAGBITS | self.TAG)
 
     def unify_hash_of_children(self, heap):
         return []
@@ -260,7 +253,6 @@ class Atom(Callable):
         return Term("/", [self, NUMBER_0])
 
     @staticmethod
-    @purefunction
     def newatom(name):
         result = Atom.cache.get(name, None)
         if result is not None:
@@ -294,7 +286,6 @@ class Number(NonVar):
         return self
 
     def copy_and_basic_unify(self, other, heap, memo):
-        hint(self, concrete=True)
         if isinstance(other, Number) and other.num == self.num:
             return self
         else:
@@ -331,7 +322,6 @@ class Float(NonVar):
         return self
 
     def copy_and_basic_unify(self, other, heap, memo):
-        hint(self, concrete=True)
         if isinstance(other, Float) and other.floatval == self.floatval:
             return self
         else:
@@ -374,7 +364,6 @@ class BlackBox(NonVar):
         return self
 
     def copy_and_basic_unify(self, other, heap, memo):
-        hint(self, concrete=True)
         if self is other:
             return self
         else:
@@ -422,26 +411,20 @@ class Term(Callable):
             raise UnificationFailed
 
     def copy(self, heap, memo):
-        hint(self, concrete=True)
-        self = hint(self, deepfreeze=True)
         newargs = []
         i = 0
         while i < len(self.args):
-            hint(i, concrete=True)
             arg = self.args[i].copy(heap, memo)
             newargs.append(arg)
             i += 1
         return Term(self.name, newargs, self.signature)
 
     def copy_and_basic_unify(self, other, heap, memo):
-        hint(self, concrete=True)
-        self = hint(self, deepfreeze=True)
         if (isinstance(other, Term) and
             self.signature == other.signature):
             newargs = [None] * len(self.args)
             i = 0
             while i < len(self.args):
-                hint(i, concrete=True)
                 arg = self.args[i].copy_and_unify(other.args[i], heap, memo)
                 newargs[i] = arg
                 i += 1
@@ -467,8 +450,7 @@ class Term(Callable):
             return self
 
     def get_unify_hash(self, heap):
-        signature = hint(self.signature, promote=True)
-        return intmask(hash(signature) << TAGBITS | self.TAG)
+        return intmask(hash(self.signature) << TAGBITS | self.TAG)
 
     def unify_hash_of_children(self, heap):
         unify_hash = []
@@ -489,15 +471,7 @@ class Term(Callable):
         
     def eval_arithmetic(self, engine):
         from pypy.lang.prolog.interpreter.arithmetic import arithmetic_functions
-        from pypy.lang.prolog.interpreter.arithmetic import arithmetic_functions_list
-        if we_are_jitted():
-            signature = hint(self.signature, promote=True)
-            func = None
-            for sig, func in arithmetic_functions_list:
-                if sig == signature:
-                    break
-        else:
-            func = arithmetic_functions.get(self.signature, None)
+        func = arithmetic_functions.get(self.signature, None)
         if func is None:
             error.throw_type_error("evaluable", self.get_prolog_signature())
         return func(engine, self)
@@ -537,18 +511,15 @@ class Rule(object):
     def clone_and_unify_head(self, heap, head):
         memo = {}
         h2 = self.head
-        hint(h2, concrete=True)
         if isinstance(h2, Term):
             assert isinstance(head, Term)
             i = 0
             while i < len(h2.args):
-                i = hint(i, concrete=True)
                 arg2 = h2.args[i]
                 arg1 = head.args[i]
                 arg2.copy_and_unify(arg1, heap, memo)
                 i += 1
         body = self.body
-        hint(body, concrete=True)
         if body is None:
             return None
         return body.copy(heap, memo)
