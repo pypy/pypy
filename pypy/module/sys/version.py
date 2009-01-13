@@ -35,7 +35,7 @@ def get_version_info(space):
     return space.wrap(CPYTHON_VERSION)
 
 def get_version(space):
-        return space.wrap("%d.%d.%d (%d, %s, %s) \n[PyPy %d.%d.%d]" % (
+    return space.wrap("%d.%d.%d (%d, %s, %s)\n[PyPy %d.%d.%d]" % (
         CPYTHON_VERSION[0],
         CPYTHON_VERSION[1],
         CPYTHON_VERSION[2],

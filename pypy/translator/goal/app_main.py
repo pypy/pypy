@@ -236,7 +236,7 @@ def entry_point(executable, argv, nanos):
         elif arg == '-O':
             pass
         elif arg == '--version' or arg == '-V':
-            print sys.version
+            print "Python", sys.version
             return 0
         elif arg == '--info':
             print_info()
