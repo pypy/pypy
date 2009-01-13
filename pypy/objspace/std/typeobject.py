@@ -688,26 +688,25 @@ def compute_C3_mro(space, cls):
     while orderlists:
         for candidatelist in orderlists:
             candidate = candidatelist[0]
-            if mro_blockinglist(candidate, orderlists) is GOODCANDIDATE:
+            if mro_blockinglist(candidate, orderlists) is None:
                 break    # good candidate
         else:
             return mro_error(space, orderlists)  # no candidate found
         assert candidate not in order
         order.append(candidate)
         for i in range(len(orderlists)-1, -1, -1):
-            if orderlists[i][0] == candidate:
+            if orderlists[i][0] is candidate:
                 del orderlists[i][0]
                 if len(orderlists[i]) == 0:
                     del orderlists[i]
     return order
 
-GOODCANDIDATE = []
 
 def mro_blockinglist(candidate, orderlists):
     for lst in orderlists:
         if candidate in lst[1:]:
             return lst
-    return GOODCANDIDATE # good candidate
+    return None # good candidate
 
 def mro_error(space, orderlists):
     cycle = []
