@@ -2,7 +2,7 @@ import unittest
 import warnings
 import sys
 from test import test_support
-from test.test_support import check_impl_detail
+from test.test_support import check_impl_detail, impl_detail
 
 class TestSpecifics(unittest.TestCase):
 
@@ -38,6 +38,7 @@ class TestSpecifics(unittest.TestCase):
     def test_syntax_error(self):
         self.assertRaises(SyntaxError, compile, "1+*3", "filename", "exec")
 
+    @impl_detail()
     def test_none_keyword_arg(self):
         self.assertRaises(SyntaxError, compile, "f(None=1)", "<string>", "exec")
 
