@@ -936,7 +936,7 @@ class MixinStrUnicodeUserStringTest:
         self.checkequal('abc', 'abc', '__mul__', 1)
         self.checkequal('abcabcabc', 'abc', '__mul__', 3)
         self.checkraises(TypeError, 'abc', '__mul__')
-        if test_support.check_impl_detail:
+        if test_support.check_impl_detail():
             self.checkraises(TypeError, 'abc', '__mul__', '')
         # XXX: on a 64-bit system, this doesn't raise an overflow error,
         # but either raises a MemoryError, or succeeds (if you have 54TiB)
@@ -1149,7 +1149,7 @@ class MixinStrUnicodeTest:
         self.assert_(s1 is not s2)
         self.assert_(type(s2) is t)
 
-        if test_support.check_impl_detail:
+        if test_support.check_impl_detail():
             s1 = t("abcd")
             s2 = t().join([s1])
             self.assert_(s1 is s2)

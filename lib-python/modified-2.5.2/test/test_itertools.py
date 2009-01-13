@@ -195,7 +195,7 @@ class TestBasicOps(unittest.TestCase):
                          zip('abc', 'def'))
         self.assertEqual([pair for pair in izip('abc', 'def')],
                          zip('abc', 'def'))
-        if test_support.check_impl_detail:
+        if test_support.check_impl_detail():
             # izip "reuses" the same tuple object each time when it can
             ids = map(id, izip('abc', 'def'))
             self.assertEqual(min(ids), max(ids))
@@ -363,7 +363,7 @@ class TestBasicOps(unittest.TestCase):
         self.assertRaises(TypeError, tee, [1,2], 3, 'x')
 
         # tee object should be instantiable
-        if test_support.check_impl_detail:
+        if test_support.check_impl_detail():
             # XXX I (arigo) would argue that 'type(a)(iterable)' has
             # ill-defined semantics: it always return a fresh tee object,
             # but depending on whether 'iterable' is itself a tee object

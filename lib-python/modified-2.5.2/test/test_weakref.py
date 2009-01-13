@@ -108,7 +108,7 @@ class ReferencesTestCase(TestBase):
 
         self.assertRaises(weakref.ReferenceError, check, ref1)
         self.assertRaises(weakref.ReferenceError, check, ref2)
-        if test_support.check_impl_detail:
+        if test_support.check_impl_detail():
             # Works only with refcounting
             self.assertRaises(weakref.ReferenceError, bool, weakref.proxy(C()))
         self.assert_(self.cbcalled == 2)
@@ -625,14 +625,11 @@ class ReferencesTestCase(TestBase):
     def test_gc_during_proxy_creation(self):
         self.check_gc_during_creation(weakref.proxy)
 
+    @test_support.impl_detail()
     def check_gc_during_creation(self, makeref):
-        # gc.get/set_threshold does not exist in pypy
-        # The tests calling this function probaly don't test anything
-        # usefull anymore
-
-        if not test_support.check_impl_detail:
-            return
-        
+        # gc.get/set_threshold does not exist e.g. in pypy
+        thresholds = gc.get_threshold()
+        gc.set_threshold(1, 1, 1)
         gc.collect()
         class A:
             pass

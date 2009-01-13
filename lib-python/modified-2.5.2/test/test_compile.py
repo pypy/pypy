@@ -78,7 +78,7 @@ class TestSpecifics(unittest.TestCase):
         self.assertEqual(m.results, ('z', g))
         exec 'z = locals()' in g, m
         self.assertEqual(m.results, ('z', m))
-        if check_impl_detail:
+        if check_impl_detail():
             try:
                 exec 'z = b' in m
             except TypeError:

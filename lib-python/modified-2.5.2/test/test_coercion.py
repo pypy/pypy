@@ -306,7 +306,7 @@ class CoercionTest(unittest.TestCase):
         self.assertNotEquals(cmp(u'fish', evil_coercer), 0)
         self.assertNotEquals(cmp(slice(1), evil_coercer), 0)
         # ...but that this still works
-        if check_impl_detail:
+        if check_impl_detail():
             # NB. I (arigo) would consider the following as implementation-
             # specific.  For example, in CPython, if we replace 42 with 42.0
             # both below and in CoerceTo() above, then the test fails.  This

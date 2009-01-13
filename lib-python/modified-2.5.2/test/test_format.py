@@ -251,7 +251,7 @@ class Foobar(long):
         # Returning a non-string should not blow up.
         return self + 1
 
-if check_impl_detail:
+if check_impl_detail():
     test_exc('%o', Foobar(), TypeError,
              "expected string or Unicode object, long found")
 

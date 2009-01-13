@@ -381,7 +381,7 @@ def test_dir():
     # Two essentially featureless objects, just inheriting stuff from
     # object.
     vereq(dir(NotImplemented), dir(Ellipsis))
-    if check_impl_detail:   # None might differ: it can have __nonzero__
+    if check_impl_detail():   # None might differ: it can have __nonzero__
         vereq(dir(None), dir(Ellipsis))
 
     # Nasty test case for proxied objects
@@ -1109,7 +1109,7 @@ def mro_disagreement():
             callable(*args)
         except exc, msg:
             # the exact msg is generally considered an implementation detail
-            if check_impl_detail and not str(msg).startswith(expected):
+            if check_impl_detail() and not str(msg).startswith(expected):
                 raise TestFailed, "Message %r, expected %r" % (str(msg),
                                                                expected)
         else:
@@ -1321,7 +1321,7 @@ def slots():
 
     # Test lookup leaks [SF bug 572567]
     import sys,gc
-    if check_impl_detail:    # no gc.get_objects() on non-CPython
+    if check_impl_detail():  # no gc.get_objects() on non-CPython
                              # implementations, but no leaks either :-)
         class G(object):
             def __cmp__(self, other):
@@ -1984,7 +1984,7 @@ def specials():
     unsafecmp(1, 1L)
     unsafecmp(1L, 1)
 
-    if check_impl_detail:
+    if check_impl_detail():
         class Letter(str):
             def __new__(cls, letter):
                 if letter == 'EPS':
@@ -3659,7 +3659,7 @@ def subtype_resurrection():
     gc_collect()
     vereq(len(C.container), 1)
     del C.container[-1]
-    if check_impl_detail:
+    if check_impl_detail():
         vereq(len(C.container), 1)
         vereq(C.container[-1].attr, 42)
 
@@ -3688,7 +3688,7 @@ def slotmultipleinheritance():
         pass
     class C(A,B) :
         __slots__=()
-    if check_impl_detail:
+    if check_impl_detail():
         vereq(C.__basicsize__, B.__basicsize__)
     verify(hasattr(C, '__dict__'))
     verify(hasattr(C, '__weakref__'))

@@ -233,5 +233,5 @@ def test_infinite_reload():
     finally:
         sys.path.pop(0)
 
-if check_impl_detail:
+if check_impl_detail():
     test_infinite_reload()

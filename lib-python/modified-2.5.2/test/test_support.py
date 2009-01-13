@@ -532,24 +532,55 @@ def reap_children():
 #=======================================================================
 # distinguishing between language-level tests and implementation details
 
-# Use the following flag to guard CPython's implementation-specific tests.
-check_impl_detail = (hasattr(sys, 'subversion') and
-                     sys.subversion[0] == 'CPython')
+def get_running_vm():
+    return sys.subversion[0].lower()
 
-def impl_detail(reason="CPython-specific implementation detail"):
-    """A decorator to skip a whole function if not running on top of CPython.
+def _decode_vm(guards):
+    # Returns a tuple ({platform_name: run_me}, default_value)
+    if not guards:
+        return ({'cpython': True}, False)
+    is_true = guards.values()[0]
+    assert guards.values() == [is_true] * len(guards)   # all True or all False
+    return (guards, not is_true)
+
+# Use the following check to guard CPython's implementation-specific tests --
+# or to run them only on the implementation(s) guarded by the arguments.
+def check_impl_detail(**guards):
+    """This function returns True or False depending on the host platform.
+       Examples:
+          if check_impl_detail():               # only on CPython (default)
+          if check_impl_detail(jython=True):    # only on Jython
+          if check_impl_detail(cpython=False):  # everywhere except on CPython
     """
-    assert isinstance(reason, basestring)
+    guards, default = _decode_vm(guards)
+    return guards.get(get_running_vm(), default)
+
+def impl_detail(msg=None, **guards):
+    """A decorator to skip a whole function if not running on top of CPython.
+       Examples:
+          @impl_detail()                # only on CPython (default)
+          @impl_detail(jython=True)     # only on Jython
+          @impl_detail(cpython=False)   # everywhere except on CPython
+    """
+    assert msg is None or isinstance(msg, basestring)
     def decorator(f):
-        if check_impl_detail:
+        if check_impl_detail(**guards):
             return f
-        else:
-            def _skip_check_impl_detail(*args, **kwds):
-                if verbose:
-                    sys.stderr.write("Skipping %s: %s\n" % (f.__name__,
-                                                            reason))
+        def _skip_check_impl_detail(*args, **kwds):
+            if not verbose:
                 return
-            return _skip_check_impl_detail
+            msg1 = msg
+            if msg1 is None:
+                guardnames, default = _decode_vm(guards)
+                if default == False:
+                    msg1 = "implementation detail specific to %s"
+                else:
+                    msg1 = "implementation detail not running on %s"
+                guardnames = guardnames.keys()
+                guardnames.sort()
+                msg1 = msg1 % (' or '.join(guardnames),)
+            sys.stderr.write("Skipping %s: %s\n" % (f.__name__, msg1))
+        return _skip_check_impl_detail
     return decorator
 
 def gc_collect():
