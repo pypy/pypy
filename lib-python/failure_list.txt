@@ -15,7 +15,7 @@ test_codeccallbacks          !   unknown
 test_codecs                  !   unknown
 test_coding                  !   hah.  fix buildbot :-/
 test_commands                !   unknown
-test_compile                 !   test_leading_newlines: impl detail; the rest: not good
+test_compile                 !   test_leading_newlines: impl detail; the rest: not good  SHOULD BE FIXED NOW, check the nightly tests
 test_compiler                !   unknown
 test_ctypes                  !   implementation details but also some real crashes
 test_decimal                     missing decimal.ROUND_05UP
