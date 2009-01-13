@@ -396,6 +396,9 @@ def to_lvalue(ast_node, flags):
             else:
                 raise SyntaxError("can't assign to function call",
                                  lineno)
+        elif isinstance(ast_node, ast.Yield):
+            raise SyntaxError("assignment to yield expression not possible",
+                              lineno)
         else:
             raise SyntaxError("can't assign to non-lvalue",
                              lineno)
