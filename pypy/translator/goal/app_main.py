@@ -124,6 +124,9 @@ def print_help():
     print 'usage: %s [options]' % (sys.executable,)
     print __doc__
 
+class CommandLineError(Exception):
+    pass
+
 def print_error(msg):
     print >> sys.stderr, msg
     print >> sys.stderr, 'usage: %s [options]' % (sys.executable,)
@@ -159,7 +162,19 @@ if 'nt' in sys.builtin_module_names:
 else:
     IS_WINDOWS = False
 
-def entry_point(executable, argv, nanos):
+def get_argument(option, argv, i):
+    arg = argv[i]
+    if len(arg) > 2:
+        return arg[2:], i
+    else:
+        i += 1
+        if i >= len(argv):
+            raise CommandLineError('Argument expected for the %s option' %
+                                   option)
+        return argv[i], i
+
+
+def setup_initial_paths(executable, nanos):
     # a substituted os if we are translated
     global os
     os = nanos
@@ -209,8 +224,10 @@ def entry_point(executable, argv, nanos):
         if dir not in _seen:
             sys.path.append(dir)
             _seen[dir] = True
-    del newpath, _seen
+    return executable
 
+
+def parse_command_line(argv):
     go_interactive = False
     run_command = False
     import_site = True
@@ -225,10 +242,9 @@ def entry_point(executable, argv, nanos):
             break
         if arg == '-i':
             go_interactive = True
-        elif arg == '-c':
-            if i+1 >= len(argv):
-                print_error('Argument expected for the -c option')
-                return 2
+        elif arg.startswith('-c'):
+            cmd, i = get_argument('-c', argv, i)
+            argv[i] = '-c'
             run_command = True
             break
         elif arg == '-u':
@@ -237,46 +253,46 @@ def entry_point(executable, argv, nanos):
             pass
         elif arg == '--version' or arg == '-V':
             print "Python", sys.version
-            return 0
+            return
         elif arg == '--info':
             print_info()
-            return 0
+            return
         elif arg == '-h' or arg == '--help':
             print_help()
-            return 0
+            return
         elif arg == '-S':
             import_site = False
         elif arg == '-':
             run_stdin = True
             break     # not an option but a file name representing stdin
-        elif arg == '-m':
-            i += 1
-            if i >= len(argv):
-                print_error('Argument expected for the -m option')
-                return 2
+        elif arg.startswith('-m'):
+            module, i = get_argument('-m', argv, i)
+            argv[i] = module
             run_module = True
             break
         elif arg.startswith('-W'):
-            arg = arg[2:]
-            if not arg:
-                i += 1
-                if i >= len(argv):
-                    print_error('Argument expected for the -W option')
-                    return 2
-                arg = argv[i]
-            warnoptions = arg
+            warnoptions, i = get_argument('-W', argv, i)
         elif arg == '--':
             i += 1
             break     # terminates option list    
         else:
-            print_error('unrecognized option %r' % (arg,))
-            return 2
+            raise CommandLineError('unrecognized option %r' % (arg,))
         i += 1
     sys.argv = argv[i:]
     if not sys.argv:
         sys.argv.append('')
         run_stdin = True
+    return locals()
 
+def run_command_line(go_interactive,
+                     run_command,
+                     import_site,
+                     run_module,
+                     run_stdin,
+                     warnoptions,
+                     unbuffered,
+                     cmd=None,
+                     **ignored):
     # with PyPy in top of CPython we can only have around 100 
     # but we need more in the translated PyPy for the compiler package 
     sys.setrecursionlimit(5000)
@@ -332,7 +348,6 @@ def entry_point(executable, argv, nanos):
     try:
         if run_command:
             # handle the "-c" command
-            cmd = sys.argv.pop(1)
             def run_it():
                 exec cmd in mainmodule.__dict__
             success = run_toplevel(run_it)
@@ -407,6 +422,18 @@ def print_banner():
     print 'Python %s on %s' % (sys.version, sys.platform)
     print ('Type "help", "copyright", "credits" or '
            '"license" for more information.')
+
+def entry_point(executable, argv, nanos):
+    executable = setup_initial_paths(executable, nanos)
+    try:
+        cmdline = parse_command_line(argv)
+    except CommandLineError, e:
+        print_error(str(e))
+        return 2
+    if cmdline is None:
+        return 0
+    else:
+        return run_command_line(**cmdline)
 
 
 if __name__ == '__main__':

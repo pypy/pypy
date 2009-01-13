@@ -328,6 +328,13 @@ class TestInteraction:
         child.sendline('Not at all. They could be carried.')
         child.expect('A five ounce bird could not carry a one pound coconut.')
 
+    def test_no_space_before_argument(self):
+        child = self.spawn(['-cprint "hel" + "lo"'])
+        child.expect('hello')
+
+        child = self.spawn(['-mpypy.translator.goal.test2.mymodule'])
+        child.expect('mymodule running')
+
 
 class TestNonInteractive:
 
