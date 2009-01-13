@@ -67,6 +67,11 @@ class TestCompiler:
         for c in expressions.constants:
             yield (self.simple_test, "x="+c, "x", eval(c))
 
+    def test_neg_sys_maxint(self):
+        import sys
+        stmt = "x = %s" % (-sys.maxint-1)
+        self.simple_test(stmt, "type(x)", int)
+
     def test_tuple_assign(self):
         yield self.simple_test, "x,= 1,", "x", 1
         yield self.simple_test, "x,y = 1,2", "x,y", (1, 2)
@@ -625,4 +630,3 @@ class TestCompiler:
         """)
         decl = str(decl) + '\n'
         yield self.simple_test, decl, 'r', None
-        

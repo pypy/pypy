@@ -88,10 +88,15 @@ else:
             return node
 
         def _visitUnaryOp(self, node, constant_fold):
+            import sys
             expr = node.expr
             if isinstance(expr, ast.Const):
                 try:
                     w_newvalue = constant_fold(self.space, expr.value)
+                    # special case for -x, where x is -sys.maxint
+                    w_minint = self.space.wrap(-sys.maxint-1)
+                    if self.space.eq_w(w_newvalue, w_minint):
+                        w_newvalue = w_minint # be sure it's of type 'int', not 'long'
                 except OperationError:
                     pass
                 else:
