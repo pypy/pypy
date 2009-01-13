@@ -115,7 +115,17 @@ class hash(object):
     digestsize = digest_size # deprecated, was once defined by sha module
     
     def block_size(self):
-        return lib.EVP_MD_CTX_block_size(byref(self._obj))
+        # XXX This isn't the nicest way, but the EVP_MD_CTX_block_size OpenSSL function
+        # XXX is defined as a C macro on some systems and would be significantly 
+        # XXX harder to implement in another way.
+        return {
+            'md5':     64,
+            'sha1':    64,
+            'sha224':  64,
+            'sha256':  64,
+            'sha384': 128,
+            'sha512': 128,
+            }.get(self.name, 0)
     block_size = property(block_size, None, None)
     
     def update(self, string):
