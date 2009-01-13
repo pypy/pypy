@@ -1,13 +1,15 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped, interp2app
+from pypy.interpreter.gateway import Arguments
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib import rrandom
 
 import time
 
-def descr_new__(space, w_subtype, w_anything=None):
+def descr_new__(space, w_subtype, args):
+    w_anything = args.firstarg()
     x = space.allocate_instance(W_Random, w_subtype)
     x = space.interp_w(W_Random, x)
     W_Random.__init__(x, space, w_anything)
@@ -23,7 +25,7 @@ class W_Random(Wrappable):
         return space.newfloat(self._rnd.random())
     random.unwrap_spec = ['self', ObjSpace]
 
-    def seed(self, space, w_n=None):
+    def seed(self, space, w_n=NoneNotWrapped):
         if w_n is None:
             w_n = space.newint(int(time.time()))
         else:
@@ -111,7 +113,7 @@ class W_Random(Wrappable):
 
 
 W_Random.typedef = TypeDef("Random",
-    __new__ = interp2app(descr_new__),
+    __new__ = interp2app(descr_new__, unwrap_spec=[ObjSpace, W_Root, Arguments]),
     random = interp2app(W_Random.random),
     seed = interp2app(W_Random.seed),
     getstate = interp2app(W_Random.getstate),

@@ -79,3 +79,11 @@ class AppTestRandom:
         for n in range(1, 10) + range(10, 1000, 15):
             k = rnd.getrandbits(n)
             assert 0 <= k < 2 ** n
+
+    def test_subclass(self):
+        import _random
+        class R(_random.Random):
+            def __init__(self, x=1):
+                self.x = x
+        r = R(x=15)
+        assert r.x == 15
