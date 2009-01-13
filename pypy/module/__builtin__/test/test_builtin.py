@@ -473,6 +473,14 @@ class AppTestBuiltinApp:
         raises(TypeError, hasattr, x, 42)
         raises(UnicodeError, hasattr, x, u'\u5678')  # cannot encode attr name
 
+    def test_compile_leading_newlines(self):
+        src = """
+def fn(): pass
+"""
+        co = compile(src, 'mymod', 'exec')
+        firstlineno = co.co_firstlineno
+        assert firstlineno == 2
+
 class AppTestBuiltinOptimized(object):
     def setup_class(cls):
         from pypy.conftest import gettestobjspace
@@ -528,7 +536,7 @@ class AppTestBuiltinOptimized(object):
         exec s in ns
         res = ns["test"]([2,3,4])
         assert res == 18
-        
+
 
 class TestInternal:
 
