@@ -100,6 +100,10 @@ class PythonParser(grammar.Parser):
         if textsrc[:3] == '\xEF\xBB\xBF':
             textsrc = textsrc[3:]
             enc = 'utf-8'
+            # check that there is no explicit encoding declared
+            decl_enc = _check_for_encoding(textsrc)
+            if decl_enc is not None:
+                raise SyntaxError("encoding declaration in Unicode string")
         else:
             enc = _normalize_encoding(_check_for_encoding(textsrc))
             if enc is not None and enc not in ('utf-8', 'iso-8859-1'):

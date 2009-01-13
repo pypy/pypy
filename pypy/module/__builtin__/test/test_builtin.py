@@ -410,6 +410,10 @@ class AppTestBuiltinApp:
             compile(u'-', '?', 'eval')
         except SyntaxError, e:
             assert e.lineno == 1
+
+    def test_unicode_encoding_compile(self):
+        code = u"# -*- coding: utf-8 -*-\npass\n"
+        raises(SyntaxError, compile, code, "tmp", "exec")
             
     def test_isinstance(self):
         assert isinstance(5, int)
