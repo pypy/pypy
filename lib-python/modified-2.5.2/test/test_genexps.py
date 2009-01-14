@@ -84,10 +84,10 @@ Verify that parenthesis are required in a statement
 
 Verify that parenthesis are required when used as a keyword argument value
 
-    >>> dict(a = i for i in xrange(10))
+    >>> dict(a = i for i in xrange(10)) #doctest: +ELLIPSIS
     Traceback (most recent call last):
        ...
-    SyntaxError: invalid syntax
+    SyntaxError: invalid syntax...
 
 Verify that parenthesis are required when used as a keyword argument value
 
@@ -109,7 +109,7 @@ for iterability
     Traceback (most recent call last):
       File "<pyshell#4>", line 1, in -toplevel-
         (i for i in 6)
-    TypeError: 'int' object is not iterable
+    TypeError: iteration over non-sequence
 
 Verify late binding for the outermost if-expression
 
@@ -134,15 +134,15 @@ Verify re-use of tuples (a side benefit of using genexps over listcomps)
 
 Verify that syntax error's are raised for genexps used as lvalues
 
-    >>> (y for y in (1,2)) = 10
+    >>> (y for y in (1,2)) = 10 #doctest: +ELLIPSIS
     Traceback (most recent call last):
        ...
-    SyntaxError: assign to generator expression not possible
+    SyntaxError: assign to generator expression not possible...
 
-    >>> (y for y in (1,2)) += 10
+    >>> (y for y in (1,2)) += 10 #doctest: +ELLIPSIS
     Traceback (most recent call last):
        ...
-    SyntaxError: augmented assign to tuple literal or generator expression not possible
+    SyntaxError: augmented assign to tuple literal or generator expression not possible...
 
 
 
@@ -223,7 +223,7 @@ Check that generator attributes are present
     True
 
     >>> print g.next.__doc__
-    x.next() -> the next value, or raise StopIteration
+    next() -> the next value, or raise StopIteration
     >>> import types
     >>> isinstance(g, types.GeneratorType)
     True
