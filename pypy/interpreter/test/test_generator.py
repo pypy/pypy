@@ -156,6 +156,23 @@ class AppTestGenerator:
         g.next()
         raises(RuntimeError, g.close)
 
+    def test_close_on_collect(self):
+        ## we need to exec it, else it won't run on python2.4
+        exec """
+        def f():
+            try:
+                yield
+            finally:
+                f.x = 42
+        """.strip() in locals(), locals()
+
+        g = f()
+        g.next()
+        del g
+        import gc
+        gc.collect()
+        assert f.x == 42
+
     def test_generator_raises_typeerror(self):
         def f():
             yield 1
