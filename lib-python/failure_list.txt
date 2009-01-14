@@ -17,7 +17,6 @@ test_distutils                   this is our issue367
 test_doctest                 !   unknown
 test_dumbdbm                 !   oups? looks unexpected
 test_email_codecs                test skipped
-test_email_renamed           !   same as test_email
 test_enumerate                   same as test_iterlen
 test_file                        some more exceptions should be raised
 test_float                       float.__getformat__() exists mainly only for tests
@@ -25,7 +24,6 @@ test_fork1                   !   why did this fail just once?
 test_format                      test checking for exact exception messages
 test_gc                          internal stuff, we may want to provide placeholders
 test_generators              !   I really hate our bytecode compiler :-(    # SHOULD BE FIXED NOW
-test_generators              !   I really hate our bytecode compiler :-(
 test_gettext                 !   check this use of unicode()
 test_grammar                     implementation detail
 test_import                      importing from pyc-files-without-py-file disabled by default
