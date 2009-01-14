@@ -686,7 +686,6 @@ class AppTestUnicodeString:
         assert s == u'\u1234'
 
     def test_formatting_unicode__str__2(self):
-        skip('XXX: do we really want to have such behaviour? CPython has not tests for that')
         class A:
             def __str__(self):
                 return u'baz'
@@ -708,3 +707,22 @@ class AppTestUnicodeString:
             def __unicode__(self):
                 return u"world"
         assert unicode(Foo9("hello")) == u"world"
+
+    def test_class_with_both_str_and_unicode(self):
+        class A(object):
+            def __str__(self):
+                return 'foo'
+
+            def __unicode__(self):
+                return u'bar'
+
+        assert unicode(A()) == u'bar'
+
+        class A:
+            def __str__(self):
+                return 'foo'
+
+            def __unicode__(self):
+                return u'bar'
+
+        assert unicode(A()) == u'bar'

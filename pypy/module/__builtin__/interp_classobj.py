@@ -416,6 +416,12 @@ class W_InstanceObject(Wrappable):
             return self.descr_repr(space)
         return space.call_function(w_meth)
 
+    def descr_unicode(self, space):
+        w_meth = self.getattr(space, space.wrap('__unicode__'), False)
+        if w_meth is None:
+            return self.descr_repr(space)
+        return space.call_function(w_meth)
+
     def descr_len(self, space):
         w_meth = self.getattr(space, space.wrap('__len__'))
         w_result = space.call_function(w_meth)
@@ -695,6 +701,8 @@ W_InstanceObject.typedef = TypeDef("instance",
     __repr__ = interp2app(W_InstanceObject.descr_repr,
                           unwrap_spec=['self', ObjSpace]),
     __str__ = interp2app(W_InstanceObject.descr_str,
+                         unwrap_spec=['self', ObjSpace]),
+    __unicode__ = interp2app(W_InstanceObject.descr_unicode,
                          unwrap_spec=['self', ObjSpace]),
     __len__ = interp2app(W_InstanceObject.descr_len,
                          unwrap_spec=['self', ObjSpace]),
