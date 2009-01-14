@@ -125,6 +125,31 @@ class AppTestFile(object):
         assert type(res) is str
         f.close()
 
+
+    def test_readline_mixed_with_read(self):
+        skip("fails")
+        s = '''From MAILER-DAEMON Wed Jan 14 14:42:30 2009
+From: foo
+
+0
+From MAILER-DAEMON Wed Jan 14 14:42:44 2009
+Return-Path: <gkj@gregorykjohnson.com>
+X-Original-To: gkj+person@localhost
+Delivered-To: gkj+person@localhost
+Received: from localhost (localhost [127.0.0.1])
+        by andy.gregorykjohnson.com (Postfix) with ESMTP id 356ED9DD17
+        for <gkj+person@localhost>; Wed, 13 Jul 2005 17:23:16 -0400 (EDT)
+Delivered-To: gkj@sundance.gregorykjohnson.com'''
+        f = self.file(self.temppath, "w")
+        f.write(s)
+        f.close()
+        f = self.file(self.temppath, "r")
+        f.seek(0L)
+        f.readline()
+        assert f.tell() == 44L
+        assert f.read(12L) == 'From: foo\n\n0'
+        f.close()
+
 class AppTestConcurrency(object):
     # these tests only really make sense on top of a translated pypy-c,
     # because on top of py.py the inner calls to os.write() don't
@@ -254,7 +279,6 @@ with self.file(self.temppath, 'r') as f:
         exec s2
         assert s == "foo"
         assert f.closed
-
 
 def test_flush_at_exit():
     from pypy import conftest
