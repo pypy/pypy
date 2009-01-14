@@ -48,25 +48,7 @@ for key in _CONSTANTS:
 del LocaleConfigure
 del locale_config
 
-_LANGINFO_CONSTANTS = (
-    'RADIXCHAR',
-    'THOUSEP',
-)
-
-class LanginfoConfigure:
-    _compilation_info_ = ExternalCompilationInfo(includes=['langinfo.h'])
-    nl_item = SimpleType('nl_item')
-for key in _LANGINFO_CONSTANTS:
-    setattr(LanginfoConfigure, key, ConstantInteger(key))
-
-config = configure(LanginfoConfigure)
-nl_item = config['nl_item']
-for key in _LANGINFO_CONSTANTS:
-    globals()[key] = config[key]
-del LanginfoConfigure
-del config
 HAS_LANGINFO = True
-
 
 # Ubuntu Gusty i386 structure
 class lconv(Structure):
@@ -305,72 +287,32 @@ def getdefaultlocale():
     raise NotImplementedError()
 
 if HAS_LANGINFO:
+    # this is incomplete list
+    langinfo_names = ('CODESET D_T_FMT D_FMT T_FMT RADIXCHAR THOUSEP '
+                      'YESEXPR NOEXPR CRNCYSTR').split(" ")
+    for i in range(1, 8):
+        langinfo_names.append("DAY_%d" % i)
+        langinfo_names.append("ABDAY_%d" % i)
+    for i in range(1, 13):
+        langinfo_names.append("MON_%d" % i)
+        langinfo_names.append("ABMON_%d" % i)
+    
+    class LanginfoConfigure:
+        _compilation_info_ = ExternalCompilationInfo(includes=['langinfo.h'])
+        nl_item = SimpleType('nl_item')
+    for key in langinfo_names:
+        setattr(LanginfoConfigure, key, ConstantInteger(key))
+
+    config = configure(LanginfoConfigure)
+    nl_item = config['nl_item']
+    for key in langinfo_names:
+        globals()[key] = config[key]
+    del LanginfoConfigure
+    del config
+
     _nl_langinfo = libc.nl_langinfo
     _nl_langinfo.argtypes = (nl_item,)
     _nl_langinfo.restype = c_char_p
-
-    def _NL_ITEM(category, index):
-        return (category << 16) | index
-
-    langinfo_constants = {
-        # LC_TIME category: date and time formatting.
-
-        # Abbreviated days of the week.
-        "ABDAY_1": _NL_ITEM (LC_TIME, 0),
-        "ABDAY_2": _NL_ITEM (LC_TIME, 1),
-        "ABDAY_3": _NL_ITEM (LC_TIME, 2),
-        "ABDAY_4": _NL_ITEM (LC_TIME, 3),
-        "ABDAY_5": _NL_ITEM (LC_TIME, 4),
-        "ABDAY_6": _NL_ITEM (LC_TIME, 5),
-        "ABDAY_7": _NL_ITEM (LC_TIME, 6),
-
-        # Long-named days of the week.
-        "DAY_1": _NL_ITEM (LC_TIME, 7),
-        "DAY_2": _NL_ITEM (LC_TIME, 8),
-        "DAY_3": _NL_ITEM (LC_TIME, 9),
-        "DAY_4": _NL_ITEM (LC_TIME, 10),
-        "DAY_5": _NL_ITEM (LC_TIME, 11),
-        "DAY_6": _NL_ITEM (LC_TIME, 12),
-        "DAY_7": _NL_ITEM (LC_TIME, 13),
-
-        # Abbreviated month names.
-        "ABMON_1":  _NL_ITEM (LC_TIME, 14),
-        "ABMON_2":  _NL_ITEM (LC_TIME, 15),
-        "ABMON_3":  _NL_ITEM (LC_TIME, 16),
-        "ABMON_4":  _NL_ITEM (LC_TIME, 17),
-        "ABMON_5":  _NL_ITEM (LC_TIME, 18),
-        "ABMON_6":  _NL_ITEM (LC_TIME, 19),
-        "ABMON_7":  _NL_ITEM (LC_TIME, 20),
-        "ABMON_8":  _NL_ITEM (LC_TIME, 21),
-        "ABMON_9":  _NL_ITEM (LC_TIME, 22),
-        "ABMON_10": _NL_ITEM (LC_TIME, 23),
-        "ABMON_11": _NL_ITEM (LC_TIME, 24),
-        "ABMON_12": _NL_ITEM (LC_TIME, 25),
-
-        # Long month names.
-        "MON_1":  _NL_ITEM (LC_TIME, 26),
-        "MON_2":  _NL_ITEM (LC_TIME, 27),
-        "MON_3":  _NL_ITEM (LC_TIME, 28),
-        "MON_4":  _NL_ITEM (LC_TIME, 29),
-        "MON_5":  _NL_ITEM (LC_TIME, 30),
-        "MON_6":  _NL_ITEM (LC_TIME, 31),
-        "MON_7":  _NL_ITEM (LC_TIME, 32),
-        "MON_8":  _NL_ITEM (LC_TIME, 33),
-        "MON_9":  _NL_ITEM (LC_TIME, 34),
-        "MON_10": _NL_ITEM (LC_TIME, 35),
-        "MON_11": _NL_ITEM (LC_TIME, 36),
-        "MON_12": _NL_ITEM (LC_TIME, 37),
-
-        #TODO: ..............
-        #TODO: .............. this list
-        #TODO: .............. is really long
-        #TODO: .............. i'm lazy
-        #TODO: .............. so if you
-        #TODO: .............. want the full
-        #TODO: .............. list you have to
-        #TODO: .............. write it your own
-        #TODO: ..............
-    }
 
     def nl_langinfo(key):
         """nl_langinfo(key) -> string
@@ -378,15 +320,9 @@ if HAS_LANGINFO:
         # Check whether this is a supported constant. GNU libc sometimes
         # returns numeric values in the char* return value, which would
         # crash PyString_FromString.
-        for name, value in langinfo_constants.iteritems():
-            if value == key:
-                # Check NULL as a workaround for GNU libc's returning NULL
-                # instead of an empty string for nl_langinfo(ERA).
-                result = _nl_langinfo(key)
-                if result is not None:
-                    return result
-                else:
-                    return ""
+        result = _nl_langinfo(key)
+        if result is not None:
+            return result
         raise ValueError("unsupported langinfo constant")
 
 def gettext(msg):
@@ -432,7 +368,7 @@ __all__ = (
     'setlocale', 'localeconv', 'strxfrm', 'strcoll',
     'gettext', 'dgettext', 'dcgettext', 'textdomain',
     'bindtextdomain', 'CHAR_MAX',
-) + _CONSTANTS + _LANGINFO_CONSTANTS
+) + _CONSTANTS + tuple(langinfo_names)
 if _bind_textdomain_codeset:
     __all__ += ('bind_textdomain_codeset',)
 if HAS_LANGINFO:
