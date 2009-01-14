@@ -1,12 +1,5 @@
 test name           !=must fix      guess at failure cause or difficulty
 -------------------------------------------------------------------------------------------
-test__locale                 !   wrong locale installation on wyvern
-                                 install correct locale on wyvern :-)
-                                 <arigo> I don't understand the above comment:
-                                 test__locale passes on python2.5 but fails
-                                 on pypy-c, so surely there is another problem?
-
-test_ast                         import _ast
 test_builtin                     this is our issue383
 test_cProfile                !   we still need to fix module/cProfile to respect builtin calls
 test_capi                        CPython only
