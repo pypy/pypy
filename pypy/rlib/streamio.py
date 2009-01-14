@@ -564,6 +564,7 @@ class BufferingInputStream(Stream):
                     data = self.lines[linenum]
                     cutoff = len(data) - (k-n)
                     assert cutoff >= 0
+                    lines.reverse()
                     lines.append(data[:cutoff])
                     del self.lines[linenum:]
                     self.lines.append(data[cutoff:])

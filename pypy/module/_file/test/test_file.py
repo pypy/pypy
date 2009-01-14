@@ -127,7 +127,6 @@ class AppTestFile(object):
 
 
     def test_readline_mixed_with_read(self):
-        skip("fails")
         s = '''From MAILER-DAEMON Wed Jan 14 14:42:30 2009
 From: foo
 
