@@ -148,10 +148,10 @@ def a2b_base64(s):
         if item in table_a2b_base64:
             clean_s.append(item)
     if len(clean_s) % 4 == 1:
-        if count != 2:
+        if count < 1:
             raise Error("incorrect padding")
     if len(clean_s) % 4 == 2:
-        if count != 1:
+        if count < 2:
             raise Error("incorrect padding")
     s = ''.join(clean_s)
     if len(s) % 4:
