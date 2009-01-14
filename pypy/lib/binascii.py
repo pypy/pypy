@@ -130,6 +130,7 @@ table_a2b_base64 = {
     '9': 61,
     '+': 62,
     '/': 63,
+    '=': 0,
 }
 
 
@@ -137,67 +138,46 @@ def a2b_base64(s):
     s = s.rstrip()
     # clean out all invalid characters, this also strips the final '=' padding
     # check for correct padding
-    if not s or s.startswith('='):
-        count = 0
-    else:
-        count = 0
-        while s[len(s)-count-1] == '=':
-            count += 1
-    clean_s = []
-    for item in s:
-        if item in table_a2b_base64:
-            clean_s.append(item)
-    if len(clean_s) % 4 == 1:
-        if count < 1:
-            raise Error("incorrect padding")
-    if len(clean_s) % 4 == 2:
-        if count < 2:
-            raise Error("incorrect padding")
-    s = ''.join(clean_s)
-    if len(s) % 4:
-        s = s + ('=' * (4 - len(s) % 4))
 
-    # Add '=' padding back into the string
-     
-    def quadruplets_gen(s):
-        l = [s[i:i+4] for i in range(0, len(s), 4)]
-        for s in l:
-            yield (table_a2b_base64[s[0]],
-                   table_a2b_base64[s[1]],
-                   table_a2b_base64[s[2]],
-                   table_a2b_base64[s[3]])
-
-    result = [
-        chr(A << 2 | ((B >> 4) & 0x3)) + 
-        chr((B & 0xf) << 4 | ((C >> 2 ) & 0xf)) + 
-        chr((C & 0x3) << 6 | D )
-        for A, B, C, D in quadruplets_gen(s[:-4])]
-
-    if s:
-        try:
-            final = s[-4:]
-            if final[2] == '=':
-                A = table_a2b_base64[final[0]]
-                B = table_a2b_base64[final[1]]
-                snippet =  chr(A << 2 | ((B >> 4) & 0x3))
-            elif final[3] == '=':
-                A = table_a2b_base64[final[0]]
-                B = table_a2b_base64[final[1]]
-                C = table_a2b_base64[final[2]]
-                snippet =  chr(A << 2 | ((B >> 4) & 0x3)) + \
-                          chr((B & 0xf) << 4 | ((C >> 2 ) & 0xf))
+    def next_valid_char(s, pos):
+        for i in range(pos + 1, len(s)):
+            c = s[i]
+            if c < '\x7f':
+                try:
+                    table_a2b_base64[c]
+                    return c
+                except KeyError:
+                    pass
+        return None
+    
+    quad_pos = 0
+    leftbits = 0
+    leftchar = 0
+    res = []
+    for i, c in enumerate(s):
+        if c > '\x7f' or c == '\n' or c == '\r' or c == ' ':
+            continue
+        if c == '=':
+            if quad_pos < 2 or (quad_pos == 2 and next_valid_char(s, i) != '='):
+                continue
             else:
-                A = table_a2b_base64[final[0]]
-                B = table_a2b_base64[final[1]]
-                C = table_a2b_base64[final[2]]
-                D = table_a2b_base64[final[3]]
-                snippet =  chr(A << 2 | ((B >> 4) & 0x3)) + \
-                          chr((B & 0xf) << 4 | ((C >> 2 ) & 0xf)) + \
-                          chr((C & 0x3) << 6 | D )
-            result.append(snippet)
+                leftbits = 0
+                break
+        try:
+            next_c = table_a2b_base64[c]
         except KeyError:
-            raise Error('Incorrect padding')
-    return ''.join(result)
+            continue
+        quad_pos = (quad_pos + 1) & 0x03
+        leftchar = (leftchar << 6) | next_c
+        leftbits += 6
+        if leftbits >= 8:
+            leftbits -= 8
+            res.append((leftchar >> leftbits & 0xff))
+            leftchar &= ((1 << leftbits) - 1)
+    if leftbits != 0:
+        raise Error('Incorrect padding')
+    
+    return ''.join([chr(i) for i in res])
     
 table_b2a_base64 = \
 "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"

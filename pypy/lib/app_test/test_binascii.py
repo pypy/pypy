@@ -150,3 +150,7 @@ def test_empty_string():
 def test_wrong_padding():
     s = 'CSixpLDtKSC/7Liuvsax4iC6uLmwMcijIKHaILzSwd/H0SC8+LCjwLsgv7W/+Mj3IQ'
     raises(binascii.Error, binascii.a2b_base64, s)
+
+def test_crap_after_padding():
+    s = 'xxx=axxxx'
+    assert binascii.a2b_base64(s) == '\xc7\x1c'
