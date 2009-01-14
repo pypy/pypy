@@ -111,5 +111,5 @@ return next yielded value or raise StopIteration."""
             msg = "generator ignored GeneratorExit"
             raise OperationError(space.w_RuntimeError, space.wrap(msg))
 
-    def __del__(self):
-        self.descr_close()
+##     def __del__(self):
+##         self.descr_close()

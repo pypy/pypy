@@ -157,6 +157,7 @@ class AppTestGenerator:
         raises(RuntimeError, g.close)
 
     def test_close_on_collect(self):
+        skip("uncomment the __del__ in generator.py, but it causes a segfault")
         ## we need to exec it, else it won't run on python2.4
         exec """
         def f():
