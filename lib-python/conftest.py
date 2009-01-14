@@ -121,6 +121,7 @@ testmap = [
     RegrTest('test__locale.py'),
     RegrTest('test_aepack.py', skip=True),
     RegrTest('test_al.py', skip=True),
+    RegrTest('test_ast.py', skip="unsupported module _ast"),
     RegrTest('test_anydbm.py'),
     RegrTest('test_applesingle.py', skip=True),
     RegrTest('test_array.py', core=True, usemodules='struct'),
