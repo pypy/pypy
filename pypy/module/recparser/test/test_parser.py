@@ -20,6 +20,16 @@ class AppTestRecparser:
         import parser
         parser.suite("a = 3").totuple()
 
+    def test_futures(self):
+        import parser
+        src = """
+from __future__ import with_statement
+def f():
+    with foo:
+        return 1
+        """.strip()
+        parser.suite(src)
+
 class AppTestRecparserErrors: 
     def setup_class(cls):
         cls.space = space

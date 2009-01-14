@@ -10,6 +10,7 @@ from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.pyparser.syntaxtree import TokenNode, SyntaxNode, AbstractSyntaxVisitor
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.interpreter.pyparser import grammar, symbol, pytoken
+from pypy.interpreter.pyparser.future import getFutures
 from pypy.interpreter.argument import Arguments
 
 # backward compat (temp)
@@ -163,11 +164,13 @@ def get_ast_compiler(space):
     return compiler
 
 def parse_python_source(space, source, mode):
-    parser = get_ast_compiler(space).get_parser()
+    pycompiler = get_ast_compiler(space)
+    parser = pycompiler.get_parser()
+    flags = getFutures(pycompiler.futureFlags, source)
     builder = grammar.BaseGrammarBuilder(debug=False, parser=parser)
     builder.space = space
     try:
-        parser.parse_source(source, mode, builder)
+        parser.parse_source(source, mode, builder, flags)
         return builder.stack[-1]
     except SyntaxError, e:
         raise OperationError(space.w_SyntaxError,
