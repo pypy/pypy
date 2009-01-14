@@ -400,7 +400,11 @@ class W_InstanceObject(Wrappable):
         if w_meth is not None:
             space.call_function(w_meth, w_name)
         else:
-            self.deldictvalue(space, w_name)
+            if not self.deldictvalue(space, w_name):
+                raise OperationError(
+                    space.w_AttributeError,
+                    space.wrap("%s instance has no attribute %s" % (
+                        self.w_class.name, space.str_w(space.str(w_name)))))
 
     def descr_repr(self, space):
         w_meth = self.getattr(space, space.wrap('__repr__'), False)

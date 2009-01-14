@@ -208,7 +208,6 @@ class AppTestUserObject:
         assert s.startswith('<a.b.c.Foo object at ')
 
     def test_del_attr(self):
-        skip("Fails")
         class Foo(object):
             def __init__(self):
                 self.x = 3
@@ -232,6 +231,17 @@ class AppTestUserObject:
 
         try:
             del foo.x
+        except AttributeError:
+            pass
+        else:
+            raise Exception("DID NOT RAISE")
+
+    def test_del_attr_class(self):
+        class Foo:
+            pass
+
+        try:
+            del Foo.x
         except AttributeError:
             pass
         else:
