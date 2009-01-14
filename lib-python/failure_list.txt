@@ -35,7 +35,6 @@ test_iterlen                     somehow implementation detail (missing __length
 test_itertools                   same as test_iterlen
 test_logging                 !   shallow.  let's just fix the __repr__ of types
 test_long                    !   easy fixes
-test_mailbox                 !   look at me
 test_multibytecodec          !   unknown
 test_mutants                     the test is probably too precise in the failure it expects
 test_new                         new.instancemethod(x, None) should fail, but no hurry
