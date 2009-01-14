@@ -136,22 +136,36 @@ table_a2b_base64 = {
 def a2b_base64(s):
     s = s.rstrip()
     # clean out all invalid characters, this also strips the final '=' padding
+    # check for correct padding
+    if not s or s.startswith('='):
+        count = 0
+    else:
+        count = 0
+        while s[len(s)-count-1] == '=':
+            count += 1
     clean_s = []
     for item in s:
         if item in table_a2b_base64:
             clean_s.append(item)
+    if len(clean_s) % 4 == 1:
+        if count != 2:
+            raise Error("incorrect padding")
+    if len(clean_s) % 4 == 2:
+        if count != 1:
+            raise Error("incorrect padding")
     s = ''.join(clean_s)
-    # Add '=' padding back into the string
     if len(s) % 4:
         s = s + ('=' * (4 - len(s) % 4))
+
+    # Add '=' padding back into the string
      
     def quadruplets_gen(s):
-        while s:
+        l = [s[i:i+4] for i in range(0, len(s), 4)]
+        for s in l:
             yield (table_a2b_base64[s[0]],
                    table_a2b_base64[s[1]],
                    table_a2b_base64[s[2]],
                    table_a2b_base64[s[3]])
-            s = s[4:]
 
     result = [
         chr(A << 2 | ((B >> 4) & 0x3)) + 
