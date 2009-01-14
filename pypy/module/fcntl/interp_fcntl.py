@@ -167,7 +167,7 @@ def flock(space, w_fd, op):
         rffi.setintfield(l, 'c_l_whence', 0)
         rffi.setintfield(l, 'c_l_start', 0)
         rffi.setintfield(l, 'c_l_len', 0)
-        op = [F_SETLKW, F_SETLK][op & LOCK_NB]
+        op = [F_SETLKW, F_SETLK][int(bool(op & LOCK_NB))]
         op = rffi.cast(rffi.INT, op)        # C long => C int
         fcntl_flock(fd, op, l)
         lltype.free(l, flavor='raw')
@@ -213,11 +213,7 @@ def lockf(space, w_fd, op, length=0, start=0, whence=0):
     l.c_l_whence = rffi.cast(rffi.SHORT, whence)
 
     try:
-        try:
-            op = [F_SETLKW, F_SETLK][op & LOCK_NB]
-        except IndexError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("invalid value for operation"))
+        op = [F_SETLKW, F_SETLK][int(bool(op & LOCK_NB))]
         op = rffi.cast(rffi.INT, op)        # C long => C int
         fcntl_flock(fd, op, l)
     finally:

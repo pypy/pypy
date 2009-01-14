@@ -191,3 +191,8 @@ class AppTestFcntl:
 
         res = fcntl.ioctl(0, TIOCGPGRP, "\x00\x00")
         assert res == expected
+
+    def test_lockf_with_ex(self):
+        import fcntl
+        f = open(self.tmp, "w")
+        fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
