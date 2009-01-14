@@ -146,3 +146,8 @@ def test_empty_string():
         f = getattr(binascii, n)
         f('')
     binascii.crc_hqx('', 0)
+
+def test_wrong_padding():
+    skip("fails")
+    s = 'CSixpLDtKSC/7Liuvsax4iC6uLmwMcijIKHaILzSwd/H0SC8+LCjwLsgv7W/+Mj3IQ'
+    raises(binascii.Error, binascii.a2b_base64, s)
