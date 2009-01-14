@@ -380,6 +380,7 @@ testmap = [
     RegrTest('test_strptime.py'),
 
     RegrTest('test_struct.py', usemodules='struct'),
+    RegrTest('test_structmembers.py', skip="CPython specific"),
     RegrTest('test_structseq.py'),
     RegrTest('test_subprocess.py', usemodules='signal'),
     RegrTest('test_sunaudiodev.py', skip=True),

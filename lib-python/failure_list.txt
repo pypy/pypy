@@ -27,7 +27,7 @@ test_fork1                   !   why did this fail just once?
 test_format                      test checking for exact exception messages
 test_gc                          internal stuff, we may want to provide placeholders
 test_generators              !   I really hate our bytecode compiler :-(
-test_genexps                 !   Fatal RPython error: InternalCompilerError :-(
+test_genexps                 !   failing doctests
 test_gettext                 !   check this use of unicode()
 test_grammar                     implementation detail
 test_hmac                    !   looks bad!                 SHOULD BE FIXED NOW, check the nightly tests
@@ -69,7 +69,6 @@ test_socketserver                test skipped
 test_sort                        implementation detail
 test_sqlite                  !   why no sqlite available?
 test_startfile                   what is os.startfile?
-test_str                 arigo   probably skip, investigate
 test_structmembers               CPython-only
 test_subprocess              !   missing resource.error.  no clue about os.fpathconf().
 test_syntax                      more small hacking here and there in the ast compiler
