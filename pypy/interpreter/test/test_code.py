@@ -64,7 +64,7 @@ class AppTestCodeIntrospection:
                 assert getattr(code, key) == value
 
     def test_co_names(self):
-        skip("Fails")
+        src = '''if 1:
         def foo():
             pass
 
@@ -73,8 +73,11 @@ class AppTestCodeIntrospection:
         def f(x, y):
             z = x + y
             foo(g)
+'''
+        d = {}
+        exec src in d
 
-        assert f.func_code.co_names == ('foo', 'g')
+        assert list(sorted(d['f'].func_code.co_names)) == ['foo', 'g']
 
     def test_code(self):
         import sys

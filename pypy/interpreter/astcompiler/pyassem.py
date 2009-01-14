@@ -174,7 +174,6 @@ class PyFlowGraph(object):
                                     % name)
 
     def _convert_LOAD_FAST(self, arg):
-        self._lookupName(arg, self.names)
         return self._lookupName(arg, self.varnames)
     _convert_STORE_FAST = _convert_LOAD_FAST
     _convert_DELETE_FAST = _convert_LOAD_FAST
