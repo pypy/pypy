@@ -207,6 +207,36 @@ class AppTestUserObject:
         s = repr(Foo())
         assert s.startswith('<a.b.c.Foo object at ')
 
+    def test_del_attr(self):
+        skip("Fails")
+        class Foo(object):
+            def __init__(self):
+                self.x = 3
+
+        foo = Foo()
+        del foo.x
+
+        try:
+            del foo.x
+        except AttributeError:
+            pass
+        else:
+            raise Exception("DID NOT RAISE")
+
+        class Foo:
+            def __init__(self):
+                self.x = 3
+
+        foo = Foo()
+        del foo.x
+
+        try:
+            del foo.x
+        except AttributeError:
+            pass
+        else:
+            raise Exception("DID NOT RAISE")
+
 class AppTestWithMultiMethodVersion2(AppTestUserObject):
     OPTIONS = {}    # for test_builtinshortcut.py
 
