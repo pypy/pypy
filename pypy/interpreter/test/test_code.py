@@ -63,6 +63,19 @@ class AppTestCodeIntrospection:
             for key, value in expected.items():
                 assert getattr(code, key) == value
 
+    def test_co_names(self):
+        skip("Fails")
+        def foo():
+            pass
+
+        g = 3
+
+        def f(x, y):
+            z = x + y
+            foo(g)
+
+        assert f.func_code.co_names == ('foo', 'g')
+
     def test_code(self):
         import sys
         try: 
