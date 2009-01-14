@@ -16,7 +16,6 @@ test_dis                         probably not worth the pain of whacking at the 
 test_distutils                   this is our issue367
 test_doctest                 !   unknown
 test_dumbdbm                 !   oups? looks unexpected
-test_email                   !   annoying failures, look at me
 test_email_codecs                test skipped
 test_email_renamed           !   same as test_email
 test_enumerate                   same as test_iterlen
