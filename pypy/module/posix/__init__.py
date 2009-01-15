@@ -86,23 +86,12 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['sysconf_names'] = 'space.wrap(os.sysconf_names)'
     if hasattr(os, 'ttyname'):
         interpleveldefs['ttyname'] = 'interp_posix.ttyname'
-    if hasattr(os, 'setsid'):
-        interpleveldefs['setsid'] = 'interp_posix.setsid'
-    if hasattr(os, 'getuid'):
-        interpleveldefs['getuid'] = 'interp_posix.getuid'
-        interpleveldefs['geteuid'] = 'interp_posix.geteuid'
-    if hasattr(os, 'getgid'):
-        interpleveldefs['getgid'] = 'interp_posix.getgid'
-    if hasattr(os, 'getegid'):
-        interpleveldefs['getegid'] = 'interp_posix.getegid'
-    if hasattr(os, 'setuid'):
-        interpleveldefs['setuid'] = 'interp_posix.setuid'
-    if hasattr(os, 'seteuid'):
-        interpleveldefs['seteuid'] = 'interp_posix.seteuid'
-    if hasattr(os, 'setgid'):
-        interpleveldefs['setgid'] = 'interp_posix.setgid'
-    if hasattr(os, 'setegid'):
-        interpleveldefs['setegid'] = 'interp_posix.setegid'
+
+    for name in ['setsid', 'getuid', 'geteuid', 'getgid', 'getegid', 'setuid',
+                 'seteuid', 'setgid', 'setegid', 'getpgrp', 'setpgrp',
+                 'getppid', 'getpgid', 'setpgid', 'setreuid', 'setregid']:
+        if hasattr(os, name):
+            interpleveldefs[name] = 'interp_posix.%s' % (name,)
     # not visible via os, inconsistency in nt:
     if hasattr(posix, '_getfullpathname'):
         interpleveldefs['_getfullpathname'] = 'interp_posix._getfullpathname'

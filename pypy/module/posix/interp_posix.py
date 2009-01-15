@@ -651,6 +651,78 @@ def geteuid(space):
     return space.wrap(os.geteuid())
 geteuid.unwrap_spec = [ObjSpace]
 
+def getpgrp(space):
+    """ getpgrp() -> pgrp
+
+    Return the current process group id.
+    """
+    return space.wrap(os.getpgrp())
+getpgrp.unwrap_spec = [ObjSpace]
+
+def setpgrp(space):
+    """ setpgrp()
+
+    Make this process a session leader.
+    """
+    try:
+        os.setpgrp()
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.w_None        
+setpgrp.unwrap_spec = [ObjSpace]
+
+def getppid(space):
+    """ getppid() -> ppid
+
+    Return the parent's process id.
+    """
+    return space.wrap(os.getppid())
+getppid.unwrap_spec = [ObjSpace]
+
+def getpgid(space, pid):
+    """ getpgid(pid) -> pgid
+
+    Call the system call getpgid().
+    """
+    return space.wrap(os.getpgid(pid))
+getpgid.unwrap_spec = [ObjSpace, int]
+
+def setpgid(space, pid, pgrp):
+    """ setpgid(pid, pgrp)
+
+    Call the system call setpgid().
+    """
+    try:
+        os.setpgid(pid, pgrp)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.w_None                
+setpgid.unwrap_spec = [ObjSpace, int, int]
+
+def setreuid(space, ruid, euid):
+    """ setreuid(ruid, euid)
+
+    Set the current process's real and effective user ids.
+    """
+    try:
+        os.setreuid(ruid, euid)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.w_None                
+setreuid.unwrap_spec = [ObjSpace, int, int]
+
+def setregid(space, rgid, egid):
+    """ setregid(rgid, egid)
+
+    Set the current process's real and effective group ids.
+    """
+    try:
+        os.setregid(rgid, egid)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.w_None                
+setregid.unwrap_spec = [ObjSpace, int, int]
+
 def declare_new_w_star(name):
     if name in RegisterOs.w_star_returning_int:
         def WSTAR(space, status):
