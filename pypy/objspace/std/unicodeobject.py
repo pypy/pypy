@@ -659,36 +659,36 @@ def unicode_count__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_e
     return space.wrap(self.count(substr, start, end))
 
 def unicode_split__Unicode_None_ANY(space, w_self, w_none, w_maxsplit):
-    self = w_self._value
     maxsplit = space.int_w(w_maxsplit)
-    parts = []
-    if len(self) == 0:
-        return space.newlist([])
-    start = 0
-    end = len(self)
-    inword = 0
-
-    while maxsplit != 0 and start < end:
-        index = start
-        for index in range(start, end):
-            if _isspace(self[index]):
-                break
-            else:
-                inword = 1
+    res_w = []
+    value = w_self._value
+    length = len(value)
+    i = 0
+    while True:
+        # find the beginning of the next word
+        while i < length:
+            if not value[i].isspace():
+                break   # found
+            i += 1
         else:
-            break
-        if inword == 1:
-            parts.append(W_UnicodeObject(self[start:index]))
-            maxsplit -= 1
-        # Eat whitespace
-        for start in range(index + 1, end):
-            if not _isspace(self[start]):
-                break
-        else:
-            return space.newlist(parts)
+            break  # end of string, finished
 
-    parts.append(W_UnicodeObject(self[start:]))
-    return space.newlist(parts)
+        # find the end of the word
+        if maxsplit == 0:
+            j = length   # take all the rest of the string
+        else:
+            j = i + 1
+            while j < length and not value[j].isspace():
+                j += 1
+            maxsplit -= 1   # NB. if it's already < 0, it stays < 0
+
+        # the word is value[i:j]
+        res_w.append(W_UnicodeObject(value[i:j]))
+
+        # continue to look from the character following the space after the word
+        i = j + 1
+
+    return space.newlist(res_w)
 
 def unicode_split__Unicode_Unicode_ANY(space, w_self, w_delim, w_maxsplit):
     self = w_self._value
