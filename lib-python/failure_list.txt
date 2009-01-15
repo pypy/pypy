@@ -23,7 +23,7 @@ test_float                       float.__getformat__() exists mainly only for te
 test_fork1                   !   why did this fail just once?
 test_format                      test checking for exact exception messages
 test_gc                          internal stuff, we may want to provide placeholders
-test_generators              !   I really hate our bytecode compiler :-(    # SHOULD BE FIXED NOW
+test_generators              !   the fix is in r60950 but doesn't work. See r60965
 test_gettext                 !   check this use of unicode()
 test_grammar                     implementation detail
 test_import                      importing from pyc-files-without-py-file disabled by default
