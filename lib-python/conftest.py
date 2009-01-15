@@ -469,7 +469,7 @@ testmap = [
     RegrTest('test_platform.py'),
     RegrTest('test_runpy.py'),
     RegrTest('test_sqlite.py'),
-    RegrTest('test_startfile.py'),
+    RegrTest('test_startfile.py', skip="bogus test"),
     RegrTest('test_structmembers.py', skip="depends on _testcapi"),
     RegrTest('test_urllib2_localnet.py'),
     RegrTest('test_uuid.py'),

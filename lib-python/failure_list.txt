@@ -51,7 +51,6 @@ test_pyclbr                  !   this import should find test/pyclbr_input.py
 test_pyexpat                     is that an implementation detail?
 test_quopri                  !   check if test_script{en,de}code() shows a real bug
 test_random                      should probably be fixed, but no hurry i guess
-test_re                          obscure, looks like yet another case not covered by test_sub_unicode in pypy/module/_sre/
 test_repr                        implementation detail
 test_sax                     !   unknown
 test_sets                    !   is this another CPython implementation detail test?
@@ -62,7 +61,6 @@ test_socket                  !   some failures, look
 test_socketserver                test skipped
 test_sort                        implementation detail
 test_sqlite                  !   why no sqlite available?
-test_startfile                   what is os.startfile?
 test_structmembers               CPython-only
 test_subprocess              !   missing resource.error.  no clue about os.fpathconf().
 test_syntax                      more small hacking here and there in the ast compiler
