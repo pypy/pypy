@@ -7,6 +7,9 @@ from ctypes_configure.configure import (configure,
     SimpleType)
 import _structseq
 
+class error(Exception):
+    pass
+
 _CONSTANTS = (
     'RLIM_INFINITY',
     'RLIM_NLIMITS',
@@ -65,10 +68,6 @@ for key in _OPTIONAL_CONSTANTS:
         globals()[key] = config[key]
         optional_constants.append(key)
 del config
-
-class ResourceError(OSError):
-    def __init__(self, errno):
-        OSError.__init__(self, errno)
 
 class timeval(Structure):
     _fields_ = (
@@ -134,7 +133,7 @@ def getrusage(who):
         errno = get_errno()
         if errno == EINVAL:
             raise ValueError("invalid who parameter")
-        raise ResourceError(errno)
+        raise error(errno)
     return struct_rusage((
         float(ru.ru_utime),
         float(ru.ru_stime),
@@ -162,7 +161,7 @@ def getrlimit(resource):
     ret = _getrlimit(resource, byref(rlim))
     if ret == -1:
         errno = get_errno()
-        raise ResourceError(errno)
+        raise error(errno)
     return (rlim.rlim_cur, rlim.rlim_max)
 
 def setrlimit(resource, rlim):
@@ -178,7 +177,7 @@ def setrlimit(resource, rlim):
         elif errno == EPERM:
             return ValueError("not allowed to raise maximum limit")
         else:
-            raise ResourceError(errno)
+            raise error(errno)
 
 def getpagesize():
     pagesize = 0
@@ -192,7 +191,7 @@ def getpagesize():
             return sysconf("SC_PAGESIZE")
 
 __all__ = _CONSTANTS + tuple(optional_constants) + (
-    'ResourceError', 'timeval', 'struct_rusage', 'rlimit',
+    'error', 'timeval', 'struct_rusage', 'rlimit',
     'getrusage', 'getrlimit', 'setrlimit', 'getpagesize',
 )
 
