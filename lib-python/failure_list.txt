@@ -15,7 +15,6 @@ test_descrtut                    implementation detail only
 test_dis                         probably not worth the pain of whacking at the compiler
 test_distutils                   this is our issue367
 test_doctest                 !   unknown
-test_dumbdbm                 !   oups? looks unexpected
 test_email_codecs                test skipped
 test_enumerate                   same as test_iterlen
 test_file                        some more exceptions should be raised
@@ -32,7 +31,6 @@ test_inspect                 !   test_wrapped_decorator: try to fix;  isbuiltin(
 test_iterlen                     somehow implementation detail (missing __length_hint__())
 test_itertools                   same as test_iterlen
 test_logging                 !   shallow.  let's just fix the __repr__ of types
-test_long                    !   easy fixes
 test_multibytecodec          !   unknown
 test_mutants                     the test is probably too precise in the failure it expects
 test_new                         new.instancemethod(x, None) should fail, but no hurry
