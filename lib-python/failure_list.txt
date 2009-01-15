@@ -29,8 +29,6 @@ test_grammar                     implementation detail
 test_import                      importing from pyc-files-without-py-file disabled by default
 test_importhooks             !   unknown
 test_inspect                 !   test_wrapped_decorator: try to fix;  isbuiltin([].append): cry and maaaybe try to fix
-test_ioctl                       missing os.getpgrp()
-test_isinstance              !   mark the recursion limit tests as CPython-specific
 test_iterlen                     somehow implementation detail (missing __length_hint__())
 test_itertools                   same as test_iterlen
 test_logging                 !   shallow.  let's just fix the __repr__ of types
