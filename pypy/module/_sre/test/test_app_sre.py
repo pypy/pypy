@@ -187,6 +187,7 @@ class AppTestSreMatch:
         # following strangeish rules:
         assert isinstance(re.sub(u"a", u"b", "diwoiioamoi"), unicode)
         assert isinstance(re.sub(u"a", u"b", "diwoiiobmoi"), str)
+        assert isinstance(re.sub(u'x', 'y', 'x'), str)
 
     def test_sub_callable(self):
         import re
