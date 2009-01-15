@@ -404,7 +404,7 @@ def _convert_idx_params(space, w_self, w_sub, w_start, w_end, upper_bound=False)
         start = slicetype.adapt_lower_bound(space, len(self), w_start)
         end = slicetype.adapt_lower_bound(space, len(self), w_end)
     return (self, sub, start, end)
-_convert_idx_params.annspecialcase = 'specialize:arg(5)'
+_convert_idx_params._annspecialcase_ = 'specialize:arg(5)'
 
 def contains__String_String(space, w_self, w_sub):
     self = w_self._value

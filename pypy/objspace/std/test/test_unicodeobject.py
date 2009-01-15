@@ -566,7 +566,7 @@ class AppTestUnicodeString:
         assert u'abcdefghiabc'.rfind(u'') == 12
         assert u'abcdefghiabc'.rfind(u'abcd') == 0
         assert u'abcdefghiabc'.rfind(u'abcz') == -1
-
+        assert u'abc'.rfind('', 4) == -1
 
     def test_count(self):
         assert u"".count(u"x") ==0

@@ -2,6 +2,7 @@ from pypy.objspace.std.stdtypedef import *
 from pypy.objspace.std.basestringtype import basestring_typedef
 
 from sys import maxint
+from pypy.rlib.objectmodel import specialize
 
 def wrapstr(space, s):
     from pypy.objspace.std.stringobject import W_StringObject
@@ -307,6 +308,7 @@ str_typedef.registermethods(globals())
 
 # Helpers for several string implementations
 
+@specialize.argtype(0)
 def stringendswith(u_self, suffix, start, end):
     begin = end - len(suffix)
     if begin < start:
@@ -316,6 +318,7 @@ def stringendswith(u_self, suffix, start, end):
             return False
     return True
 
+@specialize.argtype(0)
 def stringstartswith(u_self, prefix, start, end):
     stop = start + len(prefix)
     if stop > end:
