@@ -57,7 +57,6 @@ test_sets                    !   is this another CPython implementation detail t
 test_shelve                  !   unknown
 test_signal                  !   missing signal.alarm(), probably easy to add
 test_site                    !   fix me
-test_socket                  !   some failures, look
 test_socketserver                test skipped
 test_sort                        implementation detail
 test_sqlite                  !   why no sqlite available?
