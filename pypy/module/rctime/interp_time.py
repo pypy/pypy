@@ -201,13 +201,22 @@ def _gettmarg(space, w_tup, allowNone=True):
                                         "length 9, not %d" % len(tup_w)))
 
     y = space.int_w(tup_w[0])
-    rffi.setintfield(glob_buf, 'c_tm_mon', space.int_w(tup_w[1]))
-    rffi.setintfield(glob_buf, 'c_tm_mday', space.int_w(tup_w[2]))
+    tm_mon = space.int_w(tup_w[1])
+    if tm_mon == 0:
+        tm_mon = 1
+    tm_mday = space.int_w(tup_w[2])
+    if tm_mday == 0:
+        tm_mday = 1
+    tm_yday = space.int_w(tup_w[7])
+    if tm_yday == 0:
+        tm_yday = 1
+    rffi.setintfield(glob_buf, 'c_tm_mon', tm_mon)
+    rffi.setintfield(glob_buf, 'c_tm_mday', tm_mday)
     rffi.setintfield(glob_buf, 'c_tm_hour', space.int_w(tup_w[3]))
     rffi.setintfield(glob_buf, 'c_tm_min', space.int_w(tup_w[4]))
     rffi.setintfield(glob_buf, 'c_tm_sec', space.int_w(tup_w[5]))
     rffi.setintfield(glob_buf, 'c_tm_wday', space.int_w(tup_w[6]))
-    rffi.setintfield(glob_buf, 'c_tm_yday', space.int_w(tup_w[7]))
+    rffi.setintfield(glob_buf, 'c_tm_yday', tm_yday)
     rffi.setintfield(glob_buf, 'c_tm_isdst', space.int_w(tup_w[8]))
     if _POSIX:
         # actually never happens, but makes annotator happy

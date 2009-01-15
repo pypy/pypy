@@ -216,6 +216,8 @@ class AppTestRCTime:
         raises(TypeError, rctime.strftime, ())
         raises(TypeError, rctime.strftime, (1,))
         raises(TypeError, rctime.strftime, range(8))
+        exp = '2000 01 01 00 00 00 1 001'
+        assert rctime.strftime("%Y %m %d %H %M %S %w %j", (0,)*9) == exp
 
     def test_strftime_bounds_checking(self):
         import time as rctime
@@ -229,10 +231,8 @@ class AppTestRCTime:
             raises(ValueError, rctime.strftime, '', (-1, 1, 1, 0, 0, 0, 0, 1, -1))
             raises(ValueError, rctime.strftime, '', (100, 1, 1, 0, 0, 0, 0, 1, -1))
         # check month
-        raises(ValueError, rctime.strftime, '', (1900, 0, 1, 0, 0, 0, 0, 1, -1))
         raises(ValueError, rctime.strftime, '', (1900, 13, 1, 0, 0, 0, 0, 1, -1))
         # check day of month
-        raises(ValueError, rctime.strftime, '', (1900, 1, 0, 0, 0, 0, 0, 1, -1))
         raises(ValueError, rctime.strftime, '', (1900, 1, 32, 0, 0, 0, 0, 1, -1))
         # check hour
         raises(ValueError, rctime.strftime, '', (1900, 1, 1, -1, 0, 0, 0, 1, -1))
@@ -251,7 +251,6 @@ class AppTestRCTime:
         #  modulo.
         raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, 0, 0, -2, 1, -1))
         # check day of the year
-        raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, 0, 0, 0, 0, -1))
         raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, 0, 0, 0, 367, -1))
         # check daylight savings flag
         raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, 0, 0, 0, 1, -2))
