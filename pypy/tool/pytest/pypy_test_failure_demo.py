@@ -12,6 +12,11 @@ class TestInterpTest:
     def test_interp_method(self): 
         assert self.space.is_true(self.space.w_False) 
 
+def app_test_raises_in_statement():
+    raises(ValueError, """
+        y = x  # name error
+    """)
+
 def app_test_raises_something():
     int("hallo") 
 
