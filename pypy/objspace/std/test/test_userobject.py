@@ -215,12 +215,7 @@ class AppTestUserObject:
         foo = Foo()
         del foo.x
 
-        try:
-            del foo.x
-        except AttributeError:
-            pass
-        else:
-            raise Exception("DID NOT RAISE")
+        raises(AttributeError, "del foo.x")
 
         class Foo:
             def __init__(self):
@@ -228,24 +223,13 @@ class AppTestUserObject:
 
         foo = Foo()
         del foo.x
-
-        try:
-            del foo.x
-        except AttributeError:
-            pass
-        else:
-            raise Exception("DID NOT RAISE")
+        raises(AttributeError, "del foo.x")
 
     def test_del_attr_class(self):
         class Foo:
             pass
 
-        try:
-            del Foo.x
-        except AttributeError:
-            pass
-        else:
-            raise Exception("DID NOT RAISE")
+        raises(AttributeError, "del Foo.x")
 
 class AppTestWithMultiMethodVersion2(AppTestUserObject):
     OPTIONS = {}    # for test_builtinshortcut.py
