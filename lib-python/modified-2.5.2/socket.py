@@ -247,6 +247,8 @@ class _fileobject(object):
                 if self._sock:
                     s = self._sock
                     self._sock = None
+                    if self._close:
+                        s.close()
                     s._drop()
 
     def __del__(self):
