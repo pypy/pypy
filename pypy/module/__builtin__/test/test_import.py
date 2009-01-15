@@ -312,6 +312,17 @@ class AppTestImport:
         """
         raises(ValueError, imp)
 
+    def test_relative_import_with___name__(self):
+        skip("fixme")
+        import sys
+        import imp
+        mod = imp.new_module("foo")
+        mod.xxx = 42
+        sys.modules['foo'] = mod
+        mydict = {'__name__': 'foo.bar'}
+        exec "from . import xxx" in mydict
+        assert mydict['xxx'] == 42
+
     def test_universal_newlines(self):
         import pkg_univnewlines
         assert pkg_univnewlines.a == 5
