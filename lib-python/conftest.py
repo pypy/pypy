@@ -342,7 +342,7 @@ testmap = [
     RegrTest('test_re.py', core=True),
 
     RegrTest('test_repr.py', core=True),
-    RegrTest('test_resource.py', skip="unsupported extension module"),
+    RegrTest('test_resource.py'),
     RegrTest('test_rfc822.py'),
     RegrTest('test_rgbimg.py', skip="unsupported extension module"),
     RegrTest('test_richcmp.py', core=True),
