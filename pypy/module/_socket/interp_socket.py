@@ -474,6 +474,7 @@ shutdown(how) -- shut down traffic in one or both directions
     __new__ = descr_socket_new,
     __weakref__ = make_weakref_descr(W_RSocket),
     type = interp_attrproperty('type', W_RSocket),
+    proto = interp_attrproperty('proto', W_RSocket),
     family = interp_attrproperty('family', W_RSocket),
     ** socketmethods
     )
