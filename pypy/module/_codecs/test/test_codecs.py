@@ -337,3 +337,9 @@ class AppTestPartialEvaluation:
         for (i, line) in enumerate(reader):
             assert line == s[i]
 
+    def test_escape_decode_escaped_newline(self):
+        import _codecs
+        s = '\\\n'
+        decoded = _codecs.unicode_escape_decode(s)[0]
+        assert decoded == ''
+

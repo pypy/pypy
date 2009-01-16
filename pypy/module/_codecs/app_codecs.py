@@ -684,7 +684,8 @@ def PyUnicode_DecodeUnicodeEscape(s, size, errors):
             ch = s[pos]
             pos += 1
     ##        /* \x escapes */
-            if ch == '\\'  : p += u'\\'
+            if ch == '\n': pass
+            elif ch == '\\'  : p += u'\\'
             elif ch == '\'': p += u'\''
             elif ch == '\"': p += u'\"' 
             elif ch == 'b' : p += u'\b' 

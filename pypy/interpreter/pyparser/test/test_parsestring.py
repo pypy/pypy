@@ -78,3 +78,8 @@ class TestParsetring:
         ret = space.unwrap(w_ret)
         assert ret == eval("# -*- coding: koi8-u -*-\n'\x81'") 
 
+    def test_multiline_unicode_strings_with_backslash(self):
+        space = self.space
+        s = '"""' + '\\' + '\n"""'
+        w_ret = parsestring.parsestr(space, None, s)
+        assert space.str_w(w_ret) == ''
