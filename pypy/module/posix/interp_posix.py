@@ -723,6 +723,26 @@ def setregid(space, rgid, egid):
     return space.w_None                
 setregid.unwrap_spec = [ObjSpace, int, int]
 
+def getsid(space, pid):
+    """ getsid(pid) -> sid
+
+    Call the system call getsid().
+    """
+    return space.wrap(os.getsid(pid))
+getsid.unwrap_spec = [ObjSpace, int]
+
+def setsid(space):
+    """ setsid()
+
+    Call the system call setsid().
+    """
+    try:
+        os.setsid()
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.w_None                
+setsid.unwrap_spec = [ObjSpace]        
+
 def declare_new_w_star(name):
     if name in RegisterOs.w_star_returning_int:
         def WSTAR(space, status):

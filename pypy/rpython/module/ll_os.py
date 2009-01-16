@@ -544,6 +544,14 @@ class RegisterOs(BaseLazyRegistering):
     def register_os_setregid(self):
         return self.extdef_for_function_accepting_2int('setregid')
 
+    @registering_if(os, 'getsid')
+    def register_os_getsid(self):
+        return self.extdef_for_function_int_to_int('getsid')
+
+    @registering_if(os, 'setsid')
+    def register_os_setsid(self):
+        return self.extdef_for_os_function_returning_int('setsid')
+
     @registering(os.open)
     def register_os_open(self):
         os_open = self.llexternal(underscore_on_windows+'open',

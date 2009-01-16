@@ -89,7 +89,8 @@ corresponding Unix manual entries for more information on calls."""
 
     for name in ['setsid', 'getuid', 'geteuid', 'getgid', 'getegid', 'setuid',
                  'seteuid', 'setgid', 'setegid', 'getpgrp', 'setpgrp',
-                 'getppid', 'getpgid', 'setpgid', 'setreuid', 'setregid']:
+                 'getppid', 'getpgid', 'setpgid', 'setreuid', 'setregid',
+                 'getsid', 'setsid']:
         if hasattr(os, name):
             interpleveldefs[name] = 'interp_posix.%s' % (name,)
     # not visible via os, inconsistency in nt:
