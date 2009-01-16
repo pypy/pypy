@@ -147,6 +147,12 @@ def test_empty_string():
         f('')
     binascii.crc_hqx('', 0)
 
+def test_qp_bug_case():
+    assert binascii.b2a_qp('y'*77, False, False) == 'y'*75 + '=\nyy'
+    assert binascii.b2a_qp(' '*77, False, False) == ' '*75 + '=\n =20'
+    assert binascii.b2a_qp('y'*76, False, False) == 'y'*76
+    assert binascii.b2a_qp(' '*76, False, False) == ' '*75 + '=\n=20'
+
 def test_wrong_padding():
     s = 'CSixpLDtKSC/7Liuvsax4iC6uLmwMcijIKHaILzSwd/H0SC8+LCjwLsgv7W/+Mj3IQ'
     raises(binascii.Error, binascii.a2b_base64, s)
