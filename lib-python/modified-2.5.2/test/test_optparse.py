@@ -238,7 +238,7 @@ class TestOptionChecks(BaseTest):
 
     def test_attr_invalid(self):
         d = {'foo': None, 'bar': None}
-        msg = ', '.join(d.keys())
+        msg = ', '.join(sorted(d.keys())) # avoid order-dependant issues
         self.assertOptionError(
             "option -b: invalid keyword arguments: %s" % msg,
             ["-b"], d)
@@ -1596,10 +1596,11 @@ class TestParseNumber(BaseTest):
         self.parser.add_option("-l", type=long)
 
     def test_parse_num_fail(self):
+        # "empty string for int()" is pypy's error message
         self.assertRaises(
             _parse_num, ("", int), {},
             ValueError,
-            re.compile(r"invalid literal for int().*: '?'?"))
+            re.compile(r"(invalid literal for int().*: '?'?|empty string for int())"))
         self.assertRaises(
             _parse_num, ("0xOoops", long), {},
             ValueError,

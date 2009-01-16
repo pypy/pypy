@@ -26,7 +26,7 @@ test_generators              !   the fix is in r60950 but doesn't work. See r609
 test_gettext                 !   check this use of unicode()
 test_grammar                     implementation detail
 test_import                      importing from pyc-files-without-py-file disabled by default
-test_importhooks             !   unknown
+test_importhooks             !   unknown  # SHOULD BE FIXED NOW, check nightly tests
 test_inspect                 !   test_wrapped_decorator: try to fix;  isbuiltin([].append): cry and maaaybe try to fix
 test_iterlen                     somehow implementation detail (missing __length_hint__())
 test_itertools                   same as test_iterlen
@@ -35,7 +35,7 @@ test_multibytecodec          !   unknown
 test_mutants                     the test is probably too precise in the failure it expects
 test_new                         new.instancemethod(x, None) should fail, but no hurry
 test_normalization               test skipped
-test_optparse                !   test needs some fixes, but still, some failures are strange
+test_optparse                !   test needs some fixes, but still, some failures are strange # SHOULD BE FIXED N?OW
 test_parser                      missing parser.compilest().  I don't think we care for now
 test_peepholer                   implementation detail (might be useful to look, though)
 test_pep277                      NT only
