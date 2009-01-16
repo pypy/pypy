@@ -313,15 +313,19 @@ class AppTestImport:
         raises(ValueError, imp)
 
     def test_relative_import_with___name__(self):
-        skip("fixme")
+        import sys
+        mydict = {'__name__': 'sys.foo'}
+        res = __import__('', mydict, mydict, ('bar',), 1)
+        assert res is sys
+
+    def test_relative_import_with___name__and___path__(self):
         import sys
         import imp
-        mod = imp.new_module("foo")
-        mod.xxx = 42
-        sys.modules['foo'] = mod
-        mydict = {'__name__': 'foo.bar'}
-        exec "from . import xxx" in mydict
-        assert mydict['xxx'] == 42
+        foo = imp.new_module('foo')
+        sys.modules['sys.foo'] = foo
+        mydict = {'__name__': 'sys.foo', '__path__': '/some/path'}
+        res = __import__('', mydict, mydict, ('bar',), 1)
+        assert res is foo
 
     def test_universal_newlines(self):
         import pkg_univnewlines

@@ -172,9 +172,13 @@ def importhook(space, modulename, w_globals=None,
                     ctxt_name_prefix_parts = [ ctxt_name_prefix_parts[i] 
                                                for i in range(len(cnpp)-level) ]
                 if ctxt_name_prefix_parts:
-                    rel_modulename = '.'.join(ctxt_name_prefix_parts+[modulename])
+                    rel_modulename = '.'.join(ctxt_name_prefix_parts)
+                    if modulename:
+                        rel_modulename += '.' + modulename
             else: # context is a package module
-                rel_modulename = ctxt_name+'.'+modulename
+                rel_modulename = ctxt_name
+                if modulename:
+                    rel_modulename += '.' + modulename
             baselevel = len(ctxt_name_prefix_parts)
         if rel_modulename is not None:
             w_mod = check_sys_modules(space, w(rel_modulename))
