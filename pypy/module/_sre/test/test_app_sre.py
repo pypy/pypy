@@ -913,6 +913,9 @@ class AppTestOpcodes:
         s.assert_match(opcodes, ["a"])
         s.assert_no_match(opcodes, ["ab"])
 
+    def test_bug(self):
+        import re
+        assert re.sub('=\w{2}', 'x', '=CA') == 'x'
 
 class AppTestOptimizations:
     """These tests try to trigger optmized edge cases."""

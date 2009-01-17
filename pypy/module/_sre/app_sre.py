@@ -81,7 +81,7 @@ class SRE_Pattern(object):
         sublist = []
 
         need_unicode = (isinstance(string, unicode) or
-                        isinstance(self.pattern, unicode))
+                        isinstance(repl, unicode))
         n = last_pos = 0
         while not count or n < count:
             state.reset()
@@ -109,7 +109,7 @@ class SRE_Pattern(object):
         if last_pos < state.end:
             sublist.append(string[last_pos:state.end])
 
-        if n == 0 or len(sublist) == 1:
+        if n == 0:
             # not just an optimization -- see test_sub_unicode
             return string, n
 
