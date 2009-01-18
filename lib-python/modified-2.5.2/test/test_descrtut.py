@@ -8,7 +8,7 @@
 # of much interest anymore), and a few were fiddled to make the output
 # deterministic.
 
-from test.test_support import sortdict
+from test.test_support import sortdict, check_impl_detail
 import pprint
 
 class defaultdict(dict):
@@ -145,7 +145,8 @@ instance variables cannot be assigned to:
 
 """
 
-test_3 = """
+if check_impl_detail():
+    test_3 = """
 
 Introspecting instances of built-in types
 
@@ -468,12 +469,15 @@ called A.foo()
 
 __test__ = {"tut1": test_1,
             "tut2": test_2,
-            "tut3": test_3,
             "tut4": test_4,
             "tut5": test_5,
             "tut6": test_6,
             "tut7": test_7,
             "tut8": test_8}
+
+if check_impl_detail():
+    __test__["tut3"] = test_3
+
 
 # Magic test name that regrtest.py invokes *after* importing this module.
 # This worms around a bootstrap problem.
