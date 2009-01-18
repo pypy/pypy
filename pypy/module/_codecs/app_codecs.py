@@ -135,10 +135,10 @@ def unicode_internal_decode( unistr, errors='strict'):
         while i < len(unistr):
             if len(unistr) - i < unicode_bytes:
                 msg = 'truncated input'
-                next, _ = unicode_call_errorhandler(errors, 'unicode_internal', msg,
-                                                    unistr, i, i + unicode_bytes)
+                next, i = unicode_call_errorhandler(errors, 'unicode_internal', msg,
+                                                    unistr, i, len(unistr))
                 p += next
-                break
+                continue
             t = 0
             h = 0
             for j in range(start, stop, step):
@@ -151,7 +151,7 @@ def unicode_internal_decode( unistr, errors='strict'):
                 startpos = i - unicode_bytes
                 endpos = i
                 msg = "unichr(%s) not in range" % (t,)
-                next, _ = unicode_call_errorhandler(errors, 'unicode_internal', msg,
+                next, i = unicode_call_errorhandler(errors, 'unicode_internal', msg,
                                                     unistr, startpos, endpos)
                 p += next
         res = u''.join(p)
@@ -407,7 +407,7 @@ def PyUnicode_DecodeUTF7(s, size, errors):
             ##               it in a 16-bit character 
                         surrogate = 1
                         msg = "code pairs are not supported"
-                        out, x = unicode_call_errorhandler(errors, 'utf-7', msg, s, i-1, i)
+                        out, i = unicode_call_errorhandler(errors, 'utf-7', msg, s, i-1, i)
                         p += out
                         bitsleft = 0
                         break
@@ -419,7 +419,7 @@ def PyUnicode_DecodeUTF7(s, size, errors):
 ##                       bitsleft < 6 then we could just classify it as padding
 ##                       but that is not the case here */
                     msg = "partial character in shift sequence"
-                    out, x = unicode_call_errorhandler(errors, 'utf-7', msg, s, i-1, i)
+                    out, i = unicode_call_errorhandler(errors, 'utf-7', msg, s, i-1, i)
                     
 ##                /* According to RFC2152 the remaining bits should be zero. We
 ##                   choose to signal an error/insert a replacement character
@@ -435,7 +435,7 @@ def PyUnicode_DecodeUTF7(s, size, errors):
                     
                 elif SPECIAL(ch, 0, 0) :
                     msg = "unexpected special character"
-                    out, _ = unicode_call_errorhandler(errors, 'utf-7', msg, s, i-1, i)
+                    out, i = unicode_call_errorhandler(errors, 'utf-7', msg, s, i-1, i)
                     p += out
                 else:  
                     p +=  ch 
@@ -457,7 +457,7 @@ def PyUnicode_DecodeUTF7(s, size, errors):
         elif (SPECIAL(ch, 0, 0)):
             i += 1
             msg = "unexpected special character"
-            out, _ = unicode_call_errorhandler(errors, 'utf-7', msg, s, i-1, i)
+            out, i = unicode_call_errorhandler(errors, 'utf-7', msg, s, i-1, i)
             p += out
         else:
             p +=  ch 
@@ -467,7 +467,7 @@ def PyUnicode_DecodeUTF7(s, size, errors):
         #XXX This aint right
         endinpos = size
         msg = "unterminated shift sequence"
-        out, _ = unicode_call_errorhandler(errors, 'utf-7', msg, s, i-1, i)
+        out, i = unicode_call_errorhandler(errors, 'utf-7', msg, s, i-1, i)
         p += out
     return p
 

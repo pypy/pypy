@@ -470,6 +470,7 @@ class AppTestPartialEvaluation:
                 )
 
     def test_unicode_internal(self):
+        import codecs
         try:
             '\x00'.decode('unicode-internal')
         except UnicodeDecodeError:
@@ -479,3 +480,16 @@ class AppTestPartialEvaluation:
 
         res = "\x00\x00\x00\x00\x00".decode("unicode-internal", "replace")
         assert res == u"\u0000\ufffd"
+        def handler_unicodeinternal(exc):
+            if not isinstance(exc, UnicodeDecodeError):
+                raise TypeError("don't know how to handle %r" % exc)
+            return (u"\x01", 1)
+
+        res = "\x00\x00\x00\x00\x00".decode("unicode-internal", "ignore")
+        assert res == u"\u0000"
+        res = "\x00\x00\x00\x00\x00".decode("unicode-internal", "replace")
+        assert res == u"\u0000\ufffd"
+        codecs.register_error("test.hui", handler_unicodeinternal)
+        res = "\x00\x00\x00\x00\x00".decode("unicode-internal", "test.hui")
+        assert res == u"\u0000\u0001\u0000"
+
