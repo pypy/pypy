@@ -1,3 +1,4 @@
+
 # Note:
 # This *is* now explicitly RPython.
 # Please make sure not to break this.
@@ -47,12 +48,6 @@ def mbcs_decode():
     """None
     """
     pass
-
-def readbuffer_encode( obj, errors='strict'):
-    """None
-    """
-    res = str(obj)
-    return res, len(res)
 
 def escape_encode( obj, errors='strict'):
     """None
@@ -142,10 +137,17 @@ def unicode_internal_decode( unistr, errors='strict'):
             t = 0
             h = 0
             for j in range(start, stop, step):
-                t += ord(unistr[i+j])<<(h*8)
+                t += ord(unistr[i+j])<<(h*8)    
                 h += 1
             i += unicode_bytes
-            p += unichr(t)
+            try:
+                p += unichr(t)
+            except ValueError:
+                startpos = i - unicode_bytes
+                endpos = i
+                raise UnicodeDecodeError('unicode_internal', unistr, startpos,
+                                         endpos,
+                                         "unichr(%s) not in range" % (t,))
         res = u''.join(p)
         return res, len(unistr)
 
@@ -416,8 +418,8 @@ def PyUnicode_DecodeUTF7(s, size, errors):
                         inShift = 1
                     
                 elif SPECIAL(ch, 0, 0) :
-                    raise  UnicodeDecodeError, "unexpected special character"
-                        
+                    msg = "unexpected special character"
+                    raise UnicodeDecodeError('utf-7', s, i-1, i, msg)
                 else:  
                     p +=  ch 
             else:
@@ -437,7 +439,8 @@ def PyUnicode_DecodeUTF7(s, size, errors):
                 
         elif (SPECIAL(ch, 0, 0)):
             i += 1
-            raise UnicodeDecodeError, "unexpected special character"
+            msg = "unexpected special character"
+            raise UnicodeDecodeError('utf-7', s, i-1, i, msg)
         else:
             p +=  ch 
             i += 1
@@ -445,7 +448,8 @@ def PyUnicode_DecodeUTF7(s, size, errors):
     if (inShift) :
         #XXX This aint right
         endinpos = size
-        raise UnicodeDecodeError, "unterminated shift sequence"
+        msg = "unterminated shift sequence"
+        raise UnicodeDecodeError('utf-7', s, i-1, i, msg)
         
     return p
 
@@ -857,7 +861,7 @@ def PyUnicode_DecodeCharmap(s, size, mapping, errors):
                 raise KeyError
             else:
                 raise TypeError
-        except KeyError:
+        except (KeyError, IndexError):
             x = unicode_call_errorhandler(errors, "charmap",
                 "character maps to <undefined>", s, inpos, inpos+1)
             p += x[0]

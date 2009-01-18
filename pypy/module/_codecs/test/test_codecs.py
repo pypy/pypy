@@ -352,3 +352,21 @@ class AppTestPartialEvaluation:
         s = '\\\n'
         decoded = _codecs.unicode_escape_decode(s)[0]
         assert decoded == ''
+
+    def test_charmap_decode(self):
+        import codecs
+        res = codecs.charmap_decode("\x00\x01\x02", "replace", u"ab")
+        assert res == (u"ab\ufffd", 3)
+
+    def test_decode_errors(self):
+        import sys
+        if sys.maxunicode > 0xffff:
+            try:
+                "\x00\x00\x00\x00\x00\x11\x11\x00".decode("unicode_internal")
+            except UnicodeDecodeError, ex:
+                assert "unicode_internal" == ex.encoding
+                assert "\x00\x00\x00\x00\x00\x11\x11\x00" == ex.object
+                assert ex.start == 4
+                assert ex.end == 8
+            else:
+                raise Exception("DID NOT RAISE")
