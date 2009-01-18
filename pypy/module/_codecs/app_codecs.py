@@ -210,7 +210,7 @@ def escape_decode(data, errors='strict'):
 def charmap_decode( data, errors='strict', mapping=None):
     """None
     """
-    res = PyUnicode_DecodeCharmap(data, len(data), mapping, errors)
+    res = PyUnicode_DecodeCharmap(data, mapping, errors)
     res = u''.join(res)
     return res, len(data)
 
@@ -851,8 +851,9 @@ def PyUnicode_EncodeCharmap(p, size, mapping='latin-1', errors='strict'):
         inpos += 1
     return res
 
-def PyUnicode_DecodeCharmap(s, size, mapping, errors):
+def PyUnicode_DecodeCharmap(s, mapping, errors):
 
+    size = len(s)
 ##    /* Default to Latin-1 */
     if (mapping == None):
         import _codecs
@@ -874,16 +875,20 @@ def PyUnicode_DecodeCharmap(s, size, mapping, errors):
                 else:
                     raise TypeError("character mapping must be in range(65536)")
             elif isinstance(x, unicode):
+                if x == u"\ufffe":
+                    raise KeyError
                 p += x
             elif not x:
                 raise KeyError
             else:
                 raise TypeError
+            inpos += 1
         except (KeyError, IndexError):
-            x = unicode_call_errorhandler(errors, "charmap",
-                "character maps to <undefined>", s, inpos, inpos+1)
-            p += x[0]
-        inpos += 1
+            next, inpos = unicode_call_errorhandler(errors, "charmap",
+                       "character maps to <undefined>", s, inpos, inpos+1)
+            p += next
+            inpos
+        print p
     return p
 
 def PyUnicode_DecodeRawUnicodeEscape(s, size, errors):
