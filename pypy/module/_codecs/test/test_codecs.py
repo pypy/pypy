@@ -357,6 +357,8 @@ class AppTestPartialEvaluation:
         import codecs
         res = codecs.charmap_decode("\x00\x01\x02", "replace", u"ab")
         assert res == (u"ab\ufffd", 3)
+        res = codecs.charmap_decode("\x00\x01\x02", "replace", u"ab\ufffe")
+        assert res == (u'ab\ufffd', 3)
 
     def test_decode_errors(self):
         import sys
@@ -370,3 +372,110 @@ class AppTestPartialEvaluation:
                 assert ex.end == 8
             else:
                 raise Exception("DID NOT RAISE")
+
+    def test_errors(self):
+        import codecs
+        assert (
+            codecs.replace_errors(UnicodeEncodeError("ascii", u"\u3042", 0, 1, "ouch"))) == (
+            (u"?", 1)
+        )
+        assert (
+            codecs.replace_errors(UnicodeDecodeError("ascii", "\xff", 0, 1, "ouch"))) == (
+            (u"\ufffd", 1)
+        )
+        assert (
+            codecs.replace_errors(UnicodeTranslateError(u"\u3042", 0, 1, "ouch"))) == (
+            (u"\ufffd", 1)
+        )
+        class BadStartUnicodeEncodeError(UnicodeEncodeError):
+            def __init__(self):
+                UnicodeEncodeError.__init__(self, "ascii", u"", 0, 1, "bad")
+                self.start = []
+
+        # A UnicodeEncodeError object with a bad object attribute
+        class BadObjectUnicodeEncodeError(UnicodeEncodeError):
+            def __init__(self):
+                UnicodeEncodeError.__init__(self, "ascii", u"", 0, 1, "bad")
+                self.object = []
+
+        # A UnicodeDecodeError object without an end attribute
+        class NoEndUnicodeDecodeError(UnicodeDecodeError):
+            def __init__(self):
+                UnicodeDecodeError.__init__(self, "ascii", "", 0, 1, "bad")
+                del self.end
+
+        # A UnicodeDecodeError object with a bad object attribute
+        class BadObjectUnicodeDecodeError(UnicodeDecodeError):
+            def __init__(self):
+                UnicodeDecodeError.__init__(self, "ascii", "", 0, 1, "bad")
+                self.object = []
+
+        # A UnicodeTranslateError object without a start attribute
+        class NoStartUnicodeTranslateError(UnicodeTranslateError):
+            def __init__(self):
+                UnicodeTranslateError.__init__(self, u"", 0, 1, "bad")
+                del self.start
+
+        # A UnicodeTranslateError object without an end attribute
+        class NoEndUnicodeTranslateError(UnicodeTranslateError):
+            def __init__(self):
+                UnicodeTranslateError.__init__(self,  u"", 0, 1, "bad")
+                del self.end
+
+        # A UnicodeTranslateError object without an object attribute
+        class NoObjectUnicodeTranslateError(UnicodeTranslateError):
+            def __init__(self):
+                UnicodeTranslateError.__init__(self, u"", 0, 1, "bad")
+                del self.object
+
+        import codecs
+        raises(TypeError, codecs.replace_errors, BadObjectUnicodeEncodeError())
+        raises(TypeError, codecs.replace_errors, 42)
+        # "replace" complains about the wrong exception type
+        raises(TypeError, codecs.replace_errors, UnicodeError("ouch"))
+        raises(TypeError, codecs.replace_errors, BadObjectUnicodeEncodeError())
+        raises(TypeError, codecs.replace_errors, BadObjectUnicodeDecodeError()
+        )
+        # With the correct exception, "replace" returns an "?" or u"\ufffd" replacement
+
+    def test_decode_ignore(self):
+        assert '\xff'.decode('utf-7', 'ignore') == ''
+        assert '\x00'.decode('unicode-internal', 'ignore') == ''
+
+    def test_badhandler(self):
+        import codecs
+        results = ( 42, u"foo", (1,2,3), (u"foo", 1, 3), (u"foo", None), (u"foo",), ("foo", 1, 3), ("foo", None), ("foo",) )
+        encs = ("ascii", "latin-1", "iso-8859-1", "iso-8859-15")
+
+        for res in results:
+            codecs.register_error("test.badhandler", lambda x: res)
+            for enc in encs:
+                raises(
+                    TypeError,
+                    u"\u3042".encode,
+                    enc,
+                    "test.badhandler"
+                )
+            for (enc, bytes) in (
+                ("utf-8", "\xff"),
+                ("ascii", "\xff"),
+                ("utf-7", "+x-"),
+                ("unicode-internal", "\x00"),
+            ):
+                raises(
+                    TypeError,
+                    bytes.decode,
+                    enc,
+                    "test.badhandler"
+                )
+
+    def test_unicode_internal(self):
+        try:
+            '\x00'.decode('unicode-internal')
+        except UnicodeDecodeError:
+            pass
+        else:
+            raise Exception("DID NOT RAISE")
+
+        res = "\x00\x00\x00\x00\x00".decode("unicode-internal", "replace")
+        assert res == u"\u0000\ufffd"

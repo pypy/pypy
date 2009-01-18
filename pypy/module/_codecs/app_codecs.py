@@ -1,4 +1,4 @@
-
+# NOT_RPYTHON
 # Note:
 # This *is* now explicitly RPython.
 # Please make sure not to break this.
@@ -118,8 +118,7 @@ def unicode_internal_encode( obj, errors='strict'):
         return res, len(res)
 
 def unicode_internal_decode( unistr, errors='strict'):
-    """None
-    """
+    import sys
     if type(unistr) == unicode:
         return unistr, len(unistr)
     else:
@@ -133,7 +132,13 @@ def unicode_internal_decode( unistr, errors='strict'):
             start = 0
             stop = unicode_bytes
             step = 1
-        while i < len(unistr)-unicode_bytes+1:
+        while i < len(unistr):
+            if len(unistr) - i < unicode_bytes:
+                msg = 'truncated input'
+                next, _ = unicode_call_errorhandler(errors, 'unicode_internal', msg,
+                                                    unistr, i, i + unicode_bytes)
+                p += next
+                break
             t = 0
             h = 0
             for j in range(start, stop, step):
@@ -145,9 +150,10 @@ def unicode_internal_decode( unistr, errors='strict'):
             except ValueError:
                 startpos = i - unicode_bytes
                 endpos = i
-                raise UnicodeDecodeError('unicode_internal', unistr, startpos,
-                                         endpos,
-                                         "unichr(%s) not in range" % (t,))
+                msg = "unichr(%s) not in range" % (t,)
+                next, _ = unicode_call_errorhandler(errors, 'unicode_internal', msg,
+                                                    unistr, startpos, endpos)
+                p += next
         res = u''.join(p)
         return res, len(unistr)
 
@@ -234,6 +240,14 @@ def raw_unicode_escape_encode( obj, errors='strict'):
     res = ''.join(res)
     return res, len(res)
 
+def check_exception(exc):
+    try:
+        delta = exc.end - exc.start
+        if delta < 0 or not isinstance(exc.object, (unicode, str)):
+            raise TypeError("wrong exception")
+    except AttributeError:
+        raise TypeError("wrong exception")
+
 def strict_errors(exc):
     if isinstance(exc, Exception):
         raise exc
@@ -241,6 +255,7 @@ def strict_errors(exc):
         raise TypeError("codec must pass exception instance")
     
 def ignore_errors(exc):
+    check_exception(exc)
     if isinstance(exc, UnicodeEncodeError):
         return u'', exc.end
     elif isinstance(exc, (UnicodeDecodeError, UnicodeTranslateError)):
@@ -251,6 +266,7 @@ def ignore_errors(exc):
 Py_UNICODE_REPLACEMENT_CHARACTER = u"\ufffd"
 
 def replace_errors(exc):
+    check_exception(exc)
     if isinstance(exc, UnicodeEncodeError):
         return u'?'*(exc.end-exc.start), exc.end
     elif isinstance(exc, (UnicodeTranslateError, UnicodeDecodeError)):
@@ -356,7 +372,7 @@ def ENCODE( ch, bits) :
     return out, bits
 
 def PyUnicode_DecodeUTF7(s, size, errors):
-
+    from _codecs import lookup_error
     starts = s
     errmsg = ""
     inShift = 0
@@ -419,7 +435,8 @@ def PyUnicode_DecodeUTF7(s, size, errors):
                     
                 elif SPECIAL(ch, 0, 0) :
                     msg = "unexpected special character"
-                    raise UnicodeDecodeError('utf-7', s, i-1, i, msg)
+                    out, _ = unicode_call_errorhandler(errors, 'utf-7', msg, s, i-1, i)
+                    p += out
                 else:  
                     p +=  ch 
             else:
@@ -440,7 +457,8 @@ def PyUnicode_DecodeUTF7(s, size, errors):
         elif (SPECIAL(ch, 0, 0)):
             i += 1
             msg = "unexpected special character"
-            raise UnicodeDecodeError('utf-7', s, i-1, i, msg)
+            out, _ = unicode_call_errorhandler(errors, 'utf-7', msg, s, i-1, i)
+            p += out
         else:
             p +=  ch 
             i += 1
@@ -449,8 +467,8 @@ def PyUnicode_DecodeUTF7(s, size, errors):
         #XXX This aint right
         endinpos = size
         msg = "unterminated shift sequence"
-        raise UnicodeDecodeError('utf-7', s, i-1, i, msg)
-        
+        out, _ = unicode_call_errorhandler(errors, 'utf-7', msg, s, i-1, i)
+        p += out
     return p
 
 def PyUnicode_EncodeUTF7(s, size, encodeSetO, encodeWhiteSpace, errors):
@@ -606,7 +624,7 @@ def unicode_call_errorhandler(errors,  encoding,
     else:
         exceptionObject = UnicodeEncodeError(encoding, input, startinpos, endinpos, reason)
     res = errorHandler(exceptionObject)
-    if isinstance(res, tuple) and isinstance(res[0], unicode) and isinstance(res[1], int):
+    if isinstance(res, tuple) and len(res) == 2 and isinstance(res[0], unicode) and isinstance(res[1], int):
         newpos = res[1]
         if (newpos < 0):
             newpos = len(input) + newpos
