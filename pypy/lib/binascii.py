@@ -135,6 +135,8 @@ table_a2b_base64 = {
 
 
 def a2b_base64(s):
+    if not isinstance(s, (str, unicode)):
+        raise TypeError("expected string or unicode, got %r" % (s,))
     s = s.rstrip()
     # clean out all invalid characters, this also strips the final '=' padding
     # check for correct padding

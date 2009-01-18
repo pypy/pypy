@@ -160,3 +160,7 @@ def test_wrong_padding():
 def test_crap_after_padding():
     s = 'xxx=axxxx'
     assert binascii.a2b_base64(s) == '\xc7\x1c'
+
+def test_wrong_args():
+    # this should grow as a way longer list
+    raises(TypeError, binascii.a2b_base64, 42)
