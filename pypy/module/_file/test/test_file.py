@@ -149,6 +149,11 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         assert f.read(12L) == 'From: foo\n\n0'
         f.close()
 
+    def test_invalid_modes(self):
+        raises(ValueError, self.file, self.temppath, "aU")
+        raises(ValueError, self.file, self.temppath, "wU+")
+        raises(ValueError, self.file, self.temppath, "")
+        
 class AppTestConcurrency(object):
     # these tests only really make sense on top of a translated pypy-c,
     # because on top of py.py the inner calls to os.write() don't

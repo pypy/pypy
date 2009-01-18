@@ -49,7 +49,8 @@ class W_File(W_AbstractStream):
             getopenstreams(self.space)[stream] = None
 
     def check_mode_ok(self, mode):
-        if not mode or mode[0] not in ['r', 'w', 'a', 'U']:
+        if (not mode or mode[0] not in ['r', 'w', 'a', 'U'] or
+            ('U' in mode and ('w' in mode or 'a' in mode))):
             space = self.space
             raise OperationError(space.w_ValueError,
                                  space.wrap('invalid mode : "%s"' % mode))
