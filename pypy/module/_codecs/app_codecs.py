@@ -888,7 +888,6 @@ def PyUnicode_DecodeCharmap(s, mapping, errors):
                        "character maps to <undefined>", s, inpos, inpos+1)
             p += next
             inpos
-        print p
     return p
 
 def PyUnicode_DecodeRawUnicodeEscape(s, size, errors):
