@@ -830,7 +830,7 @@ def PyUnicode_EncodeCharmap(p, size, mapping='latin-1', errors='strict'):
 #    /* Default to Latin-1 */
     if mapping == 'latin-1':
         import _codecs
-        return _codecs.latin_1_encode(p, errors)
+        return _codecs.latin_1_encode(p, errors)[0]
     if (size == 0):
         return ''
     inpos = 0
@@ -839,7 +839,7 @@ def PyUnicode_EncodeCharmap(p, size, mapping='latin-1', errors='strict'):
         #/* try to encode it */
         try:
             x = charmapencode_output(ord(p[inpos]), mapping)
-            res += [x]
+            res += x[0]
         except KeyError:
             x = unicode_call_errorhandler(errors, "charmap",
             "character maps to <undefined>", p, inpos, inpos+1, False)

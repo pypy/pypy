@@ -493,3 +493,10 @@ class AppTestPartialEvaluation:
         res = "\x00\x00\x00\x00\x00".decode("unicode-internal", "test.hui")
         assert res == u"\u0000\u0001\u0000"
 
+    def test_charmap_encode(self):
+        assert 'xxx'.encode('charmap') == 'xxx'
+
+class TestDirect:
+    def test_charmap_encode(self):
+        from pypy.module._codecs.app_codecs import charmap_encode
+        assert charmap_encode('xxx') == ('xxx', 3)
