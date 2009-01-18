@@ -812,7 +812,7 @@ def PyUnicode_EncodeCharmap(p, size, mapping='latin-1', errors='strict'):
 #    /* Default to Latin-1 */
     if mapping == 'latin-1':
         import _codecs
-        return _codecs.latin_1_encode(p, size, errors)
+        return _codecs.latin_1_encode(p, errors)
     if (size == 0):
         return ''
     inpos = 0
