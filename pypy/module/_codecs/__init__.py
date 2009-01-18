@@ -4,7 +4,6 @@ class Module(MixedModule):
     appleveldefs = {
          '__doc__' :  'app_codecs.__doc__',
          '__name__' :  'app_codecs.__name__',
-         'charbuffer_encode' :  'app_codecs.charbuffer_encode',
          'charmap_decode' :  'app_codecs.charmap_decode',
          'charmap_encode' :  'app_codecs.charmap_encode',
          'escape_decode' :  'app_codecs.escape_decode',
@@ -13,7 +12,6 @@ class Module(MixedModule):
          'mbcs_encode' :  'app_codecs.mbcs_encode',
          'raw_unicode_escape_decode' :  'app_codecs.raw_unicode_escape_decode',
          'raw_unicode_escape_encode' :  'app_codecs.raw_unicode_escape_encode',
-         'readbuffer_encode' :  'app_codecs.readbuffer_encode',
          'unicode_escape_decode' :  'app_codecs.unicode_escape_decode',
          'unicode_escape_encode' :  'app_codecs.unicode_escape_encode',
          'unicode_internal_decode' :  'app_codecs.unicode_internal_decode',
@@ -45,6 +43,8 @@ class Module(MixedModule):
          'utf_16_le_decode' : 'interp_codecs.utf_16_le_decode',
          'utf_16_le_encode' : 'interp_codecs.utf_16_le_encode',
          'utf_16_ex_decode' : 'interp_codecs.utf_16_ex_decode',
+         'charbuffer_encode': 'interp_codecs.buffer_encode',
+         'readbuffer_encode': 'interp_codecs.buffer_encode',
     }
 
     def setup_after_space_initialization(self):

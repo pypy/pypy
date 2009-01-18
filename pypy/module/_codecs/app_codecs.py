@@ -199,13 +199,6 @@ def escape_decode(data, errors='strict'):
     res = ''.join(res)    
     return res, len(data)
 
-def charbuffer_encode( obj, errors='strict'):
-    """None
-    """
-    res = str(obj)
-    res = ''.join(res)
-    return res, len(res)
-
 def charmap_decode( data, errors='strict', mapping=None):
     """None
     """

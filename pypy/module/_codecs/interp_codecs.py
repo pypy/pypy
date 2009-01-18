@@ -149,6 +149,10 @@ def encode(space, w_obj, w_encoding=NoneNotWrapped, errors='strict'):
         assert 0, "XXX, what to do here?"
 encode.unwrap_spec = [ObjSpace, W_Root, W_Root, str]
 
+def buffer_encode(space, s, errors='strict'):
+    return space.newtuple([space.wrap(s), space.wrap(len(s))])
+buffer_encode.unwrap_spec = [ObjSpace, 'bufferstr', str]
+
 def decode(space, w_obj, w_encoding=NoneNotWrapped, errors='strict'):
     """decode(obj, [encoding[,errors]]) -> object
 

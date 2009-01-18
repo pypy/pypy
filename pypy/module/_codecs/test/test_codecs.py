@@ -337,9 +337,18 @@ class AppTestPartialEvaluation:
         for (i, line) in enumerate(reader):
             assert line == s[i]
 
+    def test_array(self):
+        import _codecs, array
+        _codecs.readbuffer_encode(array.array('c', 'spam')) == ('spam', 4)
+
+    def test_utf8sig(self):
+        import codecs
+        d = codecs.getincrementaldecoder("utf-8-sig")()
+        s = u"spam"
+        assert d.decode(s.encode("utf-8-sig")) == s
+
     def test_escape_decode_escaped_newline(self):
         import _codecs
         s = '\\\n'
         decoded = _codecs.unicode_escape_decode(s)[0]
         assert decoded == ''
-
