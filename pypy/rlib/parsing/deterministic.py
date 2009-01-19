@@ -65,6 +65,9 @@ class LexerError(Exception):
         result.append("LexerError")
         return "\n".join(result)
 
+    def __str__(self):
+        return self.nice_error_message()
+
 class DFA(object):
     def __init__(self, num_states=0, transitions=None, final_states=None,
                  unmergeable_states=None, names=None):
