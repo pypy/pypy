@@ -321,7 +321,7 @@ testmap = [
     RegrTest('test_pickletools.py', core=False),
     RegrTest('test_pkg.py', core=True),
     RegrTest('test_pkgimport.py', core=True),
-    RegrTest('test_plistlib.py'),
+    RegrTest('test_plistlib.py', skip="unsupported module"),
     RegrTest('test_poll.py'),
     RegrTest('test_popen.py'),
     RegrTest('test_popen2.py'),
