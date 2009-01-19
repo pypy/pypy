@@ -638,7 +638,7 @@ class UnicodeInternalTest(unittest.TestCase):
             for internal in not_ok:
                 if sys.byteorder == "little":
                     internal = "".join(reversed(internal))
-                self.assertRaises(UnicodeDecodeError, internal.decode,
+                self.assertRaises((UnicodeDecodeError, OverflowError), internal.decode,
                     "unicode_internal")
 
     def test_decode_error_attributes(self):
@@ -997,7 +997,7 @@ all_unicode_encodings = [
     "base64_codec",
     #"big5",
     #"big5hkscs",
-    "charmap",
+    #"charmap",
     "cp037",
     "cp1006",
     "cp1026",
