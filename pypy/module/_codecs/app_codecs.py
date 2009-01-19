@@ -88,7 +88,7 @@ def unicode_escape_decode( data, errors='strict'):
 def charmap_encode(obj, errors='strict', mapping='latin-1'):
     """None
     """
-    res = PyUnicode_EncodeCharmap(obj, len(obj), mapping, errors)
+    res = PyUnicode_EncodeCharmap(obj, mapping, errors)
     res = ''.join(res)
     return res, len(res)
 
@@ -821,7 +821,7 @@ def charmapencode_output(c, mapping):
     else:
         raise TypeError("character mapping must return integer, None or str")
 
-def PyUnicode_EncodeCharmap(p, size, mapping='latin-1', errors='strict'):
+def PyUnicode_EncodeCharmap(p, mapping='latin-1', errors='strict'):
 
 ##    /* the following variable is used for caching string comparisons
 ##     * -1=not initialized, 0=unknown, 1=strict, 2=replace,
@@ -831,6 +831,7 @@ def PyUnicode_EncodeCharmap(p, size, mapping='latin-1', errors='strict'):
     if mapping == 'latin-1':
         import _codecs
         return _codecs.latin_1_encode(p, errors)[0]
+    size = len(p)
     if (size == 0):
         return ''
     inpos = 0
@@ -839,7 +840,7 @@ def PyUnicode_EncodeCharmap(p, size, mapping='latin-1', errors='strict'):
         #/* try to encode it */
         try:
             x = charmapencode_output(ord(p[inpos]), mapping)
-            res += x[0]
+            res += x
         except KeyError:
             x = unicode_call_errorhandler(errors, "charmap",
             "character maps to <undefined>", p, inpos, inpos+1, False)

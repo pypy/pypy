@@ -500,3 +500,4 @@ class TestDirect:
     def test_charmap_encode(self):
         from pypy.module._codecs.app_codecs import charmap_encode
         assert charmap_encode('xxx') == ('xxx', 3)
+        assert charmap_encode('xxx', 'strict', {ord('x'): 'XX'}) ==  ('XXXXXX', 6)
