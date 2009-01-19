@@ -857,7 +857,7 @@ def PyUnicode_DecodeCharmap(s, mapping, errors):
 ##    /* Default to Latin-1 */
     if (mapping == None):
         import _codecs
-        return _codecs.latin_1_decode(s, size, errors)
+        return _codecs.latin_1_decode(s, size, errors)[0]
 
     if (size == 0):
         return u''
