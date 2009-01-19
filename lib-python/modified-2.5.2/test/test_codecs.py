@@ -997,7 +997,7 @@ all_unicode_encodings = [
     "base64_codec",
     #"big5",
     #"big5hkscs",
-    #"charmap",
+    "charmap",
     "cp037",
     "cp1006",
     "cp1026",
