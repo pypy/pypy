@@ -54,11 +54,14 @@ class Poll(Wrappable):
         if space.is_w(w_timeout, space.w_None):
             timeout = -1
         else:
-            timeout = space.float_w(w_timeout)
-            # round non-integral floats upwards (in theory, with timeout=2.5
-            # we should wait at least 2.5ms, so 2ms is not enough)
+            # rationale for computing directly integer, instead
+            # of float + math.cell is that
+            # we have for free overflow check and noone really
+            # cares (since CPython does not try too hard to have
+            # a ceiling of value)
             try:
-                timeout = int(math.ceil(timeout))
+                # compute the integer
+                timeout = space.int_w(w_timeout)
             except (OverflowError, ValueError):
                 raise OperationError(space.w_ValueError,
                                      space.wrap("math range error"))
