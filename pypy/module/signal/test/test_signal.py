@@ -115,3 +115,20 @@ class AppTestSignal:
             assert getsignal(SIGUSR1) is handler
         finally:
             signal(SIGUSR1, SIG_DFL)
+
+    def test_alarm(self):
+        from signal import alarm, signal, SIG_DFL, SIGALRM
+        import time
+        l = []
+        def handler(*a):
+            l.append(42)
+
+        try:
+            signal(SIGALRM, handler)
+            alarm(1)
+            time.sleep(2)
+            assert l == [42]
+            alarm(0)
+            assert l == [42]
+        finally:
+            signal(SIGALRM, SIG_DFL)

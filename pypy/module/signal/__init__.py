@@ -8,6 +8,7 @@ class Module(MixedModule):
         'NSIG':                'space.wrap(interp_signal.NSIG)',
         'SIG_DFL':             'space.wrap(interp_signal.SIG_DFL)',
         'SIG_IGN':             'space.wrap(interp_signal.SIG_IGN)',
+        'alarm':               'interp_signal.alarm',
     }
 
     appleveldefs = {

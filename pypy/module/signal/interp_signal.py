@@ -42,6 +42,7 @@ pypysig_get_occurred = external('pypysig_get_occurred', [],
                                 lltype.Signed, _nowrapper=True)
 pypysig_set_occurred = external('pypysig_set_occurred', [lltype.Signed],
                                 lltype.Void, _nowrapper=True)
+c_alarm = external('alarm', [rffi.INT], rffi.INT)
 
 
 class SignalActionFlag(AbstractActionFlag):
@@ -150,6 +151,9 @@ def getsignal(space, signum):
     return space.wrap(SIG_DFL)
 getsignal.unwrap_spec = [ObjSpace, int]
 
+def alarm(space, timeout):
+    return c_alarm(timeout)
+alarm.unwrap_spec = [ObjSpace, int]
 
 def signal(space, signum, w_handler):
     """
