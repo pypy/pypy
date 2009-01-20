@@ -2,9 +2,7 @@ test name           !=must fix      guess at failure cause or difficulty
 -------------------------------------------------------------------------------------------
 test_builtin                     this is our issue383
 test_cProfile                !   we still need to fix module/cProfile to respect builtin calls
-test_capi                        CPython only
 test_code                        obscure differences in code objects produced by compiler
-test_codeccallbacks          !   unknown
 test_codecs                  !   unknown
 test_coding                  !   hah.  fix buildbot :-/
 test_commands                !   unknown
@@ -48,7 +46,6 @@ test_pyexpat                     is that an implementation detail?
 test_quopri                  !   check if test_script{en,de}code() shows a real bug
 test_random                      should probably be fixed, but no hurry i guess
 test_repr                        implementation detail
-test_sax                     !   unknown
 test_sets                    !   is this another CPython implementation detail test?
 test_shelve                  !   unknown
 test_signal                  !   missing signal.alarm(), probably easy to add
