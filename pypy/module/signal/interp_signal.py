@@ -152,7 +152,7 @@ def getsignal(space, signum):
 getsignal.unwrap_spec = [ObjSpace, int]
 
 def alarm(space, timeout):
-    return c_alarm(timeout)
+    return space.wrap(c_alarm(timeout))
 alarm.unwrap_spec = [ObjSpace, int]
 
 def signal(space, signum, w_handler):
