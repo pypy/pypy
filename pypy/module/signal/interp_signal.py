@@ -145,6 +145,7 @@ def getsignal(space, signum):
     None -- if an unknown handler is in effect (XXX UNIMPLEMENTED)
     anything else -- the callable Python object used as a handler
     """
+    check_signum(space, signum)
     action = space.check_signal_action
     if signum in action.handlers_w:
         return action.handlers_w[signum]
@@ -154,6 +155,11 @@ getsignal.unwrap_spec = [ObjSpace, int]
 def alarm(space, timeout):
     return space.wrap(c_alarm(timeout))
 alarm.unwrap_spec = [ObjSpace, int]
+
+def check_signum(space, signum):
+    if signum < 1 or signum >= NSIG:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("signal number out of range"))
 
 def signal(space, signum, w_handler):
     """

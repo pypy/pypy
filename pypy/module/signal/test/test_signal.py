@@ -116,6 +116,9 @@ class AppTestSignal:
         finally:
             signal(SIGUSR1, SIG_DFL)
 
+        raises(ValueError, getsignal, 4444)
+        raises(ValueError, signal, 4444, lambda *args: None)
+
     def test_alarm(self):
         from signal import alarm, signal, SIG_DFL, SIGALRM
         import time
