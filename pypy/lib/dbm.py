@@ -124,6 +124,14 @@ class dbm(object):
             raise error("dbm mappings have string indices only")
         self._set(key, value)
 
+    def __delitem__(self, key):
+        if not isinstance(key, str):
+            raise error("dbm mappings have string indices only")
+        dat = datum()
+        dat.dptr = c_char_p(key)
+        dat.dsize = c_int(len(key))
+        getattr(lib, funcs['delete'])(self._aobj, dat)
+
 # initialization for Berkeley DB
 _bdb_funcs = {
     'open': '__db_ndbm_open',
