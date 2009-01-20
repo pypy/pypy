@@ -65,6 +65,12 @@ class Windows(Platform):
             self.cflags = ['/MDd', '/Z7', '/Od']
             self.link_flags = ['/debug']
 
+            # Increase stack size, for the linker and the stack check code.
+            stack_size = 1 << 22  # 4 Mb
+            self.link_flags.append('/STACK:%d' % stack_size)
+            # The following symbol is used in c/src/stack.h
+            self.cflags.append('/DMAX_STACK_SIZE=%d' % (stack_size - 1024))
+
         self.add_cpython_dirs = True
 
     def _preprocess_dirs(self, include_dirs):
