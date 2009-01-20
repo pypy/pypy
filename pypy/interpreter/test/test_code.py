@@ -167,3 +167,12 @@ class AppTestCodeIntrospection:
                     'line']
         for i in expected:
             assert i in res
+
+    def test_code_extra(self):
+        def f():
+            "docstring"
+            'stuff'
+            56
+
+        # check for new flag, CO_NOFREE
+        assert f.func_code.co_flags & 0x40

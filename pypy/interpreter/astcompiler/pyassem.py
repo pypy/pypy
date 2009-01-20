@@ -194,7 +194,6 @@ class PyFlowGraph(object):
     _convert_LOOKUP_METHOD = _convert_NAME
 
     def _convert_DEREF(self, arg):
-        self._lookupName(arg, self.names)
         return self._lookupClosureName(arg)
     _convert_LOAD_DEREF = _convert_DEREF
     _convert_STORE_DEREF = _convert_DEREF

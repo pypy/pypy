@@ -10,7 +10,8 @@ from pypy.interpreter.astcompiler.consts import SC_LOCAL, SC_GLOBAL, \
     SC_FREE, SC_CELL, SC_DEFAULT, OP_APPLY, OP_ASSIGN, OP_DELETE, OP_NONE
 from pypy.interpreter.astcompiler.consts import CO_VARARGS, CO_VARKEYWORDS, \
     CO_NEWLOCALS, CO_NESTED, CO_GENERATOR, CO_GENERATOR_ALLOWED, \
-    CO_FUTURE_DIVISION, CO_FUTURE_WITH_STATEMENT, CO_FUTURE_ABSOLUTE_IMPORT
+    CO_FUTURE_DIVISION, CO_FUTURE_WITH_STATEMENT, CO_FUTURE_ABSOLUTE_IMPORT, \
+    CO_NOFREE
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.interpreter.astcompiler.opt import is_constant_false
 from pypy.interpreter.astcompiler.opt import is_constant_true
@@ -1398,6 +1399,8 @@ class AbstractFunctionCode(CodeGenerator):
             self.graph.setFlag(CO_VARARGS)
         if func.kwargs:
             self.graph.setFlag(CO_VARKEYWORDS)
+        if not graph.freevars and not graph.cellvars:
+            self.graph.setFlag(CO_NOFREE)
         self.set_lineno(func)
         self.generateArgUnpack(func.argnames)
 
