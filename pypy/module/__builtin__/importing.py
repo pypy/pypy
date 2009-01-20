@@ -143,7 +143,6 @@ def importhook(space, modulename, w_globals=None,
             space.wrap("Empty module name"))
     w = space.wrap
 
-
     ctxt_name = None
     if w_globals is not None and not space.is_w(w_globals, space.w_None):
         ctxt_w_name = try_getitem(space, w_globals, w('__name__'))
@@ -156,7 +155,7 @@ def importhook(space, modulename, w_globals=None,
                     raise
     else:
         ctxt_w_path = None
-
+        
     rel_modulename = None
     if ctxt_name is not None:
         if level == 0:
@@ -164,22 +163,18 @@ def importhook(space, modulename, w_globals=None,
             rel_modulename = modulename
         else:
             ctxt_name_prefix_parts = ctxt_name.split('.')
-            if ctxt_w_path is None: # context is a plain module
-                if level < 0:
-                    ctxt_name_prefix_parts = ctxt_name_prefix_parts[:-1]
-                else:
-                    cnpp = ctxt_name_prefix_parts
-                    ctxt_name_prefix_parts = [ ctxt_name_prefix_parts[i] 
-                                               for i in range(len(cnpp)-level) ]
-                if ctxt_name_prefix_parts:
-                    rel_modulename = '.'.join(ctxt_name_prefix_parts)
-                    if modulename:
-                        rel_modulename += '.' + modulename
-            else: # context is a package module
-                rel_modulename = ctxt_name
+            if level > 0:
+                n = len(ctxt_name_prefix_parts)-level+1
+                assert n>=0
+                ctxt_name_prefix_parts = ctxt_name_prefix_parts[:n]
+            if ctxt_w_path is None: # plain module
+                ctxt_name_prefix_parts.pop()
+            if ctxt_name_prefix_parts:
+                rel_modulename = '.'.join(ctxt_name_prefix_parts)
                 if modulename:
                     rel_modulename += '.' + modulename
             baselevel = len(ctxt_name_prefix_parts)
+            
         if rel_modulename is not None:
             w_mod = check_sys_modules(space, w(rel_modulename))
             if (w_mod is None or

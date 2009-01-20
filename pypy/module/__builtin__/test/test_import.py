@@ -327,6 +327,15 @@ class AppTestImport:
         res = __import__('', mydict, mydict, ('bar',), 1)
         assert res is foo
 
+    def test_relative_import_pkg(self):
+        import sys
+        import imp
+        pkg = imp.new_module('pkg')
+        sys.modules['pkg'] = pkg
+        mydict = {'__name__': 'pkg.foo', '__path__': '/some/path'}
+        res = __import__('', mydict, None, ['bar'], 2)
+        assert res is pkg
+
     def test_universal_newlines(self):
         import pkg_univnewlines
         assert pkg_univnewlines.a == 5
