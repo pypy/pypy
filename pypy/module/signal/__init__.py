@@ -1,5 +1,6 @@
 
 from pypy.interpreter.mixedmodule import MixedModule
+import os
 
 class Module(MixedModule):
     interpleveldefs = {
@@ -8,8 +9,10 @@ class Module(MixedModule):
         'NSIG':                'space.wrap(interp_signal.NSIG)',
         'SIG_DFL':             'space.wrap(interp_signal.SIG_DFL)',
         'SIG_IGN':             'space.wrap(interp_signal.SIG_IGN)',
-        'alarm':               'interp_signal.alarm',
     }
+
+    if os.name == 'posix':
+        interpleveldefs['alarm'] = 'interp_signal.alarm'
 
     appleveldefs = {
         'default_int_handler': 'app_signal.default_int_handler',
