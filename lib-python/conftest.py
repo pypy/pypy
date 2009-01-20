@@ -329,7 +329,7 @@ testmap = [
     RegrTest('test_posixpath.py'),
     RegrTest('test_pow.py', core=True),
     RegrTest('test_pprint.py', core=True),
-    RegrTest('test_profile.py'),
+    RegrTest('test_profile.py', skip="unsupported module, even by cpython"),
     RegrTest('test_profilehooks.py', core=True),
     RegrTest('test_pty.py', skip="unsupported extension module"),
     RegrTest('test_pwd.py'),
