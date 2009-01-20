@@ -111,5 +111,15 @@ return next yielded value or raise StopIteration."""
             msg = "generator ignored GeneratorExit"
             raise OperationError(space.w_RuntimeError, space.wrap(msg))
 
+    def descr__del__(self):        
+        """
+        applevel __del__, which is called at a safe point after the
+        interp-level __del__ enqueued the object for destruction
+        """
+        self.descr_close()
+
+##     # it seems there is a bug in the hybrid gc, if we add a __del__ it
+##     # segfaults. With mark&sweep it works correctly
 ##     def __del__(self):
-##         self.descr_close()
+##         if not self.frame.frame_finished_execution:
+##             self._enqueue_for_destruction(self.space)
