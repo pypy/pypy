@@ -75,6 +75,9 @@ declare_external('XML_SetUnknownEncodingHandler', [XML_Parser, c_void_p,
                                                    c_void_p], None)
 declare_external('XML_FreeContentModel', [XML_Parser, POINTER(XML_Content)],
                  None)
+declare_external('XML_ExternalEntityParserCreate', [XML_Parser,c_char_p,
+                                                    c_char_p],
+                 XML_Parser)
 
 handler_names = [
     'StartElement',
@@ -125,17 +128,18 @@ class XMLParserType(object):
     ordered_attributes = 0
     returns_unicode = 1
     encoding = 'utf-8'
-    def __init__(self, encoding, namespace_separator):
+    def __init__(self, encoding, namespace_separator, _hook_external_entity=False):
         self.returns_unicode = 1
         if encoding:
             self.encoding = encoding
-        if namespace_separator is None:
-            self.itself = XML_ParserCreate(encoding)
-        else:
-            self.itself = XML_ParserCreateNS(encoding, ord(namespace_separator))
-        if not self.itself:
-            raise RuntimeError("Creating parser failed")
-        self._set_unknown_encoding_handler()
+        if not _hook_external_entity:
+            if namespace_separator is None:
+                self.itself = XML_ParserCreate(encoding)
+            else:
+                self.itself = XML_ParserCreateNS(encoding, ord(namespace_separator))
+            if not self.itself:
+                raise RuntimeError("Creating parser failed")
+            self._set_unknown_encoding_handler()
         self.storage = {}
         self.buffer = None
         self.buffer_size = 8192
@@ -432,8 +436,18 @@ class XMLParserType(object):
     def SetBase(self, base):
         XML_SetBase(self.itself, base)
 
+    def ExternalEntityParserCreate(self, context, encoding=None):
+        """ExternalEntityParserCreate(context[, encoding])
+        Create a parser for parsing an external entity based on the
+        information passed to the ExternalEntityRefHandler."""
+        new_parser = XMLParserType(encoding, None, True)
+        new_parser.itself = XML_ExternalEntityParserCreate(self.itself,
+                                                           context, encoding)
+        new_parser._set_unknown_encoding_handler()
+        return new_parser
+
 def ErrorString(errno):
-    xxx
+    return XML_ErrorString(errno)[:200]
 
 def ParserCreate(encoding=None, namespace_separator=None, intern=None):
     if (not isinstance(encoding, str) and
