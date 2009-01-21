@@ -5,7 +5,6 @@ test_cProfile                !   we still need to fix module/cProfile to respect
 test_code                        obscure differences in code objects produced by compiler
 test_codecs                  !   unknown
 test_coding                  !   hah.  fix buildbot :-/
-test_commands                !   unknown
 test_compiler                !   unknown
 test_ctypes                  !   implementation details but also some real crashes
 test_decimal                     missing decimal.ROUND_05UP
@@ -24,7 +23,6 @@ test_generators              !   the fix is in r60950 but doesn't work. See r609
 test_gettext                 !   check this use of unicode()
 test_grammar                     implementation detail
 test_import                      importing from pyc-files-without-py-file disabled by default
-test_importhooks             !   unknown  # SHOULD BE FIXED NOW, check nightly tests
 test_inspect                 !   test_wrapped_decorator: try to fix;  isbuiltin([].append): cry and maaaybe try to fix
 test_iterlen                     somehow implementation detail (missing __length_hint__())
 test_itertools                   same as test_iterlen
