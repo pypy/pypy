@@ -28,7 +28,6 @@ test_iterlen                     somehow implementation detail (missing __length
 test_itertools                   same as test_iterlen
 test_logging                 !   exception classes have different repr than the rest in cpython
 test_normalization               test skipped
-test_optparse                !   test needs some fixes, but still, some failures are strange # SHOULD BE FIXED N?OW
 test_parser                      missing parser.compilest().  I don't think we care for now
 test_peepholer                   implementation detail (might be useful to look, though)
 test_pep277                      NT only
