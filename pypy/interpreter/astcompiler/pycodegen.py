@@ -1447,6 +1447,9 @@ class FunctionCodeGenerator(AbstractFunctionCode):
                 node = self.scope.return_with_arg
                 raise SyntaxError("'return' with argument inside generator",
                                   node.lineno)
+        if (self.scope.parent and
+            isinstance(self.scope.parent, symbols.FunctionScope)):
+            self.graph.setFlag(CO_NESTED)
 
 class GenExprCodeGenerator(AbstractFunctionCode):
 

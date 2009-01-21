@@ -169,10 +169,23 @@ class AppTestCodeIntrospection:
             assert i in res
 
     def test_code_extra(self):
+        exec """if 1:
         def f():
             "docstring"
             'stuff'
             56
+        """ in locals()
 
         # check for new flag, CO_NOFREE
         assert f.func_code.co_flags & 0x40
+
+        exec """if 1:
+        def f(x):
+            def g(y):
+                return x+y
+            return g
+        """ in locals()
+
+        # CO_NESTED
+        assert f(4).func_code.co_flags & 0x10
+        assert f.func_code.co_flags & 0x10 == 0
