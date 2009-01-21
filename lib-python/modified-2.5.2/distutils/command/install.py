@@ -65,6 +65,13 @@ INSTALL_SCHEMES = {
         'headers': '$base/Include/$dist_name',
         'scripts': '$base/Scripts',
         'data'   : '$base',
+        },
+    'pypy': {
+        'purelib': '$base/site-packages',
+        'platlib': '$base/site-packages',
+        'headers': '$base/include',
+        'scripts': '$base/bin',
+        'data'   : '$base',
         }
     }
 
@@ -385,8 +392,12 @@ class install (Command):
                     raise DistutilsOptionError, \
                           "must not supply exec-prefix without prefix"
 
-                self.prefix = os.path.normpath(sys.prefix)
-                self.exec_prefix = os.path.normpath(sys.exec_prefix)
+                if hasattr(sys, 'pypy_prefix'):
+                    self.prefix = os.path.normpath(sys.pypy_prefix)
+                    self.exec_prefix = self.prefix
+                else:
+                    self.prefix = os.path.normpath(sys.prefix)
+                    self.exec_prefix = os.path.normpath(sys.exec_prefix)
 
             else:
                 if self.exec_prefix is None:
@@ -406,7 +417,10 @@ class install (Command):
             self.select_scheme("unix_home")
         else:
             if self.prefix is None:
-                self.prefix = os.path.normpath(sys.prefix)
+                if hasattr(sys, 'pypy_prefix'):
+                    self.prefix = os.path.normpath(sys.pypy_prefix)
+                else:
+                    self.prefix = os.path.normpath(sys.prefix)
 
             self.install_base = self.install_platbase = self.prefix
             try:
@@ -420,6 +434,8 @@ class install (Command):
 
     def select_scheme (self, name):
         # it's the caller's problem if they supply a bad name!
+        if hasattr(sys, 'pypy_prefix'):
+            name = 'pypy'
         scheme = INSTALL_SCHEMES[name]
         for key in SCHEME_KEYS:
             attrname = 'install_' + key
