@@ -228,6 +228,7 @@ class TestDecorateSortUndecorate(unittest.TestCase):
             return x
         self.assertRaises(ValueError, data.sort, key=k)
 
+    @test_support.impl_detail("__del__ not called")
     def test_key_with_mutating_del(self):
         data = range(10)
         class SortKiller(object):
