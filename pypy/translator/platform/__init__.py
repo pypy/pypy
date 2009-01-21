@@ -47,7 +47,8 @@ class ExecutionResult(object):
 
 class Platform(object):
     name = "abstract platform"
-    
+    c_environ = None
+
     def __init__(self, cc):
         if self.__class__ is Platform:
             raise TypeError("You should not instantiate Platform class directly")
@@ -91,7 +92,7 @@ class Platform(object):
 
     def _execute_c_compiler(self, cc, args, outname):
         log.execute(cc + ' ' + ' '.join(args))
-        returncode, stdout, stderr = _run_subprocess(cc, args)
+        returncode, stdout, stderr = _run_subprocess(cc, args, self.c_environ)
         self._handle_error(returncode, stderr, stdout, outname)
 
     def _handle_error(self, returncode, stderr, stdout, outname):

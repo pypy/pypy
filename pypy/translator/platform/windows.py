@@ -5,18 +5,12 @@ from pypy.translator.platform import log, _run_subprocess
 from pypy.translator.platform import Platform, posix
 from pypy.tool import autopath
 
-def _install_msvc_env():
-    # The same compiler must be used for the python interpreter
-    # and extension modules
-    msc_pos = sys.version.find('MSC v.')
-    if msc_pos == -1:
-        # Not a windows platform...
-        return
+def _get_msvc_env(vsver):
+    try:
+        toolsdir = os.environ['VS%sCOMNTOOLS' % vsver]
+    except KeyError:
+        return None
 
-    msc_ver = int(sys.version[msc_pos+6:msc_pos+10])
-    # 1300 -> 70, 1310 -> 71, 1400 -> 80, 1500 -> 90
-    vsver = (msc_ver / 10) - 60
-    toolsdir = os.environ['VS%sCOMNTOOLS' % vsver]
     vcvars = os.path.join(toolsdir, 'vsvars32.bat')
 
     import subprocess
@@ -26,23 +20,41 @@ def _install_msvc_env():
 
     stdout, stderr = popen.communicate()
     if popen.wait() != 0:
-        raise IOError(stderr)
+        return
+
+    env = {}
     for line in stdout.split("\n"):
         if '=' not in line:
             continue
         key, value = line.split('=', 1)
         if key.upper() in ['PATH', 'INCLUDE', 'LIB']:
-            os.environ[key] = value
-            log.msg(line)
+            env[key.upper()] = value
     log.msg("Updated environment with %s" % (vcvars,))
+    return env
 
-try:
-    _install_msvc_env()
-except Exception, e:
-    print >>sys.stderr, "Could not find a suitable Microsoft Compiler"
-    import traceback
-    traceback.print_exc()
+def find_msvc_env():
+    # First, try to get the compiler which served to compile python
+    msc_pos = sys.version.find('MSC v.')
+    if msc_pos != -1:
+        msc_ver = int(sys.version[msc_pos+6:msc_pos+10])
+        # 1300 -> 70, 1310 -> 71, 1400 -> 80, 1500 -> 90
+        vsver = (msc_ver / 10) - 60
+        env = _get_msvc_env(vsver)
+
+        if env is not None:
+            return env
+
+    # Then, try any other version
+    for vsver in (100, 90, 80, 71, 70): # All the versions I know
+        env = _get_msvc_env(vsver)
+
+        if env is not None:
+            return env
+
+    log.error("Could not find a Microsoft Compiler")
     # Assume that the compiler is already part of the environment
+
+msvc_compiler_environ = find_msvc_env()
 
 class Windows(Platform):
     name = "win32"
@@ -56,12 +68,19 @@ class Windows(Platform):
     link_flags = []
     standalone_only = []
     shared_only = []
+    environ = None
 
     def __init__(self, cc=None):
         self.cc = 'cl.exe'
+        if msvc_compiler_environ:
+            self.c_environ = os.environ.copy()
+            self.c_environ.update(msvc_compiler_environ)
+            # XXX passing an environment to subprocess is not enough. Why?
+            os.environ.update(msvc_compiler_environ)
 
         # detect version of current compiler
-        returncode, stdout, stderr = _run_subprocess(self.cc, [])
+        returncode, stdout, stderr = _run_subprocess(self.cc, '',
+                                                     env=self.c_environ)
         r = re.search('Version ([0-9]+)\.([0-9]+)', stderr)
         self.version = int(''.join(r.groups())) / 10 - 60
 
@@ -132,9 +151,7 @@ class Windows(Platform):
                 mfid = 2
             out_arg = '-outputresource:%s;%s' % (exe_name, mfid)
             args = ['-nologo', '-manifest', str(temp_manifest), out_arg]
-            log.execute('mt.exe ' + ' '.join(args))
-            returncode, stdout, stderr = _run_subprocess('mt.exe', args)
-            self._handle_error(returncode, stderr, stdout, exe_name)
+            self._execute_c_compiler('mt.exe', args, exe_name)
 
         return exe_name
 
