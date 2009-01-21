@@ -382,7 +382,7 @@ testmap = [
     RegrTest('test_struct.py', usemodules='struct'),
     RegrTest('test_structmembers.py', skip="CPython specific"),
     RegrTest('test_structseq.py'),
-    RegrTest('test_subprocess.py', usemodules='signal'),
+    RegrTest('test_subprocess.py', usemodules='signal', skip=(sys.platform=='win32')),
     RegrTest('test_sunaudiodev.py', skip=True),
     RegrTest('test_sundry.py'),
     RegrTest('test_symtable.py', skip="implementation detail"),
