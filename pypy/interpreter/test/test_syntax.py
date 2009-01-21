@@ -621,6 +621,13 @@ class AppTestSyntaxError:
         else:
             raise Exception("no SyntaxError??")
 
+    def test_bad_encoding(self):
+        program = """
+# -*- coding: uft-8 -*-
+pass
+"""
+        raises(SyntaxError, "exec program")
+
 
 if __name__ == '__main__':
     # only to check on top of CPython (you need 2.4)

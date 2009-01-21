@@ -5,6 +5,7 @@ helper functions are provided that use the grammar to parse
 using file_input, single_input and eval_input targets
 """
 from pypy.interpreter import gateway
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.interpreter.pyparser.pythonlexer import Source, match_encoding_declaration
 from pypy.interpreter.astcompiler.consts import CO_FUTURE_WITH_STATEMENT
@@ -107,7 +108,16 @@ class PythonParser(grammar.Parser):
         else:
             enc = _normalize_encoding(_check_for_encoding(textsrc))
             if enc is not None and enc not in ('utf-8', 'iso-8859-1'):
-                textsrc = recode_to_utf8(builder.space, textsrc, enc)
+                try:
+                    textsrc = recode_to_utf8(builder.space, textsrc, enc)
+                except OperationError, e:
+                    # if the codec is not found, LookupError is raised.  we
+                    # check using 'is_w' not to mask potential IndexError or
+                    # KeyError
+                    space = builder.space
+                    if space.is_w(e.w_type, space.w_LookupError):
+                        raise SyntaxError("Unknown encoding: %s" % enc)
+                    raise                    
 
         lines = [line + '\n' for line in textsrc.split('\n')]
         builder.source_encoding = enc
