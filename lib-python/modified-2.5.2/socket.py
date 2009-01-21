@@ -249,7 +249,11 @@ class _fileobject(object):
                     self._sock = None
                     if self._close:
                         s.close()
-                    s._drop()
+                    try:
+                        s._drop()
+                    except AttributeError:
+                        pass     # for the abuse of socket._fileobject from
+                                 # urllib2.py :-(
 
     def __del__(self):
         try:
