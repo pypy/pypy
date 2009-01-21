@@ -293,8 +293,7 @@ testmap = [
     RegrTest('test_minidom.py'),
     RegrTest('test_mmap.py'),
     RegrTest('test_module.py', core=True),
-    RegrTest('test_multibytecodec.py'),
-    RegrTest('test_multibytecodec_support.py', core=True),
+    RegrTest('test_multibytecodec.py', skip="unsupported codecs"),
     RegrTest('test_multifile.py'),
     RegrTest('test_mutants.py', core="possibly"),
     RegrTest('test_netrc.py'),
@@ -478,8 +477,8 @@ testmap = [
     RegrTest('test_with.py'),
     RegrTest('test_wsgiref.py'),
     RegrTest('test_xdrlib.py'),
-    RegrTest('test_xml_etree.py'),
-    RegrTest('test_xml_etree_c.py'),
+    RegrTest('test_xml_etree.py', skip="unsupported ext module"),
+    RegrTest('test_xml_etree_c.py', skip="unsupported ext module"),
     RegrTest('test_zipfile64.py'),
 ]
 
