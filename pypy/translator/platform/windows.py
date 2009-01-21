@@ -1,5 +1,5 @@
 
-import py, os, sys
+import py, os, sys, re
 from pypy.translator.platform import CompilationError, ExecutionResult
 from pypy.translator.platform import log, _run_subprocess
 from pypy.translator.platform import Platform, posix
@@ -60,6 +60,11 @@ class Windows(Platform):
     def __init__(self, cc=None):
         self.cc = 'cl.exe'
 
+        # detect version of current compiler
+        returncode, stdout, stderr = _run_subprocess(self.cc, [])
+        r = re.search('Version ([0-9]+)\.([0-9]+)', stderr)
+        self.version = int(''.join(r.groups())) / 10 - 60
+
         # Install debug options only when interpreter is in debug mode
         if sys.executable.lower().endswith('_d.exe'):
             self.cflags = ['/MDd', '/Z7', '/Od']
@@ -110,7 +115,27 @@ class Windows(Platform):
         args += ['/out:%s' % (exe_name,), '/incremental:no']
         if not standalone:
             args = self._args_for_shared(args)
+
+        if self.version >= 80:
+            # Tell the linker to generate a manifest file
+            temp_manifest = ofile.dirpath().join(
+                ofile.purebasename + '.manifest')
+            args += ["/MANIFESTFILE:%s" % (temp_manifest,)]
+
         self._execute_c_compiler(self.link, args, exe_name)
+
+        if self.version >= 80:
+            # Now, embed the manifest into the program
+            if standalone:
+                mfid = 1
+            else:
+                mfid = 2
+            out_arg = '-outputresource:%s;%s' % (exe_name, mfid)
+            args = ['-nologo', '-manifest', str(temp_manifest), out_arg]
+            log.execute('mt.exe ' + ' '.join(args))
+            returncode, stdout, stderr = _run_subprocess('mt.exe', args)
+            self._handle_error(returncode, stderr, stdout, exe_name)
+
         return exe_name
 
     def _handle_error(self, returncode, stderr, stdout, outname):
