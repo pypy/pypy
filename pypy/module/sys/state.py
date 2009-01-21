@@ -62,6 +62,8 @@ def pypy_initial_path(space, srcdir):
     except OSError:
         return space.w_None
     else:
+        space.setitem(space.sys.w_dict, space.wrap('pypy_prefix'),
+                                        space.wrap(srcdir))
         return space.newlist([space.wrap(p) for p in path])
 
 pypy_initial_path.unwrap_spec = [ObjSpace, str]

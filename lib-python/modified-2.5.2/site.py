@@ -175,38 +175,11 @@ def addsitedir(sitedir, known_paths=None):
     return known_paths
 
 def addsitepackages(known_paths):
-    """Add site-packages (and possibly site-python) to sys.path"""
-    prefixes = [sys.prefix]
-    if sys.exec_prefix != sys.prefix:
-        prefixes.append(sys.exec_prefix)
-    for prefix in prefixes:
-        if prefix:
-            if sys.platform in ('os2emx', 'riscos'):
-                sitedirs = [os.path.join(prefix, "Lib", "site-packages")]
-            elif os.sep == '/':
-                sitedirs = [os.path.join(prefix,
-                                         "lib",
-                                         "python" + sys.version[:3],
-                                         "site-packages"),
-                            os.path.join(prefix, "lib", "site-python")]
-            else:
-                sitedirs = [prefix, os.path.join(prefix, "lib", "site-packages")]
-            if sys.platform == 'darwin':
-                # for framework builds *only* we add the standard Apple
-                # locations. Currently only per-user, but /Library and
-                # /Network/Library could be added too
-                if 'Python.framework' in prefix:
-                    home = os.environ.get('HOME')
-                    if home:
-                        sitedirs.append(
-                            os.path.join(home,
-                                         'Library',
-                                         'Python',
-                                         sys.version[:3],
-                                         'site-packages'))
-            for sitedir in sitedirs:
-                if os.path.isdir(sitedir):
-                    addsitedir(sitedir, known_paths)
+    """Add site-packages to sys.path, in a PyPy-specific way."""
+    if hasattr(sys, 'pypy_prefix'):
+        sitedir = os.path.join(sys.pypy_prefix, "site-packages")
+        if os.path.isdir(sitedir):
+            addsitedir(sitedir, known_paths)
     return None
 
 

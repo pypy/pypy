@@ -18,8 +18,6 @@ class Module(MixedModule):
         'platform'              : 'space.wrap(sys.platform)', 
         'maxint'                : 'space.wrap(sys.maxint)', 
         'byteorder'             : 'space.wrap(sys.byteorder)', 
-        'exec_prefix'           : 'space.wrap(sys.exec_prefix)', 
-        'prefix'                : 'space.wrap(sys.prefix)', 
         'maxunicode'            : 'space.wrap(sys.maxunicode)',
         'maxint'                : 'space.wrap(sys.maxint)',
         'stdin'                 : 'state.getio(space).w_stdin',
@@ -29,6 +27,8 @@ class Module(MixedModule):
         'stderr'                : 'state.getio(space).w_stderr',
         '__stderr__'            : 'state.getio(space).w_stderr',
         'pypy_objspaceclass'    : 'space.wrap(repr(space))',
+        #'pypy_prefix': added by pypy_initial_path() when it succeeds, pointing
+        # to the trunk of a checkout or to the dir /usr/share/pypy-1.1 .
 
         'path'                  : 'state.get(space).w_path', 
         'modules'               : 'state.get(space).w_modules', 
