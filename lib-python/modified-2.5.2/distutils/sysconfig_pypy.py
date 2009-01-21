@@ -4,9 +4,41 @@
 import sys
 import os
 
+from distutils.errors import DistutilsPlatformError
+
 
 PYPY_PREFIX = os.path.normpath(sys.pypy_prefix)
 python_build = False
+
+
+def get_python_version():
+    """Return a string containing the major and minor Python version,
+    leaving off the patchlevel.  Sample return values could be '1.5'
+    or '2.2'.
+    """
+    return sys.version[:3]
+
+
+def get_python_lib(plat_specific=0, standard_lib=0, prefix=None):
+    """Return the directory containing the Python library (standard or
+    site additions).
+
+    If 'plat_specific' is true, return the directory containing
+    platform-specific modules, i.e. any module from a non-pure-Python
+    module distribution; otherwise, return the platform-shared library
+    directory.  If 'standard_lib' is true, return the directory
+    containing standard Python library modules; otherwise, return the
+    directory for site-specific modules.
+
+    If 'prefix' is supplied, use it instead of sys.prefix or
+    sys.exec_prefix -- i.e., ignore 'plat_specific'.
+    """
+    if standard_lib:
+        raise DistutilsPlatformError(
+            "calls to get_python_lib(standard_lib=1) cannot succeed")
+    if prefix is None:
+        prefix = PYPY_PREFIX
+    return os.path.join(prefix, "site-packages")
 
 
 _config_vars = None
