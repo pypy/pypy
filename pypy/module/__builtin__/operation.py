@@ -46,7 +46,7 @@ def checkattrname(space, w_name):
     # space.{get,set,del}attr()...
     # Note that if w_name is already a string (or a subclass of str),
     # it must be returned unmodified (and not e.g. unwrapped-rewrapped).
-    if not space.is_true(space.isinstance(w_name, space.w_str)):
+    if not space.is_true(space.is_(w_name, space.w_str)):
         name = space.str_w(w_name)    # typecheck
         w_name = space.wrap(name)     # rewrap as a real string
     return w_name

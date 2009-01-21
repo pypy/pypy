@@ -18,7 +18,6 @@ class AppTest_DictMultiObject(test_dictobject.AppTest_DictObject):
         raises(TypeError, "{}[['x']]")
 
     def test_string_subclass_via_setattr(self):
-        skip("issue383")
         class A(object):
             pass
         class S(str):
@@ -27,7 +26,9 @@ class AppTest_DictMultiObject(test_dictobject.AppTest_DictObject):
         a = A()
         s = S("abc")
         setattr(a, s, 42)
-        assert a.__dict__.keys()[0] is s
+        key = a.__dict__.keys()[0]
+        assert key == s
+        assert type(key) is str
         assert getattr(a, s) == 42
 
 
