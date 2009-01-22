@@ -207,7 +207,7 @@ def escape_decode(data, errors='strict'):
     res = ''.join(res)    
     return res, len(data)
 
-def charmap_decode( data, errors='strict', mapping=None):
+def charmap_decode( data, errors='strict', mapping='latin-1'):
     """None
     """
     res = PyUnicode_DecodeCharmap(data, mapping, errors)
@@ -856,9 +856,9 @@ def PyUnicode_DecodeCharmap(s, mapping, errors):
 
     size = len(s)
 ##    /* Default to Latin-1 */
-    if (mapping == None):
+    if (mapping == 'latin-1'):
         import _codecs
-        return _codecs.latin_1_decode(s, size, errors)[0]
+        return _codecs.latin_1_decode(s, errors)[0]
 
     if (size == 0):
         return u''

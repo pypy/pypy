@@ -496,8 +496,16 @@ class AppTestPartialEvaluation:
     def test_charmap_encode(self):
         assert 'xxx'.encode('charmap') == 'xxx'
 
+    def test_charmap_decode(self):
+        assert 'foo'.decode('charmap') == 'foo'
+
 class TestDirect:
     def test_charmap_encode(self):
         from pypy.module._codecs.app_codecs import charmap_encode
-        assert charmap_encode('xxx') == ('xxx', 3)
-        assert charmap_encode('xxx', 'strict', {ord('x'): 'XX'}) ==  ('XXXXXX', 6)
+        assert charmap_encode(u'xxx') == ('xxx', 3)
+        assert charmap_encode(u'xxx', 'strict', {ord('x'): 'XX'}) ==  ('XXXXXX', 6)
+
+    def test_charmap_decode(self):
+        from pypy.module._codecs.app_codecs import charmap_decode
+        assert charmap_decode('xxx') == ('xxx', 3)
+        assert charmap_decode('xxx', 'strict', {ord('x'): u'XX'}) == ('XXXXXX', 3)
