@@ -55,6 +55,7 @@ class TracebackCases(unittest.TestCase):
             print >> f, """
 def test():
     raise ValueError"""
+            f.close()
 
             if 'test_bug737473' in sys.modules:
                 del sys.modules['test_bug737473']
