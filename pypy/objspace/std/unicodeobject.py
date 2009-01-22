@@ -705,7 +705,7 @@ def unicode_rsplit__Unicode_None_ANY(space, w_self, w_none, w_maxsplit):
             j = -1   # take all the rest of the string
         else:
             j = i - 1
-            while j >= 0 and not value[j].isspace():
+            while j >= 0 and not _isspace(value[j]):
                 j -= 1
             maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
