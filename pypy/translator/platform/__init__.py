@@ -152,32 +152,32 @@ if sys.platform == 'linux2':
     from pypy.translator.platform.linux import Linux, Linux64
     import platform
     if platform.architecture()[0] == '32bit':
-        host = Linux()
+        host_factory = Linux
     else:
-        host = Linux64()
+        host_factory = Linux64
 elif sys.platform == 'darwin':
     from pypy.translator.platform.darwin import Darwin
-    host = Darwin()
+    host_factory = Darwin
 elif sys.platform == 'freebsd7':
     from pypy.translator.platform.freebsd7 import Freebsd7, Freebsd7_64
     import platform
     if platform.architecture()[0] == '32bit':
-        host = Freebsd7()
+        host_factory = Freebsd7
     else:
-        host = Freebsd7_64()
+        host_factory = Freebsd7_64
 elif os.name == 'nt':
     from pypy.translator.platform.windows import Windows
-    host = Windows()
+    host_factory = Windows
 else:
     # pray
     from pypy.translator.platform.distutils_platform import DistutilsPlatform
-    host = DistutilsPlatform()
+    host_factory = DistutilsPlatform
 
-platform = host
+platform = host = host_factory()
 
 def pick_platform(new_platform, cc):
     if new_platform == 'host':
-        return host.__class__(cc)
+        return host_factory(cc)
     elif new_platform == 'maemo':
         from pypy.translator.platform.maemo import Maemo
         return Maemo(cc)
