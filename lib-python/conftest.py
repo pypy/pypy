@@ -294,6 +294,7 @@ testmap = [
     RegrTest('test_mmap.py'),
     RegrTest('test_module.py', core=True),
     RegrTest('test_multibytecodec.py', skip="unsupported codecs"),
+    RegrTest('test_multibytecodec.py_support', skip="not a test"),
     RegrTest('test_multifile.py'),
     RegrTest('test_mutants.py', core="possibly"),
     RegrTest('test_netrc.py'),
