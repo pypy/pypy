@@ -99,6 +99,7 @@ def test():
                 os.unlink(os.path.join(testdir, f))
             os.rmdir(testdir)
 
+    @impl_detail("sys.exc_traceback.__members__ is implementation-specific")
     def test_members(self):
         # Covers Python/structmember.c::listmembers()
         try:
