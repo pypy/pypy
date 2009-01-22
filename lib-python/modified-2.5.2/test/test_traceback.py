@@ -35,6 +35,15 @@ class TracebackCases(unittest.TestCase):
         self.assert_("^" in err[2]) # third line has caret
         self.assert_(err[1].find("!") == err[2].find("^")) # in the right place
 
+    def test_nocaret(self):
+        if is_jython:
+            # jython adds a caret in this case (why shouldn't it?)
+            return
+        err = self.get_exception_format(self.syntax_error_without_caret,
+                                        SyntaxError)
+        self.assert_(len(err) == 3)
+        self.assert_(err[1].strip() == "[x for x in x] = x")
+
     def test_bad_indentation(self):
         err = self.get_exception_format(self.syntax_error_bad_indentation,
                                         IndentationError)
