@@ -1,7 +1,7 @@
 """Test cases for traceback module"""
 
 import unittest
-from test.test_support import run_unittest, is_jython
+from test.test_support import run_unittest, impl_detail
 
 import traceback
 
@@ -35,10 +35,8 @@ class TracebackCases(unittest.TestCase):
         self.assert_("^" in err[2]) # third line has caret
         self.assert_(err[1].find("!") == err[2].find("^")) # in the right place
 
+    @impl_detail("other implementations may add a caret (why shouldn't they?)")
     def test_nocaret(self):
-        if is_jython:
-            # jython adds a caret in this case (why shouldn't it?)
-            return
         err = self.get_exception_format(self.syntax_error_without_caret,
                                         SyntaxError)
         self.assert_(len(err) == 3)
