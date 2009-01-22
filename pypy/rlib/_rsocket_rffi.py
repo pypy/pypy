@@ -12,8 +12,8 @@ import os,sys
 
 _POSIX = os.name == "posix"
 _WIN32 = sys.platform == "win32"
-_MSVC  = target_platform == "msvc"
-_MINGW = target_platform == "mingw32"
+_MSVC  = target_platform.name == "msvc"
+_MINGW = target_platform.name == "mingw32"
 _SOLARIS = sys.platform == "sunos5"
 
 if _POSIX:
@@ -55,7 +55,7 @@ if _WIN32:
         ]
     if _MSVC:
         header_lines.extend([
-            # these types do not exist on windows
+            # these types do not exist on microsoft compilers
             'typedef int ssize_t;',
             'typedef unsigned __int16 uint16_t;',
             'typedef unsigned __int32 uint32_t;',
