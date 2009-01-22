@@ -1627,14 +1627,17 @@ class Helper:
         self.docdir = None
         execdir = os.path.dirname(sys.executable)
         homedir = os.environ.get('PYTHONHOME')
-        for dir in [os.environ.get('PYTHONDOCS'),
-                    homedir and os.path.join(homedir, 'doc'),
-                    os.path.join(execdir, 'doc'),
-                    '/usr/doc/python-docs-' + split(sys.version)[0],
-                    '/usr/doc/python-' + split(sys.version)[0],
-                    '/usr/doc/python-docs-' + sys.version[:3],
-                    '/usr/doc/python-' + sys.version[:3],
-                    os.path.join(sys.prefix, 'Resources/English.lproj/Documentation')]:
+        dirs = [os.environ.get('PYTHONDOCS'),
+                homedir and os.path.join(homedir, 'doc'),
+                os.path.join(execdir, 'doc'),
+                '/usr/doc/python-docs-' + split(sys.version)[0],
+                '/usr/doc/python-' + split(sys.version)[0],
+                '/usr/doc/python-docs-' + sys.version[:3],
+                '/usr/doc/python-' + sys.version[:3]]
+        if hasattr(sys, 'prefix'):
+            dirs.append(os.path.join(sys.prefix,
+                                     'Resources/English.lproj/Documentation'))
+        for dir in dirs:
             if dir and os.path.isdir(os.path.join(dir, 'lib')):
                 self.docdir = dir
 
