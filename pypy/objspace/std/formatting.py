@@ -385,6 +385,19 @@ def make_formatter_subclass(do_unicode):
             if padnumber == '<':           # spaces on the right
                 result.append_multiple_char(const(' '), padding)
 
+        def string_formatting(self, w_value):
+            space = self.space
+            w_impl = space.lookup(w_value, '__str__')
+            if w_impl is None:
+                raise OperationError(space.w_TypeError,
+                                     space.wrap("operand does not support "
+                                                "unary str"))
+            w_result = space.get_and_call_function(w_impl, w_value)
+            if space.is_true(space.isinstance(w_result,
+                                              space.w_unicode)):
+                raise NeedUnicodeFormattingError
+            return space.str_w(w_result)
+
         def fmt_s(self, w_value):
             space = self.space
             got_unicode = space.is_true(space.isinstance(w_value,
@@ -392,7 +405,7 @@ def make_formatter_subclass(do_unicode):
             if not do_unicode:
                 if got_unicode:
                     raise NeedUnicodeFormattingError
-                s = space.str_w(space.str(w_value))
+                s = self.string_formatting(w_value)
             else:
                 if not got_unicode:
                     w_value = space.call_function(space.w_unicode, w_value)

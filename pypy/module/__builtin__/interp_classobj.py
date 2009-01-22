@@ -423,7 +423,7 @@ class W_InstanceObject(Wrappable):
     def descr_unicode(self, space):
         w_meth = self.getattr(space, space.wrap('__unicode__'), False)
         if w_meth is None:
-            return self.descr_repr(space)
+            return self.descr_str(space)
         return space.call_function(w_meth)
 
     def descr_len(self, space):
