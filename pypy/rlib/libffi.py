@@ -22,15 +22,41 @@ DEBUG = False # writes dlerror() messages to stderr
 from pypy.translator.platform import platform
 
 # maaaybe isinstance here would be better. Think
-_MS_WINDOWS = platform.name == "win32"
+_MSVC = platform.name == "msvc"
+_MINGW = platform.name == "mingw32"
+_WIN32 = _MSVC or _MINGW
 _MAC_OS = platform.name == "darwin"
 _FREEBSD_7 = platform.name == "freebsd7"
 
-if _MS_WINDOWS:
+if _WIN32:
     from pypy.rlib import rwin32
 
-if not _MS_WINDOWS:
-    includes = ['dlfcn.h', 'ffi.h']
+if _WIN32:
+    separate_module_sources = ['''
+    #include <stdio.h>
+
+    /* Get the module where the "fopen" function resides in */
+    HANDLE get_libc_handle() {
+        MEMORY_BASIC_INFORMATION  mi;
+        char buf[1000];
+        memset(&mi, 0, sizeof(mi));
+
+        if( !VirtualQueryEx(GetCurrentProcess(), &fopen, &mi, sizeof(mi)) )
+            return 0;
+
+        GetModuleFileName((HMODULE)mi.AllocationBase, buf, 500);
+
+        return (HMODULE)mi.AllocationBase;
+    }
+    ''']
+else:
+    separate_module_sources = []
+
+if not _MSVC:
+    if _MINGW:
+        includes = ['windows.h', 'ffi.h']
+    else:
+        includes = ['dlfcn.h', 'ffi.h']
     include_dirs = platform.include_dirs_for_libffi()
 
     if _MAC_OS:
@@ -38,7 +64,7 @@ if not _MS_WINDOWS:
     else: 
         pre_include_bits = []
 
-    if _FREEBSD_7:
+    if _FREEBSD_7 or _MINGW:
         libraries = ['ffi']
     else:
         libraries = ['ffi', 'dl']
@@ -47,6 +73,7 @@ if not _MS_WINDOWS:
         pre_include_bits = pre_include_bits,
         includes = includes,
         libraries = libraries,
+        separate_module_sources = separate_module_sources,
         include_dirs = platform.include_dirs_for_libffi(),
         library_dirs = platform.library_dirs_for_libffi(),
     )
@@ -57,20 +84,7 @@ else:
         includes = ['ffi.h', 'windows.h'],
         libraries = ['kernel32'],
         include_dirs = [libffidir],
-        separate_module_sources = ['''
-        #include <stdio.h>
-
-        /* Get the module where the "fopen" function resides in */
-        HANDLE get_libc_handle() {
-            MEMORY_BASIC_INFORMATION  mi;
-            memset(&mi, 0, sizeof(mi));
-
-            if( !VirtualQueryEx(GetCurrentProcess(), &fopen, &mi, sizeof(mi)) )
-                return 0;
-
-            return (HMODULE)mi.AllocationBase;
-        }
-        '''],
+        separate_module_sources = separate_module_sources,
         separate_module_files = [libffidir.join('ffi.c'),
                                  libffidir.join('prep_cif.c'),
                                  libffidir.join('win32.c'),
@@ -93,7 +107,7 @@ class CConfig:
     FFI_OK = rffi_platform.ConstantInteger('FFI_OK')
     FFI_BAD_TYPEDEF = rffi_platform.ConstantInteger('FFI_BAD_TYPEDEF')
     FFI_DEFAULT_ABI = rffi_platform.ConstantInteger('FFI_DEFAULT_ABI')
-    if _MS_WINDOWS:
+    if _WIN32:
         FFI_STDCALL = rffi_platform.ConstantInteger('FFI_STDCALL')
 
     FFI_TYPE_STRUCT = rffi_platform.ConstantInteger('FFI_TYPE_STRUCT')
@@ -182,7 +196,7 @@ def external(name, args, result, **kwds):
 def winexternal(name, args, result):
     return rffi.llexternal(name, args, result, compilation_info=eci, calling_conv='win')
 
-if not _MS_WINDOWS:
+if not _WIN32:
     c_dlopen = external('dlopen', [rffi.CCHARP, rffi.INT], rffi.VOIDP)
     c_dlclose = external('dlclose', [rffi.VOIDP], rffi.INT)
     c_dlerror = external('dlerror', [], rffi.CCHARP)
@@ -233,7 +247,7 @@ if not _MS_WINDOWS:
 
     libc_name = ctypes.util.find_library('c')
 
-if _MS_WINDOWS:
+if _WIN32:
     def dlopen(name):
         res = rwin32.LoadLibrary(name)
         if not res:
@@ -261,12 +275,14 @@ if _MS_WINDOWS:
     get_libc_handle = external('get_libc_handle', [], rwin32.HANDLE)
 
     libc_name = rwin32.GetModuleFileName(get_libc_handle())
-        
+    assert "msvcr" in libc_name.lower(), \
+           "Suspect msvcrt library: %s" % (libc_name,)
+
 
 FFI_OK = cConfig.FFI_OK
 FFI_BAD_TYPEDEF = cConfig.FFI_BAD_TYPEDEF
 FFI_DEFAULT_ABI = rffi.cast(rffi.USHORT, cConfig.FFI_DEFAULT_ABI)
-if _MS_WINDOWS:
+if _WIN32:
     FFI_STDCALL = rffi.cast(rffi.USHORT, cConfig.FFI_STDCALL)
 FFI_TYPE_STRUCT = rffi.cast(rffi.USHORT, cConfig.FFI_TYPE_STRUCT)
 FFI_CIFP = rffi.COpaquePtr('ffi_cif', compilation_info=eci)
@@ -377,12 +393,12 @@ class AbstractFuncPtr(object):
             self.ll_argtypes[i] = argtypes[i]
         self.ll_cif = lltype.malloc(FFI_CIFP.TO, flavor='raw')
 
-        if _MS_WINDOWS and (flags & FUNCFLAG_CDECL == 0):
+        if _WIN32 and (flags & FUNCFLAG_CDECL == 0):
             cc = FFI_STDCALL
         else:
             cc = FFI_DEFAULT_ABI
 
-        if _MS_WINDOWS:
+        if _MSVC:
             # This little trick works correctly with MSVC.
             # It returns small structures in registers
             if r_uint(restype.c_type) == FFI_TYPE_STRUCT:
