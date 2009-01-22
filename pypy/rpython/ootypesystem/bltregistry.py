@@ -52,8 +52,9 @@ def typeof(val):
 
 def load_dict_args(varnames, defs, args):
     argcount = len(varnames)
-    assert(argcount < len(defs) + len(args), "Not enough information for describing method")
-           
+    assert argcount < len(defs) + len(args), \
+           "Not enough information for describing method"
+
     for arg in xrange(1, argcount - len(defs)):
         assert varnames[arg] in args, "Don't have type for arg %s" % varnames[arg]
 
