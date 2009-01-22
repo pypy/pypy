@@ -5,6 +5,12 @@ from pypy.translator.platform import log, _run_subprocess
 from pypy.translator.platform import Platform, posix
 from pypy.tool import autopath
 
+def Windows(cc=None):
+    if cc == 'mingw32':
+        return MingwPlatform(cc)
+    else:
+        return MsvcPlatform(cc)
+
 def _get_msvc_env(vsver):
     try:
         toolsdir = os.environ['VS%sCOMNTOOLS' % vsver]
@@ -56,7 +62,7 @@ def find_msvc_env():
 
 msvc_compiler_environ = find_msvc_env()
 
-class Windows(Platform):
+class MsvcPlatform(Platform):
     name = "win32"
     so_ext = 'dll'
     exe_ext = 'exe'
@@ -120,7 +126,7 @@ class Windows(Platform):
         return ['/dll'] + args
 
     def _link_args_from_eci(self, eci):
-        args = super(Windows, self)._link_args_from_eci(eci)
+        args = super(MsvcPlatform, self)._link_args_from_eci(eci)
         return args + ['/EXPORT:%s' % symbol for symbol in eci.export_symbols]
 
     def _compile_c_file(self, cc, cfile, compile_args):
@@ -244,3 +250,19 @@ class Windows(Platform):
 
 class NMakefile(posix.GnuMakefile):
     pass # for the moment
+
+
+class MingwPlatform(posix.BasePosix):
+    name = 'mingw32'
+    standalone_only = []
+    shared_only = []
+    cflags = []
+    link_flags = []
+    so_ext = 'dll'
+
+    def __init__(self, cc=None):
+        Platform.__init__(self, 'gcc')
+
+    def _args_for_shared(self, args):
+        return ['-shared'] + args
+
