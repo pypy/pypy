@@ -686,37 +686,39 @@ def unicode_split__Unicode_Unicode_ANY(space, w_self, w_delim, w_maxsplit):
 
 
 def unicode_rsplit__Unicode_None_ANY(space, w_self, w_none, w_maxsplit):
-    self = w_self._value
     maxsplit = space.int_w(w_maxsplit)
-    parts = []
-    if len(self) == 0:
-        return space.newlist([])
-    start = 0
-    end = len(self)
-    inword = 0
-
-    while maxsplit != 0 and start < end:
-        index = end
-        for index in range(end-1, start-1, -1):
-            if _isspace(self[index]):
-                break
-            else:
-                inword = 1
+    res_w = []
+    value = w_self._value
+    i = len(value)-1
+    while True:
+        # starting from the end, find the end of the next word
+        while i >= 0:
+            if not _isspace(value[i]):
+                break   # found
+            i -= 1
         else:
-            break
-        if inword == 1:
-            parts.append(W_UnicodeObject(self[index+1:end]))
-            maxsplit -= 1
-        # Eat whitespace
-        for end in range(index, start-1, -1):
-            if not _isspace(self[end-1]):
-                break
-        else:
-            return space.newlist(parts)
+            break  # end of string, finished
 
-    parts.append(W_UnicodeObject(self[:end]))
-    parts.reverse()
-    return space.newlist(parts)
+        # find the start of the word
+        # (more precisely, 'j' will be the space character before the word)
+        if maxsplit == 0:
+            j = -1   # take all the rest of the string
+        else:
+            j = i - 1
+            while j >= 0 and not value[j].isspace():
+                j -= 1
+            maxsplit -= 1   # NB. if it's already < 0, it stays < 0
+
+        # the word is value[j+1:i+1]
+        j1 = j + 1
+        assert j1 >= 0
+        res_w.append(W_UnicodeObject(value[j1:i+1]))
+
+        # continue to look from the character before the space before the word
+        i = j - 1
+
+    res_w.reverse()
+    return space.newlist(res_w)
 
 def unicode_rsplit__Unicode_Unicode_ANY(space, w_self, w_delim, w_maxsplit):
     self = w_self._value

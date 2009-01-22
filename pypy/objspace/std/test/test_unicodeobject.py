@@ -148,6 +148,7 @@ class AppTestUnicodeString:
         raises(ValueError, u'abc'.rsplit, u'')
         raises(ValueError, u'abc'.rsplit, '')
         raises(ValueError, 'abc'.rsplit, u'')
+        assert u'  a b c  '.rsplit(None, 0) == [u'  a b c']
 
     def test_center(self):
         s=u"a b"
