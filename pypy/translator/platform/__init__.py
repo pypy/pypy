@@ -186,10 +186,13 @@ def pick_platform(new_platform, cc):
         return DistutilsPlatform()
     else:
         raise ValueError("platform = %s" % (new_platform,))
-    
+
 def set_platform(new_platform, cc):
     global platform
     log.msg("Setting platform to %r cc=%s" % (new_platform,cc))
     platform = pick_platform(new_platform, cc)
-        
+
+    if new_platform == 'host':
+        global host
+        host = platform
 
