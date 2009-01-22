@@ -140,14 +140,15 @@ class OtherFileTests(unittest.TestCase):
                 self.fail('%r is an invalid file mode' % mode)
 
     def testStdin(self):
-        # This causes the interpreter to exit on OSF1 v5.1.
-        if sys.platform != 'osf1V5':
-            self.assertRaises(IOError, sys.stdin.seek, -1)
-        else:
-            print >>sys.__stdout__, (
-                '  Skipping sys.stdin.seek(-1), it may crash the interpreter.'
-                ' Test manually.')
-        self.assertRaises(IOError, sys.stdin.truncate)
+        if os.isatty(sys.stdin.fileno()):
+            # This causes the interpreter to exit on OSF1 v5.1.
+            if sys.platform != 'osf1V5':
+                self.assertRaises(IOError, sys.stdin.seek, -1)
+            else:
+                print >>sys.__stdout__, (
+                    '  Skipping sys.stdin.seek(-1), it may crash the interpreter.'
+                    ' Test manually.')
+            self.assertRaises(IOError, sys.stdin.truncate)
 
     def testUnicodeOpen(self):
         # verify repr works for unicode too
