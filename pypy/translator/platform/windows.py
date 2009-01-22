@@ -63,7 +63,7 @@ def find_msvc_env():
 msvc_compiler_environ = find_msvc_env()
 
 class MsvcPlatform(Platform):
-    name = "win32"
+    name = "msvc"
     so_ext = 'dll'
     exe_ext = 'exe'
 
