@@ -5,12 +5,15 @@ from pypy.rpython.tool import rffi_platform as platform
 from pypy.rpython.lltypesystem.rffi import CCHARP
 from pypy.rlib.rposix import get_errno as geterrno
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.translator.platform import platform as target_platform
 
 from pypy.rlib.rarithmetic import intmask, r_uint
 import os,sys
 
 _POSIX = os.name == "posix"
-_MS_WINDOWS = os.name == "nt"
+_WIN32 = sys.platform == "win32"
+_MSVC  = target_platform == "msvc"
+_MINGW = target_platform == "mingw32"
 _SOLARIS = sys.platform == "sunos5"
 
 if _POSIX:
@@ -40,20 +43,26 @@ if _POSIX:
 if _SOLARIS:
     libraries = libraries + ('socket', 'nsl')
 
-if _MS_WINDOWS:
+if _WIN32:
     includes = ()
     libraries = ('ws2_32',)
     calling_conv = 'win'
-    HEADER = '\n'.join([
+    header_lines = [
         '#include <WinSock2.h>',
         '#include <WS2tcpip.h>',
         # winsock2 defines AF_UNIX, but not sockaddr_un
         '#undef AF_UNIX',
-        # these types do not exist on windows
-        'typedef int ssize_t;',
-        'typedef unsigned __int16 uint16_t;',
-        'typedef unsigned __int32 uint32_t;',
-        ])
+        ]
+    if _MSVC:
+        header_lines.extend([
+            # these types do not exist on windows
+            'typedef int ssize_t;',
+            'typedef unsigned __int16 uint16_t;',
+            'typedef unsigned __int32 uint32_t;',
+            ])
+    else:
+        includes = ('stdint.h',)
+    HEADER = '\n'.join(header_lines)
     COND_HEADER = ''
 constants = {}
 
@@ -91,8 +100,8 @@ eci = ExternalCompilationInfo(
 class CConfig:
     _compilation_info_ = eci
     # constants
-    linux      = platform.Defined('linux')
-    MS_WINDOWS = platform.Defined('_WIN32')
+    linux = platform.Defined('linux')
+    WIN32 = platform.Defined('_WIN32')
 
     O_NONBLOCK = platform.DefinedConstantInteger('O_NONBLOCK')
     F_GETFL = platform.DefinedConstantInteger('F_GETFL')
@@ -219,7 +228,7 @@ for name, default in constants_w_defaults:
     setattr(CConfig, name, platform.DefinedConstantInteger(name))
 
 # types
-if _MS_WINDOWS:
+if _MSVC:
     socketfd_type = rffi.UINT
 else:
     socketfd_type = rffi.INT
@@ -298,7 +307,7 @@ if _POSIX:
                                             [('fd', socketfd_type),
                                              ('events', rffi.SHORT),
                                              ('revents', rffi.SHORT)])
-if _MS_WINDOWS:
+if _WIN32:
     CConfig.WSAEVENT = platform.SimpleType('WSAEVENT', rffi.VOIDP)
     CConfig.WSANETWORKEVENTS = platform.Struct(
         'struct _WSANETWORKEVENTS',
@@ -312,7 +321,7 @@ CConfig.timeval = platform.Struct('struct timeval',
 
 fd_set = rffi.COpaquePtr('fd_set', compilation_info=eci)
 
-if _MS_WINDOWS:
+if _WIN32:
     CConfig.WSAData = platform.Struct('struct WSAData',
                                      [('wVersion', rffi.USHORT),
                                       ('wHighVersion', rffi.USHORT),
@@ -365,10 +374,10 @@ EWOULDBLOCK = cConfig.EWOULDBLOCK or cConfig.WSAEWOULDBLOCK
 EAFNOSUPPORT = cConfig.EAFNOSUPPORT or cConfig.WSAEAFNOSUPPORT
 
 linux = cConfig.linux
-MS_WINDOWS = cConfig.MS_WINDOWS
-assert MS_WINDOWS == _MS_WINDOWS
+WIN32 = cConfig.WIN32
+assert WIN32 == _WIN32
 
-if MS_WINDOWS:
+if WIN32:
     def invalid_socket(fd):
         return fd == INVALID_SOCKET
     INVALID_SOCKET = cConfig.INVALID_SOCKET
@@ -396,7 +405,7 @@ addrinfo = cConfig.addrinfo
 if _POSIX:
     nfds_t = cConfig.nfds_t
     pollfd = cConfig.pollfd
-if MS_WINDOWS:
+if WIN32:
     WSAEVENT = cConfig.WSAEVENT
     WSANETWORKEVENTS = cConfig.WSANETWORKEVENTS
 timeval = cConfig.timeval
@@ -429,14 +438,14 @@ if _POSIX:
 
 socket = external('socket', [rffi.INT, rffi.INT, rffi.INT], socketfd_type)
 
-if MS_WINDOWS:
+if WIN32:
     socketclose = external('closesocket', [socketfd_type], rffi.INT)
 else:
     socketclose = external('close', [socketfd_type], rffi.INT)
 
 socketconnect = external('connect', [socketfd_type, sockaddr_ptr, socklen_t], rffi.INT)
 
-if not MS_WINDOWS:
+if not WIN32:
     getaddrinfo = external('getaddrinfo', [CCHARP, CCHARP,
                             addrinfo_ptr,
                             lltype.Ptr(rffi.CArray(addrinfo_ptr))], rffi.INT)
@@ -500,7 +509,7 @@ if _POSIX:
     socketpair = external('socketpair', [rffi.INT, rffi.INT, rffi.INT,
                           lltype.Ptr(socketpair_t)], rffi.INT)
 
-if _MS_WINDOWS:
+if _WIN32:
     ioctlsocket = external('ioctlsocket',
                            [socketfd_type, rffi.LONG, rffi.ULONGP],
                            rffi.INT)
@@ -520,7 +529,7 @@ if _POSIX:
     poll = external('poll', [lltype.Ptr(pollfdarray), nfds_t, rffi.INT],
                     rffi.INT)
     
-elif MS_WINDOWS:
+elif WIN32:
     #
     # The following is for pypy.rlib.rpoll
     #
@@ -544,7 +553,7 @@ elif MS_WINDOWS:
                                      lltype.Ptr(WSANETWORKEVENTS)],
                                     rffi.INT)
 
-if MS_WINDOWS:
+if WIN32:
     WSAData = cConfig.WSAData
     WSAStartup = external('WSAStartup', [rffi.INT, lltype.Ptr(WSAData)],
                           rffi.INT)

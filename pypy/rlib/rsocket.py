@@ -27,7 +27,7 @@ def mallocbuf(buffersize):
 constants = _c.constants
 locals().update(constants) # Define constants from _c
 
-if _c.MS_WINDOWS:
+if _c.WIN32:
     def rsocket_startup():
         wsadata = lltype.malloc(_c.WSAData, flavor='raw', zero=True)
         res = _c.WSAStartup(1, wsadata)
