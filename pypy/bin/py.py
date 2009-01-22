@@ -55,11 +55,19 @@ def pypy_init(import_site):
 ''').interphook('pypy_init')
 
 
+def set_compiler(option, opt, value, parser):
+    from pypy.translator.platform import set_platform
+    set_platform('host', value)
+
 def main_(argv=None):
     starttime = time.time()
     config, parser = option.get_standard_options()
     interactiveconfig = Config(cmdline_optiondescr)
     to_optparse(interactiveconfig, parser=parser)
+    parser.add_option(
+        '--cc', type=str, action="callback",
+        callback=set_compiler,
+        help="Compiler to use for compiling generated C")
     args = option.process_options(parser, argv[1:])
     if interactiveconfig.verbose:
         error.RECORD_INTERPLEVEL_TRACEBACK = True
