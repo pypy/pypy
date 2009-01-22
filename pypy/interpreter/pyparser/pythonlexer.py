@@ -169,6 +169,10 @@ def generate_tokens( parser, lines, flags, keywords):
                 tok = Token(parser, parser.tokens['DEDENT'], '')
                 token_list.append((tok, line, lnum, pos))
                 last_comment = ''
+            if column != indents[-1]:
+                raise TokenError("unindent does not match any outer indentation level",
+                                 line, (lnum, 0), token_list)
+
         else:                                  # continued statement
             if not line:
                 raise TokenError("EOF in multi-line statement", line,
