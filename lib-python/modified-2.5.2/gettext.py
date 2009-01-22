@@ -426,8 +426,6 @@ def find(domain, localedir=None, languages=None, all=0):
     # Get some reasonable defaults for arguments that were not supplied
     if localedir is None:
         localedir = _default_localedir
-        if localedir is None:
-            raise TypeError("'localedir' argument required on PyPy")
     if languages is None:
         languages = []
         for envar in ('LANGUAGE', 'LC_ALL', 'LC_MESSAGES', 'LANG'):
@@ -448,6 +446,8 @@ def find(domain, localedir=None, languages=None, all=0):
         result = []
     else:
         result = None
+    if localedir is None:   # PyPy only: no default
+        return result
     for lang in nelangs:
         if lang == 'C':
             break
