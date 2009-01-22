@@ -373,7 +373,6 @@ def ENCODE( ch, bits) :
 
 def PyUnicode_DecodeUTF7(s, size, errors):
     from _codecs import lookup_error
-    starts = s
     errmsg = ""
     inShift = 0
     bitsleft = 0
@@ -464,10 +463,9 @@ def PyUnicode_DecodeUTF7(s, size, errors):
             i += 1
 
     if (inShift) :
-        #XXX This aint right
         endinpos = size
         msg = "unterminated shift sequence"
-        out, i = unicode_call_errorhandler(errors, 'utf-7', msg, s, i-1, i)
+        out, i = unicode_call_errorhandler(errors, 'utf-7', msg, s, startinpos, i)
         p += out
     return p
 

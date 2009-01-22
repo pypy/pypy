@@ -3,8 +3,8 @@ test name           !=must fix      guess at failure cause or difficulty
 test_builtin                     this is our issue383
 test_cProfile                !   we still need to fix module/cProfile to respect builtin calls
 test_code                        obscure differences in code objects produced by compiler
-test_codecs                  !   unknown
-test_coding                  !   hah.  fix buildbot :-/
+test_codecs                  !   unknown  # SHOULD BE FIXED NOW
+test_coding                  !   hah.  fix buildbot :-/  # SHOULD BE FIXED NOW
 test_compiler                !   unknown
 test_ctypes                  !   implementation details but also some real crashes
 test_decimal                     missing decimal.ROUND_05UP

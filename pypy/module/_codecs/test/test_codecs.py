@@ -499,6 +499,13 @@ class AppTestPartialEvaluation:
     def test_charmap_decode(self):
         assert 'foo'.decode('charmap') == 'foo'
 
+    def test_utf7_start_end_in_exception(self):
+        try:
+            '+IC'.decode('utf-7')
+        except UnicodeDecodeError, exc:
+            assert exc.start == 0
+            assert exc.end == 3
+
 class TestDirect:
     def test_charmap_encode(self):
         from pypy.module._codecs.app_codecs import charmap_encode
