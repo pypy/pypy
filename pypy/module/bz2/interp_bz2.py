@@ -326,6 +326,9 @@ class ReadBZ2Filter(Stream):
 
     def readall(self):
         w_result = self.decompressor.decompress(self.stream.readall())
+        if self.decompressor.running:
+            raise OperationError(self.space.w_EOFError,
+                                 self.space.wrap("compressed file ended before the logical end-of-the-stream was detected"))
         result = self.space.str_w(w_result)
         self.readlength += len(result)
         result = self.buffer + result
@@ -645,7 +648,7 @@ class W_BZ2Decompressor(Wrappable):
                     break
                 if bzerror != BZ_OK:
                     _catch_bz2_error(self.space, bzerror)
-            
+
                 if rffi.getintfield(self.bzs, 'c_avail_in') == 0:
                     break
                 elif rffi.getintfield(self.bzs, 'c_avail_out') == 0:

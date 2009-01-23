@@ -13,8 +13,12 @@ def setup_module(mod):
 
     def create_temp_file(crlf=False):
         f = py.test.ensuretemp("bz2").join("foo")
-
         data = (DATA, DATA_CRLF)[crlf]
+        f.write(data)
+
+    def create_broken_temp_file():
+        f = py.test.ensuretemp("bz2").join("foo")
+        data = DATA[:100]
         f.write(data)
     
     def decompress(data):
@@ -34,6 +38,7 @@ def setup_module(mod):
     mod.DATA_CRLF = DATA_CRLF 
     mod.create_temp_file = create_temp_file
     mod.decompress = decompress
+    mod.create_broken_temp_file = create_broken_temp_file
 
 class AppTestBZ2File: #(CheckAllocation):
     # XXX for unknown reasons, we cannot do allocation checks, as sth is
@@ -47,6 +52,7 @@ class AppTestBZ2File: #(CheckAllocation):
         cls.w_temppath = space.wrap(str(py.test.ensuretemp("bz2").join("foo")))
         cls.w_create_temp_file = space.wrap(create_temp_file)
         cls.w_decompress = space.wrap(decompress)
+        cls.w_create_broken_temp_file = space.wrap(create_broken_temp_file)
         
     def test_attributes(self):
         from bz2 import BZ2File
@@ -233,6 +239,12 @@ class AppTestBZ2File: #(CheckAllocation):
         text_read = bz2f.read()
         assert text_read == self.TEXT
         bz2f.close()
+
+    def test_read_broken_file(self):
+        from bz2 import BZ2File
+        self.create_broken_temp_file()
+        bz2f = BZ2File(self.temppath)
+        raises(EOFError, bz2f.read)
 
     def test_read_chunk10(self):
         from bz2 import BZ2File
