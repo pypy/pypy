@@ -2,16 +2,12 @@ test name           !=must fix      guess at failure cause or difficulty
 -------------------------------------------------------------------------------------------
 test_builtin                     this is our issue383
 test_cProfile                !   we still need to fix module/cProfile to respect builtin calls
-test_code                        obscure differences in code objects produced by compiler
-test_codecs                  !   unknown  # SHOULD BE FIXED NOW
-test_coding                  !   hah.  fix buildbot :-/  # SHOULD BE FIXED NOW
 test_compiler                !   unknown
 test_ctypes                  !   implementation details but also some real crashes
-test_decimal                     missing decimal.ROUND_05UP
 test_descrtut                    implementation detail only
 test_dis                         probably not worth the pain of whacking at the compiler
 test_distutils                   this is our issue367
-test_doctest                 !   unknown
+test_doctest                 !   obscure differencies
 test_email_codecs                test skipped
 test_enumerate                   same as test_iterlen
 test_file                        some more exceptions should be raised
