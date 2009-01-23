@@ -13,14 +13,6 @@ def test_executable():
                                  (sys.executable, pypypath) )
     assert output.splitlines()[-1] == pypypath
 
-def test_prefix():
-    """Make sure py.py sys.prefix and exec_prefix are the same as C Python's"""
-    cmd = "import sys;print sys.prefix;print sys.exec_prefix"
-    output = py.process.cmdexec( '''"%s" "%s" -c "%s" ''' %
-                                 (sys.executable, pypypath, cmd) )
-    assert output.splitlines()[-2] == sys.prefix
-    assert output.splitlines()[-1] == sys.exec_prefix
-
 def test_special_names():
     """Test the __name__ and __file__ special global names"""
     cmd = "print __name__; print '__file__' in globals()"
