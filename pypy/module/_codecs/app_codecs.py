@@ -69,7 +69,7 @@ def unicode_escape_encode( obj, errors='strict'):
     """
     res = unicodeescape_string(obj, len(obj), 0)
     res = ''.join(res)
-    return res, len(res)
+    return res, len(obj)
 
 def unicode_escape_decode( data, errors='strict'):
     """None

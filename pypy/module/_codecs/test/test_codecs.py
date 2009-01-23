@@ -1,5 +1,8 @@
 import autopath
 from pypy.conftest import gettestobjspace
+from pypy.module._codecs.app_codecs import unicode_escape_encode,\
+     charmap_encode, charmap_decode, unicode_escape_decode
+
 
 class AppTestCodecs:
     def setup_class(cls):
@@ -514,11 +517,14 @@ class AppTestPartialEvaluation:
 
 class TestDirect:
     def test_charmap_encode(self):
-        from pypy.module._codecs.app_codecs import charmap_encode
         assert charmap_encode(u'xxx') == ('xxx', 3)
         assert charmap_encode(u'xxx', 'strict', {ord('x'): 'XX'}) ==  ('XXXXXX', 6)
 
     def test_charmap_decode(self):
-        from pypy.module._codecs.app_codecs import charmap_decode
         assert charmap_decode('xxx') == ('xxx', 3)
         assert charmap_decode('xxx', 'strict', {ord('x'): u'XX'}) == ('XXXXXX', 3)
+
+    def test_unicode_escape(self):
+        assert unicode_escape_encode(u'abc') == ('\\x61\\x62\\x63', 3)
+        assert unicode_escape_decode('abc') == (u'abc', 3)
+        assert unicode_escape_decode('\\x61\\x62\\x63') == (u'abc', 12)
