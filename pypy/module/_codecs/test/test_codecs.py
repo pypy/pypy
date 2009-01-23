@@ -525,6 +525,6 @@ class TestDirect:
         assert charmap_decode('xxx', 'strict', {ord('x'): u'XX'}) == ('XXXXXX', 3)
 
     def test_unicode_escape(self):
-        assert unicode_escape_encode(u'abc') == ('\\x61\\x62\\x63', 3)
-        assert unicode_escape_decode('abc') == (u'abc', 3)
+        assert unicode_escape_encode(u'abc') == (u'abc'.encode('unicode_escape'), 3)
+        assert unicode_escape_decode('abc') == (u'abc'.decode('unicode_escape'), 3)
         assert unicode_escape_decode('\\x61\\x62\\x63') == (u'abc', 12)
