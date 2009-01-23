@@ -246,6 +246,19 @@ class AppTestBZ2File: #(CheckAllocation):
         bz2f = BZ2File(self.temppath)
         raises(EOFError, bz2f.read)
 
+    def test_subsequent_read_broken_file(self):
+        from bz2 import BZ2File
+        counter = 0
+        self.create_broken_temp_file()
+        bz2f = BZ2File(self.temppath)
+        try:
+            bz2f.read(10)
+            counter += 1
+            if counter > 100:
+                raise Exception("should generate EOFError earlier")
+        except EOFError:
+            pass
+
     def test_read_chunk10(self):
         from bz2 import BZ2File
         self.create_temp_file()

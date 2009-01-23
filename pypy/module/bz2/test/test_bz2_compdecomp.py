@@ -156,7 +156,6 @@ class AppTestBZ2Decompressor(CheckAllocation):
         assert decompressed_data == self.TEXT
 
     def test_subsequent_read(self):
-        skip("Buggy")
         from bz2 import BZ2Decompressor
         bz2d = BZ2Decompressor()
         decompressed_data = bz2d.decompress(self.BUGGY_DATA)
