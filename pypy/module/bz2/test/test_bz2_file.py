@@ -2,6 +2,7 @@ import py
 from pypy.conftest import gettestobjspace
 from pypy.module.bz2.test.support import CheckAllocation
 import os
+import random
 
 if os.name == "nt":
     from py.test import skip
@@ -39,6 +40,8 @@ def setup_module(mod):
     mod.create_temp_file = create_temp_file
     mod.decompress = decompress
     mod.create_broken_temp_file = create_broken_temp_file
+    s = 'abcdefghijklmnop'
+    mod.RANDOM_DATA = ''.join([s[int(random.random() * len(s))] for i in range(30000)])
 
 class AppTestBZ2File: #(CheckAllocation):
     # XXX for unknown reasons, we cannot do allocation checks, as sth is
@@ -53,6 +56,7 @@ class AppTestBZ2File: #(CheckAllocation):
         cls.w_create_temp_file = space.wrap(create_temp_file)
         cls.w_decompress = space.wrap(decompress)
         cls.w_create_broken_temp_file = space.wrap(create_broken_temp_file)
+        cls.w_random_data = space.wrap(RANDOM_DATA)
         
     def test_attributes(self):
         from bz2 import BZ2File
@@ -401,6 +405,16 @@ class AppTestBZ2File: #(CheckAllocation):
         raises(IOError, bz2f.write, "abc")
         raises(IOError, bz2f.writelines, ["abc"])
         bz2f.close()
+
+    def test_write_bigger_file(self):
+        from bz2 import BZ2File
+        import random
+        bz2f = BZ2File(self.temppath, 'w')
+        bz2f.write(self.random_data)
+        bz2f.close()
+        bz2f = BZ2File(self.temppath, 'r')
+        assert bz2f.read() == self.random_data
+        
         
 # has_cmdline_bunzip2 = sys.platform not in ("win32", "os2emx", "riscos")
 # 

@@ -547,17 +547,18 @@ class W_BZ2Compressor(Wrappable):
                     self.bzs.c_next_out = out_buf
                     rffi.setintfield(self.bzs, 'c_avail_out', out_bufsize)
         
-            if temp:
-                return self.space.wrap("".join(temp))
-            
+
             if rffi.getintfield(self.bzs, 'c_avail_out'):
                 size = _bzs_total_out(self.bzs) - total_out
                 res = "".join([out_buf[i] for i in range(size)])
+            else:
+                total_out = _bzs_total_out(self.bzs)
+                res = "".join([out_buf[i] for i in range(total_out)])
+            if not temp:
                 return self.space.wrap(res)
-    
-            total_out = _bzs_total_out(self.bzs)
-            res = "".join([out_buf[i] for i in range(total_out)])
-            return self.space.wrap(res)
+            else:
+                temp.append(res)
+                return self.space.wrap("".join(temp))
         finally:
             lltype.free(out_buf, flavor='raw')
     flush.unwrap_spec = ['self']
