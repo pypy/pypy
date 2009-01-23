@@ -419,6 +419,14 @@ class TestInternalFunctions(object):
         py.test.raises(OverflowError, f3.tolonglong)
         py.test.raises(OverflowError, f4.tolonglong)
 
+    def test_uintmask(self):
+        assert rbigint.fromint(-1).uintmask() == r_uint(-1)
+        assert rbigint.fromint(0).uintmask() == r_uint(0)
+        assert (rbigint.fromint(sys.maxint).uintmask() ==
+                r_uint(sys.maxint))
+        assert (rbigint.fromlong(sys.maxint+1).uintmask() ==
+                r_uint(-sys.maxint-1))
+
     def test_ulonglongmask(self):
         assert rbigint.fromlong(-1).ulonglongmask() == r_ulonglong(-1)
         assert rbigint.fromlong(0).ulonglongmask() == r_ulonglong(0)

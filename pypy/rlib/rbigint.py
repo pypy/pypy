@@ -200,6 +200,9 @@ class rbigint(object):
             raise ValueError("cannot convert negative integer to unsigned int")
         return _AsULonglong_ignore_sign(self)
 
+    def uintmask(self):
+        return _AsUInt_mask(self)
+
     def ulonglongmask(self):
         """Return r_ulonglong(self), truncating."""
         return _AsULonglong_mask(self)
@@ -1592,16 +1595,21 @@ def _AsULonglong_ignore_sign(v):
         i -= 1
     return x
 
-def _AsULonglong_mask(v):
-    x = r_ulonglong(0)
-    i = len(v.digits) - 1
-    while i >= 0:
-        prev = x
-        x = (x << SHIFT) + v.digits[i]
-        i -= 1
-    if v.sign < 0:
-        x = -x
-    return x
+def make_unsigned_mask_conversion(T):
+    def _As_unsigned_mask(v):
+        x = T(0)
+        i = len(v.digits) - 1
+        while i >= 0:
+            prev = x
+            x = (x << SHIFT) + v.digits[i]
+            i -= 1
+        if v.sign < 0:
+            x = -x
+        return x
+    return _As_unsigned_mask
+
+_AsULonglong_mask = make_unsigned_mask_conversion(r_ulonglong)
+_AsUInt_mask = make_unsigned_mask_conversion(r_uint)
 
 def _hash(v):
     # This is designed so that Python ints and longs with the
