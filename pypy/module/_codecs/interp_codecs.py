@@ -210,7 +210,7 @@ def make_encoder_wrapper(name):
         state = space.fromcache(CodecState)
         func = getattr(runicode, rname)
         result = func(uni, len(uni), errors, state.encode_error_handler)
-        return space.newtuple([space.wrap(result), space.wrap(len(result))])
+        return space.newtuple([space.wrap(result), space.wrap(len(uni))])
     wrap_encoder.unwrap_spec = [ObjSpace, unicode, str]
     globals()[name] = wrap_encoder
 

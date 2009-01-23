@@ -506,6 +506,12 @@ class AppTestPartialEvaluation:
             assert exc.start == 0
             assert exc.end == 3
 
+    def test_utf_16_encode_decode(self):
+        import codecs
+        x = u'123abc'
+        assert codecs.getencoder('utf-16')(x) == ('\xff\xfe1\x002\x003\x00a\x00b\x00c\x00', 6)
+        assert codecs.getdecoder('utf-16')('\xff\xfe1\x002\x003\x00a\x00b\x00c\x00') == (x, 14)
+
 class TestDirect:
     def test_charmap_encode(self):
         from pypy.module._codecs.app_codecs import charmap_encode
