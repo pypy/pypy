@@ -85,7 +85,7 @@ def unicode_escape_decode( data, errors='strict'):
     return res, len(data)
 
 
-def charmap_encode(obj, errors='strict', mapping='latin-1'):
+def charmap_encode(obj, errors='strict', mapping=None):
     """None
     """
     res = PyUnicode_EncodeCharmap(obj, mapping, errors)
@@ -207,7 +207,7 @@ def escape_decode(data, errors='strict'):
     res = ''.join(res)    
     return res, len(data)
 
-def charmap_decode( data, errors='strict', mapping='latin-1'):
+def charmap_decode( data, errors='strict', mapping=None):
     """None
     """
     res = PyUnicode_DecodeCharmap(data, mapping, errors)
@@ -826,7 +826,7 @@ def PyUnicode_EncodeCharmap(p, mapping='latin-1', errors='strict'):
 ##     * 3=ignore, 4=xmlcharrefreplace */
 
 #    /* Default to Latin-1 */
-    if mapping == 'latin-1':
+    if mapping == None:
         import _codecs
         return _codecs.latin_1_encode(p, errors)[0]
     size = len(p)
@@ -854,7 +854,7 @@ def PyUnicode_DecodeCharmap(s, mapping, errors):
 
     size = len(s)
 ##    /* Default to Latin-1 */
-    if (mapping == 'latin-1'):
+    if mapping is None:
         import _codecs
         return _codecs.latin_1_decode(s, errors)[0]
 
