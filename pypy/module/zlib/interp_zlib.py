@@ -20,14 +20,25 @@ else:
         return intmask((x ^ SIGN_EXTEND2) - SIGN_EXTEND2)
 
 
-def crc32(space, string, start = rzlib.CRC32_DEFAULT_START):
+def crc32(space, string, w_start = rzlib.CRC32_DEFAULT_START):
     """
     crc32(string[, start]) -- Compute a CRC-32 checksum of string.
 
     An optional starting value can be specified.  The returned checksum is
     an integer.
     """
-    checksum = rzlib.crc32(string, start)
+    if space.is_true(space.isinstance(w_start, space.w_long)):
+        num = space.bigint_w(w_start)
+        ustart = num.uintmask()
+    elif space.is_true(space.isinstance(w_start, space.w_int)):
+        start = space.int_w(w_start)
+        ustart = r_uint(start)
+    else:
+        raise OperationError(space.w_TypeError,
+                             space.wrap("crc32() argument 2 must "
+                                        "be integer<k>, not str"))
+
+    checksum = rzlib.crc32(string, ustart)
 
     # This is, perhaps, a little stupid.  zlib returns the checksum unsigned.
     # CPython exposes it as a signed value, though. -exarkun
@@ -37,7 +48,7 @@ def crc32(space, string, start = rzlib.CRC32_DEFAULT_START):
     checksum = unsigned_to_signed_32bit(checksum)
 
     return space.wrap(checksum)
-crc32.unwrap_spec = [ObjSpace, 'bufferstr', r_uint]
+crc32.unwrap_spec = [ObjSpace, 'bufferstr', W_Root]
 
 
 def adler32(space, string, start = rzlib.ADLER32_DEFAULT_START):

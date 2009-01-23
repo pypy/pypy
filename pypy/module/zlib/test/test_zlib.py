@@ -67,6 +67,18 @@ class AppTestZlib(object):
         helloworldcrc = self.zlib.crc32(world, hellocrc)
         assert helloworldcrc == self.zlib.crc32(hello + world)
 
+    def test_crc32_negative_start(self):
+        v = self.zlib.crc32('', -1)
+        assert v == -1
+
+    def test_crc32_negative_long_start(self):
+        v = self.zlib.crc32('', -1L)
+        assert v == -1
+
+    def test_crc32_long_start(self):
+        import sys
+        v = self.zlib.crc32('', sys.maxint*2)
+        assert v == -2
 
     def test_adler32(self):
         """
