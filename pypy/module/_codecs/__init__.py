@@ -8,8 +8,6 @@ class Module(MixedModule):
          'charmap_encode' :  'app_codecs.charmap_encode',
          'escape_decode' :  'app_codecs.escape_decode',
          'escape_encode' :  'app_codecs.escape_encode',
-         'mbcs_decode' :  'app_codecs.mbcs_decode',
-         'mbcs_encode' :  'app_codecs.mbcs_encode',
          'raw_unicode_escape_decode' :  'app_codecs.raw_unicode_escape_decode',
          'raw_unicode_escape_encode' :  'app_codecs.raw_unicode_escape_encode',
          'unicode_escape_decode' :  'app_codecs.unicode_escape_decode',

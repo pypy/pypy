@@ -43,12 +43,6 @@ Copyright (c) Corporation for National Research Initiatives.
 
 import sys
 
-# XXX MBCS codec might involve ctypes ?
-def mbcs_decode():
-    """None
-    """
-    pass
-
 def escape_encode( obj, errors='strict'):
     """None
     """
@@ -220,18 +214,7 @@ def utf_7_encode( obj, errors='strict'):
     """
     res = PyUnicode_EncodeUTF7(obj, len(obj), 0, 0, errors)
     res = ''.join(res)
-    return res, len(res)
-
-def mbcs_encode( obj, errors='strict'):
-    """None
-    """
-    pass
-##    return (PyUnicode_EncodeMBCS(
-##                             (obj), 
-##                             len(obj),
-##                             errors),
-##                  len(obj))
-    
+    return res, len(res)    
 
 def raw_unicode_escape_encode( obj, errors='strict'):
     """None
