@@ -6,10 +6,8 @@ still useful routines.
 
 # XXX incomplete: implemented only functions needed by subprocess.py
 
-import _rawffi
 import ctypes
-
-_c = ctypes.CDLL('msvcrt', handle=_rawffi.get_libc())
+from ctypes_support import standard_c_lib as _c
 
 open_osfhandle = _c._open_osfhandle
 open_osfhandle.argtypes = [ctypes.c_int, ctypes.c_int]

@@ -9,16 +9,12 @@ import sys
 
 # __________ the standard C library __________
 
+import _rawffi
+
 if sys.platform == 'win32':
-    # trying to guess the correct libc... only a few tests fail if there
-    # is a mismatch between the one used by python2x.dll and the one
-    # loaded here
-    if sys.version_info < (2, 4):
-        standard_c_lib = ctypes.cdll.LoadLibrary('msvcrt.dll')
-    else:
-        standard_c_lib = ctypes.cdll.LoadLibrary('msvcr71.dll')
+    standard_c_lib = ctypes.CDLL('msvcrt', handle=_rawffi.get_libc())
 else:
-    standard_c_lib = ctypes.cdll.LoadLibrary(ctypes.util.find_library('c'))
+    standard_c_lib = ctypes.CDLL(ctypes.util.find_library('c'))
 
 if sys.platform == 'win32':
     standard_c_lib._errno.restype = ctypes.POINTER(ctypes.c_int)
