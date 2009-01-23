@@ -448,7 +448,6 @@ testmap = [
     RegrTest('test_zipimport.py', usemodules='zlib zipimport'),
     RegrTest('test_zlib.py', usemodules='zlib'),
 
-    RegrTest('test_ast.py'),
     RegrTest('test_bigaddrspace.py'),
     RegrTest('test_bigmem.py'),
     RegrTest('test_cProfile.py'),
