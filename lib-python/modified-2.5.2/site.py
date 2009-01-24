@@ -62,7 +62,6 @@ import sys
 import os
 import __builtin__
 
-
 def makepath(*paths):
     dir = os.path.abspath(os.path.join(*paths))
     return dir, os.path.normcase(dir)
@@ -309,6 +308,7 @@ class _Printer(object):
 
 def setcopyright():
     # XXX this is the PyPy-specific version.  Should be unified with the above.
+    __builtin__.copyright = _Printer("copyright", sys.copyright)
     __builtin__.credits = _Printer(
         "credits",
         "PyPy is maintained by the PyPy developers: http://codespeak.net/pypy")
