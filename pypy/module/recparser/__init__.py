@@ -43,7 +43,7 @@ class Module(MixedModule):
 ##         #'sequence2ast' : 'pyparser.sequence2ast',
 ##         #'tuple2ast'    : 'pyparser.tuple2ast',
 ##         #'_pickler'     : 'pyparser._pickler',
-##         #'compilest'    : 'pyparser.compilest',
+         'compilest'    : 'pyparser.compilest',
 
          # PyPy extension
          'source2ast' : "pyparser.source2ast",

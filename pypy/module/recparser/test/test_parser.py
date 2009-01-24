@@ -30,6 +30,13 @@ def f():
         """.strip()
         parser.suite(src)
 
+    def test_compilest(self):
+        import parser
+        code = parser.compilest(parser.suite('x = 2 + 3'))
+        d = {}
+        exec code in d
+        assert d['x'] == 5
+
 class AppTestRecparserErrors: 
     def setup_class(cls):
         cls.space = space

@@ -108,17 +108,18 @@ class STType (Wrappable):
         """
         return self.node.name == symbol.file_input
 
-    def descr_compile(self, w_filename = "<syntax_tree>"):
+    def descr_compile(self, space, filename = "<syntax_tree>"):
         """STType.compile()
         """
         # We use the compiler module for that
         space = self.space
         w_tup = self.descr_totuple(line_info=True)
-        w_compileAST = mycompile(space, w_tup, w_filename)
+        w_compileAST = mycompile(space, w_tup, space.wrap(filename))
         if self.isexpr():
             return exprcompile(space, w_compileAST)
         else:
             return modcompile(space, w_compileAST)
+    descr_compile.unwrap_spec = ['self', ObjSpace, str]
 
 ASTType = STType
 
@@ -353,3 +354,9 @@ KleeneStar.typedef = TypeDef("KleeneStar", GrammarElement.typedef,
                              )
 
 Token.typedef = TypeDef("Token", GrammarElement.typedef )
+
+def compilest(space, w_st):
+    "Compiles an ST object into a code object."
+    w_st = space.interp_w(STType, w_st)
+    return w_st.descr_compile(space)
+compilest.unwrap_spec = [ObjSpace, W_Root]
