@@ -1,3 +1,7 @@
+import sys
+if sys.platform == 'win32':
+    raise ImportError('resource module not available for win32')
+
 from ctypes_support import standard_c_lib as libc
 from ctypes_support import get_errno
 from ctypes import Structure, c_int, c_long, byref
