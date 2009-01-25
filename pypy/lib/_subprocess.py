@@ -155,6 +155,7 @@ def CreateProcess(name, command_line, process_attr, thread_attr,
         raise WindowsError("Error")
 
     return _handle(pi.hProcess), _handle(pi.hThread), pi.dwProcessID, pi.dwThreadID
+STARTF_USESHOWWINDOW = 0x001
 STARTF_USESTDHANDLES = 0x100
 
 def WaitForSingleObject(handle, milliseconds):
