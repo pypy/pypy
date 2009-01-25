@@ -44,7 +44,9 @@ def gettimeout():
         megapystone = float(timeout[:-2])
         t, stone = pystone.Proc0(10000)
         pystonetime = t/stone 
-        seconds = megapystone  * 1000000 * pystonetime 
+        seconds = megapystone  * 1000000 * pystonetime
+        import pdb; pdb.set_trace()
+        
         return seconds 
     return float(timeout) 
 
@@ -116,6 +118,8 @@ class RegrTest:
         ''' % locals())
 
 testmap = [
+    RegrTest('test_experiment.py'), # yyy
+    
     RegrTest('test___all__.py', core=True),
     RegrTest('test___future__.py', core=True),
     RegrTest('test__locale.py'),
@@ -552,7 +556,11 @@ class ReallyRunFileExternal(py.test.collect.Item):
         python = sys.executable 
         pypy_script = pypydir.join('bin', 'py.py')
         alarm_script = pypydir.join('tool', 'alarm.py')
-        watchdog_script = pypydir.join('tool', 'watchdog.py')
+        if sys.platform == 'win32':
+            watchdog_name = 'watchdog_nt.py'
+        else:
+            watchdog_name = 'watchdog.py'
+        watchdog_script = pypydir.join('tool', watchdog_name)
 
         regr_script = pypydir.join('tool', 'pytest', 
                                    'run-script', 'regrverbose.py')
@@ -583,15 +591,17 @@ class ReallyRunFileExternal(py.test.collect.Item):
             cmd = "%s %s %s %s" %(
                 execpath, 
                 regrrun, regrrun_verbosity, fspath.purebasename)
-            if sys.platform != 'win32':
-                cmd = "%s %s %s %s" %(
-                       python, watchdog_script, TIMEOUT,
-                       cmd)
+
+            # add watchdog for timing out
+            cmd = "%s %s %s %s" %(
+                python, watchdog_script, TIMEOUT,
+                cmd)
         else:
             cmd = "%s %s %d %s %s %s %s %s" %(
                 python, alarm_script, TIMEOUT, 
                 pypy_script, sopt, 
                 regrrun, regrrun_verbosity, fspath.purebasename)
+        print cmd
         return cmd 
 
     def runtest(self): 
