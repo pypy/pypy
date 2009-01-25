@@ -597,7 +597,6 @@ class ReallyRunFileExternal(py.test.collect.Item):
                 python, alarm_script, TIMEOUT, 
                 pypy_script, sopt, 
                 regrrun, regrrun_verbosity, fspath.purebasename)
-        print cmd
         return cmd 
 
     def runtest(self): 
