@@ -45,8 +45,6 @@ def gettimeout():
         t, stone = pystone.Proc0(10000)
         pystonetime = t/stone 
         seconds = megapystone  * 1000000 * pystonetime
-        import pdb; pdb.set_trace()
-        
         return seconds 
     return float(timeout) 
 
@@ -118,8 +116,6 @@ class RegrTest:
         ''' % locals())
 
 testmap = [
-    RegrTest('test_experiment.py'), # yyy
-    
     RegrTest('test___all__.py', core=True),
     RegrTest('test___future__.py', core=True),
     RegrTest('test__locale.py'),
