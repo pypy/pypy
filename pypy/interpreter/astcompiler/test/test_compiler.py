@@ -630,3 +630,27 @@ class TestCompiler:
         """)
         decl = str(decl) + '\n'
         yield self.simple_test, decl, 'r', None
+
+    def test_indentation_error(self):
+        source = py.code.Source("""
+        x
+         y
+        """)
+        try:
+            self.simple_test(source, None, None)
+        except IndentationError, e:
+            assert e.msg == 'unexpected indent'
+        else:
+            raise Exception("DID NOT RAISE")
+
+    def test_no_indent(self):
+        source = py.code.Source("""
+        def f():
+        xxx
+        """)
+        try:
+            self.simple_test(source, None, None)
+        except IndentationError, e:
+            assert e.msg == 'expected an indented block'
+        else:
+            raise Exception("DID NOT RAISE")

@@ -227,7 +227,7 @@ class PythonAstCompiler(PyCodeCompiler):
         self.compiler_flags = self.futureFlags.allowed_flags
 
     def compile(self, source, filename, mode, flags):
-        from pypy.interpreter.pyparser.error import SyntaxError
+        from pypy.interpreter.pyparser.error import SyntaxError, IndentationError
         from pypy.interpreter import astcompiler
         from pypy.interpreter.astcompiler.pycodegen import ModuleCodeGenerator
         from pypy.interpreter.astcompiler.pycodegen import InteractiveCodeGenerator
@@ -252,10 +252,12 @@ class PythonAstCompiler(PyCodeCompiler):
             self.parser.parse_source(source, mode, builder, flags)
             ast_tree = builder.rule_stack[-1]
             encoding = builder.source_encoding
+        except IndentationError, e:
+            raise OperationError(space.w_IndentationError,
+                                 e.wrap_info(space, filename))
         except SyntaxError, e:
             raise OperationError(space.w_SyntaxError,
                                  e.wrap_info(space, filename))
-
         ast_tree = opt.optimize_ast_tree(space, ast_tree)
 
         if not space.is_w(self.w_compile_hook, space.w_None):

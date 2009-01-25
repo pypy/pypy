@@ -23,6 +23,8 @@ class SyntaxError(Exception):
                                              self.offset,
                                              self.text)
 
+class IndentationError(SyntaxError):
+    pass
 
 class ASTError(Exception):
     def __init__(self, msg, ast_node ):

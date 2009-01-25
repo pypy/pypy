@@ -750,4 +750,16 @@ class AppTestOptimizer:
         output = s.getvalue()
         assert 'BINARY_ADD' not in output
 
+class AppTestExceptions:
+    def test_indentation_error(self):
+        source = """if 1:
+        x
+         y
+        """
+        try:
+            exec source
+        except IndentationError:
+            pass
+        else:
+            raise Exception("DID NOT RAISE")
 

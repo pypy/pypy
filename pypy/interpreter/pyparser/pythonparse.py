@@ -6,7 +6,7 @@ using file_input, single_input and eval_input targets
 """
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.pyparser.error import SyntaxError
+from pypy.interpreter.pyparser.error import SyntaxError, IndentationError
 from pypy.interpreter.pyparser.pythonlexer import Source, match_encoding_declaration
 from pypy.interpreter.astcompiler.consts import CO_FUTURE_WITH_STATEMENT
 import pypy.interpreter.pyparser.pytoken as pytoken
@@ -140,8 +140,11 @@ class PythonParser(grammar.Parser):
 
         if not target.match(src, builder):
             tok, line, lnum, pos = src.most_recent_token()
+            if tok.codename == self.tokens['INDENT']:
+                raise IndentationError("unexpected indent", lnum, pos, line)
+            if tok.codename == self.tokens['DEDENT']:
+                raise IndentationError("unexpected dedent", lnum, pos, line)
             raise SyntaxError("invalid syntax", lnum, pos, line)
-            # return None
         return builder
 
     def update_rules_references(self):

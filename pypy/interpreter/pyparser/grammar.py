@@ -188,7 +188,6 @@ class GrammarElement(Wrappable):
     emptytoken_in_first_set = False
     _match_cache = None
     args = []
-
     symbols = {} # dirty trick to provide a symbols mapping while printing (and not putting it in every object)
 
     _attrs_ = ['parser', 'codename', 'args',
