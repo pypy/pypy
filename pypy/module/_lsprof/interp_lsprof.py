@@ -161,7 +161,9 @@ class ProfilerContext(object):
 
 def create_spec(space, w_arg):
     if isinstance(w_arg, Method):
-        return "{method '%s' of '%s' object}" % (w_arg.w_function.name, w_arg.w_class.name)
+        w_function = w_arg.w_function
+        assert isinstance(w_function, Function)
+        return "{method '%s' of '%s' object}" % (w_function.name, space.str_w(space.str(w_arg.w_class)))
     elif isinstance(w_arg, Function):
         return '{%s function}' % (w_arg.name,)
     else:
