@@ -614,7 +614,10 @@ class ReallyRunFileExternal(py.test.collect.Item):
             else:
                 msg = regrtest.skip
             py.test.skip(msg)
-        exit_status, test_stdout, test_stderr = self.getresult(regrtest) 
+        (skipped, exit_status, test_stdout,
+                               test_stderr) = self.getresult(regrtest)
+        if skipped:
+            py.test.skip(test_stderr.splitlines()[-1])
         if exit_status:
             raise self.ExternalFailure(test_stdout, test_stderr)
 
@@ -645,9 +648,12 @@ class ReallyRunFileExternal(py.test.collect.Item):
     def getresult(self, regrtest): 
         cmd = self.getinvocation(regrtest) 
         exit_status, test_stdout, test_stderr = self.getstatusouterr(cmd) 
+        skipped = False
         timedout = test_stderr.rfind(26*"=" + "timedout" + 26*"=") != -1 
         if not timedout: 
             timedout = test_stderr.rfind("KeyboardInterrupt") != -1
+        if test_stderr.rfind(26*"=" + "skipped" + 26*"=") != -1:
+            skipped = True
         outcome = 'OK'
         expectedpath = regrtest.getoutputpath()
         if not exit_status: 
@@ -668,7 +674,7 @@ class ReallyRunFileExternal(py.test.collect.Item):
         else: 
             outcome = "ERR"
         
-        return exit_status, test_stdout, test_stderr
+        return skipped, exit_status, test_stdout, test_stderr
 
     def _keywords(self):
         lst = list(py.test.collect.Item._keywords(self))
