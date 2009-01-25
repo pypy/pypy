@@ -71,70 +71,71 @@ def tmpfile():
     return f
 
 
-# __________ only if we have os.fork() __________
+# Implement popen() for platforms which have os.fork()
+if osname == 'posix':
 
-class popenfile(file):
-    _childpid = None
+    class popenfile(file):
+        _childpid = None
 
-    def close(self):
-        import os
-        file.close(self)
-        pid = self._childpid
-        if pid is not None:
-            self._childpid = None
-            return os.waitpid(pid, 0)[1]
-        return 0
-    __del__ = close     # as in CPython, __del__ may call os.waitpid()
+        def close(self):
+            import os
+            file.close(self)
+            pid = self._childpid
+            if pid is not None:
+                self._childpid = None
+                return os.waitpid(pid, 0)[1]
+            return 0
+        __del__ = close     # as in CPython, __del__ may call os.waitpid()
 
-def popen(command, mode='r', bufsize=-1):
-    """popen(command [, mode='r' [, bufsize]]) -> pipe
-    
-    Open a pipe to/from a command returning a file object."""
+    def popen(command, mode='r', bufsize=-1):
+        """popen(command [, mode='r' [, bufsize]]) -> pipe
 
-    from popen2 import MAXFD
-    import os, gc
+        Open a pipe to/from a command returning a file object."""
 
-    def try_close(fd):
+        from popen2 import MAXFD
+        import os, gc
+
+        def try_close(fd):
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+
+        if not mode.startswith('r') and not mode.startswith('w'):
+            raise ValueError("invalid mode %r" % (mode,))
+        read_end, write_end = os.pipe()
         try:
-            os.close(fd)
-        except OSError:
-            pass
+            gc.disable_finalizers()
+            try:
+                childpid = os.fork()
+                if childpid == 0:
+                    # in the child
+                    try:
+                        if mode.startswith('r'):
+                            os.dup2(write_end, 1)
+                            os.close(read_end)
+                        else:
+                            os.dup2(read_end, 0)
+                            os.close(write_end)
+                        os.closerange(3, MAXFD)
+                        cmd = ['/bin/sh', '-c', command]
+                        os.execvp(cmd[0], cmd)
+                    finally:
+                        os._exit(1)
+            finally:
+                gc.enable_finalizers()
 
-    if not mode.startswith('r') and not mode.startswith('w'):
-        raise ValueError("invalid mode %r" % (mode,))
-    read_end, write_end = os.pipe()
-    try:
-        gc.disable_finalizers()
-        try:
-            childpid = os.fork()
-            if childpid == 0:
-                # in the child
-                try:
-                    if mode.startswith('r'):
-                        os.dup2(write_end, 1)
-                        os.close(read_end)
-                    else:
-                        os.dup2(read_end, 0)
-                        os.close(write_end)
-                    os.closerange(3, MAXFD)
-                    cmd = ['/bin/sh', '-c', command]
-                    os.execvp(cmd[0], cmd)
-                finally:
-                    os._exit(1)
-        finally:
-            gc.enable_finalizers()
+            if mode.startswith('r'):
+                os.close(write_end)
+                fd = read_end
+            else:
+                os.close(read_end)
+                fd = write_end
+            g = popenfile.fdopen(fd, mode, bufsize)
+            g._childpid = childpid
+            return g
 
-        if mode.startswith('r'):
-            os.close(write_end)
-            fd = read_end
-        else:
-            os.close(read_end)
-            fd = write_end
-        g = popenfile.fdopen(fd, mode, bufsize)
-        g._childpid = childpid
-        return g
-
-    except Exception, e:
-        try_close(write_end)
-        try_close(read_end)
-        raise Exception, e     # bare 'raise' does not work here :-(
+        except Exception, e:
+            try_close(write_end)
+            try_close(read_end)
+            raise Exception, e     # bare 'raise' does not work here :-(
