@@ -4,6 +4,7 @@ from pypy.interpreter.baseobjspace import (W_Root, ObjSpace, Wrappable,
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty)
 from pypy.interpreter.gateway import interp2app, NoneNotWrapped
+from pypy.interpreter.function import Method, Function
 import time, sys
 
 class W_StatsEntry(Wrappable):
@@ -30,9 +31,12 @@ class W_StatsEntry(Wrappable):
             self.tt, self.it, calls_repr))
     repr.unwrap_spec = ['self', ObjSpace]
 
+    def get_code(space, self):
+        return self.frame
+
 W_StatsEntry.typedef = TypeDef(
     'StatsEntry',
-    code = interp_attrproperty('frame', W_StatsEntry),
+    code = GetSetProperty(W_StatsEntry.get_code),
     callcount = interp_attrproperty('callcount', W_StatsEntry),
     reccallcount = interp_attrproperty('reccallcount', W_StatsEntry),
     inlinetime = interp_attrproperty('it', W_StatsEntry),
@@ -55,9 +59,12 @@ class W_StatsSubEntry(Wrappable):
             frame_repr, self.callcount, self.reccallcount, self.tt, self.it))
     repr.unwrap_spec = ['self', ObjSpace]
 
+    def get_code(space, self):
+        return self.frame
+
 W_StatsSubEntry.typedef = TypeDef(
     'SubStatsEntry',
-    code = interp_attrproperty('frame', W_StatsSubEntry),
+    code = GetSetProperty(W_StatsSubEntry.get_code),
     callcount = interp_attrproperty('callcount', W_StatsSubEntry),
     reccallcount = interp_attrproperty('reccallcount', W_StatsSubEntry),
     inlinetime = interp_attrproperty('it', W_StatsSubEntry),
@@ -65,9 +72,9 @@ W_StatsSubEntry.typedef = TypeDef(
     __repr__ = interp2app(W_StatsSubEntry.repr),
 )
 
-def stats(space, data, factor):
+def stats(space, values, factor):
     l_w = []
-    for v in data.values():
+    for v in values:
         if v.callcount != 0:
             l_w.append(v.stats(space, factor))
     return space.newlist(l_w)
@@ -151,15 +158,33 @@ class ProfilerContext(object):
                     subentry.recursivecallcount += 1
                 subentry.it += it
                 subentry.callcount += 1
+
+def create_spec(space, w_arg):
+    if isinstance(w_arg, Method):
+        return "{method '%s' of '%s' object}" % (w_arg.w_function.name, w_arg.w_class.name)
+    elif isinstance(w_arg, Function):
+        return '{%s function}' % (w_arg.name,)
+    else:
+        return '{!!!unknown!!!}'
     
 def lsprof_call(space, w_self, frame, event, w_arg):
     assert isinstance(w_self, W_Profiler)
     if event == 'call':
-        w_self._enter_call(frame.getcode())
+        code = frame.getcode()
+        w_self._enter_call(code)
     elif event == 'return':
-        w_self._enter_return(frame.getcode())
+        code = frame.getcode()
+        w_self._enter_return(code)
+    elif event == 'c_call':
+        if w_self.builtins:
+            key = create_spec(space, w_arg)
+            w_self._enter_builtin_call(key)
+    elif event == 'c_return':
+        if w_self.builtins:
+            key = create_spec(space, w_arg)
+            w_self._enter_builtin_return(key)
     else:
-        # we don't support builtin calls here, let's ignore them
+        # ignore or raise an exception???
         pass
 
 class W_Profiler(Wrappable):
@@ -169,10 +194,8 @@ class W_Profiler(Wrappable):
         self.current_context = None
         self.w_callable = w_callable
         self.time_unit = time_unit
-        # XXX _lsprof uses rotatingtree. We use plain dict here,
-        #     not sure how big difference is, but we should probably
-        #     implement rotating tree
         self.data = {}
+        self.builtin_data = {}
         self.space = space
 
     def timer(self):
@@ -189,7 +212,7 @@ class W_Profiler(Wrappable):
     enable.unwrap_spec = ['self', ObjSpace, bool, bool]
 
     def _enter_call(self, f_code):
-        # we have superb gc, no point in freelist :)
+        # we have a superb gc, no point in freelist :)
         try:
             entry = self.data[f_code]
         except KeyError:
@@ -207,6 +230,25 @@ class W_Profiler(Wrappable):
         except KeyError:
             pass
         self.current_context = context.previous
+
+    def _enter_builtin_call(self, key):
+        try:
+            entry = self.builtin_data[key]
+        except KeyError:
+            entry = ProfilerEntry(self.space.wrap(key))
+            self.builtin_data[key] = entry
+        self.current_context = ProfilerContext(self, entry)        
+
+    def _enter_builtin_return(self, key):
+        context = self.current_context
+        if context is None:
+            return
+        try:
+            entry = self.builtin_data[key]
+            context._stop(self, entry)
+        except KeyError:
+            pass
+        self.current_context = context.previous        
 
     def _flush_unmatched(self):
         context = self.current_context
@@ -230,7 +272,8 @@ class W_Profiler(Wrappable):
             factor = self.time_unit
         else:
             factor = 1.0 / sys.maxint
-        return stats(space, self.data, factor)
+        return stats(space, self.data.values() + self.builtin_data.values(),
+                     factor)
     getstats.unwrap_spec = ['self', ObjSpace]
 
 def descr_new_profile(space, w_type, w_callable=NoneNotWrapped, time_unit=0.0,
