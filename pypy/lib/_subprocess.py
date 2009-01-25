@@ -24,6 +24,10 @@ _GetCurrentProcess = _kernel32.GetCurrentProcess
 _GetCurrentProcess.argtypes = []
 _GetCurrentProcess.restype = ctypes.c_int
 
+GetVersion = _kernel32.GetVersion
+GetVersion.argtypes = []
+GetVersion.restype = ctypes.c_int
+
 _DuplicateHandle = _kernel32.DuplicateHandle
 _DuplicateHandle.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_int,
                              ctypes.POINTER(ctypes.c_int),
@@ -157,6 +161,8 @@ def CreateProcess(name, command_line, process_attr, thread_attr,
     return _handle(pi.hProcess), _handle(pi.hThread), pi.dwProcessID, pi.dwThreadID
 STARTF_USESHOWWINDOW = 0x001
 STARTF_USESTDHANDLES = 0x100
+SW_HIDE              = 0
+CREATE_NEW_CONSOLE   = 0x010
 
 def WaitForSingleObject(handle, milliseconds):
     res = _WaitForSingleObject(handle.handle, milliseconds)
