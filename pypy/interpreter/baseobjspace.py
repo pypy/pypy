@@ -756,7 +756,7 @@ class ObjSpace(object):
         except OperationError, e:
             ec.c_exception_trace(frame, e.w_value)
             raise
-        ec.c_return_trace(frame, w_res)
+        ec.c_return_trace(frame, w_func)
         return w_res
 
     def call_method(self, w_obj, methname, *arg_w):

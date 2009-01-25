@@ -181,7 +181,7 @@ class TestExecutionContext:
         import sys
         l = []
         def profile(frame, event, arg):
-            l.append(event)
+            l.append((event, arg))
 
         def bar():
             sys.setprofile(profile)
@@ -192,4 +192,5 @@ class TestExecutionContext:
         return l
         """)
         events = space.unwrap(w_events)
-        assert events == ['c_call', 'c_return', 'return', 'c_call']
+        assert [i[0] for i in events] == ['c_call', 'c_return', 'return', 'c_call']
+        assert events[0][1] == events[1][1]
