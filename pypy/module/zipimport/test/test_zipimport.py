@@ -40,7 +40,12 @@ class AppTestZipimport:
         def get_file():
             return __file__
         """).compile()
-        space = gettestobjspace(usemodules=['zipimport', 'zlib', 'rctime'])
+
+        if cls.compression == ZIP_DEFLATED:
+            space = gettestobjspace(usemodules=['zipimport', 'zlib', 'rctime'])
+        else:
+            space = gettestobjspace(usemodules=['zipimport', 'rctime'])
+            
         cls.space = space
         tmpdir = udir.ensure('zipimport_%s' % cls.__name__, dir=1)
         now = time.time()
@@ -190,8 +195,8 @@ class AppTestZipimport:
 
     def test_package(self):
         import os, sys
-        self.writefile(self, "xxuuu"+os.sep+"__init__.py", "")
-        self.writefile(self, "xxuuu"+os.sep+"yy.py", "def f(x): return x")
+        self.writefile(self, "xxuuu/__init__.py", "")
+        self.writefile(self, "xxuuu/yy.py", "def f(x): return x")
         mod = __import__("xxuuu", globals(), locals(), ['yy'])
         assert mod.__path__
         assert mod.yy.f(3) == 3
@@ -249,3 +254,11 @@ class AppTestZipimport:
 
 class AppTestZipimportDeflated(AppTestZipimport):
     compression = ZIP_DEFLATED
+
+    def setup_class(cls):
+        try:
+            import pypy.rlib.rzlib
+        except ImportError:
+            py.test.skip("zlib not available, cannot test compressed zipfiles")
+        AppTestZipimport.setup_class(cls)
+        

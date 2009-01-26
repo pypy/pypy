@@ -2,9 +2,14 @@
 from zipfile import ZIP_STORED, ZIP_DEFLATED
 from pypy.rlib.streamio import open_file_as_stream
 from pypy.rlib.rstruct.runpack import runpack
-import os
-from pypy.rlib import rzlib
 from pypy.rlib.rarithmetic import r_uint, intmask
+from pypy.rpython.tool.rffi_platform import CompilationError
+import os
+
+try:
+    from pypy.rlib import rzlib
+except (ImportError, CompilationError):
+    rzlib = None
 
 # XXX hack to get crc32 to work
 from pypy.lib.binascii import crc_32_tab
@@ -229,7 +234,7 @@ class RZipFile(object):
         self.fp.seek(filepos, 0)
         if zinfo.compress_type == ZIP_STORED:
             pass
-        elif zinfo.compress_type == ZIP_DEFLATED:
+        elif zinfo.compress_type == ZIP_DEFLATED and rzlib is not None:
             stream = rzlib.inflateInit(wbits=-15)
             try:
                 bytes, _, _ = rzlib.decompress(stream, bytes)
@@ -239,6 +244,9 @@ class RZipFile(object):
                     bytes = bytes + ex
             finally:
                 rzlib.inflateEnd(stream)
+        elif zinfo.compress_type == ZIP_DEFLATED:
+            raise BadZipfile, \
+                  "Cannot decompress file, zlib not installed"
         else:
             raise BadZipfile, \
                   "Unsupported compression method %d for file %s" % \

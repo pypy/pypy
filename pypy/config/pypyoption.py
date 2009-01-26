@@ -67,7 +67,9 @@ module_suggests = {    # the reason you want _rawffi is for ctypes, which
 module_import_dependencies = {
     # no _rawffi if importing pypy.rlib.libffi raises ImportError
     # or CompilationError
-    "_rawffi": ["pypy.rlib.libffi"],
+    "_rawffi"   : ["pypy.rlib.libffi"],
+
+    "zlib"      : ["pypy.rlib.rzlib"],
     }
 
 def get_module_validator(modname):

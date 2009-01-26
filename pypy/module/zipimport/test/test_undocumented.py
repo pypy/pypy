@@ -66,7 +66,7 @@ def cleanup_zipfile(created_paths):
 
 class AppTestZipImport:
     def setup_class(cls):
-        space = gettestobjspace(usemodules=['zipimport', 'zlib', 'rctime'])
+        space = gettestobjspace(usemodules=['zipimport', 'rctime'])
         cls.space = space
         source = "():\n" + str(py.code.Source(temp_zipfile).indent()) + "\n    return temp_zipfile"
         cls.w_temp_zipfile = space.appexec([], source)
