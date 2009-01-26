@@ -528,3 +528,6 @@ class TestDirect:
         assert unicode_escape_encode(u'abc') == (u'abc'.encode('unicode_escape'), 3)
         assert unicode_escape_decode('abc') == (u'abc'.decode('unicode_escape'), 3)
         assert unicode_escape_decode('\\x61\\x62\\x63') == (u'abc', 12)
+
+        assert u'\\'.encode('unicode-escape') == '\\\\'
+        assert '\\\\'.decode('unicode-escape') == u'\\'
