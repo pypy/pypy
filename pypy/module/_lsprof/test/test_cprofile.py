@@ -9,11 +9,11 @@ class AppTestCProfile(object):
         cls.space = space
         cls.w_file = space.wrap(__file__)
 
-    def xtest_direct(self):
+    def test_direct(self):
         import _lsprof
         def getticks():
             return len(ticks)
-        prof = _lsprof.Profiler(getticks, 0.25, True, True)
+        prof = _lsprof.Profiler(getticks, 0.25, True, False)
         ticks = []
         def bar(m):
             ticks.append(1)
@@ -28,7 +28,7 @@ class AppTestCProfile(object):
             bar(n+1)
             ticks.append(1)
             spam(n+2)
-        prof.enable(builtins=True)
+        prof.enable()
         foo(0)
         prof.disable()
         assert len(ticks) == 16
@@ -44,13 +44,13 @@ class AppTestCProfile(object):
         assert efoo.reccallcount == 1
         assert efoo.inlinetime == 1.0
         assert efoo.totaltime == 4.0
-        assert len(efoo.calls) == 6
+        assert len(efoo.calls) == 2
         ebar = entries['bar']
         assert ebar.callcount == 6
         assert ebar.reccallcount == 3
         assert ebar.inlinetime == 3.0
         assert ebar.totaltime == 3.5
-        assert len(ebar.calls) == 13
+        assert len(ebar.calls) == 1
         espam = entries['spam']
         assert espam.callcount == 2
         assert espam.reccallcount == 0
@@ -58,8 +58,7 @@ class AppTestCProfile(object):
         assert espam.totaltime == 1.0
         assert len(espam.calls) == 1
 
-        foo2spam = efoo.calls[-2]
-        foo2bar = efoo.calls[0]
+        foo2spam, foo2bar = efoo.calls
         if foo2bar.code.co_name == 'spam':
             foo2bar, foo2spam = foo2spam, foo2bar
         assert foo2bar.code.co_name == 'bar'
@@ -73,14 +72,14 @@ class AppTestCProfile(object):
         assert foo2spam.inlinetime == 0.0
         assert foo2spam.totaltime == 1.0
 
-        bar2foo = ebar.calls[-3]
+        bar2foo, = ebar.calls
         assert bar2foo.code.co_name == 'foo'
         assert bar2foo.callcount == 1
         assert bar2foo.reccallcount == 0
         assert bar2foo.inlinetime == 0.5
         assert bar2foo.totaltime == 2.0
 
-        spam2bar = espam.calls[0]
+        spam2bar, = espam.calls
         assert spam2bar.code.co_name == 'bar'
         assert spam2bar.callcount == 2
         assert spam2bar.reccallcount == 0

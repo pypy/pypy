@@ -206,12 +206,15 @@ class W_Profiler(Wrappable):
             return space.float_w(space.call_function(self.w_callable))
         return time.time()
 
-    def enable(self, space, subcalls=True, builtins=True):
-        self.subcalls = subcalls
-        self.builtins = builtins
+    def enable(self, space, w_subcalls=NoneNotWrapped,
+               w_builtins=NoneNotWrapped):
+        if w_subcalls is not None:
+            self.subcalls = space.bool_w(w_subcalls)
+        if w_builtins is not None:
+            self.builtins = space.bool_w(w_builtins)
         # set profiler hook
         space.getexecutioncontext().setllprofile(lsprof_call, space.wrap(self))
-    enable.unwrap_spec = ['self', ObjSpace, bool, bool]
+    enable.unwrap_spec = ['self', ObjSpace, W_Root, W_Root]
 
     def _enter_call(self, f_code):
         # we have a superb gc, no point in freelist :)
