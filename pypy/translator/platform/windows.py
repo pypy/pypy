@@ -77,7 +77,7 @@ class MsvcPlatform(Platform):
     environ = None
 
     def __init__(self, cc=None):
-        self.cc = 'cl.exe'
+        Platform.__init__(self, 'cl.exe')
         if msvc_compiler_environ:
             self.c_environ = os.environ.copy()
             self.c_environ.update(msvc_compiler_environ)
@@ -96,7 +96,7 @@ class MsvcPlatform(Platform):
             self.link_flags = ['/debug']
 
             # Increase stack size, for the linker and the stack check code.
-            stack_size = 1 << 22  # 4 Mb
+            stack_size = 8 << 20  # 8 Mb
             self.link_flags.append('/STACK:%d' % stack_size)
             # The following symbol is used in c/src/stack.h
             self.cflags.append('/DMAX_STACK_SIZE=%d' % (stack_size - 1024))
