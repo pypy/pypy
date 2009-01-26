@@ -1,6 +1,6 @@
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
-from pypy.objspace.std.stringobject import W_StringObject
+from pypy.objspace.std.stringobject import W_StringObject, make_rsplit_with_delim
 from pypy.objspace.std.ropeobject import W_RopeObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
@@ -720,29 +720,15 @@ def unicode_rsplit__Unicode_None_ANY(space, w_self, w_none, w_maxsplit):
     res_w.reverse()
     return space.newlist(res_w)
 
-def unicode_rsplit__Unicode_Unicode_ANY(space, w_self, w_delim, w_maxsplit):
-    self = w_self._value
-    delim = w_delim._value
-    maxsplit = space.int_w(w_maxsplit)
-    delim_len = len(delim)
-    if delim_len == 0:
-        raise OperationError(space.w_ValueError,
-                             space.wrap('empty separator'))
-    parts = []
-    if len(self) == 0:
-        return space.newlist([])
-    start = 0
-    end = len(self)
-    while maxsplit != 0:
-        index = self.rfind(delim, 0, end)
-        if index < 0:
-            break
-        parts.append(W_UnicodeObject(self[index+delim_len:end]))
-        end = index
-        maxsplit -= 1
-    parts.append(W_UnicodeObject(self[:end]))
-    parts.reverse()
-    return space.newlist(parts)
+def sliced(space, s, start, stop, orig_obj):
+    assert start >= 0
+    assert stop >= 0 
+    if start == 0 and stop == len(s) and space.is_w(space.type(orig_obj), space.w_unicode):
+        return orig_obj
+    return space.wrap( s[start:stop])
+
+unicode_rsplit__Unicode_Unicode_ANY = make_rsplit_with_delim('unicode_rsplit__Unicode_Unicode_ANY',
+                                                             sliced)
 
 def _split_into_chars(self, maxsplit):
     if maxsplit == 0:

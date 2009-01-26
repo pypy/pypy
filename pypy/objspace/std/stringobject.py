@@ -317,27 +317,35 @@ def str_rsplit__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
     res_w.reverse()
     return space.newlist(res_w)
 
-def str_rsplit__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
-    maxsplit = space.int_w(w_maxsplit)
-    res_w = []
-    value = w_self._value
-    end = len(value)
-    by = w_by._value
-    bylen = len(by)
-    if bylen == 0:
-        raise OperationError(space.w_ValueError, space.wrap("empty separator"))
+def make_rsplit_with_delim(funcname, sliced):
+    from pypy.tool.sourcetools import func_with_new_name
 
-    while maxsplit != 0:
-        next = value.rfind(by, 0, end)
-        if next < 0:
-            break
-        res_w.append(sliced(space, value, next+bylen, end, w_self))
-        end = next
-        maxsplit -= 1   # NB. if it's already < 0, it stays < 0
+    def fn(space, w_self, w_by, w_maxsplit=-1):
+        maxsplit = space.int_w(w_maxsplit)
+        res_w = []
+        value = w_self._value
+        end = len(value)
+        by = w_by._value
+        bylen = len(by)
+        if bylen == 0:
+            raise OperationError(space.w_ValueError, space.wrap("empty separator"))
 
-    res_w.append(sliced(space, value, 0, end, w_self))
-    res_w.reverse()
-    return space.newlist(res_w)
+        while maxsplit != 0:
+            next = value.rfind(by, 0, end)
+            if next < 0:
+                break
+            res_w.append(sliced(space, value, next+bylen, end, w_self))
+            end = next
+            maxsplit -= 1   # NB. if it's already < 0, it stays < 0
+
+        res_w.append(sliced(space, value, 0, end, w_self))
+        res_w.reverse()
+        return space.newlist(res_w)
+    
+    return func_with_new_name(fn, funcname)
+
+str_rsplit__String_String_ANY = make_rsplit_with_delim('str_rsplit__String_String_ANY',
+                                                       sliced)
 
 def str_join__String_ANY(space, w_self, w_list):
     list_w = space.unpackiterable(w_list)
