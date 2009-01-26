@@ -18,6 +18,7 @@ corresponding Unix manual entries for more information on calls."""
     'stat_result': 'app_posix.stat_result',
     'fdopen'     : 'app_posix.fdopen',
     'tmpfile'    : 'app_posix.tmpfile',
+    'popen'      : 'app_posix.popen',
     }
     
     interpleveldefs = {
@@ -72,7 +73,6 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['readlink'] = 'interp_posix.readlink'
     if hasattr(os, 'fork'):
         interpleveldefs['fork'] = 'interp_posix.fork'
-        appleveldefs['popen'] = 'app_posix.popen'
     if hasattr(os, 'waitpid'):
         interpleveldefs['waitpid'] = 'interp_posix.waitpid'
     if hasattr(os, 'execv'):

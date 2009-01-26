@@ -142,26 +142,30 @@ if osname == 'posix':
 
 else:
     # Supply os.popen() based on subprocess
-    def popen(cmd, mode="r", buffering=None):
+    def popen(cmd, mode="r", bufsize=-1):
+        """popen(command [, mode='r' [, bufsize]]) -> pipe
+
+        Open a pipe to/from a command returning a file object."""
+
         if not isinstance(cmd, str):
             raise TypeError("invalid cmd type (%s, expected string)" %
                             (type(cmd),))
-        if mode not in ("r", "w"):
+
+        if not mode.startswith('r') and not mode.startswith('w'):
             raise ValueError("invalid mode %r" % (mode,))
-        if buffering is None:
-            buffering = 0
+
         import subprocess
-        if mode == "r":
+        if mode.startswith('r'):
             proc = subprocess.Popen(cmd,
                                     shell=True,
                                     stdout=subprocess.PIPE,
-                                    bufsize=buffering)
+                                    bufsize=bufsize)
             return _wrap_close(proc.stdout, proc)
         else:
             proc = subprocess.Popen(cmd,
                                     shell=True,
                                     stdin=subprocess.PIPE,
-                                    bufsize=buffering)
+                                    bufsize=bufsize)
             return _wrap_close(proc.stdin, proc)
 
     # A proxy for a file whose close waits for the process

@@ -8,8 +8,12 @@ import py
 import sys
 import signal
 
-def setup_module(mod): 
-    mod.space = gettestobjspace(usemodules=['posix'])
+def setup_module(mod):
+    if os.name != 'nt':
+        mod.space = gettestobjspace(usemodules=['posix'])
+    else:
+        # On windows, os.popen uses the subprocess module
+        mod.space = gettestobjspace(usemodules=['posix', '_rawffi', 'thread'])
     mod.path = udir.join('posixtestfile.txt') 
     mod.path.write("this is a test")
     mod.path2 = udir.join('test_posix2-')
