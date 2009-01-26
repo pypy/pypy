@@ -250,6 +250,9 @@ class AppTestUnicodeString:
         assert u'123123'.replace('123', u'') == u''
         assert u'123x123'.replace(u'123', u'') == u'x'
 
+    def test_replace_buffer(self):
+        assert u'one!two!three'.replace(buffer('!'), buffer('@')) == u'one@two@three'
+
     def test_replace_overflow(self):
         import sys
         if sys.maxint > 2**31-1:

@@ -763,23 +763,31 @@ def _split_with(self, with_, maxsplit=-1):
 
 def unicode_replace__Unicode_Unicode_Unicode_ANY(space, w_self, w_old,
                                                  w_new, w_maxsplit):
-    if len(w_old._value):
-        parts = _split_with(w_self._value, w_old._value,
-                            space.int_w(w_maxsplit))
+    return _unicode_replace(space, w_self, w_old._value, w_new._value,
+                            w_maxsplit)
+
+def unicode_replace__Unicode_ANY_ANY_ANY(space, w_self, w_old, w_new,
+                                         w_maxsplit):
+    return _unicode_replace(space, w_self, space.buffer_w(w_old).as_str(),
+                            space.buffer_w(w_new).as_str(), w_maxsplit)
+
+def _unicode_replace(space, w_self, old, new, w_maxsplit):
+    if len(old):
+        parts = _split_with(w_self._value, old, space.int_w(w_maxsplit))
     else:
         self = w_self._value
         maxsplit = space.int_w(w_maxsplit)
         parts = _split_into_chars(self, maxsplit)
 
     try:
-        one = ovfcheck(len(parts) * len(w_new._value))
+        one = ovfcheck(len(parts) * len(new))
         ovfcheck(one + len(w_self._value))
     except OverflowError:
         raise OperationError(
             space.w_OverflowError, 
             space.wrap("replace string is too long"))
 
-    return W_UnicodeObject(w_new._value.join(parts))
+    return W_UnicodeObject(new.join(parts))
     
 
 def unicode_encode__Unicode_ANY_ANY(space, w_unistr,
