@@ -8,7 +8,7 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.typedef import interp_attrproperty, GetSetProperty
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.pyparser.syntaxtree import TokenNode, SyntaxNode, AbstractSyntaxVisitor
-from pypy.interpreter.pyparser.error import SyntaxError
+from pypy.interpreter.pyparser.error import SyntaxError, IndentationError
 from pypy.interpreter.pyparser import grammar, symbol, pytoken
 from pypy.interpreter.pyparser.future import getFutures
 from pypy.interpreter.argument import Arguments
@@ -172,7 +172,15 @@ def parse_python_source(space, source, mode):
     builder.space = space
     try:
         parser.parse_source(source, mode, builder, flags)
-        return builder.stack[-1]
+        st = builder.stack[-1]
+        # we compile it to bytecode anyway.
+        # the side effect of this is that we grab exceptions
+        # on our way.
+        STType(space, st).descr_compile(space)
+        return st
+    except IndentationError, e:
+        raise OperationError(space.w_IndentationError,
+                             e.wrap_info(space, '<string>'))        
     except SyntaxError, e:
         raise OperationError(space.w_SyntaxError,
                              e.wrap_info(space, '<string>'))

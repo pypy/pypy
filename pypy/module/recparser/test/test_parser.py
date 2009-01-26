@@ -53,3 +53,11 @@ class AppTestRecparserErrors:
         import parser
         raises(SyntaxError, parser.source2ast, "\xDE\xDA")
 
+    def test_later_error(self):
+        import parser
+        x = """if:
+        def f(x):
+            x
+             y
+        """
+        raises(SyntaxError, parser.suite, x)
