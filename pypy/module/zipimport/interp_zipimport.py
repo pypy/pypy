@@ -16,9 +16,9 @@ ZIPSEP = '/'
 # separators, we need to pretend that we had the os.sep.
 
 ENUMERATE_EXTS = unrolling_iterable(
-    [(True, True, os.path.sep + '__init__.pyc'),
-     (True, True, os.path.sep + '__init__.pyo'),
-     (False, True, os.path.sep + '__init__.py'),
+    [(True, True, ZIPSEP + '__init__.pyc'),
+     (True, True, ZIPSEP + '__init__.pyo'),
+     (False, True, ZIPSEP + '__init__.py'),
      (True, False, '.pyc'),
      (True, False, '.pyo'),
      (False, False, '.py')])
@@ -43,13 +43,10 @@ class W_ZipCache(Wrappable):
         except KeyError:
             raise OperationError(space.w_KeyError, space.wrap(name))
         assert isinstance(w_zipimporter, W_ZipImporter)
-        dir = w_zipimporter.dir
-        keys = [k.filename for k in dir.filelist]
         w = space.wrap
         values = {}
         w_d = space.newdict()
-        for key in keys:
-            info = dir.NameToInfo[key]
+        for key, info in w_zipimporter.dir.iteritems():
             w_values = space.newdict()
             space.setitem(w_d, w(key), space.newtuple([
                 w(info.filename), w(info.compress_type), w(info.compress_size),
@@ -118,9 +115,10 @@ W_ZipCache.typedef = TypeDef(
 zip_cache = W_ZipCache()
 
 class W_ZipImporter(Wrappable):
-    def __init__(self, space, name, dir, prefix):
+    def __init__(self, space, name, filename, dir, prefix):
         self.space = space
         self.name = name
+        self.filename = filename
         self.dir = dir
         self.prefix = prefix
         self.w_ZipImportError = space.getattr(
@@ -131,8 +129,8 @@ class W_ZipImporter(Wrappable):
         return space.wrap(self.prefix)
 
     def _find_relative_path(self, filename):
-        if filename.startswith(self.dir.filename):
-            filename = filename[len(self.dir.filename):]
+        if filename.startswith(self.filename):
+            filename = filename[len(self.filename):]
         if filename.startswith(os.sep):
             filename = filename[1:]
         if ZIPSEP != os.path.sep:
@@ -152,10 +150,9 @@ class W_ZipImporter(Wrappable):
     def _parse_mtime(self, space, filename):
         w = space.wrap
         try:
-            info = self.dir.getinfo(filename)
+            info = self.dir[filename]
             t = info.date_time
-        except (BadZipfile, KeyError):
-            # in either case, this is a fallback
+        except KeyError:
             return 0
         else:
             w_mktime = space.getattr(space.getbuiltinmodule('time'),
@@ -203,7 +200,7 @@ class W_ZipImporter(Wrappable):
             filename = filename.replace(os.path.sep, ZIPSEP)
         w = space.wrap
         try:
-            self.dir.getinfo(filename)
+            self.dir[filename]
             return True
         except KeyError:
             return False
@@ -216,7 +213,7 @@ class W_ZipImporter(Wrappable):
     find_module.unwrap_spec = ['self', ObjSpace, str, W_Root]
 
     def mangle(self, name):
-        return name.replace('.', os.path.sep)
+        return name.replace('.', ZIPSEP)
 
     def load_module(self, space, fullname):
         w = space.wrap
@@ -230,7 +227,11 @@ class W_ZipImporter(Wrappable):
         for compiled, is_package, ext in ENUMERATE_EXTS:
             fname = filename + ext
             try:
-                buf = self.dir.read(fname)
+                zip_file = RZipFile(self.filename, 'r')
+                try:
+                    buf = zip_file.read(fname)
+                finally:
+                    zip_file.close()
             except (KeyError, OSError):
                 pass
             else:
@@ -259,7 +260,12 @@ class W_ZipImporter(Wrappable):
         filename = self._find_relative_path(filename)
         w = space.wrap
         try:
-            return w(self.dir.read(filename))
+            zip_file = RZipFile(self.filename, 'r')
+            try:
+                data = zip_file.read(filename)
+            finally:
+                zip_file.close()
+            return w(data)
         except (KeyError, OSError):
             raise OperationError(space.w_IOError, space.wrap("Error reading file"))
     get_data.unwrap_spec = ['self', ObjSpace, str]
@@ -307,7 +313,7 @@ class W_ZipImporter(Wrappable):
 
     def getarchive(space, self):
         space = self.space
-        return space.wrap(self.dir.filename)
+        return space.wrap(self.filename)
 
 def descr_new_zipimporter(space, w_type, name):
     w = space.wrap
@@ -341,14 +347,16 @@ def descr_new_zipimporter(space, w_type, name):
     except KeyError:
         zip_cache.cache[filename] = None
     try:
-        dir = RZipFile(filename, 'r')
+        zip_file = RZipFile(filename, 'r')
     except (BadZipfile, OSError):
         raise OperationError(w_ZipImportError, space.wrap(
             "%s seems not to be a zipfile" % (filename,)))
+    zip_file.close()
     prefix = name[len(filename):]
     if prefix.startswith(os.sep):
         prefix = prefix[1:]
-    w_result = space.wrap(W_ZipImporter(space, name, dir, prefix))
+    w_result = space.wrap(W_ZipImporter(space, name, filename,
+                                        zip_file.NameToInfo, prefix))
     zip_cache.set(filename, w_result)
     return w_result
 

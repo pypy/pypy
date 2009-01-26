@@ -147,8 +147,14 @@ class RZipFile(object):
         self.mode = mode
         self.filelist = []
         self.NameToInfo = {}
+        if 'b' not in mode:
+            mode += 'b'
         fp = open_file_as_stream(zipname, mode, 1024)
-        self._GetContents(fp)
+        try:
+            self._GetContents(fp)
+        except:
+            fp.close()
+            raise
         self.fp = fp
 
     def _GetContents(self, fp):
@@ -241,4 +247,7 @@ class RZipFile(object):
         if crc != zinfo.CRC:
             raise BadZipfile, "Bad CRC-32 for file %s" % filename
         return bytes
+
+    def close(self):
+        self.fp.close()
     
