@@ -51,6 +51,12 @@ for k, v in platform.configure(CConfig).items():
 cConfig.tm.__name__ = "_tm"
 
 def external(name, args, result):
+    if _WIN and rffi.sizeof(rffi.TIME_T) == 8:
+        # Recent Microsoft compilers use 64bit time_t and
+        # the corresponding functions are named differently
+        if (rffi.TIME_T in args or rffi.TIME_TP in args
+            or result in (rffi.TIME_T, rffi.TIME_TP)):
+            name = '_' + name + '64'
     return rffi.llexternal(name, args, result,
                            compilation_info=CConfig._compilation_info_,
                            calling_conv=calling_conv,
