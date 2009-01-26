@@ -678,6 +678,19 @@ class AppTestUnicodeString:
         u = unicode(buf, 'utf-8', 'strict')
         assert u == u'character buffers are decoded to unicode'
 
+    def test_unicode_conversion_with__unicode__(self):
+        class A(unicode):
+            def __unicode__(self):
+                return "foo"
+        class B(unicode):
+            pass
+        a = A('bar')
+        assert a == 'bar'
+        assert unicode(a) == 'foo'
+        b = B('bar')
+        assert b == 'bar'
+        assert unicode(b) == 'bar'
+
     def test_unicode_conversion_with__str__(self):
         # new-style classes
         class A(object):
