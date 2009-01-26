@@ -33,7 +33,7 @@ class AppTestZipimport:
         pyc = s.getvalue() + struct.pack("<i", int(mtime)) + data
         return pyc
     make_pyc = classmethod(make_pyc)
-    def setup_class(cls):
+    def make_class(cls):
         co = py.code.Source("""
         def get_name():
             return __name__
@@ -77,7 +77,10 @@ class AppTestZipimport:
             z.close()
         return writefile
         """)
-        #space.appexec([], 
+    make_class = classmethod(make_class)
+
+    def setup_class(cls):
+        cls.make_class()
 
     def setup_method(self, meth):
         space = self.space
@@ -260,5 +263,4 @@ class AppTestZipimportDeflated(AppTestZipimport):
             import pypy.rlib.rzlib
         except ImportError:
             py.test.skip("zlib not available, cannot test compressed zipfiles")
-        AppTestZipimport.setup_class(cls)
-        
+        cls.make_class()
