@@ -139,3 +139,41 @@ if osname == 'posix':
             try_close(write_end)
             try_close(read_end)
             raise Exception, e     # bare 'raise' does not work here :-(
+
+else:
+    # Supply os.popen() based on subprocess
+    def popen(cmd, mode="r", buffering=None):
+        if not isinstance(cmd, str):
+            raise TypeError("invalid cmd type (%s, expected string)" %
+                            (type(cmd),))
+        if mode not in ("r", "w"):
+            raise ValueError("invalid mode %r" % (mode,))
+        if buffering is None:
+            buffering = 0
+        import subprocess
+        if mode == "r":
+            proc = subprocess.Popen(cmd,
+                                    shell=True,
+                                    stdout=subprocess.PIPE,
+                                    bufsize=buffering)
+            return _wrap_close(proc.stdout, proc)
+        else:
+            proc = subprocess.Popen(cmd,
+                                    shell=True,
+                                    stdin=subprocess.PIPE,
+                                    bufsize=buffering)
+            return _wrap_close(proc.stdin, proc)
+
+    # A proxy for a file whose close waits for the process
+    class _wrap_close(object):
+        def __init__(self, stream, proc):
+            self._stream = stream
+            self._proc = proc
+        def close(self):
+            self._stream.close()
+            return self._proc.wait()
+        __del__ = close
+        def __getattr__(self, name):
+            return getattr(self._stream, name)
+        def __iter__(self):
+            return iter(self._stream)
