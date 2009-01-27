@@ -163,8 +163,7 @@ def create_spec(space, w_arg):
     if isinstance(w_arg, Method):
         w_function = w_arg.w_function
         w_class = w_arg.w_class
-        w_class_name = space.getattr(w_class, space.wrap('__name__'))
-        class_name = space.str_w(w_class_name)
+        class_name = space.str_w(space.str(w_class))
         assert isinstance(w_function, Function)
         return "{method '%s' of '%s' objects}" % (w_function.name, class_name)
     elif isinstance(w_arg, Function):
