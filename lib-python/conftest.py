@@ -185,7 +185,7 @@ testmap = [
     RegrTest('test_copy_reg.py', core=True),
     RegrTest('test_cpickle.py', core=True),
     RegrTest('test_crypt.py', usemodules='crypt'),
-    RegrTest('test_csv.py', skip="unsupported extension module"),
+    RegrTest('test_csv.py'),
 
     RegrTest('test_curses.py', skip="unsupported extension module"),
     RegrTest('test_datetime.py'),
