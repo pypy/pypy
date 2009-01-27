@@ -328,13 +328,13 @@ class AppTestSysModulePortedFromCPython:
         assert sys.byteorder in ("little", "big")
         assert isinstance(sys.builtin_module_names, tuple)
         assert isinstance(sys.copyright, basestring)
-        assert isinstance(sys.exec_prefix, basestring)
+        #assert isinstance(sys.exec_prefix, basestring) -- not present!
         assert isinstance(sys.executable, basestring)
         assert isinstance(sys.hexversion, int)
         assert isinstance(sys.maxint, int)
         assert isinstance(sys.maxunicode, int)
         assert isinstance(sys.platform, basestring)
-        assert isinstance(sys.prefix, basestring)
+        #assert isinstance(sys.prefix, basestring) -- not present!
         assert isinstance(sys.version, basestring)
         assert isinstance(sys.warnoptions, list)
         vi = sys.version_info
@@ -383,3 +383,20 @@ class AppTestSysModulePortedFromCPython:
         assert project == 'PyPy'
         assert svnbranch == svnbranch.strip('/')
         assert revision.isdigit()
+
+    def test_trace_exec_execfile(self):
+        found = []
+        def do_tracing(f, *args):
+            print f.f_code.co_filename, f.f_lineno, args
+            if f.f_code.co_filename == 'foobar':
+                found.append(args[0])
+            return do_tracing
+        co = compile("execfile('this-file-does-not-exist!')",
+                     'foobar', 'exec')
+        sys.settrace(do_tracing)
+        try:
+            exec co in {}
+        except IOError:
+            pass
+        sys.settrace(None)
+        assert found == ['call', 'line', 'exception']

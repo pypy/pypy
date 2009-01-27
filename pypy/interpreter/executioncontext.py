@@ -157,7 +157,7 @@ class ExecutionContext:
             ticker += 1
             actionflag.set(ticker)
         if ticker & actionflag.interesting_bits:  # fast check
-            actionflag.action_dispatcher(self)        # slow path
+            actionflag.action_dispatcher(self, frame)     # slow path
     bytecode_trace._always_inline_ = True
 
     def exception_trace(self, frame, operationerr):
@@ -340,7 +340,7 @@ class AbstractActionFlag:
         nonperiodic_actions = unrolling_iterable(self._nonperiodic_actions)
         has_bytecode_counter = self.has_bytecode_counter
 
-        def action_dispatcher(ec):
+        def action_dispatcher(ec, frame):
             # periodic actions
             if has_bytecode_counter:
                 ticker = self.get()
@@ -354,14 +354,14 @@ class AbstractActionFlag:
                     ticker -= ec.space.sys.checkinterval
                     self.set(ticker)
                     for action in periodic_actions:
-                        action.perform(ec)
+                        action.perform(ec, frame)
 
             # nonperiodic actions
             for action, bitmask in nonperiodic_actions:
                 ticker = self.get()
                 if ticker & bitmask:
                     self.set(ticker & ~ bitmask)
-                    action.perform(ec)
+                    action.perform(ec, frame)
 
         action_dispatcher._dont_inline_ = True
         self.action_dispatcher = action_dispatcher
@@ -414,7 +414,7 @@ class AsyncAction(object):
         from pypy.module.thread.gil import spacestate
         spacestate.set_actionflag_bit_after_thread_switch |= self.bitmask
 
-    def perform(self, executioncontext):
+    def perform(self, executioncontext, frame):
         """To be overridden."""
 
 
@@ -442,7 +442,7 @@ class UserDelAction(AsyncAction):
         self.dying_objects_w.append(w_obj)
         self.fire()
 
-    def perform(self, executioncontext):
+    def perform(self, executioncontext, frame):
         if self.finalizers_lock_count > 0:
             return
         # Each call to perform() first grabs the self.dying_objects_w
@@ -466,8 +466,7 @@ class UserDelAction(AsyncAction):
 class FrameTraceAction(AsyncAction):
     """An action that calls the local trace functions (w_f_trace)."""
 
-    def perform(self, executioncontext):
-        frame = executioncontext.framestack.top()
+    def perform(self, executioncontext, frame):
         if frame.w_f_trace is None or executioncontext.is_tracing:
             return
         code = frame.pycode
