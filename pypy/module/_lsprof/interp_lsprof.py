@@ -163,9 +163,14 @@ def create_spec(space, w_arg):
     if isinstance(w_arg, Method):
         w_function = w_arg.w_function
         assert isinstance(w_function, Function)
-        return "{method '%s' of '%s' object}" % (w_function.name, space.str_w(space.str(w_arg.w_class)))
+        return "{method '%s' of '%s' objects}" % (w_function.name, w_arg.w_class.name)
     elif isinstance(w_arg, Function):
-        return '{%s function}' % (w_arg.name,)
+        module = space.str_w(w_arg.w_module)
+        if module == '__builtin__':
+            module = ''
+        else:
+            module += '.'
+        return '{%s%s function}' % (module, w_arg.name)
     else:
         return '{!!!unknown!!!}'
     
@@ -266,8 +271,8 @@ class W_Profiler(Wrappable):
 
     def disable(self, space):
         # unset profiler hook
-        self._flush_unmatched()
         space.getexecutioncontext().setllprofile(None, None)
+        self._flush_unmatched()
     disable.unwrap_spec = ['self', ObjSpace]
 
     def getstats(self, space):

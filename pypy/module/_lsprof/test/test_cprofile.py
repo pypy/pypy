@@ -1,13 +1,38 @@
 
 import py
-from pypy.conftest import gettestobjspace
+from pypy.conftest import gettestobjspace, option
+
+class PyPyOutput:
+    nfunc = 127
+    nprim = 107
+    optional_line = '\n        1    0.000    0.000    0.000    0.000 ?:1(<module>)'
+    hasattr  = "{hasattr function}"
+    disable = "{method 'disable' of 'Profile' objects}"
+    range    = "{range function}"
+    exc_info = "{sys.exc_info function}"
+
+
+class CPythonOutput:
+    nfunc = 126
+    nprim = 106
+    optional_line = ''
+    hasattr  = "{hasattr}"
+    disable = "{method 'disable' of '_lsprof.Profiler' objects}"
+    range    = "{range}"
+    exc_info = "{sys.exc_info}"
 
 class AppTestCProfile(object):
+
     def setup_class(cls):
         space = gettestobjspace(usemodules=('_lsprof',))
         cls.w_expected_output = space.wrap(expected_output)
         cls.space = space
         cls.w_file = space.wrap(__file__)
+        if option.runappdirect:
+            output = CPythonOutput.__dict__
+        else:
+            output = PyPyOutput.__dict__
+        cls.w_output = space.wrap(output)
 
     def test_direct(self):
         import _lsprof
@@ -118,6 +143,7 @@ class AppTestCProfile(object):
             for i, method in enumerate(methodnames):
                 got = res[i + 1]
                 expected = self.expected_output[method]
+                expected = expected % self.output
                 if got != expected:
                     print method, 'differs:'
                     print '---------- GOT: ----------'
@@ -139,13 +165,12 @@ class AppTestCProfile(object):
 
 expected_output = {}
 expected_output['print_stats'] = """\
-         128 function calls (108 primitive calls) in 1.000 CPU seconds
+         %(nfunc)d function calls (%(nprim)d primitive calls) in 1.000 CPU seconds
 
    Ordered by: standard name
 
    ncalls  tottime  percall  cumtime  percall filename:lineno(function)
-        1    0.000    0.000    1.000    1.000 <string>:1(<module>)
-        1    0.000    0.000    0.000    0.000 ?:1(<module>)
+        1    0.000    0.000    1.000    1.000 <string>:1(<module>)%(optional_line)s
        28    0.028    0.001    0.028    0.001 profilee.py:110(__getattr__)
         1    0.270    0.270    1.000    1.000 profilee.py:25(testfunc)
      23/3    0.150    0.007    0.170    0.057 profilee.py:35(factorial)
@@ -155,11 +180,11 @@ expected_output['print_stats'] = """\
         2    0.000    0.000    0.140    0.070 profilee.py:84(helper2_indirect)
         8    0.312    0.039    0.400    0.050 profilee.py:88(helper2)
         8    0.064    0.008    0.080    0.010 profilee.py:98(subhelper)
-       12    0.000    0.000    0.012    0.001 {hasattr}
+       12    0.000    0.000    0.012    0.001 %(hasattr)s
         4    0.000    0.000    0.000    0.000 {method 'append' of 'list' objects}
-        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
-        8    0.000    0.000    0.000    0.000 {range}
-        4    0.000    0.000    0.000    0.000 {sys.exc_info}
+        1    0.000    0.000    0.000    0.000 %(disable)s
+        8    0.000    0.000    0.000    0.000 %(range)s
+        4    0.000    0.000    0.000    0.000 %(exc_info)s
 
 
 """
