@@ -804,7 +804,7 @@ unexpected exception:
         print 'pre-exception output', x//0
     Exception raised:
         ...
-        ZeroDivisionError: integer division or modulo by zero
+        ZeroDivisionError: ...
     (1, 2)
 
 Exception messages may contain newlines:
@@ -901,7 +901,7 @@ unexpected exception:
     Exception raised:
         Traceback (most recent call last):
         ...
-        ZeroDivisionError: integer division or modulo by zero
+        ZeroDivisionError: ...
     (1, 1)
 """
     def optionflags(): r"""
@@ -2096,7 +2096,7 @@ def test_unittest_reportflags():
           favorite_color
       Exception raised:
           ...
-          NameError: name 'favorite_color' is not defined
+          NameError: ...favorite_color...
       <BLANKLINE>
       <BLANKLINE>
 
@@ -2149,7 +2149,7 @@ calling module.  The return value is (#failures, #tests).
         favorite_color
     Exception raised:
         ...
-        NameError: name 'favorite_color' is not defined
+        NameError: ...favorite_color...
     **********************************************************************
     1 items had failures:
        1 of   2 in test_doctest.txt
@@ -2242,7 +2242,7 @@ parameter:
         favorite_color
     Exception raised:
         ...
-        NameError: name 'favorite_color' is not defined
+        NameError: ...favorite_color...
     (1, 2)
     >>> doctest.master = None  # Reset master.
 
