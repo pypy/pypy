@@ -775,3 +775,11 @@ class AppTestUnicodeString:
         assert u'abc'.replace(buffer('b'), buffer('e')) == u'aec'
         assert u'abc'.replace(buffer('b'), u'e') == u'aec'
         assert u'abc'.replace(u'b', buffer('e')) == u'aec'
+
+    def test_unicode_subclass(self):
+        skip("{fails}")
+        class S(unicode):
+            pass
+
+        unicode(S(u'hello \u1234'))
+        # assert did not explode
