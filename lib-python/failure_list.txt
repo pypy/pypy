@@ -7,7 +7,6 @@ test_ctypes                  !   implementation details but also some real crash
 test_descrtut                    implementation detail only
 test_dis                         probably not worth the pain of whacking at the compiler
 test_distutils                   this is our issue367
-test_doctest                 !   obscure differencies
 test_email_codecs                test skipped
 test_enumerate                   same as test_iterlen
 test_file                        some more exceptions should be raised
@@ -18,7 +17,6 @@ test_gc                          internal stuff, we may want to provide placehol
 test_generators              !   the fix is in r60950 but doesn't work. See r60965
 test_grammar                     implementation detail
 test_import                      importing from pyc-files-without-py-file disabled by default
-test_inspect                 !   test_wrapped_decorator: try to fix;  isbuiltin([].append): cry and maaaybe try to fix
 test_iterlen                     somehow implementation detail (missing __length_hint__())
 test_itertools                   same as test_iterlen
 test_logging                 !   exception classes have different repr than the rest in cpython
@@ -26,13 +24,11 @@ test_normalization               test skipped
 test_parser                      missing parser.compilest().  I don't think we care for now
 test_peepholer                   implementation detail (might be useful to look, though)
 test_pep277                      NT only
-test_platform                !   we should ensure that our sys.version is compatible enough do that the unmodified _sys_version_parser regexp recognizes it
 test_plistlib                    plistlib seems to be Mac only
 test_poll                        easy fix, I suppose
 test_profile                 !   why is the "profile.py" module not found??
 test_pyclbr                  !   this import should find test/pyclbr_input.py
 test_pyexpat                     is that an implementation detail?
-test_quopri                  !   check if test_script{en,de}code() shows a real bug
 test_repr                        implementation detail
 test_shelve                  !   unknown
 test_signal                  !   missing signal.alarm(), probably easy to add
