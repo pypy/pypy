@@ -50,8 +50,10 @@ More condensed:
     'a4337bc45a8fc544c03f52dc550cd6e1e87021bc896588bd79e901e2'
 
 """
-import _hashlib
-
+try:
+    import _hashlib
+except ImportError:
+    _hashlib = None
 
 def __get_builtin_constructor(name):
     if name in ('SHA1', 'sha1'):
@@ -73,13 +75,16 @@ def __hash_new(name, string=''):
     optionally initialized with a string.
     """
     try:
-        return _hashlib.new(name, string)
+        if _hashlib:
+            return _hashlib.new(name, string)
     except ValueError:
         # If the _hashlib module (OpenSSL) doesn't support the named
         # hash, try using our builtin implementations.
         # This allows for SHA224/256 and SHA384/512 support even though
         # the OpenSSL library prior to 0.9.8 doesn't provide them.
-        return __get_builtin_constructor(name)(string)
+        pass
+
+    return __get_builtin_constructor(name)(string)
 
 new = __hash_new
 
@@ -105,4 +110,13 @@ def _setfuncs():
                 # this one has no builtin implementation, don't define it
                 pass
 
-_setfuncs()
+if _hashlib:
+    _setfuncs()
+else:
+    # lookup the C function to use directly for the named constructors
+    md5 = __get_builtin_constructor('md5')
+    sha1 = __get_builtin_constructor('sha1')
+    sha224 = __get_builtin_constructor('sha224')
+    sha256 = __get_builtin_constructor('sha256')
+    #sha384 = __get_builtin_constructor('sha384')
+    #sha512 = __get_builtin_constructor('sha512')
