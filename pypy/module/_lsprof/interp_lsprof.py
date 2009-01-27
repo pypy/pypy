@@ -162,8 +162,11 @@ class ProfilerContext(object):
 def create_spec(space, w_arg):
     if isinstance(w_arg, Method):
         w_function = w_arg.w_function
+        w_class = w_arg.w_class
+        w_class_name = space.getattr(w_class, space.wrap('__name__'))
+        class_name = space.str_w(w_class_name)
         assert isinstance(w_function, Function)
-        return "{method '%s' of '%s' objects}" % (w_function.name, w_arg.w_class.name)
+        return "{method '%s' of '%s' objects}" % (w_function.name, class_name)
     elif isinstance(w_arg, Function):
         module = space.str_w(w_arg.w_module)
         if module == '__builtin__':
