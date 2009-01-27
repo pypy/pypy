@@ -1605,10 +1605,10 @@ def test_pdb_set_trace():
       ...    'continue', # stop debugging
       ...    ''])
 
-      >>> try: runner.run(test)
+      >>> try: runner.run(test) # doctest: +ELLIPSIS
       ... finally: sys.stdin = real_stdin
       --Return--
-      > <doctest foo[1]>(1)<module>()->None
+      > <doctest foo[1]>(1)<...>()->None
       -> import pdb; pdb.set_trace()
       (Pdb) print x
       42
@@ -1634,7 +1634,7 @@ def test_pdb_set_trace():
       ...    'continue', # stop debugging
       ...    ''])
 
-      >>> try:
+      >>> try: # doctest: +ELLIPSIS
       ...     runner.run(test)
       ... finally:
       ...     sys.stdin = real_stdin
@@ -1644,7 +1644,7 @@ def test_pdb_set_trace():
       (Pdb) print y
       2
       (Pdb) up
-      > <doctest foo[1]>(1)<module>()
+      > <doctest foo[1]>(1)<...>()
       -> calls_set_trace()
       (Pdb) print x
       1
@@ -1672,7 +1672,7 @@ def test_pdb_set_trace():
       ...    'list',     # list source from example 3
       ...    'continue', # stop debugging
       ...    ''])
-      >>> try: runner.run(test)
+      >>> try: runner.run(test)      # doctest: +ELLIPSIS
       ... finally: sys.stdin = real_stdin
       ... # doctest: +NORMALIZE_WHITESPACE
       --Return--
@@ -1693,7 +1693,7 @@ def test_pdb_set_trace():
       [EOF]
       (Pdb) next
       --Return--
-      > <doctest foo[2]>(1)<module>()->None
+      > <doctest foo[2]>(1)<...>()->None
       -> f(3)
       (Pdb) list
         1  -> f(3)
@@ -1745,7 +1745,7 @@ def test_pdb_set_trace_nested():
     ...    'continue', # stop debugging
     ...    ''])
 
-    >>> try:
+    >>> try:     # doctest: +ELLIPSIS
     ...     runner.run(test)
     ... finally:
     ...     sys.stdin = real_stdin
@@ -1786,10 +1786,10 @@ def test_pdb_set_trace_nested():
     (Pdb) print y
     1
     (Pdb) up
-    > <doctest foo[1]>(1)<module>()
+    > <doctest foo[1]>(1)<...>()
     -> calls_set_trace()
     (Pdb) print foo
-    *** NameError: name 'foo' is not defined
+    *** NameError: ...foo...
     (Pdb) continue
     (0, 2)
 """
