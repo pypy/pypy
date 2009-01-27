@@ -564,7 +564,7 @@ def unicodeescape_string(s, size, quotes):
             pos -= 1
             
         #/* Map 16-bit characters to '\uxxxx' */
-        if (ord(ch) >= 256):
+        elif (ord(ch) >= 256):
             p += '\\'
             p += 'u'
             p += '%04x' % ord(ch)
