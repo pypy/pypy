@@ -67,7 +67,7 @@ class CheckSignalAction(AsyncAction):
         else:
             self.reissue_signal_action = None
 
-    def perform(self, executioncontext):
+    def perform(self, executioncontext, frame):
         while True:
             n = pypysig_poll()
             if n < 0:
@@ -125,7 +125,7 @@ class ReissueSignalAction(AsyncAction):
     thread switch until we land in the main thread.
     """
 
-    def perform(self, executioncontext):
+    def perform(self, executioncontext, frame):
         main_ec = self.space.threadlocals.getmainthreadvalue()
         if executioncontext is main_ec:
             # now running in the main thread: we can really report the signals

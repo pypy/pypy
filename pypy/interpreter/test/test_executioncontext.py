@@ -12,7 +12,7 @@ class TestExecutionContext:
 
         class DemoAction(executioncontext.AsyncAction):
             counter = 0
-            def perform(self, ec):
+            def perform(self, ec, frame):
                 self.counter += 1
                 if self.counter == 10:
                     raise Finished
@@ -42,7 +42,7 @@ class TestExecutionContext:
 
         class DemoAction(executioncontext.PeriodicAsyncAction):
             counter = 0
-            def perform(self, ec):
+            def perform(self, ec, frame):
                 self.counter += 1
                 print '->', self.counter
                 if self.counter == 3:

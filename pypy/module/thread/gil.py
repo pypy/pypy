@@ -57,7 +57,7 @@ class GILReleaseAction(PeriodicAsyncAction):
     the GIL to give some other thread a chance to run.
     """
 
-    def perform(self, executioncontext):
+    def perform(self, executioncontext, frame):
         # Other threads can run between the release() and the acquire()
         # implicit in the following external function call (which has
         # otherwise no effect).
