@@ -298,9 +298,13 @@ class CodeGenerator(ast.ASTVisitor):
             ndecorators = len(node.decorators.nodes)
         else:
             ndecorators = 0
+        if ndecorators > 0:
+            initialnode = node.decorators.nodes[0]
+        else:
+            initialnode = None
 
         gen = FunctionCodeGenerator(self.space, node, isLambda,
-                                    self.get_module())
+                                    self.get_module(), initialnode)
         node.code.accept( gen )
         gen.finish()
         self.set_lineno(node)
@@ -1347,7 +1351,7 @@ class InteractiveCodeGenerator(CodeGenerator):
         self.emit('PRINT_EXPR')
         
 class AbstractFunctionCode(CodeGenerator):
-    def __init__(self, space, scope, func, isLambda, mod):
+    def __init__(self, space, scope, func, isLambda, mod, initialnode=None):
         assert scope is not None
         self.scope = scope
         self.localsfullyknown = self.scope.locals_fully_known()
@@ -1401,7 +1405,7 @@ class AbstractFunctionCode(CodeGenerator):
             self.graph.setFlag(CO_VARKEYWORDS)
         if not graph.freevars and not graph.cellvars:
             self.graph.setFlag(CO_NOFREE)
-        self.set_lineno(func)
+        self.set_lineno(initialnode or func)
         self.generateArgUnpack(func.argnames)
 
     def get_module(self):
@@ -1438,9 +1442,9 @@ class AbstractFunctionCode(CodeGenerator):
 
 class FunctionCodeGenerator(AbstractFunctionCode):
 
-    def __init__(self, space, func, isLambda, mod):
+    def __init__(self, space, func, isLambda, mod, initialnode=None):
         AbstractFunctionCode.__init__(self, space, func.scope,
-                                      func, isLambda, mod)
+                                      func, isLambda, mod, initialnode)
         if self.scope.generator:
             self.graph.setFlag(CO_GENERATOR)
             if self.scope.return_with_arg is not None:
