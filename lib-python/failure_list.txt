@@ -16,7 +16,6 @@ test_fork1                   !   why did this fail just once?
 test_format                      test checking for exact exception messages
 test_gc                          internal stuff, we may want to provide placeholders
 test_generators              !   the fix is in r60950 but doesn't work. See r60965
-test_gettext                 !   check this use of unicode()
 test_grammar                     implementation detail
 test_import                      importing from pyc-files-without-py-file disabled by default
 test_inspect                 !   test_wrapped_decorator: try to fix;  isbuiltin([].append): cry and maaaybe try to fix
@@ -34,7 +33,6 @@ test_profile                 !   why is the "profile.py" module not found??
 test_pyclbr                  !   this import should find test/pyclbr_input.py
 test_pyexpat                     is that an implementation detail?
 test_quopri                  !   check if test_script{en,de}code() shows a real bug
-test_random                      should probably be fixed, but no hurry i guess
 test_repr                        implementation detail
 test_shelve                  !   unknown
 test_signal                  !   missing signal.alarm(), probably easy to add
@@ -56,7 +54,6 @@ test_unicodedata                 unknown to me (but xorAxAx and fijal have a bet
 test_urllib2_localnet            bogus test?
 test_urllib2net                  skipped test
 test_urllibnet                   skipped test
-test_uu                      !   unknown
 test_wait3                       no os.wait3()
 test_wait4                       no os.wait4()
 test_weakref                     probably missing some gc.collect()
