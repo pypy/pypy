@@ -768,8 +768,9 @@ def unicode_replace__Unicode_Unicode_Unicode_ANY(space, w_self, w_old,
 
 def unicode_replace__Unicode_ANY_ANY_ANY(space, w_self, w_old, w_new,
                                          w_maxsplit):
-    return _unicode_replace(space, w_self, space.buffer_w(w_old).as_str(),
-                            space.buffer_w(w_new).as_str(), w_maxsplit)
+    old = unicode(space.buffer_w(w_old).as_str())
+    new = unicode(space.buffer_w(w_new).as_str())
+    return _unicode_replace(space, w_self, old, new, w_maxsplit)
 
 def _unicode_replace(space, w_self, old, new, w_maxsplit):
     if len(old):
