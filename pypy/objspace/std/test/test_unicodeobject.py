@@ -777,7 +777,6 @@ class AppTestUnicodeString:
         assert u'abc'.replace(u'b', buffer('e')) == u'aec'
 
     def test_unicode_subclass(self):
-        skip("{fails}")
         class S(unicode):
             pass
 

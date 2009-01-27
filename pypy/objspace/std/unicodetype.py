@@ -257,8 +257,12 @@ def descr_new_(space, w_unicodetype, w_string='', w_encoding=None, w_errors=None
     from pypy.objspace.std.ropeunicodeobject import W_RopeUnicodeObject
     w_obj = w_string
 
-    encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors) 
-    if space.is_w(space.type(w_obj), space.w_unicode):
+    encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
+    # convoluted logic for the case when unicode subclass has a __unicode__
+    # method, we need to call this method
+    if (space.is_w(space.type(w_obj), space.w_unicode) or
+        (space.is_true(space.isinstance(w_obj, space.w_unicode)) and
+         space.findattr(w_obj, space.wrap('__unicode__')) is None)):
         if encoding is not None or errors is not None:
             raise OperationError(space.w_TypeError,
                                  space.wrap('decoding Unicode is not supported'))
