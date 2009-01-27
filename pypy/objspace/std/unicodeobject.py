@@ -230,9 +230,8 @@ def getitem__Unicode_ANY(space, w_uni, w_index):
     if ival < 0:
         ival += ulen
     if ival < 0 or ival >= ulen:
-        exc = space.call_function(space.w_IndexError,
-                                  space.wrap("unicode index out of range"))
-        raise OperationError(space.w_IndexError, exc)
+        raise OperationError(space.w_IndexError,
+                             space.wrap("unicode index out of range"))
     return W_UnicodeObject(uni[ival])
 
 def getitem__Unicode_Slice(space, w_uni, w_slice):
@@ -768,8 +767,8 @@ def unicode_replace__Unicode_Unicode_Unicode_ANY(space, w_self, w_old,
 
 def unicode_replace__Unicode_ANY_ANY_ANY(space, w_self, w_old, w_new,
                                          w_maxsplit):
-    old = unicode(space.buffer_w(w_old).as_str())
-    new = unicode(space.buffer_w(w_new).as_str())
+    old = unicode(space.bufferstr_w(w_old))
+    new = unicode(space.bufferstr_w(w_new))
     return _unicode_replace(space, w_self, old, new, w_maxsplit)
 
 def _unicode_replace(space, w_self, old, new, w_maxsplit):

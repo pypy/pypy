@@ -52,6 +52,7 @@ def _decode_ascii(space, s):
                     space.wrap(i),
                     space.wrap(i+1),
                     space.wrap("ordinal not in range(128)")]))
+        assert False, "unreachable"
 
 def unicode_w__String(space, w_self):
     # XXX should this use the default encoding?

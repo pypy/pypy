@@ -770,3 +770,8 @@ class AppTestUnicodeString:
                 return u'bar'
 
         assert unicode(A()) == u'bar'
+
+    def test_replace_with_buffer(self):
+        assert u'abc'.replace(buffer('b'), buffer('e')) == u'aec'
+        assert u'abc'.replace(buffer('b'), u'e') == u'aec'
+        assert u'abc'.replace(u'b', buffer('e')) == u'aec'
