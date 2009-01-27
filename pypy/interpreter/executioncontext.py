@@ -211,7 +211,7 @@ class ExecutionContext:
             self.is_tracing = is_tracing
 
     def _trace(self, frame, event, w_arg, operr=None):
-        if self.is_tracing or frame.hide() or frame is None:
+        if self.is_tracing or frame.hide():
             return
 
         space = self.space
