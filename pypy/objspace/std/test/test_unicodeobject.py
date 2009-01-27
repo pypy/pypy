@@ -780,5 +780,7 @@ class AppTestUnicodeString:
         class S(unicode):
             pass
 
-        unicode(S(u'hello \u1234'))
-        # assert did not explode
+        a = S(u'hello \u1234')
+        b = unicode(a)
+        assert type(b) is unicode
+        assert b == u'hello \u1234'
