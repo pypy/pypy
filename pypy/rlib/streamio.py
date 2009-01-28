@@ -253,7 +253,8 @@ class DiskFile(Stream):
 
     if sys.platform == "win32":
         def truncate(self, size):
-            raise NotImplementedError
+            from pypy.rlib.rposix import ftruncate
+            ftruncate(self.fd, size)
     else:
         def truncate(self, size):
             os.ftruncate(self.fd, size)
