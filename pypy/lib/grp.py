@@ -2,6 +2,10 @@
 """ This module provides ctypes version of cpython's grp module
 """
 
+import sys
+if sys.platform == 'win32':
+    raise ImportError("No grp module on Windows")
+
 from ctypes import Structure, c_char_p, c_int, POINTER
 from ctypes_support import standard_c_lib as libc
 
