@@ -657,4 +657,9 @@ class TestCompiler:
             raise Exception("DID NOT RAISE")
 
     def test_kwargs_last(self):
-        py.test.raises(SyntaxError, "int(base=10, '2')")
+        py.test.raises(SyntaxError, self.simple_test, "int(base=10, '2')",
+                       None, None)
+
+    def test_crap_after_starargs(self):
+        source = "call(*args, *args)"
+        py.test.raises(SyntaxError, self.simple_test, source, None, None)

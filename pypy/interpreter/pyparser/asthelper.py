@@ -68,6 +68,21 @@ def parse_argument(tokens, builder):
         if not isinstance(cur_token, TokenObject):
             index += 1
             if not building_kw:
+                # this logic states that it'll be triggered once we built a kw
+                # already and 1. we're at then end -or-
+                # next token is a comma
+                if kw_built:
+                    if index == l:
+                        raise SyntaxError("non-keyword arg after keyword arg",
+                                          cur_token.lineno, 0)
+                    token = tokens[index]
+                    if (isinstance(token, TokenObject) and
+                        token.name == builder.parser.tokens['COMMA']):
+                        raise SyntaxError("non-keyword arg after keyword arg",
+                                          cur_token.lineno, 0)
+                            
+                # XXX where to get col num?
+
                 arguments.append(cur_token)
             else:
                 last_token = arguments.pop()
