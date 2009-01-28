@@ -12,6 +12,16 @@ class CPythonOutput:
     nprim = 106
     optional_line = ''
 
+def match(pattern, string):
+    import re
+    if not re.match(pattern, string):
+        print method, 'differs:'
+        print 'Difference is here:'
+        print '     GOT:', pattern.rstrip('\n')
+        print 'EXPECTED:', string.rstrip('\n')
+        return False
+    return True
+
 class AppTestCProfile(object):
 
     def setup_class(cls):
@@ -24,6 +34,7 @@ class AppTestCProfile(object):
         else:
             output = PyPyOutput.__dict__
         cls.w_output = space.wrap(output)
+        cls.w_match = space.wrap(match)
 
     def test_direct(self):
         import _lsprof
@@ -142,11 +153,7 @@ class AppTestCProfile(object):
                     pattern = pattern.replace('(', '\\(')
                     pattern = pattern.replace(')', '\\)')
                     pattern = pattern.replace('?', '\\?')
-                    if not re.match(pattern, string):
-                        print method, 'differs:'
-                        print 'Difference is here:'
-                        print '     GOT:', pattern.rstrip('\n')
-                        print 'EXPECTED:', string.rstrip('\n')
+                    if not self.match(pattern, string):
                         assert False
                 assert len(expected) == len(lines)
         finally:
