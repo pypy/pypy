@@ -680,3 +680,5 @@ class TestCompiler:
            pass
         """
         py.test.raises(SyntaxError, self.simple_test, source, None, None)
+
+    

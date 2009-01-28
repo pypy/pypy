@@ -984,7 +984,8 @@ class CodeGenerator(ast.ASTVisitor):
 
     def _visitAssSequence(self, node, op='UNPACK_SEQUENCE'):
         if not node.nodes:
-            raise SyntaxError('Cannot assign to empty sequence')
+            raise SyntaxError('Cannot assign to empty sequence',
+                              node.lineno)
         if findOp(node) != OP_DELETE:
             self.emitop_int(op, len(node.nodes))
         for child in node.nodes:
