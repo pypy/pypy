@@ -100,6 +100,24 @@ class AppTestPosix:
         if sys.platform.startswith('linux2'):
             assert hasattr(st, 'st_rdev')
 
+    def test_stat_float_times(self):
+        path = self.path 
+        posix = self.posix
+        current = posix.stat_float_times()
+        assert current is True
+        try:
+            posix.stat_float_times(True)
+            st = posix.stat(path)
+            assert isinstance(st.st_mtime, float)
+            assert st[7] == int(st.st_atime)
+
+            posix.stat_float_times(False)
+            st = posix.stat(path)
+            assert isinstance(st.st_mtime, (int, long))
+            assert st[7] == st.st_atime
+        finally:
+            posix.stat_float_times(current)
+
     def test_pickle(self):
         import pickle, os
         st = self.posix.stat(os.curdir)

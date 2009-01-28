@@ -28,18 +28,18 @@ class stat_result:
     st_size  = structseqfield(6, "total size, in bytes")
 
     # NOTE: float times are disabled for now, for compatibility with CPython.
-
     # access to indices 7 to 9 gives the timestamps as integers:
-    #_integer_atime = structseqfield(7)
-    #_integer_mtime = structseqfield(8)
-    #_integer_ctime = structseqfield(9)
-
-    st_atime = structseqfield(7, "time of last access")
-    st_mtime = structseqfield(8, "time of last modification")
-    st_ctime = structseqfield(9, "time of last status change")
+    _integer_atime = structseqfield(7)
+    _integer_mtime = structseqfield(8)
+    _integer_ctime = structseqfield(9)
 
     # further fields, not accessible by index (the numbers are still needed
     # but not visible because they are no longer consecutive)
+
+    st_atime = structseqfield(15, "time of last access")
+    st_mtime = structseqfield(16, "time of last modification")
+    st_ctime = structseqfield(17, "time of last status change")
+
     if "st_blksize" in posix._statfields:
         st_blksize = structseqfield(20, "blocksize for filesystem I/O")
     if "st_blocks" in posix._statfields:

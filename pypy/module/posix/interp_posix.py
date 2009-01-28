@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root
+from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 from pypy.rlib import rposix
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.rlib.unroll import unrolling_iterable
@@ -99,21 +99,32 @@ def build_stat_result(space, st):
         FIELDS = STAT_FIELDS    # also when not translating at all
     lst = [None] * ll_os_stat.N_INDEXABLE_FIELDS
     w_keywords = space.newdict()
+    stat_float_times = space.fromcache(StatState).stat_float_times
     for i, (name, TYPE) in FIELDS:
         value = getattr(st, name)
-        #if name in ('st_atime', 'st_mtime', 'st_ctime'):
-        #    value = int(value)   # rounded to an integer for indexed access
+        if name in ('st_atime', 'st_mtime', 'st_ctime'):
+            value = int(value)   # rounded to an integer for indexed access
         w_value = space.wrap(value)
         if i < ll_os_stat.N_INDEXABLE_FIELDS:
             lst[i] = w_value
         else:
             space.setitem(w_keywords, space.wrap(name), w_value)
 
-    # NOTE: float times are disabled for now, for compatibility with CPython
     # non-rounded values for name-based access
-    #space.setitem(w_keywords, space.wrap('st_atime'), space.wrap(st.st_atime))
-    #space.setitem(w_keywords, space.wrap('st_mtime'), space.wrap(st.st_mtime))
-    #space.setitem(w_keywords, space.wrap('st_ctime'), space.wrap(st.st_ctime))
+    if stat_float_times:
+        space.setitem(w_keywords,
+                      space.wrap('st_atime'), space.wrap(st.st_atime))
+        space.setitem(w_keywords,
+                      space.wrap('st_mtime'), space.wrap(st.st_mtime))
+        space.setitem(w_keywords,
+                      space.wrap('st_ctime'), space.wrap(st.st_ctime))
+    else:
+        space.setitem(w_keywords,
+                      space.wrap('st_atime'), space.wrap(int(st.st_atime)))
+        space.setitem(w_keywords,
+                      space.wrap('st_mtime'), space.wrap(int(st.st_mtime)))
+        space.setitem(w_keywords,
+                      space.wrap('st_ctime'), space.wrap(int(st.st_ctime)))
 
     w_tuple = space.newtuple(lst)
     w_stat_result = space.getattr(space.getbuiltinmodule(os.name),
@@ -163,6 +174,26 @@ def lstat(space, path):
     else:
         return build_stat_result(space, st)
 lstat.unwrap_spec = [ObjSpace, str]
+
+class StatState(object):
+    def __init__(self, space):
+        self.stat_float_times = True
+
+def stat_float_times(space, w_value=NoneNotWrapped):
+    """stat_float_times([newval]) -> oldval
+
+Determine whether os.[lf]stat represents time stamps as float objects.
+If newval is True, future calls to stat() return floats, if it is False,
+future calls return ints.
+If newval is omitted, return the current setting.
+"""
+    state = space.fromcache(StatState)
+    
+    if w_value is None:
+        return space.wrap(state.stat_float_times)
+    else:
+        state.stat_float_times = space.bool_w(w_value)
+stat_float_times.unwrap_spec = [ObjSpace, W_Root]
 
 def dup(space, fd):
     """Create a copy of the file descriptor.  Return the new file
