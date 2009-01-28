@@ -667,3 +667,9 @@ class TestCompiler:
     def test_not_a_name(self):
         source = "call(a, b, c, 3=3)"
         py.test.raises(SyntaxError, self.simple_test, source, None, None)
+
+    def test_assignment_to_call_func(self):
+        source = "call(a, b, c) = 3"
+        py.test.raises(SyntaxError, self.simple_test, source, None, None)
+
+    

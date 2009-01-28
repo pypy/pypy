@@ -1526,8 +1526,9 @@ class AugLoadVisitor(ast.ASTVisitor):
         self.main = main_visitor
 
     def default(self, node):
-        raise pyassem.InternalCompilerError("shouldn't arrive here!")
-    
+        raise SyntaxError("illegal expression for augmented assignment",
+                          node.lineno)
+
     def visitName(self, node ):
         self.main.loadName(node.varname, node.lineno)
 
