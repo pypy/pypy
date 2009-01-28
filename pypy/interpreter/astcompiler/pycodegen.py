@@ -429,7 +429,10 @@ class CodeGenerator(ast.ASTVisitor):
         self.nextBlock(after)
 
     def visitBreak(self, node):
-        if len(self.setups) == 0:
+        # compute setups
+        setups = [s for s in self.setups if
+                  (s[0] != EXCEPT and s[0] != TRY_FINALLY)]
+        if len(setups) == 0:
             raise SyntaxError( "'break' outside loop", node.lineno)
         self.set_lineno(node)
         self.emit('BREAK_LOOP')

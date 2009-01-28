@@ -672,4 +672,11 @@ class TestCompiler:
         source = "call(a, b, c) = 3"
         py.test.raises(SyntaxError, self.simple_test, source, None, None)
 
-    
+    def test_broken_setups(self):
+        source = """if 1:
+        try:
+           break
+        finally:
+           pass
+        """
+        py.test.raises(SyntaxError, self.simple_test, source, None, None)
