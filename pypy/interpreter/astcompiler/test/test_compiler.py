@@ -663,3 +663,7 @@ class TestCompiler:
     def test_crap_after_starargs(self):
         source = "call(*args, *args)"
         py.test.raises(SyntaxError, self.simple_test, source, None, None)
+
+    def test_not_a_name(self):
+        source = "call(a, b, c, 3=3)"
+        py.test.raises(SyntaxError, self.simple_test, source, None, None)

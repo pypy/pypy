@@ -86,7 +86,9 @@ def parse_argument(tokens, builder):
                 arguments.append(cur_token)
             else:
                 last_token = arguments.pop()
-                assert isinstance(last_token, ast.Name) # used by rtyper
+                if not isinstance(last_token, ast.Name):
+                    raise SyntaxError("invalid syntax", last_token.lineno,
+                                      0)
                 arguments.append(ast.Keyword(last_token.varname, cur_token, last_token.lineno))
                 building_kw = False
                 kw_built = True
