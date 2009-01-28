@@ -519,6 +519,9 @@ def field_size_limit(limit=None):
     Returns old limit. If limit is not given, no new limit is set and
     the old limit is returned"""
 
+    if not isinstance(limit, (long, int)):
+        raise TypeError("limit must be an integer")
+
     global _field_limit
     old_limit = _field_limit
     
