@@ -15,6 +15,8 @@ except ImportError:
     Wrappable = object
     NULLTOKEN = -1 # None
 
+NO_ERROR = 0
+ERROR_EXPECTED_INDENT = 1
 
 from syntaxtree import SyntaxNode, TempSyntaxNode, TokenNode
 
@@ -712,6 +714,11 @@ class Token(GrammarElement):
         if DEBUG > 1:
             print "tried tok:", self.display()
         source.restore( ctx )
+        try:
+            if self.codename == self.parser.tokens['INDENT']:
+                self.parser.found_error = ERROR_EXPECTED_INDENT
+        except KeyError:
+            pass # XXX bootstrapping
         return 0
 
     def display(self, level=0):
@@ -773,6 +780,7 @@ class Parser(object):
         self._sym_count = 0
         self.all_rules = []
         self.root_rules = {}
+        self.found_error = NO_ERROR
 
     def symbol_repr( self, codename ):
         if codename in self.tok_name:

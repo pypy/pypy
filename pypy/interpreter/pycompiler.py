@@ -239,6 +239,7 @@ class PythonAstCompiler(PyCodeCompiler):
         from pypy.interpreter.function import Function
 
         from pypy.interpreter.pyparser.future import getFutures
+        from pypy.interpreter.pyparser.pythonlexer import TokenIndentationError
 
 ##         flags |= stdlib___future__.generators.compiler_flag   # always on (2.2 compat)
         space = self.space
@@ -253,6 +254,9 @@ class PythonAstCompiler(PyCodeCompiler):
             ast_tree = builder.rule_stack[-1]
             encoding = builder.source_encoding
         except IndentationError, e:
+            raise OperationError(space.w_IndentationError,
+                                 e.wrap_info(space, filename))
+        except TokenIndentationError, e:
             raise OperationError(space.w_IndentationError,
                                  e.wrap_info(space, filename))
         except SyntaxError, e:

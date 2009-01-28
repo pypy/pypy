@@ -779,3 +779,17 @@ class AppTestExceptions:
         else:
             raise Exception("DID NOT RAISE")
 
+
+
+    def test_bad_oudent(self):
+        source = """if 1:
+          x
+          y
+         z
+        """
+        try:
+            exec source
+        except IndentationError, e:
+            assert e.msg == 'unindent does not match any outer indentation level'
+        else:
+            raise Exception("DID NOT RAISE")

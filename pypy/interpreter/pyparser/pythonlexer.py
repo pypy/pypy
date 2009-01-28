@@ -63,6 +63,9 @@ class TokenError(SyntaxError):
         SyntaxError.__init__(self, msg, lineno, offset + 1, line)
         self.token_stack = token_stack
 
+class TokenIndentationError(TokenError):
+    pass
+
 def generate_tokens( parser, lines, flags, keywords):
     """
     This is a rewrite of pypy.module.parser.pytokenize.generate_tokens since
@@ -170,7 +173,7 @@ def generate_tokens( parser, lines, flags, keywords):
                 token_list.append((tok, line, lnum, pos))
                 last_comment = ''
             if column != indents[-1]:
-                raise TokenError("unindent does not match any outer indentation level",
+                raise TokenIndentationError("unindent does not match any outer indentation level",
                                  line, (lnum, 0), token_list)
 
         else:                                  # continued statement

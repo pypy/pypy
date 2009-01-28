@@ -139,11 +139,16 @@ class PythonParser(grammar.Parser):
         src = Source(self, lines, keywords, flags)
 
         if not target.match(src, builder):
+            # clean up errors
+            found_error = self.found_error
+            self.found_error = grammar.NO_ERROR
             tok, line, lnum, pos = src.most_recent_token()
             if tok.codename == self.tokens['INDENT']:
                 raise IndentationError("unexpected indent", lnum, pos, line)
             if tok.codename == self.tokens['DEDENT']:
                 raise IndentationError("unexpected dedent", lnum, pos, line)
+            if found_error == grammar.ERROR_EXPECTED_INDENT:
+                raise IndentationError("expected an indented block", lnum, pos, line)
             raise SyntaxError("invalid syntax", lnum, pos, line)
         return builder
 

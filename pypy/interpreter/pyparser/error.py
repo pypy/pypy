@@ -33,7 +33,7 @@ class ASTError(Exception):
 
 
 class TokenError(Exception):
-    def __init__(self, msg, tokens ):
+    def __init__(self, msg, tokens):
         self.msg = msg
         self.tokens = tokens
     
