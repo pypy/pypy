@@ -296,13 +296,14 @@ class AppTestPosix:
             assert os.WIFSIGNALED(0) == False
             assert os.WIFSIGNALED(1) == True
 
-    def test_os_uname(self):
-        os = self.posix
-        res = os.uname()
-        assert len(res) == 5
-        for i in res:
-            assert isinstance(i, str)
-        assert isinstance(res, tuple)
+    if hasattr(os, 'uname'):
+        def test_os_uname(self):
+            os = self.posix
+            res = os.uname()
+            assert len(res) == 5
+            for i in res:
+                assert isinstance(i, str)
+            assert isinstance(res, tuple)
 
     if hasattr(os, 'getuid'):
         def test_os_getuid(self):
