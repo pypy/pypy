@@ -5,7 +5,7 @@ from pypy.conftest import gettestobjspace, option
 class PyPyOutput:
     nfunc = 127
     nprim = 107
-    optional_line = '\n.*(<module>).*'
+    optional_line = '\n.*'
 
 class CPythonOutput:
     nfunc = 126
@@ -17,15 +17,18 @@ def match(method, pattern, string):
     if not re.match(pattern, string):
         print method, 'differs:'
         print 'Difference is here:'
-        print '     GOT:', pattern.rstrip('\n')
-        print 'EXPECTED:', string.rstrip('\n')
+        print '     GOT:', string.rstrip('\n')
+        print 'EXPECTED:', pattern.rstrip('\n')
         return False
     return True
 
 class AppTestCProfile(object):
 
+    objspace_options = {}
+
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_lsprof',))
+        space = gettestobjspace(usemodules=('_lsprof',),
+                                **cls.objspace_options)
         cls.w_expected_output = space.wrap(expected_output)
         cls.space = space
         cls.w_file = space.wrap(__file__)
@@ -147,17 +150,30 @@ class AppTestCProfile(object):
                 got = res[i + 1]
                 expected = self.expected_output[method]
                 expected = expected % self.output
-                expected = expected.splitlines()
+                patterns = expected.splitlines()
                 lines = got.splitlines()
-                for pattern, string in zip(expected, lines):
+                for pattern, line in zip(patterns, lines):
                     pattern = pattern.replace('(', '\\(')
                     pattern = pattern.replace(')', '\\)')
                     pattern = pattern.replace('?', '\\?')
-                    if not self.match(method, pattern, string):
+                    if not self.match(method, pattern, line):
+                        print '--- GOT ---'
+                        print got
+                        print
+                        print '--- EXPECTED ---'
+                        print expected
                         assert False
-                assert len(expected) == len(lines)
+                assert len(patterns) == len(lines)
         finally:
             sys.path.pop(0)
+
+
+class AppTestOptimized(AppTestCProfile):
+
+    objspace_options = {'objspace.std.builtinshortcut': True}
+
+    def test_cprofile(self):
+        skip('fixme')
 
 expected_output = {}
 expected_output['print_stats'] = """\
