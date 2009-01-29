@@ -167,14 +167,6 @@ class AppTestCProfile(object):
         finally:
             sys.path.pop(0)
 
-
-class AppTestOptimized(AppTestCProfile):
-
-    objspace_options = {'objspace.std.builtinshortcut': True}
-
-    def test_cprofile(self):
-        skip('fixme')
-
 expected_output = {}
 expected_output['print_stats'] = """\
          %(nfunc)d function calls (%(nprim)d primitive calls) in 1.000 CPU seconds
