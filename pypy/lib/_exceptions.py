@@ -221,7 +221,37 @@ try:
     WindowsError
     class WindowsError(OSError):
         """MS-Windows OS system call failed."""
-except NameError:pass
+        def __init__(self, *args):
+            OSError.__init__(self, *args)
+            # Set errno to the POSIX errno, and winerror to the Win32
+            # error code.
+            self.winerror = self.errno
+            self.errno = self._winerror_to_errno.get(self.errno,
+                                                     22) # EINVAL
+
+        def __str__(self):
+            if self.filename is not None:
+                return  "[Error %s] %s: %s" % (self.winerror,
+                                               self.strerror,
+                                               self.filename)
+            if self.errno and self.strerror:
+                return "[Error %s] %s" % (self.winerror, self.strerror)
+            return StandardError.__str__(self)
+
+        # copied from CPython: PC/errmap.h
+        _winerror_to_errno = {
+            2: 2, 3: 2, 4: 24, 5: 13, 6: 9, 7: 12, 8: 12, 9: 12, 10: 7, 11: 8,
+            15: 2, 16: 13, 17: 18, 18: 2, 19: 13, 20: 13, 21: 13, 22: 13,
+            23: 13, 24: 13, 25: 13, 26: 13, 27: 13, 28: 13, 29: 13, 30: 13,
+            31: 13, 32: 13, 33: 13, 34: 13, 35: 13, 36: 13, 53: 2, 65: 13,
+            67: 2, 80: 17, 82: 13, 83: 13, 89: 11, 108: 13, 109: 32, 112: 28,
+            114: 9, 128: 10, 129: 10, 130: 9, 132: 13, 145: 41, 158: 13,
+            161: 2, 164: 11, 167: 13, 183: 17, 188: 8, 189: 8, 190: 8, 191: 8,
+            192: 8, 193: 8, 194: 8, 195: 8, 196: 8, 197: 8, 198: 8, 199: 8,
+            200: 8, 201: 8, 202: 8, 206: 2, 215: 11, 1816: 12,
+            }
+except NameError:
+    pass
 
 class DeprecationWarning(Warning):
     """Base class for warnings about deprecated features."""
