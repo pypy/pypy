@@ -196,6 +196,14 @@ class AppTestWidthPrec:
         raises(OverflowError, f, "%.70f", 2.0)
         raises(OverflowError, f, "%.110g", 2.0)
 
+    def test_subnormal(self):
+        inf = 1e300 * 1e300
+        assert "%f" % (inf,) == 'inf'
+        assert "%f" % (-inf,) == '-inf'
+        nan = inf / inf
+        assert "%f" % (nan,) == 'nan'
+        assert "%f" % (-nan,) == 'nan'
+
 class AppTestUnicodeObject:
     def test_unicode_convert(self):
         assert isinstance("%s" % (u"x"), unicode)

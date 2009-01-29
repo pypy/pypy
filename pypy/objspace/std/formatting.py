@@ -111,7 +111,10 @@ class BaseStringFormatter(object):
         if isnan(x):
             r = 'nan'
         elif isinf(x):
-            r = 'inf'
+            if x < 0:
+                r = '-inf'
+            else:
+                r = 'inf'
         else:
             prec = self.prec
             if prec < 0:
