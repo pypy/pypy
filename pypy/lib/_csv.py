@@ -512,20 +512,19 @@ def writer(*args, **kwargs):
     The \"fileobj\" argument can be any object that supports the file API."""
     return Writer(*args, **kwargs)
 
-def field_size_limit(limit=None):
+
+undefined = object()
+def field_size_limit(limit=undefined):
     """Sets an upper limit on parsed fields.
     csv.field_size_limit([limit])
 
     Returns old limit. If limit is not given, no new limit is set and
     the old limit is returned"""
 
-    if not isinstance(limit, (long, int)):
-        raise TypeError("limit must be an integer")
-
     global _field_limit
     old_limit = _field_limit
     
-    if limit is not None:
+    if limit is not undefined:
         if not isinstance(limit, (int, long)):
             raise TypeError("int expected, got %s" %
                             (limit.__class__.__name__,))
