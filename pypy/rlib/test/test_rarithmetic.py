@@ -323,6 +323,18 @@ class BaseTestRarithmetic(BaseRtypingTest):
         res = self.ll_to_string(self.interpret(f, [10/3.0]))
         assert res == '3.33'
 
+    def test_formatd_overflow(self):
+        from pypy.translator.c.test.test_genc import compile
+        from pypy.rlib.rarithmetic import formatd_overflow
+
+        def func(x):
+            # Test the %F format, which is not supported by
+            # the Microsoft's msvcrt library.
+            return formatd_overflow(0, 4, 'F', x)
+
+        f = compile(func, [float])
+        assert f(10/3.0) == '3.3333'
+
     def test_parts_to_float(self):
         from pypy.rlib.rarithmetic import parts_to_float, break_up_float
         def f(x):
