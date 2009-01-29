@@ -12,7 +12,7 @@ class CPythonOutput:
     nprim = 106
     optional_line = ''
 
-def match(pattern, string):
+def match(method, pattern, string):
     import re
     if not re.match(pattern, string):
         print method, 'differs:'
@@ -153,7 +153,7 @@ class AppTestCProfile(object):
                     pattern = pattern.replace('(', '\\(')
                     pattern = pattern.replace(')', '\\)')
                     pattern = pattern.replace('?', '\\?')
-                    if not self.match(pattern, string):
+                    if not self.match(method, pattern, string):
                         assert False
                 assert len(expected) == len(lines)
         finally:
