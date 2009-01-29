@@ -24,6 +24,11 @@ def setup_module(mod):
     pdir.join('another_longer_file_name').write("test3")
     mod.pdir = pdir
 
+    # in applevel tests, os.stat uses the CPython os.stat.
+    # Be sure to return times with full precision
+    # even when running on top of CPython 2.4.
+    os.stat_float_times(True)
+
 def need_sparse_files():
     if sys.platform == 'darwin':
         py.test.skip("no sparse files on default Mac OS X file system")
