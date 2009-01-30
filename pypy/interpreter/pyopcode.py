@@ -142,8 +142,8 @@ class __extend__(pyframe.PyFrame):
                 # raised after the exception handler block was popped.
                 try:
                     ec.bytecode_trace(self)
-                except OperationError, operr:
-                    pass
+                except OperationError, e:
+                    operr = e
             pytraceback.record_application_traceback(
                 self.space, operr, self, self.last_instr)
             if not we_are_jitted():
