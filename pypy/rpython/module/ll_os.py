@@ -522,7 +522,20 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'setpgrp')
     def register_os_setpgrp(self):
-        return self.extdef_for_os_function_returning_int('setpgrp')
+	name = 'setpgrp'
+        if sys.platform.startswith('freebsd'):
+            c_func = self.llexternal(name, [rffi.INT, rffi.INT], rffi.INT)
+            def c_func_llimpl():
+                res = rffi.cast(rffi.LONG, c_func(0, 0))
+                if res == -1:
+                    raise OSError(rposix.get_errno(), "%s failed" % name)
+
+            c_func_llimpl.func_name = name + '_llimpl'
+
+            return extdef([], None, llimpl=c_func_llimpl,
+                          export_name='ll_os.ll_os_' + name)
+        else:
+            return self.extdef_for_os_function_returning_int(name)
 
     @registering_if(os, 'getppid')
     def register_os_getppid(self):
