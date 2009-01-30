@@ -866,7 +866,7 @@ GeneratorIterator.typedef = TypeDef("generator",
     __del__    = interp2app(GeneratorIterator.descr__del__,
                             descrmismatch='__del__'),
     gi_running = interp_attrproperty('running', cls=GeneratorIterator),
-    gi_frame   = interp_attrproperty('frame', cls=GeneratorIterator),
+    gi_frame   = GetSetProperty(GeneratorIterator.descr_gi_frame),
     __weakref__ = make_weakref_descr(GeneratorIterator),
 )
 GeneratorIterator.typedef.acceptable_as_base_class = False

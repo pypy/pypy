@@ -120,6 +120,14 @@ class AppTestGenerator:
         g = f()
         raises(TypeError, g.throw, NameError("Error"), None, "not tb object")
 
+    def test_throw_finishes_generator(self):
+        def f():
+            yield 1
+        g = f()
+        assert g.gi_frame is not None
+        raises(ValueError, g.throw, ValueError)
+        assert g.gi_frame is None
+
     def test_close(self):
         def f():
             yield 1

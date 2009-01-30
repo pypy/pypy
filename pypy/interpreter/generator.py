@@ -111,6 +111,12 @@ return next yielded value or raise StopIteration."""
             msg = "generator ignored GeneratorExit"
             raise OperationError(space.w_RuntimeError, space.wrap(msg))
 
+    def descr_gi_frame(space, self):
+        if not self.frame.frame_finished_execution:
+            return self.frame
+        else:
+            return space.w_None
+
     def descr__del__(self):        
         """
         applevel __del__, which is called at a safe point after the
