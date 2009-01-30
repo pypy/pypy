@@ -230,7 +230,7 @@ testmap = [
     RegrTest('test_future1.py', core=True),
     RegrTest('test_future2.py', core=True),
     RegrTest('test_future3.py', core=True),
-    RegrTest('test_gc.py', usemodules='_weakref'),
+    RegrTest('test_gc.py', usemodules='_weakref', skip="implementation detail"),
     RegrTest('test_gdbm.py', skip="unsupported extension module"),
     RegrTest('test_generators.py', core=True, usemodules='thread _weakref'),
     RegrTest('test_genexps.py', core=True, usemodules='_weakref'),
