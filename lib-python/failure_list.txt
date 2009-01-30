@@ -43,8 +43,6 @@ test_tarfile                 !   timeout?
 test_thread                      the docs say it's ok to raise thread.error here, but maybe we need to have thread.stack_size() implemented anyway (no hurry I'd say)
 test_timeout                     skipped test
 test_trace                       probably all acceptable differences
-test_traceback               !   don't care about '__members__', but check the other tests
-test_unicode                 !   some failures, look deeper
 test_unicode_file                skipped test
 test_unicodedata                 unknown to me (but xorAxAx and fijal have a better clue)
 test_urllib2_localnet            bogus test?
