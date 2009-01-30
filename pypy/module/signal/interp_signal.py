@@ -43,6 +43,7 @@ pypysig_get_occurred = external('pypysig_get_occurred', [],
 pypysig_set_occurred = external('pypysig_set_occurred', [lltype.Signed],
                                 lltype.Void, _nowrapper=True)
 c_alarm = external('alarm', [rffi.INT], rffi.INT)
+c_pause = external('pause', [], rffi.INT)
 
 
 class SignalActionFlag(AbstractActionFlag):
@@ -155,6 +156,11 @@ getsignal.unwrap_spec = [ObjSpace, int]
 def alarm(space, timeout):
     return space.wrap(c_alarm(timeout))
 alarm.unwrap_spec = [ObjSpace, int]
+
+def pause(space):
+    c_pause()
+    return space.w_None
+pause.unwrap_spec = [ObjSpace]
 
 def check_signum(space, signum):
     if signum < 1 or signum >= NSIG:
