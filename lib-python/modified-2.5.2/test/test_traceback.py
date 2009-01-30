@@ -1,7 +1,7 @@
 """Test cases for traceback module"""
 
 import unittest
-from test.test_support import run_unittest, impl_detail
+from test.test_support import run_unittest, impl_detail, check_impl_detail
 
 import traceback
 
@@ -47,8 +47,11 @@ class TracebackCases(unittest.TestCase):
                                         IndentationError)
         self.assert_(len(err) == 4)
         self.assert_(err[1].strip() == "print 2")
-        self.assert_("^" in err[2])
-        self.assert_(err[1].find("2") == err[2].find("^"))
+        if check_impl_detail():
+            # on CPython, there is a "^" at the end of the line
+            # on PyPy, there is a "^" too, but at the start, more logically
+            self.assert_("^" in err[2])
+            self.assert_(err[1].find("2") == err[2].find("^"))
 
     def test_bug737473(self):
         import sys, os, tempfile, time
