@@ -174,7 +174,7 @@ def create_spec(space, w_arg):
                 module = ''
             else:
                 module += '.'
-        return '{%s%s function}' % (module, w_arg.name)
+        return '{%s%s}' % (module, w_arg.name)
     else:
         return '{!!!unknown!!!}'
     
