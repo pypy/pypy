@@ -175,7 +175,7 @@ testmap = [
     RegrTest('test_commands.py'),
     RegrTest('test_compare.py', core=True),
     RegrTest('test_compile.py', core=True),
-    RegrTest('test_compiler.py', core=False),
+    RegrTest('test_compiler.py', core=False, skip="slowly deprecating compiler"),
     RegrTest('test_complex.py', core=True),
 
     RegrTest('test_contains.py', core=True),
@@ -310,7 +310,7 @@ testmap = [
 
     RegrTest('test_os.py', core=True),
     RegrTest('test_ossaudiodev.py', skip="unsupported extension module"),
-    RegrTest('test_parser.py', core=True),
+    RegrTest('test_parser.py', skip="slowly deprecating compiler"),
 
     RegrTest('test_peepholer.py'),
     RegrTest('test_pep247.py'),
