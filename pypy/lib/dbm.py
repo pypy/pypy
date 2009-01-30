@@ -2,7 +2,8 @@ from ctypes import *
 import ctypes.util
 import os, sys
 
-_singleton = 'one'
+class _singleton(object):
+    pass
 
 class error(Exception):
     def __init__(self, msg):
@@ -132,28 +133,19 @@ class dbm(object):
         dat.dsize = c_int(len(key))
         getattr(lib, funcs['delete'])(self._aobj, dat)
 
-# initialization for Berkeley DB
-_bdb_funcs = {
-    'open': '__db_ndbm_open',
-    'close': '__db_ndbm_close',
-    'firstkey': '__db_ndbm_firstkey',
-    'nextkey': '__db_ndbm_nextkey',
-    'fetch': '__db_ndbm_fetch',
-    'store': '__db_ndbm_store',
-    'error': '__db_ndbm_error',
-    'delete': '__db_ndbm_delete',
-}
+### initialization: Berkeley DB versus normal DB
 
-_normal_funcs = {
-    'open': 'dbm_open',
-    'close': 'dbm_close',
-    'firstkey': 'dbm_firstkey',
-    'nextkey': 'dbm_nextkey',
-    'fetch': 'dbm_fetch',
-    'store': 'dbm_store',
-    'error': 'dbm_error',
-    'delete': 'dbm_delete',
-}
+def _init_func(name, argtypes=None, restype=None):
+    try:
+        func = getattr(lib, '__db_ndbm_' + name)
+        funcs[name] = '__db_ndbm_' + name
+    except AttributeError:
+        func = getattr(lib, 'dbm_' + name)
+        funcs[name] = 'dbm_' + name
+    if argtypes is not None:
+        func.argtypes = argtypes
+    if restype is not None:
+        func.restype = restype
 
 if sys.platform != 'darwin':
     libpath = ctypes.util.find_library('db')
@@ -164,25 +156,19 @@ if sys.platform != 'darwin':
             raise Exception("Cannot find dbm library")
     lib = CDLL(libpath) # Linux
     _platform = 'bdb'
-    lib.__db_ndbm_open.argtypes = [c_char_p, c_int, c_int]
-    lib.__db_ndbm_close.restype = c_void_p
-    lib.__db_ndbm_firstkey.restype = datum
-    lib.__db_ndbm_nextkey.restype = datum
-    lib.__db_ndbm_fetch.restype = datum
-    lib.__db_ndbm_store.restype = c_int
-    funcs = _bdb_funcs
 else:
     lib = CDLL("/usr/lib/libdbm.dylib") # OS X
     _platform = 'osx'
-    lib.dbm_open.argtypes = [c_char_p, c_int, c_int]
-    lib.dbm_close.restype = c_void_p
-    lib.dbm_firstkey.restype = datum
-    lib.dbm_nextkey.restype = datum
-    lib.dbm_fetch.restype = datum
-    lib.dbm_store.restype = c_int
-    funcs = _normal_funcs
 
-
+funcs = {}
+_init_func('open', [c_char_p, c_int, c_int])
+_init_func('close', restype=c_void_p)
+_init_func('firstkey', restype=datum)
+_init_func('nextkey', restype=datum)
+_init_func('fetch', restype=datum)
+_init_func('store', restype=c_int)
+_init_func('error')
+_init_func('delete')
 
 lib.DBM_INSERT = 0
 lib.DBM_REPLACE = 1
