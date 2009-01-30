@@ -1,7 +1,6 @@
 import py
 from pypy.rlib import streamio
 from pypy.rlib.streamio import StreamErrors
-from errno import EINTR
 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace

@@ -128,6 +128,22 @@ class __extend__(pyframe.PyFrame):
 
     def handle_operation_error(self, ec, operr, attach_tb=True):
         if attach_tb:
+            if not we_are_jitted():
+                # xxx this is a hack.  It allows bytecode_trace() to
+                # call a signal handler which raises, and catch the
+                # raised exception immediately.  See test_alarm_raise in
+                # pypy/module/signal/test/test_signal.py.  Without the
+                # next four lines, if an external call (like
+                # socket.accept()) is interrupted by a signal, it raises
+                # an exception carrying EINTR which arrives here,
+                # entering the next "except" block -- but the signal
+                # handler is then called on the next call to
+                # dispatch_bytecode(), causing the real exception to be
+                # raised after the exception handler block was popped.
+                try:
+                    ec.bytecode_trace(self)
+                except OperationError, operr:
+                    pass
             pytraceback.record_application_traceback(
                 self.space, operr, self, self.last_instr)
             if not we_are_jitted():

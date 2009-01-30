@@ -135,3 +135,34 @@ class AppTestSignal:
             assert l == [42]
         finally:
             signal(SIGALRM, SIG_DFL)
+
+
+class AppTestSignalSocket:
+
+    def setup_class(cls):
+        space = gettestobjspace(usemodules=['signal', '_socket'])
+        cls.space = space
+
+    def test_alarm_raise(self):
+        from signal import alarm, signal, SIG_DFL, SIGALRM
+        import _socket
+        class Alarm(Exception):
+            pass
+        def handler(*a):
+            raise Alarm()
+
+        s = _socket.socket()
+        s.listen(1)
+        try:
+            signal(SIGALRM, handler)
+            alarm(1)
+            try:
+                s.accept()
+            except Alarm:
+                pass
+            else:
+                raise Exception("should have raised Alarm")
+            alarm(0)
+        finally:
+            signal(SIGALRM, SIG_DFL)
+
