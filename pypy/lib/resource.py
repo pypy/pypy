@@ -4,7 +4,7 @@ if sys.platform == 'win32':
 
 from ctypes_support import standard_c_lib as libc
 from ctypes_support import get_errno
-from ctypes import Structure, c_int, c_long, byref
+from ctypes import Structure, c_int, c_long, byref, sizeof
 from errno import EINVAL, EPERM
 from ctypes_configure.configure import (configure,
     ExternalCompilationInfo, ConstantInteger, DefinedConstantInteger,
@@ -64,6 +64,7 @@ for key in _OPTIONAL_CONSTANTS:
 # Configure constants and types
 config = configure(ResourceConfigure)
 rlim_t = config['rlim_t']
+sizeof_rlim_t = 1<<(sizeof(rlim_t) * 8)
 for key in _CONSTANTS:
     globals()[key] = config[key]
 optional_constants = []
@@ -124,6 +125,12 @@ class struct_rusage:
     ru_nvcsw = _structseq.structseqfield(14)
     ru_nivcsw = _structseq.structseqfield(15)
 
+def rlimit_check_bounds(rlim_cur, rlim_max):
+    if rlim_cur > sizeof_rlim_t:
+        raise ValueError("%d does not fit into rlim_t" % rlim_cur)
+    if rlim_max > sizeof_rlim_t:
+        raise ValueError("%d does not fit into rlim_t" % rlim_max)
+
 class rlimit(Structure):
     _fields_ = (
         ("rlim_cur", rlim_t),
@@ -171,6 +178,7 @@ def getrlimit(resource):
 def setrlimit(resource, rlim):
     if not(0 <= resource < RLIM_NLIMITS):
         return ValueError("invalid resource specified")
+    rlimit_check_bounds(*rlim)
     rlim = rlimit(rlim[0], rlim[1])
 
     ret = _setrlimit(resource, byref(rlim))
