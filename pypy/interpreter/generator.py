@@ -124,8 +124,6 @@ return next yielded value or raise StopIteration."""
         """
         self.descr_close()
 
-##     # it seems there is a bug in the hybrid gc, if we add a __del__ it
-##     # segfaults. With mark&sweep it works correctly
-##     def __del__(self):
-##         if not self.frame.frame_finished_execution:
-##             self._enqueue_for_destruction(self.space)
+    def __del__(self):
+        if not self.frame.frame_finished_execution:
+            self._enqueue_for_destruction(self.space)

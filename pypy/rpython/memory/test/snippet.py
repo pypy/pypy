@@ -125,3 +125,36 @@ class SemiSpaceGCTests:
             print summary
             print msg
             py.test.fail(msg)
+
+
+    def test_from_objwithfinalizer_to_youngobj(self):
+        import gc
+        if self.large_tests_ok:
+            MAX = 500000
+        else:
+            MAX = 150
+
+        class B:
+            count = 0
+        class A:
+            def __del__(self):
+                self.b.count += 1
+        def g():
+            b = B()
+            a = A()
+            a.b = b
+            i = 0
+            lst = [None]
+            while i < MAX:
+                lst[0] = str(i)
+                i += 1
+            return a.b, lst
+        g._dont_inline_ = True
+
+        def f():
+            b, lst = g()
+            gc.collect()
+            return str(b.count)
+
+        res = self.run(f)
+        assert res == '1'

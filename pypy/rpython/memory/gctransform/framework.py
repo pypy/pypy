@@ -87,6 +87,9 @@ def find_initializing_stores(collect_analyzer, graph):
                 mallocop.result is checkop.args[0] and
                 block.exitswitch is checkop.result):
             continue
+        rtti = get_rtti(mallocop.args[0].value)
+        if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):
+            continue
         exits = [exit for exit in block.exits if exit.llexitcase]
         if len(exits) != 1:
             continue
