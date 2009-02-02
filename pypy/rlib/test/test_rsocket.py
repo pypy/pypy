@@ -205,6 +205,7 @@ def test_simple_udp():
     assert 1 <= count <= 99
     buf, addr3 = s1.recvfrom(100)
     assert buf == 'x'*count
+    print addr2, addr3
     assert addr3.eq(addr2)
     s1.close()
     s2.close()
