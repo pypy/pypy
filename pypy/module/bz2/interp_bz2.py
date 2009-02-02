@@ -173,6 +173,12 @@ from pypy.module._file.interp_file import W_File
 
 class W_BZ2File(W_File):
 
+    def check_mode_ok(self, mode):
+        if (not mode or mode[0] not in ['r', 'w', 'a', 'U']):
+            space = self.space
+            raise OperationError(space.w_ValueError,
+                                 space.wrap('invalid mode : "%s"' % mode))
+
     def direct_bz2__init__(self, w_name, mode='r', buffering=-1,
                            compresslevel=9):
         self.direct_close()
