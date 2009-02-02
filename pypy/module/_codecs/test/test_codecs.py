@@ -515,6 +515,11 @@ class AppTestPartialEvaluation:
         assert codecs.getencoder('utf-16')(x) == ('\xff\xfe1\x002\x003\x00a\x00b\x00c\x00', 6)
         assert codecs.getdecoder('utf-16')('\xff\xfe1\x002\x003\x00a\x00b\x00c\x00') == (x, 14)
 
+    def test_unicode_escape(self):        
+        assert u'\\'.encode('unicode-escape') == '\\\\'
+        assert '\\\\'.decode('unicode-escape') == u'\\'
+
+
 class TestDirect:
     def test_charmap_encode(self):
         assert charmap_encode(u'xxx') == ('xxx', 3)
@@ -528,6 +533,3 @@ class TestDirect:
         assert unicode_escape_encode(u'abc') == (u'abc'.encode('unicode_escape'), 3)
         assert unicode_escape_decode('abc') == (u'abc'.decode('unicode_escape'), 3)
         assert unicode_escape_decode('\\x61\\x62\\x63') == (u'abc', 12)
-
-        assert u'\\'.encode('unicode-escape') == '\\\\'
-        assert '\\\\'.decode('unicode-escape') == u'\\'
