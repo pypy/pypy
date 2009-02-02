@@ -522,7 +522,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'setpgrp')
     def register_os_setpgrp(self):
-	name = 'setpgrp'
+        name = 'setpgrp'
         if sys.platform.startswith('freebsd'):
             c_func = self.llexternal(name, [rffi.INT, rffi.INT], rffi.INT)
             def c_func_llimpl():
