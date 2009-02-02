@@ -70,15 +70,15 @@ def start_python_version():
 
 # ------------------------------------------------------------------------------ 
     
-JMARIO_DIR =  str(py.magic.autopath().dirpath().dirpath()\
+MARIO_DIR =  str(py.magic.autopath().dirpath().dirpath()\
                         .dirpath().dirpath()\
-                        .dirpath().dirpath()) + "/jmario"
+                        .dirpath().dirpath()) + "/mario"
 
-JAVA_CLASSPATH =[ JMARIO_DIR+"/build/", 
-                  JMARIO_DIR + "/lib/xmlrpc-client-3.1.jar",
-                  JMARIO_DIR + "/lib/xmlrpc-common-3.1.jar",
-                  JMARIO_DIR + "/lib/ws-commons-util-1.0.2.jar",
-                  JMARIO_DIR + "/lib/commons-logging-1.1.jar"];
+JAVA_CLASSPATH =[ MARIO_DIR+"/build/", 
+                  MARIO_DIR + "/lib/xmlrpc-client-3.1.jar",
+                  MARIO_DIR + "/lib/xmlrpc-common-3.1.jar",
+                  MARIO_DIR + "/lib/ws-commons-util-1.0.2.jar",
+                  MARIO_DIR + "/lib/commons-logging-1.1.jar"];
                         
 def start_java_version():
     global filename
@@ -95,7 +95,11 @@ def start_java_version():
     #           filename + " "
     os.system(command)
 
-    
+#try:
+#    import psyco
+#    psyco.full()
+#except:
+#    pass
     
 # START ========================================================================
 parse_file_name()
