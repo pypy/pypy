@@ -2,6 +2,7 @@
 
 import os
 import unittest
+from test.test_support import check_impl_detail
 
 from distutils.command.install import install
 from distutils.core import Distribution
@@ -38,15 +39,16 @@ class InstallTestCase(support.TempdirManager, unittest.TestCase):
             expected = os.path.normpath(expected)
             self.assertEqual(got, expected)
 
-        libdir = os.path.join(destination, "lib", "python")
-        check_path(cmd.install_lib, libdir)
-        check_path(cmd.install_platlib, libdir)
-        check_path(cmd.install_purelib, libdir)
-        check_path(cmd.install_headers,
-                   os.path.join(destination, "include", "python", "foopkg"))
-        check_path(cmd.install_scripts, os.path.join(destination, "bin"))
-        check_path(cmd.install_data, destination)
+        if check_impl_detail():
+            libdir = os.path.join(destination, "lib", "python")
 
+            check_path(cmd.install_lib, libdir)
+            check_path(cmd.install_platlib, libdir)
+            check_path(cmd.install_purelib, libdir)
+            check_path(cmd.install_headers,
+                       os.path.join(destination, "include", "python", "foopkg"))
+            check_path(cmd.install_scripts, os.path.join(destination, "bin"))
+            check_path(cmd.install_data, destination)
 
 def test_suite():
     return unittest.makeSuite(InstallTestCase)
