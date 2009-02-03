@@ -1682,7 +1682,7 @@ Our ill-behaved code should be invoked during GC:
 >>> del g
 >>> import gc; _ = gc.collect()
 >>> sys.stderr.getvalue().startswith(
-...     "Exception exceptions.RuntimeError: 'generator ignored GeneratorExit' in "
+...     'Exception "RuntimeError: generator ignored GeneratorExit" in '
 ... )
 True
 >>> sys.stderr = old
