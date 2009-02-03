@@ -14,8 +14,6 @@ from pypy.rlib.debug import ll_assert
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.tool import autopath
-from distutils import sysconfig
-python_inc = sysconfig.get_python_inc()
 
 class error(Exception):
     pass
@@ -23,8 +21,7 @@ class error(Exception):
 eci = ExternalCompilationInfo(
     includes = ['src/thread.h'],
     separate_module_sources = [''],
-    include_dirs = [str(py.path.local(autopath.pypydir).join('translator', 'c')),
-                    python_inc],
+    include_dirs = [str(py.path.local(autopath.pypydir).join('translator', 'c'))],
     export_symbols = ['RPyThreadGetIdent', 'RPyThreadLockInit',
                       'RPyThreadAcquireLock', 'RPyThreadReleaseLock',
                       'RPyThreadYield']
