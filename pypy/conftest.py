@@ -149,6 +149,9 @@ class TinyObjSpace(object):
     def setattr(self, obj, name, value):
         setattr(obj, name, value)
 
+    def getbuiltinmodule(self, name):
+        return __import__(name)
+
 def translation_test_so_skip_if_appdirect():
     if option.runappdirect:
         py.test.skip("translation test, skipped for appdirect")
