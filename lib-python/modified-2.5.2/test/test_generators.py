@@ -1681,10 +1681,8 @@ Our ill-behaved code should be invoked during GC:
 >>> g.next()
 >>> del g
 >>> import gc; _ = gc.collect()
->>> sys.stderr.getvalue().startswith(
-...     'Exception "RuntimeError: generator ignored GeneratorExit" in '
-... )
-True
+>>> print sys.stderr.getvalue()  # doctest: +ELLIPSIS
+Exception ...RuntimeError...generator ignored GeneratorExit...
 >>> sys.stderr = old
 
 
