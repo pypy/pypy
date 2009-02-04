@@ -111,22 +111,6 @@ class StructureMeta(_CDataMeta):
                 typedict.get('_anonymous_', None))
             _set_shape(res, rawfields)
 
-        def __init__(self, *args, **kwds):
-            if not hasattr(self, '_ffistruct'):
-                raise TypeError("Cannot instantiate structure, has no _fields_")
-            self.__dict__['_buffer'] = self._ffistruct(autofree=True)
-            if len(args) > len(self._names):
-                raise TypeError("too many arguments")
-            for name, arg in zip(self._names, args):
-                if name in kwds:
-                    raise TypeError("duplicate value for argument %r" % (
-                        name,))
-                self.__setattr__(name, arg)
-            for name, arg in kwds.items():
-                self.__setattr__(name, arg)
-        res.__init__ = __init__
-
-
         return res
 
     __getattr__ = struct_getattr
@@ -167,6 +151,24 @@ class StructureMeta(_CDataMeta):
 
 class Structure(_CData):
     __metaclass__ = StructureMeta
+
+    def __new__(cls, *args, **kwds):
+        if not hasattr(cls, '_ffistruct'):
+            raise TypeError("Cannot instantiate structure, has no _fields_")
+        self = super(_CData, cls).__new__(cls, *args, **kwds)
+        self.__dict__['_buffer'] = self._ffistruct(autofree=True)
+        return self
+
+    def __init__(self, *args, **kwds):
+        if len(args) > len(self._names):
+            raise TypeError("too many arguments")
+        for name, arg in zip(self._names, args):
+            if name in kwds:
+                raise TypeError("duplicate value for argument %r" % (
+                    name,))
+            self.__setattr__(name, arg)
+        for name, arg in kwds.items():
+            self.__setattr__(name, arg)
 
     def _subarray(self, fieldtype, name):
         """Return a _rawffi array of length 1 whose address is the same as

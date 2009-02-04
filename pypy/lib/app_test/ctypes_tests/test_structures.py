@@ -371,6 +371,19 @@ class TestStructure(BaseCTypesTestChecker):
         assert p.age == 6
         assert p.income == 5
 
+    def test___init__(self):
+        class Person(Structure):
+            _fields_ = (("name", c_char*10),
+                        ("age", c_int))
+
+            def __init__(self, name, surname, age):
+                self.name = name + ' ' + surname
+                self.age = age
+
+        p = Person("John", "Doe", 25)
+        assert p.name == "John Doe"
+        assert p.age == 25
+
 
 class TestPointerMember(BaseCTypesTestChecker):
 
