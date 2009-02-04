@@ -7,8 +7,10 @@ from pypy.lang.gameboy.sound import SoundDriver
 from pypy.lang.gameboy.timer import Clock
 from pypy.lang.gameboy import constants
 
-from pypy.rlib.rsdl import RSDL, RSDL_helper
-from pypy.rpython.lltypesystem import lltype, rffi
+use_rsdl = False
+if use_rsdl:
+    from pypy.rlib.rsdl import RSDL, RSDL_helper
+    from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.objectmodel import specialize
 import time
 
@@ -19,7 +21,8 @@ class GameBoyImplementation(GameBoy):
     def __init__(self):
         GameBoy.__init__(self)
         self.is_running = False
-        self.init_sdl()
+        if use_rsdl:
+            self.init_sdl()
         
     def init_sdl(self):
         assert RSDL.Init(RSDL.INIT_VIDEO) >= 0
@@ -45,24 +48,31 @@ class GameBoyImplementation(GameBoy):
     def emulate_cycle(self):
         self.handle_events()
         self.emulate(constants.GAMEBOY_CLOCK >> 2)
-        RSDL.Delay(1)
+        if use_rsdl:
+            RSDL.Delay(1)
     
     def handle_execution_error(self, error): 
-        lltype.free(self.event, flavor='raw')
-        RSDL.Quit()
+        if use_rsdl:
+            lltype.free(self.event, flavor='raw')
+            RSDL.Quit()
     
     def handle_events(self):
-        self.poll_event()
-        if self.check_for_escape():
-            self.is_running = False 
-        self.joypad_driver.update(self.event)
+        if use_rsdl:
+            self.poll_event()
+            if self.check_for_escape():
+                self.is_running = False 
+            self.joypad_driver.update(self.event)
     
     
     def poll_event(self):
-        ok = rffi.cast(lltype.Signed, RSDL.PollEvent(self.event))
-        return ok > 0
+        if use_rsdl:
+            ok = rffi.cast(lltype.Signed, RSDL.PollEvent(self.event))
+            return ok > 0
+        else:
+            return True
              
     def check_for_escape(self):
+        if not use_rsdl: return False
         c_type = rffi.getintfield(self.event, 'c_type')
         if c_type == RSDL.KEYDOWN:
             p = rffi.cast(RSDL.KeyboardEventPtr, self.event)
@@ -77,18 +87,17 @@ class VideoDriverImplementation(VideoDriver):
     
     COLOR_MAP = [0xFFFFFF, 0xCCCCCC, 0x666666, 0x000000]
     
-    def __init__(self, use_rsdl=False):
+    def __init__(self):
         VideoDriver.__init__(self)
-        self.use_rsdl = use_rsdl
         self.create_screen()
         self.map = []
     
     def create_screen(self):
-        if self.use_rsdl:
+        if use_rsdl:
             self.screen = RSDL.SetVideoMode(self.width, self.height, 32, 0)
         
     def update_display(self):
-        if self.use_rsdl:
+        if use_rsdl:
             RSDL.LockSurface(self.screen)
             self.draw_pixels()
             RSDL.UnlockSurface(self.screen)
@@ -101,7 +110,7 @@ class VideoDriverImplementation(VideoDriver):
         for y in range(self.height):
             str += "\n"
             for x in range(self.width):
-                color = COLOR_MAP[self.get_pixel_color(x, y)]
+                color = VideoDriverImplementation.COLOR_MAP[self.get_pixel_color(x, y)]
                 RSDL_helper.set_pixel(self.screen, x, y, color)
         
     def draw_ascii_pixels(self):
@@ -136,6 +145,7 @@ class JoypadDriverImplementation(JoypadDriver):
         self.last_key = 0
         
     def update(self, event):
+        if not use_rsdl: return 
         # fetch the event from sdl
         type = rffi.getintfield(event, 'c_type')
         if type == RSDL.KEYDOWN:
@@ -144,11 +154,11 @@ class JoypadDriverImplementation(JoypadDriver):
         elif type == RSDL.KEYUP:
             self.create_called_key(event)
             self.on_key_up()
-        pass
     
     def create_called_key(self, event):
-        p = rffi.cast(RSDL.KeyboardEventPtr, event)
-        self.last_key = rffi.getintfield(p.c_keysym, 'c_sym')
+        if use_rsdl: 
+            p = rffi.cast(RSDL.KeyboardEventPtr, event)
+            self.last_key = rffi.getintfield(p.c_keysym, 'c_sym')
         
     def on_key_down(self):
         self.toggleButton(self.get_button_handler(self.last_key), True)
@@ -161,6 +171,7 @@ class JoypadDriverImplementation(JoypadDriver):
             pressButtonFunction(self, enabled)
     
     def get_button_handler(self, key):
+        if not use_rsdl: return None
         if key == RSDL.K_UP:
             return JoypadDriver.button_up
         elif key == RSDL.K_RIGHT: 
