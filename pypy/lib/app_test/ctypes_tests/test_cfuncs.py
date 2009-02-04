@@ -195,6 +195,6 @@ else:
             setattr(self, name, func)
             return func
 
-    class stdcallCFunctions(CFunctions):
-        _dll = stdcall_dll(_ctypes_test.__file__)
-        pass
+    class TestStdcallCFunctions(TestCFunctions):
+        def setup_class(cls):
+            cls._dll = stdcall_dll(_ctypes_test)

@@ -103,7 +103,7 @@ try:
 except NameError:
     pass
 else:
-    class StdcallCallbacks(Callbacks):
+    class TestStdcallCallbacks(TestCallbacks):
         functype = WINFUNCTYPE
 
 ################################################################
