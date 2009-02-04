@@ -101,7 +101,11 @@ class MsvcPlatform(Platform):
             # The following symbol is used in c/src/stack.h
             self.cflags.append('/DMAX_STACK_SIZE=%d' % (stack_size - 1024))
 
-        self.add_cpython_dirs = True
+        if hasattr(sys, 'exec_prefix'):
+            self.add_cpython_dirs = True
+        else:
+            # We are certainly running pypy-c
+            self.add_cpython_dirs = False
 
     def _preprocess_dirs(self, include_dirs):
         if self.add_cpython_dirs:
