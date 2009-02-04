@@ -1,8 +1,9 @@
-#ifdef MS_WIN32
+#if defined(_MSC_VER) || defined(__CYGWIN__)
 #include <windows.h>
+#define MS_WIN32
 #endif
 
-#if defined(MS_WIN32) || defined(__CYGWIN__)
+#if defined(MS_WIN32)
 #define EXPORT(x) __declspec(dllexport) x
 #else
 #define EXPORT(x) x
