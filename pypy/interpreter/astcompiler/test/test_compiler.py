@@ -681,4 +681,10 @@ class TestCompiler:
         """
         py.test.raises(SyntaxError, self.simple_test, source, None, None)
 
-    
+    def test_unpack_singletuple(self):
+        source = """if 1:
+        l = []
+        for x, in [(1,), (2,)]:
+            l.append(x)
+        """
+        self.simple_test(source, 'l', [1, 2])

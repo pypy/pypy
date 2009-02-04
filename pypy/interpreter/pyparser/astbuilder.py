@@ -727,7 +727,7 @@ def build_for_stmt(builder, nb):
 def build_exprlist(builder, nb):
     """exprlist: expr (',' expr)* [',']"""
     atoms = get_atoms(builder, nb)
-    if len(atoms) <= 2:
+    if len(atoms) < 2:
         builder.push(atoms[0])
     else:
         items = [atoms[index] for index in range(0, len(atoms), 2)]
