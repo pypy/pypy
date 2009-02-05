@@ -75,7 +75,7 @@ class BaseTestRffi:
         #include <string.h>
         #include <Python.h>
         #include <src/mem.h>
-    
+
         char *f(char* arg)
         {
             char *ret;
@@ -87,7 +87,8 @@ class BaseTestRffi:
             return ret;
         }
         """)
-        eci = ExternalCompilationInfo(separate_module_sources=[c_source])
+        eci = ExternalCompilationInfo(separate_module_sources=[c_source],
+                                      post_include_bits=['char *f(char*);'])
         z = llexternal('f', [CCHARP], CCHARP, compilation_info=eci)
     
         def f():
