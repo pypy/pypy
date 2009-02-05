@@ -71,19 +71,18 @@ class BaseTestRffi:
         assert xf() == 3
     
     def test_string_reverse(self):
-        # XXX This test crashes with a debug build
-        # (when python is built WITH_PYMALLOC and PYMALLOC_DEBUG):
-        # lltype.free calls OP_RAW_FREE() == PyObject_Free(),
-        # but the buffer comes from a malloc()
-        if sys.platform == 'win32' and 'python_d' in sys.executable:
-            py.test.skip("Crash with a debug build")
         c_source = py.code.Source("""
         #include <string.h>
+        #include <Python.h>
+        #include <src/mem.h>
     
         char *f(char* arg)
         {
             char *ret;
-            ret = (char*)malloc(strlen(arg) + 1);
+            /* lltype.free uses OP_RAW_FREE, we must allocate
+             * with the matching function
+             */
+            OP_RAW_MALLOC(strlen(arg) + 1, ret, char*)
             strcpy(ret, arg);
             return ret;
         }
