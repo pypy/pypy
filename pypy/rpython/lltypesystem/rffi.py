@@ -308,7 +308,7 @@ for _name in 'short int long'.split():
         TYPES.append(name)
 TYPES += ['signed char', 'unsigned char',
           'long long', 'unsigned long long',
-          'size_t', 'time_t']
+          'size_t', 'time_t', 'wchar_t']
 if os.name != 'nt':
     TYPES.append('mode_t')
     TYPES.append('pid_t')
@@ -352,6 +352,7 @@ platform.numbertype_to_rclass[lltype.Signed] = int     # avoid "r_long" for comm
 #        ULONG          r_ulong
 #        LONGLONG       r_longlong
 #        ULONGLONG      r_ulonglong
+#        WCHAR_T        r_wchar_t
 #        SIZE_T         r_size_t
 #        TIME_T         r_time_t
 # --------------------------------------------------------------------
@@ -687,7 +688,7 @@ def sizeof(tp):
     if tp is lltype.Char:
         return 1
     if tp is lltype.UniChar:
-        return 4
+        return WCHAR_T._type.BITS/8
     if tp is lltype.Float:
         return 8
     assert isinstance(tp, lltype.Number)

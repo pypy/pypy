@@ -152,7 +152,7 @@ PrimitiveType = {
     Float:    'double @',
     SingleFloat: 'float @',
     Char:     'char @',
-    UniChar:  'unsigned int @',
+    UniChar:  'wchar_t @',
     Bool:     'bool_t @',
     Void:     'void @',
     Address:  'void* @',
