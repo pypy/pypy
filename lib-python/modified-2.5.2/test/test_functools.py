@@ -161,7 +161,8 @@ class TestUpdateWrapper(unittest.TestCase):
                       updated=functools.WRAPPER_UPDATES):
         # Check attributes were assigned
         for name in assigned:
-            self.failUnless(getattr(wrapper, name) is getattr(wrapped, name))
+            # the original cpython test compared with 'is', but it's clearly an impl detail
+            self.failUnless(getattr(wrapper, name) == getattr(wrapped, name))
         # Check attributes were updated
         for name in updated:
             wrapper_attr = getattr(wrapper, name)
@@ -218,7 +219,7 @@ class TestUpdateWrapper(unittest.TestCase):
             pass
         functools.update_wrapper(wrapper, max)
         self.assertEqual(wrapper.__name__, 'max')
-        self.assert_(wrapper.__doc__.startswith('max('))
+        self.assert_(wrapper.__doc__ == max.__doc__)
 
 class TestWraps(TestUpdateWrapper):
 
