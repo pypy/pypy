@@ -688,7 +688,7 @@ def sizeof(tp):
     if tp is lltype.Char:
         return 1
     if tp is lltype.UniChar:
-        return WCHAR_T._type.BITS/8
+        return r_wchar_t.BITS/8
     if tp is lltype.Float:
         return 8
     assert isinstance(tp, lltype.Number)
