@@ -3,7 +3,7 @@ from pypy.rpython.lltypesystem.lltype import \
      Struct, Array, FuncType, PyObject, Void, \
      ContainerType, OpaqueType, FixedSizeArray, _uninitialized
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.lltypesystem.llmemory import Address, WeakRef, _WeakRefType
+from pypy.rpython.lltypesystem.llmemory import WeakRef, _WeakRefType
 from pypy.rpython.lltypesystem.rffi import CConstant
 from pypy.tool.sourcetools import valid_identifier
 from pypy.translator.c.primitive import PrimitiveName, PrimitiveType
