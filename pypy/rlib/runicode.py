@@ -451,3 +451,18 @@ def unicode_encode_utf_16_be(s, size, errors,
 def unicode_encode_utf_16_le(s, size, errors,
                              errorhandler=None):
     return unicode_encode_utf_16_helper(s, size, errors, errorhandler, "little")
+
+
+if sys.platform == 'win32':
+    def str_decode_mbcs(s, size, errors, final=False,
+                        errorhandler=None):
+        # XXX MultiByteToWideChar should be used instead.
+        return str_decode_latin_1(s, size, errors="replace",
+                                  final=final, errorhandler=errorhandler)
+
+    def unicode_encode_mbcs(p, size, errors, errorhandler=None):
+        # XXX This is only roughly correct, even on a Western Windows.
+        # For example, some greek letters do have a translation (phi -> f)
+        # WideCharToMultiByte should be used instead.
+        return unicode_encode_latin_1(p, size, errors="replace",
+                                      errorhandler=errorhandler)

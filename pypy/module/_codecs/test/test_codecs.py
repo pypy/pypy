@@ -528,6 +528,15 @@ class AppTestPartialEvaluation:
         assert u'\\'.encode('unicode-escape') == '\\\\'
         assert '\\\\'.decode('unicode-escape') == u'\\'
 
+    def test_mbcs(self):
+        import sys
+        if sys.platform != 'win32':
+            return
+        assert u'test'.encode('mbcs') == 'test'
+        assert u'caf\xe9'.encode('mbcs') == 'caf\xe9'
+        assert u'\u040a'.encode('mbcs') == '?' # some cyrillic letter
+        assert 'cafx\e9'.decode('mbcs') == u'cafx\e9'
+
 
 class TestDirect:
     def test_charmap_encode(self):

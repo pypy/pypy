@@ -247,6 +247,9 @@ for decoders in [
          ]:
     make_decoder_wrapper(decoders)
 
+if hasattr(runicode, 'str_decode_mbcs'):
+    make_encoder_wrapper('mbcs_encode')
+    make_decoder_wrapper('mbcs_decode')
 
 def utf_16_ex_decode(space, data, errors='strict', byteorder=0, w_final=False):
     """None

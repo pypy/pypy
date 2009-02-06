@@ -1,5 +1,6 @@
 from pypy.interpreter.mixedmodule import MixedModule
-    
+from pypy.rlib import runicode
+
 class Module(MixedModule):
     appleveldefs = {
          '__doc__' :  'app_codecs.__doc__',
@@ -44,6 +45,10 @@ class Module(MixedModule):
          'charbuffer_encode': 'interp_codecs.buffer_encode',
          'readbuffer_encode': 'interp_codecs.buffer_encode',
     }
+
+    if hasattr(runicode, 'str_decode_mbcs'):
+        interpleveldefs['mbcs_encode'] = 'interp_codecs.mbcs_encode'
+        interpleveldefs['mbcs_decode'] = 'interp_codecs.mbcs_decode'
 
     def setup_after_space_initialization(self):
         "NOT_RPYTHON"
