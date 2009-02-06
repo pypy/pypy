@@ -41,8 +41,15 @@ def _setup_ctypes_cache():
         rffi.LONGLONG:   ctypes.c_longlong,
         rffi.ULONGLONG:  ctypes.c_ulonglong,
         rffi.SIZE_T:     ctypes.c_size_t,
-        lltype.UniChar:  ctypes.c_wchar,
         })
+
+    # for unicode strings, do not use ctypes.c_wchar because ctypes
+    # automatically converts arrays into unicode strings.
+    # Pick the unsigned int that has the same size.
+    if ctypes.sizeof(ctypes.c_wchar) == ctypes.sizeof(ctypes.c_uint16):
+        _ctypes_cache[lltype.UniChar] = ctypes.c_uint16
+    else:
+        _ctypes_cache[lltype.UniChar] = ctypes.c_uint32
 
 def build_ctypes_struct(S, delayed_builders, max_n=None):
     def builder():
