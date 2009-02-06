@@ -262,12 +262,11 @@ class AppTestPosix:
             os.unlink("onefile")
         pass # <- please, inspect.getsource(), don't crash
 
-    if hasattr(__import__(os.name), 'popen'):
-        def test_popen(self):
-            os = self.posix
-            for i in range(5):
-                stream = os.popen('echo 1')
-                assert stream.read() == '1\n'
+    def test_popen(self):
+        os = self.posix
+        for i in range(5):
+            stream = os.popen('echo 1')
+            assert stream.read() == '1\n'
 
     if hasattr(__import__(os.name), '_getfullpathname'):
         def test__getfullpathname(self):
