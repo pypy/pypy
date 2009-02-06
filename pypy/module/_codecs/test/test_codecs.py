@@ -17,7 +17,7 @@ class AppTestCodecs:
         import sys
         oldmaxunicode = sys.maxunicode
         if sys.maxunicode <= 0xffff:
-            sys.maxunicode = 0xffffffff
+            return # this test cannot run on UCS2 builds
         u = u'\U00010001\U00020002\U00030003\U00040004\U00050005'
         for encoding in ('utf-8', 'utf-16', 'utf-16-le', 'utf-16-be',
                          'raw_unicode_escape',
@@ -474,6 +474,7 @@ class AppTestPartialEvaluation:
 
     def test_unicode_internal(self):
         import codecs
+        import sys
         try:
             '\x00'.decode('unicode-internal')
         except UnicodeDecodeError:
@@ -482,19 +483,27 @@ class AppTestPartialEvaluation:
             raise Exception("DID NOT RAISE")
 
         res = "\x00\x00\x00\x00\x00".decode("unicode-internal", "replace")
-        assert res == u"\u0000\ufffd"
+        if sys.maxunicode > 65535:
+            assert res == u"\u0000\ufffd"    # UCS4 build
+        else:
+            assert res == u"\x00\x00\ufffd"  # UCS2 build
+
+        res = "\x00\x00\x00\x00\x00".decode("unicode-internal", "ignore")
+        if sys.maxunicode > 65535:
+            assert res == u"\u0000"   # UCS4 build
+        else:
+            assert res == u"\x00\x00" # UCS2 build
+
         def handler_unicodeinternal(exc):
             if not isinstance(exc, UnicodeDecodeError):
                 raise TypeError("don't know how to handle %r" % exc)
             return (u"\x01", 1)
-
-        res = "\x00\x00\x00\x00\x00".decode("unicode-internal", "ignore")
-        assert res == u"\u0000"
-        res = "\x00\x00\x00\x00\x00".decode("unicode-internal", "replace")
-        assert res == u"\u0000\ufffd"
         codecs.register_error("test.hui", handler_unicodeinternal)
         res = "\x00\x00\x00\x00\x00".decode("unicode-internal", "test.hui")
-        assert res == u"\u0000\u0001\u0000"
+        if sys.maxunicode > 65535:
+            assert res == u"\u0000\u0001\u0000"   # UCS4 build
+        else:
+            assert res == u"\x00\x00\x01\x00\x00" # UCS2 build
 
     def test_charmap_encode(self):
         assert 'xxx'.encode('charmap') == 'xxx'
