@@ -153,7 +153,7 @@ if sys.platform != 'darwin':
         # XXX this is hopeless...
         libpath = ctypes.util.find_library('db-4.5')
         if not libpath:
-            raise Exception("Cannot find dbm library")
+            raise ImportError("Cannot find dbm library")
     lib = CDLL(libpath) # Linux
     _platform = 'bdb'
 else:
