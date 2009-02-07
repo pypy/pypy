@@ -16,6 +16,9 @@ def interactive_console(mainmodule=None):
     except ImportError:
         pass
     try:
+        from pyrepl.simple_interact import check
+        if not check():
+            raise ImportError
         from pyrepl.simple_interact import run_multiline_interactive_console
     except ImportError:
         run_simple_interactive_console(mainmodule)
