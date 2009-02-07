@@ -19,6 +19,10 @@ def expect(f, g, fnname, args, result, resulttype=None):
         write_message(g, result, resulttype)
         g.flush()
 
+def compile(f):
+    t = Translation(f, backend='c', standalone=True, sandbox=True, gc='ref')
+    return str(t.compile())
+
 
 def test_open_dup():
     def entry_point(argv):
@@ -28,8 +32,7 @@ def test_open_dup():
         assert fd2 == 78
         return 0
 
-    t = Translation(entry_point, backend='c', standalone=True, sandbox=True)
-    exe = str(t.compile())
+    exe = compile(entry_point)
     g, f = os.popen2(exe, "t", 0)
     expect(f, g, "ll_os.ll_os_open", ("/tmp/foobar", os.O_RDONLY, 0777), 77)
     expect(f, g, "ll_os.ll_os_dup",  (77,), 78)
@@ -49,8 +52,7 @@ def test_read_write():
         os.close(fd)
         return 0
 
-    t = Translation(entry_point, backend='c', standalone=True, sandbox=True)
-    exe = str(t.compile())
+    exe = compile(entry_point)
     g, f = os.popen2(exe, "t", 0)
     expect(f, g, "ll_os.ll_os_open",  ("/tmp/foobar", os.O_RDONLY, 0777), 77)
     expect(f, g, "ll_os.ll_os_read",  (77, 123), "he\x00llo")
@@ -67,8 +69,7 @@ def test_dup2_access():
         y = os.access("spam", 77)
         return 1 - y
 
-    t = Translation(entry_point, backend='c', standalone=True, sandbox=True)
-    exe = str(t.compile())
+    exe = compile(entry_point)
     g, f = os.popen2(exe, "t", 0)
     expect(f, g, "ll_os.ll_os_dup2",   (34, 56), None)
     expect(f, g, "ll_os.ll_os_access", ("spam", 77), True)
@@ -87,8 +88,7 @@ def test_stat_ftruncate():
         os.ftruncate(st.st_mode, st.st_size)  # nonsense, just to see outside
         return 0
 
-    t = Translation(entry_point, backend='c', standalone=True, sandbox=True)
-    exe = str(t.compile())
+    exe = compile(entry_point)
     g, f = os.popen2(exe, "t", 0)
     st = os.stat_result((55, 0, 0, 0, 0, 0, 0x12380000007, 0, 0, 0))
     expect(f, g, "ll_os.ll_os_stat", ("somewhere",), st,
@@ -105,8 +105,7 @@ def test_time():
         os.dup(int(t*1000))
         return 0
 
-    t = Translation(entry_point, backend='c', standalone=True, sandbox=True)
-    exe = str(t.compile())
+    exe = compile(entry_point)
     g, f = os.popen2(exe, "t", 0)
     expect(f, g, "ll_time.ll_time_time", (), 3.141592)
     expect(f, g, "ll_os.ll_os_dup", (3141,), 3)
@@ -123,8 +122,7 @@ def test_oserror():
             os.close(e.errno)    # nonsense, just to see outside
         return 0
 
-    t = Translation(entry_point, backend='c', standalone=True, sandbox=True)
-    exe = str(t.compile())
+    exe = compile(entry_point)
     g, f = os.popen2(exe, "t", 0)
     expect(f, g, "ll_os.ll_os_stat", ("somewhere",), OSError(6321, "egg"))
     expect(f, g, "ll_os.ll_os_close", (6321,), None)
@@ -136,9 +134,7 @@ def test_oserror():
 class TestPrintedResults:
 
     def run(self, entry_point, args, expected):
-        t = Translation(entry_point, backend='c', standalone=True,
-                        sandbox=True)
-        exe = str(t.compile())
+        exe = compile(entry_point)
         from pypy.translator.sandbox.sandlib import SimpleIOSandboxedProc
         proc = SimpleIOSandboxedProc([exe] + args)
         output, error = proc.communicate()

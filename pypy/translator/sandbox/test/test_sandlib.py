@@ -5,7 +5,7 @@ from pypy.rpython.lltypesystem import rffi
 from pypy.translator.sandbox.sandlib import SandboxedProc
 from pypy.translator.sandbox.sandlib import SimpleIOSandboxedProc
 from pypy.translator.sandbox.sandlib import VirtualizedSocketProc
-from pypy.translator.interactive import Translation
+from pypy.translator.sandbox.test.test_sandbox import compile
 
 
 class MySandboxedProc(SandboxedProc):
@@ -46,8 +46,7 @@ def test_lib():
             assert count == 61
         os.close(fd)
         return 0
-    t = Translation(entry_point, backend='c', standalone=True, sandbox=True)
-    exe = str(t.compile())
+    exe = compile(entry_point)
 
     proc = MySandboxedProc([exe, 'x1', 'y2'], expected = [
         ("open", ("/tmp/foobar", os.O_RDONLY, 0777), 77),
@@ -68,8 +67,7 @@ def test_foobar():
         s = rffi.str2charp(argv[1]); n = foobar(s); rffi.free_charp(s)
         s = rffi.str2charp(argv[n]); n = foobar(s); rffi.free_charp(s)
         return n
-    t = Translation(entry_point, backend='c', standalone=True, sandbox=True)
-    exe = str(t.compile())
+    exe = compile(entry_point)
 
     proc = MySandboxedProc([exe, 'spam', 'egg'], expected = [
         ("foobar", ("spam",), 2),
@@ -92,8 +90,7 @@ def test_simpleio():
         num = int(buf)
         print "The double is:", num * 2
         return 0
-    t = Translation(entry_point, backend='c', standalone=True, sandbox=True)
-    exe = str(t.compile())
+    exe = compile(entry_point)
 
     proc = SimpleIOSandboxedProc([exe, 'x1', 'y2'])
     output, error = proc.communicate("21\n")
@@ -110,8 +107,7 @@ def test_socketio():
         os.write(fd, 'GET /\n')
         print os.read(fd, 30)
         return 0
-    t = Translation(entry_point, backend='c', standalone=True, sandbox=True)
-    exe = str(t.compile())
+    exe = compile(entry_point)
 
     proc = SocketProc([exe])
     output, error = proc.communicate("")
@@ -124,8 +120,7 @@ def test_oserror():
         except OSError, e:
             os.close(e.errno)    # nonsense, just to see outside
         return 0
-    t = Translation(entry_point, backend='c', standalone=True, sandbox=True)
-    exe = str(t.compile())
+    exe = compile(entry_point)
 
     proc = MySandboxedProc([exe], expected = [
         ("open", ("/tmp/foobar", os.O_RDONLY, 0777), OSError(-42, "baz")),
