@@ -240,9 +240,12 @@ else:
             consts_w = [None] * len(nodes)
             for i in range(len(nodes)):
                 subnode = nodes[i]
-                if not isinstance(subnode, ast.Const):
+                if isinstance(subnode, ast.Const):
+                    consts_w[i] = subnode.value
+                elif isinstance(subnode, ast.Name) and subnode.varname == 'None':
+                    consts_w[i] = self.space.w_None
+                else:
                     return node     # not all constants
-                consts_w[i] = subnode.value
             return ast.Const(self.space.newtuple(consts_w))
 
         def visitFor(self, node):
