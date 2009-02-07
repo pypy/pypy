@@ -766,6 +766,23 @@ class AppTestOptimizer:
         output = s.getvalue()
         assert 'BINARY_ADD' not in output
 
+    def test_remove_ending(self):
+        source = """def f():
+            return 3
+"""
+        exec source
+        code = f.func_code
+        import dis, sys, StringIO
+        s = StringIO.StringIO()
+        so = sys.stdout
+        sys.stdout = s
+        try:
+            dis.dis(code)
+        finally:
+            sys.stdout = so
+        output = s.getvalue()
+        assert output.count('LOAD_CONST') == 1
+
 class AppTestExceptions:
     def test_indentation_error(self):
         source = """if 1:
