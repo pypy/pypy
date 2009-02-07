@@ -810,7 +810,7 @@ class AppTestOptimizer:
             ('a = 14%4', '(2)'),                    # binary modulo
             ('a = 2+3', '(5)'),                     # binary add
             ('a = 13-4', '(9)'),                    # binary subtract
-            ('a = (12,13)[1]', '(13)'),             # binary subscr
+            # ('a = (12,13)[1]', '(13)'),             # binary subscr - pointless optimization
             ('a = 13 << 2', '(52)'),                # binary lshift
             ('a = 13 >> 2', '(3)'),                 # binary rshift
             ('a = 13 & 7', '(5)'),                  # binary and
@@ -818,8 +818,9 @@ class AppTestOptimizer:
             ('a = 13 | 7', '(15)'),                 # binary or
             ):
             asm = dis_single(line)
-            assert elem in asm
-            assert 'BINARY_' not in asm
+            print asm
+            assert elem in asm, 'ELEMENT not in asm'
+            assert 'BINARY_' not in asm, 'BINARY_in_asm'
 
         # Verify that unfoldables are skipped
         asm = dis_single('a=2+"b"')
