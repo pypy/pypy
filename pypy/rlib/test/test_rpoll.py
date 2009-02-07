@@ -50,7 +50,6 @@ def test_simple():
     serv.close()
 
 def test_select():
-    from time import time
     def f():
         readend, writeend = os.pipe()
         try:
@@ -64,15 +63,19 @@ def test_select():
         finally:
             os.close(readend)
             os.close(writeend)
-
-        # once there was a bug where the sleeping time was doubled
-        a = time()
-        iwtd, owtd, ewtd = select([], [], [], 1.0)
-        diff = time() - a
-        assert 0.9 < diff < 1.1
-
     f()
     interpret(f, [])
+
+def test_select_timeout():
+    from time import time
+    def f():
+        # once there was a bug where the sleeping time was doubled
+        a = time()
+        iwtd, owtd, ewtd = select([], [], [], 5.0)
+        diff = time() - a
+        assert 4.8 < diff < 9.0
+    interpret(f, [])
+
 
 def test_translate():
     from pypy.translator.c.test.test_genc import compile
