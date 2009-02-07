@@ -15,6 +15,7 @@ class PyFlowGraph(object):
     def __init__(self, space, name, filename, argnames=None,
                  optimized=0, klass=0, newlocals=0):
         self.space = space
+        self.deadcode = False
         if argnames is None:
             argnames = []
         self.name = name
@@ -74,7 +75,12 @@ class PyFlowGraph(object):
     # Simple instructions
 
     def emit(self, opname):
+        if self.deadcode:
+            return
+
         self.co_code.append(chr(pythonopcode.opmap[opname]))
+        if opname in ops_unconditional:
+            self.deadcode = True
 
     def emitop_extended_arg(self, intval):
         assert intval <= 0x7FFFFFFF
@@ -217,14 +223,17 @@ class PyFlowGraph(object):
 
     def newBlock(self):
         """This really returns a new label, initially not pointing anywhere."""
+        self.deadcode = False
         return Label()
 
     def nextBlock(self, label):
+        self.deadcode = False
         if label.position >= 0:
             raise InternalCompilerError("Label target already seen")
         label.position = len(self.co_code)
 
     def emitop_block(self, opname, label):
+        self.deadcode = False
         absolute = opname in self.hasjabs
         target = label.position
         if target < 0:     # unknown yet
@@ -603,6 +612,8 @@ ops_interrupt_unconditionally = ('RETURN_VALUE', 'RAISE_VARARGS',
                                  'CONTINUE_LOOP', 'BREAK_LOOP')
 ops_jump_unconditionally = ('JUMP_ABSOLUTE', 'JUMP_FORWARD')
 ops_jumps = list(PyFlowGraph.hasjrel) + list(PyFlowGraph.hasjabs)
+
+ops_unconditional = ops_jump_unconditionally + ops_interrupt_unconditionally
 
 DEPTH_OP_TRACKER = {}
 DEPTH_OP_EFFECT_ALONG_JUMP = {}
