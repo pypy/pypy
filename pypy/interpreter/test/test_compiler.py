@@ -783,6 +783,53 @@ class AppTestOptimizer:
         output = s.getvalue()
         assert output.count('LOAD_CONST') == 1
 
+    
+    def test_folding_of_binops_on_constants(self):
+        def disassemble(func):
+            from StringIO import StringIO
+            import sys, dis
+            f = StringIO()
+            tmp = sys.stdout
+            sys.stdout = f
+            dis.dis(func)
+            sys.stdout = tmp
+            result = f.getvalue()
+            f.close()
+            return result
+
+        def dis_single(line):
+            return disassemble(compile(line, '', 'single'))
+
+        for line, elem in (
+            ('a = 2+3+4', '(9)'),                   # chained fold
+            ('"@"*4', "('@@@@')"),                  # check string ops
+            ('a="abc" + "def"', "('abcdef')"),      # check string ops
+            ('a = 3**4', '(81)'),                   # binary power
+            ('a = 3*4', '(12)'),                    # binary multiply
+            ('a = 13//4', '(3)'),                   # binary floor divide
+            ('a = 14%4', '(2)'),                    # binary modulo
+            ('a = 2+3', '(5)'),                     # binary add
+            ('a = 13-4', '(9)'),                    # binary subtract
+            ('a = (12,13)[1]', '(13)'),             # binary subscr
+            ('a = 13 << 2', '(52)'),                # binary lshift
+            ('a = 13 >> 2', '(3)'),                 # binary rshift
+            ('a = 13 & 7', '(5)'),                  # binary and
+            ('a = 13 ^ 7', '(10)'),                 # binary xor
+            ('a = 13 | 7', '(15)'),                 # binary or
+            ):
+            asm = dis_single(line)
+            assert elem in asm
+            assert 'BINARY_' not in asm
+
+        # Verify that unfoldables are skipped
+        asm = dis_single('a=2+"b"')
+        assert '(2)' in asm
+        assert "('b')" in asm
+
+        # Verify that large sequences do not result from folding
+        asm = dis_single('a="x"*1000')
+        assert '(1000)' in asm
+
 class AppTestExceptions:
     def test_indentation_error(self):
         source = """if 1:
