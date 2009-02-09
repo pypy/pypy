@@ -46,7 +46,7 @@ class AppTestUnicodeRope(test_unicodeobject.AppTestUnicodeString):
     def test_replace_with_buffer(self):
         skip("XXX fix")
 
-    def test_rfind(self):
+    def test_rfind_corner_case(self):
         skip("XXX fix")
 
     def test_rsplit(self):
