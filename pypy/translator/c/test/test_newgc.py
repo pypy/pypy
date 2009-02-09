@@ -747,6 +747,7 @@ class TestUsingFramework(AbstractGCTestClass):
 
     def test_dict_segfault(self):
         " was segfaulting at one point see rev 39665 for fix and details "
+        py.test.skip("Takes about 30 minutes in nightly test run, see rev 39665 for a minimal test that does the same")
 
         class Element:
             pass
