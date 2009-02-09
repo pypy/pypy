@@ -194,6 +194,8 @@ class TestTranslation(object):
         assert res
 
     def test_surrogates(self):
+        if runicode.MAXUNICODE < 65536:
+            py.test.skip("Narrow unicode build")
         from pypy.rpython.test.test_llinterp import interpret
         def f(x):
             u = runicode.UNICHR(x)

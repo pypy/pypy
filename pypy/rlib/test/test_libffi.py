@@ -45,7 +45,7 @@ class TestDLOperations:
 
     def test_library_get_func(self):
         lib = self.get_libc()
-        ptr = lib.getpointer('time', [], ffi_type_void)
+        ptr = lib.getpointer('fopen', [], ffi_type_void)
         py.test.raises(KeyError, lib.getpointer, 'xxxxxxxxxxxxxxx', [], ffi_type_void)
         del ptr
         del lib
@@ -86,7 +86,7 @@ class TestDLOperations:
         libc = self.get_libc()
         # XXX assume time_t is long
         ulong = cast_type_to_ffitype(rffi.ULONG)
-        ctime = libc.getpointer('time', [ffi_type_pointer], ulong)
+        ctime = libc.getpointer('fopen', [ffi_type_pointer], ulong)
         x = lltype.malloc(lltype.GcStruct('xxx'))
         y = lltype.malloc(lltype.GcArray(rffi.LONG), 3)
         z = lltype.malloc(lltype.Array(rffi.LONG), 4, flavor='raw')
@@ -110,7 +110,11 @@ class TestDLOperations:
         libc = self.get_libc()
         # XXX assume time_t is long
         ulong = cast_type_to_ffitype(rffi.ULONG)
-        ctime = libc.getpointer('time', [ffi_type_pointer], ulong)
+        try:
+            ctime = libc.getpointer('time', [ffi_type_pointer], ulong)
+        except KeyError:
+            # This function is named differently since msvcr80
+            ctime = libc.getpointer('_time32', [ffi_type_pointer], ulong)
         ctime.push_arg(lltype.nullptr(rffi.CArray(rffi.LONG)))
         t0 = ctime.call(rffi.LONG)
         time.sleep(2)
