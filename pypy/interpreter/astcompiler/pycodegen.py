@@ -1143,13 +1143,6 @@ class CodeGenerator(ast.ASTVisitor):
         self.emit('RETURN_VALUE')
 
     def visitYield(self, node):
-        if self.space.config.objspace.pyversion < '2.5':
-            if len(self.setups):
-                kind, block = self.setups[-1]
-                if kind  == TRY_FINALLY:
-                    raise SyntaxError("'yield' not allowed in a 'try' block "
-                                  "with a 'finally' clause",
-                                  node.lineno)
         self.set_lineno(node)
         node.value.accept( self )
         self.emit('YIELD_VALUE')

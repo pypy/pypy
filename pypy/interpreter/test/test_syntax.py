@@ -257,12 +257,7 @@ def checkinvalid(space, s):
         raise
 
 
-class Py25AppTest:
-    def setup_class(self):
-        self.space = gettestobjspace(pyversion='2.5')
-        return
-
-class AppTestCondExpr(Py25AppTest):
+class AppTestCondExpr:
     def test_condexpr(self):
         for s, expected in [("x = 1 if True else 2", 1),
                             ("x = 1 if False else 2", 2)]:
@@ -276,13 +271,13 @@ class AppTestCondExpr(Py25AppTest):
         exec "1 if True else 2"
         warnings.simplefilter('default', SyntaxWarning)
 
-class AppTestYield(Py25AppTest):
+class AppTestYield:
     def test_bare_yield(self):
         s = "def f():\n    yield"
 
         exec s
 
-class AppTestWith(Py25AppTest):
+class AppTestWith:
     def test_with_simple(self):
 
         s = """from __future__ import with_statement

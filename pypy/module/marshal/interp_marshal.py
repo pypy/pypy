@@ -5,13 +5,7 @@ from pypy.module._file.interp_file import W_File
 from pypy.module._file.interp_stream import StreamErrors, wrap_streamerror
 import sys
 
-# Py_MARSHAL_VERSION = 2
-# this is from Python 2.5
-# already implemented, but for compatibility,
-# we default to version 1. Version 2 can be
-# tested, anyway, by using the optional parameter.
-# XXX make it 2 when used with --pyversion=2.5 translation
-Py_MARSHAL_VERSION = 1
+Py_MARSHAL_VERSION = 2
 
 def dump(space, w_data, w_f, w_version=Py_MARSHAL_VERSION):
     """Write the 'data' object into the open file 'f'."""

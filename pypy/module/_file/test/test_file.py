@@ -253,7 +253,7 @@ class AppTestConcurrency(object):
 
 class AppTestFile25:
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=("_file", ), pyversion="2.5")
+        cls.space = gettestobjspace(usemodules=("_file", ))
         cls.w_temppath = cls.space.wrap(
             str(py.test.ensuretemp("fileimpl").join("foo.txt")))
         cls.w_file = getfile(cls.space)

@@ -217,7 +217,7 @@ class PythonAstCompiler(PyCodeCompiler):
 
         from pyparser.pythonparse import make_pyparser
         PyCodeCompiler.__init__(self, space)
-        self.grammar_version = override_version or space.config.objspace.pyversion
+        self.grammar_version = override_version or "2.5"
         self.parser = make_pyparser(self.grammar_version)
         self.additional_rules = {}
         if self.grammar_version >= '2.5':

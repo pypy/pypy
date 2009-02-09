@@ -3,7 +3,7 @@ from pypy.interpreter.pyparser.pythonlexer import Source, TokenError, \
 from pypy.interpreter.pyparser.grammar import Token, GrammarElement
 from pypy.interpreter.pyparser.pythonparse import make_pyparser, _check_for_encoding
 
-P = make_pyparser('2.4')
+P = make_pyparser('2.5')
 
 EQUAL = P.tokens['EQUAL']
 ENDMARKER = P.tokens['ENDMARKER']

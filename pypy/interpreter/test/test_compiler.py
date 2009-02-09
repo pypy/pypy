@@ -255,10 +255,7 @@ class BaseTestCompiler:
 
     def test_yield_in_finally(self):
         code ='def f():\n try:\n  yield 19\n finally:\n  pass\n'
-        e = py.test.raises(OperationError, self.compiler.compile, code, '', 'single', 0)
-        ex = e.value
-        ex.normalize_exception(self.space)
-        assert ex.match(self.space, self.space.w_SyntaxError)
+        self.compiler.compile(code, '', 'single', 0)
 
     def test_none_assignment(self):
         stmts = [
@@ -651,10 +648,7 @@ class TestPyCCompiler(BaseTestCompiler):
             py.test.skip("syntax not supported by the CPython 2.4 compiler")
         test_continue_in_nested_finally = skip_on_2_4
         test_try_except_finally = skip_on_2_4
-    elif sys.version_info > (2, 4):
-        def skip_on_2_5(self):
-            py.test.skip("syntax changed in CPython 2.5 compiler")
-        test_yield_in_finally = skip_on_2_5
+        test_yield_in_finally = skip_on_2_4
 
 class TestPythonAstCompiler_25_grammar(BaseTestCompiler):
     def setup_method(self, method):
@@ -690,10 +684,6 @@ with somtehing as stuff:
         else:
             py.test.fail("Did not raise")
 
-    def test_yield_in_finally(self): # behavior changed in 2.5
-        code ='def f():\n try:\n  yield 19\n finally:\n  pass\n'
-        self.compiler.compile(code, '', 'single', 0)
-
     def test_assign_to_yield(self):
         code = 'def f(): (yield bar) += y'
         try:
@@ -716,17 +706,15 @@ with somtehing as stuff:
 
 class TestECCompiler(BaseTestCompiler):
     def setup_method(self, method):
-        self.space.config.objspace.pyversion = "2.4"
         self.compiler = self.space.getexecutioncontext().compiler
 
 
-class TestPythonAstCompiler(BaseTestCompiler):
-    def setup_method(self, method):
-        self.space.config.objspace.pyversion = "2.4"
-        self.compiler = PythonAstCompiler(self.space, "2.4")
+##class TestPythonAstCompiler(BaseTestCompiler):
+##    def setup_method(self, method):
+##        self.compiler = PythonAstCompiler(self.space, "2.4")
 
-    def test_try_except_finally(self):
-        py.test.skip("unsupported")
+##    def test_try_except_finally(self):
+##        py.test.skip("unsupported")
 
 class AppTestOptimizer:
     def test_constant_fold_add(self):

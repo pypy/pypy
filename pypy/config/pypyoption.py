@@ -110,10 +110,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                  ["cpython", "ast"], "ast",
                  cmdline='--compiler'),
 
-    ChoiceOption("pyversion", "which grammar to use for app-level code",
-                 ["2.3", "2.4", "2.5"], "2.5",
-                 cmdline='--pyversion'),
-
     OptionDescription("opcodes", "opcodes to enable in the interpreter", [
         BoolOption("CALL_LIKELY_BUILTIN", "emit a special bytecode for likely calls to builtin functions",
                    default=False,

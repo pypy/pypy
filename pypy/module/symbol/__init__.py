@@ -16,10 +16,6 @@ class Module(MixedModule):
     appleveldefs = {}
     interpleveldefs = {}     # see below
 
-    def __init__(self, space, w_name):
-        MixedModule.__init__(self, space, w_name)
-        _init_symbols(space.config.objspace.pyversion)
-
 
 # Export the values from our custom symbol module.
 # Skip negative values (the corresponding symbols are not visible in

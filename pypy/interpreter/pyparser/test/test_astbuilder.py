@@ -188,13 +188,13 @@ def tuple_parse_expr(expr, target='single'):
     t = Transformer("dummyfile")
     return ast_from_input(expr, target, t, stable_parser)
 
-def source2ast(source, mode, space=FakeSpace(), version='2.4'):
+def source2ast(source, mode, space=FakeSpace(), version='2.5'):
     python_parser = pythonparse.make_pyparser(version)
     builder = AstBuilder(python_parser, version, space=space)
     python_parser.parse_source(source, mode, builder)
     return builder.rule_stack[-1]
 
-def check_expression(expr, mode='single', version='2.4'):
+def check_expression(expr, mode='single', version='2.5'):
     pypy_ast = source2ast(expr, mode, version=version)
     try:
         python_ast = EXPECTED[expr]

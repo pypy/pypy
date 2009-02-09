@@ -12,7 +12,7 @@ def get_parser():
     if not _PARSER:
         from pypy.config.pypyoption import get_pypy_config
         config = get_pypy_config(translating=False)
-        _PARSER = make_pyparser(config.objspace.pyversion)
+        _PARSER = make_pyparser("2.5")
     return _PARSER
 
 def suite( source ):
