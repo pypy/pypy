@@ -162,13 +162,15 @@ for name in type_names:
 
 def _signed_type_for(TYPE):
     sz = rffi.sizeof(TYPE)
-    if sz == 4:   return ffi_type_sint32
+    if sz == 2:   return ffi_type_sint16
+    elif sz == 4: return ffi_type_sint32
     elif sz == 8: return ffi_type_sint64
     else: raise ValueError("unsupported type size for %r" % (TYPE,))
 
 def _unsigned_type_for(TYPE):
     sz = rffi.sizeof(TYPE)
-    if sz == 4:   return ffi_type_uint32
+    if sz == 2:   return ffi_type_uint16
+    elif sz == 4: return ffi_type_uint32
     elif sz == 8: return ffi_type_uint64
     else: raise ValueError("unsupported type size for %r" % (TYPE,))
 
@@ -187,7 +189,8 @@ TYPE_MAP = {
     rffi.LONG      : _signed_type_for(rffi.LONG),
     rffi.ULONGLONG : _unsigned_type_for(rffi.ULONGLONG),
     rffi.LONGLONG  : _signed_type_for(rffi.LONGLONG),
-    lltype.Void : ffi_type_void,
+    lltype.Void    : ffi_type_void,
+    lltype.UniChar : _unsigned_type_for(lltype.UniChar),
     }
 
 def external(name, args, result, **kwds):

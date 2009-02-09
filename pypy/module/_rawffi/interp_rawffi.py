@@ -24,7 +24,7 @@ TYPEMAP = {
     'b' : ffi_type_schar,
     'B' : ffi_type_uchar,
     'h' : ffi_type_sshort,
-    'u' : ffi_type_uint, # XXX think deeper how to map it properly
+    'u' : cast_type_to_ffitype(lltype.UniChar),
     'H' : ffi_type_ushort,
     'i' : cast_type_to_ffitype(rffi.INT),
     'I' : cast_type_to_ffitype(rffi.UINT),

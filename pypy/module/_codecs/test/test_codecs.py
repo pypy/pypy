@@ -225,7 +225,8 @@ class AppTestPartialEvaluation:
                 assert enc == "\x00a"
             else:
                 assert enc == "a\x00"
-        else: # UCS4 build
+        elif len(u"\U00010098") == 1:
+            # UCS4 build on a UCS4 CPython
             enc2 = u"\U00010098".encode("unicode_internal")
             if sys.byteorder == "big":
                 assert enc == "\x00\x00\x00a"
@@ -233,6 +234,12 @@ class AppTestPartialEvaluation:
             else:
                 assert enc == "a\x00\x00\x00"
                 assert enc2 == "\x98\x00\x01\x00"
+        else:
+            # UCS4 build on a UCS2 CPython
+            if sys.byteorder == "big":
+                assert enc == "\x00\x00\x00a"
+            else:
+                assert enc == "a\x00\x00\x00"
 
     def test_unicode_internal_decode(self):
         import sys

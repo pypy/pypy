@@ -1,5 +1,5 @@
 from pypy.interpreter.mixedmodule import MixedModule 
-from pypy.interpreter.error import OperationError 
+from pypy.interpreter.error import OperationError
 
 class Module(MixedModule):
     """Sys Builtin Module. """
@@ -18,7 +18,7 @@ class Module(MixedModule):
         'platform'              : 'space.wrap(sys.platform)', 
         'maxint'                : 'space.wrap(sys.maxint)', 
         'byteorder'             : 'space.wrap(sys.byteorder)', 
-        'maxunicode'            : 'space.wrap(sys.maxunicode)',
+        'maxunicode'            : 'space.wrap(vm.MAXUNICODE)',
         'maxint'                : 'space.wrap(sys.maxint)',
         'stdin'                 : 'state.getio(space).w_stdin',
         '__stdin__'             : 'state.getio(space).w_stdin',

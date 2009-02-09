@@ -419,7 +419,8 @@ def ll_check_chr(n):
         raise ValueError
 
 def ll_check_unichr(n):
-    if 0 <= n <= sys.maxunicode:
+    from pypy.rlib.runicode import MAXUNICODE
+    if 0 <= n <= MAXUNICODE:
         return
     else:
         raise ValueError

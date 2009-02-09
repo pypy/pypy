@@ -192,3 +192,13 @@ class TestTranslation(object):
             return s1 == s2
         res = interpret(f, [2])
         assert res
+
+    def test_surrogates(self):
+        from pypy.rpython.test.test_llinterp import interpret
+        def f(x):
+            u = runicode.UNICHR(x)
+            t = runicode.ORD(u)
+            return t
+            
+        res = interpret(f, [0x10140])
+        assert res == 0x10140

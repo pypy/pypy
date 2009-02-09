@@ -1,8 +1,44 @@
 import sys
 from pypy.lang.smalltalk.tool.bitmanipulation import splitter
+from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rlib.objectmodel import we_are_translated
 
-MAXUNICODE = sys.maxunicode
+if rffi.sizeof(lltype.UniChar) == 4:
+    MAXUNICODE = 0x10ffff
+else:
+    MAXUNICODE = 0xffff
 BYTEORDER = sys.byteorder
+
+if MAXUNICODE > sys.maxunicode:
+    # A version of unichr which allows codes outside the BMP
+    # even on narrow unicode builds.
+    # It will be used when interpreting code on top of a UCS2 CPython,
+    # when sizeof(wchar_t) == 4.
+    # Note that Python3 uses a similar implementation.
+    def UNICHR(c):
+        if we_are_translated():
+            return unichr(c)
+        else:
+            if c < sys.maxunicode or c > MAXUNICODE:
+                return unichr(c)
+            else:
+                c -= 0x10000
+                return (unichr(0xD800 + (c >> 10)) +
+                        unichr(0xDC00 + (c & 0x03FF)))
+
+    def ORD(u):
+        if we_are_translated():
+            return ord(u)
+        else:
+            if isinstance(u, unicode) and len(u) == 2:
+                ch1 = ord(u[0])
+                ch2 = ord(u[1])
+                if 0xD800 <= ch1 <= 0xDBFF and 0xDC00 <= ch2 <= 0xDFFF:
+                    return (((ch1 - 0xD800) << 10) | (ch2 - 0xDC00)) + 0x10000
+            return ord(u)
+else:
+    UNICHR = unichr
+    ORD = ord
 
 
 def raise_unicode_exception_decode(errors, encoding, msg, s,
@@ -143,7 +179,7 @@ def str_decode_utf_8(s, size, errors, final=False,
                 else:
                     # convert to UTF-16 if necessary
                     if c < MAXUNICODE:
-                        result.append(unichr(c))
+                        result.append(UNICHR(c))
                     else:
                         # compute and append the two surrogates:
                         # translate from 10000..10FFFF to 0..FFFF
@@ -267,7 +303,7 @@ def str_decode_utf_16_helper(s, size, errors, final=True,
                     result.append(unichr(ch))
                     result.append(unichr(ch2))
                 else:
-                    result.append(unichr((((ch & 0x3FF)<<10) |
+                    result.append(UNICHR((((ch & 0x3FF)<<10) |
                                            (ch2 & 0x3FF)) + 0x10000))
                 continue
             else:

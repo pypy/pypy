@@ -5,6 +5,7 @@ Interp-level implementation of the basic space operations.
 from pypy.interpreter import gateway, buffer
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.error import OperationError
+from pypy.rlib.runicode import UNICHR
 import __builtin__
 NoneNotWrapped = gateway.NoneNotWrapped
 
@@ -27,7 +28,7 @@ def unichr(space, code):
     "Return a Unicode string of one character with the given ordinal."
     # XXX range checking!
     try:
-        c = __builtin__.unichr(code)
+        c = UNICHR(code)
     except ValueError:
         raise OperationError(space.w_ValueError,
                              space.wrap("unichr() arg out of range"))

@@ -3,6 +3,7 @@ Implementation of interpreter-level 'sys' routines.
 """
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace
+from pypy.rlib.runicode import MAXUNICODE
 import sys
 
 # ____________________________________________________________

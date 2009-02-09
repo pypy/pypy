@@ -3,10 +3,9 @@ Helpers to pack and unpack a unicode character into raw bytes.
 """
 
 import sys
+from pypy.rlib.runicode import MAXUNICODE
 
-# XXX For now we assume CPython's own native maxunicode
-
-if sys.maxunicode <= 65535:
+if MAXUNICODE <= 65535:
     UNICODE_SIZE = 2
 else:
     UNICODE_SIZE = 4

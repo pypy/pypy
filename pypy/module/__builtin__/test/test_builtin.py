@@ -33,9 +33,11 @@ class AppTestBuiltinApp:
         assert unichr(65) == u'A'
         assert type(unicode(65)) is unicode
         assert unichr(0x9876) == u'\u9876'
-        assert ord(unichr(sys.maxunicode)) == sys.maxunicode
-        if sys.maxunicode > 0x10000:
+        if sys.maxunicode > 0xFFFF:
+            assert unichr(sys.maxunicode) == u'\U0010FFFF'
             assert unichr(0x10000) == u'\U00010000'
+        else:
+            assert unichr(sys.maxunicode) == u'\uFFFF'
         raises(ValueError, unichr, -1)
         raises(ValueError, unichr, sys.maxunicode+1)
 
