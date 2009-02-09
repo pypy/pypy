@@ -140,7 +140,23 @@ class CFuncPtr(_CData):
         if self._buffer is not None:
             self._ptr = _rawffi.FuncPtr(self._buffer[0], argshapes, resshape)
             return self._ptr
-        return self.dll._handle.ptr(self.name, argshapes, resshape)
+        cdll = self.dll._handle
+        try:
+            return cdll.ptr(self.name, argshapes, resshape)
+        except AttributeError:
+            if self._flags_ & _rawffi.FUNCFLAG_CDECL:
+                raise
+
+            # For stdcall, try mangled names:
+            # funcname -> _funcname@<n>
+            # where n is 0, 4, 8, 12, ..., 128
+            for i in range(32):
+                mangled_name = "_%s@%d" % (self.name, i*4)
+                try:
+                    return cdll.ptr(mangled_name, argshapes, resshape)
+                except AttributeError:
+                    pass
+            raise
 
     @staticmethod
     def _guess_argtypes(args):

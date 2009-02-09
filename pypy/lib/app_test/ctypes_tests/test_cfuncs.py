@@ -197,4 +197,5 @@ else:
 
     class TestStdcallCFunctions(TestCFunctions):
         def setup_class(cls):
+            TestCFunctions.setup_class.im_func(cls)
             cls._dll = stdcall_dll(_ctypes_test)
