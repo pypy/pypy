@@ -98,6 +98,14 @@ class TestDLOperations:
         lltype.free(z, flavor='raw')
         # allocation check makes no sense, since we've got GcStructs around
 
+    def test_unichar(self):
+        from pypy.rlib.runicode import MAXUNICODE
+        wchar = cast_type_to_ffitype(lltype.UniChar)
+        if MAXUNICODE > 65535:
+            assert wchar is ffi_type_uint32
+        else:
+            assert wchar is ffi_type_uint16
+
     def test_call_time(self):
         libc = self.get_libc()
         # XXX assume time_t is long
