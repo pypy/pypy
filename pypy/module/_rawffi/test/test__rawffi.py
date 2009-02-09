@@ -297,7 +297,11 @@ class AppTestFfi:
     def test_time(self):
         import _rawffi
         libc = _rawffi.get_libc()
-        time = libc.ptr('time', ['z'], 'l')  # 'z' instead of 'P' just for test
+        try:
+            time = libc.ptr('time', ['z'], 'l')  # 'z' instead of 'P' just for test
+        except AttributeError:
+            # Since msvcr80, this function is named differently
+            time = libc.ptr('_time32', ['z'], 'l')
         arg = _rawffi.Array('P')(1)
         arg[0] = 0
         res = time(arg)
@@ -346,7 +350,11 @@ class AppTestFfi:
                                 ("tm_yday", 'i'),
                                 ("tm_isdst", 'i')])
         libc = _rawffi.get_libc()
-        gmtime = libc.ptr('gmtime', ['P'], 'P')
+        try:
+            gmtime = libc.ptr('gmtime', ['P'], 'P')
+        except AttributeError:
+            # Since msvcr80, this function is named differently
+            gmtime = libc.ptr('_gmtime32', ['P'], 'P')
 
         arg = x.byptr()
         res = gmtime(arg)
@@ -615,7 +623,7 @@ class AppTestFfi:
         a.free()
 
     def test_wide_char(self):
-        import _rawffi
+        import _rawffi, sys
         A = _rawffi.Array('u')
         a = A(3)
         a[0] = u'x'
@@ -623,11 +631,18 @@ class AppTestFfi:
         a[2] = u'z'
         assert a[0] == u'x'
         b = _rawffi.Array('c').fromaddress(a.buffer, 38)
-        assert b[0] == 'x'
-        assert b[1] == '\x00'
-        assert b[2] == '\x00'
-        assert b[3] == '\x00'
-        assert b[4] == 'y'
+        if sys.maxunicode > 65535:
+            # UCS4 build
+            assert b[0] == 'x'
+            assert b[1] == '\x00'
+            assert b[2] == '\x00'
+            assert b[3] == '\x00'
+            assert b[4] == 'y'
+        else:
+            # UCS2 build
+            assert b[0] == 'x'
+            assert b[1] == '\x00'
+            assert b[2] == 'y'
         a.free()
 
     def test_truncate(self):
