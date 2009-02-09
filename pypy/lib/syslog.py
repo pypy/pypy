@@ -5,6 +5,10 @@ Refer to the Unix manual pages for a detailed description of the
 syslog facility.
 """
 
+import sys
+if sys.platform == 'win32':
+    raise ImportError("No syslog on Windows")
+
 from ctypes_support import standard_c_lib as libc
 from ctypes import c_int, c_char_p
 from ctypes_configure.configure import (configure,
