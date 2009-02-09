@@ -24,7 +24,7 @@ MAGIC = 20031017
 # we only see re bytecodes as Python longs, we shouldn't have to care about the
 # codesize. But sre_compile will compile some stuff differently depending on the
 # codesize (e.g., charsets).
-from rlib.runicode import MAXUNICODE
+from pypy.rlib.runicode import MAXUNICODE
 if MAXUNICODE == 65535:
     CODESIZE = 2
 else:
