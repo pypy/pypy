@@ -35,6 +35,7 @@ class TestRetval:
         pass
     else:
         def test_oledll(self):
+            py.test.skip("_check_retval_ is not supported")
             raises(WindowsError,
                                   oledll.oleaut32.CreateTypeLib2,
                                   0, 0, 0)

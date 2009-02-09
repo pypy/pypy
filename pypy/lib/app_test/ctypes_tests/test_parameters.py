@@ -72,6 +72,7 @@ class TestSimpleTypes:
         assert c_char_p.from_param(a) is a
 
     def test_cw_strings(self):
+        py.test.skip("testing implementation internals")
         from ctypes import byref
         try:
             from ctypes import c_wchar_p
