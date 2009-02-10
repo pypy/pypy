@@ -224,10 +224,16 @@ class __extend__(pairtype(AbstractBaseListRepr, IntegerRepr)):
             spec = dum_nocheck
         v_func = hop.inputconst(Void, spec)
         v_lst, v_index = hop.inputargs(r_lst, Signed)
-        if hop.args_s[1].nonneg:
-            llfn = ll_getitem_nonneg
+        if hop.args_s[0].listdef.listitem.mutated:
+            if hop.args_s[1].nonneg:
+                llfn = ll_getitem_nonneg
+            else:
+                llfn = ll_getitem
         else:
-            llfn = ll_getitem
+            if hop.args_s[1].nonneg:
+                llfn = ll_getitem_foldable_nonneg
+            else:
+                llfn = ll_getitem_foldable
         if checkidx:
             hop.exception_is_here()
         else:
@@ -666,6 +672,19 @@ def ll_getitem(func, l, index):
     return l.ll_getitem_fast(index)
 ll_getitem.oopspec = 'list.getitem(l, index)'
 ll_getitem.oopargcheck = lambda l, index: (bool(l) and -l.ll_length() <=
+                                                       index < l.ll_length())
+
+def ll_getitem_foldable_nonneg(func, l, index):
+    return ll_getitem_nonneg(func, l, index)
+ll_getitem_foldable_nonneg.oopspec = 'list.getitem_foldable(l, index)'
+ll_getitem_foldable_nonneg.oopargcheck = lambda l, index: (bool(l) and
+                                                  0 <= index < l.ll_length())
+
+def ll_getitem_foldable(func, l, index):
+    return ll_getitem(func, l, index)
+ll_getitem_foldable.oopspec = 'list.getitem_foldable(l, index)'
+ll_getitem_foldable.oopargcheck = lambda l, index: (bool(l)
+                                                    and -l.ll_length() <=
                                                        index < l.ll_length())
 
 def ll_setitem_nonneg(func, l, index, newitem):

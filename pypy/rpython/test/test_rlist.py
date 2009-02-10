@@ -1383,5 +1383,20 @@ class TestLLtype(BaseTestRlist, LLRtypeMixin):
             lis = self.interpret(fnpop, [i])
             assert list_is_clear(lis, 3-i)
 
+    def test_oopspec(self):
+        lst1 = [123, 456]     # non-mutated list
+        def f(i):
+            lst2 = [i]
+            lst2.append(42)    # mutated list
+            return lst1[i] + lst2[i]
+        _, _, graph = self.gengraph(f, [int])
+        block = graph.startblock
+        lst1_getitem_op = block.operations[-3]     # XXX graph fishing
+        lst2_getitem_op = block.operations[-2]
+        func1 = lst1_getitem_op.args[0].value._obj._callable
+        func2 = lst2_getitem_op.args[0].value._obj._callable
+        assert func1.oopspec == 'list.getitem_foldable(l, index)'
+        assert func2.oopspec == 'list.getitem(l, index)'
+
 class TestOOtype(BaseTestRlist, OORtypeMixin):
     rlist = oo_rlist
