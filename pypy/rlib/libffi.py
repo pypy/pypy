@@ -386,7 +386,7 @@ class AbstractFuncPtr(object):
     ll_cif = lltype.nullptr(FFI_CIFP.TO)
     ll_argtypes = lltype.nullptr(FFI_TYPE_PP.TO)
 
-    def __init__(self, name, argtypes, restype, flags=0):
+    def __init__(self, name, argtypes, restype, flags=FUNCFLAG_CDECL):
         self.name = name
         self.argtypes = argtypes
         self.restype = restype
@@ -456,7 +456,7 @@ class CallbackFuncPtr(AbstractFuncPtr):
 
 class RawFuncPtr(AbstractFuncPtr):
 
-    def __init__(self, name, argtypes, restype, funcsym, flags=0):
+    def __init__(self, name, argtypes, restype, funcsym, flags=FUNCFLAG_CDECL):
         AbstractFuncPtr.__init__(self, name, argtypes, restype, flags)
         self.funcsym = funcsym
 
@@ -476,7 +476,7 @@ class FuncPtr(AbstractFuncPtr):
     ll_args = lltype.nullptr(rffi.VOIDPP.TO)
     ll_result = lltype.nullptr(rffi.VOIDP.TO)
 
-    def __init__(self, name, argtypes, restype, funcsym, flags=0):
+    def __init__(self, name, argtypes, restype, funcsym, flags=FUNCFLAG_CDECL):
         # initialize each one of pointers with null
         AbstractFuncPtr.__init__(self, name, argtypes, restype, flags)
         self.funcsym = funcsym
@@ -561,13 +561,13 @@ class CDLL:
             dlclose(self.lib)
             self.lib = lltype.nullptr(rffi.CCHARP.TO)
 
-    def getpointer(self, name, argtypes, restype, flags):
+    def getpointer(self, name, argtypes, restype, flags=FUNCFLAG_CDECL):
         # these arguments are already casted to proper ffi
         # structures!
         return FuncPtr(name, argtypes, restype, dlsym(self.lib, name),
                        flags=flags)
 
-    def getrawpointer(self, name, argtypes, restype, flags):
+    def getrawpointer(self, name, argtypes, restype, flags=FUNCFLAG_CDECL):
         # these arguments are already casted to proper ffi
         # structures!
         return RawFuncPtr(name, argtypes, restype, dlsym(self.lib, name),

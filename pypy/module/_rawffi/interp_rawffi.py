@@ -142,7 +142,7 @@ class W_CDLL(Wrappable):
         self.w_cache = space.newdict()
         self.space = space
 
-    def ptr(self, space, name, w_argtypes, w_restype, flags=0):
+    def ptr(self, space, name, w_argtypes, w_restype, flags=FUNCFLAG_CDECL):
         """ Get a pointer for function name with provided argtypes
         and restype
         """
@@ -412,7 +412,7 @@ class W_FuncPtr(Wrappable):
             return space.w_None
     call.unwrap_spec = ['self', ObjSpace, 'args_w']
 
-def descr_new_funcptr(space, w_tp, addr, w_args, w_res, flags=0):
+def descr_new_funcptr(space, w_tp, addr, w_args, w_res, flags=FUNCFLAG_CDECL):
     ffi_args, args = unpack_argshapes(space, w_args)
     ffi_res, res = unpack_resshape(space, w_res)
     ptr = RawFuncPtr('???', ffi_args, ffi_res, rffi.cast(rffi.VOIDP, addr),
