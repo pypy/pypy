@@ -735,7 +735,12 @@ class AppTestFfi:
         raises(_rawffi.SegfaultException, a.__setitem__, 3, 3)
 
     def test_struct_byvalue(self):
-        import _rawffi
+        import _rawffi, platform
+        if platform.machine() == 'x86_64':
+            skip("Segfaults on x86_64 because small structures "
+                 "may be passed in registers and "
+                 "c_elements must not be null")
+
         X_Y = _rawffi.Structure([('x', 'l'), ('y', 'l')])
         x_y = X_Y()
         lib = _rawffi.CDLL(self.lib_name)
@@ -747,7 +752,12 @@ class AppTestFfi:
         x_y.free()
 
     def test_ret_struct(self):
-        import _rawffi
+        import _rawffi, platform
+        if platform.machine() == 'x86_64':
+            skip("Segfaults on x86_64 because small structures "
+                 "may be passed in registers and "
+                 "c_elements must not be null")
+
         S2H = _rawffi.Structure([('x', 'h'), ('y', 'h')])
         s2h = S2H()
         lib = _rawffi.CDLL(self.lib_name)

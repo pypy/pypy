@@ -241,6 +241,11 @@ class TestDLOperations:
         lltype.free(tp, flavor='raw')
 
     def test_struct_by_val(self):
+        import platform
+        if platform.machine() == 'x86_64':
+            py.test.skip("Segfaults on x86_64 because small structures "
+                         "may be passed in registers and "
+                         "c_elements must not be null")
         from pypy.translator.tool.cbuild import ExternalCompilationInfo
         from pypy.translator.platform import platform
         from pypy.tool.udir import udir
@@ -292,6 +297,11 @@ class TestDLOperations:
         assert not ALLOCATED
 
     def test_ret_struct_val(self):
+        import platform
+        if platform.machine() == 'x86_64':
+            py.test.skip("Segfaults on x86_64 because small structures "
+                         "may be passed in registers and "
+                         "c_elements must not be null")
         from pypy.translator.tool.cbuild import ExternalCompilationInfo
         from pypy.translator.platform import platform
         from pypy.tool.udir import udir
