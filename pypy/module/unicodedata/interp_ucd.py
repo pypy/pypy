@@ -21,9 +21,11 @@ NCount = (VCount*TCount)
 SCount = (LCount*NCount)
 
 def unichr_to_code_w(space, w_unichr):
-    from pypy.rlib.runicode import ORD
-    u = space.unicode_w(w_unichr)
-    return ORD(u)
+    if not space.is_true(space.isinstance(w_unichr, space.w_unicode)):
+        raise OperationError(space.w_TypeError, space.wrap('argument 1 must be unicode'))
+    if not space.int_w(space.len(w_unichr)) == 1:
+        raise OperationError(space.w_TypeError, space.wrap('need a single Unicode character as parameter'))
+    return space.int_w(space.ord(w_unichr))
 
 class UCD(Wrappable):
     def __init__(self, unicodedb):
