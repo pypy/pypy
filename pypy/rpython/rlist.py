@@ -117,11 +117,19 @@ class AbstractBaseListRepr(Repr):
     
     def rtype_len(self, hop):
         v_lst, = hop.inputargs(self)
-        return hop.gendirectcall(ll_len, v_lst)
+        if hop.args_s[0].listdef.listitem.resized:
+            ll_func = ll_len
+        else:
+            ll_func = ll_len_foldable
+        return hop.gendirectcall(ll_func, v_lst)
 
     def rtype_is_true(self, hop):
         v_lst, = hop.inputargs(self)
-        return hop.gendirectcall(ll_list_is_true, v_lst)
+        if hop.args_s[0].listdef.listitem.resized:
+            ll_func = ll_list_is_true
+        else:
+            ll_func = ll_list_is_true_foldable
+        return hop.gendirectcall(ll_func, v_lst)
     
     def rtype_method_reverse(self, hop):
         v_lst, = hop.inputargs(self)
@@ -521,6 +529,16 @@ def ll_list_is_true(l):
     return bool(l) and l.ll_length() != 0
 ll_list_is_true.oopspec = 'list.nonzero(l)'
 ll_list_is_true.oopargcheck = lambda l: True
+
+def ll_len_foldable(l):
+    return l.ll_length()
+ll_len_foldable.oopspec = 'list.len_foldable(l)'
+ll_len_foldable.oopargcheck = lambda l: bool(l)
+
+def ll_list_is_true_foldable(l):
+    return ll_list_is_true(l)
+ll_list_is_true_foldable.oopspec = 'list.nonzero_foldable(l)'
+ll_list_is_true_foldable.oopargcheck = lambda l: True
 
 def ll_append(l, newitem):
     length = l.ll_length()
