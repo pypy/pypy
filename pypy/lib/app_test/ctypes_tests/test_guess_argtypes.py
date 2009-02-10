@@ -28,7 +28,10 @@ def test_wrap_args():
     assert guess([s]) == [c_void_p]
 
 def test_guess_unicode():
-    dll = ctypes.CDLL(str(conftest.sofile))
+    if not hasattr(sys, 'pypy_translation_info') and sys.platform != 'win32':
+        py.test.skip("CPython segfaults: see http://bugs.python.org/issue5203")
+    import conftest
+    dll = CDLL(str(conftest.sofile))
     wcslen = dll.my_wcslen
     text = u"Some long unicode string"
-    assert ctypes.cdll.msvcrt.wcslen(text) == len(text)
+    assert wcslen(text) == len(text)
