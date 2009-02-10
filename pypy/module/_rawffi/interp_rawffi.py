@@ -142,7 +142,7 @@ class W_CDLL(Wrappable):
         self.w_cache = space.newdict()
         self.space = space
 
-    def ptr(self, space, name, w_argtypes, w_restype):
+    def ptr(self, space, name, w_argtypes, w_restype, flags=0):
         """ Get a pointer for function name with provided argtypes
         and restype
         """
@@ -160,14 +160,15 @@ class W_CDLL(Wrappable):
                 raise
         ffi_argtypes, argletters = unpack_argshapes(space, w_argtypes)
         try:
-            ptr = self.cdll.getrawpointer(name, ffi_argtypes, ffi_restype)
+            ptr = self.cdll.getrawpointer(name, ffi_argtypes, ffi_restype,
+                                          flags)
             w_funcptr = W_FuncPtr(space, ptr, argletters, resshape)
             space.setitem(self.w_cache, w_key, w_funcptr)
             return w_funcptr
         except KeyError:
             raise OperationError(space.w_AttributeError, space.wrap(
                 "No symbol %s found in library %s" % (name, self.name)))
-    ptr.unwrap_spec = ['self', ObjSpace, str, W_Root, W_Root]
+    ptr.unwrap_spec = ['self', ObjSpace, str, W_Root, W_Root, int]
 
     def getaddressindll(self, space, name):
         try:
@@ -411,12 +412,13 @@ class W_FuncPtr(Wrappable):
             return space.w_None
     call.unwrap_spec = ['self', ObjSpace, 'args_w']
 
-def descr_new_funcptr(space, w_tp, addr, w_args, w_res):
+def descr_new_funcptr(space, w_tp, addr, w_args, w_res, flags=0):
     ffi_args, args = unpack_argshapes(space, w_args)
     ffi_res, res = unpack_resshape(space, w_res)
-    ptr = RawFuncPtr('???', ffi_args, ffi_res, rffi.cast(rffi.VOIDP, addr))
+    ptr = RawFuncPtr('???', ffi_args, ffi_res, rffi.cast(rffi.VOIDP, addr),
+                     flags)
     return space.wrap(W_FuncPtr(space, ptr, args, res))
-descr_new_funcptr.unwrap_spec = [ObjSpace, W_Root, r_uint, W_Root, W_Root]
+descr_new_funcptr.unwrap_spec = [ObjSpace, W_Root, r_uint, W_Root, W_Root, int]
 
 W_FuncPtr.typedef = TypeDef(
     'FuncPtr',

@@ -549,8 +549,6 @@ class FuncPtr(AbstractFuncPtr):
         AbstractFuncPtr.__del__(self)
 
 class CDLL:
-    flags = FUNCFLAG_CDECL
-
     def __init__(self, libname, unload_on_finalization=True):
         self.unload_on_finalization = unload_on_finalization
         self.lib = lltype.nullptr(rffi.CCHARP.TO)
@@ -563,17 +561,17 @@ class CDLL:
             dlclose(self.lib)
             self.lib = lltype.nullptr(rffi.CCHARP.TO)
 
-    def getpointer(self, name, argtypes, restype):
+    def getpointer(self, name, argtypes, restype, flags):
         # these arguments are already casted to proper ffi
         # structures!
         return FuncPtr(name, argtypes, restype, dlsym(self.lib, name),
-                       flags=self.flags)
+                       flags=flags)
 
-    def getrawpointer(self, name, argtypes, restype):
+    def getrawpointer(self, name, argtypes, restype, flags):
         # these arguments are already casted to proper ffi
         # structures!
         return RawFuncPtr(name, argtypes, restype, dlsym(self.lib, name),
-                          flags=self.flags)
+                          flags=flags)
 
     def getaddressindll(self, name):
         return dlsym(self.lib, name)

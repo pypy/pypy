@@ -23,6 +23,7 @@ class CFuncPtr(_CData):
 
     _argtypes_ = None
     _restype_ = None
+    _flags_ = 0
     _ffiargshape = 'P'
     _ffishape = 'P'
     _fficompositesize = None
@@ -60,13 +61,18 @@ class CFuncPtr(_CData):
             restype = 'O' # void
         return argtypes, restype
 
-    def __init__(self, argument=None):
+    def __init__(self, *args):
         self.name = None
         self._objects = {keepalive_key(0):self}
         self._needs_free = True
+        argument = None
+        if len(args) == 1:
+            argument = args[0]
+
         if isinstance(argument, (int, long)):
             ffiargs, ffires = self._ffishapes(self._argtypes_, self._restype_)
-            self._ptr = _rawffi.FuncPtr(argument, ffiargs, ffires)
+            self._ptr = _rawffi.FuncPtr(argument, ffiargs, ffires,
+                                        self._flags_)
             self._buffer = self._ptr.byptr()
         elif callable(argument):
             self.callable = argument
@@ -83,7 +89,8 @@ class CFuncPtr(_CData):
             # we need to check dll anyway
             ptr = self._getfuncptr([], ctypes.c_int)
             self._buffer = ptr.byptr()
-        elif argument is None:
+
+        elif len(args) == 0:
             # this is needed for casts
             self._buffer = _rawffi.Array('P')(1)
             return
@@ -138,11 +145,13 @@ class CFuncPtr(_CData):
         argshapes = [arg._ffiargshape for arg in argtypes]
         resshape = restype._ffiargshape
         if self._buffer is not None:
-            self._ptr = _rawffi.FuncPtr(self._buffer[0], argshapes, resshape)
+            self._ptr = _rawffi.FuncPtr(self._buffer[0], argshapes, resshape,
+                                        self._flags_)
             return self._ptr
+
         cdll = self.dll._handle
         try:
-            return cdll.ptr(self.name, argshapes, resshape)
+            return cdll.ptr(self.name, argshapes, resshape, self._flags_)
         except AttributeError:
             if self._flags_ & _rawffi.FUNCFLAG_CDECL:
                 raise
@@ -153,7 +162,8 @@ class CFuncPtr(_CData):
             for i in range(32):
                 mangled_name = "_%s@%d" % (self.name, i*4)
                 try:
-                    return cdll.ptr(mangled_name, argshapes, resshape)
+                    return cdll.ptr(mangled_name, argshapes, resshape,
+                                    self._flags_)
                 except AttributeError:
                     pass
             raise
