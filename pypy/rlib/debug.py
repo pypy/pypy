@@ -16,7 +16,25 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         from pypy.rpython.lltypesystem import lltype
         vlist = hop.inputargs(lltype.Bool, lltype.Void)
+        hop.exception_cannot_occur()
         hop.genop('debug_assert', vlist)
+
+
+def debug_print(*args):
+    for arg in args:
+        print >> sys.stderr, arg,
+    print >> sys.stderr
+
+class Entry(ExtRegistryEntry):
+    _about_ = debug_print
+
+    def compute_result_annotation(self, *args_s):
+        return None
+
+    def specialize_call(self, hop):
+        vlist = hop.inputargs(*hop.args_r)
+        hop.exception_cannot_occur()
+        hop.genop('debug_print', vlist)
 
 
 def llinterpcall(RESTYPE, pythonfunction, *args):

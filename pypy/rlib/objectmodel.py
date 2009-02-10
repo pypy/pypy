@@ -286,6 +286,9 @@ class r_dict(object):
     def get(self, key, default):
         return self._dict.get(_r_dictkey(self, key), default)
 
+    def setdefault(self, key, default):
+        return self._dict.setdefault(_r_dictkey(self, key), default)
+
     def copy(self):
         result = r_dict(self.key_eq, self.key_hash)
         result.update(self)

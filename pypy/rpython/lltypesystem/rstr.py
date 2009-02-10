@@ -55,14 +55,16 @@ def _new_copy_contents_fun(TP, CHAR_TP, name):
                 llmemory.itemoffsetof(TP.chars, 0) +
                 llmemory.sizeof(CHAR_TP) * item)
     
-    def copy_string_contents(s1, s2, s1start, s2start, lgt):
-        assert s1start >= 0
-        assert s2start >= 0
-        assert lgt >= 0
-        src = llmemory.cast_ptr_to_adr(s1) + _str_ofs(s1start)
-        dest = llmemory.cast_ptr_to_adr(s2) + _str_ofs(s2start)
-        llmemory.raw_memcopy(src, dest, llmemory.sizeof(CHAR_TP) * lgt)
+    def copy_string_contents(src, dst, srcstart, dststart, length):
+        assert srcstart >= 0
+        assert dststart >= 0
+        assert length >= 0
+        src = llmemory.cast_ptr_to_adr(src) + _str_ofs(srcstart)
+        dst = llmemory.cast_ptr_to_adr(dst) + _str_ofs(dststart)
+        llmemory.raw_memcopy(src, dst, llmemory.sizeof(CHAR_TP) * length)
     copy_string_contents._always_inline_ = True
+    copy_string_contents.oopspec = (
+        '%s.copy_contents(src, dst, srcstart, dststart, length)' % name)
     return func_with_new_name(copy_string_contents, 'copy_%s_contents' % name)
 
 copy_string_contents = _new_copy_contents_fun(STR, Char, 'string')

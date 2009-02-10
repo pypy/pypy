@@ -76,6 +76,8 @@ class LLInterpreter(object):
                     self.tracer.dump('LLException: %s\n' % (e,))
                 raise
             except Exception, e:
+                if getattr(e, '_go_through_llinterp_uncaught_', False):
+                    raise
                 log.error("AN ERROR OCCURED: %s" % (e, ))
                 self.print_traceback()
                 if self.tracer:
@@ -423,6 +425,18 @@ class LLFrame(object):
         if exc is None:
             original = sys.exc_info()
             exc = original[1]
+            # it makes no sense to convert some exception classes that
+            # just mean something buggy crashed
+            if isinstance(exc, (AssertionError, AttributeError,
+                                TypeError, NameError,
+                                KeyboardInterrupt, SystemExit,
+                                ImportError, SyntaxError)):
+                raise original[0], original[1], original[2]     # re-raise it
+            # for testing the JIT (see ContinueRunningNormally) we need
+            # to let some exceptions introduced by the JIT go through
+            # the llinterpreter uncaught
+            if getattr(exc, '_go_through_llinterp_uncaught_', False):
+                raise original[0], original[1], original[2]     # re-raise it
             extraargs = (original,)
         else:
             extraargs = ()
@@ -445,6 +459,8 @@ class LLFrame(object):
         except LLException, e:
             raise
         except Exception, e:
+            if getattr(e, '_go_through_llinterp_uncaught_', False):
+                raise
             if getattr(obj, '_debugexc', False):
                 log.ERROR('The llinterpreter got an '
                           'unexpected exception when calling')
@@ -512,6 +528,9 @@ class LLFrame(object):
 
     def op_debug_llinterpcall(self, pythonfunction, *args_ll):
         return pythonfunction(*args_ll)
+
+    def op_jit_marker(self, *args):
+        pass
 
     def op_instrument_count(self, ll_tag, ll_label):
         pass # xxx for now
