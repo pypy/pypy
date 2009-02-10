@@ -18,7 +18,7 @@ def test_wrap_args():
     assert guess(['xca']) == [c_char_p]
     assert guess([None]) == [c_void_p]
     assert guess([c_int(3)]) == [c_int]
-    assert guess([u'xca']) == [c_char_p]
+    assert guess([u'xca']) == [c_wchar_p]
 
     class Stuff:
         pass
@@ -27,4 +27,8 @@ def test_wrap_args():
     
     assert guess([s]) == [c_void_p]
 
-    # not sure what else....
+def test_guess_unicode():
+    dll = ctypes.CDLL(str(conftest.sofile))
+    wcslen = dll.my_wcslen
+    text = u"Some long unicode string"
+    assert ctypes.cdll.msvcrt.wcslen(text) == len(text)

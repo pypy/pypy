@@ -171,13 +171,16 @@ class CFuncPtr(_CData):
     @staticmethod
     def _guess_argtypes(args):
         from _ctypes import _CData
-        from ctypes import c_char_p, c_void_p, c_int, Array, Structure
+        from ctypes import c_char_p, c_wchar_p, c_void_p, c_int
+        from ctypes import Array, Structure
         res = []
         for arg in args:
             if hasattr(arg, '_as_parameter_'):
                 arg = arg._as_parameter_
-            if isinstance(arg, basestring):
+            if isinstance(arg, str):
                 res.append(c_char_p)
+            elif isinstance(arg, unicode):
+                res.append(c_wchar_p)
             elif isinstance(arg, _CData):
                 res.append(type(arg))
             elif arg is None:
