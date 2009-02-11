@@ -140,6 +140,11 @@ class AppTestFfi:
             inp.y *= 3;
             return inp;
         }
+
+        int AAA_first_ordinal_function()
+        {
+            return 42;
+        }
         
         '''))
         symbols = """get_char char_check get_raw_pointer
@@ -153,6 +158,7 @@ class AppTestFfi:
                      static_int static_double
                      sum_x_y
                      give perturb
+                     AAA_first_ordinal_function
                   """.split()
         eci = ExternalCompilationInfo(export_symbols=symbols)
         return str(platform.compile([c_file], eci, 'x', standalone=False))
@@ -194,6 +200,16 @@ class AppTestFfi:
         assert libc.ptr('rand', [], 'l') is not func
         assert isinstance(func, _rawffi.FuncPtr)
         raises(AttributeError, "libc.xxxxxxxxxxxxxx")
+
+    def test_byordinal(self):
+        if not self.iswin32:
+            skip("win32 specific")
+        import _rawffi
+        lib = _rawffi.CDLL(self.lib_name)
+        # This will call the ordinal function numbered 1
+        # my compiler seems to order them alphabetically:
+        # AAA_first_ordinal_function
+        assert lib.ptr(1, [], 'i')()[0] == 42
 
     def test_getchar(self):
         import _rawffi

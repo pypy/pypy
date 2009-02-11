@@ -61,8 +61,9 @@ class TestLoader:
                 WinDLL("coredll").GetModuleHandleW
 
         def test_load_ordinal_functions(self):
-            import _ctypes_test
-            dll = WinDLL(_ctypes_test.__file__)
+            import conftest
+            _ctypes_test = str(conftest.sofile)
+            dll = CDLL(_ctypes_test)
             # We load the same function both via ordinal and name
             func_ord = dll[2]
             func_name = dll.GetString

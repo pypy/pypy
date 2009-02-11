@@ -248,6 +248,10 @@ if not _WIN32:
         # XXX rffi.cast here...
         return res
 
+    def dlsym_byordinal(handle, index):
+        # Never called
+        raise KeyError(index)
+    
     libc_name = ctypes.util.find_library('c')
 
 if _WIN32:
@@ -272,6 +276,15 @@ if _WIN32:
         # XXX rffi.cast here...
         return res
 
+    def dlsym_byordinal(handle, index):
+        # equivalent to MAKEINTRESOURCEA
+        intresource = rffi.cast(rffi.CCHARP, r_uint(index) & 0xFFFF)
+        res = rwin32.GetProcAddress(handle, intresource)
+        if not res:
+            raise KeyError(name)
+        # XXX rffi.cast here...
+        return res
+    
     FormatError = rwin32.FormatError
     LoadLibrary = rwin32.LoadLibrary
 
@@ -572,6 +585,13 @@ class CDLL:
         # structures!
         return RawFuncPtr(name, argtypes, restype, dlsym(self.lib, name),
                           flags=flags)
+
+    def getrawpointer_byordinal(self, ordinal, argtypes, restype,
+                                flags=FUNCFLAG_CDECL):
+        # these arguments are already casted to proper ffi
+        # structures!
+        return RawFuncPtr(name, argtypes, restype,
+                          dlsym_byordinal(self.lib, ordinal), flags=flags)
 
     def getaddressindll(self, name):
         return dlsym(self.lib, name)

@@ -142,7 +142,7 @@ class W_CDLL(Wrappable):
         self.w_cache = space.newdict()
         self.space = space
 
-    def ptr(self, space, name, w_argtypes, w_restype, flags=FUNCFLAG_CDECL):
+    def ptr(self, space, w_name, w_argtypes, w_restype, flags=FUNCFLAG_CDECL):
         """ Get a pointer for function name with provided argtypes
         and restype
         """
@@ -150,7 +150,7 @@ class W_CDLL(Wrappable):
         w = space.wrap
         argtypes_w = space.viewiterable(w_argtypes)
         w_argtypes = space.newtuple(argtypes_w)
-        w_key = space.newtuple([w(name), w_argtypes, w(resshape)])
+        w_key = space.newtuple([w_name, w_argtypes, w(resshape)])
         try:
             return space.getitem(self.w_cache, w_key)
         except OperationError, e:
@@ -159,16 +159,34 @@ class W_CDLL(Wrappable):
             else:
                 raise
         ffi_argtypes, argletters = unpack_argshapes(space, w_argtypes)
-        try:
-            ptr = self.cdll.getrawpointer(name, ffi_argtypes, ffi_restype,
-                                          flags)
-            w_funcptr = W_FuncPtr(space, ptr, argletters, resshape)
-            space.setitem(self.w_cache, w_key, w_funcptr)
-            return w_funcptr
-        except KeyError:
-            raise OperationError(space.w_AttributeError, space.wrap(
-                "No symbol %s found in library %s" % (name, self.name)))
-    ptr.unwrap_spec = ['self', ObjSpace, str, W_Root, W_Root, int]
+
+        if space.is_true(space.isinstance(w_name, space.w_str)):
+            name = space.str_w(w_name)
+
+            try:
+                ptr = self.cdll.getrawpointer(name, ffi_argtypes, ffi_restype,
+                                              flags)
+            except KeyError:
+                raise OperationError(space.w_AttributeError, space.wrap(
+                    "No symbol %s found in library %s" % (name, self.name)))
+        
+        elif (_MS_WINDOWS and
+              space.is_true(space.isinstance(w_name, space.w_int))):
+            ordinal = space.int_w(w_name)
+            try:
+                ptr = self.cdll.getrawpointer_byordinal(ordinal, ffi_argtypes,
+                                                        ffi_restype, flags)
+            except KeyError:
+                raise OperationError(space.w_AttributeError, space.wrap(
+                    "No symbol %d found in library %s" % (ordinal, self.name)))
+        else:
+            raise OperationError(space.w_TypeError, space.wrap(
+                "function name must be string or integer"))
+
+        w_funcptr = W_FuncPtr(space, ptr, argletters, resshape)
+        space.setitem(self.w_cache, w_key, w_funcptr)
+        return w_funcptr
+    ptr.unwrap_spec = ['self', ObjSpace, W_Root, W_Root, W_Root, int]
 
     def getaddressindll(self, space, name):
         try:
