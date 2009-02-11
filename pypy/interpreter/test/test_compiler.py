@@ -819,6 +819,27 @@ class AppTestOptimizer:
         asm = dis_single('a="x"*1000')
         assert '(1000)' in asm
 
+    def test_dis_stopcode(self):
+        skip("not fixed yet")
+        source = """def _f(a):
+                print a
+                return 1
+            """
+
+        exec source
+        code = _f.func_code
+
+        import StringIO, sys, dis
+        s = StringIO.StringIO()
+        save_stdout = sys.stdout
+        sys.stdout = s
+        try:
+            dis.dis(code)
+        finally:
+            sys.stdout = save_stdout
+        output = s.getvalue()
+        assert "STOP_CODE" not in output
+
 class AppTestExceptions:
     def test_indentation_error(self):
         source = """if 1:
