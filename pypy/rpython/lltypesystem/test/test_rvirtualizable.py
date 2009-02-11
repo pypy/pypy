@@ -1,4 +1,5 @@
 import py
+py.test.skip("see svn/pypy/branch/pyjitpl5")
 from pypy.objspace.flow.model import summary
 from pypy.rlib.jit import hint
 from pypy.rpython.lltypesystem import lltype, rclass
