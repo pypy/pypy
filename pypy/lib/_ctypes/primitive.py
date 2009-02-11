@@ -1,5 +1,6 @@
 import _rawffi
 import weakref
+import sys
 
 SIMPLE_TYPE_CHARS = "cbBhHiIlLdfuzZqQPXOv"
 
@@ -32,7 +33,11 @@ TP_TO_DEFAULT = {
         'z': None,
         'Z': None,
 }
- 
+
+if sys.platform == 'win32':
+    TP_TO_DEFAULT['X'] = NULL
+    TP_TO_DEFAULT['v'] = 0
+
 DEFAULT_VALUE = object()
 
 class GlobalPyobjContainer(object):

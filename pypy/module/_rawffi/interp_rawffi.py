@@ -42,6 +42,11 @@ TYPEMAP = {
 }
 TYPEMAP_PTR_LETTERS = "POszZ"
 
+if _MS_WINDOWS:
+    TYPEMAP['X'] = ffi_type_pointer
+    TYPEMAP['v'] = ffi_type_sshort
+    TYPEMAP_PTR_LETTERS += 'X'
+
 def size_alignment(ffi_type):
     return intmask(ffi_type.c_size), intmask(ffi_type.c_alignment)
 
