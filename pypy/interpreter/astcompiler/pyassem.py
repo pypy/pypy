@@ -84,9 +84,10 @@ class PyFlowGraph(object):
 
     def emitop_extended_arg(self, intval):
         assert intval <= 0x7FFFFFFF
-        self.emit('EXTENDED_ARG')
-        self.co_code.append(chr((intval >> 16) & 0xFF))
-        self.co_code.append(chr((intval >> 24) & 0xFF))
+        if not self.deadcode:
+            self.emit('EXTENDED_ARG')
+            self.co_code.append(chr((intval >> 16) & 0xFF))
+            self.co_code.append(chr((intval >> 24) & 0xFF))
         return intval & 0xFFFF
     emitop_extended_arg._dont_inline_ = True
 
@@ -102,11 +103,12 @@ class PyFlowGraph(object):
         if opname == "SET_LINENO":
             self.emitop_setlineno(intval)
             return
-        if intval > 0xFFFF:
-            intval = self.emitop_extended_arg(intval)
-        self.emit(opname)
-        self.co_code.append(chr(intval & 0xFF))
-        self.co_code.append(chr(intval >> 8))
+        if not self.deadcode:
+            if intval > 0xFFFF:
+                intval = self.emitop_extended_arg(intval)
+            self.emit(opname)
+            self.co_code.append(chr(intval & 0xFF))
+            self.co_code.append(chr(intval >> 8))
 
     # ____________________________________________________________
     # Instructions with an object argument (LOAD_CONST)

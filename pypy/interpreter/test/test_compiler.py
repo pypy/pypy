@@ -820,7 +820,6 @@ class AppTestOptimizer:
         assert '(1000)' in asm
 
     def test_dis_stopcode(self):
-        skip("not fixed yet")
         source = """def _f(a):
                 print a
                 return 1
