@@ -26,6 +26,14 @@ def store_reference(where, base_key, target):
 class ArgumentError(Exception):
     pass
 
+class COMError(Exception):
+    "Raised when a COM method call failed."
+    def __init__(self, hresult, text, details):
+        self.args = (hresult, text, details)
+        self.hresult = hresult
+        self.text = text
+        self.details = details
+
 class _CDataMeta(type):
     def from_param(self, value):
         if isinstance(value, self):

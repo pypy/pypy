@@ -1,6 +1,6 @@
 from _ctypes.dummy import resize
 from _ctypes.basics import _CData, sizeof, alignment, byref, addressof,\
-     ArgumentError
+     ArgumentError, COMError
 from _ctypes.primitive import _SimpleCData
 from _ctypes.pointer import _Pointer, _cast_addr
 from _ctypes.function import CFuncPtr
