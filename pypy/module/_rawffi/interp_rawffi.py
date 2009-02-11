@@ -68,7 +68,6 @@ LL_TYPEMAP = {
     'Z' : rffi.CArrayPtr(lltype.UniChar),
     'O' : rffi.VOIDP,
     'P' : rffi.VOIDP,
-    'v' : lltype.Void,
 }
 
 def letter2tp(space, key):
@@ -85,12 +84,10 @@ def _get_type_(space, key):
         raise OperationError(space.w_ValueError, space.wrap(
             "Unknown type letter %s" % (key,)))
     
-def unpack_to_ffi_type(space, w_shape, allow_void=False, shape=False):
+def unpack_to_ffi_type(space, w_shape, shape=False):
     resshape = None
     if space.is_true(space.isinstance(w_shape, space.w_str)):
         letter = space.str_w(w_shape)
-        if allow_void and letter == 'v':
-            return 'v', ffi_type_void, None
         ffi_type = _get_type_(space, letter)
         if shape:
             from pypy.module._rawffi.array import get_array_cache
@@ -122,7 +119,6 @@ def unpack_resshape(space, w_restype):
     else:
         tp_letter, ffi_restype, resshape = unpack_to_ffi_type(space,
                                                     w_restype,
-                                                    allow_void=True,
                                                     shape=True)
     return ffi_restype, resshape
 
@@ -344,9 +340,6 @@ def wrap_value(space, func, add_arg, argdesc, tp):
             if c in TYPEMAP_PTR_LETTERS:
                 res = func(add_arg, argdesc, rffi.VOIDP)
                 return space.wrap(rffi.cast(lltype.Unsigned, res))
-            elif c == 'v':
-                func(add_arg, argdesc, ll_type)
-                return space.w_None
             elif c == 'q' or c == 'Q' or c == 'L' or c == 'c' or c == 'u':
                 return space.wrap(func(add_arg, argdesc, ll_type))
             elif c == 'f' or c == 'd':
