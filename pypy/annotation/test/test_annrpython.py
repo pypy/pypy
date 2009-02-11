@@ -2761,6 +2761,7 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeExternalInstance)        
 
     def test_instance_with_flags(self):
+        py.test.skip("not supported any more")
         from pypy.rlib.jit import hint
 
         class A:
