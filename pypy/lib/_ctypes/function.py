@@ -159,7 +159,7 @@ class CFuncPtr(_CData):
             # For stdcall, try mangled names:
             # funcname -> _funcname@<n>
             # where n is 0, 4, 8, 12, ..., 128
-            for i in range(32):
+            for i in range(33):
                 mangled_name = "_%s@%d" % (self.name, i*4)
                 try:
                     return cdll.ptr(mangled_name, argshapes, resshape,
