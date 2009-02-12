@@ -145,9 +145,11 @@ class CFuncPtr(_CData):
         argshapes = [arg._ffiargshape for arg in argtypes]
         resshape = restype._ffiargshape
         if self._buffer is not None:
-            self._ptr = _rawffi.FuncPtr(self._buffer[0], argshapes, resshape,
-                                        self._flags_)
-            return self._ptr
+            ptr = _rawffi.FuncPtr(self._buffer[0], argshapes, resshape,
+                                  self._flags_)
+            if argtypes is self._argtypes_:
+                self._ptr = ptr
+            return ptr
 
         cdll = self.dll._handle
         try:

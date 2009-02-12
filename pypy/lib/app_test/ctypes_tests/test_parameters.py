@@ -186,3 +186,19 @@ class TestSimpleTypes:
         func.argtypes = (Adapter(),)
         # ArgumentError: argument 1: ValueError: 99
         raises(ArgumentError, func, 99)
+
+    def test_multiple_signature(self):
+        # when .argtypes is not set, calling a function with a certain
+        # set of parameters should not prevent another call with
+        # another set.
+        from ctypes import CDLL, byref
+        import conftest
+        dll = CDLL(str(conftest.sofile))
+        func = dll._testfunc_p_p
+
+        # This is call has too many arguments
+        assert func(None, 1) == 0
+
+        # This one is normal
+        assert func(None) == 0
+        
