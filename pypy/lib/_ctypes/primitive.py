@@ -7,6 +7,8 @@ SIMPLE_TYPE_CHARS = "cbBhHiIlLdfuzZqQPXOv"
 from _ctypes.basics import _CData, _CDataMeta, cdata_from_address,\
      CArgObject
 from _ctypes.builtin import ConvMode
+from _ctypes.array import Array
+from _ctypes.pointer import _Pointer
 
 class NULL(object):
     pass
@@ -54,16 +56,42 @@ class GlobalPyobjContainer(object):
 
 pyobj_container = GlobalPyobjContainer()
 
-def generic_xxx_p_from_param(self, value):
+def generic_xxx_p_from_param(cls, value):
     from _ctypes import Array, _Pointer
     if value is None:
-        return self(None)
+        return cls(None)
     if isinstance(value, basestring):
-        return self(value)
+        return cls(value)
     if isinstance(value, _SimpleCData) and \
            type(value)._type_ in 'zZP':
         return value
     return None # eventually raise
+
+def from_param_char_p(cls, value):
+    "used by c_char_p and c_wchar_p subclasses"
+    res = generic_xxx_p_from_param(cls, value)
+    if res is not None:
+        return res
+    if isinstance(value, (Array, _Pointer)):
+        from ctypes import c_char, c_byte, c_wchar
+        if type(value)._type_ in [c_char, c_byte, c_wchar]:
+            return value
+
+def from_param_void_p(cls, value):
+    "used by c_void_p subclasses"
+    res = generic_xxx_p_from_param(cls, value)
+    if res is not None:
+        return res
+    if isinstance(value, Array):
+        return value
+    if isinstance(value, _Pointer):
+        return cls.from_address(value._buffer.buffer)
+
+FROM_PARAM_BY_TYPE = {
+    'z': from_param_char_p,
+    'Z': from_param_char_p,
+    'P': from_param_void_p,
+    }
 
 class SimpleType(_CDataMeta):
     def __new__(self, name, bases, dct):
@@ -154,33 +182,6 @@ class SimpleType(_CDataMeta):
                 self._buffer[0] = value
             result.value = property(_getvalue, _setvalue)            
         
-        if tp in 'zZ':
-            from _ctypes import Array, _Pointer
-            # c_char_p
-            def from_param(self, value):
-                res = generic_xxx_p_from_param(self, value)
-                if res is not None:
-                    return res
-                if isinstance(value, (Array, _Pointer)):
-                    from ctypes import c_char, c_byte, c_wchar
-                    if type(value)._type_ in [c_char, c_byte, c_wchar]:
-                        return value
-                return SimpleType.from_param(self, value)
-            result.from_param = classmethod(from_param)
-        elif tp == 'P':
-            from _ctypes import Array, _Pointer
-            # c_void_p
-            def from_param(self, value):
-                res = generic_xxx_p_from_param(self, value)
-                if res is not None:
-                    return res
-                if isinstance(value, Array):
-                    return value
-                if isinstance(value, _Pointer):
-                    return self.from_address(value._buffer.buffer)
-                return SimpleType.from_param(self, value)
-            result.from_param = classmethod(from_param)
-
         elif tp == 'u':
             def _setvalue(self, val):
                 if isinstance(val, str):
@@ -215,6 +216,12 @@ class SimpleType(_CDataMeta):
     from_address = cdata_from_address
 
     def from_param(self, value):
+        from_param_f = FROM_PARAM_BY_TYPE.get(self._type_)
+        if from_param_f:
+            res = from_param_f(self, value)
+            if res is not None:
+                return res
+            
         if isinstance(value, self):
             return value
         try:

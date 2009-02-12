@@ -22,7 +22,6 @@ class TestSimpleTypes:
 
 
     def test_subclasses(self):
-        py.test.skip("subclassing semantics not implemented")
         from ctypes import c_void_p, c_char_p
         # ctypes 0.9.5 and before did overwrite from_param in SimpleType_new
         class CVOIDP(c_void_p):
