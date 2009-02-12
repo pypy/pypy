@@ -386,7 +386,7 @@ class W_FuncPtr(Wrappable):
         from pypy.module._rawffi.structure import W_StructureInstance
         argnum = len(args_w)
         if argnum != len(self.argletters):
-            msg = "Wrong number of argument: expected %d, got %d" % (
+            msg = "Wrong number of arguments: expected %d, got %d" % (
                 len(self.argletters), argnum)
             raise OperationError(space.w_TypeError, space.wrap(msg))
         args_ll = []
@@ -419,13 +419,17 @@ class W_FuncPtr(Wrappable):
                         raise OperationError(space.w_TypeError, space.wrap(msg))
             args_ll.append(arg.ll_buffer)
             # XXX we could avoid the intermediate list args_ll
-        if self.resshape is not None:
-            result = self.resshape.allocate(space, 1, autofree=True)
-            self.ptr.call(args_ll, result.ll_buffer)
-            return space.wrap(result)
-        else:
-            self.ptr.call(args_ll, lltype.nullptr(rffi.VOIDP.TO))
-            return space.w_None
+
+        try:
+            if self.resshape is not None:
+                result = self.resshape.allocate(space, 1, autofree=True)
+                self.ptr.call(args_ll, result.ll_buffer)
+                return space.wrap(result)
+            else:
+                self.ptr.call(args_ll, lltype.nullptr(rffi.VOIDP.TO))
+                return space.w_None
+        except StackCheckError, e:
+            raise OperationError(space.w_ValueError, space.wrap(e.message))
     call.unwrap_spec = ['self', ObjSpace, 'args_w']
 
 def descr_new_funcptr(space, w_tp, addr, w_args, w_res, flags=FUNCFLAG_CDECL):

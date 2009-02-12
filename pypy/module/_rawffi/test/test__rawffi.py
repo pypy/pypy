@@ -752,8 +752,35 @@ class AppTestFfi:
         raises(_rawffi.SegfaultException, a.__getitem__, 3)
         raises(_rawffi.SegfaultException, a.__setitem__, 3, 3)
 
-    def test_struct_byvalue(self):
+    def test_stackcheck(self):
+        if not self.iswin32:
+            skip("win32 specific")
+
+        # Even if the call corresponds to the specified signature,
+        # the STDCALL calling convention may detect some errors
         import _rawffi
+        lib = _rawffi.CDLL('kernel32')
+
+        f = lib.ptr('SetLastError', [], 'i')
+        try:
+            f()
+        except ValueError, e:
+            assert "Procedure called with not enough arguments" in e.message
+        else:
+            assert 0, "Did not raise"
+
+        f = lib.ptr('GetLastError', ['i'], None,
+                    flags=_rawffi.FUNCFLAG_STDCALL)
+        arg = _rawffi.Array('i')(1)
+        arg[0] = 1
+        try:
+            f(arg)
+        except ValueError, e:
+            assert "Procedure called with too many arguments" in e.message
+        else:
+            assert 0, "Did not raise"
+
+    def test_struct_byvalue(self):
         if self.isx86_64:
             skip("Segfaults on x86_64 because small structures "
                  "may be passed in registers and "

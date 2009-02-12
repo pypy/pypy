@@ -251,6 +251,9 @@ if not _WIN32:
     def dlsym_byordinal(handle, index):
         # Never called
         raise KeyError(index)
+
+    def check_fficall_result(result, flags):
+        pass # No check
     
     libc_name = ctypes.util.find_library('c')
 
@@ -285,6 +288,27 @@ if _WIN32:
         # XXX rffi.cast here...
         return res
     
+    def check_fficall_result(result, flags):
+        if result == 0:
+            return
+        # if win64:
+        #     raises ValueError("ffi_call failed with code %d" % (result,))
+        if result < 0:
+            if flags & FUNCFLAG_CDECL:
+                raise StackCheckError(
+                    "Procedure called with not enough arguments"
+                    " (%d bytes missing)"
+                    " or wrong calling convention" % (-result,))
+            else:
+                raise StackCheckError(
+                    "Procedure called with not enough arguments "
+                    " (%d bytes missing) " % (-result,))
+        else:
+            raise StackCheckError(
+                "Procedure called with too many "
+                "arguments (%d bytes in excess) " % (result,))
+
+    
     FormatError = rwin32.FormatError
     LoadLibrary = rwin32.LoadLibrary
 
@@ -309,8 +333,12 @@ VOIDPP = rffi.CArrayPtr(rffi.VOIDP)
 
 c_ffi_prep_cif = external('ffi_prep_cif', [FFI_CIFP, rffi.USHORT, rffi.UINT,
                                            FFI_TYPE_P, FFI_TYPE_PP], rffi.INT)
+if _WIN32:
+    c_ffi_call_return_type = rffi.INT
+else:
+    c_ffi_call_return_type = lltype.Void
 c_ffi_call = external('ffi_call', [FFI_CIFP, rffi.VOIDP, rffi.VOIDP,
-                                   VOIDPP], lltype.Void)
+                                   VOIDPP], c_ffi_call_return_type)
 CALLBACK_TP = rffi.CCallback([FFI_CIFP, rffi.VOIDP, rffi.VOIDPP, rffi.VOIDP],
                              lltype.Void)
 c_ffi_prep_closure = external('ffi_prep_closure', [FFI_CLOSUREP, FFI_CIFP,
@@ -362,6 +390,10 @@ def ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     userdata = rffi.cast(USERDATA_P, ll_userdata)
     userdata.callback(ll_args, ll_res, userdata)
 
+class StackCheckError(ValueError):
+    def __init__(self, message):
+        self.message = message
+
 CHUNK = 4096
 CLOSURES = rffi.CArrayPtr(FFI_CLOSUREP.TO)
 
@@ -403,6 +435,7 @@ class AbstractFuncPtr(object):
         self.name = name
         self.argtypes = argtypes
         self.restype = restype
+        self.flags = flags
         argnum = len(argtypes)
         self.ll_argtypes = lltype.malloc(FFI_TYPE_PP.TO, argnum, flavor='raw')
         for i in range(argnum):
@@ -481,8 +514,9 @@ class RawFuncPtr(AbstractFuncPtr):
         for i in range(len(args_ll)):
             assert args_ll[i] # none should be NULL
             ll_args[i] = args_ll[i]
-        c_ffi_call(self.ll_cif, self.funcsym, ll_result, ll_args)
+        ffires = c_ffi_call(self.ll_cif, self.funcsym, ll_result, ll_args)
         lltype.free(ll_args, flavor='raw')
+        check_fficall_result(ffires, self.flags)
 
 
 class FuncPtr(AbstractFuncPtr):
@@ -508,7 +542,7 @@ class FuncPtr(AbstractFuncPtr):
 
     def push_arg(self, value):
         if self.pushed_args == self.argnum:
-            raise TypeError("Too much arguments, eats %d, pushed %d" %
+            raise TypeError("Too many arguments, eats %d, pushed %d" %
                             (self.argnum, self.argnum + 1))
         if not we_are_translated():
             TP = lltype.typeOf(value)
@@ -536,15 +570,16 @@ class FuncPtr(AbstractFuncPtr):
 
     def call(self, RES_TP):
         self._check_args()
-        c_ffi_call(self.ll_cif, self.funcsym,
-                   rffi.cast(rffi.VOIDP, self.ll_result),
-                   rffi.cast(VOIDPP, self.ll_args))
+        ffires = c_ffi_call(self.ll_cif, self.funcsym,
+                            rffi.cast(rffi.VOIDP, self.ll_result),
+                            rffi.cast(VOIDPP, self.ll_args))
         if RES_TP is not lltype.Void:
             TP = lltype.Ptr(rffi.CArray(RES_TP))
             res = rffi.cast(TP, self.ll_result)[0]
         else:
             res = None
         self._clean_args()
+        check_fficall_result(ffires, self.flags)
         return res
     call._annspecialcase_ = 'specialize:arg(1)'
 
