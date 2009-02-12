@@ -38,7 +38,7 @@ class PointerType(_CDataMeta):
         if isinstance(value, self._type_):
             return byref(value)
         # Array instances are also pointers when the item types are the same.
-        if isinstance(value, Array):
+        if isinstance(value, (_Pointer, Array)):
             if issubclass(type(value)._type_, self._type_):
                 return value
         return _CDataMeta.from_param(self, value)

@@ -49,6 +49,18 @@ class TestSimpleTypes:
 
         assert CWCHARP.from_param("abc") == "abcabcabc"
 
+    def test_pointer_subclasses(self):
+        from ctypes import *
+
+        Void_pp = POINTER(c_void_p)
+        class My_void_p(c_void_p):
+            pass
+
+        My_void_pp = POINTER(My_void_p)
+        o = My_void_pp()
+
+        assert Void_pp.from_param(o) is o
+        
     # XXX Replace by c_char_p tests
     def test_cstrings(self):
         py.test.skip("testing implementation internals")
