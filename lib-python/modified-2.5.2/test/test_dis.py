@@ -12,7 +12,7 @@ def _f(a):
     print a
     return 1
 
-dis_f_cpy = """\
+dis_f = """\
  %-4d         0 LOAD_FAST                0 (a)
               3 PRINT_ITEM
               4 PRINT_NEWLINE
@@ -21,17 +21,6 @@ dis_f_cpy = """\
               8 RETURN_VALUE
 """%(_f.func_code.co_firstlineno + 1,
      _f.func_code.co_firstlineno + 2)
-
-dis_f_pypy = """\
- %-4d         0 LOAD_FAST                0 (a)
-              3 PRINT_ITEM
-              4 PRINT_NEWLINE
-
- %-4d         5 LOAD_CONST               1 (1)
-              8 RETURN_VALUE
-"""%(_f.func_code.co_firstlineno + 1,
-     _f.func_code.co_firstlineno + 2)
-
 
 def bug708901():
     for res in range(1,
@@ -131,10 +120,7 @@ class DisTests(unittest.TestCase):
         self.assertEqual(dis.opmap["STORE_NAME"], dis.HAVE_ARGUMENT)
 
     def test_dis(self):
-        if check_impl_detail(pypy=True):
-            self.do_disassembly_test(_f, dis_f_pypy)
-        else:
-            self.do_disassembly_test(_f, dis_f_cpy)
+        self.do_disassembly_test(_f, dis_f)
 
     @impl_detail("PyPy compilers produce different opcodes")
     def test_bug_708901(self):
