@@ -31,6 +31,10 @@ class CFuncPtr(_CData):
     callable = None
     _ptr = None
     _buffer = None
+    # win32 COM properties
+    _paramflags = None
+    _com_index = None
+    _com_iid = None
 
     def _getargtypes(self):
         return self._argtypes_
@@ -70,11 +74,13 @@ class CFuncPtr(_CData):
             argument = args[0]
 
         if isinstance(argument, (int, long)):
+            # direct construction from raw address
             ffiargs, ffires = self._ffishapes(self._argtypes_, self._restype_)
             self._ptr = _rawffi.FuncPtr(argument, ffiargs, ffires,
                                         self._flags_)
             self._buffer = self._ptr.byptr()
         elif callable(argument):
+            # A callback into python
             self.callable = argument
             ffiargs, ffires = self._ffishapes(self._argtypes_, self._restype_)
             self._ptr = _rawffi.CallbackPtr(self._wrap_callable(argument,
@@ -82,6 +88,7 @@ class CFuncPtr(_CData):
                                             ffiargs, ffires)
             self._buffer = self._ptr.byptr()
         elif isinstance(argument, tuple) and len(argument) == 2:
+            # function exported from a shared library
             import ctypes
             self.name, self.dll = argument
             if isinstance(self.dll, str):
@@ -90,12 +97,23 @@ class CFuncPtr(_CData):
             ptr = self._getfuncptr([], ctypes.c_int)
             self._buffer = ptr.byptr()
 
+        elif (sys.platform == 'win32' and
+              len(args) >= 2 and isinstance(args[0], (int, long))):
+            # A COM function call, by index
+            ffiargs, ffires = self._ffishapes(self._argtypes_, self._restype_)
+            self._com_index =  args[0] + 0x1000
+            self.name = args[1]
+            if len(args) > 2:
+                self._paramflags = args[2]
+            # XXX ignored iid = args[3]
+
         elif len(args) == 0:
+            # Empty function object.
             # this is needed for casts
             self._buffer = _rawffi.Array('P')(1)
             return
         else:
-            raise TypeError("Unknown constructor %s" % (argument,))
+            raise TypeError("Unknown constructor %s" % (args,))
 
     def _wrap_callable(self, to_call, argtypes):
         def f(*args):
@@ -118,25 +136,26 @@ class CFuncPtr(_CData):
                 return res
             return
         argtypes = self._argtypes_
+
+        if self._com_index:
+            from ctypes import cast, c_void_p, POINTER
+            thisarg = cast(args[0], POINTER(POINTER(c_void_p))).contents
+            argtypes = [c_void_p] + list(argtypes)
+            args = list(args)
+            args[0] = args[0].value
+        else:
+            thisarg = None
+            
         if argtypes is None:
             argtypes = self._guess_argtypes(args)
-        else:
-            dif = len(args) - len(argtypes)
-            if dif < 0:
-                raise TypeError("Not enough arguments")
-            if dif > 0:
-                cut = len(args) - dif
-                argtypes = argtypes[:] + self._guess_argtypes(args[cut:])
+        argtypes, argsandobjs = self._wrap_args(argtypes, args)
+        
         restype = self._restype_
-        funcptr = self._getfuncptr(argtypes, restype)
-        argsandobjs = self._wrap_args(argtypes, args)
+        funcptr = self._getfuncptr(argtypes, restype, thisarg)
         resbuffer = funcptr(*[arg._buffer for _, arg in argsandobjs])
-        if restype is not None:
-            if not isinstance(restype, _CDataMeta):
-                return restype(resbuffer[0])
-            return restype._CData_retval(resbuffer)
+        return self._build_result(restype, resbuffer, argtypes, argsandobjs)
 
-    def _getfuncptr(self, argtypes, restype):
+    def _getfuncptr(self, argtypes, restype, thisarg=None):
         if self._ptr is not None:
             return self._ptr
         if restype is None or not isinstance(restype, _CDataMeta):
@@ -151,6 +170,11 @@ class CFuncPtr(_CData):
                 self._ptr = ptr
             return ptr
 
+        if self._com_index:
+            # extract the address from the object's virtual table
+            ptr = thisarg[self._com_index - 0x1000]
+            return _rawffi.FuncPtr(ptr, argshapes, resshape, self._flags_)
+        
         cdll = self.dll._handle
         try:
             return cdll.ptr(self.name, argshapes, resshape, self._flags_)
@@ -196,11 +220,70 @@ class CFuncPtr(_CData):
         return res
 
     def _wrap_args(self, argtypes, args):
-        try:
-            return [argtype._CData_input(arg) for argtype, arg in
-                    zip(argtypes, args)]
-        except (UnicodeError, TypeError), e:
-            raise ArgumentError(str(e))
+        wrapped_args = []
+        consumed = 0
+        for i, argtype in enumerate(argtypes):
+            if i > 0 and self._paramflags is not None:
+                idlflag, name = self._paramflags[i-1]
+                if idlflag == 2: # OUT
+                    import ctypes
+                    arg = ctypes.byref(argtype._type_())
+                    wrapped_args.append((arg, arg))
+                    continue
+
+            if consumed == len(args):
+                raise TypeError("Not enough arguments")
+            arg = args[consumed]
+            try:
+                wrapped = argtype._CData_input(arg)
+            except (UnicodeError, TypeError), e:
+                raise ArgumentError(str(e))
+            wrapped_args.append(wrapped)
+            consumed += 1
+
+        if len(wrapped_args) < len(args):
+            extra = args[len(wrapped_args):]
+            extra_types = self._guess_argtypes(extra)
+            for arg, argtype in zip(extra, extra_types):
+                try:
+                    wrapped = argtype._CData_input(arg)
+                except (UnicodeError, TypeError), e:
+                    raise ArgumentError(str(e))
+                wrapped_args.append(wrapped)
+            argtypes.extend(extra_types)
+        return argtypes, wrapped_args
+
+    def _build_result(self, restype, resbuffer, argtypes, argsandobjs):
+        """Build the function result:
+           If there is no OUT parameter, return the actual function result
+           If there is one OUT parameter, return it
+           If there are many OUT parameters, return a tuple"""
+        results = []
+        if self._paramflags:
+            for argtype, (_, obj), paramflag in zip(argtypes[1:], argsandobjs[1:],
+                                                    self._paramflags):
+                idlflag, name = paramflag
+                if idlflag == 2: # OUT
+                    val = obj.contents
+
+                    # XXX find a better way to detect pointers to pointers
+                    basetype = argtype._type_._type_
+                    if isinstance(basetype, str) and basetype != 'P':
+                        val = val.value
+                        
+                    results.append(val)
+
+        if results:
+            if len(results) == 1:
+                return results[0]
+            else:
+                return tuple(results)
+
+        # No output parameter, return the actual function result.
+        if restype is not None:
+            if not isinstance(restype, _CDataMeta):
+                return restype(resbuffer[0])
+            return restype._CData_retval(resbuffer)
 
     def __del__(self):
         if self._needs_free:
