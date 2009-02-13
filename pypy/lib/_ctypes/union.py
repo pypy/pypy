@@ -5,7 +5,6 @@ from _ctypes.basics import _CData, _CDataMeta, store_reference, keepalive_key
 from _ctypes.basics import ensure_objects
 from _ctypes.structure import round_up, names_and_fields, struct_getattr,\
      struct_setattr
-import inspect
 
 
 def _set_shape(tp):
