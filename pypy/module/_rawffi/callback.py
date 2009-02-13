@@ -8,7 +8,7 @@ from pypy.module._rawffi.structure import unpack_fields
 from pypy.module._rawffi.array import get_elem, push_elem
 from pypy.module._rawffi.interp_rawffi import W_DataInstance, _get_type_,\
      wrap_value, unwrap_value, unwrap_truncate_int, letter2tp
-from pypy.rlib.libffi import USERDATA_P, CallbackFuncPtr
+from pypy.rlib.libffi import USERDATA_P, CallbackFuncPtr, FUNCFLAG_CDECL
 from pypy.module._rawffi.tracker import tracker
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway
@@ -52,7 +52,8 @@ global_counter = GlobalCounter()
 class W_CallbackPtr(W_DataInstance):
     global_counter = global_counter
     
-    def __init__(self, space, w_callable, w_args, w_result):
+    def __init__(self, space, w_callable, w_args, w_result,
+                 flags=FUNCFLAG_CDECL):
         number = global_counter.CallbackPtr_id
         global_counter.CallbackPtr_id += 1
         global_counter.CallbackPtr_by_number[number] = self
@@ -66,7 +67,7 @@ class W_CallbackPtr(W_DataInstance):
         ffiresult = _get_type_(space, self.result)
         # necessary to keep stuff alive
         self.ll_callback = CallbackFuncPtr(ffiargs, ffiresult,
-                                           callback, number)
+                                           callback, number, flags)
         self.ll_buffer = rffi.cast(rffi.VOIDP, self.ll_callback.ll_closure)
         if tracker.DO_TRACING:
             addr = rffi.cast(lltype.Signed, self.ll_callback.ll_closure)
@@ -79,8 +80,11 @@ class W_CallbackPtr(W_DataInstance):
         del self.global_counter.CallbackPtr_by_number[self.number]
     free.unwrap_spec = ['self']
 
-def descr_new_callbackptr(space, w_type, w_callable, w_args, w_result):
-    return W_CallbackPtr(space, w_callable, w_args, w_result)
+def descr_new_callbackptr(space, w_type, w_callable, w_args, w_result,
+                          flags=FUNCFLAG_CDECL):
+    return W_CallbackPtr(space, w_callable, w_args, w_result, flags)
+descr_new_callbackptr.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root, W_Root,
+                                     int]
 
 W_CallbackPtr.typedef = TypeDef(
     'CallbackPtr',

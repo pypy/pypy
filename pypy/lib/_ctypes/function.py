@@ -85,7 +85,7 @@ class CFuncPtr(_CData):
             ffiargs, ffires = self._ffishapes(self._argtypes_, self._restype_)
             self._ptr = _rawffi.CallbackPtr(self._wrap_callable(argument,
                                                                 self.argtypes),
-                                            ffiargs, ffires)
+                                            ffiargs, ffires, self._flags_)
             self._buffer = self._ptr.byptr()
         elif isinstance(argument, tuple) and len(argument) == 2:
             # function exported from a shared library
@@ -252,7 +252,7 @@ class CFuncPtr(_CData):
                 except (UnicodeError, TypeError), e:
                     raise ArgumentError(str(e))
                 wrapped_args.append(wrapped)
-            argtypes.extend(extra_types)
+            argtypes = list(argtypes) + extra_types
         return argtypes, wrapped_args
 
     def _build_result(self, restype, resbuffer, argtypes, argsandobjs):

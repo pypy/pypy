@@ -1,5 +1,5 @@
 import py
-import os, unittest
+import sys, os, unittest
 from ctypes import *
 
 try:
@@ -48,7 +48,8 @@ class TestCFuncPtr:
             raises(TypeError, s, 1, 2, 3)
 
     def test_structures(self):
-        py.test.skip("win32 related")
+        if sys.platform != 'win32':
+            py.test.skip("win32 related")
         WNDPROC = WINFUNCTYPE(c_long, c_int, c_int, c_int, c_int)
 
         def wndproc(hwnd, msg, wParam, lParam):
