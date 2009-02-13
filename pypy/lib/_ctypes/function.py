@@ -172,6 +172,8 @@ class CFuncPtr(_CData):
 
         if self._com_index:
             # extract the address from the object's virtual table
+            if not thisarg:
+                raise ValueError("COM method call without VTable")
             ptr = thisarg[self._com_index - 0x1000]
             return _rawffi.FuncPtr(ptr, argshapes, resshape, self._flags_)
         
