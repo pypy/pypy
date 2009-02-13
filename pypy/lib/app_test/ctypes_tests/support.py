@@ -8,7 +8,7 @@ class WhiteBoxTests:
 
     def setup_class(cls):
         try:
-             import _rawffi
+            import _rawffi
         except ImportError:
             py.test.skip("these tests are white-box tests for pypy _rawffi based ctypes impl")
 

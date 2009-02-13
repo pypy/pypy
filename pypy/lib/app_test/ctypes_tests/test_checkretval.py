@@ -16,8 +16,6 @@ class CHECKED(c_int):
 class TestRetval:
 
     def test_checkretval(self):
-        py.test.skip("_check_retval_ is not supported")
-
         assert 42 == dll._testfunc_p_p(42)
 
         dll._testfunc_p_p.restype = CHECKED
@@ -35,7 +33,6 @@ class TestRetval:
         pass
     else:
         def test_oledll(self):
-            py.test.skip("_check_retval_ is not supported")
             raises(WindowsError,
-                                  oledll.oleaut32.CreateTypeLib2,
-                                  0, 0, 0)
+                   oledll.oleaut32.CreateTypeLib2,
+                   0, 0, 0)

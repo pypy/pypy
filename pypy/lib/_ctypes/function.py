@@ -55,7 +55,10 @@ class CFuncPtr(_CData):
                not callable(restype):
             raise TypeError("Expected ctypes type, got %s" % (restype,))
         self._restype_ = restype
-    restype = property(_getrestype, _setrestype)
+    def _delrestype(self):
+        self._ptr = None
+        del self._restype_
+    restype = property(_getrestype, _setrestype, _delrestype)
 
     def _ffishapes(self, args, restype):
         argtypes = [arg._ffiargshape for arg in args]
@@ -260,6 +263,23 @@ class CFuncPtr(_CData):
            If there is no OUT parameter, return the actual function result
            If there is one OUT parameter, return it
            If there are many OUT parameters, return a tuple"""
+
+        retval = None
+
+        if restype is not None:
+            checker = getattr(self.restype, '_check_retval_', None)
+            if checker:
+                val = restype(resbuffer[0])
+                # the original ctypes seems to make the distinction between
+                # classes defining a new type, and their subclasses
+                if '_type_' in restype.__dict__:
+                    val = val.value
+                retval = checker(val)
+            elif not isinstance(restype, _CDataMeta):
+                retval = restype(resbuffer[0])
+            else:
+                retval = restype._CData_retval(resbuffer)
+        
         results = []
         if self._paramflags:
             for argtype, (_, obj), paramflag in zip(argtypes[1:], argsandobjs[1:],
@@ -282,10 +302,7 @@ class CFuncPtr(_CData):
                 return tuple(results)
 
         # No output parameter, return the actual function result.
-        if restype is not None:
-            if not isinstance(restype, _CDataMeta):
-                return restype(resbuffer[0])
-            return restype._CData_retval(resbuffer)
+        return retval
 
     def __del__(self):
         if self._needs_free:
