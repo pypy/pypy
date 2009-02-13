@@ -142,12 +142,12 @@ def localeconv(space):
     result = {
         "decimal_point": rffi.charp2str(lp.c_decimal_point),
         "thousands_sep": rffi.charp2str(lp.c_thousands_sep),
-        "grouping": _copy_grouping(rffi.charp2str(lp.c_grouping)), # XXX
+        "grouping": _copy_grouping(rffi.charp2str(lp.c_grouping)),
         "int_curr_symbol": rffi.charp2str(lp.c_int_curr_symbol),
         "currency_symbol": rffi.charp2str(lp.c_currency_symbol),
         "mon_decimal_point": rffi.charp2str(lp.c_mon_decimal_point),
         "mon_thousands_sep": rffi.charp2str(lp.c_mon_thousands_sep),
-        "mon_grouping": _copy_grouping(rffi.charp2str(lp.c_mon_grouping)), # XXX
+        "mon_grouping": _copy_grouping(rffi.charp2str(lp.c_mon_grouping)),
         "positive_sign": rffi.charp2str(lp.c_positive_sign),
         "negative_sign": rffi.charp2str(lp.c_negative_sign),
         "int_frac_digits": lp.c_int_frac_digits,

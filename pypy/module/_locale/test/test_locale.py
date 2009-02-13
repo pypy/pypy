@@ -64,7 +64,6 @@ class AppTestLocaleTrivia:
         assert string.uppercase != ucase
 
     def test_localeconv(self):
-        skip("raise BytecodeCorruption - wtf?")
         import _locale
 
         lconv_c = {
