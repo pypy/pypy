@@ -102,12 +102,12 @@ def make_error(space, msg):
 _setlocale = external('setlocale', [rffi.INT, rffi.CCHARP], rffi.CCHARP)
 
 def setlocale(space, category, w_locale=None):
-    if space.is_w(w_locale, space.w_None) or w_locale is None:
+    "(integer,string=None) -> string. Activates/queries locale processing."
 
+    if space.is_w(w_locale, space.w_None) or w_locale is None:
         result = _setlocale(rffi.cast(rffi.INT, category), None)
         if not result:
             raise make_error(space, "locale query failed")
-
     else:
         locale = rffi.str2charp(space.str_w(w_locale))
 
