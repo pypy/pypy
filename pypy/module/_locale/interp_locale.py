@@ -35,15 +35,15 @@ class CConfig:
             ("negative_sign", rffi.CCHARP),     # Sign for negative values.
             ("int_frac_digits", rffi.UCHAR),    # Int'l fractional digits.
 
-            ("frac_digits", rffi.CHAR),        # Local fractional digits.
+            ("frac_digits", rffi.UCHAR),        # Local fractional digits.
             ## 1 if currency_symbol precedes a positive value, 0 if succeeds.
-            ("p_cs_precedes", rffi.CHAR),
+            ("p_cs_precedes", rffi.UCHAR),
             ## 1 iff a space separates currency_symbol from a positive value.
-            ("p_sep_by_space", rffi.CHAR),
+            ("p_sep_by_space", rffi.UCHAR),
             ## 1 if currency_symbol precedes a negative value, 0 if succeeds.
-            ("n_cs_precedes", rffi.CHAR),
+            ("n_cs_precedes", rffi.UCHAR),
             ## 1 iff a space separates currency_symbol from a negative value.
-            ("n_sep_by_space", rffi.CHAR),
+            ("n_sep_by_space", rffi.UCHAR),
 
             ## Positive and negative sign positions:
             ## 0 Parentheses surround the quantity and currency_symbol.
@@ -51,8 +51,8 @@ class CConfig:
             ## 2 The sign string follows the quantity and currency_symbol.
             ## 3 The sign string immediately precedes the currency_symbol.
             ## 4 The sign string immediately follows the currency_symbol.
-            ("p_sign_posn", rffi.CHAR),
-            ("n_sign_posn", rffi.CHAR),
+            ("p_sign_posn", rffi.UCHAR),
+            ("n_sign_posn", rffi.UCHAR),
             ])
 
 
@@ -128,32 +128,36 @@ setlocale.unwrap_spec = [ObjSpace, int, W_Root]
 _lconv = lltype.Ptr(cConfig.lconv)
 _localeconv = external('localeconv', [], _lconv)
 
-def localeconv(space):
-    lp = _localeconv()
+def _copy_grouping(text):
+    groups = [ ord(group) for group in text ]
+    if groups:
+        groups.append(0)
+    return groups
 
-    # hopefully, the localeconv result survives the C library calls
-    # involved herein
+def localeconv(space):
+    "() -> dict. Returns numeric and monetary locale-specific parameters."
+    lp = _localeconv()
 
     # Numeric information
     result = {
         "decimal_point": rffi.charp2str(lp.c_decimal_point),
-        #"thousands_sep": rffi.getintfield(lp, "c_thousands_sep"),
-        #"grouping": rffi.getintfield(lp, "c_grouping"), #_copy_grouping(l.grouping)),
-        #"int_curr_symbol": rffi.getintfield(lp, "c_int_curr_symbol"),
-        #"currency_symbol": rffi.getintfield(lp, "c_currency_symbol"),
-        #"mon_decimal_point": rffi.getintfield(lp, "c_mon_decimal_point"),
-        #"mon_thousands_sep": rffi.getintfield(lp, "c_mon_thousands_sep"),
-        #"mon_grouping": rffi.getintfield(lp, "c_mon_grouping"), #_copy_grouping(l.mon_grouping)),
-        #"positive_sign": rffi.getintfield(lp, "c_positive_sign"),
-        #"negative_sign": rffi.getintfield(lp, "c_negative_sign"),
-        #"int_frac_digits": rffi.getintfield(lp, "c_int_frac_digits"),
-        #"frac_digits": rffi.getintfield(lp, "c_frac_digits"),
-        #"p_cs_precedes": rffi.getintfield(lp, "c_p_cs_precedes"),
-        #"p_sep_by_space": rffi.getintfield(lp, "c_p_sep_by_space"),
-        #"n_cs_precedes": rffi.getintfield(lp, "c_n_cs_precedes"),
-        #"n_sep_by_space": rffi.getintfield(lp, "c_n_sep_by_space"),
-        #"p_sign_posn": rffi.getintfield(lp, "c_p_sign_posn"),
-        #"n_sign_posn": rffi.getintfield(lp, "c_n_sign_posn"),
+        "thousands_sep": rffi.charp2str(lp.c_thousands_sep),
+        "grouping": _copy_grouping(rffi.charp2str(lp.c_grouping)), # XXX
+        "int_curr_symbol": rffi.charp2str(lp.c_int_curr_symbol),
+        "currency_symbol": rffi.charp2str(lp.c_currency_symbol),
+        "mon_decimal_point": rffi.charp2str(lp.c_mon_decimal_point),
+        "mon_thousands_sep": rffi.charp2str(lp.c_mon_thousands_sep),
+        "mon_grouping": _copy_grouping(rffi.charp2str(lp.c_mon_grouping)), # XXX
+        "positive_sign": rffi.charp2str(lp.c_positive_sign),
+        "negative_sign": rffi.charp2str(lp.c_negative_sign),
+        "int_frac_digits": lp.c_int_frac_digits,
+        "frac_digits": lp.c_frac_digits,
+        "p_cs_precedes": lp.c_p_cs_precedes,
+        "p_sep_by_space": lp.c_p_sep_by_space,
+        "n_cs_precedes": lp.c_n_cs_precedes,
+        "n_sep_by_space": lp.c_n_sep_by_space,
+        "p_sign_posn": lp.c_p_sign_posn,
+        "n_sign_posn": lp.c_n_sign_posn,
     }
     return space.wrap(result)
 

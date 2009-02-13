@@ -63,6 +63,36 @@ class AppTestLocaleTrivia:
         assert string.lowercase != lcase
         assert string.uppercase != ucase
 
+    def test_localeconv(self):
+        skip("raise BytecodeCorruption - wtf?")
+        import _locale
+
+        lconv_c = {
+            "currency_symbol": "",
+            "decimal_point": ".",
+            "frac_digits": 127,
+            "grouping": [],
+            "int_curr_symbol": "",
+            "int_frac_digits": 127,
+            "mon_decimal_point": "",
+            "mon_grouping": [],
+            "mon_thousands_sep": "",
+            "n_cs_precedes": 127,
+            "n_sep_by_space": 127,
+            "n_sign_posn": 127,
+            "negative_sign": "",
+            "p_cs_precedes": 127,
+            "p_sep_by_space": 127,
+            "p_sign_posn": 127,
+            "positive_sign": "",
+            "thousands_sep": "" }
+
+        _locale.setlocale(_locale.LC_ALL, "C")
+
+        lconv = _locale.localeconv()
+        for k, v in lconv_c.items():
+            assert lconv[k] == v
+
     def test_str_float(self):
         import _locale
         import locale
