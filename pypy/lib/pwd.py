@@ -10,6 +10,10 @@ The uid and gid items are integers, all others are strings. An
 exception is raised if the entry asked for cannot be found.
 """
 
+import sys
+if sys.platform == 'win32':
+    raise ImportError("No pwd module on Windows")
+
 from ctypes_support import standard_c_lib as libc
 from ctypes import Structure, POINTER, c_int, c_char_p
 
