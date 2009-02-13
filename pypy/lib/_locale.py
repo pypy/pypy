@@ -215,7 +215,8 @@ def setlocale(category, locale=None):
 
 def _copy_grouping(text):
     groups = [ ord(group) for group in text ]
-    groups.append(0)
+    if groups:
+        groups.append(0)
     return groups
 
 def localeconv():
