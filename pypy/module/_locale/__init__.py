@@ -4,10 +4,7 @@ class Module(MixedModule):
     """Support for POSIX locales."""
 
     interpleveldefs  = {
-            #'Error':               'interp_locale.Error',
-            #'LocalConfigure':      'interp_locale.LocaleConfigure',
             #'lconv':               'interp_locale.lconv',
-            #'fixup_ulcase':        'interp_locale.fixup_ulcase',
             'setlocale':           'interp_locale.setlocale',
             'localeconv':          'interp_locale.localeconv',
             #'strcoll':             'interp_locale.strcoll',
@@ -17,6 +14,8 @@ class Module(MixedModule):
             }
 
     appleveldefs  = {
+            'Error':               'app_locale.Error',
+            '_fixup_ulcase':        'app_locale._fixup_ulcase',
             }
 
     def buildloaders(cls):

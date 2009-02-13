@@ -1,7 +1,8 @@
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.rpython.lltypesystem import rffi, lltype
 
-from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
+from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import ObjSpace, W_Root
 
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
@@ -92,13 +93,37 @@ locals().update(constants)
 def external(name, args, result):
     return rffi.llexternal(name, args, result, compilation_info=CConfig._compilation_info_)
 
+def make_error(space, msg):
+    w_module = space.getbuiltinmodule('_locale')
+    w_exception_class = space.getattr(w_module, space.wrap('Error'))
+    w_exception = space.call_function(w_exception_class, space.wrap(msg))
+    return OperationError(w_exception_class, w_exception)
+
 _setlocale = external('setlocale', [rffi.INT, rffi.CCHARP], rffi.CCHARP)
 
-def setlocale(space, category, locale):
-    result = _setlocale(rffi.cast(rffi.INT, category), rffi.str2charp(locale))
+def setlocale(space, category, w_locale=None):
+    if space.is_w(w_locale, space.w_None) or w_locale is None:
+
+        result = _setlocale(rffi.cast(rffi.INT, category), None)
+        if not result:
+            raise make_error(space, "locale query failed")
+
+    else:
+        locale = rffi.str2charp(space.str_w(w_locale))
+
+        result = _setlocale(rffi.cast(rffi.INT, category), locale)
+        if not result:
+            raise make_error(space, "unsupported locale setting")
+
+        # record changes to LC_CTYPE
+        if category in (LC_CTYPE, LC_ALL):
+            w_module = space.getbuiltinmodule('_locale')
+            w_fun = space.getattr(w_module, space.wrap('_fixup_ulcase'))
+            space.call_function(w_fun)
+
     return space.wrap(rffi.charp2str(result))
 
-setlocale.unwrap_spec = [ObjSpace, int, str]
+setlocale.unwrap_spec = [ObjSpace, int, W_Root]
 
 _lconv = lltype.Ptr(cConfig.lconv)
 _localeconv = external('localeconv', [], _lconv)

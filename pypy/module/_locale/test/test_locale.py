@@ -39,6 +39,30 @@ class AppTestLocaleTrivia:
         for constant in _CONSTANTS:
             assert hasattr(_locale, constant)
 
+    def test_setlocale(self):
+        import _locale
+
+        raises(TypeError, _locale.setlocale, "", "en_US")
+        raises(TypeError, _locale.setlocale, _locale.LC_ALL, 6)
+        raises(_locale.Error, _locale.setlocale, 123456, "en_US")
+
+        assert _locale.setlocale(_locale.LC_ALL, None)
+        assert _locale.setlocale(_locale.LC_ALL)
+
+    def test_string_ulcase(self):
+        import _locale, string
+
+        lcase = "abcdefghijklmnopqrstuvwxyz"
+        ucase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+        _locale.setlocale(_locale.LC_ALL, "en_US.UTF-8")
+        assert string.lowercase == lcase
+        assert string.uppercase == ucase
+
+        _locale.setlocale(_locale.LC_ALL, "en_US")
+        assert string.lowercase != lcase
+        assert string.uppercase != ucase
+
     def test_str_float(self):
         import _locale
         import locale
