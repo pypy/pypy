@@ -92,10 +92,13 @@ locals().update(constants)
 def external(name, args, result):
     return rffi.llexternal(name, args, result, compilation_info=CConfig._compilation_info_)
 
-def setlocale(space, w_category, w_locale):
-    pass
+_setlocale = external('setlocale', [rffi.INT, rffi.CCHARP], rffi.CCHARP)
 
-setlocale.unwrap_spec = [ObjSpace, W_Root, W_Root]
+def setlocale(space, category, locale):
+    result = _setlocale(rffi.cast(rffi.INT, category), rffi.str2charp(locale))
+    return space.wrap(rffi.charp2str(result))
+
+setlocale.unwrap_spec = [ObjSpace, int, str]
 
 _lconv = lltype.Ptr(cConfig.lconv)
 _localeconv = external('localeconv', [], _lconv)

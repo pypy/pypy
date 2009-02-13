@@ -40,11 +40,11 @@ class AppTestLocaleTrivia:
             assert hasattr(_locale, constant)
 
     def test_str_float(self):
-        skip("in progress")
+        import _locale
         import locale
 
-        locale.setlocale(locale.LC_ALL, "en_US")
+        _locale.setlocale(_locale.LC_ALL, "en_US")
         assert locale.str(1.1) == '1.1'
-        locale.setlocale(locale.LC_ALL, "pl_PL")
+        _locale.setlocale(_locale.LC_ALL, "pl_PL")
         assert locale.str(1.1) == '1,1'
 
