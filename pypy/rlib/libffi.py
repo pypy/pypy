@@ -391,6 +391,7 @@ def ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     userdata.callback(ll_args, ll_res, userdata)
 
 class StackCheckError(ValueError):
+    message = None
     def __init__(self, message):
         self.message = message
 
