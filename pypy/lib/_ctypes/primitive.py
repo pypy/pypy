@@ -211,6 +211,34 @@ class SimpleType(_CDataMeta):
                 return pyobj_container.get(self._buffer[0])
             result.value = property(_getvalue, _setvalue)
 
+        elif tp == 'X':
+            from ctypes import windll
+            SysAllocStringLen = windll.oleaut32.SysAllocStringLen
+            SysStringLen = windll.oleaut32.SysStringLen
+            SysFreeString = windll.oleaut32.SysFreeString
+            from _ctypes import _wstring_at_addr
+            def _getvalue(self):
+                addr = self._buffer[0]
+                if addr == 0:
+                    return None
+                else:
+                    size = SysStringLen(addr)
+                    return _wstring_at_addr(addr, size)
+
+            def _setvalue(self, value):
+                if isinstance(value, basestring):
+                    if isinstance(value, str):
+                        value = value.decode(ConvMode.encoding,
+                                             ConvMode.errors)
+                    array = _rawffi.Array('u')(len(value)+1, value)
+                    value = SysAllocStringLen(array.buffer, len(value))
+                elif value is None:
+                    value = 0
+                if self._buffer[0]:
+                    SysFreeString(self._buffer[0])
+                self._buffer[0] = value
+            result.value = property(_getvalue, _setvalue)
+
         return result
 
     from_address = cdata_from_address

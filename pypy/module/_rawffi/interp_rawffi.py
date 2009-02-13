@@ -75,6 +75,9 @@ LL_TYPEMAP = {
     'P' : rffi.VOIDP,
 }
 
+if _MS_WINDOWS:
+    LL_TYPEMAP['X'] = rffi.CCHARP
+
 def letter2tp(space, key):
     try:
         return UNPACKED_TYPECODES[key]
