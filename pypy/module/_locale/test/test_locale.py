@@ -123,9 +123,9 @@ class AppTestLocaleTrivia:
         import _locale
         import locale
 
-        _locale.setlocale(_locale.LC_ALL, "en_US")
+        _locale.setlocale(_locale.LC_ALL, "en_US.UTF-8")
         assert locale.str(1.1) == '1.1'
-        _locale.setlocale(_locale.LC_ALL, "pl_PL")
+        _locale.setlocale(_locale.LC_ALL, "pl_PL.UTF-8")
         assert locale.str(1.1) == '1,1'
 
     def test_text(self):
