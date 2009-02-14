@@ -415,17 +415,17 @@ class Bookkeeper:
         elif isinstance(x, (ootype._record, ootype._string)):
             result = SomeOOInstance(ootype.typeOf(x))
         elif callable(x):
-            if hasattr(x, '__self__') and x.__self__ is not None:
+            if hasattr(x, 'im_self') and hasattr(x, 'im_func'):
+                # on top of PyPy, for cases like 'l.append' where 'l' is a
+                # global constant list, the find_method() returns non-None
+                s_self = self.immutablevalue(x.im_self, need_const)
+                result = s_self.find_method(x.im_func.__name__)
+            elif hasattr(x, '__self__') and x.__self__ is not None:
                 # for cases like 'l.append' where 'l' is a global constant list
                 s_self = self.immutablevalue(x.__self__, need_const)
                 result = s_self.find_method(x.__name__)
                 if result is None:
                     result = SomeObject()
-            elif hasattr(x, 'im_self') and hasattr(x, 'im_func'):
-                # on top of PyPy, for cases like 'l.append' where 'l' is a
-                # global constant list, the find_method() returns non-None
-                s_self = self.immutablevalue(x.im_self, need_const)
-                result = s_self.find_method(x.im_func.__name__)
             else:
                 result = None
             if result is None:
