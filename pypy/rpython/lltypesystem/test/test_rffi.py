@@ -70,6 +70,19 @@ class BaseTestRffi:
         xf = self.compile(f, [], backendopt=False)
         assert xf() == 3
     
+    def test_unicode(self):
+        eci = ExternalCompilationInfo(includes=['string.h'])
+        z = llexternal('wcslen', [CWCHARP], Signed, compilation_info=eci)
+    
+        def f():
+            s = unicode2wcharp(u"xxx\xe9")
+            res = z(s)
+            free_wcharp(s)
+            return res
+    
+        xf = self.compile(f, [], backendopt=False)
+        assert xf() == 4
+    
     def test_string_reverse(self):
         c_source = py.code.Source("""
         #include <string.h>
@@ -453,6 +466,20 @@ class BaseTestRffi:
         fn = self.compile(f, [], gcpolicy='ref')
         assert fn() == d[:-1]
     
+    def test_nonmoving_unicode(self):
+        d = u'non-moving data'
+        def f():
+            raw_buf, gc_buf = alloc_unicodebuffer(len(d))
+            try:
+                for i in range(len(d)):
+                    raw_buf[i] = d[i]
+                u = unicode_from_buffer(raw_buf, gc_buf, len(d), len(d)-1)
+                return len(u)
+            finally:
+                keep_unicodebuffer_alive_until_here(raw_buf, gc_buf)
+        assert f() == len(d) - 1
+        fn = self.compile(f, [], gcpolicy='ref')
+        assert fn() == len(d) - 1
 
     def test_nonmovingbuffer(self):
         d = 'some cool data that should not move'
@@ -654,7 +681,7 @@ class TestRffiInternals:
         cache = {
             lltype.Signed:   ctypes.c_long,
             lltype.Unsigned: ctypes.c_ulong,
-            lltype.UniChar:  ctypes.c_uint,
+            lltype.UniChar:  ctypes.c_wchar,
             lltype.Char:     ctypes.c_ubyte,
             DOUBLE:     ctypes.c_double,
             SIGNEDCHAR: ctypes.c_byte,
