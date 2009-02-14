@@ -132,9 +132,6 @@ class AppTestLocaleTrivia:
         # TODO more tests would be nice
         import _locale
 
-        for fun in ('gettext', 'dgettext', 'dcgettext', 'textdomain'):
-            assert hasattr(_locale, fun)
-
         assert _locale.gettext("1234") == "1234"
         assert _locale.dgettext(None, "1234") == "1234"
         assert _locale.dcgettext(None, "1234", _locale.LC_MESSAGES) == "1234"
