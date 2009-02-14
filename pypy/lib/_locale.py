@@ -260,7 +260,7 @@ def strcoll(s1, s2):
         return _strcoll(s1, s2)
 
     # If neither argument is unicode, it's an error.
-    if not isinstance(s1, unicode) and isinstance(s2, unicode):
+    if not isinstance(s1, unicode) or not isinstance(s2, unicode):
         raise ValueError("strcoll arguments must be strings")
 
     # Convert the non-unicode argument to unicode.
