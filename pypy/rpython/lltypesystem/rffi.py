@@ -495,132 +495,134 @@ DOUBLEP = lltype.Ptr(lltype.Array(DOUBLE, hints={'nolength': True}))
 FLOATP = lltype.Ptr(lltype.Array(FLOAT, hints={'nolength': True}))
 
 # various type mapping
-# str -> char*
-def str2charp(s):
-    """ str -> char*
-    """
-    array = lltype.malloc(CCHARP.TO, len(s) + 1, flavor='raw')
-    for i in range(len(s)):
-        array[i] = s[i]
-    array[len(s)] = '\x00'
-    return array
-str2charp._annenforceargs_ = [str]
+if 1:
+    # str -> char*
+    def str2charp(s):
+        """ str -> char*
+        """
+        array = lltype.malloc(CCHARP.TO, len(s) + 1, flavor='raw')
+        for i in range(len(s)):
+            array[i] = s[i]
+        array[len(s)] = '\x00'
+        return array
+    str2charp._annenforceargs_ = [str]
 
-def free_charp(cp):
-    lltype.free(cp, flavor='raw')
+    def free_charp(cp):
+        lltype.free(cp, flavor='raw')
 
-# char* -> str
-# doesn't free char*
-def charp2str(cp):
-    l = []
-    i = 0
-    while cp[i] != '\x00':
-        l.append(cp[i])
-        i += 1
-    return "".join(l)
-    
-# str -> char*
-def get_nonmovingbuffer(data):
-    """
-    Either returns a non-moving copy or performs neccessary pointer arithmetic
-    to return a pointer to the characters of a string if the string is already
-    nonmovable.
-    Must be followed by a free_nonmovingbuffer call.
-    """
-    if rgc.can_move(data):
-        count = len(data)
-        buf = lltype.malloc(CCHARP.TO, count, flavor='raw')
-        for i in range(count):
-            buf[i] = data[i]
-        return buf
-    else:
-        data_start = cast_ptr_to_adr(llstr(data)) + \
-            offsetof(STR, 'chars') + itemoffsetof(STR.chars, 0)
-        return cast(CCHARP, data_start)
+    # char* -> str
+    # doesn't free char*
+    def charp2str(cp):
+        l = []
+        i = 0
+        while cp[i] != '\x00':
+            l.append(cp[i])
+            i += 1
+        return "".join(l)
 
-# (str, char*) -> None
-def free_nonmovingbuffer(data, buf):
-    """
-    Either free a non-moving buffer or keep the original storage alive.
-    """
-    if rgc.can_move(data):
-        lltype.free(buf, flavor='raw')
-    else:
-        keepalive_until_here(data)
-
-# int -> (char*, str)
-def alloc_buffer(count):
-    """
-    Returns a (raw_buffer, gc_buffer) pair, allocated with count bytes.
-    The raw_buffer can be safely passed to a native function which expects it
-    to not move. Call str_from_buffer with the returned values to get a safe
-    high-level string. When the garbage collector cooperates, this allows for
-    the process to be performed without an extra copy.
-    Make sure to call keep_buffer_alive_until_here on the returned values.
-    """
-    str_chars_offset = offsetof(STR, 'chars') + itemoffsetof(STR.chars, 0)
-    gc_buf = rgc.malloc_nonmovable(STR, count)
-    if gc_buf:
-        realbuf = cast_ptr_to_adr(gc_buf) + str_chars_offset
-        raw_buf = cast(CCHARP, realbuf)
-        return raw_buf, gc_buf
-    else:
-        raw_buf = lltype.malloc(CCHARP.TO, count, flavor='raw')
-        return raw_buf, lltype.nullptr(STR)
-alloc_buffer._always_inline_ = True     # to get rid of the returned tuple obj
-
-# (char*, str, int, int) -> None
-def str_from_buffer(raw_buf, gc_buf, allocated_size, needed_size):
-    """
-    Converts from a pair returned by alloc_buffer to a high-level string.
-    The returned string will be truncated to needed_size.
-    """
-    assert allocated_size >= needed_size
-    
-    if gc_buf and (allocated_size == needed_size):
-        return hlstr(gc_buf)
-    
-    new_buf = lltype.malloc(STR, needed_size)
-    try:
-        str_chars_offset = offsetof(STR, 'chars') + itemoffsetof(STR.chars, 0)
-        if gc_buf:
-            src = cast_ptr_to_adr(gc_buf) + str_chars_offset
+    # str -> char*
+    def get_nonmovingbuffer(data):
+        """
+        Either returns a non-moving copy or performs neccessary pointer
+        arithmetic to return a pointer to the characters of a string if the
+        string is already nonmovable.
+        Must be followed by a free_nonmovingbuffer call.
+        """
+        if rgc.can_move(data):
+            count = len(data)
+            buf = lltype.malloc(CCHARP.TO, count, flavor='raw')
+            for i in range(count):
+                buf[i] = data[i]
+            return buf
         else:
-            src = cast_ptr_to_adr(raw_buf) + itemoffsetof(CCHARP.TO, 0)
-        dest = cast_ptr_to_adr(new_buf) + str_chars_offset
-        ## FIXME: This is bad, because dest could potentially move
-        ## if there are threads involved.
-        raw_memcopy(src, dest,
-                    llmemory.sizeof(lltype.Char) * needed_size)
-        return hlstr(new_buf)
-    finally:
-        keepalive_until_here(new_buf)
+            data_start = cast_ptr_to_adr(llstr(data)) + \
+                offsetof(STR, 'chars') + itemoffsetof(STR.chars, 0)
+            return cast(CCHARP, data_start)
 
-# (char*, str) -> None
-def keep_buffer_alive_until_here(raw_buf, gc_buf):
-    """
-    Keeps buffers alive or frees temporary buffers created by alloc_buffer.
-    This must be called after a call to alloc_buffer, usually in a try/finally
-    block.
-    """
-    if gc_buf:
-        keepalive_until_here(gc_buf)
-    elif raw_buf:
-        lltype.free(raw_buf, flavor='raw')
+    # (str, char*) -> None
+    def free_nonmovingbuffer(data, buf):
+        """
+        Either free a non-moving buffer or keep the original storage alive.
+        """
+        if rgc.can_move(data):
+            lltype.free(buf, flavor='raw')
+        else:
+            keepalive_until_here(data)
 
-# char* -> str, with an upper bound on the length in case there is no \x00
-def charp2strn(cp, maxlen):
-    l = []
-    i = 0
-    while i < maxlen and cp[i] != '\x00':
-        l.append(cp[i])
-        i += 1
-    return "".join(l)
+    # int -> (char*, str)
+    def alloc_buffer(count):
+        """
+        Returns a (raw_buffer, gc_buffer) pair, allocated with count bytes.  The
+        raw_buffer can be safely passed to a native function which expects it to
+        not move. Call str_from_buffer with the returned values to get a safe
+        high-level string. When the garbage collector cooperates, this allows
+        for the process to be performed without an extra copy.
+        Make sure to call keep_buffer_alive_until_here on the returned values.
+        """
+        str_chars_offset = offsetof(STR, 'chars') + itemoffsetof(STR.chars, 0)
+        gc_buf = rgc.malloc_nonmovable(STR, count)
+        if gc_buf:
+            realbuf = cast_ptr_to_adr(gc_buf) + str_chars_offset
+            raw_buf = cast(CCHARP, realbuf)
+            return raw_buf, gc_buf
+        else:
+            raw_buf = lltype.malloc(CCHARP.TO, count, flavor='raw')
+            return raw_buf, lltype.nullptr(STR)
+    alloc_buffer._always_inline_ = True  # to get rid of the returned tuple obj
 
-# char* and size -> str (which can contain null bytes)
-def charpsize2str(cp, size):
-    l = [cp[i] for i in range(size)]
-    return "".join(l)
+    # (char*, str, int, int) -> None
+    def str_from_buffer(raw_buf, gc_buf, allocated_size, needed_size):
+        """
+        Converts from a pair returned by alloc_buffer to a high-level string.
+        The returned string will be truncated to needed_size.
+        """
+        assert allocated_size >= needed_size
+
+        if gc_buf and (allocated_size == needed_size):
+            return hlstr(gc_buf)
+
+        new_buf = lltype.malloc(STR, needed_size)
+        try:
+            str_chars_offset = (offsetof(STR, 'chars') +
+                                itemoffsetof(STR.chars, 0))
+            if gc_buf:
+                src = cast_ptr_to_adr(gc_buf) + str_chars_offset
+            else:
+                src = cast_ptr_to_adr(raw_buf) + itemoffsetof(CCHARP.TO, 0)
+            dest = cast_ptr_to_adr(new_buf) + str_chars_offset
+            ## FIXME: This is bad, because dest could potentially move
+            ## if there are threads involved.
+            raw_memcopy(src, dest,
+                        llmemory.sizeof(lltype.Char) * needed_size)
+            return hlstr(new_buf)
+        finally:
+            keepalive_until_here(new_buf)
+
+    # (char*, str) -> None
+    def keep_buffer_alive_until_here(raw_buf, gc_buf):
+        """
+        Keeps buffers alive or frees temporary buffers created by alloc_buffer.
+        This must be called after a call to alloc_buffer, usually in a
+        try/finally block.
+        """
+        if gc_buf:
+            keepalive_until_here(gc_buf)
+        elif raw_buf:
+            lltype.free(raw_buf, flavor='raw')
+
+    # char* -> str, with an upper bound on the length in case there is no \x00
+    def charp2strn(cp, maxlen):
+        l = []
+        i = 0
+        while i < maxlen and cp[i] != '\x00':
+            l.append(cp[i])
+            i += 1
+        return "".join(l)
+
+    # char* and size -> str (which can contain null bytes)
+    def charpsize2str(cp, size):
+        l = [cp[i] for i in range(size)]
+        return "".join(l)
 
 # char**
 CCHARPP = lltype.Ptr(lltype.Array(CCHARP, hints={'nolength': True}))
