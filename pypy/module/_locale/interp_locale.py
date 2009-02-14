@@ -164,7 +164,7 @@ def localeconv(space):
 localeconv.unwrap_spec = [ObjSpace]
 
 _strcoll = external('strcoll', [rffi.CCHARP, rffi.CCHARP], rffi.INT)
-_wcscoll = external('wcscoll', [rffi.WCHAR_TP, rffi.WCHAR_TP], rffi.INT)
+_wcscoll = external('wcscoll', [rffi.CWCHARP, rffi.CWCHARP], rffi.INT)
 
 def strcoll(space, w_s1, w_s2):
     "string,string -> int. Compares two strings according to the locale."
@@ -182,13 +182,10 @@ def strcoll(space, w_s1, w_s2):
 
     s1, s2 = space.unicode_w(w_s1), space.unicode_w(w_s2)
 
-    # XXX rffi.unicode2wcharp needed
-    raise OperationError(space.w_NotImplementedError,
-                         space.wrap("PyPy specific - not implemented for unicode arguments"))
-
-    #s1_c = rffi.str2charp(s1)
-    #s2_c = rffi.str2charp(s2)
-    #return space.wrap(_wcscoll(s1_c, s2_c))
+    s1_c = rffi.unicode2wcharp(s1)
+    s2_c = rffi.unicode2wcharp(s2)
+    result = _wcscoll(s1_c, s2_c)
+    return space.wrap(result)
 
 strcoll.unwrap_spec = [ObjSpace, W_Root, W_Root]
 

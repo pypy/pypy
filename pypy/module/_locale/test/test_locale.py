@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from pypy.conftest import gettestobjspace
 
 import sys
@@ -97,9 +98,9 @@ class AppTestLocaleTrivia:
 
         _locale.setlocale(_locale.LC_ALL, "pl_PL.UTF-8")
         assert _locale.strcoll("a", "b") < 0
-        assert _locale.strcoll('\xc4\x85', "b") < 0
+        assert _locale.strcoll("ą", "b") < 0
 
-        assert _locale.strcoll('\xc4\x87', "b") > 0
+        assert _locale.strcoll("ć", "b") > 0
         assert _locale.strcoll("c", "b") > 0
 
         assert _locale.strcoll("b", "b") == 0
@@ -108,13 +109,12 @@ class AppTestLocaleTrivia:
         raises(TypeError, _locale.strcoll, "b", 1)
 
     def test_strcoll_unicode(self):
-        skip("not implemented, rffi.unicode2wcharp needed")
         import _locale
 
         _locale.setlocale(_locale.LC_ALL, "pl_PL.UTF-8")
         assert _locale.strcoll(u"b", u"b") == 0
-        assert _locale.strcoll(u'\xc4\x85', "b") < 0
-        assert _locale.strcoll(u'\xc4\x87', "b") > 0
+        assert _locale.strcoll(u"a", u"b") < 0
+        assert _locale.strcoll(u"b", u"a") > 0
 
         raises(TypeError, _locale.strcoll, 1, u"b")
         raises(TypeError, _locale.strcoll, u"b", 1)
