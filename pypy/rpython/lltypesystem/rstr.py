@@ -197,11 +197,24 @@ class __extend__(pairtype(AbstractStringRepr, PyObjRepr)):
         string_repr = llops.rtyper.type_system.rstr.string_repr
         v = llops.convertvar(v, r_from, string_repr)
         cchars = inputconst(Void, "chars")
-        # xxx put in table        
-        return llops.gencapicall('PyString_FromRPyString',
-                                 [v],
-                                 resulttype=pyobj_repr,
-                                 _callable= lambda v: pyobjectptr(''.join(v.chars)))
+        # xxx put in table
+        return llops.gencapicall(
+            'PyString_FromRPyString',
+            [v],
+            resulttype=pyobj_repr,
+            _callable=lambda v: pyobjectptr(''.join(v.chars)))
+
+class __extend__(pairtype(AbstractUnicodeRepr, PyObjRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        unicode_repr = llops.rtyper.type_system.rstr.unicode_repr
+        v = llops.convertvar(v, r_from, unicode_repr)
+        cchars = inputconst(Void, "chars")
+        # xxx put in table
+        return llops.gencapicall(
+            'PyUnicode_FromRPyUnicode',
+            [v],
+            resulttype=pyobj_repr,
+            _callable=lambda v: pyobjectptr(u''.join(v.chars)))
 
 # ____________________________________________________________
 #

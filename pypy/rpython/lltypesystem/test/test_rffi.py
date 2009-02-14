@@ -185,7 +185,7 @@ class BaseTestRffi:
         fn = self.compile(f, [], backendopt=False)
         assert fn() == 8
     
-    def test_externvar(self):
+    def _test_externvar(self):
         import os
     
         def f():
@@ -473,13 +473,12 @@ class BaseTestRffi:
             try:
                 for i in range(len(d)):
                     raw_buf[i] = d[i]
-                u = unicode_from_buffer(raw_buf, gc_buf, len(d), len(d)-1)
-                return len(u)
+                return unicode_from_buffer(raw_buf, gc_buf, len(d), len(d)-1)
             finally:
                 keep_unicodebuffer_alive_until_here(raw_buf, gc_buf)
-        assert f() == len(d) - 1
+        assert f() == d[:-1]
         fn = self.compile(f, [], gcpolicy='ref')
-        assert fn() == len(d) - 1
+        assert fn() == d[:-1]
 
     def test_nonmovingbuffer(self):
         d = 'some cool data that should not move'

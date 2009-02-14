@@ -23,6 +23,9 @@
 #define PyString_FromRPyString(rpystr) \
 	PyString_FromStringAndSize(RPyString_AsString(rpystr), RPyString_Size(rpystr))
 
+#define PyUnicode_FromRPyUnicode(rpystr) \
+	PyUnicode_FromUnicode(RPyUnicode_AsUnicode(rpystr), RPyUnicode_Size(rpystr))
+
 #define PyString_ToRPyString(s, rpystr)                           \
 	memcpy(RPyString_AsString(rpystr), PyString_AS_STRING(s), \
                RPyString_Size(rpystr))

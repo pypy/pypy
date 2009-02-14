@@ -7,6 +7,8 @@
 #define RPyString_Size(rps)		((rps)->rs_chars.length)
 #define RPyString_AsString(rps)		((rps)->rs_chars.items)
 
+#define RPyUnicode_Size(rpu)		((rpu)->ru_chars.length)
+#define RPyUnicode_AsUnicode(rpu)	((rpu)->ru_chars.items)
 
 /* prototypes */
 
