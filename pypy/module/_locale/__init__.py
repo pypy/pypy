@@ -4,7 +4,6 @@ class Module(MixedModule):
     """Support for POSIX locales."""
 
     interpleveldefs  = {
-            #'lconv':               'interp_locale.lconv',
             'setlocale':            'interp_locale.setlocale',
             'localeconv':           'interp_locale.localeconv',
             'strcoll':              'interp_locale.strcoll',
