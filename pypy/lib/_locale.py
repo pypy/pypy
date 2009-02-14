@@ -343,7 +343,7 @@ def dcgettext(domain, msg, category):
 
 def textdomain(domain):
     """textdomain(domain) -> string
-    Set the C library's textdmain to domain, returning the new domain."""
+    Set the C library's textdomain to domain, returning the new domain."""
     return _textdomain(domain)
 
 def bindtextdomain(domain, dir):
