@@ -192,3 +192,64 @@ def strcoll(space, w_s1, w_s2):
 
 strcoll.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
+_gettext = external('gettext', [rffi.CCHARP], rffi.CCHARP)
+
+def gettext(space, msg):
+    """gettext(msg) -> string
+    Return translation of msg."""
+    return space.wrap(rffi.charp2str(_gettext(rffi.str2charp(msg))))
+
+gettext.unwrap_spec = [ObjSpace, str]
+
+_dgettext = external('dgettext', [rffi.CCHARP, rffi.CCHARP], rffi.CCHARP)
+
+def dgettext(space, w_domain, msg):
+    """dgettext(domain, msg) -> string
+    Return translation of msg in domain."""
+    if space.is_w(w_domain, space.w_None):
+        domain = None
+        result = _dgettext(domain, rffi.str2charp(msg))
+    else:
+        domain = space.str_w(w_domain)
+        result = _dgettext(rffi.str2charp(domain), rffi.str2charp(msg))
+
+    return space.wrap(rffi.charp2str(result))
+
+dgettext.unwrap_spec = [ObjSpace, W_Root, str]
+
+_dcgettext = external('dcgettext', [rffi.CCHARP, rffi.CCHARP, rffi.INT], rffi.CCHARP)
+
+def dcgettext(space, w_domain, msg, category):
+    """dcgettext(domain, msg, category) -> string
+    Return translation of msg in domain and category."""
+
+    if space.is_w(w_domain, space.w_None):
+        domain = None
+        result = _dcgettext(domain, rffi.str2charp(msg),
+                            rffi.cast(rffi.INT, category))
+    else:
+        domain = space.str_w(w_domain)
+        result = _dcgettext(rffi.str2charp(domain), rffi.str2charp(msg),
+                            rffi.cast(rffi.INT, category))
+
+    return space.wrap(rffi.charp2str(result))
+
+dcgettext.unwrap_spec = [ObjSpace, W_Root, str, int]
+
+
+_textdomain = external('textdomain', [rffi.CCHARP], rffi.CCHARP)
+
+def textdomain(space, w_domain):
+    """textdomain(domain) -> string
+    Set the C library's textdomain to domain, returning the new domain."""
+
+    if space.is_w(w_domain, space.w_None):
+        domain = None
+        result = _textdomain(domain)
+    else:
+        domain = space.str_w(w_domain)
+        result = _textdomain(rffi.str2charp(domain))
+
+    return space.wrap(rffi.charp2str(result))
+
+textdomain.unwrap_spec = [ObjSpace, W_Root]

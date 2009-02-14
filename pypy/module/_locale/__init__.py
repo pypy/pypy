@@ -5,12 +5,15 @@ class Module(MixedModule):
 
     interpleveldefs  = {
             #'lconv':               'interp_locale.lconv',
-            'setlocale':           'interp_locale.setlocale',
-            'localeconv':          'interp_locale.localeconv',
-            'strcoll':             'interp_locale.strcoll',
+            'setlocale':            'interp_locale.setlocale',
+            'localeconv':           'interp_locale.localeconv',
+            'strcoll':              'interp_locale.strcoll',
             #'strxfrm':             'interp_locale.strxfrm',
             #'getdefaultlocale':    'interp_locale.getdefaultlocale',
-            #'gettext':             'interp_locale.gettext',
+            'gettext':              'interp_locale.gettext',
+            'dgettext':             'interp_locale.dgettext',
+            'dcgettext':            'interp_locale.dcgettext',
+            'textdomain':           'interp_locale.textdomain',
             }
 
     appleveldefs  = {
