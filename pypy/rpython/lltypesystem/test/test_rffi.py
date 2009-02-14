@@ -185,7 +185,7 @@ class BaseTestRffi:
         fn = self.compile(f, [], backendopt=False)
         assert fn() == 8
     
-    def _test_externvar(self):
+    def test_externvar(self):
         import os
     
         def f():
