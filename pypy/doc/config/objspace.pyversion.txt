@@ -1,2 +1,0 @@
-Use this option to chose the CPython version the interpreter should try to be
-compatible with.
