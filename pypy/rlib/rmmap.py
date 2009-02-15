@@ -71,7 +71,7 @@ elif _MS_WINDOWS:
 
     from pypy.rlib.rwin32 import HANDLE, LPHANDLE
     from pypy.rlib.rwin32 import DWORD, WORD, DWORD_PTR, LPDWORD
-    from pypy.rlib.rwin32 import BOOL, LPVOID, LPCVOID, LPCTSTR, SIZE_T
+    from pypy.rlib.rwin32 import BOOL, LPVOID, LPCVOID, LPCSTR, SIZE_T
     from pypy.rlib.rwin32 import INT, LONG, PLONG
 
 # export the constants inside and outside. see __init__.py
@@ -165,8 +165,8 @@ elif _MS_WINDOWS:
     GetFileSize = winexternal('GetFileSize', [HANDLE, LPDWORD], DWORD)
     GetCurrentProcess = winexternal('GetCurrentProcess', [], HANDLE)
     DuplicateHandle = winexternal('DuplicateHandle', [HANDLE, HANDLE, HANDLE, LPHANDLE, DWORD, BOOL, DWORD], BOOL)
-    CreateFileMapping = winexternal('CreateFileMappingA', [HANDLE, LPSECURITY_ATTRIBUTES, DWORD, DWORD, DWORD, LPCTSTR], HANDLE)
-    MapViewOfFile = winexternal('MapViewOfFile', [HANDLE, DWORD, DWORD, DWORD, SIZE_T], LPCTSTR)##!!LPVOID)
+    CreateFileMapping = winexternal('CreateFileMappingA', [HANDLE, LPSECURITY_ATTRIBUTES, DWORD, DWORD, DWORD, LPCSTR], HANDLE)
+    MapViewOfFile = winexternal('MapViewOfFile', [HANDLE, DWORD, DWORD, DWORD, SIZE_T], LPCSTR)##!!LPVOID)
     CloseHandle = winexternal('CloseHandle', [HANDLE], BOOL)
     UnmapViewOfFile = winexternal('UnmapViewOfFile', [LPCVOID], BOOL)
     FlushViewOfFile = winexternal('FlushViewOfFile', [LPCVOID, SIZE_T], BOOL)
@@ -514,7 +514,7 @@ class MMap(object):
                                      0, 0, 0)
                 if data:
                     # XXX we should have a real LPVOID which must always be casted
-                    charp = rffi.cast(LPCTSTR, data)
+                    charp = rffi.cast(LPCSTR, data)
                     self.setdata(charp, newsize)
                     return
                 else:
@@ -725,7 +725,7 @@ elif _MS_WINDOWS:
                                 0, 0, 0)
             if res:
                 # XXX we should have a real LPVOID which must always be casted
-                charp = rffi.cast(LPCTSTR, res)
+                charp = rffi.cast(LPCSTR, res)
                 m.setdata(charp, map_size)
                 return m
             else:
