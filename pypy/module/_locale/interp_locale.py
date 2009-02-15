@@ -1,5 +1,6 @@
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rlib import rposix
 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace, W_Root
@@ -305,3 +306,24 @@ def nl_langinfo(space, key):
     raise OperationError(space.w_ValueError, "unsupported langinfo constant")
 
 nl_langinfo.unwrap_spec = [ObjSpace, int]
+
+_bindtextdomain = external('bindtextdomain', [rffi.CCHARP, rffi.CCHARP],
+                                                                rffi.CCHARP)
+
+def bindtextdomain(space, domain, w_dir):
+    """bindtextdomain(domain, dir) -> string
+    Bind the C library's domain to dir."""
+
+    if space.is_w(w_dir, space.w_None):
+        dir = None
+        dirname = _bindtextdomain(rffi.str2charp(domain), dir)
+    else:
+        dir = space.str_w(w_dir)
+        dirname = _bindtextdomain(rffi.str2charp(domain), rffi.str2charp(dir))
+
+    if not dirname:
+        errno = rposix.get_errno()
+        raise OperationError(space.w_OSError, errno)
+    return space.wrap(rffi.charp2str(dirname))
+
+bindtextdomain.unwrap_spec = [ObjSpace, str, W_Root]

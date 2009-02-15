@@ -218,3 +218,10 @@ class AppTestLocaleTrivia:
 
         raises(ValueError, _locale.nl_langinfo, 12345)
         raises(TypeError, _locale.nl_langinfo, None)
+    
+    def test_bindtextdomain(self):
+        # TODO more tests would be nice
+        import _locale
+
+        raises(OSError, _locale.bindtextdomain, '', '')
+        raises(OSError, _locale.bindtextdomain, '', '1')

@@ -14,6 +14,7 @@ class Module(MixedModule):
             'dcgettext':            'interp_locale.dcgettext',
             'textdomain':           'interp_locale.textdomain',
             'nl_langinfo':          'interp_locale.nl_langinfo',
+            'bindtextdomain':       'interp_locale.bindtextdomain',
             }
 
     appleveldefs  = {
