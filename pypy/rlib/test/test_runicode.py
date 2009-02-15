@@ -181,6 +181,15 @@ class TestEncoding(UnicodeTests):
     def test_latin1_error(self):
         self.checkencodeerror(u"abc\uffff\uffff\uffffcde", "latin-1", 3, 6)
 
+    def test_mbcs(self):
+        if sys.platform != 'win32':
+            py.test.skip("mbcs encoding is win32-specific")
+        self.checkencode(u'encoding test', "mbcs")
+        self.checkdecode('decoding test', "mbcs")
+        # XXX test this on a non-western Windows installation
+        self.checkencode(u"\N{GREEK CAPITAL LETTER PHI}", "mbcs") # a F
+        self.checkencode(u"\N{GREEK CAPITAL LETTER PSI}", "mbcs") # a ?
+
 class TestTranslation(object):
     def test_utf8(self):
         from pypy.rpython.test.test_llinterp import interpret

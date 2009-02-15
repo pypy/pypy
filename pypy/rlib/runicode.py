@@ -489,16 +489,91 @@ def unicode_encode_utf_16_le(s, size, errors,
     return unicode_encode_utf_16_helper(s, size, errors, errorhandler, "little")
 
 
+# ____________________________________________________________
+# MBCS codecs for Windows
+
 if sys.platform == 'win32':
+    from pypy.rpython.lltypesystem import lltype, rffi
+    from pypy.rlib import rwin32
+    CP_ACP = 0
+
+    MultiByteToWideChar = rffi.llexternal('MultiByteToWideChar',
+                                          [rffi.UINT, rwin32.DWORD,
+                                           rwin32.LPCSTR, rffi.INT,
+                                           rffi.CWCHARP, rffi.INT],
+                                          rffi.INT,
+                                          calling_conv='win')
+
+    WideCharToMultiByte = rffi.llexternal('WideCharToMultiByte',
+                                          [rffi.UINT, rwin32.DWORD,
+                                           rffi.CWCHARP, rffi.INT,
+                                           rwin32.LPCSTR, rffi.INT,
+                                           rwin32.LPCSTR, rffi.VOIDP],
+                                          rffi.INT,
+                                          calling_conv='win')
+
+    def is_dbcs_lead_byte(c):
+        # XXX don't know how to test this
+        return False
+
     def str_decode_mbcs(s, size, errors, final=False,
                         errorhandler=None):
-        # XXX MultiByteToWideChar should be used instead.
-        return str_decode_latin_1(s, size, errors="replace",
-                                  final=final, errorhandler=errorhandler)
+        if size == 0:
+            return u"", 0
+
+        if errorhandler is None:
+            errorhandler = raise_unicode_exception_decode
+
+        # Skip trailing lead-byte unless 'final' is set
+        if not final and is_dbcs_lead_byte(s[size-1]):
+            size -= 1
+
+        dataptr = rffi.get_nonmovingbuffer(s)
+        try:
+            # first get the size of the result
+            usize = MultiByteToWideChar(CP_ACP, 0,
+                                        dataptr, size,
+                                        lltype.nullptr(rffi.CWCHARP.TO), 0)
+            if usize == 0:
+                raise rwin32.lastWindowsError()
+
+            raw_buf, gc_buf = rffi.alloc_unicodebuffer(usize)
+            try:
+                # do the conversion
+                if MultiByteToWideChar(CP_ACP, 0,
+                                       dataptr, size, raw_buf, usize) == 0:
+                    raise rwin32.lastWindowsError()
+
+                return (rffi.unicode_from_buffer(raw_buf, gc_buf, usize, usize),
+                        size)
+            finally:
+                rffi.keep_unicodebuffer_alive_until_here(raw_buf, gc_buf)
+        finally:
+            rffi.free_nonmovingbuffer(s, dataptr)
 
     def unicode_encode_mbcs(p, size, errors, errorhandler=None):
-        # XXX This is only roughly correct, even on a Western Windows.
-        # For example, some greek letters do have a translation (phi -> f)
-        # WideCharToMultiByte should be used instead.
-        return unicode_encode_latin_1(p, size, errors="replace",
-                                      errorhandler=errorhandler)
+        dataptr = rffi.get_nonmoving_unicodebuffer(p)
+        try:
+            # first get the size of the result
+            if size > 0:
+                mbcssize = WideCharToMultiByte(CP_ACP, 0,
+                                               dataptr, size, None, 0,
+                                               None, None)
+                if mbcssize == 0:
+                    raise rwin32.lastWindowsError()
+            else:
+                mbcssize = 0
+
+            raw_buf, gc_buf = rffi.alloc_buffer(mbcssize)
+            try:
+                # do the conversion
+                if WideCharToMultiByte(CP_ACP, 0,
+                                       dataptr, size, raw_buf, mbcssize,
+                                       None, None) == 0:
+                    raise rwin32.lastWindowsError()
+
+                return rffi.str_from_buffer(raw_buf, gc_buf, mbcssize, mbcssize)
+            finally:
+                rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
+        finally:
+            rffi.free_nonmoving_unicodebuffer(p, dataptr)
