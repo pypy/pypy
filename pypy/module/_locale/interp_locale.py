@@ -189,6 +189,27 @@ def strcoll(space, w_s1, w_s2):
 
 strcoll.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
+_strxfrm = external('strxfrm', [rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T],
+                                                                rffi.SIZE_T)
+
+def strxfrm(space, s):
+    "string -> string. Returns a string that behaves for cmp locale-aware."
+    n1 = len(s) + 1
+    try:
+        buf = lltype.malloc(rffi.CCHARP.TO, n1, flavor="raw", zero=True)
+        n2 = _strxfrm(buf, rffi.str2charp(s), n1) + 1
+        if n2 > n1:
+            # more space needed
+            lltype.free(buf, flavor="raw")
+            buf = lltype.malloc(rffi.CCHARP.TO, n2, flavor="raw", zero=True)
+            _strxfrm(buf, rffi.str2charp(s), n2)
+        val = rffi.charp2str(buf)
+    finally:
+        lltype.free(buf, flavor="raw")
+    return space.wrap(val)
+
+strxfrm.unwrap_spec = [ObjSpace, str]
+
 _gettext = external('gettext', [rffi.CCHARP], rffi.CCHARP)
 
 def gettext(space, msg):
@@ -214,7 +235,8 @@ def dgettext(space, w_domain, msg):
 
 dgettext.unwrap_spec = [ObjSpace, W_Root, str]
 
-_dcgettext = external('dcgettext', [rffi.CCHARP, rffi.CCHARP, rffi.INT], rffi.CCHARP)
+_dcgettext = external('dcgettext', [rffi.CCHARP, rffi.CCHARP, rffi.INT],
+                                                                rffi.CCHARP)
 
 def dcgettext(space, w_domain, msg, category):
     """dcgettext(domain, msg, category) -> string

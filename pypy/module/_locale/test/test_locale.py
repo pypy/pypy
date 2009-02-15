@@ -7,10 +7,6 @@ class AppTestLocaleTrivia:
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=['_locale'])
 
-        #cls.w_locale = cls.space.appexec([], """():
-        #    import locale
-        #    return locale""")
-
     def test_import(self):
         import _locale
         assert _locale
@@ -118,6 +114,17 @@ class AppTestLocaleTrivia:
 
         raises(TypeError, _locale.strcoll, 1, u"b")
         raises(TypeError, _locale.strcoll, u"b", 1)
+
+    def test_strxfrm(self):
+        # TODO more tests would be nice
+        import _locale
+
+        a = "1234"
+        b = _locale.strxfrm(a)
+        assert a is not b
+        assert a == b
+
+        raises(TypeError, _locale.strxfrm, 1)
 
     def test_str_float(self):
         import _locale
