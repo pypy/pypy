@@ -29,6 +29,7 @@ class AppTestLocaleTrivia:
             'LC_TELEPHONE',
             'LC_MEASUREMENT',
             'LC_IDENTIFICATION',
+            'CHAR_MAX',
         )
 
         import _locale

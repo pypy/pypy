@@ -9,7 +9,7 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
-        includes = ['locale.h', 'langinfo.h']
+        includes = ['locale.h', 'langinfo.h', 'limits.h']
     )
     lconv = platform.Struct("struct lconv", [
             # Numeric (non-monetary) information.
@@ -72,6 +72,8 @@ constant_names = (
         'LC_TELEPHONE',
         'LC_MEASUREMENT',
         'LC_IDENTIFICATION',
+        # from limits.h
+        'CHAR_MAX',
         )
 
 for name in constant_names:
