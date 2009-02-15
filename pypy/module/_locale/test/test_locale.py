@@ -57,6 +57,7 @@ class AppTestLocaleTrivia:
         assert string.uppercase == ucase
 
         _locale.setlocale(_locale.LC_ALL, "en_US")
+
         assert string.lowercase != lcase
         assert string.uppercase != ucase
 
@@ -119,12 +120,18 @@ class AppTestLocaleTrivia:
         # TODO more tests would be nice
         import _locale
 
+        _locale.setlocale(_locale.LC_ALL, "C")
         a = "1234"
         b = _locale.strxfrm(a)
         assert a is not b
         assert a == b
 
         raises(TypeError, _locale.strxfrm, 1)
+
+        _locale.setlocale(_locale.LC_ALL, "pl_PL.UTF-8")
+        a = "1234"
+        b = _locale.strxfrm(a)
+        assert a is not b
 
     def test_str_float(self):
         import _locale
