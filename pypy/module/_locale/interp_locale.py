@@ -329,3 +329,26 @@ def bindtextdomain(space, domain, w_dir):
     return space.wrap(rffi.charp2str(dirname))
 
 bindtextdomain.unwrap_spec = [ObjSpace, str, W_Root]
+
+_bind_textdomain_codeset = external('bind_textdomain_codeset',
+                                    [rffi.CCHARP, rffi.CCHARP], rffi.CCHARP)
+
+# TODO: platform dependent
+def bind_textdomain_codeset(space, domain, w_codeset):
+    """bind_textdomain_codeset(domain, codeset) -> string
+    Bind the C library's domain to codeset."""
+
+    if space.is_w(w_codeset, space.w_None):
+        codeset = None
+        result = _bind_textdomain_codeset(rffi.str2charp(domain), codeset)
+    else:
+        codeset = space.str_w(w_codeset)
+        result = _bind_textdomain_codeset(rffi.str2charp(domain),
+                                        rffi.str2charp(codeset))
+    
+    if not result:
+        return space.w_None
+    else:
+        return space.wrap(rffi.charp2str(result))
+
+bind_textdomain_codeset.unwrap_spec = [ObjSpace, str, W_Root]

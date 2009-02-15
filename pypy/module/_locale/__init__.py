@@ -4,17 +4,18 @@ class Module(MixedModule):
     """Support for POSIX locales."""
 
     interpleveldefs  = {
-            'setlocale':            'interp_locale.setlocale',
-            'localeconv':           'interp_locale.localeconv',
-            'strcoll':              'interp_locale.strcoll',
-            'strxfrm':              'interp_locale.strxfrm',
-            #'getdefaultlocale':    'interp_locale.getdefaultlocale',
-            'gettext':              'interp_locale.gettext',
-            'dgettext':             'interp_locale.dgettext',
-            'dcgettext':            'interp_locale.dcgettext',
-            'textdomain':           'interp_locale.textdomain',
-            'nl_langinfo':          'interp_locale.nl_langinfo',
-            'bindtextdomain':       'interp_locale.bindtextdomain',
+            'setlocale':                'interp_locale.setlocale',
+            'localeconv':               'interp_locale.localeconv',
+            'strcoll':                  'interp_locale.strcoll',
+            'strxfrm':                  'interp_locale.strxfrm',
+            #'getdefaultlocale':        'interp_locale.getdefaultlocale',
+            'gettext':                  'interp_locale.gettext',
+            'dgettext':                 'interp_locale.dgettext',
+            'dcgettext':                'interp_locale.dcgettext',
+            'textdomain':               'interp_locale.textdomain',
+            'nl_langinfo':              'interp_locale.nl_langinfo',
+            'bindtextdomain':           'interp_locale.bindtextdomain',
+            'bind_textdomain_codeset':  'interp_locale.bind_textdomain_codeset',
             }
 
     appleveldefs  = {

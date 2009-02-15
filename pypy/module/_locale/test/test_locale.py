@@ -226,3 +226,12 @@ class AppTestLocaleTrivia:
 
         raises(OSError, _locale.bindtextdomain, '', '')
         raises(OSError, _locale.bindtextdomain, '', '1')
+
+    def test_bind_textdomain_codeset(self):
+        import _locale
+
+        assert _locale.bind_textdomain_codeset('/', None) is None
+        assert _locale.bind_textdomain_codeset('/', 'UTF-8') == 'UTF-8'
+        assert _locale.bind_textdomain_codeset('/', None) == 'UTF-8'
+
+        assert _locale.bind_textdomain_codeset('', '') is None
