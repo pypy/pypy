@@ -143,3 +143,71 @@ class AppTestLocaleTrivia:
         assert _locale.dgettext(None, "1234") == "1234"
         assert _locale.dcgettext(None, "1234", _locale.LC_MESSAGES) == "1234"
         assert _locale.textdomain("1234") == "1234"
+
+    def test_nl_langinfo(self):
+        import _locale
+
+        langinfo_consts = [
+                            'ABDAY_1',
+                            'ABDAY_2',
+                            'ABDAY_3',
+                            'ABDAY_4',
+                            'ABDAY_5',
+                            'ABDAY_6',
+                            'ABDAY_7',
+                            'ABMON_1',
+                            'ABMON_10',
+                            'ABMON_11',
+                            'ABMON_12',
+                            'ABMON_2',
+                            'ABMON_3',
+                            'ABMON_4',
+                            'ABMON_5',
+                            'ABMON_6',
+                            'ABMON_7',
+                            'ABMON_8',
+                            'ABMON_9',
+                            'CODESET',
+                            'CRNCYSTR',
+                            'DAY_1',
+                            'DAY_2',
+                            'DAY_3',
+                            'DAY_4',
+                            'DAY_5',
+                            'DAY_6',
+                            'DAY_7',
+                            'D_FMT',
+                            'D_T_FMT',
+                            'MON_1',
+                            'MON_10',
+                            'MON_11',
+                            'MON_12',
+                            'MON_2',
+                            'MON_3',
+                            'MON_4',
+                            'MON_5',
+                            'MON_6',
+                            'MON_7',
+                            'MON_8',
+                            'MON_9',
+                            'NOEXPR',
+                            'RADIXCHAR',
+                            'THOUSEP',
+                            'T_FMT',
+                            'YESEXPR',
+                            'AM_STR',
+                            'PM_STR',
+                            ]
+        for constant in langinfo_consts:
+            assert hasattr(_locale, constant)
+
+        _locale.setlocale(_locale.LC_ALL, "C")
+        assert _locale.nl_langinfo(_locale.ABDAY_1) == "Sun"
+        assert _locale.nl_langinfo(_locale.ABMON_1) == "Jan"
+        assert _locale.nl_langinfo(_locale.T_FMT) == "%H:%M:%S"
+        assert _locale.nl_langinfo(_locale.YESEXPR) == '^[yY]'
+        assert _locale.nl_langinfo(_locale.NOEXPR) == "^[nN]"
+        assert _locale.nl_langinfo(_locale.THOUSEP) == ''
+
+        raises(ValueError, _locale.nl_langinfo, 12345)
+        raises(TypeError, _locale.nl_langinfo, None)

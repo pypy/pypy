@@ -8,7 +8,7 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
-        includes = ['locale.h']
+        includes = ['locale.h', 'langinfo.h']
     )
     lconv = platform.Struct("struct lconv", [
             # Numeric (non-monetary) information.
@@ -76,6 +76,19 @@ constant_names = (
 for name in constant_names:
     setattr(CConfig, name, platform.DefinedConstantInteger(name))
 
+
+langinfo_names = ('CODESET D_T_FMT D_FMT T_FMT RADIXCHAR THOUSEP '
+                  'YESEXPR NOEXPR CRNCYSTR AM_STR PM_STR').split(" ")
+for i in range(1, 8):
+    langinfo_names.append("DAY_%d" % i)
+    langinfo_names.append("ABDAY_%d" % i)
+for i in range(1, 13):
+    langinfo_names.append("MON_%d" % i)
+    langinfo_names.append("ABMON_%d" % i)
+
+for name in langinfo_names:
+    setattr(CConfig, name, platform.DefinedConstantInteger(name))
+
 class cConfig(object):
     pass
 
@@ -84,6 +97,11 @@ for k, v in platform.configure(CConfig).items():
 
 # needed to export the constants inside and outside. see __init__.py
 for name in constant_names:
+    value = getattr(cConfig, name)
+    if value is not None:
+        constants[name] = value
+
+for name in langinfo_names:
     value = getattr(cConfig, name)
     if value is not None:
         constants[name] = value
@@ -272,3 +290,17 @@ def textdomain(space, w_domain):
     return space.wrap(rffi.charp2str(result))
 
 textdomain.unwrap_spec = [ObjSpace, W_Root]
+
+nl_item = rffi.INT
+_nl_langinfo = external('nl_langinfo', [nl_item], rffi.CCHARP)
+
+def nl_langinfo(space, key):
+    """nl_langinfo(key) -> string
+    Return the value for the locale information associated with key."""
+
+    if key in constants.values():
+        result = _nl_langinfo(rffi.cast(nl_item, key))
+        return space.wrap(rffi.charp2str(result))
+    raise OperationError(space.w_ValueError, "unsupported langinfo constant")
+
+nl_langinfo.unwrap_spec = [ObjSpace, int]
