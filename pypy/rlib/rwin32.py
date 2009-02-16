@@ -94,6 +94,11 @@ if WIN32:
         LocalFree(buf[0])
         return result
 
+    def lastWindowsError():
+        code = GetLastError()
+        message = FormatError(code)
+        return WindowsError(code, message)
+
     def FAILED(hr):
         return rffi.cast(HRESULT, hr) < 0
 
