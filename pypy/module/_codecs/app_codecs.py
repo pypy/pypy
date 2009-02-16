@@ -749,13 +749,19 @@ def PyUnicode_DecodeUnicodeEscape(s, size, errors):
                         message = "unknown Unicode character name"
                         st = s[pos+1:look]
                         try:
-                            chr = unicodedata.lookup("%s" % st)
+                            ch = unicodedata._get_code("%s" % st)
                         except KeyError, e:
                             x = unicode_call_errorhandler(errors, "unicodeescape", message, s, pos-1, look+1)
+                            p += x[0]
+                            pos = x[1]
                         else:
-                            x = chr, look + 1 
-                        p += x[0]
-                        pos = x[1]
+                            pos = look + 1
+                            if ch <= sys.maxunicode:
+                                p += unichr(ch)
+                            else:
+                                ch -= 0x10000L
+                                p += unichr(0xD800 + (ch >> 10))
+                                p += unichr(0xDC00 +  (ch & 0x03FF))
                     else:        
                         x = unicode_call_errorhandler(errors, "unicodeescape", message, s, pos-1, look+1)
                 else:        

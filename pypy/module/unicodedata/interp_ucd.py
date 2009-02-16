@@ -48,17 +48,20 @@ class UCD(Wrappable):
         
         self.version = unicodedb.version
         
-    def lookup(self, space, name):
+    def _get_code(self, space, name):
         try:
             code = self._lookup(name.upper())
         except KeyError:
             msg = space.mod(space.wrap("undefined character name '%s'"), space.wrap(name))
             raise OperationError(space.w_KeyError, msg)
-        return space.call_function(space.builtin.get('unichr'),
-                                   space.wrap(code))
-
-    lookup.unwrap_spec = ['self', ObjSpace, str]
+        return space.wrap(code)
+    _get_code.unwrap_spec = ['self', ObjSpace, str]
     
+    def lookup(self, space, name):
+        return space.call_function(space.builtin.get('unichr'),
+                                   self._get_code(space, name))
+    lookup.unwrap_spec = ['self', ObjSpace, str]
+
     def name(self, space, w_unichr, w_default=NoneNotWrapped):
         code = unichr_to_code_w(space, w_unichr)
         try:

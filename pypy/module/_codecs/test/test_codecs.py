@@ -44,6 +44,7 @@ class AppTestCodecs:
         assert  unicode('\\N{SPACE}\\N{SPACE}','unicode-escape') == u"  " 
         assert  unicode('\\N{SPACE}a\\N{SPACE}','unicode-escape') == u" a " 
         assert "\\N{foo}xx".decode("unicode-escape", "ignore") == u"xx"
+        assert 1 <= len(u"\N{CJK UNIFIED IDEOGRAPH-20000}") <= 2
 
     def test_literals(self):
         raises(UnicodeError, eval, 'u\'\\Uffffffff\'')
