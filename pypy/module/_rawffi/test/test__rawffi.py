@@ -165,11 +165,11 @@ class AppTestFfi:
     prepare_c_example = staticmethod(prepare_c_example)
     
     def setup_class(cls):
-        from pypy.rlib.libffi import libc_name
+        from pypy.rlib.libffi import get_libc_name
         space = gettestobjspace(usemodules=('_rawffi', 'struct'))
         cls.space = space
         cls.w_lib_name = space.wrap(cls.prepare_c_example())
-        cls.w_libc_name = space.wrap(libc_name)
+        cls.w_libc_name = space.wrap(get_libc_name())
         if sys.platform == 'win32':
             cls.w_iswin32 = space.wrap(True)
             cls.w_libm_name = space.wrap('msvcrt')

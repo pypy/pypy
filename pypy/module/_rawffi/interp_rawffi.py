@@ -496,6 +496,6 @@ if _MS_WINDOWS:
 
 def get_libc(space):
     try:
-        return space.wrap(W_CDLL(space, libc_name))
+        return space.wrap(W_CDLL(space, get_libc_name()))
     except OSError, e:
         raise wrap_oserror(space, e)

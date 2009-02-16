@@ -256,6 +256,9 @@ if not _WIN32:
         pass # No check
     
     libc_name = ctypes.util.find_library('c')
+    def get_libc_name():
+        return libc_name
+    del libc_name
 
 if _WIN32:
     def dlopen(name):
@@ -314,9 +317,11 @@ if _WIN32:
 
     get_libc_handle = external('get_libc_handle', [], rwin32.HANDLE)
 
-    libc_name = rwin32.GetModuleFileName(get_libc_handle())
-    assert "msvcr" in libc_name.lower(), \
-           "Suspect msvcrt library: %s" % (libc_name,)
+    def get_libc_name():
+        return rwin32.GetModuleFileName(get_libc_handle())
+
+    assert "msvcr" in get_libc_name().lower(), \
+           "Suspect msvcrt library: %s" % (get_libc_name(),)
 
 
 FFI_OK = cConfig.FFI_OK
