@@ -109,8 +109,11 @@ if WIN32:
     def GetModuleFileName(module):
         size = 255 # MAX_PATH
         buf = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
-        res = _GetModuleFileName(module, buf, size)
-        if not res:
-            return ''
-        else:
-            return ''.join([buf[i] for i in range(res)])
+        try:
+            res = _GetModuleFileName(module, buf, size)
+            if not res:
+                return ''
+            else:
+                return ''.join([buf[i] for i in range(res)])
+        finally:
+            lltype.free(buf, flavor='raw')
