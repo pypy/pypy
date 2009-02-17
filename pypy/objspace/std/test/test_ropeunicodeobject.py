@@ -38,7 +38,8 @@ class AppTestUnicodeRopeStdOnly(test_unicodeobject.AppTestUnicodeStringStdOnly):
 class AppTestUnicodeRope(test_unicodeobject.AppTestUnicodeString):
 
     def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withropeunicode": True})
+        cls.space = gettestobjspace(usemodules=('unicodedata',),
+                                    **{"objspace.std.withropeunicode": True})
 
     def test_replace_buffer(self):
         skip("XXX fix")

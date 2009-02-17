@@ -78,7 +78,8 @@ class AppTestUnicodeRopeStdOnly(test_unicodeobject.AppTestUnicodeStringStdOnly):
 class AppTestUnicodeRope(test_unicodeobject.AppTestUnicodeString):
 
     def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withrope": True})
+        cls.space = gettestobjspace(usemodules=('unicodedata',),
+                                    **{"objspace.std.withrope": True})
 
     def test_rfind_corner_case(self):
         skip("XXX Fix")

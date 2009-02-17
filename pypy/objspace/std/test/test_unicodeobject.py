@@ -1,5 +1,6 @@
 import py
 import sys
+from pypy.conftest import gettestobjspace
 
 class TestUnicodeObject:
 
@@ -40,7 +41,8 @@ class AppTestUnicodeStringStdOnly:
 
 class AppTestUnicodeString:
     def setup_class(cls):
-        import sys
+        space = gettestobjspace(usemodules=('unicodedata',))
+        cls.space = space
         cls.w_version_info = cls.space.wrap(sys.version_info)
 
     def test_addition(self):
