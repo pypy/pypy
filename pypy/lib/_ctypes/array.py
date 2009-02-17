@@ -85,7 +85,7 @@ class ArrayMeta(_CDataMeta):
         res._buffer = ffiarray
         res._base = base
         res._index = index
-        return res.__ctypes_from_outparam__()
+        return res
 
     def _CData_retval(self, resbuffer):
         raise NotImplementedError

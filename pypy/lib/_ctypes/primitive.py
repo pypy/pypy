@@ -257,6 +257,10 @@ class SimpleType(_CDataMeta):
         except (TypeError, ValueError):
             return super(SimpleType, self).from_param(value)
 
+    def _CData_output(self, resbuffer, base=None, index=-1):
+        output = super(SimpleType, self)._CData_output(resbuffer, base, index)
+        return output.value
+    
     def _sizeofinstances(self):
         return _rawffi.sizeof(self._type_)
 
@@ -287,6 +291,10 @@ class _SimpleCData(_CData):
     del _getvalue, _setvalue
 
     def __ctypes_from_outparam__(self):
+        meta = type(type(self))
+        if issubclass(meta, SimpleType) and meta != SimpleType:
+            return self
+
         return self.value
 
     def __repr__(self):

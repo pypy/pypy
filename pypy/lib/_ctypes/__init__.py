@@ -16,6 +16,7 @@ import os as _os
 if _os.name in ("nt", "ce"):
     from _rawffi import FormatError
     from _rawffi import check_HRESULT as _check_HRESULT
+    CopyComPointer = None # XXX
 
 from _rawffi import FUNCFLAG_STDCALL, FUNCFLAG_CDECL, FUNCFLAG_PYTHONAPI
 

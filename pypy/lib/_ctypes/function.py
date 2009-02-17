@@ -230,11 +230,17 @@ class CFuncPtr(_CData):
         for i, argtype in enumerate(argtypes):
             if i > 0 and self._paramflags is not None:
                 idlflag, name = self._paramflags[i-1]
-                if idlflag == 2: # OUT
+                if idlflag == 1: # IN
+                    pass
+                elif idlflag == 2: # OUT
                     import ctypes
-                    arg = ctypes.byref(argtype._type_())
-                    wrapped_args.append((arg, arg))
+                    val = argtype._type_()
+                    wrapped = (val, ctypes.byref(val))
+                    wrapped_args.append(wrapped)
                     continue
+                else:
+                    raise NotImplementedError(
+                        "paramflags = %s" % (self._paramflags[i-1],))
 
             if consumed == len(args):
                 raise TypeError("Not enough arguments")
@@ -282,18 +288,17 @@ class CFuncPtr(_CData):
         
         results = []
         if self._paramflags:
-            for argtype, (_, obj), paramflag in zip(argtypes[1:], argsandobjs[1:],
+            for argtype, (obj, _), paramflag in zip(argtypes[1:], argsandobjs[1:],
                                                     self._paramflags):
                 idlflag, name = paramflag
-                if idlflag == 2: # OUT
-                    val = obj.contents
-
-                    # XXX find a better way to detect pointers to pointers
-                    basetype = argtype._type_._type_
-                    if isinstance(basetype, str) and basetype != 'P':
-                        val = val.value
-                        
+                if idlflag == 1: # IN
+                    pass
+                elif idlflag == 2: # OUT
+                    val = obj.__ctypes_from_outparam__()
                     results.append(val)
+                else:
+                    raise NotImplementedError(
+                        "paramflags = %s" % (paramflag,))
 
         if results:
             if len(results) == 1:

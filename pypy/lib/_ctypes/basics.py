@@ -71,7 +71,7 @@ class _CDataMeta(type):
         res.__dict__['_buffer'] = resbuffer
         res.__dict__['_base'] = base
         res.__dict__['_index'] = index
-        return res.__ctypes_from_outparam__()
+        return res
 
     def _CData_retval(self, resbuffer):
         return self._CData_output(resbuffer)
