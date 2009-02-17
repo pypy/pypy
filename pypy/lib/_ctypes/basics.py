@@ -127,6 +127,11 @@ class _CData(object):
     def __buffer__(self):
         return buffer(self._buffer)
 
+    def _get_b_base(self):
+        return self._objects
+    _b_base_ = property(_get_b_base)
+    _b_needsfree_ = False
+
 def sizeof(tp):
     if not isinstance(tp, _CDataMeta):
         if isinstance(tp, _CData):
