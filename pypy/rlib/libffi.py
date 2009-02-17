@@ -258,7 +258,6 @@ if not _WIN32:
     libc_name = ctypes.util.find_library('c')
     def get_libc_name():
         return libc_name
-    del libc_name
 
 if _WIN32:
     def dlopen(name):
