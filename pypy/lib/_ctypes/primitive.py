@@ -239,6 +239,16 @@ class SimpleType(_CDataMeta):
                 self._buffer[0] = value
             result.value = property(_getvalue, _setvalue)
 
+        elif tp == 'v': # VARIANT_BOOL type
+            def _getvalue(self):
+                return bool(self._buffer[0])
+            def _setvalue(self, value):
+                if value:
+                    self._buffer[0] = -1 # VARIANT_TRUE
+                else:
+                    self._buffer[0] = 0  # VARIANT_FALSE
+            result.value = property(_getvalue, _setvalue)
+
         return result
 
     from_address = cdata_from_address

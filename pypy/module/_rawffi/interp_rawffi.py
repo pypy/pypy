@@ -77,6 +77,7 @@ LL_TYPEMAP = {
 
 if _MS_WINDOWS:
     LL_TYPEMAP['X'] = rffi.CCHARP
+    LL_TYPEMAP['v'] = rffi.SHORT
 
 def letter2tp(space, key):
     try:
@@ -225,7 +226,7 @@ module, except that s has trailing \x00 added, while p is considered a raw
 buffer.""" # xxx fix doc
 )
 
-unroll_letters_for_numbers = unrolling_iterable("bBhHiIlLqQ")
+unroll_letters_for_numbers = unrolling_iterable("bBhHiIlLqQv")
 
 def segfault_exception(space, reason):
     w_mod = space.getbuiltinmodule("_rawffi")

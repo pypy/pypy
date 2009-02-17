@@ -52,6 +52,13 @@ class TestWintypes(BaseCTypesTestChecker):
         assert ex.details == ("details",)
         assert (ex.hresult, ex.text, ex.details) == ex[:]
 
+    def test_VARIANT(self):
+        from ctypes import wintypes
+        a = wintypes.VARIANT_BOOL()
+        assert a.value is False
+        b = wintypes.VARIANT_BOOL(3)
+        assert b.value is True
+
 class TestStructures(BaseCTypesTestChecker):
 
     def test_struct_by_value(self):
