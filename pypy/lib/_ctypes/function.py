@@ -6,6 +6,15 @@ import traceback
 
 # XXX this file needs huge refactoring I fear
 
+PARAMFLAG_FIN   = 0x1
+PARAMFLAG_FOUT  = 0x2
+PARAMFLAG_FLCID = 0x4
+def get_com_error(errcode, riid, pIunk):
+    "Win32 specific: build a COM Error exception"
+    # XXX need C support code
+    from _ctypes import COMError
+    return COMError(errcode, None, None)
+
 class CFuncPtrType(_CDataMeta):
     # XXX write down here defaults and such things
 
@@ -228,23 +237,45 @@ class CFuncPtr(_CData):
         wrapped_args = []
         consumed = 0
         for i, argtype in enumerate(argtypes):
+            defaultvalue = None
             if i > 0 and self._paramflags is not None:
-                idlflag, name = self._paramflags[i-1]
-                if idlflag == 1: # IN
+                paramflag = self._paramflags[i-1]
+                if len(paramflag) == 2:
+                    idlflag, name = paramflag
+                elif len(paramflag) == 3:
+                    idlflag, name, defaultvalue = paramflag
+                else:
+                    idlflag = 0
+                idlflag &= (PARAMFLAG_FIN | PARAMFLAG_FOUT | PARAMFLAG_FLCID)
+
+                if idlflag in (0, PARAMFLAG_FIN):
                     pass
-                elif idlflag == 2: # OUT
+                elif idlflag == PARAMFLAG_FOUT:
                     import ctypes
                     val = argtype._type_()
                     wrapped = (val, ctypes.byref(val))
+                    wrapped_args.append(wrapped)
+                    continue
+                elif idlflag == PARAMFLAG_FIN | PARAMFLAG_FLCID:
+                    # Always taken from defaultvalue if given,
+                    # else the integer 0.
+                    val = defaultvalue
+                    if val is None:
+                        val = 0
+                    wrapped = argtype._CData_input(val)
                     wrapped_args.append(wrapped)
                     continue
                 else:
                     raise NotImplementedError(
                         "paramflags = %s" % (self._paramflags[i-1],))
 
-            if consumed == len(args):
+            if consumed < len(args):
+                arg = args[consumed]
+            elif defaultvalue is not None:
+                arg = defaultvalue
+            else:
                 raise TypeError("Not enough arguments")
-            arg = args[consumed]
+
             try:
                 wrapped = argtype._CData_input(arg)
             except (UnicodeError, TypeError), e:
@@ -272,7 +303,13 @@ class CFuncPtr(_CData):
 
         retval = None
 
-        if restype is not None:
+        if self._com_index:
+            if resbuffer[0] & 0x80000000:
+                raise get_com_error(resbuffer[0],
+                                    self._com_iid, argsandobjs[0][0])
+            else:
+                retval = int(resbuffer[0])
+        elif restype is not None:
             checker = getattr(self.restype, '_check_retval_', None)
             if checker:
                 val = restype(resbuffer[0])
@@ -285,17 +322,26 @@ class CFuncPtr(_CData):
                 retval = restype(resbuffer[0])
             else:
                 retval = restype._CData_retval(resbuffer)
-        
+
         results = []
         if self._paramflags:
             for argtype, (obj, _), paramflag in zip(argtypes[1:], argsandobjs[1:],
                                                     self._paramflags):
-                idlflag, name = paramflag
-                if idlflag == 1: # IN
+                if len(paramflag) == 2:
+                    idlflag, name = paramflag
+                elif len(paramflag) == 3:
+                    idlflag, name, defaultvalue = paramflag
+                else:
+                    idlflag = 0
+                idlflag &= (PARAMFLAG_FIN | PARAMFLAG_FOUT | PARAMFLAG_FLCID)
+
+                if idlflag in (0, PARAMFLAG_FIN):
                     pass
-                elif idlflag == 2: # OUT
+                elif idlflag == PARAMFLAG_FOUT:
                     val = obj.__ctypes_from_outparam__()
                     results.append(val)
+                elif idlflag == PARAMFLAG_FIN | PARAMFLAG_FLCID:
+                    pass
                 else:
                     raise NotImplementedError(
                         "paramflags = %s" % (paramflag,))
