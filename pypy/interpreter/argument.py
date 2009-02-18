@@ -257,11 +257,11 @@ class ArgumentsFromValuestack(AbstractArguments):
         avail = upfront + self.nargs
         
         if avail + len(defaults_w) < co_argcount:
-            raise ArgErrCount(blindargs + self.nargs , 0,
+            raise ArgErrCount(self.nargs , 0,
                               (co_argcount, has_vararg, has_kwarg),
                               defaults_w, co_argcount - avail - len(defaults_w))
         if avail > co_argcount and not has_vararg:
-            raise ArgErrCount(blindargs + self.nargs, 0,
+            raise ArgErrCount(self.nargs, 0,
                               (co_argcount, has_vararg, has_kwarg),
                               defaults_w, 0)
 
