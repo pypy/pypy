@@ -41,11 +41,13 @@ TYPEMAP = {
     'Z' : ffi_type_pointer,
 }
 TYPEMAP_PTR_LETTERS = "POszZ"
+TYPEMAP_NUMBER_LETTERS = "bBhHiIlLqQ"
 
 if _MS_WINDOWS:
     TYPEMAP['X'] = ffi_type_pointer
     TYPEMAP['v'] = ffi_type_sshort
     TYPEMAP_PTR_LETTERS += 'X'
+    TYPEMAP_NUMBER_LETTERS += 'v'
 
 def size_alignment(ffi_type):
     return intmask(ffi_type.c_size), intmask(ffi_type.c_alignment)
@@ -226,7 +228,7 @@ module, except that s has trailing \x00 added, while p is considered a raw
 buffer.""" # xxx fix doc
 )
 
-unroll_letters_for_numbers = unrolling_iterable("bBhHiIlLqQv")
+unroll_letters_for_numbers = unrolling_iterable(TYPEMAP_NUMBER_LETTERS)
 
 def segfault_exception(space, reason):
     w_mod = space.getbuiltinmodule("_rawffi")
