@@ -25,6 +25,16 @@ class AppTestFfi:
         cls.w_root_key = space.wrap(cls.root_key)
         cls.w_test_key_name = space.wrap(cls.test_key_name)
 
+        test_data = [
+            ("Int Value", 45, _winreg.REG_DWORD),
+            ("Str Value", "A string Value", _winreg.REG_SZ),
+            ("Unicode Value", u"A unicode Value", _winreg.REG_SZ),
+            ("Str Expand", "The path is %path%", _winreg.REG_EXPAND_SZ),
+            ("Multi Str", ["Several", "string", u"values"], _winreg.REG_MULTI_SZ),
+            ("Raw data", "binary"+chr(0)+"data", _winreg.REG_BINARY),
+            ]
+        cls.w_test_data = space.wrap(test_data)
+
     def teardown_class(cls):
         import _winreg
         try:
@@ -71,18 +81,21 @@ class AppTestFfi:
 
     def test_SetValueEx(self):
         from _winreg import CreateKey, SetValueEx
-        from _winreg import REG_DWORD, REG_SZ, REG_EXPAND_SZ
-        from _winreg import REG_MULTI_SZ, REG_BINARY
         key = CreateKey(self.root_key, self.test_key_name)
-        SetValueEx(key, "Int Value", 0,
-                   REG_DWORD, 45)
-        SetValueEx(key, "Str Value", 0,
-                   REG_SZ, "A string Value")
-        SetValueEx(key, "Unicode Value", 0,
-                   REG_SZ, u"A unicode Value")
-        SetValueEx(key, "Str Expand", 0,
-                   REG_EXPAND_SZ, "The path is %path%")
-        SetValueEx(key, "Multi Str", 0,
-                   REG_MULTI_SZ, ["Several", "string", u"values"])
-        SetValueEx(key, "Raw data", 0,
-                   REG_BINARY, "binary"+chr(0)+"data")
+        sub_key = CreateKey(key, "sub_key")
+        for name, value, type in self.test_data:
+            SetValueEx(sub_key, name, 0, type, value)
+
+    def test_readValues(self):
+        from _winreg import OpenKey, EnumValue
+        key = OpenKey(self.root_key, self.test_key_name)
+        sub_key = OpenKey(key, "sub_key")
+        index = 0
+        while 1:
+            try:
+                data = EnumValue(sub_key, index)
+            except EnvironmentError, e:
+                break
+            assert data in self.test_data
+            index = index + 1
+        assert index == len(self.test_data)

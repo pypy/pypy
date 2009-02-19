@@ -182,6 +182,36 @@ def convert_to_regdata(space, w_value, typ):
     errstring = space.wrap("Could not convert the data to the specified type")
     raise OperationError(space.w_ValueError, errstring)
 
+def convert_from_regdata(space, buf, buflen, typ):
+    if typ == rwinreg.REG_DWORD:
+        if not buflen:
+            return 0
+        return rffi.cast(rwin32.LPDWORD, buf)[0]
+
+    elif typ == rwinreg.REG_SZ or typ == rwinreg.REG_EXPAND_SZ:
+        if not buflen:
+            return u""
+        return rffi.charp2strn(rffi.cast(rffi.CCHARP, buf), buflen)
+
+    elif typ == rwinreg.REG_MULTI_SZ:
+        if not buflen:
+            return []
+        i = 0
+        l = []
+        while i < buflen and buf[i]:
+            s = []
+            while i < buflen and buf[i] != '\0':
+                s.append(buf[i])
+                i += 1
+            if len(s) == 0:
+                break
+            l.append(''.join(s))
+            i += 1
+        return l
+
+    else: # REG_BINARY and all other types
+        return rffi.charpsize2str(buf, buflen)
+
 def SetValueEx(space, w_hkey, value_name, w_reserved, typ, w_value):
     hkey = hkey_w(w_hkey, space)
     buf, buflen = convert_to_regdata(space, w_value, typ)
@@ -189,6 +219,8 @@ def SetValueEx(space, w_hkey, value_name, w_reserved, typ, w_value):
         ret = rwinreg.RegSetValueEx(hkey, value_name, 0, typ, buf, buflen)
     finally:
         lltype.free(buf, flavor='raw')
+    if ret != 0:
+        raiseWindowsError(space, ret, 'RegSetValueEx')
 SetValueEx.unwrap_spec = [ObjSpace, W_Root, str, W_Root, int, W_Root]
 
 def CreateKey(space, w_hkey, subkey):
@@ -202,6 +234,70 @@ def CreateKey(space, w_hkey, subkey):
     finally:
         lltype.free(rethkey, flavor='raw')
 CreateKey.unwrap_spec = [ObjSpace, W_Root, str]
+
+def OpenKey(space, w_hkey, subkey, res=0, sam=rwinreg.KEY_READ):
+    hkey = hkey_w(w_hkey, space)
+    rethkey = lltype.malloc(rwinreg.PHKEY.TO, 1, flavor='raw')
+    try:
+        ret = rwinreg.RegOpenKeyEx(hkey, subkey, res, sam, rethkey)
+        if ret != 0:
+            raiseWindowsError(space, ret, 'RegOpenKeyEx')
+        return space.wrap(W_HKEY(rethkey[0]))
+    finally:
+        lltype.free(rethkey, flavor='raw')
+OpenKey.unwrap_spec = [ObjSpace, W_Root, str, int, rffi.r_uint]
+
+def EnumValue(space, w_hkey, index):
+    hkey = hkey_w(w_hkey, space)
+    null_dword = lltype.nullptr(rwin32.LPDWORD.TO)
+
+    retValueSize = lltype.malloc(rwin32.LPDWORD.TO, 1, flavor='raw')
+    try:
+        retDataSize = lltype.malloc(rwin32.LPDWORD.TO, 1, flavor='raw')
+        try:
+            ret = rwinreg.RegQueryInfoKey(
+                hkey, None, null_dword, null_dword,
+                null_dword, null_dword, null_dword,
+                null_dword, retValueSize, retDataSize,
+                null_dword, lltype.nullptr(rwin32.PFILETIME.TO))
+            if ret != 0:
+                raiseWindowsError(space, ret, 'RegQueryInfoKey')
+            # include null terminators
+            retValueSize[0] += 1
+            retDataSize[0] += 1
+
+            valuebuf = lltype.malloc(rffi.CCHARP.TO, retValueSize[0],
+                                     flavor='raw')
+            try:
+                databuf = lltype.malloc(rffi.CCHARP.TO, retDataSize[0],
+                                        flavor='raw')
+                try:
+                    retType = lltype.malloc(rwin32.LPDWORD.TO, 1, flavor='raw')
+                    try:
+                        ret = rwinreg.RegEnumValue(
+                            hkey, index, valuebuf, retValueSize,
+                            null_dword, retType, databuf, retDataSize)
+                        if ret != 0:
+                            raiseWindowsError(space, ret, 'RegEnumValue')
+
+                        return space.wrap((
+                            rffi.charp2str(valuebuf),
+                            convert_from_regdata(space, databuf,
+                                                 retDataSize[0], retType[0]),
+                            retType[0]
+                            ))
+                    finally:
+                        lltype.free(retType, flavor='raw')
+                finally:
+                    lltype.free(databuf, flavor='raw')
+            finally:
+                lltype.free(valuebuf, flavor='raw')
+        finally:
+            lltype.free(retDataSize, flavor='raw')
+    finally:
+        lltype.free(retValueSize, flavor='raw')
+
+EnumValue.unwrap_spec = [ObjSpace, W_Root, int]
 
 def QueryInfoKey(space, w_hkey):
     hkey = hkey_w(w_hkey, space)
