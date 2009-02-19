@@ -100,8 +100,18 @@ class AppTestFfi:
             index = index + 1
         assert index == len(self.test_data)
 
-        for name, data, type in self.test_data:
-            assert QueryValueEx(sub_key, name) == (data, type)
+        for name, value, type in self.test_data:
+            assert QueryValueEx(sub_key, name) == (value, type)
 
         assert EnumKey(key, 0) == "sub_key"
         raises(EnvironmentError, EnumKey, key, 1)
+
+    def test_delete(self):
+        from _winreg import OpenKey, KEY_ALL_ACCESS, DeleteValue, DeleteKey
+        key = OpenKey(self.root_key, self.test_key_name, 0, KEY_ALL_ACCESS)
+        sub_key = OpenKey(key, "sub_key", 0, KEY_ALL_ACCESS)
+
+        for name, value, type in self.test_data:
+            DeleteValue(sub_key, name)
+
+        DeleteKey(key, "sub_key")

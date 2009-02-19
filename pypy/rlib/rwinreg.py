@@ -71,6 +71,16 @@ RegCreateKey = external(
     [HKEY, rffi.CCHARP, PHKEY],
     rffi.LONG)
 
+RegDeleteValue = external(
+    'RegDeleteValueA',
+    [HKEY, rffi.CCHARP],
+    rffi.LONG)
+
+RegDeleteKey = external(
+    'RegDeleteKeyA',
+    [HKEY, rffi.CCHARP],
+    rffi.LONG)
+
 RegOpenKeyEx = external(
     'RegOpenKeyExA',
     [HKEY, rffi.CCHARP, rwin32.DWORD, REGSAM, PHKEY],

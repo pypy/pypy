@@ -12,6 +12,8 @@ class Module(MixedModule):
         'QueryValue': 'interp_winreg.QueryValue',
         'QueryValueEx' : 'interp_winreg.QueryValueEx',
         'CreateKey': 'interp_winreg.CreateKey',
+        'DeleteKey'   : 'interp_winreg.DeleteKey',
+        'DeleteValue' : 'interp_winreg.DeleteValue',
         'OpenKey'     : 'interp_winreg.OpenKey',
         'OpenKeyEx'   : 'interp_winreg.OpenKey',
         'EnumValue'   : 'interp_winreg.EnumValue',

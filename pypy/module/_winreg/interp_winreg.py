@@ -14,6 +14,10 @@ class W_HKEY(Wrappable):
     def __init__(self, hkey):
         self.hkey = hkey
 
+    def descr_del(self, space):
+        self.Close(space)
+    descr_del.unwrap_spec = ['self', ObjSpace]
+
     def descr_nonzero(self, space):
         return self.wrap(self.hkey != 0)
     descr_nonzero.unwrap_spec = ['self', ObjSpace]
@@ -38,6 +42,7 @@ descr_HKEY_new = interp2app(new_HKEY,
 W_HKEY.typedef = TypeDef(
     "_winreg.HKEYType",
     __new__ = descr_HKEY_new,
+    __del__ = interp2app(W_HKEY.descr_del),
     __repr__ = interp2app(W_HKEY.descr_repr),
     __int__ = interp2app(W_HKEY.descr_int),
     __nonzero__ = interp2app(W_HKEY.descr_nonzero),
@@ -231,7 +236,6 @@ def QueryValueEx(space, w_hkey, subkey):
         ret = rwinreg.RegQueryValueEx(hkey, subkey, null_dword, null_dword,
                                       None, retDataSize)
         if ret != 0:
-            print "AFA??", hkey, subkey
             raiseWindowsError(space, ret, 'RegQueryValueEx')
         databuf = lltype.malloc(rffi.CCHARP.TO, retDataSize[0], flavor='raw')
         try:
@@ -267,6 +271,20 @@ def CreateKey(space, w_hkey, subkey):
     finally:
         lltype.free(rethkey, flavor='raw')
 CreateKey.unwrap_spec = [ObjSpace, W_Root, str]
+
+def DeleteKey(space, w_hkey, subkey):
+    hkey = hkey_w(w_hkey, space)
+    ret = rwinreg.RegDeleteKey(hkey, subkey)
+    if ret != 0:
+        raiseWindowsError(space, ret, 'RegDeleteKey')
+DeleteKey.unwrap_spec = [ObjSpace, W_Root, str]
+
+def DeleteValue(space, w_hkey, subkey):
+    hkey = hkey_w(w_hkey, space)
+    ret = rwinreg.RegDeleteValue(hkey, subkey)
+    if ret != 0:
+        raiseWindowsError(space, ret, 'RegDeleteValue')
+DeleteValue.unwrap_spec = [ObjSpace, W_Root, str]
 
 def OpenKey(space, w_hkey, subkey, res=0, sam=rwinreg.KEY_READ):
     hkey = hkey_w(w_hkey, space)
