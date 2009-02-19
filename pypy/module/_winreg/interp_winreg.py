@@ -9,7 +9,8 @@ from pypy.rlib import rwinreg, rwin32
 def raiseWindowsError(space, errcode, context):
     message = rwin32.FormatError(errcode)
     raise OperationError(space.w_WindowsError,
-                         space.newtuple([errcode, message]))
+                         space.newtuple([space.wrap(errcode),
+                                         space.wrap(message)]))
 
 class W_HKEY(Wrappable):
     def __init__(self, hkey):
@@ -326,7 +327,7 @@ def convert_to_regdata(space, w_value, typ):
     errstring = space.wrap("Could not convert the data to the specified type")
     raise OperationError(space.w_ValueError, errstring)
 
-def convert_from_regdata(space, buf, buflen, typ):
+def convert_from_regdata(buf, buflen, typ):
     if typ == rwinreg.REG_DWORD:
         if not buflen:
             return 0
@@ -420,9 +421,10 @@ value_name is a string indicating the value to query"""
                 if ret != 0:
                     raiseWindowsError(space, ret, 'RegQueryValueEx')
                 return space.newtuple([
-                    convert_from_regdata(space, databuf,
-                                         retDataSize[0], retType[0]),
-                    retType[0],
+                    space.wrap(convert_from_regdata(databuf,
+                                                    retDataSize[0],
+                                                    retType[0])),
+                    space.wrap(retType[0]),
                     ])
             finally:
                 lltype.free(retType, flavor='raw')
@@ -553,10 +555,11 @@ data_type is an integer that identifies the type of the value data."""
                             raiseWindowsError(space, ret, 'RegEnumValue')
 
                         return space.newtuple([
-                            rffi.charp2str(valuebuf),
-                            convert_from_regdata(space, databuf,
-                                                 retDataSize[0], retType[0]),
-                            retType[0],
+                            space.wrap(rffi.charp2str(valuebuf)),
+                            space.wrap(convert_from_regdata(databuf,
+                                                            retDataSize[0],
+                                                            retType[0])),
+                            space.wrap(retType[0]),
                             ])
                     finally:
                         lltype.free(retType, flavor='raw')
@@ -629,7 +632,9 @@ A long integer that identifies when the key was last modified (if available)
                     raiseWindowsError(space, ret, 'RegQueryInfoKey')
                 l = (ft[0].c_dwLowDateTime +
                      (ft[0].c_dwHighDateTime << 32))
-                return space.newtuple([nSubKeys[0], nValues[0], l])
+                return space.newtuple([space.wrap(nSubKeys[0]),
+                                       space.wrap(nValues[0]),
+                                       space.wrap(l)])
             finally:
                 lltype.free(ft, flavor='raw')
         finally:
