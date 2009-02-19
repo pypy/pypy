@@ -31,6 +31,8 @@ class W_HKEY(Wrappable):
     descr_int.unwrap_spec = ['self', ObjSpace]
 
     def Close(self, space):
+        """key.Close() - Closes the underlying Windows handle.
+If the handle is already closed, no error is raised."""
         CloseKey(space, self)
     Close.unwrap_spec = ['self', ObjSpace]
 
@@ -41,6 +43,27 @@ descr_HKEY_new = interp2app(new_HKEY,
 
 W_HKEY.typedef = TypeDef(
     "_winreg.HKEYType",
+    __doc__ = """\
+PyHKEY Object - A Python object, representing a win32 registry key.
+
+This object wraps a Windows HKEY object, automatically closing it when
+the object is destroyed.  To guarantee cleanup, you can call either
+the Close() method on the PyHKEY, or the CloseKey() method.
+
+All functions which accept a handle object also accept an integer - 
+however, use of the handle object is encouraged.
+
+Functions:
+Close() - Closes the underlying handle.
+Detach() - Returns the integer Win32 handle, detaching it from the object
+
+Properties:
+handle - The integer Win32 handle.
+
+Operations:
+__nonzero__ - Handles with an open object return true, otherwise false.
+__int__ - Converting a handle to an integer returns the Win32 handle.
+__cmp__ - Handle objects are compared using the handle value.""",
     __new__ = descr_HKEY_new,
     __del__ = interp2app(W_HKEY.descr_del),
     __repr__ = interp2app(W_HKEY.descr_repr),
@@ -64,6 +87,12 @@ def hkey_w(w_hkey, space):
         raise OperationError(space.w_TypeError, errstring)
 
 def CloseKey(space, w_hkey):
+    """CloseKey(hkey) - Closes a previously opened registry key.
+
+The hkey argument specifies a previously opened key.
+
+Note that if the key is not closed using this method, it will be
+closed when the hkey object is destroyed by Python."""
     hkey = hkey_w(w_hkey, space)
     if hkey:
         ret = rwinreg.RegCloseKey(hkey)
@@ -72,6 +101,23 @@ def CloseKey(space, w_hkey):
 CloseKey.unwrap_spec = [ObjSpace, W_Root]
 
 def SetValue(space, w_hkey, w_subkey, typ, value):
+    """SetValue(key, sub_key, type, value) - Associates a value with a specified key.
+
+key is an already open key, or any one of the predefined HKEY_* constants.
+sub_key is a string that names the subkey with which the value is associated.
+type is an integer that specifies the type of the data.  Currently this
+ must be REG_SZ, meaning only strings are supported.
+value is a string that specifies the new value.
+
+If the key specified by the sub_key parameter does not exist, the SetValue
+function creates it.
+
+Value lengths are limited by available memory. Long values (more than
+2048 bytes) should be stored as files with the filenames stored in
+the configuration registry.  This helps the registry perform efficiently.
+
+The key identified by the key parameter must have been opened with
+KEY_SET_VALUE access."""
     if typ != rwinreg.REG_SZ:
         errstring = space.wrap("Type must be _winreg.REG_SZ")
         raise OperationError(space.w_ValueError, errstring)
@@ -90,6 +136,16 @@ def SetValue(space, w_hkey, w_subkey, typ, value):
 SetValue.unwrap_spec = [ObjSpace, W_Root, W_Root, int, str]
 
 def QueryValue(space, w_hkey, w_subkey):
+    """string = QueryValue(key, sub_key) - retrieves the unnamed value for a key.
+
+key is an already open key, or any one of the predefined HKEY_* constants.
+sub_key is a string that holds the name of the subkey with which the value
+ is associated.  If this parameter is None or empty, the function retrieves
+ the value set by the SetValue() method for the key identified by key.
+
+Values in the registry have name, type, and data components. This method
+retrieves the data for a key's first value that has a NULL name.
+But the underlying API call doesn't return the type, Lame Lame Lame, DONT USE THIS!!!"""
     hkey = hkey_w(w_hkey, space)
     if space.is_w(w_subkey, space.w_None):
         subkey = None
@@ -120,14 +176,15 @@ def convert_to_regdata(space, w_value, typ):
     if typ == rwinreg.REG_DWORD:
         if space.is_true(space.isinstance(w_value, space.w_int)):
             buflen = rffi.sizeof(rwin32.DWORD)
-            buf = lltype.malloc(rffi.CArray(rwin32.DWORD), 1, flavor='raw')
-            buf[0] = space.uint_w(w_value)
+            buf1 = lltype.malloc(rffi.CArray(rwin32.DWORD), 1, flavor='raw')
+            buf1[0] = space.uint_w(w_value)
+            buf = rffi.cast(rffi.CCHARP, buf1)
 
     elif typ == rwinreg.REG_SZ or typ == rwinreg.REG_EXPAND_SZ:
         if space.is_w(w_value, space.w_None):
             buflen = 1
             buf = lltype.malloc(rffi.CCHARP.TO, buflen, flavor='raw')
-            buf[0] = 0
+            buf[0] = '\0'
         else:
             if space.is_true(space.isinstance(w_value, space.w_unicode)):
                 w_value = space.call_method(w_value, 'encode',
@@ -139,7 +196,7 @@ def convert_to_regdata(space, w_value, typ):
         if space.is_w(w_value, space.w_None):
             buflen = 1
             buf = lltype.malloc(rffi.CCHARP.TO, buflen, flavor='raw')
-            buf[0] = 0
+            buf[0] = '\0'
         elif space.is_true(space.isinstance(w_value, space.w_list)):
             strings = []
             buflen = 0
@@ -176,6 +233,7 @@ def convert_to_regdata(space, w_value, typ):
         if space.is_w(w_value, space.w_None):
             buflen = 0
             buf = lltype.malloc(rffi.CCHARP.TO, 1, flavor='raw')
+            buf[0] = '\0'
         else:
             value = space.bufferstr_w(w_value)
             buflen = len(value)
@@ -218,6 +276,36 @@ def convert_from_regdata(space, buf, buflen, typ):
         return rffi.charpsize2str(buf, buflen)
 
 def SetValueEx(space, w_hkey, value_name, w_reserved, typ, w_value):
+    """SetValueEx(key, value_name, reserved, type, value) - Stores data in the value field of an open registry key.
+
+key is an already open key, or any one of the predefined HKEY_* constants.
+value_name is a string containing the name of the value to set, or None
+type is an integer that specifies the type of the data.  This should be one of:
+  REG_BINARY -- Binary data in any form.
+  REG_DWORD -- A 32-bit number.
+  REG_DWORD_LITTLE_ENDIAN -- A 32-bit number in little-endian format.
+  REG_DWORD_BIG_ENDIAN -- A 32-bit number in big-endian format.
+  REG_EXPAND_SZ -- A null-terminated string that contains unexpanded references
+                   to environment variables (for example, %PATH%).
+  REG_LINK -- A Unicode symbolic link.
+  REG_MULTI_SZ -- An sequence of null-terminated strings, terminated by
+                  two null characters.  Note that Python handles this
+                  termination automatically.
+  REG_NONE -- No defined value type.
+  REG_RESOURCE_LIST -- A device-driver resource list.
+  REG_SZ -- A null-terminated string.
+reserved can be anything - zero is always passed to the API.
+value is a string that specifies the new value.
+
+This method can also set additional value and type information for the
+specified key.  The key identified by the key parameter must have been
+opened with KEY_SET_VALUE access.
+
+To open the key, use the CreateKeyEx() or OpenKeyEx() methods.
+
+Value lengths are limited by available memory. Long values (more than
+2048 bytes) should be stored as files with the filenames stored in
+the configuration registry.  This helps the registry perform efficiently."""
     hkey = hkey_w(w_hkey, space)
     buf, buflen = convert_to_regdata(space, w_value, typ)
     try:
@@ -229,6 +317,10 @@ def SetValueEx(space, w_hkey, value_name, w_reserved, typ, w_value):
 SetValueEx.unwrap_spec = [ObjSpace, W_Root, str, W_Root, int, W_Root]
 
 def QueryValueEx(space, w_hkey, subkey):
+    """value,type_id = QueryValueEx(key, value_name) - Retrieves the type and data for a specified value name associated with an open registry key.
+
+key is an already open key, or any one of the predefined HKEY_* constants.
+value_name is a string indicating the value to query"""
     hkey = hkey_w(w_hkey, space)
     null_dword = lltype.nullptr(rwin32.LPDWORD.TO)
     retDataSize = lltype.malloc(rwin32.LPDWORD.TO, 1, flavor='raw')
@@ -261,6 +353,17 @@ def QueryValueEx(space, w_hkey, subkey):
 QueryValueEx.unwrap_spec = [ObjSpace, W_Root, str]
 
 def CreateKey(space, w_hkey, subkey):
+    """key = CreateKey(key, sub_key) - Creates or opens the specified key.
+
+key is an already open key, or one of the predefined HKEY_* constants
+sub_key is a string that names the key this method opens or creates.
+ If key is one of the predefined keys, sub_key may be None. In that case,
+ the handle returned is the same key handle passed in to the function.
+
+If the key already exists, this function opens the existing key
+
+The return value is the handle of the opened key.
+If the function fails, an exception is raised."""
     hkey = hkey_w(w_hkey, space)
     rethkey = lltype.malloc(rwinreg.PHKEY.TO, 1, flavor='raw')
     try:
@@ -273,6 +376,16 @@ def CreateKey(space, w_hkey, subkey):
 CreateKey.unwrap_spec = [ObjSpace, W_Root, str]
 
 def DeleteKey(space, w_hkey, subkey):
+    """DeleteKey(key, sub_key) - Deletes the specified key.
+
+key is an already open key, or any one of the predefined HKEY_* constants.
+sub_key is a string that must be a subkey of the key identified by the key parameter.
+ This value must not be None, and the key may not have subkeys.
+
+This method can not delete keys with subkeys.
+
+If the method succeeds, the entire key, including all of its values,
+is removed.  If the method fails, an EnvironmentError exception is raised."""
     hkey = hkey_w(w_hkey, space)
     ret = rwinreg.RegDeleteKey(hkey, subkey)
     if ret != 0:
@@ -280,6 +393,10 @@ def DeleteKey(space, w_hkey, subkey):
 DeleteKey.unwrap_spec = [ObjSpace, W_Root, str]
 
 def DeleteValue(space, w_hkey, subkey):
+    """DeleteValue(key, value) - Removes a named value from a registry key.
+
+key is an already open key, or any one of the predefined HKEY_* constants.
+value is a string that identifies the value to remove."""
     hkey = hkey_w(w_hkey, space)
     ret = rwinreg.RegDeleteValue(hkey, subkey)
     if ret != 0:
@@ -287,6 +404,16 @@ def DeleteValue(space, w_hkey, subkey):
 DeleteValue.unwrap_spec = [ObjSpace, W_Root, str]
 
 def OpenKey(space, w_hkey, subkey, res=0, sam=rwinreg.KEY_READ):
+    """key = OpenKey(key, sub_key, res = 0, sam = KEY_READ) - Opens the specified key.
+
+key is an already open key, or any one of the predefined HKEY_* constants.
+sub_key is a string that identifies the sub_key to open
+res is a reserved integer, and must be zero.  Default is zero.
+sam is an integer that specifies an access mask that describes the desired
+ security access for the key.  Default is KEY_READ
+
+The result is a new handle to the specified key
+If the function fails, an EnvironmentError exception is raised."""
     hkey = hkey_w(w_hkey, space)
     rethkey = lltype.malloc(rwinreg.PHKEY.TO, 1, flavor='raw')
     try:
@@ -299,6 +426,19 @@ def OpenKey(space, w_hkey, subkey, res=0, sam=rwinreg.KEY_READ):
 OpenKey.unwrap_spec = [ObjSpace, W_Root, str, int, rffi.r_uint]
 
 def EnumValue(space, w_hkey, index):
+    """tuple = EnumValue(key, index) - Enumerates values of an open registry key.
+key is an already open key, or any one of the predefined HKEY_* constants.
+index is an integer that identifies the index of the value to retrieve.
+
+The function retrieves the name of one subkey each time it is called.
+It is typically called repeatedly, until an EnvironmentError exception
+is raised, indicating no more values.
+
+The result is a tuple of 3 items:
+value_name is a string that identifies the value.
+value_data is an object that holds the value data, and whose type depends
+ on the underlying registry type.
+data_type is an integer that identifies the type of the value data."""
     hkey = hkey_w(w_hkey, space)
     null_dword = lltype.nullptr(rwin32.LPDWORD.TO)
 
@@ -351,6 +491,14 @@ def EnumValue(space, w_hkey, index):
 EnumValue.unwrap_spec = [ObjSpace, W_Root, int]
 
 def EnumKey(space, w_hkey, index):
+    """string = EnumKey(key, index) - Enumerates subkeys of an open registry key.
+
+key is an already open key, or any one of the predefined HKEY_* constants.
+index is an integer that identifies the index of the key to retrieve.
+
+The function retrieves the name of one subkey each time it is called.
+It is typically called repeatedly until an EnvironmentError exception is
+raised, indicating no more values are available."""
     hkey = hkey_w(w_hkey, space)
     null_dword = lltype.nullptr(rwin32.LPDWORD.TO)
 
@@ -374,6 +522,15 @@ def EnumKey(space, w_hkey, index):
 EnumKey.unwrap_spec = [ObjSpace, W_Root, int]
 
 def QueryInfoKey(space, w_hkey):
+    """tuple = QueryInfoKey(key) - Returns information about a key.
+
+key is an already open key, or any one of the predefined HKEY_* constants.
+
+The result is a tuple of 3 items:
+An integer that identifies the number of sub keys this key has.
+An integer that identifies the number of values this key has.
+A long integer that identifies when the key was last modified (if available)
+ as 100's of nanoseconds since Jan 1, 1600."""
     hkey = hkey_w(w_hkey, space)
     nSubKeys = lltype.malloc(rwin32.LPDWORD.TO, 1, flavor='raw')
     try:
@@ -406,6 +563,16 @@ def str_or_None_w(space, w_obj):
     return space.str_w(w_obj)
 
 def ConnectRegistry(space, w_machine, w_hkey):
+    """key = ConnectRegistry(computer_name, key)
+
+Establishes a connection to a predefined registry handle on another computer.
+
+computer_name is the name of the remote computer, of the form \\\\computername.
+ If None, the local computer is used.
+key is the predefined handle to connect to.
+
+The return value is the handle of the opened key.
+If the function fails, an EnvironmentError exception is raised."""
     machine = str_or_None_w(space, w_machine)
     hkey = hkey_w(w_hkey, space)
     rethkey = lltype.malloc(rwinreg.PHKEY.TO, 1, flavor='raw')
@@ -417,3 +584,78 @@ def ConnectRegistry(space, w_machine, w_hkey):
     finally:
         lltype.free(rethkey, flavor='raw')
 ConnectRegistry.unwrap_spec = [ObjSpace, W_Root, W_Root]
+
+## XXX missing functions
+
+## "string = ExpandEnvironmentStrings(string) - Expand environment vars.\n");
+
+## "FlushKey(key) - Writes all the attributes of a key to the registry.\n"
+## "\n"
+## "key is an already open key, or any one of the predefined HKEY_* constants.\n"
+## "\n"
+## "It is not necessary to call RegFlushKey to change a key.\n"
+## "Registry changes are flushed to disk by the registry using its lazy flusher.\n"
+## "Registry changes are also flushed to disk at system shutdown.\n"
+## "Unlike CloseKey(), the FlushKey() method returns only when all the data has\n"
+## "been written to the registry.\n"
+## "An application should only call FlushKey() if it requires absolute certainty that registry changes are on disk.\n"
+## "If you don't know whether a FlushKey() call is required, it probably isn't.");
+
+## "LoadKey(key, sub_key, file_name) - Creates a subkey under the specified key\n"
+## "and stores registration information from a specified file into that subkey.\n"
+## "\n"
+## "key is an already open key, or any one of the predefined HKEY_* constants.\n"
+## "sub_key is a string that identifies the sub_key to load\n"
+## "file_name is the name of the file to load registry data from.\n"
+## " This file must have been created with the SaveKey() function.\n"
+## " Under the file allocation table (FAT) file system, the filename may not\n"
+## "have an extension.\n"
+## "\n"
+## "A call to LoadKey() fails if the calling process does not have the\n"
+## "SE_RESTORE_PRIVILEGE privilege.\n"
+## "\n"
+## "If key is a handle returned by ConnectRegistry(), then the path specified\n"
+## "in fileName is relative to the remote computer.\n"
+## "\n"
+## "The docs imply key must be in the HKEY_USER or HKEY_LOCAL_MACHINE tree");
+
+## "SaveKey(key, file_name) - Saves the specified key, and all its subkeys to the specified file.\n"
+## "\n"
+## "key is an already open key, or any one of the predefined HKEY_* constants.\n"
+## "file_name is the name of the file to save registry data to.\n"
+## " This file cannot already exist. If this filename includes an extension,\n"
+## " it cannot be used on file allocation table (FAT) file systems by the\n"
+## " LoadKey(), ReplaceKey() or RestoreKey() methods.\n"
+## "\n"
+## "If key represents a key on a remote computer, the path described by\n"
+## "file_name is relative to the remote computer.\n"
+## "The caller of this method must possess the SeBackupPrivilege security privilege.\n"
+## "This function passes NULL for security_attributes to the API.");
+
+## PyDoc_STRVAR(DisableReflectionKey_doc,
+## "Disables registry reflection for 32-bit processes running on a 64-bit\n"
+## "Operating System.  Will generally raise NotImplemented if executed on\n"
+## "a 32-bit Operating System.\n"
+## "If the key is not on the reflection list, the function succeeds but has no effect.\n"
+## "Disabling reflection for a key does not affect reflection of any subkeys.");
+
+## PyDoc_STRVAR(EnableReflectionKey_doc,
+## "Restores registry reflection for the specified disabled key.\n"
+## "Will generally raise NotImplemented if executed on a 32-bit Operating System.\n"
+## "Restoring reflection for a key does not affect reflection of any subkeys.");
+
+## PyDoc_STRVAR(QueryReflectionKey_doc,
+## "bool = QueryReflectionKey(hkey) - Determines the reflection state for the specified key.\n"
+## "Will generally raise NotImplemented if executed on a 32-bit Operating System.\n");
+
+## PyDoc_STRVAR(PyHKEY_Detach_doc,
+## "int = key.Detach() - Detaches the Windows handle from the handle object.\n"
+## "\n"
+## "The result is the value of the handle before it is detached.  If the\n"
+## "handle is already detached, this will return zero.\n"
+## "\n"
+## "After calling this function, the handle is effectively invalidated,\n"
+## "but the handle is not closed.  You would call this function when you\n"
+## "need the underlying win32 handle to exist beyond the lifetime of the\n"
+## "handle object.\n"
+## "On 64 bit windows, the result of this function is a long integer");
