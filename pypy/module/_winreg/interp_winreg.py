@@ -107,7 +107,7 @@ def QueryValue(space, w_hkey, w_subkey):
         lltype.free(bufsize_p, flavor='raw')
     if ret != 0:
         raiseWindowsError(space, ret, 'RegQueryValue')
-SetValue.unwrap_spec = [ObjSpace, W_Root, W_Root, int, str]
+QueryValue.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
 def CreateKey(space, w_hkey, subkey):
     hkey = hkey_w(w_hkey, space)
