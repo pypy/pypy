@@ -43,13 +43,16 @@ class CConfig:
                                         [('dwLowDateTime', rffi.UINT),
                                          ('dwHighDateTime', rffi.UINT)])
 
+        LPSECURITY_ATTRIBUTES = rffi_platform.SimpleType(
+            "LPSECURITY_ATTRIBUTES", rffi.CCHARP)
+
         DEFAULT_LANGUAGE = rffi_platform.ConstantInteger(
             "MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT)")
 
         for name in """FORMAT_MESSAGE_ALLOCATE_BUFFER FORMAT_MESSAGE_FROM_SYSTEM
               """.split():
             locals()[name] = rffi_platform.ConstantInteger(name)
-        
+
 
 for k, v in rffi_platform.configure(CConfig).items():
     globals()[k] = v

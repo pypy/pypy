@@ -1,9 +1,23 @@
 from pypy.conftest import gettestobjspace
+from pypy.tool.udir import udir
 
 import os, sys, py
 
 if sys.platform != 'win32':
     py.test.skip("_winreg is a win32 module")
+
+try:
+    # To call SaveKey, the process must have Backup Privileges
+    import win32api
+    import win32security
+    priv_flags = win32security.TOKEN_ADJUST_PRIVILEGES | win32security.TOKEN_QUERY
+    hToken = win32security.OpenProcessToken (win32api.GetCurrentProcess (), priv_flags)
+    privilege_id = win32security.LookupPrivilegeValue (None, "SeBackupPrivilege")
+    win32security.AdjustTokenPrivileges (hToken, 0, [(privilege_id, win32security.SE_PRIVILEGE_ENABLED)])
+except:
+    canSaveKey = False
+else:
+    canSaveKey = True
 
 class AppTestHKey:
     def setup_class(cls):
@@ -24,6 +38,8 @@ class AppTestFfi:
         cls.test_key_name = "SOFTWARE\\Pypy Registry Test Key - Delete Me"
         cls.w_root_key = space.wrap(cls.root_key)
         cls.w_test_key_name = space.wrap(cls.test_key_name)
+        cls.w_canSaveKey = space.wrap(canSaveKey)
+        cls.w_tmpfilename = space.wrap(str(udir.join('winreg-temp')))
 
         test_data = [
             ("Int Value", 45, _winreg.REG_DWORD),
@@ -49,7 +65,7 @@ class AppTestFfi:
         assert QueryValue(self.root_key, self.test_key_name) == value
 
     def test_CreateKey(self):
-        from _winreg import CreateKey, CloseKey, QueryInfoKey
+        from _winreg import CreateKey, QueryInfoKey
         key = CreateKey(self.root_key, self.test_key_name)
         sub_key = CreateKey(key, "sub_key")
 
@@ -59,13 +75,27 @@ class AppTestFfi:
         nkeys, nvalues, since_mod = QueryInfoKey(sub_key)
         assert nkeys == 0
 
+    def test_close(self):
+        from _winreg import OpenKey, CloseKey, FlushKey, QueryInfoKey
+        key = OpenKey(self.root_key, self.test_key_name)
+        sub_key = OpenKey(key, "sub_key")
+
         int_sub_key = int(sub_key)
+        FlushKey(sub_key)
         CloseKey(sub_key)
         raises(EnvironmentError, QueryInfoKey, int_sub_key)
 
         int_key = int(key)
         key.Close()
         raises(EnvironmentError, QueryInfoKey, int_key)
+
+        key = OpenKey(self.root_key, self.test_key_name)
+        int_key = key.Detach()
+        QueryInfoKey(int_key) # works
+        key.Close()
+        QueryInfoKey(int_key) # still works
+        CloseKey(int_key)
+        raises(EnvironmentError, QueryInfoKey, int_key) # now closed
 
     def test_exception(self):
         from _winreg import QueryInfoKey
@@ -75,7 +105,9 @@ class AppTestFfi:
         except EnvironmentError, e:
             assert e.winerror == 6
             assert e.errno == errno.EBADF
-            assert "invalid" in e.strerror.lower()
+            # XXX translations...
+            assert ("invalid" in e.strerror.lower() or
+                    "non valide" in e.strerror.lower())
         else:
             assert 0, "Did not raise"
 
@@ -120,3 +152,16 @@ class AppTestFfi:
         from _winreg import ConnectRegistry, HKEY_LOCAL_MACHINE
         h = ConnectRegistry(None, HKEY_LOCAL_MACHINE)
         h.Close()
+
+    def test_savekey(self):
+        if not self.canSaveKey:
+            skip("CPython needs win32api to set the SeBackupPrivilege security privilege")
+        from _winreg import OpenKey, KEY_ALL_ACCESS, SaveKey
+        import os
+        try:
+            os.unlink(self.tmpfilename)
+        except:
+            pass
+
+        key = OpenKey(self.root_key, self.test_key_name, 0, KEY_ALL_ACCESS)
+        SaveKey(key, self.tmpfilename)

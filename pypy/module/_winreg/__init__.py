@@ -54,8 +54,11 @@ to see what constants are used, and where."""
         'OpenKeyEx'      : 'interp_winreg.OpenKey',
         'EnumValue'      : 'interp_winreg.EnumValue',
         'EnumKey'        : 'interp_winreg.EnumKey',
+        'FlushKey'       : 'interp_winreg.FlushKey',
         'CloseKey'       : 'interp_winreg.CloseKey',
         'QueryInfoKey'   : 'interp_winreg.QueryInfoKey',
+        'LoadKey'        : 'interp_winreg.LoadKey',
+        'SaveKey'        : 'interp_winreg.SaveKey',
         'ConnectRegistry': 'interp_winreg.ConnectRegistry',
     }
 

@@ -36,6 +36,22 @@ If the handle is already closed, no error is raised."""
         CloseKey(space, self)
     Close.unwrap_spec = ['self', ObjSpace]
 
+    def Detach(self, space):
+        """int = key.Detach() - Detaches the Windows handle from the handle object.
+
+The result is the value of the handle before it is detached.  If the
+handle is already detached, this will return zero.
+
+After calling this function, the handle is effectively invalidated,
+but the handle is not closed.  You would call this function when you
+need the underlying win32 handle to exist beyond the lifetime of the
+handle object.
+On 64 bit windows, the result of this function is a long integer"""
+        hkey = self.hkey
+        self.hkey = 0
+        return space.wrap(hkey)
+    Detach.unwrap_spec = ['self', ObjSpace]
+
 def new_HKEY(space, w_subtype, hkey):
     return space.wrap(W_HKEY(hkey))
 descr_HKEY_new = interp2app(new_HKEY,
@@ -70,6 +86,7 @@ __cmp__ - Handle objects are compared using the handle value.""",
     __int__ = interp2app(W_HKEY.descr_int),
     __nonzero__ = interp2app(W_HKEY.descr_nonzero),
     Close = interp2app(W_HKEY.Close),
+    Detach = interp2app(W_HKEY.Detach),
     )
 
 def hkey_w(w_hkey, space):
@@ -97,8 +114,71 @@ closed when the hkey object is destroyed by Python."""
     if hkey:
         ret = rwinreg.RegCloseKey(hkey)
         if ret != 0:
-            raiseWindowsError(space, ret, 'RegSetValue')
+            raiseWindowsError(space, ret, 'RegCloseKey')
 CloseKey.unwrap_spec = [ObjSpace, W_Root]
+
+def FlushKey(space, w_hkey):
+    """FlushKey(key) - Writes all the attributes of a key to the registry.
+
+key is an already open key, or any one of the predefined HKEY_* constants.
+
+It is not necessary to call RegFlushKey to change a key.
+Registry changes are flushed to disk by the registry using its lazy flusher.
+Registry changes are also flushed to disk at system shutdown.
+Unlike CloseKey(), the FlushKey() method returns only when all the data has
+been written to the registry.
+An application should only call FlushKey() if it requires absolute certainty that registry changes are on disk.
+If you don't know whether a FlushKey() call is required, it probably isn't."""
+    hkey = hkey_w(w_hkey, space)
+    if hkey:
+        ret = rwinreg.RegFlushKey(hkey)
+        if ret != 0:
+            raiseWindowsError(space, ret, 'RegFlushKey')
+FlushKey.unwrap_spec = [ObjSpace, W_Root]
+
+def LoadKey(space, w_hkey, subkey, filename):
+    """LoadKey(key, sub_key, file_name) - Creates a subkey under the specified key
+and stores registration information from a specified file into that subkey.
+
+key is an already open key, or any one of the predefined HKEY_* constants.
+sub_key is a string that identifies the sub_key to load
+file_name is the name of the file to load registry data from.
+ This file must have been created with the SaveKey() function.
+ Under the file allocation table (FAT) file system, the filename may not
+have an extension.
+
+A call to LoadKey() fails if the calling process does not have the
+SE_RESTORE_PRIVILEGE privilege.
+
+If key is a handle returned by ConnectRegistry(), then the path specified
+in fileName is relative to the remote computer.
+
+The docs imply key must be in the HKEY_USER or HKEY_LOCAL_MACHINE tree"""
+    hkey = hkey_w(w_hkey, space)
+    ret = rwinreg.RegLoadKey(hkey, subkey, filename)
+    if ret != 0:
+        raiseWindowsError(space, ret, 'RegLoadKey')
+LoadKey.unwrap_spec = [ObjSpace, W_Root, str, str]
+
+def SaveKey(space, w_hkey, filename):
+    """SaveKey(key, file_name) - Saves the specified key, and all its subkeys to the specified file.
+
+key is an already open key, or any one of the predefined HKEY_* constants.
+file_name is the name of the file to save registry data to.
+ This file cannot already exist. If this filename includes an extension,
+ it cannot be used on file allocation table (FAT) file systems by the
+ LoadKey(), ReplaceKey() or RestoreKey() methods.
+
+If key represents a key on a remote computer, the path described by
+file_name is relative to the remote computer.
+The caller of this method must possess the SeBackupPrivilege security privilege.
+This function passes NULL for security_attributes to the API."""
+    hkey = hkey_w(w_hkey, space)
+    pSA = 0
+    ret = rwinreg.RegSaveKey(hkey, filename, None)
+    if ret != 0:
+        raiseWindowsError(space, ret, 'RegSaveKey')
+SaveKey.unwrap_spec = [ObjSpace, W_Root, str]
 
 def SetValue(space, w_hkey, w_subkey, typ, value):
     """SetValue(key, sub_key, type, value) - Associates a value with a specified key.
@@ -584,78 +664,3 @@ If the function fails, an EnvironmentError exception is raised."""
     finally:
         lltype.free(rethkey, flavor='raw')
 ConnectRegistry.unwrap_spec = [ObjSpace, W_Root, W_Root]
-
-## XXX missing functions
-
-## "string = ExpandEnvironmentStrings(string) - Expand environment vars.\n");
-
-## "FlushKey(key) - Writes all the attributes of a key to the registry.\n"
-## "\n"
-## "key is an already open key, or any one of the predefined HKEY_* constants.\n"
-## "\n"
-## "It is not necessary to call RegFlushKey to change a key.\n"
-## "Registry changes are flushed to disk by the registry using its lazy flusher.\n"
-## "Registry changes are also flushed to disk at system shutdown.\n"
-## "Unlike CloseKey(), the FlushKey() method returns only when all the data has\n"
-## "been written to the registry.\n"
-## "An application should only call FlushKey() if it requires absolute certainty that registry changes are on disk.\n"
-## "If you don't know whether a FlushKey() call is required, it probably isn't.");
-
-## "LoadKey(key, sub_key, file_name) - Creates a subkey under the specified key\n"
-## "and stores registration information from a specified file into that subkey.\n"
-## "\n"
-## "key is an already open key, or any one of the predefined HKEY_* constants.\n"
-## "sub_key is a string that identifies the sub_key to load\n"
-## "file_name is the name of the file to load registry data from.\n"
-## " This file must have been created with the SaveKey() function.\n"
-## " Under the file allocation table (FAT) file system, the filename may not\n"
-## "have an extension.\n"
-## "\n"
-## "A call to LoadKey() fails if the calling process does not have the\n"
-## "SE_RESTORE_PRIVILEGE privilege.\n"
-## "\n"
-## "If key is a handle returned by ConnectRegistry(), then the path specified\n"
-## "in fileName is relative to the remote computer.\n"
-## "\n"
-## "The docs imply key must be in the HKEY_USER or HKEY_LOCAL_MACHINE tree");
-
-## "SaveKey(key, file_name) - Saves the specified key, and all its subkeys to the specified file.\n"
-## "\n"
-## "key is an already open key, or any one of the predefined HKEY_* constants.\n"
-## "file_name is the name of the file to save registry data to.\n"
-## " This file cannot already exist. If this filename includes an extension,\n"
-## " it cannot be used on file allocation table (FAT) file systems by the\n"
-## " LoadKey(), ReplaceKey() or RestoreKey() methods.\n"
-## "\n"
-## "If key represents a key on a remote computer, the path described by\n"
-## "file_name is relative to the remote computer.\n"
-## "The caller of this method must possess the SeBackupPrivilege security privilege.\n"
-## "This function passes NULL for security_attributes to the API.");
-
-## PyDoc_STRVAR(DisableReflectionKey_doc,
-## "Disables registry reflection for 32-bit processes running on a 64-bit\n"
-## "Operating System.  Will generally raise NotImplemented if executed on\n"
-## "a 32-bit Operating System.\n"
-## "If the key is not on the reflection list, the function succeeds but has no effect.\n"
-## "Disabling reflection for a key does not affect reflection of any subkeys.");
-
-## PyDoc_STRVAR(EnableReflectionKey_doc,
-## "Restores registry reflection for the specified disabled key.\n"
-## "Will generally raise NotImplemented if executed on a 32-bit Operating System.\n"
-## "Restoring reflection for a key does not affect reflection of any subkeys.");
-
-## PyDoc_STRVAR(QueryReflectionKey_doc,
-## "bool = QueryReflectionKey(hkey) - Determines the reflection state for the specified key.\n"
-## "Will generally raise NotImplemented if executed on a 32-bit Operating System.\n");
-
-## PyDoc_STRVAR(PyHKEY_Detach_doc,
-## "int = key.Detach() - Detaches the Windows handle from the handle object.\n"
-## "\n"
-## "The result is the value of the handle before it is detached.  If the\n"
-## "handle is already detached, this will return zero.\n"
-## "\n"
-## "After calling this function, the handle is effectively invalidated,\n"
-## "but the handle is not closed.  You would call this function when you\n"
-## "need the underlying win32 handle to exist beyond the lifetime of the\n"
-## "handle object.\n"
-## "On 64 bit windows, the result of this function is a long integer");

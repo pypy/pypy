@@ -113,6 +113,21 @@ RegCloseKey = external(
     [HKEY],
     rffi.LONG)
 
+RegFlushKey = external(
+    'RegFlushKey',
+    [HKEY],
+    rffi.LONG)
+
+RegLoadKey = external(
+    'RegLoadKeyA',
+    [HKEY, rffi.CCHARP, rffi.CCHARP],
+    rffi.LONG)
+
+RegSaveKey = external(
+    'RegSaveKeyA',
+    [HKEY, rffi.CCHARP, rffi.VOIDP],
+    rffi.LONG)
+
 RegConnectRegistry = external(
     'RegConnectRegistryA',
     [rffi.CCHARP, HKEY, PHKEY],
