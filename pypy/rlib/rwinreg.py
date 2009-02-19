@@ -112,3 +112,8 @@ RegCloseKey = external(
     'RegCloseKey',
     [HKEY],
     rffi.LONG)
+
+RegConnectRegistry = external(
+    'RegConnectRegistryA',
+    [rffi.CCHARP, HKEY, PHKEY],
+    rffi.LONG)

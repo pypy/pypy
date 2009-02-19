@@ -399,3 +399,21 @@ def QueryInfoKey(space, w_hkey):
     finally:
         lltype.free(nSubKeys, flavor='raw')
 QueryInfoKey.unwrap_spec = [ObjSpace, W_Root]
+
+def str_or_None_w(space, w_obj):
+    if space.is_w(w_obj, space.w_None):
+        return None
+    return space.str_w(w_obj)
+
+def ConnectRegistry(space, w_machine, w_hkey):
+    machine = str_or_None_w(space, w_machine)
+    hkey = hkey_w(w_hkey, space)
+    rethkey = lltype.malloc(rwinreg.PHKEY.TO, 1, flavor='raw')
+    try:
+        ret = rwinreg.RegConnectRegistry(machine, hkey, rethkey)
+        if ret != 0:
+            raiseWindowsError(space, ret, 'RegConnectRegistry')
+        return space.wrap(W_HKEY(rethkey[0]))
+    finally:
+        lltype.free(rethkey, flavor='raw')
+ConnectRegistry.unwrap_spec = [ObjSpace, W_Root, W_Root]

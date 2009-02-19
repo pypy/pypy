@@ -20,6 +20,7 @@ class Module(MixedModule):
         'EnumKey'     : 'interp_winreg.EnumKey',
         'CloseKey': 'interp_winreg.CloseKey',
         'QueryInfoKey': 'interp_winreg.QueryInfoKey',
+        'ConnectRegistry': 'interp_winreg.ConnectRegistry',
     }
 
     for name, value in constants.iteritems():

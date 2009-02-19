@@ -115,3 +115,8 @@ class AppTestFfi:
             DeleteValue(sub_key, name)
 
         DeleteKey(key, "sub_key")
+
+    def test_connect(self):
+        from _winreg import ConnectRegistry, HKEY_LOCAL_MACHINE
+        h = ConnectRegistry(None, HKEY_LOCAL_MACHINE)
+        h.Close()
