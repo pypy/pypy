@@ -6,9 +6,12 @@ class Module(MixedModule):
     appleveldefs = {
     }
     interpleveldefs = {
+        'HKEYType': 'interp_winreg.W_HKEY',
         'SetValue': 'interp_winreg.SetValue',
         'QueryValue': 'interp_winreg.QueryValue',
-        'HKEYType': 'interp_winreg.W_HKEY',
+        'CreateKey': 'interp_winreg.CreateKey',
+        'CloseKey': 'interp_winreg.CloseKey',
+        'QueryInfoKey': 'interp_winreg.QueryInfoKey',
     }
 
     for name, value in constants.iteritems():

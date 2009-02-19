@@ -39,6 +39,10 @@ class CConfig:
         HRESULT = rffi_platform.SimpleType("HRESULT", rffi.LONG)
         HLOCAL = rffi_platform.SimpleType("HLOCAL", rffi.VOIDP)
 
+        FILETIME = rffi_platform.Struct('FILETIME',
+                                        [('dwLowDateTime', rffi.UINT),
+                                         ('dwHighDateTime', rffi.UINT)])
+
         DEFAULT_LANGUAGE = rffi_platform.ConstantInteger(
             "MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT)")
 
@@ -57,6 +61,7 @@ if WIN32:
     HANDLE = rffi.ULONG
     LPHANDLE = rffi.CArrayPtr(HANDLE)
     HMODULE = HANDLE
+    PFILETIME = rffi.CArrayPtr(FILETIME)
 
     GetLastError = winexternal('GetLastError', [], DWORD)
 

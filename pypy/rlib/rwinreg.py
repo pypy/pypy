@@ -41,13 +41,32 @@ def external(name, args, result):
                            calling_conv='win')
 
 HKEY = rwin32.HANDLE
+PHKEY = rffi.CArrayPtr(HKEY)
 
-RegSetValue = external('RegSetValueA',
-                       [HKEY, rffi.CCHARP, rwin32.DWORD,
-                        rffi.CCHARP, rwin32.DWORD],
-                       rffi.LONG)
+RegSetValue = external(
+    'RegSetValueA',
+    [HKEY, rffi.CCHARP, rwin32.DWORD, rffi.CCHARP, rwin32.DWORD],
+    rffi.LONG)
 
-RegQueryValue = external('RegQueryValueA',
-                         [HKEY, rffi.CCHARP,
-                          rffi.CCHARP, rwin32.PLONG],
-                         rffi.LONG)
+RegQueryValue = external(
+    'RegQueryValueA',
+    [HKEY, rffi.CCHARP, rffi.CCHARP, rwin32.PLONG],
+    rffi.LONG)
+
+RegCreateKey = external(
+    'RegCreateKeyA',
+    [rffi.LONG, rffi.CCHARP, PHKEY],
+    rffi.LONG)
+
+RegQueryInfoKey = external(
+    'RegQueryInfoKeyA',
+    [HKEY, rffi.CCHARP, rwin32.LPDWORD, rwin32.LPDWORD,
+     rwin32.LPDWORD, rwin32.LPDWORD, rwin32.LPDWORD,
+     rwin32.LPDWORD, rwin32.LPDWORD, rwin32.LPDWORD,
+     rwin32.LPDWORD, rwin32.PFILETIME],
+    rffi.LONG)
+
+RegCloseKey = external(
+    'RegCloseKey',
+    [HKEY],
+    rffi.LONG)
