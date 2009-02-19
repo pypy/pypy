@@ -8,7 +8,8 @@ from pypy.rlib import rwinreg, rwin32
 
 def raiseWindowsError(space, errcode, context):
     message = rwin32.FormatError(errcode)
-    raise OperationError(space.w_WindowsError, space.wrap((errcode, message)))
+    raise OperationError(space.w_WindowsError,
+                         space.newtuple([errcode, message]))
 
 class W_HKEY(Wrappable):
     def __init__(self, hkey):
@@ -418,11 +419,11 @@ value_name is a string indicating the value to query"""
                                               retType, databuf, retDataSize)
                 if ret != 0:
                     raiseWindowsError(space, ret, 'RegQueryValueEx')
-                return space.wrap((
+                return space.newtuple([
                     convert_from_regdata(space, databuf,
                                          retDataSize[0], retType[0]),
                     retType[0],
-                    ))
+                    ])
             finally:
                 lltype.free(retType, flavor='raw')
         finally:
@@ -551,12 +552,12 @@ data_type is an integer that identifies the type of the value data."""
                         if ret != 0:
                             raiseWindowsError(space, ret, 'RegEnumValue')
 
-                        return space.wrap((
+                        return space.newtuple([
                             rffi.charp2str(valuebuf),
                             convert_from_regdata(space, databuf,
                                                  retDataSize[0], retType[0]),
                             retType[0],
-                            ))
+                            ])
                     finally:
                         lltype.free(retType, flavor='raw')
                 finally:
@@ -628,7 +629,7 @@ A long integer that identifies when the key was last modified (if available)
                     raiseWindowsError(space, ret, 'RegQueryInfoKey')
                 l = (ft[0].c_dwLowDateTime +
                      (ft[0].c_dwHighDateTime << 32))
-                return space.wrap((nSubKeys[0], nValues[0], l))
+                return space.newtuple([nSubKeys[0], nValues[0], l])
             finally:
                 lltype.free(ft, flavor='raw')
         finally:
