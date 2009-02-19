@@ -23,7 +23,6 @@ Option = py.test.config.Option
 def _set_platform(opt, opt_str, value, parser):
     from pypy.config.translationoption import PLATFORMS
     from pypy.translator.platform import set_platform
-    value = parser.rargs.pop(0)
     if value not in PLATFORMS:
         raise ValueError("%s not in %s" % (value, PLATFORMS))
     set_platform(value, None)
@@ -37,7 +36,7 @@ option = py.test.config.addoptions("pypy options",
         Option('--direct', action="store_true",
                default=False, dest="rundirect",
                help="run pexpect tests directly"),
-        Option('-P', '--platform', action="callback",
+        Option('-P', '--platform', action="callback", type="string",
                default="host", callback=_set_platform,
                help="set up tests to use specified platform as compile/run target"),
     )
