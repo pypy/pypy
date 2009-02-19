@@ -10,6 +10,7 @@ class Module(MixedModule):
         'SetValue': 'interp_winreg.SetValue',
         'SetValueEx': 'interp_winreg.SetValueEx',
         'QueryValue': 'interp_winreg.QueryValue',
+        'QueryValueEx' : 'interp_winreg.QueryValueEx',
         'CreateKey': 'interp_winreg.CreateKey',
         'OpenKey'     : 'interp_winreg.OpenKey',
         'OpenKeyEx'   : 'interp_winreg.OpenKey',

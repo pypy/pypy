@@ -223,6 +223,39 @@ def SetValueEx(space, w_hkey, value_name, w_reserved, typ, w_value):
         raiseWindowsError(space, ret, 'RegSetValueEx')
 SetValueEx.unwrap_spec = [ObjSpace, W_Root, str, W_Root, int, W_Root]
 
+def QueryValueEx(space, w_hkey, subkey):
+    hkey = hkey_w(w_hkey, space)
+    null_dword = lltype.nullptr(rwin32.LPDWORD.TO)
+    retDataSize = lltype.malloc(rwin32.LPDWORD.TO, 1, flavor='raw')
+    try:
+        ret = rwinreg.RegQueryValueEx(hkey, subkey, null_dword, null_dword,
+                                      None, retDataSize)
+        if ret != 0:
+            print "AFA??", hkey, subkey
+            raiseWindowsError(space, ret, 'RegQueryValueEx')
+        databuf = lltype.malloc(rffi.CCHARP.TO, retDataSize[0], flavor='raw')
+        try:
+            retType = lltype.malloc(rwin32.LPDWORD.TO, 1, flavor='raw')
+            try:
+
+                ret = rwinreg.RegQueryValueEx(hkey, subkey, null_dword,
+                                              retType, databuf, retDataSize)
+                if ret != 0:
+                    raiseWindowsError(space, ret, 'RegQueryValueEx')
+                return space.wrap((
+                    convert_from_regdata(space, databuf,
+                                         retDataSize[0], retType[0]),
+                    retType[0],
+                    ))
+            finally:
+                lltype.free(retType, flavor='raw')
+        finally:
+            lltype.free(databuf, flavor='raw')
+    finally:
+        lltype.free(retDataSize, flavor='raw')
+
+QueryValueEx.unwrap_spec = [ObjSpace, W_Root, str]
+
 def CreateKey(space, w_hkey, subkey):
     hkey = hkey_w(w_hkey, space)
     rethkey = lltype.malloc(rwinreg.PHKEY.TO, 1, flavor='raw')
@@ -284,7 +317,7 @@ def EnumValue(space, w_hkey, index):
                             rffi.charp2str(valuebuf),
                             convert_from_regdata(space, databuf,
                                                  retDataSize[0], retType[0]),
-                            retType[0]
+                            retType[0],
                             ))
                     finally:
                         lltype.free(retType, flavor='raw')

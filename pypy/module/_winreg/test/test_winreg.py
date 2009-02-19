@@ -87,7 +87,7 @@ class AppTestFfi:
             SetValueEx(sub_key, name, 0, type, value)
 
     def test_readValues(self):
-        from _winreg import OpenKey, EnumValue
+        from _winreg import OpenKey, EnumValue, QueryValueEx
         key = OpenKey(self.root_key, self.test_key_name)
         sub_key = OpenKey(key, "sub_key")
         index = 0
@@ -99,3 +99,6 @@ class AppTestFfi:
             assert data in self.test_data
             index = index + 1
         assert index == len(self.test_data)
+
+        for name, data, type in self.test_data:
+            assert QueryValueEx(sub_key, name) == (data, type)
