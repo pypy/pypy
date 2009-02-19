@@ -15,6 +15,7 @@ class Module(MixedModule):
         'OpenKey'     : 'interp_winreg.OpenKey',
         'OpenKeyEx'   : 'interp_winreg.OpenKey',
         'EnumValue'   : 'interp_winreg.EnumValue',
+        'EnumKey'     : 'interp_winreg.EnumKey',
         'CloseKey': 'interp_winreg.CloseKey',
         'QueryInfoKey': 'interp_winreg.QueryInfoKey',
     }

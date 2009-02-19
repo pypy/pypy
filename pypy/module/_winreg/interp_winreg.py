@@ -332,6 +332,29 @@ def EnumValue(space, w_hkey, index):
 
 EnumValue.unwrap_spec = [ObjSpace, W_Root, int]
 
+def EnumKey(space, w_hkey, index):
+    hkey = hkey_w(w_hkey, space)
+    null_dword = lltype.nullptr(rwin32.LPDWORD.TO)
+
+    # max key name length is 255
+    buf = lltype.malloc(rffi.CCHARP.TO, 256, flavor='raw')
+    try:
+        retValueSize = lltype.malloc(rwin32.LPDWORD.TO, 1, flavor='raw')
+        try:
+            retValueSize[0] = 256 # includes NULL terminator
+            ret = rwinreg.RegEnumKeyEx(hkey, index, buf, retValueSize,
+                                       null_dword, None, null_dword,
+                                       lltype.nullptr(rwin32.PFILETIME.TO))
+            if ret != 0:
+                raiseWindowsError(space, ret, 'RegEnumKeyEx')
+            return space.wrap(rffi.charp2str(buf))
+        finally:
+            lltype.free(retValueSize, flavor='raw')
+    finally:
+        lltype.free(buf, flavor='raw')
+
+EnumKey.unwrap_spec = [ObjSpace, W_Root, int]
+
 def QueryInfoKey(space, w_hkey):
     hkey = hkey_w(w_hkey, space)
     nSubKeys = lltype.malloc(rwin32.LPDWORD.TO, 1, flavor='raw')

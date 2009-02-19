@@ -83,6 +83,13 @@ RegEnumValue = external(
      rffi.CCHARP, rwin32.LPDWORD],
     rffi.LONG)
 
+RegEnumKeyEx = external(
+    'RegEnumKeyExA',
+    [HKEY, rwin32.DWORD, rffi.CCHARP,
+     rwin32.LPDWORD, rwin32.LPDWORD,
+     rffi.CCHARP, rwin32.LPDWORD, rwin32.PFILETIME],
+    rffi.LONG)
+
 RegQueryInfoKey = external(
     'RegQueryInfoKeyA',
     [HKEY, rffi.CCHARP, rwin32.LPDWORD, rwin32.LPDWORD,
