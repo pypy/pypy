@@ -27,7 +27,6 @@ class AppTestFfi:
 
     def teardown_class(cls):
         import _winreg
-        return
         try:
             _winreg.DeleteKey(cls.root_key, cls.test_key_name)
         except WindowsError:
@@ -69,3 +68,21 @@ class AppTestFfi:
             assert "invalid" in e.strerror.lower()
         else:
             assert 0, "Did not raise"
+
+    def test_SetValueEx(self):
+        from _winreg import CreateKey, SetValueEx
+        from _winreg import REG_DWORD, REG_SZ, REG_EXPAND_SZ
+        from _winreg import REG_MULTI_SZ, REG_BINARY
+        key = CreateKey(self.root_key, self.test_key_name)
+        SetValueEx(key, "Int Value", 0,
+                   REG_DWORD, 45)
+        SetValueEx(key, "Str Value", 0,
+                   REG_SZ, "A string Value")
+        SetValueEx(key, "Unicode Value", 0,
+                   REG_SZ, u"A unicode Value")
+        SetValueEx(key, "Str Expand", 0,
+                   REG_EXPAND_SZ, "The path is %path%")
+        SetValueEx(key, "Multi Str", 0,
+                   REG_MULTI_SZ, ["Several", "string", u"values"])
+        SetValueEx(key, "Raw data", 0,
+                   REG_BINARY, "binary"+chr(0)+"data")

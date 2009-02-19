@@ -8,6 +8,7 @@ class Module(MixedModule):
     interpleveldefs = {
         'HKEYType': 'interp_winreg.W_HKEY',
         'SetValue': 'interp_winreg.SetValue',
+        'SetValueEx': 'interp_winreg.SetValueEx',
         'QueryValue': 'interp_winreg.QueryValue',
         'CreateKey': 'interp_winreg.CreateKey',
         'CloseKey': 'interp_winreg.CloseKey',

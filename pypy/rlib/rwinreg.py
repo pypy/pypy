@@ -48,6 +48,12 @@ RegSetValue = external(
     [HKEY, rffi.CCHARP, rwin32.DWORD, rffi.CCHARP, rwin32.DWORD],
     rffi.LONG)
 
+RegSetValueEx = external(
+    'RegSetValueExA',
+    [HKEY, rffi.CCHARP, rwin32.DWORD,
+     rwin32.DWORD, rffi.CCHARP, rwin32.DWORD],
+    rffi.LONG)
+
 RegQueryValue = external(
     'RegQueryValueA',
     [HKEY, rffi.CCHARP, rffi.CCHARP, rwin32.PLONG],

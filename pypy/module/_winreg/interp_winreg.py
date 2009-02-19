@@ -109,6 +109,88 @@ def QueryValue(space, w_hkey, w_subkey):
         raiseWindowsError(space, ret, 'RegQueryValue')
 QueryValue.unwrap_spec = [ObjSpace, W_Root, W_Root]
 
+def convert_to_regdata(space, w_value, typ):
+    buf = None
+
+    if typ == rwinreg.REG_DWORD:
+        if space.is_true(space.isinstance(w_value, space.w_int)):
+            buflen = rffi.sizeof(rwin32.DWORD)
+            buf = lltype.malloc(rffi.CArray(rwin32.DWORD), 1, flavor='raw')
+            buf[0] = space.uint_w(w_value)
+
+    elif typ == rwinreg.REG_SZ or typ == rwinreg.REG_EXPAND_SZ:
+        if space.is_w(w_value, space.w_None):
+            buflen = 1
+            buf = lltype.malloc(rffi.CCHARP.TO, buflen, flavor='raw')
+            buf[0] = 0
+        else:
+            if space.is_true(space.isinstance(w_value, space.w_unicode)):
+                w_value = space.call_method(w_value, 'encode',
+                                            space.wrap('mbcs'))
+            buf = rffi.str2charp(space.str_w(w_value))
+            buflen = space.int_w(space.len(w_value)) + 1
+
+    elif typ == rwinreg.REG_MULTI_SZ:
+        if space.is_w(w_value, space.w_None):
+            buflen = 1
+            buf = lltype.malloc(rffi.CCHARP.TO, buflen, flavor='raw')
+            buf[0] = 0
+        elif space.is_true(space.isinstance(w_value, space.w_list)):
+            strings = []
+            buflen = 0
+
+            # unwrap strings and compute total size
+            w_iter = space.iter(w_value)
+            while True:
+                try:
+                    w_item = space.next(w_iter)
+                    if space.is_true(space.isinstance(w_item, space.w_unicode)):
+                        w_item = space.call_method(w_item, 'encode',
+                                                   space.wrap('mbcs'))
+                    item = space.str_w(w_item)
+                    strings.append(item)
+                    buflen += len(item) + 1
+                except OperationError, e:
+                    if not e.match(space, space.w_StopIteration):
+                        raise       # re-raise other app-level exceptions
+                    break
+            buflen += 1
+            buf = lltype.malloc(rffi.CCHARP.TO, buflen, flavor='raw')
+
+            # Now copy data
+            buflen = 0
+            for string in strings:
+                for i in range(len(string)):
+                    buf[buflen + i] = string[i]
+                buflen += len(string) + 1
+                buf[buflen - 1] = '\0'
+            buflen += 1
+            buf[buflen - 1] = '\0'
+
+    else: # REG_BINARY and ALL unknown data types.
+        if space.is_w(w_value, space.w_None):
+            buflen = 0
+            buf = lltype.malloc(rffi.CCHARP.TO, 1, flavor='raw')
+        else:
+            value = space.bufferstr_w(w_value)
+            buflen = len(value)
+            buf = rffi.str2charp(value)
+
+    if buf is not None:
+        return rffi.cast(rffi.CCHARP, buf), buflen
+
+    errstring = space.wrap("Could not convert the data to the specified type")
+    raise OperationError(space.w_ValueError, errstring)
+
+def SetValueEx(space, w_hkey, value_name, w_reserved, typ, w_value):
+    hkey = hkey_w(w_hkey, space)
+    buf, buflen = convert_to_regdata(space, w_value, typ)
+    try:
+        ret = rwinreg.RegSetValueEx(hkey, value_name, 0, typ, buf, buflen)
+    finally:
+        lltype.free(buf, flavor='raw')
+SetValueEx.unwrap_spec = [ObjSpace, W_Root, str, W_Root, int, W_Root]
+
 def CreateKey(space, w_hkey, subkey):
     hkey = hkey_w(w_hkey, space)
     rethkey = lltype.malloc(rwinreg.PHKEY.TO, 1, flavor='raw')
