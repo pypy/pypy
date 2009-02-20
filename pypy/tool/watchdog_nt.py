@@ -1,6 +1,6 @@
 import sys, os
 import threading
-import win32api, pywintypes
+import ctypes
 
 PROCESS_TERMINATE = 0x1
 
@@ -11,10 +11,7 @@ def childkill(pid):
     global timedout
     timedout = True
     sys.stderr.write("="*26 + "timedout" + "="*26 + "\n")
-    try:
-        win32api.TerminateProcess(pid, 1)
-    except pywintypes.error:
-        pass
+    ctypes.windll.kernel32.TerminateProcess(pid, 1)
 
 pid = os.spawnv(os.P_NOWAIT, sys.argv[2], sys.argv[2:])
 
