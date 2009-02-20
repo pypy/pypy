@@ -11,10 +11,14 @@ from pypy.rpython.extfunc import BaseLazyRegistering, registering, extdef
 from pypy.rlib import rposix
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
-if sys.platform.startswith('win'):
-    includes = ['time.h', 'windows.h']
+if sys.platform == 'win32':
+    TIME_H = 'time.h'
+    FTIME = '_ftime64'
+    includes = [TIME_H, 'windows.h', 'sys/timeb.h']
 else:
-    includes = ['sys/time.h', 'time.h', 'errno.h', 'sys/select.h',
+    TIME_H = 'sys/time.h'
+    FTIME = 'ftime'
+    includes = [TIME_H, 'time.h', 'errno.h', 'sys/select.h',
                 'sys/types.h', 'unistd.h', 'sys/timeb.h']
 
 
@@ -26,7 +30,7 @@ class CConfig:
     TIMEVAL = platform.Struct('struct timeval', [('tv_sec', rffi.INT),
                                                  ('tv_usec', rffi.INT)])
     HAVE_GETTIMEOFDAY = platform.Has('gettimeofday')
-    HAVE_FTIME = platform.Has('ftime')
+    HAVE_FTIME = platform.Has(FTIME)
 
 
 if sys.platform == 'freebsd7':
@@ -36,7 +40,7 @@ else:
 
 class CConfigForFTime:
     _compilation_info_ = ExternalCompilationInfo(
-        includes=['sys/time.h', 'sys/timeb.h'],
+        includes=[TIME_H, 'sys/timeb.h'],
         libraries=libraries
     )
     TIMEB = platform.Struct('struct timeb', [('time', rffi.INT),
@@ -80,7 +84,7 @@ class RegisterTime(BaseLazyRegistering):
 
         if self.HAVE_FTIME:
             self.configure(CConfigForFTime)
-            c_ftime = self.llexternal('ftime', [lltype.Ptr(self.TIMEB)],
+            c_ftime = self.llexternal(FTIME, [lltype.Ptr(self.TIMEB)],
                                       lltype.Void,
                                       _nowrapper=True, threadsafe=False)
         else:
