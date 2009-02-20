@@ -1,6 +1,6 @@
 import py
 
-import os
+import sys, os
 
 from pypy.tool.pytest.modcheck import skipimporterror
 skipimporterror("ctypes")
@@ -33,12 +33,24 @@ def test_ntpath():
     interpret(f, [])
 
 def test_isdir():
-    import py; py.test.skip("XXX cannot run os.stat() on the llinterp yet")
+    if sys.platform != 'win32':
+        py.test.skip("XXX cannot run os.stat() on the llinterp yet")
+
     s = str(udir.join('test_isdir'))
     def f():
         return os.path.isdir(s)
     res = interpret(f, [])
     assert res == os.path.isdir(s)
     os.mkdir(s)
+    res = interpret(f, [])
+    assert res is True
+
+    # On Windows, the libc stat() is flawed:
+    #     stat('c:/temp')  works
+    # but stat('c:/temp/') does not find the directory...
+    # This test passes with our own stat() implementation.
+    s += os.path.sep
+    def f():
+        return os.path.isdir(s)
     res = interpret(f, [])
     assert res is True

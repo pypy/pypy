@@ -81,6 +81,8 @@ if WIN32:
         [DWORD, rffi.VOIDP, DWORD, DWORD, rffi.CCHARP, DWORD, rffi.VOIDP],
         DWORD)
 
+    _get_osfhandle = rffi.llexternal('_get_osfhandle', [rffi.INT], HANDLE)
+
 
     # A bit like strerror...
     def FormatError(code):
