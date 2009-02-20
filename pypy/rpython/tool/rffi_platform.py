@@ -510,7 +510,7 @@ def layout_addfield(layout, offset, ctype, prefix):
         name = '%s_%d' % (prefix, i)
     field = Field(name, ctype)
     for i in range(offset, offset+size):
-        assert layout[i] is None, "%s overlaps %r" % (fieldname, layout[i])
+        assert layout[i] is None, "%s overlaps %r" % (name, layout[i])
         layout[i] = field
     return field
 
