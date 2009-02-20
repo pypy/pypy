@@ -21,7 +21,7 @@ class W_HKEY(Wrappable):
     descr_del.unwrap_spec = ['self', ObjSpace]
 
     def descr_nonzero(self, space):
-        return self.wrap(self.hkey != 0)
+        return space.wrap(self.hkey != 0)
     descr_nonzero.unwrap_spec = ['self', ObjSpace]
 
     def descr_repr(self, space):
