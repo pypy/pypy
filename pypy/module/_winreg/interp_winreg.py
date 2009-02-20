@@ -342,7 +342,7 @@ def convert_from_regdata(space, buf, buflen, typ):
 
     elif typ == rwinreg.REG_MULTI_SZ:
         if not buflen:
-            return space.wrap([])
+            return space.newlist([])
         i = 0
         l = []
         while i < buflen and buf[i]:
@@ -352,9 +352,10 @@ def convert_from_regdata(space, buf, buflen, typ):
                 i += 1
             if len(s) == 0:
                 break
-            l.append(''.join(s))
+            s = ''.join(s)
+            l.append(space.wrap(s))
             i += 1
-        return space.wrap(l)
+        return space.newlist(l)
 
     else: # REG_BINARY and all other types
         return space.wrap(rffi.charpsize2str(buf, buflen))
