@@ -327,20 +327,22 @@ def convert_to_regdata(space, w_value, typ):
     errstring = space.wrap("Could not convert the data to the specified type")
     raise OperationError(space.w_ValueError, errstring)
 
-def convert_from_regdata(buf, buflen, typ):
+def convert_from_regdata(space, buf, buflen, typ):
     if typ == rwinreg.REG_DWORD:
         if not buflen:
-            return 0
-        return rffi.cast(rwin32.LPDWORD, buf)[0]
+            return space.wrap(0)
+        d = rffi.cast(rwin32.LPDWORD, buf)[0]
+        return space.wrap(d)
 
     elif typ == rwinreg.REG_SZ or typ == rwinreg.REG_EXPAND_SZ:
         if not buflen:
-            return u""
-        return rffi.charp2strn(rffi.cast(rffi.CCHARP, buf), buflen)
+            return space.wrap("")
+        s = rffi.charp2strn(rffi.cast(rffi.CCHARP, buf), buflen)
+        return space.wrap(s)
 
     elif typ == rwinreg.REG_MULTI_SZ:
         if not buflen:
-            return []
+            return space.wrap([])
         i = 0
         l = []
         while i < buflen and buf[i]:
@@ -352,10 +354,10 @@ def convert_from_regdata(buf, buflen, typ):
                 break
             l.append(''.join(s))
             i += 1
-        return l
+        return space.wrap(l)
 
     else: # REG_BINARY and all other types
-        return rffi.charpsize2str(buf, buflen)
+        return space.wrap(rffi.charpsize2str(buf, buflen))
 
 def SetValueEx(space, w_hkey, value_name, w_reserved, typ, w_value):
     """SetValueEx(key, value_name, reserved, type, value) - Stores data in the value field of an open registry key.
@@ -421,9 +423,8 @@ value_name is a string indicating the value to query"""
                 if ret != 0:
                     raiseWindowsError(space, ret, 'RegQueryValueEx')
                 return space.newtuple([
-                    space.wrap(convert_from_regdata(databuf,
-                                                    retDataSize[0],
-                                                    retType[0])),
+                    convert_from_regdata(space, databuf,
+                                         retDataSize[0], retType[0]),
                     space.wrap(retType[0]),
                     ])
             finally:
@@ -556,9 +557,8 @@ data_type is an integer that identifies the type of the value data."""
 
                         return space.newtuple([
                             space.wrap(rffi.charp2str(valuebuf)),
-                            space.wrap(convert_from_regdata(databuf,
-                                                            retDataSize[0],
-                                                            retType[0])),
+                            convert_from_regdata(space, databuf,
+                                                 retDataSize[0], retType[0]),
                             space.wrap(retType[0]),
                             ])
                     finally:
