@@ -39,6 +39,7 @@ working_oo_modules.update(dict.fromkeys(
 # XXX this should move somewhere else, maybe to platform ("is this posixish"
 #     check or something)
 if sys.platform == "win32":
+    working_modules["_winreg"] = None
     # unix only modules
     del working_modules["crypt"]
     del working_modules["fcntl"]
@@ -48,9 +49,9 @@ if sys.platform == "win32":
     del working_modules["bz2"]
 
 if sys.platform == "sunos5":
-    del working_modules['mmap']   # depend on ctypes, can'T get at c-level 'errono'
+    del working_modules['mmap']   # depend on ctypes, can't get at c-level 'errono'
     del working_modules['rctime'] # depend on ctypes, missing tm_zone/tm_gmtoff
-    del working_modules['signal'] # depend on ctypes, can'T get at c-level 'errono'
+    del working_modules['signal'] # depend on ctypes, can't get at c-level 'errono'
     del working_modules['fcntl']  # LOCK_NB not defined
     del working_modules["_minimal_curses"]
     del working_modules["termios"]

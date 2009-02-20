@@ -437,7 +437,7 @@ testmap = [
     RegrTest('test_weakref.py', core=True, usemodules='_weakref'),
 
     RegrTest('test_whichdb.py'),
-    RegrTest('test_winreg.py', skip="unsupported extension module"),
+    RegrTest('test_winreg.py', skip=sys.platform != 'win32'),
     RegrTest('test_winsound.py', skip="unsupported extension module"),
     RegrTest('test_xmllib.py'),
     RegrTest('test_xmlrpc.py'),
