@@ -56,7 +56,7 @@ def test_strerror():
 
 def test_system():
     filename = str(udir.join('test_system.txt'))
-    arg = 'python -c "print 1+1" > %s' % filename
+    arg = '%s -c "print 1+1" > %s' % (sys.executable, filename)
     data = getllimpl(os.system)(arg)
     assert data == 0
     assert file(filename).read().strip() == '2'
