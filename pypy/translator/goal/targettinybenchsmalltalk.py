@@ -22,8 +22,6 @@ def tinyBenchmarks():
 
     w_object = model.W_SmallInteger(0)
 
-    # Should get this from w_object
-    w_smallint_class = image.special(constants.SO_SMALLINTEGER_CLASS)
     s_class = w_object.shadow_of_my_class(space)
     w_method = s_class.lookup("tinyBenchmarks")
 

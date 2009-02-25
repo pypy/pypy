@@ -2,25 +2,21 @@ import autopath
 import sys
 import os
 from pypy.lang.smalltalk import model, interpreter, primitives, shadow
-from pypy.lang.smalltalk import objtable
-from pypy.lang.smalltalk import classtable
+# from pypy.lang.smalltalk import classtable
 # from pypy.lang.smalltalk.test.test_interpreter import *
 from pypy.lang.smalltalk import squeakimage
 from pypy.lang.smalltalk import constants
 
-mockclass = classtable.bootstrap_class
-
-def tinyBenchmarks(image):
-    interp = interpreter.Interpreter()
+def tinyBenchmarks(space, image):
+    interp = interpreter.Interpreter(space)
 
     w_object = model.W_SmallInteger(0)
 
-    # Should get this from w_object
-    s_class = w_object.shadow_of_my_class()
+    s_class = w_object.shadow_of_my_class(space)
     w_method = s_class.lookup("tinyBenchmarks")
 
     assert w_method
-    w_frame = w_method.create_frame(w_object, [])
+    w_frame = w_method.create_frame(space, w_object, [])
     interp.store_w_active_context(w_frame)
 
     counter = 0
@@ -51,11 +47,13 @@ def entry_point(argv):
     else:
         print "usage:", argv[0], "<image name>"
         return -1
-    reader = squeakimage.ImageReader(squeakimage.Stream(DummyFile(filename)))
+    from pypy.lang.smalltalk import objspace
+    space = objspace.ObjSpace()
+    reader = squeakimage.ImageReader(space, squeakimage.Stream(DummyFile(filename)))
     reader.initialize()
     image = squeakimage.SqueakImage()
-    image.from_reader(reader)
-    interp = tinyBenchmarks(image)
+    image.from_reader(space, reader)
+    interp = tinyBenchmarks(space, image)
     run_benchmarks(interp)
     return 0
 
