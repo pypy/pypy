@@ -121,7 +121,7 @@ class ObjSpace(object):
             setattr(self, name, self.classtable[name])
 
     def bld_char(self, i):
-            w_cinst = self.classtable['w_Charactertable'].as_class_get_shadow(self).new()
+            w_cinst = self.classtable['w_Character'].as_class_get_shadow(self).new()
             w_cinst.store(self, constants.CHARACTER_VALUE_INDEX,
                           model.W_SmallInteger(i))
             return w_cinst
