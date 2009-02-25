@@ -110,46 +110,6 @@ def hack_out_multimethods(ns):
             result.append(value)
     return result
 
-##def make_frameclass_for_arity(arity, varargs, keywords, isspecial):
-##    argnames = []
-##    for i in range(arity):
-##        argnames.append('arg%dof%d'%(i+1, arity))
-##    if varargs:
-##        argnames.append('var_args')
-##    if keywords:
-##        argnames.append('kw_args')
-##    self_args_assigning = []
-##    for i in range(len(argnames)):
-##        self_args_assigning.append('        self.%s = args[%i]'%(argnames[i], i))
-##    self_args_assigning = "\n".join(self_args_assigning)
-##    self_args = ", ".join(['self.'+ a for a in argnames])
-##    name = 'MmFrameOfArity%d'%arity
-##    if varargs:
-##        name += "Var"
-##    if keywords:
-##        name += "KW"
-##    if isspecial:
-##        name = "Special" + name
-##    d = locals()
-##    template = mmtemplate
-##    if isspecial:
-##        template += specialmmruntemplate
-##    else:
-##        template += mmruntemplate
-###    print template%d
-##    exec template%d in globals(), d
-##    return d[name]
-##
-##_frameclass_for_arity_cache = {}
-##def frameclass_for_arity(arity, varargs, keywords, isspecial):
-##    try:
-##        return _frameclass_for_arity_cache[(arity, varargs, keywords, isspecial)]
-##    except KeyError:
-##        r = _frameclass_for_arity_cache[(arity, varargs, keywords, isspecial)] = \
-##                make_frameclass_for_arity(arity, varargs, keywords, isspecial)
-##        return r
-
-
 def sliced_typeorders(typeorder, multimethod, typedef, i, local=False):
     """NOT_RPYTHON"""
     list_of_typeorders = [typeorder] * multimethod.arity

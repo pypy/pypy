@@ -271,18 +271,6 @@ class TestW_IntObject:
         result = iobj.int__Int(self.space, f1)
         assert result == f1
 
-##    def test_long(self):
-##        x = 1
-##        f1 = iobj.W_IntObject(x)
-##        result = iobj.int_long(self.space, f1)
-##        self.assertEquals(self.space.unwrap(result), long(x))
-
-##    def test_float(self):
-##        x = 1
-##        f1 = iobj.W_IntObject(x)
-##        result = iobj.int_float(self.space, f1)
-##        self.assertEquals(self.space.unwrap(result), float(x))
-
     def test_oct(self):
         x = 012345
         f1 = iobj.W_IntObject(x)

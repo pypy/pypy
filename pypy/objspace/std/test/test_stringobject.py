@@ -8,34 +8,6 @@ class TestW_StringObject:
     def teardown_method(self, method):
         pass
 
-##    def test_order_rich(self):
-##        space = self.space
-##        def w(txt):
-##             return W_StringObject(space, txt)
-##        strs = ['ala', 'bla', 'ala', 'alaaa', '', 'b']
-##        ops = [ 'EQ', 'LT', 'GT', 'NE', 'LE', 'GE' ]
-
-##        while strs[1:]:
-##            str1 = strs.pop()
-##            for op in ops:
-##                 #original python function
-##                orf = getattr(str1, '__%s__' % op.lower()) 
-##                pypyconst = getattr(stringobject, op)
-##                for str2 in strs:   
-##                    if orf(str2):
-##                         self.failUnless_w(
-##                             string_richcompare(space,
-##                                                w(str1),
-##                                                w(str2),
-##                                                pypyconst))
-##                    else:
-##                         self.failIf_w(
-##                             string_richcompare(space,
-##                                                w(str1),
-##                                                w(str2),
-##                                                pypyconst))
-        
-
     def test_str_w(self):
         assert self.space.str_w(self.space.wrap("foo")) == "foo"
 

@@ -247,20 +247,8 @@ def lshift__Int_Int(space, w_int1, w_int2):
     if b >= LONG_BIT:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer left shift"))
-    ##
-    ## XXX please! have a look into pyport.h and see how to implement
-    ## the overflow checking, using macro Py_ARITHMETIC_RIGHT_SHIFT
-    ## we *assume* that the overflow checking is done correctly
-    ## in the code generator, which is not trivial!
-    
-    ## XXX also note that Python 2.3 returns a long and never raises
-    ##     OverflowError.
     try:
         c = ovfcheck_lshift(a, b)
-        ## the test in C code is
-        ## if (a != Py_ARITHMETIC_RIGHT_SHIFT(long, c, b)) {
-        ##     if (PyErr_Warn(PyExc_FutureWarning,
-        # and so on
     except OverflowError:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer left shift"))
@@ -280,8 +268,6 @@ def rshift__Int_Int(space, w_int1, w_int2):
         else:
             a = 0
     else:
-        ## please look into pyport.h, how >> should be implemented!
-        ## a = Py_ARITHMETIC_RIGHT_SHIFT(long, a, b);
         a = a >> b
     return wrapint(space, a)
 
