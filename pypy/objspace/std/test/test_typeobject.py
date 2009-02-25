@@ -2,59 +2,6 @@ from pypy.objspace.std.objspace import *
 from pypy.objspace.std.stdtypedef import *
 from pypy.conftest import gettestobjspace
 
-##class TestSpecialMultimethodCode(testit.TestCase):
-
-##    def setUp(self):
-##        self.space = testit.objspace('std')
-
-##    def tearDown(self):
-##        pass
-
-##    def test_int_sub(self):
-##        w = self.space.wrap
-##        for i in range(2):
-##            meth = SpecialMultimethodCode(self.space.sub.multimethod, 
-##                                          self.space.w_int.__class__, i)
-##            self.assertEqual(meth.slice().is_empty(), False)
-##            # test int.__sub__ and int.__rsub__
-##            self.assertEqual_w(meth.eval_code(self.space, None,
-##                                              w({'x1': 5, 'x2': 7})),
-##                               w(-2))
-##            self.assertEqual_w(meth.eval_code(self.space, None,
-##                                              w({'x1': 5, 'x2': 7.1})),
-##                               self.space.w_NotImplemented)
-##            self.assertEqual_w(meth.eval_code(self.space, None,
-##                                              w({'x1': 5.5, 'x2': 7})),
-##                               self.space.w_NotImplemented)
-
-##    def test_empty_inplace_add(self):
-##        for i in range(2):
-##            meth = SpecialMultimethodCode(self.space.inplace_add.multimethod,
-##                                          self.space.w_int.__class__, i)
-##            self.assertEqual(meth.slice().is_empty(), True)
-
-##    def test_float_sub(self):
-##        w = self.space.wrap
-##        w(1.5)   # force floatobject imported
-##        for i in range(2):
-##            meth = SpecialMultimethodCode(self.space.sub.multimethod,
-##                                          self.space.w_float.__class__, i)
-##            self.assertEqual(meth.slice().is_empty(), False)
-##            # test float.__sub__ and float.__rsub__
-
-##            # some of these tests are pointless for Python because
-##            # float.__(r)sub__ should not accept an int as first argument
-##            self.assertEqual_w(meth.eval_code(self.space, None,
-##                                              w({'x1': 5, 'x2': 7})),
-##                               w(-2.0))
-##            self.assertEqual_w(meth.eval_code(self.space, None,
-##                                              w({'x1': 5, 'x2': 7.5})),
-##                               w(-2.5))
-##            self.assertEqual_w(meth.eval_code(self.space, None,
-##                                              w({'x1': 5.5, 'x2': 7})),
-##                               w(-1.5))
-
-
 class TestTypeObject:
 
     def test_not_acceptable_as_base_class(self):
