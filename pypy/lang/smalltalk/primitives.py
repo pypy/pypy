@@ -503,8 +503,8 @@ def func(interp, w_arg, w_rcvr):
 
     # 1. Rcvr or arg are SmallIntegers
     # XXX this is wrong too
-    if (w_arg_class.is_same_object(interp.space.classtable['w_SmallInteger']) or
-        w_rcvr_class.is_same_object(interp.space.classtable['w_SmallInteger'])):
+    if (w_arg_class.is_same_object(interp.space.w_SmallInteger) or
+        w_rcvr_class.is_same_object(interp.space.w_SmallInteger)):
         raise PrimitiveFailedError()
 
     # 2. Rcvr is an instance of a compact class and argument isn't
@@ -704,7 +704,7 @@ def func(interp, argument_count):
 
     # XXX need to check this since VALUE is called on all sorts of objects.
     if not w_block_ctx.getclass(interp.space).is_same_object(
-        interp.space.classtable['w_BlockContext']):
+        interp.space.w_BlockContext):
         raise PrimitiveFailedError()
     
     assert isinstance(w_block_ctx, model.W_PointersObject)
@@ -736,7 +736,7 @@ def func(interp, w_block_ctx, w_args):
 
     # Check that our arguments have pointers format and the right size:
     if not w_args.getclass(interp.space).is_same_object(
-            interp.space.classtable['w_Array']):
+            interp.space.w_Array):
         raise PrimitiveFailedError()
     if w_args.size() != exp_arg_cnt:
         raise PrimitiveFailedError()

@@ -41,14 +41,15 @@ def run_benchmarks(interp):
     print w_result.as_string()
     return 0
 
+from pypy.lang.smalltalk import objspace
+space = objspace.ObjSpace()
+
 def entry_point(argv):
     if len(argv) > 1:
         filename = argv[1]
     else:
         print "usage:", argv[0], "<image name>"
         return -1
-    from pypy.lang.smalltalk import objspace
-    space = objspace.ObjSpace()
     reader = squeakimage.ImageReader(space, squeakimage.Stream(DummyFile(filename)))
     reader.initialize()
     image = squeakimage.SqueakImage()

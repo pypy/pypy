@@ -10,36 +10,16 @@ class ObjSpace(object):
         self.make_bootstrap_classes()
         self.make_bootstrap_objects()
 
-    def define_core_cls(self, name, w_superclass, w_metaclass):
-        assert name.startswith('w_')
-        w_class = bootstrap_class(self, instsize=0,    # XXX
-                                  w_superclass=w_superclass,
-                                  w_metaclass=w_metaclass,
-                                  name=name[2:])
-        self.classtable[name] = w_class
-        return w_class
-
-    def define_cls(self, cls_nm, supercls_nm, instvarsize=0,
-                    format=shadow.POINTERS, varsized=False):
-        assert cls_nm.startswith("w_")
-        meta_nm = cls_nm + "Class"
-        meta_super_nm = supercls_nm + "Class"
-        w_Metaclass = self.classtable["w_Metaclass"]
-        w_meta_cls = self.classtable[meta_nm] = \
-                     bootstrap_class(self, 0,   # XXX
-                                     self.classtable[meta_super_nm],
-                                     w_Metaclass,
-                                     name=meta_nm[2:])
-        w_cls = self.classtable[cls_nm] = \
-                     bootstrap_class(self, instvarsize,
-                                     self.classtable[supercls_nm],
-                                     w_meta_cls,
-                                     format=format,
-                                     varsized=varsized,
-                                     name=cls_nm[2:])
-
-
     def make_bootstrap_classes(self):
+        def define_core_cls(name, w_superclass, w_metaclass):
+            assert name.startswith('w_')
+            w_class = bootstrap_class(self, instsize=0,    # XXX
+                                      w_superclass=w_superclass,
+                                      w_metaclass=w_metaclass,
+                                      name=name[2:])
+            self.classtable[name] = w_class
+            return w_class
+        
         #   A complete minimal setup (including Behavior) would look like this
         #
         #   class:              superclass:         metaclass:
@@ -63,14 +43,14 @@ class ObjSpace(object):
             ["w_Class",            "w_ClassDescription"],
             ["w_Metaclass",        "w_ClassDescription"],
             ]
-        w_ProtoObjectClass = self.define_core_cls("w_ProtoObjectClass", None, None)
-        #  w_ProtoObjectClass = self.classtable["w_ProtoObjectClass"]
-        self.define_core_cls("w_ProtoObject", None, w_ProtoObjectClass)
+        define_core_cls("w_ProtoObjectClass", None, None)
+        w_ProtoObjectClass = self.classtable["w_ProtoObjectClass"]
+        define_core_cls("w_ProtoObject", None, w_ProtoObjectClass)
         for (cls_nm, super_cls_nm) in cls_nm_tbl:
             meta_nm = cls_nm + "Class"
             meta_super_nm = super_cls_nm + "Class"
-            w_metacls = self.define_core_cls(meta_nm, self.classtable[meta_super_nm], None)
-            self.define_core_cls(cls_nm, self.classtable[super_cls_nm], w_metacls)
+            w_metacls = define_core_cls(meta_nm, self.classtable[meta_super_nm], None)
+            define_core_cls(cls_nm, self.classtable[super_cls_nm], w_metacls)
         w_Class = self.classtable["w_Class"]
         w_Metaclass = self.classtable["w_Metaclass"]
         # XXX
@@ -85,53 +65,71 @@ class ObjSpace(object):
             if w_cls_obj.w_class is None:
                 w_cls_obj.w_class = w_Metaclass
         
-        self.define_cls("w_Magnitude", "w_Object")
-        self.define_cls("w_Character", "w_Magnitude", instvarsize=1)
-        self.define_cls("w_Number", "w_Magnitude")
-        self.define_cls("w_Integer", "w_Number")
-        self.define_cls("w_SmallInteger", "w_Integer")
-        self.define_cls("w_LargePositiveInteger", "w_Integer", format=shadow.BYTES)
-        self.define_cls("w_Float", "w_Number", format=shadow.BYTES)
-        self.define_cls("w_Collection", "w_Object")
-        self.define_cls("w_SequenceableCollection", "w_Collection")
-        self.define_cls("w_ArrayedCollection", "w_SequenceableCollection")
-        self.define_cls("w_Array", "w_ArrayedCollection", varsized=True)
-        self.define_cls("w_String", "w_ArrayedCollection", format=shadow.BYTES)
-        self.define_cls("w_UndefinedObject", "w_Object")
-        self.define_cls("w_Boolean", "w_Object")
-        self.define_cls("w_True", "w_Boolean")
-        self.define_cls("w_False", "w_Boolean")
-        self.define_cls("w_ByteArray", "w_ArrayedCollection", format=shadow.BYTES)
-        self.define_cls("w_MethodDict", "w_Object", instvarsize=2, varsized=True)
-        self.define_cls("w_CompiledMethod", "w_ByteArray", format=shadow.COMPILED_METHOD)
-        self.define_cls("w_ContextPart", "w_Object")
-        self.define_cls("w_MethodContext", "w_ContextPart")
-        self.define_cls("w_Link", "w_Object")
-        self.define_cls("w_Process", "w_Link")
-        self.define_cls("w_Point", "w_Object")
-        self.define_cls("w_LinkedList", "w_SequenceableCollection")
-        self.define_cls("w_Semaphore", "w_LinkedList")
-        self.define_cls("w_BlockContext", "w_ContextPart",
+        def define_cls(cls_nm, supercls_nm, instvarsize=0, format=shadow.POINTERS,
+                       varsized=False):
+            assert cls_nm.startswith("w_")
+            meta_nm = cls_nm + "Class"
+            meta_super_nm = supercls_nm + "Class"
+            w_Metaclass = self.classtable["w_Metaclass"]
+            w_meta_cls = self.classtable[meta_nm] = \
+                         bootstrap_class(self, 0,   # XXX
+                                         self.classtable[meta_super_nm],
+                                         w_Metaclass,
+                                         name=meta_nm[2:])
+            w_cls = self.classtable[cls_nm] = \
+                         bootstrap_class(self, instvarsize,
+                                         self.classtable[supercls_nm],
+                                         w_meta_cls,
+                                         format=format,
+                                         varsized=varsized,
+                                         name=cls_nm[2:])
+
+        define_cls("w_Magnitude", "w_Object")
+        define_cls("w_Character", "w_Magnitude", instvarsize=1)
+        define_cls("w_Number", "w_Magnitude")
+        define_cls("w_Integer", "w_Number")
+        define_cls("w_SmallInteger", "w_Integer")
+        define_cls("w_LargePositiveInteger", "w_Integer", format=shadow.BYTES)
+        define_cls("w_Float", "w_Number", format=shadow.BYTES)
+        define_cls("w_Collection", "w_Object")
+        define_cls("w_SequenceableCollection", "w_Collection")
+        define_cls("w_ArrayedCollection", "w_SequenceableCollection")
+        define_cls("w_Array", "w_ArrayedCollection", varsized=True)
+        define_cls("w_String", "w_ArrayedCollection", format=shadow.BYTES)
+        define_cls("w_UndefinedObject", "w_Object")
+        define_cls("w_Boolean", "w_Object")
+        define_cls("w_True", "w_Boolean")
+        define_cls("w_False", "w_Boolean")
+        define_cls("w_ByteArray", "w_ArrayedCollection", format=shadow.BYTES)
+        define_cls("w_MethodDict", "w_Object", instvarsize=2, varsized=True)
+        define_cls("w_CompiledMethod", "w_ByteArray", format=shadow.COMPILED_METHOD)
+        define_cls("w_ContextPart", "w_Object")
+        define_cls("w_MethodContext", "w_ContextPart")
+        define_cls("w_Link", "w_Object")
+        define_cls("w_Process", "w_Link")
+        define_cls("w_Point", "w_Object")
+        define_cls("w_LinkedList", "w_SequenceableCollection")
+        define_cls("w_Semaphore", "w_LinkedList")
+        define_cls("w_BlockContext", "w_ContextPart",
                    instvarsize=constants.BLKCTX_STACK_START)
 
         # make better accessors for classes that can be found in special object
         # table
         for name in constants.classes_in_special_object_table.keys():
             name = 'w_' + name
-            setattr(self, name, self.classtable[name])
+            setattr(self, name, self.classtable.get(name))
 
-    def bld_char(self, i):
-            w_cinst = self.classtable['w_Character'].as_class_get_shadow(self).new()
+    def make_bootstrap_objects(self):
+        def bld_char(i):
+            w_cinst = self.w_Character.as_class_get_shadow(self).new()
             w_cinst.store(self, constants.CHARACTER_VALUE_INDEX,
                           model.W_SmallInteger(i))
             return w_cinst
-
-    def make_bootstrap_objects(self):
         w_charactertable = model.W_PointersObject(
             self.classtable['w_Array'], 256)
         self.w_charactertable = w_charactertable
         for i in range(256):
-            self.w_charactertable.atput0(self, i, self.bld_char(i))
+            self.w_charactertable.atput0(self, i, bld_char(i))
 
 
         # Very special nil hack: in order to allow W_PointersObject's to
@@ -148,22 +146,14 @@ class ObjSpace(object):
         self.w_zero = model.W_SmallInteger(0)
         self.w_one = model.W_SmallInteger(1)
         self.w_two = model.W_SmallInteger(2)
-        self.objtable = {
-            "w_nil"                         : w_nil,
-            "w_true"                        : w_true,
-            "w_false"                       : w_false,
-            "w_charactertable"              : w_charactertable,
-            "w_schedulerassociationpointer" : None,
-            "w_smalltalkdict"               : None,
-        }
+        self.objtable = {}
 
-        # XXX Does not work when we load images dynamically!
-        # for name in constants.objects_in_special_object_table:
-        #    name = "w_" + name
-        #    try:
-        #        self.objtable[name] = locals()[name]
-        #    except KeyError, e:
-        #        self.objtable[name] = None
+        for name in constants.objects_in_special_object_table:
+            name = "w_" + name
+            try:
+                self.objtable[name] = locals()[name]
+            except KeyError, e:
+                self.objtable[name] = None
 
     # methods for wrapping and unwrapping stuff
 
@@ -177,7 +167,7 @@ class ObjSpace(object):
         return model.W_Float(i)
 
     def wrap_string(self, string):
-        w_inst = self.classtable['w_String'].as_class_get_shadow(self).new(len(string))
+        w_inst = self.w_String.as_class_get_shadow(self).new(len(string))
         for i in range(len(string)):
             w_inst.setchar(i, string[i])
         return w_inst
@@ -197,7 +187,7 @@ class ObjSpace(object):
         a wrapped smalltalk array
         """
         lstlen = len(lst_w)
-        res = self.classtable['w_Array'].as_class_get_shadow().new(lstlen)
+        res = self.w_Array.as_class_get_shadow().new(lstlen)
         for i in range(lstlen):
             res.storevarpointer(i, lit[i])
         return res
@@ -210,11 +200,11 @@ class ObjSpace(object):
     def unwrap_char(self, w_char):
         from pypy.lang.smalltalk import constants
         w_class = w_char.getclass(self)
-        if not w_class.is_same_object(self.classtable['w_Character']):
+        if not w_class.is_same_object(self.w_Character):
             raise UnwrappingError("expected character, got %s" % (w_class, ))
         w_ord = w_char.fetch(self, constants.CHARACTER_VALUE_INDEX)
         w_class = w_ord.getclass(self)
-        if not w_class.is_same_object(self.classtable['w_SmallInteger']):
+        if not w_class.is_same_object(self.w_SmallInteger):
             raise UnwrappingError("expected smallint from character, got %s" % (w_class, ))
 
         assert isinstance(w_ord, model.W_SmallInteger)
@@ -225,6 +215,7 @@ class ObjSpace(object):
         if isinstance(w_v, model.W_Float): return w_v.value
         elif isinstance(w_v, model.W_SmallInteger): return float(w_v.value)
         raise UnwrappingError()
+
 
 
 def bootstrap_class(space, instsize, w_superclass=None, w_metaclass=None,

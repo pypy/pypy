@@ -323,7 +323,7 @@ class ContextPartShadow(AbstractRedirectingShadow):
     def is_block_context(w_pointers, space):
         method_or_argc = w_pointers.fetch(space, constants.MTHDCTX_METHOD)
         return method_or_argc.getclass(space).is_same_object(
-            space.classtable['w_SmallInteger'])
+            space.w_SmallInteger)
 
     def fetch(self, n0):
         if n0 == constants.CTXPART_SENDER_INDEX:
@@ -509,7 +509,7 @@ class BlockContextShadow(ContextPartShadow):
         # into the right places in the W_PointersObject
         # XXX could hack some more to never have to create the _vars of w_result
         contextsize = w_home.as_methodcontext_get_shadow(space).myblocksize()
-        w_result = model.W_PointersObject(space.classtable['w_BlockContext'], contextsize)
+        w_result = model.W_PointersObject(space.w_BlockContext, contextsize)
         s_result = BlockContextShadow(space, w_result)
         w_result.store_shadow(s_result)
         s_result.store_expected_argument_count(argcnt)
@@ -603,7 +603,7 @@ class MethodContextShadow(ContextPartShadow):
         # From blue book: normal mc have place for 12 temps+maxstack
         # mc for methods with islarge flag turned on 32
         size = 12 + w_method.islarge * 20 + w_method.argsize
-        w_result = space.classtable['w_MethodContext'].as_class_get_shadow(space).new(size)
+        w_result = space.w_MethodContext.as_class_get_shadow(space).new(size)
         assert isinstance(w_result, model.W_PointersObject)
         # create and attach a shadow manually, to not have to carefully put things
         # into the right places in the W_PointersObject
