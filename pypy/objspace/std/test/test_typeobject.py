@@ -1,5 +1,6 @@
 from pypy.objspace.std.objspace import *
 from pypy.objspace.std.stdtypedef import *
+from pypy.conftest import gettestobjspace
 
 ##class TestSpecialMultimethodCode(testit.TestCase):
 
@@ -923,4 +924,23 @@ class AppTestTypeObject:
             def __init__(self):
                 return 0
         raises(TypeError, X)
+
+
+class AppTestMutableBuiltintypes:
+
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.std.immutable_builtintypes": False})
+
+    def test_mutate_builtintype(self):
+        list.a = 1
+        def doublelen(self):
+            return len(self) * 2
+        list.doublelen = doublelen
+        l = []
+        assert l.a == 1
+        l.append(100)
+        assert l.doublelen() == 2
+        del list.doublelen
+        del list.a
+        raises(AttributeError, "l.a")
 

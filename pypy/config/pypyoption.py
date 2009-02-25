@@ -323,6 +323,8 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         ChoiceOption("multimethods", "the multimethod implementation to use",
                      ["doubledispatch", "mrd"],
                      default="mrd"),
+        BoolOption("immutable_builtintypes",
+                   "Forbid the changing of builtin types", default=True),
      ]),
 ])
 

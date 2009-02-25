@@ -629,7 +629,8 @@ def setattr__Type_ANY_ANY(space, w_type, w_name, w_value):
             space.set(w_descr, w_type, w_value)
             return
     
-    if not w_type.is_heaptype():
+    if (space.config.objspace.std.immutable_builtintypes
+            and not w_type.is_heaptype()):
         msg = "can't set attributes on type object '%s'" %(w_type.name,)
         raise OperationError(space.w_TypeError, space.wrap(msg))
     if name == "__del__" and name not in w_type.dict_w:
@@ -647,8 +648,8 @@ def delattr__Type_ANY(space, w_type, w_name):
         if space.is_data_descr(w_descr):
             space.delete(w_descr, w_type)
             return
-    if not w_type.is_heaptype():
-        msg = "can't delete attributes on type object '%s'" %(w_type.name,)
+    if (space.config.objspace.std.immutable_builtintypes
+            and not w_type.is_heaptype()):
         raise OperationError(space.w_TypeError, space.wrap(msg))
     try:
         del w_type.dict_w[name]
