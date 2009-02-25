@@ -131,5 +131,8 @@ objects_in_special_object_table = {
     "smalltalkdict" : SO_SMALLTALK,
 }
 
-TAGGED_MAXINT = 2 ** (LONG_BIT - 2) - 1
-TAGGED_MININT = -2 ** (LONG_BIT - 2)
+BITS = 32
+# Above should become:
+# BITS = LONG_BIT
+TAGGED_MAXINT = 2 ** (BITS - 2) - 1
+TAGGED_MININT = -2 ** (BITS - 2)

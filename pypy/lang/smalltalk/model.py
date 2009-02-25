@@ -106,7 +106,7 @@ class W_SmallInteger(W_Object):
 
     def getclass(self, space):
         """Return SmallInteger from special objects array."""
-        return space.w_SmallInteger
+        return space.classtable['w_SmallInteger']
 
     def gethash(self):
         return self.value
@@ -142,7 +142,7 @@ class W_Float(W_Object):
 
     def getclass(self, space):
         """Return Float from special objects array."""
-        return space.w_Float
+        return space.classtable['w_Float']
 
     def gethash(self):
         return 41    # XXX check this
@@ -202,7 +202,8 @@ class W_AbstractObjectWithClassReference(W_AbstractObjectWithIdentityHash):
     Float)."""
 
     def __init__(self, w_class):
-        if w_class is not None:     # it's None only for testing
+        if w_class is not None: # it's None for testing and bootstrapping the
+                                # class hierarchy
             assert isinstance(w_class, W_PointersObject)
         self.w_class = w_class
 
@@ -218,7 +219,9 @@ class W_AbstractObjectWithClassReference(W_AbstractObjectWithIdentityHash):
             return self._shadow.getname()
         else:
             name = None
-            if self.w_class._shadow is not None:
+            if (hasattr(self, 'w_class') and
+                    self.w_class is not None and
+                    self.w_class._shadow is not None):
                 name = self.w_class._shadow.name
             return "a %s" % (name or '?',)
 
@@ -407,11 +410,12 @@ class W_WordsObject(W_AbstractObjectWithClassReference):
  
     def atput0(self, space, index0, w_value):
         if isinstance(w_value, W_BytesObject):
+            # TODO: Completely untested! This failed translation bigtime...
             # XXX Probably we want to allow all subclasses
-            if not (w_value.getclass(self).is_same_object(
+            if not (w_value.getclass(space).is_same_object(
                     space.classtable['w_LargePositiveInteger']) and
                     w_value.size() == 4):
-                raise UnwrappingError("Failed to convert bytes to word")
+                raise error.UnwrappingError("Failed to convert bytes to word")
             word = 0
             for i in range(4):
                 word += ord(w_value.getchar(i)) << 8*i
@@ -473,7 +477,7 @@ class W_CompiledMethod(W_AbstractObjectWithIdentityHash):
         return self.w_compiledin
 
     def getclass(self, space):
-        return space.w_CompiledMethod
+        return space.classtable['w_CompiledMethod']
 
     def getliteral(self, index):
                                     # We changed this part
