@@ -256,8 +256,8 @@ class Background(object):
             self.video.line[x] = 0x00
     
     def draw_line(self, line_y):
-        y          = (self.scroll_y + line_y) & 0xFF
-        x          = self.scroll_x            & 0xFF
+        y = (self.scroll_y + line_y) & 0xFF
+        x = self.scroll_x            & 0xFF
         tile_map, tile_data = self.prepare_background_data(x, y)
         self.video.draw_tiles(8 - (x & 7), tile_map, tile_data)
         

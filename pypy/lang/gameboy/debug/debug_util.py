@@ -7,7 +7,7 @@ import pdb
 #
 # ----------------------------------------------------------------------------
 
-DEBUG = True
+DEBUG = False
 DEBUG_PRINT_LOGS = True
 op_codes               = [0] * (0xFF+1)
 fetch_execute_op_codes = [0] * (0xFF+1)
