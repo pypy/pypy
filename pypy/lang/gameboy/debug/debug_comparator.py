@@ -324,8 +324,6 @@ class VideoComparator(Comparator):
             ("Check whether emulated Transfer", 
                     self.video.emulated_transfer, "emulated_transfer"),
             ("Check whether emulated VBLank", 
-                    self.video.emulated_vblank, "emulated_vblank"),
-            ("Check whether called draw Backgroundw", 
-                    self.video.drew_background, "drew_background"),
+                    self.video.emulated_vblank, "emulated_vblank")
         ]
         self.compare_set(cmp, data, label="video", printall=True)
