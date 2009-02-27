@@ -46,6 +46,8 @@ class Comparator:
     def print_compare(self, msg, python, java, printall=False):
         if java != python:
             self.compare_failed = True
+            import pdb
+            pdb.set_trace()
             print "python: !!", msg, "java:", java, "python:", python, "!!"
         if printall:
             print "python: XX", msg, "java:", java, "python:", python, "!!"

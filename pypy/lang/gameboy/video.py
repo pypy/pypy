@@ -81,20 +81,22 @@ class Video(iMemory):
             self.sprites[i] = Sprite(self)
 
     def update_all_sprites(self):
+        # TODO: TEST!
         for i in range(40):
-            address = 1 * 4
+            address = i * 4
             self.sprites[i].set_data(self.oam[address + 0],
                                      self.oam[address + 1],
                                      self.oam[address + 2],
                                      self.oam[address + 3])
             
     def update_sprite(self, address, data):
+        # TODO: TEST!
         # XXX why cant I use None here
+        #       (because None == 0 in C?)
         attribute = [-1] * 4
         # assign the data to the correct attribute
         attribute[address % 4] = data
-        self.get_sprite(address).set_data(attribute[0], attribute[1], 
-                                          attribute[2], attribute[3])
+        self.get_sprite(address).set_data(*attribute)
        
     def get_sprite(self, address):
         address -= constants.OAM_ADDR
@@ -235,7 +237,7 @@ class Video(iMemory):
         # NOTE: do not reset LY=LYC flag (bit 2) of the STAT register (Mr. Do!)
         self.line_y  = 0
         if value != 0:
-            self.status.set_mode(0x02)
+            self.status.set_mode(2)
             self.cycles  = constants.MODE_2_TICKS
             self.display = False
         else:
@@ -468,6 +470,7 @@ class Video(iMemory):
         self.draw_pixels_line()
 
     def draw_sprites_line_new(self):
+        # XXX Not in use yet. Will replace the hacky version.
         sprites_on_line = self.get_drawable_sprites_on_line(self.line_y)
         
         last_sprite = sprites_on_line[0]
@@ -508,8 +511,8 @@ class Video(iMemory):
     
     def draw_sprites_line(self):
         count = self.scan_sprites()
-        lastx = 176
-        for index in range(176, count):
+        lastx = SPRITE_SIZE + GAMEBOY_SCREEN_WIDTH + SPRITE_SIZE
+        for index in range(count):
             data    = self.objects[index]
             x       = (data >> 24) & 0xFF
             flags   = (data >> 12) & 0xFF
@@ -556,32 +559,29 @@ class Video(iMemory):
         return count
 
     def sort_scan_sprite(self, count):
-        # sort objects from lower to higher priority
+        # TODO: optimize :)
+        # sort objects from high to low priority
         for index in range(count):
-            rightmost = index
-            for number in range(index+1, count):
-                if (self.objects[number] >> 20) > \
-                   (self.objects[rightmost] >> 20):
-                    rightmost = number
-            if rightmost != index:
-                data                    = self.objects[index]
-                self.objects[index]     = self.objects[rightmost]
-                self.objects[rightmost] = data
+            highest = index
+            for right in range(index+1, count):
+                if (self.objects[right] >> 20) > \
+                   (self.objects[highest] >> 20):
+                    highest = right
+            self.objects[index], self.objects[rightmost] = self.objects[rightmost], self.objects[index]
 
     def draw_tiles(self, x, tile_map, tile_data):
         while x < GAMEBOY_SCREEN_WIDTH+SPRITE_SIZE:
-            if self.control.background_and_window_lower_tile_data_selected:
-                tile = self.vram[tile_map]
-                assert tile == (tile & 0xFF)
-            else:
-                tile = (self.vram[tile_map] ^ 0x80) & 0xFF
+            tile = self.vram[tile_map]
+            assert tile == (tile & 0xFF)
+            if not self.control.background_and_window_lower_tile_data_selected:
+                tile = (tile ^ 0x80) & 0xFF
             self.draw_tile(x, tile_data + (tile << 4))
             tile_map = (tile_map & 0x1FE0) + ((tile_map + 1) & 0x001F)
             x += SPRITE_SIZE
      
     def draw_tile(self, x, address):
         pattern =  self.get_pattern(address)
-        for i in range(0, 8):
+        for i in range(0, SPRITE_SIZE):
             self.line[x + i] = (pattern >> (7-i)) & 0x0101
                    
     def get_pattern(self, address):
