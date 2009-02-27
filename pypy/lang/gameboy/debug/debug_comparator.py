@@ -278,8 +278,8 @@ class VideoComparator(Comparator):
             ("vram",    self.video.vram,    "vram"),
             ("oam",     self.video.oam,     "oam"),
             ("line",    self.video.line,    "line"),
-            ("objects", self.video.objects, "objects"),
-            ("palette", self.video.palette, "palette")
+            ("objects", self.video.objects, "objects")
+         #   ("palette", self.video.palette, "palette")
         ]
         self.compare_memory_set(cmp, data, label="video");
     

@@ -19,10 +19,15 @@ skip_count   = 22545
 skip_count   = 2700
 skip_count   = 0
 
+skip_count = 0
+first_skip = 0
+in_between_skip = 0
+
+
 if len(sys.argv) > 1:
     skip_count       = sys.argv[1]
     first_skip       = sys.argv[2] 
-    in_between_skips = sys.argv[3]
+    in_between_skip = sys.argv[3]
 
 # ------------------------------------------------------------------------------
 
@@ -67,12 +72,13 @@ def start_python_version():
     except Exception, error:
         gameBoy.load_cartridge_file(str(filename), verify=False)
         print "Cartridge is Corrupted!"
-    try:
-        gameBoy.mainLoop()
-    except Exception, error:
-        print "stopped"
-        print error
-        pdb.set_trace()
+    gameBoy.mainLoop()
+    #try:
+    #    gameBoy.mainLoop()
+    #except Exception, error:
+    #    print "stopped"
+    #    print error
+    #    pdb.set_trace()
 
 # ------------------------------------------------------------------------------ 
     

@@ -37,12 +37,14 @@ class GameBoyImplementation(GameBoy):
     def mainLoop(self):
         self.reset()
         self.is_running = True
-        try:
-            while self.is_running:
-                self.emulate_cycle()
-        except Exception, error:
-            self.is_running = False
-            self.handle_execution_error(error)
+        while self.is_running:
+            self.emulate_cycle()
+        #try:
+        #    while self.is_running:
+        #        self.emulate_cycle()
+        #except Exception, error:
+        #    self.is_running = False
+        #    self.handle_execution_error(error)
         return 0
     
     def emulate_cycle(self):

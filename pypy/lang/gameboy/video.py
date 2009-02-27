@@ -544,8 +544,7 @@ class Video(iMemory):
                 
     def swap_object_indices(self, index_a, index_b):
         data                  = self.objects[index_a]
-        self.objects[index_a] = self.objects[index_b]
-        self.objects[index_b] = data
+        self.objects[index_a] = sself.objects[index_b] = data
 
     # ---------------------------------------------------------------------
     
