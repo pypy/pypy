@@ -537,7 +537,7 @@ class CPU(object):
         # LD (nnnn),A  4 cycles
         self.write(self.fetch_double_address(), self.a.get()) # 2 cycles
 
-    def store_memory_at_axpanded_fetch_address_in_a(self):
+    def store_memory_at_expanded_fetch_address_in_a(self):
         # LDH A,(nn) 3 cycles
         self.a.set(self.read(0xFF00 + self.fetch())) # 1+1+1 cycles
         
@@ -909,7 +909,7 @@ FIRST_ORDER_OP_CODES = [
     (0xF9, CPU.store_hl_in_sp),
     (0xE0, CPU.write_a_at_expanded_fetch_address),
     (0xE8, CPU.increment_sp_by_fetch),
-    (0xF0, CPU.store_memory_at_axpanded_fetch_address_in_a),
+    (0xF0, CPU.store_memory_at_expanded_fetch_address_in_a),
     (0xF8, CPU.store_fetch_added_sp_in_hl),
     (0xCB, CPU.fetch_execute),
     (0xCD, CPU.unconditional_call),
