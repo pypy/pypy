@@ -32,12 +32,13 @@ def test_video_control_read_write_properties():
         assert control.read() == i
         
 def test_video_control_get_selected_tile_data_space():
+    # TODO: Cami's magic has to pass over here :)
     control = get_control_register()
     
-    control.window.upper_tile_map_selected = True
+    control.background_and_window_lower_tile_data_selected = False
     assert control.get_selected_tile_data_space() == constants.VRAM_DATA_B
     
-    control.window.upper_tile_map_selected = False
+    control.background_and_window_lower_tile_data_selected = True
     assert control.get_selected_tile_data_space() == constants.VRAM_DATA_A
     
 # StatusRegister ---------------------------------------------------------------

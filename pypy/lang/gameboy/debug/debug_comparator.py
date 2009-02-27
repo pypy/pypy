@@ -43,21 +43,22 @@ class Comparator:
             self.print_compare(name+" value at "+hex(address), \
                     expected[address], new[address])
     
-    def print_compare(self, msg, python, java, output=False):
+    def print_compare(self, msg, python, java, printall=False):
         if java != python:
             self.compare_failed = True
             print "python: !!", msg, "java:", java, "python:", python, "!!"
-            
+        if printall:
+            print "python: XX", msg, "java:", java, "python:", python, "!!"
     
     def print_mismatch(self, part, python, java):
         print "python:", str(part), "java:", str(java), "python:", str(python)
         
         
-    def compare_set(self, set, data, label=""):
+    def compare_set(self, set, data, label="", printall=False):
         for compare_value in set:
             self.print_compare(label+": "+compare_value[0], 
                              compare_value[1], 
-                             data[compare_value[2]]);
+                             data[compare_value[2]], printall);
             
     def compare_memory_set(self, set, data, label=""):
         for compare_value in set:
@@ -197,7 +198,7 @@ class CPUComparator(Comparator):
         ];
         for reg in mapping:
             display_results.append((reg[1], registers[reg[0]]))
-            self.print_compare("register %s" % reg[0], reg[1], registers[reg[0]], output=True)
+            self.print_compare("register %s" % reg[0], reg[1], registers[reg[0]])
         self.print_registers(mapping, display_results)
             
     def print_registers(self, mapping, display_results):
@@ -324,5 +325,4 @@ class VideoComparator(Comparator):
             ("Check whether emulated VBLank", 
                     self.video.emulated_vblank, "emulated_vblank"),
         ]
-        self.compare_set(cmp, data, label="video")
-         
+        self.compare_set(cmp, data, label="video", printall=True)
