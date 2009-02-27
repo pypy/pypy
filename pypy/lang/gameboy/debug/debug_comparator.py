@@ -326,4 +326,4 @@ class VideoComparator(Comparator):
             ("Check whether emulated VBLank", 
                     self.video.emulated_vblank, "emulated_vblank")
         ]
-        self.compare_set(cmp, data, label="video", printall=True)
+        self.compare_set(cmp, data, label="video", printall=False)
