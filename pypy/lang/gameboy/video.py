@@ -530,7 +530,7 @@ class Video(iMemory):
             self.objects[count] = paint_sprite
             count += 1
             if count >= constants.OBJECTS_PER_LINE: break
-        self.sort_scan_sprite_new(count)
+        self.sort_scan_sprite_new_sprite_new(count)
         return count
         
     def sort_scan_sprite_new(self, count):
