@@ -1,6 +1,5 @@
 
 import py 
-from pypy.doc.conftest import option
 redir = py.magic.autopath().dirpath('redirections') 
 
 def checkexist(path):
@@ -14,7 +13,7 @@ def checkredirection(oldname, newname):
     checkexist(newpath)
     # HACK: create the redirecting HTML file here...
     # XXX obscure fishing
-    if option.generateredirections and '#' not in oldname:
+    if py.test.config.option.generateredirections and '#' not in oldname:
         generate_redirection(oldname, newname)
 
 def test_eval(): 

@@ -1,5 +1,8 @@
 import py
-from py.__.doc.confrest import *
+
+# XXX importing/inheriting from an internal py lib class is hackish
+from py.__.doc.confrest import Project, Page, relpath
+html = py.xml.html
 
 class PyPyPage(Page): 
     def fill_menubar(self):
@@ -27,7 +30,8 @@ class PyPyPage(Page):
 
     def get_doclink(self, target):
         return relpath(self.targetpath.strpath,
-                       self.project.get_docpath().join(target).strpath)
+                       self.project.docpath.join(target).strpath)
+        
 
 class Project(Project): 
     mydir = py.magic.autopath().dirpath()
@@ -42,6 +46,3 @@ class Project(Project):
                      src="http://codespeak.net/pypy/img/py-web1.png", 
                      height=110, width=149)))
     Page = PyPyPage 
-
-    def get_docpath(self):
-        return self.mydir
