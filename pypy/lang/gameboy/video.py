@@ -24,7 +24,7 @@ class set_overlapped_object_line_call_wrapper(VideoCallWraper):
         self.video = video
     
     def call(self, pos, color, mask):
-        self.video. set_overlapped_object_line(pos, color, mask)
+        self.video.set_overlapped_object_line(pos, color, mask)
 
 
 class set_tile_line_call_wrapper(VideoCallWraper):
@@ -657,21 +657,21 @@ class Video(iMemory):
             self.draw_object_normal(x, pattern, mask, caller)
             
     def draw_object_flipped(self, x, pattern, mask, caller):
-        color = pattern << 1
-        if (color & 0x0202) != 0:
+        color = (pattern << 1) & 0x0202
+        if color != 0:
             caller.call(x, color, mask)
         for i in range(0, 7):
-            color = pattern >> i
-            if (color & 0x0202) != 0:
+            color = (pattern >> i) & 0x0202
+            if color != 0:
                 caller.call(x + i + 1, color, mask)
                 
     def draw_object_normal(self, x, pattern, mask, caller):
         for i in range(0, 7):
-            color = pattern >> (6-i)
-            if (color & 0x0202) != 0:
-                caller.call(x + i + 1, color, mask)
-        color = pattern << 1
-        if (color & 0x0202) != 0:
+            color = (pattern >> (6-i)) & 0x0202
+            if color != 0:
+                caller.call(x + i, color, mask)
+        color = (pattern << 1) & 0x0202
+        if color != 0:
             caller.call(x+7, color, mask)
 
     def draw_pixels_line(self):
