@@ -466,6 +466,8 @@ class Video(iMemory):
             self.draw_sprites_line()
         self.draw_pixels_line()
 
+    # -----------------------------------------------
+     
     def draw_sprites_line_new(self):
         # XXX Not in use yet. Will replace the hacky version.
         sprites_on_line = self.get_drawable_sprites_on_line(self.line_y)
@@ -678,8 +680,7 @@ class Video(iMemory):
         offset = self.line_y * self.driver.get_width()
         for x in range(SPRITE_SIZE, GAMEBOY_SCREEN_WIDTH+SPRITE_SIZE, 4):
             for i in range(0,4):
-                value = self.palette[self.line[x + 1]]
-                pixels[offset + i] = value
+                pixels[offset + i] = self.palette[self.line[x + i]]
             offset += 4
 
     def clear_pixels(self):
