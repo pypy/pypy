@@ -567,15 +567,15 @@ class Video(iMemory):
         count = 0
         # search active objects
         for offset in range(0, 4*40, 4):
-            y = self.get_oam(offset + 0)
-            x = self.get_oam(offset + 1)
+            y = self.get_oam(constants.OAM_ADDR + offset + 0)
+            x = self.get_oam(constants.OAM_ADDR + offset + 1)
             if y <= 0 \
                or y >= (SPRITE_SIZE + GAMEBOY_SCREEN_HEIGHT + SPRITE_SIZE) \
                or x <= 0 \
                or x >= GAMEBOY_SCREEN_WIDTH + SPRITE_SIZE:
                 continue
-            tile  = self.get_oam(offset + 2)
-            flags = self.get_oam(offset + 3)
+            tile  = self.get_oam(constants.OAM_ADDR + offset + 2)
+            flags = self.get_oam(constants.OAM_ADDR + offset + 3)
             y     = self.line_y - y + 2 * SPRITE_SIZE
             if self.control.big_sprite_size_selected:
                 # 8x16 tile size
@@ -668,7 +668,7 @@ class Video(iMemory):
         for i in range(0, 7):
             color = pattern >> (6-i)
             if (color & 0x0202) != 0:
-                caller.call(x+1, color, mask)
+                caller.call(x + i + 1, color, mask)
         color = pattern << 1
         if (color & 0x0202) != 0:
             caller.call(x+7, color, mask)

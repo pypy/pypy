@@ -84,11 +84,11 @@ class Mode0(Mode):
     def emulate_hblank_part_2(self):
         if self.video.display:
             self.video.draw_frame()
-        self.video.frames += 1
         if self.video.frames >= self.video.frame_skip:
             self.video.display = True
             self.video.frames = 0
         else:
+            self.video.frames += 1
             self.video.display = False
         self.video.status.set_mode(1)
         self.video.v_blank  = True
