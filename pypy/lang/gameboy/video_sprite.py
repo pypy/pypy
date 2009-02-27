@@ -213,10 +213,8 @@ class Window(object):
             return constants.VRAM_MAP_A
         
     def draw_line(self, line_y):
-        if line_y  < self.y or self.x >= 167 or \
-           self.line_y >= GAMEBOY_SCREEN_HEIGHT:
-                return
-        else:
+        if line_y  >= self.y and self.x < 167 and \
+           self.line_y < GAMEBOY_SCREEN_HEIGHT:
             tile_map, tile_data = self.prepare_window_data()
             self.video.draw_tiles(self.x + 1, tile_map, tile_data)
             self.line_y += 1
