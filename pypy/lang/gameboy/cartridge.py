@@ -12,7 +12,6 @@ import math
 #from pypy.rlib.rstr import str_replace
 
 import os
-import pdb
 
 # HELPERS ----------------------------------------------------------------------
 

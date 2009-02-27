@@ -16,7 +16,6 @@ from pypy.lang.gameboy.timer import *
 from pypy.lang.gameboy.video import *
 from pypy.lang.gameboy.cartridge import *
 
-import pdb
 
 class GameBoy(object):
 

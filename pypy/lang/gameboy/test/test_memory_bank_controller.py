@@ -3,7 +3,6 @@ from pypy.lang.gameboy.cartridge import *
 from pypy.lang.gameboy.timer import Clock
 from pypy.lang.gameboy import constants
 import py
-import pdb
 
 class TestClock(object):
     def __init__(self):
@@ -256,7 +255,6 @@ def test_mbc1_read_write_ram(mbc=None):
     mbc.ram_enable = True
     for address in range(0xA000, 0xBFFF+1):
         mbc.write(address, value)
-        #pdb.runcall(mbc.write, address, value)
         assert mbc.ram[mbc.ram_bank + (address & 0x1FFF)] == value
         assert mbc.read(address) == value;
         value += 1
