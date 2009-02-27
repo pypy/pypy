@@ -51,14 +51,14 @@ class StatusRegister(object):
         return value
         
     def write(self, value, write_all=False):
-        if write_all:
-            self.current_mode          = self.modes[value & 0x03]
-            self.line_y_compare_flag   = bool(value & (1 << 2))
-            self.status                = bool(value & (1 << 7))
         self.mode0.h_blank_interrupt   = bool(value & (1 << 3))
         self.mode1.v_blank_interrupt   = bool(value & (1 << 4))
         self.mode2.oam_interrupt       = bool(value & (1 << 5))
         self.line_y_compare_interrupt  = bool(value & (1 << 6))
+        if write_all:
+            self.current_mode          = self.modes[value & 0x03]
+            self.line_y_compare_flag   = bool(value & (1 << 2))
+            self.status                = bool(value & (1 << 7))
         
     def get_mode(self):
         return self.current_mode.id()

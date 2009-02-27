@@ -5,20 +5,24 @@ from pypy.lang.gameboy.debug.debug_rpc_xml_connection import *
 
 # ------------------------------------------------------------------------------
 
-if sys.platform == 'darwin':
-    from AppKit import NSApplication
-    NSApplication.sharedApplication()
+#if sys.platform == 'darwin':
+    #from AppKit import NSApplication
+    #NSApplication.sharedApplication()
 
 # ------------------------------------------------------------------------------
 
 ROM_PATH    = str(py.magic.autopath().dirpath().dirpath())+"/rom"
 filename    = ROM_PATH + "/rom9/rom9.gb"
 SOCKET_PORT = 55682
-skip_count   = 6150
-in_between_skip = 1000
-#skip_count   = 22545
-#skip_count   = 2700
-# skip_count   = 0
+
+skip_count   = 22545
+skip_count   = 2700
+skip_count   = 0
+
+if len(sys.argv) > 1:
+    skip_count       = sys.argv[1]
+    first_skip       = sys.argv[2] 
+    in_between_skips = sys.argv[3]
 
 # ------------------------------------------------------------------------------
 
@@ -31,6 +35,7 @@ def parse_file_name():
     
 def ask_for_skip_count():
     global skip_count
+    if len(sys.argv) > 1: return
     print ">> enter initial skip amount: ",
     read = sys.stdin.readline()
     try:
@@ -41,6 +46,7 @@ def ask_for_skip_count():
         
 def ask_for_in_between_skip():
     global in_between_skip
+    if len(sys.argv) > 1: return
     print ">> enter initial in_between_skip amount: ",
     read = sys.stdin.readline()
     try:

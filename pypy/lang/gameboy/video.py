@@ -446,8 +446,6 @@ class Video(iMemory):
     def current_mode(self):
         return self.status.current_mode
 
-    
-    
     # graphics handling --------------------------------------------------------
     
     def draw_frame(self):
@@ -465,17 +463,14 @@ class Video(iMemory):
         if self.window.enabled:
             self.window.draw_line(self.line_y)
         if self.control.sprites_enabled:
-            #self.draw_sprites_line_new()
             self.draw_sprites_line()
         self.draw_pixels_line()
 
     def draw_sprites_line_new(self):
         # XXX Not in use yet. Will replace the hacky version.
         sprites_on_line = self.get_drawable_sprites_on_line(self.line_y)
-        
-        last_sprite = sprites_on_line[0]
+        last_sprite     = sprites_on_line[0]
         last_sprite.draw()
-        
         for sprite in sprites_on_line[1:]:
             if sprite.overlaps_on_line(last_sprite, self.line_y):
                 sprite.draw_overlapped()
@@ -486,7 +481,7 @@ class Video(iMemory):
         found = []
         for i in range(len(self.sprites)):
             if self.sprites[i].intersects_line(line_y) and \
-            self.sprites[i].enabled:
+               self.sprites[i].enabled:
                 found.append(self.sprites[i])
         return found
     
@@ -509,6 +504,51 @@ class Video(iMemory):
     
     # -----------------------------------------------
     
+    def draw_sprites_line_new(self):
+        count = self.scan_sprites_new()
+        lastx = 176
+        for index in range(176, count):
+            paint_sprite    = self.objects[index]
+            x       = (data >> 24) & 0xFF
+            flags   = (data >> 12) & 0xFF
+            address = data & 0xFFF
+            if (paint_sprite.x + SPRITE_SIZE <= lastx):
+                self.draw_object_tile_new(paint_sprite)
+            else:
+                self.draw_overlapped_object_tile_new(x, address, flags)
+            lastx = paint_sprite.x
+            
+    def scan_sprites_new(self):
+        count = 0
+        # search active objects
+        for offset in range(0, 4*40, 4):
+            sprite = self.get_sprite(offset)
+            if sprite.hide_check(): continue
+            paint_sprite = PaintSprite(count, sprite, self)
+            self.objects[count] = paint_sprite
+            count += 1
+            if count >= constants.OBJECTS_PER_LINE: break
+        self.sort_scan_sprite_new(count)
+        return count
+        
+    def sort_scan_sprite_new(self, count):
+        # sort objects from higher to lower priority
+        for index in range(count):
+            rightmost = index
+            for number in range(index+1, count):
+                if (self.objects[number].line_position) > \
+                   (self.objects[rightmost].line_position):
+                    rightmost = number
+            if rightmost != index:
+                self.swap_object_indices(rightmost, index)
+                
+    def swap_object_indices(self, index_a, index_b):
+                data                  = self.objects[index_a]
+                self.objects[index_a] = self.objects[index_b]
+                self.objects[index_b] = data
+
+    # ---------------------------------------------------------------------
+    
     def draw_sprites_line(self):
         count = self.scan_sprites()
         lastx = SPRITE_SIZE + GAMEBOY_SCREEN_WIDTH + SPRITE_SIZE
@@ -522,33 +562,33 @@ class Video(iMemory):
             else:
                 self.draw_overlapped_object_tile(x, address, flags)
             lastx = x
-
+            
     def scan_sprites(self):
         count = 0
         # search active objects
         for offset in range(0, 4*40, 4):
-            y = self.oam[offset + 0]
-            x = self.oam[offset + 1]
-            if (y <= 0 or y >= SPRITE_SIZE + GAMEBOY_SCREEN_HEIGHT + SPRITE_SIZE
-            or x <= 0 or x >= GAMEBOY_SCREEN_WIDTH + SPRITE_SIZE):
+            y = self.get_oam(offset + 0)
+            x = self.get_oam(offset + 1)
+            if y <= 0 \
+               or y >= (SPRITE_SIZE + GAMEBOY_SCREEN_HEIGHT + SPRITE_SIZE) \
+               or x <= 0 \
+               or x >= GAMEBOY_SCREEN_WIDTH + SPRITE_SIZE:
                 continue
-            tile  = self.oam[offset + 2]
-            flags = self.oam[offset + 3]
-            y     = self.line_y - y + 16
+            tile  = self.get_oam(offset + 2)
+            flags = self.get_oam(offset + 3)
+            y     = self.line_y - y + 2 * SPRITE_SIZE
             if self.control.big_sprite_size_selected:
                 # 8x16 tile size
-                if (y < 0 or y > 15):
-                    continue
+                if y < 0 or y > 15: continue
                 # Y flip
-                if ((flags & 0x40) != 0):
+                if (flags & 0x40) != 0:
                     y = 15 - y
                 tile &= 0xFE
             else:
                 # 8x8 tile size
-                if (y < 0 or y > 7):
-                    continue
+                if y < 0 or y > 7: continue
                 # Y flip
-                if ((flags & 0x40) != 0):
+                if (flags & 0x40) != 0:
                     y = 7 - y
             self.objects[count] = (x << 24) + (count << 20) + (flags << 12) + \
                                   (tile << 4) + (y << 1)

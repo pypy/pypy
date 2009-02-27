@@ -30,7 +30,7 @@ class Comparator:
 
     def __init__(self, debug_connection):
         self.debug_connection = debug_connection
-        self.memory_check_skip = 5
+        self.memory_check_skip = 1
         
     
     def compare(self, data):
@@ -46,8 +46,6 @@ class Comparator:
     def print_compare(self, msg, python, java, printall=False):
         if java != python:
             self.compare_failed = True
-            import pdb
-            pdb.set_trace()
             print "python: !!", msg, "java:", java, "python:", python, "!!"
         if printall:
             print "python: XX", msg, "java:", java, "python:", python, "!!"
@@ -281,31 +279,32 @@ class VideoComparator(Comparator):
             ("oam",     self.video.oam,     "oam"),
             ("line",    self.video.line,    "line"),
             ("objects", self.video.objects, "objects"),
-            #("palette", self.video.palette, "palette")
+            ("palette", self.video.palette, "palette")
         ]
         self.compare_memory_set(cmp, data, label="video");
     
     @printframe("comparing registers") 
     def compare_registers(self, data):
         cmp = [
-            ("dirty",     self.video.dirty, "dirty"),
-            ("display",   self.video.display, "display"),
-            ("bgp",       self.video.background_palette, "bgp"),
-            ("dma",       self.video.dma, "dma"),
-            ("frames",    self.video.frames, "frames"),
-            ("frameSkip", self.video.frame_skip, "frameSkip"),
-            ("lcdc",      self.video.control.read(), "lcdc"),
-            ("ly",        self.video.line_y, "ly"),
-            ("obp0",      self.video.object_palette_0, "obp0"),
-            ("obp1",      self.video.object_palette_1, "obp1"),
-            ("scx",       self.video.background.scroll_x, "scx"),
-            ("scy",       self.video.background.scroll_y, "scy"),
-            ("stat",      self.video.status.read(), "stat"),
-            ("transfer",  self.video.transfer, "transfer"),
-            ("vblank",    self.video.v_blank, "vblank"),
-            ("wly",       self.video.window.line_y, "wly"),
-            ("wx",        self.video.window.x, "wx"),
-            ("wy",        self.video.window.y, "wy")
+            ("dirty",     self.video.dirty,                 "dirty"),
+            ("display",   self.video.display,               "display"),
+            ("bgp",       self.video.background_palette,    "bgp"),
+            ("dma",       self.video.dma,                   "dma"),
+            ("frames",    self.video.frames,                "frames"),
+            ("frameSkip", self.video.frame_skip,            "frameSkip"),
+            ("lcdc",      self.video.control.read(),        "lcdc"),
+            ("ly",        self.video.line_y,                "ly"),
+            ("line_y_compare", self.video.line_y_compare,   "lyc"),
+            ("obp0",      self.video.object_palette_0,      "obp0"),
+            ("obp1",      self.video.object_palette_1,      "obp1"),
+            ("scx",       self.video.background.scroll_x,   "scx"),
+            ("scy",       self.video.background.scroll_y,   "scy"),
+            ("stat",      self.video.status.read(),         "stat"),
+            ("transfer",  self.video.transfer,              "transfer"),
+            ("vblank",    self.video.v_blank,               "vblank"),
+            ("wly",       self.video.window.line_y,         "wly"),
+            ("wx",        self.video.window.x,              "wx"),
+            ("wy",        self.video.window.y,              "wy")
         ]
         self.compare_set(cmp, data, label="video")
         
@@ -326,5 +325,7 @@ class VideoComparator(Comparator):
                     self.video.emulated_transfer, "emulated_transfer"),
             ("Check whether emulated VBLank", 
                     self.video.emulated_vblank, "emulated_vblank"),
+            ("Check whether called draw Backgroundw", 
+                    self.video.drew_background, "drew_background"),
         ]
         self.compare_set(cmp, data, label="video", printall=True)

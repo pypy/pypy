@@ -297,7 +297,7 @@ class CPU(object):
     def store_hl_in_pc(self):
         # LD PC,HL, 1 cycle
         self.load(DoubleRegisterCallWrapper(self.hl), 
-                DoubleRegisterCallWrapper(self.pc))
+                  DoubleRegisterCallWrapper(self.pc))
         
     def fetch_load(self, getCaller, setCaller):
         self.load(CPUFetchCaller(self), setCaller)
@@ -732,7 +732,8 @@ class CPU(object):
         self.cycles += 1
         self.fetch()
 
-# ------------------------------------------------------------------------------
+# OP CODE META PROGRAMMING ===================================================
+# Call Wrappers --------------------------------------------------------------
 
 class CallWrapper(object):   
     def get(self, use_cycles=True):
@@ -790,15 +791,13 @@ class CPUFetchCaller(CallWrapper):
 
 # op_code LOOKUP TABLE GENERATION -----------------------------------------------
 
-GROUPED_REGISTERS = [CPU.get_b, CPU.get_c, CPU.get_d,   CPU.get_e,
-                     CPU.get_h, CPU.get_l, CPU.get_hli, CPU.get_a]
+GROUPED_REGISTERS = [ CPU.get_b, CPU.get_c, CPU.get_d,   CPU.get_e,
+                      CPU.get_h, CPU.get_l, CPU.get_hli, CPU.get_a ]
 
 def create_group_op_codes(table):
-    op_codes =[]
+    op_codes = []
     for entry in table:
-        op_code   = entry[0]
-        step     = entry[1]
-        function = entry[2]
+        op_code, step, function = entry[:3]
         if len(entry) == 4:
             for registerGetter in GROUPED_REGISTERS:
                 for n in entry[3]:
@@ -814,7 +813,7 @@ def create_group_op_codes(table):
                 op_code+=step
         else:
             for registerGetter in GROUPED_REGISTERS:
-                op_codes.append((op_code,group_lambda(function, registerGetter)))
+                op_codes.append((op_code, group_lambda(function, registerGetter)))
                 op_code += step
     return op_codes
 
@@ -838,14 +837,12 @@ def create_load_group_op_codes():
             
 def load_group_lambda(store_register, load_register):
         return lambda s: CPU.load(s, RegisterCallWrapper(load_register(s)),
-                                   RegisterCallWrapper(store_register(s)))
+                                     RegisterCallWrapper(store_register(s)))
     
 def create_register_op_codes(table):
     op_codes = []
     for entry in table:
-        op_code  = entry[0]
-        step     = entry[1]
-        function = entry[2]
+        op_code, step, function  = entry[:3]
         for registerOrGetter in entry[3]:
             op_codes.append((op_code, register_lambda(function, registerOrGetter)))
             op_code += step
@@ -856,8 +853,7 @@ def register_lambda(function, registerOrGetter):
         return lambda s: function(s, registerOrGetter(s))
     else:
         return lambda s: function(s, registerOrGetter)
-        
-        
+
 def initialize_op_code_table(table):
     result = [None] * (0xFF+1)
     for entry in  table:

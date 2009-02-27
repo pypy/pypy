@@ -34,6 +34,7 @@ class DebugVideo(Video):
         self.emulated_vblank   = False
         self.emulated_oam      = False
         self.emulated_transfer = False
+        self.drew_background   = False
         
     def write(self, address, data):
         Video.write(self, address, data)

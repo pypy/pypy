@@ -194,7 +194,6 @@ class Mode3(Mode):
     """
        Mode 3: The LCD controller is reading from both OAM and VRAM,
           The CPU <cannot> access OAM and VRAM during this period.
-          CGB Mode: Cannot access Palette Data (FF69,FF6B) either.
     """
     def reset(self):
         pass

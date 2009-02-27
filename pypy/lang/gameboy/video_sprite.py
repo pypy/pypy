@@ -104,6 +104,7 @@ class Sprite(object):
             self.hidden = True
         else:
             self.hidden = False
+        return self.hidden
         
     def get_tile_number(self):
         return self.tile.id
@@ -128,6 +129,31 @@ class Sprite(object):
     
     def draw_overlapped(self):
         pass
+# -----------------------------------------------------------------------------
+
+class PaintSprite(Sprite):
+    
+    def __init__(self, line_position, sprite, video):
+        Sprite.__init__(self)
+        self.line_position = line_position
+        self.extract_attributes(sprite, video)
+        self.update_position(sprite)
+        
+    def extract_attributes(self, sprite, video):
+        self.x              = sprite.x
+        self.y              = video.line_y - sprite.y + 2 * SPRITE_SIZE
+        self.tile           = sprite.tile
+        self.object_behind_background = sprite.object_behind_background
+        self.x_flipped      = sprite.x_flipped
+        self.y_flipped      = sprite.y_flipped
+        self.tile_number    = sprite.tile_number
+        self.hidden         = sprite.hidden
+        self.rest_attributes_and_flags = sprite.rest_attributes_and_flags
+        
+    def update_position(sprite):
+        if sprite.y < 0 or sprite.y >= self.get_height(): return
+        if sprite.y_flipped:
+            self.y = self.get_height() - 1 - self.y
     
 # -----------------------------------------------------------------------------
     

@@ -148,11 +148,9 @@ OBJECTS_PER_LINE   = 10
 # LCD Color Palette
 #COLOR_MAP =[
 # 0x9CB916, 0x8CAA14, 0x306430, 0x103F10
- # 0xE0F8D0, 0x88C070, 0x386850, 0x081820
- # 0xFFFFFF, 0xAAAAAA, 0x555555, 0x000000
-# ]
-
-
+# 0xE0F8D0, 0x88C070, 0x386850, 0x081820
+# 0xFFFFFF, 0xAAAAAA, 0x555555, 0x000000
+#]
 
 # ___________________________________________________________________________
 # JOYPAD
@@ -160,11 +158,9 @@ OBJECTS_PER_LINE   = 10
 
 # Joypad Registers P+
 JOYP          = 0xFF00
- 
 
 # Joypad Poll Speed (64 Hz)
 JOYPAD_CLOCK  = GAMEBOY_CLOCK >> 6
-
 
 BUTTON_DOWN   = 0x08
 BUTTON_UP     = 0x04
@@ -175,8 +171,6 @@ BUTTON_START  = 0x08
 BUTTON_SELECT = 0x04
 BUTTON_B      = 0x02
 BUTTON_A      = 0x01
-
-
 
 # ___________________________________________________________________________
 # SERIAL
@@ -192,9 +186,6 @@ SERIAL_IDLE_CLOCK = GAMEBOY_CLOCK >> 7
 SERIAL_TRANSFER_DATA    = 0xFF01
 SERIAL_TRANSFER_CONTROL = 0xFF02
  
-
-
-
 # ___________________________________________________________________________
 # SOUND
 # ___________________________________________________________________________
@@ -233,11 +224,9 @@ AUD3WAVERAM = 0xFF30
 
 BUFFER_LOG_SIZE = 5;
 
-
 # ___________________________________________________________________________
 # TIMER
 # ___________________________________________________________________________
-
 
 # DIV Timer Speed (16384 Hz)
 DIV_CLOCK = GAMEBOY_CLOCK >> 14
