@@ -605,7 +605,8 @@ class Video(iMemory):
                 if (self.objects[right] >> 20) > \
                    (self.objects[highest] >> 20):
                     highest = right
-            self.objects[index], self.objects[highest] = self.objects[highest], self.objects[index]
+            self.objects[index], self.objects[highest] = \
+                    self.objects[highest], self.objects[index]
 
     def draw_tiles(self, x, tile_map, tile_data):
         while x < GAMEBOY_SCREEN_WIDTH+SPRITE_SIZE:
