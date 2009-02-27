@@ -18,7 +18,6 @@ dist_rsync_ignore = ['_cache']
 # PyPy's command line extra options (these are added 
 # to py.test's standard options) 
 #
-Option = py.test.config.Option
 
 def _set_platform(opt, opt_str, value, parser):
     from pypy.config.translationoption import PLATFORMS
@@ -27,20 +26,23 @@ def _set_platform(opt, opt_str, value, parser):
         raise ValueError("%s not in %s" % (value, PLATFORMS))
     set_platform(value, None)
 
-option = py.test.config.addoptions("pypy options",
-        Option('--view', action="store_true", dest="view", default=False,
-               help="view translation tests' flow graphs with Pygame"),
-        Option('-A', '--runappdirect', action="store_true",
-               default=False, dest="runappdirect",
-               help="run applevel tests directly on python interpreter (not through PyPy)"),
-        Option('--direct', action="store_true",
-               default=False, dest="rundirect",
-               help="run pexpect tests directly"),
-        Option('-P', '--platform', action="callback", type="string",
-               default="host", callback=_set_platform,
-               help="set up tests to use specified platform as compile/run target"),
-    )
+option = py.test.config.option
 
+class PyPyTestPlugin:
+    def pytest_addoption(self, parser):
+        group = parser.addgroup("pypy option")
+        group.addoption('--view', action="store_true", dest="view", default=False,
+               help="view translation tests' flow graphs with Pygame")
+        group.addoption('-A', '--runappdirect', action="store_true",
+               default=False, dest="runappdirect",
+               help="run applevel tests directly on python interpreter (not through PyPy)")
+        group.addoption('--direct', action="store_true",
+               default=False, dest="rundirect",
+               help="run pexpect tests directly")
+        group.addoption('-P', '--platform', action="callback", type="string",
+               default="host", callback=_set_platform,
+               help="set up tests to use specified platform as compile/run target")
+ConftestPlugin = PyPyTestPlugin
 
 _SPACECACHE={}
 def gettestobjspace(name=None, **kwds):
@@ -505,11 +507,11 @@ class ExpectClassCollector(py.test.collect.Class):
 
 
 class Directory(py.test.collect.Directory):
-    def consider_dir(self, path, usefilters=True):
+    def consider_dir(self, path):
         if path == rootdir.join("lib", "ctypes", "test"):
             py.test.skip("These are the original ctypes tests.\n"
                          "You can try to run them with 'pypy-c runtests.py'.")
-        return super(Directory, self).consider_dir(path, usefilters=usefilters)
+        return super(Directory, self).consider_dir(path)
 
     def recfilter(self, path):
         # disable recursion in symlinked subdirectories
