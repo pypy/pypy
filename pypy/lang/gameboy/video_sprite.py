@@ -99,9 +99,9 @@ class Sprite(object):
         return value
         
     def hide_check(self):
-        if self.y <= 0  or self.y >= GAMEBOY_SCREEN_WIDTH:
+        if self.y <= 0  or self.y >= SPRITE_SIZE + GAMEBOY_SCREEN_HEIGHT + SPRITE_SIZE:
             self.hidden = True
-        elif self.x <= 0  or self.x >= GAMEBOY_SCREEN_WIDTH+SPRITE_SIZE:
+        elif self.x <= 0  or self.x >= GAMEBOY_SCREEN_WIDTH + SPRITE_SIZE:
             self.hidden = True
         else:
             self.hidden = False
