@@ -108,7 +108,7 @@ class Sprite(object):
         return self.hidden
         
     def visible_on_line(self, line_y):
-        y = self.get_draw_y()
+        y = self.get_draw_y(line_y)
         return y < 0 or y > (self.get_height() -1)
         
     def get_tile_number(self):
