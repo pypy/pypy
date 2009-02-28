@@ -526,8 +526,7 @@ class Video(iMemory):
     def scan_sprites_new(self):
         count = 0
         # search active objects
-        for offset in range(0, 4*40, 4):
-            sprite = self.get_sprite(offset)
+        for sprite in self.sprites:
             if sprite.hide_check(): continue
             paint_sprite = PaintSprite(count, sprite, self)
             self.objects[count] = paint_sprite
@@ -569,15 +568,10 @@ class Video(iMemory):
     def scan_sprites(self):
         count = 0
         # search active objects
-        for offset in range(0, SPRITE_BYTES * 40, SPRITE_BYTES):
-            sprite = self.get_sprite(OAM_ADDR + offset)
+        for sprite in self.sprites:
             x = sprite.x
             y = sprite.y
-            if y <= 0 \
-               or y >= (SPRITE_SIZE + GAMEBOY_SCREEN_HEIGHT + SPRITE_SIZE) \
-               or x <= 0 \
-               or x >= GAMEBOY_SCREEN_WIDTH + SPRITE_SIZE:
-                continue
+            if sprite.hidden: continue
             tile = sprite.tile_number
             y    = self.line_y - y + 2 * SPRITE_SIZE
             if self.control.big_sprite_size_selected:
@@ -588,7 +582,6 @@ class Video(iMemory):
                 # 8x8 tile size
                 tile_size = 7
             if y < 0 or y > tile_size: continue
-            # Y flip
             if sprite.y_flipped:
                 y = tile_size - y
             # TODO: build an object abstraction?
