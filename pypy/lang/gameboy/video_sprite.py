@@ -29,7 +29,7 @@ class Sprite(object):
     
     def get_data(self):
         return [self.y, self.x, self.tile_number, self.get_attributes_and_flags()]
-    
+
     def set_data(self, byte0=-1, byte1=-1, byte2=-1, byte3=-1):
         """
         extracts the sprite data from an oam entry

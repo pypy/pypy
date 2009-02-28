@@ -569,30 +569,29 @@ class Video(iMemory):
     def scan_sprites(self):
         count = 0
         # search active objects
-        for offset in range(0, 4*40, 4):
-            y = self.get_oam(constants.OAM_ADDR + offset + 0)
-            x = self.get_oam(constants.OAM_ADDR + offset + 1)
+        for offset in range(0, SPRITE_BYTES * 40, SPRITE_BYTES):
+            sprite = self.get_sprite(OAM_ADDR + offset)
+            x = sprite.x
+            y = sprite.y
             if y <= 0 \
                or y >= (SPRITE_SIZE + GAMEBOY_SCREEN_HEIGHT + SPRITE_SIZE) \
                or x <= 0 \
                or x >= GAMEBOY_SCREEN_WIDTH + SPRITE_SIZE:
                 continue
-            tile  = self.get_oam(constants.OAM_ADDR + offset + 2)
-            flags = self.get_oam(constants.OAM_ADDR + offset + 3)
-            y     = self.line_y - y + 2 * SPRITE_SIZE
+            tile = sprite.tile_number
+            y    = self.line_y - y + 2 * SPRITE_SIZE
             if self.control.big_sprite_size_selected:
                 # 8x16 tile size
-                if y < 0 or y > 15: continue
-                # Y flip
-                if (flags & 0x40) != 0:
-                    y = 15 - y
+                tile_size = 15
                 tile &= 0xFE
             else:
                 # 8x8 tile size
-                if y < 0 or y > 7: continue
-                # Y flip
-                if (flags & 0x40) != 0:
-                    y = 7 - y
+                tile_size = 7
+            if y < 0 or y > tile_size: continue
+            # Y flip
+            if sprite.y_flipped:
+                y = tile_size - y
+            # TODO: build an object abstraction?
             self.objects[count] = (x << 24) + (count << 20) + (flags << 12) + \
                                   (tile << 4) + (y << 1)
             count += 1
