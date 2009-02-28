@@ -20,6 +20,7 @@ class Sprite(object):
         self.x_flipped      = False
         self.y_flipped      = False
         self.tile_number    = 0
+        self.palette_number = 0
         self.hidden         = True
         self.rest_attributes_and_flags = 0
         
@@ -85,15 +86,15 @@ class Sprite(object):
         self.object_behind_background   = bool(data  & (1 << 7))
         self.x_flipped                  = bool(data  & (1 << 6))
         self.y_flipped                  = bool(data  & (1 << 5))
-        self.tile_number                = bool(data  & (1 << 4)) 
-        self.rest_attributes_and_flags  = data  & (1+2+4+8)
+        self.palette_number             = bool(data &  (1 << 4))
+        self.rest_attributes_and_flags  = data & (1+2+4+8)
         
     def get_attributes_and_flags(self):
         value = 0
         value += int(self.object_behind_background) << 7
         value += int(self.x_flipped)                << 6
         value += int(self.y_flipped)                << 5
-        value += int(self.tile_number)              << 4
+        value += int(self.palette_number)           << 4
         value += self.rest_attributes_and_flags
         return value
         

@@ -48,6 +48,8 @@ class GameBoyImplementation(GameBoy):
         return 0
     
     def emulate_cycle(self):
+        print "Emulating!"
+        self.joypad_driver.button_up(True)
         self.handle_events()
         self.emulate(constants.GAMEBOY_CLOCK >> 2)
         if use_rsdl:
