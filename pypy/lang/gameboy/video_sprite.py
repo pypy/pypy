@@ -107,6 +107,10 @@ class Sprite(object):
             self.hidden = False
         return self.hidden
         
+    def visible_on_line(self, line_y):
+        y = self.get_draw_y()
+        return y < 0 or y > (self.get_height() -1)
+        
     def get_tile_number(self):
         return self.tile.id
     
@@ -125,11 +129,28 @@ class Sprite(object):
     def intersects_line(self, line):
         return line >= self.y and line <= self.y + self.get_height()
     
-    def draw(self):
-        pass
+    def get_draw_y(self, line_y):
+        return line_y - self.y + 2 * SPRITE_SIZE
+        
+    def get_draw_address_data(line_y):
+        tile = sprite.tile_number
+        if self.big_size:
+            tile &= 0xFE
+        tile_size = self.get_height() -1
+        y = self.get_draw_y(line_y)
+        if sprite.y_flipped:
+            y = tile_size - y
+        return  (tile << 4) + (y << 1)
+        
+    def draw(self, video):
+        video.draw_object_tile(self.x, self.y, \
+                self.get_draw_address_data(video.line_y), \
+                self.get_attributes_and_flags())
     
-    def draw_overlapped(self):
-        pass
+    def draw_overlapped(self, video):
+        video.draw_overlapped_object_tile(self.x, self.y, \
+                self.get_draw_address_data(video.line_y), \
+                self.get_attributes_and_flags())
 # -----------------------------------------------------------------------------
 
 class PaintSprite(Sprite):
