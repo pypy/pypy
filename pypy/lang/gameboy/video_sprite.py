@@ -30,18 +30,25 @@ class Sprite(object):
     def get_data(self):
         return [self.y, self.x, self.tile_number, self.get_attributes_and_flags()]
 
-    def set_data(self, byte0=-1, byte1=-1, byte2=-1, byte3=-1):
+    def set_data_at(self, address, data):
+        actual = address % 4
+        if actual == 0:
+            self.extract_y_position(data)
+        if actual == 1:
+            self.extract_x_position(data)
+        if actual == 2:
+            self.extract_tile_number(data)
+        if actual == 3:
+            self.extract_attributes_and_flags(data)
+
+    def set_data(self, y_position, x_position, tile_number, attributes_and_flags):
         """
         extracts the sprite data from an oam entry
         """
-        if byte0 is not -1:
-            self.extract_y_position(byte0)
-        if byte1 is not -1:
-            self.extract_x_position(byte1)
-        if byte2 is not -1:
-            self.extract_tile_number(byte2)
-        if byte3 is not -1:
-            self.extract_attributes_and_flags(byte3)
+        self.extract_y_position(y_position)
+        self.extract_x_position(x_position)
+        self.extract_tile_number(tile_number)
+        self.extract_attributes_and_flags(attributes_and_flags)
         
     def extract_y_position(self, data):
         """
@@ -132,13 +139,13 @@ class Sprite(object):
     def get_draw_y(self, line_y):
         return line_y - self.y + 2 * SPRITE_SIZE
         
-    def get_draw_address_data(line_y):
-        tile = sprite.tile_number
+    def get_draw_address_data(self, line_y):
+        tile = self.tile_number
         if self.big_size:
             tile &= 0xFE
         tile_size = self.get_height() -1
         y = self.get_draw_y(line_y)
-        if sprite.y_flipped:
+        if self.y_flipped:
             y = tile_size - y
         return  (tile << 4) + (y << 1)
         
