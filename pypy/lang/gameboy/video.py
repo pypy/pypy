@@ -96,7 +96,10 @@ class Video(iMemory):
         attribute = [-1] * 4
         # assign the data to the correct attribute
         attribute[address % 4] = data
-        self.get_sprite(address).set_data(*attribute)
+        self.get_sprite(address).set_data(attribute[0],
+                                          attribute[1],
+                                          attribute[2],
+                                          attribute[3])
        
     def get_sprite(self, address):
         address -= constants.OAM_ADDR

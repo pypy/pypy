@@ -7,7 +7,7 @@ from pypy.lang.gameboy.sound import SoundDriver
 from pypy.lang.gameboy.timer import Clock
 from pypy.lang.gameboy import constants
 
-use_rsdl = False
+use_rsdl = True
 if use_rsdl:
     from pypy.rlib.rsdl import RSDL, RSDL_helper
     from pypy.rpython.lltypesystem import lltype, rffi
@@ -48,8 +48,7 @@ class GameBoyImplementation(GameBoy):
         return 0
     
     def emulate_cycle(self):
-        print "Emulating!"
-        self.joypad_driver.button_up(True)
+        # self.joypad_driver.button_up(True)
         self.handle_events()
         self.emulate(constants.GAMEBOY_CLOCK >> 2)
         if use_rsdl:
