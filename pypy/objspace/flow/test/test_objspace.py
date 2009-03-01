@@ -469,6 +469,14 @@ class TestFlowObjSpace(Base):
         x = self.codetest(self.globalconstdict)
 
     #__________________________________________________________
+    def dictliteral(name):
+        x = {'x': 1}
+        return x
+    
+    def test_dictliteral(self):
+        x = self.codetest(self.dictliteral)
+
+    #__________________________________________________________
     
     def specialcases(x):
         operator.lt(x,3)

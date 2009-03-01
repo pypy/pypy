@@ -535,6 +535,7 @@ def setup_stack_depth_tracker():
         'DELETE_GLOBAL': 0,
         'STORE_DEREF': -1,
         'BUILD_MAP': 1,
+        'STORE_MAP': -2,
         'COMPARE_OP': -1,
         'STORE_FAST': -1,
         'DELETE_FAST': 0,

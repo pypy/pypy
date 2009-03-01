@@ -74,4 +74,10 @@ lst = opdescmap.values()
 lst.sort()
 unrolling_opcode_descs = unrolling_iterable(lst)
 
+# Allow non-translated code to interpret the new 2.6 bytecodes
+import sys
+if sys.version_info >= (2, 6):
+    import opcode
+    opcode_method_names[opcode.opmap['STORE_MAP']] = 'STORE_MAP'
+
 del name, index, desc, lst

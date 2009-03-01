@@ -699,11 +699,25 @@ class __extend__(pyframe.PyFrame):
         w_list = f.space.newlist(items)
         f.pushvalue(w_list)
 
-    def BUILD_MAP(f, zero, *ignored):
-        if zero != 0:
-            raise BytecodeCorruption
+    def BUILD_MAP(f, itemcount, *ignored):
+        if not we_are_translated() and sys.version_info >= (2, 6):
+            # We could pre-allocate a dict here
+            # but for the moment this code is not translated.
+            pass
+        else:
+            if itemcount != 0:
+                raise BytecodeCorruption
         w_dict = f.space.newdict()
         f.pushvalue(w_dict)
+
+    def STORE_MAP(f, zero, *ignored):
+        if not we_are_translated() and sys.version_info >= (2, 6):
+            w_key = f.popvalue()
+            w_value = f.popvalue()
+            w_dict = f.peekvalue()
+            f.space.setitem(w_dict, w_key, w_value)
+        else:
+            raise BytecodeCorruption
 
     def LOAD_ATTR(f, nameindex, *ignored):
         "obj.attributename"
