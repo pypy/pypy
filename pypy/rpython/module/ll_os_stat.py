@@ -266,7 +266,7 @@ if sys.platform == 'win32':
     # Therefore, we implement our own stat, based on the Win32 API directly.
     from pypy.rpython.tool import rffi_platform as platform
     from pypy.translator.tool.cbuild import ExternalCompilationInfo
-    from rlib import rwin32
+    from pypy.rlib import rwin32
 
     assert len(STAT_FIELDS) == 10    # no extra fields on Windows
 
