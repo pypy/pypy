@@ -45,7 +45,7 @@ def dot2plain(content, contenttype, use_codespeak=False):
         else:
             cmdline = 'neato -Tplain'
         #print >> sys.stderr, '* running:', cmdline
-        child_in, child_out = os.popen2(cmdline, 'r')
+        child_in, child_out = os.popen2(cmdline, 'b')
         try:
             import thread
         except ImportError:
