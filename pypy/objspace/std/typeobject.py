@@ -650,6 +650,7 @@ def delattr__Type_ANY(space, w_type, w_name):
             return
     if (space.config.objspace.std.immutable_builtintypes
             and not w_type.is_heaptype()):
+        msg = "can't delete attributes on type object '%s'" %(w_type.name,)
         raise OperationError(space.w_TypeError, space.wrap(msg))
     try:
         del w_type.dict_w[name]
