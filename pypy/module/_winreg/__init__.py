@@ -42,6 +42,7 @@ to see what constants are used, and where."""
     appleveldefs = {
     }
     interpleveldefs = {
+        'error'          : 'space.w_WindowsError',
         'HKEYType'       : 'interp_winreg.W_HKEY',
         'SetValue'       : 'interp_winreg.SetValue',
         'SetValueEx'     : 'interp_winreg.SetValueEx',
