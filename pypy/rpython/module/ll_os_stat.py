@@ -9,15 +9,24 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython import extregistry
 from pypy.rpython.extfunc import register_external
 from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rpython.tool import rffi_platform as platform
 from pypy.rpython.lltypesystem.rtupletype import TUPLE_TYPE
 from pypy.rlib import rposix
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 # Support for float times is here.
-# Note: For the moment, only Windows implement float times.
-# Things are a bit simpler there because 'struct stat' is not used.
-TIMESPEC = None
-if sys.platform == 'win32':
+# - ALL_STAT_FIELDS contains Float fields if the system can retrieve
+#   sub-second timestamps.
+# - TIMESPEC is defined when the "struct stat" contains st_atim field.
+
+if sys.platform == 'linux2':
+    TIMESPEC = platform.Struct('struct timespec',
+                               [('tv_sec', rffi.TIME_T),
+                                ('tv_nsec', rffi.LONG)])
+else:
+    TIMESPEC = None
+
+if sys.platform == 'win32' or TIMESPEC is not None:
     ModTime = lltype.Float
 else:
     ModTime = lltype.Signed
@@ -52,22 +61,7 @@ STAT_FIELD_TYPES = dict(STAT_FIELDS)      # {'st_xxx': TYPE}
 STAT_FIELD_NAMES = [_name for (_name, _TYPE) in ALL_STAT_FIELDS
                           if _name in STAT_FIELD_TYPES]
 
-def _expand(lst, originalname, timespecname):
-    if TIMESPEC is not None:
-        XXX # code not used right now
-        for i, (_name, _TYPE) in enumerate(lst):
-            if _name == originalname:
-                # replace the 'st_atime' field of type rffi.DOUBLE
-                # with a field 'st_atim' of type 'struct timespec'
-                lst[i] = (timespecname, TIMESPEC.TO)
-                break
-
-LL_STAT_FIELDS = STAT_FIELDS[:]
-_expand(LL_STAT_FIELDS, 'st_atime', 'st_atim')
-_expand(LL_STAT_FIELDS, 'st_mtime', 'st_mtim')
-_expand(LL_STAT_FIELDS, 'st_ctime', 'st_ctim')
-
-del _expand, _name, _TYPE
+del _name, _TYPE
 
 # For OO backends, expose only the portable fields (the first 10).
 PORTABLE_STAT_FIELDS = STAT_FIELDS[:N_INDEXABLE_FIELDS]
@@ -145,14 +139,38 @@ else:
     INCLUDES = ['sys/types.h', 'sys/stat.h', 'unistd.h']
 
 compilation_info = ExternalCompilationInfo(
+    # This must be set to 64 on some systems to enable large file support.
     pre_include_bits = ['#define _FILE_OFFSET_BITS 64'],
     includes = INCLUDES
 )
 
 if sys.platform != 'win32':
-    from pypy.rpython.tool import rffi_platform as platform
+
+    LL_STAT_FIELDS = STAT_FIELDS[:]
+    
+    if TIMESPEC is not None:
+        class CConfig_for_timespec:
+            _compilation_info_ = compilation_info
+            TIMESPEC = TIMESPEC
+
+        TIMESPEC = lltype.Ptr(
+            platform.configure(CConfig_for_timespec)['TIMESPEC'])
+
+        def _expand(lst, originalname, timespecname):
+            for i, (_name, _TYPE) in enumerate(lst):
+                if _name == originalname:
+                    # replace the 'st_atime' field of type rffi.DOUBLE
+                    # with a field 'st_atim' of type 'struct timespec'
+                    lst[i] = (timespecname, TIMESPEC.TO)
+                    break
+
+        _expand(LL_STAT_FIELDS, 'st_atime', 'st_atim')
+        _expand(LL_STAT_FIELDS, 'st_mtime', 'st_mtim')
+        _expand(LL_STAT_FIELDS, 'st_ctime', 'st_ctim')
+
+        del _expand
+    
     class CConfig:
-        # This must be set to 64 on some systems to enable large file support.
         _compilation_info_ = compilation_info
         STAT_STRUCT = platform.Struct('struct %s' % _name_struct_stat, LL_STAT_FIELDS)
     config = platform.configure(CConfig)
