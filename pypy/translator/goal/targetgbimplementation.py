@@ -5,6 +5,8 @@ from pypy.lang.gameboy.gameboy_implementation import GameBoyImplementation
 
 ROM_PATH = str(py.magic.autopath().dirpath().dirpath().dirpath())+"/lang/gameboy/rom"
 
+print ROM_PATH
+
 use_rsdl = False
 
 def entry_point(argv=None):
@@ -13,7 +15,6 @@ def entry_point(argv=None):
     else:
         pos = str(9)
         filename = ROM_PATH+"/rom"+pos+"/rom"+pos+".gb"
-        filename=None
     print "loading rom: ", str(filename)
     gameBoy = GameBoyImplementation()
     try:
