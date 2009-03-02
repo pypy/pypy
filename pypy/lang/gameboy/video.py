@@ -139,9 +139,9 @@ class Video(iMemory):
         self.oam        = [0] * constants.OAM_SIZE
         self.reset_all_sprites()
         
-        #XXX remove those dumb helper "objects"
+        #XXX remove those dumb helper "shown_sprites"
         self.line       = [0] * (SPRITE_SIZE + GAMEBOY_SCREEN_WIDTH + SPRITE_SIZE)
-        self.objects    = [0] * constants.OBJECTS_PER_LINE
+        self.shown_sprites    = [0] * constants.SPRITES_PER_LINE
         self.palette    = [0] * 1024
         
         self.frames     = 0
@@ -460,7 +460,7 @@ class Video(iMemory):
         count = self.scan_sprites()
         lastx = SPRITE_SIZE + GAMEBOY_SCREEN_WIDTH + SPRITE_SIZE
         for index in range(count):
-            sprite = self.objects[index]
+            sprite = self.shown_sprites[index]
             if (sprite.x + SPRITE_SIZE <= lastx):
                 sprite.draw(self)
             else:
@@ -468,27 +468,27 @@ class Video(iMemory):
             lastx = sprite.x
             
     def scan_sprites(self):
-        # search active objects
+        # search active shown_sprites
         count = 0
         for sprite in self.sprites:
             if sprite.is_shown_on_current_line(self):
-                self.objects[count] = sprite
+                self.shown_sprites[count] = sprite
                 count += 1
-                if count >= constants.OBJECTS_PER_LINE:
+                if count >= constants.SPRITES_PER_LINE:
                     break
         self.sort_scan_sprite(count)
         return count
 
     def sort_scan_sprite(self, count):
         # TODO: optimize :)
-        # sort objects from high to low priority using the real tile_address
+        # sort shown_sprites from high to low priority using the real tile_address
         for index in range(count):
             highest = index
             for right in range(index+1, count):
-                if self.objects[right].x > self.objects[highest].x:
+                if self.shown_sprites[right].x > self.shown_sprites[highest].x:
                     highest = right
-            self.objects[index], self.objects[highest] = \
-                    self.objects[highest], self.objects[index]
+            self.shown_sprites[index], self.shown_sprites[highest] = \
+                    self.shown_sprites[highest], self.shown_sprites[index]
 
     def draw_tiles(self, x, tile_map, tile_data):
         while x < GAMEBOY_SCREEN_WIDTH+SPRITE_SIZE:

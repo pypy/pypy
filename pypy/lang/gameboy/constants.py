@@ -143,7 +143,7 @@ MODE_1_BEGIN_TICKS = 8 # V-Blank Line 144
 MODE_1_END_TICKS   = 1 # V-Blank Line 153
  
 # Objects per Line
-OBJECTS_PER_LINE   = 10
+SPRITES_PER_LINE   = 10
  
 # LCD Color Palette
 #COLOR_MAP =[
