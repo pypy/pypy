@@ -46,7 +46,7 @@ class Video(iMemory):
         self.window                 = Window(self)
         self.background             = Background(self)
         self.status                 = StatusRegister(self)
-        self.control                = ControlRegister(self.window, 
+        self.control                = ControlRegister(self, self.window, 
                                                       self.background)
         self.memory                 = memory
         self.create_tile_maps()
@@ -221,24 +221,8 @@ class Video(iMemory):
         return self.control.read()
 
     def set_control(self, data):
-        value = data & 0x80
-        if self.control.lcd_enabled != bool(value):
-            self.reset_control(value)
-        self.window.update_line_y(data)
         self.control.write(data)
 
-    def reset_control(self, value):
-        # NOTE: do not reset LY=LYC flag (bit 2) of the STAT register (Mr. Do!)
-        self.line_y  = 0
-        if value != 0:
-            self.status.set_mode(2)
-            self.cycles  = constants.MODE_2_TICKS
-            self.display = False
-        else:
-            self.status.set_mode(0)
-            self.cycles = constants.MODE_1_TICKS
-            self.clear_frame()
-                
     def get_status(self):
         return self.status.read(extend=True)
 

@@ -122,7 +122,7 @@ def test_set_line_y_compare():
     
     video.control.write(0x80)
     
-    assert video.status.read() == 0x0
+    assert video.status.read() == 0x02
     
     video.line_y = value -1
     video.status.write(0xFF, write_all=True)

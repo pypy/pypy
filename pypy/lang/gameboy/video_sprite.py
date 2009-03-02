@@ -237,11 +237,9 @@ class Window(object):
         self.enabled = False
         self.upper_tile_map_selected  = False
         
-    def update_line_y(self, data):
-         # don't draw window if it was not enabled and not being drawn before
-        if not self.enabled and (data & 0x20) != 0 and \
-        self.line_y == 0 and self.video.line_y > self.y:
-            self.line_y = GAMEBOY_SCREEN_HEIGHT    
+    def switch_on(self):
+        if self.line_y == 0 and self.video.line_y > self.y:
+            self.line_y = GAMEBOY_SCREEN_HEIGHT
     
     def get_tile_map_space(self):
         #if (self.control.read() & mask) != 0:

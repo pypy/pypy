@@ -84,7 +84,8 @@ class ControlRegister(object):
     Bit 1 - OBJ (Sprite) Display Enable    (0=Off, 1=On)
     Bit 0 - BG Display (for CGB see below) (0=Off, 1=On)
     """
-    def __init__(self, window, background):
+    def __init__(self, video, window, background):
+        self.video      = video
         self.window     = window
         self.background = background
         self.reset()
@@ -110,19 +111,37 @@ class ControlRegister(object):
         value += int(self.sprites_enabled)                    << 1
         value += int(self.background.enabled)                 << 0
         return value
+
+    def switch_lcd_enabled(self):
+        self.lcd_enabled = not self.lcd_enabled
+        self.video.cycles = 0
+        self.video.line_y = 0
+        if self.lcd_enabled:
+            self.video.status.set_mode(2)
+            self.video.cycles = constants.MODE_2_TICKS
+            self.video.display = False
+        else:
+            self.video.status.set_mode(0)
+            self.video.cycles = constants.MODE_1_TICKS
+            self.video.clear_frame()
         
     def write(self, value):
-        self.lcd_enabled                             = bool(value & (1 << 7))
+        if self.lcd_enabled != bool(value & (1 << 7)):
+            self.switch_lcd_enabled()
+
+        was_enabled         = self.window.enabled
+        self.window.enabled = bool(value & (1 << 5))
+        if not was_enabled and self.window.enabled:
+            self.window.switch_on()
+
         self.window.upper_tile_map_selected          = bool(value & (1 << 6))
-        self.window.enabled                          = bool(value & (1 << 5))
         self.background_and_window_lower_tile_data_selected = \
                                                        bool(value & (1 << 4))
         self.background.upper_tile_map_selected      = bool(value & (1 << 3))
         self.big_sprite_size_selected                = bool(value & (1 << 2))
         self.sprites_enabled                         = bool(value & (1 << 1))
         self.background.enabled                      = bool(value & (1 << 0))
-    
-    
+        
     def get_selected_tile_data_space(self):
         if self.background_and_window_lower_tile_data_selected:
             return constants.VRAM_DATA_A

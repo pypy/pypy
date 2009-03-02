@@ -9,7 +9,7 @@ import py
 
 def get_control_register():
     video = get_video()
-    return ControlRegister(Window(video), Background(video))
+    return ControlRegister(video, Window(video), Background(video))
 
 def get_status_register():
     return StatusRegister(get_video())
