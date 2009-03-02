@@ -42,6 +42,10 @@ class PyPyTestPlugin:
         group.addoption('-P', '--platform', action="callback", type="string",
                default="host", callback=_set_platform,
                help="set up tests to use specified platform as compile/run target")
+
+    def pytest_pyfuncarg_space(self, pyfuncitem):
+        return gettestobjspace()
+        
 ConftestPlugin = PyPyTestPlugin
 
 _SPACECACHE={}
@@ -256,7 +260,6 @@ class Module(py.test.collect.Module):
             else: 
                 return IntTestFunction(name, parent=self) 
 
-
 def skip_on_missing_buildoption(**ropts): 
     __tracebackhide__ = True
     import sys
@@ -325,14 +328,9 @@ class IntTestFunction(PyPyTestFunction):
     def _keywords(self):
         return super(IntTestFunction, self)._keywords() + ['interplevel']
 
-    def execute(self, target, *args):
-        co = target.func_code
+    def runtest(self):
         try:
-            if 'space' in co.co_varnames[:co.co_argcount]: 
-                space = gettestobjspace() 
-                target(space, *args)  
-            else:
-                target(*args)
+            super(IntTestFunction, self).runtest()
         except OperationError, e:
             check_keyboard_interrupt(e)
             raise
@@ -353,6 +351,9 @@ class IntTestFunction(PyPyTestFunction):
                                      "if conftest.option.view is False")
 
 class AppTestFunction(PyPyTestFunction):
+    def _prunetraceback(self, traceback):
+        return traceback
+
     def _haskeyword(self, keyword):
         return keyword == 'applevel' or \
                super(AppTestFunction, self)._haskeyword(keyword)
