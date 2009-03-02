@@ -7,7 +7,7 @@ from pypy.lang.gameboy.sound import SoundDriver
 from pypy.lang.gameboy.timer import Clock
 from pypy.lang.gameboy import constants
 
-use_rsdl = True
+use_rsdl = False
 if use_rsdl:
     from pypy.rlib.rsdl import RSDL, RSDL_helper
     from pypy.rpython.lltypesystem import lltype, rffi

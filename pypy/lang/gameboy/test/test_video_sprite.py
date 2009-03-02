@@ -57,19 +57,19 @@ def test_reset():
 def test_video_sprite_read_write():
     sprite = get_sprite()
     for i in range(0xFF):
-        sprite.set_data_at(0, i)
+        sprite.set_data(byte0=i)
         assert sprite.get_data()[0] == i
         
     for i in range(0xFF):
-        sprite.set_data_at(1, i)
+        sprite.set_data(byte1=i)
         assert sprite.get_data()[1] == i
         
     for i in range(0xFF):
-        sprite.set_data_at(2, i)
+        sprite.set_data(byte2=i)
         assert sprite.get_data()[2] == i
         
     for i in range(0xFF):
-        sprite.set_data_at(3, i)
+        sprite.set_data(byte3=i)
         assert sprite.get_data()[3] == i
         
 def test_size():
