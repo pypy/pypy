@@ -497,49 +497,6 @@ class Video(iMemory):
         #XXX 
         return sprites.sort(key=operator.itemgetter("x"))
     
-    
-    # -----------------------------------------------
-    
-    def draw_sprites_line_new(self):
-        count = self.scan_sprites_new()
-        lastx = 176
-        for index in range(176, count):
-            paint_sprite    = self.objects[index]
-            x       = (data >> 24) & 0xFF
-            flags   = (data >> 12) & 0xFF
-            address = data & 0xFFF
-            if (paint_sprite.x + SPRITE_SIZE <= lastx):
-                self.draw_object_tile_new(paint_sprite)
-            else:
-                self.draw_overlapped_object_tile_new(x, address, flags)
-            lastx = paint_sprite.x
-            
-    def scan_sprites_new(self):
-        count = 0
-        # search active objects
-        for sprite in self.sprites:
-            if sprite.hide_check(): continue
-            paint_sprite = PaintSprite(count, sprite, self)
-            self.objects[count] = paint_sprite
-            count += 1
-            if count >= constants.OBJECTS_PER_LINE: break
-        self.sort_scan_sprite_new_sprite_new(count)
-        return count
-        
-    def sort_scan_sprite_new(self, count):
-        # sort objects from higher to lower priority
-        for index in range(count):
-            rightmost = index
-            for number in range(index+1, count):
-                if (self.objects[number].line_position) > \
-                   (self.objects[rightmost].line_position):
-                    rightmost = number
-            if rightmost != index:
-                self.swap_object_indices(rightmost, index)
-                
-    def swap_object_indices(self, a, b):
-        self.objects[a], self.objects[b] = self.objects[b], self.objects[a]
-
     # ---------------------------------------------------------------------
     
     def draw_sprites_line(self):
