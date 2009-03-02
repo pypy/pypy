@@ -545,30 +545,21 @@ class AppTestBuiltinOptimized(object):
 
 
 class TestInternal:
-
-    def setup_method(self,method):
-        space = self.space
-
-    def get_builtin(self, name):
-        return self.space.builtin.get(name) 
-
-    def test_execfile(self):
+    def test_execfile(self, space):
         from pypy.tool.udir import udir
         fn = str(udir.join('test_execfile'))
         f = open(fn, 'w')
         print >>f, "i=42"
         f.close()
 
-        w_execfile = self.get_builtin('execfile')
-        space = self.space
+        w_execfile = space.builtin.get("execfile")
         w_dict = space.newdict()
-        self.space.call_function(w_execfile,
+        space.call_function(w_execfile,
             space.wrap(fn), w_dict, space.w_None)
         w_value = space.getitem(w_dict, space.wrap('i'))
-        assert self.space.eq_w(w_value, space.wrap(42))
+        assert space.eq_w(w_value, space.wrap(42))
 
-    def test_execfile_different_lineendings(self): 
-        space = self.space
+    def test_execfile_different_lineendings(self, space): 
         from pypy.tool.udir import udir
         d = udir.ensure('lineending', dir=1)
         dos = d.join('dos.py') 

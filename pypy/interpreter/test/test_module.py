@@ -2,24 +2,20 @@
 from pypy.interpreter.module import Module
 
 class TestModule: 
-    def setup_class(cls):
-        cls.m = Module(cls.space, cls.space.wrap('m'))
-    def teardown_class(cls):
-        del cls.m 
+    def test_name(self, space):
+        w = space.wrap
+        m = Module(space, space.wrap('m'))
+        w_m = w(m)
+        assert space.eq_w(space.getattr(w_m, w('__name__')), w('m'))
 
-    def test_name(self):
-        w = self.space.wrap
-        w_m = w(self.m)
-        assert self.space.eq_w(self.space.getattr(w_m, w('__name__')), w('m'))
-
-    def test_attr(self):
-        w = self.space.wrap
-        w_m = w(self.m)
+    def test_attr(self, space):
+        w = space.wrap
+        w_m = w(Module(space, space.wrap('m')))
         self.space.setattr(w_m, w('x'), w(15))
-        assert self.space.eq_w(self.space.getattr(w_m, w('x')), w(15))
-        self.space.delattr(w_m, w('x'))
-        self.space.raises_w(self.space.w_AttributeError,
-                            self.space.delattr, w_m, w('x'))
+        assert space.eq_w(space.getattr(w_m, w('x')), w(15))
+        space.delattr(w_m, w('x'))
+        space.raises_w(space.w_AttributeError,
+                       space.delattr, w_m, w('x'))
 
 class AppTest_ModuleObject: 
     def test_attr(self):
