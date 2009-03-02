@@ -30,18 +30,27 @@ class Sprite(object):
     def get_data(self):
         return [self.y, self.x, self.tile_number, self.get_attributes_and_flags()]
 
-    def set_data(self, byte0=-1, byte1=-1, byte2=-1, byte3=-1):
+    def set_data(self, y, x, tile_number, flags):
         """
         extracts the sprite data from an oam entry
         """
-        if byte0 is not -1:
-            self.extract_y_position(byte0)
-        if byte1 is not -1:
-            self.extract_x_position(byte1)
-        if byte2 is not -1:
-            self.extract_tile_number(byte2)
-        if byte3 is not -1:
-            self.extract_attributes_and_flags(byte3)
+        self.extract_y_position(y)
+        self.extract_x_position(x)
+        self.extract_tile_number(tile_number)
+        self.extract_attributes_and_flags(flags)
+
+    def set_data_at(self, position, data):
+        """
+        extracts the sprite data from an oam entry
+        """
+        if position == 0:
+            self.extract_y_position(data)
+        if position == 1:
+            self.extract_x_position(data)
+        if position == 2:
+            self.extract_tile_number(data)
+        if position == 3:
+            self.extract_attributes_and_flags(data)
         
     def extract_y_position(self, data):
         """
