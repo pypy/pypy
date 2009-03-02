@@ -160,16 +160,13 @@ class Sprite(object):
         if self.y_flipped:
             y = self.get_tile_size(video) - y
         return y
-
-    def get_stupid_intermediate_data(self, count, video):
-        return (self.x << 24) + (count << 20) + \
-               (self.get_attributes_and_flags() << 12) + \
-                (self.get_tile_address(video))
-    def draw(self):
-        pass
+                
+    def draw(self, video):
+        video.draw_object_tile(self)
     
-    def draw_overlapped(self):
-        pass
+    def draw_overlapped(self, video):
+        video.draw_overlapped_object_tile(self)
+        
 # -----------------------------------------------------------------------------
 
 class PaintSprite(Sprite):

@@ -460,44 +460,6 @@ class Video(iMemory):
             self.draw_sprites_line()
         self.draw_pixels_line()
 
-    # -----------------------------------------------
-     
-    def draw_sprites_line_new(self):
-        # XXX Not in use yet. Will replace the hacky version.
-        sprites_on_line = self.get_drawable_sprites_on_line(self.line_y)
-        last_sprite     = sprites_on_line[0]
-        last_sprite.draw()
-        for sprite in sprites_on_line[1:]:
-            if sprite.overlaps_on_line(last_sprite, self.line_y):
-                sprite.draw_overlapped()
-            else:
-                sprite.draw()
-            
-    def get_active_sprites_on_line(self, line_y):
-        found = []
-        for i in range(len(self.sprites)):
-            if self.sprites[i].intersects_line(line_y) and \
-               self.sprites[i].enabled:
-                found.append(self.sprites[i])
-        return found
-    
-    def get_drawable_sprites_on_line(self, line_y):
-        sprites_on_line = self.get_active_sprites_on_line(self.line_y)
-        sprites_on_line = self.sort_drawable_sprites(sprites_on_line)
-        # only 10 sprites per line
-        return sprites_on_line[:constants.OBJECTS_PER_LINE]
-    
-    def sort_drawable_sprites(self, sprites):
-        """
-        returns an ordered list of selected sprites. 
-        The order rules are as following:
-        1. order by x -coordinates, lower first
-        2. order by id, lower first
-        """
-        #XXX 
-        return sprites.sort(key=operator.itemgetter("x"))
-    
-    # ---------------------------------------------------------------------
     
     def draw_sprites_line(self):
         count = self.scan_sprites()
@@ -505,9 +467,9 @@ class Video(iMemory):
         for index in range(count):
             sprite = self.objects[index]
             if (sprite.x + SPRITE_SIZE <= lastx):
-                self.draw_object_tile(sprite)
+                sprite.draw(self)
             else:
-                self.draw_overlapped_object_tile(sprite)
+                sprite.draw_overlapped(self)
             lastx = sprite.x
             
     def scan_sprites(self):
@@ -516,7 +478,7 @@ class Video(iMemory):
         for sprite in self.sprites:
             #if sprite.hidden: continue
             if not sprite.intersects_current_line(self): continue
-            self.objects[count] = sprite #.get_stupid_intermediate_data(count, self)
+            self.objects[count] = sprite
             count += 1
             if count >= constants.OBJECTS_PER_LINE:
                 break
@@ -525,12 +487,13 @@ class Video(iMemory):
 
     def sort_scan_sprite(self, count):
         # TODO: optimize :)
-        # sort objects from high to low priority
+        # sort objects from high to low priority using the real tile_address
         for index in range(count):
             highest = index
             for right in range(index+1, count):
-                if (self.objects[right].get_tile_address(self)) > \
-                   (self.objects[highest].get_tile_address(self)):
+                
+                if (self.objects[right].x) > \
+                   (self.objects[highest].x):
                     highest = right
             self.objects[index], self.objects[highest] = \
                     self.objects[highest], self.objects[index]
@@ -553,7 +516,6 @@ class Video(iMemory):
     def get_pattern(self, address):
         return self.vram[address] + (self.vram[address + 1] << 8)
 
-
     def draw_object_tile(self, sprite):
         self.draw_object(set_tile_line_call_wrapper(self), sprite)
                       
@@ -567,19 +529,15 @@ class Video(iMemory):
         self.line[pos] = (self.line[pos] & 0x0101) | color | mask
         
     def draw_object(self, caller, sprite):
-        #sprite.x, \
-        #                              sprite.get_tile_address(self), \
-        #                              sprite.get_attributes_and_flags()
-                                      
         pattern = self.get_pattern(sprite.get_tile_address(self))
         mask    = 0
         # priority
-        if sprite.object_behind_background: #(flags & 0x80) != 0:
+        if sprite.object_behind_background:
             mask |= 0x0008
         # palette
-        if sprite.palette_number: #(flags & 0x10) != 0:
+        if sprite.palette_number:
             mask |= 0x0004
-        if sprite.y_flipped: #(flags & 0x20) != 0:
+        if sprite.y_flipped:
             self.draw_object_flipped(sprite.x, pattern, mask, caller)
         else:
             self.draw_object_normal(sprite.x, pattern, mask, caller)
