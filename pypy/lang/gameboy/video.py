@@ -100,6 +100,10 @@ class Video(iMemory):
             
     def update_sprite(self, address, data):
         self.get_sprite(address).set_data_at(address, data)
+        
+    def update_sprite_size(self):
+        for sprite in self.sprites:
+            sprite.big_size = self.control.big_sprites 
        
     def get_sprite(self, address):
         address -= constants.OAM_ADDR

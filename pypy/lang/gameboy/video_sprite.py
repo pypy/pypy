@@ -130,15 +130,15 @@ class Sprite(object):
         else:
             return SPRITE_SIZE
          
-    def get_tile_size(self, video):
-         if video.control.big_sprite_size_selected:
+    def get_tile_size(self):
+         if self.big_size:
             return 15
          else:
             return 7
         
     def intersects_current_line(self, video):
         y = self.current_line_y(video)
-        return y >= 0 and y <= self.get_tile_size(video)
+        return y >= 0 and y <= self.get_tile_size()
     
     def is_shown_on_current_line(self, video):
         return not self.hidden and self.intersects_current_line(video)
@@ -147,7 +147,7 @@ class Sprite(object):
         return video.line_y - self.y + 2 * SPRITE_SIZE
     
     def get_tile(self, video):
-        if video.control.big_sprite_size_selected:
+        if video.control.big_sprites:
              return self.get_tile_number() & 0xFE
         else:
             return self.get_tile_number()
@@ -158,7 +158,7 @@ class Sprite(object):
     def get_draw_y(self, video):
         y = self.current_line_y(video)
         if self.y_flipped:
-            y = self.get_tile_size(video) - y
+            y = self.get_tile_size() - y
         return y
                 
     def draw(self, video):

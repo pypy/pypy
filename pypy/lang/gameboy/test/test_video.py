@@ -50,7 +50,7 @@ def test_reset():
     assert len(video.vram) == constants.VRAM_SIZE
     assert len(video.oam) == constants.OAM_SIZE
     assert len(video.line) == 176
-    assert len(video.objects) == constants.OBJECTS_PER_LINE
+    assert len(video.objects) == constants.big_sprites
     assert len(video.palette) == 1024
     assert video.frames == 0
     assert video.frame_skip == 0

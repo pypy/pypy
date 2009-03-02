@@ -96,7 +96,7 @@ class ControlRegister(object):
         self.window.enabled                           = False
         self.background_and_window_lower_tile_data_selected  = True
         self.background.upper_tile_map_selected       = False
-        self.big_sprite_size_selected                 = False
+        self.big_sprites                              = False
         self.sprites_enabled                          = False
         self.background.enabled                       = True
         
@@ -107,7 +107,7 @@ class ControlRegister(object):
         value += int(self.window.enabled)                     << 5
         value += int(self.background_and_window_lower_tile_data_selected)  << 4
         value += int(self.background.upper_tile_map_selected) << 3
-        value += int(self.big_sprite_size_selected)           << 2
+        value += int(self.big_sprites)                        << 2
         value += int(self.sprites_enabled)                    << 1
         value += int(self.background.enabled)                 << 0
         return value
@@ -126,9 +126,10 @@ class ControlRegister(object):
             self.video.clear_frame()
         
     def write(self, value):
+        previous_big_sprites = self.big_sprites
         if self.lcd_enabled != bool(value & (1 << 7)):
             self.switch_lcd_enabled()
-
+            
         was_enabled         = self.window.enabled
         self.window.enabled = bool(value & (1 << 5))
         if not was_enabled and self.window.enabled:
@@ -138,9 +139,12 @@ class ControlRegister(object):
         self.background_and_window_lower_tile_data_selected = \
                                                        bool(value & (1 << 4))
         self.background.upper_tile_map_selected      = bool(value & (1 << 3))
-        self.big_sprite_size_selected                = bool(value & (1 << 2))
+        self.big_sprites                             = bool(value & (1 << 2))
         self.sprites_enabled                         = bool(value & (1 << 1))
         self.background.enabled                      = bool(value & (1 << 0))
+
+        if previous_big_sprites != self.big_sprites:
+            video.update_sprite_size()
         
     def get_selected_tile_data_space(self):
         if self.background_and_window_lower_tile_data_selected:
