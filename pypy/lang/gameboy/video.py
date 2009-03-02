@@ -503,38 +503,24 @@ class Video(iMemory):
         count = self.scan_sprites()
         lastx = SPRITE_SIZE + GAMEBOY_SCREEN_WIDTH + SPRITE_SIZE
         for index in range(count):
-            data    = self.objects[index]
-            x       = (data >> 24) & 0xFF
-            flags   = (data >> 12) & 0xFF
-            address = data & 0xFFF
-            if (x + SPRITE_SIZE <= lastx):
-                self.draw_object_tile(x, address, flags)
+            sprite = self.objects[index]
+            if (sprite.x + SPRITE_SIZE <= lastx):
+                self.draw_object_tile(sprite.x, \
+                                      sprite.get_tile_address(self), \
+                                      sprite.get_attributes_and_flags())
             else:
-                self.draw_overlapped_object_tile(x, address, flags)
-            lastx = x
+                self.draw_overlapped_object_tile(sprite.x, \
+                                                 sprite.get_tile_address(self), \
+                                                 sprite.get_attributes_and_flags())
+            lastx = sprite.x
             
     def scan_sprites(self):
         count = 0
         # search active objects
         for sprite in self.sprites:
-            x = sprite.x
-            y = sprite.y
             if sprite.hidden: continue
             if not sprite.intersects_current_line(self): continue
-            tile = sprite.tile_number
-            y    = sprite.current_line_y(self)
-            if self.control.big_sprite_size_selected:
-                # 8x16 tile size
-                tile_size = 15
-                tile &= 0xFE
-            else:
-                # 8x8 tile size
-                tile_size = 7
-            if sprite.y_flipped:
-                y = tile_size - y
-            # TODO: build an object abstraction?
-            self.objects[count] = (x << 24) + (count << 20) + (sprite.get_attributes_and_flags() << 12) + \
-                                  (tile << 4) + (y << 1)
+            self.objects[count] = sprite #.get_stupid_intermediate_data(count, self)
             count += 1
             if count >= constants.OBJECTS_PER_LINE:
                 break
@@ -547,8 +533,8 @@ class Video(iMemory):
         for index in range(count):
             highest = index
             for right in range(index+1, count):
-                if (self.objects[right] >> 20) > \
-                   (self.objects[highest] >> 20):
+                if (self.objects[right].get_tile_address(self)) > \
+                   (self.objects[highest].get_tile_address(self)):
                     highest = right
             self.objects[index], self.objects[highest] = \
                     self.objects[highest], self.objects[index]

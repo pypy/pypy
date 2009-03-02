@@ -118,7 +118,8 @@ class Sprite(object):
         return self.hidden
         
     def get_tile_number(self):
-        return self.tile.id
+        #return self.tile.id
+        return self.tile_number
     
     def get_width(self):
         return SPRITE_SIZE
@@ -144,7 +145,26 @@ class Sprite(object):
     
     def current_line_y(self, video):
         return video.line_y - self.y + 2 * SPRITE_SIZE
+    
+    def get_tile(self, video):
+        if video.control.big_sprite_size_selected:
+             return self.get_tile_number() & 0xFE
+        else:
+            return self.get_tile_number()
+            
+    def get_tile_address(self, video):
+        return (self.get_tile(video) << 4) +  (self.get_draw_y(video) << 1)
         
+    def get_draw_y(self, video):
+        y = self.current_line_y(video)
+        if self.y_flipped:
+            y = self.get_tile_size(video) - y
+        return y
+
+    def get_stupid_intermediate_data(self, count, video):
+        return (self.x << 24) + (count << 20) + \
+               (self.get_attributes_and_flags() << 12) + \
+                (self.get_tile_address(video))
     def draw(self):
         pass
     
