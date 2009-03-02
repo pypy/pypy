@@ -428,7 +428,7 @@ def load_source_module(space, w_modulename, w_mod, pathname, source,
     pycode = parse_source_module(space, pathname, source)
 
     if space.config.objspace.usepycfiles and write_pyc:
-        mtime = os.stat(pathname)[stat.ST_MTIME]
+        mtime = int(os.stat(pathname)[stat.ST_MTIME])
         cpathname = pathname + 'c'
         write_compiled_module(space, pycode, cpathname, mtime)
 

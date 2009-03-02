@@ -13,12 +13,14 @@ from pypy.rpython.lltypesystem.rtupletype import TUPLE_TYPE
 from pypy.rlib import rposix
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
-# NOTE: float times are disabled for now, for simplicity.  They make the life
-# of OO backends more complicated because for them we try to not depend on
-# the details of the platform on which we do the translation.  Also, they
-# seem not essential because they are disabled by default in CPython.
+# Support for float times is here.
+# Note: For the moment, only Windows implement float times.
+# Things are a bit simpler there because 'struct stat' is not used.
 TIMESPEC = None
-ModTime = lltype.Signed
+if sys.platform == 'win32':
+    ModTime = lltype.Float
+else:
+    ModTime = lltype.Signed
 
 # all possible fields - some of them are not available on all platforms
 ALL_STAT_FIELDS = [
@@ -147,14 +149,15 @@ compilation_info = ExternalCompilationInfo(
     includes = INCLUDES
 )
 
-from pypy.rpython.tool import rffi_platform as platform
-class CConfig:
-    # This must be set to 64 on some systems to enable large file support.
-    _compilation_info_ = compilation_info
-    STAT_STRUCT = platform.Struct('struct %s' % _name_struct_stat, LL_STAT_FIELDS)
-config = platform.configure(CConfig)
+if sys.platform != 'win32':
+    from pypy.rpython.tool import rffi_platform as platform
+    class CConfig:
+        # This must be set to 64 on some systems to enable large file support.
+        _compilation_info_ = compilation_info
+        STAT_STRUCT = platform.Struct('struct %s' % _name_struct_stat, LL_STAT_FIELDS)
+    config = platform.configure(CConfig)
 
-STAT_STRUCT = lltype.Ptr(config['STAT_STRUCT'])
+    STAT_STRUCT = lltype.Ptr(config['STAT_STRUCT'])
 
 def build_stat_result(st):
     # only for LL backends
@@ -202,19 +205,13 @@ def register_stat_variant(name):
         c_func_name = name
 
     arg_is_path = (name != 'fstat')
-    if arg_is_path:
-        ARG1 = rffi.CCHARP
-    else:
-        ARG1 = rffi.INT
-    os_mystat = rffi.llexternal(c_func_name, [ARG1, STAT_STRUCT], rffi.INT,
-                                compilation_info=compilation_info)
 
     def posix_stat_llimpl(arg):
         stresult = lltype.malloc(STAT_STRUCT.TO, flavor='raw')
         try:
             if arg_is_path:
                 arg = rffi.str2charp(arg)
-            error = rffi.cast(rffi.LONG, os_mystat(arg, stresult))
+            error = rffi.cast(rffi.LONG, posix_mystat(arg, stresult))
             if arg_is_path:
                 rffi.free_charp(arg)
             if error != 0:
@@ -235,10 +232,16 @@ def register_stat_variant(name):
 
     if arg_is_path:
         s_arg = str
+        ARG1 = rffi.CCHARP
     else:
         s_arg = int
+        ARG1 = rffi.INT
 
     if sys.platform != 'win32':
+        posix_mystat = rffi.llexternal(c_func_name,
+                                       [ARG1, STAT_STRUCT], rffi.INT,
+                                       compilation_info=compilation_info)
+
         register_external(
             getattr(os, name), [s_arg], s_StatResult,
             "ll_os.ll_os_%s" % (name,),
@@ -333,10 +336,14 @@ if sys.platform == 'win32':
             m |= 0666
         return m
 
-    secs_between_epochs = lltype.r_ulonglong(11644473600) # Seconds between 1.1.1601 and 1.1.1970
+    def make_longlong(high, low):
+        return (lltype.r_longlong(high) << 32) + lltype.r_longlong(low)
+
+    # Seconds between 1.1.1601 and 1.1.1970
+    secs_between_epochs = lltype.r_longlong(11644473600)
+
     def FILE_TIME_to_time_t_nsec(filetime):
-        ft = (lltype.r_ulonglong(filetime.c_dwHighDateTime) << 32)
-        ft += filetime.c_dwLowDateTime
+        ft = make_longlong(filetime.c_dwHighDateTime, filetime.c_dwLowDateTime)
         # FILETIME is in units of 100 nsec
         nsec = (ft % 10000000) * 100
         time = (ft / 10000000) - secs_between_epochs
@@ -344,8 +351,7 @@ if sys.platform == 'win32':
 
     def attribute_data_to_stat(info):
         st_mode = attributes_to_mode(info.c_dwFileAttributes)
-        st_size = (lltype.r_ulonglong(info.c_nFileSizeHigh) << 32)
-        st_size += info.c_nFileSizeLow
+        st_size = make_longlong(info.c_nFileSizeHigh, info.c_nFileSizeLow)
         ctime, ctime_ns = FILE_TIME_to_time_t_nsec(info.c_ftCreationTime)
         mtime, mtime_ns = FILE_TIME_to_time_t_nsec(info.c_ftLastWriteTime)
         atime, atime_ns = FILE_TIME_to_time_t_nsec(info.c_ftLastAccessTime)
@@ -353,27 +359,30 @@ if sys.platform == 'win32':
         result = (st_mode,
                   0, 0, 0, 0, 0,
                   st_size,
-                  atime, mtime, ctime)
+                  atime + atime_ns * 1e-9,
+                  mtime + mtime_ns * 1e-9,
+                  ctime + ctime_ns * 1e-9)
 
         return make_stat_result(result)
 
     def by_handle_info_to_stat(info):
         # similar to the one above
         st_mode = attributes_to_mode(info.c_dwFileAttributes)
-        st_size = (lltype.r_ulonglong(info.c_nFileSizeHigh) << 32)
-        st_size += info.c_nFileSizeLow
+        st_size = make_longlong(info.c_nFileSizeHigh, info.c_nFileSizeLow)
         ctime, ctime_ns = FILE_TIME_to_time_t_nsec(info.c_ftCreationTime)
         mtime, mtime_ns = FILE_TIME_to_time_t_nsec(info.c_ftLastWriteTime)
         atime, atime_ns = FILE_TIME_to_time_t_nsec(info.c_ftLastAccessTime)
 
         # specific to fstat()
-        st_ino = (lltype.r_ulonglong(info.c_nFileIndexHigh) << 32) + info.c_nFileIndexLow
+        st_ino = make_longlong(info.c_nFileIndexHigh, info.c_nFileIndexLow)
         st_nlink = info.c_nNumberOfLinks
 
         result = (st_mode,
                   st_ino, 0, st_nlink, 0, 0,
                   st_size,
-                  atime, mtime, ctime)
+                  atime + atime_ns * 1e-9,
+                  mtime + mtime_ns * 1e-9,
+                  ctime + ctime_ns * 1e-9)
 
         return make_stat_result(result)
 
