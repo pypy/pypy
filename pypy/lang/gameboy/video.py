@@ -505,20 +505,16 @@ class Video(iMemory):
         for index in range(count):
             sprite = self.objects[index]
             if (sprite.x + SPRITE_SIZE <= lastx):
-                self.draw_object_tile(sprite.x, \
-                                      sprite.get_tile_address(self), \
-                                      sprite.get_attributes_and_flags())
+                self.draw_object_tile(sprite)
             else:
-                self.draw_overlapped_object_tile(sprite.x, \
-                                                 sprite.get_tile_address(self), \
-                                                 sprite.get_attributes_and_flags())
+                self.draw_overlapped_object_tile(sprite)
             lastx = sprite.x
             
     def scan_sprites(self):
         count = 0
         # search active objects
         for sprite in self.sprites:
-            if sprite.hidden: continue
+            #if sprite.hidden: continue
             if not sprite.intersects_current_line(self): continue
             self.objects[count] = sprite #.get_stupid_intermediate_data(count, self)
             count += 1
@@ -558,32 +554,35 @@ class Video(iMemory):
         return self.vram[address] + (self.vram[address + 1] << 8)
 
 
-    def draw_object_tile(self, x, address, flags):
-        self.draw_object(set_tile_line_call_wrapper(self), x, address, flags)
+    def draw_object_tile(self, sprite):
+        self.draw_object(set_tile_line_call_wrapper(self), sprite)
                       
     def set_tile_line(self, pos, color, mask):
         self.line[pos] |= color | mask
 
-    def draw_overlapped_object_tile(self, x, address, flags):
-        self.draw_object(set_overlapped_object_line_call_wrapper(self), 
-                         x, address, flags)
+    def draw_overlapped_object_tile(self, sprite):
+        self.draw_object(set_overlapped_object_line_call_wrapper(self), sprite)
         
     def set_overlapped_object_line(self, pos, color, mask):
         self.line[pos] = (self.line[pos] & 0x0101) | color | mask
         
-    def draw_object(self, caller, x, address, flags):
-        pattern = self.get_pattern(address)
+    def draw_object(self, caller, sprite):
+        #sprite.x, \
+        #                              sprite.get_tile_address(self), \
+        #                              sprite.get_attributes_and_flags()
+                                      
+        pattern = self.get_pattern(sprite.get_tile_address(self))
         mask    = 0
         # priority
-        if (flags & 0x80) != 0:
+        if sprite.object_behind_background: #(flags & 0x80) != 0:
             mask |= 0x0008
         # palette
-        if (flags & 0x10) != 0:
+        if sprite.palette_number: #(flags & 0x10) != 0:
             mask |= 0x0004
-        if (flags & 0x20) != 0:
-            self.draw_object_flipped(x, pattern, mask, caller)
+        if sprite.y_flipped: #(flags & 0x20) != 0:
+            self.draw_object_flipped(sprite.x, pattern, mask, caller)
         else:
-            self.draw_object_normal(x, pattern, mask, caller)
+            self.draw_object_normal(sprite.x, pattern, mask, caller)
             
     def draw_object_flipped(self, x, pattern, mask, caller):
         color = (pattern << 1) & 0x0202
