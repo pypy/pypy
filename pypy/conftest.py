@@ -360,7 +360,9 @@ class AppTestFunction(PyPyTestFunction):
     def _keywords(self):
         return ['applevel'] + super(AppTestFunction, self)._keywords()
 
-    def execute(self, target, *args):
+    def runtest(self):
+        target = self.obj
+        args = self._args 
         assert not args 
         if option.runappdirect:
             return target(*args)
@@ -387,7 +389,9 @@ class AppTestMethod(AppTestFunction):
                     space.setattr(w_instance, space.wrap(name[2:]), 
                                   getattr(instance, name)) 
 
-    def execute(self, target, *args): 
+    def runtest(self):
+        target = self.obj
+        args = self._args 
         assert not args 
         if option.runappdirect:
             return target(*args)
