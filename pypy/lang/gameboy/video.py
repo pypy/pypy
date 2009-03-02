@@ -139,7 +139,7 @@ class Video(iMemory):
         
         #XXX remove those dumb helper "objects"
         self.line       = [0] * (SPRITE_SIZE + GAMEBOY_SCREEN_WIDTH + SPRITE_SIZE)
-        self.objects    = [0] * constants.OBJECTS_PER_LINE
+        self.objects    = [None] * constants.OBJECTS_PER_LINE
         self.palette    = [0] * 1024
         
         self.frames     = 0
@@ -555,41 +555,23 @@ class Video(iMemory):
         count = self.scan_sprites()
         lastx = SPRITE_SIZE + GAMEBOY_SCREEN_WIDTH + SPRITE_SIZE
         for index in range(count):
-            data    = self.objects[index]
-            x       = (data >> 24) & 0xFF
-            flags   = (data >> 12) & 0xFF
-            address = data & 0xFFF
+            sprite    = self.objects[index]
+            x       = sprite.x
             if (x + SPRITE_SIZE <= lastx):
-                self.draw_object_tile(x, address, flags)
+                sprite.draw(self)
             else:
-                self.draw_overlapped_object_tile(x, address, flags)
+                sprite.draw_overlapped(self)
             lastx = x
             
     def scan_sprites(self):
-        count = 0
         # search active objects
+        count = 0
         for sprite in self.sprites:
-            x = sprite.x
-            y = sprite.y
-            if sprite.hidden: continue
-            tile = sprite.tile_number
-            y    = self.line_y - y + 2 * SPRITE_SIZE
-            if self.control.big_sprite_size_selected:
-                # 8x16 tile size
-                tile_size = 15
-                tile &= 0xFE
-            else:
-                # 8x8 tile size
-                tile_size = 7
-            if y < 0 or y > tile_size: continue
-            if sprite.y_flipped:
-                y = tile_size - y
-            # TODO: build an object abstraction?
-            self.objects[count] = (x << 24) + (count << 20) + (sprite.get_attributes_and_flags() << 12) + \
-                                  (tile << 4) + (y << 1)
-            count += 1
-            if count >= constants.OBJECTS_PER_LINE:
-                break
+            if not sprite.hidden and sprite.visible_on_line(self.line_y): 
+                self.objects[count] = sprite
+                count += 1
+                if count >= constants.OBJECTS_PER_LINE:
+                    break
         self.sort_scan_sprite(count)
         return count
 
@@ -599,8 +581,7 @@ class Video(iMemory):
         for index in range(count):
             highest = index
             for right in range(index+1, count):
-                if (self.objects[right] >> 20) > \
-                   (self.objects[highest] >> 20):
+                if self.objects[right].x > self.objects[highest].x:
                     highest = right
             self.objects[index], self.objects[highest] = \
                     self.objects[highest], self.objects[index]
@@ -624,20 +605,20 @@ class Video(iMemory):
         return self.vram[address] + (self.vram[address + 1] << 8)
 
 
-    def draw_object_tile(self, x, address, flags):
-        self.draw_object(set_tile_line_call_wrapper(self), x, address, flags)
+    def draw_object_tile(self, x, y, address, flags):
+        self.draw_object(set_tile_line_call_wrapper(self), x, y, address, flags)
                       
     def set_tile_line(self, pos, color, mask):
         self.line[pos] |= color | mask
 
-    def draw_overlapped_object_tile(self, x, address, flags):
+    def draw_overlapped_object_tile(self, x, y, address, flags):
         self.draw_object(set_overlapped_object_line_call_wrapper(self), 
-                         x, address, flags)
+                         x, y, address, flags)
         
     def set_overlapped_object_line(self, pos, color, mask):
         self.line[pos] = (self.line[pos] & 0x0101) | color | mask
         
-    def draw_object(self, caller, x, address, flags):
+    def draw_object(self, caller, x, y, address, flags):
         pattern = self.get_pattern(address)
         mask    = 0
         # priority

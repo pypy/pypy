@@ -30,27 +30,25 @@ class Sprite(object):
     def get_data(self):
         return [self.y, self.x, self.tile_number, self.get_attributes_and_flags()]
 
-    def set_data(self, y, x, tile_number, flags):
-        """
-        extracts the sprite data from an oam entry
-        """
-        self.extract_y_position(y)
-        self.extract_x_position(x)
-        self.extract_tile_number(tile_number)
-        self.extract_attributes_and_flags(flags)
-
-    def set_data_at(self, position, data):
-        """
-        extracts the sprite data from an oam entry
-        """
-        if position == 0:
+    def set_data_at(self, address, data):
+        actual = address % 4
+        if actual == 0:
             self.extract_y_position(data)
-        if position == 1:
+        if actual == 1:
             self.extract_x_position(data)
-        if position == 2:
+        if actual == 2:
             self.extract_tile_number(data)
-        if position == 3:
+        if actual == 3:
             self.extract_attributes_and_flags(data)
+
+    def set_data(self, y_position, x_position, tile_number, attributes_and_flags):
+        """
+        extracts the sprite data from an oam entry
+        """
+        self.extract_y_position(y_position)
+        self.extract_x_position(x_position)
+        self.extract_tile_number(tile_number)
+        self.extract_attributes_and_flags(attributes_and_flags)
         
     def extract_y_position(self, data):
         """
@@ -108,13 +106,17 @@ class Sprite(object):
         return value
         
     def hide_check(self):
-        if self.y <= 0  or self.y >= GAMEBOY_SCREEN_WIDTH:
+        if self.y <= 0  or self.y >= SPRITE_SIZE + GAMEBOY_SCREEN_HEIGHT + SPRITE_SIZE:
             self.hidden = True
-        elif self.x <= 0  or self.x >= GAMEBOY_SCREEN_WIDTH+SPRITE_SIZE:
+        elif self.x <= 0  or self.x >= GAMEBOY_SCREEN_WIDTH + SPRITE_SIZE:
             self.hidden = True
         else:
             self.hidden = False
         return self.hidden
+        
+    def visible_on_line(self, line_y):
+        y = self.get_draw_y(line_y)
+        return y < 0 or y > (self.get_height() -1)
         
     def get_tile_number(self):
         return self.tile.id
@@ -134,11 +136,28 @@ class Sprite(object):
     def intersects_line(self, line):
         return line >= self.y and line <= self.y + self.get_height()
     
-    def draw(self):
-        pass
+    def get_draw_y(self, line_y):
+        return line_y - self.y + 2 * SPRITE_SIZE
+        
+    def get_draw_address_data(self, line_y):
+        tile = self.tile_number
+        if self.big_size:
+            tile &= 0xFE
+        tile_size = self.get_height() -1
+        y = self.get_draw_y(line_y)
+        if self.y_flipped:
+            y = tile_size - y
+        return  (tile << 4) + (y << 1)
+        
+    def draw(self, video):
+        video.draw_object_tile(self.x, self.y, \
+                self.get_draw_address_data(video.line_y), \
+                self.get_attributes_and_flags())
     
-    def draw_overlapped(self):
-        pass
+    def draw_overlapped(self, video):
+        video.draw_overlapped_object_tile(self.x, self.y, \
+                self.get_draw_address_data(video.line_y), \
+                self.get_attributes_and_flags())
 # -----------------------------------------------------------------------------
 
 class PaintSprite(Sprite):
