@@ -1,11 +1,11 @@
-import os
-import py
-import pdb
+#!/usr/bin/env python
+import os, py, pdb, sys
 from pypy.lang.gameboy.gameboy_implementation import GameBoyImplementation
 
 
 ROM_PATH = str(py.magic.autopath().dirpath().dirpath().dirpath())+"/lang/gameboy/rom"
 
+use_rsdl = False
 
 def entry_point(argv=None):
     if argv is not None and len(argv) > 1:
@@ -13,6 +13,7 @@ def entry_point(argv=None):
     else:
         pos = str(9)
         filename = ROM_PATH+"/rom"+pos+"/rom"+pos+".gb"
+        filename=None
     print "loading rom: ", str(filename)
     gameBoy = GameBoyImplementation()
     try:
@@ -20,10 +21,7 @@ def entry_point(argv=None):
     except:
         print "Corrupt Cartridge"
         gameBoy.load_cartridge_file(str(filename), verify=False)
-    try:
-        gameBoy.mainLoop()
-    except:
-        pass
+    gameBoy.mainLoop()
     #pdb.runcall(gameBoy.mainLoop)
     return 0
     
@@ -34,13 +32,19 @@ def target(*args):
     return entry_point, None
 
 def test_target():
-    entry_point(["b", ROM_PATH+"/rom9/rom9.gb"])
+    entry_point(sys.argv)
     
     
 # STARTPOINT ===================================================================
 
 if __name__ == '__main__':
-    from AppKit import NSApplication
-    NSApplication.sharedApplication()
+    if use_rsdl and sys.platform == 'darwin':
+        from AppKit import NSApplication
+        NSApplication.sharedApplication()
+    try:
+        import psyco
+        psyco.full()
+    except:
+        pass
     
     test_target()
