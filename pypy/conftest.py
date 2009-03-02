@@ -233,8 +233,7 @@ class Module(py.test.collect.Module):
         #    if hasattr(mod, 'objspacename'): 
         #        mod.space = getttestobjspace(mod.objspacename)
 
-    def join(self, name): 
-        obj = getattr(self.obj, name) 
+    def makeitem(self, name, obj): 
         if isclass(obj): 
             if name.startswith('AppTest'): 
                 return AppClassCollector(name, parent=self)
