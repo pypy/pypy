@@ -132,9 +132,19 @@ class Sprite(object):
     def overlaps_on_line(self, sprite, line):
         return False
     
+    def get_tile_size(self, video):
+         if video.control.big_sprite_size_selected:
+            return 15
+         else:
+            return 7
+        
     def intersects_current_line(self, video):
-        return line >= self.y and line <= self.y + self.get_height()
+        y = self.current_line_y(video)
+        return y >= 0 and y <= self.get_tile_size(video)
     
+    def current_line_y(self, video):
+        return video.line_y - self.y + 2 * SPRITE_SIZE
+        
     def draw(self):
         pass
     

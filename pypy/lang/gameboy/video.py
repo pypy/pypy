@@ -563,8 +563,9 @@ class Video(iMemory):
             x = sprite.x
             y = sprite.y
             if sprite.hidden: continue
+            if not sprite.intersects_current_line(self): continue
             tile = sprite.tile_number
-            y    = self.line_y - y + 2 * SPRITE_SIZE
+            y    = sprite.current_line_y(self)
             if self.control.big_sprite_size_selected:
                 # 8x16 tile size
                 tile_size = 15
@@ -572,7 +573,6 @@ class Video(iMemory):
             else:
                 # 8x8 tile size
                 tile_size = 7
-            if y < 0 or y > tile_size: continue
             if sprite.y_flipped:
                 y = tile_size - y
             # TODO: build an object abstraction?
