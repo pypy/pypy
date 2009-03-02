@@ -1,4 +1,5 @@
 from pypy.interpreter.mixedmodule import MixedModule
+from pypy.module._locale import interp_locale
 
 class Module(MixedModule):
     """Support for POSIX locales."""
@@ -9,14 +10,21 @@ class Module(MixedModule):
             'strcoll':                  'interp_locale.strcoll',
             'strxfrm':                  'interp_locale.strxfrm',
             #'getdefaultlocale':        'interp_locale.getdefaultlocale',
+            }
+
+    if interp_locale.HAVE_LANGINFO:
+        interpleveldefs.update({
+            'nl_langinfo':              'interp_locale.nl_langinfo',
+            })
+    if interp_locale.HAVE_LIBINTL:
+        interpleveldefs.update({
             'gettext':                  'interp_locale.gettext',
             'dgettext':                 'interp_locale.dgettext',
             'dcgettext':                'interp_locale.dcgettext',
             'textdomain':               'interp_locale.textdomain',
-            'nl_langinfo':              'interp_locale.nl_langinfo',
             'bindtextdomain':           'interp_locale.bindtextdomain',
             'bind_textdomain_codeset':  'interp_locale.bind_textdomain_codeset',
-            }
+            })
 
     appleveldefs  = {
             'Error':               'app_locale.Error',
@@ -24,7 +32,6 @@ class Module(MixedModule):
             }
 
     def buildloaders(cls):
-        from pypy.module._locale import interp_locale
         for constant, value in interp_locale.constants.iteritems():
             Module.interpleveldefs[constant] = "space.wrap(%r)" % value
         super(Module, cls).buildloaders()

@@ -7,9 +7,17 @@ from pypy.interpreter.gateway import ObjSpace, W_Root
 
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
+import sys
+
+HAVE_LANGINFO = sys.platform != 'win32'
+HAVE_LIBINTL  = sys.platform != 'win32'
+
 class CConfig:
+    includes = ['locale.h', 'limits.h']
+    if HAVE_LANGINFO:
+        includes += ['langinfo.h']
     _compilation_info_ = ExternalCompilationInfo(
-        includes = ['locale.h', 'langinfo.h', 'limits.h']
+        includes=includes,
     )
     lconv = platform.Struct("struct lconv", [
             # Numeric (non-monetary) information.

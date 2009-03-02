@@ -6,6 +6,14 @@ import sys
 class AppTestLocaleTrivia:
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=['_locale'])
+        if sys.platform != 'win32':
+            cls.w_language_en = cls.space.wrap("en_US")
+            cls.w_language_utf8 = cls.space.wrap("en_US.UTF-8")
+            cls.w_language_pl = cls.space.wrap("pl_PL")
+        else:
+            cls.w_language_en = cls.space.wrap("English_US")
+            cls.w_language_utf8 = cls.space.wrap("English_US.65001")
+            cls.w_language_pl = cls.space.wrap("Polish_Poland")
 
     def test_import(self):
         import _locale
@@ -14,22 +22,24 @@ class AppTestLocaleTrivia:
         import locale
         assert locale
 
-    def test_contants(self):
+    def test_constants(self):
         _CONSTANTS = (
             'LC_CTYPE',
             'LC_NUMERIC',
             'LC_TIME',
             'LC_COLLATE',
             'LC_MONETARY',
-            'LC_MESSAGES',
             'LC_ALL',
-            'LC_PAPER',
-            'LC_NAME',
-            'LC_ADDRESS',
-            'LC_TELEPHONE',
-            'LC_MEASUREMENT',
-            'LC_IDENTIFICATION',
             'CHAR_MAX',
+
+            # These are optional
+            #'LC_MESSAGES',
+            #'LC_PAPER',
+            #'LC_NAME',
+            #'LC_ADDRESS',
+            #'LC_TELEPHONE',
+            #'LC_MEASUREMENT',
+            #'LC_IDENTIFICATION',
         )
 
         import _locale
@@ -40,9 +50,9 @@ class AppTestLocaleTrivia:
     def test_setlocale(self):
         import _locale
 
-        raises(TypeError, _locale.setlocale, "", "en_US")
+        raises(TypeError, _locale.setlocale, "", self.language_en)
         raises(TypeError, _locale.setlocale, _locale.LC_ALL, 6)
-        raises(_locale.Error, _locale.setlocale, 123456, "en_US")
+        raises(_locale.Error, _locale.setlocale, 123456, self.language_en)
 
         assert _locale.setlocale(_locale.LC_ALL, None)
         assert _locale.setlocale(_locale.LC_ALL)
@@ -53,11 +63,11 @@ class AppTestLocaleTrivia:
         lcase = "abcdefghijklmnopqrstuvwxyz"
         ucase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-        _locale.setlocale(_locale.LC_ALL, "en_US.UTF-8")
+        _locale.setlocale(_locale.LC_ALL, self.language_utf8)
         assert string.lowercase == lcase
         assert string.uppercase == ucase
 
-        _locale.setlocale(_locale.LC_ALL, "en_US")
+        _locale.setlocale(_locale.LC_ALL, self.language_en)
 
         assert string.lowercase != lcase
         assert string.uppercase != ucase
@@ -94,7 +104,7 @@ class AppTestLocaleTrivia:
     def test_strcoll(self):
         import _locale
 
-        _locale.setlocale(_locale.LC_ALL, "pl_PL.UTF-8")
+        _locale.setlocale(_locale.LC_ALL, self.language_pl)
         assert _locale.strcoll("a", "b") < 0
         assert _locale.strcoll("ą", "b") < 0
 
@@ -109,7 +119,7 @@ class AppTestLocaleTrivia:
     def test_strcoll_unicode(self):
         import _locale
 
-        _locale.setlocale(_locale.LC_ALL, "pl_PL.UTF-8")
+        _locale.setlocale(_locale.LC_ALL, self.language_pl)
         assert _locale.strcoll(u"b", u"b") == 0
         assert _locale.strcoll(u"a", u"b") < 0
         assert _locale.strcoll(u"b", u"a") > 0
@@ -129,7 +139,7 @@ class AppTestLocaleTrivia:
 
         raises(TypeError, _locale.strxfrm, 1)
 
-        _locale.setlocale(_locale.LC_ALL, "pl_PL.UTF-8")
+        _locale.setlocale(_locale.LC_ALL, self.language_pl)
         a = "1234"
         b = _locale.strxfrm(a)
         assert a is not b
@@ -138,12 +148,16 @@ class AppTestLocaleTrivia:
         import _locale
         import locale
 
-        _locale.setlocale(_locale.LC_ALL, "en_US.UTF-8")
+        _locale.setlocale(_locale.LC_ALL, self.language_en)
         assert locale.str(1.1) == '1.1'
-        _locale.setlocale(_locale.LC_ALL, "pl_PL.UTF-8")
+        _locale.setlocale(_locale.LC_ALL, self.language_pl)
         assert locale.str(1.1) == '1,1'
 
     def test_text(self):
+        import sys
+        if sys.platform == 'win32':
+            skip("No gettext on Windows")
+
         # TODO more tests would be nice
         import _locale
 
@@ -153,6 +167,10 @@ class AppTestLocaleTrivia:
         assert _locale.textdomain("1234") == "1234"
 
     def test_nl_langinfo(self):
+        import sys
+        if sys.platform == 'win32':
+            skip("No langinfo on Windows")
+
         import _locale
 
         langinfo_consts = [
@@ -221,6 +239,10 @@ class AppTestLocaleTrivia:
         raises(TypeError, _locale.nl_langinfo, None)
     
     def test_bindtextdomain(self):
+        import sys
+        if sys.platform == 'win32':
+            skip("No textdomain on Windows")
+
         # TODO more tests would be nice
         import _locale
 
@@ -228,6 +250,10 @@ class AppTestLocaleTrivia:
         raises(OSError, _locale.bindtextdomain, '', '1')
 
     def test_bind_textdomain_codeset(self):
+        import sys
+        if sys.platform == 'win32':
+            skip("No textdomain on Windows")
+
         import _locale
 
         assert _locale.bind_textdomain_codeset('/', None) is None
