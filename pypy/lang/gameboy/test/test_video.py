@@ -116,9 +116,12 @@ def test_set_line_y_compare():
     value = 0xF6
     video.control.lcd_enabled = False
     
+    import pdb
+    pdb.set_trace()
     video.write(0xFF45, value)
     
     assert video.line_y_compare == value
+    assert video.status.read() == 0x0
     
     video.control.write(0x80)
     

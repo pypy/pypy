@@ -130,9 +130,6 @@ class Sprite(object):
         else:
             return SPRITE_SIZE
          
-    def overlaps_on_line(self, sprite, line):
-        return False
-    
     def get_tile_size(self, video):
          if video.control.big_sprite_size_selected:
             return 15
@@ -143,6 +140,9 @@ class Sprite(object):
         y = self.current_line_y(video)
         return y >= 0 and y <= self.get_tile_size(video)
     
+    def is_shown_on_current_line(self, video):
+        return not self.hidden and self.intersects_current_line(video)
+         
     def current_line_y(self, video):
         return video.line_y - self.y + 2 * SPRITE_SIZE
     
@@ -198,7 +198,8 @@ class PaintSprite(Sprite):
     
 class Tile(object):
     
-    def __init__(self):
+    def __init__(self, video):
+        self.video = video
         self.reset()
         
     def reset(self):

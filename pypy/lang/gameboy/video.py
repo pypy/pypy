@@ -53,12 +53,20 @@ class Video(iMemory):
         self.create_sprites()
         self.reset()
     
+    # -----------------------------------------------------------------------
+    
     def create_tile_maps(self):
         # create the maxumal possible sprites
-        self.tile_map_0 = [None] * 32 * 32
-        self.tile_map_1 = [None] * 32 * 32
+        self.tile_map_0 = self.create_tile_map(32 * 32)
+        self.tile_map_1 = self.create_tile_map(32 * 32)
         self.tile_maps = [self.tile_map_0, self.tile_map_1]
     
+    def create_tile_map(self, size):
+        tile_map = [None] * size
+        for i in range(size):
+            tile_map[i] = Tile(self)
+        return tile_map
+        
     def update_tile(self, address, data):
         # XXX to implement
         #self.get_tile(address).set_data();
@@ -75,6 +83,7 @@ class Video(iMemory):
         #    tile.reset()
         pass
     
+    # -----------------------------------------------------------------------
     def create_sprites(self):
         self.sprites = [None] * 40
         for i in range(40):
@@ -102,6 +111,8 @@ class Video(iMemory):
         #for sprite in self.sprites:
         #    sprite.reset()
         pass
+    
+    # -----------------------------------------------------------------------
          
     def reset(self):
         self.control.reset()
@@ -410,7 +421,7 @@ class Video(iMemory):
        self.update_tile(address, data)
     
     def get_vram(self, address):
-        #self.get_tile(address).get_data()[address % 4]
+        #return self.get_tile(address).get_data()[address % 4]
         return self.vram[address - constants.VRAM_ADDR]
     
     # emulation ----------------------------------------------------------------
@@ -457,15 +468,14 @@ class Video(iMemory):
             lastx = sprite.x
             
     def scan_sprites(self):
-        count = 0
         # search active objects
+        count = 0
         for sprite in self.sprites:
-            #if sprite.hidden: continue
-            if not sprite.intersects_current_line(self): continue
-            self.objects[count] = sprite
-            count += 1
-            if count >= constants.OBJECTS_PER_LINE:
-                break
+            if sprite.is_shown_on_current_line(self):
+                self.objects[count] = sprite
+                count += 1
+                if count >= constants.OBJECTS_PER_LINE:
+                    break
         self.sort_scan_sprite(count)
         return count
 
@@ -475,9 +485,7 @@ class Video(iMemory):
         for index in range(count):
             highest = index
             for right in range(index+1, count):
-                
-                if (self.objects[right].x) > \
-                   (self.objects[highest].x):
+                if self.objects[right].x > self.objects[highest].x:
                     highest = right
             self.objects[index], self.objects[highest] = \
                     self.objects[highest], self.objects[index]
