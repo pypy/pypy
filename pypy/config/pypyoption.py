@@ -71,6 +71,7 @@ module_import_dependencies = {
     "_rawffi"   : ["pypy.rlib.libffi"],
 
     "zlib"      : ["pypy.rlib.rzlib"],
+    "bz2"       : ["pypy.module.bz2.interp_bz2"],
     }
 
 def get_module_validator(modname):
