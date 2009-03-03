@@ -97,21 +97,6 @@ frame where another exception is being handled."""
     if operror is not None:
         operror.clear(space)
 
-def pypy_getudir(space):
-    """NOT_RPYTHON"""
-    from pypy.tool.udir import udir
-    return space.wrap(str(udir))
-
-## def getrefcount(space, w_obj):
-##     """getrefcount(object) -> integer
-##     Return the reference count of object.  The count returned is generally
-##     one higher than you might expect, because it includes the (temporary)
-##     reference as an argument to getrefcount().
-##     """
-##     # From the results i get when using this i need to apply a fudge
-##     # value of 6 to get results comparable to cpythons. /Arre
-##     return space.wrap(sys.getrefcount(w_obj) - 6)
-
 def settrace(space, w_func):
     """Set the global debug tracing function.  It will be called on each
 function call.  See the debugger chapter in the library manual."""

@@ -70,8 +70,6 @@ class Module(MixedModule):
         'setdefaultencoding'    : 'interp_encoding.setdefaultencoding',
 }
     appleveldefs = {
-        #'displayhook'           : 'app.displayhook', 
-        #'__displayhook__'       : 'app.__displayhook__', 
         'excepthook'            : 'app.excepthook', 
         '__excepthook__'        : 'app.excepthook', 
         'exit'                  : 'app.exit', 
