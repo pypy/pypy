@@ -153,7 +153,7 @@ class Sprite(object):
             return self.get_tile_number()
             
     def get_tile_address(self, video):
-        return (self.get_tile(video) << 4) +  (self.get_draw_y(video) << 1)
+        return (self.get_tile(video) << 4) + (self.get_draw_y(video) << 1)
         
     def get_draw_y(self, video):
         y = self.current_line_y(video)
@@ -194,43 +194,60 @@ class PaintSprite(Sprite):
             self.y = self.get_height() - 1 - self.y
     
 # -----------------------------------------------------------------------------
-    
-    
+
+
 class Tile(object):
     
-    def __init__(self, video):
+    def __init__(self, number, video):
         self.video = video
+        self.number = number
         self.reset()
+        self.data = [0x00 for i in range(2*SPRITE_SIZE)]
+
+    def draw(self, x, y):
+        pattern = self.get_pattern_at(y << 1)
+        for i in range(SPRITE_SIZE):
+            value = (pattern >> (SPRITE_SIZE - 1 - i)) & 0x0101
+            self.video.line[x + i] = value
         
     def reset(self):
         pass
     
     def set_tile_data(self, data):
-        pass
+        self.data = data
 
-    def get_pixel_data(self):
-        return self.pixel_data
-    
-    def get_selected_tile_map_space(self):
-        pass
-    
     def get_data_at(self, address):
-        return self.get_data()[address % self.byte_size()]
+        return self.data[address % (2*SPRITE_SIZE)]
     
-    def get_data():
-        return []
+    def set_data_at(self, address, data):
+        self.data[address % (2*SPRITE_SIZE)] = data
     
-    def byte_size(self):
-        return 0
+    def get_data(self):
+        return self.data
+
+    def get_pattern_at(self, address):
+        return self.get_data_at(address) +\
+               (self.get_data_at(address + 1) << 8)
     
 # -----------------------------------------------------------------------------
 
-class Window(object):
-    
+class Drawable(object):
     def __init__(self, video):
         self.video = video
         self.reset()
 
+    def get_tile_map_space(self):
+        if self.upper_tile_map_selected:
+            return self.video.tile_map_1
+        else:
+            return self.video.tile_map_0
+
+    def reset(self):
+        raise Exception("Not implemented")
+ 
+
+class Window(Drawable):
+    
     def reset(self):
         self.x       = 0
         self.y       = 0
@@ -241,36 +258,21 @@ class Window(object):
     def switch_on(self):
         if self.line_y == 0 and self.video.line_y > self.y:
             self.line_y = GAMEBOY_SCREEN_HEIGHT
-    
-    def get_tile_map_space(self):
-        #if (self.control.read() & mask) != 0:
-        if self.upper_tile_map_selected:
-            return constants.VRAM_MAP_B
-        else:
-            return constants.VRAM_MAP_A
-        
+       
     def draw_line(self, line_y):
-        if line_y  >= self.y and self.x < 167 and \
+        if line_y >= self.y and self.x < GAMEBOY_SCREEN_WIDTH+SPRITE_SIZE-1 and \
            self.line_y < GAMEBOY_SCREEN_HEIGHT:
-            tile_map, tile_data = self.prepare_window_data()
-            self.video.draw_tiles(self.x + 1, tile_map, tile_data)
+
+            tile_map   = self.get_tile_map_space()
+            tile_group = tile_map[self.line_y >> 5]
+
+            self.video.draw_tiles(self.x + 1, tile_group, self.line_y)
             self.line_y += 1
 
-    def prepare_window_data(self):
-        tile_map   = self.get_tile_map_space()
-        tile_map  += (self.line_y >> 3) << 5
-        tile_data  = self.video.control.get_selected_tile_data_space()
-        tile_data += (self.line_y & 7) << 1
-        return tile_map, tile_data;
-        
 # -----------------------------------------------------------------------------
 
-class Background(object):
+class Background(Drawable):
     
-    def __init__(self, video):
-        self.video = video
-        self.reset()
-        
     def reset(self):
         # SCROLLX and SCROLLY hold the coordinates of background to
         # be displayed in the left upper corner of the screen.
@@ -279,28 +281,15 @@ class Background(object):
         self.enabled    = True
         self.upper_tile_map_selected = False
       
-    def get_tile_map_space(self):
-        #if (self.control.read() & mask) != 0:
-        if self.upper_tile_map_selected:
-            return constants.VRAM_MAP_B
-        else:
-            return constants.VRAM_MAP_A
-          
     def draw_clean_line(self, line_y):
-        for x in range(8+GAMEBOY_SCREEN_WIDTH+8):
+        for x in range(SPRITE_SIZE+GAMEBOY_SCREEN_WIDTH+SPRITE_SIZE):
             self.video.line[x] = 0x00
     
     def draw_line(self, line_y):
-        y = (self.scroll_y + line_y) & 0xFF
-        x = self.scroll_x            & 0xFF
-        tile_map, tile_data = self.prepare_background_data(x, y)
-        self.video.draw_tiles(8 - (x & 7), tile_map, tile_data)
-        
-    def prepare_background_data(self, x, y):
-        tile_map   = self.get_tile_map_space()
-        tile_map  += ((y >> 3) << 5) + (x >> 3)
-        tile_data  = self.video.control.get_selected_tile_data_space()
-        tile_data += (y & 7) << 1
-        return tile_map, tile_data
-    
-      
+        y = self.scroll_y + line_y
+        x = self.scroll_x
+
+        tile_map = self.get_tile_map_space()
+        tile_group = tile_map[y >> 3]
+        # print "Background"
+        self.video.draw_tiles(8 - (x % 8), tile_group, y, x >> 3)

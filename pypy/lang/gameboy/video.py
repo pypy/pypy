@@ -1,12 +1,10 @@
 """
  PyGirl Emulator
- constants.LCD Video Display Processor
+ LCD Video Display Processor
 """
 import math
 import operator
-from pypy.lang.gameboy import constants
-from pypy.lang.gameboy.constants import SPRITE_SIZE, GAMEBOY_SCREEN_WIDTH, \
-                                        GAMEBOY_SCREEN_HEIGHT
+from pypy.lang.gameboy.constants import *
 from pypy.lang.gameboy.ram import iMemory
 from pypy.lang.gameboy.cpu import process_2s_complement
 from pypy.lang.gameboy.video_register import ControlRegister, StatusRegister
@@ -50,6 +48,7 @@ class Video(iMemory):
                                                       self.background)
         self.memory                 = memory
         self.create_tile_maps()
+        self.create_tiles()
         self.create_sprites()
         self.reset()
     
@@ -57,31 +56,51 @@ class Video(iMemory):
     
     def create_tile_maps(self):
         # create the maxumal possible sprites
-        self.tile_map_0 = self.create_tile_map(32 * 32)
-        self.tile_map_1 = self.create_tile_map(32 * 32)
+        self.tile_map_0 = self.create_tile_map()
+        self.tile_map_1 = self.create_tile_map()
         self.tile_maps = [self.tile_map_0, self.tile_map_1]
     
-    def create_tile_map(self, size):
-        tile_map = [None] * size
-        for i in range(size):
-            tile_map[i] = Tile(self)
-        return tile_map
+    def create_tile_map(self):
+        return [self.create_tile_group() for i in range(TILE_MAP_SIZE)]
+
+    def create_tile_group(self):
+        return [0x00 for i in range(TILE_GROUP_SIZE)]
+
+    def create_tiles(self):
+        self.tile_data_0 = self.create_tile_data()
+        self.tile_data_1 = self.create_tile_data()
+        self.tile_data = [self.tile_data_0, self.tile_data_1]
+
+    def create_tile_data(self):
+        return [Tile(i, self) for i in range(TILE_DATA_SIZE)]
         
     def update_tile(self, address, data):
-        # XXX to implement
-        #self.get_tile(address).set_data();
-        pass
+        self.get_tile(address).set_data_at(address, data);
     
     def get_tile(self, address):
-        # XXX to implement
-        pass
-    
-    def reset_all_tiles(self):
-        #for tile in self.tile_map_0:
-        #    tile.reset()
-        #for tile in self.tile_map_1:
-        #    tile.reset()
-        pass
+        tile_index = (address - TILE_DATA_ADDR) / (SPRITE_SIZE*2)
+        if tile_index < TILE_DATA_SIZE:
+            return self.tile_data_0[tile_index]
+        else:
+            return self.tile_data_1[tile_index - TILE_DATA_SIZE]
+
+    def select_tile_group_for(self, address):
+        tile_map_index = address - TILE_MAP_ADDR #) >> 1
+        if tile_map_index < TILE_MAP_SIZE * TILE_GROUP_SIZE:
+            map = self.tile_map_0
+        else:
+            map = self.tile_map_1
+            tile_map_index -= TILE_MAP_SIZE * TILE_GROUP_SIZE
+        tile_group = map[tile_map_index >> 5]
+        return tile_group, tile_map_index & 0x1F
+
+    def get_tile_map(self, address):
+        tile_group, group_index = self.select_tile_group_for(address)
+        return tile_group[group_index]
+
+    def update_tile_map(self, address, data):
+        tile_group, group_index = self.select_tile_group_for(address)
+        tile_group[group_index] = data
     
     # -----------------------------------------------------------------------
     def create_sprites(self):
@@ -106,16 +125,11 @@ class Video(iMemory):
             sprite.big_size = self.control.big_sprites 
        
     def get_sprite(self, address):
-        address -= constants.OAM_ADDR
+        address -= OAM_ADDR
         # address divided by 4 gives the correct sprite, each sprite has 4
         # bytes of attributes
         return self.sprites[ int(math.floor(address / 4)) ]
         
-    def reset_all_sprites(self):
-        #for sprite in self.sprites:
-        #    sprite.reset()
-        pass
-    
     # -----------------------------------------------------------------------
          
     def reset(self):
@@ -123,7 +137,7 @@ class Video(iMemory):
         self.status.reset()
         self.background.reset()
         self.window.reset()
-        self.cycles     = constants.MODE_2_TICKS
+        self.cycles     = MODE_2_TICKS
         self.line_y     = 0
         self.line_y_compare = 0
         self.dma        = 0xFF
@@ -137,15 +151,13 @@ class Video(iMemory):
         self.v_blank    = True
         self.dirty      = True
 
-        self.vram       = [0] * constants.VRAM_SIZE
-        self.reset_all_tiles()
+        # self.vram       = [0] * VRAM_SIZE
         # Object Attribute Memory
-        self.oam        = [0] * constants.OAM_SIZE
-        self.reset_all_sprites()
+        self.oam        = [0] * OAM_SIZE
         
         #XXX remove those dumb helper "shown_sprites"
         self.line       = [0] * (SPRITE_SIZE + GAMEBOY_SCREEN_WIDTH + SPRITE_SIZE)
-        self.shown_sprites    = [0] * constants.SPRITES_PER_LINE
+        self.shown_sprites    = [0] * SPRITES_PER_LINE
         self.palette    = [0] * 1024
         
         self.frames     = 0
@@ -156,68 +168,68 @@ class Video(iMemory):
     def write(self, address, data):
         address = int(address)
         # assert data >= 0x00 and data <= 0xFF
-        if address == constants.LCDC :
+        if address == LCDC :
             self.set_control(data)
-        elif address == constants.STAT:
+        elif address == STAT:
             self.set_status(data)
-        elif address == constants.SCY:
+        elif address == SCY:
             self.set_scroll_y(data)
-        elif address == constants.SCX:
+        elif address == SCX:
             self.set_scroll_x(data)
-        #elif address == constants.LY:
+        #elif address == LY:
         #    Read Only: line_y
         #    pass
-        elif address == constants.LYC:
+        elif address == LYC:
             self.set_line_y_compare(data)
-        elif address == constants.DMA:
+        elif address == DMA:
             self.set_dma(data)
-        elif address == constants.BGP:
+        elif address == BGP:
             self.set_background_palette(data)
-        elif address == constants.OBP0:
+        elif address == OBP0:
             self.set_object_palette_0(data)
-        elif address == constants.OBP1:
+        elif address == OBP1:
             self.set_object_palette_1(data)
-        elif address == constants.WY:
+        elif address == WY:
             self.set_window_y(data)
-        elif address == constants.WX:
+        elif address == WX:
             self.set_window_x(data)
-        elif constants.OAM_ADDR <= address < \
-        constants.OAM_ADDR + constants.OAM_SIZE:
+        elif OAM_ADDR <= address < \
+        OAM_ADDR + OAM_SIZE:
             self.set_oam(address, data)
-        elif constants.VRAM_ADDR <= address < \
-        constants.VRAM_ADDR + constants.VRAM_SIZE:
+        elif VRAM_ADDR <= address < \
+        VRAM_ADDR + VRAM_SIZE:
             self.set_vram(address, data)
             
     def read(self, address):
-        if address == constants.LCDC:
+        if address == LCDC:
             return self.get_control()
-        elif address == constants.STAT:
+        elif address == STAT:
             return self.get_status()
-        elif address == constants.SCY:
+        elif address == SCY:
             return self.get_scroll_y()
-        elif address == constants.SCX:
+        elif address == SCX:
             return self.get_scroll_x()
-        elif address == constants.LY:
+        elif address == LY:
             return self.get_line_y()
-        elif address == constants.LYC:
+        elif address == LYC:
             return self.get_line_y_compare()
-        elif address == constants.DMA:
+        elif address == DMA:
             return self.get_dma()
-        elif address == constants.BGP:
+        elif address == BGP:
             return self.get_background_palette()
-        elif address == constants.OBP0:
+        elif address == OBP0:
             return self.get_object_palette_0()
-        elif address == constants.OBP1:
+        elif address == OBP1:
             return self.get_object_palette_1()
-        elif address == constants.WY:
+        elif address == WY:
             return self.get_window_y()
-        elif address == constants.WX:
+        elif address == WX:
             return self.get_window_x()
-        elif constants.OAM_ADDR <= address < \
-        constants.OAM_ADDR + constants.OAM_SIZE:
+        elif OAM_ADDR <= address < \
+        OAM_ADDR + OAM_SIZE:
             return self.get_oam(address)
-        elif constants.VRAM_ADDR <= address < \
-        constants.VRAM_ADDR + constants.VRAM_SIZE:
+        elif VRAM_ADDR <= address < \
+        VRAM_ADDR + VRAM_SIZE:
             return self.get_vram(address)
         return 0xFF
 
@@ -329,7 +341,7 @@ class Video(iMemory):
         """
         self.dma = data
         # copy the memory region
-        for index in range(constants.OAM_SIZE):
+        for index in range(OAM_SIZE):
             self.oam[index] = self.memory.read((self.dma << 8) + index)
         self.update_all_sprites()
 
@@ -410,23 +422,27 @@ class Video(iMemory):
         attributes of the sprites, this works only during the v-blank and
         the h-blank period.
         """
-        self.oam[address - constants.OAM_ADDR] = data & 0xFF
+        self.oam[address - OAM_ADDR] = data & 0xFF
         self.update_sprite(address, data)
         
     def get_oam(self, address):
         return self.get_sprite(address).get_data_at(address);
         
     def set_vram(self, address, data):
-       """
-       sets one byte of the video memory.
-       The video memory contains the tiles used to display.
-       """
-       self.vram[address - constants.VRAM_ADDR] = data & 0xFF
-       self.update_tile(address, data)
+        """
+        sets one byte of the video memory.
+        The video memory contains the tiles used to display.
+        """
+        if address < TILE_MAP_ADDR:
+            self.update_tile(address, data)
+        else:
+            self.update_tile_map(address, data)
     
     def get_vram(self, address):
-        #return self.get_tile(address).get_data()[address % 4]
-        return self.vram[address - constants.VRAM_ADDR]
+        if address < TILE_MAP_ADDR:
+            return self.get_tile(address).get_data_at(address)
+        else:
+            return self.get_tile_map(address)
     
     # emulation ----------------------------------------------------------------
 
@@ -478,7 +494,7 @@ class Video(iMemory):
             if sprite.is_shown_on_current_line(self):
                 self.shown_sprites[count] = sprite
                 count += 1
-                if count >= constants.SPRITES_PER_LINE:
+                if count >= SPRITES_PER_LINE:
                     break
         self.sort_scan_sprite(count)
         return count
@@ -494,23 +510,21 @@ class Video(iMemory):
             self.shown_sprites[index], self.shown_sprites[highest] = \
                     self.shown_sprites[highest], self.shown_sprites[index]
 
-    def draw_tiles(self, x, tile_map, tile_data):
+    def draw_tiles(self, x_start, tile_group, y, group_index=0):
+        x = x_start
+        tile_data = self.control.get_selected_tile_data_space()
         while x < GAMEBOY_SCREEN_WIDTH+SPRITE_SIZE:
-            tile = self.vram[tile_map]
-            assert tile == (tile & 0xFF)
+            tile_index = tile_group[group_index % TILE_GROUP_SIZE]
             if not self.control.background_and_window_lower_tile_data_selected:
-                tile = (tile ^ 0x80) & 0xFF
-            self.draw_tile(x, tile_data + (tile << 4))
-            tile_map = (tile_map & 0x1FE0) + ((tile_map + 1) & 0x001F)
+                tile_index ^= 0x80
+            tile = tile_data[tile_index]
+            tile.draw(x, y)
+            group_index += 1
             x += SPRITE_SIZE
      
-    def draw_tile(self, x, address):
-        pattern =  self.get_pattern(address)
-        for i in range(0, SPRITE_SIZE):
-            self.line[x + i] = (pattern >> (7-i)) & 0x0101
-                   
     def get_pattern(self, address):
-        return self.vram[address] + (self.vram[address + 1] << 8)
+        # TODO: remove method!
+        return self.get_vram(VRAM_ADDR + address) + (self.get_vram(VRAM_ADDR + address + 1) << 8)
 
     def draw_object_tile(self, sprite):
         self.draw_object(set_tile_line_call_wrapper(self), sprite)
@@ -587,7 +601,7 @@ class Video(iMemory):
                 color = (self.object_palette_1 >> ((((pattern >> 4) & 0x02) +\
                         ((pattern >> 1) & 0x01)) << 1)) & 0x03
             index = ((pattern & 0x30) << 4) + (pattern & 0x0F)
-            #self.palette[index] = constants.COLOR_MAP[color]
+            #self.palette[index] = COLOR_MAP[color]
             self.palette[index] = color
         self.dirty = False
 
@@ -596,8 +610,8 @@ class Video(iMemory):
 class VideoDriver(object):
     
     def __init__(self):
-        self.width = int(constants.GAMEBOY_SCREEN_WIDTH)
-        self.height = int(constants.GAMEBOY_SCREEN_HEIGHT)
+        self.width = int(GAMEBOY_SCREEN_WIDTH)
+        self.height = int(GAMEBOY_SCREEN_HEIGHT)
         self.clear_pixels()
         
     def clear_pixels(self):

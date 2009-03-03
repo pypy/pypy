@@ -125,8 +125,16 @@ VRAM_ADDR   = 0x8000 # 8KB Video RAM (8000..9FFF)
 VRAM_SIZE   = 0x2000
 
 # VRAM Tile Data/Maps Addresses
-VRAM_DATA_A = 0x0000 # 4KB Tile Data (8000..8FFF)
-VRAM_DATA_B = 0x0800 # 4KB Tile Data (8800..97FF)
+TILE_DATA_SIZE = 0x00C0 # 1/4th of 0x2000; 2 data maps with 2 bytes per tile
+                        # line and 8 lines
+TILE_DATA_ADDR = 0x8000
+
+VRAM_DATA_A = 0x0000 # 3KB Tile Data (8000..8BFF)
+VRAM_DATA_B = 0x0C00 # 3KB Tile Data (8C00..97FF)
+
+TILE_MAP_ADDR   = 0x9800
+TILE_MAP_SIZE   = 32 # 32 Groups
+TILE_GROUP_SIZE = 32 # of 32 addresses
 
 VRAM_MAP_A  = 0x1800 # 1KB BG Tile Map 0 (9800..9BFF)
 VRAM_MAP_B  = 0x1C00 # 1KB BG Tile Map 1 (9C00..9FFF)

@@ -144,10 +144,10 @@ class ControlRegister(object):
         self.background.enabled                      = bool(value & (1 << 0))
 
         if previous_big_sprites != self.big_sprites:
-            video.update_sprite_size()
+            self.video.update_sprite_size()
         
     def get_selected_tile_data_space(self):
         if self.background_and_window_lower_tile_data_selected:
-            return constants.VRAM_DATA_A
+            return self.video.tile_data_0
         else:
-            return constants.VRAM_DATA_B
+            return self.video.tile_data_1

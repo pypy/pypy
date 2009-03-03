@@ -47,7 +47,7 @@ def test_reset():
     assert video.display == True
     assert video.v_blank == True
     assert video.dirty == True
-    assert len(video.vram) == constants.VRAM_SIZE
+    # assert len(video.vram) == constants.VRAM_SIZE
     assert len(video.oam) == constants.OAM_SIZE
     assert len(video.line) == 176
     assert len(video.objects) == constants.big_sprites
@@ -116,8 +116,6 @@ def test_set_line_y_compare():
     value = 0xF6
     video.control.lcd_enabled = False
     
-    import pdb
-    pdb.set_trace()
     video.write(0xFF45, value)
     
     assert video.line_y_compare == value
@@ -511,3 +509,26 @@ def test_draw_clean_background():
     
     assert video.line == [0] * (8+160+8)
     
+def test_update_tile():
+    video = get_video()
+    assert len(video.tile_data_0) == constants.TILE_DATA_SIZE
+    assert len(video.tile_data_1) == constants.TILE_DATA_SIZE
+    for i in range(constants.TILE_DATA_SIZE * 2):
+        for j in range(0x100):
+            video.write(constants.TILE_DATA_ADDR + i, j)
+            assert video.read(constants.TILE_DATA_ADDR + i) == j
+
+def test_update_tile_map():
+    video = get_video()
+    assert len(video.tile_map_0) == constants.TILE_MAP_SIZE
+    assert len(video.tile_map_1) == constants.TILE_MAP_SIZE
+    for i in range(constants.TILE_MAP_SIZE * 2):
+        for j in range(0x100):
+            video.write(constants.TILE_MAP_ADDR + i, j)
+            assert video.read(constants.TILE_MAP_ADDR + i) == j
+
+def test_fill_tiles():
+    video = get_video()
+    for i in range(constants.TILE_DATA_SIZE * (2 * constants.SPRITE_SIZE) * 2):
+        video.write(constants.TILE_DATA_ADDR + i, 5)
+        assert video.read(constants.TILE_DATA_ADDR + i) == 5
