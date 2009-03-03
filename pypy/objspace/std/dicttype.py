@@ -229,24 +229,3 @@ dictiter_typedef = StdTypeDef("dictionaryiterator",
     __reduce__ = gateway.interp2app(descr_dictiter__reduce__,
                            unwrap_spec=[gateway.W_Root, gateway.ObjSpace]),
     )
-#note: registering in dictobject.py
-
-
-### fragment for frame object left here
-        #w(10),
-        #w(self.co_argcount), 
-        #w(self.co_nlocals), 
-        #w(self.co_stacksize), 
-        #w(self.co_flags),
-        #w(self.co_code), 
-        #space.newtuple(self.co_consts_w), 
-        #space.newtuple(self.co_names_w), 
-        #space.newtuple([w(v) for v in self.co_varnames]), 
-        #w(self.co_filename),
-        #w(self.co_name), 
-        #w(self.co_firstlineno),
-        #w(self.co_lnotab), 
-        #space.newtuple([w(v) for v in self.co_freevars]),
-        #space.newtuple([w(v) for v in self.co_cellvars]),
-        #hidden_applevel=False, magic = 62061 | 0x0a0d0000
-
