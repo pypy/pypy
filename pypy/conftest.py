@@ -234,7 +234,7 @@ class Module(py.test.collect.Module):
         #        mod.space = getttestobjspace(mod.objspacename)
 
     def makeitem(self, name, obj): 
-        if isclass(obj): 
+        if isclass(obj) and self.classnamefilter(name): 
             if name.startswith('AppTest'): 
                 return AppClassCollector(name, parent=self)
             elif name.startswith('ExpectTest'):
@@ -249,7 +249,7 @@ class Module(py.test.collect.Module):
             else:
                 return IntClassCollector(name, parent=self)
             
-        elif hasattr(obj, 'func_code'): 
+        elif hasattr(obj, 'func_code') and self.funcnamefilter(name): 
             if name.startswith('app_test_'): 
                 assert not obj.func_code.co_flags & 32, \
                     "generator app level functions? you must be joking" 
