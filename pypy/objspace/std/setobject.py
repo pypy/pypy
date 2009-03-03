@@ -76,7 +76,7 @@ def next__SetIterObject(space, w_setiter):
         if w_setiter.len != len(content):
             w_setiter.len = -1   # Make this error state sticky
             raise OperationError(space.w_RuntimeError,
-                     space.wrap("dictionary changed size during iteration"))
+                     space.wrap("Set changed size during iteration"))
         # look for the next entry
         w_result = w_setiter.next_entry()
         if w_result is not None:
@@ -116,7 +116,8 @@ def _initialize_set(space, w_obj, w_iterable=None):
 
 def _convert_set_to_frozenset(space, w_obj):
     if space.is_true(space.isinstance(w_obj, space.w_set)):
-        return space.newfrozenset(make_setdata_from_w_iterable(space, w_obj))
+        return W_FrozensetObject(space,
+                                 make_setdata_from_w_iterable(space, w_obj))
     else:
         return None
 
@@ -196,6 +197,16 @@ def _symmetric_difference_dict(ldict, rdict, isupdate):
         ld[w_key] = None
 
     return ld, rdict
+
+def _issubset_dict(ldict, rdict):
+    if len(ldict) > len(rdict):
+        return False
+
+    for w_key in ldict:
+        if w_key not in rdict:
+            return False
+    return True
+
 
 #end helper functions
 
@@ -327,13 +338,7 @@ def set_issubset__Set_Set(space, w_left, w_other):
     if space.is_w(w_left, w_other):
         return space.w_True
     ld, rd = w_left.setdata, w_other.setdata
-    if len(ld) > len(rd):
-        return space.w_False
-
-    for w_key in ld:
-        if w_key not in rd:
-            return space.w_False
-    return space.w_True
+    return space.wrap(_issubset_dict(ld, rd))
 
 set_issubset__Set_Frozenset = set_issubset__Set_Set
 frozenset_issubset__Frozenset_Set = set_issubset__Set_Set
@@ -344,13 +349,7 @@ def set_issubset__Set_ANY(space, w_left, w_other):
         return space.w_True
 
     ld, rd = w_left.setdata, make_setdata_from_w_iterable(space, w_other)
-    if len(ld) > len(rd):
-        return space.w_False
-
-    for w_key in ld:
-        if w_key not in rd:
-            return space.w_False
-    return space.w_True
+    return space.wrap(_issubset_dict(ld, rd))
 
 frozenset_issubset__Frozenset_ANY = set_issubset__Set_ANY
 
@@ -365,13 +364,7 @@ def set_issuperset__Set_Set(space, w_left, w_other):
         return space.w_True
 
     ld, rd = w_left.setdata, w_other.setdata
-    if len(ld) < len(rd):
-        return space.w_False
-
-    for w_key in rd:
-        if w_key not in ld:
-            return space.w_False
-    return space.w_True
+    return space.wrap(_issubset_dict(rd, ld))
 
 set_issuperset__Set_Frozenset = set_issuperset__Set_Set
 set_issuperset__Frozenset_Set = set_issuperset__Set_Set
@@ -382,13 +375,7 @@ def set_issuperset__Set_ANY(space, w_left, w_other):
         return space.w_True
 
     ld, rd = w_left.setdata, make_setdata_from_w_iterable(space, w_other)
-    if len(ld) < len(rd):
-        return space.w_False
-
-    for w_key in rd:
-        if w_key not in ld:
-            return space.w_False
-    return space.w_True
+    return space.wrap(_issubset_dict(rd, ld))
 
 frozenset_issuperset__Frozenset_ANY = set_issuperset__Set_ANY
 

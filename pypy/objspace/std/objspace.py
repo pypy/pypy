@@ -556,12 +556,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def newcomplex(self, realval, imagval):
         return W_ComplexObject(realval, imagval)
 
-    def newset(self, rdict_w):
-        return W_SetObject(self, rdict_w)
-
-    def newfrozenset(self, rdict_w):
-        return W_FrozensetObject(self, rdict_w)
-
     def newlong(self, val): # val is an int
         return W_LongObject.fromint(self, val)
 
