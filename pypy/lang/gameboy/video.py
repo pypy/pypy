@@ -157,7 +157,7 @@ class Video(iMemory):
         
         #XXX remove those dumb helper "shown_sprites"
         self.line       = [0] * (SPRITE_SIZE + GAMEBOY_SCREEN_WIDTH + SPRITE_SIZE)
-        self.shown_sprites    = [0] * SPRITES_PER_LINE
+        self.shown_sprites    = [None] * SPRITES_PER_LINE
         self.palette    = [0] * 1024
         
         self.frames     = 0
