@@ -48,7 +48,7 @@ class Joypad(iMemory):
 
     def write(self, address, data):
         if address == constants.JOYP:
-            self.read_control = (self.read_control & 0xC) + ((data & 0x30)>>4)
+            self.read_control = (self.read_control & 0xC) + ((data>>4) & 0x3)
             self.update()
 
     def read(self, address):
@@ -58,13 +58,18 @@ class Joypad(iMemory):
 
     def update(self):
         old_buttons = self.button_code
-        if self.read_control & 0x3 == 1:
+        control = (self.read_control & 0x3)
+        if control == 1:
             self.button_code = self.driver.get_button_code()
-        elif self.read_control & 0x3 == 2:
+        elif control == 2:
             self.button_code = self.driver.get_direction_code()
-        elif self.read_control & 0x3 == 3:
-            self.button_code  = 0xF
+            import pdb
+            pdb.set_trace()
+        elif control == 3:
+            self.button_code = 0xF
         if old_buttons != self.button_code:
+            print "CONTROL: ", control
+            print "CHANGED BUTTONS: ", old_buttons, " new: ", self.button_code
             self.joypad_interrupt_flag.set_pending()
 
 
@@ -116,13 +121,13 @@ class JoypadDriver(object):
         code = 0
         for button in self.buttons:
             code |= button.get_code()
-        return code
+        return code ^ 0xF # 0 means on, 1 means off
         
     def get_direction_code(self):
         code = 0
         for button in self.directions:
             code |= button.get_code()
-        return code
+        return code ^ 0xF # 0 means on, 1 means off
     
     def is_raised(self):
         raised      = self.raised

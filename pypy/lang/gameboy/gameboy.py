@@ -123,9 +123,10 @@ class GameBoy(object):
 
     def write(self, address, data):
         receiver = self.get_receiver(address)
-        if receiver is None:
-            raise Exception(("invalid write address given: ",address," ",data))
-        receiver.write(address, data)
+        if receiver is not None:
+            receiver.write(address, data)
+        # else:
+        #     raise Exception(("invalid write address given: ",address," ",data))
         if address == constants.STAT or address == 0xFFFF:
             self.cpu.handle_pending_interrupts()
 
@@ -141,6 +142,8 @@ class GameBoy(object):
             pass
             
     def get_receiver(self, address):
+        if self.cpu.instruction_counter > 81500:
+            print "Getting receiver at: ", address
         """
         General Memory Map
         0000-3FFF   16KB ROM Bank 00     (in cartridge, fixed at bank 00)

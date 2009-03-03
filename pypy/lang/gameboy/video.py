@@ -518,9 +518,6 @@ class Video(iMemory):
             tile_index = tile_group[group_index % TILE_GROUP_SIZE]
             if not self.control.background_and_window_lower_tile_data_selected:
                 tile_index ^= 0x80
-            if tile_index >= len(tile_data):
-                import pdb
-                pdb.set_trace()
             tile = tile_data[tile_index]
             tile.draw(x, y)
             group_index += 1
