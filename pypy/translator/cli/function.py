@@ -131,7 +131,9 @@ class Function(OOFunction, Node, CLIBaseGenerator):
             if isinstance(link.last_exception, flowmodel.Variable):
                 self.ilasm.opcode('dup')
                 self.store(link.last_exc_value)
-                self.ilasm.call_method('[mscorlib]System.Type object::GetType()', virtual=True)
+                self.ilasm.call_method(
+                    'class [mscorlib]System.Type object::GetType()',
+                    virtual=True)
                 self.store(link.last_exception)
             else:
                 self.store(link.last_exc_value)
