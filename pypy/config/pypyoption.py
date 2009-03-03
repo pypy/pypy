@@ -45,8 +45,6 @@ if sys.platform == "win32":
     del working_modules["fcntl"]
     del working_modules["termios"]
     del working_modules["_minimal_curses"]
-    # XXX this is temporary, hopefully
-    del working_modules["bz2"]
 
 if sys.platform == "sunos5":
     del working_modules['mmap']   # depend on ctypes, can't get at c-level 'errono'
