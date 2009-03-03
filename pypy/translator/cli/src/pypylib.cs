@@ -712,8 +712,9 @@ namespace pypy.runtime
     }
 
     public class Record_Stat_Result {
-        public int item0, item3, item4, item5, item7, item8, item9;
+        public int item0, item3, item4, item5;
         public long item1, item2, item6;
+        public double item7, item8, item9;
         public override string ToString() 
         { 
             return string.Format("({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9},)", 

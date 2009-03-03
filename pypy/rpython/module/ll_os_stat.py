@@ -26,11 +26,6 @@ if sys.platform == 'linux2':
 else:
     TIMESPEC = None
 
-if sys.platform == 'win32' or TIMESPEC is not None:
-    ModTime = lltype.Float
-else:
-    ModTime = lltype.Signed
-
 # all possible fields - some of them are not available on all platforms
 ALL_STAT_FIELDS = [
     ("st_mode",      lltype.Signed),
@@ -40,15 +35,15 @@ ALL_STAT_FIELDS = [
     ("st_uid",       lltype.Signed),
     ("st_gid",       lltype.Signed),
     ("st_size",      lltype.SignedLongLong),
-    ("st_atime",     ModTime),
-    ("st_mtime",     ModTime),
-    ("st_ctime",     ModTime),
+    ("st_atime",     lltype.Float),
+    ("st_mtime",     lltype.Float),
+    ("st_ctime",     lltype.Float),
     ("st_blksize",   lltype.Signed),
     ("st_blocks",    lltype.Signed),
     ("st_rdev",      lltype.Signed),
     ("st_flags",     lltype.Signed),
     #("st_gen",       lltype.Signed),     -- new in CPy 2.5, not implemented
-    #("st_birthtime", ModTime),           -- new in CPy 2.5, not implemented
+    #("st_birthtime", lltype.Float),      -- new in CPy 2.5, not implemented
     ]
 N_INDEXABLE_FIELDS = 10
 
@@ -169,7 +164,14 @@ if sys.platform != 'win32':
         _expand(LL_STAT_FIELDS, 'st_ctime', 'st_ctim')
 
         del _expand
-    
+    else:
+        # Replace float fields with integers
+        for name in ('st_atime', 'st_mtime', 'st_ctime', 'st_birthtime'):
+            for i, (_name, _TYPE) in enumerate(LL_STAT_FIELDS):
+                if _name == name:
+                    LL_STAT_FIELDS[i] = (_name, lltype.Signed)
+                    break
+
     class CConfig:
         _compilation_info_ = compilation_info
         STAT_STRUCT = platform.Struct('struct %s' % _name_struct_stat, LL_STAT_FIELDS)

@@ -496,7 +496,7 @@ public class ll_os implements Constants {
             else {
                 res.setMode(S_IFREG);
                 res.setSize(f.length());
-                res.setMtime((int)f.lastModified());
+                res.setMtime((double)f.lastModified());
             }
             return res;
         }
