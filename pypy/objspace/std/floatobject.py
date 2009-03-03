@@ -248,41 +248,24 @@ def coerce__Float_Float(space, w_float1, w_float2):
 def add__Float_Float(space, w_float1, w_float2):
     x = w_float1.floatval
     y = w_float2.floatval
-    try:
-        z = x + y
-    except FloatingPointError:
-        raise FailedToImplement(space.w_FloatingPointError, space.wrap("float addition"))
-    return W_FloatObject(z)
+    return W_FloatObject(x + y)
 
 def sub__Float_Float(space, w_float1, w_float2):
     x = w_float1.floatval
     y = w_float2.floatval
-    try:
-        z = x - y
-    except FloatingPointError:
-        raise FailedToImplement(space.w_FloatingPointError, space.wrap("float substraction"))
-    return W_FloatObject(z)
+    return W_FloatObject(x - y)
 
 def mul__Float_Float(space, w_float1, w_float2):
     x = w_float1.floatval
     y = w_float2.floatval
-    try:
-        z = x * y
-    except FloatingPointError:
-        raise FailedToImplement(space.w_FloatingPointError, space.wrap("float multiplication"))
-    return W_FloatObject(z)
+    return W_FloatObject(x * y)
 
 def div__Float_Float(space, w_float1, w_float2):
     x = w_float1.floatval
     y = w_float2.floatval
     if y == 0.0:
         raise FailedToImplement(space.w_ZeroDivisionError, space.wrap("float division"))    
-    try:
-        z = x / y
-    except FloatingPointError:
-        raise FailedToImplement(space.w_FloatingPointError, space.wrap("float division"))
-    # no overflow
-    return W_FloatObject(z)
+    return W_FloatObject(x / y)
 
 truediv__Float_Float = div__Float_Float
 
@@ -295,12 +278,9 @@ def mod__Float_Float(space, w_float1, w_float2):
     y = w_float2.floatval
     if y == 0.0:
         raise FailedToImplement(space.w_ZeroDivisionError, space.wrap("float modulo"))
-    try:
-        mod = math.fmod(x, y)
-        if (mod and ((y < 0.0) != (mod < 0.0))):
-            mod += y
-    except FloatingPointError:
-        raise FailedToImplement(space.w_FloatingPointError, space.wrap("float division"))
+    mod = math.fmod(x, y)
+    if (mod and ((y < 0.0) != (mod < 0.0))):
+        mod += y
 
     return W_FloatObject(mod)
 
@@ -309,38 +289,35 @@ def _divmod_w(space, w_float1, w_float2):
     y = w_float2.floatval
     if y == 0.0:
         raise FailedToImplement(space.w_ZeroDivisionError, space.wrap("float modulo"))
-    try:
-        mod = math.fmod(x, y)
-        # fmod is typically exact, so vx-mod is *mathematically* an
-        # exact multiple of wx.  But this is fp arithmetic, and fp
-        # vx - mod is an approximation; the result is that div may
-        # not be an exact integral value after the division, although
-        # it will always be very close to one.
-        div = (x - mod) / y
-        if (mod):
-            # ensure the remainder has the same sign as the denominator
-            if ((y < 0.0) != (mod < 0.0)):
-                mod += y
-                div -= 1.0
-        else:
-            # the remainder is zero, and in the presence of signed zeroes
-            # fmod returns different results across platforms; ensure
-            # it has the same sign as the denominator; we'd like to do
-            # "mod = wx * 0.0", but that may get optimized away
-            mod *= mod  # hide "mod = +0" from optimizer
-            if y < 0.0:
-                mod = -mod
-        # snap quotient to nearest integral value
-        if div:
-            floordiv = math.floor(div)
-            if (div - floordiv > 0.5):
-                floordiv += 1.0
-        else:
-            # div is zero - get the same sign as the true quotient
-            div *= div  # hide "div = +0" from optimizers
-            floordiv = div * x / y  # zero w/ sign of vx/wx
-    except FloatingPointError:
-        raise FailedToImplement(space.w_FloatingPointError, space.wrap("float division"))
+    mod = math.fmod(x, y)
+    # fmod is typically exact, so vx-mod is *mathematically* an
+    # exact multiple of wx.  But this is fp arithmetic, and fp
+    # vx - mod is an approximation; the result is that div may
+    # not be an exact integral value after the division, although
+    # it will always be very close to one.
+    div = (x - mod) / y
+    if (mod):
+        # ensure the remainder has the same sign as the denominator
+        if ((y < 0.0) != (mod < 0.0)):
+            mod += y
+            div -= 1.0
+    else:
+        # the remainder is zero, and in the presence of signed zeroes
+        # fmod returns different results across platforms; ensure
+        # it has the same sign as the denominator; we'd like to do
+        # "mod = wx * 0.0", but that may get optimized away
+        mod *= mod  # hide "mod = +0" from optimizer
+        if y < 0.0:
+            mod = -mod
+    # snap quotient to nearest integral value
+    if div:
+        floordiv = math.floor(div)
+        if (div - floordiv > 0.5):
+            floordiv += 1.0
+    else:
+        # div is zero - get the same sign as the true quotient
+        div *= div  # hide "div = +0" from optimizers
+        floordiv = div * x / y  # zero w/ sign of vx/wx
 
     return [W_FloatObject(floordiv), W_FloatObject(mod)]
 
