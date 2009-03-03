@@ -107,7 +107,8 @@ class ImmediatePseudoRegister(Register):
         def get(self, use_cycles=True):
             if not use_cycles:
                 self.cpu.cycles += 1
-            return self.cpu.read(self.hl.get(use_cycles=use_cycles)) # 1
+            result = self.cpu.read(self.hl.get(use_cycles=use_cycles)) # 1
+            return result
     
 # ------------------------------------------------------------------------------
   

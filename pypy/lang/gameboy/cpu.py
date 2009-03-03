@@ -209,6 +209,8 @@ class CPU(object):
         
         
     def execute(self, op_code):
+        if self.instruction_counter > 61120:
+            print "PYTHON EXECUTING: ", op_code
         self.instruction_counter += 1
         self.last_op_code = op_code
         OP_CODES[op_code](self)
@@ -304,9 +306,10 @@ class CPU(object):
         self.load(CPUFetchCaller(self), setCaller)
 
     def add_a(self, getCaller, setCaller=None):
+        # TODO: Test overflow -> carry flag
         data = getCaller.get()
         # ALU, 1 cycle
-        added = (self.a.get() + data) & 0xFF
+        added = self.a.get() + data
         self.add_sub_flag_finish(added, data)
         
     def add_hl(self, register):
@@ -336,7 +339,7 @@ class CPU(object):
         self.flag.reset()
         # set the h flag if the 0x10 bit was affected
         self.flag.is_half_carry = (((s ^ self.a.get() ^ data) & 0x10) != 0)
-        self.flag.is_carry = (s >= 0x100 or s < 0)
+        self.flag.is_carry = (s > 0xFF or s < 0)
         self.flag.zero_check(s)
         self.a.set(s & 0xFF)  # 1 cycle
         
@@ -373,7 +376,8 @@ class CPU(object):
         self.a.set(self.a.get() & getCaller.get())  # 1 cycle
         self.flag.reset()
         self.flag.zero_check(self.a.get())
-        self.flag.is_half_carry = True
+        # I don't see any reason for this?
+        # self.flag.is_half_carry = True
 
     def xor_a(self, getCaller, setCaller=None):
         # 1 cycle
@@ -415,7 +419,7 @@ class CPU(object):
         data = getCaller.get()
         s = ((data << 1) & 0xFF) + ((data & 0x80) >> 7)
         self.flags_and_setter_finish(s, data, setCaller, 0x80)
-        #self.cycles -= 1
+        # self.cycles -= 1
 
     def rotate_left_circular_a(self):
         # RLCA rotate_left_circular_a 1 cycle
@@ -484,15 +488,14 @@ class CPU(object):
         setCaller.set(s) # 1 cycle
 
     def swap(self, getCaller, setCaller):
-        data = getCaller.get()
         # 1 cycle
+        data = getCaller.get()
         s = ((data << 4) + (data >> 4)) & 0xFF
         self.flag.zero_check(s, reset=True)
         setCaller.set(s)
 
-
     def test_bit(self, getCaller, setCaller, n):
-        # 2 cycles
+        # 1 cycle
         self.flag.partial_reset(keep_is_carry=True)
         self.flag.is_half_carry = True
         self.flag.is_zero = ((getCaller.get() & (1 << n)) == 0)
@@ -699,11 +702,11 @@ class CPU(object):
         else:
             self.cycles -= 2
 
-    def return_form_interrupt(self):
+    def return_from_interrupt(self):
         # RETI 4 cycles
         self.ret() # 4 cycles
-        self.enable_interrupts() # 1 cycle + others
-        #self.cycles += 1
+        self.cycles += 1
+        self.enable_interrupts()
 
     def restart(self, nn):
         # RST nn 4 cycles
@@ -717,7 +720,7 @@ class CPU(object):
     def enable_interrupts(self):
         # 1 cycle
         self.ime = True
-        self.execute(self.fetch()) #  1
+        self.execute(self.fetch())
         self.handle_pending_interrupts()
 
     def halt(self):
@@ -900,7 +903,7 @@ FIRST_ORDER_OP_CODES = [
     (0xFA, CPU.store_fetched_memory_in_a),
     (0xC3, CPU.jump),
     (0xC9, CPU.ret),
-    (0xD9, CPU.return_form_interrupt),
+    (0xD9, CPU.return_from_interrupt),
     (0xDD, CPU.debug),
     (0xE9, CPU.store_hl_in_pc),
     (0xF9, CPU.store_hl_in_sp),
