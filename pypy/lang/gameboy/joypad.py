@@ -66,8 +66,6 @@ class Joypad(iMemory):
         elif control == 3:
             self.button_code = 0xF
         if old_buttons != self.button_code:
-            print "CONTROL: ", control
-            print "CHANGED BUTTONS: ", old_buttons, " new: ", self.button_code
             self.joypad_interrupt_flag.set_pending()
 
 

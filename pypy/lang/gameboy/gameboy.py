@@ -142,8 +142,6 @@ class GameBoy(object):
             pass
             
     def get_receiver(self, address):
-        if self.cpu.instruction_counter > 81500:
-            print "Getting receiver at: ", address
         """
         General Memory Map
         0000-3FFF   16KB ROM Bank 00     (in cartridge, fixed at bank 00)
