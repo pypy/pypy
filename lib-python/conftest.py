@@ -27,16 +27,19 @@ dist_rsync_roots = ['.', '../pypy', '../py']
 # Interfacing/Integrating with py.test's collection process 
 #
 
-Option = py.test.config.Option 
-option = py.test.config.addoptions("compliance testing options", 
-    Option('-T', '--timeout', action="store", type="string", 
+class LibPythonPlugin:
+    def pytest_addoption(self, parser):
+        group = parser.addgroup("complicance testing options") 
+        group.addoption('-T', '--timeout', action="store", type="string", 
            default="100mp", dest="timeout", 
            help="fail a test module after the given timeout. "
-                "specify in seconds or 'NUMmp' aka Mega-Pystones"),
-    Option('--pypy', action="store", type="string",
+                "specify in seconds or 'NUMmp' aka Mega-Pystones")
+        group.addoption('--pypy', action="store", type="string",
            dest="pypy",  help="use given pypy executable to run lib-python tests. "
                               "This will run the tests directly (i.e. not through py.py)")
-    )
+   
+ConftestPlugin = LibPythonPlugin
+option = py.test.config.option 
 
 def gettimeout(): 
     timeout = option.timeout.lower()
