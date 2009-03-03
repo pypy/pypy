@@ -63,8 +63,6 @@ class Joypad(iMemory):
             self.button_code = self.driver.get_button_code()
         elif control == 2:
             self.button_code = self.driver.get_direction_code()
-            import pdb
-            pdb.set_trace()
         elif control == 3:
             self.button_code = 0xF
         if old_buttons != self.button_code:
