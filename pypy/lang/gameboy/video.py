@@ -83,7 +83,7 @@ class Video(iMemory):
         if tile_index < TILE_DATA_SIZE:
             return self.tile_data_0[tile_index]
         else:
-            return self.tile_data_1[tile_index - TILE_DATA_SIZE]
+            return self.tile_data_1[tile_index - TILE_DATA_SIZE / 2]
 
     def select_tile_group_for(self, address):
         tile_map_index = address - TILE_MAP_ADDR #) >> 1
