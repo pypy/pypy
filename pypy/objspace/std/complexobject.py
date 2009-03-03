@@ -1,7 +1,6 @@
 from pypy.interpreter import gateway
 from pypy.objspace.std.objspace import W_Object, OperationError
 from pypy.objspace.std.objspace import registerimplementation, register_all
-from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.floatobject import W_FloatObject, _hash_float
 
 import math
@@ -32,9 +31,6 @@ def _sum(c1, c2):
 
 def _diff(c1, c2):
     return (c1[0]-c2[0],c1[1]-c2[1])
-
-def _neg(c):
-    return (-c[0],-c[1])
 
 def _prod(c1, c2):
     r = c1[0]*c2[0] - c1[1]*c2[1]
@@ -144,7 +140,6 @@ def hash__Complex(space, w_value):
 
 def _w2t(space, w_complex):
     "convert an interplevel complex object to a tuple representation"
-    assert space.is_true(space.isinstance(w_complex, space.w_complex))
     return w_complex.realval, w_complex.imagval
 
 def _t2w(space, c):
@@ -197,7 +192,7 @@ def floordiv__Complex_Complex(space, w_complex1, w_complex2):
     return _t2w(space, div)
 
 def pow__Complex_Complex_ANY(space, w_complex1, w_complex2, thirdArg):
-    if not isinstance(thirdArg, W_NoneObject):
+    if not space.is_w(thirdArg, space.w_None):
         raise OperationError(space.w_ValueError, space.wrap('complex modulo'))
     try:
         v = _w2t(space, w_complex1)
@@ -214,26 +209,19 @@ def pow__Complex_Complex_ANY(space, w_complex1, w_complex2, thirdArg):
     return _t2w(space, p)
 
 def neg__Complex(space, w_complex):
-    assert space.is_true(space.isinstance(w_complex, space.w_complex))
     return W_ComplexObject(-w_complex.realval, -w_complex.imagval)
 
 def pos__Complex(space, w_complex):
-    assert space.is_true(space.isinstance(w_complex, space.w_complex))
     return W_ComplexObject(w_complex.realval, w_complex.imagval)
 
 def abs__Complex(space, w_complex):
-    assert space.is_true(space.isinstance(w_complex, space.w_complex))
     return space.newfloat(math.hypot(w_complex.realval, w_complex.imagval))
 
 def eq__Complex_Complex(space, w_complex1, w_complex2):
-    assert space.is_true(space.isinstance(w_complex1, space.w_complex))
-    assert space.is_true(space.isinstance(w_complex2, space.w_complex))
     return space.newbool((w_complex1.realval == w_complex2.realval) and 
             (w_complex1.imagval == w_complex2.imagval))
 
 def ne__Complex_Complex(space, w_complex1, w_complex2):
-    assert space.is_true(space.isinstance(w_complex1, space.w_complex))
-    assert space.is_true(space.isinstance(w_complex2, space.w_complex))
     return space.newbool((w_complex1.realval != w_complex2.realval) or 
             (w_complex1.imagval != w_complex2.imagval))
 
@@ -245,7 +233,6 @@ ge__Complex_Complex = lt__Complex_Complex
 le__Complex_Complex = lt__Complex_Complex
 
 def nonzero__Complex(space, w_complex):
-    assert space.is_true(space.isinstance(w_complex, space.w_complex))
     return space.newbool((w_complex.realval != 0.0) or
                          (w_complex.imagval != 0.0))
 
