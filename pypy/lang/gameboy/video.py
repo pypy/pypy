@@ -55,7 +55,7 @@ class Video(iMemory):
     # -----------------------------------------------------------------------
     
     def create_tile_maps(self):
-        # create the maxumal possible sprites
+        # create the maximal possible sprites
         self.tile_map_0 = self.create_tile_map()
         self.tile_map_1 = self.create_tile_map()
         self.tile_maps = [self.tile_map_0, self.tile_map_1]
@@ -67,12 +67,13 @@ class Video(iMemory):
         return [0x00 for i in range(TILE_GROUP_SIZE)]
 
     def create_tiles(self):
-        self.tile_data_0 = self.create_tile_data()
-        self.tile_data_1 = self.create_tile_data()
+        tile_data_overlap = self.create_tile_data()
+        self.tile_data_0 = self.create_tile_data() + tile_data_overlap
+        self.tile_data_1 = tile_data_overlap + self.create_tile_data()
         self.tile_data = [self.tile_data_0, self.tile_data_1]
 
     def create_tile_data(self):
-        return [Tile(i, self) for i in range(TILE_DATA_SIZE)]
+        return [Tile(i, self) for i in range(TILE_DATA_SIZE / 2)]
         
     def update_tile(self, address, data):
         self.get_tile(address).set_data_at(address, data);
@@ -517,6 +518,9 @@ class Video(iMemory):
             tile_index = tile_group[group_index % TILE_GROUP_SIZE]
             if not self.control.background_and_window_lower_tile_data_selected:
                 tile_index ^= 0x80
+            if tile_index >= len(tile_data):
+                import pdb
+                pdb.set_trace()
             tile = tile_data[tile_index]
             tile.draw(x, y)
             group_index += 1

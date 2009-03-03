@@ -209,8 +209,6 @@ class CPU(object):
         
         
     def execute(self, op_code):
-        if self.instruction_counter > 61120:
-            print "PYTHON EXECUTING: ", op_code
         self.instruction_counter += 1
         self.last_op_code = op_code
         OP_CODES[op_code](self)

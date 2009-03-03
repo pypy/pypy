@@ -82,7 +82,6 @@ class Interrupt(iMemory):
         for flag in self.interrupt_flags:
             flag.reset()
     
-    
     def write(self, address, data):
         if  address == constants.IE:
             self.set_enable_mask(data)
