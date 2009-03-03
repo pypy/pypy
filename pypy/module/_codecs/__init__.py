@@ -46,9 +46,16 @@ class Module(MixedModule):
          'readbuffer_encode': 'interp_codecs.buffer_encode',
     }
 
-    if hasattr(runicode, 'str_decode_mbcs'):
-        interpleveldefs['mbcs_encode'] = 'interp_codecs.mbcs_encode'
-        interpleveldefs['mbcs_decode'] = 'interp_codecs.mbcs_decode'
+    def __init__(self, space, *args):
+        "NOT_RPYTHON"
+
+        # mbcs codec is Windows specific, and based on rffi.
+        if (hasattr(runicode, 'str_decode_mbcs') and
+            space.config.translation.type_system != 'ootype'):
+            self.interpleveldefs['mbcs_encode'] = 'interp_codecs.mbcs_encode'
+            self.interpleveldefs['mbcs_decode'] = 'interp_codecs.mbcs_decode'
+
+        MixedModule.__init__(self, space, *args)
 
     def setup_after_space_initialization(self):
         "NOT_RPYTHON"
