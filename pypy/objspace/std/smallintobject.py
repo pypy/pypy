@@ -63,35 +63,21 @@ def repr__SmallInt(space, w_int1):
 
 str__SmallInt = repr__SmallInt
 
-def lt__SmallInt_SmallInt(space, w_int1, w_int2):
-    i = w_int1.intval
-    j = w_int2.intval
-    return space.newbool( i < j )
 
-def le__SmallInt_SmallInt(space, w_int1, w_int2):
-    i = w_int1.intval
-    j = w_int2.intval
-    return space.newbool( i <= j )
+def declare_new_int_comparison(opname):
+    import operator
+    from pypy.tool.sourcetools import func_with_new_name
+    op = getattr(operator, opname)
+    def f(space, w_int1, w_int2):
+        i = w_int1.intval
+        j = w_int2.intval
+        return space.newbool(op(i, j))
+    name = opname + "__SmallInt_SmallInt"
+    return func_with_new_name(f, name), name
 
-def eq__SmallInt_SmallInt(space, w_int1, w_int2):
-    i = w_int1.intval
-    j = w_int2.intval
-    return space.newbool( i == j )
-
-def ne__SmallInt_SmallInt(space, w_int1, w_int2):
-    i = w_int1.intval
-    j = w_int2.intval
-    return space.newbool( i != j )
-
-def gt__SmallInt_SmallInt(space, w_int1, w_int2):
-    i = w_int1.intval
-    j = w_int2.intval
-    return space.newbool( i > j )
-
-def ge__SmallInt_SmallInt(space, w_int1, w_int2):
-    i = w_int1.intval
-    j = w_int2.intval
-    return space.newbool( i >= j )
+for op in ['lt', 'le', 'eq', 'ne', 'gt', 'ge']:
+    func, name = declare_new_int_comparison(op)
+    globals()[name] = func
 
 def hash__SmallInt(space, w_int1):
     # unlike CPython, we don't special-case the value -1 in most of our
@@ -134,7 +120,7 @@ def mul__SmallInt_SmallInt(space, w_int1, w_int2):
                                 space.wrap("integer multiplication"))
     return wrapint(space, z)
 
-def _floordiv(space, w_int1, w_int2):
+def div__SmallInt_SmallInt(space, w_int1, w_int2):
     x = w_int1.intval
     y = w_int2.intval
     try:
@@ -147,13 +133,14 @@ def _floordiv(space, w_int1, w_int2):
                                 space.wrap("integer division"))
     return wrapint(space, z)
 
-def _truediv(space, w_int1, w_int2):
-    # XXX how to do delegation to float elegantly?
-    # avoiding a general space.div operation which pulls
-    # the whole interpreter in.
-    # Instead, we delegate to long for now.
-    raise FailedToImplement(space.w_TypeError,
-                            space.wrap("integer division"))
+floordiv__SmallInt_SmallInt = div__SmallInt_SmallInt
+
+def truediv__SmallInt_SmallInt(space, w_int1, w_int2):
+    x = float(w_int1.intval)
+    y = float(w_int2.intval)
+    if y == 0.0:
+        raise FailedToImplement(space.w_ZeroDivisionError, space.wrap("float division"))    
+    return space.wrap(x / y)
 
 def mod__SmallInt_SmallInt(space, w_int1, w_int2):
     x = w_int1.intval
@@ -183,44 +170,8 @@ def divmod__SmallInt_SmallInt(space, w_int1, w_int2):
     m = x % y
     return space.newtuple([space.wrap(z), space.wrap(m)])
 
-def div__SmallInt_SmallInt(space, w_int1, w_int2):
-    return _floordiv(space, w_int1, w_int2)
-
-floordiv__SmallInt_SmallInt = _floordiv
-truediv__SmallInt_SmallInt = _truediv
-
-# helper for pow()
-def _impl_int_int_pow(space, iv, iw, iz=0):
-    if iw < 0:
-        if iz != 0:
-            raise OperationError(space.w_TypeError,
-                             space.wrap("pow() 2nd argument "
-                 "cannot be negative when 3rd argument specified"))
-        ## bounce it, since it always returns float
-        raise FailedToImplement(space.w_ValueError,
-                                space.wrap("integer exponentiation"))
-    temp = iv
-    ix = 1
-    try:
-        while iw > 0:
-            if iw & 1:
-                ix = ovfcheck(ix*temp)
-            iw >>= 1   #/* Shift exponent down by 1 bit */
-            if iw==0:
-                break
-            temp = ovfcheck(temp*temp) #/* Square the value of temp */
-            if iz:
-                #/* If we did a multiplication, perform a modulo */
-                ix = ix % iz;
-                temp = temp % iz;
-        if iz:
-            ix = ix % iz
-    except OverflowError:
-        raise FailedToImplement(space.w_OverflowError,
-                                space.wrap("integer exponentiation"))
-    return wrapint(space, ix)
-
 def pow__SmallInt_SmallInt_SmallInt(space, w_int1, w_int2, w_int3):
+    from pypy.objspace.std.intobject import _impl_int_int_pow
     x = w_int1.intval
     y = w_int2.intval
     z = w_int3.intval
@@ -230,6 +181,7 @@ def pow__SmallInt_SmallInt_SmallInt(space, w_int1, w_int2, w_int3):
     return _impl_int_int_pow(space, x, y, z)
 
 def pow__SmallInt_SmallInt_None(space, w_int1, w_int2, w_int3):
+    from pypy.objspace.std.intobject import _impl_int_int_pow
     x = w_int1.intval
     y = w_int2.intval
     return _impl_int_int_pow(space, x, y)
@@ -243,11 +195,6 @@ def neg__SmallInt(space, w_int1):
                                 space.wrap("integer negation"))
     return wrapint(space, x)
 
-# pos__SmallInt is supposed to do nothing, unless it has
-# a derived integer object, where it should return
-# an exact one.
-def pos__SmallInt(space, w_int1):
-    return int__SmallInt(space, w_int1)
 
 def abs__SmallInt(space, w_int1):
     if w_int1.intval >= 0:
@@ -351,6 +298,7 @@ def int__SmallInt(space, w_int1):
         return w_int1
     a = w_int1.intval
     return wrapint(space, a)
+pos__SmallInt = int__SmallInt
 
 """
 # Not registered

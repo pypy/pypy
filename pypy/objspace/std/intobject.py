@@ -106,7 +106,7 @@ def mul__Int_Int(space, w_int1, w_int2):
                                 space.wrap("integer multiplication"))
     return wrapint(space, z)
 
-def _floordiv(space, w_int1, w_int2):
+def floordiv__Int_Int(space, w_int1, w_int2):
     x = w_int1.intval
     y = w_int2.intval
     try:
@@ -118,14 +118,14 @@ def _floordiv(space, w_int1, w_int2):
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer division"))
     return wrapint(space, z)
+div__Int_Int = floordiv__Int_Int
 
-def _truediv(space, w_int1, w_int2):
-    # XXX how to do delegation to float elegantly?
-    # avoiding a general space.div operation which pulls
-    # the whole interpreter in.
-    # Instead, we delegate to long for now.
-    raise FailedToImplement(space.w_TypeError,
-                            space.wrap("integer division"))
+def truediv__Int_Int(space, w_int1, w_int2):
+    x = float(w_int1.intval)
+    y = float(w_int2.intval)
+    if y == 0.0:
+        raise FailedToImplement(space.w_ZeroDivisionError, space.wrap("float division"))    
+    return space.wrap(x / y)
 
 def mod__Int_Int(space, w_int1, w_int2):
     x = w_int1.intval
@@ -156,11 +156,6 @@ def divmod__Int_Int(space, w_int1, w_int2):
     w = space.wrap
     return space.newtuple([w(z), w(m)])
 
-def div__Int_Int(space, w_int1, w_int2):
-    return _floordiv(space, w_int1, w_int2)
-
-floordiv__Int_Int = _floordiv
-truediv__Int_Int = _truediv
 
 # helper for pow()
 def _impl_int_int_pow(space, iv, iw, iz=0):
@@ -216,11 +211,6 @@ def neg__Int(space, w_int1):
                                 space.wrap("integer negation"))
     return wrapint(space, x)
 
-# pos__Int is supposed to do nothing, unless it has
-# a derived integer object, where it should return
-# an exact one.
-def pos__Int(space, w_int1):
-    return int__Int(space, w_int1)
 
 def abs__Int(space, w_int1):
     if w_int1.intval >= 0:
@@ -297,6 +287,7 @@ def int__Int(space, w_int1):
         return w_int1
     a = w_int1.intval
     return wrapint(space, a)
+pos__Int = int__Int
 
 def index__Int(space, w_int1):
     return int__Int(space, w_int1)
