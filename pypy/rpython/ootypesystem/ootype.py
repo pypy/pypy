@@ -913,13 +913,13 @@ class _view(object):
         return not (self == other)
 
     def __eq__(self, other):
-        assert isinstance(other, _view)
+        assert isinstance(other, (_view, _callable))
         a = self._inst
         b = other._inst
         return a.__class__ == b.__class__ and a == b
 
     def __hash__(self):
-        return hash(self._inst)
+        return hash(self._inst) + 1
 
     def __nonzero__(self):
         return bool(self._inst)
