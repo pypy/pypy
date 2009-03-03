@@ -297,7 +297,6 @@ class MBC(iMemory):
         self.rom_bank   = self.rom_bank_size
         self.ram_bank   = 0
         self.ram_enable = False
-        self.rom_size   = 0
         self.ram_size   = 0
     
     def set_rom(self, buffer):
@@ -408,6 +407,8 @@ class MBC1(MBC):
             #                                   % hex(address))
 
     def write_rom_bank_1(self, address, data):
+        #import pdb
+        #pdb.set_trace()
         if (data & 0x1F) == 0:
             data = 1
         if self.memory_model == 0:
@@ -825,7 +826,7 @@ class HuC3(MBC):
 
 
 MEMORY_BANK_TYPE_RANGES = [
-    (constants.TYPE_MBC1,             constants.TYPE_MBC1_RAM_BATTERY,        MBC1),
+    (constants.TYPE_ROM_ONLY,         constants.TYPE_MBC1_RAM_BATTERY,        MBC1),
     (constants.TYPE_MBC2,             constants.TYPE_MBC2_BATTERY,            MBC2),
     (constants.TYPE_MBC3_RTC_BATTERY, constants.TYPE_MBC3_RAM_BATTERY,        MBC3),
     (constants.TYPE_MBC5,             constants.TYPE_MBC5_RUMBLE_RAM_BATTERY, MBC5),
@@ -837,10 +838,10 @@ MEMORY_BANK_TYPE_RANGES = [
 def initialize_mapping_table():
     result = [DefaultMBC] * 256
     for entry in MEMORY_BANK_TYPE_RANGES:
-        if len(entry) == 2:
-            positions = [entry[0]]
-        else:
-            positions = range(entry[0], entry[1]+1)
+        #if len(entry) == 2:
+        #    positions = [entry[0]]
+        #else:
+        positions = range(entry[0], entry[1]+1)
         for pos in positions:
             result[pos] = entry[-1]
     return result

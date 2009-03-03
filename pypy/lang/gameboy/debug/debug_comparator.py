@@ -275,10 +275,10 @@ class VideoComparator(Comparator):
     @printframe("comparing memory")  
     def compare_video_memory(self, data):
         cmp = [
-            ("vram",    self.video.vram,    "vram"),
+            # ("vram",    self.video.vram,    "vram"),
             ("oam",     self.video.oam,     "oam"),
             ("line",    self.video.line,    "line"),
-            ("objects", self.video.objects, "objects"),
+            # ("objects", self.video.objects, "objects"),
             ("palette", self.video.palette, "palette"),
         ]
         self.compare_memory_set(cmp, data, label="video");

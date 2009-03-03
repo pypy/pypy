@@ -12,7 +12,8 @@ from pypy.lang.gameboy.debug.debug_rpc_xml_connection import *
 # ------------------------------------------------------------------------------
 
 ROM_PATH    = str(py.magic.autopath().dirpath().dirpath())+"/rom"
-filename    = ROM_PATH + "/rom9/rom9.gb"
+# filename    = ROM_PATH + "/rom9/rom9.gb"
+filename = "/home/tverwaes/roms/KirbysDreamLand.gb"
 SOCKET_PORT = 55682
 
 skip_count   = 22545

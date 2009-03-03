@@ -237,7 +237,8 @@ class CPU(object):
         # Fetching  1 cycle
         if use_cycles:
             self.cycles += 1
-        if self.pc.get(use_cycles) <= 0x3FFF:
+        pc = self.pc.get(use_cycles)
+        if pc <= 0x3FFF:
             data =  self.rom[self.pc.get(use_cycles)]
         else:
             data = self.memory.read(self.pc.get(use_cycles))
@@ -288,7 +289,8 @@ class CPU(object):
         
     def load(self, getCaller, setCaller):
         # 1 cycle
-        setCaller.set(getCaller.get()) # 1 cycle
+        value = getCaller.get()
+        setCaller.set(value) # 1 cycle
         
     def load_fetch_register(self, register):
         self.load(CPUFetchCaller(self), RegisterCallWrapper(register))

@@ -45,6 +45,7 @@ class DoubleRegister(AbstractRegister):
         self.reset_value = reset_value
         
     def set(self, value, use_cycles=True):
+        # previous = self.get(False)
         value  = value & 0xFFFF
         self.set_hi(value >> 8, use_cycles)
         self.set_lo(value & 0xFF, use_cycles)
