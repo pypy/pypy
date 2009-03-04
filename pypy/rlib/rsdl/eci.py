@@ -11,13 +11,15 @@ def get_rsdl_compilation_info():
                         #'SDLMain.m'
                         #'SDLMain.h'*/
                         ],
-            include_dirs = ['/Library/Frameworks/SDL.framework/Versions/A/Headers',
+            include_dirs = ['/Library/Frameworks/SDL.framework/Headers',
                             #str(py.magic.autopath().dirpath().join('macosx-sdl-main'))
                             ],
             link_extra = [
                 str(py.magic.autopath().dirpath().join('macosx-sdl-main/SDLMain.m')),
                 #'macosx-sdl-main/SDLMain.m',
-                '-I', '/Library/Frameworks/SDL.framework/Versions/A/Headers',
+                '-I', '/Library/Frameworks/SDL.framework/Headers',
+                '-framework', 'Cocoa',
+                '-framework', 'SD',
             ],
             frameworks = ['SDL', 'Cocoa']
         )
