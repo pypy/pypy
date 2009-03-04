@@ -143,12 +143,7 @@ class VideoDriverImplementation(VideoDriver):
         else:
             return self.pixels[x+self.width*y]
     
-    def pixel_to_byte(self, int_number):
-        return struct.pack("B", (int_number) & 0xFF, 
-                                (int_number >> 8) & 0xFF, 
-                                (int_number >> 16) & 0xFF)
-        
-        
+       
 # JOYPAD DRIVER ----------------------------------------------------------------
 
 class JoypadDriverImplementation(JoypadDriver):
