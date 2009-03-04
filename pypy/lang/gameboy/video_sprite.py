@@ -151,20 +151,33 @@ class Sprite(object):
     def current_line_y(self):
         return self.video.line_y - self.y + 2 * SPRITE_SIZE
     
-    def get_tile(self):
+    def get_tile_address(self):
         address = self.get_tile_number()
-        if self.video.control.big_sprites:
+        if self.big_size:
              address &= 0xFE
-        return self.video.get_tile_at(address)
+        return address
+
+    def get_tile(self):
+        return self.video.get_tile_at(self.get_tile_address())
+
+    def get_lower_tile(self):
+        return self.video.get_tile_at(self.get_tile_address()+1)
         
     def get_draw_y(self):
         y = self.current_line_y()
         if self.y_flipped:
             y = self.get_height() - 1 - y
         return y
-                
+    
+    def get_tile_for_current_line(self):
+        lower = self.current_line_y() < SPRITE_SIZE
+        if lower ^ (self.big_size and self.y_flipped):
+            return self.get_tile()
+        else:
+            return self.get_lower_tile()
+
     def draw(self, lastx):
-        self.get_tile().draw_for_sprite(self, lastx)
+        self.get_tile_for_current_line().draw_for_sprite(self, lastx)
 
 # -----------------------------------------------------------------------------
 
