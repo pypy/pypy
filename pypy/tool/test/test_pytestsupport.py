@@ -10,6 +10,10 @@ import py
 from pypy.tool.udir import udir
 import os
 import sys
+import pypy
+conftestpath = py.path.local(pypy.__file__).dirpath("conftest.py")
+
+pytest_plugins = "pytest_pytester"
 
 def somefunc(x):
     print x
@@ -103,23 +107,16 @@ class AppTestWithWrappedInterplevelAttributes:
     def test_values_arrive2(self): 
         assert self.some1 == 42
 
-def test_expectcollect():
-    try:
-        import pexpect
-    except ImportError:
-        py.test.skip("pexpect not found")
-    source = py.code.Source("""
-    class ExpectTestOne:
-        def test_one(self):
-            pass
+def test_expectcollect(testdir):
+    py.test.importorskip("pexpect")
+    conftestpath.copy(testdir.tmpdir)
+    sorter = testdir.inline_runsource("""
+        class ExpectTestOne:
+            def test_one(self):
+                pass
     """)
-    from pypy import conftest
-    tdir = udir.ensure("t", dir=True)
-    dest = tdir.join("test_expect.py")
-    dest.write(source)
-    col = conftest.Module(dest, config="dummy")
-    result = col.run()
-    assert len(result) == 1
+    passed, skipped, failed = sorter.countoutcomes()
+    assert passed == 1
 
 def test_safename():
     from pypy.conftest import ExpectTestMethod
@@ -129,21 +126,18 @@ def test_safename():
                       'ExpectTest', '()', 'test_one']) == \
            'pypy_tool_test_test_pytestsupport_ExpectTest_paren_test_one'
 
-def test_safe_filename():
-    source = py.code.Source("""
-    class ExpectTestOne:
-        def test_one(self):
-            pass
+def test_safe_filename(testdir):
+    conftestpath.copy(testdir.tmpdir)
+    sorter = testdir.inline_runsource("""
+        class ExpectTestOne:
+            def test_one(self):
+                pass
     """)
-    dest = udir.join("test_expect_safefilename.py")
-    dest.write(source)
-    from pypy import conftest
-    col = conftest.Module(dest, config="dummy")
-    methcol = col.join('ExpectTestOne').join('()').join('test_one')
-    name = 'test_expect_safefilename_ExpectTestOne_paren_test_one.py'
-    assert methcol.safe_filename() == name
-    udir.ensure(name)
-    assert methcol.safe_filename() == name[:-3] + '_1.py'
+    ev, = sorter.getnamed("itemtestreport")
+    assert ev.passed 
+    sfn = ev.colitem.safe_filename()
+    print sfn
+    assert sfn == 'test_safe_filename_test_safe_filename_ExpectTestOne_paren_test_one_1.py'
 
 class ExpectTest:
     def test_one(self):
