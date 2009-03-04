@@ -167,7 +167,7 @@ SPRITES_PER_LINE   = 10
 JOYP          = 0xFF00
 
 # Joypad Poll Speed (64 Hz)
-JOYPAD_CLOCK  = GAMEBOY_CLOCK >> 6
+JOYPAD_CLOCK  = 1<<5
 
 BUTTON_DOWN   = 0x08
 BUTTON_UP     = 0x04
@@ -184,10 +184,10 @@ BUTTON_A      = 0x01
 # ___________________________________________________________________________
  
 # Serial Clock Speed (8 x 1024 bits/sec)
-SERIAL_CLOCK      = GAMEBOY_CLOCK >> 16
+SERIAL_CLOCK      = 1<<13
  
 # Serial Idle Speed (128 Hz)
-SERIAL_IDLE_CLOCK = GAMEBOY_CLOCK >> 7
+SERIAL_IDLE_CLOCK = 1<<7
  
 # Serial Register Addresses
 SERIAL_TRANSFER_DATA    = 0xFF01
@@ -198,7 +198,7 @@ SERIAL_TRANSFER_CONTROL = 0xFF02
 # ___________________________________________________________________________
  
 # Sound Clock (256 Hz)
-SOUND_CLOCK = 256 
+SOUND_CLOCK = 1<<8 
  
 # Sound Register Addresses
 NR10 = 0xFF10 # AUD1SWEEP
@@ -236,14 +236,14 @@ BUFFER_LOG_SIZE = 5;
 # ___________________________________________________________________________
 
 # DIV Timer Speed (16384 Hz)
-DIV_CLOCK = GAMEBOY_CLOCK >> 14
+DIV_CLOCK = 1 << 14
 
 # Timer Clock Speeds (4096, 262144, 65536 and 16384 Hz)
 TIMER_CLOCK = [
- GAMEBOY_CLOCK >> 12,
- GAMEBOY_CLOCK >> 18,
- GAMEBOY_CLOCK >> 16,
- GAMEBOY_CLOCK >> 14
+ 1 << 12,
+ 1 << 18,
+ 1 << 16,
+ 1 << 14
 ]
  
 # Timer Register Addresses
