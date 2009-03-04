@@ -19,7 +19,7 @@ def get_rsdl_compilation_info():
                 #'macosx-sdl-main/SDLMain.m',
                 '-I', '/Library/Frameworks/SDL.framework/Headers',
                 '-framework', 'Cocoa',
-                '-framework', 'SD',
+                '-framework', 'SDL',
             ],
             frameworks = ['SDL', 'Cocoa']
         )

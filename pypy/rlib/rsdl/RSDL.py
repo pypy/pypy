@@ -227,7 +227,7 @@ RWFromFile       = external('SDL_RWFromFile',
 # ------------------------------------------------------------------------------
 
 
-if sys.platform == 'darwin':
+if sys.platform == 'darwin' and we_are_translated():
     def Init(flags):
         if not we_are_translated():
             from AppKit import NSApplication
