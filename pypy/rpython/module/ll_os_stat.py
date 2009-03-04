@@ -242,12 +242,15 @@ def register_stat_variant(name):
 
     def posix_fakeimpl(arg):
         st = getattr(os, name)(arg)
-        fields = [TYPE for fieldname, TYPE in LL_STAT_FIELDS]
+        fields = [TYPE for fieldname, TYPE in STAT_FIELDS]
         TP = TUPLE_TYPE(fields)
         ll_tup = lltype.malloc(TP.TO)
-        for i, (fieldname, TYPE) in enumerate(LL_STAT_FIELDS):
+        for i, (fieldname, TYPE) in enumerate(STAT_FIELDS):
             val = getattr(st, fieldname)
-            rffi.setintfield(ll_tup, 'item%d' % i, int(val))
+            if isinstance(TYPE, lltype.Number):
+                rffi.setintfield(ll_tup, 'item%d' % i, int(val))
+            else:
+                setattr(ll_tup, 'item%d' % i, val)
         return ll_tup
 
     if arg_is_path:
