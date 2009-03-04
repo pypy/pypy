@@ -6,6 +6,7 @@ from pypy.lang.gameboy.video import VideoDriver
 from pypy.lang.gameboy.sound import SoundDriver
 from pypy.lang.gameboy.timer import Clock
 from pypy.lang.gameboy import constants
+import time
 
 use_rsdl = True
 if use_rsdl:
@@ -49,10 +50,20 @@ class GameBoyImplementation(GameBoy):
     
     def emulate_cycle(self):
         # self.joypad_driver.button_up(True)
+        X = 1<<5
+        start_time = time.time()
         self.handle_events()
-        self.emulate(constants.GAMEBOY_CLOCK >> 2)
+        # Come back to this cycle every 1/X seconds
+        self.emulate(constants.GAMEBOY_CLOCK / X)
         if use_rsdl:
             RSDL.Delay(1)
+        spent = time.time() - start_time
+        left = (1.0/X) - spent
+        if left >= 0:
+            time.sleep(left)
+        else:
+            print "WARNING: Going to slow: ", spent, " ", left
+        
     
     def handle_execution_error(self, error): 
         if use_rsdl:
