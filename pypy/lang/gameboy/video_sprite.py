@@ -26,17 +26,17 @@ class Sprite(object):
         
     def get_data_at(self, address):
         address %= 4
-        if id == 0:
+        if address == 0:
             return self.y
-        if id == 1:
+        if address == 1:
             return self.x
-        if id == 2:
+        if address == 2:
             return self.tile_number
-        if id == 3:
+        if address == 3:
             return self.get_attributes_and_flags()
 
         # Making PyPy happy...
-        raise Exception("Cannot happen")
+        raise Exception(("Cannot happen: ", address))
     
     def set_data(self, y, x, tile_number, flags):
         """
