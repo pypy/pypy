@@ -25,11 +25,19 @@ class Sprite(object):
         self.rest_attributes_and_flags = 0
         
     def get_data_at(self, address):
-        return self.get_data()[address % 4]
-    
-    def get_data(self):
-        return [self.y, self.x, self.tile_number, self.get_attributes_and_flags()]
+        address %= 4
+        if id == 0:
+            return self.y
+        if id == 1:
+            return self.x
+        if id == 2:
+            return self.tile_number
+        if id == 3:
+            return self.get_attributes_and_flags()
 
+        # Making PyPy happy...
+        raise Exception("Cannot happen")
+    
     def set_data(self, y, x, tile_number, flags):
         """
         extracts the sprite data from an oam entry
@@ -139,15 +147,15 @@ class Sprite(object):
          else:
             return 7
         
-    def intersects_current_line(self, video):
-        y = self.current_line_y(video)
+    def intersects_current_line(self):
+        y = self.current_line_y()
         return y >= 0 and y <= self.get_tile_size()
     
-    def is_shown_on_current_line(self, video):
-        return not self.hidden and self.intersects_current_line(video)
+    def is_shown_on_current_line(self):
+        return not self.hidden and self.intersects_current_line()
          
-    def current_line_y(self, video):
-        return video.line_y - self.y + 2 * SPRITE_SIZE
+    def current_line_y(self):
+        return self.video.line_y - self.y + 2 * SPRITE_SIZE
     
     def get_tile(self):
         address = self.get_tile_number()
@@ -155,8 +163,8 @@ class Sprite(object):
              address &= 0xFE
         return self.video.get_tile_at(address)
         
-    def get_draw_y(self, video):
-        y = self.current_line_y(video)
+    def get_draw_y(self):
+        y = self.current_line_y()
         if self.y_flipped:
             y = self.get_tile_size() - y
         return y
@@ -171,7 +179,6 @@ class Tile(object):
     def __init__(self, number, video):
         self.video = video
         self.number = number
-        self.reset()
         self.data = [0x00 for i in range(2*SPRITE_SIZE)]
 
     def draw(self, x, y):
@@ -180,9 +187,6 @@ class Tile(object):
             value = (pattern >> (SPRITE_SIZE - 1 - i)) & 0x0101
             self.video.line[x + i] = value
         
-    def reset(self):
-        pass
-    
     def set_tile_data(self, data):
         self.data = data
 
@@ -205,7 +209,7 @@ class Tile(object):
         else:
             convert, offset = -1, SPRITE_SIZE # 7-0
 
-        y = sprite.get_draw_y(self.video) << 1
+        y = sprite.get_draw_y() << 1
         pattern =  self.get_pattern_at(y) << 1
         mask = (sprite.palette_number           << 2) +\
                (sprite.object_behind_background << 3)

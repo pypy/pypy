@@ -471,7 +471,7 @@ class Video(iMemory):
         # search active shown_sprites
         count = 0
         for sprite in self.sprites:
-            if sprite.is_shown_on_current_line(self):
+            if sprite.is_shown_on_current_line():
                 self.shown_sprites[count] = sprite
                 count += 1
                 if count >= SPRITES_PER_LINE:
