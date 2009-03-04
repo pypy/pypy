@@ -287,10 +287,9 @@ class Background(Drawable):
             self.video.line[x] = 0x00
     
     def draw_line(self, line_y):
-        y = self.scroll_y + line_y
+        y = (self.scroll_y + line_y) & 0xFF
         x = self.scroll_x
 
         tile_map = self.get_tile_map_space()
         tile_group = tile_map[y >> 3]
-        # print "Background"
         self.video.draw_tiles(8 - (x % 8), tile_group, y, x >> 3)

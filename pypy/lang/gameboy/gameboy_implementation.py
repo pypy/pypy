@@ -9,6 +9,7 @@ from pypy.lang.gameboy import constants
 import time
 
 use_rsdl = True
+# use_rsdl = False
 if use_rsdl:
     from pypy.rlib.rsdl import RSDL, RSDL_helper
     from pypy.rpython.lltypesystem import lltype, rffi
@@ -118,6 +119,7 @@ class VideoDriverImplementation(VideoDriver):
             RSDL.UnlockSurface(self.screen)
             RSDL.Flip(self.screen)
         else:
+            print  '\x1b[H\x1b[2J'
             self.draw_ascii_pixels()
             
     def draw_pixels(self):
