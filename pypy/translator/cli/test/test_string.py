@@ -31,3 +31,10 @@ class TestCliString(CliTest, oostring.BaseTestString):
         def fn(i, j):
             return strings[i] < strings[j]
         assert self.interpret(fn, [0, 1], backendopt=False) == fn(0, 1)
+
+    def test_literal_length(self):
+        strings = ['aa', 'a\x01', 'a\x00']
+        def fn():
+            for s in strings:
+                assert len(s) == 2
+        self.interpret(fn, [], backendopt=False)
