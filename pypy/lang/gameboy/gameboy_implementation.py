@@ -50,16 +50,17 @@ class GameBoyImplementation(GameBoy):
     
     def emulate_cycle(self):
         # self.joypad_driver.button_up(True)
-        X = 1<<5
+        X = 1<<6 # About 1<<6 to make sure we have a clean distrubution of about
+                 # 1<<6 frames per second
         start_time = time.time()
         self.handle_events()
         # Come back to this cycle every 1/X seconds
         self.emulate(constants.GAMEBOY_CLOCK / X)
-        if use_rsdl:
-            RSDL.Delay(1)
+        # if use_rsdl:
+         #    RSDL.Delay(100)
         spent = time.time() - start_time
         left = (1.0/X) - spent
-        if left >= 0:
+        if left > 0:
             time.sleep(left)
         else:
             print "WARNING: Going to slow: ", spent, " ", left
