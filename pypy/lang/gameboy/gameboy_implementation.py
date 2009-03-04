@@ -63,7 +63,7 @@ class GameBoyImplementation(GameBoy):
         if left > 0:
             time.sleep(left)
         else:
-            print "WARNING: Going to slow: ", spent, " ", left
+            print "WARNING: Going too slow: ", spent, " ", left
         
     
     def handle_execution_error(self, error): 
