@@ -127,19 +127,18 @@ class VideoDriverImplementation(VideoDriver):
                 RSDL_helper.set_pixel(self.screen, x, y, color)
         
     def draw_ascii_pixels(self):
-            str = ""
+            str = []
             for y in range(self.height):
-                str += "\n"
+                str.append("\n")
                 for x in range(self.width):
                     if y%2 == 0 or True:
-                        str += self.get_pixel_color(x, y, string=True)
-                    pass
-            print str;     
+                        str.append(self.get_pixel_color(x, y, string=True))
+            print "".join(str)
              
     @specialize.arg(3)   
     def get_pixel_color(self, x, y, string=False):
         if string:
-            return ["#", "%", "+", " ", " "][self.get_pixel_color(x, y)]
+            return ["#", "%", "+", ".", " "][self.get_pixel_color(x, y)]
         else:
             return self.pixels[x+self.width*y]
     
