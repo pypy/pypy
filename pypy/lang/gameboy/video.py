@@ -12,27 +12,6 @@ from pypy.lang.gameboy.video_sprite import Sprite, Tile, Background, Window
 from pypy.lang.gameboy.video_mode import Mode0, Mode1, Mode2, Mode3
 
 # -----------------------------------------------------------------------------
-class VideoCallWraper(object):
-    def call(self, pos, color, mask):
-        pass
-    
-
-class set_overlapped_object_line_call_wrapper(VideoCallWraper):
-    def __init__(self, video):
-        self.video = video
-    
-    def call(self, pos, color, mask):
-        self.video.set_overlapped_object_line(pos, color, mask)
-
-
-class set_tile_line_call_wrapper(VideoCallWraper):
-    def __init__(self, video):
-        self.video = video
-    
-    def call(self, pos, color, mask):
-        self.video.set_tile_line(pos, color, mask)
-
-# -----------------------------------------------------------------------------
 
 class Video(iMemory):
 
@@ -77,13 +56,16 @@ class Video(iMemory):
         
     def update_tile(self, address, data):
         self.get_tile(address).set_data_at(address, data);
-    
-    def get_tile(self, address):
-        tile_index = (address - TILE_DATA_ADDR) / (SPRITE_SIZE*2)
+
+    def get_tile_at(self, tile_index):
         if tile_index < TILE_DATA_SIZE:
             return self.tile_data_0[tile_index]
         else:
             return self.tile_data_1[tile_index - TILE_DATA_SIZE / 2]
+    
+    def get_tile(self, address):
+        tile_index = (address - TILE_DATA_ADDR) >> 4
+        return self.get_tile_at(tile_index)
 
     def select_tile_group_for(self, address):
         tile_map_index = address - TILE_MAP_ADDR #) >> 1
@@ -482,10 +464,7 @@ class Video(iMemory):
         lastx = SPRITE_SIZE + GAMEBOY_SCREEN_WIDTH + SPRITE_SIZE
         for index in range(count):
             sprite = self.shown_sprites[index]
-            if (sprite.x + SPRITE_SIZE <= lastx):
-                sprite.draw(self)
-            else:
-                sprite.draw_overlapped(self)
+            sprite.draw(lastx)
             lastx = sprite.x
             
     def scan_sprites(self):
@@ -523,54 +502,6 @@ class Video(iMemory):
             group_index += 1
             x += SPRITE_SIZE
      
-    def get_pattern(self, address):
-        # TODO: remove method!
-        return self.get_vram(VRAM_ADDR + address) + (self.get_vram(VRAM_ADDR + address + 1) << 8)
-
-    def draw_object_tile(self, sprite):
-        self.draw_object(set_tile_line_call_wrapper(self), sprite)
-                      
-    def set_tile_line(self, pos, color, mask):
-        self.line[pos] |= color | mask
-
-    def draw_overlapped_object_tile(self, sprite):
-        self.draw_object(set_overlapped_object_line_call_wrapper(self), sprite)
-        
-    def set_overlapped_object_line(self, pos, color, mask):
-        self.line[pos] = (self.line[pos] & 0x0101) | color | mask
-        
-    def draw_object(self, caller, sprite):
-        pattern = self.get_pattern(sprite.get_tile_address(self))
-        mask    = 0
-        # priority
-        if sprite.object_behind_background:
-            mask |= 0x0008
-        # palette
-        if sprite.palette_number:
-            mask |= 0x0004
-        if sprite.y_flipped:
-            self.draw_object_flipped(sprite.x, pattern, mask, caller)
-        else:
-            self.draw_object_normal(sprite.x, pattern, mask, caller)
-            
-    def draw_object_flipped(self, x, pattern, mask, caller):
-        color = (pattern << 1) & 0x0202
-        if color != 0:
-            caller.call(x, color, mask)
-        for i in range(0, 7):
-            color = (pattern >> i) & 0x0202
-            if color != 0:
-                caller.call(x + i + 1, color, mask)
-                
-    def draw_object_normal(self, x, pattern, mask, caller):
-        for i in range(0, 7):
-            color = (pattern >> (6-i)) & 0x0202
-            if color != 0:
-                caller.call(x + i, color, mask)
-        color = (pattern << 1) & 0x0202
-        if color != 0:
-            caller.call(x+7, color, mask)
-
     def draw_pixels_line(self):
         self.update_palette()
         pixels = self.driver.get_pixels()

@@ -89,21 +89,24 @@ class Sprite(object):
         extracts the Attributes/Flags:
         Bit7   OBJ-to-BG Priority (0=OBJ Above BG, 1=OBJ Behind BG color 1-3)
                  (Used for both BG and Window. BG color 0 is always behind OBJ)
-        Bit6   Y flip          (0=Normal, 1=Vertically mirrored)
-        Bit5   X flip          (0=Normal, 1=Horizontally mirrored)
+        Bit6   X flip          (0=Normal, 1=Vertically mirrored)
+        Bit5   Y flip          (0=Normal, 1=Horizontally mirrored)
         Bit4   Palette number  **Non CGB Mode Only** (0=OBP0, 1=OBP1)
         """
-        self.object_behind_background   = bool(data  & (1 << 7))
-        self.x_flipped                  = bool(data  & (1 << 6))
-        self.y_flipped                  = bool(data  & (1 << 5))
-        self.palette_number             = bool(data &  (1 << 4))
-        self.rest_attributes_and_flags  = data & (1+2+4+8)
+        self.object_behind_background   = bool(data & (1 << 7))
+        self.y_flipped                  = bool(data & (1 << 6))
+        self.x_flipped                  = bool(data & (1 << 5))
+        self.palette_number             = bool(data & (1 << 4))
+        self.rest_attributes_and_flags  = data & ((1<<3) +
+                                                  (1<<2) +
+                                                  (1<<1) +
+                                                  (1<<0))
         
     def get_attributes_and_flags(self):
         value = 0
         value += int(self.object_behind_background) << 7
-        value += int(self.x_flipped)                << 6
-        value += int(self.y_flipped)                << 5
+        value += int(self.y_flipped)                << 6
+        value += int(self.x_flipped)                << 5
         value += int(self.palette_number)           << 4
         value += self.rest_attributes_and_flags
         return value
@@ -146,14 +149,11 @@ class Sprite(object):
     def current_line_y(self, video):
         return video.line_y - self.y + 2 * SPRITE_SIZE
     
-    def get_tile(self, video):
-        if video.control.big_sprites:
-             return self.get_tile_number() & 0xFE
-        else:
-            return self.get_tile_number()
-            
-    def get_tile_address(self, video):
-        return (self.get_tile(video) << 4) + (self.get_draw_y(video) << 1)
+    def get_tile(self):
+        address = self.get_tile_number()
+        if self.video.control.big_sprites:
+             address &= 0xFE
+        return self.video.get_tile_at(address)
         
     def get_draw_y(self, video):
         y = self.current_line_y(video)
@@ -161,12 +161,9 @@ class Sprite(object):
             y = self.get_tile_size() - y
         return y
                 
-    def draw(self, video):
-        video.draw_object_tile(self)
-    
-    def draw_overlapped(self, video):
-        video.draw_overlapped_object_tile(self)
-        
+    def draw(self, lastx):
+        self.get_tile().draw_for_sprite(self, lastx)
+
 # -----------------------------------------------------------------------------
 
 class Tile(object):
@@ -201,7 +198,27 @@ class Tile(object):
     def get_pattern_at(self, address):
         return self.get_data_at(address) +\
                (self.get_data_at(address + 1) << 8)
-    
+
+    def draw_for_sprite(self, sprite, lastx):
+        if sprite.x_flipped:
+            convert, offset =  1, 0           # 0-7
+        else:
+            convert, offset = -1, SPRITE_SIZE # 7-0
+
+        y = sprite.get_draw_y(self.video) << 1
+        pattern =  self.get_pattern_at(y) << 1
+        mask = (sprite.palette_number           << 2) +\
+               (sprite.object_behind_background << 3)
+
+        for i in range(SPRITE_SIZE):
+            color = (pattern >> i) & 0x0202
+            x = sprite.x + offset + i*convert
+            if bool(color):
+                if sprite.x + SPRITE_SIZE > lastx:
+                    # Overlapped.
+                    self.video.line[x] &= 0x0101
+                self.video.line[x] |= color | mask
+
 # -----------------------------------------------------------------------------
 
 class Drawable(object):
