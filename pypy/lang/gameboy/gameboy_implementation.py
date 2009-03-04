@@ -23,6 +23,7 @@ class GameBoyImplementation(GameBoy):
     def __init__(self):
         GameBoy.__init__(self)
         self.is_running = False
+        self.penalty = 0.0
         if use_rsdl:
             self.init_sdl()
         
@@ -60,11 +61,13 @@ class GameBoyImplementation(GameBoy):
         # if use_rsdl:
          #    RSDL.Delay(100)
         spent = time.time() - start_time
-        left = (1.0/X) - spent
+        left = (1.0/X) + self.penalty - spent
         if left > 0:
             time.sleep(left)
+            self.penalty = 0.0
         else:
-            print "WARNING: Going too slow: ", spent, " ", left
+            self.penalty = left
+            # print "WARNING: Going too slow: ", spent, " ", left
         
     
     def handle_execution_error(self, error): 

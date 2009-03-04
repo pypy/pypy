@@ -444,7 +444,7 @@ class Video(iMemory):
         self.driver.update_display()
 
     def clear_frame(self):
-        self.clear_pixels()
+        self.driver.clear_pixels()
         self.driver.update_display()
 
     def draw_line(self):
@@ -490,27 +490,12 @@ class Video(iMemory):
             self.shown_sprites[index], self.shown_sprites[highest] = \
                     self.shown_sprites[highest], self.shown_sprites[index]
 
-    def draw_tiles(self, x_start, tile_group, y, group_index=0):
-        x = x_start
-        tile_data = self.control.get_selected_tile_data_space()
-        while x < GAMEBOY_SCREEN_WIDTH+SPRITE_SIZE:
-            tile_index = tile_group[group_index % TILE_GROUP_SIZE]
-            if not self.control.background_and_window_lower_tile_data_selected:
-                tile_index ^= 0x80
-            tile = tile_data[tile_index]
-            tile.draw(x, y)
-            group_index += 1
-            x += SPRITE_SIZE
-     
     def draw_pixels_line(self):
         self.update_palette()
         pixels = self.driver.get_pixels()
         offset = self.line_y * self.driver.get_width() - SPRITE_SIZE
         for x in range(SPRITE_SIZE, GAMEBOY_SCREEN_WIDTH+SPRITE_SIZE):
             pixels[offset + x] = self.palette[self.line[x]]
-
-    def clear_pixels(self):
-        self.driver.clear_pixels()
 
     def update_palette(self):
         if not self.dirty: return

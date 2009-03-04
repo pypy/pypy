@@ -1,7 +1,5 @@
 
-from pypy.lang.gameboy import constants
-from pypy.lang.gameboy.constants import SPRITE_SIZE, GAMEBOY_SCREEN_WIDTH, \
-                                        GAMEBOY_SCREEN_HEIGHT
+from pypy.lang.gameboy.constants import *
 
 # -----------------------------------------------------------------------------
 
@@ -51,14 +49,14 @@ class Sprite(object):
         """
         extracts the sprite data from an oam entry
         """
-        position = address % 4
-        if position == 0:
+        address %= 4
+        if address == 0:
             self.extract_y_position(data)
-        if position == 1:
+        if address == 1:
             self.extract_x_position(data)
-        if position == 2:
+        if address == 2:
             self.extract_tile_number(data)
-        if position == 3:
+        if address == 3:
             self.extract_attributes_and_flags(data)
         
     def extract_y_position(self, data):
@@ -161,7 +159,7 @@ class Sprite(object):
         return self.video.get_tile_at(self.get_tile_address())
 
     def get_lower_tile(self):
-        return self.video.get_tile_at(self.get_tile_address()+1)
+        return self.video.get_tile_at(self.get_tile_address() + 1)
         
     def get_draw_y(self):
         y = self.current_line_y()
@@ -245,7 +243,18 @@ class Drawable(object):
 
     def reset(self):
         raise Exception("Not implemented")
- 
+
+    def draw_tiles(self, x_start, tile_group, y, group_index=0):
+        x = x_start
+        tile_data = self.video.control.get_selected_tile_data_space()
+        while x < GAMEBOY_SCREEN_WIDTH+SPRITE_SIZE:
+            tile_index = tile_group[group_index % TILE_GROUP_SIZE]
+            if not self.video.control.background_and_window_lower_tile_data_selected:
+                tile_index ^= 0x80
+            tile = tile_data[tile_index]
+            tile.draw(x, y)
+            group_index += 1
+            x += SPRITE_SIZE
 
 class Window(Drawable):
     
@@ -267,7 +276,7 @@ class Window(Drawable):
             tile_map   = self.get_tile_map_space()
             tile_group = tile_map[self.line_y >> 5]
 
-            self.video.draw_tiles(self.x + 1, tile_group, self.line_y)
+            self.draw_tiles(self.x + 1, tile_group, self.line_y)
             self.line_y += 1
 
 # -----------------------------------------------------------------------------
@@ -292,4 +301,4 @@ class Background(Drawable):
 
         tile_map = self.get_tile_map_space()
         tile_group = tile_map[y >> 3]
-        self.video.draw_tiles(8 - (x % 8), tile_group, y, x >> 3)
+        self.draw_tiles(8 - (x % 8), tile_group, y, x >> 3)
