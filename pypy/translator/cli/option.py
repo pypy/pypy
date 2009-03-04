@@ -1,4 +1,4 @@
-from pypy.translator.cli.conftest import option
+from pypy.conftest import option
 
 _defaultopt = dict(wd = False, source = False, nostop = False, stdout = False)
 

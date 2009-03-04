@@ -30,7 +30,7 @@ option = py.test.config.option
 
 class PyPyTestPlugin:
     def pytest_addoption(self, parser):
-        group = parser.addgroup("pypy option")
+        group = parser.addgroup("pypy options")
         group.addoption('--view', action="store_true", dest="view", default=False,
                help="view translation tests' flow graphs with Pygame")
         group.addoption('-A', '--runappdirect', action="store_true",

@@ -1,4 +1,4 @@
-from pypy.translator.jvm.conftest import option
+from pypy.conftest import option
 
 # Not sure why this is needed.  Sure that it shouldn't be, even.
 _default_values = {
