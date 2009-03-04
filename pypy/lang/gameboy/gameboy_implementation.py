@@ -121,9 +121,7 @@ class VideoDriverImplementation(VideoDriver):
             self.draw_ascii_pixels()
             
     def draw_pixels(self):
-        str = ""
         for y in range(self.height):
-            str += "\n"
             for x in range(self.width):
                 color = VideoDriverImplementation.COLOR_MAP[self.get_pixel_color(x, y)]
                 RSDL_helper.set_pixel(self.screen, x, y, color)
