@@ -553,7 +553,7 @@ class VideoDriver(object):
         return self.width
     
     def get_height(self):
-        return selg.height
+        return self.height
     
     def get_pixels(self):
         return self.pixels

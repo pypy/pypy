@@ -141,15 +141,9 @@ class Sprite(object):
         else:
             return SPRITE_SIZE
          
-    def get_tile_size(self):
-         if self.big_size:
-            return 15
-         else:
-            return 7
-        
     def intersects_current_line(self):
         y = self.current_line_y()
-        return y >= 0 and y <= self.get_tile_size()
+        return 0 <= y and y < self.get_height()
     
     def is_shown_on_current_line(self):
         return not self.hidden and self.intersects_current_line()
@@ -166,7 +160,7 @@ class Sprite(object):
     def get_draw_y(self):
         y = self.current_line_y()
         if self.y_flipped:
-            y = self.get_tile_size() - y
+            y = self.get_height() - 1 - y
         return y
                 
     def draw(self, lastx):
