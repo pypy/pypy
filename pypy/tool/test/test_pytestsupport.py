@@ -127,6 +127,7 @@ def test_safename():
            'pypy_tool_test_test_pytestsupport_ExpectTest_paren_test_one'
 
 def test_safe_filename(testdir):
+    py.test.importorskip("pexpect")
     conftestpath.copy(testdir.tmpdir)
     sorter = testdir.inline_runsource("""
         class ExpectTestOne:
