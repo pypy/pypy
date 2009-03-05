@@ -60,10 +60,9 @@ PyPy also basically works in a 64-bit Linux environment.
 Which Python version (2.x?) does PyPy implement?
 ------------------------------------------------
 
-PyPy currently aims to be fully compatible with Python 2.4. That means that
-it contains the standard library of Python 2.4 and that it supports 2.4
-features (such as decorators).  The 2.5 features (e.g. the ``with`` statement,
-the ternary operator) are in progress.
+PyPy currently aims to be fully compatible with Python 2.5. That means that
+it contains the standard library of Python 2.5 and that it supports 2.5
+features (such as the width statement).  
 
 .. _threading:
 
