@@ -269,7 +269,7 @@ class Window(Drawable):
            self.line_y < GAMEBOY_SCREEN_HEIGHT:
 
             tile_map   = self.get_tile_map_space()
-            tile_group = tile_map[self.line_y >> 5]
+            tile_group = tile_map[self.line_y >> 3]
 
             self.draw_tiles(self.x + 1, tile_group,
                             self.line_y, tile_data,
