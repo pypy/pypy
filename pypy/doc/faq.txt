@@ -62,7 +62,7 @@ Which Python version (2.x?) does PyPy implement?
 
 PyPy currently aims to be fully compatible with Python 2.5. That means that
 it contains the standard library of Python 2.5 and that it supports 2.5
-features (such as the width statement).  
+features (such as the with statement).  
 
 .. _threading:
 
