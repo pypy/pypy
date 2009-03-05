@@ -510,10 +510,9 @@ class Video(iMemory):
 
     def draw_pixels_line(self):
         self.update_palette()
-        pixels = self.driver.get_pixels()
-        offset = self.line_y * self.driver.get_width() - SPRITE_SIZE
-        for x in range(SPRITE_SIZE, GAMEBOY_SCREEN_WIDTH+SPRITE_SIZE):
-            pixels[offset + x] = self.palette[self.line[x]]
+        for x in range(0, GAMEBOY_SCREEN_WIDTH):
+            color = self.palette[self.line[SPRITE_SIZE + x]]
+            self.driver.draw_pixel(x, self.line_y, color)
 
     def update_palette(self):
         if not self.dirty: return
@@ -551,6 +550,9 @@ class VideoDriver(object):
         
     def clear_pixels(self):
         self.pixels = [0] * self.width * self.height
+
+    def draw_pixel(self, x, y, color):
+        self.pixels[y * self.width + x] = color
             
     def get_width(self):
         return self.width
