@@ -48,7 +48,7 @@ class Channel(object):
         pass
         
     def update_frequency_and_playback():
-        
+        pass
         
     def get_length(self):
         return self.length
@@ -193,10 +193,10 @@ class SquareWaveChannel(Channel):
             self.index += self.frequency
            # if (self.index & (0x1F << 22)) >= wave_pattern:
                 # output_terminal & 0x20 for the second SquareWaveChannel
-                if (output_terminal & 0x10) != 0:
-                    buffer[index + 0] -= self.volume
-                if (output_terminal & 0x01) != 0:
-                    buffer[index + 1] -= self.volume
+            if (output_terminal & 0x10) != 0:
+                buffer[index + 0] -= self.volume
+            if (output_terminal & 0x01) != 0:
+                buffer[index + 1] -= self.volume
             #else:
             #    if (output_terminal & 0x10) != 0:
             #        buffer[index + 0] += self.volume
@@ -283,7 +283,7 @@ class VoluntaryWaveChannel(Channel):
     def update_audio(self):
         if (self.playback & 0x40) != 0 and self.length > 0:
             self.length-=1
-            self.enabled =  self.length <= 0:
+            self.enabled = self.length <= 0
              #self.output_enable &= ~0x04
 
     def mix_audio(self, buffer, length, output_terminal):
@@ -429,7 +429,7 @@ class NoiseGenerator(Channel):
     def update_enabled(self):
         if (self.playback & 0x40) != 0 and self.length > 0:
             self.length-=1
-            self.enabled =  self.length <= 0:
+            self.enabled = self.length <= 0
             #self.output_enable &= ~0x08
                 
     def update_envelope_and_volume(self):
@@ -665,14 +665,14 @@ class Sound(iMemory):
     def update_audio(self):
         if (self.output_enable & 0x80) == 0:
             return
-        for channel in self.channels
+        for channel in self.channels:
             if channel.enabled:
                 channel.update_audio()
 
     def mix_audio(self, buffer, length):
         if (self.output_enable & 0x80) == 0:
             return
-        for channel in self.channels
+        for channel in self.channels:
             if channel.enabled:
                 channel.mix_audio(buffer, length, self.output_terminal)
 
