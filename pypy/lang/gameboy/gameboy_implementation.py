@@ -8,8 +8,7 @@ from pypy.lang.gameboy.timer import Clock
 from pypy.lang.gameboy import constants
 import time
 
-use_rsdl = True
-# use_rsdl = False
+use_rsdl = False
 use_tile_screen = True
 
 if use_rsdl:

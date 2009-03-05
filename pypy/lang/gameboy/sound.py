@@ -9,130 +9,149 @@ from pypy.lang.gameboy.ram import iMemory
 
 class Channel(object):
 
-    audio_index = 0
-    audio_length = 0
-    audio_frequency = 0
+    index = 0
+    length = 0
+    frequency = 0
     
     def __init__(self, sample_rate, frequency_table):
         self.sample_rate     = int(sample_rate)
         self.frequency_table = frequency_table
-        self.audio_length    = 0
-        self.audio_envelope  = 0
-        self.audio_frequency = 0
-        self.audio_playback  = 0
+        self.length    = 0
+        self.envelope  = 0
+        self.frequency = 0
+        self.playback  = 0
         self.nr0             = 0
         self.nr1             = 0
         self.nr2             = 0
         self.nr4             = 0
         self.nr3             = 0
-        self.audio_index     = 0
-        self.audio_length    = 0
-        self.audio_frequency = 0
+        self.index     = 0
+        self.length    = 0
+        self.frequency = 0
         self.enabled         = False
         #XXX need to push this up into the Sound class
         self.output_enable  = False
         
     def reset(self):
-        self.audio_index = 0
+        self.index = 0
+        self.set_length(0xFF)
+        self.set_playback(0xBF)
     
-    def get_audio_length(self):
-        return self.audio_length
+    def get_length(self):
+        return self.length
+        
+    def set_length(self, length):
+        self.length = length
 
-    def get_audio_envelope(self):
-        return self.audio_envelope
+    def get_envelope(self):
+        return self.envelope
 
-    def get_audio_frequency(self):
-        return self.audio_frequency
+    def get_frequency(self):
+        return self.frequency
 
-    def get_audio_playback(self):
-        return self.audio_playback
+    def get_playback(self):
+        return self.playback
+        
+    def set_playback(self, playback):
+        self.playback = playback
         
 
     
 # ------------------------------------------------------------------------------
 
 #SquareWaveGenerator
-class Channel1(Channel):
+class SquareWaveChannel(Channel):
         # Audio Channel 1 int
     def __init__(self, sample_rate, frequency_table):
         Channel.__init__(self, sample_rate, frequency_table)
         self.sample_sweep            = 0
-        self.audio_1_index           = 0
-        self.audio_1_length          = 0
-        self.audio_volume            = 0
-        self.audio_1_envelope_length = 0
+        self.index           = 0
+        self.length          = 0
+        self.volume            = 0
+        self.envelope_length = 0
         self.sample_sweep_length     = 0
-        self.audio_1_frequency       = 0
+        self.frequency       = 0
     
+    def reset(self):
+        Channel.reset(self)
+        self.set_sweep(0x80)
+        self.set_length(0x3F)
+        self.set_envelope(0x00)
+        self.set_frequency(0xFF)
+        
+        
      # Audio Channel 1
-    def get_audio_sweep(self):
+    def get_sweep(self):
         return self.sample_sweep
 
-    def set_audio_sweep(self, data):
+    def set_sweep(self, data):
         self.sample_sweep        = data
         self.sample_sweep_length = (constants.SOUND_CLOCK / 128) * \
                                 ((self.sample_sweep >> 4) & 0x07)
 
-    def set_audio_length(self, data):
-        self.audio_length   = data
-        self.audio_1_length = (constants.SOUND_CLOCK / 256) * \
-                            (64 - (self.audio_length & 0x3F))
-
-    def set_audio_envelope(self, data):
-        self.audio_envelope = data
-        if (self.audio_playback & 0x40) != 0:
+    def set_length(self, data):
+        self.length   = data
+        self.length = (constants.SOUND_CLOCK / 256) * \
+                            (64 - (self.length & 0x3F))
+                            
+    def set_envelope(self, data):
+        self.envelope = data
+        if (self.playback & 0x40) != 0:
             return
-        if (self.audio_envelope >> 4) == 0:
-            self.audio_volume = 0
-        elif self.audio_1_envelope_length == 0 and \
-             (self.audio_envelope & 0x07) == 0:
-            self.audio_volume = (self.audio_volume + 1) & 0x0F
+        if (self.envelope >> 4) == 0:
+            self.volume = 0
+        elif self.envelope_length == 0 and \
+             (self.envelope & 0x07) == 0:
+            self.volume = (self.volume + 1) & 0x0F
         else:
-            self.audio_volume = (self.audio_volume + 2) & 0x0F
+            self.volume = (self.volume + 2) & 0x0F
 
-    def set_audio_frequency(self, data):
-        self.audio_frequency = data
-        index = self.audio_frequency + ((self.audio_playback & 0x07) << 8)
-        self.audio_1_frequency = self.frequency_table[index]
 
-    def set_audio_playback(self, data):
-        self.audio_playback = data
-        self.audio_1_frequency = self.frequency_table[self.audio_frequency
-                + ((self.audio_playback & 0x07) << 8)]
-        if (self.audio_playback & 0x80) != 0:
+    def set_frequency(self, data):
+        self.frequency = data
+        index = self.frequency + ((self.playback & 0x07) << 8)
+        self.frequency = self.frequency_table[index]
+
+                                    
+    def set_playback(self, data):
+        self.playback = data
+        index = self.frequency + ((self.playback & 0x07) << 8)
+        self.frequency = self.frequency_table[index]
+        if (self.playback & 0x80) != 0:
             self.enabled = True
-            if (self.audio_playback & 0x40) != 0 and self.audio_1_length == 0:
-                self.audio_1_length = (constants.SOUND_CLOCK / 256) * \
-                                    (64 - (self.audio_length & 0x3F))
+            if (self.playback & 0x40) != 0 and self.length == 0:
+                self.length = (constants.SOUND_CLOCK / 256) * \
+                                    (64 - (self.length & 0x3F))
             self.sample_sweep_length = (constants.SOUND_CLOCK / 128) * \
                                     ((self.sample_sweep >> 4) & 0x07)
-            self.audio_volume = self.audio_envelope >> 4
-            self.audio_1_envelope_length = (constants.SOUND_CLOCK / 64) * \
-                                        (self.audio_envelope & 0x07)
-
+            self.volume = self.envelope >> 4
+            self.envelope_length = (constants.SOUND_CLOCK / 64) * \
+                                        (self.envelope & 0x07)
+                                        
     def update_audio(self):
         self.update_enable()
         self.update_volume_and_envelope()
         self.update_frequency_and_playback()
 
+
     def update_enable(self):
-        if (self.audio_playback & 0x40) != 0 and self.audio_1_length > 0:
-            self.audio_1_length-=1
-            if self.audio_1_length <= 0:
+        if (self.playback & 0x40) != 0 and self.length > 0:
+            self.length-=1
+            if self.length <= 0:
                 self.enabled = False
-    
+                
     def update_volume_and_envelope(self):
-        if self.audio_1_envelope_length <= 0:
+        if self.envelope_length <= 0:
             return
-        self.audio_1_envelope_length -= 1
-        if self.audio_1_envelope_length <= 0:
-            if (self.audio_envelope & 0x08) != 0:
-                if (self.audio_volume < 15):
-                    self.audio_volume += 1
-            elif self.audio_volume > 0:
-                self.audio_volume -= 1
-            self.audio_1_envelope_length += (constants.SOUND_CLOCK / 64) * \
-                                         (self.audio_envelope & 0x07)
+        self.envelope_length -= 1
+        if self.envelope_length <= 0:
+            if (self.envelope & 0x08) != 0:
+                if (self.volume < 15):
+                    self.volume += 1
+            elif self.volume > 0:
+                self.volume -= 1
+            self.envelope_length += (constants.SOUND_CLOCK / 64) * \
+                                         (self.envelope & 0x07)
                                              
     def update_frequency_and_playback(self):
         if self.sample_sweep_length <= 0:
@@ -142,19 +161,19 @@ class Channel1(Channel):
             return
         sweep_steps = (self.sample_sweep & 0x07)
         if sweep_steps != 0:
-            frequency = ((self.audio_playback & 0x07) << 8) + \
-                        self.audio_frequency
+            frequency = ((self.playback & 0x07) << 8) + \
+                        self.frequency
             if (self.sample_sweep & 0x08) != 0:
                 frequency -= frequency >> sweep_steps
             else:
                 frequency += frequency >> sweep_steps
             if frequency < 2048:
-                self.audio_1_frequency = self.frequency_table[frequency]
-                self.audio_frequency = frequency & 0xFF
-                self.audio_playback = (self.audio_playback & 0xF8) + \
+                self.frequency = self.frequency_table[frequency]
+                self.frequency = frequency & 0xFF
+                self.playback = (self.playback & 0xF8) + \
                                      ((frequency >> 8) & 0x07)
             else:
-                self.audio_1_frequency = 0
+                self.frequency = 0
                 self.output_enable &= ~0x01
         self.sample_sweep_length += (constants.SOUND_CLOCK / 128) * \
                                  ((self.sample_sweep >> 4) & 0x07)
@@ -162,200 +181,112 @@ class Channel1(Channel):
     def mix_audio(self, buffer, length, output_terminal):
         wave_pattern = self.get_current_wave_pattern()
         for index in range(0, length, 3):
-            self.audio_1_index += self.audio_1_frequency
-            if (self.audio_1_index & (0x1F << 22)) >= wave_pattern:
+            self.index += self.frequency
+            if (self.index & (0x1F << 22)) >= wave_pattern:
+                # output_terminal & 0x20 for the second SquareWaveChannel
                 if (output_terminal & 0x10) != 0:
-                    buffer[index + 0] -= self.audio_volume
+                    buffer[index + 0] -= self.volume
                 if (output_terminal & 0x01) != 0:
-                    buffer[index + 1] -= self.audio_volume
+                    buffer[index + 1] -= self.volume
             else:
                 if (output_terminal & 0x10) != 0:
-                    buffer[index + 0] += self.audio_volume
+                    buffer[index + 0] += self.volume
                 if (output_terminal & 0x01) != 0:
-                    buffer[index + 1] += self.audio_volume
+                    buffer[index + 1] += self.volume
                     
     def get_current_wave_pattern(self):
         wave_pattern = 0x18
-        if (self.audio_length & 0xC0) == 0x00:
+        if (self.length & 0xC0) == 0x00:
             wave_pattern = 0x04
-        elif (self.audio_length & 0xC0) == 0x40:
+        elif (self.length & 0xC0) == 0x40:
             wave_pattern = 0x08
-        elif (self.audio_length & 0xC0) == 0x80:
+        elif (self.length & 0xC0) == 0x80:
             wave_pattern = 0x10
         return wave_pattern << 22
         
-                    
-    
 
-#SquareWaveGenerator
-class Channel2(Channel):
+# ---------------------------------------------------------------------------
+    
+class VoluntaryWaveChannel(Channel):  
 
     def __init__(self, sample_rate, frequency_table):
         Channel.__init__(self, sample_rate, frequency_table)
-        self.audio_2_index           = 0
-        self.audio_2_length          = 0
-        self.audio_volume            = 0
-        self.audio_2_envelope_length = 0
-        self.audio_2_frequency       = 0
-      
-    # Audio Channel 2
-    def set_audio_length(self, data):
-        self.audio_length = data
-        self.audio_2_length = (constants.SOUND_CLOCK / 256) * \
-                            (64 - (self.audio_length & 0x3F))
-
-    def set_audio_envelope(self, data):
-        self.audio_envelope = data
-        if (self.audio_playback & 0x40) == 0:
-            if (self.audio_envelope >> 4) == 0:
-                self.audio_volume = 0
-            elif self.audio_2_envelope_length == 0 and \
-                 (self.audio_envelope & 0x07) == 0:
-                self.audio_volume = (self.audio_volume + 1) & 0x0F
-            else:
-                self.audio_volume = (self.audio_volume + 2) & 0x0F
-
-    def set_audio_frequency(self, data):
-        self.audio_frequency   = data
-        self.audio_2_frequency = self.frequency_table[self.audio_frequency\
-                                    + ((self.audio_playback & 0x07) << 8)]
-
-    def set_audio_playback(self, data):
-        self.audio_playback    = data
-        self.audio_2_frequency = self.frequency_table[self.audio_frequency\
-                                    + ((self.audio_playback & 0x07) << 8)]
-        if (self.audio_playback & 0x80) != 0:
-            self.enabled = True
-            if (self.audio_playback & 0x40) != 0 and self.audio_2_length == 0:
-                self.audio_2_length = (constants.SOUND_CLOCK / 256) * \
-                                    (64 - (self.audio_length & 0x3F))
-            self.audio_volume = self.audio_envelope >> 4
-            self.audio_2_envelope_length = (constants.SOUND_CLOCK / 64) * \
-                                        (self.audio_envelope & 0x07)
+        self.enable       = 0
+        self.level        = 0
+        self.index      = 0
+        self.length     = 0
+        self.frequency  = 0
+        self.wave_pattern = [0]*16
     
-    def update_audio(self):
-        self.update_enable()
-        self.update_volume_and_envelope()
+    def reset(self):
+        Channel.reset(self)
+        self.set_enable(0x7F)
+        self.set_length(0xFF)
+        self.set_level(0x9F)
+        self.set_frequency(0xFF)
+        self.set_playback(0xBF)
         
-    def update_enable(self):
-        if (self.audio_playback & 0x40) != 0 and self.audio_2_length > 0:
-            self.audio_2_length-=1
-            if self.audio_2_length <= 0:
-                self.enabled = False
-    
-    def update_volume_and_envelope(self):
-        if self.audio_2_envelope_length <= 0:
-            return
-        self.audio_2_envelope_length-=1
-        if self.audio_2_envelope_length > 0:
-            return
-        if (self.audio_envelope & 0x08) != 0:
-            if self.audio_volume < 15:
-                self.audio_volume+=1
-        elif self.audio_volume > 0:
-            self.audio_volume-=1
-        self.audio_2_envelope_length += (constants.SOUND_CLOCK / 64) *\
-                                     (self.audio_envelope & 0x07)
         
-    def mix_audio(self, buffer, length, output_terminal):
-        wave_pattern = self.get_current_wave_pattern()
-        for index in range(0, length):
-            self.audio_2_index += self.audio_2_frequency
-            if (self.audio_2_index & (0x1F << 22)) >= wave_pattern:
-                if (output_terminal & 0x20) != 0:
-                    buffer[index + 0] -= self.audio_volume
-                if (output_terminal & 0x02) != 0:
-                    buffer[index + 1] -= self.audio_volume
-            else:
-                if (output_terminal & 0x20) != 0:
-                    buffer[index + 0] += self.audio_volume
-                if (output_terminal & 0x02) != 0:
-                    buffer[index + 1] += self.audio_volume
+    def get_enable(self):
+        return self.enable
 
-    def get_current_wave_pattern(self):
-        wave_pattern = 0x18
-        if (self.audio_length & 0xC0) == 0x00:
-            wave_pattern = 0x04
-        elif (self.audio_length & 0xC0) == 0x40:
-            wave_pattern = 0x08
-        elif (self.audio_length & 0xC0) == 0x80:
-            wave_pattern = 0x10
-        return wave_pattern << 22
-
-    
-    
-#SquareWaveGenerator
-class Channel3(Channel):  
-
-    def __init__(self, sample_rate, frequency_table):
-        Channel.__init__(self, sample_rate, frequency_table)
-        self.audio_enable       = 0
-        self.audio_level        = 0
-        self.audio_3_index      = 0
-        self.audio_3_length     = 0
-        self.audio_3_frequency  = 0
-        self.audio_wave_pattern = [0]*16
-    
-    def get_audio_enable(self):
-        return self.audio_enable
-
-    def get_audio_level(self):
-        return self.audio_level
+    def get_level(self):
+        return self.level
     
     #FIXME strange number here
-    def get_audio_4_frequency(self):
-        return self.audio_frequency
+    def get_frequency(self):
+        return self.frequency
 
-    def set_audio_enable(self, data):
-        self.audio_enable = data & 0x80
-        if (self.audio_enable & 0x80) == 0:
+    def set_enable(self, data):
+        self.enable = data & 0x80
+        if (self.enable & 0x80) == 0:
             self.enabled = False
 
-    def set_audio_length(self, data):
-        self.audio_length = data
-        self.audio_3_length = (constants.SOUND_CLOCK / 256) * \
-                            (256 - self.audio_length)
+    def set_length(self, data):
+        self.length = data
+        self.length = (constants.SOUND_CLOCK / 256) * \
+                            (256 - self.length)
 
-    def set_audio_level(self, data):
-        self.audio_level = data
+    def set_level(self, data):
+        self.level = data
 
-    def set_audio_frequency(self, data):
-        self.audio_frequency = data
-        index = ((self.audio_playback & 0x07) << 8) + self.audio_frequency
-        self.audio_3_frequency = self.frequency_table[index] >> 1
+    def set_frequency(self, data):
+        self.frequency = data
+        index = ((self.playback & 0x07) << 8) + self.frequency
+        self.frequency = self.frequency_table[index] >> 1
 
-    def set_audio_playback(self, data):
-        self.audio_playback = data
-        index = ((self.audio_playback & 0x07) << 8) + self.audio_frequency
-        self.audio_3_frequency = self.frequency_table[index] >> 1
-        if (self.audio_playback & 0x80) != 0 and (self.audio_enable & 0x80) != 0:
+    def set_playback(self, data):
+        self.playback = data
+        index = ((self.playback & 0x07) << 8) + self.frequency
+        self.frequency = self.frequency_table[index] >> 1
+        if (self.playback & 0x80) != 0 and (self.enable & 0x80) != 0:
             self.enabled = True
-            if (self.audio_playback & 0x40) != 0 and self.audio_3_length == 0:
-                self.audio_3_length = (constants.SOUND_CLOCK / 256) *\
-                                    (256 - self.audio_length)
+            if (self.playback & 0x40) != 0 and self.length == 0:
+                self.length = (constants.SOUND_CLOCK / 256) *\
+                                    (256 - self.length)
     
-    def set_audio_wave_pattern(self, address, data):
-        self.audio_wave_pattern[address & 0x0F] = data
+    def set_wave_pattern(self, address, data):
+        self.wave_pattern[address & 0x0F] = data
 
-    def get_audio_wave_pattern(self, address):
-        return self.audio_wave_pattern[address & 0x0F] & 0xFF
+    def get_wave_pattern(self, address):
+        return self.wave_pattern[address & 0x0F] & 0xFF
 
     def update_audio(self):
-        if (self.audio_playback & 0x40) != 0 and self.audio_3_length > 0:
-            self.audio_3_length-=1
-            if self.audio_3_length <= 0:
+        if (self.playback & 0x40) != 0 and self.length > 0:
+            self.length-=1
+            if self.length <= 0:
                 self.output_enable &= ~0x04
 
     def mix_audio(self, buffer, length, output_terminal):
         wave_pattern = self.get_current_wave_pattern()
         for index in range(0, length, 2):
-            self.audio_3_index += self.audio_3_frequency
-            sample = self.audio_wave_pattern[(self.audio_3_index >> 23) & 0x0F]
-            if ((self.audio_3_index & (1 << 22)) != 0):
+            self.index += self.frequency
+            sample = self.wave_pattern[(self.index >> 23) & 0x0F]
+            if ((self.index & (1 << 22)) != 0):
                 sample = (sample >> 0) & 0x0F
             else:
                 sample = (sample >> 4) & 0x0F
-            sample = int(((sample - 8) << 1) >> self.audio_level)
+            sample = int(((sample - 8) << 1) >> self.level)
             if (output_terminal & 0x40) != 0:
                 buffer[index + 0] += sample
             if (output_terminal & 0x04) != 0:
@@ -363,30 +294,38 @@ class Channel3(Channel):
     
     def get_current_wave_pattern(self):
         wave_pattern = 2
-        if (self.audio_level & 0x60) == 0x00:
+        if (self.level & 0x60) == 0x00:
             wave_pattern = 8
-        elif (self.audio_level & 0x60) == 0x40:
+        elif (self.level & 0x60) == 0x40:
             wave_pattern = 0
-        elif (self.audio_level & 0x60) == 0x80:
+        elif (self.level & 0x60) == 0x80:
             wave_pattern = 1
         return wave_pattern
             
-    
+# --------------------------------------------------------------------------- 
+
 class NoiseGenerator(Channel):
         
     def __init__(self, sample_rate, frequency_table):
         Channel.__init__(self, sample_rate, frequency_table)
             # Audio Channel 4 int
-        self.audio_length            = 0
-        self.audio_polynomial        = 0
-        self.audio_4_index           = 0
-        self.audio_4_length          = 0
-        self.audio_volume            = 0
-        self.audio_4_envelope_length = 0
-        self.audio_4_frequency       = 0
+        self.length            = 0
+        self.polynomial        = 0
+        self.index           = 0
+        self.length          = 0
+        self.volume            = 0
+        self.envelope_length = 0
+        self.frequency       = 0
         self.generate_noise_frequency_ratio_table()
         self.generate_noise_tables()
     
+    def reset(self):
+        Channel.reset(self)
+        self.set_length(0xFF)
+        self.set_envelope(0x00)
+        self.set_polynomial(0x00)
+        self.set_playback(0xBF)
+        
     def generate_noise_frequency_ratio_table(self):
          # Polynomial Noise Frequency Ratios
          # 4194304 Hz * 1 / 2^3 * 2 4194304 Hz * 1 / 2^3 * 1 4194304 Hz * 1 / 2^3 *
@@ -431,101 +370,101 @@ class NoiseGenerator(Channel):
                                                  (index & 31)
     
      # Audio Channel 4
-    def get_audio_length(self):
-        return self.audio_length
+    def get_length(self):
+        return self.length
 
-    def get_audio_polynomial(self):
-        return self.audio_polynomial
+    def get_polynomial(self):
+        return self.polynomial
 
-    def get_audio_playback(self):
-        return self.audio_playback
+    def get_playback(self):
+        return self.playback
 
-    def set_audio_length(self, data):
-        self.audio_length = data
-        self.audio_4_length = (constants.SOUND_CLOCK / 256) * \
-                            (64 - (self.audio_length & 0x3F))
+    def set_length(self, data):
+        self.length = data
+        self.length = (constants.SOUND_CLOCK / 256) * \
+                            (64 - (self.length & 0x3F))
 
-    def set_audio_envelope(self, data):
-        self.audio_envelope = data
-        if (self.audio_playback & 0x40) is not 0:
+    def set_envelope(self, data):
+        self.envelope = data
+        if (self.playback & 0x40) is not 0:
             return
-        if (self.audio_envelope >> 4) == 0:
-            self.audio_volume = 0
-        elif self.audio_4_envelope_length == 0 and \
-             (self.audio_envelope & 0x07) == 0:
-            self.audio_volume = (self.audio_volume + 1) & 0x0F
+        if (self.envelope >> 4) == 0:
+            self.volume = 0
+        elif self.envelope_length == 0 and \
+             (self.envelope & 0x07) == 0:
+            self.volume = (self.volume + 1) & 0x0F
         else:
-            self.audio_volume = (self.audio_volume + 2) & 0x0F
+            self.volume = (self.volume + 2) & 0x0F
 
-    def set_audio_polynomial(self, data):
-        self.audio_polynomial = data
-        if (self.audio_polynomial >> 4) <= 12:
-            freq = self.noiseFreqRatioTable[self.audio_polynomial & 0x07]
-            self.audio_4_frequency = freq >> ((self.audio_polynomial >> 4) + 1)
+    def set_polynomial(self, data):
+        self.polynomial = data
+        if (self.polynomial >> 4) <= 12:
+            freq = self.noiseFreqRatioTable[self.polynomial & 0x07]
+            self.frequency = freq >> ((self.polynomial >> 4) + 1)
         else:
-            self.audio_4_frequency = 0
+            self.frequency = 0
 
-    def set_audio_playback(self, data):
-        self.audio_playback = data
-        if (self.audio_playback & 0x80) == 0:
+    def set_playback(self, data):
+        self.playback = data
+        if (self.playback & 0x80) == 0:
             return
         self.enabled = True
-        if (self.audio_playback & 0x40) != 0 and self.audio_4_length == 0:
-            self.audio_4_length = (constants.SOUND_CLOCK / 256) * \
-                                (64 - (self.audio_length & 0x3F))
-        self.audio_volume = self.audio_envelope >> 4
-        self.audio_4_envelope_length = (constants.SOUND_CLOCK / 64) * \
-                                    (self.audio_envelope & 0x07)
-        self.audio_4_index = 0
+        if (self.playback & 0x40) != 0 and self.length == 0:
+            self.length = (constants.SOUND_CLOCK / 256) * \
+                                (64 - (self.length & 0x3F))
+        self.volume = self.envelope >> 4
+        self.envelope_length = (constants.SOUND_CLOCK / 64) * \
+                                    (self.envelope & 0x07)
+        self.index = 0
 
     def update_audio(self):
         self.update_enabled()
         self.update_envelope_and_volume()
     
     def update_enabled(self):
-        if (self.audio_playback & 0x40) != 0 and self.audio_4_length > 0:
-            self.audio_4_length-=1
-            if self.audio_4_length <= 0:
+        if (self.playback & 0x40) != 0 and self.length > 0:
+            self.length-=1
+            if self.length <= 0:
                 self.output_enable &= ~0x08
         
     def update_envelope_and_volume(self):
-        if self.audio_4_envelope_length <= 0:
+        if self.envelope_length <= 0:
             return
-        self.audio_4_envelope_length-=1
-        if self.audio_4_envelope_length > 0:
+        self.envelope_length-=1
+        if self.envelope_length > 0:
             return
-        if (self.audio_envelope & 0x08) != 0:
-            if self.audio_volume < 15:
-                self.audio_volume+=1
-        elif self.audio_volume > 0:
-            self.audio_volume-=1
-        self.audio_4_envelope_length += (constants.SOUND_CLOCK / 64) *\
-                                     (self.audio_envelope & 0x07)
+        if (self.envelope & 0x08) != 0:
+            if self.volume < 15:
+                self.volume+=1
+        elif self.volume > 0:
+            self.volume-=1
+        self.envelope_length += (constants.SOUND_CLOCK / 64) *\
+                                     (self.envelope & 0x07)
                                          
     def mix_audio(self, buffer, length, output_terminal):
         for index in range(0, length, 2):
-            self.audio_4_index += self.audio_4_frequency
+            self.index += self.frequency
             #polynomial
-            if (self.audio_polynomial & 0x08) != 0:
+            if (self.polynomial & 0x08) != 0:
                 #  7 steps
-                self.audio_4_index &= 0x7FFFFF
-                polynomial = self.noise_step_7_table[self.audio_4_index >> 21] >>\
-                             ((self.audio_4_index >> 16) & 31)
+                self.index &= 0x7FFFFF
+                polynomial = self.noise_step_7_table[self.index >> 21] >>\
+                             ((self.index >> 16) & 31)
             else:
                 #  15 steps
-                self.audio_4_index &= 0x7FFFFFFF
-                polynomial = self.noise_step_15_table[self.audio_4_index >> 21] >> \
-                             ((self.audio_4_index >> 16) & 31)
+                self.index &= 0x7FFFFFFF
+                polynomial = self.noise_step_15_table[self.index >> 21] >> \
+                             ((self.index >> 16) & 31)
             if (polynomial & 1) != 0:
                 if (output_terminal & 0x80) != 0:
-                    buffer[index + 0] -= self.audio_volume
+                    buffer[index + 0] -= self.volume
                 if (output_terminal & 0x08) != 0:
-                    buffer[index + 1] -= self.audio_volume
+                    buffer[index + 1] -= self.volume
             else:
                 if (output_terminal & 0x80) != 0:
-                    buffer[index + 0] += self.audio_volume
+                    buffer[index + 0] += self.volume
                 if (output_terminal & 0x08) != 0:
-                    buffer[index + 1] += self.audio_volume
+                    buffer[index + 1] += self.volume
 
     
     
@@ -544,14 +483,14 @@ class Sound(iMemory):
         self.sample_rate     =  self.driver.get_sample_rate()
         
         self.generate_frequency_table()
-        self.create_audio_channels()
+        self.create_channels()
         
         self.reset()
         
-    def create_audio_channels(self):
-        self.channel1 = Channel1(self.sample_rate, self.frequency_table)
-        self.channel2 = Channel2(self.sample_rate, self.frequency_table)
-        self.channel3 = Channel3(self.sample_rate, self.frequency_table)
+    def create_channels(self):
+        self.channel1 = SquareWaveChannel(self.sample_rate, self.frequency_table)
+        self.channel2 = SquareWaveChannel(self.sample_rate, self.frequency_table)
+        self.channel3 = VoluntaryWaveChannel(self.sample_rate, self.frequency_table)
         self.channel4 = NoiseGenerator(self.sample_rate, self.frequency_table)
         
         
@@ -573,37 +512,10 @@ class Sound(iMemory):
         self.channel2.reset()
         self.channel3.reset()
         self.channel4.reset()
-        
-        self.channel1.audio_index = 0
-        self.channel2.audio_index = 0
-        self.channel3.audio_index = 0
-        self.channel4.audio_index = 0
-        
-        self.write(constants.NR10, 0x80)
-        self.write(constants.NR11, 0x3F) #  0xBF
-        self.write(constants.NR12, 0x00) #  0xF3
-        self.write(constants.NR13, 0xFF)
-        self.write(constants.NR14, 0xBF)
 
-        self.write(constants.NR21, 0x3F)
-        self.write(constants.NR22, 0x00)
-        self.write(constants.NR23, 0xFF)
-        self.write(constants.NR24, 0xBF)
-
-        self.write(constants.NR30, 0x7F)
-        self.write(constants.NR31, 0xFF)
-        self.write(constants.NR32, 0x9F)
-        self.write(constants.NR33, 0xFF)
-        self.write(constants.NR34, 0xBF)
-
-        self.write(constants.NR41, 0xFF)
-        self.write(constants.NR42, 0x00)
-        self.write(constants.NR43, 0x00)
-        self.write(constants.NR44, 0xBF)
-
-        self.write(constants.NR50, 0x00) #  0x77
-        self.write(constants.NR51, 0xF0)
-        self.write(constants.NR52, 0xFF) #  0xF0
+        self.set_output_level(0x00)
+        self.set_output_terminal(0xF0)
+        self.set_output_enable(0xFF)
 
         for address in range(0xFF30, 0xFF3F):
             write = 0xFF
@@ -639,44 +551,44 @@ class Sound(iMemory):
     def read(self, address):
         address = int(address)
         if address==constants.NR10:
-            return self.channel1.get_audio_sweep()
+            return self.channel1.get_sweep()
         elif address == constants.NR11:
-            return self.channel1.get_audio_length()
+            return self.channel1.get_length()
         elif address == constants.NR12:
-            return self.channel1.get_audio_envelope()
+            return self.channel1.get_envelope()
         elif address == constants.NR13:
-            return self.channel1.get_audio_frequency()
+            return self.channel1.get_frequency()
         elif address == constants.NR14:
-            return self.channel1.get_audio_playback()
+            return self.channel1.get_playback()
 
         elif address == constants.NR21:
-            return self.channel2.get_audio_length()
+            return self.channel2.get_length()
         elif address == constants.NR22:
-            return self.channel2.get_audio_envelope()
+            return self.channel2.get_envelope()
         elif address==constants.NR23:
-            return self.channel2.get_audio_frequency()
+            return self.channel2.get_frequency()
         elif address==constants.NR24:
-            return self.channel2.get_audio_playback()
+            return self.channel2.get_playback()
 
         elif address==constants.NR30:
-            return self.channel3.get_audio_enable()
+            return self.channel3.get_enable()
         elif address==constants.NR31:
-            return self.channel3.get_audio_length()
+            return self.channel3.get_length()
         elif address==constants.NR32:
-            return self.channel3.get_audio_level()
+            return self.channel3.get_level()
         elif address==constants.NR33:
-            return self.channel4.get_audio_frequency()
+            return self.channel4.get_frequency()
         elif address==constants.NR34:
-            return self.channel3.get_audio_playback()
+            return self.channel3.get_playback()
 
         elif address==constants.NR41:
-            return self.channel4.get_audio_length()
+            return self.channel4.get_length()
         elif address==constants.NR42:
-            return self.channel4.get_audio_envelope()
+            return self.channel4.get_envelope()
         elif address==constants.NR43:
-            return self.channel4.get_audio_polynomial()
+            return self.channel4.get_polynomial()
         elif address==constants.NR44:
-            return self.channel4.get_audio_playback()
+            return self.channel4.get_playback()
 
         elif address==constants.NR50:
             return self.get_output_level()
@@ -687,50 +599,50 @@ class Sound(iMemory):
 
         elif address >= constants.AUD3WAVERAM and \
              address <= constants.AUD3WAVERAM + 0x3F:
-            return self.channel3.get_audio_wave_pattern(address)
+            return self.channel3.get_wave_pattern(address)
         return 0xFF
 
     def write(self, address, data):
         address = int(address)
         if address==constants.NR10:
-            self.channel1.set_audio_sweep(data)
+            self.channel1.set_sweep(data)
         elif address == constants.NR11:
-            self.channel1.set_audio_length(data)
+            self.channel1.set_length(data)
         elif address == constants.NR12:
-            self.channel1.set_audio_envelope(data)
+            self.channel1.set_envelope(data)
         elif address == constants.NR13:
-            self.channel1.set_audio_frequency(data)
+            self.channel1.set_frequency(data)
         elif address == constants.NR14:
-            self.channel1.set_audio_playback(data)
+            self.channel1.set_playback(data)
         
         elif address == constants.NR21:
-            self.channel2.set_audio_length(data)
+            self.channel2.set_length(data)
         elif address == constants.NR22:
-            self.channel2.set_audio_envelope(data)
+            self.channel2.set_envelope(data)
         elif address == constants.NR23:
-            self.channel2.set_audio_frequency(data)
+            self.channel2.set_frequency(data)
         elif address == constants.NR24:
-            self.channel2.set_audio_playback(data)
+            self.channel2.set_playback(data)
         
         elif address == constants.NR30:
-            self.channel3.set_audio_enable(data)
+            self.channel3.set_enable(data)
         elif address == constants.NR31:
-            self.channel3.set_audio_length(data)
+            self.channel3.set_length(data)
         elif address == constants.NR32:
-            self.channel3.set_audio_level(data)
+            self.channel3.set_level(data)
         elif address == constants.NR33:
-            self.channel3.set_audio_frequency(data)
+            self.channel3.set_frequency(data)
         elif address == constants.NR34:
-            self.channel3.set_audio_playback(data)
+            self.channel3.set_playback(data)
         
         elif address == constants.NR41:
-            self.channel4.set_audio_length(data)
+            self.channel4.set_length(data)
         elif address == constants.NR42:
-            self.channel4.set_audio_envelope(data)
+            self.channel4.set_envelope(data)
         elif address == constants.NR43:
-            self.channel4.set_audio_polynomial(data)
+            self.channel4.set_polynomial(data)
         elif address == constants.NR44:
-            self.channel4.set_audio_playback(data)
+            self.channel4.set_playback(data)
         
         elif address == constants.NR50:
             self.set_output_level(data)
@@ -741,7 +653,7 @@ class Sound(iMemory):
         
         elif address >= constants.AUD3WAVERAM and \
              address <= constants.AUD3WAVERAM + 0x3F:
-            self.channel3.set_audio_wave_pattern(address, data)
+            self.channel3.set_wave_pattern(address, data)
 
     def update_audio(self):
         if (self.output_enable & 0x80) == 0:

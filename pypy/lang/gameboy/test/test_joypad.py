@@ -78,8 +78,8 @@ def test_press_release():
 def test_joypad_driver_ini():
     driver = get_driver()
     assert driver.raised               == False
-    assert driver.get_button_code()    == 0
-    assert driver.get_direction_code() == 0
+    assert driver.get_button_code()    == 0xF
+    assert driver.get_direction_code() == 0xF
     
 def test_joypad_driver_isRaised():
     driver        = get_driver()
@@ -102,36 +102,36 @@ def test_joypad_driver_button_code_values():
 def test_joypad_driver_button_toggled_values():
     driver = get_driver()
     driver.button_a()
-    assert driver.get_button_code() == 0x01
+    assert driver.get_button_code() == 0xF - 0x01
     
     driver.reset()
     driver.button_b()
-    assert driver.get_button_code() == 0x02
+    assert driver.get_button_code() == 0xF - 0x02
     
     driver.reset()
     driver.button_select()
-    assert driver.get_button_code() == 0x04
+    assert driver.get_button_code() == 0xF - 0x04
     
     driver.reset()
     driver.button_start()
-    assert driver.get_button_code() == 0x08
+    assert driver.get_button_code() == 0xF - 0x08
     
 def test_joypad_driver_direction_toggled_values():
     driver = get_driver()
     driver.button_up()
-    assert driver.get_direction_code() == 0x04
+    assert driver.get_direction_code() == 0xF - 0x04
     
     driver.reset()
     driver.button_right()
-    assert driver.get_direction_code() == 0x01
+    assert driver.get_direction_code() == 0xF - 0x01
     
     driver.reset()
     driver.button_down()
-    assert driver.get_direction_code() == 0x08
+    assert driver.get_direction_code() == 0xF - 0x08
     
     driver.reset()
     driver.button_left()
-    assert driver.get_direction_code() == 0x02
+    assert driver.get_direction_code() == 0xF - 0x02
     
     
 def test_toggle_opposite_directions():
@@ -150,21 +150,21 @@ def test_toggle_opposite_directions():
         assert driver.raised                == False
         assert button.is_pressed()          == False
         assert opposite_button.is_pressed() == True
-        assert driver.get_direction_code()  == opposite_button.code_value
-        assert driver.get_button_code()     == 0
+        assert driver.get_direction_code()  == 0xF - opposite_button.code_value
+        assert driver.get_button_code()     == 0xF
         
         toggleFunction()
         assert driver.raised                == True
         assert button.is_pressed()          == True
         assert opposite_button.is_pressed() == False
-        assert driver.get_direction_code()  == button.code_value
-        assert driver.get_button_code()     == 0
+        assert driver.get_direction_code()  == 0xF - button.code_value
+        assert driver.get_button_code()     == 0xF
         
         toggleFunction(False)
         assert button.is_pressed()          == False
         assert opposite_button.is_pressed() == False
-        assert driver.get_direction_code()  == 0
-        assert driver.get_button_code()     == 0
+        assert driver.get_direction_code()  == 0xF
+        assert driver.get_button_code()     == 0xF
     
     
 def test_toggle_buttons():
@@ -179,19 +179,19 @@ def test_toggle_buttons():
         driver.reset()
         
         assert button.is_pressed()         == False
-        assert driver.get_button_code()    == 0
-        assert driver.get_direction_code() == 0
+        assert driver.get_button_code()    == 0xF
+        assert driver.get_direction_code() == 0xF
         
         toggleFunction()
         assert driver.raised               == True
         assert button.is_pressed()         == True
-        assert driver.get_button_code()    == button.code_value
-        assert driver.get_direction_code() == 0
+        assert driver.get_button_code()    == 0xF - button.code_value
+        assert driver.get_direction_code() == 0xF
         
         toggleFunction(False)
         assert button.is_pressed()         == False
-        assert driver.get_button_code()    == 0
-        assert driver.get_direction_code() == 0
+        assert driver.get_button_code()    == 0xF
+        assert driver.get_direction_code() == 0xF
         
         
 def test_toggle_multiple_buttons():
@@ -225,7 +225,7 @@ def toggle_multiple_test(driver, codeGetter, buttons):
             else:
                 buttons[j][0](False)
             assert buttons[j][1].is_pressed() == toggled[j]
-        assert codeGetter() == code
+        assert codeGetter() == 0xF - code
                 
 
 
@@ -254,7 +254,7 @@ def test_emulate_zero_ticks_update():
     joypad = get_joypad() 
     joypad.read_control        = 0x2
     joypad.driver.button_up()
-    assert joypad.driver.get_direction_code() == constants.BUTTON_UP
+    assert joypad.driver.get_direction_code() == 0xF - constants.BUTTON_UP
     joypad.driver.raised      = False
     joypad.cycles             = 2
     
@@ -271,7 +271,7 @@ def test_emulate_zero_ticks_update():
     joypad.emulate(2)
     assert joypad.cycles      == constants.JOYPAD_CLOCK
     assert joypad.read_control == 2
-    assert joypad.button_code == constants.BUTTON_UP
+    assert joypad.button_code == 0xF - constants.BUTTON_UP
     assert joypad.joypad_interrupt_flag.is_pending()
     
 def test_read_write():
@@ -300,25 +300,25 @@ def test_update():
     joypad = get_joypad()
     # toogle the buttons
     joypad.driver.button_select()
-    assert joypad.driver.get_button_code() == constants.BUTTON_SELECT
+    assert joypad.driver.get_button_code() == 0xF - constants.BUTTON_SELECT
     joypad.driver.button_up()
-    assert joypad.driver.get_direction_code() == constants.BUTTON_UP
+    assert joypad.driver.get_direction_code() == 0xF - constants.BUTTON_UP
     assert joypad.button_code == 0xF
     
     joypad.write(constants.JOYP, 0x10)
     joypad.update()
-    assert joypad.button_code == constants.BUTTON_SELECT
+    assert joypad.button_code == 0xF - constants.BUTTON_SELECT
     assert joypad.joypad_interrupt_flag.is_pending()
     
     joypad.joypad_interrupt_flag.set_pending(False)
     joypad.write(constants.JOYP, 0x10)
     joypad.update()
-    assert joypad.button_code == constants.BUTTON_SELECT
+    assert joypad.button_code == 0xF - constants.BUTTON_SELECT
     assert not joypad.joypad_interrupt_flag.is_pending()
     
     joypad.write(constants.JOYP, 0x20)
     joypad.update()
-    assert joypad.button_code == constants.BUTTON_UP
+    assert joypad.button_code == 0xF - constants.BUTTON_UP
     
     joypad.write(constants.JOYP, 0x30)
     joypad.update()
