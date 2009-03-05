@@ -4,9 +4,7 @@ from pypy.translator.translator import TranslationContext
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.js.js import JS
 from pypy.translator.js.test.browsertest import jstest
-from pypy.translator.js import conftest
 from pypy.translator.js.log import log
-from pypy.conftest import option
 from pypy.rpython.test.tool import BaseRtypingTest, OORtypeMixin
 from pypy.rlib.nonconst import NonConstant
 from pypy.rpython.ootypesystem import ootype
@@ -14,8 +12,9 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.llinterp import LLException
 
 log = log.runtest
-use_browsertest = conftest.option.browser
-use_tg = conftest.option.tg
+use_browsertest = py.test.config.option.browser
+use_tg = py.test.config.option.tg
+use_view = py.test.config.option.view
 
 port = 8080
 
@@ -43,11 +42,11 @@ class compile_function(object):
 
         ann = t.buildannotator(policy=policy)
         ann.build_types(function, annotations)
-        if view or option.view:
+        if view or use_view:
             t.view()
         t.buildrtyper(type_system="ootype").specialize()
 
-        if view or option.view:
+        if view or use_view:
             t.view()
         #self.js = JS(t, [function, callback_function], stackless)
         self.js = JS(t, function, stackless)
