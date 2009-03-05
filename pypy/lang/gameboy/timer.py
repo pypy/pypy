@@ -5,7 +5,7 @@ Timer and Divider
 """
 
 from pypy.lang.gameboy import constants
-from pypy.lang.gameboy.interrupt import *
+from pypy.lang.gameboy.interrupt import Interrupt
 from math import ceil
 from pypy.lang.gameboy.ram import iMemory
 import time

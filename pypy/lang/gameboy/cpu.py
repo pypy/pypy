@@ -1,7 +1,6 @@
 
 from pypy.lang.gameboy import constants
-from pypy.lang.gameboy.ram import *
-from pypy.lang.gameboy.interrupt import *
+from pypy.lang.gameboy.interrupt import Interrupt
 from pypy.lang.gameboy.cpu_register import Register, DoubleRegister, \
                                            FlagRegister, ImmediatePseudoRegister
 
