@@ -41,13 +41,13 @@ class Channel(object):
         self.update_envelope_and_volume()
         self.update_frequency_and_playback()
         
-    def update_enabled():
+    def update_enabled(self):
         pass
         
-    def update_envelope_and_volume():
+    def update_envelope_and_volume(self):
         pass
         
-    def update_frequency_and_playback():
+    def update_frequency_and_playback(self):
         pass
         
     def get_length(self):
@@ -167,11 +167,11 @@ class SquareWaveChannel(Channel):
             return
         sweep_steps = (self.sample_sweep & 0x07)
         if sweep_steps != 0:
-            self.update_frequency()
+            self.update_frequency(sweep_steps)
         self.sample_sweep_length += (SOUND_CLOCK / 128) * \
                                  ((self.sample_sweep >> 4) & 0x07)
          
-    def update_frequency(self):
+    def update_frequency(self, sweep_steps):
         frequency = ((self.playback & 0x07) << 8) + self.frequency
         if (self.sample_sweep & 0x08) != 0:
             frequency -= frequency >> sweep_steps

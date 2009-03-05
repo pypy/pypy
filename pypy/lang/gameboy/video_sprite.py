@@ -4,7 +4,20 @@ from pypy.lang.gameboy.constants import *
 # -----------------------------------------------------------------------------
 
 class Sprite(object):
+    """   
+           8px
+       +--------+
+       |        |      Normal Sprite size: 8 x 8px
+       | upper  | 8px
+       |        |
+     (x,y)------+
+       |        |      Big Sprite size:    8 x 16px
+       | lower  | 8px
+       |        |
+       +--------+
+            8x
     
+    """
     def __init__(self, video):
         self.video = video
         self.big_size = False
@@ -116,18 +129,6 @@ class Sprite(object):
         value += int(self.palette_number)           << 4
         value += self.rest_attributes_and_flags
         return value
-        
-    def hide_check(self):
-        if self.y <= 0 or self.y >= GAMEBOY_SCREEN_WIDTH:
-            self.hidden = True
-        elif self.x <= 0 or self.x >= GAMEBOY_SCREEN_WIDTH+SPRITE_SIZE:
-            self.hidden = True
-        else:
-            self.hidden = False
-        return self.hidden
-        
-    def get_tile_number(self):
-        return self.tile_number
     
     def get_width(self):
         return SPRITE_SIZE
@@ -137,6 +138,39 @@ class Sprite(object):
             return 2*SPRITE_SIZE
         else:
             return SPRITE_SIZE
+        
+    def get_tile_number(self):
+        return self.tile_number
+    
+    def get_tile_address(self):
+        address = self.get_tile_number()
+        if self.big_size:
+             address &= 0xFE
+        return address
+                            
+    def get_tile_for_current_line(self):
+        lower = self.current_line_y() < SPRITE_SIZE
+        if lower ^ (self.big_size and self.y_flipped):
+            return self.get_tile()
+        else:
+            return self.get_lower_tile() 
+            
+    def get_tile(self):
+        return self.video.get_tile_at(self.get_tile_address())
+
+    def get_lower_tile(self):
+        return self.video.get_tile_at(self.get_tile_address() + 1)
+                
+    def hide_check(self):
+        """returns and caches the general visibility of a Sprite.
+        Updates the hidden property. See also intersects_current_line.""" 
+        if self.y <= 0 or self.y >= GAMEBOY_SCREEN_WIDTH:
+            self.hidden = True
+        elif self.x <= 0 or self.x >= GAMEBOY_SCREEN_WIDTH+SPRITE_SIZE:
+            self.hidden = True
+        else:
+            self.hidden = False
+        return self.hidden
          
     def intersects_current_line(self):
         y = self.current_line_y()
@@ -146,32 +180,13 @@ class Sprite(object):
         return not self.hidden and self.intersects_current_line()
          
     def current_line_y(self):
-        return (self.video.line_y - self.y) + 2 * SPRITE_SIZE
-    
-    def get_tile_address(self):
-        address = self.get_tile_number()
-        if self.big_size:
-             address &= 0xFE
-        return address
-
-    def get_tile(self):
-        return self.video.get_tile_at(self.get_tile_address())
-
-    def get_lower_tile(self):
-        return self.video.get_tile_at(self.get_tile_address() + 1)
+        return (self.video.line_y - self.y) + 2 * SPRITE_SIZE  
         
     def get_draw_y(self):
         y = self.current_line_y()
         if self.y_flipped:
             y = self.get_height() - 1 - y
-        return y
-    
-    def get_tile_for_current_line(self):
-        lower = self.current_line_y() < SPRITE_SIZE
-        if lower ^ (self.big_size and self.y_flipped):
-            return self.get_tile()
-        else:
-            return self.get_lower_tile()
+        return y                          
 
     def draw(self, lastx):
         self.get_tile_for_current_line().draw_for_sprite(self, self.video.line, lastx)
