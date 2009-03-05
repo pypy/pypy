@@ -16,9 +16,11 @@ except ImportError:
 #
 
 if sys.platform == 'darwin':
-    from AppKit import NSApplication
-    NSApplication.sharedApplication()
-
+    try:
+        from AppKit import NSApplication
+        NSApplication.sharedApplication()
+    except:
+        py.test.skip("Could not load the AppKit")
 
 class TestGameBoyImplementation(object):
 
