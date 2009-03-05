@@ -6,6 +6,8 @@ Work and High RAM
 
 from pypy.lang.gameboy import constants
 
+class InvalidMemoryAccess(Exception):
+    pass
 
 class iMemory(object):
      def write(self, address, data):
@@ -42,4 +44,4 @@ class RAM(iMemory):
         # FF80-FFFE
         elif address >= 0xFF80 and address <= 0xFFFE:
             return self.hi_ram[address & 0x7F]
-        raise Exception("Invalid Memory access, address out of range")
+        raise InvalidMemoryAccess("Invalid Memory access, address out of range")
