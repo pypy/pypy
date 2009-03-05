@@ -8,8 +8,7 @@ from pypy.lang.gameboy.timer import Clock
 from pypy.lang.gameboy import constants
 import time
 
-use_rsdl = False
-use_tile_screen = True
+use_rsdl = True
 
 if use_rsdl:
     from pypy.rlib.rsdl import RSDL, RSDL_helper
@@ -110,12 +109,7 @@ class VideoDriverImplementation(VideoDriver):
     def __init__(self):
         VideoDriver.__init__(self)
         self.create_screen()
-        #self.create_tile_screen()
         self.map = []
-
-    #def create_tile_screen(self):
-    #     if use_rsdl and use_tile_screen:
-    #        self.tile_screen = RSDL.SetVideoMode(128, 128, 32, 0)    
 
     def create_screen(self):
         if use_rsdl:
@@ -123,11 +117,6 @@ class VideoDriverImplementation(VideoDriver):
         
     def update_display(self):
         if use_rsdl:
-            # if use_tile_screen:
-            #    RSDL.LockSurface(self.tile_screen)
-            #    self.draw_tile_pixels()
-            #    RSDL.UnlockSurface(self.tile_screen)
-            #    RSDL.Flip(self.tile_screen)
             RSDL.LockSurface(self.screen)
             self.draw_pixels()
             RSDL.UnlockSurface(self.screen)

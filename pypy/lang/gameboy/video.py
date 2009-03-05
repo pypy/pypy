@@ -390,11 +390,11 @@ class Video(iMemory):
         """
         Specifies the upper/left positions of the Window area. (The window is an
         alternate background area which can be displayed above of the normal
-        background. OBJs (sprites) may be still displayed above or behinf the 
+        background. OBJs (sprites) may be still displayed above or behind the 
         window, just as for normal BG.)
         The window becomes visible (if enabled) when positions are set in range
         WX=0..166, WY=0..143. A postion of WX=7, WY=0 locates the window at
-        upper left, it is then completly covering normal background.
+        upper left, it is then completely covering normal background.
         """
         self.window.y = data
         
@@ -454,12 +454,24 @@ class Video(iMemory):
         self.driver.update_display()
 
     def draw_line(self):
-        if self.background.enabled:
-            self.background.draw_line(self.line_y)
+        if self.control.background_and_window_lower_tile_data_selected:
+            tile_index_flip = 0x00
         else:
-            self.background.draw_clean_line(self.line_y)
+            tile_index_flip = 0x80
+        tile_data = self.get_selected_tile_data_space()
+
+        if self.background.enabled:
+            self.background.draw_line(self.line_y,
+                                      tile_data,
+                                      tile_index_flip,
+                                      self.line)
+        else:
+            self.background.draw_clean_line(self.line)
         if self.window.enabled:
-            self.window.draw_line(self.line_y)
+            self.window.draw_line(self.line_y,
+                                  tile_data,
+                                  tile_index_flip,
+                                  self.line)
         if self.control.sprites_enabled:
             self.draw_sprites_line()
         self.draw_pixels_line()

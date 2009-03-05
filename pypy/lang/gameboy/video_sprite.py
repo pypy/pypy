@@ -241,15 +241,13 @@ class Drawable(object):
     def reset(self):
         raise Exception("Not implemented")
 
-    def draw_tiles(self, x_start, tile_group, y, group_index=0):
+    def draw_tiles(self, x_start, tile_group, y, tile_data, index_flip, line, group_index=0):
         x = x_start
-        tile_data = self.video.get_selected_tile_data_space()
         while x < GAMEBOY_SCREEN_WIDTH+SPRITE_SIZE:
             tile_index = tile_group[group_index % TILE_GROUP_SIZE]
-            if not self.video.control.background_and_window_lower_tile_data_selected:
-                tile_index ^= 0x80
+            tile_index ^= index_flip
             tile = tile_data[tile_index]
-            tile.draw(self.video.line, x, y)
+            tile.draw(line, x, y)
             group_index += 1
             x += SPRITE_SIZE
 
@@ -266,14 +264,16 @@ class Window(Drawable):
         if self.line_y == 0 and self.video.line_y > self.y:
             self.line_y = GAMEBOY_SCREEN_HEIGHT
        
-    def draw_line(self, line_y):
+    def draw_line(self, line_y, tile_data, tile_index_flip, line):
         if line_y >= self.y and self.x < GAMEBOY_SCREEN_WIDTH+SPRITE_SIZE-1 and \
            self.line_y < GAMEBOY_SCREEN_HEIGHT:
 
             tile_map   = self.get_tile_map_space()
             tile_group = tile_map[self.line_y >> 5]
 
-            self.draw_tiles(self.x + 1, tile_group, self.line_y)
+            self.draw_tiles(self.x + 1, tile_group,
+                            self.line_y, tile_data,
+                            tile_index_flip, line)
             self.line_y += 1
 
 # -----------------------------------------------------------------------------
@@ -288,14 +288,16 @@ class Background(Drawable):
         self.enabled    = True
         self.upper_tile_map_selected = False
       
-    def draw_clean_line(self, line_y):
-        for x in range(SPRITE_SIZE+GAMEBOY_SCREEN_WIDTH+SPRITE_SIZE):
-            self.video.line[x] = 0x00
+    def draw_clean_line(self, line):
+        for x in range(len(line)):
+            line[x] = 0x00
     
-    def draw_line(self, line_y):
+    def draw_line(self, line_y, tile_data, tile_index_flip, line):
         y = (self.scroll_y + line_y) & 0xFF
         x = self.scroll_x
 
         tile_map = self.get_tile_map_space()
         tile_group = tile_map[y >> 3]
-        self.draw_tiles(8 - (x % 8), tile_group, y, x >> 3)
+        self.draw_tiles(8 - (x % 8), tile_group,
+                        y, tile_data,
+                        tile_index_flip, line, x >> 3)
