@@ -512,7 +512,7 @@ class Video(iMemory):
         self.update_palette()
         for x in range(0, GAMEBOY_SCREEN_WIDTH):
             color = self.palette[self.line[SPRITE_SIZE + x]]
-            self.driver.draw_pixel(x, self.line_y, color)
+            self.driver.draw_gb_pixel(x, self.line_y, color)
 
     def update_palette(self):
         if not self.dirty: return
@@ -549,20 +549,16 @@ class VideoDriver(object):
         self.clear_pixels()
         
     def clear_pixels(self):
-        self.pixels = [0] * self.width * self.height
+        self.pixels = [[0] * self.width for i in range(self.height)]
 
-    def draw_pixel(self, x, y, color):
-        self.pixels[y * self.width + x] = color
-            
+    def draw_gb_pixel(self, x, y, color):
+        self.pixels[y][x] = color
+
     def get_width(self):
         return self.width
     
     def get_height(self):
         return self.height
     
-    def get_pixels(self):
-        return self.pixels
-    
     def update_display(self):
         self.clear_pixels()
-        

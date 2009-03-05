@@ -145,7 +145,7 @@ class VideoDriverImplementation(VideoDriver):
         if string:
             return ["#", "%", "+", ".", " "][self.get_pixel_color(x, y)]
         else:
-            return self.pixels[x+self.width*y]
+            return self.pixels[y][x]
     
        
 # JOYPAD DRIVER ----------------------------------------------------------------
