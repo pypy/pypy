@@ -118,16 +118,15 @@ class Sprite(object):
         return value
         
     def hide_check(self):
-        if self.y <= 0  or self.y >= GAMEBOY_SCREEN_WIDTH:
+        if self.y <= 0 or self.y >= GAMEBOY_SCREEN_WIDTH:
             self.hidden = True
-        elif self.x <= 0  or self.x >= GAMEBOY_SCREEN_WIDTH+SPRITE_SIZE:
+        elif self.x <= 0 or self.x >= GAMEBOY_SCREEN_WIDTH+SPRITE_SIZE:
             self.hidden = True
         else:
             self.hidden = False
         return self.hidden
         
     def get_tile_number(self):
-        #return self.tile.id
         return self.tile_number
     
     def get_width(self):
@@ -175,22 +174,20 @@ class Sprite(object):
             return self.get_lower_tile()
 
     def draw(self, lastx):
-        self.get_tile_for_current_line().draw_for_sprite(self, lastx)
+        self.get_tile_for_current_line().draw_for_sprite(self, self.video.line, lastx)
 
 # -----------------------------------------------------------------------------
 
 class Tile(object):
     
-    def __init__(self, number, video):
-        self.video = video
-        self.number = number
+    def __init__(self):
         self.data = [0x00 for i in range(2*SPRITE_SIZE)]
 
-    def draw(self, x, y):
+    def draw(self, line, x, y):
         pattern = self.get_pattern_at(y << 1)
         for i in range(SPRITE_SIZE):
             value = (pattern >> (SPRITE_SIZE - 1 - i)) & 0x0101
-            self.video.line[x + i] = value
+            line[x + i] = value
         
     def set_tile_data(self, data):
         self.data = data
@@ -208,7 +205,7 @@ class Tile(object):
         return self.get_data_at(address) +\
                (self.get_data_at(address + 1) << 8)
 
-    def draw_for_sprite(self, sprite, lastx):
+    def draw_for_sprite(self, sprite, line, lastx):
         if sprite.x_flipped:
             convert, offset =  1, 0           # 0-7
         else:
@@ -225,8 +222,8 @@ class Tile(object):
             if bool(color):
                 if sprite.x + SPRITE_SIZE > lastx:
                     # Overlapped.
-                    self.video.line[x] &= 0x0101
-                self.video.line[x] |= color | mask
+                    line[x] &= 0x0101
+                line[x] |= color | mask
 
 # -----------------------------------------------------------------------------
 
@@ -246,13 +243,13 @@ class Drawable(object):
 
     def draw_tiles(self, x_start, tile_group, y, group_index=0):
         x = x_start
-        tile_data = self.video.control.get_selected_tile_data_space()
+        tile_data = self.video.get_selected_tile_data_space()
         while x < GAMEBOY_SCREEN_WIDTH+SPRITE_SIZE:
             tile_index = tile_group[group_index % TILE_GROUP_SIZE]
             if not self.video.control.background_and_window_lower_tile_data_selected:
                 tile_index ^= 0x80
             tile = tile_data[tile_index]
-            tile.draw(x, y)
+            tile.draw(self.video.line, x, y)
             group_index += 1
             x += SPRITE_SIZE
 

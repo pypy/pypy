@@ -145,9 +145,3 @@ class ControlRegister(object):
 
         if previous_big_sprites != self.big_sprites:
             self.video.update_sprite_size()
-        
-    def get_selected_tile_data_space(self):
-        if self.background_and_window_lower_tile_data_selected:
-            return self.video.tile_data_0
-        else:
-            return self.video.tile_data_1

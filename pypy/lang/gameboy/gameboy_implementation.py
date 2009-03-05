@@ -10,6 +10,8 @@ import time
 
 use_rsdl = True
 # use_rsdl = False
+use_tile_screen = True
+
 if use_rsdl:
     from pypy.rlib.rsdl import RSDL, RSDL_helper
     from pypy.rpython.lltypesystem import lltype, rffi
@@ -109,14 +111,24 @@ class VideoDriverImplementation(VideoDriver):
     def __init__(self):
         VideoDriver.__init__(self)
         self.create_screen()
+        #self.create_tile_screen()
         self.map = []
-    
+
+    #def create_tile_screen(self):
+    #     if use_rsdl and use_tile_screen:
+    #        self.tile_screen = RSDL.SetVideoMode(128, 128, 32, 0)    
+
     def create_screen(self):
         if use_rsdl:
             self.screen = RSDL.SetVideoMode(self.width, self.height, 32, 0)
         
     def update_display(self):
         if use_rsdl:
+            # if use_tile_screen:
+            #    RSDL.LockSurface(self.tile_screen)
+            #    self.draw_tile_pixels()
+            #    RSDL.UnlockSurface(self.tile_screen)
+            #    RSDL.Flip(self.tile_screen)
             RSDL.LockSurface(self.screen)
             self.draw_pixels()
             RSDL.UnlockSurface(self.screen)
@@ -130,6 +142,13 @@ class VideoDriverImplementation(VideoDriver):
             for x in range(self.width):
                 color = VideoDriverImplementation.COLOR_MAP[self.get_pixel_color(x, y)]
                 RSDL_helper.set_pixel(self.screen, x, y, color)
+
+    def draw_tile_pixels(self):
+        for y in range(128):
+            for x in range(128):
+                #color = VideoDriverImplementation.COLOR_MAP[self.get_pixel_color(x, y)]
+                #RSDL_helper.set_pixel(self.screen, x, y, color)
+                pass
         
     def draw_ascii_pixels(self):
             str = []

@@ -52,7 +52,7 @@ class Video(iMemory):
         self.tile_data = [self.tile_data_0, self.tile_data_1]
 
     def create_tile_data(self):
-        return [Tile(i, self) for i in range(TILE_DATA_SIZE / 2)]
+        return [Tile() for i in range(TILE_DATA_SIZE / 2)]
         
     def update_tile(self, address, data):
         self.get_tile(address).set_data_at(address, data);
@@ -76,6 +76,12 @@ class Video(iMemory):
             tile_map_index -= TILE_MAP_SIZE * TILE_GROUP_SIZE
         tile_group = map[tile_map_index >> 5]
         return tile_group, tile_map_index & 0x1F
+
+    def get_selected_tile_data_space(self):
+        if self.control.background_and_window_lower_tile_data_selected:
+            return self.tile_data_0
+        else:
+            return self.tile_data_1
 
     def get_tile_map(self, address):
         tile_group, group_index = self.select_tile_group_for(address)
