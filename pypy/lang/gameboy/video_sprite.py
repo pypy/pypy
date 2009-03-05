@@ -140,13 +140,13 @@ class Sprite(object):
          
     def intersects_current_line(self):
         y = self.current_line_y()
-        return 0 <= y and y < self.get_height()
+        return y >= 0 and y < self.get_height()
     
     def is_shown_on_current_line(self):
         return not self.hidden and self.intersects_current_line()
          
     def current_line_y(self):
-        return self.video.line_y - self.y + 2 * SPRITE_SIZE
+        return (self.video.line_y - self.y) + 2 * SPRITE_SIZE
     
     def get_tile_address(self):
         address = self.get_tile_number()

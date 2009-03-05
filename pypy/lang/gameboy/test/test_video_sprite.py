@@ -1,4 +1,4 @@
-from pypy.lang.gameboy import constants
+from pypy.lang.gameboy.constants import *
 from pypy.lang.gameboy.video_sprite import Sprite
 from pypy.lang.gameboy.video import Video
 from pypy.lang.gameboy.test.test_video import get_video
@@ -58,19 +58,19 @@ def test_video_sprite_read_write():
     sprite = get_sprite()
     for i in range(0xFF):
         sprite.set_data_at(0, i)
-        assert sprite.get_data()[0] == i
+        assert sprite.get_data_at(0) == i
         
     for i in range(0xFF):
         sprite.set_data_at(1, i)
-        assert sprite.get_data()[1] == i
+        assert sprite.get_data_at(1) == i
         
     for i in range(0xFF):
         sprite.set_data_at(2, i)
-        assert sprite.get_data()[2] == i
+        assert sprite.get_data_at(2) == i
         
     for i in range(0xFF):
         sprite.set_data_at(3, i)
-        assert sprite.get_data()[3] == i
+        assert sprite.get_data_at(3) == i
         
 def test_size():
     sprite = get_sprite()
@@ -121,33 +121,27 @@ def test_hiddden_check():
         sprite.hide_check()
         assert sprite.hidden
         
-def test_set_data():
-    py.test.skip("test not implemented")
-    sprite = get_sprite()
     
 def test_intersects_line_normal_size():
     sprite = get_sprite()
     sprite.big_size = False
-    sprite.y = 1
-    line_intersection_test(sprite, 8)
+    sprite.y = 2*SPRITE_SIZE+1
+    line_intersection_test(sprite)
     
 def test_intersects_line_big_size():
     sprite = get_sprite()
     sprite.big_size = True
-    sprite.y = 1
-    line_intersection_test(sprite, 16)
+    sprite.y = 2*SPRITE_SIZE+1
+    line_intersection_test(sprite)
     
-def line_intersection_test(sprite, height):
-    assert not sprite.intersects_line(0)
-    for i in range(height):
-        assert sprite.intersects_line(i+1)
-    assert not sprite.intersects_line(height+2)
+def line_intersection_test(sprite):
+    sprite.video.line_y = 0
+    assert not sprite.intersects_current_line()
+    for i in range(sprite.get_height()):
+        sprite.video.line_y = i+1
+        assert sprite.intersects_current_line(), i
+    sprite.video.line_y = sprite.get_height()+1
+    assert not sprite.intersects_current_line()
     
-def test_intersects_line_normal_size_y_flipped():
-    py.test.skip("not yet implemented")
-    
-    
-def test_intersects_big_normal_size_y_flipped():
-    py.test.skip("not yet implemented")
     
 # test sprite in video ---------------------------------------------------------
