@@ -1118,15 +1118,17 @@ def test_0xC9():
 # reti
 def test_0xD9_return_form_interrupt():
     cpu   = get_cpu()
+    cpu.ime = False
     cpu.interrupt.reset()
     value = 0x1234
     cpu.sp.set(0)
     prepare_for_pop(cpu, value >> 8, value & 0xFF)
     prepare_for_fetch(cpu, 0x00)
-    pc    = cpu.pc.get()
+    pc    = cpu.pc.get(use_cycles=False)
     cycle_test(cpu, 0xD9, 4+1+1) 
     # pc: popped value + 
     assert_default_registers(cpu, pc=value+1, sp=2)
+    assert cpu.ime == True
     
 def test_handle_interrupt():
     cpu        = get_cpu()

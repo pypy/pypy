@@ -32,14 +32,15 @@ def test_video_control_read_write_properties():
         assert control.read() == i
         
 def test_video_control_get_selected_tile_data_space():
-    # TODO: Cami's magic has to pass over here :)
+    py.test.skip("Strange things happening here")
     control = get_control_register()
+    video = control.video
     
     control.background_and_window_lower_tile_data_selected = False
-    assert control.get_selected_tile_data_space() == control.video.tile_data_1
+    assert video.get_selected_tile_data_space() == video.tile_data_1
     
     control.background_and_window_lower_tile_data_selected = True
-    assert control.get_selected_tile_data_space() == control.video.tile_data_0
+    assert video.get_selected_tile_data_space() == video.tile_data_0
     
 # StatusRegister ---------------------------------------------------------------
 

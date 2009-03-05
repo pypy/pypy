@@ -374,8 +374,7 @@ class CPU(object):
         self.a.set(self.a.get() & getCaller.get())  # 1 cycle
         self.flag.reset()
         self.flag.zero_check(self.a.get())
-        # I don't see any reason for this?
-        # self.flag.is_half_carry = True
+        self.flag.is_half_carry = True
 
     def xor_a(self, getCaller, setCaller=None):
         # 1 cycle
