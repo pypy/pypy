@@ -193,14 +193,25 @@ def read_unihan(unihan_file):
         extra_numeric[code] = numeric
     return extra_numeric
 
-def writeDict(outfile, name, dictionary):
+def writeDict(outfile, name, dictionary, base_mod):
+    if base_mod:
+        base_dict = getattr(base_mod, name)
+    else:
+        base_dict = {}
     print >> outfile, '%s = {' % name
-    keys = dictionary.keys()
-    keys.sort()
-    for key in keys:
-        print >> outfile, '%r: %r,'%(key, dictionary[key])
+    items = dictionary.items()
+    items.sort()
+    for key, value in items:
+        if key not in base_dict or base_dict[key] != value:
+            print >> outfile, '%r: %r,'%(key, dictionary[key])
     print >> outfile, '}'
     print >> outfile
+    print >> outfile, '%s_corrected = {' % name
+    for key in base_dict:
+        if key not in dictionary:
+            print >> outfile, '%r: None,' % key
+    print >> outfile, '}'
+
 
 class Cache:
     def __init__(self):
@@ -311,15 +322,63 @@ def _get_record(code):
     print >> outfile, 'def mirrored(code): return _get_record(code)[3] & %d != 0'% IS_MIRRORED
     print >> outfile, 'def combining(code): return _get_record(code)[4]'
 
-def write_character_names(outfile, table):
+def write_character_names(outfile, table, base_mod):
 
     import triegenerator
 
     names = dict((table[code].name,code) for code in range(len(table)) if table[code].name)
+    sorted_names_codes = sorted(names.iteritems())
 
-    triegenerator.build_compression_tree(outfile, names)
+    if base_mod is None:
+        triegenerator.build_compression_tree(outfile, names)
+        print >> outfile, "# the following dictionary is used by modules that take this as a base"
+        print >> outfile, "_orig_names = {"
+        for name, code in sorted_names_codes:
+            print >> outfile, "%r: %r," % (name, code)
+        print >> outfile, "}"
+    else:
+        print >> outfile, '_names = {'
+        for name, code in sorted_names_codes:
+            try:
+                if base_mod.lookup_charcode(code) == name:
+                    continue
+            except KeyError:
+                pass
+            print >> outfile, '%r: %r,' % (code, name)
+        print >> outfile, '}'
+
+        
+        print >> outfile, '_names_corrected = {'
+        for name, code in sorted(base_mod._orig_names.iteritems()):
+            if name not in names:
+                print >> outfile, '%r: None,' % code
+        print >> outfile, '}'
+
+        print >> outfile, '_code_by_name = {'
+        corrected = {}
+        for name, code in sorted_names_codes:
+            try:
+                if base_mod.lookup_charcode(code) == name:
+                    continue
+            except KeyError:
+                pass
+            print >> outfile, '%r: %r,' % (name, code)
+        print >> outfile, '}'
+
+        print >> outfile, '_code_by_name_corrected = {'
+        for name, code in sorted(base_mod._orig_names.iteritems()):
+            if name not in names:
+                print >> outfile, '%r: None,' % name
+        print >> outfile, '}'
+
     
-def writeUnicodedata(version, table, outfile):
+def writeUnicodedata(version, table, outfile, base):
+    if base:
+        print >> outfile, 'import %s as base_mod' % base
+        base_mod = __import__(base)
+    else:
+        print >> outfile, 'base_mod = None'
+        base_mod = None
     # Version
     print >> outfile, 'version = %r' % version
     print >> outfile
@@ -328,7 +387,7 @@ def writeUnicodedata(version, table, outfile):
     if version >= "4.1":
         cjk_end = 0x9FBB
 
-    write_character_names(outfile, table)
+    write_character_names(outfile, table, base_mod)
     
     print >> outfile, '''
 _cjk_prefix = "CJK UNIFIED IDEOGRAPH-"
@@ -393,7 +452,17 @@ def lookup(name):
         return _lookup_cjk(name[len(_cjk_prefix):])
     if name[:len(_hangul_prefix)] == _hangul_prefix:
         return _lookup_hangul(name[len(_hangul_prefix):])
-    return trie_lookup(name)
+
+    if not base_mod:
+        return trie_lookup(name)
+    else:
+        try:
+            return _code_by_name[name]
+        except KeyError:
+            if name not in _code_by_name_corrected:
+                return base_mod.trie_lookup(name)
+            else:
+                raise
 
 def name(code):
     if (0x3400 <= code <= 0x4DB5 or
@@ -410,7 +479,16 @@ def name(code):
         return ("HANGUL SYLLABLE " + _hangul_L[l_code] +
                 _hangul_V[v_code] + _hangul_T[t_code])
     
-    return lookup_charcode(code)
+    if not base_mod:
+        return lookup_charcode(code)
+    else:
+        try:
+            return _names[code]
+        except KeyError:
+            if code not in _names_corrected:
+                return base_mod.lookup_charcode(code)
+            else:
+                raise
 ''' % (cjk_end, cjk_end)
 
     # Categories
@@ -427,18 +505,36 @@ def name(code):
         if table[code].numeric is not None:
             numeric[code] = table[code].numeric
             
-    writeDict(outfile, '_decimal', decimal)
-    writeDict(outfile, '_digit', digit)
-    writeDict(outfile, '_numeric', numeric)
+    writeDict(outfile, '_decimal', decimal, base_mod)
+    writeDict(outfile, '_digit', digit, base_mod)
+    writeDict(outfile, '_numeric', numeric, base_mod)
     print >> outfile, '''
 def decimal(code):
-    return _decimal[code]
+    try:
+        return _decimal[code]
+    except KeyError:
+        if base_mod is not None and code not in _decimal_corrected:
+            return base_mod._decimal[code]
+        else:
+            raise
 
 def digit(code):
-    return _digit[code]
+    try:
+        return _digit[code]
+    except KeyError:
+        if base_mod is not None and code not in _digit_corrected:
+            return base_mod._digit[code]
+        else:
+            raise
 
 def numeric(code):
-    return _numeric[code]
+    try:
+        return _numeric[code]
+    except KeyError:
+        if base_mod is not None and code not in _numeric_corrected:
+            return base_mod._numeric[code]
+        else:
+            raise
 '''
     # Case conversion
     toupper = {}
@@ -451,27 +547,52 @@ def numeric(code):
             tolower[code] = table[code].lower
         if table[code].title:
             totitle[code] = table[code].title
-    writeDict(outfile, '_toupper', toupper)
-    writeDict(outfile, '_tolower', tolower)
-    writeDict(outfile, '_totitle', totitle)
+    writeDict(outfile, '_toupper', toupper, base_mod)
+    writeDict(outfile, '_tolower', tolower, base_mod)
+    writeDict(outfile, '_totitle', totitle, base_mod)
     print >> outfile, '''
 def toupper(code):
-    return _toupper.get(code, code)
+    try:
+        return _toupper[code]
+    except KeyError:
+        if base_mod is not None and code not in _toupper_corrected:
+            return base_mod._toupper.get(code, code)
+        else:
+            return code
+
 def tolower(code):
-    return _tolower.get(code, code)
+    try:
+        return _tolower[code]
+    except KeyError:
+        if base_mod is not None and code not in _tolower_corrected:
+            return base_mod._tolower.get(code, code)
+        else:
+            return code
+
 def totitle(code):
-    return _totitle.get(code, code)
+    try:
+        return _totitle[code]
+    except KeyError:
+        if base_mod is not None and code not in _totitle_corrected:
+            return base_mod._totitle.get(code, code)
+        else:
+            return code
 '''
     # Decomposition
     decomposition = {}
     for code in range(len(table)):
         if table[code].raw_decomposition:
             decomposition[code] = table[code].raw_decomposition
-    writeDict(outfile, '_raw_decomposition', decomposition)
+    writeDict(outfile, '_raw_decomposition', decomposition, base_mod)
     print >> outfile, '''
 def decomposition(code):
-    return _raw_decomposition.get(code,'')
-
+    try:
+        return _raw_decomposition[code]
+    except KeyError:
+        if base_mod is not None and code not in _raw_decomposition_corrected:
+            return base_mod._raw_decomposition.get(code, '')
+        else:
+            return ''
 '''
     # Collect the composition pairs.
     compositions = []
@@ -505,46 +626,53 @@ def decomposition(code):
     for code in range(len(table)):
         if table[code].canonical_decomp:
             decomposition[code] = table[code].canonical_decomp
-    writeDict(outfile, '_canon_decomposition', decomposition)
+    writeDict(outfile, '_canon_decomposition', decomposition, base_mod)
 
     decomposition = {}
     for code in range(len(table)):
         if table[code].compat_decomp:
             decomposition[code] = table[code].compat_decomp
-    writeDict(outfile, '_compat_decomposition', decomposition)
+    writeDict(outfile, '_compat_decomposition', decomposition, base_mod)
+    print >> outfile, '''
+def canon_decomposition(code):
+    try:
+        return _canon_decomposition[code]
+    except KeyError:
+        if base_mod is not None and code not in _canon_decomposition_corrected:
+            return base_mod._canon_decomposition.get(code, [])
+        else:
+            return []
+def compat_decomposition(code):
+    try:
+        return _compat_decomposition[code]
+    except KeyError:
+        if base_mod is not None and code not in _compat_decomposition_corrected:
+            return base_mod._compat_decomposition.get(code, [])
+        else:
+            return []
+'''
 
-
-if __name__ == '__main__':
-    import getopt, re, sys
+def main():
+    import re, sys
+    from optparse import OptionParser
     infile = None
     outfile = sys.stdout
-    unidata_version = None
-    options, args = getopt.getopt(sys.argv[1:], 'o:v:',
-                                  ('output=', 'version='))
-    for opt, val in options:
-        if opt in ('-o', '--output'):
-            outfile = open(val, 'w')
-        if opt in ('-v', '--version'):
-            unidata_version = val
+    
+    parser = OptionParser('Usage: %prog [options]')
+    parser.add_option('--base', metavar='FILENAME', help='Base python version (for import)')
+    parser.add_option('--output', metavar='OUTPUT_MODULE', help='Output module (implied py extension)')
+    parser.add_option('--unidata_version', metavar='#.#.#', help='Unidata version')
+    options, args = parser.parse_args()
 
-    if len(args) < 3 or len(args) > 4:
-        raise RuntimeError('Usage: %s [-o outfile] [-v version] UnicodeDataFile CompositionExclutionsFile EastAsianWidthFile [UnihanFile]')
-    
-    infilename = args[0]
-    infile = open(infilename, 'r')
-    exclusions = open(args[1])
-    east_asian_width = file(args[2])
-    if len(args) > 3:
-        unihan = file(args[3])
-    else:
-        unihan = None
-    if unidata_version is None:
-        m = re.search(r'-([0-9]+\.)+', infilename)
-        if m:
-            unidata_version = infilename[m.start() + 1:m.end() - 1]
-    
-    if unidata_version is None:
-        raise ValueError('No version specified')
+    if not options.unidata_version:
+        raise Exception("No version specified")
+
+    if options.output:
+        outfile = open(options.output + '.py', "w")
+    infile = open('UnicodeData-%s.txt' % options.unidata_version)
+    exclusions = open('CompositionExclusions-%s.txt' % options.unidata_version)
+    east_asian_width = open('EastAsianWidth-%s.txt' % options.unidata_version)
+    unihan = open('UnihanNumeric-%s.txt' % options.unidata_version)
 
     table = read_unicodedata(infile, exclusions, east_asian_width, unihan)
     print >> outfile, '# UNICODE CHARACTER DATABASE'
@@ -552,4 +680,7 @@ if __name__ == '__main__':
     print >> outfile, '#    ', ' '.join(sys.argv)
     print >> outfile
     print >> outfile
-    writeUnicodedata(unidata_version, table, outfile)
+    writeUnicodedata(options.unidata_version, table, outfile, options.base)
+
+if __name__ == '__main__':
+    main()

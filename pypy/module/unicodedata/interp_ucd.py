@@ -40,8 +40,8 @@ class UCD(Wrappable):
         self._combining = unicodedb.combining
         self._mirrored = unicodedb.mirrored
         self._decomposition = unicodedb.decomposition
-        self._canon_decomposition = unicodedb._canon_decomposition
-        self._compat_decomposition = unicodedb._compat_decomposition
+        self._canon_decomposition = unicodedb.canon_decomposition
+        self._compat_decomposition = unicodedb.compat_decomposition
         self._composition_max = unicodedb._composition_max
         self._composition_shift = unicodedb._composition_shift
         self._composition = unicodedb._composition
@@ -186,7 +186,7 @@ class UCD(Wrappable):
                     result[j + 2] = T
                     j += 3
                 continue
-            decomp = decomposition.get(ch, [])
+            decomp = decomposition(ch)
             if decomp:
                 decomplen = len(decomp)
                 if j + decomplen > resultlen:

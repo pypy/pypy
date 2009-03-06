@@ -1,7 +1,7 @@
 from py.test import raises, skip
 from pypy.conftest import gettestobjspace
 
-from pypy.module.unicodedata import unicodedb_4_1_0
+from pypy.module.unicodedata import unicodedb_4_1_0, unicodedb_3_2_0, unicodedb_5_0_0
 
 class AppTestUnicodeData:
     def setup_class(cls):
@@ -153,3 +153,14 @@ class TestUnicodeData(object):
             assert char.lower() == unichr(unicodedb_4_1_0.tolower(code))
             assert char.upper() == unichr(unicodedb_4_1_0.toupper(code))
             assert code in self.diff_title or char.title() == unichr(unicodedb_4_1_0.totitle(code)), hex(code)
+
+    def test_hangul_difference_410(self):
+        assert unicodedb_4_1_0.name(40874) == 'CJK UNIFIED IDEOGRAPH-9FAA'
+
+    def test_differences(self):
+        assert unicodedb_5_0_0.name(9187) == 'BENZENE RING WITH CIRCLE'
+        assert unicodedb_5_0_0.lookup('BENZENE RING WITH CIRCLE') == 9187
+        raises(KeyError, unicodedb_3_2_0.lookup, 'BENZENE RING WITH CIRCLE')
+        raises(KeyError, unicodedb_4_1_0.lookup, 'BENZENE RING WITH CIRCLE')
+        raises(KeyError, unicodedb_3_2_0.name, 9187)
+        raises(KeyError, unicodedb_4_1_0.name, 9187)
