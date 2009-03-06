@@ -249,7 +249,9 @@ class Tile(object):
 
 class Drawable(object):
     def __init__(self, video):
-        self.video = video
+        self.video                   = video
+        self.enabled                 = False
+        self.upper_tile_map_selected = False
         self.reset()
 
     def get_tile_map_space(self):
@@ -282,28 +284,20 @@ class Window(Drawable):
     def reset(self):
         self.x       = 0
         self.y       = 0
-        self.line_y  = 0
-        self.enabled = False
-        self.upper_tile_map_selected  = False
-        
-    def switch_on(self):
-        if self.line_y == 0 and self.video.line_y > self.y:
-            self.line_y = GAMEBOY_SCREEN_HEIGHT
 
     def draw_clean_line(self, line):
         pass
        
     def draw_line(self, line_y, tile_data, tile_index_flip, line):
-        if line_y >= self.y and self.x < GAMEBOY_SCREEN_WIDTH+SPRITE_SIZE-1 and \
-           self.line_y < GAMEBOY_SCREEN_HEIGHT:
+        relative_y = line_y - self.y
+        if relative_y >= 0 and relative_y < GAMEBOY_SCREEN_HEIGHT:
 
             tile_map   = self.get_tile_map_space()
-            tile_group = tile_map[self.line_y >> 3]
+            tile_group = tile_map[relative_y >> 3]
 
             self.draw_tiles(self.x + 1, tile_group,
-                            self.line_y, tile_data,
+                            relative_y, tile_data,
                             tile_index_flip, line)
-            self.line_y += 1
 
 # -----------------------------------------------------------------------------
 
@@ -314,8 +308,6 @@ class Background(Drawable):
         # be displayed in the left upper corner of the screen.
         self.scroll_x   = 0
         self.scroll_y   = 0
-        self.enabled    = True
-        self.upper_tile_map_selected = False
       
     def draw_clean_line(self, line):
         for x in range(len(line)):

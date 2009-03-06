@@ -68,7 +68,19 @@ class PreviewWindow(VideoMetaWindow):
     def update_screen(self):
         for y in range(self.height):
             line = self.screen[y]
+            for i in range(len(line)):
+                line[i] = 0x00
             self.gameboy.video.draw_window(self.get_window(), y, line)
+
+class WindowPreview(PreviewWindow):
+    def get_window(self):
+        # XXX Broken for now
+        return self.gameboy.video.window
+
+class BackgroundPreview(PreviewWindow):
+    def get_window(self):
+        return self.gameboy.video.background
+
 
 class MapViewer(VideoMetaWindow):
     def __init__(self, gameboy):
@@ -103,15 +115,6 @@ class MapAViewer(MapViewer):
 class MapBViewer(MapViewer):
     def get_map(self):
         return self.gameboy.video.tile_map_1
-
-class WindowPreview(PreviewWindow):
-    def get_window(self):
-        # XXX Broken for now
-        return self.gameboy.video.window
-
-class BackgroundPreview(PreviewWindow):
-    def get_window(self):
-        return self.gameboy.video.background
 
 class SpriteWindow(VideoMetaWindow):
     def __init__(self, gameboy):

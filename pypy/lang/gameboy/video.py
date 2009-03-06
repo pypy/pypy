@@ -78,7 +78,7 @@ class Video(iMemory):
         return tile_group, tile_map_index & 0x1F
 
     def get_selected_tile_data_space(self):
-        if self.control.background_and_window_lower_tile_data_selected:
+        if self.control.lower_tile_data_selected:
             return self.tile_data_0
         else:
             return self.tile_data_1
@@ -457,10 +457,10 @@ class Video(iMemory):
         self.driver.update_gb_display()
 
     def tile_index_flip(self):
-        if self.control.background_and_window_lower_tile_data_selected:
-            return 0x00
+        if self.control.lower_tile_data_selected:
+            return 0
         else:
-            return 0x80
+            return 1 << 7 # First and last 128 tiles are swapped.
 
     def draw_window(self, window, line_y, line):
         if window.enabled:

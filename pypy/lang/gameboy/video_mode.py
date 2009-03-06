@@ -144,11 +144,10 @@ class Mode1(Mode):
         self.video.v_blank_interrupt_flag.set_pending()
         
     def emulate_v_blank_other(self):
-        if self.video.line_y < 153:
+        if self.video.line_y <= GAMEBOY_SCREEN_HEIGHT + SPRITE_SIZE:
             self.emulate_v_blank_mode_1()
         else:
             self.video.line_y        = 0
-            self.video.window.line_y = 0
             self.set_between_end()
         self.emulate_hblank_line_y_compare() 
                 

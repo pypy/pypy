@@ -91,21 +91,21 @@ class ControlRegister(object):
         self.reset()
         
     def reset(self):
-        self.lcd_enabled                              = True
-        self.window.upper_tile_map_selected           = False
-        self.window.enabled                           = False
-        self.background_and_window_lower_tile_data_selected  = True
-        self.background.upper_tile_map_selected       = False
-        self.big_sprites                              = False
-        self.sprites_enabled                          = False
-        self.background.enabled                       = True
+        self.lcd_enabled                        = True
+        self.window.upper_tile_map_selected     = False
+        self.window.enabled                     = False
+        self.lower_tile_data_selected           = True
+        self.background.upper_tile_map_selected = False
+        self.background.enabled                 = True
+        self.big_sprites                        = False
+        self.sprites_enabled                    = False
         
     def read(self):
         value = 0
         value += int(self.lcd_enabled)                        << 7 
         value += int(self.window.upper_tile_map_selected)     << 6 
         value += int(self.window.enabled)                     << 5
-        value += int(self.background_and_window_lower_tile_data_selected)  << 4
+        value += int(self.lower_tile_data_selected)           << 4
         value += int(self.background.upper_tile_map_selected) << 3
         value += int(self.big_sprites)                        << 2
         value += int(self.sprites_enabled)                    << 1
@@ -132,16 +132,12 @@ class ControlRegister(object):
             
         was_enabled         = self.window.enabled
         self.window.enabled = bool(value & (1 << 5))
-        if not was_enabled and self.window.enabled:
-            self.window.switch_on()
-
-        self.window.upper_tile_map_selected          = bool(value & (1 << 6))
-        self.background_and_window_lower_tile_data_selected = \
-                                                       bool(value & (1 << 4))
-        self.background.upper_tile_map_selected      = bool(value & (1 << 3))
-        self.big_sprites                             = bool(value & (1 << 2))
-        self.sprites_enabled                         = bool(value & (1 << 1))
-        self.background.enabled                      = bool(value & (1 << 0))
+        self.window.upper_tile_map_selected     = bool(value & (1 << 6))
+        self.lower_tile_data_selected           = bool(value & (1 << 4))
+        self.background.upper_tile_map_selected = bool(value & (1 << 3))
+        self.big_sprites                        = bool(value & (1 << 2))
+        self.sprites_enabled                    = bool(value & (1 << 1))
+        self.background.enabled                 = bool(value & (1 << 0))
 
         if previous_big_sprites != self.big_sprites:
             self.video.update_sprite_size()
