@@ -249,6 +249,8 @@ def register_stat_variant(name):
             val = getattr(st, fieldname)
             if isinstance(TYPE, lltype.Number):
                 rffi.setintfield(ll_tup, 'item%d' % i, int(val))
+            elif TYPE is lltype.Float:
+                setattr(ll_tup, 'item%d' % i, float(val))
             else:
                 setattr(ll_tup, 'item%d' % i, val)
         return ll_tup
