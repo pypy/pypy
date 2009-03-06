@@ -130,8 +130,9 @@ class Sprite(object):
         value += self.rest_attributes_and_flags
         return value
     
-    def get_width(self):
-        return SPRITE_SIZE
+    # Unused.
+    #def get_width(self):
+    #    return SPRITE_SIZE
     
     def get_height(self):
         if self.big_size:
@@ -148,9 +149,11 @@ class Sprite(object):
              address &= 0xFE
         return address
                             
-    def get_tile_for_current_line(self):
-        lower = self.current_line_y() < SPRITE_SIZE
-        if lower ^ (self.big_size and self.y_flipped):
+    def get_tile_for_current_line(self, y):
+        return self.get_tile_for_relative_line(self.current_line_y(y))
+
+    def get_tile_for_relative_line(self, y):
+        if (y < SPRITE_SIZE) ^ (self.big_size and self.y_flipped):
             return self.get_tile()
         else:
             return self.get_lower_tile() 
@@ -172,24 +175,26 @@ class Sprite(object):
             self.hidden = False
         return self.hidden
          
-    def intersects_current_line(self):
-        y = self.current_line_y()
+    def intersects_current_line(self, line_y):
+        y = self.current_line_y(line_y)
         return y >= 0 and y < self.get_height()
     
-    def is_shown_on_current_line(self):
-        return not self.hidden and self.intersects_current_line()
+    def is_shown_on_line(self, line_y):
+        return not self.hidden and self.intersects_current_line(line_y)
          
-    def current_line_y(self):
-        return (self.video.line_y - self.y) + 2 * SPRITE_SIZE  
+    def current_line_y(self, y):
+        return (y - self.y) + 2 * SPRITE_SIZE  
         
-    def get_draw_y(self):
-        y = self.current_line_y()
+    def get_draw_y(self, line_y):
+        y = self.current_line_y(line_y)
         if self.y_flipped:
             y = self.get_height() - 1 - y
         return y                          
 
-    def draw(self, lastx):
-        self.get_tile_for_current_line().draw_for_sprite(self, self.video.line, lastx)
+    def draw(self, line, line_y, lastx):
+        tile = self.get_tile_for_current_line(line_y)
+        draw_y = self.get_draw_y(line_y)
+        tile.draw_for_sprite(self, line, draw_y, lastx)
 
 # -----------------------------------------------------------------------------
 
@@ -201,8 +206,8 @@ class Tile(object):
     def draw(self, line, x, y):
         pattern = self.get_pattern_at(y << 1)
         for i in range(SPRITE_SIZE):
-            value = (pattern >> (SPRITE_SIZE - 1 - i)) & 0x0101
-            line[x + i] = value
+            color = (pattern >> (SPRITE_SIZE - 1 - i)) & 0x0101
+            line[x + i] = color
         
     def set_tile_data(self, data):
         self.data = data
@@ -220,13 +225,13 @@ class Tile(object):
         return self.get_data_at(address) +\
                (self.get_data_at(address + 1) << 8)
 
-    def draw_for_sprite(self, sprite, line, lastx):
+    def draw_for_sprite(self, sprite, line, y, lastx):
         if sprite.x_flipped:
             convert, offset =  1, 0           # 0-7
         else:
             convert, offset = -1, SPRITE_SIZE # 7-0
 
-        y = sprite.get_draw_y() << 1
+        y = y << 1 # 2 bytes per line
         pattern =  self.get_pattern_at(y) << 1
         mask = (sprite.palette_number           << 2) +\
                (sprite.object_behind_background << 3)

@@ -11,6 +11,7 @@ GAMEBOY_SCREEN_WIDTH  = 160
 GAMEBOY_SCREEN_HEIGHT = 144
 
 SPRITE_SIZE  = 8
+MAX_SPRITES = 40
 
 #___________________________________________________________________________
 # CATRIGE TYPES

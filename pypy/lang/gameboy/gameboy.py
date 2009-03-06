@@ -21,14 +21,14 @@ class GameBoy(object):
 
     def __init__(self):
         self.create_drivers()
-        self.create_gamboy_elements()
+        self.create_gameboy_elements()
 
     def create_drivers(self):
         self.joypad_driver = JoypadDriver()
         self.video_driver  = VideoDriver()
         self.sound_driver  = SoundDriver()
         
-    def create_gamboy_elements(self): 
+    def create_gameboy_elements(self): 
         self.clock     = Clock()
         self.ram       = RAM()
         self.cartridge_manager = CartridgeManager(self.clock)

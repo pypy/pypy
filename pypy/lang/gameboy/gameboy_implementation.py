@@ -5,10 +5,12 @@ from pypy.lang.gameboy.joypad import JoypadDriver
 from pypy.lang.gameboy.video import VideoDriver
 from pypy.lang.gameboy.sound import SoundDriver
 from pypy.lang.gameboy.timer import Clock
+from pypy.lang.gameboy.video_meta import TileDataWindow, SpriteWindow
 from pypy.lang.gameboy import constants
 import time
 
 use_rsdl = True
+show_metadata = False # Extends the window with windows visualizing meta-data
 
 if use_rsdl:
     from pypy.rlib.rsdl import RSDL, RSDL_helper
@@ -24,6 +26,7 @@ class GameBoyImplementation(GameBoy):
         GameBoy.__init__(self)
         self.is_running = False
         self.penalty = 0.0
+        self.sync_time = time.time()
         if use_rsdl:
             self.init_sdl()
         
@@ -34,7 +37,7 @@ class GameBoyImplementation(GameBoy):
     def create_drivers(self):
         self.clock = Clock()
         self.joypad_driver = JoypadDriverImplementation()
-        self.video_driver  = VideoDriverImplementation()
+        self.video_driver  = VideoDriverImplementation(self)
         self.sound_driver  = SoundDriverImplementation()
     
     def mainLoop(self):
@@ -51,16 +54,14 @@ class GameBoyImplementation(GameBoy):
         return 0
     
     def emulate_cycle(self):
-        # self.joypad_driver.button_up(True)
         X = 1<<6 # About 1<<6 to make sure we have a clean distrubution of about
                  # 1<<6 frames per second
-        start_time = time.time()
         self.handle_events()
         # Come back to this cycle every 1/X seconds
         self.emulate(constants.GAMEBOY_CLOCK / X)
         # if use_rsdl:
          #    RSDL.Delay(100)
-        spent = time.time() - start_time
+        spent = time.time() - self.sync_time
         left = (1.0/X) + self.penalty - spent
         if left > 0:
             time.sleep(left)
@@ -68,6 +69,7 @@ class GameBoyImplementation(GameBoy):
         else:
             self.penalty = left
             # print "WARNING: Going too slow: ", spent, " ", left
+        self.sync_time = time.time()
         
     
     def handle_execution_error(self, error): 
@@ -106,30 +108,48 @@ class VideoDriverImplementation(VideoDriver):
     
     COLOR_MAP = [0xFFFFFF, 0xCCCCCC, 0x666666, 0x000000]
     
-    def __init__(self):
+    def __init__(self, gameboy):
         VideoDriver.__init__(self)
+
+        self.create_pixels()
+        if show_metadata:
+            self.create_meta_windows(gameboy)
         self.create_screen()
-        self.map = []
 
     def create_screen(self):
         if use_rsdl:
             self.screen = RSDL.SetVideoMode(self.width, self.height, 32, 0)
+ 
+    def create_meta_windows(self, gameboy):
+        self.meta_windows = [TileDataWindow(gameboy),
+                             SpriteWindow(gameboy)]
         
+        for window in self.meta_windows:
+            window.set_origin(self.width, 0)
+            self.height = max(self.height, window.height)
+            self.width += window.width
+
     def update_display(self):
         if use_rsdl:
             RSDL.LockSurface(self.screen)
+            if show_metadata:
+                for meta_window in self.meta_windows:
+                    meta_window.draw()
             self.draw_pixels()
             RSDL.UnlockSurface(self.screen)
             RSDL.Flip(self.screen)
         else:
-            print  '\x1b[H\x1b[2J'
+            print  '\x1b[H\x1b[2J' # Clear screen
             self.draw_ascii_pixels()
-            
+
+    def draw_pixel(self, x, y, color):
+        color = VideoDriverImplementation.COLOR_MAP[color]
+        RSDL_helper.set_pixel(self.screen, x, y, color)
+                    
     def draw_pixels(self):
-        for y in range(self.height):
-            for x in range(self.width):
-                color = VideoDriverImplementation.COLOR_MAP[self.get_pixel_color(x, y)]
-                RSDL_helper.set_pixel(self.screen, x, y, color)
+        for y in range(constants.GAMEBOY_SCREEN_HEIGHT):
+            for x in range(constants.GAMEBOY_SCREEN_WIDTH):
+                self.draw_pixel(x, y, self.pixels[y][x])
 
     def draw_ascii_pixels(self):
             str = []
@@ -137,17 +157,9 @@ class VideoDriverImplementation(VideoDriver):
                 str.append("\n")
                 for x in range(self.width):
                     if y%2 == 0 or True:
-                        str.append(self.get_pixel_color(x, y, string=True))
+                        str.append(["#", "%", "+", "."][self.pixels[y][x]])
             print "".join(str)
              
-    @specialize.arg(3)   
-    def get_pixel_color(self, x, y, string=False):
-        if string:
-            return ["#", "%", "+", ".", " "][self.get_pixel_color(x, y)]
-        else:
-            return self.pixels[y][x]
-    
-       
 # JOYPAD DRIVER ----------------------------------------------------------------
 
 class JoypadDriverImplementation(JoypadDriver):

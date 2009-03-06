@@ -93,13 +93,13 @@ class Video(iMemory):
     
     # -----------------------------------------------------------------------
     def create_sprites(self):
-        self.sprites = [None] * 40
-        for i in range(40):
+        self.sprites = [None] * MAX_SPRITES
+        for i in range(MAX_SPRITES):
             self.sprites[i] = Sprite(self)
 
     def update_all_sprites(self):
         # TODO: TEST!
-        for i in range(40):
+        for i in range(MAX_SPRITES):
             address = i * 4
             self.sprites[i].set_data(self.oam[address + 0],
                                      self.oam[address + 1],
@@ -112,12 +112,15 @@ class Video(iMemory):
     def update_sprite_size(self):
         for sprite in self.sprites:
             sprite.big_size = self.control.big_sprites 
-       
+
+    def get_sprite_at(self, sprite_index):
+        return self.sprites[sprite_index]       
+
     def get_sprite(self, address):
         address -= OAM_ADDR
         # address divided by 4 gives the correct sprite, each sprite has 4
         # bytes of attributes
-        return self.sprites[ int(math.floor(address / 4)) ]
+        return self.get_sprite_at(address / 4)
         
     # -----------------------------------------------------------------------
          
@@ -447,11 +450,11 @@ class Video(iMemory):
     # graphics handling --------------------------------------------------------
     
     def draw_frame(self):
-        self.driver.update_display()
+        self.driver.update_gb_display()
 
     def clear_frame(self):
-        self.driver.clear_pixels()
-        self.driver.update_display()
+        self.driver.clear_gb_pixels()
+        self.driver.update_gb_display()
 
     def draw_line(self):
         if self.control.background_and_window_lower_tile_data_selected:
@@ -482,14 +485,14 @@ class Video(iMemory):
         lastx = SPRITE_SIZE + GAMEBOY_SCREEN_WIDTH + SPRITE_SIZE
         for index in range(count):
             sprite = self.shown_sprites[index]
-            sprite.draw(lastx)
+            sprite.draw(self.line, self.line_y, lastx)
             lastx = sprite.x
             
     def scan_sprites(self):
         # search active shown_sprites
         count = 0
         for sprite in self.sprites:
-            if sprite.is_shown_on_current_line():
+            if sprite.is_shown_on_line(self.line_y):
                 self.shown_sprites[count] = sprite
                 count += 1
                 if count >= SPRITES_PER_LINE:
@@ -544,21 +547,20 @@ class Video(iMemory):
 class VideoDriver(object):
     
     def __init__(self):
-        self.width = int(GAMEBOY_SCREEN_WIDTH)
-        self.height = int(GAMEBOY_SCREEN_HEIGHT)
-        self.clear_pixels()
-        
-    def clear_pixels(self):
-        self.pixels = [[0] * self.width for i in range(self.height)]
+        self.width  = GAMEBOY_SCREEN_WIDTH
+        self.height = GAMEBOY_SCREEN_HEIGHT
+
+    def clear_gb_pixels(self):
+        for y in range(GAMEBOY_SCREEN_HEIGHT):
+            for x in range(GAMEBOY_SCREEN_WIDTH):
+                self.draw_gb_pixel(x, y, 0)
 
     def draw_gb_pixel(self, x, y, color):
         self.pixels[y][x] = color
 
-    def get_width(self):
-        return self.width
-    
-    def get_height(self):
-        return self.height
-    
-    def update_display(self):
-        self.clear_pixels()
+    def update_gb_display(self):
+        self.update_display()
+
+    def create_pixels(self):
+        self.pixels = [[0] * self.width
+                        for i in range(self.height)]
