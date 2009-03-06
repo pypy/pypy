@@ -123,19 +123,29 @@ class VideoDriverImplementation(VideoDriver):
             self.screen = RSDL.SetVideoMode(self.width, self.height, 32, 0)
  
     def create_meta_windows(self, gameboy):
-        upper_meta_windows = [TileDataWindow(gameboy),
+        upper_meta_windows = [SpritesWindow(gameboy),
                               SpriteWindow(gameboy),
-                              WindowPreview(gameboy)]
-        lower_meta_windows = [BackgroundPreview(gameboy),
+                              TileDataWindow(gameboy),
+                              ]
+        lower_meta_windows = [
+                              WindowPreview(gameboy),
+                              BackgroundPreview(gameboy),
                               MapAViewer(gameboy),
-                              MapBViewer(gameboy),
-                              SpritesWindow(gameboy)]
+                              MapBViewer(gameboy)]
         
         self.meta_windows = upper_meta_windows + lower_meta_windows
-        for window in self.meta_windows:
+        for window in upper_meta_windows:
             window.set_origin(self.width, 0)
             self.height = max(self.height, window.height)
             self.width += window.width
+        second_x = 0
+        second_y = self.height
+        for window in lower_meta_windows:
+            window.set_origin(second_x, second_y)
+            second_x += window.width
+            self.width = max(self.width, second_x)
+            self.height = max(self.height, second_y + window.height)
+            
 
     def update_display(self):
         if use_rsdl:
