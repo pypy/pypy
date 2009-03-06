@@ -6,20 +6,10 @@ import sys
 def get_rsdl_compilation_info():
     if sys.platform == 'darwin':
         eci = ExternalCompilationInfo(
-            includes = ['SDL.h', 
-                        #'Init.h',
-                        #'SDLMain.m'
-                        #'SDLMain.h'*/
-                        ],
-            include_dirs = ['/Library/Frameworks/SDL.framework/Headers',
-                            #str(py.magic.autopath().dirpath().join('macosx-sdl-main'))
-                            ],
+            includes = ['SDL.h'],
+            include_dirs = ['/Library/Frameworks/SDL.framework/Headers'],
             link_extra = [
                 str(py.magic.autopath().dirpath().join('macosx-sdl-main/SDLMain.m')),
-                #'macosx-sdl-main/SDLMain.m',
-                '-I', '/Library/Frameworks/SDL.framework/Headers',
-                '-framework', 'Cocoa',
-                '-framework', 'SDL',
             ],
             frameworks = ['SDL', 'Cocoa']
         )
