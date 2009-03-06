@@ -31,3 +31,16 @@ class Darwin(posix.BasePosix):
         # currently __thread is not supported by Darwin gccs
         return False
 
+    def _frameworks(self, frameworks):
+        args = []
+        for f in frameworks:
+            args.append('-framework')
+            args.append(f)
+        return args
+
+    def _link_args_from_eci(self, eci):
+        args = super(Darwin, self)._link_args_from_eci(eci)
+        frameworks = self._frameworks(eci.frameworks)
+        include_dirs = self._includedirs(eci.include_dirs)
+        return (args + frameworks + include_dirs)
+
