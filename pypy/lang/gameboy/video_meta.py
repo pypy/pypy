@@ -67,10 +67,9 @@ class LogicWindow(VideoMetaWindow):
         raise Exception("Not Implemented")
 
     def update_screen(self):
+        self.clear_screen()
         for y in range(self.height):
             line = self.screen[y]
-            for i in range(len(line)):
-                line[i] = 0x00
             self.draw_line(y, line)
 
 class PreviewWindow(LogicWindow):
@@ -149,5 +148,4 @@ class SpriteWindow(VideoMetaWindow):
                     
                     for x in range(SPRITE_SIZE):
                         x += x_id * SPRITE_SIZE
-                        line[x] = line[x] << 1 # Colors of sprites are in
-                                               # another range of the palette.
+                        line[x] = (line[x] << 1) | sprite.tile_mask()

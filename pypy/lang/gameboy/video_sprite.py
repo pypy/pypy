@@ -196,19 +196,17 @@ class Sprite(object):
         draw_y = self.get_draw_y(line_y)
         tile.draw_for_sprite(self, line, draw_y, lastx)
 
+    def tile_mask(self):
+        return (self.palette_number << 2) +\
+               (self.object_behind_background << 3)
+
 # -----------------------------------------------------------------------------
 
 class Tile(object):
     
     def __init__(self):
         self.data = [0x00 for i in range(2*SPRITE_SIZE)]
-
-    def draw(self, line, x, y):
-        pattern = self.get_pattern_at(y << 1)
-        for i in range(SPRITE_SIZE):
-            color = (pattern >> (SPRITE_SIZE - 1 - i)) & 0x0101
-            line[x + i] = color
-        
+       
     def set_tile_data(self, data):
         self.data = data
 
@@ -225,25 +223,29 @@ class Tile(object):
         return self.get_data_at(address) +\
                (self.get_data_at(address + 1) << 8)
 
+    def draw(self, line, x, y):
+        pattern = self.get_pattern_at(y << 1)
+        for i in range(SPRITE_SIZE):
+            color = (pattern >> (SPRITE_SIZE - 1 - i)) & 0x0101
+            line[x + i] = color
+ 
     def draw_for_sprite(self, sprite, line, y, lastx):
         if sprite.x_flipped:
             convert, offset =  1, 0           # 0-7
         else:
             convert, offset = -1, SPRITE_SIZE # 7-0
 
-        y = y << 1 # 2 bytes per line
-        pattern =  self.get_pattern_at(y) << 1
-        mask = (sprite.palette_number           << 2) +\
-               (sprite.object_behind_background << 3)
+        pattern = self.get_pattern_at(y << 1)
+        mask    = sprite.tile_mask()
 
         for i in range(SPRITE_SIZE):
-            color = (pattern >> i) & 0x0202
+            color = (pattern >> i) & 0x0101
             x = sprite.x + offset + i*convert
-            if bool(color):
+            if color:
                 if sprite.x + SPRITE_SIZE > lastx:
                     # Overlapped.
                     line[x] &= 0x0101
-                line[x] |= color | mask
+                line[x] |= (color << 1) | mask
 
 # -----------------------------------------------------------------------------
 

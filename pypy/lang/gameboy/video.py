@@ -78,10 +78,7 @@ class Video(iMemory):
         return tile_group, tile_map_index & 0x1F
 
     def get_selected_tile_data_space(self):
-        if self.control.lower_tile_data_selected:
-            return self.tile_data_0
-        else:
-            return self.tile_data_1
+        return self.tile_data[not self.control.lower_tile_data_selected]
 
     def get_tile_map(self, address):
         tile_group, group_index = self.select_tile_group_for(address)
