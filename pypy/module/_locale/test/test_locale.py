@@ -9,7 +9,7 @@ class AppTestLocaleTrivia:
         if sys.platform != 'win32':
             cls.w_language_en = cls.space.wrap("en_US")
             cls.w_language_utf8 = cls.space.wrap("en_US.UTF-8")
-            cls.w_language_pl = cls.space.wrap("pl_PL")
+            cls.w_language_pl = cls.space.wrap("pl_PL.UTF-8")
         else:
             cls.w_language_en = cls.space.wrap("English_US")
             cls.w_language_utf8 = cls.space.wrap("English_US.65001")
