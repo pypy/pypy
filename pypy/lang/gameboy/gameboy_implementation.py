@@ -6,7 +6,8 @@ from pypy.lang.gameboy.video import VideoDriver
 from pypy.lang.gameboy.sound import SoundDriver
 from pypy.lang.gameboy.timer import Clock
 from pypy.lang.gameboy.video_meta import TileDataWindow, SpriteWindow,\
-                                         WindowPreview, BackgroundPreview
+                                         WindowPreview, BackgroundPreview,\
+                                         MapAViewer, MapBViewer
 from pypy.lang.gameboy import constants
 import time
 
@@ -124,7 +125,9 @@ class VideoDriverImplementation(VideoDriver):
         self.meta_windows = [TileDataWindow(gameboy),
                              SpriteWindow(gameboy),
                              WindowPreview(gameboy),
-                             BackgroundPreview(gameboy)]
+                             BackgroundPreview(gameboy),
+                             MapAViewer(gameboy),
+                             MapBViewer(gameboy)]
         
         for window in self.meta_windows:
             window.set_origin(self.width, 0)

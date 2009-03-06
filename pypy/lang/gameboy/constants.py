@@ -134,7 +134,7 @@ VRAM_DATA_B = 0x0800 # 4KB Tile Data (8800..97FF) # overlap!
 
 TILE_MAP_ADDR   = 0x9800
 TILE_MAP_SIZE   = 32 # 32 Groups
-TILE_GROUP_SIZE = 32 # of 32 addresses
+TILE_GROUP_SIZE = 32 # of 32 tile-pointers
 
 VRAM_MAP_A  = 0x1800 # 1KB BG Tile Map 0 (9000..9BFF)
 VRAM_MAP_B  = 0x1C00 # 1KB BG Tile Map 1 (9C00..9FFF)

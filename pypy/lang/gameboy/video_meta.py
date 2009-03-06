@@ -75,17 +75,34 @@ class MapViewer(VideoMetaWindow):
         self.map_x = 32
         self.map_y = 32
         VideoMetaWindow.__init__(self, gameboy,
-                                       SPRITE_SIZE + GAMEBOY_SCREEN_WIDTH + SPRITE_SIZE,
-                                       GAMEBOY_SCREEN_HEIGHT)
+                                       SPRITE_SIZE * self.map_x,
+                                       SPRITE_SIZE * self.map_y)
 
-    def get_window(self):
-        raise Exception("Not Implemented")
+    def get_map(self):
+        raise Exception("Subclass responsibility")
+
+    def get_tile_data(self):
+        return self.gameboy.video.get_selected_tile_data_space()
 
     def update_screen(self):
+        map = self.get_map()
+        tile_data = self.get_tile_data()
         for y in range(self.height):
             line = self.screen[y]
-            self.gameboy.video.draw_window(self.get_window(), y, line)
+            group = map[y >> 3]
+            for x in range(self.map_x):
+                tile_idx = group[x]
+                tile_idx ^= self.gameboy.video.tile_index_flip()
+                tile = tile_data[tile_idx]
+                tile.draw(line, x * SPRITE_SIZE, y)
 
+class MapAViewer(MapViewer):
+    def get_map(self):
+        return self.gameboy.video.tile_map_0
+
+class MapBViewer(MapViewer):
+    def get_map(self):
+        return self.gameboy.video.tile_map_1
 
 class WindowPreview(PreviewWindow):
     def get_window(self):
