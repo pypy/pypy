@@ -7,7 +7,8 @@ from pypy.lang.gameboy.sound import SoundDriver
 from pypy.lang.gameboy.timer import Clock
 from pypy.lang.gameboy.video_meta import TileDataWindow, SpriteWindow,\
                                          WindowPreview, BackgroundPreview,\
-                                         MapAViewer, MapBViewer
+                                         MapAViewer, MapBViewer,\
+                                         SpritesWindow
 from pypy.lang.gameboy import constants
 import time
 
@@ -122,13 +123,15 @@ class VideoDriverImplementation(VideoDriver):
             self.screen = RSDL.SetVideoMode(self.width, self.height, 32, 0)
  
     def create_meta_windows(self, gameboy):
-        self.meta_windows = [TileDataWindow(gameboy),
-                             SpriteWindow(gameboy),
-                             WindowPreview(gameboy),
-                             BackgroundPreview(gameboy),
-                             MapAViewer(gameboy),
-                             MapBViewer(gameboy)]
+        upper_meta_windows = [TileDataWindow(gameboy),
+                              SpriteWindow(gameboy),
+                              WindowPreview(gameboy)]
+        lower_meta_windows = [BackgroundPreview(gameboy),
+                              MapAViewer(gameboy),
+                              MapBViewer(gameboy),
+                              SpritesWindow(gameboy)]
         
+        self.meta_windows = upper_meta_windows + lower_meta_windows
         for window in self.meta_windows:
             window.set_origin(self.width, 0)
             self.height = max(self.height, window.height)

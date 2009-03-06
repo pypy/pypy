@@ -248,17 +248,14 @@ class Tile(object):
 # -----------------------------------------------------------------------------
 
 class Drawable(object):
-    def __init__(self, video):
-        self.video                   = video
+    def __init__(self, tile_maps):
+        self.tile_maps               = tile_maps
         self.enabled                 = False
         self.upper_tile_map_selected = False
         self.reset()
 
     def get_tile_map_space(self):
-        if self.upper_tile_map_selected:
-            return self.video.tile_map_1
-        else:
-            return self.video.tile_map_0
+        return self.tile_maps[self.upper_tile_map_selected]
 
     def reset(self):
         raise Exception("Not implemented")
@@ -314,11 +311,11 @@ class Background(Drawable):
             line[x] = 0x00
     
     def draw_line(self, line_y, tile_data, tile_index_flip, line):
-        y = (self.scroll_y + line_y) & 0xFF
+        relative_y = (self.scroll_y + line_y) & 0xFF
         x = self.scroll_x
 
         tile_map = self.get_tile_map_space()
-        tile_group = tile_map[y >> 3]
+        tile_group = tile_map[relative_y >> 3]
         self.draw_tiles(8 - (x % 8), tile_group,
-                        y, tile_data,
+                        relative_y, tile_data,
                         tile_index_flip, line, x >> 3)

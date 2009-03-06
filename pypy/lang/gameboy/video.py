@@ -20,13 +20,13 @@ class Video(iMemory):
         self.driver                 = video_driver
         self.v_blank_interrupt_flag = interrupt.v_blank
         self.lcd_interrupt_flag     = interrupt.lcd
-        self.window                 = Window(self)
-        self.background             = Background(self)
+        self.create_tile_maps()
+        self.window                 = Window(self.tile_maps)
+        self.background             = Background(self.tile_maps)
         self.status                 = StatusRegister(self)
         self.control                = ControlRegister(self, self.window, 
                                                       self.background)
         self.memory                 = memory
-        self.create_tile_maps()
         self.create_tiles()
         self.create_sprites()
         self.reset()
@@ -473,23 +473,23 @@ class Video(iMemory):
     def draw_line(self):
         self.draw_window(self.background, self.line_y, self.line)
         self.draw_window(self.window, self.line_y, self.line)
-        self.draw_sprites_line()
+        self.draw_sprites(self.line_y, self.line)
         self.send_pixels_line_to_driver()
     
-    def draw_sprites_line(self):
+    def draw_sprites(self, line_y, line):
         if not self.control.sprites_enabled: return
-        count = self.scan_sprites()
+        count = self.scan_sprites(line_y)
         lastx = SPRITE_SIZE + GAMEBOY_SCREEN_WIDTH + SPRITE_SIZE
         for index in range(count):
             sprite = self.shown_sprites[index]
-            sprite.draw(self.line, self.line_y, lastx)
+            sprite.draw(line, line_y, lastx)
             lastx = sprite.x
             
-    def scan_sprites(self):
+    def scan_sprites(self, line_y):
         # search active shown_sprites
         count = 0
         for sprite in self.sprites:
-            if sprite.is_shown_on_line(self.line_y):
+            if sprite.is_shown_on_line(line_y):
                 self.shown_sprites[count] = sprite
                 count += 1
                 if count >= SPRITES_PER_LINE:

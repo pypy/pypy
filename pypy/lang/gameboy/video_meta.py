@@ -33,7 +33,8 @@ class VideoMetaWindow(object):
             for x in range(self.width):
                 self.gameboy.video_driver.draw_pixel(x + self.x,
                                                      y + self.y,
-                                                     self.gameboy.video.palette[self.screen[y][x]])
+                                                     self.gameboy.video.palette[
+                                                           self.screen[y][x]])
 
     def clear_screen(self):
         for line in self.screen:
@@ -56,13 +57,13 @@ class TileDataWindow(VideoMetaWindow):
                     line = self.screen[y_offset + y_id * SPRITE_SIZE]
                     tile.draw(line, x_id * SPRITE_SIZE, y_offset)
 
-class PreviewWindow(VideoMetaWindow):
+class LogicWindow(VideoMetaWindow):
     def __init__(self, gameboy):
         VideoMetaWindow.__init__(self, gameboy,
                                        SPRITE_SIZE + GAMEBOY_SCREEN_WIDTH + SPRITE_SIZE,
                                        GAMEBOY_SCREEN_HEIGHT)
 
-    def get_window(self):
+    def draw_line(self, y, line):
         raise Exception("Not Implemented")
 
     def update_screen(self):
@@ -70,11 +71,21 @@ class PreviewWindow(VideoMetaWindow):
             line = self.screen[y]
             for i in range(len(line)):
                 line[i] = 0x00
-            self.gameboy.video.draw_window(self.get_window(), y, line)
+            self.draw_line(y, line)
+
+class PreviewWindow(LogicWindow):
+    def get_window(self):
+        raise Exception("Not Implemented")
+
+    def draw_line(self, y, line):
+        self.gameboy.video.draw_window(self.get_window(), y, line)
+
+class SpritesWindow(LogicWindow):
+    def draw_line(self, y, line):
+        self.gameboy.video.draw_sprites(y, line)
 
 class WindowPreview(PreviewWindow):
     def get_window(self):
-        # XXX Broken for now
         return self.gameboy.video.window
 
 class BackgroundPreview(PreviewWindow):
