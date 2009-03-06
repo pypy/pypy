@@ -5,12 +5,13 @@ from pypy.lang.gameboy.joypad import JoypadDriver
 from pypy.lang.gameboy.video import VideoDriver
 from pypy.lang.gameboy.sound import SoundDriver
 from pypy.lang.gameboy.timer import Clock
-from pypy.lang.gameboy.video_meta import TileDataWindow, SpriteWindow
+from pypy.lang.gameboy.video_meta import TileDataWindow, SpriteWindow,\
+                                         WindowPreview, BackgroundPreview
 from pypy.lang.gameboy import constants
 import time
 
 use_rsdl = True
-show_metadata = False # Extends the window with windows visualizing meta-data
+show_metadata = True # Extends the window with windows visualizing meta-data
 
 if use_rsdl:
     from pypy.rlib.rsdl import RSDL, RSDL_helper
@@ -122,7 +123,9 @@ class VideoDriverImplementation(VideoDriver):
  
     def create_meta_windows(self, gameboy):
         self.meta_windows = [TileDataWindow(gameboy),
-                             SpriteWindow(gameboy)]
+                             SpriteWindow(gameboy),
+                             WindowPreview(gameboy),
+                             BackgroundPreview(gameboy)]
         
         for window in self.meta_windows:
             window.set_origin(self.width, 0)

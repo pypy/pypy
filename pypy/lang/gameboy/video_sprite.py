@@ -271,6 +271,12 @@ class Drawable(object):
             group_index += 1
             x += SPRITE_SIZE
 
+    def draw_line(self, line_y, tile_data, tile_index_flip, line):
+        raise Exception("Not implemented")
+
+    def draw_clean_line(self, line):
+        raise Exception("Not implemented")      
+
 class Window(Drawable):
     
     def reset(self):
@@ -283,6 +289,9 @@ class Window(Drawable):
     def switch_on(self):
         if self.line_y == 0 and self.video.line_y > self.y:
             self.line_y = GAMEBOY_SCREEN_HEIGHT
+
+    def draw_clean_line(self, line):
+        pass
        
     def draw_line(self, line_y, tile_data, tile_index_flip, line):
         if line_y >= self.y and self.x < GAMEBOY_SCREEN_WIDTH+SPRITE_SIZE-1 and \

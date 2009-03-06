@@ -456,31 +456,28 @@ class Video(iMemory):
         self.driver.clear_gb_pixels()
         self.driver.update_gb_display()
 
-    def draw_line(self):
+    def tile_index_flip(self):
         if self.control.background_and_window_lower_tile_data_selected:
-            tile_index_flip = 0x00
+            return 0x00
         else:
-            tile_index_flip = 0x80
-        tile_data = self.get_selected_tile_data_space()
+            return 0x80
 
-        if self.background.enabled:
-            self.background.draw_line(self.line_y,
-                                      tile_data,
-                                      tile_index_flip,
-                                      self.line)
+    def draw_window(self, window, line_y, line):
+        if window.enabled:
+            tile_data = self.get_selected_tile_data_space()
+            tile_index_flip = self.tile_index_flip()
+            window.draw_line(line_y, tile_data, tile_index_flip, line) 
         else:
-            self.background.draw_clean_line(self.line)
-        if self.window.enabled:
-            self.window.draw_line(self.line_y,
-                                  tile_data,
-                                  tile_index_flip,
-                                  self.line)
-        if self.control.sprites_enabled:
-            self.draw_sprites_line()
-        self.draw_pixels_line()
+            window.draw_clean_line(self.line)
 
+    def draw_line(self):
+        self.draw_window(self.background, self.line_y, self.line)
+        self.draw_window(self.window, self.line_y, self.line)
+        self.draw_sprites_line()
+        self.send_pixels_line_to_driver()
     
     def draw_sprites_line(self):
+        if not self.control.sprites_enabled: return
         count = self.scan_sprites()
         lastx = SPRITE_SIZE + GAMEBOY_SCREEN_WIDTH + SPRITE_SIZE
         for index in range(count):
@@ -511,7 +508,7 @@ class Video(iMemory):
             self.shown_sprites[index], self.shown_sprites[highest] = \
                     self.shown_sprites[highest], self.shown_sprites[index]
 
-    def draw_pixels_line(self):
+    def send_pixels_line_to_driver(self):
         self.update_palette()
         for x in range(0, GAMEBOY_SCREEN_WIDTH):
             color = self.palette[self.line[SPRITE_SIZE + x]]

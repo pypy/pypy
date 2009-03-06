@@ -1,4 +1,6 @@
-from pypy.lang.gameboy.constants import SPRITE_SIZE, MAX_SPRITES
+from pypy.lang.gameboy.constants import SPRITE_SIZE, MAX_SPRITES,\
+                                        GAMEBOY_SCREEN_HEIGHT,\
+                                        GAMEBOY_SCREEN_WIDTH
 
 # Metadata visualizing windows.
 
@@ -53,6 +55,28 @@ class TileDataWindow(VideoMetaWindow):
                 for y_offset in range(SPRITE_SIZE):
                     line = self.screen[y_offset + y_id * SPRITE_SIZE]
                     tile.draw(line, x_id * SPRITE_SIZE, y_offset)
+
+class PreviewWindow(VideoMetaWindow):
+    def __init__(self, gameboy):
+        VideoMetaWindow.__init__(self, gameboy,
+                                       SPRITE_SIZE + GAMEBOY_SCREEN_WIDTH + SPRITE_SIZE,
+                                       SPRITE_SIZE + GAMEBOY_SCREEN_HEIGHT + SPRITE_SIZE)
+
+    def get_window(self):
+        raise Exception("Not Implemented")
+
+    def update_screen(self):
+        for y in range(self.height):
+            line = self.screen[y]
+            self.gameboy.video.draw_window(self.get_window(), y, line)
+
+class WindowPreview(PreviewWindow):
+    def get_window(self):
+        return self.gameboy.video.window
+
+class BackgroundPreview(PreviewWindow):
+    def get_window(self):
+        return self.gameboy.video.background
 
 class SpriteWindow(VideoMetaWindow):
     def __init__(self, gameboy):
