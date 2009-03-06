@@ -112,7 +112,6 @@ class VideoDriverImplementation(VideoDriver):
     def __init__(self, gameboy):
         VideoDriver.__init__(self)
 
-        self.create_pixels()
         if show_metadata:
             self.create_meta_windows(gameboy)
         self.create_screen()

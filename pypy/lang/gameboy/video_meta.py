@@ -70,6 +70,23 @@ class PreviewWindow(VideoMetaWindow):
             line = self.screen[y]
             self.gameboy.video.draw_window(self.get_window(), y, line)
 
+class MapViewer(VideoMetaWindow):
+    def __init__(self, gameboy):
+        self.map_x = 32
+        self.map_y = 32
+        VideoMetaWindow.__init__(self, gameboy,
+                                       SPRITE_SIZE + GAMEBOY_SCREEN_WIDTH + SPRITE_SIZE,
+                                       GAMEBOY_SCREEN_HEIGHT)
+
+    def get_window(self):
+        raise Exception("Not Implemented")
+
+    def update_screen(self):
+        for y in range(self.height):
+            line = self.screen[y]
+            self.gameboy.video.draw_window(self.get_window(), y, line)
+
+
 class WindowPreview(PreviewWindow):
     def get_window(self):
         # XXX Broken for now

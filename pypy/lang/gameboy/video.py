@@ -546,6 +546,7 @@ class VideoDriver(object):
     def __init__(self):
         self.width  = GAMEBOY_SCREEN_WIDTH
         self.height = GAMEBOY_SCREEN_HEIGHT
+        self.create_pixels()
 
     def clear_gb_pixels(self):
         for y in range(GAMEBOY_SCREEN_HEIGHT):
@@ -557,6 +558,10 @@ class VideoDriver(object):
 
     def update_gb_display(self):
         self.update_display()
+
+    def update_display(self):
+        # Overwrite this method to actually put the pixels on a screen.
+        pass
 
     def create_pixels(self):
         self.pixels = [[0] * self.width

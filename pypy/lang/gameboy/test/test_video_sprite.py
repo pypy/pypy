@@ -136,12 +136,12 @@ def test_intersects_line_big_size():
     
 def line_intersection_test(sprite):
     sprite.video.line_y = 0
-    assert not sprite.intersects_current_line()
+    assert not sprite.intersects_current_line(sprite.video.line_y)
     for i in range(sprite.get_height()):
         sprite.video.line_y = i+1
-        assert sprite.intersects_current_line(), i
+        assert sprite.intersects_current_line(sprite.video.line_y), i
     sprite.video.line_y = sprite.get_height()+1
-    assert not sprite.intersects_current_line()
+    assert not sprite.intersects_current_line(sprite.video.line_y)
     
     
 # test sprite in video ---------------------------------------------------------

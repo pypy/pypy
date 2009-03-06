@@ -130,9 +130,9 @@ class Sprite(object):
         value += self.rest_attributes_and_flags
         return value
     
-    # Unused.
-    #def get_width(self):
-    #    return SPRITE_SIZE
+    # For testing purposes only
+    def get_width(self):
+        return SPRITE_SIZE
     
     def get_height(self):
         if self.big_size:
