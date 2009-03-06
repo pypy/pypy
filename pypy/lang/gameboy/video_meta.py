@@ -60,7 +60,7 @@ class PreviewWindow(VideoMetaWindow):
     def __init__(self, gameboy):
         VideoMetaWindow.__init__(self, gameboy,
                                        SPRITE_SIZE + GAMEBOY_SCREEN_WIDTH + SPRITE_SIZE,
-                                       SPRITE_SIZE + GAMEBOY_SCREEN_HEIGHT + SPRITE_SIZE)
+                                       GAMEBOY_SCREEN_HEIGHT)
 
     def get_window(self):
         raise Exception("Not Implemented")
@@ -72,6 +72,7 @@ class PreviewWindow(VideoMetaWindow):
 
 class WindowPreview(PreviewWindow):
     def get_window(self):
+        # XXX Broken for now
         return self.gameboy.video.window
 
 class BackgroundPreview(PreviewWindow):
