@@ -88,6 +88,8 @@ class CodeWriter(object):
             graph = self.unfinished_graphs.pop()
             self.make_one_bytecode(graph, False)
         log.info("there are %d JitCode instances." % len(self.all_graphs))
+        # xxx annotation hack: make sure there is at least one ConstAddr around
+        jitcode.constants.append(history.ConstAddr(llmemory.NULL, self.cpu))
         return jitcode
 
     def make_one_bytecode(self, graph, portal):
