@@ -136,10 +136,10 @@ class ListRepr(AbstractListRepr, BaseListRepr):
         hints = hop.args_s[-1].const
         if 'maxlength' in hints:
             if optimized:
+                v_iterable = hop.args_v[1]
                 s_iterable = hop.args_s[1]
                 r_iterable = hop.args_r[1]
                 v_list = hop.inputarg(self, arg=0)
-                v_iterable = hop.inputarg(r_iterable, arg=1)
                 hop2 = hop.copy()
                 while hop2.nb_args > 0:
                     hop2.r_s_popfirstarg()

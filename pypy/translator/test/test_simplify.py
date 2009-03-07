@@ -337,6 +337,15 @@ class TestLLSpecializeListComprehension:
         res = interp.eval_graph(graph, [4, 4])
         assert res == 1 + 4 * 17 + 4 * 17
 
+    def test_iterate_over_constant(self):
+        CONST = range(10)
+        def main(n):
+            lst = [x*17 for x in CONST]
+            return lst[5]
+        interp, graph = self.specialize(main, [int])
+        res = interp.eval_graph(graph, [10])
+        assert res == 5 * 17
+
 ## TODO: maxlength and fence hints are not supported by ootype
 ## see doc/discussion/list_comprehension_ootype.txt
 ##class TestOOSpecializeListComprehension(TestLLSpecializeListComprehension):
