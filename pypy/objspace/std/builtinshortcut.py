@@ -50,7 +50,7 @@ for _name, _, _, _specialmethods in ObjSpace.MethodTable:
             % (_name,))
 
 
-def install(space, mm):
+def install(space, mm, fallback_mm=None):
     """Install a function <name>() on the space instance which invokes
     a shortcut for built-in types.  Returns the shortcutting multimethod
     object or None.
@@ -79,6 +79,8 @@ def install(space, mm):
     # (and only these ones) never match the interp-level subclasses
     # built in pypy.interpreter.typedef.get_unique_interplevel_subclass.
     expanded_order = space.model.get_typeorder_with_empty_usersubcls()
+    if fallback_mm:
+        mm = mm.merge_with(fallback_mm)
     shortcut_method = mm.install_not_sliced(expanded_order)
 
     def operate(*args_w):
@@ -95,31 +97,21 @@ def install(space, mm):
 
 
 def install_is_true(space, mm_nonzero, mm_len):
-    nonzero_shortcut = install(space, mm_nonzero)
-    len_shortcut = install(space, mm_len)
+    shortcut = install(space, mm_nonzero, fallback_mm = mm_len)
     assert 'is_true' not in space.__dict__
 
     def is_true(w_obj):
         # a bit of duplication of the logic from DescrOperation.is_true...
-        # first try 'nonzero'
         try:
-            w_res = nonzero_shortcut(space, w_obj)
+            w_res = shortcut(space, w_obj)
         except FailedToImplement:
             pass
         else:
             # the __nonzero__ method of built-in objects should
-            # always directly return a Bool
-            assert isinstance(w_res, W_BoolObject)
-            return w_res.boolval
-
-        # then try 'len'
-        try:
-            w_res = len_shortcut(space, w_obj)
-        except FailedToImplement:
-            pass
-        else:
-            # the __len__ method of built-in objects typically
-            # returns an unwrappable integer
+            # always directly return a Bool; however, the __len__ method
+            # of built-in objects typically returns an unwrappable integer
+            if isinstance(w_res, W_BoolObject):
+                return w_res.boolval
             try:
                 return space.int_w(w_res) != 0
             except OperationError:

@@ -34,6 +34,34 @@ class AppTestBug:
         s.discard(F("abc"))
         assert not s
 
+    def test_inplace_methods(self):
+        assert '__iadd__' not in int.__dict__
+        assert '__iadd__' not in float.__dict__
+        x = 5
+        x += 6.5
+        assert x == 11.5
+
+    def test_inplace_user_subclasses(self):
+        class I(int): pass
+        class F(float): pass
+        x = I(5)
+        x += F(6.5)
+        assert x == 11.5
+        assert type(x) is float
+
+    def test_inplace_override(self):
+        class I(int):
+            def __iadd__(self, other):
+                return 'foo'
+        x = I(5)
+        x += 6
+        assert x == 'foo'
+        x = I(5)
+        x += 6.5
+        assert x == 'foo'
+        assert 5 + 6.5 == 11.5
+
+
 class AppTestSet(test_set.AppTestAppSetTest):
     # this tests tons of funny comparison combinations that can easily go wrong
     def setup_class(cls):

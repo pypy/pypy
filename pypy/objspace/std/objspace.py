@@ -286,7 +286,14 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 setattr(self, name, boundmethod)  # store into 'space' instance
             elif self.config.objspace.std.builtinshortcut:
                 from pypy.objspace.std import builtinshortcut
-                builtinshortcut.install(self, mm)
+                if name.startswith('inplace_'):
+                    fallback_name = name[len('inplace_'):]
+                    if fallback_name in ('or', 'and'):
+                        fallback_name += '_'
+                    fallback_mm = self.MM.__dict__[fallback_name]
+                else:
+                    fallback_mm = None
+                builtinshortcut.install(self, mm, fallback_mm)
 
         if self.config.objspace.std.builtinshortcut:
             from pypy.objspace.std import builtinshortcut

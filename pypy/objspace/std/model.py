@@ -329,3 +329,29 @@ class StdObjSpaceMultiMethod(MultiMethodTable):
         return self.install(prefix = '__mm_' + self.name,
                 list_of_typeorders = [typeorder]*self.arity,
                 baked_perform_call=baked_perform_call)
+
+    def merge_with(self, other):
+        # Make a new 'merged' multimethod including the union of the two
+        # tables.  In case of conflict, pick the entry from 'self'.
+        if self.arity != other.arity:
+            return self      # XXX that's the case of '**'
+        operatorsymbol = '%s_merge_%s' % (self.name, other.name)
+        assert self.extras == other.extras
+        mm = StdObjSpaceMultiMethod(operatorsymbol, self.arity, **self.extras)
+        #
+        def merge(node1, node2):
+            assert type(node1) is type(node2)
+            if isinstance(node1, dict):
+                d = node1.copy()
+                d.update(node2)
+                for key in node1:
+                    if key in node2:
+                        d[key] = merge(node1[key], node2[key])
+                return d
+            else:
+                assert isinstance(node1, list)
+                assert node1
+                return node1     # pick the entry from 'self'
+        #
+        mm.dispatch_tree = merge(self.dispatch_tree, other.dispatch_tree)
+        return mm
