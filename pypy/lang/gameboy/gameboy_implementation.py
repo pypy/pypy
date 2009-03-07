@@ -30,8 +30,11 @@ class GameBoyImplementation(GameBoy):
         self.is_running = False
         self.penalty = 0.0
         self.sync_time = time.time()
+
+    def open_window(self):
         if use_rsdl:
             self.init_sdl()
+        self.video_driver.create_screen()
         
     def init_sdl(self):
         assert RSDL.Init(RSDL.INIT_VIDEO) >= 0
@@ -62,16 +65,14 @@ class GameBoyImplementation(GameBoy):
         self.handle_events()
         # Come back to this cycle every 1/X seconds
         self.emulate(constants.GAMEBOY_CLOCK / X)
-        # if use_rsdl:
-         #    RSDL.Delay(100)
         spent = time.time() - self.sync_time
         left = (1.0/X) + self.penalty - spent
         if left > 0:
             time.sleep(left)
             self.penalty = 0.0
         else:
-            self.penalty = left
-            # print "WARNING: Going too slow: ", spent, " ", left
+                                # Fade out penalties over time.
+            self.penalty = left - self.penalty / 2
         self.sync_time = time.time()
         
     
@@ -116,7 +117,6 @@ class VideoDriverImplementation(VideoDriver):
 
         if show_metadata:
             self.create_meta_windows(gameboy)
-        self.create_screen()
 
     def create_screen(self):
         if use_rsdl:
