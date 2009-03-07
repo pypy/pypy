@@ -8,7 +8,7 @@ def get_rsdl_compilation_info():
         eci = ExternalCompilationInfo(
             includes = ['SDL.h'],
             include_dirs = ['/Library/Frameworks/SDL.framework/Headers'],
-            link_extra = [
+            link_files = [
                 str(py.magic.autopath().dirpath().join('macosx-sdl-main/SDLMain.m')),
             ],
             frameworks = ['SDL', 'Cocoa']
