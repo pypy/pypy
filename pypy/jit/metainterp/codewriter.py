@@ -17,8 +17,9 @@ MAX_MAKE_NEW_VARS = 16
 
 
 class JitCode(history.AbstractValue):
-    def __init__(self, name):
+    def __init__(self, name, cfnptr):
         self.name = name
+        self.cfnptr = cfnptr
 
     def setup(self, code, constants):
         self.code = code
@@ -87,8 +88,6 @@ class CodeWriter(object):
             graph = self.unfinished_graphs.pop()
             self.make_one_bytecode(graph, False)
         log.info("there are %d JitCode instances." % len(self.all_graphs))
-        # xxx annotation hack: make sure there is at least one ConstAddr around
-        jitcode.constants.append(history.ConstAddr(llmemory.NULL, self.cpu))
         return jitcode
 
     def make_one_bytecode(self, graph, portal):
@@ -100,7 +99,9 @@ class CodeWriter(object):
     def get_jitcode(self, graph):
         if graph in self.all_graphs:
             return self.all_graphs[graph]
-        bytecode = JitCode(graph.name)      # 'graph.name' is for dump()
+        fnptr = self.rtyper.getcallable(graph)
+        cfnptr = history.ConstAddr(llmemory.cast_ptr_to_adr(fnptr), self.cpu)
+        bytecode = JitCode(graph.name, cfnptr)     # 'graph.name' is for dump()
         self.all_graphs[graph] = bytecode
         self.unfinished_graphs.append(graph)
         return bytecode
@@ -660,7 +661,12 @@ class BytecodeMaker(object):
         self.minimize_variables()
         [targetgraph] = self.codewriter.policy.graphs_from(op)
         jitbox = self.codewriter.get_jitcode(targetgraph)
+        args = [x for x in op.args[1:] if x.concretetype is not lltype.Void]
+        argtypes = [v.concretetype for v in args]
+        resulttype = op.result.concretetype
+        calldescr = self.cpu.calldescrof(argtypes, resulttype)
         self.emit('call')
+        self.emit(calldescr)
         self.emit(self.get_position(jitbox))
         self.emit_varargs([x for x in op.args[1:]
                            if x.concretetype is not lltype.Void])
@@ -669,9 +675,9 @@ class BytecodeMaker(object):
     def handle_residual_call(self, op):
         self.minimize_variables()
         args = [x for x in op.args if x.concretetype is not lltype.Void]
-        argtypes = [v.concretetype for v in args]
+        argtypes = [v.concretetype for v in args[1:]]
         resulttype = op.result.concretetype
-        calldescr = self.cpu.calldescrof(argtypes[1:], resulttype)
+        calldescr = self.cpu.calldescrof(argtypes, resulttype)
         self.emit('residual_call')
         self.emit(calldescr)
         self.emit_varargs(args)
