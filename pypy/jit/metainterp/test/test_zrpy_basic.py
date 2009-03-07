@@ -2,10 +2,14 @@ import py
 from pypy.jit.metainterp.warmspot import rpython_ll_meta_interp, ll_meta_interp
 from pypy.jit.metainterp.test import test_basic
 from pypy.rlib.jit import JitDriver
+from pypy.jit.conftest import option
+
 
 class TestBasic:
 
     def test_loop_1(self):
+        if not option.run_slow_tests:
+            py.test.skip("use --slow to execute this long-running test")
         jitdriver = JitDriver(greens = [], reds = ['i', 'total'])
         def f(i):
             total = 0
@@ -21,6 +25,7 @@ class TestBasic:
         assert res == 490
 
     def test_loop_2(self):
+        # this test runs even without the --slow option, to see at least one
         jitdriver = JitDriver(greens = [], reds = ['i', 'total'])
         def f(i):
             total = 0
@@ -39,8 +44,12 @@ class TestBasic:
 
 class LLInterpJitMixin:
     type_system = 'lltype'
-    meta_interp = staticmethod(rpython_ll_meta_interp)
     basic = False
+
+    def meta_interp(self, *args, **kwds):
+        if not option.run_slow_tests:
+            py.test.skip("use --slow to execute this long-running test")
+        return rpython_ll_meta_interp(*args, **kwds)
 
     def check_history(self, expected=None, **check):
         pass
