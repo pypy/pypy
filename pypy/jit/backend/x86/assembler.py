@@ -559,6 +559,20 @@ class Assembler386(object):
         elif size == 2:
             self.mc.AND(eax, imm(0xffff))
 
+    genop_call_pure = genop_call
+
+    def not_implemented_op_discard(self, op, arglocs):
+        print "not implemented operation: %s" % op.getopname()
+        raise NotImplementedError
+
+    def not_implemented_op(self, op, arglocs, resloc):
+        print "not implemented operation with res: %s" % op.getopname()
+        raise NotImplementedError
+
+    def not_implemented_op_guard(self, op, arglocs, resloc, descr):
+        print "not implemented operation (guard): %s" % op.getopname()
+        raise NotImplementedError
+
     #def genop_call__1(self, op, arglocs, resloc):
     #    self.gen_call(op, arglocs, resloc)
     #    self.mc.MOVZX(eax, al)
@@ -568,9 +582,9 @@ class Assembler386(object):
     #    self.gen_call(op, arglocs, resloc)
     #    self.mc.MOVZX(eax, eax)
 
-genop_discard_list = [None] * (RETURN + 1)
-genop_list = [None] * rop._LAST
-genop_guard_list = [None] * rop._LAST
+genop_discard_list = [Assembler386.not_implemented_op_discard] * (RETURN + 1)
+genop_list = [Assembler386.not_implemented_op] * rop._LAST
+genop_guard_list = [Assembler386.not_implemented_op_guard] * rop._LAST
 
 for name, value in Assembler386.__dict__.iteritems():
     if name.startswith('genop_'):
