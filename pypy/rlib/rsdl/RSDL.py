@@ -204,6 +204,10 @@ ShowCursor       = external('SDL_ShowCursor',
                             [rffi.INT],
                             rffi.INT)
 
+GetTicks         = external('SDL_GetTicks',
+                            [],
+                            Uint32)
+
 Delay            = external('SDL_Delay',
                             [Uint32],
                             lltype.Void)

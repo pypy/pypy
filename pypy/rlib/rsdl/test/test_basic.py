@@ -28,3 +28,10 @@ def test_get_keyname():
     assert RSDL.GetKeyName(RSDL.K_RIGHTPAREN)[0] == ')'
     assert RSDL.GetKeyName(RSDL.K_z)[0] == 'z'
     
+def test_delay_getticks():
+    assert RSDL.Init(RSDL.INIT_VIDEO) >= 0
+    RSDL.Delay(10)
+    i = RSDL.GetTicks()
+    assert i >= 10
+    RSDL.Quit()
+    
