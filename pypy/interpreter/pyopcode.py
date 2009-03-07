@@ -183,8 +183,6 @@ class __extend__(pyframe.PyFrame):
                 oparg = (hi << 8) | lo
             else:
                 oparg = 0
-            hint(opcode, concrete=True)
-            hint(oparg, concrete=True)
 
             while opcode == opcodedesc.EXTENDED_ARG.index:
                 opcode = ord(co_code[next_instr])
@@ -194,8 +192,6 @@ class __extend__(pyframe.PyFrame):
                 hi = ord(co_code[next_instr+2])
                 next_instr += 3
                 oparg = (oparg << 16) | (hi << 8) | lo
-                hint(opcode, concrete=True)
-                hint(oparg, concrete=True)
 
             if opcode == opcodedesc.RETURN_VALUE.index:
                 w_returnvalue = self.popvalue()
@@ -265,7 +261,6 @@ class __extend__(pyframe.PyFrame):
         while n > 0:
             block = self.blockstack.pop()
             n -= 1
-            hint(n, concrete=True)
             if (block.handling_mask & unroller_kind) != 0:
                 return block
             block.cleanupstack(self)
@@ -1142,7 +1137,7 @@ class FrameBlock:
 
     def handle(self, frame, unroller):
         next_instr = self.really_handle(frame, unroller)   # JIT hack
-        return hint(next_instr, promote=True)
+        return next_instr
 
     def really_handle(self, frame, unroller):
         """ Purely abstract method

@@ -42,6 +42,8 @@ def type_name(etype):
 class LLInterpreter(object):
     """ low level interpreter working with concrete values. """
 
+    current_interpreter = None
+
     def __init__(self, typer, tracing=True, exc_data_ptr=None,
                  malloc_check=True):
         self.bindings = {}
@@ -66,6 +68,8 @@ class LLInterpreter(object):
         retval = None
         self.traceback_frames = []
         old_frame_stack = self.frame_stack[:]
+        prev_interpreter = LLInterpreter.current_interpreter
+        LLInterpreter.current_interpreter = self
         try:
             try:
                 retval = llframe.eval()
@@ -88,6 +92,7 @@ class LLInterpreter(object):
                     self.tracer.dump(line + '\n')
                 raise
         finally:
+            LLInterpreter.current_interpreter = prev_interpreter
             assert old_frame_stack == self.frame_stack
             if self.tracer:
                 if retval is not None:
@@ -161,7 +166,18 @@ class LLInterpreter(object):
         self.mallocs[ptr._obj] = llframe
 
     def remember_free(self, ptr):
-        del self.mallocs[ptr._obj]
+        try:
+            del self.mallocs[ptr._obj]
+        except KeyError:
+            self._rehash_mallocs()
+            del self.mallocs[ptr._obj]
+
+    def _rehash_mallocs(self):
+        # rehashing is needed because some objects' hash may change
+        # when being turned to <C object>
+        items = self.mallocs.items()
+        self.mallocs = {}
+        self.mallocs.update(items)
 
 def checkptr(ptr):
     assert isinstance(lltype.typeOf(ptr), lltype.Ptr)
@@ -187,6 +203,9 @@ class LLFrame(object):
         self.curr_block = None
         self.curr_operation_index = 0
         self.alloca_objects = []
+
+    def newsubframe(self, graph, args):
+        return self.__class__(graph, args, self.llinterpreter)
 
     # _______________________________________________________
     # variable setters/getters helpers
@@ -646,7 +665,7 @@ class LLFrame(object):
             if not lltype.isCompatibleType(T, v.concretetype):
                 raise TypeError("graph with %r args called with wrong func ptr type: %r" %
                                 (tuple([v.concretetype for v in args_v]), ARGS)) 
-        frame = self.__class__(graph, args, self.llinterpreter)
+        frame = self.newsubframe(graph, args)
         return frame.eval()        
 
     def op_direct_call(self, f, *args):
@@ -673,7 +692,7 @@ class LLFrame(object):
         args = []
         for inarg, arg in zip(inargs, obj.graph.startblock.inputargs):
             args.append(lltype._cast_whatever(arg.concretetype, inarg))
-        frame = self.__class__(graph, args, self.llinterpreter)
+        frame = self.newsubframe(graph, args)
         result = frame.eval()
         from pypy.translator.stackless.frame import storage_type
         assert storage_type(lltype.typeOf(result)) == TGT

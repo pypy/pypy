@@ -121,8 +121,7 @@ class TranslationDriver(SimpleTaskEngine):
             else:
                 task, postfix = parts
                 if task in ('rtype', 'backendopt', 'llinterpret',
-                            'prehannotatebackendopt', 'hintannotate',
-                            'timeshift'):
+                            'prejitbackendopt', 'pyjitpl'):
                     if ts:
                         if ts == postfix:
                             expose_task(task, explicit_task)
@@ -356,7 +355,7 @@ class TranslationDriver(SimpleTaskEngine):
     task_rtype_ootype = taskdef(task_rtype_ootype, ['annotate'], "ootyping")
     OOTYPE = 'rtype_ootype'
 
-    def task_prehannotatebackendopt_lltype(self):
+    def task_prejitbackendopt_lltype(self):
         from pypy.translator.backendopt.all import backend_optimizations
         backend_optimizations(self.translator,
                               inline_threshold=0,
@@ -365,73 +364,30 @@ class TranslationDriver(SimpleTaskEngine):
                               raisingop2direct_call=False,
                               remove_asserts=True)
     #
-    task_prehannotatebackendopt_lltype = taskdef(
-        task_prehannotatebackendopt_lltype,
+    task_prejitbackendopt_lltype = taskdef(
+        task_prejitbackendopt_lltype,
         [RTYPE],
-        "Backendopt before Hint-annotate")
+        "Backendopt before jitting")
 
-    def task_hintannotate_lltype(self):
-        raise NotImplementedError("JIT is not implemented on trunk, look at oo-jit branch instead")
-        from pypy.jit.hintannotator.annotator import HintAnnotator
-        from pypy.jit.hintannotator.model import OriginFlags
-        from pypy.jit.hintannotator.model import SomeLLAbstractConstant
-
-        get_portal = self.extra['portal']
-        PORTAL, POLICY = get_portal(self)
-        t = self.translator
-        self.portal_graph = graphof(t, PORTAL)
-
-        hannotator = HintAnnotator(base_translator=t, policy=POLICY)
-        self.hint_translator = hannotator.translator
-        hs = hannotator.build_types(self.portal_graph,
-                                    [SomeLLAbstractConstant(v.concretetype,
-                                                            {OriginFlags(): True})
-                                     for v in self.portal_graph.getargs()])
-        count = hannotator.bookkeeper.nonstuboriggraphcount
-        stubcount = hannotator.bookkeeper.stuboriggraphcount
-        self.log.info("The hint-annotator saw %d graphs"
-                      " (and made stubs for %d graphs)." % (count, stubcount))
-        n = len(list(hannotator.translator.graphs[0].iterblocks()))
-        self.log.info("portal has %d blocks" % n)
-        self.hannotator = hannotator
+    def task_pyjitpl_lltype(self):
+        get_policy = self.extra['jitpolicy']
+        self.jitpolicy = get_policy(self)
+        #
+        from pypy.jit.metainterp.warmspot import apply_jit
+        apply_jit(self.translator)
+        #
+        self.log.info("the JIT compiler was generated")
     #
-    task_hintannotate_lltype = taskdef(task_hintannotate_lltype,
-                                       ['prehannotatebackendopt_lltype'],
-                                       "Hint-annotate")
-
-    def task_timeshift_lltype(self):
-        raise NotImplementedError("JIT is not implemented on trunk, look at oo-jit branch instead")
-
-        from pypy.jit.timeshifter.hrtyper import HintRTyper
-        from pypy.jit.codegen import detect_cpu
-        cpu = detect_cpu.autodetect()
-        if cpu == 'i386':
-            from pypy.jit.codegen.i386.rgenop import RI386GenOp as RGenOp
-            RGenOp.MC_SIZE = 32 * 1024 * 1024
-        elif cpu == 'ppc':
-            from pypy.jit.codegen.ppc.rgenop import RPPCGenOp as RGenOp
-            RGenOp.MC_SIZE = 32 * 1024 * 1024
-        else:
-            raise Exception('Unsuported cpu %r'%cpu)
-
-        del self.hint_translator
-        ha = self.hannotator
-        t = self.translator
-        # make the timeshifted graphs
-        hrtyper = HintRTyper(ha, t.rtyper, RGenOp)
-        hrtyper.specialize(origportalgraph=self.portal_graph, view=False)
-    #
-    task_timeshift_lltype = taskdef(task_timeshift_lltype,
-                             ["hintannotate_lltype"],
-                             "Timeshift")
+    task_pyjitpl_lltype = taskdef(task_pyjitpl_lltype,
+                                  [RTYPE, '?prejitbackendopt_lltype'],
+                                  "JIT compiler generation")
 
     def task_backendopt_lltype(self):
         from pypy.translator.backendopt.all import backend_optimizations
         backend_optimizations(self.translator)
     #
     task_backendopt_lltype = taskdef(task_backendopt_lltype,
-                                     [RTYPE,
-                                      '??timeshift_lltype'],
+                                     [RTYPE, '??pyjitpl_lltype'],
                                      "lltype back-end optimisations")
     BACKENDOPT = 'backendopt_lltype'
 

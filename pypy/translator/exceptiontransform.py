@@ -133,6 +133,8 @@ class BaseExceptionTransformer(object):
             rpyexc_restore_exception,
             [self.lltype_of_exception_value], lltype.Void)
 
+        self.build_extra_funcs()
+
         self.mixlevelannotator.finish()
         self.lltype_to_classdef = translator.rtyper.lltype_to_classdef_mapping()
 
@@ -192,13 +194,20 @@ class BaseExceptionTransformer(object):
         # order of transformations is important - but the gctransformer will
         # put them in a new graph, so all transformations will run again.
         for i in range(len(block.operations)):
-            if block.operations[i].opname == 'gc_fetch_exception':
+            opname = block.operations[i].opname
+            if opname == 'gc_fetch_exception':
                 block.operations[i].opname = "direct_call"
                 block.operations[i].args = [self.rpyexc_fetch_exception_ptr]
 
-            if block.operations[i].opname == 'gc_restore_exception':
+            if opname == 'gc_restore_exception':
                 block.operations[i].opname = "direct_call"
                 block.operations[i].args.insert(0, self.rpyexc_restore_exception_ptr)
+            if opname == 'get_exception_addr':    # only for lltype
+                block.operations[i].opname = "direct_call"
+                block.operations[i].args.insert(0, self.rpyexc_get_exception_addr_ptr)
+            if opname == 'get_exc_value_addr':    # only for lltype
+                block.operations[i].opname = "direct_call"
+                block.operations[i].args.insert(0, self.rpyexc_get_exc_value_addr_ptr)
 
     def transform_block(self, graph, block):
         need_exc_matching = False
@@ -380,6 +389,7 @@ class BaseExceptionTransformer(object):
             self.gen_setfield('exc_type',  self.c_null_etype,  llops)
             normalafterblock.operations[:0] = llops
 
+
 class LLTypeExceptionTransformer(BaseExceptionTransformer):
 
     def setup_excdata(self):
@@ -432,6 +442,29 @@ class LLTypeExceptionTransformer(BaseExceptionTransformer):
                 if oopspec and oopspec == 'newlist(length)':
                     return True
         return False
+
+    def build_extra_funcs(self):
+        EXCDATA = self.EXCDATA
+        exc_data = self.exc_data_ptr
+
+        def rpyexc_get_exception_addr():
+            return (llmemory.cast_ptr_to_adr(exc_data) +
+                    llmemory.offsetof(EXCDATA, 'exc_type'))
+
+        def rpyexc_get_exc_value_addr():
+            return (llmemory.cast_ptr_to_adr(exc_data) +
+                    llmemory.offsetof(EXCDATA, 'exc_value'))
+
+        self.rpyexc_get_exception_addr_ptr = self.build_func(
+            "RPyGetExceptionAddr",
+            rpyexc_get_exception_addr,
+            [], llmemory.Address)
+
+        self.rpyexc_get_exc_value_addr_ptr = self.build_func(
+            "RPyGetExcValueAddr",
+            rpyexc_get_exc_value_addr,
+            [], llmemory.Address)
+
 
 class OOTypeExceptionTransformer(BaseExceptionTransformer):
 

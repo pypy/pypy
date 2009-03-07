@@ -151,3 +151,25 @@ def test_flavored_malloc_stack():
         return result
     fn = compile(f, [int])
     assert fn(1) == 2
+
+def test_gcref():
+    S = lltype.GcStruct("S", ("x", lltype.Signed))
+    s = lltype.malloc(S)
+    s.x = 123
+    g1 = lltype.cast_opaque_ptr(GCREF, s)
+    g2 = lltype.cast_opaque_ptr(GCREF, lltype.nullptr(S))
+    def f2(x):
+        if x > 0:
+            return g1
+        else:
+            return g2
+    def f(x):
+        gref = f2(x)
+        g = lltype.cast_opaque_ptr(lltype.Ptr(S), gref)
+        if g:
+            return g.x
+        else:
+            return -42
+    fn = compile(f, [int], gcpolicy='boehm')
+    assert fn(3) == 123
+    assert fn(-3) == -42

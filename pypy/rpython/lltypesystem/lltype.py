@@ -798,6 +798,8 @@ def cast_opaque_ptr(PTRTYPE, ptr):
                         "%s to %s" % (CURTYPE, PTRTYPE))
     if (isinstance(CURTYPE.TO, OpaqueType)
         and not isinstance(PTRTYPE.TO, OpaqueType)):
+        if hasattr(ptr, '_cast_to_ptr'):
+            return ptr._cast_to_ptr(PTRTYPE)
         if not ptr:
             return nullptr(PTRTYPE.TO)
         try:
@@ -809,6 +811,8 @@ def cast_opaque_ptr(PTRTYPE, ptr):
         return cast_pointer(PTRTYPE, p)
     elif (not isinstance(CURTYPE.TO, OpaqueType)
           and isinstance(PTRTYPE.TO, OpaqueType)):
+        if hasattr(ptr, '_cast_to_opaque'):
+            return ptr._cast_to_opaque(PTRTYPE)
         if not ptr:
             return nullptr(PTRTYPE.TO)
         return opaqueptr(PTRTYPE.TO, 'hidden', container = ptr._obj,
@@ -1085,12 +1089,20 @@ class _abstract_ptr(object):
         if isinstance(self._T, FuncType):
             if len(args) != len(self._T.ARGS):
                 raise TypeError,"calling %r with wrong argument number: %r" % (self._T, args)
-            for a, ARG in zip(args, self._T.ARGS):
+            for i, a, ARG in zip(range(len(self._T.ARGS)), args, self._T.ARGS):
                 if typeOf(a) != ARG:
+                    # ARG could be Void
+                    if ARG == Void:
+                        try:
+                            value = getattr(self._obj, '_void' + str(i))
+                        except AttributeError:
+                            pass
+                        else:
+                            assert a == value
                     # special case: ARG can be a container type, in which
                     # case a should be a pointer to it.  This must also be
                     # special-cased in the backends.
-                    if not (isinstance(ARG, ContainerType)
+                    elif not (isinstance(ARG, ContainerType)
                             and typeOf(a) == Ptr(ARG)):
                         args_repr = [typeOf(arg) for arg in args]
                         raise TypeError, ("calling %r with wrong argument "
@@ -1558,7 +1570,11 @@ class _subarray(_parentable):     # only for direct_fieldptr()
             self._parentstructure().setitem(baseoffset + index, value)
 
     def _makeptr(parent, baseoffset_or_fieldname, solid=False):
-        cache = _subarray._cache.setdefault(parent, {})
+        try:
+            cache = _subarray._cache.setdefault(parent, {})
+        except RuntimeError:    # pointer comparison with a freed structure
+            _subarray._cleanup_cache()
+            cache = _subarray._cache.setdefault(parent, {})    # try again
         try:
             subarray = cache[baseoffset_or_fieldname]
         except KeyError:
@@ -1577,6 +1593,17 @@ class _subarray(_parentable):     # only for direct_fieldptr()
 
     def _getid(self):
         raise NotImplementedError('_subarray._getid()')
+
+    def _cleanup_cache():
+        newcache = weakref.WeakKeyDictionary()
+        for key, value in _subarray._cache.items():
+            try:
+                if not key._was_freed():
+                    newcache[key] = value
+            except RuntimeError:
+                pass    # ignore "accessing subxxx, but already gc-ed parent"
+        _subarray._cache = newcache
+    _cleanup_cache = staticmethod(_cleanup_cache)
 
 
 class _arraylenref(_parentable):

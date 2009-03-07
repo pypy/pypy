@@ -20,7 +20,6 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
 from pypy.interpreter.baseobjspace import Wrappable, SpaceCache, DescrMismatch
 from pypy.interpreter.argument import Arguments, AbstractArguments
 from pypy.tool.sourcetools import NiceCompile, compile2
-from pypy.rlib.jit import hint
 from pypy.rlib.rarithmetic import r_longlong, r_int, r_ulonglong, r_uint
 
 # internal non-translatable parts: 
@@ -572,7 +571,7 @@ class BuiltinCode0(BuiltinCode):
     fast_natural_arity = 0
     
     def fastcall_0(self, space, w_func):
-        self = hint(self, deepfreeze=True)
+        #self = hint(self, deepfreeze=True)
         try:
             w_result = self.fastfunc_0(space)
         except KeyboardInterrupt: 
@@ -592,7 +591,7 @@ class BuiltinCode1(BuiltinCode):
     fast_natural_arity = 1
     
     def fastcall_1(self, space, w_func, w1):
-        self = hint(self, deepfreeze=True)
+        #self = hint(self, deepfreeze=True)
         try:
             w_result = self.fastfunc_1(space, w1)
         except KeyboardInterrupt: 
@@ -617,7 +616,7 @@ class BuiltinCode2(BuiltinCode):
     fast_natural_arity = 2
     
     def fastcall_2(self, space, w_func, w1, w2):
-        self = hint(self, deepfreeze=True)
+        #self = hint(self, deepfreeze=True)
         try:
             w_result = self.fastfunc_2(space, w1, w2)
         except KeyboardInterrupt: 
@@ -642,7 +641,7 @@ class BuiltinCode3(BuiltinCode):
     fast_natural_arity = 3
     
     def fastcall_3(self, space, func, w1, w2, w3):
-        self = hint(self, deepfreeze=True)
+        #self = hint(self, deepfreeze=True)
         try:
             w_result = self.fastfunc_3(space, w1, w2, w3)
         except KeyboardInterrupt: 
@@ -667,7 +666,7 @@ class BuiltinCode4(BuiltinCode):
     fast_natural_arity = 4
     
     def fastcall_4(self, space, func, w1, w2, w3, w4):
-        self = hint(self, deepfreeze=True)
+        #self = hint(self, deepfreeze=True)
         try:
             w_result = self.fastfunc_4(space, w1, w2, w3, w4)
         except KeyboardInterrupt: 

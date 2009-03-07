@@ -11,7 +11,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped 
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.rlib.rarithmetic import intmask
-from pypy.rlib.debug import make_sure_not_resized
+from pypy.rlib.debug import make_sure_not_resized, make_sure_not_modified
 
 # helper
 
@@ -52,6 +52,7 @@ def cpython_code_signature(code):
 
 class PyCode(eval.Code):
     "CPython-style code objects."
+    _immutable_ = True
 
     def __init__(self, space,  argcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
@@ -66,7 +67,7 @@ class PyCode(eval.Code):
         self.co_stacksize = stacksize
         self.co_flags = flags
         self.co_code = code
-        self.co_consts_w = make_sure_not_resized(consts)
+        self.co_consts_w = make_sure_not_modified(consts)
         self.co_names_w = [space.new_interned_str(aname) for aname in names]
         self.co_varnames = varnames
         self.co_freevars = freevars
@@ -136,7 +137,7 @@ class PyCode(eval.Code):
                       code.co_stacksize,
                       code.co_flags,
                       code.co_code,
-                      newconsts_w,
+                      newconsts_w[:],
                       list(code.co_names),
                       list(code.co_varnames),
                       code.co_filename,
@@ -155,9 +156,9 @@ class PyCode(eval.Code):
                     hidden_applevel=False):
         """Initialize a new code objects from parameters given by
         the pypy compiler"""
-        return PyCode(space, argcount, nlocals, stacksize, flags, code, consts,
-                      names, varnames, filename, name, firstlineno, lnotab,
-                      freevars, cellvars, hidden_applevel)
+        return PyCode(space, argcount, nlocals, stacksize, flags, code,
+                      consts[:], names, varnames, filename, name, firstlineno,
+                      lnotab, freevars, cellvars, hidden_applevel)
 
     _code_new_w = staticmethod(_code_new_w)
 
@@ -243,7 +244,7 @@ class PyCode(eval.Code):
         dis.dis(co)
 
     def fget_co_consts(space, self):
-        return space.newtuple(self.co_consts_w)
+        return space.newtuple(self.co_consts_w[:])
     
     def fget_co_names(space, self):
         return space.newtuple(self.co_names_w)
@@ -340,7 +341,7 @@ class PyCode(eval.Code):
         else:
             cellvars = []
         code = space.allocate_instance(PyCode, w_subtype)
-        PyCode.__init__(code, space, argcount, nlocals, stacksize, flags, codestring, consts_w, names,
+        PyCode.__init__(code, space, argcount, nlocals, stacksize, flags, codestring, consts_w[:], names,
                       varnames, filename, name, firstlineno, lnotab, freevars, cellvars, magic=magic)
         return space.wrap(code)
     descr_code__new__.unwrap_spec = unwrap_spec 
@@ -357,7 +358,7 @@ class PyCode(eval.Code):
             w(self.co_stacksize), 
             w(self.co_flags),
             w(self.co_code), 
-            space.newtuple(self.co_consts_w), 
+            space.newtuple(self.co_consts_w[:]), 
             space.newtuple(self.co_names_w), 
             space.newtuple([w(v) for v in self.co_varnames]), 
             w(self.co_filename),

@@ -20,14 +20,12 @@ from pypy.config.translationoption import PLATFORMS, set_platform
 GOALS= [
         ("annotate", "do type inference", "-a --annotate", ""),
         ("rtype", "do rtyping", "-t --rtype", ""),
-        ("prehannotatebackendopt", "backend optimize before hint-annotating",
-         "--prehannotatebackendopt", ""),
-        ("hintannotate", "hint-annotate", "--hintannotate", ""),
-        ("timeshift", "timeshift (jit generation)", "--timeshift", ""),
+        ("prejitbackendopt", "backend optimize before jitting",
+         "--prejitbackendopt", ""),
+        ("pyjitpl", "JIT generation step", "--pyjitpl", ""),
         ("backendopt", "do backend optimizations", "--backendopt", ""),
         ("source", "create source", "-s --source", ""),
         ("compile", "compile", "-c --compile", " (default goal)"),
-        ("?jit", "generate JIT", "--jit", ""),
         ("run", "run the resulting binary", "--run", ""),
         ("llinterpret", "interpret the rtyped flow graphs", "--llinterpret", ""),
        ]
@@ -258,10 +256,10 @@ def main():
                                                        disable=translateconfig.skipped_goals,
                                                        default_goal='compile')
         log_config(translateconfig, "translate.py configuration")
-        if translateconfig.goal_options.jit:
-            if 'portal' not in targetspec_dic:
-               raise Exception('target has no portal defined.') 
-            drv.set_extra_goals(['timeshift'])
+        if config.translation.jit:
+            if 'jitpolicy' not in targetspec_dic:
+                raise Exception('target has no jitpolicy defined.')
+            drv.set_extra_goals(['pyjitpl'])
         log_config(config.translation, "translation configuration")
         pdb_plus_show.expose({'drv': drv, 'prof': prof})
 

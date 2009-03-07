@@ -7,7 +7,7 @@ from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem.llmemory import Address, \
      AddressOffset, ItemOffset, ArrayItemsOffset, FieldOffset, \
      CompositeOffset, ArrayLengthOffset, \
-     GCHeaderOffset
+     GCHeaderOffset, GCREF
 from pypy.rpython.lltypesystem.llarena import RoundedUpForAllocation
 from pypy.translator.c.support import cdecl, barebonearray
 
@@ -128,6 +128,14 @@ def name_address(value, db):
     else:
         return 'NULL'
 
+def name_gcref(value, db):
+    if value:
+        realobj = value._obj.container
+        realvalue = cast_opaque_ptr(Ptr(typeOf(realobj)), value)
+        return db.get(realvalue)
+    else:
+        return 'NULL'
+
 # On 64 bit machines, SignedLongLong and Signed are the same, so the
 # order matters, because we want the Signed implementation.
 PrimitiveName = {
@@ -142,6 +150,7 @@ PrimitiveName = {
     Bool:     name_bool,
     Void:     name_void,
     Address:  name_address,
+    GCREF:    name_gcref,
     }
 
 PrimitiveType = {
@@ -156,6 +165,7 @@ PrimitiveType = {
     Bool:     'bool_t @',
     Void:     'void @',
     Address:  'void* @',
+    GCREF:    'void* @',
     }
 
 def define_c_primitive(ll_type, c_name):

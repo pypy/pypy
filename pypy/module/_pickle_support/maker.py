@@ -105,7 +105,8 @@ def slp_into_tuple_with_nulls(space, seq_w):
 
 def slp_from_tuple_with_nulls(space, w_tup):
     tup_w = space.unpackiterable(w_tup)
-    nulls = space.unpackiterable(tup_w.pop(0))
+    nulls = space.unpackiterable(tup_w[0])
+    tup_w = tup_w[1:]
     for w_p in nulls:
         p = space.int_w(w_p)
         tup_w[p] = None

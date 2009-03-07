@@ -84,19 +84,26 @@ PARAMETERS = {'threshold': 40,
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.keys())
 
-class JitDriver:
+class JitDriver:    
     """Base class to declare fine-grained user control on the JIT.  So
     far, there must be a singleton instance of JitDriver.  This style
     will allow us (later) to support a single RPython program with
     several independent JITting interpreters in it.
     """
-    def __init__(self, greens=None, reds=None):
+
+    virtualizables = []
+    
+    def __init__(self, greens=None, reds=None, virtualizables=None):
         if greens is not None:
             self.greens = greens
         if reds is not None:
             self.reds = reds
         if not hasattr(self, 'greens') or not hasattr(self, 'reds'):
             raise AttributeError("no 'greens' or 'reds' supplied")
+        if virtualizables is not None:
+            self.virtualizables = virtualizables
+        for v in self.virtualizables:
+            assert v in self.reds
         self._alllivevars = dict.fromkeys(self.greens + self.reds)
         self._params = PARAMETERS.copy()
         if hasattr(self, 'on_enter_jit'):

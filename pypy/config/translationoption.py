@@ -108,6 +108,11 @@ translation_optiondescription = OptionDescription(
     BoolOption("rweakref", "The backend supports RPython-level weakrefs",
                default=True),
 
+    # JIT generation
+    BoolOption("jit", "generate a JIT",
+               default=False, cmdline="--jit",
+               requires=[("translation.gc", "boehm")]),
+
     # misc
     BoolOption("verbose", "Print extra information", default=False),
     BoolOption("debug", "Record extra annotation information",
@@ -126,7 +131,7 @@ translation_optiondescription = OptionDescription(
     ChoiceOption("fork_before",
                  "(UNIX) Create restartable checkpoint before step",
                  ["annotate", "rtype", "backendopt", "database", "source",
-                  "hintannotate", "timeshift"],
+                  "pyjitpl"],
                  default=None, cmdline="--fork-before"),
 
     ArbitraryOption("instrumentctl", "internal",

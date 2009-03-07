@@ -234,6 +234,21 @@ class TestLLType(BaseTestExceptionTransform):
         # checking
         assert summary(g) == {'int_gt': 1, 'int_add': 1, 'direct_call': 1}
 
+    def test_get_exception_addr(self):
+        from pypy.rpython.lltypesystem import lltype, llmemory
+        from pypy.rpython.lltypesystem.lloperation import llop
+        def foo():
+            # a bit hard to test, really
+            a = llop.get_exception_addr(llmemory.Address)
+            assert lltype.typeOf(a) is llmemory.Address
+            a = llop.get_exc_value_addr(llmemory.Address)
+            assert lltype.typeOf(a) is llmemory.Address
+            return 42
+        f = self.compile(foo, [])
+        res = f()
+        assert res == 42
+
+
 class TestOOType(BaseTestExceptionTransform):
     type_system = 'ootype'
 

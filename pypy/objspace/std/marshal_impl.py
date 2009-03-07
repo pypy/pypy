@@ -376,7 +376,7 @@ def marshal_w_pycode(space, w_pycode, m):
     m.put_int(x.co_stacksize)
     m.put_int(x.co_flags)
     m.atom_str(TYPE_STRING, x.co_code)
-    m.put_tuple_w(TYPE_TUPLE, x.co_consts_w)
+    m.put_tuple_w(TYPE_TUPLE, x.co_consts_w[:])
     m.atom_strlist(TYPE_TUPLE, TYPE_INTERNED, [space.str_w(w_name) for w_name in x.co_names_w])
     m.atom_strlist(TYPE_TUPLE, TYPE_INTERNED, x.co_varnames)
     m.atom_strlist(TYPE_TUPLE, TYPE_INTERNED, x.co_freevars)

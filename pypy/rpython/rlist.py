@@ -517,28 +517,20 @@ def ll_copy(RESLIST, l):
         new_lst.ll_setitem_fast(i, l.ll_getitem_fast(i))
         i += 1
     return new_lst
-ll_copy.oopspec = 'list.copy(l)'
 
 def ll_len(l):
     return l.ll_length()
-ll_len.oopspec = 'list.len(l)'
-ll_len.oopargcheck = lambda l: bool(l)
 
 def ll_list_is_true(l):
     # check if a list is True, allowing for None
     return bool(l) and l.ll_length() != 0
-ll_list_is_true.oopspec = 'list.nonzero(l)'
-ll_list_is_true.oopargcheck = lambda l: True
 
 def ll_len_foldable(l):
     return l.ll_length()
 ll_len_foldable.oopspec = 'list.len_foldable(l)'
-ll_len_foldable.oopargcheck = lambda l: bool(l)
 
 def ll_list_is_true_foldable(l):
-    return ll_list_is_true(l)
-ll_list_is_true_foldable.oopspec = 'list.nonzero_foldable(l)'
-ll_list_is_true_foldable.oopargcheck = lambda l: True
+    return bool(l) and ll_len_foldable(l) != 0
 
 def ll_append(l, newitem):
     length = l.ll_length()
@@ -576,7 +568,6 @@ def ll_concat(RESLIST, l1, l2):
         i += 1
         j += 1
     return l
-ll_concat.oopspec = 'list.concat(l1, l2)'
 
 def ll_insert_nonneg(l, index, newitem):
     length = l.ll_length()
@@ -663,7 +654,6 @@ def ll_reverse(l):
         l.ll_setitem_fast(length_1_i, tmp)
         i += 1
         length_1_i -= 1
-ll_reverse.oopspec = 'list.reverse(l)'
 
 def ll_getitem_nonneg(func, l, index):
     ll_assert(index >= 0, "unexpectedly negative list getitem index")
@@ -674,8 +664,6 @@ def ll_getitem_nonneg(func, l, index):
         ll_assert(index < l.ll_length(), "list getitem index out of bound")
     return l.ll_getitem_fast(index)
 ll_getitem_nonneg.oopspec = 'list.getitem(l, index)'
-ll_getitem_nonneg.oopargcheck = lambda l, index: (bool(l) and
-                                                  0 <= index < l.ll_length())
 
 def ll_getitem(func, l, index):
     length = l.ll_length()
@@ -689,21 +677,14 @@ def ll_getitem(func, l, index):
         ll_assert(index < length, "list getitem index out of bound")
     return l.ll_getitem_fast(index)
 ll_getitem.oopspec = 'list.getitem(l, index)'
-ll_getitem.oopargcheck = lambda l, index: (bool(l) and -l.ll_length() <=
-                                                       index < l.ll_length())
 
 def ll_getitem_foldable_nonneg(func, l, index):
     return ll_getitem_nonneg(func, l, index)
 ll_getitem_foldable_nonneg.oopspec = 'list.getitem_foldable(l, index)'
-ll_getitem_foldable_nonneg.oopargcheck = lambda l, index: (bool(l) and
-                                                  0 <= index < l.ll_length())
 
 def ll_getitem_foldable(func, l, index):
     return ll_getitem(func, l, index)
 ll_getitem_foldable.oopspec = 'list.getitem_foldable(l, index)'
-ll_getitem_foldable.oopargcheck = lambda l, index: (bool(l)
-                                                    and -l.ll_length() <=
-                                                       index < l.ll_length())
 
 def ll_setitem_nonneg(func, l, index, newitem):
     ll_assert(index >= 0, "unexpectedly negative list setitem index")
@@ -778,6 +759,7 @@ def ll_extend(l1, l2):
         l1.ll_setitem_fast(j, l2.ll_getitem_fast(i))
         i += 1
         j += 1
+ll_extend.oopspec = 'list.extend(l1, l2)'
 
 def ll_extend_with_str(lst, s, getstrlen, getstritem):
     return ll_extend_with_str_slice_startonly(lst, s, getstrlen, getstritem, 0)
@@ -1005,7 +987,6 @@ def ll_listindex(lst, obj, eqfn):
 def ll_listremove(lst, obj, eqfn):
     index = ll_listindex(lst, obj, eqfn) # raises ValueError if obj not in lst
     ll_delitem_nonneg(dum_nocheck, lst, index)
-ll_listremove.oopspec = 'list.remove(obj)'
 
 def ll_inplace_mul(l, factor):
     length = l.ll_length()

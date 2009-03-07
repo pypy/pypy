@@ -192,6 +192,10 @@ class ListDef:
             raise TooLateForChange()
         self.listitem.dont_resize = True
 
+    def never_mutate(self):
+        if self.listitem.resized or self.listitem.mutated:
+            raise TooLateForChange()
+        self.listitem.dont_change_any_more = True
 
 MOST_GENERAL_LISTDEF = ListDef(None, SomeObject())
 

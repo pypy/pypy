@@ -1,0 +1,12 @@
+
+* test_zrpy_exceptions, needed
+
+* fix ll2ctypes for typeptr accesses (test_tl*)
+
+* measure performance, improve
+
+* use more registers, eventually
+
+* optimization of comparison followed by a guard
+
+* MC_SIZE, FRAMESIZE

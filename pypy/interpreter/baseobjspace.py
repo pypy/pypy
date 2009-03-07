@@ -4,7 +4,6 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments, ArgumentsFromValuestack
 from pypy.interpreter.pycompiler import CPythonCompiler, PythonAstCompiler
 from pypy.interpreter.miscutils import ThreadLocals
-from pypy.rlib.jit import hint
 from pypy.tool.cache import Cache
 from pypy.tool.uid import HUGEVAL_BYTES
 from pypy.rlib.objectmodel import we_are_translated
@@ -724,7 +723,6 @@ class ObjSpace(object):
 
         if not self.config.objspace.disable_call_speedhacks:
             # XXX start of hack for performance
-            hint(w_func.__class__, promote=True)
             if isinstance(w_func, Method):
                 w_inst = w_func.w_instance
                 if w_inst is not None:

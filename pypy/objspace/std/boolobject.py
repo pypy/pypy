@@ -5,6 +5,8 @@ from pypy.objspace.std.intobject import W_IntObject
 class W_BoolObject(W_Object):
     from pypy.objspace.std.booltype import bool_typedef as typedef
 
+    _immutable_ = True
+
     def __init__(w_self, boolval):
         w_self.boolval = not not boolval
 

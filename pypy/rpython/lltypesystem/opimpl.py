@@ -386,6 +386,9 @@ def op_debug_print(*args):
         print arg,
     print
 
+def op_promote_virtualizable(object, fieldname):
+    pass # XXX should do something
+
 # ____________________________________________________________
 
 def get_op_impl(opname):

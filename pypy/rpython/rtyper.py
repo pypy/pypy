@@ -57,6 +57,7 @@ class RPythonTyper(object):
         self._dict_traits = {}
         self.class_reprs = {}
         self.instance_reprs = {}
+        self.type_for_typeptr = {}
         self.pbc_reprs = {}
         self.classes_with_wrapper = {}
         self.wrapper_context = None # or add an extra arg to convertvar?
@@ -130,6 +131,23 @@ class RPythonTyper(object):
         for (classdef, _), repr in self.instance_reprs.iteritems():
             result[repr.lowleveltype] = classdef
         return result
+
+    def lltype_to_vtable_mapping(self):
+        result = {}
+        for repr in self.instance_reprs.itervalues():
+            result[repr.lowleveltype.TO] = repr.rclass.getvtable()
+        return result
+
+    def get_type_for_typeptr(self, typeptr):
+        try:
+            return self.type_for_typeptr[typeptr._obj]
+        except KeyError:
+            # rehash the dictionary
+            type_for_typeptr = {}
+            for key, value in self.type_for_typeptr.items():
+                type_for_typeptr[key] = value
+            self.type_for_typeptr = type_for_typeptr
+            return self.type_for_typeptr[typeptr._obj]
 
     def makekey(self, s_obj):
         return pair(self.type_system, s_obj).rtyper_makekey(self)

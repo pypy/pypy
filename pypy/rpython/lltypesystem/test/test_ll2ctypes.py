@@ -7,11 +7,14 @@ from pypy.rpython.lltypesystem.ll2ctypes import lltype2ctypes, ctypes2lltype
 from pypy.rpython.lltypesystem.ll2ctypes import standard_c_lib
 from pypy.rpython.lltypesystem.ll2ctypes import uninitialized2ctypes
 from pypy.rpython.lltypesystem.ll2ctypes import ALLOCATED, force_cast
+from pypy.rpython.lltypesystem.ll2ctypes import cast_adr_to_int, get_ctypes_type
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib import rposix
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.tool.udir import udir
 from pypy.rpython.test.test_llinterp import interpret
+from pypy.annotation.annrpython import RPythonAnnotator
+from pypy.rpython.rtyper import RPythonTyper
 
 class TestLL2Ctypes(object):
 
@@ -826,13 +829,153 @@ class TestLL2Ctypes(object):
         c1 = lltype2ctypes(a1)
         c2 = lltype2ctypes(a2)
         assert type(c1) is type(c2)
+        lltype.free(a1, flavor='raw')
+        lltype.free(a2, flavor='raw')
+        assert not ALLOCATED     # detects memory leaks in the test
 
-    def test_varsized_struct(self): 
-        STR = lltype.Struct('rpy_string', ('hash',  lltype.Signed),
-                            ('chars', lltype.Array(lltype.Char, hints={'immutable': True})))
-        s = lltype.malloc(STR, 3, flavor='raw')
-        one = force_cast(rffi.VOIDP, s)
-        # sanity check
-        #assert lltype2ctypes(one).contents.items._length_ > 0
-        two = force_cast(lltype.Ptr(STR), one)
-        assert s == two
+    def test_varsized_struct(self):
+        S = lltype.Struct('S', ('x', lltype.Signed),
+                               ('a', lltype.Array(lltype.Char)))
+        s1 = lltype.malloc(S, 6, flavor='raw')
+        s1.x = 5
+        s1.a[2] = 'F'
+        sc = lltype2ctypes(s1, normalize=False)
+        assert isinstance(sc.contents, ctypes.Structure)
+        assert sc.contents.x == 5
+        assert sc.contents.a.length == 6
+        assert sc.contents.a.items[2] == ord('F')
+        sc.contents.a.items[3] = ord('P')
+        assert s1.a[3] == 'P'
+        s1.a[1] = 'y'
+        assert sc.contents.a.items[1] == ord('y')
+        # now go back to lltype...
+        res = ctypes2lltype(lltype.Ptr(S), sc)
+        assert res == s1
+        assert res.x == 5
+        assert len(res.a) == 6
+        lltype.free(s1, flavor='raw')
+        assert not ALLOCATED     # detects memory leaks in the test
+
+    def test_with_explicit_length(self):
+        A = lltype.Array(lltype.Signed)
+        a1 = lltype.malloc(A, 5, flavor='raw')
+        a1[0] = 42
+        c1 = lltype2ctypes(a1, normalize=False)
+        assert c1.contents.length == 5
+        assert c1.contents.items[0] == 42
+        res = ctypes2lltype(lltype.Ptr(A), c1)
+        assert res == a1
+        assert len(res) == 5
+        assert res[0] == 42
+        res[0] += 1
+        assert c1.contents.items[0] == 43
+        assert a1[0] == 43
+        a1[0] += 2
+        assert c1.contents.items[0] == 45
+        assert a1[0] == 45
+        c1.contents.items[0] += 3
+        assert res[0] == 48
+        assert a1[0] == 48
+        lltype.free(a1, flavor='raw')
+        assert not ALLOCATED     # detects memory leaks in the test
+
+    def test_c_callback_with_void_arg_2(self):
+        ftest = []
+        def f(x):
+            ftest.append(x)
+        F = lltype.FuncType([lltype.Void], lltype.Void)
+        fn = lltype.functionptr(F, 'askjh', _callable=f, _void0=-5)
+        fn(-5)
+        assert ftest == [-5]
+        fn2 = lltype2ctypes(fn)
+        fn2()
+        assert ftest == [-5, -5]
+        fn3 = ctypes2lltype(lltype.Ptr(F), fn2)
+        fn3(-5)
+        assert ftest == [-5, -5, -5]
+
+    def test_c_callback_with_void_arg_3(self):
+        import pypy
+        def f(i):
+            x = 'X' * i
+            return x[-2]
+        a = RPythonAnnotator()
+        r = a.build_types(f, [int])
+        rtyper = RPythonTyper(a)
+        rtyper.specialize()
+        a.translator.rtyper = rtyper
+        graph = a.translator.graphs[0]
+        op = graph.startblock.operations[-1]
+        assert op.opname == 'direct_call'
+        assert op.args[0].value._obj._callable == pypy.rpython.lltypesystem.rstr.LLHelpers.ll_stritem.im_func
+        assert op.args[1].value == pypy.rpython.lltypesystem.rstr.LLHelpers
+        assert op.args[3].value == -2
+
+    def test_pass_around_t_object(self):
+        from pypy.rpython.annlowlevel import base_ptr_lltype
+        T = base_ptr_lltype()
+        
+        class X(object):
+            _TYPE = T
+            x = 10
+
+        def callback(x):
+            return x.x
+
+        c_source = py.code.Source("""
+        int eating_callback(void *arg, int(*call)(int))
+        {
+            return call(arg);
+        }
+        """)
+
+        eci = ExternalCompilationInfo(separate_module_sources=[c_source])
+
+        args = [T, rffi.CCallback([T], rffi.INT)]
+        eating_callback = rffi.llexternal('eating_callback', args, rffi.INT,
+                                          compilation_info=eci)
+
+        res = eating_callback(X(), callback)
+        assert res == 10
+
+    def test_recursive_struct_more(self):
+        NODE = lltype.ForwardReference()
+        NODE.become(lltype.Struct('NODE', ('value', lltype.Signed),
+                                          ('next', lltype.Ptr(NODE))))
+        CNODEPTR = get_ctypes_type(NODE)
+        pc = CNODEPTR()
+        pc.value = 42
+        pc.next = ctypes.pointer(pc)
+        p = ctypes2lltype(lltype.Ptr(NODE), ctypes.pointer(pc))
+        assert p.value == 42
+        assert p.next == p
+        pc2 = lltype2ctypes(p)
+        assert pc2.contents.value == 42
+        assert pc2.contents.next.contents.value == 42
+
+    def test_cast_adr_to_int(self):
+        class someaddr(object):
+            def _cast_to_int(self):
+                return sys.maxint/2 * 3
+
+        res = cast_adr_to_int(someaddr())
+        assert isinstance(res, int)
+        assert res == -sys.maxint/2 - 3
+
+    def test_cast_gcref_back_and_forth(self):
+        NODE = lltype.GcStruct('NODE')
+        node = lltype.malloc(NODE)
+        ref = lltype.cast_opaque_ptr(llmemory.GCREF, node)
+        back = rffi.cast(llmemory.GCREF, rffi.cast(lltype.Signed, ref))
+        assert lltype.cast_opaque_ptr(lltype.Ptr(NODE), ref) == node
+
+    def test_gcref_forth_and_back(self):
+        cp = ctypes.c_void_p(1234)
+        v = ctypes2lltype(llmemory.GCREF, cp)
+        assert lltype2ctypes(v).value == cp.value
+        v1 = ctypes2lltype(llmemory.GCREF, cp)
+        assert v == v1
+        assert v
+        v2 = ctypes2lltype(llmemory.GCREF, ctypes.c_void_p(1235))
+        assert v2 != v
+        

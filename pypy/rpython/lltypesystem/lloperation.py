@@ -129,7 +129,10 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         op = self.instance    # the LLOp object that was called
         args_v = [hop.inputarg(r, i+1) for i, r in enumerate(hop.args_r[1:])]
-        hop.exception_is_here()
+        if op.canraise:
+            hop.exception_is_here()
+        else:
+            hop.exception_cannot_occur()
         return hop.genop(op.opname, args_v, resulttype=hop.r_result.lowleveltype)
 
 
@@ -391,6 +394,9 @@ LL_OPERATIONS = {
 
     'call_boehm_gc_alloc':  LLOp(canraise=(MemoryError,)),
     'jit_marker':           LLOp(),
+    'promote_virtualizable':LLOp(canrun=True),
+    'get_exception_addr':   LLOp(),
+    'get_exc_value_addr':   LLOp(),
 
     # __________ GC operations __________
 
@@ -484,6 +490,8 @@ LL_OPERATIONS = {
     'ooupcast':             LLOp(oo=True, canfold=True),
     'oodowncast':           LLOp(oo=True, canfold=True),
     'oononnull':            LLOp(oo=True, canfold=True),
+    'ooisnot':              LLOp(oo=True, canfold=True),
+    'ooisnull':             LLOp(oo=True, canfold=True),
     'oois':                 LLOp(oo=True, canfold=True),
     'instanceof':           LLOp(oo=True, canfold=True),
     'classof':              LLOp(oo=True, canfold=True),

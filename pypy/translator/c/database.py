@@ -3,7 +3,7 @@ from pypy.rpython.lltypesystem.lltype import \
      Struct, Array, FuncType, PyObject, Void, \
      ContainerType, OpaqueType, FixedSizeArray, _uninitialized
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.lltypesystem.llmemory import WeakRef, _WeakRefType
+from pypy.rpython.lltypesystem.llmemory import WeakRef, _WeakRefType, GCREF
 from pypy.rpython.lltypesystem.rffi import CConstant
 from pypy.tool.sourcetools import valid_identifier
 from pypy.translator.c.primitive import PrimitiveName, PrimitiveType
@@ -95,7 +95,7 @@ class LowLevelDatabase(object):
         return node
 
     def gettype(self, T, varlength=1, who_asks=None, argnames=[]):
-        if isinstance(T, Primitive):
+        if isinstance(T, Primitive) or T == GCREF:
             return PrimitiveType[T]
         elif isinstance(T, Ptr):
             try:
@@ -174,7 +174,7 @@ class LowLevelDatabase(object):
             if isinstance(obj, CConstant):
                 return obj.c_name  # without further checks
             T = typeOf(obj)
-            if isinstance(T, Primitive):
+            if isinstance(T, Primitive) or T == GCREF:
                 return PrimitiveName[T](obj, self)
             elif isinstance(T, Ptr):
                 if obj:   # test if the ptr is non-NULL
