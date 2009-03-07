@@ -7,8 +7,6 @@ ROM_PATH = str(py.magic.autopath().dirpath().dirpath().dirpath())+"/lang/gameboy
 
 print ROM_PATH
 
-use_rsdl = False
-
 def entry_point(argv=None):
     if argv is not None and len(argv) > 1:
         filename = argv[1]
@@ -22,8 +20,10 @@ def entry_point(argv=None):
     except:
         print "Corrupt Cartridge"
         gameBoy.load_cartridge_file(str(filename), verify=False)
+
+    gameBoy.open_window()
     gameBoy.mainLoop()
-    #pdb.runcall(gameBoy.mainLoop)
+
     return 0
     
 
@@ -39,6 +39,7 @@ def test_target():
 # STARTPOINT ===================================================================
 
 if __name__ == '__main__':
+    use_rsdl = False
     if use_rsdl and sys.platform == 'darwin':
         from AppKit import NSApplication
         NSApplication.sharedApplication()
