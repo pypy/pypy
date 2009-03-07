@@ -198,9 +198,9 @@ class PyPyTarget(object):
 
         return self.get_entry_point(config)
 
-    def portal(self, driver):
-        from pypy.module.pypyjit.portal import get_portal
-        return get_portal(driver)
+    def jitpolicy(self, driver):
+        from pypy.module.pypyjit.portal import PyPyJitPolicy
+        return PyPyJitPolicy(driver.translator)
     
     def get_entry_point(self, config):
         space = make_objspace(config)
@@ -215,7 +215,7 @@ class PyPyTarget(object):
 
     def interface(self, ns):
         for name in ['take_options', 'handle_config', 'print_help', 'target',
-                     'portal',
+                     'jitpolicy',
                      'get_additional_config_options']:
             ns[name] = getattr(self, name)
 
