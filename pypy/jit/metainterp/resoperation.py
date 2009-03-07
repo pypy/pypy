@@ -125,7 +125,7 @@ class rop(object):
     UINT_NE                = 54
     UINT_GT                = 55
     UINT_GE                = 56
-    _COMPARISON_LAST = 55
+    _COMPARISON_LAST = 56
     #
     INT_IS_TRUE            = 60
     INT_NEG                = 61
