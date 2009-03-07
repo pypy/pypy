@@ -126,6 +126,9 @@ class MsvcPlatform(Platform):
                 )
         return ['/LIBPATH:%s' % (ldir,) for ldir in library_dirs]
 
+    def _linkfiles(self, link_files):
+        return list(link_files)
+
     def _args_for_shared(self, args):
         return ['/dll'] + args
 

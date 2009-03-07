@@ -18,7 +18,7 @@ class ExternalCompilationInfo(object):
                    'post_include_bits', 'libraries', 'library_dirs',
                    'separate_module_sources', 'separate_module_files',
                    'export_symbols', 'compile_extra', 'link_extra',
-                   'frameworks']
+                   'frameworks', 'link_files']
     _DUPLICATES_OK = ['compile_extra', 'link_extra']
 
     def __init__(self,
@@ -34,6 +34,7 @@ class ExternalCompilationInfo(object):
                  compile_extra           = [],
                  link_extra              = [],
                  frameworks              = [],
+                 link_files              = [],
                  platform                = None):
         """
         pre_include_bits: list of pieces of text that should be put at the top
@@ -75,6 +76,9 @@ class ExternalCompilationInfo(object):
         linker. Use this instead of the 'libraries' parameter if you want to
         link to a framework bundle. Not suitable for unix-like .dylib
         installations.
+
+        link_files: list of file names which will be directly passed to the
+        linker
 
         platform: an object that can identify the platform
         """

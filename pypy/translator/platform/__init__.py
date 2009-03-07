@@ -120,8 +120,9 @@ class Platform(object):
     def _link_args_from_eci(self, eci):
         library_dirs = self._libdirs(eci.library_dirs)
         libraries = self._libs(eci.libraries)
+        link_files = self._linkfiles(eci.link_files)
         return (library_dirs + libraries + self.link_flags +
-                list(eci.link_extra))
+                link_files + list(eci.link_extra))
 
     def _finish_linking(self, ofiles, eci, outputfilename, standalone):
         if outputfilename is None:

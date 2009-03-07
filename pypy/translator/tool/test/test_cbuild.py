@@ -41,16 +41,20 @@ class TestEci:
     def test_merge2(self):
         e1 = ExternalCompilationInfo(
             pre_include_bits  = ['1'],
+            link_files = ['1.c']
         )
         e2 = ExternalCompilationInfo(
             pre_include_bits  = ['2'],
+            link_files = ['1.c', '2.c']
         )
         e3 = ExternalCompilationInfo(
             pre_include_bits  = ['3'],
+            link_files = ['1.c', '2.c', '3.c']
         )
         e = e1.merge(e2)
         e = e.merge(e3, e3)
         assert e.pre_include_bits == ('1', '2', '3')
+        assert e.link_files == ('1.c', '2.c', '3.c')
 
     def test_convert_sources_to_c_files(self):
         eci = ExternalCompilationInfo(
