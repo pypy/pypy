@@ -2,7 +2,7 @@
 """
 
 import py
-from pypy.rlib.rarithmetic import ovfcheck, r_uint
+from pypy.rlib.rarithmetic import ovfcheck, r_uint, intmask
 from pypy.jit.metainterp.history import BoxInt, ConstInt
 from pypy.jit.metainterp.resoperation import rop
 
@@ -46,8 +46,14 @@ def do_int_lshift(cpu, args, descr=0):
 do_uint_add = do_int_add
 do_uint_sub = do_int_sub
 do_uint_mul = do_int_mul
-do_uint_lshift = do_int_lshift
-do_uint_rshift = do_int_rshift
+
+def do_uint_lshift(cpu, args, descr=0):
+    v = r_uint(args[0].getint()) << r_uint(args[1].getint())
+    return ConstInt(intmask(v))
+
+def do_uint_rshift(cpu, args, descr=0):
+    v = r_uint(args[0].getint()) >> r_uint(args[1].getint())
+    return ConstInt(intmask(v))
 
 # ----------
 
