@@ -48,6 +48,7 @@ def _setup_ctypes_cache():
         lltype.Bool:     ctypes.c_long, # XXX
         llmemory.Address:  ctypes.c_void_p,
         llmemory.GCREF:    ctypes.c_void_p,
+        llmemory.WeakRef:  ctypes.c_void_p, # XXX
         })
 
     # for unicode strings, do not use ctypes.c_wchar because ctypes
