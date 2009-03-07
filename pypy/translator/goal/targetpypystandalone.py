@@ -172,10 +172,10 @@ class PyPyTarget(object):
         if not config.translation.rweakref:
             config.objspace.usemodules._weakref = False
 
-        if self.translateconfig.goal_options.jit:
+        if config.translation.jit:
             config.objspace.usemodules.pypyjit = True
         elif config.objspace.usemodules.pypyjit:
-            self.translateconfig.goal_options.jit = True
+            config.translation.jit = True
 
         if config.translation.backend == "cli":
             config.objspace.usemodules.clr = True
