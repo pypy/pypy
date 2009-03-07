@@ -46,6 +46,8 @@ def do_int_lshift(cpu, args, descr=0):
 do_uint_add = do_int_add
 do_uint_sub = do_int_sub
 do_uint_mul = do_int_mul
+do_uint_lshift = do_int_lshift
+do_uint_rshift = do_int_rshift
 
 # ----------
 
@@ -86,6 +88,8 @@ def do_uint_ge(cpu, args, descr=0):
 
 def do_int_is_true(cpu, args, descr=0):
     return ConstInt(bool(args[0].getint()))
+
+do_uint_is_true = do_int_is_true
 
 def do_int_neg(cpu, args, descr=0):
     return ConstInt(-args[0].getint())

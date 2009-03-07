@@ -109,26 +109,29 @@ class rop(object):
     UINT_ADD               = 40
     UINT_SUB               = 41
     UINT_MUL               = 42
+    UINT_LSHIFT            = 43
+    UINT_RSHIFT            = 44
     #
-    _COMPARISON_FIRST = 44
-    INT_LT                 = 44
-    INT_LE                 = 45
-    INT_EQ                 = 46
-    INT_NE                 = 47
-    INT_GT                 = 48
-    INT_GE                 = 49
-    UINT_LT                = 50
-    UINT_LE                = 51
-    UINT_EQ                = 52
-    UINT_NE                = 53
-    UINT_GT                = 54
-    UINT_GE                = 55
+    _COMPARISON_FIRST = 45
+    INT_LT                 = 45
+    INT_LE                 = 46
+    INT_EQ                 = 47
+    INT_NE                 = 48
+    INT_GT                 = 49
+    INT_GE                 = 50
+    UINT_LT                = 51
+    UINT_LE                = 52
+    UINT_EQ                = 53
+    UINT_NE                = 54
+    UINT_GT                = 55
+    UINT_GE                = 56
     _COMPARISON_LAST = 55
     #
     INT_IS_TRUE            = 60
     INT_NEG                = 61
     INT_INVERT             = 62
     BOOL_NOT               = 63
+    UINT_IS_TRUE           = 64
     #
     OONONNULL              = 70
     OOISNULL               = 71
