@@ -415,17 +415,16 @@ class InstanceRepr(AbstractInstanceRepr):
         else:
             return self.rbase.get_ll_hash_function()
 
-    def initialize_prebuilt_instance(self, value, classdef, result):
+    def initialize_prebuilt_data(self, value, classdef, result):
         if self.classdef is not None:
             # recursively build the parent part of the instance
-            self.rbase.initialize_prebuilt_instance(value, classdef,
-                                                    result.super)
+            self.rbase.initialize_prebuilt_data(value, classdef, result.super)
             # then add instance attributes from this level
             for name, (mangled_name, r) in self.fields.items():
                 if r.lowleveltype is Void:
                     llattrvalue = None
                 elif name == '_hash_cache_': # hash() support
-                    llattrvalue = hash(value)
+                    continue   # already done by initialize_prebuilt_hash()
                 else:
                     try:
                         attrvalue = getattr(value, name)
@@ -444,6 +443,14 @@ class InstanceRepr(AbstractInstanceRepr):
             # OBJECT part
             rclass = getclassrepr(self.rtyper, classdef)
             result.typeptr = rclass.getvtable()
+
+    def initialize_prebuilt_hash(self, value, result):
+        if self.classdef is not None:
+            self.rbase.initialize_prebuilt_hash(value, result.super)
+            if '_hash_cache_' in self.fields:
+                mangled_name, r = self.fields['_hash_cache_']
+                llattrvalue = hash(value)
+                setattr(result, mangled_name, llattrvalue)
 
     def getfieldrepr(self, attr):
         """Return the repr used for the given attribute."""
