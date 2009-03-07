@@ -278,6 +278,8 @@ class Drawable(object):
     def draw_clean_line(self, line):
         raise Exception("Not implemented")      
 
+# -----------------------------------------------------------------------------
+
 class Window(Drawable):
     
     def reset(self):

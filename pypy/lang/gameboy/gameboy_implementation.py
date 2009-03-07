@@ -13,10 +13,10 @@ from pypy.lang.gameboy import constants
 import time
 
 use_rsdl = True
-show_metadata = True # Extends the window with windows visualizing meta-data
+show_metadata = False # Extends the window with windows visualizing meta-data
 
 if use_rsdl:
-    from pypy.rlib.rsdl import RSDL, RSDL_helper
+    from pypy.rlib.rsdl import RSDL, RSDL_helper, RMix
     from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.objectmodel import specialize
 import time
@@ -241,14 +241,20 @@ class SoundDriverImplementation(SoundDriver):
     """
     def __init__(self):
         SoundDriver.__init__(self)
+        self.enabled       = False
+        self.sampleRate    = 44100
+        self.chunksize     = 1024
+        self.channelCount  = 2
+        self.bitsPerSample = 4
         self.create_sound_driver()
-        self.enabled = True
-        self.sampleRate = 44100
-        self.channelCount = 2
-        self.bitsPerSample = 8
 
     def create_sound_driver(self):
-        pass
+        if RMix.OpenAudio(self.sampleRate, RSDL.AUDIO_U8, 
+                          self.channelCount, self.chunksize) != 0:
+            error = rffi.charp2str(RSDL.GetError())
+            raise Exception(error)
+        else:
+            self.enabled = True
     
     def start(self):
         pass
@@ -257,6 +263,7 @@ class SoundDriverImplementation(SoundDriver):
         pass
     
     def write(self, buffer, length):
+        if not self.enabled: return
         pass
     
     
