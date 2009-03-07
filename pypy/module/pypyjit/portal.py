@@ -131,10 +131,3 @@ forbidden_modules = {'pypy.interpreter.gateway': True,
                      'pypy.interpreter.function': True,
                      'pypy.interpreter.pytraceback': True,
                      }
-
-
-def get_portal(drv):
-    t = drv.translator
-    policy = PyPyHintAnnotatorPolicy()
-    policy.seetranslator(t)
-    return None, policy
