@@ -8,7 +8,7 @@ if sys.platform == 'darwin':
     eci = ExternalCompilationInfo(
         includes = ['SDL_mixer.h'],
         frameworks = ['SDL_mixer'],
-        include_dirs = ['/Library/Frameworks/SDL_Mixer.framework/Versions/A/Headers']
+        include_dirs = ['/Library/Frameworks/SDL_Mixer.framework/Headers']
     )
 else:
     eci = ExternalCompilationInfo(
@@ -38,11 +38,16 @@ OpenAudio = external('Mix_OpenAudio',
 
 CloseAudio = external('Mix_CloseAudio', [], lltype.Void)
 
-_LoadWAV   = external('Mix_LoadWAV_RW',
+LoadWAV_RW   = external('Mix_LoadWAV_RW',
                      [RSDL.RWopsPtr, rffi.INT],
                      ChunkPtr)
 
 def LoadWAV(filename_ccharp):
-    _LoadWAV(RSDL.RWFromFile(filename_ccharp, rffi.str2charp('rb')), 1)
+    return LoadWAV_RW(RSDL.RWFromFile(filename_ccharp, rffi.str2charp('rb')), 1)
 
+PlayChannelTimed = external('Mix_PlayChannelTimed',
+                       [rffi.INT, ChunkPtr, rffi.INT, rffi.INT],
+                       rffi.INT)
 
+def PlayChannel(channel,chunk,loops):
+    return PlayChannelTimed(channel, chunk, loops, -1)
