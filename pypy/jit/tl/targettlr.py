@@ -1,7 +1,7 @@
 import py
 py.magic.autopath()
 from pypy.jit.tl.tlr import interpret
-from pypy.jit.codegen.hlinfo import highleveljitinfo
+from pypy.jit.backend.hlinfo import highleveljitinfo
 
 
 def entry_point(args):
@@ -33,18 +33,10 @@ def target(driver, args):
 
 # ____________________________________________________________
 
-from pypy.jit.hintannotator.policy import HintAnnotatorPolicy
+from pypy.jit.metainterp.policy import JitPolicy
 
-class MyHintAnnotatorPolicy(HintAnnotatorPolicy):
-    novirtualcontainer = True
-    oopspec = True
-
-def portal(driver):
-    """Return the 'portal' function, and the hint-annotator policy.
-    The portal is the function that gets patched with a call to the JIT
-    compiler.
-    """
-    return interpret, MyHintAnnotatorPolicy()
+def jitpolicy(driver):
+    return JitPolicy()
 
 if __name__ == '__main__':
     import sys
