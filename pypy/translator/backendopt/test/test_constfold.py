@@ -317,3 +317,21 @@ def test_coalesce_exitswitchs():
     check_graph(graph, [2], 0, t)
     check_graph(graph, [10], 100, t)
     check_graph(graph, [42], 0, t)
+
+def test_merge_if_blocks_bug():
+    def fn(n):
+        if n == 1: return 5
+        elif n == 2: return 6
+        elif n == 3: return 8
+        elif n == 4: return -123
+        elif n == 5: return 12973
+        else: return n
+    
+    graph, t = get_graph(fn, [int])
+    from pypy.translator.backendopt.removenoops import remove_same_as
+    from pypy.translator.backendopt import merge_if_blocks
+    remove_same_as(graph)
+    merge_if_blocks.merge_if_blocks_once(graph)
+    constant_fold_graph(graph)
+    check_graph(graph, [4], -123, t)
+    check_graph(graph, [9], 9, t)
