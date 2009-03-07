@@ -166,20 +166,21 @@ class AppTestGenerator:
 
     def test_close_on_collect(self):
         ## we need to exec it, else it won't run on python2.4
+        d = {}
         exec """
         def f():
             try:
                 yield
             finally:
                 f.x = 42
-        """.strip() in locals(), locals()
+        """.strip() in d
 
-        g = f()
+        g = d['f']()
         g.next()
         del g
         import gc
         gc.collect()
-        assert f.x == 42
+        assert d['f'].x == 42
 
     def test_generator_raises_typeerror(self):
         def f():
