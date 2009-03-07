@@ -1,5 +1,5 @@
 """
-A temporary file that invokes translation of PyPy with the JIT enabled.
+A file that invokes translation of PyPy with the JIT enabled.
 """
 
 import py, os
