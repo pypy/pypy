@@ -395,16 +395,9 @@ class MIFrame(object):
 
     @arguments("int", "bytecode", "varargs")
     def opimpl_call(self, calldescr, callee, varargs):
-        if not isinstance(self.metainterp.history, history.BlackHole):
-            # when tracing, this bytecode causes the subfunction to be entered
-            f = self.metainterp.newframe(callee)
-            f.setup_call(varargs)
-            return True
-        else:
-            # when producing only a BlackHole, we can implement this by
-            # calling the subfunction directly instead of interpreting it
-            varargs = [callee.cfnptr] + varargs
-            return self.execute_with_exc(rop.CALL, varargs, descr=calldescr)
+        f = self.metainterp.newframe(callee)
+        f.setup_call(varargs)
+        return True
 
     @arguments("int", "varargs")
     def opimpl_residual_call(self, calldescr, varargs):
