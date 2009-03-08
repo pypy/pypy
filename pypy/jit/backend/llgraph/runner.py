@@ -216,7 +216,7 @@ class CPU(object):
         return size*2 + bit
 
     @staticmethod
-    def calldescrof(ARGS, RESULT):
+    def calldescrof(ARGS, RESULT, ignored=None):
         if RESULT is lltype.Void:
             return sys.maxint
         token = history.getkind(RESULT)

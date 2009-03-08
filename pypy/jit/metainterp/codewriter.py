@@ -666,7 +666,7 @@ class BytecodeMaker(object):
         args = [x for x in op.args[1:] if x.concretetype is not lltype.Void]
         argtypes = [v.concretetype for v in args]
         resulttype = op.result.concretetype
-        calldescr = self.cpu.calldescrof(argtypes, resulttype)
+        calldescr = self.cpu.calldescrof(argtypes, resulttype, op.args[0])
         self.emit('call')
         self.emit(calldescr)
         self.emit(self.get_position(jitbox))
@@ -679,7 +679,7 @@ class BytecodeMaker(object):
         args = [x for x in op.args if x.concretetype is not lltype.Void]
         argtypes = [v.concretetype for v in args[1:]]
         resulttype = op.result.concretetype
-        calldescr = self.cpu.calldescrof(argtypes, resulttype)
+        calldescr = self.cpu.calldescrof(argtypes, resulttype, op.args[0])
         self.emit('residual_call')
         self.emit(calldescr)
         self.emit_varargs(args)
@@ -725,7 +725,7 @@ class BytecodeMaker(object):
             opname = 'residual_call_pure'  # XXX not for possibly-raising calls
         else:
             opname = 'residual_call'
-        calldescr = self.cpu.calldescrof(argtypes, resulttype)
+        calldescr = self.cpu.calldescrof(argtypes, resulttype, None)
         self.emit(opname)
         self.emit(calldescr)
         self.emit_varargs([c_func] + args)
