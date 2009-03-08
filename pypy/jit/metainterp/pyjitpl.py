@@ -393,8 +393,8 @@ class MIFrame(object):
     def opimpl_setfield_raw(self, box, fielddesc, valuebox):
         self.execute(rop.SETFIELD_RAW, [box, valuebox], descr=fielddesc)
 
-    @arguments("int", "bytecode", "varargs")
-    def opimpl_call(self, calldescr, callee, varargs):
+    @arguments("bytecode", "varargs")
+    def opimpl_call(self, callee, varargs):
         f = self.metainterp.newframe(callee)
         f.setup_call(varargs)
         return True
