@@ -397,6 +397,7 @@ LL_OPERATIONS = {
     'promote_virtualizable':LLOp(canrun=True),
     'get_exception_addr':   LLOp(),
     'get_exc_value_addr':   LLOp(),
+    'raise_exc_value'   :   LLOp(canraise=(Exception,)),
 
     # __________ GC operations __________
 

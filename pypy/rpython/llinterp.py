@@ -1181,6 +1181,9 @@ class LLFrame(object):
     def op_oohash(self, s):
         return ootype.oohash(s)
 
+    def op_raise_exc_value(self, etype, evalue):
+        raise LLException(etype, evalue)
+
 class Tracer(object):
     Counter = 0
     file = None

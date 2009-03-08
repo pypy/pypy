@@ -10,6 +10,7 @@ from pypy.rlib.objectmodel import we_are_translated, UnboxedValue, specialize
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.jit import PARAMETERS
 from pypy.rlib.rarithmetic import r_uint
+from pypy.rpython.lltypesystem.lloperation import llop
 
 from pypy.jit.metainterp import support, history, pyjitpl
 from pypy.jit.metainterp.pyjitpl import OOMetaInterp, Options
@@ -304,13 +305,9 @@ class WarmRunnerDesc:
                     return unwrap(RESULT, e.resultbox)
                 except ExitFrameWithException, e:
                     value = e.valuebox.getptr(lltype.Ptr(rclass.OBJECT))
-                    if we_are_translated():
-                        # re-raise the exception as it is
-                        raise Exception, value
-                    else:
-                        type = e.typebox.getaddr(self.metainterp.cpu)
-                        type = llmemory.cast_adr_to_ptr(type, rclass.CLASSTYPE)
-                        raise LLException(type, value)
+                    type = e.typebox.getaddr(self.metainterp.cpu)
+                    type = llmemory.cast_adr_to_ptr(type, rclass.CLASSTYPE)
+                    support.raise_exc_value(type, value)
 
         portal_runner_ptr = self.helper_func(lltype.Ptr(PORTALFUNC),
                                              ll_portal_runner)

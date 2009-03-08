@@ -321,6 +321,31 @@ class ExceptionTests:
         res = self.interp_operations(f, [1, 2])
         assert res == 1
 
+
+    def test_reraise_through_portal(self):
+        jitdriver = JitDriver(greens = [], reds = ['n'])
+
+        class SomeException(Exception):
+            pass
+        
+        def portal(n):
+            while n > 0:
+                jitdriver.can_enter_jit(n=n)
+                jitdriver.jit_merge_point(n=n)
+                if n == 10:
+                    raise SomeException
+                n -= 1
+
+        def f(n):
+            try:
+                portal(n)
+            except SomeException, e:
+                return 3
+            return 2
+
+        res = self.meta_interp(f, [100])
+        assert res == 3
+
 class MyError(Exception):
     def __init__(self, n):
         self.n = n

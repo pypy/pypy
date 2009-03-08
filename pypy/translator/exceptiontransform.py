@@ -199,15 +199,18 @@ class BaseExceptionTransformer(object):
                 block.operations[i].opname = "direct_call"
                 block.operations[i].args = [self.rpyexc_fetch_exception_ptr]
 
-            if opname == 'gc_restore_exception':
+            elif opname == 'gc_restore_exception':
                 block.operations[i].opname = "direct_call"
                 block.operations[i].args.insert(0, self.rpyexc_restore_exception_ptr)
-            if opname == 'get_exception_addr':    # only for lltype
+            elif opname == 'get_exception_addr':    # only for lltype
                 block.operations[i].opname = "direct_call"
                 block.operations[i].args.insert(0, self.rpyexc_get_exception_addr_ptr)
-            if opname == 'get_exc_value_addr':    # only for lltype
+            elif opname == 'get_exc_value_addr':    # only for lltype
                 block.operations[i].opname = "direct_call"
                 block.operations[i].args.insert(0, self.rpyexc_get_exc_value_addr_ptr)
+            elif opname == 'raise_exc_value':
+                block.operations[i].opname = 'direct_call'
+                block.operations[i].args.insert(0, self.rpyexc_raise_ptr)
 
     def transform_block(self, graph, block):
         need_exc_matching = False
