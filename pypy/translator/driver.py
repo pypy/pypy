@@ -374,7 +374,7 @@ class TranslationDriver(SimpleTaskEngine):
         self.jitpolicy = get_policy(self)
         #
         from pypy.jit.metainterp.warmspot import apply_jit
-        apply_jit(self.translator)
+        apply_jit(self.translator, policy=self.jitpolicy)
         #
         self.log.info("the JIT compiler was generated")
     #
