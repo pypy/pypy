@@ -12,14 +12,19 @@ from pypy.lang.gameboy.video_meta import TileDataWindow, SpriteWindow,\
 from pypy.lang.gameboy import constants
 import time
 
-use_rsdl = True
 show_metadata = False # Extends the window with windows visualizing meta-data
 
-if use_rsdl:
+if constants.USE_RSDL:
     from pypy.rlib.rsdl import RSDL, RSDL_helper, RMix
     from pypy.rpython.lltypesystem import lltype, rffi
+    delay = RSDL.Delay
+    get_ticks = RSDL.GetTicks
+else:
+    delay = time.sleep
+
+
 from pypy.rlib.objectmodel import specialize
-import time
+
 
 # GAMEBOY ----------------------------------------------------------------------
 
@@ -28,11 +33,11 @@ class GameBoyImplementation(GameBoy):
     def __init__(self):
         GameBoy.__init__(self)
         self.is_running = False
-        self.penalty = 0.0
-        self.sync_time = time.time()
+        self.penalty = 0
+        self.sync_time = int(time.time())
 
     def open_window(self):
-        if use_rsdl:
+        if constants.USE_RSDL:
             self.init_sdl()
         self.video_driver.create_screen()
         
@@ -65,24 +70,24 @@ class GameBoyImplementation(GameBoy):
         self.handle_events()
         # Come back to this cycle every 1/X seconds
         self.emulate(constants.GAMEBOY_CLOCK / X)
-        spent = time.time() - self.sync_time
-        left = (1.0/X) + self.penalty - spent
+        spent = int(time.time()) - self.sync_time
+        left = int(1000.0/X) + self.penalty - spent
         if left > 0:
-            time.sleep(left)
-            self.penalty = 0.0
+            delay(left)
+            self.penalty = 0
         else:
-                                # Fade out penalties over time.
+            # Fade out penalties over time.
             self.penalty = left - self.penalty / 2
-        self.sync_time = time.time()
+        self.sync_time = int(time.time())
         
     
     def handle_execution_error(self, error): 
-        if use_rsdl:
+        if constants.USE_RSDL:
             lltype.free(self.event, flavor='raw')
             RSDL.Quit()
     
     def handle_events(self):
-        if use_rsdl:
+        if constants.USE_RSDL:
             self.poll_event()
             if self.check_for_escape():
                 self.is_running = False 
@@ -90,19 +95,21 @@ class GameBoyImplementation(GameBoy):
     
     
     def poll_event(self):
-        if use_rsdl:
+        if constants.USE_RSDL:
             ok = rffi.cast(lltype.Signed, RSDL.PollEvent(self.event))
             return ok > 0
         else:
             return True
              
     def check_for_escape(self):
-        if not use_rsdl: return False
+        if not constants.USE_RSDL: return False
         c_type = rffi.getintfield(self.event, 'c_type')
         if c_type == RSDL.KEYDOWN:
             p = rffi.cast(RSDL.KeyboardEventPtr, self.event)
             if rffi.getintfield(p.c_keysym, 'c_sym') == RSDL.K_ESCAPE:
                 return True
+        elif c_type == RSDL.QUIT:
+            return True
         return False
             
         
@@ -114,13 +121,14 @@ class VideoDriverImplementation(VideoDriver):
     
     def __init__(self, gameboy):
         VideoDriver.__init__(self)
+        self.scale = 2
 
         if show_metadata:
             self.create_meta_windows(gameboy)
 
     def create_screen(self):
-        if use_rsdl:
-            self.screen = RSDL.SetVideoMode(self.width, self.height, 32, 0)
+        if constants.USE_RSDL:
+            self.screen = RSDL.SetVideoMode(self.width*self.scale, self.height*self.scale, 32, 0)
  
     def create_meta_windows(self, gameboy):
         upper_meta_windows = [SpritesWindow(gameboy),
@@ -148,7 +156,7 @@ class VideoDriverImplementation(VideoDriver):
             
 
     def update_display(self):
-        if use_rsdl:
+        if constants.USE_RSDL:
             RSDL.LockSurface(self.screen)
             if show_metadata:
                 for meta_window in self.meta_windows:
@@ -161,9 +169,18 @@ class VideoDriverImplementation(VideoDriver):
             self.draw_ascii_pixels()
 
     def draw_pixel(self, x, y, color):
-        color = VideoDriverImplementation.COLOR_MAP[color]
-        RSDL_helper.set_pixel(self.screen, x, y, color)
-                    
+        color = self.COLOR_MAP[color]
+        start_x = x * self.scale
+        start_y = y * self.scale
+
+        if self.scale > 1:
+            for x in range(self.scale):
+                for y in range(self.scale):
+                    RSDL_helper.set_pixel(self.screen, start_x + x,
+                                          start_y + y, color)
+        else:
+            RSDL_helper.set_pixel(self.screen, start_x, start_y, color)
+
     def draw_pixels(self):
         for y in range(constants.GAMEBOY_SCREEN_HEIGHT):
             for x in range(constants.GAMEBOY_SCREEN_WIDTH):
@@ -187,7 +204,7 @@ class JoypadDriverImplementation(JoypadDriver):
         self.last_key = 0
         
     def update(self, event):
-        if not use_rsdl: return 
+        if not constants.USE_RSDL: return 
         # fetch the event from sdl
         type = rffi.getintfield(event, 'c_type')
         if type == RSDL.KEYDOWN:
@@ -198,7 +215,7 @@ class JoypadDriverImplementation(JoypadDriver):
             self.on_key_up()
     
     def create_called_key(self, event):
-        if use_rsdl: 
+        if constants.USE_RSDL: 
             p = rffi.cast(RSDL.KeyboardEventPtr, event)
             self.last_key = rffi.getintfield(p.c_keysym, 'c_sym')
         
@@ -213,7 +230,7 @@ class JoypadDriverImplementation(JoypadDriver):
             pressButtonFunction(self, enabled)
     
     def get_button_handler(self, key):
-        if not use_rsdl: return None
+        if not constants.USE_RSDL: return None
         if key == RSDL.K_UP:
             return JoypadDriver.button_up
         elif key == RSDL.K_RIGHT: 
