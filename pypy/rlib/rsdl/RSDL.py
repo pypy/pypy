@@ -85,6 +85,9 @@ class CConfig:
                                      ('xrel', rffi.INT),
                                      ('yrel', rffi.INT)])
     
+    QuitEvent        = platform.Struct('SDL_QuitEvent',
+                                    [('type', rffi.INT)])
+    
     RWops = platform.Struct('SDL_RWops', [])
 
 # ------------------------------------------------------------------------------

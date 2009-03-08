@@ -24,7 +24,10 @@ ChunkPtr             = lltype.Ptr(lltype.ForwardReference())
 class CConfig:
     _compilation_info_ = eci
 
-    Chunk              = platform.Struct('Mix_Chunk', [])
+    Chunk              = platform.Struct('Mix_Chunk', [('allocated', rffi.INT),
+                                                       ('abuf', RSDL.Uint8P),
+                                                       ('alen', RSDL.Uint32),
+                                                       ('volume', RSDL.Uint8)])
 
 globals().update(platform.configure(CConfig))
 
