@@ -245,7 +245,7 @@ class JoypadDriverImplementation(JoypadDriver):
             return JoypadDriver.button_select
         elif key == RSDL.K_a:
             return JoypadDriver.button_a
-        elif key == RSDL.K_b:
+        elif key == RSDL.K_s:
             return JoypadDriver.button_b
         return None
         
