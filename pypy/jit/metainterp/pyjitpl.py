@@ -16,6 +16,7 @@ from pypy.jit.metainterp.heaptracker import (get_vtable_for_gcstruct,
                                              populate_type_cache)
 from pypy.jit.metainterp import codewriter, optimize, executor
 from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.objectmodel import specialize
 
 # ____________________________________________________________
 
@@ -652,12 +653,13 @@ class MIFrame(object):
         cls = llmemory.cast_ptr_to_adr(obj.typeptr)
         return ConstInt(self.metainterp.cpu.cast_adr_to_int(cls))
 
+    @specialize.arg(1)
     def execute(self, opnum, argboxes, descr=0):
         resbox = self.metainterp.execute_and_record(opnum, argboxes, descr)
         if resbox is not None:
             self.make_result_box(resbox)
-    execute._annspecialcase_ = 'specialize:arg(1)'
 
+    @specialize.arg(1)
     def execute_with_exc(self, opnum, argboxes, descr=0):
         cpu = self.metainterp.cpu
         resbox = executor.execute(cpu, opnum, argboxes, descr)
