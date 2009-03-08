@@ -411,6 +411,11 @@ class fakeaddress(object):
     def __nonzero__(self):
         return self.ptr is not None
 
+    def __hash__(self):
+        if not self._fixup().ptr:
+            return 0
+        return hash(self._fixup().ptr._obj)
+
     def __eq__(self, other):
         if isinstance(other, fakeaddress):
             obj1 = self._fixup().ptr
