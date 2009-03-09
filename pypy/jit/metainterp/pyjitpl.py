@@ -24,6 +24,7 @@ def check_args(*args):
     for arg in args:
         assert isinstance(arg, (Box, Const))
 
+LLDEBUG = False
 
 class arguments(object):
     def __init__(self, *argtypes, **kwargs):
@@ -603,6 +604,8 @@ class MIFrame(object):
             op = ord(self.bytecode[pc])
             #print self.metainterp.opcode_names[op]
             self.pc = pc + 1
+            if LLDEBUG:
+                print "EXECUTE %d %d" % (pc, op)
             stop = self.metainterp.opcode_implementations[op](self, pc)
             #self.metainterp.most_recent_mp = None
             if stop:
@@ -659,6 +662,8 @@ class MIFrame(object):
         if not we_are_translated():
             self.metainterp._debug_history.append(['call',
                                                   argboxes[0], argboxes[1:]])
+        elif LLDEBUG:
+            print "CALL %d" % argboxes[0].getint()
         # record the operation in the history
         self.metainterp.history.record(opnum, argboxes, resbox, descr)
         if resbox is not None:
@@ -670,6 +675,7 @@ class MIFrame(object):
 
 class OOMetaInterp(object):
     num_green_args = 0
+    class_sizes = None
 
     def __init__(self, portal_graph, graphs, cpu, stats, options):
         self.portal_graph = portal_graph
@@ -682,10 +688,18 @@ class OOMetaInterp(object):
         self.opcode_implementations = []
         self.opcode_names = []
         self.opname_to_index = {}
-        self.class_sizes = populate_type_cache(graphs, self.cpu)
-
+        self._class_sizes = populate_type_cache(graphs, self.cpu)
+        if not cpu.translate_support_code:
+            self.class_sizes = self._class_sizes
         self._virtualizabledescs = {}
         self._debug_history = []
+
+    def _recompute_class_sizes(self):
+        if self.class_sizes is None:
+            cs = {}
+            for key, value in self._class_sizes:
+                cs[key] = value
+            self.class_sizes = cs
 
     def generate_bytecode(self, policy):
         self._codewriter = codewriter.CodeWriter(self, policy)
@@ -698,8 +712,11 @@ class OOMetaInterp(object):
         return not we_are_translated()
 
     def newframe(self, jitcode):
+        self._recompute_class_sizes()
         if not we_are_translated():
             self._debug_history.append(['enter', jitcode, None])
+        elif LLDEBUG:
+            print "ENTER %s" % jitcode.name
         f = MIFrame(self, jitcode)
         self.framestack.append(f)
         return f
@@ -708,6 +725,9 @@ class OOMetaInterp(object):
         frame = self.framestack.pop()
         if not we_are_translated():
             self._debug_history.append(['leave', frame.jitcode, None])
+        else:
+            if LLDEBUG:
+                print "LEAVE %s" % frame.jitcode.name
         if self.framestack:
             if resultbox is not None:
                 self.framestack[-1].make_result_box(resultbox)
@@ -726,6 +746,8 @@ class OOMetaInterp(object):
                 return True
             if not we_are_translated():
                 self._debug_history.append(['leave_exc', frame.jitcode, None])
+            elif LLDEBUG:
+                print "LEAVE_EXC %s" % frame.jitcode.name
             self.framestack.pop()
         raise self.ExitFrameWithException(exceptionbox, excvaluebox)
 
@@ -954,6 +976,8 @@ class OOMetaInterp(object):
     def rebuild_state_after_failure(self, key, newboxes):
         if not we_are_translated():
             self._debug_history.append(['guard_failure', None, None])
+        elif LLDEBUG:
+            print "GUARD_FAILURE"
         self.framestack = []
         nbindex = 0
         for jitcode, pc, envlength, exception_target in key:
