@@ -952,7 +952,11 @@ class RegAlloc(object):
         self.eventually_free_vars(op.args)
         return ops + laterops + [PerformDiscard(op, [])]
 
-oplist = [None] * (RETURN + 1)
+    def not_implemented_op(self, op, ignored):
+        print "[regalloc] Not implemented operation: %s" % op.getopname()
+        raise NotImplementedError
+
+oplist = [RegAlloc.not_implemented_op] * (RETURN + 1)
 
 for name, value in RegAlloc.__dict__.iteritems():
     if name.startswith('consider_'):
