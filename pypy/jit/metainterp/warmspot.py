@@ -306,7 +306,7 @@ class WarmRunnerDesc:
                     return unwrap(RESULT, e.resultbox)
                 except ExitFrameWithException, e:
                     value = e.valuebox.getptr(lltype.Ptr(rclass.OBJECT))
-                    if we_are_translated():
+                    if not we_are_translated():
                         type = e.typebox.getaddr(self.metainterp.cpu)
                         type = llmemory.cast_adr_to_ptr(type, rclass.CLASSTYPE)
                         raise LLException(type, value)
