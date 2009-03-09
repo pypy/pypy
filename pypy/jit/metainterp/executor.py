@@ -46,10 +46,7 @@ def do_int_lshift(cpu, args, descr=0):
 do_uint_add = do_int_add
 do_uint_sub = do_int_sub
 do_uint_mul = do_int_mul
-
-def do_uint_lshift(cpu, args, descr=0):
-    v = r_uint(args[0].getint()) << r_uint(args[1].getint())
-    return ConstInt(intmask(v))
+do_uint_lshift = do_int_lshift
 
 def do_uint_rshift(cpu, args, descr=0):
     v = r_uint(args[0].getint()) >> r_uint(args[1].getint())
