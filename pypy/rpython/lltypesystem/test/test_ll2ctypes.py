@@ -929,7 +929,8 @@ class TestLL2Ctypes(object):
         }
         """)
 
-        eci = ExternalCompilationInfo(separate_module_sources=[c_source])
+        eci = ExternalCompilationInfo(separate_module_sources=[c_source],
+                                      export_symbols=['eating_callback'])
 
         args = [T, rffi.CCallback([T], rffi.INT)]
         eating_callback = rffi.llexternal('eating_callback', args, rffi.INT,
@@ -952,6 +953,20 @@ class TestLL2Ctypes(object):
         pc2 = lltype2ctypes(p)
         assert pc2.contents.value == 42
         assert pc2.contents.next.contents.value == 42
+
+    def test_indirect_recursive_struct_more(self):
+        NODE = lltype.ForwardReference()
+        NODE2 = lltype.Struct('NODE2', ('ping', lltype.Ptr(NODE)))
+        NODE.become(lltype.Struct('NODE', ('pong', NODE2)))
+
+        # Building NODE2 first used to fail.
+        get_ctypes_type(NODE2)
+
+        CNODEPTR = get_ctypes_type(NODE)
+        pc = CNODEPTR()
+        pc.pong.ping = ctypes.pointer(pc)
+        p = ctypes2lltype(lltype.Ptr(NODE), ctypes.pointer(pc))
+        assert p.pong.ping == p
 
     def test_cast_adr_to_int(self):
         class someaddr(object):

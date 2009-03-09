@@ -69,7 +69,10 @@ def build_ctypes_struct(S, delayed_builders, max_n=None):
             if max_n is not None and fieldname == S._arrayfld:
                 cls = get_ctypes_array_of_size(FIELDTYPE, max_n)
             else:
-                cls = get_ctypes_type(FIELDTYPE)
+                if isinstance(FIELDTYPE, lltype.Ptr):
+                    cls = get_ctypes_type(FIELDTYPE, delayed_builders)
+                else:
+                    cls = get_ctypes_type(FIELDTYPE)
             fields.append((fieldname, cls))
         CStruct._fields_ = fields
 
