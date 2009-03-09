@@ -114,6 +114,18 @@ class CodeWriter(object):
                                   IndirectCallset(self, graphs)
         return result
 
+    def getcalldescr(self, v_func, args, result):
+        non_void_args = [x for x in args if x.concretetype is not lltype.Void]
+        NON_VOID_ARGS = [x.concretetype for x in non_void_args]
+        RESULT = result.concretetype
+        # check the number and type of arguments
+        ARGS = v_func.concretetype.TO.ARGS
+        assert NON_VOID_ARGS == [T for T in ARGS if T is not lltype.Void]
+        assert RESULT == v_func.concretetype.TO.RESULT
+        # ok
+        calldescr = self.cpu.calldescrof(NON_VOID_ARGS, RESULT)
+        return calldescr, non_void_args
+
 
     if 0:        # disabled
       def fixed_list_descr_for_tp(self, TP):
@@ -668,13 +680,12 @@ class BytecodeMaker(object):
 
     def handle_residual_call(self, op):
         self.minimize_variables()
-        args = [x for x in op.args if x.concretetype is not lltype.Void]
-        argtypes = [v.concretetype for v in args]
-        resulttype = op.result.concretetype
-        calldescr = self.cpu.calldescrof(argtypes[1:], resulttype, op.args[0])
+        calldescr, non_void_args = self.codewriter.getcalldescr(op.args[0],
+                                                                op.args[1:],
+                                                                op.result)
         self.emit('residual_call')
         self.emit(calldescr)
-        self.emit_varargs(args)
+        self.emit_varargs([op.args[0]] + non_void_args)
         self.register_var(op.result)
 
     def handle_builtin_call(self, op):
@@ -717,10 +728,12 @@ class BytecodeMaker(object):
             opname = 'residual_call_pure'  # XXX not for possibly-raising calls
         else:
             opname = 'residual_call'
-        calldescr = self.cpu.calldescrof(argtypes, resulttype, None)
+
+        calldescr, non_void_args = self.codewriter.getcalldescr(c_func, args,
+                                                                op.result)
         self.emit(opname)
         self.emit(calldescr)
-        self.emit_varargs([c_func] + args)
+        self.emit_varargs([c_func] + non_void_args)
         self.register_var(op.result)
 
     def handle_list_call(self, op, oopspec_name, args, TP):

@@ -16,7 +16,6 @@ from pypy.jit.backend.x86 import symbolic
 from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.jit.backend.x86.executor import execute
 from pypy.jit.backend.x86.support import gc_malloc_fnaddr
-from pypy.objspace.flow.model import Constant
 
 GC_MALLOC = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
 
@@ -591,13 +590,7 @@ class CPU386(object):
         return size_of_field, ofs
 
     @staticmethod
-    def calldescrof(argtypes, resulttype, funcobj=None):
-        if isinstance(funcobj, Constant):
-            ARGS = lltype.typeOf(funcobj.value).TO.ARGS
-            lgt = len([arg for arg in ARGS if arg is not lltype.Void])
-            assert lgt == len(argtypes)
-        else:
-            assert funcobj is None
+    def calldescrof(argtypes, resulttype):
         if resulttype is lltype.Void:
             size = 0
         else:
