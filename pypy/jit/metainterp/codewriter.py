@@ -17,8 +17,10 @@ MAX_MAKE_NEW_VARS = 16
 
 
 class JitCode(history.AbstractValue):
-    def __init__(self, name):
+    def __init__(self, name, cfnptr=None, calldescr=0):
         self.name = name
+        self.cfnptr = cfnptr
+        self.calldescr = calldescr
 
     def setup(self, code, constants):
         self.code = code
@@ -68,6 +70,7 @@ class SwitchDict(history.AbstractValue):
 
 
 class CodeWriter(object):
+    portal_graph = None
 
     def __init__(self, metainterp, policy):
         self.all_prebuilt_values = {}
@@ -82,6 +85,7 @@ class CodeWriter(object):
 
     def make_portal_bytecode(self, graph):
         log.info("making JitCodes...")
+        self.portal_graph = graph
         jitcode = self.make_one_bytecode(graph, True)
         while self.unfinished_graphs:
             graph = self.unfinished_graphs.pop()
@@ -100,10 +104,21 @@ class CodeWriter(object):
     def get_jitcode(self, graph):
         if graph in self.all_graphs:
             return self.all_graphs[graph]
-        bytecode = JitCode(graph.name)     # 'graph.name' is for dump()
+        extra = self.get_jitcode_calldescr(graph)
+        bytecode = JitCode(graph.name, *extra)     # 'graph.name' is for dump()
         self.all_graphs[graph] = bytecode
         self.unfinished_graphs.append(graph)
         return bytecode
+
+    def get_jitcode_calldescr(self, graph):
+        if self.portal_graph is None or graph is self.portal_graph:
+            return ()
+        fnptr = self.rtyper.getcallable(graph)
+        cfnptr = history.ConstAddr(llmemory.cast_ptr_to_adr(fnptr), self.cpu)
+        FUNC = lltype.typeOf(fnptr).TO
+        NON_VOID_ARGS = [ARG for ARG in FUNC.ARGS if ARG is not lltype.Void]
+        calldescr = self.cpu.calldescrof(NON_VOID_ARGS, FUNC.RESULT)
+        return (cfnptr, calldescr)
 
     def get_indirectcallset(self, graphs):
         key = tuple(sorted(graphs))
