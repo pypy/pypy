@@ -197,6 +197,7 @@ class DictRepr(AbstractDictRepr):
 
 
     def convert_const(self, dictobj):
+        from pypy.rpython.lltypesystem import llmemory
         # get object from bound dict methods
         #dictobj = getattr(dictobj, '__self__', dictobj) 
         if dictobj is None:
@@ -211,6 +212,8 @@ class DictRepr(AbstractDictRepr):
             l_dict = ll_newdict_size(self.DICT, len(dictobj))
             self.dict_cache[key] = l_dict 
             r_key = self.key_repr
+            if r_key.lowleveltype == llmemory.Address:
+                raise TypeError("No prebuilt dicts of address keys")
             r_value = self.value_repr
             if isinstance(dictobj, objectmodel.r_dict):
                 if self.r_rdict_eqfn.lowleveltype != lltype.Void:

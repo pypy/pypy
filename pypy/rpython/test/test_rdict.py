@@ -774,10 +774,7 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
                 ptr = b
             return d[llmemory.cast_ptr_to_adr(ptr)]
 
-        res = self.interpret(func, [0])
-        assert res == 8
-        res = self.interpret(func, [1])
-        assert res == 4
+        py.test.raises(TypeError, self.interpret, func, [0])
 
     # ____________________________________________________________
 
