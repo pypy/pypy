@@ -222,20 +222,3 @@ def builtin_func_for_spec(rtyper, oopspec_name, ll_args, ll_res):
     rtyper._builtin_func_for_spec_cache[key] = (c_func, LIST_OR_DICT)
     #
     return c_func, LIST_OR_DICT
-
-def raise_exc_value(tp, value):
-    from pypy.rpython.llinterp import LLException
-    raise LLException(tp, value)
-
-class Entry(ExtRegistryEntry):
-    _about_ = raise_exc_value
-
-    def compute_result_annotation(self, s_tp, s_value):
-        return annmodel.s_ImpossibleValue
-
-    def specialize_call(self, hop):
-        v_list = [hop.inputarg(hop.args_r[0], arg=0),
-                  hop.inputarg(hop.args_r[1], arg=1)]
-        hop.has_implicit_exception(Exception)
-        hop.exception_is_here()
-        return hop.genop('raise_exc_value', v_list)
