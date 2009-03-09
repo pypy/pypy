@@ -45,5 +45,5 @@ def getcpuclass():
     if cpu == 'i386':
         from pypy.jit.backend.x86.runner import CPU
     else:
-        raise Exception('Unsuported cpu %r' % cpu)
+        raise ProcessorAutodetectError, "unsupported cpu '%s'" % cpu
     return CPU
