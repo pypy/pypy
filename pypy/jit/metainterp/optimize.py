@@ -1024,7 +1024,11 @@ def rebuild_boxes_from_guard_failure(guard_op, metainterp, boxes_from_frame):
     for vtable in storage.allocations:
         if metainterp.cpu.translate_support_code:
             vtable_addr = metainterp.cpu.cast_int_to_adr(vtable)
-            size = metainterp.class_sizes[vtable_addr]
+            try:
+                size = metainterp.class_sizes[vtable_addr]
+            except KeyError:
+                print vtable_addr, vtable, "CRAAAAAAAASH"
+                raise
         else:
             size = metainterp.class_sizes[vtable]
         vtablebox = ConstInt(vtable)
