@@ -18,6 +18,8 @@ class CConfig:
     )
     calling_conv = 'c'
 
+    CHECK_LIBRARY = platform.Has('dump("x", (int)&BZ2_bzCompress)')
+
     off_t = platform.SimpleType("off_t", rffi.LONGLONG)
     size_t = platform.SimpleType("size_t", rffi.ULONG)
     BUFSIZ = platform.ConstantInteger("BUFSIZ")
@@ -56,6 +58,8 @@ class cConfig(object):
     pass
 for k, v in platform.configure(CConfig).items():
     setattr(cConfig, k, v)
+if not cConfig.CHECK_LIBRARY:
+    raise ImportError("Invalid bz2 library")
 
 for name in constant_names:
     value = getattr(cConfig, name)
