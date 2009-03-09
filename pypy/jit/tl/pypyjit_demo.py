@@ -27,4 +27,16 @@ def f():
     print s
     assert s == 4950
 
+def f():
+    try:
+        i = 100
+        while i > 0:
+            if i == 10:
+                raise IndexError
+            i -= 1
+    except IndexError:
+        pass
+    else:
+        raise AssertionError
+
 f()
