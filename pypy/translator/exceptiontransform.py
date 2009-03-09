@@ -208,12 +208,6 @@ class BaseExceptionTransformer(object):
             elif opname == 'get_exc_value_addr':    # only for lltype
                 block.operations[i].opname = "direct_call"
                 block.operations[i].args.insert(0, self.rpyexc_get_exc_value_addr_ptr)
-            elif opname == 'raise_exc_value':
-                block.operations[i].opname = 'direct_call'
-                block.operations[i].args.insert(0, self.rpyexc_raise_ptr)
-                del block.operations[i + 1:]
-                l = Link([error_constant(graph.returnblock.inputargs[0].concretetype)], graph.returnblock)
-                block.recloseblock(l)
 
     def transform_block(self, graph, block):
         need_exc_matching = False
