@@ -1,6 +1,7 @@
 import sys
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
-from pypy.rpython.annlowlevel import llhelper, MixLevelHelperAnnotator
+from pypy.rpython.annlowlevel import llhelper, MixLevelHelperAnnotator,\
+     cast_base_ptr_to_instance
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLException
 from pypy.rpython.test.test_llinterp import get_interpreter, clear_tcache
@@ -305,9 +306,13 @@ class WarmRunnerDesc:
                     return unwrap(RESULT, e.resultbox)
                 except ExitFrameWithException, e:
                     value = e.valuebox.getptr(lltype.Ptr(rclass.OBJECT))
-                    type = e.typebox.getaddr(self.metainterp.cpu)
-                    type = llmemory.cast_adr_to_ptr(type, rclass.CLASSTYPE)
-                    support.raise_exc_value(type, value)
+                    if we_are_translated():
+                        type = e.typebox.getaddr(self.metainterp.cpu)
+                        type = llmemory.cast_adr_to_ptr(type, rclass.CLASSTYPE)
+                        raise LLException(type, value)
+                    else:
+                        value = cast_base_ptr_to_instance(Exception, value)
+                        raise Exception, value
 
         portal_runner_ptr = self.helper_func(lltype.Ptr(PORTALFUNC),
                                              ll_portal_runner)
