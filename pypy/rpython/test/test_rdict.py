@@ -750,6 +750,35 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
         res = self.interpret(func, [])
         assert 5 + 6 + 7 <= res <= 5 + 6 + 7 + (5^16) + (6^16) + (7^16)
 
+    def test_prebuilt_list_of_addresses(self):
+        from pypy.rpython.lltypesystem import llmemory
+        
+        TP = lltype.Struct('x', ('y', lltype.Signed))
+        a = lltype.malloc(TP, flavor='raw', immortal=True)
+        b = lltype.malloc(TP, flavor='raw', immortal=True)
+        c = lltype.malloc(TP, flavor='raw', immortal=True)
+        a_a = llmemory.cast_ptr_to_adr(a)
+        a0 = llmemory.cast_ptr_to_adr(a)
+        assert a_a is not a0
+        assert a_a == a0
+        a_b = llmemory.cast_ptr_to_adr(b)
+        a_c = llmemory.cast_ptr_to_adr(c)
+
+        d = {a_a: 3, a_b: 4, a_c: 5}
+        d[a0] = 8
+        
+        def func(i):
+            if i == 0:
+                ptr = a
+            else:
+                ptr = b
+            return d[llmemory.cast_ptr_to_adr(ptr)]
+
+        res = self.interpret(func, [0])
+        assert res == 8
+        res = self.interpret(func, [1])
+        assert res == 4
+
     # ____________________________________________________________
 
 
