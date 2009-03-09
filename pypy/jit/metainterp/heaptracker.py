@@ -64,7 +64,10 @@ def set_testing_vtable_for_gcstruct(GCSTRUCT, vtable):
     testing_gcstruct2vtable[GCSTRUCT] = vtable
 
 def populate_type_cache(graphs, cpu):
-    cache = {}
+    if not cpu.translate_support_code:
+        cache = {}
+    else:
+        cache = []
     for graph in graphs:
         for block in graph.iterblocks():
             for op in block.operations:
@@ -79,7 +82,7 @@ def populate_type_cache(graphs, cpu):
                                 cache[vt] = cpu.sizeof(STRUCT)
                             else:
                                 vt = llmemory.cast_ptr_to_adr(vtable)
-                                cache[vt] = cpu.sizeof(STRUCT)
+                                cache.append((vt, cpu.sizeof(STRUCT)))
     return cache
 
 testing_gcstruct2vtable = {}
