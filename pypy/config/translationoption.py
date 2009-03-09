@@ -111,7 +111,8 @@ translation_optiondescription = OptionDescription(
     # JIT generation
     BoolOption("jit", "generate a JIT",
                default=False, cmdline="--jit",
-               requires=[("translation.gc", "boehm")]),
+               requires=[("translation.gc", "boehm"),
+                         ("translation.list_comprehension_operations", True)]),
 
     # misc
     BoolOption("verbose", "Print extra information", default=False),
