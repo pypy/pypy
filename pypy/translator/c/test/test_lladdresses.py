@@ -1,3 +1,4 @@
+import py
 from pypy.rpython.lltypesystem.llmemory import *
 from pypy.annotation.model import SomeAddress, SomeChar
 from pypy.translator.c.test.test_genc import compile
@@ -173,29 +174,3 @@ def test_gcref():
     fn = compile(f, [int], gcpolicy='boehm')
     assert fn(3) == 123
     assert fn(-3) == -42
-
-def test_prebuilt_list_of_addresses():
-    TP = lltype.Struct('x', ('y', lltype.Signed))
-    a = lltype.malloc(TP, flavor='raw', immortal=True)
-    b = lltype.malloc(TP, flavor='raw', immortal=True)
-    c = lltype.malloc(TP, flavor='raw', immortal=True)
-    a_a = cast_ptr_to_adr(a)
-    a0 = cast_ptr_to_adr(a)
-    assert a_a is not a0
-    assert a_a == a0
-    a_b = cast_ptr_to_adr(b)
-    a_c = cast_ptr_to_adr(c)
-
-    d = {a_a: 3, a_b: 4, a_c: 5}
-    d[a0] = 8
-
-    def func(i):
-        if i == 0:
-            ptr = a
-        else:
-            ptr = b
-        return d[cast_ptr_to_adr(ptr)]
-
-    fn = compile(func, [int], gcpolicy='boehm')
-    assert fn(0) == 8
-    assert fn(1) == 4
