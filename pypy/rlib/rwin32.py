@@ -64,6 +64,7 @@ if WIN32:
     HANDLE = rffi.ULONG
     LPHANDLE = rffi.CArrayPtr(HANDLE)
     HMODULE = HANDLE
+    INVALID_HANDLE_VALUE = rffi.cast(HANDLE, -1)
     PFILETIME = rffi.CArrayPtr(FILETIME)
 
     GetLastError = winexternal('GetLastError', [], DWORD)
