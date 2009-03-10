@@ -481,7 +481,11 @@ def translation(domain, localedir=None, languages=None,
         key = os.path.abspath(mofile)
         t = _translations.get(key)
         if t is None:
-            t = _translations.setdefault(key, class_(open(mofile, 'rb')))
+            fp = open(mofile, 'rb')
+            try:
+                t = _translations.setdefault(key, class_(fp))
+            finally:
+                fp.close()
         # Copy the translation object to allow setting fallbacks and
         # output charset. All other instance data is shared with the
         # cached object.
