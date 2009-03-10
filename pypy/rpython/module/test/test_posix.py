@@ -31,7 +31,7 @@ class BaseTestPosix(BaseRtypingTest):
         func = self.interpret(fo,[fi])
         stat = os.fstat(fi)
         for i in range(len(stat)):
-            assert getattr(func, 'item%d' % i) == stat[i]
+            assert long(getattr(func, 'item%d' % i)) == stat[i]
 
 
     def test_times(self):
