@@ -262,7 +262,8 @@ def blowstack(fxn, arg, compare_to):
     tuple_arg = (compare_to,)
     for cnt in xrange(sys.maxint):
         tuple_arg = (tuple_arg,)
-        fxn(arg, tuple_arg)
+        if cnt % 100 == 0:
+            fxn(arg, tuple_arg)
 
 
 def test_main():
