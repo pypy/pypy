@@ -135,6 +135,7 @@ class TestMailbox(TestBase):
         msg = self._box.get(key1)
         self.assert_(msg['from'] == 'foo')
         self.assert_(msg.fp.read() == '1')
+        msg.fp.close()
 
     def test_getitem(self):
         # Retrieve message using __getitem__()
@@ -167,10 +168,12 @@ class TestMailbox(TestBase):
         # Get file representations of messages
         key0 = self._box.add(self._template % 0)
         key1 = self._box.add(_sample_message)
-        self.assert_(self._box.get_file(key0).read().replace(os.linesep, '\n')
-                     == self._template % 0)
-        self.assert_(self._box.get_file(key1).read().replace(os.linesep, '\n')
-                     == _sample_message)
+        f0 = self._box.get_file(key0)
+        self.assert_(f0.read().replace(os.linesep, '\n') == self._template % 0)
+        f0.close()
+        f1 = self._box.get_file(key1)
+        self.assert_(f1.read().replace(os.linesep, '\n') == _sample_message)
+        f1.close()
 
     def test_iterkeys(self):
         # Get keys using iterkeys()
@@ -398,6 +401,11 @@ class TestMailbox(TestBase):
         self._box.add(contents[1])
         self._box.add(contents[2])
         method()
+
+        # XXX this makes some tests not useful any more,
+        # but the mailbox really must closed before we replace the variable.
+        self._box.close()
+
         self._box = self._factory(self._path)
         keys = self._box.keys()
         self.assert_(len(keys) == 3)
@@ -757,7 +765,10 @@ class _TestMboxMMDF(TestMailbox):
         self._box._file.seek(0)
         contents = self._box._file.read()
         self._box.close()
-        self.assert_(contents == open(self._path, 'rb').read())
+        f = open(self._path, 'rb')
+        initial = f.read()
+        f.close()
+        self.assert_(contents == initial)
         self._box = self._factory(self._path)
 
     def test_lock_conflict(self):
@@ -1736,43 +1747,57 @@ class MaildirTestCase(unittest.TestCase):
         #self.assert_(len(self.mbox.boxes) == 0)
         self.assert_(self.mbox.next() is None)
         self.assert_(self.mbox.next() is None)
+        self.mbox.close()
 
     def test_nonempty_maildir_cur(self):
         self.createMessage("cur")
         self.mbox = mailbox.Maildir(test_support.TESTFN)
         #self.assert_(len(self.mbox.boxes) == 1)
-        self.assert_(self.mbox.next() is not None)
+        msg = self.mbox.next()
+        self.assert_(msg is not None)
+        msg.fp.close()
         self.assert_(self.mbox.next() is None)
         self.assert_(self.mbox.next() is None)
+        self.mbox.close()
 
     def test_nonempty_maildir_new(self):
         self.createMessage("new")
         self.mbox = mailbox.Maildir(test_support.TESTFN)
         #self.assert_(len(self.mbox.boxes) == 1)
-        self.assert_(self.mbox.next() is not None)
+        msg = self.mbox.next()
+        self.assert_(msg is not None)
+        msg.fp.close()
         self.assert_(self.mbox.next() is None)
         self.assert_(self.mbox.next() is None)
+        self.mbox.close()
 
     def test_nonempty_maildir_both(self):
         self.createMessage("cur")
         self.createMessage("new")
         self.mbox = mailbox.Maildir(test_support.TESTFN)
         #self.assert_(len(self.mbox.boxes) == 2)
-        self.assert_(self.mbox.next() is not None)
-        self.assert_(self.mbox.next() is not None)
+        msg = self.mbox.next()
+        self.assert_(msg is not None)
+        msg.fp.close()
+        msg = self.mbox.next()
+        self.assert_(msg is not None)
+        msg.fp.close()
         self.assert_(self.mbox.next() is None)
         self.assert_(self.mbox.next() is None)
+        self.mbox.close()
 
     def test_unix_mbox(self):
         ### should be better!
         import email.Parser
         fname = self.createMessage("cur", True)
         n = 0
-        for msg in mailbox.PortableUnixMailbox(open(fname),
+        fp = open(fname)
+        for msg in mailbox.PortableUnixMailbox(fp,
                                                email.Parser.Parser().parse):
             n += 1
             self.assertEqual(msg["subject"], "Simple Test")
             self.assertEqual(len(str(msg)), len(FROM_)+len(DUMMY_MESSAGE))
+        fp.close()
         self.assertEqual(n, 1)
 
 ## End: classes from the original module (for backward compatibility).
