@@ -407,25 +407,25 @@ class URandomTests (unittest.TestCase):
 
 class Win32ErrorTests(unittest.TestCase):
     def test_rename(self):
-        self.assertRaises(WindowsError, os.rename, test_support.TESTFN, test_support.TESTFN+".bak")
+        self.assertRaises(OSError, os.rename, test_support.TESTFN, test_support.TESTFN+".bak")
 
     def test_remove(self):
-        self.assertRaises(WindowsError, os.remove, test_support.TESTFN)
+        self.assertRaises(OSError, os.remove, test_support.TESTFN)
 
     def test_chdir(self):
-        self.assertRaises(WindowsError, os.chdir, test_support.TESTFN)
+        self.assertRaises(OSError, os.chdir, test_support.TESTFN)
 
     def test_mkdir(self):
-        self.assertRaises(WindowsError, os.chdir, test_support.TESTFN)
+        self.assertRaises(OSError, os.chdir, test_support.TESTFN)
 
     def test_utime(self):
-        self.assertRaises(WindowsError, os.utime, test_support.TESTFN, None)
+        self.assertRaises(OSError, os.utime, test_support.TESTFN, None)
 
     def test_access(self):
-        self.assertRaises(WindowsError, os.utime, test_support.TESTFN, 0)
+        self.assertRaises(OSError, os.access, test_support.TESTFN, 0)
 
     def test_chmod(self):
-        self.assertRaises(WindowsError, os.utime, test_support.TESTFN, 0)
+        self.assertRaises(OSError, os.chmod, test_support.TESTFN, 0)
 
 if sys.platform != 'win32':
     class Win32ErrorTests(unittest.TestCase):
