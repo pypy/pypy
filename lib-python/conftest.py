@@ -118,10 +118,17 @@ class RegrTest:
                 m.test_main()
         ''' % locals())
 
+if sys.platform == 'win32':
+    skip_win32 = "Not supported on Windows"
+    only_win32 = False
+else:
+    skip_win32 = False
+    only_win32 = "Only on Windows"
+
 testmap = [
     RegrTest('test___all__.py', core=True),
     RegrTest('test___future__.py', core=True),
-    RegrTest('test__locale.py'),
+    RegrTest('test__locale.py', skip=skip_win32),
     RegrTest('test_aepack.py', skip=True),
     RegrTest('test_al.py', skip=True),
     RegrTest('test_ast.py', skip="unsupported module _ast"),
@@ -187,7 +194,7 @@ testmap = [
     RegrTest('test_copy.py', core=True),
     RegrTest('test_copy_reg.py', core=True),
     RegrTest('test_cpickle.py', core=True),
-    RegrTest('test_crypt.py', usemodules='crypt'),
+    RegrTest('test_crypt.py', usemodules='crypt', skip=skip_win32),
     RegrTest('test_csv.py'),
 
     RegrTest('test_curses.py', skip="unsupported extension module"),
@@ -219,7 +226,7 @@ testmap = [
     RegrTest('test_errno.py'),
     RegrTest('test_exceptions.py', core=True),
     RegrTest('test_extcall.py', core=True),
-    RegrTest('test_fcntl.py', usemodules='fcntl'),
+    RegrTest('test_fcntl.py', usemodules='fcntl', skip=skip_win32),
     RegrTest('test_file.py', usemodules="posix", core=True),
     RegrTest('test_filecmp.py', core=True),
     RegrTest('test_fileinput.py', core=True),
@@ -247,7 +254,7 @@ testmap = [
     RegrTest('test_glob.py', core=True),
     RegrTest('test_global.py', core=True),
     RegrTest('test_grammar.py', core=True),
-    RegrTest('test_grp.py'),
+    RegrTest('test_grp.py', skip=skip_win32),
 
     RegrTest('test_gzip.py'),
     RegrTest('test_hash.py', core=True),
@@ -318,14 +325,14 @@ testmap = [
     RegrTest('test_peepholer.py'),
     RegrTest('test_pep247.py'),
     RegrTest('test_pep263.py'),
-    RegrTest('test_pep277.py', skip="NT only"),
+    RegrTest('test_pep277.py', skip=only_win32),
     RegrTest('test_pep292.py'),
     RegrTest('test_pickle.py', core=True),
     RegrTest('test_pickletools.py', core=False),
     RegrTest('test_pkg.py', core=True),
     RegrTest('test_pkgimport.py', core=True),
     RegrTest('test_plistlib.py', skip="unsupported module"),
-    RegrTest('test_poll.py'),
+    RegrTest('test_poll.py', skip=skip_win32),
     RegrTest('test_popen.py'),
     RegrTest('test_popen2.py'),
     RegrTest('test_posix.py'),
@@ -335,7 +342,7 @@ testmap = [
     RegrTest('test_profile.py'),
     RegrTest('test_profilehooks.py', core=True),
     RegrTest('test_pty.py', skip="unsupported extension module"),
-    RegrTest('test_pwd.py'),
+    RegrTest('test_pwd.py', skip=skip_win32),
 
     RegrTest('test_pyclbr.py'),
     RegrTest('test_pyexpat.py'),
@@ -345,7 +352,7 @@ testmap = [
     RegrTest('test_re.py', core=True),
 
     RegrTest('test_repr.py', core=True),
-    RegrTest('test_resource.py'),
+    RegrTest('test_resource.py', skip=skip_win32),
     RegrTest('test_rfc822.py'),
     RegrTest('test_rgbimg.py', skip="unsupported extension module"),
     RegrTest('test_richcmp.py', core=True),
@@ -440,7 +447,7 @@ testmap = [
     RegrTest('test_weakref.py', core=True, usemodules='_weakref'),
 
     RegrTest('test_whichdb.py'),
-    RegrTest('test_winreg.py', skip=sys.platform != 'win32'),
+    RegrTest('test_winreg.py', skip=only_win32),
     RegrTest('test_winsound.py', skip="unsupported extension module"),
     RegrTest('test_xmllib.py'),
     RegrTest('test_xmlrpc.py'),
