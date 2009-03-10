@@ -68,6 +68,12 @@ def __get_builtin_constructor(name):
     elif name in ('SHA224', 'sha224'):
         import _sha256
         return _sha256.sha224
+    elif name in ('SHA512', 'sha512'):
+        import _sha512
+        return _sha512.sha512
+    elif name in ('SHA384', 'sha384'):
+        import _sha512
+        return _sha512.sha384
     raise ValueError, "unsupported hash type"
 
 def __hash_new(name, string=''):
@@ -118,5 +124,5 @@ else:
     sha1 = __get_builtin_constructor('sha1')
     sha224 = __get_builtin_constructor('sha224')
     sha256 = __get_builtin_constructor('sha256')
-    #sha384 = __get_builtin_constructor('sha384')
-    #sha512 = __get_builtin_constructor('sha512')
+    sha384 = __get_builtin_constructor('sha384')
+    sha512 = __get_builtin_constructor('sha512')
