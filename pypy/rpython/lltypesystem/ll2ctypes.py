@@ -929,14 +929,12 @@ class ForceCastEntry(ExtRegistryEntry):
         return annmodel.lltype_to_annotation(RESTYPE)
 
     def specialize_call(self, hop):
-        from pypy.rpython.rbuiltin import gen_cast
         hop.exception_cannot_occur()
         s_RESTYPE = hop.args_s[0]
         assert s_RESTYPE.is_constant()
         RESTYPE = s_RESTYPE.const
         v_arg = hop.inputarg(hop.args_r[1], arg=1)
-        TYPE1 = v_arg.concretetype
-        return gen_cast(hop.llops, RESTYPE, v_arg)
+        return hop.genop('force_cast', [v_arg], resulttype = RESTYPE)
 
 def typecheck_ptradd(T):
     # --- ptradd() is only for pointers to non-GC, no-length arrays.
