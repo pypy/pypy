@@ -41,11 +41,11 @@ def test_os_open():
     tmpfile = str(udir.join('test_os_open.txt'))
     def does_stuff():
         fd = os.open(tmpfile, os.O_WRONLY | os.O_CREAT, 0777)
+        os.close(fd)
         return fd
 
     f1 = compile(does_stuff, [])
     fd = f1()
-    os.close(fd)
     assert os.path.exists(tmpfile)
 
 def test_failing_os_open():
@@ -163,8 +163,6 @@ def test_os_stat():
     res = f()
     assert res[0] == os.stat(filename).st_mode
     assert res[1] == os.stat(filename).st_ino
-    if sys.platform.startswith('win'):
-        py.test.skip("in-progress - bogus stat().st_time")
     st_ctime = res[2]
     if isinstance(st_ctime, float):
         assert st_ctime == os.stat(filename).st_ctime
@@ -179,18 +177,17 @@ def test_os_fstat():
     if os.environ.get('PYPY_CC', '').startswith('tcc'):
         py.test.skip("segfault with tcc :-(")
     filename = str(py.magic.autopath())
-    fd = os.open(filename, os.O_RDONLY, 0777)
-    def call_fstat(fd):
+    def call_fstat():
+        fd = os.open(filename, os.O_RDONLY, 0777)
         st = os.fstat(fd)
+        os.close(fd)
         return (st.st_mode, st[1], st.st_mtime)
-    f = compile(call_fstat, [int])
+    f = compile(call_fstat, [])
     osstat = os.stat(filename)
-    st_mode, st_ino, st_mtime = f(fd)
-    os.close(fd)
+    st_mode, st_ino, st_mtime = f()
     assert st_mode  == osstat.st_mode
-    assert st_ino   == osstat.st_ino
-    if sys.platform.startswith('win'):
-        py.test.skip("in-progress - bogus stat().st_time")
+    if sys.platform != 'win32':
+        assert st_ino  == osstat.st_ino
     if isinstance(st_mtime, float):
         assert st_mtime == osstat.st_mtime
     else:
