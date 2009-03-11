@@ -2,7 +2,10 @@
 """ File containing darwin platform tests
 """
 
-import py
+import py, os
+if os.name != 'darwin':
+    py.test.skip("Darwin only")
+
 from pypy.tool.udir import udir
 from pypy.translator.platform.darwin import Darwin
 from pypy.translator.platform.test.test_platform import TestPlatform as BasicTest
