@@ -130,8 +130,8 @@ def spawn_local_handler():
         python = 'python'
     else:
         python = sys.executable
-    cmdline = '"%s" -u "%s" --stdio' % (python, GRAPHSERVER)
-    p = subprocess.Popen(cmdline,
+    args = [python, '-u', GRAPHSERVER, '--stdio']
+    p = subprocess.Popen(args,
                          stdout=subprocess.PIPE, stdin=subprocess.PIPE)
     child_in, child_out = p.stdin, p.stdout
     io = msgstruct.FileIO(child_out, child_in)
