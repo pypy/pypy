@@ -554,6 +554,15 @@ class LLFrame(object):
     def op_jit_marker(self, *args):
         pass
 
+    def op_promote_virtualizable(self, *args):
+        pass
+
+    def op_get_exception_addr(self, *args):
+        raise NotImplementedError
+
+    def op_get_exc_value_addr(self, *args):
+        raise NotImplementedError
+
     def op_instrument_count(self, ll_tag, ll_label):
         pass # xxx for now
 
