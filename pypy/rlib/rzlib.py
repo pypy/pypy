@@ -3,11 +3,20 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
-includes = ['zlib.h']
 if sys.platform == "win32":
-    libraries = ['zlib']
+    libname = 'zlib'
 else:
-    libraries = ['z']
+    libname = 'z'
+eci = ExternalCompilationInfo(
+        libraries=[libname],
+        includes=['zlib.h']
+    )
+eci = rffi_platform.configure_external_library(
+    libname, eci,
+    [dict(prefix='zlib-'),
+     ])
+if not eci:
+    raise ImportError("Could not find a zlib library")
 
 
 constantnames = '''
@@ -23,9 +32,7 @@ class SimpleCConfig:
     """
     Definitions for basic types defined by zlib.
     """
-    _compilation_info_ = ExternalCompilationInfo(
-        includes = includes
-    )
+    _compilation_info_ = eci
 
     # XXX If Z_PREFIX was defined for the libz build, then these types are
     # named z_uInt, z_uLong, and z_Bytef instead.
@@ -67,9 +74,7 @@ class ComplexCConfig:
     Definitions of structure types defined by zlib and based on SimpleCConfig
     definitions.
     """
-    _compilation_info_ = ExternalCompilationInfo(
-        includes = includes
-    )
+    _compilation_info_ = eci
 
     z_stream = rffi_platform.Struct(
         'z_stream',
@@ -100,10 +105,7 @@ z_stream = config['z_stream']
 z_stream_p = lltype.Ptr(z_stream)
 
 def zlib_external(*a, **kw):
-    kw['compilation_info'] = ExternalCompilationInfo(
-        libraries=libraries,
-        includes=includes
-    )
+    kw['compilation_info'] = eci
     return rffi.llexternal(*a, **kw)
 
 _crc32 = zlib_external('crc32', [uLong, Bytefp, uInt], uLong)

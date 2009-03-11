@@ -606,7 +606,7 @@ def configure_external_library(name, eci, configurations,
                 from pypy.tool.autopath import pypydir
                 external_dir = py.path.local(pypydir).join('..', '..')
 
-                entries = glob.glob(str(external_dir.join(name + '*')))
+                entries = glob.glob(str(external_dir.join(prefix + '*')))
                 if entries:
                     # Get last version
                     prefix = sorted(entries)[-1]

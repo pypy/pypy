@@ -11,11 +11,22 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rlib.rarithmetic import intmask, r_longlong
 import sys
 
-class CConfig:
-    _compilation_info_ = ExternalCompilationInfo(
-        includes = ['stdio.h', 'sys/types.h', 'bzlib.h'],
-        libraries = ['bz2'],
+if sys.platform == "win32":
+    libname = 'libbz2'
+else:
+    libname = 'bz2'
+eci = ExternalCompilationInfo(
+    includes = ['stdio.h', 'sys/types.h', 'bzlib.h'],
+    libraries = [libname],
     )
+eci = platform.configure_external_library(
+    'bz2', eci,
+    [dict(prefix='bzip2-')])
+if not eci:
+    raise ImportError("Could not find bzip2 library")
+
+class CConfig:
+    _compilation_info_ = eci
     calling_conv = 'c'
 
     CHECK_LIBRARY = platform.Has('dump("x", (int)&BZ2_bzCompress)')
