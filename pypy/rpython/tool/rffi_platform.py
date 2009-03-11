@@ -561,20 +561,103 @@ def get_python_include_dir():
     gcv = sysconfig.get_config_vars()
     return gcv['INCLUDEPY']
 
-def check_boehm(platform=None, cache={}):
+def configure_external_library(name, eci, configurations,
+                               symbol=None, _cache={}):
+    """try to find the external library.
+    On Unix, this simply tests and returns the given eci.
+
+    On Windows, various configurations may be tried to compile the
+    given eci object.  These configurations are a list of dicts,
+    containing:
+    
+    - prefix: if an absolute path, will prefix each include and
+              library directories.  If a relative path, the external
+              directory is searched for directories which names start
+              with the prefix.  The last one in alphabetical order
+              chosen, and becomes the prefix.
+
+    - include_dir: prefix + include_dir is added to the include directories
+    
+    - library_dir: prefix + library_dir is added to the library directories
+    """
+
+    if sys.platform != 'win32':
+        configurations = []
+    
+    key = (name, eci)
+    try:
+        return _cache[key]
+    except KeyError:
+        last_error = None
+
+        # Always try the default configuration
+        if {} not in configurations:
+            configurations.append({})
+
+        for configuration in configurations:
+            prefix = configuration.get('prefix', '')
+            include_dir = configuration.get('include_dir', '')
+            library_dir = configuration.get('library_dir', '')
+
+            if prefix and not os.path.isabs(prefix):
+                import glob
+
+                # XXX make this a global option?
+                from pypy.tool.autopath import pypydir
+                external_dir = py.path.local(pypydir).join('..', '..')
+
+                entries = glob.glob(str(external_dir.join(name + '*')))
+                if entries:
+                    # Get last version
+                    prefix = sorted(entries)[-1]
+                else:
+                    continue
+
+            include_dir = os.path.join(prefix, include_dir)
+            library_dir = os.path.join(prefix, library_dir)
+
+            eci_lib = ExternalCompilationInfo(
+                include_dirs=include_dir and [include_dir] or [],
+                library_dirs=library_dir and [library_dir] or [],
+                )
+            eci_lib = eci_lib.merge(eci)
+
+            # verify that this eci can be compiled
+            try:
+                verify_eci(eci_lib)
+            except CompilationError, e:
+                last_error = e
+            else:
+                _cache[key] = eci_lib
+                return eci_lib
+
+        # Nothing found
+        if last_error:
+            raise last_error
+        else:
+            raise CompilationError("Library %s is not installed" % (name,))
+
+def check_boehm(platform=None):
     if platform is None:
         from pypy.translator.platform import platform
+    if sys.platform == 'win32':
+        library_dir = 'Release'
+        includes=['gc.h']
+    else:
+        library_dir = ''
+        includes=['gc/gc.h']
+    eci = ExternalCompilationInfo(
+        platform=platform,
+        includes=includes,
+        libraries=['gc'],
+        )
     try:
-        return cache[platform]
-    except KeyError:
-        class CConfig:
-            _compilation_info_ = ExternalCompilationInfo(
-                includes=['gc/gc.h'],
-                platform=platform,
-                )
-            HAS = Has('GC_init')
-        cache[platform] = configure(CConfig)['HAS']
-        return cache[platform]
+        return configure_external_library(
+            'gc', eci,
+            [dict(prefix='gc-', include_dir='include', library_dir=library_dir)],
+            symbol='GC_init')
+    except CompilationError:
+        return None
 
 if __name__ == '__main__':
     doc = """Example:
