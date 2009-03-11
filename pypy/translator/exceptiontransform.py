@@ -512,6 +512,9 @@ class OOTypeExceptionTransformer(BaseExceptionTransformer):
     def check_for_alloc_shortcut(self, spaceop):
         return False
 
+    def build_extra_funcs(self):
+        pass
+
 def ExceptionTransformer(translator):
     type_system = translator.rtyper.type_system.name
     if type_system == 'lltypesystem':
