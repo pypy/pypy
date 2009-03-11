@@ -84,10 +84,6 @@ class IO(object):
 
 class FileIO(IO):
     def __init__(self, f_in, f_out):
-        if sys.platform == 'win32':
-            import msvcrt
-            msvcrt.setmode(f_in.fileno(), os.O_BINARY)
-            msvcrt.setmode(f_out.fileno(), os.O_BINARY)
         self.f_in = f_in
         self.f_out = f_out
 
