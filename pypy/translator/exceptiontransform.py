@@ -170,7 +170,7 @@ class BaseExceptionTransformer(object):
         n_gen_exc_checks           = 0
         for block in list(graph.iterblocks()):
             self.replace_stack_unwind(block)
-            self.replace_fetch_restore_operations(graph, block)
+            self.replace_fetch_restore_operations(block)
             need_exc_matching, gen_exc_checks = self.transform_block(graph, block)
             n_need_exc_matching_blocks += need_exc_matching
             n_gen_exc_checks           += gen_exc_checks
@@ -189,7 +189,7 @@ class BaseExceptionTransformer(object):
                 block.operations[i].opname = "direct_call"
                 block.operations[i].args = [self.rpyexc_raise_runtime_error_ptr]
 
-    def replace_fetch_restore_operations(self, graph, block):
+    def replace_fetch_restore_operations(self, block):
         # the gctransformer will create these operations.  It looks as if the
         # order of transformations is important - but the gctransformer will
         # put them in a new graph, so all transformations will run again.

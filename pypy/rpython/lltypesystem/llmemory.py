@@ -411,10 +411,8 @@ class fakeaddress(object):
     def __nonzero__(self):
         return self.ptr is not None
 
-    def __hash__(self):
-        if not self._fixup().ptr:
-            return 0
-        return hash(self._fixup().ptr._obj)
+    #def __hash__(self):
+    #    raise TypeError("don't put addresses in a prebuilt dictionary")
 
     def __eq__(self, other):
         if isinstance(other, fakeaddress):
