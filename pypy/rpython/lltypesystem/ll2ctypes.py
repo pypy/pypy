@@ -630,6 +630,7 @@ def lltype2ctypes(llobj, normalize=True):
             # XXX doesn't cache
             c_tp = build_ctypes_struct(T.TO, [],
                          len(getattr(storage, T.TO._arrayfld).items))
+            # make sure you cache according to the len() above!
             p = ctypes.cast(p, ctypes.POINTER(c_tp))
         elif normalize and hasattr(storage, '_normalized_ctype'):
             p = ctypes.cast(p, ctypes.POINTER(storage._normalized_ctype))
