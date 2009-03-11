@@ -627,12 +627,9 @@ def lltype2ctypes(llobj, normalize=True):
             c_tp = get_ctypes_type(T.TO)
             storage._normalized_ctype = c_tp
         if normalize and getattr(T.TO, '_arrayfld', None):
-            try:
-                c_tp = _ctypes_cache[T.TO]
-            except KeyError:
-                c_tp = build_ctypes_struct(T.TO, [],
-                               len(getattr(storage, T.TO._arrayfld).items))
-                _ctypes_cache[T.TO] = c_tp
+            # XXX doesn't cache
+            c_tp = build_ctypes_struct(T.TO, [],
+                         len(getattr(storage, T.TO._arrayfld).items))
             p = ctypes.cast(p, ctypes.POINTER(c_tp))
         elif normalize and hasattr(storage, '_normalized_ctype'):
             p = ctypes.cast(p, ctypes.POINTER(storage._normalized_ctype))
