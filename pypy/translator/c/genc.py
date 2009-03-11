@@ -168,8 +168,7 @@ class CBuilder(object):
 
     def collect_compilation_info(self, db):
         # we need a concrete gcpolicy to do this
-        self.eci = self.eci.merge(ExternalCompilationInfo(
-            libraries=db.gcpolicy.gc_libraries()))
+        self.eci = self.eci.merge(db.gcpolicy.compilation_info())
 
         all = []
         for node in self.db.globalcontainers():
@@ -317,6 +316,15 @@ class CExtModuleBuilder(CBuilder):
             export_symbols.append('malloc_counters')
         extsymeci = ExternalCompilationInfo(export_symbols=export_symbols)
         self.eci = self.eci.merge(extsymeci)
+
+        if sys.platform == 'win32':
+            self.eci = self.eci.merge(ExternalCompilationInfo(
+                library_dirs = [py.path.local(sys.exec_prefix).join('LIBs'),
+                                py.path.local(sys.executable).dirpath(),
+                                ],
+                ))
+
+
         files = [self.c_source_filename] + self.extrafiles
         self.translator.platform.compile(files, self.eci, standalone=False)
         self._compiled = True
@@ -772,15 +780,9 @@ def gen_source_standalone(database, modulename, targetdir, eci,
 
     print >> fi, '#define Py_BUILD_CORE  /* for Windows: avoid pulling libs in */'
     print >> fi, '#include "pyconfig.h"'
-    for line in database.gcpolicy.pre_pre_gc_code():
-        print >> fi, line
-
-    eci.write_c_header(fi)
-
     print >> fi, '#include "src/g_prerequisite.h"'
 
-    for line in database.gcpolicy.pre_gc_code():
-        print >> fi, line
+    eci.write_c_header(fi)
 
     fi.close()
 
@@ -830,15 +832,10 @@ def gen_source(database, modulename, targetdir, eci, defines={}):
         print >> fi, '#define %s %s' % (key, value)
 
     print >> fi, '#include "pyconfig.h"'
-    for line in database.gcpolicy.pre_pre_gc_code():
-        print >> fi, line
-
     print >> fi, '#include "src/g_prerequisite.h"'
 
-    for line in database.gcpolicy.pre_gc_code():
-        print >> fi, line
-
     eci.write_c_header(fi)
+
     fi.close()
 
     if database.translator is None or database.translator.rtyper is None:

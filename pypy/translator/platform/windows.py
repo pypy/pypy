@@ -119,11 +119,6 @@ class MsvcPlatform(Platform):
         return ['%s.lib' % (lib,) for lib in libraries]
 
     def _libdirs(self, library_dirs):
-        if self.add_cpython_dirs:
-            library_dirs = library_dirs + (
-                py.path.local(sys.exec_prefix).join('libs'),
-                py.path.local(sys.executable).dirpath(),
-                )
         return ['/LIBPATH:%s' % (ldir,) for ldir in library_dirs]
 
     def _linkfiles(self, link_files):

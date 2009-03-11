@@ -7,6 +7,7 @@ from pypy.rpython.lltypesystem.lltype import \
 from pypy.rpython.memory.gctransform import \
      refcounting, boehm, framework, llvmgcroot, asmgcroot
 from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 class BasicGcPolicy(object):
     requires_stackless = False
@@ -36,16 +37,17 @@ class BasicGcPolicy(object):
     def struct_after_definition(self, defnode):
         return []
 
-    def gc_libraries(self):
-        return []
+    def compilation_info(self):
+        if not self.db:
+            return ExternalCompilationInfo()
 
-    def pre_pre_gc_code(self): # code that goes before include g_prerequisite.h
         gct = self.db.gctransformer
-        yield '/* using %s */' % (gct.__class__.__name__,)
-        yield '#define MALLOC_ZERO_FILLED %d' % (gct.malloc_zero_filled,)
-
-    def pre_gc_code(self):
-        return ['typedef void *GC_hidden_pointer;']
+        return ExternalCompilationInfo(
+            pre_include_bits=['/* using %s */' % (gct.__class__.__name__,),
+                              '#define MALLOC_ZERO_FILLED %d' % (gct.malloc_zero_filled,),
+                              ],
+            post_include_bits=['typedef void *GC_hidden_pointer;']
+            )
 
     def gc_startup_code(self):
         return []
@@ -193,25 +195,26 @@ class BoehmGcPolicy(BasicGcPolicy):
     def rtti_node_factory(self):
         return BoehmGcRuntimeTypeInfo_OpaqueNode
 
-    def gc_libraries(self):
-        if sys.platform == 'win32':
-            return ['gc_pypy']
-        return ['gc']
+    def compilation_info(self):
+        eci = BasicGcPolicy.compilation_info(self)
 
-    def pre_pre_gc_code(self):
-        for line in BasicGcPolicy.pre_pre_gc_code(self):
-            yield line
+        from pypy.rpython.tool.rffi_platform import check_boehm
+        eci = eci.merge(check_boehm())
+
+        pre_include_bits = []
         if sys.platform == "linux2":
-            yield "#define _REENTRANT 1"
-            yield "#define GC_LINUX_THREADS 1"
+            pre_include_bits += ["#define _REENTRANT 1",
+                                 "#define GC_LINUX_THREADS 1"]
         if sys.platform != "win32":
             # GC_REDIRECT_TO_LOCAL is not supported on Win32 by gc6.8
-            yield "#define GC_REDIRECT_TO_LOCAL 1"
-        yield '#include <gc/gc.h>'
-        yield '#define USING_BOEHM_GC'
+            pre_include_bits += ["#define GC_REDIRECT_TO_LOCAL 1"]
 
-    def pre_gc_code(self):
-        return []
+        eci = eci.merge(ExternalCompilationInfo(
+            pre_include_bits=pre_include_bits,
+            post_include_bits=['#define USING_BOEHM_GC'],
+            ))
+
+        return eci
 
     def gc_startup_code(self):
         if sys.platform == 'win32':
@@ -263,7 +266,6 @@ class FrameworkGcRuntimeTypeInfo_OpaqueNode(BoehmGcRuntimeTypeInfo_OpaqueNode):
 
 class NoneGcPolicy(BoehmGcPolicy):
 
-    gc_libraries = RefcountingGcPolicy.gc_libraries.im_func
     gc_startup_code = RefcountingGcPolicy.gc_startup_code.im_func
 
 
