@@ -439,7 +439,7 @@ class CPU386(object):
         elif size == WORD:
             a = rffi.cast(rffi.CArrayPtr(lltype.Signed), gcref)
             if not ptr:
-                a[ofs/WORD + field] = args[2].getint()
+                a[ofs/WORD + field] = int(args[2].getint())
             else:
                 p = args[2].getptr(llmemory.GCREF)
                 a[ofs/WORD + field] = self.cast_gcref_to_int(p)
