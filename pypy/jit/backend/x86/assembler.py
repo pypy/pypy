@@ -268,15 +268,21 @@ class Assembler386(object):
                 self.mc.CMP(arglocs[1], arglocs[0])
                 if guard_op.opnum == rop.GUARD_FALSE:
                     name = 'J' + rev_cond
+                    self.implement_guard(guard_op, getattr(self.mc, name),
+                                         arglocs[2:])
                 else:
                     name = 'J' + false_rev_cond
+                    self.implement_guard(guard_op, getattr(self.mc, name),
+                                         arglocs[2:])
             else:
                 self.mc.CMP(arglocs[0], arglocs[1])
                 if guard_op.opnum == rop.GUARD_FALSE:
-                    name = 'J' + cond
+                    self.implement_guard(guard_op, getattr(self.mc, 'J' + cond),
+                                         arglocs[2:])
                 else:
                     name = 'J' + false_cond
-            self.implement_guard(guard_op, getattr(self.mc, name), arglocs[2:])
+                    self.implement_guard(guard_op, getattr(self.mc, name),
+                                         arglocs[2:])
         return genop_cmp_guard
             
 

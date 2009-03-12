@@ -117,15 +117,15 @@ def test_loop_with_const_and_var_swap():
         ResOperation(rop.JUMP, [x, z, y, i0], None),
         ]
     operations[-1].jump_target = operations[0]
-    operations[3].liveboxes = [v0, x, y, z, i0]
+    operations[3].liveboxes = [x, y, z, i0]
 
     cpu.compile_operations(operations)
 
     res = cpu.execute_operations_in_new_frame('foo', operations,
                                                    [BoxInt(1), BoxInt(2),
                                                     BoxInt(3), BoxInt(10)])
-    assert res.value == 0
-    assert meta_interp.recordedvalues == [0, 1, 3, 2, 0]
+    assert res.value == 1
+    assert meta_interp.recordedvalues == [1, 3, 2, 0]
 
 def test_bool_optimizations():
     meta_interp = FakeMetaInterp()

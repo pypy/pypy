@@ -144,13 +144,13 @@ class TestX86(object):
             ]
         startmp = operations[0]
         operations[-1].jump_target = startmp
-        operations[-2].liveboxes = [t, u, z]
+        operations[-2].liveboxes = [t, z]
         cpu.compile_operations(operations)
         res = self.cpu.execute_operations_in_new_frame('foo', operations,
                                                        [BoxInt(0), BoxInt(10)])
         assert res.value == 0
         gf = cpu.metainterp.gf
-        assert cpu.metainterp.recordedvalues == [0, True, 55]
+        assert cpu.metainterp.recordedvalues == [0, 55]
         assert gf.guard_op is operations[-2]
 
     def test_passing_guards(self):
