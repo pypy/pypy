@@ -54,7 +54,6 @@ def target(driver, args):
     config.objspace.usemodules.pypyjit = True
     config.objspace.usemodules._weakref = False
     config.objspace.usemodules._sre = False
-    config.translation.rweakref = False # XXX
     config.objspace.std.multimethods = 'mrd'
     multimethod.Installer = multimethod.InstallerVersion2
     config.objspace.std.builtinshortcut = True
