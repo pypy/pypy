@@ -125,6 +125,8 @@ class SpecNodeWithFields(FixedClassSpecNode):
 
     def extract_runtime_data(self, cpu, valuebox, resultlist):
         for ofs, subspecnode in self.fields:
+            from pypy.jit.metainterp.history import AbstractDescr
+            assert isinstance(ofs, AbstractDescr)
             fieldbox = executor.execute(cpu, rop.GETFIELD_GC,
                                         [valuebox], ofs)
             subspecnode.extract_runtime_data(cpu, fieldbox, resultlist)
@@ -150,6 +152,7 @@ class VirtualizedSpecNode(SpecNodeWithFields):
 class DelayedSpecNode(VirtualizedSpecNode):
 
     def expand_boxlist(self, instnode, newboxlist, oplist):
+        from pypy.jit.metainterp.history import AbstractDescr
         newboxlist.append(instnode.source)
         for ofs, subspecnode in self.fields:
             assert isinstance(subspecnode, SpecNodeWithBox)
@@ -161,6 +164,7 @@ class DelayedSpecNode(VirtualizedSpecNode):
                     newboxlist.append(instnode.cleanfields[ofs].source)
                 else:
                     box = subspecnode.box.clonebox()
+                    assert isinstance(ofs, AbstractDescr)
                     oplist.append(ResOperation(rop.GETFIELD_GC,
                        [instnode.source], box, ofs))
                     newboxlist.append(box)
@@ -193,11 +197,13 @@ class DelayedFixedListSpecNode(DelayedSpecNode):
    def extract_runtime_data(self, cpu, valuebox, resultlist):
        from pypy.jit.metainterp.resoperation import rop
        from pypy.jit.metainterp.optimize import FixedList
+       from pypy.jit.metainterp.history import check_descr
        
        resultlist.append(valuebox)
        cls = self.known_class
        assert isinstance(cls, FixedList)
        arraydescr = cls.arraydescr
+       check_descr(arraydescr)
        for ofs, subspecnode in self.fields:
            fieldbox = executor.execute(cpu, rop.GETARRAYITEM_GC,
                                        [valuebox, ofs], arraydescr)
@@ -241,11 +247,12 @@ class VirtualFixedListSpecNode(VirtualSpecNode):
    def extract_runtime_data(self, cpu, valuebox, resultlist):
        from pypy.jit.metainterp.resoperation import rop
        from pypy.jit.metainterp.optimize import FixedList
-
+       from pypy.jit.metainterp.history import check_descr
+       cls = self.known_class
+       assert isinstance(cls, FixedList)
+       arraydescr = cls.arraydescr
+       check_descr(arraydescr)
        for ofs, subspecnode in self.fields:
-           cls = self.known_class
-           assert isinstance(cls, FixedList)
-           arraydescr = cls.arraydescr
            fieldbox = executor.execute(cpu, rop.GETARRAYITEM_GC,
                                        [valuebox, ofs], arraydescr)
            subspecnode.extract_runtime_data(cpu, fieldbox, resultlist)

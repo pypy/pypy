@@ -29,10 +29,9 @@ class ResOperation(object):
         # for 'call', 'new', 'getfield_gc'...: the descr is a number provided
         # by the backend holding details about the type of the operation --
         # actually an instance of a class, typically Descr, that inherits
-        # from AbstractValue
-        if descr is not None:
-            from pypy.jit.metainterp.history import AbstractValue
-            assert isinstance(descr, AbstractValue)
+        # from AbstractDescr
+        from pypy.jit.metainterp.history import check_descr
+        check_descr(descr)
         self.descr = descr
 
     def __repr__(self):

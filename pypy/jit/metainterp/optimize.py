@@ -1,7 +1,7 @@
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import (Box, Const, ConstInt, BoxInt,
-                                         ResOperation)
-from pypy.jit.metainterp.history import Options, AbstractValue, ConstPtr
+                                         ResOperation, AbstractDescr,
+                                         Options, AbstractValue, ConstPtr)
 from pypy.jit.metainterp.specnode import (FixedClassSpecNode,
                                           #FixedListSpecNode,
                                           VirtualInstanceSpecNode,
@@ -781,6 +781,7 @@ class PerfectSpecializer(object):
                                           [node.source, ofs, valuenode.source],
                                                       None, ld.arraydescr))
                 else:
+                    assert isinstance(ofs, AbstractDescr)
                     newoperations.append(ResOperation(rop.SETFIELD_GC,
                        [node.source, valuenode.source], None, ofs))
             node.dirtyfields = {}
@@ -855,6 +856,7 @@ def rebuild_boxes_from_guard_failure(guard_op, metainterp, boxes_from_frame):
         box = box_from_index(allocated_boxes, allocated_lists,
                              boxes_from_frame,
                              index_in_alloc)
+        assert isinstance(ofs, AbstractDescr)
         metainterp.execute_and_record(rop.SETFIELD_GC,
                                       [box, fieldbox], ofs)
     for index_in_alloc, ad, ofs, index_in_arglist in storage.setitems:

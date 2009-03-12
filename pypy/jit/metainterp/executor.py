@@ -3,7 +3,7 @@
 
 import py
 from pypy.rlib.rarithmetic import ovfcheck, r_uint, intmask
-from pypy.jit.metainterp.history import BoxInt, ConstInt
+from pypy.jit.metainterp.history import BoxInt, ConstInt, check_descr
 from pypy.jit.metainterp.resoperation import rop
 
 
@@ -214,6 +214,7 @@ def get_execute_function(cpu, opnum):
 get_execute_function._annspecialcase_ = 'specialize:memo'
 
 def execute(cpu, opnum, argboxes, descr=None):
+    check_descr(descr)
     func = get_execute_function(cpu, opnum)
     return func(cpu, argboxes, descr)
 execute._annspecialcase_ = 'specialize:arg(1)'

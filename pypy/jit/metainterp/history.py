@@ -1,4 +1,5 @@
 
+from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rlib.objectmodel import we_are_translated, r_dict, Symbolic
 from pypy.rlib.rarithmetic import intmask
@@ -75,6 +76,11 @@ class AbstractValue(object):
 
     def equals(self, other):
         raise NotImplementedError
+
+
+class AbstractDescr(AbstractValue):
+    pass
+
 
 class Const(AbstractValue):
     __slots__ = ()
@@ -476,3 +482,25 @@ class Options:
         self.listops = listops
     def _freeze_(self):
         return True
+
+# ----------------------------------------------------------------
+
+def check_descr(x):
+    """Check that 'x' is None or an instance of AbstractDescr.
+    Explodes if the annotator only thinks it is an instance of AbstractValue.
+    """
+
+class Entry(ExtRegistryEntry):
+    _about_ = check_descr
+
+    def compute_result_annotation(self, s_x):
+        from pypy.annotation import model as annmodel
+        if not annmodel.s_None.contains(s_x):
+            assert isinstance(s_x, annmodel.SomeInstance)
+            # the following assert fails if we somehow did not manage
+            # to ensure that the 'descr' field of ResOperation is really
+            # an instance of AbstractDescr, a subclass of AbstractValue.
+            assert issubclass(s_x.classdef.classdesc.pyobj, AbstractDescr)
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()

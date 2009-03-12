@@ -14,7 +14,7 @@ class MiniStats:
     pass
 
 
-class Descr(history.AbstractValue):
+class Descr(history.AbstractDescr):
     def __init__(self, ofs, type='?'):
         self.ofs = ofs
         self.type = type
