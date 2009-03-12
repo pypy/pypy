@@ -206,6 +206,16 @@ class RegAlloc(object):
                     self.longevity[v][0] <= self.position):
                     assert not v in self.dirty_stack
 
+    def can_optimize_cmp_op(self, op, i, operations):
+        if not op.is_comparison():
+            return False
+        if (operations[i + 1].opnum != rop.GUARD_TRUE and
+            operations[i + 1].opnum != rop.GUARD_FALSE):
+            return False
+        if self.longevity[op.result][1] > i + 1:
+            return False
+        return True
+
     def walk_operations(self, operations, loop_consts):
         # first pass - walk along the operations in order to find
         # load/store places
@@ -225,10 +235,15 @@ class RegAlloc(object):
                     assert operations[i + 1].opnum == rop.GUARD_NO_EXCEPTION
                     new_ops += oplist[op.opnum](self, op, operations[i + 1])
                     i += 1
+                elif self.can_optimize_cmp_op(op, i, operations):
+                    new_ops += oplist[op.opnum](self, op, operations[i + 1])
+                    i += 1
                 else:
                     new_ops += oplist[op.opnum](self, op, None)
                 self.eventually_free_var(op.result)
                 self._check_invariants()
+            else:
+                self.eventually_free_vars(op.args)
             i += 1
         return new_ops
 
@@ -621,6 +636,7 @@ class RegAlloc(object):
     def _consider_binop_ovf(self, op, guard_op):
         loc, argloc, ops = self._consider_binop_part(op, None)
         locs = self._locs_from_liveboxes(guard_op)
+        self.position += 1
         self.eventually_free_vars(guard_op.liveboxes)
         return ops + [PerformWithGuard(op, guard_op, [loc, argloc] + locs, loc)]
 
@@ -663,8 +679,9 @@ class RegAlloc(object):
         _, ops3 = self.force_allocate_reg(tmpvar, [], eax)
         assert (l0, l1, l2) == (eax, ecx, edx)
         locs = self._locs_from_liveboxes(guard_op)
-        self.eventually_free_vars(guard_op.liveboxes)
         self.eventually_free_vars(op.args + [tmpvar])
+        self.position += 1
+        self.eventually_free_vars(guard_op.liveboxes)
         return (ops0 + ops1 + ops2 + ops3 +
                 [PerformWithGuard(op, guard_op, [eax, ecx] + locs, edx)])
 
@@ -678,7 +695,7 @@ class RegAlloc(object):
         self.eventually_free_vars(op.args + [tmpvar])
         return ops0 + ops1 + ops2 + [Perform(op, [eax, ecx], eax)]
 
-    def _consider_compop(self, op, ignored):
+    def _consider_compop(self, op, guard_op):
         vx = op.args[0]
         vy = op.args[1]
         arglocs = [self.loc(vx), self.loc(vy)]
@@ -689,8 +706,15 @@ class RegAlloc(object):
             arglocs[0], ops0 = self.force_allocate_reg(vx, [])
         self.eventually_free_var(vx)
         self.eventually_free_var(vy)
-        loc, ops = self.force_allocate_reg(op.result, op.args)
-        return ops0 + ops + [Perform(op, arglocs, loc)]
+        if guard_op is None:
+            loc, ops = self.force_allocate_reg(op.result, op.args)
+            return ops0 + ops + [Perform(op, arglocs, loc)]
+        else:
+            locs = self._locs_from_liveboxes(guard_op)
+            self.position += 1
+            self.eventually_free_var(op.result)
+            self.eventually_free_vars(guard_op.liveboxes)
+            return ops0 + [PerformWithGuard(op, guard_op, arglocs + locs, None)]
 
     consider_int_lt = _consider_compop
     consider_int_gt = _consider_compop

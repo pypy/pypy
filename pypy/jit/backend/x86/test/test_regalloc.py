@@ -8,6 +8,7 @@ from pypy.jit.backend.x86.runner import CPU, GuardFailed
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.backend.x86.test.test_runner import FakeMetaInterp, FakeStats
 from pypy.jit.metainterp.resoperation import rop
+from pypy.jit.backend.x86.regalloc import RETURN
 
 def test_simple_loop():
     meta_interp = FakeMetaInterp()
@@ -127,7 +128,6 @@ def test_loop_with_const_and_var_swap():
     assert meta_interp.recordedvalues == [0, 1, 3, 2, 0]
 
 def test_bool_optimizations():
-    py.test.skip("Not yet")
     meta_interp = FakeMetaInterp()
     cpu = CPU(rtyper=None, stats=FakeStats())
     cpu.set_meta_interp(meta_interp)
@@ -143,9 +143,35 @@ def test_bool_optimizations():
     ops[2].liveboxes = [res]
 
     cpu.compile_operations(ops)
-    res = cpu.execute_operations_in_new_frame('foo', ops[0],
-                                               [arg0, arg1], 'int')
+    res = cpu.execute_operations_in_new_frame('foo', ops,
+                                               [arg0, arg1])
 
     assert len(cpu.assembler._regalloc.computed_ops) == 2
+    assert meta_interp.gf
+    # er, what to check here, assembler???
+
+def test_bool_cannot_optimize():
+    meta_interp = FakeMetaInterp()
+    cpu = CPU(rtyper=None, stats=FakeStats())
+    cpu.set_meta_interp(meta_interp)
+    arg0 = BoxInt(3)
+    arg1 = BoxInt(4)
+    res = BoxInt(0)
+    r = BoxInt(1)
+    ops = [
+        ResOperation(rop.MERGE_POINT, [arg0, arg1], None),
+        ResOperation(rop.INT_GT, [arg0, arg1], res),
+        ResOperation(rop.GUARD_TRUE, [res], None),
+        # we should never get here
+        ResOperation(rop.INT_ADD, [res, ConstInt(0)], r),
+        ResOperation(RETURN, [r], None),
+        ]
+    ops[2].liveboxes = [res]
+
+    cpu.compile_operations(ops)
+    res = cpu.execute_operations_in_new_frame('foo', ops,
+                                               [arg0, arg1])
+
+    assert len(cpu.assembler._regalloc.computed_ops) == 5
     assert meta_interp.gf
     # er, what to check here, assembler???

@@ -262,6 +262,24 @@ class Assembler386(object):
                 getattr(self.mc, 'SET' + cond)(lower_byte(result_loc))
         return genop_cmp
 
+    def _cmpop_guard(cond, rev_cond, false_cond, false_rev_cond):
+        def genop_cmp_guard(self, op, guard_op, arglocs, result_loc):
+            if isinstance(op.args[0], Const):
+                self.mc.CMP(arglocs[1], arglocs[0])
+                if guard_op.opnum == rop.GUARD_FALSE:
+                    name = 'J' + rev_cond
+                else:
+                    name = 'J' + false_rev_cond
+            else:
+                self.mc.CMP(arglocs[0], arglocs[1])
+                if guard_op.opnum == rop.GUARD_FALSE:
+                    name = 'J' + cond
+                else:
+                    name = 'J' + false_cond
+            self.implement_guard(guard_op, getattr(self.mc, name), arglocs[2:])
+        return genop_cmp_guard
+            
+
     def call(self, addr, args, res):
         for i in range(len(args)):
             arg = args[i]
@@ -283,10 +301,10 @@ class Assembler386(object):
     genop_uint_mul = genop_int_mul
     xxx_genop_uint_and = genop_int_and
 
-    genop_int_mul_ovf = _binaryop_ovf("IMUL", True)
-    genop_int_sub_ovf = _binaryop_ovf("SUB")
-    genop_int_add_ovf = _binaryop_ovf("ADD", True)
-    genop_int_mod_ovf = _binaryop_ovf("IDIV", is_mod=True)
+    genop_guard_int_mul_ovf = _binaryop_ovf("IMUL", True)
+    genop_guard_int_sub_ovf = _binaryop_ovf("SUB")
+    genop_guard_int_add_ovf = _binaryop_ovf("ADD", True)
+    genop_guard_int_mod_ovf = _binaryop_ovf("IDIV", is_mod=True)
 
     genop_int_lt = _cmpop("L", "G")
     genop_int_le = _cmpop("LE", "GE")
@@ -299,6 +317,18 @@ class Assembler386(object):
     genop_uint_lt = _cmpop("B", "A")
     genop_uint_le = _cmpop("BE", "AE")
     genop_uint_ge = _cmpop("AE", "BE")
+
+    genop_guard_int_lt = _cmpop_guard("L", "G", "GE", "LE")
+    genop_guard_int_le = _cmpop_guard("LE", "GE", "G", "L")
+    genop_guard_int_eq = _cmpop_guard("E", "NE", "NE", "E")
+    genop_guard_int_ne = _cmpop_guard("NE", "E", "E", "NE")
+    genop_guard_int_gt = _cmpop_guard("G", "L", "LE", "GE")
+    genop_guard_int_ge = _cmpop_guard("GE", "LE", "L", "G")
+
+    genop_guard_uint_gt = _cmpop_guard("A", "B", "BE", "AE")
+    genop_guard_uint_lt = _cmpop_guard("B", "A", "AE", "BE")
+    genop_guard_uint_le = _cmpop_guard("BE", "AE", "A", "B")
+    genop_guard_uint_ge = _cmpop_guard("AE", "BE", "B", "A")
 
     # for now all chars are being considered ints, although we should make
     # a difference at some point
@@ -391,7 +421,7 @@ class Assembler386(object):
     genop_getfield_raw = genop_getfield_gc
     genop_getarrayitem_gc_pure = genop_getarrayitem_gc
 
-    def genop_setfield_gc(self, op, arglocs):
+    def genop_discard_setfield_gc(self, op, arglocs):
         base_loc, ofs_loc, size_loc, value_loc = arglocs
         assert isinstance(size_loc, IMM32)
         size = size_loc.value
@@ -405,7 +435,7 @@ class Assembler386(object):
         else:
             raise NotImplementedError("Addr size %d" % size)
 
-    def genop_setarrayitem_gc(self, op, arglocs):
+    def genop_discard_setarrayitem_gc(self, op, arglocs):
         base_loc, ofs_loc, value_loc, scale_loc, baseofs = arglocs
         assert isinstance(baseofs, IMM32)
         assert isinstance(scale_loc, IMM32)
@@ -418,14 +448,14 @@ class Assembler386(object):
         else:
             raise NotImplementedError("scale = %d" % scale_loc.value)
 
-    def genop_strsetitem(self, op, arglocs):
+    def genop_discard_strsetitem(self, op, arglocs):
         base_loc, ofs_loc, val_loc = arglocs
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
                                               self.cpu.translate_support_code)
         self.mc.MOV(addr8_add(base_loc, ofs_loc, basesize),
                     lower_byte(val_loc))
 
-    genop_setfield_raw = genop_setfield_gc
+    genop_discard_setfield_raw = genop_discard_setfield_gc
 
     def genop_strlen(self, op, arglocs, resloc):
         base_loc = arglocs[0]
@@ -443,13 +473,13 @@ class Assembler386(object):
                                              self.cpu.translate_support_code)
         self.mc.MOVZX(resloc, addr8_add(base_loc, ofs_loc, basesize))
 
-    def genop_merge_point(self, op, locs):
+    def genop_discard_merge_point(self, op, locs):
         op.position = self.mc.tell()
         op.comeback_bootstrap_addr = self.assemble_comeback_bootstrap(op)
 
-    genop_catch = genop_merge_point
+    genop_discard_catch = genop_discard_merge_point
 
-    def genop_return(self, op, locs):
+    def genop_discard_return(self, op, locs):
         if op.args:
             loc = locs[0]
             if loc is not eax:
@@ -467,16 +497,16 @@ class Assembler386(object):
         self.mc.MOV(heap(self._exception_addr), imm(0))
         self.mc.RET()
 
-    def genop_jump(self, op, locs):
+    def genop_discard_jump(self, op, locs):
         targetmp = op.jump_target
         self.mc.JMP(rel32(targetmp.position))
 
-    def genop_guard_true(self, op, locs):
+    def genop_discard_guard_true(self, op, locs):
         loc = locs[0]
         self.mc.TEST(loc, loc)
         self.implement_guard(op, self.mc.JZ, locs[1:])
 
-    def genop_guard_no_exception(self, op, locs):
+    def genop_discard_guard_no_exception(self, op, locs):
         loc = locs[0]
         self.mc.MOV(loc, heap(self._exception_addr))
         self.mc.TEST(loc, loc)
@@ -492,23 +522,23 @@ class Assembler386(object):
             self.mc.MOV(resloc, addr_add(imm(self._exception_addr), imm(WORD)))
         self.mc.MOV(heap(self._exception_addr), imm(0))
 
-    def genop_guard_false(self, op, locs):
+    def genop_discard_guard_false(self, op, locs):
         loc = locs[0]
         self.mc.TEST(loc, loc)
         self.implement_guard(op, self.mc.JNZ, locs[1:])
 
-    def genop_guard_value(self, op, locs):
+    def genop_discard_guard_value(self, op, locs):
         arg0 = locs[0]
         arg1 = locs[1]
         self.mc.CMP(arg0, arg1)
         self.implement_guard(op, self.mc.JNE, locs[2:])
 
-    def genop_guard_class(self, op, locs):
+    def genop_discard_guard_class(self, op, locs):
         offset = 0    # XXX for now, the vtable ptr is at the start of the obj
         self.mc.CMP(mem(locs[0], offset), locs[1])
         self.implement_guard(op, self.mc.JNE, locs[2:])
 
-    #def genop_guard_nonvirtualized(self, op):
+    #def genop_discard_guard_nonvirtualized(self, op):
     #    STRUCT = op.args[0].concretetype.TO
     #    offset, size = symbolic.get_field_token(STRUCT, 'vable_rti')
     #    assert size == WORD
@@ -605,18 +635,21 @@ genop_list = [Assembler386.not_implemented_op] * rop._LAST
 genop_guard_list = [Assembler386.not_implemented_op_guard] * rop._LAST
 
 for name, value in Assembler386.__dict__.iteritems():
-    if name.startswith('genop_'):
-        opname = name[len('genop_'):]
+    if name.startswith('genop_discard_'):
+        opname = name[len('genop_discard_'):]
         if opname == 'return':
             num = RETURN
         else:
             num = getattr(rop, opname.upper())
-        if value.func_code.co_argcount == 3:
-            genop_discard_list[num] = value
-        elif value.func_code.co_argcount == 5:
-            genop_guard_list[num] = value
-        else:
-            genop_list[num] = value
+        genop_discard_list[num] = value
+    elif name.startswith('genop_guard_') and name != 'genop_guard_exception': 
+        opname = name[len('genop_guard_'):]
+        num = getattr(rop, opname.upper())
+        genop_guard_list[num] = value
+    elif name.startswith('genop_'):
+        opname = name[len('genop_'):]
+        num = getattr(rop, opname.upper())
+        genop_list[num] = value
 
 def addr_add(reg_or_imm1, reg_or_imm2, offset=0, scale=0):
     if isinstance(reg_or_imm1, IMM32):
