@@ -125,7 +125,10 @@ class ConstInt(Const):
 
     def __init__(self, value):
         if not we_are_translated():
-            assert isinstance(value, (int, ComputedIntSymbolic))
+            if isinstance(value, int):
+                value = int(value)    # bool -> int
+            else:
+                assert isinstance(value, ComputedIntSymbolic)
         self.value = value
 
     def clonebox(self):
@@ -251,7 +254,10 @@ class BoxInt(Box):
 
     def __init__(self, value=0):
         if not we_are_translated():
-            assert isinstance(value, (int, ComputedIntSymbolic))
+            if isinstance(value, int):
+                value = int(value)    # bool -> int
+            else:
+                assert isinstance(value, ComputedIntSymbolic)
         self.value = value
 
     def clonebox(self):
