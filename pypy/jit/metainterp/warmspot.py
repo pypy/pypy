@@ -25,6 +25,7 @@ def apply_jit(translator, **kwds):
     from pypy.jit.backend.detect_cpu import getcpuclass
     warmrunnerdesc = WarmRunnerDesc(translator, CPUClass=getcpuclass(),
                                     translate_support_code=True,
+                                    listops=True,
                                     **kwds)
     warmrunnerdesc.finish()
 
