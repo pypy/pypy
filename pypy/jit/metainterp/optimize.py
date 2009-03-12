@@ -108,6 +108,8 @@ def av_hash(self):
     return self.sort_key()
 
 def av_list_in(lst, key):
+    # lst is a list of about 2 elements in the typical case, so no
+    # point in making a dict lookup
     for l in lst:
         if key.sort_key() == l.sort_key():
             return True
