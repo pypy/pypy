@@ -987,7 +987,10 @@ class RegAlloc(object):
                         if isinstance(res, REG):
                             laterops.append(Load(arg, self.loc(arg), res))
                         else:
-                            if self.loc(arg).position != res.position:
+                            arg0 = self.loc(arg)
+                            assert isinstance(arg0, MODRM)
+                            assert isinstance(res, MODRM)
+                            if arg0.position != res.position:
                                 reloaded.append((arg, self.loc(arg), res))
             elif isinstance(arg, Const):
                 laterops.append(Load(arg, self.loc(arg), res))

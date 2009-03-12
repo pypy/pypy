@@ -20,7 +20,7 @@ class FakeMetaInterp(object):
         self.gf = gf
         j = 0
         self.recordedvalues = []
-        for box in guard_op.liveboxes:
+        for box in gf.guard_op.liveboxes:
             if isinstance(box, Box):
                 value = gf.cpu.getvaluebox(gf.frame, gf.guard_op, j).value
                 self.recordedvalues.append(value)
