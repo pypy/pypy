@@ -1,7 +1,8 @@
 import sys
 import ctypes
 from pypy.jit.backend.x86 import symbolic
-from pypy.jit.metainterp.history import Const, ConstInt, Box
+from pypy.jit.metainterp.history import Const, ConstInt, Box, ConstPtr, BoxPtr,\
+     BoxInt
 from pypy.rpython.lltypesystem import lltype, rffi, ll2ctypes, rstr, llmemory
 from pypy.rpython.lltypesystem.rclass import OBJECT
 from pypy.rpython.lltypesystem.lloperation import llop
@@ -18,6 +19,18 @@ from pypy.jit.metainterp.resoperation import rop
 
 # our calling convention - we pass three first args as edx, ecx and eax
 # and the rest stays on the stack
+
+def repr_of_arg(arg):
+    if isinstance(arg, ConstInt):
+        return "ci(%d)" % arg.value
+    elif isinstance(arg, ConstPtr):
+        return "cp(%d)" % arg.get_()
+    elif isinstance(arg, BoxInt):
+        return "bi(%d)" % arg.value
+    elif isinstance(arg, BoxPtr):
+        return "bp(%d)" % arg.get_()
+    else:
+        raise NotImplementedError
 
 class Assembler386(object):
     MC_SIZE = 1024*1024     # 1MB, but assumed infinite for now
@@ -88,10 +101,10 @@ class Assembler386(object):
         if self.verbose and we_are_translated():
             print
             for op in operations:
-                args = ",".join([str(arg.get_()) for arg in op.args])
+                args = ",".join([repr_of_arg(arg) for arg in op.args])
                 llop.debug_print(lltype.Void, "%s %s" % (op.getopname(), args))
                 if op.result is not None:
-                    llop.debug_print(lltype.Void, "  => %s" % str(op.result.get_()))
+                    llop.debug_print(lltype.Void, "  => %s" % repr_of_arg(op.result))
             print
         for i in range(len(computed_ops)):
             op = computed_ops[i]
