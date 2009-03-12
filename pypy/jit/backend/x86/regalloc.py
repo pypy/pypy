@@ -611,6 +611,8 @@ class RegAlloc(object):
     consider_int_mul = _consider_binop
     consider_int_sub = _consider_binop
     consider_int_and = _consider_binop
+    consider_int_or  = _consider_binop
+    consider_int_xor = _consider_binop
     consider_uint_add = _consider_binop
     consider_uint_mul = _consider_binop
     consider_uint_sub = _consider_binop
@@ -652,6 +654,19 @@ class RegAlloc(object):
         assert (l0, l1, l2) == (eax, ecx, edx)
         self.eventually_free_vars(op.args + [tmpvar])
         return ops0 + ops1 + ops2 + ops3 + [Perform(op, [eax, ecx], edx)]
+
+    def consider_int_mod_ovf(self, op, guard_op):
+        l0, ops0 = self.make_sure_var_in_reg(op.args[0], [], eax)
+        l1, ops1 = self.make_sure_var_in_reg(op.args[1], [], ecx)
+        l2, ops2 = self.force_allocate_reg(op.result, [], edx)
+        tmpvar = TempBox()
+        _, ops3 = self.force_allocate_reg(tmpvar, [], eax)
+        assert (l0, l1, l2) == (eax, ecx, edx)
+        locs = self._locs_from_liveboxes(guard_op)
+        self.eventually_free_vars(guard_op.liveboxes)
+        self.eventually_free_vars(op.args + [tmpvar])
+        return (ops0 + ops1 + ops2 + ops3 +
+                [PerformWithGuard(op, guard_op, [eax, ecx] + locs, edx)])
 
     def consider_int_floordiv(self, op, ignored):
         tmpvar = TempBox()

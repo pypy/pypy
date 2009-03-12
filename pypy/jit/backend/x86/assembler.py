@@ -219,9 +219,13 @@ class Assembler386(object):
             getattr(self.mc, asmop)(arglocs[0], arglocs[1])
         return genop_binary
 
-    def _binaryop_ovf(asmop, can_swap=False):
+    def _binaryop_ovf(asmop, can_swap=False, is_mod=False):
         def genop_binary_ovf(self, op, guard_op, arglocs, result_loc):
-            getattr(self.mc, asmop)(arglocs[0], arglocs[1])
+            if is_mod:
+                self.mc.CDQ()
+                self.mc.IDIV(ecx)
+            else:
+                getattr(self.mc, asmop)(arglocs[0], arglocs[1])
             index = self.cpu.make_guard_index(guard_op)
             recovery_code_addr = self.mc2.tell()
             stacklocs = guard_op.stacklocs
@@ -271,6 +275,8 @@ class Assembler386(object):
     genop_int_sub = _binaryop("SUB")
     genop_int_mul = _binaryop("IMUL", True)
     genop_int_and = _binaryop("AND", True)
+    genop_int_or  = _binaryop("OR", True)
+    genop_int_xor = _binaryop("XOR", True)
 
     genop_uint_add = genop_int_add
     genop_uint_sub = genop_int_sub
@@ -280,6 +286,7 @@ class Assembler386(object):
     genop_int_mul_ovf = _binaryop_ovf("IMUL", True)
     genop_int_sub_ovf = _binaryop_ovf("SUB")
     genop_int_add_ovf = _binaryop_ovf("ADD", True)
+    genop_int_mod_ovf = _binaryop_ovf("IDIV", is_mod=True)
 
     genop_int_lt = _cmpop("L", "G")
     genop_int_le = _cmpop("LE", "GE")
