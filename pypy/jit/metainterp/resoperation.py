@@ -76,6 +76,9 @@ class ResOperation(object):
     def is_ovf(self):
         return rop._OVF_FIRST <= self.opnum <= rop._OVF_LAST
 
+    def is_comparison(self):
+        return rop._COMPARISON_FIRST <= self.opnum <= rop._COMPARISON_LAST
+
 # ____________________________________________________________
 
 
