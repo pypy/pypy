@@ -12,6 +12,7 @@ from pypy.rpython.annlowlevel import llhelper, llstr, hlstr
 from pypy.rpython.lltypesystem.rstr import STR
 from pypy.rpython.lltypesystem import lltype
 from pypy.interpreter.pycode import PyCode
+from pypy.translator.goal import unixcheckpoint
 
 config = get_pypy_config(translating=True)
 config.translation.backendopt.inline_threshold = 0
@@ -81,23 +82,7 @@ def test_run_translation():
 
     # parent process loop: spawn a child, wait for the child to finish,
     # print a message, and restart
-    while True:
-        child_pid = os.fork()
-        if child_pid == 0:
-            break
-        try:
-            os.waitpid(child_pid, 0)
-        except KeyboardInterrupt:
-            pass
-        print '-' * 79
-        print 'Child process finished, press Enter to restart...'
-        try:
-            raw_input()
-        except KeyboardInterrupt:
-            x = raw_input("are you sure? (y/n)")
-            if x == 'y':
-                raise
-            # otherwise continue
+    unixcheckpoint.restartable_point(auto='run')
 
     from pypy.jit.tl.pypyjit_child import run_child
     run_child(globals(), locals())
