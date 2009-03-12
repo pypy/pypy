@@ -24,8 +24,6 @@ def check_args(*args):
     for arg in args:
         assert isinstance(arg, (Box, Const))
 
-LLDEBUG = False
-
 class arguments(object):
     def __init__(self, *argtypes, **kwargs):
         self.result = kwargs.pop("returns", None)
@@ -613,8 +611,6 @@ class MIFrame(object):
             op = ord(self.bytecode[pc])
             #print self.metainterp.opcode_names[op]
             self.pc = pc + 1
-            if LLDEBUG:
-                print "EXECUTE %d %d" % (pc, op)
             stop = self.metainterp.opcode_implementations[op](self, pc)
             #self.metainterp.most_recent_mp = None
             if stop:
@@ -671,8 +667,6 @@ class MIFrame(object):
         if not we_are_translated():
             self.metainterp._debug_history.append(['call',
                                                   argboxes[0], argboxes[1:]])
-        elif LLDEBUG:
-            print "CALL %d" % argboxes[0].getint()
         # record the operation in the history
         self.metainterp.history.record(opnum, argboxes, resbox, descr)
         if resbox is not None:
@@ -724,8 +718,6 @@ class OOMetaInterp(object):
         self._recompute_class_sizes()
         if not we_are_translated():
             self._debug_history.append(['enter', jitcode, None])
-        elif LLDEBUG:
-            print "ENTER %s" % jitcode.name
         f = MIFrame(self, jitcode)
         self.framestack.append(f)
         return f
@@ -734,9 +726,6 @@ class OOMetaInterp(object):
         frame = self.framestack.pop()
         if not we_are_translated():
             self._debug_history.append(['leave', frame.jitcode, None])
-        else:
-            if LLDEBUG:
-                print "LEAVE %s" % frame.jitcode.name
         if self.framestack:
             if resultbox is not None:
                 self.framestack[-1].make_result_box(resultbox)
@@ -755,8 +744,6 @@ class OOMetaInterp(object):
                 return True
             if not we_are_translated():
                 self._debug_history.append(['leave_exc', frame.jitcode, None])
-            elif LLDEBUG:
-                print "LEAVE_EXC %s" % frame.jitcode.name
             self.framestack.pop()
         raise self.ExitFrameWithException(exceptionbox, excvaluebox)
 
@@ -985,8 +972,6 @@ class OOMetaInterp(object):
     def rebuild_state_after_failure(self, key, newboxes):
         if not we_are_translated():
             self._debug_history.append(['guard_failure', None, None])
-        elif LLDEBUG:
-            print "GUARD_FAILURE"
         self.framestack = []
         nbindex = 0
         for jitcode, pc, envlength, exception_target in key:
