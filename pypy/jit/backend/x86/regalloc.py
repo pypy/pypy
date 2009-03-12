@@ -393,7 +393,7 @@ class RegAlloc(object):
         prev_loc = self.loc(v)
         loc, ops = self.force_allocate_reg(v, forbidden_vars, selected_reg)
         if prev_loc is loc:
-            return loc, []
+            return loc, ops
         return loc, ops + [Load(v, prev_loc, loc)]
 
     def reallocate_from_to(self, from_v, to_v):
@@ -584,7 +584,7 @@ class RegAlloc(object):
     def consider_guard_value(self, op, ignored):
         x = self.loc(op.args[0])
         if not (isinstance(x, REG) or isinstance(op.args[1], Const)):
-            x, ops = self.make_sure_var_in_reg(op.args[0], [])
+            x, ops = self.make_sure_var_in_reg(op.args[0], [], imm_fine=False)
         else:
             ops = []
         y = self.loc(op.args[1])

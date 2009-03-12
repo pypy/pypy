@@ -288,3 +288,4 @@ def test_bug_1():
     cpu.compile_operations(ops)
     args = [p0, p1, i2, i3, i4, i5, p6, p7, i8, i9, i10, i11, p12, p13]
     res = cpu.execute_operations_in_new_frame('foo', ops, args)
+    assert meta_interp.recordedvalues[1:3] == [1000, 1000]
