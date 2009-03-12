@@ -3,7 +3,6 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.jit.metainterp import warmspot
 from pypy.module.pypyjit.portal import PyPyJitPolicy
 
-
 # Current output: http://paste.pocoo.org/show/106540/
 #
 # Some optimizations missing:
@@ -37,9 +36,5 @@ def run_child(glob, loc):
     print 'warmspot.jittify_and_run() started...'
     policy = PyPyJitPolicy(interp.typer.annotator.translator)
     option.view = True
-    try:
-        warmspot.jittify_and_run(interp, graph, [], policy=policy,
-                                 listops=True)
-    except Exception, e:
-        print '%s: %s' % (e.__class__, e)
-        pdb.post_mortem(sys.exc_info()[2])
+    warmspot.jittify_and_run(interp, graph, [], policy=policy,
+                             listops=True)
