@@ -3,12 +3,14 @@
 """
 
 import py
-from pypy.jit.metainterp.history import ResOperation, BoxInt, ConstInt
+from pypy.jit.metainterp.history import ResOperation, BoxInt, ConstInt,\
+     BoxPtr, ConstPtr
 from pypy.jit.backend.x86.runner import CPU, GuardFailed
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.backend.x86.test.test_runner import FakeMetaInterp, FakeStats
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.x86.regalloc import RETURN
+from pypy.rpython.lltypesystem import lltype, llmemory
 
 def test_simple_loop():
     meta_interp = FakeMetaInterp()
@@ -175,3 +177,111 @@ def test_bool_cannot_optimize():
     assert len(cpu.assembler._regalloc.computed_ops) == 5
     assert meta_interp.gf
     # er, what to check here, assembler???
+
+def test_bug_1():
+    meta_interp = FakeMetaInterp()
+    cpu = CPU(rtyper=None, stats=FakeStats())
+    cpu.set_meta_interp(meta_interp)
+    TP = lltype.GcStruct('x', ('y', lltype.Ptr(lltype.GcStruct('y'))))
+    
+    p0 = BoxPtr()
+    p1 = BoxPtr()
+    i2 = BoxInt(1000)
+    i3 = BoxInt(0)
+    i4 = BoxInt(1)
+    i5 = BoxInt(3)
+    p6 = BoxPtr()
+    p7 = BoxPtr()
+    i8 = BoxInt(3)
+    i9 = BoxInt(3)
+    i10 = BoxInt(1)
+    i11 = BoxInt(37)
+    p12 = BoxPtr()
+    p13 = BoxPtr()
+    i14 = BoxInt()
+    i15 = BoxInt()
+    i16 = BoxInt()
+    i17 = BoxInt()
+    i18 = BoxInt()
+    i19 = BoxInt()
+    i20 = BoxInt()
+    i21 = BoxInt()
+    p22 = BoxPtr()
+    i23 = BoxInt()
+    none_ptr = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF,
+                                               lltype.nullptr(TP)))
+    const_code = none_ptr
+    const_ptr = none_ptr
+    stuff = lltype.malloc(TP)
+    stuff_2 = lltype.malloc(TP.y.TO)
+    stuff.y = stuff_2
+    p12 = const_code.clonebox()
+    const_name = none_ptr
+    ops = [
+        ResOperation(rop.MERGE_POINT, [p0, p1, i2, i3, i4, i5, p6, p7, i8,
+                                       i9, i10, i11, p12, p13], None),
+        ResOperation(rop.GUARD_VALUE, [i10, ConstInt(1)], None),
+        ResOperation(rop.OOISNULL, [p1], i14),
+        ResOperation(rop.GUARD_TRUE, [i14], None),
+        ResOperation(rop.INT_LT, [i5, ConstInt(0)], i15),
+        ResOperation(rop.GUARD_FALSE, [i15], None),
+        ResOperation(rop.INT_GE, [i5, i2], i16),
+        ResOperation(rop.GUARD_FALSE, [i16], None),
+        ResOperation(rop.INT_LT, [i5, ConstInt(0)], i17),
+        ResOperation(rop.GUARD_FALSE, [i17], None),
+        ResOperation(rop.INT_MUL, [i5, i4], i18),
+        ResOperation(rop.INT_ADD, [i3, i18], i19),
+        ResOperation(rop.INT_ADD, [i5, ConstInt(1)], i20),
+        ResOperation(rop.INT_ADD_OVF, [i8, i19], i21),
+        ResOperation(rop.GUARD_NO_EXCEPTION, [], None),
+        ResOperation(rop.GETFIELD_GC, [const_ptr], p22),
+        ResOperation(rop.OOISNULL, [p22], i23),
+        ResOperation(rop.GUARD_FALSE, [i23], None),
+        ResOperation(rop.GUARD_VALUE, [p12, const_code], None),
+        ResOperation(rop.JUMP, [p0, p1, i2, i3, i4, i20, none_ptr, none_ptr,
+                                i21, i19, ConstInt(1), ConstInt(37), p12, p22],
+                     None)
+        ]
+    ops[-5].descr = cpu.fielddescrof(TP, 'y')
+    ops[1].liveboxes = [ConstInt(21), const_code, p0, i11, i5, i2, i3, i4, p1,
+                        p6, p7, i8, i9, i10, p12, p13, const_name]
+    ops[3].liveboxes = [ConstInt(21), const_code, p0, ConstInt(21), i5, i2, i3,
+                        i4, p1, p6, p7, i8, i9, ConstInt(1), p12, p13,
+                        const_name, const_name, ConstInt(21),
+                        const_name, ConstInt(24), ConstInt(16), ConstInt(16),
+                        ConstInt(24), ConstInt(346), ConstInt(0)]
+    ops[5].liveboxes = [ConstInt(21), const_code, p0, ConstInt(21), i5, i2, i3,
+                        i4, p1, p6, p7, i8, i9, ConstInt(1), p12, p13,
+                        const_name, const_name, ConstInt(21), const_name,
+                        ConstInt(24), ConstInt(16), ConstInt(16),
+                        ConstInt(24), ConstInt(346), ConstInt(1)]
+    ops[7].liveboxes = [ConstInt(21), const_code, p0, ConstInt(21), i5, i2,
+                        i3, i4, p1, p6, p7, i8, i9, ConstInt(1), p12, p13,
+                        const_name, const_name, ConstInt(21), const_name,
+                        ConstInt(24), ConstInt(16), ConstInt(16),
+                        ConstInt(24), ConstInt(346), ConstInt(1)]
+    ops[9].liveboxes = [ConstInt(21), const_code, p0, ConstInt(21), i5, i2,
+                        i3, i4, p1, p6, p7, i8, i9, ConstInt(1), p12, p13,
+                        const_name, const_name, ConstInt(21), const_name,
+                        ConstInt(24), ConstInt(16), ConstInt(16),
+                        ConstInt(24), ConstInt(346), ConstInt(1)]
+    ops[14].liveboxes = [ConstInt(33), const_code, p0, ConstInt(33), i20,
+                         i2, i3, i4, p1, none_ptr, none_ptr, i8, i19,
+                         ConstInt(1), p12, p13, const_name, const_name,
+                         ConstInt(33), const_name, ConstInt(34),
+                         ConstInt(0), ConstInt(347), i21]
+    ops[17].liveboxes = [ConstInt(37), const_code, p0, ConstInt(37), i20, i2,
+                         i3, i4, p1, none_ptr, none_ptr, i21, i19,
+                         ConstInt(1), p12, p13, const_name, const_name,
+                         ConstInt(37), const_name, ConstInt(40), ConstInt(21),
+                         ConstInt(21), p22, ConstInt(1)]
+    ops[-2].liveboxes = [ConstInt(37), const_code, p0, ConstInt(37), i20, i2,
+                         i3, i4, p1, none_ptr, none_ptr, i21, i19,
+                         ConstInt(1), p12, p13, const_name, const_name,
+                         ConstInt(37), const_name, ConstInt(40), ConstInt(21),
+                         ConstInt(21), p22]
+
+    ops[-1].jump_target = ops[0]
+    cpu.compile_operations(ops)
+    args = p0, p1, i2, i3, i4, i5, p6, p7, i8, i9, i10, i11, p12, p31
+    res = cpu.execute_operations_in_new_frame('foo', ops, args)
