@@ -20,15 +20,20 @@ from pypy.jit.metainterp.resoperation import rop
 # our calling convention - we pass three first args as edx, ecx and eax
 # and the rest stays on the stack
 
-def repr_of_arg(arg):
+def repr_of_arg(memo, arg):
+    try:
+        mv = memo[arg]
+    except KeyError:
+        mv = len(memo)
+        memo[arg] = mv
     if isinstance(arg, ConstInt):
-        return "ci(%d)" % arg.value
+        return "ci(%d,%d)" % (mv, arg.value)
     elif isinstance(arg, ConstPtr):
-        return "cp(%d)" % arg.get_()
+        return "cp(%d,%d)" % (mv, arg.get_())
     elif isinstance(arg, BoxInt):
-        return "bi(%d)" % arg.value
+        return "bi(%d,%d)" % (mv, arg.value)
     elif isinstance(arg, BoxPtr):
-        return "bp(%d)" % arg.get_()
+        return "bp(%d,%d)" % (mv, arg.get_())
     else:
         raise NotImplementedError
 
@@ -100,11 +105,12 @@ class Assembler386(object):
             print
         if self.verbose and we_are_translated():
             print
+            memo = {}
             for op in operations:
-                args = ",".join([repr_of_arg(arg) for arg in op.args])
+                args = ",".join([repr_of_arg(memo, arg) for arg in op.args])
                 llop.debug_print(lltype.Void, "%s %s" % (op.getopname(), args))
                 if op.result is not None:
-                    llop.debug_print(lltype.Void, "  => %s" % repr_of_arg(op.result))
+                    llop.debug_print(lltype.Void, "  => %s" % repr_of_arg(memo, op.result))
             print
         for i in range(len(computed_ops)):
             op = computed_ops[i]
