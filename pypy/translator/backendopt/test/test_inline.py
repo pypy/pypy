@@ -9,6 +9,7 @@ from pypy.translator.backendopt.inline import auto_inlining, Inliner
 from pypy.translator.backendopt.inline import collect_called_graphs
 from pypy.translator.backendopt.inline import measure_median_execution_cost
 from pypy.translator.backendopt.inline import instrument_inline_candidates
+from pypy.translator.backendopt.inline import inlining_heuristic_no_oopspec
 from pypy.translator.backendopt.checkvirtual import check_virtual_methods
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.llinterp import LLInterpreter
@@ -92,7 +93,7 @@ class BaseTestInline:
         return eval_func
 
     def check_auto_inlining(self, func, sig, multiplier=None, call_count_check=False,
-                            checkvirtual=False, remove_same_as=False):
+                            checkvirtual=False, remove_same_as=False, heuristic=None):
         t = self.translate(func, sig)
         if checkvirtual:
             check_virtual_methods()
@@ -114,7 +115,11 @@ class BaseTestInline:
             for graph in t.graphs:
                 removenoops.remove_same_as(graph)
             
-        auto_inlining(t, threshold, call_count_pred=call_count_pred)
+        if heuristic is not None:
+            kwargs = {"heuristic": heuristic}
+        else:
+            kwargs = {}
+        auto_inlining(t, threshold, call_count_pred=call_count_pred, **kwargs)
 
         sanity_check(t)
         if option.view:
@@ -596,6 +601,24 @@ class TestInlineLLType(LLRtypeMixin, BaseTestInline):
         eval_func = self.check_inline(g, f, [])
         res = eval_func([])
         assert res == 5
+
+    def test_no_oopspec_inliner(self):
+        def f():
+            tot = 0
+            for item in [1,2,3]:
+                tot += item
+            return tot
+
+        eval_func, t = self.check_auto_inlining(
+            f, [], heuristic=inlining_heuristic_no_oopspec)
+        f_graph = graphof(t, f)
+        called_graphs = collect_called_graphs(f_graph, t, include_oosend=False)
+        print called_graphs
+        assert len(called_graphs) == 4 # newlist, setitem, getitem, length
+
+        result = eval_func([])
+        assert result == 6
+
 
 
 class TestInlineOOType(OORtypeMixin, BaseTestInline):

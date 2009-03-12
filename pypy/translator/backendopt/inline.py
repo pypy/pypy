@@ -624,6 +624,12 @@ def inlining_heuristic(graph):
     return (0.9999 * measure_median_execution_cost(graph) +
             count), True
 
+def inlining_heuristic_no_oopspec(graph):
+    try:
+        oopspec = graph.func.oopspec
+    except AttributeError:
+        return inlining_heuristic(graph)
+    return (sys.maxint, True)
 
 def inlinable_static_callers(graphs):
     ok_to_call = dict.fromkeys(graphs)
