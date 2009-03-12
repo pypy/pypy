@@ -4,11 +4,11 @@ import py
 from pypy.rpython.lltypesystem import lltype, llmemory, ll2ctypes, rffi, rstr
 from pypy.rpython.llinterp import LLInterpreter, LLException
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rlib.objectmodel import CDefinedIntSymbolic, specialize
+from pypy.rlib.objectmodel import CDefinedIntSymbolic, specialize, Symbolic
 from pypy.rlib.objectmodel import we_are_translated, keepalive_until_here
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import rclass
-from pypy.jit.metainterp import history
+from pypy.jit.metainterp import history, codewriter
 from pypy.jit.metainterp.history import (ResOperation, Box, Const,
      ConstInt, ConstPtr, BoxInt, BoxPtr, ConstAddr)
 from pypy.jit.backend.x86.assembler import Assembler386, WORD, RETURN
@@ -22,6 +22,32 @@ GC_MALLOC = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
 VOID = 0
 PTR = 1
 INT = 2
+
+class ConstDescr3(Const):
+    def __init__(self, v):
+        self.v = v
+
+    def _v(self):
+        l = []
+        for i in self.v:
+            if isinstance(i, Symbolic):
+                l.append(id(i))
+            else:
+                l.append(i)
+        return tuple(l)
+
+
+    def __hash__(self):
+        return hash(self._v())
+
+    def __eq__(self, other):
+        return self.__class__ is other.__class__ and self._v() == other._v()
+
+    def __ne__(self, other):
+        return not self == other
+
+    def _getrepr_(self):
+        return repr(self.v)
 
 class CPU386(object):
     debug = True
@@ -383,7 +409,7 @@ class CPU386(object):
         frame[mp.stacklocs[argindex]] = self.convert_box_to_int(valuebox)
 
     def sizeof(self, S):
-        return symbolic.get_size(S)
+        return ConstInt(symbolic.get_size(S, self.translate_support_code))
 
     numof = sizeof
 #    addresssuffix = str(symbolic.get_size(llmemory.Address))
@@ -405,11 +431,7 @@ class CPU386(object):
     def do_getarrayitem_gc(self, args, arraydescr):
         field = args[1].getint()
         gcref = args[0].getptr(llmemory.GCREF)
-        if arraydescr < 0:
-            ptr = True
-        else:
-            ptr = False
-        shift, ofs = self.unpack_arraydescr(arraydescr)
+        shift, ofs, ptr = self.unpack_arraydescr(arraydescr)
         size = 1 << shift
         if size == 1:
             return BoxInt(ord(rffi.cast(rffi.CArrayPtr(lltype.Char), gcref)
@@ -427,11 +449,7 @@ class CPU386(object):
     def do_setarrayitem_gc(self, args, arraydescr):
         field = args[1].getint()
         gcref = args[0].getptr(llmemory.GCREF)
-        if arraydescr < 0:
-            ptr = True
-        else:
-            ptr = False
-        shift, ofs = self.unpack_arraydescr(arraydescr)
+        shift, ofs, ptr = self.unpack_arraydescr(arraydescr)
         size = 1 << shift
         if size == 1:
             v = args[2].getint()
@@ -447,13 +465,15 @@ class CPU386(object):
             raise NotImplementedError("size = %d" % size)
 
     def do_strlen(self, args, descr=0):
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR)
+        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
+                                                   self.translate_support_code)
         gcref = args[0].getptr(llmemory.GCREF)
         v = rffi.cast(rffi.CArrayPtr(lltype.Signed), gcref)[ofs_length/WORD]
         return BoxInt(v)
 
     def do_strgetitem(self, args, descr=0):
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR)
+        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
+                                                    self.translate_support_code)
         gcref = args[0].getptr(llmemory.GCREF)
         i = args[1].getint()
         v = rffi.cast(rffi.CArrayPtr(lltype.Char), gcref)[basesize + i]
@@ -509,16 +529,16 @@ class CPU386(object):
         self._base_do_setfield(fielddescr, args[0].getint(), args[1])
 
     def do_new(self, args, descrsize):
-        res = rffi.cast(GC_MALLOC, gc_malloc_fnaddr())(descrsize)
+        res = rffi.cast(GC_MALLOC, gc_malloc_fnaddr())(descrsize.getint())
         return BoxPtr(self.cast_int_to_gcref(res))
 
     def do_new_with_vtable(self, args, descrsize):
-        res = rffi.cast(GC_MALLOC, gc_malloc_fnaddr())(descrsize)
+        res = rffi.cast(GC_MALLOC, gc_malloc_fnaddr())(descrsize.getint())
         rffi.cast(rffi.CArrayPtr(lltype.Signed), res)[0] = args[0].getint()
         return BoxPtr(self.cast_int_to_gcref(res))
 
     def do_new_array(self, args, arraydescr):
-        size_of_field, ofs = self.unpack_arraydescr(arraydescr)
+        size_of_field, ofs, ptr = self.unpack_arraydescr(arraydescr)
         num_elem = args[0].getint()
         size = ofs + (1 << size_of_field) * num_elem
         res = rffi.cast(GC_MALLOC, gc_malloc_fnaddr())(size)
@@ -526,7 +546,8 @@ class CPU386(object):
         return BoxPtr(self.cast_int_to_gcref(res))
 
     def do_newstr(self, args, descr=0):
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR)
+        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
+                                         self.translate_support_code)
         assert itemsize == 1
         num_elem = args[0].getint()
         size = basesize + num_elem
@@ -535,7 +556,8 @@ class CPU386(object):
         return BoxPtr(self.cast_int_to_gcref(res))
 
     def do_strsetitem(self, args, descr=0):
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR)
+        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
+                                                self.translate_support_code)
         index = args[1].getint()
         v = args[2].getint()
         a = args[0].getptr(llmemory.GCREF)
@@ -565,73 +587,80 @@ class CPU386(object):
         adr = llmemory.cast_ptr_to_adr(x)
         return CPU386.cast_adr_to_int(adr)
 
-    @staticmethod
-    def arraydescrof(A):
+    def arraydescrof(self, A):
         assert isinstance(A, lltype.GcArray)
-        basesize, itemsize, ofs_length = symbolic.get_array_token(A)
+        basesize, itemsize, ofs_length = symbolic.get_array_token(A,
+                                                  self.translate_support_code)
         assert ofs_length == 0
-        counter = 0
-        while itemsize != 1:
-            itemsize >>= 1
-            counter += 1
-        res = basesize + counter * 0x10000
         if isinstance(A.OF, lltype.Ptr):
-            res = ~res
+            ptr = True
+        else:
+            ptr = False
+        return ConstDescr3((basesize, itemsize, ptr))
+
+    def ofs_from_descr(self, descr):
+        assert isinstance(descr, ConstDescr3)
+        x = (descr.v[0] << 16) + descr.v[1]
+        if descr.v[2]:
+            return ~x
+        return x
+
+    def repack_descr(self, ofs):
+        orig_ofs = ofs
+        if ofs < 0:
+            ptr = True
+            ofs = ~ofs
+        else:
+            ptr = False
+        res = ConstDescr3((ofs>>16, ofs & 0xffff, ptr))
+        assert self.ofs_from_descr(res) == orig_ofs
         return res
 
     @staticmethod
     def unpack_arraydescr(arraydescr):
-        # XXX move it to some saner place, regalloc is using it
-        if arraydescr < 0:
-            arraydescr = ~arraydescr
-        assert arraydescr
-        size_of_field = arraydescr >> 16
-        ofs = arraydescr & 0xffff
-        return size_of_field, ofs
+        assert isinstance(arraydescr, ConstDescr3)
+        basesize, itemsize, ptr = arraydescr.v
+        counter = 0
+        while itemsize != 1:
+            itemsize >>= 1
+            counter += 1
+        return counter, basesize, ptr
 
-    @staticmethod
-    def calldescrof(argtypes, resulttype):
+    def calldescrof(self, argtypes, resulttype):
         if resulttype is lltype.Void:
             size = 0
         else:
-            size = symbolic.get_size(resulttype)
-        res = (len(argtypes) << 4) + size
+            size = symbolic.get_size(resulttype, self.translate_support_code)
         if isinstance(resulttype, lltype.Ptr):
-            return ~res
-        return res
-
-    @staticmethod
-    def unpack_calldescr(calldescr):
-        if calldescr < 0:
-            calldescr = ~calldescr
             ptr = True
         else:
             ptr = False
-        return calldescr >> 4, calldescr & 0xf, ptr
+        return ConstDescr3((len(argtypes), size, ptr))
 
     @staticmethod
-    def fielddescrof(S, fieldname):
-        ofs, size = symbolic.get_field_token(S, fieldname)
-        val = (size << 16) + ofs
+    def unpack_calldescr(calldescr):
+        assert isinstance(calldescr, ConstDescr3)
+        return calldescr.v
+
+    def fielddescrof(self, S, fieldname):
+        ofs, size = symbolic.get_field_token(S, fieldname,
+                                             self.translate_support_code)
         if (isinstance(getattr(S, fieldname), lltype.Ptr) and
             getattr(S, fieldname).TO._gckind == 'gc'):
-            return ~val
-        return val
+            ptr = True
+        else:
+            ptr = False
+        return ConstDescr3((ofs, size, ptr))
 
     @staticmethod
     def unpack_fielddescr(fielddescr):
-        ptr = False
-        if fielddescr < 0:
-            fielddescr = ~fielddescr
-            ptr = True
-        ofs = fielddescr & 0xffff
-        size = fielddescr >> 16
-        return ofs, size, ptr
+        assert isinstance(fielddescr, ConstDescr3)
+        return fielddescr.v
 
     @staticmethod
     def typefor(fielddesc):
-        if fielddesc < 0:
-            return "ptr"
+        if fieldesc[2]:
+            return 'ptr'
         return "int"
 
     @staticmethod

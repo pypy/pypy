@@ -33,6 +33,11 @@ class FixedList(AbstractValue):
 class CancelInefficientLoop(Exception):
     pass
 
+def convert_vdesc(cpu, vdesc):
+    if vdesc:
+        return [cpu.ofs_from_descr(i) for i in vdesc.virtuals]
+    return []
+
 class AllocationStorage(object):
     def __init__(self):
         # allocations: list of vtables to allocate
@@ -142,7 +147,7 @@ class InstanceNode(object):
                 node.escape_if_startbox(memo)
         else:
             for key, node in self.curfields.items():
-                if self.vdesc and key not in self.vdesc.virtuals:
+                if self.vdesc is not None and key not in self.vdesc:
                     esc_self = True
                 else:
                     esc_self = False
@@ -151,7 +156,7 @@ class InstanceNode(object):
             # if they're not marked specifically as ones that does not escape
             for key, node in self.origfields.items():
                 if key not in self.curfields:
-                    if self.vdesc and key not in self.vdesc.virtuals:
+                    if self.vdesc is not None and key not in self.vdesc:
                         esc_self = True
                     else:
                         esc_self = False
@@ -162,8 +167,8 @@ class InstanceNode(object):
         for ofs, node in self.origfields.items():
             if ofs in other.curfields:
                 node.add_to_dependency_graph(other.curfields[ofs], dep_graph)
-            if (self.virtualized and self.vdesc and
-                ofs in self.vdesc.virtuals):
+            if (self.virtualized and self.vdesc is not None and
+                ofs in self.vdesc):
                 node.add_to_dependency_graph(other.origfields[ofs], dep_graph)
 
     def intersect(self, other, nodes):
@@ -255,7 +260,7 @@ def optimize_loop(options, old_loops, loop, cpu=None):
 
     # This does "Perfect specialization" as per doc/jitpl5.txt.
     perfect_specializer = PerfectSpecializer(loop, options)
-    perfect_specializer.find_nodes()
+    perfect_specializer.find_nodes(cpu)
     perfect_specializer.intersect_input_and_output()
     for old_loop in old_loops:
         if perfect_specializer.match_exactly(old_loop):
@@ -268,7 +273,7 @@ def optimize_bridge(options, old_loops, bridge, cpu=None):
         return old_loops[0]
 
     perfect_specializer = PerfectSpecializer(bridge, options)
-    perfect_specializer.find_nodes()
+    perfect_specializer.find_nodes(cpu)
     for old_loop in old_loops:
         if perfect_specializer.match(old_loop.operations):
             perfect_specializer.adapt_for_match(old_loop.operations)
@@ -339,7 +344,7 @@ class PerfectSpecializer(object):
 ##        instnode.cursize += 1
 ##        self.dependency_graph.append((instnode, fieldnode))
         
-    def find_nodes(self):
+    def find_nodes(self, cpu):
         # Steps (1) and (2)
         self.first_escaping_op = True
         # only catch can have consts
@@ -421,19 +426,19 @@ class PerfectSpecializer(object):
                 continue
             elif opnum == rop.SETFIELD_GC:
                 instnode = self.getnode(op.args[0])
-                field = op.descr
+                field = cpu.ofs_from_descr(op.descr)
                 self.find_nodes_setfield(instnode, field,
                                          self.getnode(op.args[1]))
                 continue
             elif opnum == rop.GETFIELD_GC:
                 instnode = self.getnode(op.args[0])
-                field = op.descr
+                field = cpu.ofs_from_descr(op.descr)
                 box = op.result
                 self.find_nodes_getfield(instnode, field, box)
                 continue
             elif opnum == rop.GETFIELD_GC_PURE:
                 instnode = self.getnode(op.args[0])
-                field = op.descr
+                field = cpu.ofs_from_descr(op.descr)
                 if not instnode.const:
                     box = op.result
                     self.find_nodes_getfield(instnode, field, box)
@@ -532,7 +537,7 @@ class PerfectSpecializer(object):
                     instnode.virtualized = True
                 if instnode.cls is None:
                     instnode.cls = InstanceNode(op.args[1], const=True)
-                    instnode.vdesc = op.vdesc
+                    instnode.vdesc = convert_vdesc(cpu, op.vdesc)
                 continue
             elif op.is_always_pure():
                 for arg in op.args:
@@ -593,14 +598,14 @@ class PerfectSpecializer(object):
             specnodes.append(enternode.intersect(leavenode, self.nodes))
         self.specnodes = specnodes
 
-    def expanded_version_of(self, boxlist, oplist):
+    def expanded_version_of(self, boxlist, oplist, cpu):
         # oplist is None means at the start
         newboxlist = []
         assert len(boxlist) == len(self.specnodes)
         for i in range(len(boxlist)):
             box = boxlist[i]
             specnode = self.specnodes[i]
-            specnode.expand_boxlist(self.nodes[box], newboxlist, oplist)
+            specnode.expand_boxlist(self.nodes[box], newboxlist, oplist, cpu)
         return newboxlist
 
     def optimize_guard(self, op, cpu):
@@ -718,7 +723,7 @@ class PerfectSpecializer(object):
             #    self.ready_results[newoperations[-1].results[0]] = None
             opnum = op.opnum
             if opnum == rop.MERGE_POINT:
-                args = self.expanded_version_of(op.args, None)
+                args = self.expanded_version_of(op.args, None, cpu)
                 op = ResOperation(rop.MERGE_POINT, args, None)
                 newoperations.append(op)
                 #for arg in op.args:
@@ -728,11 +733,11 @@ class PerfectSpecializer(object):
             #    for arg in op.args:
             #        self.ready_results[arg] = None
             elif opnum == rop.JUMP:
-                args = self.expanded_version_of(op.args, newoperations)
+                args = self.expanded_version_of(op.args, newoperations, cpu)
                 for arg in args:
                     if arg in self.nodes:
                         assert not self.nodes[arg].virtual
-                self.cleanup_field_caches(newoperations)
+                self.cleanup_field_caches(newoperations, cpu)
                 op = ResOperation(rop.JUMP, args, None)
                 newoperations.append(op)
                 continue
@@ -792,14 +797,16 @@ class PerfectSpecializer(object):
                 continue
             elif opnum == rop.GETFIELD_GC:
                 instnode = self.nodes[op.args[0]]
-                if self.optimize_getfield(instnode, op.descr, op.result):
+                ofs = cpu.ofs_from_descr(op.descr)
+                if self.optimize_getfield(instnode, ofs, op.result):
                     continue
                 # otherwise we need this getfield, but it does not
                 # invalidate caches
             elif opnum == rop.GETFIELD_GC_PURE:
                 instnode = self.nodes[op.args[0]]
                 if not instnode.const:
-                    if self.optimize_getfield(instnode, op.descr, op.result):
+                    ofs = cpu.ofs_from_descr(op.descr)
+                    if self.optimize_getfield(instnode, ofs, op.result):
                         continue
             elif opnum == rop.GETARRAYITEM_GC:
                 instnode = self.nodes[op.args[0]]
@@ -880,7 +887,7 @@ class PerfectSpecializer(object):
             elif opnum == rop.SETFIELD_GC:
                 instnode = self.nodes[op.args[0]]
                 valuenode = self.nodes[op.args[1]]
-                ofs = op.descr
+                ofs = cpu.ofs_from_descr(op.descr)
                 self.optimize_setfield(instnode, ofs, valuenode, op.args[1])
                 continue
             elif opnum == rop.SETARRAYITEM_GC:
@@ -947,7 +954,7 @@ class PerfectSpecializer(object):
                   opnum != rop.SETARRAYITEM_GC):
                 # the setfield operations do not clean up caches, although
                 # they have side effects
-                self.cleanup_field_caches(newoperations)
+                self.cleanup_field_caches(newoperations, cpu)
             if op.can_raise():
                 exception_might_have_happened = True
             box = op.result
@@ -959,7 +966,7 @@ class PerfectSpecializer(object):
         newoperations[0].specnodes = self.specnodes
         self.loop.operations = newoperations
 
-    def cleanup_field_caches(self, newoperations):
+    def cleanup_field_caches(self, newoperations, cpu):
         # we need to invalidate everything
         for node in self.nodes.values():
             for ofs, valuenode in node.dirtyfields.items():
@@ -972,8 +979,9 @@ class PerfectSpecializer(object):
                          [node.source, ConstInt(ofs), valuenode.source],
                                                       None, ld.arraydescr))
                 else:
+                    descr = cpu.repack_descr(ofs)
                     newoperations.append(ResOperation(rop.SETFIELD_GC,
-                       [node.source, valuenode.source], None, ofs))
+                       [node.source, valuenode.source], None, descr))
             node.dirtyfields = {}
             node.cleanfields = {}
 
@@ -1046,8 +1054,9 @@ def rebuild_boxes_from_guard_failure(guard_op, metainterp, boxes_from_frame):
         box = box_from_index(allocated_boxes, allocated_lists,
                              boxes_from_frame,
                              index_in_alloc)
+        descr = metainterp.cpu.repack_descr(ofs)
         metainterp.execute_and_record(rop.SETFIELD_GC,
-                                      [box, fieldbox], ofs)
+                                      [box, fieldbox], descr)
     for index_in_alloc, ad, ofs, index_in_arglist in storage.setitems:
         itembox = box_from_index(allocated_boxes, allocated_lists,
                                  boxes_from_frame, index_in_arglist)

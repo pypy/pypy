@@ -520,43 +520,45 @@ class Frame(object):
     # delegating to the builtins do_xxx() (done automatically for simple cases)
 
     def op_getarrayitem_gc(self, arraydescr, array, index):
-        if arraydescr & 1:
+        if arraydescr.getint() & 1:
             return do_getarrayitem_gc_ptr(array, index)
         else:
             return do_getarrayitem_gc_int(array, index, self.memocast)
 
     def op_getfield_gc(self, fielddescr, struct):
+        fielddescr = fielddescr.getint()
         if fielddescr & 1:
             return do_getfield_gc_ptr(struct, fielddescr)
         else:
             return do_getfield_gc_int(struct, fielddescr, self.memocast)
 
     def op_getfield_raw(self, fielddescr, struct):
-        if fielddescr & 1:
+        if fielddescr.getint() & 1:
             return do_getfield_raw_ptr(struct, fielddescr)
         else:
             return do_getfield_raw_int(struct, fielddescr, self.memocast)
 
     def op_new_with_vtable(self, size, vtable):
-        result = do_new(size)
+        result = do_new(size.getint())
         value = lltype.cast_opaque_ptr(rclass.OBJECTPTR, result)
         value.typeptr = cast_from_int(rclass.CLASSTYPE, vtable, self.memocast)
         return result
 
     def op_setarrayitem_gc(self, arraydescr, array, index, newvalue):
-        if arraydescr & 1:
+        if arraydescr.getint() & 1:
             do_setarrayitem_gc_ptr(array, index, newvalue)
         else:
             do_setarrayitem_gc_int(array, index, newvalue, self.memocast)
 
     def op_setfield_gc(self, fielddescr, struct, newvalue):
+        fielddescr = fielddescr.getint()
         if fielddescr & 1:
             do_setfield_gc_ptr(struct, fielddescr, newvalue)
         else:
             do_setfield_gc_int(struct, fielddescr, newvalue, self.memocast)
 
     def op_setfield_raw(self, fielddescr, struct, newvalue):
-        if fielddescr & 1:
+        if fielddescr.getint() & 1:
             do_setfield_raw_ptr(struct, fielddescr, newvalue)
         else:
             do_setfield_raw_int(struct, fielddescr, newvalue, self.memocast)
@@ -565,11 +567,14 @@ class Frame(object):
         _call_args[:] = args
         if calldescr == sys.maxint:
             err_result = None
-        elif calldescr & 1:
+        elif calldescr.getint() & 1:
             err_result = lltype.nullptr(llmemory.GCREF.TO)
         else:
             err_result = 0
         return _do_call_common(func, self.memocast, err_result)
+
+    def op_new_array(self, arraydescr, count):
+        return do_new_array(arraydescr.getint(), count)
 
 # ____________________________________________________________
 

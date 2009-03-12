@@ -99,8 +99,9 @@ def convert_to_imm(c):
         raise ValueError("convert_to_imm: got a %s" % c)
 
 class RegAlloc(object):
-    def __init__(self, operations, guard_op=None):
+    def __init__(self, operations, guard_op=None, translate_support_code=False):
         # variables that have place in register
+        self.translate_support_code = translate_support_code
         self.reg_bindings = newcheckdict()
         self.stack_bindings = {}
         # compute longevity of variables
@@ -731,16 +732,14 @@ class RegAlloc(object):
     consider_call_pure = consider_call
 
     def consider_new(self, op, ignored):
-        return self._call(op, [imm(op.descr)])
+        return self._call(op, [imm(op.descr.getint())])
 
     def consider_new_with_vtable(self, op, ignored):
-        return self._call(op, [imm(op.descr), self.loc(op.args[0])])
+        return self._call(op, [imm(op.descr.getint()), self.loc(op.args[0])])
 
     def consider_newstr(self, op, ignored):
-        ofs = symbolic.get_field_token(rstr.STR, 'chars')[0]
-        ofs_items = symbolic.get_field_token(rstr.STR.chars, 'items')[0]
-        ofs_length = symbolic.get_field_token(rstr.STR.chars, 'length')[0]
-        return self._malloc_varsize(ofs, ofs_items, ofs_length, 0, op.args[0],
+        ofs_items, _, ofs = symbolic.get_array_token(rstr.STR, self.translate_support_code)
+        return self._malloc_varsize(0, ofs_items, ofs, 0, op.args[0],
                                     op.result)
 
     def _malloc_varsize(self, ofs, ofs_items, ofs_length, size, v, res_v):
@@ -768,7 +767,7 @@ class RegAlloc(object):
         return res
 
     def consider_new_array(self, op, ignored):
-        size_of_field, basesize = self._unpack_arraydescr(op.descr)
+        size_of_field, basesize, _ = self._unpack_arraydescr(op.descr)
         return self._malloc_varsize(0, basesize, 0, size_of_field, op.args[0],
                                     op.result)
 
@@ -805,7 +804,7 @@ class RegAlloc(object):
                 [PerformDiscard(op, [base_loc, ofs_loc, value_loc])])
 
     def consider_setarrayitem_gc(self, op, ignored):
-        scale, ofs = self._unpack_arraydescr(op.descr)
+        scale, ofs, _ = self._unpack_arraydescr(op.descr)
         base_loc, ops0  = self.make_sure_var_in_reg(op.args[0], op.args)
         ofs_loc, ops1 = self.make_sure_var_in_reg(op.args[1], op.args)
         value_loc, ops2 = self.make_sure_var_in_reg(op.args[2], op.args)
@@ -825,7 +824,7 @@ class RegAlloc(object):
     consider_getfield_gc_pure = consider_getfield_gc
 
     def consider_getarrayitem_gc(self, op, ignored):
-        scale, ofs = self._unpack_arraydescr(op.descr)
+        scale, ofs, _ = self._unpack_arraydescr(op.descr)
         base_loc, ops0  = self.make_sure_var_in_reg(op.args[0], op.args)
         ofs_loc, ops1 = self.make_sure_var_in_reg(op.args[1], op.args)
         self.eventually_free_vars(op.args)
@@ -891,7 +890,7 @@ class RegAlloc(object):
         return ops0 + more_ops + [Perform(op, [base_loc], result_loc)]
 
     def consider_arraylen_gc(self, op, ignored):
-        _, ofs = self._unpack_arraydescr(op.descr)
+        _, ofs, _ = self._unpack_arraydescr(op.descr)
         base_loc, ops0 = self.make_sure_var_in_reg(op.args[0], op.args)
         self.eventually_free_vars(op.args)
         result_loc, more_ops = self.force_allocate_reg(op.result, [])

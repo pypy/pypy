@@ -68,7 +68,7 @@ class Assembler386(object):
         self.make_sure_mc_exists()
         op0 = operations[0]
         op0.position = self.mc.tell()
-        regalloc = RegAlloc(operations, guard_op)
+        regalloc = RegAlloc(operations, guard_op, self.cpu.translate_support_code)
         if not we_are_translated():
             self._regalloc = regalloc # for debugging
         computed_ops = regalloc.computed_ops
@@ -405,7 +405,8 @@ class Assembler386(object):
 
     def genop_strsetitem(self, op, arglocs):
         base_loc, ofs_loc, val_loc = arglocs
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR)
+        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
+                                              self.cpu.translate_support_code)
         self.mc.MOV(addr8_add(base_loc, ofs_loc, basesize),
                     lower_byte(val_loc))
 
@@ -413,7 +414,8 @@ class Assembler386(object):
 
     def genop_strlen(self, op, arglocs, resloc):
         base_loc = arglocs[0]
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR)
+        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
+                                             self.cpu.translate_support_code)
         self.mc.MOV(resloc, addr_add_const(base_loc, ofs_length))
 
     def genop_arraylen_gc(self, op, arglocs, resloc):
@@ -422,7 +424,8 @@ class Assembler386(object):
 
     def genop_strgetitem(self, op, arglocs, resloc):
         base_loc, ofs_loc = arglocs
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR)
+        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
+                                             self.cpu.translate_support_code)
         self.mc.MOVZX(resloc, addr8_add(base_loc, ofs_loc, basesize))
 
     def genop_merge_point(self, op, locs):

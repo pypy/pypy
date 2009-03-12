@@ -204,6 +204,7 @@ class TestX86(object):
             (rop.INT_FLOORDIV, [ConstInt(42), BoxInt(10)], 4),
             (rop.INT_RSHIFT, [ConstInt(3), BoxInt(4)], 3>>4),
             (rop.INT_RSHIFT, [BoxInt(3), ConstInt(10)], 3>>10),
+            #(rop.INT_LSHIFT, [BoxInt(3), BoxInt(1)], 3<<1),
             ]:
             assert self.execute_operation(op, args, 'int').value == res
 
@@ -235,7 +236,7 @@ class TestX86(object):
         try:
             saved_addr = self.cpu.assembler.malloc_func_addr
             self.cpu.assembler.malloc_func_addr = addr
-            ofs = symbolic.get_field_token(rstr.STR, 'chars')[0]
+            ofs = symbolic.get_field_token(rstr.STR, 'chars', False)[0]
             
             res = self.execute_operation(rop.NEWSTR, [ConstInt(7)], 'ptr')
             assert allocs[0] == 7 + ofs + WORD
@@ -252,7 +253,7 @@ class TestX86(object):
             # ------------------------------------------------------------
 
             TP = lltype.GcArray(lltype.Signed)
-            ofs = symbolic.get_field_token(TP, 'length')[0]
+            ofs = symbolic.get_field_token(TP, 'length', False)[0]
             descr = self.cpu.arraydescrof(TP)
 
             res = self.execute_operation(rop.NEW_ARRAY, [ConstInt(10)],
@@ -274,8 +275,8 @@ class TestX86(object):
 
     def test_stringitems(self):
         from pypy.rpython.lltypesystem.rstr import STR
-        ofs = symbolic.get_field_token(STR, 'chars')[0]
-        ofs_items = symbolic.get_field_token(STR.chars, 'items')[0]
+        ofs = symbolic.get_field_token(STR, 'chars', False)[0]
+        ofs_items = symbolic.get_field_token(STR.chars, 'items', False)[0]
 
         res = self.execute_operation(rop.NEWSTR, [ConstInt(10)], 'ptr')
         self.execute_operation(rop.STRSETITEM, [res, ConstInt(2), ConstInt(ord('d'))], 'void')
@@ -288,8 +289,8 @@ class TestX86(object):
 
     def test_arrayitems(self):
         TP = lltype.GcArray(lltype.Signed)
-        ofs = symbolic.get_field_token(TP, 'length')[0]
-        itemsofs = symbolic.get_field_token(TP, 'items')[0]
+        ofs = symbolic.get_field_token(TP, 'length', False)[0]
+        itemsofs = symbolic.get_field_token(TP, 'items', False)[0]
         descr = self.cpu.arraydescrof(TP)
         res = self.execute_operation(rop.NEW_ARRAY, [ConstInt(10)],
                                      'ptr', descr)
@@ -540,3 +541,4 @@ class TestX86(object):
         # XXX cannot work without rtyper
         #s = execute(cpu, rop.INT_MUL_OVF, [BoxInt(sys.maxint/2), BoxInt(10)])
         #assert cpu.get_exception()
+

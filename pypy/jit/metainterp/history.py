@@ -1,6 +1,6 @@
 
 from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rlib.objectmodel import we_are_translated, r_dict, ComputedIntSymbolic
+from pypy.rlib.objectmodel import we_are_translated, r_dict, Symbolic
 from pypy.rlib.rarithmetic import intmask
 from pypy.tool.uid import uid
 from pypy.conftest import option
@@ -109,13 +109,23 @@ class Const(AbstractValue):
         return 'Const(%s)' % self._getrepr_()
 
     def __eq__(self, other):
-        return self.__class__ is other.__class__ and self.value == other.value
+        if self.__class__ is not other.__class__:
+            return False
+        if isinstance(self.value, Symbolic):
+            v = id(self.value)
+        else:
+            v = self.value
+        if isinstance(other.value, Symbolic):
+            v2 = id(other.value)
+        else:
+            v2 = other.value
+        return v == v2
 
     def __ne__(self, other):
         return not (self == other)
 
     def __hash__(self):
-        if isinstance(self.value, ComputedIntSymbolic):
+        if isinstance(self.value, Symbolic):
             return id(self.value)
         return self.get_()
 
@@ -128,7 +138,7 @@ class ConstInt(Const):
             if isinstance(value, int):
                 value = int(value)    # bool -> int
             else:
-                assert isinstance(value, ComputedIntSymbolic)
+                assert isinstance(value, Symbolic)
         self.value = value
 
     def clonebox(self):
@@ -257,7 +267,7 @@ class BoxInt(Box):
             if isinstance(value, int):
                 value = int(value)    # bool -> int
             else:
-                assert isinstance(value, ComputedIntSymbolic)
+                assert isinstance(value, Symbolic)
         self.value = value
 
     def clonebox(self):
@@ -373,17 +383,17 @@ class RunningMatcher(Matcher):
     def __init__(self, cpu):
         self.cpu = cpu
         self.operations = []
-    def record(self, opnum, argboxes, resbox, descr=0):
+    def record(self, opnum, argboxes, resbox, descr=None):
         raise NotImplementedError
 
 class History(RunningMatcher):
-    def record(self, opnum, argboxes, resbox, descr=0):
+    def record(self, opnum, argboxes, resbox, descr=None):
         op = ResOperation(opnum, argboxes, resbox, descr)
         self.operations.append(op)
         return op
 
 class BlackHole(RunningMatcher):
-    def record(self, opnum, argboxes, resbox, descr=0):
+    def record(self, opnum, argboxes, resbox, descr=None):
         return None
 
 def mp_eq(greenkey1, greenkey2):

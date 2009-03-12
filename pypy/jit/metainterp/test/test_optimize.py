@@ -70,7 +70,7 @@ def equaloplists(oplist1, oplist2):
     #    Box._extended_display = saved
     return True
 
-def ResOperation(opname, args, result, descr=0):
+def ResOperation(opname, args, result, descr=None):
     if opname == 'escape':
         opnum = -123       # random number not in the list
     else:

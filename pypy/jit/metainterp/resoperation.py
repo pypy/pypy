@@ -17,7 +17,8 @@ class ResOperation(object):
     # for 'guard_nonvirtualizable'
     vdesc = None
 
-    def __init__(self, opnum, args, result, descr=0):
+    def __init__(self, opnum, args, result, descr=None):
+        from pypy.jit.metainterp.history import AbstractValue
         assert isinstance(opnum, int)
         self.opnum = opnum
         self.args = list(args)
@@ -25,7 +26,8 @@ class ResOperation(object):
         self.result = result
         # for 'call', 'new', 'getfield_gc'...: the descr is a number provided
         # by the backend holding details about the type of the operation
-        assert isinstance(descr, int)
+        if descr is not None:
+            assert isinstance(descr, AbstractValue)
         self.descr = descr
 
     def __repr__(self):
