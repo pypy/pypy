@@ -37,6 +37,8 @@ class ConstDescr3(AbstractDescr):
                 l.append(i)
         return tuple(l)
 
+    def sort_key(self):
+        return self.v[0]    # the ofs field for fielddescrs
 
     def __hash__(self):
         return hash(self._v())
