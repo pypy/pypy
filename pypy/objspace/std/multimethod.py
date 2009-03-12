@@ -884,9 +884,9 @@ class InstallerVersion2(object):
         attrname = self.mrdtable.attrname
         exprfn = "%d" % master_index
         for n in range(self.multimethod.arity-1):
-            exprfn = "hint(indexarray.items, deepfreeze=True)[%s + arg%d.%s]" % (exprfn, n, attrname)
+            exprfn = "indexarray.items[%s + arg%d.%s]" % (exprfn, n, attrname)
         n = self.multimethod.arity-1
-        exprfn = "hint(funcarray.items, deepfreeze=True)[(%s + arg%d.%s) & mmmask]" % (exprfn, n,
+        exprfn = "funcarray.items[(%s + arg%d.%s) & mmmask]" % (exprfn, n,
                                                                 attrname)
         expr = Call(exprfn, self.fnargs)
         entry = self.build_funcentry([self.prefix, '0_perform_call'],
@@ -930,8 +930,6 @@ class InstallerVersion2(object):
                 bodylines.append('    pass')
             bodylines.append('return %s' % expr(calllist[-1]))
 
-        from pypy.rlib.jit import hint
-        miniglobals['hint'] = hint
         miniglobals['__name__'] = __name__
         entry = FuncEntry(bodylines, miniglobals, fallback)
         key = entry.key()
