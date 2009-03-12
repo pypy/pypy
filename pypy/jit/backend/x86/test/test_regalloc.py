@@ -183,6 +183,8 @@ def test_bug_1():
     cpu = CPU(rtyper=None, stats=FakeStats())
     cpu.set_meta_interp(meta_interp)
     TP = lltype.GcStruct('x', ('y', lltype.Ptr(lltype.GcStruct('y'))))
+    cpu.assembler._ovf_error_vtable = llmemory.cast_ptr_to_adr(lltype.nullptr(TP))
+    cpu.assembler._ovf_error_inst = cpu.assembler._ovf_error_vtable
     
     p0 = BoxPtr()
     p1 = BoxPtr()
@@ -283,5 +285,5 @@ def test_bug_1():
 
     ops[-1].jump_target = ops[0]
     cpu.compile_operations(ops)
-    args = p0, p1, i2, i3, i4, i5, p6, p7, i8, i9, i10, i11, p12, p31
+    args = [p0, p1, i2, i3, i4, i5, p6, p7, i8, i9, i10, i11, p12, p13]
     res = cpu.execute_operations_in_new_frame('foo', ops, args)

@@ -950,6 +950,8 @@ class RegAlloc(object):
         ops = []
         laterops = []
         middle_ops = []
+        reloaded = []
+        middle_busy_regs = []
         for i in range(len(op.args)):
             arg = op.args[i]
             mp = op.jump_target
@@ -961,7 +963,7 @@ class RegAlloc(object):
                     if not isinstance(res, REG):
                         ops.append(Store(arg, self.loc(arg), self.stack_bindings[arg]))
                     elif res is self.reg_bindings[arg]:
-                        pass
+                        middle_busy_regs.append(res)
                     else:
                         # register, but wrong
                         # we're going to need it (otherwise it'll be dead), so
@@ -985,10 +987,32 @@ class RegAlloc(object):
                         if isinstance(res, REG):
                             laterops.append(Load(arg, self.loc(arg), res))
                         else:
-                            if not we_are_translated():
-                                assert repr(res) == repr(self.loc(arg))
+                            if self.loc(arg).position != res.position:
+                                reloaded.append((arg, self.loc(arg), res))
             elif isinstance(arg, Const):
                 laterops.append(Load(arg, self.loc(arg), res))
+        if reloaded:
+            self.eventually_free_vars(op.args)
+            middleops = []
+            # XXX performance
+            free_reg = None
+            last_middle_op = None
+            for reg in REGS:
+                if reg not in middle_busy_regs:
+                    free_reg = reg
+                    break
+            if free_reg is None:
+                # a very rare case
+                v = self.reg_bindings.keys()[0]
+                free_reg = self.reg_bindings[v]
+                ops.append(Store(v, self.loc(v), self.stack_loc(v)))
+                last_middle_op = Load(v, self.stack_loc(v), self.loc(v))
+            for v, from_l, to_l in reloaded:
+                middleops.append(Load(v, from_l, free_reg))
+                middleops.append(Store(v, free_reg, to_l))
+            if last_middle_op is not None:
+                middleops.append(last_middle_op)
+            return ops + middleops + laterops + [PerformDiscard(op, [])]
         self.eventually_free_vars(op.args)
         return ops + laterops + [PerformDiscard(op, [])]
 
