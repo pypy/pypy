@@ -319,18 +319,19 @@ class RegAlloc(object):
                 loc = self.free_regs.pop()
                 return loc, [Load(v, convert_to_imm(v), loc)]
             v_to_spill = self.pick_variable_to_spill(v, forbidden_vars, selected_reg)
+            loc = self.loc(v_to_spill)
             if v_to_spill not in self.stack_bindings or v_to_spill in self.dirty_stack:
                 newloc = self.stack_loc(v_to_spill)
                 try:
                     del self.dirty_stack[v_to_spill]
                 except KeyError:
                     pass
-                ops = [Store(v_to_spill, selected_reg, newloc)]
+                ops = [Store(v_to_spill, loc, newloc)]
             else:
                 ops = []
             del self.reg_bindings[v_to_spill]
             self.free_regs.append(selected_reg)
-            return selected_reg, ops+[Load(v, convert_to_imm(v), selected_reg)]
+            return selected_reg, ops+[Load(v, convert_to_imm(v), loc)]
         return convert_to_imm(v), []
 
     def force_allocate_reg(self, v, forbidden_vars, selected_reg=None):
@@ -490,7 +491,7 @@ class RegAlloc(object):
         for i in range(len(op.args)):
             arg = op.args[i]
             assert not isinstance(arg, Const)
-            reg = None            
+            reg = None
             loc = stack_pos(i)
             self.stack_bindings[arg] = loc
             if arg not in self.loop_consts:
@@ -583,7 +584,7 @@ class RegAlloc(object):
     def consider_guard_value(self, op, ignored):
         x = self.loc(op.args[0])
         if not (isinstance(x, REG) or isinstance(op.args[1], Const)):
-            x, ops = self.make_sure_var_in_reg(op.args[0], [], imm_fine=False)
+            x, ops = self.make_sure_var_in_reg(op.args[0], [])
         else:
             ops = []
         y = self.loc(op.args[1])
