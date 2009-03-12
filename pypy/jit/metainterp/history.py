@@ -77,6 +77,8 @@ class AbstractValue(object):
     def equals(self, other):
         raise NotImplementedError
 
+    def sort_key(self):
+        raise NotImplementedError
 
 class AbstractDescr(AbstractValue):
     pass
