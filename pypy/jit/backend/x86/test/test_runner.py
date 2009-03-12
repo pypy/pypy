@@ -18,9 +18,13 @@ class FakeMetaInterp(object):
     def handle_guard_failure(self, gf):
         assert isinstance(gf, GuardFailed)
         self.gf = gf
-        self.recordedvalues = [
-                gf.cpu.getvaluebox(gf.frame, gf.guard_op, i).value
-                    for i in range(len(gf.guard_op.liveboxes))]
+        j = 0
+        self.recordedvalues = []
+        for box in guard_op.liveboxes:
+            if isinstance(box, Box):
+                value = gf.cpu.getvaluebox(gf.frame, gf.guard_op, j).value
+                self.recordedvalues.append(value)
+                j += 1
         if len(gf.guard_op.liveboxes) > 0:
             gf.make_ready_for_return(gf.cpu.getvaluebox(gf.frame, gf.guard_op, 0))
         else:

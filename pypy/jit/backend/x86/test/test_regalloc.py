@@ -213,10 +213,11 @@ def test_bug_1():
     none_ptr = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF,
                                                lltype.nullptr(TP)))
     const_code = none_ptr
-    const_ptr = none_ptr
     stuff = lltype.malloc(TP)
     stuff_2 = lltype.malloc(TP.y.TO)
     stuff.y = stuff_2
+    const_ptr = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF,
+                                                stuff))
     p12 = const_code.clonebox()
     const_name = none_ptr
     ops = [
