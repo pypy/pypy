@@ -85,6 +85,14 @@ class Assembler386(object):
             print
             pprint.pprint(computed_ops)
             print
+        if self.verbose and we_are_translated():
+            print
+            for op in operations:
+                args = ",".join([str(arg.get_()) for arg in op.args])
+                llop.debug_print(lltype.Void, "%s %s" % (op.getopname(), args))
+                if op.result is not None:
+                    llop.debug_print(lltype.Void, "  => %s" % str(op.result.get_()))
+            print
         for i in range(len(computed_ops)):
             op = computed_ops[i]
             if not we_are_translated():
