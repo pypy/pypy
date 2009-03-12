@@ -10,7 +10,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import rclass
 from pypy.jit.metainterp import history, codewriter
 from pypy.jit.metainterp.history import (ResOperation, Box, Const,
-     ConstInt, ConstPtr, BoxInt, BoxPtr, ConstAddr)
+     ConstInt, ConstPtr, BoxInt, BoxPtr, ConstAddr, AbstractDescr)
 from pypy.jit.backend.x86.assembler import Assembler386, WORD, RETURN
 from pypy.jit.backend.x86 import symbolic
 from pypy.jit.metainterp.resoperation import rop, opname
@@ -23,8 +23,9 @@ VOID = 0
 PTR = 1
 INT = 2
 
-class ConstDescr3(Const):
+class ConstDescr3(AbstractDescr):
     def __init__(self, v):
+        # XXX don't use a tuple! that's yet another indirection...
         self.v = v
 
     def _v(self):
@@ -409,7 +410,8 @@ class CPU386(object):
         frame[mp.stacklocs[argindex]] = self.convert_box_to_int(valuebox)
 
     def sizeof(self, S):
-        return ConstInt(symbolic.get_size(S, self.translate_support_code))
+        size = symbolic.get_size(S, self.translate_support_code)
+        return ConstDescr3((size, 0, False))
 
     numof = sizeof
 #    addresssuffix = str(symbolic.get_size(llmemory.Address))
@@ -529,11 +531,11 @@ class CPU386(object):
         self._base_do_setfield(fielddescr, args[0].getint(), args[1])
 
     def do_new(self, args, descrsize):
-        res = rffi.cast(GC_MALLOC, gc_malloc_fnaddr())(descrsize.getint())
+        res = rffi.cast(GC_MALLOC, gc_malloc_fnaddr())(descrsize.v[0])
         return BoxPtr(self.cast_int_to_gcref(res))
 
     def do_new_with_vtable(self, args, descrsize):
-        res = rffi.cast(GC_MALLOC, gc_malloc_fnaddr())(descrsize.getint())
+        res = rffi.cast(GC_MALLOC, gc_malloc_fnaddr())(descrsize.v[0])
         rffi.cast(rffi.CArrayPtr(lltype.Signed), res)[0] = args[0].getint()
         return BoxPtr(self.cast_int_to_gcref(res))
 
@@ -598,24 +600,6 @@ class CPU386(object):
             ptr = False
         return ConstDescr3((basesize, itemsize, ptr))
 
-    def ofs_from_descr(self, descr):
-        assert isinstance(descr, ConstDescr3)
-        x = (descr.v[0] << 16) + descr.v[1]
-        if descr.v[2]:
-            return ~x
-        return x
-
-    def repack_descr(self, ofs):
-        orig_ofs = ofs
-        if ofs < 0:
-            ptr = True
-            ofs = ~ofs
-        else:
-            ptr = False
-        res = ConstDescr3((ofs>>16, ofs & 0xffff, ptr))
-        assert self.ofs_from_descr(res) == orig_ofs
-        return res
-
     @staticmethod
     def unpack_arraydescr(arraydescr):
         assert isinstance(arraydescr, ConstDescr3)
@@ -656,12 +640,6 @@ class CPU386(object):
     def unpack_fielddescr(fielddescr):
         assert isinstance(fielddescr, ConstDescr3)
         return fielddescr.v
-
-    @staticmethod
-    def typefor(fielddesc):
-        if fieldesc[2]:
-            return 'ptr'
-        return "int"
 
     @staticmethod
     def cast_int_to_adr(x):
