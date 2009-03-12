@@ -116,6 +116,17 @@ class CodeWriter(object):
         fnptr = self.rtyper.getcallable(graph)
         cfnptr = history.ConstAddr(llmemory.cast_ptr_to_adr(fnptr), self.cpu)
         FUNC = lltype.typeOf(fnptr).TO
+        # <hack>
+        # these functions come from somewhere and are never called. make sure
+        # we never store a pointer to them since they make C explode,
+        # need to find out where they come from
+        for ARG in FUNC.ARGS:
+            if isinstance(ARG, lltype.Ptr) and ARG.TO == lltype.PyObject:
+                return ()
+        if (isinstance(FUNC.RESULT, lltype.Ptr) and
+            FUNC.RESULT.TO == lltype.PyObject):
+            return ()
+        # </hack>
         NON_VOID_ARGS = [ARG for ARG in FUNC.ARGS if ARG is not lltype.Void]
         calldescr = self.cpu.calldescrof(NON_VOID_ARGS, FUNC.RESULT)
         return (cfnptr, calldescr)
