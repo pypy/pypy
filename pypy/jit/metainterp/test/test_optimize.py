@@ -133,7 +133,7 @@ def test_A_optimize_loop():
     spec = PerfectSpecializer(Loop(A.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
-    spec.optimize_loop(None)
+    spec.optimize_loop()
     equaloplists(spec.loop.operations, [
         ResOperation('merge_point', [A.sum, A.v], None),
         ResOperation('int_sub', [A.v, ConstInt(1)], A.v2),
@@ -181,7 +181,7 @@ def test_B_optimize_loop():
     spec = PerfectSpecializer(Loop(B.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
-    spec.optimize_loop(None)
+    spec.optimize_loop()
     equaloplists(spec.loop.operations, [
         ResOperation('merge_point', [B.sum, B.n1], None),
         # guard_class is gone
@@ -236,7 +236,7 @@ def test_C_optimize_loop():
     spec = PerfectSpecializer(Loop(C.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
-    spec.optimize_loop(None)
+    spec.optimize_loop()
     equaloplists(spec.loop.operations, [
         ResOperation('merge_point', [C.sum, C.n1], None),
         # guard_class is gone
@@ -295,7 +295,7 @@ def test_E_optimize_loop():
     spec = PerfectSpecializer(Loop(E.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
-    spec.optimize_loop(None)
+    spec.optimize_loop()
     equaloplists(spec.loop.operations, [
         ResOperation('merge_point', [E.sum, E.v], None),
         # guard_class is gone
@@ -327,7 +327,7 @@ def test_E_rebuild_after_failure():
     spec = PerfectSpecializer(Loop(E.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
-    spec.optimize_loop(None)
+    spec.optimize_loop()
     guard_op = spec.loop.operations[-2]
     v_sum_b = BoxInt(13)
     v_v_b = BoxInt(14)
@@ -385,7 +385,7 @@ def test_F_optimize_loop():
     spec.find_nodes()
     spec.intersect_input_and_output()
     assert spec.nodes[F.n3].escaped
-    spec.optimize_loop(None)
+    spec.optimize_loop()
     equaloplists(spec.loop.operations, [
             ResOperation('merge_point', [F.sum, F.v, F.n3], None),
             ResOperation('int_sub', [F.v, ConstInt(1)], F.v2),
@@ -417,7 +417,7 @@ def test_F2_optimize_loop():
     spec = PerfectSpecializer(Loop(F2.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
-    spec.optimize_loop(None)
+    spec.optimize_loop()
     equaloplists(spec.loop.operations, F2.ops)
 
 # ____________________________________________________________
@@ -447,7 +447,7 @@ def test_G_optimize_loop():
     spec = PerfectSpecializer(Loop(G.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
-    spec.optimize_loop(None)
+    spec.optimize_loop()
     equaloplists(spec.loop.operations, [
         ResOperation('merge_point', [G.sum, G.v], None),
         # guard_class is gone
@@ -577,7 +577,7 @@ def test_K0_optimize_loop():
     spec = PerfectSpecializer(Loop(K0.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
-    spec.optimize_loop(None)
+    spec.optimize_loop()
     v4 = spec.loop.operations[-1].args[-1]
     equaloplists(spec.loop.operations, [
         ResOperation('merge_point', [K0.sum, K0.n1, K0.v], None),
@@ -611,7 +611,7 @@ def test_K1_optimize_loop():
     spec = PerfectSpecializer(Loop(K1.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
-    spec.optimize_loop(None)
+    spec.optimize_loop()
     v4 = spec.loop.operations[-1].args[-1]
     equaloplists(spec.loop.operations, [
         ResOperation('merge_point', [K1.sum, K1.n1, K1.v], None),
@@ -644,7 +644,7 @@ def test_K_optimize_loop():
     spec = PerfectSpecializer(Loop(K.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
-    spec.optimize_loop(None)
+    spec.optimize_loop()
     equaloplists(spec.loop.operations, [
         ResOperation('merge_point', [K.sum, K.n1, K.v], None),
         ResOperation('int_sub', [K.v, ConstInt(1)], K.v2),
@@ -675,7 +675,7 @@ def test_L_optimize_loop():
     spec = PerfectSpecializer(Loop(L.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
-    spec.optimize_loop(None)
+    spec.optimize_loop()
     equaloplists(spec.loop.operations, [
         ResOperation('merge_point', [L.sum, L.n1, L.v], None),
         ResOperation('int_sub', [L.v, ConstInt(1)], L.v2),
@@ -706,7 +706,7 @@ def test_M_optimize_loop():
     spec = PerfectSpecializer(Loop(M.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
-    spec.optimize_loop(None)
+    spec.optimize_loop()
     v4 = spec.loop.operations[-1].args[-1]
     equaloplists(spec.loop.operations, [
         ResOperation('merge_point', [M.sum, M.n1, M.v], None),
@@ -737,7 +737,7 @@ def test_N_optimize_loop():
     spec = PerfectSpecializer(Loop(N.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
-    spec.optimize_loop(None)
+    spec.optimize_loop()
     v4 = spec.loop.operations[-1].args[-1]
     equaloplists(spec.loop.operations, [
         ResOperation('merge_point', [N.sum, N.n1, N.v], None),
@@ -766,7 +766,7 @@ def test_O1_optimize_loop():
     spec = PerfectSpecializer(Loop(O1.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
-    spec.optimize_loop(None)
+    spec.optimize_loop()
     equaloplists(spec.loop.operations, [
         ResOperation('merge_point', [], None),
         ResOperation('escape', [], O1.n1),
@@ -796,7 +796,7 @@ def test_O2_optimize_loop():
     spec = PerfectSpecializer(Loop(O2.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
-    spec.optimize_loop(None)
+    spec.optimize_loop()
     equaloplists(spec.loop.operations, [
         ResOperation('merge_point', [], None),
         ResOperation('escape', [], O2.n1),
@@ -828,7 +828,7 @@ def test_O3_optimize_loop():
     spec = PerfectSpecializer(Loop(O3.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
-    spec.optimize_loop(None)
+    spec.optimize_loop()
     equaloplists(spec.loop.operations, [
         ResOperation('merge_point', [], None),
         ResOperation('escape', [], O3.n1),

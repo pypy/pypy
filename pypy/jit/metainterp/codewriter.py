@@ -234,8 +234,6 @@ class BytecodeMaker(object):
         Returns its index in the list self.positions[].
         """
         if constvalue is _we_are_jitted: constvalue = True
-        if isinstance(constvalue, history.Const):
-            return self.get_position(constvalue)
         const = Const._new(constvalue, self.cpu)
         return self.get_position(const)
 
@@ -529,10 +527,10 @@ class BytecodeMaker(object):
             # store the vtable as an address -- that's fine, because the
             # GC doesn't need to follow them
             self.emit('new_with_vtable',
-                      self.const_position(self.cpu.sizeof(STRUCT)),
+                      self.get_position(self.cpu.sizeof(STRUCT)),
                       self.const_position(vtable))
         else:
-            self.emit('new', self.const_position(self.cpu.sizeof(STRUCT)))
+            self.emit('new', self.get_position(self.cpu.sizeof(STRUCT)))
         self.register_var(op.result)
 
     def serialize_op_malloc_varsize(self, op):
@@ -544,7 +542,7 @@ class BytecodeMaker(object):
             ARRAY = op.args[0].value
             arraydescr = self.cpu.arraydescrof(ARRAY)
             self.emit('new_array')
-            self.emit(self.const_position(arraydescr))
+            self.emit(self.get_position(arraydescr))
             self.emit(self.var_position(op.args[2]))
         self.register_var(op.result)
 
@@ -571,7 +569,7 @@ class BytecodeMaker(object):
         self.emit(self.var_position(v_inst))
         offset = self.cpu.fielddescrof(v_inst.concretetype.TO,
                                        c_fieldname.value)
-        self.emit(self.const_position(offset))
+        self.emit(self.get_position(offset))
         self.register_var(op.result)
         #self._eventualy_builtin(op.result)
 
@@ -589,7 +587,7 @@ class BytecodeMaker(object):
         self.emit(self.var_position(v_inst))
         offset = self.cpu.fielddescrof(v_inst.concretetype.TO,
                                        c_fieldname.value)
-        self.emit(self.const_position(offset))
+        self.emit(self.get_position(offset))
         self.emit(self.var_position(v_value))
 
     def is_typeptr_getset(self, op):
@@ -608,7 +606,7 @@ class BytecodeMaker(object):
         arraydescr = self.cpu.arraydescrof(ARRAY)
         self.emit('getarrayitem_gc')
         self.emit(self.var_position(op.args[0]))
-        self.emit(self.const_position(arraydescr))
+        self.emit(self.get_position(arraydescr))
         self.emit(self.var_position(op.args[1]))
         self.register_var(op.result)
 
@@ -618,7 +616,7 @@ class BytecodeMaker(object):
         arraydescr = self.cpu.arraydescrof(ARRAY)
         self.emit('setarrayitem_gc')
         self.emit(self.var_position(op.args[0]))
-        self.emit(self.const_position(arraydescr))
+        self.emit(self.get_position(arraydescr))
         self.emit(self.var_position(op.args[1]))
         self.emit(self.var_position(op.args[2]))
 
@@ -703,7 +701,7 @@ class BytecodeMaker(object):
                                                                 op.args[1:],
                                                                 op.result)
         self.emit('residual_call')
-        self.emit(self.const_position(calldescr))
+        self.emit(self.get_position(calldescr))
         self.emit_varargs([op.args[0]] + non_void_args)
         self.register_var(op.result)
 
@@ -751,7 +749,7 @@ class BytecodeMaker(object):
         calldescr, non_void_args = self.codewriter.getcalldescr(c_func, args,
                                                                 op.result)
         self.emit(opname)
-        self.emit(self.const_position(calldescr))
+        self.emit(self.get_position(calldescr))
         self.emit_varargs([c_func] + non_void_args)
         self.register_var(op.result)
 
@@ -775,7 +773,7 @@ class BytecodeMaker(object):
                     v_default.value != TP.TO.OF._defl()):
                     return False     # variable or non-null initial value
             self.emit('new_array')
-            self.emit(self.const_position(arraydescr))
+            self.emit(self.get_position(arraydescr))
             self.emit(self.var_position(args[0]))
             self.register_var(op.result)
             return True
@@ -794,7 +792,7 @@ class BytecodeMaker(object):
                 return False
             self.emit('setarrayitem_gc')
             self.emit(self.var_position(args[0]))
-            self.emit(self.const_position(arraydescr))
+            self.emit(self.get_position(arraydescr))
             self.emit(self.var_position(index))
             self.emit(self.var_position(args[2]))
             self.register_var(op.result)
@@ -804,7 +802,7 @@ class BytecodeMaker(object):
             oopspec_name == 'list.len_foldable'):
             self.emit('arraylen_gc')
             self.emit(self.var_position(args[0]))
-            self.emit(self.const_position(arraydescr))
+            self.emit(self.get_position(arraydescr))
             self.register_var(op.result)
             return True
         #
@@ -816,7 +814,7 @@ class BytecodeMaker(object):
             return False
         self.emit(opname)
         self.emit(self.var_position(args[0]))
-        self.emit(self.const_position(arraydescr))
+        self.emit(self.get_position(arraydescr))
         self.emit(self.var_position(index))
         self.register_var(op.result)
         return True
@@ -841,7 +839,7 @@ class BytecodeMaker(object):
         else:
             self.emit('check_neg_index')
             self.emit(self.var_position(args[0]))
-            self.emit(self.const_position(arraydescr))
+            self.emit(self.get_position(arraydescr))
             self.emit(self.var_position(args[1]))
             v_posindex = Variable('posindex')
             v_posindex.concretetype = lltype.Signed
@@ -883,7 +881,7 @@ class BytecodeMaker(object):
             self.emit('guard_nonvirtualized')
             self.emit(self.var_position(op.args[0]))
             self.emit(self.get_position(virtualizabledesc))
-            self.emit(self.const_position(guard_field))
+            self.emit(self.get_position(guard_field))
 
     # ----------
 

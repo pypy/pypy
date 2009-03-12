@@ -161,6 +161,8 @@ class ConstInt(Const):
     def _getrepr_(self):
         return self.value
 
+    sort_key = getint
+
 CONST_FALSE = ConstInt(0)
 CONST_TRUE  = ConstInt(1)
 

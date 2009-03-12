@@ -1,10 +1,9 @@
 from pypy.jit.metainterp.resoperation import ResOperation, rop
-from pypy.jit.metainterp.history import ConstInt
 from pypy.jit.metainterp import executor
 
 class SpecNode(object):
 
-    def expand_boxlist(self, instnode, newboxlist, start, cpu):
+    def expand_boxlist(self, instnode, newboxlist, start):
         newboxlist.append(instnode.source)
 
     def extract_runtime_data(self, cpu, valuebox, resultlist):
@@ -119,16 +118,15 @@ class SpecNodeWithFields(FixedClassSpecNode):
                 return False
         return True
 
-    def expand_boxlist(self, instnode, newboxlist, start, cpu):
+    def expand_boxlist(self, instnode, newboxlist, start):
         for ofs, subspecnode in self.fields:
             subinstnode = instnode.curfields[ofs]  # should really be there
-            subspecnode.expand_boxlist(subinstnode, newboxlist, start, cpu)
+            subspecnode.expand_boxlist(subinstnode, newboxlist, start)
 
     def extract_runtime_data(self, cpu, valuebox, resultlist):
         for ofs, subspecnode in self.fields:
-            descr = cpu.repack_descr(ofs)
             fieldbox = executor.execute(cpu, rop.GETFIELD_GC,
-                                        [valuebox], descr)
+                                        [valuebox], ofs)
             subspecnode.extract_runtime_data(cpu, fieldbox, resultlist)
 
     def adapt_to(self, instnode):
@@ -137,10 +135,9 @@ class SpecNodeWithFields(FixedClassSpecNode):
 
 class VirtualizedSpecNode(SpecNodeWithFields):
 
-    def expand_boxlist(self, instnode, newboxlist, start, cpu):
+    def expand_boxlist(self, instnode, newboxlist, start):
         newboxlist.append(instnode.source)
-        SpecNodeWithFields.expand_boxlist(self, instnode, newboxlist, start,
-                                          cpu)
+        SpecNodeWithFields.expand_boxlist(self, instnode, newboxlist, start)
 
     def extract_runtime_data(self, cpu, valuebox, resultlist):
         resultlist.append(valuebox)
@@ -152,7 +149,7 @@ class VirtualizedSpecNode(SpecNodeWithFields):
 
 class DelayedSpecNode(VirtualizedSpecNode):
 
-    def expand_boxlist(self, instnode, newboxlist, oplist, cpu):
+    def expand_boxlist(self, instnode, newboxlist, oplist):
         newboxlist.append(instnode.source)
         for ofs, subspecnode in self.fields:
             assert isinstance(subspecnode, SpecNodeWithBox)
@@ -164,15 +161,14 @@ class DelayedSpecNode(VirtualizedSpecNode):
                     newboxlist.append(instnode.cleanfields[ofs].source)
                 else:
                     box = subspecnode.box.clonebox()
-                    descr = cpu.repack_descr(ofs)
                     oplist.append(ResOperation(rop.GETFIELD_GC,
-                       [instnode.source], box, descr))
+                       [instnode.source], box, ofs))
                     newboxlist.append(box)
 
 class DelayedFixedListSpecNode(DelayedSpecNode):
 
-   def expand_boxlist(self, instnode, newboxlist, oplist, cpu):
-       from pypy.jit.metainterp.history import ResOperation, ConstInt
+   def expand_boxlist(self, instnode, newboxlist, oplist):
+       from pypy.jit.metainterp.history import ResOperation
        from pypy.jit.metainterp.resoperation import rop
        from pypy.jit.metainterp.optimize import FixedList
         
@@ -191,7 +187,7 @@ class DelayedFixedListSpecNode(DelayedSpecNode):
                else:
                    box = subspecnode.box.clonebox()
                    oplist.append(ResOperation(rop.GETARRAYITEM_GC,
-                      [instnode.source, ConstInt(ofs)], box, arraydescr))
+                      [instnode.source, ofs], box, arraydescr))
                    newboxlist.append(box)
 
    def extract_runtime_data(self, cpu, valuebox, resultlist):
@@ -204,7 +200,7 @@ class DelayedFixedListSpecNode(DelayedSpecNode):
        arraydescr = cls.arraydescr
        for ofs, subspecnode in self.fields:
            fieldbox = executor.execute(cpu, rop.GETARRAYITEM_GC,
-                                       [valuebox, ConstInt(ofs)], arraydescr)
+                                       [valuebox, ofs], arraydescr)
            subspecnode.extract_runtime_data(cpu, fieldbox, resultlist)
 
 class VirtualizableSpecNode(VirtualizedSpecNode):
@@ -244,7 +240,6 @@ class VirtualFixedListSpecNode(VirtualSpecNode):
     
    def extract_runtime_data(self, cpu, valuebox, resultlist):
        from pypy.jit.metainterp.resoperation import rop
-       from pypy.jit.metainterp.history import ConstInt
        from pypy.jit.metainterp.optimize import FixedList
 
        for ofs, subspecnode in self.fields:
@@ -252,5 +247,5 @@ class VirtualFixedListSpecNode(VirtualSpecNode):
            assert isinstance(cls, FixedList)
            arraydescr = cls.arraydescr
            fieldbox = executor.execute(cpu, rop.GETARRAYITEM_GC,
-                                       [valuebox, ConstInt(ofs)], arraydescr)
+                                       [valuebox, ofs], arraydescr)
            subspecnode.extract_runtime_data(cpu, fieldbox, resultlist)

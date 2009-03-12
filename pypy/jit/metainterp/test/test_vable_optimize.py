@@ -118,7 +118,7 @@ def test_A_optimize_loop():
     spec = PerfectSpecializer(Loop(A.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
-    spec.optimize_loop(None)
+    spec.optimize_loop()
     equaloplists(spec.loop.operations, [
         ResOperation('merge_point', [A.sum, A.fr, A.v], None),
         ResOperation('int_sub', [A.v, ConstInt(1)], A.v2),

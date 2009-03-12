@@ -512,14 +512,14 @@ class MIFrame(object):
 ##            'len', [builtin.len_func, box], 'int')
 ##        self.generate_guard(pc, "guard_len", box, [intbox])
 
-    @arguments("orgpc", "box", "virtualizabledesc", "int")
+    @arguments("orgpc", "box", "virtualizabledesc", "constbox")
     def opimpl_guard_nonvirtualized(self, pc, box, vdesc, guard_field):
         clsbox = self.cls_of_box(box)
         op = self.generate_guard(pc, rop.GUARD_NONVIRTUALIZED, box,
                                  [clsbox])
         if op:
             op.vdesc = vdesc
-            op.descr = guard_field
+            op.setdescr(guard_field)
         
     @arguments("box")
     def opimpl_keepalive(self, box):

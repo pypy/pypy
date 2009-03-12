@@ -18,15 +18,20 @@ class ResOperation(object):
     vdesc = None
 
     def __init__(self, opnum, args, result, descr=None):
-        from pypy.jit.metainterp.history import AbstractValue
         assert isinstance(opnum, int)
         self.opnum = opnum
         self.args = list(args)
         assert not isinstance(result, list)
         self.result = result
+        self.setdescr(descr)
+
+    def setdescr(self, descr):
         # for 'call', 'new', 'getfield_gc'...: the descr is a number provided
-        # by the backend holding details about the type of the operation
+        # by the backend holding details about the type of the operation --
+        # actually an instance of a class, typically Descr, that inherits
+        # from AbstractValue
         if descr is not None:
+            from pypy.jit.metainterp.history import AbstractValue
             assert isinstance(descr, AbstractValue)
         self.descr = descr
 

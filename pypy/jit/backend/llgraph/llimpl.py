@@ -135,11 +135,11 @@ class LoopOrBridge(object):
         return '\n'.join(lines)
 
 class Operation(object):
-    def __init__(self, opnum, descr):
+    def __init__(self, opnum):
         self.opnum = opnum
         self.args = []
         self.result = None
-        self.descr = descr
+        self.descr = None
         self.livevars = []   # for guards only
 
     def __repr__(self):
@@ -220,7 +220,7 @@ def repr1(x, tp, memocast):
         assert x == 0 or x == 1
         return str(bool(x))
     #elif tp == 'fieldname':
-    #    return str(symbolic.TokenToField[x/2][1])
+    #    return str(symbolic.TokenToField[x...][1])
     else:
         raise NotImplementedError("tp = %s" % tp)
 
@@ -248,9 +248,16 @@ def compile_start_ptr_var(loop):
     _variables.append(v)
     return r
 
-def compile_add(loop, opnum, descr):
+def compile_add(loop, opnum):
     loop = _from_opaque(loop)
-    loop.operations.append(Operation(opnum, descr))
+    loop.operations.append(Operation(opnum))
+
+def compile_add_descr(loop, ofs, type):
+    from pypy.jit.backend.llgraph.runner import Descr
+    loop = _from_opaque(loop)
+    op = loop.operations[-1]
+    assert isinstance(type, str) and len(type) == 1
+    op.descr = Descr(ofs, type)
 
 def compile_add_var(loop, intvar):
     loop = _from_opaque(loop)
@@ -520,61 +527,62 @@ class Frame(object):
     # delegating to the builtins do_xxx() (done automatically for simple cases)
 
     def op_getarrayitem_gc(self, arraydescr, array, index):
-        if arraydescr.getint() & 1:
+        if arraydescr.type == 'p':
             return do_getarrayitem_gc_ptr(array, index)
         else:
             return do_getarrayitem_gc_int(array, index, self.memocast)
 
     def op_getfield_gc(self, fielddescr, struct):
-        fielddescr = fielddescr.getint()
-        if fielddescr & 1:
-            return do_getfield_gc_ptr(struct, fielddescr)
+        if fielddescr.type == 'p':
+            return do_getfield_gc_ptr(struct, fielddescr.ofs)
         else:
-            return do_getfield_gc_int(struct, fielddescr, self.memocast)
+            return do_getfield_gc_int(struct, fielddescr.ofs, self.memocast)
 
     def op_getfield_raw(self, fielddescr, struct):
-        if fielddescr.getint() & 1:
-            return do_getfield_raw_ptr(struct, fielddescr)
+        if fielddescr.type == 'p':
+            return do_getfield_raw_ptr(struct, fielddescr.ofs)
         else:
-            return do_getfield_raw_int(struct, fielddescr, self.memocast)
+            return do_getfield_raw_int(struct, fielddescr.ofs, self.memocast)
 
     def op_new_with_vtable(self, size, vtable):
-        result = do_new(size.getint())
+        result = do_new(size.ofs)
         value = lltype.cast_opaque_ptr(rclass.OBJECTPTR, result)
         value.typeptr = cast_from_int(rclass.CLASSTYPE, vtable, self.memocast)
         return result
 
     def op_setarrayitem_gc(self, arraydescr, array, index, newvalue):
-        if arraydescr.getint() & 1:
+        if arraydescr.type == 'p':
             do_setarrayitem_gc_ptr(array, index, newvalue)
         else:
             do_setarrayitem_gc_int(array, index, newvalue, self.memocast)
 
     def op_setfield_gc(self, fielddescr, struct, newvalue):
-        fielddescr = fielddescr.getint()
-        if fielddescr & 1:
-            do_setfield_gc_ptr(struct, fielddescr, newvalue)
+        if fielddescr.type == 'p':
+            do_setfield_gc_ptr(struct, fielddescr.ofs, newvalue)
         else:
-            do_setfield_gc_int(struct, fielddescr, newvalue, self.memocast)
+            do_setfield_gc_int(struct, fielddescr.ofs, newvalue,
+                               self.memocast)
 
     def op_setfield_raw(self, fielddescr, struct, newvalue):
-        if fielddescr.getint() & 1:
-            do_setfield_raw_ptr(struct, fielddescr, newvalue)
+        if fielddescr.type == 'p':
+            do_setfield_raw_ptr(struct, fielddescr.ofs, newvalue)
         else:
-            do_setfield_raw_int(struct, fielddescr, newvalue, self.memocast)
+            do_setfield_raw_int(struct, fielddescr.ofs, newvalue,
+                                self.memocast)
 
     def op_call(self, calldescr, func, *args):
         _call_args[:] = args
-        if calldescr == sys.maxint:
+        if calldescr.type == 'v':
             err_result = None
-        elif calldescr.getint() & 1:
+        elif calldescr.type == 'p':
             err_result = lltype.nullptr(llmemory.GCREF.TO)
         else:
+            assert calldescr.type == 'i'
             err_result = 0
         return _do_call_common(func, self.memocast, err_result)
 
     def op_new_array(self, arraydescr, count):
-        return do_new_array(arraydescr.getint(), count)
+        return do_new_array(arraydescr.ofs, count)
 
 # ____________________________________________________________
 
@@ -748,26 +756,26 @@ def do_getarrayitem_gc_ptr(array, index):
     array = array._obj.container
     return cast_to_ptr(array.getitem(index))
 
-def do_getfield_gc_int(struct, fielddesc, memocast):
-    STRUCT, fieldname = symbolic.TokenToField[fielddesc/2]
+def do_getfield_gc_int(struct, fieldnum, memocast):
+    STRUCT, fieldname = symbolic.TokenToField[fieldnum]
     ptr = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), struct)
     x = getattr(ptr, fieldname)
     return cast_to_int(x, memocast)
 
-def do_getfield_gc_ptr(struct, fielddesc):
-    STRUCT, fieldname = symbolic.TokenToField[fielddesc/2]
+def do_getfield_gc_ptr(struct, fieldnum):
+    STRUCT, fieldname = symbolic.TokenToField[fieldnum]
     ptr = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), struct)
     x = getattr(ptr, fieldname)
     return cast_to_ptr(x)
 
-def do_getfield_raw_int(struct, fielddesc, memocast):
-    STRUCT, fieldname = symbolic.TokenToField[fielddesc/2]
+def do_getfield_raw_int(struct, fieldnum, memocast):
+    STRUCT, fieldname = symbolic.TokenToField[fieldnum]
     ptr = llmemory.cast_adr_to_ptr(struct, lltype.Ptr(STRUCT))
     x = getattr(ptr, fieldname)
     return cast_to_int(x, memocast)
 
-def do_getfield_raw_ptr(struct, fielddesc):
-    STRUCT, fieldname = symbolic.TokenToField[fielddesc/2]
+def do_getfield_raw_ptr(struct, fieldnum):
+    STRUCT, fieldname = symbolic.TokenToField[fieldnum]
     ptr = llmemory.cast_adr_to_ptr(struct, lltype.Ptr(STRUCT))
     x = getattr(ptr, fieldname)
     return cast_to_ptr(x)
@@ -777,8 +785,8 @@ def do_new(size):
     x = lltype.malloc(TYPE)
     return cast_to_ptr(x)
 
-def do_new_array(arraydesc, count):
-    TYPE = symbolic.Size2Type[arraydesc/2]
+def do_new_array(arraynum, count):
+    TYPE = symbolic.Size2Type[arraynum]
     x = lltype.malloc(TYPE, count)
     return cast_to_ptr(x)
 
@@ -794,29 +802,29 @@ def do_setarrayitem_gc_ptr(array, index, newvalue):
     newvalue = cast_from_ptr(ITEMTYPE, newvalue)
     array.setitem(index, newvalue)
 
-def do_setfield_gc_int(struct, fielddesc, newvalue, memocast):
-    STRUCT, fieldname = symbolic.TokenToField[fielddesc/2]
+def do_setfield_gc_int(struct, fieldnum, newvalue, memocast):
+    STRUCT, fieldname = symbolic.TokenToField[fieldnum]
     ptr = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), struct)
     FIELDTYPE = getattr(STRUCT, fieldname)
     newvalue = cast_from_int(FIELDTYPE, newvalue, memocast)
     setattr(ptr, fieldname, newvalue)
 
-def do_setfield_gc_ptr(struct, fielddesc, newvalue):
-    STRUCT, fieldname = symbolic.TokenToField[fielddesc/2]
+def do_setfield_gc_ptr(struct, fieldnum, newvalue):
+    STRUCT, fieldname = symbolic.TokenToField[fieldnum]
     ptr = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), struct)
     FIELDTYPE = getattr(STRUCT, fieldname)
     newvalue = cast_from_ptr(FIELDTYPE, newvalue)
     setattr(ptr, fieldname, newvalue)
 
-def do_setfield_raw_int(struct, fielddesc, newvalue, memocast):
-    STRUCT, fieldname = symbolic.TokenToField[fielddesc/2]
+def do_setfield_raw_int(struct, fieldnum, newvalue, memocast):
+    STRUCT, fieldname = symbolic.TokenToField[fieldnum]
     ptr = llmemory.cast_adr_to_ptr(struct, lltype.Ptr(STRUCT))
     FIELDTYPE = getattr(STRUCT, fieldname)
     newvalue = cast_from_int(FIELDTYPE, newvalue, memocast)
     setattr(ptr, fieldname, newvalue)
 
-def do_setfield_raw_ptr(struct, fielddesc, newvalue):
-    STRUCT, fieldname = symbolic.TokenToField[fielddesc/2]
+def do_setfield_raw_ptr(struct, fieldnum, newvalue):
+    STRUCT, fieldname = symbolic.TokenToField[fieldnum]
     ptr = llmemory.cast_adr_to_ptr(struct, lltype.Ptr(STRUCT))
     FIELDTYPE = getattr(STRUCT, fieldname)
     newvalue = cast_from_ptr(FIELDTYPE, newvalue)
@@ -935,6 +943,7 @@ setannotation(compile_start, s_LoopOrBridge)
 setannotation(compile_start_int_var, annmodel.SomeInteger())
 setannotation(compile_start_ptr_var, annmodel.SomeInteger())
 setannotation(compile_add, annmodel.s_None)
+setannotation(compile_add_descr, annmodel.s_None)
 setannotation(compile_add_var, annmodel.s_None)
 setannotation(compile_add_int_const, annmodel.s_None)
 setannotation(compile_add_ptr_const, annmodel.s_None)

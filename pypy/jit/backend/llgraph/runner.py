@@ -14,6 +14,40 @@ class MiniStats:
     pass
 
 
+class Descr(history.AbstractValue):
+    def __init__(self, ofs, type='?'):
+        self.ofs = ofs
+        self.type = type
+
+    def __hash__(self):
+        return hash((self.ofs, self.type))
+
+    def __eq__(self, other):
+        if not isinstance(other, Descr):
+            return NotImplemented
+        return self.ofs == other.ofs and self.type == other.type
+
+    def __ne__(self, other):
+        if not isinstance(other, Descr):
+            return NotImplemented
+        return self.ofs != other.ofs or self.type != other.type
+
+    def sort_key(self):
+        return self.ofs
+
+    def __lt__(self, other):
+        raise TypeError("cannot use comparison on Descrs")
+    def __le__(self, other):
+        raise TypeError("cannot use comparison on Descrs")
+    def __gt__(self, other):
+        raise TypeError("cannot use comparison on Descrs")
+    def __ge__(self, other):
+        raise TypeError("cannot use comparison on Descrs")
+
+    def __repr__(self):
+        return '<Descr %r, %r>' % (self.ofs, self.type)
+
+
 class CPU(object):
 
     def __init__(self, rtyper, stats=None, translate_support_code=False,
@@ -64,7 +98,9 @@ class CPU(object):
             op._compiled = c
             op._opindex = j
             j += 1
-            llimpl.compile_add(c, op.opnum, op.descr)
+            llimpl.compile_add(c, op.opnum)
+            if op.descr is not None:
+                llimpl.compile_add_descr(c, op.descr.ofs, op.descr.type)
             for x in op.args:
                 if isinstance(x, history.Box):
                     llimpl.compile_add_var(c, var2index[x])
@@ -186,7 +222,7 @@ class CPU(object):
 
     @staticmethod
     def sizeof(S):
-        return history.ConstInt(symbolic.get_size(S))
+        return Descr(symbolic.get_size(S))
 
     @staticmethod
     def numof(S):
@@ -198,51 +234,19 @@ class CPU(object):
     def fielddescrof(S, fieldname):
         ofs, size = symbolic.get_field_token(S, fieldname)
         token = history.getkind(getattr(S, fieldname))
-        if token == 'ptr':
-            bit = 1
-        else:
-            bit = 0
-        return history.ConstInt(ofs*2 + bit)
+        return Descr(ofs, token[0])
 
     @staticmethod
     def arraydescrof(A):
         assert isinstance(A, lltype.GcArray)
         size = symbolic.get_size(A)
         token = history.getkind(A.OF)
-        if token == 'ptr':
-            bit = 1
-        else:
-            bit = 0
-        return history.ConstInt(size*2 + bit)
+        return Descr(size, token[0])
 
     @staticmethod
     def calldescrof(ARGS, RESULT):
-        if RESULT is lltype.Void:
-            return sys.maxint
         token = history.getkind(RESULT)
-        if token == 'ptr':
-            return 1
-        else:
-            return 0
-
-    @staticmethod
-    def typefor(fielddesc):
-        fielddesc = fielddesc.getint()
-        if fielddesc == sys.maxint:
-            return 'void'
-        if fielddesc % 2:
-            return 'ptr'
-        return 'int'
-
-    @staticmethod
-    def itemoffsetof(A):
-        basesize, itemsize, ofs_length = symbolic.get_array_token(A)
-        return basesize
-
-    @staticmethod
-    def arraylengthoffset(A):
-        basesize, itemsize, ofs_length = symbolic.get_array_token(A)
-        return ofs_length
+        return Descr(0, token[0])
 
     def cast_adr_to_int(self, adr):
         return llimpl.cast_adr_to_int(self.memo_cast, adr)
@@ -250,23 +254,17 @@ class CPU(object):
     def cast_int_to_adr(self, int):
         return llimpl.cast_int_to_adr(self.memo_cast, int)
 
-    def ofs_from_descr(self, descr):
-        return descr.getint()
-
-    def repack_descr(self, ofs):
-        return history.ConstInt(ofs)
-
     # ---------- the backend-dependent operations ----------
 
     def do_arraylen_gc(self, args, arraydescr):
         array = args[0].getptr_base()
         return history.BoxInt(llimpl.do_arraylen_gc(arraydescr, array))
 
-    def do_strlen(self, args, descr=0):
+    def do_strlen(self, args, descr=None):
         string = args[0].getptr_base()
         return history.BoxInt(llimpl.do_strlen(0, string))
 
-    def do_strgetitem(self, args, descr=0):
+    def do_strgetitem(self, args, descr=None):
         string = args[0].getptr_base()
         index = args[1].getint()
         return history.BoxInt(llimpl.do_strgetitem(0, string, index))
@@ -274,51 +272,50 @@ class CPU(object):
     def do_getarrayitem_gc(self, args, arraydescr):
         array = args[0].getptr_base()
         index = args[1].getint()
-        if self.typefor(arraydescr) == 'ptr':
+        if arraydescr.type == 'p':
             return history.BoxPtr(llimpl.do_getarrayitem_gc_ptr(array, index))
         else:
             return history.BoxInt(llimpl.do_getarrayitem_gc_int(array, index,
                                                                self.memo_cast))
 
-    def do_getfield_gc(self, args, fieldbox):
-        fielddescr = fieldbox.getint()
+    def do_getfield_gc(self, args, fielddescr):
         struct = args[0].getptr_base()
-        if self.typefor(fieldbox) == 'ptr':
+        if fielddescr.type == 'p':
             return history.BoxPtr(llimpl.do_getfield_gc_ptr(struct,
-                                                            fielddescr))
+                                                            fielddescr.ofs))
         else:
             return history.BoxInt(llimpl.do_getfield_gc_int(struct,
-                                                            fielddescr,
+                                                            fielddescr.ofs,
                                                             self.memo_cast))
 
     def do_getfield_raw(self, args, fielddescr):
         struct = self.cast_int_to_adr(args[0].getint())
-        if self.typefor(fielddescr) == 'ptr':
+        if fielddescr.type == 'p':
             return history.BoxPtr(llimpl.do_getfield_raw_ptr(struct,
-                                                             fielddescr))
+                                                             fielddescr.ofs))
         else:
             return history.BoxInt(llimpl.do_getfield_raw_int(struct,
-                                                             fielddescr,
+                                                             fielddescr.ofs,
                                                              self.memo_cast))
 
     def do_new(self, args, size):
-        return history.BoxPtr(llimpl.do_new(size.getint()))
+        return history.BoxPtr(llimpl.do_new(size.ofs))
 
     def do_new_with_vtable(self, args, size):
         vtable = args[0].getint()
-        result = llimpl.do_new(size.getint())
-        llimpl.do_setfield_gc_int(result, self.fielddescrof_vtable.getint(),
+        result = llimpl.do_new(size.ofs)
+        llimpl.do_setfield_gc_int(result, self.fielddescrof_vtable.ofs,
                                   vtable, self.memo_cast)
         return history.BoxPtr(result)
 
     def do_new_array(self, args, size):
         count = args[0].getint()
-        return history.BoxPtr(llimpl.do_new_array(size.getint(), count))
+        return history.BoxPtr(llimpl.do_new_array(size.ofs, count))
 
     def do_setarrayitem_gc(self, args, arraydescr):
         array = args[0].getptr_base()
         index = args[1].getint()
-        if self.typefor(arraydescr) == 'ptr':
+        if arraydescr.type == 'p':
             newvalue = args[2].getptr_base()
             llimpl.do_setarrayitem_gc_ptr(array, index, newvalue)
         else:
@@ -326,33 +323,31 @@ class CPU(object):
             llimpl.do_setarrayitem_gc_int(array, index, newvalue,
                                           self.memo_cast)
 
-    def do_setfield_gc(self, args, fieldbox):
-        fielddescr = fieldbox.getint()
+    def do_setfield_gc(self, args, fielddescr):
         struct = args[0].getptr_base()
-        if self.typefor(fieldbox) == 'ptr':
+        if fielddescr.type == 'p':
             newvalue = args[1].getptr_base()
-            llimpl.do_setfield_gc_ptr(struct, fielddescr, newvalue)
+            llimpl.do_setfield_gc_ptr(struct, fielddescr.ofs, newvalue)
         else:
             newvalue = args[1].getint()
-            llimpl.do_setfield_gc_int(struct, fielddescr, newvalue,
+            llimpl.do_setfield_gc_int(struct, fielddescr.ofs, newvalue,
                                       self.memo_cast)
 
     def do_setfield_raw(self, args, fielddescr):
-        fielddescr = fielddescr.getint()
         struct = self.cast_int_to_adr(args[0].getint())
-        if self.typefor(fielddescr) == 'ptr':
+        if fielddescr.type == 'p':
             newvalue = args[1].getptr_base()
-            llimpl.do_setfield_raw_ptr(struct, fielddescr, newvalue)
+            llimpl.do_setfield_raw_ptr(struct, fielddescr.ofs, newvalue)
         else:
             newvalue = args[1].getint()
-            llimpl.do_setfield_raw_int(struct, fielddescr, newvalue,
+            llimpl.do_setfield_raw_int(struct, fielddescr.ofs, newvalue,
                                        self.memo_cast)
 
-    def do_newstr(self, args, descr=0):
+    def do_newstr(self, args, descr=None):
         length = args[0].getint()
         return history.BoxPtr(llimpl.do_newstr(0, length))
 
-    def do_strsetitem(self, args, descr=0):
+    def do_strsetitem(self, args, descr=None):
         string = args[0].getptr_base()
         index = args[1].getint()
         newvalue = args[2].getint()
@@ -366,12 +361,11 @@ class CPU(object):
                 llimpl.do_call_pushptr(arg.getptr_base())
             else:
                 llimpl.do_call_pushint(arg.getint())
-        restype = self.typefor(calldescr)
-        if restype == 'ptr':
+        if calldescr.type == 'p':
             return history.BoxPtr(llimpl.do_call_ptr(func, self.memo_cast))
-        elif restype == 'int':
+        elif calldescr.type == 'i':
             return history.BoxInt(llimpl.do_call_int(func, self.memo_cast))
-        else:  # restype == 'void'
+        else:  # calldescr.type == 'v'  # void
             llimpl.do_call_void(func, self.memo_cast)
 
 
