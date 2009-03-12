@@ -223,7 +223,7 @@ def test_bug_1():
     ops = [
         ResOperation(rop.MERGE_POINT, [p0, p1, i2, i3, i4, i5, p6, p7, i8,
                                        i9, i10, i11, p12, p13], None),
-        ResOperation(rop.GUARD_VALUE, [i10, ConstInt(1)], None),
+        ResOperation(rop.GUARD_VALUE, [ConstInt(1), i10], None),
         ResOperation(rop.OOISNULL, [p1], i14),
         ResOperation(rop.GUARD_TRUE, [i14], None),
         ResOperation(rop.INT_LT, [i5, ConstInt(0)], i15),

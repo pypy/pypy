@@ -330,8 +330,8 @@ class RegAlloc(object):
             else:
                 ops = []
             del self.reg_bindings[v_to_spill]
-            self.free_regs.append(selected_reg)
-            return selected_reg, ops+[Load(v, convert_to_imm(v), loc)]
+            self.free_regs.append(loc)
+            return loc, ops+[Load(v, convert_to_imm(v), loc)]
         return convert_to_imm(v), []
 
     def force_allocate_reg(self, v, forbidden_vars, selected_reg=None):
@@ -641,6 +641,7 @@ class RegAlloc(object):
         locs = self._locs_from_liveboxes(guard_op)
         self.position += 1
         self.eventually_free_vars(guard_op.liveboxes)
+        self.eventually_free_var(guard_op.result)
         return ops + [PerformWithGuard(op, guard_op, [loc, argloc] + locs, loc)]
 
     consider_int_mul_ovf = _consider_binop_ovf
