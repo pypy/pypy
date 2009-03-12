@@ -83,8 +83,11 @@ class SpecNodeWithFields(FixedClassSpecNode):
         self.fields = fields
 
     def mutate_nodes(self, instnode):
+        from pypy.jit.metainterp.optimize import av_eq, av_hash
+        from pypy.rlib.objectmodel import r_dict
+        
         FixedClassSpecNode.mutate_nodes(self, instnode)
-        curfields = {}
+        curfields = r_dict(av_eq, av_hash)
         for ofs, subspecnode in self.fields:
             subinstnode = instnode.origfields[ofs]
             # should really be there

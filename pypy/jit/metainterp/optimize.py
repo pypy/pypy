@@ -3,22 +3,18 @@ from pypy.jit.metainterp.history import (Box, Const, ConstInt, BoxInt,
                                          ResOperation, AbstractDescr,
                                          Options, AbstractValue, ConstPtr)
 from pypy.jit.metainterp.specnode import (FixedClassSpecNode,
-                                          #FixedListSpecNode,
                                           VirtualInstanceSpecNode,
                                           VirtualizableSpecNode,
                                           NotSpecNode,
                                           DelayedSpecNode,
                                           SpecNodeWithBox,
                                           DelayedFixedListSpecNode,
-                                          #DelayedListSpecNode,
                                           VirtualFixedListSpecNode,
-                                          #VirtualListSpecNode,
                                           )
 from pypy.jit.metainterp import executor
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import lltype, llmemory
-#from pypy.jit.metainterp.codewriter import ListDescr
-
+from pypy.rlib.objectmodel import r_dict
 
 class FixedList(AbstractValue):
     def __init__(self, arraydescr):
@@ -105,6 +101,18 @@ class AllocationStorage(object):
             liveboxes.append(box)
         return res
 
+def av_eq(self, other):
+    return self.sort_key() == other.sort_key()
+
+def av_hash(self):
+    return self.sort_key()
+
+def av_list_in(lst, key):
+    for l in lst:
+        if key.sort_key() == l.sort_key():
+            return True
+    return False
+
 class InstanceNode(object):
     def __init__(self, source, escaped=True, startbox=False, const=False):
         if isinstance(source, Const):
@@ -117,11 +125,11 @@ class InstanceNode(object):
         self.const = const
         self.nonzero = False     # NB. never set to True so far
         self.cls = None
-        self.origfields = {}
-        self.curfields = {}
-        self.cleanfields = {}
-        self.dirtyfields = {}
-        self.expanded_fields = {}
+        self.origfields = r_dict(av_eq, av_hash)
+        self.curfields = r_dict(av_eq, av_hash)
+        self.cleanfields = r_dict(av_eq, av_hash)
+        self.dirtyfields = r_dict(av_eq, av_hash)
+        self.expanded_fields = r_dict(av_eq, av_hash)
         self.cursize = -1
         self.vdesc = None # for virtualizables
 
@@ -142,7 +150,7 @@ class InstanceNode(object):
                 node.escape_if_startbox(memo)
         else:
             for key, node in self.curfields.items():
-                if self.vdesc is not None and key not in self.vdesc:
+                if self.vdesc is not None and not av_list_in(self.vdesc, key):
                     esc_self = True
                 else:
                     esc_self = False
@@ -151,7 +159,7 @@ class InstanceNode(object):
             # if they're not marked specifically as ones that does not escape
             for key, node in self.origfields.items():
                 if key not in self.curfields:
-                    if self.vdesc is not None and key not in self.vdesc:
+                    if self.vdesc is not None and not av_list_in(self.vdesc, key):
                         esc_self = True
                     else:
                         esc_self = False
@@ -163,7 +171,7 @@ class InstanceNode(object):
             if ofs in other.curfields:
                 node.add_to_dependency_graph(other.curfields[ofs], dep_graph)
             if (self.virtualized and self.vdesc is not None and
-                ofs in self.vdesc):
+                av_list_in(self.vdesc, ofs)):
                 node.add_to_dependency_graph(other.origfields[ofs], dep_graph)
 
     def intersect(self, other, nodes):
@@ -545,7 +553,6 @@ class PerfectSpecializer(object):
                 instnode = self.nodes[box]
                 assert not instnode.virtual
                 box = instnode.source
-            #assert isinstance(box, Const) or box in self.ready_results
             newboxes.append(box)
         return newboxes
 
@@ -557,8 +564,6 @@ class PerfectSpecializer(object):
     def optimize_getfield(self, instnode, ofs, box):
         assert isinstance(ofs, AbstractValue)
         if instnode.virtual or instnode.virtualized:
-##            if ofs < 0:
-##                ofs = instnode.cursize + ofs
             assert ofs in instnode.curfields
             return True # this means field is never actually
         elif ofs in instnode.cleanfields:
@@ -571,22 +576,12 @@ class PerfectSpecializer(object):
     def optimize_setfield(self, instnode, ofs, valuenode, valuebox):
         assert isinstance(ofs, AbstractValue)
         if instnode.virtual or instnode.virtualized:
-##            if ofs < 0:
-##                ofs = instnode.cursize + ofs
             instnode.curfields[ofs] = valuenode
         else:
             assert not valuenode.virtual
             instnode.cleanfields[ofs] = self.nodes[valuebox]
             instnode.dirtyfields[ofs] = self.nodes[valuebox]
             # we never perform this operation here, note
-
-##    def optimize_insert(self, instnode, field, valuenode, valuebox):
-##        assert instnode.virtual
-##        for ofs, node in instnode.curfields.items():
-##            if ofs >= field:
-##                instnode.curfields[ofs + 1] = node
-##        instnode.curfields[field] = valuenode
-##        instnode.cursize += 1
 
     def optimize_loop(self):
         newoperations = []
@@ -784,8 +779,8 @@ class PerfectSpecializer(object):
                     assert isinstance(ofs, AbstractDescr)
                     newoperations.append(ResOperation(rop.SETFIELD_GC,
                        [node.source, valuenode.source], None, ofs))
-            node.dirtyfields = {}
-            node.cleanfields = {}
+            node.dirtyfields = r_dict(av_eq, av_hash)
+            node.cleanfields = r_dict(av_eq, av_hash)
 
     def match_exactly(self, old_loop):
         old_operations = old_loop.operations
@@ -866,11 +861,6 @@ def rebuild_boxes_from_guard_failure(guard_op, metainterp, boxes_from_frame):
                              boxes_from_frame, index_in_alloc)
         metainterp.execute_and_record(rop.SETARRAYITEM_GC,
                                       [box, ofs, itembox], ad)
-##    if storage.setitems:
-##        #history.execute_and_record('guard_no_exception', [], 'void', False)
-##        # XXX this needs to check for exceptions somehow
-##        # create guard_no_excpetion somehow, needs tests
-##        pass
     newboxes = []
     for index in storage.indices:
         if index < 0:
