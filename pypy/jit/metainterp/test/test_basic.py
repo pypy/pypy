@@ -5,6 +5,7 @@ from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp import support, codewriter, pyjitpl, history
 from pypy.jit.metainterp.policy import JitPolicy, StopAtXPolicy
 from pypy import conftest
+from pypy.rlib.rarithmetic import ovfcheck
 
 def get_metainterp(func, values, CPUClass, type_system, policy,
                    listops=False):
@@ -300,6 +301,16 @@ class BasicTests:
         res = self.interp_operations(f, [5])
         assert res == 17
 
+    def test_mod_ovf(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'x', 'y'])
+        def f(n, x, y):
+            while n > 0:
+                myjitdriver.can_enter_jit(x=x, y=y, n=n)
+                myjitdriver.jit_merge_point(x=x, y=y, n=n)
+                n -= ovfcheck(x % y)
+            return n
+        res = self.meta_interp(f, [20, 1, 2])
+        assert res == 0
 
 class TestOOtype(BasicTests, OOJitMixin):
     pass
