@@ -101,124 +101,51 @@ def transform_ovfcheck(graph):
     """The special function calls ovfcheck and ovfcheck_lshift need to
     be translated into primitive operations. ovfcheck is called directly
     after an operation that should be turned into an overflow-checked
-    version. It is considered a syntax error if the resulting <op>-ovf
-    is not defined in baseobjspace.py .
+    version. It is considered a syntax error if the resulting <op>_ovf
+    is not defined in objspace/flow/objspace.py.
     ovfcheck_lshift is special because there is no preceding operation.
     Instead, it will be replaced by an OP_LSHIFT_OVF operation.
-
-    The exception handling of the original operation is completely
-    ignored. Only exception handlers for the ovfcheck function call
-    are taken into account. This gives us the best possible control
-    over situations where we want exact contol over certain operations.
-    Example:
-
-    try:
-        array1[idx-1] = ovfcheck(array1[idx-1] + array2[idx+1])
-    except OverflowError:
-        ...
-
-    assuming two integer arrays, we are only checking the element addition
-    for overflows, but the indexing is not checked.
     """
-    # General assumption:
-    # empty blocks have been eliminated.
-    # ovfcheck can appear in the same block with its operation.
-    # this is the case if no exception handling was provided.
-    # Otherwise, we have a block ending in the operation,
-    # followed by a block with a single ovfcheck call.
     from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift
-    from pypy.objspace.flow.objspace import op_appendices
     from pypy.objspace.flow.objspace import implicit_exceptions
     covf = Constant(ovfcheck)
     covfls = Constant(ovfcheck_lshift)
-    appendix = op_appendices[OverflowError]
-    renaming = {}
-    seen_ovfblocks = {}
 
-    # get all blocks
-    blocks = {}
-    def visit(block):
-        if isinstance(block, Block):
-            blocks[block] = True
-    traverse(visit, graph)
-
-    def is_ovfcheck(bl):
-        ops = bl.operations
-        return (ops and ops[-1].opname == "simple_call"
-                and ops[-1].args[0] == covf)
-    def is_ovfshiftcheck(bl):
-        ops = bl.operations
-        return (ops and ops[-1].opname == "simple_call"
-                and ops[-1].args[0] == covfls)
-    def is_single(bl):
-        return is_ovfcheck(bl) and len(bl.operations) > 1
-    def is_paired(bl):
-        if bl.exits:
-            ovfblock = bl.exits[0].target
-        return (bl.exits and is_ovfcheck(ovfblock) and
-                len(ovfblock.operations) == 1)
-    def rename(v):
-        return renaming.get(v, v)
-    def remove_last_op(bl):
-        delop = bl.operations.pop()
-        assert delop.opname == "simple_call"
-        assert len(delop.args) == 2
-        renaming[delop.result] = rename(delop.args[1])
-        for exit in bl.exits:
-            exit.args = [rename(a) for a in exit.args]
-            
-    def check_syntax(ovfblock, block=None):
-        """check whether ovfblock is reachable more than once
-        or if they cheated about the argument"""
-        if block:
-            link = block.exits[0]
-            for lprev, ltarg in zip(link.args, ovfblock.inputargs):
-                renaming[ltarg] = rename(lprev)
-            arg = ovfblock.operations[0].args[-1]
-            res = block.operations[-1].result
-            opname = block.operations[-1].opname
-        else:
-            arg = ovfblock.operations[-1].args[-1]
-            res = ovfblock.operations[-2].result
-            opname = ovfblock.operations[-2].opname
-        if rename(arg) != rename(res) or ovfblock in seen_ovfblocks:
-            raise SyntaxError("ovfcheck in %s: The checked operation %s"
-                              " is misplaced" % (graph.name, opname))
-        exlis = implicit_exceptions.get("%s_%s" % (opname, appendix), [])
+    def check_syntax(opname):
+        exlis = implicit_exceptions.get("%s_ovf" % (opname,), [])
         if OverflowError not in exlis:
-            raise SyntaxError("ovfcheck in %s: Operation %s has no"
-                              " overflow variant" % (graph.name, opname))
+            raise Exception("ovfcheck in %s: Operation %s has no"
+                            " overflow variant" % (graph.name, opname))
 
-    blocks_to_join = False
-    for block in blocks:
-        if is_ovfshiftcheck(block):
-            # ovfcheck_lshift:
-            # simply rewrite the operation
-            op = block.operations[-1]
-            op.opname = "lshift" # augmented later
-            op.args = op.args[1:]
-        elif is_single(block):
-            # remove the call to ovfcheck and keep the exceptions
-            check_syntax(block)
-            remove_last_op(block)
-            seen_ovfblocks[block] = True
-        elif is_paired(block):
-            # remove the block's exception links
-            link = block.exits[0]
-            ovfblock = link.target
-            check_syntax(ovfblock, block)
-            block.recloseblock(link)
-            block.exitswitch = None
-            # remove the ovfcheck call from the None target
-            remove_last_op(ovfblock)
-            seen_ovfblocks[ovfblock] = True
-            blocks_to_join = True
-        else:
-            continue
-        op = block.operations[-1]
-        op.opname = "%s_%s" % (op.opname, appendix)
-    if blocks_to_join:
-        join_blocks(graph)
+    for block in graph.iterblocks():
+        for i in range(len(block.operations)-1, -1, -1):
+            op = block.operations[i]
+            if op.opname != 'simple_call':
+                continue
+            if op.args[0] == covf:
+                if i == 0:
+                    # hard case: ovfcheck() on an operation that occurs
+                    # in the previous block, like 'floordiv'.  The generic
+                    # exception handling around the ovfcheck() is enough
+                    # to cover all cases; kill the one around the previous op.
+                    entrymap = mkentrymap(graph)
+                    links = entrymap[block]
+                    assert len(links) == 1
+                    prevblock = links[0].prevblock
+                    assert prevblock.exits[0].target is block
+                    prevblock.exitswitch = None
+                    prevblock.exits = (links[0],)
+                    join_blocks(graph)         # merge the two blocks together
+                    transform_ovfcheck(graph)  # ...and try again
+                    return
+                op1 = block.operations[i-1]
+                check_syntax(op1.opname)
+                op1.opname += '_ovf'
+                del block.operations[i]
+                block.renamevariables({op.result: op1.result})
+            elif op.args[0] == covfls:
+                op.opname = 'lshift_ovf'
+                del op.args[0]
 
 def simplify_exceptions(graph):
     """The exception handling caused by non-implicit exceptions

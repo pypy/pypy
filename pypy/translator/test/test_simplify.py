@@ -15,6 +15,82 @@ def translate(func, argtypes, backend_optimize=True):
         t.view()
     return graphof(t, func), t
 
+def test_remove_ovfcheck_1():
+    # check that ovfcheck() is handled
+    from pypy.rlib.rarithmetic import ovfcheck
+    def f(x):
+        try:
+            return ovfcheck(x*2)
+        except OverflowError:
+            return -42
+    graph, _ = translate(f, [int])
+    assert len(graph.startblock.operations) == 1
+    assert graph.startblock.operations[0].opname == 'int_mul_ovf'
+    assert len(graph.startblock.exits) == 2
+    assert [link.target.operations for link in graph.startblock.exits] == \
+           [(), ()]
+
+def test_remove_ovfcheck_bug():
+    # check that ovfcheck() is correctly handled even if there is no
+    # try:except: immediately around it
+    from pypy.rlib.rarithmetic import ovfcheck
+    def f(x):
+        return ovfcheck(x*2) - 1
+    graph, _ = translate(f, [int])
+    assert len(graph.startblock.operations) == 2
+    assert graph.startblock.operations[0].opname == 'int_mul_ovf'
+    assert graph.startblock.operations[1].opname == 'int_sub'
+
+def test_remove_ovfcheck_lshift():
+    # check that ovfcheck_lshift() is handled
+    from pypy.rlib.rarithmetic import ovfcheck_lshift
+    def f(x):
+        try:
+            return ovfcheck_lshift(x, 2)
+        except OverflowError:
+            return -42
+    graph, _ = translate(f, [int])
+    assert len(graph.startblock.operations) == 1
+    assert graph.startblock.operations[0].opname == 'int_lshift_ovf_val'
+    assert len(graph.startblock.operations[0].args) == 2
+    assert len(graph.startblock.exits) == 3
+    assert [link.target.operations for link in graph.startblock.exits] == \
+           [(), (), ()]
+
+def test_remove_ovfcheck_floordiv():
+    # check that ovfcheck() is handled even if the operation raises
+    # and catches another exception too, here ZeroDivisionError
+    from pypy.rlib.rarithmetic import ovfcheck
+    def f(x, y):
+        try:
+            return ovfcheck(x // y)
+        except OverflowError:
+            return -42
+        except ZeroDivisionError:
+            return -43
+    graph, _ = translate(f, [int, int])
+    assert len(graph.startblock.operations) == 1
+    assert graph.startblock.operations[0].opname == 'int_floordiv_ovf_zer'
+    assert len(graph.startblock.exits) == 3
+    assert [link.target.operations for link in graph.startblock.exits[1:]] == \
+           [(), ()]
+
+def test_remove_ovfcheck_floordiv_2():
+    # check that ovfcheck() is handled even if the operation raises
+    # and catches only another exception, here ZeroDivisionError
+    from pypy.rlib.rarithmetic import ovfcheck
+    def f(x, y):
+        try:
+            return ovfcheck(x // y)
+        except ZeroDivisionError:
+            return -43
+    graph, _ = translate(f, [int, int])
+    assert len(graph.startblock.operations) == 1
+    assert graph.startblock.operations[0].opname == 'int_floordiv_ovf_zer'
+    assert len(graph.startblock.exits) == 3
+    assert [link.target.operations for link in graph.startblock.exits[1:]] == \
+           [(), ()]
+
 def test_remove_direct_call_without_side_effects():
     def f(x):
         return x + 123
