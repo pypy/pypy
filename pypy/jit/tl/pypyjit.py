@@ -25,10 +25,10 @@ config.objspace.usemodules._sre = False
 config.translation.rweakref = False # XXX
 set_pypy_opt_level(config, level='0')
 config.objspace.std.multimethods = 'mrd'
+multimethod.Installer = multimethod.InstallerVersion2
 config.objspace.std.builtinshortcut = True
 config.objspace.opcodes.CALL_LIKELY_BUILTIN = True
 config.objspace.std.withrangelist = True
-multimethod.Installer = multimethod.InstallerVersion2
 print config
 
 import sys, pdb
