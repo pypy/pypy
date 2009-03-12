@@ -7,6 +7,7 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.jit import _we_are_jitted
 from pypy.jit.metainterp.history import Const, getkind
 from pypy.jit.metainterp import heaptracker, support, history
+from pypy.tool.udir import udir
 
 import py, sys
 from pypy.tool.ansi_print import ansi_log
@@ -225,7 +226,8 @@ class BytecodeMaker(object):
             self.bytecode.dump()
         else:
             print repr(self.bytecode)
-            self.bytecode.dump(open("/tmp/jitcodes/%s" % self.bytecode.name, "w"))
+            dir = udir.ensure("jitcodes", dir=1)
+            self.bytecode.dump(open(str(dir.join(self.bytecode.name)), "w"))
 
     def const_position(self, constvalue):
         """Generate a constant of the given value.
