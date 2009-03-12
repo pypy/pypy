@@ -120,7 +120,10 @@ class TestLL2Ctypes(object):
         a.y[0] = 'x'
         a.y[1] = 'y'
         a.y[2] = 'z'
-        ac = lltype2ctypes(a)
+        # we need to pass normalize=False, otherwise 'ac' is returned of
+        # a normalized standard type, which complains about IndexError
+        # when doing 'ac.contents.y.items[2]'.
+        ac = lltype2ctypes(a, normalize=False)
         assert ac.contents.y.length == 3
         assert ac.contents.y.items[2] == ord('z')
         lltype.free(a, flavor='raw')
