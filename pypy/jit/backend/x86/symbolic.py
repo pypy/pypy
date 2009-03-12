@@ -6,7 +6,7 @@ from pypy.rlib.objectmodel import specialize
 def get_field_token(STRUCT, fieldname, translate_support_code):
     if translate_support_code:
         return (llmemory.offsetof(STRUCT, fieldname),
-                get_size(STRUCT, True))
+                get_size(getattr(STRUCT, fieldname), True))
     cstruct = ll2ctypes.get_ctypes_type(STRUCT)
     cfield = getattr(cstruct, fieldname)
     return (cfield.offset, cfield.size)
