@@ -141,19 +141,19 @@ class CPU386(object):
         try:
             del self.keepalives[self.keepalives_index:]
             guard_op = self._guard_list[guard_index]
-            if self.debug:
-                llop.debug_print(lltype.Void, '.. calling back from',
-                                 guard_op, 'to the jit')
+            #if self.debug:
+            #    llop.debug_print(lltype.Void, '.. calling back from',
+            #                     guard_op, 'to the jit')
             gf = GuardFailed(self, frame_addr, guard_op)
             self.assembler.log_failure_recovery(gf, guard_index)
             self.metainterp.handle_guard_failure(gf)
             self.return_value_type = gf.return_value_type
-            if self.debug:
-                if gf.return_addr == self.assembler.generic_return_addr:
-                    llop.debug_print(lltype.Void, 'continuing at generic return address')
-                else:
-                    llop.debug_print(lltype.Void, 'continuing at',
-                                     uhex(gf.return_addr))
+            #if self.debug:
+                #if gf.return_addr == self.assembler.generic_return_addr:
+                #    llop.debug_print(lltype.Void, 'continuing at generic return address')
+                #else:
+                #    llop.debug_print(lltype.Void, 'continuing at',
+                #                     uhex(gf.return_addr))
             return gf.return_addr
         except Exception, e:
             if not we_are_translated():
@@ -325,20 +325,19 @@ class CPU386(object):
             v = self.get_box_value_as_int(box)
             values_as_int[i] = v
         # debug info
-        if self.debug:
-            values_repr = ", ".join([str(values_as_int[i]) for i in
-                                     range(len(valueboxes))])
-            llop.debug_print(lltype.Void, 'exec:', name, values_repr)
+        #if self.debug and not we_are_translated():
+        #    values_repr = ", ".join([str(values_as_int[i]) for i in
+        #                             range(len(valueboxes))])
+        #    llop.debug_print(lltype.Void, 'exec:', name, values_repr)
+        self.assembler.log_call(name, valueboxes)
 
         self.keepalives_index = len(self.keepalives)
         res = self.execute_call(startmp, func, values_as_int)
         if self.return_value_type == VOID:
-            if self.debug:
-                llop.debug_print(lltype.Void, " => void result")
+            #self.assembler.log_void_result()
             res = None
         else:
-            if self.debug:
-                llop.debug_print(lltype.Void, " => ", res)
+            #self.assembler.log_result(res)
             res = self.get_valuebox_from_int(self.return_value_type, res)
         keepalive_until_here(valueboxes)
         self.keepalives_index = oldindex

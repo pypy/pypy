@@ -44,6 +44,7 @@ class Assembler386(object):
     MC_SIZE = 1024*1024     # 1MB, but assumed infinite for now
     generic_return_addr = 0
     position = -1
+    log_fd = -1
 
     def __init__(self, cpu, translate_support_code=False):
         self.cpu = cpu
@@ -54,8 +55,7 @@ class Assembler386(object):
         self.malloc_func_addr = 0
         self._exception_data = lltype.nullptr(rffi.CArray(lltype.Signed))
         self._exception_addr = 0
-        self._log_fd = self._get_log()
-
+        
     def _get_log(self):
         s = os.environ.get('PYPYJITLOG')
         if not s:
@@ -71,6 +71,7 @@ class Assembler386(object):
 
     def make_sure_mc_exists(self):
         if self.mc is None:
+            self._log_fd = self._get_log()
             # we generate the loop body in 'mc'
             # 'mc2' is for guard recovery code
             if we_are_translated():
@@ -130,6 +131,14 @@ class Assembler386(object):
         os.write(self._log_fd, "%d %d %s\n" % (guard_index, jmp,
                                                ",".join(reprs)))
         os.write(self._log_fd, 'xxxxxxxxxx\n')
+
+    def log_call(self, name, valueboxes):
+        if self._log_fd == -1:
+            return
+        memo = {}
+        args_s = ','.join([repr_of_arg(memo, box) for box in valueboxes])
+        os.write(self._log_fd, "CALL\n")
+        os.write(self._log_fd, "%s %s\n" % (name, args_s))
 
     def assemble(self, operations, guard_op, verbose=False):
         self.verbose = verbose
