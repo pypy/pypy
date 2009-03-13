@@ -486,6 +486,7 @@ class RegAlloc(object):
     def consider_merge_point(self, op, ignored):
         # XXX we can sort out here by longevity if we need something
         # more optimal
+
         ops = [PerformDiscard(op, [])]
         locs = [None] * len(op.args)
         for i in range(len(op.args)):
@@ -707,7 +708,7 @@ class RegAlloc(object):
             isinstance(vx, Const) or isinstance(vy, Const)):
             ops0 = []
         else:
-            arglocs[0], ops0 = self.force_allocate_reg(vx, [])
+            arglocs[0], ops0 = self.make_sure_var_in_reg(vx, [])
         self.eventually_free_var(vx)
         self.eventually_free_var(vy)
         if guard_op is None:
