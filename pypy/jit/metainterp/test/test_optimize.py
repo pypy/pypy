@@ -309,7 +309,7 @@ def test_E_optimize_loop():
     assert guard_op.liveboxes == [E.sum2, E.v2]
     vt = cpu.cast_adr_to_int(node_vtable_adr)
     assert guard_op.storage_info.allocations == [vt]
-    assert guard_op.storage_info.setfields == [(0, E.ofs_value, -2)]
+    assert guard_op.storage_info.setfields == [(0, E.ofs_value, 7)]
 
 def test_E_rebuild_after_failure():
     class FakeMetaInterp(object):
@@ -461,7 +461,7 @@ def test_G_optimize_loop():
     assert guard_op.liveboxes == [G.sum2, ConstInt(124)]
     vt = cpu.cast_adr_to_int(node_vtable_adr)
     assert guard_op.storage_info.allocations == [vt]
-    assert guard_op.storage_info.setfields == [(0, G.ofs_value, -2)]
+    assert guard_op.storage_info.setfields == [(0, G.ofs_value, 7)]
 
 # ____________________________________________________________
 
