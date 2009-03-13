@@ -67,7 +67,7 @@ class AllocationStorage(object):
             if instnode.always_virtual:
                 res = ((len(self.prebuilt_objects) << FLAG_SHIFT)
                        | FLAG_PREBULT_OBJECTS)
-                self.prebuilt_objects.append(instnode.source)
+                self.prebuilt_objects.append(instnode.source.constbox())
             else:
                 if isinstance(instnode.cls.source, FixedList):
                     ld = instnode.cls.source
