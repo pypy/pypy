@@ -145,6 +145,7 @@ class CPU386(object):
                 llop.debug_print(lltype.Void, '.. calling back from',
                                  guard_op, 'to the jit')
             gf = GuardFailed(self, frame_addr, guard_op)
+            self.assembler.log_failure_recovery(gf, guard_index)
             self.metainterp.handle_guard_failure(gf)
             self.return_value_type = gf.return_value_type
             if self.debug:

@@ -1,4 +1,4 @@
-import sys
+import sys, os
 import ctypes
 from pypy.jit.backend.x86 import symbolic
 from pypy.jit.metainterp.history import Const, ConstInt, Box, ConstPtr, BoxPtr,\
@@ -54,6 +54,20 @@ class Assembler386(object):
         self.malloc_func_addr = 0
         self._exception_data = lltype.nullptr(rffi.CArray(lltype.Signed))
         self._exception_addr = 0
+        self._log_fd = self._get_log()
+
+    def _get_log(self):
+        s = os.environ.get('PYPYJITLOG')
+        if not s:
+            return -1
+        s += '.ops'
+        try:
+            flags = os.O_WRONLY|os.O_CREAT|os.O_TRUNC
+            log_fd = os.open(s, flags, 0666)
+        except OSError:
+            os.write(2, "could not create log file\n")
+            return -1
+        return log_fd
 
     def make_sure_mc_exists(self):
         if self.mc is None:
@@ -79,7 +93,43 @@ class Assembler386(object):
             # the address of the function called by 'new': directly use
             # Boehm's GC_malloc function.
             if self.malloc_func_addr == 0:
-                self.malloc_func_addr = gc_malloc_fnaddr() 
+                self.malloc_func_addr = gc_malloc_fnaddr()
+
+    def eventually_log_operations(self, operations, guard_op):
+        if self._log_fd == -1:
+            return
+        memo = {}
+        os.write(self._log_fd, "<<<<<<<<<<\n")
+        if guard_op is not None:
+            os.write(self._log_fd, "GO(%d)\n" % guard_op._jmp_from)
+        for op in operations:
+            args = ",".join([repr_of_arg(memo, arg) for arg in op.args])
+            os.write(self._log_fd, "%s %s\n" % (op.getopname(), args))
+            if op.result is not None:
+                os.write(self._log_fd, "  => %s\n" % repr_of_arg(memo,
+                                                                 op.result))
+            if op.is_guard():
+                liveboxes_s = ",".join([repr_of_arg(memo, arg) for arg in
+                                        op.liveboxes])
+                os.write(self._log_fd, "  .. %s\n" % liveboxes_s)
+        os.write(self._log_fd, ">>>>>>>>>>\n")
+
+    def log_failure_recovery(self, gf, guard_index):
+        if self._log_fd == -1:
+            return
+        os.write(self._log_fd, 'xxxxxxxxxx\n')
+        j = 0
+        memo = {}
+        reprs = []
+        for box in gf.guard_op.liveboxes:
+            if isinstance(box, Box):
+                valuebox = gf.cpu.getvaluebox(gf.frame, gf.guard_op, j)
+                reprs.append(repr_of_arg(memo, valuebox))
+                j += 1
+        jmp = gf.guard_op._jmp_from
+        os.write(self._log_fd, "%d %d %s\n" % (guard_index, jmp,
+                                               ",".join(reprs)))
+        os.write(self._log_fd, 'xxxxxxxxxx\n')
 
     def assemble(self, operations, guard_op, verbose=False):
         self.verbose = verbose
@@ -89,19 +139,7 @@ class Assembler386(object):
         self.make_sure_mc_exists()
         op0 = operations[0]
         op0.position = self.mc.tell()
-        if self.verbose and we_are_translated():
-            print
-            memo = {}
-            for op in operations:
-                args = ",".join([repr_of_arg(memo, arg) for arg in op.args])
-                llop.debug_print(lltype.Void, "%s %s" % (op.getopname(), args))
-                if op.result is not None:
-                    llop.debug_print(lltype.Void, "  => %s" % repr_of_arg(memo, op.result))
-                if op.is_guard():
-                    liveboxes_s = ",".join([repr_of_arg(memo, arg) for arg in
-                                            op.liveboxes])
-                    llop.debug_print(lltype.Void, "  .. %s" % liveboxes_s)
-            print
+        self.eventually_log_operations(operations, guard_op)
         regalloc = RegAlloc(operations, guard_op, self.cpu.translate_support_code)
         if not we_are_translated():
             self._regalloc = regalloc # for debugging

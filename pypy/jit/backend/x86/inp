@@ -1,12 +1,40 @@
-merge_point bp(0,135638976),bi(1,210),bi(2,4),bi(3,1),bi(4,1),bi(5,2),bi(6,6)
-guard_value bi(5,2),ci(7,2)
-int_le bi(2,4),ci(8,1)
-  => bi(9,0)
-int_is_true bi(9,0)
-  => bi(10,0)
-guard_false bi(10,0)
-int_mul bi(1,210),bi(2,4)
-  => bi(11,840)
-int_sub bi(2,4),ci(12,1)
-  => bi(13,3)
-jump bp(0,135638976),bi(11,840),bi(13,3),ci(14,1),ci(8,1),ci(15,2),bi(6,6)
+<<<<<<<<<<
+merge_point bi(0,7),bi(1,3),bi(2,27)
+int_add bi(2,27),bi(0,7)
+  => bi(3,34)
+int_add bi(1,3),ci(4,1)
+  => bi(5,4)
+int_eq bi(5,4),ci(6,4)
+  => bi(7,1)
+guard_true bi(7,1)
+  .. bi(0,7),bi(3,34),bi(5,4),ci(8,0)
+int_add bi(3,34),ci(9,100)
+  => bi(10,134)
+int_sub bi(0,7),ci(4,1)
+  => bi(11,6)
+int_gt bi(11,6),ci(8,0)
+  => bi(12,1)
+guard_true bi(12,1)
+  .. bi(11,6),bi(10,134),ci(8,0),ci(8,0)
+jump bi(11,6),ci(8,0),bi(10,134)
+>>>>>>>>>>
+xxxxxxxxxx
+0 -1342111720 bi(0,6),bi(1,140),bi(2,1)
+xxxxxxxxxx
+xxxxxxxxxx
+0 -1342111720 bi(0,2),bi(1,254),bi(2,1)
+xxxxxxxxxx
+<<<<<<<<<<
+GO(-1342111720)
+catch bi(0,2),bi(1,254),bi(2,1),ci(3,0)
+int_sub bi(0,2),ci(4,1)
+  => bi(5,1)
+int_gt bi(5,1),ci(3,0)
+  => bi(6,1)
+guard_true bi(6,1)
+  .. bi(5,1),bi(1,254),bi(2,1),ci(3,0)
+jump bi(5,1),bi(2,1),bi(1,254)
+>>>>>>>>>>
+xxxxxxxxxx
+2 -1342111655 bi(0,0),bi(1,255),bi(2,2)
+xxxxxxxxxx
