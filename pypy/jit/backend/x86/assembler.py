@@ -86,6 +86,15 @@ class Assembler386(object):
         self.make_sure_mc_exists()
         op0 = operations[0]
         op0.position = self.mc.tell()
+        if self.verbose and we_are_translated():
+            print
+            memo = {}
+            for op in operations:
+                args = ",".join([repr_of_arg(memo, arg) for arg in op.args])
+                llop.debug_print(lltype.Void, "%s %s" % (op.getopname(), args))
+                if op.result is not None:
+                    llop.debug_print(lltype.Void, "  => %s" % repr_of_arg(memo, op.result))
+            print
         regalloc = RegAlloc(operations, guard_op, self.cpu.translate_support_code)
         if not we_are_translated():
             self._regalloc = regalloc # for debugging
@@ -102,15 +111,6 @@ class Assembler386(object):
             pprint.pprint(operations)
             print
             pprint.pprint(computed_ops)
-            print
-        if self.verbose and we_are_translated():
-            print
-            memo = {}
-            for op in operations:
-                args = ",".join([repr_of_arg(memo, arg) for arg in op.args])
-                llop.debug_print(lltype.Void, "%s %s" % (op.getopname(), args))
-                if op.result is not None:
-                    llop.debug_print(lltype.Void, "  => %s" % repr_of_arg(memo, op.result))
             print
         for i in range(len(computed_ops)):
             op = computed_ops[i]
