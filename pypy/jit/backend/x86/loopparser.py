@@ -10,6 +10,7 @@ class Parser(object):
         self.boxes = {}
         self.box_creations = []
         self.operations = []
+        self.unique_ptrs = {}
 
     def parse_name(self, name):
         if name == 'bp':
@@ -22,6 +23,13 @@ class Parser(object):
             return 'ConstPtr'
         raise NotImplementedError
 
+    def _get_unique_ptr(self, val):
+        try:
+            return self.unique_ptrs[val]
+        except KeyError:
+            self.unique_ptrs[val] = len(self.unique_ptrs)
+            return len(self.unique_ptrs) - 1
+
     def register_box(self, id, name, val):
         try:
             return self.boxes[id]
@@ -29,7 +37,7 @@ class Parser(object):
             result = name.lower() + '_' + str(id)
             self.boxes[id] = result
             if name.endswith('Ptr'):
-                val = 'ptr_%d' % id
+                val = 'ptr_%d' % self._get_unique_ptr(val)
             self.box_creations.append('%s = %s(%s)' % (result, name, val))
             return result
 
@@ -59,7 +67,10 @@ class Parser(object):
             line = lines[i]
             if line:
                 opname, args = line.split(' ')
-                parsed_args = self.parse_args(pairs(args.split(",")))
+                if args:
+                    parsed_args = self.parse_args(pairs(args.split(",")))
+                else:
+                    parsed_args = []
                 if i + 1 < len(lines) and lines[i + 1].startswith('  =>'):
                     i += 1
                     box = lines[i][5:]
@@ -93,3 +104,4 @@ def test_loopparser():
     assert parser.operations[1] == ('guard_value', ['boxint_5', 'constint_7'],
                                     None)
     assert len(parser.box_creations) == 8
+
