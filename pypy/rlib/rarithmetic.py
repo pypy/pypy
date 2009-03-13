@@ -95,6 +95,7 @@ _should_widen_type._annspecialcase_ = 'specialize:memo'
 del _bits, _itest, _Ltest
 
 def ovfcheck(r):
+    "NOT_RPYTHON"
     # to be used as ovfcheck(x <op> y)
     # raise OverflowError if the operation did overflow
     assert not isinstance(r, r_uint), "unexpected ovf check on unsigned"
@@ -111,6 +112,7 @@ def _local_ovfcheck(r):
     return r
 
 def ovfcheck_lshift(a, b):
+    "NOT_RPYTHON"
     return _local_ovfcheck(int(long(a) << b))
 
 FL_MAXINT = float(LONG_TEST-1)
