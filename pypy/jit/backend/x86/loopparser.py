@@ -149,10 +149,14 @@ class Parser(object):
                 xxxx
 
     def output(self):
+        for val, num in self.unique_ptrs.items():
+            print " " * 4 + "ptr_%d = xxx(%d)" % (num, val)
         for box in self.box_creations:
             print " " * 4 + box
         for block in self.blocks:
             if isinstance(block, Loop):
+                if block.operations[-1][0] == '<119>':
+                    continue
                 print " " * 4 + "ops = ["
                 d = {}
                 for i, (name, args, res, liveboxes) in enumerate(block.operations):
@@ -164,6 +168,14 @@ class Parser(object):
                 print " " * 4 + "]"
                 print " " * 4 + "ops[-1].jump_target = ops[0]"
                 print " " * 4 + "cpu.compile_operations(ops)"
+            if isinstance(block, Call):
+                if block.name == 'call':
+                    continue # ignore calls to single function
+                print " " * 4 + "cpu.execute_operations_in_new_frame('%s', [%s])" % (block.name, ", ".join(block.args))
+            if isinstance(block, GuardFailure):
+                expected = "[" + ", ".join(["%s.value" % arg for arg in block.args]) + "]"
+                print " " * 4 + "expected = " + expected
+                print " " * 4 + "assert meta_interp.recordedvalues = expected"
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
