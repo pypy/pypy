@@ -2,7 +2,7 @@ import sys
 import ctypes
 from pypy.jit.backend.x86 import symbolic
 from pypy.jit.metainterp.history import Const, ConstInt, Box, ConstPtr, BoxPtr,\
-     BoxInt
+     BoxInt, ConstAddr
 from pypy.rpython.lltypesystem import lltype, rffi, ll2ctypes, rstr, llmemory
 from pypy.rpython.lltypesystem.rclass import OBJECT
 from pypy.rpython.lltypesystem.lloperation import llop
@@ -34,8 +34,11 @@ def repr_of_arg(memo, arg):
         return "bi(%d,%d)" % (mv, arg.value)
     elif isinstance(arg, BoxPtr):
         return "bp(%d,%d)" % (mv, arg.get_())
+    elif isinstance(arg, ConstAddr):
+        return "ca(%d,%d)" % (mv, arg.get_())
     else:
-        raise NotImplementedError
+        #raise NotImplementedError
+        return "?%r" % (arg,)
 
 class Assembler386(object):
     MC_SIZE = 1024*1024     # 1MB, but assumed infinite for now
@@ -228,9 +231,6 @@ class Assembler386(object):
     def regalloc_perform_with_guard(self, op):
         genop_guard_list[op.op.opnum](self, op.op, op.guard_op, op.arglocs,
                                       op.result_loc)
-
-    def regalloc_store_to_arg(self, op):
-        self.mc.MOV(arg_pos(op.pos), op.from_loc)
 
     def _unaryop(asmop):
         def genop_unary(self, op, arglocs, resloc):

@@ -49,8 +49,8 @@ class ConstDescr3(AbstractDescr):
     def __ne__(self, other):
         return not self == other
 
-    def _getrepr_(self):
-        return repr(self.v)
+    def __repr__(self):
+        return '<ConstDescr3 %r>' % (self.v,)
 
 class CPU386(object):
     debug = True
