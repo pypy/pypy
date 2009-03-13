@@ -50,7 +50,7 @@ def f4():
 def f5():
     t = (1, 2, 3)
     i = 0
-    while i < 1000:
+    while i < 100:
         t = t[1], t[2], t[0]
         i += 1
     print t
