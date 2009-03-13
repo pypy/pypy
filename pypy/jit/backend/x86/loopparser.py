@@ -30,6 +30,9 @@ class Parser(object):
             self.unique_ptrs[val] = len(self.unique_ptrs)
             return len(self.unique_ptrs) - 1
 
+    def get_ptr_val(self, val):
+        return 'lltype.cast_opaque_ptr(llmemory.GCREF, ptr_%d)' % self._get_unique_ptr(val)
+
     def register_box(self, id, name, val):
         try:
             return self.boxes[id]
@@ -37,7 +40,7 @@ class Parser(object):
             result = name.lower() + '_' + str(id)
             self.boxes[id] = result
             if name.endswith('Ptr'):
-                val = 'ptr_%d' % self._get_unique_ptr(val)
+                val = self.get_ptr_val(val)
             self.box_creations.append('%s = %s(%s)' % (result, name, val))
             return result
 
@@ -82,12 +85,13 @@ class Parser(object):
 
     def output(self):
         for box in self.box_creations:
-            print box
-        print "ops = ["
+            print " " * 4 + box
+        print " " * 4 + "ops = ["
         for name, args, res in self.operations:
-            print " " * 4 + "rop.ResOperation(%s, [%s], %s)" % (name.upper(), ", ".join(args), res)
-        print "]"
-        print "ops[-1].jump_target = ops[0]"
+            print " " * 8 + "ResOperation(rop.%s, [%s], %s)," % (name.upper(), ", ".join(args), res)
+        print " " * 4 + "]"
+        print " " * 4 + "ops[-1].jump_target = ops[0]"
+        print " " * 4 + "cpu.compile_operations(ops)"
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
