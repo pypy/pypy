@@ -43,6 +43,8 @@ class Parser(object):
             return 'ConstInt'
         elif name == 'cp':
             return 'ConstPtr'
+        elif name == 'ca':
+            return 'ConstAddr'
         raise NotImplementedError
 
     def _get_unique_ptr(self, val):
@@ -55,6 +57,9 @@ class Parser(object):
     def get_ptr_val(self, val):
         return 'lltype.cast_opaque_ptr(llmemory.GCREF, ptr_%d)' % self._get_unique_ptr(val)
 
+    def get_adr_val(self, val):
+        return 'llmemory.cast_ptr_to_adr(ptr_%d)' % self._get_unique_ptr(val)
+
     def register_box(self, id, name, val):
         try:
             return self.boxes[id]
@@ -63,6 +68,8 @@ class Parser(object):
             self.boxes[id] = result
             if name.endswith('Ptr'):
                 val = self.get_ptr_val(val)
+            elif name == 'ConstAddr':
+                val = self.get_adr_val(val)
             self.box_creations.append('%s = %s(%s)' % (result, name, val))
             return result
 
@@ -144,12 +151,19 @@ class Parser(object):
     def output(self):
         for box in self.box_creations:
             print " " * 4 + box
-        print " " * 4 + "ops = ["
-        for name, args, res in self.operations:
-            print " " * 8 + "ResOperation(rop.%s, [%s], %s)," % (name.upper(), ", ".join(args), res)
-        print " " * 4 + "]"
-        print " " * 4 + "ops[-1].jump_target = ops[0]"
-        print " " * 4 + "cpu.compile_operations(ops)"
+        for block in self.blocks:
+            if isinstance(block, Loop):
+                print " " * 4 + "ops = ["
+                d = {}
+                for i, (name, args, res, liveboxes) in enumerate(block.operations):
+                    print " " * 8 + "ResOperation(rop.%s, [%s], %s)," % (name.upper(), ", ".join(args), res)
+                    if liveboxes is not None:
+                        d[i] = liveboxes
+                for k, v in d.items():
+                    print " " * 4 + "ops[%d].liveboxes = [%s]" % (k, ", ".join(v))
+                print " " * 4 + "]"
+                print " " * 4 + "ops[-1].jump_target = ops[0]"
+                print " " * 4 + "cpu.compile_operations(ops)"
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
