@@ -372,3 +372,98 @@ def test_bug_2():
     cpu.compile_operations(ops)
     res = cpu.execute_operations_in_new_frame('foo', ops, args)
 
+def test_bug_3():
+    meta_interp = FakeMetaInterp()
+    cpu = CPU(rtyper=None, stats=FakeStats())
+    cpu.set_meta_interp(meta_interp)
+    TP = lltype.GcStruct('x', ('y', lltype.Ptr(lltype.GcStruct('y'))))
+    cpu.assembler._ovf_error_vtable = llmemory.cast_ptr_to_adr(lltype.nullptr(TP))
+    cpu.assembler._ovf_error_inst = cpu.assembler._ovf_error_vtable
+    ptr_0 = lltype.malloc(TP)
+    ptr_0.y = lltype.malloc(TP.y.TO)
+    ptr_1 = lltype.nullptr(TP)
+    ptr_2 = lltype.nullptr(TP)
+    ptr_3 = ptr_0
+    ptr_4 = ptr_0
+    boxptr_0 = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, ptr_0))
+    boxint_1 = BoxInt(60)
+    boxint_2 = BoxInt(40)
+    boxint_3 = BoxInt(57)
+    boxptr_4 = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, ptr_1))
+    boxint_5 = BoxInt(40)
+    boxint_6 = BoxInt(100000000)
+    boxint_7 = BoxInt(0)
+    boxint_8 = BoxInt(1)
+    boxptr_9 = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, ptr_2))
+    boxptr_10 = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, ptr_2))
+    boxptr_11 = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, ptr_2))
+    boxint_12 = BoxInt(1)
+    boxptr_13 = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, ptr_3))
+    constint_14 = ConstInt(1)
+    boxint_15 = BoxInt(1)
+    constint_16 = ConstInt(0)
+    boxint_17 = BoxInt(0)
+    boxint_18 = BoxInt(0)
+    boxint_19 = BoxInt(0)
+    boxint_20 = BoxInt(40)
+    boxint_21 = BoxInt(40)
+    constint_22 = ConstInt(1)
+    boxint_23 = BoxInt(41)
+    constptr_24 = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, ptr_1))
+    constint_25 = ConstInt(2)
+    boxint_26 = BoxInt(0)
+    boxint_27 = BoxInt(42)
+    boxint_28 = BoxInt(0)
+    boxint_29 = BoxInt(0)
+    boxint_30 = BoxInt(0)
+    boxint_31 = BoxInt(0)
+    boxint_32 = BoxInt(0)
+    boxint_33 = BoxInt(0)
+    constint_34 = ConstInt(2)
+    boxint_35 = BoxInt(62)
+    constptr_36 = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, ptr_4))
+    boxptr_37 = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, ptr_3))
+    boxint_38 = BoxInt(0)
+    constint_39 = ConstInt(57)
+    constptr_40 = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, ptr_2))
+    constint_41 = ConstInt(1)
+    ops = [
+        ResOperation(rop.MERGE_POINT, [boxptr_0, boxint_1, boxint_2, boxint_3, boxptr_4, boxint_5, boxint_6, boxint_7, boxint_8, boxptr_9, boxptr_10, boxptr_11, boxint_12, boxptr_13], None),
+        ResOperation(rop.GUARD_VALUE, [boxint_12, constint_14], None),
+        ResOperation(rop.OOISNULL, [boxptr_9], boxint_15),
+        ResOperation(rop.GUARD_TRUE, [boxint_15], None),
+        ResOperation(rop.INT_LT, [boxint_5, constint_16], boxint_17),
+        ResOperation(rop.GUARD_FALSE, [boxint_17], None),
+        ResOperation(rop.INT_GE, [boxint_5, boxint_6], boxint_18),
+        ResOperation(rop.GUARD_FALSE, [boxint_18], None),
+        ResOperation(rop.INT_LT, [boxint_5, constint_16], boxint_19),
+        ResOperation(rop.GUARD_FALSE, [boxint_19], None),
+        ResOperation(rop.INT_MUL, [boxint_5, boxint_8], boxint_20),
+        ResOperation(rop.INT_ADD, [boxint_7, boxint_20], boxint_21),
+        ResOperation(rop.INT_ADD, [boxint_5, constint_22], boxint_23),
+        ResOperation(rop.GUARD_VALUE, [boxptr_4, constptr_24], None),
+        ResOperation(rop.INT_MOD_OVF, [boxint_21, constint_25], boxint_26),
+        ResOperation(rop.GUARD_NO_EXCEPTION, [], None),
+        ResOperation(rop.INT_XOR, [boxint_21, constint_25], boxint_27),
+        ResOperation(rop.INT_LE, [boxint_27, constint_16], boxint_28),
+        ResOperation(rop.INT_NE, [boxint_26, constint_16], boxint_29),
+        ResOperation(rop.INT_AND, [boxint_28, boxint_29], boxint_30),
+        ResOperation(rop.INT_MUL, [boxint_30, constint_25], boxint_31),
+        ResOperation(rop.INT_ADD, [boxint_26, boxint_31], boxint_32),
+        ResOperation(rop.INT_NE, [boxint_32, constint_16], boxint_33),
+        ResOperation(rop.GUARD_FALSE, [boxint_33], None),
+        ResOperation(rop.INT_ADD_OVF, [boxint_1, constint_34], boxint_35),
+        ResOperation(rop.GUARD_NO_EXCEPTION, [], None),
+        ResOperation(rop.GETFIELD_GC, [constptr_36], boxptr_37),
+        ResOperation(rop.OOISNULL, [boxptr_37], boxint_38),
+        ResOperation(rop.GUARD_FALSE, [boxint_38], None),
+        ResOperation(rop.JUMP, [boxptr_0, boxint_35, boxint_21, constint_39, boxptr_4, boxint_23, boxint_6, boxint_7, boxint_8, boxptr_9, constptr_40, constptr_40, constint_41, boxptr_37], None),
+    ]
+    ops[-1].jump_target = ops[0]
+    for op in ops:
+        if op.is_guard():
+            op.liveboxes = []
+    ops[-4].descr = cpu.fielddescrof(TP, 'y')
+    cpu.compile_operations(ops)
+    args = [boxptr_0, boxint_1, boxint_2, boxint_3, boxptr_4, boxint_5, boxint_6, boxint_7, boxint_8, boxptr_9, boxptr_10, boxptr_11, boxint_12, boxptr_13]
+    res = cpu.execute_operations_in_new_frame('foo', ops, args)

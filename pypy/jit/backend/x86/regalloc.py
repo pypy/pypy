@@ -422,12 +422,8 @@ class RegAlloc(object):
 
     def pick_variable_to_spill(self, v, forbidden_vars, selected_reg=None):
         # XXX could be improved
-        if v in self.jump_reg_candidates:
-            assert selected_reg is None # I don't want to care...
-            # now we need to spill a variable that resides in a place where
-            # we would like our var to be.
-            # XXX Needs test
-            # XXX better storage
+        if v in self.jump_reg_candidates and (selected_reg is None or
+           self.jump_reg_candidates[v] is selected_reg):
             for var, reg in self.reg_bindings.items():
                 if reg is self.jump_reg_candidates[v] and v not in forbidden_vars:
                     return var
