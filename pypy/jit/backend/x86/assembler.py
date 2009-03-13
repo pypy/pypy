@@ -94,6 +94,10 @@ class Assembler386(object):
                 llop.debug_print(lltype.Void, "%s %s" % (op.getopname(), args))
                 if op.result is not None:
                     llop.debug_print(lltype.Void, "  => %s" % repr_of_arg(memo, op.result))
+                if op.is_guard():
+                    liveboxes_s = ",".join([repr_of_arg(memo, arg) for arg in
+                                            op.liveboxes])
+                    llop.debug_print(lltype.Void, "  .. %s" % liveboxes_s)
             print
         regalloc = RegAlloc(operations, guard_op, self.cpu.translate_support_code)
         if not we_are_translated():
