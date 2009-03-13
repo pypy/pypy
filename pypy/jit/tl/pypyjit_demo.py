@@ -53,10 +53,11 @@ def f5():
     while i < 1000:
         t = t[1], t[2], t[0]
         i += 1
+    print t
 
 def f6():
     print     "Arbitrary test function."
-    n = 5
+    n = 21
     i = 0
     x = 1
     while i<n:
@@ -68,5 +69,16 @@ def f6():
     print x
     return x
 
+def f7():
+    n = "hello"
+    i = 0
+    while i < 21:
+        i = i + 1
+    print n
 
-f5()
+
+try:
+    f7()
+except Exception, e:
+    print '/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\'
+    print e.__class__, e
