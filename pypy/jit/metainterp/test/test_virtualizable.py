@@ -372,7 +372,6 @@ class ImplicitVirtualizableTests:
         assert res == f(10)
 
     def test_always_virtual_with_origfields(self):
-        py.test.skip("CRASH")
         jitdriver = JitDriver(greens = [], reds = ['frame', 'n'],
                               virtualizables = ['frame'])
 

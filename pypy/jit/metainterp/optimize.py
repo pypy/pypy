@@ -29,22 +29,26 @@ class FixedList(AbstractValue):
 class CancelInefficientLoop(Exception):
     pass
 
+FLAG_ALLOCATIONS      = 0x0
+FLAG_LIST_ALLOCATIONS = 0x1
+FLAG_PREBULT_OBJECTS  = 0x2
+FLAG_BOXES_FROM_FRAME = 0x3
+FLAG_SHIFT            = 2
+FLAG_MASK             = 0x3
+
 class AllocationStorage(object):
     def __init__(self):
         # allocations: list of vtables to allocate
         # setfields: list of triples
-        #                 (index_in_allocations, ofs, ~index_in_arglist)
-        #                  -or-
-        #                 (index_in_allocations, ofs, index_in_allocations)
-        #                  -or-
-        #                 (~index_in_arglist, ofs, index_in_allocations)
-        #                  -or-
-        #                 (~index_in_arglist, ofs, ~index_in_arglist)
-        # last two cases are for virtualizables only
+        # (index_of_parent, ofs, index_of_child)
+        #   indexes have two least significant bits representing
+        #   where they're living, look above.
         self.allocations = []
         self.setfields = []
         # the same as above, but for lists and for running setitem
         self.list_allocations = []
+        # objects that are "always virtual"
+        self.prebuilt_objects = []
         self.setitems = []
 
     def deal_with_box(self, box, nodes, liveboxes, memo, cpu):
@@ -60,35 +64,34 @@ class AllocationStorage(object):
             virtual = instnode.virtual
             virtualized = instnode.virtualized
         if virtual:
-            if isinstance(instnode.cls.source, FixedList):
-                ld = instnode.cls.source
-                assert isinstance(ld, FixedList)
-                alloc_offset = len(self.list_allocations)
-                ad = ld.arraydescr
-                if instnode.cursize == -1:
-                    # fish fish fish
-                    instnode.cursize = executor.execute(cpu, rop.ARRAYLEN_GC,
-                                                        [instnode.source],
-                                                        ad).getint()
-                self.list_allocations.append((ad, instnode.cursize))
-                res = (alloc_offset + 1) << 16
+            if instnode.always_virtual:
+                res = ((len(self.prebuilt_objects) << FLAG_SHIFT)
+                       | FLAG_PREBULT_OBJECTS)
+                self.prebuilt_objects.append(instnode.source)
             else:
-                alloc_offset = len(self.allocations)
-                self.allocations.append(instnode.cls.source.getint())
-                res = alloc_offset
+                if isinstance(instnode.cls.source, FixedList):
+                    ld = instnode.cls.source
+                    assert isinstance(ld, FixedList)
+                    alloc_offset = len(self.list_allocations)
+                    ad = ld.arraydescr
+                    self.list_allocations.append((ad, instnode.cursize))
+                    res = (alloc_offset << FLAG_SHIFT) | FLAG_LIST_ALLOCATIONS
+                else:
+                    alloc_offset = len(self.allocations)
+                    self.allocations.append(instnode.cls.source.getint())
+                    res = (alloc_offset << FLAG_SHIFT) | FLAG_ALLOCATIONS
             memo[box] = res
             for ofs, node in instnode.curfields.items():
                 num = self.deal_with_box(node.source, nodes, liveboxes, memo,
                                          cpu)
                 if isinstance(instnode.cls.source, FixedList):
                     ld = instnode.cls.source
-                    x = (alloc_offset + 1) << 16
                     assert isinstance(ld, FixedList)
-                    self.setitems.append((x, ld.arraydescr, ofs, num))
+                    self.setitems.append((res, ld.arraydescr, ofs, num))
                 else:
-                    self.setfields.append((alloc_offset, ofs, num))
+                    self.setfields.append((res, ofs, num))
         elif virtualized:
-            res = ~len(liveboxes)
+            res = (len(liveboxes) << FLAG_SHIFT) | FLAG_BOXES_FROM_FRAME
             memo[box] = res
             liveboxes.append(box)
             for ofs, node in instnode.curfields.items():
@@ -96,7 +99,7 @@ class AllocationStorage(object):
                                          cpu)
                 self.setfields.append((res, ofs, num))
         else:
-            res = ~len(liveboxes)
+            res = (len(liveboxes) << FLAG_SHIFT) | FLAG_BOXES_FROM_FRAME
             memo[box] = res
             liveboxes.append(box)
         return res
@@ -134,6 +137,8 @@ class InstanceNode(object):
         self.expanded_fields = r_dict(av_eq, av_hash)
         self.cursize = -1
         self.vdesc = None # for virtualizables
+        self.always_virtual = False # a flag that is set on objects
+        # passed around, that are virtuals stored on virtualizables
 
     def is_nonzero(self):
         return self.cls is not None or self.nonzero
@@ -145,8 +150,11 @@ class InstanceNode(object):
         if self in memo:
             return
         memo[self] = None
-        if self.startbox and escape_self:
-            self.escaped = True
+        if self.startbox:
+            if escape_self:
+                self.escaped = True
+            else:
+                self.always_virtual = True
         if not self.virtualized:
             for node in self.curfields.values():
                 node.escape_if_startbox(memo)
@@ -525,12 +533,13 @@ class PerfectSpecializer(object):
                 if box not in rev_boxes:
                     rev_boxes[box] = len(liveboxes)
                     liveboxes.append(box)
-                index = ~rev_boxes[box]
+                index = (rev_boxes[box] << FLAG_SHIFT) | FLAG_BOXES_FROM_FRAME
                 fieldbox = subnode.source
                 if fieldbox not in rev_boxes:
                     rev_boxes[fieldbox] = len(liveboxes)
                     liveboxes.append(fieldbox)
-                fieldindex = ~rev_boxes[fieldbox]
+                fieldindex = ((rev_boxes[fieldbox] << FLAG_SHIFT) |
+                              FLAG_BOXES_FROM_FRAME)
                 if (node.cls is not None and
                     isinstance(node.cls.source, FixedList)):
                     ld = node.cls.source
@@ -816,12 +825,27 @@ class PerfectSpecializer(object):
             new_instnode = self.nodes[jump_op.args[i]]
             old_specnode.adapt_to(new_instnode)
 
-def box_from_index(allocated_boxes, allocated_lists, boxes_from_frame, index):
-    if index < 0:
-        return boxes_from_frame[~index]
-    if index > 0xffff:
-       return allocated_lists[(index - 1) >> 16]
-    return allocated_boxes[index]
+class Chooser(object):
+    def __init__(self, boxes_from_frame, allocated_boxes, allocated_lists,
+                 prebuilt_objects):
+        self.boxes_from_frame = boxes_from_frame
+        self.allocated_lists = allocated_lists
+        self.allocated_boxes = allocated_boxes
+        self.prebuilt_objects = prebuilt_objects
+
+    def box_from_index(self, index):
+        ofs = index >> FLAG_SHIFT
+        where_from = index & FLAG_MASK
+        if where_from == FLAG_BOXES_FROM_FRAME:
+            return self.boxes_from_frame[ofs]
+        elif where_from == FLAG_ALLOCATIONS:
+            return self.allocated_boxes[ofs]
+        elif where_from == FLAG_LIST_ALLOCATIONS:
+            return self.allocated_lists[ofs]
+        elif where_from == FLAG_PREBULT_OBJECTS:
+            return self.prebuilt_objects[ofs]
+        else:
+            assert 0, "I can't count to 4"    
 
 def rebuild_boxes_from_guard_failure(guard_op, metainterp, boxes_from_frame):
     allocated_boxes = []
@@ -843,30 +867,22 @@ def rebuild_boxes_from_guard_failure(guard_op, metainterp, boxes_from_frame):
         listbox = metainterp.execute_and_record(rop.NEW_ARRAY,
                                                 [sizebox], ad)
         allocated_lists.append(listbox)
+    chooser = Chooser(boxes_from_frame, allocated_boxes, allocated_lists,
+                      storage.prebuilt_objects)
     for index_in_alloc, ofs, index_in_arglist in storage.setfields:
-        fieldbox = box_from_index(allocated_boxes, allocated_lists,
-                                  boxes_from_frame, index_in_arglist)
-        box = box_from_index(allocated_boxes, allocated_lists,
-                             boxes_from_frame,
-                             index_in_alloc)
+        fieldbox = chooser.box_from_index(index_in_arglist)
+        box = chooser.box_from_index(index_in_alloc)
         assert isinstance(ofs, AbstractDescr)
         metainterp.execute_and_record(rop.SETFIELD_GC,
                                       [box, fieldbox], ofs)
     for index_in_alloc, ad, ofs, index_in_arglist in storage.setitems:
-        itembox = box_from_index(allocated_boxes, allocated_lists,
-                                 boxes_from_frame, index_in_arglist)
-        box = box_from_index(allocated_boxes, allocated_lists,
-                             boxes_from_frame, index_in_alloc)
+        itembox = chooser.box_from_index(index_in_arglist)
+        box = chooser.box_from_index(index_in_alloc)
         metainterp.execute_and_record(rop.SETARRAYITEM_GC,
                                       [box, ofs, itembox], ad)
     newboxes = []
     for index in storage.indices:
-        if index < 0:
-            newboxes.append(boxes_from_frame[~index])
-        elif index > 0xffff:
-            newboxes.append(allocated_lists[(index - 1) >> 16])
-        else:
-            newboxes.append(allocated_boxes[index])
+        newboxes.append(chooser.box_from_index(index))
 
     return newboxes
 
