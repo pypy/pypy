@@ -199,7 +199,7 @@ class PyPyTarget(object):
         return self.get_entry_point(config)
 
     def jitpolicy(self, driver):
-        from pypy.module.pypyjit.portal import PyPyJitPolicy
+        from pypy.module.pypyjit.policy import PyPyJitPolicy
         return PyPyJitPolicy(driver.translator)
     
     def get_entry_point(self, config):

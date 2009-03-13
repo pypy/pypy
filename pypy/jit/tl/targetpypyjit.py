@@ -67,5 +67,5 @@ def target(driver, args):
 
 def jitpolicy(driver):
     """Returns the JIT policy to use when translating."""
-    from pypy.module.pypyjit.portal import PyPyJitPolicy
+    from pypy.module.pypyjit.policy import PyPyJitPolicy
     return PyPyJitPolicy(driver.translator)

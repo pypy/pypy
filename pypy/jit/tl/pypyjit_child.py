@@ -1,7 +1,7 @@
 from pypy.conftest import option
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.metainterp import warmspot
-from pypy.module.pypyjit.portal import PyPyJitPolicy
+from pypy.module.pypyjit.policy import PyPyJitPolicy
 
 # Current output: http://paste.pocoo.org/show/106540/
 #
