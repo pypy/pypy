@@ -1,15 +1,37 @@
 #!/usr/bin/env python
-""" A simple parser for debug output from x86 backend. used to derive
+""" A parser for debug output from x86 backend. used to derive
 new tests from crashes
 """
 
 import sys, py, re
 
+def pairs(lst):
+    res = []
+    for i in range(0, len(lst), 2):
+        res.append(lst[i] + ',' + lst[i + 1])
+    return res
+
+class Loop(object):
+    def __init__(self, operations, guard_op):
+        self.operations = operations
+        self.guard_op   = guard_op
+
+class Call(object):
+    def __init__(self, name, args):
+        self.name = name
+        self.args = args
+
+class GuardFailure(object):
+    def __init__(self, index, jmp_from, args):
+        self.index = index
+        self.jmp_from = jmp_from
+        self.args = args
+
 class Parser(object):
     def __init__(self):
         self.boxes = {}
         self.box_creations = []
-        self.operations = []
+        self.blocks = []
         self.unique_ptrs = {}
 
     def parse_name(self, name):
@@ -55,17 +77,14 @@ class Parser(object):
             res.append(unique_box)
         return res
 
-    def parse(self, fname):
-        def pairs(lst):
-            res = []
-            for i in range(0, len(lst), 2):
-                res.append(lst[i] + ',' + lst[i + 1])
-            return res
-        
-        operations = []
-        data = py.path.local(fname).read()
-        lines = data.split("\n")
+    def parse_loop(self, lines):        
         i = 0
+        operations = []
+        if lines[0].startswith('GO'):
+            guard_op = int(re.search('\((-?\d+)\)', lines[0]).group(1))
+            i = 1
+        else:
+            guard_op = None
         while i < len(lines):
             line = lines[i]
             if line:
@@ -80,8 +99,47 @@ class Parser(object):
                     [res] = self.parse_args([box])
                 else:
                     res = None
-                self.operations.append((opname, parsed_args, res))
+                if i + 1 < len(lines) and lines[i + 1].startswith('  ..'):
+                    i += 1
+                    liveboxes = lines[i][5:]
+                    liveboxes = self.parse_args(pairs(liveboxes.split(",")))
+                else:
+                    liveboxes = None
+                operations.append((opname, parsed_args, res, liveboxes))
             i += 1
+        return Loop(operations, guard_op)
+
+    def parse_call(self, line):
+        name, args = line.split(" ")
+        return Call(name, self.parse_args(pairs(args.split(","))))
+
+    def parse_guard_failure(self, line):
+        index, jmp_from, args = line.split(" ")
+        return GuardFailure(index, jmp_from, self.parse_args(pairs(args.split(","))))
+
+    def parse(self, fname):
+        data = py.path.local(fname).read()
+        lines = data.split("\n")
+        i = 0
+        while i < len(lines):
+            if lines[i] == '<<<<<<<<<<':
+                # a loop
+                j = i
+                while lines[j] != '>>>>>>>>>>':
+                    j += 1
+                self.blocks.append(self.parse_loop(lines[i+1:j]))
+                i = j + 1
+            elif lines[i] == 'CALL':
+                self.blocks.append(self.parse_call(lines[i+1]))
+                i += 2
+            elif lines[i] == 'xxxxxxxxxx':
+                assert lines[i + 2] == 'xxxxxxxxxx'
+                self.blocks.append(self.parse_guard_failure(lines[i + 1]))
+                i += 3
+            elif not lines[i]:
+                i += 1
+            else:
+                xxxx
 
     def output(self):
         for box in self.box_creations:
@@ -104,8 +162,8 @@ if __name__ == '__main__':
 def test_loopparser():
     parser = Parser()
     parser.parse(py.magic.autopath().join('..', 'inp'))
-    assert len(parser.operations) == 8
-    assert parser.operations[1] == ('guard_value', ['boxint_5', 'constint_7'],
-                                    None)
-    assert len(parser.box_creations) == 8
+    assert len(parser.blocks[0].operations) == 10
+    assert parser.blocks[0].operations[1] == ('int_add',
+      ['boxint_2', 'boxint_0'], 'boxint_3', None)
+    assert len(parser.box_creations) == 13
 
