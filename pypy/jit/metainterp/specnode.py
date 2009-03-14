@@ -139,7 +139,7 @@ class SpecNodeWithFields(FixedClassSpecNode):
             subspecnode.adapt_to(instnode.curfields[ofs])
 
 class VirtualizedSpecNode(SpecNodeWithFields):
-
+    
     def expand_boxlist(self, instnode, newboxlist, start):
         newboxlist.append(instnode.source)
         SpecNodeWithFields.expand_boxlist(self, instnode, newboxlist, start)
@@ -217,9 +217,43 @@ class VirtualizableSpecNode(VirtualizedSpecNode):
     def equals(self, other):
         if not isinstance(other, VirtualizableSpecNode):
             return False
+        return SpecNodeWithFields.equals(self, other)        
+
+    def adapt_to(self, instnode):
+        instnode.virtualized = True
+        VirtualizedSpecNode.adapt_to(self, instnode)
+
+class VirtualizableListSpecNode(VirtualizedSpecNode):
+
+    def equals(self, other):
+        if not isinstance(other, VirtualizableListSpecNode):
+            return False
         return SpecNodeWithFields.equals(self, other)
+    
+    def extract_runtime_data(self, cpu, valuebox, resultlist):
+        from pypy.jit.metainterp.resoperation import rop
+        from pypy.jit.metainterp.optimize import FixedList
+        from pypy.jit.metainterp.history import check_descr
+
+        resultlist.append(valuebox)
+        cls = self.known_class
+        assert isinstance(cls, FixedList)
+        arraydescr = cls.arraydescr
+        check_descr(arraydescr)
+        for ofs, subspecnode in self.fields:
+            fieldbox = executor.execute(cpu, rop.GETARRAYITEM_GC,
+                                        [valuebox, ofs], arraydescr)
+            subspecnode.extract_runtime_data(cpu, fieldbox, resultlist)
+
+    def adapt_to(self, instnode):
+        instnode.virtualized = True
+        VirtualizedSpecNode.adapt_to(self, instnode)
 
 class VirtualSpecNode(SpecNodeWithFields):
+
+    def adapt_to(self, instnode):
+        instnode.virtual = True
+        SpecNodeWithFields.adapt_to(self, instnode)
 
     def mutate_nodes(self, instnode):
         SpecNodeWithFields.mutate_nodes(self, instnode)
@@ -240,7 +274,7 @@ class VirtualFixedListSpecNode(VirtualSpecNode):
 
    def mutate_nodes(self, instnode):
        VirtualSpecNode.mutate_nodes(self, instnode)
-       instnode.known_length = self.known_length
+       instnode.cursize = self.known_length
 
    def equals(self, other):
        if not isinstance(other, VirtualFixedListSpecNode):

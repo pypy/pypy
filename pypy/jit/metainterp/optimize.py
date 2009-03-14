@@ -10,6 +10,7 @@ from pypy.jit.metainterp.specnode import (FixedClassSpecNode,
                                           SpecNodeWithBox,
                                           DelayedFixedListSpecNode,
                                           VirtualFixedListSpecNode,
+                                          VirtualizableListSpecNode,
                                           )
 from pypy.jit.metainterp import executor
 from pypy.rlib.objectmodel import we_are_translated
@@ -26,12 +27,18 @@ class FixedList(AbstractValue):
         assert other.arraydescr == self.arraydescr
         return True
 
+class FixedClass(Const):
+    def equals(self, other):
+        assert isinstance(other, FixedClass)
+        return True
+
 class CancelInefficientLoop(Exception):
-    pass
+    def __init__(self, *args):
+        import pdb
+        pdb.set_trace()
 
 FLAG_ALLOCATIONS      = 0x0
 FLAG_LIST_ALLOCATIONS = 0x1
-FLAG_PREBULT_OBJECTS  = 0x2
 FLAG_BOXES_FROM_FRAME = 0x3
 FLAG_SHIFT            = 2
 FLAG_MASK             = 0x3
@@ -47,11 +54,9 @@ class AllocationStorage(object):
         self.setfields = []
         # the same as above, but for lists and for running setitem
         self.list_allocations = []
-        # objects that are "always virtual"
-        self.prebuilt_objects = []
         self.setitems = []
 
-    def deal_with_box(self, box, nodes, liveboxes, memo, cpu):
+    def deal_with_box(self, box, nodes, liveboxes, memo):
         if isinstance(box, Const) or box not in nodes:
             virtual = False
             virtualized = False
@@ -64,26 +69,20 @@ class AllocationStorage(object):
             virtual = instnode.virtual
             virtualized = instnode.virtualized
         if virtual:
-            if instnode.always_virtual:
-                res = ((len(self.prebuilt_objects) << FLAG_SHIFT)
-                       | FLAG_PREBULT_OBJECTS)
-                self.prebuilt_objects.append(instnode.source.constbox())
+            if isinstance(instnode.cls.source, FixedList):
+                ld = instnode.cls.source
+                assert isinstance(ld, FixedList)
+                alloc_offset = len(self.list_allocations)
+                ad = ld.arraydescr
+                self.list_allocations.append((ad, instnode.cursize))
+                res = (alloc_offset << FLAG_SHIFT) | FLAG_LIST_ALLOCATIONS
             else:
-                if isinstance(instnode.cls.source, FixedList):
-                    ld = instnode.cls.source
-                    assert isinstance(ld, FixedList)
-                    alloc_offset = len(self.list_allocations)
-                    ad = ld.arraydescr
-                    self.list_allocations.append((ad, instnode.cursize))
-                    res = (alloc_offset << FLAG_SHIFT) | FLAG_LIST_ALLOCATIONS
-                else:
-                    alloc_offset = len(self.allocations)
-                    self.allocations.append(instnode.cls.source.getint())
-                    res = (alloc_offset << FLAG_SHIFT) | FLAG_ALLOCATIONS
+                alloc_offset = len(self.allocations)
+                self.allocations.append(instnode.cls.source.getint())
+                res = (alloc_offset << FLAG_SHIFT) | FLAG_ALLOCATIONS
             memo[box] = res
             for ofs, node in instnode.curfields.items():
-                num = self.deal_with_box(node.source, nodes, liveboxes, memo,
-                                         cpu)
+                num = self.deal_with_box(node.source, nodes, liveboxes, memo)
                 if isinstance(instnode.cls.source, FixedList):
                     ld = instnode.cls.source
                     assert isinstance(ld, FixedList)
@@ -95,9 +94,14 @@ class AllocationStorage(object):
             memo[box] = res
             liveboxes.append(box)
             for ofs, node in instnode.curfields.items():
-                num = self.deal_with_box(node.source, nodes, liveboxes, memo,
-                                         cpu)
-                self.setfields.append((res, ofs, num))
+                num = self.deal_with_box(node.source, nodes, liveboxes,
+                                         memo)
+                if instnode.cls and isinstance(instnode.cls.source, FixedList):
+                    ld = instnode.cls.source
+                    assert isinstance(ld, FixedList)
+                    self.setitems.append((res, ld.arraydescr, ofs, num))
+                else:
+                    self.setfields.append((res, ofs, num))
         else:
             res = (len(liveboxes) << FLAG_SHIFT) | FLAG_BOXES_FROM_FRAME
             memo[box] = res
@@ -137,8 +141,6 @@ class InstanceNode(object):
         self.expanded_fields = r_dict(av_eq, av_hash)
         self.cursize = -1
         self.vdesc = None # for virtualizables
-        self.always_virtual = False # a flag that is set on objects
-        # passed around, that are virtuals stored on virtualizables
 
     def is_nonzero(self):
         return self.cls is not None or self.nonzero
@@ -146,34 +148,31 @@ class InstanceNode(object):
     def is_zero(self):
         return self.const and not self.source.getptr_base()
 
-    def escape_if_startbox(self, memo, escape_self=True):
+    def escape_if_startbox(self, memo):
         if self in memo:
             return
         memo[self] = None
         if self.startbox:
-            if escape_self:
-                self.escaped = True
-            else:
-                self.always_virtual = True
+            self.escaped = True
         if not self.virtualized:
             for node in self.curfields.values():
                 node.escape_if_startbox(memo)
         else:
             for key, node in self.curfields.items():
-                if self.vdesc is not None and not av_list_in(self.vdesc, key):
-                    esc_self = True
-                else:
-                    esc_self = False
-                node.escape_if_startbox(memo, esc_self)
+                if self.vdesc is not None and av_list_in(self.vdesc, key):
+                    node.virtualized = True
+                    if node.cls is None:
+                        node.cls = InstanceNode(FixedClass(), const=True)
+                node.escape_if_startbox(memo)
             # we also need to escape fields that are only read, never written,
             # if they're not marked specifically as ones that does not escape
             for key, node in self.origfields.items():
                 if key not in self.curfields:
-                    if self.vdesc is not None and not av_list_in(self.vdesc, key):
-                        esc_self = True
-                    else:
-                        esc_self = False
-                    node.escape_if_startbox(memo, esc_self)
+                    if self.vdesc is not None and av_list_in(self.vdesc, key):
+                        node.virtualized = True
+                        if node.cls is None:
+                            node.cls = InstanceNode(FixedClass(), const=True)
+                    node.escape_if_startbox(memo)
 
     def add_to_dependency_graph(self, other, dep_graph):
         dep_graph.append((self, other))
@@ -201,12 +200,9 @@ class InstanceNode(object):
                 return NotSpecNode()
             return FixedClassSpecNode(known_class)
         if not other.escaped:
+            assert self is not other
             fields = []
-            if self is other:
-                d = self.origfields.copy()
-                d.update(other.curfields)
-            else:
-                d = other.curfields
+            d = other.curfields
             lst = d.keys()
             sort_descrs(lst)
             for ofs in lst:
@@ -240,18 +236,21 @@ class InstanceNode(object):
             sort_descrs(offsets)
             fields = []
             for ofs in offsets:
-                if ofs in self.origfields and ofs in other.curfields:
+                if ofs in other.curfields:
                     node = other.curfields[ofs]
+                    if ofs not in self.origfields:
+                        box = node.source.clonebox()
+                        self.origfields[ofs] = InstanceNode(box, escaped=False)
+                        self.origfields[ofs].cls = node.cls
+                        nodes[box] = self.origfields[ofs]
                     specnode = self.origfields[ofs].intersect(node, nodes)
-                elif ofs in self.origfields:
+                else:
+                    # ofs in self.origfields:
                     node = self.origfields[ofs]
                     specnode = node.intersect(node, nodes)
-                else:
-                    # ofs in other.curfields
-                    node = other.curfields[ofs]
-                    self.origfields[ofs] = InstanceNode(node.source.clonebox())
-                    specnode = NotSpecNode()
                 fields.append((ofs, specnode))
+            if isinstance(known_class, FixedList):
+                return VirtualizableListSpecNode(known_class, fields)
             return VirtualizableSpecNode(known_class, fields)
 
     def __repr__(self):
@@ -522,7 +521,7 @@ class PerfectSpecializer(object):
         op = op.clone()
         for box in old_boxes:
             indices.append(storage.deal_with_box(box, self.nodes,
-                                                 liveboxes, memo, self.cpu))
+                                                 liveboxes, memo))
         rev_boxes = {}
         for i in range(len(liveboxes)):
             box = liveboxes[i]
@@ -574,9 +573,16 @@ class PerfectSpecializer(object):
 
     def optimize_getfield(self, instnode, ofs, box):
         assert isinstance(ofs, AbstractValue)
-        if instnode.virtual or instnode.virtualized:
+        if instnode.virtual:
             assert ofs in instnode.curfields
             return True # this means field is never actually
+        elif instnode.virtualized:
+            if ofs in instnode.curfields:
+                return True
+            # this means field comes from a virtualizable but is never
+            # written. Cool, simply make the result constant
+            self.nodes[box] = InstanceNode(box.constbox(), const=True)
+            return True
         elif ofs in instnode.cleanfields:
             self.nodes[box] = instnode.cleanfields[ofs]
             return True
@@ -721,6 +727,7 @@ class PerfectSpecializer(object):
                 instnode = self.getnode(op.args[0])
                 # we know the result is constant if instnode is a virtual,
                 # a constant, or known to be non-zero.
+                # XXX what about virtualizables?
                 if instnode.virtual or instnode.const or instnode.is_nonzero():
                     box = op.result
                     instnode = InstanceNode(box.constbox(), const=True)
@@ -805,6 +812,8 @@ class PerfectSpecializer(object):
         return True
 
     def match(self, old_operations):
+        import pdb
+        pdb.set_trace()
         old_mp = old_operations[0]
         jump_op = self.loop.operations[-1]
         assert jump_op.opnum == rop.JUMP
@@ -826,12 +835,10 @@ class PerfectSpecializer(object):
             old_specnode.adapt_to(new_instnode)
 
 class Chooser(object):
-    def __init__(self, boxes_from_frame, allocated_boxes, allocated_lists,
-                 prebuilt_objects):
+    def __init__(self, boxes_from_frame, allocated_boxes, allocated_lists):
         self.boxes_from_frame = boxes_from_frame
         self.allocated_lists = allocated_lists
         self.allocated_boxes = allocated_boxes
-        self.prebuilt_objects = prebuilt_objects
 
     def box_from_index(self, index):
         ofs = index >> FLAG_SHIFT
@@ -842,10 +849,8 @@ class Chooser(object):
             return self.allocated_boxes[ofs]
         elif where_from == FLAG_LIST_ALLOCATIONS:
             return self.allocated_lists[ofs]
-        elif where_from == FLAG_PREBULT_OBJECTS:
-            return self.prebuilt_objects[ofs]
         else:
-            assert 0, "I can't count to 4"    
+            assert 0, "Should not happen"
 
 def rebuild_boxes_from_guard_failure(guard_op, metainterp, boxes_from_frame):
     allocated_boxes = []
@@ -867,8 +872,7 @@ def rebuild_boxes_from_guard_failure(guard_op, metainterp, boxes_from_frame):
         listbox = metainterp.execute_and_record(rop.NEW_ARRAY,
                                                 [sizebox], ad)
         allocated_lists.append(listbox)
-    chooser = Chooser(boxes_from_frame, allocated_boxes, allocated_lists,
-                      storage.prebuilt_objects)
+    chooser = Chooser(boxes_from_frame, allocated_boxes, allocated_lists)
     for index_in_alloc, ofs, index_in_arglist in storage.setfields:
         fieldbox = chooser.box_from_index(index_in_arglist)
         box = chooser.box_from_index(index_in_alloc)
