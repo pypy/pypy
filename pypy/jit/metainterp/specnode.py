@@ -228,7 +228,7 @@ class VirtualizableListSpecNode(VirtualizedSpecNode):
     def equals(self, other):
         if not isinstance(other, VirtualizableListSpecNode):
             return False
-        return SpecNodeWithFields.equals(self, other)
+        return True
     
     def extract_runtime_data(self, cpu, valuebox, resultlist):
         from pypy.jit.metainterp.resoperation import rop
