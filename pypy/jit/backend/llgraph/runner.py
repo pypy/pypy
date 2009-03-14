@@ -15,6 +15,8 @@ class MiniStats:
 
 
 class Descr(history.AbstractDescr):
+    name = None
+    
     def __init__(self, ofs, type='?'):
         self.ofs = ofs
         self.type = type
@@ -45,8 +47,9 @@ class Descr(history.AbstractDescr):
         raise TypeError("cannot use comparison on Descrs")
 
     def __repr__(self):
+        if self.name is not None:
+            return '<Descr %r, %r, %r>' % (self.ofs, self.type, self.name)
         return '<Descr %r, %r>' % (self.ofs, self.type)
-
 
 class CPU(object):
 
@@ -234,7 +237,9 @@ class CPU(object):
     def fielddescrof(S, fieldname):
         ofs, size = symbolic.get_field_token(S, fieldname)
         token = history.getkind(getattr(S, fieldname))
-        return Descr(ofs, token[0])
+        res = Descr(ofs, token[0])
+        res.name = fieldname
+        return res
 
     @staticmethod
     def arraydescrof(A):
@@ -367,7 +372,6 @@ class CPU(object):
             return history.BoxInt(llimpl.do_call_int(func, self.memo_cast))
         else:  # calldescr.type == 'v'  # void
             llimpl.do_call_void(func, self.memo_cast)
-
 
 class GuardFailed(object):
     returns = False

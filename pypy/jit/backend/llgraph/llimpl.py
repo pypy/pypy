@@ -532,11 +532,15 @@ class Frame(object):
         else:
             return do_getarrayitem_gc_int(array, index, self.memocast)
 
+    op_getarrayitem_gc_pure = op_getarrayitem_gc
+
     def op_getfield_gc(self, fielddescr, struct):
         if fielddescr.type == 'p':
             return do_getfield_gc_ptr(struct, fielddescr.ofs)
         else:
             return do_getfield_gc_int(struct, fielddescr.ofs, self.memocast)
+
+    op_getfield_gc_pure = op_getfield_gc
 
     def op_getfield_raw(self, fielddescr, struct):
         if fielddescr.type == 'p':
@@ -580,6 +584,8 @@ class Frame(object):
             assert calldescr.type == 'i'
             err_result = 0
         return _do_call_common(func, self.memocast, err_result)
+
+    op_call_pure = op_call
 
     def op_new_array(self, arraydescr, count):
         return do_new_array(arraydescr.ofs, count)
