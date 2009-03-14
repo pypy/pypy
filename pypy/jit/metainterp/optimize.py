@@ -33,9 +33,7 @@ class FixedClass(Const):
         return True
 
 class CancelInefficientLoop(Exception):
-    def __init__(self, *args):
-        import pdb
-        pdb.set_trace()
+    pass
 
 FLAG_ALLOCATIONS      = 0x0
 FLAG_LIST_ALLOCATIONS = 0x1
@@ -812,8 +810,6 @@ class PerfectSpecializer(object):
         return True
 
     def match(self, old_operations):
-        import pdb
-        pdb.set_trace()
         old_mp = old_operations[0]
         jump_op = self.loop.operations[-1]
         assert jump_op.opnum == rop.JUMP
