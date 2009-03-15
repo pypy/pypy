@@ -644,17 +644,17 @@ class CPU386(object):
 
     @staticmethod
     def cast_int_to_adr(x):
-        return llmemory.cast_ptr_to_adr(rffi.cast(llmemory.GCREF, x))
+        if we_are_translated():
+            return rffi.cast(llmemory.Address, x)
+        else:
+            # indirect casting because the above doesn't work with ll2ctypes
+            return llmemory.cast_ptr_to_adr(rffi.cast(llmemory.GCREF, x))
 
     def cast_gcref_to_int(self, x):
         return rffi.cast(lltype.Signed, x)
 
     def cast_int_to_gcref(self, x):
         return rffi.cast(llmemory.GCREF, x)
-
-DEFINED_INT_VALUE = {
-    'MALLOC_ZERO_FILLED': 1,   # using Boehm for now
-    }
 
 def uhex(x):
     if we_are_translated():

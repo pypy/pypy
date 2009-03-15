@@ -66,7 +66,6 @@ BINARYFN = lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed)
 class MachineCodeDumper:
     enabled = True
     log_fd = -1
-    sys_executable = None
 
     def _freeze_(self):
         # reset the machine_code_dumper global instance to its default state
