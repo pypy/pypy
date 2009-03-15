@@ -14,7 +14,6 @@ from pypy.jit.metainterp.history import (ResOperation, Box, Const,
 from pypy.jit.backend.x86.assembler import Assembler386, WORD, RETURN
 from pypy.jit.backend.x86 import symbolic
 from pypy.jit.metainterp.resoperation import rop, opname
-from pypy.jit.backend.x86.executor import execute
 from pypy.jit.backend.x86.support import gc_malloc_fnaddr
 
 GC_MALLOC = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
