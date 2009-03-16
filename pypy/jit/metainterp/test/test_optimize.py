@@ -838,3 +838,33 @@ def test_O3_optimize_loop():
         # return False -- as there was already a guard_class done on n1
         ResOperation('jump', [], None),
     ])
+
+# ____________________________________________________________
+
+class P:
+    locals().update(A.__dict__)    # :-)
+    thirdnode = lltype.malloc(NODE)
+    n3 = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, thirdnode))
+    f = BoxInt(0)   # False
+    ops = [
+        ResOperation('merge_point', [n1, n3], None),
+        ResOperation('getfield_gc', [n3], v, ofs_value),
+        ResOperation('setfield_gc', [n1, ConstInt(1)], None, ofs_value),
+        ResOperation('getfield_gc', [n3], v2, ofs_value),
+        ResOperation('int_eq', [v, v2], f),
+        ResOperation('guard_false', [f], None),
+        ResOperation('getfield_gc', [n1], n2, ofs_next),
+        ResOperation('jump', [n2, n3], None),
+        ]
+    ops[-3].liveboxes = []
+
+def test_P_optimize_loop():
+    spec = PerfectSpecializer(Loop(P.ops))
+    spec.find_nodes()
+    spec.intersect_input_and_output()
+    spec.optimize_loop()
+    # Optimization should not remove any operation.
+    # If it does, then aliasing is not correctly detected.
+    # It is ok to reorder just the 'getfield_gc[n1], n2' operation,
+    # but the three remaining getfields/setfields *must* be in that order.
+    equaloplists(spec.loop.operations, P.ops)
