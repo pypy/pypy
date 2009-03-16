@@ -394,6 +394,7 @@ class ImplicitVirtualizableTests:
         assert res == 2
 
     def test_pass_always_virtual_to_bridge(self):
+        py.test.skip("in-progress")
         jitdriver = JitDriver(greens = [], reds = ['frame', 'n'],
                               virtualizables = ['frame'])
 
@@ -406,11 +407,11 @@ class ImplicitVirtualizableTests:
                 self.l = l
 
         def f(n):
-            frame = Frame([1,2,3])
+            frame = Frame([1,1,3])
             while n > 0:
                 jitdriver.can_enter_jit(frame=frame, n=n)
                 jitdriver.jit_merge_point(frame=frame, n=n)
-                if n % 3:
+                if n % 2:
                     n -= frame.l[0]
                 else:
                     n -= frame.l[1]
@@ -418,11 +419,11 @@ class ImplicitVirtualizableTests:
 
         res = self.meta_interp(f, [30], listops=True)
         self.check_loops(setarrayitem_gc=0)
-        self.check_loop_count(3)
+        self.check_loop_count(2)
         assert res == 3
 
     def test_virtual_obj_on_always_virtual(self):
-        py.test.skip("XYz")
+        py.test.skip("in-progress")
         jitdriver = JitDriver(greens = [], reds = ['frame', 'n', 's'],
                               virtualizables = ['frame'])
 
@@ -454,9 +455,8 @@ class ImplicitVirtualizableTests:
             return s
 
         res = self.meta_interp(f, [30], listops=True)
-        self.check_loops(getfield_gc=1)
+        self.check_loops(getfield_gc=0)
         assert res == f(30)
-        
 
     def test_external_read(self):
         py.test.skip("Fails")
