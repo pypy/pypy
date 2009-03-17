@@ -9,7 +9,7 @@ from pypy.rpython.lltypesystem import lltype, ll2ctypes, rffi, rstr
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.jit.backend.x86 import symbolic
-from pypy.jit.metainterp.resoperation import rop, opname
+from pypy.jit.metainterp.resoperation import rop
 
 # esi edi and ebp can be added to this list, provided they're correctly
 # saved and restored
@@ -754,7 +754,7 @@ class RegAlloc(object):
                 ops += self.sync_var(v)
         self.reg_bindings = newcheckdict()
         if op.result is not None:
-            self.reg_bindings = {op.result: eax}
+            self.reg_bindings[op.result] = eax
             self.free_regs = [reg for reg in REGS if reg is not eax]
             return ops + [Perform(op, arglocs, eax)]
         else:
@@ -812,6 +812,7 @@ class RegAlloc(object):
                                     op.result)
 
     def consider_oononnull(self, op, ignored):
+        XXX   # "consider_oononnull = _consider_nullity" below
         argloc = self.loc(op.args[0])
         self.eventually_free_var(op.args[0])
         reg = self.try_allocate_reg(op.result)
