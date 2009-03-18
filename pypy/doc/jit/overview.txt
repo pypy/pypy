@@ -23,9 +23,9 @@ the basic observation behind PyPy.
 
 But coding in a high-level language has other benefits beyond the
 obvious ones.  Perhaps most importantly, it allows the language
-interpreter to be analyzed and turned into a compiler.  This is
-precisely what our JIT compiler generator does.  Based on partial
-evaluation techniques, **it can turn the interpreter of an arbitrary
+interpreter to be analyzed when turned into a compiler.  This is
+precisely what our JIT compiler generator does.  Based on tracing
+JIT techniques, **it can turn the interpreter of an arbitrary
 dynamic language into a just-in-time compiler for the same language.**
 It works mostly automatically and only needs guidance by the language
 implementor in the form of a small number of hints in the source code of
@@ -34,10 +34,11 @@ semantics as the original interpreter by construction.  It generates
 machine code for the user program while aggressively optimizing it,
 leading to a big performance boost.
 
-Partial evaluation vs. manually-written JIT compilers
------------------------------------------------------
+The path we followed
+--------------------
 
-Partial evaluation is a well-known and much-researched topic, considered
+Our previous incarnations of PyPy's JIT generator were based on partial
+evaluation. This is a well-known and much-researched topic, considered
 to be very promising. There have been many attempts to use it to
 automatically transform an interpreter into a compiler. However, none of
 them have lead to substantial speedups for real-world languages. We
@@ -46,16 +47,22 @@ produce just-in-time compilers, rather than classical ahead-of-time
 compilers.  If this turns out to be correct, the practical speed of
 dynamic languages could be vastly improved.
 
-By comparison, getting a JIT compiler today involves either manually
-writing one, which is a huge amount of effort, or reusing an existing
-well-tuned JIT (like that of the JVM). However, the latter is hard
-because of concept mismatches between the implementor's language and the
-host VM language: the former needs to be compiled to the target
-environment in such a way that the JIT is able to speed it up
-significantly - an approach which essentially has failed in Python so
-far: even though CPython is a simple interpreter, its Java and .NET
-re-implementations are not faster (and cannot run all existing Python
-applications).
+Today (beginning 2009), our prototype is no longer using partial
+evaluation -- at least not in a way that would convince paper reviewers.
+It is instead based on the notion of *tracing JIT,* recently studied for
+Java and JavaScript.  When compared to all existing tracing JITs so far,
+however, partial evaluation gives us some extra techniques that we
+already had in our previous JIT generators, notably how to optimize
+structures by removing allocations.
+
+The closest comparison to our current JIT is Tamarin's TraceMonkey.
+However, this JIT compiler is written manually, which is quite some
+effort.  In PyPy, we write a JIT generator at the level of RPython,
+which means that our final JIT does not have to -- indeed, cannot -- be
+written to encode all the details of the full Python language.  These
+details are automatically supplied by the fact that we have an
+interpreter for full Python.
+
 
 Practical results
 -----------------
@@ -82,8 +89,10 @@ that this should be:
 
 * Fast enough: we think that we can get some rather good performance out
   of the generated JIT compilers.  That's the whole point, of course.
-  Previous experience shows that it should be possible (our generated
-  JIT compilers are similar to the hand-written Psyco).
+  Previous experience shows that it should be possible.  Our previous
+  generated JIT compilers were similar to the hand-written Psyco; due
+  to limits in automating the way Psyco works, our current generated
+  JIT compilers are instead similar to tracing JITs like TraceMonkey.
 
 
 Alternative approaches to improve speed
@@ -131,7 +140,7 @@ associated with developing and maintaining it.  It has a relatively poor
 encoding of language semantics - knowledge about Python behavior needs to be
 encoded by hand and kept up-to-date.  At least, Psyco works correctly even when
 encountering one of the numerous Python constructs it does not support, by
-falling back to CPython.  The PyPy JIT can be seen as a metaprogrammatic,
+falling back to CPython.  The PyPy JIT started out as a metaprogrammatic,
 non-language-specific equivalent of Psyco.
 
 A different kind of prior art are self-hosting JIT compilers such as Jikes.
@@ -141,6 +150,14 @@ details of a Python-like language directly into a JIT compiler.  It also has
 limited portability, which is an issue for Python; it is likely that large
 parts of the JIT compiler would need retargetting in order to run in a
 different environment than the intended low-level one.
+
+Simply reusing an existing well-tuned JIT like that of the JVM does not
+really work, because of concept mismatches between the implementor's
+language and the host VM language: the former needs to be compiled to
+the target environment in such a way that the JIT is able to speed it up
+significantly - an approach which essentially has failed in Python so
+far: even though CPython is a simple interpreter, its Java and .NET
+re-implementations are not significantly faster.
 
 More recently, several larger projects have started in the JIT area.  For
 instance, Sun Microsystems is investing in JRuby, which aims to use the Java
@@ -158,16 +175,16 @@ to define additions to the JVM to better support dynamic languages, and
 is contributing insights from our JIT research, in ways that will also
 benefit PyPy.
 
+Finally, tracing JITs are now emerging for dynamic languages like
+JavaScript with TraceMonkey.  The code generated by PyPy is very similar
+(but not hand-written) to the concepts of tracing JITs.
+
 
 Further reading
 ========================================================================
 
-The basic ideas have been shown to work in our prototype JIT-enabled
-``pypy-c``, as described in Status_.  Further technical documentation is
-in progress; see the Index_ page.  You can also read more about the
-`Theory of partial evaluation`_.
+The description of the current PyPy JIT generator is given in PyJitPl5_
+(draft).
 
-.. _Index: index.html
-.. _Status: status.html
-.. _`Theory of partial evaluation`: theory.html#terminology
 .. _`JSR 292`: http://jcp.org/en/jsr/detail?id=292
+.. _PyJitPl5: pyjitpl5.html

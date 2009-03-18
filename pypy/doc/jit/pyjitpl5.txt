@@ -2,3 +2,10 @@
                               PyJitPl5
 ========================================================================
 
+Current information is available on blog posts (oldest first):
+
+* http://morepypy.blogspot.com/2008/06/hi-all-some-news-from-jit-front.html
+* http://morepypy.blogspot.com/2008/10/prolog-jit-masters-thesis-finished.html
+* http://morepypy.blogspot.com/2009/03/applying-tracing-jit-to-interpreter.html
+* http://morepypy.blogspot.com/2009/03/jit-bit-of-look-inside.html
+* http://morepypy.blogspot.com/2009/03/good-news-everyone.html

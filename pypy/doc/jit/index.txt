@@ -19,6 +19,13 @@ Content
 
 - Overview_: motivating our approach
 
+- `Draft notes`_ about the current work in PyPy (Feb 08).
+
+Older stuff
+------------------------------------------------------------
+
+*The following documentation is no longer up-to-date!*
+
 - Status_: using a pypy-c with a JIT
 
 - `How-to`_: make your own JIT compilers, with examples for tiny languages
@@ -28,14 +35,6 @@ Content
 - How it all works: the Rainbow_ interpreter
 
 - Machine code Backends_
-
-- Current work and prototype in Prolog (!): see `this blog post`__.
-
-- `Draft notes`_ about the current work in PyPy (Feb 08).
-
-*(work and documentation in progress!)*
-
-.. __: http://morepypy.blogspot.com/2008/06/hi-all-some-news-from-jit-front.html
 
 ------------------------------------------------------------
 
