@@ -218,3 +218,8 @@ def execute(cpu, opnum, argboxes, descr=None):
     func = get_execute_function(cpu, opnum)
     return func(cpu, argboxes, descr)
 execute._annspecialcase_ = 'specialize:arg(1)'
+
+def execute_nonspec(cpu, opnum, argboxes, descr=None):
+    check_descr(descr)
+    func = cpu._execute_list[opnum]
+    return func(cpu, argboxes, descr)

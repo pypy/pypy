@@ -472,6 +472,7 @@ class PerfectSpecializer(object):
                                       [newbox, ofs, fieldbox],
                                       None, descr=ld.arraydescr)
                 else:
+                    assert isinstance(ofs, AbstractDescr)
                     op = ResOperation(rop.SETFIELD_GC, [newbox, fieldbox],
                                       None, descr=ofs)
                 rebuild_ops.append(op)
@@ -489,6 +490,7 @@ class PerfectSpecializer(object):
                                       [box, ofs, fieldbox],
                                       None, descr=ld.arraydescr)
                 else:
+                    assert isinstance(ofs, AbstractDescr)
                     op = ResOperation(rop.SETFIELD_GC, [box, fieldbox],
                                       None, descr=ofs)
                 rebuild_ops.append(op)
@@ -538,6 +540,7 @@ class PerfectSpecializer(object):
                                        [box, ofs, fieldbox],
                                        None, descr=ad)
                 else:
+                    assert isinstance(ofs, AbstractDescr)
                     op1 = ResOperation(rop.SETFIELD_GC, [box, fieldbox],
                                        None, descr=ofs)
                 rebuild_ops.append(op1)
@@ -853,9 +856,10 @@ def rebuild_boxes_from_guard_failure(guard_op, metainterp, boxes_from_frame):
         currentvalues[guard_op.liveboxes[i]] = boxes_from_frame[i]
 
     # interpret the operations stored in 'rebuild_ops'
+    cpu = metainterp.cpu
     for op in guard_op.rebuild_ops:
         argboxes = get_in_list(currentvalues, op.args)
-        resbox = metainterp.execute_and_record(op.opnum, argboxes, op.descr)
+        resbox = executor.execute_nonspec(cpu, op.opnum, argboxes, op.descr)
         if resbox is not None:
             currentvalues[op.result] = resbox
     # done
