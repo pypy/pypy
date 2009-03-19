@@ -453,9 +453,7 @@ class PerfectSpecializer(object):
                                   descr=ad)
             else:
                 vtable = ld.getint()
-                if self.cpu is None:
-                    size = ConstInt(-1)     # for tests only!
-                elif self.cpu.translate_support_code:
+                if self.cpu.translate_support_code:
                     vtable_addr = self.cpu.cast_int_to_adr(vtable)
                     size = self.cpu.class_sizes[vtable_addr]
                 else:
@@ -842,7 +840,7 @@ def get_in_list(dict, boxes_or_consts):
         result.append(box)
     return result
 
-def rebuild_boxes_from_guard_failure(guard_op, metainterp, boxes_from_frame):
+def rebuild_boxes_from_guard_failure(guard_op, cpu, boxes_from_frame):
 ##    print
 ##    print guard_op.liveboxes
 ##    for op in guard_op.rebuild_ops:
@@ -856,7 +854,6 @@ def rebuild_boxes_from_guard_failure(guard_op, metainterp, boxes_from_frame):
         currentvalues[guard_op.liveboxes[i]] = boxes_from_frame[i]
 
     # interpret the operations stored in 'rebuild_ops'
-    cpu = metainterp.cpu
     for op in guard_op.rebuild_ops:
         argboxes = get_in_list(currentvalues, op.args)
         resbox = executor.execute_nonspec(cpu, op.opnum, argboxes, op.descr)

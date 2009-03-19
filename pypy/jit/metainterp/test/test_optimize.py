@@ -29,6 +29,8 @@ NODE2 = lltype.GcStruct('NODE2', ('parent', NODE),
 node2_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
 node2_vtable_adr = llmemory.cast_ptr_to_adr(node2_vtable)
 
+cpu.class_sizes = {cpu.cast_adr_to_int(node_vtable_adr): cpu.sizeof(NODE)}
+
 
 # ____________________________________________________________
 
@@ -291,7 +293,7 @@ class E:
     ops[-2].liveboxes = [sum2, n2] 
         
 def test_E_optimize_loop():
-    spec = PerfectSpecializer(Loop(E.ops))
+    spec = PerfectSpecializer(Loop(E.ops), cpu=cpu)
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
@@ -317,35 +319,19 @@ def test_E_optimize_loop():
     assert guard_op.unoptboxes[1] == guard_op.rebuild_ops[1].args[0]
 
 def test_E_rebuild_after_failure():
-    class FakeMetaInterp(object):
-        def __init__(self):
-            self.class_sizes = {cpu.cast_adr_to_int(node_vtable_adr):
-                                E.size_of_node}
-            self.cpu = cpu
-            self.cpu.translate_support_code = False
-            self.ops = []
-        
-        def execute_and_record(self, opnum, args, descr):
-            self.ops.append((opnum, args, descr))
-            return 'stuff'
-
-    spec = PerfectSpecializer(Loop(E.ops))
+    spec = PerfectSpecializer(Loop(E.ops), cpu=cpu)
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
     guard_op = spec.loop.operations[-2]
     v_sum_b = BoxInt(13)
     v_v_b = BoxInt(14)
-    fake_metainterp = FakeMetaInterp()
-    newboxes = rebuild_boxes_from_guard_failure(guard_op, fake_metainterp,
+    newboxes = rebuild_boxes_from_guard_failure(guard_op, cpu,
                                                 [v_sum_b, v_v_b])
-    v_vt = ConstAddr(node_vtable_adr, cpu)
-    expected = [
-       (rop.NEW_WITH_VTABLE, [v_vt], ConstInt(-1)),    # "-1" is for testing
-       (rop.SETFIELD_GC, ['stuff', v_v_b], E.ofs_value)
-       ]
-    assert expected == fake_metainterp.ops
-    assert newboxes == [v_sum_b, 'stuff']
+    assert len(newboxes) == 2
+    assert newboxes[0] == v_sum_b
+    p = newboxes[1].getptr(lltype.Ptr(NODE))
+    assert p.value == 14
 
 # ____________________________________________________________
 
@@ -386,7 +372,7 @@ def test_F_find_nodes():
     assert not spec.nodes[F.n2].escaped
 
 def test_F_optimize_loop():
-    spec = PerfectSpecializer(Loop(F.ops))
+    spec = PerfectSpecializer(Loop(F.ops), cpu=cpu)
     spec.find_nodes()
     spec.intersect_input_and_output()
     assert spec.nodes[F.n3].escaped
@@ -419,7 +405,7 @@ class F2:
     ops[2].liveboxes = [n2]
 
 def test_F2_optimize_loop():
-    spec = PerfectSpecializer(Loop(F2.ops))
+    spec = PerfectSpecializer(Loop(F2.ops), cpu=cpu)
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
@@ -449,7 +435,7 @@ class G:
     ops[-2].liveboxes = [sum2, n2] 
 
 def test_G_optimize_loop():
-    spec = PerfectSpecializer(Loop(G.ops))
+    spec = PerfectSpecializer(Loop(G.ops), cpu=cpu)
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
