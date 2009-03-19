@@ -9,8 +9,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.annotation import model as annmodel
 from pypy.tool.uid import fixid
 from pypy.jit.backend.x86.regalloc import (RegAlloc, FRAMESIZE, WORD, REGS,
-                                      arg_pos, lower_byte, stack_pos, Perform,
-                                      RETURN)
+                                      arg_pos, lower_byte, stack_pos, RETURN)
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.jit.backend.x86 import codebuf
 from pypy.jit.backend.x86.support import gc_malloc_fnaddr
@@ -43,7 +42,6 @@ def repr_of_arg(memo, arg):
 class Assembler386(object):
     MC_SIZE = 1024*1024     # 1MB, but assumed infinite for now
     generic_return_addr = 0
-    position = -1
     log_fd = -1
 
     def __init__(self, cpu, translate_support_code=False):
@@ -149,10 +147,10 @@ class Assembler386(object):
         op0 = operations[0]
         op0.position = self.mc.tell()
         self.eventually_log_operations(operations, guard_op)
-        regalloc = RegAlloc(operations, guard_op, self.cpu.translate_support_code)
+        regalloc = RegAlloc(self, operations, guard_op,
+                            self.cpu.translate_support_code)
         if not we_are_translated():
             self._regalloc = regalloc # for debugging
-        computed_ops = regalloc.computed_ops
         if guard_op is not None:
             new_rel_addr = self.mc.tell() - guard_op._jmp_from
             TP = rffi.CArrayPtr(lltype.Signed)
@@ -164,29 +162,9 @@ class Assembler386(object):
             print
             pprint.pprint(operations)
             print
-            pprint.pprint(computed_ops)
-            print
-        for i in range(len(computed_ops)):
-            op = computed_ops[i]
-            if not we_are_translated():
-                self.dump_op(op)
-            self.position = i
-            # XXX eventually change to numbers or kill
-            #     alltogether
-            if op.opname == 'load':
-                self.regalloc_load(op)
-            elif op.opname == 'store':
-                self.regalloc_store(op)
-            elif op.opname == 'perform_discard':
-                self.regalloc_perform_discard(op)
-            elif op.opname == 'perform':
-                self.regalloc_perform(op)
-            elif op.opname == 'perform_with_guard':
-                self.regalloc_perform_with_guard(op)
-            else:
-                raise NotImplementedError(op.opname)
-        if not we_are_translated():
-            self.dump_op('')
+            #pprint.pprint(computed_ops)
+            #print
+        regalloc.walk_operations(operations)
         self.mc.done()
         self.mc2.done()
 
@@ -208,13 +186,13 @@ class Assembler386(object):
         self.mc.done()
         return addr
 
-    def dump_op(self, op):
+    def dump(self, text):
         if not self.verbose:
             return
         _prev = Box._extended_display
         try:
             Box._extended_display = False
-            print >> sys.stderr, ' 0x%x  %s' % (fixid(self.mc.tell()), op)
+            print >> sys.stderr, ' 0x%x  %s' % (fixid(self.mc.tell()), text)
         finally:
             Box._extended_display = _prev
 
@@ -242,42 +220,19 @@ class Assembler386(object):
         self.mc.done()
         return addr
 
-    def copy_var_if_used(self, v, to_v):
-        """ Gives new loc
-        """
-        loc = self.loc(v)
-        if isinstance(loc, REG):
-            if self.regalloc.used(v) > self.regalloc.position:
-                newloc = self.regalloc.allocate_loc(v)
-                self.regalloc.move(loc, newloc)
-            self.regalloc.force_loc(to_v, loc)
-        else:
-            newloc = self.regalloc.allocate_loc(to_v, force_reg=True)
-            self.mc.MOV(newloc, loc)
-            loc = newloc
-        return loc
-            
-    def next_stack_position(self):
-        position = self.current_stack_depth
-        self.current_stack_depth += 1
-        return position
-
-    def regalloc_load(self, op):
-        self.mc.MOV(op.to_loc, op.from_loc)
+    def regalloc_load(self, from_loc, to_loc):
+        self.mc.MOV(to_loc, from_loc)
 
     regalloc_store = regalloc_load
 
-    def regalloc_perform(self, op):
-        assert isinstance(op, Perform)
-        resloc = op.result_loc
-        genop_list[op.op.opnum](self, op.op, op.arglocs, resloc)
+    def regalloc_perform(self, op, arglocs, resloc):
+        genop_list[op.opnum](self, op, arglocs, resloc)
 
-    def regalloc_perform_discard(self, op):
-        genop_discard_list[op.op.opnum](self, op.op, op.arglocs)
+    def regalloc_perform_discard(self, op, arglocs):
+        genop_discard_list[op.opnum](self, op, arglocs)
 
-    def regalloc_perform_with_guard(self, op):
-        genop_guard_list[op.op.opnum](self, op.op, op.guard_op, op.arglocs,
-                                      op.result_loc)
+    def regalloc_perform_with_guard(self, op, guard_op, arglocs, resloc):
+        genop_guard_list[op.opnum](self, op, guard_op, arglocs, resloc)
 
     def _unaryop(asmop):
         def genop_unary(self, op, arglocs, resloc):
