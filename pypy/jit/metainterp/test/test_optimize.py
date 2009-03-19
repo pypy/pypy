@@ -8,7 +8,7 @@ from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp import resoperation
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt, ConstPtr,
-                                         ConstAddr)
+                                         ConstAddr, History)
 from pypy.jit.metainterp.optimize import (PerfectSpecializer,
     CancelInefficientLoop, VirtualInstanceSpecNode, FixedClassSpecNode,
     rebuild_boxes_from_guard_failure, NotSpecNode)
@@ -326,12 +326,16 @@ def test_E_rebuild_after_failure():
     guard_op = spec.loop.operations[-2]
     v_sum_b = BoxInt(13)
     v_v_b = BoxInt(14)
-    newboxes = rebuild_boxes_from_guard_failure(guard_op, cpu,
+    history = History(cpu)
+    newboxes = rebuild_boxes_from_guard_failure(guard_op, cpu, history,
                                                 [v_sum_b, v_v_b])
     assert len(newboxes) == 2
     assert newboxes[0] == v_sum_b
     p = newboxes[1].getptr(lltype.Ptr(NODE))
     assert p.value == 14
+    assert len(history.operations) == 2
+    assert ([op.getopname() for op in history.operations] ==
+            ['new_with_vtable', 'setfield_gc'])
 
 # ____________________________________________________________
 

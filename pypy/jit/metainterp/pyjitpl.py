@@ -950,7 +950,7 @@ class OOMetaInterp(object):
             boxes_from_frame.append(newbox)
         if guard_op.rebuild_ops is not None:
             newboxes = optimize.rebuild_boxes_from_guard_failure(
-                guard_op, self.cpu, boxes_from_frame)
+                guard_op, self.cpu, self.history, boxes_from_frame)
         else:
             # xxx for tests only
             newboxes = boxes_from_frame

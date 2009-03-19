@@ -840,7 +840,7 @@ def get_in_list(dict, boxes_or_consts):
         result.append(box)
     return result
 
-def rebuild_boxes_from_guard_failure(guard_op, cpu, boxes_from_frame):
+def rebuild_boxes_from_guard_failure(guard_op, cpu, history, boxes_from_frame):
 ##    print
 ##    print guard_op.liveboxes
 ##    for op in guard_op.rebuild_ops:
@@ -856,7 +856,9 @@ def rebuild_boxes_from_guard_failure(guard_op, cpu, boxes_from_frame):
     # interpret the operations stored in 'rebuild_ops'
     for op in guard_op.rebuild_ops:
         argboxes = get_in_list(currentvalues, op.args)
+        # similar to execute_and_record, but not specialized on op.opnum
         resbox = executor.execute_nonspec(cpu, op.opnum, argboxes, op.descr)
+        history.record(op.opnum, argboxes, resbox, op.descr)
         if resbox is not None:
             currentvalues[op.result] = resbox
     # done
