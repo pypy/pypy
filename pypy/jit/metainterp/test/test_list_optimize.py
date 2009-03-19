@@ -4,8 +4,7 @@ from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.metainterp.optimize import (PerfectSpecializer,
     CancelInefficientLoop, VirtualInstanceSpecNode, FixedClassSpecNode,
-    rebuild_boxes_from_guard_failure, AllocationStorage,
-    NotSpecNode, FixedList)
+    rebuild_boxes_from_guard_failure, NotSpecNode, FixedList)
 from pypy.jit.metainterp.history import BoxInt, BoxPtr, ConstInt
 from pypy.jit.metainterp.test.test_optimize import Loop, equaloplists, cpu
 from pypy.jit.metainterp.specnode import DelayedFixedListSpecNode

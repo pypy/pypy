@@ -1,5 +1,5 @@
 from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.metainterp.history import (Box, Const, ConstInt, BoxInt,
+from pypy.jit.metainterp.history import (Box, Const, ConstInt, BoxInt, BoxPtr,
                                          ResOperation, AbstractDescr,
                                          Options, AbstractValue, ConstPtr)
 from pypy.jit.metainterp.specnode import (FixedClassSpecNode,
@@ -34,77 +34,6 @@ class FixedClass(Const):
 
 class CancelInefficientLoop(Exception):
     pass
-
-FLAG_ALLOCATIONS      = 0x0
-FLAG_LIST_ALLOCATIONS = 0x1
-FLAG_BOXES_FROM_FRAME = 0x3
-FLAG_SHIFT            = 2
-FLAG_MASK             = 0x3
-
-class AllocationStorage(object):
-    def __init__(self):
-        # allocations: list of vtables to allocate
-        # setfields: list of triples
-        # (index_of_parent, ofs, index_of_child)
-        #   indexes have two least significant bits representing
-        #   where they're living, look above.
-        self.allocations = []
-        self.setfields = []
-        # the same as above, but for lists and for running setitem
-        self.list_allocations = []
-        self.setitems = []
-
-    def deal_with_box(self, box, nodes, liveboxes, memo):
-        if isinstance(box, Const) or box not in nodes:
-            virtual = False
-            virtualized = False
-        else:
-            prevbox = box
-            instnode = nodes[box]
-            box = instnode.source
-            if box in memo:
-                return memo[box]
-            virtual = instnode.virtual
-            virtualized = instnode.virtualized
-        if virtual:
-            if isinstance(instnode.cls.source, FixedList):
-                ld = instnode.cls.source
-                assert isinstance(ld, FixedList)
-                alloc_offset = len(self.list_allocations)
-                ad = ld.arraydescr
-                self.list_allocations.append((ad, instnode.cursize))
-                res = (alloc_offset << FLAG_SHIFT) | FLAG_LIST_ALLOCATIONS
-            else:
-                alloc_offset = len(self.allocations)
-                self.allocations.append(instnode.cls.source.getint())
-                res = (alloc_offset << FLAG_SHIFT) | FLAG_ALLOCATIONS
-            memo[box] = res
-            for ofs, node in instnode.curfields.items():
-                num = self.deal_with_box(node.source, nodes, liveboxes, memo)
-                if isinstance(instnode.cls.source, FixedList):
-                    ld = instnode.cls.source
-                    assert isinstance(ld, FixedList)
-                    self.setitems.append((res, ld.arraydescr, ofs, num))
-                else:
-                    self.setfields.append((res, ofs, num))
-        elif virtualized:
-            res = (len(liveboxes) << FLAG_SHIFT) | FLAG_BOXES_FROM_FRAME
-            memo[box] = res
-            liveboxes.append(box)
-            for ofs, node in instnode.curfields.items():
-                num = self.deal_with_box(node.source, nodes, liveboxes,
-                                         memo)
-                if instnode.cls and isinstance(instnode.cls.source, FixedList):
-                    ld = instnode.cls.source
-                    assert isinstance(ld, FixedList)
-                    self.setitems.append((res, ld.arraydescr, ofs, num))
-                else:
-                    self.setfields.append((res, ofs, num))
-        else:
-            res = (len(liveboxes) << FLAG_SHIFT) | FLAG_BOXES_FROM_FRAME
-            memo[box] = res
-            liveboxes.append(box)
-        return res
 
 def av_eq(self, other):
     return self.sort_key() == other.sort_key()
@@ -510,55 +439,118 @@ class PerfectSpecializer(object):
             specnode.expand_boxlist(self.nodes[box], newboxlist, oplist)
         return newboxlist
 
+    def prepare_rebuild_ops(self, instnode, liveboxes, rebuild_ops, memo):
+        box = instnode.source
+        if box in memo:
+            return memo[box]
+        if instnode.virtual:
+            newbox = BoxPtr()
+            ld = instnode.cls.source
+            if isinstance(ld, FixedList):
+                ad = ld.arraydescr
+                sizebox = ConstInt(instnode.cursize)
+                op = ResOperation(rop.NEW_ARRAY, [sizebox], newbox,
+                                  descr=ad)
+            else:
+                vtable = ld.getint()
+                if self.cpu is None:
+                    size = ConstInt(-1)     # for tests only!
+                elif self.cpu.translate_support_code:
+                    vtable_addr = self.cpu.cast_int_to_adr(vtable)
+                    size = self.cpu.class_sizes[vtable_addr]
+                else:
+                    size = self.cpu.class_sizes[vtable]
+                op = ResOperation(rop.NEW_WITH_VTABLE, [ld], newbox,
+                                  descr=size)
+            rebuild_ops.append(op)
+            memo[box] = newbox
+            for ofs, node in instnode.curfields.items():
+                fieldbox = self.prepare_rebuild_ops(node, liveboxes,
+                                                    rebuild_ops, memo)
+                if isinstance(ld, FixedList):
+                    op = ResOperation(rop.SETARRAYITEM_GC,
+                                      [newbox, ofs, fieldbox],
+                                      None, descr=ld.arraydescr)
+                else:
+                    op = ResOperation(rop.SETFIELD_GC, [newbox, fieldbox],
+                                      None, descr=ofs)
+                rebuild_ops.append(op)
+            return newbox
+        liveboxes.append(box)
+        memo[box] = box
+        if instnode.virtualized:
+            for ofs, node in instnode.curfields.items():
+                fieldbox = self.prepare_rebuild_ops(node, liveboxes,
+                                                    rebuild_ops, memo)
+                if instnode.cls and isinstance(instnode.cls.source, FixedList):
+                    ld = instnode.cls.source
+                    assert isinstance(ld, FixedList)
+                    op = ResOperation(rop.SETARRAYITEM_GC,
+                                      [box, ofs, fieldbox],
+                                      None, descr=ld.arraydescr)
+                else:
+                    op = ResOperation(rop.SETFIELD_GC, [box, fieldbox],
+                                      None, descr=ofs)
+                rebuild_ops.append(op)
+        return box
+
     def optimize_guard(self, op):
+        # Make a list of operations to run to rebuild the unoptimized objects.
+        # The ops assume that the Boxes in 'liveboxes' have been reloaded.
         liveboxes = []
-        storage = AllocationStorage()
+        rebuild_ops = []
         memo = {}
-        indices = []
         old_boxes = op.liveboxes
         op = op.clone()
+        unoptboxes = []
         for box in old_boxes:
-            indices.append(storage.deal_with_box(box, self.nodes,
-                                                 liveboxes, memo))
-        rev_boxes = {}
-        for i in range(len(liveboxes)):
-            box = liveboxes[i]
-            rev_boxes[box] = i
+            if isinstance(box, Const):
+                unoptboxes.append(box)
+                continue
+            unoptboxes.append(self.prepare_rebuild_ops(self.nodes[box],
+                                                       liveboxes, rebuild_ops,
+                                                       memo))
+        # XXX sloooooow!
+        for node in self.nodes.values():
+            if node.virtualized:
+                self.prepare_rebuild_ops(node, liveboxes, rebuild_ops, memo)
+
+        # start of code for dirtyfields support
         for node in self.nodes.values():
             for ofs, subnode in node.dirtyfields.items():
                 box = node.source
-                if box not in rev_boxes:
-                    rev_boxes[box] = len(liveboxes)
+                if box not in memo:
                     liveboxes.append(box)
-                index = (rev_boxes[box] << FLAG_SHIFT) | FLAG_BOXES_FROM_FRAME
+                    memo[box] = box
+                #index = (rev_boxes[box] << FLAG_SHIFT) | FLAG_BOXES_FROM_FRAME
                 fieldbox = subnode.source
-                if fieldbox not in rev_boxes:
-                    rev_boxes[fieldbox] = len(liveboxes)
+                if fieldbox not in memo:
                     liveboxes.append(fieldbox)
-                fieldindex = ((rev_boxes[fieldbox] << FLAG_SHIFT) |
-                              FLAG_BOXES_FROM_FRAME)
+                    memo[fieldbox] = fieldbox
+                #fieldindex = ((rev_boxes[fieldbox] << FLAG_SHIFT) |
+                #              FLAG_BOXES_FROM_FRAME)
                 if (node.cls is not None and
                     isinstance(node.cls.source, FixedList)):
                     ld = node.cls.source
                     assert isinstance(ld, FixedList)
                     ad = ld.arraydescr
-                    storage.setitems.append((index, ad, ofs, fieldindex))
+                    op1 = ResOperation(rop.SETARRAYITEM_GC,
+                                       [box, ofs, fieldbox],
+                                       None, descr=ad)
                 else:
-                    storage.setfields.append((index, ofs, fieldindex))
+                    op1 = ResOperation(rop.SETFIELD_GC, [box, fieldbox],
+                                       None, descr=ofs)
+                rebuild_ops.append(op1)
+        # end of code for dirtyfields support
+
         if not we_are_translated():
             items = [box for box in liveboxes if isinstance(box, Box)]
             assert len(dict.fromkeys(items)) == len(items)
-        storage.indices = indices
-
-        # XXX sloooooow!
-        for node in self.nodes.values():
-            if node.virtualized:
-                storage.deal_with_box(node.source, self.nodes,
-                                      liveboxes, memo)
 
         op.args = self.new_arguments(op)
         op.liveboxes = liveboxes
-        op.storage_info = storage
+        op.rebuild_ops = rebuild_ops
+        op.unoptboxes = unoptboxes
         return op
 
     def new_arguments(self, op):
@@ -839,61 +831,35 @@ class PerfectSpecializer(object):
             new_instnode = self.nodes[jump_op.args[i]]
             old_specnode.adapt_to(new_instnode)
 
-class Chooser(object):
-    def __init__(self, boxes_from_frame, allocated_boxes, allocated_lists):
-        self.boxes_from_frame = boxes_from_frame
-        self.allocated_lists = allocated_lists
-        self.allocated_boxes = allocated_boxes
-
-    def box_from_index(self, index):
-        ofs = index >> FLAG_SHIFT
-        where_from = index & FLAG_MASK
-        if where_from == FLAG_BOXES_FROM_FRAME:
-            return self.boxes_from_frame[ofs]
-        elif where_from == FLAG_ALLOCATIONS:
-            return self.allocated_boxes[ofs]
-        elif where_from == FLAG_LIST_ALLOCATIONS:
-            return self.allocated_lists[ofs]
-        else:
-            assert 0, "Should not happen"
+def get_in_list(dict, boxes_or_consts):
+    result = []
+    for box in boxes_or_consts:
+        if isinstance(box, Box):
+            box = dict[box]
+        result.append(box)
+    return result
 
 def rebuild_boxes_from_guard_failure(guard_op, metainterp, boxes_from_frame):
-    allocated_boxes = []
-    allocated_lists = []
-    storage = guard_op.storage_info
+##    print
+##    print guard_op.liveboxes
+##    for op in guard_op.rebuild_ops:
+##        print op
+##    print guard_op.unoptboxes
+##    print '^'*79
+##    import pdb; pdb.set_trace()
+    currentvalues = {}
+    assert len(boxes_from_frame) == len(guard_op.liveboxes)
+    for i in range(len(boxes_from_frame)):
+        currentvalues[guard_op.liveboxes[i]] = boxes_from_frame[i]
 
-    for vtable in storage.allocations:
-        if metainterp.cpu.translate_support_code:
-            vtable_addr = metainterp.cpu.cast_int_to_adr(vtable)
-            size = metainterp.class_sizes[vtable_addr]
-        else:
-            size = metainterp.class_sizes[vtable]
-        vtablebox = ConstInt(vtable)
-        instbox = metainterp.execute_and_record(rop.NEW_WITH_VTABLE,
-                                                [vtablebox], size)
-        allocated_boxes.append(instbox)
-    for ad, lgt in storage.list_allocations:
-        sizebox = ConstInt(lgt)
-        listbox = metainterp.execute_and_record(rop.NEW_ARRAY,
-                                                [sizebox], ad)
-        allocated_lists.append(listbox)
-    chooser = Chooser(boxes_from_frame, allocated_boxes, allocated_lists)
-    for index_in_alloc, ofs, index_in_arglist in storage.setfields:
-        fieldbox = chooser.box_from_index(index_in_arglist)
-        box = chooser.box_from_index(index_in_alloc)
-        assert isinstance(ofs, AbstractDescr)
-        metainterp.execute_and_record(rop.SETFIELD_GC,
-                                      [box, fieldbox], ofs)
-    for index_in_alloc, ad, ofs, index_in_arglist in storage.setitems:
-        itembox = chooser.box_from_index(index_in_arglist)
-        box = chooser.box_from_index(index_in_alloc)
-        metainterp.execute_and_record(rop.SETARRAYITEM_GC,
-                                      [box, ofs, itembox], ad)
-    newboxes = []
-    for index in storage.indices:
-        newboxes.append(chooser.box_from_index(index))
-
-    return newboxes
+    # interpret the operations stored in 'rebuild_ops'
+    for op in guard_op.rebuild_ops:
+        argboxes = get_in_list(currentvalues, op.args)
+        resbox = metainterp.execute_and_record(op.opnum, argboxes, op.descr)
+        if resbox is not None:
+            currentvalues[op.result] = resbox
+    # done
+    return get_in_list(currentvalues, guard_op.unoptboxes)
 
 
 def partition(array, left, right):

@@ -681,7 +681,6 @@ class MIFrame(object):
 
 class OOMetaInterp(object):
     num_green_args = 0
-    class_sizes = None
 
     def __init__(self, portal_graph, graphs, cpu, stats, options):
         self.portal_graph = portal_graph
@@ -696,16 +695,18 @@ class OOMetaInterp(object):
         self.opname_to_index = {}
         self._class_sizes = populate_type_cache(graphs, self.cpu)
         if not cpu.translate_support_code:
-            self.class_sizes = self._class_sizes
+            self.cpu.class_sizes = self._class_sizes
+        else:
+            self.cpu.class_sizes = None
         self._virtualizabledescs = {}
         self._debug_history = []
 
     def _recompute_class_sizes(self):
-        if self.class_sizes is None:
+        if self.cpu.class_sizes is None:
             cs = {}
             for key, value in self._class_sizes:
                 cs[key] = value
-            self.class_sizes = cs
+            self.cpu.class_sizes = cs
 
     def generate_bytecode(self, policy):
         self._codewriter = codewriter.CodeWriter(self, policy)
@@ -718,7 +719,6 @@ class OOMetaInterp(object):
         return not we_are_translated()
 
     def newframe(self, jitcode):
-        self._recompute_class_sizes()
         if not we_are_translated():
             self._debug_history.append(['enter', jitcode, None])
         f = MIFrame(self, jitcode)
@@ -919,6 +919,7 @@ class OOMetaInterp(object):
                                         *args[1:])
 
     def initialize_state_from_start(self, *args):
+        self._recompute_class_sizes()
         self.create_empty_history()
         num_green_args = self.num_green_args
         original_boxes = []
@@ -947,7 +948,7 @@ class OOMetaInterp(object):
             else:
                 newbox = box
             boxes_from_frame.append(newbox)
-        if guard_op.storage_info is not None:
+        if guard_op.rebuild_ops is not None:
             newboxes = optimize.rebuild_boxes_from_guard_failure(
                 guard_op, self, boxes_from_frame)
         else:

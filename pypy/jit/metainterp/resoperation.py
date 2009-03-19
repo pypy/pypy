@@ -11,8 +11,9 @@ class ResOperation(object):
 
     # for 'guard_*'
     counter = 0
-    storage_info = None
     liveboxes = None
+    rebuild_ops = None
+    unoptboxes = None
 
     # for 'guard_nonvirtualizable'
     vdesc = None

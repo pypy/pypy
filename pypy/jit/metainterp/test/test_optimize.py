@@ -11,8 +11,7 @@ from pypy.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt, ConstPtr,
                                          ConstAddr)
 from pypy.jit.metainterp.optimize import (PerfectSpecializer,
     CancelInefficientLoop, VirtualInstanceSpecNode, FixedClassSpecNode,
-    rebuild_boxes_from_guard_failure, AllocationStorage,
-    NotSpecNode)
+    rebuild_boxes_from_guard_failure, NotSpecNode)
 
 cpu = runner.CPU(None)
 
@@ -308,8 +307,14 @@ def test_E_optimize_loop():
     assert guard_op.getopname() == 'guard_true'
     assert guard_op.liveboxes == [E.sum2, E.v2]
     vt = cpu.cast_adr_to_int(node_vtable_adr)
-    assert guard_op.storage_info.allocations == [vt]
-    assert guard_op.storage_info.setfields == [(0, E.ofs_value, 7)]
+    assert len(guard_op.unoptboxes) == 2
+    assert guard_op.unoptboxes[0] == E.sum2
+    assert len(guard_op.rebuild_ops) == 2
+    assert guard_op.rebuild_ops[0].opnum == rop.NEW_WITH_VTABLE
+    assert guard_op.rebuild_ops[1].opnum == rop.SETFIELD_GC
+    assert guard_op.rebuild_ops[1].args[0] == guard_op.rebuild_ops[0].result
+    assert guard_op.rebuild_ops[1].descr == E.ofs_value
+    assert guard_op.unoptboxes[1] == guard_op.rebuild_ops[1].args[0]
 
 def test_E_rebuild_after_failure():
     class FakeMetaInterp(object):
@@ -323,7 +328,7 @@ def test_E_rebuild_after_failure():
         def execute_and_record(self, opnum, args, descr):
             self.ops.append((opnum, args, descr))
             return 'stuff'
-    
+
     spec = PerfectSpecializer(Loop(E.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
@@ -331,12 +336,12 @@ def test_E_rebuild_after_failure():
     guard_op = spec.loop.operations[-2]
     v_sum_b = BoxInt(13)
     v_v_b = BoxInt(14)
-    vt = cpu.cast_adr_to_int(node_vtable_adr)
     fake_metainterp = FakeMetaInterp()
     newboxes = rebuild_boxes_from_guard_failure(guard_op, fake_metainterp,
                                                 [v_sum_b, v_v_b])
+    v_vt = ConstAddr(node_vtable_adr, cpu)
     expected = [
-       (rop.NEW_WITH_VTABLE, [ConstInt(vt)], E.size_of_node),
+       (rop.NEW_WITH_VTABLE, [v_vt], ConstInt(-1)),    # "-1" is for testing
        (rop.SETFIELD_GC, ['stuff', v_v_b], E.ofs_value)
        ]
     assert expected == fake_metainterp.ops
@@ -460,8 +465,8 @@ def test_G_optimize_loop():
     assert guard_op.getopname() == 'guard_true'
     assert guard_op.liveboxes == [G.sum2, ConstInt(124)]
     vt = cpu.cast_adr_to_int(node_vtable_adr)
-    assert guard_op.storage_info.allocations == [vt]
-    assert guard_op.storage_info.setfields == [(0, G.ofs_value, 7)]
+    assert ([op.getopname() for op in guard_op.rebuild_ops] ==
+            ['new_with_vtable', 'setfield_gc'])
 
 # ____________________________________________________________
 
