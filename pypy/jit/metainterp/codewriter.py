@@ -263,6 +263,9 @@ class BytecodeMaker(object):
 
     def make_bytecode_block(self, block):
         if block.exits == ():
+            # note: the same label might be generated multiple times, but a
+            # jump to this label is free to pick whichever target so it's fine
+            self.emit(label(block))
             if len(block.inputargs) == 1:
                 # return from function
                 returnvar, = block.inputargs
@@ -316,20 +319,19 @@ class BytecodeMaker(object):
             self.make_bytecode_block(link.target)
         elif (len(block.exits) == 2
               and block.exitswitch.concretetype == lltype.Bool):
-            self.minimize_variables()
             linkfalse, linktrue = block.exits
             if linkfalse.llexitcase == True:
                 linkfalse, linktrue = linktrue, linkfalse
-            truerenaming = self.insert_renaming(linktrue.args)
-            falserenaming = self.insert_renaming(linkfalse.args)
+            truelist = self.get_renaming_list(linktrue.args)
+            falselist = self.get_renaming_list(linkfalse.args)
             self.emit("goto_if_not",
                       self.var_position(block.exitswitch),
-                      tlabel(linkfalse))
-            self.emit(*truerenaming)
+                      tlabel(linkfalse.target))
+            self.emit(len(truelist), *truelist)
+            self.emit(len(falselist), *falselist)
             self.make_bytecode_block(linktrue.target)
-            self.emit(label(linkfalse))
-            self.emit(*falserenaming)
-            self.make_bytecode_block(linkfalse.target)
+            if linkfalse.target not in self.seen_blocks:
+                self.make_bytecode_block(linkfalse.target)
         else:
             self.minimize_variables()
             switches = [link for link in block.exits
@@ -411,18 +413,18 @@ class BytecodeMaker(object):
                 self.emit("put_last_exc_value", i)
         self.make_bytecode_block(link.target)
 
-    def insert_renaming(self, args, force=False):
+    def get_renaming_list(self, args):
         args = [v for v in args if v.concretetype is not lltype.Void]
-        if len(args) >= MAX_MAKE_NEW_VARS:
-            code = ["make_new_vars", len(args)]
-        else:
-            code = ["make_new_vars_%d" % len(args)]
-        for v in args:
-            code.append(self.var_position(v))
-        if (not force and len(args) == self.free_vars and
-            code[len(code)-len(args):] == range(0, self.free_vars*2, 2)):
+        return [self.var_position(v) for v in args]
+
+    def insert_renaming(self, args, force=False):
+        list = self.get_renaming_list(args)
+        if not force and list == range(0, self.free_vars*2, 2):
             return []     # no-op
-        return code
+        if len(list) >= MAX_MAKE_NEW_VARS:
+            return ["make_new_vars", len(list)] + list
+        else:
+            return ["make_new_vars_%d" % len(list)] + list
 
     def minimize_variables(self):
         if self.dont_minimize_variables:

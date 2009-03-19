@@ -142,9 +142,16 @@ class BasicTests:
             return res
         res = self.meta_interp(f, [6, 7])
         assert res == 42
+        self.check_loop_count(1)
         self.check_loops({'merge_point': 1, 'guard_true': 1,
                           'int_add': 1, 'int_sub': 1, 'int_gt': 1,
                           'jump': 1})
+        if self.basic:
+            for op in get_stats().loops[0].operations:
+                if op.getopname() == 'guard_true':
+                    liveboxes = op.liveboxes
+                    assert len(liveboxes) == 1
+                    assert isinstance(liveboxes[0], history.BoxInt)
 
     def test_string(self):
         def f(n):

@@ -279,22 +279,28 @@ class MIFrame(object):
     def opimpl_goto(self, target):
         self.pc = target
 
-    @arguments("box", "jumptarget")
-    def opimpl_goto_if_not(self, box, target):
+    @arguments("box", "jumptarget", "varargs", "varargs")
+    def opimpl_goto_if_not(self, box, target, truelist, falselist):
         switchcase = box.getint()
         if switchcase:
             currentpc = self.pc
+            currentenv = truelist
             targetpc = target
+            targetenv = falselist
             opnum = rop.GUARD_TRUE
             const_if_fail = history.CONST_FALSE
         else:
             currentpc = target
+            currentenv = falselist
             targetpc = self.pc
+            targetenv = truelist
             opnum = rop.GUARD_FALSE
             const_if_fail = history.CONST_TRUE
+        self.env = targetenv
         self.generate_guard(targetpc, opnum, box, ignore_box=box,
                                                   const_if_fail=const_if_fail)
         self.pc = currentpc
+        self.env = currentenv
 
     @arguments("orgpc", "box", "constargs", "jumptargets")
     def opimpl_switch(self, pc, valuebox, constargs, jumptargets):
