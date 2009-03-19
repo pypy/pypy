@@ -549,6 +549,13 @@ class PerfectSpecializer(object):
             items = [box for box in liveboxes if isinstance(box, Box)]
             assert len(dict.fromkeys(items)) == len(items)
         storage.indices = indices
+
+        # XXX sloooooow!
+        for node in self.nodes.values():
+            if node.virtualized:
+                storage.deal_with_box(node.source, self.nodes,
+                                      liveboxes, memo)
+
         op.args = self.new_arguments(op)
         op.liveboxes = liveboxes
         op.storage_info = storage
