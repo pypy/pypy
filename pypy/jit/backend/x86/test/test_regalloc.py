@@ -246,43 +246,15 @@ def test_bug_1():
                      None)
         ]
     ops[-5].descr = cpu.fielddescrof(TP, 'y')
-    ops[1].liveboxes = [ConstInt(21), const_code, p0, i11, i5, i2, i3, i4, p1,
-                        p6, p7, i8, i9, i10, p12, p13, const_name]
-    ops[3].liveboxes = [ConstInt(21), const_code, p0, ConstInt(21), i5, i2, i3,
-                        i4, p1, p6, p7, i8, i9, ConstInt(1), p12, p13,
-                        const_name, const_name, ConstInt(21),
-                        const_name, ConstInt(24), ConstInt(16), ConstInt(16),
-                        ConstInt(24), ConstInt(346), ConstInt(0)]
-    ops[5].liveboxes = [ConstInt(21), const_code, p0, ConstInt(21), i5, i2, i3,
-                        i4, p1, p6, p7, i8, i9, ConstInt(1), p12, p13,
-                        const_name, const_name, ConstInt(21), const_name,
-                        ConstInt(24), ConstInt(16), ConstInt(16),
-                        ConstInt(24), ConstInt(346), ConstInt(1)]
-    ops[7].liveboxes = [ConstInt(21), const_code, p0, ConstInt(21), i5, i2,
-                        i3, i4, p1, p6, p7, i8, i9, ConstInt(1), p12, p13,
-                        const_name, const_name, ConstInt(21), const_name,
-                        ConstInt(24), ConstInt(16), ConstInt(16),
-                        ConstInt(24), ConstInt(346), ConstInt(1)]
-    ops[9].liveboxes = [ConstInt(21), const_code, p0, ConstInt(21), i5, i2,
-                        i3, i4, p1, p6, p7, i8, i9, ConstInt(1), p12, p13,
-                        const_name, const_name, ConstInt(21), const_name,
-                        ConstInt(24), ConstInt(16), ConstInt(16),
-                        ConstInt(24), ConstInt(346), ConstInt(1)]
-    ops[14].liveboxes = [ConstInt(33), const_code, p0, ConstInt(33), i20,
-                         i2, i3, i4, p1, none_ptr, none_ptr, i8, i19,
-                         ConstInt(1), p12, p13, const_name, const_name,
-                         ConstInt(33), const_name, ConstInt(34),
-                         ConstInt(0), ConstInt(347), i21]
-    ops[17].liveboxes = [ConstInt(37), const_code, p0, ConstInt(37), i20, i2,
-                         i3, i4, p1, none_ptr, none_ptr, i21, i19,
-                         ConstInt(1), p12, p13, const_name, const_name,
-                         ConstInt(37), const_name, ConstInt(40), ConstInt(21),
-                         ConstInt(21), p22, ConstInt(1)]
-    ops[-2].liveboxes = [ConstInt(37), const_code, p0, ConstInt(37), i20, i2,
-                         i3, i4, p1, none_ptr, none_ptr, i21, i19,
-                         ConstInt(1), p12, p13, const_name, const_name,
-                         ConstInt(37), const_name, ConstInt(40), ConstInt(21),
-                         ConstInt(21), p22]
+    ops[1].liveboxes = [p0, i11, i5, i2, i3, i4, p1, p6, p7, i8,
+                        i9, i10, p12, p13]
+    ops[3].liveboxes = [p0, i5, i2, i3, i4, p1, p6, p7, i8, i9, p12, p13]
+    ops[5].liveboxes = [p0, i5, i2, i3, i4, p1, p6, p7, i8, i9, p12, p13]
+    ops[7].liveboxes = [p0, i5, i2, i3, i4, p1, p6, p7, i8, i9, p12, p13]
+    ops[9].liveboxes = [p0, i5, i2, i3, i4, p1, p6, p7, i8, i9, p12, p13]
+    ops[14].liveboxes = [p0, i20, i2, i3, i4, p1, i8, i19, p12, p13, i21]
+    ops[17].liveboxes = [p0, i20, i2, i3, i4, p1, i21, i19, p12, p13, p22]
+    ops[-2].liveboxes = [p0, i20, i2, i3, i4, p1, i21, i19, p12, p13, p22]
 
     ops[-1].jump_target = ops[0]
     cpu.compile_operations(ops)

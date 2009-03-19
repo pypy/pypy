@@ -117,14 +117,11 @@ class Assembler386(object):
         if self._log_fd == -1:
             return
         os.write(self._log_fd, 'xxxxxxxxxx\n')
-        j = 0
         memo = {}
         reprs = []
-        for box in gf.guard_op.liveboxes:
-            if isinstance(box, Box):
-                valuebox = gf.cpu.getvaluebox(gf.frame, gf.guard_op, j)
-                reprs.append(repr_of_arg(memo, valuebox))
-                j += 1
+        for j in range(len(gf.guard_op.liveboxes)):
+            valuebox = gf.cpu.getvaluebox(gf.frame, gf.guard_op, j)
+            reprs.append(repr_of_arg(memo, valuebox))
         jmp = gf.guard_op._jmp_from
         os.write(self._log_fd, "%d %d %s\n" % (guard_index, jmp,
                                                ",".join(reprs)))

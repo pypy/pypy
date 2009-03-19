@@ -395,7 +395,7 @@ class CPU386(object):
 
     def getvaluebox(self, frameadr, guard_op, argindex):
         # XXX that's plain stupid, do we care about the return value???
-        box = [b for b in guard_op.liveboxes if isinstance(b, Box)][argindex]
+        box = guard_op.liveboxes[argindex]
         frame = getframe(frameadr)
         pos = guard_op.stacklocs[argindex]
         intvalue = frame[pos]

@@ -240,8 +240,8 @@ class RegAlloc(object):
                     longevity[arg] = (start_live[arg], i)
             if op.is_guard():
                 for arg in op.liveboxes:
-                    if isinstance(arg, Box):
-                        longevity[arg] = (start_live[arg], i)
+                    assert isinstance(arg, Box)
+                    longevity[arg] = (start_live[arg], i)
         self.longevity = longevity
 
     def try_allocate_reg(self, v, selected_reg=None):
@@ -338,11 +338,11 @@ class RegAlloc(object):
         stacklocs = []
         locs = []
         for arg in guard_op.liveboxes:
-            if isinstance(arg, Box):
-                if arg not in self.stack_bindings:
-                    self.dirty_stack[arg] = True
-                stacklocs.append(self.stack_loc(arg).position)
-                locs.append(self.loc(arg))
+            assert isinstance(arg, Box)
+            if arg not in self.stack_bindings:
+                self.dirty_stack[arg] = True
+            stacklocs.append(self.stack_loc(arg).position)
+            locs.append(self.loc(arg))
         if not we_are_translated():
             assert len(dict.fromkeys(stacklocs)) == len(stacklocs)
         guard_op.stacklocs = stacklocs
