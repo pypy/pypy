@@ -45,6 +45,7 @@ def target(driver, args):
     global space, w_dict
     #
     config = driver.config
+    assert config.translation.jit, "you forgot the '--jit' option :-)"
     parser = opt_parser(config)
     parser.parse_args(args)
     #
