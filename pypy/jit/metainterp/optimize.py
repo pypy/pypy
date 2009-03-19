@@ -781,6 +781,8 @@ class PerfectSpecializer(object):
 
     def cleanup_field_caches(self, newoperations):
         # we need to invalidate everything
+        # XXX looping over self.nodes on each side-effecting operation
+        # XXX costs too much (quadratic time)
         for node in self.nodes.values():
             for ofs, valuenode in node.dirtyfields.items():
                 # XXX move to InstanceNode eventually
