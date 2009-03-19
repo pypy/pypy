@@ -288,17 +288,14 @@ class MIFrame(object):
             targetpc = target
             targetenv = falselist
             opnum = rop.GUARD_TRUE
-            const_if_fail = history.CONST_FALSE
         else:
             currentpc = target
             currentenv = falselist
             targetpc = self.pc
             targetenv = truelist
             opnum = rop.GUARD_FALSE
-            const_if_fail = history.CONST_TRUE
         self.env = targetenv
-        self.generate_guard(targetpc, opnum, box, ignore_box=box,
-                                                  const_if_fail=const_if_fail)
+        self.generate_guard(targetpc, opnum, box)
         self.pc = currentpc
         self.env = currentenv
 
@@ -626,8 +623,7 @@ class MIFrame(object):
             if stop:
                 break
 
-    def generate_guard(self, pc, opnum, box, extraargs=[], ignore_box=None,
-                       const_if_fail=None):
+    def generate_guard(self, pc, opnum, box, extraargs=[]):
         if isinstance(box, Const):    # no need for a guard
             return
         if isinstance(self.metainterp.history, history.BlackHole):
@@ -636,11 +632,7 @@ class MIFrame(object):
         for frame in self.metainterp.framestack:
             for framebox in frame.env:
                 assert framebox is not None
-                if framebox is not ignore_box:
-                    liveboxes.append(framebox)
-                else:
-                    assert const_if_fail is not None
-                    liveboxes.append(const_if_fail)
+                liveboxes.append(framebox)
         if box is not None:
             extraargs = [box] + extraargs
         guard_op = self.metainterp.history.record(opnum, extraargs, None)
@@ -991,11 +983,6 @@ class OOMetaInterp(object):
             nbindex = f.setup_resume_at_op(pc, envlength, newboxes, nbindex,
                                            exception_target)
         assert nbindex == len(newboxes), "too many newboxes!"
-
-    def record_compiled_merge_point(self, mp):
-        pass
-        #mplist = self.compiled_merge_points.setdefault(mp.greenkey, [])
-        #mplist.append(mp)
 
     def record_state(self):
         # XXX this whole function should do a sharing
