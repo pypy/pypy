@@ -441,6 +441,8 @@ class PerfectSpecializer(object):
 
     def prepare_rebuild_ops(self, instnode, liveboxes, rebuild_ops, memo):
         box = instnode.source
+        if not isinstance(box, Box):
+            return box
         if box in memo:
             return memo[box]
         if instnode.virtual:
@@ -519,12 +521,12 @@ class PerfectSpecializer(object):
         for node in self.nodes.values():
             for ofs, subnode in node.dirtyfields.items():
                 box = node.source
-                if box not in memo:
+                if box not in memo and isinstance(box, Box):
                     liveboxes.append(box)
                     memo[box] = box
                 #index = (rev_boxes[box] << FLAG_SHIFT) | FLAG_BOXES_FROM_FRAME
                 fieldbox = subnode.source
-                if fieldbox not in memo:
+                if fieldbox not in memo and isinstance(fieldbox, Box):
                     liveboxes.append(fieldbox)
                     memo[fieldbox] = fieldbox
                 #fieldindex = ((rev_boxes[fieldbox] << FLAG_SHIFT) |
@@ -545,8 +547,9 @@ class PerfectSpecializer(object):
         # end of code for dirtyfields support
 
         if not we_are_translated():
-            items = [box for box in liveboxes if isinstance(box, Box)]
-            assert len(dict.fromkeys(items)) == len(items)
+            for box in liveboxes:
+                assert isinstance(box, Box)
+            assert len(dict.fromkeys(liveboxes)) == len(liveboxes)
 
         op.args = self.new_arguments(op)
         op.liveboxes = liveboxes
@@ -862,7 +865,7 @@ def rebuild_boxes_from_guard_failure(guard_op, cpu, history, boxes_from_frame):
         if resbox is not None:
             currentvalues[op.result] = resbox
     # done
-    return get_in_list(currentvalues, guard_op.unoptboxes)
+    return [currentvalues[box] for box in guard_op.unoptboxes]
 
 
 def partition(array, left, right):

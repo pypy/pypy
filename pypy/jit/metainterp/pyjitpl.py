@@ -598,15 +598,19 @@ class MIFrame(object):
         #self.starts_with_greens()
         #assert len(argboxes) == len(self.graph.getargs())
 
-    def setup_resume_at_op(self, pc, envlength, liveboxes, lbindex,
+    def setup_resume_at_op(self, pc, const_part, liveboxes, lbindex,
                            exception_target):
         if not we_are_translated():
             check_args(*liveboxes)
         self.pc = pc
-        self.env = liveboxes[lbindex:lbindex+envlength]
         self.exception_target = exception_target
-        assert len(self.env) == envlength
-        return lbindex + envlength
+        self.env = []
+        for box in const_part:
+            if box is None:
+                box = liveboxes[lbindex]
+                lbindex += 1
+            self.env.append(box)
+        return lbindex
 
     def run_one_step(self):
         # Execute the frame forward.  This method contains a loop that leaves
@@ -628,18 +632,26 @@ class MIFrame(object):
             return
         if isinstance(self.metainterp.history, history.BlackHole):
             return
+        saved_pc = self.pc
+        self.pc = pc
+        # XXX 'key' should be shared, either partially or if possible totally
+        key = []
         liveboxes = []
         for frame in self.metainterp.framestack:
+            const_part = []
             for framebox in frame.env:
                 assert framebox is not None
-                liveboxes.append(framebox)
+                if isinstance(framebox, Box):
+                    liveboxes.append(framebox)
+                    framebox = None
+                const_part.append(framebox)
+            key.append((frame.jitcode, frame.pc, const_part,
+                        frame.exception_target))
         if box is not None:
             extraargs = [box] + extraargs
         guard_op = self.metainterp.history.record(opnum, extraargs, None)
         guard_op.liveboxes = liveboxes
-        saved_pc = self.pc
-        self.pc = pc
-        guard_op.key = self.metainterp.record_state()
+        guard_op.key = key
         self.pc = saved_pc
         return guard_op
 
@@ -941,12 +953,10 @@ class OOMetaInterp(object):
         boxes_from_frame = []
         index = 0
         for box in guard_op.liveboxes:
-            if isinstance(box, Box):
-                newbox = self.cpu.getvaluebox(guard_failure.frame,
-                                              guard_op, index)
-                index += 1
-            else:
-                newbox = box
+            assert isinstance(box, Box)
+            newbox = self.cpu.getvaluebox(guard_failure.frame,
+                                          guard_op, index)
+            index += 1
             boxes_from_frame.append(newbox)
         if guard_op.rebuild_ops is not None:
             newboxes = optimize.rebuild_boxes_from_guard_failure(
@@ -979,19 +989,11 @@ class OOMetaInterp(object):
             self._debug_history.append(['guard_failure', None, None])
         self.framestack = []
         nbindex = 0
-        for jitcode, pc, envlength, exception_target in key:
+        for jitcode, pc, const_part, exception_target in key:
             f = self.newframe(jitcode)
-            nbindex = f.setup_resume_at_op(pc, envlength, newboxes, nbindex,
+            nbindex = f.setup_resume_at_op(pc, const_part, newboxes, nbindex,
                                            exception_target)
         assert nbindex == len(newboxes), "too many newboxes!"
-
-    def record_state(self):
-        # XXX this whole function should do a sharing
-        key = []
-        for frame in self.framestack:
-            key.append((frame.jitcode, frame.pc, len(frame.env),
-                        frame.exception_target))
-        return key
 
     # ____________________________________________________________
     # construction-time interface

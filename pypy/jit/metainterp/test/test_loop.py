@@ -5,6 +5,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.jit.metainterp.test.test_basic import LLJitMixin
 from pypy.jit.metainterp.policy import StopAtXPolicy
 from pypy.jit.metainterp.resoperation import rop
+from pypy.jit.metainterp import history
 
 class TestLoop(LLJitMixin):
     specialize = False
@@ -163,6 +164,13 @@ class TestLoop(LLJitMixin):
         self.check_loop_count(1)
         # the 'char_eq' and following 'guard' should be constant-folded
         self.check_loops(char_eq=0, guard_true=1, guard_false=0)
+        if self.basic:
+            for op in get_stats().loops[0].operations:
+                if op.getopname() == 'guard_true':
+                    liveboxes = op.liveboxes
+                    assert len(liveboxes) == 2     # x, y (in some order)
+                    assert isinstance(liveboxes[0], history.BoxInt)
+                    assert isinstance(liveboxes[1], history.BoxInt)
 
     def test_interp_many_paths(self):
         myjitdriver = JitDriver(greens = ['i'], reds = ['x', 'node'])

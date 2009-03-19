@@ -453,10 +453,11 @@ def test_G_optimize_loop():
         ])
     guard_op = spec.loop.operations[-2]
     assert guard_op.getopname() == 'guard_true'
-    assert guard_op.liveboxes == [G.sum2, ConstInt(124)]
+    assert guard_op.liveboxes == [G.sum2]
     vt = cpu.cast_adr_to_int(node_vtable_adr)
     assert ([op.getopname() for op in guard_op.rebuild_ops] ==
             ['new_with_vtable', 'setfield_gc'])
+    assert guard_op.rebuild_ops[1].args[1] == ConstInt(124)
 
 # ____________________________________________________________
 

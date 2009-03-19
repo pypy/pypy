@@ -134,8 +134,8 @@ class CPU(object):
                 llimpl.compile_add_failnum(c, len(self.guard_ops))
                 self.guard_ops.append(op)
                 for box in op.liveboxes:
-                    if isinstance(box, history.Box):
-                        llimpl.compile_add_livebox(c, var2index[box])
+                    assert isinstance(box, history.Box)
+                    llimpl.compile_add_livebox(c, var2index[box])
             if op.opnum == rop.MERGE_POINT:
                 self.jumptarget2loop[op] = c, i
         if from_guard is not None:
@@ -175,19 +175,8 @@ class CPU(object):
             if gf.returns:
                 return gf.retbox
 
-    def getrealbox(self, guard_op, argindex):
-        box = None
-        i = 0
-        j = argindex
-        while j >= 0:
-            box = guard_op.liveboxes[i]
-            i += 1
-            if isinstance(box, history.Box):
-                j -= 1
-        return box
-
     def getvaluebox(self, frame, guard_op, argindex):
-        box = self.getrealbox(guard_op, argindex)
+        box = guard_op.liveboxes[argindex]
         if isinstance(box, history.BoxInt):
             value = llimpl.frame_int_getvalue(frame, argindex)
             return history.BoxInt(value)
