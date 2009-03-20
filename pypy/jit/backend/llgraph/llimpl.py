@@ -548,6 +548,9 @@ class Frame(object):
         else:
             return do_getfield_raw_int(struct, fielddescr.ofs, self.memocast)
 
+    def op_new(self, size):
+        return do_new(size.ofs)
+
     def op_new_with_vtable(self, size, vtable):
         result = do_new(size.ofs)
         value = lltype.cast_opaque_ptr(rclass.OBJECTPTR, result)
