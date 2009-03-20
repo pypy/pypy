@@ -119,6 +119,7 @@ def _ll_2_list_pop(l, index):
 _ll_2_list_append = rlist.ll_append
 _ll_2_list_extend = rlist.ll_extend
 _ll_3_list_insert = rlist.ll_insert_nonneg
+_ll_2_list_delslice_startonly = rlist.ll_listdelslice_startonly
 
 _ll_2_list_getitem_foldable = _ll_2_list_getitem
 _ll_1_list_len_foldable     = _ll_1_list_len

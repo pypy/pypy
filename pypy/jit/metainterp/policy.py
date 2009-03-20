@@ -7,6 +7,10 @@ class JitPolicy(object):
         # explicitly pure functions are always opaque
         if getattr(func, '_pure_function_', False):
             return False
+        # pypy.rpython.module.* are opaque helpers
+        mod = func.__module__ or '?'
+        if mod.startswith('pypy.rpython.module.'):
+            return False
         return True
 
     def look_inside_graph(self, graph):

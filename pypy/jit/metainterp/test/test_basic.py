@@ -319,6 +319,18 @@ class BasicTests:
         res = self.meta_interp(f, [20, 1, 2])
         assert res == 0
 
+    def test_print(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n'])
+        def f(n):
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n)
+                myjitdriver.jit_merge_point(n=n)
+                print n
+                n -= 1
+            return n
+        res = self.meta_interp(f, [7])
+        assert res == 0
+
 class TestOOtype(BasicTests, OOJitMixin):
     pass
 

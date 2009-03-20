@@ -897,6 +897,7 @@ def ll_listdelslice_startonly(l, start):
             l.ll_setitem_fast(j, null)
             j -= 1
     l._ll_resize_le(newlength)
+ll_listdelslice_startonly.oopspec = 'list.delslice_startonly(l, start)'
 
 def ll_listdelslice_startstop(l, start, stop):
     length = l.ll_length()
