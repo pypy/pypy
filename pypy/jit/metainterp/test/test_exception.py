@@ -35,7 +35,7 @@ class ExceptionTests:
             return n
         res = self.meta_interp(f, [10])
         assert res == 0
-        self.check_loops({'merge_point': 1, 'jump': 1,
+        self.check_loops({'jump': 1,
                           'int_gt': 1, 'guard_true': 1,
                           'int_sub': 1})
 

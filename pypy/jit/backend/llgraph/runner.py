@@ -145,29 +145,23 @@ class CPU(object):
                 raise Exception("bad box in valueboxes: %r" % (box,))
         # run the loop
         fail_index = llimpl.frame_execute(frame)
-        # get the exception to raise and really raise it, if any
-        exception_addr = llimpl.get_exception()
-        if exception_addr:
-            exc_value_gcref = llimpl.get_exc_value()
-            xxxx
-        else:
-            # common case: we hit a FAIL operation.  Fish for the values
-            # (in a real backend, this should be done by the FAIL operation
-            # itself, not here)
-            op = self.fail_ops[fail_index]
-            currentboxes = []
-            for i in range(len(op.args)):
-                box = op.args[i]
-                if isinstance(box, history.BoxInt):
-                    value = llimpl.frame_int_getvalue(frame, i)
-                    box = history.BoxInt(value)
-                elif isinstance(box, history.BoxPtr):
-                    value = llimpl.frame_ptr_getvalue(frame, i)
-                    box = history.BoxPtr(value)
-                else:
-                    raise Exception("bad box in 'fail': %r" % (box,))
-                currentboxes.append(box)
-            return GuardFailure(op.key, currentboxes)
+        # we hit a FAIL operation.  Fish for the values
+        # (in a real backend, this should be done by the FAIL operation
+        # itself, not here)
+        op = self.fail_ops[fail_index]
+        currentboxes = []
+        for i in range(len(op.args)):
+            box = op.args[i]
+            if isinstance(box, history.BoxInt):
+                value = llimpl.frame_int_getvalue(frame, i)
+                box = history.BoxInt(value)
+            elif isinstance(box, history.BoxPtr):
+                value = llimpl.frame_ptr_getvalue(frame, i)
+                box = history.BoxPtr(value)
+            else:
+                raise Exception("bad box in 'fail': %r" % (box,))
+            currentboxes.append(box)
+        return GuardFailure(op.key, currentboxes)
 
     def get_exception(self):
         return self.cast_adr_to_int(llimpl.get_exception())
