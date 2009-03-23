@@ -762,6 +762,8 @@ class OOMetaInterp(object):
 
     def create_empty_history(self):
         self.history = history.History(self.cpu)
+        if self.stats is not None:
+            self.stats.history = self.history
 
     def delete_history(self):
         # XXX call me again later
@@ -799,18 +801,22 @@ class OOMetaInterp(object):
     def interpret(self):
         # Execute the frames forward until we raise a DoneWithThisFrame,
         # a ContinueRunningNormally, or a GenerateMergePoint exception.
-        if not we_are_translated():
-            history.log.event('ENTER')
+        if isinstance(self.history, history.BlackHole):
+            text = ' (BlackHole)'
         else:
-            debug_print('~~~ ENTER')
+            text = ''
+        if not we_are_translated():
+            history.log.event('ENTER' + text)
+        else:
+            debug_print('~~~ ENTER', text)
         try:
             while True:
                 self.framestack[-1].run_one_step()
         finally:
             if not we_are_translated():
-                history.log.event('LEAVE')
+                history.log.event('LEAVE' + text)
             else:
-                debug_print('~~~ LEAVE')
+                debug_print('~~~ LEAVE', text)
 
     def compile_and_run_once(self, *args):
         orig_boxes = self.initialize_state_from_start(*args)

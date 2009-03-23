@@ -51,6 +51,7 @@ class Descr(history.AbstractDescr):
             return '<Descr %r, %r, %r>' % (self.ofs, self.type, self.name)
         return '<Descr %r, %r>' % (self.ofs, self.type)
 
+
 class CPU(object):
 
     def __init__(self, rtyper, stats=None, translate_support_code=False,
@@ -60,6 +61,7 @@ class CPU(object):
         self.stats = stats or MiniStats()
         self.stats.exec_counters = {}
         self.stats.exec_jumps = 0
+        self.stats.exec_conditional_jumps = 0
         self.memo_cast = llimpl.new_memo_cast()
         self.fail_ops = []
         llimpl._stats = self.stats
@@ -166,6 +168,18 @@ class CPU(object):
                     raise Exception("bad box in 'fail': %r" % (box,))
                 currentboxes.append(box)
             return GuardFailure(op.key, currentboxes)
+
+    def get_exception(self):
+        return self.cast_adr_to_int(llimpl.get_exception())
+
+    def get_exc_value(self):
+        return llimpl.get_exc_value()
+
+    def clear_exception(self):
+        llimpl.clear_exception()
+
+    def set_overflow_error(self):
+        llimpl.set_overflow_error()
 
     @staticmethod
     def sizeof(S):
@@ -316,22 +330,6 @@ class CPU(object):
             return history.BoxInt(llimpl.do_call_int(func, self.memo_cast))
         else:  # calldescr.type == 'v'  # void
             llimpl.do_call_void(func, self.memo_cast)
-
-class GuardFailed(object):
-    returns = False
-
-    def __init__(self, frame, guard_op):
-        self.frame = frame
-        self.guard_op = guard_op
-
-    def make_ready_for_return(self, retbox):
-        self.returns = True
-        self.retbox = retbox
-
-    def make_ready_for_continuing_at(self, merge_point):
-        llimpl.frame_clear(self.frame, merge_point._compiled,
-                           merge_point._opindex)
-        self.merge_point = merge_point
 
 # ____________________________________________________________
 

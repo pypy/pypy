@@ -332,9 +332,9 @@ class Loop(object):
     def __init__(self, name):
         self.name = name
         # self.inputargs = list of distinct Boxes
-        # self.operations = ops of the kind 'guard_xxx' contain a further
-        #                   list of operations, which may itself contain
-        #                   'guard_xxx' and so on, making a tree.
+        # self.operations = list of ResOperations
+        #   ops of the kind 'guard_xxx' contain a further list of operations,
+        #   which may itself contain 'guard_xxx' and so on, making a tree.
 
     def _all_operations(self):
         "NOT_RPYTHON"
@@ -442,11 +442,28 @@ class Stats(object):
     def get_all_loops(self):
         return self.loops
 
+    def check_history(self, expected=None, **check):
+        insns = {}
+        for op in self.history.operations:
+            opname = op.getopname()
+            insns[opname] = insns.get(opname, 0) + 1
+        if expected is not None:
+            # 'fail' operations may be omitted from 'expected'
+            if 'fail' in insns:
+                expected.setdefault('fail', insns['fail'])
+            assert insns == expected
+        for insn, expected_count in check.items():
+            assert insns.get(insn, 0) == expected_count
+        return insns
+
     def check_loops(self, expected=None, **check):
         insns = {}
         for loop in self.loops:
             insns = loop.summary(adding_insns=insns)
         if expected is not None:
+            # 'fail' operations may be omitted from 'expected'
+            if 'fail' in insns:
+                expected.setdefault('fail', insns['fail'])
             assert insns == expected
         for insn, expected_count in check.items():
             assert insns.get(insn, 0) == expected_count

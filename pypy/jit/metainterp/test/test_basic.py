@@ -62,13 +62,12 @@ class LLJitMixin(JitMixin):
             graph = cw.unfinished_graphs.pop()
             cw.make_one_bytecode(graph, False)
         metainterp.portal_code = maingraph
-        metainterp.cpu.set_meta_interp(metainterp)
         metainterp.delete_history()
         metainterp.warmrunnerdesc = FakeWarmRunnderDesc
         metainterp.DoneWithThisFrame = DoneWithThisFrame
         self.metainterp = metainterp
         try:
-            metainterp.compile_and_run(*args)
+            metainterp.compile_and_run_once(*args)
         except DoneWithThisFrame, e:
             if conftest.option.view:
                 metainterp.stats.view()
@@ -143,15 +142,18 @@ class BasicTests:
         res = self.meta_interp(f, [6, 7])
         assert res == 42
         self.check_loop_count(1)
-        self.check_loops({'merge_point': 1, 'guard_true': 1,
+        self.check_loops({'guard_true': 1,
                           'int_add': 1, 'int_sub': 1, 'int_gt': 1,
                           'jump': 1})
         if self.basic:
-            for op in get_stats().loops[0].operations:
-                if op.getopname() == 'guard_true':
-                    liveboxes = op.liveboxes
+            found = 0
+            for op in get_stats().loops[0]._all_operations():
+                if op.getopname() == 'fail':
+                    liveboxes = op.args
                     assert len(liveboxes) == 1
                     assert isinstance(liveboxes[0], history.BoxInt)
+                    found += 1
+            assert found == 1
 
     def test_string(self):
         def f(n):

@@ -111,10 +111,10 @@ def compile_fresh_loop(metainterp, loop, old_loops, endliveboxes):
     loop.inputargs = history.inputargs
     loop.operations = history.operations
     close_loop(loop, endliveboxes)
-    old_loop = optimize.optimize_loop(metainterp.options, old_loops, loop,
-                                      metainterp.cpu)
-    if old_loop is not None:
-        return old_loop
+    #old_loop = optimize.optimize_loop(metainterp.options, old_loops, loop,
+    #                                  metainterp.cpu)
+    #if old_loop is not None:
+    #    return old_loop
     send_loop_to_backend(metainterp, loop)
     old_loops.append(loop)
     return loop

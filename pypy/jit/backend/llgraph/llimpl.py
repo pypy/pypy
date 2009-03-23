@@ -370,6 +370,7 @@ class Frame(object):
                                                     verbose)
                 except GuardFailed:
                     assert op.is_guard()
+                    _stats.exec_conditional_jumps += 1
                     operations = op.subloop.operations
                     opindex = 0
                     continue
@@ -416,7 +417,7 @@ class Frame(object):
         for i in range(len(values)):
             if isinstance(values[i], ComputedIntSymbolic):
                 values[i] = values[i].compute_fn()
-        res = '*'
+        res = NotImplemented
         try:
             res = ophandler(self, descr, *values)
         finally:
@@ -424,7 +425,7 @@ class Frame(object):
                 argtypes, restype = TYPES[opname]
                 if res is None:
                     resdata = ''
-                elif res == '*':
+                elif res is NotImplemented:
                     resdata = '*fail*'
                 else:
                     resdata = '-> ' + repr1(res, restype, self.memocast)
