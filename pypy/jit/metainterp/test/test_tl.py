@@ -95,15 +95,14 @@ class ToyLanguageTests:
     def test_tl_base(self):
         res = self.meta_interp(self.main.im_func, [0, 6], listops=True)
         assert res == 5040
-        self.check_loops({'merge_point':1,
-                          'int_mul':1, 'jump':1,
+        self.check_loops({'int_mul':1, 'jump':1,
                           'int_sub':1, 'int_is_true':1, 'int_le':1,
                           'guard_false':1, 'guard_value':1})
 
     def test_tl_2(self):
         res = self.meta_interp(self.main.im_func, [1, 10], listops=True)
         assert res == self.main.im_func(1, 10)
-        self.check_loops({'merge_point':1, 'int_sub':1, 'int_le':1,
+        self.check_loops({'int_sub':1, 'int_le':1,
                          'int_is_true':1, 'guard_false':1, 'jump':1,
                           'guard_value':1})
 
