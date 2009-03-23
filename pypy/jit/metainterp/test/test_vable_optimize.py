@@ -83,8 +83,8 @@ class A:
     v = BoxInt(frame.node.value)
     v2 = BoxInt(nextnode.value)
     sum2 = BoxInt(0 + frame.node.value)
+    inputargs = [sum, fr]
     ops = [
-        ResOperation('merge_point', [sum, fr], None),
         ResOperation('guard_nonvirtualized', [fr, ConstAddr(xy_vtable, cpu)],
                      None, ofs_node),
         ResOperation('getfield_gc', [fr], n1, ofs_node),
@@ -100,12 +100,12 @@ class A:
     ops[1].vdesc = xy_desc
 
 def test_A_find_nodes():
-    spec = PerfectSpecializer(Loop(A.ops))
+    spec = PerfectSpecializer(Loop(A.inputargs, A.ops))
     spec.find_nodes()
     assert spec.nodes[A.fr].virtualized
 
 def test_A_intersect_input_and_output():
-    spec = PerfectSpecializer(Loop(A.ops))
+    spec = PerfectSpecializer(Loop(A.inputargs, A.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
     assert spec.nodes[A.fr].escaped
@@ -115,12 +115,12 @@ def test_A_intersect_input_and_output():
     assert isinstance(spec.specnodes[1], VirtualizableSpecNode)
 
 def test_A_optimize_loop():
-    spec = PerfectSpecializer(Loop(A.ops))
+    spec = PerfectSpecializer(Loop(A.inputargs, A.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
+    assert spec.loop.inputargs == [A.sum, A.fr, A.v]
     equaloplists(spec.loop.operations, [
-        ResOperation('merge_point', [A.sum, A.fr, A.v], None),
         ResOperation('int_sub', [A.v, ConstInt(1)], A.v2),
         ResOperation('int_add', [A.sum, A.v], A.sum2),
         ResOperation('jump', [A.sum2, A.fr, A.v2], None),
@@ -140,8 +140,8 @@ class B:
     fr = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, frame))
     n1 = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, frame.node))
     v = BoxInt(13)
+    inputargs = [fr]
     ops = [
-        ResOperation('merge_point', [fr], None),
         ResOperation('guard_nonvirtualized', [fr, ConstAddr(xy_vtable, cpu)],
                      None, ofs_node),
         ResOperation('getfield_gc', [fr], n1, ofs_node),
@@ -151,7 +151,7 @@ class B:
     ops[1].vdesc = xy_desc
 
 def test_B_intersect_input_and_output():
-    spec = PerfectSpecializer(Loop(B.ops))
+    spec = PerfectSpecializer(Loop(B.inputargs, B.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
     assert spec.nodes[B.fr].escaped
@@ -168,8 +168,8 @@ class C:
     locals().update(B.__dict__)
     n2 = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, frame.node))
     v2 = BoxInt(13)
+    inputargs = [fr]
     ops = [
-        ResOperation('merge_point', [fr], None),
         ResOperation('guard_nonvirtualized', [fr, ConstAddr(xy_vtable, cpu)],
                      None, ofs_node),
         #
@@ -186,7 +186,7 @@ class C:
     ops[1].vdesc = xy_desc
 
 def test_C_intersect_input_and_output():
-    spec = PerfectSpecializer(Loop(C.ops))
+    spec = PerfectSpecializer(Loop(C.inputargs, C.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
     assert spec.nodes[C.fr].escaped
@@ -211,8 +211,8 @@ if 0:
     n2 = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, frame.node))
     v2 = BoxInt(13)
     l = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, frame.node))
+    inputargs = [fr]
     ops = [
-        ResOperation('merge_point', [fr], None),
         ResOperation('guard_nonvirtualized', [fr, ConstAddr(xy_vtable, cpu),
                                               ConstInt(ofs_node)], None),
         #
@@ -226,7 +226,7 @@ if 0:
 
 def test_D_intersect_input_and_output():
     py.test.skip("XXX")
-    spec = PerfectSpecializer(Loop(D.ops))
+    spec = PerfectSpecializer(Loop(D.inputargs, D.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
     assert spec.nodes[D.fr].escaped
