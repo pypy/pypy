@@ -4,10 +4,28 @@ from pypy.translator.tool.make_dot import DotGen
 from pypy.jit.metainterp.history import Box
 
 
+class SubGraph:
+    def __init__(self, suboperations):
+        self.suboperations = suboperations
+    def get_operations(self):
+        return self.suboperations
+    def get_display_text(self):
+        return None
+
+def display_loops(loops, errmsg=None):
+    graphs = loops[:]
+    for graph in graphs:
+        for op in graph.get_operations():
+            if op.is_guard():
+                graphs.append(SubGraph(op.suboperations))
+    graphpage = ResOpGraphPage(graphs, errmsg)
+    graphpage.display()
+
+
 class ResOpGraphPage(GraphPage):
 
-    def compute(self, graphs, errmsg=None, highlightops={}):
-        resopgen = ResOpGen(highlightops)
+    def compute(self, graphs, errmsg=None):
+        resopgen = ResOpGen()
         for graph in graphs:
             resopgen.add_graph(graph)
         if errmsg:
@@ -20,11 +38,10 @@ class ResOpGen(object):
     CLUSTERING = True
     BOX_COLOR = (128, 0, 96)
 
-    def __init__(self, highlightops):
+    def __init__(self):
         self.graphs = []
         self.block_starters = {}    # {graphindex: {set-of-operation-indices}}
         self.all_operations = {}
-        self.highlightops = highlightops
         self.errmsg = None
 
     def op_name(self, graphindex, opindex):
@@ -43,18 +60,9 @@ class ResOpGen(object):
         for graphindex in range(len(self.graphs)):
             self.block_starters[graphindex] = {0: True}
         for graphindex, graph in enumerate(self.graphs):
-            prevop = None
             for i, op in enumerate(graph.get_operations()):
-                for attrname, delta in [('jump_target', 0),
-                                        ('_jump_target_prev', 1)]:
-                    tgt = getattr(op, attrname, None)
-                    if tgt is not None and tgt in self.all_operations:
-                        tgt_g, tgt_i = self.all_operations[tgt]
-                        self.mark_starter(tgt_g, tgt_i+delta)
-                        self.mark_starter(graphindex, i+1)
-                if (op in self.highlightops) != (prevop in self.highlightops):
-                    self.mark_starter(graphindex, i)
-                prevop = op
+                if op.is_guard():
+                    self.mark_starter(graphindex, i+1)
 
     def set_errmsg(self, errmsg):
         self.errmsg = errmsg
@@ -68,11 +76,7 @@ class ResOpGen(object):
         _prev = Box._extended_display
         try:
             Box._extended_display = False
-            if len(self.graphs) > 1:
-                graphs = self.graphs[1:]
-            else:
-                graphs = self.graphs
-            for i, graph in enumerate(graphs):
+            for i, graph in enumerate(self.graphs):
                 self.gengraph(graph, i)
         finally:
             Box._extended_display = _prev
@@ -99,17 +103,16 @@ class ResOpGen(object):
         graphname = self.getgraphname(graphindex)
         if self.CLUSTERING:
             self.dotgen.emit('subgraph cluster%d {' % graphindex)
-        self.dotgen.emit_node(graphname, shape="octagon",
-                              label=graph.get_display_text(),
-                              fillcolor=graph.color)
-
-        operations = graph.get_operations()
-        if operations:
+        label = graph.get_display_text()
+        if label is not None:
+            self.dotgen.emit_node(graphname, shape="octagon",
+                                  label=label, fillcolor='#f084c2')
             self.pendingedges.append((graphname,
                                       self.op_name(graphindex, 0),
                                       {}))
-            for opindex in self.block_starters[graphindex]:
-                self.genblock(operations, graphindex, opindex)
+        operations = graph.get_operations()
+        for opindex in self.block_starters[graphindex]:
+            self.genblock(operations, graphindex, opindex)
         if self.CLUSTERING:
             self.dotgen.emit('}')   # closes the subgraph
 
@@ -125,55 +128,34 @@ class ResOpGen(object):
         block_starters = self.block_starters[graphindex]
         lines = []
         opindex = opstartindex
-        op = None
         while True:
             op = operations[opindex]
             lines.append(repr(op))
-            #if op.opname == 'jump':
-            #    self.genjump(blockname, op)
-            for attrname, delta in [('jump_target', 0),
-                                    ('_jump_target_prev', 1)]:
-                tgt = getattr(op, attrname, None)
-                if tgt is not None and tgt in self.all_operations:
-                    tgt_g, tgt_i = self.all_operations[tgt]
-                    kwds = {}
-                    #if op.opname == 'jump':
-                    #    #kwds['constraint'] = 'false'
-                    #    #kwds['headport'] = ':n'
-                    #    pass
-                    self.genedge((graphindex, opstartindex),
-                                 (tgt_g, tgt_i+delta),
-                                 color='red',
-                                 **kwds)
+            if op.is_guard():
+                tgt = op.suboperations[0]
+                tgt_g, tgt_i = self.all_operations[tgt]
+                self.genedge((graphindex, opstartindex),
+                             (tgt_g, tgt_i),
+                             color='red')
             opindex += 1
             if opindex >= len(operations):
                 break
             if opindex in block_starters:
-                kwds = {}
-                #if op.opname == 'jump':
-                #    kwds['color'] = '#d0d0ff'
                 self.genedge((graphindex, opstartindex),
-                             (graphindex, opindex), **kwds)
+                             (graphindex, opindex))
                 break
+        tgt = getattr(op, 'jump_target', None)
+        if tgt is not None and tgt in self.graphs:
+            tgt_g = self.graphs.index(tgt)
+            self.genedge((graphindex, opstartindex),
+                         (tgt_g, 0))
         lines.append("")
         label = "\\l".join(lines)
         kwds = {}
-        if op in self.highlightops:
-            kwds['color'] = 'red'
-            kwds['fillcolor'] = '#ffe8e8'
+        #if op in self.highlightops:
+        #    kwds['color'] = 'red'
+        #    kwds['fillcolor'] = '#ffe8e8'
         self.dotgen.emit_node(blockname, shape="box", label=label, **kwds)
-
-    def genjump(self, srcblockname, op):
-        graph1 = op.gettargetloop().graph
-        try:
-            graphindex = self.graphs.index(graph1)
-        except ValueError:
-            return
-        self.pendingedges.append((srcblockname,
-                                  self.op_name(graphindex, 0),
-                                  {'color': graph1.color,
-                                   #'headport': ':n',
-                                   }))
 
     def getlinks(self):
         boxes = {}

@@ -11,6 +11,7 @@ from pypy.rlib.objectmodel import we_are_translated, UnboxedValue, specialize
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.jit import PARAMETERS
 from pypy.rlib.rarithmetic import r_uint
+from pypy.rlib.debug import debug_print
 from pypy.rpython.lltypesystem.lloperation import llop
 
 from pypy.jit.metainterp import support, history, pyjitpl
@@ -146,12 +147,14 @@ class WarmRunnerDesc:
         self.state = state
 
         def crash_in_jit(e):
-            print "Crash in JIT!"
             if not we_are_translated():
-                print '%s: %s' % (e.__class__, e)
-                import sys, pdb; pdb.post_mortem(sys.exc_info()[2])
-            else:
-                print e
+                print "~~~ Crash in JIT!"
+                print '~~~ %s: %s' % (e.__class__, e)
+                if sys.stdout == sys.__stdout__:
+                    import pdb; pdb.post_mortem(sys.exc_info()[2])
+                raise
+            debug_print('~~~ Crash in JIT!')
+            debug_print('~~~ %s' % (e,))
             raise history.CrashInJIT("crash in JIT")
         crash_in_jit._dont_inline_ = True
 
@@ -492,7 +495,7 @@ def make_state_class(warmrunnerdesc):
         getkeyhash._always_inline_ = True
 
         def compile_and_run(self, argshash, *args):
-            loop, boxes = warmrunnerdesc.metainterp.compile_and_run(*args)
+            loop, boxes = warmrunnerdesc.metainterp.compile_and_run_once(*args)
             if loop:
                 cpu = warmrunnerdesc.metainterp.cpu
                 operations = loop.operations

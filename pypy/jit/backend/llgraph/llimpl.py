@@ -125,14 +125,20 @@ TYPES = {
 
 # ____________________________________________________________
 
-class LoopOrBridge(object):
+class CompiledLoop(object):
     def __init__(self):
         self.operations = []
 
     def __repr__(self):
-        lines = ['\t' + repr(op) for op in self.operations]
-        lines.insert(0, 'LoopOrBridge:')
-        return '\n'.join(lines)
+        lines = []
+        self.as_text(lines, 1)
+        return 'CompiledLoop:\n%s' % '\n'.join(lines)
+
+    def as_text(self, lines, indent):
+        for op in self.operations:
+            lines.append('\t'*indent + repr(op))
+            if op.is_guard():
+                op.subloop.as_text(lines, indent+1)
 
 class Operation(object):
     def __init__(self, opnum):
@@ -155,6 +161,9 @@ class Operation(object):
             return resoperation.opname[self.opnum]
         except KeyError:
             return '<%d>' % self.opnum
+
+    def is_guard(self):
+        return rop._GUARD_FIRST <= self.opnum <= rop._GUARD_LAST
 
 def repr0(x):
     if isinstance(x, list):
@@ -228,7 +237,7 @@ _variables = []
 
 def compile_start():
     del _variables[:]
-    return _to_opaque(LoopOrBridge())
+    return _to_opaque(CompiledLoop())
 
 def compile_start_int_var(loop):
     loop = _from_opaque(loop)
@@ -299,6 +308,7 @@ def compile_add_ptr_result(loop):
     return r
 
 def compile_add_jump_target(loop, loop_target, loop_target_index):
+    xxx
     loop = _from_opaque(loop)
     loop_target = _from_opaque(loop_target)
     op = loop.operations[-1]
@@ -310,23 +320,12 @@ def compile_add_jump_target(loop, loop_target, loop_target_index):
         else:
             log.info("compiling new bridge")
 
-def compile_add_failnum(loop, failnum):
+def compile_suboperations(loop):
     loop = _from_opaque(loop)
     op = loop.operations[-1]
-    op.failnum = failnum
-
-def compile_add_livebox(loop, intvar):
-    loop = _from_opaque(loop)
-    op = loop.operations[-1]
-    op.livevars.append(_variables[intvar])
-
-def compile_from_guard(loop, guard_loop, guard_opindex):
-    loop = _from_opaque(loop)
-    guard_loop = _from_opaque(guard_loop)
-    op = guard_loop.operations[guard_opindex]
-    assert rop._GUARD_FIRST <= op.opnum <= rop._GUARD_LAST
-    op.jump_target = loop
-    op.jump_target_index = 0
+    assert op.is_guard()
+    op.subloop = CompiledLoop()
+    return _to_opaque(op.subloop)
 
 # ------------------------------
 
@@ -936,19 +935,19 @@ def setannotation(func, annotation, specialize_as_constant=False):
                 return hop.genop('direct_call', [cfunc] + args_v, hop.r_result)
 
 
-LOOPORBRIDGE = lltype.Ptr(lltype.OpaqueType("LoopOrBridge"))
+COMPILEDLOOP = lltype.Ptr(lltype.OpaqueType("CompiledLoop"))
 FRAME = lltype.Ptr(lltype.OpaqueType("Frame"))
 MEMOCAST = lltype.Ptr(lltype.OpaqueType("MemoCast"))
 
-_TO_OPAQUE[LoopOrBridge] = LOOPORBRIDGE.TO
+_TO_OPAQUE[CompiledLoop] = COMPILEDLOOP.TO
 _TO_OPAQUE[Frame] = FRAME.TO
 _TO_OPAQUE[MemoCast] = MEMOCAST.TO
 
-s_LoopOrBridge = annmodel.SomePtr(LOOPORBRIDGE)
+s_CompiledLoop = annmodel.SomePtr(COMPILEDLOOP)
 s_Frame = annmodel.SomePtr(FRAME)
 s_MemoCast = annmodel.SomePtr(MEMOCAST)
 
-setannotation(compile_start, s_LoopOrBridge)
+setannotation(compile_start, s_CompiledLoop)
 setannotation(compile_start_int_var, annmodel.SomeInteger())
 setannotation(compile_start_ptr_var, annmodel.SomeInteger())
 setannotation(compile_add, annmodel.s_None)
@@ -959,9 +958,6 @@ setannotation(compile_add_ptr_const, annmodel.s_None)
 setannotation(compile_add_int_result, annmodel.SomeInteger())
 setannotation(compile_add_ptr_result, annmodel.SomeInteger())
 setannotation(compile_add_jump_target, annmodel.s_None)
-setannotation(compile_add_failnum, annmodel.s_None)
-setannotation(compile_from_guard, annmodel.s_None)
-setannotation(compile_add_livebox, annmodel.s_None)
 
 setannotation(new_frame, s_Frame)
 setannotation(frame_clear, annmodel.s_None)

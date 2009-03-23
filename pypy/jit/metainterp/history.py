@@ -320,65 +320,74 @@ NULLBOX = BoxPtr()
 
 # ____________________________________________________________
 
-# The Graph class is to store a loop or a bridge.
-# Unclear if it's really useful any more; just the list of operations
-# is enough in most cases.
+# The Loop class contains a loop or a generalized loop, i.e. a tree
+# of operations.  Each branch ends in a jump which can go either to
+# the top of the same loop, or to another loop.
 
-class Graph(object):
+class Loop(object):
+    inputargs = None
+    operations = None
 
-    def __init__(self, name, color):
+    def __init__(self, name):
         self.name = name
-        self.color = color
-        self.operations = []
+        # self.inputargs = list of distinct Boxes
+        # self.operations = ops of the kind 'guard_xxx' contain a further
+        #                   list of operations, which may itself contain
+        #                   'guard_xxx' and so on, making a tree.
 
-    def get_operations(self):
-        return self.operations
+    def _all_operations(self):
+        "NOT_RPYTHON"
+        oplist = list(self.operations)
+        for op in oplist:
+            if op.is_guard():
+                oplist += op.suboperations
+        return oplist
 
     def summary(self, adding_insns={}):    # for debugging
+        "NOT_RPYTHON"
         insns = adding_insns.copy()
-        for op in self.operations:
+        for op in self._all_operations():
             opname = op.getopname()
             insns[opname] = insns.get(opname, 0) + 1
         return insns
 
+    def get_operations(self):
+        return self.operations
+
     def get_display_text(self):    # for graphpage.py
-        return self.name
+        return self.name + '\n' + repr(self.inputargs)
 
-    def show(self, in_stats=None, errmsg=None, highlightops={}):
-        if in_stats is None:
-            from pypy.jit.metainterp.graphpage import ResOpGraphPage
-            ResOpGraphPage([self], errmsg, highlightops).display()
-        else:
-            h = dict.fromkeys(self.operations)
-            h.update(highlightops)
-            in_stats.view(errmsg=errmsg, extragraphs=[self],
-                          highlightops=h)
-
-    def copy(self):    # for testing only
-        g = Graph(self.name, self.color)
-        g.operations = self.operations[:]
-        return g
+    def show(self, errmsg=None):
+        "NOT_RPYTHON"
+        from pypy.jit.metainterp.graphpage import display_loops
+        display_loops([self], errmsg)
 
     def check_consistency(self):     # for testing
         "NOT_RPYTHON"
-        operations = self.operations
-        op = operations[0]
-        assert op.opnum in (rop.MERGE_POINT, rop.CATCH)
-        seen = dict.fromkeys(op.args)
+        for box in self.inputargs:
+            assert isinstance(box, Box), "Loop.inputargs contains %r" % (box,)
+        seen = dict.fromkeys(self.inputargs)
+        assert len(seen) == len(self.inputargs), (
+               "duplicate Box in the Loop.inputargs")
+        self.check_consistency_of_branch(self.operations, seen)
+
+    def check_consistency_of_branch(self, operations, seen):
+        "NOT_RPYTHON"
         for op in operations:
             for box in op.args:
                 if isinstance(box, Box):
                     assert box in seen
-                elif isinstance(box, Const):
-                    assert op.opnum != rop.MERGE_POINT, (
-                        "no Constant arguments allowed in: %s" % (op,))
+            assert (op.suboperations is not None) == op.is_guard()
+            if op.is_guard():
+                self.check_consistency_of_branch(op.suboperations, seen.copy())
             box = op.result
             if box is not None:
                 assert isinstance(box, Box)
                 assert box not in seen
                 seen[box] = True
-        assert operations[-1].opnum == rop.JUMP
-        assert operations[-1].jump_target.opnum == rop.MERGE_POINT
+        assert operations[-1].is_final()
+        if operations[-1].opnum == rop.JUMP:
+            assert isinstance(operations[-1].jump_target, Loop)
 
     def __repr__(self):
         return '<%s>' % (self.name,)
@@ -386,12 +395,10 @@ class Graph(object):
 # ____________________________________________________________
 
 
-class Matcher(object):
-    pass
-
-class RunningMatcher(Matcher):
+class RunningMatcher(object):
     def __init__(self, cpu):
         self.cpu = cpu
+        self.inputargs = None
         self.operations = []
     def record(self, opnum, argboxes, resbox, descr=None):
         raise NotImplementedError
@@ -405,6 +412,7 @@ class History(RunningMatcher):
 class BlackHole(RunningMatcher):
     def record(self, opnum, argboxes, resbox, descr=None):
         return None
+
 
 def mp_eq(greenkey1, greenkey2):
     assert len(greenkey1) == len(greenkey2)
@@ -428,21 +436,10 @@ class Stats(object):
     """For tests."""
 
     def __init__(self):
-        self.history_graph = Graph('History', '#8080ff')
         self.loops = []
 
-    def get_all_graphs(self):
-        graphs = [self.history_graph] + self.loops
-        return graphs
-
-    def check_history(self, expected=None, **check):
-        insns = self.history_graph.summary()
-        if expected is not None:
-            expected.setdefault('catch', 1)   # it always starts with a catch
-            assert insns == expected
-        for insn, expected_count in check.items():
-            assert insns.get(insn, 0) == expected_count
-        return insns
+    def get_all_loops(self):
+        return self.loops
 
     def check_loops(self, expected=None, **check):
         insns = {}
@@ -463,14 +460,14 @@ class Stats(object):
         if option.view:
             self.view()
 
-    def view(self, errmsg=None, extragraphs=[], highlightops={}):
-        from pypy.jit.metainterp.graphpage import ResOpGraphPage
-        graphs = self.get_all_graphs()
-        for graph in extragraphs:
-            if graph in graphs:
-                graphs.remove(graph)
-            graphs.append(graph)
-        ResOpGraphPage(graphs, errmsg, highlightops).display()
+    def view(self, errmsg=None, extraloops=[]):
+        from pypy.jit.metainterp.graphpage import display_loops
+        loops = self.get_all_loops()
+        for loop in extraloops:
+            if loop in loops:
+                loops.remove(loop)
+            loops.append(loop)
+        display_loops(loops, errmsg)
 
 
 class CrashInJIT(Exception):

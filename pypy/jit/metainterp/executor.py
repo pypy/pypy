@@ -192,7 +192,7 @@ def make_execute_list(cpuclass):
     execute = [None] * (rop._LAST+1)
     for key, value in rop.__dict__.items():
         if not key.startswith('_'):
-            if (rop._SPECIAL_FIRST <= value <= rop._SPECIAL_LAST or
+            if (rop._FINAL_FIRST <= value <= rop._FINAL_LAST or
                 rop._GUARD_FIRST <= value <= rop._GUARD_LAST):
                 continue
             if execute[value] is not None:

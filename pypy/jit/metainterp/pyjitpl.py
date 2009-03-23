@@ -650,8 +650,9 @@ class MIFrame(object):
         if box is not None:
             extraargs = [box] + extraargs
         guard_op = self.metainterp.history.record(opnum, extraargs, None)
-        guard_op.liveboxes = liveboxes
-        guard_op.key = key
+        op = history.ResOperation(rop.FAIL, liveboxes, None)
+        op.key = key
+        guard_op.suboperations = [op]
         self.pc = saved_pc
         return guard_op
 
@@ -724,11 +725,7 @@ class OOMetaInterp(object):
         self._codewriter = codewriter.CodeWriter(self, policy)
         self.portal_code = self._codewriter.make_portal_bytecode(
             self.portal_graph)
-        self.cpu.set_meta_interp(self)
         self.delete_history()
-
-    def enable_stats(self):
-        return not we_are_translated()
 
     def newframe(self, jitcode):
         if not we_are_translated():
@@ -764,8 +761,6 @@ class OOMetaInterp(object):
 
     def create_empty_history(self):
         self.history = history.History(self.cpu)
-        if self.enable_stats():
-            self.stats.history_graph.operations = self.history.operations
 
     def delete_history(self):
         # XXX call me again later
@@ -803,24 +798,20 @@ class OOMetaInterp(object):
     def interpret(self):
         # Execute the frames forward until we raise a DoneWithThisFrame,
         # a ContinueRunningNormally, or a GenerateMergePoint exception.
-        if isinstance(self.history, history.BlackHole):
-            text = ' (BlackHole)'
-        else:
-            text = ''
         if not we_are_translated():
-            history.log.event('ENTER' + text)
+            history.log.event('ENTER')
         else:
-            debug_print('ENTER' + text)
+            debug_print('~~~ ENTER')
         try:
             while True:
                 self.framestack[-1].run_one_step()
         finally:
             if not we_are_translated():
-                history.log.event('LEAVE' + text)
+                history.log.event('LEAVE')
             else:
-                debug_print('LEAVE' + text)
+                debug_print('~~~ LEAVE')
 
-    def compile_and_run(self, *args):
+    def compile_and_run_once(self, *args):
         orig_boxes = self.initialize_state_from_start(*args)
         try:
             self.interpret()
@@ -864,11 +855,9 @@ class OOMetaInterp(object):
             if not box1.equals(box2):
                 # not a valid loop
                 raise self.ContinueRunningNormally(live_arg_boxes)
-        mp = history.ResOperation(rop.MERGE_POINT,
-                                  original_boxes[num_green_args:], None)
-        mp.greenkey = original_boxes[:num_green_args]
-        self.history.operations.insert(0, mp)
-        old_loops = self.compiled_merge_points.setdefault(mp.greenkey, [])
+        self.history.inputargs = original_boxes[num_green_args:]
+        greenkey = original_boxes[:num_green_args]
+        old_loops = self.compiled_merge_points.setdefault(greenkey, [])
         loop = compile_new_loop(self, old_loops,
                                 live_arg_boxes[num_green_args:])
         if not loop:
@@ -879,6 +868,7 @@ class OOMetaInterp(object):
         return loop
 
     def compile_bridge(self, guard_failure, original_boxes, live_arg_boxes):
+        XXX
         num_green_args = self.num_green_args
         mp = history.ResOperation(rop.CATCH, original_boxes, None)
         mp.coming_from = guard_failure.guard_op

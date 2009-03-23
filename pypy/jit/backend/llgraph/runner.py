@@ -57,31 +57,25 @@ class CPU(object):
                  annmixlevel=None):
         self.rtyper = rtyper
         self.translate_support_code = translate_support_code
-        self.jumptarget2loop = {}
-        self.guard_ops = []
-        self.compiled_single_ops = {}
         self.stats = stats or MiniStats()
         self.stats.exec_counters = {}
         self.stats.exec_jumps = 0
         self.memo_cast = llimpl.new_memo_cast()
         llimpl._stats = self.stats
-        llimpl._rtyper = self.rtyper
         llimpl._llinterp = LLInterpreter(self.rtyper)
         if translate_support_code:
             self.mixlevelann = annmixlevel
         self.fielddescrof_vtable = self.fielddescrof(rclass.OBJECT, 'typeptr')
 
-    def set_meta_interp(self, metainterp):
-        self.metainterp = metainterp    # to handle guard failures
-
-    def compile_operations(self, operations, from_guard=None):
+    def compile_operations(self, loop):
         """In a real assembler backend, this should assemble the given
         list of operations.  Here we just generate a similar LoopOrBridge
         instance.  The code here is RPython, whereas the code in llimpl
         is not.
         """
-
+        operations = loop.operations
         c = llimpl.compile_start()
+        loop._compiled_version = c
         var2index = {}
         for i in range(len(operations[0].args)):
             box = operations[0].args[i]
@@ -89,18 +83,12 @@ class CPU(object):
                 var2index[box] = llimpl.compile_start_int_var(c)
             elif isinstance(box, history.BoxPtr):
                 var2index[box] = llimpl.compile_start_ptr_var(c)
-            elif isinstance(box, history.Const):
-                pass     # accept anything and ignore it
             else:
                 raise Exception("box is: %r" % (box,))
-        j = 0
-        for i in range(len(operations)):
-            op = operations[i]
-            #if op.opname[0] == '#':
-            #    continue
-            op._compiled = c
-            op._opindex = j
-            j += 1
+        self._compile_branch(c, operations[1:], var2index)
+
+    def _compile_branch(self, c, operations, var2index):
+        for op in operations:
             llimpl.compile_add(c, op.opnum)
             if op.descr is not None:
                 llimpl.compile_add_descr(c, op.descr.ofs, op.descr.type)
@@ -116,6 +104,9 @@ class CPU(object):
                 else:
                     raise Exception("%s args contain: %r" % (op.getopname(),
                                                              x))
+            if op.is_guard():
+                c2 = llimpl.compile_suboperations(c)
+                self._compile_branch(c2, op.suboperations, var2index.copy())
             x = op.result
             if x is not None:
                 if isinstance(x, history.BoxInt):
@@ -125,31 +116,14 @@ class CPU(object):
                 else:
                     raise Exception("%s.result contain: %r" % (op.getopname(),
                                                                x))
-            if op.jump_target is not None:
-                loop_target, loop_target_index = \
-                                           self.jumptarget2loop[op.jump_target]
-                llimpl.compile_add_jump_target(c, loop_target,
-                                                  loop_target_index)
-            if op.is_guard():
-                llimpl.compile_add_failnum(c, len(self.guard_ops))
-                self.guard_ops.append(op)
-                for box in op.liveboxes:
-                    assert isinstance(box, history.Box)
-                    llimpl.compile_add_livebox(c, var2index[box])
-            if op.opnum == rop.MERGE_POINT:
-                self.jumptarget2loop[op] = c, i
-        if from_guard is not None:
-            llimpl.compile_from_guard(c, from_guard._compiled,
-                                         from_guard._opindex)
+        llimpl.compile_add_jump_target(c, op.target_jump._compiled_version)
 
-    def execute_operations_in_new_frame(self, name, operations, valueboxes):
-        """Perform a 'call' to the given merge point, i.e. create
-        a new CPU frame and use it to execute the operations that
-        follow the merge point.
+    def execute_operations(self, loop, valueboxes):
+        """Calls the assembler generated for the given loop.
         """
         frame = llimpl.new_frame(self.memo_cast)
-        merge_point = operations[0]
-        llimpl.frame_clear(frame, merge_point._compiled, merge_point._opindex)
+        # setup the frame
+        llimpl.frame_clear(frame, loop._compiled_version)
         for box in valueboxes:
             if isinstance(box, history.BoxInt):
                 llimpl.frame_add_int(frame, box.value)
@@ -161,56 +135,15 @@ class CPU(object):
                 llimpl.frame_add_ptr(frame, box.value)
             else:
                 raise Exception("bad box in valueboxes: %r" % (box,))
-        return self.loop(frame)
-
-    def loop(self, frame):
-        """Execute a loop.  When the loop fails, ask the metainterp for more.
-        """
-        while True:
-            guard_index = llimpl.frame_execute(frame)
-            guard_op = self.guard_ops[guard_index]
-            assert isinstance(lltype.typeOf(frame), lltype.Ptr)
-            gf = GuardFailed(frame, guard_op)
-            self.metainterp.handle_guard_failure(gf)
-            if gf.returns:
-                return gf.retbox
-
-    def getvaluebox(self, frame, guard_op, argindex):
-        box = guard_op.liveboxes[argindex]
-        if isinstance(box, history.BoxInt):
-            value = llimpl.frame_int_getvalue(frame, argindex)
-            return history.BoxInt(value)
-        elif isinstance(box, history.BoxPtr):
-            value = llimpl.frame_ptr_getvalue(frame, argindex)
-            return history.BoxPtr(value)
+        # run the loop
+        result = llimpl.frame_execute(frame)
+        # get the exception to raise and really raise it, if any
+        exception_addr = llimpl.frame_get_exception(frame)
+        if exception_addr:
+            exc_value_gcref = llimpl.frame_get_exc_value(frame)
+            xxxx
         else:
-            raise AssertionError('getvalue: box = %s' % (box,))
-
-    def setvaluebox(self, frame, guard_op, argindex, valuebox):
-        if isinstance(valuebox, history.BoxInt):
-            llimpl.frame_int_setvalue(frame, argindex, valuebox.value)
-        elif isinstance(valuebox, history.BoxPtr):
-            llimpl.frame_ptr_setvalue(frame, argindex, valuebox.value)
-        elif isinstance(valuebox, history.ConstInt):
-            llimpl.frame_int_setvalue(frame, argindex, valuebox.value)
-        elif isinstance(valuebox, history.ConstPtr):
-            llimpl.frame_ptr_setvalue(frame, argindex, valuebox.value)
-        elif isinstance(valuebox, history.ConstAddr):
-            llimpl.frame_int_setvalue(frame, argindex, valuebox.getint())
-        else:
-            raise AssertionError('setvalue: valuebox = %s' % (valuebox,))
-
-    def get_exception(self):
-        return self.cast_adr_to_int(llimpl.get_exception())
-
-    def get_exc_value(self):
-        return llimpl.get_exc_value()
-
-    def clear_exception(self):
-        llimpl.clear_exception()
-
-    def set_overflow_error(self):
-        llimpl.set_overflow_error()
+            return result
 
     @staticmethod
     def sizeof(S):

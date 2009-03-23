@@ -2,18 +2,14 @@
 class ResOperation(object):
     """The central ResOperation class, representing one operation."""
 
-    # for 'merge_point'
-    specnodes = None
-    key = None
-
-    # for 'jump' and 'guard_*'
+    # for 'jump': points to the target loop
     jump_target = None
 
+    # for 'fail'
+    key = None
+
     # for 'guard_*'
-    counter = 0
-    liveboxes = None
-    rebuild_ops = None
-    unoptboxes = None
+    suboperations = None
 
     # for 'guard_nonvirtualizable'
     vdesc = None
@@ -36,10 +32,7 @@ class ResOperation(object):
         self.descr = descr
 
     def __repr__(self):
-        result = self.repr()
-        if self.liveboxes is not None:
-            result = '%s [%s]' % (result, ', '.join(map(repr, self.liveboxes)))
-        return result
+        return self.repr()
 
     def repr(self):
         # RPython-friendly version
@@ -80,17 +73,28 @@ class ResOperation(object):
     def is_comparison(self):
         return rop._COMPARISON_FIRST <= self.opnum <= rop._COMPARISON_LAST
 
+    def is_final(self):
+        return rop._FINAL_FIRST <= self.opnum <= rop._FINAL_LAST
+
+# ____________________________________________________________
+
+
+class GuardFailed(Exception):
+    def __init__(self, key, currentboxes):
+        self.key = key
+        self.currentboxes = currentboxes
+
 # ____________________________________________________________
 
 
 class rop(object):
     """The possible names of the ResOperations."""
 
-    _SPECIAL_FIRST = 1
-    MERGE_POINT            = 1
-    CATCH                  = 2
-    JUMP                   = 3
-    _SPECIAL_LAST = 9
+    _FINAL_FIRST = 1
+    JUMP                   = 1
+    FAIL                   = 2
+    #RAISE                  = 3
+    _FINAL_LAST = 9
 
     _GUARD_FIRST = 10 # ----- start of guard operations -----
     GUARD_TRUE             = 10

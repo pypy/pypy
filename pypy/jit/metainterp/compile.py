@@ -5,7 +5,7 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.conftest import option
 
 from pypy.jit.metainterp.resoperation import ResOperation, rop
-from pypy.jit.metainterp.history import Graph, log, Box
+from pypy.jit.metainterp.history import Loop, log, Box
 from pypy.jit.metainterp import optimize
 
 
@@ -52,11 +52,11 @@ def _compile_new_loop_1(metainterp, loop, old_loops, endliveboxes):
             loop = compile_fresh_loop(metainterp, loop, old_loops,
                                       endliveboxes)
         except Exception, exc:
-            show_loop(metainterp, loop, loop.operations[0], exc)
+            show_loop(metainterp, loop, error=exc)
             raise
         else:
             if loop == orgloop:
-                show_loop(metainterp, loop, loop.operations[0], None)
+                show_loop(metainterp, loop)
             else:
                 log.info("reusing loop at %r" % (loop,))
     except optimize.CancelInefficientLoop:
@@ -71,11 +71,11 @@ def _compile_new_bridge_1(metainterp, bridge, old_loops, endliveboxes):
             bridge = compile_fresh_bridge(metainterp, bridge, old_loops,
                                           endliveboxes)
         except Exception, exc:
-            show_loop(metainterp, bridge, None, exc)
+            show_loop(metainterp, bridge, error=exc)
             raise
         else:
             if bridge == orgbridge:
-                show_loop(metainterp, bridge, None, None)
+                show_loop(metainterp, bridge)
             elif bridge is not None:
                 log.info("reusing bridge at %r" % (bridge,))
             else:
@@ -86,7 +86,7 @@ def _compile_new_bridge_1(metainterp, bridge, old_loops, endliveboxes):
         bridge.check_consistency()
     return bridge
 
-def show_loop(metainterp, loop, mp=None, error=None):
+def show_loop(metainterp, loop, error=None):
     # debugging
     if option.view:
         if error:
@@ -95,39 +95,22 @@ def show_loop(metainterp, loop, mp=None, error=None):
                 errmsg += ': ' + str(error)
         else:
             errmsg = None
-        loop.show(in_stats=metainterp.stats, errmsg=errmsg,
-                  highlightops=find_highlight_ops(metainterp.history, mp))
-
-def find_highlight_ops(history, mp=None):
-    result = {}
-    for op in history.operations[::-1]:
-        result[op] = True
-        if op is mp:
-            break
-    return result
+        loop.show(errmsg=errmsg)
 
 def create_empty_loop(metainterp):
     if we_are_translated():
         name = 'Loop'
     else:
         name = 'Loop #%d' % len(metainterp.stats.loops)
-    graph = Graph(name, '#f084c2')
-    return graph
-
-def create_empty_bridge(metainterp):
-    if we_are_translated():
-        name = 'Bridge'
-    else:
-        name = 'Bridge #%d' % len(metainterp.stats.loops)
-    graph = Graph(name, '#84f0c2')
-    return graph
+    return Loop(name)
 
 # ____________________________________________________________
 
 def compile_fresh_loop(metainterp, loop, old_loops, endliveboxes):
     history = metainterp.history
+    loop.inputargs = history.inputargs
     loop.operations = history.operations
-    close_loop(loop, loop.operations[0], endliveboxes)
+    close_loop(loop, endliveboxes)
     old_loop = optimize.optimize_loop(metainterp.options, old_loops, loop,
                                       metainterp.cpu)
     if old_loop is not None:
@@ -136,17 +119,16 @@ def compile_fresh_loop(metainterp, loop, old_loops, endliveboxes):
     old_loops.append(loop)
     return loop
 
-def close_loop(loop, targetmp, endliveboxes):
-    assert targetmp.opnum == rop.MERGE_POINT
+def close_loop(loop, endliveboxes):
     op = ResOperation(rop.JUMP, endliveboxes, None)
-    op.jump_target = targetmp
+    op.jump_target = loop
     loop.operations.append(op)
 
-def finish_loop_or_bridge(metainterp, loop, targetmp, guard_op=None):
+def finish_loop_or_bridge(metainterp, loop, targetmp):
     assert targetmp.opnum == rop.MERGE_POINT
     assert loop.operations[-1].opnum == rop.JUMP
     loop.operations[-1].jump_target = targetmp
-    metainterp.cpu.compile_operations(loop.operations, guard_op)
+    metainterp.cpu.compile_operations(loop)
     metainterp.stats.loops.append(loop)
 
 # ____________________________________________________________
