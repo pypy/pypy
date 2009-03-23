@@ -22,7 +22,7 @@ class SendTests:
             return c
         res = self.meta_interp(f, [1])
         assert res == 2
-        self.check_loops({'jump': 1, 'merge_point': 1,
+        self.check_loops({'jump': 1,
                           'int_sub': 1, 'int_gt' : 1,
                           'guard_true': 1})    # all folded away
 
@@ -74,7 +74,7 @@ class SendTests:
         assert res == 43
         self.check_loops({'call': 1, 'guard_no_exception': 1,
                           'getfield_gc': 1,
-                          'int_add': 1, 'merge_point' : 1,
+                          'int_add': 1,
                           'jump': 1, 'int_gt' : 1, 'guard_true' : 1,
                           'int_sub' : 1})
 
