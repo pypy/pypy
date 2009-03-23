@@ -31,6 +31,16 @@ class ResOperation(object):
         check_descr(descr)
         self.descr = descr
 
+    def clone(self):
+        "NOT_RPYTHON"     # for tests only
+        res = ResOperation(self.opnum, self.args, self.result, self.descr)
+        res.jump_target = self.jump_target
+        res.key = self.key
+        res.vdesc = self.vdesc
+        if self.suboperations is not None:
+            res.suboperations = [op.clone() for op in self.suboperations]
+        return res
+
     def __repr__(self):
         return self.repr()
 
