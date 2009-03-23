@@ -326,6 +326,7 @@ NULLBOX = BoxPtr()
 
 class Loop(object):
     inputargs = None
+    specnodes = None
     operations = None
 
     def __init__(self, name):

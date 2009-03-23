@@ -79,7 +79,7 @@ class ResOperation(object):
 # ____________________________________________________________
 
 
-class GuardFailed(Exception):
+class GuardFailure(object):
     def __init__(self, key, currentboxes):
         self.key = key
         self.currentboxes = currentboxes

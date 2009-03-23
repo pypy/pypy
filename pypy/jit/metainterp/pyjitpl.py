@@ -651,7 +651,8 @@ class MIFrame(object):
             extraargs = [box] + extraargs
         guard_op = self.metainterp.history.record(opnum, extraargs, None)
         op = history.ResOperation(rop.FAIL, liveboxes, None)
-        op.key = key
+        op.key = Key(key, opnum in (rop.GUARD_EXCEPTION,
+                                    rop.GUARD_NO_EXCEPTION))
         guard_op.suboperations = [op]
         self.pc = saved_pc
         return guard_op
@@ -823,29 +824,20 @@ class OOMetaInterp(object):
     def handle_guard_failure(self, guard_failure):
         orig_boxes = self.initialize_state_from_guard_failure(guard_failure)
         try:
-            if guard_failure.guard_op.opnum in (rop.GUARD_EXCEPTION,
-                                                rop.GUARD_NO_EXCEPTION):
+            if guard_failure.key.is_exception_catch:
                 self.handle_exception()
             self.interpret()
             assert False, "should always raise"
         except GenerateMergePoint, gmp:
             compiled_bridge = self.compile_bridge(guard_failure, orig_boxes,
                                                   gmp.argboxes)
-            loop, resargs = self.designate_target_loop(gmp,
-                                                       compiled_bridge.jump_to)
-            self.jump_after_guard_failure(guard_failure, loop, resargs)
+            return self.designate_target_loop(gmp, compiled_bridge.jump_to)
 
     def designate_target_loop(self, gmp, loop):
         num_green_args = self.num_green_args
         residual_args = self.get_residual_args(loop,
                                                gmp.argboxes[num_green_args:])
         return (loop, residual_args)
-
-    def jump_after_guard_failure(self, guard_failure, loop, residual_args):
-        guard_failure.make_ready_for_continuing_at(loop.operations[0])
-        for i in range(len(residual_args)):
-            self.cpu.setvaluebox(guard_failure.frame, loop.operations[0],
-                                 i, residual_args[i])
 
     def compile(self, original_boxes, live_arg_boxes):
         num_green_args = self.num_green_args
@@ -890,9 +882,9 @@ class OOMetaInterp(object):
         return bridge
 
     def get_residual_args(self, loop, args):
-        mp = loop.operations[0]
-        if mp.specnodes is None:     # it is None only for tests
+        if loop.specnodes is None:     # it is None only for tests
             return args
+        xxx
         assert len(mp.specnodes) == len(args)
         expanded_args = []
         for i in range(len(mp.specnodes)):
@@ -939,22 +931,14 @@ class OOMetaInterp(object):
             self.history = history.History(self.cpu)
         else:
             self.history = history.BlackHole(self.cpu)
-        guard_op = guard_failure.guard_op
-        boxes_from_frame = []
-        index = 0
-        for box in guard_op.liveboxes:
-            assert isinstance(box, Box)
-            newbox = self.cpu.getvaluebox(guard_failure.frame,
-                                          guard_op, index)
-            index += 1
-            boxes_from_frame.append(newbox)
-        if guard_op.rebuild_ops is not None:
+        boxes_from_frame = guard_failure.currentboxes
+        if 0:  # xxx guard_op.rebuild_ops is not None:
             newboxes = optimize.rebuild_boxes_from_guard_failure(
                 guard_op, self.cpu, self.history, boxes_from_frame)
         else:
             # xxx for tests only
             newboxes = boxes_from_frame
-        self.rebuild_state_after_failure(guard_op.key, newboxes)
+        self.rebuild_state_after_failure(guard_failure.key.key, newboxes)
         return boxes_from_frame
 
     def handle_exception(self):
@@ -1007,3 +991,9 @@ class OOMetaInterp(object):
 class GenerateMergePoint(Exception):
     def __init__(self, args):
         self.argboxes = args
+
+class Key(object):
+    def __init__(self, key, is_exception_catch):
+        self.key = key
+        self.counter = 0
+        self.is_exception_catch = is_exception_catch

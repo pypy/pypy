@@ -127,6 +127,7 @@ TYPES = {
 
 class CompiledLoop(object):
     def __init__(self):
+        self.inputargs = []
         self.operations = []
 
     def __repr__(self):
@@ -164,6 +165,9 @@ class Operation(object):
 
     def is_guard(self):
         return rop._GUARD_FIRST <= self.opnum <= rop._GUARD_LAST
+
+    def is_final(self):
+        return rop._FINAL_FIRST <= self.opnum <= rop._FINAL_LAST
 
 def repr0(x):
     if isinstance(x, list):
@@ -244,6 +248,7 @@ def compile_start_int_var(loop):
     assert not loop.operations
     v = Variable()
     v.concretetype = lltype.Signed
+    loop.inputargs.append(v)
     r = len(_variables)
     _variables.append(v)
     return r
@@ -253,6 +258,7 @@ def compile_start_ptr_var(loop):
     assert not loop.operations
     v = Variable()
     v.concretetype = llmemory.GCREF
+    loop.inputargs.append(v)
     r = len(_variables)
     _variables.append(v)
     return r
@@ -307,18 +313,22 @@ def compile_add_ptr_result(loop):
     _variables.append(v)
     return r
 
-def compile_add_jump_target(loop, loop_target, loop_target_index):
-    xxx
+def compile_add_jump_target(loop, loop_target):
     loop = _from_opaque(loop)
     loop_target = _from_opaque(loop_target)
     op = loop.operations[-1]
     op.jump_target = loop_target
-    op.jump_target_index = loop_target_index
-    if op.opnum == rop.JUMP:
-        if loop_target == loop and loop_target_index == 0:
-            log.info("compiling new loop")
-        else:
-            log.info("compiling new bridge")
+    assert op.opnum == rop.JUMP
+    if loop_target == loop:
+        log.info("compiling new loop")
+    else:
+        log.info("compiling new bridge")
+
+def compile_add_fail(loop, fail_index):
+    loop = _from_opaque(loop)
+    op = loop.operations[-1]
+    assert op.opnum == rop.FAIL
+    op.fail_index = fail_index
 
 def compile_suboperations(loop):
     loop = _from_opaque(loop)
@@ -342,13 +352,6 @@ class Frame(object):
         else:
             return self.env[v]
 
-    def go_to_merge_point(self, loop, opindex, args):
-        mp = loop.operations[opindex]
-        assert len(mp.args) == len(args)
-        self.loop = loop
-        self.opindex = opindex
-        self.env = dict(zip(mp.args, args))
-
     def execute(self):
         """Execute all operations in a loop,
         possibly following to other loops as well.
@@ -356,22 +359,20 @@ class Frame(object):
         global _last_exception
         assert _last_exception is None, "exception left behind"
         verbose = True
+        operations = self.loop.operations
+        opindex = 0
         while True:
-            self.opindex += 1
-            op = self.loop.operations[self.opindex]
+            op = operations[opindex]
             args = [self.getenv(v) for v in op.args]
-            if op.opnum == rop.MERGE_POINT:
-                self.go_to_merge_point(self.loop, self.opindex, args)
-                continue
-            if op.opnum == rop.JUMP:
-                self.go_to_merge_point(op.jump_target,
-                                       op.jump_target_index,
-                                       args)
-                _stats.exec_jumps += 1
-                continue
-            try:
-                result = self.execute_operation(op.opnum, args, op.descr,
-                                                verbose)
+            if not op.is_final():
+                try:
+                    result = self.execute_operation(op.opnum, args, op.descr,
+                                                    verbose)
+                except GuardFailed:
+                    assert op.is_guard()
+                    operations = op.subloop.operations
+                    opindex = 0
+                    continue
                 #verbose = self.verbose
                 assert (result is None) == (op.result is None)
                 if op.result is not None:
@@ -384,29 +385,22 @@ class Frame(object):
                         raise Exception("op.result.concretetype is %r"
                                         % (RESTYPE,))
                     self.env[op.result] = x
-            except GuardFailed:
-                if hasattr(op, 'jump_target'):
-                    # the guard already failed once, go to the
-                    # already-generated code
-                    catch_op = op.jump_target.operations[0]
-                    assert catch_op.opnum == rop.CATCH
-                    args = []
-                    it = iter(op.livevars)
-                    for v in catch_op.args:
-                        if isinstance(v, Variable):
-                            args.append(self.getenv(it.next()))
-                        else:
-                            args.append(v)
-                    assert list(it) == []
-                    self.go_to_merge_point(op.jump_target,
-                                           op.jump_target_index,
-                                           args)
-                else:
-                    if self.verbose:
-                        log.trace('failed: %s(%s)' % (
-                            opname, ', '.join(map(str, args))))
-                    self.failed_guard_op = op
-                    return op.failnum
+                opindex += 1
+                continue
+            if op.opnum == rop.JUMP:
+                assert len(op.jump_target.inputargs) == len(args)
+                self.env = dict(zip(op.jump_target.inputargs, args))
+                operations = op.jump_target.operations
+                opindex = 0
+                _stats.exec_jumps += 1
+            elif op.opnum == rop.FAIL:
+                if self.verbose:
+                    log.trace('failed: %s' % (
+                        ', '.join(map(str, args)),))
+                self.fail_args = args
+                return op.fail_index
+            else:
+                assert 0, "unknown final operation %d" % (op.opnum,)
 
     def execute_operation(self, opnum, values, descr, verbose):
         """Execute a single operation.
@@ -422,16 +416,22 @@ class Frame(object):
         for i in range(len(values)):
             if isinstance(values[i], ComputedIntSymbolic):
                 values[i] = values[i].compute_fn()
-        res = ophandler(self, descr, *values)
-        if verbose:
-            argtypes, restype = TYPES[opname]
-            if res is None:
-                resdata = ''
-            else:
-                resdata = '-> ' + repr1(res, restype, self.memocast)
-            # fish the types
-            log.cpu('\t%s %s %s' % (opname, repr_list(values, argtypes,
-                                                      self.memocast), resdata))
+        res = '*'
+        try:
+            res = ophandler(self, descr, *values)
+        finally:
+            if verbose:
+                argtypes, restype = TYPES[opname]
+                if res is None:
+                    resdata = ''
+                elif res == '*':
+                    resdata = '*fail*'
+                else:
+                    resdata = '-> ' + repr1(res, restype, self.memocast)
+                # fish the types
+                log.cpu('\t%s %s %s' % (opname, repr_list(values, argtypes,
+                                                          self.memocast),
+                                        resdata))
         return res
 
     def as_int(self, x):
@@ -624,30 +624,26 @@ def new_frame(memocast):
     frame = Frame(memocast)
     return _to_opaque(frame)
 
-def frame_clear(frame, loop, opindex):
+def frame_clear(frame, loop):
     frame = _from_opaque(frame)
     loop = _from_opaque(loop)
     frame.loop = loop
-    frame.opindex = opindex
     frame.env = {}
 
 def frame_add_int(frame, value):
     frame = _from_opaque(frame)
     i = len(frame.env)
-    mp = frame.loop.operations[0]
-    frame.env[mp.args[i]] = value
+    frame.env[frame.loop.inputargs[i]] = value
 
 def frame_add_ptr(frame, value):
     frame = _from_opaque(frame)
     i = len(frame.env)
-    mp = frame.loop.operations[0]
-    frame.env[mp.args[i]] = value
+    frame.env[frame.loop.inputargs[i]] = value
 
 def frame_execute(frame):
     frame = _from_opaque(frame)
     if frame.verbose:
-        mp = frame.loop.operations[0]
-        values = [frame.env[v] for v in mp.args]
+        values = [frame.env[v] for v in frame.loop.inputargs]
         log.trace('Entering CPU frame <- %r' % (values,))
     try:
         result = frame.execute()
@@ -662,19 +658,11 @@ def frame_execute(frame):
 
 def frame_int_getvalue(frame, num):
     frame = _from_opaque(frame)
-    return frame.env[frame.failed_guard_op.livevars[num]]
+    return frame.fail_args[num]
 
 def frame_ptr_getvalue(frame, num):
     frame = _from_opaque(frame)
-    return frame.env[frame.failed_guard_op.livevars[num]]
-
-def frame_int_setvalue(frame, num, value):
-    frame = _from_opaque(frame)
-    frame.env[frame.loop.operations[0].args[num]] = value
-
-def frame_ptr_setvalue(frame, num, value):
-    frame = _from_opaque(frame)
-    frame.env[frame.loop.operations[0].args[num]] = value
+    return frame.fail_args[num]
 
 def frame_int_getresult(frame):
     frame = _from_opaque(frame)
@@ -958,6 +946,7 @@ setannotation(compile_add_ptr_const, annmodel.s_None)
 setannotation(compile_add_int_result, annmodel.SomeInteger())
 setannotation(compile_add_ptr_result, annmodel.SomeInteger())
 setannotation(compile_add_jump_target, annmodel.s_None)
+setannotation(compile_add_fail, annmodel.s_None)
 
 setannotation(new_frame, s_Frame)
 setannotation(frame_clear, annmodel.s_None)
@@ -966,8 +955,6 @@ setannotation(frame_add_ptr, annmodel.s_None)
 setannotation(frame_execute, annmodel.SomeInteger())
 setannotation(frame_int_getvalue, annmodel.SomeInteger())
 setannotation(frame_ptr_getvalue, annmodel.SomePtr(llmemory.GCREF))
-setannotation(frame_int_setvalue, annmodel.s_None)
-setannotation(frame_ptr_setvalue, annmodel.s_None)
 setannotation(frame_int_getresult, annmodel.SomeInteger())
 setannotation(frame_ptr_getresult, annmodel.SomePtr(llmemory.GCREF))
 

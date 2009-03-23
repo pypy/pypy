@@ -6,7 +6,7 @@ import sys
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.jit.metainterp import history
-from pypy.jit.metainterp.resoperation import ResOperation, rop
+from pypy.jit.metainterp.resoperation import ResOperation, rop, GuardFailure
 from pypy.jit.backend.llgraph import llimpl, symbolic
 
 
@@ -61,6 +61,7 @@ class CPU(object):
         self.stats.exec_counters = {}
         self.stats.exec_jumps = 0
         self.memo_cast = llimpl.new_memo_cast()
+        self.fail_ops = []
         llimpl._stats = self.stats
         llimpl._llinterp = LLInterpreter(self.rtyper)
         if translate_support_code:
@@ -69,23 +70,21 @@ class CPU(object):
 
     def compile_operations(self, loop):
         """In a real assembler backend, this should assemble the given
-        list of operations.  Here we just generate a similar LoopOrBridge
+        list of operations.  Here we just generate a similar CompiledLoop
         instance.  The code here is RPython, whereas the code in llimpl
         is not.
         """
-        operations = loop.operations
         c = llimpl.compile_start()
         loop._compiled_version = c
         var2index = {}
-        for i in range(len(operations[0].args)):
-            box = operations[0].args[i]
+        for box in loop.inputargs:
             if isinstance(box, history.BoxInt):
                 var2index[box] = llimpl.compile_start_int_var(c)
             elif isinstance(box, history.BoxPtr):
                 var2index[box] = llimpl.compile_start_ptr_var(c)
             else:
                 raise Exception("box is: %r" % (box,))
-        self._compile_branch(c, operations[1:], var2index)
+        self._compile_branch(c, loop.operations, var2index)
 
     def _compile_branch(self, c, operations, var2index):
         for op in operations:
@@ -116,10 +115,17 @@ class CPU(object):
                 else:
                     raise Exception("%s.result contain: %r" % (op.getopname(),
                                                                x))
-        llimpl.compile_add_jump_target(c, op.target_jump._compiled_version)
+        assert op.is_final()
+        if op.opnum == rop.JUMP:
+            llimpl.compile_add_jump_target(c, op.jump_target._compiled_version)
+        elif op.opnum == rop.FAIL:
+            llimpl.compile_add_fail(c, len(self.fail_ops))
+            self.fail_ops.append(op)
 
     def execute_operations(self, loop, valueboxes):
         """Calls the assembler generated for the given loop.
+        Typically returns an instance of 'resoperation.GuardFailure';
+        may also raise an exception if the assembler code raises.
         """
         frame = llimpl.new_frame(self.memo_cast)
         # setup the frame
@@ -136,14 +142,30 @@ class CPU(object):
             else:
                 raise Exception("bad box in valueboxes: %r" % (box,))
         # run the loop
-        result = llimpl.frame_execute(frame)
+        fail_index = llimpl.frame_execute(frame)
         # get the exception to raise and really raise it, if any
-        exception_addr = llimpl.frame_get_exception(frame)
+        exception_addr = llimpl.get_exception()
         if exception_addr:
-            exc_value_gcref = llimpl.frame_get_exc_value(frame)
+            exc_value_gcref = llimpl.get_exc_value()
             xxxx
         else:
-            return result
+            # common case: we hit a FAIL operation.  Fish for the values
+            # (in a real backend, this should be done by the FAIL operation
+            # itself, not here)
+            op = self.fail_ops[fail_index]
+            currentboxes = []
+            for i in range(len(op.args)):
+                box = op.args[i]
+                if isinstance(box, history.BoxInt):
+                    value = llimpl.frame_int_getvalue(frame, i)
+                    box = history.BoxInt(value)
+                elif isinstance(box, history.BoxPtr):
+                    value = llimpl.frame_ptr_getvalue(frame, i)
+                    box = history.BoxPtr(value)
+                else:
+                    raise Exception("bad box in 'fail': %r" % (box,))
+                currentboxes.append(box)
+            return GuardFailure(op.key, currentboxes)
 
     @staticmethod
     def sizeof(S):

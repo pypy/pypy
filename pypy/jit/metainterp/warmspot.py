@@ -495,17 +495,16 @@ def make_state_class(warmrunnerdesc):
         getkeyhash._always_inline_ = True
 
         def compile_and_run(self, argshash, *args):
-            loop, boxes = warmrunnerdesc.metainterp.compile_and_run_once(*args)
-            if loop:
+            metainterp = warmrunnerdesc.metainterp
+            loop, boxes = metainterp.compile_and_run_once(*args)
+            while loop:
                 cpu = warmrunnerdesc.metainterp.cpu
-                operations = loop.operations
-                box = cpu.execute_operations_in_new_frame('run_this_loop',
-                                                          operations, boxes)
-                raise warmrunnerdesc.DoneWithThisFrame(box)
+                guard_failure = cpu.execute_operations(loop, boxes)
+                loop, boxes = metainterp.handle_guard_failure(guard_failure)
 
         def must_compile_from_failure(self, guard_failure):
-            guard_op = guard_failure.guard_op
-            guard_op.counter += 1
-            return guard_op.counter >= self.trace_eagerness
+            key_holder = guard_failure.key
+            key_holder.counter += 1
+            return key_holder.counter >= self.trace_eagerness
 
     return WarmEnterState

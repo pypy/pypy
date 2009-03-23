@@ -115,7 +115,7 @@ def compile_fresh_loop(metainterp, loop, old_loops, endliveboxes):
                                       metainterp.cpu)
     if old_loop is not None:
         return old_loop
-    finish_loop_or_bridge(metainterp, loop, loop.operations[0])
+    send_loop_to_backend(metainterp, loop)
     old_loops.append(loop)
     return loop
 
@@ -124,10 +124,7 @@ def close_loop(loop, endliveboxes):
     op.jump_target = loop
     loop.operations.append(op)
 
-def finish_loop_or_bridge(metainterp, loop, targetmp):
-    assert targetmp.opnum == rop.MERGE_POINT
-    assert loop.operations[-1].opnum == rop.JUMP
-    loop.operations[-1].jump_target = targetmp
+def send_loop_to_backend(metainterp, loop):
     metainterp.cpu.compile_operations(loop)
     metainterp.stats.loops.append(loop)
 
