@@ -324,11 +324,11 @@ NULLBOX = BoxPtr()
 
 # ____________________________________________________________
 
-# The Loop class contains a loop or a generalized loop, i.e. a tree
+# The TreeLoop class contains a loop or a generalized loop, i.e. a tree
 # of operations.  Each branch ends in a jump which can go either to
-# the top of the same loop, or to another loop.
+# the top of the same loop, or to another TreeLoop.
 
-class Loop(object):
+class TreeLoop(object):
     inputargs = None
     specnodes = None
     operations = None
@@ -340,18 +340,16 @@ class Loop(object):
         #   ops of the kind 'guard_xxx' contain a further list of operations,
         #   which may itself contain 'guard_xxx' and so on, making a tree.
 
-    def _all_operations(self):
+    def _all_operations(self, omit_fails=False):
         "NOT_RPYTHON"
-        oplist = list(self.operations)
-        for op in oplist:
-            if op.is_guard():
-                oplist += op.suboperations
-        return oplist
+        result = []
+        _list_all_operations(result, self.operations, omit_fails)
+        return result
 
     def summary(self, adding_insns={}):    # for debugging
         "NOT_RPYTHON"
         insns = adding_insns.copy()
-        for op in self._all_operations():
+        for op in self._all_operations(omit_fails=True):
             opname = op.getopname()
             insns[opname] = insns.get(opname, 0) + 1
         return insns
@@ -392,10 +390,18 @@ class Loop(object):
                 seen[box] = True
         assert operations[-1].is_final()
         if operations[-1].opnum == rop.JUMP:
-            assert isinstance(operations[-1].jump_target, Loop)
+            assert isinstance(operations[-1].jump_target, TreeLoop)
 
     def __repr__(self):
         return '<%s>' % (self.name,)
+
+def _list_all_operations(result, operations, omit_fails=True):
+    if omit_fails and operations[-1].opnum == rop.FAIL:
+        return
+    result.extend(operations)
+    for op in operations:
+        if op.is_guard():
+            _list_all_operations(result, op.suboperations, omit_fails)
 
 # ____________________________________________________________
 
@@ -442,6 +448,7 @@ class Stats(object):
 
     def __init__(self):
         self.loops = []
+        self.compiled_count = 0
 
     def get_all_loops(self):
         return self.loops
@@ -452,9 +459,6 @@ class Stats(object):
             opname = op.getopname()
             insns[opname] = insns.get(opname, 0) + 1
         if expected is not None:
-            # 'fail' operations may be omitted from 'expected'
-            if 'fail' in insns:
-                expected.setdefault('fail', insns['fail'])
             assert insns == expected
         for insn, expected_count in check.items():
             assert insns.get(insn, 0) == expected_count
@@ -465,9 +469,6 @@ class Stats(object):
         for loop in self.loops:
             insns = loop.summary(adding_insns=insns)
         if expected is not None:
-            # 'fail' operations may be omitted from 'expected'
-            if 'fail' in insns:
-                expected.setdefault('fail', insns['fail'])
             assert insns == expected
         for insn, expected_count in check.items():
             assert insns.get(insn, 0) == expected_count

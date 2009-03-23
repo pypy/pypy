@@ -279,17 +279,13 @@ class PerfectSpecializer(object):
     def find_nodes(self):
         # Steps (1) and (2)
         self.first_escaping_op = True
-        # only catch can have consts
-        for box in self.loop.operations[0].args:
-            self.nodes[box] = InstanceNode(box, escaped=False, startbox=True,
-                                           const=isinstance(box, Const))
+        for box in self.loop.inputargs:
+            self.nodes[box] = InstanceNode(box, escaped=False, startbox=True)
         for op in self.loop.operations:
             #print '| ' + op.repr()
             opnum = op.opnum
-            if (opnum == rop.MERGE_POINT or
-                opnum == rop.CATCH or
-                opnum == rop.JUMP):
-                continue
+            if opnum == rop.JUMP:
+                break
             elif opnum == rop.NEW_WITH_VTABLE:
                 box = op.result
                 instnode = InstanceNode(box, escaped=False)
@@ -392,15 +388,15 @@ class PerfectSpecializer(object):
                 self.nodes[box] = InstanceNode(box, escaped=True)
 
     def recursively_find_escaping_values(self):
-        assert self.loop.operations[0].opnum == rop.MERGE_POINT
         end_args = self.loop.operations[-1].args
+        assert len(self.loop.inputargs) == len(end_args)
         memo = {}
         for i in range(len(end_args)):
             end_box = end_args[i]
             if isinstance(end_box, Box):
                 self.nodes[end_box].escape_if_startbox(memo)
         for i in range(len(end_args)):
-            box = self.loop.operations[0].args[i]
+            box = self.loop.inputargs[i]
             other_box = end_args[i]
             if isinstance(other_box, Box):
                 self.nodes[box].add_to_dependency_graph(self.nodes[other_box],
@@ -418,13 +414,11 @@ class PerfectSpecializer(object):
     def intersect_input_and_output(self):
         # Step (3)
         self.recursively_find_escaping_values()
-        mp = self.loop.operations[0]
         jump = self.loop.operations[-1]
-        assert mp.opnum == rop.MERGE_POINT
         assert jump.opnum == rop.JUMP
         specnodes = []
-        for i in range(len(mp.args)):
-            enternode = self.nodes[mp.args[i]]
+        for i in range(len(self.loop.inputargs)):
+            enternode = self.nodes[self.loop.inputargs[i]]
             leavenode = self.getnode(jump.args[i])
             specnodes.append(enternode.intersect(leavenode, self.nodes))
         self.specnodes = specnodes
@@ -439,7 +433,7 @@ class PerfectSpecializer(object):
             specnode.expand_boxlist(self.nodes[box], newboxlist, oplist)
         return newboxlist
 
-    def prepare_rebuild_ops(self, instnode, liveboxes, rebuild_ops, memo):
+    def prepare_rebuild_ops(self, instnode, rebuild_ops, memo):
         box = instnode.source
         if not isinstance(box, Box):
             return box
@@ -465,8 +459,7 @@ class PerfectSpecializer(object):
             rebuild_ops.append(op)
             memo[box] = newbox
             for ofs, node in instnode.curfields.items():
-                fieldbox = self.prepare_rebuild_ops(node, liveboxes,
-                                                    rebuild_ops, memo)
+                fieldbox = self.prepare_rebuild_ops(node, rebuild_ops, memo)
                 if isinstance(ld, FixedList):
                     op = ResOperation(rop.SETARRAYITEM_GC,
                                       [newbox, ofs, fieldbox],
@@ -477,12 +470,10 @@ class PerfectSpecializer(object):
                                       None, descr=ofs)
                 rebuild_ops.append(op)
             return newbox
-        liveboxes.append(box)
         memo[box] = box
         if instnode.virtualized:
             for ofs, node in instnode.curfields.items():
-                fieldbox = self.prepare_rebuild_ops(node, liveboxes,
-                                                    rebuild_ops, memo)
+                fieldbox = self.prepare_rebuild_ops(node, rebuild_ops, memo)
                 if instnode.cls and isinstance(instnode.cls.source, FixedList):
                     ld = instnode.cls.source
                     assert isinstance(ld, FixedList)
@@ -498,36 +489,33 @@ class PerfectSpecializer(object):
 
     def optimize_guard(self, op):
         # Make a list of operations to run to rebuild the unoptimized objects.
-        # The ops assume that the Boxes in 'liveboxes' have been reloaded.
-        liveboxes = []
         rebuild_ops = []
         memo = {}
-        old_boxes = op.liveboxes
-        op = op.clone()
+        assert len(op.suboperations) == 1
+        op_fail = op.suboperations[0]
+        assert op_fail.opnum == rop.FAIL
+        old_boxes = op.suboperations[0].args
         unoptboxes = []
         for box in old_boxes:
             if isinstance(box, Const):
                 unoptboxes.append(box)
                 continue
             unoptboxes.append(self.prepare_rebuild_ops(self.nodes[box],
-                                                       liveboxes, rebuild_ops,
-                                                       memo))
+                                                       rebuild_ops, memo))
         # XXX sloooooow!
         for node in self.nodes.values():
             if node.virtualized:
-                self.prepare_rebuild_ops(node, liveboxes, rebuild_ops, memo)
+                self.prepare_rebuild_ops(node, rebuild_ops, memo)
 
         # start of code for dirtyfields support
         for node in self.nodes.values():
             for ofs, subnode in node.dirtyfields.items():
                 box = node.source
                 if box not in memo and isinstance(box, Box):
-                    liveboxes.append(box)
                     memo[box] = box
                 #index = (rev_boxes[box] << FLAG_SHIFT) | FLAG_BOXES_FROM_FRAME
                 fieldbox = subnode.source
                 if fieldbox not in memo and isinstance(fieldbox, Box):
-                    liveboxes.append(fieldbox)
                     memo[fieldbox] = fieldbox
                 #fieldindex = ((rev_boxes[fieldbox] << FLAG_SHIFT) |
                 #              FLAG_BOXES_FROM_FRAME)
@@ -546,15 +534,9 @@ class PerfectSpecializer(object):
                 rebuild_ops.append(op1)
         # end of code for dirtyfields support
 
-        if not we_are_translated():
-            for box in liveboxes:
-                assert isinstance(box, Box)
-            assert len(dict.fromkeys(liveboxes)) == len(liveboxes)
-
-        op.args = self.new_arguments(op)
-        op.liveboxes = liveboxes
-        op.rebuild_ops = rebuild_ops
-        op.unoptboxes = unoptboxes
+        op_fail.args = unoptboxes
+        rebuild_ops.append(op_fail)
+        op.suboperations = rebuild_ops
         return op
 
     def new_arguments(self, op):
@@ -566,11 +548,6 @@ class PerfectSpecializer(object):
                 box = instnode.source
             newboxes.append(box)
         return newboxes
-
-    def replace_arguments(self, op):
-        op = op.clone()
-        op.args = self.new_arguments(op)
-        return op
 
     def optimize_getfield(self, instnode, ofs, box):
         assert isinstance(ofs, AbstractValue)
@@ -604,32 +581,26 @@ class PerfectSpecializer(object):
     def optimize_loop(self):
         newoperations = []
         exception_might_have_happened = False
-        mp = self.loop.operations[0]
-        if mp.opnum == rop.MERGE_POINT:
-            assert len(mp.args) == len(self.specnodes)
-            for i in range(len(self.specnodes)):
-                box = mp.args[i]
-                self.specnodes[i].mutate_nodes(self.nodes[box])
-        else:
-            assert mp.opnum == rop.CATCH
-            for box in mp.args:
-                self.nodes[box].cls = None
-                assert not self.nodes[box].virtual
+        assert len(self.loop.inputargs) == len(self.specnodes)
+        for i in range(len(self.specnodes)):
+            box = self.loop.inputargs[i]
+            self.specnodes[i].mutate_nodes(self.nodes[box])
+        newinputargs = self.expanded_version_of(self.loop.inputargs, None)
+
+##        assert mp.opnum == rop.CATCH
+##        for box in mp.args:
+##            self.nodes[box].cls = None
+##            assert not self.nodes[box].virtual
 
         for op in self.loop.operations:
             opnum = op.opnum
-            if opnum == rop.MERGE_POINT:
-                args = self.expanded_version_of(op.args, None)
-                op = ResOperation(rop.MERGE_POINT, args, None)
-                newoperations.append(op)
-                continue
-            elif opnum == rop.JUMP:
+            if opnum == rop.JUMP:
                 args = self.expanded_version_of(op.args, newoperations)
                 for arg in args:
                     if arg in self.nodes:
                         assert not self.nodes[arg].virtual
                 self.cleanup_field_caches(newoperations)
-                op = ResOperation(rop.JUMP, args, None)
+                op.args = args
                 newoperations.append(op)
                 continue
             elif opnum == rop.GUARD_NO_EXCEPTION:
@@ -753,7 +724,7 @@ class PerfectSpecializer(object):
                     self.nodes[box] = instnode
                     continue
             # default handling of arguments and return value
-            op = self.replace_arguments(op)
+            op.args = self.new_arguments(op)
             if op.is_always_pure():
                 for box in op.args:
                     if isinstance(box, Box):
@@ -779,7 +750,8 @@ class PerfectSpecializer(object):
                 self.nodes[box] = instnode
             newoperations.append(op)
 
-        newoperations[0].specnodes = self.specnodes
+        self.loop.specnodes = self.specnodes
+        self.loop.inputargs = newinputargs
         self.loop.operations = newoperations
 
     def cleanup_field_caches(self, newoperations):
@@ -817,6 +789,7 @@ class PerfectSpecializer(object):
     def match(self, old_operations):
         old_mp = old_operations[0]
         jump_op = self.loop.operations[-1]
+        assert old_op.opnum == rop.MERGE_POINT
         assert jump_op.opnum == rop.JUMP
         assert len(old_mp.specnodes) == len(jump_op.args)
         for i in range(len(old_mp.specnodes)):
@@ -829,6 +802,8 @@ class PerfectSpecializer(object):
     def adapt_for_match(self, old_operations):
         old_mp = old_operations[0]
         jump_op = self.loop.operations[-1]
+        assert old_op.opnum == rop.MERGE_POINT
+        assert jump_op.opnum == rop.JUMP
         self.specnodes = old_mp.specnodes
         for i in range(len(old_mp.specnodes)):
             old_specnode = old_mp.specnodes[i]

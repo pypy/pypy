@@ -887,12 +887,10 @@ class OOMetaInterp(object):
     def get_residual_args(self, loop, args):
         if loop.specnodes is None:     # it is None only for tests
             return args
-        assert 0, "XXX fix me"
-        # ---
-        assert len(mp.specnodes) == len(args)
+        assert len(loop.specnodes) == len(args)
         expanded_args = []
-        for i in range(len(mp.specnodes)):
-            specnode = mp.specnodes[i]
+        for i in range(len(loop.specnodes)):
+            specnode = loop.specnodes[i]
             specnode.extract_runtime_data(self.cpu, args[i], expanded_args)
         return expanded_args
 

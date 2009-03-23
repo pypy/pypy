@@ -5,7 +5,7 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.conftest import option
 
 from pypy.jit.metainterp.resoperation import ResOperation, rop
-from pypy.jit.metainterp.history import Loop, log, Box
+from pypy.jit.metainterp.history import TreeLoop, log, Box
 from pypy.jit.metainterp import optimize
 
 
@@ -101,7 +101,7 @@ def create_empty_loop(metainterp):
         name = 'Loop'
     else:
         name = 'Loop #%d' % len(metainterp.stats.loops)
-    return Loop(name)
+    return TreeLoop(name)
 
 # ____________________________________________________________
 
@@ -114,13 +114,14 @@ def compile_fresh_loop(metainterp, loop, old_loops, endliveboxes):
     loop.inputargs = history.inputargs
     loop.operations = history.operations
     close_loop(loop, endliveboxes)
-    #old_loop = optimize.optimize_loop(metainterp.options, old_loops, loop,
-    #                                  metainterp.cpu)
-    #if old_loop is not None:
-    #    return old_loop
+    old_loop = optimize.optimize_loop(metainterp.options, old_loops, loop,
+                                      metainterp.cpu)
+    if old_loop is not None:
+        return old_loop
     mark_keys_in_loop(loop, loop.operations)
     send_loop_to_backend(metainterp, loop)
     metainterp.stats.loops.append(loop)
+    metainterp.stats.compiled_count += 1
     old_loops.append(loop)
     return loop
 
@@ -164,4 +165,5 @@ def compile_fresh_bridge(metainterp, old_loops, endliveboxes, resumekey):
     guard_op.suboperations = history.operations
     mark_keys_in_loop(source_loop, guard_op.suboperations)
     send_loop_to_backend(metainterp, source_loop)
+    metainterp.stats.compiled_count += 1
     return target_loop

@@ -29,9 +29,11 @@ class JitMixin:
     def check_loops(self, expected=None, **check):
         get_stats().check_loops(expected=expected, **check)
     def check_loop_count(self, count):
+        assert get_stats().compiled_count == count
+    def check_tree_loop_count(self, count):
         assert len(get_stats().loops) == count
     def check_loop_count_at_most(self, count):
-        assert len(get_stats().loops) <= count
+        assert get_stats().compiled_count <= count
     def check_jumps(self, maxcount):
         assert get_stats().exec_jumps <= maxcount
 

@@ -321,10 +321,9 @@ class TestLoop(LLJitMixin):
         expected = f(100, 5)
         res = self.meta_interp(f, [100, 5], policy=StopAtXPolicy(externfn))
         assert res == expected
-        
-        loops = get_stats().loops
-        assert loops[0].operations[0].opnum == rop.MERGE_POINT
-        assert loops[1].operations[0].opnum == rop.CATCH
+
+        self.check_loop_count(2)
+        self.check_tree_loop_count(1)
 
     def test_example(self):
         myjitdriver = JitDriver(greens = ['i'],
