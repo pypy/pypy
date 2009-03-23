@@ -4,7 +4,7 @@ from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.metainterp.optimize import (PerfectSpecializer,
     CancelInefficientLoop, VirtualInstanceSpecNode, FixedClassSpecNode,
-    rebuild_boxes_from_guard_failure, NotSpecNode, FixedList)
+    NotSpecNode, FixedList)
 from pypy.jit.metainterp.history import BoxInt, BoxPtr, ConstInt
 from pypy.jit.metainterp.test.test_optimize import Loop, equaloplists, cpu
 from pypy.jit.metainterp.specnode import DelayedFixedListSpecNode
@@ -18,8 +18,8 @@ class A:
     e0 = BoxInt(0)
     e1 = BoxInt(0)
     ad = cpu.arraydescrof(TP)
+    inputargs = [l]
     ops = [
-        ResOperation(rop.MERGE_POINT, [l], None),
         ResOperation(rop.GETARRAYITEM_GC, [l, ConstInt(0)], e0, ad),
         ResOperation(rop.SETARRAYITEM_GC, [l, ConstInt(0), e0], None, ad),
         ResOperation(rop.GETARRAYITEM_GC, [l, ConstInt(0)], e1, ad),
@@ -28,25 +28,25 @@ class A:
         ]
 
 def test_A_find_nodes():
-    spec = PerfectSpecializer(Loop(A.ops))
+    spec = PerfectSpecializer(Loop(A.inputargs, A.ops))
     spec.find_nodes()
     node = spec.nodes[A.l]
     assert isinstance(node.cls.source, FixedList)
     assert node.expanded_fields.keys() == [ConstInt(0)]
 
 def test_A_intersect():
-    spec = PerfectSpecializer(Loop(A.ops))
+    spec = PerfectSpecializer(Loop(A.inputargs, A.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
     assert isinstance(spec.specnodes[0], DelayedFixedListSpecNode)
 
 def test_A_optimize_loop():
-    spec = PerfectSpecializer(Loop(A.ops))
+    spec = PerfectSpecializer(Loop(A.inputargs, A.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
+    assert spec.loop.inputargs == [A.l, A.e0]
     equaloplists(spec.loop.operations, [
-        ResOperation(rop.MERGE_POINT, [A.l, A.e0], None),
         ResOperation(rop.SETARRAYITEM_GC, [A.l, ConstInt(0), A.e0], None, A.ad),
         ResOperation(rop.JUMP, [A.l, A.e0], None)
     ])
@@ -57,8 +57,8 @@ class B:
     locals().update(A.__dict__)
     e2 = BoxInt(0)
     e3 = BoxInt(0)
+    inputargs = [l]
     ops = [
-        ResOperation(rop.MERGE_POINT, [l], None),
         ResOperation(rop.GETARRAYITEM_GC, [l, ConstInt(0)], e0, ad),
         ResOperation(rop.INT_ADD, [e0, ConstInt(1)], e1),
         ResOperation(rop.SETARRAYITEM_GC, [l, ConstInt(0), e1], None, ad),
@@ -70,12 +70,12 @@ class B:
     ]
 
 def test_B_optimize_loop():
-    spec = PerfectSpecializer(Loop(B.ops))
+    spec = PerfectSpecializer(Loop(B.inputargs, B.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
+    assert spec.loop.inputargs == [B.l, B.e0]
     equaloplists(spec.loop.operations, [
-        ResOperation(rop.MERGE_POINT, [B.l, B.e0], None),
         ResOperation(rop.INT_ADD, [B.e0, ConstInt(1)], B.e1),
         ResOperation(rop.SETARRAYITEM_GC, [B.l, ConstInt(0), B.e1], None, B.ad),
         ResOperation(-123, [B.e1], None),
@@ -91,8 +91,8 @@ class C:
     locals().update(A.__dict__)
     e3 = BoxInt(0)
     e2 = BoxInt(0)
+    inputargs = [l]
     ops = [
-        ResOperation(rop.MERGE_POINT, [l], None),
         ResOperation(rop.GETARRAYITEM_GC, [l, ConstInt(0)], e0, ad),
         ResOperation(rop.INT_ADD, [e0, ConstInt(1)], e1),
         ResOperation(rop.SETARRAYITEM_GC, [l, ConstInt(0), e1], None, ad),
