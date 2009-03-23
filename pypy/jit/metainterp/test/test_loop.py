@@ -165,12 +165,15 @@ class TestLoop(LLJitMixin):
         # the 'char_eq' and following 'guard' should be constant-folded
         self.check_loops(char_eq=0, guard_true=1, guard_false=0)
         if self.basic:
-            for op in get_stats().loops[0].operations:
-                if op.getopname() == 'guard_true':
-                    liveboxes = op.liveboxes
+            found = 0
+            for op in get_stats().loops[0]._all_operations():
+                if op.getopname() == 'fail':
+                    liveboxes = op.args
                     assert len(liveboxes) == 2     # x, y (in some order)
                     assert isinstance(liveboxes[0], history.BoxInt)
                     assert isinstance(liveboxes[1], history.BoxInt)
+                    found += 1
+            assert found == 1
 
     def test_interp_many_paths(self):
         myjitdriver = JitDriver(greens = ['i'], reds = ['x', 'node'])
@@ -363,7 +366,7 @@ class TestLoop(LLJitMixin):
         res = self.meta_interp(main_interpreter_loop, [1])
         assert res == 102
         self.check_loop_count(1)
-        self.check_loops({'merge_point' : 1, 'int_add' : 3, 'int_gt' : 1,
+        self.check_loops({'int_add' : 3, 'int_gt' : 1,
                           'guard_false' : 1, 'jump' : 1})
 
     def test_automatic_promotion(self):
@@ -405,7 +408,7 @@ class TestLoop(LLJitMixin):
         assert res == main_interpreter_loop(1)
         self.check_loop_count(1)
         # XXX maybe later optimize guard_value away
-        self.check_loops({'merge_point' : 1, 'int_add' : 6, 'int_gt' : 1,
+        self.check_loops({'int_add' : 6, 'int_gt' : 1,
                           'guard_false' : 1, 'jump' : 1, 'guard_value' : 3})
 
     def test_can_enter_jit_outside_main_loop(self):
