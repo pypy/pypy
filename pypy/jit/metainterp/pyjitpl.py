@@ -933,15 +933,8 @@ class OOMetaInterp(object):
             self.history = history.History(self.cpu)
         else:
             self.history = history.BlackHole(self.cpu)
-        boxes_from_frame = guard_failure.args
-        if 0:  # xxx guard_op.rebuild_ops is not None:
-            newboxes = optimize.rebuild_boxes_from_guard_failure(
-                guard_op, self.cpu, self.history, boxes_from_frame)
-        else:
-            # xxx for tests only
-            newboxes = boxes_from_frame
         self.rebuild_state_after_failure(guard_failure.key.resume_info,
-                                         newboxes)
+                                         guard_failure.args)
 
     def handle_exception(self):
         etype = self.cpu.get_exception()
