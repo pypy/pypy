@@ -634,8 +634,9 @@ class MIFrame(object):
             return
         saved_pc = self.pc
         self.pc = pc
-        # XXX 'key' should be shared, either partially or if possible totally
-        key = []
+        # XXX 'resume_info' should be shared, either partially or
+        #     if possible totally
+        resume_info = []
         liveboxes = []
         for frame in self.metainterp.framestack:
             const_part = []
@@ -645,14 +646,13 @@ class MIFrame(object):
                     liveboxes.append(framebox)
                     framebox = None
                 const_part.append(framebox)
-            key.append((frame.jitcode, frame.pc, const_part,
-                        frame.exception_target))
+            resume_info.append((frame.jitcode, frame.pc, const_part,
+                                frame.exception_target))
         if box is not None:
             extraargs = [box] + extraargs
         guard_op = self.metainterp.history.record(opnum, extraargs, None)
         op = history.ResOperation(rop.FAIL, liveboxes, None)
-        op.key = Key(key, opnum in (rop.GUARD_EXCEPTION,
-                                    rop.GUARD_NO_EXCEPTION))
+        op.key = ResumeKey(guard_op, resume_info)
         guard_op.suboperations = [op]
         self.pc = saved_pc
         return guard_op
@@ -828,16 +828,17 @@ class OOMetaInterp(object):
             return self.designate_target_loop(gmp, compiled_loop)
 
     def handle_guard_failure(self, guard_failure):
-        orig_boxes = self.initialize_state_from_guard_failure(guard_failure)
+        self.initialize_state_from_guard_failure(guard_failure)
+        key = guard_failure.key
         try:
-            if guard_failure.key.is_exception_catch:
+            if key.guard_op.opnum in (rop.GUARD_NO_EXCEPTION,
+                                      rop.GUARD_EXCEPTION):
                 self.handle_exception()
             self.interpret()
             assert False, "should always raise"
         except GenerateMergePoint, gmp:
-            compiled_bridge = self.compile_bridge(guard_failure, orig_boxes,
-                                                  gmp.argboxes)
-            return self.designate_target_loop(gmp, compiled_bridge.jump_to)
+            target_loop = self.compile_bridge(key, gmp.argboxes)
+            return self.designate_target_loop(gmp, target_loop)
 
     def designate_target_loop(self, gmp, loop):
         num_green_args = self.num_green_args
@@ -865,27 +866,23 @@ class OOMetaInterp(object):
             self.debug_history = []
         return loop
 
-    def compile_bridge(self, guard_failure, original_boxes, live_arg_boxes):
-        XXX
+    def compile_bridge(self, key, live_arg_boxes):
         num_green_args = self.num_green_args
-        mp = history.ResOperation(rop.CATCH, original_boxes, None)
-        mp.coming_from = guard_failure.guard_op
-        self.history.operations.insert(0, mp)
+        greenkey = live_arg_boxes[:num_green_args]
         try:
-            old_loops = self.compiled_merge_points[
-                live_arg_boxes[:num_green_args]]
+            old_loops = self.compiled_merge_points[greenkey]
         except KeyError:
-            bridge = None
+            target_loop = None
         else:
-            bridge = compile_new_bridge(self, old_loops,
-                                        live_arg_boxes[num_green_args:])
-        if bridge is None:
+            target_loop = compile_new_bridge(self, old_loops,
+                                             live_arg_boxes[num_green_args:],
+                                             key)
+        if target_loop is None:
             raise self.ContinueRunningNormally(live_arg_boxes)
         if not we_are_translated():
-            bridge._call_history = self._debug_history
+            #bridge._call_history = self._debug_history
             self.debug_history = []
-        guard_failure.guard_op.jump_target = bridge.operations[0]
-        return bridge
+        return target_loop
 
     def get_residual_args(self, loop, args):
         if loop.specnodes is None:     # it is None only for tests
@@ -933,19 +930,19 @@ class OOMetaInterp(object):
 
     def initialize_state_from_guard_failure(self, guard_failure):
         # guard failure: rebuild a complete MIFrame stack
-        if self.state.must_compile_from_failure(guard_failure):
+        if self.state.must_compile_from_failure(guard_failure.key):
             self.history = history.History(self.cpu)
         else:
             self.history = history.BlackHole(self.cpu)
-        boxes_from_frame = guard_failure.currentboxes
+        boxes_from_frame = guard_failure.args
         if 0:  # xxx guard_op.rebuild_ops is not None:
             newboxes = optimize.rebuild_boxes_from_guard_failure(
                 guard_op, self.cpu, self.history, boxes_from_frame)
         else:
             # xxx for tests only
             newboxes = boxes_from_frame
-        self.rebuild_state_after_failure(guard_failure.key.key, newboxes)
-        return boxes_from_frame
+        self.rebuild_state_after_failure(guard_failure.key.resume_info,
+                                         newboxes)
 
     def handle_exception(self):
         etype = self.cpu.get_exception()
@@ -964,12 +961,12 @@ class OOMetaInterp(object):
             frame.generate_guard(frame.pc, rop.GUARD_NO_EXCEPTION, None, [])
             return False
 
-    def rebuild_state_after_failure(self, key, newboxes):
+    def rebuild_state_after_failure(self, resume_info, newboxes):
         if not we_are_translated():
             self._debug_history.append(['guard_failure', None, None])
         self.framestack = []
         nbindex = 0
-        for jitcode, pc, const_part, exception_target in key:
+        for jitcode, pc, const_part, exception_target in resume_info:
             f = self.newframe(jitcode)
             nbindex = f.setup_resume_at_op(pc, const_part, newboxes, nbindex,
                                            exception_target)
@@ -998,8 +995,9 @@ class GenerateMergePoint(Exception):
     def __init__(self, args):
         self.argboxes = args
 
-class Key(object):
-    def __init__(self, key, is_exception_catch):
-        self.key = key
+class ResumeKey(object):
+    def __init__(self, guard_op, resume_info):
+        self.resume_info = resume_info
+        self.guard_op = guard_op
         self.counter = 0
-        self.is_exception_catch = is_exception_catch
+        # self.loop = ... set in compile.py

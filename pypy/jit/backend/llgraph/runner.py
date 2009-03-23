@@ -6,7 +6,7 @@ import sys
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.jit.metainterp import history
-from pypy.jit.metainterp.resoperation import ResOperation, rop, GuardFailure
+from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.backend.llgraph import llimpl, symbolic
 
 
@@ -126,8 +126,7 @@ class CPU(object):
 
     def execute_operations(self, loop, valueboxes):
         """Calls the assembler generated for the given loop.
-        Typically returns an instance of 'resoperation.GuardFailure';
-        may also raise an exception if the assembler code raises.
+        Returns the ResOperation that failed, of type rop.FAIL.
         """
         frame = llimpl.new_frame(self.memo_cast)
         # setup the frame
@@ -149,19 +148,17 @@ class CPU(object):
         # (in a real backend, this should be done by the FAIL operation
         # itself, not here)
         op = self.fail_ops[fail_index]
-        currentboxes = []
         for i in range(len(op.args)):
             box = op.args[i]
             if isinstance(box, history.BoxInt):
                 value = llimpl.frame_int_getvalue(frame, i)
-                box = history.BoxInt(value)
+                box.changevalue_int(value)
             elif isinstance(box, history.BoxPtr):
                 value = llimpl.frame_ptr_getvalue(frame, i)
-                box = history.BoxPtr(value)
+                box.changevalue_ptr(value)
             else:
                 raise Exception("bad box in 'fail': %r" % (box,))
-            currentboxes.append(box)
-        return GuardFailure(op.key, currentboxes)
+        return op
 
     def get_exception(self):
         return self.cast_adr_to_int(llimpl.get_exception())

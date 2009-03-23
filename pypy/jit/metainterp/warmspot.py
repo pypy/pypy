@@ -502,9 +502,8 @@ def make_state_class(warmrunnerdesc):
                 guard_failure = cpu.execute_operations(loop, boxes)
                 loop, boxes = metainterp.handle_guard_failure(guard_failure)
 
-        def must_compile_from_failure(self, guard_failure):
-            key_holder = guard_failure.key
-            key_holder.counter += 1
-            return key_holder.counter >= self.trace_eagerness
+        def must_compile_from_failure(self, key):
+            key.counter += 1
+            return key.counter >= self.trace_eagerness
 
     return WarmEnterState

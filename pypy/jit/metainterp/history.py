@@ -295,6 +295,8 @@ class BoxInt(Box):
     def _getrepr_(self):
         return self.value
 
+    changevalue_int = __init__
+
 class BoxPtr(Box):
     type = 'ptr'
 
@@ -315,6 +317,7 @@ class BoxPtr(Box):
         return lltype.cast_ptr_to_int(self.value)
 
     _getrepr_ = repr_pointer
+    changevalue_ptr = __init__
 
 NULLBOX = BoxPtr()
 

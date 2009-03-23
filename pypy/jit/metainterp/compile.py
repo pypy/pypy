@@ -24,21 +24,20 @@ def compile_new_loop(metainterp, old_loops, endliveboxes):
     else:
         return _compile_new_loop_1(metainterp, loop, old_loops, endliveboxes)
 
-def compile_new_bridge(metainterp, old_loops, endliveboxes):
+def compile_new_bridge(metainterp, old_loops, endliveboxes, resumekey):
     """Try to compile a new bridge leading from the beginning of the history
     to some existing place.
     """
-    bridge = create_empty_bridge(metainterp)
     if we_are_translated():
         try:
-            bridge = compile_fresh_bridge(metainterp, bridge, old_loops,
-                                          endliveboxes)
-            return bridge
+            target_loop = compile_fresh_bridge(metainterp, old_loops,
+                                               endliveboxes, resumekey)
+            return target_loop
         except optimize.CancelInefficientLoop:
             return None
     else:
-        return _compile_new_bridge_1(metainterp, bridge, old_loops,
-                                     endliveboxes)
+        return _compile_new_bridge_1(metainterp, old_loops,
+                                     endliveboxes, resumekey)
 
 class BridgeInProgress(Exception):
     pass
@@ -64,29 +63,26 @@ def _compile_new_loop_1(metainterp, loop, old_loops, endliveboxes):
     loop.check_consistency()
     return loop
 
-def _compile_new_bridge_1(metainterp, bridge, old_loops, endliveboxes):
-    orgbridge = bridge
+def _compile_new_bridge_1(metainterp, old_loops, endliveboxes, resumekey):
     try:
         try:
-            bridge = compile_fresh_bridge(metainterp, bridge, old_loops,
-                                          endliveboxes)
+            target_loop = compile_fresh_bridge(metainterp, old_loops,
+                                               endliveboxes, resumekey)
         except Exception, exc:
-            show_loop(metainterp, bridge, error=exc)
+            show_loop(metainterp, error=exc)
             raise
         else:
-            if bridge == orgbridge:
-                show_loop(metainterp, bridge)
-            elif bridge is not None:
-                log.info("reusing bridge at %r" % (bridge,))
-            else:
+            if target_loop is None:
                 log.info("compile_fresh_bridge() returned None")
+            else:
+                show_loop(metainterp, target_loop)
     except optimize.CancelInefficientLoop:
         return None
-    if bridge is not None:
-        bridge.check_consistency()
-    return bridge
+    if target_loop is not None:
+        target_loop.check_consistency()
+    return target_loop
 
-def show_loop(metainterp, loop, error=None):
+def show_loop(metainterp, loop=None, error=None):
     # debugging
     if option.view:
         if error:
@@ -95,7 +91,10 @@ def show_loop(metainterp, loop, error=None):
                 errmsg += ': ' + str(error)
         else:
             errmsg = None
-        loop.show(errmsg=errmsg)
+        if loop is None:
+            metainterp.stats.view(errmsg=errmsg)
+        else:
+            loop.show(errmsg=errmsg)
 
 def create_empty_loop(metainterp):
     if we_are_translated():
@@ -107,6 +106,10 @@ def create_empty_loop(metainterp):
 # ____________________________________________________________
 
 def compile_fresh_loop(metainterp, loop, old_loops, endliveboxes):
+    # ---<temporary>---
+    if old_loops:
+        return old_loops[0]
+    # ---</temporary>---
     history = metainterp.history
     loop.inputargs = history.inputargs
     loop.operations = history.operations
@@ -115,7 +118,9 @@ def compile_fresh_loop(metainterp, loop, old_loops, endliveboxes):
     #                                  metainterp.cpu)
     #if old_loop is not None:
     #    return old_loop
+    mark_keys_in_loop(loop, loop.operations)
     send_loop_to_backend(metainterp, loop)
+    metainterp.stats.loops.append(loop)
     old_loops.append(loop)
     return loop
 
@@ -124,30 +129,39 @@ def close_loop(loop, endliveboxes):
     op.jump_target = loop
     loop.operations.append(op)
 
+def mark_keys_in_loop(loop, operations):
+    op = None
+    for op in operations:
+        if op.is_guard():
+            mark_keys_in_loop(loop, op.suboperations)
+    if op.opnum == rop.FAIL:
+        op.key.loop = loop
+
 def send_loop_to_backend(metainterp, loop):
     metainterp.cpu.compile_operations(loop)
-    metainterp.stats.loops.append(loop)
 
 # ____________________________________________________________
 
 def matching_merge_point(metainterp, targetmp, endliveboxes):
     return True
 
-def compile_fresh_bridge(metainterp, bridge, old_loops, endliveboxes):
+def compile_fresh_bridge(metainterp, old_loops, endliveboxes, resumekey):
     history = metainterp.history
-    catch_op = history.operations[0]
-    assert catch_op.opnum == rop.CATCH
-    guard_op = catch_op.coming_from
-    assert guard_op.is_guard()
     #
-    operations = bridge.operations = history.operations
     op = ResOperation(rop.JUMP, endliveboxes, None)
-    operations.append(op)
+    history.operations.append(op)
     #
-    old_loop = optimize.optimize_bridge(metainterp.options, old_loops, bridge,
-                                        metainterp.cpu)
-    if old_loop is None:
-        return None
-    bridge.jump_to = old_loop
-    finish_loop_or_bridge(metainterp, bridge, old_loop.operations[0], guard_op)
-    return bridge
+    #old_loop = optimize.optimize_bridge(metainterp.options, old_loops, bridge,
+    #                                    metainterp.cpu)
+    #if old_loop is None:
+    #    return None
+    # ---<temporary>---
+    target_loop = old_loops[0]
+    op.jump_target = target_loop
+    # ---</temporary>---
+    source_loop = resumekey.loop
+    guard_op = resumekey.guard_op
+    guard_op.suboperations = history.operations
+    mark_keys_in_loop(source_loop, guard_op.suboperations)
+    send_loop_to_backend(metainterp, source_loop)
+    return target_loop

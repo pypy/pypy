@@ -43,12 +43,6 @@ class ResOperation(object):
         return '%s%s(%s)' % (sres, self.getopname(),
                              ', '.join([str(a) for a in self.args]))
 
-    def clone(self):
-        op = ResOperation(self.opnum, self.args, self.result, self.descr)
-        op.specnodes = self.specnodes
-        op.key = self.key
-        return op
-
     def getopname(self):
         try:
             return opname[self.opnum].lower()
@@ -75,14 +69,6 @@ class ResOperation(object):
 
     def is_final(self):
         return rop._FINAL_FIRST <= self.opnum <= rop._FINAL_LAST
-
-# ____________________________________________________________
-
-
-class GuardFailure(object):
-    def __init__(self, key, currentboxes):
-        self.key = key
-        self.currentboxes = currentboxes
 
 # ____________________________________________________________
 
