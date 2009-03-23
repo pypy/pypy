@@ -319,6 +319,7 @@ def compile_add_jump_target(loop, loop_target):
     op = loop.operations[-1]
     op.jump_target = loop_target
     assert op.opnum == rop.JUMP
+    assert len(op.args) == len(loop_target.inputargs)
     if loop_target == loop:
         log.info("compiling new loop")
     else:

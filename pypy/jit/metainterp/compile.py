@@ -9,65 +9,60 @@ from pypy.jit.metainterp.history import TreeLoop, log, Box
 from pypy.jit.metainterp import optimize
 
 
-def compile_new_loop(metainterp, old_loops, endliveboxes):
+def compile_new_loop(metainterp, old_loops):
     """Try to compile a new loop by closing the current history back
     to the first operation.
     """
-    loop = create_empty_loop(metainterp)
     if we_are_translated():
         try:
-            loop = compile_fresh_loop(metainterp, loop, old_loops,
-                                      endliveboxes)
+            loop = compile_fresh_loop(metainterp, old_loops)
             return loop
         except optimize.CancelInefficientLoop:
             return None
     else:
-        return _compile_new_loop_1(metainterp, loop, old_loops, endliveboxes)
+        return _compile_new_loop_1(metainterp, old_loops)
 
-def compile_new_bridge(metainterp, old_loops, endliveboxes, resumekey):
+def compile_new_bridge(metainterp, old_loops, resumekey):
     """Try to compile a new bridge leading from the beginning of the history
     to some existing place.
     """
     if we_are_translated():
         try:
             target_loop = compile_fresh_bridge(metainterp, old_loops,
-                                               endliveboxes, resumekey)
+                                               resumekey)
             return target_loop
         except optimize.CancelInefficientLoop:
             return None
     else:
-        return _compile_new_bridge_1(metainterp, old_loops,
-                                     endliveboxes, resumekey)
+        return _compile_new_bridge_1(metainterp, old_loops, resumekey)
 
 class BridgeInProgress(Exception):
     pass
 
 
 # the following is not translatable
-def _compile_new_loop_1(metainterp, loop, old_loops, endliveboxes):
-    orgloop = loop
+def _compile_new_loop_1(metainterp, old_loops):
     try:
         try:
-            loop = compile_fresh_loop(metainterp, loop, old_loops,
-                                      endliveboxes)
+            loop = compile_fresh_loop(metainterp, old_loops)
         except Exception, exc:
-            show_loop(metainterp, loop, error=exc)
+            show_loop(metainterp, error=exc)
             raise
         else:
-            if loop == orgloop:
-                show_loop(metainterp, loop)
-            else:
+            if loop in old_loops:
                 log.info("reusing loop at %r" % (loop,))
+            else:
+                show_loop(metainterp, loop)
     except optimize.CancelInefficientLoop:
         return None
     loop.check_consistency()
     return loop
 
-def _compile_new_bridge_1(metainterp, old_loops, endliveboxes, resumekey):
+def _compile_new_bridge_1(metainterp, old_loops, resumekey):
     try:
         try:
             target_loop = compile_fresh_bridge(metainterp, old_loops,
-                                               endliveboxes, resumekey)
+                                               resumekey)
         except Exception, exc:
             show_loop(metainterp, error=exc)
             raise
@@ -105,30 +100,23 @@ def create_empty_loop(metainterp):
 
 # ____________________________________________________________
 
-def compile_fresh_loop(metainterp, loop, old_loops, endliveboxes):
-    # ---<temporary>---
-    if old_loops:
-        return old_loops[0]
-    # ---</temporary>---
+def compile_fresh_loop(metainterp, old_loops):
     history = metainterp.history
-    loop.inputargs = history.inputargs
-    loop.operations = history.operations
-    close_loop(loop, endliveboxes)
-    old_loop = optimize.optimize_loop(metainterp.options, old_loops, loop,
-                                      metainterp.cpu)
+    old_loop = optimize.optimize_loop(metainterp.options, old_loops,
+                                      history, metainterp.cpu)
     if old_loop is not None:
         return old_loop
+    loop = create_empty_loop(metainterp)
+    loop.inputargs = history.inputargs
+    loop.specnodes = history.specnodes
+    loop.operations = history.operations
+    loop.operations[-1].jump_target = loop
     mark_keys_in_loop(loop, loop.operations)
     send_loop_to_backend(metainterp, loop)
     metainterp.stats.loops.append(loop)
     metainterp.stats.compiled_count += 1
     old_loops.append(loop)
     return loop
-
-def close_loop(loop, endliveboxes):
-    op = ResOperation(rop.JUMP, endliveboxes, None)
-    op.jump_target = loop
-    loop.operations.append(op)
 
 def mark_keys_in_loop(loop, operations):
     for op in operations:
@@ -143,26 +131,16 @@ def send_loop_to_backend(metainterp, loop):
 
 # ____________________________________________________________
 
-def matching_merge_point(metainterp, targetmp, endliveboxes):
-    return True
-
-def compile_fresh_bridge(metainterp, old_loops, endliveboxes, resumekey):
-    history = metainterp.history
-    #
-    op = ResOperation(rop.JUMP, endliveboxes, None)
-    history.operations.append(op)
-    #
-    #old_loop = optimize.optimize_bridge(metainterp.options, old_loops, bridge,
-    #                                    metainterp.cpu)
-    #if old_loop is None:
-    #    return None
-    # ---<temporary>---
+def compile_fresh_bridge(metainterp, old_loops, resumekey):
+    old_loop = optimize.optimize_bridge(metainterp.options, old_loops,
+                                        metainterp.history, metainterp.cpu)
+    if old_loop is None:
+        return None
     target_loop = old_loops[0]
     op.jump_target = target_loop
-    # ---</temporary>---
     source_loop = resumekey.loop
     guard_op = resumekey.guard_op
-    guard_op.suboperations = history.operations
+    guard_op.suboperations = self.history.operations
     mark_keys_in_loop(source_loop, guard_op.suboperations)
     send_loop_to_backend(metainterp, source_loop)
     metainterp.stats.compiled_count += 1

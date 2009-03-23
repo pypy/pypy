@@ -407,6 +407,7 @@ def _list_all_operations(result, operations, omit_fails=True):
 
 
 class RunningMatcher(object):
+    specnodes = None
     def __init__(self, cpu):
         self.cpu = cpu
         self.inputargs = None

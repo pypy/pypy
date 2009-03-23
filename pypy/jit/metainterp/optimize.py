@@ -189,7 +189,7 @@ class InstanceNode(object):
         if self.virtualized:       flags += 'V'
         return "<InstanceNode %s (%s)>" % (self.source, flags)
 
-def optimize_loop(options, old_loops, loop, cpu=None):
+def optimize_loop(options, old_loops, history, cpu=None):
     if not options.specialize:         # for tests only
         if old_loops:
             return old_loops[0]
@@ -197,7 +197,7 @@ def optimize_loop(options, old_loops, loop, cpu=None):
             return None
 
     # This does "Perfect specialization" as per doc/jitpl5.txt.
-    perfect_specializer = PerfectSpecializer(loop, options, cpu)
+    perfect_specializer = PerfectSpecializer(history, options, cpu)
     perfect_specializer.find_nodes()
     perfect_specializer.intersect_input_and_output()
     for old_loop in old_loops:
@@ -206,11 +206,11 @@ def optimize_loop(options, old_loops, loop, cpu=None):
     perfect_specializer.optimize_loop()
     return None
 
-def optimize_bridge(options, old_loops, bridge, cpu=None):
+def optimize_bridge(options, old_loops, history, cpu=None):
     if not options.specialize:         # for tests only
         return old_loops[0]
 
-    perfect_specializer = PerfectSpecializer(bridge, options, cpu)
+    perfect_specializer = PerfectSpecializer(history, options, cpu)
     perfect_specializer.find_nodes()
     for old_loop in old_loops:
         if perfect_specializer.match(old_loop.operations):
@@ -221,8 +221,8 @@ def optimize_bridge(options, old_loops, bridge, cpu=None):
 
 class PerfectSpecializer(object):
 
-    def __init__(self, loop, options=Options(), cpu=None):
-        self.loop = loop
+    def __init__(self, history, options=Options(), cpu=None):
+        self.history = history
         self.options = options
         self.cpu = cpu
         self.nodes = {}
@@ -279,9 +279,9 @@ class PerfectSpecializer(object):
     def find_nodes(self):
         # Steps (1) and (2)
         self.first_escaping_op = True
-        for box in self.loop.inputargs:
+        for box in self.history.inputargs:
             self.nodes[box] = InstanceNode(box, escaped=False, startbox=True)
-        for op in self.loop.operations:
+        for op in self.history.operations:
             #print '| ' + op.repr()
             opnum = op.opnum
             if opnum == rop.JUMP:
@@ -388,15 +388,15 @@ class PerfectSpecializer(object):
                 self.nodes[box] = InstanceNode(box, escaped=True)
 
     def recursively_find_escaping_values(self):
-        end_args = self.loop.operations[-1].args
-        assert len(self.loop.inputargs) == len(end_args)
+        end_args = self.history.operations[-1].args
+        assert len(self.history.inputargs) == len(end_args)
         memo = {}
         for i in range(len(end_args)):
             end_box = end_args[i]
             if isinstance(end_box, Box):
                 self.nodes[end_box].escape_if_startbox(memo)
         for i in range(len(end_args)):
-            box = self.loop.inputargs[i]
+            box = self.history.inputargs[i]
             other_box = end_args[i]
             if isinstance(other_box, Box):
                 self.nodes[box].add_to_dependency_graph(self.nodes[other_box],
@@ -414,11 +414,11 @@ class PerfectSpecializer(object):
     def intersect_input_and_output(self):
         # Step (3)
         self.recursively_find_escaping_values()
-        jump = self.loop.operations[-1]
+        jump = self.history.operations[-1]
         assert jump.opnum == rop.JUMP
         specnodes = []
-        for i in range(len(self.loop.inputargs)):
-            enternode = self.nodes[self.loop.inputargs[i]]
+        for i in range(len(self.history.inputargs)):
+            enternode = self.nodes[self.history.inputargs[i]]
             leavenode = self.getnode(jump.args[i])
             specnodes.append(enternode.intersect(leavenode, self.nodes))
         self.specnodes = specnodes
@@ -581,18 +581,18 @@ class PerfectSpecializer(object):
     def optimize_loop(self):
         newoperations = []
         exception_might_have_happened = False
-        assert len(self.loop.inputargs) == len(self.specnodes)
+        assert len(self.history.inputargs) == len(self.specnodes)
         for i in range(len(self.specnodes)):
-            box = self.loop.inputargs[i]
+            box = self.history.inputargs[i]
             self.specnodes[i].mutate_nodes(self.nodes[box])
-        newinputargs = self.expanded_version_of(self.loop.inputargs, None)
+        newinputargs = self.expanded_version_of(self.history.inputargs, None)
 
 ##        assert mp.opnum == rop.CATCH
 ##        for box in mp.args:
 ##            self.nodes[box].cls = None
 ##            assert not self.nodes[box].virtual
 
-        for op in self.loop.operations:
+        for op in self.history.operations:
             opnum = op.opnum
             if opnum == rop.JUMP:
                 args = self.expanded_version_of(op.args, newoperations)
@@ -602,7 +602,7 @@ class PerfectSpecializer(object):
                 self.cleanup_field_caches(newoperations)
                 op.args = args
                 newoperations.append(op)
-                continue
+                break
             elif opnum == rop.GUARD_NO_EXCEPTION:
                 if not exception_might_have_happened:
                     continue
@@ -750,9 +750,9 @@ class PerfectSpecializer(object):
                 self.nodes[box] = instnode
             newoperations.append(op)
 
-        self.loop.specnodes = self.specnodes
-        self.loop.inputargs = newinputargs
-        self.loop.operations = newoperations
+        self.history.specnodes = self.specnodes
+        self.history.inputargs = newinputargs
+        self.history.operations = newoperations
 
     def cleanup_field_caches(self, newoperations):
         # we need to invalidate everything
@@ -776,17 +776,16 @@ class PerfectSpecializer(object):
             node.cleanfields = r_dict(av_eq, av_hash)
 
     def match_exactly(self, old_loop):
-        old_operations = old_loop.operations
-        old_mp = old_operations[0]
-        assert len(old_mp.specnodes) == len(self.specnodes)
+        assert len(old_loop.specnodes) == len(self.specnodes)
         for i in range(len(self.specnodes)):
-            old_specnode = old_mp.specnodes[i]
+            old_specnode = old_loop.specnodes[i]
             new_specnode = self.specnodes[i]
             if not old_specnode.equals(new_specnode):
                 return False
         return True
 
     def match(self, old_operations):
+        xxx
         old_mp = old_operations[0]
         jump_op = self.loop.operations[-1]
         assert old_op.opnum == rop.MERGE_POINT

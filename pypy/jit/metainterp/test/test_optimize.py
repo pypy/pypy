@@ -34,10 +34,11 @@ cpu.class_sizes = {cpu.cast_adr_to_int(node_vtable_adr): cpu.sizeof(NODE)}
 
 # ____________________________________________________________
 
-class Loop(object):
-    def __init__(self, inputargs, operations):
-        self.inputargs = inputargs[:]
-        self.operations = [op.clone() for op in operations]
+def Loop(inputargs, operations):
+    history = History(cpu)
+    history.inputargs = inputargs[:]
+    history.operations = [op.clone() for op in operations]
+    return history
 
 class Any(object):
     def __eq__(self, other):

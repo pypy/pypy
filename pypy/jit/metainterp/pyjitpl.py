@@ -857,8 +857,8 @@ class OOMetaInterp(object):
         self.history.inputargs = original_boxes[num_green_args:]
         greenkey = original_boxes[:num_green_args]
         old_loops = self.compiled_merge_points.setdefault(greenkey, [])
-        loop = compile_new_loop(self, old_loops,
-                                live_arg_boxes[num_green_args:])
+        self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
+        loop = compile_new_loop(self, old_loops)
         if not loop:
             raise self.ContinueRunningNormally(live_arg_boxes)
         if not we_are_translated():
@@ -874,9 +874,9 @@ class OOMetaInterp(object):
         except KeyError:
             target_loop = None
         else:
-            target_loop = compile_new_bridge(self, old_loops,
-                                             live_arg_boxes[num_green_args:],
-                                             key)
+            self.history.record(rop.JUMP, live_arg_boxes[num_green_args:],
+                                None)
+            target_loop = compile_new_bridge(self, old_loops, key)
         if target_loop is None:
             raise self.ContinueRunningNormally(live_arg_boxes)
         if not we_are_translated():
@@ -931,8 +931,13 @@ class OOMetaInterp(object):
         # guard failure: rebuild a complete MIFrame stack
         if self.state.must_compile_from_failure(guard_failure.key):
             self.history = history.History(self.cpu)
+            suboperations = guard_failure.key.guard_op.suboperations
+            for i in range(len(suboperations)-1):
+                self.history.operations.append(suboperations[i])
         else:
             self.history = history.BlackHole(self.cpu)
+            # the BlackHole is invalid because it doesn't start with
+            # guard_failure.key.guard_op.suboperations, but that's fine
         self.rebuild_state_after_failure(guard_failure.key.resume_info,
                                          guard_failure.args)
 
