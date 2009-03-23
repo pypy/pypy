@@ -130,10 +130,10 @@ def close_loop(loop, endliveboxes):
     loop.operations.append(op)
 
 def mark_keys_in_loop(loop, operations):
-    op = None
     for op in operations:
         if op.is_guard():
             mark_keys_in_loop(loop, op.suboperations)
+    op = operations[-1]
     if op.opnum == rop.FAIL:
         op.key.loop = loop
 

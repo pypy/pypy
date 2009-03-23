@@ -209,6 +209,7 @@ class ConstAddr(Const):       # only for constants built before translation
 
 class ConstPtr(Const):
     type = 'ptr'
+    value = lltype.nullptr(llmemory.GCREF.TO)
 
     def __init__(self, value):
         assert lltype.typeOf(value) == llmemory.GCREF

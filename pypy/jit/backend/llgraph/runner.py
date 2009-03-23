@@ -117,6 +117,7 @@ class CPU(object):
                 else:
                     raise Exception("%s.result contain: %r" % (op.getopname(),
                                                                x))
+        op = operations[-1]
         assert op.is_final()
         if op.opnum == rop.JUMP:
             llimpl.compile_add_jump_target(c, op.jump_target._compiled_version)

@@ -887,7 +887,8 @@ class OOMetaInterp(object):
     def get_residual_args(self, loop, args):
         if loop.specnodes is None:     # it is None only for tests
             return args
-        xxx
+        assert 0, "XXX fix me"
+        # ---
         assert len(mp.specnodes) == len(args)
         expanded_args = []
         for i in range(len(mp.specnodes)):

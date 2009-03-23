@@ -948,6 +948,7 @@ setannotation(compile_add_int_result, annmodel.SomeInteger())
 setannotation(compile_add_ptr_result, annmodel.SomeInteger())
 setannotation(compile_add_jump_target, annmodel.s_None)
 setannotation(compile_add_fail, annmodel.s_None)
+setannotation(compile_suboperations, s_CompiledLoop)
 
 setannotation(new_frame, s_Frame)
 setannotation(frame_clear, annmodel.s_None)
