@@ -45,8 +45,8 @@ def test_A_optimize_loop():
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
-    assert spec.loop.inputargs == [A.l, A.e0]
-    equaloplists(spec.loop.operations, [
+    assert spec.history.inputargs == [A.l, A.e0]
+    equaloplists(spec.history.operations, [
         ResOperation(rop.SETARRAYITEM_GC, [A.l, ConstInt(0), A.e0], None, A.ad),
         ResOperation(rop.JUMP, [A.l, A.e0], None)
     ])
@@ -74,8 +74,8 @@ def test_B_optimize_loop():
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
-    assert spec.loop.inputargs == [B.l, B.e0]
-    equaloplists(spec.loop.operations, [
+    assert spec.history.inputargs == [B.l, B.e0]
+    equaloplists(spec.history.operations, [
         ResOperation(rop.INT_ADD, [B.e0, ConstInt(1)], B.e1),
         ResOperation(rop.SETARRAYITEM_GC, [B.l, ConstInt(0), B.e1], None, B.ad),
         ResOperation(-123, [B.e1], None),
