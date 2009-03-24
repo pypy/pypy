@@ -213,13 +213,14 @@ def optimize_bridge(options, old_loops, history, cpu=None):
     perfect_specializer = PerfectSpecializer(history, options, cpu)
     perfect_specializer.find_nodes()
     for old_loop in old_loops:
-        if perfect_specializer.match(old_loop.operations):
-            perfect_specializer.adapt_for_match(old_loop.operations)
+        if perfect_specializer.match(old_loop):
+            perfect_specializer.adapt_for_match(old_loop)
             perfect_specializer.optimize_loop()
             return old_loop
     return None     # no loop matches
 
 class PerfectSpecializer(object):
+    _allow_automatic_node_creation = False
 
     def __init__(self, history, options=Options(), cpu=None):
         self.history = history
@@ -232,9 +233,12 @@ class PerfectSpecializer(object):
         try:
             return self.nodes[box]
         except KeyError:
-            assert isinstance(box, Const)
-            node = self.nodes[box] = InstanceNode(box, escaped=True,
-                                                  const=True)
+            if isinstance(box, Const):
+                node = InstanceNode(box, escaped=True, const=True)
+            else:
+                assert self._allow_automatic_node_creation
+                node = InstanceNode(box, escaped=False, startbox=True)
+            self.nodes[box] = node
             return node
 
     def getsource(self, box):
@@ -279,8 +283,13 @@ class PerfectSpecializer(object):
     def find_nodes(self):
         # Steps (1) and (2)
         self.first_escaping_op = True
-        for box in self.history.inputargs:
-            self.nodes[box] = InstanceNode(box, escaped=False, startbox=True)
+        if self.history.inputargs is not None:
+            for box in self.history.inputargs:
+                self.nodes[box] = InstanceNode(box, escaped=False,
+                                               startbox=True)
+        else:
+            self._allow_automatic_node_creation = True
+        #
         for op in self.history.operations:
             #print '| ' + op.repr()
             opnum = op.opnum
@@ -382,7 +391,7 @@ class PerfectSpecializer(object):
                 self.first_escaping_op = False
                 for box in op.args:
                     if isinstance(box, Box):
-                        self.nodes[box].escaped = True
+                        self.getnode(box).escaped = True
             box = op.result
             if box is not None:
                 self.nodes[box] = InstanceNode(box, escaped=True)
@@ -579,19 +588,25 @@ class PerfectSpecializer(object):
             # we never perform this operation here, note
 
     def optimize_loop(self):
+        self._allow_automatic_node_creation = False
         newoperations = []
         exception_might_have_happened = False
-        assert len(self.history.inputargs) == len(self.specnodes)
-        for i in range(len(self.specnodes)):
-            box = self.history.inputargs[i]
-            self.specnodes[i].mutate_nodes(self.nodes[box])
-        newinputargs = self.expanded_version_of(self.history.inputargs, None)
-
-##        assert mp.opnum == rop.CATCH
-##        for box in mp.args:
-##            self.nodes[box].cls = None
-##            assert not self.nodes[box].virtual
-
+        if self.history.inputargs is not None:
+            # closing a loop
+            assert len(self.history.inputargs) == len(self.specnodes)
+            for i in range(len(self.specnodes)):
+                box = self.history.inputargs[i]
+                self.specnodes[i].mutate_nodes(self.nodes[box])
+            newinputargs = self.expanded_version_of(self.history.inputargs,
+                                                    None)
+        else:
+            # making a bridge
+            for node in self.nodes.values():     # xxx slow, maybe
+                if node.startbox:
+                    node.cls = None
+                    assert not node.virtual
+            newinputargs = None
+        #
         for op in self.history.operations:
             opnum = op.opnum
             if opnum == rop.JUMP:
@@ -666,7 +681,7 @@ class PerfectSpecializer(object):
                         if self.optimize_getfield(instnode, ofsbox, op.result):
                             continue
             elif opnum == rop.NEW_WITH_VTABLE:
-                # self.nodes[op.results[0]] keep the value from Steps (1,2)
+                # self.nodes[op.result] keeps the value from Steps (1,2)
                 instnode = self.nodes[op.result]
                 if not instnode.escaped:
                     instnode.virtual = True
@@ -749,7 +764,7 @@ class PerfectSpecializer(object):
                 instnode = InstanceNode(box)
                 self.nodes[box] = instnode
             newoperations.append(op)
-
+        #
         self.history.specnodes = self.specnodes
         self.history.inputargs = newinputargs
         self.history.operations = newoperations
@@ -784,29 +799,24 @@ class PerfectSpecializer(object):
                 return False
         return True
 
-    def match(self, old_operations):
-        xxx
-        old_mp = old_operations[0]
-        jump_op = self.loop.operations[-1]
-        assert old_op.opnum == rop.MERGE_POINT
+    def match(self, old_loop):
+        jump_op = self.history.operations[-1]
         assert jump_op.opnum == rop.JUMP
-        assert len(old_mp.specnodes) == len(jump_op.args)
-        for i in range(len(old_mp.specnodes)):
-            old_specnode = old_mp.specnodes[i]
-            new_instnode = self.nodes[jump_op.args[i]]
+        assert len(old_loop.specnodes) == len(jump_op.args)
+        for i in range(len(old_loop.specnodes)):
+            old_specnode = old_loop.specnodes[i]
+            new_instnode = self.getnode(jump_op.args[i])
             if not old_specnode.matches(new_instnode):
                 return False
         return True
 
-    def adapt_for_match(self, old_operations):
-        old_mp = old_operations[0]
-        jump_op = self.loop.operations[-1]
-        assert old_op.opnum == rop.MERGE_POINT
+    def adapt_for_match(self, old_loop):
+        jump_op = self.history.operations[-1]
         assert jump_op.opnum == rop.JUMP
-        self.specnodes = old_mp.specnodes
-        for i in range(len(old_mp.specnodes)):
-            old_specnode = old_mp.specnodes[i]
-            new_instnode = self.nodes[jump_op.args[i]]
+        self.specnodes = old_loop.specnodes
+        for i in range(len(old_loop.specnodes)):
+            old_specnode = old_loop.specnodes[i]
+            new_instnode = self.getnode(jump_op.args[i])
             old_specnode.adapt_to(new_instnode)
 
 def get_in_list(dict, boxes_or_consts):

@@ -136,12 +136,12 @@ def compile_fresh_bridge(metainterp, old_loops, resumekey):
                                         metainterp.history, metainterp.cpu)
     if old_loop is None:
         return None
-    target_loop = old_loops[0]
-    op.jump_target = target_loop
     source_loop = resumekey.loop
     guard_op = resumekey.guard_op
-    guard_op.suboperations = self.history.operations
+    guard_op.suboperations = metainterp.history.operations
+    op = guard_op.suboperations[-1]
+    op.jump_target = old_loop
     mark_keys_in_loop(source_loop, guard_op.suboperations)
     send_loop_to_backend(metainterp, source_loop)
     metainterp.stats.compiled_count += 1
-    return target_loop
+    return old_loop
