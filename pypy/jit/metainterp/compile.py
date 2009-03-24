@@ -140,7 +140,7 @@ def send_loop_to_backend(metainterp, loop, is_loop):
 def compile_fresh_bridge(metainterp, old_loops, resumekey):
     #temp = TreeLoop('temp')
     #temp.operations = metainterp.history.operations
-    #temp.show()
+    #metainterp.stats.view(extraloops=[temp])
     target_loop = optimize.optimize_bridge(metainterp.options, old_loops,
                                            metainterp.history, metainterp.cpu)
     if target_loop is None:
