@@ -568,9 +568,11 @@ class PerfectSpecializer(object):
                 return True
             # this means field comes from a virtualizable but is never
             # written. Cool, simply make the result constant
-            self.nodes[box] = InstanceNode(box.constbox(), const=True)
-            return True
-        elif ofs in instnode.cleanfields:
+            # XXX uh??? making it constant in the resulting assembler
+            # is just plain wrong
+            #self.nodes[box] = InstanceNode(box.constbox(), const=True)
+            #return True
+        if ofs in instnode.cleanfields:
             self.nodes[box] = instnode.cleanfields[ofs]
             return True
         else:
