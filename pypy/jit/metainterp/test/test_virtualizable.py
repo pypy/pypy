@@ -6,6 +6,8 @@ from pypy.rlib.jit import JitDriver, hint
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.rpython.lltypesystem.rvirtualizable2 import VABLERTIPTR
 from pypy.jit.metainterp.test.test_vable_optimize import XY, xy_vtable
+from pypy.jit.metainterp.warmspot import get_stats
+from pypy.jit.metainterp import history
 
 promote_virtualizable = lloperation.llop.promote_virtualizable
 debug_print = lloperation.llop.debug_print
@@ -25,62 +27,65 @@ class ExplicitVirtualizableTests:
         return xy
 
     def test_preexisting_access(self):
+        py.test.skip("bugs")
         myjitdriver = JitDriver(greens = [], reds = ['n', 'xy'],
                                 virtualizables = ['xy'])
         def f(n):
             xy = self.setup()
-            xy.x = 10
+            xy.inst_x = 10
             while n > 0:
                 myjitdriver.can_enter_jit(xy=xy, n=n)
                 myjitdriver.jit_merge_point(xy=xy, n=n)
-                promote_virtualizable(lltype.Void, xy, 'x')
-                x = xy.x
-                xy.x = x + 1
+                promote_virtualizable(lltype.Void, xy, 'inst_x')
+                x = xy.inst_x
+                xy.inst_x = x + 1
                 n -= 1
-            return xy.x
+            return xy.inst_x
         res = self.meta_interp(f, [20])
         assert res == 30
         self.check_loops(getfield_gc=0, setfield_gc=0)
 
     def test_preexisting_access_2(self):
+        py.test.skip("bugs")
         myjitdriver = JitDriver(greens = [], reds = ['n', 'xy'],
                                 virtualizables = ['xy'])
         def f(n):
             xy = self.setup()
-            xy.x = 100
+            xy.inst_x = 100
             while n > -8:
                 myjitdriver.can_enter_jit(xy=xy, n=n)
                 myjitdriver.jit_merge_point(xy=xy, n=n)
                 if n > 0:
-                    promote_virtualizable(lltype.Void, xy, 'x')
-                    x = xy.x
-                    xy.x = x + 1
+                    promote_virtualizable(lltype.Void, xy, 'inst_x')
+                    x = xy.inst_x
+                    xy.inst_x = x + 1
                 else:
-                    promote_virtualizable(lltype.Void, xy, 'x')
-                    x = xy.x
-                    xy.x = x + 10
+                    promote_virtualizable(lltype.Void, xy, 'inst_x')
+                    x = xy.inst_x
+                    xy.inst_x = x + 10
                 n -= 1
-            return xy.x
+            return xy.inst_x
         res = self.meta_interp(f, [5])
         assert res == 185
         self.check_loops(getfield_gc=0, setfield_gc=0)
 
     def test_two_paths_access(self):
+        py.test.skip("bugs")
         myjitdriver = JitDriver(greens = [], reds = ['n', 'xy'],
                                 virtualizables = ['xy'])
         def f(n):
             xy = self.setup()
-            xy.x = 100
+            xy.inst_x = 100
             while n > 0:
                 myjitdriver.can_enter_jit(xy=xy, n=n)
                 myjitdriver.jit_merge_point(xy=xy, n=n)
-                promote_virtualizable(lltype.Void, xy, 'x')
-                x = xy.x
+                promote_virtualizable(lltype.Void, xy, 'inst_x')
+                x = xy.inst_x
                 if n <= 10:
                     x += 1000
-                xy.x = x + 1
+                xy.inst_x = x + 1
                 n -= 1
-            return xy.x
+            return xy.inst_x
         res = self.meta_interp(f, [18])
         assert res == 10118
         self.check_loops(getfield_gc=0, setfield_gc=0)                        
@@ -394,7 +399,6 @@ class ImplicitVirtualizableTests:
         assert res == 2
 
     def test_pass_always_virtual_to_bridge(self):
-        py.test.skip("in-progress")
         jitdriver = JitDriver(greens = [], reds = ['frame', 'n'],
                               virtualizables = ['frame'])
 
@@ -419,11 +423,22 @@ class ImplicitVirtualizableTests:
 
         res = self.meta_interp(f, [30], listops=True)
         self.check_loops(setarrayitem_gc=0)
-        self.check_loop_count(2)
+        #self.check_loop_count(2) -- this is hard to predict right now:
+        #  what occurs is that one path through the loop is compiled,
+        #  then exits; then later when we compile again we see the other
+        #  path of the loop by chance, then exits; then finally we see
+        #  again one loop or the other, and this time we make a bridge.
+        #  So dependening on details we may or may not compile the other
+        #  path as an independent loop.
         assert res == 3
+        if self.basic:
+            for loop in get_stats().loops:
+                for op in loop._all_operations():
+                    if op.getopname() == "int_sub":
+                        assert isinstance(op.args[0], history.BoxInt)
+                        assert isinstance(op.args[1], history.BoxInt)
 
     def test_virtual_obj_on_always_virtual(self):
-        py.test.skip("in-progress")
         jitdriver = JitDriver(greens = [], reds = ['frame', 'n', 's'],
                               virtualizables = ['frame'])
 
@@ -452,11 +467,49 @@ class ImplicitVirtualizableTests:
                     s += frame.l[1].elem
                     frame.l[1] = Stuff(n)
                 n -= 1
-            return s
+            return (frame.l[0].elem << 16) + frame.l[1].elem
 
         res = self.meta_interp(f, [30], listops=True)
         self.check_loops(getfield_gc=0)
         assert res == f(30)
+
+
+    def test_virtual_obj_on_always_virtual_more_bridges(self):
+        jitdriver = JitDriver(greens = [], reds = ['frame', 'n', 's'],
+                              virtualizables = ['frame'])
+
+        class Frame(object):
+            _virtualizable2_ = True
+
+            _always_virtual_ = ['l']
+
+            def __init__(self, l):
+                self.l = l
+
+        class Stuff(object):
+            def __init__(self, elem):
+                self.elem = elem
+
+        def f(n):
+            frame = Frame([Stuff(3), Stuff(4)])
+            s = 0
+            while n > 0:
+                jitdriver.can_enter_jit(frame=frame, n=n, s=s)
+                jitdriver.jit_merge_point(frame=frame, n=n, s=s)
+                if n % 2:
+                    s += frame.l[0].elem
+                    frame.l[0] = Stuff(n)
+                elif n % 3:
+                    s += 1
+                else:
+                    s += frame.l[1].elem
+                    frame.l[1] = Stuff(n)
+                n -= 1
+            return (frame.l[0].elem << 16) + frame.l[1].elem
+
+        res = self.meta_interp(f, [60], listops=True)
+        self.check_loops(getfield_gc=0)
+        assert res == f(60)
 
     def test_external_read(self):
         py.test.skip("Fails")

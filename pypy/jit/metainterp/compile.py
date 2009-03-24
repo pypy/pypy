@@ -43,13 +43,14 @@ class BridgeInProgress(Exception):
 # the following is not translatable
 def _compile_new_loop_1(metainterp, old_loops):
     try:
+        old_loops_1 = old_loops[:]
         try:
             loop = compile_fresh_loop(metainterp, old_loops)
         except Exception, exc:
             show_loop(metainterp, error=exc)
             raise
         else:
-            if loop in old_loops:
+            if loop in old_loops_1:
                 log.info("reusing loop at %r" % (loop,))
             else:
                 show_loop(metainterp, loop)
@@ -112,9 +113,8 @@ def compile_fresh_loop(metainterp, old_loops):
     loop.operations = history.operations
     loop.operations[-1].jump_target = loop
     mark_keys_in_loop(loop, loop.operations)
-    send_loop_to_backend(metainterp, loop)
+    send_loop_to_backend(metainterp, loop, True)
     metainterp.stats.loops.append(loop)
-    metainterp.stats.compiled_count += 1
     old_loops.append(loop)
     return loop
 
@@ -126,22 +126,27 @@ def mark_keys_in_loop(loop, operations):
     if op.opnum == rop.FAIL:
         op.key.loop = loop
 
-def send_loop_to_backend(metainterp, loop):
+def send_loop_to_backend(metainterp, loop, is_loop):
     metainterp.cpu.compile_operations(loop)
+    metainterp.stats.compiled_count += 1
+    if not we_are_translated():
+        if is_loop:
+            log.info("compiling new loop")
+        else:
+            log.info("compiling new bridge")
 
 # ____________________________________________________________
 
 def compile_fresh_bridge(metainterp, old_loops, resumekey):
-    old_loop = optimize.optimize_bridge(metainterp.options, old_loops,
-                                        metainterp.history, metainterp.cpu)
-    if old_loop is None:
+    target_loop = optimize.optimize_bridge(metainterp.options, old_loops,
+                                           metainterp.history, metainterp.cpu)
+    if target_loop is None:
         return None
     source_loop = resumekey.loop
     guard_op = resumekey.guard_op
     guard_op.suboperations = metainterp.history.operations
     op = guard_op.suboperations[-1]
-    op.jump_target = old_loop
+    op.jump_target = target_loop
     mark_keys_in_loop(source_loop, guard_op.suboperations)
-    send_loop_to_backend(metainterp, source_loop)
-    metainterp.stats.compiled_count += 1
-    return old_loop
+    send_loop_to_backend(metainterp, source_loop, False)
+    return target_loop
