@@ -10,7 +10,8 @@ from pypy.jit.metainterp.optimize import (PerfectSpecializer,
                                           VirtualizableSpecNode,
                                           VirtualInstanceSpecNode,
                                           NotSpecNode,
-                                          DelayedSpecNode)
+                                          FixedClassSpecNode)
+#                                          DelayedSpecNode)
 from pypy.jit.metainterp.virtualizable import VirtualizableDesc
 from pypy.jit.metainterp.test.test_optimize import (cpu, NODE, node_vtable,
                                                     equaloplists, Loop,
@@ -196,7 +197,7 @@ def test_C_intersect_input_and_output():
     assert isinstance(spec.specnodes[0], VirtualizableSpecNode)
     assert len(spec.specnodes[0].fields) == 1
     assert spec.specnodes[0].fields[0][0] == C.ofs_node
-    assert isinstance(spec.specnodes[0].fields[0][1], DelayedSpecNode)
+    assert isinstance(spec.specnodes[0].fields[0][1], FixedClassSpecNode)
 
 
 # ____________________________________________________________

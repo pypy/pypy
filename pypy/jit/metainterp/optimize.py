@@ -6,9 +6,9 @@ from pypy.jit.metainterp.specnode import (FixedClassSpecNode,
                                           VirtualInstanceSpecNode,
                                           VirtualizableSpecNode,
                                           NotSpecNode,
-                                          DelayedSpecNode,
-                                          SpecNodeWithBox,
-                                          DelayedFixedListSpecNode,
+#                                          DelayedSpecNode,
+#                                          SpecNodeWithBox,
+#                                          DelayedFixedListSpecNode,
                                           VirtualFixedListSpecNode,
                                           VirtualizableListSpecNode,
                                           )
@@ -63,9 +63,9 @@ class InstanceNode(object):
         self.cls = None
         self.origfields = r_dict(av_eq, av_hash)
         self.curfields = r_dict(av_eq, av_hash)
-        self.cleanfields = r_dict(av_eq, av_hash)
-        self.dirtyfields = r_dict(av_eq, av_hash)
-        self.expanded_fields = r_dict(av_eq, av_hash)
+        #self.cleanfields = r_dict(av_eq, av_hash)
+        #self.dirtyfields = r_dict(av_eq, av_hash)
+        #self.expanded_fields = r_dict(av_eq, av_hash)
         self.cursize = -1
         self.vdesc = None # for virtualizables
 
@@ -119,8 +119,8 @@ class InstanceNode(object):
             known_class = self.cls.source
         else:
             known_class = other.cls.source
-        if (other.escaped and not other.virtualized and
-            not self.expanded_fields):
+        if (other.escaped and not other.virtualized):# and
+            #not self.expanded_fields):
             if self.cls is None:
                 return NotSpecNode()
             if isinstance(known_class, FixedList):
@@ -145,40 +145,40 @@ class InstanceNode(object):
                 return VirtualFixedListSpecNode(known_class, fields,
                                                 other.cursize)
             return VirtualInstanceSpecNode(known_class, fields)
-        if not other.virtualized and self.expanded_fields:
-            fields = []
-            lst = self.expanded_fields.keys()
-            sort_descrs(lst)
-            for ofs in lst:
-                specnode = SpecNodeWithBox(self.origfields[ofs].source)
-                fields.append((ofs, specnode))
-            if isinstance(known_class, FixedList):
-                return DelayedFixedListSpecNode(known_class, fields)
-            return DelayedSpecNode(known_class, fields)
-        else:
-            assert self is other
-            d = self.origfields.copy()
-            d.update(other.curfields)
-            offsets = d.keys()
-            sort_descrs(offsets)
-            fields = []
-            for ofs in offsets:
-                if ofs in other.curfields:
-                    node = other.curfields[ofs]
-                    if ofs not in self.origfields:
-                        box = node.source.clonebox()
-                        self.origfields[ofs] = InstanceNode(box, escaped=False)
-                        self.origfields[ofs].cls = node.cls
-                        nodes[box] = self.origfields[ofs]
-                    specnode = self.origfields[ofs].intersect(node, nodes)
-                else:
-                    # ofs in self.origfields:
-                    node = self.origfields[ofs]
-                    specnode = node.intersect(node, nodes)
-                fields.append((ofs, specnode))
-            if isinstance(known_class, FixedList):
-                return VirtualizableListSpecNode(known_class, fields)
-            return VirtualizableSpecNode(known_class, fields)
+        #if not other.virtualized and self.expanded_fields:
+        #    fields = []
+        #    lst = self.expanded_fields.keys()
+        #    sort_descrs(lst)
+        #    for ofs in lst:
+        #        specnode = SpecNodeWithBox(self.origfields[ofs].source)
+        #        fields.append((ofs, specnode))
+        #    if isinstance(known_class, FixedList):
+        #        return DelayedFixedListSpecNode(known_class, fields)
+        #    return DelayedSpecNode(known_class, fields)
+        assert other.virtualized
+        assert self is other
+        d = self.origfields.copy()
+        d.update(other.curfields)
+        offsets = d.keys()
+        sort_descrs(offsets)
+        fields = []
+        for ofs in offsets:
+            if ofs in other.curfields:
+                node = other.curfields[ofs]
+                if ofs not in self.origfields:
+                    box = node.source.clonebox()
+                    self.origfields[ofs] = InstanceNode(box, escaped=False)
+                    self.origfields[ofs].cls = node.cls
+                    nodes[box] = self.origfields[ofs]
+                specnode = self.origfields[ofs].intersect(node, nodes)
+            else:
+                # ofs in self.origfields:
+                node = self.origfields[ofs]
+                specnode = node.intersect(node, nodes)
+            fields.append((ofs, specnode))
+        if isinstance(known_class, FixedList):
+            return VirtualizableListSpecNode(known_class, fields)
+        return VirtualizableSpecNode(known_class, fields)
 
     def __repr__(self):
         flags = ''
@@ -264,8 +264,8 @@ class PerfectSpecializer(object):
             self.dependency_graph.append((instnode, fieldnode))
             instnode.origfields[field] = fieldnode
         self.nodes[box] = fieldnode
-        if (self.first_escaping_op and instnode.cls):
-            instnode.expanded_fields[field] = None
+        #if (self.first_escaping_op and instnode.cls):
+        #    instnode.expanded_fields[field] = None
 
     def find_nodes_getarrayitem(self, op):
         instnode = self.getnode(op.args[0])
@@ -516,32 +516,32 @@ class PerfectSpecializer(object):
             if node.virtualized:
                 self.prepare_rebuild_ops(node, rebuild_ops, memo)
 
-        # start of code for dirtyfields support
-        for node in self.nodes.values():
-            for ofs, subnode in node.dirtyfields.items():
-                box = node.source
-                if box not in memo and isinstance(box, Box):
-                    memo[box] = box
-                #index = (rev_boxes[box] << FLAG_SHIFT) | FLAG_BOXES_FROM_FRAME
-                fieldbox = subnode.source
-                if fieldbox not in memo and isinstance(fieldbox, Box):
-                    memo[fieldbox] = fieldbox
-                #fieldindex = ((rev_boxes[fieldbox] << FLAG_SHIFT) |
-                #              FLAG_BOXES_FROM_FRAME)
-                if (node.cls is not None and
-                    isinstance(node.cls.source, FixedList)):
-                    ld = node.cls.source
-                    assert isinstance(ld, FixedList)
-                    ad = ld.arraydescr
-                    op1 = ResOperation(rop.SETARRAYITEM_GC,
-                                       [box, ofs, fieldbox],
-                                       None, descr=ad)
-                else:
-                    assert isinstance(ofs, AbstractDescr)
-                    op1 = ResOperation(rop.SETFIELD_GC, [box, fieldbox],
-                                       None, descr=ofs)
-                rebuild_ops.append(op1)
-        # end of code for dirtyfields support
+#         # start of code for dirtyfields support
+#         for node in self.nodes.values():
+#             for ofs, subnode in node.dirtyfields.items():
+#                 box = node.source
+#                 if box not in memo and isinstance(box, Box):
+#                     memo[box] = box
+#                 #index = (rev_boxes[box] << FLAG_SHIFT) | FLAG_BOXES_FROM_FRAME
+#                 fieldbox = subnode.source
+#                 if fieldbox not in memo and isinstance(fieldbox, Box):
+#                     memo[fieldbox] = fieldbox
+#                 #fieldindex = ((rev_boxes[fieldbox] << FLAG_SHIFT) |
+#                 #              FLAG_BOXES_FROM_FRAME)
+#                 if (node.cls is not None and
+#                     isinstance(node.cls.source, FixedList)):
+#                     ld = node.cls.source
+#                     assert isinstance(ld, FixedList)
+#                     ad = ld.arraydescr
+#                     op1 = ResOperation(rop.SETARRAYITEM_GC,
+#                                        [box, ofs, fieldbox],
+#                                        None, descr=ad)
+#                 else:
+#                     assert isinstance(ofs, AbstractDescr)
+#                     op1 = ResOperation(rop.SETFIELD_GC, [box, fieldbox],
+#                                        None, descr=ofs)
+#                 rebuild_ops.append(op1)
+#         # end of code for dirtyfields support
 
         op_fail.args = unoptboxes
         rebuild_ops.append(op_fail)
@@ -572,21 +572,24 @@ class PerfectSpecializer(object):
             # is just plain wrong
             #self.nodes[box] = InstanceNode(box.constbox(), const=True)
             #return True
-        if ofs in instnode.cleanfields:
-            self.nodes[box] = instnode.cleanfields[ofs]
-            return True
-        else:
-            instnode.cleanfields[ofs] = InstanceNode(box)
-            return False
+        #if ofs in instnode.cleanfields:
+        #    self.nodes[box] = instnode.cleanfields[ofs]
+        #    return True
+        #else:
+        #    instnode.cleanfields[ofs] = InstanceNode(box)
+        #    return False
+        return False
 
     def optimize_setfield(self, instnode, ofs, valuenode, valuebox):
         assert isinstance(ofs, AbstractValue)
         if instnode.virtual or instnode.virtualized:
             instnode.curfields[ofs] = valuenode
+            return True
         else:
             assert not valuenode.virtual
-            instnode.cleanfields[ofs] = self.nodes[valuebox]
-            instnode.dirtyfields[ofs] = self.nodes[valuebox]
+            return False
+            #instnode.cleanfields[ofs] = self.nodes[valuebox]
+            #instnode.dirtyfields[ofs] = self.nodes[valuebox]
             # we never perform this operation here, note
 
     def optimize_loop(self):
@@ -616,7 +619,7 @@ class PerfectSpecializer(object):
                 for arg in args:
                     if arg in self.nodes:
                         assert not self.nodes[arg].virtual
-                self.cleanup_field_caches(newoperations)
+                #self.cleanup_field_caches(newoperations)
                 op.args = args
                 newoperations.append(op)
                 break
@@ -699,8 +702,8 @@ class PerfectSpecializer(object):
                 instnode = self.nodes[op.args[0]]
                 valuenode = self.nodes[op.args[1]]
                 ofs = op.descr
-                self.optimize_setfield(instnode, ofs, valuenode, op.args[1])
-                continue
+                if self.optimize_setfield(instnode, ofs, valuenode, op.args[1]):
+                    continue
             elif opnum == rop.SETARRAYITEM_GC:
                 instnode = self.nodes[op.args[0]]
                 if instnode.cls is None:
@@ -708,9 +711,9 @@ class PerfectSpecializer(object):
                 ofsbox = self.getsource(op.args[1])
                 if isinstance(ofsbox, ConstInt):
                     valuenode = self.getnode(op.args[2])
-                    self.optimize_setfield(instnode, ofsbox, valuenode,
-                                           op.args[2])
-                    continue
+                    if self.optimize_setfield(instnode, ofsbox, valuenode,
+                                              op.args[2]):
+                        continue
             elif (opnum == rop.OOISNULL or
                   opnum == rop.OONONNULL):
                 instnode = self.getnode(op.args[0])
@@ -753,12 +756,12 @@ class PerfectSpecializer(object):
                     instnode = InstanceNode(box.constbox(), const=True)
                     self.nodes[box] = instnode
                     continue
-            elif (not op.has_no_side_effect()
-                  and opnum != rop.SETFIELD_GC and
-                  opnum != rop.SETARRAYITEM_GC):
+            #elif (not op.has_no_side_effect()
+            #      and opnum != rop.SETFIELD_GC and
+            #      opnum != rop.SETARRAYITEM_GC):
                 # the setfield operations do not clean up caches, although
                 # they have side effects
-                self.cleanup_field_caches(newoperations)
+                #self.cleanup_field_caches(newoperations)
             if op.can_raise():
                 exception_might_have_happened = True
             box = op.result
@@ -771,26 +774,26 @@ class PerfectSpecializer(object):
         self.history.inputargs = newinputargs
         self.history.operations = newoperations
 
-    def cleanup_field_caches(self, newoperations):
-        # we need to invalidate everything
-        # XXX looping over self.nodes on each side-effecting operation
-        # XXX costs too much (quadratic time)
-        for node in self.nodes.values():
-            for ofs, valuenode in node.dirtyfields.items():
-                # XXX move to InstanceNode eventually
-                if (node.cls is not None and
-                    isinstance(node.cls.source, FixedList)):
-                    ld = node.cls.source
-                    assert isinstance(ld, FixedList)
-                    newoperations.append(ResOperation(rop.SETARRAYITEM_GC,
-                                          [node.source, ofs, valuenode.source],
-                                                      None, ld.arraydescr))
-                else:
-                    assert isinstance(ofs, AbstractDescr)
-                    newoperations.append(ResOperation(rop.SETFIELD_GC,
-                       [node.source, valuenode.source], None, ofs))
-            node.dirtyfields = r_dict(av_eq, av_hash)
-            node.cleanfields = r_dict(av_eq, av_hash)
+#     def cleanup_field_caches(self, newoperations):
+#         # we need to invalidate everything
+#         # XXX looping over self.nodes on each side-effecting operation
+#         # XXX costs too much (quadratic time)
+#         for node in self.nodes.values():
+#             for ofs, valuenode in node.dirtyfields.items():
+#                 # XXX move to InstanceNode eventually
+#                 if (node.cls is not None and
+#                     isinstance(node.cls.source, FixedList)):
+#                     ld = node.cls.source
+#                     assert isinstance(ld, FixedList)
+#                     newoperations.append(ResOperation(rop.SETARRAYITEM_GC,
+#                                           [node.source, ofs, valuenode.source],
+#                                                       None, ld.arraydescr))
+#                 else:
+#                     assert isinstance(ofs, AbstractDescr)
+#                     newoperations.append(ResOperation(rop.SETFIELD_GC,
+#                        [node.source, valuenode.source], None, ofs))
+#             #node.dirtyfields = r_dict(av_eq, av_hash)
+#             #node.cleanfields = r_dict(av_eq, av_hash)
 
     def match_exactly(self, old_loop):
         assert len(old_loop.specnodes) == len(self.specnodes)

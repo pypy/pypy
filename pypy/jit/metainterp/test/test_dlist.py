@@ -2,6 +2,7 @@
 import py
 from pypy.rlib.jit import JitDriver
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
+py.test.skip("Disabled")
 
 class ListTests:
     def test_basic(self):

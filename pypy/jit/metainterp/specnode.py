@@ -34,15 +34,15 @@ class NotSpecNode(SpecNode):
         # NotSpecNode matches everything
         return True
 
-class SpecNodeWithBox(NotSpecNode):
-    # XXX what is this class used for?
-    def __init__(self, box):
-        self.box = box
+#class SpecNodeWithBox(NotSpecNode):
+#    # XXX what is this class used for?
+#    def __init__(self, box):
+#        self.box = box
     
-    def equals(self, other):
-        if type(other) is SpecNodeWithBox:
-            return True
-        return False
+#    def equals(self, other):
+#        if type(other) is SpecNodeWithBox:
+#            return True
+#        return False
 
 class FixedClassSpecNode(SpecNode):
     def __init__(self, known_class):
@@ -152,65 +152,65 @@ class VirtualizedSpecNode(SpecNodeWithFields):
         instnode.escaped = True
         SpecNodeWithFields.adapt_to(self, instnode)
 
-class DelayedSpecNode(VirtualizedSpecNode):
+# class DelayedSpecNode(VirtualizedSpecNode):
 
-    def expand_boxlist(self, instnode, newboxlist, oplist):
-        from pypy.jit.metainterp.history import AbstractDescr
-        newboxlist.append(instnode.source)
-        for ofs, subspecnode in self.fields:
-            assert isinstance(subspecnode, SpecNodeWithBox)
-            if oplist is None:
-                instnode.cleanfields[ofs] = instnode.origfields[ofs]
-                newboxlist.append(instnode.curfields[ofs].source)
-            else:
-                if ofs in instnode.cleanfields:
-                    newboxlist.append(instnode.cleanfields[ofs].source)
-                else:
-                    box = subspecnode.box.clonebox()
-                    assert isinstance(ofs, AbstractDescr)
-                    oplist.append(ResOperation(rop.GETFIELD_GC,
-                       [instnode.source], box, ofs))
-                    newboxlist.append(box)
+#     def expand_boxlist(self, instnode, newboxlist, oplist):
+#         from pypy.jit.metainterp.history import AbstractDescr
+#         newboxlist.append(instnode.source)
+#         for ofs, subspecnode in self.fields:
+#             assert isinstance(subspecnode, SpecNodeWithBox)
+#             if oplist is None:
+#                 instnode.cleanfields[ofs] = instnode.origfields[ofs]
+#                 newboxlist.append(instnode.curfields[ofs].source)
+#             else:
+#                 if ofs in instnode.cleanfields:
+#                     newboxlist.append(instnode.cleanfields[ofs].source)
+#                 else:
+#                     box = subspecnode.box.clonebox()
+#                     assert isinstance(ofs, AbstractDescr)
+#                     oplist.append(ResOperation(rop.GETFIELD_GC,
+#                        [instnode.source], box, ofs))
+#                     newboxlist.append(box)
 
-class DelayedFixedListSpecNode(DelayedSpecNode):
+# class DelayedFixedListSpecNode(DelayedSpecNode):
 
-   def expand_boxlist(self, instnode, newboxlist, oplist):
-       from pypy.jit.metainterp.history import ResOperation
-       from pypy.jit.metainterp.resoperation import rop
-       from pypy.jit.metainterp.optimize import FixedList
+#    def expand_boxlist(self, instnode, newboxlist, oplist):
+#        from pypy.jit.metainterp.history import ResOperation
+#        from pypy.jit.metainterp.resoperation import rop
+#        from pypy.jit.metainterp.optimize import FixedList
         
-       newboxlist.append(instnode.source)
-       cls = self.known_class
-       assert isinstance(cls, FixedList)
-       arraydescr = cls.arraydescr
-       for ofs, subspecnode in self.fields:
-           assert isinstance(subspecnode, SpecNodeWithBox)
-           if oplist is None:
-               instnode.cleanfields[ofs] = instnode.origfields[ofs]
-               newboxlist.append(instnode.curfields[ofs].source)
-           else:
-               if ofs in instnode.cleanfields:
-                   newboxlist.append(instnode.cleanfields[ofs].source)
-               else:
-                   box = subspecnode.box.clonebox()
-                   oplist.append(ResOperation(rop.GETARRAYITEM_GC,
-                      [instnode.source, ofs], box, arraydescr))
-                   newboxlist.append(box)
+#        newboxlist.append(instnode.source)
+#        cls = self.known_class
+#        assert isinstance(cls, FixedList)
+#        arraydescr = cls.arraydescr
+#        for ofs, subspecnode in self.fields:
+#            assert isinstance(subspecnode, SpecNodeWithBox)
+#            if oplist is None:
+#                instnode.cleanfields[ofs] = instnode.origfields[ofs]
+#                newboxlist.append(instnode.curfields[ofs].source)
+#            else:
+#                if ofs in instnode.cleanfields:
+#                    newboxlist.append(instnode.cleanfields[ofs].source)
+#                else:
+#                    box = subspecnode.box.clonebox()
+#                    oplist.append(ResOperation(rop.GETARRAYITEM_GC,
+#                       [instnode.source, ofs], box, arraydescr))
+#                    newboxlist.append(box)
 
-   def extract_runtime_data(self, cpu, valuebox, resultlist):
-       from pypy.jit.metainterp.resoperation import rop
-       from pypy.jit.metainterp.optimize import FixedList
-       from pypy.jit.metainterp.history import check_descr
+#    def extract_runtime_data(self, cpu, valuebox, resultlist):
+#        from pypy.jit.metainterp.resoperation import rop
+#        from pypy.jit.metainterp.optimize import FixedList
+#        from pypy.jit.metainterp.history import check_descr
        
-       resultlist.append(valuebox)
-       cls = self.known_class
-       assert isinstance(cls, FixedList)
-       arraydescr = cls.arraydescr
-       check_descr(arraydescr)
-       for ofs, subspecnode in self.fields:
-           fieldbox = executor.execute(cpu, rop.GETARRAYITEM_GC,
-                                       [valuebox, ofs], arraydescr)
-           subspecnode.extract_runtime_data(cpu, fieldbox, resultlist)
+#        resultlist.append(valuebox)
+#        cls = self.known_class
+#        assert isinstance(cls, FixedList)
+#        arraydescr = cls.arraydescr
+#        check_descr(arraydescr)
+#        for ofs, subspecnode in self.fields:
+#            fieldbox = executor.execute(cpu, rop.GETARRAYITEM_GC,
+#                                        [valuebox, ofs], arraydescr)
+#            subspecnode.extract_runtime_data(cpu, fieldbox, resultlist)
 
 class VirtualizableSpecNode(VirtualizedSpecNode):
 

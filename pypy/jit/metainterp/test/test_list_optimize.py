@@ -1,5 +1,6 @@
 
 import py
+py.test.skip("Disabled")
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.metainterp.optimize import (PerfectSpecializer,

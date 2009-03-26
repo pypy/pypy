@@ -574,6 +574,7 @@ class K0:
         ]
 
 def test_K0_optimize_loop():
+    py.test.skip("Disabled")
     spec = PerfectSpecializer(Loop(K0.inputargs, K0.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
@@ -608,6 +609,7 @@ class K1:
         ]
 
 def test_K1_optimize_loop():
+    py.test.skip("Disabled")
     spec = PerfectSpecializer(Loop(K1.inputargs, K1.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
@@ -641,6 +643,7 @@ class K:
         ]
 
 def test_K_optimize_loop():
+    py.test.skip("Disabled")
     spec = PerfectSpecializer(Loop(K.inputargs, K.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
@@ -672,6 +675,7 @@ class L:
         ]
 
 def test_L_optimize_loop():
+    py.test.skip("Disabled")
     spec = PerfectSpecializer(Loop(L.inputargs, L.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
@@ -703,6 +707,7 @@ class M:
         ]
 
 def test_M_optimize_loop():
+    py.test.skip("Disabled")
     spec = PerfectSpecializer(Loop(M.inputargs, M.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
@@ -734,6 +739,7 @@ class N:
         ]
 
 def test_N_optimize_loop():
+    py.test.skip("Disabled")
     spec = PerfectSpecializer(Loop(N.inputargs, N.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
