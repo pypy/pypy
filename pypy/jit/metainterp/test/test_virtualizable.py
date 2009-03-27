@@ -439,7 +439,7 @@ class ImplicitVirtualizableTests:
                         assert isinstance(op.args[1], history.BoxInt)
 
     def test_virtual_obj_on_always_virtual(self):
-        py.test.skip("XXX")
+        py.test.skip("XX")
         jitdriver = JitDriver(greens = [], reds = ['frame', 'n', 's'],
                               virtualizables = ['frame'])
 

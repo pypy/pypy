@@ -3,15 +3,9 @@ from pypy.jit.metainterp.history import (Box, Const, ConstInt, BoxInt, BoxPtr,
                                          ResOperation, AbstractDescr,
                                          Options, AbstractValue, ConstPtr)
 from pypy.jit.metainterp.specnode import (FixedClassSpecNode,
-                                          VirtualInstanceSpecNode,
-                                          VirtualizableSpecNode,
-                                          NotSpecNode,
-#                                          DelayedSpecNode,
-#                                          SpecNodeWithBox,
-#                                          DelayedFixedListSpecNode,
-                                          VirtualFixedListSpecNode,
-                                          VirtualizableListSpecNode,
-                                          )
+   VirtualInstanceSpecNode, VirtualizableSpecNode, NotSpecNode,
+   VirtualFixedListSpecNode, VirtualizableListSpecNode,
+   MatchEverythingSpecNode)
 from pypy.jit.metainterp import executor
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import lltype, llmemory
@@ -68,6 +62,7 @@ class InstanceNode(object):
         #self.expanded_fields = r_dict(av_eq, av_hash)
         self.cursize = -1
         self.vdesc = None # for virtualizables
+        self.allfields = None
 
     def is_nonzero(self):
         return self.cls is not None or self.nonzero
@@ -75,7 +70,7 @@ class InstanceNode(object):
     def is_zero(self):
         return self.const and not self.source.getptr_base()
 
-    def escape_if_startbox(self, memo):
+    def escape_if_startbox(self, memo, cpu):
         if self in memo:
             return
         memo[self] = None
@@ -83,23 +78,32 @@ class InstanceNode(object):
             self.escaped = True
         if not self.virtualized:
             for node in self.curfields.values():
-                node.escape_if_startbox(memo)
+                node.escape_if_startbox(memo, cpu)
         else:
             for key, node in self.curfields.items():
                 if self.vdesc is not None and av_list_in(self.vdesc, key):
-                    node.virtualized = True
-                    if node.cls is None:
-                        node.cls = InstanceNode(FixedClass(), const=True)
-                node.escape_if_startbox(memo)
+                    node.initialize_virtualizable(cpu)
+                node.escape_if_startbox(memo, cpu)
             # we also need to escape fields that are only read, never written,
             # if they're not marked specifically as ones that does not escape
             for key, node in self.origfields.items():
                 if key not in self.curfields:
                     if self.vdesc is not None and av_list_in(self.vdesc, key):
-                        node.virtualized = True
-                        if node.cls is None:
-                            node.cls = InstanceNode(FixedClass(), const=True)
-                    node.escape_if_startbox(memo)
+                        node.initialize_virtualizable(cpu)
+                    node.escape_if_startbox(memo, cpu)
+    
+    def initialize_virtualizable(self, cpu):
+        self.virtualized = True
+        if self.cls is None or not isinstance(self.cls.source, FixedList):
+            # XXX this is of course wrong, but let's at least not
+            #     explode
+            self.allfields = self.origfields.keys()
+            if self.cls is None:
+                self.cls = InstanceNode(FixedClass(), const=True)
+        else:
+            ad = self.cls.source.arraydescr
+            lgtbox = cpu.do_arraylen_gc([self.source], ad)
+            self.allfields = [ConstInt(i) for i in range(lgtbox.getint())]
 
     def add_to_dependency_graph(self, other, dep_graph):
         dep_graph.append((self, other))
@@ -157,9 +161,7 @@ class InstanceNode(object):
         #    return DelayedSpecNode(known_class, fields)
         assert other.virtualized
         assert self is other
-        d = self.origfields.copy()
-        d.update(other.curfields)
-        offsets = d.keys()
+        offsets = self.allfields
         sort_descrs(offsets)
         fields = []
         for ofs in offsets:
@@ -171,10 +173,11 @@ class InstanceNode(object):
                     self.origfields[ofs].cls = node.cls
                     nodes[box] = self.origfields[ofs]
                 specnode = self.origfields[ofs].intersect(node, nodes)
-            else:
-                # ofs in self.origfields:
+            elif ofs in self.origfields:
                 node = self.origfields[ofs]
                 specnode = node.intersect(node, nodes)
+            else:
+                specnode = MatchEverythingSpecNode()
             fields.append((ofs, specnode))
         if isinstance(known_class, FixedList):
             return VirtualizableListSpecNode(known_class, fields)
@@ -374,6 +377,7 @@ class PerfectSpecializer(object):
                     instnode.cls = InstanceNode(op.args[1], const=True)
                     if op.vdesc:
                         instnode.vdesc = op.vdesc.virtuals
+                        instnode.allfields = op.vdesc.fields
                 continue
             elif op.is_always_pure():
                 for arg in op.args:
@@ -403,7 +407,7 @@ class PerfectSpecializer(object):
         for i in range(len(end_args)):
             end_box = end_args[i]
             if isinstance(end_box, Box):
-                self.nodes[end_box].escape_if_startbox(memo)
+                self.nodes[end_box].escape_if_startbox(memo, self.cpu)
         for i in range(len(end_args)):
             box = self.history.inputargs[i]
             other_box = end_args[i]
@@ -567,11 +571,9 @@ class PerfectSpecializer(object):
             if ofs in instnode.curfields:
                 return True
             # this means field comes from a virtualizable but is never
-            # written. Cool, simply make the result constant
-            # XXX uh??? making it constant in the resulting assembler
-            # is just plain wrong
-            #self.nodes[box] = InstanceNode(box.constbox(), const=True)
-            #return True
+            # written.
+            self.nodes[box] = InstanceNode(box)
+            return True
         #if ofs in instnode.cleanfields:
         #    self.nodes[box] = instnode.cleanfields[ofs]
         #    return True

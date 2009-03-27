@@ -34,6 +34,9 @@ class NotSpecNode(SpecNode):
         # NotSpecNode matches everything
         return True
 
+class MatchEverythingSpecNode(SpecNode):
+    pass
+
 #class SpecNodeWithBox(NotSpecNode):
 #    # XXX what is this class used for?
 #    def __init__(self, box):
@@ -89,10 +92,11 @@ class SpecNodeWithFields(FixedClassSpecNode):
         FixedClassSpecNode.mutate_nodes(self, instnode)
         curfields = r_dict(av_eq, av_hash)
         for ofs, subspecnode in self.fields:
-            subinstnode = instnode.origfields[ofs]
-            # should really be there
-            subspecnode.mutate_nodes(subinstnode)
-            curfields[ofs] = subinstnode
+            if not isinstance(subspecnode, MatchEverythingSpecNode):
+                subinstnode = instnode.origfields[ofs]
+                # should really be there
+                subspecnode.mutate_nodes(subinstnode)
+                curfields[ofs] = subinstnode
         instnode.curfields = curfields
 
     def equals(self, other):
@@ -123,22 +127,37 @@ class SpecNodeWithFields(FixedClassSpecNode):
 
     def expand_boxlist(self, instnode, newboxlist, start):
         for ofs, subspecnode in self.fields:
-            subinstnode = instnode.curfields[ofs]  # should really be there
-            subspecnode.expand_boxlist(subinstnode, newboxlist, start)
+            if not isinstance(subspecnode, MatchEverythingSpecNode):
+                subinstnode = instnode.curfields[ofs]  # should really be there
+                subspecnode.expand_boxlist(subinstnode, newboxlist, start)
 
     def extract_runtime_data(self, cpu, valuebox, resultlist):
         for ofs, subspecnode in self.fields:
             from pypy.jit.metainterp.history import AbstractDescr
             assert isinstance(ofs, AbstractDescr)
-            fieldbox = executor.execute(cpu, rop.GETFIELD_GC,
-                                        [valuebox], ofs)
-            subspecnode.extract_runtime_data(cpu, fieldbox, resultlist)
+            if not isinstance(subspecnode, MatchEverythingSpecNode):
+                fieldbox = executor.execute(cpu, rop.GETFIELD_GC,
+                                            [valuebox], ofs)
+                subspecnode.extract_runtime_data(cpu, fieldbox, resultlist)
 
     def adapt_to(self, instnode):
         for ofs, subspecnode in self.fields:
             subspecnode.adapt_to(instnode.curfields[ofs])
 
 class VirtualizedSpecNode(SpecNodeWithFields):
+
+    def equals(self, other):
+        if not self.known_class.equals(other.known_class):
+            return False
+        assert len(self.fields) == len(other.fields)
+        for i in range(len(self.fields)):
+            if (isinstance(self.fields[i][1], MatchEverythingSpecNode) or
+                isinstance(other.fields[i][1], MatchEverythingSpecNode)):
+                continue
+            assert self.fields[i][0].equals(other.fields[i][0])
+            if not self.fields[i][1].equals(other.fields[i][1]):
+                return False
+        return True
     
     def expand_boxlist(self, instnode, newboxlist, start):
         newboxlist.append(instnode.source)
@@ -217,7 +236,7 @@ class VirtualizableSpecNode(VirtualizedSpecNode):
     def equals(self, other):
         if not isinstance(other, VirtualizableSpecNode):
             return False
-        return SpecNodeWithFields.equals(self, other)        
+        return VirtualizedSpecNode.equals(self, other)        
 
     def adapt_to(self, instnode):
         instnode.virtualized = True
@@ -228,7 +247,7 @@ class VirtualizableListSpecNode(VirtualizedSpecNode):
     def equals(self, other):
         if not isinstance(other, VirtualizableListSpecNode):
             return False
-        return SpecNodeWithFields.equals(self, other)
+        return VirtualizedSpecNode.equals(self, other)
     
     def extract_runtime_data(self, cpu, valuebox, resultlist):
         from pypy.jit.metainterp.resoperation import rop
@@ -241,9 +260,10 @@ class VirtualizableListSpecNode(VirtualizedSpecNode):
         arraydescr = cls.arraydescr
         check_descr(arraydescr)
         for ofs, subspecnode in self.fields:
-            fieldbox = executor.execute(cpu, rop.GETARRAYITEM_GC,
-                                        [valuebox, ofs], arraydescr)
-            subspecnode.extract_runtime_data(cpu, fieldbox, resultlist)
+            if not isinstance(subspecnode, MatchEverythingSpecNode):
+                fieldbox = executor.execute(cpu, rop.GETARRAYITEM_GC,
+                                            [valuebox, ofs], arraydescr)
+                subspecnode.extract_runtime_data(cpu, fieldbox, resultlist)
 
     def adapt_to(self, instnode):
         instnode.virtualized = True

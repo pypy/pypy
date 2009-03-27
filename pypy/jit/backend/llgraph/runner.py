@@ -37,6 +37,11 @@ class Descr(history.AbstractDescr):
     def sort_key(self):
         return self.ofs
 
+    def equals(self, other):
+        if not isinstance(other, Descr):
+            return False
+        return self.sort_key() == other.sort_key()
+
     def __lt__(self, other):
         raise TypeError("cannot use comparison on Descrs")
     def __le__(self, other):

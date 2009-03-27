@@ -12,3 +12,17 @@ class VirtualizableDesc(history.AbstractValue):
         "NOT_RPYTHON"
         self.virtuals     = [cpu.fielddescrof(STRUCTTYPE, 'inst_' + name) for
                              name in TOPSTRUCT._hints['virtuals']]
+        self.fields = self.catch_all_fields(cpu, STRUCTTYPE)
+
+    def catch_all_fields(self, cpu, S):
+        lst = []
+        p = S
+        while True:
+            lst.extend(p._names)
+            if getattr(p, 'super', None) is not None:
+                p = p.super
+            else:
+                break
+        return [cpu.fielddescrof(S, name) for name in lst if
+                name.startswith('inst_')]
+
