@@ -8,20 +8,15 @@ Basics
 
 *Loop Tree* = tree of operations.  Its root (i.e. start) corresponds to
 a ``can_enter_jit`` marker, so it is when an application-level loop was
-closed.  Its branches end in a JUMP back, corresponding to closing the
-application-level loop.  The JUMPs themselves may go to the same or to
-another loop tree, but for now we assume that all loop trees connected
-in this way correspond to the same application-level loop.
-
-We use Perfect Specialization to find out exactly how specialized each
-loop should be.
+closed.  Its branches end in a JUMP going either back to the head of the
+same loop tree, or to the head of another one.
 
 
-Theory
------------------
+Perfect Specialization
+-------------------------------
 
-In theory, Perfect Specialization of a complete tree means the
-following:
+In theory, Perfect Specialization of a sequence of operations forming a
+loop means the following:
 
 * find how much of the input arguments' structure is needed;
 * find how much structure the output arguments have;
@@ -67,3 +62,35 @@ The intersection rules are:
 * in other cases, the result is ``FixedClassSpec`` if the two specnodes
   have the same class, or ``NotSpec`` if any is a ``NotSpec`` or if the
   two classes differ.
+
+
+Overall Approach
+-----------------------------
+
+Start tracing:
+
+1. when we interpret normally and see a ``can_enter_jit`` marker often
+   enough;
+
+2. or when a guard in the running machine code fails often enough.
+
+Stop tracing when we encounter the next ``can_enter_jit``.
+
+Call "the loop" the sequence of instructions from the old
+``can_enter_jit`` to the new one.  In the case 2 above, this means that
+we must insert into the loop all unoptimized operations that go before
+the guard failure; this is necessary to see a complete loop.
+
+Apply Perfect Specialization to the loop.
+
+Case A: We are seeing a new loop header (i.e. we did not see before this
+combination of specnodes at this bytecode position).  Compile the new
+loop completely, and jump to it.
+
+Case B: We get the same specnodes as a previously-compiled loop (which
+may be the same loop as the one we started with, or not).  Compile only
+a bridge, going from the guard failure to the new loop head.  If we were
+in case 1 above, the "guard failure" is actually the start from the
+interpreter; so this combination of cases means compile a bridge going
+efficiently from the interpreter (with no specialization) to the loop
+in machine code (with specialization).
