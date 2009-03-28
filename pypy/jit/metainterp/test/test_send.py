@@ -348,6 +348,26 @@ class SendTests:
         assert res == f(198)
         self.check_loop_count(3)
 
+    def test_two_behaviors(self):
+        py.test.skip("XXX fix me!!!!!!! problem in optimize.py")
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'y'])
+        class Int:
+            def __init__(self, value):
+                self.value = value
+        cases = [True]*100 + [False, True]*10 + [False]*20
+        def f(y):
+            x = Int(0)
+            while y > 0:
+                myjitdriver.can_enter_jit(x=x, y=y)
+                myjitdriver.jit_merge_point(x=x, y=y)
+                y -= 1
+                if cases[y]:
+                    x = Int(x.value + 1)
+            return x.value
+        res = self.meta_interp(f, [len(cases)])
+        assert res == 110
+        self.check_loop_count(2)
+
 
 class TestOOtype(SendTests, OOJitMixin):
     pass
