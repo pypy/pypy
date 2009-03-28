@@ -76,6 +76,13 @@ Start tracing:
 
 Stop tracing when we encounter the next ``can_enter_jit``.
 
+Call "the old ``can_enter_jit``" the ``can_enter_jit`` that we started
+with in case 1, or the one that is at the start of the existing loop
+before the guard failure in case 2.  If the old and the new
+``can_enter_jit`` are not at the same bytecode position, we are not
+seeing a loop at all; this is a corner case for now (let's see later).
+We will assume that the bytecode position is the same for the sequel.
+
 Call "the loop" the sequence of instructions from the old
 ``can_enter_jit`` to the new one.  In the case 2 above, this means that
 we must insert into the loop all unoptimized operations that go before
