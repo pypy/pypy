@@ -423,7 +423,7 @@ class ImplicitVirtualizableTests:
 
         res = self.meta_interp(f, [30], listops=True)
         self.check_loops(setarrayitem_gc=0)
-        #self.check_loop_count(2) # -- this is hard to predict right now:
+        self.check_loop_count(2) # -- this is hard to predict right now:
         #  what occurs is that one path through the loop is compiled,
         #  then exits; then later when we compile again we see the other
         #  path of the loop by chance, then exits; then finally we see
@@ -439,7 +439,6 @@ class ImplicitVirtualizableTests:
                         assert isinstance(op.args[1], history.BoxInt)
 
     def test_virtual_obj_on_always_virtual(self):
-        py.test.skip("XX")
         jitdriver = JitDriver(greens = [], reds = ['frame', 'n', 's'],
                               virtualizables = ['frame'])
 

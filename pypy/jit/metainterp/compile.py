@@ -137,6 +137,9 @@ def send_loop_to_backend(metainterp, loop, is_loop):
 
 # ____________________________________________________________
 
+def update_loop(loop, spec):
+    pass
+
 def compile_fresh_bridge(metainterp, old_loops, resumekey):
     #temp = TreeLoop('temp')
     #temp.operations = metainterp.history.operations

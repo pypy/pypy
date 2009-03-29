@@ -3,13 +3,13 @@ from pypy.jit.metainterp import executor
 
 class SpecNode(object):
 
-    def expand_boxlist(self, instnode, newboxlist, start):
+    def expand_boxlist(self, instnode, newboxlist):
         newboxlist.append(instnode.source)
 
     def extract_runtime_data(self, cpu, valuebox, resultlist):
         resultlist.append(valuebox)
 
-    def adapt_to(self, instnode):
+    def adapt_to(self, instnode, offsets):
         instnode.escaped = True
 
     def mutate_nodes(self, instnode):
@@ -19,6 +19,9 @@ class SpecNode(object):
         raise NotImplementedError
 
     def matches(self, other):
+        raise NotImplementedError
+
+    def compute_number_of_nodes(self):
         raise NotImplementedError
 
 class NotSpecNode(SpecNode):
@@ -34,8 +37,13 @@ class NotSpecNode(SpecNode):
         # NotSpecNode matches everything
         return True
 
+    def compute_number_of_nodes(self):
+        return 1
+
 class MatchEverythingSpecNode(SpecNode):
-    pass
+
+    def compute_number_of_nodes(self):
+        return 0
 
 #class SpecNodeWithBox(NotSpecNode):
 #    # XXX what is this class used for?
@@ -70,6 +78,9 @@ class FixedClassSpecNode(SpecNode):
         if instnode.cls is None:
             return False
         return instnode.cls.source.equals(self.known_class)
+
+    def compute_number_of_nodes(self):
+        return 1
 
 ##class FixedListSpecNode(FixedClassSpecNode):
 
@@ -125,11 +136,11 @@ class SpecNodeWithFields(FixedClassSpecNode):
                 return False
         return True
 
-    def expand_boxlist(self, instnode, newboxlist, start):
+    def expand_boxlist(self, instnode, newboxlist):
         for ofs, subspecnode in self.fields:
             if not isinstance(subspecnode, MatchEverythingSpecNode):
                 subinstnode = instnode.curfields[ofs]  # should really be there
-                subspecnode.expand_boxlist(subinstnode, newboxlist, start)
+                subspecnode.expand_boxlist(subinstnode, newboxlist)
 
     def extract_runtime_data(self, cpu, valuebox, resultlist):
         for ofs, subspecnode in self.fields:
@@ -140,9 +151,15 @@ class SpecNodeWithFields(FixedClassSpecNode):
                                             [valuebox], ofs)
                 subspecnode.extract_runtime_data(cpu, fieldbox, resultlist)
 
-    def adapt_to(self, instnode):
+    def adapt_to(self, instnode, offsets):
         for ofs, subspecnode in self.fields:
-            subspecnode.adapt_to(instnode.curfields[ofs])
+            subspecnode.adapt_to(instnode.curfields[ofs], offsets)
+
+    def compute_number_of_nodes(self):
+        counter = 0
+        for ofs, subspecnode in self.fields:
+            counter += subspecnode.compute_number_of_nodes()
+        return counter
 
 class VirtualizedSpecNode(SpecNodeWithFields):
 
@@ -158,18 +175,50 @@ class VirtualizedSpecNode(SpecNodeWithFields):
             if not self.fields[i][1].equals(other.fields[i][1]):
                 return False
         return True
+
+    def matches(self, instnode):
+        for key, value in self.fields:
+            if not isinstance(value, MatchEverythingSpecNode):
+                if key not in instnode.curfields:
+                    return False
+                if value is not None and not value.matches(instnode.curfields[key]):
+                    return False
+        return True
     
-    def expand_boxlist(self, instnode, newboxlist, start):
+    def expand_boxlist(self, instnode, newboxlist):
         newboxlist.append(instnode.source)
-        SpecNodeWithFields.expand_boxlist(self, instnode, newboxlist, start)
+        SpecNodeWithFields.expand_boxlist(self, instnode, newboxlist)
 
     def extract_runtime_data(self, cpu, valuebox, resultlist):
         resultlist.append(valuebox)
         SpecNodeWithFields.extract_runtime_data(self, cpu, valuebox, resultlist)
 
-    def adapt_to(self, instnode):
+    def adapt_to(self, instnode, offsets_relative_to):
         instnode.escaped = True
-        SpecNodeWithFields.adapt_to(self, instnode)
+        fields = []
+        offsets_so_far = 0
+        for ofs, subspecnode in self.fields:
+            if isinstance(subspecnode, MatchEverythingSpecNode):
+                node = None
+                if ofs in instnode.curfields:
+                    node = instnode.curfields[ofs]
+                    orignode = instnode.origfields[ofs]
+                    subspecnode = orignode.intersect(node, {})
+                elif ofs in instnode.origfields:
+                    node = instnode.origfields[ofs]
+                    subspecnode = node.intersect(node, {})
+                    orignode = node
+                if node is not None:
+                    subspecnode.mutate_nodes(orignode)
+                    offsets_relative_to.append((subspecnode, ofs, instnode,
+                                                offsets_so_far, orignode))
+            else:
+                subspecnode.adapt_to(instnode.curfields[ofs],
+                                     offsets_relative_to)
+                offsets_so_far += subspecnode.compute_number_of_nodes()
+            fields.append((ofs, subspecnode))
+
+        self.fields = fields
 
 # class DelayedSpecNode(VirtualizedSpecNode):
 
@@ -238,9 +287,9 @@ class VirtualizableSpecNode(VirtualizedSpecNode):
             return False
         return VirtualizedSpecNode.equals(self, other)        
 
-    def adapt_to(self, instnode):
+    def adapt_to(self, instnode, offsets):
         instnode.virtualized = True
-        VirtualizedSpecNode.adapt_to(self, instnode)
+        VirtualizedSpecNode.adapt_to(self, instnode, offsets)
 
 class VirtualizableListSpecNode(VirtualizedSpecNode):
 
@@ -265,15 +314,15 @@ class VirtualizableListSpecNode(VirtualizedSpecNode):
                                             [valuebox, ofs], arraydescr)
                 subspecnode.extract_runtime_data(cpu, fieldbox, resultlist)
 
-    def adapt_to(self, instnode):
+    def adapt_to(self, instnode, offsets):
         instnode.virtualized = True
-        VirtualizedSpecNode.adapt_to(self, instnode)
+        VirtualizedSpecNode.adapt_to(self, instnode, offsets)
 
 class VirtualSpecNode(SpecNodeWithFields):
 
-    def adapt_to(self, instnode):
+    def adapt_to(self, instnode, offsets):
         instnode.virtual = True
-        SpecNodeWithFields.adapt_to(self, instnode)
+        SpecNodeWithFields.adapt_to(self, instnode, offsets)
 
     def mutate_nodes(self, instnode):
         SpecNodeWithFields.mutate_nodes(self, instnode)

@@ -162,6 +162,8 @@ class InstanceNode(object):
         assert other.virtualized
         assert self is other
         offsets = self.allfields
+        if offsets is None:
+            return None
         sort_descrs(offsets)
         fields = []
         for ofs in offsets:
@@ -217,8 +219,14 @@ def optimize_bridge(options, old_loops, history, cpu=None):
     perfect_specializer.find_nodes()
     for old_loop in old_loops:
         if perfect_specializer.match(old_loop):
-            perfect_specializer.adapt_for_match(old_loop)
+            # xxx slow, maybe
+            for node in perfect_specializer.nodes.values():
+                if node.startbox:
+                    node.cls = None
+                    assert not node.virtual
+            ofs = perfect_specializer.adapt_for_match(old_loop)
             perfect_specializer.optimize_loop()
+            perfect_specializer.update_loop(ofs, old_loop)
             return old_loop
     return None     # no loop matches
 
@@ -436,14 +444,13 @@ class PerfectSpecializer(object):
             specnodes.append(enternode.intersect(leavenode, self.nodes))
         self.specnodes = specnodes
 
-    def expanded_version_of(self, boxlist, oplist):
-        # oplist is None means at the start
+    def expanded_version_of(self, boxlist):
         newboxlist = []
         assert len(boxlist) == len(self.specnodes)
         for i in range(len(boxlist)):
             box = boxlist[i]
             specnode = self.specnodes[i]
-            specnode.expand_boxlist(self.nodes[box], newboxlist, oplist)
+            specnode.expand_boxlist(self.nodes[box], newboxlist)
         return newboxlist
 
     def prepare_rebuild_ops(self, instnode, rebuild_ops, memo):
@@ -572,7 +579,9 @@ class PerfectSpecializer(object):
                 return True
             # this means field comes from a virtualizable but is never
             # written.
-            self.nodes[box] = InstanceNode(box)
+            node = InstanceNode(box)
+            self.nodes[box] = node
+            instnode.curfields[ofs] = node
             return True
         #if ofs in instnode.cleanfields:
         #    self.nodes[box] = instnode.cleanfields[ofs]
@@ -604,20 +613,15 @@ class PerfectSpecializer(object):
             for i in range(len(self.specnodes)):
                 box = self.history.inputargs[i]
                 self.specnodes[i].mutate_nodes(self.nodes[box])
-            newinputargs = self.expanded_version_of(self.history.inputargs,
-                                                    None)
+            newinputargs = self.expanded_version_of(self.history.inputargs)
         else:
             # making a bridge
-            for node in self.nodes.values():     # xxx slow, maybe
-                if node.startbox:
-                    node.cls = None
-                    assert not node.virtual
             newinputargs = None
         #
         for op in self.history.operations:
             opnum = op.opnum
             if opnum == rop.JUMP:
-                args = self.expanded_version_of(op.args, newoperations)
+                args = self.expanded_version_of(op.args)
                 for arg in args:
                     if arg in self.nodes:
                         assert not self.nodes[arg].virtual
@@ -821,10 +825,59 @@ class PerfectSpecializer(object):
         jump_op = self.history.operations[-1]
         assert jump_op.opnum == rop.JUMP
         self.specnodes = old_loop.specnodes
+        all_offsets = []
         for i in range(len(old_loop.specnodes)):
             old_specnode = old_loop.specnodes[i]
             new_instnode = self.getnode(jump_op.args[i])
-            old_specnode.adapt_to(new_instnode)
+            offsets = []
+            old_specnode.adapt_to(new_instnode, offsets)
+            all_offsets.append(offsets)
+        return all_offsets
+
+    def update_loop(self, offsets, loop):
+        j = 0
+        new_inputargs = []
+        new_jumpargs = []
+        if loop.operations[-1].jump_target is loop:
+            patch_jump = True
+            jumpargs = loop.operations[-1].args
+        else:
+            patch_jump = False
+            jumpargs = []
+        prev_ofs = 0
+        rebuild_ops = []
+        memo = {}
+        for i in range(len(offsets)):
+            for specnode, descr, parentnode, rel_ofs, node in offsets[i]:
+                while parentnode.source != loop.inputargs[j]:
+                    j += 1
+                ofs = j + rel_ofs + 1
+                new_inputargs.extend(loop.inputargs[prev_ofs:ofs])
+                if patch_jump:
+                    new_jumpargs.extend(jumpargs[prev_ofs:ofs])
+                prev_ofs = ofs
+                boxlist = []
+                specnode.expand_boxlist(node, boxlist)
+                new_inputargs.extend(boxlist)
+                new_jumpargs.extend(boxlist)
+                box = self.prepare_rebuild_ops(node, rebuild_ops, memo)
+                if (parentnode.cls and
+                    isinstance(parentnode.cls.source, FixedList)):
+                    rebuild_ops.append(ResOperation(rop.SETARRAYITEM_GC,
+                      [parentnode.source, descr, box], None,
+                      parentnode.cls.source.arraydescr))
+                else:
+                    rebuild_ops.append(ResOperation(rop.SETFIELD_GC,
+                      [parentnode.source, box], None, descr))
+        new_inputargs.extend(loop.inputargs[prev_ofs:])
+        loop.inputargs = new_inputargs
+        if patch_jump:
+            new_jumpargs.extend(loop.operations[-1].args[prev_ofs:])
+            loop.operations[-1].args = new_jumpargs
+        for op in loop.operations:
+            if op.is_guard():
+                op.suboperations = (op.suboperations[:-1] + rebuild_ops +
+                                    [op.suboperations[-1]])
 
 def get_in_list(dict, boxes_or_consts):
     result = []
@@ -851,6 +904,7 @@ def get_in_list(dict, boxes_or_consts):
 ##    # done
 ##    return [currentvalues[box] for box in guard_op.unoptboxes]
 
+# ---------------------------------------------------------------
 
 def partition(array, left, right):
     last_item = array[right]
