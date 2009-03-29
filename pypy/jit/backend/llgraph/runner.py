@@ -162,6 +162,10 @@ class CPU(object):
             elif isinstance(box, history.BoxPtr):
                 value = llimpl.frame_ptr_getvalue(frame, i)
                 box.changevalue_ptr(value)
+            elif isinstance(box, history.ConstInt):
+                pass
+            elif isinstance(box, history.ConstPtr):
+                pass
             else:
                 raise Exception("bad box in 'fail': %r" % (box,))
         return op
