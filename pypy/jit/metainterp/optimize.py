@@ -834,16 +834,33 @@ class PerfectSpecializer(object):
             all_offsets.append(offsets)
         return all_offsets
 
+    def _patch(self, origargs, newargs):
+        i = 0
+        res = []
+        for arg in newargs:
+            if arg is None:
+                res.append(origargs[i])
+                i += 1
+            else:
+                res.append(arg)
+        return res
+
+    def _patch_loop(self, operations, inpargs, rebuild_ops, loop):
+        for op in operations:
+            if op.is_guard():
+                if op.suboperations[-1].opnum == rop.FAIL:
+                    op.suboperations = (op.suboperations[:-1] + rebuild_ops +
+                                        [op.suboperations[-1]])
+                else:
+                    self._patch_loop(op.suboperations, inpargs, rebuild_ops,
+                                     loop)
+        jump = operations[-1]
+        if jump.opnum == rop.JUMP and jump.jump_target is loop:
+            jump.args = self._patch(jump.args, inpargs)
+
     def update_loop(self, offsets, loop):
         j = 0
         new_inputargs = []
-        new_jumpargs = []
-        if loop.operations[-1].jump_target is loop:
-            patch_jump = True
-            jumpargs = loop.operations[-1].args
-        else:
-            patch_jump = False
-            jumpargs = []
         prev_ofs = 0
         rebuild_ops = []
         memo = {}
@@ -852,14 +869,11 @@ class PerfectSpecializer(object):
                 while parentnode.source != loop.inputargs[j]:
                     j += 1
                 ofs = j + rel_ofs + 1
-                new_inputargs.extend(loop.inputargs[prev_ofs:ofs])
-                if patch_jump:
-                    new_jumpargs.extend(jumpargs[prev_ofs:ofs])
+                new_inputargs.extend([None] * (ofs - prev_ofs))
                 prev_ofs = ofs
                 boxlist = []
                 specnode.expand_boxlist(node, boxlist)
                 new_inputargs.extend(boxlist)
-                new_jumpargs.extend(boxlist)
                 box = self.prepare_rebuild_ops(node, rebuild_ops, memo)
                 if (parentnode.cls and
                     isinstance(parentnode.cls.source, FixedList)):
@@ -869,15 +883,9 @@ class PerfectSpecializer(object):
                 else:
                     rebuild_ops.append(ResOperation(rop.SETFIELD_GC,
                       [parentnode.source, box], None, descr))
-        new_inputargs.extend(loop.inputargs[prev_ofs:])
-        loop.inputargs = new_inputargs
-        if patch_jump:
-            new_jumpargs.extend(loop.operations[-1].args[prev_ofs:])
-            loop.operations[-1].args = new_jumpargs
-        for op in loop.operations:
-            if op.is_guard():
-                op.suboperations = (op.suboperations[:-1] + rebuild_ops +
-                                    [op.suboperations[-1]])
+        new_inputargs.extend([None] * (len(loop.inputargs) - prev_ofs))
+        loop.inputargs = self._patch(loop.inputargs, new_inputargs)
+        self._patch_loop(loop.operations, new_inputargs, rebuild_ops, loop)
 
 def get_in_list(dict, boxes_or_consts):
     result = []

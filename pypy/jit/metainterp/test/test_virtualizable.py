@@ -475,7 +475,6 @@ class ImplicitVirtualizableTests:
 
 
     def test_virtual_obj_on_always_virtual_more_bridges(self):
-        py.test.skip("XXX")
         jitdriver = JitDriver(greens = [], reds = ['frame', 'n', 's'],
                               virtualizables = ['frame'])
 
