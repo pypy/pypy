@@ -649,8 +649,10 @@ class MIFrame(object):
             resume_info.append((frame.jitcode, frame.pc, const_part,
                                 frame.exception_target))
         if box is not None:
-            extraargs = [box] + extraargs
-        guard_op = self.metainterp.history.record(opnum, extraargs, None)
+            moreargs = [box] + extraargs
+        else:
+            moreargs = []
+        guard_op = self.metainterp.history.record(opnum, moreargs, None)
         op = history.ResOperation(rop.FAIL, liveboxes, None)
         op.key = ResumeKey(guard_op, resume_info)
         guard_op.suboperations = [op]
