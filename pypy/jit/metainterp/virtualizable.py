@@ -24,5 +24,5 @@ class VirtualizableDesc(history.AbstractValue):
             else:
                 break
         return [cpu.fielddescrof(S, name) for name in lst if
-                name.startswith('inst_')]
+                name.startswith('inst_') and hasattr(S, name)]
 
