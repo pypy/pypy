@@ -839,7 +839,11 @@ class OOMetaInterp(object):
             self.interpret()
             assert False, "should always raise"
         except GenerateMergePoint, gmp:
-            target_loop = self.compile_bridge(key, gmp.argboxes)
+            try:
+                target_loop = self.compile_bridge(key, gmp.argboxes)
+            except self.ContinueRunningNormally:
+                guard_failure.key.counter = 0
+                raise
             return self.designate_target_loop(gmp, target_loop)
 
     def designate_target_loop(self, gmp, loop):

@@ -431,3 +431,39 @@ class TestLoop(LLJitMixin):
         assert main_interpreter_loop(5) == 5 * 10 * 3
         res = self.meta_interp(main_interpreter_loop, [5])
         assert res == 5 * 10 * 3
+
+    def test_outer_and_inner_loop(self):
+        py.test.skip("fix me")
+        jitdriver = JitDriver(greens = ['p', 'code'], reds = ['i', 'j',
+                                                              'total'])
+
+        codes = [[], [0, 0, 1, 1]]
+        
+        def interpret(num):
+            code = codes[num]
+            p = 0
+            i = 0
+            j = 0
+            total = 0
+            while p < len(code):
+                jitdriver.jit_merge_point(code=code, p=p, i=i, j=j, total=total)
+                total += i
+                e = code[p]
+                if e == 0:
+                    p += 1
+                elif e == 1:
+                    if i < p * 20:
+                        p = 3 - p
+                        i += 1
+                        jitdriver.can_enter_jit(code=code, p=p, j=j, i=i,
+                                                total=total)
+                    else:
+                        j += 1
+                        i = j
+                        p += 1
+            return total
+
+        res = self.meta_interp(interpret, [1])
+        assert res == interpret(1)
+        # XXX it's unsure how many loops should be there
+        self.check_loop_count(3)
