@@ -833,6 +833,8 @@ class OOMetaInterp(object):
                 raise
 
     def compile_and_run_once(self, *args):
+        if not we_are_translated():
+            history.log.info('Switching from interpreter to compiler')
         orig_boxes = self.initialize_state_from_start(*args)
         try:
             self.interpret()
