@@ -661,7 +661,7 @@ class MIFrame(object):
         if box is not None:
             moreargs = [box] + extraargs
         else:
-            moreargs = []
+            moreargs = list(extraargs)
         guard_op = self.metainterp.history.record(opnum, moreargs, None)
         resumedescr = history.ResumeDescr(guard_op, resume_info,
             self.metainterp.history, len(self.metainterp.history.operations)-1)
