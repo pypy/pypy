@@ -135,8 +135,8 @@ def compile_fresh_bridge(metainterp, old_loops, resumekey):
         metainterp.history.source_link = resumekey.history
         metainterp.history.source_guard_index = resumekey.history_guard_index
         guard_op = resumekey.guard_op
-        if guard_op.jump_target is not None:      # should always be the case
-            guard_op = guard_op.jump_target
+        if guard_op.optimized is not None:      # should always be the case
+            guard_op = guard_op.optimized
         guard_op.suboperations = temploop.operations
         op = guard_op.suboperations[-1]
         op.jump_target = target_loop

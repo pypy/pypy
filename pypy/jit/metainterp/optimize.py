@@ -560,7 +560,7 @@ class PerfectSpecializer(object):
         rebuild_ops.append(op_fail)
         op1 = op.clone()
         op1.suboperations = rebuild_ops
-        op.jump_target = op1
+        op.optimized = op1
         return op1
 
     def new_arguments(self, op):

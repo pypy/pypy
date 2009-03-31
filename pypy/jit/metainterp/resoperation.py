@@ -3,11 +3,11 @@ class ResOperation(object):
     """The central ResOperation class, representing one operation."""
 
     # for 'jump': points to the target loop;
-    # for 'guard_*': points from the unoptimized to the optimized guard (uh)
     jump_target = None
 
     # for 'guard_*'
     suboperations = None
+    optimized = None
 
     # for 'guard_nonvirtualizable'
     vdesc = None
