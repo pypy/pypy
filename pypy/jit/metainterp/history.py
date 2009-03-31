@@ -328,7 +328,10 @@ NULLBOX = BoxPtr()
 # of operations.  Each branch ends in a jump which can go either to
 # the top of the same loop, or to another TreeLoop.
 
-class TreeLoop(object):
+class Base(object):
+    """Common base class for TreeLoop and History."""
+
+class TreeLoop(Base):
     inputargs = None
     specnodes = None
     operations = None
@@ -403,11 +406,19 @@ def _list_all_operations(result, operations, omit_fails=True):
         if op.is_guard():
             _list_all_operations(result, op.suboperations, omit_fails)
 
+
+class ResumeDescr(AbstractDescr):
+    def __init__(self, guard_op, resume_info, history, history_guard_index):
+        self.resume_info = resume_info
+        self.guard_op = guard_op
+        self.counter = 0
+        self.history = history
+        self.history_guard_index = history_guard_index
+
 # ____________________________________________________________
 
 
-class RunningMatcher(object):
-    specnodes = None
+class RunningMatcher(Base):
     def __init__(self, cpu):
         self.cpu = cpu
         self.inputargs = None
@@ -491,7 +502,7 @@ class Stats(object):
             if loop in loops:
                 loops.remove(loop)
             loops.append(loop)
-        display_loops(loops, errmsg)
+        display_loops(loops, errmsg, extraloops)
 
 
 class CrashInJIT(Exception):

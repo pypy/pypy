@@ -2,11 +2,9 @@
 class ResOperation(object):
     """The central ResOperation class, representing one operation."""
 
-    # for 'jump': points to the target loop
+    # for 'jump': points to the target loop;
+    # for 'guard_*': points from the unoptimized to the optimized guard (uh)
     jump_target = None
-
-    # for 'fail'
-    key = None
 
     # for 'guard_*'
     suboperations = None
@@ -32,13 +30,9 @@ class ResOperation(object):
         self.descr = descr
 
     def clone(self):
-        "NOT_RPYTHON"     # for tests only
         res = ResOperation(self.opnum, self.args, self.result, self.descr)
         res.jump_target = self.jump_target
-        res.key = self.key
         res.vdesc = self.vdesc
-        if self.suboperations is not None:
-            res.suboperations = [op.clone() for op in self.suboperations]
         return res
 
     def __repr__(self):

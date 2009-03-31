@@ -12,12 +12,12 @@ class SubGraph:
     def get_display_text(self):
         return None
 
-def display_loops(loops, errmsg=None):
-    graphs = loops[:]
-    for graph in graphs:
+def display_loops(loops, errmsg=None, highlight_loops=()):
+    graphs = [(loop, loop in highlight_loops) for loop in loops]
+    for graph, highlight in graphs:
         for op in graph.get_operations():
             if op.is_guard():
-                graphs.append(SubGraph(op.suboperations))
+                graphs.append((SubGraph(op.suboperations), highlight))
     graphpage = ResOpGraphPage(graphs, errmsg)
     graphpage.display()
 
@@ -26,8 +26,8 @@ class ResOpGraphPage(GraphPage):
 
     def compute(self, graphs, errmsg=None):
         resopgen = ResOpGen()
-        for graph in graphs:
-            resopgen.add_graph(graph)
+        for graph, highlight in graphs:
+            resopgen.add_graph(graph, highlight)
         if errmsg:
             resopgen.set_errmsg(errmsg)
         self.source = resopgen.getsource()
@@ -40,6 +40,7 @@ class ResOpGen(object):
 
     def __init__(self):
         self.graphs = []
+        self.highlight_graphs = {}
         self.block_starters = {}    # {graphindex: {set-of-operation-indices}}
         self.all_operations = {}
         self.errmsg = None
@@ -50,9 +51,11 @@ class ResOpGen(object):
     def mark_starter(self, graphindex, opindex):
         self.block_starters[graphindex][opindex] = True
 
-    def add_graph(self, graph):
+    def add_graph(self, graph, highlight=False):
         graphindex = len(self.graphs)
         self.graphs.append(graph)
+        if highlight:
+            self.highlight_graphs[graph] = True
         for i, op in enumerate(graph.get_operations()):
             self.all_operations[op] = graphindex, i
 
@@ -105,8 +108,12 @@ class ResOpGen(object):
             self.dotgen.emit('subgraph cluster%d {' % graphindex)
         label = graph.get_display_text()
         if label is not None:
+            if self.highlight_graphs.get(graph):
+                fillcolor = '#f084c2'
+            else:
+                fillcolor = '#84f0c2'
             self.dotgen.emit_node(graphname, shape="octagon",
-                                  label=label, fillcolor='#f084c2')
+                                  label=label, fillcolor=fillcolor)
             self.pendingedges.append((graphname,
                                       self.op_name(graphindex, 0),
                                       {}))

@@ -96,7 +96,7 @@ class CPU(object):
     def _compile_branch(self, c, operations, var2index):
         for op in operations:
             llimpl.compile_add(c, op.opnum)
-            if op.descr is not None:
+            if isinstance(op.descr, Descr):
                 llimpl.compile_add_descr(c, op.descr.ofs, op.descr.type)
             for x in op.args:
                 if isinstance(x, history.Box):
