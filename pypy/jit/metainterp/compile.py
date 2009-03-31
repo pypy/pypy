@@ -9,14 +9,14 @@ from pypy.jit.metainterp.history import TreeLoop, log, Box, History
 from pypy.jit.metainterp import optimize
 
 
-def compile_new_loop(metainterp, old_loops):
+def compile_new_loop(metainterp, old_loops, greenkey):
     """Try to compile a new loop by closing the current history back
     to the first operation.
     """
     if we_are_translated():
-        return compile_fresh_loop(metainterp, old_loops)
+        return compile_fresh_loop(metainterp, old_loops, greenkey)
     else:
-        return _compile_new_loop_1(metainterp, old_loops)
+        return _compile_new_loop_1(metainterp, old_loops, greenkey)
 
 def compile_new_bridge(metainterp, old_loops, resumekey):
     """Try to compile a new bridge leading from the beginning of the history
@@ -32,10 +32,10 @@ class BridgeInProgress(Exception):
 
 
 # the following is not translatable
-def _compile_new_loop_1(metainterp, old_loops):
+def _compile_new_loop_1(metainterp, old_loops, greenkey):
     old_loops_1 = old_loops[:]
     try:
-        loop = compile_fresh_loop(metainterp, old_loops)
+        loop = compile_fresh_loop(metainterp, old_loops, greenkey)
     except Exception, exc:
         show_loop(metainterp, error=exc)
         raise
@@ -83,9 +83,10 @@ def create_empty_loop(metainterp):
 
 # ____________________________________________________________
 
-def compile_fresh_loop(metainterp, old_loops):
+def compile_fresh_loop(metainterp, old_loops, greenkey):
     history = metainterp.history
     loop = create_empty_loop(metainterp)
+    loop.greenkey = greenkey
     loop.inputargs = history.inputargs
     loop.operations = history.operations
     loop.operations[-1].jump_target = loop
@@ -110,25 +111,23 @@ def send_loop_to_backend(metainterp, loop, is_loop):
 
 # ____________________________________________________________
 
-def update_loop(loop, spec):
-    pass
-
-def compile_fresh_bridge(metainterp, old_loops, resumekey):
-    # The history contains new operations to attach as the code for the
-    # failure of 'resumekey.guard_op'.  First, we find the TreeLoop object
-    # that contains this guard operation.
+def find_source_loop(resumekey):
+    # Find the TreeLoop object that contains this guard operation.
     source_loop = resumekey.history.source_link
     while not isinstance(source_loop, TreeLoop):
         source_loop = source_loop.source_link
+    return source_loop
+
+def compile_fresh_bridge(metainterp, old_loops, resumekey):
+    # The history contains new operations to attach as the code for the
+    # failure of 'resumekey.guard_op'.
+    #
     # Attempt to use optimize_bridge().  This may return None in case
     # it does not work -- i.e. none of the existing old_loops match.
     temploop = create_empty_loop(metainterp)
     temploop.operations = metainterp.history.operations
-    if len(old_loops) > 0:
-        target_loop = optimize.optimize_bridge(metainterp.options, old_loops,
-                                               temploop, metainterp.cpu)
-    else:
-        target_loop = None
+    target_loop = optimize.optimize_bridge(metainterp.options, old_loops,
+                                           temploop, metainterp.cpu)
     # Did it work?
     if target_loop is not None:
         # Yes, we managed to create just a bridge.  Attach the new operations
@@ -141,33 +140,41 @@ def compile_fresh_bridge(metainterp, old_loops, resumekey):
         guard_op.suboperations = temploop.operations
         op = guard_op.suboperations[-1]
         op.jump_target = target_loop
+        source_loop = find_source_loop(resumekey)
         send_loop_to_backend(metainterp, source_loop, False)
         return target_loop
     else:
-        # No.  In this case, we prepend to the history the unoptimized
-        # operations coming from the loop, in order to make a (fake) complete
-        # unoptimized trace.  Then we can just compile this loop normally.
-        if not we_are_translated():
-            log.info("completing the bridge into a stand-alone loop")
-        metainterp.history.operations = []
-        append_full_operations(metainterp.history,
-                               resumekey.history,
-                               resumekey.history_guard_index)
-        metainterp.history.operations.extend(temploop.operations)
-        return compile_fresh_loop(metainterp, old_loops)
+        return None     # No.  prepare_loop_from_bridge() will be used.
 
+
+def prepare_loop_from_bridge(metainterp, resumekey):
+    # To handle this case, we prepend to the history the unoptimized
+    # operations coming from the loop, in order to make a (fake) complete
+    # unoptimized trace.  (Then we will just compile this loop normally.)
+    if not we_are_translated():
+        log.info("completing the bridge into a stand-alone loop")
+    operations = metainterp.history.operations
+    metainterp.history.operations = []
+    greenkey = append_full_operations(metainterp.history,
+                                      resumekey.history,
+                                      resumekey.history_guard_index)
+    metainterp.history.operations.extend(operations)
+    return greenkey
 
 def append_full_operations(history, sourcehistory, guard_index):
     prev = sourcehistory.source_link
     if isinstance(prev, History):
-        append_full_operations(history, prev, sourcehistory.source_guard_index)
+        result = append_full_operations(history, prev,
+                                        sourcehistory.source_guard_index)
     else:
         assert history.inputargs is None
         assert sourcehistory.inputargs is not None
         history.inputargs = sourcehistory.inputargs
+        result = prev.greenkey
     history.operations.extend(sourcehistory.operations[:guard_index])
     op = inverse_guard(sourcehistory.operations[guard_index])
     history.operations.append(op)
+    return result
 
 def inverse_guard(guard_op):
     suboperations = guard_op.suboperations

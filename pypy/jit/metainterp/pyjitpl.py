@@ -12,6 +12,7 @@ from pypy.jit.metainterp.history import (Const, ConstInt, ConstPtr, Box,
                                          BoxInt, BoxPtr, Options)
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.compile import compile_new_loop, compile_new_bridge
+from pypy.jit.metainterp.compile import prepare_loop_from_bridge
 from pypy.jit.metainterp.heaptracker import (get_vtable_for_gcstruct,
                                              populate_type_cache)
 from pypy.jit.metainterp import codewriter, optimize, executor
@@ -865,7 +866,7 @@ class OOMetaInterp(object):
             try:
                 target_loop = self.compile_bridge(key, gmp.argboxes)
             except self.ContinueRunningNormally:
-                guard_failure.key.counter = 0
+                key.counter = 0
                 raise
             return self.designate_target_loop(gmp, target_loop)
 
@@ -897,7 +898,7 @@ class OOMetaInterp(object):
         greenkey = original_boxes[:num_green_args]
         old_loops = self.compiled_merge_points.setdefault(greenkey, [])
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
-        loop = compile_new_loop(self, old_loops)
+        loop = compile_new_loop(self, old_loops, greenkey)
         assert loop is not None
         if not we_are_translated():
             loop._call_history = self._debug_history
@@ -907,18 +908,22 @@ class OOMetaInterp(object):
     def compile_bridge(self, key, live_arg_boxes):
         num_green_args = self.num_green_args
         greenkey = live_arg_boxes[:num_green_args]
+        self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
         try:
             old_loops = self.compiled_merge_points[greenkey]
         except KeyError:
-            old_loops = []
-        self.history.record(rop.JUMP, live_arg_boxes[num_green_args:],
-                            None)
-        target_loop = compile_new_bridge(self, old_loops, key)
-        assert target_loop is not None
-        if not we_are_translated():
-            #bridge._call_history = self._debug_history
-            self.debug_history = []
-        return target_loop
+            pass
+        else:
+            target_loop = compile_new_bridge(self, old_loops, key)
+            if target_loop is not None:
+                return target_loop
+        # Failed to compile it as a bridge.  Turn it into a complete loop.
+        greenkey = prepare_loop_from_bridge(self, key)
+        original_boxes = greenkey + self.history.inputargs
+        return self.compile(original_boxes, live_arg_boxes)
+        #if not we_are_translated():
+        #    bridge._call_history = self._debug_history
+        #    self.debug_history = []
 
     def get_residual_args(self, loop, args):
         if loop.specnodes is None:     # it is None only for tests
