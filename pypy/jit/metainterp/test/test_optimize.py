@@ -8,9 +8,9 @@ from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp import resoperation
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt, ConstPtr,
-                                         ConstAddr, History)
+                                         ConstAddr, TreeLoop)
 from pypy.jit.metainterp.optimize import (PerfectSpecializer,
-    CancelInefficientLoop, VirtualInstanceSpecNode, FixedClassSpecNode,
+    VirtualInstanceSpecNode, FixedClassSpecNode,
     NotSpecNode)
 
 cpu = runner.CPU(None)
@@ -35,10 +35,10 @@ cpu.class_sizes = {cpu.cast_adr_to_int(node_vtable_adr): cpu.sizeof(NODE)}
 # ____________________________________________________________
 
 def Loop(inputargs, operations):
-    history = History(cpu)
-    history.inputargs = inputargs[:]
-    history.operations = [op.clone() for op in operations]
-    return history
+    loop = TreeLoop("test")
+    loop.inputargs = inputargs
+    loop.operations = operations
+    return loop
 
 class Any(object):
     def __eq__(self, other):
@@ -141,8 +141,8 @@ def test_A_optimize_loop():
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
-    assert spec.history.inputargs == [A.sum, A.v]
-    equaloplists(spec.history.operations, [
+    assert spec.loop.inputargs == [A.sum, A.v]
+    equaloplists(spec.loop.operations, [
         ResOperation('int_sub', [A.v, ConstInt(1)], A.v2),
         ResOperation('int_add', [A.sum, A.v], A.sum2),
         ResOperation('jump', [A.sum2, A.v2], None),
@@ -189,8 +189,8 @@ def test_B_optimize_loop():
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
-    assert spec.history.inputargs == [B.sum, B.n1]
-    equaloplists(spec.history.operations, [
+    assert spec.loop.inputargs == [B.sum, B.n1]
+    equaloplists(spec.loop.operations, [
         # guard_class is gone
         ResOperation('escape', [B.n1], None),
         ResOperation('getfield_gc', [B.n1], B.v, B.ofs_value),
@@ -244,8 +244,8 @@ def test_C_optimize_loop():
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
-    assert spec.history.inputargs == [C.sum, C.n1]
-    equaloplists(spec.history.operations, [
+    assert spec.loop.inputargs == [C.sum, C.n1]
+    equaloplists(spec.loop.operations, [
         # guard_class is gone
         ResOperation('escape', [C.n1], None),   # <== escaping
         ResOperation('getfield_gc', [C.n1], C.v, C.ofs_value),
@@ -276,6 +276,7 @@ class D:
         ]
 
 def test_D_intersect_input_and_output():
+    py.test.skip("nowadays, this compiles, just without making a virtual")
     spec = PerfectSpecializer(Loop(D.inputargs, D.ops))
     spec.find_nodes()
     py.test.raises(CancelInefficientLoop, spec.intersect_input_and_output)
@@ -303,15 +304,15 @@ def test_E_optimize_loop():
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
-    assert spec.history.inputargs == [E.sum, E.v]
-    equaloplists(spec.history.operations, [
+    assert spec.loop.inputargs == [E.sum, E.v]
+    equaloplists(spec.loop.operations, [
         # guard_class is gone
         ResOperation('int_sub', [E.v, ConstInt(1)], E.v2),
         ResOperation('int_add', [E.sum, E.v], E.sum2),
         ResOperation('guard_true', [E.v2], None),
         ResOperation('jump', [E.sum2, E.v2], None),
         ])
-    guard_op = spec.history.operations[-2]
+    guard_op = spec.loop.operations[-2]
     assert guard_op.getopname() == 'guard_true'
     _, n2 = guard_op.suboperations[-1].args
     equaloplists(guard_op.suboperations, [
@@ -326,7 +327,7 @@ def test_E_optimize_loop():
 ##    spec.find_nodes()
 ##    spec.intersect_input_and_output()
 ##    spec.optimize_loop()
-##    guard_op = spec.history.operations[-2]
+##    guard_op = spec.loop.operations[-2]
 ##    v_sum_b = BoxInt(13)
 ##    v_v_b = BoxInt(14)
 ##    history = History(cpu)
@@ -383,8 +384,8 @@ def test_F_optimize_loop():
     spec.intersect_input_and_output()
     assert spec.nodes[F.n3].escaped
     spec.optimize_loop()
-    assert spec.history.inputargs == [F.sum, F.v, F.n3]
-    equaloplists(spec.history.operations, [
+    assert spec.loop.inputargs == [F.sum, F.v, F.n3]
+    equaloplists(spec.loop.operations, [
             ResOperation('int_sub', [F.v, ConstInt(1)], F.v2),
             ResOperation('int_add', [F.sum, F.v], F.sum2),
             ResOperation('oononnull', [F.n3], F.vbool3),
@@ -415,7 +416,7 @@ def test_F2_optimize_loop():
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
-    equaloplists(spec.history.operations, F2.ops)
+    equaloplists(spec.loop.operations, F2.ops)
 
 # ____________________________________________________________
 
@@ -445,15 +446,15 @@ def test_G_optimize_loop():
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
-    assert spec.history.inputargs == [G.sum, G.v]
-    equaloplists(spec.history.operations, [
+    assert spec.loop.inputargs == [G.sum, G.v]
+    equaloplists(spec.loop.operations, [
         # guard_class is gone
         ResOperation('int_sub', [G.v, ConstInt(1)], G.v2),
         ResOperation('int_add', [G.sum, G.v], G.sum2),
         ResOperation('guard_true', [G.v2], None),
         ResOperation('jump', [G.sum2, ConstInt(124)], None),
         ])
-    guard_op = spec.history.operations[-2]
+    guard_op = spec.loop.operations[-2]
     assert guard_op.getopname() == 'guard_true'
     _, n2 = guard_op.suboperations[-1].args
     equaloplists(guard_op.suboperations, [
@@ -579,9 +580,9 @@ def test_K0_optimize_loop():
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
-    v4 = spec.history.operations[-1].args[-1]
-    assert spec.history.inputargs == [K0.sum, K0.n1, K0.v]
-    equaloplists(spec.history.operations, [
+    v4 = spec.loop.operations[-1].args[-1]
+    assert spec.loop.inputargs == [K0.sum, K0.n1, K0.v]
+    equaloplists(spec.loop.operations, [
         ResOperation('int_sub', [K0.v, ConstInt(1)], K0.v2),
         ResOperation('int_add', [K0.sum, K0.v], K0.sum2),
         ResOperation('int_add', [K0.sum2, K0.v], K0.sum3),
@@ -614,9 +615,9 @@ def test_K1_optimize_loop():
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
-    v4 = spec.history.operations[-1].args[-1]
-    assert spec.history.inputargs == [K1.sum, K1.n1, K1.v]
-    equaloplists(spec.history.operations, [
+    v4 = spec.loop.operations[-1].args[-1]
+    assert spec.loop.inputargs == [K1.sum, K1.n1, K1.v]
+    equaloplists(spec.loop.operations, [
         ResOperation('int_sub', [K1.v, ConstInt(1)], K1.v2),
         ResOperation('int_add', [K1.sum, K1.v], K1.sum2),
         ResOperation('int_add', [K1.sum2, K1.sum], K1.sum3),
@@ -648,8 +649,8 @@ def test_K_optimize_loop():
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
-    assert spec.history.inputargs == [K.sum, K.n1, K.v]
-    equaloplists(spec.history.operations, [
+    assert spec.loop.inputargs == [K.sum, K.n1, K.v]
+    equaloplists(spec.loop.operations, [
         ResOperation('int_sub', [K.v, ConstInt(1)], K.v2),
         ResOperation('int_add', [K.sum, K.v], K.sum2),
         ResOperation('int_add', [K.sum2, K.v], K.sum3),
@@ -680,8 +681,8 @@ def test_L_optimize_loop():
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
-    assert spec.history.inputargs == [L.sum, L.n1, L.v]
-    equaloplists(spec.history.operations, [
+    assert spec.loop.inputargs == [L.sum, L.n1, L.v]
+    equaloplists(spec.loop.operations, [
         ResOperation('int_sub', [L.v, ConstInt(1)], L.v2),
         ResOperation('int_add', [L.sum, L.v], L.sum2),
         ResOperation('escape', [L.n1], None),
@@ -712,9 +713,9 @@ def test_M_optimize_loop():
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
-    v4 = spec.history.operations[-1].args[-1]
-    assert spec.history.inputargs == [M.sum, M.n1, M.v]
-    equaloplists(spec.history.operations, [
+    v4 = spec.loop.operations[-1].args[-1]
+    assert spec.loop.inputargs == [M.sum, M.n1, M.v]
+    equaloplists(spec.loop.operations, [
         ResOperation('int_sub', [M.v, ConstInt(1)], M.v2),
         ResOperation('int_add', [M.sum, M.v], M.sum2),
         ResOperation('escape', [M.n1], None),
@@ -744,9 +745,9 @@ def test_N_optimize_loop():
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
-    v4 = spec.history.operations[-1].args[-1]
-    assert spec.history.inputargs == [N.sum, N.n1, N.v]
-    equaloplists(spec.history.operations, [
+    v4 = spec.loop.operations[-1].args[-1]
+    assert spec.loop.inputargs == [N.sum, N.n1, N.v]
+    equaloplists(spec.loop.operations, [
         ResOperation('int_sub', [N.v, ConstInt(1)], N.v2),
         ResOperation('int_add', [N.sum, N.v], N.sum2),
         ResOperation('escape', [N.n1], None),
@@ -773,8 +774,8 @@ def test_O1_optimize_loop():
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
-    assert spec.history.inputargs == []
-    equaloplists(spec.history.operations, [
+    assert spec.loop.inputargs == []
+    equaloplists(spec.loop.operations, [
         ResOperation('escape', [], O1.n1),
         # only the first guard_class is left
         ResOperation('guard_class', [O1.n1, ConstAddr(node_vtable, cpu)],
@@ -803,8 +804,8 @@ def test_O2_optimize_loop():
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
-    assert spec.history.inputargs == []
-    equaloplists(spec.history.operations, [
+    assert spec.loop.inputargs == []
+    equaloplists(spec.loop.operations, [
         ResOperation('escape', [], O2.n1),
         ResOperation('guard_class', [O2.n1, ConstAddr(node_vtable, cpu)],
                      None),
@@ -835,8 +836,8 @@ def test_O3_optimize_loop():
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
-    assert spec.history.inputargs == []
-    equaloplists(spec.history.operations, [
+    assert spec.loop.inputargs == []
+    equaloplists(spec.loop.operations, [
         ResOperation('escape', [], O3.n1),
         ResOperation('guard_class', [O3.n1, ConstAddr(node_vtable, cpu)],
                      None),
@@ -874,4 +875,4 @@ def test_P_optimize_loop():
     # If it does, then aliasing is not correctly detected.
     # It is ok to reorder just the 'getfield_gc[n1], n2' operation,
     # but the three remaining getfields/setfields *must* be in that order.
-    equaloplists(spec.history.operations, P.ops)
+    equaloplists(spec.loop.operations, P.ops)

@@ -120,8 +120,8 @@ def test_A_optimize_loop():
     spec.find_nodes()
     spec.intersect_input_and_output()
     spec.optimize_loop()
-    assert spec.history.inputargs == [A.sum, A.fr, A.v]
-    equaloplists(spec.history.operations, [
+    assert spec.loop.inputargs == [A.sum, A.fr, A.v]
+    equaloplists(spec.loop.operations, [
         ResOperation('int_sub', [A.v, ConstInt(1)], A.v2),
         ResOperation('int_add', [A.sum, A.v], A.sum2),
         ResOperation('jump', [A.sum2, A.fr, A.v2], None),
