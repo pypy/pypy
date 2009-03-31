@@ -1,12 +1,6 @@
 
+* do something about not seeing a loop at all; maybe disable
+  temporarily(?) recognizing foreign can_enter_jit()
+
 * Optimization: bridges from interpreter to compiled code
 
-* Virtual lists
-
-* Virtualizables
-
-* RPython
-
-* X86 backend
-
-* PyPy!
