@@ -800,7 +800,7 @@ class OOMetaInterp(object):
         return resbox
     execute_and_record._annspecialcase_ = 'specialize:arg(1)'
 
-    def interpret(self):
+    def _interpret(self):
         # Execute the frames forward until we raise a DoneWithThisFrame,
         # a ContinueRunningNormally, or a GenerateMergePoint exception.
         if isinstance(self.history, history.BlackHole):
@@ -819,6 +819,18 @@ class OOMetaInterp(object):
                 history.log.event('LEAVE' + text)
             else:
                 debug_print('~~~ LEAVE', text)
+
+    def interpret(self):
+        if we_are_translated():
+            self._interpret()
+        else:
+            try:
+                self._interpret()
+            except:
+                import sys
+                if sys.exc_info()[0] is not None:
+                    history.log.info(sys.exc_info()[0].__name__)
+                raise
 
     def compile_and_run_once(self, *args):
         orig_boxes = self.initialize_state_from_start(*args)
@@ -858,7 +870,8 @@ class OOMetaInterp(object):
             box1 = original_boxes[i]
             box2 = live_arg_boxes[i]
             if not box1.equals(box2):
-                # not a valid loop
+                if not we_are_translated():
+                    history.log.info('not a valid loop at all')
                 raise self.ContinueRunningNormally(live_arg_boxes)
         self.history.inputargs = original_boxes[num_green_args:]
         greenkey = original_boxes[:num_green_args]
@@ -866,6 +879,8 @@ class OOMetaInterp(object):
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
         loop = compile_new_loop(self, old_loops)
         if not loop:
+            if not we_are_translated():
+                history.log.info('compile_new_loop() returned None')
             raise self.ContinueRunningNormally(live_arg_boxes)
         if not we_are_translated():
             loop._call_history = self._debug_history
@@ -879,10 +894,14 @@ class OOMetaInterp(object):
             old_loops = self.compiled_merge_points[greenkey]
         except KeyError:
             target_loop = None
+            if not we_are_translated():
+                history.log.info('no loop seen so far with this green key')
         else:
             self.history.record(rop.JUMP, live_arg_boxes[num_green_args:],
                                 None)
             target_loop = compile_new_bridge(self, old_loops, key)
+            if not we_are_translated() and target_loop is None:
+                history.log.info('compile_new_bridge() returned None')
         if target_loop is None:
             raise self.ContinueRunningNormally(live_arg_boxes)
         if not we_are_translated():
