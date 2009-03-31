@@ -176,6 +176,11 @@ class MIFrame(object):
         count = self.load_int()
         return [self.load_const_arg() for i in range(count)]
 
+    def ignore_varargs(self):
+        count = self.load_int()
+        for i in range(count):
+            self.load_int()
+
     def getvarenv(self, i):
         return self.env[i]
 
@@ -279,25 +284,27 @@ class MIFrame(object):
     def opimpl_goto(self, target):
         self.pc = target
 
-    @arguments("box", "jumptarget", "varargs", "varargs")
-    def opimpl_goto_if_not(self, box, target, truelist, falselist):
+    @arguments("orgpc", "jumptarget", "box", "varargs")
+    def opimpl_goto_if_not(self, pc, target, box, livelist):
         switchcase = box.getint()
         if switchcase:
-            currentpc = self.pc
-            currentenv = truelist
-            targetpc = target
-            targetenv = falselist
             opnum = rop.GUARD_TRUE
         else:
-            currentpc = target
-            currentenv = falselist
-            targetpc = self.pc
-            targetenv = truelist
+            self.pc = target
             opnum = rop.GUARD_FALSE
-        self.env = targetenv
-        self.generate_guard(targetpc, opnum, box)
-        self.pc = currentpc
-        self.env = currentenv
+        self.env = livelist
+        self.generate_guard(pc, opnum, box)
+
+    def follow_jump(self):
+        self.pc += 1          # past the bytecode for 'goto_if_not'
+        target = self.load_3byte()  # load the 'target' argument
+        self.pc = target      # jump
+
+    def dont_follow_jump(self):
+        self.pc += 1          # past the bytecode for 'goto_if_not'
+        self.load_3byte()     # past the 'target' argument
+        self.load_int()       # past the 'box' argument
+        self.ignore_varargs() # past the 'livelist' argument
 
     @arguments("orgpc", "box", "constargs", "jumptargets")
     def opimpl_switch(self, pc, valuebox, constargs, jumptargets):
@@ -847,9 +854,7 @@ class OOMetaInterp(object):
         self.initialize_state_from_guard_failure(guard_failure)
         key = guard_failure.key
         try:
-            if key.guard_op.opnum in (rop.GUARD_NO_EXCEPTION,
-                                      rop.GUARD_EXCEPTION):
-                self.handle_exception()
+            self.prepare_resume_from_failure(key.guard_op.opnum)
             self.interpret()
             assert False, "should always raise"
         except GenerateMergePoint, gmp:
@@ -865,6 +870,14 @@ class OOMetaInterp(object):
         residual_args = self.get_residual_args(loop,
                                                gmp.argboxes[num_green_args:])
         return (loop, residual_args)
+
+    def prepare_resume_from_failure(self, opnum):
+        if opnum == rop.GUARD_TRUE:     # a goto_if_not that fails only now
+            self.framestack[-1].follow_jump()
+        elif opnum == rop.GUARD_FALSE:     # a goto_if_not that stops failing
+            self.framestack[-1].dont_follow_jump()
+        elif opnum == rop.GUARD_NO_EXCEPTION or opnum == rop.GUARD_EXCEPTION:
+            self.handle_exception()
 
     def compile(self, original_boxes, live_arg_boxes):
         num_green_args = self.num_green_args

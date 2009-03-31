@@ -152,8 +152,9 @@ class BasicTests:
             for op in get_stats().loops[0]._all_operations():
                 if op.getopname() == 'fail':
                     liveboxes = op.args
-                    assert len(liveboxes) == 1
-                    assert isinstance(liveboxes[0], history.BoxInt)
+                    assert len(liveboxes) == 3
+                    for box in liveboxes:
+                        assert isinstance(box, history.BoxInt)
                     found += 1
             assert found == 1
 

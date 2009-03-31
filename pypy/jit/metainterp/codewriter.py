@@ -263,9 +263,6 @@ class BytecodeMaker(object):
 
     def make_bytecode_block(self, block):
         if block.exits == ():
-            # note: the same label might be generated multiple times, but a
-            # jump to this label is free to pick whichever target so it's fine
-            self.emit(label(block))
             if len(block.inputargs) == 1:
                 # return from function
                 returnvar, = block.inputargs
@@ -322,16 +319,19 @@ class BytecodeMaker(object):
             linkfalse, linktrue = block.exits
             if linkfalse.llexitcase == True:
                 linkfalse, linktrue = linktrue, linkfalse
-            truelist = self.get_renaming_list(linktrue.args)
-            falselist = self.get_renaming_list(linkfalse.args)
             self.emit("goto_if_not",
-                      self.var_position(block.exitswitch),
-                      tlabel(linkfalse.target))
-            self.emit(len(truelist), *truelist)
-            self.emit(len(falselist), *falselist)
+                      tlabel(linkfalse),
+                      self.var_position(block.exitswitch))
+            self.minimize_variables(argument_only=True, exitswitch=False)
+            truerenaming = self.insert_renaming(linktrue.args)
+            falserenaming = self.insert_renaming(linkfalse.args)
+            # true path:
+            self.emit(*truerenaming)
             self.make_bytecode_block(linktrue.target)
-            if linkfalse.target not in self.seen_blocks:
-                self.make_bytecode_block(linkfalse.target)
+            # false path:
+            self.emit(label(linkfalse))
+            self.emit(*falserenaming)
+            self.make_bytecode_block(linkfalse.target)
         else:
             self.minimize_variables()
             switches = [link for link in block.exits
@@ -426,11 +426,12 @@ class BytecodeMaker(object):
         else:
             return ["make_new_vars_%d" % len(list)] + list
 
-    def minimize_variables(self):
+    def minimize_variables(self, argument_only=False, exitswitch=True):
         if self.dont_minimize_variables:
+            assert not argument_only
             return
         block, index = self.current_position
-        allvars = self.vars_alive_through_op(block, index)
+        allvars = self.vars_alive_through_op(block, index, exitswitch)
         seen = {}       # {position: unique Variable} without Voids
         unique = {}     # {Variable: unique Variable} without Voids
         for v in allvars:
@@ -441,7 +442,12 @@ class BytecodeMaker(object):
         vars = seen.items()
         vars.sort()
         vars = [v1 for pos, v1 in vars]
-        self.emit(*self.insert_renaming(vars))
+        if argument_only:
+            # only generate the list of vars as an arg in a complex operation
+            renaming_list = self.get_renaming_list(vars)
+            self.emit(len(renaming_list), *renaming_list)
+        else:
+            self.emit(*self.insert_renaming(vars))
         self.free_vars = 0
         self.var_positions.clear()
         for v1 in vars:
@@ -449,7 +455,7 @@ class BytecodeMaker(object):
         for v, v1 in unique.items():
             self.var_positions[v] = self.var_positions[v1]
 
-    def vars_alive_through_op(self, block, index):
+    def vars_alive_through_op(self, block, index, include_exitswitch=True):
         """Returns the list of variables that are really used by or after
         the operation at 'index'.
         """
@@ -468,7 +474,8 @@ class BytecodeMaker(object):
         for op in block.operations[index:]:
             for v in op.args:
                 see(v)
-        see(block.exitswitch)
+        if include_exitswitch:
+            see(block.exitswitch)
         for link in block.exits:
             for v in link.args:
                 if v not in (link.last_exception, link.last_exc_value):
