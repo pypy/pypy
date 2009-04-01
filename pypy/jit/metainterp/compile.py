@@ -189,7 +189,7 @@ def inverse_guard(guard_op):
         guard_op = ResOperation(rop.GUARD_TRUE, guard_op.args, None)
     else:
         # XXX other guards have no inverse so far
-        raise InverseTheOtherGuardsPlease(op)
+        raise InverseTheOtherGuardsPlease(guard_op)
     #
     guard_op.suboperations = suboperations
     return guard_op

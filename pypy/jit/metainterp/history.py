@@ -413,6 +413,7 @@ class ResumeDescr(AbstractDescr):
         self.guard_op = guard_op
         self.counter = 0
         self.history = history
+        assert history_guard_index >= 0
         self.history_guard_index = history_guard_index
 
 # ____________________________________________________________

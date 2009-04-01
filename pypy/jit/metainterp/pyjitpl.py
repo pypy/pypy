@@ -1007,9 +1007,11 @@ class OOMetaInterp(object):
             if guard_op.optimized is not None:     # should never be None
                 guard_op = guard_op.optimized
             suboperations = guard_op.suboperations
-            self.extra_rebuild_operations = len(suboperations) - 1
-            for i in range(self.extra_rebuild_operations):
+            extra = len(suboperations) - 1
+            assert extra >= 0
+            for i in range(extra):
                 self.history.operations.append(suboperations[i])
+            self.extra_rebuild_operations = extra
         else:
             self.history = history.BlackHole(self.cpu)
             # the BlackHole is invalid because it doesn't start with
