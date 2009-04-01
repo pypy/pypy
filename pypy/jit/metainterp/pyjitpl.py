@@ -878,9 +878,9 @@ class OOMetaInterp(object):
         return (loop, residual_args)
 
     def prepare_resume_from_failure(self, opnum):
-        if opnum == rop.GUARD_TRUE:     # a goto_if_not that fails only now
+        if opnum == rop.GUARD_TRUE:     # a goto_if_not that jumps only now
             self.framestack[-1].follow_jump()
-        elif opnum == rop.GUARD_FALSE:     # a goto_if_not that stops failing
+        elif opnum == rop.GUARD_FALSE:     # a goto_if_not that stops jumping
             self.framestack[-1].dont_follow_jump()
         elif opnum == rop.GUARD_NO_EXCEPTION or opnum == rop.GUARD_EXCEPTION:
             self.handle_exception()
@@ -908,15 +908,17 @@ class OOMetaInterp(object):
     def compile_bridge(self, key, live_arg_boxes):
         num_green_args = self.num_green_args
         greenkey = live_arg_boxes[:num_green_args]
-        self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
         try:
             old_loops = self.compiled_merge_points[greenkey]
         except KeyError:
             pass
         else:
+            self.history.record(rop.JUMP, live_arg_boxes[num_green_args:],
+                                None)
             target_loop = compile_new_bridge(self, old_loops, key)
             if target_loop is not None:
                 return target_loop
+            self.history.operations.pop()     # remove the JUMP
         # Failed to compile it as a bridge.  Turn it into a complete loop.
         greenkey = prepare_loop_from_bridge(self, key)
         original_boxes = greenkey + self.history.inputargs
