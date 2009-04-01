@@ -859,8 +859,10 @@ class OOMetaInterp(object):
         self.initialize_state_from_guard_failure(guard_failure)
         key = guard_failure.descr
         assert isinstance(key, history.ResumeDescr)
-        source_loop = compile.find_source_loop(key)
-        original_boxes = source_loop.greenkey + source_loop.inputargs
+        top_history = compile.find_toplevel_history(key)
+        source_loop = top_history.source_link
+        assert isinstance(source_loop, history.TreeLoop)
+        original_boxes = source_loop.greenkey + top_history.inputargs
         self.current_merge_points = [(original_boxes, 0)]
         self.guard_key = key
         try:
@@ -884,6 +886,7 @@ class OOMetaInterp(object):
         # we end now.
         for j in range(len(self.current_merge_points)-1, -1, -1):
             original_boxes, start = self.current_merge_points[j]
+            assert len(original_boxes) == len(live_arg_boxes)
             for i in range(self.num_green_args):
                 box1 = original_boxes[i]
                 box2 = live_arg_boxes[i]

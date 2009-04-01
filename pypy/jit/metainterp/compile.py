@@ -56,7 +56,8 @@ def _compile_new_bridge_1(metainterp, old_loops, resumekey):
         raise
     else:
         show_loop(metainterp, target_loop)
-    target_loop.check_consistency()
+    if target_loop is not None:
+        target_loop.check_consistency()
     return target_loop
 
 def show_loop(metainterp, loop=None, error=None):
@@ -110,6 +111,16 @@ def send_loop_to_backend(metainterp, loop, is_loop):
             log.info("compiled new bridge")
 
 # ____________________________________________________________
+
+def find_toplevel_history(resumekey):
+    # Find the History that describes the start of the loop containing this
+    # guard operation.
+    history = resumekey.history
+    prevhistory = history.source_link
+    while isinstance(prevhistory, History):
+        history = prevhistory
+        prevhistory = history.source_link
+    return history
 
 def find_source_loop(resumekey):
     # Find the TreeLoop object that contains this guard operation.
