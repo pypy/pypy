@@ -155,26 +155,18 @@ def prepare_loop_from_bridge(metainterp, resumekey):
         log.info("completing the bridge into a stand-alone loop")
     operations = metainterp.history.operations
     metainterp.history.operations = []
-    greenkey = append_full_operations(metainterp.history,
-                                      resumekey.history,
-                                      resumekey.history_guard_index)
+    append_full_operations(metainterp.history,
+                           resumekey.history,
+                           resumekey.history_guard_index)
     metainterp.history.operations.extend(operations)
-    return greenkey
 
 def append_full_operations(history, sourcehistory, guard_index):
     prev = sourcehistory.source_link
     if isinstance(prev, History):
-        result = append_full_operations(history, prev,
-                                        sourcehistory.source_guard_index)
-    else:
-        assert history.inputargs is None
-        assert sourcehistory.inputargs is not None
-        history.inputargs = sourcehistory.inputargs
-        result = prev.greenkey
+        append_full_operations(history, prev, sourcehistory.source_guard_index)
     history.operations.extend(sourcehistory.operations[:guard_index])
     op = inverse_guard(sourcehistory.operations[guard_index])
     history.operations.append(op)
-    return result
 
 def inverse_guard(guard_op):
     suboperations = guard_op.suboperations

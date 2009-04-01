@@ -7,12 +7,10 @@ from pypy.rlib.objectmodel import we_are_translated, r_dict, instantiate
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.debug import debug_print
 
-from pypy.jit.metainterp import history, support
+from pypy.jit.metainterp import history, support, compile
 from pypy.jit.metainterp.history import (Const, ConstInt, ConstPtr, Box,
                                          BoxInt, BoxPtr, Options)
 from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.metainterp.compile import compile_new_loop, compile_new_bridge
-from pypy.jit.metainterp.compile import prepare_loop_from_bridge
 from pypy.jit.metainterp.heaptracker import (get_vtable_for_gcstruct,
                                              populate_type_cache)
 from pypy.jit.metainterp import codewriter, optimize, executor
@@ -783,6 +781,7 @@ class OOMetaInterp(object):
         self.history = None
         self.framestack = None
         self.current_merge_points = None
+        self.guard_key = None
 
     def _all_constants(self, boxes):
         for box in boxes:
@@ -860,6 +859,9 @@ class OOMetaInterp(object):
         self.initialize_state_from_guard_failure(guard_failure)
         key = guard_failure.descr
         assert isinstance(key, history.ResumeDescr)
+        source_loop = compile.find_source_loop(key)
+        original_boxes = source_loop.greenkey + source_loop.inputargs
+        self.current_merge_points = [(original_boxes, 0)]
         self.guard_key = key
         try:
             self.prepare_resume_from_failure(key.guard_op.opnum)
@@ -872,18 +874,10 @@ class OOMetaInterp(object):
         # Called whenever we reach the 'can_enter_jit' hint.
         key = self.guard_key
         if key is not None:
-            # We only traced so far from a guard failure to the next
-            # 'can_enter_jit'.
-            self.guard_key = None
+            # First, attempt to make a bridge.
             target_loop = self.compile_bridge(key, live_arg_boxes)
             if target_loop is not None:    # common case, hopefully
                 raise GenerateMergePoint(live_arg_boxes, target_loop)
-            # Failed to compile it as a bridge.  Complete it as a full loop
-            # by inserting a copy of the operations from the old loop branch
-            # before the guard that failed.
-            greenkey = prepare_loop_from_bridge(self, key)
-            original_boxes = greenkey + self.history.inputargs
-            self.current_merge_points = [(original_boxes, 0)]
 
         # Search in current_merge_points for original_boxes with compatible
         # green keys, representing the beginning of the same loop as the one
@@ -897,8 +891,14 @@ class OOMetaInterp(object):
                     break
             else:
                 # Found!  Compile it as a loop.
-                if start > 0:
+                if j > 0:
                     del self.history.operations[:start]
+                elif key is not None:
+                    # The history only starts at a bridge, not at the
+                    # full loop header.  Complete it as a full loop by
+                    # inserting a copy of the operations from the old
+                    # loop branch before the guard that failed.
+                    compile.prepare_loop_from_bridge(self, key)
                 loop = self.compile(original_boxes, live_arg_boxes)
                 raise GenerateMergePoint(live_arg_boxes, loop)
 
@@ -928,7 +928,7 @@ class OOMetaInterp(object):
         greenkey = original_boxes[:num_green_args]
         old_loops = self.compiled_merge_points.setdefault(greenkey, [])
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
-        loop = compile_new_loop(self, old_loops, greenkey)
+        loop = compile.compile_new_loop(self, old_loops, greenkey)
         assert loop is not None
         if not we_are_translated():
             loop._call_history = self._debug_history
@@ -943,7 +943,7 @@ class OOMetaInterp(object):
         except KeyError:
             return None
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
-        target_loop = compile_new_bridge(self, old_loops, key)
+        target_loop = compile.compile_new_bridge(self, old_loops, key)
         if target_loop is not None:
             return target_loop
         self.history.operations.pop()     # remove the JUMP

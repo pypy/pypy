@@ -466,4 +466,4 @@ class TestLoop(LLJitMixin):
         res = self.meta_interp(interpret, [1])
         assert res == interpret(1)
         # XXX it's unsure how many loops should be there
-        self.check_loop_count(2)
+        self.check_loop_count(3)
