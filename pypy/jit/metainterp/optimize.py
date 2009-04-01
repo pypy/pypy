@@ -518,7 +518,7 @@ class PerfectSpecializer(object):
         old_boxes = op.suboperations[0].args
         unoptboxes = []
         for box in old_boxes:
-            if isinstance(box, Const):
+            if isinstance(box, Const) or box not in self.nodes:
                 unoptboxes.append(box)
                 continue
             unoptboxes.append(self.prepare_rebuild_ops(self.nodes[box],
