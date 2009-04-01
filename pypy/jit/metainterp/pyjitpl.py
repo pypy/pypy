@@ -553,7 +553,7 @@ class MIFrame(object):
     @arguments("orgpc", "varargs")
     def opimpl_can_enter_jit(self, pc, varargs):
         self.generate_merge_point(pc, varargs)
-        raise GenerateMergePoint(varargs)
+        self.metainterp.reached_can_enter_jit(varargs)
 
     @arguments("orgpc")
     def opimpl_jit_merge_point(self, pc):
@@ -782,6 +782,7 @@ class OOMetaInterp(object):
     def delete_history(self):
         self.history = None
         self.framestack = None
+        self.current_merge_points = None
 
     def _all_constants(self, boxes):
         for box in boxes:
@@ -846,32 +847,68 @@ class OOMetaInterp(object):
     def compile_and_run_once(self, *args):
         if not we_are_translated():
             history.log.info('Switching from interpreter to compiler')
-        orig_boxes = self.initialize_state_from_start(*args)
+        original_boxes = self.initialize_state_from_start(*args)
+        self.current_merge_points = [(original_boxes, 0)]
+        self.guard_key = None
         try:
             self.interpret()
             assert False, "should always raise"
         except GenerateMergePoint, gmp:
-            compiled_loop = self.compile(orig_boxes, gmp.argboxes)
-            return self.designate_target_loop(gmp, compiled_loop)
+            return self.designate_target_loop(gmp)
 
     def handle_guard_failure(self, guard_failure):
         self.initialize_state_from_guard_failure(guard_failure)
         key = guard_failure.descr
         assert isinstance(key, history.ResumeDescr)
+        self.guard_key = key
         try:
             self.prepare_resume_from_failure(key.guard_op.opnum)
             self.interpret()
             assert False, "should always raise"
         except GenerateMergePoint, gmp:
-            try:
-                target_loop = self.compile_bridge(key, gmp.argboxes)
-            except self.ContinueRunningNormally:
-                key.counter = 0
-                raise
-            return self.designate_target_loop(gmp, target_loop)
+            return self.designate_target_loop(gmp)
 
-    def designate_target_loop(self, gmp, loop):
+    def reached_can_enter_jit(self, live_arg_boxes):
+        # Called whenever we reach the 'can_enter_jit' hint.
+        key = self.guard_key
+        if key is not None:
+            # We only traced so far from a guard failure to the next
+            # 'can_enter_jit'.
+            self.guard_key = None
+            target_loop = self.compile_bridge(key, live_arg_boxes)
+            if target_loop is not None:    # common case, hopefully
+                raise GenerateMergePoint(live_arg_boxes, target_loop)
+            # Failed to compile it as a bridge.  Complete it as a full loop
+            # by inserting a copy of the operations from the old loop branch
+            # before the guard that failed.
+            greenkey = prepare_loop_from_bridge(self, key)
+            original_boxes = greenkey + self.history.inputargs
+            self.current_merge_points = [(original_boxes, 0)]
+
+        # Search in current_merge_points for original_boxes with compatible
+        # green keys, representing the beginning of the same loop as the one
+        # we end now.
+        for j in range(len(self.current_merge_points)-1, -1, -1):
+            original_boxes, start = self.current_merge_points[j]
+            for i in range(self.num_green_args):
+                box1 = original_boxes[i]
+                box2 = live_arg_boxes[i]
+                if not box1.equals(box2):
+                    break
+            else:
+                # Found!  Compile it as a loop.
+                if start > 0:
+                    del self.history.operations[:start]
+                loop = self.compile(original_boxes, live_arg_boxes)
+                raise GenerateMergePoint(live_arg_boxes, loop)
+
+        # Otherwise, no loop found so far, so continue tracing.
+        start = len(self.history.operations)
+        self.current_merge_points.append((live_arg_boxes, start))
+
+    def designate_target_loop(self, gmp):
         self.delete_history()
+        loop = gmp.target_loop
         num_green_args = self.num_green_args
         residual_args = self.get_residual_args(loop,
                                                gmp.argboxes[num_green_args:])
@@ -887,13 +924,6 @@ class OOMetaInterp(object):
 
     def compile(self, original_boxes, live_arg_boxes):
         num_green_args = self.num_green_args
-        for i in range(num_green_args):
-            box1 = original_boxes[i]
-            box2 = live_arg_boxes[i]
-            if not box1.equals(box2):
-                if not we_are_translated():
-                    history.log.info('not a valid loop at all')
-                raise self.ContinueRunningNormally(live_arg_boxes)
         self.history.inputargs = original_boxes[num_green_args:]
         greenkey = original_boxes[:num_green_args]
         old_loops = self.compiled_merge_points.setdefault(greenkey, [])
@@ -911,21 +941,13 @@ class OOMetaInterp(object):
         try:
             old_loops = self.compiled_merge_points[greenkey]
         except KeyError:
-            pass
-        else:
-            self.history.record(rop.JUMP, live_arg_boxes[num_green_args:],
-                                None)
-            target_loop = compile_new_bridge(self, old_loops, key)
-            if target_loop is not None:
-                return target_loop
-            self.history.operations.pop()     # remove the JUMP
-        # Failed to compile it as a bridge.  Turn it into a complete loop.
-        greenkey = prepare_loop_from_bridge(self, key)
-        original_boxes = greenkey + self.history.inputargs
-        return self.compile(original_boxes, live_arg_boxes)
-        #if not we_are_translated():
-        #    bridge._call_history = self._debug_history
-        #    self.debug_history = []
+            return None
+        self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
+        target_loop = compile_new_bridge(self, old_loops, key)
+        if target_loop is not None:
+            return target_loop
+        self.history.operations.pop()     # remove the JUMP
+        return None
 
     def get_residual_args(self, loop, args):
         if loop.specnodes is None:     # it is None only for tests
@@ -1034,5 +1056,7 @@ class OOMetaInterp(object):
 
 
 class GenerateMergePoint(Exception):
-    def __init__(self, args):
+    def __init__(self, args, target_loop):
+        assert target_loop is not None
         self.argboxes = args
+        self.target_loop = target_loop
