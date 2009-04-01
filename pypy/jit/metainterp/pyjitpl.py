@@ -154,6 +154,7 @@ class MIFrame(object):
         return bool(result)
 
     def getenv(self, i):
+        assert i >= 0
         j = i >> 1
         if i & 1:
             return self.constants[j]
