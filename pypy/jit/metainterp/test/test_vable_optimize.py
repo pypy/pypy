@@ -238,13 +238,15 @@ def test_D_intersect_input_and_output():
 # ____________________________________________________________
 
 class E:
-    locals().update(B.__dict__)
+    locals().update(A.__dict__)
     inputargs = [fr]
     ops = [
         ResOperation('guard_nonvirtualized', [fr, ConstAddr(xy_vtable, cpu)],
                      None, ofs_node),
         ResOperation('getfield_gc', [fr], n1, ofs_node),
         ResOperation('escape', [n1], None),
+        ResOperation('getfield_gc', [fr], n2, ofs_node),
+        ResOperation('escape', [n2], None),
         ResOperation('jump', [fr], None),
         ]
     ops[0].vdesc = xy_desc
@@ -256,6 +258,7 @@ def test_E_optimize_loop():
     spec.optimize_loop()
     assert spec.loop.inputargs == [E.fr, E.n1]
     equaloplists(spec.loop.operations, [
+        ResOperation('escape', [E.n1], None),
         ResOperation('escape', [E.n1], None),
         ResOperation('jump', [E.fr, E.n1], None),
     ])
