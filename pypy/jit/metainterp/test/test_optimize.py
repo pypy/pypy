@@ -866,7 +866,6 @@ class P:
     set_guard(ops[-3], [])
 
 def test_P_optimize_loop():
-    py.test.skip("explodes")
     spec = PerfectSpecializer(Loop(P.inputargs, P.ops))
     spec.find_nodes()
     spec.intersect_input_and_output()
