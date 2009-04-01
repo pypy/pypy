@@ -55,7 +55,8 @@ def _compile_new_bridge_1(metainterp, old_loops, resumekey):
         show_loop(metainterp, error=exc)
         raise
     else:
-        show_loop(metainterp, target_loop)
+        if target_loop is not None:
+            show_loop(metainterp, target_loop)
     if target_loop is not None:
         target_loop.check_consistency()
     return target_loop

@@ -895,23 +895,6 @@ def get_in_list(dict, boxes_or_consts):
         result.append(box)
     return result
 
-##def rebuild_boxes_from_guard_failure(guard_op, cpu, history, boxes_from_frame):
-##    currentvalues = {}
-##    assert len(boxes_from_frame) == len(guard_op.liveboxes)
-##    for i in range(len(boxes_from_frame)):
-##        currentvalues[guard_op.liveboxes[i]] = boxes_from_frame[i]
-
-##    # interpret the operations stored in 'rebuild_ops'
-##    for op in guard_op.rebuild_ops:
-##        argboxes = get_in_list(currentvalues, op.args)
-##        # similar to execute_and_record, but not specialized on op.opnum
-##        resbox = executor.execute_nonspec(cpu, op.opnum, argboxes, op.descr)
-##        history.record(op.opnum, argboxes, resbox, op.descr)
-##        if resbox is not None:
-##            currentvalues[op.result] = resbox
-##    # done
-##    return [currentvalues[box] for box in guard_op.unoptboxes]
-
 # ---------------------------------------------------------------
 
 def partition(array, left, right):

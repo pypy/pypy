@@ -901,6 +901,7 @@ class OOMetaInterp(object):
                     # full loop header.  Complete it as a full loop by
                     # inserting a copy of the operations from the old
                     # loop branch before the guard that failed.
+                    del self.history.operations[:self.extra_rebuild_operations]
                     compile.prepare_loop_from_bridge(self, key)
                 loop = self.compile(original_boxes, live_arg_boxes)
                 raise GenerateMergePoint(live_arg_boxes, loop)
@@ -1001,8 +1002,12 @@ class OOMetaInterp(object):
         assert isinstance(resumedescr, history.ResumeDescr)
         if self.state.must_compile_from_failure(resumedescr):
             self.history = history.History(self.cpu)
-            suboperations = resumedescr.guard_op.suboperations
-            for i in range(len(suboperations)-1):
+            guard_op = resumedescr.guard_op
+            if guard_op.optimized is not None:     # should never be None
+                guard_op = guard_op.optimized
+            suboperations = guard_op.suboperations
+            self.extra_rebuild_operations = len(suboperations) - 1
+            for i in range(self.extra_rebuild_operations):
                 self.history.operations.append(suboperations[i])
         else:
             self.history = history.BlackHole(self.cpu)
