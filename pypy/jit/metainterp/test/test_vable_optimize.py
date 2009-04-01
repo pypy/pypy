@@ -234,3 +234,28 @@ def test_D_intersect_input_and_output():
     assert spec.nodes[D.fr].virtualized
     assert not spec.nodes[D.l].escaped
     assert spec.nodes[D.l].expanded_fields.keys() == [0]
+
+# ____________________________________________________________
+
+class E:
+    locals().update(B.__dict__)
+    inputargs = [fr]
+    ops = [
+        ResOperation('guard_nonvirtualized', [fr, ConstAddr(xy_vtable, cpu)],
+                     None, ofs_node),
+        ResOperation('getfield_gc', [fr], n1, ofs_node),
+        ResOperation('escape', [n1], None),
+        ResOperation('jump', [fr], None),
+        ]
+    ops[0].vdesc = xy_desc
+
+def test_E_optimize_loop():
+    spec = PerfectSpecializer(Loop(E.inputargs, E.ops))
+    spec.find_nodes()
+    spec.intersect_input_and_output()
+    spec.optimize_loop()
+    assert spec.loop.inputargs == [E.fr, E.n1]
+    equaloplists(spec.loop.operations, [
+        ResOperation('escape', [E.n1], None),
+        ResOperation('jump', [E.fr, E.n1], None),
+    ])
