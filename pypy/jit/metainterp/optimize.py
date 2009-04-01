@@ -454,19 +454,19 @@ class PerfectSpecializer(object):
             specnode.expand_boxlist(self.nodes[box], newboxlist)
         return newboxlist
 
-    def prepare_rebuild_ops(self, instnode, rebuild_ops, memo):
-        box = instnode.source
+    def prepare_rebuild_ops(self, instnode, rebuild_ops, memo, box=None):
+        if box is None:
+            box = instnode.source
         if not isinstance(box, Box):
             return box
         if box in memo:
-            return memo[box]
+            return box
         if instnode.virtual:
-            newbox = BoxPtr()
             ld = instnode.cls.source
             if isinstance(ld, FixedList):
                 ad = ld.arraydescr
                 sizebox = ConstInt(instnode.cursize)
-                op = ResOperation(rop.NEW_ARRAY, [sizebox], newbox,
+                op = ResOperation(rop.NEW_ARRAY, [sizebox], box,
                                   descr=ad)
             else:
                 vtable = ld.getint()
@@ -475,23 +475,23 @@ class PerfectSpecializer(object):
                     size = self.cpu.class_sizes[vtable_addr]
                 else:
                     size = self.cpu.class_sizes[vtable]
-                op = ResOperation(rop.NEW_WITH_VTABLE, [ld], newbox,
+                op = ResOperation(rop.NEW_WITH_VTABLE, [ld], box,
                                   descr=size)
             rebuild_ops.append(op)
-            memo[box] = newbox
+            memo[box] = None
             for ofs, node in instnode.curfields.items():
                 fieldbox = self.prepare_rebuild_ops(node, rebuild_ops, memo)
                 if isinstance(ld, FixedList):
                     op = ResOperation(rop.SETARRAYITEM_GC,
-                                      [newbox, ofs, fieldbox],
+                                      [box, ofs, fieldbox],
                                       None, descr=ld.arraydescr)
                 else:
                     assert isinstance(ofs, AbstractDescr)
-                    op = ResOperation(rop.SETFIELD_GC, [newbox, fieldbox],
+                    op = ResOperation(rop.SETFIELD_GC, [box, fieldbox],
                                       None, descr=ofs)
                 rebuild_ops.append(op)
-            return newbox
-        memo[box] = box
+            return box
+        memo[box] = None
         if instnode.virtualized:
             for ofs, node in instnode.curfields.items():
                 fieldbox = self.prepare_rebuild_ops(node, rebuild_ops, memo)
@@ -515,14 +515,10 @@ class PerfectSpecializer(object):
         assert len(op.suboperations) == 1
         op_fail = op.suboperations[0]
         assert op_fail.opnum == rop.FAIL
-        old_boxes = op.suboperations[0].args
-        unoptboxes = []
-        for box in old_boxes:
+        for box in op_fail.args:
             if isinstance(box, Const) or box not in self.nodes:
-                unoptboxes.append(box)
                 continue
-            unoptboxes.append(self.prepare_rebuild_ops(self.nodes[box],
-                                                       rebuild_ops, memo))
+            self.prepare_rebuild_ops(self.nodes[box], rebuild_ops, memo, box)
         # XXX sloooooow!
         for node in self.nodes.values():
             if node.virtualized:
@@ -555,8 +551,6 @@ class PerfectSpecializer(object):
 #                 rebuild_ops.append(op1)
 #         # end of code for dirtyfields support
 
-        op_fail = op_fail.clone()
-        op_fail.args = unoptboxes
         rebuild_ops.append(op_fail)
         op1 = op.clone()
         op1.suboperations = rebuild_ops
