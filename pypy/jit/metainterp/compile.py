@@ -6,8 +6,6 @@ from pypy.conftest import option
 
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.history import TreeLoop, log, Box, History
-from pypy.jit.metainterp import optimize
-
 
 def compile_new_loop(metainterp, old_loops, greenkey):
     """Try to compile a new loop by closing the current history back
@@ -92,8 +90,8 @@ def compile_fresh_loop(metainterp, old_loops, greenkey):
     loop.inputargs = history.inputargs
     loop.operations = history.operations
     loop.operations[-1].jump_target = loop
-    old_loop = optimize.optimize_loop(metainterp.options, old_loops,
-                                      loop, metainterp.cpu)
+    old_loop = metainterp.optimize_loop(metainterp.options, old_loops,
+                                        loop, metainterp.cpu)
     if old_loop is not None:
         return old_loop
     history.source_link = loop
@@ -138,8 +136,8 @@ def compile_fresh_bridge(metainterp, old_loops, resumekey):
     # it does not work -- i.e. none of the existing old_loops match.
     temploop = create_empty_loop(metainterp)
     temploop.operations = metainterp.history.operations
-    target_loop = optimize.optimize_bridge(metainterp.options, old_loops,
-                                           temploop, metainterp.cpu)
+    target_loop = metainterp.optimize_bridge(metainterp.options, old_loops,
+                                             temploop, metainterp.cpu)
     # Did it work?
     if target_loop is not None:
         # Yes, we managed to create just a bridge.  Attach the new operations

@@ -180,84 +180,8 @@ class CPU386(object):
         self.assembler._exception_bck[0] = ovf_vtable
         self.assembler._exception_bck[1] = ovf_inst
 
-#     def execute_operation(self, opnum, valueboxes, result_type):
-#         xxx
-#         if execute[opnum] is not None:
-#             return execute[opnum](valueboxes)
-        
-#         # mostly a hack: fall back to compiling and executing the single
-#         # operation.
-#         key = []
-#         for valuebox in valueboxes:
-#             if isinstance(valuebox, Box):
-#                 key.append(valuebox.type)
-#             else:
-#                 key.append(str(valuebox.get_()))
-#         mp = self.get_compiled_single_operation(opnum, result_type,
-#                                                 key, valueboxes)
-#         res = self.execute_operations_in_new_frame(opname[opnum], mp,
-#                                                    valueboxes,
-#                                                    result_type)
-#         if not self.translate_support_code:
-#             if self.assembler._exception_data[0] != 0:
-#                 TP = lltype.Ptr(rclass.OBJECT_VTABLE)
-#                 TP_V = lltype.Ptr(rclass.OBJECT)
-#                 exc_t_a = self.cast_int_to_adr(self.get_exception(None))
-#                 exc_type = llmemory.cast_adr_to_ptr(exc_t_a, TP)
-#                 exc_v_a = self.get_exc_value(None)
-#                 exc_val = lltype.cast_opaque_ptr(TP_V, exc_v_a)
-#                 # clean up the exception
-#                 self.assembler._exception_data[0] = 0
-#                 raise LLException(exc_type, exc_val)
-#         # otherwise exception data is set correctly, no problem at all
-#         return res
-
-#     def get_compiled_single_operation(self, opnum, result_type, key,
-#                                       valueboxes):
-#         xxx
-#         real_key = '%d,%s' % (opnum, result_type) + ','.join(key)
-#         try:
-#             return self._compiled_ops[real_key]
-#         except KeyError:
-#             livevarlist = []
-#             i = 0
-#             # clonebox below is necessary, because sometimes we know
-#             # that the value is constant (ie ArrayDescr), but we're not
-#             # going to get the contant. So instead we get a box with correct
-#             # value
-#             for box in valueboxes:
-#                 if box.type == 'int':
-#                     box = valueboxes[i].clonebox()
-#                 elif box.type == 'ptr':
-#                     box = valueboxes[i].clonebox()
-#                 else:
-#                     raise ValueError(type)
-#                 livevarlist.append(box)
-#                 i += 1
-#             mp = ResOperation(rop.MERGE_POINT, livevarlist, None)
-#             if result_type == 'void':
-#                 result = None
-#             elif result_type == 'int':
-#                 result = history.BoxInt()
-#             elif result_type == 'ptr':
-#                 result = history.BoxPtr()
-#             else:
-#                 raise ValueError(result_type)
-#             if result is None:
-#                 results = []
-#             else:
-#                 results = [result]
-#             operations = [mp,
-#                           ResOperation(opnum, livevarlist, result),
-#                           ResOperation(rop.RETURN, results, None)]
-#             if operations[1].is_guard():
-#                 operations[1].liveboxes = []
-#             self.compile_operations(operations, verbose=False)
-#             self._compiled_ops[real_key] = mp
-#             return mp
-
-    def compile_operations(self, operations, guard_op=None, verbose=True):
-        self.assembler.assemble(operations, guard_op, verbose=verbose)
+    def compile_operations(self, tree):
+        self.assembler.assemble(tree)
 
     def get_bootstrap_code(self, startmp):
         # key is locations of arguments
@@ -312,7 +236,9 @@ class CPU386(object):
         self.generated_mps[calldescr] = operations
         return operations
 
-    def execute_operations_in_new_frame(self, name, operations, valueboxes):
+    def execute_operations(self, loop, valueboxes):
+        import pdb
+        pdb.set_trace()
         startmp = operations[0]
         func = self.get_bootstrap_code(startmp)
         # turn all the values into integers
@@ -568,6 +494,7 @@ class CPU386(object):
 
     def do_call(self, args, calldescr):
         num_args, size, ptr = self.unpack_calldescr(calldescr)
+        xxx
         mp = self._get_mp_for_call(num_args, calldescr)
         if size == 0:
             self.return_value_type = VOID
@@ -575,7 +502,7 @@ class CPU386(object):
             self.return_value_type = PTR
         else:
             self.return_value_type = INT
-        result = self.execute_operations_in_new_frame('call', mp, args)
+        result = self.execute_operations(mp, args)
         return result
 
     # ------------------- helpers and descriptions --------------------

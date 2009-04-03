@@ -118,7 +118,8 @@ class WarmRunnerDesc:
         return True
 
     def build_meta_interp(self, CPUClass=runner.CPU, view="auto",
-                          translate_support_code=False, **kwds):
+                          translate_support_code=False, optimizer=None,
+                          **kwds):
         opt = Options(**kwds)
         self.stats = history.Stats()
         if translate_support_code:
@@ -144,7 +145,8 @@ class WarmRunnerDesc:
         self.translator.graphs.append(graph)
         self.portal_graph = graph
         self.jitdriver = block.operations[pos].args[1].value
-        self.metainterp = OOMetaInterp(graph, graphs, cpu, self.stats, opt)
+        self.metainterp = OOMetaInterp(graph, graphs, cpu, self.stats, opt,
+                                       optimizer=optimizer)
 
     def make_enter_function(self):
         WarmEnterState = make_state_class(self)
