@@ -11,7 +11,7 @@ from pypy.rpython.lltypesystem import rclass
 from pypy.jit.metainterp import history, codewriter
 from pypy.jit.metainterp.history import (ResOperation, Box, Const,
      ConstInt, ConstPtr, BoxInt, BoxPtr, ConstAddr, AbstractDescr)
-from pypy.jit.backend.x86.assembler import Assembler386, WORD, RETURN
+from pypy.jit.backend.x86.assembler import Assembler386, WORD
 from pypy.jit.backend.x86 import symbolic
 from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.jit.backend.x86.support import gc_malloc_fnaddr
@@ -57,8 +57,6 @@ class CPU386(object):
     BOOTSTRAP_TP = lltype.FuncType([lltype.Signed,
                                     lltype.Ptr(rffi.CArray(lltype.Signed))],
                                    lltype.Signed)
-
-    return_value_type = 0
 
     def __init__(self, rtyper, stats, translate_support_code=False,
                  mixlevelann=None):
@@ -219,20 +217,25 @@ class CPU386(object):
         elif isinstance(box, BoxPtr):
             box.value = self.cast_int_to_gcref(fail_boxes[index])
 
-    def _get_mp_for_call(self, argnum, calldescr):
+    def _get_loop_for_call(self, argnum, calldescr, ptr):
         try:
             return self.generated_mps[calldescr]
         except KeyError:
             pass
         args = [BoxInt(0) for i in range(argnum + 1)]
-        result = BoxInt(0)
+        if ptr:
+            result = BoxPtr(lltype.nullptr(llmemory.GCREF))
+        else:
+            result = BoxInt(0)
         operations = [
-            ResOperation(rop.MERGE_POINT, args, None),
             ResOperation(rop.CALL, args, result, calldescr),
-            ResOperation(RETURN, [result], None)]
-        self.compile_operations(operations)
-        self.generated_mps[calldescr] = operations
-        return operations
+            ResOperation(rop.FAIL, [result], None)]
+        loop = history.TreeLoop('call')
+        loop.inputargs = args
+        loop.operations = operations
+        self.compile_operations(loop)
+        self.generated_mps[calldescr] = loop
+        return loop
 
     def execute_operations(self, loop, valueboxes):
         func = self.get_bootstrap_code(loop)
@@ -255,7 +258,11 @@ class CPU386(object):
         keepalive_until_here(valueboxes)
         self.keepalives_index = oldindex
         del self.keepalives[oldindex:]
-        op = self._guard_list[guard_index]
+        if guard_index == -1:
+            # special case for calls
+            op = loop.operations[-1]
+        else:
+            op = self._guard_list[guard_index]
         for i in range(len(op.args)):
             box = op.args[i]
             self.set_value_of_box(box, i, loop.fail_boxes)
@@ -486,16 +493,11 @@ class CPU386(object):
 
     def do_call(self, args, calldescr):
         num_args, size, ptr = self.unpack_calldescr(calldescr)
-        xxx
-        mp = self._get_mp_for_call(num_args, calldescr)
+        loop = self._get_loop_for_call(num_args, calldescr, ptr)
+        op = self.execute_operations(loop, args)
         if size == 0:
-            self.return_value_type = VOID
-        elif ptr:
-            self.return_value_type = PTR
-        else:
-            self.return_value_type = INT
-        result = self.execute_operations(mp, args)
-        return result
+            return None
+        return op.args[0]
 
     # ------------------- helpers and descriptions --------------------
 

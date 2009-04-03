@@ -9,7 +9,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.annotation import model as annmodel
 from pypy.tool.uid import fixid
 from pypy.jit.backend.x86.regalloc import (RegAlloc, FRAMESIZE, WORD, REGS,
-                                      arg_pos, lower_byte, stack_pos, RETURN)
+                                      arg_pos, lower_byte, stack_pos)
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.jit.backend.x86 import codebuf
 from pypy.jit.backend.x86.support import gc_malloc_fnaddr
@@ -530,23 +530,23 @@ class Assembler386(object):
         #tree.comeback_bootstrap_addr = self.assemble_comeback_bootstrap(pos,
         #                                                locs, stacklocs)
 
-    def genop_discard_return(self, op, locs):
-        if op.args:
-            loc = locs[0]
-            if loc is not eax:
-                self.mc.MOV(eax, loc)
-        self.mc.ADD(esp, imm(FRAMESIZE))
-        # copy exception to some safe place and clean the original
-        # one
-        self.mc.MOV(ecx, heap(self._exception_addr))
-        self.mc.MOV(heap(self._exception_bck_addr), ecx)
-        self.mc.MOV(ecx, addr_add(imm(self._exception_addr), imm(WORD)))
-        self.mc.MOV(addr_add(imm(self._exception_bck_addr), imm(WORD)),
-                     ecx)
-        # clean up the original exception, we don't want
-        # to enter more rpython code with exc set
-        self.mc.MOV(heap(self._exception_addr), imm(0))
-        self.mc.RET()
+#     def genop_discard_return(self, op, locs):
+#         if op.args:
+#             loc = locs[0]
+#             if loc is not eax:
+#                 self.mc.MOV(eax, loc)
+#         self.mc.ADD(esp, imm(FRAMESIZE))
+#         # copy exception to some safe place and clean the original
+#         # one
+#         self.mc.MOV(ecx, heap(self._exception_addr))
+#         self.mc.MOV(heap(self._exception_bck_addr), ecx)
+#         self.mc.MOV(ecx, addr_add(imm(self._exception_addr), imm(WORD)))
+#         self.mc.MOV(addr_add(imm(self._exception_bck_addr), imm(WORD)),
+#                      ecx)
+#         # clean up the original exception, we don't want
+#         # to enter more rpython code with exc set
+#         self.mc.MOV(heap(self._exception_addr), imm(0))
+#         self.mc.RET()
 
     def genop_discard_jump(self, op, locs):
         targetmp = op.jump_target
@@ -703,17 +703,14 @@ class Assembler386(object):
     #    self.gen_call(op, arglocs, resloc)
     #    self.mc.MOVZX(eax, eax)
 
-genop_discard_list = [Assembler386.not_implemented_op_discard] * (RETURN + 1)
+genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST
 genop_list = [Assembler386.not_implemented_op] * rop._LAST
 genop_guard_list = [Assembler386.not_implemented_op_guard] * rop._LAST
 
 for name, value in Assembler386.__dict__.iteritems():
     if name.startswith('genop_discard_'):
         opname = name[len('genop_discard_'):]
-        if opname == 'return':
-            num = RETURN
-        else:
-            num = getattr(rop, opname.upper())
+        num = getattr(rop, opname.upper())
         genop_discard_list[num] = value
     elif name.startswith('genop_guard_') and name != 'genop_guard_exception': 
         opname = name[len('genop_guard_'):]

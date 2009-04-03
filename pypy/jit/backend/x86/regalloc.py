@@ -17,8 +17,6 @@ REGS = [eax, ecx, edx]
 WORD = 4
 FRAMESIZE = 1024    # XXX should not be a constant at all!!
 
-RETURN = rop._LAST
-
 class TempBox(Box):
     def __init__(self):
         pass
@@ -287,10 +285,10 @@ class RegAlloc(object):
             if op.is_guard():
                 self._compute_inpargs()
                 for arg in op.inputargs:
-                    if arg not in longevity:
+                    if isinstance(arg, Box) and arg not in end:
                         end[arg] = i
             for arg in op.args:
-                if arg not in longevity:
+                if isinstance(arg, Box) and arg not in end:
                     end[arg] = i
             if op.result:
                 longevity[op.result] = (i, end[op.result])
@@ -550,9 +548,9 @@ class RegAlloc(object):
     def _consider_guard(self, op, ignored):
         loc = self.make_sure_var_in_reg(op.args[0], [])
         locs = self._locs_from_liveboxes(op)
+        xxx
         self.eventually_free_var(op.args[0])
         self.eventually_free_vars(op.liveboxes)
-        xxx
         self.PerformDiscard(op, [loc] + locs)
 
     consider_guard_true = _consider_guard
@@ -625,14 +623,6 @@ class RegAlloc(object):
         locs = self._locs_from_liveboxes(op)
         self.eventually_free_vars(op.liveboxes + op.args)
         self.PerformDiscard(op, [x, y] + locs)
-
-    def consider_return(self, op, ignored):
-        if op.args:
-            arglocs = [self.loc(op.args[0])]
-            self.eventually_free_var(op.args[0])
-        else:
-            arglocs = []
-        self.PerformDiscard(op, arglocs)
     
     def _consider_binop_part(self, op, ignored):
         x = op.args[0]
@@ -1028,15 +1018,12 @@ class RegAlloc(object):
         print "[regalloc] Not implemented operation: %s" % op.getopname()
         raise NotImplementedError
 
-oplist = [RegAlloc.not_implemented_op] * (RETURN + 1)
+oplist = [RegAlloc.not_implemented_op] * rop._LAST
 
 for name, value in RegAlloc.__dict__.iteritems():
     if name.startswith('consider_'):
         name = name[len('consider_'):]
-        if name == 'return':
-            num = RETURN
-        else:
-            num = getattr(rop, name.upper())
+        num = getattr(rop, name.upper())
         oplist[num] = value
 
 def arg_pos(i):
