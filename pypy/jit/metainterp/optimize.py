@@ -125,6 +125,7 @@ class InstanceNode(object):
         else:
             known_class = other.cls.source
         if (other.escaped and not other.virtualized):# and
+            assert not self.virtualized
             #not self.expanded_fields):
             if self.cls is None:
                 return NotSpecNode()
@@ -551,6 +552,8 @@ class PerfectSpecializer(object):
 #                 rebuild_ops.append(op1)
 #         # end of code for dirtyfields support
 
+        newboxes = [self.nodes[arg].source for arg in op_fail.args]
+        op_fail.args = newboxes
         rebuild_ops.append(op_fail)
         op1 = op.clone()
         op1.suboperations = rebuild_ops
