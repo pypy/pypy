@@ -218,10 +218,10 @@ class CPU386(object):
             box.value = self.cast_int_to_gcref(fail_boxes[index])
 
     def _get_loop_for_call(self, argnum, calldescr, ptr):
-        try:
-            return self.generated_mps[calldescr]
-        except KeyError:
-            pass
+        #try:
+        #    return self.generated_mps[calldescr]
+        #except KeyError:
+        #    pass
         args = [BoxInt(0) for i in range(argnum + 1)]
         if ptr:
             result = BoxPtr(lltype.nullptr(llmemory.GCREF.TO))
