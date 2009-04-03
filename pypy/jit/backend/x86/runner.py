@@ -183,13 +183,13 @@ class CPU386(object):
     def compile_operations(self, tree):
         self.assembler.assemble(tree)
 
-    def get_bootstrap_code(self, startmp):
+    def get_bootstrap_code(self, loop):
         # key is locations of arguments
-        key = ','.join([str(i) for i in startmp.arglocs])
+        key = ','.join([str(i) for i in loop.arglocs])
         try:
             func = self._bootstrap_cache[key]
         except KeyError:
-            arglocs = startmp.arglocs
+            arglocs = loop.arglocs
             addr = self.assembler.assemble_bootstrap_code(arglocs)
             # arguments are as follows - address to jump to,
             # and a list of args
@@ -213,13 +213,11 @@ class CPU386(object):
         else:
             raise ValueError('get_box_value_as_int, wrong arg')
 
-    def get_valuebox_from_int(self, type, x):
-        if type == INT:
-            return history.BoxInt(x)
-        elif type == PTR:
-            return history.BoxPtr(self.cast_int_to_gcref(x))
-        else:
-            raise ValueError('get_valuebox_from_int: %s' % (type,))
+    def set_value_of_box(self, box, index, fail_boxes):
+        if isinstance(box, BoxInt):
+            box.value = fail_boxes[index]
+        elif isinstance(box, BoxPtr):
+            xxx
 
     def _get_mp_for_call(self, argnum, calldescr):
         try:
@@ -238,9 +236,6 @@ class CPU386(object):
 
     def execute_operations(self, loop, valueboxes):
         func = self.get_bootstrap_code(loop)
-        import pdb
-        pdb.set_trace()
-        startmp = operations[0]
         # turn all the values into integers
         TP = rffi.CArray(lltype.Signed)
         oldindex = self.keepalives_index
@@ -254,22 +249,19 @@ class CPU386(object):
         #    values_repr = ", ".join([str(values_as_int[i]) for i in
         #                             range(len(valueboxes))])
         #    llop.debug_print(lltype.Void, 'exec:', name, values_repr)
-        self.assembler.log_call(name, valueboxes)
-
+        self.assembler.log_call(valueboxes)
         self.keepalives_index = len(self.keepalives)
-        res = self.execute_call(startmp, func, values_as_int)
-        if self.return_value_type == VOID:
-            #self.assembler.log_void_result()
-            res = None
-        else:
-            #self.assembler.log_result(res)
-            res = self.get_valuebox_from_int(self.return_value_type, res)
+        guard_index = self.execute_call(loop, func, values_as_int)
         keepalive_until_here(valueboxes)
         self.keepalives_index = oldindex
         del self.keepalives[oldindex:]
-        return res
+        op = self._guard_list[guard_index]
+        for i in range(len(op.args)):
+            box = op.args[i]
+            self.set_value_of_box(box, i, loop.fail_boxes)
+        return op
 
-    def execute_call(self, startmp, func, values_as_int):
+    def execute_call(self, loop, func, values_as_int):
         # help flow objspace
         prev_interpreter = None
         if not self.translate_support_code:
@@ -278,7 +270,7 @@ class CPU386(object):
         res = 0
         try:
             self.caught_exception = None
-            res = func(startmp.position, values_as_int)
+            res = func(loop.position, values_as_int)
             self.reraise_caught_exception()
         finally:
             if not self.translate_support_code:
@@ -319,22 +311,22 @@ class CPU386(object):
         else:
             raise ValueError(valuebox.type)
 
-    def getvaluebox(self, frameadr, guard_op, argindex):
-        # XXX that's plain stupid, do we care about the return value???
-        box = guard_op.liveboxes[argindex]
-        frame = getframe(frameadr)
-        pos = guard_op.stacklocs[argindex]
-        intvalue = frame[pos]
-        if isinstance(box, history.BoxInt):
-            return history.BoxInt(intvalue)
-        elif isinstance(box, history.BoxPtr):
-            return history.BoxPtr(self.cast_int_to_gcref(intvalue))
-        else:
-            raise AssertionError('getvalue: box = %s' % (box,))
+#     def getvaluebox(self, frameadr, guard_op, argindex):
+#         # XXX that's plain stupid, do we care about the return value???
+#         box = guard_op.liveboxes[argindex]
+#         frame = getframe(frameadr)
+#         pos = guard_op.stacklocs[argindex]
+#         intvalue = frame[pos]
+#         if isinstance(box, history.BoxInt):
+#             return history.BoxInt(intvalue)
+#         elif isinstance(box, history.BoxPtr):
+#             return history.BoxPtr(self.cast_int_to_gcref(intvalue))
+#         else:
+#             raise AssertionError('getvalue: box = %s' % (box,))
 
-    def setvaluebox(self, frameadr, mp, argindex, valuebox):
-        frame = getframe(frameadr)
-        frame[mp.stacklocs[argindex]] = self.convert_box_to_int(valuebox)
+#     def setvaluebox(self, frameadr, mp, argindex, valuebox):
+#         frame = getframe(frameadr)
+#         frame[mp.stacklocs[argindex]] = self.convert_box_to_int(valuebox)
 
     def sizeof(self, S):
         size = symbolic.get_size(S, self.translate_support_code)
@@ -591,32 +583,32 @@ def uhex(x):
             x += 0x100000000
         return hex(x)
 
-class GuardFailed(object):
-    return_value_type = 0
+# class GuardFailed(object):
+#     return_value_type = 0
     
-    def __init__(self, cpu, frame, guard_op):
-        self.cpu = cpu
-        self.frame = frame
-        self.guard_op = guard_op
+#     def __init__(self, cpu, frame, guard_op):
+#         self.cpu = cpu
+#         self.frame = frame
+#         self.guard_op = guard_op
 
-    def make_ready_for_return(self, return_value_box):
-        self.cpu.assembler.make_sure_mc_exists()
-        if return_value_box is not None:
-            frame = getframe(self.frame)
-            frame[0] = self.cpu.convert_box_to_int(return_value_box)
-            if (isinstance(return_value_box, ConstInt) or
-                isinstance(return_value_box, BoxInt)):
-                self.return_value_type = INT
-            else:
-                self.return_value_type = PTR
-        else:
-            self.return_value_type = VOID
-        self.return_addr = self.cpu.assembler.generic_return_addr
+#     def make_ready_for_return(self, return_value_box):
+#         self.cpu.assembler.make_sure_mc_exists()
+#         if return_value_box is not None:
+#             frame = getframe(self.frame)
+#             frame[0] = self.cpu.convert_box_to_int(return_value_box)
+#             if (isinstance(return_value_box, ConstInt) or
+#                 isinstance(return_value_box, BoxInt)):
+#                 self.return_value_type = INT
+#             else:
+#                 self.return_value_type = PTR
+#         else:
+#             self.return_value_type = VOID
+#         self.return_addr = self.cpu.assembler.generic_return_addr
 
-    def make_ready_for_continuing_at(self, merge_point):
-        # we need to make sure here that return_addr points to a code
-        # that is ready to grab coorect values
-        self.return_addr = merge_point.comeback_bootstrap_addr
+#     def make_ready_for_continuing_at(self, merge_point):
+#         # we need to make sure here that return_addr points to a code
+#         # that is ready to grab coorect values
+#         self.return_addr = merge_point.comeback_bootstrap_addr
 
 def getframe(frameadr):
     return rffi.cast(rffi.CArrayPtr(lltype.Signed), frameadr)

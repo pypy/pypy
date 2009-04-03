@@ -60,7 +60,6 @@ class MachineCodeStack(object):
         self.counter -= 1
 
 class Assembler386(object):
-    generic_return_addr = 0
     log_fd = -1
     mc = None
     mc2 = None
@@ -108,7 +107,6 @@ class Assembler386(object):
                 self._exception_bck)
             self.mc = self.mcstack.next_mc()
             self.mc2 = self.mcstack.next_mc()
-            self.generic_return_addr = self.assemble_generic_return()
             # the address of the function called by 'new': directly use
             # Boehm's GC_malloc function.
             if self.malloc_func_addr == 0:
@@ -149,7 +147,7 @@ class Assembler386(object):
                                                ",".join(reprs)))
         os.write(self._log_fd, 'xxxxxxxxxx\n')
 
-    def log_call(self, name, valueboxes):
+    def log_call(self, valueboxes):
         if self._log_fd == -1:
             return
         return # XXX
@@ -158,10 +156,25 @@ class Assembler386(object):
         os.write(self._log_fd, "CALL\n")
         os.write(self._log_fd, "%s %s\n" % (name, args_s))
 
+    def _compute_longest_fail_op(self, ops):
+        max_so_far = 0
+        for op in ops:
+            if op.opnum == rop.FAIL:
+                max_so_far = max(max_so_far, len(op.args))
+            if op.is_guard():
+                max_so_far = max(max_so_far, self._compute_longest_fail_op(
+                    op.suboperations))
+        return max_so_far
+
     def assemble(self, tree):
         # the last operation can be 'jump', 'return' or 'guard_pause';
         # a 'jump' can either close a loop, or end a bridge to some
         # previously-compiled code.
+        num = self._compute_longest_fail_op(tree.operations)
+        fail_boxes = lltype.malloc(rffi.CArray(lltype.Signed), num,
+                                   flavor='raw')
+        self.fail_box_addr = self.cpu.cast_ptr_to_int(fail_boxes)
+        tree.fail_boxes = fail_boxes
         self.make_sure_mc_exists()
         inputargs = tree.inputargs
         op0 = tree.operations[0]
@@ -209,29 +222,30 @@ class Assembler386(object):
         finally:
             Box._extended_display = _prev
 
-    def assemble_comeback_bootstrap(self, position, arglocs, stacklocs):
-        entry_point_addr = self.mc2.tell()
-        for i in range(len(arglocs)):
-            argloc = arglocs[i]
-            if isinstance(argloc, REG):
-                self.mc2.MOV(argloc, stack_pos(stacklocs[i]))
-            elif not we_are_translated():
-                # debug checks
-                if not isinstance(argloc, (IMM8, IMM32)):
-                    assert repr(argloc) == repr(stack_pos(stacklocs[i]))
-        self.mc2.JMP(rel32(position))
-        self.mc2.done()
-        return entry_point_addr
+#     def assemble_comeback_bootstrap(self, position, arglocs, stacklocs):
+#         return
+#         entry_point_addr = self.mc2.tell()
+#         for i in range(len(arglocs)):
+#             argloc = arglocs[i]
+#             if isinstance(argloc, REG):
+#                 self.mc2.MOV(argloc, stack_pos(stacklocs[i]))
+#             elif not we_are_translated():
+#                 # debug checks
+#                 if not isinstance(argloc, (IMM8, IMM32)):
+#                     assert repr(argloc) == repr(stack_pos(stacklocs[i]))
+#         self.mc2.JMP(rel32(position))
+#         self.mc2.done()
+#         return entry_point_addr
 
-    def assemble_generic_return(self):
-        # generate a generic stub that just returns, taking the
-        # return value from *esp (i.e. stack position 0).
-        addr = self.mc.tell()
-        self.mc.MOV(eax, mem(esp, 0))
-        self.mc.ADD(esp, imm(FRAMESIZE))
-        self.mc.RET()
-        self.mc.done()
-        return addr
+#     def assemble_generic_return(self):
+#         # generate a generic stub that just returns, taking the
+#         # return value from *esp (i.e. stack position 0).
+#         addr = self.mc.tell()
+#         self.mc.MOV(eax, mem(esp, 0))
+#         self.mc.ADD(esp, imm(FRAMESIZE))
+#         self.mc.RET()
+#         self.mc.done()
+#         return addr
 
     def regalloc_load(self, from_loc, to_loc):
         self.mc.MOV(to_loc, from_loc)
@@ -520,8 +534,8 @@ class Assembler386(object):
     def make_merge_point(self, tree, locs, stacklocs):
         pos = self.mc.tell()
         tree.position = pos
-        tree.comeback_bootstrap_addr = self.assemble_comeback_bootstrap(pos,
-                                                        locs, stacklocs)
+        #tree.comeback_bootstrap_addr = self.assemble_comeback_bootstrap(pos,
+        #                                                locs, stacklocs)
 
     def genop_discard_return(self, op, locs):
         if op.args:
@@ -601,8 +615,18 @@ class Assembler386(object):
         self.mc = oldmc
         return addr
 
-    def genop_discard_fail(self, op, arglocs):
+    def genop_fail(self, op, locs, guard_index):
+        for i in range(len(locs)):
+            loc = locs[i]
+            if isinstance(loc, REG):
+                self.mc.MOV(addr_add(imm(self.fail_box_addr), imm(i)), loc)
+        for i in range(len(locs)):
+            loc = locs[i]
+            if not isinstance(loc, REG):
+                self.mc.MOV(eax, loc)
+                self.mc.MOV(addr_add(imm(self.fail_box_addr), imm(i)), eax)
         self.mc.ADD(esp, imm(FRAMESIZE))
+        self.mc.MOV(eax, imm(guard_index))
         self.mc.RET()
 
     @specialize.arg(2)
@@ -673,7 +697,7 @@ class Assembler386(object):
         print "not implemented operation with res: %s" % op.getopname()
         raise NotImplementedError
 
-    def not_implemented_op_guard(self, op, arglocs, resloc, descr):
+    def not_implemented_op_guard(self, op, regalloc, arglocs, resloc, descr):
         print "not implemented operation (guard): %s" % op.getopname()
         raise NotImplementedError
 
