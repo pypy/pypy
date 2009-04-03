@@ -619,12 +619,12 @@ class Assembler386(object):
         for i in range(len(locs)):
             loc = locs[i]
             if isinstance(loc, REG):
-                self.mc.MOV(addr_add(imm(self.fail_box_addr), imm(i)), loc)
+                self.mc.MOV(addr_add(imm(self.fail_box_addr), imm(i*WORD)), loc)
         for i in range(len(locs)):
             loc = locs[i]
             if not isinstance(loc, REG):
                 self.mc.MOV(eax, loc)
-                self.mc.MOV(addr_add(imm(self.fail_box_addr), imm(i)), eax)
+                self.mc.MOV(addr_add(imm(self.fail_box_addr), imm(i*WORD)), eax)
         self.mc.ADD(esp, imm(FRAMESIZE))
         self.mc.MOV(eax, imm(guard_index))
         self.mc.RET()
