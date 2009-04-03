@@ -224,7 +224,7 @@ class CPU386(object):
             pass
         args = [BoxInt(0) for i in range(argnum + 1)]
         if ptr:
-            result = BoxPtr(lltype.nullptr(llmemory.GCREF))
+            result = BoxPtr(lltype.nullptr(llmemory.GCREF.TO))
         else:
             result = BoxInt(0)
         operations = [
