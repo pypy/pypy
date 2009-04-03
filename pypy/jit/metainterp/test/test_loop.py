@@ -433,7 +433,6 @@ class TestLoop(LLJitMixin):
         assert res == 5 * 10 * 3
 
     def test_outer_and_inner_loop(self):
-        #py.test.skip("fix me")
         jitdriver = JitDriver(greens = ['p', 'code'], reds = ['i', 'j',
                                                               'total'])
 

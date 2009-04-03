@@ -336,6 +336,19 @@ class BasicTests:
         res = self.meta_interp(f, [7])
         assert res == 0
 
+    def test_bridge_from_interpreter(self):
+        py.test.skip("in-progress")
+        mydriver = JitDriver(reds = ['n'], greens = [])
+
+        def f(n):
+            while n > 0:
+                mydriver.can_enter_jit(n=n)
+                mydriver.jit_merge_point(n=n)
+                n -= 1
+
+        self.meta_interp(f, [20], repeat=7)
+        self.check_loop_count(3)      # the loop, the entry path, the exit path
+
 class TestOOtype(BasicTests, OOJitMixin):
     pass
 

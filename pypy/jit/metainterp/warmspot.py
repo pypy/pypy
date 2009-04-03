@@ -36,13 +36,18 @@ def ll_meta_interp(function, args, backendopt=False, **kwds):
     clear_tcache()
     return jittify_and_run(interp, graph, args, **kwds)
 
-def jittify_and_run(interp, graph, args, **kwds):
+def jittify_and_run(interp, graph, args, repeat=1, **kwds):
     translator = interp.typer.annotator.translator
     warmrunnerdesc = WarmRunnerDesc(translator, **kwds)
     warmrunnerdesc.state.set_param_threshold(3)          # for tests
     warmrunnerdesc.state.set_param_trace_eagerness(2)    # for tests
     warmrunnerdesc.finish()
-    return interp.eval_graph(graph, args)
+    res = interp.eval_graph(graph, args)
+    while repeat > 1:
+        res1 = interp.eval_graph(graph, args)
+        assert res1 == res
+        repeat -= 1
+    return res
 
 def rpython_ll_meta_interp(function, args, backendopt=True,
                            loops='not used right now', **kwds):
