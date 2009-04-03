@@ -184,8 +184,18 @@ class Assembler386(object):
         if not we_are_translated():
             self._regalloc = regalloc # for debugging
         regalloc.walk_operations(tree)
+        self.sanitize_tree(tree.operations)
         self.mc.done()
         self.mc2.done()
+
+    def sanitize_tree(self, operations):
+        """ Cleans up all attributes attached by regalloc and backend
+        """
+        for op in operations:
+            if op.is_guard():
+                op.inputargs = None
+                op.longevity = None
+                self.sanitize_tree(op.suboperations)
 
     def assemble_bootstrap_code(self, arglocs):
         self.make_sure_mc_exists()
@@ -254,7 +264,13 @@ class Assembler386(object):
     def regalloc_perform_with_guard(self, op, guard_op, regalloc,
                                     arglocs, resloc):
         addr = self.implement_guard_recovery(guard_op, regalloc)
-        genop_guard_list[op.opnum](self, op, addr, guard_op, arglocs, resloc)
+        genop_guard_list[op.opnum](self, op, addr, guard_op, arglocs,
+                                   resloc)
+
+    def regalloc_perform_guard(self, op, regalloc, arglocs, resloc):
+        addr = self.implement_guard_recovery(op, regalloc)
+        genop_guard_list[op.opnum](self, op, addr, None, arglocs,
+                                   resloc)
 
     def _unaryop(asmop):
         def genop_unary(self, op, arglocs, resloc):
@@ -552,16 +568,16 @@ class Assembler386(object):
         targetmp = op.jump_target
         self.mc.JMP(rel32(targetmp.position))
 
-    def genop_discard_guard_true(self, op, locs):
+    def genop_guard_guard_true(self, op, addr, ign_1, locs, ign_2):
         loc = locs[0]
         self.mc.TEST(loc, loc)
-        self.implement_guard(op, self.mc.JZ, locs[1:])
+        self.implement_guard(addr, op, self.mc.JZ)
 
-    def genop_discard_guard_no_exception(self, op, locs):
+    def genop_guard_guard_no_exception(self, op, addr, ign_1, locs, ign_2):
         loc = locs[0]
         self.mc.MOV(loc, heap(self._exception_addr))
         self.mc.TEST(loc, loc)
-        self.implement_guard(op, self.mc.JNZ, locs[1:])
+        self.implement_guard(addr, op, self.mc.JNZ)
 
     def genop_guard_exception(self, op, locs, resloc):
         loc = locs[0]
