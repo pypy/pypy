@@ -217,7 +217,7 @@ class CPU386(object):
         if isinstance(box, BoxInt):
             box.value = fail_boxes[index]
         elif isinstance(box, BoxPtr):
-            xxx
+            box.value = self.cast_int_to_gcref(fail_boxes[index])
 
     def _get_mp_for_call(self, argnum, calldescr):
         try:

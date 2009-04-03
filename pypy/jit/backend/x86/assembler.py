@@ -66,7 +66,7 @@ class Assembler386(object):
 
     def __init__(self, cpu, translate_support_code=False):
         self.cpu = cpu
-        self.verbose = False
+        self.verbose = True
         self.rtyper = cpu.rtyper
         self.malloc_func_addr = 0
         self._exception_data = lltype.nullptr(rffi.CArray(lltype.Signed))
@@ -183,13 +183,6 @@ class Assembler386(object):
         regalloc = RegAlloc(self, tree, self.cpu.translate_support_code)
         if not we_are_translated():
             self._regalloc = regalloc # for debugging
-        if self.verbose and not we_are_translated():
-            import pprint
-            print
-            pprint.pprint(operations)
-            print
-            #pprint.pprint(computed_ops)
-            #print
         regalloc.walk_operations(tree)
         self.mc.done()
         self.mc2.done()

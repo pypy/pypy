@@ -94,49 +94,49 @@ class RegAlloc(object):
         return RegAlloc(self.assembler, None, self.translate_support_code,
                         self, guard_op)
 
-    def _start_from_guard_op(self, guard_op, mp, jump):
-        xxx
-        rev_stack_binds = {}
-        self.jump_reg_candidates = {}
-        j = 0
-        sd = len(mp.args)
-        if len(jump.args) > sd:
-            sd = len(jump.args)
-        for i in range(len(mp.args)):
-            arg = mp.args[i]
-            if not isinstance(arg, Const):
-                stackpos = guard_op.stacklocs[j]
-                if stackpos >= sd:
-                    sd = stackpos + 1
-                loc = guard_op.locs[j]
-                if isinstance(loc, REG):
-                    self.free_regs = [reg for reg in self.free_regs if reg is not loc]
-                    self.reg_bindings[arg] = loc
-                    self.dirty_stack[arg] = True
-                self.stack_bindings[arg] = stack_pos(stackpos)
-                rev_stack_binds[stackpos] = arg
-                j += 1
-        if jump.opnum != rop.JUMP:
-            return {}, sd
-        for i in range(len(jump.args)):
-            argloc = jump.jump_target.arglocs[i]
-            jarg = jump.args[i]
-            if not isinstance(jarg, Const):
-                if isinstance(argloc, REG):
-                    self.jump_reg_candidates[jarg] = argloc
-                if (i in rev_stack_binds and
-                    (self.longevity[rev_stack_binds[i]][1] >
-                     self.longevity[jarg][0])):
-                    # variables cannot occupy the same place on stack,
-                    # because they overlap, but we care only in consider_jump
-                    pass
-                else:
-                    # optimization for passing around values
-                    if jarg not in self.stack_bindings:
-                        self.dirty_stack[jarg] = True
-                        self.stack_bindings[jarg] = stack_pos(i)
-                j += 1
-        return {}, sd
+#     def _start_from_guard_op(self, guard_op, mp, jump):
+#         xxx
+#         rev_stack_binds = {}
+#         self.jump_reg_candidates = {}
+#         j = 0
+#         sd = len(mp.args)
+#         if len(jump.args) > sd:
+#             sd = len(jump.args)
+#         for i in range(len(mp.args)):
+#             arg = mp.args[i]
+#             if not isinstance(arg, Const):
+#                 stackpos = guard_op.stacklocs[j]
+#                 if stackpos >= sd:
+#                     sd = stackpos + 1
+#                 loc = guard_op.locs[j]
+#                 if isinstance(loc, REG):
+#                     self.free_regs = [reg for reg in self.free_regs if reg is not loc]
+#                     self.reg_bindings[arg] = loc
+#                     self.dirty_stack[arg] = True
+#                 self.stack_bindings[arg] = stack_pos(stackpos)
+#                 rev_stack_binds[stackpos] = arg
+#                 j += 1
+#         if jump.opnum != rop.JUMP:
+#             return {}, sd
+#         for i in range(len(jump.args)):
+#             argloc = jump.jump_target.arglocs[i]
+#             jarg = jump.args[i]
+#             if not isinstance(jarg, Const):
+#                 if isinstance(argloc, REG):
+#                     self.jump_reg_candidates[jarg] = argloc
+#                 if (i in rev_stack_binds and
+#                     (self.longevity[rev_stack_binds[i]][1] >
+#                      self.longevity[jarg][0])):
+#                     # variables cannot occupy the same place on stack,
+#                     # because they overlap, but we care only in consider_jump
+#                     pass
+#                 else:
+#                     # optimization for passing around values
+#                     if jarg not in self.stack_bindings:
+#                         self.dirty_stack[jarg] = True
+#                         self.stack_bindings[jarg] = stack_pos(i)
+#                 j += 1
+#         return {}, sd
 
     def _compute_loop_consts(self, inputargs, jump):
         self.jump_reg_candidates = {}
@@ -962,7 +962,7 @@ class RegAlloc(object):
         for i in range(len(op.args)):
             arg = op.args[i]
             loop = op.jump_target
-            res = loop.inputargs[i]
+            res = loop.arglocs[i]
             if not (isinstance(arg, Const) or (arg in self.loop_consts
                                                and self.loop_consts[arg] == i)):
                 if arg in self.reg_bindings:
