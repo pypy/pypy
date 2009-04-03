@@ -554,6 +554,11 @@ class PerfectSpecializer(object):
 
         newboxes = [self.nodes[arg].source for arg in op_fail.args]
         op_fail.args = newboxes
+        # NB. we mutate op_fail in-place above.  That's bad.  Hopefully
+        # it does not really matter because no-one is going to look again
+        # at its unoptimized version.  We cannot really clone it because
+        # of how the rest works (e.g. it is returned by
+        # cpu.execute_operations()).
         rebuild_ops.append(op_fail)
         op1 = op.clone()
         op1.suboperations = rebuild_ops
