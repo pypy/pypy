@@ -117,7 +117,7 @@ class Assembler386(object):
     def eventually_log_operations(self, operations):
         if self._log_fd == -1:
             return
-        xxx
+        return # XXX
         memo = {}
         os.write(self._log_fd, "<<<<<<<<<<\n")
         if guard_op is not None:
@@ -137,7 +137,7 @@ class Assembler386(object):
     def log_failure_recovery(self, gf, guard_index):
         if self._log_fd == -1:
             return
-        xxx
+        return # XXX
         os.write(self._log_fd, 'xxxxxxxxxx\n')
         memo = {}
         reprs = []
@@ -152,7 +152,7 @@ class Assembler386(object):
     def log_call(self, name, valueboxes):
         if self._log_fd == -1:
             return
-        xxx
+        return # XXX
         memo = {}
         args_s = ','.join([repr_of_arg(memo, box) for box in valueboxes])
         os.write(self._log_fd, "CALL\n")
@@ -246,9 +246,8 @@ class Assembler386(object):
 
     def regalloc_perform_with_guard(self, op, guard_op, regalloc,
                                     arglocs, resloc):
-        addr = self.implement_guard_recovery(guard_op, regalloc, arglocs)
-        xxx
-        genop_guard_list[op.opnum](self, op, guard_op, arglocs, resloc)
+        addr = self.implement_guard_recovery(guard_op, regalloc)
+        genop_guard_list[op.opnum](self, op, addr, guard_op, arglocs, resloc)
 
     def _unaryop(asmop):
         def genop_unary(self, op, arglocs, resloc):
@@ -262,6 +261,7 @@ class Assembler386(object):
 
     def _binaryop_ovf(asmop, can_swap=False, is_mod=False):
         def genop_binary_ovf(self, op, guard_op, arglocs, result_loc):
+            xxx
             if is_mod:
                 self.mc.CDQ()
                 self.mc.IDIV(ecx)
@@ -304,26 +304,23 @@ class Assembler386(object):
         return genop_cmp
 
     def _cmpop_guard(cond, rev_cond, false_cond, false_rev_cond):
-        def genop_cmp_guard(self, op, guard_op, arglocs, result_loc):
+        def genop_cmp_guard(self, op, addr, guard_op, arglocs, result_loc):
             if isinstance(op.args[0], Const):
                 self.mc.CMP(arglocs[1], arglocs[0])
                 if guard_op.opnum == rop.GUARD_FALSE:
                     name = 'J' + rev_cond
-                    self.implement_guard(guard_op, getattr(self.mc, name),
-                                         arglocs[2:])
+                    self.implement_guard(addr, guard_op, getattr(self.mc, name))
                 else:
                     name = 'J' + false_rev_cond
-                    self.implement_guard(guard_op, getattr(self.mc, name),
-                                         arglocs[2:])
+                    self.implement_guard(addr, guard_op, getattr(self.mc, name))
             else:
                 self.mc.CMP(arglocs[0], arglocs[1])
                 if guard_op.opnum == rop.GUARD_FALSE:
-                    self.implement_guard(guard_op, getattr(self.mc, 'J' + cond),
-                                         arglocs[2:])
+                    self.implement_guard(addr, guard_op,
+                                         getattr(self.mc, 'J' + cond))
                 else:
                     name = 'J' + false_cond
-                    self.implement_guard(guard_op, getattr(self.mc, name),
-                                         arglocs[2:])
+                    self.implement_guard(addr, guard_op, getattr(self.mc, name))
         return genop_cmp_guard
             
 
@@ -593,24 +590,24 @@ class Assembler386(object):
     #    self.mc.CMP(mem(eax, offset), imm(0))
     #    self.implement_guard(op, self.mc.JNE)
 
-    def implement_guard_recovery(self, guard_op, locs, regalloc):
+    def implement_guard_recovery(self, guard_op, regalloc):
         oldmc = self.mc
         self.mc = self.mc2
         self.mc2 = self.mcstack.next_mc()
+        addr = self.mc.tell()
         regalloc._walk_operations(guard_op.suboperations)
-        xxx
         self.mcstack.give_mc_back(self.mc2)
         self.mc2 = self.mc
         self.mc = oldmc
+        return addr
+
+    def genop_discard_fail(self, op, arglocs):
+        self.mc.ADD(esp, imm(FRAMESIZE))
+        self.mc.RET()
 
     @specialize.arg(2)
-    def implement_guard(self, guard_op, emit_jump, locs):
-        xxx
-        # XXX add caching, as we need only one for each combination
-        # of locs
-        recovery_addr = self.get_recovery_code(guard_op, locs)
-        emit_jump(rel32(recovery_addr))
-        guard_op._jmp_from = self.mc.tell()
+    def implement_guard(self, addr, guard_op, emit_jump):
+        emit_jump(rel32(addr))
 
     def get_recovery_code(self, guard_op, locs):
         xxx

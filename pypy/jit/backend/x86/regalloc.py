@@ -48,7 +48,7 @@ def convert_to_imm(c):
 
 class RegAlloc(object):
     def __init__(self, assembler, tree, translate_support_code=False,
-                 regalloc=None):
+                 regalloc=None, suboperations=None):
         # variables that have place in register
         self.assembler = assembler
         self.translate_support_code = translate_support_code
@@ -56,7 +56,7 @@ class RegAlloc(object):
             self.reg_bindings = newcheckdict()
             self.stack_bindings = {}
             # compute longevity of variables
-            self._compute_vars_longevity(tree)
+            self._compute_vars_longevity(tree.inputargs, tree.operations)
             self.free_regs = REGS[:]
             self.dirty_stack = {} 
             jump = tree.operations[-1]
@@ -68,17 +68,29 @@ class RegAlloc(object):
             self.loop_consts = loop_consts
             self.current_stack_depth = sd
         else:
-            self.reg_bindings = regalloc.reg_bindings.copy()
-            self.stack_bindings = regalloc.stack_bindings.copy()
-            self.free_regs = regalloc.free_regs[:]
-            self.dirty_stack = regalloc.dirty_stack.copy()
+            inp = self._compute_vars_longevity_backwards(suboperations)
+            self.reg_bindings = {}
+            self.stack_bindings = {}
+            self.dirty_stack = {}
+            for arg in inp:
+                if arg in regalloc.reg_bindings:
+                    self.reg_bindings[arg] = regalloc.reg_bindings[arg]
+                if arg in regalloc.stack_bindings:
+                    self.stack_bindings[arg] = regalloc.stack_bindings[arg]
+                if arg in regalloc.dirty_stack:
+                    self.dirty_stack[arg] = regalloc.dirty_stack[arg]
+            allocated_regs = self.reg_bindings.values()
+            self.free_regs = [v for v in REGS if v not in allocated_regs]
             self.loop_consts = regalloc.loop_consts # should never change
             self.current_stack_depth = regalloc.current_stack_depth
+            # XXXX think about this, since we might jump somewhere else
+            #      entirely
             self.jump_reg_candidates = regalloc.jump_reg_candidates
+            self.inputargs = inp
 
-    def copy(self):
+    def copy(self, suboperations):
         return RegAlloc(self.assembler, None, self.translate_support_code,
-                        self)
+                        self, suboperations)
 
     def _start_from_guard_op(self, guard_op, mp, jump):
         rev_stack_binds = {}
@@ -184,8 +196,8 @@ class RegAlloc(object):
         if not we_are_translated():
             self.assembler.dump('%s <- %s(%s) [GUARDED]' % (result_loc, op,
                                                             arglocs))
-        self.assembler.regalloc_perform_with_guard(op, guard_op, arglocs,
-                                                   regalloc, result_loc)
+        self.assembler.regalloc_perform_with_guard(op, guard_op, regalloc,
+                                                   arglocs, result_loc)
 
     def PerformDiscard(self, op, arglocs):
         if not we_are_translated():
@@ -240,14 +252,13 @@ class RegAlloc(object):
             i += 1
         assert not self.reg_bindings
 
-    def _compute_vars_longevity(self, tree):
+    def _compute_vars_longevity(self, inputargs, operations):
         # compute a dictionary that maps variables to index in
         # operations that is a "last-time-seen"
         longevity = {}
         start_live = {}
-        for inputarg in tree.inputargs:
+        for inputarg in inputargs:
             start_live[inputarg] = 0
-        operations = tree.operations
         for i in range(len(operations)):
             op = operations[i]
             if op.result is not None:
@@ -260,6 +271,22 @@ class RegAlloc(object):
                     assert isinstance(arg, Box)
                     longevity[arg] = (start_live[arg], i)
         self.longevity = longevity
+
+    def _compute_vars_longevity_backwards(self, operations):
+        longevity = {}
+        end = {}
+        for i in range(len(operations)-1, -1, -1):
+            op = operations[i]
+            for arg in op.args:
+                if arg not in longevity:
+                    end[arg] = i
+            if op.result:
+                longevity[op.result] = (i, end[op.result])
+                del end[op.result]
+        for v, e in end.items():
+            longevity[v] = (0, e)
+        self.longevity = longevity
+        return end.keys()
 
     def try_allocate_reg(self, v, selected_reg=None):
         if isinstance(v, Const):
@@ -351,10 +378,10 @@ class RegAlloc(object):
             self.Store(v_to_spill, loc, newloc)
         return loc
 
-    def _locs_from_liveboxes(self, guard_op):
+    def _locs_from_liveboxes(self, guard_op, inpargs):
         stacklocs = []
         locs = []
-        for arg in guard_op.liveboxes:
+        for arg in inpargs:
             assert isinstance(arg, Box)
             if arg not in self.stack_bindings:
                 self.dirty_stack[arg] = True
@@ -387,6 +414,17 @@ class RegAlloc(object):
         loc = self.force_allocate_reg(v, forbidden_vars, selected_reg)
         if prev_loc is not loc:
             self.Load(v, prev_loc, loc)
+        return loc
+
+    def make_sure_var_on_stack(self, v):
+        loc = self.stack_loc(v)
+        if v not in self.reg_bindings:
+            return loc
+        self.Store(v, self.reg_bindings[v], loc)
+        try:
+            del self.dirty_stack[v]
+        except KeyError:
+            pass
         return loc
 
     def reallocate_from_to(self, from_v, to_v):
@@ -509,7 +547,10 @@ class RegAlloc(object):
     consider_guard_false = _consider_guard
 
     def consider_fail(self, op, ignored):
-        xxx
+        # make sure all vars are on stack
+        locs = [self.make_sure_var_on_stack(arg) for arg in op.args]
+        self.PerformDiscard(op, locs)
+        self.eventually_free_vars(op.args)
 
     def consider_guard_nonvirtualized(self, op, ignored):
         # XXX implement it
@@ -686,11 +727,11 @@ class RegAlloc(object):
             loc = self.force_allocate_reg(op.result, op.args)
             self.Perform(op, arglocs, loc)
         else:
-            locs = self._locs_from_liveboxes(guard_op)
+            regalloc = self.copy(guard_op.suboperations)
+            locs = self._locs_from_liveboxes(guard_op, regalloc.inputargs)
             self.position += 1
             self.eventually_free_var(op.result)
-            self.eventually_free_vars(guard_op.liveboxes)
-            regalloc = self.copy()
+            self.eventually_free_vars(regalloc.inputargs)
             self.perform_with_guard(op, guard_op, regalloc, arglocs + locs,
                                     None)
 

@@ -104,62 +104,62 @@ class CPU386(object):
     def setup(self):
         self.assembler = Assembler386(self, self.translate_support_code)
         # the generic assembler stub that just performs a return
-        if self.translate_support_code:
-            mixlevelann = self.mixlevelann
-            s_int = annmodel.SomeInteger()
+#         if self.translate_support_code:
+#             mixlevelann = self.mixlevelann
+#             s_int = annmodel.SomeInteger()
 
-            def failure_recovery_callback(guard_index, frame_addr):
-                return self.failure_recovery_callback(guard_index, frame_addr)
+#             #def failure_recovery_callback(guard_index, frame_addr):
+#             #    return self.failure_recovery_callback(guard_index, frame_addr)
 
-            fn = mixlevelann.delayedfunction(failure_recovery_callback,
-                                             [s_int, s_int], s_int)
-            self.cfunc_failure_recovery = fn
-        else:
-            import ctypes
-            # the ctypes callback function that handles guard failures
-            fntype = ctypes.CFUNCTYPE(ctypes.c_long,
-                                      ctypes.c_long, ctypes.c_void_p)
-            self.cfunc_failure_recovery = fntype(self.failure_recovery_callback)
-            self.failure_recovery_func_addr = ctypes.cast(
-                        self.cfunc_failure_recovery, ctypes.c_void_p).value
+#             #fn = mixlevelann.delayedfunction(failure_recovery_callback,
+#             #                                 [s_int, s_int], s_int)
+#             #self.cfunc_failure_recovery = fn
+#         else:
+#             import ctypes
+#             # the ctypes callback function that handles guard failures
+#             fntype = ctypes.CFUNCTYPE(ctypes.c_long,
+#                                       ctypes.c_long, ctypes.c_void_p)
+#             self.cfunc_failure_recovery = fntype(self.failure_recovery_callback)
+#             self.failure_recovery_func_addr = ctypes.cast(
+#                         self.cfunc_failure_recovery, ctypes.c_void_p).value
 
-    def get_failure_recovery_func_addr(self):
-        if self.translate_support_code:
-            fn = self.cfunc_failure_recovery
-            return lltype.cast_ptr_to_int(fn)
-        else:
-            return self.failure_recovery_func_addr
+#     def get_failure_recovery_func_addr(self):
+#         if self.translate_support_code:
+#             fn = self.cfunc_failure_recovery
+#             return lltype.cast_ptr_to_int(fn)
+#         else:
+#             return self.failure_recovery_func_addr
 
-    def failure_recovery_callback(self, guard_index, frame_addr):
-        """This function is called back from the assembler code when
-        a not-yet-implemented path is followed.  It can either compile
-        the extra path and ask the assembler to jump to it, or ask
-        the assembler to exit the current function.
-        """
-        self.assembler.make_sure_mc_exists()
-        try:
-            del self.keepalives[self.keepalives_index:]
-            guard_op = self._guard_list[guard_index]
-            #if self.debug:
-            #    llop.debug_print(lltype.Void, '.. calling back from',
-            #                     guard_op, 'to the jit')
-            gf = GuardFailed(self, frame_addr, guard_op)
-            self.assembler.log_failure_recovery(gf, guard_index)
-            self.metainterp.handle_guard_failure(gf)
-            self.return_value_type = gf.return_value_type
-            #if self.debug:
-                #if gf.return_addr == self.assembler.generic_return_addr:
-                #    llop.debug_print(lltype.Void, 'continuing at generic return address')
-                #else:
-                #    llop.debug_print(lltype.Void, 'continuing at',
-                #                     uhex(gf.return_addr))
-            return gf.return_addr
-        except Exception, e:
-            if not we_are_translated():
-                self.caught_exception = sys.exc_info()
-            else:
-                self.caught_exception = e
-            return self.assembler.generic_return_addr
+#     def failure_recovery_callback(self, guard_index, frame_addr):
+#         """This function is called back from the assembler code when
+#         a not-yet-implemented path is followed.  It can either compile
+#         the extra path and ask the assembler to jump to it, or ask
+#         the assembler to exit the current function.
+#         """
+#         self.assembler.make_sure_mc_exists()
+#         try:
+#             del self.keepalives[self.keepalives_index:]
+#             guard_op = self._guard_list[guard_index]
+#             #if self.debug:
+#             #    llop.debug_print(lltype.Void, '.. calling back from',
+#             #                     guard_op, 'to the jit')
+#             gf = GuardFailed(self, frame_addr, guard_op)
+#             self.assembler.log_failure_recovery(gf, guard_index)
+#             self.metainterp.handle_guard_failure(gf)
+#             self.return_value_type = gf.return_value_type
+#             #if self.debug:
+#                 #if gf.return_addr == self.assembler.generic_return_addr:
+#                 #    llop.debug_print(lltype.Void, 'continuing at generic return address')
+#                 #else:
+#                 #    llop.debug_print(lltype.Void, 'continuing at',
+#                 #                     uhex(gf.return_addr))
+#             return gf.return_addr
+#         except Exception, e:
+#             if not we_are_translated():
+#                 self.caught_exception = sys.exc_info()
+#             else:
+#                 self.caught_exception = e
+#             return self.assembler.generic_return_addr
 
     def set_meta_interp(self, metainterp):
         self.metainterp = metainterp
@@ -237,10 +237,10 @@ class CPU386(object):
         return operations
 
     def execute_operations(self, loop, valueboxes):
+        func = self.get_bootstrap_code(loop)
         import pdb
         pdb.set_trace()
         startmp = operations[0]
-        func = self.get_bootstrap_code(startmp)
         # turn all the values into integers
         TP = rffi.CArray(lltype.Signed)
         oldindex = self.keepalives_index
