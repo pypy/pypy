@@ -663,7 +663,6 @@ class MIFrame(object):
         else:
             moreargs = list(extraargs)
         guard_op = self.metainterp.history.record(opnum, moreargs, None)
-        guard_op.liveboxes = liveboxes
         resumedescr = history.ResumeDescr(guard_op, resume_info,
             self.metainterp.history, len(self.metainterp.history.operations)-1)
         op = history.ResOperation(rop.FAIL, liveboxes, None, descr=resumedescr)
