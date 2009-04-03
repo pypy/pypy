@@ -199,12 +199,14 @@ class RegAlloc(object):
             self.assembler.dump('%s <- %s(%s)' % (result_loc, op, arglocs))
         self.assembler.regalloc_perform(op, arglocs, result_loc)
 
-    def perform_with_guard(self, op, guard_op, regalloc, arglocs, result_loc):
+    def perform_with_guard(self, op, guard_op, regalloc, arglocs, result_loc,
+                           overflow=False):
         if not we_are_translated():
             self.assembler.dump('%s <- %s(%s) [GUARDED]' % (result_loc, op,
                                                             arglocs))
         self.assembler.regalloc_perform_with_guard(op, guard_op, regalloc,
-                                                   arglocs, result_loc)
+                                                   arglocs, result_loc,
+                                                   overflow)
 
     def perform_guard(self, op, regalloc, arglocs, result_loc):
         if not we_are_translated():
@@ -718,11 +720,12 @@ class RegAlloc(object):
         tmpvar = TempBox()
         self.force_allocate_reg(tmpvar, [], eax)
         assert (l0, l1, l2) == (eax, ecx, edx)
-        locs = self._locs_from_liveboxes(guard_op)
         self.eventually_free_vars(op.args + [tmpvar])
         self.position += 1
-        self.eventually_free_vars(guard_op.liveboxes)
-        self.PerformWithGuard(op, guard_op, [eax, ecx] + locs, edx)
+        regalloc = self.regalloc_for_guard(guard_op)
+        self.perform_with_guard(op, guard_op, regalloc, [eax, ecx], edx,
+                                overflow=True)
+        self.eventually_free_vars(guard_op.inputargs)
 
     def consider_int_floordiv(self, op, ignored):
         tmpvar = TempBox()

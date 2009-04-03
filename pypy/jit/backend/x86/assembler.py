@@ -262,14 +262,14 @@ class Assembler386(object):
         genop_discard_list[op.opnum](self, op, arglocs)
 
     def regalloc_perform_with_guard(self, op, guard_op, regalloc,
-                                    arglocs, resloc):
-        addr = self.implement_guard_recovery(guard_op, regalloc)
-        genop_guard_list[op.opnum](self, op, addr, guard_op, arglocs,
+                                    arglocs, resloc, ovf):
+        addr = self.implement_guard_recovery(guard_op, regalloc, ovf)
+        genop_guard_list[op.opnum](self, op, guard_op, addr, arglocs,
                                    resloc)
 
     def regalloc_perform_guard(self, op, regalloc, arglocs, resloc):
         addr = self.implement_guard_recovery(op, regalloc)
-        genop_guard_list[op.opnum](self, op, addr, None, arglocs,
+        genop_guard_list[op.opnum](self, op, None, addr, arglocs,
                                    resloc)
 
     def _unaryop(asmop):
@@ -283,35 +283,13 @@ class Assembler386(object):
         return genop_binary
 
     def _binaryop_ovf(asmop, can_swap=False, is_mod=False):
-        def genop_binary_ovf(self, op, guard_op, arglocs, result_loc):
-            xxx
+        def genop_binary_ovf(self, op, guard_op, addr, arglocs, result_loc):
             if is_mod:
                 self.mc.CDQ()
                 self.mc.IDIV(ecx)
             else:
                 getattr(self.mc, asmop)(arglocs[0], arglocs[1])
-            index = self.cpu.make_guard_index(guard_op)
-            recovery_code_addr = self.mc2.tell()
-            stacklocs = guard_op.stacklocs
-            locs = arglocs[2:]
-            assert len(locs) == len(stacklocs)
-            for i in range(len(locs)):
-                loc = locs[i]
-                if isinstance(loc, REG):
-                    self.mc2.MOV(stack_pos(stacklocs[i]), loc)
-            ovf_error_vtable = self.cpu.cast_adr_to_int(self._ovf_error_vtable)
-            self.mc2.MOV(eax, imm(ovf_error_vtable))
-            self.mc2.MOV(addr_add(imm(self._exception_bck_addr), imm(0)), eax)
-            ovf_error_instance = self.cpu.cast_adr_to_int(self._ovf_error_inst)
-            self.mc2.MOV(eax, imm(ovf_error_instance))
-            self.mc2.MOV(addr_add(imm(self._exception_bck_addr), imm(WORD)),eax)
-            self.mc2.PUSH(esp)           # frame address
-            self.mc2.PUSH(imm(index))    # index of guard that failed
-            self.mc2.CALL(rel32(self.cpu.get_failure_recovery_func_addr()))
-            self.mc2.ADD(esp, imm(8))
-            self.mc2.JMP(eax)
-            self.mc.JO(rel32(recovery_code_addr))
-            guard_op._jmp_from = self.mc.tell()
+            self.mc.JO(rel32(addr))
         return genop_binary_ovf
 
     def _cmpop(cond, rev_cond):
@@ -327,7 +305,7 @@ class Assembler386(object):
         return genop_cmp
 
     def _cmpop_guard(cond, rev_cond, false_cond, false_rev_cond):
-        def genop_cmp_guard(self, op, addr, guard_op, arglocs, result_loc):
+        def genop_cmp_guard(self, op, guard_op, addr, arglocs, result_loc):
             if isinstance(op.args[0], Const):
                 self.mc.CMP(arglocs[1], arglocs[0])
                 if guard_op.opnum == rop.GUARD_FALSE:
@@ -568,12 +546,12 @@ class Assembler386(object):
         targetmp = op.jump_target
         self.mc.JMP(rel32(targetmp.position))
 
-    def genop_guard_guard_true(self, op, addr, ign_1, locs, ign_2):
+    def genop_guard_guard_true(self, op, ign_1, addr, locs, ign_2):
         loc = locs[0]
         self.mc.TEST(loc, loc)
         self.implement_guard(addr, op, self.mc.JZ)
 
-    def genop_guard_guard_no_exception(self, op, addr, ign_1, locs, ign_2):
+    def genop_guard_guard_no_exception(self, op, ign_1, addr, locs, ign_2):
         loc = locs[0]
         self.mc.MOV(loc, heap(self._exception_addr))
         self.mc.TEST(loc, loc)
@@ -613,11 +591,20 @@ class Assembler386(object):
     #    self.mc.CMP(mem(eax, offset), imm(0))
     #    self.implement_guard(op, self.mc.JNE)
 
-    def implement_guard_recovery(self, guard_op, regalloc):
+    def implement_guard_recovery(self, guard_op, regalloc, ovf=False):
         oldmc = self.mc
         self.mc = self.mc2
         self.mc2 = self.mcstack.next_mc()
         addr = self.mc.tell()
+        guard_op.suboperations[-1].ovf = ovf
+        if (guard_op.opnum == rop.GUARD_EXCEPTION or
+            guard_op.opnum == rop.GUARD_NO_EXCEPTION):
+            exc = True
+        else:
+            exc = False
+        guard_op.suboperations[-1].exc = exc
+        if ovf or exc: # we need to think what to do otherwise
+            assert guard_op.suboperations[-1].opnum == rop.FAIL
         regalloc._walk_operations(guard_op.suboperations)
         self.mcstack.give_mc_back(self.mc2)
         self.mc2 = self.mc
@@ -625,6 +612,22 @@ class Assembler386(object):
         return addr
 
     def genop_fail(self, op, locs, guard_index):
+        if op.ovf:
+            ovf_error_vtable = self.cpu.cast_adr_to_int(self._ovf_error_vtable)
+            self.mc.MOV(eax, imm(ovf_error_vtable))
+            self.mc.MOV(addr_add(imm(self._exception_bck_addr), imm(0)), eax)
+            ovf_error_instance = self.cpu.cast_adr_to_int(self._ovf_error_inst)
+            self.mc.MOV(eax, imm(ovf_error_instance))
+            self.mc.MOV(addr_add(imm(self._exception_bck_addr), imm(WORD)),eax)
+        if op.exc:
+            self.mc.MOV(eax, heap(self._exception_addr))
+            self.mc.MOV(heap(self._exception_bck_addr), eax)
+            self.mc.MOV(eax, addr_add(imm(self._exception_addr), imm(WORD)))
+            self.mc.MOV(addr_add(imm(self._exception_bck_addr), imm(WORD)),
+                         eax)
+            # clean up the original exception, we don't want
+            # to enter more rpython code with exc set
+            self.mc.MOV(heap(self._exception_addr), imm(0))
         for i in range(len(locs)):
             loc = locs[i]
             if isinstance(loc, REG):
