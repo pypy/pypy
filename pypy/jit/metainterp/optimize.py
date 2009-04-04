@@ -887,9 +887,11 @@ class PerfectSpecializer(object):
                 box = self.prepare_rebuild_ops(node, rebuild_ops, memo)
                 if (parentnode.cls and
                     isinstance(parentnode.cls.source, FixedList)):
+                    cls = parentnode.cls.source
+                    assert isinstance(cls, FixedList)
                     rebuild_ops.append(ResOperation(rop.SETARRAYITEM_GC,
                       [parentnode.source, descr, box], None,
-                      parentnode.cls.source.arraydescr))
+                      cls.arraydescr))
                 else:
                     rebuild_ops.append(ResOperation(rop.SETFIELD_GC,
                       [parentnode.source, box], None, descr))
