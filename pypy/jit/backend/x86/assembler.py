@@ -19,6 +19,8 @@ from pypy.jit.metainterp.resoperation import rop
 # our calling convention - we pass three first args as edx, ecx and eax
 # and the rest stays on the stack
 
+MAX_FAIL_BOXES = 1000
+
 def repr_of_arg(memo, arg):
     try:
         mv = memo[arg]
@@ -63,6 +65,7 @@ class Assembler386(object):
     log_fd = -1
     mc = None
     mc2 = None
+    debug_markers = False
 
     def __init__(self, cpu, translate_support_code=False):
         self.cpu = cpu
@@ -88,6 +91,10 @@ class Assembler386(object):
 
     def make_sure_mc_exists(self):
         if self.mc is None:
+            self.fail_boxes = lltype.malloc(rffi.CArray(lltype.Signed),
+                                            MAX_FAIL_BOXES, flavor='raw')
+            self.fail_box_addr = self.cpu.cast_ptr_to_int(self.fail_boxes)
+
             self._log_fd = self._get_log()
             # we generate the loop body in 'mc'
             # 'mc2' is for guard recovery code
@@ -164,17 +171,14 @@ class Assembler386(object):
             if op.is_guard():
                 max_so_far = max(max_so_far, self._compute_longest_fail_op(
                     op.suboperations))
+        assert max_so_far < MAX_FAIL_BOXES
         return max_so_far
 
     def assemble(self, tree):
         # the last operation can be 'jump', 'return' or 'guard_pause';
         # a 'jump' can either close a loop, or end a bridge to some
         # previously-compiled code.
-        num = self._compute_longest_fail_op(tree.operations)
-        fail_boxes = lltype.malloc(rffi.CArray(lltype.Signed), num,
-                                   flavor='raw')
-        self.fail_box_addr = self.cpu.cast_ptr_to_int(fail_boxes)
-        tree.fail_boxes = fail_boxes
+        self._compute_longest_fail_op(tree.operations)
         self.make_sure_mc_exists()
         inputargs = tree.inputargs
         op0 = tree.operations[0]
@@ -610,6 +614,7 @@ class Assembler386(object):
         return addr
 
     def generate_failure(self, op, locs, guard_index):
+        pos = self.mc.tell()
         for i in range(len(locs)):
             loc = locs[i]
             if isinstance(loc, REG):
@@ -619,6 +624,11 @@ class Assembler386(object):
             if not isinstance(loc, REG):
                 self.mc.MOV(eax, loc)
                 self.mc.MOV(addr_add(imm(self.fail_box_addr), imm(i*WORD)), eax)
+        if self.debug_markers:
+            self.mc.MOV(eax, imm(pos))
+            self.mc.MOV(addr_add(imm(self.fail_box_addr),
+                                 imm(len(locs) * WORD)),
+                                 eax)
         if op.ovf:
             ovf_error_vtable = self.cpu.cast_adr_to_int(self._ovf_error_vtable)
             self.mc.MOV(eax, imm(ovf_error_vtable))

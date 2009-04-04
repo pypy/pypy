@@ -279,7 +279,7 @@ class CPU386(object):
             op = self._guard_list[guard_index]
         for i in range(len(op.args)):
             box = op.args[i]
-            self.set_value_of_box(box, i, loop.fail_boxes)
+            self.set_value_of_box(box, i, self.assembler.fail_boxes)
         return op
 
     def execute_call(self, loop, func, values_as_int):
