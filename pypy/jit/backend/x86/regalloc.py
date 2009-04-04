@@ -548,8 +548,9 @@ class RegAlloc(object):
         jump = tree.operations[-1]
         if jump.opnum != rop.JUMP:
             jump = None
-        else:
-            assert jump.jump_target is tree
+        elif jump.jump_target is not tree:
+            jump = self._create_jump_reg_candidates(jump)
+            jump = None
         for i in range(len(inputargs)):
             arg = inputargs[i]
             assert not isinstance(arg, Const)
