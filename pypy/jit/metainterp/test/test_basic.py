@@ -61,8 +61,8 @@ class LLJitMixin(JitMixin):
         graph = rtyper.annotator.translator.graphs[0]
         maingraph = cw.make_one_bytecode(graph, False)
         while cw.unfinished_graphs:
-            graph = cw.unfinished_graphs.pop()
-            cw.make_one_bytecode(graph, False)
+            graph, called_from = cw.unfinished_graphs.pop()
+            cw.make_one_bytecode(graph, False, called_from)
         metainterp.portal_code = maingraph
         metainterp.delete_history()
         metainterp.warmrunnerdesc = FakeWarmRunnderDesc
@@ -348,6 +348,18 @@ class BasicTests:
 
         self.meta_interp(f, [20], repeat=7)
         self.check_loop_count(3)      # the loop, the entry path, the exit path
+
+    def test_casts(self):
+        from pypy.rpython.lltypesystem import lltype, llmemory
+        
+        TP = lltype.GcStruct('x')
+        def f(p):
+            n = lltype.cast_ptr_to_int(p)
+            return lltype.cast_int_to_ptr(lltype.Ptr(TP), n)
+
+        x = lltype.malloc(TP)
+        expected = lltype.cast_opaque_ptr(llmemory.GCREF, x)
+        assert self.interp_operations(f, [x]) == expected
 
 class TestOOtype(BasicTests, OOJitMixin):
     pass

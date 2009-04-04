@@ -332,6 +332,15 @@ class CPU(object):
         else:  # calldescr.type == 'v'  # void
             llimpl.do_call_void(func, self.memo_cast)
 
+    def do_cast_int_to_ptr(self, args, descr=None):
+        return history.BoxPtr(llmemory.cast_adr_to_ptr(
+            self.cast_int_to_adr(args[0].getint()),
+            llmemory.GCREF))
+
+    def do_cast_ptr_to_int(self, args, descr=None):
+        return history.BoxInt(self.cast_adr_to_int(llmemory.cast_ptr_to_adr(
+            args[0].getptr_base())))
+
 # ____________________________________________________________
 
 import pypy.jit.metainterp.executor

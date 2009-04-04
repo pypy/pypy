@@ -514,6 +514,12 @@ class CPU386(object):
             return None
         return op.args[0]
 
+    def do_cast_ptr_to_int(self, args, descr=None):
+        return BoxInt(self.cast_gcref_to_int(args[0].getptr_base()))
+
+    def do_cast_int_to_ptr(self, args, descr=None):
+        return BoxPtr(self.cast_int_to_gcref(args[0].getint()))
+
     # ------------------- helpers and descriptions --------------------
 
     @staticmethod

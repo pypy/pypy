@@ -3,6 +3,7 @@ from pypy.rlib.jit import JitDriver, hint
 from pypy.jit.metainterp.policy import StopAtXPolicy
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.rpython.lltypesystem import lltype, rclass
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.jit.metainterp import heaptracker
 
 class VirtualTests:
@@ -104,6 +105,7 @@ class VirtualTests:
     def test_two_loops_with_escaping_virtual(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
         def externfn(node):
+            llop.debug_print(lltype.Void, node)
             return node.value * 2
         def f(n):
             node = self._new()

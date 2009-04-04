@@ -103,6 +103,8 @@ class rop(object):
     _ALWAYS_PURE_FIRST = 20 # ----- start of always_pure operations -----
     CALL_PURE              = 20
     #
+    CAST_INT_TO_PTR        = 21
+    CAST_PTR_TO_INT        = 22
     INT_ADD                = 30
     INT_SUB                = 31
     INT_MUL                = 32
