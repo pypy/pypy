@@ -39,6 +39,11 @@ class ConstDescr3(AbstractDescr):
     def sort_key(self):
         return self.v[0]    # the ofs field for fielddescrs
 
+    def equals(self, other):
+        if not isinstance(other, ConstDescr3):
+            return False
+        return self.sort_key() == other.sort_key()
+
     def __hash__(self):
         return hash(self._v())
 

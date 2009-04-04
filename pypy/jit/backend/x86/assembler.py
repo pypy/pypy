@@ -576,10 +576,10 @@ class Assembler386(object):
         self.mc.CMP(locs[0], locs[1])
         self.implement_guard(addr, op, self.mc.JNE)
 
-    def genop_discard_guard_class(self, op, locs):
+    def genop_guard_guard_class(self, op, ign_1, addr, locs, ign_2):
         offset = 0    # XXX for now, the vtable ptr is at the start of the obj
         self.mc.CMP(mem(locs[0], offset), locs[1])
-        self.implement_guard(op, self.mc.JNE, locs[2:])
+        self.implement_guard(addr, op, self.mc.JNE)
 
     #def genop_discard_guard_nonvirtualized(self, op):
     #    STRUCT = op.args[0].concretetype.TO
