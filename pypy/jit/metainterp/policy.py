@@ -36,8 +36,8 @@ class JitPolicy(object):
 
     def guess_call_kind(self, op):
         if op.opname == 'direct_call':
-            if getattr(op.args[0].value._obj, 'graph', None):
-                return 'builtin'
+            if getattr(op.args[0].value._obj, 'graph', None) is None:
+                return 'residual'
             targetgraph = op.args[0].value._obj.graph
             if (hasattr(targetgraph, 'func') and
                 hasattr(targetgraph.func, 'oopspec')):
