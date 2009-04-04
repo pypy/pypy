@@ -823,10 +823,16 @@ class RegAlloc(object):
     consider_call_pure = consider_call
 
     def consider_new(self, op, ignored):
-        return self._call(op, [imm(op.descr.v[0])])
+        from pypy.jit.backend.x86.runner import ConstDescr3
+        descr = op.descr
+        assert isinstance(descr, ConstDescr3)
+        return self._call(op, [imm(descr.v[0])])
 
     def consider_new_with_vtable(self, op, ignored):
-        return self._call(op, [imm(op.descr.v[0]), self.loc(op.args[0])])
+        from pypy.jit.backend.x86.runner import ConstDescr3
+        descr = op.descr
+        assert isinstance(descr, ConstDescr3)
+        return self._call(op, [imm(descr.v[0]), self.loc(op.args[0])])
 
     def consider_newstr(self, op, ignored):
         ofs_items, _, ofs = symbolic.get_array_token(rstr.STR, self.translate_support_code)

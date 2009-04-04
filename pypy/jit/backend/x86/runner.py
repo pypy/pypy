@@ -507,6 +507,7 @@ class CPU386(object):
 
     def do_call(self, args, calldescr):
         num_args, size, ptr = self.unpack_calldescr(calldescr)
+        assert isinstance(calldescr, ConstDescr3)
         loop = self._get_loop_for_call(num_args, calldescr, ptr)
         op = self.execute_operations(loop, args)
         if size == 0:
