@@ -364,9 +364,11 @@ unwrap._annspecialcase_ = 'specialize:arg(0)'
 
 def wrap_into(box, value):
     TYPE = lltype.typeOf(value)
-    if isinstance(box, history.BoxPtr):
+    if isinstance(TYPE, lltype.Ptr):
+        assert isinstance(box, history.BoxPtr)
         box.changevalue_ptr(lltype.cast_opaque_ptr(llmemory.GCREF, value))
-    elif isinstance(box, history.BoxInt):
+    elif TYPE == lltype.Signed:
+        assert isinstance(box, history.BoxInt)
         box.changevalue_int(cast_whatever_to_int(TYPE, value))
     else:
         raise AssertionError("box is: %s" % (box,))

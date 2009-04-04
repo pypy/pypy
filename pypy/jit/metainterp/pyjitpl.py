@@ -909,13 +909,16 @@ class OOMetaInterp(object):
             else:
                 # Found!  Compile it as a loop.
                 if j > 0:
+                    assert start >= 0
                     del self.history.operations[:start]
                 elif self.extra_rebuild_operations >= 0:
                     # The history only starts at a bridge, not at the
                     # full loop header.  Complete it as a full loop by
                     # inserting a copy of the operations from the old
                     # loop branch before the guard that failed.
-                    del self.history.operations[:self.extra_rebuild_operations]
+                    lgt = self.extra_rebuild_operations
+                    assert lgt >= 0
+                    del self.history.operations[:lgt]
                     compile.prepare_loop_from_bridge(self, self.resumekey)
                 loop = self.compile(original_boxes, live_arg_boxes)
                 raise GenerateMergePoint(live_arg_boxes, loop)
@@ -1031,7 +1034,6 @@ class OOMetaInterp(object):
                 must_compile = False
                 if not we_are_translated():
                     history.log.info("ignoring old version of the guard")
-        if must_compile:
             self.history = history.History(self.cpu)
             extra = len(suboperations) - 1
             assert extra >= 0
