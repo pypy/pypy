@@ -54,11 +54,11 @@ class RegAlloc(object):
         self.translate_support_code = translate_support_code
         if regalloc is None:
             self.reg_bindings = newcheckdict()
-            self.stack_bindings = {}
+            self.stack_bindings = newcheckdict()
             # compute longevity of variables
             self._compute_vars_longevity(tree.inputargs, tree.operations)
             self.free_regs = REGS[:]
-            self.dirty_stack = {} 
+            self.dirty_stack = {}
             jump = tree.operations[-1]
             #self.startmp = mp
             #if guard_op:
@@ -156,13 +156,13 @@ class RegAlloc(object):
                 arg = inputargs[i]
                 jarg = jump.args[i]
                 if arg is not jarg and not isinstance(jarg, Const):
-                    if free_regs:
+                    if free_regs and self.longevity[arg][1] > 0:
                         self.jump_reg_candidates[jarg] = free_regs.pop()
                     if self.longevity[arg][1] <= self.longevity[jarg][0]:
                         if jarg not in self.stack_bindings:
                             self.stack_bindings[jarg] = stack_pos(i)
                             self.dirty_stack[jarg] = True
-                else:
+                elif not isinstance(jarg, Const):
                     # these are loop consts, but we need stack space anyway
                     self.stack_bindings[jarg] = stack_pos(i)
         return loop_consts, len(inputargs)
@@ -288,6 +288,9 @@ class RegAlloc(object):
                 for arg in op.inputargs:
                     if isinstance(arg, Box):
                         longevity[arg] = (start_live[arg], i)
+        for arg in inputargs:
+            if arg not in longevity:
+                longevity[arg] = (0, 0)
         self.longevity = longevity
 
     def _compute_inpargs(self, guard):
@@ -545,7 +548,7 @@ class RegAlloc(object):
             reg = None
             loc = stack_pos(i)
             self.stack_bindings[arg] = loc
-            if arg not in self.loop_consts:
+            if arg not in self.loop_consts and self.longevity[arg][1] > 0:
                 reg = self.try_allocate_reg(arg)
             if reg:
                 locs[i] = reg
