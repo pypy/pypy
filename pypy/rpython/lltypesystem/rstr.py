@@ -288,7 +288,7 @@ class LLHelpers(AbstractLLHelpers):
                 raise UnicodeDecodeError
             s.chars[i] = cast_primitive(UniChar, str.chars[i])
         return s
-    ll_str2unicode.oopspec = 'str.unicode()'
+    ll_str2unicode.oopspec = 'str.str2unicode(str)'
 
     def ll_strhash(s):
         # unlike CPython, there is no reason to avoid to return -1
