@@ -18,10 +18,13 @@ MAX_MAKE_NEW_VARS = 16
 
 
 class JitCode(history.AbstractValue):
-    def __init__(self, name, cfnptr=None, calldescr=None):
+    def __init__(self, name, cfnptr=None, calldescr=None, called_from=None,
+                 graph=None):
         self.name = name
         self.cfnptr = cfnptr
         self.calldescr = calldescr
+        self.called_from = called_from
+        self.graph = graph
 
     def setup(self, code, constants):
         self.code = code
@@ -88,26 +91,28 @@ class CodeWriter(object):
         self.portal_graph = graph
         jitcode = self.make_one_bytecode(graph, True)
         while self.unfinished_graphs:
-            graph = self.unfinished_graphs.pop()
-            self.make_one_bytecode(graph, False)
+            graph, called_from = self.unfinished_graphs.pop()
+            self.make_one_bytecode(graph, False, called_from)
         log.info("there are %d JitCode instances." % len(self.all_graphs))
         # xxx annotation hack: make sure there is at least one ConstAddr around
         jitcode.constants.append(history.ConstAddr(llmemory.NULL, self.cpu))
         return jitcode
 
-    def make_one_bytecode(self, graph, portal):
+    def make_one_bytecode(self, graph, portal, called_from=None):
         maker = BytecodeMaker(self, graph, portal)
         if not hasattr(maker.bytecode, 'code'):
             maker.assemble()
         return maker.bytecode
 
-    def get_jitcode(self, graph):
+    def get_jitcode(self, graph, called_from=None):
         if graph in self.all_graphs:
             return self.all_graphs[graph]
         extra = self.get_jitcode_calldescr(graph)
-        bytecode = JitCode(graph.name, *extra)     # 'graph.name' is for dump()
+        bytecode = JitCode(graph.name, *extra, **dict(called_from=called_from,
+                                                      graph=graph))
+        # 'graph.name' is for dump()
         self.all_graphs[graph] = bytecode
-        self.unfinished_graphs.append(graph)
+        self.unfinished_graphs.append((graph, called_from))
         return bytecode
 
     def get_jitcode_calldescr(self, graph):
@@ -708,7 +713,7 @@ class BytecodeMaker(object):
     def handle_regular_call(self, op):
         self.minimize_variables()
         [targetgraph] = self.codewriter.policy.graphs_from(op)
-        jitbox = self.codewriter.get_jitcode(targetgraph)
+        jitbox = self.codewriter.get_jitcode(targetgraph, self.graph)
         self.emit('call')
         self.emit(self.get_position(jitbox))
         self.emit_varargs([x for x in op.args[1:]
@@ -943,6 +948,17 @@ class BytecodeMaker(object):
                 sd.dict = {}
                 for key, link in sd._maps.items():
                     sd.dict[key] = labelpos[link]
+
+    def _call_stack(self):
+        p = self.bytecode
+        i = 0
+        while p is not None:
+            print " " * i + p.graph.name
+            i += 1
+            if p.called_from is None:
+                p = None
+            else:
+                p = self.codewriter.get_jitcode(p.called_from)
 
 # ____________________________________________________________
 
