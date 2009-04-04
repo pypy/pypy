@@ -22,6 +22,8 @@ VOID = 0
 PTR = 1
 INT = 2
 
+history.TreeLoop._x86_compiled = 0
+
 class ConstDescr3(AbstractDescr):
     def __init__(self, v):
         # XXX don't use a tuple! that's yet another indirection...
@@ -184,7 +186,16 @@ class CPU386(object):
         self.assembler._exception_bck[1] = ovf_inst
 
     def compile_operations(self, tree):
+        old_loop = tree._x86_compiled
+        if old_loop:
+            oldlocs = tree.arglocs
+        else:
+            oldlocs = None
         self.assembler.assemble(tree)
+        newlocs = tree.arglocs
+        if old_loop != 0:
+            self.assembler.patch_jump(old_loop, tree._x86_compiled,
+                                      oldlocs, newlocs)
 
     def get_bootstrap_code(self, loop):
         # key is locations of arguments
@@ -291,7 +302,7 @@ class CPU386(object):
         res = 0
         try:
             self.caught_exception = None
-            res = func(loop.position, values_as_int)
+            res = func(loop._x86_compiled, values_as_int)
             self.reraise_caught_exception()
         finally:
             if not self.translate_support_code:

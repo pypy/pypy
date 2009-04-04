@@ -181,8 +181,6 @@ class Assembler386(object):
         self._compute_longest_fail_op(tree.operations)
         self.make_sure_mc_exists()
         inputargs = tree.inputargs
-        op0 = tree.operations[0]
-        op0.position = self.mc.tell()
         self.eventually_log_operations(tree)
         regalloc = RegAlloc(self, tree, self.cpu.translate_support_code)
         if not we_are_translated():
@@ -524,9 +522,15 @@ class Assembler386(object):
 
     def make_merge_point(self, tree, locs, stacklocs):
         pos = self.mc.tell()
-        tree.position = pos
+        tree._x86_compiled = pos
         #tree.comeback_bootstrap_addr = self.assemble_comeback_bootstrap(pos,
         #                                                locs, stacklocs)
+
+    def patch_jump(self, old_pos, new_pos, oldlocs, newlocs):
+        if not we_are_translated():
+            assert str(oldlocs) == str(newlocs)
+        mc = codebuf.InMemoryCodeBuilder(old_pos, MachineCodeStack.MC_SIZE)
+        mc.JMP(rel32(new_pos))
 
 #     def genop_discard_return(self, op, locs):
 #         if op.args:
@@ -548,7 +552,7 @@ class Assembler386(object):
 
     def genop_discard_jump(self, op, locs):
         targetmp = op.jump_target
-        self.mc.JMP(rel32(targetmp.position))
+        self.mc.JMP(rel32(targetmp._x86_compiled))
 
     def genop_guard_guard_true(self, op, ign_1, addr, locs, ign_2):
         loc = locs[0]
