@@ -6,6 +6,7 @@ from pypy.conftest import option
 
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.history import TreeLoop, log, Box, History
+from pypy.jit.metainterp.history import AbstractDescr
 
 def compile_new_loop(metainterp, old_loops, greenkey):
     """Try to compile a new loop by closing the current history back
@@ -95,38 +96,88 @@ def compile_fresh_loop(metainterp, old_loops, greenkey):
     if old_loop is not None:
         return old_loop
     history.source_link = loop
-    send_loop_to_backend(metainterp, loop, True)
+    send_loop_to_backend(metainterp, loop, "loop")
     metainterp.stats.loops.append(loop)
     old_loops.append(loop)
     return loop
 
-def send_loop_to_backend(metainterp, loop, is_loop):
+def send_loop_to_backend(metainterp, loop, type):
     metainterp.cpu.compile_operations(loop)
-    metainterp.stats.compiled_count += 1
     if not we_are_translated():
-        if is_loop:
-            log.info("compiled new loop")
+        if type != "entry bridge":
+            metainterp.stats.compiled_count += 1
         else:
-            log.info("compiled new bridge")
+            loop._ignore_during_counting = True
+        log.info("compiled new " + type)
 
 # ____________________________________________________________
 
-def find_toplevel_history(resumekey):
-    # Find the History that describes the start of the loop containing this
-    # guard operation.
-    history = resumekey.history
-    prevhistory = history.source_link
-    while isinstance(prevhistory, History):
-        history = prevhistory
-        prevhistory = history.source_link
-    return history
+class ResumeGuardDescr(AbstractDescr):
+    def __init__(self, guard_op, resume_info, history, history_guard_index):
+        self.resume_info = resume_info
+        self.guard_op = guard_op
+        self.counter = 0
+        self.history = history
+        assert history_guard_index >= 0
+        self.history_guard_index = history_guard_index
 
-def find_source_loop(resumekey):
-    # Find the TreeLoop object that contains this guard operation.
-    source_loop = resumekey.history.source_link
-    while not isinstance(source_loop, TreeLoop):
-        source_loop = source_loop.source_link
-    return source_loop
+    def get_guard_op(self):
+        guard_op = self.guard_op
+        if guard_op.optimized is not None:   # should always be the case,
+            return guard_op.optimized        # except if not optimizing at all
+        else:
+            return guard_op
+
+    def compile_and_attach(self, metainterp, new_loop):
+        # We managed to create a bridge.  Attach the new operations
+        # to the existing source_loop and recompile the whole thing.
+        source_loop = self.find_source_loop()
+        metainterp.history.source_link = self.history
+        metainterp.history.source_guard_index = self.history_guard_index
+        guard_op = self.get_guard_op()
+        guard_op.suboperations = new_loop.operations
+        send_loop_to_backend(metainterp, source_loop, "bridge")
+
+    def find_source_loop(self):
+        # Find the TreeLoop object that contains this guard operation.
+        source_loop = self.history.source_link
+        while not isinstance(source_loop, TreeLoop):
+            source_loop = source_loop.source_link
+        return source_loop
+
+    def find_toplevel_history(self):
+        # Find the History that describes the start of the loop containing this
+        # guard operation.
+        history = self.history
+        prevhistory = history.source_link
+        while isinstance(prevhistory, History):
+            history = prevhistory
+            prevhistory = history.source_link
+        return history
+
+
+class ResumeFromInterpDescr(AbstractDescr):
+    def __init__(self, original_boxes):
+        self.original_boxes = original_boxes
+
+    def compile_and_attach(self, metainterp, new_loop):
+        # We managed to create a bridge going from the interpreter
+        # to previously-compiled code.  We keep 'new_loop', which is not
+        # a loop at all but ends in a jump to the target loop.  It starts
+        # with completely unoptimized arguments, as in the interpreter.
+        num_green_args = metainterp.num_green_args
+        greenkey = self.original_boxes[:num_green_args]
+        redkey = self.original_boxes[num_green_args:]
+        metainterp.history.source_link = new_loop
+        metainterp.history.inputargs = redkey
+        new_loop.greenkey = greenkey
+        new_loop.inputargs = redkey
+        send_loop_to_backend(metainterp, new_loop, "entry bridge")
+        metainterp.stats.loops.append(new_loop)
+        # send the new_loop to warmspot.py, to be called directly the next time
+        metainterp.state.attach_unoptimized_bridge_from_interp(greenkey,
+                                                               new_loop)
+
 
 def compile_fresh_bridge(metainterp, old_loops, resumekey):
     # The history contains new operations to attach as the code for the
@@ -134,27 +185,18 @@ def compile_fresh_bridge(metainterp, old_loops, resumekey):
     #
     # Attempt to use optimize_bridge().  This may return None in case
     # it does not work -- i.e. none of the existing old_loops match.
-    temploop = create_empty_loop(metainterp)
-    temploop.operations = metainterp.history.operations
+    new_loop = create_empty_loop(metainterp)
+    new_loop.operations = metainterp.history.operations
     target_loop = metainterp.optimize_bridge(metainterp.options, old_loops,
-                                             temploop, metainterp.cpu)
-    # Did it work?
+                                             new_loop, metainterp.cpu)
+    # Did it work?  If not, prepare_loop_from_bridge() will probably be used.
     if target_loop is not None:
-        # Yes, we managed to create just a bridge.  Attach the new operations
-        # to the existing source_loop and recompile the whole thing.
-        metainterp.history.source_link = resumekey.history
-        metainterp.history.source_guard_index = resumekey.history_guard_index
-        guard_op = resumekey.guard_op
-        if guard_op.optimized is not None:      # should always be the case
-            guard_op = guard_op.optimized
-        guard_op.suboperations = temploop.operations
-        op = guard_op.suboperations[-1]
+        # Yes, we managed to create a bridge.  Dispatch to resumekey to
+        # know exactly what we must do (ResumeGuardDescr/ResumeFromInterpDescr)
+        op = new_loop.operations[-1]
         op.jump_target = target_loop
-        source_loop = find_source_loop(resumekey)
-        send_loop_to_backend(metainterp, source_loop, False)
-        return target_loop
-    else:
-        return None     # No.  prepare_loop_from_bridge() will be used.
+        resumekey.compile_and_attach(metainterp, new_loop)
+    return target_loop
 
 
 def prepare_loop_from_bridge(metainterp, resumekey):

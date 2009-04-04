@@ -45,7 +45,8 @@ def jittify_and_run(interp, graph, args, repeat=1, **kwds):
     res = interp.eval_graph(graph, args)
     while repeat > 1:
         res1 = interp.eval_graph(graph, args)
-        assert res1 == res
+        if isinstance(res, int):
+            assert res1 == res
         repeat -= 1
     return res
 
@@ -294,15 +295,6 @@ class WarmRunnerDesc:
         portalfunc_ARGS = unrolling_iterable(list(enumerate(PORTALFUNC.ARGS)))
         RESULT = PORTALFUNC.RESULT
 
-        def unwrap(TYPE, box):
-            if TYPE is lltype.Void:
-                return None
-            if isinstance(TYPE, lltype.Ptr):
-                return box.getptr(TYPE)
-            else:
-                return lltype.cast_primitive(TYPE, box.getint())
-        unwrap._annspecialcase_ = 'specialize:arg(0)'
-
         def ll_portal_runner(*args):
             while 1:
                 try:
@@ -361,6 +353,25 @@ def decode_hp_hint_args(op):
     return ([v for v in greens_v if v.concretetype is not lltype.Void],
             [v for v in reds_v if v.concretetype is not lltype.Void])
 
+def unwrap(TYPE, box):
+    if TYPE is lltype.Void:
+        return None
+    if isinstance(TYPE, lltype.Ptr):
+        return box.getptr(TYPE)
+    else:
+        return lltype.cast_primitive(TYPE, box.getint())
+unwrap._annspecialcase_ = 'specialize:arg(0)'
+
+def wrap_into(box, value):
+    TYPE = lltype.typeOf(value)
+    if isinstance(box, history.BoxPtr):
+        box.changevalue_ptr(lltype.cast_opaque_ptr(llmemory.GCREF, value))
+    elif isinstance(box, history.BoxInt):
+        box.changevalue_int(cast_whatever_to_int(TYPE, value))
+    else:
+        raise AssertionError("box is: %s" % (box,))
+wrap_into._annspecialcase_ = 'specialize:argtype(1)'
+
 def cast_whatever_to_int(TYPE, x):
     if isinstance(TYPE, lltype.Ptr):
         return lltype.cast_ptr_to_int(x)
@@ -376,6 +387,7 @@ def make_state_class(warmrunnerdesc):
     warmrunnerdesc.num_green_args = num_green_args
     green_args_spec = unrolling_iterable(warmrunnerdesc.green_args_spec)
     green_args_names = unrolling_iterable(jitdriver.greens)
+    red_args_index = unrolling_iterable(range(len(jitdriver.reds)))
     if num_green_args:
         MAX_HASH_TABLE_BITS = 28
     else:
@@ -389,8 +401,8 @@ def make_state_class(warmrunnerdesc):
         __slots__ = 'counter'
 
     class MachineCodeEntryPoint(StateCell):
-        def __init__(self, mp, *greenargs):
-            self.mp = mp
+        def __init__(self, bridge, *greenargs):
+            self.bridge = bridge
             self.next = Counter(0)
             i = 0
             for name in green_args_names:
@@ -403,10 +415,13 @@ def make_state_class(warmrunnerdesc):
                     return False
                 i += 1
             return True
+        def fill_boxes(self, *redargs):
+            boxes = self.bridge.inputargs
+            for j in red_args_index:
+                wrap_into(boxes[j], redargs[j])
+            return boxes
 
     class WarmEnterState:
-        #NULL_MC = lltype.nullptr(hotrunnerdesc.RESIDUAL_FUNCTYPE)
-
         def __init__(self):
             # initialize the state with the default values of the
             # parameters specified in rlib/jit.py
@@ -436,9 +451,9 @@ def make_state_class(warmrunnerdesc):
             # not too bad.
 
         def maybe_compile_and_run(self, *args):
+            # get the greenargs and look for the cell corresponding to the hash
             greenargs = args[:num_green_args]
             argshash = self.getkeyhash(*greenargs)
-            argshash &= self.hashtablemask
             cell = self.cells[argshash]
             if isinstance(cell, Counter):
                 # update the profiling counter
@@ -449,17 +464,24 @@ def make_state_class(warmrunnerdesc):
                     self.cells[argshash] = Counter(n)
                     return
                 #interp.debug_trace("jit_compile", *greenargs)
-                self.compile_and_run(argshash, *args)
+                metainterp = warmrunnerdesc.metainterp
+                loop, boxes = metainterp.compile_and_run_once(*args)
             else:
-                raise NotImplementedError("bridges to compiled code")
                 # machine code was already compiled for these greenargs
                 # (or we have a hash collision)
                 assert isinstance(cell, MachineCodeEntryPoint)
-                if cell.equalkey(*greenargs):
-                    self.run(cell, *args)
-                else:
-                    xxx
+                if not cell.equalkey(*greenargs):
+                    # hash collision
+                    raise HashCollisionException("hash collision! fixme")
                     self.handle_hash_collision(cell, argshash, *args)
+                # get the assembler and fill in the boxes
+                loop = cell.bridge
+                boxes = cell.fill_boxes(*args[num_green_args:])
+            # ---------- execute assembler ----------
+            while True:     # until interrupted by an exception
+                metainterp = warmrunnerdesc.metainterp
+                guard_failure = metainterp.cpu.execute_operations(loop, boxes)
+                loop, boxes = metainterp.handle_guard_failure(guard_failure)
         maybe_compile_and_run._dont_inline_ = True
 
         def handle_hash_collision(self, cell, argshash, *args):
@@ -498,19 +520,36 @@ def make_state_class(warmrunnerdesc):
                 item = greenargs[i]
                 result = result ^ cast_whatever_to_int(TYPE, item)
                 i = i + 1
-            return result
+            return result & self.hashtablemask
         getkeyhash._always_inline_ = True
-
-        def compile_and_run(self, argshash, *args):
-            metainterp = warmrunnerdesc.metainterp
-            loop, boxes = metainterp.compile_and_run_once(*args)
-            while loop:
-                cpu = warmrunnerdesc.metainterp.cpu
-                guard_failure = cpu.execute_operations(loop, boxes)
-                loop, boxes = metainterp.handle_guard_failure(guard_failure)
 
         def must_compile_from_failure(self, key):
             key.counter += 1
             return key.counter >= self.trace_eagerness
 
+        def attach_unoptimized_bridge_from_interp(self, greenkey, bridge):
+            greenargs = ()
+            i = 0
+            for TYPE in green_args_spec:
+                value = unwrap(TYPE, greenkey[i])
+                greenargs += (value,)
+                i += 1
+            newcell = MachineCodeEntryPoint(bridge, *greenargs)
+            argshash = self.getkeyhash(*greenargs)
+            cell = self.cells[argshash]
+            if not isinstance(cell, Counter):
+                while True:
+                    assert isinstance(cell, MachineCodeEntryPoint)
+                    next = cell.next
+                    if isinstance(next, Counter):
+                        cell.next = Counter(0)
+                        break
+                    cell = next
+                newcell.next = self.cells[argshash]
+            self.cells[argshash] = newcell
+
     return WarmEnterState
+
+
+class HashCollisionException(Exception):
+    pass

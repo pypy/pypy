@@ -245,6 +245,29 @@ class VirtualTests:
         res = self.meta_interp(f, [10])
         assert res == 2
 
+    def test_bridge_from_interpreter(self):
+        mydriver = JitDriver(reds = ['n', 'f'], greens = [])
+
+        class Foo:
+            pass
+
+        def f(n):
+            f = Foo()
+            f.n = 0
+            while n > 0:
+                mydriver.can_enter_jit(n=n, f=f)
+                mydriver.jit_merge_point(n=n, f=f)
+                prev = f.n
+                f = Foo()
+                f.n = prev + n
+                n -= 2
+            return f
+
+        res = self.meta_interp(f, [21], repeat=7)
+        assert res.inst_n == f(21).n
+        py.test.skip("in-progress")
+        self.check_loop_count(3)      # the loop, the entry path, the exit path
+
 ##class TestOOtype(VirtualTests, OOJitMixin):
 ##    _new = staticmethod(ootype.new)
 

@@ -324,7 +324,7 @@ class TestLoop(LLJitMixin):
         assert res == expected
 
         self.check_loop_count(2)
-        self.check_tree_loop_count(1)
+        self.check_tree_loop_count(2)   # 1 loop, 1 bridge from interp
 
     def test_example(self):
         myjitdriver = JitDriver(greens = ['i'],

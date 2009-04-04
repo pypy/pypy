@@ -29,6 +29,10 @@ class JitMixin:
     def check_loops(self, expected=None, **check):
         get_stats().check_loops(expected=expected, **check)
     def check_loop_count(self, count):
+        """NB. This is a hack; use check_tree_loop_count() for the real thing.
+        This counts as 1 every bridge in addition to every loop; and it does
+        not count at all the entry bridges from interpreter, although they
+        are TreeLoops as well."""
         assert get_stats().compiled_count == count
     def check_tree_loop_count(self, count):
         assert len(get_stats().loops) == count
@@ -337,7 +341,6 @@ class BasicTests:
         assert res == 0
 
     def test_bridge_from_interpreter(self):
-        py.test.skip("in-progress")
         mydriver = JitDriver(reds = ['n'], greens = [])
 
         def f(n):
@@ -347,6 +350,7 @@ class BasicTests:
                 n -= 1
 
         self.meta_interp(f, [20], repeat=7)
+        py.test.skip("in-progress")
         self.check_loop_count(3)      # the loop, the entry path, the exit path
 
     def test_casts(self):

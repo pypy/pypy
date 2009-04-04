@@ -81,7 +81,8 @@ class AbstractValue(object):
         raise NotImplementedError
 
 class AbstractDescr(AbstractValue):
-    pass
+    def compile_and_attach(self, metainterp, new_loop):
+        raise NotImplementedError
 
 
 class Const(AbstractValue):
@@ -406,16 +407,6 @@ def _list_all_operations(result, operations, omit_fails=True):
         if op.is_guard():
             _list_all_operations(result, op.suboperations, omit_fails)
 
-
-class ResumeDescr(AbstractDescr):
-    def __init__(self, guard_op, resume_info, history, history_guard_index):
-        self.resume_info = resume_info
-        self.guard_op = guard_op
-        self.counter = 0
-        self.history = history
-        assert history_guard_index >= 0
-        self.history_guard_index = history_guard_index
-
 # ____________________________________________________________
 
 
@@ -480,6 +471,8 @@ class Stats(object):
     def check_loops(self, expected=None, **check):
         insns = {}
         for loop in self.loops:
+            if getattr(loop, '_ignore_during_counting', False):
+                continue
             insns = loop.summary(adding_insns=insns)
         if expected is not None:
             assert insns == expected

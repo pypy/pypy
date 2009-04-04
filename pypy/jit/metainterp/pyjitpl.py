@@ -663,7 +663,7 @@ class MIFrame(object):
         else:
             moreargs = list(extraargs)
         guard_op = self.metainterp.history.record(opnum, moreargs, None)
-        resumedescr = history.ResumeDescr(guard_op, resume_info,
+        resumedescr = compile.ResumeGuardDescr(guard_op, resume_info,
             self.metainterp.history, len(self.metainterp.history.operations)-1)
         op = history.ResOperation(rop.FAIL, liveboxes, None, descr=resumedescr)
         guard_op.suboperations = [op]
@@ -792,7 +792,7 @@ class OOMetaInterp(object):
         self.history = None
         self.framestack = None
         self.current_merge_points = None
-        self.guard_key = None
+        self.resumekey = None
 
     def _all_constants(self, boxes):
         for box in boxes:
@@ -800,6 +800,7 @@ class OOMetaInterp(object):
                 return False
         return True
 
+    @specialize.arg(1)
     def execute_and_record(self, opnum, argboxes, descr=None):
         # execute the operation first
         history.check_descr(descr)
@@ -820,7 +821,6 @@ class OOMetaInterp(object):
         if not canfold:
             self.history.record(opnum, argboxes, resbox, descr)
         return resbox
-    execute_and_record._annspecialcase_ = 'specialize:arg(1)'
 
     def _interpret(self):
         # Execute the frames forward until we raise a DoneWithThisFrame,
@@ -859,7 +859,8 @@ class OOMetaInterp(object):
             history.log.info('Switching from interpreter to compiler')
         original_boxes = self.initialize_state_from_start(*args)
         self.current_merge_points = [(original_boxes, 0)]
-        self.guard_key = None
+        self.resumekey = compile.ResumeFromInterpDescr(original_boxes)
+        self.extra_rebuild_operations = -1
         try:
             self.interpret()
             assert False, "should always raise"
@@ -869,13 +870,13 @@ class OOMetaInterp(object):
     def handle_guard_failure(self, guard_failure):
         self.initialize_state_from_guard_failure(guard_failure)
         key = guard_failure.descr
-        assert isinstance(key, history.ResumeDescr)
-        top_history = compile.find_toplevel_history(key)
+        assert isinstance(key, compile.ResumeGuardDescr)
+        top_history = key.find_toplevel_history()
         source_loop = top_history.source_link
         assert isinstance(source_loop, history.TreeLoop)
         original_boxes = source_loop.greenkey + top_history.inputargs
         self.current_merge_points = [(original_boxes, 0)]
-        self.guard_key = key
+        self.resumekey = key
         try:
             self.prepare_resume_from_failure(key.guard_op.opnum)
             self.interpret()
@@ -885,12 +886,14 @@ class OOMetaInterp(object):
 
     def reached_can_enter_jit(self, live_arg_boxes):
         # Called whenever we reach the 'can_enter_jit' hint.
-        key = self.guard_key
-        if key is not None:
-            # First, attempt to make a bridge.
-            target_loop = self.compile_bridge(key, live_arg_boxes)
-            if target_loop is not None:    # common case, hopefully
-                raise GenerateMergePoint(live_arg_boxes, target_loop)
+        # First, attempt to make a bridge:
+        # - if self.resumekey is a ResumeGuardDescr, it starts from a guard
+        #   that failed;
+        # - if self.resumekey is a ResumeFromInterpDescr, it starts directly
+        #   from the interpreter.
+        self.compile_bridge(live_arg_boxes)
+        # raises in case it works -- which is the common case, hopefully,
+        # at least for bridges starting from a guard.
 
         # Search in current_merge_points for original_boxes with compatible
         # green keys, representing the beginning of the same loop as the one
@@ -907,19 +910,28 @@ class OOMetaInterp(object):
                 # Found!  Compile it as a loop.
                 if j > 0:
                     del self.history.operations[:start]
-                elif key is not None:
+                elif self.extra_rebuild_operations >= 0:
                     # The history only starts at a bridge, not at the
                     # full loop header.  Complete it as a full loop by
                     # inserting a copy of the operations from the old
                     # loop branch before the guard that failed.
                     del self.history.operations[:self.extra_rebuild_operations]
-                    compile.prepare_loop_from_bridge(self, key)
+                    compile.prepare_loop_from_bridge(self, self.resumekey)
                 loop = self.compile(original_boxes, live_arg_boxes)
                 raise GenerateMergePoint(live_arg_boxes, loop)
 
         # Otherwise, no loop found so far, so continue tracing.
         start = len(self.history.operations)
         self.current_merge_points.append((live_arg_boxes, start))
+
+    def resume_already_compiled(self, live_arg_boxes):
+        if not we_are_translated():
+            history.log.info('followed a path already compiled earlier')
+        key = self.resumekey
+        assert isinstance(key, compile.ResumeGuardDescr)
+        guard_op = key.get_guard_op()
+        loop = guard_op.suboperations[-1].jump_target
+        raise GenerateMergePoint(live_arg_boxes, loop)
 
     def designate_target_loop(self, gmp):
         self.delete_history()
@@ -950,19 +962,19 @@ class OOMetaInterp(object):
             self.debug_history = []
         return loop
 
-    def compile_bridge(self, key, live_arg_boxes):
+    def compile_bridge(self, live_arg_boxes):
         num_green_args = self.num_green_args
         greenkey = live_arg_boxes[:num_green_args]
         try:
             old_loops = self.compiled_merge_points[greenkey]
         except KeyError:
-            return None
+            return
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
-        target_loop = compile.compile_new_bridge(self, old_loops, key)
-        if target_loop is not None:
-            return target_loop
+        target_loop = compile.compile_new_bridge(self, old_loops,
+                                                 self.resumekey)
+        if target_loop is not None:   # raise if it *worked* correctly
+            raise GenerateMergePoint(live_arg_boxes, target_loop)
         self.history.operations.pop()     # remove the JUMP
-        return None
 
     def get_residual_args(self, loop, args):
         if loop.specnodes is None:     # it is None only for tests
@@ -1010,13 +1022,17 @@ class OOMetaInterp(object):
     def initialize_state_from_guard_failure(self, guard_failure):
         # guard failure: rebuild a complete MIFrame stack
         resumedescr = guard_failure.descr
-        assert isinstance(resumedescr, history.ResumeDescr)
-        if self.state.must_compile_from_failure(resumedescr):
-            self.history = history.History(self.cpu)
-            guard_op = resumedescr.guard_op
-            if guard_op.optimized is not None:     # should never be None
-                guard_op = guard_op.optimized
+        assert isinstance(resumedescr, compile.ResumeGuardDescr)
+        must_compile = self.state.must_compile_from_failure(resumedescr)
+        if must_compile:
+            guard_op = resumedescr.get_guard_op()
             suboperations = guard_op.suboperations
+            if suboperations[-1].opnum != rop.FAIL:
+                must_compile = False
+                if not we_are_translated():
+                    history.log.info("ignoring old version of the guard")
+        if must_compile:
+            self.history = history.History(self.cpu)
             extra = len(suboperations) - 1
             assert extra >= 0
             for i in range(extra):

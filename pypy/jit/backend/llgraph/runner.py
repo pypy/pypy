@@ -57,6 +57,9 @@ class Descr(history.AbstractDescr):
         return '<Descr %r, %r>' % (self.ofs, self.type)
 
 
+history.TreeLoop._compiled_version = lltype.nullptr(llimpl.COMPILEDLOOP.TO)
+
+
 class CPU(object):
 
     def __init__(self, rtyper, stats=None, translate_support_code=False,
@@ -82,6 +85,7 @@ class CPU(object):
         is not.
         """
         c = llimpl.compile_start()
+        prev_c = loop._compiled_version
         loop._compiled_version = c
         var2index = {}
         for box in loop.inputargs:
@@ -92,6 +96,10 @@ class CPU(object):
             else:
                 raise Exception("box is: %r" % (box,))
         self._compile_branch(c, loop.operations, var2index)
+        # We must redirect code jumping to the old loop so that it goes
+        # to the new loop.
+        if prev_c:
+            llimpl.compile_redirect_code(prev_c, c)
 
     def _compile_branch(self, c, operations, var2index):
         for op in operations:
