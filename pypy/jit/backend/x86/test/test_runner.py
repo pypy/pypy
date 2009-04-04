@@ -1,10 +1,9 @@
 import py
-py.test.skip("Adapt to new reality")
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rstr, rclass
-from pypy.jit.metainterp.history import ResOperation
+from pypy.jit.metainterp.history import ResOperation, TreeLoop
 from pypy.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt, ConstPtr,
                                          Box)
-from pypy.jit.backend.x86.runner import CPU, GuardFailed
+from pypy.jit.backend.x86.runner import CPU
 from pypy.jit.backend.x86.regalloc import WORD
 from pypy.jit.backend.x86 import symbolic
 from pypy.jit.metainterp.resoperation import rop
@@ -16,20 +15,7 @@ class FakeStats(object):
     pass
 
 class FakeMetaInterp(object):
-    def handle_guard_failure(self, gf):
-        assert isinstance(gf, GuardFailed)
-        self.gf = gf
-        j = 0
-        self.recordedvalues = []
-        for box in gf.guard_op.liveboxes:
-            if isinstance(box, Box):
-                value = gf.cpu.getvaluebox(gf.frame, gf.guard_op, j).value
-                self.recordedvalues.append(value)
-                j += 1
-        if len(gf.guard_op.liveboxes) > 0:
-            gf.make_ready_for_return(gf.cpu.getvaluebox(gf.frame, gf.guard_op, 0))
-        else:
-            gf.make_ready_for_return(None)
+    pass
 
 MY_VTABLE = lltype.Struct('my_vtable')    # for tests only
 
@@ -51,25 +37,15 @@ class TestX86(object):
         cls.cpu.set_meta_interp(FakeMetaInterp())
 
     def execute_operation(self, opname, valueboxes, result_type, descr=0):
-        key = [opname, result_type]
-        mp = self.get_compiled_single_operation(opname, result_type, valueboxes,
-                                                descr)
+        loop = self.get_compiled_single_operation(opname, result_type,
+                                                  valueboxes, descr)
         boxes = [box for box in valueboxes if isinstance(box, Box)]
-        res = self.cpu.execute_operations_in_new_frame(opname, mp, boxes +
-                                                       [BoxInt(1)])
-        return res
+        res = self.cpu.execute_operations(loop, boxes)
+        if result_type != 'void':
+            return res.args[0]
 
     def get_compiled_single_operation(self, opnum, result_type, valueboxes,
                                       descr):
-        livevarlist = []
-        for box in valueboxes:
-            if isinstance(box, Box):
-                box = box.clonebox()
-            livevarlist.append(box)
-        args = [box for box in livevarlist if isinstance(box, Box)]
-        checker = BoxInt(1)
-        args.append(checker)
-        mp = ResOperation(rop.MERGE_POINT, args, None)
         if result_type == 'void':
             result = None
         elif result_type == 'int':
@@ -82,16 +58,19 @@ class TestX86(object):
             results = []
         else:
             results = [result]
-        operations = [mp,
-                      ResOperation(opnum, livevarlist, result),
-                      ResOperation(rop.GUARD_FALSE, [checker], None)]
-        operations[1].descr = descr
-        operations[-1].liveboxes = results
-        if operations[1].is_guard():
-            operations[1].liveboxes = []
-        self.cpu.compile_operations(operations, verbose=False)
-        return operations
-
+        operations = [ResOperation(opnum, valueboxes, result),
+                      ResOperation(rop.FAIL, results, None)]
+        operations[0].descr = descr
+        operations[-1].ovf = False
+        operations[-1].exc = False
+        if operations[0].is_guard():
+            operations[0].suboperations = [ResOperation(rop.FAIL,
+                                                        [ConstInt(-13)], None)]
+        loop = TreeLoop('single op')
+        loop.operations = operations
+        loop.inputargs = [box for box in valueboxes if isinstance(box, Box)]
+        self.cpu.compile_operations(loop)
+        return loop
 
     def test_int_binary_ops(self):
         for op, args, res in [
@@ -140,23 +119,20 @@ class TestX86(object):
         t = BoxInt(455)
         u = BoxInt(0)    # False
         operations = [
-            ResOperation(rop.MERGE_POINT, [x, y], None),
             ResOperation(rop.INT_ADD, [x, y], z),
             ResOperation(rop.INT_SUB, [y, ConstInt(1)], t),
             ResOperation(rop.INT_EQ, [t, ConstInt(0)], u),
             ResOperation(rop.GUARD_FALSE, [u], None),
             ResOperation(rop.JUMP, [z, t], None),
             ]
-        startmp = operations[0]
-        operations[-1].jump_target = startmp
-        operations[-2].liveboxes = [t, z]
-        cpu.compile_operations(operations)
-        res = self.cpu.execute_operations_in_new_frame('foo', operations,
-                                                       [BoxInt(0), BoxInt(10)])
-        assert res.value == 0
-        gf = cpu.metainterp.gf
-        assert cpu.metainterp.recordedvalues == [0, 55]
-        assert gf.guard_op is operations[-2]
+        loop = TreeLoop('loop')
+        loop.operations = operations
+        loop.inputargs = [x, y]
+        operations[-1].jump_target = loop
+        operations[-2].suboperations = [ResOperation(rop.FAIL, [t, z], None)]
+        cpu.compile_operations(loop)
+        res = self.cpu.execute_operations(loop, [BoxInt(0), BoxInt(10)])
+        assert [arg.value for arg in res.args] == [0, 55]
 
     def test_passing_guards(self):
         vtable_for_T = lltype.malloc(MY_VTABLE, immortal=True)
@@ -165,7 +141,9 @@ class TestX86(object):
         for (opname, args) in [(rop.GUARD_TRUE, [BoxInt(1)]),
                                (rop.GUARD_FALSE, [BoxInt(0)]),
                                (rop.GUARD_VALUE, [BoxInt(42), BoxInt(42)])]:
-                assert self.execute_operation(opname, args, 'void') == None
+            assert self.execute_operation(opname, args, 'void') == None
+            assert self.cpu._guard_index == -1
+            
         t = lltype.malloc(T)
         t.parent.typeptr = vtable_for_T
         t_box = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, t))
@@ -194,9 +172,8 @@ class TestX86(object):
                              (rop.GUARD_CLASS, [t_box, U_box]),
                              (rop.GUARD_CLASS, [u_box, T_box]),
                              ]:
-            cpu.metainterp.gf = None
             assert self.execute_operation(opname, args, 'void') == None
-            assert cpu.metainterp.gf is not None
+            assert self.cpu._guard_index != -1
 
     def test_misc_int_ops(self):
         for op, args, res in [

@@ -268,6 +268,7 @@ class CPU386(object):
         self.assembler.log_call(valueboxes)
         self.keepalives_index = len(self.keepalives)
         guard_index = self.execute_call(loop, func, values_as_int)
+        self._guard_index = guard_index # for tests
         keepalive_until_here(valueboxes)
         self.keepalives_index = oldindex
         del self.keepalives[oldindex:]
