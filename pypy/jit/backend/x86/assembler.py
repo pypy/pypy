@@ -628,7 +628,7 @@ class Assembler386(object):
             ovf_error_instance = self.cpu.cast_adr_to_int(self._ovf_error_inst)
             self.mc.MOV(eax, imm(ovf_error_instance))
             self.mc.MOV(addr_add(imm(self._exception_bck_addr), imm(WORD)),eax)
-        if op.exc:
+        elif op.exc:
             self.mc.MOV(eax, heap(self._exception_addr))
             self.mc.MOV(heap(self._exception_bck_addr), eax)
             self.mc.MOV(eax, addr_add(imm(self._exception_addr), imm(WORD)))

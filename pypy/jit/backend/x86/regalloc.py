@@ -675,11 +675,12 @@ class RegAlloc(object):
     
     def _consider_binop_ovf(self, op, guard_op):
         loc, argloc = self._consider_binop_part(op, None)
-        locs = self._locs_from_liveboxes(guard_op)
         self.position += 1
-        self.eventually_free_vars(guard_op.liveboxes)
+        regalloc = self.regalloc_for_guard(guard_op)
+        self.perform_with_guard(op, guard_op, regalloc, [loc, argloc], loc,
+                                overflow=True)
+        self.eventually_free_vars(guard_op.inputargs)
         self.eventually_free_var(guard_op.result)
-        self.PerformWithGuard(op, guard_op, [loc, argloc] + locs, loc)
 
     consider_int_mul_ovf = _consider_binop_ovf
     consider_int_sub_ovf = _consider_binop_ovf
