@@ -696,7 +696,7 @@ def ll_get(dict, key, default):
         return entries[i].value
     else: 
         return default
-ll_get.oopspec = 'dict.get(key, default)'
+ll_get.oopspec = 'dict.get(d, key, default)'
 
 def ll_setdefault(dict, key, default):
     i = ll_dict_lookup(dict, key, dict.keyhash(key))
@@ -706,7 +706,7 @@ def ll_setdefault(dict, key, default):
     else:
         ll_dict_setitem(dict, key, default)
         return default
-ll_setdefault.oopspec = 'dict.setdefault(key, default)'
+ll_setdefault.oopspec = 'dict.setdefault(d, key, default)'
 
 def ll_copy(dict):
     DICT = lltype.typeOf(dict).TO
@@ -729,7 +729,7 @@ def ll_copy(dict):
         if hasattr(ENTRY, 'f_hash'):     d_entry.f_hash     = entry.f_hash
         i += 1
     return d
-ll_copy.oopspec = 'dict.copy()'
+ll_copy.oopspec = 'dict.copy(d)'
 
 def ll_clear(d):
     if len(d.entries) == d.num_pristine_entries == DICT_INITSIZE:
@@ -739,7 +739,7 @@ def ll_clear(d):
     d.num_items = 0
     d.num_pristine_entries = DICT_INITSIZE
     old_entries.delete()
-ll_clear.oopspec = 'dict.clear'
+ll_clear.oopspec = 'dict.clear(d)'
 
 def ll_update(dic1, dic2):
     entries = dic2.entries
@@ -750,7 +750,7 @@ def ll_update(dic1, dic2):
             entry = entries[i]
             ll_dict_setitem(dic1, entry.key, entry.value)
         i += 1
-ll_update.oopspect = 'dict.update'
+ll_update.oopspect = 'dict.update(d1, d2)'
 
 # this is an implementation of keys(), values() and items()
 # in a single function.
