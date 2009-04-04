@@ -161,10 +161,11 @@ class RegAlloc(object):
                 if inputargs[i] is jump.args[i]:
                     loop_consts[inputargs[i]] = i
             for i in range(len(inputargs)):
+                # XXX this is WRONG!!!
                 arg = inputargs[i]
                 jarg = jump.args[i]
                 if arg is not jarg and not isinstance(jarg, Const):
-                    if free_regs and self.longevity[arg][1] > 0:
+                    if free_regs and self.longevity[arg][1] > -1:
                         self.jump_reg_candidates[jarg] = free_regs.pop()
                     if self.longevity[arg][1] <= self.longevity[jarg][0]:
                         if jarg not in self.stack_bindings:
@@ -298,7 +299,7 @@ class RegAlloc(object):
                         longevity[arg] = (start_live[arg], i)
         for arg in inputargs:
             if arg not in longevity:
-                longevity[arg] = (0, 0)
+                longevity[arg] = (-1, -1)
         self.longevity = longevity
 
     def _compute_inpargs(self, guard):
@@ -556,7 +557,7 @@ class RegAlloc(object):
             reg = None
             loc = stack_pos(i)
             self.stack_bindings[arg] = loc
-            if arg not in self.loop_consts and self.longevity[arg][1] > 0:
+            if arg not in self.loop_consts and self.longevity[arg][1] > -1:
                 reg = self.try_allocate_reg(arg)
             if reg:
                 locs[i] = reg
