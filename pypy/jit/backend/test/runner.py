@@ -63,3 +63,14 @@ class BaseBackendTest(object):
         assert x.value == 142
         s = execute(cpu, rop.NEWSTR, [BoxInt(8)])
         assert len(s.getptr(lltype.Ptr(rstr.STR)).chars) == 8
+
+    def test_casts(self):
+        from pypy.rpython.lltypesystem import lltype, llmemory
+        TP = lltype.GcStruct('x')
+        x = lltype.malloc(TP)        
+        x = lltype.cast_opaque_ptr(llmemory.GCREF, x)
+        res = self.execute_operation(rop.CAST_PTR_TO_INT,
+                                     [BoxPtr(x)],  'int').value
+        res2 = self.execute_operation(rop.CAST_INT_TO_PTR,
+                                      [BoxInt(res)], 'ptr').value
+        assert res2 == x

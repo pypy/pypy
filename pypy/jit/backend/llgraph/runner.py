@@ -341,13 +341,13 @@ class CPU(object):
             llimpl.do_call_void(func, self.memo_cast)
 
     def do_cast_int_to_ptr(self, args, descr=None):
-        return history.BoxPtr(llmemory.cast_adr_to_ptr(
-            self.cast_int_to_adr(args[0].getint()),
-            llmemory.GCREF))
+        return history.BoxPtr(llimpl.cast_from_int(llmemory.GCREF,
+                                                   args[0].getint(),
+                                                   self.memo_cast))
 
     def do_cast_ptr_to_int(self, args, descr=None):
-        return history.BoxInt(self.cast_adr_to_int(llmemory.cast_ptr_to_adr(
-            args[0].getptr_base())))
+        return history.BoxInt(llimpl.cast_to_int(args[0].getptr_base(),
+                                                        self.memo_cast))
 
 # ____________________________________________________________
 

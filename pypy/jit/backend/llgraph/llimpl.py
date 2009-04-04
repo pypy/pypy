@@ -113,6 +113,8 @@ TYPES = {
     'strlen'          : (('ptr',), 'int'),
     'strgetitem'      : (('ptr', 'int'), 'int'),
     'strsetitem'      : (('ptr', 'int', 'int'), None),
+    'cast_ptr_to_int' : (('ptr',), 'int'),
+    'cast_int_to_ptr' : (('int',), 'ptr'),
     #'getitem'         : (('void', 'ptr', 'int'), 'int'),
     #'setitem'         : (('void', 'ptr', 'int', 'int'), None),
     #'newlist'         : (('void', 'varargs'), 'ptr'),
@@ -605,12 +607,17 @@ class Frame(object):
     def op_new_array(self, arraydescr, count):
         return do_new_array(arraydescr.ofs, count)
 
+    def op_cast_ptr_to_int(self, descr, ptr):
+        return cast_to_int(ptr, self.memocast)
+
+    def op_cast_int_to_ptr(self, descr, val):
+        return cast_from_int(llmemory.GCREF, val, self.memocast)
+
 # ____________________________________________________________
 
 def cast_to_int(x, memocast):
     TP = lltype.typeOf(x)
     if isinstance(TP, lltype.Ptr):
-        assert TP.TO._gckind == 'raw'
         return cast_adr_to_int(memocast, llmemory.cast_ptr_to_adr(x))
     if TP == llmemory.Address:
         return cast_adr_to_int(memocast, x)
@@ -618,7 +625,6 @@ def cast_to_int(x, memocast):
 
 def cast_from_int(TYPE, x, memocast):
     if isinstance(TYPE, lltype.Ptr):
-        assert TYPE.TO._gckind == 'raw'
         return llmemory.cast_adr_to_ptr(cast_int_to_adr(memocast, x), TYPE)
     elif TYPE == llmemory.Address:
         return cast_int_to_adr(memocast, x)
