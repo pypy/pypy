@@ -612,6 +612,15 @@ class Assembler386(object):
         return addr
 
     def genop_fail(self, op, locs, guard_index):
+        for i in range(len(locs)):
+            loc = locs[i]
+            if isinstance(loc, REG):
+                self.mc.MOV(addr_add(imm(self.fail_box_addr), imm(i*WORD)), loc)
+        for i in range(len(locs)):
+            loc = locs[i]
+            if not isinstance(loc, REG):
+                self.mc.MOV(eax, loc)
+                self.mc.MOV(addr_add(imm(self.fail_box_addr), imm(i*WORD)), eax)
         if op.ovf:
             ovf_error_vtable = self.cpu.cast_adr_to_int(self._ovf_error_vtable)
             self.mc.MOV(eax, imm(ovf_error_vtable))
@@ -628,15 +637,6 @@ class Assembler386(object):
             # clean up the original exception, we don't want
             # to enter more rpython code with exc set
             self.mc.MOV(heap(self._exception_addr), imm(0))
-        for i in range(len(locs)):
-            loc = locs[i]
-            if isinstance(loc, REG):
-                self.mc.MOV(addr_add(imm(self.fail_box_addr), imm(i*WORD)), loc)
-        for i in range(len(locs)):
-            loc = locs[i]
-            if not isinstance(loc, REG):
-                self.mc.MOV(eax, loc)
-                self.mc.MOV(addr_add(imm(self.fail_box_addr), imm(i*WORD)), eax)
         self.mc.ADD(esp, imm(FRAMESIZE))
         self.mc.MOV(eax, imm(guard_index))
         self.mc.RET()
