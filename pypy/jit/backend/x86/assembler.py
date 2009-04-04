@@ -527,6 +527,9 @@ class Assembler386(object):
         #                                                locs, stacklocs)
 
     def patch_jump(self, old_pos, new_pos, oldlocs, newlocs):
+        if len(oldlocs) != len(newlocs):
+            # virtualizable mess
+            return
         if not we_are_translated():
             assert str(oldlocs) == str(newlocs)
         mc = codebuf.InMemoryCodeBuilder(old_pos, MachineCodeStack.MC_SIZE)
