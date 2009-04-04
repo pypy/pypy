@@ -634,9 +634,10 @@ class RegAlloc(object):
         if not (isinstance(x, REG) or isinstance(op.args[1], Const)):
             x = self.make_sure_var_in_reg(op.args[0], [], imm_fine=False)
         y = self.loc(op.args[1])
-        locs = self._locs_from_liveboxes(op)
-        self.eventually_free_vars(op.liveboxes + op.args)
-        self.PerformDiscard(op, [x, y] + locs)
+        regalloc = self.regalloc_for_guard(op)
+        self.perform_guard(op, regalloc, [x, y], None)
+        self.eventually_free_vars(op.inputargs)
+        self.eventually_free_vars(op.args)
 
     def consider_guard_class(self, op, ignored):
         x = self.make_sure_var_in_reg(op.args[0], [], imm_fine=False)

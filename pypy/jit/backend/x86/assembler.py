@@ -567,16 +567,14 @@ class Assembler386(object):
             self.mc.MOV(resloc, addr_add(imm(self._exception_addr), imm(WORD)))
         self.mc.MOV(heap(self._exception_addr), imm(0))
 
-    def genop_discard_guard_false(self, op, locs):
+    def genop_guard_guard_false(self, op, ign_1, addr, locs, ign_2):
         loc = locs[0]
         self.mc.TEST(loc, loc)
-        self.implement_guard(op, self.mc.JNZ, locs[1:])
+        self.implement_guard(addr, op, self.mc.JNZ)
 
-    def genop_discard_guard_value(self, op, locs):
-        arg0 = locs[0]
-        arg1 = locs[1]
-        self.mc.CMP(arg0, arg1)
-        self.implement_guard(op, self.mc.JNE, locs[2:])
+    def genop_guard_guard_value(self, op, ign_1, addr, locs, ign_2):
+        self.mc.CMP(locs[0], locs[1])
+        self.implement_guard(addr, op, self.mc.JNE)
 
     def genop_discard_guard_class(self, op, locs):
         offset = 0    # XXX for now, the vtable ptr is at the start of the obj
