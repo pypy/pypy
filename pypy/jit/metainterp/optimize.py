@@ -101,7 +101,9 @@ class InstanceNode(object):
             if self.cls is None:
                 self.cls = InstanceNode(FixedClass(), const=True)
         else:
-            ad = self.cls.source.arraydescr
+            fx = self.cls.source
+            assert isinstance(fx, FixedList)
+            ad = fx.arraydescr
             lgtbox = cpu.do_arraylen_gc([self.source], ad)
             self.allfields = [ConstInt(i) for i in range(lgtbox.getint())]
 
