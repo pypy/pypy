@@ -155,25 +155,18 @@ class RegAlloc(object):
         if jump.opnum != rop.JUMP:
             loop_consts = {}
         else:
-            free_regs = REGS[:]
             loop_consts = {}
             for i in range(len(inputargs)):
                 if inputargs[i] is jump.args[i]:
                     loop_consts[inputargs[i]] = i
             for i in range(len(inputargs)):
-                # XXX this is WRONG!!!
                 arg = inputargs[i]
                 jarg = jump.args[i]
                 if arg is not jarg and not isinstance(jarg, Const):
-                    if free_regs and self.longevity[arg][1] > -1:
-                        self.jump_reg_candidates[jarg] = free_regs.pop()
                     if self.longevity[arg][1] <= self.longevity[jarg][0]:
                         if jarg not in self.stack_bindings:
                             self.stack_bindings[jarg] = stack_pos(i)
                             self.dirty_stack[jarg] = True
-                elif not isinstance(jarg, Const):
-                    # these are loop consts, but we need stack space anyway
-                    self.stack_bindings[jarg] = stack_pos(i)
         return loop_consts, len(inputargs)
 
     def _check_invariants(self):
@@ -439,6 +432,7 @@ class RegAlloc(object):
             self.stack_bindings[v] = newloc
             self.current_stack_depth += 1
             res = newloc
+        assert isinstance(res, MODRM)
         if res.position > FRAMESIZE/WORD:
             raise NotImplementedError("Exceeded FRAME_SIZE")
         return res
@@ -551,6 +545,11 @@ class RegAlloc(object):
         # more optimal
         inputargs = tree.inputargs
         locs = [None] * len(inputargs)
+        jump = tree.operations[-1]
+        if jump.opnum != rop.JUMP:
+            jump = None
+        else:
+            assert jump.jump_target is tree
         for i in range(len(inputargs)):
             arg = inputargs[i]
             assert not isinstance(arg, Const)
@@ -564,6 +563,9 @@ class RegAlloc(object):
                 # it's better to say here that we're always in dirty stack
                 # than worry at the jump point
                 self.dirty_stack[arg] = True
+                if jump is not None:
+                    jarg = jump.args[i]
+                    self.jump_reg_candidates[jarg] = reg
             else:
                 locs[i] = loc
             # otherwise we have it saved on stack, so no worry
@@ -593,14 +595,13 @@ class RegAlloc(object):
     def consider_fail(self, op, ignored):
         # make sure all vars are on stack
         locs = [self.loc(arg) for arg in op.args]
-        self.assembler.genop_fail(op, locs, self.guard_index)
+        self.assembler.generate_failure(op, locs, self.guard_index)
         self.eventually_free_vars(op.args)
 
     def consider_guard_nonvirtualized(self, op, ignored):
         # XXX implement it
-        locs = self._locs_from_liveboxes(op)
         self.eventually_free_var(op.args[0])
-        self.eventually_free_vars(op.liveboxes)
+        self.eventually_free_vars(op.inputargs)
 
     def consider_guard_no_exception(self, op, ignored):
         box = TempBox()

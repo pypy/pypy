@@ -609,7 +609,7 @@ class Assembler386(object):
         self.mc = oldmc
         return addr
 
-    def genop_fail(self, op, locs, guard_index):
+    def generate_failure(self, op, locs, guard_index):
         for i in range(len(locs)):
             loc = locs[i]
             if isinstance(loc, REG):
@@ -639,7 +639,7 @@ class Assembler386(object):
         self.mc.MOV(eax, imm(guard_index))
         self.mc.RET()
 
-    @specialize.arg(2)
+    @specialize.arg(3)
     def implement_guard(self, addr, guard_op, emit_jump):
         emit_jump(rel32(addr))
 
