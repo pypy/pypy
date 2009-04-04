@@ -222,16 +222,22 @@ class CPU386(object):
         elif isinstance(box, BoxPtr):
             box.value = self.cast_int_to_gcref(fail_boxes[index])
 
-    def _get_loop_for_call(self, argnum, calldescr, ptr):
-        #try:
-        #    return self.generated_mps[calldescr]
-        #except KeyError:
-        #    pass
-        args = [BoxInt(0) for i in range(argnum + 1)]
+    def _new_box(self, ptr):
         if ptr:
-            result = BoxPtr(lltype.nullptr(llmemory.GCREF.TO))
-        else:
-            result = BoxInt(0)
+            return BoxPtr(lltype.nullptr(llmemory.GCREF.TO))
+        return BoxInt(0)
+    
+    def _get_loop_for_call(self, argnum, calldescr, ptr):
+        try:
+            loop = self.generated_mps[calldescr]
+            box = self._new_box(ptr)
+            loop.operations[0].result = box
+            loop.operations[-1].args[0] = box
+            return loop
+        except KeyError:
+            pass
+        args = [BoxInt(0) for i in range(argnum + 1)]
+        result = self._new_box(ptr)
         operations = [
             ResOperation(rop.CALL, args, result, calldescr),
             ResOperation(rop.FAIL, [result], None)]
