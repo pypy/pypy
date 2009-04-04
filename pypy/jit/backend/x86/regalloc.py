@@ -930,24 +930,27 @@ class RegAlloc(object):
     xxx_consider_insert      = _consider_listop
     xxx_consider_listnonzero = _consider_listop
 
-#     def consider_same_as(self, op, ignored):
-#         x = op.args[0]
-#         if isinstance(x, Const):
-#             pos = self.allocate_new_loc(op.result)
-#             return [Load(op.result, self.loc(x), pos)]
-#         if self.longevity[x][1] > self.position or x not in self.reg_bindings:
-#             if x in self.reg_bindings:
-#                 res = self.allocate_new_loc(op.result)
-#                 return [Load(op.result, self.loc(x), res)]
-#             else:
-#                 res, ops = self.force_allocate_reg(op.result, op.args)
-#                 return ops + [Load(op.result, self.loc(x), res)]
-#         else:
-#             self.reallocate_from_to(x, op.result)
-#             return []
+    def _same_as(self, op, ignored):
+        x = op.args[0]
+        if isinstance(x, Const):
+            pos = self.allocate_new_loc(op.result)
+            self.Load(op.result, self.loc(x), pos)
+            retrun
+        if self.longevity[x][1] > self.position or x not in self.reg_bindings:
+            if x in self.reg_bindings:
+                res = self.allocate_new_loc(op.result)
+                self.Load(op.result, self.loc(x), res)
+            else:
+                res = self.force_allocate_reg(op.result, op.args)
+                self.Load(op.result, self.loc(x), res)
+        else:
+            self.reallocate_from_to(x, op.result)
 
-#    consider_cast_int_to_char = consider_same_as
-#    xxx_consider_cast_int_to_ptr  = consider_same_as
+    consider_cast_int_to_ptr = _same_as
+    consider_cast_ptr_to_int = _same_as
+
+    xxx_consider_cast_int_to_char = _same_as
+    xxx_consider_cast_int_to_ptr  = _same_as
 
     def consider_int_is_true(self, op, ignored):
         argloc = self.force_allocate_reg(op.args[0], [])

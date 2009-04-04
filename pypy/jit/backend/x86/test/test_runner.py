@@ -156,7 +156,7 @@ class TestX86(BaseBackendTest):
             assert self.execute_operation(op, args, 'int').value == res
 
     def test_same_as(self):
-        py.test.skip("I think no longer needed")
+        py.test.skip("rewrite")
         u = lltype.malloc(U)
         uadr = lltype.cast_opaque_ptr(llmemory.GCREF, u)
         for op, args, tp, res in [
