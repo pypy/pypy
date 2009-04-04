@@ -248,25 +248,3 @@ class TestLLGraph(BaseBackendTest):
         #
         cpu.do_strsetitem([x, BoxInt(4), BoxInt(ord('/'))])
         assert x.getptr(lltype.Ptr(rstr.STR)).chars[4] == '/'
-
-    def test_do_call(self):
-        from pypy.rpython.annlowlevel import llhelper
-        cpu = self.cpu
-        #
-        def func(c):
-            return chr(ord(c) + 1)
-        FPTR = lltype.Ptr(lltype.FuncType([lltype.Char], lltype.Char))
-        func_ptr = llhelper(FPTR, func)
-        calldescr = cpu.calldescrof([lltype.Char], lltype.Char)
-        x = cpu.do_call(
-            [BoxInt(cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(func_ptr))),
-             BoxInt(ord('A'))],
-            calldescr)
-        assert x.value == ord('B')
-
-    def test_executor(self):
-        cpu = self.cpu
-        x = execute(cpu, rop.INT_ADD, [BoxInt(100), ConstInt(42)])
-        assert x.value == 142
-        s = execute(cpu, rop.NEWSTR, [BoxInt(8)])
-        assert len(s.getptr(lltype.Ptr(rstr.STR)).chars) == 8
