@@ -8,6 +8,7 @@ from pypy.jit.metainterp.history import BoxInt, BoxPtr, Const, ConstInt,\
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.executor import execute
 from pypy.jit.backend.llgraph.runner import CPU
+from pypy.jit.backend.test.runner import BaseBackendTest
 
 NODE = lltype.GcForwardReference()
 NODE.become(lltype.GcStruct('NODE', ('value', lltype.Signed),
@@ -16,7 +17,10 @@ NODE.become(lltype.GcStruct('NODE', ('value', lltype.Signed),
 SUBNODE = lltype.GcStruct('SUBNODE', ('parent', NODE))
 
 
-class TestLLGraph:
+class TestLLGraph(BaseBackendTest):
+
+    def setup_class(cls):
+        cls.cpu = CPU(None)
     
     def eval_llinterp(self, runme, *args, **kwds):
         expected_class = kwds.pop('expected_class', None)
@@ -35,7 +39,6 @@ class TestLLGraph:
 
     def test_execute_operations_in_env(self):
         py.test.skip("Rewrite me")
-        cpu = CPU(None)
         x = BoxInt(123)
         y = BoxInt(456)
         z = BoxInt(579)
@@ -63,7 +66,6 @@ class TestLLGraph:
 
     def test_passing_guards(self):
         py.test.skip("rewrite me")
-        cpu = CPU(None)
         assert cpu.execute_operation(rop.GUARD_TRUE, [BoxInt(1)],
                                      'void') == None
         assert cpu.execute_operation(rop.GUARD_FALSE,[BoxInt(0)],
@@ -78,7 +80,6 @@ class TestLLGraph:
 
     def test_failing_guards(self):
         py.test.skip("rewrite me")
-        cpu = CPU(None)
         cpu.set_meta_interp(FakeMetaInterp(cpu))
         #node = ootype.new(NODE)
         #subnode = ootype.new(SUBNODE)
@@ -98,7 +99,7 @@ class TestLLGraph:
             assert res.value == 42
 
     def test_cast_adr_to_int_and_back(self):
-        cpu = CPU(None)
+        cpu = self.cpu
         X = lltype.Struct('X', ('foo', lltype.Signed))
         x = lltype.malloc(X, immortal=True)
         x.foo = 42
@@ -112,14 +113,14 @@ class TestLLGraph:
 
     def test_llinterp_simple(self):
         py.test.skip("rewrite me")
-        cpu = CPU(None)
+        cpu = self.cpu
         self.eval_llinterp(cpu.execute_operation, "int_sub",
                            [BoxInt(10), BoxInt(2)], "int",
                            expected_class = BoxInt,
                            expected_value = 8)
 
     def test_do_operations(self):
-        cpu = CPU(None)
+        cpu = self.cpu
         #
         A = lltype.GcArray(lltype.Char)
         descr_A = cpu.arraydescrof(A)
@@ -250,7 +251,7 @@ class TestLLGraph:
 
     def test_do_call(self):
         from pypy.rpython.annlowlevel import llhelper
-        cpu = CPU(None)
+        cpu = self.cpu
         #
         def func(c):
             return chr(ord(c) + 1)
@@ -264,7 +265,7 @@ class TestLLGraph:
         assert x.value == ord('B')
 
     def test_executor(self):
-        cpu = CPU(None)
+        cpu = self.cpu
         x = execute(cpu, rop.INT_ADD, [BoxInt(100), ConstInt(42)])
         assert x.value == 142
         s = execute(cpu, rop.NEWSTR, [BoxInt(8)])
