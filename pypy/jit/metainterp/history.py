@@ -524,6 +524,8 @@ def check_descr(x):
     """Check that 'x' is None or an instance of AbstractDescr.
     Explodes if the annotator only thinks it is an instance of AbstractValue.
     """
+    if x is not None:
+        assert isinstance(x, AbstractDescr)
 
 class Entry(ExtRegistryEntry):
     _about_ = check_descr
