@@ -52,6 +52,7 @@ class RegAlloc(object):
         # variables that have place in register
         self.assembler = assembler
         self.translate_support_code = translate_support_code
+        self.tree = tree
         if regalloc is None:
             self.reg_bindings = newcheckdict()
             self.stack_bindings = newcheckdict()
@@ -81,18 +82,25 @@ class RegAlloc(object):
                     self.dirty_stack[arg] = regalloc.dirty_stack[arg]
             allocated_regs = self.reg_bindings.values()
             self.free_regs = [v for v in REGS if v not in allocated_regs]
-            self.loop_consts = regalloc.loop_consts # should never change
             self.current_stack_depth = regalloc.current_stack_depth
             self.longevity = guard_op.longevity
             jump_or_fail = guard_op.suboperations[-1]
+            self.loop_consts = {}
             if jump_or_fail.opnum == rop.FAIL:
                 self.jump_reg_candidates = {}
             else:
-                self._create_jump_reg_candidates(jump_or_fail.jump_target)
+                if jump_or_fail.jump_target is regalloc.tree:
+                    self.loop_consts = regalloc.loop_consts
+                self._create_jump_reg_candidates(jump_or_fail)
 
-    def _create_jump_reg_candidates(self, jump_target):
-        # XXX improve
+    def _create_jump_reg_candidates(self, jump):
+
         self.jump_reg_candidates = {}
+        for i in range(len(jump.args)):
+            arg = jump.args[i]
+            loc = jump.jump_target.arglocs[i]
+            if isinstance(loc, REG):
+                self.jump_reg_candidates[arg] = loc
 
     def copy(self, guard_op):
         return RegAlloc(self.assembler, None, self.translate_support_code,
@@ -980,8 +988,7 @@ class RegAlloc(object):
                                                and self.loop_consts[arg] == i)):
                 if arg in self.reg_bindings:
                     if not isinstance(res, REG):
-                        self.Store(arg, self.loc(arg),
-                                   self.stack_bindings[arg])
+                        self.Store(arg, self.loc(arg), loop.arglocs[i])
                     elif res is self.reg_bindings[arg]:
                         middle_busy_regs.append(res)
                     else:
