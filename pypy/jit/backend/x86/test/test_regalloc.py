@@ -3,11 +3,11 @@
 """
 
 import py
+from pypy.jit.backend.x86.test.test_runner import FakeMetaInterp, FakeStats
 from pypy.jit.metainterp.history import ResOperation, BoxInt, ConstInt,\
      BoxPtr, ConstPtr
-from pypy.jit.backend.x86.runner import CPU, GuardFailed
+from pypy.jit.backend.x86.runner import CPU
 from pypy.rpython.lltypesystem import lltype
-from pypy.jit.backend.x86.test.test_runner import FakeMetaInterp, FakeStats
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.x86.regalloc import RETURN
 from pypy.rpython.lltypesystem import lltype, llmemory
