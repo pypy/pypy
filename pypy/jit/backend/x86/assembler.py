@@ -557,12 +557,12 @@ class Assembler386(object):
         self.mc.TEST(loc, loc)
         self.implement_guard(addr, op, self.mc.JNZ)
 
-    def genop_guard_exception(self, op, locs, resloc):
+    def genop_guard_guard_exception(self, op, ign_1, addr, locs, resloc):
         loc = locs[0]
         loc1 = locs[1]
         self.mc.MOV(loc1, heap(self._exception_addr))
         self.mc.CMP(loc1, loc)
-        self.implement_guard(op, self.mc.JNE, locs[2:])
+        self.implement_guard(addr, op, self.mc.JNE)
         if resloc is not None:
             self.mc.MOV(resloc, addr_add(imm(self._exception_addr), imm(WORD)))
         self.mc.MOV(heap(self._exception_addr), imm(0))

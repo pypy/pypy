@@ -604,15 +604,14 @@ class RegAlloc(object):
         loc1 = self.force_allocate_reg(box, op.args)
         if op.result in self.longevity:
             # this means, is it ever used
-            resloc = self.force_allocate_reg(op.result,
-                                                   op.args + [box])
+            resloc = self.force_allocate_reg(op.result, op.args + [box])
         else:
             resloc = None
-        locs = self._locs_from_liveboxes(op)
-        self.eventually_free_vars(op.liveboxes)
+        regalloc = self.regalloc_for_guard(op)
+        self.perform_guard(op, regalloc, [loc, loc1], resloc)
+        self.eventually_free_vars(op.inputargs)
         self.eventually_free_vars(op.args)
         self.eventually_free_var(box)
-        self.Perform(op, [loc, loc1] + locs, resloc)
 
     #def consider_guard2(self, op, ignored):
     #    loc1, ops1 = self.make_sure_var_in_reg(op.args[0], [])

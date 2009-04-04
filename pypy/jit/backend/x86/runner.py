@@ -231,7 +231,7 @@ class CPU386(object):
             ResOperation(rop.CALL, args, result, calldescr),
             ResOperation(rop.FAIL, [result], None)]
         operations[-1].ovf = False
-        operations[-1].exc = False # we might want set this to true...
+        operations[-1].exc = True
         loop = history.TreeLoop('call')
         loop.inputargs = args
         loop.operations = operations
