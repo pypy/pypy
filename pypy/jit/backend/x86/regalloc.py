@@ -719,6 +719,18 @@ class RegAlloc(object):
         self.eventually_free_vars(op.args + [tmpvar])
         self.Perform(op, [x, y, reg], x)
 
+    def xxx_consider_int_lshift(self, op, guard_op):
+        if guard_op is None:
+            xxx
+            self.mc.MOV(eax, gv_x.operand(self))
+            self.mc.MOV(ecx, gv_y.operand(self))
+            self.mc.SHL(eax, cl)
+            self.mc.CMP(ecx, imm8(32))
+            self.mc.SBB(ecx, ecx)
+            self.mc.AND(eax, ecx)
+        else:
+            yyy
+
     def consider_int_mod(self, op, ignored):
         l0 = self.make_sure_var_in_reg(op.args[0], [], eax)
         l1 = self.make_sure_var_in_reg(op.args[1], [], ecx)
@@ -936,7 +948,7 @@ class RegAlloc(object):
         if isinstance(x, Const):
             pos = self.allocate_new_loc(op.result)
             self.Load(op.result, self.loc(x), pos)
-            retrun
+            return
         if self.longevity[x][1] > self.position or x not in self.reg_bindings:
             if x in self.reg_bindings:
                 res = self.allocate_new_loc(op.result)
