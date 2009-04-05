@@ -615,7 +615,7 @@ class Assembler386(object):
         guard_op.suboperations[-1].exc = exc
         if ovf or exc: # we need to think what to do otherwise
             assert guard_op.suboperations[-1].opnum == rop.FAIL
-        regalloc._walk_operations(guard_op.suboperations)
+        regalloc.walk_guard_ops(guard_op.inputargs, guard_op.suboperations)
         self.mcstack.give_mc_back(self.mc2)
         self.mc2 = self.mc
         self.mc = oldmc

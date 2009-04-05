@@ -78,6 +78,8 @@ class RegAlloc(object):
                     self.reg_bindings[arg] = regalloc.reg_bindings[arg]
                 if arg in regalloc.stack_bindings:
                     self.stack_bindings[arg] = regalloc.stack_bindings[arg]
+                else:
+                    assert arg in self.reg_bindings
                 if arg in regalloc.dirty_stack:
                     self.dirty_stack[arg] = regalloc.dirty_stack[arg]
             allocated_regs = self.reg_bindings.values()
@@ -94,7 +96,6 @@ class RegAlloc(object):
                 self._create_jump_reg_candidates(jump_or_fail)
 
     def _create_jump_reg_candidates(self, jump):
-
         self.jump_reg_candidates = {}
         for i in range(len(jump.args)):
             arg = jump.args[i]
@@ -185,6 +186,8 @@ class RegAlloc(object):
                     self.longevity[v][1] > self.position and
                     self.longevity[v][0] <= self.position):
                     assert not v in self.dirty_stack
+        else:
+            assert len(self.reg_bindings) + len(self.free_regs) == len(REGS)
 
     def Load(self, v, from_loc, to_loc):
         if not we_are_translated():
@@ -233,6 +236,10 @@ class RegAlloc(object):
             return False
         if self.longevity[op.result][1] > i + 1:
             return False
+        if op.result in operations[i + 1].inputargs:
+            # XXX implement optimization that replace var with a const
+            #     not right now
+            return False
         return True
 
     def walk_operations(self, tree):
@@ -241,6 +248,13 @@ class RegAlloc(object):
         operations = tree.operations
         self.position = -1
         self.process_inputargs(tree)
+        self._walk_operations(operations)
+
+    def walk_guard_ops(self, inputargs, operations):
+        for arg in inputargs:
+            if arg not in self.reg_bindings:
+                assert arg in self.stack_bindings
+                assert arg not in self.dirty_stack
         self._walk_operations(operations)
 
     def _walk_operations(self, operations):
@@ -573,7 +587,6 @@ class RegAlloc(object):
         tree.arglocs = locs
         tree.stacklocs = range(len(inputargs))
         self.assembler.make_merge_point(tree, locs, tree.stacklocs)
-        # XXX be a bit smarter and completely ignore such vars
         self.eventually_free_vars(inputargs)
 
     def regalloc_for_guard(self, guard_op):
@@ -608,9 +621,9 @@ class RegAlloc(object):
         box = TempBox()
         loc = self.force_allocate_reg(box, [])
         regalloc = self.regalloc_for_guard(op)
+        self.perform_guard(op, regalloc, [loc], None)
         self.eventually_free_vars(op.inputargs)
         self.eventually_free_var(box)
-        self.perform_guard(op, regalloc, [loc], None)
 
     def consider_guard_exception(self, op, ignored):
         loc = self.make_sure_var_in_reg(op.args[0], [])
