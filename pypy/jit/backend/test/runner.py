@@ -3,6 +3,7 @@ from pypy.jit.metainterp.history import BoxInt, Box, BoxPtr, TreeLoop, ConstInt
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr
 from pypy.jit.metainterp.executor import execute
+from pypy.rlib.rarithmetic import r_uint, intmask
 
 class BaseBackendTest(object):
     
@@ -74,3 +75,12 @@ class BaseBackendTest(object):
         res2 = self.execute_operation(rop.CAST_INT_TO_PTR,
                                       [BoxInt(res)], 'ptr').value
         assert res2 == x
+
+    def test_uint_xor(self):
+        x = execute(self.cpu, rop.UINT_XOR, [BoxInt(100), ConstInt(4)])
+        assert x.value == 100 ^ 4
+        for a, b in [(ConstInt(1), BoxInt(-15)),
+                     (BoxInt(22), BoxInt(13)),
+                     (BoxInt(-112), ConstInt(11))]:
+            res = self.execute_operation(rop.UINT_XOR, [a, b], 'int')
+            assert res.value == intmask(r_uint(a.value) ^ r_uint(b.value))

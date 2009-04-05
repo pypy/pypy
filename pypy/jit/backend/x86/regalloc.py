@@ -684,6 +684,7 @@ class RegAlloc(object):
     consider_int_and = _consider_binop
     consider_int_or  = _consider_binop
     consider_int_xor = _consider_binop
+    consider_uint_xor = _consider_binop
     consider_uint_add = _consider_binop
     consider_uint_mul = _consider_binop
     consider_uint_sub = _consider_binop

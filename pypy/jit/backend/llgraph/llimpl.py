@@ -83,6 +83,7 @@ TYPES = {
     'uint_ne'         : (('int', 'int'), 'bool'),
     'uint_gt'         : (('int', 'int'), 'bool'),
     'uint_ge'         : (('int', 'int'), 'bool'),
+    'uint_xor'        : (('int', 'int'), 'int'),
     'new_with_vtable' : (('ptr',), 'ptr'),
     'new'             : ((), 'ptr'),
     'new_array'       : (('int',), 'ptr'),
@@ -612,6 +613,9 @@ class Frame(object):
 
     def op_cast_int_to_ptr(self, descr, val):
         return cast_from_int(llmemory.GCREF, val, self.memocast)
+
+    def op_uint_xor(self, descr, arg1, arg2):
+        return arg1 ^ arg2
 
 # ____________________________________________________________
 

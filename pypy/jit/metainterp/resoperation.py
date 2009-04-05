@@ -105,6 +105,7 @@ class rop(object):
     #
     CAST_INT_TO_PTR        = 21
     CAST_PTR_TO_INT        = 22
+    UINT_XOR               = 23
     INT_ADD                = 30
     INT_SUB                = 31
     INT_MUL                = 32
