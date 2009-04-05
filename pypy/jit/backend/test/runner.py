@@ -75,6 +75,10 @@ class BaseBackendTest(object):
         res2 = self.execute_operation(rop.CAST_INT_TO_PTR,
                                       [BoxInt(res)], 'ptr').value
         assert res2 == x
+        x = execute(self.cpu, rop.CAST_UNICHAR_TO_INT, [BoxInt(1234)])
+        assert x.value == 1234
+        assert self.execute_operation(rop.CAST_UNICHAR_TO_INT,
+                                      [BoxInt(1234)], 'int').value == 1234
 
     def test_uint_xor(self):
         x = execute(self.cpu, rop.UINT_XOR, [BoxInt(100), ConstInt(4)])

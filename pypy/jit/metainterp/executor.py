@@ -88,6 +88,9 @@ def do_uint_gt(cpu, args, descr=None):
 def do_uint_ge(cpu, args, descr=None):
     return ConstInt(r_uint(args[0].getint()) >= r_uint(args[1].getint()))
 
+def do_cast_unichar_to_int(cpu, args, descr=None):
+    return args[0].clonebox()
+
 # ----------
 
 def do_int_is_true(cpu, args, descr=None):

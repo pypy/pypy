@@ -115,6 +115,7 @@ TYPES = {
     'strgetitem'      : (('ptr', 'int'), 'int'),
     'strsetitem'      : (('ptr', 'int', 'int'), None),
     'cast_ptr_to_int' : (('ptr',), 'int'),
+    'cast_unichar_to_int' : (('int',), 'int'),
     'cast_int_to_ptr' : (('int',), 'ptr'),
     #'getitem'         : (('void', 'ptr', 'int'), 'int'),
     #'setitem'         : (('void', 'ptr', 'int', 'int'), None),

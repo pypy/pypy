@@ -949,6 +949,7 @@ class RegAlloc(object):
 
     consider_cast_int_to_ptr = _same_as
     consider_cast_ptr_to_int = _same_as
+    consider_cast_unichar_to_int = _same_as
 
     xxx_consider_cast_int_to_char = _same_as
     xxx_consider_cast_int_to_ptr  = _same_as
