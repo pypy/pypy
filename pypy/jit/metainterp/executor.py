@@ -196,6 +196,16 @@ def do_int_lshift_ovf(cpu, args, descr=None):
         z = 0
     return BoxInt(z)
 
+def do_int_floordiv_ovf(cpu, args, descr=None):
+    x = args[0].getint()
+    y = args[1].getint()
+    try:
+        z = ovfcheck(x // y)
+    except OverflowError:
+        cpu.set_overflow_error()
+        z = 0
+    return ConstInt(z)
+
 # ____________________________________________________________
 
 

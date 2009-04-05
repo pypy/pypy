@@ -530,7 +530,7 @@ class BytecodeMaker(object):
         # XXX handle ZeroDivisionError
         self.default_serialize_op(op, 'int_mod_ovf')
 
-    def setialize_op_int_floordiv_ovf_zer(self, op):
+    def serialize_op_int_floordiv_ovf_zer(self, op):
         # XXX handle ZeroDivisionError
         self.default_serialize_op(op, 'int_floordiv_ovf')        
 
