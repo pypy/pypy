@@ -847,6 +847,7 @@ TEMP = GcArray(Ptr(STR))
 # TODO: make the public interface of the rstr module cleaner
 ll_strconcat = LLHelpers.ll_strconcat
 ll_join = LLHelpers.ll_join
+ll_str2unicode = LLHelpers.ll_str2unicode
 do_stringformat = LLHelpers.do_stringformat
 
 string_repr = StringRepr()

@@ -658,6 +658,7 @@ def ll_dictiter(ITERPTR, d):
     iter.dict = d
     iter.index = 0
     return iter
+ll_dictiter.oopspec = 'newdictiter(d)'
 
 def ll_dictnext(iter, func, RETURNTYPE):
     dict = iter.dict
@@ -685,6 +686,7 @@ def ll_dictnext(iter, func, RETURNTYPE):
         # clear the reference to the dict and prevent restarts
         iter.dict = lltype.nullptr(lltype.typeOf(iter).TO.dict.TO)
     raise StopIteration
+ll_dictnext.oopspec = 'dictiter.dictnext(iter, func)'
 
 # _____________________________________________________________
 # methods
@@ -787,6 +789,7 @@ def ll_kvi(dic, LIST, func):
             p += 1
         i += 1
     return res
+ll_kvi.oopspec = 'newdictkvi(dic, func)'
 
 def ll_contains(d, key):
     i = ll_dict_lookup(d, key, d.keyhash(key))

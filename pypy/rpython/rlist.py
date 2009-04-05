@@ -920,6 +920,7 @@ def ll_listdelslice_startstop(l, start, stop):
             l.ll_setitem_fast(j, null)
             j -= 1
     l._ll_resize_le(newlength)
+ll_listdelslice_startstop.oopspec = 'list.delslice_startstop(l, start, stop)'
 
 def ll_listsetslice(l1, start, stop, l2):
     count = l2.ll_length()
@@ -934,6 +935,7 @@ def ll_listsetslice(l1, start, stop, l2):
         l1.ll_setitem_fast(j, l2.ll_getitem_fast(i))
         i += 1
         j += 1
+ll_listsetslice.oopspec = 'list.setslice(l1, start, stop, l2)'
 
 # ____________________________________________________________
 #
