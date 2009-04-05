@@ -91,3 +91,16 @@ class BaseBackendTest(object):
                      (BoxInt(-112), ConstInt(11))]:
             res = self.execute_operation(rop.UINT_XOR, [a, b], 'int')
             assert res.value == intmask(r_uint(a.value) ^ r_uint(b.value))
+
+    def test_ooops_non_gc(self):
+        x = lltype.malloc(lltype.Struct('x'), flavor='raw')
+        v = self.cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(x))
+        r = self.execute_operation(rop.OOIS, [BoxInt(v), BoxInt(v)], 'int')
+        assert r.value == 1
+        r = self.execute_operation(rop.OOISNOT, [BoxInt(v), BoxInt(v)], 'int')
+        assert r.value == 0
+        r = self.execute_operation(rop.OOISNULL, [BoxInt(v)], 'int')
+        assert r.value == 0
+        r = self.execute_operation(rop.OONONNULL, [BoxInt(v)], 'int')
+        assert r.value == 1
+        lltype.free(x, flavor='raw')

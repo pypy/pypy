@@ -464,3 +464,5 @@ class TestX86(BaseBackendTest):
         cpu.do_strsetitem([x, BoxInt(4), BoxInt(ord('/'))])
         assert x.getptr(lltype.Ptr(rstr.STR)).chars[4] == '/'
 
+    def test_lshift(self):
+        py.test.skip("XXX")

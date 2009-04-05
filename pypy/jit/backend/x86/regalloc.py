@@ -811,6 +811,8 @@ class RegAlloc(object):
     consider_uint_lt = _consider_compop
     consider_uint_le = _consider_compop
     consider_uint_ge = _consider_compop
+    consider_oois = _consider_compop
+    consider_ooisnot = _consider_compop
 
     def sync_var(self, v):
         if v in self.dirty_stack or v not in self.stack_bindings:
