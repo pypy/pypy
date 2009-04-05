@@ -752,7 +752,7 @@ def ll_update(dic1, dic2):
             entry = entries[i]
             ll_dict_setitem(dic1, entry.key, entry.value)
         i += 1
-ll_update.oopspect = 'dict.update(dic1, dic2)'
+ll_update.oopspec = 'dict.update(dic1, dic2)'
 
 # this is an implementation of keys(), values() and items()
 # in a single function.
