@@ -510,6 +510,8 @@ class BytecodeMaker(object):
     serialize_op_cast_bool_to_int = serialize_op_same_as
     serialize_op_cast_int_to_uint = serialize_op_same_as
     serialize_op_cast_uint_to_int = serialize_op_same_as
+    serialize_op_cast_unichar_to_int = serialize_op_same_as
+    serialize_op_cast_int_to_unichar = serialize_op_same_as
     serialize_op_resume_point = serialize_op_same_as
 
     _defl = default_serialize_op

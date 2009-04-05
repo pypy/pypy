@@ -176,6 +176,21 @@ class BasicTests:
         res = self.interp_operations(f, [42])
         assert res == ord("?")
 
+    def test_unicode(self):
+        def f(n):
+            bytecode = u'adlfkj' + unichr(n)
+            if n < len(bytecode):
+                return bytecode[n]
+            else:
+                return u"?"
+        res = self.interp_operations(f, [1])
+        assert res == ord(u"d") # XXX should be "d"
+        res = self.interp_operations(f, [6])
+        assert res == 6
+        res = self.interp_operations(f, [42])
+        assert res == ord(u"?")
+        
+
     def test_residual_call(self):
         def externfn(x, y):
             return x * y
