@@ -556,6 +556,8 @@ class BytecodeMaker(object):
         self.emit('int_is_true', self.var_position(op.args[0]))
         self.register_var(op.result)
 
+    serialize_op_uint_is_true = serialize_op_int_is_true
+
     def serialize_op_malloc(self, op):
         assert op.args[1].value == {'flavor': 'gc'}
         STRUCT = op.args[0].value
