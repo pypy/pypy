@@ -381,6 +381,20 @@ class BasicTests:
         expected = lltype.cast_opaque_ptr(llmemory.GCREF, x)
         assert self.interp_operations(f, [x]) == expected
 
+    def test_oops_on_nongc(self):
+        from pypy.rpython.lltypesystem import lltype
+        
+        TP = lltype.Struct('x')
+        def f(p1, p2):
+            a = p1 is p2
+            b = p1 is not p2
+            c = bool(p1)
+            d = not bool(p2)
+            return a + b + c + d
+        x = lltype.malloc(TP, flavor='raw')
+        expected = f(x, x)
+        assert self.interp_operations(f, [x, x]) == expected
+
 class TestOOtype(BasicTests, OOJitMixin):
     pass
 

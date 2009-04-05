@@ -15,6 +15,9 @@ py.log.setconsumer('compiler', ansi_log)
 
 # ____________________________________________________________
 
+INT = 0
+PTR = 1
+
 def getkind(TYPE):
     if TYPE is lltype.Void:
         return "void"
@@ -140,7 +143,7 @@ class Const(AbstractValue):
 
 
 class ConstInt(Const):
-    type = 'int'
+    type = INT
 
     def __init__(self, value):
         if not we_are_translated():
@@ -176,7 +179,7 @@ CONST_FALSE = ConstInt(0)
 CONST_TRUE  = ConstInt(1)
 
 class ConstAddr(Const):       # only for constants built before translation
-    type = 'int'
+    type = INT
 
     def __init__(self, adrvalue, cpu):
         "NOT_RPYTHON"
@@ -209,7 +212,7 @@ class ConstAddr(Const):       # only for constants built before translation
         return self.value
 
 class ConstPtr(Const):
-    type = 'ptr'
+    type = PTR
     value = lltype.nullptr(llmemory.GCREF.TO)
 
     def __init__(self, value):
@@ -267,12 +270,16 @@ class Box(AbstractValue):
 
     def __str__(self):
         if not hasattr(self, '_str'):
-            self._str = '%s%d' % (self.type[0], Box._counter)
+            if self.type == INT:
+                t = 'i'
+            else:
+                t = 'p'
+            self._str = '%s%d' % (t, Box._counter)
             Box._counter += 1
         return self._str
 
 class BoxInt(Box):
-    type = 'int'
+    type = INT
 
     def __init__(self, value=0):
         if not we_are_translated():
@@ -300,7 +307,7 @@ class BoxInt(Box):
     changevalue_int = __init__
 
 class BoxPtr(Box):
-    type = 'ptr'
+    type = PTR
 
     def __init__(self, value=lltype.nullptr(llmemory.GCREF.TO)):
         assert lltype.typeOf(value) == llmemory.GCREF

@@ -993,11 +993,19 @@ class OOMetaInterp(object):
         if args:
             value = args[0]
             if isinstance(lltype.typeOf(value), lltype.Ptr):
-                value = lltype.cast_opaque_ptr(llmemory.GCREF, value)
-                if num_green_args > 0:
-                    cls = ConstPtr
+                if lltype.typeOf(value).TO._gckind == 'gc':
+                    value = lltype.cast_opaque_ptr(llmemory.GCREF, value)
+                    if num_green_args > 0:
+                        cls = ConstPtr
+                    else:
+                        cls = BoxPtr
                 else:
-                    cls = BoxPtr
+                    adr = llmemory.cast_ptr_to_adr(value)
+                    value = self.cpu.cast_adr_to_int(adr)
+                    if num_green_args > 0:
+                        cls = ConstInt
+                    else:
+                        cls = BoxInt
             else:
                 if num_green_args > 0:
                     cls = ConstInt

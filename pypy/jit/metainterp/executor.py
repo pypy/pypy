@@ -3,7 +3,7 @@
 
 import py
 from pypy.rlib.rarithmetic import ovfcheck, r_uint, intmask
-from pypy.jit.metainterp.history import BoxInt, ConstInt, check_descr
+from pypy.jit.metainterp.history import BoxInt, ConstInt, check_descr, INT, PTR
 from pypy.jit.metainterp.resoperation import rop
 
 
@@ -106,15 +106,25 @@ def do_bool_not(cpu, args, descr=None):
     return ConstInt(not args[0].getint())
 
 def do_oononnull(cpu, args, descr=None):
+    if args[0].type == INT:
+        return ConstInt(bool(args[0].getint()))
     return ConstInt(bool(args[0].getptr_base()))
 
 def do_ooisnull(cpu, args, descr=None):
+    if args[0].type == INT:
+        return ConstInt(not args[0].getint())
     return ConstInt(not args[0].getptr_base())
 
 def do_oois(cpu, args, descr=None):
+    if args[0].type == INT:
+        assert args[1].type == INT
+        return ConstInt(args[0].getint() == args[1].getint())
     return ConstInt(args[0].getptr_base() == args[1].getptr_base())
 
 def do_ooisnot(cpu, args, descr=None):
+    if args[0].type == INT:
+        assert args[1].type == INT
+        return ConstInt(args[0].getint() != args[1].getint())
     return ConstInt(args[0].getptr_base() != args[1].getptr_base())
 
 # ----------
