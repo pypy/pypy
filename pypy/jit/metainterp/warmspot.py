@@ -22,11 +22,14 @@ from pypy.jit.metainterp.policy import JitPolicy
 # ____________________________________________________________
 # Bootstrapping
 
+from pypy.jit.metainterp.simple_optimize import Optimizer
+
 def apply_jit(translator, **kwds):
     from pypy.jit.backend.detect_cpu import getcpuclass
     warmrunnerdesc = WarmRunnerDesc(translator, CPUClass=getcpuclass(),
                                     translate_support_code=True,
                                     listops=True,
+                                    optimizer=Optimizer,
                                     **kwds)
     warmrunnerdesc.finish()
 
@@ -409,13 +412,13 @@ def make_state_class(warmrunnerdesc):
             i = 0
             for name in green_args_names:
                 setattr(self, 'green_' + name, greenargs[i])
-                i += 1
+                i = i + 1
         def equalkey(self, *greenargs):
             i = 0
             for name in green_args_names:
                 if getattr(self, 'green_' + name) != greenargs[i]:
                     return False
-                i += 1
+                i = i + 1
             return True
         def fill_boxes(self, *redargs):
             boxes = self.bridge.inputargs
