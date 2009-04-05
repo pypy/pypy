@@ -29,7 +29,7 @@ class ResOperation(object):
         # actually an instance of a class, typically Descr, that inherits
         # from AbstractDescr
         from pypy.jit.metainterp.history import check_descr
-        check_descr(descr)
+        #check_descr(descr)
         self.descr = descr
 
     def clone(self):
@@ -105,6 +105,7 @@ class rop(object):
     #
     CAST_INT_TO_PTR        = 21
     CAST_PTR_TO_INT        = 22
+    UINT_AND               = 23
     UINT_XOR               = 29
     INT_ADD                = 30
     INT_SUB                = 31

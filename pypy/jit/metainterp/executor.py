@@ -48,6 +48,7 @@ do_uint_sub = do_int_sub
 do_uint_mul = do_int_mul
 do_uint_lshift = do_int_lshift
 do_uint_xor = do_int_xor
+do_uint_and = do_int_and
 
 def do_uint_rshift(cpu, args, descr=None):
     v = r_uint(args[0].getint()) >> r_uint(args[1].getint())
