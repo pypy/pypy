@@ -394,7 +394,7 @@ class BasicTests:
         x = lltype.malloc(TP, flavor='raw')
         expected = f(x, x)
         assert self.interp_operations(f, [x, x]) == expected
-        lltype.free(x)
+        lltype.free(x, flavor='raw')
 
 class TestOOtype(BasicTests, OOJitMixin):
     pass
