@@ -19,7 +19,7 @@ Content
 
 - Overview_: motivating our approach
 
-- `Draft notes`_ about the current work in PyPy (Feb 08).
+- Notes_ about the current work in PyPy
 
 Older stuff
 ------------------------------------------------------------
@@ -44,4 +44,4 @@ Older stuff
 .. _Theory: theory.html
 .. _Rainbow: rainbow.html
 .. _Backends: backend.html
-.. _`Draft notes`: pyjitpl5.html
+.. _Notes: pyjitpl5.html
