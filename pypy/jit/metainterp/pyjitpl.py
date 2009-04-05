@@ -233,7 +233,7 @@ class MIFrame(object):
     for _opimpl in ['int_add', 'int_sub', 'int_mul', 'int_floordiv', 'int_mod',
                     'int_lt', 'int_le', 'int_eq',
                     'int_ne', 'int_gt', 'int_ge',
-                    'int_and', 'int_or', 'int_xor',
+                    'int_and', 'int_or', 'int_xor', 'uint_xor',
                     'int_rshift', 'int_lshift', 'uint_lshift', 'uint_rshift',
                     'uint_add', 'uint_sub', 'uint_mul',
                     'uint_lt', 'uint_le', 'uint_eq',
