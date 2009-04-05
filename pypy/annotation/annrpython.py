@@ -768,18 +768,18 @@ class RPythonAnnotator(object):
         d = {}
         for opname in model.UNARY_OPERATIONS:
             fnname = 'consider_op_' + opname
-            exec """
+            exec py.code.Source("""
 def consider_op_%s(self, arg, *args):
     return arg.%s(*args)
-""" % (opname, opname) in globals(), d
+""" % (opname, opname)).compile() in globals(), d
             setattr(cls, fnname, d[fnname])
         # All binary operations
         for opname in model.BINARY_OPERATIONS:
             fnname = 'consider_op_' + opname
-            exec """
+            exec py.code.Source("""
 def consider_op_%s(self, arg1, arg2, *args):
     return pair(arg1,arg2).%s(*args)
-""" % (opname, opname) in globals(), d
+""" % (opname, opname)).compile() in globals(), d
             setattr(cls, fnname, d[fnname])
     _registeroperations = classmethod(_registeroperations)
 
