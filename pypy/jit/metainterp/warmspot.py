@@ -365,18 +365,6 @@ def unwrap(TYPE, box):
         return lltype.cast_primitive(TYPE, box.getint())
 unwrap._annspecialcase_ = 'specialize:arg(0)'
 
-def wrap_into(box, value):
-    TYPE = lltype.typeOf(value)
-    if isinstance(TYPE, lltype.Ptr):
-        assert isinstance(box, history.BoxPtr)
-        box.changevalue_ptr(lltype.cast_opaque_ptr(llmemory.GCREF, value))
-    elif TYPE == lltype.Signed:
-        assert isinstance(box, history.BoxInt)
-        box.changevalue_int(cast_whatever_to_int(TYPE, value))
-    else:
-        raise AssertionError("box is: %s" % (box,))
-wrap_into._annspecialcase_ = 'specialize:argtype(1)'
-
 def cast_whatever_to_int(TYPE, x):
     if isinstance(TYPE, lltype.Ptr):
         return lltype.cast_ptr_to_int(x)
@@ -423,7 +411,17 @@ def make_state_class(warmrunnerdesc):
         def fill_boxes(self, *redargs):
             boxes = self.bridge.inputargs
             for j in red_args_index:
-                wrap_into(boxes[j], redargs[j])
+                value = redargs[j]
+                box = boxes[j]
+                TYPE = lltype.typeOf(value)
+                if isinstance(TYPE, lltype.Ptr):
+                    assert isinstance(box, history.BoxPtr)
+                    box.changevalue_ptr(lltype.cast_opaque_ptr(llmemory.GCREF, value))
+                elif TYPE == lltype.Signed:
+                    assert isinstance(box, history.BoxInt)
+                    box.changevalue_int(cast_whatever_to_int(TYPE, value))
+                else:
+                    raise AssertionError("box is: %s" % (box,))
             return boxes
 
     class WarmEnterState:
