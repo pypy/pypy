@@ -321,6 +321,22 @@ class ExceptionTests:
         res = self.interp_operations(f, [1, 2])
         assert res == 1
 
+    def test_int_lshift_ovf(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'x', 'y'])
+        def f(x, y, n):
+            while n < 100:
+                myjitdriver.can_enter_jit(n=n, x=x, y=y)
+                myjitdriver.jit_merge_point(n=n, x=x, y=y)
+                y += 1
+                try:
+                    ovfcheck(x<<y)
+                except OverflowError:
+                    return 2
+                n += 1
+            return n
+
+        res = self.meta_interp(f, [1, 1, 0])
+        assert res == f(1, 1, 0)
 
     def test_reraise_through_portal(self):
         jitdriver = JitDriver(greens = [], reds = ['n'])

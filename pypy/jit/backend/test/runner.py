@@ -74,7 +74,14 @@ class BaseBackendTest(object):
                                      [BoxPtr(x)],  'int').value
         res2 = self.execute_operation(rop.CAST_INT_TO_PTR,
                                       [BoxInt(res)], 'ptr').value
-        assert res2 == x        
+        assert res2 == x
+
+    def test_lshift(self):
+        res = execute(self.cpu, rop.INT_LSHIFT, [BoxInt(10), ConstInt(4)])
+        assert res.value == 10 << 4
+        res = self.execute_operation(rop.INT_LSHIFT, [BoxInt(10), BoxInt(4)],
+                                     'int')
+        assert res.value == 10 << 4
 
     def test_uint_xor(self):
         x = execute(self.cpu, rop.UINT_XOR, [BoxInt(100), ConstInt(4)])

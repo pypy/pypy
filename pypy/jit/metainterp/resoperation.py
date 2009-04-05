@@ -179,7 +179,8 @@ class rop(object):
     INT_MUL_OVF            = 112
     INT_NEG_OVF            = 113
     INT_MOD_OVF            = 114
-    _OVF_LAST = 114
+    INT_LSHIFT_OVF         = 115
+    _OVF_LAST = 115
     _CANRAISE_LAST = 119 # ----- end of can_raise operations -----
     _LAST = 119     # for the backend to add more internal operations
 

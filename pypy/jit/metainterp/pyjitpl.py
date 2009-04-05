@@ -246,7 +246,7 @@ class MIFrame(object):
         ''' % (_opimpl, _opimpl.upper())).compile()
 
     for _opimpl in ['int_add_ovf', 'int_sub_ovf', 'int_mul_ovf', 'int_mod_ovf',
-                    ]:
+                    'int_lshift_ovf']:
         exec py.code.Source('''
             @arguments("box", "box")
             def opimpl_%s(self, b1, b2):

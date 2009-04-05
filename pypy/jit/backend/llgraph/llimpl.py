@@ -73,6 +73,7 @@ TYPES = {
     'int_sub_ovf'     : (('int', 'int'), 'int'),
     'int_mul_ovf'     : (('int', 'int'), 'int'),
     'int_neg_ovf'     : (('int',), 'int'),
+    'int_lshift_ovf'  : (('int', 'int'), 'int'),
     'bool_not'        : (('bool',), 'bool'),
     'uint_add'        : (('int', 'int'), 'int'),
     'uint_sub'        : (('int', 'int'), 'int'),

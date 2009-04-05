@@ -517,6 +517,8 @@ class BytecodeMaker(object):
     _defl = default_serialize_op
     def serialize_op_char_eq(self, op): self._defl(op, 'int_eq')
     def serialize_op_char_ne(self, op): self._defl(op, 'int_ne')
+    def serialize_op_char_le(self, op): self._defl(op, 'int_le')
+    def serialize_op_char_lt(self, op): self._defl(op, 'int_lt')
 
     serialize_op_unichar_eq = serialize_op_char_eq
     serialize_op_unichar_ne = serialize_op_char_ne
@@ -527,6 +529,14 @@ class BytecodeMaker(object):
     def serialize_op_int_mod_ovf_zer(self, op):
         # XXX handle ZeroDivisionError
         self.default_serialize_op(op, 'int_mod_ovf')
+
+    def setialize_op_int_floordiv_ovf_zer(self, op):
+        # XXX handle ZeroDivisionError
+        self.default_serialize_op(op, 'int_floordiv_ovf')        
+
+    def serialize_op_int_lshift_ovf_val(self, op):
+        # XXX handle ValueError
+        self.default_serialize_op(op, 'int_lshift_ovf')
 
     def serialize_op_hint(self, op):
         hints = op.args[1].value
