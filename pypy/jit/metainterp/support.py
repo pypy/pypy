@@ -133,9 +133,11 @@ _ll_3_dict_setitem = rdict.ll_dict_setitem
 _ll_2_dict_contains = rdict.ll_contains
 _ll_3_dict_get = rdict.ll_get
 def _ll_1_newdictiter(ITERPTR, d):
-    return rdict.ll_dictiter(ITERPTR, d)
+    return rdict.ll_dictiter(lltype.Ptr(ITERPTR), d)
 _ll_1_newdictiter.need_result_type = True
-_ll_3_dictiter_dictnext = rdict.ll_dictnext
+def _ll_2_dictiter_dictnext(RESULTTYPE, dic, func):
+    return rdict.ll_dictnext(dic, func, RESULTTYPE)
+_ll_2_dictiter_dictnext.need_result_type = True
 def _ll_2_newdictkvi(LIST, dic, func):
     return rdict.ll_kvi(dic, LIST, func)
 _ll_2_newdictkvi.need_result_type = True
