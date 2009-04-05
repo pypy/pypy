@@ -688,7 +688,7 @@ class RegAlloc(object):
     consider_uint_add = _consider_binop
     consider_uint_mul = _consider_binop
     consider_uint_sub = _consider_binop
-    #consider_uint_and = _consider_binop
+    consider_uint_and = _consider_binop
     
     def _consider_binop_ovf(self, op, guard_op):
         loc, argloc = self._consider_binop_part(op, None)

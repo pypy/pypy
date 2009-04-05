@@ -347,7 +347,7 @@ class Assembler386(object):
     genop_uint_sub = genop_int_sub
     genop_uint_mul = genop_int_mul
     genop_uint_xor = genop_int_xor
-    xxx_genop_uint_and = genop_int_and
+    genop_uint_and = genop_int_and
 
     genop_guard_int_mul_ovf = _binaryop_ovf("IMUL", True)
     genop_guard_int_sub_ovf = _binaryop_ovf("SUB")
