@@ -144,6 +144,7 @@ _ll_2_newdictkvi.need_result_type = True
 _ll_1_dict_copy = rdict.ll_copy
 _ll_4_list_setslice = rlist.ll_listsetslice
 _ll_3_list_delslice_startstop = rlist.ll_listdelslice_startstop
+_ll_2_dict_update = rdict.ll_update
 
 _ll_5_string_copy_contents = rstr.copy_string_contents
 
