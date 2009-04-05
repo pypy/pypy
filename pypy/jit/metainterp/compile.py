@@ -207,6 +207,7 @@ def prepare_loop_from_bridge(metainterp, resumekey):
         log.info("completing the bridge into a stand-alone loop")
     operations = metainterp.history.operations
     metainterp.history.operations = []
+    assert isinstance(resumekey, ResumeGuardDescr)
     append_full_operations(metainterp.history,
                            resumekey.history,
                            resumekey.history_guard_index)
