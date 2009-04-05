@@ -125,15 +125,17 @@ _ll_2_list_getitem_foldable = _ll_2_list_getitem
 _ll_1_list_len_foldable     = _ll_1_list_len
 
 def _ll_0_newdict(DICT):
-    from pypy.rpython.lltypesystem.rdict import ll_newdict
-    return ll_newdict(DICT)
+    return rdict.ll_newdict(DICT)
 _ll_0_newdict.need_result_type = True
 
 _ll_2_dict_getitem = rdict.ll_dict_getitem
 _ll_3_dict_setitem = rdict.ll_dict_setitem
 _ll_2_dict_contains = rdict.ll_contains
+_ll_3_dict_get = rdict.ll_get
 
 _ll_5_string_copy_contents = rstr.copy_string_contents
+
+_ll_1_str_str2unicode = rstr.LLHelpers.ll_str2unicode
 
 def setup_extra_builtin(oopspec_name, nb_args):
     name = '_ll_%d_%s' % (nb_args, oopspec_name.replace('.', '_'))
