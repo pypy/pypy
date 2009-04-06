@@ -25,6 +25,7 @@ def uaddressof(obj):
 
 _ctypes_cache = {}
 _eci_cache = {}
+_parent_cache = {}
 
 def _setup_ctypes_cache():
     from pypy.rpython.lltypesystem import rffi
@@ -620,6 +621,8 @@ def lltype2ctypes(llobj, normalize=True):
                 raise NotImplementedError(T)
             container._ctypes_storage_was_allocated()
         storage = container._storage
+        if lltype.parentlink(container)[0] is not None:
+            _parent_cache[ctypes.addressof(storage)] = parentchain(container)
         p = ctypes.pointer(storage)
         if index:
             p = ctypes.cast(p, ctypes.c_void_p)
@@ -675,6 +678,9 @@ def ctypes2lltype(T, cobj):
                                           ctypes.cast(cobj, ctypes_instance)))
                 container = lltype._struct(T.TO)
             struct_use_ctypes_storage(container, cobj.contents)
+            addr = ctypes.addressof(cobj.contents)
+            if addr in _parent_cache:
+                setparentstructure(container, _parent_cache[addr])
         elif isinstance(T.TO, lltype.Array):
             if T.TO._hints.get('nolength', False):
                 container = _array_of_unknown_length(T.TO)
@@ -1042,6 +1048,31 @@ class CastAdrToIntEntry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.genop('cast_adr_to_int', [adr],
                          resulttype = lltype.Signed)
+
+# ------------------------------------------------------------
+
+def parentchain(container):
+    current = container
+    links = []
+    while True:
+        link = lltype.parentlink(current)
+        if link[0] is None:
+            try:
+                addr = ctypes.addressof(container._storage)
+                actual = _parent_cache[addr]
+                if len(links) < len(actual):
+                    return actual
+            except KeyError:
+                pass
+            return links
+        links.append(link)
+        current = link[0]
+
+def setparentstructure(container, chain):
+    current = container
+    for elem in chain:
+        current._setparentstructure(*elem)
+        current = elem[0]
 
 # ____________________________________________________________
 # errno
