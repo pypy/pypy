@@ -466,3 +466,23 @@ class TestX86(BaseBackendTest):
 
     def test_lshift(self):
         py.test.skip("XXX")
+
+    def test_oononnull_with_guard(self):
+        p = lltype.cast_opaque_ptr(llmemory.GCREF,
+                                   lltype.malloc(lltype.GcStruct('x')))
+        p = BoxPtr(p)
+        f = BoxInt()
+        ops = [
+            ResOperation(rop.OONONNULL, [p], f),
+            ResOperation(rop.GUARD_FALSE, [f], None),
+            ResOperation(rop.FAIL, [ConstInt(0)], None),
+            ]
+        ops[1].suboperations = [ResOperation(rop.FAIL, [ConstInt(1)], None)]
+        ops[-1].ovf = False
+        ops[-1].exc = False
+        loop = TreeLoop('name')
+        loop.operations = ops
+        loop.inputargs = [p]
+        self.cpu.compile_operations(loop)
+        op = self.cpu.execute_operations(loop, [p])
+        assert op.args[0].value == 1

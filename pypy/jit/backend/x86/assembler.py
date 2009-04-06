@@ -119,14 +119,13 @@ class Assembler386(object):
             if self.malloc_func_addr == 0:
                 self.malloc_func_addr = gc_malloc_fnaddr()
 
-    def eventually_log_operations(self, operations):
+    def eventually_log_operations(self, inputargs, operations, memo=None):
         if self._log_fd == -1:
             return
-        return # XXX
-        memo = {}
-        os.write(self._log_fd, "<<<<<<<<<<\n")
-        if guard_op is not None:
-            os.write(self._log_fd, "GO(%d)\n" % guard_op._jmp_from)
+        if memo is None:
+            memo = {}
+        args = ",".join([repr_of_arg(memo, arg) for arg in inputargs])
+        os.write(self._log_fd, "LOOP %s\n" % args)
         for op in operations:
             args = ",".join([repr_of_arg(memo, arg) for arg in op.args])
             os.write(self._log_fd, "%s %s\n" % (op.getopname(), args))
@@ -134,10 +133,10 @@ class Assembler386(object):
                 os.write(self._log_fd, "  => %s\n" % repr_of_arg(memo,
                                                                  op.result))
             if op.is_guard():
-                liveboxes_s = ",".join([repr_of_arg(memo, arg) for arg in
-                                        op.liveboxes])
-                os.write(self._log_fd, "  .. %s\n" % liveboxes_s)
-        os.write(self._log_fd, ">>>>>>>>>>\n")
+                os.write(self._log_fd, "BEGIN\n")
+                self.eventually_log_operations(inputargs, operations, memo)
+                os.write(self._log_fd, "END\n")
+        os.write(self._log_fd, "LOOP END\n")
 
     def log_failure_recovery(self, gf, guard_index):
         if self._log_fd == -1:
@@ -181,7 +180,7 @@ class Assembler386(object):
         self._compute_longest_fail_op(tree.operations)
         self.make_sure_mc_exists()
         inputargs = tree.inputargs
-        self.eventually_log_operations(tree)
+        self.eventually_log_operations(tree.inputargs, tree.operations)
         regalloc = RegAlloc(self, tree, self.cpu.translate_support_code)
         if not we_are_translated():
             self._regalloc = regalloc # for debugging
@@ -416,6 +415,22 @@ class Assembler386(object):
         self.mc.TEST(argloc, argloc)
         self.mc.MOV(resloc, imm8(0))
         self.mc.SETNZ(lower_byte(resloc))
+
+    def genop_guard_oononnull(self, op, guard_op, addr, arglocs, resloc):
+        loc = arglocs[0]
+        self.mc.TEST(loc, loc)
+        if guard_op.opnum == rop.GUARD_TRUE:
+            self.implement_guard(addr, guard_op, self.mc.JZ)
+        else:
+            self.implement_guard(addr, guard_op, self.mc.JNZ)
+
+    def genop_guard_ooisnull(self, op, guard_op, addr, arglocs, resloc):
+        loc = arglocs[0]
+        self.mc.TEST(loc, loc)
+        if guard_op.opnum == rop.GUARD_TRUE:
+            self.implement_guard(addr, guard_op, self.mc.JNZ)
+        else:
+            self.implement_guard(addr, guard_op, self.mc.JZ)
 
     def genop_oononnull(self, op, arglocs, resloc):
         self.mc.CMP(arglocs[0], imm8(0))

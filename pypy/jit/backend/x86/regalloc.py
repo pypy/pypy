@@ -227,7 +227,8 @@ class RegAlloc(object):
         self.assembler.regalloc_perform_discard(op, arglocs)
 
     def can_optimize_cmp_op(self, op, i, operations):
-        if not op.is_comparison():
+        if not (op.is_comparison() or op.opnum == rop.OOISNULL or
+                op.opnum == rop.OONONNULL):
             return False
         if (operations[i + 1].opnum != rop.GUARD_TRUE and
             operations[i + 1].opnum != rop.GUARD_FALSE):
@@ -983,12 +984,21 @@ class RegAlloc(object):
         resloc = self.force_allocate_reg(op.result, [])
         self.Perform(op, [argloc], resloc)
 
-    def _consider_nullity(self, op, ignored):
+    def _consider_nullity(self, op, guard_op):
         # doesn't need a register in arg
-        argloc = self.loc(op.args[0])
-        self.eventually_free_var(op.args[0])
-        resloc = self.force_allocate_reg(op.result, [])
-        self.Perform(op, [argloc], resloc)
+        if guard_op is not None:
+            argloc = self.make_sure_var_in_reg(op.args[0], [])
+            self.eventually_free_var(op.args[0])
+            regalloc = self.regalloc_for_guard(guard_op)
+            self.position += 1
+            self.perform_with_guard(op, guard_op, regalloc, [argloc], None)
+            self.eventually_free_var(op.result)
+            self.eventually_free_vars(guard_op.inputargs)            
+        else:
+            argloc = self.loc(op.args[0])
+            self.eventually_free_var(op.args[0])
+            resloc = self.force_allocate_reg(op.result, [])
+            self.Perform(op, [argloc], resloc)
     
     consider_ooisnull = _consider_nullity
     consider_oononnull = _consider_nullity
