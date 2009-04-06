@@ -10,7 +10,7 @@ from pypy.annotation import model as annmodel
 from pypy.tool.uid import fixid
 from pypy.jit.backend.x86.regalloc import (RegAlloc, FRAMESIZE, WORD, REGS,
                                       arg_pos, lower_byte, stack_pos)
-from pypy.rlib.objectmodel import we_are_translated, specialize
+from pypy.rlib.objectmodel import we_are_translated, specialize, compute_unique_id
 from pypy.jit.backend.x86 import codebuf
 from pypy.jit.backend.x86.support import gc_malloc_fnaddr
 from pypy.jit.backend.x86.ri386 import *
@@ -119,27 +119,39 @@ class Assembler386(object):
             if self.malloc_func_addr == 0:
                 self.malloc_func_addr = gc_malloc_fnaddr()
 
-    def eventually_log_operations(self, inputargs, operations, memo=None):
+    def eventually_log_operations(self, inputargs, operations, memo=None,
+                                  myid=0):
+        from pypy.jit.backend.x86.runner import ConstDescr3
+        
         if self._log_fd == -1:
             return
         if memo is None:
             memo = {}
         if inputargs is None:
-            args = ''
+            os.write(self._log_fd, "BEGIN(%s)\n" % myid)
         else:
             args = ",".join([repr_of_arg(memo, arg) for arg in inputargs])
-        os.write(self._log_fd, "LOOP %s\n" % args)
+            os.write(self._log_fd, "LOOP %s\n" % args)
         for op in operations:
             args = ",".join([repr_of_arg(memo, arg) for arg in op.args])
-            os.write(self._log_fd, "%s %s\n" % (op.getopname(), args))
+            if op.descr is not None and isinstance(op.descr, ConstDescr3):
+                descr = op.descr.sort_key()
+                os.write(self._log_fd, "%s %s[%s]\n" % (op.getopname(), args,
+                                                        descr))
+            else:
+                os.write(self._log_fd, "%s %s\n" % (op.getopname(), args))
             if op.result is not None:
                 os.write(self._log_fd, "  => %s\n" % repr_of_arg(memo,
                                                                  op.result))
             if op.is_guard():
-                os.write(self._log_fd, "BEGIN\n")
                 self.eventually_log_operations(None, op.suboperations, memo)
-                os.write(self._log_fd, "END\n")
-        os.write(self._log_fd, "LOOP END\n")
+        if operations[-1].opnum == rop.JUMP:
+            jump_target = compute_unique_id(operations[-1].jump_target)
+            os.write(self._log_fd, 'JUMPTO:%s\n' % jump_target)
+        if inputargs is None:
+            os.write(self._log_fd, "END\n")
+        else:
+            os.write(self._log_fd, "LOOP END\n")
 
     def log_failure_recovery(self, gf, guard_index):
         if self._log_fd == -1:
@@ -183,7 +195,8 @@ class Assembler386(object):
         self._compute_longest_fail_op(tree.operations)
         self.make_sure_mc_exists()
         inputargs = tree.inputargs
-        self.eventually_log_operations(tree.inputargs, tree.operations)
+        self.eventually_log_operations(tree.inputargs, tree.operations, None,
+                                       compute_unique_id(tree))
         regalloc = RegAlloc(self, tree, self.cpu.translate_support_code)
         if not we_are_translated():
             self._regalloc = regalloc # for debugging
