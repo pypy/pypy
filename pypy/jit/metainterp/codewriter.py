@@ -716,10 +716,6 @@ class BytecodeMaker(object):
 ##                    self.emit('guard_len', self.var_position(arg),
 ##                              self.get_position(descr))
 
-    #def serialize_op_direct_call(self, op):
-    #    color = support.guess_call_kind(self.codewriter.hannotator, op)
-    #    return getattr(self, 'handle_%s_call' % color)(op)
-
     def serialize_op_direct_call(self, op):
         color = self.codewriter.policy.guess_call_kind(op)
         return getattr(self, 'handle_%s_call' % color)(op)
@@ -743,6 +739,8 @@ class BytecodeMaker(object):
         self.emit(self.get_position(calldescr))
         self.emit_varargs([op.args[0]] + non_void_args)
         self.register_var(op.result)
+
+    handle_recursive_call = handle_residual_call     # for now
 
     def handle_builtin_call(self, op):
         oopspec_name, args = support.decode_builtin_call(op)

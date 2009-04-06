@@ -691,16 +691,10 @@ class MIFrame(object):
 
     @specialize.arg(1)
     def execute_with_exc(self, opnum, argboxes, descr=None):
-        cpu = self.metainterp.cpu
-        history.check_descr(descr)
-        resbox = executor.execute(cpu, opnum, argboxes, descr)
+        self.execute(opnum, argboxes, descr)
         if not we_are_translated():
             self.metainterp._debug_history.append(['call',
                                                   argboxes[0], argboxes[1:]])
-        # record the operation in the history
-        self.metainterp.history.record(opnum, argboxes, resbox, descr)
-        if resbox is not None:
-            self.make_result_box(resbox)
         return self.metainterp.handle_exception()
 
 # ____________________________________________________________
@@ -798,6 +792,9 @@ class OOMetaInterp(object):
         self.current_merge_points = None
         self.resumekey = None
 
+    def set_blackhole_mode(self):
+        self.history = history.BlackHole(self.cpu)
+
     def _all_constants(self, boxes):
         for box in boxes:
             if not isinstance(box, Const):
@@ -806,6 +803,7 @@ class OOMetaInterp(object):
 
     @specialize.arg(1)
     def execute_and_record(self, opnum, argboxes, descr=None):
+        old_framestack = self.framestack
         # execute the operation first
         history.check_descr(descr)
         resbox = executor.execute(self.cpu, opnum, argboxes, descr)
@@ -821,6 +819,13 @@ class OOMetaInterp(object):
                 resbox = resbox.nonconstbox()    # ensure it is a Box
         else:
             assert resbox is None or isinstance(resbox, Box)
+            if opnum == rop.CALL:
+                # with executor.execute(rop.CALL), there is a risk of recursion
+                if self.framestack is not old_framestack:
+                    if not we_are_translated():
+                        history.log.info('recursion detected')
+                    self.framestack = old_framestack
+                    self.set_blackhole_mode()
         # record the operation if not constant-folded away
         if not canfold:
             self.history.record(opnum, argboxes, resbox, descr)
@@ -829,23 +834,19 @@ class OOMetaInterp(object):
     def _interpret(self):
         # Execute the frames forward until we raise a DoneWithThisFrame,
         # a ContinueRunningNormally, or a GenerateMergePoint exception.
-        if isinstance(self.history, history.BlackHole):
-            text = ' (BlackHole)'
-        else:
-            text = ''
         if not we_are_translated():
-            history.log.event('ENTER' + text)
+            history.log.event('ENTER' + self.history.extratext)
             self.stats.enter_count += 1
         else:
-            debug_print('~~~ ENTER', text)
+            debug_print('~~~ ENTER', self.history.extratext)
         try:
             while True:
                 self.framestack[-1].run_one_step()
         finally:
             if not we_are_translated():
-                history.log.event('LEAVE' + text)
+                history.log.event('LEAVE' + self.history.extratext)
             else:
-                debug_print('~~~ LEAVE', text)
+                debug_print('~~~ LEAVE', self.history.extratext)
 
     def interpret(self):
         if we_are_translated():
@@ -1075,9 +1076,7 @@ class OOMetaInterp(object):
                 self.history.operations.append(suboperations[i])
             self.extra_rebuild_operations = extra
         else:
-            self.history = history.BlackHole(self.cpu)
-            # the BlackHole is invalid because it doesn't start with
-            # guard_failure.key.guard_op.suboperations, but that's fine
+            self.set_blackhole_mode()
         self.rebuild_state_after_failure(resumedescr.resume_info,
                                          guard_failure.args)
 

@@ -433,12 +433,14 @@ class RunningMatcher(Base):
         raise NotImplementedError
 
 class History(RunningMatcher):
+    extratext = ''
     def record(self, opnum, argboxes, resbox, descr=None):
         op = ResOperation(opnum, argboxes, resbox, descr)
         self.operations.append(op)
         return op
 
 class BlackHole(RunningMatcher):
+    extratext = ' (BlackHole)'
     def record(self, opnum, argboxes, resbox, descr=None):
         return None
 

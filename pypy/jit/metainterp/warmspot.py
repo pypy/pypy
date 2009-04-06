@@ -107,10 +107,10 @@ class WarmRunnerDesc:
         self.translator = translator
         self.build_meta_interp(**kwds)
         self.make_args_specification()
+        self.rewrite_jit_merge_point()
         self.metainterp.generate_bytecode(policy)
         self.make_enter_function()
         self.rewrite_can_enter_jit()
-        self.rewrite_jit_merge_point()
         self.metainterp.num_green_args = self.num_green_args
         self.metainterp.state = self.state
 
@@ -319,6 +319,7 @@ class WarmRunnerDesc:
                     else:
                         value = cast_base_ptr_to_instance(Exception, value)
                         raise Exception, value
+        ll_portal_runner._recursive_portal_call_ = True
 
         portal_runner_ptr = self.helper_func(lltype.Ptr(PORTALFUNC),
                                              ll_portal_runner)

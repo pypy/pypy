@@ -41,6 +41,8 @@ class JitMixin:
         assert get_stats().compiled_count <= count
     def check_enter_count(self, count):
         assert get_stats().enter_count == count
+    def check_enter_count_at_most(self, count):
+        assert get_stats().enter_count <= count
     def check_jumps(self, maxcount):
         assert get_stats().exec_jumps <= maxcount
 
