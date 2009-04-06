@@ -474,7 +474,7 @@ class TestX86(BaseBackendTest):
         f = BoxInt()
         ops = [
             ResOperation(rop.OONONNULL, [p], f),
-            ResOperation(rop.GUARD_FALSE, [f], None),
+            ResOperation(rop.GUARD_TRUE, [f], None),
             ResOperation(rop.FAIL, [ConstInt(0)], None),
             ]
         ops[1].suboperations = [ResOperation(rop.FAIL, [ConstInt(1)], None)]
@@ -485,4 +485,4 @@ class TestX86(BaseBackendTest):
         loop.inputargs = [p]
         self.cpu.compile_operations(loop)
         op = self.cpu.execute_operations(loop, [p])
-        assert op.args[0].value == 1
+        assert op.args[0].value == 0

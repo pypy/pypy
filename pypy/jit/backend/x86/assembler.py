@@ -124,7 +124,10 @@ class Assembler386(object):
             return
         if memo is None:
             memo = {}
-        args = ",".join([repr_of_arg(memo, arg) for arg in inputargs])
+        if inputargs is None:
+            args = ''
+        else:
+            args = ",".join([repr_of_arg(memo, arg) for arg in inputargs])
         os.write(self._log_fd, "LOOP %s\n" % args)
         for op in operations:
             args = ",".join([repr_of_arg(memo, arg) for arg in op.args])
@@ -134,7 +137,7 @@ class Assembler386(object):
                                                                  op.result))
             if op.is_guard():
                 os.write(self._log_fd, "BEGIN\n")
-                self.eventually_log_operations(inputargs, operations, memo)
+                self.eventually_log_operations(None, op.suboperations, memo)
                 os.write(self._log_fd, "END\n")
         os.write(self._log_fd, "LOOP END\n")
 
