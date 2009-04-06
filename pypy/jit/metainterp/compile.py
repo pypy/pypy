@@ -122,16 +122,15 @@ class DoneWithThisFrameDescr1(AbstractDescr):
         resultbox = fail_op.args[0]
         raise metainterp.DoneWithThisFrame(resultbox)
 
-#XXX later:
-#class ExitFrameWithExceptionDescr(AbstractDescr):
-#    def handle_fail_op(self, metainterp, fail_op):
-#        typebox = fail_op.args[0]
-#        valuebox = fail_op.args[1]
-#        raise metainterp.ExitFrameWithException(typebox, valuebox)
+class ExitFrameWithExceptionDescr(AbstractDescr):
+    def handle_fail_op(self, metainterp, fail_op):
+        typebox = fail_op.args[0]
+        valuebox = fail_op.args[1]
+        raise metainterp.ExitFrameWithException(typebox, valuebox)
 
 done_with_this_frame_descr_0 = DoneWithThisFrameDescr0()
 done_with_this_frame_descr_1 = DoneWithThisFrameDescr1()
-#exit_frame_with_exception_descr = ExitFrameWithExceptionDescr()
+exit_frame_with_exception_descr = ExitFrameWithExceptionDescr()
 map_loop2descr = {}
 
 # pseudo-loops to make the life of optimize.py easier
@@ -153,11 +152,12 @@ _loop.inputargs = []
 loops_done_with_this_frame_void = [_loop]
 map_loop2descr[_loop] = done_with_this_frame_descr_0
 
-#loop_exit_frame_with_exception = TreeLoop('exit_frame_with_exception')
-#loop_exit_frame_with_exception.specnodes = [NotSpecNode(), NotSpecNode()]
-#loop_exit_frame_with_exception.inputargs = [BoxInt(), BoxPtr()]
-#loops_exit_frame_with_exception = [loop_exit_frame_with_exception]
-#map_loop2descr[loop_exit_frame_with_exception]=exit_frame_with_exception_descr
+_loop = TreeLoop('exit_frame_with_exception')
+_loop.specnodes = [NotSpecNode(), NotSpecNode()]
+_loop.inputargs = [BoxInt(), BoxPtr()]
+loops_exit_frame_with_exception = [_loop]
+map_loop2descr[_loop] = exit_frame_with_exception_descr
+del _loop
 
 
 class ResumeGuardDescr(AbstractDescr):

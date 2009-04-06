@@ -783,9 +783,8 @@ class OOMetaInterp(object):
             if not we_are_translated():
                 self._debug_history.append(['leave_exc', frame.jitcode, None])
             self.framestack.pop()
-        #XXX later:
-        #if not isinstance(self.history, history..BlackHole):
-        #    self.compile_exit_frame_with_exception(exceptionbox, excvaluebox)
+        if not isinstance(self.history, history.BlackHole):
+            self.compile_exit_frame_with_exception(exceptionbox, excvaluebox)
         raise self.ExitFrameWithException(exceptionbox, excvaluebox)
 
     def create_empty_history(self):
@@ -996,6 +995,13 @@ class OOMetaInterp(object):
             exits = []
             loops = compile.loops_done_with_this_frame_void
         self.history.record(rop.JUMP, exits, None)
+        target_loop = compile.compile_new_bridge(self, loops, self.resumekey)
+        assert target_loop is loops[0]
+
+    def compile_exit_frame_with_exception(self, typebox, valuebox):
+        # temporarily put a JUMP to a pseudo-loop
+        self.history.record(rop.JUMP, [typebox, valuebox], None)
+        loops = compile.loops_exit_frame_with_exception
         target_loop = compile.compile_new_bridge(self, loops, self.resumekey)
         assert target_loop is loops[0]
 

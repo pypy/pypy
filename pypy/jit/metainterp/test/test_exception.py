@@ -362,6 +362,31 @@ class ExceptionTests:
         res = self.meta_interp(f, [100])
         assert res == 3
 
+    def test_bridge_from_interpreter_exc(self):
+        mydriver = JitDriver(reds = ['n'], greens = [])
+
+        def f(n):
+            while n > 0:
+                mydriver.can_enter_jit(n=n)
+                mydriver.jit_merge_point(n=n)
+                n -= 2
+            raise MyError(n)
+        def main(n):
+            try:
+                f(n)
+            except MyError, e:
+                return e.n
+
+        res = self.meta_interp(main, [41], repeat=7)
+        assert res == -1
+        self.check_tree_loop_count(2)      # the loop and the entry path
+        # we get:
+        #    ENTER             - compile the new loop
+        #    ENTER (BlackHole) - leave
+        #    ENTER             - compile the entry bridge
+        #    ENTER             - compile the leaving path (raising MyError)
+        self.check_enter_count(4)
+
 class MyError(Exception):
     def __init__(self, n):
         self.n = n
