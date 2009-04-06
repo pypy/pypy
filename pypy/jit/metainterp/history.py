@@ -84,6 +84,8 @@ class AbstractValue(object):
         raise NotImplementedError
 
 class AbstractDescr(AbstractValue):
+    def handle_fail_op(self, metainterp, fail_op):
+        raise NotImplementedError
     def compile_and_attach(self, metainterp, new_loop):
         raise NotImplementedError
 
@@ -457,9 +459,11 @@ def mp_hash(greenkey):
 class Stats(object):
     """For tests."""
 
+    compiled_count = 0
+    enter_count = 0
+
     def __init__(self):
         self.loops = []
-        self.compiled_count = 0
 
     def get_all_loops(self):
         return self.loops

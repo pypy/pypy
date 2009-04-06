@@ -86,7 +86,6 @@ class rop(object):
     _FINAL_FIRST = 1
     JUMP                   = 1
     FAIL                   = 2
-    #RAISE                  = 3
     _FINAL_LAST = 9
 
     _GUARD_FIRST = 10 # ----- start of guard operations -----

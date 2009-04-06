@@ -265,8 +265,14 @@ class VirtualTests:
 
         res = self.meta_interp(f, [21], repeat=7)
         assert res.inst_n == f(21).n
-        py.test.skip("in-progress")
-        self.check_loop_count(3)      # the loop, the entry path, the exit path
+        self.check_tree_loop_count(2)      # the loop and the entry path
+        # we get:
+        #    ENTER             - compile the new loop
+        #    ENTER (BlackHole) - leave
+        #    ENTER             - compile the entry bridge
+        #    ENTER             - compile the leaving path
+        self.check_enter_count(4)
+
 
 ##class TestOOtype(VirtualTests, OOJitMixin):
 ##    _new = staticmethod(ootype.new)

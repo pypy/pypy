@@ -869,6 +869,8 @@ class PerfectSpecializer(object):
             jump.args = self._patch(jump.args, inpargs)
 
     def update_loop(self, offsets, loop):
+        if loop.operations is None:  # special loops 'done_with_this_frame'
+            return                   # and 'exit_frame_with_exception'
         j = 0
         new_inputargs = []
         prev_ofs = 0

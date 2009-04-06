@@ -29,7 +29,8 @@ class JitMixin:
     def check_loops(self, expected=None, **check):
         get_stats().check_loops(expected=expected, **check)
     def check_loop_count(self, count):
-        """NB. This is a hack; use check_tree_loop_count() for the real thing.
+        """NB. This is a hack; use check_tree_loop_count() or
+        check_enter_count() for the real thing.
         This counts as 1 every bridge in addition to every loop; and it does
         not count at all the entry bridges from interpreter, although they
         are TreeLoops as well."""
@@ -38,6 +39,8 @@ class JitMixin:
         assert len(get_stats().loops) == count
     def check_loop_count_at_most(self, count):
         assert get_stats().compiled_count <= count
+    def check_enter_count(self, count):
+        assert get_stats().enter_count == count
     def check_jumps(self, maxcount):
         assert get_stats().exec_jumps <= maxcount
 
@@ -53,8 +56,9 @@ class LLJitMixin(JitMixin):
         class DoneWithThisFrame(Exception):
             pass
         
-        class FakeWarmRunnderDesc:
-            num_green_args = 0
+        class FakeWarmRunnerDesc:
+            def attach_unoptimized_bridge_from_interp(self, greenkey, newloop):
+                pass
         
         if policy is None:
             policy = JitPolicy()
@@ -69,14 +73,14 @@ class LLJitMixin(JitMixin):
             cw.make_one_bytecode(graph, False, called_from)
         metainterp.portal_code = maingraph
         metainterp.delete_history()
-        metainterp.warmrunnerdesc = FakeWarmRunnderDesc
+        metainterp.state = FakeWarmRunnerDesc()
         metainterp.DoneWithThisFrame = DoneWithThisFrame
         self.metainterp = metainterp
         try:
             metainterp.compile_and_run_once(*args)
         except DoneWithThisFrame, e:
-            if conftest.option.view:
-                metainterp.stats.view()
+            #if conftest.option.view:
+            #    metainterp.stats.view()
             return e.args[0].value
         else:
             raise Exception("FAILED")
@@ -366,8 +370,13 @@ class BasicTests:
                 n -= 1
 
         self.meta_interp(f, [20], repeat=7)
-        py.test.skip("in-progress")
-        self.check_loop_count(3)      # the loop, the entry path, the exit path
+        self.check_tree_loop_count(2)      # the loop and the entry path
+        # we get:
+        #    ENTER             - compile the new loop
+        #    ENTER (BlackHole) - leave
+        #    ENTER             - compile the entry bridge
+        #    ENTER             - compile the leaving path
+        self.check_enter_count(4)
 
     def test_casts(self):
         from pypy.rpython.lltypesystem import lltype, llmemory

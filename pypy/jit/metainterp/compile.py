@@ -6,7 +6,8 @@ from pypy.conftest import option
 
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.history import TreeLoop, log, Box, History
-from pypy.jit.metainterp.history import AbstractDescr
+from pypy.jit.metainterp.history import AbstractDescr, BoxInt, BoxPtr
+from pypy.jit.metainterp.specnode import NotSpecNode
 
 def compile_new_loop(metainterp, old_loops, greenkey):
     """Try to compile a new loop by closing the current history back
@@ -56,7 +57,7 @@ def _compile_new_bridge_1(metainterp, old_loops, resumekey):
     else:
         if target_loop is not None:
             show_loop(metainterp, target_loop)
-    if target_loop is not None:
+    if target_loop is not None and target_loop not in map_loop2descr:
         target_loop.check_consistency()
     return target_loop
 
@@ -69,7 +70,7 @@ def show_loop(metainterp, loop=None, error=None):
                 errmsg += ': ' + str(error)
         else:
             errmsg = None
-        if loop is None:
+        if loop is None or loop in map_loop2descr:
             extraloops = []
         else:
             extraloops = [loop]
@@ -112,6 +113,53 @@ def send_loop_to_backend(metainterp, loop, type):
 
 # ____________________________________________________________
 
+class DoneWithThisFrameDescr0(AbstractDescr):
+    def handle_fail_op(self, metainterp, fail_op):
+        raise metainterp.DoneWithThisFrame(None)
+
+class DoneWithThisFrameDescr1(AbstractDescr):
+    def handle_fail_op(self, metainterp, fail_op):
+        resultbox = fail_op.args[0]
+        raise metainterp.DoneWithThisFrame(resultbox)
+
+#XXX later:
+#class ExitFrameWithExceptionDescr(AbstractDescr):
+#    def handle_fail_op(self, metainterp, fail_op):
+#        typebox = fail_op.args[0]
+#        valuebox = fail_op.args[1]
+#        raise metainterp.ExitFrameWithException(typebox, valuebox)
+
+done_with_this_frame_descr_0 = DoneWithThisFrameDescr0()
+done_with_this_frame_descr_1 = DoneWithThisFrameDescr1()
+#exit_frame_with_exception_descr = ExitFrameWithExceptionDescr()
+map_loop2descr = {}
+
+# pseudo-loops to make the life of optimize.py easier
+_loop = TreeLoop('done_with_this_frame_int')
+_loop.specnodes = [NotSpecNode()]
+_loop.inputargs = [BoxInt()]
+loops_done_with_this_frame_int = [_loop]
+map_loop2descr[_loop] = done_with_this_frame_descr_1
+
+_loop = TreeLoop('done_with_this_frame_ptr')
+_loop.specnodes = [NotSpecNode()]
+_loop.inputargs = [BoxPtr()]
+loops_done_with_this_frame_ptr = [_loop]
+map_loop2descr[_loop] = done_with_this_frame_descr_1
+
+_loop = TreeLoop('done_with_this_frame_void')
+_loop.specnodes = []
+_loop.inputargs = []
+loops_done_with_this_frame_void = [_loop]
+map_loop2descr[_loop] = done_with_this_frame_descr_0
+
+#loop_exit_frame_with_exception = TreeLoop('exit_frame_with_exception')
+#loop_exit_frame_with_exception.specnodes = [NotSpecNode(), NotSpecNode()]
+#loop_exit_frame_with_exception.inputargs = [BoxInt(), BoxPtr()]
+#loops_exit_frame_with_exception = [loop_exit_frame_with_exception]
+#map_loop2descr[loop_exit_frame_with_exception]=exit_frame_with_exception_descr
+
+
 class ResumeGuardDescr(AbstractDescr):
     def __init__(self, guard_op, resume_info, history, history_guard_index):
         self.resume_info = resume_info
@@ -120,6 +168,9 @@ class ResumeGuardDescr(AbstractDescr):
         self.history = history
         assert history_guard_index >= 0
         self.history_guard_index = history_guard_index
+
+    def handle_fail_op(self, metainterp, fail_op):
+        return metainterp.handle_guard_failure(fail_op, self)
 
     def get_guard_op(self):
         guard_op = self.guard_op
@@ -193,10 +244,21 @@ def compile_fresh_bridge(metainterp, old_loops, resumekey):
     if target_loop is not None:
         # Yes, we managed to create a bridge.  Dispatch to resumekey to
         # know exactly what we must do (ResumeGuardDescr/ResumeFromInterpDescr)
-        op = new_loop.operations[-1]
-        op.jump_target = target_loop
+        prepare_last_operation(new_loop, target_loop)
         resumekey.compile_and_attach(metainterp, new_loop)
     return target_loop
+
+def prepare_last_operation(new_loop, target_loop):
+    op = new_loop.operations[-1]
+    if target_loop not in map_loop2descr:
+        # normal case
+        op.jump_target = target_loop
+    else:
+        # The target_loop is a pseudo-loop done_with_this_frame.  Replace
+        # the operation with the real operation we want, i.e. a FAIL.
+        descr = map_loop2descr[target_loop]
+        new_op = ResOperation(rop.FAIL, op.args, None, descr=descr)
+        new_loop.operations[-1] = new_op
 
 
 def prepare_loop_from_bridge(metainterp, resumekey):

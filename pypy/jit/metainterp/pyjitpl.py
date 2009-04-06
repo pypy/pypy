@@ -767,6 +767,8 @@ class OOMetaInterp(object):
                 self.framestack[-1].make_result_box(resultbox)
             return True
         else:
+            if not isinstance(self.history, history.BlackHole):
+                self.compile_done_with_this_frame(resultbox)
             raise self.DoneWithThisFrame(resultbox)
 
     def finishframe_exception(self, exceptionbox, excvaluebox):
@@ -781,6 +783,9 @@ class OOMetaInterp(object):
             if not we_are_translated():
                 self._debug_history.append(['leave_exc', frame.jitcode, None])
             self.framestack.pop()
+        #XXX later:
+        #if not isinstance(self.history, history..BlackHole):
+        #    self.compile_exit_frame_with_exception(exceptionbox, excvaluebox)
         raise self.ExitFrameWithException(exceptionbox, excvaluebox)
 
     def create_empty_history(self):
@@ -831,6 +836,7 @@ class OOMetaInterp(object):
             text = ''
         if not we_are_translated():
             history.log.event('ENTER' + text)
+            self.stats.enter_count += 1
         else:
             debug_print('~~~ ENTER', text)
         try:
@@ -867,9 +873,8 @@ class OOMetaInterp(object):
         except GenerateMergePoint, gmp:
             return self.designate_target_loop(gmp)
 
-    def handle_guard_failure(self, guard_failure):
+    def handle_guard_failure(self, guard_failure, key):
         self.initialize_state_from_guard_failure(guard_failure)
-        key = guard_failure.descr
         assert isinstance(key, compile.ResumeGuardDescr)
         top_history = key.find_toplevel_history()
         source_loop = top_history.source_link
@@ -978,6 +983,21 @@ class OOMetaInterp(object):
         if target_loop is not None:   # raise if it *worked* correctly
             raise GenerateMergePoint(live_arg_boxes, target_loop)
         self.history.operations.pop()     # remove the JUMP
+
+    def compile_done_with_this_frame(self, exitbox):
+        # temporarily put a JUMP to a pseudo-loop
+        if exitbox is not None:
+            exits = [exitbox]
+            if isinstance(exitbox, BoxInt) or isinstance(exitbox, ConstInt):
+                loops = compile.loops_done_with_this_frame_int
+            else:
+                loops = compile.loops_done_with_this_frame_ptr
+        else:
+            exits = []
+            loops = compile.loops_done_with_this_frame_void
+        self.history.record(rop.JUMP, exits, None)
+        target_loop = compile.compile_new_bridge(self, loops, self.resumekey)
+        assert target_loop is loops[0]
 
     def get_residual_args(self, loop, args):
         if loop.specnodes is None:     # it is None only for tests

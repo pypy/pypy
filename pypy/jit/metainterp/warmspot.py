@@ -483,8 +483,8 @@ def make_state_class(warmrunnerdesc):
             # ---------- execute assembler ----------
             while True:     # until interrupted by an exception
                 metainterp = warmrunnerdesc.metainterp
-                guard_failure = metainterp.cpu.execute_operations(loop, boxes)
-                loop, boxes = metainterp.handle_guard_failure(guard_failure)
+                fail_op = metainterp.cpu.execute_operations(loop, boxes)
+                loop, boxes = fail_op.descr.handle_fail_op(metainterp, fail_op)
         maybe_compile_and_run._dont_inline_ = True
 
         def handle_hash_collision(self, cell, argshash, *args):
