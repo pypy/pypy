@@ -1163,7 +1163,7 @@ class _ptr(_abstract_ptr):
             if parent is None:
                 raise RuntimeError("widening to trash: %r" % self)
             PARENTTYPE = struc._parent_type
-            if getattr(parent, PARENTTYPE._names[0]) is not struc:
+            if getattr(parent, PARENTTYPE._names[0]) != struc:
                 raise InvalidCast(CURTYPE, PTRTYPE) # xxx different exception perhaps?
             struc = parent
             u -= 1
