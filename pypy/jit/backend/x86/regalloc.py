@@ -13,7 +13,7 @@ from pypy.jit.metainterp.resoperation import rop
 
 # esi edi and ebp can be added to this list, provided they're correctly
 # saved and restored
-REGS = [eax, ecx, edx]
+REGS = [eax, ecx, edx, ebx]
 WORD = 4
 FRAMESIZE = 1024    # XXX should not be a constant at all!!
 

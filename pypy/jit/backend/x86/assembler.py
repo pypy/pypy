@@ -497,7 +497,15 @@ class Assembler386(object):
         base_loc, ofs_loc, scale, ofs = arglocs
         assert isinstance(ofs, IMM32)
         assert isinstance(scale, IMM32)
-        self.mc.MOV(resloc, addr_add(base_loc, ofs_loc, ofs.value, scale.value))
+        if scale.value == 0:
+            self.mc.MOVZX(resloc, addr8_add(base_loc, ofs_loc, ofs.value,
+                                            scale.value))
+        elif scale.value == 2:
+            self.mc.MOV(resloc, addr_add(base_loc, ofs_loc, ofs.value,
+                                         scale.value))
+        else:
+            print "[asmgen]setarrayitem unsupported size: %d" % scale.value
+            raise NotImplementedError()
 
     genop_getfield_raw = genop_getfield_gc
     genop_getarrayitem_gc_pure = genop_getarrayitem_gc
@@ -514,6 +522,7 @@ class Assembler386(object):
         elif size == 1:
             self.mc.MOV(addr8_add(base_loc, ofs_loc), lower_byte(value_loc))
         else:
+            print "[asmgen]setfield addr size %d" % size
             raise NotImplementedError("Addr size %d" % size)
 
     def genop_discard_setarrayitem_gc(self, op, arglocs):

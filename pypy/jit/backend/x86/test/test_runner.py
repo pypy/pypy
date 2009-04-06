@@ -260,6 +260,27 @@ class TestX86(BaseBackendTest):
                                    'int', descr)
         assert r.value == 42
 
+    def test_arrayitems_not_int(self):
+        TP = lltype.GcArray(lltype.Char)
+        ofs = symbolic.get_field_token(TP, 'length', False)[0]
+        itemsofs = symbolic.get_field_token(TP, 'items', False)[0]
+        descr = self.cpu.arraydescrof(TP)
+        res = self.execute_operation(rop.NEW_ARRAY, [ConstInt(10)],
+                                     'ptr', descr)
+        resbuf = ctypes.cast(res.value.intval, ctypes.POINTER(ctypes.c_char))
+        assert resbuf[ofs] == chr(10)
+        for i in range(10):
+            self.execute_operation(rop.SETARRAYITEM_GC, [res,
+                                                   ConstInt(i), BoxInt(i)],
+                                   'void', descr)
+        for i in range(10):
+            assert resbuf[itemsofs + i] == chr(i)
+        for i in range(10):
+            r = self.execute_operation(rop.GETARRAYITEM_GC, [res,
+                                                             ConstInt(i)],
+                                         'int', descr)
+            assert r.value == i
+
     def test_getfield_setfield(self):
         TP = lltype.GcStruct('x', ('s', lltype.Signed),
                              ('f', lltype.Float),
