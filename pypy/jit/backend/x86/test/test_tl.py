@@ -1,6 +1,5 @@
 
 import py
-py.test.skip("Widening to trash error")
 from pypy.jit.metainterp.test.test_tl import ToyLanguageTests
 from pypy.jit.backend.x86.test.test_basic import Jit386Mixin
 
