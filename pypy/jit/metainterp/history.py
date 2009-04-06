@@ -146,6 +146,7 @@ class Const(AbstractValue):
 
 class ConstInt(Const):
     type = INT
+    _attrs_ = ('value',)
 
     def __init__(self, value):
         if not we_are_translated():
@@ -182,6 +183,7 @@ CONST_TRUE  = ConstInt(1)
 
 class ConstAddr(Const):       # only for constants built before translation
     type = INT
+    _attrs_ = ('value', 'cpu')
 
     def __init__(self, adrvalue, cpu):
         "NOT_RPYTHON"
@@ -216,6 +218,7 @@ class ConstAddr(Const):       # only for constants built before translation
 class ConstPtr(Const):
     type = PTR
     value = lltype.nullptr(llmemory.GCREF.TO)
+    _attrs_ = ('value',)
 
     def __init__(self, value):
         assert lltype.typeOf(value) == llmemory.GCREF
@@ -282,6 +285,7 @@ class Box(AbstractValue):
 
 class BoxInt(Box):
     type = INT
+    _attrs_ = ('value',)
 
     def __init__(self, value=0):
         if not we_are_translated():
@@ -310,6 +314,7 @@ class BoxInt(Box):
 
 class BoxPtr(Box):
     type = PTR
+    _attrs_ = ('value',)
 
     def __init__(self, value=lltype.nullptr(llmemory.GCREF.TO)):
         assert lltype.typeOf(value) == llmemory.GCREF
