@@ -135,7 +135,8 @@ class Assembler386(object):
         for op in operations:
             args = ",".join([repr_of_arg(memo, arg) for arg in op.args])
             if op.descr is not None and isinstance(op.descr, ConstDescr3):
-                descr = op.descr.sort_key()
+                descr = (str(op.descr.v[0]) + "," + str(op.descr.v[1]) +
+                         "," + str(op.descr.v[2]))
                 os.write(self._log_fd, "%s %s[%s]\n" % (op.getopname(), args,
                                                         descr))
             else:
