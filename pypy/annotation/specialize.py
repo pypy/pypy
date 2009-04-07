@@ -423,7 +423,7 @@ def make_constgraphbuilder(n, v=None, factory=None, srcmodule=None):
         else:
             computed_v = v
         miniglobals = {'v': computed_v, '__name__': srcmodule}
-        exec py.code.Source("constf = lambda %s: v").compile() % args in miniglobals
+        exec py.code.Source("constf = lambda %s: v" % args).compile() in miniglobals
         return translator.buildflowgraph(miniglobals['constf'])
     return constgraphbuilder
 
