@@ -409,7 +409,7 @@ class ClosureHeap(object):
         self.free_list = lltype.nullptr(rffi.VOIDP.TO)
 
     def _more(self):
-        chunk = rffi.cast(CLOSURES, alloc(NotConstant(CHUNK)))
+        chunk = rffi.cast(CLOSURES, alloc(NonConstant(CHUNK)))
         count = CHUNK//rffi.sizeof(FFI_CLOSUREP.TO)
         for i in range(count):
             rffi.cast(rffi.VOIDPP, chunk)[0] = self.free_list
