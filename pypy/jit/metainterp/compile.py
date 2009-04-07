@@ -290,6 +290,16 @@ def inverse_guard(guard_op):
         guard_op = ResOperation(rop.GUARD_FALSE, guard_op.args, None)
     elif guard_op.opnum == rop.GUARD_FALSE:
         guard_op = ResOperation(rop.GUARD_TRUE, guard_op.args, None)
+    elif guard_op.opnum == rop.GUARD_EXCEPTION:
+        guard_op = ResOperation(rop.GUARD_EXCEPTION_INVERSE, guard_op.args,
+                                None)
+    elif guard_op.opnum == rop.GUARD_VALUE:
+        guard_op = ResOperation(rop.GUARD_VALUE_INVERSE, guard_op.args, None)
+    elif guard_op.opnum == rop.GUARD_NO_EXCEPTION:
+        guard_op = ResOperation(rop.GUARD_NO_EXCEPTION_INVERSE, guard_op.args,
+                                None)
+    elif guard_op.opnum == rop.GUARD_CLASS:
+        guard_op = ResOperation(rop.GUARD_CLASS_INVERSE, guard_op.args, None)
     else:
         # XXX other guards have no inverse so far
         raise InverseTheOtherGuardsPlease(guard_op)

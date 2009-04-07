@@ -140,9 +140,8 @@ class BaseBackendTest(Runner):
         null_box = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, lltype.nullptr(T)))
         self.execute_operation(rop.GUARD_CLASS, [t_box, T_box], 'void')
         assert not self.cpu.guard_failed()
-        #self.execute_operation(rop.GUARD_CLASS_INVERSE, [t_box, null_box],
-        #                       'void')
-        #assert not self.cpu.guard_failed()
+        self.execute_operation(rop.GUARD_CLASS_INVERSE, [t_box, null_box],
+                               'void')
 
     def test_failing_guards(self):
         vtable_for_T = lltype.malloc(MY_VTABLE, immortal=True)

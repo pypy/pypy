@@ -88,17 +88,20 @@ class rop(object):
     _FINAL_FIRST = 1
     JUMP                   = 1
     FAIL                   = 2
-    _FINAL_LAST = 9
+    _FINAL_LAST = 3
 
-    _GUARD_FIRST = 10 # ----- start of guard operations -----
-    GUARD_TRUE             = 10
-    GUARD_FALSE            = 11
-    GUARD_VALUE            = 12
-    GUARD_CLASS            = 13
-    GUARD_NONVIRTUALIZED   = 14
-    GUARD_NO_EXCEPTION     = 15
-    GUARD_EXCEPTION        = 16
-    GUARD_VALUE_INVERSE    = 17
+    _GUARD_FIRST = 8 # ----- start of guard operations -----
+    GUARD_TRUE             = 8
+    GUARD_FALSE            = 9
+    GUARD_VALUE            = 10
+    GUARD_CLASS            = 11
+    GUARD_NONVIRTUALIZED   = 12
+    GUARD_NO_EXCEPTION     = 13
+    GUARD_EXCEPTION        = 14
+    GUARD_VALUE_INVERSE    = 15
+    GUARD_CLASS_INVERSE    = 16
+    GUARD_EXCEPTION_INVERSE = 17
+    GUARD_NO_EXCEPTION_INVERSE = 18
     _GUARD_LAST = 19 # ----- end of guard operations -----
 
     _NOSIDEEFFECT_FIRST = 20 # ----- start of no_side_effect operations -----

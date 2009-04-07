@@ -510,6 +510,14 @@ class Frame(object):
         if value.typeptr != expected_class:
             raise GuardFailed
 
+    def op_guard_class_inverse(self, _, value, expected_class):
+        value = lltype.cast_opaque_ptr(rclass.OBJECTPTR, value)
+        expected_class = llmemory.cast_adr_to_ptr(
+            cast_int_to_adr(self.memocast, expected_class),
+            rclass.CLASSTYPE)
+        if value.typeptr == expected_class:
+            raise GuardFailed
+
     def op_guard_value(self, _, value, expected_value):
         if value != expected_value:
             raise GuardFailed
@@ -528,7 +536,11 @@ class Frame(object):
         if _last_exception:
             raise GuardFailed
 
-    def op_guard_exception(self, _, expected_exception):
+    def op_guard_no_exception_inverse(self, _):
+        if _last_exception is None:
+            raise GuardFailed
+
+    def _check_exception(self, expected_exception):
         global _last_exception
         expected_exception = llmemory.cast_adr_to_ptr(
             cast_int_to_adr(self.memocast, expected_exception),
@@ -542,8 +554,16 @@ class Frame(object):
             _last_exception = None
             return exc.args[1]
         else:
+            return None
+
+    def op_guard_exception(self, _, expected_exception):
+        if self._check_exception(expected_exception) is None:
             raise GuardFailed
 
+    def op_guard_exception_inverse(self, _, expected_exception):
+        if self._check_exception(expected_exception) is not None:
+            raise GuardFailed
+    
     # ----------
     # delegating to the builtins do_xxx() (done automatically for simple cases)
 
