@@ -15,7 +15,6 @@ from pypy.jit.metainterp.resoperation import rop
 # saved and restored
 REGS = [eax, ecx, edx, ebx]
 WORD = 4
-FRAMESIZE = 1024    # XXX should not be a constant at all!!
 
 class TempBox(Box):
     def __init__(self):
@@ -46,14 +45,15 @@ def convert_to_imm(c):
 
 class RegAlloc(object):
     guard_index = -1
+    max_stack_depth = 0
     
     def __init__(self, assembler, tree, translate_support_code=False,
                  regalloc=None, guard_op=None):
         # variables that have place in register
         self.assembler = assembler
         self.translate_support_code = translate_support_code
-        self.tree = tree
         if regalloc is None:
+            self.tree = tree
             self.reg_bindings = newcheckdict()
             self.stack_bindings = newcheckdict()
             # compute longevity of variables
@@ -88,6 +88,7 @@ class RegAlloc(object):
             self.longevity = guard_op.longevity
             jump_or_fail = guard_op.suboperations[-1]
             self.loop_consts = {}
+            self.tree = regalloc.tree
             if jump_or_fail.opnum == rop.FAIL:
                 self.jump_reg_candidates = {}
             else:
@@ -212,6 +213,8 @@ class RegAlloc(object):
         self.assembler.regalloc_perform_with_guard(op, guard_op, regalloc,
                                                    arglocs, result_loc,
                                                    overflow)
+        self.max_stack_depth = max(self.max_stack_depth,
+                                   regalloc.max_stack_depth)
 
     def perform_guard(self, op, regalloc, arglocs, result_loc):
         if not we_are_translated():
@@ -220,6 +223,8 @@ class RegAlloc(object):
             else:
                 self.assembler.dump('%s(%s)' % (op, arglocs))
         self.assembler.regalloc_perform_guard(op, regalloc, arglocs, result_loc)
+        self.max_stack_depth = max(self.max_stack_depth,
+                                   regalloc.max_stack_depth)
 
     def PerformDiscard(self, op, arglocs):
         if not we_are_translated():
@@ -250,6 +255,8 @@ class RegAlloc(object):
         self.position = -1
         self.process_inputargs(tree)
         self._walk_operations(operations)
+        self.max_stack_depth = max(self.max_stack_depth,
+                                   self.current_stack_depth)
 
     def walk_guard_ops(self, inputargs, operations):
         for arg in inputargs:
@@ -257,6 +264,8 @@ class RegAlloc(object):
                 assert arg in self.stack_bindings
                 assert arg not in self.dirty_stack
         self._walk_operations(operations)
+        self.max_stack_depth = max(self.max_stack_depth,
+                                   self.current_stack_depth)
 
     def _walk_operations(self, operations):
         i = 0
@@ -462,8 +471,6 @@ class RegAlloc(object):
             self.current_stack_depth += 1
             res = newloc
         assert isinstance(res, MODRM)
-        if res.position > FRAMESIZE/WORD:
-            raise NotImplementedError("Exceeded FRAME_SIZE")
         return res
 
     def make_sure_var_in_reg(self, v, forbidden_vars, selected_reg=None,
@@ -1132,9 +1139,9 @@ for name, value in RegAlloc.__dict__.iteritems():
         num = getattr(rop, name.upper())
         oplist[num] = value
 
-def arg_pos(i):
-    res = mem(esp, FRAMESIZE + WORD * (i + 1))
-    res.position = (i + 1) + FRAMESIZE // WORD
+def arg_pos(i, framesize):
+    res = mem(esp, framesize + WORD * (i + 1))
+    res.position = (i + 1) + framesize // WORD
     return res
 
 def stack_pos(i):

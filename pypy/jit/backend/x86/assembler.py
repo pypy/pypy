@@ -8,7 +8,7 @@ from pypy.rpython.lltypesystem.rclass import OBJECT
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.annotation import model as annmodel
 from pypy.tool.uid import fixid
-from pypy.jit.backend.x86.regalloc import (RegAlloc, FRAMESIZE, WORD, REGS,
+from pypy.jit.backend.x86.regalloc import (RegAlloc, WORD, REGS,
                                       arg_pos, lower_byte, stack_pos)
 from pypy.rlib.objectmodel import we_are_translated, specialize, compute_unique_id
 from pypy.jit.backend.x86 import codebuf
@@ -58,6 +58,7 @@ class MachineCodeStack(object):
         return mc
 
     def give_mc_back(self, mc):
+        mc.done()
         assert self.mcstack[self.counter - 1] is mc
         self.counter -= 1
 
@@ -191,10 +192,12 @@ class Assembler386(object):
         return max_so_far
 
     def assemble(self, tree):
+        self.places_to_patch_framesize = []
         # the last operation can be 'jump', 'return' or 'guard_pause';
         # a 'jump' can either close a loop, or end a bridge to some
         # previously-compiled code.
         self._compute_longest_fail_op(tree.operations)
+        self.tree = tree
         self.make_sure_mc_exists()
         inputargs = tree.inputargs
         self.eventually_log_operations(tree.inputargs, tree.operations, None,
@@ -206,6 +209,11 @@ class Assembler386(object):
         self.sanitize_tree(tree.operations)
         self.mc.done()
         self.mc2.done()
+        tree._x86_stack_depth = regalloc.max_stack_depth
+        for place, offset in self.places_to_patch_framesize:
+            mc = codebuf.InMemoryCodeBuilder(place, 128)
+            mc.ADD(esp, imm32((tree._x86_stack_depth - offset) * WORD))
+            mc.done()
 
     def sanitize_tree(self, operations):
         """ Cleans up all attributes attached by regalloc and backend
@@ -216,11 +224,11 @@ class Assembler386(object):
                 op.longevity = None
                 self.sanitize_tree(op.suboperations)
 
-    def assemble_bootstrap_code(self, jumpaddr, arglocs):
+    def assemble_bootstrap_code(self, jumpaddr, arglocs, framesize):
         self.make_sure_mc_exists()
         addr = self.mc.tell()
-        self.mc.SUB(esp, imm(FRAMESIZE))
-        self.mc.MOV(eax, arg_pos(0))
+        self.mc.SUB(esp, imm(framesize * WORD))
+        self.mc.MOV(eax, arg_pos(0, framesize * WORD))
         for i in range(len(arglocs)):
             loc = arglocs[i]
             if not isinstance(loc, REG):
@@ -588,14 +596,20 @@ class Assembler386(object):
         #tree.comeback_bootstrap_addr = self.assemble_comeback_bootstrap(pos,
         #                                                locs, stacklocs)
 
-    def patch_jump(self, old_pos, new_pos, oldlocs, newlocs):
+    def patch_jump(self, old_pos, new_pos, oldlocs, newlocs, olddepth, newdepth):
         if len(oldlocs) != len(newlocs):
             # virtualizable mess
             return
         if not we_are_translated():
             assert str(oldlocs) == str(newlocs)
+        mc2 = self.mcstack.next_mc()
+        pos = mc2.tell()
+        mc2.SUB(esp, imm32((newdepth - olddepth) * WORD))
+        mc2.JMP(rel32(new_pos))
+        self.mcstack.give_mc_back(mc2)
         mc = codebuf.InMemoryCodeBuilder(old_pos, MachineCodeStack.MC_SIZE)
-        mc.JMP(rel32(new_pos))
+        mc.JMP(rel32(pos))
+        mc.done()
 
 #     def genop_discard_return(self, op, locs):
 #         if op.args:
@@ -617,6 +631,10 @@ class Assembler386(object):
 
     def genop_discard_jump(self, op, locs):
         targetmp = op.jump_target
+        if targetmp is not self.tree:
+            targetdepth = targetmp._x86_stack_depth
+            self.places_to_patch_framesize.append((self.mc.tell(), targetdepth))
+            self.mc.ADD(esp, imm32(0))
         self.mc.JMP(rel32(targetmp._x86_compiled))
 
     def genop_guard_guard_true(self, op, ign_1, addr, locs, ign_2):
@@ -734,7 +752,8 @@ class Assembler386(object):
             # clean up the original exception, we don't want
             # to enter more rpython code with exc set
             self.mc.MOV(heap(self._exception_addr), imm(0))
-        self.mc.ADD(esp, imm(FRAMESIZE))
+        self.places_to_patch_framesize.append((self.mc.tell(), 0))
+        self.mc.ADD(esp, imm32(0))
         self.mc.MOV(eax, imm(guard_index))
         self.mc.RET()
 

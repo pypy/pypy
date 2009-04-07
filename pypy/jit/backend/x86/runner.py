@@ -85,7 +85,7 @@ class CPU386(object):
         TP = lltype.GcArray(llmemory.GCREF)
         self.keepalives = []
         self.keepalives_index = 0
-        #self._bootstrap_cache = {}
+        self._bootstrap_cache = {}
         self._guard_list = []
         self._compiled_ops = {}
         self._builtin_implementations = {}
@@ -187,28 +187,32 @@ class CPU386(object):
     def compile_operations(self, tree):
         old_loop = tree._x86_compiled
         if old_loop:
+            olddepth = tree._x86_stack_depth
             oldlocs = tree.arglocs
         else:
             oldlocs = None
-        self.assembler.assemble(tree)
+            olddepth = 0
+        stack_depth = self.assembler.assemble(tree)
         newlocs = tree.arglocs
         if old_loop != 0:
             self.assembler.patch_jump(old_loop, tree._x86_compiled,
-                                      oldlocs, newlocs)
+                                      oldlocs, newlocs, olddepth,
+                                      tree._x86_stack_depth)
 
     def get_bootstrap_code(self, loop):
         # key is locations of arguments
-        #key = ','.join([str(i) for i in loop.arglocs])
-        #try:
-        #    func = self._bootstrap_cache[key]
-        #except KeyError:
-        arglocs = loop.arglocs
-        addr = self.assembler.assemble_bootstrap_code(loop._x86_compiled,
-                                                      arglocs)
-        # arguments are as follows - address to jump to,
-        # and a list of args
-        func = rffi.cast(lltype.Ptr(self.BOOTSTRAP_TP), addr)
-        return func
+        key = loop._x86_compiled
+        try:
+            return self._bootstrap_cache[key]
+        except KeyError:
+            arglocs = loop.arglocs
+            addr = self.assembler.assemble_bootstrap_code(loop._x86_compiled,
+                                                          arglocs,
+                                                          loop._x86_stack_depth)
+            # passing arglist as the only arg
+            func = rffi.cast(lltype.Ptr(self.BOOTSTRAP_TP), addr)
+            self._bootstrap_cache[key] = func
+            return func
 
     def get_box_value_as_int(self, box):
         if isinstance(box, BoxInt):
