@@ -349,12 +349,6 @@ class CPU(object):
         return history.BoxInt(llimpl.cast_to_int(args[0].getptr_base(),
                                                         self.memo_cast))
 
-    def do_get_exc_value(self, args, descr=None):
-        exc_value = llimpl.get_exc_value()
-        assert exc_value    # should be guarded
-        llimpl.clear_exception()
-        return history.BoxPtr(exc_value)
-
 # ____________________________________________________________
 
 import pypy.jit.metainterp.executor

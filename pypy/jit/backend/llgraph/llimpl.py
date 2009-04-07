@@ -118,7 +118,6 @@ TYPES = {
     'strsetitem'      : (('ptr', 'int', 'int'), None),
     'cast_ptr_to_int' : (('ptr',), 'int'),
     'cast_int_to_ptr' : (('int',), 'ptr'),
-    'get_exc_value'   : ((), 'ptr'),
     #'getitem'         : (('void', 'ptr', 'int'), 'int'),
     #'setitem'         : (('void', 'ptr', 'int', 'int'), None),
     #'newlist'         : (('void', 'varargs'), 'ptr'),
@@ -542,6 +541,7 @@ class Frame(object):
             raise GuardFailed
 
     def _check_exception(self, expected_exception):
+        global _last_exception
         expected_exception = llmemory.cast_adr_to_ptr(
             cast_int_to_adr(self.memocast, expected_exception),
             rclass.CLASSTYPE)
@@ -556,13 +556,21 @@ class Frame(object):
             return False
 
     def op_guard_exception(self, _, expected_exception):
+        global _last_exception
         if not self._check_exception(expected_exception):
             raise GuardFailed
+        res = _last_exception[1]
+        _last_exception = None
+        return res
 
     def op_guard_exception_inverse(self, _, expected_exception):
+        global _last_exception
         if self._check_exception(expected_exception):
             raise GuardFailed
-
+        res = _last_exception[1]
+        _last_exception = None
+        return res
+    
     # ----------
     # delegating to the builtins do_xxx() (done automatically for simple cases)
 
@@ -641,12 +649,6 @@ class Frame(object):
 
     def op_uint_xor(self, descr, arg1, arg2):
         return arg1 ^ arg2
-
-    def op_get_exc_value(self, descr):
-        exc_value = get_exc_value()
-        assert exc_value    # should be guarded
-        clear_exception()
-        return exc_value
 
 # ____________________________________________________________
 
