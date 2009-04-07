@@ -97,6 +97,17 @@ class BaseBackendTest(Runner):
         res = self.execute_operation(rop.INT_LSHIFT, [BoxInt(10), BoxInt(4)],
                                      'int')
         assert res.value == 10 << 4
+        res = self.execute_operation(rop.INT_LSHIFT, [BoxInt(-10), BoxInt(4)],
+                                     'int')
+        assert res.value == -10 << 4
+
+    def test_uint_rshift(self):
+        res = self.execute_operation(rop.UINT_RSHIFT, [BoxInt(-1), BoxInt(4)],
+                                     'int')
+        assert res.value == intmask(r_uint(-1) >> r_uint(4))
+        res = self.execute_operation(rop.UINT_RSHIFT, [BoxInt(1), BoxInt(4)],
+                                     'int')
+        assert res.value == intmask(r_uint(1) >> r_uint(4))
 
     def test_uint_xor(self):
         x = execute(self.cpu, rop.UINT_XOR, [BoxInt(100), ConstInt(4)])

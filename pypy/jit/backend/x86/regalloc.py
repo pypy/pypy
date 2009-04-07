@@ -741,13 +741,13 @@ class RegAlloc(object):
         self.eventually_free_vars(op.args + [tmpvar])
         self.Perform(op, [x, y, reg], x)
 
-    consider_uint_rshift = consider_int_rshift
-
     def consider_int_lshift(self, op, ignored):
         loc2 = self.make_sure_var_in_reg(op.args[1], [], ecx)
         loc1 = self.force_result_in_reg(op.result, op.args[0], op.args)
         self.Perform(op, [loc1, loc2], loc1)
         self.eventually_free_vars(op.args)
+
+    consider_uint_rshift = consider_int_lshift
 
     def consider_int_lshift_ovf(self, op, guard_op):
         loc2 = self.make_sure_var_in_reg(op.args[1], [], ecx)

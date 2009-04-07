@@ -418,6 +418,10 @@ class Assembler386(object):
         self.mc.SHL(loc, cl)
         self.mc.JO(rel32(addr))
 
+    # TODO: measure which way is faster actually - with tmp in ecx or with
+    #       arg in ecx. I don't expect it to be performance critical, but
+    #       who knows
+
     def genop_int_rshift(self, op, arglocs, resloc):
         (x, y, tmp) = arglocs
         assert tmp is ecx
@@ -434,14 +438,11 @@ class Assembler386(object):
         self.mc.SAR(resloc, cl)
 
     def genop_uint_rshift(self, op, arglocs, resloc):
-        raise NotImplementedError("uint rshift")
-        self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.MOV(ecx, gv_y.operand(self))
-        self.mc.SHR(eax, cl)
-        self.mc.CMP(ecx, imm8(32))
-        self.mc.SBB(ecx, ecx)
-        self.mc.AND(eax, ecx)
-        return self.returnintvar(eax)
+        loc = arglocs[0]
+        self.mc.SHR(loc, cl)
+        #self.mc.CMP(ecx, imm8(32)) <--- XXX what's that?
+        #self.mc.SBB(ecx, ecx)
+        #self.mc.AND(eax, ecx)
 
     def genop_int_is_true(self, op, arglocs, resloc):
         argloc = arglocs[0]
