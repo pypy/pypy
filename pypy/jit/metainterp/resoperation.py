@@ -98,6 +98,7 @@ class rop(object):
     GUARD_NONVIRTUALIZED   = 14
     GUARD_NO_EXCEPTION     = 15
     GUARD_EXCEPTION        = 16
+    GUARD_VALUE_INVERSE    = 17
     _GUARD_LAST = 19 # ----- end of guard operations -----
 
     _NOSIDEEFFECT_FIRST = 20 # ----- start of no_side_effect operations -----
