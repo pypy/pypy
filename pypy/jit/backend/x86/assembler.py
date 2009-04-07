@@ -132,15 +132,16 @@ class Assembler386(object):
         else:
             args = ",".join([repr_of_arg(memo, arg) for arg in inputargs])
             os.write(self._log_fd, "LOOP %s\n" % args)
-        for op in operations:
+        for i in range(len(operations)):
+            op = operations[i]
             args = ",".join([repr_of_arg(memo, arg) for arg in op.args])
             if op.descr is not None and isinstance(op.descr, ConstDescr3):
                 descr = (str(op.descr.v[0]) + "," + str(op.descr.v[1]) +
                          "," + str(op.descr.v[2]))
-                os.write(self._log_fd, "%s %s[%s]\n" % (op.getopname(), args,
-                                                        descr))
+                os.write(self._log_fd, "%d:%s %s[%s]\n" % (i, op.getopname(),
+                                                           args, descr))
             else:
-                os.write(self._log_fd, "%s %s\n" % (op.getopname(), args))
+                os.write(self._log_fd, "%d:%s %s\n" % (i, op.getopname(), args))
             if op.result is not None:
                 os.write(self._log_fd, "  => %s\n" % repr_of_arg(memo,
                                                                  op.result))

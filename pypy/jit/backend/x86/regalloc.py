@@ -299,15 +299,23 @@ class RegAlloc(object):
                 start_live[op.result] = i
             for arg in op.args:
                 if isinstance(arg, Box):
+                    if arg not in start_live:
+                        print "Bogus arg in operation %d at %d" % (op.opnum, i)
+                        raise AssertionError
                     longevity[arg] = (start_live[arg], i)
             if op.is_guard():
                 self._compute_inpargs(op)
                 for arg in op.inputargs:
                     if isinstance(arg, Box):
+                        if arg not in start_live:
+                            print "Bogus arg in guard %d at %d" % (op.opnum, i)
+                            raise AssertionError
                         longevity[arg] = (start_live[arg], i)
         for arg in inputargs:
             if arg not in longevity:
                 longevity[arg] = (-1, -1)
+        for arg in longevity:
+            assert isinstance(arg, Box)
         self.longevity = longevity
 
     def _compute_inpargs(self, guard):
@@ -335,6 +343,10 @@ class RegAlloc(object):
             longevity[v] = (0, e)
         guard.longevity = longevity
         guard.inputargs = end.keys()
+        for arg in longevity:
+            assert isinstance(arg, Box)
+        for arg in guard.inputargs:
+            assert isinstance(arg, Box)
 
     def try_allocate_reg(self, v, selected_reg=None):
         if isinstance(v, Const):
