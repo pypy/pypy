@@ -138,8 +138,11 @@ class BaseBackendTest(Runner):
         t_box = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, t))
         T_box = ConstInt(cpu.cast_adr_to_int(vtable_for_T_addr))
         null_box = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, lltype.nullptr(T)))
-        if not getattr(self.cpu, 'fake', None):
-            assert self.execute_operation(rop.GUARD_CLASS, [t_box, T_box], 'void') == None
+        self.execute_operation(rop.GUARD_CLASS, [t_box, T_box], 'void')
+        assert not self.cpu.guard_failed()
+        #self.execute_operation(rop.GUARD_CLASS_INVERSE, [t_box, null_box],
+        #                       'void')
+        #assert not self.cpu.guard_failed()
 
     def test_failing_guards(self):
         vtable_for_T = lltype.malloc(MY_VTABLE, immortal=True)
@@ -164,8 +167,7 @@ class BaseBackendTest(Runner):
                              (rop.GUARD_CLASS, [u_box, T_box]),
                              (rop.GUARD_VALUE_INVERSE, [BoxInt(10), BoxInt(10)]),
                              ]:
-            if opname != rop.GUARD_CLASS or not getattr(self.cpu, 'fake', None):
-                assert self.execute_operation(opname, args, 'void') == None
-                assert self.cpu.guard_failed()
+            assert self.execute_operation(opname, args, 'void') == None
+            assert self.cpu.guard_failed()
 
             
