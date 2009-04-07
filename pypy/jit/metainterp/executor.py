@@ -215,7 +215,7 @@ def do_int_floordiv_ovf(cpu, args, descr=None):
     except OverflowError:
         cpu.set_overflow_error()
         z = 0
-    return ConstInt(z)
+    return BoxInt(z)
 
 # ____________________________________________________________
 
