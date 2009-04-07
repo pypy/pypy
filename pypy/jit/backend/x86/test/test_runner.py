@@ -256,6 +256,19 @@ class TestX86(BaseBackendTest):
         r = self.execute_operation(rop.GETARRAYITEM_GC, [res, ConstInt(2)],
                                    'int', descr)
         assert r.value == 38
+        r = self.execute_operation(rop.GETARRAYITEM_GC, [res.constbox(),
+                                                         BoxInt(2)],
+                                   'int', descr)
+        assert r.value == 38
+        r = self.execute_operation(rop.GETARRAYITEM_GC, [res.constbox(),
+                                                         ConstInt(2)],
+                                   'int', descr)
+        assert r.value == 38
+        r = self.execute_operation(rop.GETARRAYITEM_GC, [res,
+                                                         BoxInt(2)],
+                                   'int', descr)
+        assert r.value == 38
+        
         r = self.execute_operation(rop.GETARRAYITEM_GC, [res, BoxInt(3)],
                                    'int', descr)
         assert r.value == 42

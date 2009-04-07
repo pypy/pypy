@@ -434,7 +434,7 @@ class Assembler386(object):
         self.mc.SAR(resloc, cl)
 
     def genop_uint_rshift(self, op, arglocs, resloc):
-        return
+        raise NotImplementedError("uint rshift")
         self.mc.MOV(eax, gv_x.operand(self))
         self.mc.MOV(ecx, gv_y.operand(self))
         self.mc.SHR(eax, cl)
@@ -821,7 +821,7 @@ def addr_add(reg_or_imm1, reg_or_imm2, offset=0, scale=0):
             return heap(reg_or_imm1.value + offset +
                         (reg_or_imm2.value << scale))
         else:
-            return mem(reg_or_imm2, (reg_or_imm1.value << scale) + offset)
+            return memSIB(None, reg_or_imm2, scale, reg_or_imm1.value + offset)
     else:
         if isinstance(reg_or_imm2, IMM32):
             return mem(reg_or_imm1, offset + (reg_or_imm2.value << scale))
@@ -834,7 +834,7 @@ def addr8_add(reg_or_imm1, reg_or_imm2, offset=0, scale=0):
             return heap8(reg_or_imm1.value + (offset << scale) +
                          reg_or_imm2.value)
         else:
-            return mem8(reg_or_imm2, reg_or_imm1.value + (offset << scale))
+            return memSIB8(None, reg_or_imm2, scale, reg_or_imm1.value + offset)
     else:
         if isinstance(reg_or_imm2, IMM32):
             return mem8(reg_or_imm1, (offset << scale) + reg_or_imm2.value)
@@ -847,7 +847,7 @@ def addr16_add(reg_or_imm1, reg_or_imm2, offset=0, scale=0):
             return heap16(reg_or_imm1.value + (offset << scale) +
                          reg_or_imm2.value)
         else:
-            return mem16(reg_or_imm2, reg_or_imm1.value + (offset << scale))
+            return memSIB16(None, reg_or_imm2, scale, reg_or_imm1.value + offset)
     else:
         if isinstance(reg_or_imm2, IMM32):
             return mem16(reg_or_imm1, (offset << scale) + reg_or_imm2.value)
