@@ -667,6 +667,8 @@ class RegAlloc(object):
         self.eventually_free_vars(op.inputargs)
         self.eventually_free_vars(op.args)
 
+    consider_guard_value_inverse = consider_guard_value
+
     def consider_guard_class(self, op, ignored):
         x = self.make_sure_var_in_reg(op.args[0], [], imm_fine=False)
         y = self.loc(op.args[1])

@@ -123,42 +123,49 @@ class BaseBackendTest(Runner):
 
     def test_passing_guards(self):
         vtable_for_T = lltype.malloc(MY_VTABLE, immortal=True)
+        vtable_for_T_addr = llmemory.cast_ptr_to_adr(vtable_for_T)
         cpu = self.cpu
         cpu._cache_gcstruct2vtable = {T: vtable_for_T}
         for (opname, args) in [(rop.GUARD_TRUE, [BoxInt(1)]),
                                (rop.GUARD_FALSE, [BoxInt(0)]),
-                               (rop.GUARD_VALUE, [BoxInt(42), BoxInt(42)])]:
+                               (rop.GUARD_VALUE, [BoxInt(42), BoxInt(42)]),
+                               (rop.GUARD_VALUE_INVERSE, [BoxInt(42), BoxInt(41)])]:
             assert self.execute_operation(opname, args, 'void') == None
-            assert self.cpu._guard_index == -1
+            assert not self.cpu.guard_failed()
             
         t = lltype.malloc(T)
         t.parent.typeptr = vtable_for_T
         t_box = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, t))
-        T_box = ConstInt(rffi.cast(lltype.Signed, vtable_for_T))
+        T_box = ConstInt(cpu.cast_adr_to_int(vtable_for_T_addr))
         null_box = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, lltype.nullptr(T)))
-        assert self.execute_operation(rop.GUARD_CLASS, [t_box, T_box], 'void') == None
+        if not getattr(self.cpu, 'fake', None):
+            assert self.execute_operation(rop.GUARD_CLASS, [t_box, T_box], 'void') == None
 
     def test_failing_guards(self):
         vtable_for_T = lltype.malloc(MY_VTABLE, immortal=True)
+        vtable_for_T_addr = llmemory.cast_ptr_to_adr(vtable_for_T)
         vtable_for_U = lltype.malloc(MY_VTABLE, immortal=True)
+        vtable_for_U_addr = llmemory.cast_ptr_to_adr(vtable_for_U)
         cpu = self.cpu
         cpu._cache_gcstruct2vtable = {T: vtable_for_T, U: vtable_for_U}
         t = lltype.malloc(T)
         t.parent.typeptr = vtable_for_T
         t_box = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, t))
-        T_box = ConstInt(rffi.cast(lltype.Signed, vtable_for_T))
+        T_box = ConstInt(self.cpu.cast_adr_to_int(vtable_for_T_addr))
         u = lltype.malloc(U)
         u.parent.parent.typeptr = vtable_for_U
         u_box = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, u))
-        U_box = ConstInt(rffi.cast(lltype.Signed, vtable_for_U))
+        U_box = ConstInt(self.cpu.cast_adr_to_int(vtable_for_U_addr))
         null_box = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, lltype.nullptr(T)))
         for opname, args in [(rop.GUARD_TRUE, [BoxInt(0)]),
                              (rop.GUARD_FALSE, [BoxInt(1)]),
                              (rop.GUARD_VALUE, [BoxInt(42), BoxInt(41)]),
                              (rop.GUARD_CLASS, [t_box, U_box]),
                              (rop.GUARD_CLASS, [u_box, T_box]),
+                             (rop.GUARD_VALUE_INVERSE, [BoxInt(10), BoxInt(10)]),
                              ]:
-            assert self.execute_operation(opname, args, 'void') == None
-            assert self.cpu._guard_index != -1
+            if opname != rop.GUARD_CLASS or not getattr(self.cpu, 'fake', None):
+                assert self.execute_operation(opname, args, 'void') == None
+                assert self.cpu.guard_failed()
 
             

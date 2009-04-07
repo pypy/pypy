@@ -609,6 +609,10 @@ class CPU386(object):
     def cast_int_to_gcref(self, x):
         return rffi.cast(llmemory.GCREF, x)
 
+    # ---------------------------- tests ------------------------
+    def guard_failed(self):
+        return self._guard_index != -1
+
 def uhex(x):
     if we_are_translated():
         return hex(x)

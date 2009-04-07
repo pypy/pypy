@@ -62,6 +62,8 @@ history.TreeLoop._compiled_version = lltype.nullptr(llimpl.COMPILEDLOOP.TO)
 
 class CPU(object):
 
+    fake = True
+
     def __init__(self, rtyper, stats=None, translate_support_code=False,
                  annmixlevel=None):
         self.rtyper = rtyper
@@ -136,7 +138,11 @@ class CPU(object):
             llimpl.compile_add_jump_target(c, op.jump_target._compiled_version)
         elif op.opnum == rop.FAIL:
             llimpl.compile_add_fail(c, len(self.fail_ops))
+            self._non_failing_guard = len(self.fail_ops)
             self.fail_ops.append(op)
+
+    def guard_failed(self):
+        return self._non_failing_guard != self._fail_index
 
     def execute_operations(self, loop, valueboxes):
         """Calls the assembler generated for the given loop.
@@ -158,6 +164,7 @@ class CPU(object):
                 raise Exception("bad box in valueboxes: %r" % (box,))
         # run the loop
         fail_index = llimpl.frame_execute(frame)
+        self._fail_index = fail_index
         # we hit a FAIL operation.  Fish for the values
         # (in a real backend, this should be done by the FAIL operation
         # itself, not here)

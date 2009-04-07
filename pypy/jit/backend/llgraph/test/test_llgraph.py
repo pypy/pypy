@@ -64,40 +64,6 @@ class TestLLGraph(BaseBackendTest):
         assert cpu.stats.exec_counters['int_add'] == 10
         assert cpu.stats.exec_jumps == 9
 
-    def test_passing_guards(self):
-        py.test.skip("rewrite me")
-        assert cpu.execute_operation(rop.GUARD_TRUE, [BoxInt(1)],
-                                     'void') == None
-        assert cpu.execute_operation(rop.GUARD_FALSE,[BoxInt(0)],
-                                     'void') == None
-        assert cpu.execute_operation(rop.GUARD_VALUE,[BoxInt(42), BoxInt(42)],
-                                     'void') == None
-        #subnode = lltype.malloc(SUBNODE)
-        #assert cpu.execute_operation('guard_class', [subnode, SUBNODE]) == []
-        #assert cpu.stats.exec_counters == {'guard_true': 1, 'guard_false': 1,
-        #                                   'guard_value': 1, 'guard_class': 1}
-        #assert cpu.stats.exec_jumps == 0
-
-    def test_failing_guards(self):
-        py.test.skip("rewrite me")
-        cpu.set_meta_interp(FakeMetaInterp(cpu))
-        #node = ootype.new(NODE)
-        #subnode = ootype.new(SUBNODE)
-        for opnum, args in [(rop.GUARD_TRUE, [BoxInt(0)]),
-                            (rop.GUARD_FALSE, [BoxInt(1)]),
-                            (rop.GUARD_VALUE, [BoxInt(42), BoxInt(41)]),
-                            #('guard_class', [node, SUBNODE]),
-                            #('guard_class', [subnode, NODE]),
-                            ]:
-            operations = [
-                ResOperation(rop.MERGE_POINT, args, []),
-                ResOperation(opnum, args, []),
-                ResOperation(rop.VOID_RETURN, [], []),
-                ]
-            cpu.compile_operations(operations)
-            res = cpu.execute_operations_in_new_frame('foo', operations, args)
-            assert res.value == 42
-
     def test_cast_adr_to_int_and_back(self):
         cpu = self.cpu
         X = lltype.Struct('X', ('foo', lltype.Signed))

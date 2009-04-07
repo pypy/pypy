@@ -107,6 +107,7 @@ TYPES = {
     'guard_true'      : (('bool',), None),
     'guard_false'     : (('bool',), None),
     'guard_value'     : (('int', 'int'), None),
+    'guard_value_inverse'  : (('int', 'int'), None),
     'guard_class'     : (('ptr', 'ptr'), None),
     'guard_no_exception'   : ((), None),
     'guard_exception'      : (('ptr',), 'ptr'),
@@ -511,6 +512,10 @@ class Frame(object):
 
     def op_guard_value(self, _, value, expected_value):
         if value != expected_value:
+            raise GuardFailed
+
+    def op_guard_value_inverse(self, _, value, expected_value):
+        if value == expected_value:
             raise GuardFailed
 
     def op_guard_nonvirtualized(self, for_accessing_field,
