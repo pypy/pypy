@@ -165,6 +165,7 @@ class rop(object):
     GETARRAYITEM_GC        = 83
     GETFIELD_GC            = 84
     GETFIELD_RAW           = 85
+    GET_EXC_VALUE          = 86
     _NOSIDEEFFECT_LAST = 89 # ----- end of no_side_effect operations -----
 
     NEW                    = 90

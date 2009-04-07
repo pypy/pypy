@@ -1088,10 +1088,9 @@ class OOMetaInterp(object):
         if etype:
             exception_box = ConstInt(etype)
             exc_value_box = BoxPtr(evalue)
-            op = frame.generate_guard(frame.pc, rop.GUARD_EXCEPTION,
-                                      None, [exception_box])
-            if op:
-                op.result = exc_value_box
+            frame.generate_guard(frame.pc, rop.GUARD_EXCEPTION,
+                                 None, [exception_box])
+            self.history.record(rop.GET_EXC_VALUE, [], exc_value_box)
             return self.finishframe_exception(exception_box, exc_value_box)
         else:
             frame.generate_guard(frame.pc, rop.GUARD_NO_EXCEPTION, None, [])
