@@ -403,14 +403,20 @@ class Assembler386(object):
     def genop_bool_not(self, op, arglocs, resloc):
         self.mc.XOR(arglocs[0], imm8(1))
 
-    #def genop_int_lshift(self, op):
-    #    self.load(eax, op.args[0])
-    #    self.load(ecx, op.args[1])
-    #    self.mc.SHL(eax, cl)
-    #    self.mc.CMP(ecx, imm8(32))
-    #    self.mc.SBB(ecx, ecx)
-    #    self.mc.AND(eax, ecx)
-    #    self.save(eax, op.results[0])
+    def genop_int_lshift(self, op, arglocs, resloc):
+        loc = arglocs[0]
+        assert arglocs[1] is ecx
+        self.mc.SHL(loc, cl)
+        #self.mc.CMP(ecx, imm8(32)) XXX <- what's that???
+        #self.mc.SBB(ecx, ecx)
+        #self.mc.AND(loc, ecx)
+
+    def genop_guard_int_lshift_ovf(self, op, guard_op, addr, arglocs, resloc):
+        loc = arglocs[0]
+        self.mc.CMP(ecx, imm(31))
+        self.mc.JG(rel32(addr))
+        self.mc.SHL(loc, cl)
+        self.mc.JO(rel32(addr))
 
     def genop_int_rshift(self, op, arglocs, resloc):
         (x, y, tmp) = arglocs
@@ -426,6 +432,16 @@ class Assembler386(object):
             self.mc.CMP(y, tmp)
             self.mc.CMOVBE(tmp, y)
         self.mc.SAR(resloc, cl)
+
+    def genop_uint_rshift(self, op, arglocs, resloc):
+        return
+        self.mc.MOV(eax, gv_x.operand(self))
+        self.mc.MOV(ecx, gv_y.operand(self))
+        self.mc.SHR(eax, cl)
+        self.mc.CMP(ecx, imm8(32))
+        self.mc.SBB(ecx, ecx)
+        self.mc.AND(eax, ecx)
+        return self.returnintvar(eax)
 
     def genop_int_is_true(self, op, arglocs, resloc):
         argloc = arglocs[0]

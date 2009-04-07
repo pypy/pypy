@@ -485,9 +485,6 @@ class TestX86(BaseBackendTest):
         cpu.do_strsetitem([x, BoxInt(4), BoxInt(ord('/'))])
         assert x.getptr(lltype.Ptr(rstr.STR)).chars[4] == '/'
 
-    def test_lshift(self):
-        py.test.skip("XXX")
-
     def test_oononnull_with_guard(self):
         p = lltype.cast_opaque_ptr(llmemory.GCREF,
                                    lltype.malloc(lltype.GcStruct('x')))

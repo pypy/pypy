@@ -733,17 +733,24 @@ class RegAlloc(object):
         self.eventually_free_vars(op.args + [tmpvar])
         self.Perform(op, [x, y, reg], x)
 
-    def xxx_consider_int_lshift(self, op, guard_op):
-        if guard_op is None:
-            xxx
-            self.mc.MOV(eax, gv_x.operand(self))
-            self.mc.MOV(ecx, gv_y.operand(self))
-            self.mc.SHL(eax, cl)
-            self.mc.CMP(ecx, imm8(32))
-            self.mc.SBB(ecx, ecx)
-            self.mc.AND(eax, ecx)
-        else:
-            yyy
+    consider_uint_rshift = consider_int_rshift
+
+    def consider_int_lshift(self, op, ignored):
+        loc2 = self.make_sure_var_in_reg(op.args[1], [], ecx)
+        loc1 = self.force_result_in_reg(op.result, op.args[0], op.args)
+        self.Perform(op, [loc1, loc2], loc1)
+        self.eventually_free_vars(op.args)
+
+    def consider_int_lshift_ovf(self, op, guard_op):
+        loc2 = self.make_sure_var_in_reg(op.args[1], [], ecx)
+        loc1 = self.force_result_in_reg(op.result, op.args[0], op.args)
+        self.eventually_free_vars(op.args)
+        self.position += 1
+        regalloc = self.regalloc_for_guard(guard_op)
+        self.perform_with_guard(op, guard_op, regalloc, [loc1, loc2], loc1,
+                                overflow=True)
+        self.eventually_free_vars(guard_op.inputargs)
+        self.eventually_free_var(guard_op.result)
 
     def consider_int_mod(self, op, ignored):
         l0 = self.make_sure_var_in_reg(op.args[0], [], eax)
