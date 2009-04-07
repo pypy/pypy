@@ -14,6 +14,8 @@ class ResOperation(object):
 
     # for x86 backend and guards
     inputargs = None
+    ovf = False
+    exc = False
 
     def __init__(self, opnum, args, result, descr=None):
         assert isinstance(opnum, int)
