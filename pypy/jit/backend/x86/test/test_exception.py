@@ -9,3 +9,5 @@ class TestExceptions(Jit386Mixin, ExceptionTests):
     def test_int_lshift_ovf(self):
         py.test.skip("XXX")
 
+    def test_bridge_from_interpreter_exc(self):
+        py.test.skip("Widening to trash")
