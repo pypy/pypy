@@ -1,12 +1,25 @@
 
-from pypy.jit.metainterp.history import BoxInt, Box, BoxPtr, TreeLoop, ConstInt
+from pypy.jit.metainterp.history import (BoxInt, Box, BoxPtr, TreeLoop,
+                                         ConstInt, ConstPtr)
 from pypy.jit.metainterp.resoperation import ResOperation, rop
-from pypy.rpython.lltypesystem import lltype, llmemory, rstr
+from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi
 from pypy.jit.metainterp.executor import execute
 from pypy.rlib.rarithmetic import r_uint, intmask
 
-class BaseBackendTest(object):
-    
+MY_VTABLE = lltype.Struct('my_vtable')    # for tests only
+
+S = lltype.GcForwardReference()
+S.become(lltype.GcStruct('S', ('typeptr', lltype.Ptr(MY_VTABLE)),
+                              ('value', lltype.Signed),
+                              ('next', lltype.Ptr(S)),
+                         hints = {'typeptr': True}))
+T = lltype.GcStruct('T', ('parent', S),
+                         ('next', lltype.Ptr(S)))
+U = lltype.GcStruct('U', ('parent', T),
+                         ('next', lltype.Ptr(S)))
+
+class Runner(object):
+        
     def execute_operation(self, opname, valueboxes, result_type, descr=0):
         loop = self.get_compiled_single_operation(opname, result_type,
                                                   valueboxes, descr)
@@ -43,6 +56,8 @@ class BaseBackendTest(object):
         self.cpu.compile_operations(loop)
         return loop
 
+class BaseBackendTest(Runner):
+    
     def test_do_call(self):
         from pypy.rpython.annlowlevel import llhelper
         cpu = self.cpu
@@ -104,3 +119,46 @@ class BaseBackendTest(object):
         r = self.execute_operation(rop.OONONNULL, [BoxInt(v)], 'int')
         assert r.value == 1
         lltype.free(x, flavor='raw')
+
+
+    def test_passing_guards(self):
+        vtable_for_T = lltype.malloc(MY_VTABLE, immortal=True)
+        cpu = self.cpu
+        cpu._cache_gcstruct2vtable = {T: vtable_for_T}
+        for (opname, args) in [(rop.GUARD_TRUE, [BoxInt(1)]),
+                               (rop.GUARD_FALSE, [BoxInt(0)]),
+                               (rop.GUARD_VALUE, [BoxInt(42), BoxInt(42)])]:
+            assert self.execute_operation(opname, args, 'void') == None
+            assert self.cpu._guard_index == -1
+            
+        t = lltype.malloc(T)
+        t.parent.typeptr = vtable_for_T
+        t_box = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, t))
+        T_box = ConstInt(rffi.cast(lltype.Signed, vtable_for_T))
+        null_box = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, lltype.nullptr(T)))
+        assert self.execute_operation(rop.GUARD_CLASS, [t_box, T_box], 'void') == None
+
+    def test_failing_guards(self):
+        vtable_for_T = lltype.malloc(MY_VTABLE, immortal=True)
+        vtable_for_U = lltype.malloc(MY_VTABLE, immortal=True)
+        cpu = self.cpu
+        cpu._cache_gcstruct2vtable = {T: vtable_for_T, U: vtable_for_U}
+        t = lltype.malloc(T)
+        t.parent.typeptr = vtable_for_T
+        t_box = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, t))
+        T_box = ConstInt(rffi.cast(lltype.Signed, vtable_for_T))
+        u = lltype.malloc(U)
+        u.parent.parent.typeptr = vtable_for_U
+        u_box = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, u))
+        U_box = ConstInt(rffi.cast(lltype.Signed, vtable_for_U))
+        null_box = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, lltype.nullptr(T)))
+        for opname, args in [(rop.GUARD_TRUE, [BoxInt(0)]),
+                             (rop.GUARD_FALSE, [BoxInt(1)]),
+                             (rop.GUARD_VALUE, [BoxInt(42), BoxInt(41)]),
+                             (rop.GUARD_CLASS, [t_box, U_box]),
+                             (rop.GUARD_CLASS, [u_box, T_box]),
+                             ]:
+            assert self.execute_operation(opname, args, 'void') == None
+            assert self.cpu._guard_index != -1
+
+            
