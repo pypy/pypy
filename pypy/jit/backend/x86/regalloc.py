@@ -327,8 +327,10 @@ class RegAlloc(object):
                 if isinstance(arg, Box) and arg not in end:
                     end[arg] = i
             if op.result:
-                longevity[op.result] = (i, end[op.result])
-                del end[op.result]
+                if op.result in end:
+                    longevity[op.result] = (i, end[op.result])
+                    del end[op.result]
+                # otherwise this var is never ever used
         for v, e in end.items():
             longevity[v] = (0, e)
         guard.longevity = longevity
