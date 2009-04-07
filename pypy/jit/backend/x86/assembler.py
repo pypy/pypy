@@ -216,11 +216,11 @@ class Assembler386(object):
                 op.longevity = None
                 self.sanitize_tree(op.suboperations)
 
-    def assemble_bootstrap_code(self, arglocs):
+    def assemble_bootstrap_code(self, jumpaddr, arglocs):
         self.make_sure_mc_exists()
         addr = self.mc.tell()
         self.mc.SUB(esp, imm(FRAMESIZE))
-        self.mc.MOV(eax, arg_pos(1))
+        self.mc.MOV(eax, arg_pos(0))
         for i in range(len(arglocs)):
             loc = arglocs[i]
             if not isinstance(loc, REG):
@@ -230,7 +230,7 @@ class Assembler386(object):
             loc = arglocs[i]
             if isinstance(loc, REG):
                 self.mc.MOV(loc, mem(eax, i * WORD))
-        self.mc.JMP(arg_pos(0))
+        self.mc.JMP(rel32(jumpaddr))
         self.mc.done()
         return addr
 

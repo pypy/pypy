@@ -61,8 +61,7 @@ class ConstDescr3(AbstractDescr):
 class CPU386(object):
     debug = True
 
-    BOOTSTRAP_TP = lltype.FuncType([lltype.Signed,
-                                    lltype.Ptr(rffi.CArray(lltype.Signed))],
+    BOOTSTRAP_TP = lltype.FuncType([lltype.Ptr(rffi.CArray(lltype.Signed))],
                                    lltype.Signed)
 
     def __init__(self, rtyper, stats, translate_support_code=False,
@@ -86,7 +85,7 @@ class CPU386(object):
         TP = lltype.GcArray(llmemory.GCREF)
         self.keepalives = []
         self.keepalives_index = 0
-        self._bootstrap_cache = {}
+        #self._bootstrap_cache = {}
         self._guard_list = []
         self._compiled_ops = {}
         self._builtin_implementations = {}
@@ -199,16 +198,16 @@ class CPU386(object):
 
     def get_bootstrap_code(self, loop):
         # key is locations of arguments
-        key = ','.join([str(i) for i in loop.arglocs])
-        try:
-            func = self._bootstrap_cache[key]
-        except KeyError:
-            arglocs = loop.arglocs
-            addr = self.assembler.assemble_bootstrap_code(arglocs)
-            # arguments are as follows - address to jump to,
-            # and a list of args
-            func = rffi.cast(lltype.Ptr(self.BOOTSTRAP_TP), addr)
-            self._bootstrap_cache[key] = func
+        #key = ','.join([str(i) for i in loop.arglocs])
+        #try:
+        #    func = self._bootstrap_cache[key]
+        #except KeyError:
+        arglocs = loop.arglocs
+        addr = self.assembler.assemble_bootstrap_code(loop._x86_compiled,
+                                                      arglocs)
+        # arguments are as follows - address to jump to,
+        # and a list of args
+        func = rffi.cast(lltype.Ptr(self.BOOTSTRAP_TP), addr)
         return func
 
     def get_box_value_as_int(self, box):
@@ -302,7 +301,7 @@ class CPU386(object):
         res = 0
         try:
             self.caught_exception = None
-            res = func(loop._x86_compiled, values_as_int)
+            res = func(values_as_int)
             self.reraise_caught_exception()
         finally:
             if not self.translate_support_code:
