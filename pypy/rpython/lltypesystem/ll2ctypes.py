@@ -245,6 +245,9 @@ def convert_struct(container, cstruct=None):
             if isinstance(FIELDTYPE, lltype.Struct):
                 csubstruct = getattr(cstruct, field_name)
                 convert_struct(field_value, csubstruct)
+                subcontainer = getattr(container, field_name)
+                substorage = subcontainer._storage
+                update_parent_cache(substorage, subcontainer)
             elif field_name == STRUCT._arrayfld:    # inlined var-sized part
                 csubarray = getattr(cstruct, field_name)
                 convert_array(field_value, csubarray)
@@ -299,8 +302,11 @@ def struct_use_ctypes_storage(container, ctypes_storage):
         FIELDTYPE = getattr(STRUCT, field_name)
         if isinstance(FIELDTYPE, lltype.ContainerType):
             if isinstance(FIELDTYPE, lltype.Struct):
-                struct_use_ctypes_storage(getattr(container, field_name),
-                                          getattr(ctypes_storage, field_name))
+                struct_container = getattr(container, field_name)
+                struct_storage = getattr(ctypes_storage, field_name)
+                struct_use_ctypes_storage(struct_container, struct_storage)
+                struct_container._setparentstructure(container, field_name)
+                update_parent_cache(ctypes_storage, struct_container)
             elif isinstance(FIELDTYPE, lltype.Array):
                 assert FIELDTYPE._hints.get('nolength', False) == False
                 arraycontainer = _array_of_known_length(FIELDTYPE)
@@ -622,7 +628,7 @@ def lltype2ctypes(llobj, normalize=True):
             container._ctypes_storage_was_allocated()
         storage = container._storage
         if lltype.parentlink(container)[0] is not None:
-            _parent_cache[ctypes.addressof(storage)] = parentchain(container)
+            update_parent_cache(storage, container)
         p = ctypes.pointer(storage)
         if index:
             p = ctypes.cast(p, ctypes.c_void_p)
@@ -1068,8 +1074,23 @@ def parentchain(container):
         links.append(link)
         current = link[0]
 
+def update_parent_cache(storage, container):
+    chain = parentchain(container)
+    addr = ctypes.addressof(storage)
+    try:
+        current = _parent_cache[addr]
+        if len(chain) > len(current):
+            _parent_cache[addr] = chain
+    except KeyError:
+        _parent_cache[addr] = chain
+
 def setparentstructure(container, chain):
+    TP = lltype.typeOf(container)
     current = container
+    for i, elem in enumerate(chain):
+        if lltype.typeOf(elem[0]) == TP:
+            chain = chain[i + 1:]
+            break
     for elem in chain:
         current._setparentstructure(*elem)
         current = elem[0]
