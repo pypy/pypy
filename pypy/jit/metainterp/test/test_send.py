@@ -418,6 +418,25 @@ class SendTests:
         assert res == f(55)
         self.check_tree_loop_count(2)
 
+    def test_bug1(self):
+        py.test.skip("BOOM")
+        myjitdriver = JitDriver(greens = [], reds = ['node', 'n'])
+        def extern(n):
+            if n <= 21:
+                return B(n)
+            else:
+                return A()
+        def f(n):
+            node = A()
+            while n >= 0:
+                myjitdriver.can_enter_jit(node=node, n=n)
+                myjitdriver.jit_merge_point(node=node, n=n)
+                n = node.decr(n)
+                node = extern(n)
+            return n
+        res = self.meta_interp(f, [40], policy=StopAtXPolicy(extern))
+        assert res == f(40)
+
 
 #class TestOOtype(SendTests, OOJitMixin):
 #    pass
