@@ -6,6 +6,7 @@ from pypy.jit.metainterp import support, codewriter, pyjitpl, history
 from pypy.jit.metainterp.policy import JitPolicy, StopAtXPolicy
 from pypy import conftest
 from pypy.rlib.rarithmetic import ovfcheck
+from pypy.jit.metainterp.simple_optimize import Optimizer as SimpleOptimizer
 
 def get_metainterp(func, values, CPUClass, type_system, policy,
                    listops=False):
@@ -401,6 +402,37 @@ class BasicTests:
                 n -= 1
 
         self.meta_interp(f, [20], repeat=7)
+
+    def test_bridge_from_interpreter_3(self):
+        # one case for backend - computing of framesize on guard failure
+        mydriver = JitDriver(reds = ['n', 'x', 'y', 'z', 'k'], greens = [])
+        glob = [1]
+
+        def f(n):
+            x = 0
+            y = 0
+            z = 0
+            k = 0
+            while n > 0:
+                mydriver.can_enter_jit(n=n, x=x, y=y, z=z, k=k)
+                mydriver.jit_merge_point(n=n, x=x, y=y, z=z, k=k)
+                x += 10
+                y += 3
+                z -= 15
+                k += 4
+                if n == 17 and glob[0]:
+                    glob[0] = 0
+                    x += n + 1
+                    y += n + 2
+                    z += n + 3
+                    k += n + 4
+                    n -= 1
+                n -= 1
+            return x + 2*y + 3*z + 5*k + 13*n
+
+        # XXX explodes on normal optimize.py
+        res = self.meta_interp(f, [20], repeat=7, optimizer=SimpleOptimizer)
+        assert res == f(20)
 
     def test_casts(self):
         from pypy.rpython.lltypesystem import lltype, llmemory
