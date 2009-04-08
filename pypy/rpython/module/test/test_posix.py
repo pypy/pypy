@@ -34,6 +34,15 @@ class BaseTestPosix(BaseRtypingTest):
             assert long(getattr(func, 'item%d' % i)) == stat[i]
 
 
+    def test_stat(self):
+        def fo():
+            g = posix.stat(path)
+            return g
+        func = self.interpret(fo,[])
+        stat = os.stat(path)
+        for i in range(len(stat)):
+            assert long(getattr(func, 'item%d' % i)) == stat[i]
+
     def test_times(self):
         import py; py.test.skip("llinterp does not like tuple returns")
         from pypy.rpython.test.test_llinterp import interpret
@@ -160,7 +169,7 @@ class BaseTestPosix(BaseRtypingTest):
 
             for value in [0, 1, 127, 128, 255]:
                 res = self.interpret(fun, [value])
-                assert res == fun(value)
+                assert res == fun(value)        
 
 class TestLLtype(BaseTestPosix, LLRtypeMixin):
     pass
@@ -171,3 +180,6 @@ class TestOOtype(BaseTestPosix, OORtypeMixin):
 
     def test_os_chroot(self):
         py.test.skip("ootypesystem does not support os.chroot")
+
+    def test_stat(self):
+        py.test.skip("ootypesystem does not support os.stat")

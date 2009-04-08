@@ -13,6 +13,7 @@ from pypy.rpython.tool import rffi_platform as platform
 from pypy.rpython.lltypesystem.rtupletype import TUPLE_TYPE
 from pypy.rlib import rposix
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.rpython.annlowlevel import hlstr
 
 # Support for float times is here.
 # - ALL_STAT_FIELDS contains Float fields if the system can retrieve
@@ -241,6 +242,8 @@ def register_stat_variant(name):
             lltype.free(stresult, flavor='raw')
 
     def posix_fakeimpl(arg):
+        if s_arg == str:
+            arg = hlstr(arg)
         st = getattr(os, name)(arg)
         fields = [TYPE for fieldname, TYPE in STAT_FIELDS]
         TP = TUPLE_TYPE(fields)
