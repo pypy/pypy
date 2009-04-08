@@ -222,6 +222,7 @@ class Assembler386(object):
 
     def assemble(self, tree):
         self.places_to_patch_framesize = []
+        self.jumps_to_look_at = []
         # the last operation can be 'jump', 'return' or 'guard_pause';
         # a 'jump' can either close a loop, or end a bridge to some
         # previously-compiled code.
@@ -243,6 +244,12 @@ class Assembler386(object):
             mc = codebuf.InMemoryCodeBuilder(place, 128)
             mc.ADD(esp, imm32(tree._x86_stack_depth * WORD))
             mc.done()
+        for op, pos in self.jumps_to_look_at:
+            if op.jump_target._x86_stack_depth < tree._x86_stack_depth:
+                # XXX do a dumb thing
+                tl = op.jump_target
+                self.patch_jump(pos, tl._x86_compiled, tl.arglocs, tl.arglocs,
+                                tree._x86_stack_depth, tl._x86_stack_depth)
 
     def sanitize_tree(self, operations):
         """ Cleans up all attributes attached by regalloc and backend
@@ -632,10 +639,38 @@ class Assembler386(object):
         if not we_are_translated():
             assert str(oldlocs) == str(newlocs)
         if newdepth != olddepth:
-            xxx
             mc2 = self.mcstack.next_mc()
             pos = mc2.tell()
-            mc2.ADD(esp, imm32((olddepth - newdepth) * WORD))
+            diff = olddepth - newdepth
+            for loc in newlocs:
+                if isinstance(loc, MODRM):
+                    has_modrm = True
+                    break
+            else:
+                has_modrm = False
+            extra_place = stack_pos(olddepth - 1) # this is unused
+            if diff > 0:
+                if has_modrm:
+                    mc2.MOV(extra_place, eax)
+                    for i in range(len(newlocs)):
+                        loc = newlocs[i]
+                        if isinstance(loc, MODRM):
+                            mc2.MOV(eax, loc)
+                            # diff is negative!
+                            mc2.MOV(stack_pos(loc.position + diff), eax)
+                    mc2.MOV(eax, extra_place)
+                mc2.ADD(esp, imm32((diff) * WORD))
+            else:
+                if has_modrm:
+                    mc2.MOV(extra_place, eax)
+                    for i in range(len(newlocs) -1, -1, -1):
+                        loc = newlocs[i]
+                        if isinstance(loc, MODRM):
+                            mc2.MOV(eax, loc)
+                            # diff is negative!
+                            mc2.MOV(stack_pos(loc.position + diff), eax)
+                    mc2.MOV(eax, extra_place)
+                mc2.SUB(esp, imm32((-diff) * WORD))
             mc2.JMP(rel32(new_pos))
             self.mcstack.give_mc_back(mc2)
         else:
@@ -664,6 +699,7 @@ class Assembler386(object):
 
     def genop_discard_jump(self, op, locs):
         targetmp = op.jump_target
+        self.jumps_to_look_at.append((op, self.mc.tell()))
         self.mc.JMP(rel32(targetmp._x86_compiled))
 
     def genop_guard_guard_true(self, op, ign_1, addr, locs, ign_2):

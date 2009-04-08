@@ -1117,11 +1117,10 @@ class RegAlloc(object):
                     break
             if free_reg is None:
                 # a very rare case
-                if self.free_regs:
-                    free_reg = self.free_regs.pop()
-                else:
-                    v = self.reg_bindings.keys()[0]
-                    free_reg = self.reg_bindings[v]
+                # XXX even rarer case - what if reg_bindings is empty???
+                # think and write a test maybe
+                v = self.reg_bindings.keys()[0]
+                free_reg = self.reg_bindings[v]
                 self.Store(v, self.loc(v), self.stack_loc(v))
                 later_loads.insert(0, (v, self.stack_loc(v), self.loc(v)))
             for v, from_l, to_l in reloaded:
