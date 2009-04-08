@@ -464,3 +464,31 @@ class TestX86(BaseBackendTest):
         self.cpu.compile_operations(loop)
         op = self.cpu.execute_operations(loop, [p])
         assert op.args[0].value == 0
+
+    def test_overflow_mc(self):
+        from pypy.jit.backend.x86.assembler import MachineCodeBlockWrapper
+
+        orig_size = MachineCodeBlockWrapper.MC_SIZE
+        MachineCodeBlockWrapper.MC_SIZE = 1024
+        old_mc = self.cpu.assembler.mc
+        old_mc2 = self.cpu.assembler.mc2
+        self.cpu.assembler.mc = None
+        try:
+            ops = []
+            base_v = BoxInt()
+            v = base_v
+            for i in range(1024):
+                next_v = BoxInt()
+                ops.append(ResOperation(rop.INT_ADD, [v, ConstInt(1)], next_v))
+                v = next_v
+            ops.append(ResOperation(rop.FAIL, [v], None))
+            loop = TreeLoop('name')
+            loop.operations = ops
+            loop.inputargs = [base_v]
+            self.cpu.compile_operations(loop)
+            op = self.cpu.execute_operations(loop, [base_v])
+            assert op.args[0].value == 1024
+        finally:
+            MachineCodeBlockWrapper.MC_SIZE = orig_size
+            self.cpu.assembler.mc = old_mc
+            self.cpu.assembler.mc2 = old_mc2

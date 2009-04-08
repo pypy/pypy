@@ -41,16 +41,45 @@ def repr_of_arg(memo, arg):
         #raise NotImplementedError
         return "?%r" % (arg,)
 
-class MachineCodeStack(object):
-    MC_SIZE = 1024*1024     # 1MB, but assumed infinite for now
+class MachineCodeBlockWrapper(object):
+    MC_SIZE = 1024*1024
 
+    def __init__(self):
+        self.old_mcs = [] # keepalive
+        self._mc = codebuf.MachineCodeBlock(self.MC_SIZE)
+
+    def tell(self):
+        return self._mc.tell()
+
+    def done(self):
+        self._mc.done()
+
+def _new_method(name):
+    def method(self, *args):
+        # XXX er.... pretty random number, just to be sure
+        #     not to write half-instruction
+        if self._mc._pos + 64 >= self._mc._size:
+            new_mc = codebuf.MachineCodeBlock(self.MC_SIZE)
+            self._mc.JMP(rel32(new_mc.tell()))
+            self._mc.done()
+            self.old_mcs.append(self._mc)
+            self._mc = new_mc
+        getattr(self._mc, name)(*args)    
+    method.func_name = name
+    return method
+
+for name in dir(codebuf.MachineCodeBlock):
+    if name.upper() == name:
+        setattr(MachineCodeBlockWrapper, name, _new_method(name))
+
+class MachineCodeStack(object):
     def __init__(self):
         self.mcstack = []
         self.counter = 0
 
     def next_mc(self):
         if len(self.mcstack) == self.counter:
-            mc = codebuf.MachineCodeBlock(self.MC_SIZE)
+            mc = MachineCodeBlockWrapper()
             self.mcstack.append(mc)
         else:
             mc = self.mcstack[self.counter]
@@ -602,12 +631,15 @@ class Assembler386(object):
             return
         if not we_are_translated():
             assert str(oldlocs) == str(newlocs)
-        mc2 = self.mcstack.next_mc()
-        pos = mc2.tell()
-        mc2.SUB(esp, imm32((newdepth - olddepth) * WORD))
-        mc2.JMP(rel32(new_pos))
-        self.mcstack.give_mc_back(mc2)
-        mc = codebuf.InMemoryCodeBuilder(old_pos, MachineCodeStack.MC_SIZE)
+        if newdepth != olddepth:
+            mc2 = self.mcstack.next_mc()
+            pos = mc2.tell()
+            mc2.ADD(esp, imm32((olddepth - newdepth) * WORD))
+            mc2.JMP(rel32(new_pos))
+            self.mcstack.give_mc_back(mc2)
+        else:
+            pos = new_pos
+        mc = codebuf.InMemoryCodeBuilder(old_pos, MachineCodeBlockWrapper.MC_SIZE)
         mc.JMP(rel32(pos))
         mc.done()
 
@@ -760,33 +792,6 @@ class Assembler386(object):
     @specialize.arg(3)
     def implement_guard(self, addr, guard_op, emit_jump):
         emit_jump(rel32(addr))
-
-    def get_recovery_code(self, guard_op, locs):
-        xxx
-        index = self.cpu.make_guard_index(guard_op)
-        recovery_code_addr = self.mc2.tell()
-        stacklocs = guard_op.stacklocs
-        assert len(locs) == len(stacklocs)
-        for i in range(len(locs)):
-            loc = locs[i]
-            if isinstance(loc, REG):
-                self.mc2.MOV(stack_pos(stacklocs[i]), loc)
-        if (guard_op.opnum == rop.GUARD_EXCEPTION or
-            guard_op.opnum == rop.GUARD_NO_EXCEPTION):
-            self.mc2.MOV(eax, heap(self._exception_addr))
-            self.mc2.MOV(heap(self._exception_bck_addr), eax)
-            self.mc2.MOV(eax, addr_add(imm(self._exception_addr), imm(WORD)))
-            self.mc2.MOV(addr_add(imm(self._exception_bck_addr), imm(WORD)),
-                         eax)
-            # clean up the original exception, we don't want
-            # to enter more rpython code with exc set
-            self.mc2.MOV(heap(self._exception_addr), imm(0))
-        self.mc2.PUSH(esp)           # frame address
-        self.mc2.PUSH(imm(index))    # index of guard that failed
-        self.mc2.CALL(rel32(self.cpu.get_failure_recovery_func_addr()))
-        self.mc2.ADD(esp, imm(8))
-        self.mc2.JMP(eax)
-        return recovery_code_addr
 
     def genop_call(self, op, arglocs, resloc):
         sizeloc = arglocs[0]
