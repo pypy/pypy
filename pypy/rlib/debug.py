@@ -21,6 +21,7 @@ class Entry(ExtRegistryEntry):
 
 
 def debug_print(*args):
+    import sys
     for arg in args:
         print >> sys.stderr, arg,
     print >> sys.stderr
