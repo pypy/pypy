@@ -380,6 +380,28 @@ class BasicTests:
         #    ENTER             - compile the leaving path
         self.check_enter_count(4)
 
+    def test_bridge_from_interpreter_2(self):
+        # one case for backend - computing of framesize on guard failure
+        mydriver = JitDriver(reds = ['n'], greens = [])
+        glob = [1]
+
+        def f(n):
+            while n > 0:
+                mydriver.can_enter_jit(n=n)
+                mydriver.jit_merge_point(n=n)
+                if n == 17 and glob[0]:
+                    glob[0] = 0
+                    x = n + 1
+                    y = n + 2
+                    z = n + 3
+                    k = n + 4
+                    n -= 1
+                    n += x + y + z + k
+                    n -= x + y + z + k
+                n -= 1
+
+        self.meta_interp(f, [20], repeat=7)
+
     def test_casts(self):
         from pypy.rpython.lltypesystem import lltype, llmemory
         
