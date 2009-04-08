@@ -32,7 +32,7 @@ def gc_malloc_fnaddr():
             GC_malloc = boehmlib.GC_malloc
             return cast(GC_malloc, c_void_p).value
 
-def c_meta_interp(function, args, **kwds):
+def c_meta_interp(function, args, repeat=1, **kwds):
     from pypy.translator.translator import TranslationContext
     from pypy.jit.metainterp.warmspot import WarmRunnerDesc
     from pypy.jit.backend.x86.runner import CPU386
@@ -45,13 +45,24 @@ def c_meta_interp(function, args, **kwds):
 
     t = TranslationContext()
     t.config.translation.gc = 'boehm'
-    src = py.code.Source("""
-    def entry_point(argv):
-        args = (%s,)
-        res = function(*args)
-        print res
-        return 0
-    """ % (", ".join(['int(argv[%d])' % (i + 1) for i in range(len(args))]),))
+    if repeat != 1:
+        src = py.code.Source("""
+        def entry_point(argv):
+            args = (%s,)
+            res = function(*args)
+            for k in range(%d - 1):
+                res = function(*args)
+            print res
+            return 0
+        """ % (", ".join(['int(argv[%d])' % (i + 1) for i in range(len(args))]), repeat))
+    else:
+        src = py.code.Source("""
+        def entry_point(argv):
+            args = (%s,)
+            res = function(*args)
+            print res
+            return 0
+        """ % (", ".join(['int(argv[%d])' % (i + 1) for i in range(len(args))]),))
     exec src.compile() in locals()
 
     t.buildannotator().build_types(function, [int] * len(args))
