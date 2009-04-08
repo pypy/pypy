@@ -8,7 +8,7 @@ from pypy.rpython.lltypesystem.rclass import OBJECT
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.annotation import model as annmodel
 from pypy.tool.uid import fixid
-from pypy.jit.backend.x86.regalloc import (RegAlloc, WORD, REGS,
+from pypy.jit.backend.x86.regalloc import (RegAlloc, WORD, REGS, TempBox,
                                       arg_pos, lower_byte, stack_pos)
 from pypy.rlib.objectmodel import we_are_translated, specialize, compute_unique_id
 from pypy.jit.backend.x86 import codebuf
@@ -770,15 +770,20 @@ class Assembler386(object):
         self.mc = self.mc2
         self.mc2 = self.mcstack.next_mc()
         addr = self.mc.tell()
-        guard_op.suboperations[-1].ovf = ovf
         if (guard_op.opnum == rop.GUARD_EXCEPTION or
             guard_op.opnum == rop.GUARD_NO_EXCEPTION):
             exc = True
         else:
             exc = False
-        guard_op.suboperations[-1].exc = exc
-        if ovf or exc: # we need to think what to do otherwise
-            assert guard_op.suboperations[-1].opnum == rop.FAIL
+        if exc or ovf:
+            box = TempBox()
+            regalloc.position = -1
+            loc = regalloc.force_allocate_reg(box, [])
+            if ovf:
+                self.generate_ovf_set(loc)
+            else:
+                self.generate_exception_handling(loc)
+            regalloc.eventually_free_var(box)
         regalloc.walk_guard_ops(guard_op.inputargs, guard_op.suboperations)
         self.mcstack.give_mc_back(self.mc2)
         self.mc2 = self.mc
@@ -801,26 +806,27 @@ class Assembler386(object):
             self.mc.MOV(addr_add(imm(self.fail_box_addr),
                                  imm(len(locs) * WORD)),
                                  eax)
-        if op.ovf:
-            ovf_error_vtable = self.cpu.cast_adr_to_int(self._ovf_error_vtable)
-            self.mc.MOV(eax, imm(ovf_error_vtable))
-            self.mc.MOV(addr_add(imm(self._exception_bck_addr), imm(0)), eax)
-            ovf_error_instance = self.cpu.cast_adr_to_int(self._ovf_error_inst)
-            self.mc.MOV(eax, imm(ovf_error_instance))
-            self.mc.MOV(addr_add(imm(self._exception_bck_addr), imm(WORD)),eax)
-        elif op.exc:
-            self.mc.MOV(eax, heap(self._exception_addr))
-            self.mc.MOV(heap(self._exception_bck_addr), eax)
-            self.mc.MOV(eax, addr_add(imm(self._exception_addr), imm(WORD)))
-            self.mc.MOV(addr_add(imm(self._exception_bck_addr), imm(WORD)),
-                         eax)
-            # clean up the original exception, we don't want
-            # to enter more rpython code with exc set
-            self.mc.MOV(heap(self._exception_addr), imm(0))
         self.places_to_patch_framesize.append(self.mc.tell())
         self.mc.ADD(esp, imm32(0))
         self.mc.MOV(eax, imm(guard_index))
         self.mc.RET()
+
+    def generate_ovf_set(self, loc):
+        ovf_error_vtable = self.cpu.cast_adr_to_int(self._ovf_error_vtable)
+        self.mc.MOV(loc, imm(ovf_error_vtable))
+        self.mc.MOV(addr_add(imm(self._exception_bck_addr), imm(0)), loc)
+        ovf_error_instance = self.cpu.cast_adr_to_int(self._ovf_error_inst)
+        self.mc.MOV(loc, imm(ovf_error_instance))
+        self.mc.MOV(addr_add(imm(self._exception_bck_addr), imm(WORD)), loc)
+
+    def generate_exception_handling(self, loc):
+        self.mc.MOV(loc, heap(self._exception_addr))
+        self.mc.MOV(heap(self._exception_bck_addr), loc)
+        self.mc.MOV(loc, addr_add(imm(self._exception_addr), imm(WORD)))
+        self.mc.MOV(addr_add(imm(self._exception_bck_addr), imm(WORD)), loc)
+        # clean up the original exception, we don't want
+        # to enter more rpython code with exc set
+        self.mc.MOV(heap(self._exception_addr), imm(0))
 
     @specialize.arg(3)
     def implement_guard(self, addr, guard_op, emit_jump):

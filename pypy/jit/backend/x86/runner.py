@@ -254,9 +254,9 @@ class CPU386(object):
         result = self._new_box(ptr)
         operations = [
             ResOperation(rop.CALL, args, result, calldescr),
+            ResOperation(rop.GUARD_NO_EXCEPTION, [], None),
             ResOperation(rop.FAIL, [result], None)]
-        operations[-1].ovf = False
-        operations[-1].exc = True
+        operations[1].suboperations = [ResOperation(rop.FAIL, [result], None)]
         loop = history.TreeLoop('call')
         loop.inputargs = args
         loop.operations = operations
