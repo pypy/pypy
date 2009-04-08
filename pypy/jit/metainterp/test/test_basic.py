@@ -462,8 +462,6 @@ class TestOOtype(BasicTests, OOJitMixin):
     def skip(self):
         py.test.skip('in-progress')
 
-    test_direct_call = skip
-    test_direct_call_with_guard = skip
     test_string = skip
     test_residual_call = skip
     test_format = skip

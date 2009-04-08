@@ -1,3 +1,4 @@
+from pypy.translator.simplify import get_funcobj
 
 class JitPolicy(object):
 
@@ -22,7 +23,8 @@ class JitPolicy(object):
 
     def graphs_from(self, op):
         if op.opname == 'direct_call':
-            graph = op.args[0].value._obj.graph
+            funcobj = get_funcobj(op.args[0].value)
+            graph = funcobj.graph
             if self.look_inside_graph(graph):
                 return [graph]     # common case: look inside this graph
         else:
@@ -36,7 +38,7 @@ class JitPolicy(object):
 
     def guess_call_kind(self, op):
         if op.opname == 'direct_call':
-            funcobj = op.args[0].value._obj
+            funcobj = get_funcobj(op.args[0].value)
             if (hasattr(funcobj, '_callable') and
                 getattr(funcobj._callable, '_recursive_portal_call_', False)):
                 return 'recursive'
