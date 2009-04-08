@@ -21,6 +21,10 @@ class FakeMetaInterp(object):
 # ____________________________________________________________
 
 class TestX86(BaseBackendTest):
+
+    # for the individual tests see
+    # ====> ../../test/runner.py
+    
     def setup_class(cls):
         cls.cpu = CPU(rtyper=None, stats=FakeStats())
         cls.cpu.set_meta_interp(FakeMetaInterp())

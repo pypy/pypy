@@ -1,4 +1,5 @@
 
+import sys
 from pypy.jit.metainterp.history import (BoxInt, Box, BoxPtr, TreeLoop,
                                          ConstInt, ConstPtr)
 from pypy.jit.metainterp.resoperation import ResOperation, rop
@@ -108,6 +109,23 @@ class BaseBackendTest(Runner):
         res = self.execute_operation(rop.UINT_RSHIFT, [BoxInt(1), BoxInt(4)],
                                      'int')
         assert res.value == intmask(r_uint(1) >> r_uint(4))
+
+    def test_int_floordiv_ovf(self):
+        v1 = BoxInt(-sys.maxint)
+        v2 = BoxInt(-1)
+        res_v = BoxInt()
+        ops = [
+            ResOperation(rop.INT_FLOORDIV_OVF, [v1, v2], res_v),
+            ResOperation(rop.GUARD_NO_EXCEPTION, [], None),
+            ResOperation(rop.FAIL, [ConstInt(0)], None),
+            ]
+        ops[1].suboperations = [ResOperation(rop.FAIL, [ConstInt(1)], None)]
+        loop = TreeLoop('name')
+        loop.operations = ops
+        loop.inputargs = [v1, v2]
+        self.cpu.compile_operations(loop)
+        op = self.cpu.execute_operations(loop, [v1, v2])
+        assert op.args[0].value == 1
 
     def test_uint_xor(self):
         x = execute(self.cpu, rop.UINT_XOR, [BoxInt(100), ConstInt(4)])
