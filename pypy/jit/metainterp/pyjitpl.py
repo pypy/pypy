@@ -23,6 +23,12 @@ def check_args(*args):
     for arg in args:
         assert isinstance(arg, (Box, Const))
 
+def log(msg):
+    if we_are_translated():
+        debug_print(msg)
+    else:
+        history.log.info(msg)
+
 class arguments(object):
     def __init__(self, *argtypes, **kwargs):
         self.result = kwargs.pop("returns", None)
@@ -874,8 +880,7 @@ class MetaInterp(object):
         # called by cpu.execute_operations(), in case we are recursively
         # in another MetaInterp.  Temporarily save away the content of the
         # boxes.
-        if not we_are_translated():
-            history.log.info('recursive call to execute_operations()!')
+        log('recursive call to execute_operations()!')
         saved_env = []
         for f in self.framestack:
             newenv = []
@@ -887,8 +892,8 @@ class MetaInterp(object):
         self.framestack.append(pseudoframe)
 
     def _restore_recursive_call(self):
+        log('recursion detected, restoring state')
         if not we_are_translated():
-            history.log.info('recursion detected, restoring state')
             assert not hasattr(self.framestack[-1], 'jitcode')
             assert hasattr(self.framestack[-2], 'jitcode')
         pseudoframe = self.framestack.pop()
@@ -936,8 +941,7 @@ class MetaInterp(object):
                 raise
 
     def compile_and_run_once(self, *args):
-        if not we_are_translated():
-            history.log.info('Switching from interpreter to compiler')
+        log('Switching from interpreter to compiler')
         original_boxes = self.initialize_state_from_start(*args)
         self.current_merge_points = [(original_boxes, 0)]
         self.resumekey = compile.ResumeFromInterpDescr(original_boxes)
@@ -1009,8 +1013,7 @@ class MetaInterp(object):
         self.current_merge_points.append((live_arg_boxes, start))
 
     def resume_already_compiled(self, live_arg_boxes):
-        if not we_are_translated():
-            history.log.info('followed a path already compiled earlier')
+        log('followed a path already compiled earlier')
         key = self.resumekey
         assert isinstance(key, compile.ResumeGuardDescr)
         guard_op = key.get_guard_op()
@@ -1144,8 +1147,7 @@ class MetaInterp(object):
             suboperations = guard_op.suboperations
             if suboperations[-1].opnum != rop.FAIL:
                 must_compile = False
-                if not we_are_translated():
-                    history.log.info("ignoring old version of the guard")
+                log("ignoring old version of the guard")
             self.history = history.History(self.cpu)
             extra = len(suboperations) - 1
             assert extra >= 0

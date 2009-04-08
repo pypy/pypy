@@ -8,6 +8,7 @@ from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.history import TreeLoop, log, Box, History
 from pypy.jit.metainterp.history import AbstractDescr, BoxInt, BoxPtr
 from pypy.jit.metainterp.specnode import NotSpecNode
+from pypy.rlib.debug import debug_print
 
 def compile_new_loop(metainterp, old_loops, greenkey):
     """Try to compile a new loop by closing the current history back
@@ -96,6 +97,8 @@ def compile_fresh_loop(metainterp, old_loops, greenkey):
     old_loop = metainterp_sd.optimize_loop(metainterp_sd.options, old_loops,
                                            loop, metainterp.cpu)
     if old_loop is not None:
+        if we_are_translated():
+            debug_print("reusing old loop")
         return old_loop
     history.source_link = loop
     send_loop_to_backend(metainterp, loop, "loop")
@@ -111,6 +114,8 @@ def send_loop_to_backend(metainterp, loop, type):
         else:
             loop._ignore_during_counting = True
         log.info("compiled new " + type)
+    else:
+        debug_print("compiled new " + type)
 
 # ____________________________________________________________
 
@@ -273,6 +278,8 @@ def prepare_loop_from_bridge(metainterp, resumekey):
     # unoptimized trace.  (Then we will just compile this loop normally.)
     if not we_are_translated():
         log.info("completing the bridge into a stand-alone loop")
+    else:
+        debug_print("completing the bridge into a stand-alone loop")
     operations = metainterp.history.operations
     metainterp.history.operations = []
     assert isinstance(resumekey, ResumeGuardDescr)
