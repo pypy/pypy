@@ -48,10 +48,6 @@ class JitMixin:
     def check_jumps(self, maxcount):
         assert get_stats().exec_jumps <= maxcount
 
-class LLJitMixin(JitMixin):
-    type_system = 'lltype'
-    CPUClass = runner.CPU
-
     def meta_interp(self, *args, **kwds):
         kwds['CPUClass'] = self.CPUClass
         return ll_meta_interp(*args, **kwds)
@@ -91,14 +87,15 @@ class LLJitMixin(JitMixin):
     def check_history_(self, expected=None, **isns):
         self.metainterp.staticdata.stats.check_history(expected, **isns)
 
+
+class LLJitMixin(JitMixin):
+    type_system = 'lltype'
+    CPUClass = runner.CPU
+
 class OOJitMixin(JitMixin):
     type_system = 'ootype'
     CPUClass = runner.CPU
-    def meta_interp(self, *args, **kwds):
-        py.test.skip("not for ootype right now")
 
-    def interp_operations(self, f, args, policy=None, **kwds):
-        py.test.skip("not for ootype right now")
 
 class BasicTests:    
 
@@ -462,7 +459,18 @@ class BasicTests:
         lltype.free(x, flavor='raw')
 
 class TestOOtype(BasicTests, OOJitMixin):
-    pass
+    def skip(self):
+        py.test.skip('in-progress')
+
+    test_direct_call = skip
+    test_direct_call_with_guard = skip
+    test_string = skip
+    test_residual_call = skip
+    test_format = skip
+    test_getfield = skip
+    test_getfield_immutable = skip
+    test_oops_on_nongc = skip
+
 
 class TestLLtype(BasicTests, LLJitMixin):
     pass
