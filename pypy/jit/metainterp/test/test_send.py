@@ -368,9 +368,59 @@ class SendTests:
         assert res == 110
         self.check_loop_count(2)
 
+    def test_three_cases(self):
+        class Node:
+            def __init__(self, x):
+                self.x = x
+        myjitdriver = JitDriver(greens = [], reds = ['node'])
+        def f(n):
+            node = Node(n)
+            while node.x > 0:
+                myjitdriver.can_enter_jit(node=node)
+                myjitdriver.jit_merge_point(node=node)
+                if node.x < 40:
+                    if node.x < 20:
+                        node = Node(node.x - 1)
+                    node = Node(node.x - 1)
+                node = Node(node.x - 1)
+            return node.x
+        res = self.meta_interp(f, [55])
+        assert res == f(55)
+        self.check_tree_loop_count(2)
 
-class TestOOtype(SendTests, OOJitMixin):
-    pass
+    def test_three_classes(self):
+        class Base:
+            pass
+        class A(Base):
+            def f(self):
+                return 1
+        class B(Base):
+            def f(self):
+                return 2
+        class C(Base):
+            def f(self):
+                return 3
+        myjitdriver = JitDriver(greens = [], reds = ['n'])
+        def extern(n):
+            if n > 40:
+                return A()
+            elif n > 20:
+                return B()
+            else:
+                return C()
+        def f(n):
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n)
+                myjitdriver.jit_merge_point(n=n)
+                n -= extern(n).f()
+            return n
+        res = self.meta_interp(f, [55], policy=StopAtXPolicy(extern))
+        assert res == f(55)
+        self.check_tree_loop_count(2)
+
+
+#class TestOOtype(SendTests, OOJitMixin):
+#    pass
 
 class TestLLtype(SendTests, LLJitMixin):
     pass
