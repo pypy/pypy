@@ -239,9 +239,9 @@ class Assembler386(object):
         self.mc.done()
         self.mc2.done()
         tree._x86_stack_depth = regalloc.max_stack_depth
-        for place, offset in self.places_to_patch_framesize:
+        for place in self.places_to_patch_framesize:
             mc = codebuf.InMemoryCodeBuilder(place, 128)
-            mc.ADD(esp, imm32((tree._x86_stack_depth - offset) * WORD))
+            mc.ADD(esp, imm32(tree._x86_stack_depth * WORD))
             mc.done()
 
     def sanitize_tree(self, operations):
@@ -619,7 +619,7 @@ class Assembler386(object):
                                              self.cpu.translate_support_code)
         self.mc.MOVZX(resloc, addr8_add(base_loc, ofs_loc, basesize))
 
-    def make_merge_point(self, tree, locs, stacklocs):
+    def make_merge_point(self, tree, locs):
         pos = self.mc.tell()
         tree._x86_compiled = pos
         #tree.comeback_bootstrap_addr = self.assemble_comeback_bootstrap(pos,
@@ -632,6 +632,7 @@ class Assembler386(object):
         if not we_are_translated():
             assert str(oldlocs) == str(newlocs)
         if newdepth != olddepth:
+            xxx
             mc2 = self.mcstack.next_mc()
             pos = mc2.tell()
             mc2.ADD(esp, imm32((olddepth - newdepth) * WORD))
@@ -663,10 +664,6 @@ class Assembler386(object):
 
     def genop_discard_jump(self, op, locs):
         targetmp = op.jump_target
-        if targetmp is not self.tree:
-            targetdepth = targetmp._x86_stack_depth
-            self.places_to_patch_framesize.append((self.mc.tell(), targetdepth))
-            self.mc.ADD(esp, imm32(0))
         self.mc.JMP(rel32(targetmp._x86_compiled))
 
     def genop_guard_guard_true(self, op, ign_1, addr, locs, ign_2):
@@ -784,7 +781,7 @@ class Assembler386(object):
             # clean up the original exception, we don't want
             # to enter more rpython code with exc set
             self.mc.MOV(heap(self._exception_addr), imm(0))
-        self.places_to_patch_framesize.append((self.mc.tell(), 0))
+        self.places_to_patch_framesize.append(self.mc.tell())
         self.mc.ADD(esp, imm32(0))
         self.mc.MOV(eax, imm(guard_index))
         self.mc.RET()

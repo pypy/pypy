@@ -154,7 +154,7 @@ class RegAlloc(object):
 
     def _compute_loop_consts(self, inputargs, jump):
         self.jump_reg_candidates = {}
-        if jump.opnum != rop.JUMP:
+        if jump.opnum != rop.JUMP or jump.jump_target is not self.tree:
             loop_consts = {}
         else:
             loop_consts = {}
@@ -255,8 +255,6 @@ class RegAlloc(object):
         self.position = -1
         self.process_inputargs(tree)
         self._walk_operations(operations)
-        self.max_stack_depth = max(self.max_stack_depth,
-                                   self.current_stack_depth)
 
     def walk_guard_ops(self, inputargs, operations):
         for arg in inputargs:
@@ -264,8 +262,6 @@ class RegAlloc(object):
                 assert arg in self.stack_bindings
                 assert arg not in self.dirty_stack
         self._walk_operations(operations)
-        self.max_stack_depth = max(self.max_stack_depth,
-                                   self.current_stack_depth)
 
     def _walk_operations(self, operations):
         i = 0
@@ -294,6 +290,12 @@ class RegAlloc(object):
                 self.eventually_free_vars(op.args)
             i += 1
         assert not self.reg_bindings
+        jmp = operations[-1]
+        if jmp.opnum == rop.JUMP and jmp.jump_target is not self.tree:
+            self.max_stack_depth = max(jmp.jump_target._x86_stack_depth,
+                                       self.max_stack_depth)
+        self.max_stack_depth = max(self.max_stack_depth,
+                                   self.current_stack_depth)
 
     def _compute_vars_longevity(self, inputargs, operations):
         # compute a dictionary that maps variables to index in
@@ -591,8 +593,6 @@ class RegAlloc(object):
             arg = inputargs[i]
             assert not isinstance(arg, Const)
             reg = None
-            loc = stack_pos(i)
-            self.stack_bindings[arg] = loc
             if arg not in self.loop_consts and self.longevity[arg][1] > -1:
                 reg = self.try_allocate_reg(arg)
             if reg:
@@ -604,11 +604,12 @@ class RegAlloc(object):
                     jarg = jump.args[i]
                     self.jump_reg_candidates[jarg] = reg
             else:
+                loc = stack_pos(i)
+                self.stack_bindings[arg] = loc
                 locs[i] = loc
             # otherwise we have it saved on stack, so no worry
         tree.arglocs = locs
-        tree.stacklocs = range(len(inputargs))
-        self.assembler.make_merge_point(tree, locs, tree.stacklocs)
+        self.assembler.make_merge_point(tree, locs)
         self.eventually_free_vars(inputargs)
 
     def regalloc_for_guard(self, guard_op):
@@ -1116,8 +1117,11 @@ class RegAlloc(object):
                     break
             if free_reg is None:
                 # a very rare case
-                v = self.reg_bindings.keys()[0]
-                free_reg = self.reg_bindings[v]
+                if self.free_regs:
+                    free_reg = self.free_regs.pop()
+                else:
+                    v = self.reg_bindings.keys()[0]
+                    free_reg = self.reg_bindings[v]
                 self.Store(v, self.loc(v), self.stack_loc(v))
                 later_loads.insert(0, (v, self.stack_loc(v), self.loc(v)))
             for v, from_l, to_l in reloaded:
