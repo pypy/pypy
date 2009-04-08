@@ -8,6 +8,7 @@ from pypy.rlib.jit import _we_are_jitted
 from pypy.jit.metainterp.history import Const, getkind
 from pypy.jit.metainterp import heaptracker, support, history
 from pypy.tool.udir import udir
+from pypy.translator.simplify import get_funcobj, get_functype
 
 import py, sys
 from pypy.tool.ansi_print import ansi_log
@@ -150,9 +151,10 @@ class CodeWriter(object):
         NON_VOID_ARGS = [x.concretetype for x in non_void_args]
         RESULT = result.concretetype
         # check the number and type of arguments
-        ARGS = v_func.concretetype.TO.ARGS
+        FUNC = get_functype(v_func.concretetype)
+        ARGS = FUNC.ARGS
         assert NON_VOID_ARGS == [T for T in ARGS if T is not lltype.Void]
-        assert RESULT == v_func.concretetype.TO.RESULT
+        assert RESULT == FUNC.RESULT
         # ok
         calldescr = self.cpu.calldescrof(NON_VOID_ARGS, RESULT)
         return calldescr, non_void_args
