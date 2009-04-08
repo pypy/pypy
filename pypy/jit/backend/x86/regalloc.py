@@ -295,7 +295,7 @@ class RegAlloc(object):
             self.max_stack_depth = max(jmp.jump_target._x86_stack_depth,
                                        self.max_stack_depth)
         self.max_stack_depth = max(self.max_stack_depth,
-                                   self.current_stack_depth)
+                                   self.current_stack_depth + 1)
 
     def _compute_vars_longevity(self, inputargs, operations):
         # compute a dictionary that maps variables to index in
