@@ -15,7 +15,7 @@ from pypy.rlib.debug import debug_print
 from pypy.rpython.lltypesystem.lloperation import llop
 
 from pypy.jit.metainterp import support, history, pyjitpl
-from pypy.jit.metainterp.pyjitpl import OOMetaInterp, Options
+from pypy.jit.metainterp.pyjitpl import MetaInterpStaticData, MetaInterp
 from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp.policy import JitPolicy
 
@@ -108,11 +108,11 @@ class WarmRunnerDesc:
         self.build_meta_interp(**kwds)
         self.make_args_specification()
         self.rewrite_jit_merge_point()
-        self.metainterp.generate_bytecode(policy)
+        self.metainterp_sd.generate_bytecode(policy)
         self.make_enter_function()
         self.rewrite_can_enter_jit()
-        self.metainterp.num_green_args = self.num_green_args
-        self.metainterp.state = self.state
+        self.metainterp_sd.num_green_args = self.num_green_args
+        self.metainterp_sd.state = self.state
 
     def finish(self):
         if self.cpu.translate_support_code:
@@ -124,7 +124,7 @@ class WarmRunnerDesc:
     def build_meta_interp(self, CPUClass=runner.CPU, view="auto",
                           translate_support_code=False, optimizer=None,
                           **kwds):
-        opt = Options(**kwds)
+        opt = pyjitpl.Options(**kwds)
         self.stats = history.Stats()
         if translate_support_code:
             self.annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
@@ -149,8 +149,9 @@ class WarmRunnerDesc:
         self.translator.graphs.append(graph)
         self.portal_graph = graph
         self.jitdriver = block.operations[pos].args[1].value
-        self.metainterp = OOMetaInterp(graph, graphs, cpu, self.stats, opt,
-                                       optimizer=optimizer)
+        self.metainterp_sd = MetaInterpStaticData(graph, graphs, cpu,
+                                                  self.stats, opt,
+                                                  optimizer=optimizer)
 
     def make_enter_function(self):
         WarmEnterState = make_state_class(self)
@@ -270,15 +271,13 @@ class WarmRunnerDesc:
             def __init__(self, resultbox):
                 self.resultbox = resultbox
             def __str__(self):
-                return 'DoneWithThisFrame(%s)' % (self.result,)
+                return 'DoneWithThisFrame(%s)' % (self.resultbox,)
 
         class ExitFrameWithException(JitException):
-            def __init__(self, typebox, valuebox):
-                self.typebox = typebox
+            def __init__(self, valuebox):
                 self.valuebox = valuebox
             def __str__(self):
-                return 'ExitFrameWithException(%s, %s)' % (self.type,
-                                                           self.value)
+                return 'ExitFrameWithException(%s)' % (self.valuebox,)
 
         class ContinueRunningNormally(JitException):
             def __init__(self, args):
@@ -291,9 +290,9 @@ class WarmRunnerDesc:
         self.DoneWithThisFrame = DoneWithThisFrame
         self.ExitFrameWithException = ExitFrameWithException
         self.ContinueRunningNormally = ContinueRunningNormally
-        self.metainterp.DoneWithThisFrame = DoneWithThisFrame
-        self.metainterp.ExitFrameWithException = ExitFrameWithException
-        self.metainterp.ContinueRunningNormally = ContinueRunningNormally
+        self.metainterp_sd.DoneWithThisFrame = DoneWithThisFrame
+        self.metainterp_sd.ExitFrameWithException = ExitFrameWithException
+        self.metainterp_sd.ContinueRunningNormally = ContinueRunningNormally
         rtyper = self.translator.rtyper
         portalfunc_ARGS = unrolling_iterable(list(enumerate(PORTALFUNC.ARGS)))
         RESULT = PORTALFUNC.RESULT
@@ -313,9 +312,7 @@ class WarmRunnerDesc:
                 except ExitFrameWithException, e:
                     value = e.valuebox.getptr(lltype.Ptr(rclass.OBJECT))
                     if not we_are_translated():
-                        type = e.typebox.getaddr(self.metainterp.cpu)
-                        type = llmemory.cast_adr_to_ptr(type, rclass.CLASSTYPE)
-                        raise LLException(type, value)
+                        raise LLException(value.typeptr, value)
                     else:
                         value = cast_base_ptr_to_instance(Exception, value)
                         raise Exception, value
@@ -468,7 +465,8 @@ def make_state_class(warmrunnerdesc):
                     self.cells[argshash] = Counter(n)
                     return
                 #interp.debug_trace("jit_compile", *greenargs)
-                metainterp = warmrunnerdesc.metainterp
+                metainterp_sd = warmrunnerdesc.metainterp_sd
+                metainterp = MetaInterp(metainterp_sd)
                 loop, boxes = metainterp.compile_and_run_once(*args)
             else:
                 # machine code was already compiled for these greenargs
@@ -482,10 +480,13 @@ def make_state_class(warmrunnerdesc):
                 loop = cell.bridge
                 boxes = cell.fill_boxes(*args[num_green_args:])
             # ---------- execute assembler ----------
+            warmrunnerdesc.metainterp_sd.globaldata.save_recursive_call()
             while True:     # until interrupted by an exception
-                metainterp = warmrunnerdesc.metainterp
-                fail_op = metainterp.cpu.execute_operations(loop, boxes)
-                loop, boxes = fail_op.descr.handle_fail_op(metainterp, fail_op)
+                metainterp_sd = warmrunnerdesc.metainterp_sd
+                metainterp_sd.globaldata.assert_empty()
+                fail_op = metainterp_sd.cpu.execute_operations(loop, boxes)
+                loop, boxes = fail_op.descr.handle_fail_op(metainterp_sd,
+                                                           fail_op)
         maybe_compile_and_run._dont_inline_ = True
 
         def handle_hash_collision(self, cell, argshash, *args):

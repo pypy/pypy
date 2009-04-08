@@ -74,13 +74,13 @@ def show_loop(metainterp, loop=None, error=None):
             extraloops = []
         else:
             extraloops = [loop]
-        metainterp.stats.view(errmsg=errmsg, extraloops=extraloops)
+        metainterp.staticdata.stats.view(errmsg=errmsg, extraloops=extraloops)
 
 def create_empty_loop(metainterp):
     if we_are_translated():
         name = 'Loop'
     else:
-        name = 'Loop #%d' % len(metainterp.stats.loops)
+        name = 'Loop #%d' % len(metainterp.staticdata.stats.loops)
     return TreeLoop(name)
 
 # ____________________________________________________________
@@ -92,13 +92,14 @@ def compile_fresh_loop(metainterp, old_loops, greenkey):
     loop.inputargs = history.inputargs
     loop.operations = history.operations
     loop.operations[-1].jump_target = loop
-    old_loop = metainterp.optimize_loop(metainterp.options, old_loops,
-                                        loop, metainterp.cpu)
+    metainterp_sd = metainterp.staticdata
+    old_loop = metainterp_sd.optimize_loop(metainterp_sd.options, old_loops,
+                                           loop, metainterp.cpu)
     if old_loop is not None:
         return old_loop
     history.source_link = loop
     send_loop_to_backend(metainterp, loop, "loop")
-    metainterp.stats.loops.append(loop)
+    metainterp.staticdata.stats.loops.append(loop)
     old_loops.append(loop)
     return loop
 
@@ -106,7 +107,7 @@ def send_loop_to_backend(metainterp, loop, type):
     metainterp.cpu.compile_operations(loop)
     if not we_are_translated():
         if type != "entry bridge":
-            metainterp.stats.compiled_count += 1
+            metainterp.staticdata.stats.compiled_count += 1
         else:
             loop._ignore_during_counting = True
         log.info("compiled new " + type)
@@ -114,19 +115,19 @@ def send_loop_to_backend(metainterp, loop, type):
 # ____________________________________________________________
 
 class DoneWithThisFrameDescr0(AbstractDescr):
-    def handle_fail_op(self, metainterp, fail_op):
-        raise metainterp.DoneWithThisFrame(None)
+    def handle_fail_op(self, metainterp_sd, fail_op):
+        raise metainterp_sd.DoneWithThisFrame(None)
 
 class DoneWithThisFrameDescr1(AbstractDescr):
-    def handle_fail_op(self, metainterp, fail_op):
+    def handle_fail_op(self, metainterp_sd, fail_op):
         resultbox = fail_op.args[0]
-        raise metainterp.DoneWithThisFrame(resultbox)
+        raise metainterp_sd.DoneWithThisFrame(resultbox)
 
 class ExitFrameWithExceptionDescr(AbstractDescr):
-    def handle_fail_op(self, metainterp, fail_op):
-        typebox = fail_op.args[0]
-        valuebox = fail_op.args[1]
-        raise metainterp.ExitFrameWithException(typebox, valuebox)
+    def handle_fail_op(self, metainterp_sd, fail_op):
+        assert len(fail_op.args) == 1
+        valuebox = fail_op.args[0]
+        raise metainterp_sd.ExitFrameWithException(valuebox)
 
 done_with_this_frame_descr_0 = DoneWithThisFrameDescr0()
 done_with_this_frame_descr_1 = DoneWithThisFrameDescr1()
@@ -153,27 +154,29 @@ loops_done_with_this_frame_void = [_loop]
 map_loop2descr[_loop] = done_with_this_frame_descr_0
 
 _loop = TreeLoop('exit_frame_with_exception')
-_loop.specnodes = [NotSpecNode(), NotSpecNode()]
-_loop.inputargs = [BoxInt(), BoxPtr()]
+_loop.specnodes = [NotSpecNode()]
+_loop.inputargs = [BoxPtr()]
 loops_exit_frame_with_exception = [_loop]
 map_loop2descr[_loop] = exit_frame_with_exception_descr
 del _loop
 
 
 class ResumeGuardDescr(AbstractDescr):
-    def __init__(self, guard_op, resume_info, history, history_guard_index):
+    def __init__(self, resume_info, history, history_guard_index):
         self.resume_info = resume_info
-        self.guard_op = guard_op
         self.counter = 0
         self.history = history
         assert history_guard_index >= 0
         self.history_guard_index = history_guard_index
 
-    def handle_fail_op(self, metainterp, fail_op):
+    def handle_fail_op(self, metainterp_sd, fail_op):
+        from pypy.jit.metainterp.pyjitpl import MetaInterp
+        metainterp = MetaInterp(metainterp_sd)
         return metainterp.handle_guard_failure(fail_op, self)
 
     def get_guard_op(self):
-        guard_op = self.guard_op
+        guard_op = self.history.operations[self.history_guard_index]
+        assert guard_op.is_guard()
         if guard_op.optimized is not None:   # should always be the case,
             return guard_op.optimized        # except if not optimizing at all
         else:
@@ -216,7 +219,8 @@ class ResumeFromInterpDescr(AbstractDescr):
         # to previously-compiled code.  We keep 'new_loop', which is not
         # a loop at all but ends in a jump to the target loop.  It starts
         # with completely unoptimized arguments, as in the interpreter.
-        num_green_args = metainterp.num_green_args
+        metainterp_sd = metainterp.staticdata
+        num_green_args = metainterp_sd.num_green_args
         greenkey = self.original_boxes[:num_green_args]
         redkey = self.original_boxes[num_green_args:]
         metainterp.history.source_link = new_loop
@@ -224,10 +228,10 @@ class ResumeFromInterpDescr(AbstractDescr):
         new_loop.greenkey = greenkey
         new_loop.inputargs = redkey
         send_loop_to_backend(metainterp, new_loop, "entry bridge")
-        metainterp.stats.loops.append(new_loop)
+        metainterp_sd.stats.loops.append(new_loop)
         # send the new_loop to warmspot.py, to be called directly the next time
-        metainterp.state.attach_unoptimized_bridge_from_interp(greenkey,
-                                                               new_loop)
+        metainterp_sd.state.attach_unoptimized_bridge_from_interp(greenkey,
+                                                                  new_loop)
 
 
 def compile_fresh_bridge(metainterp, old_loops, resumekey):
@@ -238,8 +242,10 @@ def compile_fresh_bridge(metainterp, old_loops, resumekey):
     # it does not work -- i.e. none of the existing old_loops match.
     new_loop = create_empty_loop(metainterp)
     new_loop.operations = metainterp.history.operations
-    target_loop = metainterp.optimize_bridge(metainterp.options, old_loops,
-                                             new_loop, metainterp.cpu)
+    metainterp_sd = metainterp.staticdata
+    target_loop = metainterp_sd.optimize_bridge(metainterp_sd.options,
+                                                old_loops, new_loop,
+                                                metainterp.cpu)
     # Did it work?  If not, prepare_loop_from_bridge() will probably be used.
     if target_loop is not None:
         # Yes, we managed to create a bridge.  Dispatch to resumekey to

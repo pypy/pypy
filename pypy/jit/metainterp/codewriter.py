@@ -75,15 +75,15 @@ class SwitchDict(history.AbstractValue):
 class CodeWriter(object):
     portal_graph = None
 
-    def __init__(self, metainterp, policy):
+    def __init__(self, metainterp_sd, policy):
         self.all_prebuilt_values = {}
         self.all_graphs = {}
         self.all_indirectcallsets = {}
         self.all_listdescs = {}
         self.unfinished_graphs = []
-        self.metainterp = metainterp
-        self.rtyper = metainterp.cpu.rtyper
-        self.cpu = metainterp.cpu
+        self.metainterp_sd = metainterp_sd
+        self.rtyper = metainterp_sd.cpu.rtyper
+        self.cpu = metainterp_sd.cpu
         self.policy = policy
 
     def make_portal_bytecode(self, graph):
@@ -209,7 +209,7 @@ class BytecodeMaker(object):
     
     def __init__(self, codewriter, graph, portal):
         self.codewriter = codewriter
-        self.cpu = codewriter.metainterp.cpu
+        self.cpu = codewriter.metainterp_sd.cpu
         self.portal = portal
         self.bytecode = self.codewriter.get_jitcode(graph)
         if not codewriter.policy.look_inside_graph(graph):
@@ -231,12 +231,13 @@ class BytecodeMaker(object):
             self.make_exception_handler(self.pending_exception_handlers.pop())
 
         labelpos = {}
-        code = assemble(labelpos, self.codewriter.metainterp, self.assembler)
+        code = assemble(labelpos, self.codewriter.metainterp_sd,
+                        self.assembler)
         self.resolve_switch_targets(labelpos)
         self.bytecode.setup(code, self.constants)
 
         self.bytecode._source = self.assembler
-        self.bytecode._metainterp = self.codewriter.metainterp
+        self.bytecode._metainterp_sd = self.codewriter.metainterp_sd
         self.bytecode._labelpos = labelpos
         if self.debug:
             self.bytecode.dump()
@@ -749,7 +750,7 @@ class BytecodeMaker(object):
         c_func, TP = support.builtin_func_for_spec(self.codewriter.rtyper,
                                                    oopspec_name, argtypes,
                                                    resulttype)
-        if self.codewriter.metainterp.options.listops:
+        if self.codewriter.metainterp_sd.options.listops:
             if self.handle_list_call(op, oopspec_name, args, TP):
                 return
 ##            if oopspec_name.startswith('list.getitem'):
@@ -903,16 +904,17 @@ class BytecodeMaker(object):
         FIELDTYPE = getattr(STRUCTTYPE, argname)
         if FIELDTYPE != lltype.Void:
             TOPSTRUCT = heaptracker.cast_vable_type(STRUCTTYPE)
-            metainterp = self.codewriter.metainterp
+            metainterp_sd = self.codewriter.metainterp_sd
+            vdescs = metainterp_sd._virtualizabledescs
             try:
-                virtualizabledesc = metainterp._virtualizabledescs[TOPSTRUCT]
+                virtualizabledesc = vdescs[TOPSTRUCT]
             except KeyError:
                 from pypy.jit.metainterp import virtualizable
                 virtualizabledesc = virtualizable.VirtualizableDesc(
                     self.cpu, TOPSTRUCT, STRUCTTYPE)
-                virtualizabledesc.hash = len(metainterp._virtualizabledescs)
-                metainterp._virtualizabledescs[TOPSTRUCT] = virtualizabledesc
-                metainterp._can_have_virtualizables = virtualizabledesc
+                virtualizabledesc.hash = len(metainterp_sd._virtualizabledescs)
+                vdescs[TOPSTRUCT] = virtualizabledesc
+                metainterp_sd._can_have_virtualizables = virtualizabledesc
                 #             ^^^ stays None if this code is never seen
             guard_field = self.cpu.fielddescrof(STRUCTTYPE, argname)
             self.emit('guard_nonvirtualized')
@@ -1000,7 +1002,7 @@ def encode_int(index):
             break
     return result
 
-def assemble(labelpos, metainterp, assembler):
+def assemble(labelpos, metainterp_sd, assembler):
     result = []
     for arg in assembler:
         if isinstance(arg, str):
@@ -1008,7 +1010,7 @@ def assemble(labelpos, metainterp, assembler):
                 continue
             #if arg == 'green':
             #    XXX should be removed and transformed into a list constant
-            opcode = metainterp.find_opcode(arg)
+            opcode = metainterp_sd.find_opcode(arg)
             result.append(chr(opcode))
         elif isinstance(arg, bool):
             result.append(chr(int(arg)))

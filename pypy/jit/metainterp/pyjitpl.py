@@ -544,8 +544,8 @@ class MIFrame(object):
 
     def generate_merge_point(self, pc, varargs):
         if isinstance(self.metainterp.history, history.BlackHole):
-            raise self.metainterp.ContinueRunningNormally(varargs)
-        num_green_args = self.metainterp.num_green_args
+            raise self.metainterp.staticdata.ContinueRunningNormally(varargs)
+        num_green_args = self.metainterp.staticdata.num_green_args
         for i in range(num_green_args):
             varargs[i] = self.implement_guard_value(pc, varargs[i])
 
@@ -632,7 +632,8 @@ class MIFrame(object):
             op = ord(self.bytecode[pc])
             #print self.metainterp.opcode_names[op]
             self.pc = pc + 1
-            stop = self.metainterp.opcode_implementations[op](self, pc)
+            staticdata = self.metainterp.staticdata
+            stop = staticdata.opcode_implementations[op](self, pc)
             #self.metainterp.most_recent_mp = None
             if stop:
                 break
@@ -663,7 +664,7 @@ class MIFrame(object):
         else:
             moreargs = list(extraargs)
         guard_op = self.metainterp.history.record(opnum, moreargs, None)
-        resumedescr = compile.ResumeGuardDescr(guard_op, resume_info,
+        resumedescr = compile.ResumeGuardDescr(resume_info,
             self.metainterp.history, len(self.metainterp.history.operations)-1)
         op = history.ResOperation(rop.FAIL, liveboxes, None, descr=resumedescr)
         guard_op.suboperations = [op]
@@ -699,10 +700,7 @@ class MIFrame(object):
 
 # ____________________________________________________________
 
-class Optimizer(object):
-    pass
-
-class OOMetaInterp(object):
+class MetaInterpStaticData(object):
     num_green_args = 0
 
     def __init__(self, portal_graph, graphs, cpu, stats, options,
@@ -711,8 +709,7 @@ class OOMetaInterp(object):
         self.cpu = cpu
         self.stats = stats
         self.options = options
-        self.compiled_merge_points = r_dict(history.mp_eq, history.mp_hash)
-                 # { greenkey: list-of-MergePoints }
+        self.globaldata = MetaInterpGlobalData()
 
         self.opcode_implementations = []
         self.opcode_names = []
@@ -723,7 +720,6 @@ class OOMetaInterp(object):
         else:
             self.cpu.class_sizes = None
         self._virtualizabledescs = {}
-        self._debug_history = []
         if optimizer is not None:
             self.optimize_loop = optimizer.optimize_loop
             self.optimize_bridge = optimizer.optimize_bridge
@@ -731,6 +727,9 @@ class OOMetaInterp(object):
             from pypy.jit.metainterp import optimize
             self.optimize_loop = optimize.optimize_loop
             self.optimize_bridge = optimize.optimize_bridge
+
+    def _freeze_(self):
+        return True
 
     def _recompute_class_sizes(self):
         if self.cpu.class_sizes is None:
@@ -743,7 +742,58 @@ class OOMetaInterp(object):
         self._codewriter = codewriter.CodeWriter(self, policy)
         self.portal_code = self._codewriter.make_portal_bytecode(
             self.portal_graph)
-        self.delete_history()
+
+    # ---------- construction-time interface ----------
+
+    def _register_opcode(self, opname):
+        assert len(self.opcode_implementations) < 256, \
+               "too many implementations of opcodes!"
+        name = "opimpl_" + opname
+        self.opname_to_index[opname] = len(self.opcode_implementations)
+        self.opcode_names.append(opname)
+        self.opcode_implementations.append(getattr(MIFrame, name).im_func)
+
+    def find_opcode(self, name):
+        try:
+            return self.opname_to_index[name]
+        except KeyError:
+            self._register_opcode(name)
+            return self.opname_to_index[name]
+
+# ____________________________________________________________
+
+class MetaInterpGlobalData(object):
+    def __init__(self):
+        self.metainterp_doing_call = None
+        self._debug_history = []
+        self.compiled_merge_points = r_dict(history.mp_eq, history.mp_hash)
+                 # { greenkey: list-of-MergePoints }
+
+    def set_metainterp_doing_call(self, metainterp):
+        self.save_recursive_call()
+        self.metainterp_doing_call = metainterp
+
+    def unset_metainterp_doing_call(self, metainterp):
+        if self.metainterp_doing_call != metainterp:
+            metainterp._restore_recursive_call()
+        self.metainterp_doing_call = None
+
+    def save_recursive_call(self):
+        if self.metainterp_doing_call is not None:
+            self.metainterp_doing_call._save_recursive_call()
+            self.metainterp_doing_call = None
+
+    def assert_empty(self):
+        assert self.metainterp_doing_call is None
+
+# ____________________________________________________________
+
+class MetaInterp(object):
+    def __init__(self, staticdata):
+        self.staticdata = staticdata
+        self.cpu = staticdata.cpu
+        if not we_are_translated():
+            self._debug_history = staticdata.globaldata._debug_history
 
     def newframe(self, jitcode):
         if not we_are_translated():
@@ -763,7 +813,7 @@ class OOMetaInterp(object):
         else:
             if not isinstance(self.history, history.BlackHole):
                 self.compile_done_with_this_frame(resultbox)
-            raise self.DoneWithThisFrame(resultbox)
+            raise self.staticdata.DoneWithThisFrame(resultbox)
 
     def finishframe_exception(self, exceptionbox, excvaluebox):
         while self.framestack:
@@ -778,22 +828,13 @@ class OOMetaInterp(object):
                 self._debug_history.append(['leave_exc', frame.jitcode, None])
             self.framestack.pop()
         if not isinstance(self.history, history.BlackHole):
-            self.compile_exit_frame_with_exception(exceptionbox, excvaluebox)
-        raise self.ExitFrameWithException(exceptionbox, excvaluebox)
+            self.compile_exit_frame_with_exception(excvaluebox)
+        raise self.staticdata.ExitFrameWithException(excvaluebox)
 
     def create_empty_history(self):
         self.history = history.History(self.cpu)
-        if self.stats is not None:
-            self.stats.history = self.history
-
-    def delete_history(self):
-        self.history = None
-        self.framestack = None
-        self.current_merge_points = None
-        self.resumekey = None
-
-    def set_blackhole_mode(self):
-        self.history = history.BlackHole(self.cpu)
+        if self.staticdata.stats is not None:
+            self.staticdata.stats.history = self.history
 
     def _all_constants(self, boxes):
         for box in boxes:
@@ -803,7 +844,9 @@ class OOMetaInterp(object):
 
     @specialize.arg(1)
     def execute_and_record(self, opnum, argboxes, descr=None):
-        old_framestack = self.framestack
+        # detect recursions when using rop.CALL
+        if opnum == rop.CALL:
+            self.staticdata.globaldata.set_metainterp_doing_call(self)
         # execute the operation first
         history.check_descr(descr)
         resbox = executor.execute(self.cpu, opnum, argboxes, descr)
@@ -820,23 +863,55 @@ class OOMetaInterp(object):
         else:
             assert resbox is None or isinstance(resbox, Box)
             if opnum == rop.CALL:
-                # with executor.execute(rop.CALL), there is a risk of recursion
-                if self.framestack is not old_framestack:
-                    if not we_are_translated():
-                        history.log.info('recursion detected')
-                    self.framestack = old_framestack
-                    self.set_blackhole_mode()
+                self.staticdata.globaldata.unset_metainterp_doing_call(self)
         # record the operation if not constant-folded away
         if not canfold:
             self.history.record(opnum, argboxes, resbox, descr)
         return resbox
+
+    def _save_recursive_call(self):
+        # A bit of a hack: we need to be safe against box.changevalue_xxx()
+        # called by cpu.execute_operations(), in case we are recursively
+        # in another MetaInterp.  Temporarily save away the content of the
+        # boxes.
+        if not we_are_translated():
+            history.log.info('recursive call to execute_operations()!')
+        saved_env = []
+        for f in self.framestack:
+            newenv = []
+            for box in f.env:
+                if isinstance(box, Box):
+                    saved_env.append(box.clonebox())
+        pseudoframe = instantiate(MIFrame)
+        pseudoframe.env = saved_env
+        self.framestack.append(pseudoframe)
+
+    def _restore_recursive_call(self):
+        if not we_are_translated():
+            history.log.info('recursion detected, restoring state')
+            assert not hasattr(self.framestack[-1], 'jitcode')
+            assert hasattr(self.framestack[-2], 'jitcode')
+        pseudoframe = self.framestack.pop()
+        saved_env = pseudoframe.env
+        i = 0
+        for f in self.framestack:
+            for box in f.env:
+                if isinstance(box, BoxInt):
+                    box.changevalue_int(saved_env[i].getint())
+                    i += 1
+                elif isinstance(box, BoxPtr):
+                    box.changevalue_ptr(saved_env[i].getptr_base())
+                    i += 1
+                else:
+                    assert isinstance(box, Const)
+        assert i == len(saved_env)
 
     def _interpret(self):
         # Execute the frames forward until we raise a DoneWithThisFrame,
         # a ContinueRunningNormally, or a GenerateMergePoint exception.
         if not we_are_translated():
             history.log.event('ENTER' + self.history.extratext)
-            self.stats.enter_count += 1
+            self.staticdata.stats.enter_count += 1
         else:
             debug_print('~~~ ENTER', self.history.extratext)
         try:
@@ -873,8 +948,8 @@ class OOMetaInterp(object):
         except GenerateMergePoint, gmp:
             return self.designate_target_loop(gmp)
 
-    def handle_guard_failure(self, guard_failure, key):
-        self.initialize_state_from_guard_failure(guard_failure)
+    def handle_guard_failure(self, exec_result, key):
+        self.initialize_state_from_guard_failure(exec_result)
         assert isinstance(key, compile.ResumeGuardDescr)
         top_history = key.find_toplevel_history()
         source_loop = top_history.source_link
@@ -882,8 +957,9 @@ class OOMetaInterp(object):
         original_boxes = source_loop.greenkey + top_history.inputargs
         self.current_merge_points = [(original_boxes, 0)]
         self.resumekey = key
+        guard_op = key.get_guard_op()
         try:
-            self.prepare_resume_from_failure(key.guard_op.opnum)
+            self.prepare_resume_from_failure(guard_op.opnum)
             self.interpret()
             assert False, "should always raise"
         except GenerateMergePoint, gmp:
@@ -906,7 +982,7 @@ class OOMetaInterp(object):
         for j in range(len(self.current_merge_points)-1, -1, -1):
             original_boxes, start = self.current_merge_points[j]
             assert len(original_boxes) == len(live_arg_boxes)
-            for i in range(self.num_green_args):
+            for i in range(self.staticdata.num_green_args):
                 box1 = original_boxes[i]
                 box2 = live_arg_boxes[i]
                 if not box1.equals(box2):
@@ -942,9 +1018,8 @@ class OOMetaInterp(object):
         raise GenerateMergePoint(live_arg_boxes, loop)
 
     def designate_target_loop(self, gmp):
-        self.delete_history()
         loop = gmp.target_loop
-        num_green_args = self.num_green_args
+        num_green_args = self.staticdata.num_green_args
         residual_args = self.get_residual_args(loop,
                                                gmp.argboxes[num_green_args:])
         return (loop, residual_args)
@@ -958,23 +1033,24 @@ class OOMetaInterp(object):
             self.handle_exception()
 
     def compile(self, original_boxes, live_arg_boxes):
-        num_green_args = self.num_green_args
+        num_green_args = self.staticdata.num_green_args
         self.history.inputargs = original_boxes[num_green_args:]
         greenkey = original_boxes[:num_green_args]
-        old_loops = self.compiled_merge_points.setdefault(greenkey, [])
+        glob = self.staticdata.globaldata
+        old_loops = glob.compiled_merge_points.setdefault(greenkey, [])
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
         loop = compile.compile_new_loop(self, old_loops, greenkey)
         assert loop is not None
         if not we_are_translated():
             loop._call_history = self._debug_history
-            self.debug_history = []
         return loop
 
     def compile_bridge(self, live_arg_boxes):
-        num_green_args = self.num_green_args
+        num_green_args = self.staticdata.num_green_args
         greenkey = live_arg_boxes[:num_green_args]
         try:
-            old_loops = self.compiled_merge_points[greenkey]
+            glob = self.staticdata.globaldata
+            old_loops = glob.compiled_merge_points[greenkey]
         except KeyError:
             return
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
@@ -999,9 +1075,9 @@ class OOMetaInterp(object):
         target_loop = compile.compile_new_bridge(self, loops, self.resumekey)
         assert target_loop is loops[0]
 
-    def compile_exit_frame_with_exception(self, typebox, valuebox):
+    def compile_exit_frame_with_exception(self, valuebox):
         # temporarily put a JUMP to a pseudo-loop
-        self.history.record(rop.JUMP, [typebox, valuebox], None)
+        self.history.record(rop.JUMP, [valuebox], None)
         loops = compile.loops_exit_frame_with_exception
         target_loop = compile.compile_new_bridge(self, loops, self.resumekey)
         assert target_loop is loops[0]
@@ -1045,14 +1121,14 @@ class OOMetaInterp(object):
                                         *args[1:])
 
     def initialize_state_from_start(self, *args):
-        self._recompute_class_sizes()
+        self.staticdata._recompute_class_sizes()
         self.create_empty_history()
-        num_green_args = self.num_green_args
+        num_green_args = self.staticdata.num_green_args
         original_boxes = []
         self._initialize_from_start(original_boxes, num_green_args, *args)
         # ----- make a new frame -----
         self.framestack = []
-        f = self.newframe(self.portal_code)
+        f = self.newframe(self.staticdata.portal_code)
         f.pc = 0
         f.env = original_boxes[:]
         return original_boxes
@@ -1061,7 +1137,8 @@ class OOMetaInterp(object):
         # guard failure: rebuild a complete MIFrame stack
         resumedescr = guard_failure.descr
         assert isinstance(resumedescr, compile.ResumeGuardDescr)
-        must_compile = self.state.must_compile_from_failure(resumedescr)
+        warmrunnerstate = self.staticdata.state
+        must_compile = warmrunnerstate.must_compile_from_failure(resumedescr)
         if must_compile:
             guard_op = resumedescr.get_guard_op()
             suboperations = guard_op.suboperations
@@ -1076,7 +1153,9 @@ class OOMetaInterp(object):
                 self.history.operations.append(suboperations[i])
             self.extra_rebuild_operations = extra
         else:
-            self.set_blackhole_mode()
+            self.history = history.BlackHole(self.cpu)
+            # the BlackHole is invalid because it doesn't start with
+            # guard_failure.key.guard_op.suboperations, but that's fine
         self.rebuild_state_after_failure(resumedescr.resume_info,
                                          guard_failure.args)
 
@@ -1107,24 +1186,6 @@ class OOMetaInterp(object):
             nbindex = f.setup_resume_at_op(pc, const_part, newboxes, nbindex,
                                            exception_target)
         assert nbindex == len(newboxes), "too many newboxes!"
-
-    # ____________________________________________________________
-    # construction-time interface
-
-    def _register_opcode(self, opname):
-        assert len(self.opcode_implementations) < 256, \
-               "too many implementations of opcodes!"
-        name = "opimpl_" + opname
-        self.opname_to_index[opname] = len(self.opcode_implementations)
-        self.opcode_names.append(opname)
-        self.opcode_implementations.append(getattr(MIFrame, name).im_func)
-
-    def find_opcode(self, name):
-        try:
-            return self.opname_to_index[name]
-        except KeyError:
-            self._register_opcode(name)
-            return self.opname_to_index[name]
 
 
 class GenerateMergePoint(Exception):

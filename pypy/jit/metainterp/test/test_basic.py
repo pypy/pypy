@@ -21,7 +21,8 @@ def get_metainterp(func, values, CPUClass, type_system, policy,
     cpu = CPUClass(rtyper, stats, False)
     graph = rtyper.annotator.translator.graphs[0]
     opt = history.Options(specialize=False, listops=listops)
-    metainterp = pyjitpl.OOMetaInterp(graph, [], cpu, stats, opt)
+    metainterp_sd = pyjitpl.MetaInterpStaticData(graph, [], cpu, stats, opt)
+    metainterp = pyjitpl.MetaInterp(metainterp_sd)
     metainterp.num_green_args = 0
     return metainterp, rtyper
 
@@ -68,16 +69,15 @@ class LLJitMixin(JitMixin):
         metainterp, rtyper = get_metainterp(f, args, self.CPUClass,
                                             self.type_system, policy=policy,
                                             **kwds)
-        cw = codewriter.CodeWriter(metainterp, policy)
+        cw = codewriter.CodeWriter(metainterp.staticdata, policy)
         graph = rtyper.annotator.translator.graphs[0]
         maingraph = cw.make_one_bytecode(graph, False)
         while cw.unfinished_graphs:
             graph, called_from = cw.unfinished_graphs.pop()
             cw.make_one_bytecode(graph, False, called_from)
-        metainterp.portal_code = maingraph
-        metainterp.delete_history()
-        metainterp.state = FakeWarmRunnerDesc()
-        metainterp.DoneWithThisFrame = DoneWithThisFrame
+        metainterp.staticdata.portal_code = maingraph
+        metainterp.staticdata.state = FakeWarmRunnerDesc()
+        metainterp.staticdata.DoneWithThisFrame = DoneWithThisFrame
         self.metainterp = metainterp
         try:
             metainterp.compile_and_run_once(*args)
@@ -89,7 +89,7 @@ class LLJitMixin(JitMixin):
             raise Exception("FAILED")
 
     def check_history_(self, expected=None, **isns):
-        self.metainterp.stats.check_history(expected, **isns)
+        self.metainterp.staticdata.stats.check_history(expected, **isns)
 
 class OOJitMixin(JitMixin):
     type_system = 'ootype'

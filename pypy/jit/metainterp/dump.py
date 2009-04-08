@@ -89,7 +89,7 @@ def dump_bytecode(jitcode, file=None):
     # XXX this is not really a disassembler, but just a pretty-printer
     # for the '_source' attribute that codewriter.py attaches
     source = jitcode._source
-    interpreter = jitcode._metainterp
+    interpreter = jitcode._metainterp_sd
     labelpos = jitcode._labelpos
     print >> file, 'JITCODE %r' % (jitcode.name,)
 

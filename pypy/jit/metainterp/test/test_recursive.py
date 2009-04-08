@@ -24,7 +24,6 @@ class RecursiveTests:
         assert res == main(20)
 
     def test_recursion_three_times(self):
-        py.test.skip("in-progress")
         myjitdriver = JitDriver(greens=[], reds=['n', 'm', 'total'])
         def f(n):
             m = n - 3
@@ -46,7 +45,7 @@ class RecursiveTests:
             print '%3d %9d' % (i, f(i))
         res = self.meta_interp(main, [10])
         assert res == main(10)
-        self.check_enter_count_at_most(6)
+        self.check_enter_count_at_most(10)
 
 
 class TestLLtype(RecursiveTests, LLJitMixin):
