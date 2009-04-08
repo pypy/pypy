@@ -123,7 +123,9 @@ class MachineCodeBlock(InMemoryCodeBuilder):
         self._init(data, map_size)
 
     def __del__(self):
-        free(self._data, self._size)
+        size = self._size
+        assert size >= 0
+        free(self._data, size)
 
 # ____________________________________________________________
 
