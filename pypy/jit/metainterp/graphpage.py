@@ -155,7 +155,8 @@ class ResOpGen(object):
         if tgt is not None and tgt in self.graphs:
             tgt_g = self.graphs.index(tgt)
             self.genedge((graphindex, opstartindex),
-                         (tgt_g, 0))
+                         (tgt_g, 0),
+                         weight="0")
         lines.append("")
         label = "\\l".join(lines)
         kwds = {}
