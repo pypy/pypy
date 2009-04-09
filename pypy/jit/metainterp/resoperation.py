@@ -158,7 +158,9 @@ class rop(object):
     GETFIELD_GC_PURE       = 80
     GETFIELD_RAW_PURE      = 81
     GETARRAYITEM_GC_PURE   = 82
-    _ALWAYS_PURE_LAST = 82  # ----- end of always_pure operations -----
+    UNICODELEN             = 83
+    UNICODEGETITEM         = 84
+    _ALWAYS_PURE_LAST = 84  # ----- end of always_pure operations -----
 
     GETARRAYITEM_GC        = 120
     GETFIELD_GC            = 121
@@ -173,6 +175,8 @@ class rop(object):
     SETFIELD_RAW           = 135
     NEWSTR                 = 136
     STRSETITEM             = 137
+    UNICODESETITEM         = 138
+    NEWUNICODE             = 139
 
     _CANRAISE_FIRST = 150 # ----- start of can_raise operations -----
     CALL = 150

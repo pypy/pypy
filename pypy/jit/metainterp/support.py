@@ -149,6 +149,7 @@ _ll_2_dict_update = rdict.ll_update
 _ll_5_string_copy_contents = rstr.copy_string_contents
 
 _ll_1_str_str2unicode = rstr.LLHelpers.ll_str2unicode
+_ll_5_unicode_copy_contents = rstr.copy_unicode_contents
 
 def setup_extra_builtin(oopspec_name, nb_args):
     name = '_ll_%d_%s' % (nb_args, oopspec_name.replace('.', '_'))

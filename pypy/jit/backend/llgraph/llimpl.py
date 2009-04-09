@@ -116,6 +116,10 @@ TYPES = {
     'strlen'          : (('ptr',), 'int'),
     'strgetitem'      : (('ptr', 'int'), 'int'),
     'strsetitem'      : (('ptr', 'int', 'int'), None),
+    'newunicode'      : (('int',), 'ptr'),
+    'unicodelen'      : (('ptr',), 'int'),
+    'unicodegetitem'  : (('ptr', 'int'), 'int'),
+    'unicodesetitem'  : (('ptr', 'int', 'int'), 'int'),
     'cast_ptr_to_int' : (('ptr',), 'int'),
     'cast_int_to_ptr' : (('int',), 'ptr'),
     #'getitem'         : (('void', 'ptr', 'int'), 'int'),
@@ -800,6 +804,14 @@ def do_strgetitem(_, string, index):
     str = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), string)
     return ord(str.chars[index])
 
+def do_unicodelen(_, string):
+    uni = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), string)
+    return len(uni.chars)
+
+def do_unicodegetitem(_, string, index):
+    uni = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), string)
+    return ord(uni.chars[index])
+
 def do_getarrayitem_gc_int(array, index, memocast):
     array = array._obj.container
     return cast_to_int(array.getitem(index), memocast)
@@ -886,9 +898,16 @@ def do_newstr(_, length):
     x = rstr.mallocstr(length)
     return cast_to_ptr(x)
 
+def do_newunicode(_, length):
+    return cast_to_ptr(rstr.mallocunicode(length))
+
 def do_strsetitem(_, string, index, newvalue):
     str = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), string)
     str.chars[index] = chr(newvalue)
+
+def do_unicodesetitem(_, string, index, newvalue):
+    uni = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), string)
+    uni.chars[index] = unichr(newvalue)
 
 # ---------- call ----------
 
@@ -1028,6 +1047,8 @@ setannotation(cast_int_to_adr, annmodel.SomeAddress())
 setannotation(do_arraylen_gc, annmodel.SomeInteger())
 setannotation(do_strlen, annmodel.SomeInteger())
 setannotation(do_strgetitem, annmodel.SomeInteger())
+setannotation(do_unicodelen, annmodel.SomeInteger())
+setannotation(do_unicodegetitem, annmodel.SomeInteger())
 setannotation(do_getarrayitem_gc_int, annmodel.SomeInteger())
 setannotation(do_getarrayitem_gc_ptr, annmodel.SomePtr(llmemory.GCREF))
 setannotation(do_getfield_gc_int, annmodel.SomeInteger())
@@ -1044,6 +1065,8 @@ setannotation(do_setfield_raw_int, annmodel.s_None)
 setannotation(do_setfield_raw_ptr, annmodel.s_None)
 setannotation(do_newstr, annmodel.SomePtr(llmemory.GCREF))
 setannotation(do_strsetitem, annmodel.s_None)
+setannotation(do_newunicode, annmodel.SomePtr(llmemory.GCREF))
+setannotation(do_unicodesetitem, annmodel.s_None)
 setannotation(do_call_pushint, annmodel.s_None)
 setannotation(do_call_pushptr, annmodel.s_None)
 setannotation(do_call_int, annmodel.SomeInteger())

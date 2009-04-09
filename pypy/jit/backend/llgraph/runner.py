@@ -241,6 +241,15 @@ class CPU(object):
         index = args[1].getint()
         return history.BoxInt(llimpl.do_strgetitem(0, string, index))
 
+    def do_unicodelen(self, args, descr=None):
+        string = args[0].getptr_base()
+        return history.BoxInt(llimpl.do_unicodelen(0, string))
+
+    def do_unicodegetitem(self, args, descr=None):
+        string = args[0].getptr_base()
+        index = args[1].getint()
+        return history.BoxInt(llimpl.do_unicodegetitem(0, string, index))
+
     def do_getarrayitem_gc(self, args, arraydescr):
         array = args[0].getptr_base()
         index = args[1].getint()
@@ -319,11 +328,21 @@ class CPU(object):
         length = args[0].getint()
         return history.BoxPtr(llimpl.do_newstr(0, length))
 
+    def do_newunicode(self, args, descr=None):
+        length = args[0].getint()
+        return history.BoxPtr(llimpl.do_newunicode(0, length))
+
     def do_strsetitem(self, args, descr=None):
         string = args[0].getptr_base()
         index = args[1].getint()
         newvalue = args[2].getint()
         llimpl.do_strsetitem(0, string, index, newvalue)
+
+    def do_unicodesetitem(self, args, descr=None):
+        string = args[0].getptr_base()
+        index = args[1].getint()
+        newvalue = args[2].getint()
+        llimpl.do_unicodesetitem(0, string, index, newvalue)
 
     def do_call(self, args, calldescr):
         func = args[0].getint()

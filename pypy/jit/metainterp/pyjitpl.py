@@ -502,17 +502,33 @@ class MIFrame(object):
     def opimpl_strlen(self, str):
         self.execute(rop.STRLEN, [str])
 
+    @arguments("box")
+    def opimpl_unicodelen(self, str):
+        self.execute(rop.UNICODELEN, [str])
+
     @arguments("box", "box")
     def opimpl_strgetitem(self, str, index):
         self.execute(rop.STRGETITEM, [str, index])
+
+    @arguments("box", "box")
+    def opimpl_unicodegetitem(self, str, index):
+        self.execute(rop.UNICODEGETITEM, [str, index])
 
     @arguments("box", "box", "box")
     def opimpl_strsetitem(self, str, index, newchar):
         self.execute(rop.STRSETITEM, [str, index, newchar])
 
+    @arguments("box", "box", "box")
+    def opimpl_unicodesetitem(self, str, index, newchar):
+        self.execute(rop.UNICODESETITEM, [str, index, newchar])
+
     @arguments("box")
     def opimpl_newstr(self, length):
         self.execute(rop.NEWSTR, [length])
+
+    @arguments("box")
+    def opimpl_newunicode(self, length):
+        self.execute(rop.NEWUNICODE, [length])
 
     @arguments("orgpc", "box", returns="box")
     def opimpl_guard_value(self, pc, box):

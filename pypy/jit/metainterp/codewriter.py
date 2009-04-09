@@ -579,6 +579,8 @@ class BytecodeMaker(object):
         assert op.args[1].value == {'flavor': 'gc'}
         if op.args[0].value == rstr.STR:
             self.emit('newstr', self.var_position(op.args[2]))
+        elif op.args[0].value == rstr.UNICODE:
+            self.emit('newunicode', self.var_position(op.args[2]))
         else:
             # XXX only strings or simple arrays for now
             ARRAY = op.args[0].value
@@ -664,29 +666,42 @@ class BytecodeMaker(object):
 
     def serialize_op_getinteriorarraysize(self, op):
         # XXX only supports strings for now
-        assert op.args[0].concretetype == lltype.Ptr(rstr.STR)
         assert len(op.args) == 2
         assert op.args[1].value == 'chars'
-        self.emit("strlen", self.var_position(op.args[0]))
+        optype = op.args[0].concretetype
+        if optype == lltype.Ptr(rstr.STR):
+            opname = "strlen"
+        else:
+            assert optype == lltype.Ptr(rstr.UNICODE)
+            opname = "unicodelen"
+        self.emit(opname, self.var_position(op.args[0]))
         self.register_var(op.result)
 
     def serialize_op_getinteriorfield(self, op):
-        # XXX only supports strings for now
-        assert op.args[0].concretetype == lltype.Ptr(rstr.STR)
         assert len(op.args) == 3
         assert op.args[1].value == 'chars'
-        self.emit("strgetitem", self.var_position(op.args[0]),
-                                self.var_position(op.args[2]))
+        optype = op.args[0].concretetype
+        if optype == lltype.Ptr(rstr.STR):
+            opname = "strgetitem"
+        else:
+            assert optype == lltype.Ptr(rstr.UNICODE)
+            opname = "unicodegetitem"
+        self.emit(opname, self.var_position(op.args[0]),
+                  self.var_position(op.args[2]))
         self.register_var(op.result)
 
     def serialize_op_setinteriorfield(self, op):
-        # XXX only supports strings for now
-        assert op.args[0].concretetype == lltype.Ptr(rstr.STR)
         assert len(op.args) == 4
         assert op.args[1].value == 'chars'
-        self.emit("strsetitem", self.var_position(op.args[0]),
-                                self.var_position(op.args[2]),
-                                self.var_position(op.args[3]))
+        optype = op.args[0].concretetype
+        if optype == lltype.Ptr(rstr.STR):
+            opname = "strsetitem"
+        else:
+            assert optype == lltype.Ptr(rstr.UNICODE)
+            opname = "unicodesetitem"
+        self.emit(opname, self.var_position(op.args[0]),
+                  self.var_position(op.args[2]),
+                  self.var_position(op.args[3]))
 
     def serialize_op_jit_marker(self, op):
         if op.args[0].value == 'jit_merge_point':

@@ -299,7 +299,6 @@ class TestLoop(LLJitMixin):
         assert res == expected
 
     def test_loop_unicode(self):
-        py.test.skip("unicode support")
         myjitdriver = JitDriver(greens = [], reds = ['x', 'n'])
         def f(n):
             x = u''

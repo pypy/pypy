@@ -181,7 +181,6 @@ class BasicTests:
         assert res == ord("?")
 
     def test_unicode(self):
-        py.test.skip("skip for now")
         def f(n):
             bytecode = u'adlfkj' + unichr(n)
             if n < len(bytecode):
@@ -463,6 +462,7 @@ class TestOOtype(BasicTests, OOJitMixin):
         py.test.skip('in-progress')
 
     test_string = skip
+    test_unicode = skip
     test_residual_call = skip
     test_format = skip
     test_getfield = skip
