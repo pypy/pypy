@@ -298,6 +298,22 @@ class TestLoop(LLJitMixin):
         res = self.meta_interp(f, [2, 6, 30])
         assert res == expected
 
+    def test_loop_unicode(self):
+        py.test.skip("unicode support")
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'n'])
+        def f(n):
+            x = u''
+            while n > 13:
+                myjitdriver.can_enter_jit(n=n, x=x)
+                myjitdriver.jit_merge_point(n=n, x=x)
+                x += unichr(n)
+                n -= 1
+            # XXX check if we can cross the border here with unicode,
+            #     if not, sum elements or something
+            return x
+        expected = f(100)
+        res = self.meta_interp(f, [100])
+
     def test_adapt_bridge_to_merge_point(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'z'])
 
