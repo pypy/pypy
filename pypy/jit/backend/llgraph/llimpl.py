@@ -712,7 +712,6 @@ def frame_execute(frame):
             frame.log_progress()
     except Exception, e:
         log.ERROR('%s in CPU frame: %s' % (e.__class__.__name__, e))
-        import sys, pdb; pdb.post_mortem(sys.exc_info()[2])
         raise
     return result
 
