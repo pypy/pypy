@@ -160,34 +160,34 @@ class rop(object):
     GETARRAYITEM_GC_PURE   = 82
     _ALWAYS_PURE_LAST = 82  # ----- end of always_pure operations -----
 
-    GETARRAYITEM_GC        = 83
-    GETFIELD_GC            = 84
-    GETFIELD_RAW           = 85
-    _NOSIDEEFFECT_LAST = 89 # ----- end of no_side_effect operations -----
+    GETARRAYITEM_GC        = 120
+    GETFIELD_GC            = 121
+    GETFIELD_RAW           = 122
+    _NOSIDEEFFECT_LAST = 129 # ----- end of no_side_effect operations -----
 
-    NEW                    = 90
-    NEW_WITH_VTABLE        = 91
-    NEW_ARRAY              = 92
-    SETARRAYITEM_GC        = 93
-    SETFIELD_GC            = 94
-    SETFIELD_RAW           = 95
-    NEWSTR                 = 96
-    STRSETITEM             = 97
+    NEW                    = 130
+    NEW_WITH_VTABLE        = 131
+    NEW_ARRAY              = 132
+    SETARRAYITEM_GC        = 133
+    SETFIELD_GC            = 134
+    SETFIELD_RAW           = 135
+    NEWSTR                 = 136
+    STRSETITEM             = 137
 
-    _CANRAISE_FIRST = 100 # ----- start of can_raise operations -----
-    CALL = 100
+    _CANRAISE_FIRST = 150 # ----- start of can_raise operations -----
+    CALL = 150
     #
-    _OVF_FIRST = 110
-    INT_ADD_OVF            = 110
-    INT_SUB_OVF            = 111
-    INT_MUL_OVF            = 112
-    INT_NEG_OVF            = 113
-    INT_MOD_OVF            = 114
-    INT_LSHIFT_OVF         = 115
-    INT_FLOORDIV_OVF       = 116
-    _OVF_LAST = 116
-    _CANRAISE_LAST = 119 # ----- end of can_raise operations -----
-    _LAST = 119     # for the backend to add more internal operations
+    _OVF_FIRST = 151
+    INT_ADD_OVF            = 152
+    INT_SUB_OVF            = 153
+    INT_MUL_OVF            = 154
+    INT_NEG_OVF            = 155
+    INT_MOD_OVF            = 156
+    INT_LSHIFT_OVF         = 157
+    INT_FLOORDIV_OVF       = 158
+    _OVF_LAST = 160
+    _CANRAISE_LAST = 159 # ----- end of can_raise operations -----
+    _LAST = 158     # for the backend to add more internal operations
 
 
 opname = {}      # mapping numbers to the original names, for debugging
