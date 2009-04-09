@@ -352,7 +352,6 @@ def test_method_wrapper():
     assert res == 42
 
 def test_ooidentityhash():
-    py.test.skip('fixme!')
     L = List(Signed)
 
     def fn():

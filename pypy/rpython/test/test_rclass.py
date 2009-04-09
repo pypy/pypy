@@ -838,3 +838,35 @@ class TestOOtype(BaseTestRclass, OORtypeMixin):
         assert destra == destrc
         assert destrb is not None
         assert destra is not None
+
+    def test_cast_object(self):
+        A = ootype.Instance("Foo", ootype.ROOT)
+        B = ootype.Record({'x': ootype.Signed}) 
+
+        def fn_instance():
+            a = ootype.new(A)
+            obj = ootype.cast_to_object(a)
+            a2 = ootype.cast_from_object(A, obj)
+            a3 = ootype.cast_from_object(ootype.ROOT, obj)
+            assert a is a2
+            assert a is a3
+        self.interpret(fn_instance, [])
+
+        def fn_record():
+            b = ootype.new(B)
+            b.x = 42
+            obj = ootype.cast_to_object(b)
+            b2 = ootype.cast_from_object(B, obj)
+            assert b2.x == 42
+            assert b is b2
+        self.interpret(fn_record, [])
+       
+        def fn_null():
+            a = ootype.null(A)
+            b = ootype.null(B)
+            obj1 = ootype.cast_to_object(a)
+            obj2 = ootype.cast_to_object(b)
+            assert obj1 == obj2
+            assert ootype.cast_from_object(A, obj1) == a
+            assert ootype.cast_from_object(B, obj2) == b
+        self.interpret(fn_null, [])

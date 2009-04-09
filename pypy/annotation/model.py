@@ -541,6 +541,10 @@ class SomeLLADTMeth(SomeObject):
     def can_be_none(self):
         return False
 
+class SomeOOObject(SomeObject):
+    def __init__(self):
+        self.ootype = ootype.Object
+
 class SomeOOClass(SomeObject):
     def __init__(self, ootype):
         self.ootype = ootype

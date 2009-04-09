@@ -12,6 +12,13 @@ def op_oodowncast(INST, inst):
     return ootype.oodowncast(INST, inst)
 op_oodowncast.need_result_type = True
 
+def op_cast_to_object(inst):
+    return ootype.cast_to_object(inst)
+
+def op_cast_from_object(TYPE, obj):
+    return ootype.cast_from_object(TYPE, obj)
+op_cast_from_object.need_result_type = True
+
 def op_oononnull(inst):
     checkinst(inst)
     return bool(inst)
@@ -26,6 +33,9 @@ def op_oois(obj1, obj2):
     elif isinstance(obj1, ootype._class):
         assert isinstance(obj2, ootype._class)
         return obj1 is obj2
+    elif isinstance(obj1, ootype._object):
+        assert isinstance(obj2, ootype._object)
+        return obj1 == obj2
     else:
         assert False, "oois on something silly"
 
