@@ -192,6 +192,14 @@ def test_oo_union():
 
     assert unionof(SomeOOInstance(C1), SomeOOInstance(D)) == SomeOOInstance(ROOT)
 
+def test_ooclass_array_contains():
+    A = ootype.Array(ootype.Signed)
+    cls = ootype.runtimeClass(A)
+    s1 = SomeOOClass(A)
+    s2 = SomeOOClass(A)
+    s2.const=cls
+    assert s1.contains(s2)
+
 if __name__ == '__main__':
     for name, value in globals().items():
         if name.startswith('test_'):
