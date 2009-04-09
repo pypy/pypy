@@ -898,12 +898,14 @@ class __extend__(pairtype(SomeOOClass, SomeOOClass)):
             common = r2.ootype
         elif r2.ootype is None:
             common = r1.ootype
-        elif isinstance(r1.ootype, ootype.BuiltinType) or isinstance(r2.ootype, ootype.BuiltinType):
-            common = ootype.Object
-        else:
+        elif r1.ootype == r2.ootype:
+            common = r1.ootype
+        elif isinstance(r1.ootype, ootype.Instance) and isinstance(r2.ootype, ootype.Instance):
             common = ootype.commonBaseclass(r1.ootype, r2.ootype)
             assert common is not None, ('Mixing of incompatible classes %r, %r'
                                         % (r1.ootype, r2.ootype))
+        else:
+            common = ootype.Object
         return SomeOOClass(common)
 
 class __extend__(pairtype(SomeOOInstance, SomeObject)):

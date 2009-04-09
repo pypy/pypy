@@ -366,7 +366,6 @@ def test_ooidentityhash():
     assert not res
 
 def test_mix_class_record_instance():
-    py.test.skip('fixme!')
     I = Instance("test", ROOT, {"a": Signed})
     R = Record({"x": Signed})
     L = List(Signed)
