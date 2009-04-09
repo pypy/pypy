@@ -392,8 +392,8 @@ class MyError(Exception):
         self.n = n
 
 
-class TestOOtype(ExceptionTests, OOJitMixin):
-    pass
+#class TestOOtype(ExceptionTests, OOJitMixin):
+#    pass
 
 class TestLLtype(ExceptionTests, LLJitMixin):
     pass
