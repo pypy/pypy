@@ -1024,8 +1024,8 @@ class _view(object):
 
     def __init__(self, INSTANCE, inst):
         self.__dict__['_TYPE'] = INSTANCE
-        assert isinstance(inst, _instance)
-        assert isSubclass(inst._TYPE, INSTANCE)
+        assert isinstance(inst, (_instance, _record))
+        assert isinstance(inst._TYPE, Record) or isSubclass(inst._TYPE, INSTANCE)
         self.__dict__['_inst'] = inst
 
     def __repr__(self):
@@ -1389,10 +1389,14 @@ class _string(_builtin_type):
 
     def ll_find(self, s, start, end):
         # NOT_RPYTHON
+        if start > len(self._str):  # workaround to cope with corner case
+            return -1               # bugs in CPython 2.4 unicode.find('')
         return self._str.find(s._str, start, end)
 
     def ll_rfind(self, s, start, end):
         # NOT_RPYTHON
+        if start > len(self._str):  # workaround to cope with corner case
+            return -1               # bugs in CPython 2.4 unicode.rfind('')
         return self._str.rfind(s._str, start, end)
 
     def ll_count(self, s, start, end):
