@@ -337,3 +337,59 @@ def test_oodowncast():
         return oodowncast(A, c)
 
     py.test.raises(AnnotatorError, interpret, fn, [], type_system='ootype')
+
+def test_method_wrapper():
+    L = List(Signed)
+    _, meth = L._lookup('ll_getitem_fast')
+    wrapper = build_unbound_method_wrapper(meth)
+
+    def fn():
+        lst = L.ll_newlist(1)
+        lst.ll_setitem_fast(0, 42)
+        return wrapper(lst, 0)
+    
+    res = interpret(fn, [], type_system='ootype')
+    assert res == 42
+
+def test_ooidentityhash():
+    py.test.skip('fixme!')
+    L = List(Signed)
+
+    def fn():
+        lst1 = new(L)
+        lst2 = new(L)
+        obj1 = cast_to_object(lst1)
+        obj2 = cast_to_object(lst2)
+        return ooidentityhash(obj1) == ooidentityhash(obj2)
+
+    res = interpret(fn, [], type_system='ootype')
+    assert not res
+
+def test_mix_class_record_instance():
+    py.test.skip('fixme!')
+    I = Instance("test", ROOT, {"a": Signed})
+    R = Record({"x": Signed})
+    L = List(Signed)
+
+    c1 = runtimeClass(I)
+    c2 = runtimeClass(R)
+    c3 = runtimeClass(L)
+    c4 = runtimeClass(Class)
+    def fn(flag):
+        if flag == 0:
+            return c1
+        elif flag == 1:
+            return c2
+        elif flag == 2:
+            return c3
+        else:
+            return c4
+
+    res = interpret(fn, [0], type_system='ootype')
+    assert res is c1
+    res = interpret(fn, [1], type_system='ootype')
+    assert res is c2
+    res = interpret(fn, [2], type_system='ootype')
+    assert res is c3
+    res = interpret(fn, [3], type_system='ootype')
+    assert res is c4

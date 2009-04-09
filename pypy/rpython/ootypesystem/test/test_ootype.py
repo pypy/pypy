@@ -32,13 +32,42 @@ def test_assign_super_attr():
 
     assert d.a == 1
 
-def test_runtime_instanciation():
+def test_runtime_instantiation():
     I = Instance("test", ROOT, {"a": Signed})
     c = runtimeClass(I)
     i = runtimenew(c)
 
     assert typeOf(i) == I
     assert typeOf(c) == Class
+
+def test_runtime_record_instantiation():
+    R = Record({"a": Signed})
+    c = runtimeClass(R)
+    r = runtimenew(c)
+
+    assert typeOf(r) == R
+    assert typeOf(c) == Class
+
+def test_class_records():
+    R1 = Record({"a": Signed})
+    R2 = Record({"a": Signed})
+    assert R1 == R2
+    assert runtimeClass(R1) is runtimeClass(R2)
+
+def test_class_builtintype():
+    L1 = List(Signed)
+    L2 = List(Signed)
+    assert L1 == L2
+    assert runtimeClass(L1) is runtimeClass(L2)
+
+def test_class_class():
+    L = List(Signed)
+    R = Record({"a": Signed})
+    c1 = runtimeClass(L)
+    c2 = runtimeClass(R)
+    C1 = typeOf(c1)
+    C2 = typeOf(c2)
+    assert runtimeClass(C1) is runtimeClass(C2)
 
 def test_classof():
     I = Instance("test", ROOT, {"a": Signed})
@@ -207,6 +236,17 @@ def test_overloaded_method_upcast():
     c = new(C)
     assert c.foo(c) == 42
 
+def test_method_selftype():
+    LIST = List(Signed)
+    _, meth = LIST._lookup('ll_setitem_fast')
+    METH = typeOf(meth)
+    assert METH.SELFTYPE is LIST
+
+def test_bound_method_name():
+    LIST = List(Signed)
+    lst = new(LIST)
+    meth = lst.ll_getitem_fast
+    assert meth._name == 'll_getitem_fast'
 
 def test_explicit_name_clash():
     C = Instance("test", ROOT, {})
@@ -535,3 +575,58 @@ def test_lookup_graphs_abstract():
     assert len(TYPE_A._lookup_graphs('ofoo')) == 2
     assert len(TYPE_B._lookup_graphs('ofoo')) == 1
     assert len(TYPE_C._lookup_graphs('ofoo')) == 1
+
+def test_cast_object_instance():
+    A = Instance("Foo", ROOT)
+    a = new(A)
+    obj = cast_to_object(a)
+    assert typeOf(obj) is Object
+    assert cast_from_object(A, obj) == a
+    a2 = cast_from_object(ROOT, obj)
+    assert typeOf(a2) is ROOT
+    assert a2 == ooupcast(ROOT, a)
+
+def test_cast_object_record():
+    R = Record({'x': Signed})
+    r = new(R)
+    r.x = 42
+    obj = cast_to_object(r)
+    assert typeOf(obj) is Object
+    r2 = cast_from_object(R, obj)
+    assert typeOf(r2) is R
+    assert r == r2
+
+def test_cast_object_null():
+    A = Instance("Foo", ROOT)
+    B = Record({'x': Signed})
+    a = null(A)
+    b = null(B)
+    obj1 = cast_to_object(a)
+    obj2 = cast_to_object(b)
+    assert obj1 is obj2
+    assert obj1 is NULL
+    assert cast_from_object(A, obj1) == a
+    assert cast_from_object(B, obj2) == b
+
+def test_cast_object_compare_null():
+    A = Instance("Foo", ROOT)
+    a = new(A)
+    obj1 = cast_to_object(a)
+    assert NULL != obj1
+    assert obj1 != NULL
+    
+def test_object_ooidentityhash():
+    A = Instance("Foo", ROOT)
+    a = new(A)
+    obj1 = cast_to_object(a)
+    obj2 = cast_to_object(a)
+    assert ooidentityhash(obj1) == ooidentityhash(obj2)
+
+def test_object_ooidentityhash_sm():
+    M = StaticMethod([Signed], Signed)
+    def m_(x):
+       return x
+    m = static_meth(M, "m", _callable=m_)
+    obj1 = cast_to_object(m)
+    obj2 = cast_to_object(m)
+    assert ooidentityhash(obj1) == ooidentityhash(obj2)
