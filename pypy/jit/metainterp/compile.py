@@ -281,6 +281,7 @@ def prepare_loop_from_bridge(metainterp, resumekey):
     # To handle this case, we prepend to the history the unoptimized
     # operations coming from the loop, in order to make a (fake) complete
     # unoptimized trace.  (Then we will just compile this loop normally.)
+    raise PrepareLoopFromBridgeIsDisabled
     if not we_are_translated():
         log.info("completing the bridge into a stand-alone loop")
     else:
@@ -308,16 +309,6 @@ def inverse_guard(guard_op):
         guard_op = ResOperation(rop.GUARD_FALSE, guard_op.args, None)
     elif guard_op.opnum == rop.GUARD_FALSE:
         guard_op = ResOperation(rop.GUARD_TRUE, guard_op.args, None)
-    elif guard_op.opnum == rop.GUARD_EXCEPTION:
-        guard_op = ResOperation(rop.GUARD_EXCEPTION_INVERSE, guard_op.args,
-                                None)
-    elif guard_op.opnum == rop.GUARD_VALUE:
-        guard_op = ResOperation(rop.GUARD_VALUE_INVERSE, guard_op.args, None)
-    elif guard_op.opnum == rop.GUARD_NO_EXCEPTION:
-        guard_op = ResOperation(rop.GUARD_NO_EXCEPTION_INVERSE, guard_op.args,
-                                None)
-    elif guard_op.opnum == rop.GUARD_CLASS:
-        guard_op = ResOperation(rop.GUARD_CLASS_INVERSE, guard_op.args, None)
     else:
         # XXX other guards have no inverse so far
         raise InverseTheOtherGuardsPlease(guard_op)
@@ -326,4 +317,7 @@ def inverse_guard(guard_op):
     return guard_op
 
 class InverseTheOtherGuardsPlease(Exception):
+    pass
+
+class PrepareLoopFromBridgeIsDisabled(Exception):
     pass
