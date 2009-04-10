@@ -738,13 +738,21 @@ class RegAlloc(object):
     consider_int_mul_ovf = _consider_binop_ovf
     consider_int_sub_ovf = _consider_binop_ovf
     consider_int_add_ovf = _consider_binop_ovf
-    # XXX ovf_neg op
 
     def consider_int_neg(self, op, ignored):
         res = self.force_result_in_reg(op.result, op.args[0], [])
         self.Perform(op, [res], res)
 
     consider_bool_not = consider_int_neg
+
+    def consider_int_neg_ovf(self, op, guard_op):
+        res = self.force_result_in_reg(op.result, op.args[0], [])
+        self.position += 1
+        regalloc = self.regalloc_for_guard(guard_op)
+        self.perform_with_guard(op, guard_op, regalloc, [res], res,
+                                overflow=True)
+        self.eventually_free_vars(guard_op.inputargs)
+        self.eventually_free_var(guard_op.result)
 
     def consider_int_rshift(self, op, ignored):
         tmpvar = TempBox()
@@ -774,25 +782,23 @@ class RegAlloc(object):
         self.eventually_free_vars(guard_op.inputargs)
         self.eventually_free_var(guard_op.result)
 
-    def consider_int_mod(self, op, ignored):
+    def _consider_int_div_or_mod(self, op, trashreg):
         l0 = self.make_sure_var_in_reg(op.args[0], [], eax)
         l1 = self.make_sure_var_in_reg(op.args[1], [], ecx)
         l2 = self.force_allocate_reg(op.result, [], edx)
-        # eax is trashed after that operation
+        # the register (eax or edx) not holding what we are looking for
+        # will be just trash after that operation
         tmpvar = TempBox()
-        self.force_allocate_reg(tmpvar, [], eax)
+        self.force_allocate_reg(tmpvar, [], trashreg)
         assert (l0, l1, l2) == (eax, ecx, edx)
         self.eventually_free_vars(op.args + [tmpvar])
+
+    def consider_int_mod(self, op, ignored):
+        self._consider_int_div_or_mod(op, eax)
         self.Perform(op, [eax, ecx], edx)
 
     def consider_int_mod_ovf(self, op, guard_op):
-        l0 = self.make_sure_var_in_reg(op.args[0], [], eax)
-        l1 = self.make_sure_var_in_reg(op.args[1], [], ecx)
-        l2 = self.force_allocate_reg(op.result, [], edx)
-        tmpvar = TempBox()
-        self.force_allocate_reg(tmpvar, [], eax)
-        assert (l0, l1, l2) == (eax, ecx, edx)
-        self.eventually_free_vars(op.args + [tmpvar])
+        self._consider_int_div_or_mod(op, eax)
         self.position += 1
         regalloc = self.regalloc_for_guard(guard_op)
         self.perform_with_guard(op, guard_op, regalloc, [eax, ecx], edx,
@@ -800,14 +806,16 @@ class RegAlloc(object):
         self.eventually_free_vars(guard_op.inputargs)
 
     def consider_int_floordiv(self, op, ignored):
-        tmpvar = TempBox()
-        l0 = self.force_result_in_reg(op.result, op.args[0], [], eax)
-        l1 = self.make_sure_var_in_reg(op.args[1], [], ecx)
-        # we need to make sure edx is empty, since we're going to use it
-        l2 = self.force_allocate_reg(tmpvar, [], edx)
-        assert (l0, l1, l2) == (eax, ecx, edx)
-        self.eventually_free_vars(op.args + [tmpvar])
+        self._consider_int_div_or_mod(op, edx)
         self.Perform(op, [eax, ecx], eax)
+
+    def consider_int_floordiv_ovf(self, op, guard_op):
+        self._consider_int_div_or_mod(op, edx)
+        self.position += 1
+        regalloc = self.regalloc_for_guard(guard_op)
+        self.perform_with_guard(op, guard_op, regalloc, [eax, ecx], eax,
+                                overflow=True)
+        self.eventually_free_vars(guard_op.inputargs)
 
     def _consider_compop(self, op, guard_op):
         vx = op.args[0]

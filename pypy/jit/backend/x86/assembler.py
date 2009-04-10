@@ -345,13 +345,9 @@ class Assembler386(object):
             getattr(self.mc, asmop)(arglocs[0], arglocs[1])
         return genop_binary
 
-    def _binaryop_ovf(asmop, can_swap=False, is_mod=False):
+    def _binaryop_ovf(asmop, can_swap=False):
         def genop_binary_ovf(self, op, guard_op, addr, arglocs, result_loc):
-            if is_mod:
-                self.mc.CDQ()
-                self.mc.IDIV(ecx)
-            else:
-                getattr(self.mc, asmop)(arglocs[0], arglocs[1])
+            getattr(self.mc, asmop)(arglocs[0], arglocs[1])
             self.mc.JO(rel32(addr))
         return genop_binary_ovf
 
@@ -413,7 +409,10 @@ class Assembler386(object):
     genop_guard_int_mul_ovf = _binaryop_ovf("IMUL", True)
     genop_guard_int_sub_ovf = _binaryop_ovf("SUB")
     genop_guard_int_add_ovf = _binaryop_ovf("ADD", True)
-    genop_guard_int_mod_ovf = _binaryop_ovf("IDIV", is_mod=True)
+
+    def genop_guard_int_neg_ovf(self, op, guard_op, addr, arglocs, result_loc):
+        self.mc.NEG(result_loc)
+        self.mc.JO(rel32(addr))
 
     genop_int_lt = _cmpop("L", "G")
     genop_int_le = _cmpop("LE", "GE")
@@ -525,9 +524,16 @@ class Assembler386(object):
         self.mc.CDQ()
         self.mc.IDIV(ecx)
 
-    def genop_int_floordiv(self, op, arglocs, resloc):
+    def genop_guard_int_mod_ovf(self, op, guard_op, addr, arglocs, result_loc):
+        self.mc.CMP(eax, imm(-sys.maxint-1))
+        self.mc.JE(rel32(addr))
+        self.mc.CMP(ecx, imm(-1))
+        self.mc.JE(rel32(addr))
         self.mc.CDQ()
         self.mc.IDIV(ecx)
+
+    genop_int_floordiv = genop_int_mod
+    genop_guard_int_floordiv_ovf = genop_guard_int_mod_ovf
 
     def genop_new_with_vtable(self, op, arglocs, result_loc):
         assert result_loc is eax
@@ -780,10 +786,10 @@ class Assembler386(object):
         if exc or ovf:
             box = TempBox()
             regalloc.position = -1
-            loc = regalloc.force_allocate_reg(box, [])
             if ovf:
-                self.generate_ovf_set(loc)
+                self.generate_ovf_set()
             else:
+                loc = regalloc.force_allocate_reg(box, [])
                 self.generate_exception_handling(loc)
             regalloc.eventually_free_var(box)
         regalloc.walk_guard_ops(guard_op.inputargs, guard_op.suboperations)
@@ -813,13 +819,13 @@ class Assembler386(object):
         self.mc.MOV(eax, imm(guard_index))
         self.mc.RET()
 
-    def generate_ovf_set(self, loc):
+    def generate_ovf_set(self):
         ovf_error_vtable = self.cpu.cast_adr_to_int(self._ovf_error_vtable)
-        self.mc.MOV(loc, imm(ovf_error_vtable))
-        self.mc.MOV(addr_add(imm(self._exception_bck_addr), imm(0)), loc)
+        self.mc.MOV(addr_add(imm(self._exception_bck_addr), imm(0)),
+                    imm(ovf_error_vtable))
         ovf_error_instance = self.cpu.cast_adr_to_int(self._ovf_error_inst)
-        self.mc.MOV(loc, imm(ovf_error_instance))
-        self.mc.MOV(addr_add(imm(self._exception_bck_addr), imm(WORD)), loc)
+        self.mc.MOV(addr_add(imm(self._exception_bck_addr), imm(WORD)),
+                    imm(ovf_error_instance))
 
     def generate_exception_handling(self, loc):
         self.mc.MOV(loc, heap(self._exception_addr))

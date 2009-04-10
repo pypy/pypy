@@ -93,15 +93,21 @@ class CPU386(object):
         self.caught_exception = None
         if rtyper is not None: # for tests
             self.lltype2vtable = rtyper.lltype_to_vtable_mapping()
-            self._setup_ovf_error()
+        self._setup_ovf_error()
         self.generated_mps = {}
 
     def _setup_ovf_error(self):
-        bk = self.rtyper.annotator.bookkeeper
-        clsdef = bk.getuniqueclassdef(OverflowError)
-        ovferror_repr = rclass.getclassrepr(self.rtyper, clsdef)
-        ll_inst = self.rtyper.exceptiondata.get_standard_ll_exc_instance(
-            self.rtyper, clsdef)
+        if self.rtyper is not None:   # normal case
+            bk = self.rtyper.annotator.bookkeeper
+            clsdef = bk.getuniqueclassdef(OverflowError)
+            ovferror_repr = rclass.getclassrepr(self.rtyper, clsdef)
+            ll_inst = self.rtyper.exceptiondata.get_standard_ll_exc_instance(
+                self.rtyper, clsdef)
+        else:
+            # for tests, a random emulated ll_inst will do
+            ll_inst = lltype.malloc(rclass.OBJECT)
+            ll_inst.typeptr = lltype.malloc(rclass.OBJECT_VTABLE,
+                                            immortal=True)
         self.assembler._ovf_error_vtable = llmemory.cast_ptr_to_adr(ll_inst.typeptr)
         self.assembler._ovf_error_inst   = llmemory.cast_ptr_to_adr(ll_inst)
 
