@@ -811,6 +811,8 @@ class MetaInterpGlobalData(object):
 # ____________________________________________________________
 
 class MetaInterp(object):
+    original_boxes = None
+    
     def __init__(self, staticdata):
         self.staticdata = staticdata
         self.cpu = staticdata.cpu
@@ -1139,12 +1141,40 @@ class MetaInterp(object):
             self._initialize_from_start(original_boxes, num_green_args-1,
                                         *args[1:])
 
+    def _initialize_values_from_start(self, original_boxes, num_green_args, i,
+                                      *args):
+        if args:
+            if num_green_args <= 0:
+                box = original_boxes[i]
+                if isinstance(lltype.typeOf(value), lltype.Ptr):
+                    if lltype.typeOf(value).TO._gckind == 'gc':
+                        value = lltype.cast_opaque_ptr(llmemory.GCREF, value)
+                        assert isinstance(box, BoxPtr)
+                        box.value = value
+                    else:
+                        adr = llmemory.cast_ptr_to_adr(value)
+                        value = self.cpu.cast_adr_to_int(adr)
+                        assert isinstance(box, BoxInt)
+                        box.value = value
+                else:
+                    value = intmask(value)
+                    assert isinstance(box, BoxInt)
+                    box.value = value
+            self._initialize_values_from_start(original_boxes, num_green_args-1,
+                                               i + 1, *args[1:])
+
     def initialize_state_from_start(self, *args):
         self.staticdata._recompute_class_sizes()
         self.create_empty_history()
         num_green_args = self.staticdata.num_green_args
-        original_boxes = []
-        self._initialize_from_start(original_boxes, num_green_args, *args)
+        if self.original_boxes is None:
+            original_boxes = []
+            self._initialize_from_start(original_boxes, num_green_args, *args)
+            self.original_boxes = original_boxes
+        else:
+            original_boxes = self.original_boxes
+            self._initialize_values_from_start(original_boxes, num_green_args,
+                                               0, *args)
         # ----- make a new frame -----
         self.framestack = []
         f = self.newframe(self.staticdata.portal_code)
