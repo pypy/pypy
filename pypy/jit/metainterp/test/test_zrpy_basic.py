@@ -57,6 +57,14 @@ class LLInterpJitMixin:
         pass
     def check_loop_count(self, count):
         pass
+    def check_tree_loop_count(self, count):
+        pass
+    def check_loop_count_at_most(self, count):
+        pass
+    def check_enter_count(self, count):
+        pass
+    def check_enter_count_at_most(self, count):
+        pass
     def check_jumps(self, maxcount):
         pass
 
