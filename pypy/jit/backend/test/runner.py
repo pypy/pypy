@@ -117,7 +117,7 @@ class BaseBackendTest(Runner):
         ops = [
             ResOperation(rop.INT_FLOORDIV_OVF, [v1, v2], res_v),
             ResOperation(rop.GUARD_NO_EXCEPTION, [], None),
-            ResOperation(rop.FAIL, [ConstInt(0)], None),
+            ResOperation(rop.FAIL, [res_v], None),
             ]
         ops[1].suboperations = [ResOperation(rop.FAIL, [ConstInt(1)], None)]
         loop = TreeLoop('name')
@@ -125,7 +125,8 @@ class BaseBackendTest(Runner):
         loop.inputargs = [v1, v2]
         self.cpu.compile_operations(loop)
         op = self.cpu.execute_operations(loop, [v1, v2])
-        assert op.args[0].value == 1
+        assert op.args[0].value == sys.maxint
+        # XXX should also test the failing case, (-sys.maxint-1) / (-1)
 
     def test_uint_xor(self):
         x = execute(self.cpu, rop.UINT_XOR, [BoxInt(100), ConstInt(4)])
