@@ -237,6 +237,11 @@ class ResumeFromInterpDescr(AbstractDescr):
         # send the new_loop to warmspot.py, to be called directly the next time
         metainterp_sd.state.attach_unoptimized_bridge_from_interp(greenkey,
                                                                   new_loop)
+        # store the new_loop in compiled_merge_points too
+        # XXX it's probably useless to do so when optimizing
+        glob = metainterp_sd.globaldata
+        old_loops = glob.compiled_merge_points.setdefault(greenkey, [])
+        old_loops.append(new_loop)
 
 
 def compile_fresh_bridge(metainterp, old_loops, resumekey):
