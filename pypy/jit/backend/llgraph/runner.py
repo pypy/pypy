@@ -117,7 +117,7 @@ class CPU(object):
                 elif isinstance(x, history.ConstAddr):
                     llimpl.compile_add_int_const(c, x.getint())
                 elif isinstance(x, history.ConstObj):
-                    llimpl.compile_add_ptr_const(c, x.value, TYPE=ootype.Object)
+                    llimpl.compile_add_ptr_const(c, x.value, ootype.Object)
                 else:
                     raise Exception("%s args contain: %r" % (op.getopname(),
                                                              x))
@@ -131,7 +131,7 @@ class CPU(object):
                 elif isinstance(x, history.BoxPtr):
                     var2index[x] = llimpl.compile_add_ptr_result(c)
                 elif isinstance(x, history.BoxObj):
-                    var2index[x] = llimpl.compile_add_ptr_result(c, TYPE=ootype.Object)
+                    var2index[x] = llimpl.compile_add_ptr_result(c, ootype.Object)
                 else:
                     raise Exception("%s.result contain: %r" % (op.getopname(),
                                                                x))

@@ -269,8 +269,8 @@ class ConstObj(Const):
 
     nonconstbox = clonebox
 
-    def getptr_base(self):
-        return self.value
+    #def getptr_base(self):
+    #    return self.value
 
     def get_(self):
         return ootype.ooidentityhash(self.value) # XXX: check me
@@ -394,8 +394,8 @@ class BoxObj(Box):
     def constbox(self):
         return ConstObj(self.value)
 
-    def getptr_base(self):
-        return self.value
+    #def getptr_base(self):
+    #    return self.value
 
     def get_(self):
         return ootype.ooidentityhash(self.value) # XXX: check me
