@@ -2,8 +2,10 @@
 """
 
 import py
+from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.rarithmetic import ovfcheck, r_uint, intmask
 from pypy.jit.metainterp.history import BoxInt, ConstInt, check_descr, INT, PTR
+from pypy.jit.metainterp.history import ConstObj
 from pypy.jit.metainterp.resoperation import rop
 
 
@@ -216,6 +218,36 @@ def do_int_floordiv_ovf(cpu, args, descr=None):
         cpu.set_overflow_error()
         z = 0
     return BoxInt(z)
+
+
+# XXX: these ops should probably be delegated to the backend
+def do_str_stritem_nonneg(cpu, args, descr=None):
+    obj = args[0].getptr_base()
+    str = ootype.cast_from_object(ootype.String, obj)
+    index = args[1].getint()
+    res = str.ll_stritem_nonneg(index)
+    return ConstInt(ord(res))
+
+def do_str_strconcat(cpu, args, descr=None):
+    obj1 = args[0].getptr_base()
+    obj2 = args[1].getptr_base()
+    str1 = ootype.cast_from_object(ootype.String, obj1)
+    str2 = ootype.cast_from_object(ootype.String, obj2)
+    res = str1.ll_strconcat(str2)
+    objres = ootype.cast_to_object(res)
+    return ConstObj(objres)
+
+def do_str_strlen(cpu, args, descr=None):
+    obj = args[0].getptr_base()
+    str = ootype.cast_from_object(ootype.String, obj)
+    res = str.ll_strlen()
+    return ConstInt(res)
+
+def do_oostring(cpu, args, descr=None):
+    obj = args[0].getint() # XXX what about other types?
+    base = args[1].getint()
+    res = ootype.cast_to_object(ootype.oostring(obj, base))
+    return ConstObj(res) # XXX ???
 
 # ____________________________________________________________
 

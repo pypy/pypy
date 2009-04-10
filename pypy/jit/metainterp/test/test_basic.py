@@ -175,10 +175,20 @@ class BasicTests:
                 return "?"
         res = self.interp_operations(f, [1])
         assert res == ord("d") # XXX should be "d"
-        res = self.interp_operations(f, [6])
-        assert res == 6
+        if self.type_system != 'ootype':
+            # this test fails on ootype, see test_chr2str
+            res = self.interp_operations(f, [6])
+            assert res == 6
         res = self.interp_operations(f, [42])
         assert res == ord("?")
+
+    def test_chr2str(self):
+        # the problem is that we call oostring(6) instead of oostring('\x06')
+        def f(n):
+            s = chr(n)
+            return s[0]
+        res = self.interp_operations(f, [3])
+        assert res == 3
 
     def test_unicode(self):
         def f(n):
@@ -461,7 +471,7 @@ class TestOOtype(BasicTests, OOJitMixin):
     def skip(self):
         py.test.skip('in-progress')
 
-    test_string = skip
+    test_chr2str = skip
     test_unicode = skip
     test_residual_call = skip
     test_format = skip

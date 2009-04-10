@@ -297,10 +297,10 @@ def compile_add_int_const(loop, value):
     op = loop.operations[-1]
     op.args.append(const)
 
-def compile_add_ptr_const(loop, value):
+def compile_add_ptr_const(loop, value, TYPE=llmemory.GCREF):
     loop = _from_opaque(loop)
     const = Constant(value)
-    const.concretetype = llmemory.GCREF
+    const.concretetype = TYPE
     op = loop.operations[-1]
     op.args.append(const)
 
@@ -314,10 +314,10 @@ def compile_add_int_result(loop):
     _variables.append(v)
     return r
 
-def compile_add_ptr_result(loop):
+def compile_add_ptr_result(loop, TYPE=llmemory.GCREF):
     loop = _from_opaque(loop)
     v = Variable()
-    v.concretetype = llmemory.GCREF
+    v.concretetype = TYPE
     op = loop.operations[-1]
     op.result = v
     r = len(_variables)

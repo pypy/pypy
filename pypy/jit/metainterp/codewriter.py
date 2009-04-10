@@ -901,6 +901,22 @@ class BytecodeMaker(object):
             self.register_var(v_posindex)
         return v_posindex
 
+    def serialize_op_oosend(self, op):
+        color = self.codewriter.policy.guess_call_kind(op)
+        return getattr(self, 'handle_%s_oosend' % color)(op)
+
+    def handle_builtin_oosend(self, op):
+        SELFTYPE, methname, args_v = support.decompose_oosend(op)
+        assert SELFTYPE.oopspec_name is not None
+        for prefix in ('ll_', '_ll_'):
+            if methname.startswith(prefix):
+                methname = methname[len(prefix):]
+        opname = '%s_%s' % (SELFTYPE.oopspec_name, methname)
+        self.emit(opname)
+        for v_arg in args_v:
+            self.emit(self.var_position(v_arg))
+        self.register_var(op.result)
+
     def serialize_op_indirect_call(self, op):
         self.minimize_variables()
         targets = self.codewriter.policy.graphs_from(op)

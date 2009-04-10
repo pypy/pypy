@@ -1,4 +1,5 @@
 from pypy.translator.simplify import get_funcobj
+from pypy.jit.metainterp import support
 
 class JitPolicy(object):
 
@@ -48,6 +49,11 @@ class JitPolicy(object):
             if (hasattr(targetgraph, 'func') and
                 hasattr(targetgraph.func, 'oopspec')):
                 return 'builtin'
+        elif op.opname == 'oosend':
+            SELFTYPE, methname, opargs = support.decompose_oosend(op)
+            if SELFTYPE.oopspec_name is not None:
+                return 'builtin'
+            assert False, 'fixme'
         if self.graphs_from(op) is None:
             return 'residual'
         return 'regular'

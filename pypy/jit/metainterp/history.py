@@ -1,6 +1,7 @@
 
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.objectmodel import we_are_translated, r_dict, Symbolic
 from pypy.rlib.rarithmetic import intmask
 from pypy.tool.uid import uid
@@ -28,6 +29,8 @@ def getkind(TYPE):
             return "int"
         else:
             return "ptr"
+    elif isinstance(TYPE, ootype.OOType):
+        return "obj"
     else:
         raise NotImplementedError("type %s not supported" % TYPE)
 
@@ -45,6 +48,12 @@ def getkind_num(cpu, TYPE):
 def repr_pointer(box):
     try:
         return '*%s' % (box.value._obj.container._TYPE._name,)
+    except AttributeError:
+        return box.value
+
+def repr_object(box):
+    try:
+        return repr(box.value.obj._TYPE)
     except AttributeError:
         return box.value
 
@@ -111,6 +120,9 @@ class Const(AbstractValue):
         elif kind == "ptr":
             ptrval = lltype.cast_opaque_ptr(llmemory.GCREF, x)
             return ConstPtr(ptrval)
+        elif kind == "obj":
+            obj = ootype.cast_to_object(x)
+            return ConstObj(obj)
         else:
             raise NotImplementedError(kind)
     _new._annspecialcase_ = 'specialize:argtype(0)'
@@ -243,6 +255,36 @@ class ConstPtr(Const):
 
     _getrepr_ = repr_pointer
 
+class ConstObj(Const):
+    type = ootype.Object
+    value = ootype.NULL
+    _attrs_ = ('value',)
+
+    def __init__(self, value):
+        assert ootype.typeOf(value) is ootype.Object
+        self.value = value
+
+    def clonebox(self):
+        return BoxObj(self.value)
+
+    nonconstbox = clonebox
+
+    def getptr_base(self):
+        return self.value
+
+    def get_(self):
+        return ootype.ooidentityhash(self.value) # XXX: check me
+
+    def getaddr(self, cpu):
+        assert False
+        #return llmemory.cast_ptr_to_adr(self.value)
+
+    def equals(self, other):
+        assert False
+        #return self.value == other.getptr_base()
+
+    _getrepr_ = repr_object
+
 class Box(AbstractValue):
     __slots__ = ()
     _extended_display = True
@@ -336,6 +378,31 @@ class BoxPtr(Box):
     changevalue_ptr = __init__
 
 NULLBOX = BoxPtr()
+
+
+class BoxObj(Box):
+    type = ootype.Object
+    _attrs_ = ('value',)
+
+    def __init__(self, value=ootype.NULL):
+        assert ootype.typeOf(value) is ootype.Object
+        self.value = value
+
+    def clonebox(self):
+        return BoxObj(self.value)
+
+    def constbox(self):
+        return ConstObj(self.value)
+
+    def getptr_base(self):
+        return self.value
+
+    def get_(self):
+        return ootype.ooidentityhash(self.value) # XXX: check me
+
+    _getrepr_ = repr_object
+    changevalue_ptr = __init__
+
 
 # ____________________________________________________________
 

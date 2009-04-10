@@ -393,7 +393,7 @@ class BuiltinADTType(BuiltinType):
 
 class AbstractString(BuiltinADTType):
 
-##    oopspec_name = 'str'
+    oopspec_name = 'str'
     immutable = True
 
     def __init__(self):
@@ -1348,6 +1348,9 @@ class _string(_builtin_type):
 
     def __cmp__(self, other):
         return cmp(self._str, other._str)
+
+    def __repr__(self):
+        return 'ootype._string(value=%r)' % self._str
 
     def make_string(self, value):
         if self._TYPE is String:

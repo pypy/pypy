@@ -4,6 +4,7 @@ Minimal-API wrapper around the llinterpreter to run operations.
 
 import sys
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
+from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.jit.metainterp import history
 from pypy.jit.metainterp.resoperation import ResOperation, rop
@@ -115,6 +116,8 @@ class CPU(object):
                     llimpl.compile_add_ptr_const(c, x.value)
                 elif isinstance(x, history.ConstAddr):
                     llimpl.compile_add_int_const(c, x.getint())
+                elif isinstance(x, history.ConstObj):
+                    llimpl.compile_add_ptr_const(c, x.value, TYPE=ootype.Object)
                 else:
                     raise Exception("%s args contain: %r" % (op.getopname(),
                                                              x))
@@ -127,6 +130,8 @@ class CPU(object):
                     var2index[x] = llimpl.compile_add_int_result(c)
                 elif isinstance(x, history.BoxPtr):
                     var2index[x] = llimpl.compile_add_ptr_result(c)
+                elif isinstance(x, history.BoxObj):
+                    var2index[x] = llimpl.compile_add_ptr_result(c, TYPE=ootype.Object)
                 else:
                     raise Exception("%s.result contain: %r" % (op.getopname(),
                                                                x))

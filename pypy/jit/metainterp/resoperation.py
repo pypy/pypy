@@ -156,7 +156,14 @@ class rop(object):
     GETARRAYITEM_GC_PURE   = 82
     UNICODELEN             = 83
     UNICODEGETITEM         = 84
-    _ALWAYS_PURE_LAST = 84  # ----- end of always_pure operations -----
+    #
+    # ootype operations
+    OOSTRING               = 85
+    STR_STRITEM_NONNEG     = 86
+    STR_STRCONCAT          = 87
+    STR_STRLEN             = 88
+    #
+    _ALWAYS_PURE_LAST = 88  # ----- end of always_pure operations -----
 
     GETARRAYITEM_GC        = 120
     GETFIELD_GC            = 121
