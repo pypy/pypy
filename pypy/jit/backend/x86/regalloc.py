@@ -648,8 +648,6 @@ class RegAlloc(object):
         self.eventually_free_vars(op.inputargs)
         self.eventually_free_var(box)
 
-    consider_guard_no_exception_inverse = consider_guard_no_exception
-
     def consider_guard_exception(self, op, ignored):
         loc = self.make_sure_var_in_reg(op.args[0], [])
         box = TempBox()
@@ -664,8 +662,6 @@ class RegAlloc(object):
         self.eventually_free_vars(op.inputargs)
         self.eventually_free_vars(op.args)
         self.eventually_free_var(box)
-
-    consider_guard_exception_inverse = consider_guard_exception
 
     #def consider_guard2(self, op, ignored):
     #    loc1, ops1 = self.make_sure_var_in_reg(op.args[0], [])
@@ -693,8 +689,6 @@ class RegAlloc(object):
         self.eventually_free_vars(op.inputargs)
         self.eventually_free_vars(op.args)
 
-    consider_guard_value_inverse = consider_guard_value
-
     def consider_guard_class(self, op, ignored):
         x = self.make_sure_var_in_reg(op.args[0], [], imm_fine=False)
         y = self.loc(op.args[1])
@@ -702,8 +696,6 @@ class RegAlloc(object):
         self.perform_guard(op, regalloc, [x, y], None)
         self.eventually_free_vars(op.inputargs)
         self.eventually_free_vars(op.args)
-
-    consider_guard_class_inverse = consider_guard_class
     
     def _consider_binop_part(self, op, ignored):
         x = op.args[0]

@@ -713,26 +713,15 @@ class Assembler386(object):
         self.mc.TEST(loc, loc)
         self.implement_guard(addr, op, self.mc.JNZ)
 
-    def genop_guard_guard_no_exception_inverse(self, op, ign_1, addr, locs, ign_2):
+    def genop_guard_guard_exception(self, op, ign_1, addr, locs, resloc):
         loc = locs[0]
-        self.mc.MOV(loc, heap(self._exception_addr))
-        self.mc.TEST(loc, loc)
-        self.implement_guard(addr, op, self.mc.JZ)
-
-    def _new_guard_exception(cond):
-        def _guard_exception(self, op, ign_1, addr, locs, resloc):
-            loc = locs[0]
-            loc1 = locs[1]
-            self.mc.MOV(loc1, heap(self._exception_addr))
-            self.mc.CMP(loc1, loc)
-            self.implement_guard(addr, op, getattr(self.mc, cond))
-            if resloc is not None:
-                self.mc.MOV(resloc, addr_add(imm(self._exception_addr), imm(WORD)))
-            self.mc.MOV(heap(self._exception_addr), imm(0))
-        return _guard_exception
-
-    genop_guard_guard_exception = _new_guard_exception('JNE')
-    genop_guard_guard_exception_inverse = _new_guard_exception('JE')
+        loc1 = locs[1]
+        self.mc.MOV(loc1, heap(self._exception_addr))
+        self.mc.CMP(loc1, loc)
+        self.implement_guard(addr, op, self.mc.JNE)
+        if resloc is not None:
+            self.mc.MOV(resloc, addr_add(imm(self._exception_addr), imm(WORD)))
+        self.mc.MOV(heap(self._exception_addr), imm(0))
 
     def genop_guard_guard_false(self, op, ign_1, addr, locs, ign_2):
         loc = locs[0]
@@ -743,19 +732,10 @@ class Assembler386(object):
         self.mc.CMP(locs[0], locs[1])
         self.implement_guard(addr, op, self.mc.JNE)
 
-    def genop_guard_guard_value_inverse(self, op, ign_1, addr, locs, ign_2):
-        self.mc.CMP(locs[0], locs[1])
-        self.implement_guard(addr, op, self.mc.JE)
-
     def genop_guard_guard_class(self, op, ign_1, addr, locs, ign_2):
         offset = 0    # XXX for now, the vtable ptr is at the start of the obj
         self.mc.CMP(mem(locs[0], offset), locs[1])
         self.implement_guard(addr, op, self.mc.JNE)
-
-    def genop_guard_guard_class_inverse(self, op, ign_1, addr, locs, ign_2):
-        offset = 0    # XXX for now, the vtable ptr is at the start of the obj
-        self.mc.CMP(mem(locs[0], offset), locs[1])
-        self.implement_guard(addr, op, self.mc.JE)
 
     #def genop_discard_guard_nonvirtualized(self, op):
     #    STRUCT = op.args[0].concretetype.TO
