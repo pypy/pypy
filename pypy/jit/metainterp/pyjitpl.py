@@ -1145,6 +1145,7 @@ class MetaInterp(object):
                                       *args):
         if args:
             if num_green_args <= 0:
+                value = args[0]
                 box = original_boxes[i]
                 if isinstance(lltype.typeOf(value), lltype.Ptr):
                     if lltype.typeOf(value).TO._gckind == 'gc':
