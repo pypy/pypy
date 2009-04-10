@@ -396,6 +396,8 @@ class Richards(object):
         return True
 
 def entry_point(iterations):
+    import pdb
+    pdb.set_trace()
     r = Richards()
     startTime = time.time()
     result = r.run(iterations)
@@ -414,24 +416,6 @@ def main(entry_point = entry_point, iterations = 10):
     print "Average time per iteration: %.2f ms" %(total_s*1000/iterations)
     return 42
 
-try:
-    import sys
-    if '-nojit' in sys.argv:
-        sys.argv.remove('-nojit')
-        raise ImportError
-    import pypyjit
-except ImportError:
-    pass
-else:
-    import types
-    for item in globals().values():
-        if isinstance(item, types.FunctionType):
-            pypyjit.enable(item.func_code)
-        elif isinstance(item, type):
-            for it in item.__dict__.values():
-                if isinstance(it, types.FunctionType):
-                    pypyjit.enable(it.func_code)
-    
 if __name__ == '__main__':
     import sys
     if len(sys.argv) >= 2:
