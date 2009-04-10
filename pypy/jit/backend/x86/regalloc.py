@@ -894,8 +894,15 @@ class RegAlloc(object):
         return self._call(op, [imm(descr.v[0]), self.loc(op.args[0])])
 
     def consider_newstr(self, op, ignored):
-        ofs_items, _, ofs = symbolic.get_array_token(rstr.STR, self.translate_support_code)
+        ofs_items, itemsize, ofs = symbolic.get_array_token(rstr.STR, self.translate_support_code)
+        assert itemsize == 1
         return self._malloc_varsize(0, ofs_items, ofs, 0, op.args[0],
+                                    op.result)
+
+    def consider_newunicode(self, op, ignored):
+        ofs_items, itemsize, ofs = symbolic.get_array_token(rstr.UNICODE, self.translate_support_code)
+        assert itemsize == 4
+        return self._malloc_varsize(0, ofs_items, ofs, 2, op.args[0],
                                     op.result)
 
     def _malloc_varsize(self, ofs, ofs_items, ofs_length, size, v, res_v):
@@ -946,6 +953,8 @@ class RegAlloc(object):
         value_loc = self.make_sure_var_in_reg(op.args[2], op.args)
         self.eventually_free_vars([op.args[0], op.args[1], op.args[2]])
         self.PerformDiscard(op, [base_loc, ofs_loc, value_loc])
+
+    consider_unicodesetitem = consider_strsetitem
 
     def consider_setarrayitem_gc(self, op, ignored):
         scale, ofs, _ = self._unpack_arraydescr(op.descr)
@@ -1038,6 +1047,8 @@ class RegAlloc(object):
         result_loc = self.force_allocate_reg(op.result, [])
         self.Perform(op, [base_loc], result_loc)
 
+    consider_unicodelen = consider_strlen
+
     def consider_arraylen_gc(self, op, ignored):
         _, ofs, _ = self._unpack_arraydescr(op.descr)
         base_loc = self.make_sure_var_in_reg(op.args[0], op.args)
@@ -1051,6 +1062,8 @@ class RegAlloc(object):
         self.eventually_free_vars([op.args[0], op.args[1]])
         result_loc = self.force_allocate_reg(op.result, [])
         self.Perform(op, [base_loc, ofs_loc], result_loc)
+
+    consider_unicodegetitem = consider_strgetitem
 
     def consider_jump(self, op, ignored):
         later_loads = []

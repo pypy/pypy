@@ -31,6 +31,3 @@ class TestBasic(Jit386Mixin, test_basic.BasicTests):
             return n
         res = self.meta_interp(f, [31], specialize=False)
         assert res == -4
-
-    def test_unicode(self):
-        py.test.skip("fixme")

@@ -605,14 +605,28 @@ class Assembler386(object):
         base_loc, ofs_loc, val_loc = arglocs
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
                                               self.cpu.translate_support_code)
+        assert itemsize == 1
         self.mc.MOV(addr8_add(base_loc, ofs_loc, basesize),
                     lower_byte(val_loc))
+
+    def genop_discard_unicodesetitem(self, op, arglocs):
+        base_loc, ofs_loc, val_loc = arglocs
+        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
+                                              self.cpu.translate_support_code)
+        assert itemsize == 4
+        self.mc.MOV(addr_add(base_loc, ofs_loc, basesize), val_loc)
 
     genop_discard_setfield_raw = genop_discard_setfield_gc
 
     def genop_strlen(self, op, arglocs, resloc):
         base_loc = arglocs[0]
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
+                                             self.cpu.translate_support_code)
+        self.mc.MOV(resloc, addr_add_const(base_loc, ofs_length))
+
+    def genop_unicodelen(self, op, arglocs, resloc):
+        base_loc = arglocs[0]
+        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
                                              self.cpu.translate_support_code)
         self.mc.MOV(resloc, addr_add_const(base_loc, ofs_length))
 
@@ -624,7 +638,15 @@ class Assembler386(object):
         base_loc, ofs_loc = arglocs
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
                                              self.cpu.translate_support_code)
+        assert itemsize == 1
         self.mc.MOVZX(resloc, addr8_add(base_loc, ofs_loc, basesize))
+
+    def genop_unicodegetitem(self, op, arglocs, resloc):
+        base_loc, ofs_loc = arglocs
+        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
+                                             self.cpu.translate_support_code)
+        assert itemsize == 4
+        self.mc.MOV(resloc, addr_add(base_loc, ofs_loc, basesize))
 
     def make_merge_point(self, tree, locs):
         pos = self.mc.tell()
