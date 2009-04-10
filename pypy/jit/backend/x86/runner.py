@@ -294,13 +294,12 @@ class CPU386(object):
         del self.keepalives[oldindex:]
         if guard_index == -1:
             # special case for calls
-            op = loop.operations[-1].clone()
+            op = loop.operations[-1]
         else:
-            op = self._guard_list[guard_index].clone()
+            op = self._guard_list[guard_index]
         for i in range(len(op.args)):
             box = op.args[i]
-            op.args[i] = self.new_box_of_type(box, i, self.assembler.fail_boxes)
-            #self.set_value_of_box(box, i, self.assembler.fail_boxes)
+            self.set_value_of_box(box, i, self.assembler.fail_boxes)
         return op
 
     def execute_call(self, loop, func, values_as_int):
