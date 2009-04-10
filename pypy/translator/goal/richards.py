@@ -396,8 +396,6 @@ class Richards(object):
         return True
 
 def entry_point(iterations):
-    import pdb
-    pdb.set_trace()
     r = Richards()
     startTime = time.time()
     result = r.run(iterations)
