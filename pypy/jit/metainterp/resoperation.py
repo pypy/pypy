@@ -190,8 +190,8 @@ class rop(object):
     INT_LSHIFT_OVF         = 157
     INT_FLOORDIV_OVF       = 158
     _OVF_LAST = 160
-    _CANRAISE_LAST = 159 # ----- end of can_raise operations -----
-    _LAST = 158     # for the backend to add more internal operations
+    _CANRAISE_LAST = 160 # ----- end of can_raise operations -----
+    _LAST = 160     # for the backend to add more internal operations
 
 
 opname = {}      # mapping numbers to the original names, for debugging
