@@ -286,18 +286,6 @@ class TestX86(BaseBackendTest):
         assert c.value == 2
         c = self.execute_operation(rop.GETFIELD_GC, [res], 'int', ofsc3)
         assert c.value == 3
-        
-    def test_ovf_ops(self):
-        py.test.skip("Cannot run like this, rewrite me")
-        arg0 = BoxInt(12)
-        arg1 = BoxInt(13)
-        res = self.execute_operation(rop.INT_MUL_OVF, [arg0, arg1], 'int')
-        assert res.value == 12*13
-        arg0 = BoxInt(sys.maxint/2)
-        arg1 = BoxInt(2222)
-        self.execute_operation(rop.INT_MUL_OVF, [arg0, arg1], 'int')
-        assert self.cpu.assembler._exception_data[0] == 1
-        self.cpu.assembler._exception_data[0] = 0
 
     def test_uint_ops(self):
         from pypy.rlib.rarithmetic import r_uint, intmask
@@ -460,8 +448,6 @@ class TestX86(BaseBackendTest):
             ResOperation(rop.FAIL, [ConstInt(0)], None),
             ]
         ops[1].suboperations = [ResOperation(rop.FAIL, [ConstInt(1)], None)]
-        ops[-1].ovf = False
-        ops[-1].exc = False
         loop = TreeLoop('name')
         loop.operations = ops
         loop.inputargs = [p]

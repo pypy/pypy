@@ -46,8 +46,6 @@ class Runner(object):
         operations = [ResOperation(opnum, valueboxes, result),
                       ResOperation(rop.FAIL, results, None)]
         operations[0].descr = descr
-        operations[-1].ovf = False
-        operations[-1].exc = False
         if operations[0].is_guard():
             operations[0].suboperations = [ResOperation(rop.FAIL,
                                                         [ConstInt(-13)], None)]
@@ -110,23 +108,56 @@ class BaseBackendTest(Runner):
                                      'int')
         assert res.value == intmask(r_uint(1) >> r_uint(4))
 
-    def test_int_floordiv_ovf(self):
-        v1 = BoxInt(-sys.maxint)
-        v2 = BoxInt(-1)
-        res_v = BoxInt()
-        ops = [
-            ResOperation(rop.INT_FLOORDIV_OVF, [v1, v2], res_v),
-            ResOperation(rop.GUARD_NO_EXCEPTION, [], None),
-            ResOperation(rop.FAIL, [res_v], None),
-            ]
-        ops[1].suboperations = [ResOperation(rop.FAIL, [ConstInt(1)], None)]
-        loop = TreeLoop('name')
-        loop.operations = ops
-        loop.inputargs = [v1, v2]
-        self.cpu.compile_operations(loop)
-        op = self.cpu.execute_operations(loop, [v1, v2])
-        assert op.args[0].value == sys.maxint
-        # XXX should also test the failing case, (-sys.maxint-1) / (-1)
+    def test_ovf_operations(self):
+        minint = -sys.maxint-1
+        boom = 666
+        for opnum, testcases in [
+            (rop.INT_ADD_OVF, [(10, -2, 8),
+                               (-1, minint, boom),
+                               (sys.maxint//2, sys.maxint//2+2, boom)]),
+            (rop.INT_SUB_OVF, [(-20, -23, 3),
+                               (-2, sys.maxint, boom),
+                               (sys.maxint//2, -(sys.maxint//2+2), boom)]),
+            (rop.INT_MUL_OVF, [(minint/2, 2, minint),
+                               (-2, -(minint/2), minint),
+                               (minint/2, -2, boom)]),
+            (rop.INT_NEG_OVF, [(-sys.maxint, 0, sys.maxint),
+                               (sys.maxint, 0, -sys.maxint),
+                               (minint, 0, boom)]),
+            (rop.INT_MOD_OVF, [(11, 3, 2),
+                               (-11, 3, -2),
+                               (11, -3, 2),
+                               (-11, -3, -2),
+                               (minint, -1, boom)]),
+            (rop.INT_LSHIFT_OVF, [(0x1f87611, 6, 0x7e1d8440),
+                                  (-0x1f87611, 6, -0x7e1d8440),
+                                  (sys.maxint//8+1, 3, boom),
+                                  (minint//2-1, 1, boom)]),
+            (rop.INT_FLOORDIV_OVF, [(110, 3, 36),
+                                    (-110, 3, -36),
+                                    (110, -3, -36),
+                                    (-110, -3, 36),
+                                    (minint, -1, boom)]),
+            ]:
+            v1 = BoxInt(testcases[0][0])
+            v2 = BoxInt(testcases[0][1])
+            res_v = BoxInt()
+            ops = [
+                ResOperation(opnum, [v1, v2], res_v),
+                ResOperation(rop.GUARD_NO_EXCEPTION, [], None),
+                ResOperation(rop.FAIL, [res_v], None),
+                ]
+            if opnum == rop.INT_NEG_OVF:
+                del ops[0].args[1]
+            ops[1].suboperations = [ResOperation(rop.FAIL, [ConstInt(boom)],
+                                                 None)]
+            loop = TreeLoop('name')
+            loop.operations = ops
+            loop.inputargs = [v1, v2]
+            self.cpu.compile_operations(loop)
+            for x, y, z in testcases:
+                op = self.cpu.execute_operations(loop, [BoxInt(x), BoxInt(y)])
+                assert op.args[0].value == z
 
     def test_uint_xor(self):
         x = execute(self.cpu, rop.UINT_XOR, [BoxInt(100), ConstInt(4)])
