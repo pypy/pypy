@@ -338,3 +338,10 @@ def test_unicode_iterator():
     assert ITER._field_type("string") is Unicode
     assert isinstance(res, annmodel.SomeOOInstance)
     assert res.ootype is Unicode
+
+def test_null_object():
+    def fn():
+        return NULL
+    a = RPythonAnnotator()
+    s = a.build_types(fn, [])
+    assert type(s) is annmodel.SomeOOObject

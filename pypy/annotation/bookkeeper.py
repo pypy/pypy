@@ -8,7 +8,7 @@ import sys, types, inspect, weakref
 from pypy.objspace.flow.model import Constant
 from pypy.annotation.model import SomeString, SomeChar, SomeFloat, \
      SomePtr, unionof, SomeInstance, SomeDict, SomeBuiltin, SomePBC, \
-     SomeInteger, SomeOOInstance, TLS, SomeAddress, \
+     SomeInteger, SomeOOInstance, SomeOOObject, TLS, SomeAddress, \
      SomeUnicodeCodePoint, SomeOOStaticMeth, s_None, s_ImpossibleValue, \
      SomeLLADTMeth, SomeBool, SomeTuple, SomeOOClass, SomeImpossibleValue, \
      SomeUnicodeString, SomeList, SomeObject, HarmlesslyBlocked, \
@@ -414,6 +414,8 @@ class Bookkeeper:
             result = SomeOOInstance(ootype.typeOf(x))
         elif isinstance(x, (ootype._record, ootype._string)):
             result = SomeOOInstance(ootype.typeOf(x))
+        elif isinstance(x, (ootype._object)):
+            result = SomeOOObject()
         elif callable(x):
             if hasattr(x, 'im_self') and hasattr(x, 'im_func'):
                 # on top of PyPy, for cases like 'l.append' where 'l' is a
