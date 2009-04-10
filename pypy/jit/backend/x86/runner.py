@@ -427,12 +427,17 @@ class CPU386(object):
         else:
             raise NotImplementedError("size = %d" % size)
 
-    def do_strlen(self, args, descr=0):
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-                                                   self.translate_support_code)
-        gcref = args[0].getptr(llmemory.GCREF)
-        v = rffi.cast(rffi.CArrayPtr(lltype.Signed), gcref)[ofs_length/WORD]
-        return BoxInt(v)
+    def _new_do_len(TP):
+        def do_strlen(self, args, descr=0):
+            basesize, itemsize, ofs_length = symbolic.get_array_token(TP,
+                                                self.translate_support_code)
+            gcref = args[0].getptr(llmemory.GCREF)
+            v = rffi.cast(rffi.CArrayPtr(lltype.Signed), gcref)[ofs_length/WORD]
+            return BoxInt(v)
+        return do_strlen
+
+    do_strlen = _new_do_len(rstr.STR)
+    do_unicodelen = _new_do_len(rstr.UNICODE)
 
     def do_strgetitem(self, args, descr=0):
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
@@ -440,6 +445,15 @@ class CPU386(object):
         gcref = args[0].getptr(llmemory.GCREF)
         i = args[1].getint()
         v = rffi.cast(rffi.CArrayPtr(lltype.Char), gcref)[basesize + i]
+        return BoxInt(ord(v))
+
+    def do_unicodegetitem(self, args, descr=0):
+        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
+                                                    self.translate_support_code)
+        gcref = args[0].getptr(llmemory.GCREF)
+        i = args[1].getint()
+        basesize = basesize // itemsize
+        v = rffi.cast(rffi.CArrayPtr(lltype.UniChar), gcref)[basesize + i]
         return BoxInt(ord(v))
 
     @specialize.argtype(1)
@@ -508,15 +522,18 @@ class CPU386(object):
         rffi.cast(rffi.CArrayPtr(lltype.Signed), res)[0] = num_elem
         return BoxPtr(self.cast_int_to_gcref(res))
 
-    def do_newstr(self, args, descr=0):
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-                                         self.translate_support_code)
-        assert itemsize == 1
-        num_elem = args[0].getint()
-        size = basesize + num_elem
-        res = rffi.cast(GC_MALLOC, gc_malloc_fnaddr())(size)
-        rffi.cast(rffi.CArrayPtr(lltype.Signed), res)[ofs_length/WORD] = num_elem
-        return BoxPtr(self.cast_int_to_gcref(res))
+    def _new_do_newstr(TP):
+        def do_newstr(self, args, descr=0):
+            basesize, itemsize, ofs_length = symbolic.get_array_token(TP,
+                                             self.translate_support_code)
+            num_elem = args[0].getint()
+            size = basesize + num_elem * itemsize
+            res = rffi.cast(GC_MALLOC, gc_malloc_fnaddr())(size)
+            rffi.cast(rffi.CArrayPtr(lltype.Signed), res)[ofs_length/WORD] = num_elem
+            return BoxPtr(self.cast_int_to_gcref(res))
+        return do_newstr
+    do_newstr = _new_do_newstr(rstr.STR)
+    do_newunicode = _new_do_newstr(rstr.UNICODE)
 
     def do_strsetitem(self, args, descr=0):
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
@@ -525,6 +542,15 @@ class CPU386(object):
         v = args[2].getint()
         a = args[0].getptr(llmemory.GCREF)
         rffi.cast(rffi.CArrayPtr(lltype.Char), a)[index + basesize] = chr(v)
+
+    def do_unicodesetitem(self, args, descr=0):
+        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
+                                                self.translate_support_code)
+        index = args[1].getint()
+        v = args[2].getint()
+        a = args[0].getptr(llmemory.GCREF)
+        basesize = basesize // itemsize
+        rffi.cast(rffi.CArrayPtr(lltype.UniChar), a)[index + basesize] = unichr(v)
 
     def do_call(self, args, calldescr):
         num_args, size, ptr = self.unpack_calldescr(calldescr)
