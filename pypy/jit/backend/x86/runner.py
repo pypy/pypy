@@ -236,6 +236,12 @@ class CPU386(object):
         elif isinstance(box, BoxPtr):
             box.value = self.cast_int_to_gcref(fail_boxes[index])
 
+    def new_box_of_type(self, box, index, fail_boxes):
+        if isinstance(box, BoxInt):
+            return BoxInt(fail_boxes[index])
+        elif isinstance(box, BoxPtr):
+            return BoxPtr(self.cast_int_to_gcref(fail_boxes[index]))
+
     def _new_box(self, ptr):
         if ptr:
             return BoxPtr(lltype.nullptr(llmemory.GCREF.TO))
@@ -288,12 +294,13 @@ class CPU386(object):
         del self.keepalives[oldindex:]
         if guard_index == -1:
             # special case for calls
-            op = loop.operations[-1]
+            op = loop.operations[-1].clone()
         else:
-            op = self._guard_list[guard_index]
+            op = self._guard_list[guard_index].clone()
         for i in range(len(op.args)):
             box = op.args[i]
-            self.set_value_of_box(box, i, self.assembler.fail_boxes)
+            op.args[i] = self.new_box_of_type(box, i, self.assembler.fail_boxes)
+            #self.set_value_of_box(box, i, self.assembler.fail_boxes)
         return op
 
     def execute_call(self, loop, func, values_as_int):
