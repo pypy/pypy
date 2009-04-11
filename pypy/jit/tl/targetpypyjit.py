@@ -30,6 +30,7 @@ def opt_parser(config):
     return parser
 
 def handle_config(config, translateconfig):
+    config.translation.rweakref = False     # XXX
     # set up the objspace optimizations based on the --opt argument
     from pypy.config.pypyoption import set_pypy_opt_level
     set_pypy_opt_level(config, translateconfig.opt)
