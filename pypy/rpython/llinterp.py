@@ -1301,7 +1301,8 @@ class Tracer(object):
             self.file.write(text.replace('\n', '\n'+self.indentation))
 
     def flush(self):
-        self.file.flush()
+        if self.file:
+            self.file.flush()
 
 def wrap_callable(llinterpreter, fn, obj, method_name):
     if method_name is None:
