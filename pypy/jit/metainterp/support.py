@@ -112,6 +112,8 @@ def _ll_2_list_getitem(l, index):
     return rlist.ll_getitem(rlist.dum_checkidx, l, index)
 def _ll_3_list_setitem(l, index, newitem):
     rlist.ll_setitem(rlist.dum_checkidx, l, index, newitem)
+def _ll_2_list_delitem(l, index):
+    rlist.ll_delitem(rlist.dum_checkidx, l, index)
 def _ll_1_list_pop(l):
     return rlist.ll_pop_default(rlist.dum_checkidx, l)
 def _ll_2_list_pop(l, index):
