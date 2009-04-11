@@ -144,6 +144,7 @@ def _ll_2_newdictkvi(LIST, dic, func):
     return rdict.ll_kvi(dic, LIST, func)
 _ll_2_newdictkvi.need_result_type = True
 _ll_1_dict_copy = rdict.ll_copy
+_ll_1_dict_clear = rdict.ll_clear
 _ll_4_list_setslice = rlist.ll_listsetslice
 _ll_3_list_delslice_startstop = rlist.ll_listdelslice_startstop
 _ll_2_dict_update = rdict.ll_update
