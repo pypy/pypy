@@ -66,6 +66,7 @@ class CPU(object):
     def __init__(self, rtyper, stats=None, translate_support_code=False,
                  annmixlevel=None):
         self.rtyper = rtyper
+        self.is_oo = rtyper.type_system.name == "ootypesystem"
         self.translate_support_code = translate_support_code
         self.stats = stats or MiniStats()
         self.stats.exec_counters = {}
@@ -116,7 +117,7 @@ class CPU(object):
                     llimpl.compile_add_ptr_const(c, x.value)
                 elif isinstance(x, history.ConstAddr):
                     llimpl.compile_add_int_const(c, x.getint())
-                elif isinstance(x, history.ConstObj):
+                elif self.is_oo and isinstance(x, history.ConstObj):
                     llimpl.compile_add_ptr_const(c, x.value, ootype.Object)
                 else:
                     raise Exception("%s args contain: %r" % (op.getopname(),
@@ -130,7 +131,7 @@ class CPU(object):
                     var2index[x] = llimpl.compile_add_int_result(c)
                 elif isinstance(x, history.BoxPtr):
                     var2index[x] = llimpl.compile_add_ptr_result(c)
-                elif isinstance(x, history.BoxObj):
+                elif self.is_oo and isinstance(x, history.BoxObj):
                     var2index[x] = llimpl.compile_add_ptr_result(c, ootype.Object)
                 else:
                     raise Exception("%s.result contain: %r" % (op.getopname(),
