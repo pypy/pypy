@@ -142,6 +142,7 @@ class rop(object):
     INT_INVERT             = 62
     BOOL_NOT               = 63
     UINT_IS_TRUE           = 64
+    INT_ABS                = 65
     #
     OONONNULL              = 70
     OOISNULL               = 71
@@ -192,6 +193,7 @@ class rop(object):
     INT_MOD_OVF            = 156
     INT_LSHIFT_OVF         = 157
     INT_FLOORDIV_OVF       = 158
+    INT_ABS_OVF            = 159
     _OVF_LAST = 160
     _CANRAISE_LAST = 160 # ----- end of can_raise operations -----
     _LAST = 160     # for the backend to add more internal operations

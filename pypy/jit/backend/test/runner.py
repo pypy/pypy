@@ -108,6 +108,48 @@ class BaseBackendTest(Runner):
                                      'int')
         assert res.value == intmask(r_uint(1) >> r_uint(4))
 
+    def test_binary_operations(self):
+        minint = -sys.maxint-1
+        for opnum, testcases in [
+            (rop.INT_ADD, [(10, -2, 8)]),
+            (rop.INT_SUB, [(10, -2, 12)]),
+            (rop.INT_MUL, [(-6, -3, 18)]),
+            (rop.INT_FLOORDIV, [(110, 3, 36),
+                                (-110, 3, -36),
+                                (110, -3, -36),
+                                (-110, -3, 36),
+                                (-110, -1, 110),
+                                (minint, 1, minint)]),
+            (rop.INT_MOD, [(11, 3, 2),
+                           (-11, 3, -2),
+                           (11, -3, 2),
+                           (-11, -3, -2)]),
+            (rop.INT_AND, [(0xFF00, 0x0FF0, 0x0F00)]),
+            (rop.INT_OR, [(0xFF00, 0x0FF0, 0xFFF0)]),
+            (rop.INT_XOR, [(0xFF00, 0x0FF0, 0xF0F0)]),
+            (rop.INT_LSHIFT, [(-5, 2, -20),
+                              (-5, 0, -5)]),
+            (rop.INT_RSHIFT, [(-17, 2, -5),
+                              (19, 1, 9)]),
+            ]:
+            for x, y, z in testcases:
+                res = self.execute_operation(opnum, [BoxInt(x), BoxInt(y)],
+                                             'int')
+                assert res.value == z
+
+    def test_unary_operations(self):
+        minint = -sys.maxint-1
+        for opnum, testcases in [
+            (rop.INT_IS_TRUE, [(0, 0), (1, 1), (2, 1), (-1, 1), (minint, 1)]),
+            (rop.INT_NEG, [(0, 0), (123, -123), (-23127, 23127)]),
+            (rop.INT_INVERT, [(0, ~0), (-1, ~(-1)), (123, ~123)]),
+            (rop.INT_ABS, [(0, 0), (123, 123), (-23127, 23127)]),
+            ]:
+            for x, y in testcases:
+                res = self.execute_operation(opnum, [BoxInt(x)],
+                                             'int')
+                assert res.value == y
+
     def test_ovf_operations(self):
         minint = -sys.maxint-1
         boom = 666
@@ -123,6 +165,9 @@ class BaseBackendTest(Runner):
                                (minint/2, -2, boom)]),
             (rop.INT_NEG_OVF, [(-sys.maxint, 0, sys.maxint),
                                (sys.maxint, 0, -sys.maxint),
+                               (minint, 0, boom)]),
+            (rop.INT_ABS_OVF, [(-sys.maxint, 0, sys.maxint),
+                               (sys.maxint, 0, sys.maxint),
                                (minint, 0, boom)]),
             (rop.INT_MOD_OVF, [(11, 3, 2),
                                (-11, 3, -2),
@@ -150,7 +195,7 @@ class BaseBackendTest(Runner):
                 ResOperation(rop.GUARD_NO_EXCEPTION, [], None),
                 ResOperation(rop.FAIL, [v_res], None),
                 ]
-            if opnum == rop.INT_NEG_OVF:
+            if opnum in (rop.INT_NEG_OVF, rop.INT_ABS_OVF):
                 del ops[0].args[1]
             ops[1].suboperations = [ResOperation(rop.FAIL, [ConstInt(boom)],
                                                  None)]
@@ -175,7 +220,7 @@ class BaseBackendTest(Runner):
 ##                ResOperation(rop.GUARD_EXCEPTION, [ConstInt(ovferror)], v_exc),
 ##                ResOperation(rop.FAIL, [ConstInt(boom)], None),
 ##                ]
-##            if opnum == rop.INT_NEG_OVF:
+##            if opnum in (rop.INT_NEG_OVF, rop.INT_ABS_OVF):
 ##                del ops[0].args[1]
 ##            ops[1].suboperations = [ResOperation(rop.FAIL, [ConstInt(v_res)],
 ##                                                 None)]

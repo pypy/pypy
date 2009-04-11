@@ -56,6 +56,9 @@ def do_uint_rshift(cpu, args, descr=None):
     v = r_uint(args[0].getint()) >> r_uint(args[1].getint())
     return ConstInt(intmask(v))
 
+def do_int_abs(cpu, args, descr=None):
+    return ConstInt(abs(args[0].getint()))
+
 # ----------
 
 def do_int_lt(cpu, args, descr=None):
@@ -184,6 +187,15 @@ def do_int_neg_ovf(cpu, args, descr=None):
     x = args[0].getint()
     try:
         z = ovfcheck(-x)
+    except OverflowError:
+        cpu.set_overflow_error()
+        z = 0
+    return BoxInt(z)
+
+def do_int_abs_ovf(cpu, args, descr=None):
+    x = args[0].getint()
+    try:
+        z = ovfcheck(abs(x))
     except OverflowError:
         cpu.set_overflow_error()
         z = 0

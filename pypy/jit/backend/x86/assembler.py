@@ -393,6 +393,7 @@ class Assembler386(object):
         assert res is eax
 
     genop_int_neg = _unaryop("NEG")
+    genop_int_invert = _unaryop("NOT")
     genop_int_add = _binaryop("ADD", True)
     genop_int_sub = _binaryop("SUB")
     genop_int_mul = _binaryop("IMUL", True)
@@ -478,6 +479,24 @@ class Assembler386(object):
         self.mc.TEST(argloc, argloc)
         self.mc.MOV(resloc, imm8(0))
         self.mc.SETNZ(lower_byte(resloc))
+
+    def genop_int_abs(self, op, arglocs, resloc):
+        argloc = arglocs[0]
+        tmploc = arglocs[1]
+        assert resloc != argloc and resloc != tmploc
+        self.mc.MOV(resloc, argloc)
+        # ABS-computing code from Psyco, found by exhaustive search
+        # on *all* short sequences of operations :-)
+        self.mc.ADD(resloc, resloc)
+        self.mc.SBB(resloc, argloc)
+        self.mc.SBB(tmploc, tmploc)
+        self.mc.XOR(resloc, tmploc)
+        # in case of overflow, the result is negative again (-sys.maxint-1)
+        # and the L flag is set.
+
+    def genop_guard_int_abs_ovf(self, op, guard_op, addr, arglocs, resloc):
+        self.genop_int_abs(op, arglocs, resloc)
+        self.mc.JL(rel32(addr))
 
     def genop_guard_oononnull(self, op, guard_op, addr, arglocs, resloc):
         loc = arglocs[0]
