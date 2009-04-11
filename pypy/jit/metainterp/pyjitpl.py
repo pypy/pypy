@@ -1,7 +1,7 @@
 import py
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.llinterp import LLException
-from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
+from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.objectmodel import we_are_translated, r_dict, instantiate
 from pypy.rlib.unroll import unrolling_iterable
@@ -855,6 +855,12 @@ class MetaInterp(object):
             raise self.staticdata.DoneWithThisFrame(resultbox)
 
     def finishframe_exception(self, exceptionbox, excvaluebox):
+        if we_are_translated():   # detect and propagate AssertionErrors early
+            value = excvaluebox.getptr(lltype.Ptr(rclass.OBJECT))
+            value = cast_base_ptr_to_instance(Exception, value)
+            if isinstance(value, AssertionError):
+                raise AssertionError, value
+        #
         while self.framestack:
             frame = self.framestack[-1]
             if frame.exception_target >= 0:
