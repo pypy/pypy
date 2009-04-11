@@ -31,9 +31,11 @@ class JitPolicy(object):
         else:
             assert op.opname == 'indirect_call'
             graphs = op.args[-1].value
-            for graph in graphs:
-                if self.look_inside_graph(graph):
-                    return graphs  # common case: look inside at least 1 graph
+            if graphs is not None:
+                for graph in graphs:
+                    if self.look_inside_graph(graph):
+                        return graphs  # common case: look inside at
+                                       # least one of the graphs
         # residual call case: we don't need to look into any graph
         return None
 

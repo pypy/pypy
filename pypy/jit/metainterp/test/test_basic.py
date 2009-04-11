@@ -467,17 +467,35 @@ class BasicTests:
         assert self.interp_operations(f, [x, x]) == expected
         lltype.free(x, flavor='raw')
 
+    def test_instantiate_classes(self):
+        class Base: pass
+        class A(Base): foo = 72
+        class B(Base): foo = 8
+        def f(n):
+            if n > 5:
+                cls = A
+            else:
+                cls = B
+            return cls().foo
+        res = self.interp_operations(f, [3])
+        assert res == 8
+        res = self.interp_operations(f, [13])
+        assert res == 72
+
+
 class TestOOtype(BasicTests, OOJitMixin):
     def skip(self):
         py.test.skip('in-progress')
 
     test_chr2str = skip
+    test_string = skip
     test_unicode = skip
     test_residual_call = skip
     test_format = skip
     test_getfield = skip
     test_getfield_immutable = skip
     test_oops_on_nongc = skip
+    test_instantiate_classes = skip
 
 
 class TestLLtype(BasicTests, LLJitMixin):

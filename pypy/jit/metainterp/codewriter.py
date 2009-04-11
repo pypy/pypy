@@ -748,10 +748,14 @@ class BytecodeMaker(object):
                            if x.concretetype is not lltype.Void])
         self.register_var(op.result)
 
-    def handle_residual_call(self, op):
+    def handle_residual_call(self, op, skip_last=False):
         self.minimize_variables()
+        if skip_last:
+            args = op.args[1:-1]
+        else:
+            args = op.args[1:]
         calldescr, non_void_args = self.codewriter.getcalldescr(op.args[0],
-                                                                op.args[1:],
+                                                                args,
                                                                 op.result)
         self.emit('residual_call')
         self.emit(self.get_position(calldescr))
@@ -918,8 +922,11 @@ class BytecodeMaker(object):
         self.register_var(op.result)
 
     def serialize_op_indirect_call(self, op):
-        self.minimize_variables()
         targets = self.codewriter.policy.graphs_from(op)
+        if targets is None:      # this is a residual call
+            self.handle_residual_call(op, skip_last=True)
+            return
+        self.minimize_variables()
         indirectcallset = self.codewriter.get_indirectcallset(targets)
         self.emit('indirect_call')
         self.emit(self.get_position(indirectcallset))
