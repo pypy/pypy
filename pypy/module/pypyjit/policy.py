@@ -5,19 +5,6 @@ from pypy.translator.backendopt.support import find_calls_from
 
 class PyPyJitPolicy(ManualJitPolicy):
 
-    def look_inside_graph(self, graph):
-        # XXX a weird hack not to look inside unicode helpers
-        from pypy.rpython.lltypesystem import lltype, rstr
-        
-        if (hasattr(graph, 'func') and
-            graph.func.__module__ == 'pypy.rpython.lltypesystem.rstr'):
-            if (len(graph.startblock.inputargs) > 0):
-                TP = graph.startblock.inputargs[0].concretetype
-                if (TP == lltype.Ptr(rstr.UNICODE) or
-                    TP == rstr.UnicodeIteratorRepr.lowleveltype):
-                    return False
-        return ManualJitPolicy.look_inside_graph(self, graph)
-
     def look_inside_function(self, func):
         mod = func.__module__ or '?'
         if func.__name__.startswith('__mm_'):
@@ -29,11 +16,6 @@ class PyPyJitPolicy(ManualJitPolicy):
         if mod.startswith('pypy.objspace.'):
             # we don't support floats
             if 'float' in mod or 'complex' in mod:
-                return False
-            # XXX this is baaad, unicode support needed
-            if mod.startswith('pypy.objspace.std.formatting'):
-                return False
-            if 'unicode' in mod:
                 return False
             # gc_id operation
             if func.__name__ == 'id__ANY':
