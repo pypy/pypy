@@ -138,15 +138,17 @@ class BaseBackendTest(Runner):
                                     (-110, 3, -36),
                                     (110, -3, -36),
                                     (-110, -3, 36),
+                                    (-110, -1, 110),
+                                    (minint, 1, minint),
                                     (minint, -1, boom)]),
             ]:
             v1 = BoxInt(testcases[0][0])
             v2 = BoxInt(testcases[0][1])
-            res_v = BoxInt()
+            v_res = BoxInt()
             ops = [
-                ResOperation(opnum, [v1, v2], res_v),
+                ResOperation(opnum, [v1, v2], v_res),
                 ResOperation(rop.GUARD_NO_EXCEPTION, [], None),
-                ResOperation(rop.FAIL, [res_v], None),
+                ResOperation(rop.FAIL, [v_res], None),
                 ]
             if opnum == rop.INT_NEG_OVF:
                 del ops[0].args[1]
@@ -159,6 +161,31 @@ class BaseBackendTest(Runner):
             for x, y, z in testcases:
                 op = self.cpu.execute_operations(loop, [BoxInt(x), BoxInt(y)])
                 assert op.args[0].value == z
+            # ----------
+            # the same thing but with the exception path reversed
+##            v1 = BoxInt(testcases[0][0])
+##            v2 = BoxInt(testcases[0][1])
+##            v_res = BoxInt()
+##            v_exc = BoxPtr()
+##            self.cpu.set_overflow_error()
+##            ovferror = self.cpu.get_exception()
+##            self.cpu.clear_exception()
+##            ops = [
+##                ResOperation(opnum, [v1, v2], v_res),
+##                ResOperation(rop.GUARD_EXCEPTION, [ConstInt(ovferror)], v_exc),
+##                ResOperation(rop.FAIL, [ConstInt(boom)], None),
+##                ]
+##            if opnum == rop.INT_NEG_OVF:
+##                del ops[0].args[1]
+##            ops[1].suboperations = [ResOperation(rop.FAIL, [ConstInt(v_res)],
+##                                                 None)]
+##            loop = TreeLoop('inverted')
+##            loop.operations = ops
+##            loop.inputargs = [v1, v2]
+##            self.cpu.compile_operations(loop)
+##            for x, y, z in testcases:
+##                op = self.cpu.execute_operations(loop, [BoxInt(x), BoxInt(y)])
+##                assert op.args[0].value == z
 
     def test_uint_xor(self):
         x = execute(self.cpu, rop.UINT_XOR, [BoxInt(100), ConstInt(4)])

@@ -754,51 +754,45 @@ class RegAlloc(object):
         self.eventually_free_vars(guard_op.inputargs)
         self.eventually_free_var(guard_op.result)
 
-    def consider_int_rshift(self, op, ignored):
-        tmpvar = TempBox()
-        reg = self.force_allocate_reg(tmpvar, [], ecx)
-        y = self.loc(op.args[1])
-        x = self.force_result_in_reg(op.result, op.args[0],
-                                     op.args + [tmpvar])
-        self.eventually_free_vars(op.args + [tmpvar])
-        self.Perform(op, [x, y, reg], x)
-
     def consider_int_lshift(self, op, ignored):
         loc2 = self.make_sure_var_in_reg(op.args[1], [], ecx)
         loc1 = self.force_result_in_reg(op.result, op.args[0], op.args)
         self.Perform(op, [loc1, loc2], loc1)
         self.eventually_free_vars(op.args)
 
+    consider_int_rshift  = consider_int_lshift
     consider_uint_rshift = consider_int_lshift
 
     def consider_int_lshift_ovf(self, op, guard_op):
         loc2 = self.make_sure_var_in_reg(op.args[1], [], ecx)
         loc1 = self.force_result_in_reg(op.result, op.args[0], op.args)
+        tmpvar = TempBox()
+        tmploc = self.force_allocate_reg(tmpvar, [])
         self.eventually_free_vars(op.args)
         self.position += 1
         regalloc = self.regalloc_for_guard(guard_op)
-        self.perform_with_guard(op, guard_op, regalloc, [loc1, loc2], loc1,
-                                overflow=True)
+        self.perform_with_guard(op, guard_op, regalloc, [loc1, loc2, tmploc],
+                                loc1, overflow=True)
         self.eventually_free_vars(guard_op.inputargs)
-        self.eventually_free_var(guard_op.result)
+        self.eventually_free_var(tmpvar)
 
-    def _consider_int_div_or_mod(self, op, trashreg):
+    def _consider_int_div_or_mod(self, op, resultreg, trashreg):
         l0 = self.make_sure_var_in_reg(op.args[0], [], eax)
         l1 = self.make_sure_var_in_reg(op.args[1], [], ecx)
-        l2 = self.force_allocate_reg(op.result, [], edx)
+        l2 = self.force_allocate_reg(op.result, [], resultreg)
         # the register (eax or edx) not holding what we are looking for
         # will be just trash after that operation
         tmpvar = TempBox()
         self.force_allocate_reg(tmpvar, [], trashreg)
-        assert (l0, l1, l2) == (eax, ecx, edx)
+        assert (l0, l1, l2) == (eax, ecx, resultreg)
         self.eventually_free_vars(op.args + [tmpvar])
 
     def consider_int_mod(self, op, ignored):
-        self._consider_int_div_or_mod(op, eax)
+        self._consider_int_div_or_mod(op, edx, eax)
         self.Perform(op, [eax, ecx], edx)
 
     def consider_int_mod_ovf(self, op, guard_op):
-        self._consider_int_div_or_mod(op, eax)
+        self._consider_int_div_or_mod(op, edx, eax)
         self.position += 1
         regalloc = self.regalloc_for_guard(guard_op)
         self.perform_with_guard(op, guard_op, regalloc, [eax, ecx], edx,
@@ -806,11 +800,11 @@ class RegAlloc(object):
         self.eventually_free_vars(guard_op.inputargs)
 
     def consider_int_floordiv(self, op, ignored):
-        self._consider_int_div_or_mod(op, edx)
+        self._consider_int_div_or_mod(op, eax, edx)
         self.Perform(op, [eax, ecx], eax)
 
     def consider_int_floordiv_ovf(self, op, guard_op):
-        self._consider_int_div_or_mod(op, edx)
+        self._consider_int_div_or_mod(op, eax, edx)
         self.position += 1
         regalloc = self.regalloc_for_guard(guard_op)
         self.perform_with_guard(op, guard_op, regalloc, [eax, ecx], eax,

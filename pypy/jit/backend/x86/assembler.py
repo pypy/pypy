@@ -451,42 +451,27 @@ class Assembler386(object):
         loc = arglocs[0]
         assert arglocs[1] is ecx
         self.mc.SHL(loc, cl)
-        #self.mc.CMP(ecx, imm8(32)) XXX <- what's that???
-        #self.mc.SBB(ecx, ecx)
-        #self.mc.AND(loc, ecx)
-
-    def genop_guard_int_lshift_ovf(self, op, guard_op, addr, arglocs, resloc):
-        loc = arglocs[0]
-        self.mc.CMP(ecx, imm(31))
-        self.mc.JG(rel32(addr))
-        self.mc.SHL(loc, cl)
-        self.mc.JO(rel32(addr))
-
-    # TODO: measure which way is faster actually - with tmp in ecx or with
-    #       arg in ecx. I don't expect it to be performance critical, but
-    #       who knows
 
     def genop_int_rshift(self, op, arglocs, resloc):
-        (x, y, tmp) = arglocs
-        assert tmp is ecx
-        yv = op.args[1]
-        if isinstance(yv, ConstInt):
-            intval = yv.value
-            if intval < 0 or intval > 31:
-                intval = 31
-            self.mc.MOV(tmp, imm8(intval))
-        else:
-            self.mc.MOV(tmp, imm8(31)) 
-            self.mc.CMP(y, tmp)
-            self.mc.CMOVBE(tmp, y)
-        self.mc.SAR(resloc, cl)
+        loc = arglocs[0]
+        assert arglocs[1] is ecx
+        self.mc.SAR(loc, cl)
 
     def genop_uint_rshift(self, op, arglocs, resloc):
         loc = arglocs[0]
+        assert arglocs[1] is ecx
         self.mc.SHR(loc, cl)
-        #self.mc.CMP(ecx, imm8(32)) <--- XXX what's that?
-        #self.mc.SBB(ecx, ecx)
-        #self.mc.AND(eax, ecx)
+
+    def genop_guard_int_lshift_ovf(self, op, guard_op, addr, arglocs, resloc):
+        loc = arglocs[0]
+        tmploc = arglocs[2]
+        # xxx a bit inefficient
+        self.mc.MOV(tmploc, loc)
+        self.mc.SHL(tmploc, cl)
+        self.mc.SAR(tmploc, cl)
+        self.mc.CMP(tmploc, loc)
+        self.mc.JNE(rel32(addr))
+        self.mc.SHL(loc, cl)
 
     def genop_int_is_true(self, op, arglocs, resloc):
         argloc = arglocs[0]
@@ -525,9 +510,10 @@ class Assembler386(object):
         self.mc.IDIV(ecx)
 
     def genop_guard_int_mod_ovf(self, op, guard_op, addr, arglocs, result_loc):
-        self.mc.CMP(eax, imm(-sys.maxint-1))
-        self.mc.JE(rel32(addr))
-        self.mc.CMP(ecx, imm(-1))
+        # detect the combination "eax=-sys.maxint-1, ecx=-1"
+        self.mc.LEA(edx, mem(eax, sys.maxint))  # edx=-1 if eax=-sys.maxint-1
+        self.mc.AND(edx, ecx)                   # edx=-1 only in the case above
+        self.mc.CMP(edx, imm(-1))
         self.mc.JE(rel32(addr))
         self.mc.CDQ()
         self.mc.IDIV(ecx)
