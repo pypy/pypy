@@ -132,6 +132,7 @@ _ll_0_newdict.need_result_type = True
 
 _ll_2_dict_getitem = rdict.ll_dict_getitem
 _ll_3_dict_setitem = rdict.ll_dict_setitem
+_ll_3_dict_setdefault = rdict.ll_setdefault
 _ll_2_dict_contains = rdict.ll_contains
 _ll_3_dict_get = rdict.ll_get
 def _ll_1_newdictiter(ITERPTR, d):
