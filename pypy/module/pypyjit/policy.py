@@ -7,15 +7,23 @@ class PyPyJitPolicy(ManualJitPolicy):
 
     def look_inside_function(self, func):
         mod = func.__module__ or '?'
-        if func.__name__.startswith('__mm_'):
-            if (func.__name__.startswith('__mm_truediv') or
-                func.__name__.startswith('__mm_inplace_truediv')):
+        if (func.__name__.startswith('_mm_') or
+            func.__name__.startswith('__mm_')):
+            # multimethods
+            name = func.__name__.lstrip('_')
+            if (name.startswith('mm_truediv') or
+                name.startswith('mm_inplace_truediv') or
+                name.startswith('mm_float')):
                 # floats
                 return False
+            return True
+        if '_mth_mm_' in func.__name__:    # e.g. str_mth_mm_join_xxx
             return True
         if mod.startswith('pypy.objspace.'):
             # we don't support floats
             if 'float' in mod or 'complex' in mod:
+                return False
+            if func.__name__ == 'format_float':
                 return False
             # gc_id operation
             if func.__name__ == 'id__ANY':
@@ -23,8 +31,8 @@ class PyPyJitPolicy(ManualJitPolicy):
             return True
         # floats
         if mod == 'pypy.rlib.rbigint':
-            if func.__name__ == '_bigint_true_divide':
-                return False
+            #if func.__name__ == '_bigint_true_divide':
+            return False
         if '_geninterp_' in func.func_globals: # skip all geninterped stuff
             return False
         if mod.startswith('pypy.interpreter.astcompiler.'):
@@ -36,15 +44,6 @@ class PyPyJitPolicy(ManualJitPolicy):
                 return False
         if mod.startswith('pypy.translator.'):
             return False
-        # We don't support recursive portals, hide calling for now
-        if mod.startswith('pypy.interpreter.function'):
-            if func.__name__.startswith('funccall'):
-                return False
-            if func.__name__ == 'call_args' or func.__name__ == 'call_obj_args':
-                return False
-        if mod == 'pypy.interpreter.eval':
-            if func.__name__ == 'exec_code':
-                return False
         # string builder interface
         if mod == 'pypy.rpython.lltypesystem.rbuilder':
             return False
@@ -57,8 +56,6 @@ class PyPyJitPolicy(ManualJitPolicy):
             return False
         #if mod in forbidden_modules:
         #    return False
-        if func.__name__.startswith('_mm_') or '_mth_mm_' in func.__name__:
-            return True
         return super(PyPyJitPolicy, self).look_inside_function(func)
 
 #     def seebinary(self, opname):
