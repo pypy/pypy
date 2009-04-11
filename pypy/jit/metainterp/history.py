@@ -153,7 +153,10 @@ class Const(AbstractValue):
     def __hash__(self):
         if isinstance(self.value, Symbolic):
             return id(self.value)
-        return self.get_()
+        try:
+            return self.get_()
+        except lltype.DelayedPointer:
+            return -2      # xxx risk of changing hash...
 
 
 class ConstInt(Const):

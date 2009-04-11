@@ -224,7 +224,8 @@ class WarmRunnerDesc:
         FUNC = FUNCPTR.TO
         args_s = [annmodel.lltype_to_annotation(ARG) for ARG in FUNC.ARGS]
         s_result = annmodel.lltype_to_annotation(FUNC.RESULT)
-        return self.annhelper.delayedfunction(func, args_s, s_result)
+        graph = self.annhelper.getgraph(func, args_s, s_result)
+        return self.annhelper.graph2delayed(graph, FUNC)
 
     def rewrite_jit_merge_point(self):
         #
