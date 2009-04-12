@@ -17,6 +17,9 @@ class Jit386Mixin(object):
     def check_enter_count(self, *args, **kwds):
         pass
 
+    def check_enter_count_at_most(self, *args, **kwds):
+        pass
+
     def interp_operations(self, *args, **kwds):
         py.test.skip("using interp_operations")
 
