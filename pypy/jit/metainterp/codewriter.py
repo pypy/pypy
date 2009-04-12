@@ -665,7 +665,6 @@ class BytecodeMaker(object):
         self.emit(self.var_position(op.args[2]))
 
     def serialize_op_getinteriorarraysize(self, op):
-        # XXX only supports strings for now
         assert len(op.args) == 2
         assert op.args[1].value == 'chars'
         optype = op.args[0].concretetype
