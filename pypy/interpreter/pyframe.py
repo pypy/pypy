@@ -357,7 +357,7 @@ class PyFrame(eval.Frame):
         return self.pycode.hidden_applevel
 
     def getcode(self):
-        return hint(self.pycode, promote=True)
+        return self.pycode
 
     def getfastscope(self):
         "Get the fast locals as a list."
