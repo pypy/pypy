@@ -921,13 +921,17 @@ class MetaInterp(object):
         # boxes.
         log('recursive call to execute_operations()!')
         saved_env = []
+        framestack = []
         for f in self.framestack:
             newenv = []
             for box in f.env:
                 if isinstance(box, Box):
                     saved_env.append(box.clonebox())
+                newenv.append(box)
+            framestack.append(newenv)
         pseudoframe = instantiate(MIFrame)
         pseudoframe.env = saved_env
+        pseudoframe._saved_framestack = framestack
         self.framestack.append(pseudoframe)
 
     def _restore_recursive_call(self):
@@ -938,8 +942,13 @@ class MetaInterp(object):
         pseudoframe = self.framestack.pop()
         saved_env = pseudoframe.env
         i = 0
-        for f in self.framestack:
-            for box in f.env:
+        assert len(pseudoframe._saved_framestack) == len(self.framestack)
+        for j in range(len(self.framestack)):
+            f = self.framestack[j]
+            assert len(f.env) == len(pseudoframe._saved_framestack[j])
+            for k in range(len(f.env)):
+                box = f.env[k]
+                pseudoenv = pseudoframe._saved_framestack[j]
                 if isinstance(box, BoxInt):
                     box.changevalue_int(saved_env[i].getint())
                     i += 1
@@ -947,6 +956,10 @@ class MetaInterp(object):
                     box.changevalue_ptr(saved_env[i].getptr_base())
                     i += 1
                 else:
+                    if isinstance(box, ConstInt):
+                        assert box.getint() == pseudoenv[k].getint()
+                    elif isinstance(box, ConstPtr):
+                        assert box.getptr_base() == pseudoenv[k].getptr_base()
                     assert isinstance(box, Const)
         assert i == len(saved_env)
 
