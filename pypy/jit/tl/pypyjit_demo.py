@@ -1,3 +1,4 @@
+from time import clock
 
 def f0():
     print "simple loop"
@@ -76,9 +77,23 @@ def f7():
         i = i + 1
     print n
 
+def f13():
+    i = 0
+    k = 0
+    while i < 20:
+        k += call(i)
+
+def call(i):
+    k = 0
+    for j in range(i, i + 2):
+        if j > i + 2:
+            raise Exception("Explode")
+        k += 1
+    return k
 
 try:
-    f7()
+    f13()
+    #f1()
 except Exception, e:
     print '/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\'
     print e.__class__, e
