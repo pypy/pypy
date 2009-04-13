@@ -244,12 +244,6 @@ class CPU386(object):
         elif isinstance(box, BoxPtr):
             box.value = self.cast_int_to_gcref(fail_boxes[index])
 
-    def new_box_of_type(self, box, index, fail_boxes):
-        if isinstance(box, BoxInt):
-            return BoxInt(fail_boxes[index])
-        elif isinstance(box, BoxPtr):
-            return BoxPtr(self.cast_int_to_gcref(fail_boxes[index]))
-
     def _new_box(self, ptr):
         if ptr:
             return BoxPtr(lltype.nullptr(llmemory.GCREF.TO))
@@ -261,6 +255,7 @@ class CPU386(object):
             box = self._new_box(ptr)
             loop.operations[0].result = box
             loop.operations[-1].args[0] = box
+            loop.operations[1].suboperations[0].args[0] = box
             return loop
         except KeyError:
             pass
