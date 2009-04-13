@@ -80,8 +80,9 @@ def f7():
 def f13():
     i = 0
     k = 0
-    while i < 20:
+    while i < 20000:
         k += call(i)
+        i += 1
 
 def call(i):
     k = 0
