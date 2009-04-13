@@ -1011,6 +1011,7 @@ def ll_inplace_mul(l, factor):
             i += 1
         j += length
     return res
+ll_inplace_mul.oopspec = 'list.inplace_mul(l, factor)'
 
 
 def ll_mul(RESLIST, l, factor):

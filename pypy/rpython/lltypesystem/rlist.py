@@ -387,6 +387,7 @@ def ll_list2fixed(l):
         for i in range(n):
             newitems[i] = olditems[i]
         return newitems
+ll_list2fixed.oopspec = 'list.list2fixed(l)'
 
 def ll_list2fixed_exact(l):
     return l.items

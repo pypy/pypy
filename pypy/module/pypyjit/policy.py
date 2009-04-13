@@ -47,14 +47,12 @@ class PyPyJitPolicy(ManualJitPolicy):
         # string builder interface
         if mod == 'pypy.rpython.lltypesystem.rbuilder':
             return False
-        if (mod == 'pypy.rpython.rlist' or
-            mod == 'pypy.rpython.lltypesystem.rdict' or
-            mod == 'pypy.rpython.lltypesystem.rlist'):
-            # non oopspeced list or dict operations are helpers
-            return False
-        if func.__name__ == 'll_update':
-            return False
-        #if mod in forbidden_modules:
+        #if (mod == 'pypy.rpython.rlist' or
+        #    mod == 'pypy.rpython.lltypesystem.rdict' or
+        #    mod == 'pypy.rpython.lltypesystem.rlist'):
+        #    # non oopspeced list or dict operations are helpers
+        #    return False
+        #if func.__name__ == 'll_update':
         #    return False
         return super(PyPyJitPolicy, self).look_inside_function(func)
 

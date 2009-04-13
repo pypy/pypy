@@ -483,6 +483,7 @@ def ll_dict_delitem(d, key):
     num_entries = len(d.entries)
     if num_entries > DICT_INITSIZE and d.num_items < num_entries / 4:
         ll_dict_resize(d)
+ll_dict_delitem.oopspec = 'dict.delitem(d, key)'
 
 def ll_dict_resize(d):
     old_entries = d.entries

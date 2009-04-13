@@ -2,6 +2,7 @@ from pypy.rpython.lltypesystem import lltype, rclass
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython import rlist
 from pypy.rpython.lltypesystem import rdict, rstr
+from pypy.rpython.lltypesystem import rlist as lltypesystem_rlist
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.translator.simplify import get_funcobj
@@ -121,7 +122,11 @@ def _ll_2_list_pop(l, index):
 _ll_2_list_append = rlist.ll_append
 _ll_2_list_extend = rlist.ll_extend
 _ll_3_list_insert = rlist.ll_insert_nonneg
+_ll_4_list_setslice = rlist.ll_listsetslice
 _ll_2_list_delslice_startonly = rlist.ll_listdelslice_startonly
+_ll_3_list_delslice_startstop = rlist.ll_listdelslice_startstop
+_ll_1_list_list2fixed = lltypesystem_rlist.ll_list2fixed
+_ll_2_list_inplace_mul = rlist.ll_inplace_mul
 
 _ll_2_list_getitem_foldable = _ll_2_list_getitem
 _ll_1_list_len_foldable     = _ll_1_list_len
@@ -132,6 +137,7 @@ _ll_0_newdict.need_result_type = True
 
 _ll_2_dict_getitem = rdict.ll_dict_getitem
 _ll_3_dict_setitem = rdict.ll_dict_setitem
+_ll_2_dict_delitem = rdict.ll_dict_delitem
 _ll_3_dict_setdefault = rdict.ll_setdefault
 _ll_2_dict_contains = rdict.ll_contains
 _ll_3_dict_get = rdict.ll_get
@@ -146,8 +152,6 @@ def _ll_2_newdictkvi(LIST, dic, func):
 _ll_2_newdictkvi.need_result_type = True
 _ll_1_dict_copy = rdict.ll_copy
 _ll_1_dict_clear = rdict.ll_clear
-_ll_4_list_setslice = rlist.ll_listsetslice
-_ll_3_list_delslice_startstop = rlist.ll_listdelslice_startstop
 _ll_2_dict_update = rdict.ll_update
 
 _ll_5_string_copy_contents = rstr.copy_string_contents
