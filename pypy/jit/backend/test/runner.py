@@ -3,17 +3,16 @@ import sys
 from pypy.jit.metainterp.history import (BoxInt, Box, BoxPtr, TreeLoop,
                                          ConstInt, ConstPtr)
 from pypy.jit.metainterp.resoperation import ResOperation, rop
-from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi
+from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi, rclass
 from pypy.jit.metainterp.executor import execute
 from pypy.rlib.rarithmetic import r_uint, intmask
 
-MY_VTABLE = lltype.Struct('my_vtable')    # for tests only
+MY_VTABLE = rclass.OBJECT_VTABLE    # for tests only
 
 S = lltype.GcForwardReference()
-S.become(lltype.GcStruct('S', ('typeptr', lltype.Ptr(MY_VTABLE)),
+S.become(lltype.GcStruct('S', ('parent', rclass.OBJECT),
                               ('value', lltype.Signed),
-                              ('next', lltype.Ptr(S)),
-                         hints = {'typeptr': True}))
+                              ('next', lltype.Ptr(S))))
 T = lltype.GcStruct('T', ('parent', S),
                          ('next', lltype.Ptr(S)))
 U = lltype.GcStruct('U', ('parent', T),
@@ -21,7 +20,7 @@ U = lltype.GcStruct('U', ('parent', T),
 
 class Runner(object):
         
-    def execute_operation(self, opname, valueboxes, result_type, descr=0):
+    def execute_operation(self, opname, valueboxes, result_type, descr=None):
         loop = self.get_compiled_single_operation(opname, result_type,
                                                   valueboxes, descr)
         boxes = [box for box in valueboxes if isinstance(box, Box)]
@@ -269,7 +268,7 @@ class BaseBackendTest(Runner):
             assert not self.cpu.guard_failed()
             
         t = lltype.malloc(T)
-        t.parent.typeptr = vtable_for_T
+        t.parent.parent.typeptr = vtable_for_T
         t_box = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, t))
         T_box = ConstInt(cpu.cast_adr_to_int(vtable_for_T_addr))
         null_box = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, lltype.nullptr(T)))
@@ -286,11 +285,11 @@ class BaseBackendTest(Runner):
         cpu = self.cpu
         cpu._cache_gcstruct2vtable = {T: vtable_for_T, U: vtable_for_U}
         t = lltype.malloc(T)
-        t.parent.typeptr = vtable_for_T
+        t.parent.parent.typeptr = vtable_for_T
         t_box = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, t))
         T_box = ConstInt(self.cpu.cast_adr_to_int(vtable_for_T_addr))
         u = lltype.malloc(U)
-        u.parent.parent.typeptr = vtable_for_U
+        u.parent.parent.parent.typeptr = vtable_for_U
         u_box = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, u))
         U_box = ConstInt(self.cpu.cast_adr_to_int(vtable_for_U_addr))
         null_box = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, lltype.nullptr(T)))

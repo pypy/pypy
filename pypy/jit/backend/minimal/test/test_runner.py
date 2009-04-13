@@ -1,0 +1,16 @@
+import py
+from pypy.jit.backend.minimal.runner import CPU
+from pypy.jit.backend.test.runner import BaseBackendTest
+
+class FakeStats(object):
+    pass
+
+# ____________________________________________________________
+
+class TestMinimal(BaseBackendTest):
+
+    # for the individual tests see
+    # ====> ../../test/runner.py
+    
+    def setup_class(cls):
+        cls.cpu = CPU(rtyper=None, stats=FakeStats())
