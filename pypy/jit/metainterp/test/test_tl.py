@@ -106,8 +106,46 @@ class ToyLanguageTests:
                          'int_is_true':1, 'guard_false':1, 'jump':1,
                           'guard_value':1})
 
-class TestOOtype(ToyLanguageTests, OOJitMixin):
-    pass
+    def test_tl_call(self):
+        from pypy.jit.tl.tl import interp
+        from pypy.jit.tl.tlopcode import compile
+        from pypy.jit.metainterp.simple_optimize import Optimizer
+
+        code = compile('''
+              PUSHARG
+          start:
+              PUSH 1
+              SUB
+              PICK 0
+              PUSH 0
+              CALL func
+              POP
+              GT
+              BR_COND start
+          exit:
+              RETURN
+          func:
+              PUSH 0
+          inside:
+              PUSH 1
+              ADD
+              PICK 0
+              PUSH 3
+              LE
+              BR_COND inside
+              PUSH 1
+              RETURN
+              ''')
+        assert interp(code, inputarg=100) == 0
+        codes = [code, '']
+        def main(num, arg):
+            return interp(codes[num], inputarg=arg)
+        
+        res = self.meta_interp(main, [0, 20], optimizer=Optimizer)
+        assert res == 0
+
+#class TestOOtype(ToyLanguageTests, OOJitMixin):
+#    pass
 
 class TestLLtype(ToyLanguageTests, LLJitMixin):
     pass
