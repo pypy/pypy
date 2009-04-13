@@ -1,5 +1,3 @@
-from time import clock
-
 def f0():
     print "simple loop"
 
