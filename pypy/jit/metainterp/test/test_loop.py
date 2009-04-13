@@ -481,3 +481,24 @@ class TestLoop(LLJitMixin):
         assert res == interpret(1)
         # XXX it's unsure how many loops should be there
         self.check_loop_count(3)
+
+    def test_path_with_operations_not_from_start(self):
+        jitdriver = JitDriver(greens = ['k'], reds = ['n', 'z'])
+
+        def f(n):
+            k = 0
+            z = 0
+            while n > 0:
+                jitdriver.can_enter_jit(n=n, k=k, z=z)
+                jitdriver.jit_merge_point(n=n, k=k, z=z)
+                k += 1
+                if k == 10:
+                    if z == 0 or z == 1:
+                        k = 4
+                        z += 1
+                    else:
+                        k = 5
+                        z = 0
+                n -= 1
+
+        res = self.meta_interp(f, [100])
