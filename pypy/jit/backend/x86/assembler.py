@@ -99,7 +99,7 @@ class Assembler386(object):
 
     def __init__(self, cpu, translate_support_code=False):
         self.cpu = cpu
-        self.verbose = True
+        self.verbose = False
         self.rtyper = cpu.rtyper
         self.malloc_func_addr = 0
         self._exception_data = lltype.nullptr(rffi.CArray(lltype.Signed))
@@ -368,10 +368,10 @@ class Assembler386(object):
             if isinstance(op.args[0], Const):
                 self.mc.CMP(arglocs[1], arglocs[0])
                 if guard_op.opnum == rop.GUARD_FALSE:
-                    name = 'J' + rev_cond
+                    name = 'J' + false_rev_cond
                     self.implement_guard(addr, guard_op, getattr(self.mc, name))
                 else:
-                    name = 'J' + false_rev_cond
+                    name = 'J' + rev_cond
                     self.implement_guard(addr, guard_op, getattr(self.mc, name))
             else:
                 self.mc.CMP(arglocs[0], arglocs[1])

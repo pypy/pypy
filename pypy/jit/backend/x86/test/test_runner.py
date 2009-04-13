@@ -455,6 +455,22 @@ class TestX86(BaseBackendTest):
         op = self.cpu.execute_operations(loop, [p])
         assert op.args[0].value == 0
 
+    def test_int_eq_guard_fals(self):
+        v = BoxInt(1)
+        res = BoxInt()
+        ops = [
+            ResOperation(rop.INT_EQ, [ConstInt(0), v], res),
+            ResOperation(rop.GUARD_FALSE, [res], None),
+            ResOperation(rop.FAIL, [ConstInt(0)], None),
+            ]
+        ops[1].suboperations = [ResOperation(rop.FAIL, [ConstInt(1)], None)]
+        loop = TreeLoop('name')
+        loop.operations = ops
+        loop.inputargs = [v]
+        self.cpu.compile_operations(loop)
+        op = self.cpu.execute_operations(loop, [v])
+        assert op.args[0].value == 0
+
     def test_overflow_mc(self):
         from pypy.jit.backend.x86.assembler import MachineCodeBlockWrapper
 
