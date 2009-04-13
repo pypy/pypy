@@ -32,6 +32,7 @@ def apply_jit(translator, **kwds):
                                     optimizer=Optimizer,
                                     **kwds)
     warmrunnerdesc.finish()
+    translator.warmrunnerdesc = warmrunnerdesc    # for later debugging
 
 def ll_meta_interp(function, args, backendopt=False, **kwds):
     interp, graph = get_interpreter(function, args, backendopt=backendopt,
