@@ -203,7 +203,6 @@ class BasicTests:
         assert res == 6
         res = self.interp_operations(f, [42])
         assert res == ord(u"?")
-        
 
     def test_residual_call(self):
         def externfn(x, y):
@@ -439,6 +438,34 @@ class BasicTests:
         # XXX explodes on normal optimize.py
         res = self.meta_interp(f, [20], repeat=7, optimizer=SimpleOptimizer)
         assert res == f(20)
+
+    def test_bridge_from_interpreter_4(self):
+        jitdriver = JitDriver(reds = ['n', 'k'], greens = [])
+        
+        def f(n, k):
+            while n > 0:
+                jitdriver.can_enter_jit(n=n, k=k)
+                jitdriver.jit_merge_point(n=n, k=k)
+                if k:
+                    n -= 2
+                else:
+                    n -= 1
+            return n + k
+
+        from pypy.rpython.test.test_llinterp import get_interpreter, clear_tcache
+        from pypy.jit.metainterp.warmspot import WarmRunnerDesc
+        from pypy.jit.metainterp.simple_optimize import Optimizer as SimpleOptimizer
+
+        interp, graph = get_interpreter(f, [0, 0], backendopt=False,
+                                        inline_threshold=0)
+        clear_tcache()
+        translator = interp.typer.annotator.translator
+        warmrunnerdesc = WarmRunnerDesc(translator, optimizer=SimpleOptimizer)
+        warmrunnerdesc.state.set_param_threshold(3)          # for tests
+        warmrunnerdesc.state.set_param_trace_eagerness(0)    # for tests
+        warmrunnerdesc.finish()
+        for n, k in [(20, 0), (20, 1)]:
+            interp.eval_graph(graph, [n, k])
 
     def test_casts(self):
         from pypy.rpython.lltypesystem import lltype, llmemory
