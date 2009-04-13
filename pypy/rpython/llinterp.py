@@ -1050,9 +1050,9 @@ class LLFrame(object):
     _makefunc2('op_int_add_ovf', '+', '(int, llmemory.AddressOffset)')
     _makefunc2('op_int_mul_ovf', '*', '(int, llmemory.AddressOffset)', 'int')
     _makefunc2('op_int_sub_ovf',          '-',  'int')
-    _makefunc2('op_int_floordiv_ovf',     '//', 'int')
-    _makefunc2('op_int_floordiv_zer',     '//', 'int')
-    _makefunc2('op_int_floordiv_ovf_zer', '//', 'int')
+    _makefunc2('op_int_floordiv_ovf',     '//', 'int')  # XXX negative args
+    _makefunc2('op_int_floordiv_zer',     '//', 'int')  # can get off-by-one
+    _makefunc2('op_int_floordiv_ovf_zer', '//', 'int')  # (see op_int_floordiv)
     _makefunc2('op_int_mod_ovf',          '%',  'int')
     _makefunc2('op_int_mod_zer',          '%',  'int')
     _makefunc2('op_int_mod_ovf_zer',      '%',  'int')
