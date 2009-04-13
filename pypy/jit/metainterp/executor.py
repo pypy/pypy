@@ -214,7 +214,8 @@ def do_int_mod_ovf(cpu, args, descr=None):
         cpu.set_overflow_error()
         return BoxInt(0)
     else:
-        return do_int_mod(cpu, args, descr)
+        z = llop.int_mod(lltype.Signed, args[0].getint(), args[1].getint())
+        return BoxInt(z)
 
 def do_int_lshift_ovf(cpu, args, descr=None):
     x = args[0].getint()
