@@ -15,6 +15,8 @@ from pypy.jit.backend.x86.assembler import Assembler386, WORD
 from pypy.jit.backend.x86 import symbolic
 from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.jit.backend.x86.support import gc_malloc_fnaddr
+from pypy.jit.metainterp.optimize import av_eq, av_hash
+from pypy.rlib.objectmodel import r_dict
 
 GC_MALLOC = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
 
@@ -94,7 +96,7 @@ class CPU386(object):
         if rtyper is not None: # for tests
             self.lltype2vtable = rtyper.lltype_to_vtable_mapping()
         self._setup_ovf_error()
-        self.generated_mps = {}
+        self.generated_mps = r_dict(av_eq, av_hash)
 
     def _setup_ovf_error(self):
         if self.rtyper is not None:   # normal case
