@@ -364,9 +364,9 @@ def unwrap(TYPE, box):
         return lltype.cast_primitive(TYPE, box.getint())
 unwrap._annspecialcase_ = 'specialize:arg(0)'
 
-def cast_whatever_to_int(TYPE, x):
+def cast_whatever_to_int(TYPE, x, cpu):
     if isinstance(TYPE, lltype.Ptr):
-        return lltype.cast_ptr_to_int(x)
+        return cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(x))
     else:
         return lltype.cast_primitive(lltype.Signed, x)
 cast_whatever_to_int._annspecialcase_ = 'specialize:arg(0)'
@@ -418,7 +418,7 @@ def make_state_class(warmrunnerdesc):
                     box.changevalue_ptr(lltype.cast_opaque_ptr(llmemory.GCREF, value))
                 elif TYPE == lltype.Signed:
                     assert isinstance(box, history.BoxInt)
-                    box.changevalue_int(cast_whatever_to_int(TYPE, value))
+                    box.changevalue_int(value)
                 else:
                     raise AssertionError("box is: %s" % (box,))
             return boxes
@@ -524,7 +524,8 @@ def make_state_class(warmrunnerdesc):
                     result = result * mult
                     mult = mult + 82520 + 2*len(greenargs)
                 item = greenargs[i]
-                result = result ^ cast_whatever_to_int(TYPE, item)
+                result = result ^ cast_whatever_to_int(TYPE, item,
+                                                       warmrunnerdesc.cpu)
                 i = i + 1
             return result & self.hashtablemask
         getkeyhash._always_inline_ = True
