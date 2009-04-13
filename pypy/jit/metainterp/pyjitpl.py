@@ -1021,6 +1021,15 @@ class MetaInterp(object):
         except GenerateMergePoint, gmp:
             return self.designate_target_loop(gmp)
 
+    def adjust_guard_indexes(self, operations, offset):
+        for op in operations:
+            if op.is_guard():
+                fail = op.suboperations[-1]
+                if fail.opnum == rop.FAIL:
+                    resumekey = fail.descr
+                    assert isinstance(resumekey, compile.ResumeGuardDescr)
+                    resumekey.history_guard_index -= offset
+
     def reached_can_enter_jit(self, live_arg_boxes):
         # Called whenever we reach the 'can_enter_jit' hint.
         # First, attempt to make a bridge:
@@ -1034,7 +1043,8 @@ class MetaInterp(object):
 
         # Search in current_merge_points for original_boxes with compatible
         # green keys, representing the beginning of the same loop as the one
-        # we end now.
+        # we end now. 
+       
         for j in range(len(self.current_merge_points)-1, -1, -1):
             original_boxes, start = self.current_merge_points[j]
             assert len(original_boxes) == len(live_arg_boxes)
@@ -1048,6 +1058,7 @@ class MetaInterp(object):
                 if j > 0:
                     assert start >= 0
                     del self.history.operations[:start]
+                    self.adjust_guard_indexes(self.history.operations, start)
                 elif self.extra_rebuild_operations >= 0:
                     # The history only starts at a bridge, not at the
                     # full loop header.  Complete it as a full loop by
