@@ -154,6 +154,30 @@ class CPU(object):
         sort_key = _count_sort_key(STRUCT, name)
         return FieldDescr(dict2['getfield'], dict2['setfield'], sort_key)
 
+    def arraydescrof(self, ARRAY):
+        dict2 = base_dict.copy()
+        dict2['malloc'] = lltype.malloc
+        dict2['ARRAY'] = ARRAY
+        dict2['PTR'] = lltype.Ptr(ARRAY)
+        dict = {'input': make_reader(ARRAY.OF, 'xbox', dict2),
+                'result': make_writer(ARRAY.OF, 'x', dict2)}
+        exec py.code.Source("""
+            def new(length):
+                p = malloc(ARRAY, length)
+                return cast_opaque_ptr(GCREF, p)
+            def getarrayitem(p, index):
+                p = cast_opaque_ptr(PTR, p)
+                x = p[index]
+                return %(result)s
+            def setarrayitem(p, index, xbox):
+                p = cast_opaque_ptr(PTR, p)
+                x = %(input)s
+                p[index] = x
+        """ % dict).compile() in dict2
+        return ArrayDescr(dict2['new'],
+                          dict2['getarrayitem'],
+                          dict2['setarrayitem'])
+
     def calldescrof(self, ARGS, RESULT):
         dict2 = base_dict.copy()
         args = []
@@ -319,6 +343,12 @@ class FieldDescr(AbstractDescr):
         self._sort_key = sort_key
     def sort_key(self):
         return self._sort_key
+
+class ArrayDescr(AbstractDescr):
+    def __init__(self, new, getarrayitem, setarrayitem):
+        self.new = new
+        self.getarrayitem = getarrayitem
+        self.setarrayitem = setarrayitem
 
 class CallDescr(AbstractDescr):
     def __init__(self, call):
