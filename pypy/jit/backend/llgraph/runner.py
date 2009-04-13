@@ -66,7 +66,10 @@ class CPU(object):
     def __init__(self, rtyper, stats=None, translate_support_code=False,
                  annmixlevel=None):
         self.rtyper = rtyper
-        self.is_oo = rtyper.type_system.name == "ootypesystem"
+        if rtyper is not None:
+            self.is_oo = rtyper.type_system.name == "ootypesystem"
+        else:
+            self.is_oo = False
         self.translate_support_code = translate_support_code
         self.stats = stats or MiniStats()
         self.stats.exec_counters = {}
