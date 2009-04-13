@@ -3,6 +3,8 @@
 
 import py
 from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.rarithmetic import ovfcheck, r_uint, intmask
 from pypy.jit.metainterp.history import BoxInt, ConstInt, check_descr, INT, PTR
 from pypy.jit.metainterp.history import ConstObj
@@ -25,10 +27,12 @@ def do_int_mul(cpu, args, descr=None):
     return ConstInt(args[0].getint() * args[1].getint())
 
 def do_int_floordiv(cpu, args, descr=None):
-    return ConstInt(args[0].getint() // args[1].getint())
+    z = llop.int_floordiv(lltype.Signed, args[0].getint(), args[1].getint())
+    return ConstInt(z)
 
 def do_int_mod(cpu, args, descr=None):
-    return ConstInt(args[0].getint() % args[1].getint())
+    z = llop.int_mod(lltype.Signed, args[0].getint(), args[1].getint())
+    return ConstInt(z)
 
 def do_int_and(cpu, args, descr=None):
     return ConstInt(args[0].getint() & args[1].getint())
@@ -205,11 +209,12 @@ def do_int_mod_ovf(cpu, args, descr=None):
     x = args[0].getint()
     y = args[1].getint()
     try:
-        z = ovfcheck(x % y)
+        ovfcheck(x % y)
     except OverflowError:
         cpu.set_overflow_error()
-        z = 0
-    return BoxInt(z)
+        return BoxInt(0)
+    else:
+        return do_int_mod(cpu, args, descr)
 
 def do_int_lshift_ovf(cpu, args, descr=None):
     x = args[0].getint()
@@ -225,11 +230,12 @@ def do_int_floordiv_ovf(cpu, args, descr=None):
     x = args[0].getint()
     y = args[1].getint()
     try:
-        z = ovfcheck(x // y)
+        ovfcheck(x // y)
     except OverflowError:
         cpu.set_overflow_error()
-        z = 0
-    return BoxInt(z)
+        return BoxInt(0)
+    else:
+        return do_int_floordiv(cpu, args, descr)
 
 
 # XXX: these ops should probably be delegated to the backend
