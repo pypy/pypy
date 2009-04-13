@@ -1137,7 +1137,6 @@ class RegAlloc(object):
                                 reloaded.append((arg, self.loc(arg), res))
             elif isinstance(arg, Const):
                 later_loads.append((arg, self.loc(arg), res))
-        self.eventually_free_vars(op.args)
         if reloaded:
             # XXX performance
             free_reg = None
@@ -1147,8 +1146,6 @@ class RegAlloc(object):
                     break
             if free_reg is None:
                 # a very rare case
-                # XXX even rarer case - what if reg_bindings is empty???
-                # think and write a test maybe
                 v = self.reg_bindings.keys()[0]
                 free_reg = self.reg_bindings[v]
                 self.Store(v, self.loc(v), self.stack_loc(v))
@@ -1156,6 +1153,7 @@ class RegAlloc(object):
             for v, from_l, to_l in reloaded:
                 self.Load(v, from_l, free_reg)
                 self.Store(v, free_reg, to_l)
+        self.eventually_free_vars(op.args)
         for v, from_l, to_l in later_loads:
             self.Load(v, from_l, to_l)
         self.PerformDiscard(op, [])
