@@ -455,21 +455,44 @@ class TestX86(BaseBackendTest):
         op = self.cpu.execute_operations(loop, [p])
         assert op.args[0].value == 0
 
-    def test_int_eq_guard_fals(self):
-        v = BoxInt(1)
-        res = BoxInt()
-        ops = [
-            ResOperation(rop.INT_EQ, [ConstInt(0), v], res),
-            ResOperation(rop.GUARD_FALSE, [res], None),
-            ResOperation(rop.FAIL, [ConstInt(0)], None),
-            ]
-        ops[1].suboperations = [ResOperation(rop.FAIL, [ConstInt(1)], None)]
-        loop = TreeLoop('name')
-        loop.operations = ops
-        loop.inputargs = [v]
-        self.cpu.compile_operations(loop)
-        op = self.cpu.execute_operations(loop, [v])
-        assert op.args[0].value == 0
+    def test_stuff_followed_by_guard(self):
+        boxes = [(BoxInt(1), BoxInt(0)),
+                 (BoxInt(0), BoxInt(1)),
+                 (BoxInt(1), BoxInt(1)),
+                 (BoxInt(-1), BoxInt(1)),
+                 (BoxInt(1), BoxInt(-1)),
+                 (ConstInt(1), BoxInt(0)),
+                 (ConstInt(0), BoxInt(1)),
+                 (ConstInt(1), BoxInt(1)),
+                 (ConstInt(-1), BoxInt(1)),
+                 (ConstInt(1), BoxInt(-1)),
+                 (BoxInt(1), ConstInt(0)),
+                 (BoxInt(0), ConstInt(1)),
+                 (BoxInt(1), ConstInt(1)),
+                 (BoxInt(-1), ConstInt(1)),
+                 (BoxInt(1), ConstInt(-1))]
+        guards = [rop.GUARD_FALSE, rop.GUARD_TRUE]
+        all = [rop.INT_EQ, rop.INT_NE, rop.INT_LE, rop.INT_LT, rop.INT_GT,
+               rop.INT_GE, rop.UINT_GT, rop.UINT_LT, rop.UINT_LE, rop.UINT_GE]
+        for a, b in boxes:
+            for guard in guards:
+                for op in all:
+                    res = BoxInt()
+                    ops = [
+                        ResOperation(op, [a, b], res),
+                        ResOperation(guard, [res], None),
+                        ResOperation(rop.FAIL, [ConstInt(0)], None),
+                        ]
+                    ops[1].suboperations = [ResOperation(rop.FAIL, [ConstInt(1)], None)]
+                    loop = TreeLoop('name')
+                    loop.operations = ops
+                    loop.inputargs = [i for i in (a, b) if isinstance(i, Box)]
+                    self.cpu.compile_operations(loop)
+                    r = self.cpu.execute_operations(loop, loop.inputargs)
+                    if guard == rop.GUARD_FALSE:
+                        assert r.args[0].value == execute(self.cpu, op, (a, b)).value
+                    else:
+                        assert r.args[0].value != execute(self.cpu, op, (a, b)).value
 
     def test_overflow_mc(self):
         from pypy.jit.backend.x86.assembler import MachineCodeBlockWrapper

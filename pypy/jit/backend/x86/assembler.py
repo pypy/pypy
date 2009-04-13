@@ -368,10 +368,10 @@ class Assembler386(object):
             if isinstance(op.args[0], Const):
                 self.mc.CMP(arglocs[1], arglocs[0])
                 if guard_op.opnum == rop.GUARD_FALSE:
-                    name = 'J' + false_rev_cond
+                    name = 'J' + rev_cond
                     self.implement_guard(addr, guard_op, getattr(self.mc, name))
                 else:
-                    name = 'J' + rev_cond
+                    name = 'J' + false_rev_cond
                     self.implement_guard(addr, guard_op, getattr(self.mc, name))
             else:
                 self.mc.CMP(arglocs[0], arglocs[1])
@@ -431,8 +431,8 @@ class Assembler386(object):
 
     genop_guard_int_lt = _cmpop_guard("L", "G", "GE", "LE")
     genop_guard_int_le = _cmpop_guard("LE", "GE", "G", "L")
-    genop_guard_int_eq = _cmpop_guard("E", "NE", "NE", "E")
-    genop_guard_int_ne = _cmpop_guard("NE", "E", "E", "NE")
+    genop_guard_int_eq = _cmpop_guard("E", "E", "NE", "NE")
+    genop_guard_int_ne = _cmpop_guard("NE", "NE", "E", "E")
     genop_guard_int_gt = _cmpop_guard("G", "L", "LE", "GE")
     genop_guard_int_ge = _cmpop_guard("GE", "LE", "L", "G")
 
