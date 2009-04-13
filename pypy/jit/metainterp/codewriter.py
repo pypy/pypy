@@ -665,6 +665,7 @@ class BytecodeMaker(object):
         self.emit(self.var_position(op.args[2]))
 
     def serialize_op_getinteriorarraysize(self, op):
+        # XXX only supports strings and unicodes for now
         assert len(op.args) == 2
         assert op.args[1].value == 'chars'
         optype = op.args[0].concretetype
@@ -677,6 +678,7 @@ class BytecodeMaker(object):
         self.register_var(op.result)
 
     def serialize_op_getinteriorfield(self, op):
+        # XXX only supports strings and unicodes for now
         assert len(op.args) == 3
         assert op.args[1].value == 'chars'
         optype = op.args[0].concretetype
@@ -690,6 +692,7 @@ class BytecodeMaker(object):
         self.register_var(op.result)
 
     def serialize_op_setinteriorfield(self, op):
+        # XXX only supports strings and unicodes for now
         assert len(op.args) == 4
         assert op.args[1].value == 'chars'
         optype = op.args[0].concretetype
