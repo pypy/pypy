@@ -134,6 +134,26 @@ class CPU(object):
             return lltype.cast_opaque_ptr(llmemory.GCREF, p)
         return SizeDescr(alloc)
 
+    def fielddescrof(self, STRUCT, name):
+        dict2 = base_dict.copy()
+        dict2['PTR'] = lltype.Ptr(STRUCT)
+        FIELDTYPE = getattr(STRUCT, name)
+        dict = {'name': name,
+                'input': make_reader(FIELDTYPE, 'xbox', dict2),
+                'result': make_writer(FIELDTYPE, 'x', dict2)}
+        exec py.code.Source("""
+            def getfield(p):
+                p = cast_opaque_ptr(PTR, p)
+                x = getattr(p, %(name)r)
+                return %(result)s
+            def setfield(p, xbox):
+                p = cast_opaque_ptr(PTR, p)
+                x = %(input)s
+                setattr(p, %(name)r, x)
+        """ % dict).compile() in dict2
+        sort_key = _count_sort_key(STRUCT, name)
+        return FieldDescr(dict2['getfield'], dict2['setfield'], sort_key)
+
     def calldescrof(self, ARGS, RESULT):
         dict2 = base_dict.copy()
         args = []
@@ -213,30 +233,30 @@ class CPU(object):
         return BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, p))
 
     def do_strlen(self, args, descr=None):
-        str = args[0].getptr(rstr.STR)
+        str = args[0].getptr(lltype.Ptr(rstr.STR))
         return BoxInt(len(str.chars))
 
     def do_unicodelen(self, args, descr=None):
-        unicode = args[0].getptr(rstr.UNICODE)
+        unicode = args[0].getptr(lltype.Ptr(rstr.UNICODE))
         return BoxInt(len(unicode.chars))
 
     def do_strgetitem(self, args, descr=None):
-        str = args[0].getptr(rstr.STR)
+        str = args[0].getptr(lltype.Ptr(rstr.STR))
         i = args[1].getint()
         return BoxInt(ord(str.chars[i]))
 
     def do_unicodegetitem(self, args, descr=None):
-        unicode = args[0].getptr(rstr.UNICODE)
+        unicode = args[0].getptr(lltype.Ptr(rstr.UNICODE))
         i = args[1].getint()
         return BoxInt(ord(unicode.chars[i]))
 
     def do_strsetitem(self, args, descr=None):
-        str = args[0].getptr(rstr.STR)
+        str = args[0].getptr(lltype.Ptr(rstr.STR))
         i = args[1].getint()
         str.chars[i] = chr(args[2].getint())
 
     def do_unicodesetitem(self, args, descr=None):
-        unicode = args[0].getptr(rstr.UNICODE)
+        unicode = args[0].getptr(lltype.Ptr(rstr.UNICODE))
         i = args[1].getint()
         unicode.chars[i] = unichr(args[2].getint())
 
@@ -247,13 +267,23 @@ class CPU(object):
         return BoxInt(self.cast_gcref_to_int(args[0].getptr_base()))
 
     def do_call(self, args, calldescr):
-        return calldescr.call(args[0].getint(), args[1:])
+        self.clear_exception()
+        try:
+            return calldescr.call(args[0].getint(), args[1:])
+        except Exception, e:
+            xxx
 
     # ----------
 
     def clear_exception(self):
         self.current_exception = lltype.nullptr(rclass.OBJECT_VTABLE)
         self.current_exc_inst = lltype.nullptr(rclass.OBJECT)
+
+    def get_exception(self):
+        return rffi.cast(lltype.Signed, self.current_exception)
+
+    def get_exc_value(self):
+        return lltype.cast_opaque_ptr(llmemory.GCREF, self.current_exc_inst)
 
     def set_overflow_error(self):
         self.current_exception = self._ovf_error_vtable
@@ -282,6 +312,14 @@ class SizeDescr(AbstractDescr):
     def __init__(self, alloc):
         self.alloc = alloc
 
+class FieldDescr(AbstractDescr):
+    def __init__(self, getfield, setfield, sort_key):
+        self.getfield = getfield
+        self.setfield = setfield
+        self._sort_key = sort_key
+    def sort_key(self):
+        return self._sort_key
+
 class CallDescr(AbstractDescr):
     def __init__(self, call):
         self.call = call
@@ -309,6 +347,14 @@ def make_writer(TYPE, str, dict):
         return "BoxPtr(cast_opaque_ptr(GCREF, %s))" % (str,)
     else:
         return "BoxInt(cast_primitive(Signed, %s))" % (str,)
+
+def _count_sort_key(STRUCT, name):
+    i = list(STRUCT._names).index(name)
+    while True:
+        _, STRUCT = STRUCT._first_struct()
+        if not STRUCT:
+            return i
+        i += len(STRUCT._names) + 1
 
 base_dict = {
     'cast_primitive': lltype.cast_primitive,
