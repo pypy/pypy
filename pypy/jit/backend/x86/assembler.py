@@ -865,7 +865,7 @@ class Assembler386(object):
         else:
             x = arglocs[0]
             if isinstance(x, MODRM):
-                x = stack_pos(loc.position + extra_on_stack)
+                x = stack_pos(x.position + extra_on_stack)
         self.mc.CALL(x)
         self.mc.ADD(esp, imm(WORD * extra_on_stack))
         if size == 1:
