@@ -72,7 +72,7 @@ class CPU(object):
                                                        op.descr)
                 if op.result is not None:
                     assert resbox is not None
-                    env[op.result] = resbox
+                    env[op.result] = resbox.clonebox()
                 else:
                     assert resbox is None
             #
