@@ -3,6 +3,7 @@ Minimal-API wrapper around the llinterpreter to run operations.
 """
 
 import sys
+from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.llinterp import LLInterpreter
@@ -387,30 +388,16 @@ class LLtypeCPU(BaseCPU):
 
 class OOtypeCPU(BaseCPU):
 
-    def do_str_stritem_nonneg(cpu, args, descr=None):
-        assert cpu.has_ootype
-        obj = args[0].getobj()
-        str = ootype.cast_from_object(ootype.String, obj)
-        index = args[1].getint()
-        res = str.ll_stritem_nonneg(index)
-        return history.ConstInt(ord(res))
+    @staticmethod
+    def methdescrof(METH, methname):
+        return MethDescr(METH, methname)
 
-    def do_str_strconcat(cpu, args, descr=None):
-        assert cpu.has_ootype
-        obj1 = args[0].getobj()
-        obj2 = args[1].getobj()
-        str1 = ootype.cast_from_object(ootype.String, obj1)
-        str2 = ootype.cast_from_object(ootype.String, obj2)
-        res = str1.ll_strconcat(str2)
-        objres = ootype.cast_to_object(res)
-        return history.ConstObj(objres)
-
-    def do_str_strlen(cpu, args, descr=None):
-        assert cpu.has_ootype
-        obj = args[0].getobj()
-        str = ootype.cast_from_object(ootype.String, obj)
-        res = str.ll_strlen()
-        return history.ConstInt(res)
+    def do_oosend(cpu, args, descr=None):
+        assert isinstance(descr, MethDescr)
+        selfbox = args[0]
+        argboxes = args[1:]
+        x = descr.callmeth(selfbox, argboxes)
+        return x
 
     def do_oostring(cpu, args, descr=None):
         assert cpu.has_ootype
@@ -419,6 +406,35 @@ class OOtypeCPU(BaseCPU):
         res = ootype.cast_to_object(ootype.oostring(obj, base))
         return history.ConstObj(res) # XXX ???
 
+
+class MethDescr(history.AbstractDescr):
+
+    def __init__(self, METH, methname):
+        SELFTYPE = METH.SELFTYPE
+        RESULT = METH.RESULT
+        argsiter = unrolling_iterable(METH.ARGS)
+        args_n = len(METH.ARGS)
+        def callmeth(selfbox, argboxes):
+            selfobj = ootype.cast_from_object(SELFTYPE, selfbox.getobj())
+            methargs = ()
+            assert len(argboxes) == args_n
+            i = 0
+            for ARG in argsiter:
+                box = argboxes[i]
+                i+=1
+                if isinstance(ARG, ootype.OOType):
+                    arg = ootype.cast_from_object(ARG, box.getobj())
+                else:
+                    arg = box.getint()
+                methargs += (arg,)
+            meth = getattr(selfobj, methname)
+            result = meth(*methargs)
+            if isinstance(RESULT, ootype.OOType):
+                return history.BoxObj(ootype.cast_to_object(result))
+            else:
+                return history.BoxInt(lltype.cast_primitive(ootype.Signed, result))
+
+        self.callmeth = callmeth
 
 # ____________________________________________________________
 

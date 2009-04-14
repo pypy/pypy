@@ -531,17 +531,9 @@ class MIFrame(object):
     def opimpl_newunicode(self, length):
         self.execute(rop.NEWUNICODE, [length])
 
-    @arguments("box", "box")
-    def opimpl_str_stritem_nonneg(self, str, index):
-        self.execute(rop.STR_STRITEM_NONNEG, [str, index])
-
-    @arguments("box")
-    def opimpl_str_strlen(self, str):
-        self.execute(rop.STR_STRLEN, [str])
-
-    @arguments("box", "box")
-    def opimpl_str_strconcat(self, str1, str2):
-        self.execute(rop.STR_STRCONCAT, [str1, str2])
+    @arguments("descr", "varargs")
+    def opimpl_oosend_pure(self, methdescr, boxes):
+        self.execute(rop.OOSEND_PURE, boxes, descr=methdescr)
 
     @arguments("box", "box")
     def opimpl_oostring(self, obj, base):

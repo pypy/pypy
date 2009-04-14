@@ -1,5 +1,6 @@
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr
+from pypy.rpython.ootypesystem import ootype
 from pypy.rpython import rlist
 from pypy.objspace.flow.model import Variable, Constant, Link, c_last_exception
 from pypy.rlib import objectmodel
@@ -914,13 +915,12 @@ class BytecodeMaker(object):
     def handle_builtin_oosend(self, op):
         SELFTYPE, methname, args_v = support.decompose_oosend(op)
         assert SELFTYPE.oopspec_name is not None
-        for prefix in ('ll_', '_ll_'):
-            if methname.startswith(prefix):
-                methname = methname[len(prefix):]
-        opname = '%s_%s' % (SELFTYPE.oopspec_name, methname)
-        self.emit(opname)
-        for v_arg in args_v:
-            self.emit(self.var_position(v_arg))
+        _, meth = SELFTYPE._lookup(methname)
+        METH = ootype.typeOf(meth)
+        methdescr = self.cpu.methdescrof(METH, methname)
+        self.emit('oosend_pure')
+        self.emit(self.get_position(methdescr))
+        self.emit_varargs(op.args[1:])
         self.register_var(op.result)
 
     def serialize_op_indirect_call(self, op):

@@ -119,13 +119,7 @@ class AbstractCPU(object):
     # ootype specific operations
     # --------------------------
 
-    def do_str_stritem_nonneg(cpu, args, descr=None):
-        raise NotImplementedError
-    
-    def do_str_strconcat(cpu, args, descr=None):
-        raise NotImplementedError
-
-    def do_str_strlen(cpu, args, descr=None):
+    def do_oosend(cpu, args, descr=None):
         raise NotImplementedError
 
     def do_oostring(cpu, args, descr=None):

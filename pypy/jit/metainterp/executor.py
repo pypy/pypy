@@ -271,7 +271,7 @@ def make_execute_list(cpuclass):
             elif name in globals():
                 execute[value] = globals()[name]
             else:
-                assert hasattr(AbstractCPU, name)
+                assert hasattr(AbstractCPU, name), name
     cpuclass._execute_list = execute
 
 def get_execute_function(cpu, opnum):
