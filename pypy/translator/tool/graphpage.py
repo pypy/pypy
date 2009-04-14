@@ -313,7 +313,7 @@ class TranslatorPage(BaseTranslatorPage):
     def graph_name(self, huge=0):
         return 'translator'
 
-    def do_compute(self, dotgen, huge=100):
+    def do_compute(self, dotgen, huge=100, center_graph=None):
         translator = self.translator
 
         # show the call graph
@@ -322,7 +322,8 @@ class TranslatorPage(BaseTranslatorPage):
 
         if len(graphs) > huge:
             assert graphs, "no graph to show!"
-            LocalizedCallGraphPage.do_compute.im_func(self, dotgen, [graphs[0]])
+            graphs = [center_graph or graphs[0]]
+            LocalizedCallGraphPage.do_compute.im_func(self, dotgen, graphs)
             return
 
         blocked_graphs = self.get_blocked_graphs(graphs)

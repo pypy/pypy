@@ -5,8 +5,9 @@ class GraphPage(object):
     """
     save_tmp_file = None
 
-    def __init__(self, *args):
+    def __init__(self, *args, **kwds):
         self.args = args
+        self.kwds = kwds
 
     def content(self):
         """Compute the content of the page.
@@ -18,7 +19,7 @@ class GraphPage(object):
             new = self.__class__()
             new.source = ''  # '''dot source'''
             new.links  = {}  # {'word': 'statusbar text'}
-            new.compute(*self.args)   # defined in subclasses
+            new.compute(*self.args, **self.kwds)   # defined in subclasses
             return new
 
     def followlink(self, word):
