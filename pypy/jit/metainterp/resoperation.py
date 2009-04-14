@@ -160,9 +160,10 @@ class rop(object):
     #
     # ootype operations
     OOSTRING               = 85
-    OOSEND_PURE            = 86
+    OOUNICODE              = 86
+    OOSEND_PURE            = 87
     #
-    _ALWAYS_PURE_LAST = 86  # ----- end of always_pure operations -----
+    _ALWAYS_PURE_LAST = 87  # ----- end of always_pure operations -----
 
     GETARRAYITEM_GC        = 120
     GETFIELD_GC            = 121

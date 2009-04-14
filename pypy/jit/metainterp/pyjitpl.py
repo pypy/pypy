@@ -539,6 +539,10 @@ class MIFrame(object):
     def opimpl_oostring(self, obj, base):
         self.execute(rop.OOSTRING, [obj, base])
 
+    @arguments("box", "box")
+    def opimpl_oounicode(self, obj, base):
+        self.execute(rop.OOUNICODE, [obj, base])
+
     @arguments("orgpc", "box", returns="box")
     def opimpl_guard_value(self, pc, box):
         return self.implement_guard_value(pc, box)

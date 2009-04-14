@@ -405,7 +405,14 @@ class OOtypeCPU(BaseCPU):
         obj = args[0].getint() # XXX what about other types?
         base = args[1].getint()
         res = ootype.cast_to_object(ootype.oostring(obj, base))
-        return history.ConstObj(res) # XXX ???
+        return history.ConstObj(res)
+
+    def do_oounicode(cpu, args, descr=None):
+        assert cpu.has_ootype
+        obj = args[0].getint() # XXX what about other types?
+        base = args[1].getint()
+        res = ootype.cast_to_object(ootype.oounicode(obj, base))
+        return history.ConstObj(res)
 
 
 class MethDescr(history.AbstractDescr):
