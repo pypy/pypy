@@ -397,6 +397,7 @@ class OOtypeCPU(BaseCPU):
         selfbox = args[0]
         argboxes = args[1:]
         x = descr.callmeth(selfbox, argboxes)
+        # XXX: return None if METH.RESULT is Void
         return x
 
     def do_oostring(cpu, args, descr=None):
