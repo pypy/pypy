@@ -35,6 +35,7 @@ class CPU(object):
         pass
 
     def execute_operations(self, loop, valueboxes):
+        valueboxes = [box.clonebox() for box in valueboxes]
         self.clear_exception()
         self._guard_failed = False
         while True:
