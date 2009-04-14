@@ -93,10 +93,17 @@ class BaseTestInline:
         return eval_func
 
     def check_auto_inlining(self, func, sig, multiplier=None, call_count_check=False,
-                            checkvirtual=False, remove_same_as=False, heuristic=None):
+                            checkvirtual=False, remove_same_as=False, heuristic=None,
+                            const_fold_first=False):
         t = self.translate(func, sig)
         if checkvirtual:
             check_virtual_methods()
+        if const_fold_first:
+            from pypy.translator.backendopt.constfold import constant_fold_graph
+            from pypy.translator.simplify import eliminate_empty_blocks
+            for graph in t.graphs:
+                constant_fold_graph(graph)
+                eliminate_empty_blocks(graph)
         if option.view:
             t.view()
         # inline!
@@ -562,6 +569,25 @@ class BaseTestInline:
 
         result = eval_func([])
         assert result == 6
+
+    def test_bug_in_find_exception_type(self):
+        def h():
+            pass
+        def g(i):
+            if i > 0:
+                raise IndexError
+            else:
+                h()
+        def f(i):
+            try:
+                g(i)
+            except IndexError:
+                pass
+
+        eval_func, t = self.check_auto_inlining(f, [int], remove_same_as=True,
+                                                const_fold_first=True)
+        eval_func([-66])
+        eval_func([282])
 
 
 class TestInlineLLType(LLRtypeMixin, BaseTestInline):

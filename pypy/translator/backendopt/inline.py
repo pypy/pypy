@@ -381,6 +381,8 @@ class BaseInliner(object):
         excdata = self.translator.rtyper.getexceptiondata()
         exc_match = excdata.fn_exception_match
         for link in self.entrymap[self.graph_to_inline.exceptblock]:
+            if link.prevblock.exits[0] is not link:
+                continue
             copiedblock = self.copy_block(link.prevblock)
             VALUE, copiedlink = _find_exception_type(copiedblock)
             #print copiedblock.operations
