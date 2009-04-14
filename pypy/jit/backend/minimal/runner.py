@@ -390,7 +390,7 @@ class CallDescr(AbstractDescr):
     call = None
     errbox = None
     def __init__(self, FUNC, call, errbox):
-        self.FUNC = FUNC
+        self.FUNC = FUNC    # only for debugging
         self.call = call
         self.errbox = errbox
 
