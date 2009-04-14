@@ -515,7 +515,6 @@ class TestOOtype(BasicTests, OOJitMixin):
         py.test.skip('in-progress')
 
     test_chr2str = skip
-    test_string = skip
     test_unicode = skip
     test_residual_call = skip
     test_format = skip

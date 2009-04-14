@@ -71,6 +71,9 @@ class AbstractValue(object):
         return lltype.cast_opaque_ptr(PTR, self.getptr_base())
     getptr._annspecialcase_ = 'specialize:arg(1)'
 
+    def getobj(self):
+        raise NotImplementedError
+
     def get_(self):
         raise NotImplementedError
 
@@ -272,8 +275,8 @@ class ConstObj(Const):
 
     nonconstbox = clonebox
 
-    #def getptr_base(self):
-    #    return self.value
+    def getobj(self):
+       return self.value
 
     def get_(self):
         return ootype.ooidentityhash(self.value) # XXX: check me
@@ -397,8 +400,8 @@ class BoxObj(Box):
     def constbox(self):
         return ConstObj(self.value)
 
-    #def getptr_base(self):
-    #    return self.value
+    def getobj(self):
+        return self.value
 
     def get_(self):
         return ootype.ooidentityhash(self.value) # XXX: check me
