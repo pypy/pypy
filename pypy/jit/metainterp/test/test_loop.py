@@ -505,9 +505,13 @@ class TestLoop(LLJitMixin):
 
 
     def test_path_with_operations_not_from_start_2(self):
+        py.test.skip("invalid hint??")
         jitdriver = JitDriver(greens = ['k'], reds = ['n', 'z'])
 
         def some_fn(n, k, z):
+            # XXX I may be missing the point of this test, but as such it
+            # is an invalid hint: why pass "n+1" as "n" here, when the
+            # next jit_merge_point is seeing really "n"?
             jitdriver.can_enter_jit(n=n+1, k=k, z=z)
 
         def f(n):
