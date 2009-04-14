@@ -1048,8 +1048,6 @@ class MetaInterp(object):
                 # Found!  Compile it as a loop.
                 if j > 0:
                     pass
-                    #assert start >= 0
-                    #del self.history.operations[:start]
                 elif self.extra_rebuild_operations >= 0:
                     # The history only starts at a bridge, not at the
                     # full loop header.  Complete it as a full loop by
