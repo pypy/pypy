@@ -165,6 +165,8 @@ def do_int_add_ovf(cpu, args, descr=None):
     except OverflowError:
         cpu.set_overflow_error()
         z = 0
+    else:
+        cpu.clear_exception()
     return BoxInt(z)
 
 def do_int_sub_ovf(cpu, args, descr=None):
@@ -175,6 +177,8 @@ def do_int_sub_ovf(cpu, args, descr=None):
     except OverflowError:
         cpu.set_overflow_error()
         z = 0
+    else:
+        cpu.clear_exception()
     return BoxInt(z)
 
 def do_int_mul_ovf(cpu, args, descr=None):
@@ -185,6 +189,8 @@ def do_int_mul_ovf(cpu, args, descr=None):
     except OverflowError:
         cpu.set_overflow_error()
         z = 0
+    else:
+        cpu.clear_exception()
     return BoxInt(z)
 
 def do_int_neg_ovf(cpu, args, descr=None):
@@ -194,6 +200,8 @@ def do_int_neg_ovf(cpu, args, descr=None):
     except OverflowError:
         cpu.set_overflow_error()
         z = 0
+    else:
+        cpu.clear_exception()
     return BoxInt(z)
 
 def do_int_abs_ovf(cpu, args, descr=None):
@@ -203,6 +211,8 @@ def do_int_abs_ovf(cpu, args, descr=None):
     except OverflowError:
         cpu.set_overflow_error()
         z = 0
+    else:
+        cpu.clear_exception()
     return BoxInt(z)
 
 def do_int_mod_ovf(cpu, args, descr=None):
@@ -212,10 +222,11 @@ def do_int_mod_ovf(cpu, args, descr=None):
         ovfcheck(x % y)
     except OverflowError:
         cpu.set_overflow_error()
-        return BoxInt(0)
+        z = 0
     else:
-        z = llop.int_mod(lltype.Signed, args[0].getint(), args[1].getint())
-        return BoxInt(z)
+        cpu.clear_exception()
+        z = llop.int_mod(lltype.Signed, x, y)
+    return BoxInt(z)
 
 def do_int_lshift_ovf(cpu, args, descr=None):
     x = args[0].getint()
@@ -234,10 +245,11 @@ def do_int_floordiv_ovf(cpu, args, descr=None):
         ovfcheck(x // y)
     except OverflowError:
         cpu.set_overflow_error()
-        return BoxInt(0)
+        z = 0
     else:
-        z = llop.int_floordiv(lltype.Signed, args[0].getint(), args[1].getint())
-        return BoxInt(z)
+        cpu.clear_exception()
+        z = llop.int_floordiv(lltype.Signed, x, y)
+    return BoxInt(z)
 
 # XXX: these ops should probably be delegated to the backend
 def do_str_stritem_nonneg(cpu, args, descr=None):

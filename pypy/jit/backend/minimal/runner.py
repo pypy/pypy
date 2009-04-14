@@ -1,5 +1,5 @@
 import py
-from pypy.rlib.objectmodel import specialize
+from pypy.rlib.objectmodel import specialize, we_are_translated
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rstr, rclass
 from pypy.jit.metainterp.history import AbstractDescr, Box, BoxInt, BoxPtr
 from pypy.jit.metainterp import executor
@@ -27,8 +27,7 @@ class CPU(object):
             ll_inst = lltype.malloc(rclass.OBJECT)
             ll_inst.typeptr = lltype.malloc(rclass.OBJECT_VTABLE,
                                             immortal=True)
-        self._ovf_error_vtable = ll_inst.typeptr
-        self._ovf_error_inst   = ll_inst
+        self._ovf_error_inst = ll_inst
 
     def compile_operations(self, loop):
         pass
@@ -115,13 +114,13 @@ class CPU(object):
         elif opnum == rop.GUARD_NONVIRTUALIZED:
             pass    # XXX
         elif opnum == rop.GUARD_NO_EXCEPTION:
-            if self.current_exception:
+            if self.current_exc_inst:
                 raise GuardFailed
         elif opnum == rop.GUARD_EXCEPTION:
             expected_exception = argboxes[0].getptr(rclass.CLASSTYPE)
             assert expected_exception
-            exc = self.current_exception
-            if exc and rclass.ll_issubclass(exc, expected_exception):
+            exc = self.current_exc_inst
+            if exc and rclass.ll_isinstance(exc, expected_exception):
                 raise GuardFailed
         else:
             assert 0, "unknown guard op"
@@ -142,12 +141,12 @@ class CPU(object):
                 'input': make_reader(FIELDTYPE, 'xbox', dict2),
                 'result': make_writer(FIELDTYPE, 'x', dict2)}
         exec py.code.Source("""
-            def getfield(p):
-                p = cast_opaque_ptr(PTR, p)
+            def getfield(pbox):
+                p = reveal_ptr(PTR, pbox)
                 x = getattr(p, %(name)r)
                 return %(result)s
-            def setfield(p, xbox):
-                p = cast_opaque_ptr(PTR, p)
+            def setfield(pbox, xbox):
+                p = reveal_ptr(PTR, pbox)
                 x = %(input)s
                 setattr(p, %(name)r, x)
         """ % dict).compile() in dict2
@@ -165,12 +164,12 @@ class CPU(object):
             def new(length):
                 p = malloc(ARRAY, length)
                 return cast_opaque_ptr(GCREF, p)
-            def getarrayitem(p, index):
-                p = cast_opaque_ptr(PTR, p)
+            def getarrayitem(pbox, index):
+                p = reveal_ptr(PTR, pbox)
                 x = p[index]
                 return %(result)s
-            def setarrayitem(p, index, xbox):
-                p = cast_opaque_ptr(PTR, p)
+            def setarrayitem(pbox, index, xbox):
+                p = reveal_ptr(PTR, pbox)
                 x = %(input)s
                 p[index] = x
         """ % dict).compile() in dict2
@@ -196,7 +195,13 @@ class CPU(object):
                 res = function(%(args)s)
                 return %(result)s
         """ % dict).compile() in dict2
-        return CallDescr(dict2['call'])
+        if RESULT is lltype.Void:
+            errbox = None
+        elif isinstance(RESULT, lltype.Ptr) and RESULT.TO._gckind == 'gc':
+            errbox = BoxPtr()
+        else:
+            errbox = BoxInt()
+        return CallDescr(dict2['FUNC'], dict2['call'], errbox)
 
     # ----------
 
@@ -209,15 +214,13 @@ class CPU(object):
 
     def do_getfield_gc(self, args, fielddescr):
         assert isinstance(fielddescr, FieldDescr)
-        gcref = args[0].getptr_base()
-        return fielddescr.getfield(gcref)
+        return fielddescr.getfield(args[0])
 
     do_getfield_raw = do_getfield_gc
 
     def do_setfield_gc(self, args, fielddescr):
         assert isinstance(fielddescr, FieldDescr)
-        gcref = args[0].getptr_base()
-        fielddescr.setfield(gcref, args[1])
+        fielddescr.setfield(args[0], args[1])
 
     do_setfield_raw = do_setfield_gc
 
@@ -228,23 +231,20 @@ class CPU(object):
 
     def do_arraylen_gc(self, args, arraydescr):
         assert isinstance(arraydescr, ArrayDescr)
-        gcref = args[0].getptr_base()
-        return BoxInt(arraydescr.length(gcref))
+        return BoxInt(arraydescr.length(args[0]))
 
     do_arraylen_raw = do_arraylen_gc
 
     def do_getarrayitem_gc(self, args, arraydescr):
         assert isinstance(arraydescr, ArrayDescr)
         index = args[1].getint()
-        gcref = args[0].getptr_base()
-        return arraydescr.getarrayitem(gcref, index)
+        return arraydescr.getarrayitem(args[0], index)
     do_getarrayitem_raw = do_getarrayitem_gc
 
     def do_setarrayitem_gc(self, args, arraydescr):
         assert isinstance(arraydescr, ArrayDescr)
         index = args[1].getint()
-        gcref = args[0].getptr_base()
-        arraydescr.setarrayitem(gcref, index, args[2])
+        arraydescr.setarrayitem(args[0], index, args[2])
 
     do_setarrayitem_raw = do_setarrayitem_gc
 
@@ -291,26 +291,34 @@ class CPU(object):
         return BoxInt(self.cast_gcref_to_int(args[0].getptr_base()))
 
     def do_call(self, args, calldescr):
+        if not we_are_translated():
+            py.test.skip("call not supported in non-translated version")
         self.clear_exception()
         try:
-            return calldescr.call(args[0].getint(), args[1:])
+            return calldescr.call(args[0].getaddr(self), args[1:])
         except Exception, e:
-            xxx
+            from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
+            self.current_exc_inst = cast_instance_to_base_ptr(e)
+            box = calldescr.errbox
+            if box:
+                box = box.clonebox()
+            return box
 
     # ----------
 
     def clear_exception(self):
-        self.current_exception = lltype.nullptr(rclass.OBJECT_VTABLE)
         self.current_exc_inst = lltype.nullptr(rclass.OBJECT)
 
     def get_exception(self):
-        return rffi.cast(lltype.Signed, self.current_exception)
+        if self.current_exc_inst:
+            return rffi.cast(lltype.Signed, self.current_exc_inst.typeptr)
+        else:
+            return 0
 
     def get_exc_value(self):
         return lltype.cast_opaque_ptr(llmemory.GCREF, self.current_exc_inst)
 
     def set_overflow_error(self):
-        self.current_exception = self._ovf_error_vtable
         self.current_exc_inst = self._ovf_error_inst
 
     def guard_failed(self):
@@ -323,6 +331,9 @@ class CPU(object):
 
     def cast_int_to_gcref(self, x):
         return rffi.cast(llmemory.GCREF, x)
+
+    def cast_int_to_adr(self, x):
+        return rffi.cast(llmemory.Address, x)
 
     def cast_adr_to_int(self, x):
         return rffi.cast(lltype.Signed, x)
@@ -351,8 +362,10 @@ class ArrayDescr(AbstractDescr):
         self.setarrayitem = setarrayitem
 
 class CallDescr(AbstractDescr):
-    def __init__(self, call):
+    def __init__(self, FUNC, call, errbox):
+        self.FUNC = FUNC
         self.call = call
+        self.errbox = errbox
 
 # ____________________________________________________________
 
@@ -386,9 +399,17 @@ def _count_sort_key(STRUCT, name):
             return i
         i += len(STRUCT._names) + 1
 
+def reveal_ptr(PTR, box):
+    if PTR.TO._gckind == 'gc':
+        return box.getptr(PTR)
+    else:
+        adr = rffi.cast(llmemory.Address, box.getint())
+        return llmemory.cast_adr_to_ptr(adr, PTR)
+
 base_dict = {
     'cast_primitive': lltype.cast_primitive,
     'cast_opaque_ptr': lltype.cast_opaque_ptr,
+    'reveal_ptr': reveal_ptr,
     'GCREF': llmemory.GCREF,
     'Signed': lltype.Signed,
     'BoxInt': BoxInt,

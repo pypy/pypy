@@ -12,4 +12,12 @@ class JitMixin(test_basic.LLJitMixin):
 class TestBasic(JitMixin, test_basic.BasicTests):
     # for the individual tests see
     # ====> ../../../metainterp/test/test_basic.py
-    pass
+
+    def _skip(self):
+        py.test.skip("call not supported in non-translated version")
+
+    test_stopatxpolicy = _skip
+    test_print = _skip
+    test_bridge_from_interpreter_2 = _skip
+    test_bridge_from_interpreter_3 = _skip
+    test_instantiate_classes = _skip

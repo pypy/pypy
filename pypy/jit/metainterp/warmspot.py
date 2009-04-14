@@ -25,8 +25,10 @@ from pypy.jit.metainterp.policy import JitPolicy
 from pypy.jit.metainterp.simple_optimize import Optimizer
 
 def apply_jit(translator, **kwds):
-    from pypy.jit.backend.detect_cpu import getcpuclass
-    warmrunnerdesc = WarmRunnerDesc(translator, CPUClass=getcpuclass(),
+    if 'CPUClass' not in kwds:
+        from pypy.jit.backend.detect_cpu import getcpuclass
+        kwds['CPUClass'] = getcpuclass()
+    warmrunnerdesc = WarmRunnerDesc(translator,
                                     translate_support_code=True,
                                     listops=True,
                                     optimizer=Optimizer,
