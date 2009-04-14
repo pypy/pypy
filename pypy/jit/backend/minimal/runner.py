@@ -160,12 +160,12 @@ class CPU(object):
                 'input': make_reader(FIELDTYPE, 'xbox', dict2),
                 'result': make_writer(FIELDTYPE, 'x', dict2)}
         exec py.code.Source("""
-            def getfield(pbox):
-                p = reveal_ptr(PTR, pbox)
+            def getfield(cpu, pbox):
+                p = reveal_ptr(cpu, PTR, pbox)
                 x = getattr(p, %(name)r)
                 return %(result)s
-            def setfield(pbox, xbox):
-                p = reveal_ptr(PTR, pbox)
+            def setfield(cpu, pbox, xbox):
+                p = reveal_ptr(cpu, PTR, pbox)
                 x = %(input)s
                 setattr(p, %(name)r, x)
         """ % dict).compile() in dict2
@@ -184,15 +184,15 @@ class CPU(object):
             def new(length):
                 p = malloc(ARRAY, length)
                 return cast_opaque_ptr(GCREF, p)
-            def length(pbox):
-                p = reveal_ptr(PTR, pbox)
+            def length(cpu, pbox):
+                p = reveal_ptr(cpu, PTR, pbox)
                 return len(p)
-            def getarrayitem(pbox, index):
-                p = reveal_ptr(PTR, pbox)
+            def getarrayitem(cpu, pbox, index):
+                p = reveal_ptr(cpu, PTR, pbox)
                 x = p[index]
                 return %(result)s
-            def setarrayitem(pbox, index, xbox):
-                p = reveal_ptr(PTR, pbox)
+            def setarrayitem(cpu, pbox, index, xbox):
+                p = reveal_ptr(cpu, PTR, pbox)
                 x = %(input)s
                 p[index] = x
         """ % dict).compile() in dict2
@@ -214,7 +214,7 @@ class CPU(object):
                       'length': len(ARGS),
                       })
         exec py.code.Source("""
-            def call(function, args):
+            def call(cpu, function, args):
                 assert len(args) == length
                 function = rffi.cast(FUNC, function)
                 res = function(%(args)s)
@@ -241,14 +241,14 @@ class CPU(object):
     def do_getfield_gc(self, args, fielddescr):
         assert isinstance(fielddescr, FieldDescr)
         assert fielddescr.getfield is not None
-        return fielddescr.getfield(args[0])
+        return fielddescr.getfield(self, args[0])
 
     do_getfield_raw = do_getfield_gc
 
     def do_setfield_gc(self, args, fielddescr):
         assert isinstance(fielddescr, FieldDescr)
         assert fielddescr.setfield is not None
-        fielddescr.setfield(args[0], args[1])
+        fielddescr.setfield(self, args[0], args[1])
 
     do_setfield_raw = do_setfield_gc
 
@@ -261,7 +261,7 @@ class CPU(object):
     def do_arraylen_gc(self, args, arraydescr):
         assert isinstance(arraydescr, ArrayDescr)
         assert arraydescr.length is not None
-        return BoxInt(arraydescr.length(args[0]))
+        return BoxInt(arraydescr.length(self, args[0]))
 
     do_arraylen_raw = do_arraylen_gc
 
@@ -269,14 +269,14 @@ class CPU(object):
         assert isinstance(arraydescr, ArrayDescr)
         assert arraydescr.getarrayitem is not None
         index = args[1].getint()
-        return arraydescr.getarrayitem(args[0], index)
+        return arraydescr.getarrayitem(self, args[0], index)
     do_getarrayitem_raw = do_getarrayitem_gc
 
     def do_setarrayitem_gc(self, args, arraydescr):
         assert isinstance(arraydescr, ArrayDescr)
         assert arraydescr.setarrayitem is not None
         index = args[1].getint()
-        arraydescr.setarrayitem(args[0], index, args[2])
+        arraydescr.setarrayitem(self, args[0], index, args[2])
 
     do_setarrayitem_raw = do_setarrayitem_gc
 
@@ -329,7 +329,7 @@ class CPU(object):
         assert calldescr.call is not None
         self.clear_exception()
         try:
-            return calldescr.call(args[0].getaddr(self), args[1:])
+            return calldescr.call(self, args[0].getaddr(self), args[1:])
         except Exception, e:
             from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
             self.current_exc_inst = cast_instance_to_base_ptr(e)
@@ -423,16 +423,23 @@ def _name(dict, obj):
 def make_reader(TYPE, boxstr, dict):
     if TYPE is lltype.Void:
         return "None"
-    elif isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc':
-        return "%s.getptr(%s)" % (boxstr, _name(dict, TYPE))
+    elif isinstance(TYPE, lltype.Ptr):
+        if TYPE.TO._gckind == 'gc':
+            return "%s.getptr(%s)" % (boxstr, _name(dict, TYPE))
+        else:
+            return "cast_adr_to_ptr(%s.getaddr(cpu), %s)" % (boxstr,
+                                                             _name(dict, TYPE))
     else:
         return "cast_primitive(%s, %s.getint())" % (_name(dict, TYPE), boxstr)
 
 def make_writer(TYPE, str, dict):
     if TYPE is lltype.Void:
         return "None"
-    elif isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc':
-        return "BoxPtr(cast_opaque_ptr(GCREF, %s))" % (str,)
+    elif isinstance(TYPE, lltype.Ptr):
+        if TYPE.TO._gckind == 'gc':
+            return "BoxPtr(cast_opaque_ptr(GCREF, %s))" % (str,)
+        else:
+            return "BoxInt(rffi.cast(Signed, %s))" % (str,)
     else:
         return "BoxInt(cast_primitive(Signed, %s))" % (str,)
 
@@ -444,20 +451,22 @@ def _count_sort_key(STRUCT, name):
             return i
         i += len(STRUCT._names) + 1
 
-@specialize.arg(0)
-def reveal_ptr(PTR, box):
+@specialize.arg(1)
+def reveal_ptr(cpu, PTR, box):
     if PTR.TO._gckind == 'gc':
         return box.getptr(PTR)
     else:
-        adr = rffi.cast(llmemory.Address, box.getint())
+        adr = box.getaddr(cpu)
         return llmemory.cast_adr_to_ptr(adr, PTR)
 
 base_dict = {
     'cast_primitive': lltype.cast_primitive,
+    'cast_adr_to_ptr': llmemory.cast_adr_to_ptr,
     'cast_opaque_ptr': lltype.cast_opaque_ptr,
     'reveal_ptr': reveal_ptr,
     'GCREF': llmemory.GCREF,
     'Signed': lltype.Signed,
+    'rffi': rffi,
     'BoxInt': BoxInt,
     'BoxPtr': BoxPtr,
     }
