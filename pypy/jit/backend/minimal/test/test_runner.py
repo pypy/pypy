@@ -14,3 +14,9 @@ class TestMinimal(BaseBackendTest):
     
     def setup_class(cls):
         cls.cpu = CPU(rtyper=None, stats=FakeStats())
+
+    def _skip(self):
+        py.test.skip("not supported in non-translated version")
+
+    test_passing_guards = _skip      # GUARD_CLASS
+    test_failing_guards = _skip      # GUARD_CLASS
