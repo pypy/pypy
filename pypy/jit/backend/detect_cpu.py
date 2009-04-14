@@ -40,10 +40,13 @@ def autodetect():
     except KeyError:
         raise ProcessorAutodetectError, "unsupported processor '%s'" % mach
 
-def getcpuclass():
-    cpu = autodetect()
-    if cpu == 'i386':
+def getcpuclass(backend_name="auto"):
+    if backend_name == "auto":
+        backend_name = autodetect()
+    if backend_name in ('i386', 'x86'):
         from pypy.jit.backend.x86.runner import CPU
+    elif backend_name == 'minimal':
+        from pypy.jit.backend.minimal.runner import CPU
     else:
         raise ProcessorAutodetectError, "unsupported cpu '%s'" % cpu
     return CPU
