@@ -895,6 +895,7 @@ class PerfectSpecializer(object):
                       [parentnode.source, descr, box], None,
                       cls.arraydescr))
                 else:
+                    assert isinstance(descr, AbstractDescr)
                     rebuild_ops.append(ResOperation(rop.SETFIELD_GC,
                       [parentnode.source, box], None, descr))
         new_inputargs.extend([None] * (len(loop.inputargs) - prev_ofs))
