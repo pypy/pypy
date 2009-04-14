@@ -7,7 +7,6 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.rarithmetic import ovfcheck, r_uint, intmask
 from pypy.jit.metainterp.history import BoxInt, ConstInt, check_descr, INT, PTR
-from pypy.jit.metainterp.history import ConstObj
 from pypy.jit.metainterp.resoperation import rop
 
 
@@ -251,43 +250,11 @@ def do_int_floordiv_ovf(cpu, args, descr=None):
         z = llop.int_floordiv(lltype.Signed, x, y)
     return BoxInt(z)
 
-# XXX: these ops should probably be delegated to the backend
-def do_str_stritem_nonneg(cpu, args, descr=None):
-    assert cpu.has_ootype
-    obj = args[0].getobj()
-    str = ootype.cast_from_object(ootype.String, obj)
-    index = args[1].getint()
-    res = str.ll_stritem_nonneg(index)
-    return ConstInt(ord(res))
-
-def do_str_strconcat(cpu, args, descr=None):
-    assert cpu.has_ootype
-    obj1 = args[0].getobj()
-    obj2 = args[1].getobj()
-    str1 = ootype.cast_from_object(ootype.String, obj1)
-    str2 = ootype.cast_from_object(ootype.String, obj2)
-    res = str1.ll_strconcat(str2)
-    objres = ootype.cast_to_object(res)
-    return ConstObj(objres)
-
-def do_str_strlen(cpu, args, descr=None):
-    assert cpu.has_ootype
-    obj = args[0].getobj()
-    str = ootype.cast_from_object(ootype.String, obj)
-    res = str.ll_strlen()
-    return ConstInt(res)
-
-def do_oostring(cpu, args, descr=None):
-    assert cpu.has_ootype
-    obj = args[0].getint() # XXX what about other types?
-    base = args[1].getint()
-    res = ootype.cast_to_object(ootype.oostring(obj, base))
-    return ConstObj(res) # XXX ???
-
 # ____________________________________________________________
 
 
 def make_execute_list(cpuclass):
+    from pypy.jit.backend.model import AbstractCPU
     execute = [None] * (rop._LAST+1)
     for key, value in rop.__dict__.items():
         if not key.startswith('_'):
@@ -299,10 +266,12 @@ def make_execute_list(cpuclass):
             if key.endswith('_PURE'):
                 key = key[:-5]
             name = 'do_' + key.lower()
-            try:
+            if hasattr(cpuclass, name):
                 execute[value] = getattr(cpuclass, name)
-            except AttributeError:
+            elif name in globals():
                 execute[value] = globals()[name]
+            else:
+                assert hasattr(AbstractCPU, name)
     cpuclass._execute_list = execute
 
 def get_execute_function(cpu, opnum):

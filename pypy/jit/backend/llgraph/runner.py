@@ -386,7 +386,39 @@ class LLtypeCPU(BaseCPU):
                                                         self.memo_cast))
 
 class OOtypeCPU(BaseCPU):
-    pass
+
+    def do_str_stritem_nonneg(cpu, args, descr=None):
+        assert cpu.has_ootype
+        obj = args[0].getobj()
+        str = ootype.cast_from_object(ootype.String, obj)
+        index = args[1].getint()
+        res = str.ll_stritem_nonneg(index)
+        return history.ConstInt(ord(res))
+
+    def do_str_strconcat(cpu, args, descr=None):
+        assert cpu.has_ootype
+        obj1 = args[0].getobj()
+        obj2 = args[1].getobj()
+        str1 = ootype.cast_from_object(ootype.String, obj1)
+        str2 = ootype.cast_from_object(ootype.String, obj2)
+        res = str1.ll_strconcat(str2)
+        objres = ootype.cast_to_object(res)
+        return history.ConstObj(objres)
+
+    def do_str_strlen(cpu, args, descr=None):
+        assert cpu.has_ootype
+        obj = args[0].getobj()
+        str = ootype.cast_from_object(ootype.String, obj)
+        res = str.ll_strlen()
+        return history.ConstInt(res)
+
+    def do_oostring(cpu, args, descr=None):
+        assert cpu.has_ootype
+        obj = args[0].getint() # XXX what about other types?
+        base = args[1].getint()
+        res = ootype.cast_to_object(ootype.oostring(obj, base))
+        return history.ConstObj(res) # XXX ???
+
 
 # ____________________________________________________________
 

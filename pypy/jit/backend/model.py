@@ -115,3 +115,18 @@ class AbstractCPU(object):
 
     def do_cast_ptr_to_int(self, args, descr=None):
         raise NotImplementedError
+
+    # ootype specific operations
+    # --------------------------
+
+    def do_str_stritem_nonneg(cpu, args, descr=None):
+        raise NotImplementedError
+    
+    def do_str_strconcat(cpu, args, descr=None):
+        raise NotImplementedError
+
+    def do_str_strlen(cpu, args, descr=None):
+        raise NotImplementedError
+
+    def do_oostring(cpu, args, descr=None):
+        raise NotImplementedError
