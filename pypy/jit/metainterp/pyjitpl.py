@@ -1021,15 +1021,6 @@ class MetaInterp(object):
         except GenerateMergePoint, gmp:
             return self.designate_target_loop(gmp)
 
-    def adjust_guard_indexes(self, operations, offset):
-        for op in operations:
-            if op.is_guard():
-                fail = op.suboperations[-1]
-                if fail.opnum == rop.FAIL:
-                    resumekey = fail.descr
-                    assert isinstance(resumekey, compile.ResumeGuardDescr)
-                    resumekey.history_guard_index -= offset
-
     def reached_can_enter_jit(self, live_arg_boxes):
         # Called whenever we reach the 'can_enter_jit' hint.
         # First, attempt to make a bridge:
@@ -1056,9 +1047,9 @@ class MetaInterp(object):
             else:
                 # Found!  Compile it as a loop.
                 if j > 0:
-                    assert start >= 0
-                    del self.history.operations[:start]
-                    self.adjust_guard_indexes(self.history.operations, start)
+                    pass
+                    #assert start >= 0
+                    #del self.history.operations[:start]
                 elif self.extra_rebuild_operations >= 0:
                     # The history only starts at a bridge, not at the
                     # full loop header.  Complete it as a full loop by
@@ -1068,7 +1059,7 @@ class MetaInterp(object):
                     assert lgt >= 0
                     del self.history.operations[:lgt]
                     compile.prepare_loop_from_bridge(self, self.resumekey)
-                loop = self.compile(original_boxes, live_arg_boxes)
+                loop = self.compile(original_boxes, live_arg_boxes, start)
                 raise GenerateMergePoint(live_arg_boxes, loop)
 
         # Otherwise, no loop found so far, so continue tracing.
@@ -1098,14 +1089,14 @@ class MetaInterp(object):
         elif opnum == rop.GUARD_NO_EXCEPTION or opnum == rop.GUARD_EXCEPTION:
             self.handle_exception()
 
-    def compile(self, original_boxes, live_arg_boxes):
+    def compile(self, original_boxes, live_arg_boxes, start):
         num_green_args = self.staticdata.num_green_args
         self.history.inputargs = original_boxes[num_green_args:]
         greenkey = original_boxes[:num_green_args]
         glob = self.staticdata.globaldata
         old_loops = glob.compiled_merge_points.setdefault(greenkey, [])
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
-        loop = compile.compile_new_loop(self, old_loops, greenkey)
+        loop = compile.compile_new_loop(self, old_loops, greenkey, start)
         assert loop is not None
         if not we_are_translated():
             loop._call_history = self._debug_history

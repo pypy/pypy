@@ -10,14 +10,14 @@ from pypy.jit.metainterp.history import AbstractDescr, BoxInt, BoxPtr
 from pypy.jit.metainterp.specnode import NotSpecNode
 from pypy.rlib.debug import debug_print
 
-def compile_new_loop(metainterp, old_loops, greenkey):
+def compile_new_loop(metainterp, old_loops, greenkey, start=0):
     """Try to compile a new loop by closing the current history back
     to the first operation.
     """
     if we_are_translated():
-        return compile_fresh_loop(metainterp, old_loops, greenkey)
+        return compile_fresh_loop(metainterp, old_loops, greenkey, start)
     else:
-        return _compile_new_loop_1(metainterp, old_loops, greenkey)
+        return _compile_new_loop_1(metainterp, old_loops, greenkey, start)
 
 def compile_new_bridge(metainterp, old_loops, resumekey):
     """Try to compile a new bridge leading from the beginning of the history
@@ -33,10 +33,10 @@ class BridgeInProgress(Exception):
 
 
 # the following is not translatable
-def _compile_new_loop_1(metainterp, old_loops, greenkey):
+def _compile_new_loop_1(metainterp, old_loops, greenkey, start):
     old_loops_1 = old_loops[:]
     try:
-        loop = compile_fresh_loop(metainterp, old_loops, greenkey)
+        loop = compile_fresh_loop(metainterp, old_loops, greenkey, start)
     except Exception, exc:
         show_loop(metainterp, error=exc)
         raise
@@ -86,12 +86,15 @@ def create_empty_loop(metainterp):
 
 # ____________________________________________________________
 
-def compile_fresh_loop(metainterp, old_loops, greenkey):
+def compile_fresh_loop(metainterp, old_loops, greenkey, start):
     history = metainterp.history
     loop = create_empty_loop(metainterp)
     loop.greenkey = greenkey
     loop.inputargs = history.inputargs
-    loop.operations = history.operations
+    if start != 0:
+        loop.operations = history.operations[start:]
+    else:
+        loop.operations = history.operations
     loop.operations[-1].jump_target = loop
     metainterp_sd = metainterp.staticdata
     old_loop = metainterp_sd.optimize_loop(metainterp_sd.options, old_loops,
