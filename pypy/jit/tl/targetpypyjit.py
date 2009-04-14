@@ -17,11 +17,19 @@ def readfile(filename):
 
 def entry_point(args):
     from pypy.interpreter.pycode import PyCode
-    source = readfile('pypyjit_demo.py')
+    if len(args) > 1:
+        filename = args[1]
+        func_to_run = space.wrap(args[2])
+    else:
+        filename = 'pypyjit_demo.py'
+        func_to_run = None
+    source = readfile(filename)
     ec = space.getexecutioncontext()
     code = ec.compiler.compile(source, '?', 'exec', 0)
     assert isinstance(code, PyCode)
     code.exec_code(space, w_dict, w_dict)
+    if func_to_run is not None:
+        space.call_function(space.getitem(w_dict, func_to_run))
     return 0
 
 def opt_parser(config):
