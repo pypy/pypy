@@ -392,7 +392,7 @@ class OOtypeCPU(BaseCPU):
     def methdescrof(METH, methname):
         return MethDescr(METH, methname)
 
-    def do_oosend(cpu, args, descr=None):
+    def do_oosend(self, args, descr=None):
         assert isinstance(descr, MethDescr)
         selfbox = args[0]
         argboxes = args[1:]
@@ -400,15 +400,13 @@ class OOtypeCPU(BaseCPU):
         # XXX: return None if METH.RESULT is Void
         return x
 
-    def do_oostring(cpu, args, descr=None):
-        assert cpu.has_ootype
+    def do_oostring(self, args, descr=None):
         obj = args[0].getint() # XXX what about other types?
         base = args[1].getint()
         res = ootype.cast_to_object(ootype.oostring(obj, base))
         return history.ConstObj(res)
 
-    def do_oounicode(cpu, args, descr=None):
-        assert cpu.has_ootype
+    def do_oounicode(self, args, descr=None):
         obj = args[0].getint() # XXX what about other types?
         base = args[1].getint()
         res = ootype.cast_to_object(ootype.oounicode(obj, base))
