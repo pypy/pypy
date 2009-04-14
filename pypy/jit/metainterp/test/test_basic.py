@@ -90,11 +90,11 @@ class JitMixin:
 
 class LLJitMixin(JitMixin):
     type_system = 'lltype'
-    CPUClass = runner.CPU
+    CPUClass = runner.LLtypeCPU
 
 class OOJitMixin(JitMixin):
     type_system = 'ootype'
-    CPUClass = runner.CPU
+    CPUClass = runner.OOtypeCPU
 
 
 class BasicTests:    
@@ -460,7 +460,9 @@ class BasicTests:
                                         inline_threshold=0)
         clear_tcache()
         translator = interp.typer.annotator.translator
-        warmrunnerdesc = WarmRunnerDesc(translator, optimizer=SimpleOptimizer)
+        warmrunnerdesc = WarmRunnerDesc(translator,
+                                        CPUClass=self.CPUClass,
+                                        optimizer=SimpleOptimizer)
         warmrunnerdesc.state.set_param_threshold(3)          # for tests
         warmrunnerdesc.state.set_param_trace_eagerness(0)    # for tests
         warmrunnerdesc.finish()
@@ -510,18 +512,18 @@ class BasicTests:
         assert res == 72
 
 
-class TestOOtype(BasicTests, OOJitMixin):
-    def skip(self):
-        py.test.skip('in-progress')
+## class TestOOtype(BasicTests, OOJitMixin):
+##     def skip(self):
+##         py.test.skip('in-progress')
 
-    test_chr2str = skip
-    test_unicode = skip
-    test_residual_call = skip
-    test_format = skip
-    test_getfield = skip
-    test_getfield_immutable = skip
-    test_oops_on_nongc = skip
-    test_instantiate_classes = skip
+##     test_chr2str = skip
+##     test_unicode = skip
+##     test_residual_call = skip
+##     test_format = skip
+##     test_getfield = skip
+##     test_getfield_immutable = skip
+##     test_oops_on_nongc = skip
+##     test_instantiate_classes = skip
 
 
 class TestLLtype(BasicTests, LLJitMixin):

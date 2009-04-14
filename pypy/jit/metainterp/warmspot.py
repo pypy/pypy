@@ -16,7 +16,6 @@ from pypy.rpython.lltypesystem.lloperation import llop
 
 from pypy.jit.metainterp import support, history, pyjitpl
 from pypy.jit.metainterp.pyjitpl import MetaInterpStaticData, MetaInterp
-from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp.policy import JitPolicy
 
 # ____________________________________________________________
@@ -124,9 +123,10 @@ class WarmRunnerDesc:
     def _freeze_(self):
         return True
 
-    def build_meta_interp(self, CPUClass=runner.CPU, view="auto",
+    def build_meta_interp(self, CPUClass=None, view="auto",
                           translate_support_code=False, optimizer=None,
                           **kwds):
+        assert CPUClass is not None
         opt = pyjitpl.Options(**kwds)
         self.stats = history.Stats()
         if translate_support_code:

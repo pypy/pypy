@@ -8,6 +8,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.jit.metainterp import history
 from pypy.jit.metainterp.resoperation import ResOperation, rop
+from pypy.jit.backend import model
 from pypy.jit.backend.llgraph import llimpl, symbolic
 
 
@@ -61,7 +62,7 @@ class Descr(history.AbstractDescr):
 history.TreeLoop._compiled_version = lltype.nullptr(llimpl.COMPILEDLOOP.TO)
 
 
-class CPU(object):
+class BaseCPU(model.AbstractCPU):
 
     def __init__(self, rtyper, stats=None, translate_support_code=False,
                  annmixlevel=None):
@@ -229,11 +230,16 @@ class CPU(object):
         token = history.getkind(RESULT)
         return Descr(0, token[0])
 
+
     def cast_adr_to_int(self, adr):
         return llimpl.cast_adr_to_int(self.memo_cast, adr)
 
     def cast_int_to_adr(self, int):
         return llimpl.cast_int_to_adr(self.memo_cast, int)
+
+
+
+class LLtypeCPU(BaseCPU):
 
     # ---------- the backend-dependent operations ----------
 
@@ -377,7 +383,11 @@ class CPU(object):
         return history.BoxInt(llimpl.cast_to_int(args[0].getptr_base(),
                                                         self.memo_cast))
 
+class OOtypeCPU(BaseCPU):
+    pass
+
 # ____________________________________________________________
 
 import pypy.jit.metainterp.executor
-pypy.jit.metainterp.executor.make_execute_list(CPU)
+pypy.jit.metainterp.executor.make_execute_list(LLtypeCPU)
+pypy.jit.metainterp.executor.make_execute_list(OOtypeCPU)

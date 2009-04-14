@@ -356,8 +356,8 @@ class ListTests:
         self.check_all_virtualized()
 
 
-class TestOOtype(ListTests, OOJitMixin):
-    pass
+## class TestOOtype(ListTests, OOJitMixin):
+##     pass
 
 class TestLLtype(ListTests, LLJitMixin):
     pass

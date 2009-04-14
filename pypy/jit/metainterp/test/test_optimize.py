@@ -13,7 +13,7 @@ from pypy.jit.metainterp.optimize import (PerfectSpecializer,
     VirtualInstanceSpecNode, FixedClassSpecNode,
     NotSpecNode)
 
-cpu = runner.CPU(None)
+cpu = runner.LLtypeCPU(None)
 
 NODE = lltype.GcForwardReference()
 NODE.become(lltype.GcStruct('NODE', ('parent', OBJECT),
@@ -87,9 +87,9 @@ def set_guard(op, args):
 # ____________________________________________________________
 
 class A:
-    ofs_next = runner.CPU.fielddescrof(NODE, 'next')
-    ofs_value = runner.CPU.fielddescrof(NODE, 'value')
-    size_of_node = runner.CPU.sizeof(NODE)
+    ofs_next = runner.LLtypeCPU.fielddescrof(NODE, 'next')
+    ofs_value = runner.LLtypeCPU.fielddescrof(NODE, 'value')
+    size_of_node = runner.LLtypeCPU.sizeof(NODE)
     #
     startnode = lltype.malloc(NODE)
     startnode.value = 20

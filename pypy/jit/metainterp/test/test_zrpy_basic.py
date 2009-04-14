@@ -1,11 +1,14 @@
 import py
 from pypy.jit.metainterp.warmspot import rpython_ll_meta_interp, ll_meta_interp
 from pypy.jit.metainterp.test import test_basic
+from pypy.jit.backend.llgraph import runner
 from pypy.rlib.jit import JitDriver
 from pypy.jit.conftest import option
 
 
 class TestBasic:
+
+    CPUClass = runner.LLtypeCPU
 
     def test_loop_1(self):
         if not option.run_slow_tests:
@@ -19,9 +22,9 @@ class TestBasic:
                 total += i
                 i -= 1
             return total * 10
-        res = ll_meta_interp(f, [10])
+        res = ll_meta_interp(f, [10], CPUClass=self.CPUClass)
         assert res == 490
-        res = rpython_ll_meta_interp(f, [10], loops=1)
+        res = rpython_ll_meta_interp(f, [10], loops=1, CPUClass=self.CPUClass)
         assert res == 490
 
     def test_loop_2(self):
@@ -37,9 +40,9 @@ class TestBasic:
                     i -= 2
                 i -= 1
             return total * 10
-        res = ll_meta_interp(f, [17])
+        res = ll_meta_interp(f, [17], CPUClass=self.CPUClass)
         assert res == (17+14+11+8+7+6+5+4) * 10
-        res = rpython_ll_meta_interp(f, [17], loops=2)
+        res = rpython_ll_meta_interp(f, [17], loops=2, CPUClass=self.CPUClass)
         assert res == (17+14+11+8+7+6+5+4) * 10
 
 class LLInterpJitMixin:

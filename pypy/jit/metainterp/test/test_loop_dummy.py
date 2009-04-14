@@ -5,4 +5,5 @@ from pypy.jit.metainterp.simple_optimize import Optimizer
 
 class TestLoopDummy(test_loop.TestLoop):
     def meta_interp(self, func, args, **kwds):
-        return ll_meta_interp(func, args, optimizer=Optimizer, **kwds)
+        return ll_meta_interp(func, args, optimizer=Optimizer,
+                              CPUClass=self.CPUClass, **kwds)

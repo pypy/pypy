@@ -12,7 +12,8 @@ class TestLoop(LLJitMixin):
 
     def meta_interp(self, f, args, policy=None):
         return ll_meta_interp(f, args, specialize=self.specialize,
-                              policy=policy)
+                              policy=policy,
+                              CPUClass=self.CPUClass)
 
     def test_simple_loop(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])

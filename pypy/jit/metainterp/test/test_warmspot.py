@@ -1,5 +1,6 @@
 from pypy.jit.metainterp.warmspot import ll_meta_interp
 from pypy.rlib.jit import JitDriver
+from pypy.jit.backend.llgraph import runner
 
 class Exit(Exception):
     def __init__(self, result):
@@ -8,6 +9,8 @@ class Exit(Exception):
 
 class WarmspotTests(object):
     def meta_interp(self, *args, **kwds):
+        assert 'CPUClass' not in kwds
+        kwds['CPUClass'] = self.CPUClass
         return ll_meta_interp(*args, **kwds)
     
     def test_basic(self):
@@ -61,4 +64,4 @@ class WarmspotTests(object):
 
 
 class TestLLWarmspot(WarmspotTests):
-    pass
+    CPUClass = runner.LLtypeCPU

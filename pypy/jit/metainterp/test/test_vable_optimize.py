@@ -66,10 +66,10 @@ xy_desc = VirtualizableDesc(cpu, XY, XY)
 # ____________________________________________________________
 
 class A:
-    ofs_node = runner.CPU.fielddescrof(XY, 'inst_node')
-    ofs_l = runner.CPU.fielddescrof(XY, 'inst_l')
-    ofs_value = runner.CPU.fielddescrof(NODE, 'value')
-    size_of_node = runner.CPU.sizeof(NODE)
+    ofs_node = runner.LLtypeCPU.fielddescrof(XY, 'inst_node')
+    ofs_l = runner.LLtypeCPU.fielddescrof(XY, 'inst_l')
+    ofs_value = runner.LLtypeCPU.fielddescrof(NODE, 'value')
+    size_of_node = runner.LLtypeCPU.sizeof(NODE)
     #
     frame = lltype.malloc(XY)
     frame.vable_rti = lltype.nullptr(XY.vable_rti.TO)
@@ -130,9 +130,9 @@ def test_A_optimize_loop():
 # ____________________________________________________________
 
 class B:
-    ofs_node = runner.CPU.fielddescrof(XY, 'inst_node')
-    ofs_value = runner.CPU.fielddescrof(NODE, 'value')
-    size_of_node = runner.CPU.sizeof(NODE)
+    ofs_node = runner.LLtypeCPU.fielddescrof(XY, 'inst_node')
+    ofs_value = runner.LLtypeCPU.fielddescrof(NODE, 'value')
+    size_of_node = runner.LLtypeCPU.sizeof(NODE)
     #
     frame = lltype.malloc(XY)
     frame.vable_rti = lltype.nullptr(XY.vable_rti.TO)
