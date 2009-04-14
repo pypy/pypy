@@ -7,6 +7,8 @@ from pypy.jit.metainterp.resoperation import rop
 
 
 class CPU(object):
+    has_lltype = True
+    has_ootype = False    # XXX for now
 
     def __init__(self, rtyper, stats, translate_support_code=False,
                  mixlevelann=None):
@@ -79,7 +81,7 @@ class CPU(object):
                 continue
             if op.opnum == rop.FAIL:
                 break
-            raise 0, "bad opnum"
+            assert 0, "bad opnum"
         #
         for i in range(len(op.args)):
             box = op.args[i]
@@ -102,8 +104,8 @@ class CPU(object):
                 raise GuardFailed
         elif opnum == rop.GUARD_CLASS:
             value = argboxes[0].getptr(rclass.OBJECTPTR)
-            expected_class = self.cast_int_to_ptr(rclass.CLASSTYPE,
-                                                  argboxes[1].getint())
+            adr = argboxes[1].getaddr(self)
+            expected_class = llmemory.cast_adr_to_ptr(adr, rclass.CLASSTYPE)
             if value.typeptr != expected_class:
                 raise GuardFailed
         elif opnum == rop.GUARD_VALUE:
@@ -117,10 +119,11 @@ class CPU(object):
             if self.current_exc_inst:
                 raise GuardFailed
         elif opnum == rop.GUARD_EXCEPTION:
-            expected_exception = argboxes[0].getptr(rclass.CLASSTYPE)
-            assert expected_exception
+            adr = argboxes[0].getaddr(self)
+            expected_class = llmemory.cast_adr_to_ptr(adr, rclass.CLASSTYPE)
+            assert expected_class
             exc = self.current_exc_inst
-            if exc and rclass.ll_isinstance(exc, expected_exception):
+            if exc and rclass.ll_isinstance(exc, expected_class):
                 raise GuardFailed
         else:
             assert 0, "unknown guard op"
@@ -164,6 +167,9 @@ class CPU(object):
             def new(length):
                 p = malloc(ARRAY, length)
                 return cast_opaque_ptr(GCREF, p)
+            def length(pbox):
+                p = reveal_ptr(PTR, pbox)
+                return len(p)
             def getarrayitem(pbox, index):
                 p = reveal_ptr(PTR, pbox)
                 x = p[index]
@@ -174,6 +180,7 @@ class CPU(object):
                 p[index] = x
         """ % dict).compile() in dict2
         return ArrayDescr(dict2['new'],
+                          dict2['length'],
                           dict2['getarrayitem'],
                           dict2['setarrayitem'])
 
@@ -207,6 +214,7 @@ class CPU(object):
 
     def do_new(self, args, sizedescr):
         assert isinstance(sizedescr, SizeDescr)
+        assert sizedescr.alloc is not None
         p = sizedescr.alloc()
         return BoxPtr(p)
 
@@ -214,35 +222,41 @@ class CPU(object):
 
     def do_getfield_gc(self, args, fielddescr):
         assert isinstance(fielddescr, FieldDescr)
+        assert fielddescr.getfield is not None
         return fielddescr.getfield(args[0])
 
     do_getfield_raw = do_getfield_gc
 
     def do_setfield_gc(self, args, fielddescr):
         assert isinstance(fielddescr, FieldDescr)
+        assert fielddescr.setfield is not None
         fielddescr.setfield(args[0], args[1])
 
     do_setfield_raw = do_setfield_gc
 
     def do_new_array(self, args, arraydescr):
         assert isinstance(arraydescr, ArrayDescr)
+        assert arraydescr.new is not None
         p = arraydescr.new(args[0].getint())
         return BoxPtr(p)
 
     def do_arraylen_gc(self, args, arraydescr):
         assert isinstance(arraydescr, ArrayDescr)
+        assert arraydescr.length is not None
         return BoxInt(arraydescr.length(args[0]))
 
     do_arraylen_raw = do_arraylen_gc
 
     def do_getarrayitem_gc(self, args, arraydescr):
         assert isinstance(arraydescr, ArrayDescr)
+        assert arraydescr.getarrayitem is not None
         index = args[1].getint()
         return arraydescr.getarrayitem(args[0], index)
     do_getarrayitem_raw = do_getarrayitem_gc
 
     def do_setarrayitem_gc(self, args, arraydescr):
         assert isinstance(arraydescr, ArrayDescr)
+        assert arraydescr.setarrayitem is not None
         index = args[1].getint()
         arraydescr.setarrayitem(args[0], index, args[2])
 
@@ -293,6 +307,8 @@ class CPU(object):
     def do_call(self, args, calldescr):
         if not we_are_translated():
             py.test.skip("call not supported in non-translated version")
+        assert isinstance(calldescr, CallDescr)
+        assert calldescr.call is not None
         self.clear_exception()
         try:
             return calldescr.call(args[0].getaddr(self), args[1:])
@@ -344,10 +360,14 @@ class CPU(object):
 
 
 class SizeDescr(AbstractDescr):
+    alloc = None
     def __init__(self, alloc):
         self.alloc = alloc
 
 class FieldDescr(AbstractDescr):
+    getfield = None
+    setfield = None
+    _sort_key = 0
     def __init__(self, getfield, setfield, sort_key):
         self.getfield = getfield
         self.setfield = setfield
@@ -356,12 +376,19 @@ class FieldDescr(AbstractDescr):
         return self._sort_key
 
 class ArrayDescr(AbstractDescr):
-    def __init__(self, new, getarrayitem, setarrayitem):
+    new = None
+    length = None
+    getarrayitem = None
+    setarrayitem = None
+    def __init__(self, new, length, getarrayitem, setarrayitem):
         self.new = new
+        self.length = length
         self.getarrayitem = getarrayitem
         self.setarrayitem = setarrayitem
 
 class CallDescr(AbstractDescr):
+    call = None
+    errbox = None
     def __init__(self, FUNC, call, errbox):
         self.FUNC = FUNC
         self.call = call
@@ -399,6 +426,7 @@ def _count_sort_key(STRUCT, name):
             return i
         i += len(STRUCT._names) + 1
 
+@specialize.arg(0)
 def reveal_ptr(PTR, box):
     if PTR.TO._gckind == 'gc':
         return box.getptr(PTR)

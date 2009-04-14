@@ -253,6 +253,7 @@ def do_int_floordiv_ovf(cpu, args, descr=None):
 
 # XXX: these ops should probably be delegated to the backend
 def do_str_stritem_nonneg(cpu, args, descr=None):
+    assert cpu.has_ootype
     obj = args[0].getobj()
     str = ootype.cast_from_object(ootype.String, obj)
     index = args[1].getint()
@@ -260,6 +261,7 @@ def do_str_stritem_nonneg(cpu, args, descr=None):
     return ConstInt(ord(res))
 
 def do_str_strconcat(cpu, args, descr=None):
+    assert cpu.has_ootype
     obj1 = args[0].getobj()
     obj2 = args[1].getobj()
     str1 = ootype.cast_from_object(ootype.String, obj1)
@@ -269,12 +271,14 @@ def do_str_strconcat(cpu, args, descr=None):
     return ConstObj(objres)
 
 def do_str_strlen(cpu, args, descr=None):
+    assert cpu.has_ootype
     obj = args[0].getobj()
     str = ootype.cast_from_object(ootype.String, obj)
     res = str.ll_strlen()
     return ConstInt(res)
 
 def do_oostring(cpu, args, descr=None):
+    assert cpu.has_ootype
     obj = args[0].getint() # XXX what about other types?
     base = args[1].getint()
     res = ootype.cast_to_object(ootype.oostring(obj, base))

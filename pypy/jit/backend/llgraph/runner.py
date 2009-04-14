@@ -63,6 +63,8 @@ history.TreeLoop._compiled_version = lltype.nullptr(llimpl.COMPILEDLOOP.TO)
 
 
 class BaseCPU(model.AbstractCPU):
+    has_lltype = True
+    has_ootype = True
 
     def __init__(self, rtyper, stats=None, translate_support_code=False,
                  annmixlevel=None):
