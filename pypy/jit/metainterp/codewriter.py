@@ -134,7 +134,7 @@ class CodeWriter(object):
             return ()
         # </hack>
         NON_VOID_ARGS = [ARG for ARG in FUNC.ARGS if ARG is not lltype.Void]
-        calldescr = self.cpu.calldescrof(NON_VOID_ARGS, FUNC.RESULT)
+        calldescr = self.cpu.calldescrof(tuple(NON_VOID_ARGS), FUNC.RESULT)
         return (cfnptr, calldescr)
 
     def get_indirectcallset(self, graphs):
@@ -156,7 +156,7 @@ class CodeWriter(object):
         assert NON_VOID_ARGS == [T for T in ARGS if T is not lltype.Void]
         assert RESULT == FUNC.RESULT
         # ok
-        calldescr = self.cpu.calldescrof(NON_VOID_ARGS, RESULT)
+        calldescr = self.cpu.calldescrof(tuple(NON_VOID_ARGS), RESULT)
         return calldescr, non_void_args
 
 

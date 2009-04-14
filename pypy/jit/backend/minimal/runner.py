@@ -130,12 +130,28 @@ class CPU(object):
 
     # ----------
 
+    def cached_method(cachename):
+        def decorate(func):
+            def cached_func(self, *args):
+                try:
+                    return getattr(self, cachename)[args]
+                except (KeyError, AttributeError):
+                    descr = func(self, *args)
+                    if not hasattr(self, cachename):
+                        setattr(self, cachename, {})
+                    getattr(self, cachename)[args] = descr
+                    return descr
+            return cached_func
+        return decorate
+
+    @cached_method('_sizecache')
     def sizeof(self, TYPE):
         def alloc():
             p = lltype.malloc(TYPE)
             return lltype.cast_opaque_ptr(llmemory.GCREF, p)
         return SizeDescr(alloc)
 
+    @cached_method('_fieldcache')
     def fielddescrof(self, STRUCT, name):
         dict2 = base_dict.copy()
         dict2['PTR'] = lltype.Ptr(STRUCT)
@@ -156,6 +172,7 @@ class CPU(object):
         sort_key = _count_sort_key(STRUCT, name)
         return FieldDescr(dict2['getfield'], dict2['setfield'], sort_key)
 
+    @cached_method('_arraycache')
     def arraydescrof(self, ARRAY):
         dict2 = base_dict.copy()
         dict2['malloc'] = lltype.malloc
@@ -184,6 +201,7 @@ class CPU(object):
                           dict2['getarrayitem'],
                           dict2['setarrayitem'])
 
+    @cached_method('_callcache')
     def calldescrof(self, ARGS, RESULT):
         dict2 = base_dict.copy()
         args = []
