@@ -506,21 +506,22 @@ class TestLoop(LLJitMixin):
 
 
     def test_path_with_operations_not_from_start_2(self):
-        py.test.skip("FAILING, FIX IT, FIX IT, FIX IT")
-        jitdriver = JitDriver(greens = ['k'], reds = ['n', 'z'])
+        py.test.skip("fix it fix it fix it fix it")
+        jitdriver = JitDriver(greens = ['k'], reds = ['n', 'z', 'stuff'])
 
         class Stuff(object):
             def __init__(self, n):
                 self.n = n
 
         def some_fn(stuff, k, z):
-            jitdriver.can_enter_jit(n=stuff.n, k=k, z=z)
+            jitdriver.can_enter_jit(n=stuff.n, k=k, z=z, stuff=stuff)
 
         def f(n):
             k = 0
             z = 0
+            stuff = Stuff(0)
             while n > 0:
-                jitdriver.jit_merge_point(n=n, k=k, z=z)
+                jitdriver.jit_merge_point(n=n, k=k, z=z, stuff=stuff)
                 k += 1
                 if k == 30:
                     if z == 0 or z == 1:
