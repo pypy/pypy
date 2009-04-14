@@ -512,18 +512,26 @@ class BasicTests:
         assert res == 72
 
 
-## class TestOOtype(BasicTests, OOJitMixin):
-##     def skip(self):
-##         py.test.skip('in-progress')
+class TestOOtype(BasicTests, OOJitMixin):
+    def skip(self):
+        py.test.skip('in-progress')
 
-##     test_chr2str = skip
-##     test_unicode = skip
-##     test_residual_call = skip
-##     test_format = skip
-##     test_getfield = skip
-##     test_getfield_immutable = skip
-##     test_oops_on_nongc = skip
-##     test_instantiate_classes = skip
+    test_chr2str = skip
+    test_unicode = skip
+    test_residual_call = skip
+    test_format = skip
+    test_getfield = skip
+    test_getfield_immutable = skip
+    test_oops_on_nongc = skip
+    test_instantiate_classes = skip
+
+    test_constant_across_mp = skip
+    test_stopatxpolicy = skip
+    test_print = skip
+    test_bridge_from_interpreter_2 = skip
+    test_bridge_from_interpreter_3 = skip
+    test_bridge_from_interpreter_4 = skip
+    test_casts = skip
 
 
 class TestLLtype(BasicTests, LLJitMixin):
