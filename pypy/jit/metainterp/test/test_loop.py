@@ -492,13 +492,38 @@ class TestLoop(LLJitMixin):
                 jitdriver.can_enter_jit(n=n, k=k, z=z)
                 jitdriver.jit_merge_point(n=n, k=k, z=z)
                 k += 1
-                if k == 10:
+                if k == 30:
                     if z == 0 or z == 1:
                         k = 4
                         z += 1
                     else:
-                        k = 5
+                        k = 15
                         z = 0
                 n -= 1
 
-        res = self.meta_interp(f, [100])
+        res = self.meta_interp(f, [200])
+
+
+    def test_path_with_operations_not_from_start_2(self):
+        jitdriver = JitDriver(greens = ['k'], reds = ['n', 'z'])
+
+        def some_fn(n, k, z):
+            jitdriver.can_enter_jit(n=n+1, k=k, z=z)
+
+        def f(n):
+            k = 0
+            z = 0
+            while n > 0:
+                jitdriver.jit_merge_point(n=n, k=k, z=z)
+                k += 1
+                if k == 30:
+                    if z == 0 or z == 1:
+                        k = 4
+                        z += 1
+                    else:
+                        k = 15
+                        z = 0
+                n -= 1
+                some_fn(n, k, z)
+
+        res = self.meta_interp(f, [200])
