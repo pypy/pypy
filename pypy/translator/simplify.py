@@ -59,6 +59,9 @@ def replace_exitswitch_by_constant(block, const):
     assert const != c_last_exception
     newexits = [link for link in block.exits
                      if link.exitcase == const.value]
+    if len(newexits) == 0:
+        newexits = [link for link in block.exits
+                     if link.exitcase == 'default']
     assert len(newexits) == 1
     newexits[0].exitcase = None
     if hasattr(newexits[0], 'llexitcase'):
