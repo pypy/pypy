@@ -4,6 +4,7 @@ from pypy.interpreter.gateway import app2interp_temp
 from pypy.interpreter.error import OperationError
 from pypy.tool.pytest import appsupport
 from pypy.tool.option import make_config, make_objspace
+from pypy.config.config import ConflictConfigError
 from inspect import isclass, getmro
 from pypy.tool.udir import udir
 from pypy.tool.autopath import pypydir
@@ -43,7 +44,7 @@ class PyPyTestPlugin:
                default="host", callback=_set_platform,
                help="set up tests to use specified platform as compile/run target")
 
-    def pytest_pyfuncarg_space(self, pyfuncitem):
+    def pytest_funcarg__space(self, pyfuncitem):
         return gettestobjspace()
         
 ConftestPlugin = PyPyTestPlugin
@@ -52,7 +53,12 @@ _SPACECACHE={}
 def gettestobjspace(name=None, **kwds):
     """ helper for instantiating and caching space's for testing. 
     """ 
-    config = make_config(option, objspace=name, **kwds)
+    try:
+        config = make_config(option, objspace=name, **kwds)
+    except ConflictConfigError, e:
+        # this exception is typically only raised if a module is not available.
+        # in this case the test should be skipped
+        py.test.skip(str(e))
     key = config.getkey()
     try:
         return _SPACECACHE[key]
