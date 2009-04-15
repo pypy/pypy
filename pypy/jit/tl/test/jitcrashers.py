@@ -87,3 +87,10 @@ def call(i):
             raise Exception("Explode")
         k += 1
     return k
+
+def jit_importing_posixpath():
+    import posixpath
+
+def jit_importing_site():
+    import site
+
