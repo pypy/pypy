@@ -17,6 +17,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.jit.metainterp import support, history, pyjitpl
 from pypy.jit.metainterp.pyjitpl import MetaInterpStaticData, MetaInterp
 from pypy.jit.metainterp.policy import JitPolicy
+from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 
 # ____________________________________________________________
 # Bootstrapping
@@ -107,7 +108,7 @@ class WarmRunnerDesc:
         pyjitpl._warmrunnerdesc = self   # this is a global for debugging only!
         if policy is None:
             policy = JitPolicy()
-        self.translator = translator
+        self.set_translator(translator)
         self.build_meta_interp(**kwds)
         self.make_args_specification()
         self.rewrite_jit_merge_point()
@@ -123,6 +124,14 @@ class WarmRunnerDesc:
 
     def _freeze_(self):
         return True
+
+    def set_translator(self, translator):
+        self.translator = translator
+        if translator.rtyper.type_system.name == 'lltypesystem':
+            self.ts = LLTypeHelper()
+        else:
+            assert translator.rtyper.type_system.name == 'ootypesystem'
+            self.ts = OOTypeHelper()
 
     def build_meta_interp(self, CPUClass=None, view="auto",
                           translate_support_code=False, optimizer=None,
@@ -197,12 +206,15 @@ class WarmRunnerDesc:
             if i < len(self.jitdriver.greens):
                 self.green_args_spec.append(TYPE)
         RESTYPE = graph.getreturnvar().concretetype
-        self.JIT_ENTER_FUNCTYPE = lltype.FuncType(ALLARGS, lltype.Void)
-        self.PORTAL_FUNCTYPE = lltype.FuncType(ALLARGS, RESTYPE)
+        (self.JIT_ENTER_FUNCTYPE,
+         self.PTR_JIT_ENTER_FUNCTYPE) = self.ts.get_FuncType(ALLARGS, lltype.Void)
+        (self.PORTAL_FUNCTYPE,
+         self.PTR_PORTAL_FUNCTYPE) = self.ts.get_FuncType(ALLARGS, RESTYPE)
+        
 
     def rewrite_can_enter_jit(self):
         FUNC = self.JIT_ENTER_FUNCTYPE
-        FUNCPTR = lltype.Ptr(FUNC)
+        FUNCPTR = self.PTR_JIT_ENTER_FUNCTYPE
         jit_enter_fnptr = self.helper_func(FUNCPTR, self.maybe_enter_jit_fn)
 
         graphs = self.translator.graphs
@@ -269,8 +281,8 @@ class WarmRunnerDesc:
         # ____________________________________________________________
         # Prepare the portal_runner() helper
         #
-        portal_ptr = lltype.functionptr(PORTALFUNC, 'portal',
-                                        graph = portalgraph)
+        portal_ptr = self.ts.functionptr(PORTALFUNC, 'portal',
+                                         graph = portalgraph)
 
         class DoneWithThisFrame(JitException):
             def __init__(self, resultbox):
@@ -323,7 +335,7 @@ class WarmRunnerDesc:
                         raise Exception, value
         ll_portal_runner._recursive_portal_call_ = True
 
-        portal_runner_ptr = self.helper_func(lltype.Ptr(PORTALFUNC),
+        portal_runner_ptr = self.helper_func(self.PTR_PORTAL_FUNCTYPE,
                                              ll_portal_runner)
 
         # ____________________________________________________________
@@ -334,7 +346,7 @@ class WarmRunnerDesc:
         assert op.opname == 'jit_marker'
         assert op.args[0].value == 'jit_merge_point'
         greens_v, reds_v = decode_hp_hint_args(op)
-        vlist = [Constant(portal_runner_ptr, lltype.Ptr(PORTALFUNC))]
+        vlist = [Constant(portal_runner_ptr, self.PTR_PORTAL_FUNCTYPE)]
         vlist += greens_v
         vlist += reds_v
         v_result = Variable()

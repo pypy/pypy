@@ -520,12 +520,6 @@ class TestOOtype(BasicTests, OOJitMixin):
     test_oops_on_nongc = skip
     test_instantiate_classes = skip
 
-    test_loop = skip
-    test_we_are_jitted = skip
-    test_r_uint = skip
-    test_mod_ovf = skip
-    test_bridge_from_interpreter = skip
-
     test_constant_across_mp = skip
     test_stopatxpolicy = skip
     test_print = skip
