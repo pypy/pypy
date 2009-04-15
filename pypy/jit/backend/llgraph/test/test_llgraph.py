@@ -7,7 +7,6 @@ from pypy.jit.metainterp.history import BoxInt, BoxPtr, Const, ConstInt,\
      TreeLoop
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.executor import execute
-from pypy.jit.backend.llgraph.runner import CPU
 from pypy.jit.backend.test.runner import BaseBackendTest
 
 NODE = lltype.GcForwardReference()
@@ -17,11 +16,11 @@ NODE.become(lltype.GcStruct('NODE', ('value', lltype.Signed),
 SUBNODE = lltype.GcStruct('SUBNODE', ('parent', NODE))
 
 
-class TestLLGraph(BaseBackendTest):
+class LLGraphTest(BaseBackendTest):
 
-    def setup_class(cls):
-        cls.cpu = CPU(None)
-    
+    def setup_class(self):
+        self.cpu = self.cpu_type(None)
+
     def eval_llinterp(self, runme, *args, **kwds):
         expected_class = kwds.pop('expected_class', None)
         expected_vals = [(name[9:], kwds[name])
@@ -220,3 +219,10 @@ class TestLLGraph(BaseBackendTest):
         #
         cpu.do_strsetitem([x, BoxInt(4), BoxInt(ord('/'))])
         assert x.getptr(lltype.Ptr(rstr.STR)).chars[4] == '/'
+
+
+class TestLLTypeLLGraph(LLGraphTest):
+    from pypy.jit.backend.llgraph.runner import LLtypeCPU as cpu_type
+
+class TestOOTypeLLGraph(LLGraphTest):
+    from pypy.jit.backend.llgraph.runner import OOtypeCPU as cpu_type
