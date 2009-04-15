@@ -821,6 +821,7 @@ class Assembler386(object):
                                  eax)
         self.places_to_patch_framesize.append(self.mc.tell())
         self.mc.ADD(esp, imm32(0))
+        assert guard_index >= 0
         self.mc.MOV(eax, imm(guard_index))
         self.mc.RET()
 
