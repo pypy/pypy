@@ -118,6 +118,7 @@ class MIFrame(object):
         self.bytecode = jitcode.code
         self.constants = jitcode.constants
         self.exception_target = -1
+        self.name = jitcode.name # purely for having name attribute
 
     # ------------------------------
     # Decoding of the JitCode
