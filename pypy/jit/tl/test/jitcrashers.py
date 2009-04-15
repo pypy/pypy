@@ -5,7 +5,6 @@ def jit_simple_loop():
     while i < 200:
         i = i + 3
     print i
-    s
     #assert i == 102
 
 def jit_simple_inplace_add():
@@ -15,7 +14,6 @@ def jit_simple_inplace_add():
     while i < 200:
         i += 3
     print i
-    assert i == 102
 
 def jit_range():
     print "range object, but outside the loop"
