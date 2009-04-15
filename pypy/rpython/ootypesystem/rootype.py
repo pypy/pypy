@@ -1,3 +1,4 @@
+from pypy.objspace.flow import model as flowmodel
 from pypy.annotation import model as annmodel
 from pypy.rpython.rmodel import Repr
 from pypy.rpython.ootypesystem import ootype
@@ -145,6 +146,23 @@ class OOStaticMethRepr(Repr):
         hop.swap_fst_snd_args()
         hop.r_s_popfirstarg()
         return self.rtype_simple_call(hop)
+
+    def rtype_simple_call(self, hop):
+        vlist = hop.inputargs(*hop.args_r)
+        nexpected = len(self.lowleveltype.ARGS)
+        nactual = len(vlist)-1
+        if nactual != nexpected: 
+            raise TyperError("argcount mismatch:  expected %d got %d" %
+                            (nexpected, nactual))
+        if isinstance(vlist[0], flowmodel.Constant):
+            if hasattr(vlist[0].value, 'graph'):
+                hop.llops.record_extra_call(vlist[0].value.graph)
+            opname = 'direct_call'
+        else:
+            opname = 'indirect_call'
+            vlist.append(hop.inputconst(ootype.Void, None))
+        hop.exception_is_here()
+        return hop.genop(opname, vlist, resulttype = self.lowleveltype.RESULT)
 
 
 class __extend__(pairtype(OOInstanceRepr, OOBoundMethRepr)):

@@ -360,7 +360,11 @@ def llhelper(F, f):
     #       prebuilt_g()
 
     # the next line is the implementation for the purpose of direct running
-    return lltype.functionptr(F.TO, f.func_name, _callable=f)
+    if isinstance(F, ootype.OOType):
+        return ootype.static_meth(F, f.func_name, _callable=f)
+    else:
+        return lltype.functionptr(F.TO, f.func_name, _callable=f)
+
 
 class LLHelperEntry(extregistry.ExtRegistryEntry):
     _about_ = llhelper
@@ -369,11 +373,18 @@ class LLHelperEntry(extregistry.ExtRegistryEntry):
         assert s_F.is_constant()
         assert s_callable.is_constant()
         F = s_F.const
-        args_s = [annmodel.lltype_to_annotation(T) for T in F.TO.ARGS]
+        if isinstance(F, ootype.OOType):
+            FUNC = F
+            resultcls = annmodel.SomeOOStaticMeth
+        else:
+            FUNC = F.TO
+            resultcls = annmodel.SomePtr
+        
+        args_s = [annmodel.lltype_to_annotation(T) for T in FUNC.ARGS]
         key = (llhelper, s_callable.const)
         s_res = self.bookkeeper.emulate_pbc_call(key, s_callable, args_s)
-        assert annmodel.lltype_to_annotation(F.TO.RESULT).contains(s_res)
-        return annmodel.SomePtr(F)
+        assert annmodel.lltype_to_annotation(FUNC.RESULT).contains(s_res)
+        return resultcls(F)
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()

@@ -1,4 +1,5 @@
 from pypy.rpython.lltypesystem.lltype import *
+from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem.rclass import OBJECTPTR
 from pypy.rpython.rclass import fishllattr
 from pypy.translator.translator import TranslationContext
@@ -445,6 +446,34 @@ def test_llhelper():
 
     res = interpret(h, [8, 5, 2])
     assert res == 99
+
+def test_oohelper():
+    S = ootype.Instance('S', ootype.ROOT, {'x': Signed, 'y': Signed})
+    def f(s,z):
+        #assert we_are_translated()
+        return s.x*s.y+z
+
+    def g(s):
+        #assert we_are_translated()
+        return s.x+s.y
+
+    F = ootype.StaticMethod([S, Signed], Signed)
+    G = ootype.StaticMethod([S], Signed)
+        
+    def h(x, y, z):
+        s = ootype.new(S)
+        s.x = x
+        s.y = y
+        fsm = llhelper(F, f)
+        gsm = llhelper(G, g)
+        assert typeOf(fsm) == F
+        return fsm(s, z)+fsm(s, z*2)+gsm(s)
+
+    res = h(8, 5, 2)
+    assert res == 99
+    res = interpret(h, [8, 5, 2], type_system='ootype')
+    assert res == 99
+
 
 
 def test_cast_instance_to_base_ptr():
