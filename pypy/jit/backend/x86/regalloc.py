@@ -161,14 +161,15 @@ class RegAlloc(object):
             for i in range(len(inputargs)):
                 if inputargs[i] is jump.args[i]:
                     loop_consts[inputargs[i]] = i
-            for i in range(len(inputargs)):
-                arg = inputargs[i]
-                jarg = jump.args[i]
-                if arg is not jarg and not isinstance(jarg, Const):
-                    if self.longevity[arg][1] <= self.longevity[jarg][0]:
-                        if jarg not in self.stack_bindings:
-                            self.stack_bindings[jarg] = stack_pos(i)
-                            self.dirty_stack[jarg] = True
+            #for i in range(len(inputargs)):
+            #    arg = inputargs[i]
+            #    jarg = jump.args[i]
+            #    if arg is not jarg and not isinstance(jarg, Const):
+            #        if self.longevity[arg][1] <= self.longevity[jarg][0]:
+            #            if (jarg not in self.stack_bindings and
+            #                arg in self.stack_bindings):
+            #                self.stack_bindings[jarg] = stack_pos(i)
+            #                self.dirty_stack[jarg] = True
         return loop_consts, len(inputargs)
 
     def _check_invariants(self):
