@@ -34,8 +34,10 @@ def apply_jit(translator, backend_name="auto", **kwds):
     warmrunnerdesc.finish()
     translator.warmrunnerdesc = warmrunnerdesc    # for later debugging
 
-def ll_meta_interp(function, args, backendopt=False, **kwds):
-    interp, graph = get_interpreter(function, args, backendopt=backendopt,
+def ll_meta_interp(function, args, backendopt=False, type_system='lltype', **kwds):
+    interp, graph = get_interpreter(function, args,
+                                    backendopt=backendopt,
+                                    type_system=type_system,
                                     inline_threshold=0)
     clear_tcache()
     return jittify_and_run(interp, graph, args, **kwds)

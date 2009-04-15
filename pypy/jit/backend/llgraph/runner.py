@@ -228,12 +228,6 @@ class BaseCPU(model.AbstractCPU):
         token = history.getkind(A.OF)
         return Descr(size, token[0])
 
-    @staticmethod
-    def calldescrof(ARGS, RESULT):
-        token = history.getkind(RESULT)
-        return Descr(0, token[0])
-
-
     def cast_adr_to_int(self, adr):
         return llimpl.cast_adr_to_int(self.memo_cast, adr)
 
@@ -243,6 +237,11 @@ class BaseCPU(model.AbstractCPU):
 
 
 class LLtypeCPU(BaseCPU):
+
+    @staticmethod
+    def calldescrof(FUNC, ARGS, RESULT):
+        token = history.getkind(RESULT)
+        return Descr(0, token[0])
 
     # ---------- the backend-dependent operations ----------
 
@@ -389,8 +388,24 @@ class LLtypeCPU(BaseCPU):
 class OOtypeCPU(BaseCPU):
 
     @staticmethod
+    def calldescrof(FUNC, ARGS, RESULT):
+        return StaticMethDescr(FUNC, ARGS, RESULT)
+
+    @staticmethod
     def methdescrof(METH, methname):
         return MethDescr(METH, methname)
+
+    @staticmethod
+    def typedescrof(TYPE):
+        return TypeDescr(TYPE)
+
+    def do_call(self, args, descr):
+        assert isinstance(descr, StaticMethDescr)
+        funcbox = args[0]
+        argboxes = args[1:]
+        x = descr.callfunc(funcbox, argboxes)
+        # XXX: return None if RESULT is Void
+        return x
 
     def do_oosend(self, args, descr=None):
         assert isinstance(descr, MethDescr)
@@ -400,47 +415,72 @@ class OOtypeCPU(BaseCPU):
         # XXX: return None if METH.RESULT is Void
         return x
 
-    def do_oostring(self, args, descr=None):
-        obj = args[0].getint() # XXX what about other types?
+    def do_oostring_char(self, args, descr=None):
+        char = chr(args[0].getint())
         base = args[1].getint()
-        res = ootype.cast_to_object(ootype.oostring(obj, base))
+        res = ootype.cast_to_object(ootype.oostring(char, base))
         return history.ConstObj(res)
 
-    def do_oounicode(self, args, descr=None):
-        obj = args[0].getint() # XXX what about other types?
+    def do_oounicode_unichar(self, args, descr=None):
+        unichar = unichr(args[0].getint())
         base = args[1].getint()
-        res = ootype.cast_to_object(ootype.oounicode(obj, base))
+        res = ootype.cast_to_object(ootype.oounicode(unichar, base))
         return history.ConstObj(res)
 
+
+def make_getargs_boxres(ARGS, RESULT):
+    argsiter = unrolling_iterable(ARGS)
+    args_n = len(ARGS)
+    def getargs(argboxes):
+        funcargs = ()
+        assert len(argboxes) == args_n
+        i = 0
+        for ARG in argsiter:
+            box = argboxes[i]
+            i+=1
+            if isinstance(ARG, ootype.OOType):
+                arg = ootype.cast_from_object(ARG, box.getobj())
+            else:
+                arg = box.getint()
+            funcargs += (arg,)
+        return funcargs
+
+    def boxresult(result):
+        if isinstance(RESULT, ootype.OOType):
+            return history.BoxObj(ootype.cast_to_object(result))
+        else:
+            return history.BoxInt(lltype.cast_primitive(ootype.Signed, result))
+
+    return getargs, boxresult
+
+class StaticMethDescr(history.AbstractDescr):
+
+    def __init__(self, FUNC, ARGS, RESULT):
+        getargs, boxresult = make_getargs_boxres(ARGS, RESULT)
+        def callfunc(funcbox, argboxes):
+            funcobj = ootype.cast_from_object(FUNC, funcbox.getobj())
+            funcargs = getargs(argboxes)
+            res = funcobj(*funcargs)
+            return boxresult(res)
+        self.callfunc = callfunc
 
 class MethDescr(history.AbstractDescr):
 
     def __init__(self, METH, methname):
         SELFTYPE = METH.SELFTYPE
-        RESULT = METH.RESULT
-        argsiter = unrolling_iterable(METH.ARGS)
-        args_n = len(METH.ARGS)
+        getargs, boxresult = make_getargs_boxres(METH.ARGS, METH.RESULT)
         def callmeth(selfbox, argboxes):
             selfobj = ootype.cast_from_object(SELFTYPE, selfbox.getobj())
-            methargs = ()
-            assert len(argboxes) == args_n
-            i = 0
-            for ARG in argsiter:
-                box = argboxes[i]
-                i+=1
-                if isinstance(ARG, ootype.OOType):
-                    arg = ootype.cast_from_object(ARG, box.getobj())
-                else:
-                    arg = box.getint()
-                methargs += (arg,)
             meth = getattr(selfobj, methname)
-            result = meth(*methargs)
-            if isinstance(RESULT, ootype.OOType):
-                return history.BoxObj(ootype.cast_to_object(result))
-            else:
-                return history.BoxInt(lltype.cast_primitive(ootype.Signed, result))
-
+            methargs = getargs(argboxes)
+            res = meth(*methargs)
+            return boxresult(res)
         self.callmeth = callmeth
+
+class TypeDescr(history.AbstractDescr):
+
+    def __init__(self, TYPE):
+        self.TYPE = TYPE
 
 # ____________________________________________________________
 

@@ -203,7 +203,7 @@ class CPU(object):
                           dict2['setarrayitem'])
 
     @cached_method('_callcache')
-    def calldescrof(self, ARGS, RESULT):
+    def calldescrof(self, FUNC, ARGS, RESULT):
         dict2 = base_dict.copy()
         args = []
         for i, ARG in enumerate(ARGS):

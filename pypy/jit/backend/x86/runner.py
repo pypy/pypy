@@ -607,7 +607,7 @@ class CPU386(object):
             counter += 1
         return counter, basesize, ptr
 
-    def calldescrof(self, argtypes, resulttype):
+    def calldescrof(self, functype, argtypes, resulttype):
         if resulttype is lltype.Void:
             size = 0
         else:

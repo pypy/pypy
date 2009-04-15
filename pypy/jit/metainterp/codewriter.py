@@ -135,7 +135,7 @@ class CodeWriter(object):
             return ()
         # </hack>
         NON_VOID_ARGS = [ARG for ARG in FUNC.ARGS if ARG is not lltype.Void]
-        calldescr = self.cpu.calldescrof(tuple(NON_VOID_ARGS), FUNC.RESULT)
+        calldescr = self.cpu.calldescrof(FUNC, tuple(NON_VOID_ARGS), FUNC.RESULT)
         return (cfnptr, calldescr)
 
     def get_indirectcallset(self, graphs):
@@ -157,7 +157,7 @@ class CodeWriter(object):
         assert NON_VOID_ARGS == [T for T in ARGS if T is not lltype.Void]
         assert RESULT == FUNC.RESULT
         # ok
-        calldescr = self.cpu.calldescrof(tuple(NON_VOID_ARGS), RESULT)
+        calldescr = self.cpu.calldescrof(FUNC, tuple(NON_VOID_ARGS), RESULT)
         return calldescr, non_void_args
 
 
@@ -591,6 +591,11 @@ class BytecodeMaker(object):
             self.emit(self.var_position(op.args[2]))
         self.register_var(op.result)
 
+##     def serialize_op_new(self, op):
+##         TYPE = op.args[0].value
+##         self.emit('new', self.get_position(self.cpu.typedescrof(TYPE)))
+##         self.register_var(op.result)
+
     def serialize_op_zero_gc_pointers_inside(self, op):
         pass   # XXX assume Boehm for now
 
@@ -963,6 +968,13 @@ class BytecodeMaker(object):
             self.emit(self.var_position(op.args[0]))
             self.emit(self.get_position(virtualizabledesc))
             self.emit(self.get_position(guard_field))
+
+    def serialize_op_oostring(self, op):
+        T = op.args[0].concretetype
+        opname = '%s_%s' % (op.opname, T._name.lower())
+        return self.default_serialize_op(op, opname)
+
+    serialize_op_oounicode = serialize_op_oostring
 
     # ----------
 

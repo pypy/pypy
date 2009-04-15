@@ -50,6 +50,7 @@ class JitMixin:
 
     def meta_interp(self, *args, **kwds):
         kwds['CPUClass'] = self.CPUClass
+        kwds['type_system'] = self.type_system
         return ll_meta_interp(*args, **kwds)
 
     def interp_operations(self, f, args, policy=None, **kwds):
@@ -175,15 +176,12 @@ class BasicTests:
                 return "?"
         res = self.interp_operations(f, [1])
         assert res == ord("d") # XXX should be "d"
-        if self.type_system != 'ootype':
-            # this test fails on ootype, see test_chr2str
-            res = self.interp_operations(f, [6])
-            assert res == 6
+        res = self.interp_operations(f, [6])
+        assert res == 6
         res = self.interp_operations(f, [42])
         assert res == ord("?")
 
     def test_chr2str(self):
-        # the problem is that we call oostring(6) instead of oostring('\x06')
         def f(n):
             s = chr(n)
             return s[0]
@@ -516,14 +514,17 @@ class TestOOtype(BasicTests, OOJitMixin):
     def skip(self):
         py.test.skip('in-progress')
 
-    test_chr2str = skip
-    test_unicode = skip # for the same reason as test_chr2str
-    test_residual_call = skip
     test_format = skip
     test_getfield = skip
     test_getfield_immutable = skip
     test_oops_on_nongc = skip
     test_instantiate_classes = skip
+
+    test_loop = skip
+    test_we_are_jitted = skip
+    test_r_uint = skip
+    test_mod_ovf = skip
+    test_bridge_from_interpreter = skip
 
     test_constant_across_mp = skip
     test_stopatxpolicy = skip

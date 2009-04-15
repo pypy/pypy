@@ -39,7 +39,15 @@ class AbstractCPU(object):
         raise NotImplementedError
 
     @staticmethod
-    def calldescrof(ARGS, RESULT):
+    def calldescrof(FUNC, ARGS, RESULT):
+        raise NotImplementedError
+
+    @staticmethod
+    def methdescrof(METH, methname):
+        raise NotImplementedError
+
+    @staticmethod
+    def typedescrof(TYPE):
         raise NotImplementedError
 
     def cast_adr_to_int(self, adr):
@@ -122,8 +130,8 @@ class AbstractCPU(object):
     def do_oosend(cpu, args, descr=None):
         raise NotImplementedError
 
-    def do_oostring(cpu, args, descr=None):
+    def do_oostring_char(cpu, args, descr=None):
         raise NotImplementedError
 
-    def do_oounicode(cpu, args, descr=None):
+    def do_oounicode_unichar(cpu, args, descr=None):
         raise NotImplementedError
