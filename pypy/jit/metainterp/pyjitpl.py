@@ -644,19 +644,19 @@ class MIFrame(object):
         #self.starts_with_greens()
         #assert len(argboxes) == len(self.graph.getargs())
 
-    def setup_resume_at_op(self, pc, const_part, liveboxes, lbindex,
+    def setup_resume_at_op(self, pc, nums, consts, liveboxes,
                            exception_target):
         if not we_are_translated():
             check_args(*liveboxes)
         self.pc = pc
         self.exception_target = exception_target
         self.env = []
-        for box in const_part:
-            if box is None:
-                box = liveboxes[lbindex]
-                lbindex += 1
+        for num in nums:
+            if num >= 0:
+                box = liveboxes[num]
+            else:
+                box = consts[~num]
             self.env.append(box)
-        return lbindex
 
     def run_one_step(self):
         # Execute the frame forward.  This method contains a loop that leaves
@@ -685,22 +685,31 @@ class MIFrame(object):
         #     if possible totally
         resume_info = []
         liveboxes = []
+        consts = []
+        memo = {}
         for frame in self.metainterp.framestack:
-            const_part = []
+            nums = []
             for framebox in frame.env:
                 assert framebox is not None
                 if isinstance(framebox, Box):
-                    liveboxes.append(framebox)
-                    framebox = None
-                const_part.append(framebox)
-            resume_info.append((frame.jitcode, frame.pc, const_part,
+                    try:
+                        num = memo[framebox]
+                    except KeyError:
+                        num = len(liveboxes)
+                        memo[framebox] = num
+                        liveboxes.append(framebox)
+                else:
+                    num = ~len(consts)
+                    consts.append(framebox)
+                nums.append(num)
+            resume_info.append((frame.jitcode, frame.pc, nums,
                                 frame.exception_target))
         if box is not None:
             moreargs = [box] + extraargs
         else:
             moreargs = list(extraargs)
         guard_op = self.metainterp.history.record(opnum, moreargs, None)
-        resumedescr = compile.ResumeGuardDescr(resume_info,
+        resumedescr = compile.ResumeGuardDescr(resume_info, consts,
             self.metainterp.history, len(self.metainterp.history.operations)-1)
         op = history.ResOperation(rop.FAIL, liveboxes, None, descr=resumedescr)
         guard_op.suboperations = [op]
@@ -1208,6 +1217,7 @@ class MetaInterp(object):
             # the BlackHole is invalid because it doesn't start with
             # guard_failure.key.guard_op.suboperations, but that's fine
         self.rebuild_state_after_failure(resumedescr.resume_info,
+                                         resumedescr.consts,
                                          guard_failure.args)
 
     def handle_exception(self):
@@ -1227,17 +1237,14 @@ class MetaInterp(object):
             frame.generate_guard(frame.pc, rop.GUARD_NO_EXCEPTION, None, [])
             return False
 
-    def rebuild_state_after_failure(self, resume_info, newboxes):
+    def rebuild_state_after_failure(self, resume_info, consts, newboxes):
         if not we_are_translated():
             self._debug_history.append(['guard_failure', None, None])
         self.framestack = []
-        nbindex = 0
-        for jitcode, pc, const_part, exception_target in resume_info:
+        for jitcode, pc, nums, exception_target in resume_info:
             f = self.newframe(jitcode)
-            nbindex = f.setup_resume_at_op(pc, const_part, newboxes, nbindex,
+            f.setup_resume_at_op(pc, nums, consts, newboxes,
                                            exception_target)
-        assert nbindex == len(newboxes), "too many newboxes!"
-
 
 class GenerateMergePoint(Exception):
     def __init__(self, args, target_loop):

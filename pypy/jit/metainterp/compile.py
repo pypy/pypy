@@ -170,12 +170,13 @@ del _loop
 
 
 class ResumeGuardDescr(AbstractDescr):
-    def __init__(self, resume_info, history, history_guard_index):
+    def __init__(self, resume_info, consts, history, history_guard_index):
         self.resume_info = resume_info
         self.counter = 0
         self.history = history
         assert history_guard_index >= 0
         self.history_guard_index = history_guard_index
+        self.consts = consts
 
     def handle_fail_op(self, metainterp_sd, fail_op):
         from pypy.jit.metainterp.pyjitpl import MetaInterp
