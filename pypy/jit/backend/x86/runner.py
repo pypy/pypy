@@ -640,7 +640,7 @@ class CPU386(object):
 
     @staticmethod
     def cast_int_to_adr(x):
-        assert x == 0 or x > (1<<20)
+        assert x == 0 or x > (1<<20) or x < (-1<<20)
         if we_are_translated():
             return rffi.cast(llmemory.Address, x)
         else:
@@ -651,7 +651,7 @@ class CPU386(object):
         return rffi.cast(lltype.Signed, x)
 
     def cast_int_to_gcref(self, x):
-        assert x == 0 or x > (1<<20)
+        assert x == 0 or x > (1<<20) or x < (-1<<20)
         return rffi.cast(llmemory.GCREF, x)
 
     # ---------------------------- tests ------------------------
