@@ -437,23 +437,34 @@ class TestX86(BaseBackendTest):
         cpu.do_strsetitem([x, BoxInt(4), BoxInt(ord('/'))])
         assert x.getptr(lltype.Ptr(rstr.STR)).chars[4] == '/'
 
-    def test_oononnull_with_guard(self):
+    def test_nullity_with_guard(self):
+        allops = [rop.OONONNULL, rop.OOISNULL]
+        guards = [rop.GUARD_TRUE, rop.GUARD_FALSE]
         p = lltype.cast_opaque_ptr(llmemory.GCREF,
                                    lltype.malloc(lltype.GcStruct('x')))
         p = BoxPtr(p)
+        nullptr = lltype.nullptr(llmemory.GCREF.TO)
+        n = BoxPtr(nullptr)
         f = BoxInt()
-        ops = [
-            ResOperation(rop.OONONNULL, [p], f),
-            ResOperation(rop.GUARD_TRUE, [f], None),
-            ResOperation(rop.FAIL, [ConstInt(0)], None),
-            ]
-        ops[1].suboperations = [ResOperation(rop.FAIL, [ConstInt(1)], None)]
-        loop = TreeLoop('name')
-        loop.operations = ops
-        loop.inputargs = [p]
-        self.cpu.compile_operations(loop)
-        op = self.cpu.execute_operations(loop, [p])
-        assert op.args[0].value == 0
+        for b in (p, n):
+            for op in allops:
+                for guard in guards:
+                    ops = [
+                        ResOperation(op, [b], f),
+                        ResOperation(guard, [f], None),
+                        ResOperation(rop.FAIL, [ConstInt(0)], None),
+                        ]
+                    ops[1].suboperations = [ResOperation(rop.FAIL, [ConstInt(1)], None)]
+                    loop = TreeLoop('name')
+                    loop.operations = ops
+                    loop.inputargs = [b]
+                    self.cpu.compile_operations(loop)
+                    r = self.cpu.execute_operations(loop, [b])
+                    if guard == rop.GUARD_FALSE:
+                        assert r.args[0].value == execute(self.cpu, op, [b]).value
+                    else:
+                        assert r.args[0].value != execute(self.cpu, op, [b]).value
+                    
 
     def test_stuff_followed_by_guard(self):
         boxes = [(BoxInt(1), BoxInt(0)),
