@@ -48,7 +48,7 @@ class __extend__(PyFrame):
         except ExitFrame:
             return self.popvalue()
 
-    def JUMP_ABSOLUTE(f, jumpto, next_instr, ec):
+    def JUMP_ABSOLUTE(f, jumpto, next_instr, ec=None):
         pypyjitdriver.can_enter_jit(frame=f, ec=ec, next_instr=jumpto,
                                     pycode=f.getcode())
         return jumpto
