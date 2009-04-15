@@ -40,16 +40,15 @@ class __extend__(PyFrame):
         next_instr = r_uint(next_instr)
         try:
             while True:
-                pypyjitdriver.jit_merge_point(
-                    frame=self, ec=ec, next_instr=next_instr, pycode=pycode)
+                pypyjitdriver.jit_merge_point(ec=ec,
+                    frame=self, next_instr=next_instr, pycode=pycode)
                 co_code = pycode.co_code
                 self.valuestackdepth = hint(self.valuestackdepth, promote=True)
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
         except ExitFrame:
             return self.popvalue()
 
-    def JUMP_ABSOLUTE(f, jumpto, next_instr, *ignored):
-        ec = f.space.getexecutioncontext()
+    def JUMP_ABSOLUTE(f, jumpto, next_instr, ec):
         pypyjitdriver.can_enter_jit(frame=f, ec=ec, next_instr=jumpto,
                                     pycode=f.getcode())
         return jumpto

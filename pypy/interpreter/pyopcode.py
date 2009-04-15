@@ -221,6 +221,9 @@ class __extend__(pyframe.PyFrame):
                         next_instr = block.handle(self, unroller)
                 return next_instr
 
+            if opcode == opcodedesc.JUMP_ABSOLUTE.index:
+                return self.JUMP_ABSOLUTE(oparg, next_instr, ec)
+
             if we_are_translated():
                 from pypy.rlib import rstack # for resume points
 
