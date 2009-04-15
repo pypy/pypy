@@ -183,12 +183,15 @@ class CPU386(object):
         return self.assembler._exception_bck[0]
 
     def get_exc_value(self):
+        self.assembler.make_sure_mc_exists()
         return self.cast_int_to_gcref(self.assembler._exception_bck[1])
 
     def clear_exception(self):
+        self.assembler.make_sure_mc_exists()
         self.assembler._exception_bck[0] = 0
 
     def set_overflow_error(self):
+        self.assembler.make_sure_mc_exists()
         ovf_vtable = self.cast_adr_to_int(self.assembler._ovf_error_vtable)
         ovf_inst = self.cast_adr_to_int(self.assembler._ovf_error_inst)
         self.assembler._exception_bck[0] = ovf_vtable
