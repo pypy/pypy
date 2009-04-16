@@ -91,7 +91,6 @@ class __extend__(pyframe.PyFrame):
 
         try:
             next_instr = self.dispatch_bytecode(co_code, next_instr, ec)
-            self.check_interpreter_state()
             rstack.resume_point("handle_bytecode", self, co_code, ec,
                                 returns=next_instr)
         except OperationError, operr:
@@ -172,6 +171,7 @@ class __extend__(pyframe.PyFrame):
     def dispatch_bytecode(self, co_code, next_instr, ec):
         space = self.space
         while True:
+            self.check_interpreter_state()
             self.last_instr = intmask(next_instr)
             if not we_are_jitted():
                 ec.bytecode_trace(self)
