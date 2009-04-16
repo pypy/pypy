@@ -82,11 +82,16 @@ class __extend__(pyframe.PyFrame):
         except ExitFrame:
             return self.popvalue()
 
+    def check_interpreter_state(self):
+        for i in range(self.valuestackdepth):
+            assert self.valuestack_w[i] is not None
+
     def handle_bytecode(self, co_code, next_instr, ec):
         from pypy.rlib import rstack # for resume points
 
         try:
             next_instr = self.dispatch_bytecode(co_code, next_instr, ec)
+            self.check_interpreter_state()
             rstack.resume_point("handle_bytecode", self, co_code, ec,
                                 returns=next_instr)
         except OperationError, operr:
