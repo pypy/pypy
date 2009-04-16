@@ -183,3 +183,35 @@ def test_same_cases():
         actual = interp.eval_graph(graph, [i])
         assert actual == expected
 
+def test_replace_exitswitch_by_constant_bug():
+    class X:
+        pass
+    def constant9():
+        x = X()
+        x.n = 3
+        x.n = 9
+        return x.n
+    def fn():
+        n = constant9()
+        if n == 1: return 5
+        elif n == 2: return 6
+        elif n == 3: return 8
+        elif n == 4: return -123
+        elif n == 5: return 12973
+        else: return n
+    
+    t = TranslationContext()
+    a = t.buildannotator()
+    a.build_types(fn, [])
+    rtyper = t.buildrtyper()
+    rtyper.specialize()
+    graph = t.graphs[0]
+    remove_same_as(graph)
+    merge_if_blocks_once(graph)
+    from pypy.translator.backendopt import malloc, inline
+    inline.auto_inlining(t, 20)
+    malloc.remove_mallocs(t, t.graphs)
+    from pypy.translator import simplify
+    t.view()
+    simplify.join_blocks(graph)
+    t.view()
