@@ -95,7 +95,7 @@ class Assembler386(object):
     log_fd = -1
     mc = None
     mc2 = None
-    debug_markers = False
+    debug_markers = True
 
     def __init__(self, cpu, translate_support_code=False):
         self.cpu = cpu

@@ -295,7 +295,7 @@ class CPU386(object):
         #    llop.debug_print(lltype.Void, 'exec:', name, values_repr)
         self.assembler.log_call(valueboxes)
         self.keepalives_index = len(self.keepalives)
-        guard_index = self.execute_call(loop, func, values_as_int)
+        guard_index = self.execute_call(loop, func, values_as_int, len(valueboxes))
         self._guard_index = guard_index # for tests
         keepalive_until_here(valueboxes)
         self.keepalives_index = oldindex
@@ -310,7 +310,7 @@ class CPU386(object):
             self.set_value_of_box(box, i, self.assembler.fail_boxes)
         return op
 
-    def execute_call(self, loop, func, values_as_int):
+    def execute_call(self, loop, func, values_as_int, lgt):
         # help flow objspace
         prev_interpreter = None
         if not self.translate_support_code:
@@ -319,7 +319,9 @@ class CPU386(object):
         res = 0
         try:
             self.caught_exception = None
+            print "Entering: %d" % rffi.cast(lltype.Signed, func)
             res = func(values_as_int)
+            print "Leaving at: %d" % self.assembler.fail_boxes[lgt]
             self.reraise_caught_exception()
         finally:
             if not self.translate_support_code:
