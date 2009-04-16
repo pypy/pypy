@@ -272,7 +272,11 @@ class Assembler386(object):
                 self.mc.MOV(loc, ecx)
         for i in range(len(arglocs)):
             loc = arglocs[i]
-            if isinstance(loc, REG):
+            if isinstance(loc, REG) and loc is not eax:
+                self.mc.MOV(loc, mem(eax, i * WORD))
+        for i in range(len(arglocs)):
+            loc = arglocs[i]
+            if loc is eax:
                 self.mc.MOV(loc, mem(eax, i * WORD))
         self.mc.JMP(rel32(jumpaddr))
         self.mc.done()
