@@ -311,7 +311,7 @@ class CPU386(object):
             self.set_value_of_box(box, i, self.assembler.fail_boxes)
         return op
 
-    def execute_call(self, loop, func, values_as_int, lgt):
+    def execute_call(self, loop, func, values_as_int):
         # help flow objspace
         prev_interpreter = None
         if not self.translate_support_code:
