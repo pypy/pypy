@@ -13,7 +13,7 @@ from pypy.jit.metainterp.resoperation import rop
 
 # esi edi and ebp can be added to this list, provided they're correctly
 # saved and restored
-REGS = [eax, ecx, edx, ebx]
+REGS = [eax, ecx, edx]
 WORD = 4
 
 class TempBox(Box):
