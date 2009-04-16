@@ -89,6 +89,7 @@ def call(i):
     return k
 
 def jit_importing_posixpath():
+    import os
     import posixpath
 
 def jit_importing_site():
