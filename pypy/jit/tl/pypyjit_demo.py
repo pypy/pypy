@@ -95,4 +95,6 @@ try:
     #f1()
 except Exception, e:
     print '/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\'
-    print e.__class__, e
+    import sys
+    import traceback
+    traceback.print_exception(*sys.exc_info())
