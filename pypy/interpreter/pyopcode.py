@@ -82,11 +82,6 @@ class __extend__(pyframe.PyFrame):
         except ExitFrame:
             return self.popvalue()
 
-    def check_interpreter_state(self):
-        if we_are_translated():
-            for i in range(self.valuestackdepth):
-                assert self.valuestack_w[i] is not None
-
     def handle_bytecode(self, co_code, next_instr, ec):
         from pypy.rlib import rstack # for resume points
 
@@ -172,14 +167,11 @@ class __extend__(pyframe.PyFrame):
     def dispatch_bytecode(self, co_code, next_instr, ec):
         space = self.space
         while True:
-            self.check_interpreter_state()
             self.last_instr = intmask(next_instr)
             if not we_are_jitted():
                 ec.bytecode_trace(self)
                 next_instr = r_uint(self.last_instr)
             opcode = ord(co_code[next_instr])
-            if we_are_translated():
-                print "DISPATCHING: %d" % (opcode,)
             next_instr += 1
             if space.config.objspace.logbytecodes:
                 space.bytecodecounts[opcode] = space.bytecodecounts.get(opcode, 0) + 1
