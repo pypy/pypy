@@ -83,8 +83,9 @@ class __extend__(pyframe.PyFrame):
             return self.popvalue()
 
     def check_interpreter_state(self):
-        for i in range(self.valuestackdepth):
-            assert self.valuestack_w[i] is not None
+        if we_are_translated():
+            for i in range(self.valuestackdepth):
+                assert self.valuestack_w[i] is not None
 
     def handle_bytecode(self, co_code, next_instr, ec):
         from pypy.rlib import rstack # for resume points
