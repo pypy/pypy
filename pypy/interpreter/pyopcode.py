@@ -178,7 +178,8 @@ class __extend__(pyframe.PyFrame):
                 ec.bytecode_trace(self)
                 next_instr = r_uint(self.last_instr)
             opcode = ord(co_code[next_instr])
-            print "DISPATCHING: %d" % (opcode,)
+            if we_are_translated():
+                print "DISPATCHING: %d" % (opcode,)
             next_instr += 1
             if space.config.objspace.logbytecodes:
                 space.bytecodecounts[opcode] = space.bytecodecounts.get(opcode, 0) + 1
