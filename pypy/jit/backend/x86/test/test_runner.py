@@ -118,6 +118,20 @@ class TestX86(BaseBackendTest):
             ]:
             assert self.execute_operation(op, args, tp).value == res
 
+    def test_unicode(self):
+        ofs = symbolic.get_field_token(rstr.UNICODE, 'chars', False)[0]
+        u = rstr.mallocunicode(13)
+        for i in range(13):
+            u.chars[i] = unichr(ord(u'a') + i)
+        b = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, u))
+        r = self.execute_operation(rop.UNICODEGETITEM, [b, ConstInt(2)], 'int')
+        assert r.value == ord(u'a') + 2
+        self.execute_operation(rop.UNICODESETITEM, [b, ConstInt(2),
+                                                    ConstInt(ord(u'z'))],
+                               'void')
+        assert u.chars[2] == u'z'
+        
+
     def test_allocations(self):
         from pypy.rpython.lltypesystem import rstr
         

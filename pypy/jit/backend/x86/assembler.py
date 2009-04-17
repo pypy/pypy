@@ -629,7 +629,7 @@ class Assembler386(object):
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
                                               self.cpu.translate_support_code)
         assert itemsize == 4
-        self.mc.MOV(addr_add(base_loc, ofs_loc, basesize), val_loc)
+        self.mc.MOV(addr_add(base_loc, ofs_loc, basesize, 2), val_loc)
 
     genop_discard_setfield_raw = genop_discard_setfield_gc
 
@@ -661,7 +661,7 @@ class Assembler386(object):
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
                                              self.cpu.translate_support_code)
         assert itemsize == 4
-        self.mc.MOV(resloc, addr_add(base_loc, ofs_loc, basesize))
+        self.mc.MOV(resloc, addr_add(base_loc, ofs_loc, basesize, 2))
 
     def make_merge_point(self, tree, locs):
         pos = self.mc.tell()
