@@ -787,27 +787,21 @@ class Assembler386(object):
         self.mc = self.mc2
         self.mc2 = self.mcstack.next_mc()
         addr = self.mc.tell()
+        exc = False
+        if ovf:
+            regalloc.position = -1
+            self.generate_ovf_set()
+            exc = True
         if (guard_op.opnum == rop.GUARD_EXCEPTION or
             guard_op.opnum == rop.GUARD_NO_EXCEPTION):
             exc = True
-        else:
-            exc = False
-        if exc or ovf:
-            box = TempBox()
-            regalloc.position = -1
-            if ovf:
-                self.generate_ovf_set()
-            else:
-                loc = regalloc.force_allocate_reg(box, [])
-                self.generate_exception_handling(loc)
-            regalloc.eventually_free_var(box)
-        regalloc.walk_guard_ops(guard_op.inputargs, guard_op.suboperations)
+        regalloc.walk_guard_ops(guard_op.inputargs, guard_op.suboperations, exc)
         self.mcstack.give_mc_back(self.mc2)
         self.mc2 = self.mc
         self.mc = oldmc
         return addr
 
-    def generate_failure(self, op, locs, guard_index):
+    def generate_failure(self, op, locs, guard_index, exc):
         pos = self.mc.tell()
         for i in range(len(locs)):
             loc = locs[i]
@@ -823,6 +817,8 @@ class Assembler386(object):
             self.mc.MOV(addr_add(imm(self.fail_box_addr),
                                  imm(len(locs) * WORD)),
                                  eax)
+        if exc:
+            self.generate_exception_handling(eax)
         self.places_to_patch_framesize.append(self.mc.tell())
         self.mc.ADD(esp, imm32(0))
         self.mc.MOV(eax, imm(guard_index))
@@ -830,10 +826,10 @@ class Assembler386(object):
 
     def generate_ovf_set(self):
         ovf_error_vtable = self.cpu.cast_adr_to_int(self._ovf_error_vtable)
-        self.mc.MOV(addr_add(imm(self._exception_bck_addr), imm(0)),
+        self.mc.MOV(addr_add(imm(self._exception_addr), imm(0)),
                     imm(ovf_error_vtable))
         ovf_error_instance = self.cpu.cast_adr_to_int(self._ovf_error_inst)
-        self.mc.MOV(addr_add(imm(self._exception_bck_addr), imm(WORD)),
+        self.mc.MOV(addr_add(imm(self._exception_addr), imm(WORD)),
                     imm(ovf_error_instance))
 
     def generate_exception_handling(self, loc):

@@ -46,6 +46,7 @@ def convert_to_imm(c):
 class RegAlloc(object):
     guard_index = -1
     max_stack_depth = 0
+    exc = False
     
     def __init__(self, assembler, tree, translate_support_code=False,
                  regalloc=None, guard_op=None):
@@ -257,7 +258,8 @@ class RegAlloc(object):
         self.process_inputargs(tree)
         self._walk_operations(operations)
 
-    def walk_guard_ops(self, inputargs, operations):
+    def walk_guard_ops(self, inputargs, operations, exc):
+        self.exc = exc
         for arg in inputargs:
             if arg not in self.reg_bindings:
                 assert arg in self.stack_bindings
@@ -633,7 +635,7 @@ class RegAlloc(object):
     def consider_fail(self, op, ignored):
         # make sure all vars are on stack
         locs = [self.loc(arg) for arg in op.args]
-        self.assembler.generate_failure(op, locs, self.guard_index)
+        self.assembler.generate_failure(op, locs, self.guard_index, self.exc)
         self.eventually_free_vars(op.args)
 
     def consider_guard_nonvirtualized(self, op, ignored):
