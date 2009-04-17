@@ -313,6 +313,9 @@ class TestLoop(LLJitMixin):
             return x
         expected = f(100)
         res = self.meta_interp(f, [100])
+        assert len(res.chars) == len(expected)
+        for i in range(len(expected)):
+            assert expected[i] == res.chars[i]
 
     def test_adapt_bridge_to_merge_point(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'z'])
