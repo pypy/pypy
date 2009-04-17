@@ -95,3 +95,8 @@ def jit_importing_posixpath():
 def jit_importing_site():
     import site
 
+def jit_unicode_formatting():
+    d = []
+    for i in range(1000):
+        d[i] = u'\\xyz%d' % i
+
