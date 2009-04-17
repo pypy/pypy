@@ -593,7 +593,7 @@ class CPU386(object):
         basesize, itemsize, ofs_length = symbolic.get_array_token(A,
                                                   self.translate_support_code)
         assert ofs_length == 0
-        if isinstance(A.OF, lltype.Ptr):
+        if isinstance(A.OF, lltype.Ptr) and A.OF.TO._gckind == 'gc':
             ptr = True
         else:
             ptr = False

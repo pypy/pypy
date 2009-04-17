@@ -1,5 +1,4 @@
 import py
-py.test.skip("update me")
 from pypy.jit.backend.x86.symbolic import *
 from pypy.jit.backend.x86.runner import CPU386
 from pypy.rpython.lltypesystem import lltype, rffi
@@ -13,9 +12,9 @@ S = lltype.GcStruct('S', ('x', lltype.Signed),
 
 
 def test_field_token():
-    ofs_x, size_x = get_field_token(S, 'x')
-    ofs_y, size_y = get_field_token(S, 'y')
-    ofs_z, size_z = get_field_token(S, 'z')
+    ofs_x, size_x = get_field_token(S, 'x', False)
+    ofs_y, size_y = get_field_token(S, 'y', False)
+    ofs_z, size_z = get_field_token(S, 'z', False)
     # ofs_x might be 0 or not, depending on how we count the headers
     # but the rest should be as expected for a 386 machine
     assert size_x == size_y == size_z == 4
@@ -24,34 +23,43 @@ def test_field_token():
     assert ofs_z == ofs_x + 8
 
 def test_struct_size():
-    ofs_z, size_z = get_field_token(S, 'z')
-    totalsize = get_size(S)
+    ofs_z, size_z = get_field_token(S, 'z', False)
+    totalsize = get_size(S, False)
     assert totalsize == ofs_z + 4
 
 def test_primitive_size():
-    assert get_size(lltype.Signed) == 4
-    assert get_size(lltype.Char) == 1
-    assert get_size(lltype.Ptr(S)) == 4
+    assert get_size(lltype.Signed, False) == 4
+    assert get_size(lltype.Char, False) == 1
+    assert get_size(lltype.Ptr(S), False) == 4
 
 def test_array_token():
     A = lltype.GcArray(lltype.Char)
-    basesize, itemsize, ofs_length = get_array_token(A)
+    basesize, itemsize, ofs_length = get_array_token(A, False)
     assert basesize >= 4    # at least the 'length', maybe some gc headers
     assert itemsize == 1
     assert ofs_length == basesize - 4
     A = lltype.GcArray(lltype.Signed)
-    basesize, itemsize, ofs_length = get_array_token(A)
+    basesize, itemsize, ofs_length = get_array_token(A, False)
     assert basesize >= 4    # at least the 'length', maybe some gc headers
     assert itemsize == 4
     assert ofs_length == basesize - 4
+
+def test_array_token_2():
+    cpu = CPU386(None, None)
+    A = lltype.GcArray(lltype.Ptr(lltype.Array(lltype.Signed)))
+    descr = cpu.arraydescrof(A)
+    assert not descr.v[2]
+    A = lltype.GcArray(lltype.Ptr(lltype.GcArray(lltype.Signed)))
+    descr = cpu.arraydescrof(A)
+    assert descr.v[2]
 
 def test_varsized_struct_size():
     S1 = lltype.GcStruct('S1', ('parent', S),
                                ('extra', lltype.Signed),
                                ('chars', lltype.Array(lltype.Char)))
-    size_parent = get_size(S)
-    ofs_extra, size_extra = get_field_token(S1, 'extra')
-    basesize, itemsize, ofs_length = get_array_token(S1)
+    size_parent = get_size(S, False)
+    ofs_extra, size_extra = get_field_token(S1, 'extra', False)
+    basesize, itemsize, ofs_length = get_array_token(S1, False)
     assert size_parent == ofs_extra
     assert size_extra == 4
     assert ofs_length == ofs_extra + 4
@@ -59,8 +67,9 @@ def test_varsized_struct_size():
     assert itemsize == 1
 
 def test_methods_of_cpu():
+    py.test.skip("A bit pointless")
     cpu = CPU386(rtyper=None, stats=FakeStats())
-    assert cpu.sizeof(S) == get_size(S)
+    assert cpu.sizeof(S) == get_size(S, False)
     assert cpu.fielddescrof(S, 'y') & 0xffff == get_field_token(S, 'y')[0]
     assert cpu.fielddescrof(S, 'y') >> 16 == get_field_token(S, 'y')[1]
     A = lltype.GcArray(lltype.Char)
@@ -70,7 +79,7 @@ def test_methods_of_cpu():
 def test_string():
     STR = lltype.GcStruct('String', ('hash', lltype.Signed),
                                     ('chars', lltype.Array(lltype.Char)))
-    basesize, itemsize, ofs_length = get_array_token(STR)
+    basesize, itemsize, ofs_length = get_array_token(STR, False)
     assert itemsize == 1
     s1 = lltype.malloc(STR, 4)
     s1.chars[0] = 's'
