@@ -4,7 +4,7 @@ Built-in functions.
 
 import sys
 from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
-from pypy.annotation.model import SomeString, SomeTuple, s_Bool
+from pypy.annotation.model import SomeString, SomeTuple, s_Bool, SomeBuiltin
 from pypy.annotation.model import SomeUnicodeCodePoint, SomeAddress
 from pypy.annotation.model import SomeFloat, unionof, SomeUnicodeString
 from pypy.annotation.model import SomePBC, SomeInstance, SomeDict
@@ -186,7 +186,8 @@ def builtin_isinstance(s_obj, s_type, variables=None):
         for variable in variables:
             assert bk.annotator.binding(variable) == s_obj
         r.knowntypedata = {}
-        add_knowntypedata(r.knowntypedata, True, variables, bk.valueoftype(typ))
+        if not isinstance(s_type, SomeBuiltin):
+            add_knowntypedata(r.knowntypedata, True, variables, bk.valueoftype(typ))
     return r
 
 # note that this one either needs to be constant, or we will create SomeObject

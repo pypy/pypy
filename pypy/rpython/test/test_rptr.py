@@ -313,3 +313,13 @@ def test_interior_ptr_with_setitem():
     res = interpret(f, [])
     assert res == 1
  
+def test_isinstance_Ptr():
+    S = GcStruct("S", ('x', Signed))
+    def f(n):
+        x = isinstance(Signed, Ptr)
+        return x + (typeOf(x) is Ptr(S)) + len(n)
+    def lltest():
+        f([])
+        return f([1])
+    s, t = ll_rtype(lltest, [])
+    assert s.is_constant() == False
