@@ -630,7 +630,10 @@ class BytecodeMaker(object):
         RESULT = op.result.concretetype
         if RESULT is lltype.Void:
             return
-        self.emit('getfield_gc')
+        if v_inst.concretetype._hints.get('immutable'):
+            self.emit('getfield_gc_pure')            
+        else:
+            self.emit('getfield_gc')
         self.emit(self.var_position(v_inst))
         descr = self.cpu.fielddescrof(v_inst.concretetype,
                                        c_fieldname.value)

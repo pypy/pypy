@@ -515,7 +515,6 @@ class TestOOtype(BasicTests, OOJitMixin):
         py.test.skip('in-progress')
 
     test_format = skip
-    test_getfield_immutable = skip
     test_oops_on_nongc = skip
     test_instantiate_classes = skip
 
