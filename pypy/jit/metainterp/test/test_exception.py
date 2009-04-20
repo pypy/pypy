@@ -39,6 +39,47 @@ class ExceptionTests:
                           'int_gt': 1, 'guard_true': 1,
                           'int_sub': 1})
 
+
+    def test_bridge_from_guard_exception(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n'])
+        def check(n):
+            if n % 2:
+                raise ValueError
+        
+        def f(n):
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n)
+                myjitdriver.jit_merge_point(n=n)
+                try:
+                    check(n)
+                    n -= 1
+                except ValueError:
+                    n -= 3
+            return n
+
+        res = self.meta_interp(f, [20], policy=StopAtXPolicy(check))
+        assert res == f(20)
+
+    def test_bridge_from_guard_no_exception(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n'])
+        def check(n):
+            if n % 2 == 0:
+                raise ValueError
+        
+        def f(n):
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n)
+                myjitdriver.jit_merge_point(n=n)
+                try:
+                    check(n)
+                    n -= 1
+                except ValueError:
+                    n -= 3
+            return n
+
+        res = self.meta_interp(f, [20], policy=StopAtXPolicy(check))
+        assert res == f(20)
+
     def test_loop(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])
         def check(n):
@@ -322,6 +363,8 @@ class ExceptionTests:
         assert res == 1
 
     def test_int_lshift_ovf(self):
+        from pypy.jit.metainterp.simple_optimize import Optimizer
+        
         myjitdriver = JitDriver(greens = [], reds = ['n', 'x', 'y'])
         def f(x, y, n):
             while n < 100:
@@ -335,7 +378,7 @@ class ExceptionTests:
                 n += 1
             return n
 
-        res = self.meta_interp(f, [1, 1, 0])
+        res = self.meta_interp(f, [1, 1, 0], optimizer=Optimizer)
         assert res == f(1, 1, 0)
 
     def test_reraise_through_portal(self):
