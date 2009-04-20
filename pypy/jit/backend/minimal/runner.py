@@ -13,6 +13,10 @@ class CPU(object):
     def __init__(self, rtyper, stats, translate_support_code=False,
                  mixlevelann=None):
         self.rtyper = rtyper
+        if rtyper is not None:
+            self.is_oo = rtyper.type_system.name == "ootypesystem"
+        else:
+            self.is_oo = False
         self.stats = stats
         self.translate_support_code = translate_support_code
         self.setup()
@@ -72,7 +76,7 @@ class CPU(object):
                                                        op.descr)
                 if op.result is not None:
                     assert resbox is not None
-                    env[op.result] = resbox.clonebox()
+                    env[op.result] = resbox
                 else:
                     assert resbox is None
             #
