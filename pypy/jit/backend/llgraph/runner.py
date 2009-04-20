@@ -491,6 +491,7 @@ class OODescr(history.AbstractDescr):
 class StaticMethDescr(OODescr):
 
     def __init__(self, FUNC, ARGS, RESULT):
+        self.FUNC = FUNC
         getargs = make_getargs(ARGS)
         def callfunc(funcbox, argboxes):
             funcobj = ootype.cast_from_object(FUNC, funcbox.getobj())

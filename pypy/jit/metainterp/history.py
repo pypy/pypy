@@ -282,8 +282,10 @@ class ConstObj(Const):
         return ootype.ooidentityhash(self.value) # XXX: check me
 
     def getaddr(self, cpu):
-        assert False
-        #return llmemory.cast_ptr_to_adr(self.value)
+        # so far this is used only when calling
+        # CodeWriter.IndirectCallset.bytecode_for_address.  We don't need a
+        # real addr, but just a key for the dictionary
+        return self.value
 
     def equals(self, other):
         assert False

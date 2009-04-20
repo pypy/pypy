@@ -47,7 +47,8 @@ class IndirectCallset(history.AbstractValue):
         values = []
         for graph in graphs:
             fnptr = codewriter.rtyper.getcallable(graph)
-            keys.append(llmemory.cast_ptr_to_adr(fnptr))
+            fnaddress = codewriter.ts.cast_fnptr_to_root(fnptr)
+            keys.append(fnaddress)
             values.append(codewriter.get_jitcode(graph))
 
         def bytecode_for_address(fnaddress):
@@ -78,7 +79,7 @@ class SwitchDict(history.AbstractValue):
 class CodeWriter(object):
     portal_graph = None
 
-    def __init__(self, metainterp_sd, policy):
+    def __init__(self, metainterp_sd, policy, ts):
         self.all_prebuilt_values = {}
         self.all_graphs = {}
         self.all_indirectcallsets = {}
@@ -88,6 +89,7 @@ class CodeWriter(object):
         self.rtyper = metainterp_sd.cpu.rtyper
         self.cpu = metainterp_sd.cpu
         self.policy = policy
+        self.ts = ts
 
     def make_portal_bytecode(self, graph):
         log.info("making JitCodes...")

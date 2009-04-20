@@ -44,6 +44,9 @@ class LLTypeHelper(TypeSystemHelper):
         FUNCPTRTYPE = lltype.Ptr(FUNCTYPE)
         return FUNCTYPE, FUNCPTRTYPE
 
+    def cast_fnptr_to_root(self, fnptr):
+        return llmemory.cast_ptr_to_adr(fnptr)
+
 class OOTypeHelper(TypeSystemHelper):
 
     name = 'ootype'
@@ -59,3 +62,6 @@ class OOTypeHelper(TypeSystemHelper):
     def get_FuncType(self, ARGS, RESULT):
         FUNCTYPE = ootype.StaticMethod(ARGS, RESULT)
         return FUNCTYPE, FUNCTYPE
+
+    def cast_fnptr_to_root(self, fnptr):
+        return ootype.cast_to_object(fnptr)

@@ -115,7 +115,7 @@ class WarmRunnerDesc:
         self.build_meta_interp(**kwds)
         self.make_args_specification()
         self.rewrite_jit_merge_point()
-        self.metainterp_sd.generate_bytecode(policy)
+        self.metainterp_sd.generate_bytecode(policy, self.ts)
         self.make_enter_function()
         self.rewrite_can_enter_jit()
         self.metainterp_sd.num_green_args = self.num_green_args

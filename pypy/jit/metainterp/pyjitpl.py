@@ -789,8 +789,8 @@ class MetaInterpStaticData(object):
                 cs[key] = value
             self.cpu.class_sizes = cs
 
-    def generate_bytecode(self, policy):
-        self._codewriter = codewriter.CodeWriter(self, policy)
+    def generate_bytecode(self, policy, ts):
+        self._codewriter = codewriter.CodeWriter(self, policy, ts)
         self.portal_code = self._codewriter.make_portal_bytecode(
             self.portal_graph)
 

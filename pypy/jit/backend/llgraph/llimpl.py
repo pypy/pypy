@@ -693,6 +693,14 @@ class OOFrame(Frame):
         if isinstance(ootype.typeOf(newvalue), ootype.OOType):
             newvalue = ootype.cast_from_object(T, newvalue)
         setattr(obj, fieldname, newvalue)
+
+    def op_call(self, calldescr, func, *args):
+        sm = ootype.cast_from_object(calldescr.FUNC, func)
+        res = sm(*args)
+        if isinstance(calldescr.FUNC.RESULT, ootype.OOType):
+            return ootype.cast_to_object(res)
+        return res
+
 # ____________________________________________________________
 
 def cast_to_int(x, memocast):

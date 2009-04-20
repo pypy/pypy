@@ -518,7 +518,6 @@ class TestOOtype(BasicTests, OOJitMixin):
     test_oops_on_nongc = skip
     test_instantiate_classes = skip
 
-    test_stopatxpolicy = skip
     test_print = skip
     test_bridge_from_interpreter_2 = skip
     test_bridge_from_interpreter_3 = skip
