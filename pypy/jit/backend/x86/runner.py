@@ -64,6 +64,7 @@ class CPU386(object):
     debug = True
     has_lltype = True
     has_ootype = False
+    is_oo = False # XXX why all of those?
 
     BOOTSTRAP_TP = lltype.FuncType([lltype.Ptr(rffi.CArray(lltype.Signed))],
                                    lltype.Signed)
@@ -614,7 +615,7 @@ class CPU386(object):
             size = 0
         else:
             size = symbolic.get_size(resulttype, self.translate_support_code)
-        if isinstance(resulttype, lltype.Ptr):
+        if isinstance(resulttype, lltype.Ptr) and resulttype.TO._gckind == 'gc':
             ptr = True
         else:
             ptr = False
