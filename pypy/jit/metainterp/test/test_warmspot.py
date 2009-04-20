@@ -62,6 +62,20 @@ class WarmspotTests(object):
         res = self.meta_interp(f, [60])
         assert res == f(30)
 
+    def test_hash_collision(self):
+        mydriver = JitDriver(reds = ['n'], greens = ['m'])
+        def f(n):
+            m = 0
+            while n > 0:
+                mydriver.can_enter_jit(n=n, m=m)
+                mydriver.jit_merge_point(n=n, m=m)
+                n -= 1
+                if not (n % 11):
+                    m = (m+n) & 3
+            return m
+        res = self.meta_interp(f, [110], hash_bits=1)
+        assert res == f(110)
+
 
 class TestLLWarmspot(WarmspotTests):
     CPUClass = runner.LLtypeCPU

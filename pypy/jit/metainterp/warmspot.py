@@ -43,11 +43,13 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype', **kwd
     clear_tcache()
     return jittify_and_run(interp, graph, args, **kwds)
 
-def jittify_and_run(interp, graph, args, repeat=1, **kwds):
+def jittify_and_run(interp, graph, args, repeat=1, hash_bits=None, **kwds):
     translator = interp.typer.annotator.translator
     warmrunnerdesc = WarmRunnerDesc(translator, **kwds)
     warmrunnerdesc.state.set_param_threshold(3)          # for tests
     warmrunnerdesc.state.set_param_trace_eagerness(2)    # for tests
+    if hash_bits:
+        warmrunnerdesc.state.set_param_hash_bits(hash_bits)
     warmrunnerdesc.finish()
     res = interp.eval_graph(graph, args)
     while repeat > 1:
@@ -491,11 +493,14 @@ def make_state_class(warmrunnerdesc):
                 assert isinstance(cell, MachineCodeEntryPoint)
                 if not cell.equalkey(*greenargs):
                     # hash collision
-                    raise HashCollisionException("hash collision! fixme")
-                    self.handle_hash_collision(cell, argshash, *args)
-                # get the assembler and fill in the boxes
-                loop = cell.bridge
-                boxes = cell.fill_boxes(*args[num_green_args:])
+                    loop, boxes = self.handle_hash_collision(cell, argshash,
+                                                             *args)
+                    if loop is None:
+                        return
+                else:
+                    # get the assembler and fill in the boxes
+                    loop = cell.bridge
+                    boxes = cell.fill_boxes(*args[num_green_args:])
             # ---------- execute assembler ----------
             warmrunnerdesc.metainterp_sd.globaldata.save_recursive_call()
             while True:     # until interrupted by an exception
@@ -516,19 +521,18 @@ def make_state_class(warmrunnerdesc):
                     cell.next = next.next
                     next.next = self.cells[argshash]
                     self.cells[argshash] = next
-                    return next.mc
+                    return (next.bridge,
+                            next.fill_boxes(*args[num_green_args:]))
                 cell = next
                 next = cell.next
             # not found at all, do profiling
-            interp = hotrunnerdesc.interpreter
             n = next.counter + 1
             if n < self.threshold:
-                if hotrunnerdesc.verbose_level >= 3:
-                    interp.debug_trace("jit_not_entered", *args)
                 cell.next = Counter(n)
-                return self.NULL_MC
-            interp.debug_trace("jit_compile", *greenargs)
-            return self.compile(argshash, *args)
+                return (None, None)
+            metainterp_sd = warmrunnerdesc.metainterp_sd
+            metainterp = MetaInterp(metainterp_sd)
+            return metainterp.compile_and_run_once(*args)
         handle_hash_collision._dont_inline_ = True
 
         def getkeyhash(self, *greenargs):
@@ -572,7 +576,3 @@ def make_state_class(warmrunnerdesc):
             self.cells[argshash] = newcell
 
     return WarmEnterState
-
-
-class HashCollisionException(Exception):
-    pass
