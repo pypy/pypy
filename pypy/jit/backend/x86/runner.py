@@ -15,7 +15,6 @@ from pypy.jit.backend.x86.assembler import Assembler386, WORD
 from pypy.jit.backend.x86 import symbolic
 from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.jit.backend.x86.support import gc_malloc_fnaddr
-from pypy.jit.metainterp.optimize import av_eq, av_hash
 from pypy.rlib.objectmodel import r_dict
 
 GC_MALLOC = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
@@ -25,6 +24,12 @@ PTR = 1
 INT = 2
 
 history.TreeLoop._x86_compiled = 0
+
+def const_descr_eq(a, b):
+    return a.v == b.v
+
+def const_descr_hash(a):
+    return a.v[0] + (a.v[1] << 2) + int(a.v[2] << 4)
 
 class ConstDescr3(AbstractDescr):
     def __init__(self, v):
@@ -99,7 +104,7 @@ class CPU386(object):
         if rtyper is not None: # for tests
             self.lltype2vtable = rtyper.lltype_to_vtable_mapping()
         self._setup_ovf_error()
-        self.generated_mps = r_dict(av_eq, av_hash)
+        self.generated_mps = r_dict(const_descr_eq, const_descr_hash)
 
     def _setup_ovf_error(self):
         if self.rtyper is not None:   # normal case
