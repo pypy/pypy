@@ -117,6 +117,9 @@ class BaseCPU(model.AbstractCPU):
             llimpl.compile_add(c, op.opnum)
             if isinstance(op.descr, Descr):
                 llimpl.compile_add_descr(c, op.descr.ofs, op.descr.type)
+            if self.is_oo and isinstance(op.descr, OODescr):
+                # hack hack, not rpython
+                c._obj.externalobj.operations[-1].descr = op.descr
             for x in op.args:
                 if isinstance(x, history.Box):
                     llimpl.compile_add_var(c, var2index[x])
@@ -157,7 +160,7 @@ class BaseCPU(model.AbstractCPU):
         """Calls the assembler generated for the given loop.
         Returns the ResOperation that failed, of type rop.FAIL.
         """
-        frame = llimpl.new_frame(self.memo_cast)
+        frame = llimpl.new_frame(self.memo_cast, self.is_oo)
         # setup the frame
         llimpl.frame_clear(frame, loop._compiled_version)
         for box in valueboxes:
@@ -185,6 +188,9 @@ class BaseCPU(model.AbstractCPU):
             elif isinstance(box, history.BoxPtr):
                 value = llimpl.frame_ptr_getvalue(frame, i)
                 box.changevalue_ptr(value)
+            elif self.is_oo and isinstance(box, history.BoxObj):
+                value = llimpl.frame_ptr_getvalue(frame, i)
+                box.changevalue_obj(value)
             elif isinstance(box, history.ConstInt):
                 pass
             elif isinstance(box, history.ConstPtr):
@@ -409,9 +415,17 @@ class OOtypeCPU(BaseCPU):
     def typedescrof(TYPE):
         return TypeDescr(TYPE)
 
+    def do_new(self, args, typedescr):
+        assert isinstance(typedescr, TypeDescr)
+        return typedescr.create()
+
     def do_getfield_gc(self, args, fielddescr):
         assert isinstance(fielddescr, FieldDescr)
         return fielddescr.getfield(args[0])
+
+    def do_setfield_gc(self, args, fielddescr):
+        assert isinstance(fielddescr, FieldDescr)
+        return fielddescr.setfield(args[0], args[1])
 
     def do_call(self, args, descr):
         assert isinstance(descr, StaticMethDescr)
@@ -452,13 +466,16 @@ def make_getargs(ARGS):
         for ARG in argsiter:
             box = argboxes[i]
             i+=1
-            if isinstance(ARG, ootype.OOType):
-                arg = ootype.cast_from_object(ARG, box.getobj())
-            else:
-                arg = box.getint()
-            funcargs += (arg,)
+            funcargs += (unbox(ARG, box),)
         return funcargs
     return getargs
+
+def unbox(T, box):
+    if isinstance(T, ootype.OOType):
+        return ootype.cast_from_object(T, box.getobj())
+    else:
+        return box.getint()
+unbox._annspecialcase_ = 'specialize:arg(0)'
 
 def boxresult(RESULT, result):
     if isinstance(RESULT, ootype.OOType):
@@ -467,7 +484,11 @@ def boxresult(RESULT, result):
         return history.BoxInt(lltype.cast_primitive(ootype.Signed, result))
 boxresult._annspecialcase_ = 'specialize:arg(0)'
 
-class StaticMethDescr(history.AbstractDescr):
+
+class OODescr(history.AbstractDescr):
+    pass
+
+class StaticMethDescr(OODescr):
 
     def __init__(self, FUNC, ARGS, RESULT):
         getargs = make_getargs(ARGS)
@@ -479,7 +500,7 @@ class StaticMethDescr(history.AbstractDescr):
                 return boxresult(RESULT, res)
         self.callfunc = callfunc
 
-class MethDescr(history.AbstractDescr):
+class MethDescr(OODescr):
 
     def __init__(self, METH, methname):
         SELFTYPE = METH.SELFTYPE
@@ -494,22 +515,36 @@ class MethDescr(history.AbstractDescr):
                 return boxresult(RESULT, res)
         self.callmeth = callmeth
 
-class TypeDescr(history.AbstractDescr):
+class TypeDescr(OODescr):
+
+    create = None
 
     def __init__(self, TYPE):
         self.TYPE = TYPE
+        def create():
+            return boxresult(TYPE, ootype.new(TYPE))
+        self.create = create
 
-class FieldDescr(history.AbstractDescr):
+class FieldDescr(OODescr):
 
     getfield = None
 
-    def __init__(self, T, fieldname):
-        _, RES = T._lookup_field(fieldname)
-        def getfield(box):
-            obj = ootype.cast_from_object(T, box.getobj())
+    def __init__(self, TYPE, fieldname):
+        self.TYPE = TYPE
+        self.fieldname = fieldname
+
+        _, T = TYPE._lookup_field(fieldname)
+        def getfield(objbox):
+            obj = ootype.cast_from_object(TYPE, objbox.getobj())
             value = getattr(obj, fieldname)
-            return boxresult(RES, value)
+            return boxresult(T, value)
+        def setfield(objbox, valuebox):
+            obj = ootype.cast_from_object(TYPE, objbox.getobj())
+            value = unbox(T, valuebox)
+            setattr(obj, fieldname, value)
+            
         self.getfield = getfield
+        self.setfield = setfield
 # ____________________________________________________________
 
 import pypy.jit.metainterp.executor

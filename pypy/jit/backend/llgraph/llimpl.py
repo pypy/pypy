@@ -229,6 +229,8 @@ def repr1(x, tp, memocast):
         if isinstance(x, int):
             # XXX normalize?
             ptr = str(cast_int_to_adr(memocast, x))
+        elif isinstance(ootype.typeOf(x), ootype.OOType):
+            return repr(x)
         else:
             if getattr(x, '_fake', None):
                 return repr(x)
@@ -407,6 +409,8 @@ class Frame(object):
                         x = self.as_int(result)
                     elif RESTYPE is llmemory.GCREF:
                         x = self.as_ptr(result)
+                    elif RESTYPE is ootype.Object:
+                        x = self.as_object(result)
                     else:
                         raise Exception("op.result.concretetype is %r"
                                         % (RESTYPE,))
@@ -466,6 +470,9 @@ class Frame(object):
     def as_ptr(self, x):
         return cast_to_ptr(x)
 
+    def as_object(self, x):
+        return ootype.cast_to_object(x)
+
     def log_progress(self):
         count = sum(_stats.exec_counters.values())
         count_jumps = _stats.exec_jumps
@@ -473,10 +480,11 @@ class Frame(object):
 
     # ----------
 
-    def _define_impl(self, opnum):
+    @classmethod
+    def _define_impl(cls, opnum):
         opname = resoperation.opname[opnum]
         try:
-            op = getattr(Frame, 'op_' + opname.lower())   # op_guard_true etc.
+            op = getattr(cls, 'op_' + opname.lower())   # op_guard_true etc.
         except AttributeError:
             name = 'do_' + opname.lower()
             try:
@@ -500,7 +508,7 @@ class Frame(object):
                     return resbox.value
                 op = _op_default_implementation
                 #
-        Frame.OPHANDLERS[opnum] = op
+        cls.OPHANDLERS[opnum] = op
 
     def op_guard_true(self, _, value):
         if not value:
@@ -658,6 +666,33 @@ class Frame(object):
     def op_uint_xor(self, descr, arg1, arg2):
         return arg1 ^ arg2
 
+
+class OOFrame(Frame):
+
+    OPHANDLERS = [None] * (rop._LAST+1)
+    
+    def op_new(self, typedescr):
+        from pypy.jit.backend.llgraph import runner
+        return ootype.cast_to_object(ootype.new(typedescr.TYPE))
+
+    def op_getfield_gc(self, fielddescr, obj):
+        TYPE = fielddescr.TYPE
+        fieldname = fielddescr.fieldname
+        T = TYPE._lookup_field(fieldname)
+        obj = ootype.cast_from_object(TYPE, obj)
+        res = getattr(obj, fieldname)
+        if isinstance(T, ootype.OOType):
+            return ootype.cast_to_object(res)
+        return res
+                
+    def op_setfield_gc(self, fielddescr, obj, newvalue):
+        TYPE = fielddescr.TYPE
+        fieldname = fielddescr.fieldname
+        T = TYPE._lookup_field(fieldname)
+        obj = ootype.cast_from_object(TYPE, obj)
+        if isinstance(ootype.typeOf(newvalue), ootype.OOType):
+            newvalue = ootype.cast_from_object(T, newvalue)
+        setattr(obj, fieldname, newvalue)
 # ____________________________________________________________
 
 def cast_to_int(x, memocast):
@@ -684,8 +719,11 @@ def cast_from_ptr(TYPE, x):
     return lltype.cast_opaque_ptr(TYPE, x)
 
 
-def new_frame(memocast):
-    frame = Frame(memocast)
+def new_frame(memocast, is_oo):
+    if is_oo:
+        frame = OOFrame(memocast)
+    else:
+        frame = Frame(memocast)
     return _to_opaque(frame)
 
 def frame_clear(frame, loop):
@@ -1007,10 +1045,12 @@ def setannotation(func, annotation, specialize_as_constant=False):
 
 COMPILEDLOOP = lltype.Ptr(lltype.OpaqueType("CompiledLoop"))
 FRAME = lltype.Ptr(lltype.OpaqueType("Frame"))
+OOFRAME = lltype.Ptr(lltype.OpaqueType("OOFrame"))
 MEMOCAST = lltype.Ptr(lltype.OpaqueType("MemoCast"))
 
 _TO_OPAQUE[CompiledLoop] = COMPILEDLOOP.TO
 _TO_OPAQUE[Frame] = FRAME.TO
+_TO_OPAQUE[OOFrame] = OOFRAME.TO
 _TO_OPAQUE[MemoCast] = MEMOCAST.TO
 
 s_CompiledLoop = annmodel.SomePtr(COMPILEDLOOP)

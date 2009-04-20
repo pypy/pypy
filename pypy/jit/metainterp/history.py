@@ -407,7 +407,7 @@ class BoxObj(Box):
         return ootype.ooidentityhash(self.value) # XXX: check me
 
     _getrepr_ = repr_object
-    changevalue_ptr = __init__
+    changevalue_obj = __init__
 
 
 # ____________________________________________________________

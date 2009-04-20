@@ -56,10 +56,11 @@ class TestBasicLLtype(BasicTest):
     CPUClass = runner.LLtypeCPU
     type_system = 'lltype'
 
-class TestBasicOOtype(BasicTest):
+# we need to decide if we want the llgraph backend to be translatable or not
+## class TestBasicOOtype(BasicTest):
 
-    CPUClass = runner.OOtypeCPU
-    type_system = 'ootype'
+##     CPUClass = runner.OOtypeCPU
+##     type_system = 'ootype'
     
 
 class LLInterpJitMixin:

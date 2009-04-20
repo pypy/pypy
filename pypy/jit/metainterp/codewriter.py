@@ -594,10 +594,10 @@ class BytecodeMaker(object):
             self.emit(self.var_position(op.args[2]))
         self.register_var(op.result)
 
-##     def serialize_op_new(self, op):
-##         TYPE = op.args[0].value
-##         self.emit('new', self.get_position(self.cpu.typedescrof(TYPE)))
-##         self.register_var(op.result)
+    def serialize_op_new(self, op):
+        TYPE = op.args[0].value
+        self.emit('new', self.get_position(self.cpu.typedescrof(TYPE)))
+        self.register_var(op.result)
 
     def serialize_op_zero_gc_pointers_inside(self, op):
         pass   # XXX assume Boehm for now
@@ -636,13 +636,15 @@ class BytecodeMaker(object):
         RESULT = v_value.concretetype
         if RESULT is lltype.Void:
             return
-        argname = v_inst.concretetype.TO._gckind
+        argname = getattr(deref(v_inst.concretetype), '_gckind', 'gc')
         self.emit('setfield_%s' % (argname,))
         self.emit(self.var_position(v_inst))
-        offset = self.cpu.fielddescrof(v_inst.concretetype.TO,
+        descr = self.cpu.fielddescrof(deref(v_inst.concretetype),
                                        c_fieldname.value)
-        self.emit(self.get_position(offset))
+        self.emit(self.get_position(descr))
         self.emit(self.var_position(v_value))
+
+    serialize_op_oosetfield = serialize_op_setfield
 
     def is_typeptr_getset(self, op):
         return (op.args[1].value == 'typeptr' and
