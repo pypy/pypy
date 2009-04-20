@@ -118,6 +118,8 @@ class CodeWriter(object):
         return bytecode
 
     def get_jitcode_calldescr(self, graph):
+        if self.metainterp_sd.cpu.is_oo:
+            return ()
         if self.portal_graph is None or graph is self.portal_graph:
             return ()
         fnptr = self.rtyper.getcallable(graph)
