@@ -1,15 +1,10 @@
 
-[fijal] I think following is done, please update
-* do something about not seeing a loop at all; maybe disable
-  temporarily(?) recognizing foreign can_enter_jit()
+* fix HashCollisionException, it appears in the wild
 
-* Optimization: bridges from interpreter to compiled code
+* do something about _weakref module, it's usually needed by everyone
+
+* look at some remaining crashes
 
 * support floats
 
 * fix bugs in virtualizables, but think first
-
-* support unicode
-
-* support recursive portals (since we have support for all kinds of bridges,
-  seems to be rather straight-forward)
