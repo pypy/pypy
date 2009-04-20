@@ -719,12 +719,11 @@ class BytecodeMaker(object):
             self.emit('jit_merge_point')
             assert ([self.var_position(i) for i in op.args[2:]] ==
                     range(0, 2*(len(op.args) - 2), 2))
-            for i in range(2, len(op.args)):
-                arg = op.args[i]
-                #self._eventualy_builtin(arg)
+            #for i in range(2, len(op.args)):
+            #    arg = op.args[i]
+            #    self._eventualy_builtin(arg)
         elif op.args[0].value == 'can_enter_jit':
             self.emit('can_enter_jit')
-            self.emit_varargs(op.args[2:])
 
 ##    def _eventualy_builtin(self, arg, need_length=True):
 ##        if isinstance(arg.concretetype, lltype.Ptr):

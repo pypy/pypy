@@ -509,7 +509,6 @@ class TestLoop(LLJitMixin):
 
 
     def test_path_with_operations_not_from_start_2(self):
-        py.test.skip("fix it fix it fix it fix it")
         jitdriver = JitDriver(greens = ['k'], reds = ['n', 'z', 'stuff'])
 
         class Stuff(object):

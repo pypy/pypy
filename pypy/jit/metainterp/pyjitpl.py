@@ -585,14 +585,16 @@ class MIFrame(object):
         for i in range(num_green_args):
             varargs[i] = self.implement_guard_value(pc, varargs[i])
 
-    @arguments("orgpc", "varargs")
-    def opimpl_can_enter_jit(self, pc, varargs):
-        self.generate_merge_point(pc, varargs)
-        self.metainterp.reached_can_enter_jit(varargs)
+    @arguments("orgpc")
+    def opimpl_can_enter_jit(self, pc):
+        self.metainterp.seen_can_enter_jit = True
 
     @arguments("orgpc")
     def opimpl_jit_merge_point(self, pc):
         self.generate_merge_point(pc, self.env)
+        if self.metainterp.seen_can_enter_jit:
+            self.metainterp.seen_can_enter_jit = False
+            self.metainterp.reached_can_enter_jit(self.env[:])
 
     @arguments("jumptarget")
     def opimpl_setup_exception_block(self, exception_target):
@@ -1006,6 +1008,7 @@ class MetaInterp(object):
         self.current_merge_points = [(original_boxes, 0)]
         self.resumekey = compile.ResumeFromInterpDescr(original_boxes)
         self.extra_rebuild_operations = -1
+        self.seen_can_enter_jit = False
         try:
             self.interpret()
             assert False, "should always raise"
@@ -1021,6 +1024,7 @@ class MetaInterp(object):
         original_boxes = source_loop.greenkey + top_history.inputargs
         self.current_merge_points = [(original_boxes, 0)]
         self.resumekey = key
+        self.seen_can_enter_jit = False
         guard_op = key.get_guard_op()
         try:
             self.prepare_resume_from_failure(guard_op.opnum)
