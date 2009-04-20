@@ -951,14 +951,16 @@ class MetaInterp(object):
         assert len(pseudoframe._saved_framestack) == len(self.framestack)
         for j in range(len(self.framestack)):
             f = self.framestack[j]
-            assert len(f.env) == len(pseudoframe._saved_framestack[j])
+            pseudoenv = pseudoframe._saved_framestack[j]
+            assert len(f.env) == len(pseudoenv)
             for k in range(len(f.env)):
                 box = f.env[k]
-                pseudoenv = pseudoframe._saved_framestack[j]
                 if isinstance(box, BoxInt):
+                    assert isinstance(pseudoenv[k], BoxInt)
                     box.changevalue_int(saved_env[i].getint())
                     i += 1
                 elif isinstance(box, BoxPtr):
+                    assert isinstance(pseudoenv[k], BoxPtr)
                     box.changevalue_ptr(saved_env[i].getptr_base())
                     i += 1
                 else:
