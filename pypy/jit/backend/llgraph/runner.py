@@ -460,27 +460,23 @@ def make_getargs(ARGS):
         return funcargs
     return getargs
 
-def make_boxresult(RESULT):
-    def boxresult(result):
-        if isinstance(RESULT, ootype.OOType):
-            return history.BoxObj(ootype.cast_to_object(result))
-        else:
-            return history.BoxInt(lltype.cast_primitive(ootype.Signed, result))
-    return boxresult
-
-def make_getargs_boxres(ARGS, RESULT):
-    return make_getargs(ARGS), make_boxresult(RESULT)
+def boxresult(RESULT, result):
+    if isinstance(RESULT, ootype.OOType):
+        return history.BoxObj(ootype.cast_to_object(result))
+    else:
+        return history.BoxInt(lltype.cast_primitive(ootype.Signed, result))
+boxresult._annspecialcase_ = 'specialize:arg(0)'
 
 class StaticMethDescr(history.AbstractDescr):
 
     def __init__(self, FUNC, ARGS, RESULT):
-        getargs, boxresult = make_getargs_boxres(ARGS, RESULT)
+        getargs = make_getargs(ARGS)
         def callfunc(funcbox, argboxes):
             funcobj = ootype.cast_from_object(FUNC, funcbox.getobj())
             funcargs = getargs(argboxes)
             res = funcobj(*funcargs)
             if RESULT is not ootype.Void:
-                return boxresult(res)
+                return boxresult(RESULT, res)
         self.callfunc = callfunc
 
 class MethDescr(history.AbstractDescr):
@@ -488,14 +484,14 @@ class MethDescr(history.AbstractDescr):
     def __init__(self, METH, methname):
         SELFTYPE = METH.SELFTYPE
         RESULT = METH.RESULT
-        getargs, boxresult = make_getargs_boxres(METH.ARGS, METH.RESULT)
+        getargs = make_getargs(METH.ARGS)
         def callmeth(selfbox, argboxes):
             selfobj = ootype.cast_from_object(SELFTYPE, selfbox.getobj())
             meth = getattr(selfobj, methname)
             methargs = getargs(argboxes)
             res = meth(*methargs)
             if RESULT is not ootype.Void:
-                return boxresult(res)
+                return boxresult(RESULT, res)
         self.callmeth = callmeth
 
 class TypeDescr(history.AbstractDescr):
@@ -509,11 +505,10 @@ class FieldDescr(history.AbstractDescr):
 
     def __init__(self, T, fieldname):
         _, RES = T._lookup_field(fieldname)
-        boxresult = make_boxresult(RES)
         def getfield(box):
             obj = ootype.cast_from_object(T, box.getobj())
             value = getattr(obj, fieldname)
-            return boxresult(value)
+            return boxresult(RES, value)
         self.getfield = getfield
 # ____________________________________________________________
 
