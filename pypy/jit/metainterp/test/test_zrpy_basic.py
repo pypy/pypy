@@ -6,9 +6,10 @@ from pypy.rlib.jit import JitDriver
 from pypy.jit.conftest import option
 
 
-class TestBasic:
+class BasicTest:
 
-    CPUClass = runner.LLtypeCPU
+    CPUClass = None
+    type_system = None
 
     def test_loop_1(self):
         if not option.run_slow_tests:
@@ -22,9 +23,11 @@ class TestBasic:
                 total += i
                 i -= 1
             return total * 10
-        res = ll_meta_interp(f, [10], CPUClass=self.CPUClass)
+        res = ll_meta_interp(f, [10], CPUClass=self.CPUClass,
+                             type_system=self.type_system)
         assert res == 490
-        res = rpython_ll_meta_interp(f, [10], loops=1, CPUClass=self.CPUClass)
+        res = rpython_ll_meta_interp(f, [10], loops=1, CPUClass=self.CPUClass,
+                                     type_system=self.type_system)
         assert res == 490
 
     def test_loop_2(self):
@@ -40,10 +43,24 @@ class TestBasic:
                     i -= 2
                 i -= 1
             return total * 10
-        res = ll_meta_interp(f, [17], CPUClass=self.CPUClass)
+        res = ll_meta_interp(f, [17], CPUClass=self.CPUClass,
+                             type_system=self.type_system)
         assert res == (17+14+11+8+7+6+5+4) * 10
-        res = rpython_ll_meta_interp(f, [17], loops=2, CPUClass=self.CPUClass)
+        res = rpython_ll_meta_interp(f, [17], loops=2, CPUClass=self.CPUClass,
+                                     type_system=self.type_system)
         assert res == (17+14+11+8+7+6+5+4) * 10
+
+
+class TestBasicLLtype(BasicTest):
+
+    CPUClass = runner.LLtypeCPU
+    type_system = 'lltype'
+
+class TestBasicOOtype(BasicTest):
+
+    CPUClass = runner.OOtypeCPU
+    type_system = 'ootype'
+    
 
 class LLInterpJitMixin:
     type_system = 'lltype'

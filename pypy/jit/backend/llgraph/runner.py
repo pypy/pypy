@@ -19,6 +19,8 @@ class MiniStats:
 
 class Descr(history.AbstractDescr):
     name = None
+    ofs = -1
+    type = '?'
     
     def __init__(self, ofs, type='?'):
         self.ofs = ofs
@@ -408,6 +410,7 @@ class OOtypeCPU(BaseCPU):
         return TypeDescr(TYPE)
 
     def do_getfield_gc(self, args, fielddescr):
+        assert isinstance(fielddescr, FieldDescr)
         return fielddescr.getfield(args[0])
 
     def do_call(self, args, descr):
@@ -501,6 +504,8 @@ class TypeDescr(history.AbstractDescr):
         self.TYPE = TYPE
 
 class FieldDescr(history.AbstractDescr):
+
+    getfield = None
 
     def __init__(self, T, fieldname):
         _, RES = T._lookup_field(fieldname)

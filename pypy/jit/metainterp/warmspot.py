@@ -13,6 +13,7 @@ from pypy.rlib.jit import PARAMETERS
 from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib.debug import debug_print
 from pypy.rpython.lltypesystem.lloperation import llop
+from pypy.translator.simplify import get_funcobj, get_functype
 
 from pypy.jit.metainterp import support, history, pyjitpl
 from pypy.jit.metainterp.pyjitpl import MetaInterpStaticData, MetaInterp
@@ -239,7 +240,7 @@ class WarmRunnerDesc:
     def helper_func(self, FUNCPTR, func):
         if not self.cpu.translate_support_code:
             return llhelper(FUNCPTR, func)
-        FUNC = FUNCPTR.TO
+        FUNC = get_functype(FUNCPTR)
         args_s = [annmodel.lltype_to_annotation(ARG) for ARG in FUNC.ARGS]
         s_result = annmodel.lltype_to_annotation(FUNC.RESULT)
         graph = self.annhelper.getgraph(func, args_s, s_result)
