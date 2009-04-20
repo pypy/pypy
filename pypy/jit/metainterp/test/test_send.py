@@ -437,6 +437,23 @@ class SendTests:
         res = self.meta_interp(f, [40], policy=StopAtXPolicy(extern))
         assert res == f(40)
 
+    def test_recursive_call_to_portal_from_blackhole(self):
+        from pypy.rpython.annlowlevel import hlstr
+        
+        myjitdriver = JitDriver(greens = ['k'], reds = ['n'])
+        def f(n, k):
+            while n >= 0:
+                myjitdriver.can_enter_jit(n=n, k=k)
+                myjitdriver.jit_merge_point(n=n, k=k)
+                if n == 3 and k == 0:
+                    return f(10, 1)
+                n -= 1
+            if k == 1:
+                return "string"
+            return "xyz"
+
+        res = self.meta_interp(f, [20, 0])
+        assert hlstr(res) == "string"
 
 #class TestOOtype(SendTests, OOJitMixin):
 #    pass
