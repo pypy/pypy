@@ -391,3 +391,15 @@ def test_mix_class_record_instance():
     assert res is c3
     res = interpret(fn, [3], type_system='ootype')
     assert res is c4
+
+def test_immutable_hint():
+    class I(object):
+        _immutable_ = True
+
+    i = I()
+    def f():
+        return i
+
+    g = gengraph(f)
+    rettype = g.getreturnvar().concretetype
+    assert rettype._hints['immutable']

@@ -182,6 +182,9 @@ class InstanceRepr(AbstractInstanceRepr):
                 hints = classdef.classdesc.pyobj._rpython_hints
             else:
                 hints = {}
+            if '_immutable_' in self.classdef.classdesc.classdict:
+                hints = hints.copy()
+                hints['immutable'] = True
             self.lowleveltype = ootype.Instance(classdef.name, b, {}, {}, _hints = hints)
         self.prebuiltinstances = {}   # { id(x): (x, _ptr) }
         self.object_type = self.lowleveltype
