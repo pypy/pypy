@@ -625,6 +625,18 @@ class BytecodeMaker(object):
         self.register_var(op.result)
         #self._eventualy_builtin(op.result)
 
+    def serialize_op_oogetfield(self, op):
+        [v_inst, c_fieldname] = op.args
+        RESULT = op.result.concretetype
+        if RESULT is lltype.Void:
+            return
+        self.emit('getfield_gc')
+        self.emit(self.var_position(v_inst))
+        descr = self.cpu.fielddescrof(v_inst.concretetype,
+                                       c_fieldname.value)
+        self.emit(self.get_position(descr))
+        self.register_var(op.result)
+
     def serialize_op_setfield(self, op):
         if self.is_typeptr_getset(op):
             # ignore the operation completely -- instead, it's done by 'new'
