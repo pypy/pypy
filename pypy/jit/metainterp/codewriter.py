@@ -10,6 +10,7 @@ from pypy.jit.metainterp.history import Const, getkind
 from pypy.jit.metainterp import heaptracker, support, history
 from pypy.tool.udir import udir
 from pypy.translator.simplify import get_funcobj, get_functype
+from pypy.jit.metainterp.typesystem import deref
 
 import py, sys
 from pypy.tool.ansi_print import ansi_log
@@ -605,40 +606,26 @@ class BytecodeMaker(object):
         if self.is_typeptr_getset(op):
             self.handle_getfield_typeptr(op)
             return
-        # check for deepfrozen structures that force constant-folding
-        #pure = self.codewriter.is_green_var(op.result)
-        if op.args[0].concretetype.TO._hints.get('immutable'):
-            pure = '_pure'
-        else:
-            pure = ''
         # turn the flow graph 'getfield' operation into our own version
         [v_inst, c_fieldname] = op.args
         RESULT = op.result.concretetype
         if RESULT is lltype.Void:
             return
-        argname = v_inst.concretetype.TO._gckind
+        # check for deepfrozen structures that force constant-folding
+        if deref(v_inst.concretetype)._hints.get('immutable'):
+            pure = '_pure'
+        else:
+            pure = ''
+        argname = getattr(deref(v_inst.concretetype), '_gckind', 'gc')
         self.emit('getfield_%s%s' % (argname, pure))
         self.emit(self.var_position(v_inst))
-        offset = self.cpu.fielddescrof(v_inst.concretetype.TO,
-                                       c_fieldname.value)
-        self.emit(self.get_position(offset))
-        self.register_var(op.result)
-        #self._eventualy_builtin(op.result)
-
-    def serialize_op_oogetfield(self, op):
-        [v_inst, c_fieldname] = op.args
-        RESULT = op.result.concretetype
-        if RESULT is lltype.Void:
-            return
-        if v_inst.concretetype._hints.get('immutable'):
-            self.emit('getfield_gc_pure')            
-        else:
-            self.emit('getfield_gc')
-        self.emit(self.var_position(v_inst))
-        descr = self.cpu.fielddescrof(v_inst.concretetype,
+        descr = self.cpu.fielddescrof(deref(v_inst.concretetype),
                                        c_fieldname.value)
         self.emit(self.get_position(descr))
         self.register_var(op.result)
+        #self._eventualy_builtin(op.result)
+
+    serialize_op_oogetfield = serialize_op_getfield
 
     def serialize_op_setfield(self, op):
         if self.is_typeptr_getset(op):
