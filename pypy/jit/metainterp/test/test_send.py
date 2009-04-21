@@ -459,7 +459,6 @@ class TestOOtype(SendTests, OOJitMixin):
     def skip(self):
         py.test.skip('in-progress')
 
-    test_send_to_single_target_method = skip
     test_red_send_to_green_receiver = skip
     test_oosend_base = skip
     test_oosend_different_initial_class = skip

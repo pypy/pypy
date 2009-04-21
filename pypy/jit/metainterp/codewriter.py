@@ -795,13 +795,17 @@ class BytecodeMaker(object):
         kind = self.codewriter.policy.guess_call_kind(op)
         return getattr(self, 'handle_%s_oosend' % kind)(op)
 
-    def handle_regular_call(self, op):
+    def handle_regular_call(self, op, skip_first=True):
         self.minimize_variables()
         [targetgraph] = self.codewriter.policy.graphs_from(op)
         jitbox = self.codewriter.get_jitcode(targetgraph, self.graph)
+        if skip_first:
+            args = op.args[1:]
+        else:
+            args = op.args
         self.emit('call')
         self.emit(self.get_position(jitbox))
-        self.emit_varargs([x for x in op.args[1:]
+        self.emit_varargs([x for x in args
                            if x.concretetype is not lltype.Void])
         self.register_var(op.result)
 
@@ -843,7 +847,8 @@ class BytecodeMaker(object):
         INSTANCE = v_obj.concretetype
         graphs = v_obj.concretetype._lookup_graphs(methname)
         if len(graphs) == 1:
-            assert False, 'TODO'
+            self.handle_regular_call(op, skip_first=False)
+            return
         self.minimize_variables()
         methdesc = self.codewriter.get_methdesc(INSTANCE, methname)
         self.emit('oosend')
