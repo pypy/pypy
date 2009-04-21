@@ -464,7 +464,6 @@ class TestOOtype(SendTests, OOJitMixin):
     def skip(self):
         py.test.skip('in-progress')
 
-    test_three_cases = skip
     test_recursive_call_to_portal_from_blackhole = skip
 
 

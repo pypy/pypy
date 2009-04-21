@@ -1,5 +1,6 @@
 import sys
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
+from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.annlowlevel import llhelper, MixLevelHelperAnnotator,\
      cast_base_ptr_to_instance
 from pypy.annotation import model as annmodel
@@ -379,6 +380,8 @@ def unwrap(TYPE, box):
         return None
     if isinstance(TYPE, lltype.Ptr):
         return box.getptr(TYPE)
+    if isinstance(TYPE, ootype.OOType):
+        return ootype.cast_from_object(TYPE, box.getobj())
     else:
         return lltype.cast_primitive(TYPE, box.getint())
 unwrap._annspecialcase_ = 'specialize:arg(0)'
@@ -435,6 +438,9 @@ def make_state_class(warmrunnerdesc):
                 if isinstance(TYPE, lltype.Ptr):
                     assert isinstance(box, history.BoxPtr)
                     box.changevalue_ptr(lltype.cast_opaque_ptr(llmemory.GCREF, value))
+                elif isinstance(TYPE, ootype.OOType):
+                    assert isinstance(box, history.BoxObj)
+                    box.changevalue_obj(ootype.cast_to_object(value))
                 elif TYPE == lltype.Signed:
                     assert isinstance(box, history.BoxInt)
                     box.changevalue_int(value)
