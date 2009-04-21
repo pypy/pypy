@@ -312,9 +312,14 @@ class LoopTest:
             return x
         expected = f(100)
         res = self.meta_interp(f, [100])
-        assert len(res.chars) == len(expected)
-        for i in range(len(expected)):
-            assert expected[i] == res.chars[i]
+        if self.type_system == 'ootype':
+            assert res.ll_strlen() == len(expected)
+            for i in range(len(expected)):
+                assert expected[i] == res.ll_stritem_nonneg(i)
+        else:
+            assert len(res.chars) == len(expected)
+            for i in range(len(expected)):
+                assert expected[i] == res.chars[i]
 
     def test_adapt_bridge_to_merge_point(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'z'])
@@ -541,7 +546,6 @@ class TestOOtype(LoopTest, OOJitMixin):
     def skip(self):
         py.test.skip('in progress')
         
-    test_loop_unicode = skip
     test_outer_and_inner_loop = skip
 
 
