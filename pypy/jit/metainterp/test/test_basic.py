@@ -7,6 +7,7 @@ from pypy.jit.metainterp.policy import JitPolicy, StopAtXPolicy
 from pypy import conftest
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.jit.metainterp.simple_optimize import Optimizer as SimpleOptimizer
+from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 
 def get_metainterp(func, values, CPUClass, type_system, policy,
                    listops=False):
@@ -66,7 +67,7 @@ class JitMixin:
         metainterp, rtyper = get_metainterp(f, args, self.CPUClass,
                                             self.type_system, policy=policy,
                                             **kwds)
-        cw = codewriter.CodeWriter(metainterp.staticdata, policy)
+        cw = codewriter.CodeWriter(metainterp.staticdata, policy, self.ts)
         graph = rtyper.annotator.translator.graphs[0]
         maingraph = cw.make_one_bytecode(graph, False)
         while cw.unfinished_graphs:
@@ -92,10 +93,12 @@ class JitMixin:
 class LLJitMixin(JitMixin):
     type_system = 'lltype'
     CPUClass = runner.LLtypeCPU
+    ts = LLTypeHelper()
 
 class OOJitMixin(JitMixin):
     type_system = 'ootype'
     CPUClass = runner.OOtypeCPU
+    ts = OOTypeHelper()
 
 
 class BasicTests:    
