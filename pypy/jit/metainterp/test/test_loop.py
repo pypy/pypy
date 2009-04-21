@@ -2,18 +2,19 @@ import py
 from pypy.rlib.jit import JitDriver
 from pypy.jit.metainterp.warmspot import ll_meta_interp, get_stats
 from pypy.rpython.lltypesystem import lltype
-from pypy.jit.metainterp.test.test_basic import LLJitMixin
+from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.jit.metainterp.policy import StopAtXPolicy
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp import history
 
-class TestLoop(LLJitMixin):
+class LoopTest:
     specialize = False
 
     def meta_interp(self, f, args, policy=None):
         return ll_meta_interp(f, args, specialize=self.specialize,
                               policy=policy,
-                              CPUClass=self.CPUClass)
+                              CPUClass=self.CPUClass,
+                              type_system=self.type_system)
 
     def test_simple_loop(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
@@ -179,9 +180,7 @@ class TestLoop(LLJitMixin):
 
     def test_interp_many_paths(self):
         myjitdriver = JitDriver(greens = ['i'], reds = ['x', 'node'])
-        NODE = lltype.GcForwardReference()
-        NODE.become(lltype.GcStruct('NODE', ('value', lltype.Signed),
-                                            ('next', lltype.Ptr(NODE))))
+        NODE = self._get_NODE()
         bytecode = "xxxxxxxb"
         def f(node):
             x = 0
@@ -202,9 +201,9 @@ class TestLoop(LLJitMixin):
                 i += 1
             return x
 
-        node1 = lltype.nullptr(NODE)
+        node1 = self.nullptr(NODE)
         for i in range(300):
-            prevnode = lltype.malloc(NODE)
+            prevnode = self.malloc(NODE)
             prevnode.value = pow(47, i, 199)
             prevnode.next = node1
             node1 = prevnode
@@ -536,3 +535,16 @@ class TestLoop(LLJitMixin):
                 some_fn(Stuff(n), k, z)
 
         res = self.meta_interp(f, [200])
+
+class TestOOtype(LoopTest, OOJitMixin):
+
+    def skip(self):
+        py.test.skip('in progress')
+        
+    test_interp_many_paths = skip
+    test_loop_unicode = skip
+    test_outer_and_inner_loop = skip
+
+
+class TestLoop(LoopTest, LLJitMixin): # XXX change name later
+    pass

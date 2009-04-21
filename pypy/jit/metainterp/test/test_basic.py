@@ -8,13 +8,14 @@ from pypy import conftest
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.jit.metainterp.simple_optimize import Optimizer as SimpleOptimizer
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
+from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.ootypesystem import ootype
 
 def get_metainterp(func, values, CPUClass, type_system, policy,
                    listops=False):
     from pypy.annotation.policy import AnnotatorPolicy
     from pypy.annotation.model import lltype_to_annotation
     from pypy.rpython.test.test_llinterp import gengraph
-    from pypy.rpython.lltypesystem import lltype
 
     rtyper = support.annotate(func, values, type_system=type_system)
 
@@ -96,10 +97,57 @@ class LLJitMixin(JitMixin):
     CPUClass = runner.LLtypeCPU
     ts = LLTypeHelper()
 
+    @staticmethod
+    def Ptr(T):
+        return lltype.Ptr(T)
+
+    @staticmethod
+    def GcStruct(name, *fields, **kwds):
+        S = lltype.GcStruct(name, *fields, **kwds)
+        return S
+
+    malloc = staticmethod(lltype.malloc)
+    nullptr = staticmethod(lltype.nullptr)
+
+    @staticmethod
+    def malloc_immortal(T):
+        return lltype.malloc(T, immortal=True)
+
+    def _get_NODE(self):
+        NODE = lltype.GcForwardReference()
+        NODE.become(lltype.GcStruct('NODE', ('value', lltype.Signed),
+                                            ('next', lltype.Ptr(NODE))))
+        return NODE
+    
 class OOJitMixin(JitMixin):
     type_system = 'ootype'
     CPUClass = runner.OOtypeCPU
     ts = OOTypeHelper()
+
+    @staticmethod
+    def Ptr(T):
+        return T
+
+    @staticmethod
+    def GcStruct(name, *fields, **kwds):
+        if 'hints' in kwds:
+            kwds['_hints'] = kwds['hints']
+            del kwds['hints']
+        I = ootype.Instance(name, ootype.ROOT, dict(fields), **kwds)
+        return I
+
+    malloc = staticmethod(ootype.new)
+    nullptr = staticmethod(ootype.null)
+
+    @staticmethod
+    def malloc_immortal(T):
+        return ootype.new(T)
+
+    def _get_NODE(self):
+        NODE = ootype.Instance('NODE', ootype.ROOT, {})
+        NODE._add_fields({'value': ootype.Signed,
+                          'next': NODE})
+        return NODE
 
 
 class BasicTests:    
