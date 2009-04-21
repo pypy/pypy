@@ -47,14 +47,8 @@ class PyPyJitPolicy(ManualJitPolicy):
         # string builder interface
         if mod == 'pypy.rpython.lltypesystem.rbuilder':
             return False
-        if mod.startswith('pypy.interpreter.function'):
-            if func.__name__.startswith('funccall'):
-                return False
-            if func.__name__ == 'call_args' or func.__name__ == 'call_obj_args':
-                return False
-        if mod == 'pypy.interpreter.eval':
-            if func.__name__ == 'exec_code':
-                return False
+        if mod == 'pypy.interpreter.pyframe' and func.func_name == 'execute_frame':
+            return False
         #if (mod == 'pypy.rpython.rlist' or
         #    mod == 'pypy.rpython.lltypesystem.rdict' or
         #    mod == 'pypy.rpython.lltypesystem.rlist'):
