@@ -29,10 +29,10 @@ def check_args(*args):
 DEBUG = False
 
 def log(msg):
-    if we_are_translated():
-        debug_print(msg)
-    elif DEBUG:
+    if not we_are_translated():
         history.log.info(msg)
+    elif DEBUG:
+        debug_print(msg)
 
 class arguments(object):
     def __init__(self, *argtypes, **kwargs):
