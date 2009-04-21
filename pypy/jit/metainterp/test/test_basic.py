@@ -212,7 +212,7 @@ class BasicTests:
             return externfn(n, n+1)
         res = self.interp_operations(f, [6], policy=StopAtXPolicy(externfn))
         assert res == 42
-        self.check_history_(int_add=1, int_mul=0, call=1)
+        self.check_history_(int_add=1, int_mul=0, call=1, guard_no_exception=0)
 
     def test_constant_across_mp(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])

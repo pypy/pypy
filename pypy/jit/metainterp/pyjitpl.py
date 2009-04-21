@@ -447,6 +447,13 @@ class MIFrame(object):
         return self.execute_with_exc(rop.CALL, varargs, descr=calldescr)
 
     @arguments("descr", "varargs")
+    def opimpl_residual_call_noexception(self, calldescr, varargs):
+        if not we_are_translated():
+            self.metainterp._debug_history.append(['call',
+                                                  varargs[0], varargs[1:]])
+        return self.execute(rop.CALL, varargs, descr=calldescr)
+
+    @arguments("descr", "varargs")
     def opimpl_residual_call_pure(self, calldescr, varargs):
         self.execute(rop.CALL_PURE, varargs, descr=calldescr)
 

@@ -10,6 +10,7 @@ from pypy.jit.metainterp.history import Const, getkind
 from pypy.jit.metainterp import heaptracker, support, history
 from pypy.tool.udir import udir
 from pypy.translator.simplify import get_funcobj, get_functype
+from pypy.translator.backendopt.canraise import RaiseAnalyzer
 from pypy.jit.metainterp.typesystem import deref
 
 import py, sys
@@ -254,6 +255,7 @@ class BytecodeMaker(object):
             assert not portal, "portal has been hidden!"
             graph = make_calling_stub(codewriter.rtyper, graph)
         self.graph = graph
+        self.raise_analyzer = RaiseAnalyzer(self.cpu.rtyper.annotator.translator)
 
     def assemble(self):
         """Assemble the opcodes for self.bytecode."""
@@ -810,7 +812,10 @@ class BytecodeMaker(object):
         calldescr, non_void_args = self.codewriter.getcalldescr(op.args[0],
                                                                 args,
                                                                 op.result)
-        self.emit('residual_call')
+        if self.raise_analyzer.can_raise(op):
+            self.emit('residual_call')
+        else:
+            self.emit('residual_call_noexception')
         self.emit(self.get_position(calldescr))
         self.emit_varargs([op.args[0]] + non_void_args)
         self.register_var(op.result)
