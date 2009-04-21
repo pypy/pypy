@@ -307,6 +307,7 @@ get_execute_function._annspecialcase_ = 'specialize:memo'
 def execute(cpu, opnum, argboxes, descr=None):
     check_descr(descr)
     func = get_execute_function(cpu, opnum)
+    assert func is not None
     return func(cpu, argboxes, descr)
 execute._annspecialcase_ = 'specialize:arg(1)'
 
