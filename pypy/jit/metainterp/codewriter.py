@@ -589,6 +589,10 @@ class BytecodeMaker(object):
         # XXX handle ValueError
         self.default_serialize_op(op, 'int_lshift_ovf')
 
+    def serialize_op_int_lshift_val(self, op):
+        # XXX handle ValueError
+        self.default_serialize_op(op, 'int_lshift')
+
     def serialize_op_hint(self, op):
         hints = op.args[1].value
         if hints.get('promote') and op.args[0].concretetype is not lltype.Void:
