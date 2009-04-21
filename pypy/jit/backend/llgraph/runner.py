@@ -503,7 +503,7 @@ class StaticMethDescr(OODescr):
         def callfunc(funcbox, argboxes):
             funcobj = ootype.cast_from_object(FUNC, funcbox.getobj())
             funcargs = getargs(argboxes)
-            res = funcobj(*funcargs)
+            res = llimpl.call_maybe_on_top_of_llinterp(funcobj, funcargs)
             if RESULT is not ootype.Void:
                 return boxresult(RESULT, res)
         self.callfunc = callfunc

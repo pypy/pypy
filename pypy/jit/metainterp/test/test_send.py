@@ -455,8 +455,20 @@ class SendTests:
         res = self.meta_interp(f, [20, 0])
         assert hlstr(res) == "string"
 
-#class TestOOtype(SendTests, OOJitMixin):
-#    pass
+class TestOOtype(SendTests, OOJitMixin):
+    def skip(self):
+        py.test.skip('in-progress')
+
+    test_red_builtin_send = skip
+    test_send_to_single_target_method = skip
+    test_red_send_to_green_receiver = skip
+    test_oosend_base = skip
+    test_oosend_different_initial_class = skip
+    test_indirect_call_unknown_object_1 = skip
+    test_three_cases = skip
+    test_three_classes = skip
+    test_recursive_call_to_portal_from_blackhole = skip
+
 
 class TestLLtype(SendTests, LLJitMixin):
     pass

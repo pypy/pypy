@@ -696,10 +696,16 @@ class OOFrame(Frame):
 
     def op_call(self, calldescr, func, *args):
         sm = ootype.cast_from_object(calldescr.FUNC, func)
-        res = sm(*args)
+        res = call_maybe_on_top_of_llinterp(sm, args)
         if isinstance(calldescr.FUNC.RESULT, ootype.OOType):
             return ootype.cast_to_object(res)
         return res
+
+    def op_guard_class(self, _, value, expected_class):
+        value = ootype.cast_from_object(ootype.ROOT, value)
+        expected_class = ootype.cast_from_object(ootype.Class, expected_class)
+        if ootype.classof(value) is not expected_class:
+            raise GuardFailed
 
 # ____________________________________________________________
 
@@ -1013,6 +1019,20 @@ def do_call_int(f, memocast):
 def do_call_ptr(f, memocast):
     x = _do_call_common(f, memocast, lltype.nullptr(llmemory.GCREF.TO))
     return cast_to_ptr(x)
+
+
+# for ootype meth and staticmeth
+def call_maybe_on_top_of_llinterp(meth, args):
+    if hasattr(meth, 'graph'):
+        llinterp = _llinterp      # it's a global set here by CPU.__init__()
+        try:
+            result = llinterp.eval_graph(meth.graph, args)
+        except LLException, e:
+            _last_exception = e
+            result = err_result # XXX?
+    else:
+        result = meth(*args)  # no exception support in this case
+    return result
 
 # ____________________________________________________________
 

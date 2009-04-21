@@ -1,8 +1,9 @@
 #from pypy.rpython.annlowlevel import base_ptr_lltype, base_obj_ootype
 #from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
 #from pypy.rpython.annlowlevel import cast_instance_to_base_obj
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.ootypesystem import ootype
+from pypy.jit.metainterp import history
 
 def deref(T):
     if isinstance(T, lltype.Ptr):
@@ -47,6 +48,11 @@ class LLTypeHelper(TypeSystemHelper):
     def cast_fnptr_to_root(self, fnptr):
         return llmemory.cast_ptr_to_adr(fnptr)
 
+    def cls_of_box(self, cpu, box):
+        obj = box.getptr(lltype.Ptr(rclass.OBJECT))
+        cls = llmemory.cast_ptr_to_adr(obj.typeptr)
+        return history.ConstInt(cpu.cast_adr_to_int(cls))
+
 class OOTypeHelper(TypeSystemHelper):
 
     name = 'ootype'
@@ -65,3 +71,11 @@ class OOTypeHelper(TypeSystemHelper):
 
     def cast_fnptr_to_root(self, fnptr):
         return ootype.cast_to_object(fnptr)
+
+    def cls_of_box(self, cpu, box):
+        obj = ootype.cast_from_object(ootype.ROOT, box.getobj())
+        oocls = ootype.classof(obj)
+        return history.ConstObj(ootype.cast_to_object(oocls))
+
+llhelper = LLTypeHelper()
+oohelper = OOTypeHelper()

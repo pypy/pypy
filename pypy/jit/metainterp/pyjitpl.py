@@ -15,6 +15,7 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.heaptracker import (get_vtable_for_gcstruct,
                                              populate_type_cache)
 from pypy.jit.metainterp import codewriter, executor
+from pypy.jit.metainterp import typesystem
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
 
@@ -520,10 +521,11 @@ class MIFrame(object):
     @arguments("orgpc", "methdesc", "varargs")
     def opimpl_oosend(self, pc, methdesc, varargs):
         objbox = varargs[0]
-        obj = ootype.cast_from_object(ootype.ROOT, objbox.getobj())
-        oocls = ootype.classof(obj)
+        clsbox = self.cls_of_box(objbox)
+        if isinstance(objbox, Box):
+            self.generate_guard(pc, rop.GUARD_CLASS, objbox, [clsbox])
+        oocls = ootype.cast_from_object(ootype.Class, clsbox.getobj())
         jitcode = methdesc.get_jitcode_for_class(oocls)
-        # XXX put a guard on the class (in some way)
         cpu = self.metainterp.cpu
         f = self.metainterp.newframe(jitcode)
         f.setup_call(varargs)
@@ -756,9 +758,7 @@ class MIFrame(object):
             return box     # no promotion needed, already a Const
 
     def cls_of_box(self, box):
-        obj = box.getptr(lltype.Ptr(rclass.OBJECT))
-        cls = llmemory.cast_ptr_to_adr(obj.typeptr)
-        return ConstInt(self.metainterp.cpu.cast_adr_to_int(cls))
+        return self.metainterp.staticdata.ts.cls_of_box(self.metainterp.cpu, box)
 
     @specialize.arg(1)
     def execute(self, opnum, argboxes, descr=None):
@@ -807,6 +807,11 @@ class MetaInterpStaticData(object):
                 from pypy.jit.metainterp import optimize
             self.optimize_loop = optimize.optimize_loop
             self.optimize_bridge = optimize.optimize_bridge
+
+        if self.cpu.is_oo:
+            self.ts = typesystem.oohelper
+        else:
+            self.ts = typesystem.llhelper
 
     def _freeze_(self):
         return True

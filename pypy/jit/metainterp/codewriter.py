@@ -554,6 +554,8 @@ class BytecodeMaker(object):
     serialize_op_cast_unichar_to_int = serialize_op_same_as
     serialize_op_cast_int_to_unichar = serialize_op_same_as
     serialize_op_resume_point = serialize_op_same_as
+    serialize_op_oodowncast = serialize_op_same_as
+    serialize_op_ooupcast = serialize_op_same_as
 
     _defl = default_serialize_op
     def serialize_op_char_eq(self, op): self._defl(op, 'int_eq')
