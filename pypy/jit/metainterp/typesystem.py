@@ -53,6 +53,14 @@ class LLTypeHelper(TypeSystemHelper):
         cls = llmemory.cast_ptr_to_adr(obj.typeptr)
         return history.ConstInt(cpu.cast_adr_to_int(cls))
 
+    def subclassOf(self, cpu, clsbox1, clsbox2):
+        adr = clsbox2.getaddr(cpu)
+        bounding_class = llmemory.cast_adr_to_ptr(adr, rclass.CLASSTYPE)
+        adr = clsbox1.getaddr(cpu)
+        real_class = llmemory.cast_adr_to_ptr(adr, rclass.CLASSTYPE)
+        return rclass.ll_issubclass(real_class, bounding_class)
+
+
 class OOTypeHelper(TypeSystemHelper):
 
     name = 'ootype'
@@ -76,6 +84,12 @@ class OOTypeHelper(TypeSystemHelper):
         obj = ootype.cast_from_object(ootype.ROOT, box.getobj())
         oocls = ootype.classof(obj)
         return history.ConstObj(ootype.cast_to_object(oocls))
+
+    def subclassOf(self, cpu, clsbox1, clsbox2):
+        cls1 = ootype.cast_from_object(ootype.Class, clsbox1.getobj())
+        cls2 = ootype.cast_from_object(ootype.Class, clsbox2.getobj())
+        return ootype.subclassof(cls1, cls2)
+
 
 llhelper = LLTypeHelper()
 oohelper = OOTypeHelper()

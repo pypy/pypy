@@ -16,8 +16,9 @@ py.log.setconsumer('compiler', ansi_log)
 
 # ____________________________________________________________
 
-INT = 0
-PTR = 1
+INT = 'i'
+PTR = 'p'
+OBJ = 'o'
 
 def getkind(TYPE):
     if TYPE is lltype.Void:
@@ -276,7 +277,7 @@ class ConstPtr(Const):
     _getrepr_ = repr_pointer
 
 class ConstObj(Const):
-    type = ootype.Object
+    type = OBJ
     value = ootype.NULL
     _attrs_ = ('value',)
 
@@ -403,7 +404,7 @@ NULLBOX = BoxPtr()
 
 
 class BoxObj(Box):
-    type = ootype.Object
+    type = OBJ
     _attrs_ = ('value',)
 
     def __init__(self, value=ootype.NULL):

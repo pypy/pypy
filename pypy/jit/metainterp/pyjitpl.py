@@ -659,11 +659,9 @@ class MIFrame(object):
     @arguments("constbox", "jumptarget")
     def opimpl_goto_if_exception_mismatch(self, vtableref, next_exc_target):
         assert isinstance(self.exception_box, Const)    # XXX
-        adr = vtableref.getaddr(self.metainterp.cpu)
-        bounding_class = llmemory.cast_adr_to_ptr(adr, rclass.CLASSTYPE)
-        adr = self.exception_box.getaddr(self.metainterp.cpu)
-        real_class = llmemory.cast_adr_to_ptr(adr, rclass.CLASSTYPE)
-        if not rclass.ll_issubclass(real_class, bounding_class):
+        cpu = self.metainterp.cpu
+        ts = self.metainterp.staticdata.ts
+        if not ts.subclassOf(cpu, self.exception_box, vtableref):
             self.pc = next_exc_target
 
     @arguments("int")

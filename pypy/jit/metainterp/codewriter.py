@@ -700,6 +700,9 @@ class BytecodeMaker(object):
         self.emit('guard_class', self.var_position(op.args[0]))
         self.register_var(op.result)
 
+    def serialize_op_classof(self, op):
+        self.handle_getfield_typeptr(op)
+
     def serialize_op_getarrayitem(self, op):
         ARRAY = op.args[0].concretetype.TO
         assert ARRAY._gckind == 'gc'

@@ -109,6 +109,7 @@ TYPES = {
     'call'            : (('ptr', 'varargs'), 'intorptr'),
     'call_pure'       : (('ptr', 'varargs'), 'intorptr'),
     'oosend'          : (('varargs',), 'intorptr'),
+    'oosend_pure'     : (('varargs',), 'intorptr'),
     'guard_true'      : (('bool',), None),
     'guard_false'     : (('bool',), None),
     'guard_value'     : (('int', 'int'), None),
@@ -666,13 +667,9 @@ class Frame(object):
     op_call_pure = op_call
 
     def op_oosend(self, descr, obj, *args):
-        METH = descr.METH
-        obj = ootype.cast_from_object(METH.SELFTYPE, obj)
-        meth = getattr(obj, descr.methname)
-        res = call_maybe_on_top_of_llinterp(meth, args)
-        if isinstance(METH.RESULT, ootype.OOType):
-            return ootype.cast_to_object(res)
-        return res
+        raise NotImplementedError("oosend for lltype backend??")
+
+    op_oosend_pure = op_oosend
 
     def op_new_array(self, arraydescr, count):
         return do_new_array(arraydescr.ofs, count)
@@ -698,7 +695,7 @@ class OOFrame(Frame):
     def op_getfield_gc(self, fielddescr, obj):
         TYPE = fielddescr.TYPE
         fieldname = fielddescr.fieldname
-        T = TYPE._lookup_field(fieldname)
+        _, T = TYPE._lookup_field(fieldname)
         obj = ootype.cast_from_object(TYPE, obj)
         res = getattr(obj, fieldname)
         if isinstance(T, ootype.OOType):
@@ -708,7 +705,7 @@ class OOFrame(Frame):
     def op_setfield_gc(self, fielddescr, obj, newvalue):
         TYPE = fielddescr.TYPE
         fieldname = fielddescr.fieldname
-        T = TYPE._lookup_field(fieldname)
+        _, T = TYPE._lookup_field(fieldname)
         obj = ootype.cast_from_object(TYPE, obj)
         if isinstance(ootype.typeOf(newvalue), ootype.OOType):
             newvalue = ootype.cast_from_object(T, newvalue)
@@ -716,10 +713,25 @@ class OOFrame(Frame):
 
     def op_call(self, calldescr, func, *args):
         sm = ootype.cast_from_object(calldescr.FUNC, func)
-        res = call_maybe_on_top_of_llinterp(sm, args)
+        newargs = cast_call_args(calldescr.FUNC.ARGS, args, self.memocast)
+        res = call_maybe_on_top_of_llinterp(sm, newargs)
         if isinstance(calldescr.FUNC.RESULT, ootype.OOType):
             return ootype.cast_to_object(res)
         return res
+
+    op_call_pure = op_call
+
+    def op_oosend(self, descr, obj, *args):
+        METH = descr.METH
+        obj = ootype.cast_from_object(METH.SELFTYPE, obj)
+        meth = getattr(obj, descr.methname)
+        newargs = cast_call_args(METH.ARGS, args, self.memocast)
+        res = call_maybe_on_top_of_llinterp(meth, newargs)
+        if isinstance(METH.RESULT, ootype.OOType):
+            return ootype.cast_to_object(res)
+        return res
+
+    op_oosend_pure = op_oosend
 
     def op_guard_class(self, _, value, expected_class):
         value = ootype.cast_from_object(ootype.ROOT, value)
@@ -1009,18 +1021,7 @@ def _do_call_common(f, memocast, err_result=None):
     ptr = cast_int_to_adr(memocast, f).ptr
     FUNC = lltype.typeOf(ptr).TO
     ARGS = FUNC.ARGS
-    args = []
-    nextitem = iter(_call_args).next
-    for TYPE in ARGS:
-        if TYPE is lltype.Void:
-            x = None
-        else:
-            x = nextitem()
-            if isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc':
-                x = cast_from_ptr(TYPE, x)
-            else:
-                x = cast_from_int(TYPE, x, memocast)
-        args.append(x)
+    args = cast_call_args(ARGS, _call_args, memocast)
     del _call_args[:]
     assert len(ARGS) == len(args)
     if hasattr(ptr._obj, 'graph'):
@@ -1044,6 +1045,24 @@ def do_call_int(f, memocast):
 def do_call_ptr(f, memocast):
     x = _do_call_common(f, memocast, lltype.nullptr(llmemory.GCREF.TO))
     return cast_to_ptr(x)
+
+def cast_call_args(ARGS, args, memocast):
+    argsiter = iter(args)
+    args = []
+    for TYPE in ARGS:
+        if TYPE is lltype.Void:
+            x = None
+        else:
+            x = argsiter.next()
+            if isinstance(TYPE, ootype.OOType):
+                x = ootype.cast_from_object(TYPE, x)
+            elif isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc':
+                x = cast_from_ptr(TYPE, x)
+            else:
+                x = cast_from_int(TYPE, x, memocast)
+        args.append(x)
+    assert list(argsiter) == []
+    return args
 
 
 # for ootype meth and staticmeth

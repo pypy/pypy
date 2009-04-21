@@ -6,7 +6,8 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.rarithmetic import ovfcheck, r_uint, intmask
-from pypy.jit.metainterp.history import BoxInt, ConstInt, check_descr, INT, PTR
+from pypy.jit.metainterp.history import BoxInt, ConstInt, check_descr
+from pypy.jit.metainterp.history import INT, PTR, OBJ
 from pypy.jit.metainterp.resoperation import rop
 
 
@@ -115,25 +116,47 @@ def do_bool_not(cpu, args, descr=None):
 
 def do_oononnull(cpu, args, descr=None):
     if args[0].type == INT:
-        return ConstInt(bool(args[0].getint()))
-    return ConstInt(bool(args[0].getptr_base()))
+        x = bool(args[0].getint())
+    elif args[0].type == PTR:
+        x = bool(args[0].getptr_base())
+    else:
+        assert args[0].type == OBJ
+        x = bool(args[0].getobj())
+    return ConstInt(x)
 
 def do_ooisnull(cpu, args, descr=None):
     if args[0].type == INT:
-        return ConstInt(not args[0].getint())
-    return ConstInt(not args[0].getptr_base())
+        x = bool(args[0].getint())
+    elif args[0].type == PTR:
+        x = bool(args[0].getptr_base())
+    else:
+        assert args[0].type == OBJ
+        x = bool(args[0].getobj())
+    return ConstInt(not x)
 
 def do_oois(cpu, args, descr=None):
-    if args[0].type == INT:
-        assert args[1].type == INT
-        return ConstInt(args[0].getint() == args[1].getint())
-    return ConstInt(args[0].getptr_base() == args[1].getptr_base())
+    tp = args[0].type
+    assert tp == args[1].type
+    if tp == INT:
+        x = args[0].getint() == args[1].getint()
+    elif tp == PTR:
+        x = args[0].getptr_base() == args[1].getptr_base()
+    else:
+        assert tp == OBJ
+        x = args[0].getobj() == args[1].getobj()
+    return ConstInt(x)
 
 def do_ooisnot(cpu, args, descr=None):
-    if args[0].type == INT:
-        assert args[1].type == INT
-        return ConstInt(args[0].getint() != args[1].getint())
-    return ConstInt(args[0].getptr_base() != args[1].getptr_base())
+    tp = args[0].type
+    assert tp == args[1].type
+    if tp == INT:
+        x = args[0].getint() != args[1].getint()
+    elif tp == PTR:
+        x = args[0].getptr_base() != args[1].getptr_base()
+    else:
+        assert tp == OBJ
+        x = args[0].getobj() != args[1].getobj()
+    return ConstInt(x)
 
 # ----------
 # the following operations just delegate to the cpu:
