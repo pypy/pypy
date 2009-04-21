@@ -483,21 +483,6 @@ class BasicTests:
         expected = lltype.cast_opaque_ptr(llmemory.GCREF, x)
         assert self.interp_operations(f, [x]) == expected
 
-    def test_oops_on_nongc(self):
-        from pypy.rpython.lltypesystem import lltype
-        
-        TP = lltype.Struct('x')
-        def f(p1, p2):
-            a = p1 is p2
-            b = p1 is not p2
-            c = bool(p1)
-            d = not bool(p2)
-            return a + b + c + d
-        x = lltype.malloc(TP, flavor='raw')
-        expected = f(x, x)
-        assert self.interp_operations(f, [x, x]) == expected
-        lltype.free(x, flavor='raw')
-
     def test_instantiate_classes(self):
         class Base: pass
         class A(Base): foo = 72
@@ -518,9 +503,7 @@ class TestOOtype(BasicTests, OOJitMixin):
     def skip(self):
         py.test.skip('in-progress')
 
-    test_oops_on_nongc = skip
-
-    test_print = skip
+    #test_print = skip
     test_bridge_from_interpreter_2 = skip
     test_bridge_from_interpreter_3 = skip
     test_bridge_from_interpreter_4 = skip
@@ -528,4 +511,18 @@ class TestOOtype(BasicTests, OOJitMixin):
 
 
 class TestLLtype(BasicTests, LLJitMixin):
-    pass
+
+    def test_oops_on_nongc(self):
+        from pypy.rpython.lltypesystem import lltype
+        
+        TP = lltype.Struct('x')
+        def f(p1, p2):
+            a = p1 is p2
+            b = p1 is not p2
+            c = bool(p1)
+            d = not bool(p2)
+            return a + b + c + d
+        x = lltype.malloc(TP, flavor='raw')
+        expected = f(x, x)
+        assert self.interp_operations(f, [x, x]) == expected
+        lltype.free(x, flavor='raw')

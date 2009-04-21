@@ -400,6 +400,10 @@ class MIFrame(object):
     def opimpl_ptr_iszero(self, box):
         self.execute(rop.OOISNULL, [box])
 
+    @arguments("box")
+    def opimpl_oononnull(self, box):
+        self.execute(rop.OONONNULL, [box])
+
     @arguments("box", "box")
     def opimpl_ptr_eq(self, box1, box2):
         self.execute(rop.OOIS, [box1, box2])
