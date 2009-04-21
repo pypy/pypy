@@ -614,6 +614,13 @@ def test_cast_object_compare_null():
     obj1 = cast_to_object(a)
     assert NULL != obj1
     assert obj1 != NULL
+
+def test_cast_object_class():
+    A = Instance("Foo", ROOT)
+    cls = runtimeClass(A)
+    obj = cast_to_object(cls)
+    cls2 = cast_from_object(Class, obj)
+    assert cls is cls2
     
 def test_object_ooidentityhash():
     A = Instance("Foo", ROOT)

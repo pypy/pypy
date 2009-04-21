@@ -883,13 +883,11 @@ class _object(object):
             return self
         elif isinstance(EXPECTED_TYPE, Instance):
             return oodowncast(EXPECTED_TYPE, self.obj)
-        elif isinstance(EXPECTED_TYPE, SpecializableType):
+        else:
             T = typeOf(self.obj)
             if T != EXPECTED_TYPE:
                 raise RuntimeError("Invalid cast: %s --> %s" % (T, EXPECTED_TYPE))
             return self.obj
-        else:
-            assert False, 'to be implemented'
 
 
 class _class(object):
