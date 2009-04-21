@@ -680,7 +680,7 @@ class BytecodeMaker(object):
 
     def is_typeptr_getset(self, op):
         return (op.args[1].value == 'typeptr' and
-                op.args[0].concretetype.TO._hints.get('typeptr'))
+                deref(op.args[0].concretetype)._hints.get('typeptr'))
 
     def handle_getfield_typeptr(self, op):
         # special-casing for getting the typeptr of an object
