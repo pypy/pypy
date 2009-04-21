@@ -471,18 +471,6 @@ class BasicTests:
         for n, k in [(20, 0), (20, 1)]:
             interp.eval_graph(graph, [n, k])
 
-    def test_casts(self):
-        from pypy.rpython.lltypesystem import lltype, llmemory
-        
-        TP = lltype.GcStruct('x')
-        def f(p):
-            n = lltype.cast_ptr_to_int(p)
-            return lltype.cast_int_to_ptr(lltype.Ptr(TP), n)
-
-        x = lltype.malloc(TP)
-        expected = lltype.cast_opaque_ptr(llmemory.GCREF, x)
-        assert self.interp_operations(f, [x]) == expected
-
     def test_instantiate_classes(self):
         class Base: pass
         class A(Base): foo = 72
@@ -500,14 +488,7 @@ class BasicTests:
 
 
 class TestOOtype(BasicTests, OOJitMixin):
-    def skip(self):
-        py.test.skip('in-progress')
-
-    #test_print = skip
-    test_bridge_from_interpreter_2 = skip
-    test_bridge_from_interpreter_3 = skip
-    test_bridge_from_interpreter_4 = skip
-    test_casts = skip
+    pass
 
 
 class TestLLtype(BasicTests, LLJitMixin):
@@ -526,3 +507,15 @@ class TestLLtype(BasicTests, LLJitMixin):
         expected = f(x, x)
         assert self.interp_operations(f, [x, x]) == expected
         lltype.free(x, flavor='raw')
+
+    def test_casts(self):
+        from pypy.rpython.lltypesystem import lltype, llmemory
+        
+        TP = lltype.GcStruct('x')
+        def f(p):
+            n = lltype.cast_ptr_to_int(p)
+            return lltype.cast_int_to_ptr(lltype.Ptr(TP), n)
+
+        x = lltype.malloc(TP)
+        expected = lltype.cast_opaque_ptr(llmemory.GCREF, x)
+        assert self.interp_operations(f, [x]) == expected
