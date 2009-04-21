@@ -1603,6 +1603,12 @@ class _array(_builtin_type):
         self._array[index] = item
     ll_setitem_fast.oopargcheck = lambda a, index, item: bool(a)
 
+    def _identityhash(self):
+        if self:
+            return intmask(id(self))
+        else:
+            return 0   # for all null arrays
+
 class _null_array(_null_mixin(_array), _array):
 
     def __init__(self, ARRAY):
@@ -1879,7 +1885,7 @@ def cast_from_object(EXPECTED_TYPE, obj):
 
 def ooidentityhash(inst):
     T = typeOf(inst)
-    assert T is Object or isinstance(T, (Instance, Record))
+    assert T is Object or isinstance(T, (Instance, Record, Array))
     return inst._identityhash()
 
 def oohash(inst):

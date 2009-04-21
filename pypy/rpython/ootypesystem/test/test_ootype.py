@@ -637,3 +637,10 @@ def test_object_ooidentityhash_sm():
     obj1 = cast_to_object(m)
     obj2 = cast_to_object(m)
     assert ooidentityhash(obj1) == ooidentityhash(obj2)
+
+def test_ooidentityhash_array():
+    A = Array(Signed)
+    a = oonewarray(A, 10)
+    b = oonewarray(A, 10)
+    assert ooidentityhash(a) != ooidentityhash(b)
+
