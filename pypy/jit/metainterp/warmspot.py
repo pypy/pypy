@@ -388,6 +388,7 @@ unwrap._annspecialcase_ = 'specialize:arg(0)'
 
 def cast_whatever_to_int(TYPE, x, cpu):
     if isinstance(TYPE, lltype.Ptr):
+        # XXX moving GCs...?
         return cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(x))
     elif isinstance(TYPE, ootype.OOType):
         return ootype.ooidentityhash(x)
