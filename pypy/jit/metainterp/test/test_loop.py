@@ -542,12 +542,7 @@ class LoopTest:
         res = self.meta_interp(f, [200])
 
 class TestOOtype(LoopTest, OOJitMixin):
-
-    def skip(self):
-        py.test.skip('in progress')
-        
-    test_outer_and_inner_loop = skip
-
+    pass
 
 class TestLoop(LoopTest, LLJitMixin): # XXX change name later
     pass

@@ -303,8 +303,7 @@ class ConstObj(Const):
         return self.value
 
     def equals(self, other):
-        assert False
-        #return self.value == other.getptr_base()
+        return self.value == other.getobj()
 
     _getrepr_ = repr_object
 
