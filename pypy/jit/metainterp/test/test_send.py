@@ -134,6 +134,8 @@ class SendTests:
         assert res == 17
         res = self.meta_interp(f, [4, 14])
         assert res == 1404
+        if self.type_system == 'ootype':
+            py.test.skip('fails because we use simple_optimize.py')
         self.check_loops(guard_class=0, new_with_vtable=0)
 
     def test_three_receivers(self):
@@ -459,7 +461,6 @@ class TestOOtype(SendTests, OOJitMixin):
     def skip(self):
         py.test.skip('in-progress')
 
-    test_oosend_base = skip
     test_oosend_different_initial_class = skip
     test_three_cases = skip
     test_recursive_call_to_portal_from_blackhole = skip

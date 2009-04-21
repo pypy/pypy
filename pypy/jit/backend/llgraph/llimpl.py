@@ -279,6 +279,16 @@ def compile_start_ptr_var(loop):
     _variables.append(v)
     return r
 
+def compile_start_obj_var(loop):
+    loop = _from_opaque(loop)
+    assert not loop.operations
+    v = Variable()
+    v.concretetype = ootype.Object
+    loop.inputargs.append(v)
+    r = len(_variables)
+    _variables.append(v)
+    return r
+
 def compile_add(loop, opnum):
     loop = _from_opaque(loop)
     loop.operations.append(Operation(opnum))
@@ -766,6 +776,11 @@ def frame_add_ptr(frame, value):
     i = len(frame.env)
     frame.env[frame.loop.inputargs[i]] = value
 
+def frame_add_obj(frame, value):
+    frame = _from_opaque(frame)
+    i = len(frame.env)
+    frame.env[frame.loop.inputargs[i]] = value
+
 def frame_execute(frame):
     frame = _from_opaque(frame)
     if frame.verbose:
@@ -1104,6 +1119,7 @@ s_MemoCast = annmodel.SomePtr(MEMOCAST)
 setannotation(compile_start, s_CompiledLoop)
 setannotation(compile_start_int_var, annmodel.SomeInteger())
 setannotation(compile_start_ptr_var, annmodel.SomeInteger())
+setannotation(compile_start_obj_var, annmodel.SomeInteger())
 setannotation(compile_add, annmodel.s_None)
 setannotation(compile_add_descr, annmodel.s_None)
 setannotation(compile_add_var, annmodel.s_None)
@@ -1120,6 +1136,7 @@ setannotation(new_frame, s_Frame)
 setannotation(frame_clear, annmodel.s_None)
 setannotation(frame_add_int, annmodel.s_None)
 setannotation(frame_add_ptr, annmodel.s_None)
+setannotation(frame_add_obj, annmodel.s_None)
 setannotation(frame_execute, annmodel.SomeInteger())
 setannotation(frame_int_getvalue, annmodel.SomeInteger())
 setannotation(frame_ptr_getvalue, annmodel.SomePtr(llmemory.GCREF))

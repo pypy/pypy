@@ -104,6 +104,8 @@ class BaseCPU(model.AbstractCPU):
                 var2index[box] = llimpl.compile_start_int_var(c)
             elif isinstance(box, history.BoxPtr):
                 var2index[box] = llimpl.compile_start_ptr_var(c)
+            elif self.is_oo and isinstance(box, history.BoxObj):
+                var2index[box] = llimpl.compile_start_obj_var(c)
             else:
                 raise Exception("box is: %r" % (box,))
         self._compile_branch(c, loop.operations, var2index)
@@ -168,10 +170,14 @@ class BaseCPU(model.AbstractCPU):
                 llimpl.frame_add_int(frame, box.value)
             elif isinstance(box, history.BoxPtr):
                 llimpl.frame_add_ptr(frame, box.value)
+            elif self.is_oo and isinstance(box, history.BoxObj):
+                llimpl.frame_add_obj(frame, box.value)
             elif isinstance(box, history.ConstInt):
                 llimpl.frame_add_int(frame, box.value)
             elif isinstance(box, history.ConstPtr):
                 llimpl.frame_add_ptr(frame, box.value)
+            elif self.is_oo and isinstance(box, history.ConstObj):
+                llimpl.frame_add_obj(frame, box.value)
             else:
                 raise Exception("bad box in valueboxes: %r" % (box,))
         # run the loop

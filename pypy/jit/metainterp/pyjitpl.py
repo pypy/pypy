@@ -10,7 +10,8 @@ from pypy.rlib.debug import debug_print
 
 from pypy.jit.metainterp import history, support, compile
 from pypy.jit.metainterp.history import (Const, ConstInt, ConstPtr, Box,
-                                         BoxInt, BoxPtr, Options)
+                                         BoxInt, BoxPtr, Options,
+                                         ConstObj, BoxObj)
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.heaptracker import (get_vtable_for_gcstruct,
                                              populate_type_cache)
@@ -1228,6 +1229,12 @@ class MetaInterp(object):
                         cls = ConstInt
                     else:
                         cls = BoxInt
+            elif isinstance(lltype.typeOf(value), ootype.OOType):
+                value = ootype.cast_to_object(value)
+                if num_green_args > 0:
+                    cls = ConstObj
+                else:
+                    cls = BoxObj
             else:
                 if num_green_args > 0:
                     cls = ConstInt
