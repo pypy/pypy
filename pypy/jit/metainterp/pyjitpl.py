@@ -26,10 +26,12 @@ def check_args(*args):
     for arg in args:
         assert isinstance(arg, (Box, Const))
 
+DEBUG = False
+
 def log(msg):
     if we_are_translated():
         debug_print(msg)
-    else:
+    elif DEBUG:
         history.log.info(msg)
 
 class arguments(object):
@@ -1036,7 +1038,7 @@ class MetaInterp(object):
         if not we_are_translated():
             history.log.event('ENTER' + self.history.extratext)
             self.staticdata.stats.enter_count += 1
-        else:
+        elif DEBUG:
             debug_print('~~~ ENTER', self.history.extratext)
         try:
             while True:
@@ -1044,7 +1046,7 @@ class MetaInterp(object):
         finally:
             if not we_are_translated():
                 history.log.event('LEAVE' + self.history.extratext)
-            else:
+            elif DEBUG:
                 debug_print('~~~ LEAVE', self.history.extratext)
 
     def interpret(self):
