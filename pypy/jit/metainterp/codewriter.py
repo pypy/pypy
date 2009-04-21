@@ -80,7 +80,8 @@ class MethDesc(history.AbstractValue):
             _, meth = T._lookup(methname)
             if not getattr(meth, 'abstract', False):
                 assert meth.graph
-                jitcode = codewriter.get_jitcode(meth.graph)
+                jitcode = codewriter.get_jitcode(meth.graph,
+                                                 oosend_methdesc=self)
                 oocls = ootype.runtimeClass(T)
                 self.jitcodes[oocls] = jitcode
 
@@ -112,40 +113,48 @@ class CodeWriter(object):
     def make_portal_bytecode(self, graph):
         log.info("making JitCodes...")
         self.portal_graph = graph
-        jitcode = self.make_one_bytecode(graph, True)
+        graph_key = (graph, None)
+        jitcode = self.make_one_bytecode(graph_key, True)
         while self.unfinished_graphs:
-            graph, called_from = self.unfinished_graphs.pop()
-            self.make_one_bytecode(graph, False, called_from)
+            graph_key, called_from = self.unfinished_graphs.pop()
+            self.make_one_bytecode(graph_key, False, called_from)
         log.info("there are %d JitCode instances." % len(self.all_graphs))
         # xxx annotation hack: make sure there is at least one ConstAddr around
         jitcode.constants.append(history.ConstAddr(llmemory.NULL, self.cpu))
         return jitcode
 
-    def make_one_bytecode(self, graph, portal, called_from=None):
-        maker = BytecodeMaker(self, graph, portal)
+    def make_one_bytecode(self, graph_key, portal, called_from=None):
+        maker = BytecodeMaker(self, graph_key, portal)
         if not hasattr(maker.bytecode, 'code'):
             maker.assemble()
         return maker.bytecode
 
-    def get_jitcode(self, graph, called_from=None):
-        if graph in self.all_graphs:
-            return self.all_graphs[graph]
-        extra = self.get_jitcode_calldescr(graph)
+    def get_jitcode(self, graph, called_from=None, oosend_methdesc=None):
+        key = (graph, oosend_methdesc)
+        if key in self.all_graphs:
+            return self.all_graphs[key]
+        extra = self.get_jitcode_calldescr(graph, oosend_methdesc)
         bytecode = JitCode(graph.name, *extra, **dict(called_from=called_from,
                                                       graph=graph))
         # 'graph.name' is for dump()
-        self.all_graphs[graph] = bytecode
-        self.unfinished_graphs.append((graph, called_from))
+        self.all_graphs[key] = bytecode
+        self.unfinished_graphs.append((key, called_from))
         return bytecode
 
-    def get_jitcode_calldescr(self, graph):
-        if self.metainterp_sd.cpu.is_oo:
-            return ()
+    def get_jitcode_calldescr(self, graph, oosend_methdesc):
         if self.portal_graph is None or graph is self.portal_graph:
             return ()
         fnptr = self.rtyper.getcallable(graph)
-        cfnptr = history.ConstAddr(llmemory.cast_ptr_to_adr(fnptr), self.cpu)
-        FUNC = lltype.typeOf(fnptr).TO
+        if self.metainterp_sd.cpu.is_oo:
+            if oosend_methdesc:
+                return (None, oosend_methdesc)
+            else:
+                cfnptr = history.ConstObj(ootype.cast_to_object(fnptr))
+        else:
+            assert not oosend_methdesc
+            cfnptr = history.ConstAddr(llmemory.cast_ptr_to_adr(fnptr),
+                                       self.cpu)
+        FUNC = get_functype(lltype.typeOf(fnptr))
         # <hack>
         # these functions come from somewhere and are never called. make sure
         # we never store a pointer to them since they make C explode,
@@ -246,11 +255,13 @@ class CodeWriter(object):
 class BytecodeMaker(object):
     debug = False
     
-    def __init__(self, codewriter, graph, portal):
+    def __init__(self, codewriter, graph_key, portal):
         self.codewriter = codewriter
         self.cpu = codewriter.metainterp_sd.cpu
         self.portal = portal
-        self.bytecode = self.codewriter.get_jitcode(graph)
+        graph, oosend_methdesc = graph_key
+        self.bytecode = self.codewriter.get_jitcode(graph,
+                                               oosend_methdesc=oosend_methdesc)
         if not codewriter.policy.look_inside_graph(graph):
             assert not portal, "portal has been hidden!"
             graph = make_calling_stub(codewriter.rtyper, graph)
@@ -795,14 +806,15 @@ class BytecodeMaker(object):
         kind = self.codewriter.policy.guess_call_kind(op)
         return getattr(self, 'handle_%s_oosend' % kind)(op)
 
-    def handle_regular_call(self, op, skip_first=True):
+    def handle_regular_call(self, op, oosend_methdesc=None):
         self.minimize_variables()
         [targetgraph] = self.codewriter.policy.graphs_from(op)
-        jitbox = self.codewriter.get_jitcode(targetgraph, self.graph)
-        if skip_first:
-            args = op.args[1:]
-        else:
+        jitbox = self.codewriter.get_jitcode(targetgraph, self.graph,
+                                             oosend_methdesc=oosend_methdesc)
+        if oosend_methdesc:
             args = op.args
+        else:
+            args = op.args[1:]
         self.emit('call')
         self.emit(self.get_position(jitbox))
         self.emit_varargs([x for x in args
@@ -845,12 +857,12 @@ class BytecodeMaker(object):
         methname = op.args[0].value
         v_obj = op.args[1]
         INSTANCE = v_obj.concretetype
+        methdesc = self.codewriter.get_methdesc(INSTANCE, methname)
         graphs = v_obj.concretetype._lookup_graphs(methname)
         if len(graphs) == 1:
-            self.handle_regular_call(op, skip_first=False)
+            self.handle_regular_call(op, oosend_methdesc=methdesc)
             return
         self.minimize_variables()
-        methdesc = self.codewriter.get_methdesc(INSTANCE, methname)
         self.emit('oosend')
         self.emit(self.get_position(methdesc))
         self.emit_varargs([x for x in op.args

@@ -431,12 +431,18 @@ class MIFrame(object):
     @arguments("bytecode", "varargs")
     def opimpl_call(self, callee, varargs):
         if (isinstance(self.metainterp.history, history.BlackHole) and
-            callee.cfnptr is not None):
+            callee.calldescr is not None):
             # when producing only a BlackHole, we can implement this by
             # calling the subfunction directly instead of interpreting it
-            varargs = [callee.cfnptr] + varargs
-            return self.execute_with_exc(rop.CALL, varargs,
-                                         descr=callee.calldescr)
+            if callee.cfnptr is not None:
+                # for non-oosends
+                varargs = [callee.cfnptr] + varargs
+                return self.execute_with_exc(rop.CALL, varargs,
+                                             descr=callee.calldescr)
+            else:
+                # for oosends (ootype only): calldescr is a MethDesc
+                return self.execute_with_exc(rop.OOSEND, varargs,
+                                             descr=callee.calldescr)
         else:
             # when tracing, this bytecode causes the subfunction to be entered
             f = self.metainterp.newframe(callee)
@@ -526,6 +532,7 @@ class MIFrame(object):
             self.generate_guard(pc, rop.GUARD_CLASS, objbox, [clsbox])
         oocls = ootype.cast_from_object(ootype.Class, clsbox.getobj())
         jitcode = methdesc.get_jitcode_for_class(oocls)
+        # XXX if BlackHole, don't recurse but do the call directly
         cpu = self.metainterp.cpu
         f = self.metainterp.newframe(jitcode)
         f.setup_call(varargs)

@@ -69,10 +69,11 @@ class JitMixin:
                                             **kwds)
         cw = codewriter.CodeWriter(metainterp.staticdata, policy, self.ts)
         graph = rtyper.annotator.translator.graphs[0]
-        maingraph = cw.make_one_bytecode(graph, False)
+        graph_key = (graph, None)
+        maingraph = cw.make_one_bytecode(graph_key, False)
         while cw.unfinished_graphs:
-            graph, called_from = cw.unfinished_graphs.pop()
-            cw.make_one_bytecode(graph, False, called_from)
+            graph_key, called_from = cw.unfinished_graphs.pop()
+            cw.make_one_bytecode(graph_key, False, called_from)
         metainterp.staticdata.portal_code = maingraph
         metainterp.staticdata.state = FakeWarmRunnerDesc()
         metainterp.staticdata.DoneWithThisFrame = DoneWithThisFrame
