@@ -47,7 +47,7 @@ class PyPyJitPolicy(ManualJitPolicy):
         # string builder interface
         if mod == 'pypy.rpython.lltypesystem.rbuilder':
             return False
-        if mod == 'pypy.interpreter.pyopcode' and func.__name__ == 'dispatch':
+        if mod == 'pypy.interpreter.pyframe' and func.__name__ == 'dispatch':
             return False # no recursive portals for now
         #if (mod == 'pypy.rpython.rlist' or
         #    mod == 'pypy.rpython.lltypesystem.rdict' or
