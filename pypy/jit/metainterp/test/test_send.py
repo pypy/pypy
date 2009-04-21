@@ -286,6 +286,9 @@ class SendTests:
         # However, this doesn't match the initial value of 'w'.
         # XXX This not completely easy to check...
         self.check_loop_count(1)
+
+        if self.type_system == 'ootype':
+            py.test.skip('fails because we use simple_optimize.py')
         self.check_loops(int_add=0, int_mul=1, guard_class=0)
 
     def test_indirect_call_unknown_object_1(self):
@@ -461,7 +464,6 @@ class TestOOtype(SendTests, OOJitMixin):
     def skip(self):
         py.test.skip('in-progress')
 
-    test_oosend_different_initial_class = skip
     test_three_cases = skip
     test_recursive_call_to_portal_from_blackhole = skip
 
