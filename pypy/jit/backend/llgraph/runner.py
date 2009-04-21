@@ -67,16 +67,10 @@ history.TreeLoop._compiled_version = lltype.nullptr(llimpl.COMPILEDLOOP.TO)
 
 
 class BaseCPU(model.AbstractCPU):
-    has_lltype = True
-    has_ootype = True
 
     def __init__(self, rtyper, stats=None, translate_support_code=False,
                  annmixlevel=None):
         self.rtyper = rtyper
-        if rtyper is not None:
-            self.is_oo = rtyper.type_system.name == "ootypesystem"
-        else:
-            self.is_oo = False
         self.translate_support_code = translate_support_code
         self.stats = stats or MiniStats()
         self.stats.exec_counters = {}
@@ -88,7 +82,6 @@ class BaseCPU(model.AbstractCPU):
         llimpl._llinterp = LLInterpreter(self.rtyper)
         if translate_support_code:
             self.mixlevelann = annmixlevel
-
 
     def compile_operations(self, loop):
         """In a real assembler backend, this should assemble the given
@@ -244,6 +237,7 @@ class BaseCPU(model.AbstractCPU):
 
 
 class LLtypeCPU(BaseCPU):
+    is_oo = False
 
     def __init__(self, *args, **kwds):
         BaseCPU.__init__(self, *args, **kwds)
@@ -405,6 +399,7 @@ class LLtypeCPU(BaseCPU):
                                                         self.memo_cast))
 
 class OOtypeCPU(BaseCPU):
+    is_oo = True
 
     @staticmethod
     def fielddescrof(T, fieldname):

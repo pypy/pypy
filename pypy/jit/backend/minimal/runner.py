@@ -7,8 +7,7 @@ from pypy.jit.metainterp.resoperation import rop
 
 
 class CPU(object):
-    has_lltype = True
-    has_ootype = False    # XXX for now
+    is_oo = False    # XXX for now
 
     def __init__(self, rtyper, stats, translate_support_code=False,
                  mixlevelann=None):

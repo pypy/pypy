@@ -67,9 +67,7 @@ class ConstDescr3(AbstractDescr):
 
 class CPU386(object):
     debug = True
-    has_lltype = True
-    has_ootype = False
-    is_oo = False # XXX why all of those?
+    is_oo = False
 
     BOOTSTRAP_TP = lltype.FuncType([lltype.Ptr(rffi.CArray(lltype.Signed))],
                                    lltype.Signed)
