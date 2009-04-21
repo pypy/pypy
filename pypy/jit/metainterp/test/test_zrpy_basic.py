@@ -64,12 +64,14 @@ class TestBasicLLtype(BasicTest):
     
 
 class LLInterpJitMixin:
+    CPUClass = runner.LLtypeCPU
     type_system = 'lltype'
     basic = False
 
     def meta_interp(self, *args, **kwds):
         if not option.run_slow_tests:
             py.test.skip("use --slow to execute this long-running test")
+        kwds.setdefault('CPUClass', self.CPUClass)
         return rpython_ll_meta_interp(*args, **kwds)
 
     def check_history(self, expected=None, **check):
