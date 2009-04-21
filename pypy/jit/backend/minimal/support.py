@@ -3,7 +3,7 @@ import py
 from pypy.jit.metainterp.history import log
 
 
-def c_meta_interp(function, args, repeat=1, **kwds):
+def c_meta_interp(function, args, repeat=1, optimizer='ignored', **kwds):
     from pypy.translator.translator import TranslationContext
     from pypy.jit.metainterp.warmspot import WarmRunnerDesc
     from pypy.jit.metainterp.simple_optimize import Optimizer
