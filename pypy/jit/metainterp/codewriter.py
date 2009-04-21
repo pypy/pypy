@@ -750,8 +750,16 @@ class BytecodeMaker(object):
 ##                              self.get_position(descr))
 
     def serialize_op_direct_call(self, op):
-        color = self.codewriter.policy.guess_call_kind(op)
-        return getattr(self, 'handle_%s_call' % color)(op)
+        kind = self.codewriter.policy.guess_call_kind(op)
+        return getattr(self, 'handle_%s_call' % kind)(op)
+
+    def serialize_op_indirect_call(self, op):
+        kind = self.codewriter.policy.guess_call_kind(op)
+        return getattr(self, 'handle_%s_indirect_call' % kind)(op)
+
+    def serialize_op_oosend(self, op):
+        kind = self.codewriter.policy.guess_call_kind(op)
+        return getattr(self, 'handle_%s_oosend' % kind)(op)
 
     def handle_regular_call(self, op):
         self.minimize_variables()
@@ -778,6 +786,19 @@ class BytecodeMaker(object):
         self.register_var(op.result)
 
     handle_recursive_call = handle_residual_call     # for now
+    handle_residual_indirect_call = handle_residual_call
+
+    def handle_regular_indirect_call(self, op):
+        targets = self.codewriter.policy.graphs_from(op)
+        assert targets is not None
+        self.minimize_variables()
+        indirectcallset = self.codewriter.get_indirectcallset(targets)
+        self.emit('indirect_call')
+        self.emit(self.get_position(indirectcallset))
+        self.emit(self.var_position(op.args[0]))
+        self.emit_varargs([x for x in op.args[1:-1]
+                             if x.concretetype is not lltype.Void])
+        self.register_var(op.result)
 
     def handle_builtin_call(self, op):
         oopspec_name, args = support.decode_builtin_call(op)
@@ -920,10 +941,6 @@ class BytecodeMaker(object):
             self.register_var(v_posindex)
         return v_posindex
 
-    def serialize_op_oosend(self, op):
-        color = self.codewriter.policy.guess_call_kind(op)
-        return getattr(self, 'handle_%s_oosend' % color)(op)
-
     def handle_builtin_oosend(self, op):
         SELFTYPE, methname, args_v = support.decompose_oosend(op)
         assert SELFTYPE.oopspec_name is not None
@@ -933,20 +950,6 @@ class BytecodeMaker(object):
         self.emit('oosend_pure')
         self.emit(self.get_position(methdescr))
         self.emit_varargs(op.args[1:])
-        self.register_var(op.result)
-
-    def serialize_op_indirect_call(self, op):
-        targets = self.codewriter.policy.graphs_from(op)
-        if targets is None:      # this is a residual call
-            self.handle_residual_call(op, skip_last=True)
-            return
-        self.minimize_variables()
-        indirectcallset = self.codewriter.get_indirectcallset(targets)
-        self.emit('indirect_call')
-        self.emit(self.get_position(indirectcallset))
-        self.emit(self.var_position(op.args[0]))
-        self.emit_varargs([x for x in op.args[1:-1]
-                             if x.concretetype is not lltype.Void])
         self.register_var(op.result)
         
     def serialize_op_debug_assert(self, op):

@@ -29,8 +29,12 @@ class JitPolicy(object):
             if self.look_inside_graph(graph):
                 return [graph]     # common case: look inside this graph
         else:
-            assert op.opname == 'indirect_call'
-            graphs = op.args[-1].value
+            assert op.opname in ('indirect_call', 'oosend')
+            if op.opname == 'indirect_call':
+                graphs = op.args[-1].value
+            else:
+                v_obj = op.args[1].concretetype
+                graphs = v_obj._lookup_graphs(op.args[0].value)
             if graphs is not None:
                 for graph in graphs:
                     if self.look_inside_graph(graph):
@@ -55,7 +59,8 @@ class JitPolicy(object):
             SELFTYPE, methname, opargs = support.decompose_oosend(op)
             if SELFTYPE.oopspec_name is not None:
                 return 'builtin'
-            assert False, 'fixme'
+            # TODO: return 'recursive' if the oosend ends with calling the
+            # portal
         if self.graphs_from(op) is None:
             return 'residual'
         return 'regular'
