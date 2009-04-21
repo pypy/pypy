@@ -117,7 +117,7 @@ class BaseCPU(model.AbstractCPU):
             llimpl.compile_add(c, op.opnum)
             if isinstance(op.descr, Descr):
                 llimpl.compile_add_descr(c, op.descr.ofs, op.descr.type)
-            if self.is_oo and isinstance(op.descr, OODescr):
+            if self.is_oo and isinstance(op.descr, (OODescr, MethDescr)):
                 # hack hack, not rpython
                 c._obj.externalobj.operations[-1].descr = op.descr
             for x in op.args:
@@ -408,8 +408,8 @@ class OOtypeCPU(BaseCPU):
         return StaticMethDescr(FUNC, ARGS, RESULT)
 
     @staticmethod
-    def methdescrof(METH, methname):
-        return MethDescr(METH, methname)
+    def methdescrof(SELFTYPE, methname):
+        return MethDescr(SELFTYPE, methname)
 
     @staticmethod
     def typedescrof(TYPE):
@@ -508,19 +508,20 @@ class StaticMethDescr(OODescr):
                 return boxresult(RESULT, res)
         self.callfunc = callfunc
 
-class MethDescr(OODescr):
+class MethDescr(history.AbstractMethDescr):
 
-    def __init__(self, METH, methname):
+    def __init__(self, SELFTYPE, methname):
+        _, meth = SELFTYPE._lookup(methname)
+        METH = ootype.typeOf(meth)
         self.METH = METH
         self.methname = methname
-        SELFTYPE = METH.SELFTYPE
         RESULT = METH.RESULT
         getargs = make_getargs(METH.ARGS)
         def callmeth(selfbox, argboxes):
             selfobj = ootype.cast_from_object(SELFTYPE, selfbox.getobj())
             meth = getattr(selfobj, methname)
             methargs = getargs(argboxes)
-            res = meth(*methargs)
+            res = llimpl.call_maybe_on_top_of_llinterp(meth, methargs)
             if RESULT is not ootype.Void:
                 return boxresult(RESULT, res)
         self.callmeth = callmeth

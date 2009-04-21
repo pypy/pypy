@@ -55,7 +55,10 @@ def repr_object(box):
     try:
         if box.value.obj._TYPE is ootype.String:
             return '(%r)' % box.value.obj._str
-        return repr(box.value.obj._TYPE)
+        if isinstance(box.value.obj, ootype._view):
+            return repr(box.value.obj._inst._TYPE)
+        else:
+            return repr(box.value.obj._TYPE)
     except AttributeError:
         return box.value
 
@@ -102,6 +105,15 @@ class AbstractDescr(AbstractValue):
         raise NotImplementedError
     def compile_and_attach(self, metainterp, new_loop):
         raise NotImplementedError
+
+class AbstractMethDescr(AbstractDescr):
+    # the base class of the result of cpu.methdescrof()
+    jitcodes = None
+    def setup(self, jitcodes):
+        # jitcodes maps { runtimeClass -> jitcode for runtimeClass.methname }
+        self.jitcodes = jitcodes
+    def get_jitcode_for_class(self, oocls):
+        return self.jitcodes[oocls]
 
 
 class Const(AbstractValue):

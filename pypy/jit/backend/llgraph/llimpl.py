@@ -1033,10 +1033,16 @@ def do_call_ptr(f, memocast):
 
 # for ootype meth and staticmeth
 def call_maybe_on_top_of_llinterp(meth, args):
-    if hasattr(meth, 'graph'):
+    if isinstance(meth, ootype._bound_meth):
+        mymethod = meth.meth
+        myargs = [meth.inst] + list(args)
+    else:
+        mymethod = meth
+        myargs = args
+    if hasattr(mymethod, 'graph'):
         llinterp = _llinterp      # it's a global set here by CPU.__init__()
         try:
-            result = llinterp.eval_graph(meth.graph, args)
+            result = llinterp.eval_graph(mymethod.graph, myargs)
         except LLException, e:
             _last_exception = e
             result = err_result # XXX?

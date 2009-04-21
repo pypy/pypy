@@ -70,24 +70,6 @@ class IndirectCallset(history.AbstractValue):
         self.bytecode_for_address = bytecode_for_address
         self.dict = None
 
-class MethDesc(history.AbstractValue):
-
-    def __init__(self, codewriter, INSTANCE, methname):
-        self.jitcodes = {} # runtimeClass -> jitcode for runtimeClass.methname
-        TYPES = INSTANCE._all_subclasses()
-        for T in TYPES:
-            #desc = self.register_typedesc_for_type(T)
-            _, meth = T._lookup(methname)
-            if not getattr(meth, 'abstract', False):
-                assert meth.graph
-                jitcode = codewriter.get_jitcode(meth.graph,
-                                                 oosend_methdesc=self)
-                oocls = ootype.runtimeClass(T)
-                self.jitcodes[oocls] = jitcode
-
-    def get_jitcode_for_class(self, oocls):
-        return self.jitcodes[oocls]
-
 class SwitchDict(history.AbstractValue):
     "Get a 'dict' attribute mapping integer values to bytecode positions."
 
@@ -101,7 +83,7 @@ class CodeWriter(object):
         self.all_prebuilt_values = {}
         self.all_graphs = {}
         self.all_indirectcallsets = {}
-        self.all_methdescs = {}
+        self.all_methdescrs = {}
         self.all_listdescs = {}
         self.unfinished_graphs = []
         self.metainterp_sd = metainterp_sd
@@ -129,11 +111,11 @@ class CodeWriter(object):
             maker.assemble()
         return maker.bytecode
 
-    def get_jitcode(self, graph, called_from=None, oosend_methdesc=None):
-        key = (graph, oosend_methdesc)
+    def get_jitcode(self, graph, called_from=None, oosend_methdescr=None):
+        key = (graph, oosend_methdescr)
         if key in self.all_graphs:
             return self.all_graphs[key]
-        extra = self.get_jitcode_calldescr(graph, oosend_methdesc)
+        extra = self.get_jitcode_calldescr(graph, oosend_methdescr)
         bytecode = JitCode(graph.name, *extra, **dict(called_from=called_from,
                                                       graph=graph))
         # 'graph.name' is for dump()
@@ -141,17 +123,17 @@ class CodeWriter(object):
         self.unfinished_graphs.append((key, called_from))
         return bytecode
 
-    def get_jitcode_calldescr(self, graph, oosend_methdesc):
+    def get_jitcode_calldescr(self, graph, oosend_methdescr):
         if self.portal_graph is None or graph is self.portal_graph:
             return ()
         fnptr = self.rtyper.getcallable(graph)
         if self.metainterp_sd.cpu.is_oo:
-            if oosend_methdesc:
-                return (None, oosend_methdesc)
+            if oosend_methdescr:
+                return (None, oosend_methdescr)
             else:
                 cfnptr = history.ConstObj(ootype.cast_to_object(fnptr))
         else:
-            assert not oosend_methdesc
+            assert not oosend_methdescr
             cfnptr = history.ConstAddr(llmemory.cast_ptr_to_adr(fnptr),
                                        self.cpu)
         FUNC = get_functype(lltype.typeOf(fnptr))
@@ -179,18 +161,33 @@ class CodeWriter(object):
                                   IndirectCallset(self, graphs)
         return result
 
-    def get_methdesc(self, INSTANCE, methname):
+    def get_methdescr(self, SELFTYPE, methname, attach_jitcodes):
         # use the type where the method is actually defined as a key. This way
         # we can reuse the same desc also for subclasses
-        INSTANCE, _ = INSTANCE._lookup(methname)
-        key = (INSTANCE, methname)
+        SELFTYPE, _ = SELFTYPE._lookup(methname)
+        key = (SELFTYPE, methname)
         try:
-            result = self.all_methdescs[key]
+            result = self.all_methdescrs[key]
         except KeyError:
-            result = self.all_methdescs[key] = \
-                                  MethDesc(self, INSTANCE, methname)
+            result = self.cpu.methdescrof(SELFTYPE, methname)
+            self.all_methdescrs[key] = result
+        if attach_jitcodes and result.jitcodes is None:
+            self.compute_jitcodes_for_methdescr(result, SELFTYPE, methname)
         return result
-        
+
+    def compute_jitcodes_for_methdescr(self, methdescr, INSTANCE, methname):
+        jitcodes = {}
+        assert isinstance(INSTANCE, ootype.Instance)
+        TYPES = INSTANCE._all_subclasses()
+        for T in TYPES:
+            _, meth = T._lookup(methname)
+            if not getattr(meth, 'abstract', False):
+                assert meth.graph
+                jitcode = self.get_jitcode(meth.graph,
+                                           oosend_methdescr=methdescr)
+                oocls = ootype.runtimeClass(T)
+                jitcodes[oocls] = jitcode
+        methdescr.setup(jitcodes)
 
     def getcalldescr(self, v_func, args, result):
         non_void_args = [x for x in args if x.concretetype is not lltype.Void]
@@ -259,9 +256,9 @@ class BytecodeMaker(object):
         self.codewriter = codewriter
         self.cpu = codewriter.metainterp_sd.cpu
         self.portal = portal
-        graph, oosend_methdesc = graph_key
+        graph, oosend_methdescr = graph_key
         self.bytecode = self.codewriter.get_jitcode(graph,
-                                               oosend_methdesc=oosend_methdesc)
+                                             oosend_methdescr=oosend_methdescr)
         if not codewriter.policy.look_inside_graph(graph):
             assert not portal, "portal has been hidden!"
             graph = make_calling_stub(codewriter.rtyper, graph)
@@ -806,12 +803,12 @@ class BytecodeMaker(object):
         kind = self.codewriter.policy.guess_call_kind(op)
         return getattr(self, 'handle_%s_oosend' % kind)(op)
 
-    def handle_regular_call(self, op, oosend_methdesc=None):
+    def handle_regular_call(self, op, oosend_methdescr=None):
         self.minimize_variables()
         [targetgraph] = self.codewriter.policy.graphs_from(op)
         jitbox = self.codewriter.get_jitcode(targetgraph, self.graph,
-                                             oosend_methdesc=oosend_methdesc)
-        if oosend_methdesc:
+                                             oosend_methdescr=oosend_methdescr)
+        if oosend_methdescr:
             args = op.args
         else:
             args = op.args[1:]
@@ -857,14 +854,14 @@ class BytecodeMaker(object):
         methname = op.args[0].value
         v_obj = op.args[1]
         INSTANCE = v_obj.concretetype
-        methdesc = self.codewriter.get_methdesc(INSTANCE, methname)
+        methdescr = self.codewriter.get_methdescr(INSTANCE, methname, True)
         graphs = v_obj.concretetype._lookup_graphs(methname)
         if len(graphs) == 1:
-            self.handle_regular_call(op, oosend_methdesc=methdesc)
+            self.handle_regular_call(op, oosend_methdescr=methdescr)
             return
         self.minimize_variables()
         self.emit('oosend')
-        self.emit(self.get_position(methdesc))
+        self.emit(self.get_position(methdescr))
         self.emit_varargs([x for x in op.args
                              if x.concretetype is not lltype.Void])
         self.register_var(op.result)
@@ -1020,8 +1017,7 @@ class BytecodeMaker(object):
             kind = '_canraise'
         else:
             kind = '_noraise'
-        METH = ootype.typeOf(meth)
-        methdescr = self.cpu.methdescrof(METH, methname)
+        methdescr = self.codewriter.get_methdescr(SELFTYPE, methname, False)
         self.emit('residual_oosend' + kind)
         self.emit(self.get_position(methdescr))
         self.emit_varargs(op.args[1:])

@@ -43,7 +43,8 @@ class AbstractCPU(object):
         raise NotImplementedError
 
     @staticmethod
-    def methdescrof(METH, methname):
+    def methdescrof(SELFTYPE, methname):
+        # must return a subclass of history.AbstractMethDescr
         raise NotImplementedError
 
     @staticmethod

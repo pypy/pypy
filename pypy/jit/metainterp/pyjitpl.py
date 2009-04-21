@@ -87,11 +87,11 @@ class arguments(object):
                     assert isinstance(indirectcallset,
                                       codewriter.IndirectCallset)
                     args += (indirectcallset, )
-                elif argspec == "methdesc":
-                    methdesc = self.load_const_arg()
-                    assert isinstance(methdesc,
-                                      codewriter.MethDesc)
-                    args += (methdesc, )
+                elif argspec == "methdescr":
+                    methdescr = self.load_const_arg()
+                    assert isinstance(methdescr,
+                                      history.AbstractMethDescr)
+                    args += (methdescr, )
                 elif argspec == "virtualizabledesc":
                     from virtualizable import VirtualizableDesc
                     virtualizabledesc = self.load_const_arg()
@@ -428,26 +428,29 @@ class MIFrame(object):
     def opimpl_setfield_raw(self, box, fielddesc, valuebox):
         self.execute(rop.SETFIELD_RAW, [box, valuebox], descr=fielddesc)
 
-    @arguments("bytecode", "varargs")
-    def opimpl_call(self, callee, varargs):
+    def perform_call(self, jitcode, varargs):
         if (isinstance(self.metainterp.history, history.BlackHole) and
-            callee.calldescr is not None):
+            jitcode.calldescr is not None):
             # when producing only a BlackHole, we can implement this by
             # calling the subfunction directly instead of interpreting it
-            if callee.cfnptr is not None:
+            if jitcode.cfnptr is not None:
                 # for non-oosends
-                varargs = [callee.cfnptr] + varargs
+                varargs = [jitcode.cfnptr] + varargs
                 return self.execute_with_exc(rop.CALL, varargs,
-                                             descr=callee.calldescr)
+                                             descr=jitcode.calldescr)
             else:
-                # for oosends (ootype only): calldescr is a MethDesc
+                # for oosends (ootype only): calldescr is a MethDescr
                 return self.execute_with_exc(rop.OOSEND, varargs,
-                                             descr=callee.calldescr)
+                                             descr=jitcode.calldescr)
         else:
             # when tracing, this bytecode causes the subfunction to be entered
-            f = self.metainterp.newframe(callee)
+            f = self.metainterp.newframe(jitcode)
             f.setup_call(varargs)
             return True
+
+    @arguments("bytecode", "varargs")
+    def opimpl_call(self, callee, varargs):
+        return self.perform_call(callee, varargs)
 
     @arguments("descr", "varargs")
     def opimpl_residual_call(self, calldescr, varargs):
@@ -524,19 +527,15 @@ class MIFrame(object):
         f.setup_call(varargs)
         return True
 
-    @arguments("orgpc", "methdesc", "varargs")
-    def opimpl_oosend(self, pc, methdesc, varargs):
+    @arguments("orgpc", "methdescr", "varargs")
+    def opimpl_oosend(self, pc, methdescr, varargs):
         objbox = varargs[0]
         clsbox = self.cls_of_box(objbox)
         if isinstance(objbox, Box):
             self.generate_guard(pc, rop.GUARD_CLASS, objbox, [clsbox])
         oocls = ootype.cast_from_object(ootype.Class, clsbox.getobj())
-        jitcode = methdesc.get_jitcode_for_class(oocls)
-        # XXX if BlackHole, don't recurse but do the call directly
-        cpu = self.metainterp.cpu
-        f = self.metainterp.newframe(jitcode)
-        f.setup_call(varargs)
-        return True
+        jitcode = methdescr.get_jitcode_for_class(oocls)
+        return self.perform_call(jitcode, varargs)
 
     @arguments("box")
     def opimpl_strlen(self, str):
