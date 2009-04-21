@@ -830,7 +830,12 @@ class BytecodeMaker(object):
         calldescr, non_void_args = self.codewriter.getcalldescr(op.args[0],
                                                                 args,
                                                                 op.result)
-        if self.raise_analyzer.can_raise(op):
+        try:
+            canraise = self.raise_analyzer.can_raise(op)
+        except lltype.DelayedPointer:
+            canraise = True  # if we need to look into the delayed ptr that is
+                             # the portal, then it's certainly going to raise
+        if canraise:
             self.emit('residual_call')
         else:
             self.emit('residual_call_noexception')
