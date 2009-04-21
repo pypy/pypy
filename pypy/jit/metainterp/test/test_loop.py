@@ -541,7 +541,6 @@ class TestOOtype(LoopTest, OOJitMixin):
     def skip(self):
         py.test.skip('in progress')
         
-    test_interp_many_paths = skip
     test_loop_unicode = skip
     test_outer_and_inner_loop = skip
 

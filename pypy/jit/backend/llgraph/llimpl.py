@@ -7,8 +7,8 @@ when executing on top of the llinterpreter.
 import sys
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.annotation import model as annmodel
-from pypy.jit.metainterp.history import (ConstInt, ConstPtr, ConstAddr,
-                                         BoxInt, BoxPtr)
+from pypy.jit.metainterp.history import (ConstInt, ConstPtr, ConstAddr, ConstObj,
+                                         BoxInt, BoxPtr, BoxObj)
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr
 from pypy.rpython.lltypesystem import lloperation
 from pypy.rpython.ootypesystem import ootype
@@ -513,6 +513,8 @@ class Frame(object):
                     for x in args:
                         if type(x) is int:
                             boxedargs.append(BoxInt(x))
+                        elif isinstance(ootype.typeOf(x), ootype.OOType):
+                            boxedargs.append(BoxObj(ootype.cast_to_object(x)))
                         else:
                             boxedargs.append(BoxPtr(x))
                     # xxx this passes the 'llimpl' module as the CPU argument
