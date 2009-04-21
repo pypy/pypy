@@ -472,6 +472,8 @@ class Unicode(AbstractString):
 
 # WARNING: the name 'StringBuilder' is rebound at the end of file
 class StringBuilder(BuiltinADTType):
+    oopspec_name = 'stringbuilder'
+
     def __init__(self, STRINGTP, CHARTP):
         self._null = _null_string_builder(self)
         self._GENERIC_METHODS = frozendict({

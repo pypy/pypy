@@ -159,6 +159,22 @@ _ll_5_string_copy_contents = rstr.copy_string_contents
 _ll_1_str_str2unicode = rstr.LLHelpers.ll_str2unicode
 _ll_5_unicode_copy_contents = rstr.copy_unicode_contents
 
+# --------------- oostring and oounicode ----------------
+
+def _ll_2_oostring_signed_foldable(n, base):
+    return ootype.oostring(n, base)
+
+def _ll_1_oostring_char_foldable(ch):
+    return ootype.oostring(ch, -1)
+
+def _ll_2_oounicode_signed_foldable(n, base):
+    return ootype.oounicode(n, base)
+
+def _ll_1_oounicode_unichar_foldable(ch):
+    return ootype.oounicode(ch, -1)
+
+# -------------------------------------------------------
+
 def setup_extra_builtin(oopspec_name, nb_args):
     name = '_ll_%d_%s' % (nb_args, oopspec_name.replace('.', '_'))
 ##    try:
@@ -210,10 +226,20 @@ def get_call_oopspec_opargs(fnobj, opargs):
     normalized_opargs = normalize_opargs(argtuple, opargs)
     return oopspec, normalized_opargs
 
+def get_oostring_oopspec(op):
+    T = op.args[0].concretetype
+    if T is not ootype.Signed:
+        args = op.args[:-1]
+    else:
+        args = op.args
+    return '%s_%s_foldable' % (op.opname, T._name.lower()), args
+    
 def decode_builtin_call(op):
     if op.opname == 'oosend':
         SELFTYPE, name, opargs = decompose_oosend(op)
         return get_send_oopspec(SELFTYPE, name), opargs
+    elif op.opname in ('oostring', 'oounicode'):
+        return get_oostring_oopspec(op)
     elif op.opname == 'direct_call':
         fnobj = get_funcobj(op.args[0].value)
         opargs = op.args[1:]

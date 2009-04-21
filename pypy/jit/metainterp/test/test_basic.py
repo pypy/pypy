@@ -518,7 +518,6 @@ class TestOOtype(BasicTests, OOJitMixin):
     def skip(self):
         py.test.skip('in-progress')
 
-    test_format = skip
     test_oops_on_nongc = skip
 
     test_print = skip

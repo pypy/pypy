@@ -1050,10 +1050,8 @@ class BytecodeMaker(object):
             self.emit(self.get_position(virtualizabledesc))
             self.emit(self.get_position(guard_field))
 
-    def serialize_op_oostring(self, op):
-        T = op.args[0].concretetype
-        opname = '%s_%s' % (op.opname, T._name.lower())
-        return self.default_serialize_op(op, opname)
+    def serialize_op_oostring(self, op):  
+        self.handle_builtin_call(op)
 
     serialize_op_oounicode = serialize_op_oostring
 

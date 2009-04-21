@@ -133,9 +133,3 @@ class AbstractCPU(object):
 
     def do_oosend(cpu, args, descr=None):
         raise NotImplementedError
-
-    def do_oostring_char(cpu, args, descr=None):
-        raise NotImplementedError
-
-    def do_oounicode_unichar(cpu, args, descr=None):
-        raise NotImplementedError

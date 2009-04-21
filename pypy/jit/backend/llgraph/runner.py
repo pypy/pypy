@@ -8,6 +8,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.jit.metainterp import history
+from pypy.jit.metainterp.warmspot import unwrap
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.backend import model
 from pypy.jit.backend.llgraph import llimpl, symbolic
@@ -455,19 +456,7 @@ class OOtypeCPU(BaseCPU):
         x = descr.callmeth(selfbox, argboxes)
         # XXX: return None if METH.RESULT is Void
         return x
-
-    def do_oostring_char(self, args, descr=None):
-        char = chr(args[0].getint())
-        base = args[1].getint()
-        res = ootype.cast_to_object(ootype.oostring(char, base))
-        return history.ConstObj(res)
-
-    def do_oounicode_unichar(self, args, descr=None):
-        unichar = unichr(args[0].getint())
-        base = args[1].getint()
-        res = ootype.cast_to_object(ootype.oounicode(unichar, base))
-        return history.ConstObj(res)
-
+    
 
 def make_getargs(ARGS):
     argsiter = unrolling_iterable(ARGS)
@@ -479,16 +468,9 @@ def make_getargs(ARGS):
         for ARG in argsiter:
             box = argboxes[i]
             i+=1
-            funcargs += (unbox(ARG, box),)
+            funcargs += (unwrap(ARG, box),)
         return funcargs
     return getargs
-
-def unbox(T, box):
-    if isinstance(T, ootype.OOType):
-        return ootype.cast_from_object(T, box.getobj())
-    else:
-        return box.getint()
-unbox._annspecialcase_ = 'specialize:arg(0)'
 
 def boxresult(RESULT, result):
     if isinstance(RESULT, ootype.OOType):
@@ -557,7 +539,7 @@ class FieldDescr(OODescr):
             return boxresult(T, value)
         def setfield(objbox, valuebox):
             obj = ootype.cast_from_object(TYPE, objbox.getobj())
-            value = unbox(T, valuebox)
+            value = unwrap(T, valuebox)
             setattr(obj, fieldname, value)
             
         self.getfield = getfield
