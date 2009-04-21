@@ -461,11 +461,7 @@ class SendTests:
         assert hlstr(res) == "string"
 
 class TestOOtype(SendTests, OOJitMixin):
-    def skip(self):
-        py.test.skip('in-progress')
-
-    test_recursive_call_to_portal_from_blackhole = skip
-
+    pass
 
 class TestLLtype(SendTests, LLJitMixin):
     pass
