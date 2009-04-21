@@ -311,7 +311,7 @@ class CPU386(object):
             op = loop.operations[-1]
         else:
             op = self._guard_list[guard_index]
-        print "Leaving at: %d" % self.assembler.fail_boxes[len(op.args)]
+        #print "Leaving at: %d" % self.assembler.fail_boxes[len(op.args)]
         for i in range(len(op.args)):
             box = op.args[i]
             self.set_value_of_box(box, i, self.assembler.fail_boxes)
@@ -326,7 +326,7 @@ class CPU386(object):
         res = 0
         try:
             self.caught_exception = None
-            print "Entering: %d" % rffi.cast(lltype.Signed, func)
+            #print "Entering: %d" % rffi.cast(lltype.Signed, func)
             res = func(values_as_int)
             self.reraise_caught_exception()
         finally:
