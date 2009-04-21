@@ -127,6 +127,9 @@ class AbstractCPU(object):
     # ootype specific operations
     # --------------------------
 
+    def do_runtimenew(cpu, args, descr=None):
+        raise NotImplementedError
+
     def do_oosend(cpu, args, descr=None):
         raise NotImplementedError
 

@@ -69,6 +69,22 @@ class IndirectCallset(history.AbstractValue):
         self.bytecode_for_address = bytecode_for_address
         self.dict = None
 
+class MethDesc(history.AbstractValue):
+
+    def __init__(self, codewriter, INSTANCE, methname):
+        self.jitcodes = {} # runtimeClass -> jitcode for runtimeClass.methname
+        TYPES = INSTANCE._all_subclasses()
+        for T in TYPES:
+            #desc = self.register_typedesc_for_type(T)
+            _, meth = T._lookup(methname)
+            if not getattr(meth, 'abstract', False):
+                assert meth.graph
+                jitcode = codewriter.get_jitcode(meth.graph)
+                oocls = ootype.runtimeClass(T)
+                self.jitcodes[oocls] = jitcode
+
+    def get_jitcode_for_class(self, oocls):
+        return self.jitcodes[oocls]
 
 class SwitchDict(history.AbstractValue):
     "Get a 'dict' attribute mapping integer values to bytecode positions."
@@ -83,6 +99,7 @@ class CodeWriter(object):
         self.all_prebuilt_values = {}
         self.all_graphs = {}
         self.all_indirectcallsets = {}
+        self.all_methdescs = {}
         self.all_listdescs = {}
         self.unfinished_graphs = []
         self.metainterp_sd = metainterp_sd
@@ -151,6 +168,19 @@ class CodeWriter(object):
             result = self.all_indirectcallsets[key] = \
                                   IndirectCallset(self, graphs)
         return result
+
+    def get_methdesc(self, INSTANCE, methname):
+        # use the type where the method is actually defined as a key. This way
+        # we can reuse the same desc also for subclasses
+        INSTANCE, _ = INSTANCE._lookup(methname)
+        key = (INSTANCE, methname)
+        try:
+            result = self.all_methdescs[key]
+        except KeyError:
+            result = self.all_methdescs[key] = \
+                                  MethDesc(self, INSTANCE, methname)
+        return result
+        
 
     def getcalldescr(self, v_func, args, result):
         non_void_args = [x for x in args if x.concretetype is not lltype.Void]
@@ -797,6 +827,21 @@ class BytecodeMaker(object):
         self.emit(self.get_position(indirectcallset))
         self.emit(self.var_position(op.args[0]))
         self.emit_varargs([x for x in op.args[1:-1]
+                             if x.concretetype is not lltype.Void])
+        self.register_var(op.result)
+
+    def handle_regular_oosend(self, op):
+        methname = op.args[0].value
+        v_obj = op.args[1]
+        INSTANCE = v_obj.concretetype
+        graphs = v_obj.concretetype._lookup_graphs(methname)
+        if len(graphs) == 1:
+            assert False, 'TODO'
+        self.minimize_variables()
+        methdesc = self.codewriter.get_methdesc(INSTANCE, methname)
+        self.emit('oosend')
+        self.emit(self.get_position(methdesc))
+        self.emit_varargs([x for x in op.args
                              if x.concretetype is not lltype.Void])
         self.register_var(op.result)
 

@@ -180,6 +180,7 @@ class rop(object):
     STRSETITEM             = 137
     UNICODESETITEM         = 138
     NEWUNICODE             = 139
+    RUNTIMENEW             = 140
 
     _CANRAISE_FIRST = 150 # ----- start of can_raise operations -----
     CALL = 150

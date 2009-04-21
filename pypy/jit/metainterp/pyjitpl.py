@@ -1,5 +1,6 @@
 import py
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
+from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.llinterp import LLException
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.tool.sourcetools import func_with_new_name
@@ -85,6 +86,11 @@ class arguments(object):
                     assert isinstance(indirectcallset,
                                       codewriter.IndirectCallset)
                     args += (indirectcallset, )
+                elif argspec == "methdesc":
+                    methdesc = self.load_const_arg()
+                    assert isinstance(methdesc,
+                                      codewriter.MethDesc)
+                    args += (methdesc, )
                 elif argspec == "virtualizabledesc":
                     from virtualizable import VirtualizableDesc
                     virtualizabledesc = self.load_const_arg()
@@ -344,6 +350,10 @@ class MIFrame(object):
     def opimpl_new_with_vtable(self, size, vtablebox):
         self.execute(rop.NEW_WITH_VTABLE, [vtablebox], descr=size)
 
+    @arguments("box")
+    def opimpl_runtimenew(self, classbox):
+        self.execute(rop.RUNTIMENEW, [classbox])
+
     @arguments("descr", "box")
     def opimpl_new_array(self, itemsize, countbox):
         self.execute(rop.NEW_ARRAY, [countbox], descr=itemsize)
@@ -496,6 +506,18 @@ class MIFrame(object):
         box = self.implement_guard_value(pc, box)
         cpu = self.metainterp.cpu
         jitcode = indirectcallset.bytecode_for_address(box.getaddr(cpu))
+        f = self.metainterp.newframe(jitcode)
+        f.setup_call(varargs)
+        return True
+
+    @arguments("orgpc", "methdesc", "varargs")
+    def opimpl_oosend(self, pc, methdesc, varargs):
+        objbox = varargs[0]
+        obj = ootype.cast_from_object(ootype.ROOT, objbox.getobj())
+        oocls = ootype.classof(obj)
+        jitcode = methdesc.get_jitcode_for_class(oocls)
+        # XXX put a guard on the class (in some way)
+        cpu = self.metainterp.cpu
         f = self.metainterp.newframe(jitcode)
         f.setup_call(varargs)
         return True

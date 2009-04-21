@@ -419,6 +419,13 @@ class OOtypeCPU(BaseCPU):
         assert isinstance(typedescr, TypeDescr)
         return typedescr.create()
 
+    def do_runtimenew(self, args, descr):
+        "NOT_RPYTHON"
+        classbox = args[0]
+        classobj = ootype.cast_from_object(ootype.Class, classbox.getobj())
+        res = ootype.runtimenew(classobj)
+        return history.BoxObj(ootype.cast_to_object(res))
+
     def do_getfield_gc(self, args, fielddescr):
         assert isinstance(fielddescr, FieldDescr)
         return fielddescr.getfield(args[0])
