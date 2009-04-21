@@ -44,7 +44,7 @@ class SendTests:
         res = self.meta_interp(f, [1], policy=StopAtXPolicy(externfn))
         assert res == 2
         if self.type_system == 'ootype':
-            self.check_loops(call=1, builtin=1) # 'len' remains
+            self.check_loops(call=1, oosend=1) # 'len' remains
         else:
             # 'len' becomes a getfield('num_items') for now in lltype,
             # which is itself encoded as a 'getfield_gc'
@@ -459,7 +459,6 @@ class TestOOtype(SendTests, OOJitMixin):
     def skip(self):
         py.test.skip('in-progress')
 
-    test_red_builtin_send = skip
     test_send_to_single_target_method = skip
     test_red_send_to_green_receiver = skip
     test_oosend_base = skip

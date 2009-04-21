@@ -564,7 +564,15 @@ class MIFrame(object):
         self.execute(rop.NEWUNICODE, [length])
 
     @arguments("descr", "varargs")
-    def opimpl_oosend_pure(self, methdescr, boxes):
+    def opimpl_residual_oosend_canraise(self, methdescr, varargs):
+        return self.execute_with_exc(rop.OOSEND, varargs, descr=methdescr)
+
+    @arguments("descr", "varargs")
+    def opimpl_residual_oosend_noraise(self, methdescr, varargs):
+        self.execute(rop.OOSEND, varargs, descr=methdescr)
+
+    @arguments("descr", "varargs")
+    def opimpl_residual_oosend_pure(self, methdescr, boxes):
         self.execute(rop.OOSEND_PURE, boxes, descr=methdescr)
 
     @arguments("box", "box")

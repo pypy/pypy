@@ -997,9 +997,15 @@ class BytecodeMaker(object):
         SELFTYPE, methname, args_v = support.decompose_oosend(op)
         assert SELFTYPE.oopspec_name is not None
         _, meth = SELFTYPE._lookup(methname)
+        if getattr(meth, '_pure_meth', False):
+            kind = '_pure'
+        elif getattr(meth, '_can_raise', True):
+            kind = '_canraise'
+        else:
+            kind = '_noraise'
         METH = ootype.typeOf(meth)
         methdescr = self.cpu.methdescrof(METH, methname)
-        self.emit('oosend_pure')
+        self.emit('residual_oosend' + kind)
         self.emit(self.get_position(methdescr))
         self.emit_varargs(op.args[1:])
         self.register_var(op.result)

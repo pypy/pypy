@@ -108,6 +108,7 @@ TYPES = {
     'arraylen_gc'     : (('ptr',), 'int'),
     'call'            : (('ptr', 'varargs'), 'intorptr'),
     'call_pure'       : (('ptr', 'varargs'), 'intorptr'),
+    'oosend'          : (('varargs',), 'intorptr'),
     'guard_true'      : (('bool',), None),
     'guard_false'     : (('bool',), None),
     'guard_value'     : (('int', 'int'), None),
@@ -653,6 +654,15 @@ class Frame(object):
         return _do_call_common(func, self.memocast, err_result)
 
     op_call_pure = op_call
+
+    def op_oosend(self, descr, obj, *args):
+        METH = descr.METH
+        obj = ootype.cast_from_object(METH.SELFTYPE, obj)
+        meth = getattr(obj, descr.methname)
+        res = call_maybe_on_top_of_llinterp(meth, args)
+        if isinstance(METH.RESULT, ootype.OOType):
+            return ootype.cast_to_object(res)
+        return res
 
     def op_new_array(self, arraydescr, count):
         return do_new_array(arraydescr.ofs, count)

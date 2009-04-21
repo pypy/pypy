@@ -53,6 +53,8 @@ def repr_pointer(box):
 
 def repr_object(box):
     try:
+        if box.value.obj._TYPE is ootype.String:
+            return '(%r)' % box.value.obj._str
         return repr(box.value.obj._TYPE)
     except AttributeError:
         return box.value

@@ -184,8 +184,9 @@ class rop(object):
 
     _CANRAISE_FIRST = 150 # ----- start of can_raise operations -----
     CALL = 150
+    OOSEND = 151
     #
-    _OVF_FIRST = 151
+    _OVF_FIRST = 152
     INT_ADD_OVF            = 152
     INT_SUB_OVF            = 153
     INT_MUL_OVF            = 154

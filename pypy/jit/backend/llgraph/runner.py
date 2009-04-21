@@ -511,6 +511,8 @@ class StaticMethDescr(OODescr):
 class MethDescr(OODescr):
 
     def __init__(self, METH, methname):
+        self.METH = METH
+        self.methname = methname
         SELFTYPE = METH.SELFTYPE
         RESULT = METH.RESULT
         getargs = make_getargs(METH.ARGS)
