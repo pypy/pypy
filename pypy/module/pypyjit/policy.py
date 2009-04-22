@@ -47,8 +47,6 @@ class PyPyJitPolicy(ManualJitPolicy):
         # string builder interface
         if mod == 'pypy.rpython.lltypesystem.rbuilder':
             return False
-        if mod == 'pypy.interpreter.pyframe' and func.func_name == 'execute_frame':
-            return False
         #if (mod == 'pypy.rpython.rlist' or
         #    mod == 'pypy.rpython.lltypesystem.rdict' or
         #    mod == 'pypy.rpython.lltypesystem.rlist'):
