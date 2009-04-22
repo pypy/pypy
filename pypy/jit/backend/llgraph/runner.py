@@ -199,12 +199,6 @@ class BaseCPU(model.AbstractCPU):
                 raise Exception("bad box in 'fail': %r" % (box,))
         return op
 
-    def get_exception(self):
-        return self.cast_adr_to_int(llimpl.get_exception())
-
-    def get_exc_value(self):
-        return llimpl.get_exc_value()
-
     def clear_exception(self):
         llimpl.clear_exception()
 
@@ -255,6 +249,12 @@ class LLtypeCPU(BaseCPU):
     def calldescrof(FUNC, ARGS, RESULT):
         token = history.getkind(RESULT)
         return Descr(0, token[0])
+
+    def get_exception(self):
+        return self.cast_adr_to_int(llimpl.get_exception())
+
+    def get_exc_value(self):
+        return llimpl.get_exc_value()
 
     # ---------- the backend-dependent operations ----------
 
@@ -416,6 +416,20 @@ class OOtypeCPU(BaseCPU):
     @staticmethod
     def typedescrof(TYPE):
         return TypeDescr(TYPE)
+
+    def get_exception(self):
+        if llimpl._last_exception:
+            e = llimpl._last_exception.args[0]
+            return ootype.cast_to_object(e)
+        else:
+            return ootype.NULL
+        
+    def get_exc_value(self):
+        if llimpl._last_exception:
+            earg = llimpl._last_exception.args[1]
+            return ootype.cast_to_object(earg)
+        else:
+            return ootype.NULL
 
     def do_new(self, args, typedescr):
         assert isinstance(typedescr, TypeDescr)

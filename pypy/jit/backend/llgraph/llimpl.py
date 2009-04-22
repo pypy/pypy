@@ -572,18 +572,24 @@ class Frame(object):
 
     def _check_exception(self, expected_exception):
         global _last_exception
-        expected_exception = llmemory.cast_adr_to_ptr(
-            cast_int_to_adr(self.memocast, expected_exception),
-            rclass.CLASSTYPE)
+        expected_exception = self._cast_exception(expected_exception)
         assert expected_exception
         exc = _last_exception
         if exc:
             got = exc.args[0]
-            if not rclass.ll_issubclass(got, expected_exception):
+            if not self._issubclass(got, expected_exception):
                 return False
             return True
         else:
             return False
+
+    def _cast_exception(self, exception):
+        return llmemory.cast_adr_to_ptr(
+            cast_int_to_adr(self.memocast, exception),
+            rclass.CLASSTYPE)
+
+    def _issubclass(self, cls1, cls2):
+        return rclass.ll_issubclass(cls1, cls2)
 
     def op_guard_exception(self, _, expected_exception):
         global _last_exception
@@ -740,6 +746,12 @@ class OOFrame(Frame):
         expected_class = ootype.cast_from_object(ootype.Class, expected_class)
         if ootype.classof(value) is not expected_class:
             raise GuardFailed
+
+    def _cast_exception(self, exception):
+        return ootype.cast_from_object(ootype.Class, exception)
+
+    def _issubclass(self, cls1, cls2):
+        return ootype.subclassof(cls1, cls2)
 
 # ____________________________________________________________
 
@@ -1069,6 +1081,7 @@ def cast_call_args(ARGS, args, memocast):
 
 # for ootype meth and staticmeth
 def call_maybe_on_top_of_llinterp(meth, args):
+    global _last_exception
     if isinstance(meth, ootype._bound_meth):
         mymethod = meth.meth
         myargs = [meth.inst] + list(args)
@@ -1081,10 +1094,18 @@ def call_maybe_on_top_of_llinterp(meth, args):
             result = llinterp.eval_graph(mymethod.graph, myargs)
         except LLException, e:
             _last_exception = e
-            result = err_result # XXX?
+            result = get_err_result_for_type(mymethod._TYPE.RESULT)
     else:
         result = meth(*args)  # no exception support in this case
     return result
+
+def get_err_result_for_type(T):
+    if T is ootype.Void:
+        return None
+    elif isinstance(T, ootype.OOType):
+        return ootype.null(T)
+    else:
+        return 0
 
 # ____________________________________________________________
 

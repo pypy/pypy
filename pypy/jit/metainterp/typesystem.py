@@ -60,6 +60,15 @@ class LLTypeHelper(TypeSystemHelper):
         real_class = llmemory.cast_adr_to_ptr(adr, rclass.CLASSTYPE)
         return rclass.ll_issubclass(real_class, bounding_class)
 
+    def get_exception_box(self, etype):
+        return history.ConstInt(etype)
+
+    def get_exc_value_box(self, evalue):
+        return history.BoxPtr(evalue)
+
+    @staticmethod
+    def unwrap_exc_value_box(valuebox):
+        return valuebox.getptr(lltype.Ptr(rclass.OBJECT))
 
 class OOTypeHelper(TypeSystemHelper):
 
@@ -89,6 +98,16 @@ class OOTypeHelper(TypeSystemHelper):
         cls1 = ootype.cast_from_object(ootype.Class, clsbox1.getobj())
         cls2 = ootype.cast_from_object(ootype.Class, clsbox2.getobj())
         return ootype.subclassof(cls1, cls2)
+
+    def get_exception_box(self, etype):
+        return history.ConstObj(etype)
+
+    def get_exc_value_box(self, evalue):
+        return history.BoxObj(evalue)
+
+    @staticmethod
+    def unwrap_exc_value_box(valuebox):
+        return ootype.cast_from_object(ootype.ROOT, valuebox.getobj())
 
 
 llhelper = LLTypeHelper()

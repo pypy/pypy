@@ -318,6 +318,7 @@ class WarmRunnerDesc:
         portalfunc_ARGS = unrolling_iterable(list(enumerate(PORTALFUNC.ARGS)))
         RESULT = PORTALFUNC.RESULT
 
+        unwrap_exc_value_box = self.metainterp_sd.ts.unwrap_exc_value_box
         def ll_portal_runner(*args):
             while 1:
                 try:
@@ -331,9 +332,12 @@ class WarmRunnerDesc:
                 except DoneWithThisFrame, e:
                     return unwrap(RESULT, e.resultbox)
                 except ExitFrameWithException, e:
-                    value = e.valuebox.getptr(lltype.Ptr(rclass.OBJECT))
+                    value = unwrap_exc_value_box(e.valuebox)
                     if not we_are_translated():
-                        raise LLException(value.typeptr, value)
+                        if hasattr(value, 'typeptr'):
+                            raise LLException(value.typeptr, value)
+                        else:
+                            raise LLException(ootype.classof(value), value)
                     else:
                         value = cast_base_ptr_to_instance(Exception, value)
                         raise Exception, value

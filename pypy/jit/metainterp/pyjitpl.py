@@ -1295,8 +1295,8 @@ class MetaInterp(object):
         self.cpu.clear_exception()
         frame = self.framestack[-1]
         if etype:
-            exception_box = ConstInt(etype)
-            exc_value_box = BoxPtr(evalue)
+            exception_box = self.staticdata.ts.get_exception_box(etype)
+            exc_value_box = self.staticdata.ts.get_exc_value_box(evalue)
             op = frame.generate_guard(frame.pc, rop.GUARD_EXCEPTION,
                                       None, [exception_box])
             if op:

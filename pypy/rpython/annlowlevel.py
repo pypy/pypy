@@ -499,10 +499,16 @@ class CastBasePtrToInstanceEntry(extregistry.ExtRegistryEntry):
         return annmodel.SomeInstance(classdef, can_be_None=True)
 
     def specialize_call(self, hop):
+        # XXX: check if there is any test to port from oo-jit/
         v_arg = hop.inputarg(hop.args_r[1], arg=1)
-        assert isinstance(v_arg.concretetype, lltype.Ptr)
+        if isinstance(v_arg.concretetype, lltype.Ptr):
+            opname = 'cast_pointer'
+        elif isinstance(v_arg.concretetype, ootype.Instance):
+            opname = 'ooupcast'
+        else:
+            assert False
         hop.exception_cannot_occur()
-        return hop.genop('cast_pointer', [v_arg],
+        return hop.genop(opname, [v_arg],
                          resulttype = hop.r_result.lowleveltype)
 
 # ____________________________________________________________
