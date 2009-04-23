@@ -544,5 +544,5 @@ class LoopTest:
 class TestOOtype(LoopTest, OOJitMixin):
     pass
 
-class TestLoop(LoopTest, LLJitMixin): # XXX change name later
+class TestLLtype(LoopTest, LLJitMixin):
     pass
