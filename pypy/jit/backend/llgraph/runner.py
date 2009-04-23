@@ -215,13 +215,6 @@ class BaseCPU(model.AbstractCPU):
 
     ##addresssuffix = '4'
 
-    @staticmethod
-    def arraydescrof(A):
-        assert isinstance(A, lltype.GcArray)
-        size = symbolic.get_size(A)
-        token = history.getkind(A.OF)
-        return Descr(size, token[0])
-
     def cast_adr_to_int(self, adr):
         return llimpl.cast_adr_to_int(self.memo_cast, adr)
 
@@ -255,6 +248,13 @@ class LLtypeCPU(BaseCPU):
 
     def get_exc_value(self):
         return llimpl.get_exc_value()
+
+    @staticmethod
+    def arraydescrof(A):
+        assert isinstance(A, lltype.GcArray)
+        size = symbolic.get_size(A)
+        token = history.getkind(A.OF)
+        return Descr(size, token[0])
 
     # ---------- the backend-dependent operations ----------
 
@@ -298,7 +298,6 @@ class LLtypeCPU(BaseCPU):
             return history.BoxInt(llimpl.do_getfield_gc_int(struct,
                                                             fielddescr.ofs,
                                                             self.memo_cast))
-
     def do_getfield_raw(self, args, fielddescr):
         struct = self.cast_int_to_adr(args[0].getint())
         if fielddescr.type == 'p':
@@ -417,6 +416,12 @@ class OOtypeCPU(BaseCPU):
     def typedescrof(TYPE):
         return TypeDescr(TYPE)
 
+    @staticmethod
+    def arraydescrof(A):
+        assert isinstance(A, ootype.Array)
+        TYPE = A.ITEM
+        return TypeDescr(TYPE)
+
     def get_exception(self):
         if llimpl._last_exception:
             e = llimpl._last_exception.args[0]
@@ -436,6 +441,11 @@ class OOtypeCPU(BaseCPU):
         assert len(args) == 1 # but we don't need it, so ignore
         return typedescr.create()
 
+    def do_new_array(self, args, typedescr):
+        assert isinstance(typedescr, TypeDescr)
+        assert len(args) == 1
+        return typedescr.create_array(args[0])
+
     def do_runtimenew(self, args, descr):
         "NOT_RPYTHON"
         classbox = args[0]
@@ -450,6 +460,16 @@ class OOtypeCPU(BaseCPU):
     def do_setfield_gc(self, args, fielddescr):
         assert isinstance(fielddescr, FieldDescr)
         return fielddescr.setfield(args[0], args[1])
+
+    def do_getarrayitem_gc(self, args, typedescr):
+        assert isinstance(typedescr, TypeDescr)
+        assert len(args) == 2
+        return typedescr.getarrayitem(*args)
+
+    def do_setarrayitem_gc(self, args, typedescr):
+        assert isinstance(typedescr, TypeDescr)
+        assert len(args) == 3
+        return typedescr.setarrayitem(*args)
 
     def do_call(self, args, descr):
         assert isinstance(descr, StaticMethDescr)
@@ -550,9 +570,29 @@ class TypeDescr(OODescr):
 
     def __init__(self, TYPE):
         self.TYPE = TYPE
+        self.ARRAY = ARRAY = ootype.Array(TYPE)
         def create():
             return boxresult(TYPE, ootype.new(TYPE))
+        
+        def create_array(lengthbox):
+            n = lengthbox.getint()
+            return boxresult(ARRAY, ootype.oonewarray(ARRAY, n))
+
+        def getarrayitem(arraybox, ibox):
+            array = ootype.cast_from_object(ARRAY, arraybox.getobj())
+            i = ibox.getint()
+            return boxresult(TYPE, array.ll_getitem_fast(i))
+
+        def setarrayitem(arraybox, ibox, valuebox):
+            array = ootype.cast_from_object(ARRAY, arraybox.getobj())
+            i = ibox.getint()
+            value = unwrap(TYPE, valuebox)
+            array.ll_setitem_fast(i, value)
+        
         self.create = create
+        self.create_array = create_array
+        self.getarrayitem = getarrayitem
+        self.setarrayitem = setarrayitem
 
 class FieldDescr(OODescr):
 

@@ -650,6 +650,14 @@ class BytecodeMaker(object):
                   self.const_position(cls))
         self.register_var(op.result)
 
+    def serialize_op_oonewarray(self, op):
+        ARRAY = op.args[0].value
+        arraydescr = self.cpu.arraydescrof(ARRAY)
+        self.emit('new_array')
+        self.emit(self.get_position(arraydescr))
+        self.emit(self.var_position(op.args[1]))
+        self.register_var(op.result)
+
     def serialize_op_zero_gc_pointers_inside(self, op):
         pass   # XXX assume Boehm for now
 
@@ -932,7 +940,7 @@ class BytecodeMaker(object):
     def handle_list_call(self, op, oopspec_name, args, LIST):
         if not (oopspec_name.startswith('list.') or oopspec_name == 'newlist'):
             return False
-        if not isinstance(deref(LIST), lltype.GcArray):
+        if not isinstance(deref(LIST), (lltype.GcArray, ootype.Array)):
             return False # resizable lists
         ARRAY = deref(LIST)
         arraydescr = self.cpu.arraydescrof(ARRAY)
@@ -994,7 +1002,7 @@ class BytecodeMaker(object):
         return True
 
     def prepare_list_getset(self, op, arraydescr, args):
-        func = op.args[0].value._obj._callable      # xxx break of abstraction
+        func = get_funcobj(op.args[0].value)._callable      # xxx break of abstraction
         # XXX what if the type is called _nonneg or _fast???
         non_negative = '_nonneg' in func.__name__
         fast = '_fast' in func.__name__

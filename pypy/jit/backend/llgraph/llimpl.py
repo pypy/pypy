@@ -700,6 +700,10 @@ class OOFrame(Frame):
         from pypy.jit.backend.llgraph import runner
         return ootype.cast_to_object(ootype.new(typedescr.TYPE))
 
+    def op_new_array(self, typedescr, count):
+        res = ootype.oonewarray(typedescr.ARRAY, count)
+        return ootype.cast_to_object(res)
+
     def op_getfield_gc(self, fielddescr, obj):
         TYPE = fielddescr.TYPE
         fieldname = fielddescr.fieldname
@@ -709,7 +713,9 @@ class OOFrame(Frame):
         if isinstance(T, ootype.OOType):
             return ootype.cast_to_object(res)
         return res
-                
+
+    op_getfield_gc_pure = op_getfield_gc
+    
     def op_setfield_gc(self, fielddescr, obj, newvalue):
         TYPE = fielddescr.TYPE
         fieldname = fielddescr.fieldname
@@ -718,6 +724,19 @@ class OOFrame(Frame):
         if isinstance(ootype.typeOf(newvalue), ootype.OOType):
             newvalue = ootype.cast_from_object(T, newvalue)
         setattr(obj, fieldname, newvalue)
+
+    def op_getarrayitem_gc(self, typedescr, obj, index):
+        array = ootype.cast_from_object(typedescr.ARRAY, obj)
+        res = array.ll_getitem_fast(index)
+        if isinstance(typedescr.TYPE, ootype.OOType):
+            return ootype.cast_to_object(res)
+        return res
+
+    op_getarrayitem_gc_pure = op_getarrayitem_gc
+
+    def op_setarrayitem_gc(self, arraydescr, array, index, newvalue):
+        array = ootype.cast_from_object(typedescr.ARRAY, obj)
+        array.ll_setitem_fast(index, newvalue)
 
     def op_call(self, calldescr, func, *args):
         sm = ootype.cast_from_object(calldescr.FUNC, func)
