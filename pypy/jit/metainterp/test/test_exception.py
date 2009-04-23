@@ -35,8 +35,6 @@ class ExceptionTests:
             return n
         res = self.meta_interp(f, [10])
         assert res == 0
-        if self.type_system == 'ootype':
-            py.test.skip('problem in optimize.py')
         self.check_loops({'jump': 1,
                           'int_gt': 1, 'guard_true': 1,
                           'int_sub': 1})

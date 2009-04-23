@@ -644,7 +644,10 @@ class BytecodeMaker(object):
 
     def serialize_op_new(self, op):
         TYPE = op.args[0].value
-        self.emit('new', self.get_position(self.cpu.typedescrof(TYPE)))
+        cls = ootype.runtimeClass(TYPE)
+        self.emit('new_with_vtable',
+                  self.get_position(self.cpu.typedescrof(TYPE)),
+                  self.const_position(cls))
         self.register_var(op.result)
 
     def serialize_op_zero_gc_pointers_inside(self, op):

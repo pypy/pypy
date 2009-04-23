@@ -696,7 +696,7 @@ class OOFrame(Frame):
 
     OPHANDLERS = [None] * (rop._LAST+1)
     
-    def op_new(self, typedescr):
+    def op_new_with_vtable(self, typedescr, vtable):
         from pypy.jit.backend.llgraph import runner
         return ootype.cast_to_object(ootype.new(typedescr.TYPE))
 

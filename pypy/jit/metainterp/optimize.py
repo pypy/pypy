@@ -1,7 +1,8 @@
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import (Box, Const, ConstInt, BoxInt, BoxPtr,
                                          ResOperation, AbstractDescr,
-                                         Options, AbstractValue, ConstPtr)
+                                         Options, AbstractValue, ConstPtr,
+                                         ConstObj)
 from pypy.jit.metainterp.specnode import (FixedClassSpecNode,
    VirtualInstanceSpecNode, VirtualizableSpecNode, NotSpecNode,
    VirtualFixedListSpecNode, VirtualizableListSpecNode,
@@ -9,6 +10,7 @@ from pypy.jit.metainterp.specnode import (FixedClassSpecNode,
 from pypy.jit.metainterp import executor
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.objectmodel import r_dict
 
 class FixedList(AbstractValue):
@@ -471,7 +473,14 @@ class PerfectSpecializer(object):
                 sizebox = ConstInt(instnode.cursize)
                 op = ResOperation(rop.NEW_ARRAY, [sizebox], box,
                                   descr=ad)
+            elif self.cpu.is_oo and isinstance(ld, ConstObj):
+                # it's probably a ootype new
+                cls = ld.getobj()
+                typedescr = self.cpu.class_sizes[cls] # XXX this is probably not rpython
+                op = ResOperation(rop.NEW_WITH_VTABLE, [ld], box,
+                                  descr=typedescr)
             else:
+                assert not self.cpu.is_oo
                 vtable = ld.getint()
                 if self.cpu.translate_support_code:
                     vtable_addr = self.cpu.cast_int_to_adr(vtable)

@@ -431,8 +431,9 @@ class OOtypeCPU(BaseCPU):
         else:
             return ootype.NULL
 
-    def do_new(self, args, typedescr):
+    def do_new_with_vtable(self, args, typedescr):
         assert isinstance(typedescr, TypeDescr)
+        assert len(args) == 1 # but we don't need it, so ignore
         return typedescr.create()
 
     def do_runtimenew(self, args, descr):
