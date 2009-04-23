@@ -819,11 +819,7 @@ class MetaInterpStaticData(object):
             self.optimize_loop = optimizer.optimize_loop
             self.optimize_bridge = optimizer.optimize_bridge
         else:
-            # hack hack hack
-            if self.cpu.is_oo:
-                from pypy.jit.metainterp import simple_optimize as optimize
-            else:
-                from pypy.jit.metainterp import optimize
+            from pypy.jit.metainterp import optimize
             self.optimize_loop = optimize.optimize_loop
             self.optimize_bridge = optimize.optimize_bridge
 

@@ -489,6 +489,23 @@ def boxresult(RESULT, result):
 boxresult._annspecialcase_ = 'specialize:arg(0)'
 
 
+class KeyManager(object):
+    """
+    Helper class to convert arbitrary dictionary keys to integers.
+    """    
+
+    def __init__(self):
+        self.keys = {}
+
+    def getkey(self, key):
+        try:
+            return self.keys[key]
+        except KeyError:
+            n = len(self.keys)
+            self.keys[key] = n
+            return n
+
+
 class OODescr(history.AbstractDescr):
     pass
 
@@ -536,6 +553,7 @@ class TypeDescr(OODescr):
 class FieldDescr(OODescr):
 
     getfield = None
+    _keys = KeyManager()
 
     def __init__(self, TYPE, fieldname):
         self.TYPE = TYPE
@@ -553,6 +571,11 @@ class FieldDescr(OODescr):
             
         self.getfield = getfield
         self.setfield = setfield
+
+    def sort_key(self):
+        return self._keys.getkey((self.TYPE, self.fieldname))
+
+
 # ____________________________________________________________
 
 import pypy.jit.metainterp.executor
