@@ -10,5 +10,5 @@ class LoopSpecTest(test_loop.LoopTest):
 class TestLLtype(LoopSpecTest, LLJitMixin):
     pass
 
-## class TestOOtype(LoopSpecTest, OOJitMixin):
-##     pass
+class TestOOtype(LoopSpecTest, OOJitMixin):
+    pass
