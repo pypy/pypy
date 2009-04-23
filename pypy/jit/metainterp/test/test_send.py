@@ -135,8 +135,8 @@ class SendTests:
         res = self.meta_interp(f, [4, 14])
         assert res == 1404
         if self.type_system == 'ootype':
-            py.test.skip('fails because we use simple_optimize.py')
-        self.check_loops(guard_class=0, new_with_vtable=0)
+            py.test.skip('problem in optimize.py')
+        self.check_loops(guard_class=0, new_with_vtable=0, new=0)
 
     def test_three_receivers(self):
         myjitdriver = JitDriver(greens = [], reds = ['y'])
@@ -286,10 +286,10 @@ class SendTests:
         # However, this doesn't match the initial value of 'w'.
         # XXX This not completely easy to check...
         self.check_loop_count(1)
-
         if self.type_system == 'ootype':
-            py.test.skip('fails because we use simple_optimize.py')
-        self.check_loops(int_add=0, int_mul=1, guard_class=0)
+            py.test.skip('problem in optimize.py')
+        self.check_loops(int_add=0, int_mul=1, guard_class=0,
+                         new_with_vtable=0, new=0)
 
     def test_indirect_call_unknown_object_1(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y'])
