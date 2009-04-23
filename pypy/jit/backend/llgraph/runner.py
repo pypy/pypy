@@ -470,15 +470,18 @@ class OOtypeCPU(BaseCPU):
 
 def make_getargs(ARGS):
     argsiter = unrolling_iterable(ARGS)
-    args_n = len(ARGS)
+    args_n = len([ARG for ARG in ARGS if ARG is not ootype.Void])
     def getargs(argboxes):
         funcargs = ()
         assert len(argboxes) == args_n
         i = 0
         for ARG in argsiter:
-            box = argboxes[i]
-            i+=1
-            funcargs += (unwrap(ARG, box),)
+            if ARG is ootype.Void:
+                funcargs += (None,)
+            else:
+                box = argboxes[i]
+                i+=1
+                funcargs += (unwrap(ARG, box),)
         return funcargs
     return getargs
 
@@ -514,7 +517,7 @@ class StaticMethDescr(OODescr):
 
     def __init__(self, FUNC, ARGS, RESULT):
         self.FUNC = FUNC
-        getargs = make_getargs(ARGS)
+        getargs = make_getargs(FUNC.ARGS)
         def callfunc(funcbox, argboxes):
             funcobj = ootype.cast_from_object(FUNC, funcbox.getobj())
             funcargs = getargs(argboxes)

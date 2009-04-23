@@ -1018,6 +1018,10 @@ class MetaInterp(object):
                     assert isinstance(pseudoenv[k], BoxPtr)
                     box.changevalue_ptr(saved_env[i].getptr_base())
                     i += 1
+                elif isinstance(box, BoxObj):
+                    assert isinstance(pseudoenv[k], BoxObj)
+                    box.changevalue_obj(saved_env[i].getobj())
+                    i += 1
                 else:
                     if isinstance(box, ConstInt):
                         assert box.getint() == pseudoenv[k].getint()

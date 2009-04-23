@@ -14,6 +14,7 @@ from pypy.annotation.policy import AnnotatorPolicy
 from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.rpython.extregistry import ExtRegistryEntry
+from pypy.jit.metainterp.typesystem import deref
 
 def getargtypes(annotator, values):
     if values is None:    # for backend tests producing stand-alone exe's
@@ -262,7 +263,7 @@ def builtin_func_for_spec(rtyper, oopspec_name, ll_args, ll_res):
     impl = setup_extra_builtin(oopspec_name, len(args_s))
     if getattr(impl, 'need_result_type', False):
         bk = rtyper.annotator.bookkeeper
-        args_s.insert(0, annmodel.SomePBC([bk.getdesc(ll_res.TO)]))
+        args_s.insert(0, annmodel.SomePBC([bk.getdesc(deref(ll_res))]))
     #
     mixlevelann = MixLevelHelperAnnotator(rtyper)
     c_func = mixlevelann.constfunc(impl, args_s, s_result)
