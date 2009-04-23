@@ -104,8 +104,6 @@ class rop(object):
     #
     CAST_INT_TO_PTR        = 21
     CAST_PTR_TO_INT        = 22
-    UINT_AND               = 23
-    UINT_XOR               = 29
     INT_ADD                = 30
     INT_SUB                = 31
     INT_MUL                = 32
@@ -116,10 +114,6 @@ class rop(object):
     INT_XOR                = 37
     INT_RSHIFT             = 38
     INT_LSHIFT             = 39
-    UINT_ADD               = 40
-    UINT_SUB               = 41
-    UINT_MUL               = 42
-    UINT_LSHIFT            = 43
     UINT_RSHIFT            = 44
     #
     _COMPARISON_FIRST = 45
@@ -131,8 +125,6 @@ class rop(object):
     INT_GE                 = 50
     UINT_LT                = 51
     UINT_LE                = 52
-    UINT_EQ                = 53
-    UINT_NE                = 54
     UINT_GT                = 55
     UINT_GE                = 56
     _COMPARISON_LAST = 56
@@ -141,7 +133,6 @@ class rop(object):
     INT_NEG                = 61
     INT_INVERT             = 62
     BOOL_NOT               = 63
-    UINT_IS_TRUE           = 64
     INT_ABS                = 65
     #
     OONONNULL              = 70

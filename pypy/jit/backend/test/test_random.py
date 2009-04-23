@@ -73,7 +73,6 @@ for _op in [rop.INT_ADD,
             rop.INT_AND,
             rop.INT_OR,
             rop.INT_XOR,
-            rop.UINT_MUL,
             ]:
     OPERATIONS.append(BinaryOperation(_op))
 
@@ -85,8 +84,6 @@ for _op in [rop.INT_LT,
             rop.INT_GE,
             rop.UINT_LT,
             rop.UINT_LE,
-            #rop.UINT_EQ,
-            #rop.UINT_NE,
             rop.UINT_GT,
             rop.UINT_GE,
             ]:

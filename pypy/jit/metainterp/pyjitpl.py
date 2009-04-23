@@ -250,11 +250,9 @@ class MIFrame(object):
     for _opimpl in ['int_add', 'int_sub', 'int_mul', 'int_floordiv', 'int_mod',
                     'int_lt', 'int_le', 'int_eq',
                     'int_ne', 'int_gt', 'int_ge',
-                    'int_and', 'int_or', 'int_xor', 'uint_xor',
-                    'int_rshift', 'int_lshift', 'uint_lshift', 'uint_rshift',
-                    'uint_add', 'uint_sub', 'uint_mul',
-                    'uint_lt', 'uint_le', 'uint_eq',
-                    'uint_ne', 'uint_gt', 'int_ge', 'uint_and',
+                    'int_and', 'int_or', 'int_xor',
+                    'int_rshift', 'int_lshift', 'uint_rshift',
+                    'uint_lt', 'uint_le', 'uint_gt', 'uint_ge',
                     ]:
         exec py.code.Source('''
             @arguments("box", "box")
@@ -271,7 +269,7 @@ class MIFrame(object):
         ''' % (_opimpl, _opimpl.upper())).compile()
 
     for _opimpl in ['int_is_true', 'int_neg', 'int_invert', 'bool_not',
-                    'uint_is_true', 'cast_ptr_to_int', 'cast_int_to_ptr',
+                    'cast_ptr_to_int', 'cast_int_to_ptr',
                     'int_abs',
                     ]:
         exec py.code.Source('''

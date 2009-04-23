@@ -571,6 +571,17 @@ class BytecodeMaker(object):
     def serialize_op_char_le(self, op): self._defl(op, 'int_le')
     def serialize_op_char_lt(self, op): self._defl(op, 'int_lt')
 
+    def serialize_op_uint_eq(self, op): self._defl(op, 'int_eq')
+    def serialize_op_uint_ne(self, op): self._defl(op, 'int_ne')
+
+    def serialize_op_uint_add(self, op): self._defl(op, 'int_add')
+    def serialize_op_uint_sub(self, op): self._defl(op, 'int_sub')
+    def serialize_op_uint_mul(self, op): self._defl(op, 'int_mul')
+    def serialize_op_uint_and(self, op): self._defl(op, 'int_and')
+    def serialize_op_uint_or (self, op): self._defl(op, 'int_or')
+    def serialize_op_uint_xor(self, op): self._defl(op, 'int_xor')
+    def serialize_op_uint_lshift(self, op): self._defl(op, 'int_lshift')
+
     serialize_op_unichar_eq = serialize_op_char_eq
     serialize_op_unichar_ne = serialize_op_char_ne
 

@@ -18,13 +18,13 @@ from pypy.jit.metainterp.resoperation import rop
 # ____________________________________________________________
 
 def do_int_add(cpu, args, descr=None):
-    return ConstInt(args[0].getint() + args[1].getint())
+    return ConstInt(intmask(args[0].getint() + args[1].getint()))
 
 def do_int_sub(cpu, args, descr=None):
-    return ConstInt(args[0].getint() - args[1].getint())
+    return ConstInt(intmask(args[0].getint() - args[1].getint()))
 
 def do_int_mul(cpu, args, descr=None):
-    return ConstInt(args[0].getint() * args[1].getint())
+    return ConstInt(intmask(args[0].getint() * args[1].getint()))
 
 def do_int_floordiv(cpu, args, descr=None):
     z = llop.int_floordiv(lltype.Signed, args[0].getint(), args[1].getint())
@@ -47,21 +47,14 @@ def do_int_rshift(cpu, args, descr=None):
     return ConstInt(args[0].getint() >> args[1].getint())
 
 def do_int_lshift(cpu, args, descr=None):
-    return ConstInt(args[0].getint() << args[1].getint())
-
-do_uint_add = do_int_add
-do_uint_sub = do_int_sub
-do_uint_mul = do_int_mul
-do_uint_lshift = do_int_lshift
-do_uint_xor = do_int_xor
-do_uint_and = do_int_and
+    return ConstInt(intmask(args[0].getint() << args[1].getint()))
 
 def do_uint_rshift(cpu, args, descr=None):
     v = r_uint(args[0].getint()) >> r_uint(args[1].getint())
     return ConstInt(intmask(v))
 
 def do_int_abs(cpu, args, descr=None):
-    return ConstInt(abs(args[0].getint()))
+    return ConstInt(intmask(abs(args[0].getint())))
 
 # ----------
 
@@ -89,9 +82,6 @@ def do_uint_lt(cpu, args, descr=None):
 def do_uint_le(cpu, args, descr=None):
     return ConstInt(r_uint(args[0].getint()) <= r_uint(args[1].getint()))
 
-do_uint_eq = do_int_eq
-do_uint_ne = do_int_ne
-
 def do_uint_gt(cpu, args, descr=None):
     return ConstInt(r_uint(args[0].getint()) > r_uint(args[1].getint()))
 
@@ -103,10 +93,8 @@ def do_uint_ge(cpu, args, descr=None):
 def do_int_is_true(cpu, args, descr=None):
     return ConstInt(bool(args[0].getint()))
 
-do_uint_is_true = do_int_is_true
-
 def do_int_neg(cpu, args, descr=None):
-    return ConstInt(-args[0].getint())
+    return ConstInt(intmask(-args[0].getint()))
 
 def do_int_invert(cpu, args, descr=None):
     return ConstInt(~args[0].getint())
