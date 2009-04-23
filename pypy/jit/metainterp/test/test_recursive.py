@@ -1,6 +1,6 @@
 import py
 from pypy.rlib.jit import JitDriver
-from pypy.jit.metainterp.test.test_basic import LLJitMixin
+from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 
 
 class RecursiveTests:
@@ -49,4 +49,7 @@ class RecursiveTests:
 
 
 class TestLLtype(RecursiveTests, LLJitMixin):
+    pass
+
+class TestOOtype(RecursiveTests, OOJitMixin):
     pass

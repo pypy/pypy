@@ -1,11 +1,11 @@
 
-from pypy.jit.metainterp.test.test_basic import LLJitMixin
+from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
 from pypy.rlib.jit import JitDriver
 from pypy.jit.metainterp.policy import StopAtXPolicy
 from pypy.jit.metainterp.warmspot import get_stats
 from pypy.jit.metainterp.dump import dump_call_history
 
-class TestDebug(LLJitMixin):
+class DebugTest:
     def test_callstack(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])
 
@@ -42,3 +42,9 @@ class TestDebug(LLJitMixin):
             ('leave', 'f'),
             ]
         dump_call_history(ch)
+
+class TestLLtype(DebugTest, LLJitMixin):
+    pass
+
+class TestOOtype(DebugTest, OOJitMixin):
+    pass
