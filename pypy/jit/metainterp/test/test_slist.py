@@ -97,8 +97,8 @@ class ListTests:
         assert res == 42
         py.test.skip("not virtualized away so far")
 
-#class TestOOtype(ListTests, OOJitMixin):
-#    pass
+class TestOOtype(ListTests, OOJitMixin):
+   pass
 
 class TestLLtype(ListTests, LLJitMixin):
     pass

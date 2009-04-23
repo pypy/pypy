@@ -929,14 +929,12 @@ class BytecodeMaker(object):
         self.emit_varargs([c_func] + non_void_args)
         self.register_var(op.result)
 
-    def handle_list_call(self, op, oopspec_name, args, TP):
+    def handle_list_call(self, op, oopspec_name, args, LIST):
         if not (oopspec_name.startswith('list.') or oopspec_name == 'newlist'):
             return False
-        if hasattr(TP.TO, '_ll_resize'):
-            return False
-        # non-resizable lists: they are just arrays
-        ARRAY = TP.TO
-        assert isinstance(ARRAY, lltype.GcArray)
+        if not isinstance(deref(LIST), lltype.GcArray):
+            return False # resizable lists
+        ARRAY = deref(LIST)
         arraydescr = self.cpu.arraydescrof(ARRAY)
         #
         if oopspec_name == 'newlist':
@@ -946,7 +944,7 @@ class BytecodeMaker(object):
             if len(args) > 1:
                 v_default = args[1]
                 if (not isinstance(v_default, Constant) or
-                    v_default.value != TP.TO.OF._defl()):
+                    v_default.value != ARRAY.OF._defl()):
                     return False     # variable or non-null initial value
             self.emit('new_array')
             self.emit(self.get_position(arraydescr))
