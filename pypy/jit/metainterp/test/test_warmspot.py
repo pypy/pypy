@@ -10,7 +10,9 @@ class Exit(Exception):
 class WarmspotTests(object):
     def meta_interp(self, *args, **kwds):
         assert 'CPUClass' not in kwds
+        assert 'type_system' not in kwds
         kwds['CPUClass'] = self.CPUClass
+        kwds['type_system'] = self.type_system
         return ll_meta_interp(*args, **kwds)
     
     def test_basic(self):
@@ -79,3 +81,8 @@ class WarmspotTests(object):
 
 class TestLLWarmspot(WarmspotTests):
     CPUClass = runner.LLtypeCPU
+    type_system = 'lltype'
+
+class TestOOWarmspot(WarmspotTests):
+    CPUClass = runner.OOtypeCPU
+    type_system = 'ootype'
