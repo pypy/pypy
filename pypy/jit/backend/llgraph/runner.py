@@ -195,6 +195,8 @@ class BaseCPU(model.AbstractCPU):
                 pass
             elif isinstance(box, history.ConstPtr):
                 pass
+            elif self.is_oo and isinstance(box, history.ConstObj):
+                pass
             else:
                 raise Exception("bad box in 'fail': %r" % (box,))
         return op
