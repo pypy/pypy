@@ -87,9 +87,10 @@ class Entry_oohash(ExtRegistryEntry):
     _about_ = ootype.oohash
 
     def compute_result_annotation(self, str_s):
-        assert isinstance(str_s, annmodel.SomeOOInstance)\
-               and (str_s.ootype is ootype.String or
-                    str_s.ootype is ootype.Unicode)
+        if not (isinstance(str_s, annmodel.SomeOOInstance)
+                and (str_s.ootype is ootype.String or
+                     str_s.ootype is ootype.Unicode)):
+            return annmodel.s_ImpossibleValue
         return annmodel.SomeInteger()
 
     def specialize_call(self, hop):

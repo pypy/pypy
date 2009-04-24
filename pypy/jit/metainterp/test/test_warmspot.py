@@ -1,6 +1,16 @@
-from pypy.jit.metainterp.warmspot import ll_meta_interp
+from pypy.jit.metainterp.warmspot import ll_meta_interp, cast_whatever_to_int
 from pypy.rlib.jit import JitDriver
 from pypy.jit.backend.llgraph import runner
+
+
+def test_translate_cast_whatever_to_int():
+    from pypy.rpython.test.test_llinterp import interpret
+    from pypy.rpython.lltypesystem import lltype
+    def fn(x):
+        return cast_whatever_to_int(lltype.typeOf(x), x, None)
+    for type_system in ('lltype', 'ootype'):
+        res = interpret(fn, [42], type_system=type_system)
+        assert res == 42
 
 class Exit(Exception):
     def __init__(self, result):
