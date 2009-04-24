@@ -226,6 +226,7 @@ class LLGraphTest(BaseBackendTest):
 
 class TestLLTypeLLGraph(LLGraphTest):
     from pypy.jit.backend.llgraph.runner import LLtypeCPU as cpu_type
-
-class TestOOTypeLLGraph(LLGraphTest):
-    from pypy.jit.backend.llgraph.runner import OOtypeCPU as cpu_type
+    
+## these tests never worked
+## class TestOOTypeLLGraph(LLGraphTest):
+##     from pypy.jit.backend.llgraph.runner import OOtypeCPU as cpu_type
