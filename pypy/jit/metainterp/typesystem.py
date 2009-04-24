@@ -23,6 +23,12 @@ def fieldType(T, name):
     else:
         assert False
 
+def arrayItem(ARRAY):
+    try:
+        return ARRAY.OF
+    except AttributeError:
+        return ARRAY.ITEM
+
 class TypeSystemHelper(object):
 
     def _freeze_(self):

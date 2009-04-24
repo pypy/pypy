@@ -11,7 +11,7 @@ from pypy.jit.metainterp import heaptracker, support, history
 from pypy.tool.udir import udir
 from pypy.translator.simplify import get_funcobj, get_functype
 from pypy.translator.backendopt.canraise import RaiseAnalyzer
-from pypy.jit.metainterp.typesystem import deref
+from pypy.jit.metainterp.typesystem import deref, arrayItem
 
 import py, sys
 from pypy.tool.ansi_print import ansi_log
@@ -963,7 +963,7 @@ class BytecodeMaker(object):
             if len(args) > 1:
                 v_default = args[1]
                 if (not isinstance(v_default, Constant) or
-                    v_default.value != ARRAY.OF._defl()):
+                    v_default.value != arrayItem(ARRAY)._defl()):
                     return False     # variable or non-null initial value
             self.emit('new_array')
             self.emit(self.get_position(arraydescr))

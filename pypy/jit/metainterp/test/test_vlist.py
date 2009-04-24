@@ -360,7 +360,6 @@ class TestOOtype(ListTests, OOJitMixin):
     def skip(self):
         py.test.skip('in-progress')
     
-    test_cannot_be_virtual = skip
     test_ll_fixed_setitem_fast = skip
 
 
