@@ -1013,7 +1013,11 @@ class BytecodeMaker(object):
         return True
 
     def prepare_list_getset(self, op, arraydescr, args):
-        func = get_funcobj(op.args[0].value)._callable      # xxx break of abstraction
+        if op.opname == 'oosend':
+            SELFTYPE, _, meth = support.lookup_oosend_method(op)
+            func = meth._callable
+        else:
+            func = get_funcobj(op.args[0].value)._callable      # xxx break of abstraction
         # XXX what if the type is called _nonneg or _fast???
         non_negative = '_nonneg' in func.__name__
         fast = '_fast' in func.__name__
@@ -1040,9 +1044,14 @@ class BytecodeMaker(object):
         return v_posindex
 
     def handle_builtin_oosend(self, op):
-        SELFTYPE, methname, args_v = support.decompose_oosend(op)
+        oopspec_name, args = support.decode_builtin_call(op)
+        SELFTYPE, methname, meth = support.lookup_oosend_method(op)
         assert SELFTYPE.oopspec_name is not None
-        _, meth = SELFTYPE._lookup(methname)
+        # try to special-case list operations
+        if self.codewriter.metainterp_sd.options.listops:
+            if self.handle_list_call(op, oopspec_name, args, SELFTYPE):
+                return
+        # fallback to all the other builtin oosends
         if getattr(meth, '_pure_meth', False):
             kind = '_pure'
         elif getattr(meth, '_can_raise', True):

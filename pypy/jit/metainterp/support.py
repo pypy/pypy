@@ -234,7 +234,25 @@ def get_oostring_oopspec(op):
     else:
         args = op.args
     return '%s_%s_foldable' % (op.opname, T._name.lower()), args
-    
+
+
+RENAMED_ADT_NAME = {
+    'list': {
+        'll_getitem_fast': 'getitem',
+        'll_setitem_fast': 'setitem',
+        'll_length':       'len',
+        },
+    }
+
+def get_send_oopspec(SELFTYPE, name):
+    oopspec_name = SELFTYPE.oopspec_name
+    assert oopspec_name is not None
+    renamed = RENAMED_ADT_NAME.get(oopspec_name, {})
+    pubname = renamed.get(name, name)
+    oopspec = '%s.%s' % (oopspec_name, pubname)
+    return oopspec
+
+
 def decode_builtin_call(op):
     if op.opname == 'oosend':
         SELFTYPE, name, opargs = decompose_oosend(op)
@@ -281,3 +299,8 @@ def decompose_oosend(op):
     opargs = op.args[1:]
     SELFTYPE = opargs[0].concretetype
     return SELFTYPE, name, opargs
+
+def lookup_oosend_method(op):
+    SELFTYPE, methname, args_v = decompose_oosend(op)
+    _, meth = SELFTYPE._lookup(methname)
+    return SELFTYPE, methname, meth
