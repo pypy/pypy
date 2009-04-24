@@ -734,7 +734,7 @@ class OOFrame(Frame):
 
     op_getarrayitem_gc_pure = op_getarrayitem_gc
 
-    def op_setarrayitem_gc(self, arraydescr, array, index, newvalue):
+    def op_setarrayitem_gc(self, typedescr, obj, index, newvalue):
         array = ootype.cast_from_object(typedescr.ARRAY, obj)
         array.ll_setitem_fast(index, newvalue)
 

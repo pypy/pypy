@@ -402,25 +402,25 @@ class OOtypeCPU(BaseCPU):
 
     @staticmethod
     def fielddescrof(T, fieldname):
-        return FieldDescr(T, fieldname)
+        return FieldDescr.new(T, fieldname)
 
     @staticmethod
     def calldescrof(FUNC, ARGS, RESULT):
-        return StaticMethDescr(FUNC, ARGS, RESULT)
+        return StaticMethDescr.new(FUNC, ARGS, RESULT)
 
     @staticmethod
     def methdescrof(SELFTYPE, methname):
-        return MethDescr(SELFTYPE, methname)
+        return MethDescr.new(SELFTYPE, methname)
 
     @staticmethod
     def typedescrof(TYPE):
-        return TypeDescr(TYPE)
+        return TypeDescr.new(TYPE)
 
     @staticmethod
     def arraydescrof(A):
         assert isinstance(A, ootype.Array)
         TYPE = A.ITEM
-        return TypeDescr(TYPE)
+        return TypeDescr.new(TYPE)
 
     def get_exception(self):
         if llimpl._last_exception:
@@ -531,7 +531,18 @@ class KeyManager(object):
 
 
 class OODescr(history.AbstractDescr):
-    pass
+    _cache = {}
+
+    @classmethod
+    def new(cls, *args):
+        'NOT_RPYTHON'
+        key = (cls, args)
+        try:
+            return cls._cache[key]
+        except KeyError:
+            res = cls(*args)
+            cls._cache[key] = res
+            return res
 
 class StaticMethDescr(OODescr):
 
