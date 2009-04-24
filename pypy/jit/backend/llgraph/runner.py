@@ -535,18 +535,18 @@ class KeyManager(object):
             return n
 
 
+descr_cache = {}
 class OODescr(history.AbstractDescr):
-    _cache = {}
 
     @classmethod
     def new(cls, *args):
         'NOT_RPYTHON'
         key = (cls, args)
         try:
-            return cls._cache[key]
+            return descr_cache[key]
         except KeyError:
             res = cls(*args)
-            cls._cache[key] = res
+            descr_cache[key] = res
             return res
 
 class StaticMethDescr(OODescr):
@@ -563,6 +563,8 @@ class StaticMethDescr(OODescr):
         self.callfunc = callfunc
 
 class MethDescr(history.AbstractMethDescr):
+
+    new = classmethod(OODescr.new.im_func)
 
     def __init__(self, SELFTYPE, methname):
         _, meth = SELFTYPE._lookup(methname)
