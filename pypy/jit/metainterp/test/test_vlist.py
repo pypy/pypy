@@ -357,11 +357,7 @@ class ListTests:
 
 
 class TestOOtype(ListTests, OOJitMixin):
-    def skip(self):
-        py.test.skip('in-progress')
-    
-    test_ll_fixed_setitem_fast = skip
-
+    pass
 
 class TestLLtype(ListTests, LLJitMixin):
     pass

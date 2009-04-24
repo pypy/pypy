@@ -738,6 +738,10 @@ class OOFrame(Frame):
         array = ootype.cast_from_object(typedescr.ARRAY, obj)
         array.ll_setitem_fast(index, newvalue)
 
+    def op_arraylen_gc(self, typedescr, obj):
+        array = ootype.cast_from_object(typedescr.ARRAY, obj)
+        return array.ll_length()
+
     def op_call(self, calldescr, func, *args):
         sm = ootype.cast_from_object(calldescr.FUNC, func)
         newargs = cast_call_args(calldescr.FUNC.ARGS, args, self.memocast)

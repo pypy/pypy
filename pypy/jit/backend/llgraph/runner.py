@@ -471,6 +471,11 @@ class OOtypeCPU(BaseCPU):
         assert len(args) == 3
         return typedescr.setarrayitem(*args)
 
+    def do_arraylen_gc(self, args, typedescr):
+        assert isinstance(typedescr, TypeDescr)
+        assert len(args) == 1
+        return typedescr.getarraylength(*args)
+
     def do_call(self, args, descr):
         assert isinstance(descr, StaticMethDescr)
         funcbox = args[0]
@@ -599,11 +604,16 @@ class TypeDescr(OODescr):
             i = ibox.getint()
             value = unwrap(TYPE, valuebox)
             array.ll_setitem_fast(i, value)
-        
+
+        def getarraylength(arraybox):
+            array = ootype.cast_from_object(ARRAY, arraybox.getobj())
+            return boxresult(ootype.Signed, array.ll_length())
+
         self.create = create
         self.create_array = create_array
         self.getarrayitem = getarrayitem
         self.setarrayitem = setarrayitem
+        self.getarraylength = getarraylength
 
 class FieldDescr(OODescr):
 
