@@ -34,7 +34,7 @@ from pypy.rlib.rstack import yield_current_frame_to_caller, resume_point
 from pypy.rlib.objectmodel import we_are_translated
 
 try:
-    from py.magic import greenlet
+    from greenlet import greenlet
     main_greenlet = greenlet.getcurrent()
 except (ImportError, ValueError):
     def greenlet(*args, **kwargs):

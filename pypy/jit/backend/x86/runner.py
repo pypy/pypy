@@ -2,7 +2,7 @@ import sys
 import ctypes
 import py
 from pypy.rpython.lltypesystem import lltype, llmemory, ll2ctypes, rffi, rstr
-from pypy.rpython.llinterp import LLInterpreter, LLException
+from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.objectmodel import CDefinedIntSymbolic, specialize, Symbolic
 from pypy.rlib.objectmodel import we_are_translated, keepalive_until_here
@@ -304,11 +304,7 @@ class CPU386(object):
         keepalive_until_here(valueboxes)
         self.keepalives_index = oldindex
         del self.keepalives[oldindex:]
-        if guard_index == -1:
-            # special case for calls
-            op = loop.operations[-1]
-        else:
-            op = self._guard_list[guard_index]
+        op = self._guard_list[guard_index]
         #print "Leaving at: %d" % self.assembler.fail_boxes[len(op.args)]
         for i in range(len(op.args)):
             box = op.args[i]
@@ -659,10 +655,6 @@ class CPU386(object):
     def cast_int_to_gcref(self, x):
         assert x == 0 or x > (1<<20) or x < (-1<<20)
         return rffi.cast(llmemory.GCREF, x)
-
-    # ---------------------------- tests ------------------------
-    def guard_failed(self):
-        return self._guard_index != -1
 
 def uhex(x):
     if we_are_translated():

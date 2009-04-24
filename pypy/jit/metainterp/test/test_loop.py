@@ -538,6 +538,7 @@ class LoopTest:
                         z = 0
                 n -= 1
                 some_fn(Stuff(n), k, z)
+            return 0
 
         res = self.meta_interp(f, [200])
 

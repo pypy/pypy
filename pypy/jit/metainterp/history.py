@@ -338,10 +338,13 @@ class Box(AbstractValue):
 
     def __str__(self):
         if not hasattr(self, '_str'):
-            if self.type == INT:
-                t = 'i'
-            else:
-                t = 'p'
+            try:
+                if self.type == INT:
+                    t = 'i'
+                else:
+                    t = 'p'
+            except AttributeError:
+                t = 'b'
             self._str = '%s%d' % (t, Box._counter)
             Box._counter += 1
         return self._str
@@ -367,6 +370,9 @@ class BoxInt(Box):
     def getint(self):
         return self.value
 
+    def getaddr(self, cpu):
+        return cpu.cast_int_to_adr(self.value)
+
     def get_(self):
         return self.value
 
@@ -391,6 +397,9 @@ class BoxPtr(Box):
 
     def getptr_base(self):
         return self.value
+
+    def getaddr(self, cpu):
+        return llmemory.cast_ptr_to_adr(self.value)
 
     def get_(self):
         return lltype.cast_ptr_to_int(self.value)

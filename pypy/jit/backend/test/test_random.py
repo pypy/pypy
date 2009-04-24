@@ -12,12 +12,62 @@ class OperationBuilder:
         self.loop = loop
         self.vars = vars
         self.boolvars = []   # subset of self.vars
+        self.should_fail_by = None
 
     def do(self, opnum, argboxes):
         v_result = execute(self.cpu, opnum, argboxes)
         v_result = BoxInt(v_result.value)
         self.loop.operations.append(ResOperation(opnum, argboxes, v_result))
         return v_result
+
+    def get_bool_var(self, r):
+        if self.boolvars:
+            v = r.choice(self.boolvars)
+        else:
+            v = r.choice(self.vars)
+            v = self.do(rop.INT_IS_TRUE, [v])
+        return v
+
+    def print_loop(self):
+        if demo_conftest.option.output:
+            s = open(demo_conftest.option.output, "w")
+        else:
+            s = sys.stdout
+        names = {None: 'None'}
+        for v in self.vars:
+            names[v] = 'v%d' % len(names)
+            print >>s, '    %s = BoxInt()' % (names[v],)
+        for op in self.loop.operations:
+            v = op.result
+            if v not in names:
+                names[v] = 'tmp%d' % len(names)
+                print >>s, '    %s = BoxInt()' % (names[v],)
+        print >>s, "    loop = TreeLoop('test')"
+        print >>s, '    loop.inputargs = [%s]' % (
+            ', '.join([names[v] for v in self.loop.inputargs]))
+        from pypy.jit.metainterp.resoperation import opname
+        print >>s, '    loop.operations = ['
+        for op in self.loop.operations:
+            print >>s, '        ResOperation(rop.%s, [%s], %s),' % (
+                opname[op.opnum],
+                ', '.join([names.get(v, 'ConstInt(%d)' % v.value)
+                           for v in op.args]),
+                names[op.result])
+        print >>s, '            ]'
+        print >>s, '    cpu = CPU(None, None)'
+        print >>s, '    cpu.compile_operations(loop)'
+        print >>s, '    op = cpu.execute_operations(loop, [%s])' % (
+            ', '.join(['BoxInt(%d)' % v.value for v in self.loop.inputargs]))
+        if self.should_fail_by is None:
+            for v in self.loop.operations[-1].args:
+                print >>s, '    assert %s.value == %d' % (names[v], v.value)
+        else:
+            print >>s, '    assert op is loop.operations[%d].suboperations[0]' % self.should_fail_by_num
+            for v in self.should_fail_by.args:
+                print >>s, '    assert %s.value == %d' % (names[v], v.value)
+        self.names = names
+        if demo_conftest.option.output:
+            s.close()
 
 class AbstractOperation:
     def __init__(self, opnum, boolres=False):
@@ -35,11 +85,7 @@ class UnaryOperation(AbstractOperation):
 
 class BooleanUnaryOperation(UnaryOperation):
     def produce_into(self, builder, r):
-        if builder.boolvars:
-            v = r.choice(builder.boolvars)
-        else:
-            v = r.choice(builder.vars)
-            v = builder.do(rop.INT_IS_TRUE, [v])
+        v = builder.get_bool_var(r)
         self.put(builder, [v])
 
 class BinaryOperation(AbstractOperation):
@@ -58,12 +104,30 @@ class BinaryOperation(AbstractOperation):
             v_second = ConstInt((value & self.and_mask) | self.or_mask)
         else:
             v = r.choice(builder.vars)
-            if self.and_mask != 1:
+            if (v.value & self.and_mask) != v.value:
                 v = builder.do(rop.INT_AND, [v, ConstInt(self.and_mask)])
-            if self.or_mask != 0:
+            if (v.value | self.or_mask) != v.value:
                 v = builder.do(rop.INT_OR, [v, ConstInt(self.or_mask)])
             v_second = v
         self.put(builder, [v_first, v_second])
+
+class GuardBinaryOperation(AbstractOperation):
+
+    def produce_into(self, builder, r):
+        v = builder.get_bool_var(r)
+        op = ResOperation(self.opnum, [v], None)
+        builder.loop.operations.append(op)
+        k = r.random()
+        subset = []
+        num = int(k * len(builder.vars))
+        for i in range(num):
+            subset.append(r.choice(builder.vars))
+        r.shuffle(subset)
+        op.suboperations = [ResOperation(rop.FAIL, subset, None)]
+        if ((self.opnum == rop.GUARD_TRUE and not v.value) or
+            (self.opnum == rop.GUARD_FALSE and v.value)):
+            builder.should_fail_by = op.suboperations[0]
+            builder.should_fail_by_num = len(builder.loop.operations) - 1
 
 OPERATIONS = []
 
@@ -89,11 +153,13 @@ for _op in [rop.INT_LT,
             ]:
     OPERATIONS.append(BinaryOperation(_op, boolres=True))
 
-OPERATIONS.append(BinaryOperation(rop.INT_FLOORDIV, ~3, 1))
-OPERATIONS.append(BinaryOperation(rop.INT_MOD, ~3, 1))
+OPERATIONS.append(BinaryOperation(rop.INT_FLOORDIV, ~3, 2))
+OPERATIONS.append(BinaryOperation(rop.INT_MOD, ~3, 2))
 OPERATIONS.append(BinaryOperation(rop.INT_RSHIFT, LONG_BIT-1))
 OPERATIONS.append(BinaryOperation(rop.INT_LSHIFT, LONG_BIT-1))
 OPERATIONS.append(BinaryOperation(rop.UINT_RSHIFT, LONG_BIT-1))
+OPERATIONS.append(GuardBinaryOperation(rop.GUARD_TRUE))
+OPERATIONS.append(GuardBinaryOperation(rop.GUARD_FALSE))
 
 for _op in [rop.INT_NEG,
             rop.INT_INVERT,
@@ -115,10 +181,10 @@ def Random():
     r = random.Random(seed)
     def get_random_integer():
         while True:
-            result = int(random.expovariate(0.05))
+            result = int(r.expovariate(0.05))
             if result <= sys.maxint:
                 break
-        if random.randrange(0, 5) <= 1:
+        if r.randrange(0, 5) <= 1:
             result = -result
         return result
     r.random_integer = get_random_integer
@@ -139,8 +205,7 @@ def get_cpu():
 
 # ____________________________________________________________
 
-def test_random_function():
-    r = Random()
+def check_random_function(r):
     block_length = demo_conftest.option.block_length
     vars = [BoxInt(r.random_integer())
             for i in range(demo_conftest.option.n_vars)]
@@ -155,6 +220,8 @@ def test_random_function():
 
     for i in range(block_length):
         r.choice(OPERATIONS).produce_into(builder, r)
+        if builder.should_fail_by is not None:
+            break
 
     endvars = []
     for v in vars:
@@ -165,15 +232,37 @@ def test_random_function():
             endvars.append(v)
     r.shuffle(endvars)
     loop.operations.append(ResOperation(rop.FAIL, endvars, None))
+    builder.print_loop()
 
     cpu.compile_operations(loop)
 
+    if builder.should_fail_by is not None:
+        endvars = builder.should_fail_by.args
     expected = {}
     for v in endvars:
         expected[v] = v.value
+    for v in endvars:
         v.changevalue_int(-sys.maxint-1)
 
-    cpu.execute_operations(loop, valueboxes)
+    op = cpu.execute_operations(loop, valueboxes)
+    assert op.args == endvars
 
     for v in endvars:
-        assert v.value == expected[v]
+        assert v.value == expected[v], (
+            "Got %d, expected %d, in the variable %s" % (v.value,
+                                                         expected[v],
+                                                         builder.names[v])
+            )
+
+    print '    # passed.'
+    print
+
+
+def test_random_function():
+    r = Random()
+    if demo_conftest.option.repeat == -1:
+        while 1: 
+            check_random_function(r)
+    else:
+        for i in range(demo_conftest.option.repeat):
+            check_random_function(r)

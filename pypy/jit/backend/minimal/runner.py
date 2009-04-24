@@ -1,9 +1,10 @@
 import py
 from pypy.rlib.objectmodel import specialize, we_are_translated
+from pypy.rlib.debug import ll_assert, debug_print
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rstr, rclass
 from pypy.jit.metainterp.history import AbstractDescr, Box, BoxInt, BoxPtr
 from pypy.jit.metainterp import executor
-from pypy.jit.metainterp.resoperation import rop
+from pypy.jit.metainterp.resoperation import rop, opname
 
 
 class CPU(object):
@@ -38,33 +39,41 @@ class CPU(object):
         pass
 
     def execute_operations(self, loop, valueboxes):
+        #debug_print("execute_operations: starting", loop)
+        #for box in valueboxes:
+        #    debug_print("\t", box, "\t", box.get_())
         valueboxes = [box.clonebox() for box in valueboxes]
         self.clear_exception()
         self._guard_failed = False
         while True:
             env = {}
-            assert len(valueboxes) == len(loop.inputargs)
+            ll_assert(len(valueboxes) == len(loop.inputargs),
+                      "execute_operations: wrong argument count")
             for i in range(len(valueboxes)):
                 env[loop.inputargs[i]] = valueboxes[i]
             operations = loop.operations
             i = 0
             #
             while True:
-                assert i < len(operations), ("reached the end without "
-                                             "seeing a final op")
+                ll_assert(i < len(operations), "execute_operations: "
+                          "reached the end without seeing a final op")
                 op = operations[i]
                 i += 1
                 argboxes = []
+                #lst = [' %s ' % opname[op.opnum]]
                 for box in op.args:
                     if isinstance(box, Box):
                         box = env[box]
                     argboxes.append(box)
+                    #lst.append(str(box.get_()))
+                #debug_print(' '.join(lst))
                 if op.is_final():
                     break
                 if op.is_guard():
                     try:
                         resbox = self.execute_guard(op.opnum, argboxes)
                     except GuardFailed:
+                        #debug_print("\t*guard failed*")
                         self._guard_failed = True
                         operations = op.suboperations
                         i = 0
@@ -74,10 +83,13 @@ class CPU(object):
                                                        argboxes,
                                                        op.descr)
                 if op.result is not None:
-                    assert resbox is not None
+                    ll_assert(resbox is not None,
+                              "execute_operations: unexpectedly got None")
+                    #debug_print('\t-->', resbox.get_())
                     env[op.result] = resbox
                 else:
-                    assert resbox is None
+                    ll_assert(resbox is None,
+                              "execute_operations: unexpectedly got non-None")
             #
             if op.opnum == rop.JUMP:
                 loop = op.jump_target
@@ -85,8 +97,9 @@ class CPU(object):
                 continue
             if op.opnum == rop.FAIL:
                 break
-            assert 0, "bad opnum"
+            ll_assert(False, "execute_operations: bad opnum")
         #
+        #debug_print("execute_operations: leaving", loop)
         for i in range(len(op.args)):
             box = op.args[i]
             if isinstance(box, BoxInt):
@@ -95,6 +108,7 @@ class CPU(object):
             elif isinstance(box, BoxPtr):
                 value = env[box].getptr_base()
                 box.changevalue_ptr(value)
+            #debug_print("\t", box, "\t", box.get_())
         return op
 
     def execute_guard(self, opnum, argboxes):
@@ -125,12 +139,15 @@ class CPU(object):
         elif opnum == rop.GUARD_EXCEPTION:
             adr = argboxes[0].getaddr(self)
             expected_class = llmemory.cast_adr_to_ptr(adr, rclass.CLASSTYPE)
-            assert expected_class
+            ll_assert(bool(expected_class),
+                      "execute_guard: expected_class==NULL")
             exc = self.current_exc_inst
             if exc and rclass.ll_isinstance(exc, expected_class):
+                return BoxPtr(self.get_exc_value())
+            else:
                 raise GuardFailed
         else:
-            assert 0, "unknown guard op"
+            ll_assert(False, "execute_guard: unknown guard op")
 
     # ----------
 
@@ -216,10 +233,11 @@ class CPU(object):
         dict2.update({'rffi': rffi,
                       'FUNC': lltype.Ptr(lltype.FuncType(ARGS, RESULT)),
                       'length': len(ARGS),
+                      'll_assert': ll_assert,
                       })
         exec py.code.Source("""
             def call(cpu, function, args):
-                assert len(args) == length
+                ll_assert(len(args) == length, 'call: wrong arg count')
                 function = rffi.cast(FUNC, function)
                 res = function(%(args)s)
                 return %(result)s
@@ -240,7 +258,14 @@ class CPU(object):
         p = sizedescr.alloc()
         return BoxPtr(p)
 
-    do_new_with_vtable = do_new
+    def do_new_with_vtable(self, args, sizedescr):
+        assert isinstance(sizedescr, SizeDescr)
+        assert sizedescr.alloc is not None
+        p = sizedescr.alloc()
+        classadr = args[0].getaddr(self)
+        pobj = lltype.cast_opaque_ptr(rclass.OBJECTPTR, p)
+        pobj.typeptr = llmemory.cast_adr_to_ptr(classadr, rclass.CLASSTYPE)
+        return BoxPtr(p)
 
     def do_getfield_gc(self, args, fielddescr):
         assert isinstance(fielddescr, FieldDescr)
@@ -332,15 +357,19 @@ class CPU(object):
         assert isinstance(calldescr, CallDescr)
         assert calldescr.call is not None
         self.clear_exception()
+        addr_self = args[0].getaddr(self)
         try:
-            return calldescr.call(self, args[0].getaddr(self), args[1:])
+            box = calldescr.call(self, addr_self, args[1:])
         except Exception, e:
             from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
             self.current_exc_inst = cast_instance_to_base_ptr(e)
+            #debug_print('\tcall raised!', self.current_exc_inst)
             box = calldescr.errbox
             if box:
                 box = box.clonebox()
-            return box
+        #else:
+            #debug_print('\tcall did not raise')
+        return box
 
     # ----------
 

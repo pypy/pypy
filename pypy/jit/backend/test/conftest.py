@@ -5,7 +5,7 @@ option = py.test.config.option
 class RandomRunnerPlugin:
     def pytest_addoption(self, parser):
         group = parser.addgroup('random test options')
-        group.addoption('--seed', action="store", type="int",
+        group.addoption('--random-seed', action="store", type="int",
                         default=random.randrange(0, 10000),
                         dest="randomseed",
                         help="choose a fixed random seed")
@@ -23,5 +23,12 @@ class RandomRunnerPlugin:
                         dest="n_vars",
                         help="supply this many randomly-valued arguments to "
                              "the function")
+        group.addoption('--repeat', action="store", type="int",
+                        default=15,
+                        dest="repeat",
+                        help="run the test this many times"),
+        group.addoption('--output', '-O', action="store", type="str",
+                        default="", dest="output",
+                        help="dump output to a file")
 
 ConftestPlugin = RandomRunnerPlugin

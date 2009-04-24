@@ -430,6 +430,42 @@ class ExceptionTests:
         #    ENTER             - compile the leaving path (raising MyError)
         self.check_enter_count(4)
 
+
+    def test_bridge_from_interpreter_exc_2(self):
+        from pypy.jit.metainterp.simple_optimize import Optimizer
+        
+        mydriver = JitDriver(reds = ['n'], greens = [])
+
+        def x(n):
+            if n == 1:
+                raise MyError(n)
+        
+        def f(n):
+            try:
+                while n > 0:
+                    mydriver.can_enter_jit(n=n)
+                    mydriver.jit_merge_point(n=n)
+                    x(n)
+                    n -= 1
+            except MyError:
+                z()
+        
+        def z():
+            raise ValueError
+
+        def main(n):
+            try:
+                f(n)
+                return 3
+            except MyError, e:
+                return e.n
+            except ValueError:
+                return 8
+
+        res = self.meta_interp(main, [41], repeat=7, policy=StopAtXPolicy(x),
+                               optimizer=Optimizer)
+        assert res == 8
+
 class MyError(Exception):
     def __init__(self, n):
         self.n = n

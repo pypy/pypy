@@ -25,6 +25,10 @@ class Runner(object):
                                                   valueboxes, descr)
         boxes = [box for box in valueboxes if isinstance(box, Box)]
         res = self.cpu.execute_operations(loop, boxes)
+        if res is loop.operations[-1]:
+            self.guard_failed = False
+        else:
+            self.guard_failed = True
         if result_type != 'void':
             return res.args[0]
 
@@ -231,15 +235,6 @@ class BaseBackendTest(Runner):
 ##                op = self.cpu.execute_operations(loop, [BoxInt(x), BoxInt(y)])
 ##                assert op.args[0].value == z
 
-    def test_uint_xor(self):
-        x = execute(self.cpu, rop.UINT_XOR, [BoxInt(100), ConstInt(4)])
-        assert x.value == 100 ^ 4
-        for a, b in [(ConstInt(1), BoxInt(-15)),
-                     (BoxInt(22), BoxInt(13)),
-                     (BoxInt(-112), ConstInt(11))]:
-            res = self.execute_operation(rop.UINT_XOR, [a, b], 'int')
-            assert res.value == intmask(r_uint(a.value) ^ r_uint(b.value))
-
     def test_ooops_non_gc(self):
         x = lltype.malloc(lltype.Struct('x'), flavor='raw')
         v = self.cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(x))
@@ -265,7 +260,7 @@ class BaseBackendTest(Runner):
                                #(rop.GUARD_VALUE_INVERSE, [BoxInt(42), BoxInt(41)]),
                                ]:
             assert self.execute_operation(opname, args, 'void') == None
-            assert not self.cpu.guard_failed()
+            assert not self.guard_failed
             
         t = lltype.malloc(T)
         t.parent.parent.typeptr = vtable_for_T
@@ -273,7 +268,7 @@ class BaseBackendTest(Runner):
         T_box = ConstInt(cpu.cast_adr_to_int(vtable_for_T_addr))
         null_box = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, lltype.nullptr(T)))
         self.execute_operation(rop.GUARD_CLASS, [t_box, T_box], 'void')
-        assert not self.cpu.guard_failed()
+        assert not self.guard_failed
         #self.execute_operation(rop.GUARD_CLASS_INVERSE, [t_box, null_box],
         #                       'void')
 
@@ -301,6 +296,6 @@ class BaseBackendTest(Runner):
                              #(rop.GUARD_VALUE_INVERSE, [BoxInt(10), BoxInt(10)]),
                              ]:
             assert self.execute_operation(opname, args, 'void') == None
-            assert self.cpu.guard_failed()
+            assert self.guard_failed
 
             

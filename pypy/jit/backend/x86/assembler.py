@@ -241,7 +241,7 @@ class Assembler386(object):
         self.mc2.done()
         tree._x86_stack_depth = regalloc.max_stack_depth
         for place in self.places_to_patch_framesize:
-            mc = codebuf.InMemoryCodeBuilder(place, 128)
+            mc = codebuf.InMemoryCodeBuilder(place, place + 128)
             mc.ADD(esp, imm32(tree._x86_stack_depth * WORD))
             mc.done()
         for op, pos in self.jumps_to_look_at:
@@ -391,6 +391,7 @@ class Assembler386(object):
     def call(self, addr, args, res):
         for i in range(len(args)):
             arg = args[i]
+            assert not isinstance(arg, MODRM)
             self.mc.PUSH(arg)
         self.mc.CALL(rel32(addr))
         self.mc.ADD(esp, imm(len(args) * WORD))
@@ -405,12 +406,6 @@ class Assembler386(object):
     genop_int_or  = _binaryop("OR", True)
     genop_int_xor = _binaryop("XOR", True)
 
-    genop_uint_add = genop_int_add
-    genop_uint_sub = genop_int_sub
-    genop_uint_mul = genop_int_mul
-    genop_uint_xor = genop_int_xor
-    genop_uint_and = genop_int_and
-
     genop_guard_int_mul_ovf = _binaryop_ovf("IMUL", True)
     genop_guard_int_sub_ovf = _binaryop_ovf("SUB")
     genop_guard_int_add_ovf = _binaryop_ovf("ADD", True)
@@ -421,9 +416,9 @@ class Assembler386(object):
 
     genop_int_lt = _cmpop("L", "G")
     genop_int_le = _cmpop("LE", "GE")
-    genop_int_eq = _cmpop("E", "NE")
+    genop_int_eq = _cmpop("E", "E")
     genop_oois = genop_int_eq
-    genop_int_ne = _cmpop("NE", "E")
+    genop_int_ne = _cmpop("NE", "NE")
     genop_ooisnot = genop_int_ne
     genop_int_gt = _cmpop("G", "L")
     genop_int_ge = _cmpop("GE", "LE")
@@ -453,30 +448,34 @@ class Assembler386(object):
         self.mc.XOR(arglocs[0], imm8(1))
 
     def genop_int_lshift(self, op, arglocs, resloc):
-        loc = arglocs[0]
-        assert arglocs[1] is ecx
-        self.mc.SHL(loc, cl)
+        loc, loc2 = arglocs
+        if loc2 is ecx:
+            loc2 = cl
+        self.mc.SHL(loc, loc2)
 
     def genop_int_rshift(self, op, arglocs, resloc):
-        loc = arglocs[0]
-        assert arglocs[1] is ecx
-        self.mc.SAR(loc, cl)
+        loc, loc2 = arglocs
+        if loc2 is ecx:
+            loc2 = cl
+        self.mc.SAR(loc, loc2)
 
     def genop_uint_rshift(self, op, arglocs, resloc):
-        loc = arglocs[0]
-        assert arglocs[1] is ecx
-        self.mc.SHR(loc, cl)
+        loc, loc2 = arglocs
+        if loc2 is ecx:
+            loc2 = cl
+        self.mc.SHR(loc, loc2)
 
     def genop_guard_int_lshift_ovf(self, op, guard_op, addr, arglocs, resloc):
-        loc = arglocs[0]
-        tmploc = arglocs[2]
+        loc, loc2, tmploc = arglocs
+        if loc2 is ecx:
+            loc2 = cl
         # xxx a bit inefficient
         self.mc.MOV(tmploc, loc)
-        self.mc.SHL(tmploc, cl)
-        self.mc.SAR(tmploc, cl)
+        self.mc.SHL(tmploc, loc2)
+        self.mc.SAR(tmploc, loc2)
         self.mc.CMP(tmploc, loc)
         self.mc.JNE(rel32(addr))
-        self.mc.SHL(loc, cl)
+        self.mc.SHL(loc, loc2)
 
     def genop_int_is_true(self, op, arglocs, resloc):
         argloc = arglocs[0]
@@ -712,7 +711,8 @@ class Assembler386(object):
             self.mcstack.give_mc_back(mc2)
         else:
             pos = new_pos
-        mc = codebuf.InMemoryCodeBuilder(old_pos, MachineCodeBlockWrapper.MC_SIZE)
+        mc = codebuf.InMemoryCodeBuilder(old_pos, old_pos +
+                                         MachineCodeBlockWrapper.MC_SIZE)
         mc.JMP(rel32(pos))
         mc.done()
 
@@ -795,6 +795,12 @@ class Assembler386(object):
         if (guard_op.opnum == rop.GUARD_EXCEPTION or
             guard_op.opnum == rop.GUARD_NO_EXCEPTION):
             exc = True
+        # XXX this is a heuristics to detect whether we're handling this
+        # exception or not. We should have a bit better interface to deal
+        # with that I fear
+        if (exc and (guard_op.suboperations[0].opnum == rop.GUARD_EXCEPTION or
+                    guard_op.suboperations[0].opnum == rop.GUARD_NO_EXCEPTION)):
+            exc = False
         regalloc.walk_guard_ops(guard_op.inputargs, guard_op.suboperations, exc)
         self.mcstack.give_mc_back(self.mc2)
         self.mc2 = self.mc

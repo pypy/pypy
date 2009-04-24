@@ -306,16 +306,6 @@ class TestX86(BaseBackendTest):
 
         arg0 = BoxInt(intmask(r_uint(sys.maxint + 3)))
         arg1 = BoxInt(intmask(r_uint(4)))
-        res = self.execute_operation(rop.UINT_ADD, [arg0, arg1], 'int')
-        assert res.value == intmask(r_uint(sys.maxint + 3) + r_uint(4))
-
-        arg0 = BoxInt(intmask(sys.maxint + 10))
-        arg1 = BoxInt(10)
-        res = self.execute_operation(rop.UINT_MUL, [arg0, arg1], 'int')
-        assert res.value == intmask((sys.maxint + 10) * 10)
-
-        arg0 = BoxInt(intmask(r_uint(sys.maxint + 3)))
-        arg1 = BoxInt(intmask(r_uint(4)))
 
         res = self.execute_operation(rop.UINT_GT, [arg0, arg1], 'int')
         assert res.value == 1

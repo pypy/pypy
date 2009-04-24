@@ -44,7 +44,6 @@ def convert_to_imm(c):
         raise ValueError("convert_to_imm: got a %s" % c)
 
 class RegAlloc(object):
-    guard_index = -1
     max_stack_depth = 0
     exc = False
     
@@ -267,6 +266,9 @@ class RegAlloc(object):
         self._walk_operations(operations)
 
     def _walk_operations(self, operations):
+        fop = operations[-1]
+        if fop.opnum == rop.FAIL:
+            self.guard_index = self.assembler.cpu.make_guard_index(fop)
         i = 0
         while i < len(operations):
             op = operations[i]
@@ -616,11 +618,7 @@ class RegAlloc(object):
         self.eventually_free_vars(inputargs)
 
     def regalloc_for_guard(self, guard_op):
-        regalloc = self.copy(guard_op)
-        fop = guard_op.suboperations[-1]
-        if fop.opnum == rop.FAIL:
-            regalloc.guard_index = self.assembler.cpu.make_guard_index(fop)
-        return regalloc
+        return self.copy(guard_op)
 
     def _consider_guard(self, op, ignored):
         loc = self.make_sure_var_in_reg(op.args[0], [])
@@ -708,8 +706,8 @@ class RegAlloc(object):
             self.eventually_free_var(op.args[1])
             self.Load(x, self.loc(x), res)
             return res, argloc
-        loc = self.force_result_in_reg(op.result, x, op.args)
         argloc = self.loc(op.args[1])
+        loc = self.force_result_in_reg(op.result, x, op.args)
         self.eventually_free_var(op.args[1])
         return loc, argloc
 
@@ -723,11 +721,6 @@ class RegAlloc(object):
     consider_int_and = _consider_binop
     consider_int_or  = _consider_binop
     consider_int_xor = _consider_binop
-    consider_uint_xor = _consider_binop
-    consider_uint_add = _consider_binop
-    consider_uint_mul = _consider_binop
-    consider_uint_sub = _consider_binop
-    consider_uint_and = _consider_binop
     
     def _consider_binop_ovf(self, op, guard_op):
         loc, argloc = self._consider_binop_part(op, None)
@@ -759,7 +752,10 @@ class RegAlloc(object):
         self.eventually_free_var(guard_op.result)
 
     def consider_int_lshift(self, op, ignored):
-        loc2 = self.make_sure_var_in_reg(op.args[1], [], ecx)
+        if isinstance(op.args[1], Const):
+            loc2 = convert_to_imm(op.args[1])
+        else:
+            loc2 = self.make_sure_var_in_reg(op.args[1], [], ecx)
         loc1 = self.force_result_in_reg(op.result, op.args[0], op.args)
         self.Perform(op, [loc1, loc2], loc1)
         self.eventually_free_vars(op.args)
@@ -768,7 +764,10 @@ class RegAlloc(object):
     consider_uint_rshift = consider_int_lshift
 
     def consider_int_lshift_ovf(self, op, guard_op):
-        loc2 = self.make_sure_var_in_reg(op.args[1], [], ecx)
+        if isinstance(op.args[1], Const):
+            loc2 = convert_to_imm(op.args[1])
+        else:
+            loc2 = self.make_sure_var_in_reg(op.args[1], [], ecx)
         loc1 = self.force_result_in_reg(op.result, op.args[0], op.args)
         tmpvar = TempBox()
         tmploc = self.force_allocate_reg(tmpvar, [])
@@ -1023,16 +1022,16 @@ class RegAlloc(object):
     consider_cast_ptr_to_int = _same_as
 
     def consider_int_is_true(self, op, ignored):
-        argloc = self.force_allocate_reg(op.args[0], [])
+        argloc = self.make_sure_var_in_reg(op.args[0], [])
+        resloc = self.force_allocate_reg(op.result, op.args)
         self.eventually_free_var(op.args[0])
-        resloc = self.force_allocate_reg(op.result, [])
         self.Perform(op, [argloc], resloc)
 
     def consider_int_abs(self, op, ignored):
-        argloc = self.force_allocate_reg(op.args[0], [])
+        argloc = self.make_sure_var_in_reg(op.args[0], [])
         tmpvar = TempBox()
-        tmploc = self.force_allocate_reg(tmpvar, [])
-        resloc = self.force_allocate_reg(op.result, [])
+        tmploc = self.force_allocate_reg(tmpvar, [op.args[0]])
+        resloc = self.force_allocate_reg(op.result, [op.args[0], tmpvar])
         self.Perform(op, [argloc, tmploc], resloc)
         self.eventually_free_var(op.args[0])
         self.eventually_free_var(tmpvar)
@@ -1040,8 +1039,8 @@ class RegAlloc(object):
     def consider_int_abs_ovf(self, op, guard_op):
         argloc = self.force_allocate_reg(op.args[0], [])
         tmpvar = TempBox()
-        tmploc = self.force_allocate_reg(tmpvar, [])
-        resloc = self.force_allocate_reg(op.result, [])
+        tmploc = self.force_allocate_reg(tmpvar, [op.args[0]])
+        resloc = self.force_allocate_reg(op.result, [op.args[0], tmpvar])
         self.position += 1
         regalloc = self.regalloc_for_guard(guard_op)
         self.perform_with_guard(op, guard_op, regalloc, [argloc, tmploc],

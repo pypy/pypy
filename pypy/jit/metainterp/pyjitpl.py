@@ -861,6 +861,9 @@ class MetaInterpStaticData(object):
 # ____________________________________________________________
 
 class MetaInterpGlobalData(object):
+
+    blackhole = False
+    
     def __init__(self):
         self.metainterp_doing_call = None
         self._debug_history = []
@@ -1280,6 +1283,7 @@ class MetaInterp(object):
                 self.history.operations.append(suboperations[i])
             self.extra_rebuild_operations = extra
         else:
+            self.staticdata.globaldata.blackhole = True
             self.history = history.BlackHole(self.cpu)
             # the BlackHole is invalid because it doesn't start with
             # guard_failure.key.guard_op.suboperations, but that's fine
