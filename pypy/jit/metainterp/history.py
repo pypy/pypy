@@ -120,6 +120,7 @@ class AbstractMethDescr(AbstractDescr):
 class Const(AbstractValue):
     __slots__ = ()
 
+    @staticmethod
     def _new(x, cpu):
         "NOT_RPYTHON"
         T = lltype.typeOf(x)
@@ -143,8 +144,6 @@ class Const(AbstractValue):
             return ConstObj(obj)
         else:
             raise NotImplementedError(kind)
-    _new._annspecialcase_ = 'specialize:argtype(0)'
-    _new = staticmethod(_new)
 
     def constbox(self):
         return self
