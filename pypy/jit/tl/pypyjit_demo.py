@@ -1,6 +1,8 @@
+TESTNAME = 'test_builtin'
+
 def do():
     import test.regrtest, sys
-    sys.argv = ['regrtest.py', 'test_builtin']
+    sys.argv = ['regrtest.py', TESTNAME]
     test.regrtest.main()
 
 try:
