@@ -2,7 +2,6 @@ import py
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.llinterp import LLException
-from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.objectmodel import we_are_translated, r_dict, instantiate
 from pypy.rlib.unroll import unrolling_iterable
@@ -931,11 +930,14 @@ class MetaInterp(object):
                 assert False
 
     def finishframe_exception(self, exceptionbox, excvaluebox):
-        if we_are_translated():   # detect and propagate AssertionErrors early
-            value = excvaluebox.getptr(lltype.Ptr(rclass.OBJECT))
-            value = cast_base_ptr_to_instance(Exception, value)
-            if isinstance(value, AssertionError):
-                raise AssertionError, value
+        # detect and propagate some exceptions early:
+        #  - AssertionError
+        #  - all subclasses of JitException
+        if we_are_translated():
+            from pypy.jit.metainterp.warmspot import JitException
+            e = self.staticdata.ts.get_exception_obj(excvaluebox)
+            if isinstance(e, JitException) or isinstance(e, AssertionError):
+                raise Exception, e
         #
         while self.framestack:
             frame = self.framestack[-1]

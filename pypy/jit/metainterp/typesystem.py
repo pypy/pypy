@@ -3,6 +3,7 @@
 #from pypy.rpython.annlowlevel import cast_instance_to_base_obj
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.jit.metainterp import history
 
 def deref(T):
@@ -72,6 +73,11 @@ class LLTypeHelper(TypeSystemHelper):
     def get_exc_value_box(self, evalue):
         return history.BoxPtr(evalue)
 
+    def get_exception_obj(self, evaluebox):
+        # only works when translated
+        obj = evaluebox.getptr(lltype.Ptr(rclass.OBJECT))
+        return cast_base_ptr_to_instance(Exception, obj)
+
 
 class OOTypeHelper(TypeSystemHelper):
 
@@ -107,6 +113,11 @@ class OOTypeHelper(TypeSystemHelper):
 
     def get_exc_value_box(self, evalue):
         return history.BoxObj(evalue)
+
+    def get_exception_obj(self, evaluebox):
+        # only works when translated
+        obj = evaluebox.getobj()
+        return cast_base_ptr_to_instance(Exception, obj)
 
 
 llhelper = LLTypeHelper()
