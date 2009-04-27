@@ -51,9 +51,7 @@ class BaseCPU(model.AbstractCPU):
                 self.rtyper, clsdef)
         else:
             # for tests, a random emulated ll_inst will do
-            ll_inst = lltype.malloc(rclass.OBJECT)
-            ll_inst.typeptr = lltype.malloc(rclass.OBJECT_VTABLE,
-                                            immortal=True)
+            ll_inst = self._get_fake_inst()
         self._ovf_error_inst = ll_inst
 
     def compile_operations(self, loop):
@@ -165,6 +163,7 @@ class BaseCPU(model.AbstractCPU):
             if value:
                 raise GuardFailed
         elif opnum == rop.GUARD_CLASS:
+            assert not self.is_oo
             value = argboxes[0].getptr(rclass.OBJECTPTR)
             adr = argboxes[1].getaddr(self)
             expected_class = llmemory.cast_adr_to_ptr(adr, rclass.CLASSTYPE)
@@ -181,6 +180,7 @@ class BaseCPU(model.AbstractCPU):
             if self.current_exc_inst:
                 raise GuardFailed
         elif opnum == rop.GUARD_EXCEPTION:
+            assert not self.is_oo
             adr = argboxes[0].getaddr(self)
             expected_class = llmemory.cast_adr_to_ptr(adr, rclass.CLASSTYPE)
             ll_assert(bool(expected_class),
@@ -239,19 +239,15 @@ class BaseCPU(model.AbstractCPU):
         """ % dict).compile() in dict2
         if RESULT is lltype.Void:
             errbox = None
-        elif isinstance(RESULT, lltype.Ptr) and RESULT.TO._gckind == 'gc':
+        elif not self.is_oo and isinstance(RESULT, lltype.Ptr) and RESULT.TO._gckind == 'gc':
             errbox = BoxPtr()
+        elif self.is_oo and isinstance(RESULT, ootype.OOType):
+            errbox = BoxObj()
         else:
             errbox = BoxInt()
         return CallDescr(FUNC, dict2['call'], errbox)
 
     # ----------
-
-    def do_new(self, args, sizedescr):
-        assert isinstance(sizedescr, SizeDescr)
-        assert sizedescr.alloc is not None
-        p = sizedescr.alloc()
-        return BoxPtr(p)
 
     def do_getfield_gc(self, args, fielddescr):
         assert isinstance(fielddescr, FieldDescr)
@@ -295,14 +291,6 @@ class BaseCPU(model.AbstractCPU):
 
     do_setarrayitem_raw = do_setarrayitem_gc
 
-    def do_newstr(self, args, descr=None):
-        p = rstr.mallocstr(args[0].getint())
-        return BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, p))
-
-    def do_newunicode(self, args, descr=None):
-        p = rstr.mallocunicode(args[0].getint())
-        return BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, p))
-
     def do_strlen(self, args, descr=None):
         str = args[0].getptr(lltype.Ptr(rstr.STR))
         return BoxInt(len(str.chars))
@@ -310,32 +298,6 @@ class BaseCPU(model.AbstractCPU):
     def do_unicodelen(self, args, descr=None):
         unicode = args[0].getptr(lltype.Ptr(rstr.UNICODE))
         return BoxInt(len(unicode.chars))
-
-    def do_strgetitem(self, args, descr=None):
-        str = args[0].getptr(lltype.Ptr(rstr.STR))
-        i = args[1].getint()
-        return BoxInt(ord(str.chars[i]))
-
-    def do_unicodegetitem(self, args, descr=None):
-        unicode = args[0].getptr(lltype.Ptr(rstr.UNICODE))
-        i = args[1].getint()
-        return BoxInt(ord(unicode.chars[i]))
-
-    def do_strsetitem(self, args, descr=None):
-        str = args[0].getptr(lltype.Ptr(rstr.STR))
-        i = args[1].getint()
-        str.chars[i] = chr(args[2].getint())
-
-    def do_unicodesetitem(self, args, descr=None):
-        unicode = args[0].getptr(lltype.Ptr(rstr.UNICODE))
-        i = args[1].getint()
-        unicode.chars[i] = unichr(args[2].getint())
-
-    def do_cast_int_to_ptr(self, args, descr=None):
-        return BoxPtr(self.cast_int_to_gcref(args[0].getint()))
-
-    def do_cast_ptr_to_int(self, args, descr=None):
-        return BoxInt(self.cast_gcref_to_int(args[0].getptr_base()))
 
     def do_call(self, args, calldescr):
         if not we_are_translated():
@@ -359,47 +321,22 @@ class BaseCPU(model.AbstractCPU):
                 print '\tcall did not raise'
         return box
 
-    # ----------
-
-    def clear_exception(self):
-        self.current_exc_inst = lltype.nullptr(rclass.OBJECT)
-
-    def get_exception(self):
-        if self.current_exc_inst:
-            return rffi.cast(lltype.Signed, self.current_exc_inst.typeptr)
-        else:
-            return 0
-
-    def get_exc_value(self):
-        return lltype.cast_opaque_ptr(llmemory.GCREF, self.current_exc_inst)
-
     def set_overflow_error(self):
         self.current_exc_inst = self._ovf_error_inst
 
     def guard_failed(self):
         return self._guard_failed
 
-    # ----------
-
-    def cast_gcref_to_int(self, x):
-        return rffi.cast(lltype.Signed, x)
-
-    def cast_int_to_gcref(self, x):
-        return rffi.cast(llmemory.GCREF, x)
-
-    def cast_int_to_adr(self, x):
-        return rffi.cast(llmemory.Address, x)
-
-    def cast_adr_to_int(self, x):
-        return rffi.cast(lltype.Signed, x)
-
-    @specialize.arg(1)
-    def cast_int_to_ptr(self, TYPE, x):
-        return rffi.cast(TYPE, x)
 
 
 class LLtypeCPU(BaseCPU):
     is_oo = False
+
+    def _get_fake_inst(self):
+        ll_inst = lltype.malloc(rclass.OBJECT)
+        ll_inst.typeptr = lltype.malloc(rclass.OBJECT_VTABLE,
+                                        immortal=True)
+        return ll_inst
 
     def _get_field(self, STRUCT, name):
         PTR = lltype.Ptr(STRUCT)
@@ -457,6 +394,14 @@ class LLtypeCPU(BaseCPU):
                           dict2['getarrayitem'],
                           dict2['setarrayitem'])
 
+    # ----------
+    
+    def do_new(self, args, sizedescr):
+        assert isinstance(sizedescr, SizeDescr)
+        assert sizedescr.alloc is not None
+        p = sizedescr.alloc()
+        return BoxPtr(p)
+
     def do_new_with_vtable(self, args, sizedescr):
         assert isinstance(sizedescr, SizeDescr)
         assert sizedescr.alloc is not None
@@ -466,10 +411,79 @@ class LLtypeCPU(BaseCPU):
         pobj.typeptr = llmemory.cast_adr_to_ptr(classadr, rclass.CLASSTYPE)
         return BoxPtr(p)
 
+    def do_newstr(self, args, descr=None):
+        p = rstr.mallocstr(args[0].getint())
+        return BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, p))
+
+    def do_newunicode(self, args, descr=None):
+        p = rstr.mallocunicode(args[0].getint())
+        return BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, p))
+
+    def do_strgetitem(self, args, descr=None):
+        str = args[0].getptr(lltype.Ptr(rstr.STR))
+        i = args[1].getint()
+        return BoxInt(ord(str.chars[i]))
+
+    def do_unicodegetitem(self, args, descr=None):
+        unicode = args[0].getptr(lltype.Ptr(rstr.UNICODE))
+        i = args[1].getint()
+        return BoxInt(ord(unicode.chars[i]))
+
+    def do_strsetitem(self, args, descr=None):
+        str = args[0].getptr(lltype.Ptr(rstr.STR))
+        i = args[1].getint()
+        str.chars[i] = chr(args[2].getint())
+
+    def do_unicodesetitem(self, args, descr=None):
+        unicode = args[0].getptr(lltype.Ptr(rstr.UNICODE))
+        i = args[1].getint()
+        unicode.chars[i] = unichr(args[2].getint())
+
+    def do_cast_int_to_ptr(self, args, descr=None):
+        return BoxPtr(self.cast_int_to_gcref(args[0].getint()))
+
+    def do_cast_ptr_to_int(self, args, descr=None):
+        return BoxInt(self.cast_gcref_to_int(args[0].getptr_base()))
+
+    # ----------
+
+    def clear_exception(self):
+        self.current_exc_inst = lltype.nullptr(rclass.OBJECT)
+
+    def get_exception(self):
+        if self.current_exc_inst:
+            return rffi.cast(lltype.Signed, self.current_exc_inst.typeptr)
+        else:
+            return 0
+
+    def get_exc_value(self):
+        return lltype.cast_opaque_ptr(llmemory.GCREF, self.current_exc_inst)
+
+    # ----------
+
+    def cast_gcref_to_int(self, x):
+        return rffi.cast(lltype.Signed, x)
+
+    def cast_int_to_gcref(self, x):
+        return rffi.cast(llmemory.GCREF, x)
+
+    def cast_int_to_adr(self, x):
+        return rffi.cast(llmemory.Address, x)
+
+    def cast_adr_to_int(self, x):
+        return rffi.cast(lltype.Signed, x)
+
+    @specialize.arg(1)
+    def cast_int_to_ptr(self, TYPE, x):
+        return rffi.cast(TYPE, x)
+
 
 class OOtypeCPU(BaseCPU):
     is_oo = True
 
+    def _get_fake_inst(self):
+        return ootype.new(ootype.ROOT)
+        
     def _get_field(self, TYPE, name):
         _, FIELDTYPE = TYPE._lookup_field(name)
         return TYPE, FIELDTYPE, reveal_obj
@@ -507,6 +521,20 @@ class OOtypeCPU(BaseCPU):
         argboxes = args[1:]
         return descr.callmeth(selfbox, argboxes)
 
+    # ----------
+    
+    def clear_exception(self):
+        self.current_exc_inst = ootype.NULL
+
+    def get_exception(self):
+        inst = ootype.cast_from_object(ootype.ROOT, self.current_exc_inst)
+        if inst:
+            return ootype.cast_to_object(ootype.classof(inst))
+        else:
+            return ootype.NULL
+
+    def get_exc_value(self):
+        return ootype.cast_to_object(self.current_exc_inst)
 
 class SizeDescr(AbstractDescr):
     alloc = None
