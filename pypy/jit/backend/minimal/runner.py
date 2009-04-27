@@ -8,6 +8,7 @@ from pypy.jit.metainterp.history import BoxObj
 from pypy.jit.metainterp import executor
 from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.jit.backend import model
+from pypy.jit.backend.llgraph.runner import MethDescr
 
 DEBUG = False
 
@@ -500,6 +501,12 @@ class OOtypeCPU(BaseCPU):
         obj = sizedescr.alloc()
         return BoxObj(obj)
 
+    def do_oosend(self, args, descr=None):
+        assert isinstance(descr, MethDescr)
+        selfbox = args[0]
+        argboxes = args[1:]
+        return descr.callmeth(selfbox, argboxes)
+
 
 class SizeDescr(AbstractDescr):
     alloc = None
@@ -536,11 +543,8 @@ class CallDescr(AbstractDescr):
         self.call = call
         self.errbox = errbox
 
-class MethDescr(AbstractDescr):
 
-    def __init__(self, SELFTYPE, methname):
-        pass
-    
+
 # ____________________________________________________________
 
 

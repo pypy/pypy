@@ -23,12 +23,7 @@ class BasicTests(test_basic.BasicTests):
 
 
 class TestOOtype(OOJitMixin, BasicTests):
-    def test_format(self):
-        py.test.skip('in-progress')
-
-    def test_bridge_from_interpreter_4(self):
-        py.test.skip('in-progress')
-
+    pass
 
 class TestLLtype(LLJitMixin, BasicTests):
     pass
