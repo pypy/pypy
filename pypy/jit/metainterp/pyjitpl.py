@@ -649,6 +649,10 @@ class MIFrame(object):
 
     @arguments("orgpc")
     def opimpl_can_enter_jit(self, pc):
+        # Note: when running with a BlackHole history, this 'can_enter_jit'
+        # may be completely skipped by the logic that replaces perform_call
+        # with rop.CALL.  But in that case, no-one will check the flag anyway,
+        # so it's fine.
         self.metainterp.seen_can_enter_jit = True
 
     @arguments("orgpc")
