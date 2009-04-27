@@ -504,7 +504,7 @@ class CastBasePtrToInstanceEntry(extregistry.ExtRegistryEntry):
         if isinstance(v_arg.concretetype, lltype.Ptr):
             opname = 'cast_pointer'
         elif isinstance(v_arg.concretetype, ootype.Instance):
-            opname = 'ooupcast'
+            opname = 'oodowncast'
         else:
             assert False
         hop.exception_cannot_occur()
