@@ -8,3 +8,5 @@
 * support floats
 
 * fix bugs in virtualizables, but think first
+
+* kill empty pairs setup_exception_block/teardown_exception_block

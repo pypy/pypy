@@ -36,29 +36,33 @@ def log(msg):
         debug_print(msg)
 
 class arguments(object):
-    def __init__(self, *argtypes, **kwargs):
-        self.result = kwargs.pop("returns", None)
-        assert not kwargs
+    def __init__(self, *argtypes):
         self.argtypes = argtypes
 
     def __eq__(self, other):
         if not isinstance(other, arguments):
             return NotImplemented
-        return self.argtypes == other.argtypes and self.result == other.result
+        return self.argtypes == other.argtypes
 
     def __ne__(self, other):
         if not isinstance(other, arguments):
             return NotImplemented
-        return self.argtypes != other.argtypes or self.result != other.result
+        return self.argtypes != other.argtypes
 
-    def __call__(self, func):
-        result = self.result
+    def __call__(self, func, DEBUG=DEBUG):
         argtypes = unrolling_iterable(self.argtypes)
         def wrapped(self, orgpc):
             args = (self, )
+            if DEBUG >= 2:
+                s = '%s:%d\t%s' % (self.jitcode.name, orgpc, name)
+            else:
+                s = ''
             for argspec in argtypes:
                 if argspec == "box":
-                    args += (self.load_arg(), )
+                    box = self.load_arg()
+                    args += (box, )
+                    if DEBUG >= 2:
+                        s += '\t' + box.repr_rpython()
                 elif argspec == "constbox":
                     args += (self.load_const_arg(), )
                 elif argspec == "int":
@@ -103,17 +107,17 @@ class arguments(object):
                     args += (virtualizabledesc, )
                 else:
                     assert 0, "unknown argtype declaration: %r" % (argspec,)
+            if DEBUG >= 2:
+                debug_print(s)
             val = func(*args)
-            if result is not None:
-                if result == "box":
-                    self.make_result_box(val)
-                else:
-                    assert 0, "unknown result declaration: %r" % (result,)
-                return False
+            if DEBUG >= 2:
+                reprboxes = ' '.join([box.repr_rpython() for box in self.env])
+                debug_print('  env=[%s]' % (reprboxes,))
             if val is None:
                 val = False
             return val
-        wrapped.func_name = "wrap_" + func.func_name
+        name = func.func_name
+        wrapped.func_name = "wrap_" + name
         wrapped.argspec = self
         return wrapped
 
@@ -601,16 +605,17 @@ class MIFrame(object):
     def opimpl_oounicode_unichar(self, obj, base):
         self.execute(rop.OOUNICODE_UNICHAR, [obj, base])
 
-    @arguments("orgpc", "box", returns="box")
+    @arguments("orgpc", "box")
     def opimpl_guard_value(self, pc, box):
-        return self.implement_guard_value(pc, box)
+        constbox = self.implement_guard_value(pc, box)
+        self.make_result_box(constbox)
 
-    @arguments("orgpc", "box", returns="box")
+    @arguments("orgpc", "box")
     def opimpl_guard_class(self, pc, box):
         clsbox = self.cls_of_box(box)
         if isinstance(box, Box):
             self.generate_guard(pc, rop.GUARD_CLASS, box, [clsbox])
-        return clsbox
+        self.make_result_box(clsbox)
 
 ##    @arguments("orgpc", "box", "builtin")
 ##    def opimpl_guard_builtin(self, pc, box, builtin):
@@ -714,11 +719,11 @@ class MIFrame(object):
             else:
                 box = consts[~num]
             self.env.append(box)
-        if DEBUG:
-            values = [box.get_() for box in self.env]
-            log('setup_resume_at_op  %s:%d %s %d' % (self.jitcode.name,
-                                                     self.pc, values,
-                                                     self.exception_target))
+        if DEBUG >= 2:
+            values = ' '.join([box.repr_rpython() for box in self.env])
+            log('setup_resume_at_op  %s:%d [%s] %d' % (self.jitcode.name,
+                                                       self.pc, values,
+                                                       self.exception_target))
 
     def run_one_step(self):
         # Execute the frame forward.  This method contains a loop that leaves

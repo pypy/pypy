@@ -106,7 +106,7 @@ def dump_bytecode(jitcode, file=None):
             args = []
             def wrapper_callback(src, *newargs):
                 args.extend(newargs)
-            opimpl.argspec(wrapper_callback)(src, 'pc')
+            opimpl.argspec(wrapper_callback, 0)(src, 'pc')
 
             args = map(str, args)
 

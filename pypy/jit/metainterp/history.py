@@ -63,6 +63,15 @@ def repr_object(box):
     except AttributeError:
         return box.value
 
+class ReprRPython:
+    def __init__(self):
+        self.seen = {}
+    def repr_rpython(self, box, typechars):
+        n = self.seen.setdefault(box, len(self.seen))
+        return '%s/%s%d' % (box.get_(), typechars, n)
+
+repr_rpython = ReprRPython().repr_rpython
+
 
 class AbstractValue(object):
     __slots__ = ()
@@ -100,6 +109,9 @@ class AbstractValue(object):
 
     def sort_key(self):
         raise NotImplementedError
+
+    def repr_rpython(self):
+        return '%s' % self
 
 class AbstractDescr(AbstractValue):
     def handle_fail_op(self, metainterp, fail_op):
@@ -213,6 +225,9 @@ class ConstInt(Const):
 
     sort_key = getint
 
+    def repr_rpython(self):
+        return repr_rpython(self, 'ci')
+
 CONST_FALSE = ConstInt(0)
 CONST_TRUE  = ConstInt(1)
 
@@ -253,6 +268,9 @@ class ConstAddr(Const):       # only for constants built before translation
     def _getrepr_(self):
         return self.value
 
+    def repr_rpython(self):
+        return repr_rpython(self, 'ca')
+
 class ConstPtr(Const):
     type = PTR
     value = lltype.nullptr(llmemory.GCREF.TO)
@@ -283,6 +301,9 @@ class ConstPtr(Const):
         return self.value == other.getptr_base()
 
     _getrepr_ = repr_pointer
+
+    def repr_rpython(self):
+        return repr_rpython(self, 'cp')
 
 class ConstObj(Const):
     type = OBJ
@@ -317,6 +338,9 @@ class ConstObj(Const):
         return self.value == other.getobj()
 
     _getrepr_ = repr_object
+
+    def repr_rpython(self):
+        return repr_rpython(self, 'co')
 
 class Box(AbstractValue):
     __slots__ = ()
@@ -394,6 +418,9 @@ class BoxInt(Box):
     def _getrepr_(self):
         return self.value
 
+    def repr_rpython(self):
+        return repr_rpython(self, 'bi')
+
     changevalue_int = __init__
 
 class BoxPtr(Box):
@@ -421,6 +448,9 @@ class BoxPtr(Box):
 
     def set_future_value(self, cpu, j):
         cpu.set_future_value_ptr(j, self.value)
+
+    def repr_rpython(self):
+        return repr_rpython(self, 'bp')
 
     _getrepr_ = repr_pointer
     changevalue_ptr = __init__
@@ -451,6 +481,9 @@ class BoxObj(Box):
     def set_future_value(self, cpu, j):
         cpu.set_future_value_obj(j, self.value)
 
+    def repr_rpython(self):
+        return repr_rpython(self, 'bo')
+
     _getrepr_ = repr_object
     changevalue_obj = __init__
 
@@ -463,7 +496,7 @@ def set_future_values(cpu, boxes):
 
 # The TreeLoop class contains a loop or a generalized loop, i.e. a tree
 # of operations.  Each branch ends in a jump which can go either to
-# the top of the same loop, or to another TreeLoop.
+# the top of the same loop, or to another TreeLoop; or it ends in a FAIL.
 
 class Base(object):
     """Common base class for TreeLoop and History."""
