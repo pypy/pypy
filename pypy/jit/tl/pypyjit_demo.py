@@ -5,7 +5,7 @@ def do():
 
 try:
     do()
-except Exception, e:
+except BaseException, e:
     print '/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\'
     import sys
     import traceback
