@@ -18,7 +18,7 @@ SUBNODE = lltype.GcStruct('SUBNODE', ('parent', NODE))
 
 class LLGraphTest(BaseBackendTest):
 
-    def setup_class(self):
+    def setup_method(self, _):
         self.cpu = self.cpu_type(None)
 
     def eval_llinterp(self, runme, *args, **kwds):
@@ -35,12 +35,6 @@ class LLGraphTest(BaseBackendTest):
                 for key, value in expected_vals:
                     assert getattr(res, key) == value
         interpret(main, [])
-
-    def test_passing_guards(self):
-        py.test.skip("obscure errors")
-
-    def test_failing_guards(self):
-        py.test.skip("obscure errors")
 
     def test_ovf_operations(self):
         py.test.skip('no way to run this without a typer')
