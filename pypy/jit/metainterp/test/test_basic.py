@@ -509,7 +509,7 @@ class BasicTests:
         from pypy.jit.metainterp.simple_optimize import Optimizer as SimpleOptimizer
 
         interp, graph = get_interpreter(f, [0, 0], backendopt=False,
-                                        inline_threshold=0)
+                                        inline_threshold=0, type_system=self.type_system)
         clear_tcache()
         translator = interp.typer.annotator.translator
         warmrunnerdesc = WarmRunnerDesc(translator,
