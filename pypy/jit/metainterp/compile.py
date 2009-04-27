@@ -161,7 +161,7 @@ class DoneWithThisFrameDescrObj(AbstractDescr):
             result = resultbox.getobj()
         raise metainterp_sd.DoneWithThisFrameObj(result)
 
-class ExitFrameWithExceptionDescr(AbstractDescr):
+class ExitFrameWithExceptionDescrPtr(AbstractDescr):
     def handle_fail_op(self, metainterp_sd, fail_op):
         assert len(fail_op.args) == 1
         valuebox = fail_op.args[0]
@@ -170,13 +170,25 @@ class ExitFrameWithExceptionDescr(AbstractDescr):
         else:
             assert isinstance(valuebox, history.Const)
             value = valuebox.getptr_base()
-        raise metainterp_sd.ExitFrameWithException(value)
+        raise metainterp_sd.ExitFrameWithExceptionPtr(value)
+
+class ExitFrameWithExceptionDescrObj(AbstractDescr):
+    def handle_fail_op(self, metainterp_sd, fail_op):
+        assert len(fail_op.args) == 1
+        valuebox = fail_op.args[0]
+        if isinstance(valuebox, BoxObj):
+            value = metainterp_sd.cpu.get_latest_value_obj(0)
+        else:
+            assert isinstance(valuebox, history.Const)
+            value = valuebox.getobj()
+        raise metainterp_sd.ExitFrameWithExceptionObj(value)
 
 done_with_this_frame_descr_void = DoneWithThisFrameDescrVoid()
 done_with_this_frame_descr_int = DoneWithThisFrameDescrInt()
 done_with_this_frame_descr_ptr = DoneWithThisFrameDescrPtr()
 done_with_this_frame_descr_obj = DoneWithThisFrameDescrObj()
-exit_frame_with_exception_descr = ExitFrameWithExceptionDescr()
+exit_frame_with_exception_descr_ptr = ExitFrameWithExceptionDescrPtr()
+exit_frame_with_exception_descr_obj = ExitFrameWithExceptionDescrObj()
 
 class TerminatingLoop(TreeLoop):
     pass
@@ -206,11 +218,17 @@ _loop.inputargs = []
 _loop.finishdescr = done_with_this_frame_descr_void
 loops_done_with_this_frame_void = [_loop]
 
-_loop = TerminatingLoop('exit_frame_with_exception')
+_loop = TerminatingLoop('exit_frame_with_exception_ptr')
 _loop.specnodes = [NotSpecNode()]
 _loop.inputargs = [BoxPtr()]
-_loop.finishdescr = exit_frame_with_exception_descr
-loops_exit_frame_with_exception = [_loop]
+_loop.finishdescr = exit_frame_with_exception_descr_ptr
+loops_exit_frame_with_exception_ptr = [_loop]
+
+_loop = TerminatingLoop('exit_frame_with_exception_obj')
+_loop.specnodes = [NotSpecNode()]
+_loop.inputargs = [BoxObj()]
+_loop.finishdescr = exit_frame_with_exception_descr_obj
+loops_exit_frame_with_exception_obj = [_loop]
 del _loop
 
 

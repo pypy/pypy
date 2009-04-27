@@ -941,7 +941,10 @@ class MetaInterp(object):
             self.framestack.pop()
         if not isinstance(self.history, history.BlackHole):
             self.compile_exit_frame_with_exception(excvaluebox)
-        raise self.staticdata.ExitFrameWithException(excvaluebox.getptr_base())
+        if self.cpu.is_oo:
+            raise self.staticdata.ExitFrameWithExceptionObj(excvaluebox.getobj())
+        else:
+            raise self.staticdata.ExitFrameWithExceptionPtr(excvaluebox.getptr_base())
 
     def create_empty_history(self):
         self.history = history.History(self.cpu)
@@ -1156,7 +1159,10 @@ class MetaInterp(object):
     def compile_exit_frame_with_exception(self, valuebox):
         # temporarily put a JUMP to a pseudo-loop
         self.history.record(rop.JUMP, [valuebox], None)
-        loops = compile.loops_exit_frame_with_exception
+        if self.cpu.is_oo:
+            loops = compile.loops_exit_frame_with_exception_obj
+        else:
+            loops = compile.loops_exit_frame_with_exception_ptr
         target_loop = compile.compile_new_bridge(self, loops, self.resumekey)
         assert target_loop is loops[0]
 

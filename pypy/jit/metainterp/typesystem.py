@@ -72,9 +72,6 @@ class LLTypeHelper(TypeSystemHelper):
     def get_exc_value_box(self, evalue):
         return history.BoxPtr(evalue)
 
-    @staticmethod
-    def unwrap_exc_value_box(valuebox):
-        return valuebox.getptr(lltype.Ptr(rclass.OBJECT))
 
 class OOTypeHelper(TypeSystemHelper):
 
@@ -110,10 +107,6 @@ class OOTypeHelper(TypeSystemHelper):
 
     def get_exc_value_box(self, evalue):
         return history.BoxObj(evalue)
-
-    @staticmethod
-    def unwrap_exc_value_box(valuebox):
-        return ootype.cast_from_object(ootype.ROOT, valuebox.getobj())
 
 
 llhelper = LLTypeHelper()
