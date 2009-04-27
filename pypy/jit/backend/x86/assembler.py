@@ -264,20 +264,17 @@ class Assembler386(object):
         self.make_sure_mc_exists()
         addr = self.mc.tell()
         self.mc.SUB(esp, imm(framesize * WORD))
-        self.mc.MOV(eax, arg_pos(0, framesize * WORD))
         for i in range(len(arglocs)):
             loc = arglocs[i]
             if not isinstance(loc, REG):
-                self.mc.MOV(ecx, mem(eax, i * WORD))
+                self.mc.MOV(ecx,
+                            addr_add(imm(self.fail_box_addr), imm(i*WORD)))
                 self.mc.MOV(loc, ecx)
         for i in range(len(arglocs)):
             loc = arglocs[i]
-            if isinstance(loc, REG) and loc is not eax:
-                self.mc.MOV(loc, mem(eax, i * WORD))
-        for i in range(len(arglocs)):
-            loc = arglocs[i]
-            if loc is eax:
-                self.mc.MOV(loc, mem(eax, i * WORD))
+            if isinstance(loc, REG):
+                self.mc.MOV(loc,
+                            addr_add(imm(self.fail_box_addr), imm(i*WORD)))
         self.mc.JMP(rel32(jumpaddr))
         self.mc.done()
         return addr
@@ -867,7 +864,7 @@ class Assembler386(object):
                 self.mc.PUSH(stack_pos(loc.position + extra_on_stack))
             extra_on_stack += 1
         if isinstance(op.args[0], Const):
-            x = rel32(self.cpu.get_box_value_as_int(op.args[0]))
+            x = rel32(op.args[0].getint())
         else:
             x = arglocs[0]
             if isinstance(x, MODRM):

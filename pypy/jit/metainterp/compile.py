@@ -6,7 +6,8 @@ from pypy.conftest import option
 
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.history import TreeLoop, log, Box, History
-from pypy.jit.metainterp.history import AbstractDescr, BoxInt, BoxPtr
+from pypy.jit.metainterp.history import AbstractDescr, BoxInt, BoxPtr, BoxObj
+from pypy.jit.metainterp import history
 from pypy.jit.metainterp.specnode import NotSpecNode
 from pypy.rlib.debug import debug_print
 
@@ -58,7 +59,7 @@ def _compile_new_bridge_1(metainterp, old_loops, resumekey):
     else:
         if target_loop is not None:
             show_loop(metainterp, target_loop)
-    if target_loop is not None and target_loop not in map_loop2descr:
+    if target_loop is not None and type(target_loop) is not TerminatingLoop:
         target_loop.check_consistency()
     return target_loop
 
@@ -71,7 +72,7 @@ def show_loop(metainterp, loop=None, error=None):
                 errmsg += ': ' + str(error)
         else:
             errmsg = None
-        if loop is None or loop in map_loop2descr:
+        if loop is None or type(loop) is TerminatingLoop:
             extraloops = []
         else:
             extraloops = [loop]
@@ -122,50 +123,94 @@ def send_loop_to_backend(metainterp, loop, type):
 
 # ____________________________________________________________
 
-class DoneWithThisFrameDescr0(AbstractDescr):
+class DoneWithThisFrameDescrVoid(AbstractDescr):
     def handle_fail_op(self, metainterp_sd, fail_op):
-        raise metainterp_sd.DoneWithThisFrame(None)
+        assert metainterp_sd.result_type == 'void'
+        raise metainterp_sd.DoneWithThisFrameVoid()
 
-class DoneWithThisFrameDescr1(AbstractDescr):
+class DoneWithThisFrameDescrInt(AbstractDescr):
     def handle_fail_op(self, metainterp_sd, fail_op):
+        assert metainterp_sd.result_type == 'int'
         resultbox = fail_op.args[0]
-        raise metainterp_sd.DoneWithThisFrame(resultbox)
+        if isinstance(resultbox, BoxInt):
+            result = metainterp_sd.cpu.get_latest_value_int(0)
+        else:
+            assert isinstance(resultbox, history.Const)
+            result = resultbox.getint()
+        raise metainterp_sd.DoneWithThisFrameInt(result)
+
+class DoneWithThisFrameDescrPtr(AbstractDescr):
+    def handle_fail_op(self, metainterp_sd, fail_op):
+        assert metainterp_sd.result_type == 'ptr'
+        resultbox = fail_op.args[0]
+        if isinstance(resultbox, BoxPtr):
+            result = metainterp_sd.cpu.get_latest_value_ptr(0)
+        else:
+            assert isinstance(resultbox, history.Const)
+            result = resultbox.getptr_base()
+        raise metainterp_sd.DoneWithThisFramePtr(result)
+
+class DoneWithThisFrameDescrObj(AbstractDescr):
+    def handle_fail_op(self, metainterp_sd, fail_op):
+        assert metainterp_sd.result_type == 'obj'
+        resultbox = fail_op.args[0]
+        if isinstance(resultbox, BoxObj):
+            result = metainterp_sd.cpu.get_latest_value_obj(0)
+        else:
+            assert isinstance(resultbox, history.Const)
+            result = resultbox.getobj()
+        raise metainterp_sd.DoneWithThisFrameObj(result)
 
 class ExitFrameWithExceptionDescr(AbstractDescr):
     def handle_fail_op(self, metainterp_sd, fail_op):
         assert len(fail_op.args) == 1
         valuebox = fail_op.args[0]
-        raise metainterp_sd.ExitFrameWithException(valuebox)
+        if isinstance(valuebox, BoxPtr):
+            value = metainterp_sd.cpu.get_latest_value_ptr(0)
+        else:
+            assert isinstance(valuebox, history.Const)
+            value = valuebox.getptr_base()
+        raise metainterp_sd.ExitFrameWithException(value)
 
-done_with_this_frame_descr_0 = DoneWithThisFrameDescr0()
-done_with_this_frame_descr_1 = DoneWithThisFrameDescr1()
+done_with_this_frame_descr_void = DoneWithThisFrameDescrVoid()
+done_with_this_frame_descr_int = DoneWithThisFrameDescrInt()
+done_with_this_frame_descr_ptr = DoneWithThisFrameDescrPtr()
+done_with_this_frame_descr_obj = DoneWithThisFrameDescrObj()
 exit_frame_with_exception_descr = ExitFrameWithExceptionDescr()
-map_loop2descr = {}
+
+class TerminatingLoop(TreeLoop):
+    pass
 
 # pseudo-loops to make the life of optimize.py easier
-_loop = TreeLoop('done_with_this_frame_int')
+_loop = TerminatingLoop('done_with_this_frame_int')
 _loop.specnodes = [NotSpecNode()]
 _loop.inputargs = [BoxInt()]
+_loop.finishdescr = done_with_this_frame_descr_int
 loops_done_with_this_frame_int = [_loop]
-map_loop2descr[_loop] = done_with_this_frame_descr_1
 
-_loop = TreeLoop('done_with_this_frame_ptr')
+_loop = TerminatingLoop('done_with_this_frame_ptr')
 _loop.specnodes = [NotSpecNode()]
 _loop.inputargs = [BoxPtr()]
+_loop.finishdescr = done_with_this_frame_descr_ptr
 loops_done_with_this_frame_ptr = [_loop]
-map_loop2descr[_loop] = done_with_this_frame_descr_1
 
-_loop = TreeLoop('done_with_this_frame_void')
+_loop = TerminatingLoop('done_with_this_frame_obj')
+_loop.specnodes = [NotSpecNode()]
+_loop.inputargs = [BoxObj()]
+_loop.finishdescr = done_with_this_frame_descr_obj
+loops_done_with_this_frame_obj = [_loop]
+
+_loop = TerminatingLoop('done_with_this_frame_void')
 _loop.specnodes = []
 _loop.inputargs = []
+_loop.finishdescr = done_with_this_frame_descr_void
 loops_done_with_this_frame_void = [_loop]
-map_loop2descr[_loop] = done_with_this_frame_descr_0
 
-_loop = TreeLoop('exit_frame_with_exception')
+_loop = TerminatingLoop('exit_frame_with_exception')
 _loop.specnodes = [NotSpecNode()]
 _loop.inputargs = [BoxPtr()]
+_loop.finishdescr = exit_frame_with_exception_descr
 loops_exit_frame_with_exception = [_loop]
-map_loop2descr[_loop] = exit_frame_with_exception_descr
 del _loop
 
 
@@ -181,7 +226,49 @@ class ResumeGuardDescr(AbstractDescr):
     def handle_fail_op(self, metainterp_sd, fail_op):
         from pypy.jit.metainterp.pyjitpl import MetaInterp
         metainterp = MetaInterp(metainterp_sd)
-        return metainterp.handle_guard_failure(fail_op, self)
+        patch = self.patch_boxes_temporarily(metainterp_sd, fail_op)
+        try:
+            return metainterp.handle_guard_failure(fail_op, self)
+        finally:
+            self.restore_patched_boxes(metainterp_sd, fail_op, patch)
+
+    def patch_boxes_temporarily(self, metainterp_sd, fail_op):
+        # A bit indirect: when we hit a rop.FAIL, the current values are
+        # stored somewhere in the CPU backend.  Below we fetch them and
+        # copy them into the real boxes, i.e. the 'fail_op.args'.  We
+        # are in a try:finally path at the end of which, in
+        # restore_patched_boxes(), we can safely undo exactly the
+        # changes done here.
+        cpu = metainterp_sd.cpu
+        patch = []
+        for i in range(len(fail_op.args)):
+            box = fail_op.args[i]
+            patch.append(box.clonebox())
+            if isinstance(box, BoxInt):
+                srcvalue = cpu.get_latest_value_int(i)
+                box.changevalue_int(srcvalue)
+            elif isinstance(box, BoxPtr):
+                srcvalue = cpu.get_latest_value_ptr(i)
+                box.changevalue_ptr(srcvalue)
+            elif cpu.is_oo and isinstance(box, BoxObj):
+                srcvalue = cpu.get_latest_value_obj(i)
+                box.changevalue_obj(srcvalue)
+            else:
+                assert False
+        return patch
+
+    def restore_patched_boxes(self, metainterp_sd, fail_op, patch):
+        for i in range(len(patch)-1, -1, -1):
+            srcbox = patch[i]
+            dstbox = fail_op.args[i]
+            if isinstance(srcbox, BoxInt):
+                srcbox.changevalue_int(dstbox.getint())
+            elif isinstance(srcbox, BoxPtr):
+                srcbox.changevalue_ptr(dstbox.getptr_base())
+            elif metainterp_sd.cpu.is_oo and isinstance(srcbox, BoxObj):
+                srcbox.changevalue_obj(dstbox.getobj())
+            else:
+                assert False
 
     def get_guard_op(self):
         guard_op = self.history.operations[self.history_guard_index]
@@ -270,13 +357,13 @@ def compile_fresh_bridge(metainterp, old_loops, resumekey):
 
 def prepare_last_operation(new_loop, target_loop):
     op = new_loop.operations[-1]
-    if target_loop not in map_loop2descr:
+    if not isinstance(target_loop, TerminatingLoop):
         # normal case
         op.jump_target = target_loop
     else:
-        # The target_loop is a pseudo-loop done_with_this_frame.  Replace
-        # the operation with the real operation we want, i.e. a FAIL.
-        descr = map_loop2descr[target_loop]
+        # The target_loop is a pseudo-loop, e.g. done_with_this_frame.
+        # Replace the operation with the real operation we want, i.e. a FAIL.
+        descr = target_loop.finishdescr
         new_op = ResOperation(rop.FAIL, op.args, None, descr=descr)
         new_loop.operations[-1] = new_op
 

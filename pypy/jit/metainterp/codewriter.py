@@ -44,31 +44,32 @@ class JitCode(history.AbstractValue):
 
 class IndirectCallset(history.AbstractValue):
     def __init__(self, codewriter, graphs):
-        keys = []
-        values = []
+        self.keys = []
+        self.values = []
         for graph in graphs:
             fnptr = codewriter.rtyper.getcallable(graph)
             fnaddress = codewriter.ts.cast_fnptr_to_root(fnptr)
-            keys.append(fnaddress)
-            values.append(codewriter.get_jitcode(graph))
-
-        def bytecode_for_address(fnaddress):
-            if we_are_translated():
-                if self.dict is None:
-                    # Build the dictionary at run-time.  This is needed
-                    # because the keys are function addresses, so they
-                    # can change from run to run.
-                    self.dict = {}
-                    for i in range(len(keys)):
-                        self.dict[keys[i]] = values[i]
-                return self.dict[fnaddress]
-            else:
-                for i in range(len(keys)):
-                    if fnaddress == keys[i]:
-                        return values[i]
-                raise KeyError(fnaddress)
-        self.bytecode_for_address = bytecode_for_address
+            self.keys.append(fnaddress)
+            self.values.append(codewriter.get_jitcode(graph))
         self.dict = None
+
+    def bytecode_for_address(self, fnaddress):
+        if we_are_translated():
+            if self.dict is None:
+                # Build the dictionary at run-time.  This is needed
+                # because the keys are function addresses, so they
+                # can change from run to run.
+                self.dict = {}
+                keys = self.keys
+                values = self.values
+                for i in range(len(keys)):
+                    self.dict[keys[i]] = values[i]
+            return self.dict[fnaddress]
+        else:
+            for i in range(len(self.keys)):
+                if fnaddress == self.keys[i]:
+                    return self.values[i]
+            raise KeyError(fnaddress)
 
 class SwitchDict(history.AbstractValue):
     "Get a 'dict' attribute mapping integer values to bytecode positions."
@@ -256,6 +257,7 @@ class BytecodeMaker(object):
         self.codewriter = codewriter
         self.cpu = codewriter.metainterp_sd.cpu
         self.portal = portal
+        self.block_start_order = {}
         graph, oosend_methdescr = graph_key
         self.bytecode = self.codewriter.get_jitcode(graph,
                                              oosend_methdescr=oosend_methdescr)
@@ -326,6 +328,7 @@ class BytecodeMaker(object):
                     self.emit("return")
             elif len(block.inputargs) == 2:
                 # exception block, raising an exception from a function
+                assert self.force_block_args_order(block) == block.inputargs
                 self.emit("raise")
             else:
                 raise Exception("?")
@@ -338,7 +341,7 @@ class BytecodeMaker(object):
         self.seen_blocks[block] = True
         self.free_vars = 0
         self.var_positions = {}
-        for arg in block.inputargs:
+        for arg in self.force_block_args_order(block):
             self.register_var(arg, verbose=False)
         self.emit(label(block))
         #self.make_prologue(block)
@@ -366,7 +369,7 @@ class BytecodeMaker(object):
         if len(block.exits) == 1 or block.exitswitch == c_last_exception:
             link = block.exits[0]
             assert link.exitcase is None
-            self.emit(*self.insert_renaming(link.args))
+            self.emit(*self.insert_renaming(link))
             self.make_bytecode_block(link.target)
         elif (len(block.exits) == 2
               and block.exitswitch.concretetype == lltype.Bool):
@@ -377,8 +380,8 @@ class BytecodeMaker(object):
                       tlabel(linkfalse),
                       self.var_position(block.exitswitch))
             self.minimize_variables(argument_only=True, exitswitch=False)
-            truerenaming = self.insert_renaming(linktrue.args)
-            falserenaming = self.insert_renaming(linkfalse.args)
+            truerenaming = self.insert_renaming(linktrue)
+            falserenaming = self.insert_renaming(linkfalse)
             # true path:
             self.emit(*truerenaming)
             self.make_bytecode_block(linktrue.target)
@@ -406,11 +409,11 @@ class BytecodeMaker(object):
                 self.emit_list([self.const_position(link.llexitcase)
                                 for link in switches])
                 self.emit_list([tlabel(link) for link in switches])
-            renamings = [self.insert_renaming(link.args)
+            renamings = [self.insert_renaming(link)
                          for link in switches]
             if block.exits[-1].exitcase == 'default':
                 link = block.exits[-1]
-                self.emit(*self.insert_renaming(link.args))
+                self.emit(*self.insert_renaming(link))
                 self.make_bytecode_block(link.target)
             for renaming, link in zip(renamings, switches):
                 self.emit(label(link))
@@ -423,7 +426,8 @@ class BytecodeMaker(object):
         handler = object()
         renamings = []
         for i, link in enumerate(exception_exits):
-            args_without_last_exc = [v for v in link.args
+            args = self.force_link_args_order(link)
+            args_without_last_exc = [v for v in args
                                        if (v is not link.last_exception and
                                            v is not link.last_exc_value)]
             if (link.exitcase is Exception and
@@ -432,8 +436,8 @@ class BytecodeMaker(object):
                 # stop at the catch-and-reraise-every-exception branch, if any
                 exception_exits = exception_exits[:i]
                 break
-            renamings.append(self.insert_renaming(args_without_last_exc,
-                                                  force=True))
+            list = self.get_renaming_list(args_without_last_exc)
+            renamings.append(self.make_new_vars(list))
         self.pending_exception_handlers.append((handler, exception_exits,
                                                 renamings))
         self.emit("setup_exception_block",
@@ -471,14 +475,43 @@ class BytecodeMaker(object):
         args = [v for v in args if v.concretetype is not lltype.Void]
         return [self.var_position(v) for v in args]
 
-    def insert_renaming(self, args, force=False):
-        list = self.get_renaming_list(args)
-        if not force and list == range(0, self.free_vars*2, 2):
-            return []     # no-op
+    def make_new_vars(self, list):
         if len(list) >= MAX_MAKE_NEW_VARS:
             return ["make_new_vars", len(list)] + list
         else:
             return ["make_new_vars_%d" % len(list)] + list
+
+    def force_block_args_order(self, block):
+        non_void = [v for v in block.inputargs
+                      if v.concretetype is not lltype.Void]
+        if block not in self.block_start_order:
+            self.block_start_order[block] = range(len(non_void))
+        return [non_void[i] for i in self.block_start_order[block]]
+
+    def force_link_args_order(self, link):
+        self.force_block_args_order(link.target)
+        non_void = [v for v in link.args
+                      if v.concretetype is not lltype.Void]
+        return [non_void[i] for i in self.block_start_order[link.target]]
+
+    def insert_renaming(self, link):
+        shortcut = False
+        list = self.get_renaming_list(link.args)
+        if link.target not in self.block_start_order:
+            if (sorted(list) == range(0, self.free_vars*2, 2)
+                and link.target.operations != ()):
+                nlist = [None] * len(list)
+                for index, n in enumerate(list):
+                    nlist[n/2] = index
+                self.block_start_order[link.target] = nlist
+                shortcut = True
+            else:
+                self.force_block_args_order(link.target)
+        list = [list[i] for i in self.block_start_order[link.target]]
+        if list == range(0, self.free_vars*2, 2):
+            return []     # no-op
+        assert not shortcut
+        return self.make_new_vars(list)
 
     def minimize_variables(self, argument_only=False, exitswitch=True):
         if self.dont_minimize_variables:
@@ -496,12 +529,12 @@ class BytecodeMaker(object):
         vars = seen.items()
         vars.sort()
         vars = [v1 for pos, v1 in vars]
+        renaming_list = self.get_renaming_list(vars)
         if argument_only:
             # only generate the list of vars as an arg in a complex operation
-            renaming_list = self.get_renaming_list(vars)
             self.emit(len(renaming_list), *renaming_list)
-        else:
-            self.emit(*self.insert_renaming(vars))
+        elif renaming_list != range(0, self.free_vars*2, 2):
+            self.emit(*self.make_new_vars(renaming_list))
         self.free_vars = 0
         self.var_positions.clear()
         for v1 in vars:

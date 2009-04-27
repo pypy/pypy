@@ -1,6 +1,7 @@
 from pypy.conftest import option
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.metainterp import warmspot
+from pypy.jit.metainterp.simple_optimize import Optimizer
 from pypy.module.pypyjit.policy import PyPyJitPolicy
 
 # Current output: http://paste.pocoo.org/show/106540/
@@ -34,7 +35,9 @@ def run_child(glob, loc):
     interp.heap.malloc_nonmovable = returns_null     # XXX
 
     print 'warmspot.jittify_and_run() started...'
+    from pypy.jit.backend.llgraph.runner import LLtypeCPU
     policy = PyPyJitPolicy(interp.typer.annotator.translator)
     option.view = True
     warmspot.jittify_and_run(interp, graph, [], policy=policy,
-                             listops=True)
+                             listops=True, CPUClass=LLtypeCPU,
+                             optimizer=Optimizer)

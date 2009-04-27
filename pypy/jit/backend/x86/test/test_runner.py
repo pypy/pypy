@@ -15,9 +15,6 @@ import sys
 class FakeStats(object):
     pass
 
-class FakeMetaInterp(object):
-    pass
-
 # ____________________________________________________________
 
 class TestX86(BaseBackendTest):
@@ -27,7 +24,6 @@ class TestX86(BaseBackendTest):
     
     def setup_class(cls):
         cls.cpu = CPU(rtyper=None, stats=FakeStats())
-        cls.cpu.set_meta_interp(FakeMetaInterp())
 
     def test_int_binary_ops(self):
         for op, args, res in [
@@ -69,7 +65,6 @@ class TestX86(BaseBackendTest):
 
     def test_execute_operations_in_env(self):
         cpu = self.cpu
-        cpu.set_meta_interp(FakeMetaInterp())
         x = BoxInt(123)
         y = BoxInt(456)
         z = BoxInt(579)
@@ -88,8 +83,11 @@ class TestX86(BaseBackendTest):
         operations[-1].jump_target = loop
         operations[-2].suboperations = [ResOperation(rop.FAIL, [t, z], None)]
         cpu.compile_operations(loop)
-        res = self.cpu.execute_operations(loop, [BoxInt(0), BoxInt(10)])
-        assert [arg.value for arg in res.args] == [0, 55]
+        self.cpu.set_future_value_int(0, 0)
+        self.cpu.set_future_value_int(1, 10)
+        res = self.cpu.execute_operations(loop)
+        assert self.cpu.get_latest_value_int(0) == 0
+        assert self.cpu.get_latest_value_int(1) == 55
 
     def test_misc_int_ops(self):
         for op, args, res in [
@@ -463,11 +461,13 @@ class TestX86(BaseBackendTest):
                     loop.operations = ops
                     loop.inputargs = [b]
                     self.cpu.compile_operations(loop)
-                    r = self.cpu.execute_operations(loop, [b])
+                    self.cpu.set_future_value_ptr(0, b.value)
+                    r = self.cpu.execute_operations(loop)
+                    result = self.cpu.get_latest_value_int(0)
                     if guard == rop.GUARD_FALSE:
-                        assert r.args[0].value == execute(self.cpu, op, [b]).value
+                        assert result == execute(self.cpu, op, [b]).value
                     else:
-                        assert r.args[0].value != execute(self.cpu, op, [b]).value
+                        assert result != execute(self.cpu, op, [b]).value
                     
 
     def test_stuff_followed_by_guard(self):
@@ -503,11 +503,14 @@ class TestX86(BaseBackendTest):
                     loop.operations = ops
                     loop.inputargs = [i for i in (a, b) if isinstance(i, Box)]
                     self.cpu.compile_operations(loop)
-                    r = self.cpu.execute_operations(loop, loop.inputargs)
+                    for i, box in enumerate(loop.inputargs):
+                        self.cpu.set_future_value_int(i, box.value)
+                    r = self.cpu.execute_operations(loop)
+                    result = self.cpu.get_latest_value_int(0)
                     if guard == rop.GUARD_FALSE:
-                        assert r.args[0].value == execute(self.cpu, op, (a, b)).value
+                        assert result == execute(self.cpu, op, (a, b)).value
                     else:
-                        assert r.args[0].value != execute(self.cpu, op, (a, b)).value
+                        assert result != execute(self.cpu, op, (a, b)).value
 
     def test_overflow_mc(self):
         from pypy.jit.backend.x86.assembler import MachineCodeBlockWrapper
@@ -530,8 +533,9 @@ class TestX86(BaseBackendTest):
             loop.operations = ops
             loop.inputargs = [base_v]
             self.cpu.compile_operations(loop)
-            op = self.cpu.execute_operations(loop, [base_v])
-            assert op.args[0].value == 1024
+            self.cpu.set_future_value_int(0, base_v.value)
+            op = self.cpu.execute_operations(loop)
+            assert self.cpu.get_latest_value_int(0) == 1024
         finally:
             MachineCodeBlockWrapper.MC_SIZE = orig_size
             self.cpu.assembler.mc = old_mc

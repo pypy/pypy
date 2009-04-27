@@ -809,26 +809,30 @@ def new_frame(memocast, is_oo):
         frame = Frame(memocast)
     return _to_opaque(frame)
 
+_future_values = []
+
 def frame_clear(frame, loop):
     frame = _from_opaque(frame)
     loop = _from_opaque(loop)
     frame.loop = loop
     frame.env = {}
+    for i in range(len(loop.inputargs)):
+        frame.env[loop.inputargs[i]] = _future_values[i]
 
-def frame_add_int(frame, value):
-    frame = _from_opaque(frame)
-    i = len(frame.env)
-    frame.env[frame.loop.inputargs[i]] = value
+def set_future_value_int(index, value):
+    del _future_values[index:]
+    assert len(_future_values) == index
+    _future_values.append(value)
 
-def frame_add_ptr(frame, value):
-    frame = _from_opaque(frame)
-    i = len(frame.env)
-    frame.env[frame.loop.inputargs[i]] = value
+def set_future_value_ptr(index, value):
+    del _future_values[index:]
+    assert len(_future_values) == index
+    _future_values.append(value)
 
-def frame_add_obj(frame, value):
-    frame = _from_opaque(frame)
-    i = len(frame.env)
-    frame.env[frame.loop.inputargs[i]] = value
+def set_future_value_obj(index, value):
+    del _future_values[index:]
+    assert len(_future_values) == index
+    _future_values.append(value)
 
 def frame_execute(frame):
     frame = _from_opaque(frame)
@@ -1199,9 +1203,9 @@ setannotation(compile_redirect_code, annmodel.s_None)
 
 setannotation(new_frame, s_Frame)
 setannotation(frame_clear, annmodel.s_None)
-setannotation(frame_add_int, annmodel.s_None)
-setannotation(frame_add_ptr, annmodel.s_None)
-setannotation(frame_add_obj, annmodel.s_None)
+setannotation(set_future_value_int, annmodel.s_None)
+setannotation(set_future_value_ptr, annmodel.s_None)
+setannotation(set_future_value_obj, annmodel.s_None)
 setannotation(frame_execute, annmodel.SomeInteger())
 setannotation(frame_int_getvalue, annmodel.SomeInteger())
 setannotation(frame_ptr_getvalue, annmodel.SomePtr(llmemory.GCREF))

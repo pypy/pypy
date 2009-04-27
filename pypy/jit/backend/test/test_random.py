@@ -56,15 +56,18 @@ class OperationBuilder:
         print >>s, '            ]'
         print >>s, '    cpu = CPU(None, None)'
         print >>s, '    cpu.compile_operations(loop)'
-        print >>s, '    op = cpu.execute_operations(loop, [%s])' % (
-            ', '.join(['BoxInt(%d)' % v.value for v in self.loop.inputargs]))
+        for i, v in enumerate(self.loop.inputargs):
+            print >>s, '    cpu.set_future_value_int(%d, %d)' % (i, v.value)
+        print >>s, '    op = cpu.execute_operations(loop)'
         if self.should_fail_by is None:
-            for v in self.loop.operations[-1].args:
-                print >>s, '    assert %s.value == %d' % (names[v], v.value)
+            for i, v in enumerate(self.loop.operations[-1].args):
+                print >>s, '    assert cpu.get_latest_value_int(%d) == %d' % (
+                    i, v.value)
         else:
             print >>s, '    assert op is loop.operations[%d].suboperations[0]' % self.should_fail_by_num
-            for v in self.should_fail_by.args:
-                print >>s, '    assert %s.value == %d' % (names[v], v.value)
+            for i, v in enumerate(self.should_fail_by.args):
+                print >>s, '    assert cpu.get_latest_value_int(%d) == %d' % (
+                    i, v.value)
         self.names = names
         if demo_conftest.option.output:
             s.close()
@@ -111,7 +114,7 @@ class BinaryOperation(AbstractOperation):
             v_second = v
         self.put(builder, [v_first, v_second])
 
-class GuardBinaryOperation(AbstractOperation):
+class GuardOperation(AbstractOperation):
 
     def produce_into(self, builder, r):
         v = builder.get_bool_var(r)
@@ -158,8 +161,9 @@ OPERATIONS.append(BinaryOperation(rop.INT_MOD, ~3, 2))
 OPERATIONS.append(BinaryOperation(rop.INT_RSHIFT, LONG_BIT-1))
 OPERATIONS.append(BinaryOperation(rop.INT_LSHIFT, LONG_BIT-1))
 OPERATIONS.append(BinaryOperation(rop.UINT_RSHIFT, LONG_BIT-1))
-OPERATIONS.append(GuardBinaryOperation(rop.GUARD_TRUE))
-OPERATIONS.append(GuardBinaryOperation(rop.GUARD_FALSE))
+
+OPERATIONS.append(GuardOperation(rop.GUARD_TRUE))
+OPERATIONS.append(GuardOperation(rop.GUARD_FALSE))
 
 for _op in [rop.INT_NEG,
             rop.INT_INVERT,

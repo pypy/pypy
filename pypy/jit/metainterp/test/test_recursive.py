@@ -1,6 +1,7 @@
 import py
 from pypy.rlib.jit import JitDriver
 from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.simple_optimize import Optimizer
 
 
 class RecursiveTests:
@@ -20,7 +21,7 @@ class RecursiveTests:
                 return f(n+1)
             else:
                 return 1
-        res = self.meta_interp(main, [20])
+        res = self.meta_interp(main, [20], optimizer=Optimizer)
         assert res == main(20)
 
     def test_recursion_three_times(self):
@@ -43,7 +44,7 @@ class RecursiveTests:
         print
         for i in range(1, 11):
             print '%3d %9d' % (i, f(i))
-        res = self.meta_interp(main, [10])
+        res = self.meta_interp(main, [10], optimizer=Optimizer)
         assert res == main(10)
         self.check_enter_count_at_most(10)
 

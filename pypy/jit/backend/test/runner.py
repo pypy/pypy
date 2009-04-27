@@ -1,7 +1,7 @@
 
 import sys
 from pypy.jit.metainterp.history import (BoxInt, Box, BoxPtr, TreeLoop,
-                                         ConstInt, ConstPtr)
+                                         ConstInt, ConstPtr, BoxObj)
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi, rclass
 from pypy.jit.metainterp.executor import execute
@@ -23,14 +23,26 @@ class Runner(object):
     def execute_operation(self, opname, valueboxes, result_type, descr=None):
         loop = self.get_compiled_single_operation(opname, result_type,
                                                   valueboxes, descr)
-        boxes = [box for box in valueboxes if isinstance(box, Box)]
-        res = self.cpu.execute_operations(loop, boxes)
+        j = 0
+        for box in valueboxes:
+            if isinstance(box, BoxInt):
+                self.cpu.set_future_value_int(j, box.getint())
+                j += 1
+            elif isinstance(box, BoxPtr):
+                self.cpu.set_future_value_ptr(j, box.getptr_base())
+                j += 1
+            elif isinstance(box, BoxObj):
+                self.cpu.set_future_value_obj(j, box.getobj())
+                j += 1
+        res = self.cpu.execute_operations(loop)
         if res is loop.operations[-1]:
             self.guard_failed = False
         else:
             self.guard_failed = True
-        if result_type != 'void':
-            return res.args[0]
+        if result_type == 'int':
+            return BoxInt(self.cpu.get_latest_value_int(0))
+        elif result_type == 'ptr':
+            return BoxPtr(self.cpu.get_latest_value_ptr(0))
 
     def get_compiled_single_operation(self, opnum, result_type, valueboxes,
                                       descr):
@@ -155,7 +167,7 @@ class BaseBackendTest(Runner):
 
     def test_ovf_operations(self):
         minint = -sys.maxint-1
-        boom = 666
+        boom = 'boom'
         for opnum, testcases in [
             (rop.INT_ADD_OVF, [(10, -2, 8),
                                (-1, minint, boom),
@@ -200,15 +212,21 @@ class BaseBackendTest(Runner):
                 ]
             if opnum in (rop.INT_NEG_OVF, rop.INT_ABS_OVF):
                 del ops[0].args[1]
-            ops[1].suboperations = [ResOperation(rop.FAIL, [ConstInt(boom)],
+            ops[1].suboperations = [ResOperation(rop.FAIL, [],
                                                  None)]
             loop = TreeLoop('name')
             loop.operations = ops
             loop.inputargs = [v1, v2]
             self.cpu.compile_operations(loop)
             for x, y, z in testcases:
-                op = self.cpu.execute_operations(loop, [BoxInt(x), BoxInt(y)])
-                assert op.args[0].value == z
+                self.cpu.set_future_value_int(0, x)
+                self.cpu.set_future_value_int(1, y)
+                op = self.cpu.execute_operations(loop)
+                if z == boom:
+                    assert op is ops[1].suboperations[0]
+                else:
+                    assert op is ops[-1]
+                    assert self.cpu.get_latest_value_int(0) == z
             # ----------
             # the same thing but with the exception path reversed
 ##            v1 = BoxInt(testcases[0][0])

@@ -77,14 +77,16 @@ class JitMixin:
             cw.make_one_bytecode(graph_key, False, called_from)
         metainterp.staticdata.portal_code = maingraph
         metainterp.staticdata.state = FakeWarmRunnerDesc()
-        metainterp.staticdata.DoneWithThisFrame = DoneWithThisFrame
+        metainterp.staticdata.DoneWithThisFrameInt = DoneWithThisFrame
+        metainterp.staticdata.DoneWithThisFramePtr = DoneWithThisFrame
+        metainterp.staticdata.DoneWithThisFrameObj = DoneWithThisFrame
         self.metainterp = metainterp
         try:
             metainterp.compile_and_run_once(*args)
         except DoneWithThisFrame, e:
             #if conftest.option.view:
             #    metainterp.stats.view()
-            return e.args[0].value
+            return e.args[0]
         else:
             raise Exception("FAILED")
 

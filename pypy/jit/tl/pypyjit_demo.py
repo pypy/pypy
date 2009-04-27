@@ -1,14 +1,10 @@
-def simple_loop():
-    print "simple loop"
-
-    i = 0
-    while i < 100:
-        i = i + 3
-    print i
-    assert i == 102
+def do():
+    import test.regrtest, sys
+    sys.argv = ['regrtest.py', 'test_builtin']
+    test.regrtest.main()
 
 try:
-    simple_loop()
+    do()
 except Exception, e:
     print '/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\'
     import sys

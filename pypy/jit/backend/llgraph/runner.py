@@ -82,6 +82,7 @@ class BaseCPU(model.AbstractCPU):
         llimpl._llinterp = LLInterpreter(self.rtyper)
         if translate_support_code:
             self.mixlevelann = annmixlevel
+        self._future_values = []
 
     def compile_operations(self, loop):
         """In a real assembler backend, this should assemble the given
@@ -152,54 +153,44 @@ class BaseCPU(model.AbstractCPU):
             llimpl.compile_add_fail(c, len(self.fail_ops))
             self.fail_ops.append(op)
 
-    def execute_operations(self, loop, valueboxes):
+    def execute_operations(self, loop):
         """Calls the assembler generated for the given loop.
         Returns the ResOperation that failed, of type rop.FAIL.
         """
         frame = llimpl.new_frame(self.memo_cast, self.is_oo)
         # setup the frame
         llimpl.frame_clear(frame, loop._compiled_version)
-        for box in valueboxes:
-            if isinstance(box, history.BoxInt):
-                llimpl.frame_add_int(frame, box.value)
-            elif isinstance(box, history.BoxPtr):
-                llimpl.frame_add_ptr(frame, box.value)
-            elif self.is_oo and isinstance(box, history.BoxObj):
-                llimpl.frame_add_obj(frame, box.value)
-            elif isinstance(box, history.ConstInt):
-                llimpl.frame_add_int(frame, box.value)
-            elif isinstance(box, history.ConstPtr):
-                llimpl.frame_add_ptr(frame, box.value)
-            elif self.is_oo and isinstance(box, history.ConstObj):
-                llimpl.frame_add_obj(frame, box.value)
-            else:
-                raise Exception("bad box in valueboxes: %r" % (box,))
         # run the loop
         fail_index = llimpl.frame_execute(frame)
-        # we hit a FAIL operation.  Fish for the values
-        # (in a real backend, this should be done by the FAIL operation
-        # itself, not here)
-        op = self.fail_ops[fail_index]
-        for i in range(len(op.args)):
-            box = op.args[i]
-            if isinstance(box, history.BoxInt):
-                value = llimpl.frame_int_getvalue(frame, i)
-                box.changevalue_int(value)
-            elif isinstance(box, history.BoxPtr):
-                value = llimpl.frame_ptr_getvalue(frame, i)
-                box.changevalue_ptr(value)
-            elif self.is_oo and isinstance(box, history.BoxObj):
-                value = llimpl.frame_ptr_getvalue(frame, i)
-                box.changevalue_obj(value)
-            elif isinstance(box, history.ConstInt):
-                pass
-            elif isinstance(box, history.ConstPtr):
-                pass
-            elif self.is_oo and isinstance(box, history.ConstObj):
-                pass
-            else:
-                raise Exception("bad box in 'fail': %r" % (box,))
-        return op
+        # we hit a FAIL operation.
+        self.latest_frame = frame
+        return self.fail_ops[fail_index]
+
+    def set_future_value_int(self, index, intvalue):
+        llimpl.set_future_value_int(index, intvalue)
+
+    def set_future_value_ptr(self, index, ptrvalue):
+        llimpl.set_future_value_ptr(index, ptrvalue)
+
+    def set_future_value_obj(self, index, objvalue):
+        llimpl.set_future_value_obj(index, objvalue)
+
+    def get_latest_value_int(self, index):
+        return llimpl.frame_int_getvalue(self.latest_frame, index)
+
+    def get_latest_value_ptr(self, index):
+        return llimpl.frame_ptr_getvalue(self.latest_frame, index)
+
+    def get_latest_value_obj(self, index):
+        return llimpl.frame_ptr_getvalue(self.latest_frame, index)
+
+    # ----------
+
+    def get_exception(self):
+        return self.cast_adr_to_int(llimpl.get_exception())
+
+    def get_exc_value(self):
+        return llimpl.get_exc_value()
 
     def clear_exception(self):
         llimpl.clear_exception()

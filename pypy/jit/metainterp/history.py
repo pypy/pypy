@@ -202,6 +202,9 @@ class ConstInt(Const):
     def get_(self):
         return self.value
 
+    def set_future_value(self, cpu, j):
+        cpu.set_future_value_int(j, self.value)
+
     def equals(self, other):
         return self.value == other.getint()
 
@@ -241,6 +244,9 @@ class ConstAddr(Const):       # only for constants built before translation
     def get_(self):
         return llmemory.cast_adr_to_int(self.value)
 
+    def set_future_value(self, cpu, j):
+        cpu.set_future_value_int(j, self.getint())
+
     def equals(self, other):
         return self.value == other.getaddr(self.cpu)
 
@@ -270,6 +276,9 @@ class ConstPtr(Const):
     def getaddr(self, cpu):
         return llmemory.cast_ptr_to_adr(self.value)
 
+    def set_future_value(self, cpu, j):
+        cpu.set_future_value_ptr(j, self.value)
+
     def equals(self, other):
         return self.value == other.getptr_base()
 
@@ -295,11 +304,14 @@ class ConstObj(Const):
     def get_(self):
         return ootype.ooidentityhash(self.value) # XXX: check me
 
-    def getaddr(self, cpu):
-        # so far this is used only when calling
-        # CodeWriter.IndirectCallset.bytecode_for_address.  We don't need a
-        # real addr, but just a key for the dictionary
-        return self.value
+    def set_future_value(self, cpu, j):
+        cpu.set_future_value_obj(j, self.value)
+
+##    def getaddr(self, cpu):
+##        # so far this is used only when calling
+##        # CodeWriter.IndirectCallset.bytecode_for_address.  We don't need a
+##        # real addr, but just a key for the dictionary
+##        return self.value
 
     def equals(self, other):
         return self.value == other.getobj()
@@ -376,6 +388,9 @@ class BoxInt(Box):
     def get_(self):
         return self.value
 
+    def set_future_value(self, cpu, j):
+        cpu.set_future_value_int(j, self.value)
+
     def _getrepr_(self):
         return self.value
 
@@ -404,6 +419,9 @@ class BoxPtr(Box):
     def get_(self):
         return lltype.cast_ptr_to_int(self.value)
 
+    def set_future_value(self, cpu, j):
+        cpu.set_future_value_ptr(j, self.value)
+
     _getrepr_ = repr_pointer
     changevalue_ptr = __init__
 
@@ -430,9 +448,16 @@ class BoxObj(Box):
     def get_(self):
         return ootype.ooidentityhash(self.value) # XXX: check me
 
+    def set_future_value(self, cpu, j):
+        cpu.set_future_value_obj(j, self.value)
+
     _getrepr_ = repr_object
     changevalue_obj = __init__
 
+
+def set_future_values(cpu, boxes):
+    for j in range(len(boxes)):
+        boxes[j].set_future_value(cpu, j)
 
 # ____________________________________________________________
 

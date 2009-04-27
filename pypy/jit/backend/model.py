@@ -4,12 +4,40 @@ class AbstractCPU(object):
         """Assemble the given list of operations."""
         raise NotImplementedError
 
-    def execute_operations(self, loop, valueboxes):
+    def execute_operations(self, loop):
         """Calls the assembler generated for the given loop.
         Returns the ResOperation that failed, of type rop.FAIL.
+        Use set_future_value_xxx() before, and get_latest_value_xxx() after.
         """
         raise NotImplementedError
-    
+
+    def set_future_value_int(self, index, intvalue):
+        """Set the value for the index'th argument for the loop to run."""
+        raise NotImplementedError
+
+    def set_future_value_ptr(self, index, ptrvalue):
+        """Set the value for the index'th argument for the loop to run."""
+        raise NotImplementedError
+
+    def set_future_value_obj(self, index, objvalue):
+        """Set the value for the index'th argument for the loop to run."""
+        raise NotImplementedError
+
+    def get_latest_value_int(self, index):
+        """Returns the value for the index'th argument to the
+        lastest rop.FAIL.  Returns an int."""
+        raise NotImplementedError
+
+    def get_latest_value_ptr(self, index):
+        """Returns the value for the index'th argument to the
+        lastest rop.FAIL.  Returns a ptr."""
+        raise NotImplementedError
+
+    def get_latest_value_obj(self, index):
+        """Returns the value for the index'th argument to the
+        lastest rop.FAIL.  Returns an obj."""
+        raise NotImplementedError
+
     def get_exception(self):
         raise NotImplementedError
 

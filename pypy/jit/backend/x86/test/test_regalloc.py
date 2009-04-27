@@ -3,6 +3,7 @@
 """
 
 import py
+py.test.skip("Think about a nice way of doing stuff below")
 from pypy.jit.backend.x86.test.test_runner import FakeMetaInterp, FakeStats
 from pypy.jit.metainterp.history import ResOperation, BoxInt, ConstInt,\
      BoxPtr, ConstPtr
@@ -10,7 +11,6 @@ from pypy.jit.backend.x86.runner import CPU
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rpython.lltypesystem import lltype, llmemory
-py.test.skip("Think about a nice way of doing stuff below")
 
 def test_simple_loop():
     meta_interp = FakeMetaInterp()

@@ -189,8 +189,6 @@ class WarmRunnerDesc:
 
         def maybe_enter_jit(*args):
             try:
-                if self.metainterp_sd.globaldata.blackhole:
-                    return
                 state.maybe_compile_and_run(*args)
             except JitException:
                 raise     # go through
@@ -206,11 +204,14 @@ class WarmRunnerDesc:
         args = op.args[2:]
         ALLARGS = []
         self.green_args_spec = []
+        self.red_args_types = []
         for i, v in enumerate(args):
             TYPE = v.concretetype
             ALLARGS.append(TYPE)
             if i < len(self.jitdriver.greens):
                 self.green_args_spec.append(TYPE)
+            else:
+                self.red_args_types.append(history.getkind(TYPE))
         RESTYPE = graph.getreturnvar().concretetype
         (self.JIT_ENTER_FUNCTYPE,
          self.PTR_JIT_ENTER_FUNCTYPE) = self.ts.get_FuncType(ALLARGS, lltype.Void)
@@ -272,9 +273,9 @@ class WarmRunnerDesc:
         #               except ContinueRunningNormally, e:
         #                   *args = *e.new_args
         #               except DoneWithThisFrame, e:
-        #                   return e.result
+        #                   return e.return
         #               except ExitFrameWithException, e:
-        #                   raise e.type, e.value
+        #                   raise Exception, e.value
         #
         #       def portal(*args):
         #           while 1:
@@ -290,17 +291,37 @@ class WarmRunnerDesc:
         portal_ptr = self.ts.functionptr(PORTALFUNC, 'portal',
                                          graph = portalgraph)
 
-        class DoneWithThisFrame(JitException):
-            def __init__(self, resultbox):
-                self.resultbox = resultbox
+        class DoneWithThisFrameVoid(JitException):
             def __str__(self):
-                return 'DoneWithThisFrame(%s)' % (self.resultbox,)
+                return 'DoneWithThisFrameVoid()'
+
+        class DoneWithThisFrameInt(JitException):
+            def __init__(self, result):
+                assert lltype.typeOf(result) is lltype.Signed
+                self.result = result
+            def __str__(self):
+                return 'DoneWithThisFrameInt(%s)' % (self.result,)
+
+        class DoneWithThisFramePtr(JitException):
+            def __init__(self, result):
+                assert lltype.typeOf(result) == llmemory.GCREF
+                self.result = result
+            def __str__(self):
+                return 'DoneWithThisFramePtr(%s)' % (self.result,)
+
+        class DoneWithThisFrameObj(JitException):
+            def __init__(self, result):
+                assert ootype.typeOf(result) == ootype.Object
+                self.result = result
+            def __str__(self):
+                return 'DoneWithThisFrameObj(%s)' % (self.result,)
 
         class ExitFrameWithException(JitException):
-            def __init__(self, valuebox):
-                self.valuebox = valuebox
+            def __init__(self, value):
+                assert lltype.typeOf(value) == llmemory.GCREF
+                self.value = value
             def __str__(self):
-                return 'ExitFrameWithException(%s)' % (self.valuebox,)
+                return 'ExitFrameWithException(%s)' % (self.value,)
 
         class ContinueRunningNormally(JitException):
             def __init__(self, args):
@@ -310,42 +331,56 @@ class WarmRunnerDesc:
                 return 'ContinueRunningNormally(%s)' % (
                     ', '.join(map(str, self.args)),)
 
-        self.DoneWithThisFrame = DoneWithThisFrame
+        self.DoneWithThisFrameVoid = DoneWithThisFrameVoid
+        self.DoneWithThisFrameInt = DoneWithThisFrameInt
+        self.DoneWithThisFramePtr = DoneWithThisFramePtr
+        self.DoneWithThisFrameObj = DoneWithThisFrameObj
         self.ExitFrameWithException = ExitFrameWithException
         self.ContinueRunningNormally = ContinueRunningNormally
-        self.metainterp_sd.DoneWithThisFrame = DoneWithThisFrame
+        self.metainterp_sd.DoneWithThisFrameVoid = DoneWithThisFrameVoid
+        self.metainterp_sd.DoneWithThisFrameInt = DoneWithThisFrameInt
+        self.metainterp_sd.DoneWithThisFramePtr = DoneWithThisFramePtr
+        self.metainterp_sd.DoneWithThisFrameObj = DoneWithThisFrameObj
         self.metainterp_sd.ExitFrameWithException = ExitFrameWithException
         self.metainterp_sd.ContinueRunningNormally = ContinueRunningNormally
         rtyper = self.translator.rtyper
         portalfunc_ARGS = unrolling_iterable(list(enumerate(PORTALFUNC.ARGS)))
         RESULT = PORTALFUNC.RESULT
+        result_kind = history.getkind(RESULT)
 
         unwrap_exc_value_box = self.metainterp_sd.ts.unwrap_exc_value_box
         def ll_portal_runner(*args):
             while 1:
                 try:
-                    try:
-                        return support.maybe_on_top_of_llinterp(rtyper,
-                                                          portal_ptr)(*args)
-                    except ContinueRunningNormally, e:
-                        args = ()
-                        for i, ARG in portalfunc_ARGS:
-                            v = unwrap(ARG, e.args[i])
-                            args = args + (v,)
-                    except DoneWithThisFrame, e:
-                        return unwrap(RESULT, e.resultbox)
-                    except ExitFrameWithException, e:
-                        value = unwrap_exc_value_box(e.valuebox)
-                        if not we_are_translated():
-                            if hasattr(value, 'typeptr'):
-                                raise LLException(value.typeptr, value)
-                            else:
-                                raise LLException(ootype.classof(value), value)
+                    return support.maybe_on_top_of_llinterp(rtyper,
+                                                      portal_ptr)(*args)
+                except ContinueRunningNormally, e:
+                    args = ()
+                    for i, ARG in portalfunc_ARGS:
+                        v = unwrap(ARG, e.args[i])
+                        args = args + (v,)
+                except DoneWithThisFrameVoid:
+                    assert result_kind == 'void'
+                    return
+                except DoneWithThisFrameInt, e:
+                    assert result_kind == 'int'
+                    return lltype.cast_primitive(RESULT, e.result)
+                except DoneWithThisFramePtr, e:
+                    assert result_kind == 'ptr'
+                    return lltype.cast_opaque_ptr(RESULT, e.result)
+                except DoneWithThisFrameObj, e:
+                    assert result_kind == 'obj'
+                    return ootype.cast_from_object(RESULT, e.result)
+                except ExitFrameWithException, e:
+                    value = unwrap_exc_value_box(e.valuebox)
+                    if not we_are_translated():
+                        if hasattr(value, 'typeptr'):
+                            raise LLException(value.typeptr, value)
                         else:
-                            value = cast_base_ptr_to_instance(Exception, value)
-                            raise Exception, value
-                finally:
-                    self.metainterp_sd.globaldata.blackhole = False
+                            raise LLException(ootype.classof(value), value)
+                    else:
+                        value = cast_base_ptr_to_instance(Exception, value)
+                        raise Exception, value
 
         ll_portal_runner._recursive_portal_call_ = True
 
@@ -416,7 +451,7 @@ def make_state_class(warmrunnerdesc):
     warmrunnerdesc.num_green_args = num_green_args
     green_args_spec = unrolling_iterable(warmrunnerdesc.green_args_spec)
     green_args_names = unrolling_iterable(jitdriver.greens)
-    red_args_index = unrolling_iterable(range(len(jitdriver.reds)))
+    red_args_types = unrolling_iterable(warmrunnerdesc.red_args_types)
     if num_green_args:
         MAX_HASH_TABLE_BITS = 28
     else:
@@ -444,24 +479,22 @@ def make_state_class(warmrunnerdesc):
                     return False
                 i = i + 1
             return True
-        def fill_boxes(self, *redargs):
-            boxes = self.bridge.inputargs
-            for j in red_args_index:
+        def set_future_values(self, cpu, *redargs):
+            j = 0
+            for typecode in red_args_types:
                 value = redargs[j]
-                box = boxes[j]
-                TYPE = lltype.typeOf(value)
-                if isinstance(TYPE, lltype.Ptr):
-                    assert isinstance(box, history.BoxPtr)
-                    box.changevalue_ptr(lltype.cast_opaque_ptr(llmemory.GCREF, value))
-                elif isinstance(TYPE, ootype.OOType):
-                    assert isinstance(box, history.BoxObj)
-                    box.changevalue_obj(ootype.cast_to_object(value))
-                elif TYPE == lltype.Signed:
-                    assert isinstance(box, history.BoxInt)
-                    box.changevalue_int(value)
+                if typecode == 'ptr':
+                    ptrvalue = lltype.cast_opaque_ptr(llmemory.GCREF, value)
+                    cpu.set_future_value_ptr(j, ptrvalue)
+                elif typecode == 'obj':
+                    objvalue = ootype.cast_to_object(value)
+                    cpu.set_future_value_obj(j, objvalue)
+                elif typecode == 'int':
+                    intvalue = lltype.cast_primitive(lltype.Signed, value)
+                    cpu.set_future_value_int(j, intvalue)
                 else:
-                    raise AssertionError("box is: %s" % (box,))
-            return boxes
+                    assert False
+                j = j + 1
 
     class WarmEnterState:
         def __init__(self):
@@ -508,29 +541,26 @@ def make_state_class(warmrunnerdesc):
                 #interp.debug_trace("jit_compile", *greenargs)
                 metainterp_sd = warmrunnerdesc.metainterp_sd
                 metainterp = MetaInterp(metainterp_sd)
-                loop, boxes = metainterp.compile_and_run_once(*args)
+                loop = metainterp.compile_and_run_once(*args)
             else:
                 # machine code was already compiled for these greenargs
                 # (or we have a hash collision)
                 assert isinstance(cell, MachineCodeEntryPoint)
                 if not cell.equalkey(*greenargs):
                     # hash collision
-                    loop, boxes = self.handle_hash_collision(cell, argshash,
-                                                             *args)
+                    loop = self.handle_hash_collision(cell, argshash, *args)
                     if loop is None:
                         return
                 else:
                     # get the assembler and fill in the boxes
+                    cpu = warmrunnerdesc.metainterp_sd.cpu
+                    cell.set_future_values(cpu, *args[num_green_args:])
                     loop = cell.bridge
-                    boxes = cell.fill_boxes(*args[num_green_args:])
             # ---------- execute assembler ----------
-            warmrunnerdesc.metainterp_sd.globaldata.save_recursive_call()
             while True:     # until interrupted by an exception
                 metainterp_sd = warmrunnerdesc.metainterp_sd
-                metainterp_sd.globaldata.assert_empty()
-                fail_op = metainterp_sd.cpu.execute_operations(loop, boxes)
-                loop, boxes = fail_op.descr.handle_fail_op(metainterp_sd,
-                                                           fail_op)
+                fail_op = metainterp_sd.cpu.execute_operations(loop)
+                loop = fail_op.descr.handle_fail_op(metainterp_sd, fail_op)
         maybe_compile_and_run._dont_inline_ = True
 
         def handle_hash_collision(self, cell, argshash, *args):
@@ -543,15 +573,16 @@ def make_state_class(warmrunnerdesc):
                     cell.next = next.next
                     next.next = self.cells[argshash]
                     self.cells[argshash] = next
-                    return (next.bridge,
-                            next.fill_boxes(*args[num_green_args:]))
+                    cpu = warmrunnerdesc.metainterp_sd.cpu
+                    next.set_future_values(cpu, *args[num_green_args:])
+                    return next.bridge
                 cell = next
                 next = cell.next
             # not found at all, do profiling
             n = next.counter + 1
             if n < self.threshold:
                 cell.next = Counter(n)
-                return (None, None)
+                return None
             metainterp_sd = warmrunnerdesc.metainterp_sd
             metainterp = MetaInterp(metainterp_sd)
             return metainterp.compile_and_run_once(*args)
