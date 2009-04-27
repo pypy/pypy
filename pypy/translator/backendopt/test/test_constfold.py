@@ -335,3 +335,21 @@ def test_merge_if_blocks_bug():
     constant_fold_graph(graph)
     check_graph(graph, [4], -123, t)
     check_graph(graph, [9], 9, t)
+
+def test_merge_if_blocks_bug_2():
+    def fn():
+        n = llop.same_as(lltype.Signed, 66)
+        if n == 1: return 5
+        elif n == 2: return 6
+        elif n == 3: return 8
+        elif n == 4: return -123
+        elif n == 5: return 12973
+        else: return n
+    
+    graph, t = get_graph(fn, [])
+    from pypy.translator.backendopt.removenoops import remove_same_as
+    from pypy.translator.backendopt import merge_if_blocks
+    remove_same_as(graph)
+    merge_if_blocks.merge_if_blocks_once(graph)
+    constant_fold_graph(graph)
+    check_graph(graph, [], 66, t)

@@ -91,6 +91,9 @@ def constant_fold_block(block):
             switch = constants[block.exitswitch].value
             remaining_exits = [link for link in block.exits
                                     if link.llexitcase == switch]
+            if not remaining_exits:
+                assert block.exits[-1].exitcase == 'default'
+                remaining_exits = [block.exits[-1]]
             assert len(remaining_exits) == 1
             remaining_exits[0].exitcase = None
             remaining_exits[0].llexitcase = None
