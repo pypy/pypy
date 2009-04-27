@@ -1,5 +1,5 @@
 import py
-from pypy.jit.backend.minimal.runner import CPU
+from pypy.jit.backend.minimal.runner import LLtypeCPU, OOtypeCPU
 from pypy.jit.backend.test.runner import BaseBackendTest
 
 class FakeStats(object):
@@ -13,7 +13,7 @@ class TestMinimal(BaseBackendTest):
     # ====> ../../test/runner.py
     
     def setup_class(cls):
-        cls.cpu = CPU(rtyper=None, stats=FakeStats())
+        cls.cpu = LLtypeCPU(rtyper=None, stats=FakeStats())
 
     def _skip(self):
         py.test.skip("not supported in non-translated version")

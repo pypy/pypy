@@ -2,22 +2,40 @@ import py
 from pypy.rlib.objectmodel import specialize, we_are_translated
 from pypy.rlib.debug import ll_assert, debug_print
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rstr, rclass
+from pypy.rpython.ootypesystem import ootype
 from pypy.jit.metainterp.history import AbstractDescr, Box, BoxInt, BoxPtr
+from pypy.jit.metainterp.history import BoxObj
 from pypy.jit.metainterp import executor
 from pypy.jit.metainterp.resoperation import rop, opname
+from pypy.jit.backend import model
 
 DEBUG = False
 
-class CPU(object):
-    is_oo = False    # XXX for now
+def cached_method(cachename):
+    def decorate(func):
+        def cached_func(self, *args):
+            try:
+                return getattr(self, cachename)[args]
+            except (KeyError, AttributeError):
+                descr = func(self, *args)
+                if not hasattr(self, cachename):
+                    setattr(self, cachename, {})
+                getattr(self, cachename)[args] = descr
+                return descr
+        return cached_func
+    return decorate
+
+
+class BaseCPU(model.AbstractCPU):
 
     def __init__(self, rtyper, stats, translate_support_code=False,
                  mixlevelann=None):
         self.rtyper = rtyper
-        if rtyper is not None:
-            self.is_oo = rtyper.type_system.name == "ootypesystem"
-        else:
-            self.is_oo = False
+        if rtyper:
+            if self.is_oo:
+                assert rtyper.type_system.name == "ootypesystem"
+            else:
+                assert rtyper.type_system.name == "lltypesystem"
         self.stats = stats
         self.translate_support_code = translate_support_code
         self._future_values = []
@@ -132,6 +150,10 @@ class CPU(object):
         op, env = self.latest_fail
         return env[op.args[index]].getptr_base()
 
+    def get_latest_value_obj(self, index):
+        op, env = self.latest_fail
+        return env[op.args[index]].getobj()
+    
     def execute_guard(self, opnum, argboxes):
         if opnum == rop.GUARD_TRUE:
             value = argboxes[0].getint()
@@ -172,94 +194,45 @@ class CPU(object):
 
     # ----------
 
-    def cached_method(cachename):
-        def decorate(func):
-            def cached_func(self, *args):
-                try:
-                    return getattr(self, cachename)[args]
-                except (KeyError, AttributeError):
-                    descr = func(self, *args)
-                    if not hasattr(self, cachename):
-                        setattr(self, cachename, {})
-                    getattr(self, cachename)[args] = descr
-                    return descr
-            return cached_func
-        return decorate
-
-    @cached_method('_sizecache')
-    def sizeof(self, TYPE):
-        def alloc():
-            p = lltype.malloc(TYPE)
-            return lltype.cast_opaque_ptr(llmemory.GCREF, p)
-        return SizeDescr(alloc)
-
     @cached_method('_fieldcache')
-    def fielddescrof(self, STRUCT, name):
+    def fielddescrof(self, T, name):
+        TYPE, FIELDTYPE, reveal = self._get_field(T, name)
         dict2 = base_dict.copy()
-        dict2['PTR'] = lltype.Ptr(STRUCT)
-        FIELDTYPE = getattr(STRUCT, name)
+        dict2['TYPE'] = TYPE
+        dict2['reveal'] = reveal
         dict = {'name': name,
                 'input': make_reader(FIELDTYPE, 'xbox', dict2),
-                'result': make_writer(FIELDTYPE, 'x', dict2)}
+                'result': make_writer(FIELDTYPE, 'x', dict2),}
         exec py.code.Source("""
             def getfield(cpu, pbox):
-                p = reveal_ptr(cpu, PTR, pbox)
+                p = reveal(cpu, TYPE, pbox)
                 x = getattr(p, %(name)r)
                 return %(result)s
             def setfield(cpu, pbox, xbox):
-                p = reveal_ptr(cpu, PTR, pbox)
+                p = reveal(cpu, TYPE, pbox)
                 x = %(input)s
                 setattr(p, %(name)r, x)
         """ % dict).compile() in dict2
-        sort_key = _count_sort_key(STRUCT, name)
+        sort_key = self._count_sort_key(T, name)
         return FieldDescr(dict2['getfield'], dict2['setfield'], sort_key)
-
-    @cached_method('_arraycache')
-    def arraydescrof(self, ARRAY):
-        dict2 = base_dict.copy()
-        dict2['malloc'] = lltype.malloc
-        dict2['ARRAY'] = ARRAY
-        dict2['PTR'] = lltype.Ptr(ARRAY)
-        dict = {'input': make_reader(ARRAY.OF, 'xbox', dict2),
-                'result': make_writer(ARRAY.OF, 'x', dict2)}
-        exec py.code.Source("""
-            def new(length):
-                p = malloc(ARRAY, length)
-                return cast_opaque_ptr(GCREF, p)
-            def length(cpu, pbox):
-                p = reveal_ptr(cpu, PTR, pbox)
-                return len(p)
-            def getarrayitem(cpu, pbox, index):
-                p = reveal_ptr(cpu, PTR, pbox)
-                x = p[index]
-                return %(result)s
-            def setarrayitem(cpu, pbox, index, xbox):
-                p = reveal_ptr(cpu, PTR, pbox)
-                x = %(input)s
-                p[index] = x
-        """ % dict).compile() in dict2
-        return ArrayDescr(dict2['new'],
-                          dict2['length'],
-                          dict2['getarrayitem'],
-                          dict2['setarrayitem'])
 
     @cached_method('_callcache')
     def calldescrof(self, FUNC, ARGS, RESULT):
+        FUNC, cast_func = self._get_cast_func(ARGS, RESULT)
         dict2 = base_dict.copy()
         args = []
         for i, ARG in enumerate(ARGS):
             args.append(make_reader(ARG, 'args[%d]' % i, dict2))
         dict = {'args': ', '.join(args),
                 'result': make_writer(RESULT, 'res', dict2)}
-        dict2.update({'rffi': rffi,
-                      'FUNC': lltype.Ptr(lltype.FuncType(ARGS, RESULT)),
+        dict2.update({'cast_func': cast_func,
                       'length': len(ARGS),
                       'll_assert': ll_assert,
                       })
         exec py.code.Source("""
             def call(cpu, function, args):
                 ll_assert(len(args) == length, 'call: wrong arg count')
-                function = rffi.cast(FUNC, function)
+                function = cast_func(function)
                 res = function(%(args)s)
                 return %(result)s
         """ % dict).compile() in dict2
@@ -269,7 +242,7 @@ class CPU(object):
             errbox = BoxPtr()
         else:
             errbox = BoxInt()
-        return CallDescr(dict2['FUNC'], dict2['call'], errbox)
+        return CallDescr(FUNC, dict2['call'], errbox)
 
     # ----------
 
@@ -277,15 +250,6 @@ class CPU(object):
         assert isinstance(sizedescr, SizeDescr)
         assert sizedescr.alloc is not None
         p = sizedescr.alloc()
-        return BoxPtr(p)
-
-    def do_new_with_vtable(self, args, sizedescr):
-        assert isinstance(sizedescr, SizeDescr)
-        assert sizedescr.alloc is not None
-        p = sizedescr.alloc()
-        classadr = args[0].getaddr(self)
-        pobj = lltype.cast_opaque_ptr(rclass.OBJECTPTR, p)
-        pobj.typeptr = llmemory.cast_adr_to_ptr(classadr, rclass.CLASSTYPE)
         return BoxPtr(p)
 
     def do_getfield_gc(self, args, fielddescr):
@@ -433,6 +397,110 @@ class CPU(object):
         return rffi.cast(TYPE, x)
 
 
+class LLtypeCPU(BaseCPU):
+    is_oo = False
+
+    def _get_field(self, STRUCT, name):
+        PTR = lltype.Ptr(STRUCT)
+        FIELDTYPE = getattr(STRUCT, name)
+        return PTR, FIELDTYPE, reveal_ptr
+
+    def _get_cast_func(self, ARGS, RESULT):
+        FUNC = lltype.Ptr(lltype.FuncType(ARGS, RESULT))
+        def cast_func(function):
+            return rffi.cast(FUNC, function)
+        return FUNC, cast_func
+
+    def _count_sort_key(self, STRUCT, name):
+        i = list(STRUCT._names).index(name)
+        while True:
+            _, STRUCT = STRUCT._first_struct()
+            if not STRUCT:
+                break
+            i += len(STRUCT._names) + 1
+        return i
+
+    @cached_method('_sizecache')
+    def sizeof(self, TYPE):
+        def alloc():
+            p = lltype.malloc(TYPE)
+            return lltype.cast_opaque_ptr(llmemory.GCREF, p)
+        return SizeDescr(alloc)
+
+    @cached_method('_arraycache')
+    def arraydescrof(self, ARRAY):
+        dict2 = base_dict.copy()
+        dict2['malloc'] = lltype.malloc
+        dict2['ARRAY'] = ARRAY
+        dict2['PTR'] = lltype.Ptr(ARRAY)
+        dict = {'input': make_reader(ARRAY.OF, 'xbox', dict2),
+                'result': make_writer(ARRAY.OF, 'x', dict2)}
+        exec py.code.Source("""
+            def new(length):
+                p = malloc(ARRAY, length)
+                return cast_opaque_ptr(GCREF, p)
+            def length(cpu, pbox):
+                p = reveal_ptr(cpu, PTR, pbox)
+                return len(p)
+            def getarrayitem(cpu, pbox, index):
+                p = reveal_ptr(cpu, PTR, pbox)
+                x = p[index]
+                return %(result)s
+            def setarrayitem(cpu, pbox, index, xbox):
+                p = reveal_ptr(cpu, PTR, pbox)
+                x = %(input)s
+                p[index] = x
+        """ % dict).compile() in dict2
+        return ArrayDescr(dict2['new'],
+                          dict2['length'],
+                          dict2['getarrayitem'],
+                          dict2['setarrayitem'])
+
+    def do_new_with_vtable(self, args, sizedescr):
+        assert isinstance(sizedescr, SizeDescr)
+        assert sizedescr.alloc is not None
+        p = sizedescr.alloc()
+        classadr = args[0].getaddr(self)
+        pobj = lltype.cast_opaque_ptr(rclass.OBJECTPTR, p)
+        pobj.typeptr = llmemory.cast_adr_to_ptr(classadr, rclass.CLASSTYPE)
+        return BoxPtr(p)
+
+
+class OOtypeCPU(BaseCPU):
+    is_oo = True
+
+    def _get_field(self, TYPE, name):
+        _, FIELDTYPE = TYPE._lookup_field(name)
+        return TYPE, FIELDTYPE, reveal_obj
+
+    def _get_cast_func(self, ARGS, RESULT):
+        FUNC = ootype.StaticMethod(ARGS, RESULT)
+        def cast_func(function):
+            return ootype.cast_from_object(FUNC, function)
+        return FUNC, cast_func
+
+    def _count_sort_key(self, INSTANCE, name):
+        fields = sorted(INSTANCE._allfields().keys())
+        return fields.index(name)
+
+    @cached_method('_typedescrcache')
+    def typedescrof(self, TYPE):
+        def alloc():
+            obj = ootype.new(TYPE)
+            return ootype.cast_to_object(obj)
+        return SizeDescr(alloc)
+
+    @cached_method('_methdescrcache')
+    def methdescrof(self, SELFTYPE, methname):
+        return MethDescr(SELFTYPE, methname)
+
+    def do_new_with_vtable(self, args, sizedescr):
+        assert isinstance(sizedescr, SizeDescr)
+        assert sizedescr.alloc is not None
+        obj = sizedescr.alloc()
+        return BoxObj(obj)
+
+
 class SizeDescr(AbstractDescr):
     alloc = None
     def __init__(self, alloc):
@@ -468,6 +536,11 @@ class CallDescr(AbstractDescr):
         self.call = call
         self.errbox = errbox
 
+class MethDescr(AbstractDescr):
+
+    def __init__(self, SELFTYPE, methname):
+        pass
+    
 # ____________________________________________________________
 
 
@@ -485,6 +558,8 @@ def make_reader(TYPE, boxstr, dict):
         else:
             return "cast_adr_to_ptr(%s.getaddr(cpu), %s)" % (boxstr,
                                                              _name(dict, TYPE))
+    elif isinstance(TYPE, ootype.OOType):
+        return "ootype.cast_from_object(%s, %s.getobj())" % (_name(dict, TYPE), boxstr)
     else:
         return "cast_primitive(%s, %s.getint())" % (_name(dict, TYPE), boxstr)
 
@@ -496,16 +571,10 @@ def make_writer(TYPE, str, dict):
             return "BoxPtr(cast_opaque_ptr(GCREF, %s))" % (str,)
         else:
             return "BoxInt(rffi.cast(Signed, %s))" % (str,)
+    elif isinstance(TYPE, ootype.OOType):
+        return "BoxObj(ootype.cast_to_object(%s))" % (str,)
     else:
         return "BoxInt(cast_primitive(Signed, %s))" % (str,)
-
-def _count_sort_key(STRUCT, name):
-    i = list(STRUCT._names).index(name)
-    while True:
-        _, STRUCT = STRUCT._first_struct()
-        if not STRUCT:
-            return i
-        i += len(STRUCT._names) + 1
 
 @specialize.arg(1)
 def reveal_ptr(cpu, PTR, box):
@@ -515,11 +584,20 @@ def reveal_ptr(cpu, PTR, box):
         adr = box.getaddr(cpu)
         return llmemory.cast_adr_to_ptr(adr, PTR)
 
+@specialize.arg(1)
+def reveal_obj(cpu, TYPE, box):
+    if isinstance(TYPE, ootype.OOType):
+        return ootype.cast_from_object(TYPE, box.getobj())
+    else:
+        return lltype.cast_to_primitive(TYPE, box.getint())
+
 base_dict = {
+    'ootype': ootype,
     'cast_primitive': lltype.cast_primitive,
     'cast_adr_to_ptr': llmemory.cast_adr_to_ptr,
     'cast_opaque_ptr': lltype.cast_opaque_ptr,
     'reveal_ptr': reveal_ptr,
+    'reveal_obj': reveal_obj,
     'GCREF': llmemory.GCREF,
     'Signed': lltype.Signed,
     'rffi': rffi,
@@ -531,4 +609,5 @@ class GuardFailed(Exception):
     pass
 
 import pypy.jit.metainterp.executor
-pypy.jit.metainterp.executor.make_execute_list(CPU)
+pypy.jit.metainterp.executor.make_execute_list(LLtypeCPU)
+pypy.jit.metainterp.executor.make_execute_list(OOtypeCPU)

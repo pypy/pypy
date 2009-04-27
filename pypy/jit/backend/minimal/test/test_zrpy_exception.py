@@ -1,11 +1,11 @@
 import py
-from pypy.jit.backend.minimal.runner import CPU
+from pypy.jit.backend.minimal.runner import LLtypeCPU, OOtypeCPU
 from pypy.jit.backend.minimal.support import c_meta_interp
 from pypy.jit.metainterp.test import test_basic, test_zrpy_exception
 
 
 class TranslatedJitMixin(test_basic.LLJitMixin):
-    CPUClass = CPU
+    CPUClass = LLtypeCPU
 
     def meta_interp(self, *args, **kwds):
         return c_meta_interp(*args, **kwds)

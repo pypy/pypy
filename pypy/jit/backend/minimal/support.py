@@ -7,7 +7,7 @@ def c_meta_interp(function, args, repeat=1, optimizer='ignored', **kwds):
     from pypy.translator.translator import TranslationContext
     from pypy.jit.metainterp.warmspot import WarmRunnerDesc
     from pypy.jit.metainterp.simple_optimize import Optimizer
-    from pypy.jit.backend.minimal.runner import CPU
+    from pypy.jit.backend.minimal.runner import LLtypeCPU
     from pypy.translator.c.genc import CStandaloneBuilder as CBuilder
     from pypy.annotation.listdef import s_list_of_strings
     from pypy.annotation import model as annmodel
@@ -40,7 +40,7 @@ def c_meta_interp(function, args, repeat=1, optimizer='ignored', **kwds):
     t.buildannotator().build_types(function, [int] * len(args))
     t.buildrtyper().specialize()
     warmrunnerdesc = WarmRunnerDesc(t, translate_support_code=True,
-                                    CPUClass=CPU,
+                                    CPUClass=LLtypeCPU,
                                     optimizer=Optimizer,
                                     **kwds)
     warmrunnerdesc.state.set_param_threshold(3)          # for tests
