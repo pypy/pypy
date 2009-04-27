@@ -279,12 +279,12 @@ class ResumeGuardDescr(AbstractDescr):
         for i in range(len(patch)-1, -1, -1):
             srcbox = patch[i]
             dstbox = fail_op.args[i]
-            if isinstance(srcbox, BoxInt):
-                srcbox.changevalue_int(dstbox.getint())
-            elif isinstance(srcbox, BoxPtr):
-                srcbox.changevalue_ptr(dstbox.getptr_base())
-            elif metainterp_sd.cpu.is_oo and isinstance(srcbox, BoxObj):
-                srcbox.changevalue_obj(dstbox.getobj())
+            if isinstance(dstbox, BoxInt):
+                dstbox.changevalue_int(srcbox.getint())
+            elif isinstance(dstbox, BoxPtr):
+                dstbox.changevalue_ptr(srcbox.getptr_base())
+            elif metainterp_sd.cpu.is_oo and isinstance(dstbox, BoxObj):
+                dstbox.changevalue_obj(srcbox.getobj())
             else:
                 assert False
 
