@@ -1,13 +1,14 @@
 TESTNAME = 'test_builtin'
 
 def do():
-    import test.regrtest, sys
-    sys.argv = ['regrtest.py', TESTNAME]
-    test.regrtest.main()
+    __import__('test.' + TESTNAME)
+    print "---ending 1---"
 
 try:
     do()
+    print "---ending 2---"
 except BaseException, e:
+    print "---ending 0---"
     print '/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\'
     import sys
     import traceback
