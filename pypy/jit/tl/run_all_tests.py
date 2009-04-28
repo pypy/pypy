@@ -12,6 +12,7 @@ names = [os.path.splitext(test.basename)[0]
 if len(sys.argv) > 1:
     start_at = sys.argv[1]
     del names[:names.index(start_at)]
+    print names
 
 assert os.path.isdir('result/')
 
@@ -29,6 +30,9 @@ for name in names:
     f.close()
     os.system("'%s' > result/%s 2>&1" % (EXECUTABLE, name))
     f = open('result/%s' % name)
+    f.seek(0, 2)
+    start = max(0, f.tell() - 1000)
+    f.seek(start)
     lines = f.readlines()
     f.close()
     if '---ending 2---' in lines[-1]:
