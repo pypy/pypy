@@ -789,6 +789,7 @@ def ll_kvi(dic, LIST, func):
                     items[p] = recast(ELEM, entry.value)
             p += 1
         i += 1
+    assert p == res.ll_length()
     return res
 ll_kvi.oopspec = 'newdictkvi(dic, func)'
 
