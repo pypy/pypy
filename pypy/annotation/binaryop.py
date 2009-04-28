@@ -842,6 +842,7 @@ class __extend__(pairtype(SomeExternalInstance, SomeExternalInstance)):
 # ____________________________________________________________
 # annotation of low-level types
 from pypy.annotation.model import SomePtr, SomeOOInstance, SomeOOClass
+from pypy.annotation.model import SomeOOObject
 from pypy.annotation.model import ll_to_annotation, annotation_to_lltype
 from pypy.rpython.ootypesystem import ootype
 
@@ -916,6 +917,10 @@ class __extend__(pairtype(SomeObject, SomeOOInstance)):
     def union((obj, r2)):
         return pair(r2, obj).union()
 
+class __extend__(pairtype(SomeOOObject, SomeOOObject)):
+    def union((r1, r2)):
+        assert r1.ootype is ootype.Object and r2.ootype is ootype.Object
+        return SomeOOObject()
 
 #_________________________________________
 # weakrefs
