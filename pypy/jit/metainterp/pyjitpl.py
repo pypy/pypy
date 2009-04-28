@@ -111,7 +111,7 @@ class arguments(object):
             val = func(*args)
             if DEBUG >= 2:
                 reprboxes = ' '.join([box.repr_rpython() for box in self.env])
-                debug_print('  env=[%s]' % (reprboxes,))
+                debug_print('  \x1b[34menv=[%s]\x1b[0m' % (reprboxes,))
             if val is None:
                 val = False
             return val
