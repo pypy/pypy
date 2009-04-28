@@ -13,7 +13,7 @@ from pypy.rpython.extfunc import ExtRegistryEntry
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.tool.uid import fixid
 from pypy.tool.tls import tlsobject
-from pypy.rlib.rarithmetic import r_uint, r_singlefloat
+from pypy.rlib.rarithmetic import r_uint, r_singlefloat, intmask
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter, LLException
 from pypy.rpython.lltypesystem.rclass import OBJECT
@@ -983,9 +983,7 @@ class _lladdress(long):
     def __new__(cls, void_p):
         self = long.__new__(cls, void_p.value)
         self.void_p = void_p
-        self.intval = void_p.value
-        if self.intval > sys.maxint:
-            self.intval = int(self.intval - 2*(sys.maxint + 1))
+        self.intval = intmask(void_p.value)
         return self
 
     def _cast_to_ptr(self, TP):
@@ -1004,7 +1002,7 @@ class _llgcref(object):
     _TYPE = llmemory.GCREF
 
     def __init__(self, void_p):
-        self.intval = void_p.value
+        self.intval = intmask(void_p.value)
 
     def __eq__(self, other):
         if isinstance(other, _llgcref):
