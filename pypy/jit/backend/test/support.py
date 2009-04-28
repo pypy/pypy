@@ -90,3 +90,11 @@ class CCompiledMixin(BaseCompiledMixin):
         res = int(stdout)
         log('---------- Test done (%d) ----------' % (res,))
         return res
+
+class CliCompiledMixin(BaseCompiledMixin):
+    type_system = 'ootype'
+
+    def _compile_and_run(self, t, entry_point, entry_point_graph, args):
+        from pypy.translator.cli.test.runtest import compile_graph, get_annotation
+        func = compile_graph(entry_point_graph, t, nowrap=True)
+        return func(*args)
