@@ -870,3 +870,13 @@ class TestOOtype(BaseTestRclass, OORtypeMixin):
             assert ootype.cast_from_object(A, obj1) == a
             assert ootype.cast_from_object(B, obj2) == b
         self.interpret(fn_null, [])
+
+        def fn_is_true(flag):
+            if flag:
+                a = ootype.new(A)
+            else:
+                a = ootype.null(A)
+            obj = ootype.cast_to_object(a)
+            return bool(obj)
+        assert self.interpret(fn_is_true, [True]) is True
+        assert self.interpret(fn_is_true, [False]) is False
