@@ -1,13 +1,13 @@
 import py
 from pypy.jit.backend.minimal.test.test_basic import LLJitMixin, OOJitMixin
-from pypy.jit.backend.test.runner import BaseBackendTest
+from pypy.jit.backend.test.runner import LLtypeBackendTest, OOtypeBackendTest
 
 class FakeStats(object):
     pass
 
 # ____________________________________________________________
 
-class MinimalTest(BaseBackendTest):
+class MinimalTestMixin(object):
 
     # for the individual tests see
     # ====> ../../test/runner.py
@@ -22,9 +22,14 @@ class MinimalTest(BaseBackendTest):
     test_failing_guards = _skip      # GUARD_CLASS
 
 
-## class TestOOtype(OOJitMixin, MinimalTest):
-##     pass
+class TestOOtype(OOJitMixin, MinimalTestMixin, OOtypeBackendTest):
+    def skip(self):
+        py.test.skip('in-progress')
 
-class TestLLtype(LLJitMixin, MinimalTest):
+    test_executor = skip
+    test_ooops_non_gc = skip
+
+
+class TestLLtype(LLJitMixin, MinimalTestMixin, LLtypeBackendTest):
     pass
 

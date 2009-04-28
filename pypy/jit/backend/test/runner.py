@@ -3,23 +3,14 @@ import sys
 from pypy.jit.metainterp.history import (BoxInt, Box, BoxPtr, TreeLoop,
                                          ConstInt, ConstPtr, BoxObj)
 from pypy.jit.metainterp.resoperation import ResOperation, rop
+from pypy.jit.metainterp.typesystem import deref
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi, rclass
+from pypy.rpython.ootypesystem import ootype
 from pypy.jit.metainterp.executor import execute
 from pypy.rlib.rarithmetic import r_uint, intmask
 
-MY_VTABLE = rclass.OBJECT_VTABLE    # for tests only
-
-S = lltype.GcForwardReference()
-S.become(lltype.GcStruct('S', ('parent', rclass.OBJECT),
-                              ('value', lltype.Signed),
-                              ('next', lltype.Ptr(S))))
-T = lltype.GcStruct('T', ('parent', S),
-                         ('next', lltype.Ptr(S)))
-U = lltype.GcStruct('U', ('parent', T),
-                         ('next', lltype.Ptr(S)))
-
 class Runner(object):
-        
+
     def execute_operation(self, opname, valueboxes, result_type, descr=None):
         loop = self.get_compiled_single_operation(opname, result_type,
                                                   valueboxes, descr)
@@ -43,6 +34,8 @@ class Runner(object):
             return BoxInt(self.cpu.get_latest_value_int(0))
         elif result_type == 'ptr':
             return BoxPtr(self.cpu.get_latest_value_ptr(0))
+        else:
+            assert False
 
     def get_compiled_single_operation(self, opnum, result_type, valueboxes,
                                       descr):
@@ -70,6 +63,7 @@ class Runner(object):
         self.cpu.compile_operations(loop)
         return loop
 
+
 class BaseBackendTest(Runner):
     
     def test_do_call(self):
@@ -78,11 +72,11 @@ class BaseBackendTest(Runner):
         #
         def func(c):
             return chr(ord(c) + 1)
-        FPTR = lltype.Ptr(lltype.FuncType([lltype.Char], lltype.Char))
+        FPTR = self.Ptr(self.FuncType([lltype.Char], lltype.Char))
         func_ptr = llhelper(FPTR, func)
-        calldescr = cpu.calldescrof(FPTR.TO, (lltype.Char,), lltype.Char)
+        calldescr = cpu.calldescrof(deref(FPTR), (lltype.Char,), lltype.Char)
         x = cpu.do_call(
-            [BoxInt(cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(func_ptr))),
+            [self.get_funcbox(cpu, func_ptr),
              BoxInt(ord('A'))],
             calldescr)
         assert x.value == ord('B')
@@ -93,17 +87,6 @@ class BaseBackendTest(Runner):
         assert x.value == 142
         s = execute(cpu, rop.NEWSTR, [BoxInt(8)])
         assert len(s.getptr(lltype.Ptr(rstr.STR)).chars) == 8
-
-    def test_casts(self):
-        from pypy.rpython.lltypesystem import lltype, llmemory
-        TP = lltype.GcStruct('x')
-        x = lltype.malloc(TP)        
-        x = lltype.cast_opaque_ptr(llmemory.GCREF, x)
-        res = self.execute_operation(rop.CAST_PTR_TO_INT,
-                                     [BoxPtr(x)],  'int').value
-        res2 = self.execute_operation(rop.CAST_INT_TO_PTR,
-                                      [BoxInt(res)], 'ptr').value
-        assert res2 == x
 
     def test_lshift(self):
         res = execute(self.cpu, rop.INT_LSHIFT, [BoxInt(10), ConstInt(4)])
@@ -268,7 +251,8 @@ class BaseBackendTest(Runner):
 
 
     def test_passing_guards(self):
-        vtable_for_T = lltype.malloc(MY_VTABLE, immortal=True)
+        T = self.T
+        vtable_for_T = lltype.malloc(self.MY_VTABLE, immortal=True)
         vtable_for_T_addr = llmemory.cast_ptr_to_adr(vtable_for_T)
         cpu = self.cpu
         cpu._cache_gcstruct2vtable = {T: vtable_for_T}
@@ -291,9 +275,11 @@ class BaseBackendTest(Runner):
         #                       'void')
 
     def test_failing_guards(self):
-        vtable_for_T = lltype.malloc(MY_VTABLE, immortal=True)
+        T = self.T
+        U = self.U
+        vtable_for_T = lltype.malloc(self.MY_VTABLE, immortal=True)
         vtable_for_T_addr = llmemory.cast_ptr_to_adr(vtable_for_T)
-        vtable_for_U = lltype.malloc(MY_VTABLE, immortal=True)
+        vtable_for_U = lltype.malloc(self.MY_VTABLE, immortal=True)
         vtable_for_U_addr = llmemory.cast_ptr_to_adr(vtable_for_U)
         cpu = self.cpu
         cpu._cache_gcstruct2vtable = {T: vtable_for_T, U: vtable_for_U}
@@ -317,3 +303,49 @@ class BaseBackendTest(Runner):
             assert self.guard_failed
 
             
+class LLtypeBackendTest(BaseBackendTest):
+
+    Ptr = lltype.Ptr
+    FuncType = lltype.FuncType
+    malloc = staticmethod(lltype.malloc)
+    nullptr = staticmethod(lltype.nullptr)
+
+    @classmethod
+    def get_funcbox(cls, cpu, func_ptr):
+        addr = llmemory.cast_ptr_to_adr(func_ptr)
+        return BoxInt(cpu.cast_adr_to_int(addr))
+
+    
+    MY_VTABLE = rclass.OBJECT_VTABLE    # for tests only
+
+    S = lltype.GcForwardReference()
+    S.become(lltype.GcStruct('S', ('parent', rclass.OBJECT),
+                                  ('value', lltype.Signed),
+                                  ('next', lltype.Ptr(S))))
+    T = lltype.GcStruct('T', ('parent', S),
+                             ('next', lltype.Ptr(S)))
+    U = lltype.GcStruct('U', ('parent', T),
+                             ('next', lltype.Ptr(S)))
+
+    def test_casts(self):
+        from pypy.rpython.lltypesystem import lltype, llmemory
+        TP = lltype.GcStruct('x')
+        x = lltype.malloc(TP)        
+        x = lltype.cast_opaque_ptr(llmemory.GCREF, x)
+        res = self.execute_operation(rop.CAST_PTR_TO_INT,
+                                     [BoxPtr(x)],  'int').value
+        res2 = self.execute_operation(rop.CAST_INT_TO_PTR,
+                                      [BoxInt(res)], 'ptr').value
+        assert res2 == x
+
+
+class OOtypeBackendTest(BaseBackendTest):
+
+    Ptr = lambda x: x
+    FuncType = ootype.StaticMethod
+    malloc = staticmethod(ootype.new)
+    nullptr = staticmethod(ootype.null)
+
+    @classmethod
+    def get_funcbox(cls, cpu, func_ptr):
+        return ootype.cast_to_object(func_ptr)
