@@ -85,8 +85,9 @@ class BaseBackendTest(Runner):
         cpu = self.cpu
         x = execute(cpu, rop.INT_ADD, [BoxInt(100), ConstInt(42)])
         assert x.value == 142
-        s = execute(cpu, rop.NEWSTR, [BoxInt(8)])
-        assert len(s.getptr(lltype.Ptr(rstr.STR)).chars) == 8
+        if self.type_system == 'lltype':
+            s = execute(cpu, rop.NEWSTR, [BoxInt(8)])
+            assert len(s.getptr(lltype.Ptr(rstr.STR)).chars) == 8
 
     def test_lshift(self):
         res = execute(self.cpu, rop.INT_LSHIFT, [BoxInt(10), ConstInt(4)])
@@ -236,19 +237,6 @@ class BaseBackendTest(Runner):
 ##                op = self.cpu.execute_operations(loop, [BoxInt(x), BoxInt(y)])
 ##                assert op.args[0].value == z
 
-    def test_ooops_non_gc(self):
-        x = lltype.malloc(lltype.Struct('x'), flavor='raw')
-        v = self.cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(x))
-        r = self.execute_operation(rop.OOIS, [BoxInt(v), BoxInt(v)], 'int')
-        assert r.value == 1
-        r = self.execute_operation(rop.OOISNOT, [BoxInt(v), BoxInt(v)], 'int')
-        assert r.value == 0
-        r = self.execute_operation(rop.OOISNULL, [BoxInt(v)], 'int')
-        assert r.value == 0
-        r = self.execute_operation(rop.OONONNULL, [BoxInt(v)], 'int')
-        assert r.value == 1
-        lltype.free(x, flavor='raw')
-
 
     def test_passing_guards(self):
         T = self.T
@@ -337,6 +325,19 @@ class LLtypeBackendTest(BaseBackendTest):
         res2 = self.execute_operation(rop.CAST_INT_TO_PTR,
                                       [BoxInt(res)], 'ptr').value
         assert res2 == x
+
+    def test_ooops_non_gc(self):
+        x = lltype.malloc(lltype.Struct('x'), flavor='raw')
+        v = self.cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(x))
+        r = self.execute_operation(rop.OOIS, [BoxInt(v), BoxInt(v)], 'int')
+        assert r.value == 1
+        r = self.execute_operation(rop.OOISNOT, [BoxInt(v), BoxInt(v)], 'int')
+        assert r.value == 0
+        r = self.execute_operation(rop.OOISNULL, [BoxInt(v)], 'int')
+        assert r.value == 0
+        r = self.execute_operation(rop.OONONNULL, [BoxInt(v)], 'int')
+        assert r.value == 1
+        lltype.free(x, flavor='raw')
 
 
 class OOtypeBackendTest(BaseBackendTest):

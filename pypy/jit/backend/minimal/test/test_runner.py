@@ -23,12 +23,7 @@ class MinimalTestMixin(object):
 
 
 class TestOOtype(OOJitMixin, MinimalTestMixin, OOtypeBackendTest):
-    def skip(self):
-        py.test.skip('in-progress')
-
-    test_executor = skip
-    test_ooops_non_gc = skip
-
+    pass
 
 class TestLLtype(LLJitMixin, MinimalTestMixin, LLtypeBackendTest):
     pass
