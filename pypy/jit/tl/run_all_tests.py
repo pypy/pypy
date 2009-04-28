@@ -6,9 +6,18 @@ from conftest import testmap
 
 EXECUTABLE = './testing_1'
 
+SKIPS = {'test_popen': 'sys.executable is bogus',
+         'test_popen2': 'confused by debugging output of subprocess',
+         'test_scope': 'expects an object to be freed',
+         'test_strftime': 'incomplete time module in ./testing_1',
+         'test_strptime': 'incomplete time module in ./testing_1',
+         'test_struct': 'incomplete struct module in ./testing_1',
+         'test_xmlrpc': 'incomplete time module in ./testing_1',
+        }
+
 names = [os.path.splitext(test.basename)[0]
             for test in testmap
-                if test.core and not test.skip]
+                if not test.skip]
 if len(sys.argv) > 1:
     start_at = sys.argv[1]
     del names[:names.index(start_at)]
@@ -20,6 +29,9 @@ assert os.path.isdir('result/')
 
 for name in names:
     print >> sys.stderr, name + '...',
+    if name in SKIPS:
+        print >> sys.stderr, 'skip:', SKIPS[name]
+        continue
     f = open('pypyjit_demo.py')
     lines = f.readlines()
     f.close()
@@ -37,8 +49,9 @@ for name in names:
     f.close()
     if '---ending 2---' in lines[-1]:
         print >> sys.stderr, 'ok'
-    elif (lines[-1].startswith('ImportError: No module named ') or
-          lines[-1].startswith('TestSkipped:')):
+    elif (lines[-1].startswith('ImportError:') or
+          lines[-1].startswith('TestSkipped:') or
+          lines[-1].startswith('ResourceDenied:')):
         print >> sys.stderr, lines[-1].rstrip()
     else:
         print >> sys.stderr, "failed!  The last line of the output is:"
