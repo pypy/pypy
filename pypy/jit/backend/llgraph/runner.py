@@ -84,6 +84,10 @@ class BaseCPU(model.AbstractCPU):
             self.mixlevelann = annmixlevel
         self._future_values = []
 
+    def _freeze_(self):
+        assert self.translate_support_code
+        return False
+
     def compile_operations(self, loop):
         """In a real assembler backend, this should assemble the given
         list of operations.  Here we just generate a similar CompiledLoop
