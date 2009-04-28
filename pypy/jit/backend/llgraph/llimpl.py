@@ -754,7 +754,7 @@ class OOFrame(Frame):
 
     def op_oosend(self, descr, obj, *args):
         METH = descr.METH
-        obj = ootype.cast_from_object(METH.SELFTYPE, obj)
+        obj = ootype.cast_from_object(descr.SELFTYPE, obj)
         meth = getattr(obj, descr.methname)
         newargs = cast_call_args(METH.ARGS, args, self.memocast)
         res = call_maybe_on_top_of_llinterp(meth, newargs)

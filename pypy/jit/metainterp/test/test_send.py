@@ -456,6 +456,37 @@ class SendTests:
         res = self.meta_interp(f, [20, 0])
         assert hlstr(res) == "string"
 
+    def test_residual_oosend(self):
+        myjitdriver = JitDriver(greens=[], reds = ['i', 'obj'])
+        class A:
+            def foo(self):
+                return 41
+        class B(A):
+            def foo(self):
+                return 42
+        def new(n):
+            if n:
+                return A()
+            else:
+                return B()
+        def fn(n, i):
+            res = 0
+            obj = new(n)
+            while i > 0:
+                myjitdriver.can_enter_jit(i=i, obj=obj)
+                myjitdriver.jit_merge_point(i=i, obj=obj)
+                res = obj.foo()
+                i-=1
+            return res
+
+        policy = StopAtXPolicy(new, A.foo.im_func, B.foo.im_func)
+        res = self.meta_interp(fn, [0, 20], policy=policy)
+        assert res == 42
+        if self.type_system == 'ootype':
+            self.check_loops(oosend=1)
+        else:
+            self.check_loops(call=1)
+
 class TestOOtype(SendTests, OOJitMixin):
     pass
 

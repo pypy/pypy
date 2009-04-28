@@ -562,6 +562,7 @@ class MethDescr(history.AbstractMethDescr):
     def __init__(self, SELFTYPE, methname):
         _, meth = SELFTYPE._lookup(methname)
         METH = ootype.typeOf(meth)
+        self.SELFTYPE = SELFTYPE
         self.METH = METH
         self.methname = methname
         RESULT = METH.RESULT

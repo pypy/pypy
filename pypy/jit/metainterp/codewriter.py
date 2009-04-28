@@ -918,6 +918,7 @@ class BytecodeMaker(object):
         self.register_var(op.result)
 
     def handle_regular_oosend(self, op):
+        self.minimize_variables()
         methname = op.args[0].value
         v_obj = op.args[1]
         INSTANCE = v_obj.concretetype
@@ -1077,6 +1078,7 @@ class BytecodeMaker(object):
         return v_posindex
 
     def handle_builtin_oosend(self, op):
+        self.minimize_variables()
         oopspec_name, args = support.decode_builtin_call(op)
         SELFTYPE, methname, meth = support.lookup_oosend_method(op)
         assert SELFTYPE.oopspec_name is not None
@@ -1096,7 +1098,16 @@ class BytecodeMaker(object):
         self.emit(self.get_position(methdescr))
         self.emit_varargs(op.args[1:])
         self.register_var(op.result)
-        
+
+    def handle_residual_oosend(self, op):
+        self.minimize_variables()
+        SELFTYPE, methname, meth = support.lookup_oosend_method(op)
+        methdescr = self.codewriter.get_methdescr(SELFTYPE, methname, False)
+        self.emit('residual_oosend_canraise')
+        self.emit(self.get_position(methdescr))
+        self.emit_varargs(op.args[1:])
+        self.register_var(op.result)
+
     def serialize_op_debug_assert(self, op):
         pass     # for now
 
