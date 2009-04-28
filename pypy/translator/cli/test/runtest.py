@@ -150,6 +150,15 @@ def compile_function(func, annotation=[], graph=None, backendopt=True,
     unpatch_os(olddefs) # restore original values
     return CliFunctionWrapper(exe_name, func.__name__, auto_raise_exc)
 
+def compile_graph(graph, translator, auto_raise_exc=False,
+                  exctrans=False, nowrap=False):
+    gen = _build_gen_from_graph(graph, translator, exctrans, nowrap)
+    gen.generate_source()
+    exe_name = gen.build_exe()
+    name = getattr(graph, 'name', '<graph>')
+    return CliFunctionWrapper(exe_name, name, auto_raise_exc)
+
+
 def _build_gen(func, annotation, graph=None, backendopt=True, exctrans=False,
                annotatorpolicy=None, nowrap=False):
     try: 
@@ -180,12 +189,15 @@ def _build_gen(func, annotation, graph=None, backendopt=True, exctrans=False,
     if getoption('view'):
        t.view()
 
+    return _build_gen_from_graph(main_graph, t, exctrans, nowrap)
+
+def _build_gen_from_graph(graph, t, exctrans=False, nowrap=False):
     if getoption('wd'):
         tmpdir = py.path.local('.')
     else:
         tmpdir = udir
 
-    return GenCli(tmpdir, t, TestEntryPoint(main_graph, not nowrap), exctrans=exctrans)
+    return GenCli(tmpdir, t, TestEntryPoint(graph, not nowrap), exctrans=exctrans)
 
 class CliFunctionWrapper(object):
     def __init__(self, exe_name, name=None, auto_raise_exc=False):
