@@ -1,27 +1,11 @@
 
 import py
 from pypy.jit.metainterp.test.test_slist import ListTests
-from pypy.jit.backend.x86.support import c_meta_interp
+from pypy.jit.backend.x86.runner import CPU386
+from pypy.jit.backend.test.support import CCompiledMixin
 
-class Jit386Mixin(object):
-    @staticmethod
-    def meta_interp(fn, args, **kwds):
-        return c_meta_interp(fn, args, **kwds)
-
-    def check_loops(self, *args, **kwds):
-        pass
-
-    def check_tree_loop_count(self, *args, **kwds):
-        pass
-
-    def check_enter_count(self, *args, **kwds):
-        pass
-
-    def check_enter_count_at_most(self, *args, **kwds):
-        pass
-
-    def interp_operations(self, *args, **kwds):
-        py.test.skip("using interp_operations")
+class Jit386Mixin(CCompiledMixin):
+    CPUClass = CPU386
 
 class TestSList(Jit386Mixin, ListTests):
     # for the individual tests see
