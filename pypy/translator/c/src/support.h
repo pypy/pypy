@@ -20,15 +20,16 @@
 #define FAIL_ZER(msg) FAIL_EXCEPTION(PyExc_ZeroDivisionError, msg)
 #define CFAIL()       RPyConvertExceptionFromCPython()
 
+/* the following macros are used by rpython/lltypesystem/rstr.py */
 #define PyString_FromRPyString(rpystr) \
-	PyString_FromStringAndSize(RPyString_AsString(rpystr), RPyString_Size(rpystr))
+	PyString_FromStringAndSize(_RPyString_AsString(rpystr), RPyString_Size(rpystr))
 
 #define PyUnicode_FromRPyUnicode(rpystr) \
-	PyUnicode_FromUnicode(RPyUnicode_AsUnicode(rpystr), RPyUnicode_Size(rpystr))
+	PyUnicode_FromUnicode(_RPyUnicode_AsUnicode(rpystr), RPyUnicode_Size(rpystr))
 
-#define PyString_ToRPyString(s, rpystr)                           \
-	memcpy(RPyString_AsString(rpystr), PyString_AS_STRING(s), \
-               RPyString_Size(rpystr))
+#define PyString_ToRPyString(s, rpystr)                            \
+	memcpy(_RPyString_AsString(rpystr), PyString_AS_STRING(s), \
+		RPyString_Size(rpystr))
 
 /* Extra checks can be enabled with the RPY_ASSERT or RPY_LL_ASSERT
  * macros.  They differ in the level at which the tests are made.
