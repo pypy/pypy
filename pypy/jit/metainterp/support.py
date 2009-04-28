@@ -132,6 +132,8 @@ _ll_2_list_inplace_mul = rlist.ll_inplace_mul
 _ll_2_list_getitem_foldable = _ll_2_list_getitem
 _ll_1_list_len_foldable     = _ll_1_list_len
 
+# ---------- dict ----------
+
 def _ll_0_newdict(DICT):
     return rdict.ll_newdict(DICT)
 _ll_0_newdict.need_result_type = True
@@ -142,18 +144,36 @@ _ll_2_dict_delitem = rdict.ll_dict_delitem
 _ll_3_dict_setdefault = rdict.ll_setdefault
 _ll_2_dict_contains = rdict.ll_contains
 _ll_3_dict_get = rdict.ll_get
-def _ll_1_newdictiter(ITERPTR, d):
-    return rdict.ll_dictiter(lltype.Ptr(ITERPTR), d)
-_ll_1_newdictiter.need_result_type = True
-def _ll_2_dictiter_dictnext(RESULTTYPE, dic, func):
-    return rdict.ll_dictnext(dic, func, RESULTTYPE)
-_ll_2_dictiter_dictnext.need_result_type = True
-def _ll_2_newdictkvi(LIST, dic, func):
-    return rdict.ll_kvi(dic, LIST, func)
-_ll_2_newdictkvi.need_result_type = True
 _ll_1_dict_copy = rdict.ll_copy
 _ll_1_dict_clear = rdict.ll_clear
 _ll_2_dict_update = rdict.ll_update
+
+# ---------- dict keys(), values(), items(), iter ----------
+
+_ll_1_dict_keys   = rdict.ll_dict_keys
+_ll_1_dict_values = rdict.ll_dict_values
+_ll_1_dict_items  = rdict.ll_dict_items
+_ll_1_dict_keys  .need_result_type = True
+_ll_1_dict_values.need_result_type = True
+_ll_1_dict_items .need_result_type = True
+
+def _ll_1_newdictiter(ITER, d):
+    return rdict.ll_dictiter(lltype.Ptr(ITER), d)
+_ll_1_newdictiter.need_result_type = True
+
+_dictnext_keys   = rdict.ll_dictnext_group['keys']
+_dictnext_values = rdict.ll_dictnext_group['values']
+_dictnext_items  = rdict.ll_dictnext_group['items']
+
+def _ll_1_dictiter_nextkeys(iter):
+    return _dictnext_keys(None, iter)
+def _ll_1_dictiter_nextvalues(iter):
+    return _dictnext_values(None, iter)
+def _ll_1_dictiter_nextitems(RES, iter):
+    return _dictnext_items(lltype.Ptr(RES), iter)
+_ll_1_dictiter_nextitems.need_result_type = True
+
+# ---------- strings and unicode ----------
 
 _ll_5_string_copy_contents = rstr.copy_string_contents
 

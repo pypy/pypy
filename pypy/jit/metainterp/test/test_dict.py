@@ -4,27 +4,60 @@ from pypy.rlib.jit import JitDriver
 
 class DictTests:
 
-    def test_basic_dict(self):
-        py.test.skip("in-progress")
-        myjitdriver = JitDriver(greens = [], reds = ['n', 'dct'])
+    def test_dict_keys_values_items(self):
+        for name, extract, expected in [('keys', None, 'k'),
+                                        ('values', None, 'v'),
+                                        ('items', 0, 'k'),
+                                        ('items', 1, 'v'),
+                                        ]:
+            myjitdriver = JitDriver(greens = [], reds = ['n', 'dct'])
+            def f(n):
+                dct = {}
+                while n > 0:
+                    myjitdriver.can_enter_jit(n=n, dct=dct)
+                    myjitdriver.jit_merge_point(n=n, dct=dct)
+                    dct[n] = n*n
+                    n -= 1
+                sum = 0
+                for x in getattr(dct, name)():
+                    if extract is not None:
+                        x = x[extract]
+                    sum += x
+                return sum
+
+            if expected == 'k':
+                expected = 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10
+            else:
+                expected = 1 + 4 + 9 + 16 + 25 + 36 + 49 + 64 + 81 + 100
+
+            assert f(10) == expected
+            res = self.meta_interp(f, [10], listops=True)
+            assert res == expected
+
+    def test_dict_iter(self):
+        myjitdriver = JitDriver(greens = [], reds = ['total', 'it'])
         def f(n):
-            dct = {}
-            while n > 0:
-                myjitdriver.can_enter_jit(n=n, dct=dct)
-                myjitdriver.jit_merge_point(n=n, dct=dct)
-                dct[n] = n*n
-                n -= 1
-            sum = 0
-            for i in dct.values():
-                sum += i
-            return sum
-        assert f(10) == 1 + 4 + 9 + 16 + 25 + 36 + 49 + 64 + 81 + 100
+            dct = {n: 100, 50: n+1}
+            it = dct.iterkeys()
+            total = 0
+            while True:
+                myjitdriver.can_enter_jit(total=total, it=it)
+                myjitdriver.jit_merge_point(total=total, it=it)
+                try:
+                    total += it.next()
+                except StopIteration:
+                    break
+            return total
+
+        assert f(10) == 60
         res = self.meta_interp(f, [10], listops=True)
-        assert res == 1 + 4 + 9 + 16 + 25 + 36 + 49 + 64 + 81 + 100
+        assert res == 60
 
 
 class TestOOtype(DictTests, OOJitMixin):
-    def test_basic_dict(self):
+    def test_dict_keys_values_items(self):
+        py.test.skip("implement me")
+    def test_dict_iter(self):
         py.test.skip("implement me")
 
 class TestLLtype(DictTests, LLJitMixin):

@@ -3,7 +3,7 @@ from pypy.tool.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.rdict import AbstractDictRepr, AbstractDictIteratorRepr,\
-     rtype_newdict, dum_variant, dum_keys, dum_values, dum_items
+     rtype_newdict
 from pypy.rpython.rpbc import MethodOfFrozenPBCRepr,\
      AbstractFunctionsPBCRepr, AbstractMethodsPBCRepr
 from pypy.rpython.ootypesystem import ootype
@@ -121,21 +121,20 @@ class DictRepr(AbstractDictRepr):
         return hop.gendirectcall(ll_dict_update, v_dict1, v_dict2)
 
     def rtype_method_keys(self, hop):
-        return self._rtype_method_kvi(hop, dum_keys)
+        return self._rtype_method_kvi(hop, ll_dict_keys)
 
     def rtype_method_values(self, hop):
-        return self._rtype_method_kvi(hop, dum_values)
+        return self._rtype_method_kvi(hop, ll_dict_values)
 
     def rtype_method_items(self, hop):
-        return self._rtype_method_kvi(hop, dum_items)
+        return self._rtype_method_kvi(hop, ll_dict_items)
 
-    def _rtype_method_kvi(self, hop, spec):
+    def _rtype_method_kvi(self, hop, ll_func):
         v_dict, = hop.inputargs(self)
         r_list = hop.r_result
         cLIST = hop.inputconst(ootype.Void, r_list.lowleveltype)
-        c_func = hop.inputconst(ootype.Void, spec)
         hop.exception_cannot_occur()
-        return hop.gendirectcall(ll_dict_kvi, v_dict, cLIST, c_func)
+        return hop.gendirectcall(ll_func, cLIST, v_dict)
 
     def rtype_method_iterkeys(self, hop):
         hop.exception_cannot_occur()
@@ -321,25 +320,31 @@ def ll_dict_setdefault(d, key, default):
         d.ll_set(key, default)
         return default
 
-def ll_dict_kvi(d, LIST, func):
-    length = d.ll_length()
-    result = LIST.ll_newlist(length)
-    it = d.ll_get_items_iterator()
-    i = 0
-    while it.ll_go_next():
-        if func is dum_keys:
-            result.ll_setitem_fast(i, it.ll_current_key())
-        elif func is dum_values:
-            result.ll_setitem_fast(i, it.ll_current_value())
-        if func is dum_items:
-            r = ootype.new(LIST.ITEM)
-            r.item0 = it.ll_current_key()   # TODO: do we need casting?
-            r.item1 = it.ll_current_value()
-            result.ll_setitem_fast(i, r)
-        i += 1
-    assert i == length
-    return result
+def _make_ll_keys_values_items(kind):
+    def ll_dict_kvi(LIST, d):
+        length = d.ll_length()
+        result = LIST.ll_newlist(length)
+        it = d.ll_get_items_iterator()
+        i = 0
+        while it.ll_go_next():
+            if kind == 'keys':
+                result.ll_setitem_fast(i, it.ll_current_key())
+            elif kind == 'values':
+                result.ll_setitem_fast(i, it.ll_current_value())
+            elif kind == 'items':
+                r = ootype.new(LIST.ITEM)
+                r.item0 = it.ll_current_key()   # TODO: do we need casting?
+                r.item1 = it.ll_current_value()
+                result.ll_setitem_fast(i, r)
+            i += 1
+        assert i == length
+        return result
+    ll_dict_kvi.oopspec = 'dict.%s(d)' % kind
+    return ll_dict_kvi
 
+ll_dict_keys   = _make_ll_keys_values_items('keys')
+ll_dict_values = _make_ll_keys_values_items('values')
+ll_dict_items  = _make_ll_keys_values_items('items')
 
 # ____________________________________________________________
 #
@@ -352,7 +357,7 @@ class DictIteratorRepr(AbstractDictIteratorRepr):
         self.variant = variant
         self.lowleveltype = self._get_type()
         self.ll_dictiter = ll_dictiter
-        self.ll_dictnext = ll_dictnext
+        self.ll_dictnext = ll_dictnext_group[variant]
 
     def _get_type(self):
         KEYTYPE = self.r_dict.key_repr.lowleveltype
@@ -365,18 +370,26 @@ def ll_dictiter(ITER, d):
     iter.iterator = d.ll_get_items_iterator()
     return iter
 
-def ll_dictnext(iter, func, RETURNTYPE):
-    it = iter.iterator
-    if not it.ll_go_next():
-        raise StopIteration
+def _make_ll_dictnext(kind):
+    # make three versions of the following function: keys, values, items
+    def ll_dictnext(RETURNTYPE, iter):
+        # note that RETURNTYPE is None for keys and values
+        it = iter.iterator
+        if not it.ll_go_next():
+            raise StopIteration
 
-    if func is dum_keys:
-        return it.ll_current_key()
-    elif func is dum_values:
-        return it.ll_current_value()
-    elif func is dum_items:
-        res = ootype.new(RETURNTYPE)
-        res.item0 = it.ll_current_key()
-        res.item1 = it.ll_current_value()
-        return res
+        if kind == 'keys':
+            return it.ll_current_key()
+        elif kind == 'values':
+            return it.ll_current_value()
+        elif kind == 'items':
+            res = ootype.new(RETURNTYPE)
+            res.item0 = it.ll_current_key()
+            res.item1 = it.ll_current_value()
+            return res
+    ll_dictnext.oopspec = 'dictiter.next%s(iter)' % kind
+    return ll_dictnext
 
+ll_dictnext_group = {'keys'  : _make_ll_dictnext('keys'),
+                     'values': _make_ll_dictnext('values'),
+                     'items' : _make_ll_dictnext('items')}
