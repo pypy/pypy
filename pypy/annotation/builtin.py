@@ -186,7 +186,8 @@ def builtin_isinstance(s_obj, s_type, variables=None):
         for variable in variables:
             assert bk.annotator.binding(variable) == s_obj
         r.knowntypedata = {}
-        if not isinstance(s_type, SomeBuiltin):
+        if (not isinstance(s_type, SomeBuiltin)
+            or typ.__module__ == '__builtin__'):
             add_knowntypedata(r.knowntypedata, True, variables, bk.valueoftype(typ))
     return r
 
