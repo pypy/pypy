@@ -58,16 +58,35 @@ class BaseTestOperations(object):
                 return -1
         assert self.interpret(fn, [10, 0]) == -1
 
+    def test_div_ovf_zer(self):
+        def fn(x, y):
+            try:
+                return ovfcheck(x // y)
+            except OverflowError:
+                return -41
+            except ZeroDivisionError:
+                return -42
+        assert self.interpret(fn, [50, 3]) == 16
+        assert self.interpret(fn, [50, 0]) == -42
+        assert self.interpret(fn, [50, -3]) == -17
+        assert self.interpret(fn, [-50, 3]) == -17
+        assert self.interpret(fn, [-50, -3]) == 16
+        assert self.interpret(fn, [-sys.maxint-1, -1]) == -41
+    
     def test_mod_ovf_zer(self):
         def fn(x, y):
             try:
                 return ovfcheck(x % y)
             except OverflowError:
-                return -1
+                return -41
             except ZeroDivisionError:
-                return -2
+                return -42
         assert self.interpret(fn, [10, 3]) == 1
-        assert self.interpret(fn, [10, 0]) == -2
+        assert self.interpret(fn, [10, 0]) == -42
+        assert self.interpret(fn, [10, -3]) == -2
+        assert self.interpret(fn, [-10, 3]) == 2
+        assert self.interpret(fn, [-10, -3]) == -1
+        assert self.interpret(fn, [-sys.maxint-1, -1]) == -41
 
     def test_llong_and(self):
         def fn(x, y):
