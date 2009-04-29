@@ -157,9 +157,8 @@ class Function(object):
         for link in block.exits:
             if link.exitcase is None:
                 continue
-            if not self._is_raise_block(link.target):
-                anyHandler = True
-        anyHandler = anyHandler or not self.auto_propagate_exceptions
+            anyHandler = anyHandler or \
+                not self._auto_propagate(link, block)
         
         # render the last one (if any!) and prepend a .try
         if block.operations:
