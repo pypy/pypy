@@ -199,6 +199,7 @@ LL_OPERATIONS = {
               # ^^^ more efficient version when 2nd arg is nonneg
     'int_sub_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
     'int_mul_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
+    # the following operations overflow in one case: (-sys.maxint-1) // (-1)
     'int_floordiv_ovf':     LLOp(canraise=(OverflowError,), tryfold=True),
     'int_floordiv_ovf_zer': LLOp(canraise=(OverflowError, ZeroDivisionError),
                                                             tryfold=True),
