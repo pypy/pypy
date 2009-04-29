@@ -281,13 +281,19 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
     and_.can_only_throw = []
 
     def lshift((int1, int2)):
-        return SomeInteger(knowntype=int1.knowntype)
-
-    lshift_ovf = _clone(lshift, [ValueError, OverflowError])
+        if isinstance(int1, SomeBool):
+            return SomeInteger()
+        else:
+            return SomeInteger(knowntype=int1.knowntype)
+    lshift.can_only_throw = []
+    lshift_ovf = _clone(lshift, [OverflowError])
 
     def rshift((int1, int2)):
-        return SomeInteger(nonneg=int1.nonneg, knowntype=int1.knowntype)
-    rshift.can_only_throw = [ValueError]
+        if isinstance(int1, SomeBool):
+            return SomeInteger(nonneg=True)
+        else:
+            return SomeInteger(nonneg=int1.nonneg, knowntype=int1.knowntype)
+    rshift.can_only_throw = []
 
     def pow((int1, int2), obj3):
         knowntype = rarithmetic.compute_restype(int1.knowntype, int2.knowntype)
@@ -361,16 +367,6 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
     def gt(intint): return intint._compare_helper('gt', operator.gt)
     def ge(intint): return intint._compare_helper('ge', operator.ge)
 
-class __extend__(pairtype(SomeBool, SomeInteger)):
-    def lshift((int1, int2)):
-        return SomeInteger()
-
-    lshift.can_only_throw = [ValueError]
-    lshift_ovf = _clone(lshift, [ValueError, OverflowError])
-
-    def rshift((int1, int2)):
-        return SomeInteger(nonneg=True)
-    rshift.can_only_throw = [ValueError]
 
 class __extend__(pairtype(SomeBool, SomeBool)):
 

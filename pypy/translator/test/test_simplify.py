@@ -51,11 +51,13 @@ def test_remove_ovfcheck_lshift():
             return -42
     graph, _ = translate(f, [int])
     assert len(graph.startblock.operations) == 1
-    assert graph.startblock.operations[0].opname == 'int_lshift_ovf_val'
+    assert graph.startblock.operations[0].opname == 'int_lshift_ovf'
     assert len(graph.startblock.operations[0].args) == 2
-    assert len(graph.startblock.exits) == 3
+    assert len(graph.startblock.exits) == 2
+    assert [link.exitcase for link in graph.startblock.exits] == \
+           [None, OverflowError]
     assert [link.target.operations for link in graph.startblock.exits] == \
-           [(), (), ()]
+           [(), ()]
 
 def test_remove_ovfcheck_floordiv():
     # check that ovfcheck() is handled even if the operation raises

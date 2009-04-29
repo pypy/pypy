@@ -189,9 +189,7 @@ LL_OPERATIONS = {
     'int_and':              LLOp(canfold=True),
     'int_or':               LLOp(canfold=True),
     'int_lshift':           LLOp(canfold=True),
-    'int_lshift_val':       LLOp(canraise=(ValueError,), tryfold=True),
     'int_rshift':           LLOp(canfold=True),
-    'int_rshift_val':       LLOp(canraise=(ValueError,), tryfold=True),
     'int_xor':              LLOp(canfold=True),
 
     'int_add_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
@@ -207,8 +205,6 @@ LL_OPERATIONS = {
     'int_mod_ovf_zer':      LLOp(canraise=(OverflowError, ZeroDivisionError),
                                                             tryfold=True),
     'int_lshift_ovf':       LLOp(canraise=(OverflowError,), tryfold=True),
-    'int_lshift_ovf_val':   LLOp(canraise=(OverflowError, ValueError,),
-                                                            tryfold=True),
 
     'uint_is_true':         LLOp(canfold=True),
     'uint_invert':          LLOp(canfold=True),
@@ -229,9 +225,7 @@ LL_OPERATIONS = {
     'uint_and':             LLOp(canfold=True),
     'uint_or':              LLOp(canfold=True),
     'uint_lshift':          LLOp(canfold=True),
-    'uint_lshift_val':      LLOp(canraise=(ValueError,), tryfold=True),
     'uint_rshift':          LLOp(canfold=True),
-    'uint_rshift_val':      LLOp(canraise=(ValueError,), tryfold=True),
     'uint_xor':             LLOp(canfold=True),
 
     'float_is_true':        LLOp(canfold=True),
@@ -274,9 +268,7 @@ LL_OPERATIONS = {
     'llong_and':            LLOp(canfold=True),
     'llong_or':             LLOp(canfold=True),
     'llong_lshift':         LLOp(canfold=True),
-    'llong_lshift_val':     LLOp(canraise=(ValueError,), tryfold=True),
     'llong_rshift':         LLOp(canfold=True),
-    'llong_rshift_val':     LLOp(canraise=(ValueError,), tryfold=True),
     'llong_xor':            LLOp(canfold=True),
 
     'ullong_is_true':       LLOp(canfold=True),
@@ -298,9 +290,7 @@ LL_OPERATIONS = {
     'ullong_and':           LLOp(canfold=True),
     'ullong_or':            LLOp(canfold=True),
     'ullong_lshift':        LLOp(canfold=True),
-    'ullong_lshift_val':    LLOp(canraise=(ValueError,), tryfold=True),
     'ullong_rshift':        LLOp(canfold=True),
-    'ullong_rshift_val':    LLOp(canraise=(ValueError,), tryfold=True),
     'ullong_xor':           LLOp(canfold=True),
 
     'cast_primitive':       LLOp(canfold=True),

@@ -179,8 +179,6 @@ binary_ops = {
 
     'int_lshift_ovf':           _check_ovf([PushArg(0),'conv.i8',PushArg(1), 'shl',
                                             'conv.ovf.i4', StoreResult]),
-    'int_lshift_ovf_val':       _check_ovf([PushArg(0),'conv.i8',PushArg(1), 'shl',
-                                            'conv.ovf.i4', StoreResult]),
 
     'int_rshift_ovf':           'shr', # these can't overflow!
     'int_xor_ovf':              'xor',

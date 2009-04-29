@@ -480,13 +480,8 @@ class TestTypedTestCase(CompilationTestCase):
         raises(OverflowError, fn, -1)
         raises(ZeroDivisionError, fn, 0)
 
-    def test_int_rshift_val(self):
-        fn = self.getcompiled(snippet.rshift_func, [int])
-        raises(ValueError, fn, -1)
-
-    def test_int_lshift_ovf_val(self):
+    def test_int_lshift_ovf(self):
         fn = self.getcompiled(snippet.lshift_func, [int])
-        raises(ValueError, fn, -1)
         raises(OverflowError, fn, 1)
 
     def test_int_unary_ovf(self):

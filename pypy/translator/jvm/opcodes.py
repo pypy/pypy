@@ -129,7 +129,6 @@ opcodes = _proc_dict({
     'int_or_ovf':               jvm.IOR,
 
     'int_lshift_ovf':           jvm.ISHLOVF,
-    'int_lshift_ovf_val':       jvm.ISHLOVF, # VAL... what is val used for??
 
     'int_rshift_ovf':           jvm.ISHR, # these can't overflow!
     'int_xor_ovf':              jvm.IXOR,

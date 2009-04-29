@@ -115,14 +115,14 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
     rtype_inplace_or = rtype_or_
 
     def rtype_lshift(_, hop):
-        return _rtype_template(hop, 'lshift', [ValueError])
+        return _rtype_template(hop, 'lshift')
     rtype_inplace_lshift = rtype_lshift
 
     def rtype_lshift_ovf(_, hop):
-        return _rtype_template(hop, 'lshift_ovf', [ValueError])
+        return _rtype_template(hop, 'lshift_ovf')
 
     def rtype_rshift(_, hop):
-        return _rtype_template(hop, 'rshift', [ValueError])
+        return _rtype_template(hop, 'rshift')
     rtype_inplace_rshift = rtype_rshift
 
     def rtype_pow(_, hop):
