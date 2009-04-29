@@ -1,9 +1,11 @@
 import py
 import sys
 from pypy.translator.c.test import test_typed
+from pypy.translator.c.test import test_backendoptimized
 from pypy.rpython.lltypesystem import lltype
 
 getcompiled = test_typed.TestTypedTestCase().getcompiled
+getcompiledopt = test_backendoptimized.TestTypedOptimizedTestCase().getcompiled
 
 
 class TestException(Exception):
@@ -132,7 +134,6 @@ def test_assert():
     finally:
         restore_magic(saved)
 
-
 def no_magic():
     import __builtin__
     try:
@@ -144,3 +145,35 @@ def no_magic():
 def restore_magic(saved):
     if saved:
         py.magic.invoke(assertion=True)
+
+
+def test_reraise_exception():
+    class A(Exception):
+        pass
+
+    def raise_something(n):
+        if n > 10:
+            raise A
+        else:
+            raise Exception
+
+    def foo(n):
+        try:
+            raise_something(n)
+        except A:
+            raise     # go through
+        except Exception, e:
+            return 100
+        return -1
+
+    def fn(n):
+        try:
+            return foo(n)
+        except A:
+            return 42
+
+    f1 = getcompiledopt(fn, [int])
+    res = f1(100)
+    assert res == 42
+    res = f1(0)
+    assert res == 100
