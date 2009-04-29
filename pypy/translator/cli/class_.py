@@ -42,6 +42,9 @@ class Class(Node):
 
     def get_base_class(self):
         base_class = self.INSTANCE._superclass
+        if self.INSTANCE is self.db.genoo.EXCEPTION:
+            assert self.is_root(base_class)
+            return '[mscorlib]System.Exception'
         if self.is_root(base_class):
             return '[mscorlib]System.Object'
         else:
@@ -146,6 +149,8 @@ class Class(Node):
         self.ilasm.end_function()
 
     def _toString(self):
+        if self.get_base_class() == '[mscorlib]System.Exception':
+            return # don't override the default ToString, which prints a traceback
         self.ilasm.begin_function('ToString', [], 'string', False, 'virtual', 'instance', 'default')
         self.ilasm.opcode('ldarg.0')
         self.ilasm.call('string class [pypylib]pypy.test.Result::InstanceToPython(object)')

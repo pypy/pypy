@@ -42,6 +42,11 @@ class GenCli(GenOO):
         self.assembly_name = entrypoint.get_name()
         self.tmpfile = tmpdir.join(self.assembly_name + '.il')
         self.const_stat = str(tmpdir.join('const_stat'))
+        rtyper = translator.rtyper
+        bk = rtyper.annotator.bookkeeper
+        clsdef = bk.getuniqueclassdef(Exception)
+        ll_Exception = rtyper.exceptiondata.get_standard_ll_exc_instance(rtyper, clsdef)
+        self.EXCEPTION = ll_Exception._inst._TYPE
 
     def append_prebuilt_nodes(self):
         for node in get_prebuilt_nodes(self.translator, self.db):
