@@ -289,7 +289,7 @@ OPERATIONS.append(BooleanUnaryOperation(rop.BOOL_NOT, boolres=True))
 
 for i in range(4):      # make more common
     OPERATIONS.append(GetFieldOperation(rop.GETFIELD_GC))
-    OPERATIONS.append(GetFieldOperation(rop.GETFIELD_GC_PURE))
+    OPERATIONS.append(GetFieldOperation(rop.GETFIELD_GC))
     OPERATIONS.append(SetFieldOperation(rop.SETFIELD_GC))
     OPERATIONS.append(NewOperation(rop.NEW))
 
@@ -309,6 +309,12 @@ def Random():
                 break
         if r.randrange(0, 5) <= 1:
             result = -result
+        if result not in (0, -1) and r.random() < 0.1:
+            # occasionally produce a very large integer.  The algo is such
+            # that it's likely we get a special value, e.g. sys.maxint or
+            # -sys.maxint-1.
+            while intmask(result << 2) == (result << 2):
+                result = (result << 2) | (result & 0x3)
         return result
     r.random_integer = get_random_integer
     return r
