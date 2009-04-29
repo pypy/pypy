@@ -35,23 +35,31 @@ class DictTests:
             assert res == expected
 
     def test_dict_iter(self):
-        myjitdriver = JitDriver(greens = [], reds = ['total', 'it'])
-        def f(n):
-            dct = {n: 100, 50: n+1}
-            it = dct.iterkeys()
-            total = 0
-            while True:
-                myjitdriver.can_enter_jit(total=total, it=it)
-                myjitdriver.jit_merge_point(total=total, it=it)
-                try:
-                    total += it.next()
-                except StopIteration:
-                    break
-            return total
+        for name, extract, expected in [('iterkeys', None, 60),
+                                        ('itervalues', None, 111),
+                                        ('iteritems', 0, 60),
+                                        ('iteritems', 1, 111),
+                                        ]:
+            myjitdriver = JitDriver(greens = [], reds = ['total', 'it'])
+            def f(n):
+                dct = {n: 100, 50: n+1}
+                it = getattr(dct, name)()
+                total = 0
+                while True:
+                    myjitdriver.can_enter_jit(total=total, it=it)
+                    myjitdriver.jit_merge_point(total=total, it=it)
+                    try:
+                        x = it.next()
+                    except StopIteration:
+                        break
+                    if extract is not None:
+                        x = x[extract]
+                    total += x
+                return total
 
-        assert f(10) == 60
-        res = self.meta_interp(f, [10], listops=True)
-        assert res == 60
+            assert f(10) == expected
+            res = self.meta_interp(f, [10], listops=True)
+            assert res == expected
 
 
 class TestOOtype(DictTests, OOJitMixin):
