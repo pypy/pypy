@@ -21,7 +21,8 @@ class OperationBuilder:
 
     def do(self, opnum, argboxes, descr=None):
         v_result = execute(self.cpu, opnum, argboxes, descr)
-        v_result = BoxInt(v_result.value)
+        if isinstance(v_result, ConstInt):
+            v_result = BoxInt(v_result.value)
         self.loop.operations.append(ResOperation(opnum, argboxes, v_result,
                                                  descr))
         return v_result
@@ -103,8 +104,8 @@ class OperationBuilder:
                 print >>s, '              )'
                 written[S] = True
             print >>s, '    p = lltype.malloc(%s)' % (S._name,)
-            for name in S._names:
-                print >>s, '    p.%s = %d' % (name, getattr(container, name))
+            for name, value in fields.items():
+                print >>s, '    p.%s = %d' % (name, value)
             writevar(v, 'preb')
             print >>s, '    %s.value =' % (names[v],),
             print >>s, 'lltype.cast_opaque_ptr(llmemory.GCREF, p)'
@@ -207,13 +208,27 @@ class GuardOperation(AbstractOperation):
             builder.should_fail_by_num = len(builder.loop.operations) - 1
 
 class GetFieldOp(AbstractOperation):
-    def produce_into(self, builder, r):
+    def field_name(self, builder, r):
         v = builder.get_structptr_var(r)
         S = lltype.typeOf(v.value._obj.container)
         name = r.choice(S._names)
         descr = builder.cpu.fielddescrof(S, name)
         descr._random_info = 'cpu.fielddescrof(%s, %r)' % (S._name, name)
+        return v, descr
+
+    def produce_into(self, builder, r):
+        v, descr = self.field_name(builder, r)
         self.put(builder, [v], descr)
+
+class SetFieldOp(GetFieldOp):
+    def produce_into(self, builder, r):
+        v, descr = self.field_name(builder, r)
+        if r.random() < 0.3:
+            w = ConstInt(r.random_integer())
+        else:
+            w = r.choice(builder.intvars)
+        builder.do(self.opnum, [v, w], descr)
+
 
 # ____________________________________________________________
 
@@ -259,8 +274,10 @@ for _op in [rop.INT_NEG,
 OPERATIONS.append(UnaryOperation(rop.INT_IS_TRUE, boolres=True))
 OPERATIONS.append(BooleanUnaryOperation(rop.BOOL_NOT, boolres=True))
 
-OPERATIONS.append(GetFieldOp(rop.GETFIELD_GC))
-OPERATIONS.append(GetFieldOp(rop.GETFIELD_GC_PURE))
+for i in range(3):      # make more common
+    OPERATIONS.append(GetFieldOp(rop.GETFIELD_GC))
+    OPERATIONS.append(GetFieldOp(rop.GETFIELD_GC_PURE))
+    OPERATIONS.append(SetFieldOp(rop.SETFIELD_GC))
 
 # ____________________________________________________________
 
@@ -334,6 +351,11 @@ def check_random_function(r):
     expected = {}
     for v in endvars:
         expected[v] = v.value
+
+    for v, fields in builder.prebuilt_ptr_consts:
+        container = v.value._obj.container
+        for name, value in fields.items():
+            setattr(container, name, value)
 
     for i, v in enumerate(valueboxes):
         cpu.set_future_value_int(i, v.value)
