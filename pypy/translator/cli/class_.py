@@ -149,7 +149,7 @@ class Class(Node):
         self.ilasm.end_function()
 
     def _toString(self):
-        if self.get_base_class() == '[mscorlib]System.Exception':
+        if ootype.isSubclass(self.INSTANCE, self.db.genoo.EXCEPTION):
             return # don't override the default ToString, which prints a traceback
         self.ilasm.begin_function('ToString', [], 'string', False, 'virtual', 'instance', 'default')
         self.ilasm.opcode('ldarg.0')
