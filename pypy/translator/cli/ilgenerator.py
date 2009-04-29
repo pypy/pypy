@@ -232,8 +232,11 @@ class IlasmGenerator(object):
         elif type_ in (SignedLongLong, UnsignedLongLong):
             self.opcode('ldc.i8', str(v))
 
-    def store_local (self, v):
+    def store_local(self, v):
         self.opcode('stloc', repr(v.name))
+
+    def store_arg(self, v):
+        self.opcode('starg', repr(v.name))
 
     def store_static_constant(self, cts_type, CONST_NAMESPACE, CONST_CLASS, name):
         self.opcode('stsfld', '%s %s.%s::%s' % (cts_type, CONST_NAMESPACE, CONST_CLASS, name))

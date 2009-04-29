@@ -198,6 +198,9 @@ class Function(OOFunction, Node, CLIBaseGenerator):
     def store(self, v):
         if isinstance(v, flowmodel.Variable):
             if v.concretetype is not Void:
-                self.ilasm.store_local(v)
+                if v.name in self.argset:
+                    self.ilasm.store_arg(v)
+                else:
+                    self.ilasm.store_local(v)
         else:
             assert False
