@@ -1533,8 +1533,6 @@ class _list(_builtin_type):
     def ll_length(self):
         # NOT_RPYTHON
         return len(self._list)
-    ll_length.oopargcheck = lambda a: bool(a)
-    ll_length.foldable = True
 
     def _ll_resize_ge(self, length):
         # NOT_RPYTHON        
@@ -1562,8 +1560,6 @@ class _list(_builtin_type):
         assert typeOf(index) == Signed
         assert index >= 0
         return self._list[index]
-    ll_getitem_fast.oopargcheck = lambda l, k: bool(l)
-    ll_getitem_fast.couldfold = True # XXX?
 
     def ll_setitem_fast(self, index, item):
         # NOT_RPYTHON
@@ -1585,15 +1581,12 @@ class _array(_builtin_type):
     def ll_length(self):
         # NOT_RPYTHON
         return len(self._array)
-    ll_length.oopargcheck = lambda a: bool(a)
-    ll_length.foldable = True
 
     def ll_getitem_fast(self, index):
         # NOT_RPYTHON
         assert typeOf(index) == Signed
         assert index >= 0
         return self._array[index]
-    ll_getitem_fast.oopargcheck = lambda a, index: bool(a)
 
     def ll_setitem_fast(self, index, item):
         # NOT_RPYTHON
@@ -1601,7 +1594,6 @@ class _array(_builtin_type):
         assert typeOf(index) == Signed
         assert index >= 0
         self._array[index] = item
-    ll_setitem_fast.oopargcheck = lambda a, index, item: bool(a)
 
     def _identityhash(self):
         if self:
@@ -1624,8 +1616,6 @@ class _dict(_builtin_type):
     def ll_length(self):
         # NOT_RPYTHON
         return len(self._dict)
-    ll_length.oopargcheck = lambda a: bool(a)
-    ll_length.foldable = True
 
     def ll_get(self, key):
         # NOT_RPYTHON
@@ -1633,7 +1623,6 @@ class _dict(_builtin_type):
         assert key in self._dict
         assert key == self._last_key
         return self._dict[key]
-    ll_get.oopargcheck = lambda d, key: bool(d)
 
     def ll_set(self, key, value):
         # NOT_RPYTHON
@@ -1657,7 +1646,6 @@ class _dict(_builtin_type):
         assert typeOf(key) == self._TYPE._KEYTYPE
         self._last_key = key
         return key in self._dict
-    ll_contains.oopargcheck = lambda d, key: bool(d)
 
     def ll_clear(self):
         self._dict.clear()
