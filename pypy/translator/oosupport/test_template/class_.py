@@ -1,8 +1,8 @@
 import py
-from pypy.rpython.test.test_rclass import BaseTestRclass
+from pypy.rpython.test import test_rclass
 from pypy.rpython.test.test_rspecialcase import BaseTestRspecialcase
 
-class BaseTestClass(BaseTestRclass):    
+class BaseTestClass(test_rclass.TestOOtype):
     def test_abstract_method(self):
         class Base:
             pass

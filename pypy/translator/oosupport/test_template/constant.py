@@ -1,3 +1,5 @@
+from pypy.rpython.ootypesystem import ootype
+
 # used in tests below
 class A:
     pass
@@ -143,3 +145,29 @@ class BaseTestConstant:
             return mylist[x]
         res = self.interpret(fn, [0])
         assert self.class_name(res) == 'A'
+
+    def test_convert_string_to_object(self):
+        s = self.string_to_ll("hello world")
+        obj = ootype.cast_to_object(s)
+        def fn():
+            s1 = ootype.cast_from_object(ootype.String, obj)
+            return s1
+        res = self.interpret(fn, [], backendopt=False)
+        assert res == 'hello world'
+
+    def test_unwrap_object(self):
+        A = ootype.Instance("A", ootype.ROOT, {})
+        a1 = ootype.new(A)
+        a2 = ootype.new(A)
+        obj1 = ootype.cast_to_object(a1)
+        obj2 = ootype.cast_to_object(a2)
+        def fn(flag):
+            if flag:
+                obj = obj1
+            else:
+                obj = obj2
+            a3 = ootype.cast_from_object(A, obj)
+            return a3 is a1
+        res = self.interpret(fn, [True], backendopt=False)
+        assert res is True
+    

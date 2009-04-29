@@ -574,13 +574,13 @@ def cast_to_object(obj):
 def cast_from_object(T, obj):
     TYPE = T.const
     if TYPE is ootype.Object:
-        return T
-    elif isinstance(TYPE, ootype.Instance):
-        return SomeOOInstance(TYPE)
-    elif isinstance(TYPE, ootype.Record):
-        return SomeOOInstance(TYPE) # XXX: SomeOORecord?
+        return SomeOOObject()
+    elif TYPE is ootype.Class:
+        return SomeOOClass(ootype.ROOT) # ???
     elif isinstance(TYPE, ootype.StaticMethod):
         return SomeOOStaticMeth(TYPE)
+    elif isinstance(TYPE, ootype.OOType):
+        return SomeOOInstance(TYPE)
     else:
         raise AnnotatorError, 'Cannot cast Object to %s' % TYPE
 
