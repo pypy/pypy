@@ -1053,7 +1053,9 @@ class BytecodeMaker(object):
             func = meth._callable
         else:
             func = get_funcobj(op.args[0].value)._callable      # xxx break of abstraction
-        # XXX what if the type is called _nonneg or _fast???
+        # base hints on the name of the ll function, which is a bit xxx-ish
+        # but which is safe for now
+        assert func.__name__.startswith('ll_')
         non_negative = '_nonneg' in func.__name__
         fast = '_fast' in func.__name__
         if fast:
@@ -1227,8 +1229,6 @@ def assemble(labelpos, metainterp_sd, assembler):
         if isinstance(arg, str):
             if arg.startswith('#'):     # skip comments
                 continue
-            #if arg == 'green':
-            #    XXX should be removed and transformed into a list constant
             opcode = metainterp_sd.find_opcode(arg)
             result.append(chr(opcode))
         elif isinstance(arg, bool):
