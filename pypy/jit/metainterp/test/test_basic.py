@@ -536,6 +536,27 @@ class BasicTests:
         res = self.interp_operations(f, [13])
         assert res == 72
 
+    def test_zerodivisionerror(self):
+        # test the case of exception-raising operation that is not delegated
+        # to the backend at all: ZeroDivisionError
+        from pypy.rpython.lltypesystem.lloperation import llop
+        #
+        def f(n):
+            try:
+                return llop.int_mod_ovf_zer(lltype.Signed, 5, n)
+            except ZeroDivisionError:
+                return -666
+        res = self.interp_operations(f, [0])
+        assert res == -666
+        #
+        def f(n):
+            try:
+                return llop.int_floordiv_ovf_zer(lltype.Signed, 6, n)
+            except ZeroDivisionError:
+                return -667
+        res = self.interp_operations(f, [0])
+        assert res == -667
+
 
 class TestOOtype(BasicTests, OOJitMixin):
     pass

@@ -99,14 +99,14 @@ class CPU386(object):
         self.caught_exception = None
         if rtyper is not None: # for tests
             self.lltype2vtable = rtyper.lltype_to_vtable_mapping()
-        self._setup_ovf_error()
+        self._setup_prebuilt_error('ovf', OverflowError)
+        self._setup_prebuilt_error('zer', ZeroDivisionError)
         self.generated_mps = r_dict(const_descr_eq, const_descr_hash)
 
-    def _setup_ovf_error(self):
+    def _setup_prebuilt_error(self, prefix, Class):
         if self.rtyper is not None:   # normal case
             bk = self.rtyper.annotator.bookkeeper
-            clsdef = bk.getuniqueclassdef(OverflowError)
-            ovferror_repr = rclass.getclassrepr(self.rtyper, clsdef)
+            clsdef = bk.getuniqueclassdef(Class)
             ll_inst = self.rtyper.exceptiondata.get_standard_ll_exc_instance(
                 self.rtyper, clsdef)
         else:
@@ -114,8 +114,10 @@ class CPU386(object):
             ll_inst = lltype.malloc(rclass.OBJECT)
             ll_inst.typeptr = lltype.malloc(rclass.OBJECT_VTABLE,
                                             immortal=True)
-        self.assembler._ovf_error_vtable = llmemory.cast_ptr_to_adr(ll_inst.typeptr)
-        self.assembler._ovf_error_inst   = llmemory.cast_ptr_to_adr(ll_inst)
+        setattr(self.assembler, '_%s_error_vtable' % prefix,
+                llmemory.cast_ptr_to_adr(ll_inst.typeptr))
+        setattr(self.assembler, '_%s_error_inst' % prefix,
+                llmemory.cast_ptr_to_adr(ll_inst))
 
     def setup(self):
         self.assembler = Assembler386(self, self.translate_support_code)
@@ -198,6 +200,13 @@ class CPU386(object):
         ovf_inst = self.cast_adr_to_int(self.assembler._ovf_error_inst)
         self.assembler._exception_bck[0] = ovf_vtable
         self.assembler._exception_bck[1] = ovf_inst
+
+    def set_zero_division_error(self):
+        self.assembler.make_sure_mc_exists()
+        zer_vtable = self.cast_adr_to_int(self.assembler._zer_error_vtable)
+        zer_inst = self.cast_adr_to_int(self.assembler._zer_error_inst)
+        self.assembler._exception_bck[0] = zer_vtable
+        self.assembler._exception_bck[1] = zer_inst
 
     def compile_operations(self, tree):
         old_loop = tree._x86_compiled

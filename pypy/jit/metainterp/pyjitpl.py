@@ -398,6 +398,18 @@ class MIFrame(object):
                 rop.INT_ADD, [indexbox, lenbox])
         self.make_result_box(indexbox)
 
+    @arguments("orgpc", "box")
+    def opimpl_check_zerodivisionerror(self, pc, box):
+        nonzerobox = self.metainterp.execute_and_record(
+            rop.INT_NE, [box, ConstInt(0)])
+        nonzerobox = self.implement_guard_value(pc, nonzerobox)
+        if nonzerobox.getint():
+            return False
+        else:
+            # division by zero!
+            self.metainterp.cpu.set_zero_division_error()
+            return self.metainterp.handle_exception()
+
     @arguments("box")
     def opimpl_ptr_nonzero(self, box):
         self.execute(rop.OONONNULL, [box])

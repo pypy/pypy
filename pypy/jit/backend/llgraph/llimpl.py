@@ -887,15 +887,21 @@ def clear_exception():
     global _last_exception
     _last_exception = None
 
-def set_overflow_error():
+def _set_error(Class):
     global _last_exception
     llframe = _llinterp.frame_class(None, None, _llinterp)
     try:
-        llframe.make_llexception(OverflowError())
+        llframe.make_llexception(Class())
     except LLException, e:
         _last_exception = e
     else:
         assert 0, "should have raised"
+
+def set_overflow_error():
+    _set_error(OverflowError)
+
+def set_zero_division_error():
+    _set_error(ZeroDivisionError)
 
 class MemoCast(object):
     def __init__(self):
@@ -1216,6 +1222,7 @@ setannotation(get_exception, annmodel.SomeAddress())
 setannotation(get_exc_value, annmodel.SomePtr(llmemory.GCREF))
 setannotation(clear_exception, annmodel.s_None)
 setannotation(set_overflow_error, annmodel.s_None)
+setannotation(set_zero_division_error, annmodel.s_None)
 
 setannotation(new_memo_cast, s_MemoCast)
 setannotation(cast_adr_to_int, annmodel.SomeInteger())

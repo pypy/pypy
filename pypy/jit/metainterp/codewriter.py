@@ -622,21 +622,21 @@ class BytecodeMaker(object):
     def serialize_op_int_add_nonneg_ovf(self, op):
         self.default_serialize_op(op, 'int_add_ovf')
 
+    def serialize_op_int_mod_zer(self, op):
+        self.emit('check_zerodivisionerror', self.var_position(op.args[1]))
+        self.default_serialize_op(op, 'int_mod')
+
     def serialize_op_int_mod_ovf_zer(self, op):
-        # XXX handle ZeroDivisionError
+        self.emit('check_zerodivisionerror', self.var_position(op.args[1]))
         self.default_serialize_op(op, 'int_mod_ovf')
 
+    def serialize_op_int_floordiv_zer(self, op):
+        self.emit('check_zerodivisionerror', self.var_position(op.args[1]))
+        self.default_serialize_op(op, 'int_floordiv')
+
     def serialize_op_int_floordiv_ovf_zer(self, op):
-        # XXX handle ZeroDivisionError
-        self.default_serialize_op(op, 'int_floordiv_ovf')        
-
-    def serialize_op_int_lshift_ovf_val(self, op):
-        # XXX handle ValueError
-        self.default_serialize_op(op, 'int_lshift_ovf')
-
-    def serialize_op_int_lshift_val(self, op):
-        # XXX handle ValueError
-        self.default_serialize_op(op, 'int_lshift')
+        self.emit('check_zerodivisionerror', self.var_position(op.args[1]))
+        self.default_serialize_op(op, 'int_floordiv_ovf')
 
     def serialize_op_hint(self, op):
         hints = op.args[1].value

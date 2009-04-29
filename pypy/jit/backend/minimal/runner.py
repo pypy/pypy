@@ -40,22 +40,22 @@ class BaseCPU(model.AbstractCPU):
         self.stats = stats
         self.translate_support_code = translate_support_code
         self._future_values = []
-        self.setup()
+        self._ovf_error_inst = self.setup_error(OverflowError)
+        self._zer_error_inst = self.setup_error(ZeroDivisionError)
 
-    def setup(self):
+    def setup_error(self, Class):
         if self.rtyper is not None:   # normal case
             bk = self.rtyper.annotator.bookkeeper
-            clsdef = bk.getuniqueclassdef(OverflowError)
-            ovferror_repr = rclass.getclassrepr(self.rtyper, clsdef)
+            clsdef = bk.getuniqueclassdef(Class)
             ll_inst = self.rtyper.exceptiondata.get_standard_ll_exc_instance(
                 self.rtyper, clsdef)
         else:
             # for tests, a random emulated ll_inst will do
             ll_inst = self._get_fake_inst()
-        self._set_ovf_error_inst(ll_inst)
+        return self._cast_error_inst(ll_inst)
 
-    def _set_ovf_error_inst(self, ll_inst):
-        self._ovf_error_inst = ll_inst
+    def _cast_error_inst(self, ll_inst):
+        return ll_inst
 
     def compile_operations(self, loop):
         pass
@@ -327,6 +327,9 @@ class BaseCPU(model.AbstractCPU):
     def set_overflow_error(self):
         self.current_exc_inst = self._ovf_error_inst
 
+    def set_zero_division_error(self):
+        self.current_exc_inst = self._zer_error_inst
+
     def guard_failed(self):
         return self._guard_failed
 
@@ -501,8 +504,8 @@ class OOtypeCPU(BaseCPU):
         fields = sorted(INSTANCE._allfields().keys())
         return fields.index(name)
 
-    def _set_ovf_error_inst(self, ll_inst):
-        self._ovf_error_inst = ootype.cast_to_object(ll_inst)
+    def _cast_error_inst(self, ll_inst):
+        return ootype.cast_to_object(ll_inst)
 
     @cached_method('_typedescrcache')
     def typedescrof(self, TYPE):

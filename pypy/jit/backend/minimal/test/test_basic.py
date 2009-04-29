@@ -20,6 +20,7 @@ class BasicTests(test_basic.BasicTests):
     test_bridge_from_interpreter_2 = _skip
     test_bridge_from_interpreter_3 = _skip
     test_instantiate_classes = _skip
+    test_zerodivisionerror = _skip
 
 
 class TestOOtype(OOJitMixin, BasicTests):

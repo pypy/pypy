@@ -50,6 +50,9 @@ class AbstractCPU(object):
     def set_overflow_error(self):
         raise NotImplementedError
 
+    def set_zero_division_error(self):
+        raise NotImplementedError
+
     @staticmethod
     def sizeof(S):
         raise NotImplementedError
