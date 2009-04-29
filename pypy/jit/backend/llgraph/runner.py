@@ -561,6 +561,8 @@ class StaticMethDescr(OODescr):
 
 class MethDescr(history.AbstractMethDescr):
 
+    callmeth = None
+
     new = classmethod(OODescr.new.im_func)
 
     def __init__(self, SELFTYPE, methname):

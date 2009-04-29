@@ -52,6 +52,9 @@ class BaseCPU(model.AbstractCPU):
         else:
             # for tests, a random emulated ll_inst will do
             ll_inst = self._get_fake_inst()
+        self._set_ovf_error_inst(ll_inst)
+
+    def _set_ovf_error_inst(self, ll_inst):
         self._ovf_error_inst = ll_inst
 
     def compile_operations(self, loop):
@@ -498,6 +501,9 @@ class OOtypeCPU(BaseCPU):
         fields = sorted(INSTANCE._allfields().keys())
         return fields.index(name)
 
+    def _set_ovf_error_inst(self, ll_inst):
+        self._ovf_error_inst = ootype.cast_to_object(ll_inst)
+
     @cached_method('_typedescrcache')
     def typedescrof(self, TYPE):
         def alloc():
@@ -517,6 +523,7 @@ class OOtypeCPU(BaseCPU):
 
     def do_oosend(self, args, descr=None):
         assert isinstance(descr, MethDescr)
+        assert descr.callmeth is not None
         selfbox = args[0]
         argboxes = args[1:]
         return descr.callmeth(selfbox, argboxes)

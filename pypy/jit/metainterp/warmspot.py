@@ -389,6 +389,7 @@ class WarmRunnerDesc:
                     assert result_kind == 'obj'
                     return ootype.cast_from_object(RESULT, e.result)
                 except ExitFrameWithExceptionPtr, e:
+                    assert not is_oo
                     value = lltype.cast_opaque_ptr(lltype.Ptr(rclass.OBJECT),
                                                    e.value)
                     if not we_are_translated():

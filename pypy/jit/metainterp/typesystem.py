@@ -116,7 +116,7 @@ class OOTypeHelper(TypeSystemHelper):
 
     def get_exception_obj(self, evaluebox):
         # only works when translated
-        obj = evaluebox.getobj()
+        obj = ootype.cast_from_object(ootype.ROOT, evaluebox.getobj())
         return cast_base_ptr_to_instance(Exception, obj)
 
 
