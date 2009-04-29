@@ -28,7 +28,7 @@ def string_literal(s):
     def line_repr(s):
         return ''.join([char_repr(c) for c in s])
     def array_repr(s):
-        return ' '.join(['%x 00' % ord(c) for c in s]+['00'])
+        return ' '.join(['%x 00' % ord(c) for c in s])
 
     try:
         return '"%s"' % line_repr(s)

@@ -39,7 +39,7 @@ class Function(OOFunction, Node, CLIBaseGenerator):
 
     def record_ll_meta_exc(self, ll_meta_exc):
         # record the type only if it doesn't belong to a native_class
-        ll_exc = ll_meta_exc._inst.class_._INSTANCE
+        ll_exc = ll_meta_exc._INSTANCE
         NATIVE_INSTANCE = ll_exc._hints.get('NATIVE_INSTANCE', None)
         if NATIVE_INSTANCE is None:
             OOFunction.record_ll_meta_exc(self, ll_meta_exc)
@@ -107,7 +107,7 @@ class Function(OOFunction, Node, CLIBaseGenerator):
 
     def begin_catch(self, llexitcase):
         ll_meta_exc = llexitcase
-        ll_exc = ll_meta_exc._inst.class_._INSTANCE
+        ll_exc = ll_meta_exc._INSTANCE
         cts_exc = self.cts.lltype_to_cts(ll_exc)
         self.ilasm.begin_catch(cts_exc.classname())
 
@@ -131,7 +131,9 @@ class Function(OOFunction, Node, CLIBaseGenerator):
             if isinstance(link.last_exception, flowmodel.Variable):
                 self.ilasm.opcode('dup')
                 self.store(link.last_exc_value)
-                self.ilasm.get_field(('class Object_meta', 'Object', 'meta'))
+                self.ilasm.call_method(
+                    'class [mscorlib]System.Type object::GetType()',
+                    virtual=True)
                 self.store(link.last_exception)
             else:
                 self.store(link.last_exc_value)

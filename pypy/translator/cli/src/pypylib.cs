@@ -50,6 +50,10 @@ namespace pypy.test
                     object tmp = (object)item;
                     res += ToPython((string)tmp) + ",";
                 }
+                else if (item.GetType() == typeof(char)) {
+                    object tmp = (object)item;
+                    res += pypy.test.Result.ToPython((char)tmp) + ",";
+                } 
                 else
                     res += ToPython(item) + ",";
                 
@@ -581,6 +585,8 @@ namespace pypy.runtime
             int count = stop-start;
             if (start > s1.Length)
                 return -1;
+            if (s2 == "")
+              return stop;
             return s1.LastIndexOf(s2, stop-1, count);
         }
 
@@ -671,6 +677,10 @@ namespace pypy.runtime
                     object tmp = (object)item;
                     res += pypy.test.Result.ToPython((string)tmp) + ",";
                 }
+                else if (item.GetType() == typeof(char)) {
+                    object tmp = (object)item;
+                    res += pypy.test.Result.ToPython((char)tmp) + ",";
+                }                  
                 else
                     res += pypy.test.Result.ToPython(item) + ",";
             }
@@ -964,8 +974,9 @@ namespace pypy.runtime
     }
 
     public class Record_Stat_Result {
-        public int item0, item3, item4, item5, item7, item8, item9;
+        public int item0, item3, item4, item5;
         public long item1, item2, item6;
+        public double item7, item8, item9;
         public override string ToString() 
         { 
             return string.Format("({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9},)", 

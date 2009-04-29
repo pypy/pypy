@@ -415,6 +415,9 @@ class CLIBaseGenerator(Generator):
         else:
             assert False, "Unexpected constant type"
 
+    def push_null(self, TYPE):
+        self.ilasm.opcode('ldnull')
+
     def dup(self, TYPE):
         self.ilasm.opcode('dup')
 

@@ -21,7 +21,6 @@ This module always provides these attributes:
 
 """
 
-
 def __dirinfo(part):
     """ return (partdir, this_dir) and insert parent of partdir
     into sys.path.  If the parent directories don't have the part
@@ -33,13 +32,32 @@ def __dirinfo(part):
     except NameError:
         head = this_dir = os.path.realpath(os.path.dirname(sys.argv[0]))
 
+    error = None
     while head:
         partdir = head
         head, tail = os.path.split(head)
         if tail == part:
+            # check if "../py/__init__.py" exists
+            checkfile = os.path.join(partdir, os.pardir, 'py', '__init__.py')
+            if not os.path.exists(checkfile):
+                error = "Cannot find %r" % (os.path.normpath(checkfile),)
             break
     else:
-        raise EnvironmentError, "'%s' missing in '%r'" % (partdir, this_dir)
+        error = "Cannot find the parent directory %r of the path %r" % (
+            partdir, this_dir)
+    if not error:
+        # check for bogus end-of-line style (e.g. files checked out on
+        # Windows and moved to Unix)
+        f = open(__file__.replace('.pyc', '.py'), 'r')
+        data = f.read()
+        f.close()
+        if data.endswith('\r\n') or data.endswith('\r'):
+            error = ("Bad end-of-line style in the .py files. Typically "
+                     "caused by a zip file or a checkout done on Windows and "
+                     "moved to Unix or vice-versa.")
+    if error:
+        raise EnvironmentError("Invalid source tree - bogus checkout! " +
+                               error)
     
     pypy_root = os.path.join(head, '')
     try:
@@ -109,6 +127,9 @@ _myname = 'autopath.py'
 # set guaranteed attributes
 
 pypydir, this_dir = __dirinfo('pypy')
+import py
+libpythondir = str(py.path.local(pypydir).dirpath().join('lib-python', '2.5.2'))
+libpythonmodifieddir = str(py.path.local(libpythondir).dirpath().join('modified-2.5.2'))
 
 if __name__ == '__main__':
     __clone()

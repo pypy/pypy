@@ -7,9 +7,9 @@ from pypy.translator.cli.delegate import Delegate
 from pypy.translator.cli.comparer import EqualityComparer
 from pypy.translator.cli.node import Node
 from pypy.translator.cli.support import string_literal, Counter
+from pypy.translator.cli.cts import types
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.module import ll_os
-from pypy.translator.cli.opcodes import opcodes
 from pypy.translator.cli import dotnet
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
 from pypy.translator.oosupport.database import Database as OODatabase
@@ -140,6 +140,8 @@ class LowLevelDatabase(OODatabase):
             assert False
 
     def class_name(self, INSTANCE):
+        if INSTANCE is ootype.ROOT:
+            return types.object.classname()
         try:
             NATIVE_INSTANCE = INSTANCE._hints['NATIVE_INSTANCE']
             return NATIVE_INSTANCE._name
