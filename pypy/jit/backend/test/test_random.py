@@ -1,7 +1,9 @@
 import py, sys, math
 from pypy.rlib.rarithmetic import intmask, LONG_BIT
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.backend.test import conftest as demo_conftest
 from pypy.jit.metainterp.history import TreeLoop, BoxInt, ConstInt
+from pypy.jit.metainterp.history import BoxPtr, ConstPtr
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.executor import execute
 
@@ -10,23 +12,65 @@ class OperationBuilder:
     def __init__(self, cpu, loop, vars):
         self.cpu = cpu
         self.loop = loop
-        self.vars = vars
-        self.boolvars = []   # subset of self.vars
+        self.intvars = vars
+        self.boolvars = []   # subset of self.intvars
+        self.ptrvars = []
+        self.prebuilt_ptr_consts = []
         self.should_fail_by = None
+        self.counter = 0
 
-    def do(self, opnum, argboxes):
-        v_result = execute(self.cpu, opnum, argboxes)
+    def do(self, opnum, argboxes, descr=None):
+        v_result = execute(self.cpu, opnum, argboxes, descr)
         v_result = BoxInt(v_result.value)
-        self.loop.operations.append(ResOperation(opnum, argboxes, v_result))
+        self.loop.operations.append(ResOperation(opnum, argboxes, v_result,
+                                                 descr))
         return v_result
 
     def get_bool_var(self, r):
-        if self.boolvars:
+        if self.boolvars and r.random() < 0.8:
             v = r.choice(self.boolvars)
+        elif self.ptrvars and r.random() < 0.4:
+            v = r.choice(self.ptrvars)
+            if r.random() < 0.5:
+                v = self.do(rop.OONONNULL, [v])
+            else:
+                v = self.do(rop.OOISNULL, [v])
         else:
-            v = r.choice(self.vars)
+            v = r.choice(self.intvars)
             v = self.do(rop.INT_IS_TRUE, [v])
         return v
+
+    def get_structptr_var(self, r):
+        if self.ptrvars and r.random() < 0.8:
+            v = r.choice(self.ptrvars)
+        elif self.prebuilt_ptr_consts and r.random() < 0.7:
+            v, _ = r.choice(self.prebuilt_ptr_consts)
+        else:
+            p = self.get_random_structure(r)
+            v = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, p))
+            self.prebuilt_ptr_consts.append((v, self.field_values(p)))
+        return v
+
+    def get_random_structure_type(self, r):
+        fields = []
+        for i in range(r.randrange(1, 5)):
+            fields.append(('f%d' % i, lltype.Signed))
+        S = lltype.GcStruct('S%d' % self.counter, *fields)
+        self.counter += 1
+        return S
+
+    def get_random_structure(self, r):
+        S = self.get_random_structure_type(r)
+        p = lltype.malloc(S)
+        for fieldname in lltype.typeOf(p).TO._names:
+            setattr(p, fieldname, r.random_integer())
+        return p
+
+    def field_values(self, p):
+        dic = {}
+        for fieldname in lltype.typeOf(p).TO._names:
+            dic[fieldname] = getattr(p, fieldname)
+        return dic
 
     def print_loop(self):
         if demo_conftest.option.output:
@@ -34,27 +78,57 @@ class OperationBuilder:
         else:
             s = sys.stdout
         names = {None: 'None'}
-        for v in self.vars:
-            names[v] = 'v%d' % len(names)
-            print >>s, '    %s = BoxInt()' % (names[v],)
+        #
+        def writevar(v, nameprefix):
+            names[v] = '%s%d' % (nameprefix, len(names))
+            print >>s, '    %s = %s()' % (names[v], v.__class__.__name__)
+        #
+        for v in self.intvars:
+            writevar(v, 'v')
+        for v in self.ptrvars:
+            writevar(v, 'p')
         for op in self.loop.operations:
             v = op.result
             if v not in names:
-                names[v] = 'tmp%d' % len(names)
-                print >>s, '    %s = BoxInt()' % (names[v],)
+                writevar(v, 'tmp')
+        #
+        written = {}
+        for v, fields in self.prebuilt_ptr_consts:
+            container = v.value._obj.container
+            S = lltype.typeOf(container)
+            if S not in written:
+                print >>s, '    %s = lltype.GcStruct(%r,' % (S._name, S._name)
+                for name in S._names:
+                    print >>s, '              (%r, lltype.Signed),' % (name,)
+                print >>s, '              )'
+                written[S] = True
+            print >>s, '    p = lltype.malloc(%s)' % (S._name,)
+            for name in S._names:
+                print >>s, '    p.%s = %d' % (name, getattr(container, name))
+            writevar(v, 'preb')
+            print >>s, '    %s.value =' % (names[v],),
+            print >>s, 'lltype.cast_opaque_ptr(llmemory.GCREF, p)'
+        #
+        print >>s, '    cpu = CPU(None, None)'
         print >>s, "    loop = TreeLoop('test')"
         print >>s, '    loop.inputargs = [%s]' % (
             ', '.join([names[v] for v in self.loop.inputargs]))
         from pypy.jit.metainterp.resoperation import opname
         print >>s, '    loop.operations = ['
         for op in self.loop.operations:
-            print >>s, '        ResOperation(rop.%s, [%s], %s),' % (
-                opname[op.opnum],
-                ', '.join([names.get(v, 'ConstInt(%d)' % v.value)
-                           for v in op.args]),
-                names[op.result])
-        print >>s, '            ]'
-        print >>s, '    cpu = CPU(None, None)'
+            args = []
+            for v in op.args:
+                if v in names:
+                    args.append(names[v])
+                else:
+                    args.append('ConstInt(%d)' % v.value)
+            if op.descr is None:
+                descrstr = ''
+            else:
+                descrstr = ', ' + op.descr._random_info
+            print >>s, '        ResOperation(rop.%s, [%s], %s%s),' % (
+                opname[op.opnum], ', '.join(args), names[op.result], descrstr)
+        print >>s, '        ]'
         print >>s, '    cpu.compile_operations(loop)'
         for i, v in enumerate(self.loop.inputargs):
             print >>s, '    cpu.set_future_value_int(%d, %d)' % (i, v.value)
@@ -76,15 +150,15 @@ class AbstractOperation:
     def __init__(self, opnum, boolres=False):
         self.opnum = opnum
         self.boolres = boolres
-    def put(self, builder, args):
-        v_result = builder.do(self.opnum, args)
-        builder.vars.append(v_result)
+    def put(self, builder, args, descr=None):
+        v_result = builder.do(self.opnum, args, descr=descr)
+        builder.intvars.append(v_result)
         if self.boolres:
             builder.boolvars.append(v_result)
 
 class UnaryOperation(AbstractOperation):
     def produce_into(self, builder, r):
-        self.put(builder, [r.choice(builder.vars)])
+        self.put(builder, [r.choice(builder.intvars)])
 
 class BooleanUnaryOperation(UnaryOperation):
     def produce_into(self, builder, r):
@@ -101,12 +175,12 @@ class BinaryOperation(AbstractOperation):
         if k < 0.2:
             v_first = ConstInt(r.random_integer())
         else:
-            v_first = r.choice(builder.vars)
+            v_first = r.choice(builder.intvars)
         if k > 0.75:
             value = r.random_integer()
             v_second = ConstInt((value & self.and_mask) | self.or_mask)
         else:
-            v = r.choice(builder.vars)
+            v = r.choice(builder.intvars)
             if (v.value & self.and_mask) != v.value:
                 v = builder.do(rop.INT_AND, [v, ConstInt(self.and_mask)])
             if (v.value | self.or_mask) != v.value:
@@ -122,15 +196,26 @@ class GuardOperation(AbstractOperation):
         builder.loop.operations.append(op)
         k = r.random()
         subset = []
-        num = int(k * len(builder.vars))
+        num = int(k * len(builder.intvars))
         for i in range(num):
-            subset.append(r.choice(builder.vars))
+            subset.append(r.choice(builder.intvars))
         r.shuffle(subset)
         op.suboperations = [ResOperation(rop.FAIL, subset, None)]
         if ((self.opnum == rop.GUARD_TRUE and not v.value) or
             (self.opnum == rop.GUARD_FALSE and v.value)):
             builder.should_fail_by = op.suboperations[0]
             builder.should_fail_by_num = len(builder.loop.operations) - 1
+
+class GetFieldOp(AbstractOperation):
+    def produce_into(self, builder, r):
+        v = builder.get_structptr_var(r)
+        S = lltype.typeOf(v.value._obj.container)
+        name = r.choice(S._names)
+        descr = builder.cpu.fielddescrof(S, name)
+        descr._random_info = 'cpu.fielddescrof(%s, %r)' % (S._name, name)
+        self.put(builder, [v], descr)
+
+# ____________________________________________________________
 
 OPERATIONS = []
 
@@ -173,6 +258,9 @@ for _op in [rop.INT_NEG,
 
 OPERATIONS.append(UnaryOperation(rop.INT_IS_TRUE, boolres=True))
 OPERATIONS.append(BooleanUnaryOperation(rop.BOOL_NOT, boolres=True))
+
+OPERATIONS.append(GetFieldOp(rop.GETFIELD_GC))
+OPERATIONS.append(GetFieldOp(rop.GETFIELD_GC_PURE))
 
 # ____________________________________________________________
 
@@ -228,11 +316,12 @@ def check_random_function(r):
             break
 
     endvars = []
+    used_later = {}
+    for op in loop.operations:
+        for v in op.args:
+            used_later[v] = True
     for v in vars:
-        for op in loop.operations:
-            if v in op.args:
-                break
-        else:
+        if v not in used_later:
             endvars.append(v)
     r.shuffle(endvars)
     loop.operations.append(ResOperation(rop.FAIL, endvars, None))
@@ -245,8 +334,6 @@ def check_random_function(r):
     expected = {}
     for v in endvars:
         expected[v] = v.value
-    for v in endvars:
-        v.changevalue_int(-sys.maxint-1)
 
     for i, v in enumerate(valueboxes):
         cpu.set_future_value_int(i, v.value)
