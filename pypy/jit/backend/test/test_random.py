@@ -248,12 +248,15 @@ def check_random_function(r):
     for v in endvars:
         v.changevalue_int(-sys.maxint-1)
 
-    op = cpu.execute_operations(loop, valueboxes)
+    for i, v in enumerate(valueboxes):
+        cpu.set_future_value_int(i, v.value)
+    op = cpu.execute_operations(loop)
     assert op.args == endvars
 
-    for v in endvars:
-        assert v.value == expected[v], (
-            "Got %d, expected %d, in the variable %s" % (v.value,
+    for i, v in enumerate(endvars):
+        value = cpu.get_latest_value_int(i)
+        assert value == expected[v], (
+            "Got %d, expected %d, in the variable %s" % (value,
                                                          expected[v],
                                                          builder.names[v])
             )
