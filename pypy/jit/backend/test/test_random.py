@@ -31,7 +31,7 @@ class OperationBuilder:
         if self.boolvars and r.random() < 0.8:
             v = r.choice(self.boolvars)
         elif self.ptrvars and r.random() < 0.4:
-            v = r.choice(self.ptrvars)
+            v, S = r.choice(self.ptrvars)
             if r.random() < 0.5:
                 v = self.do(rop.OONONNULL, [v])
             else:
@@ -43,14 +43,15 @@ class OperationBuilder:
 
     def get_structptr_var(self, r):
         if self.ptrvars and r.random() < 0.8:
-            v = r.choice(self.ptrvars)
+            v, S = r.choice(self.ptrvars)
         elif self.prebuilt_ptr_consts and r.random() < 0.7:
-            v, _ = r.choice(self.prebuilt_ptr_consts)
+            v, S, _ = r.choice(self.prebuilt_ptr_consts)
         else:
             p = self.get_random_structure(r)
+            S = lltype.typeOf(p).TO
             v = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, p))
-            self.prebuilt_ptr_consts.append((v, self.field_values(p)))
-        return v
+            self.prebuilt_ptr_consts.append((v, S, self.field_values(p)))
+        return v, S
 
     def get_random_structure_type(self, r):
         fields = []
@@ -86,7 +87,7 @@ class OperationBuilder:
         #
         for v in self.intvars:
             writevar(v, 'v')
-        for v in self.ptrvars:
+        for v, S in self.ptrvars:
             writevar(v, 'p')
         for op in self.loop.operations:
             v = op.result
@@ -94,9 +95,7 @@ class OperationBuilder:
                 writevar(v, 'tmp')
         #
         written = {}
-        for v, fields in self.prebuilt_ptr_consts:
-            container = v.value._obj.container
-            S = lltype.typeOf(container)
+        for v, S, fields in self.prebuilt_ptr_consts:
             if S not in written:
                 print >>s, '    %s = lltype.GcStruct(%r,' % (S._name, S._name)
                 for name in S._names:
@@ -207,28 +206,42 @@ class GuardOperation(AbstractOperation):
             builder.should_fail_by = op.suboperations[0]
             builder.should_fail_by_num = len(builder.loop.operations) - 1
 
-class GetFieldOp(AbstractOperation):
-    def field_name(self, builder, r):
-        v = builder.get_structptr_var(r)
-        S = lltype.typeOf(v.value._obj.container)
+class GetFieldOperation(AbstractOperation):
+    def field_descr(self, builder, r):
+        v, S = builder.get_structptr_var(r)
         name = r.choice(S._names)
         descr = builder.cpu.fielddescrof(S, name)
         descr._random_info = 'cpu.fielddescrof(%s, %r)' % (S._name, name)
         return v, descr
 
     def produce_into(self, builder, r):
-        v, descr = self.field_name(builder, r)
-        self.put(builder, [v], descr)
+        while True:
+            try:
+                v, descr = self.field_descr(builder, r)
+                self.put(builder, [v], descr)
+            except lltype.UninitializedMemoryAccess:
+                continue
+            break
 
-class SetFieldOp(GetFieldOp):
+class SetFieldOperation(GetFieldOperation):
     def produce_into(self, builder, r):
-        v, descr = self.field_name(builder, r)
+        v, descr = self.field_descr(builder, r)
         if r.random() < 0.3:
             w = ConstInt(r.random_integer())
         else:
             w = r.choice(builder.intvars)
         builder.do(self.opnum, [v, w], descr)
 
+class NewOperation(AbstractOperation):
+    def size_descr(self, builder, S):
+        descr = builder.cpu.sizeof(S)
+        descr._random_info = 'cpu.sizeof(%s)' % (S._name,)
+        return descr
+
+    def produce_into(self, builder, r):
+        S = builder.get_random_structure_type(r)
+        v_ptr = builder.do(self.opnum, [], self.size_descr(builder, S))
+        builder.ptrvars.append((v_ptr, S))
 
 # ____________________________________________________________
 
@@ -274,10 +287,11 @@ for _op in [rop.INT_NEG,
 OPERATIONS.append(UnaryOperation(rop.INT_IS_TRUE, boolres=True))
 OPERATIONS.append(BooleanUnaryOperation(rop.BOOL_NOT, boolres=True))
 
-for i in range(3):      # make more common
-    OPERATIONS.append(GetFieldOp(rop.GETFIELD_GC))
-    OPERATIONS.append(GetFieldOp(rop.GETFIELD_GC_PURE))
-    OPERATIONS.append(SetFieldOp(rop.SETFIELD_GC))
+for i in range(4):      # make more common
+    OPERATIONS.append(GetFieldOperation(rop.GETFIELD_GC))
+    OPERATIONS.append(GetFieldOperation(rop.GETFIELD_GC_PURE))
+    OPERATIONS.append(SetFieldOperation(rop.SETFIELD_GC))
+    OPERATIONS.append(NewOperation(rop.NEW))
 
 # ____________________________________________________________
 
@@ -352,7 +366,7 @@ def check_random_function(r):
     for v in endvars:
         expected[v] = v.value
 
-    for v, fields in builder.prebuilt_ptr_consts:
+    for v, S, fields in builder.prebuilt_ptr_consts:
         container = v.value._obj.container
         for name, value in fields.items():
             setattr(container, name, value)
