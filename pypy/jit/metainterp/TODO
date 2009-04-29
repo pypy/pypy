@@ -1,3 +1,4 @@
+* find a test for r64742 (JitException capture)
 
 * fix HashCollisionException, it appears in the wild
 
