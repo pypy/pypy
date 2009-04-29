@@ -21,8 +21,8 @@ class OOTranslatedJitMixin(CliCompiledMixin):
         return CliCompiledMixin.meta_interp(self, *args, **kwds)
 
 
-## class TestOOtype(OOTranslatedJitMixin, test_zrpy_exception.TestLLExceptions):
-##     pass
+class TestOOtype(OOTranslatedJitMixin, test_zrpy_exception.TestLLExceptions):
+    pass
 
 class TestLLtype(LLTranslatedJitMixin, test_zrpy_exception.TestLLExceptions):
     # for the individual tests see

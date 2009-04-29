@@ -192,7 +192,12 @@ class Block(object):
         if self.operations:
             txt = "block@%d" % self.operations[0].offset
         else:
-            txt = "codeless block"
+            if (not self.exits) and len(self.inputargs) == 1:
+                txt = "return block"
+            elif (not self.exits) and len(self.inputargs) == 2:
+                txt = "raise block"
+            else:
+                txt = "codeless block"
         return txt
     
     def __repr__(self):

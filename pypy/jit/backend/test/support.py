@@ -97,5 +97,4 @@ class CliCompiledMixin(BaseCompiledMixin):
     def _compile_and_run(self, t, entry_point, entry_point_graph, args):
         from pypy.translator.cli.test.runtest import compile_graph
         func = compile_graph(entry_point_graph, t, nowrap=True, standalone=True)
-        import pdb;pdb.set_trace()
         return func(*args)

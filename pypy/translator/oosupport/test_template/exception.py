@@ -49,3 +49,33 @@ class BaseTestException(RBaseTestException):
                 obj = Derived()
             return obj.foo()
         assert self.interpret(fn, [0]) == 42
+
+    def test_reraise_exception(self):
+        class A(Exception):
+            pass
+
+        def raise_something(n):
+            if n > 10:
+                raise A
+            else:
+                raise Exception
+
+        def foo(n):
+            try:
+                raise_something(n)
+            except A:
+                raise     # go through
+            except Exception, e:
+                return 100
+            return -1
+
+        def fn(n):
+            try:
+                return foo(n)
+            except A:
+                return 42
+
+        res = self.interpret(fn, [100])
+        assert res == 42
+        res = self.interpret(fn, [0])
+        assert res == 100
