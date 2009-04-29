@@ -189,14 +189,19 @@ class WarmRunnerDesc:
             raise history.CrashInJIT("crash in JIT")
         crash_in_jit._dont_inline_ = True
 
-        def maybe_enter_jit(*args):
-            try:
+        if self.translator.rtyper.type_system.name == 'lltypesystem':
+            def maybe_enter_jit(*args):
+                try:
+                    state.maybe_compile_and_run(*args)
+                except JitException:
+                    raise     # go through
+                except Exception, e:
+                    crash_in_jit(e)
+            maybe_enter_jit._always_inline_ = True
+        else:
+            def maybe_enter_jit(*args):
                 state.maybe_compile_and_run(*args)
-            except JitException:
-                raise     # go through
-            except Exception, e:
-                crash_in_jit(e)
-        maybe_enter_jit._always_inline_ = True
+            maybe_enter_jit._always_inline_ = True
 
         self.maybe_enter_jit_fn = maybe_enter_jit
 
