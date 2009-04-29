@@ -114,7 +114,7 @@ class Class(Node):
                 if isinstance(METH.RESULT, ootype.OOType):
                     ilasm.opcode('ldnull')
                 else:
-                    push_constant(self.db, METH.RESULT, 0, self.gen)
+                    push_constant(self.db, METH.RESULT, METH.RESULT._defl(), self.gen)
                 ilasm.opcode('ret')
                 ilasm.end_function()
 

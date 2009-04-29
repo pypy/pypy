@@ -103,7 +103,8 @@ class CodeWriter(object):
             self.make_one_bytecode(graph_key, False, called_from)
         log.info("there are %d JitCode instances." % len(self.all_graphs))
         # xxx annotation hack: make sure there is at least one ConstAddr around
-        jitcode.constants.append(history.ConstAddr(llmemory.NULL, self.cpu))
+        if self.rtyper.type_system.name == 'lltype':
+            jitcode.constants.append(history.ConstAddr(llmemory.NULL, self.cpu))
         return jitcode
 
     def make_one_bytecode(self, graph_key, portal, called_from=None):

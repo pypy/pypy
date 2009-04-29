@@ -152,8 +152,9 @@ def compile_function(func, annotation=[], graph=None, backendopt=True,
     return CliFunctionWrapper(exe_name, func.__name__, auto_raise_exc)
 
 def compile_graph(graph, translator, auto_raise_exc=False,
-                  exctrans=False, nowrap=False):
-    gen = _build_gen_from_graph(graph, translator, exctrans, nowrap)
+                  exctrans=False, nowrap=False, standalone=False):
+    gen = _build_gen_from_graph(graph, translator, exctrans, nowrap,
+                                standalone=standalone)
     gen.generate_source()
     exe_name = gen.build_exe()
     name = getattr(graph, 'name', '<graph>')
@@ -189,16 +190,23 @@ def _build_gen(func, annotation, graph=None, backendopt=True, exctrans=False,
 
     if getoption('view'):
        t.view()
-
+       
     return _build_gen_from_graph(main_graph, t, exctrans, nowrap)
 
-def _build_gen_from_graph(graph, t, exctrans=False, nowrap=False):
+def _build_gen_from_graph(graph, t, exctrans=False, nowrap=False, standalone=False):
+    from pypy.translator.cli.entrypoint import get_entrypoint
+    
     if getoption('wd'):
         tmpdir = py.path.local('.')
     else:
         tmpdir = udir
 
-    return GenCli(tmpdir, t, TestEntryPoint(graph, not nowrap), exctrans=exctrans)
+    if standalone:
+        ep = get_entrypoint(graph)
+    else:
+        ep = TestEntryPoint(graph, not nowrap)
+        
+    return GenCli(tmpdir, t, ep, exctrans=exctrans)
 
 class CliFunctionWrapper(object):
     def __init__(self, exe_name, name=None, auto_raise_exc=False):

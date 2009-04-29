@@ -72,6 +72,7 @@ misc_ops = {
     'debug_fatalerror':         [PushAllArgs, 'call void [pypylib]pypy.runtime.Utils::debug_fatalerror(string)'],
     'keepalive':                Ignore,
     'is_early_constant':        [PushPrimitive(ootype.Bool, False)],
+    'jit_marker':               Ignore,
     }
 
 # __________ numeric operations __________
