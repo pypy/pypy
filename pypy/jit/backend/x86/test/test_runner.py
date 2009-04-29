@@ -8,19 +8,19 @@ from pypy.jit.backend.x86.regalloc import WORD
 from pypy.jit.backend.x86 import symbolic
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.executor import execute
-from pypy.jit.backend.test.runner import LLtypeBaseBackendTest
+from pypy.jit.backend.test.runner import LLtypeBackendTest
 import ctypes
 import sys
 
 class FakeStats(object):
     pass
 
-U = LLtypeBaseBackendTest.U
-S = LLtypeBaseBackendTest.S
+U = LLtypeBackendTest.U
+S = LLtypeBackendTest.S
 
 # ____________________________________________________________
 
-class TestX86(LLtypeBaseBackendTest):
+class TestX86(LLtypeBackendTest):
 
     # for the individual tests see
     # ====> ../../test/runner.py
