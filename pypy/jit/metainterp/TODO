@@ -1,11 +1,5 @@
 * find a test for r64742 (JitException capture)
 
-* fix HashCollisionException, it appears in the wild
-
-* do something about _weakref module, it's usually needed by everyone
-
-* look at some remaining crashes
-
 * support floats
 
 * fix bugs in virtualizables, but think first
