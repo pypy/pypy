@@ -1,6 +1,5 @@
-import py, sys, math
+import py, sys
 from pypy.rlib.rarithmetic import intmask, LONG_BIT
-from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.jit.backend.test import conftest as demo_conftest
 from pypy.jit.metainterp.history import TreeLoop, BoxInt, ConstInt
 from pypy.jit.metainterp.history import BoxPtr, ConstPtr, ConstAddr
@@ -41,62 +40,8 @@ class OperationBuilder:
             v = self.do(rop.INT_IS_TRUE, [v])
         return v
 
-    def get_structptr_var(self, r, must_have_vtable=False):
-        while True:
-            if self.ptrvars and r.random() < 0.8:
-                v, S = r.choice(self.ptrvars)
-            elif self.prebuilt_ptr_consts and r.random() < 0.7:
-                v, S, _ = r.choice(self.prebuilt_ptr_consts)
-            else:
-                must_have_vtable = must_have_vtable or r.random() < 0.5
-                p = self.get_random_structure(r, has_vtable=must_have_vtable)
-                S = lltype.typeOf(p).TO
-                v = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, p))
-                self.prebuilt_ptr_consts.append((v, S, self.field_values(p)))
-            if not (must_have_vtable and S._names[0] != 'parent'):
-                break
-        return v, S
-
-    def get_random_structure_type(self, r, has_vtable=False):
-        fields = []
-        if has_vtable:
-            fields.append(('parent', rclass.OBJECT))
-        for i in range(r.randrange(1, 5)):
-            fields.append(('f%d' % i, lltype.Signed))
-        S = lltype.GcStruct('S%d' % self.counter, *fields)
-        self.counter += 1
-        return S
-
-    def get_random_structure_type_and_vtable(self, r):
-        S = self.get_random_structure_type(r, has_vtable=True)
-        vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
-        name = S._name
-        vtable.name = lltype.malloc(lltype.Array(lltype.Char), len(name)+1,
-                                    immortal=True)
-        for i in range(len(name)):
-            vtable.name[i] = name[i]
-        vtable.name[len(name)] = '\x00'
-        return S, vtable
-
-    def get_random_structure(self, r, has_vtable=False):
-        if has_vtable:
-            S, vtable = self.get_random_structure_type_and_vtable(r)
-            p = lltype.malloc(S)
-            p.parent.typeptr = vtable
-        else:
-            S = self.get_random_structure_type(r)
-            p = lltype.malloc(S)
-        for fieldname in lltype.typeOf(p).TO._names:
-            if fieldname != 'parent':
-                setattr(p, fieldname, r.random_integer())
-        return p
-
-    def field_values(self, p):
-        dic = {}
-        for fieldname in lltype.typeOf(p).TO._names:
-            if fieldname != 'parent':
-                dic[fieldname] = getattr(p, fieldname)
-        return dic
+    def print_loop_prebuilt(self, names, writevar, s):
+        pass
 
     def print_loop(self):
         if demo_conftest.option.output:
@@ -118,27 +63,7 @@ class OperationBuilder:
             if v not in names:
                 writevar(v, 'tmp')
         #
-        written = {}
-        for v, S, fields in self.prebuilt_ptr_consts:
-            if S not in written:
-                print >>s, '    %s = lltype.GcStruct(%r,' % (S._name, S._name)
-                for name in S._names:
-                    if name == 'parent':
-                        print >>s, "              ('parent', rclass.OBJECT),"
-                    else:
-                        print >>s, '              (%r, lltype.Signed),'%(name,)
-                print >>s, '              )'
-                if S._names[0] == 'parent':
-                    print >>s, '    %s_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)' % (S._name,)
-                written[S] = True
-            print >>s, '    p = lltype.malloc(%s)' % (S._name,)
-            if S._names[0] == 'parent':
-                print >>s, '    p.parent.typeptr = %s_vtable' % (S._name,)
-            for name, value in fields.items():
-                print >>s, '    p.%s = %d' % (name, value)
-            writevar(v, 'preb')
-            print >>s, '    %s.value =' % (names[v],),
-            print >>s, 'lltype.cast_opaque_ptr(llmemory.GCREF, p)'
+        self.print_loop_prebuilt(names, writevar, s)
         #
         print >>s, '    cpu = CPU(None, None)'
         print >>s, "    loop = TreeLoop('test')"
@@ -246,64 +171,6 @@ class GuardOperation(AbstractOperation):
             builder.should_fail_by = op.suboperations[0]
             builder.should_fail_by_num = len(builder.loop.operations) - 1
 
-class GuardClassOperation(GuardOperation):
-    def gen_guard(self, builder, r):
-        v, S = builder.get_structptr_var(r, must_have_vtable=True)
-        if r.random() < 0.3:
-            v2 = v
-        else:
-            v2, S2 = builder.get_structptr_var(r, must_have_vtable=True)
-        vtable = v.getptr(rclass.OBJECTPTR).typeptr
-        vtable2 = v2.getptr(rclass.OBJECTPTR).typeptr
-        c_vtable2 = ConstAddr(llmemory.cast_ptr_to_adr(vtable2), builder.cpu)
-        op = ResOperation(self.opnum, [v, c_vtable2], None)
-        return op, (vtable == vtable2)
-
-class GetFieldOperation(AbstractOperation):
-    def field_descr(self, builder, r):
-        v, S = builder.get_structptr_var(r)
-        names = S._names
-        if names[0] == 'parent':
-            names = names[1:]
-        name = r.choice(names)
-        descr = builder.cpu.fielddescrof(S, name)
-        descr._random_info = 'cpu.fielddescrof(%s, %r)' % (S._name, name)
-        return v, descr
-
-    def produce_into(self, builder, r):
-        while True:
-            try:
-                v, descr = self.field_descr(builder, r)
-                self.put(builder, [v], descr)
-            except lltype.UninitializedMemoryAccess:
-                continue
-            break
-
-class SetFieldOperation(GetFieldOperation):
-    def produce_into(self, builder, r):
-        v, descr = self.field_descr(builder, r)
-        if r.random() < 0.3:
-            w = ConstInt(r.random_integer())
-        else:
-            w = r.choice(builder.intvars)
-        builder.do(self.opnum, [v, w], descr)
-
-class NewOperation(AbstractOperation):
-    def size_descr(self, builder, S):
-        descr = builder.cpu.sizeof(S)
-        descr._random_info = 'cpu.sizeof(%s)' % (S._name,)
-        return descr
-
-    def produce_into(self, builder, r):
-        if self.opnum == rop.NEW_WITH_VTABLE:
-            S, vtable = builder.get_random_structure_type_and_vtable(r)
-            args = [ConstAddr(llmemory.cast_ptr_to_adr(vtable), builder.cpu)]
-        else:
-            S = builder.get_random_structure_type(r)
-            args = []
-        v_ptr = builder.do(self.opnum, args, self.size_descr(builder, S))
-        builder.ptrvars.append((v_ptr, S))
-
 # ____________________________________________________________
 
 OPERATIONS = []
@@ -336,6 +203,9 @@ OPERATIONS.append(BinaryOperation(rop.INT_RSHIFT, LONG_BIT-1))
 OPERATIONS.append(BinaryOperation(rop.INT_LSHIFT, LONG_BIT-1))
 OPERATIONS.append(BinaryOperation(rop.UINT_RSHIFT, LONG_BIT-1))
 
+OPERATIONS.append(GuardOperation(rop.GUARD_TRUE))
+OPERATIONS.append(GuardOperation(rop.GUARD_FALSE))
+
 for _op in [rop.INT_NEG,
             rop.INT_INVERT,
             rop.INT_ABS,
@@ -345,16 +215,7 @@ for _op in [rop.INT_NEG,
 OPERATIONS.append(UnaryOperation(rop.INT_IS_TRUE, boolres=True))
 OPERATIONS.append(BooleanUnaryOperation(rop.BOOL_NOT, boolres=True))
 
-for i in range(3):      # make more common
-    OPERATIONS.append(GetFieldOperation(rop.GETFIELD_GC))
-    OPERATIONS.append(GetFieldOperation(rop.GETFIELD_GC))
-    OPERATIONS.append(SetFieldOperation(rop.SETFIELD_GC))
-    OPERATIONS.append(NewOperation(rop.NEW))
-    OPERATIONS.append(NewOperation(rop.NEW_WITH_VTABLE))
-
-    OPERATIONS.append(GuardOperation(rop.GUARD_TRUE))
-    OPERATIONS.append(GuardOperation(rop.GUARD_FALSE))
-    OPERATIONS.append(GuardClassOperation(rop.GUARD_CLASS))
+OperationBuilder.OPERATIONS = OPERATIONS
 
 # ____________________________________________________________
 
@@ -397,7 +258,7 @@ def get_cpu():
 
 # ____________________________________________________________
 
-def check_random_function(r):
+def check_random_function(BuilderClass, r):
     block_length = demo_conftest.option.block_length
     vars = [BoxInt(r.random_integer())
             for i in range(demo_conftest.option.n_vars)]
@@ -408,10 +269,10 @@ def check_random_function(r):
     loop.inputargs = vars[:]
     loop.operations = []
 
-    builder = OperationBuilder(cpu, loop, vars)
+    builder = BuilderClass(cpu, loop, vars)
 
     for i in range(block_length):
-        r.choice(OPERATIONS).produce_into(builder, r)
+        r.choice(BuilderClass.OPERATIONS).produce_into(builder, r)
         if builder.should_fail_by is not None:
             break
 
@@ -457,11 +318,11 @@ def check_random_function(r):
     print
 
 
-def test_random_function():
+def test_random_function(BuilderClass=OperationBuilder):
     r = Random()
     if demo_conftest.option.repeat == -1:
         while 1: 
-            check_random_function(r)
+            check_random_function(BuilderClass, r)
     else:
         for i in range(demo_conftest.option.repeat):
-            check_random_function(r)
+            check_random_function(BuilderClass, r)
