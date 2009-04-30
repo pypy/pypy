@@ -19,6 +19,12 @@ class PyPyJitPolicy(ManualJitPolicy):
             return True
         if '_mth_mm_' in func.__name__:    # e.g. str_mth_mm_join_xxx
             return True
+        
+        # weakref support
+        if (mod == 'pypy.objspace.std.typeobject' and
+            func.__name__ == 'get_subclasses'):
+            return False
+
         if mod.startswith('pypy.objspace.'):
             # we don't support floats
             if 'float' in mod or 'complex' in mod:
@@ -54,10 +60,5 @@ class PyPyJitPolicy(ManualJitPolicy):
         #    return False
         #if func.__name__ == 'll_update':
         #    return False
-
-        # weakref support
-        if (mod == 'pypy.objspace.std.typeobject' and
-            func.__name__ == 'get_subclasses'):
-            return False
         
         return super(PyPyJitPolicy, self).look_inside_function(func)
