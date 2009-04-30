@@ -262,7 +262,7 @@ class CPU386(object):
         self.generated_mps[calldescr] = loop
         return loop
 
-    def execute_operations(self, loop):
+    def execute_operations(self, loop, verbose=False):
         func = self.get_bootstrap_code(loop)
         # debug info
         #if self.debug and not we_are_translated():
@@ -270,10 +270,11 @@ class CPU386(object):
         #                             range(len(valueboxes))])
         #    llop.debug_print(lltype.Void, 'exec:', name, values_repr)
         #self.assembler.log_call(valueboxes) --- XXX
-        guard_index = self.execute_call(loop, func)
+        guard_index = self.execute_call(loop, func, verbose)
         self._guard_index = guard_index # for tests
         op = self._guard_list[guard_index]
-        #print "Leaving at: %d" % self.assembler.fail_boxes[len(op.args)]
+        if verbose:
+            print "Leaving at: %d" % self.assembler.fail_boxes[len(op.args)]
         return op
 
     def set_future_value_int(self, index, intvalue):
@@ -293,7 +294,7 @@ class CPU386(object):
         intvalue = self.assembler.fail_boxes[index]
         return self.cast_int_to_gcref(intvalue)
 
-    def execute_call(self, loop, func):
+    def execute_call(self, loop, func, verbose):
         # help flow objspace
         prev_interpreter = None
         if not self.translate_support_code:
@@ -302,7 +303,8 @@ class CPU386(object):
         res = 0
         try:
             self.caught_exception = None
-            #print "Entering: %d" % rffi.cast(lltype.Signed, func)
+            if verbose:
+                print "Entering: %d" % rffi.cast(lltype.Signed, func)
             res = func()
             del self.keepalives[:]
             self.reraise_caught_exception()
@@ -549,7 +551,7 @@ class CPU386(object):
         assert num_args == len(args) - 1
         loop = self._get_loop_for_call(num_args, calldescr, ptr)
         history.set_future_values(self, args)
-        self.execute_operations(loop)
+        self.execute_operations(loop, verbose=False)
         # Note: if an exception is set, the rest of the code does a bit of
         # nonsense but nothing wrong (the return value should be ignored)
         if size == 0:
