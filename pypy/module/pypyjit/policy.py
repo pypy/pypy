@@ -21,9 +21,10 @@ class PyPyJitPolicy(ManualJitPolicy):
             return True
         
         # weakref support
-        if (mod == 'pypy.objspace.std.typeobject' and
-            func.__name__ == 'get_subclasses'):
-            return False
+        if mod == 'pypy.objspace.std.typeobject':
+            if func.__name__ in ['get_subclasses', 'add_subclass',
+                                 'remove_subclass']:
+                return False
 
         if mod.startswith('pypy.objspace.'):
             # we don't support floats
