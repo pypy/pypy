@@ -83,9 +83,7 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
                 print >>s, '    p.parent.typeptr = %s_vtable' % (S._name,)
             for name, value in fields.items():
                 print >>s, '    p.%s = %d' % (name, value)
-            writevar(v, 'preb')
-            print >>s, '    %s.value =' % (names[v],),
-            print >>s, 'lltype.cast_opaque_ptr(llmemory.GCREF, p)'
+            writevar(v, 'preb', 'lltype.cast_opaque_ptr(llmemory.GCREF, p)')
 
 # ____________________________________________________________
 

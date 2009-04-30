@@ -50,9 +50,10 @@ class OperationBuilder:
             s = sys.stdout
         names = {None: 'None'}
         #
-        def writevar(v, nameprefix):
+        def writevar(v, nameprefix, init=''):
             names[v] = '%s%d' % (nameprefix, len(names))
-            print >>s, '    %s = %s()' % (names[v], v.__class__.__name__)
+            print >>s, '    %s = %s(%s)' % (names[v], v.__class__.__name__,
+                                            init)
         #
         for v in self.intvars:
             writevar(v, 'v')
@@ -80,7 +81,8 @@ class OperationBuilder:
                     name = ''.join([v.value.ptr.name[i]
                                     for i in range(len(v.value.ptr.name)-1)])
                     args.append(
-                        'ConstAddr(llmemory.cast_ptr_to_adr(%s_vtable))'% name)
+                        'ConstAddr(llmemory.cast_ptr_to_adr(%s_vtable), cpu)'
+                        % name)
                 else:
                     args.append('ConstInt(%d)' % v.value)
             if op.descr is None:
@@ -90,6 +92,13 @@ class OperationBuilder:
             print >>s, '        ResOperation(rop.%s, [%s], %s%s),' % (
                 opname[op.opnum], ', '.join(args), names[op.result], descrstr)
         print >>s, '        ]'
+        for i, op in enumerate(self.loop.operations):
+            if getattr(op, 'suboperations', None) is not None:
+                [op] = op.suboperations
+                assert op.opnum == rop.FAIL
+                print >>s, '    loop.operations[%d].suboperations = [' % i
+                print >>s, '        ResOperation(rop.FAIL, [%s], None)]' % (
+                    ', '.join([names[v] for v in op.args]))
         print >>s, '    cpu.compile_operations(loop)'
         for i, v in enumerate(self.loop.inputargs):
             print >>s, '    cpu.set_future_value_int(%d, %d)' % (i, v.value)
