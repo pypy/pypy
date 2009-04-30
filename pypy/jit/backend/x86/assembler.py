@@ -679,6 +679,10 @@ class Assembler386(object):
             return
         if not we_are_translated():
             assert str(oldlocs) == str(newlocs)
+            # newlocs should be sorted in acending order, excluding the regs
+            locs = [loc.position for loc in newlocs if isinstance(loc, MODRM)]
+            assert locs == sorted(locs)
+        #
         if newdepth != olddepth:
             mc2 = self.mcstack.next_mc()
             pos = mc2.tell()
@@ -689,29 +693,29 @@ class Assembler386(object):
                     break
             else:
                 has_modrm = False
-            extra_place = stack_pos(olddepth - 1) # this is unused
             if diff > 0:
                 if has_modrm:
-                    mc2.MOV(extra_place, eax)
-                    for i in range(len(newlocs)):
-                        loc = newlocs[i]
-                        if isinstance(loc, MODRM):
-                            mc2.MOV(eax, loc)
-                            # diff is negative!
-                            mc2.MOV(stack_pos(loc.position + diff), eax)
-                    mc2.MOV(eax, extra_place)
-                mc2.ADD(esp, imm32((diff) * WORD))
-            else:
-                if has_modrm:
+                    extra_place = stack_pos(olddepth - 1) # this is unused
                     mc2.MOV(extra_place, eax)
                     for i in range(len(newlocs) -1, -1, -1):
                         loc = newlocs[i]
                         if isinstance(loc, MODRM):
                             mc2.MOV(eax, loc)
-                            # diff is negative!
                             mc2.MOV(stack_pos(loc.position + diff), eax)
                     mc2.MOV(eax, extra_place)
+                mc2.ADD(esp, imm32((diff) * WORD))
+            else:
                 mc2.SUB(esp, imm32((-diff) * WORD))
+                if has_modrm:
+                    extra_place = stack_pos(newdepth - 1) # this is unused
+                    mc2.MOV(extra_place, eax)
+                    for i in range(len(newlocs)):
+                        loc = newlocs[i]
+                        if isinstance(loc, MODRM):
+                            # diff is negative!
+                            mc2.MOV(eax, stack_pos(loc.position - diff))
+                            mc2.MOV(loc, eax)
+                    mc2.MOV(eax, extra_place)
             mc2.JMP(rel32(new_pos))
             self.mcstack.give_mc_back(mc2)
         else:
