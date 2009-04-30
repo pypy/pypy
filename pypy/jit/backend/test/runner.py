@@ -34,6 +34,8 @@ class Runner(object):
             return BoxInt(self.cpu.get_latest_value_int(0))
         elif result_type == 'ptr':
             return BoxPtr(self.cpu.get_latest_value_ptr(0))
+        elif result_type == 'void':
+            return None
         else:
             assert False
 
@@ -293,6 +295,7 @@ class BaseBackendTest(Runner):
             
 class LLtypeBackendTest(BaseBackendTest):
 
+    type_system = 'lltype'
     Ptr = lltype.Ptr
     FuncType = lltype.FuncType
     malloc = staticmethod(lltype.malloc)
@@ -342,6 +345,7 @@ class LLtypeBackendTest(BaseBackendTest):
 
 class OOtypeBackendTest(BaseBackendTest):
 
+    type_system = 'ootype'
     Ptr = lambda x: x
     FuncType = ootype.StaticMethod
     malloc = staticmethod(ootype.new)
