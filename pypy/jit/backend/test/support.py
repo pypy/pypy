@@ -6,6 +6,7 @@ class BaseCompiledMixin(object):
 
     type_system = None
     CPUClass = None
+    basic = False
 
     def _get_TranslationContext(self):
         return TranslationContext()
