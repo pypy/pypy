@@ -347,19 +347,10 @@ class LoopTest:
                 myjitdriver.jit_merge_point(n=n, x=x)
                 x += unichr(n)
                 n -= 1
-            # XXX check if we can cross the border here with unicode,
-            #     if not, sum elements or something
-            return x
+            return hash(x)
         expected = f(100)
         res = self.meta_interp(f, [100])
-        if self.type_system == 'ootype':
-            assert res.ll_strlen() == len(expected)
-            for i in range(len(expected)):
-                assert expected[i] == res.ll_stritem_nonneg(i)
-        else:
-            assert len(res.chars) == len(expected)
-            for i in range(len(expected)):
-                assert expected[i] == res.chars[i]
+        assert res == expected
 
     def test_adapt_bridge_to_merge_point(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'z'])
@@ -584,7 +575,8 @@ class LoopTest:
         res = self.meta_interp(f, [200])
 
 class TestOOtype(LoopTest, OOJitMixin):
-    pass
+    def test_loop_unicode(self):
+        py.test.skip("oohash")
 
 class TestLLtype(LoopTest, LLJitMixin):
     pass
