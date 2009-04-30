@@ -94,6 +94,7 @@ class LoopTest:
                 else:
                     pass
                 pattern >>= 1
+            return 42
         self.meta_interp(f, [0xF0F0])
         self.check_loop_count(2)
 
@@ -547,6 +548,7 @@ class LoopTest:
                         k = 15
                         z = 0
                 n -= 1
+            return 42
 
         res = self.meta_interp(f, [200])
 

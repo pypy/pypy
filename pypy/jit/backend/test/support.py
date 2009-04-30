@@ -91,11 +91,8 @@ class CCompiledMixin(BaseCompiledMixin):
         exe_name = cbuilder.compile()
         log('---------- Test starting ----------')
         stdout = cbuilder.cmdexec(" ".join([str(arg) for arg in args]))
-        if stdout == 'None\n':
-            res = None
-        else:
-            res = int(stdout)
-        log('---------- Test done (%s) ----------' % (res,))
+        res = int(stdout)
+        log('---------- Test done (%d) ----------' % (res,))
         return res
 
 class CliCompiledMixin(BaseCompiledMixin):
