@@ -131,6 +131,7 @@ class TestX86(LLtypeBackendTest):
                                                     ConstInt(ord(u'z'))],
                                'void')
         assert u.chars[2] == u'z'
+        assert u.chars[3] == u'd'
         
 
     def test_allocations(self):

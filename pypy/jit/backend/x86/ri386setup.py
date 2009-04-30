@@ -494,8 +494,8 @@ FNSTCW.mode1(MODRM, ['\xD9', orbyte(7<<3), modrm(1)])
 UD2 = Instruction()      # reserved as an illegal instruction
 UD2.mode0(['\x0F\x0B'])
 
-o16 = Instruction()      # 16-bits instruction prefix (name from 'nasm')
-o16.mode0(['\x66'])
+O16 = Instruction()      # 16-bits instruction prefix (name from 'nasm')
+O16.mode0(['\x66'])
 
 
 Conditions = {

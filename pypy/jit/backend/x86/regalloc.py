@@ -907,9 +907,14 @@ class RegAlloc(object):
 
     def consider_newunicode(self, op, ignored):
         ofs_items, itemsize, ofs = symbolic.get_array_token(rstr.UNICODE, self.translate_support_code)
-        assert itemsize == 4
-        return self._malloc_varsize(0, ofs_items, ofs, 2, op.args[0],
-                                    op.result)
+        if itemsize == 4:
+            return self._malloc_varsize(0, ofs_items, ofs, 2, op.args[0],
+                                        op.result)
+        elif itemsize == 2:
+            return self._malloc_varsize(0, ofs_items, ofs, 1, op.args[0],
+                                        op.result)
+        else:
+            assert False, itemsize
 
     def _malloc_varsize(self, ofs, ofs_items, ofs_length, size, v, res_v):
         if isinstance(v, Box):
