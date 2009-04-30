@@ -54,4 +54,10 @@ class PyPyJitPolicy(ManualJitPolicy):
         #    return False
         #if func.__name__ == 'll_update':
         #    return False
+
+        # weakref support
+        if (mod == 'pypy.objspace.std.typeobject' and
+            func.__name__ == 'get_subclasses'):
+            return False
+        
         return super(PyPyJitPolicy, self).look_inside_function(func)
