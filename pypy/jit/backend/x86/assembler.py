@@ -627,8 +627,7 @@ class Assembler386(object):
         if itemsize == 4:
             self.mc.MOV(addr_add(base_loc, ofs_loc, basesize, 2), val_loc)
         elif itemsize == 2:
-            self.mc.O16()
-            self.mc.MOV(addr_add(base_loc, ofs_loc, basesize, 1), val_loc)
+            self.mc.MOV16(addr_add(base_loc, ofs_loc, basesize, 1), val_loc)
         else:
             assert 0, itemsize
 
