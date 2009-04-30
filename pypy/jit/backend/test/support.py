@@ -58,6 +58,9 @@ class BaseCompiledMixin(object):
     def check_loops(self, *args, **kwds):
         pass
 
+    def check_loop_count(self, *args, **kwds):
+        pass
+
     def check_tree_loop_count(self, *args, **kwds):
         pass
 
@@ -87,8 +90,11 @@ class CCompiledMixin(BaseCompiledMixin):
         exe_name = cbuilder.compile()
         log('---------- Test starting ----------')
         stdout = cbuilder.cmdexec(" ".join([str(arg) for arg in args]))
-        res = int(stdout)
-        log('---------- Test done (%d) ----------' % (res,))
+        if stdout == 'None\n':
+            res = None
+        else:
+            res = int(stdout)
+        log('---------- Test done (%s) ----------' % (res,))
         return res
 
 class CliCompiledMixin(BaseCompiledMixin):
