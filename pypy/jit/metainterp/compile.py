@@ -88,6 +88,8 @@ def create_empty_loop(metainterp):
 # ____________________________________________________________
 
 def compile_fresh_loop(metainterp, old_loops, greenkey, start):
+    from pypy.jit.metainterp.pyjitpl import DEBUG
+
     history = metainterp.history
     loop = create_empty_loop(metainterp)
     loop.greenkey = greenkey
@@ -101,7 +103,7 @@ def compile_fresh_loop(metainterp, old_loops, greenkey, start):
     old_loop = metainterp_sd.optimize_loop(metainterp_sd.options, old_loops,
                                            loop, metainterp.cpu)
     if old_loop is not None:
-        if we_are_translated():
+        if we_are_translated() and DEBUG > 0:
             debug_print("reusing old loop")
         return old_loop
     history.source_link = loop
@@ -119,7 +121,9 @@ def send_loop_to_backend(metainterp, loop, type):
             loop._ignore_during_counting = True
         log.info("compiled new " + type)
     else:
-        debug_print("compiled new " + type)
+        from pypy.jit.metainterp.pyjitpl import DEBUG
+        if DEBUG > 0:
+            debug_print("compiled new " + type)
 
 # ____________________________________________________________
 
