@@ -122,17 +122,18 @@ class ExceptionTests:
 
     def test_exception_from_outside(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])
-        def check(n):
-            if n > -100:
+        def check(n, mode):
+            if mode == 0 and n > -100:
                 raise MyError(n)
+            return n - 5
         def f(n):
             while n > 0:
                 myjitdriver.can_enter_jit(n=n)
                 myjitdriver.jit_merge_point(n=n)
                 try:
-                    check(n)
+                    check(n, 0)
                 except MyError, e:
-                    n = e.n - 5
+                    n = check(e.n, 1)
             return n
         assert f(53) == -2
         res = self.meta_interp(f, [53], policy=StopAtXPolicy(check))
