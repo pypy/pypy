@@ -4,7 +4,6 @@ import py
 
 import math
 import random
-import sets
 
 exclude_files = ["__init__.py", "autopath.py", "conftest.py"]
 
@@ -89,7 +88,7 @@ class ModuleGraph(object):
         self.remove_double_refs()
         self.incoming = {}
         for mod in self.imports:
-            self.incoming[mod] = sets.Set()
+            self.incoming[mod] = set()
         for mod, refs in self.imports.iteritems():
             for ref in refs:
                 if ref[0] in self.incoming:
@@ -118,7 +117,7 @@ class ModuleGraph(object):
         # remove several references to the same module
         for mod, refs in self.imports.iteritems():
             i = 0
-            seen_refs = sets.Set()
+            seen_refs = set()
             while i < len(refs):
                 if refs[i] not in seen_refs:
                     seen_refs.add(refs[i])
@@ -139,7 +138,7 @@ class ModuleGraph(object):
     def create_clusters(self):
         self.topgraph_properties.append("compound=true;")
         self.clustered = True
-        hierarchy = [sets.Set() for i in range(6)]
+        hierarchy = [set() for i in range(6)]
         for mod in self.imports:
             for i, d in enumerate(mod.split(".")):
                 hierarchy[i].add(d)
@@ -151,7 +150,7 @@ class ModuleGraph(object):
             if i == len(mod.split(".")) - 1:
                 continue
             if cluster not in self.clusters:
-                self.clusters[cluster] = sets.Set()
+                self.clusters[cluster] = set()
             self.clusters[cluster].add(mod)
             self.mod_to_cluster[mod] = cluster
 
@@ -162,7 +161,7 @@ class ModuleGraph(object):
             if len(incoming) > 10:
                 tangled.append(mod)
         for mod in tangled:
-            remove = sets.Set()
+            remove = set()
             incoming = self.incoming[mod]
             while len(remove) < len(incoming) * 0.80:
                 remove.add(random.choice(list(incoming)))
@@ -196,7 +195,7 @@ class ModuleGraph(object):
             try:
                 nodes = self.clusters[self.mod_to_cluster[mod]]
             except KeyError:
-                nodes = sets.Set()
+                nodes = set()
             for ref in refs:
                 if ref[0] not in nodes:
                     f.write('\t"%s" -> "%s";\n' % (mod[5:], ref[0][5:]))

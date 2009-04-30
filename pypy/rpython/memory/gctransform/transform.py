@@ -18,7 +18,8 @@ from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.rpython.rtyper import LowLevelOpList
 from pypy.rpython.rbuiltin import gen_cast
 from pypy.rlib.rarithmetic import ovfcheck
-import sets, os, sys
+import sys
+import os
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.translator.simplify import join_blocks, cleanup_graph
 
@@ -194,15 +195,15 @@ class BaseGCTransformer(object):
         if len(block.exits) != 0: # i.e not the return block
             assert block.exitswitch is not c_last_exception
 
-            deadinallexits = sets.Set(self.livevars)
+            deadinallexits = set(self.livevars)
             for link in block.exits:
-                deadinallexits.difference_update(sets.Set(link.args))
+                deadinallexits.difference_update(set(link.args))
 
             for var in deadinallexits:
                 self.pop_alive(var, llops)
 
             for link in block.exits:
-                livecounts = dict.fromkeys(sets.Set(self.livevars) - deadinallexits, 1)
+                livecounts = dict.fromkeys(set(self.livevars) - deadinallexits, 1)
                 for v, v2 in zip(link.args, link.target.inputargs):
                     if is_borrowed(v2):
                         continue
