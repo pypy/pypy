@@ -691,7 +691,8 @@ class RegAlloc(object):
         self.eventually_free_vars(op.args)
 
     def consider_guard_class(self, op, ignored):
-        x = self.make_sure_var_in_reg(op.args[0], [], imm_fine=False)
+        assert isinstance(op.args[0], Box)
+        x = self.make_sure_var_in_reg(op.args[0], [])
         y = self.loc(op.args[1])
         regalloc = self.regalloc_for_guard(op)
         self.perform_guard(op, regalloc, [x, y], None)

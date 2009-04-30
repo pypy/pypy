@@ -23,19 +23,21 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
                 break
         return v, S
 
-    def get_random_structure_type(self, r, has_vtable=False):
+    def get_random_structure_type(self, r, with_vtable=None):
         fields = []
-        if has_vtable:
+        kwds = {}
+        if with_vtable:
             fields.append(('parent', rclass.OBJECT))
+            kwds['hints'] = {'vtable': with_vtable._obj}
         for i in range(r.randrange(1, 5)):
             fields.append(('f%d' % i, lltype.Signed))
-        S = lltype.GcStruct('S%d' % self.counter, *fields)
+        S = lltype.GcStruct('S%d' % self.counter, *fields, **kwds)
         self.counter += 1
         return S
 
     def get_random_structure_type_and_vtable(self, r):
-        S = self.get_random_structure_type(r, has_vtable=True)
         vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+        S = self.get_random_structure_type(r, with_vtable=vtable)
         name = S._name
         vtable.name = lltype.malloc(lltype.Array(lltype.Char), len(name)+1,
                                     immortal=True)
@@ -89,13 +91,17 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
 
 class GuardClassOperation(test_random.GuardOperation):
     def gen_guard(self, builder, r):
-        v, S = builder.get_structptr_var(r, must_have_vtable=True)
+        ptrvars = [(v, S) for (v, S) in builder.ptrvars
+                          if S._names[0] == 'parent']
+        if not ptrvars:
+            raise test_random.CannotProduceOperation
+        v, S = r.choice(ptrvars)
         if r.random() < 0.3:
-            v2 = v
+            v2, S2 = v, S
         else:
             v2, S2 = builder.get_structptr_var(r, must_have_vtable=True)
-        vtable = v.getptr(rclass.OBJECTPTR).typeptr
-        vtable2 = v2.getptr(rclass.OBJECTPTR).typeptr
+        vtable = S._hints['vtable']._as_ptr()
+        vtable2 = S2._hints['vtable']._as_ptr()
         c_vtable2 = ConstAddr(llmemory.cast_ptr_to_adr(vtable2), builder.cpu)
         op = ResOperation(self.opnum, [v, c_vtable2], None)
         return op, (vtable == vtable2)

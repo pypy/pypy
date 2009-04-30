@@ -116,6 +116,9 @@ class OperationBuilder:
         if demo_conftest.option.output:
             s.close()
 
+class CannotProduceOperation(Exception):
+    pass
+
 class AbstractOperation:
     def __init__(self, opnum, boolres=False):
         self.opnum = opnum
@@ -281,7 +284,10 @@ def check_random_function(BuilderClass, r):
     builder = BuilderClass(cpu, loop, vars)
 
     for i in range(block_length):
-        r.choice(BuilderClass.OPERATIONS).produce_into(builder, r)
+        try:
+            r.choice(BuilderClass.OPERATIONS).produce_into(builder, r)
+        except CannotProduceOperation:
+            pass
         if builder.should_fail_by is not None:
             break
 
