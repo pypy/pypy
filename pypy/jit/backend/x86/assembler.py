@@ -51,6 +51,9 @@ class MachineCodeBlockWrapper(object):
     def tell(self):
         return self._mc.tell()
 
+    def O16(self):
+        self.mc.O16()
+
     def done(self):
         self._mc.done()
 
@@ -69,7 +72,7 @@ def _new_method(name):
     return method
 
 for name in dir(codebuf.MachineCodeBlock):
-    if name.upper() == name:
+    if name.upper() == name and name != 'O16':
         setattr(MachineCodeBlockWrapper, name, _new_method(name))
 
 class MachineCodeStack(object):
