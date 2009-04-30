@@ -183,6 +183,18 @@ class GuardOperation(AbstractOperation):
             builder.should_fail_by = op.suboperations[0]
             builder.should_fail_by_num = len(builder.loop.operations) - 1
 
+class GuardValueOperation(GuardOperation):
+    def gen_guard(self, builder, r):
+        v = r.choice(builder.intvars)
+        if r.random() < 0.75:
+            value = v.value
+        elif r.random() < 0.5:
+            value = v.value ^ 1
+        else:
+            value = r.random_integer()
+        op = ResOperation(self.opnum, [v, ConstInt(value)], None)
+        return op, (v.value == value)
+
 # ____________________________________________________________
 
 OPERATIONS = []
@@ -216,7 +228,10 @@ OPERATIONS.append(BinaryOperation(rop.INT_LSHIFT, LONG_BIT-1))
 OPERATIONS.append(BinaryOperation(rop.UINT_RSHIFT, LONG_BIT-1))
 
 OPERATIONS.append(GuardOperation(rop.GUARD_TRUE))
+OPERATIONS.append(GuardOperation(rop.GUARD_TRUE))
 OPERATIONS.append(GuardOperation(rop.GUARD_FALSE))
+OPERATIONS.append(GuardOperation(rop.GUARD_FALSE))
+OPERATIONS.append(GuardValueOperation(rop.GUARD_VALUE))
 
 for _op in [rop.INT_NEG,
             rop.INT_INVERT,
