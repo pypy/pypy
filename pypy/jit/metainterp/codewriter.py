@@ -295,7 +295,11 @@ class BytecodeMaker(object):
         else:
             print repr(self.bytecode)
             dir = udir.ensure("jitcodes", dir=1)
-            self.bytecode.dump(open(str(dir.join(self.bytecode.name)), "w"))
+            if self.portal:
+                name = "portal_runner"
+            else:
+                name = self.bytecode.name
+            self.bytecode.dump(open(str(dir.join(name)), "w"))
 
     def const_position(self, constvalue):
         """Generate a constant of the given value.
