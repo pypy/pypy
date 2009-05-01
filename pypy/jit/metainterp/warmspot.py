@@ -15,6 +15,7 @@ from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib.debug import debug_print
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.translator.simplify import get_funcobj, get_functype
+from pypy.translator.unsimplify import call_final_function
 
 from pypy.jit.metainterp import support, history, pyjitpl
 from pypy.jit.metainterp.pyjitpl import MetaInterpStaticData, MetaInterp
@@ -124,7 +125,7 @@ class WarmRunnerDesc:
         self.metainterp_sd.generate_bytecode(policy, self.ts)
         self.make_enter_function()
         self.rewrite_can_enter_jit()
-        #self.rewrite_entry_point() XXX broken when the last block handles exceptions
+        self.add_profiler_finish()
         self.metainterp_sd.num_green_args = self.num_green_args
         self.metainterp_sd.state = self.state
 
@@ -441,24 +442,14 @@ class WarmRunnerDesc:
         origblock.recloseblock(Link([v_result], origportalgraph.returnblock))
         checkgraph(origportalgraph)
 
-    def rewrite_entry_point(self):
+    def add_profiler_finish(self):
         def finish_profiler():
-            self.metainterp_sd.profiler.finish()
+            if self.metainterp_sd.profiler.initialized:
+                self.metainterp_sd.profiler.finish()
         
         if self.cpu.translate_support_code:
-            entry_point = self.translator.graphs[0]
-            _, TP = self.metainterp_sd.ts.get_FuncType([], lltype.Void)
-            profiler_ptr = self.helper_func(TP, finish_profiler)
-            for block in entry_point.iterblocks():
-                for link in block.exits:
-                    if link.target is entry_point.returnblock:
-                        v = Variable()
-                        v.concretetype = lltype.Void
-                        newop = SpaceOperation('direct_call',
-                                               [Constant(profiler_ptr, TP)],
-                                               v)
-                        block.operations.append(newop)
-            checkgraph(entry_point)
+            call_final_function(self.translator, finish_profiler,
+                                annhelper = self.annhelper)
 
 def decode_hp_hint_args(op):
     # Returns (list-of-green-vars, list-of-red-vars) without Voids.
