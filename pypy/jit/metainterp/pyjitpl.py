@@ -18,6 +18,7 @@ from pypy.jit.metainterp import codewriter, executor
 from pypy.jit.metainterp import typesystem
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
+from pypy.jit.metainterp.jitprof import Profiler, EmptyProfiler
 
 # ____________________________________________________________
 
@@ -829,7 +830,7 @@ class MetaInterpStaticData(object):
     num_green_args = 0
 
     def __init__(self, portal_graph, graphs, cpu, stats, options,
-                 optimizer=None):
+                 optimizer=None, profile=False):
         self.portal_graph = portal_graph
         self.cpu = cpu
         self.stats = stats
@@ -860,6 +861,11 @@ class MetaInterpStaticData(object):
             self.ts = typesystem.oohelper
         else:
             self.ts = typesystem.llhelper
+
+        if profile:
+            self.profiler = Profiler()
+        else:
+            self.profiler = EmptyProfiler()
 
     def _freeze_(self):
         return True
@@ -1014,6 +1020,8 @@ class MetaInterp(object):
             while True:
                 self.framestack[-1].run_one_step()
         finally:
+            if isinstance(self.history, history.BlackHole):
+                self.staticdata.profiler.end_blackhole()
             if not we_are_translated():
                 history.log.event('LEAVE' + self.history.extratext)
             elif DEBUG:
@@ -1266,6 +1274,7 @@ class MetaInterp(object):
                     self.history.operations.append(suboperations[i])
                 self.extra_rebuild_operations = extra
         if not must_compile:
+            self.staticdata.profiler.start_blackhole()
             self.history = history.BlackHole(self.cpu)
             # the BlackHole is invalid because it doesn't start with
             # guard_failure.key.guard_op.suboperations, but that's fine
