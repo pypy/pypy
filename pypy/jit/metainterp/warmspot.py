@@ -447,7 +447,7 @@ class WarmRunnerDesc:
         
         if self.cpu.translate_support_code:
             entry_point = self.translator.graphs[0]
-            TP = lltype.Ptr(lltype.FuncType([], lltype.Void))
+            _, TP = self.metainterp_sd.ts.get_FuncType([], lltype.Void)
             profiler_ptr = self.helper_func(TP, finish_profiler)
             for block in entry_point.iterblocks():
                 for link in block.exits:
