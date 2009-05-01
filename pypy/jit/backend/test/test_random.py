@@ -335,6 +335,8 @@ def check_random_function(BuilderClass, r):
         cpu.set_future_value_int(i, v.value)
     op = cpu.execute_operations(loop)
     assert op.args == endvars
+    if builder.should_fail_by is not None:
+        assert op is builder.should_fail_by
 
     for i, v in enumerate(endvars):
         value = cpu.get_latest_value_int(i)
