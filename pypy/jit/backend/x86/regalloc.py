@@ -774,7 +774,7 @@ class RegAlloc(object):
             loc2 = self.make_sure_var_in_reg(op.args[1], [], ecx)
         loc1 = self.force_result_in_reg(op.result, op.args[0], op.args)
         tmpvar = TempBox()
-        tmploc = self.force_allocate_reg(tmpvar, [])
+        tmploc = self.force_allocate_reg(tmpvar, [op.args[1], op.result])
         self.eventually_free_vars(op.args)
         self.position += 1
         regalloc = self.regalloc_for_guard(guard_op)
