@@ -26,7 +26,6 @@ class TestOOtype(OOTranslatedJitMixin, test_zrpy_exception.TestLLExceptions):
     def skip(self):
         py.test.skip('in-progress')
 
-    test_reraise_through_portal = skip
     test_bridge_from_interpreter_exc = skip
     test_bridge_from_interpreter_exc_2 = skip
     test_raise = skip
