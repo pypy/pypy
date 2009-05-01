@@ -11,11 +11,11 @@ from pypy.tool.autopath import pypydir
 
 rootdir = py.magic.autopath().dirpath()
 
-# distributed testing settings
-dist_rsync_roots = ['.', '../lib-python', '../py', '../demo']
-dist_rsync_ignore = ['_cache']
-
-# 
+# pytest settings
+pytest_plugins = "resultlog",
+rsyncdirs = ['.', '../lib-python', '../demo']
+rsyncignore = ['_cache']
+ 
 # PyPy's command line extra options (these are added 
 # to py.test's standard options) 
 #
