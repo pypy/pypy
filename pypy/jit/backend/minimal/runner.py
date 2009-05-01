@@ -144,6 +144,11 @@ class BaseCPU(model.AbstractCPU):
         assert len(self._future_values) == index
         self._future_values.append(BoxPtr(ptrvalue))
 
+    def set_future_value_obj(self, index, objvalue):
+        del self._future_values[index:]
+        assert len(self._future_values) == index
+        self._future_values.append(BoxObj(objvalue))
+
     def get_latest_value_int(self, index):
         op, env = self.latest_fail
         return env[op.args[index]].getint()

@@ -7,7 +7,6 @@ class TestOOtype(OOTranslatedJitMixin, ToyLanguageTests):
     def skip(self):
         py.test.skip('in-progress')
     
-    test_tlr = skip
     test_tl_base = skip
     test_tl_2 = skip
     test_tl_call = skip
