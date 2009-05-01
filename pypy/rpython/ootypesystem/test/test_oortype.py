@@ -403,3 +403,21 @@ def test_immutable_hint():
     g = gengraph(f)
     rettype = g.getreturnvar().concretetype
     assert rettype._hints['immutable']
+
+
+def test_compare_classes():
+    A = ootype.Instance("A", ootype.ROOT)
+    B = ootype.Instance("B", ootype.ROOT)
+
+    cls1 = ootype.runtimeClass(A)
+    def fn(n):
+        if n:
+            cls2 = ootype.runtimeClass(A)
+        else:
+            cls2 = ootype.runtimeClass(B)
+
+        assert (cls1 == cls2) == (not (cls1 != cls2))
+        return cls1 == cls2
+
+    res = interpret(fn, [1], type_system='ootype')
+    assert res
