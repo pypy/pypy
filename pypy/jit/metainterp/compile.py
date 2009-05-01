@@ -113,7 +113,9 @@ def compile_fresh_loop(metainterp, old_loops, greenkey, start):
     return loop
 
 def send_loop_to_backend(metainterp, loop, type):
+    metainterp.staticdata.profiler.start_backend()
     metainterp.cpu.compile_operations(loop)
+    metainterp.staticdata.profiler.end_backend()
     if not we_are_translated():
         if type != "entry bridge":
             metainterp.staticdata.stats.compiled_count += 1

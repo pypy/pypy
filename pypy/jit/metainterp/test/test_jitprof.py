@@ -13,8 +13,8 @@ class FakeProfiler(Profiler):
         self.counter += 1
         return self.counter - 1
 
-    def print_stats(self):
-        pass
+##    def print_stats(self):
+##        pass
 
 class ProfilerMixin(LLJitMixin):
     def meta_interp(self, *args, **kwds):
@@ -37,9 +37,11 @@ class TestProfile(ProfilerMixin):
         res = self.meta_interp(f, [6, 7])
         assert res == 84
         profiler = pyjitpl._warmrunnerdesc.metainterp_sd.profiler
-        assert len(profiler.events) == 6
+        assert len(profiler.events) == 8
         expected = [
             TRACING,
+            BACKEND,
+            END_BACKEND,
             END_TRACING,
             RUNNING,
             END_RUNNING,
@@ -47,6 +49,7 @@ class TestProfile(ProfilerMixin):
             END_BLACKHOLE
             ]
         assert [i[1] for i in profiler.events] == expected
-        assert profiler.trace_time == 1
+        assert profiler.trace_time == 2
+        assert profiler.backend_time == 1
         assert profiler.run_time == 1        
         assert profiler.blackhole_time == 1

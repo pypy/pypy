@@ -578,10 +578,6 @@ def make_state_class(warmrunnerdesc):
             # not too bad.
 
         def maybe_compile_and_run(self, *args):
-            metainterp_sd = warmrunnerdesc.metainterp_sd
-            if not metainterp_sd.profiler.initialized:
-                metainterp_sd.profiler.start()
-                metainterp_sd.profiler.initialized = True
             # get the greenargs and look for the cell corresponding to the hash
             greenargs = args[:num_green_args]
             argshash = self.getkeyhash(*greenargs)
@@ -595,10 +591,12 @@ def make_state_class(warmrunnerdesc):
                     self.cells[argshash] = Counter(n)
                     return
                 #interp.debug_trace("jit_compile", *greenargs)
+                metainterp_sd = warmrunnerdesc.metainterp_sd
+                if not metainterp_sd.profiler.initialized:
+                    metainterp_sd.profiler.start()
+                    metainterp_sd.profiler.initialized = True
                 metainterp = MetaInterp(metainterp_sd)
-                metainterp_sd.profiler.start_tracing()
                 loop = metainterp.compile_and_run_once(*args)
-                metainterp_sd.profiler.end_tracing()
             else:
                 # machine code was already compiled for these greenargs
                 # (or we have a hash collision)
@@ -644,10 +642,7 @@ def make_state_class(warmrunnerdesc):
                 return None
             metainterp_sd = warmrunnerdesc.metainterp_sd
             metainterp = MetaInterp(metainterp_sd)
-            warmrunnerdesc.metainterp_sd.profiler.start_tracing()
-            res = metainterp.compile_and_run_once(*args)
-            warmrunnerdesc.metainterp_sd.profiler.end_tracing()
-            return res
+            return metainterp.compile_and_run_once(*args)
         handle_hash_collision._dont_inline_ = True
 
         def getkeyhash(self, *greenargs):

@@ -1022,6 +1022,8 @@ class MetaInterp(object):
         finally:
             if isinstance(self.history, history.BlackHole):
                 self.staticdata.profiler.end_blackhole()
+            else:
+                self.staticdata.profiler.end_tracing()
             if not we_are_translated():
                 history.log.event('LEAVE' + self.history.extratext)
             elif DEBUG:
@@ -1242,6 +1244,7 @@ class MetaInterp(object):
                                         *args[1:])
 
     def initialize_state_from_start(self, *args):
+        self.staticdata.profiler.start_tracing()
         self.staticdata._recompute_class_sizes()
         self.create_empty_history()
         num_green_args = self.staticdata.num_green_args
@@ -1273,7 +1276,9 @@ class MetaInterp(object):
                 for i in range(extra):
                     self.history.operations.append(suboperations[i])
                 self.extra_rebuild_operations = extra
-        if not must_compile:
+        if must_compile:
+            self.staticdata.profiler.start_tracing()
+        else:
             self.staticdata.profiler.start_blackhole()
             self.history = history.BlackHole(self.cpu)
             # the BlackHole is invalid because it doesn't start with
