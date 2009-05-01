@@ -783,8 +783,6 @@ class __extend__(SomeOOBoundMeth):
         args_s, kwds_s = args.unpack()
         if kwds_s:
             raise Exception("keyword arguments to call to a low-level bound method")
-        info = 'argument to ll bound method call'
-        llargs = [annotation_to_lltype(s_arg,info)._defl() for s_arg in args_s]
         inst = m.ootype._example()
         _, meth = ootype.typeOf(inst)._lookup(m.name)
         METH = ootype.typeOf(meth)
