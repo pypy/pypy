@@ -3,8 +3,8 @@ from pypy.rlib.objectmodel import specialize, we_are_translated
 from pypy.rlib.debug import ll_assert, debug_print
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rstr, rclass
 from pypy.rpython.ootypesystem import ootype
-from pypy.jit.metainterp.history import AbstractDescr, Box, BoxInt, BoxPtr
-from pypy.jit.metainterp.history import BoxObj
+from pypy.jit.metainterp.history import AbstractDescr, AbstractMethDescr
+from pypy.jit.metainterp.history import Box, BoxInt, BoxPtr, BoxObj
 from pypy.jit.metainterp import executor
 from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.jit.backend import model
@@ -166,12 +166,7 @@ class BaseCPU(model.AbstractCPU):
             if value:
                 raise GuardFailed
         elif opnum == rop.GUARD_CLASS:
-            assert not self.is_oo
-            value = argboxes[0].getptr(rclass.OBJECTPTR)
-            adr = argboxes[1].getaddr(self)
-            expected_class = llmemory.cast_adr_to_ptr(adr, rclass.CLASSTYPE)
-            if value.typeptr != expected_class:
-                raise GuardFailed
+            self._execute_guard_class(argboxes)
         elif opnum == rop.GUARD_VALUE:
             value = argboxes[0].getint()
             expected_value = argboxes[1].getint()
@@ -364,6 +359,13 @@ class LLtypeCPU(BaseCPU):
         from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
         return cast_instance_to_base_ptr(e)
 
+    def _execute_guard_class(self, argboxes):
+        value = argboxes[0].getptr(rclass.OBJECTPTR)
+        adr = argboxes[1].getaddr(self)
+        expected_class = llmemory.cast_adr_to_ptr(adr, rclass.CLASSTYPE)
+        if value.typeptr != expected_class:
+            raise GuardFailed
+
     def _execute_guard_exception(self, argboxes):
         adr = argboxes[0].getaddr(self)
         expected_class = llmemory.cast_adr_to_ptr(adr, rclass.CLASSTYPE)
@@ -530,6 +532,13 @@ class OOtypeCPU(BaseCPU):
         from pypy.rpython.annlowlevel import cast_instance_to_base_obj
         return ootype.cast_to_object(cast_instance_to_base_obj(e))
 
+    def _execute_guard_class(self, argboxes):
+        # XXX: what if we try to cast a List to ROOT?
+        value = ootype.cast_from_object(ootype.ROOT, argboxes[0].getobj())
+        expected_class = ootype.cast_from_object(ootype.Class, argboxes[1].getobj())
+        if ootype.classof(value) != expected_class:
+            raise GuardFailed
+
     def _execute_guard_exception(self, argboxes):
         obj = argboxes[0].getobj()
         expected_class = ootype.cast_from_object(ootype.Class, obj)
@@ -621,7 +630,6 @@ class CallDescr(AbstractDescr):
         self.errbox = errbox
 
 
-
 # ____________________________________________________________
 
 
@@ -670,7 +678,7 @@ def reveal_obj(cpu, TYPE, box):
     if isinstance(TYPE, ootype.OOType):
         return ootype.cast_from_object(TYPE, box.getobj())
     else:
-        return lltype.cast_to_primitive(TYPE, box.getint())
+        return lltype.cast_primitive(TYPE, box.getint())
 
 base_dict = {
     'ootype': ootype,
