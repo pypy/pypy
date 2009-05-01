@@ -786,9 +786,9 @@ class __extend__(SomeOOBoundMeth):
         info = 'argument to ll bound method call'
         llargs = [annotation_to_lltype(s_arg,info)._defl() for s_arg in args_s]
         inst = m.ootype._example()
-        meth = getattr(inst, m.name)
-        v = meth(*llargs)
-        return ll_to_annotation(v)
+        _, meth = ootype.typeOf(inst)._lookup(m.name)
+        METH = ootype.typeOf(meth)
+        return lltype_to_annotation(METH.RESULT)
 
 
 class __extend__(SomeOOStaticMeth):

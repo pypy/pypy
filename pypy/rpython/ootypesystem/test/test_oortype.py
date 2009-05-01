@@ -439,3 +439,13 @@ def test_boundmeth_callargs():
 
     res = interpret(fn, [4, 5], type_system='ootype')
     assert res == 3+4+5
+
+def test_boundmeth_callargs_stritem_nonneg():
+    def fn(i):
+        s = ootype.oostring(42, -1)
+        meth = s.ll_stritem_nonneg
+        args = (i,)
+        return meth(*args)
+
+    res = interpret(fn, [0], type_system='ootype')
+    assert res == '4'
