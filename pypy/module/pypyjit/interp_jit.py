@@ -72,23 +72,6 @@ class __extend__(PyFrame):
 #
 # Public interface
 
-def jit_startup(space, argv):
-    # save the app-level sys.executable in JITInfo, where the machine
-    # code backend can fish for it.  A bit hackish.
-    from pypy.jit.backend.hlinfo import highleveljitinfo
-    highleveljitinfo.sys_executable = argv[0]
-
-    # recognize the option  --jit PARAM=VALUE,PARAM=VALUE...
-    # if it is at the beginning.  A bit ad-hoc.
-    if len(argv) > 2 and argv[1] == '--jit':
-        argv.pop(1)
-        try:
-            pypyjitdriver.set_user_param(argv.pop(1))
-        except ValueError:
-            from pypy.rlib.debug import debug_print
-            debug_print("WARNING: invalid --jit parameters string")
-
-
 def set_param(space, args):
     '''Configure the tunable JIT parameters.
         * set_param(name=value, ...)            # as keyword arguments
