@@ -79,9 +79,12 @@ class RegAlloc(object):
                 if arg in regalloc.stack_bindings:
                     self.stack_bindings[arg] = regalloc.stack_bindings[arg]
                 else:
-                    assert arg in self.reg_bindings
+                    assert arg in regalloc.reg_bindings
                 if arg in regalloc.dirty_stack:
                     self.dirty_stack[arg] = regalloc.dirty_stack[arg]
+                if (arg in regalloc.stack_bindings and
+                    arg in regalloc.reg_bindings):
+                    self.dirty_stack[arg] = True
             allocated_regs = self.reg_bindings.values()
             self.free_regs = [v for v in REGS if v not in allocated_regs]
             self.current_stack_depth = regalloc.current_stack_depth
