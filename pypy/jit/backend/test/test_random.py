@@ -7,8 +7,6 @@ from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.executor import execute
 from pypy.jit.metainterp.resoperation import opname
 
-allloops = []
-
 class DummyLoop(object):
     def __init__(self, subops):
         self.operations = subops
@@ -320,13 +318,13 @@ def generate_ops(builder, block_length, r):
             break
     
 
-def check_random_function(BuilderClass, r):
+def check_random_function(cpu, BuilderClass, r, vars=None):
     block_length = demo_conftest.option.block_length
-    vars = [BoxInt(r.random_integer())
-            for i in range(demo_conftest.option.n_vars)]
+    if vars is None:
+        vars = [BoxInt(r.random_integer())
+                for i in range(demo_conftest.option.n_vars)]
     valueboxes = [BoxInt(box.value) for box in vars]
 
-    cpu = get_cpu()
     loop = TreeLoop('test_random_function')
     loop.inputargs = vars[:]
     loop.operations = []
@@ -398,15 +396,16 @@ def check_random_function(BuilderClass, r):
         for i in range(num):
             subset.append(r.choice(bridge_builder.intvars))
         r.shuffle(subset)
-        if r.random() < 0.1 and allloops:
-            jump_target = r.choice(allloops)
-            args = op.args[:len(jump_target.inputargs)]
-            while len(args) < len(jump_target.inputargs):
-                args.append(args[-1])
-            fail_op = ResOperation(rop.JUMP, args, None)
+        if len(subset) == 0:
+            break
+        if r.random() < 0.1:
+            jump_target = check_random_function(cpu, BuilderClass, r,
+                            [arg.clonebox() for arg in subset])
+            fail_op = ResOperation(rop.JUMP, subset, None)
             fail_op.jump_target = jump_target
             dont_check_result = True
-        fail_op = ResOperation(rop.FAIL, subset, None)
+        else:
+            fail_op = ResOperation(rop.FAIL, subset, None)
         guard_op.suboperations.append(fail_op)
         all_builders.append(bridge_builder)
         if bridge_builder.should_fail_by is None:
@@ -417,15 +416,15 @@ def check_random_function(BuilderClass, r):
             guard_op = guard_op.suboperations[bridge_builder.should_fail_by_num]
 
     print '    # passed.'
-    print        
-
-    allloops.append(loop)
+    print
+    return loop
 
 def test_random_function(BuilderClass=OperationBuilder):
     r = Random()
+    cpu = get_cpu()
     if demo_conftest.option.repeat == -1:
         while 1: 
-            check_random_function(BuilderClass, r)
+            check_random_function(cpu, BuilderClass, r)
     else:
         for i in range(demo_conftest.option.repeat):
-            check_random_function(BuilderClass, r)
+            check_random_function(cpu, BuilderClass, r)
