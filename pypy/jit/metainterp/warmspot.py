@@ -54,6 +54,7 @@ def jittify_and_run(interp, graph, args, repeat=1, hash_bits=None, **kwds):
         warmrunnerdesc.state.set_param_hash_bits(hash_bits)
     warmrunnerdesc.finish()
     res = interp.eval_graph(graph, args)
+    warmrunnerdesc.metainterp_sd.profiler.finish()
     print '~~~ return value:', res
     while repeat > 1:
         print '~' * 79

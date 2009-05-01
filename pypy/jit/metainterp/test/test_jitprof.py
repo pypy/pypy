@@ -5,10 +5,21 @@ from pypy.jit.metainterp.test.test_basic import LLJitMixin
 from pypy.jit.metainterp import pyjitpl
 from pypy.jit.metainterp.jitprof import *
 
+class FakeProfiler(Profiler):
+    def __init__(self):
+        self.counter = 0
+    
+    def timer(self):
+        self.counter += 1
+        return self.counter - 1
+
+    def print_stats(self):
+        pass
+
 class ProfilerMixin(LLJitMixin):
     def meta_interp(self, *args, **kwds):
         kwds = kwds.copy()
-        kwds['profile'] = True
+        kwds['profile'] = FakeProfiler
         return LLJitMixin.meta_interp(self, *args, **kwds)
 
 class TestProfile(ProfilerMixin):
@@ -36,4 +47,6 @@ class TestProfile(ProfilerMixin):
             END_BLACKHOLE
             ]
         assert [i[1] for i in profiler.events] == expected
-        
+        assert profiler.trace_time == 1
+        assert profiler.run_time == 1        
+        assert profiler.blackhole_time == 1

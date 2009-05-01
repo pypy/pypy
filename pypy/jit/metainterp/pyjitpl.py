@@ -862,8 +862,8 @@ class MetaInterpStaticData(object):
         else:
             self.ts = typesystem.llhelper
 
-        if profile:
-            self.profiler = Profiler()
+        if profile is not None:
+            self.profiler = profile()
         else:
             self.profiler = EmptyProfiler()
 
