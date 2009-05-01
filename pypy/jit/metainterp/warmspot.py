@@ -142,7 +142,7 @@ class WarmRunnerDesc:
 
     def build_meta_interp(self, CPUClass=None, view="auto",
                           translate_support_code=False, optimizer=None,
-                          profile=False, **kwds):
+                          profile=None, **kwds):
         assert CPUClass is not None
         opt = pyjitpl.Options(**kwds)
         self.stats = history.Stats()
