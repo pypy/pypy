@@ -14,14 +14,14 @@ from pypy.interpreter.main import run_string, run_file
 
 # the following adds command line options as a side effect! 
 from pypy.conftest import gettestobjspace, option as pypy_option 
-from test.regrtest import reportdiff
 from test import pystone
 
 from pypy.tool.pytest import appsupport 
 from pypy.tool.pytest.confpath import pypydir, libpythondir, \
                                       regrtestdir, modregrtestdir, testresultdir
 
-dist_rsync_roots = ['.', '../pypy', '../py']
+pytest_plugins = "resultlog",
+rsyncdirs = ['.', '../pypy']
     
 # 
 # Interfacing/Integrating with py.test's collection process 
@@ -31,7 +31,7 @@ class LibPythonPlugin:
     def pytest_addoption(self, parser):
         group = parser.addgroup("complicance testing options") 
         group.addoption('-T', '--timeout', action="store", type="string", 
-           default="100mp", dest="timeout", 
+           default="1000", dest="timeout", 
            help="fail a test module after the given timeout. "
                 "specify in seconds or 'NUMmp' aka Mega-Pystones")
         group.addoption('--pypy', action="store", type="string",
@@ -199,7 +199,7 @@ testmap = [
 
     RegrTest('test_curses.py', skip="unsupported extension module"),
     RegrTest('test_datetime.py'),
-    RegrTest('test_dbm.py', skip="unsupported extension module"),
+    RegrTest('test_dbm.py'),
     RegrTest('test_decimal.py'),
     RegrTest('test_decorators.py', core=True),
     RegrTest('test_deque.py', core=True),
@@ -696,6 +696,49 @@ class ReallyRunFileExternal(py.test.collect.Item):
         if regrtest.core:
             lst.append('core')
         return lst
+
+# test.regrtest.reportdiff was deleted in CPython2.6
+def reportdiff(expected, output):
+    import difflib
+    print "*" * 70
+    a = expected.splitlines(1)
+    b = output.splitlines(1)
+    sm = difflib.SequenceMatcher(a=a, b=b)
+    tuples = sm.get_opcodes()
+
+    def pair(x0, x1):
+        # x0:x1 are 0-based slice indices; convert to 1-based line indices.
+        x0 += 1
+        if x0 >= x1:
+            return "line " + str(x0)
+        else:
+            return "lines %d-%d" % (x0, x1)
+
+    for op, a0, a1, b0, b1 in tuples:
+        if op == 'equal':
+            pass
+
+        elif op == 'delete':
+            print "***", pair(a0, a1), "of expected output missing:"
+            for line in a[a0:a1]:
+                print "-", line,
+
+        elif op == 'replace':
+            print "*** mismatch between", pair(a0, a1), "of expected", \
+                  "output and", pair(b0, b1), "of actual output:"
+            for line in difflib.ndiff(a[a0:a1], b[b0:b1]):
+                print line,
+
+        elif op == 'insert':
+            print "***", pair(b0, b1), "of actual output doesn't appear", \
+                  "in expected output after line", str(a1)+":"
+            for line in b[b0:b1]:
+                print "+", line,
+
+        else:
+            print "get_opcodes() returned bad tuple?!?!", (op, a0, a1, b0, b1)
+
+    print "*" * 70
 
 #
 # Sanity check  (could be done more nicely too)
