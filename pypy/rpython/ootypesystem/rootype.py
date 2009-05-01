@@ -145,6 +145,13 @@ class OOBoundMethRepr(Repr):
         return hop.genop("oosend", [cname]+vlist,
                          resulttype = hop.r_result.lowleveltype)
 
+    def rtype_call_args(self, hop):
+        from pypy.rpython.rbuiltin import call_args_expand
+        hop, _ = call_args_expand(hop, takes_kwds=False)
+        hop.swap_fst_snd_args()
+        hop.r_s_popfirstarg()
+        return self.rtype_simple_call(hop)
+
 
 class OOStaticMethRepr(Repr):
     def __init__(self, METHODTYPE):

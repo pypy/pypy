@@ -779,6 +779,18 @@ class __extend__(SomeOOBoundMeth):
             METH = ootype.typeOf(meth)
             return lltype_to_annotation(METH.RESULT)
 
+    def call(m, args):
+        args_s, kwds_s = args.unpack()
+        if kwds_s:
+            raise Exception("keyword arguments to call to a low-level bound method")
+        info = 'argument to ll bound method call'
+        llargs = [annotation_to_lltype(s_arg,info)._defl() for s_arg in args_s]
+        inst = m.ootype._example()
+        meth = getattr(inst, m.name)
+        v = meth(*llargs)
+        return ll_to_annotation(v)
+
+
 class __extend__(SomeOOStaticMeth):
 
     def call(m, args):

@@ -421,3 +421,21 @@ def test_compare_classes():
 
     res = interpret(fn, [1], type_system='ootype')
     assert res
+
+
+def test_boundmeth_callargs():
+    A = Instance("A", ROOT, {'a': (Signed, 3)})
+    M = Meth([Signed, Signed], Signed)
+    def m_(self, x, y):
+       return self.a + x + y
+    m = meth(M, _name="m", _callable=m_)
+    addMethods(A, {"m": m})
+
+    def fn(x, y):
+        a = ootype.new(A)
+        meth = a.m
+        args = (x, y)
+        return meth(*args)
+
+    res = interpret(fn, [4, 5], type_system='ootype')
+    assert res == 3+4+5
