@@ -5,7 +5,11 @@ from pypy.jit.metainterp.history import TreeLoop, BoxInt, ConstInt
 from pypy.jit.metainterp.history import BoxPtr, ConstPtr, ConstAddr
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.executor import execute
+from pypy.jit.metainterp.resoperation import opname
 
+class DummyLoop(object):
+    def __init__(self, subops):
+        self.operations = subops
 
 class OperationBuilder:
     def __init__(self, cpu, loop, vars):
@@ -40,15 +44,51 @@ class OperationBuilder:
             v = self.do(rop.INT_IS_TRUE, [v])
         return v
 
-    def print_loop_prebuilt(self, names, writevar, s):
-        pass
+    def process_operation(self, s, op, names, subops):
+        args = []
+        for v in op.args:
+            if v in names:
+                args.append(names[v])
+            elif isinstance(v, ConstAddr):
+                name = ''.join([v.value.ptr.name[i]
+                                for i in range(len(v.value.ptr.name)-1)])
+                args.append(
+                    'ConstAddr(llmemory.cast_ptr_to_adr(%s_vtable), cpu)'
+                    % name)
+            else:
+                args.append('ConstInt(%d)' % v.value)
+        if op.descr is None:
+            descrstr = ''
+        else:
+            descrstr = ', ' + op.descr._random_info
+        print >>s, '        ResOperation(rop.%s, [%s], %s%s),' % (
+            opname[op.opnum], ', '.join(args), names[op.result], descrstr)
+        if getattr(op, 'suboperations', None) is not None:
+            subops.append(op)
 
     def print_loop(self):
+        def update_names(ops):
+            for op in ops:
+                v = op.result
+                if v not in names:
+                    writevar(v, 'tmp')
+                if getattr(op, 'suboperations', None) is not None:
+                    update_names(op.suboperations)
+
+        def print_loop_prebuilt(ops):
+            for op in ops:
+                for arg in op.args:
+                    if isinstance(arg, ConstPtr):
+                        writevar(arg, 'const_ptr')
+                if getattr(op, 'suboperations', None) is not None:
+                    print_loop_prebuilt(op.suboperations)
+
         if demo_conftest.option.output:
             s = open(demo_conftest.option.output, "w")
         else:
             s = sys.stdout
         names = {None: 'None'}
+        subops = []
         #
         def writevar(v, nameprefix, init=''):
             names[v] = '%s%d' % (nameprefix, len(names))
@@ -59,46 +99,29 @@ class OperationBuilder:
             writevar(v, 'v')
         for v, S in self.ptrvars:
             writevar(v, 'p')
-        for op in self.loop.operations:
-            v = op.result
-            if v not in names:
-                writevar(v, 'tmp')
-        #
-        self.print_loop_prebuilt(names, writevar, s)
+        update_names(self.loop.operations)
+        print_loop_prebuilt(self.loop.operations)
         #
         print >>s, '    cpu = CPU(None, None)'
         print >>s, "    loop = TreeLoop('test')"
         print >>s, '    loop.inputargs = [%s]' % (
             ', '.join([names[v] for v in self.loop.inputargs]))
-        from pypy.jit.metainterp.resoperation import opname
         print >>s, '    loop.operations = ['
         for op in self.loop.operations:
-            args = []
-            for v in op.args:
-                if v in names:
-                    args.append(names[v])
-                elif isinstance(v, ConstAddr):
-                    name = ''.join([v.value.ptr.name[i]
-                                    for i in range(len(v.value.ptr.name)-1)])
-                    args.append(
-                        'ConstAddr(llmemory.cast_ptr_to_adr(%s_vtable), cpu)'
-                        % name)
-                else:
-                    args.append('ConstInt(%d)' % v.value)
-            if op.descr is None:
-                descrstr = ''
-            else:
-                descrstr = ', ' + op.descr._random_info
-            print >>s, '        ResOperation(rop.%s, [%s], %s%s),' % (
-                opname[op.opnum], ', '.join(args), names[op.result], descrstr)
+            self.process_operation(s, op, names, subops)
         print >>s, '        ]'
-        for i, op in enumerate(self.loop.operations):
-            if getattr(op, 'suboperations', None) is not None:
-                [op] = op.suboperations
-                assert op.opnum == rop.FAIL
-                print >>s, '    loop.operations[%d].suboperations = [' % i
-                print >>s, '        ResOperation(rop.FAIL, [%s], None)]' % (
-                    ', '.join([names[v] for v in op.args]))
+        while subops:
+            next = subops.pop(0)
+            for op in next.suboperations:
+                self.process_operation(s, op, names, subops)
+        # XXX think what to do about the one below
+                #if len(op.suboperations) > 1:
+                #    continue # XXX
+                #[op] = op.suboperations
+                #assert op.opnum == rop.FAIL
+                #print >>s, '    loop.operations[%d].suboperations = [' % i
+                #print >>s, '        ResOperation(rop.FAIL, [%s], None)]' % (
+                #    ', '.join([names[v] for v in op.args]))
         print >>s, '    cpu.compile_operations(loop)'
         for i, v in enumerate(self.loop.inputargs):
             print >>s, '    cpu.set_future_value_int(%d, %d)' % (i, v.value)
@@ -275,8 +298,8 @@ def get_cpu():
         from pypy.jit.backend.llgraph.runner import LLtypeCPU
         return LLtypeCPU(None)
     elif demo_conftest.option.backend == 'minimal':
-        from pypy.jit.backend.minimal.runner import CPU
-        return CPU(None)
+        from pypy.jit.backend.minimal.runner import LLtypeCPU
+        return LLtypeCPU(None, None)
     elif demo_conftest.option.backend == 'x86':
         from pypy.jit.backend.x86.runner import CPU386
         return CPU386(None, None)
@@ -284,6 +307,16 @@ def get_cpu():
         assert 0, "unknown backend %r" % demo_conftest.option.backend
 
 # ____________________________________________________________
+
+def generate_ops(builder, block_length, r):
+    for i in range(block_length):
+        try:
+            r.choice(builder.OPERATIONS).produce_into(builder, r)
+        except CannotProduceOperation:
+            pass
+        if builder.should_fail_by is not None:
+            break
+    
 
 def check_random_function(BuilderClass, r):
     block_length = demo_conftest.option.block_length
@@ -297,14 +330,7 @@ def check_random_function(BuilderClass, r):
     loop.operations = []
 
     builder = BuilderClass(cpu, loop, vars)
-
-    for i in range(block_length):
-        try:
-            r.choice(BuilderClass.OPERATIONS).produce_into(builder, r)
-        except CannotProduceOperation:
-            pass
-        if builder.should_fail_by is not None:
-            break
+    generate_ops(builder, block_length, r)
 
     endvars = []
     used_later = {}
@@ -316,39 +342,68 @@ def check_random_function(BuilderClass, r):
             endvars.append(v)
     r.shuffle(endvars)
     loop.operations.append(ResOperation(rop.FAIL, endvars, None))
-    builder.print_loop()
+    should_fail_by = builder.should_fail_by
+    if should_fail_by is not None:
+        guard_op = loop.operations[builder.should_fail_by_num]
+    all_builders = [builder]
+    
+    while True:
+        builder.print_loop()
+        cpu.compile_operations(loop)
 
-    cpu.compile_operations(loop)
+        if should_fail_by is not None:
+            endvars = should_fail_by.args
+        expected = {}
+        for v in endvars:
+            expected[v] = v.value
 
-    if builder.should_fail_by is not None:
-        endvars = builder.should_fail_by.args
-    expected = {}
-    for v in endvars:
-        expected[v] = v.value
+        for b in all_builders:
+            for v, S, fields in b.prebuilt_ptr_consts:
+                container = v.value._obj.container
+                for name, value in fields.items():
+                    setattr(container, name, value)
 
-    for v, S, fields in builder.prebuilt_ptr_consts:
-        container = v.value._obj.container
-        for name, value in fields.items():
-            setattr(container, name, value)
+        for i, v in enumerate(valueboxes):
+            cpu.set_future_value_int(i, v.value)
+        op = cpu.execute_operations(loop)
+        assert op.args == endvars
+        if should_fail_by is not None:
+            assert op is should_fail_by
 
-    for i, v in enumerate(valueboxes):
-        cpu.set_future_value_int(i, v.value)
-    op = cpu.execute_operations(loop)
-    assert op.args == endvars
-    if builder.should_fail_by is not None:
-        assert op is builder.should_fail_by
-
-    for i, v in enumerate(endvars):
-        value = cpu.get_latest_value_int(i)
-        assert value == expected[v], (
-            "Got %d, expected %d, in the variable %s" % (value,
-                                                         expected[v],
-                                                         builder.names[v])
-            )
+        for i, v in enumerate(endvars):
+            value = cpu.get_latest_value_int(i)
+            assert value == expected[v], (
+                "Got %d, expected %d, in the variable %s" % (value,
+                                                             expected[v],
+                                                             builder.names[v])
+                )
+        if should_fail_by is None or guard_op is None:
+            break
+        # build a bridge and repeat
+        guard_op.suboperations = []
+        subloop = DummyLoop(guard_op.suboperations)
+        if not op.args:
+            break
+        bridge_builder = BuilderClass(cpu, subloop, op.args[:])
+        generate_ops(bridge_builder, block_length, r)
+        k = r.random()
+        subset = []
+        num = int(k * len(bridge_builder.intvars))
+        for i in range(num):
+            subset.append(r.choice(bridge_builder.intvars))
+        r.shuffle(subset)
+        fail_op = ResOperation(rop.FAIL, subset, None)
+        guard_op.suboperations.append(fail_op)
+        all_builders.append(bridge_builder)
+        if bridge_builder.should_fail_by is None:
+            should_fail_by = fail_op
+            guard_op = None
+        else:
+            should_fail_by = bridge_builder.should_fail_by
+            guard_op = guard_op.suboperations[bridge_builder.should_fail_by_num]
 
     print '    # passed.'
-    print
-
+    print        
 
 def test_random_function(BuilderClass=OperationBuilder):
     r = Random()
