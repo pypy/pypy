@@ -510,7 +510,7 @@ BUILTIN_ANALYZERS[lltype.runtime_type_info] = runtime_type_info
 BUILTIN_ANALYZERS[lltype.Ptr] = constPtr
 
 # ootype
-from pypy.annotation.model import SomeOOInstance, SomeOOClass
+from pypy.annotation.model import SomeOOInstance, SomeOOClass, SomeOOStaticMeth
 from pypy.rpython.ootypesystem import ootype
 
 def new(I):

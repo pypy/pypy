@@ -183,16 +183,7 @@ class BaseCPU(model.AbstractCPU):
             if self.current_exc_inst:
                 raise GuardFailed
         elif opnum == rop.GUARD_EXCEPTION:
-            assert not self.is_oo
-            adr = argboxes[0].getaddr(self)
-            expected_class = llmemory.cast_adr_to_ptr(adr, rclass.CLASSTYPE)
-            ll_assert(bool(expected_class),
-                      "execute_guard: expected_class==NULL")
-            exc = self.current_exc_inst
-            if exc and rclass.ll_isinstance(exc, expected_class):
-                return BoxPtr(self.get_exc_value())
-            else:
-                raise GuardFailed
+            return self._execute_guard_exception(argboxes)
         else:
             ll_assert(False, "execute_guard: unknown guard op")
 
@@ -308,12 +299,11 @@ class BaseCPU(model.AbstractCPU):
         assert isinstance(calldescr, CallDescr)
         assert calldescr.call is not None
         self.clear_exception()
-        addr_self = args[0].getaddr(self)
+        func = self._get_func(args[0])
         try:
-            box = calldescr.call(self, addr_self, args[1:])
+            box = calldescr.call(self, func, args[1:])
         except Exception, e:
-            from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
-            self.current_exc_inst = cast_instance_to_base_ptr(e)
+            self.current_exc_inst = self._cast_instance_to_base(e)
             if DEBUG:
                 print '\tcall raised!', self.current_exc_inst
             box = calldescr.errbox
@@ -337,6 +327,9 @@ class BaseCPU(model.AbstractCPU):
 
 class LLtypeCPU(BaseCPU):
     is_oo = False
+
+    # ----------------
+    # template methods
 
     def _get_fake_inst(self):
         ll_inst = lltype.malloc(rclass.OBJECT)
@@ -363,6 +356,26 @@ class LLtypeCPU(BaseCPU):
                 break
             i += len(STRUCT._names) + 1
         return i
+
+    def _get_func(self, funcbox):
+        return funcbox.getaddr(self)
+
+    def _cast_instance_to_base(self, e):
+        from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
+        return cast_instance_to_base_ptr(e)
+
+    def _execute_guard_exception(self, argboxes):
+        adr = argboxes[0].getaddr(self)
+        expected_class = llmemory.cast_adr_to_ptr(adr, rclass.CLASSTYPE)
+        ll_assert(bool(expected_class),
+                  "execute_guard: expected_class==NULL")
+        exc = self.current_exc_inst
+        if exc and rclass.ll_isinstance(exc, expected_class):
+            return BoxPtr(self.get_exc_value())
+        else:
+            raise GuardFailed
+
+    # ----------------
 
     @cached_method('_sizecache')
     def sizeof(self, TYPE):
@@ -487,6 +500,9 @@ class LLtypeCPU(BaseCPU):
 class OOtypeCPU(BaseCPU):
     is_oo = True
 
+    # ----------------
+    # template methods
+
     def _get_fake_inst(self):
         return ootype.new(ootype.ROOT)
         
@@ -507,6 +523,27 @@ class OOtypeCPU(BaseCPU):
     def _cast_error_inst(self, ll_inst):
         return ootype.cast_to_object(ll_inst)
 
+    def _get_func(self, funcbox):
+        return funcbox.getobj()
+
+    def _cast_instance_to_base(self, e):
+        from pypy.rpython.annlowlevel import cast_instance_to_base_obj
+        return ootype.cast_to_object(cast_instance_to_base_obj(e))
+
+    def _execute_guard_exception(self, argboxes):
+        obj = argboxes[0].getobj()
+        expected_class = ootype.cast_from_object(ootype.Class, obj)
+        ll_assert(bool(expected_class),
+                  "execute_guard: expected_class==NULL")
+        exc = ootype.cast_from_object(ootype.ROOT, self.current_exc_inst)
+        if exc:
+            exc_class = ootype.classof(exc)
+            if ootype.subclassof(expected_class, exc_class):
+                return BoxObj(self.get_exc_value())
+        raise GuardFailed
+
+    # ----------------
+
     @cached_method('_typedescrcache')
     def typedescrof(self, TYPE):
         def alloc():
@@ -518,6 +555,8 @@ class OOtypeCPU(BaseCPU):
     def methdescrof(self, SELFTYPE, methname):
         return MethDescr(SELFTYPE, methname)
 
+    # ----------------
+    
     def do_new_with_vtable(self, args, sizedescr):
         assert isinstance(sizedescr, SizeDescr)
         assert sizedescr.alloc is not None
