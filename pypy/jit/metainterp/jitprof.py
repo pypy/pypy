@@ -50,6 +50,7 @@ class Profiler(object):
         self.starttime = self.timer()
         self.t1 = self.starttime
         self.times = [0, 0, 0, 0]
+        self.counters = [0, 0, 0, 0]
         self.current = []
 
     def finish(self):
@@ -61,6 +62,7 @@ class Profiler(object):
         self.t1 = self.timer()
         if self.current:
             self.times[self.current[-1]] += self.t1 - t0
+        self.counters[event] += 1
         self.current.append(event)
 
     def _end(self, event):
@@ -86,11 +88,13 @@ class Profiler(object):
     def end_blackhole(self):   self._end  (BLACKHOLE)
 
     def print_stats(self):
-        print "Tracing:     %f" % self.times[TRACING]
-        print "Backend:     %f" % self.times[BACKEND]
-        print "Running asm: %f" % self.times[RUNNING]
-        print "Blackhole:   %f" % self.times[BLACKHOLE]
-        print "TOTAL:       %f" % (self.tk - self.starttime)
+        cnt = self.counters
+        tim = self.times
+        print "Tracing:    \t%d\t%f" % (cnt[TRACING],   tim[TRACING])
+        print "Backend:    \t%d\t%f" % (cnt[BACKEND],   tim[BACKEND])
+        print "Running asm:\t%d\t%f" % (cnt[RUNNING],   tim[RUNNING])
+        print "Blackhole:  \t%d\t%f" % (cnt[BLACKHOLE], tim[BLACKHOLE])
+        print "TOTAL:      \t\t%f" % (self.tk - self.starttime)
 
 
 class BrokenProfilerData(Exception):
