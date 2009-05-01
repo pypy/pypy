@@ -7,6 +7,8 @@ from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.executor import execute
 from pypy.jit.metainterp.resoperation import opname
 
+allloops = []
+
 class DummyLoop(object):
     def __init__(self, subops):
         self.operations = subops
@@ -346,6 +348,7 @@ def check_random_function(BuilderClass, r):
     if should_fail_by is not None:
         guard_op = loop.operations[builder.should_fail_by_num]
     all_builders = [builder]
+    dont_check_result = False
     
     while True:
         builder.print_loop()
@@ -366,6 +369,9 @@ def check_random_function(BuilderClass, r):
         for i, v in enumerate(valueboxes):
             cpu.set_future_value_int(i, v.value)
         op = cpu.execute_operations(loop)
+
+        if dont_check_result:
+            break
         assert op.args == endvars
         if should_fail_by is not None:
             assert op is should_fail_by
@@ -392,6 +398,14 @@ def check_random_function(BuilderClass, r):
         for i in range(num):
             subset.append(r.choice(bridge_builder.intvars))
         r.shuffle(subset)
+        if r.random() < 0.1 and allloops:
+            jump_target = r.choice(allloops)
+            args = op.args[:len(jump_target.inputargs)]
+            while len(args) < len(jump_target.inputargs):
+                args.append(args[-1])
+            fail_op = ResOperation(rop.JUMP, args, None)
+            fail_op.jump_target = jump_target
+            dont_check_result = True
         fail_op = ResOperation(rop.FAIL, subset, None)
         guard_op.suboperations.append(fail_op)
         all_builders.append(bridge_builder)
@@ -404,6 +418,8 @@ def check_random_function(BuilderClass, r):
 
     print '    # passed.'
     print        
+
+    allloops.append(loop)
 
 def test_random_function(BuilderClass=OperationBuilder):
     r = Random()
