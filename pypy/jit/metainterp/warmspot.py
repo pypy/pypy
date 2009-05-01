@@ -20,6 +20,7 @@ from pypy.jit.metainterp import support, history, pyjitpl
 from pypy.jit.metainterp.pyjitpl import MetaInterpStaticData, MetaInterp
 from pypy.jit.metainterp.policy import JitPolicy
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
+from pypy.jit.metainterp.jitprof import Profiler
 
 # ____________________________________________________________
 # Bootstrapping
@@ -33,6 +34,7 @@ def apply_jit(translator, backend_name="auto", **kwds):
                                     translate_support_code=True,
                                     listops=True,
                                     optimizer=Optimizer,
+                                    profile=Profiler,
                                     **kwds)
     warmrunnerdesc.finish()
     translator.warmrunnerdesc = warmrunnerdesc    # for later debugging
@@ -122,6 +124,7 @@ class WarmRunnerDesc:
         self.metainterp_sd.generate_bytecode(policy, self.ts)
         self.make_enter_function()
         self.rewrite_can_enter_jit()
+        self.rewrite_entry_point()
         self.metainterp_sd.num_green_args = self.num_green_args
         self.metainterp_sd.state = self.state
 
@@ -438,6 +441,24 @@ class WarmRunnerDesc:
         origblock.recloseblock(Link([v_result], origportalgraph.returnblock))
         checkgraph(origportalgraph)
 
+    def rewrite_entry_point(self):
+        def finish_profiler():
+            self.metainterp_sd.profiler.finish()
+        
+        if self.cpu.translate_support_code:
+            entry_point = self.translator.graphs[0]
+            TP = lltype.Ptr(lltype.FuncType([], lltype.Void))
+            profiler_ptr = self.helper_func(TP, finish_profiler)
+            for block in entry_point.iterblocks():
+                for link in block.exits:
+                    if link.target is entry_point.returnblock:
+                        v = Variable()
+                        v.concretetype = lltype.Void
+                        newop = SpaceOperation('direct_call',
+                                               [Constant(profiler_ptr, TP)],
+                                               v)
+                        block.operations.append(newop)
+            checkgraph(entry_point)
 
 def decode_hp_hint_args(op):
     # Returns (list-of-green-vars, list-of-red-vars) without Voids.
