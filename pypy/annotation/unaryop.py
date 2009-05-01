@@ -771,7 +771,6 @@ class __extend__(SomeOOInstance):
 
 class __extend__(SomeOOBoundMeth):
     def simple_call(m, *args_s):
-        inst = m.ootype._example()
         _, meth = m.ootype._lookup(m.name)
         if isinstance(meth, ootype._overloaded_meth):
             return meth._resolver.annotate(args_s)
