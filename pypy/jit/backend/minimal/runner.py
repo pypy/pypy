@@ -629,6 +629,26 @@ class CallDescr(AbstractDescr):
         self.call = call
         self.errbox = errbox
 
+class MethDescr(AbstractMethDescr):
+    callmeth = None
+    def __init__(self, SELFTYPE, methname):
+        from pypy.jit.backend.llgraph.runner import boxresult, make_getargs
+        _, meth = SELFTYPE._lookup(methname)
+        METH = ootype.typeOf(meth)
+        self.SELFTYPE = SELFTYPE
+        self.METH = METH
+        self.methname = methname
+        RESULT = METH.RESULT
+        getargs = make_getargs(METH.ARGS)
+        def callmeth(selfbox, argboxes):
+            selfobj = ootype.cast_from_object(SELFTYPE, selfbox.getobj())
+            meth = getattr(selfobj, methname)
+            methargs = getargs(argboxes)
+            res = meth(*methargs)
+            if RESULT is not ootype.Void:
+                return boxresult(RESULT, res)
+        self.callmeth = callmeth
+
 
 # ____________________________________________________________
 
@@ -692,6 +712,7 @@ base_dict = {
     'rffi': rffi,
     'BoxInt': BoxInt,
     'BoxPtr': BoxPtr,
+    'BoxObj': BoxObj,
     }
 
 class GuardFailed(Exception):
