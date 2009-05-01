@@ -588,7 +588,6 @@ class RunningMatcher(Base):
         raise NotImplementedError
 
 class History(RunningMatcher):
-    
     extratext = ''
     def record(self, opnum, argboxes, resbox, descr=None):
         op = ResOperation(opnum, argboxes, resbox, descr)
@@ -698,7 +697,8 @@ class Entry(ExtRegistryEntry):
     _about_ = check_descr
 
     def compute_result_annotation(self, s_x):
-        return
+        # Failures here mean that 'descr' is not correctly an AbstractDescr.
+        # Please don't check in disabling of this test!
         from pypy.annotation import model as annmodel
         if not annmodel.s_None.contains(s_x):
             assert isinstance(s_x, annmodel.SomeInstance)
