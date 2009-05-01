@@ -124,7 +124,7 @@ class WarmRunnerDesc:
         self.metainterp_sd.generate_bytecode(policy, self.ts)
         self.make_enter_function()
         self.rewrite_can_enter_jit()
-        self.rewrite_entry_point()
+        #self.rewrite_entry_point() XXX broken when the last block handles exceptions
         self.metainterp_sd.num_green_args = self.num_green_args
         self.metainterp_sd.state = self.state
 
