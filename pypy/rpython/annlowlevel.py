@@ -462,28 +462,51 @@ def cast_instance_to_base_ptr(instance):
     return cast_object_to_ptr(base_ptr_lltype(), instance)
 cast_instance_to_base_ptr._annspecialcase_ = 'specialize:argtype(0)'
 
+def cast_instance_to_base_obj(instance):
+    return cast_object_to_ptr(base_obj_ootype(), instance)
+cast_instance_to_base_obj._annspecialcase_ = 'specialize:argtype(0)'
+
 def base_ptr_lltype():
     from pypy.rpython.lltypesystem.rclass import OBJECTPTR
     return OBJECTPTR
+
+def base_obj_ootype():
+    from pypy.rpython.ootypesystem.rclass import OBJECT
+    return OBJECT
 
 class CastObjectToPtrEntry(extregistry.ExtRegistryEntry):
     _about_ = cast_object_to_ptr
 
     def compute_result_annotation(self, s_PTR, s_object):
         assert s_PTR.is_constant()
-        assert isinstance(s_PTR.const, lltype.Ptr)
-        return annmodel.SomePtr(s_PTR.const)
+        if isinstance(s_PTR.const, lltype.Ptr):
+            return annmodel.SomePtr(s_PTR.const)
+        elif isinstance(s_PTR.const, ootype.Instance):
+            return annmodel.SomeOOInstance(s_PTR.const)
+        else:
+            assert False
 
     def specialize_call(self, hop):
         from pypy.rpython import rpbc
         PTR = hop.r_result.lowleveltype
+        if isinstance(PTR, lltype.Ptr):
+            T = lltype.Ptr
+            opname = 'cast_pointer'
+            null = lltype.nullptr(PTR.TO)
+        elif isinstance(PTR, ootype.Instance):
+            T = ootype.Instance
+            opname = 'ooupcast'
+            null = ootype.null(PTR)
+        else:
+            assert False
+
         if isinstance(hop.args_r[1], rpbc.NoneFrozenPBCRepr):
-            return hop.inputconst(PTR, lltype.nullptr(PTR.TO))
+            return hop.inputconst(PTR, null)
         v_arg = hop.inputarg(hop.args_r[1], arg=1)
-        assert isinstance(v_arg.concretetype, lltype.Ptr)
+        assert isinstance(v_arg.concretetype, T)
         hop.exception_cannot_occur()
-        return hop.genop('cast_pointer', [v_arg],
-                         resulttype = PTR)
+        return hop.genop(opname, [v_arg], resulttype = PTR)
+
 
 # ____________________________________________________________
 
@@ -512,6 +535,7 @@ class CastBasePtrToInstanceEntry(extregistry.ExtRegistryEntry):
                          resulttype = hop.r_result.lowleveltype)
 
 # ____________________________________________________________
+
 
 def placeholder_sigarg(s):
     if s == "self":
