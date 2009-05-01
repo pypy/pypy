@@ -94,6 +94,7 @@ class Profiler(object):
 
     def print_stats(self):
         print "Total: %f" % (self.tk - self.t0)
-        #for t, ev in self.events:
-        #    if ev == END_TRACING
+        print "Tracing: %f" % self.trace_time
+        print "Running: %f" % self.run_time
+        print "Blackhole: %f" % self.blackhole_time
 

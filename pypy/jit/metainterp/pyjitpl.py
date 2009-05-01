@@ -830,7 +830,7 @@ class MetaInterpStaticData(object):
     num_green_args = 0
 
     def __init__(self, portal_graph, graphs, cpu, stats, options,
-                 optimizer=None, profile=False):
+                 optimizer=None, profile=None):
         self.portal_graph = portal_graph
         self.cpu = cpu
         self.stats = stats
