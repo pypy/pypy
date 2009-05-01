@@ -26,9 +26,6 @@ class TestOOtype(OOTranslatedJitMixin, test_zrpy_exception.TestLLExceptions):
     def skip(self):
         py.test.skip('in-progress')
 
-    test_bridge_from_guard_no_exception = skip
-    test_loop = skip
-    test_four_levels_checks = skip
     test_exception_from_outside = skip
     test_exception_from_outside_2 = skip
     test_exception_two_cases = skip
