@@ -7,14 +7,20 @@ from pypy.jit.metainterp.jitprof import *
 
 class FakeProfiler(Profiler):
     def __init__(self):
-        self.counter = 0
+        self.counter = 123456
+        self.events = []
     
     def timer(self):
         self.counter += 1
         return self.counter - 1
 
-##    def print_stats(self):
-##        pass
+    def _start(self, event):
+        Profiler._start(self, event)
+        self.events.append(event)
+
+    def _end(self, event):
+        Profiler._end(self, event)
+        self.events.append(~event)
 
 class ProfilerMixin(LLJitMixin):
     def meta_interp(self, *args, **kwds):
@@ -37,19 +43,15 @@ class TestProfile(ProfilerMixin):
         res = self.meta_interp(f, [6, 7])
         assert res == 84
         profiler = pyjitpl._warmrunnerdesc.metainterp_sd.profiler
-        assert len(profiler.events) == 8
         expected = [
             TRACING,
             BACKEND,
-            END_BACKEND,
-            END_TRACING,
+            ~ BACKEND,
+            ~ TRACING,
             RUNNING,
-            END_RUNNING,
+            ~ RUNNING,
             BLACKHOLE,
-            END_BLACKHOLE
+            ~ BLACKHOLE
             ]
-        assert [i[1] for i in profiler.events] == expected
-        assert profiler.trace_time == 2
-        assert profiler.backend_time == 1
-        assert profiler.run_time == 1        
-        assert profiler.blackhole_time == 1
+        assert profiler.events == expected
+        assert profiler.times == [2, 1, 1, 1]

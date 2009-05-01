@@ -8,12 +8,6 @@ TRACING = 0
 BACKEND = 1
 RUNNING = 2
 BLACKHOLE = 3
-LAST_START = 3
-
-END_TRACING = 4
-END_BACKEND = 5
-END_RUNNING = 6
-END_BLACKHOLE = 7
 
 class EmptyProfiler(object):
     initialized = True
@@ -50,61 +44,54 @@ class EmptyProfiler(object):
 
 class Profiler(object):
     initialized = False
-    timer = time.clock
+    timer = time.time
     
     def start(self):
-        self.t0 = self.timer()
-        self.events = []
+        self.starttime = self.timer()
+        self.t1 = self.starttime
+        self.times = [0, 0, 0, 0]
+        self.current = []
 
     def finish(self):
         self.tk = self.timer()
-        self.summarize()
         self.print_stats()
 
-    def start_tracing(self):
-        self.events.append((self.timer(), TRACING))
+    def _start(self, event):
+        t0 = self.t1
+        self.t1 = self.timer()
+        if self.current:
+            self.times[self.current[-1]] += self.t1 - t0
+        self.current.append(event)
 
-    def end_tracing(self):
-        self.events.append((self.timer(), END_TRACING))
+    def _end(self, event):
+        t0 = self.t1
+        self.t1 = self.timer()
+        if not self.current:
+            raise BrokenProfilerData
+        ev1 = self.current.pop()
+        if ev1 != event:
+            raise BrokenProfilerData
+        self.times[ev1] += self.t1 - t0
 
-    def start_backend(self):
-        self.events.append((self.timer(), BACKEND))
+    def start_tracing(self):   self._start(TRACING)
+    def end_tracing(self):     self._end  (TRACING)
 
-    def end_backend(self):
-        self.events.append((self.timer(), END_BACKEND))
+    def start_backend(self):   self._start(BACKEND)
+    def end_backend(self):     self._end  (BACKEND)
 
-    def start_running(self):
-        self.events.append((self.timer(), RUNNING))
+    def start_running(self):   self._start(RUNNING)
+    def end_running(self):     self._end  (RUNNING)
 
-    def end_running(self):
-        self.events.append((self.timer(), END_RUNNING))
-
-    def start_blackhole(self):
-        self.events.append((self.timer(), BLACKHOLE))
-
-    def end_blackhole(self):
-        self.events.append((self.timer(), END_BLACKHOLE))
-
-    def summarize(self):
-        current = []
-        t = 0
-        times = [0, 0, 0, 0]
-        for t0, ev in self.events:
-            if ev <= LAST_START:
-                if current:
-                    times[current[-1]] += t0 - t
-                current.append(ev)
-            else:
-                times[current.pop()] += t0 - t
-            t = t0
-        self.trace_time = times[TRACING]
-        self.backend_time = times[BACKEND]
-        self.run_time = times[RUNNING]
-        self.blackhole_time = times[BLACKHOLE]
+    def start_blackhole(self): self._start(BLACKHOLE)
+    def end_blackhole(self):   self._end  (BLACKHOLE)
 
     def print_stats(self):
-        print "Tracing:     %f" % self.trace_time
-        print "Backend:     %f" % self.backend_time
-        print "Running asm: %f" % self.run_time
-        print "Blackhole:   %f" % self.blackhole_time
-        print "TOTAL:       %f" % (self.tk - self.t0)
+        print "Tracing:     %f" % self.times[TRACING]
+        print "Backend:     %f" % self.times[BACKEND]
+        print "Running asm: %f" % self.times[RUNNING]
+        print "Blackhole:   %f" % self.times[BLACKHOLE]
+        print "TOTAL:       %f" % (self.tk - self.starttime)
+
+
+class BrokenProfilerData(Exception):
+    pass
