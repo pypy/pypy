@@ -534,7 +534,8 @@ class RegAlloc(object):
         if v in self.jump_reg_candidates and (selected_reg is None or
            self.jump_reg_candidates[v] is selected_reg):
             for var, reg in self.reg_bindings.items():
-                if reg is self.jump_reg_candidates[v] and v not in forbidden_vars:
+                if (reg is self.jump_reg_candidates[v] and
+                    var not in forbidden_vars):
                     return var
         iter = self.reg_bindings.iterkeys()
         while 1:
