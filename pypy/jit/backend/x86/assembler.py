@@ -677,11 +677,18 @@ class Assembler386(object):
         if len(oldlocs) != len(newlocs):
             # virtualizable mess
             return
-        if not we_are_translated():
-            assert str(oldlocs) == str(newlocs)
+        for i in range(len(oldlocs)):
+            oldloc = oldlocs[i]
+            newloc = newlocs[i]
+            if isinstance(newloc, MODRM):
+                assert isinstance(oldloc, MODRM)
+                assert newloc.position == oldloc.position
+            else:
+                assert newloc is oldloc
             # newlocs should be sorted in acending order, excluding the regs
-            locs = [loc.position for loc in newlocs if isinstance(loc, MODRM)]
-            assert locs == sorted(locs)
+            if not we_are_translated():
+                locs = [loc.position for loc in newlocs if isinstance(loc, MODRM)]
+                assert locs == sorted(locs)
         #
         if newdepth != olddepth:
             mc2 = self.mcstack.next_mc()
