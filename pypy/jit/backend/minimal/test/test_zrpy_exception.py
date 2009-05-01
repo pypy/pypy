@@ -22,17 +22,7 @@ class OOTranslatedJitMixin(CliCompiledMixin):
 
 
 class TestOOtype(OOTranslatedJitMixin, test_zrpy_exception.TestLLExceptions):
-
-    def skip(self):
-        py.test.skip('in-progress')
-
-    test_bridge_from_interpreter_exc = skip
-    test_bridge_from_interpreter_exc_2 = skip
-    test_raise = skip
-    test_raise_through = skip
-    test_raise_through_wrong_exc = skip
-    test_raise_through_wrong_exc_2 = skip
-
+    pass
 
 
 class TestLLtype(LLTranslatedJitMixin, test_zrpy_exception.TestLLExceptions):
