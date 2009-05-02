@@ -3,9 +3,6 @@ from pypy.jit.metainterp.test.test_tl import ToyLanguageTests
 from pypy.jit.backend.minimal.test.test_zrpy_exception import LLTranslatedJitMixin, OOTranslatedJitMixin
 
 class TestOOtype(OOTranslatedJitMixin, ToyLanguageTests):
-
-    def skip(self):
-        py.test.skip('in-progress')
     
     def test_tl_base(self):
         # XXX: remove this hack as soon as WarmEnterState is no longer a pbc
