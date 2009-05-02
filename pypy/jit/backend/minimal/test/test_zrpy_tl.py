@@ -7,7 +7,15 @@ class TestOOtype(OOTranslatedJitMixin, ToyLanguageTests):
     def skip(self):
         py.test.skip('in-progress')
     
-    test_tl_base = skip
+    def test_tl_base(self):
+        # XXX: remove this hack as soon as WarmEnterState is no longer a pbc
+        from pypy.rlib import jit
+        try:
+            jit.PARAMETERS['hash_bits'] = 6
+            ToyLanguageTests.test_tl_base(self)
+        finally:
+            jit.PARAMETERS['hash_bits'] = 14
+
     test_tl_2 = skip
     test_tl_call = skip
 

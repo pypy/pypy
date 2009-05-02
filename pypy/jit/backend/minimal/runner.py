@@ -211,36 +211,6 @@ class BaseCPU(model.AbstractCPU):
         sort_key = self._count_sort_key(T, name)
         return FieldDescr(dict2['getfield'], dict2['setfield'], sort_key)
 
-    @cached_method('_callcache')
-    def calldescrof(self, FUNC, ARGS, RESULT):
-        FUNC, cast_func = self._get_cast_func(ARGS, RESULT)
-        dict2 = base_dict.copy()
-        args = []
-        for i, ARG in enumerate(ARGS):
-            args.append(make_reader(ARG, 'args[%d]' % i, dict2))
-        dict = {'args': ', '.join(args),
-                'result': make_writer(RESULT, 'res', dict2)}
-        dict2.update({'cast_func': cast_func,
-                      'length': len(ARGS),
-                      'll_assert': ll_assert,
-                      })
-        exec py.code.Source("""
-            def call(cpu, function, args):
-                ll_assert(len(args) == length, 'call: wrong arg count')
-                function = cast_func(function)
-                res = function(%(args)s)
-                return %(result)s
-        """ % dict).compile() in dict2
-        if RESULT is lltype.Void:
-            errbox = None
-        elif not self.is_oo and isinstance(RESULT, lltype.Ptr) and RESULT.TO._gckind == 'gc':
-            errbox = BoxPtr()
-        elif self.is_oo and isinstance(RESULT, ootype.OOType):
-            errbox = BoxObj()
-        else:
-            errbox = BoxInt()
-        return CallDescr(FUNC, dict2['call'], errbox)
-
     # ----------
 
     def do_getfield_gc(self, args, fielddescr):
@@ -314,6 +284,7 @@ class BaseCPU(model.AbstractCPU):
                 print '\tcall did not raise'
         return box
 
+
     def set_overflow_error(self):
         self.current_exc_inst = self._ovf_error_inst
 
@@ -341,12 +312,6 @@ class LLtypeCPU(BaseCPU):
         PTR = lltype.Ptr(STRUCT)
         FIELDTYPE = getattr(STRUCT, name)
         return PTR, FIELDTYPE, reveal_ptr
-
-    def _get_cast_func(self, ARGS, RESULT):
-        FUNC = lltype.Ptr(lltype.FuncType(ARGS, RESULT))
-        def cast_func(function):
-            return rffi.cast(FUNC, function)
-        return FUNC, cast_func
 
     def _count_sort_key(self, STRUCT, name):
         i = list(STRUCT._names).index(name)
@@ -390,6 +355,37 @@ class LLtypeCPU(BaseCPU):
             p = lltype.malloc(TYPE)
             return lltype.cast_opaque_ptr(llmemory.GCREF, p)
         return SizeDescr(alloc)
+
+    @cached_method('_callcache')
+    def calldescrof(self, FUNC, ARGS, RESULT):
+        dict2 = base_dict.copy()
+        args = []
+        for i, ARG in enumerate(ARGS):
+            args.append(make_reader(ARG, 'args[%d]' % i, dict2))
+        dict = {'args': ', '.join(args),
+                'result': make_writer(RESULT, 'res', dict2)}
+        dict2.update({'rffi': rffi,
+                      'FUNC': lltype.Ptr(lltype.FuncType(ARGS, RESULT)),
+                      'length': len(ARGS),
+                      'll_assert': ll_assert,
+                      })
+        exec py.code.Source("""
+            def call(cpu, function, args):
+                ll_assert(len(args) == length, 'call: wrong arg count')
+                function = rffi.cast(FUNC, function)
+                res = function(%(args)s)
+                return %(result)s
+        """ % dict).compile() in dict2
+        if RESULT is lltype.Void:
+            errbox = None
+        elif not self.is_oo and isinstance(RESULT, lltype.Ptr) and RESULT.TO._gckind == 'gc':
+            errbox = BoxPtr()
+        elif self.is_oo and isinstance(RESULT, ootype.OOType):
+            errbox = BoxObj()
+        else:
+            errbox = BoxInt()
+        return CallDescr(FUNC, dict2['call'], errbox)
+
 
     @cached_method('_arraycache')
     def arraydescrof(self, ARRAY):
@@ -517,14 +513,12 @@ class OOtypeCPU(BaseCPU):
         _, FIELDTYPE = TYPE._lookup_field(name)
         return TYPE, FIELDTYPE, reveal_obj
 
-    def _get_cast_func(self, ARGS, RESULT):
-        FUNC = ootype.StaticMethod(ARGS, RESULT)
-        def cast_func(function):
-            return ootype.cast_from_object(FUNC, function)
-        return FUNC, cast_func
-
-    def _count_sort_key(self, INSTANCE, name):
-        fields = sorted(INSTANCE._allfields().keys())
+    def _count_sort_key(self, TYPE, name):
+        try:
+            fields = TYPE._allfields()
+        except AttributeError:
+            fields = TYPE._fields
+        fields = sorted(fields.keys())
         return fields.index(name)
 
     def _cast_error_inst(self, ll_inst):
@@ -564,6 +558,55 @@ class OOtypeCPU(BaseCPU):
             obj = ootype.new(TYPE)
             return ootype.cast_to_object(obj)
         return SizeDescr(alloc)
+
+    @cached_method('_callcache')
+    def calldescrof(self, FUNC, ARGS, RESULT):
+        from pypy.jit.backend.llgraph.runner import boxresult, make_getargs
+        getargs = make_getargs(FUNC.ARGS)
+        def call(cpu, funcobj, argboxes):
+            func = ootype.cast_from_object(FUNC, funcobj)
+            funcargs = getargs(argboxes)
+            res = func(*funcargs)
+            if RESULT is not ootype.Void:
+                return boxresult(RESULT, res)
+        if RESULT is lltype.Void:
+            errbox = None
+        elif not self.is_oo and isinstance(RESULT, lltype.Ptr) and RESULT.TO._gckind == 'gc':
+            errbox = BoxPtr()
+        elif self.is_oo and isinstance(RESULT, ootype.OOType):
+            errbox = BoxObj()
+        else:
+            errbox = BoxInt()
+        return CallDescr(FUNC, call, errbox)
+
+    @cached_method('_arraycache')
+    def arraydescrof(self, ARRAY):
+        dict2 = base_dict.copy()
+        dict2['ootype'] = ootype
+        dict2['ARRAY'] = ARRAY
+        dict = {'input': make_reader(ARRAY.ITEM, 'xbox', dict2),
+                'result': make_writer(ARRAY.ITEM, 'x', dict2)}
+        exec py.code.Source("""
+            def new(length):
+                array = ootype.oonewarray(ARRAY, length)
+                return ootype.cast_to_object(array)
+            def length(cpu, abox):
+                a = ootype.cast_from_object(ARRAY, abox.getobj())
+                return a.ll_length()
+            def getarrayitem(cpu, abox, index):
+                a = ootype.cast_from_object(ARRAY, abox.getobj())
+                x = a.ll_getitem_fast(index)
+                return %(result)s
+            def setarrayitem(cpu, abox, index, xbox):
+                a = ootype.cast_from_object(ARRAY, abox.getobj())
+                x = %(input)s
+                a.ll_setitem_fast(index, x)
+        """ % dict).compile() in dict2
+        return ArrayDescr(dict2['new'],
+                          dict2['length'],
+                          dict2['getarrayitem'],
+                          dict2['setarrayitem'])
+
 
     @cached_method('_methdescrcache')
     def methdescrof(self, SELFTYPE, methname):
@@ -634,15 +677,27 @@ class CallDescr(AbstractDescr):
         self.call = call
         self.errbox = errbox
 
+
+class StaticMethDescr(AbstractDescr):
+
+    def __init__(self, FUNC, ARGS, RESULT):
+        from pypy.jit.backend.llgraph.runner import boxresult, make_getargs
+        getargs = make_getargs(FUNC.ARGS)
+        def callfunc(funcbox, argboxes):
+            funcobj = ootype.cast_from_object(FUNC, funcbox.getobj())
+            funcargs = getargs(argboxes)
+            res = funcobj(*funcargs)
+            if RESULT is not ootype.Void:
+                return boxresult(RESULT, res)
+        self.callfunc = callfunc
+
+
 class MethDescr(AbstractMethDescr):
     callmeth = None
     def __init__(self, SELFTYPE, methname):
         from pypy.jit.backend.llgraph.runner import boxresult, make_getargs
         _, meth = SELFTYPE._lookup(methname)
         METH = ootype.typeOf(meth)
-        self.SELFTYPE = SELFTYPE
-        self.METH = METH
-        self.methname = methname
         RESULT = METH.RESULT
         getargs = make_getargs(METH.ARGS)
         def callmeth(selfbox, argboxes):
