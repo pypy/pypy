@@ -1103,78 +1103,35 @@ class RegAlloc(object):
     consider_unicodegetitem = consider_strgetitem
 
     def consider_jump(self, op, ignored):
-        later_loads = []
-        reloaded = []
-        middle_busy_regs = []
+        # This is a simplified version of the code that was there until r64970.
+        # At least it's bug-free (hopefully).  We can then go on optimizing
+        # it again.
+        later_pops = []     # pops that will be performed in reverse order
+        extra_on_stack = 0
+        loop = op.jump_target
         for i in range(len(op.args)):
             arg = op.args[i]
-            loop = op.jump_target
+            src = self.loc(arg)
             res = loop.arglocs[i]
-            if not (isinstance(arg, Const) or (arg in self.loop_consts
-                                               and self.loop_consts[arg] == i)):
-                if arg in self.reg_bindings:
-                    if not isinstance(res, REG):
-                        self.Store(arg, self.loc(arg), loop.arglocs[i])
-                        # XXX ^^^^^^ this can overwrite random stuff
-                    elif res is self.reg_bindings[arg]:
-                        middle_busy_regs.append(res)
-                    else:
-                        # register, but wrong
-                        # we're going to need it (otherwise it'll be dead), so
-                        # we spill it and reload
-                        # if our register is free, easy
-                        for v, reg in self.reg_bindings.items():
-                            if reg is res:
-                                self.Store(arg, self.loc(arg),
-                                           self.stack_loc(arg))
-                                later_loads.append((arg, self.stack_loc(arg),
-                                                    res))
-                                break
-                        else:
-                            self.Load(arg, self.loc(arg), res)
-                else:
-                    if arg not in self.stack_bindings:
-                        # we can load it correctly, because we don't care
-                        # any more about the previous var staying there
-                        assert False  # XXX (arigo) what is this case???
-                                      # XXX it's not hit by any test...
-                        assert not isinstance(res, REG)
-                        self.Store(arg, self.loc(arg), res)
-                    else:
-                        assert arg not in self.dirty_stack
-                        if isinstance(res, REG):
-                            later_loads.append((arg, self.loc(arg), res))
-                        else:
-                            arg0 = self.loc(arg)
-                            assert isinstance(arg0, MODRM)
-                            assert isinstance(res, MODRM)
-                            if arg0.position != res.position:
-                                reloaded.append((arg, self.loc(arg), res))
-            elif isinstance(arg, Const):
-                later_loads.append((arg, self.loc(arg), res))
-        if reloaded:
-            # XXX performance
-            free_reg = None
-            for reg in REGS:
-                if reg not in middle_busy_regs:
-                    free_reg = reg
-                    break
-            if free_reg is None:
-                # a very rare case
-                v = self.reg_bindings.keys()[0]
-                free_reg = self.reg_bindings[v]
-                self.Store(v, self.loc(v), self.stack_loc(v))
-                later_loads.insert(0, (v, self.stack_loc(v), self.loc(v)))
-            # XXX this is wrong, we can easily overwrite stuff that is on
-            #     stack, we need to do this in a correct order to avoid that
-            for v, from_l, to_l in reloaded:
-                self.Load(v, from_l, free_reg)
-                self.Store(v, free_reg, to_l)
-            # XXX ^^^^^^^^^^^^^^^^^^^^^^^^^^^ BORKEN
+            if src is res:
+                continue      # nothing needed to copy in this case
+            if (isinstance(src, MODRM) and
+                isinstance(res, MODRM) and
+                src.position == res.position):
+                continue      # already at the correct stack position
+            # write the code that moves the correct value into 'res', in two
+            # steps: generate a pair PUSH (immediately) / POP (later)
+            if isinstance(src, MODRM):
+                src = stack_pos(src.position + extra_on_stack)
+            if isinstance(res, MODRM):
+                res = stack_pos(res.position + extra_on_stack)
+            self.assembler.regalloc_push(src)
+            later_pops.append(res)
+            extra_on_stack += 1
+            #
         self.eventually_free_vars(op.args)
-        for v, from_l, to_l in later_loads:
-            self.Load(v, from_l, to_l)
-        # XXX ^^^^^ broken: the stack locations in from_l are overwritten above
+        for i in range(len(later_pops)-1, -1, -1):
+            self.assembler.regalloc_pop(later_pops[i])
         self.PerformDiscard(op, [])
 
     def not_implemented_op(self, op, ignored):
