@@ -47,6 +47,15 @@ class OperationBuilder:
             v = self.do(rop.INT_IS_TRUE, [v])
         return v
 
+    def subset_of_intvars(self, r):
+        subset = []
+        k = r.random()
+        num = int(k * len(self.intvars))
+        for i in range(num):
+            subset.append(r.choice(self.intvars))
+        r.shuffle(subset)
+        return subset
+
     def process_operation(self, s, op, names, subops):
         args = []
         for v in op.args:
@@ -152,9 +161,10 @@ class AbstractOperation:
         self.boolres = boolres
     def put(self, builder, args, descr=None):
         v_result = builder.do(self.opnum, args, descr=descr)
-        builder.intvars.append(v_result)
-        if self.boolres:
-            builder.boolvars.append(v_result)
+        if v_result is not None:
+            builder.intvars.append(v_result)
+            if self.boolres:
+                builder.boolvars.append(v_result)
 
 class UnaryOperation(AbstractOperation):
     def produce_into(self, builder, r):
@@ -199,12 +209,7 @@ class GuardOperation(AbstractOperation):
     def produce_into(self, builder, r):
         op, passing = self.gen_guard(builder, r)
         builder.loop.operations.append(op)
-        k = r.random()
-        subset = []
-        num = int(k * len(builder.intvars))
-        for i in range(num):
-            subset.append(r.choice(builder.intvars))
-        r.shuffle(subset)
+        subset = builder.subset_of_intvars(r)        
         op.suboperations = [ResOperation(rop.FAIL, subset, None)]
         if not passing:
             builder.should_fail_by = op.suboperations[0]
@@ -405,12 +410,7 @@ class RandomLoop(object):
                                                 op.args[:])
         self.generate_ops(bridge_builder, r, subloop, op.args[:])
         if r.random() < 0.1:
-            k = r.random()
-            subset = []
-            num = int(k * len(bridge_builder.intvars))
-            for i in range(num):
-                subset.append(r.choice(bridge_builder.intvars))
-            r.shuffle(subset)
+            subset = bridge_builder.subset_of_intvars(r)
             if len(subset) == 0:
                 return False
             args = [x.clonebox() for x in subset]

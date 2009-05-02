@@ -3,7 +3,8 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.jit.backend.test import test_random
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.history import ConstInt, ConstPtr, ConstAddr
-
+from pypy.rpython.annlowlevel import llhelper
+from pypy.rlib.rarithmetic import intmask
 
 class LLtypeOperationBuilder(test_random.OperationBuilder):
 
@@ -151,6 +152,33 @@ class NewOperation(test_random.AbstractOperation):
         v_ptr = builder.do(self.opnum, args, self.size_descr(builder, S))
         builder.ptrvars.append((v_ptr, S))
 
+class CallOperation(test_random.AbstractOperation):
+    def produce_into(self, builder, r):
+        subset = builder.subset_of_intvars(r)
+        if len(subset) == 0:
+            sum = ""
+            funcargs = ""
+        else:
+            funcargs = ", ".join(['arg_%d' % i for i in range(len(subset))])
+            sum = "intmask(%s)" % " + ".join(['arg_%d' % i for i in range(len(subset))])
+        code = py.code.Source("""
+        def f(%s):
+           return %s
+        """ % (funcargs, sum)).compile()
+        d = {'intmask' : intmask}
+        exec code in d
+
+        if len(subset) == 0:
+            RES = lltype.Void
+        else:
+            RES = lltype.Signed
+        TP = lltype.FuncType([lltype.Signed] * len(subset), RES)
+        ptr = llhelper(lltype.Ptr(TP), d['f'])
+        c_addr = ConstAddr(llmemory.cast_ptr_to_adr(ptr), builder.cpu)
+        args = [c_addr] + subset
+        descr = builder.cpu.calldescrof(TP, TP.ARGS, TP.RESULT)
+        self.put(builder, args, descr)
+
 # ____________________________________________________________
 
 OPERATIONS = test_random.OPERATIONS[:]
@@ -163,6 +191,7 @@ for i in range(4):      # make more common
     OPERATIONS.append(NewOperation(rop.NEW_WITH_VTABLE))
 
     OPERATIONS.append(GuardClassOperation(rop.GUARD_CLASS))
+    OPERATIONS.append(CallOperation(rop.CALL))
 
 LLtypeOperationBuilder.OPERATIONS = OPERATIONS
 
