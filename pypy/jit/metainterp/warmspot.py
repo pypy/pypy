@@ -26,16 +26,22 @@ from pypy.jit.metainterp.jitprof import Profiler
 # ____________________________________________________________
 # Bootstrapping
 
+PROFILE = False
+
 def apply_jit(translator, backend_name="auto", **kwds):
     from pypy.jit.metainterp.simple_optimize import Optimizer
     if 'CPUClass' not in kwds:
         from pypy.jit.backend.detect_cpu import getcpuclass
         kwds['CPUClass'] = getcpuclass(backend_name)
+    if PROFILE:
+        profile = Profiler
+    else:
+        profile = None
     warmrunnerdesc = WarmRunnerDesc(translator,
                                     translate_support_code=True,
                                     listops=True,
                                     optimizer=Optimizer,
-                                    profile=Profiler,
+                                    profile=profile,
                                     **kwds)
     warmrunnerdesc.finish()
     translator.warmrunnerdesc = warmrunnerdesc    # for later debugging
