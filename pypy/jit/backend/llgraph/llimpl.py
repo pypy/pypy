@@ -471,9 +471,9 @@ class Frame(object):
                 else:
                     resdata = '-> ' + repr1(res, restype, self.memocast)
                 # fish the types
-                log.cpu('\t%s %s %s' % (opname, repr_list(values, argtypes,
-                                                          self.memocast),
-                                        resdata))
+                #log.cpu('\t%s %s %s' % (opname, repr_list(values, argtypes,
+                #                                          self.memocast),
+                #                        resdata))
         return res
 
     def as_int(self, x):
@@ -1071,15 +1071,15 @@ def _do_call_common(f, memocast, err_result=None):
     args = cast_call_args(ARGS, _call_args, memocast)
     del _call_args[:]
     assert len(ARGS) == len(args)
-    if hasattr(ptr._obj, 'graph'):
-        llinterp = _llinterp      # it's a global set here by CPU.__init__()
-        try:
+    try:
+        if hasattr(ptr._obj, 'graph'):
+            llinterp = _llinterp      # it's a global set here by CPU.__init__()
             result = llinterp.eval_graph(ptr._obj.graph, args)
-        except LLException, e:
-            _last_exception = e
-            result = err_result
-    else:
-        result = ptr._obj._callable(*args)  # no exception support in this case
+        else:
+            result = ptr._obj._callable(*args)
+    except LLException, e:
+        _last_exception = e
+        result = err_result
     return result
 
 def do_call_void(f, memocast):
