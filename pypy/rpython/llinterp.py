@@ -182,6 +182,12 @@ class LLInterpreter(object):
         self.mallocs = {}
         self.mallocs.update(items)
 
+    def _store_exception(self, exc):
+        raise PleaseOverwriteStoreException("You just invoked ll2ctypes callback without overwriting _store_exception on llinterpreter")
+
+class PleaseOverwriteStoreException(Exception):
+    pass
+
 def checkptr(ptr):
     assert isinstance(lltype.typeOf(ptr), lltype.Ptr)
 
