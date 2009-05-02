@@ -8,6 +8,9 @@ from pypy.rlib.rarithmetic import intmask
 
 class LLtypeOperationBuilder(test_random.OperationBuilder):
 
+    def __init__(self, *args, **kw):
+        test_random.OperationBuilder.__init__(self, *args, **kw)
+
     def get_structptr_var(self, r, must_have_vtable=False):
         while True:
             if self.ptrvars and r.random() < 0.8:
@@ -159,9 +162,8 @@ class NewOperation(test_random.AbstractOperation):
 # 4. raising call and guard_no_exception
 # 5. non raising call and guard_exception
 
-# 1. non raising call and guard_no_exception
-class CallOperation(test_random.AbstractOperation):
-    def produce_into(self, builder, r):
+class BaseCallOperation(test_random.AbstractOperation):
+    def non_raising_func_code(self, builder, r):
         subset = builder.subset_of_intvars(r)
         if len(subset) == 0:
             sum = ""
@@ -175,13 +177,25 @@ class CallOperation(test_random.AbstractOperation):
         """ % (funcargs, sum)).compile()
         d = {'intmask' : intmask}
         exec code in d
+        return subset, d['f']
 
+    def raising_func_code(self, builder, r):
+        funcargs = ", ".join(['arg_%d' % i for i in range(len(subset))])
+        code = py.code.Source("""
+        def f(%s):
+            raise LLException()
+        """ % funcargs)
+
+# 1. non raising call and guard_no_exception
+class CallOperation(BaseCallOperation):
+    def produce_into(self, builder, r):
+        subset, f = self.non_raising_func_code(builder, r)
         if len(subset) == 0:
             RES = lltype.Void
         else:
             RES = lltype.Signed
         TP = lltype.FuncType([lltype.Signed] * len(subset), RES)
-        ptr = llhelper(lltype.Ptr(TP), d['f'])
+        ptr = llhelper(lltype.Ptr(TP), f)
         c_addr = ConstAddr(llmemory.cast_ptr_to_adr(ptr), builder.cpu)
         args = [c_addr] + subset
         descr = builder.cpu.calldescrof(TP, TP.ARGS, TP.RESULT)
@@ -192,10 +206,9 @@ class CallOperation(test_random.AbstractOperation):
 
 # 2. raising call and guard_exception
 
-
-#class RaisingCallOperation(CallOperation):
-#    def produce_into(self, builder, r):
-        
+class RaisingCallOperation(BaseCallOperation):
+    def produce_into(self, builder, r):
+        subset, f, exc = self.raising_func_code(builder, r)
 
 # ____________________________________________________________
 
