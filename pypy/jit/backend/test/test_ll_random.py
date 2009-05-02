@@ -152,6 +152,14 @@ class NewOperation(test_random.AbstractOperation):
         v_ptr = builder.do(self.opnum, args, self.size_descr(builder, S))
         builder.ptrvars.append((v_ptr, S))
 
+# there are five options in total:
+# 1. non raising call and guard_no_exception
+# 2. raising call and guard_exception
+# 3. raising call and wrong guard_exception
+# 4. raising call and guard_no_exception
+# 5. non raising call and guard_exception
+
+# 1. non raising call and guard_no_exception
 class CallOperation(test_random.AbstractOperation):
     def produce_into(self, builder, r):
         subset = builder.subset_of_intvars(r)
@@ -181,6 +189,13 @@ class CallOperation(test_random.AbstractOperation):
         op = ResOperation(rop.GUARD_NO_EXCEPTION, [], None)
         op.suboperations = [ResOperation(rop.FAIL, [], None)]
         builder.loop.operations.append(op)
+
+# 2. raising call and guard_exception
+
+
+#class RaisingCallOperation(CallOperation):
+#    def produce_into(self, builder, r):
+        
 
 # ____________________________________________________________
 
