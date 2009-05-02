@@ -16,8 +16,24 @@ class TestOOtype(OOTranslatedJitMixin, ToyLanguageTests):
         finally:
             jit.PARAMETERS['hash_bits'] = 14
 
-    test_tl_2 = skip
-    test_tl_call = skip
+    def test_tl_2(self):
+        # XXX: remove this hack as soon as WarmEnterState is no longer a pbc
+        from pypy.rlib import jit
+        try:
+            jit.PARAMETERS['hash_bits'] = 6
+            ToyLanguageTests.test_tl_2(self)
+        finally:
+            jit.PARAMETERS['hash_bits'] = 14
+
+    def test_tl_call(self):
+        # XXX: remove this hack as soon as WarmEnterState is no longer a pbc
+        from pypy.rlib import jit
+        try:
+            jit.PARAMETERS['hash_bits'] = 6
+            ToyLanguageTests.test_tl_call(self)
+        finally:
+            jit.PARAMETERS['hash_bits'] = 14
+
 
 
 class TestLLtype(LLTranslatedJitMixin, ToyLanguageTests):
