@@ -7,6 +7,9 @@ from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.executor import execute
 from pypy.jit.metainterp.resoperation import opname
 
+class PleaseRewriteMe(Exception):
+    pass
+
 class DummyLoop(object):
     def __init__(self, subops):
         self.operations = subops
@@ -67,6 +70,7 @@ class OperationBuilder:
             subops.append(op)
 
     def print_loop(self):
+        raise PleaseRewriteMe()
         def update_names(ops):
             for op in ops:
                 v = op.result
@@ -204,7 +208,7 @@ class GuardOperation(AbstractOperation):
         op.suboperations = [ResOperation(rop.FAIL, subset, None)]
         if not passing:
             builder.should_fail_by = op.suboperations[0]
-            builder.should_fail_by_num = len(builder.loop.operations) - 1
+            builder.guard_op = op
 
 class GuardValueOperation(GuardOperation):
     def gen_guard(self, builder, r):
@@ -306,90 +310,96 @@ def get_cpu():
     else:
         assert 0, "unknown backend %r" % demo_conftest.option.backend
 
-# ____________________________________________________________
+# ____________________________________________________________    
 
-def generate_ops(builder, block_length, r):
-    for i in range(block_length):
-        try:
-            r.choice(builder.OPERATIONS).produce_into(builder, r)
-        except CannotProduceOperation:
-            pass
-        if builder.should_fail_by is not None:
-            break
-    
+class RandomLoop(object):
+    def __init__(self, cpu, BuilderClass, r, startvars=None):
+        self.cpu = cpu
+        if startvars is None:
+            startvars = [BoxInt(r.random_integer())
+                         for i in range(demo_conftest.option.n_vars)]
+        self.startvars = startvars
+        self.prebuilt_ptr_consts = []
+        self.r = r
+        self.build_random_loop(cpu, BuilderClass, r, startvars)
+        
+    def build_random_loop(self, cpu, BuilderClass, r, startvars):
 
-def check_random_function(cpu, BuilderClass, r, vars=None):
-    block_length = demo_conftest.option.block_length
-    if vars is None:
-        vars = [BoxInt(r.random_integer())
-                for i in range(demo_conftest.option.n_vars)]
-    valueboxes = [BoxInt(box.value) for box in vars]
+        loop = TreeLoop('test_random_function')
+        loop.inputargs = startvars[:]
+        loop.operations = []
 
-    loop = TreeLoop('test_random_function')
-    loop.inputargs = vars[:]
-    loop.operations = []
-
-    builder = BuilderClass(cpu, loop, vars)
-    generate_ops(builder, block_length, r)
-
-    endvars = []
-    used_later = {}
-    for op in loop.operations:
-        for v in op.args:
-            used_later[v] = True
-    for v in vars:
-        if v not in used_later:
-            endvars.append(v)
-    r.shuffle(endvars)
-    loop.operations.append(ResOperation(rop.FAIL, endvars, None))
-    should_fail_by = builder.should_fail_by
-    if should_fail_by is not None:
-        guard_op = loop.operations[builder.should_fail_by_num]
-    all_builders = [builder]
-    dont_check_result = False
-    
-    while True:
-        builder.print_loop()
+        builder = BuilderClass(cpu, loop, startvars[:])
+        self.generate_ops(builder, r, loop, startvars)
+        self.builder = builder
         cpu.compile_operations(loop)
+        self.loop = loop
 
-        if should_fail_by is not None:
-            endvars = should_fail_by.args
-        expected = {}
+    def generate_ops(self, builder, r, loop, startvars):
+        block_length = demo_conftest.option.block_length
+
+        for i in range(block_length):
+            try:
+                r.choice(builder.OPERATIONS).produce_into(builder, r)
+            except CannotProduceOperation:
+                pass
+            if builder.should_fail_by is not None:
+                break
+        endvars = []
+        used_later = {}
+        for op in loop.operations:
+            for v in op.args:
+                used_later[v] = True
+        for v in startvars:
+            if v not in used_later:
+                endvars.append(v)
+        r.shuffle(endvars)
+        loop.operations.append(ResOperation(rop.FAIL, endvars, None))
+        if builder.should_fail_by:
+            self.should_fail_by = builder.should_fail_by
+            self.guard_op = builder.guard_op
+        else:
+            self.should_fail_by = loop.operations[-1]
+            self.guard_op = None
+        self.prebuilt_ptr_consts.extend(builder.prebuilt_ptr_consts)
+        endvars = self.should_fail_by.args
+        self.expected = {}
         for v in endvars:
-            expected[v] = v.value
+            self.expected[v] = v.value
 
-        for b in all_builders:
-            for v, S, fields in b.prebuilt_ptr_consts:
-                container = v.value._obj.container
-                for name, value in fields.items():
-                    setattr(container, name, value)
+    def clear_state(self):
+        for v, S, fields in self.prebuilt_ptr_consts:
+            container = v.value._obj.container
+            for name, value in fields.items():
+                setattr(container, name, value)
+
+    def run_loop(self):
+        cpu = self.builder.cpu
+        valueboxes = [BoxInt(box.value) for box in self.startvars]
+        self.clear_state()
 
         for i, v in enumerate(valueboxes):
             cpu.set_future_value_int(i, v.value)
-        op = cpu.execute_operations(loop)
-
-        if dont_check_result:
-            break
-        assert op.args == endvars
-        if should_fail_by is not None:
-            assert op is should_fail_by
-
-        for i, v in enumerate(endvars):
+        op = cpu.execute_operations(self.loop)
+        assert op is self.should_fail_by
+        for i, v in enumerate(op.args):
             value = cpu.get_latest_value_int(i)
-            assert value == expected[v], (
-                "Got %d, expected %d, in the variable %s" % (value,
-                                                             expected[v],
-                                                             builder.names[v])
+            assert value == self.expected[v], (
+                "Got %d, expected %d" % (value,
+                                         self.expected[v])
                 )
-        if should_fail_by is None or guard_op is None:
-            break
-        # build a bridge and repeat
+
+    def build_bridge(self):
+        r = self.r
+        guard_op = self.guard_op
         guard_op.suboperations = []
-        subloop = DummyLoop(guard_op.suboperations)
+        op = self.should_fail_by
         if not op.args:
-            break
-        bridge_builder = BuilderClass(cpu, subloop, op.args[:])
-        generate_ops(bridge_builder, block_length, r)
+            return False
+        subloop = DummyLoop(guard_op.suboperations)
+        bridge_builder = self.builder.__class__(self.builder.cpu, subloop,
+                                                op.args[:])
+        self.generate_ops(bridge_builder, r, subloop, op.args[:])
         k = r.random()
         subset = []
         num = int(k * len(bridge_builder.intvars))
@@ -397,27 +407,26 @@ def check_random_function(cpu, BuilderClass, r, vars=None):
             subset.append(r.choice(bridge_builder.intvars))
         r.shuffle(subset)
         if len(subset) == 0:
-            break
+            return False
         if r.random() < 0.1:
-            jump_target = check_random_function(cpu, BuilderClass, r,
-                            [arg.clonebox() for arg in subset])
+            jump_target = RandomLoop(self.builder.cpu, self.builder.__class__,
+                                     r)
             fail_op = ResOperation(rop.JUMP, subset, None)
-            fail_op.jump_target = jump_target
-            dont_check_result = True
+            fail_op.jump_target = jump_target.loop
         else:
             fail_op = ResOperation(rop.FAIL, subset, None)
         guard_op.suboperations.append(fail_op)
-        all_builders.append(bridge_builder)
-        if bridge_builder.should_fail_by is None:
-            should_fail_by = fail_op
-            guard_op = None
-        else:
-            should_fail_by = bridge_builder.should_fail_by
-            guard_op = guard_op.suboperations[bridge_builder.should_fail_by_num]
+        return True
 
-    print '    # passed.'
-    print
-    return loop
+def check_random_function(cpu, BuilderClass, r):
+    loop = RandomLoop(cpu, BuilderClass, r)
+    while True:
+        loop.run_loop()
+        print '    # passed.'
+        print
+        if loop.guard_op is not None:
+            if not loop.build_bridge():
+                break
 
 def test_random_function(BuilderClass=OperationBuilder):
     r = Random()
