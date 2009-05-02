@@ -319,6 +319,7 @@ class RandomLoop(object):
             startvars = [BoxInt(r.random_integer())
                          for i in range(demo_conftest.option.n_vars)]
         self.startvars = startvars
+        self.values = [var.value for var in startvars]
         self.prebuilt_ptr_consts = []
         self.r = r
         self.build_random_loop(cpu, BuilderClass, r, startvars)
@@ -375,11 +376,10 @@ class RandomLoop(object):
 
     def run_loop(self):
         cpu = self.builder.cpu
-        valueboxes = [BoxInt(box.value) for box in self.startvars]
         self.clear_state()
 
-        for i, v in enumerate(valueboxes):
-            cpu.set_future_value_int(i, v.value)
+        for i, v in enumerate(self.values):
+            cpu.set_future_value_int(i, v)
         op = cpu.execute_operations(self.loop)
         assert op is self.should_fail_by
         for i, v in enumerate(op.args):
@@ -400,33 +400,44 @@ class RandomLoop(object):
         bridge_builder = self.builder.__class__(self.builder.cpu, subloop,
                                                 op.args[:])
         self.generate_ops(bridge_builder, r, subloop, op.args[:])
-        k = r.random()
-        subset = []
-        num = int(k * len(bridge_builder.intvars))
-        for i in range(num):
-            subset.append(r.choice(bridge_builder.intvars))
-        r.shuffle(subset)
-        if len(subset) == 0:
-            return False
-        if r.random() < 0.1:
+        if 0 and r.random() < 0.1:
+            k = r.random()
+            subset = []
+            num = int(k * len(bridge_builder.intvars))
+            for i in range(num):
+                subset.append(r.choice(bridge_builder.intvars))
+            r.shuffle(subset)
+            if len(subset) == 0:
+                return False
+            args = [x.clonebox() for x in subset]
             jump_target = RandomLoop(self.builder.cpu, self.builder.__class__,
-                                     r)
-            fail_op = ResOperation(rop.JUMP, subset, None)
-            fail_op.jump_target = jump_target.loop
-        else:
-            fail_op = ResOperation(rop.FAIL, subset, None)
-        guard_op.suboperations.append(fail_op)
+                                     r, args)
+            jump_op = ResOperation(rop.JUMP, subset, None)
+            jump_op.jump_target = jump_target.loop
+            self.should_fail_by = jump_target.should_fail_by
+            self.expected = jump_target.expected
+            if self.guard_op is None:
+                guard_op.suboperations[-1] = jump_op
+            else:
+                self.guard_op.suboperations[-1] = jump_op
+            self.guard_op = jump_target.guard_op
+            self.prebuilt_ptr_consts += jump_target.prebuilt_ptr_consts
+        if r.random() < .05:
+            return False
+        self.builder.cpu.compile_operations(self.loop)
         return True
 
 def check_random_function(cpu, BuilderClass, r):
     loop = RandomLoop(cpu, BuilderClass, r)
     while True:
         loop.run_loop()
-        print '    # passed.'
-        print
         if loop.guard_op is not None:
             if not loop.build_bridge():
                 break
+        else:
+            break
+    print '    # passed.'
+    print
 
 def test_random_function(BuilderClass=OperationBuilder):
     r = Random()
