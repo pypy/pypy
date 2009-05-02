@@ -821,9 +821,21 @@ def get_ctypes_callable(funcptr, calling_conv):
         cfunc = None
         not_found = []
         for libname in libraries:
-            libpath = ctypes.util.find_library(libname)
-            if not libpath and os.path.isabs(libname):
-                libpath = libname
+            libpath = None
+            for dir in eci.library_dirs:
+                if sys.platform == "win32":
+                    tryfile = os.path.join(dir, libname + '.dll')
+                elif sys.platform == "darwin":
+                    tryfile = os.path.join(dir, libname + '.dylib')
+                else:
+                    tryfile = os.path.join(dir, libname + '.so')
+                if os.path.isfile(tryfile):
+                    libpath = tryfile
+                    break
+            if not libpath:
+                libpath = ctypes.util.find_library(libname)
+                if not libpath and os.path.isabs(libname):
+                    libpath = libname
             if libpath:
                 dllclass = getattr(ctypes, calling_conv + 'dll')
                 # urgh, cannot pass the flag to dllclass.LoadLibrary
