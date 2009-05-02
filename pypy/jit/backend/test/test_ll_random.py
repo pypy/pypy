@@ -178,6 +178,9 @@ class CallOperation(test_random.AbstractOperation):
         args = [c_addr] + subset
         descr = builder.cpu.calldescrof(TP, TP.ARGS, TP.RESULT)
         self.put(builder, args, descr)
+        op = ResOperation(rop.GUARD_NO_EXCEPTION, [], None)
+        op.suboperations = [ResOperation(rop.FAIL, [], None)]
+        builder.loop.operations.append(op)
 
 # ____________________________________________________________
 
