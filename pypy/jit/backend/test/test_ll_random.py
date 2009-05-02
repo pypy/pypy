@@ -2,9 +2,10 @@ import py
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.jit.backend.test import test_random
 from pypy.jit.metainterp.resoperation import ResOperation, rop
-from pypy.jit.metainterp.history import ConstInt, ConstPtr, ConstAddr
+from pypy.jit.metainterp.history import ConstInt, ConstPtr, ConstAddr, BoxPtr
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.rarithmetic import intmask
+from pypy.rpython.llinterp import LLException
 
 class LLtypeOperationBuilder(test_random.OperationBuilder):
 
@@ -180,11 +181,22 @@ class BaseCallOperation(test_random.AbstractOperation):
         return subset, d['f']
 
     def raising_func_code(self, builder, r):
+        subset = builder.subset_of_intvars(r)
         funcargs = ", ".join(['arg_%d' % i for i in range(len(subset))])
+        S, v = builder.get_structptr_var(r, must_have_vtable=True)
+        
         code = py.code.Source("""
         def f(%s):
-            raise LLException()
-        """ % funcargs)
+            raise LLException(ptr, vtable)
+        """ % funcargs).compile()
+        vtableptr = v._hints['vtable']._as_ptr()
+        d = {
+            'ptr': S.value._obj.container._as_ptr(),
+            'vtable' : vtableptr,
+            'LLException' : LLException,
+            }
+        exec code in d
+        return subset, d['f'], vtableptr
 
 # 1. non raising call and guard_no_exception
 class CallOperation(BaseCallOperation):
@@ -209,6 +221,16 @@ class CallOperation(BaseCallOperation):
 class RaisingCallOperation(BaseCallOperation):
     def produce_into(self, builder, r):
         subset, f, exc = self.raising_func_code(builder, r)
+        TP = lltype.FuncType([lltype.Signed] * len(subset), lltype.Void)
+        ptr = llhelper(lltype.Ptr(TP), f)
+        c_addr = ConstAddr(llmemory.cast_ptr_to_adr(ptr), builder.cpu)
+        args = [c_addr] + subset
+        descr = builder.cpu.calldescrof(TP, TP.ARGS, TP.RESULT)
+        self.put(builder, args, descr)
+        exc_box = ConstAddr(llmemory.cast_ptr_to_adr(exc), builder.cpu)
+        op = ResOperation(rop.GUARD_EXCEPTION, [exc_box], BoxPtr())
+        op.suboperations = [ResOperation(rop.FAIL, [], None)]
+        builder.loop.operations.append(op)        
 
 # ____________________________________________________________
 
@@ -223,6 +245,7 @@ for i in range(4):      # make more common
 
     OPERATIONS.append(GuardClassOperation(rop.GUARD_CLASS))
     OPERATIONS.append(CallOperation(rop.CALL))
+#    OPERATIONS.append(RaisingCallOperation(rop.CALL))
 
 LLtypeOperationBuilder.OPERATIONS = OPERATIONS
 
