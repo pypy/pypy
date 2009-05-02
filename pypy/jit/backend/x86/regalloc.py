@@ -575,7 +575,7 @@ class RegAlloc(object):
             self.Load(v, prev_loc, loc)
         assert v in self.reg_bindings
         if self.longevity[v][1] > self.position:
-            # we need to find a new place for variable x and
+            # we need to find a new place for variable v and
             # store result in the same place
             loc = self.reg_bindings[v]
             del self.reg_bindings[v]
