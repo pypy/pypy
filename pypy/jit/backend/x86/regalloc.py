@@ -1115,6 +1115,7 @@ class RegAlloc(object):
                 if arg in self.reg_bindings:
                     if not isinstance(res, REG):
                         self.Store(arg, self.loc(arg), loop.arglocs[i])
+                        # XXX ^^^^^^ this can overwrite random stuff
                     elif res is self.reg_bindings[arg]:
                         middle_busy_regs.append(res)
                     else:
@@ -1135,6 +1136,8 @@ class RegAlloc(object):
                     if arg not in self.stack_bindings:
                         # we can load it correctly, because we don't care
                         # any more about the previous var staying there
+                        assert False  # XXX (arigo) what is this case???
+                                      # XXX it's not hit by any test...
                         assert not isinstance(res, REG)
                         self.Store(arg, self.loc(arg), res)
                     else:
@@ -1171,6 +1174,7 @@ class RegAlloc(object):
         self.eventually_free_vars(op.args)
         for v, from_l, to_l in later_loads:
             self.Load(v, from_l, to_l)
+        # XXX ^^^^^ broken: the stack locations in from_l are overwritten above
         self.PerformDiscard(op, [])
 
     def not_implemented_op(self, op, ignored):
