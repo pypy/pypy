@@ -313,6 +313,8 @@ def get_cpu():
 # ____________________________________________________________    
 
 class RandomLoop(object):
+    dont_generate_more = False
+    
     def __init__(self, cpu, BuilderClass, r, startvars=None):
         self.cpu = cpu
         if startvars is None:
@@ -390,6 +392,8 @@ class RandomLoop(object):
                 )
 
     def build_bridge(self):
+        if self.dont_generate_more:
+            return False
         r = self.r
         guard_op = self.guard_op
         guard_op.suboperations = []
@@ -400,7 +404,7 @@ class RandomLoop(object):
         bridge_builder = self.builder.__class__(self.builder.cpu, subloop,
                                                 op.args[:])
         self.generate_ops(bridge_builder, r, subloop, op.args[:])
-        if 0 and r.random() < 0.1:
+        if r.random() < 0.1:
             k = r.random()
             subset = []
             num = int(k * len(bridge_builder.intvars))
@@ -412,6 +416,7 @@ class RandomLoop(object):
             args = [x.clonebox() for x in subset]
             jump_target = RandomLoop(self.builder.cpu, self.builder.__class__,
                                      r, args)
+            self.cpu.compile_operations(jump_target.loop)
             jump_op = ResOperation(rop.JUMP, subset, None)
             jump_op.jump_target = jump_target.loop
             self.should_fail_by = jump_target.should_fail_by
@@ -422,6 +427,7 @@ class RandomLoop(object):
                 self.guard_op.suboperations[-1] = jump_op
             self.guard_op = jump_target.guard_op
             self.prebuilt_ptr_consts += jump_target.prebuilt_ptr_consts
+            self.dont_generate_more = True
         if r.random() < .05:
             return False
         self.builder.cpu.compile_operations(self.loop)
