@@ -27,7 +27,7 @@ def check_args(*args):
         assert isinstance(arg, (Box, Const))
 
 # debug level: 0 off, 1 normal, 2 detailed
-DEBUG = 1
+DEBUG = 0
 
 def log(msg):
     if not we_are_translated():
