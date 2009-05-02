@@ -819,6 +819,7 @@ def get_ctypes_callable(funcptr, calling_conv):
             cfunc = get_on_lib(ctypes.windll.kernel32, funcname)
     else:
         cfunc = None
+        not_found = []
         for libname in libraries:
             libpath = ctypes.util.find_library(libname)
             if not libpath and os.path.isabs(libname):
@@ -830,15 +831,26 @@ def get_ctypes_callable(funcptr, calling_conv):
                 cfunc = get_on_lib(clib, funcname)
                 if cfunc is not None:
                     break
+            else:
+                not_found.append(libname)
 
     if cfunc is None:
         # function name not found in any of the libraries
         if not libraries:
             place = 'the standard C library (missing libraries=...?)'
+        elif len(not_found) == len(libraries):
+            if len(not_found) == 1:
+                raise NotImplementedError(
+                    'cannot find the library %r' % (not_found[0],))
+            else:
+                raise NotImplementedError(
+                    'cannot find any of the libraries %r' % (not_found,))
         elif len(libraries) == 1:
             place = 'library %r' % (libraries[0],)
         else:
             place = 'any of the libraries %r' % (libraries,)
+            if not_found:
+                place += ' (did not find %r)' % (not_found,)
         raise NotImplementedError("function %r not found in %s" % (
             funcname, place))
 
