@@ -1162,9 +1162,12 @@ class RegAlloc(object):
                 free_reg = self.reg_bindings[v]
                 self.Store(v, self.loc(v), self.stack_loc(v))
                 later_loads.insert(0, (v, self.stack_loc(v), self.loc(v)))
+            # XXX this is wrong, we can easily overwrite stuff that is on
+            #     stack, we need to do this in a correct order to avoid that
             for v, from_l, to_l in reloaded:
                 self.Load(v, from_l, free_reg)
                 self.Store(v, free_reg, to_l)
+            # XXX ^^^^^^^^^^^^^^^^^^^^^^^^^^^ BORKEN
         self.eventually_free_vars(op.args)
         for v, from_l, to_l in later_loads:
             self.Load(v, from_l, to_l)
