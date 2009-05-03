@@ -5,7 +5,7 @@
 
 /* The following list of functions seems to be necessary to force the
  * functions to be included in pypy_cache_llvm.so.  The list is never
- * used.
+ * used.  Actually, any single function seems to be enough...
  */
 void* llvm_c_functions[] = {
   (void*) LLVMModuleCreateWithName
