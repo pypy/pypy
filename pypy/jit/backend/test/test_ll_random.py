@@ -11,6 +11,7 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
 
     def __init__(self, *args, **kw):
         test_random.OperationBuilder.__init__(self, *args, **kw)
+        self.vtable_counter = 0
 
     def get_structptr_var(self, r, must_have_vtable=False):
         while True:
@@ -42,6 +43,9 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
 
     def get_random_structure_type_and_vtable(self, r):
         vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+        vtable.subclassrange_min = self.vtable_counter
+        vtable.subclassrange_max = self.vtable_counter
+        self.vtable_counter += 1
         S = self.get_random_structure_type(r, with_vtable=vtable)
         name = S._name
         vtable.name = lltype.malloc(lltype.Array(lltype.Char), len(name)+1,
@@ -255,6 +259,30 @@ class RaisingCallOperationGuardNoException(BaseCallOperation):
         builder.guard_op = op
         builder.loop.operations.append(op)
 
+# 3. raising call and wrong guard_exception
+
+class RaisingCallOperationWrongGuardException(BaseCallOperation):
+    def produce_into(self, builder, r):
+        subset, f, exc = self.raising_func_code(builder, r)
+        TP = lltype.FuncType([lltype.Signed] * len(subset), lltype.Void)
+        ptr = llhelper(lltype.Ptr(TP), f)
+        c_addr = ConstAddr(llmemory.cast_ptr_to_adr(ptr), builder.cpu)
+        args = [c_addr] + subset
+        descr = builder.cpu.calldescrof(TP, TP.ARGS, TP.RESULT)
+        self.put(builder, args, descr)
+        assert builder.cpu.get_exception()
+        builder.cpu.clear_exception()
+        _, vtableptr = builder.get_random_structure_type_and_vtable(r)
+        assert vtableptr != exc
+        other_box = ConstAddr(llmemory.cast_ptr_to_adr(vtableptr), builder.cpu)
+        op = ResOperation(rop.GUARD_EXCEPTION, [other_box], BoxPtr())
+        op._exc_box = ConstAddr(llmemory.cast_ptr_to_adr(exc), builder.cpu)
+        subset = builder.subset_of_intvars(r)
+        op.suboperations = [ResOperation(rop.FAIL, subset, None)]
+        builder.should_fail_by = op.suboperations[0]
+        builder.guard_op = op
+        builder.loop.operations.append(op)
+
 # ____________________________________________________________
 
 OPERATIONS = test_random.OPERATIONS[:]
@@ -270,6 +298,7 @@ for i in range(4):      # make more common
     OPERATIONS.append(CallOperation(rop.CALL))
     OPERATIONS.append(RaisingCallOperation(rop.CALL))
     OPERATIONS.append(RaisingCallOperationGuardNoException(rop.CALL))
+    OPERATIONS.append(RaisingCallOperationWrongGuardException(rop.CALL))
 
 LLtypeOperationBuilder.OPERATIONS = OPERATIONS
 

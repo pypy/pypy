@@ -390,7 +390,7 @@ class RandomLoop(object):
         op = cpu.execute_operations(self.loop)
         assert op is self.should_fail_by
         if (self.guard_op is not None and
-            self.guard_op.opnum == rop.GUARD_NO_EXCEPTION):
+            self.guard_op.is_guard_exception()):
             assert cpu.get_exception()
             cpu.clear_exception()
         for i, v in enumerate(op.args):
@@ -417,7 +417,7 @@ class RandomLoop(object):
         if not op.args:
             return False
         subloop = DummyLoop(guard_op.suboperations)
-        if guard_op.opnum == rop.GUARD_NO_EXCEPTION:
+        if guard_op.is_guard_exception():
             guard_op.suboperations.append(exc_handling(guard_op))
         bridge_builder = self.builder.__class__(self.builder.cpu, subloop,
                                                 op.args[:])
@@ -437,7 +437,7 @@ class RandomLoop(object):
             if self.guard_op is None:
                 guard_op.suboperations[-1] = jump_op
             else:
-                if self.guard_op.opnum == rop.GUARD_NO_EXCEPTION:
+                if self.guard_op.is_guard_exception():
                     # exception clearing
                     self.guard_op.suboperations.insert(-1, exc_handling(
                         self.guard_op))
