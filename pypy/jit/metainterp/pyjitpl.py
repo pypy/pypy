@@ -609,13 +609,13 @@ class MIFrame(object):
     def opimpl_residual_oosend_pure(self, methdescr, boxes):
         self.execute(rop.OOSEND_PURE, boxes, descr=methdescr)
 
-    @arguments("box", "box")
-    def opimpl_oostring_char(self, obj, base):
-        self.execute(rop.OOSTRING_CHAR, [obj, base])
-
-    @arguments("box", "box")
-    def opimpl_oounicode_unichar(self, obj, base):
-        self.execute(rop.OOUNICODE_UNICHAR, [obj, base])
+#    @arguments("box", "box")
+#    def opimpl_oostring_char(self, obj, base):
+#        self.execute(rop.OOSTRING_CHAR, [obj, base])
+#
+#    @arguments("box", "box")
+#    def opimpl_oounicode_unichar(self, obj, base):
+#        self.execute(rop.OOUNICODE_UNICHAR, [obj, base])
 
     @arguments("orgpc", "box")
     def opimpl_guard_value(self, pc, box):
