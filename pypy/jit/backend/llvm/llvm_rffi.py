@@ -68,6 +68,13 @@ class Predicate:
     SLT = 40     # signed less than
     SLE = 41     # signed less or equal
 
+class CallConv:
+    C           = 0
+    Fast        = 8
+    Cold        = 9
+    X86Stdcall  = 64
+    X86Fastcall = 65
+
 # ____________________________________________________________
 
 LLVMDisposeMessage = llexternal('LLVMDisposeMessage', [rffi.CCHARP],
@@ -106,6 +113,10 @@ LLVMAddFunction = llexternal('LLVMAddFunction',
                               rffi.CCHARP,                  # name
                               LLVMTypeRef],                 # function type
                              LLVMValueRef)
+LLVMSetFunctionCallConv = llexternal('LLVMSetFunctionCallConv',
+                                     [LLVMValueRef,         # function
+                                      rffi.UINT],           # new call conv
+                                     lltype.Void)
 LLVMGetParam = llexternal('LLVMGetParam',
                           [LLVMValueRef,                    # function
                            rffi.UINT],                      # index
@@ -120,18 +131,28 @@ LLVMSetTailCall = llexternal('LLVMSetTailCall',
                              [LLVMValueRef,        # call instruction
                               rffi.INT],           # flag: is_tail
                              lltype.Void)
-
+LLVMAddIncoming = llexternal('LLVMAddIncoming',
+                             [LLVMValueRef,                 # phi node
+                              rffi.CArrayPtr(LLVMValueRef), # incoming values
+                              rffi.CArrayPtr(LLVMBasicBlockRef), # incom.blocks
+                              rffi.UINT],                   # count
+                             lltype.Void)
 LLVMCreateBuilder = llexternal('LLVMCreateBuilder', [], LLVMBuilderRef)
 LLVMPositionBuilderAtEnd = llexternal('LLVMPositionBuilderAtEnd',
                                       [LLVMBuilderRef,      # builder
                                        LLVMBasicBlockRef],  # block
                                       lltype.Void)
+LLVMGetInsertBlock = llexternal('LLVMGetInsertBlock', [LLVMBuilderRef],
+                                LLVMBasicBlockRef)
 LLVMDisposeBuilder = llexternal('LLVMDisposeBuilder', [LLVMBuilderRef],
                                 lltype.Void)
 
 LLVMBuildRet = llexternal('LLVMBuildRet', [LLVMBuilderRef,  # builder,
                                            LLVMValueRef],   # result
                           LLVMValueRef)
+LLVMBuildBr = llexternal('LLVMBuildBr', [LLVMBuilderRef,    # builder,
+                                         LLVMBasicBlockRef],# destination block
+                         LLVMValueRef)
 LLVMBuildCondBr = llexternal('LLVMBuildCondBr',
                              [LLVMBuilderRef,      # builder
                               LLVMValueRef,        # condition
@@ -178,6 +199,11 @@ LLVMBuildICmp = llexternal('LLVMBuildICmp',
                             LLVMValueRef,    # right-hand side
                             rffi.CCHARP],    # name of result
                            LLVMValueRef)
+LLVMBuildPhi = llexternal('LLVMBuildPhi',
+                          [LLVMBuilderRef,   # builder
+                           LLVMTypeRef,      # type of value
+                           rffi.CCHARP],     # name of result
+                          LLVMValueRef)
 LLVMBuildCall = llexternal('LLVMBuildCall',
                            [LLVMBuilderRef,               # builder
                             LLVMValueRef,                 # function

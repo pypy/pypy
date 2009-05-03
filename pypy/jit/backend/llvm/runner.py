@@ -70,14 +70,45 @@ class LLVMCPU(model.AbstractCPU):
         func = llvm_rffi.LLVMAddFunction(self.module, "", ty_func)
         loop._llvm_func = func
         self.vars = {}
-        for i in range(len(loop.inputargs)):
-            self.vars[loop.inputargs[i]] = llvm_rffi.LLVMGetParam(func, i)
         self.builder = llvm_rffi.LLVMCreateBuilder()
-        bb_start = llvm_rffi.LLVMAppendBasicBlock(func, "entry")
-        self.pending_blocks = [(loop.operations, bb_start)]
+        bb_entry = llvm_rffi.LLVMAppendBasicBlock(func, "entry")
+        bb_start_code = llvm_rffi.LLVMAppendBasicBlock(func, "")
+        self.bb_start_code = bb_start_code
+        llvm_rffi.LLVMPositionBuilderAtEnd(self.builder, bb_entry)
+        llvm_rffi.LLVMBuildBr(self.builder, bb_start_code)
+        #
+        llvm_rffi.LLVMPositionBuilderAtEnd(self.builder, bb_start_code)
+        self.phi_incoming_blocks = [bb_entry]
+        self.phi_incoming_values = []
+        for i in range(len(loop.inputargs)):
+            phi = llvm_rffi.LLVMBuildPhi(self.builder, self.ty_int, "")
+            incoming = [llvm_rffi.LLVMGetParam(func, i)]
+            self.phi_incoming_values.append(incoming)
+            self.vars[loop.inputargs[i]] = phi
+        #
+        self.pending_blocks = [(loop.operations, bb_start_code)]
         while self.pending_blocks:
             operations, bb = self.pending_blocks.pop()
             self._generate_branch(operations, bb)
+        #
+        incoming_blocks = lltype.malloc(
+            rffi.CArray(llvm_rffi.LLVMBasicBlockRef),
+            len(self.phi_incoming_blocks), flavor='raw')
+        incoming_values = lltype.malloc(
+            rffi.CArray(llvm_rffi.LLVMValueRef),
+            len(self.phi_incoming_blocks), flavor='raw')
+        for j in range(len(self.phi_incoming_blocks)):
+            incoming_blocks[j] = self.phi_incoming_blocks[j]
+        for i in range(len(loop.inputargs)):
+            phi = self.vars[loop.inputargs[i]]
+            incoming = self.phi_incoming_values[i]
+            for j in range(len(self.phi_incoming_blocks)):
+                incoming_values[j] = incoming[j]
+            llvm_rffi.LLVMAddIncoming(phi, incoming_values, incoming_blocks,
+                                      len(self.phi_incoming_blocks))
+        lltype.free(incoming_values, flavor='raw')
+        lltype.free(incoming_blocks, flavor='raw')
+        #
         llvm_rffi.LLVMDisposeBuilder(self.builder)
         self.vars = None
         #...
@@ -208,15 +239,24 @@ class LLVMCPU(model.AbstractCPU):
         llvm_rffi.LLVMPositionBuilderAtEnd(self.builder, bb_on_track)
 
     def generate_JUMP(self, op):
-        args = lltype.malloc(rffi.CArray(llvm_rffi.LLVMValueRef), len(op.args),
-                             flavor='raw')
-        for i in range(len(op.args)):
-            args[i] = self.getintarg(op.args[i])
-        res = llvm_rffi.LLVMBuildCall(self.builder, op.jump_target._llvm_func,
-                                      args, len(op.args), "")
-        llvm_rffi.LLVMBuildRet(self.builder, res)
-        llvm_rffi.LLVMSetTailCall(res, True)
-        lltype.free(args, flavor='raw')
+        if op.jump_target is self.compiling_loop:
+            basicblock = llvm_rffi.LLVMGetInsertBlock(self.builder)
+            self.phi_incoming_blocks.append(basicblock)
+            for i in range(len(op.args)):
+                incoming = self.phi_incoming_values[i]
+                incoming.append(self.getintarg(op.args[i]))
+            llvm_rffi.LLVMBuildBr(self.builder, self.bb_start_code)
+        else:
+            args = lltype.malloc(rffi.CArray(llvm_rffi.LLVMValueRef),
+                                 len(op.args), flavor='raw')
+            for i in range(len(op.args)):
+                args[i] = self.getintarg(op.args[i])
+            res = llvm_rffi.LLVMBuildCall(self.builder,
+                                          op.jump_target._llvm_func,
+                                          args, len(op.args), "")
+            llvm_rffi.LLVMSetTailCall(res, True)     # XXX no effect :-(
+            llvm_rffi.LLVMBuildRet(self.builder, res)
+            lltype.free(args, flavor='raw')
 
     def generate_FAIL(self, op):
         self._ensure_out_args(len(op.args))
