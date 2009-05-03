@@ -59,6 +59,10 @@ class ResOperation(object):
     def is_guard(self):
         return rop._GUARD_FIRST <= self.opnum <= rop._GUARD_LAST
 
+    def is_guard_exception(self):
+        return (self.opnum == rop.GUARD_EXCEPTION or
+                self.opnum == rop.GUARD_NO_EXCEPTION)
+
     def is_always_pure(self):
         return rop._ALWAYS_PURE_FIRST <= self.opnum <= rop._ALWAYS_PURE_LAST
 
