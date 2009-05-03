@@ -101,6 +101,7 @@ class RegAlloc(object):
 
     def _create_jump_reg_candidates(self, jump):
         self.jump_reg_candidates = {}
+        return
         for i in range(len(jump.args)):
             arg = jump.args[i]
             loc = jump.jump_target.arglocs[i]
@@ -609,9 +610,9 @@ class RegAlloc(object):
                 # it's better to say here that we're always in dirty stack
                 # than worry at the jump point
                 self.dirty_stack[arg] = True
-                if jump is not None:
-                    jarg = jump.args[i]
-                    self.jump_reg_candidates[jarg] = reg
+                #if jump is not None:
+                #    jarg = jump.args[i]
+                #    self.jump_reg_candidates[jarg] = reg
             else:
                 loc = stack_pos(i)
                 self.stack_bindings[arg] = loc
