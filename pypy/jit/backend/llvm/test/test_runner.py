@@ -25,3 +25,28 @@ def test_simple_case():
     cpu.execute_operations(loop)
     assert cpu.get_latest_value_int(0) == (19 >> 3)
     assert cpu.get_latest_value_int(1) == (~38)
+
+def test_loop_1():
+    v1 = BoxInt(); v2 = BoxInt(); v3 = BoxInt()
+    v4 = BoxInt(); v5 = BoxInt(); v6 = BoxInt()
+    loop = TreeLoop('loop_1')
+    loop.inputargs = [v1, v2, v3]
+    loop.operations = [
+        ResOperation(rop.INT_IS_TRUE, [v1], v4),
+        ResOperation(rop.GUARD_TRUE, [v4], None),
+        ResOperation(rop.INT_ADD, [v2, v3], v5),
+        ResOperation(rop.INT_SUB, [v1, ConstInt(1)], v6),
+        ResOperation(rop.JUMP, [v6, v2, v5], None),
+        ]
+    loop.operations[-1].jump_target = loop
+    loop.operations[1].suboperations = [
+        ResOperation(rop.FAIL, [v3], None),
+        ]
+    cpu = LLVMCPU(None)
+    cpu.setup_once()
+    cpu.compile_operations(loop)
+    cpu.set_future_value_int(0, 7)
+    cpu.set_future_value_int(1, 6)
+    cpu.set_future_value_int(2, 0)
+    cpu.execute_operations(loop)
+    assert cpu.get_latest_value_int(0) == 42

@@ -80,19 +80,29 @@ def test_from_llvm_py_example_2():
         lltype.free(error_out, flavor='raw')
         lltype.free(ee_out, flavor='raw')
 
-    # The arguments needs to be passed as "GenericValue" objects.
-    args = lltype.malloc(rffi.CArray(LLVMGenericValueRef), 2, flavor='raw')
-    args[0] = LLVMCreateGenericValueOfInt(ty_int, 100, True)
-    args[1] = LLVMCreateGenericValueOfInt(ty_int, 42, True)
+    try:
+        # The arguments needs to be passed as "GenericValue" objects.
+        args = lltype.malloc(rffi.CArray(LLVMGenericValueRef), 2, flavor='raw')
+        args[0] = LLVMCreateGenericValueOfInt(ty_int, 100, True)
+        args[1] = LLVMCreateGenericValueOfInt(ty_int, 42, True)
 
-    # Now let's compile and run!
-    retval = LLVMRunFunction(ee, f_sum, 2, args)
-    LLVMDisposeGenericValue(args[1])
-    LLVMDisposeGenericValue(args[0])
-    lltype.free(args, flavor='raw')
+        # Now let's compile and run!
+        retval = LLVMRunFunction(ee, f_sum, 2, args)
+        LLVMDisposeGenericValue(args[1])
+        LLVMDisposeGenericValue(args[0])
+        lltype.free(args, flavor='raw')
 
-    # The return value is also GenericValue. Let's check it.
-    ulonglong = LLVMGenericValueToInt(retval, True)
-    LLVMDisposeGenericValue(retval)
-    res = rffi.cast(lltype.Signed, ulonglong)
-    assert res == 142
+        # The return value is also GenericValue. Let's check it.
+        ulonglong = LLVMGenericValueToInt(retval, True)
+        LLVMDisposeGenericValue(retval)
+        res = rffi.cast(lltype.Signed, ulonglong)
+        assert res == 142
+
+    finally:
+        LLVMDisposeExecutionEngine(ee)
+
+
+def test_from_llvm_py_example_3():
+    """This test is the same as the previous one.  Just tests that we
+    have freed enough stuff to be able to call it again."""
+    test_from_llvm_py_example_2()

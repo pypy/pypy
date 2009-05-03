@@ -56,6 +56,18 @@ LLVMModuleProviderRef = opaqueptr('struct LLVMOpaqueModuleProvider')
 LLVMGenericValueRef = opaqueptr('struct LLVMOpaqueGenericValue')
 LLVMExecutionEngineRef = opaqueptr('struct LLVMOpaqueExecutionEngine')
 
+class Predicate:
+    EQ = 32      # equal
+    NE = 33      # not equal
+    UGT = 34     # unsigned greater than
+    UGE = 35     # unsigned greater or equal
+    ULT = 36     # unsigned less than
+    ULE = 37     # unsigned less or equal
+    SGT = 38     # signed greater than
+    SGE = 39     # signed greater or equal
+    SLT = 40     # signed less than
+    SLE = 41     # signed less or equal
+
 # ____________________________________________________________
 
 LLVMDisposeMessage = llexternal('LLVMDisposeMessage', [rffi.CCHARP],
@@ -66,7 +78,9 @@ LLVMModuleCreateWithName = llexternal('LLVMModuleCreateWithName',
                                       LLVMModuleRef)
 LLVMDumpModule = llexternal('LLVMDumpModule', [LLVMModuleRef], lltype.Void)
 
+LLVMInt1Type = llexternal('LLVMInt1Type', [], LLVMTypeRef)
 LLVMInt32Type = llexternal('LLVMInt32Type', [], LLVMTypeRef)
+LLVMInt64Type = llexternal('LLVMInt64Type', [], LLVMTypeRef)
 LLVMFunctionType = llexternal('LLVMFunctionType',
                               [LLVMTypeRef,                 # return type
                                rffi.CArrayPtr(LLVMTypeRef), # param types
@@ -77,6 +91,7 @@ LLVMPointerType = llexternal('LLVMPointerType', [LLVMTypeRef,  # element type
                                                  rffi.UINT],   # address space
                              LLVMTypeRef)
 
+LLVMTypeOf = llexternal('LLVMTypeOf', [LLVMValueRef], LLVMTypeRef)
 LLVMConstInt = llexternal('LLVMConstInt', [LLVMTypeRef,     # type
                                            rffi.ULONGLONG,  # value
                                            rffi.INT],       # flag: is_signed
@@ -101,6 +116,11 @@ LLVMAppendBasicBlock = llexternal('LLVMAppendBasicBlock',
                                    rffi.CCHARP],            # name
                                   LLVMBasicBlockRef)
 
+LLVMSetTailCall = llexternal('LLVMSetTailCall',
+                             [LLVMValueRef,        # call instruction
+                              rffi.INT],           # flag: is_tail
+                             lltype.Void)
+
 LLVMCreateBuilder = llexternal('LLVMCreateBuilder', [], LLVMBuilderRef)
 LLVMPositionBuilderAtEnd = llexternal('LLVMPositionBuilderAtEnd',
                                       [LLVMBuilderRef,      # builder
@@ -112,6 +132,12 @@ LLVMDisposeBuilder = llexternal('LLVMDisposeBuilder', [LLVMBuilderRef],
 LLVMBuildRet = llexternal('LLVMBuildRet', [LLVMBuilderRef,  # builder,
                                            LLVMValueRef],   # result
                           LLVMValueRef)
+LLVMBuildCondBr = llexternal('LLVMBuildCondBr',
+                             [LLVMBuilderRef,      # builder
+                              LLVMValueRef,        # condition
+                              LLVMBasicBlockRef,   # block if true
+                              LLVMBasicBlockRef],  # block if false
+                             LLVMValueRef)
 
 for _name in ['Add', 'Sub', 'LShr']:
     globals()['LLVMBuild' + _name] = llexternal('LLVMBuild' + _name,
@@ -133,6 +159,32 @@ LLVMBuildStore = llexternal('LLVMBuildStore',
                              LLVMValueRef,      # value
                              LLVMValueRef],     # pointer location
                             LLVMValueRef)
+LLVMBuildTrunc = llexternal('LLVMBuildTrunc',
+                            [LLVMBuilderRef,    # builder
+                             LLVMValueRef,      # value
+                             LLVMTypeRef,       # destination type
+                             rffi.CCHARP],      # name of result
+                            LLVMValueRef)
+LLVMBuildZExt = llexternal('LLVMBuildZExt',
+                           [LLVMBuilderRef,    # builder
+                            LLVMValueRef,      # value
+                            LLVMTypeRef,       # destination type
+                            rffi.CCHARP],      # name of result
+                           LLVMValueRef)
+LLVMBuildICmp = llexternal('LLVMBuildICmp',
+                           [LLVMBuilderRef,  # builder
+                            rffi.INT,        # predicate (see LLVMIntPredicate)
+                            LLVMValueRef,    # left-hand side
+                            LLVMValueRef,    # right-hand side
+                            rffi.CCHARP],    # name of result
+                           LLVMValueRef)
+LLVMBuildCall = llexternal('LLVMBuildCall',
+                           [LLVMBuilderRef,               # builder
+                            LLVMValueRef,                 # function
+                            rffi.CArrayPtr(LLVMValueRef), # arguments
+                            rffi.UINT,                    # argument count
+                            rffi.CCHARP],                 # name of result
+                           LLVMValueRef)
 
 LLVMCreateModuleProviderForExistingModule = llexternal(
     'LLVMCreateModuleProviderForExistingModule', [LLVMModuleRef],
@@ -159,6 +211,9 @@ LLVMCreateJITCompiler = llexternal('LLVMCreateJITCompiler',
                                     rffi.INT,                      # "fast"
                                     rffi.CArrayPtr(rffi.CCHARP)],  # -> error
                                    rffi.INT)
+LLVMDisposeExecutionEngine = llexternal('LLVMDisposeExecutionEngine',
+                                        [LLVMExecutionEngineRef],
+                                        lltype.Void)
 
 LLVMRunFunction = llexternal('LLVMRunFunction',
                              [LLVMExecutionEngineRef,
