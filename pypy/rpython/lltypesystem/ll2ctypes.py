@@ -564,8 +564,6 @@ def lltype2ctypes(llobj, normalize=True):
                         raise AssertionError
                     llinterp = LLInterpreter.current_interpreter
                     try:
-                        import pdb
-                        pdb.set_trace()
                         llres = llinterp.eval_graph(container.graph, llargs)
                     except LLException, lle:
                         llinterp._store_exception(lle)
