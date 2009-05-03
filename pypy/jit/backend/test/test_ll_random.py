@@ -187,7 +187,7 @@ class BaseCallOperation(test_random.AbstractOperation):
         
         code = py.code.Source("""
         def f(%s):
-            raise LLException(ptr, vtable)
+            raise LLException(vtable, ptr)
         """ % funcargs).compile()
         vtableptr = v._hints['vtable']._as_ptr()
         d = {
@@ -228,6 +228,8 @@ class RaisingCallOperation(BaseCallOperation):
         descr = builder.cpu.calldescrof(TP, TP.ARGS, TP.RESULT)
         self.put(builder, args, descr)
         exc_box = ConstAddr(llmemory.cast_ptr_to_adr(exc), builder.cpu)
+        assert builder.cpu.get_exception()
+        builder.cpu.clear_exception()
         op = ResOperation(rop.GUARD_EXCEPTION, [exc_box], BoxPtr())
         op.suboperations = [ResOperation(rop.FAIL, [], None)]
         builder.loop.operations.append(op)        
@@ -245,7 +247,7 @@ for i in range(4):      # make more common
 
     OPERATIONS.append(GuardClassOperation(rop.GUARD_CLASS))
     OPERATIONS.append(CallOperation(rop.CALL))
-#    OPERATIONS.append(RaisingCallOperation(rop.CALL))
+    OPERATIONS.append(RaisingCallOperation(rop.CALL))
 
 LLtypeOperationBuilder.OPERATIONS = OPERATIONS
 
