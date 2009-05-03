@@ -389,6 +389,10 @@ class RandomLoop(object):
             cpu.set_future_value_int(i, v)
         op = cpu.execute_operations(self.loop)
         assert op is self.should_fail_by
+        if (self.guard_op is not None and
+            self.guard_op.opnum == rop.GUARD_NO_EXCEPTION):
+            assert cpu.get_exception()
+            cpu.clear_exception()
         for i, v in enumerate(op.args):
             value = cpu.get_latest_value_int(i)
             assert value == self.expected[v], (
@@ -397,6 +401,13 @@ class RandomLoop(object):
                 )
 
     def build_bridge(self):
+        def exc_handling(guard_op):
+            # operations need to start with correct GUARD_EXCEPTION
+            op = ResOperation(rop.GUARD_EXCEPTION, [guard_op._exc_box],
+                              BoxPtr())
+            op.suboperations = [ResOperation(rop.FAIL, [], None)]
+            return op
+
         if self.dont_generate_more:
             return False
         r = self.r
@@ -406,6 +417,8 @@ class RandomLoop(object):
         if not op.args:
             return False
         subloop = DummyLoop(guard_op.suboperations)
+        if guard_op.opnum == rop.GUARD_NO_EXCEPTION:
+            guard_op.suboperations.append(exc_handling(guard_op))
         bridge_builder = self.builder.__class__(self.builder.cpu, subloop,
                                                 op.args[:])
         self.generate_ops(bridge_builder, r, subloop, op.args[:])
@@ -424,6 +437,10 @@ class RandomLoop(object):
             if self.guard_op is None:
                 guard_op.suboperations[-1] = jump_op
             else:
+                if self.guard_op.opnum == rop.GUARD_NO_EXCEPTION:
+                    # exception clearing
+                    self.guard_op.suboperations.insert(-1, exc_handling(
+                        self.guard_op))
                 self.guard_op.suboperations[-1] = jump_op
             self.guard_op = jump_target.guard_op
             self.prebuilt_ptr_consts += jump_target.prebuilt_ptr_consts
