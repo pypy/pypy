@@ -71,8 +71,20 @@ LLVMFunctionType = llexternal('LLVMFunctionType',
                               [LLVMTypeRef,                 # return type
                                rffi.CArrayPtr(LLVMTypeRef), # param types
                                rffi.UINT,                   # param count
-                               rffi.INT],                   # flag: is vararg
+                               rffi.INT],                   # flag: is_vararg
                               LLVMTypeRef)
+LLVMPointerType = llexternal('LLVMPointerType', [LLVMTypeRef,  # element type
+                                                 rffi.UINT],   # address space
+                             LLVMTypeRef)
+
+LLVMConstInt = llexternal('LLVMConstInt', [LLVMTypeRef,     # type
+                                           rffi.ULONGLONG,  # value
+                                           rffi.INT],       # flag: is_signed
+                          LLVMValueRef)
+LLVMConstIntToPtr = llexternal('LLVMConstIntToPtr',
+                               [LLVMValueRef,         # constant integer value
+                                LLVMTypeRef],         # type of the result
+                               LLVMValueRef)
 
 LLVMAddFunction = llexternal('LLVMAddFunction',
                              [LLVMModuleRef,                # module
@@ -100,11 +112,27 @@ LLVMDisposeBuilder = llexternal('LLVMDisposeBuilder', [LLVMBuilderRef],
 LLVMBuildRet = llexternal('LLVMBuildRet', [LLVMBuilderRef,  # builder,
                                            LLVMValueRef],   # result
                           LLVMValueRef)
-LLVMBuildAdd = llexternal('LLVMBuildAdd', [LLVMBuilderRef,  # builder
-                                           LLVMValueRef,    # left-hand side
-                                           LLVMValueRef,    # right-hand side
-                                           rffi.CCHARP],    # name of result
-                          LLVMValueRef)
+
+for _name in ['Add', 'Sub', 'LShr']:
+    globals()['LLVMBuild' + _name] = llexternal('LLVMBuild' + _name,
+        [LLVMBuilderRef,  # builder
+         LLVMValueRef,    # left-hand side
+         LLVMValueRef,    # right-hand side
+         rffi.CCHARP],    # name of result
+        LLVMValueRef)
+
+for _name in ['Neg', 'Not']:
+    globals()['LLVMBuild' + _name] = llexternal('LLVMBuild' + _name,
+        [LLVMBuilderRef,  # builder
+         LLVMValueRef,    # argument
+         rffi.CCHARP],    # name of result
+        LLVMValueRef)
+
+LLVMBuildStore = llexternal('LLVMBuildStore',
+                            [LLVMBuilderRef,    # builder
+                             LLVMValueRef,      # value
+                             LLVMValueRef],     # pointer location
+                            LLVMValueRef)
 
 LLVMCreateModuleProviderForExistingModule = llexternal(
     'LLVMCreateModuleProviderForExistingModule', [LLVMModuleRef],
