@@ -589,9 +589,6 @@ def make_state_class(warmrunnerdesc):
                     return
                 #interp.debug_trace("jit_compile", *greenargs)
                 metainterp_sd = warmrunnerdesc.metainterp_sd
-                if not metainterp_sd.profiler.initialized:
-                    metainterp_sd.profiler.start()
-                    metainterp_sd.profiler.initialized = True
                 metainterp = MetaInterp(metainterp_sd)
                 loop = metainterp.compile_and_run_once(*args)
             else:

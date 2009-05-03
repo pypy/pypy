@@ -182,6 +182,9 @@ class CPU386(object):
 #    def set_meta_interp(self, metainterp):
 #        self.metainterp = metainterp
 
+    def setup_once(self):
+        pass
+
     def get_exception(self):
         self.assembler.make_sure_mc_exists()
         return self.assembler._exception_bck[0]

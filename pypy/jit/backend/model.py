@@ -1,5 +1,9 @@
 class AbstractCPU(object):
 
+    def setup_once(self):
+        """Called once by the front-end when the program starts."""
+        pass
+
     def compile_operations(self, loop):
         """Assemble the given list of operations."""
         raise NotImplementedError

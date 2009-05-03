@@ -870,12 +870,19 @@ class MetaInterpStaticData(object):
     def _freeze_(self):
         return True
 
-    def _recompute_class_sizes(self):
-        if self.cpu.class_sizes is None:
-            cs = {}
-            for key, value in self._class_sizes:
-                cs[key] = value
-            self.cpu.class_sizes = cs
+    def _setup_once(self):
+        """Runtime setup needed by the various components of the JIT."""
+        if not self.globaldata.initialized:
+            if self.cpu.class_sizes is None:
+                cs = {}
+                for key, value in self._class_sizes:
+                    cs[key] = value
+                self.cpu.class_sizes = cs
+            self.cpu.setup_once()
+            if not self.profiler.initialized:
+                self.profiler.start()
+                self.profiler.initialized = True
+            self.globaldata.initialized = True
 
     def generate_bytecode(self, policy, ts):
         self._codewriter = codewriter.CodeWriter(self, policy, ts)
@@ -906,6 +913,7 @@ class MetaInterpGlobalData(object):
         self._debug_history = []
         self.compiled_merge_points = r_dict(history.mp_eq, history.mp_hash)
                  # { greenkey: list-of-MergePoints }
+        self.initialized = False
 
 # ____________________________________________________________
 
@@ -1244,8 +1252,8 @@ class MetaInterp(object):
                                         *args[1:])
 
     def initialize_state_from_start(self, *args):
+        self.staticdata._setup_once()
         self.staticdata.profiler.start_tracing()
-        self.staticdata._recompute_class_sizes()
         self.create_empty_history()
         num_green_args = self.staticdata.num_green_args
         original_boxes = []
