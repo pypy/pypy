@@ -1,4 +1,5 @@
 import py
+from pypy.translator import translator
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rclass
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rlib.unroll import unrolling_iterable
@@ -7,7 +8,7 @@ from pypy.jit.metainterp.history import BoxInt, BoxPtr, Const, ConstInt,\
      TreeLoop
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.executor import execute
-from pypy.jit.backend.test.runner import BaseBackendTest
+from pypy.jit.backend.test.runner import LLtypeBackendTest
 
 NODE = lltype.GcForwardReference()
 NODE.become(lltype.GcStruct('NODE', ('value', lltype.Signed),
@@ -16,10 +17,14 @@ NODE.become(lltype.GcStruct('NODE', ('value', lltype.Signed),
 SUBNODE = lltype.GcStruct('SUBNODE', ('parent', NODE))
 
 
-class LLGraphTest(BaseBackendTest):
+class LLGraphTests:
 
     def setup_method(self, _):
-        self.cpu = self.cpu_type(None)
+        context = translator.TranslationContext()
+        context.buildannotator()
+        typer = context.buildrtyper()
+        typer.getexceptiondata().make_helpers(typer)
+        self.cpu = self.cpu_type(typer)
 
     def eval_llinterp(self, runme, *args, **kwds):
         expected_class = kwds.pop('expected_class', None)
@@ -218,9 +223,9 @@ class LLGraphTest(BaseBackendTest):
         assert x.getptr(lltype.Ptr(rstr.STR)).chars[4] == '/'
 
 
-class TestLLTypeLLGraph(LLGraphTest):
+class TestLLTypeLLGraph(LLtypeBackendTest, LLGraphTests):
     from pypy.jit.backend.llgraph.runner import LLtypeCPU as cpu_type
-    
+
 ## these tests never worked
 ## class TestOOTypeLLGraph(LLGraphTest):
 ##     from pypy.jit.backend.llgraph.runner import OOtypeCPU as cpu_type
