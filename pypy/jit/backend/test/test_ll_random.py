@@ -191,7 +191,7 @@ class BaseCallOperation(test_random.AbstractOperation):
         """ % funcargs).compile()
         vtableptr = v._hints['vtable']._as_ptr()
         d = {
-            'ptr': S.value._obj.container._as_ptr(),
+            'ptr': S.value,
             'vtable' : vtableptr,
             'LLException' : LLException,
             }
