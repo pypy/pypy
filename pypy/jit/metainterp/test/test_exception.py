@@ -59,6 +59,8 @@ class ExceptionTests:
 
         res = self.meta_interp(f, [20], policy=StopAtXPolicy(check))
         assert res == f(20)
+        res = self.meta_interp(f, [21], policy=StopAtXPolicy(check))
+        assert res == f(21)
 
     def test_bridge_from_guard_no_exception(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])
