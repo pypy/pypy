@@ -2,7 +2,6 @@
 """
 
 import py
-from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.rarithmetic import ovfcheck, r_uint, intmask
