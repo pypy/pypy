@@ -559,7 +559,15 @@ class BasicTests:
 
 
 class TestOOtype(BasicTests, OOJitMixin):
-    pass
+
+    def test_oohash(self):
+        def f():
+            s = ootype.oostring(5, -1)
+            return ootype.oohash(s)
+        res = self.interp_operations(f, [])
+        # xxx can we rely on oohash() returning the same value in and out of
+        # translation?
+        assert res == ootype.oohash(ootype.oostring(5, -1))
 
 
 class TestLLtype(BasicTests, LLJitMixin):

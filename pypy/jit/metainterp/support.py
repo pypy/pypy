@@ -194,6 +194,12 @@ def _ll_2_oounicode_signed_foldable(n, base):
 def _ll_1_oounicode_unichar_foldable(ch):
     return ootype.oounicode(ch, -1)
 
+def _ll_1_oohash_string_foldable(s):
+    return ootype.oohash(s)
+
+def _ll_1_oohash_unicode_foldable(u):
+    return ootype.oohash(u)
+
 # -------------------------------------------------------
 
 def setup_extra_builtin(oopspec_name, nb_args):
@@ -255,6 +261,15 @@ def get_oostring_oopspec(op):
         args = op.args
     return '%s_%s_foldable' % (op.opname, T._name.lower()), args
 
+def get_oohash_oopspec(op):
+    T = op.args[0].concretetype
+    if T is ootype.String:
+        return 'oohash_string_foldable', op.args
+    elif T is ootype.Unicode:
+        return 'oohash_unicode_foldable', op.args
+    else:
+        raise Exception("oohash() of type %r" % (T,))
+
 
 RENAMED_ADT_NAME = {
     'list': {
@@ -279,6 +294,8 @@ def decode_builtin_call(op):
         return get_send_oopspec(SELFTYPE, name), opargs
     elif op.opname in ('oostring', 'oounicode'):
         return get_oostring_oopspec(op)
+    elif op.opname == 'oohash':
+        return get_oohash_oopspec(op)
     elif op.opname == 'direct_call':
         fnobj = get_funcobj(op.args[0].value)
         opargs = op.args[1:]

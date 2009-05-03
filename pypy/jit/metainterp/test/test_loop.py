@@ -575,8 +575,7 @@ class LoopTest:
         res = self.meta_interp(f, [200])
 
 class TestOOtype(LoopTest, OOJitMixin):
-    def test_loop_unicode(self):
-        py.test.skip("oohash")
+    pass
 
 class TestLLtype(LoopTest, LLJitMixin):
     pass
