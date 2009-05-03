@@ -270,9 +270,6 @@ class RegAlloc(object):
         self._walk_operations(operations)
 
     def _walk_operations(self, operations):
-        fop = operations[-1]
-        if fop.opnum == rop.FAIL:
-            self.guard_index = self.assembler.cpu.make_guard_index(fop)
         i = 0
         while i < len(operations):
             op = operations[i]
@@ -638,7 +635,7 @@ class RegAlloc(object):
     def consider_fail(self, op, ignored):
         # make sure all vars are on stack
         locs = [self.loc(arg) for arg in op.args]
-        self.assembler.generate_failure(op, locs, self.guard_index, self.exc)
+        self.assembler.generate_failure(op, locs, self.exc)
         self.eventually_free_vars(op.args)
 
     def consider_guard_nonvirtualized(self, op, ignored):

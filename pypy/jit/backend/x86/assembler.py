@@ -829,7 +829,7 @@ class Assembler386(object):
         self.mc = oldmc
         return addr
 
-    def generate_failure(self, op, locs, guard_index, exc):
+    def generate_failure(self, op, locs, exc):
         pos = self.mc.tell()
         for i in range(len(locs)):
             loc = locs[i]
@@ -849,6 +849,7 @@ class Assembler386(object):
             self.generate_exception_handling(eax)
         self.places_to_patch_framesize.append(self.mc.tell())
         self.mc.ADD(esp, imm32(0))
+        guard_index = self.cpu.make_guard_index(op)
         self.mc.MOV(eax, imm(guard_index))
         self.mc.RET()
 
