@@ -58,6 +58,9 @@ LLVMExecutionEngineRef = opaqueptr('struct LLVMOpaqueExecutionEngine')
 
 # ____________________________________________________________
 
+LLVMDisposeMessage = llexternal('LLVMDisposeMessage', [rffi.CCHARP],
+                                lltype.Void)
+
 LLVMModuleCreateWithName = llexternal('LLVMModuleCreateWithName',
                                       [rffi.CCHARP],
                                       LLVMModuleRef)
@@ -91,6 +94,8 @@ LLVMPositionBuilderAtEnd = llexternal('LLVMPositionBuilderAtEnd',
                                       [LLVMBuilderRef,      # builder
                                        LLVMBasicBlockRef],  # block
                                       lltype.Void)
+LLVMDisposeBuilder = llexternal('LLVMDisposeBuilder', [LLVMBuilderRef],
+                                lltype.Void)
 
 LLVMBuildRet = llexternal('LLVMBuildRet', [LLVMBuilderRef,  # builder,
                                            LLVMValueRef],   # result
@@ -112,6 +117,8 @@ LLVMCreateGenericValueOfInt = llexternal('LLVMCreateGenericValueOfInt',
                                           rffi.ULONGLONG,   # value
                                           rffi.INT],        # flag: is_signed
                                          LLVMGenericValueRef)
+LLVMDisposeGenericValue = llexternal('LLVMDisposeGenericValue',
+                                     [LLVMGenericValueRef], lltype.Void)
 
 LLVMGenericValueToInt = llexternal('LLVMGenericValueToInt',
                                    [LLVMGenericValueRef,

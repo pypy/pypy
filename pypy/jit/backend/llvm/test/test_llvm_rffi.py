@@ -3,7 +3,7 @@ from pypy.jit.backend.llvm.llvm_rffi import *
 
 
 def test_from_llvm_py_example_1():
-    # NOTE: no GC so far!!!!!!!!!
+    # NOTE: minimal GC (some objects are never freed)
 
     # Create an (empty) module.
     my_module = LLVMModuleCreateWithName("my_module")
@@ -41,6 +41,7 @@ def test_from_llvm_py_example_1():
     # a ret instruction to return.
     tmp = LLVMBuildAdd(builder, f_arg_0, f_arg_1, "tmp")
     LLVMBuildRet(builder, tmp)
+    LLVMDisposeBuilder(builder)
 
     # We've completed the definition now! Let's see the LLVM assembly
     # language representation of what we've created: (it goes to stderr)
@@ -67,12 +68,15 @@ def test_from_llvm_py_example_2():
     # or complain on platforms that don't support it.
     ee_out = lltype.malloc(rffi.CArray(LLVMExecutionEngineRef), 1, flavor='raw')
     error_out = lltype.malloc(rffi.CArray(rffi.CCHARP), 1, flavor='raw')
+    error_out[0] = lltype.nullptr(rffi.CCHARP.TO)
     try:
         error = LLVMCreateJITCompiler(ee_out, mp, True, error_out)
         if rffi.cast(lltype.Signed, error) != 0:
             raise LLVMException(rffi.charp2str(error_out[0]))
         ee = ee_out[0]
     finally:
+        if error_out[0]:
+            LLVMDisposeMessage(error_out[0])
         lltype.free(error_out, flavor='raw')
         lltype.free(ee_out, flavor='raw')
 
@@ -83,9 +87,12 @@ def test_from_llvm_py_example_2():
 
     # Now let's compile and run!
     retval = LLVMRunFunction(ee, f_sum, 2, args)
+    LLVMDisposeGenericValue(args[1])
+    LLVMDisposeGenericValue(args[0])
     lltype.free(args, flavor='raw')
 
     # The return value is also GenericValue. Let's check it.
     ulonglong = LLVMGenericValueToInt(retval, True)
+    LLVMDisposeGenericValue(retval)
     res = rffi.cast(lltype.Signed, ulonglong)
     assert res == 142
