@@ -564,12 +564,22 @@ def lltype2ctypes(llobj, normalize=True):
                         raise AssertionError
                     llinterp = LLInterpreter.current_interpreter
                     try:
+                        import pdb
+                        pdb.set_trace()
                         llres = llinterp.eval_graph(container.graph, llargs)
                     except LLException, lle:
                         llinterp._store_exception(lle)
                         return 0
+                    except:
+                        import pdb
+                        pdb.set_trace()
                 else:
-                    llres = container._callable(*llargs)
+                    try:
+                        llres = container._callable(*llargs)
+                    except LLException, lle:
+                        llinterp = LLInterpreter.current_interpreter
+                        llinterp._store_exception(lle)
+                        return 0
                 assert lltype.typeOf(llres) == T.TO.RESULT
                 if T.TO.RESULT is lltype.Void:
                     return None
