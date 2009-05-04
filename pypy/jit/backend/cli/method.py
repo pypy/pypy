@@ -200,17 +200,18 @@ class Method(object):
         self.il.Emit(OpCodes.Ldnull)
         self.il.Emit(OpCodes.Stfld, self.exc_value_field)
 
-    def emit_raising_op(self, op, emit_op, exctype):
-        v = self.il.DeclareLocal(exctype)
+    def emit_raising_op(self, op, emit_op, exctypes):
         self.emit_clear_exception()
         lbl = self.il.BeginExceptionBlock()
         emit_op(self, op)
         self.il.Emit(OpCodes.Leave, lbl)
-        self.il.BeginCatchBlock(exctype)
-        self.il.Emit(OpCodes.Stloc, v)
-        self.av_inputargs.load(self)
-        self.il.Emit(OpCodes.Ldloc, v)
-        self.il.Emit(OpCodes.Stfld, self.exc_value_field)
+        for exctype in exctypes:
+            v = self.il.DeclareLocal(exctype)
+            self.il.BeginCatchBlock(exctype)
+            self.il.Emit(OpCodes.Stloc, v)
+            self.av_inputargs.load(self)
+            self.il.Emit(OpCodes.Ldloc, v)
+            self.il.Emit(OpCodes.Stfld, self.exc_value_field)
         self.il.EndExceptionBlock()
 
     # --------------------------------
@@ -290,12 +291,15 @@ def make_operation_list():
             func = getattr(Method, methname).im_func
         else:
             instrlist = opcodes.opcodes[key]
-            func = render_op(methname, instrlist)
+            func = render_op(methname, instrlist, False)
         operations[value] = func
     return operations
 
+def is_raising_op(instrlist):
+    return len(instrlist) == 1 and isinstance(instrlist[0], opcodes.MapException)
+        
 def render_op(methname, instrlist):
-    if len(instrlist) == 1 and isinstance(instrlist[0], opcodes.MapException):
+    if is_raising_op(instrlist):
         return render_raising_op(methname, instrlist)
     lines = []
     for instr in instrlist:
@@ -322,21 +326,23 @@ def render_op(methname, instrlist):
     exec src.compile() in dic
     return dic[methname]
 
+def parse_exctype(exctype):
+    assert exctype.startswith('[mscorlib]')
+    return exctype[len('[mscorlib]'):]
+    
+
 def render_raising_op(methname, instrlist):
     value = instrlist[0]
-    mapping = value.mapping
-    assert len(mapping) == 1, 'Catching more than one exception is not supported'
-    exctype = mapping[0][0]
-    assert exctype.startswith('[mscorlib]')
-    exctype = exctype[len('[mscorlib]'):]
+    exctypes = [parse_exctype(exctype) for exctype, _ in value.mapping]
+    exctypes = ['dotnet.typeof(%s)' % exctype for exctype in exctypes]
     impl_func = render_op(methname + '_impl', value.instr)
     if not impl_func:
         return
     src = py.code.Source("""
         def %s(self, op):
-            exctype = dotnet.typeof(%s)
-            self.emit_raising_op(op, impl_func, exctype)
-    """ % (methname, exctype))
+            exctypes = [%s]
+            self.emit_raising_op(op, impl_func, exctypes)
+    """ % (methname, ', '.join(exctypes)))
     dic = {'System': System,
            'dotnet': dotnet,
            'impl_func': impl_func}
