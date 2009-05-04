@@ -19,11 +19,18 @@ def _abs(type_):
     return [PushAllArgs, 'call %s class [mscorlib]System.Math::Abs(%s)' % (type_, type_), StoreResult]
 
 def _check_ovf(op):
-    mapping = [('[mscorlib]System.OverflowException', 'exceptions.OverflowError')]
+    mapping = [('[mscorlib]System.OverflowException', 'exceptions.OverflowError'),
+               ('[mscorlib]System.ArithmeticException', 'exceptions.OverflowError')]
     return [MapException(op, mapping)]
 
 def _check_zer(op):
     mapping = [('[mscorlib]System.DivideByZeroException', 'exceptions.ZeroDivisionError')]
+    return [MapException(op, mapping)]
+
+def _check_ovf_zer(op):
+    mapping = [('[mscorlib]System.OverflowException', 'exceptions.OverflowError'),
+               ('[mscorlib]System.DivideByZeroException', 'exceptions.ZeroDivisionError'),
+               ('[mscorlib]System.ArithmeticException', 'exceptions.OverflowError')]
     return [MapException(op, mapping)]
 
 # __________ object oriented & misc operations __________
@@ -167,7 +174,7 @@ binary_ops = {
     'int_sub_ovf':              _check_ovf('sub.ovf'),
     'int_mul_ovf':              _check_ovf('mul.ovf'),
     'int_floordiv_ovf':         'div', # these can't overflow!
-    'int_mod_ovf':              'rem',
+    'int_mod_ovf':              _check_ovf('rem'),
     'int_lt_ovf':               'clt',
     'int_le_ovf':               _not('cgt'),
     'int_eq_ovf':               'ceq',
@@ -183,7 +190,7 @@ binary_ops = {
     'int_rshift_ovf':           'shr', # these can't overflow!
     'int_xor_ovf':              'xor',
     'int_floordiv_ovf_zer':     _check_zer('div'),
-    'int_mod_ovf_zer':          _check_zer('rem'),
+    'int_mod_ovf_zer':          _check_ovf_zer('rem'),
     'int_mod_zer':              _check_zer('rem'),
 
     'uint_add':                 'add',
