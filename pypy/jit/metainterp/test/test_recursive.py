@@ -24,6 +24,33 @@ class RecursiveTests:
         res = self.meta_interp(main, [20], optimizer=Optimizer)
         assert res == main(20)
 
+    def test_simple_recursion_with_exc(self):
+        py.test.skip("Fails")
+        myjitdriver = JitDriver(greens=[], reds=['n', 'm'])
+        class Error(Exception):
+            pass
+        
+        def f(n):
+            m = n - 2
+            while True:
+                myjitdriver.jit_merge_point(n=n, m=m)
+                n -= 1
+                if n == 10:
+                    raise Error
+                if m == n:
+                    try:
+                        return main(n) * 2
+                    except Error:
+                        return 2
+                myjitdriver.can_enter_jit(n=n, m=m)
+        def main(n):
+            if n > 0:
+                return f(n+1)
+            else:
+                return 1
+        res = self.meta_interp(main, [20], optimizer=Optimizer)
+        assert res == main(20)
+
     def test_recursion_three_times(self):
         myjitdriver = JitDriver(greens=[], reds=['n', 'm', 'total'])
         def f(n):
