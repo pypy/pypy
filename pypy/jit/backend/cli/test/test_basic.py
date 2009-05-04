@@ -16,11 +16,11 @@ class TestBasic(CliJitMixin, test_basic.BasicTests):
         py.test.skip("in-progress")
 
     test_string = skip
+    test_chr2str = skip
+    test_unicode = skip
+    test_residual_call = skip
+    test_constant_across_mp = skip
     
-    test_chr2str = _skip
-    test_unicode = _skip
-    test_residual_call = _skip
-    test_constant_across_mp = _skip
     test_stopatxpolicy = _skip
     test_we_are_jitted = _skip
     test_format = _skip

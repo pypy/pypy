@@ -5,7 +5,7 @@ from pypy.jit.metainterp import executor
 from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.jit.backend import model
 from pypy.jit.backend.minimal.runner import cached_method
-from pypy.jit.backend.llgraph.runner import TypeDescr
+from pypy.jit.backend.llgraph.runner import TypeDescr, FieldDescr
 from pypy.jit.backend.cli.method import Method
 from pypy.translator.cli import dotnet
 from pypy.translator.cli.dotnet import CLR
@@ -39,6 +39,10 @@ class CliCPU(model.AbstractCPU):
     def typedescrof(self, TYPE):
         return TypeDescr(TYPE)
 
+    @cached_method('_fieldcache')
+    def fielddescrof(self, T, fieldname):
+        return FieldDescr(T, fieldname)
+
     # ----------------------
 
     def compile_operations(self, loop):
@@ -63,6 +67,19 @@ class CliCPU(model.AbstractCPU):
         return self.inputargs.objs[index]
 
     # ----------------------
+
+    def do_new_with_vtable(self, args, typedescr):
+        assert isinstance(typedescr, TypeDescr)
+        assert len(args) == 1 # but we don't need it, so ignore
+        return typedescr.create()
+
+    def do_getfield_gc(self, args, fielddescr):
+        assert isinstance(fielddescr, FieldDescr)
+        return fielddescr.getfield(args[0])
+
+    def do_setfield_gc(self, args, fielddescr):
+        assert isinstance(fielddescr, FieldDescr)
+        return fielddescr.setfield(args[0], args[1])
 
     def do_call(self, args, calldescr):
         assert isinstance(calldescr, StaticMethDescr)

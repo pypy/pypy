@@ -5,7 +5,8 @@ from pypy.translator.cli import dotnet
 from pypy.translator.cli.dotnet import CLR
 from pypy.translator.cli import opcodes
 from pypy.jit.metainterp import history
-from pypy.jit.metainterp.history import AbstractValue, Const, ConstInt
+from pypy.jit.metainterp.history import (AbstractValue, Const, ConstInt,
+                                         ConstObj)
 from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.jit.backend.cli.methodfactory import get_method_wrapper
 
@@ -310,6 +311,11 @@ class Method(object):
             target.inputargs[i].store(self)
         self.il.Emit(OpCodes.Br, self.il_loop_start)
 
+    def emit_op_new_with_vtable(self, op):
+        assert isinstance(op.args[0], ConstObj)
+        cls = ootype.cast_from_object(ootype.Class, op.args[0].getobj())
+        raise NotImplementedError # XXX finish me
+
     def emit_op_call(self, op):
         raise NotImplementedError
 
@@ -337,7 +343,6 @@ class Method(object):
     emit_op_arraylen_gc = not_implemented
     emit_op_unicodesetitem = not_implemented
     emit_op_getfield_raw_pure = not_implemented
-    emit_op_new_with_vtable = not_implemented
     emit_op_getfield_gc_pure = not_implemented
     emit_op_getarrayitem_gc = not_implemented
     emit_op_getfield_gc = not_implemented
