@@ -41,7 +41,10 @@ class __extend__(Const):
     __metaclass__ = extendabletype
 
     def load(self, meth):
-        raise NotImplementedError
+        index = meth.get_index_for_constant(self)
+        meth.av_consts.load(meth)
+        meth.il.Emit(OpCodes.Ldc_I4, index)
+        meth.il.Emit(OpCodes.Ldelem_Ref)
 
     def store(self, meth):
         assert False, 'cannot store() to Constant'
@@ -87,9 +90,10 @@ class Method(object):
         self.cpu = cpu
         self.name = name
         self.loop = loop
-        self.boxes = {} # box --> local var
+        self.boxes = {}       # box --> local var
         self.failing_ops = {} # index --> op
-        self.branches = [] # (Label, operations)
+        self.branches = []    # (Label, operations)
+        self.consts = {}      # object --> index
         self.meth_wrapper = self._get_meth_wrapper()
         self.il = self.meth_wrapper.get_il_generator()
         self.av_consts = MethodArgument(0, System.Type.GetType("System.Object[]"))
@@ -101,8 +105,16 @@ class Method(object):
         self.emit_operations(loop.operations)
         self.emit_branches()
         self.emit_end()
+        # ----
+        self.finish_code()
+
+    def finish_code(self):
         delegatetype = dotnet.typeof(LoopDelegate)
-        consts = dotnet.new_array(System.Object, 0)
+        # initialize the array of genconsts
+        consts = dotnet.new_array(System.Object, len(self.consts))
+        for av_const, i in self.consts.iteritems():
+            consts[i] = dotnet.cast_to_native_object(av_const.getobj())
+        # build the delegate
         self.func = self.meth_wrapper.create_delegate(delegatetype, consts)
 
     def _get_meth_wrapper(self):
@@ -132,6 +144,14 @@ class Method(object):
             i = len(self.failing_ops)
             self.failing_ops[i] = op
             return i
+
+    def get_index_for_constant(self, obj):
+        try:
+            return self.consts[obj]
+        except KeyError:
+            index = len(self.consts)
+            self.consts[obj] = index
+            return index
 
     def newbranch(self, op):
         # sanity check, maybe we can remove it later
@@ -258,6 +278,16 @@ class Method(object):
         self.push_all_args(op)
         self.il.Emit(OpCodes.Bne_Un, il_label)
 
+    def emit_op_guard_class(self, op):
+        assert op.suboperations
+        assert len(op.args) == 2
+        il_label = self.newbranch(op)
+        self.push_arg(op, 0)
+        meth = dotnet.typeof(System.Object).GetMethod("GetType")
+        self.il.Emit(OpCodes.Callvirt, meth)
+        self.push_arg(op, 1)
+        self.il.Emit(OpCodes.Bne_Un, il_label)
+
     def emit_op_guard_no_exception(self, op):
         assert op.suboperations
         il_label = self.newbranch(op)
@@ -290,7 +320,6 @@ class Method(object):
     emit_op_getfield_raw_pure = not_implemented
     emit_op_new_with_vtable = not_implemented
     emit_op_getfield_gc_pure = not_implemented
-    emit_op_guard_class = not_implemented
     emit_op_getarrayitem_gc = not_implemented
     emit_op_getfield_gc = not_implemented
     emit_op_call_pure = not_implemented
