@@ -299,7 +299,10 @@ def Random():
             while intmask(result << 2) == (result << 2):
                 result = (result << 2) | (result & 0x3)
         return result
+    def get_random_char():
+        return chr(get_random_integer() % 256)
     r.random_integer = get_random_integer
+    r.random_char = get_random_char
     return r
 
 def get_cpu():
@@ -391,8 +394,8 @@ class RandomLoop(object):
         assert op is self.should_fail_by
         if (self.guard_op is not None and
             self.guard_op.is_guard_exception()):
-            assert cpu.get_exception()
-            cpu.clear_exception()
+            if cpu.get_exception():
+                cpu.clear_exception()
         for i, v in enumerate(op.args):
             value = cpu.get_latest_value_int(i)
             assert value == self.expected[v], (
@@ -403,8 +406,11 @@ class RandomLoop(object):
     def build_bridge(self):
         def exc_handling(guard_op):
             # operations need to start with correct GUARD_EXCEPTION
-            op = ResOperation(rop.GUARD_EXCEPTION, [guard_op._exc_box],
-                              BoxPtr())
+            if guard_op._exc_box is None:
+                op = ResOperation(rop.GUARD_NO_EXCEPTION, [], None)
+            else:
+                op = ResOperation(rop.GUARD_EXCEPTION, [guard_op._exc_box],
+                                  BoxPtr())
             op.suboperations = [ResOperation(rop.FAIL, [], None)]
             return op
 

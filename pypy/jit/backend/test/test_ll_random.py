@@ -2,7 +2,8 @@ import py
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rffi
 from pypy.jit.backend.test import test_random
 from pypy.jit.metainterp.resoperation import ResOperation, rop
-from pypy.jit.metainterp.history import ConstInt, ConstPtr, ConstAddr, BoxPtr
+from pypy.jit.metainterp.history import ConstInt, ConstPtr, ConstAddr, BoxPtr,\
+     BoxInt
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.rarithmetic import intmask
 from pypy.rpython.llinterp import LLException
@@ -38,8 +39,10 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
             kwds['hints'] = {'vtable': with_vtable._obj}
         for i in range(r.randrange(1, 5)):
             rval = r.random()
-            if rval < 0.5:
+            if rval < 0.25:
                 TYPE = lltype.Signed
+            elif rval < 0.5:
+                TYPE = lltype.Char
             elif rval < 0.75:
                 TYPE = rffi.UCHAR
             else:
@@ -157,6 +160,8 @@ class SetFieldOperation(GetFieldOperation):
                 w = r.choice(builder.intvars)
             if rffi.cast(lltype.Signed, rffi.cast(TYPE, w.value)) == w.value:
                 break
+        if not 0 <= w.value <= 256:
+            w = builder.do(rop.INT_AND, [w, ConstInt(0xff)])
         builder.do(self.opnum, [v, w], descr)
 
 class NewOperation(test_random.AbstractOperation):
@@ -233,6 +238,31 @@ class CallOperation(BaseCallOperation):
         self.put(builder, args, descr)
         op = ResOperation(rop.GUARD_NO_EXCEPTION, [], None)
         op.suboperations = [ResOperation(rop.FAIL, [], None)]
+        builder.loop.operations.append(op)
+
+# 5. Non raising-call and GUARD_EXCEPTION
+
+class CallOperationException(BaseCallOperation):
+    def produce_into(self, builder, r):
+        subset, f = self.non_raising_func_code(builder, r)
+        if len(subset) == 0:
+            RES = lltype.Void
+        else:
+            RES = lltype.Signed
+        TP = lltype.FuncType([lltype.Signed] * len(subset), RES)
+        ptr = llhelper(lltype.Ptr(TP), f)
+        c_addr = ConstAddr(llmemory.cast_ptr_to_adr(ptr), builder.cpu)
+        args = [c_addr] + subset
+        descr = builder.cpu.calldescrof(TP, TP.ARGS, TP.RESULT)
+        self.put(builder, args, descr)
+        _, vtableptr = builder.get_random_structure_type_and_vtable(r)
+        exc_box = ConstAddr(llmemory.cast_ptr_to_adr(vtableptr), builder.cpu)
+        op = ResOperation(rop.GUARD_EXCEPTION, [exc_box], BoxPtr())
+        subset = builder.subset_of_intvars(r)
+        op.suboperations = [ResOperation(rop.FAIL, subset, None)]
+        op._exc_box = None
+        builder.should_fail_by = op.suboperations[0]
+        builder.guard_op = op
         builder.loop.operations.append(op)
 
 # 2. raising call and guard_exception
@@ -314,6 +344,7 @@ for i in range(4):      # make more common
     OPERATIONS.append(RaisingCallOperation(rop.CALL))
     OPERATIONS.append(RaisingCallOperationGuardNoException(rop.CALL))
     OPERATIONS.append(RaisingCallOperationWrongGuardException(rop.CALL))
+    OPERATIONS.append(CallOperationException(rop.CALL))
 
 LLtypeOperationBuilder.OPERATIONS = OPERATIONS
 
