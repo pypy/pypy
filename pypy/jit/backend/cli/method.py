@@ -192,6 +192,9 @@ class Method(object):
         for box in op.args:
             box.load(self)
 
+    def push_arg(self, op, n):
+        op.args[n].load(self)
+
     def store_result(self, op):
         op.result.store(self)
 
@@ -291,7 +294,7 @@ def make_operation_list():
             func = getattr(Method, methname).im_func
         else:
             instrlist = opcodes.opcodes[key]
-            func = render_op(methname, instrlist, False)
+            func = render_op(methname, instrlist)
         operations[value] = func
     return operations
 
@@ -307,6 +310,8 @@ def render_op(methname, instrlist):
             lines.append('self.push_all_args(op)')
         elif instr == opcodes.StoreResult:
             lines.append('self.store_result(op)')
+        elif isinstance(instr, opcodes.PushArg):
+            lines.append('self.push_arg(op, %d)' % instr.n)
         else:
             if not isinstance(instr, str):
                 print 'WARNING: unknown instruction %s' % instr

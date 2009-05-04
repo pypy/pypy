@@ -26,8 +26,4 @@ class CliJitMixin(object):
 
 
 class TestRunner(CliJitMixin, OOtypeBackendTest):
-
-    def skip(self):
-        py.test.skip('in-progress')
-
-    test_ovf_operations = skip
+    pass
