@@ -1163,8 +1163,8 @@ class MetaInterp(object):
     def compile_bridge(self, live_arg_boxes):
         num_green_args = self.staticdata.num_green_args
         greenkey = live_arg_boxes[:num_green_args]
+        glob = self.staticdata.globaldata
         try:
-            glob = self.staticdata.globaldata
             old_loops = glob.compiled_merge_points[greenkey]
         except KeyError:
             return
