@@ -64,3 +64,11 @@ class BaseTestOverflow:
             except OverflowError:
                 return 42
         self.check(fn, [-sys.maxint-1, -1])
+
+    def test_div(self):
+        def fn(x, y):
+            try:
+                return ovfcheck(x / y)
+            except OverflowError:
+                return 42
+        self.check(fn, [-sys.maxint-1, -1])

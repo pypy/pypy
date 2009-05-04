@@ -173,7 +173,7 @@ binary_ops = {
     'int_add_nonneg_ovf':       _check_ovf('add.ovf'),
     'int_sub_ovf':              _check_ovf('sub.ovf'),
     'int_mul_ovf':              _check_ovf('mul.ovf'),
-    'int_floordiv_ovf':         'div', # these can't overflow!
+    'int_floordiv_ovf':         _check_ovf('div'),
     'int_mod_ovf':              _check_ovf('rem'),
     'int_lt_ovf':               'clt',
     'int_le_ovf':               _not('cgt'),
@@ -189,7 +189,7 @@ binary_ops = {
 
     'int_rshift_ovf':           'shr', # these can't overflow!
     'int_xor_ovf':              'xor',
-    'int_floordiv_ovf_zer':     _check_zer('div'),
+    'int_floordiv_ovf_zer':     _check_ovf_zer('div'),
     'int_mod_ovf_zer':          _check_ovf_zer('rem'),
     'int_mod_zer':              _check_zer('rem'),
 
