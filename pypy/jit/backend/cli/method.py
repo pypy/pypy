@@ -5,7 +5,7 @@ from pypy.translator.cli import dotnet
 from pypy.translator.cli.dotnet import CLR
 from pypy.translator.cli import opcodes
 from pypy.jit.metainterp import history
-from pypy.jit.metainterp.history import AbstractValue, Const
+from pypy.jit.metainterp.history import AbstractValue, Const, ConstInt
 from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.jit.backend.cli.methodfactory import get_method_wrapper
 
@@ -46,6 +46,11 @@ class __extend__(Const):
     def store(self, meth):
         assert False, 'cannot store() to Constant'
 
+class __extend__(ConstInt):
+    __metaclass__ = extendabletype
+
+    def load(self, meth):
+        meth.il.Emit(OpCodes.Ldc_I4, self.value)
 
 class MethodArgument(AbstractValue):
     def __init__(self, index, cliType):
@@ -233,6 +238,26 @@ class Method(object):
             i+=1
         self.il.Emit(OpCodes.Ret)
 
+    def emit_guard_bool(self, op, opcode):
+        assert op.suboperations
+        assert len(op.args) == 1
+        il_label = self.newbranch(op)
+        op.args[0].load(self)
+        self.il.Emit(opcode, il_label)
+
+    def emit_op_guard_true(self, op):
+        self.emit_guard_bool(op, OpCodes.Brfalse)
+        
+    def emit_op_guard_false(self, op):
+        self.emit_guard_bool(op, OpCodes.Brtrue)
+
+    def emit_op_guard_value(self, op):
+        assert op.suboperations
+        assert len(op.args) == 2
+        il_label = self.newbranch(op)
+        self.push_all_args(op)
+        self.il.Emit(OpCodes.Bne_Un, il_label)
+
     def emit_op_guard_no_exception(self, op):
         assert op.suboperations
         il_label = self.newbranch(op)
@@ -245,11 +270,9 @@ class Method(object):
 
     emit_op_oosend = not_implemented
     emit_op_guard_exception = not_implemented
-    emit_op_guard_value = not_implemented
     emit_op_cast_int_to_ptr = not_implemented
     emit_op_guard_nonvirtualized = not_implemented
     emit_op_setarrayitem_gc = not_implemented
-    emit_op_guard_false = not_implemented
     emit_op_unicodelen = not_implemented
     emit_op_jump = not_implemented
     emit_op_setfield_raw = not_implemented
@@ -263,7 +286,6 @@ class Method(object):
     emit_op_oosend_pure = not_implemented
     emit_op_getarrayitem_gc_pure = not_implemented
     emit_op_arraylen_gc = not_implemented
-    emit_op_guard_true = not_implemented
     emit_op_unicodesetitem = not_implemented
     emit_op_getfield_raw_pure = not_implemented
     emit_op_new_with_vtable = not_implemented
