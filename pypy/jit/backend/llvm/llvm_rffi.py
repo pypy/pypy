@@ -13,9 +13,11 @@ cachename = os.path.join(os.path.dirname(pypy.__file__), '_cache')
 dirname = os.path.join(cachename, 'libs')
 libname = os.path.join(dirname, 'pypy_cache_llvm.so')
 cname = os.path.join(os.path.dirname(__file__), 'demo1.c')
+cppname = os.path.join(os.path.dirname(__file__), 'demo2.cpp')
 
-if not os.path.isfile(libname) or (os.path.getmtime(cname) >
-                                   os.path.getmtime(libname)):
+if (not os.path.isfile(libname) or
+        os.path.getmtime(cname) > os.path.getmtime(libname) or
+        os.path.getmtime(cppname) > os.path.getmtime(libname)):
     if not os.path.isdir(dirname):
         if not os.path.isdir(cachename):
             os.mkdir(cachename)
@@ -27,9 +29,11 @@ if not os.path.isfile(libname) or (os.path.getmtime(cname) >
         if err:
             raise Exception("gcc command failed")
 
-    oname = os.path.join(dirname, 'demo1.o')
-    do("gcc -c '%s' -o '%s'" % (cname, oname))
-    do("g++ -shared '%s' -o '%s'" % (oname, libname) +
+    o1name = os.path.join(dirname, 'demo1.o')
+    o2name = os.path.join(dirname, 'demo2.o')
+    do("gcc -c '%s' -o '%s'" % (cname, o1name))
+    do("g++ -c '%s' -o '%s' `%s --cppflags`" % (cppname, o2name, llvm_config))
+    do("g++ -shared '%s' '%s' -o '%s'" % (o1name, o2name, libname) +
        " `%s --cflags --ldflags --libs jit engine`" % llvm_config)
 
 compilation_info = ExternalCompilationInfo(
@@ -39,10 +43,21 @@ compilation_info = ExternalCompilationInfo(
 
 # ____________________________________________________________
 
+Debug = False
+
 def llexternal(name, args, result, **kwds):
-    return rffi.llexternal(name, args, result,
-                           compilation_info=compilation_info,
-                           **kwds)
+    ll = rffi.llexternal(name, args, result,
+                         compilation_info=compilation_info,
+                         **kwds)
+    if Debug:
+        def func(*args):
+            print name
+            res = ll(*args)
+            print '\t->', res
+            return res
+        return func
+    else:
+        return ll
 
 def opaqueptr(name):
     return rffi.VOIDP  # lltype.Ptr(rffi.COpaque(name))
@@ -86,6 +101,7 @@ LLVMModuleCreateWithName = llexternal('LLVMModuleCreateWithName',
 LLVMDumpModule = llexternal('LLVMDumpModule', [LLVMModuleRef], lltype.Void)
 
 LLVMInt1Type = llexternal('LLVMInt1Type', [], LLVMTypeRef)
+LLVMInt8Type = llexternal('LLVMInt8Type', [], LLVMTypeRef)
 LLVMInt32Type = llexternal('LLVMInt32Type', [], LLVMTypeRef)
 LLVMInt64Type = llexternal('LLVMInt64Type', [], LLVMTypeRef)
 LLVMFunctionType = llexternal('LLVMFunctionType',
@@ -127,6 +143,10 @@ LLVMAppendBasicBlock = llexternal('LLVMAppendBasicBlock',
                                    rffi.CCHARP],            # name
                                   LLVMBasicBlockRef)
 
+LLVMSetInstructionCallConv = llexternal('LLVMSetInstructionCallConv',
+                                        [LLVMValueRef,   # call instruction
+                                         rffi.UINT],     # new call conv
+                                        lltype.Void)
 LLVMSetTailCall = llexternal('LLVMSetTailCall',
                              [LLVMValueRef,        # call instruction
                               rffi.INT],           # flag: is_tail
@@ -175,6 +195,11 @@ for _name in ['Neg', 'Not']:
          rffi.CCHARP],    # name of result
         LLVMValueRef)
 
+LLVMBuildLoad = llexternal('LLVMBuildLoad',
+                           [LLVMBuilderRef,     # builder
+                            LLVMValueRef,       # pointer location
+                            rffi.CCHARP],       # name of result
+                           LLVMValueRef)
 LLVMBuildStore = llexternal('LLVMBuildStore',
                             [LLVMBuilderRef,    # builder
                              LLVMValueRef,      # value
@@ -192,6 +217,12 @@ LLVMBuildZExt = llexternal('LLVMBuildZExt',
                             LLVMTypeRef,       # destination type
                             rffi.CCHARP],      # name of result
                            LLVMValueRef)
+LLVMBuildBitCast = llexternal('LLVMBuildBitCast',
+                              [LLVMBuilderRef, # builder
+                               LLVMValueRef,   # value
+                               LLVMTypeRef,    # destination type
+                               rffi.CCHARP],   # name of result
+                              LLVMValueRef)
 LLVMBuildICmp = llexternal('LLVMBuildICmp',
                            [LLVMBuilderRef,  # builder
                             rffi.INT,        # predicate (see LLVMIntPredicate)
@@ -247,3 +278,8 @@ LLVMRunFunction = llexternal('LLVMRunFunction',
                               rffi.UINT,                            # num args
                               rffi.CArrayPtr(LLVMGenericValueRef)], # args
                              LLVMGenericValueRef)   # return value
+
+LLVM_EE_getPointerToFunction = llexternal('_LLVM_EE_getPointerToFunction',
+                                          [LLVMExecutionEngineRef,
+                                           LLVMValueRef],           # function
+                                          rffi.VOIDP)
