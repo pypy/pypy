@@ -12,7 +12,6 @@ class TestBasic(CliJitMixin, test_basic.BasicTests):
     def skip(self):
         py.test.skip("in-progress")
 
-    test_loop = skip
     test_string = skip
     test_chr2str = skip
     test_unicode = skip

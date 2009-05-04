@@ -102,6 +102,7 @@ class Method(object):
         self.exc_value_field = t_InputArgs.GetField('exc_value')
         # ----
         self.emit_load_inputargs()
+        self.emit_preamble()
         self.emit_operations(loop.operations)
         self.emit_branches()
         self.emit_end()
@@ -192,6 +193,10 @@ class Method(object):
             self.load_inputarg(i, box.type, box.getCliType())
             box.store(self)
             i+=1
+
+    def emit_preamble(self):
+        self.il_loop_start = self.il.DefineLabel()
+        self.il.MarkLabel(self.il_loop_start)
 
     def emit_operations(self, operations):
         for op in operations:
@@ -295,6 +300,16 @@ class Method(object):
         self.il.Emit(OpCodes.Ldfld, self.exc_value_field)
         self.il.Emit(OpCodes.Brtrue, il_label)
 
+    def emit_op_jump(self, op):
+        target = op.jump_target
+        assert target is self.loop, 'TODO'
+        assert len(op.args) == len(target.inputargs)
+        i = 0
+        for i in range(len(op.args)):
+            op.args[i].load(self)
+            target.inputargs[i].store(self)
+        self.il.Emit(OpCodes.Br, self.il_loop_start)
+
     def not_implemented(self, op):
         raise NotImplementedError
 
@@ -304,7 +319,6 @@ class Method(object):
     emit_op_guard_nonvirtualized = not_implemented
     emit_op_setarrayitem_gc = not_implemented
     emit_op_unicodelen = not_implemented
-    emit_op_jump = not_implemented
     emit_op_setfield_raw = not_implemented
     emit_op_cast_ptr_to_int = not_implemented
     emit_op_newunicode = not_implemented

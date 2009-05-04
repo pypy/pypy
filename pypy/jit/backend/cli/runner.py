@@ -5,6 +5,7 @@ from pypy.jit.metainterp import executor
 from pypy.jit.metainterp.resoperation import rop, opname
 from pypy.jit.backend import model
 from pypy.jit.backend.minimal.runner import cached_method
+from pypy.jit.backend.llgraph.runner import TypeDescr
 from pypy.jit.backend.cli.method import Method
 from pypy.translator.cli import dotnet
 from pypy.translator.cli.dotnet import CLR
@@ -29,6 +30,10 @@ class CliCPU(model.AbstractCPU):
     @cached_method('_callcache')
     def calldescrof(self, FUNC, ARGS, RESULT):
         return StaticMethDescr(FUNC, ARGS, RESULT)
+
+    @cached_method('_typecache')
+    def typedescrof(self, TYPE):
+        return TypeDescr(TYPE)
 
     # ----------------------
 
