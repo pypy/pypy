@@ -278,6 +278,8 @@ class LLVMCPU(model.AbstractCPU):
 
     def set_future_value_int(self, index, intvalue):
         assert index < self.in_args_count - 1
+        if self.in_args[index]:
+            llvm_rffi.LLVMDisposeGenericValue(self.in_args[index])
         self.in_args[index] = llvm_rffi.LLVMCreateGenericValueOfInt(
             self.ty_int, intvalue, True)
 
