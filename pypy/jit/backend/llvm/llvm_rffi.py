@@ -279,6 +279,8 @@ LLVMRunFunction = llexternal('LLVMRunFunction',
                               rffi.CArrayPtr(LLVMGenericValueRef)], # args
                              LLVMGenericValueRef)   # return value
 
+LLVM_EE_Create = llexternal('_LLVM_EE_Create', [LLVMModuleRef],
+                            LLVMExecutionEngineRef)
 LLVM_EE_getPointerToFunction = llexternal('_LLVM_EE_getPointerToFunction',
                                           [LLVMExecutionEngineRef,
                                            LLVMValueRef],           # function

@@ -9,10 +9,6 @@ from pypy.jit.metainterp import resoperation
 from pypy.jit.metainterp.resoperation import rop
 
 
-class LLVMException(Exception):
-    pass
-
-
 class LLVMCPU(model.AbstractCPU):
     RAW_VALUE = rffi.CFixedArray(rffi.ULONGLONG, 1)
     SIGNED_VALUE = rffi.CFixedArray(lltype.Signed, 1)
@@ -46,22 +42,7 @@ class LLVMCPU(model.AbstractCPU):
                                                        1, False)
         lltype.free(arglist, flavor='raw')
         #
-        mp = llvm_rffi.LLVMCreateModuleProviderForExistingModule(self.module)
-        ee_out = lltype.malloc(rffi.CArray(llvm_rffi.LLVMExecutionEngineRef),
-                               1, flavor='raw')
-        error_out = lltype.malloc(rffi.CArray(rffi.CCHARP), 1, flavor='raw')
-        error_out[0] = lltype.nullptr(rffi.CCHARP.TO)
-        try:
-            error = llvm_rffi.LLVMCreateJITCompiler(ee_out, mp, True,
-                                                    error_out)
-            if rffi.cast(lltype.Signed, error) != 0:
-                raise LLVMException(rffi.charp2str(error_out[0]))
-            self.ee = ee_out[0]
-        finally:
-            if error_out[0]:
-                llvm_rffi.LLVMDisposeMessage(error_out[0])
-            lltype.free(error_out, flavor='raw')
-            lltype.free(ee_out, flavor='raw')
+        self.ee = llvm_rffi.LLVM_EE_Create(self.module)
         if not we_are_translated():
             set_teardown_function(self._teardown)
             
