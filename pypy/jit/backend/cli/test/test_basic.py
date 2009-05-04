@@ -20,13 +20,11 @@ class TestBasic(CliJitMixin, test_basic.BasicTests):
     test_unicode = skip
     test_residual_call = skip
     test_constant_across_mp = skip
+    test_format = skip
+    test_getfield = skip
+    test_getfield_immutable = skip
     
     test_stopatxpolicy = _skip
-    test_we_are_jitted = _skip
-    test_format = _skip
-    test_r_uint = _skip
-    test_getfield = _skip
-    test_getfield_immutable = _skip
     test_mod_ovf = _skip
     test_print = _skip
     test_bridge_from_interpreter = _skip
