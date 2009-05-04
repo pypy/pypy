@@ -18,12 +18,10 @@ class CliJitMixin(object):
     def setup_class(cls):
         cls.cpu = cls.CPUClass(rtyper=None, stats=FakeStats())
 
-    def _skip(self):
-        py.test.skip("not supported in non-translated version")
-
-    test_passing_guard_class = _skip      # GUARD_CLASS
-    test_failing_guard_class = _skip      # GUARD_CLASS
-
 
 class TestRunner(CliJitMixin, OOtypeBackendTest):
-    pass
+    def skip(self):
+        py.test.skip("not supported in non-translated version")
+
+    test_passing_guard_class = skip      # GUARD_CLASS
+    test_failing_guard_class = skip      # GUARD_CLASS

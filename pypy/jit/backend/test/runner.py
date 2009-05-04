@@ -1,7 +1,8 @@
 
 import sys
 from pypy.jit.metainterp.history import (BoxInt, Box, BoxPtr, TreeLoop,
-                                         ConstInt, ConstPtr, BoxObj)
+                                         ConstInt, ConstPtr, BoxObj,
+                                         ConstObj)
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.typesystem import deref
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi, rclass
@@ -249,17 +250,10 @@ class BaseBackendTest(Runner):
             assert self.execute_operation(opname, args, 'void') == None
             assert not self.guard_failed
 
+
     def test_passing_guard_class(self):
-        T = self.T
-        vtable_for_T = lltype.malloc(self.MY_VTABLE, immortal=True)
-        vtable_for_T_addr = llmemory.cast_ptr_to_adr(vtable_for_T)
-        cpu = self.cpu
-        cpu._cache_gcstruct2vtable = {T: vtable_for_T}
-        t = lltype.malloc(T)
-        t.parent.parent.typeptr = vtable_for_T
-        t_box = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, t))
-        T_box = ConstInt(cpu.cast_adr_to_int(vtable_for_T_addr))
-        null_box = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, lltype.nullptr(T)))
+        t_box, T_box = self.alloc_instance(self.T)
+        #null_box = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, lltype.nullptr(T)))
         self.execute_operation(rop.GUARD_CLASS, [t_box, T_box], 'void')
         assert not self.guard_failed
         #self.execute_operation(rop.GUARD_CLASS_INVERSE, [t_box, null_box],
@@ -274,23 +268,9 @@ class BaseBackendTest(Runner):
             assert self.guard_failed
 
     def test_failing_guard_class(self):
-        T = self.T
-        U = self.U
-        vtable_for_T = lltype.malloc(self.MY_VTABLE, immortal=True)
-        vtable_for_T_addr = llmemory.cast_ptr_to_adr(vtable_for_T)
-        vtable_for_U = lltype.malloc(self.MY_VTABLE, immortal=True)
-        vtable_for_U_addr = llmemory.cast_ptr_to_adr(vtable_for_U)
-        cpu = self.cpu
-        cpu._cache_gcstruct2vtable = {T: vtable_for_T, U: vtable_for_U}
-        t = lltype.malloc(T)
-        t.parent.parent.typeptr = vtable_for_T
-        t_box = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, t))
-        T_box = ConstInt(self.cpu.cast_adr_to_int(vtable_for_T_addr))
-        u = lltype.malloc(U)
-        u.parent.parent.parent.typeptr = vtable_for_U
-        u_box = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, u))
-        U_box = ConstInt(self.cpu.cast_adr_to_int(vtable_for_U_addr))
-        null_box = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, lltype.nullptr(T)))
+        t_box, T_box = self.alloc_instance(self.T)
+        u_box, U_box = self.alloc_instance(self.U)        
+        #null_box = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, lltype.nullptr(T)))
         for opname, args in [(rop.GUARD_CLASS, [t_box, U_box]),
                              (rop.GUARD_CLASS, [u_box, T_box]),
                              #(rop.GUARD_VALUE_INVERSE, [BoxInt(10), BoxInt(10)]),
@@ -323,6 +303,24 @@ class LLtypeBackendTest(BaseBackendTest):
                              ('next', lltype.Ptr(S)))
     U = lltype.GcStruct('U', ('parent', T),
                              ('next', lltype.Ptr(S)))
+
+
+    def alloc_instance(self, T):
+        vtable_for_T = lltype.malloc(self.MY_VTABLE, immortal=True)
+        vtable_for_T_addr = llmemory.cast_ptr_to_adr(vtable_for_T)
+        cpu = self.cpu
+        if not hasattr(cpu, '_cache_gcstruct2vtable'):
+            cpu._cache_gcstruct2vtable = {}
+        cpu._cache_gcstruct2vtable.update({T: vtable_for_T})
+        t = lltype.malloc(T)
+        if T == self.T:
+            t.parent.parent.typeptr = vtable_for_T
+        elif T == self.U:
+            t.parent.parent.parent.typeptr = vtable_for_T
+        t_box = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, t))
+        T_box = ConstInt(self.cpu.cast_adr_to_int(vtable_for_T_addr))
+        return t_box, T_box
+
 
     def test_casts(self):
         from pypy.rpython.lltypesystem import lltype, llmemory
@@ -360,3 +358,15 @@ class OOtypeBackendTest(BaseBackendTest):
     @classmethod
     def get_funcbox(cls, cpu, func_ptr):
         return BoxObj(ootype.cast_to_object(func_ptr))
+
+    S = ootype.Instance('S', ootype.ROOT, {'value': ootype.Signed})
+    S._add_fields({'next': S})
+    T = ootype.Instance('T', S)
+    U = ootype.Instance('U', T)
+
+    def alloc_instance(self, T):
+        t = ootype.new(T)
+        cls = ootype.classof(t)
+        t_box = BoxObj(ootype.cast_to_object(t))
+        T_box = ConstObj(ootype.cast_to_object(cls))
+        return t_box, T_box
