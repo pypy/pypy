@@ -83,17 +83,22 @@ class Method(object):
         self.name = name
         self.loop = loop
         self.boxes = {} # box --> local var
+        self.failing_ops = {} # index --> op
+        self.branches = [] # (Label, operations)
         self.meth_wrapper = self._get_meth_wrapper()
         self.il = self.meth_wrapper.get_il_generator()
         self.av_consts = MethodArgument(0, System.Type.GetType("System.Object[]"))
-        self.av_inputargs = MethodArgument(1, dotnet.typeof(InputArgs))
+        t_InputArgs = dotnet.typeof(InputArgs)
+        self.av_inputargs = MethodArgument(1,t_InputArgs )
+        self.exc_value_field = t_InputArgs.GetField('exc_value')
+        # ----
         self.emit_load_inputargs()
-        self.emit_operations()
+        self.emit_operations(loop.operations)
+        self.emit_branches()
         self.emit_end()
         delegatetype = dotnet.typeof(LoopDelegate)
         consts = dotnet.new_array(System.Object, 0)
         self.func = self.meth_wrapper.create_delegate(delegatetype, consts)
-
 
     def _get_meth_wrapper(self):
         restype = dotnet.class2type(cVoid)
@@ -114,6 +119,22 @@ class Method(object):
             v = self.il.DeclareLocal(box.getCliType())
             self.boxes[box] = v
             return v
+
+    def get_index_for_failing_op(self, op):
+        try:
+            return self.failing_ops[op]
+        except KeyError:
+            i = len(self.failing_ops)
+            self.failing_ops[i] = op
+            return i
+
+    def newbranch(self, op):
+        # sanity check, maybe we can remove it later
+        for _, myop in self.branches:
+            assert myop is not op
+        il_label = self.il.DefineLabel()
+        self.branches.append((il_label, op))
+        return il_label
 
     def get_inputarg_field(self, type):
         t = dotnet.typeof(InputArgs)
@@ -147,13 +168,22 @@ class Method(object):
             box.store(self)
             i+=1
 
-    def emit_operations(self):
-        for op in self.loop.operations:
+    def emit_operations(self, operations):
+        for op in operations:
             func = self.operations[op.opnum]
             assert func is not None
             func(self, op)
 
+    def emit_branches(self):
+        while self.branches:
+            branches = self.branches
+            self.branches = []
+            for il_label, op in branches:
+                self.il.MarkLabel(il_label)
+                self.emit_operations(op.suboperations)
+
     def emit_end(self):
+        assert self.branches == []
         self.il.Emit(OpCodes.Ret)
 
     # -----------------------------
@@ -166,15 +196,45 @@ class Method(object):
         op.result.store(self)
 
     def emit_op_fail(self, op):
+        index_op = self.get_index_for_failing_op(op)
+        self.av_inputargs.load(self)
+        self.il.Emit(OpCodes.Ldc_I4, index_op)
+        field = dotnet.typeof(InputArgs).GetField('failed_op')
+        self.il.Emit(OpCodes.Stfld, field)
+
         i = 0
         for box in op.args:
             self.store_inputarg(i, box.type, box.getCliType(), box)
             i+=1
         self.il.Emit(OpCodes.Ret)
 
+    def emit_op_guard_no_exception(self, op):
+        assert op.suboperations
+        il_label = self.newbranch(op)
+        self.av_inputargs.load(self)
+        self.il.Emit(OpCodes.Ldfld, self.exc_value_field)
+        self.il.Emit(OpCodes.Brtrue, il_label)
+
+    def emit_op_int_add_ovf(self, op):
+        exctype = dotnet.typeof(System.OverflowException)
+        v = self.il.DeclareLocal(exctype)
+        lbl = self.il.BeginExceptionBlock()
+        # XXX: clear_exception
+        self.push_all_args(op)
+        self.il.Emit(OpCodes.Add_Ovf)
+        self.store_result(op)
+        self.il.Emit(OpCodes.Leave, lbl)
+        self.il.BeginCatchBlock(exctype)
+        self.il.Emit(OpCodes.Stloc, v)
+        self.av_inputargs.load(self)
+        self.il.Emit(OpCodes.Ldloc, v)
+        self.il.Emit(OpCodes.Stfld, self.exc_value_field)
+        self.il.EndExceptionBlock()
+
     def not_implemented(self, op):
         raise NotImplementedError
 
+    emit_op_guard_exception = not_implemented
     emit_op_guard_value = not_implemented
     emit_op_cast_int_to_ptr = not_implemented
     emit_op_guard_nonvirtualized = not_implemented
@@ -184,7 +244,6 @@ class Method(object):
     emit_op_jump = not_implemented
     emit_op_setfield_raw = not_implemented
     emit_op_cast_ptr_to_int = not_implemented
-    emit_op_guard_no_exception = not_implemented
     emit_op_newunicode = not_implemented
     emit_op_new_array = not_implemented
     emit_op_unicodegetitem = not_implemented
@@ -205,7 +264,6 @@ class Method(object):
     emit_op_call_pure = not_implemented
     emit_op_strlen = not_implemented
     emit_op_newstr = not_implemented
-    emit_op_guard_exception = not_implemented
     emit_op_call = not_implemented
     emit_op_strsetitem = not_implemented
 

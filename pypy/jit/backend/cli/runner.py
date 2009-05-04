@@ -33,11 +33,13 @@ class CliCPU(model.AbstractCPU):
     # ----------------------
 
     def compile_operations(self, loop):
-        meth = Method(self, 'loop', loop)
+        meth = Method(self, loop.name, loop)
         loop._cli_meth = meth
 
     def execute_operations(self, loop):
-        loop._cli_meth.func(self.inputargs)
+        meth = loop._cli_meth
+        meth.func(self.inputargs)
+        return meth.failing_ops[self.inputargs.failed_op]
 
     def set_future_value_int(self, index, intvalue):
         self.inputargs.ints[index] = intvalue

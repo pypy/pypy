@@ -115,6 +115,8 @@ namespace pypy.runtime
       public int[] ints = new int[32];
       public float[] floats = new float[32];
       public object[] objs = new object[32];
+      public Exception exc_value = null;
+      public int failed_op = -1;
 
       public void ensure_ints(int n)
       {
