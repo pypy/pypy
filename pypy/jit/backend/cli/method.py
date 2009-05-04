@@ -195,13 +195,34 @@ class Method(object):
     def store_result(self, op):
         op.result.store(self)
 
+    def emit_clear_exception(self):
+        self.av_inputargs.load(self)
+        self.il.Emit(OpCodes.Ldnull)
+        self.il.Emit(OpCodes.Stfld, self.exc_value_field)
+
+    def emit_raising_op(self, op, emit_op, exctype):
+        v = self.il.DeclareLocal(exctype)
+        self.emit_clear_exception()
+        lbl = self.il.BeginExceptionBlock()
+        emit_op(self, op)
+        self.il.Emit(OpCodes.Leave, lbl)
+        self.il.BeginCatchBlock(exctype)
+        self.il.Emit(OpCodes.Stloc, v)
+        self.av_inputargs.load(self)
+        self.il.Emit(OpCodes.Ldloc, v)
+        self.il.Emit(OpCodes.Stfld, self.exc_value_field)
+        self.il.EndExceptionBlock()
+
+    # --------------------------------
+
     def emit_op_fail(self, op):
+        # store the index of the failed op
         index_op = self.get_index_for_failing_op(op)
         self.av_inputargs.load(self)
         self.il.Emit(OpCodes.Ldc_I4, index_op)
         field = dotnet.typeof(InputArgs).GetField('failed_op')
         self.il.Emit(OpCodes.Stfld, field)
-
+        # store the lates values
         i = 0
         for box in op.args:
             self.store_inputarg(i, box.type, box.getCliType(), box)
@@ -215,25 +236,10 @@ class Method(object):
         self.il.Emit(OpCodes.Ldfld, self.exc_value_field)
         self.il.Emit(OpCodes.Brtrue, il_label)
 
-    def emit_op_int_add_ovf(self, op):
-        exctype = dotnet.typeof(System.OverflowException)
-        v = self.il.DeclareLocal(exctype)
-        lbl = self.il.BeginExceptionBlock()
-        # XXX: clear_exception
-        self.push_all_args(op)
-        self.il.Emit(OpCodes.Add_Ovf)
-        self.store_result(op)
-        self.il.Emit(OpCodes.Leave, lbl)
-        self.il.BeginCatchBlock(exctype)
-        self.il.Emit(OpCodes.Stloc, v)
-        self.av_inputargs.load(self)
-        self.il.Emit(OpCodes.Ldloc, v)
-        self.il.Emit(OpCodes.Stfld, self.exc_value_field)
-        self.il.EndExceptionBlock()
-
     def not_implemented(self, op):
         raise NotImplementedError
 
+    emit_op_oosend = not_implemented
     emit_op_guard_exception = not_implemented
     emit_op_guard_value = not_implemented
     emit_op_cast_int_to_ptr = not_implemented
@@ -289,6 +295,8 @@ def make_operation_list():
     return operations
 
 def render_op(methname, instrlist):
+    if len(instrlist) == 1 and isinstance(instrlist[0], opcodes.MapException):
+        return render_raising_op(methname, instrlist)
     lines = []
     for instr in instrlist:
         if instr == opcodes.PushAllArgs:
@@ -311,6 +319,27 @@ def render_op(methname, instrlist):
     dic = {'OpCodes': OpCodes,
            'System': System,
            'dotnet': dotnet}
+    exec src.compile() in dic
+    return dic[methname]
+
+def render_raising_op(methname, instrlist):
+    value = instrlist[0]
+    mapping = value.mapping
+    assert len(mapping) == 1, 'Catching more than one exception is not supported'
+    exctype = mapping[0][0]
+    assert exctype.startswith('[mscorlib]')
+    exctype = exctype[len('[mscorlib]'):]
+    impl_func = render_op(methname + '_impl', value.instr)
+    if not impl_func:
+        return
+    src = py.code.Source("""
+        def %s(self, op):
+            exctype = dotnet.typeof(%s)
+            self.emit_raising_op(op, impl_func, exctype)
+    """ % (methname, exctype))
+    dic = {'System': System,
+           'dotnet': dotnet,
+           'impl_func': impl_func}
     exec src.compile() in dic
     return dic[methname]
 
