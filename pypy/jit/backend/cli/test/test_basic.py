@@ -1,0 +1,34 @@
+import py
+from pypy.jit.backend.cli.runner import CliCPU
+from pypy.jit.metainterp.test import test_basic
+
+class CliJitMixin(test_basic.OOJitMixin):
+    CPUClass = CliCPU
+
+class TestBasic(CliJitMixin, test_basic.BasicTests):
+    # for the individual tests see
+    # ====> ../../../metainterp/test/test_basic.py
+
+    def skip(self):
+        py.test.skip("in-progress")
+
+    test_loop = skip
+    test_string = skip
+    test_chr2str = skip
+    test_unicode = skip
+    test_residual_call = skip
+    test_constant_across_mp = skip
+    test_stopatxpolicy = skip
+    test_we_are_jitted = skip
+    test_format = skip
+    test_r_uint = skip
+    test_getfield = skip
+    test_getfield_immutable = skip
+    test_mod_ovf = skip
+    test_print = skip
+    test_bridge_from_interpreter = skip
+    test_bridge_from_interpreter_2 = skip
+    test_bridge_from_interpreter_3 = skip
+    test_bridge_from_interpreter_4 = skip
+    test_instantiate_classes = skip
+    test_zerodivisionerror = skip
