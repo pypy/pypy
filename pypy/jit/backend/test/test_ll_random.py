@@ -1,5 +1,5 @@
 import py
-from pypy.rpython.lltypesystem import lltype, llmemory, rclass
+from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rffi
 from pypy.jit.backend.test import test_random
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.history import ConstInt, ConstPtr, ConstAddr, BoxPtr
@@ -8,6 +8,7 @@ from pypy.rlib.rarithmetic import intmask
 from pypy.rpython.llinterp import LLException
 
 class LLtypeOperationBuilder(test_random.OperationBuilder):
+    HAVE_SHORT_FIELDS = False
 
     def __init__(self, *args, **kw):
         test_random.OperationBuilder.__init__(self, *args, **kw)
@@ -36,7 +37,16 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
             fields.append(('parent', rclass.OBJECT))
             kwds['hints'] = {'vtable': with_vtable._obj}
         for i in range(r.randrange(1, 5)):
-            fields.append(('f%d' % i, lltype.Signed))
+            rval = r.random()
+            if rval < 0.5:
+                TYPE = lltype.Signed
+            elif rval < 0.75:
+                TYPE = rffi.UCHAR
+            else:
+                TYPE = rffi.SHORT
+                if not self.HAVE_SHORT_FIELDS:
+                    TYPE = lltype.Signed
+            fields.append(('f%d' % i, TYPE))
         S = lltype.GcStruct('S%d' % self.counter, *fields, **kwds)
         self.counter += 1
         return S
@@ -65,7 +75,8 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
             p = lltype.malloc(S)
         for fieldname in lltype.typeOf(p).TO._names:
             if fieldname != 'parent':
-                setattr(p, fieldname, r.random_integer())
+                TYPE = getattr(S, fieldname)
+                setattr(p, fieldname, rffi.cast(TYPE, r.random_integer()))
         return p
 
     def field_values(self, p):
@@ -124,12 +135,13 @@ class GetFieldOperation(test_random.AbstractOperation):
         name = r.choice(names)
         descr = builder.cpu.fielddescrof(S, name)
         descr._random_info = 'cpu.fielddescrof(%s, %r)' % (S._name, name)
-        return v, descr
+        TYPE = getattr(S, name)
+        return v, descr, TYPE
 
     def produce_into(self, builder, r):
         while True:
             try:
-                v, descr = self.field_descr(builder, r)
+                v, descr, _ = self.field_descr(builder, r)
                 self.put(builder, [v], descr)
             except lltype.UninitializedMemoryAccess:
                 continue
@@ -137,11 +149,14 @@ class GetFieldOperation(test_random.AbstractOperation):
 
 class SetFieldOperation(GetFieldOperation):
     def produce_into(self, builder, r):
-        v, descr = self.field_descr(builder, r)
-        if r.random() < 0.3:
-            w = ConstInt(r.random_integer())
-        else:
-            w = r.choice(builder.intvars)
+        v, descr, TYPE = self.field_descr(builder, r)
+        while True:
+            if r.random() < 0.3:
+                w = ConstInt(r.random_integer())
+            else:
+                w = r.choice(builder.intvars)
+            if rffi.cast(lltype.Signed, rffi.cast(TYPE, w.value)) == w.value:
+                break
         builder.do(self.opnum, [v, w], descr)
 
 class NewOperation(test_random.AbstractOperation):
