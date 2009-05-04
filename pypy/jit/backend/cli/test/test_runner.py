@@ -21,8 +21,10 @@ class CliJitMixin(object):
     def _skip(self):
         py.test.skip("not supported in non-translated version")
 
-    test_passing_guards = _skip      # GUARD_CLASS
-    test_failing_guards = _skip      # GUARD_CLASS
+    test_passing_guards      = _skip      # GUARD_CLASS
+    test_passing_guard_class = _skip      # GUARD_CLASS
+    test_failing_guards      = _skip      # GUARD_CLASS
+    test_failing_guard_class = _skip      # GUARD_CLASS
 
 
 class TestRunner(CliJitMixin, OOtypeBackendTest):

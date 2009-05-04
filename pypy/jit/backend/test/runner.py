@@ -241,11 +241,6 @@ class BaseBackendTest(Runner):
 
 
     def test_passing_guards(self):
-        T = self.T
-        vtable_for_T = lltype.malloc(self.MY_VTABLE, immortal=True)
-        vtable_for_T_addr = llmemory.cast_ptr_to_adr(vtable_for_T)
-        cpu = self.cpu
-        cpu._cache_gcstruct2vtable = {T: vtable_for_T}
         for (opname, args) in [(rop.GUARD_TRUE, [BoxInt(1)]),
                                (rop.GUARD_FALSE, [BoxInt(0)]),
                                (rop.GUARD_VALUE, [BoxInt(42), BoxInt(42)]),
@@ -253,7 +248,13 @@ class BaseBackendTest(Runner):
                                ]:
             assert self.execute_operation(opname, args, 'void') == None
             assert not self.guard_failed
-            
+
+    def test_passing_guard_class(self):
+        T = self.T
+        vtable_for_T = lltype.malloc(self.MY_VTABLE, immortal=True)
+        vtable_for_T_addr = llmemory.cast_ptr_to_adr(vtable_for_T)
+        cpu = self.cpu
+        cpu._cache_gcstruct2vtable = {T: vtable_for_T}
         t = lltype.malloc(T)
         t.parent.parent.typeptr = vtable_for_T
         t_box = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, t))
@@ -265,6 +266,14 @@ class BaseBackendTest(Runner):
         #                       'void')
 
     def test_failing_guards(self):
+        for opname, args in [(rop.GUARD_TRUE, [BoxInt(0)]),
+                             (rop.GUARD_FALSE, [BoxInt(1)]),
+                             (rop.GUARD_VALUE, [BoxInt(42), BoxInt(41)]),
+                             ]:
+            assert self.execute_operation(opname, args, 'void') == None
+            assert self.guard_failed
+
+    def test_failing_guard_class(self):
         T = self.T
         U = self.U
         vtable_for_T = lltype.malloc(self.MY_VTABLE, immortal=True)
@@ -282,10 +291,7 @@ class BaseBackendTest(Runner):
         u_box = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, u))
         U_box = ConstInt(self.cpu.cast_adr_to_int(vtable_for_U_addr))
         null_box = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, lltype.nullptr(T)))
-        for opname, args in [(rop.GUARD_TRUE, [BoxInt(0)]),
-                             (rop.GUARD_FALSE, [BoxInt(1)]),
-                             (rop.GUARD_VALUE, [BoxInt(42), BoxInt(41)]),
-                             (rop.GUARD_CLASS, [t_box, U_box]),
+        for opname, args in [(rop.GUARD_CLASS, [t_box, U_box]),
                              (rop.GUARD_CLASS, [u_box, T_box]),
                              #(rop.GUARD_VALUE_INVERSE, [BoxInt(10), BoxInt(10)]),
                              ]:
