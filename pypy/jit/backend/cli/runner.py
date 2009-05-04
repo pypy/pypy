@@ -31,6 +31,10 @@ class CliCPU(model.AbstractCPU):
     def calldescrof(self, FUNC, ARGS, RESULT):
         return StaticMethDescr(FUNC, ARGS, RESULT)
 
+    @cached_method('_methcache')
+    def methdescrof(self, SELFTYPE, methname):
+        return MethDescr(SELFTYPE, methname)
+
     @cached_method('_typecache')
     def typedescrof(self, TYPE):
         return TypeDescr(TYPE)
@@ -65,6 +69,12 @@ class CliCPU(model.AbstractCPU):
         funcbox, args = args[0], args[1:]
         return calldescr.callfunc(funcbox, args)
 
+    def do_oosend(self, args, descr=None):
+        assert isinstance(descr, MethDescr)
+        selfbox = args[0]
+        argboxes = args[1:]
+        return descr.callmeth(selfbox, argboxes)
+
 
 # ----------------------------------------------------------------------
 
@@ -80,6 +90,26 @@ class StaticMethDescr(AbstractDescr):
             if RESULT is not ootype.Void:
                 return boxresult(RESULT, res)
         self.callfunc = callfunc
+        self.funcclass = dotnet.classof(FUNC)
+
+
+class MethDescr(AbstractMethDescr):
+
+    callmeth = None
+    
+    def __init__(self, SELFTYPE, methname):
+        from pypy.jit.backend.llgraph.runner import boxresult, make_getargs
+        _, meth = SELFTYPE._lookup(methname)
+        METH = ootype.typeOf(meth)
+        getargs = make_getargs(METH.ARGS)
+        def callmeth(selfbox, argboxes):
+            selfobj = ootype.cast_from_object(SELFTYPE, selfbox.getobj())
+            meth = getattr(selfobj, methname)
+            methargs = getargs(argboxes)
+            res = meth(*methargs)
+            if METH.RESULT is not ootype.Void:
+                return boxresult(METH.RESULT, res)
+        self.callmeth = callmeth
 
 
 CPU = CliCPU

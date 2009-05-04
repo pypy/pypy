@@ -10,24 +10,28 @@ class TestBasic(CliJitMixin, test_basic.BasicTests):
     # ====> ../../../metainterp/test/test_basic.py
 
     def skip(self):
+        py.test.skip("works only after translation")
+
+    def _skip(self):
         py.test.skip("in-progress")
 
     test_string = skip
-    test_chr2str = skip
-    test_unicode = skip
-    test_residual_call = skip
-    test_constant_across_mp = skip
-    test_stopatxpolicy = skip
-    test_we_are_jitted = skip
-    test_format = skip
-    test_r_uint = skip
-    test_getfield = skip
-    test_getfield_immutable = skip
-    test_mod_ovf = skip
-    test_print = skip
-    test_bridge_from_interpreter = skip
-    test_bridge_from_interpreter_2 = skip
-    test_bridge_from_interpreter_3 = skip
-    test_bridge_from_interpreter_4 = skip
-    test_instantiate_classes = skip
-    test_zerodivisionerror = skip
+    
+    test_chr2str = _skip
+    test_unicode = _skip
+    test_residual_call = _skip
+    test_constant_across_mp = _skip
+    test_stopatxpolicy = _skip
+    test_we_are_jitted = _skip
+    test_format = _skip
+    test_r_uint = _skip
+    test_getfield = _skip
+    test_getfield_immutable = _skip
+    test_mod_ovf = _skip
+    test_print = _skip
+    test_bridge_from_interpreter = _skip
+    test_bridge_from_interpreter_2 = _skip
+    test_bridge_from_interpreter_3 = _skip
+    test_bridge_from_interpreter_4 = _skip
+    test_instantiate_classes = _skip
+    test_zerodivisionerror = _skip

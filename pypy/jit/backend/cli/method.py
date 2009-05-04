@@ -310,6 +310,11 @@ class Method(object):
             target.inputargs[i].store(self)
         self.il.Emit(OpCodes.Br, self.il_loop_start)
 
+    def emit_op_call(self, op):
+        raise NotImplementedError
+
+    emit_op_call_pure = emit_op_call
+
     def not_implemented(self, op):
         raise NotImplementedError
 
@@ -336,10 +341,8 @@ class Method(object):
     emit_op_getfield_gc_pure = not_implemented
     emit_op_getarrayitem_gc = not_implemented
     emit_op_getfield_gc = not_implemented
-    emit_op_call_pure = not_implemented
     emit_op_strlen = not_implemented
     emit_op_newstr = not_implemented
-    emit_op_call = not_implemented
     emit_op_strsetitem = not_implemented
 
 
