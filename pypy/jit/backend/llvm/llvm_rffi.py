@@ -43,7 +43,7 @@ compilation_info = ExternalCompilationInfo(
 
 # ____________________________________________________________
 
-Debug = False
+Debug = True
 
 def llexternal(name, args, result, **kwds):
     ll = rffi.llexternal(name, args, result,
@@ -279,6 +279,7 @@ LLVMRunFunction = llexternal('LLVMRunFunction',
                               rffi.CArrayPtr(LLVMGenericValueRef)], # args
                              LLVMGenericValueRef)   # return value
 
+LLVM_SetFlags = llexternal('_LLVM_SetFlags', [], lltype.Void)
 LLVM_EE_Create = llexternal('_LLVM_EE_Create', [LLVMModuleRef],
                             LLVMExecutionEngineRef)
 LLVM_EE_getPointerToFunction = llexternal('_LLVM_EE_getPointerToFunction',

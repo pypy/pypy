@@ -26,6 +26,7 @@ class LLVMCPU(model.AbstractCPU):
     def setup_once(self):
         if not we_are_translated():
             teardown_now()
+        llvm_rffi.LLVM_SetFlags()
         self.module = llvm_rffi.LLVMModuleCreateWithName("pypyjit")
         if sys.maxint == 2147483647:
             self.ty_int = llvm_rffi.LLVMInt32Type()
@@ -267,7 +268,10 @@ class LLVMCPU(model.AbstractCPU):
         p[0] = intvalue
 
     def execute_operations(self, loop):
+        print 'execute_operations: %s' % (loop._llvm_func_addr,)
+        import time; time.sleep(2)
         res = loop._llvm_entry_stub(loop._llvm_func_addr)
+        print '\t--->', res
         return self.fail_ops[res]
 
     def get_latest_value_int(self, index):
