@@ -678,20 +678,6 @@ class CallDescr(AbstractDescr):
         self.errbox = errbox
 
 
-class StaticMethDescr(AbstractDescr):
-
-    def __init__(self, FUNC, ARGS, RESULT):
-        from pypy.jit.backend.llgraph.runner import boxresult, make_getargs
-        getargs = make_getargs(FUNC.ARGS)
-        def callfunc(funcbox, argboxes):
-            funcobj = ootype.cast_from_object(FUNC, funcbox.getobj())
-            funcargs = getargs(argboxes)
-            res = funcobj(*funcargs)
-            if RESULT is not ootype.Void:
-                return boxresult(RESULT, res)
-        self.callfunc = callfunc
-
-
 class MethDescr(AbstractMethDescr):
     callmeth = None
     def __init__(self, SELFTYPE, methname):

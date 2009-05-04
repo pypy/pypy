@@ -109,6 +109,8 @@ namespace pypy.test
 namespace pypy.runtime
 {
 
+    public delegate void LoopDelegate(InputArgs args);
+
     public class InputArgs {
       public int[] ints = new int[32];
       public float[] floats = new float[32];
@@ -134,6 +136,7 @@ namespace pypy.runtime
       }
     }
 
+  /*
     public delegate uint FlexSwitchCase(uint block, InputArgs args);
 
     // XXX: there is a lot of code duplication between the next three classes,
@@ -267,6 +270,8 @@ namespace pypy.runtime
             return this.func;
         }
     }
+
+  */
 
     public class AutoSaveAssembly
     {

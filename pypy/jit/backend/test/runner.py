@@ -346,11 +346,11 @@ class LLtypeBackendTest(BaseBackendTest):
 class OOtypeBackendTest(BaseBackendTest):
 
     type_system = 'ootype'
-    Ptr = lambda x: x
+    Ptr = staticmethod(lambda x: x)
     FuncType = ootype.StaticMethod
     malloc = staticmethod(ootype.new)
     nullptr = staticmethod(ootype.null)
 
     @classmethod
     def get_funcbox(cls, cpu, func_ptr):
-        return ootype.cast_to_object(func_ptr)
+        return BoxObj(ootype.cast_to_object(func_ptr))
