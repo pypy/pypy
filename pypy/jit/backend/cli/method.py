@@ -1,7 +1,9 @@
+import py
 from pypy.tool.pairtype import extendabletype
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.cli import dotnet
 from pypy.translator.cli.dotnet import CLR
+from pypy.translator.cli import opcodes
 from pypy.jit.metainterp import history
 from pypy.jit.metainterp.history import AbstractValue, Const
 from pypy.jit.metainterp.resoperation import rop, opname
@@ -74,6 +76,8 @@ class MethodArgument(AbstractValue):
 
 class Method(object):
 
+    operations = [] # overwritten at the end of the module
+
     def __init__(self, cpu, name, loop):
         self.cpu = cpu
         self.name = name
@@ -145,19 +149,146 @@ class Method(object):
 
     def emit_operations(self):
         for op in self.loop.operations:
-            if op.opnum == rop.INT_LSHIFT:
-                for box in op.args:
-                    box.load(self)
-                self.il.Emit(OpCodes.Shl)
-                op.result.store(self)
-            elif op.opnum == rop.FAIL:
-                i = 0
-                for box in op.args:
-                    self.store_inputarg(i, box.type,
-                                        box.getCliType(), box)
-                self.il.Emit(OpCodes.Ret)
-            else:
-                assert False, 'TODO'
+            func = self.operations[op.opnum]
+            assert func is not None
+            func(self, op)
 
     def emit_end(self):
         self.il.Emit(OpCodes.Ret)
+
+    # -----------------------------
+
+    def push_all_args(self, op):
+        for box in op.args:
+            box.load(self)
+
+    def store_result(self, op):
+        op.result.store(self)
+
+    def emit_op_fail(self, op):
+        i = 0
+        for box in op.args:
+            self.store_inputarg(i, box.type, box.getCliType(), box)
+            i+=1
+        self.il.Emit(OpCodes.Ret)
+
+    def not_implemented(self, op):
+        raise NotImplementedError
+
+    emit_op_guard_value = not_implemented
+    emit_op_cast_int_to_ptr = not_implemented
+    emit_op_guard_nonvirtualized = not_implemented
+    emit_op_setarrayitem_gc = not_implemented
+    emit_op_guard_false = not_implemented
+    emit_op_unicodelen = not_implemented
+    emit_op_jump = not_implemented
+    emit_op_setfield_raw = not_implemented
+    emit_op_cast_ptr_to_int = not_implemented
+    emit_op_guard_no_exception = not_implemented
+    emit_op_newunicode = not_implemented
+    emit_op_new_array = not_implemented
+    emit_op_unicodegetitem = not_implemented
+    emit_op_strgetitem = not_implemented
+    emit_op_getfield_raw = not_implemented
+    emit_op_setfield_gc = not_implemented
+    emit_op_oosend_pure = not_implemented
+    emit_op_getarrayitem_gc_pure = not_implemented
+    emit_op_arraylen_gc = not_implemented
+    emit_op_guard_true = not_implemented
+    emit_op_unicodesetitem = not_implemented
+    emit_op_getfield_raw_pure = not_implemented
+    emit_op_new_with_vtable = not_implemented
+    emit_op_getfield_gc_pure = not_implemented
+    emit_op_guard_class = not_implemented
+    emit_op_getarrayitem_gc = not_implemented
+    emit_op_getfield_gc = not_implemented
+    emit_op_call_pure = not_implemented
+    emit_op_strlen = not_implemented
+    emit_op_newstr = not_implemented
+    emit_op_guard_exception = not_implemented
+    emit_op_call = not_implemented
+    emit_op_strsetitem = not_implemented
+
+
+# --------------------------------------------------------------------
+    
+# the follwing functions automatically build the various emit_op_*
+# operations based on the definitions in translator/cli/opcodes.py
+
+def make_operation_list():
+    operations = [None] * (rop._LAST+1)
+    for key, value in rop.__dict__.items():
+        key = key.lower()
+        if key.startswith('_'):
+            continue
+        methname = 'emit_op_%s' % key
+        if hasattr(Method, methname):
+            func = getattr(Method, methname).im_func
+        else:
+            instrlist = opcodes.opcodes[key]
+            func = render_op(methname, instrlist)
+        operations[value] = func
+    return operations
+
+def render_op(methname, instrlist):
+    lines = []
+    for instr in instrlist:
+        if instr == opcodes.PushAllArgs:
+            lines.append('self.push_all_args(op)')
+        elif instr == opcodes.StoreResult:
+            lines.append('self.store_result(op)')
+        else:
+            if not isinstance(instr, str):
+                print 'WARNING: unknown instruction %s' % instr
+                return
+
+            if instr.startswith('call '):
+                signature = instr[len('call '):]
+                renderCall(lines, signature)
+            else:
+                attrname = opcode2attrname(instr)
+                lines.append('self.il.Emit(OpCodes.%s)' % attrname)
+    body = py.code.Source('\n'.join(lines))
+    src = body.putaround('def %s(self, op):' % methname)
+    dic = {'OpCodes': OpCodes,
+           'System': System,
+           'dotnet': dotnet}
+    exec src.compile() in dic
+    return dic[methname]
+
+def opcode2attrname(opcode):
+    if opcode == 'ldc.r8 0':
+        return 'Ldc_R8, 0' # XXX this is a hack
+    if opcode == 'ldc.i8 0':
+        return 'Ldc_I8, 0' # XXX this is a hack
+    parts = map(str.capitalize, opcode.split('.'))
+    return '_'.join(parts)
+
+def renderCall(body, signature):
+    # signature is like this:
+    # int64 class [mscorlib]System.Foo::Bar(int64, int32)
+
+    typenames = {
+        'int32': 'System.Int32',
+        'int64': 'System.Int64',
+        'float64': 'System.Double',
+        }
+    
+    restype, _, signature = signature.split(' ', 3)
+    assert signature.startswith('[mscorlib]'), 'external assemblies '\
+                                               'not supported'
+    signature = signature[len('[mscorlib]'):]
+    typename, signature = signature.split('::')
+    methname, signature = signature.split('(')
+    assert signature.endswith(')')
+    params = signature[:-1].split(',')
+    params = map(str.strip, params)
+    params = [typenames.get(p, p) for p in params]
+    params = ['dotnet.typeof(%s)' % p for p in params]
+
+    body.append("t = System.Type.GetType('%s')" % typename)
+    body.append("params = dotnet.init_array(System.Type, %s)" % ', '.join(params))
+    body.append("methinfo = t.GetMethod('%s', params)" % methname)
+    body.append("self.il.Emit(OpCodes.Call, methinfo)")
+
+Method.operations = make_operation_list()

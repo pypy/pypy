@@ -30,7 +30,4 @@ class TestRunner(CliJitMixin, OOtypeBackendTest):
     def skip(self):
         py.test.skip('in-progress')
 
-    test_uint_rshift = skip
-    test_binary_operations = skip
-    test_unary_operations = skip
     test_ovf_operations = skip
