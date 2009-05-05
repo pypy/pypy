@@ -45,7 +45,7 @@ def gengraph(func, argtypes=[], viewbefore='auto', policy=None,
     a = t.buildannotator(policy=policy)
     timelog("annotating", a.build_types, func, argtypes)
     if viewbefore == 'auto':
-        viewbefore = conftest.option.view
+        viewbefore = getattr(conftest.option, 'view', False)
     if viewbefore:
         a.simplify()
         t.view()
@@ -104,7 +104,7 @@ def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
         if len(_lastinterpreted) >= 4: 
             del _tcache[_lastinterpreted.pop(0)]
     if view == 'auto':
-        view = conftest.option.view
+        view = getattr(conftest.option, 'view', False)
     if view:
         t.view()
     return interp, graph

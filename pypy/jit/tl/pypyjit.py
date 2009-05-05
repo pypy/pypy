@@ -2,6 +2,7 @@
 A file that invokes translation of PyPy with the JIT enabled.
 """
 
+import autopath
 import py, os
 
 from pypy.objspace.std import Space
