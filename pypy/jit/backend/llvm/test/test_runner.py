@@ -50,7 +50,6 @@ def test_loop_1():
     cpu.set_future_value_int(2, 0)
     cpu.execute_operations(loop)
     assert cpu.get_latest_value_int(0) == 3*(2**11)
-    py.test.skip("fails because tail-recursion is not handled yet")
     cpu.set_future_value_int(0, 2**29)
     cpu.set_future_value_int(1, 3)
     cpu.set_future_value_int(2, 0)

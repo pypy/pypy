@@ -26,8 +26,8 @@ class LLVMCPU(model.AbstractCPU):
     def setup_once(self):
         if not we_are_translated():
             teardown_now()
-        llvm_rffi.LLVM_SetFlags()
         self.module = llvm_rffi.LLVMModuleCreateWithName("pypyjit")
+        llvm_rffi.LLVM_SetFlags()
         if sys.maxint == 2147483647:
             self.ty_int = llvm_rffi.LLVMInt32Type()
         else:

@@ -1,5 +1,7 @@
 /* LLVM includes */
+
 #include <cstdio>
+#include "llvm/LinkAllPasses.h"
 #include "llvm-c/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
