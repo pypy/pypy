@@ -23,12 +23,12 @@ class TestBasic(CliJitMixin, test_basic.BasicTests):
     test_format = skip
     test_getfield = skip
     test_getfield_immutable = skip
+    test_print = skip
+    test_bridge_from_interpreter_2 = skip
+    test_bridge_from_interpreter_3 = skip
+    test_instantiate_classes = skip
+    test_zerodivisionerror = skip
     
     test_stopatxpolicy = _skip
-    test_print = _skip
     test_bridge_from_interpreter = _skip
-    test_bridge_from_interpreter_2 = _skip
-    test_bridge_from_interpreter_3 = _skip
     test_bridge_from_interpreter_4 = _skip
-    test_instantiate_classes = _skip
-    test_zerodivisionerror = _skip
