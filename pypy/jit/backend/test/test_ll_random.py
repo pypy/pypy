@@ -276,6 +276,12 @@ class NewArrayOperation(ArrayOperation):
         v_ptr = builder.do(self.opnum, [v_size], self.array_descr(builder, A))
         builder.ptrvars.append((v_ptr, A))
 
+class ArrayLenOperation(ArrayOperation):
+    def produce_into(self, builder, r):
+        v, A = builder.get_arrayptr_var(r)
+        descr = self.array_descr(builder, A)
+        self.put(builder, [v], descr)
+
 # XXX why is the following here, and not in test_random?
 # there are five options in total:
 # 1. non raising call and guard_no_exception
@@ -442,6 +448,7 @@ for i in range(4):      # make more common
     OPERATIONS.append(GetArrayItemOperation(rop.GETARRAYITEM_GC))
     OPERATIONS.append(SetArrayItemOperation(rop.SETARRAYITEM_GC))
     OPERATIONS.append(NewArrayOperation(rop.NEW_ARRAY))
+    OPERATIONS.append(ArrayLenOperation(rop.ARRAYLEN_GC))
 
 for i in range(2):
     OPERATIONS.append(GuardClassOperation(rop.GUARD_CLASS))
