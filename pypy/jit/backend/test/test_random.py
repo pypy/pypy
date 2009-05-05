@@ -37,11 +37,21 @@ class OperationBuilder:
         if self.boolvars and r.random() < 0.8:
             v = r.choice(self.boolvars)
         elif self.ptrvars and r.random() < 0.4:
-            v, S = r.choice(self.ptrvars)
-            if r.random() < 0.5:
-                v = self.do(rop.OONONNULL, [v])
+            v, S = r.choice(self.ptrvars + self.prebuilt_ptr_consts)[:2]
+            v2, S2 = r.choice(self.ptrvars + self.prebuilt_ptr_consts)[:2]
+            if S == S2 and not (isinstance(v, ConstPtr) and
+                                isinstance(v2, ConstPtr)):
+                if r.random() < 0.5:
+                    v = self.do(rop.OOIS, [v, v2])
+                else:
+                    v = self.do(rop.OOISNOT, [v, v2])
             else:
-                v = self.do(rop.OOISNULL, [v])
+                if isinstance(v, ConstPtr):
+                    v, S = r.choice(self.ptrvars)
+                if r.random() < 0.5:
+                    v = self.do(rop.OONONNULL, [v])
+                else:
+                    v = self.do(rop.OOISNULL, [v])
         else:
             v = r.choice(self.intvars)
             v = self.do(rop.INT_IS_TRUE, [v])

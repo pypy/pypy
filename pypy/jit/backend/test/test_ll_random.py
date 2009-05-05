@@ -14,6 +14,8 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
     def __init__(self, *args, **kw):
         test_random.OperationBuilder.__init__(self, *args, **kw)
         self.vtable_counter = 0
+        self.structure_types = []
+        self.structure_types_and_vtables = []
 
     def get_structptr_var(self, r, must_have_vtable=False, type=lltype.Struct):
         while True:
@@ -61,7 +63,9 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
                 TYPE = lltype.Signed
         return TYPE
 
-    def get_random_structure_type(self, r, with_vtable=None):
+    def get_random_structure_type(self, r, with_vtable=None, cache=True):
+        if cache and self.structure_types and r.random() < 0.5:
+            return r.choice(self.structure_types)
         fields = []
         kwds = {}
         if with_vtable:
@@ -72,20 +76,25 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
             fields.append(('f%d' % i, TYPE))
         S = lltype.GcStruct('S%d' % self.counter, *fields, **kwds)
         self.counter += 1
+        if cache:
+            self.structure_types.append(S)
         return S
 
     def get_random_structure_type_and_vtable(self, r):
+        if self.structure_types_and_vtables and r.random() < 0.5:
+            return r.choice(self.structure_types_and_vtables)
         vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
         vtable.subclassrange_min = self.vtable_counter
         vtable.subclassrange_max = self.vtable_counter
         self.vtable_counter += 1
-        S = self.get_random_structure_type(r, with_vtable=vtable)
+        S = self.get_random_structure_type(r, with_vtable=vtable, cache=False)
         name = S._name
         vtable.name = lltype.malloc(lltype.Array(lltype.Char), len(name)+1,
                                     immortal=True)
         for i in range(len(name)):
             vtable.name[i] = name[i]
         vtable.name[len(name)] = '\x00'
+        self.structure_types_and_vtables.append((S, vtable))
         return S, vtable
 
     def get_random_structure(self, r, has_vtable=False):
@@ -405,8 +414,10 @@ class RaisingCallOperationWrongGuardException(BaseCallOperation):
         self.put(builder, args, descr)
         assert builder.cpu.get_exception()
         builder.cpu.clear_exception()
-        _, vtableptr = builder.get_random_structure_type_and_vtable(r)
-        assert vtableptr != exc
+        while True:
+            _, vtableptr = builder.get_random_structure_type_and_vtable(r)
+            if vtableptr != exc:
+                break
         other_box = ConstAddr(llmemory.cast_ptr_to_adr(vtableptr), builder.cpu)
         op = ResOperation(rop.GUARD_EXCEPTION, [other_box], BoxPtr())
         op._exc_box = ConstAddr(llmemory.cast_ptr_to_adr(exc), builder.cpu)
