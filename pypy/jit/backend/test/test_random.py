@@ -62,24 +62,31 @@ class OperationBuilder:
             if v in names:
                 args.append(names[v])
             elif isinstance(v, ConstAddr):
-                name = ''.join([v.value.ptr.name[i]
-                                for i in range(len(v.value.ptr.name)-1)])
-                args.append(
-                    'ConstAddr(llmemory.cast_ptr_to_adr(%s_vtable), cpu)'
-                    % name)
+                try:
+                    name = ''.join([v.value.ptr.name[i]
+                                    for i in range(len(v.value.ptr.name)-1)])
+                except AttributeError:
+                    args.append('ConstAddr(...)')
+                else:
+                    args.append(
+                        'ConstAddr(llmemory.cast_ptr_to_adr(%s_vtable), cpu)'
+                        % name)
             else:
                 args.append('ConstInt(%d)' % v.value)
         if op.descr is None:
             descrstr = ''
         else:
-            descrstr = ', ' + op.descr._random_info
+            try:
+                descrstr = ', ' + op.descr._random_info
+            except AttributeError:
+                descrstr = ', descr=...'
         print >>s, '        ResOperation(rop.%s, [%s], %s%s),' % (
             opname[op.opnum], ', '.join(args), names[op.result], descrstr)
         if getattr(op, 'suboperations', None) is not None:
             subops.append(op)
 
     def print_loop(self):
-        raise PleaseRewriteMe()
+        #raise PleaseRewriteMe()
         def update_names(ops):
             for op in ops:
                 v = op.result
@@ -117,8 +124,8 @@ class OperationBuilder:
         #
         print >>s, '    cpu = CPU(None, None)'
         print >>s, "    loop = TreeLoop('test')"
-        print >>s, '    loop.inputargs = [%s]' % (
-            ', '.join([names[v] for v in self.loop.inputargs]))
+        print >>s, '    loop.inputargs = [...]' # % (
+            # ', '.join([names[v] for v in self.loop.inputargs]))
         print >>s, '    loop.operations = ['
         for op in self.loop.operations:
             self.process_operation(s, op, names, subops)
@@ -136,15 +143,15 @@ class OperationBuilder:
                 #print >>s, '        ResOperation(rop.FAIL, [%s], None)]' % (
                 #    ', '.join([names[v] for v in op.args]))
         print >>s, '    cpu.compile_operations(loop)'
-        for i, v in enumerate(self.loop.inputargs):
-            print >>s, '    cpu.set_future_value_int(%d, %d)' % (i, v.value)
+        #for i, v in enumerate(self.loop.inputargs):
+        #    print >>s, '    cpu.set_future_value_int(%d, %d)' % (i, v.value)
         print >>s, '    op = cpu.execute_operations(loop)'
         if self.should_fail_by is None:
             for i, v in enumerate(self.loop.operations[-1].args):
                 print >>s, '    assert cpu.get_latest_value_int(%d) == %d' % (
                     i, v.value)
         else:
-            print >>s, '    assert op is loop.operations[%d].suboperations[0]' % self.should_fail_by_num
+            #print >>s, '    assert op is loop.operations[%d].suboperations[0]' % self.should_fail_by_num
             for i, v in enumerate(self.should_fail_by.args):
                 print >>s, '    assert cpu.get_latest_value_int(%d) == %d' % (
                     i, v.value)
@@ -377,12 +384,16 @@ class RandomLoop(object):
         self.expected = {}
         for v in endvars:
             self.expected[v] = v.value
+        #builder.print_loop()
 
     def clear_state(self):
         for v, S, fields in self.prebuilt_ptr_consts:
             container = v.value._obj.container
             for name, value in fields.items():
-                setattr(container, name, value)
+                if isinstance(name, str):
+                    setattr(container, name, value)
+                else:
+                    container.setitem(name, value)
 
     def run_loop(self):
         cpu = self.builder.cpu

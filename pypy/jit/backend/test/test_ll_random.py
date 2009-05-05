@@ -15,21 +15,51 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
         test_random.OperationBuilder.__init__(self, *args, **kw)
         self.vtable_counter = 0
 
-    def get_structptr_var(self, r, must_have_vtable=False):
+    def get_structptr_var(self, r, must_have_vtable=False, type=lltype.Struct):
         while True:
-            if self.ptrvars and r.random() < 0.8:
-                v, S = r.choice(self.ptrvars)
-            elif self.prebuilt_ptr_consts and r.random() < 0.7:
-                v, S, _ = r.choice(self.prebuilt_ptr_consts)
+            ptrvars = [(v, S) for (v, S) in self.ptrvars
+                              if isinstance(S, type)]
+            if ptrvars and r.random() < 0.8:
+                v, S = r.choice(ptrvars)
             else:
-                must_have_vtable = must_have_vtable or r.random() < 0.5
-                p = self.get_random_structure(r, has_vtable=must_have_vtable)
-                S = lltype.typeOf(p).TO
-                v = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, p))
-                self.prebuilt_ptr_consts.append((v, S, self.field_values(p)))
+                prebuilt_ptr_consts = [(v, S)
+                                 for (v, S, _) in self.prebuilt_ptr_consts
+                                 if isinstance(S, type)]
+                if prebuilt_ptr_consts and r.random() < 0.7:
+                    v, S = r.choice(prebuilt_ptr_consts)
+                else:
+                    if type is lltype.Struct:
+                        # create a new constant structure
+                        must_have_vtable = must_have_vtable or r.random() < 0.5
+                        p = self.get_random_structure(r,
+                                                has_vtable=must_have_vtable)
+                    else:
+                        # create a new constant array
+                        p = self.get_random_array(r)
+                    S = lltype.typeOf(p).TO
+                    v = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, p))
+                    self.prebuilt_ptr_consts.append((v, S,
+                                                     self.field_values(p)))
             if not (must_have_vtable and S._names[0] != 'parent'):
                 break
         return v, S
+
+    def get_arrayptr_var(self, r):
+        return self.get_structptr_var(r, type=lltype.Array)
+
+    def get_random_primitive_type(self, r):
+        rval = r.random()
+        if rval < 0.25:
+            TYPE = lltype.Signed
+        elif rval < 0.5:
+            TYPE = lltype.Char
+        elif rval < 0.75:
+            TYPE = rffi.UCHAR
+        else:
+            TYPE = rffi.SHORT
+            if not self.HAVE_SHORT_FIELDS:
+                TYPE = lltype.Signed
+        return TYPE
 
     def get_random_structure_type(self, r, with_vtable=None):
         fields = []
@@ -38,17 +68,7 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
             fields.append(('parent', rclass.OBJECT))
             kwds['hints'] = {'vtable': with_vtable._obj}
         for i in range(r.randrange(1, 5)):
-            rval = r.random()
-            if rval < 0.25:
-                TYPE = lltype.Signed
-            elif rval < 0.5:
-                TYPE = lltype.Char
-            elif rval < 0.75:
-                TYPE = rffi.UCHAR
-            else:
-                TYPE = rffi.SHORT
-                if not self.HAVE_SHORT_FIELDS:
-                    TYPE = lltype.Signed
+            TYPE = self.get_random_primitive_type(r)
             fields.append(('f%d' % i, TYPE))
         S = lltype.GcStruct('S%d' % self.counter, *fields, **kwds)
         self.counter += 1
@@ -82,11 +102,29 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
                 setattr(p, fieldname, rffi.cast(TYPE, r.random_integer()))
         return p
 
+    def get_random_array_type(self, r):
+        TYPE = self.get_random_primitive_type(r)
+        return lltype.GcArray(TYPE)
+
+    def get_random_array(self, r):
+        A = self.get_random_array_type(r)
+        length = r.random_integer() % 300      # length: between 0 and 299
+        p = lltype.malloc(A, length)
+        for i in range(length):
+            p[i] = rffi.cast(A.OF, r.random_integer())
+        return p
+
     def field_values(self, p):
         dic = {}
-        for fieldname in lltype.typeOf(p).TO._names:
-            if fieldname != 'parent':
-                dic[fieldname] = getattr(p, fieldname)
+        S = lltype.typeOf(p).TO
+        if isinstance(S, lltype.Struct):
+            for fieldname in S._names:
+                if fieldname != 'parent':
+                    dic[fieldname] = getattr(p, fieldname)
+        else:
+            assert isinstance(S, lltype.Array)
+            for i in range(len(p)):
+                dic[i] = p[i]
         return dic
 
     def print_loop_prebuilt(self, names, writevar, s):
@@ -115,7 +153,8 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
 class GuardClassOperation(test_random.GuardOperation):
     def gen_guard(self, builder, r):
         ptrvars = [(v, S) for (v, S) in builder.ptrvars
-                          if S._names[0] == 'parent']
+                          if isinstance(S, lltype.Struct) and
+                             S._names[0] == 'parent']
         if not ptrvars:
             raise test_random.CannotProduceOperation
         v, S = r.choice(ptrvars)
@@ -180,6 +219,33 @@ class NewOperation(test_random.AbstractOperation):
         v_ptr = builder.do(self.opnum, args, self.size_descr(builder, S))
         builder.ptrvars.append((v_ptr, S))
 
+class GetArrayItemOperation(test_random.AbstractOperation):
+    def field_descr(self, builder, r):
+        v, A = builder.get_arrayptr_var(r)
+        array = v.getptr(lltype.Ptr(A))
+        length = len(array)
+        if length == 0:
+            raise test_random.CannotProduceOperation
+        v_index = r.choice(builder.intvars)
+        if not (0 <= v_index.value < length):
+            v_index = ConstInt(r.random_integer() % length)
+        descr = builder.cpu.arraydescrof(A)
+        descr._random_info = 'cpu.arraydescrof(...)'
+        return v, A, v_index, descr
+
+    def produce_into(self, builder, r):
+        while True:
+            try:
+                v, _, v_index, descr = self.field_descr(builder, r)
+                self.put(builder, [v, v_index], descr)
+            except lltype.UninitializedMemoryAccess:
+                continue
+            break
+
+#class NewArrayOperation(test_random.AbstractOperation):
+#    ...
+
+# XXX why is the following here, and not in test_random?
 # there are five options in total:
 # 1. non raising call and guard_no_exception
 # 2. raising call and guard_exception
@@ -338,6 +404,8 @@ for i in range(4):      # make more common
     OPERATIONS.append(SetFieldOperation(rop.SETFIELD_GC))
     OPERATIONS.append(NewOperation(rop.NEW))
     OPERATIONS.append(NewOperation(rop.NEW_WITH_VTABLE))
+
+    OPERATIONS.append(GetArrayItemOperation(rop.GETARRAYITEM_GC))
 
     OPERATIONS.append(GuardClassOperation(rop.GUARD_CLASS))
     OPERATIONS.append(CallOperation(rop.CALL))
