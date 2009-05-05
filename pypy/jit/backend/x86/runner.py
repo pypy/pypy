@@ -574,7 +574,7 @@ class CPU386(object):
 
     @staticmethod
     def cast_adr_to_int(x):
-        res = ll2ctypes.cast_adr_to_int(x)
+        res = rffi.cast(lltype.Signed, x)
         return res
 
     @staticmethod
