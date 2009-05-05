@@ -377,12 +377,14 @@ class ExceptionTests:
                 try:
                     ovfcheck(x<<y)
                 except OverflowError:
-                    return 2
+                    n += 1
                 n += 1
             return n
 
         res = self.meta_interp(f, [1, 1, 0], optimizer=Optimizer)
         assert res == f(1, 1, 0)
+        res = self.meta_interp(f, [809644098, 16, 0], optimizer=Optimizer)
+        assert res == f(809644098, 16, 0)
 
     def test_reraise_through_portal(self):
         jitdriver = JitDriver(greens = [], reds = ['n'])
