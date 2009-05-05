@@ -367,6 +367,10 @@ class MIFrame(object):
     def opimpl_instanceof(self, box, typedescr):
         self.execute(rop.INSTANCEOF, [box], descr=typedescr)
 
+    @arguments("box")
+    def opimpl_ooidentityhash(self, box):
+        self.execute(rop.OOIDENTITYHASH, [box], descr=None)
+
     @arguments("descr", "box")
     def opimpl_new_array(self, itemsize, countbox):
         self.execute(rop.NEW_ARRAY, [countbox], descr=itemsize)

@@ -3,6 +3,7 @@
 
 import py
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.rarithmetic import ovfcheck, r_uint, intmask
 from pypy.jit.metainterp.history import BoxInt, ConstInt, check_descr
@@ -144,6 +145,10 @@ def do_ooisnot(cpu, args, descr=None):
         assert tp == OBJ
         x = args[0].getobj() != args[1].getobj()
     return ConstInt(x)
+
+def do_ooidentityhash(cpu, args, descr=None):
+    obj = args[0].getobj()
+    return ConstInt(ootype.ooidentityhash(obj))
 
 # ----------
 # the following operations just delegate to the cpu:

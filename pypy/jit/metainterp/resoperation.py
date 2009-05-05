@@ -154,6 +154,7 @@ class rop(object):
     UNICODEGETITEM         = 84
     #
     # ootype operations
+    OOIDENTITYHASH         = 85
     INSTANCEOF             = 86
     OOSEND_PURE            = 87
     #
