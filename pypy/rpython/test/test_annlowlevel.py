@@ -4,7 +4,8 @@
 
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rpython.lltypesystem.rstr import mallocstr, mallocunicode
-from pypy.rpython.annlowlevel import hlstr, llstr
+from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.annlowlevel import hlstr, llstr, oostr
 from pypy.rpython.annlowlevel import hlunicode, llunicode
 
 class TestLLType(BaseRtypingTest, LLRtypeMixin):
@@ -50,4 +51,23 @@ class TestLLType(BaseRtypingTest, LLRtypeMixin):
             return len(s.chars)
 
         res = self.interpret(f, [self.unicode_to_ll(u"abc")])
+        assert res == 3
+
+
+class TestOOType(BaseRtypingTest, OORtypeMixin):
+    def test_hlstr(self):
+        s = ootype.make_string("abc")
+        assert hlstr(s) == "abc"
+
+    def test_oostr(self):
+        s = oostr("abc")
+        assert ootype.typeOf(s) == ootype.String
+        assert s._str == "abc"
+
+    def test_oostr_compile(self):
+        def f(arg):
+            s = oostr(hlstr(arg))
+            return s.ll_strlen()
+
+        res = self.interpret(f, [self.string_to_ll("abc")])
         assert res == 3

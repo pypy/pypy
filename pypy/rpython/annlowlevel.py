@@ -422,7 +422,6 @@ def make_string_entries(strtype):
 
     def llstr(s):
         from pypy.rpython.lltypesystem.rstr import mallocstr, mallocunicode
-        # XXX not sure what to do with ootypesystem
         if strtype is str:
             ll_s = mallocstr(len(s))
         else:
@@ -430,6 +429,12 @@ def make_string_entries(strtype):
         for i, c in enumerate(s):
             ll_s.chars[i] = c
         return ll_s
+
+    def oostr(s):
+        if strtype is str:
+            return ootype.make_string(s)
+        else:
+            return ootype.make_unicode(s)
 
     class LLStrEntry(extregistry.ExtRegistryEntry):
         _about_ = llstr
@@ -448,10 +453,21 @@ def make_string_entries(strtype):
             return hop.genop('same_as', [v_ll_str],
                              resulttype = hop.r_result.lowleveltype)
 
-    return hlstr, llstr
+    class OOStrEntry(extregistry.ExtRegistryEntry):
+        _about_ = oostr
 
-hlstr,     llstr     = make_string_entries(str)
-hlunicode, llunicode = make_string_entries(unicode)
+        def compute_result_annotation(self, s_str):
+            if strtype is str:
+                return annmodel.lltype_to_annotation(ootype.String)
+            else:
+                return annmodel.lltype_to_annotation(ootype.Unicode)
+
+        specialize_call = LLStrEntry.specialize_call.im_func
+
+    return hlstr, llstr, oostr
+
+hlstr,     llstr,     oostr     = make_string_entries(str)
+hlunicode, llunicode, oounicode = make_string_entries(unicode)
 
 # ____________________________________________________________
 
