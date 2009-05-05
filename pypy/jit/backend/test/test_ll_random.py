@@ -199,8 +199,6 @@ class SetFieldOperation(GetFieldOperation):
                 w = r.choice(builder.intvars)
             if rffi.cast(lltype.Signed, rffi.cast(TYPE, w.value)) == w.value:
                 break
-        if not 0 <= w.value <= 256:
-            w = builder.do(rop.INT_AND, [w, ConstInt(0xff)])
         builder.do(self.opnum, [v, w], descr)
 
 class NewOperation(test_random.AbstractOperation):
