@@ -464,3 +464,10 @@ def test_bool_class():
     assert not res
     res = interpret(fn, [1], type_system='ootype')
     assert res
+
+def test_cast_to_object_nullruntimeclass():
+    def fn():
+        return cast_to_object(nullruntimeclass)
+
+    res = interpret(fn, [], type_system='ootype')
+    assert cast_from_object(Class, res) == nullruntimeclass

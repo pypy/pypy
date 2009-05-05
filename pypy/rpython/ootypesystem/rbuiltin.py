@@ -60,7 +60,8 @@ def rtype_oodowncast(hop):
     return hop.genop('oodowncast', [v_inst], resulttype = hop.r_result.lowleveltype)
 
 def rtype_cast_to_object(hop):
-    assert isinstance(hop.args_s[0].ootype, ootype.OOType)
+    assert isinstance(hop.args_s[0].ootype, ootype.OOType) or \
+        isinstance(hop.args_s[0], annmodel.SomeOOClass)
     v_inst = hop.inputarg(hop.args_r[0], arg=0)
     return hop.genop('cast_to_object', [v_inst], resulttype = hop.r_result.lowleveltype)
 
