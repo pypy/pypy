@@ -154,6 +154,7 @@ class rop(object):
     UNICODEGETITEM         = 84
     #
     # ootype operations
+    INSTANCEOF             = 86
     OOSEND_PURE            = 87
     #
     _ALWAYS_PURE_LAST = 87  # ----- end of always_pure operations -----

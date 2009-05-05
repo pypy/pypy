@@ -707,6 +707,15 @@ class BytecodeMaker(object):
         self.emit(self.var_position(op.args[1]))
         self.register_var(op.result)
 
+    def serialize_op_instanceof(self, op):
+        v, c_TYPE = op.args
+        TYPE = c_TYPE.value
+        typedescr = self.cpu.typedescrof(TYPE)
+        self.emit('instanceof')
+        self.emit(self.var_position(v))
+        self.emit(self.get_position(typedescr))
+        self.register_var(op.result)
+
     def serialize_op_zero_gc_pointers_inside(self, op):
         pass   # XXX assume Boehm for now
 

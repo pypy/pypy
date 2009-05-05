@@ -363,6 +363,10 @@ class MIFrame(object):
     def opimpl_runtimenew(self, classbox):
         self.execute(rop.RUNTIMENEW, [classbox])
 
+    @arguments("box", "descr")
+    def opimpl_instanceof(self, box, typedescr):
+        self.execute(rop.INSTANCEOF, [box], descr=typedescr)
+
     @arguments("descr", "box")
     def opimpl_new_array(self, itemsize, countbox):
         self.execute(rop.NEW_ARRAY, [countbox], descr=itemsize)

@@ -557,6 +557,21 @@ class BasicTests:
         res = self.interp_operations(f, [0])
         assert res == -667
 
+    def test_isinstance(self):
+        class A:
+            pass
+        class B(A):
+            pass
+        def fn(n):
+            if n:
+                obj = A()
+            else:
+                obj = B()
+            return isinstance(obj, B)
+        res = self.interp_operations(fn, [0])
+        assert res
+        res = self.interp_operations(fn, [1])
+        assert not res
 
 class TestOOtype(BasicTests, OOJitMixin):
 

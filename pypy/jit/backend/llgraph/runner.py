@@ -453,6 +453,11 @@ class OOtypeCPU(BaseCPU):
         res = ootype.runtimenew(classobj)
         return history.BoxObj(ootype.cast_to_object(res))
 
+    def do_instanceof(self, args, typedescr):
+        assert isinstance(typedescr, TypeDescr)
+        assert len(args) == 1
+        return typedescr.instanceof(args[0])
+
     def do_getfield_gc(self, args, fielddescr):
         assert isinstance(fielddescr, FieldDescr)
         return fielddescr.getfield(args[0])
@@ -614,11 +619,16 @@ class TypeDescr(OODescr):
             array = ootype.cast_from_object(ARRAY, arraybox.getobj())
             return boxresult(ootype.Signed, array.ll_length())
 
+        def instanceof(box):
+            obj = ootype.cast_from_object(ootype.ROOT, box.getobj())
+            return history.BoxInt(ootype.instanceof(obj, TYPE))
+
         self.create = create
         self.create_array = create_array
         self.getarrayitem = getarrayitem
         self.setarrayitem = setarrayitem
         self.getarraylength = getarraylength
+        self.instanceof = instanceof
 
 class FieldDescr(OODescr):
 
