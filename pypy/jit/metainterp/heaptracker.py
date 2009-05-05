@@ -86,12 +86,13 @@ def populate_type_cache(graphs, cpu):
                                 cache.append((vt, cpu.sizeof(STRUCT)))
                 elif cpu.is_oo and op.opname == 'new':
                     TYPE = op.args[0].value
-                    cls = ootype.cast_to_object(ootype.runtimeClass(TYPE))
-                    typedescr = cpu.typedescrof(TYPE)
-                    if not cpu.translate_support_code:
-                        cache[cls] = typedescr
-                    else:
-                        cache.append((cls, typedescr))
+                    if isinstance(TYPE, ootype.OOType):
+                        cls = ootype.cast_to_object(ootype.runtimeClass(TYPE))
+                        typedescr = cpu.typedescrof(TYPE)
+                        if not cpu.translate_support_code:
+                            cache[cls] = typedescr
+                        else:
+                            cache.append((cls, typedescr))
     return cache
 
 testing_gcstruct2vtable = {}
