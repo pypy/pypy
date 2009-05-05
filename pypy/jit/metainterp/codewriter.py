@@ -707,6 +707,10 @@ class BytecodeMaker(object):
         self.emit(self.var_position(op.args[1]))
         self.register_var(op.result)
 
+    def serialize_op_oonewcustomdict(self, op):
+        self.emit('not_implemented')
+        self.register_var(op.result)
+
     def serialize_op_instanceof(self, op):
         v, c_TYPE = op.args
         TYPE = c_TYPE.value

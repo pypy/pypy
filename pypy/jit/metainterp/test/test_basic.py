@@ -573,6 +573,28 @@ class BasicTests:
         res = self.interp_operations(fn, [1])
         assert not res
 
+    def test_r_dict(self):
+        from pypy.rlib.objectmodel import r_dict
+        class FooError(Exception):
+            pass
+        def myeq(n, m):
+            return n == m
+        def myhash(n):
+            if n < 0:
+                raise FooError
+            return -n
+        def f(n):
+            d = r_dict(myeq, myhash)
+            for i in range(10):
+                d[i] = i*i
+            try:
+                return d[n]
+            except FooError:
+                return 99
+        res = self.interp_operations(f, [5])
+        assert res == f(5)
+
+
 class TestOOtype(BasicTests, OOJitMixin):
 
     def test_oohash(self):
@@ -627,3 +649,6 @@ class TestLLtype(BasicTests, LLJitMixin):
         x = lltype.malloc(TP)
         expected = lltype.cast_opaque_ptr(llmemory.GCREF, x)
         assert self.interp_operations(f, [x]) == expected
+
+    def test_r_dict(self):
+        py.test.skip('in-progress')
