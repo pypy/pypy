@@ -4,6 +4,14 @@ from pypy.rlib.jit import JitDriver
 
 class DictTests:
 
+    def test_dict_set_none(self):
+        def fn(n):
+            d = {}
+            d[0] = None
+            return bool(d[n])
+        res = self.interp_operations(fn, [0])
+        assert not res
+
     def test_dict_keys_values_items(self):
         for name, extract, expected in [('keys', None, 'k'),
                                         ('values', None, 'v'),
