@@ -54,9 +54,10 @@ def op_subclassof(class1, class2):
 
 def is_inst(inst):
     T = ootype.typeOf(inst)
-    return T is ootype.Object or isinstance(T, (ootype.Instance,
-                                                ootype.BuiltinType,
-                                                ootype.StaticMethod,))
+    return T is ootype.Object or T is ootype.Class or\
+        isinstance(T, (ootype.Instance,
+                       ootype.BuiltinType,
+                       ootype.StaticMethod,))
 
 def checkinst(inst):
     assert is_inst(inst)

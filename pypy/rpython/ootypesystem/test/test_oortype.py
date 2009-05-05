@@ -449,3 +449,18 @@ def test_boundmeth_callargs_stritem_nonneg():
 
     res = interpret(fn, [0], type_system='ootype')
     assert res == '4'
+
+def test_bool_class():
+    A = Instance("Foo", ROOT)
+    cls = runtimeClass(A)
+    def fn(x):
+        if x:
+            obj = cls
+        else:
+            obj = nullruntimeclass
+        return bool(obj)
+
+    res = interpret(fn, [0], type_system='ootype')
+    assert not res
+    res = interpret(fn, [1], type_system='ootype')
+    assert res

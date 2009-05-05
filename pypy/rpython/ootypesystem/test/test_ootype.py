@@ -644,3 +644,8 @@ def test_ooidentityhash_array():
     b = oonewarray(A, 10)
     assert ooidentityhash(a) != ooidentityhash(b)
 
+def test_bool_class():
+    A = Instance("Foo", ROOT)
+    cls = runtimeClass(A)
+    assert bool(cls)
+    assert not bool(nullruntimeclass)
