@@ -218,7 +218,13 @@ class NewOperation(test_random.AbstractOperation):
         v_ptr = builder.do(self.opnum, args, self.size_descr(builder, S))
         builder.ptrvars.append((v_ptr, S))
 
-class GetArrayItemOperation(test_random.AbstractOperation):
+class ArrayOperation(test_random.AbstractOperation):
+    def array_descr(self, builder, A):
+        descr = builder.cpu.arraydescrof(A)
+        descr._random_info = 'cpu.arraydescrof(...)'
+        return descr
+
+class GetArrayItemOperation(ArrayOperation):
     def field_descr(self, builder, r):
         v, A = builder.get_arrayptr_var(r)
         array = v.getptr(lltype.Ptr(A))
@@ -228,8 +234,7 @@ class GetArrayItemOperation(test_random.AbstractOperation):
         v_index = r.choice(builder.intvars)
         if not (0 <= v_index.value < length):
             v_index = ConstInt(r.random_integer() % length)
-        descr = builder.cpu.arraydescrof(A)
-        descr._random_info = 'cpu.arraydescrof(...)'
+        descr = self.array_descr(builder, A)
         return v, A, v_index, descr
 
     def produce_into(self, builder, r):
@@ -253,8 +258,14 @@ class SetArrayItemOperation(GetArrayItemOperation):
                 break
         builder.do(self.opnum, [v, v_index, w], descr)
 
-#class NewArrayOperation(test_random.AbstractOperation):
-#    ...
+class NewArrayOperation(ArrayOperation):
+    def produce_into(self, builder, r):
+        A = builder.get_random_array_type(r)
+        v_size = r.choice(builder.intvars)
+        if not (0 <= v_size.value < 300):
+            v_size = ConstInt((r.random_integer() // 15) % 300)
+        v_ptr = builder.do(self.opnum, [v_size], self.array_descr(builder, A))
+        builder.ptrvars.append((v_ptr, A))
 
 # XXX why is the following here, and not in test_random?
 # there are five options in total:
@@ -417,8 +428,11 @@ for i in range(4):      # make more common
     OPERATIONS.append(NewOperation(rop.NEW_WITH_VTABLE))
 
     OPERATIONS.append(GetArrayItemOperation(rop.GETARRAYITEM_GC))
+    OPERATIONS.append(GetArrayItemOperation(rop.GETARRAYITEM_GC))
     OPERATIONS.append(SetArrayItemOperation(rop.SETARRAYITEM_GC))
+    OPERATIONS.append(NewArrayOperation(rop.NEW_ARRAY))
 
+for i in range(2):
     OPERATIONS.append(GuardClassOperation(rop.GUARD_CLASS))
     OPERATIONS.append(CallOperation(rop.CALL))
     OPERATIONS.append(RaisingCallOperation(rop.CALL))
