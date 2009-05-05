@@ -241,11 +241,17 @@ class OOtypeHelpers:
     def _ll_1_oostring_char_foldable(ch):
         return ootype.oostring(ch, -1)
 
+    def _ll_1_oostring_string_foldable(s):
+        return ootype.oostring(s, -1)
+
     def _ll_2_oounicode_signed_foldable(n, base):
         return ootype.oounicode(n, base)
 
     def _ll_1_oounicode_unichar_foldable(ch):
         return ootype.oounicode(ch, -1)
+
+    def _ll_1_oounicode_string_foldable(s):
+        return ootype.oounicode(s, -1)
 
     def _ll_1_oohash_string_foldable(s):
         return ootype.oohash(s)

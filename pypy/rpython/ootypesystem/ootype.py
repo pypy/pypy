@@ -439,6 +439,7 @@ class AbstractString(BuiltinADTType):
 class String(AbstractString):
     SELFTYPE_T = object()
     CHAR = Char
+    _name = 'String'
 
     # TODO: should it return _null or ''?
     def _defl(self):
@@ -457,6 +458,7 @@ class String(AbstractString):
 class Unicode(AbstractString):
     SELFTYPE_T = object()
     CHAR = UniChar
+    _name = 'Unicode'
 
     # TODO: should it return _null or ''?
     def _defl(self):
