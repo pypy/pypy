@@ -25,8 +25,13 @@ class CliCPU(model.AbstractCPU):
             assert rtyper.type_system.name == "ootypesystem"
         self.stats = stats
         self.translate_support_code = translate_support_code
-        self.inputargs = InputArgs()
+        self.inputargs = None
 
+    def get_inputargs(self):
+        if self.inputargs is None:
+            self.inputargs = InputArgs()
+        return self.inputargs
+    
     @cached_method('_callcache')
     def calldescrof(self, FUNC, ARGS, RESULT):
         return StaticMethDescr(FUNC, ARGS, RESULT)
@@ -51,35 +56,37 @@ class CliCPU(model.AbstractCPU):
 
     def execute_operations(self, loop):
         meth = loop._cli_meth
-        meth.func(self.inputargs)
-        return meth.failing_ops[self.inputargs.failed_op]
+        meth.func(self.get_inputargs())
+        return meth.failing_ops[self.inputargs.get_failed_op()]
 
     def set_future_value_int(self, index, intvalue):
-        self.inputargs.ints[index] = intvalue
+        self.get_inputargs().set_int(index, intvalue)
 
     def set_future_value_obj(self, index, objvalue):
-        self.inputargs.objs[index] = objvalue
+        obj = dotnet.cast_to_native_object(objvalue)
+        self.get_inputargs().set_obj(index, obj)
 
     def get_latest_value_int(self, index):
-        return self.inputargs.ints[index]
+        return self.get_inputargs().get_int(index)
 
     def get_latest_value_obj(self, index):
-        return self.inputargs.objs[index]
+        obj = self.get_inputargs().get_obj(index)
+        return dotnet.cast_from_native_object(obj)
 
     def get_exception(self):
-        exc_value = self.inputargs.exc_value
+        exc_value = self.get_inputargs().get_exc_value()
         if exc_value:
             assert False, 'TODO'
         return ootype.cast_to_object(ootype.nullruntimeclass)
 
     def get_exc_value(self):
-        if self.inputargs.exc_value:
+        if self.get_inputargs().get_exc_value():
             assert False, 'TODO'
         else:
             return ootype.NULL
 
     def clear_exception(self):
-        self.inputargs.exc_value = None
+        self.get_inputargs().set_exc_value(None)
 
     def set_overflow_error(self):
         raise NotImplementedError
@@ -93,6 +100,12 @@ class CliCPU(model.AbstractCPU):
         assert isinstance(typedescr, TypeDescr)
         assert len(args) == 1 # but we don't need it, so ignore
         return typedescr.create()
+
+    def do_runtimenew(self, args, descr):
+        classbox = args[0]
+        classobj = ootype.cast_from_object(ootype.Class, classbox.getobj())
+        res = ootype.runtimenew(classobj)
+        return BoxObj(ootype.cast_to_object(res))
 
     def do_getfield_gc(self, args, fielddescr):
         assert isinstance(fielddescr, FieldDescr)

@@ -115,8 +115,43 @@ namespace pypy.runtime
       public int[] ints = new int[32];
       public float[] floats = new float[32];
       public object[] objs = new object[32];
-      public Exception exc_value = null;
+      public object exc_value = null;
       public int failed_op = -1;
+
+      public int get_int(int i)
+      {
+        return ints[i];
+      }
+
+      public void set_int(int i, int n)
+      {
+        ints[i] = n;
+      }
+
+      public object get_obj(int i)
+      {
+        return objs[i];
+      }
+
+      public void set_obj(int i, object o)
+      {
+        objs[i] = o;
+      }
+
+      public object get_exc_value()
+      {
+        return exc_value;
+      }
+
+      public void set_exc_value(object v)
+      {
+        exc_value = v;
+      }
+
+      public int get_failed_op()
+      {
+        return failed_op;
+      }
 
       public void ensure_ints(int n)
       {

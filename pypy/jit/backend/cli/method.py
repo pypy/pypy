@@ -92,8 +92,9 @@ class Method(object):
         self.name = name
         self.loop = loop
         self.boxes = {}       # box --> local var
-        self.failing_ops = {} # index --> op
-        self.branches = []    # (Label, operations)
+        self.failing_ops = [] # index --> op
+        self.branches = []
+        self.branchlabels = []
         self.consts = {}      # object --> index
         self.meth_wrapper = self._get_meth_wrapper()
         self.il = self.meth_wrapper.get_il_generator()
@@ -117,7 +118,8 @@ class Method(object):
         for av_const, i in self.consts.iteritems():
             consts[i] = dotnet.cast_to_native_object(av_const.getobj())
         # build the delegate
-        self.func = self.meth_wrapper.create_delegate(delegatetype, consts)
+        func = self.meth_wrapper.create_delegate(delegatetype, consts)
+        self.func = dotnet.clidowncast(func, LoopDelegate)
 
     def _get_meth_wrapper(self):
         restype = dotnet.class2type(cVoid)
@@ -141,11 +143,10 @@ class Method(object):
 
     def get_index_for_failing_op(self, op):
         try:
-            return self.failing_ops[op]
-        except KeyError:
-            i = len(self.failing_ops)
-            self.failing_ops[i] = op
-            return i
+            return self.failing_ops.index(op)
+        except ValueError:
+            self.failing_ops.append(op)
+            return len(self.failing_ops)-1
 
     def get_index_for_constant(self, obj):
         try:
@@ -157,10 +158,11 @@ class Method(object):
 
     def newbranch(self, op):
         # sanity check, maybe we can remove it later
-        for _, myop in self.branches:
+        for myop in self.branches:
             assert myop is not op
         il_label = self.il.DefineLabel()
-        self.branches.append((il_label, op))
+        self.branches.append(op)
+        self.branchlabels.append(il_label)
         return il_label
 
     def get_inputarg_field(self, type):
@@ -208,8 +210,13 @@ class Method(object):
     def emit_branches(self):
         while self.branches:
             branches = self.branches
+            branchlabels = self.branchlabels
             self.branches = []
-            for il_label, op in branches:
+            self.branchlabels = []
+            assert len(branches) == len(branchlabels)
+            for i in range(len(branches)):
+                op = branches[i]
+                il_label = branchlabels[i]
                 self.il.MarkLabel(il_label)
                 self.emit_operations(op.suboperations)
 
