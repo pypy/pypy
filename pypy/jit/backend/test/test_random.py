@@ -99,7 +99,8 @@ class OperationBuilder:
             for op in ops:
                 for arg in op.args:
                     if isinstance(arg, ConstPtr):
-                        writevar(arg, 'const_ptr')
+                        if arg not in names:
+                            writevar(arg, 'const_ptr')
                 if getattr(op, 'suboperations', None) is not None:
                     print_loop_prebuilt(op.suboperations)
 

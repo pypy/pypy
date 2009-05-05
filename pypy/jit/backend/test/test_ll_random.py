@@ -108,7 +108,8 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
 
     def get_random_array(self, r):
         A = self.get_random_array_type(r)
-        length = r.random_integer() % 300      # length: between 0 and 299
+        length = (r.random_integer() // 15) % 300  # length: between 0 and 299
+                                                   # likely to be small
         p = lltype.malloc(A, length)
         for i in range(length):
             p[i] = rffi.cast(A.OF, r.random_integer())
@@ -239,6 +240,18 @@ class GetArrayItemOperation(test_random.AbstractOperation):
             except lltype.UninitializedMemoryAccess:
                 continue
             break
+
+class SetArrayItemOperation(GetArrayItemOperation):
+    def produce_into(self, builder, r):
+        v, A, v_index, descr = self.field_descr(builder, r)
+        while True:
+            if r.random() < 0.3:
+                w = ConstInt(r.random_integer())
+            else:
+                w = r.choice(builder.intvars)
+            if rffi.cast(lltype.Signed, rffi.cast(A.OF, w.value)) == w.value:
+                break
+        builder.do(self.opnum, [v, v_index, w], descr)
 
 #class NewArrayOperation(test_random.AbstractOperation):
 #    ...
@@ -404,6 +417,7 @@ for i in range(4):      # make more common
     OPERATIONS.append(NewOperation(rop.NEW_WITH_VTABLE))
 
     OPERATIONS.append(GetArrayItemOperation(rop.GETARRAYITEM_GC))
+    OPERATIONS.append(SetArrayItemOperation(rop.SETARRAYITEM_GC))
 
     OPERATIONS.append(GuardClassOperation(rop.GUARD_CLASS))
     OPERATIONS.append(CallOperation(rop.CALL))
