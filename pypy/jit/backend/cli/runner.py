@@ -66,6 +66,27 @@ class CliCPU(model.AbstractCPU):
     def get_latest_value_obj(self, index):
         return self.inputargs.objs[index]
 
+    def get_exception(self):
+        exc_value = self.inputargs.exc_value
+        if exc_value:
+            assert False, 'TODO'
+        return ootype.cast_to_object(ootype.nullruntimeclass)
+
+    def get_exc_value(self):
+        if self.inputargs.exc_value:
+            assert False, 'TODO'
+        else:
+            return ootype.NULL
+
+    def clear_exception(self):
+        self.inputargs.exc_value = None
+
+    def set_overflow_error(self):
+        raise NotImplementedError
+
+    def set_zero_division_error(self):
+        raise NotImplementedError
+
     # ----------------------
 
     def do_new_with_vtable(self, args, typedescr):

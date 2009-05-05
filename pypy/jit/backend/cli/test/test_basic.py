@@ -25,7 +25,6 @@ class TestBasic(CliJitMixin, test_basic.BasicTests):
     test_getfield_immutable = skip
     
     test_stopatxpolicy = _skip
-    test_mod_ovf = _skip
     test_print = _skip
     test_bridge_from_interpreter = _skip
     test_bridge_from_interpreter_2 = _skip
